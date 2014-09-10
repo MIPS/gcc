@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -974,7 +974,7 @@ extern M68K_CONST_METHOD m68k_const_method (HOST_WIDE_INT);
 
 extern void m68k_emit_move_double (rtx [2]);
 
-extern int m68k_sched_address_bypass_p (rtx, rtx);
-extern int m68k_sched_indexed_address_bypass_p (rtx, rtx);
+extern int m68k_sched_address_bypass_p (rtx_insn *, rtx_insn *);
+extern int m68k_sched_indexed_address_bypass_p (rtx_insn *, rtx_insn *);
 
 #define CPU_UNITS_QUERY 1

@@ -45,8 +45,11 @@ LIST = aarch64-elf aarch64-linux-gnu \
   mipsisa64-elfoabi mipsisa64r2el-elf mipsisa64sr71k-elf mipsisa64sb1-elf \
   mipsel-elf mips64-elf mips64vr-elf mips64orion-elf mips-rtems \
   mips-wrs-vxworks mipstx39-elf mmix-knuth-mmixware mn10300-elf moxie-elf \
-  moxie-uclinux moxie-rtems pdp11-aout picochip-elfOPT-enable-obsolete \
+  moxie-uclinux moxie-rtems \
   msp430-elf \
+  nds32le-elf nds32be-elf \
+  nios2-elf nios2-linux-gnu \
+  pdp11-aout \
   powerpc-darwin8 \
   powerpc-darwin7 powerpc64-darwin powerpc-freebsd6 powerpc-netbsd \
   powerpc-eabispe powerpc-eabisimaltivec powerpc-eabisim ppc-elf \
@@ -63,7 +66,8 @@ LIST = aarch64-elf aarch64-linux-gnu \
   sparc-leon3-linux-gnuOPT-enable-target=all sparc-netbsdelf \
   sparc64-sun-solaris2.10OPT-with-gnu-ldOPT-with-gnu-asOPT-enable-threads=posix \
   sparc-wrs-vxworks sparc64-elf sparc64-rtems sparc64-linux sparc64-freebsd6 \
-  sparc64-netbsd sparc64-openbsd spu-elf tilegx-linux-gnu tilepro-linux-gnu \
+  sparc64-netbsd sparc64-openbsd spu-elf \
+  tilegx-linux-gnu tilegxbe-linux-gnu tilepro-linux-gnu \
   v850e-elf v850-elf vax-linux-gnu \
   vax-netbsdelf vax-openbsd x86_64-apple-darwin \
   x86_64-pc-linux-gnuOPT-with-fpmath=avx \
@@ -71,14 +75,15 @@ LIST = aarch64-elf aarch64-linux-gnu \
   x86_64-knetbsd-gnu x86_64-w64-mingw32 \
   x86_64-mingw32OPT-enable-sjlj-exceptions=yes xstormy16-elf xtensa-elf \
   xtensa-linux \
-  sparc-sun-solaris2.9OPT-enable-obsolete i686-solaris2.9OPT-enable-obsolete \
   i686-interix3OPT-enable-obsolete score-elfOPT-enable-obsolete
 
 LOGFILES = $(patsubst %,log/%-make.out,$(LIST))
 all: $(LOGFILES)
 config: $(LIST)
+show:
+	@echo $(LIST)
 
-.PHONY: make-log-dir all config
+.PHONY: make-log-dir all config show
 
 empty=
 

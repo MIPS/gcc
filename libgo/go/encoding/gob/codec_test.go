@@ -1009,24 +1009,6 @@ func TestBadRecursiveType(t *testing.T) {
 	// Can't test decode easily because we can't encode one, so we can't pass one to a Decoder.
 }
 
-type Bad0 struct {
-	CH chan int
-	C  float64
-}
-
-func TestInvalidField(t *testing.T) {
-	var bad0 Bad0
-	bad0.CH = make(chan int)
-	b := new(bytes.Buffer)
-	dummyEncoder := new(Encoder) // sufficient for this purpose.
-	dummyEncoder.encode(b, reflect.ValueOf(&bad0), userType(reflect.TypeOf(&bad0)))
-	if err := dummyEncoder.err; err == nil {
-		t.Error("expected error; got none")
-	} else if strings.Index(err.Error(), "type") < 0 {
-		t.Error("expected type error; got", err)
-	}
-}
-
 type Indirect struct {
 	A ***[3]int
 	S ***[]int
@@ -1382,11 +1364,7 @@ type DT struct {
 	S     []string
 }
 
-func TestDebugStruct(t *testing.T) {
-	if debugFunc == nil {
-		return
-	}
-	Register(OnTheFly{})
+func newDT() DT {
 	var dt DT
 	dt.A = 17
 	dt.B = "hello"
@@ -1397,6 +1375,15 @@ func TestDebugStruct(t *testing.T) {
 	dt.M = map[string]int{"one": 1, "two": 2}
 	dt.T = [3]int{11, 22, 33}
 	dt.S = []string{"hi", "joe"}
+	return dt
+}
+
+func TestDebugStruct(t *testing.T) {
+	if debugFunc == nil {
+		return
+	}
+	Register(OnTheFly{})
+	dt := newDT()
 	b := new(bytes.Buffer)
 	err := NewEncoder(b).Encode(dt)
 	if err != nil {
@@ -1473,6 +1460,47 @@ func testFuzz(t *testing.T, seed int64, n int, input ...interface{}) {
 		rng := rand.New(rand.NewSource(seed))
 		for i := 0; i < n; i++ {
 			encFuzzDec(rng, e)
+		}
+	}
+}
+
+// TestFuzzOneByte tries to decode corrupted input sequences
+// and checks that no panic occurs.
+func TestFuzzOneByte(t *testing.T) {
+	buf := new(bytes.Buffer)
+	Register(OnTheFly{})
+	dt := newDT()
+	if err := NewEncoder(buf).Encode(dt); err != nil {
+		t.Fatal(err)
+	}
+	s := buf.String()
+
+	indices := make([]int, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		switch i {
+		case 14, 167, 231, 265: // a slice length, corruptions are not handled yet.
+			continue
+		}
+		indices = append(indices, i)
+	}
+	if testing.Short() {
+		indices = []int{1, 111, 178} // known fixed panics
+	}
+	for _, i := range indices {
+		for j := 0; j < 256; j += 3 {
+			b := []byte(s)
+			b[i] ^= byte(j)
+			var e DT
+			func() {
+				defer func() {
+					if p := recover(); p != nil {
+						t.Errorf("crash for b[%d] ^= 0x%x", i, j)
+						panic(p)
+					}
+				}()
+				err := NewDecoder(bytes.NewReader(b)).Decode(&e)
+				_ = err
+			}()
 		}
 	}
 }

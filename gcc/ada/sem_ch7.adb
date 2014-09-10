@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
---                              S E M . C H 7                               --
+--                              S E M _ C H 7                               --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -56,6 +56,7 @@ with Sem_Ch12; use Sem_Ch12;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Disp; use Sem_Disp;
 with Sem_Eval; use Sem_Eval;
+with Sem_Prag; use Sem_Prag;
 with Sem_Util; use Sem_Util;
 with Sem_Warn; use Sem_Warn;
 with Snames;   use Snames;
@@ -173,6 +174,47 @@ package body Sem_Ch7 is
       end if;
    end Analyze_Package_Body;
 
+   -----------------------------------
+   -- Analyze_Package_Body_Contract --
+   -----------------------------------
+
+   procedure Analyze_Package_Body_Contract (Body_Id : Entity_Id) is
+      Spec_Id : constant Entity_Id := Spec_Entity (Body_Id);
+      Mode    : SPARK_Mode_Type;
+      Prag    : Node_Id;
+
+   begin
+      --  Due to the timing of contract analysis, delayed pragmas may be
+      --  subject to the wrong SPARK_Mode, usually that of the enclosing
+      --  context. To remedy this, restore the original SPARK_Mode of the
+      --  related package body.
+
+      Save_SPARK_Mode_And_Set (Body_Id, Mode);
+
+      Prag := Get_Pragma (Body_Id, Pragma_Refined_State);
+
+      --  The analysis of pragma Refined_State detects whether the spec has
+      --  abstract states available for refinement.
+
+      if Present (Prag) then
+         Analyze_Refined_State_In_Decl_Part (Prag);
+
+      --  State refinement is required when the package declaration defines at
+      --  least one abstract state. Null states are not considered. Refinement
+      --  is not envorced when SPARK checks are turned off.
+
+      elsif SPARK_Mode /= Off
+        and then Requires_State_Refinement (Spec_Id, Body_Id)
+      then
+         Error_Msg_N ("package & requires state refinement", Spec_Id);
+      end if;
+
+      --  Restore the SPARK_Mode of the enclosing context after all delayed
+      --  pragmas have been analyzed.
+
+      Restore_SPARK_Mode (Mode);
+   end Analyze_Package_Body_Contract;
+
    ---------------------------------
    -- Analyze_Package_Body_Helper --
    ---------------------------------
@@ -239,8 +281,7 @@ package body Sem_Ch7 is
       else
          Spec_Id := Current_Entity_In_Scope (Defining_Entity (N));
 
-         if Present (Spec_Id)
-           and then Is_Package_Or_Generic_Package (Spec_Id)
+         if Present (Spec_Id) and then Is_Package_Or_Generic_Package (Spec_Id)
          then
             Pack_Decl := Unit_Declaration_Node (Spec_Id);
 
@@ -301,6 +342,11 @@ package body Sem_Ch7 is
          New_N := Copy_Generic_Node (N, Empty, Instantiating => False);
          Rewrite (N, New_N);
 
+         --  Once the contents of the generic copy and the template are
+         --  swapped, do the same for their respective aspect specifications.
+
+         Exchange_Aspects (N, New_N);
+
          --  Update Body_Id to point to the copied node for the remainder of
          --  the processing.
 
@@ -345,6 +391,21 @@ package body Sem_Ch7 is
 
       Push_Scope (Spec_Id);
 
+      --  Set SPARK_Mode only for non-generic package
+
+      if Ekind (Spec_Id) = E_Package then
+
+         --  Set SPARK_Mode from context
+
+         Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
+         Set_SPARK_Pragma_Inherited (Body_Id, True);
+
+         --  Set elaboration code SPARK mode the same for now
+
+         Set_SPARK_Aux_Pragma (Body_Id, SPARK_Pragma (Body_Id));
+         Set_SPARK_Aux_Pragma_Inherited (Body_Id, True);
+      end if;
+
       Set_Categorization_From_Pragmas (N);
 
       Install_Visible_Declarations (Spec_Id);
@@ -374,6 +435,30 @@ package body Sem_Ch7 is
       if Present (Declarations (N)) then
          Analyze_Declarations (Declarations (N));
          Inspect_Deferred_Constant_Completion (Declarations (N));
+      end if;
+
+      --  Verify that the SPARK_Mode of the body agrees with that of its spec
+
+      if Present (SPARK_Pragma (Body_Id)) then
+         if Present (SPARK_Aux_Pragma (Spec_Id)) then
+            if Get_SPARK_Mode_From_Pragma (SPARK_Aux_Pragma (Spec_Id)) = Off
+                 and then
+               Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Body_Id)) = On
+            then
+               Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
+               Error_Msg_N ("incorrect application of SPARK_Mode#", N);
+               Error_Msg_Sloc := Sloc (SPARK_Aux_Pragma (Spec_Id));
+               Error_Msg_NE
+                 ("\value Off was set for SPARK_Mode on & #", N, Spec_Id);
+            end if;
+
+         else
+            Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
+            Error_Msg_N ("incorrect application of SPARK_Mode#", N);
+            Error_Msg_Sloc := Sloc (Spec_Id);
+            Error_Msg_NE
+              ("\no value was set for SPARK_Mode on & #", N, Spec_Id);
+         end if;
       end if;
 
       --  Analyze_Declarations has caused freezing of all types. Now generate
@@ -498,12 +583,13 @@ package body Sem_Ch7 is
             function Has_Referencer
               (L     : List_Id;
                Outer : Boolean) return  Boolean;
-            --  Traverse the given list of declarations in reverse order.
-            --  Return True if a referencer is present. Return False if none is
-            --  found. The Outer parameter is True for the outer level call and
-            --  False for inner level calls for nested packages. If Outer is
-            --  True, then any entities up to the point of hitting a referencer
-            --  get their Is_Public flag cleared, so that the entities will be
+            --  Traverse given list of declarations in reverse order. Return
+            --  True if a referencer is present. Return False if none is found.
+            --
+            --  The Outer parameter is True for the outer level call and False
+            --  for inner level calls for nested packages. If Outer is True,
+            --  then any entities up to the point of hitting a referencer get
+            --  their Is_Public flag cleared, so that the entities will be
             --  treated as static entities in the C sense, and need not have
             --  fully qualified names. Furthermore, if the referencer is an
             --  inlined subprogram that doesn't reference other subprograms,
@@ -612,8 +698,7 @@ package body Sem_Ch7 is
                         --  of accessing global entities.
 
                         if Has_Pragma_Inline (E) then
-                           if Outer
-                             and then Check_Subprogram_Refs (D) = OK
+                           if Outer and then Check_Subprogram_Refs (D) = OK
                            then
                               Has_Referencer_Except_For_Subprograms := True;
                            else
@@ -635,8 +720,7 @@ package body Sem_Ch7 is
                            end if;
 
                            if Has_Pragma_Inline (E) or else Is_Inlined (E) then
-                              if Outer
-                                and then Check_Subprogram_Refs (D) = OK
+                              if Outer and then Check_Subprogram_Refs (D) = OK
                               then
                                  Has_Referencer_Except_For_Subprograms := True;
                               else
@@ -758,6 +842,54 @@ package body Sem_Ch7 is
       end if;
    end Analyze_Package_Body_Helper;
 
+   ------------------------------
+   -- Analyze_Package_Contract --
+   ------------------------------
+
+   procedure Analyze_Package_Contract (Pack_Id : Entity_Id) is
+      Mode : SPARK_Mode_Type;
+      Prag : Node_Id;
+
+   begin
+      --  Due to the timing of contract analysis, delayed pragmas may be
+      --  subject to the wrong SPARK_Mode, usually that of the enclosing
+      --  context. To remedy this, restore the original SPARK_Mode of the
+      --  related package.
+
+      Save_SPARK_Mode_And_Set (Pack_Id, Mode);
+
+      --  Analyze the initialization related pragmas. Initializes must come
+      --  before Initial_Condition due to item dependencies.
+
+      Prag := Get_Pragma (Pack_Id, Pragma_Initializes);
+
+      if Present (Prag) then
+         Analyze_Initializes_In_Decl_Part (Prag);
+      end if;
+
+      Prag := Get_Pragma (Pack_Id, Pragma_Initial_Condition);
+
+      if Present (Prag) then
+         Analyze_Initial_Condition_In_Decl_Part (Prag);
+      end if;
+
+      --  Check whether the lack of indicator Part_Of agrees with the placement
+      --  of the package instantiation with respect to the state space.
+
+      if Is_Generic_Instance (Pack_Id) then
+         Prag := Get_Pragma (Pack_Id, Pragma_Part_Of);
+
+         if No (Prag) then
+            Check_Missing_Part_Of (Pack_Id);
+         end if;
+      end if;
+
+      --  Restore the SPARK_Mode of the enclosing context after all delayed
+      --  pragmas have been analyzed.
+
+      Restore_SPARK_Mode (Mode);
+   end Analyze_Package_Contract;
+
    ---------------------------------
    -- Analyze_Package_Declaration --
    ---------------------------------
@@ -790,6 +922,15 @@ package body Sem_Ch7 is
       Set_Etype    (Id, Standard_Void_Type);
       Set_Contract (Id, Make_Contract (Sloc (Id)));
 
+      --  Set SPARK_Mode from context only for non-generic package
+
+      if Ekind (Id) = E_Package then
+         Set_SPARK_Pragma               (Id, SPARK_Mode_Pragma);
+         Set_SPARK_Aux_Pragma           (Id, SPARK_Mode_Pragma);
+         Set_SPARK_Pragma_Inherited     (Id, True);
+         Set_SPARK_Aux_Pragma_Inherited (Id, True);
+      end if;
+
       --  Analyze aspect specifications immediately, since we need to recognize
       --  things like Pure early enough to diagnose violations during analysis.
 
@@ -797,7 +938,7 @@ package body Sem_Ch7 is
          Analyze_Aspect_Specifications (N, Id);
       end if;
 
-      --  Ada 2005 (AI-217): Check if the package has been erroneously named
+      --  Ada 2005 (AI-217): Check if the package has been illegally named
       --  in a limited-with clause of its own context. In this case the error
       --  has been previously notified by Analyze_Context.
 
@@ -950,7 +1091,7 @@ package body Sem_Ch7 is
 
                   else
                      Error_Msg_Sloc := Sloc (Previous);
-                     Check_SPARK_Restriction
+                     Check_SPARK_05_Restriction
                        ("at most one tagged type or type extension allowed",
                         "\\ previous declaration#",
                         Decl);
@@ -1207,8 +1348,9 @@ package body Sem_Ch7 is
          Analyze_Declarations (Vis_Decls);
       end if;
 
-      --  Verify that incomplete types have received full declarations and
-      --  also build invariant procedures for any types with invariants.
+      --  Inspect the entities defined in the package and ensure that all
+      --  incomplete types have received full declarations. Build default
+      --  initial condition and invariant procedures for all qualifying types.
 
       E := First_Entity (Id);
       while Present (E) loop
@@ -1224,10 +1366,26 @@ package body Sem_Ch7 is
             Error_Msg_N ("no declaration in visible part for incomplete}", E);
          end if;
 
-         --  Build invariant procedures
+         if Is_Type (E) then
 
-         if Is_Type (E) and then Has_Invariants (E) then
-            Build_Invariant_Procedure (E, N);
+            --  Each private type subject to pragma Default_Initial_Condition
+            --  declares a specialized procedure which verifies the assumption
+            --  of the pragma. The declaration appears in the visible part of
+            --  the package to allow for being called from the outside.
+
+            if Has_Default_Init_Cond (E) then
+               Build_Default_Init_Cond_Procedure_Declaration (E);
+
+            --  A private extension inherits the default initial condition
+            --  procedure from its parent type.
+
+            elsif Has_Inherited_Default_Init_Cond (E) then
+               Inherit_Default_Init_Cond_Procedure (E);
+            end if;
+
+            if Has_Invariants (E) then
+               Build_Invariant_Procedure (E, N);
+            end if;
          end if;
 
          Next_Entity (E);
@@ -1744,7 +1902,7 @@ package body Sem_Ch7 is
                end if;
 
             else
-               --  Non-tagged type, scan forward to locate inherited hidden
+               --  For untagged type, scan forward to locate inherited hidden
                --  operations.
 
                Prim_Op := Next_Entity (E);
@@ -1760,6 +1918,15 @@ package body Sem_Ch7 is
                   end if;
 
                   Next_Entity (Prim_Op);
+
+                  --  Derived operations appear immediately after the type
+                  --  declaration (or the following subtype indication for
+                  --  a derived scalar type). Further declarations cannot
+                  --  include inherited operations of the type.
+
+                  if Present (Prim_Op) then
+                     exit when Ekind (Prim_Op) not in Overloadable_Kind;
+                  end if;
                end loop;
             end if;
          end if;
@@ -1827,10 +1994,19 @@ package body Sem_Ch7 is
             Write_Eol;
          end if;
 
-         if not Is_Child_Unit (Id) then
+         if Is_Child_Unit (Id) then
+            null;
+
+         --  Do not enter implicitly inherited non-overridden subprograms of
+         --  a tagged type back into visibility if they have non-conformant
+         --  homographs (Ada RM 8.3 12.3/2).
+
+         elsif Is_Hidden_Non_Overridden_Subpgm (Id) then
+            null;
+
+         else
             Set_Is_Immediately_Visible (Id);
          end if;
-
       end if;
    end Install_Package_Entity;
 
@@ -1867,8 +2043,7 @@ package body Sem_Ch7 is
             --  field. This field will be empty if the entity has already been
             --  installed due to a previous call.
 
-            if Present (Full_View (Priv))
-              and then Is_Visible_Dependent (Priv)
+            if Present (Full_View (Priv)) and then Is_Visible_Dependent (Priv)
             then
                if Is_Private_Type (Priv) then
                   Deps := Private_Dependents (Priv);
@@ -1918,8 +2093,8 @@ package body Sem_Ch7 is
       Id := First_Entity (P);
       while Present (Id) and then Id /= First_Private_Entity (P) loop
          if Is_Private_Base_Type (Id)
-           and then Comes_From_Source (Full_View (Id))
            and then Present (Full_View (Id))
+           and then Comes_From_Source (Full_View (Id))
            and then Scope (Full_View (Id)) = Scope (Id)
            and then Ekind (Full_View (Id)) /= E_Incomplete_Type
          then
@@ -2214,11 +2389,14 @@ package body Sem_Ch7 is
 
          if Priv_Is_Base_Type then
             Set_Is_Controlled (Priv, Is_Controlled (Base_Type (Full)));
-            Set_Finalize_Storage_Only (Priv, Finalize_Storage_Only
-                                                           (Base_Type (Full)));
-            Set_Has_Task (Priv, Has_Task (Base_Type (Full)));
-            Set_Has_Controlled_Component (Priv, Has_Controlled_Component
-                                                           (Base_Type (Full)));
+            Set_Finalize_Storage_Only
+                              (Priv, Finalize_Storage_Only
+                                                   (Base_Type (Full)));
+            Set_Has_Task      (Priv, Has_Task      (Base_Type (Full)));
+            Set_Has_Protected (Priv, Has_Protected (Base_Type (Full)));
+            Set_Has_Controlled_Component
+                              (Priv, Has_Controlled_Component
+                                                   (Base_Type (Full)));
          end if;
 
          Set_Freeze_Node (Priv, Freeze_Node (Full));
@@ -2302,9 +2480,9 @@ package body Sem_Ch7 is
               or else Type_In_Use (Etype (Id))
               or else Type_In_Use (Etype (First_Formal (Id)))
               or else (Present (Next_Formal (First_Formal (Id)))
-                         and then
-                           Type_In_Use
-                             (Etype (Next_Formal (First_Formal (Id))))));
+                        and then
+                          Type_In_Use
+                            (Etype (Next_Formal (First_Formal (Id))))));
          else
             if In_Use (P) and then not Is_Hidden (Id) then
 
@@ -2482,11 +2660,15 @@ package body Sem_Ch7 is
 
             Set_Is_Potentially_Use_Visible (Id, In_Use (P));
 
-            if  Is_Indefinite_Subtype (Full)
+            --  The following test may be redundant, as this is already
+            --  diagnosed in sem_ch3. ???
+
+            if Is_Indefinite_Subtype (Full)
               and then not Is_Indefinite_Subtype (Id)
             then
-               Error_Msg_N
-                 ("full view of type must be definite subtype", Full);
+               Error_Msg_Sloc := Sloc (Parent (Id));
+               Error_Msg_NE
+                 ("full view of& not compatible with declaration#", Full, Id);
             end if;
 
             --  Swap out the subtypes and derived types of Id that
@@ -2656,8 +2838,7 @@ package body Sem_Ch7 is
       elsif Ekind_In (P, E_Generic_Package, E_Package)
         and then not Ignore_Abstract_State
         and then Present (Abstract_States (P))
-        and then
-            not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
+        and then not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
       then
          return True;
       end if;
@@ -2752,13 +2933,12 @@ package body Sem_Ch7 is
       --  Body required if library package with pragma Elaborate_Body
 
       elsif Has_Pragma_Elaborate_Body (P) then
-         Error_Msg_N
-           ("?Y?info: & requires body (Elaborate_Body)", P);
+         Error_Msg_N ("info: & requires body (Elaborate_Body)?Y?", P);
 
       --  Body required if subprogram
 
       elsif Is_Subprogram (P) or else Is_Generic_Subprogram (P) then
-         Error_Msg_N ("?Y?info: & requires body (subprogram case)", P);
+         Error_Msg_N ("info: & requires body (subprogram case)?Y?", P);
 
       --  Body required if generic parent has Elaborate_Body
 
@@ -2771,7 +2951,7 @@ package body Sem_Ch7 is
          begin
             if Has_Pragma_Elaborate_Body (G_P) then
                Error_Msg_N
-                 ("?Y?info: & requires body (generic parent Elaborate_Body)",
+                 ("info: & requires body (generic parent Elaborate_Body)?Y?",
                   P);
             end if;
          end;
@@ -2785,12 +2965,10 @@ package body Sem_Ch7 is
 
       elsif Ekind_In (P, E_Generic_Package, E_Package)
         and then Present (Abstract_States (P))
-        and then
-          not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
+        and then not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
       then
          Error_Msg_N
-           ("?Y?info: & requires body (non-null abstract state aspect)",
-            P);
+           ("info: & requires body (non-null abstract state aspect)?Y?", P);
       end if;
 
       --  Otherwise search entity chain for entity requiring completion
@@ -2849,12 +3027,10 @@ package body Sem_Ch7 is
            or else
              (Is_Generic_Subprogram (E)
                and then not Has_Completion (E))
-
          then
             Error_Msg_Node_2 := E;
             Error_Msg_NE
-              ("?Y?info: & requires body (& requires completion)",
-               E, P);
+              ("info: & requires body (& requires completion)?Y?", E, P);
 
          --  Entity that does not require completion
 

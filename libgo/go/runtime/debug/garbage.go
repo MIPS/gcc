@@ -24,6 +24,8 @@ func readGCStats(*[]time.Duration)
 func enableGC(bool) bool
 func setGCPercent(int) int
 func freeOSMemory()
+func setMaxStack(int) int
+func setMaxThreads(int) int
 
 // ReadGCStats reads statistics about garbage collection into stats.
 // The number of entries in the pause history is system-dependent;
@@ -89,7 +91,9 @@ func (x byDuration) Less(i, j int) bool { return x[i] < x[j] }
 // at startup, or 100 if the variable is not set.
 // A negative percentage disables garbage collection.
 func SetGCPercent(percent int) int {
-	return setGCPercent(percent)
+	old := setGCPercent(percent)
+	runtime.GC()
+	return old
 }
 
 // FreeOSMemory forces a garbage collection followed by an
@@ -99,3 +103,51 @@ func SetGCPercent(percent int) int {
 func FreeOSMemory() {
 	freeOSMemory()
 }
+
+// SetMaxStack sets the maximum amount of memory that
+// can be used by a single goroutine stack.
+// If any goroutine exceeds this limit while growing its stack,
+// the program crashes.
+// SetMaxStack returns the previous setting.
+// The initial setting is 1 GB on 64-bit systems, 250 MB on 32-bit systems.
+//
+// SetMaxStack is useful mainly for limiting the damage done by
+// goroutines that enter an infinite recursion. It only limits future
+// stack growth.
+func SetMaxStack(bytes int) int {
+	return setMaxStack(bytes)
+}
+
+// SetMaxThreads sets the maximum number of operating system
+// threads that the Go program can use. If it attempts to use more than
+// this many, the program crashes.
+// SetMaxThreads returns the previous setting.
+// The initial setting is 10,000 threads.
+//
+// The limit controls the number of operating system threads, not the number
+// of goroutines. A Go program creates a new thread only when a goroutine
+// is ready to run but all the existing threads are blocked in system calls, cgo calls,
+// or are locked to other goroutines due to use of runtime.LockOSThread.
+//
+// SetMaxThreads is useful mainly for limiting the damage done by
+// programs that create an unbounded number of threads. The idea is
+// to take down the program before it takes down the operating system.
+func SetMaxThreads(threads int) int {
+	return setMaxThreads(threads)
+}
+
+// SetPanicOnFault controls the runtime's behavior when a program faults
+// at an unexpected (non-nil) address. Such faults are typically caused by
+// bugs such as runtime memory corruption, so the default response is to crash
+// the program. Programs working with memory-mapped files or unsafe
+// manipulation of memory may cause faults at non-nil addresses in less
+// dramatic situations; SetPanicOnFault allows such programs to request
+// that the runtime trigger only a panic, not a crash.
+// SetPanicOnFault applies only to the current goroutine.
+// It returns the previous setting.
+func SetPanicOnFault(enabled bool) bool
+
+// WriteHeapDump writes a description of the heap and the objects in
+// it to the given file descriptor.
+// The heap dump format is defined at http://golang.org/s/go13heapdump.
+func WriteHeapDump(fd uintptr)

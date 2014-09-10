@@ -1,5 +1,5 @@
 /* Save and restore call-clobbered registers which are live across a call.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "addresses.h"
 #include "ggc.h"
 #include "dumpfile.h"
+#include "rtl-iter.h"
 
 #define MOVE_MAX_WORDS (MOVE_MAX / UNITS_PER_WORD)
 
@@ -102,8 +103,8 @@ static GTY(()) rtx savepat;
 static GTY(()) rtx restpat;
 static GTY(()) rtx test_reg;
 static GTY(()) rtx test_mem;
-static GTY(()) rtx saveinsn;
-static GTY(()) rtx restinsn;
+static GTY(()) rtx_insn *saveinsn;
+static GTY(()) rtx_insn *restinsn;
 
 /* Return the INSN_CODE used to save register REG in mode MODE.  */
 static int
@@ -265,8 +266,8 @@ init_caller_save (void)
   savepat = gen_rtx_SET (VOIDmode, test_mem, test_reg);
   restpat = gen_rtx_SET (VOIDmode, test_reg, test_mem);
 
-  saveinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, savepat, 0, -1, 0);
-  restinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, restpat, 0, -1, 0);
+  saveinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, savepat, 0, -1, 0);
+  restinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, restpat, 0, -1, 0);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = 1; j <= MOVE_MAX_WORDS; j++)
@@ -417,7 +418,7 @@ setup_save_areas (void)
   int i, j, k, freq;
   HARD_REG_SET hard_regs_used;
   struct saved_hard_reg *saved_reg;
-  rtx insn;
+  rtx_insn *insn;
   struct insn_chain *chain, *next;
   unsigned int regno;
   HARD_REG_SET hard_regs_to_save, used_regs, this_insn_sets;
@@ -441,7 +442,7 @@ setup_save_areas (void)
       freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
       REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
 			       &chain->live_throughout);
-      COPY_HARD_REG_SET (used_regs, call_used_reg_set);
+      get_call_reg_set_usage (insn, &used_regs, call_used_reg_set);
 
       /* Record all registers set in this call insn.  These don't
 	 need to be saved.  N.B. the call insn might set a subreg
@@ -525,7 +526,7 @@ setup_save_areas (void)
 
 	  REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
 				   &chain->live_throughout);
-	  COPY_HARD_REG_SET (used_regs, call_used_reg_set);
+	  get_call_reg_set_usage (insn, &used_regs, call_used_reg_set);
 
 	  /* Record all registers set in this call insn.  These don't
 	     need to be saved.  N.B. the call insn might set a subreg
@@ -755,7 +756,7 @@ save_call_clobbered_regs (void)
 
   for (chain = reload_insn_chain; chain != 0; chain = next)
     {
-      rtx insn = chain->insn;
+      rtx_insn *insn = chain->insn;
       enum rtx_code code = GET_CODE (insn);
 
       next = chain->next;
@@ -804,6 +805,7 @@ save_call_clobbered_regs (void)
 	    {
 	      unsigned regno;
 	      HARD_REG_SET hard_regs_to_save;
+	      HARD_REG_SET call_def_reg_set;
 	      reg_set_iterator rsi;
 	      rtx cheap;
 
@@ -854,7 +856,9 @@ save_call_clobbered_regs (void)
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, this_insn_sets);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, hard_regs_saved);
-	      AND_HARD_REG_SET (hard_regs_to_save, call_used_reg_set);
+	      get_call_reg_set_usage (insn, &call_def_reg_set,
+				      call_used_reg_set);
+	      AND_HARD_REG_SET (hard_regs_to_save, call_def_reg_set);
 
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 		if (TEST_HARD_REG_BIT (hard_regs_to_save, regno))
@@ -898,7 +902,7 @@ save_call_clobbered_regs (void)
 	      && last
 	      && last->block == chain->block)
 	    {
-	      rtx ins, prev;
+	      rtx_insn *ins, *prev;
 	      basic_block bb = BLOCK_FOR_INSN (insn);
 
 	      /* When adding hard reg restores after a DEBUG_INSN, move
@@ -910,13 +914,13 @@ save_call_clobbered_regs (void)
 		  prev = PREV_INSN (ins);
 		  if (NOTE_P (ins))
 		    {
-		      NEXT_INSN (prev) = NEXT_INSN (ins);
-		      PREV_INSN (NEXT_INSN (ins)) = prev;
-		      PREV_INSN (ins) = insn;
-		      NEXT_INSN (ins) = NEXT_INSN (insn);
-		      NEXT_INSN (insn) = ins;
+		      SET_NEXT_INSN (prev) = NEXT_INSN (ins);
+		      SET_PREV_INSN (NEXT_INSN (ins)) = prev;
+		      SET_PREV_INSN (ins) = insn;
+		      SET_NEXT_INSN (ins) = NEXT_INSN (insn);
+		      SET_NEXT_INSN (insn) = ins;
 		      if (NEXT_INSN (ins))
-			PREV_INSN (NEXT_INSN (ins)) = ins;
+			SET_PREV_INSN (NEXT_INSN (ins)) = ins;
                       if (BB_END (bb) == insn)
 			BB_END (bb) = ins;
 		    }
@@ -1333,43 +1337,33 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
   return numregs - 1;
 }
 
-/* A for_each_rtx callback used by add_used_regs.  Add the hard-register
-   equivalent of each REG to regset DATA.  */
-
-static int
-add_used_regs_1 (rtx *loc, void *data)
-{
-  unsigned int regno;
-  regset live;
-  rtx x;
-
-  x = *loc;
-  live = (regset) data;
-  if (REG_P (x))
-    {
-      regno = REGNO (x);
-      if (HARD_REGISTER_NUM_P (regno))
-	bitmap_set_range (live, regno, hard_regno_nregs[regno][GET_MODE (x)]);
-      else
-	regno = reg_renumber[regno];
-    }
-  return 0;
-}
-
 /* A note_uses callback used by insert_one_insn.  Add the hard-register
    equivalent of each REG to regset DATA.  */
 
 static void
 add_used_regs (rtx *loc, void *data)
 {
-  for_each_rtx (loc, add_used_regs_1, data);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, *loc, NONCONST)
+    {
+      const_rtx x = *iter;
+      if (REG_P (x))
+	{
+	  unsigned int regno = REGNO (x);
+	  if (HARD_REGISTER_NUM_P (regno))
+	    bitmap_set_range ((regset) data, regno,
+			      hard_regno_nregs[regno][GET_MODE (x)]);
+	  else
+	    gcc_checking_assert (reg_renumber[regno] < 0);
+	}
+    }
 }
 
 /* Emit a new caller-save insn and set the code.  */
 static struct insn_chain *
 insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 {
-  rtx insn = chain->insn;
+  rtx_insn *insn = chain->insn;
   struct insn_chain *new_chain;
 
 #ifdef HAVE_cc0
@@ -1414,8 +1408,8 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 		     &new_chain->live_throughout);
 
       CLEAR_REG_SET (&new_chain->dead_or_set);
-      if (chain->insn == BB_HEAD (BASIC_BLOCK (chain->block)))
-	BB_HEAD (BASIC_BLOCK (chain->block)) = new_chain->insn;
+      if (chain->insn == BB_HEAD (BASIC_BLOCK_FOR_FN (cfun, chain->block)))
+	BB_HEAD (BASIC_BLOCK_FOR_FN (cfun, chain->block)) = new_chain->insn;
     }
   else
     {
@@ -1434,8 +1428,8 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
       note_stores (PATTERN (chain->insn), add_stored_regs,
 		   &new_chain->live_throughout);
       CLEAR_REG_SET (&new_chain->dead_or_set);
-      if (chain->insn == BB_END (BASIC_BLOCK (chain->block)))
-	BB_END (BASIC_BLOCK (chain->block)) = new_chain->insn;
+      if (chain->insn == BB_END (BASIC_BLOCK_FOR_FN (cfun, chain->block)))
+	BB_END (BASIC_BLOCK_FOR_FN (cfun, chain->block)) = new_chain->insn;
     }
   new_chain->block = chain->block;
   new_chain->is_caller_save_insn = 1;

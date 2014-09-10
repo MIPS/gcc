@@ -91,7 +91,7 @@ func TestRemoveAll(t *testing.T) {
 	if err = RemoveAll(path); err != nil {
 		t.Fatalf("RemoveAll %q (first): %s", path, err)
 	}
-	if _, err := Lstat(path); err == nil {
+	if _, err = Lstat(path); err == nil {
 		t.Fatalf("Lstat %q succeeded after RemoveAll (first)", path)
 	}
 
@@ -153,7 +153,7 @@ func TestRemoveAll(t *testing.T) {
 		Chmod(dpath, 0777)
 
 		for _, s := range []string{fpath, path + "/zzz"} {
-			if _, err := Lstat(s); err == nil {
+			if _, err = Lstat(s); err == nil {
 				t.Fatalf("Lstat %q succeeded after partial RemoveAll", s)
 			}
 		}
@@ -161,14 +161,15 @@ func TestRemoveAll(t *testing.T) {
 	if err = RemoveAll(path); err != nil {
 		t.Fatalf("RemoveAll %q after partial RemoveAll: %s", path, err)
 	}
-	if _, err := Lstat(path); err == nil {
+	if _, err = Lstat(path); err == nil {
 		t.Fatalf("Lstat %q succeeded after RemoveAll (final)", path)
 	}
 }
 
 func TestMkdirAllWithSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" || runtime.GOOS == "plan9" {
-		t.Skip("Skipping test: symlinks don't exist under Windows/Plan 9")
+	switch runtime.GOOS {
+	case "nacl", "plan9", "windows":
+		t.Skipf("skipping on %s", runtime.GOOS)
 	}
 
 	tmpDir, err := ioutil.TempDir("", "TestMkdirAllWithSymlink-")

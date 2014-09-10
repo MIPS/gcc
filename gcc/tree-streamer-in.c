@@ -1,6 +1,6 @@
 /* Routines for reading trees from a file stream.
 
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -24,10 +24,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "tree-streamer.h"
 #include "data-streamer.h"
 #include "streamer-hooks.h"
 #include "lto-streamer.h"
+#include "builtins.h"
 
 /* Read a STRING_CST from the string table in DATA_IN using input
    block IB.  */
@@ -145,8 +153,9 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
 static void
 unpack_ts_int_cst_value_fields (struct bitpack_d *bp, tree expr)
 {
-  TREE_INT_CST_LOW (expr) = bp_unpack_var_len_unsigned (bp);
-  TREE_INT_CST_HIGH (expr) = bp_unpack_var_len_int (bp);
+  int i;
+  for (i = 0; i < TREE_INT_CST_EXT_NUNITS (expr); i++)
+    TREE_INT_CST_ELT (expr, i) = bp_unpack_var_len_int (bp);
 }
 
 
@@ -160,6 +169,9 @@ unpack_ts_real_cst_value_fields (struct bitpack_d *bp, tree expr)
   REAL_VALUE_TYPE r;
   REAL_VALUE_TYPE *rp;
 
+  /* Clear all bits of the real value type so that we can later do
+     bitwise comparisons to see if two values are the same.  */
+  memset (&r, 0, sizeof r);
   r.cl = (unsigned) bp_unpack_value (bp, 2);
   r.decimal = (unsigned) bp_unpack_value (bp, 1);
   r.sign = (unsigned) bp_unpack_value (bp, 1);
@@ -169,7 +181,7 @@ unpack_ts_real_cst_value_fields (struct bitpack_d *bp, tree expr)
   for (i = 0; i < SIGSZ; i++)
     r.sig[i] = (unsigned long) bp_unpack_value (bp, HOST_BITS_PER_LONG);
 
-  rp = ggc_alloc_real_value ();
+  rp = ggc_alloc<real_value> ();
   memcpy (rp, &r, sizeof (REAL_VALUE_TYPE));
   TREE_REAL_CST_PTR (expr) = rp;
 }
@@ -181,7 +193,7 @@ unpack_ts_real_cst_value_fields (struct bitpack_d *bp, tree expr)
 static void
 unpack_ts_fixed_cst_value_fields (struct bitpack_d *bp, tree expr)
 {
-  FIXED_VALUE_TYPE *fp = ggc_alloc_fixed_value ();
+  FIXED_VALUE_TYPE *fp = ggc_alloc<fixed_value> ();
   fp->mode = bp_unpack_enum (bp, machine_mode, MAX_MACHINE_MODE);
   fp->data.low = bp_unpack_var_len_int (bp);
   fp->data.high = bp_unpack_var_len_int (bp);
@@ -268,7 +280,6 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
     {
       DECL_HARD_REGISTER (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_IN_CONSTANT_POOL (expr) = (unsigned) bp_unpack_value (bp, 1);
-      DECL_TLS_MODEL (expr) = (enum tls_model) bp_unpack_value (bp,  3);
     }
 
   if (TREE_CODE (expr) == FUNCTION_DECL)
@@ -276,12 +287,6 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
       DECL_FINAL_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_CXX_CONSTRUCTOR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_CXX_DESTRUCTOR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
-    }
-  if (VAR_OR_FUNCTION_DECL_P (expr))
-    {
-      priority_type p;
-      p = (priority_type) bp_unpack_var_len_unsigned (bp);
-      SET_DECL_INIT_PRIORITY (expr, p);
     }
 }
 
@@ -324,12 +329,6 @@ unpack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
 	  if (!result || result == error_mark_node)
 	    fatal_error ("target specific builtin not available");
 	}
-    }
-  if (DECL_STATIC_DESTRUCTOR (expr))
-    {
-      priority_type p;
-      p = (priority_type) bp_unpack_var_len_unsigned (bp);
-      SET_DECL_FINI_PRIORITY (expr, p);
     }
 }
 
@@ -387,21 +386,6 @@ unpack_ts_translation_unit_decl_value_fields (struct data_in *data_in,
   vec_safe_push (all_translation_units, expr);
 }
 
-/* Unpack a TS_TARGET_OPTION tree from BP into EXPR.  */
-
-static void
-unpack_ts_target_option (struct bitpack_d *bp, tree expr)
-{
-  unsigned i, len;
-  struct cl_target_option *t = TREE_TARGET_OPTION (expr);
-
-  len = sizeof (struct cl_target_option);
-  for (i = 0; i < len; i++)
-    ((unsigned char *)t)[i] = bp_unpack_value (bp, 8);
-  if (bp_unpack_value (bp, 32) != 0x12345678)
-    fatal_error ("cl_target_option size mismatch in LTO reader and writer");
-}
-
 /* Unpack a TS_OPTIMIZATION tree from BP into EXPR.  */
 
 static void
@@ -417,6 +401,48 @@ unpack_ts_optimization (struct bitpack_d *bp, tree expr)
     fatal_error ("cl_optimization size mismatch in LTO reader and writer");
 }
 
+
+/* Unpack all the non-pointer fields of the TS_OMP_CLAUSE
+   structure of expression EXPR from bitpack BP.  */
+
+static void
+unpack_ts_omp_clause_value_fields (struct data_in *data_in,
+				   struct bitpack_d *bp, tree expr)
+{
+  OMP_CLAUSE_LOCATION (expr) = stream_input_location (bp, data_in);
+  switch (OMP_CLAUSE_CODE (expr))
+    {
+    case OMP_CLAUSE_DEFAULT:
+      OMP_CLAUSE_DEFAULT_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_default_kind,
+			  OMP_CLAUSE_DEFAULT_LAST);
+      break;
+    case OMP_CLAUSE_SCHEDULE:
+      OMP_CLAUSE_SCHEDULE_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_schedule_kind,
+			  OMP_CLAUSE_SCHEDULE_LAST);
+      break;
+    case OMP_CLAUSE_DEPEND:
+      OMP_CLAUSE_DEPEND_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_depend_kind, OMP_CLAUSE_DEPEND_LAST);
+      break;
+    case OMP_CLAUSE_MAP:
+      OMP_CLAUSE_MAP_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_map_kind, OMP_CLAUSE_MAP_LAST);
+      break;
+    case OMP_CLAUSE_PROC_BIND:
+      OMP_CLAUSE_PROC_BIND_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_proc_bind_kind,
+			  OMP_CLAUSE_PROC_BIND_LAST);
+      break;
+    case OMP_CLAUSE_REDUCTION:
+      OMP_CLAUSE_REDUCTION_CODE (expr)
+	= bp_unpack_enum (bp, tree_code, MAX_TREE_CODES);
+      break;
+    default:
+      break;
+    }
+}
 
 /* Unpack all the non-pointer fields in EXPR into a bit pack.  */
 
@@ -468,7 +494,7 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
     unpack_ts_translation_unit_decl_value_fields (data_in, bp, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    unpack_ts_target_option (bp, expr);
+    gcc_unreachable ();
 
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
     unpack_ts_optimization (bp, expr);
@@ -486,6 +512,9 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
       if (length > 0)
 	vec_safe_grow (CONSTRUCTOR_ELTS (expr), length);
     }
+
+  if (code == OMP_CLAUSE)
+    unpack_ts_omp_clause_value_fields (data_in, bp, expr);
 }
 
 
@@ -527,7 +556,7 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
   enum tree_code code;
   tree result;
 #ifdef LTO_STREAMER_DEBUG
-  HOST_WIDEST_INT orig_address_in_writer;
+  HOST_WIDE_INT orig_address_in_writer;
 #endif
 
   result = NULL_TREE;
@@ -566,10 +595,22 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
       unsigned HOST_WIDE_INT len = streamer_read_uhwi (ib);
       result = make_tree_binfo (len);
     }
+  else if (CODE_CONTAINS_STRUCT (code, TS_INT_CST))
+    {
+      unsigned HOST_WIDE_INT len = streamer_read_uhwi (ib);
+      unsigned HOST_WIDE_INT ext_len = streamer_read_uhwi (ib);
+      result = make_int_cst (len, ext_len);
+    }
   else if (code == CALL_EXPR)
     {
       unsigned HOST_WIDE_INT nargs = streamer_read_uhwi (ib);
       return build_vl_exp (CALL_EXPR, nargs + 3);
+    }
+  else if (code == OMP_CLAUSE)
+    {
+      enum omp_clause_code subcode
+	= (enum omp_clause_code) streamer_read_uhwi (ib);
+      return build_omp_clause (UNKNOWN_LOCATION, subcode);
     }
   else
     {
@@ -685,7 +726,6 @@ lto_input_ts_decl_non_common_tree_pointers (struct lto_input_block *ib,
 {
   if (TREE_CODE (expr) == TYPE_DECL)
     DECL_ORIGINAL_TYPE (expr) = stream_read_tree (ib, data_in);
-  DECL_VINDEX (expr) = stream_read_tree (ib, data_in);
 }
 
 
@@ -705,9 +745,6 @@ lto_input_ts_decl_with_vis_tree_pointers (struct lto_input_block *ib,
       gcc_assert (TREE_CODE (id) == IDENTIFIER_NODE);
       SET_DECL_ASSEMBLER_NAME (expr, id);
     }
-
-  DECL_SECTION_NAME (expr) = stream_read_tree (ib, data_in);
-  DECL_COMDAT_GROUP (expr) = stream_read_tree (ib, data_in);
 }
 
 
@@ -735,10 +772,10 @@ static void
 lto_input_ts_function_decl_tree_pointers (struct lto_input_block *ib,
 					  struct data_in *data_in, tree expr)
 {
-  /* DECL_STRUCT_FUNCTION is handled by lto_input_function.  FIXME lto,
-     maybe it should be handled here?  */
+  DECL_VINDEX (expr) = stream_read_tree (ib, data_in);
+  /* DECL_STRUCT_FUNCTION is loaded on demand by cgraph_get_body.  */
   DECL_FUNCTION_PERSONALITY (expr) = stream_read_tree (ib, data_in);
-  DECL_FUNCTION_SPECIFIC_TARGET (expr) = stream_read_tree (ib, data_in);
+  /* DECL_FUNCTION_SPECIFIC_TARGET is regenerated from attributes.  */
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = stream_read_tree (ib, data_in);
 
   /* If the file contains a function with an EH personality set,
@@ -953,6 +990,22 @@ lto_input_ts_constructor_tree_pointers (struct lto_input_block *ib,
 }
 
 
+/* Read all pointer fields in the TS_OMP_CLAUSE structure of EXPR from
+   input block IB.  DATA_IN contains tables and descriptors for the
+   file being read.  */
+
+static void
+lto_input_ts_omp_clause_tree_pointers (struct lto_input_block *ib,
+				       struct data_in *data_in, tree expr)
+{
+  int i;
+
+  for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (expr)]; i++)
+    OMP_CLAUSE_OPERAND (expr, i) = stream_read_tree (ib, data_in);
+  OMP_CLAUSE_CHAIN (expr) = stream_read_tree (ib, data_in);
+}
+
+
 /* Read all pointer fields in EXPR from input block IB.  DATA_IN
    contains tables and descriptors for the file being read.  */
 
@@ -1014,6 +1067,9 @@ streamer_read_tree_body (struct lto_input_block *ib, struct data_in *data_in,
 
   if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
     lto_input_ts_constructor_tree_pointers (ib, data_in, expr);
+
+  if (code == OMP_CLAUSE)
+    lto_input_ts_omp_clause_tree_pointers (ib, data_in, expr);
 }
 
 

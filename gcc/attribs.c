@@ -1,5 +1,5 @@
 /* Functions dealing with attribute handling, used by most front ends.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
@@ -82,7 +85,7 @@ struct scoped_attributes
 {
   const char *ns;
   vec<attribute_spec> attributes;
-  hash_table <attribute_hasher> attribute_hash;
+  hash_table<attribute_hasher> *attribute_hash;
 };
 
 /* The table of scope attributes.  */
@@ -141,7 +144,7 @@ register_scoped_attributes (const struct attribute_spec * attributes,
       sa.ns = ns;
       sa.attributes.create (64);
       result = attributes_table.safe_push (sa);
-      result->attribute_hash.create (200);
+      result->attribute_hash = new hash_table<attribute_hasher> (200);
     }
 
   /* Really add the attributes to their namespace now.  */
@@ -278,7 +281,7 @@ register_scoped_attribute (const struct attribute_spec *attr,
 
   gcc_assert (attr != NULL && name_space != NULL);
 
-  gcc_assert (name_space->attribute_hash.is_created ());
+  gcc_assert (name_space->attribute_hash);
 
   str.str = attr->name;
   str.length = strlen (str.str);
@@ -288,8 +291,8 @@ register_scoped_attribute (const struct attribute_spec *attr,
   gcc_assert (str.length > 0 && str.str[0] != '_');
 
   slot = name_space->attribute_hash
-	 .find_slot_with_hash (&str, substring_hash (str.str, str.length),
-			       INSERT);
+	 ->find_slot_with_hash (&str, substring_hash (str.str, str.length),
+				INSERT);
   gcc_assert (!*slot || attr->name[0] == '*');
   *slot = CONST_CAST (struct attribute_spec *, attr);
 }
@@ -297,7 +300,7 @@ register_scoped_attribute (const struct attribute_spec *attr,
 /* Return the spec for the scoped attribute with namespace NS and
    name NAME.   */
 
-const struct attribute_spec *
+static const struct attribute_spec *
 lookup_scoped_attribute_spec (const_tree ns, const_tree name)
 {
   struct substring attr;
@@ -313,8 +316,9 @@ lookup_scoped_attribute_spec (const_tree ns, const_tree name)
   attr.str = IDENTIFIER_POINTER (name);
   attr.length = IDENTIFIER_LENGTH (name);
   extract_attribute_substring (&attr);
-  return attrs->attribute_hash.find_with_hash (&attr,
-			 substring_hash (attr.str, attr.length));
+  return attrs->attribute_hash->find_with_hash (&attr,
+						substring_hash (attr.str,
+							       	attr.length));
 }
 
 /* Return the spec for the attribute named NAME.  If NAME is a TREE_LIST,
@@ -334,7 +338,23 @@ lookup_attribute_spec (const_tree name)
   return lookup_scoped_attribute_spec (ns, name);
 }
 
-
+
+/* Return the namespace of the attribute ATTR.  This accessor works on
+   GNU and C++11 (scoped) attributes.  On GNU attributes,
+   it returns an identifier tree for the string "gnu".
+
+   Please read the comments of cxx11_attribute_p to understand the
+   format of attributes.  */
+
+static tree
+get_attribute_namespace (const_tree attr)
+{
+  if (cxx11_attribute_p (attr))
+    return TREE_PURPOSE (TREE_PURPOSE (attr));
+  return get_identifier ("gnu");
+}
+
+
 /* Process the attributes listed in ATTRIBUTES and install them in *NODE,
    which is either a DECL (including a TYPE_DECL) or a TYPE.  If a DECL,
    it should be modified in place; if a TYPE, a copy should be created
@@ -657,21 +677,6 @@ get_attribute_name (const_tree attr)
   if (cxx11_attribute_p (attr))
     return TREE_VALUE (TREE_PURPOSE (attr));
   return TREE_PURPOSE (attr);
-}
-
-/* Return the namespace of the attribute ATTR.  This accessor works on
-   GNU and C++11 (scoped) attributes.  On GNU attributes,
-   it returns an identifier tree for the string "gnu".
-
-   Please read the comments of cxx11_attribute_p to understand the
-   format of attributes.  */
-
-tree
-get_attribute_namespace (const_tree attr)
-{
-  if (cxx11_attribute_p (attr))
-    return TREE_PURPOSE (TREE_PURPOSE (attr));
-  return get_identifier ("gnu");
 }
 
 /* Subroutine of set_method_tm_attributes.  Apply TM attribute ATTR

@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -80,11 +80,23 @@ pragma Style_Checks ("M32766");
 
 /* Feature macro definitions */
 
-#if defined (__linux__) && !defined (_XOPEN_SOURCE)
-/** For Linux _XOPEN_SOURCE must be defined, otherwise IOV_MAX is not defined
+/**
+ ** Note: we deliberately do not define _POSIX_SOURCE / _POSIX_C_SOURCE
+ ** unconditionally, as on many platforms these macros actually disable
+ ** a number of non-POSIX but useful/required features.
  **/
-#define _XOPEN_SOURCE 500
-#endif
+
+#if defined (__linux__)
+
+/* Define _XOPEN_SOURCE to get IOV_MAX */
+# if !defined (_XOPEN_SOURCE)
+#  define _XOPEN_SOURCE 500
+# endif
+
+/* Define _BSD_SOURCE to get CRTSCTS */
+# define _BSD_SOURCE
+
+#endif /* defined (__linux__) */
 
 /* Include gsocket.h before any system header so it can redefine FD_SETSIZE */
 
@@ -113,11 +125,14 @@ pragma Style_Checks ("M32766");
 
 /**
  ** For VxWorks, always include vxWorks.h (gsocket.h provides it only for
- ** the case of runtime libraries that support sockets).
+ ** the case of runtime libraries that support sockets). Note: this must
+ ** be done before including adaint.h.
  **/
 
 # include <vxWorks.h>
 #endif
+
+#include "adaint.h"
 
 #ifdef DUMMY
 
@@ -156,7 +171,8 @@ pragma Style_Checks ("M32766");
 # include <signal.h>
 #endif
 
-#ifdef __MINGW32__
+#if defined(__MINGW32__) || defined(__CYGWIN__)
+# include <windef.h>
 # include <winbase.h>
 #endif
 
@@ -309,6 +325,29 @@ CND(SIZEOF_unsigned_int, "Size of unsigned int")
 # define IOV_MAX INT_MAX
 #endif
 CND(IOV_MAX, "Maximum writev iovcnt")
+
+/* NAME_MAX is used to compute the allocation size for a struct dirent
+ * passed to readdir() / readdir_r(). However on some systems it is not
+ * defined, as it is technically a filesystem dependent property that
+ * we should retrieve through pathconf(). In any case, we do not need a
+ * precise value but only an upper limit.
+ */
+#ifndef NAME_MAX
+# ifdef MAXNAMELEN
+   /* Solaris has no NAME_MAX but defines MAXNAMELEN */
+#  define NAME_MAX MAXNAMELEN
+# elif defined(PATH_MAX)
+   /* PATH_MAX (maximum length of a full path name) is a safe fall back */
+#  define NAME_MAX PATH_MAX
+# elif defined(FILENAME_MAX)
+   /* Similarly FILENAME_MAX can provide a safe fall back */
+#  define NAME_MAX FILENAME_MAX
+# else
+   /* Hardcode a reasonably large value as a last chance fallback */
+#  define NAME_MAX 1024
+# endif
+#endif
+CND(NAME_MAX, "Maximum file name length")
 
 /*
 
@@ -973,7 +1012,7 @@ CND(VEOL2, "Alternative EOL")
 
 #endif /* HAVE_TERMIOS */
 
-#ifdef __MINGW32__
+#if defined(__MINGW32__) || defined(__CYGWIN__)
 CNU(DTR_CONTROL_ENABLE, "Enable DTR flow ctrl")
 CNU(RTS_CONTROL_ENABLE, "Enable RTS flow ctrl")
 #endif
@@ -1319,18 +1358,18 @@ CND(SIZEOF_sockaddr_in, "struct sockaddr_in")
 CND(SIZEOF_sockaddr_in6, "struct sockaddr_in6")
 
 #define SIZEOF_fd_set (sizeof (fd_set))
-CND(SIZEOF_fd_set, "fd_set");
-CND(FD_SETSIZE, "Max fd value");
+CND(SIZEOF_fd_set, "fd_set")
+CND(FD_SETSIZE, "Max fd value")
 
 #define SIZEOF_struct_hostent (sizeof (struct hostent))
-CND(SIZEOF_struct_hostent, "struct hostent");
+CND(SIZEOF_struct_hostent, "struct hostent")
 
 #define SIZEOF_struct_servent (sizeof (struct servent))
-CND(SIZEOF_struct_servent, "struct servent");
+CND(SIZEOF_struct_servent, "struct servent")
 
 #if defined (__linux__)
 #define SIZEOF_sigset (sizeof (sigset_t))
-CND(SIZEOF_sigset, "sigset");
+CND(SIZEOF_sigset, "sigset")
 #endif
 
 /*
@@ -1472,6 +1511,38 @@ CND(PTHREAD_RWLOCK_SIZE,     "pthread_rwlock_t")
 CND(PTHREAD_ONCE_SIZE,       "pthread_once_t")
 
 #endif /* __APPLE__ || __linux__ */
+
+/*
+
+   --------------------------------
+   -- File and directory support --
+   --------------------------------
+
+*/
+
+/**
+ ** Note: this constant can be used in the GNAT runtime library. In compiler
+ ** units on the other hand, System.OS_Constants is not available, so we
+ ** declare an Ada constant (Osint.File_Attributes_Size) independently, which
+ ** is at least as large as sizeof (struct file_attributes), and we have an
+ ** assertion at initialization of Osint checking that the size is indeed at
+ ** least sufficient.
+ **/
+#define SIZEOF_struct_file_attributes (sizeof (struct file_attributes))
+CND(SIZEOF_struct_file_attributes, "struct file_attributes")
+
+/**
+ ** Maximal size of buffer for struct dirent. Note: Since POSIX.1 does not
+ ** specify the size of the d_name field, and other nonstandard fields may
+ ** precede that field within the dirent structure, we must make a conservative
+ ** computation.
+ **/
+{
+  struct dirent dent;
+#define SIZEOF_struct_dirent_alloc \
+  ((char*) &dent.d_name - (char*) &dent) + NAME_MAX + 1
+CND(SIZEOF_struct_dirent_alloc, "struct dirent allocation")
+}
 
 /**
  **  System-specific constants follow

@@ -1,6 +1,6 @@
 ;;   Machine description for GNU compiler,
 ;;   for ATMEL AVR micro controllers.
-;;   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+;;   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 ;;   Contributed by Denis Chertykov (chertykov@gmail.com)
 
 ;; This file is part of GCC.
@@ -90,7 +90,7 @@
 (include "constraints.md")
 
 ;; Condition code settings.
-(define_attr "cc" "none,set_czn,set_zn,set_n,compare,clobber,
+(define_attr "cc" "none,set_czn,set_zn,set_vzn,set_n,compare,clobber,
                    plus,ldi"
   (const_string "none"))
 
@@ -368,6 +368,15 @@
   ""
   {
     int i;
+
+    // Avoid (subreg (mem)) for non-generic address spaces below.  Because
+    // of the poor addressing capabilities of these spaces it's better to
+    // load them in one chunk.  And it avoids PR61443.
+
+    if (MEM_P (operands[0])
+        && !ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (operands[0])))
+      operands[0] = copy_to_mode_reg (<MODE>mode, operands[0]);
+
     for (i = GET_MODE_SIZE (<MODE>mode) - 1; i >= 0; --i)
       {
         rtx part = simplify_gen_subreg (QImode, operands[0], <MODE>mode, i);
@@ -468,7 +477,8 @@
        ; in not able to allocate segment registers and reload the resulting
        ; expressions.  Notice that no address register can hold a PSImode.  */
 
-    rtx insn, addr = XEXP (operands[1], 0);
+    rtx_insn *insn;
+    rtx addr = XEXP (operands[1], 0);
     rtx hi8 = gen_reg_rtx (QImode);
     rtx reg_z = gen_rtx_REG (HImode, REG_Z);
 
@@ -503,7 +513,7 @@
     rtx reg_z = gen_rtx_REG (HImode, REG_Z);
     rtx addr_hi8 = simplify_gen_subreg (QImode, addr, PSImode, 2);
     addr_space_t as = MEM_ADDR_SPACE (operands[1]);
-    rtx insn;
+    rtx_insn *insn;
 
     /* Split the address to R21:Z */
     emit_move_insn (reg_z, simplify_gen_subreg (HImode, addr, PSImode, 0));
@@ -1098,7 +1108,7 @@
 	inc %0\;inc %0
 	dec %0\;dec %0"
   [(set_attr "length" "1,1,1,1,2,2")
-   (set_attr "cc" "set_czn,set_czn,set_zn,set_zn,set_zn,set_zn")])
+   (set_attr "cc" "set_czn,set_czn,set_vzn,set_vzn,set_vzn,set_vzn")])
 
 ;; "addhi3"
 ;; "addhq3" "adduhq3"
@@ -1369,7 +1379,7 @@
 	dec %0\;dec %0
 	inc %0\;inc %0"
   [(set_attr "length" "1,1,1,1,2,2")
-   (set_attr "cc" "set_czn,set_czn,set_zn,set_zn,set_zn,set_zn")])
+   (set_attr "cc" "set_czn,set_czn,set_vzn,set_vzn,set_vzn,set_vzn")])
 
 ;; "subhi3"
 ;; "subhq3" "subuhq3"
@@ -3992,7 +4002,7 @@
   ""
   "neg %0"
   [(set_attr "length" "1")
-   (set_attr "cc" "set_zn")])
+   (set_attr "cc" "set_vzn")])
 
 (define_insn "*negqihi2"
   [(set (match_operand:HI 0 "register_operand"                        "=r")
@@ -5342,7 +5352,7 @@
                       (label_ref (match_operand 0 "" ""))
                       (pc)))]
   "!AVR_HAVE_JMP_CALL
-   || !avr_current_device->errata_skip"
+   || !(avr_current_device->dev_attribute & AVR_ERRATA_SKIP)"
   {
     if (operands[2] == CONST0_RTX (<MODE>mode))
       operands[2] = zero_reg_rtx;

@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ansidecl.h"
 #include "coretypes.h"
 #include "opts.h"
+#include "signop.h"
+#include "tree-core.h"
+#include "stor-layout.h"
 #include "tree.h"
 #include "debug.h"
 #include "langhooks.h"
@@ -29,6 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 
 #include "tree-iterator.h"
+#include "tree-ssa-alias.h"
+#include "gimple-expr.h"
 #include "gimple.h"
 #include "gimple-pretty-print.h"
 #include "internal-api.h"
@@ -199,7 +204,7 @@ static void
 jit_langhook_write_globals (void)
 {
   /* This is the hook that runs the middle and backends: */
-  finalize_compilation_unit ();
+  symtab->finalize_compilation_unit ();
 }
 
 #undef LANG_HOOKS_NAME

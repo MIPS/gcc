@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,10 +28,15 @@
  *  Do not attempt to use it directly. @headername{regex}
  */
 
+// A non-standard switch to let the user pick the matching algorithm.
+// If _GLIBCXX_REGEX_USE_THOMPSON_NFA is defined, the thompson NFA
+// algorithm will be used. This algorithm is not enabled by default,
+// and cannot be used if the regex contains back-references, but has better
+// (polynomial instead of exponential) worst case performance.
+// See __regex_algo_impl below.
+
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
 namespace __detail
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -61,14 +66,33 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       for (auto& __it : __res)
 	__it.matched = false;
 
-      auto __executor = __get_executor<_BiIter, _Alloc, _CharT, _TraitsT,
-	   __policy>(__s, __e, __res, __re, __flags);
-
+      // __policy is used by testsuites so that they can use Thompson NFA
+      // without defining a macro. Users should define
+      // _GLIBCXX_REGEX_USE_THOMPSON_NFA if they need to use this approach.
       bool __ret;
-      if (__match_mode)
-	__ret = __executor->_M_match();
+      if (!__re._M_automaton->_M_has_backref
+	  && !(__re._M_flags & regex_constants::ECMAScript)
+#ifndef _GLIBCXX_REGEX_USE_THOMPSON_NFA
+	  && __policy == _RegexExecutorPolicy::_S_alternate
+#endif
+	  )
+	{
+	  _Executor<_BiIter, _Alloc, _TraitsT, false>
+	    __executor(__s, __e, __m, __re, __flags);
+	  if (__match_mode)
+	    __ret = __executor._M_match();
+	  else
+	    __ret = __executor._M_search();
+	}
       else
-	__ret = __executor->_M_search();
+	{
+	  _Executor<_BiIter, _Alloc, _TraitsT, true>
+	    __executor(__s, __e, __m, __re, __flags);
+	  if (__match_mode)
+	    __ret = __executor._M_match();
+	  else
+	    __ret = __executor._M_search();
+	}
       if (__ret)
 	{
 	  for (auto __it : __res)
@@ -94,14 +118,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      __suf.second = __e;
 	      __suf.matched = (__suf.first != __suf.second);
 	    }
-	  if (__re.flags() & regex_constants::nosubs)
-	    __res.resize(3);
 	}
       return __ret;
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION
 }
+
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _Ch_type>
   template<typename _Fwd_iter>
@@ -393,7 +417,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
 	{
 	  auto& __sub = _Base_type::operator[](__idx);
 	  if (__sub.matched)
-	    std::copy(__sub.first, __sub.second, __out);
+	    __out = std::copy(__sub.first, __sub.second, __out);
 	};
 
       if (__flags & regex_constants::format_sed)
@@ -423,7 +447,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
 	      if (__next == __fmt_last)
 		break;
 
-	      std::copy(__fmt_first, __next, __out);
+	      __out = std::copy(__fmt_first, __next, __out);
 
 	      auto __eat = [&](char __ch) -> bool
 		{
@@ -461,7 +485,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
 		*__out++ = '$';
 	      __fmt_first = __next;
 	    }
-	  std::copy(__fmt_first, __fmt_last, __out);
+	  __out = std::copy(__fmt_first, __fmt_last, __out);
 	}
       return __out;
     }
@@ -480,7 +504,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
       if (__i == __end)
 	{
 	  if (!(__flags & regex_constants::format_no_copy))
-	    std::copy(__first, __last, __out);
+	    __out = std::copy(__first, __last, __out);
 	}
       else
 	{
@@ -489,14 +513,15 @@ _GLIBCXX_END_NAMESPACE_VERSION
 	  for (; __i != __end; ++__i)
 	    {
 	      if (!(__flags & regex_constants::format_no_copy))
-		std::copy(__i->prefix().first, __i->prefix().second, __out);
+		__out = std::copy(__i->prefix().first, __i->prefix().second,
+				  __out);
 	      __out = __i->format(__out, __fmt, __fmt + __len, __flags);
 	      __last = __i->suffix();
 	      if (__flags & regex_constants::format_first_only)
 		break;
 	    }
 	  if (!(__flags & regex_constants::format_no_copy))
-	    std::copy(__last.first, __last.second, __out);
+	    __out = std::copy(__last.first, __last.second, __out);
 	}
       return __out;
     }

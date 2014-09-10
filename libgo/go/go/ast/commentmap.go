@@ -129,11 +129,11 @@ func (s *nodeStack) pop(pos token.Pos) (top Node) {
 //
 // A comment group g is associated with a node n if:
 //
-// - g starts on the same line as n ends
-// - g starts on the line immediately following n, and there is
-//   at least one empty line after g and before the next node
-// - g starts before n and is not associated to the node before n
-//   via the previous rules
+//   - g starts on the same line as n ends
+//   - g starts on the line immediately following n, and there is
+//     at least one empty line after g and before the next node
+//   - g starts before n and is not associated to the node before n
+//     via the previous rules
 //
 // NewCommentMap tries to associate a comment group to the "largest"
 // node possible: For instance, if the comment is a line comment
@@ -149,7 +149,7 @@ func NewCommentMap(fset *token.FileSet, node Node, comments []*CommentGroup) Com
 
 	// set up comment reader r
 	tmp := make([]*CommentGroup, len(comments))
-	copy(tmp, comments) // don't change incomming comments
+	copy(tmp, comments) // don't change incoming comments
 	sortComments(tmp)
 	r := commentListReader{fset: fset, list: tmp} // !r.eol() because len(comments) > 0
 	r.next()

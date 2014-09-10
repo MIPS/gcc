@@ -1,5 +1,5 @@
 /* Prototypes for Blackfin functions used in the md file & elsewhere.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
    This file is part of GNU CC.
 
@@ -97,7 +97,7 @@ extern void print_address_operand (FILE *, rtx);
 extern void split_di (rtx [], int, rtx [], rtx []);
 extern int split_load_immediate (rtx []);
 extern void emit_pic_move (rtx *, enum machine_mode);
-extern void asm_conditional_branch (rtx, rtx *, int, int);
+extern void asm_conditional_branch (rtx_insn *, rtx *, int, int);
 extern rtx bfin_gen_compare (rtx, enum machine_mode);
 
 extern unsigned bfin_local_alignment (tree, unsigned);
@@ -105,8 +105,8 @@ extern rtx bfin_va_arg (tree, tree);
 
 extern void bfin_expand_prologue (void);
 extern void bfin_expand_epilogue (int, int, bool);
-extern int push_multiple_operation (rtx, enum machine_mode);
-extern int pop_multiple_operation (rtx, enum machine_mode);
+extern int analyze_push_multiple_operation (rtx);
+extern int analyze_pop_multiple_operation (rtx);
 extern void output_push_multiple (rtx, rtx *);
 extern void output_pop_multiple (rtx, rtx *);
 extern int bfin_hard_regno_rename_ok (unsigned int, unsigned int);

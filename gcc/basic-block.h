@@ -1,5 +1,5 @@
 /* Define control flow data structures for the CFG.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -39,7 +39,7 @@ struct GTY((user)) edge_def {
   /* Instructions queued on the edge.  */
   union edge_def_insns {
     gimple_seq g;
-    rtx r;
+    rtx_insn *r;
   } insns;
 
   /* Auxiliary info specific to a pass.  */
@@ -122,12 +122,12 @@ struct loop;
 struct GTY(()) rtl_bb_info {
   /* The first insn of the block is embedded into bb->il.x.  */
   /* The last insn of the block.  */
-  rtx end_;
+  rtx_insn *end_;
 
   /* In CFGlayout mode points to insn notes/jumptables to be placed just before
      and after the block.   */
-  rtx header_;
-  rtx footer_;
+  rtx_insn *header_;
+  rtx_insn *footer_;
 };
 
 struct GTY(()) gimple_bb_info {
@@ -185,7 +185,7 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
   union basic_block_il_dependent {
       struct gimple_bb_info GTY ((tag ("0"))) gimple;
       struct {
-        rtx head_;
+        rtx_insn *head_;
         struct rtl_bb_info * rtl;
       } GTY ((tag ("1"))) x;
     } GTY ((desc ("((%1.flags & BB_RTL) != 0)"))) il;
@@ -312,32 +312,19 @@ struct GTY(()) control_flow_graph {
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
-#define ENTRY_BLOCK_PTR_FOR_FUNCTION(FN)     ((FN)->cfg->x_entry_block_ptr)
-#define EXIT_BLOCK_PTR_FOR_FUNCTION(FN)	     ((FN)->cfg->x_exit_block_ptr)
-#define basic_block_info_for_function(FN)    ((FN)->cfg->x_basic_block_info)
-#define n_basic_blocks_for_function(FN)	     ((FN)->cfg->x_n_basic_blocks)
-#define n_edges_for_function(FN)	     ((FN)->cfg->x_n_edges)
-#define last_basic_block_for_function(FN)    ((FN)->cfg->x_last_basic_block)
-#define label_to_block_map_for_function(FN)  ((FN)->cfg->x_label_to_block_map)
-#define profile_status_for_function(FN)	     ((FN)->cfg->x_profile_status)
+#define ENTRY_BLOCK_PTR_FOR_FN(FN)	     ((FN)->cfg->x_entry_block_ptr)
+#define EXIT_BLOCK_PTR_FOR_FN(FN)	     ((FN)->cfg->x_exit_block_ptr)
+#define basic_block_info_for_fn(FN)	     ((FN)->cfg->x_basic_block_info)
+#define n_basic_blocks_for_fn(FN)	     ((FN)->cfg->x_n_basic_blocks)
+#define n_edges_for_fn(FN)		     ((FN)->cfg->x_n_edges)
+#define last_basic_block_for_fn(FN)	     ((FN)->cfg->x_last_basic_block)
+#define label_to_block_map_for_fn(FN)	     ((FN)->cfg->x_label_to_block_map)
+#define profile_status_for_fn(FN)	     ((FN)->cfg->x_profile_status)
 
-#define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
-  ((*basic_block_info_for_function (FN))[(N)])
-#define SET_BASIC_BLOCK_FOR_FUNCTION(FN,N,BB) \
-  ((*basic_block_info_for_function (FN))[(N)] = (BB))
-
-/* Defines for textual backward source compatibility.  */
-#define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
-#define EXIT_BLOCK_PTR		(cfun->cfg->x_exit_block_ptr)
-#define basic_block_info	(cfun->cfg->x_basic_block_info)
-#define n_basic_blocks		(cfun->cfg->x_n_basic_blocks)
-#define n_edges			(cfun->cfg->x_n_edges)
-#define last_basic_block	(cfun->cfg->x_last_basic_block)
-#define label_to_block_map	(cfun->cfg->x_label_to_block_map)
-#define profile_status		(cfun->cfg->x_profile_status)
-
-#define BASIC_BLOCK(N)		((*basic_block_info)[(N)])
-#define SET_BASIC_BLOCK(N,BB)	((*basic_block_info)[(N)] = (BB))
+#define BASIC_BLOCK_FOR_FN(FN,N) \
+  ((*basic_block_info_for_fn (FN))[(N)])
+#define SET_BASIC_BLOCK_FOR_FN(FN,N,BB) \
+  ((*basic_block_info_for_fn (FN))[(N)] = (BB))
 
 /* For iterating over basic blocks.  */
 #define FOR_BB_BETWEEN(BB, FROM, TO, DIR) \
@@ -346,12 +333,8 @@ struct GTY(()) control_flow_graph {
 #define FOR_EACH_BB_FN(BB, FN) \
   FOR_BB_BETWEEN (BB, (FN)->cfg->x_entry_block_ptr->next_bb, (FN)->cfg->x_exit_block_ptr, next_bb)
 
-#define FOR_EACH_BB(BB) FOR_EACH_BB_FN (BB, cfun)
-
 #define FOR_EACH_BB_REVERSE_FN(BB, FN) \
   FOR_BB_BETWEEN (BB, (FN)->cfg->x_exit_block_ptr->prev_bb, (FN)->cfg->x_entry_block_ptr, prev_bb)
-
-#define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN (BB, cfun)
 
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
@@ -379,14 +362,15 @@ struct GTY(()) control_flow_graph {
 /* Cycles through _all_ basic blocks, even the fake ones (entry and
    exit block).  */
 
-#define FOR_ALL_BB(BB) \
-  for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
-
 #define FOR_ALL_BB_FN(BB, FN) \
-  for (BB = ENTRY_BLOCK_PTR_FOR_FUNCTION (FN); BB; BB = BB->next_bb)
+  for (BB = ENTRY_BLOCK_PTR_FOR_FN (FN); BB; BB = BB->next_bb)
 
 
 /* Stuff for recording basic block info.  */
+
+/* For now, these will be functions (so that they can include checked casts
+   to rtx_insn.   Once the underlying fields are converted from rtx
+   to rtx_insn, these can be converted back to macros.  */
 
 #define BB_HEAD(B)      (B)->il.x.head_
 #define BB_END(B)       (B)->il.x.rtl->end_
@@ -401,14 +385,12 @@ struct GTY(()) control_flow_graph {
 /* The two blocks that are always in the cfg.  */
 #define NUM_FIXED_BLOCKS (2)
 
-#define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
-
 extern void compute_bb_for_insn (void);
 extern unsigned int free_bb_for_insn (void);
 extern void update_bb_for_insn (basic_block);
 
 extern void insert_insn_on_edge (rtx, edge);
-basic_block split_edge_and_insert (edge, rtx);
+basic_block split_edge_and_insert (edge, rtx_insn *);
 
 extern void commit_one_edge_insertion (edge e);
 extern void commit_edge_insertions (void);
@@ -421,7 +403,8 @@ extern void remove_edge_raw (edge);
 extern void redirect_edge_succ (edge, basic_block);
 extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
-extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
+extern basic_block create_basic_block_structure (rtx_insn *, rtx_insn *,
+						 rtx_note *, basic_block);
 extern void clear_bb_flags (void);
 extern void dump_bb_info (FILE *, basic_block, int, int, bool, bool);
 extern void dump_edge_info (FILE *, edge, int, int);
@@ -438,7 +421,7 @@ extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type,
    needs to be in a public file in case the IFCVT macros call
    functions passing the ce_if_block data structure.  */
 
-typedef struct ce_if_block
+struct ce_if_block
 {
   basic_block test_bb;			/* First test block.  */
   basic_block then_bb;			/* THEN block.  */
@@ -453,7 +436,7 @@ typedef struct ce_if_block
   int num_then_insns;			/* # of insns in THEN block.  */
   int num_else_insns;			/* # of insns in ELSE block.  */
   int pass;				/* Pass number.  */
-} ce_if_block_t;
+};
 
 /* This structure maintains an edge list vector.  */
 /* FIXME: Make this a vec<edge>.  */
@@ -584,10 +567,10 @@ single_pred (const_basic_block bb)
 
 /* Iterator object for edges.  */
 
-typedef struct {
+struct edge_iterator {
   unsigned index;
   vec<edge, va_gc> **container;
-} edge_iterator;
+};
 
 static inline vec<edge, va_gc> *
 ei_container (edge_iterator i)
@@ -731,6 +714,9 @@ extern void bitmap_union_of_preds (sbitmap, sbitmap *, basic_block);
 extern struct edge_list *pre_edge_lcm (int, sbitmap *, sbitmap *,
 				       sbitmap *, sbitmap *, sbitmap **,
 				       sbitmap **);
+extern struct edge_list *pre_edge_lcm_avs (int, sbitmap *, sbitmap *,
+					   sbitmap *, sbitmap *, sbitmap *,
+					   sbitmap *, sbitmap **, sbitmap **);
 extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 					   sbitmap *, sbitmap *,
 					   sbitmap *, sbitmap **,
@@ -795,17 +781,19 @@ extern void connect_infinite_loops_to_exit (void);
 extern int post_order_compute (int *, bool, bool);
 extern basic_block dfs_find_deadend (basic_block);
 extern int inverted_post_order_compute (int *);
+extern int pre_and_rev_post_order_compute_fn (struct function *,
+					      int *, int *, bool);
 extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(const_basic_block, const void *),
 			       basic_block *, int, const void *);
-extern void compute_dominance_frontiers (struct bitmap_head_def *);
-extern bitmap compute_idf (bitmap, struct bitmap_head_def *);
+extern void compute_dominance_frontiers (struct bitmap_head *);
+extern bitmap compute_idf (bitmap, struct bitmap_head *);
 extern basic_block * single_pred_before_succ_order (void);
 
 /* In cfgrtl.c  */
 extern rtx block_label (basic_block);
-extern rtx bb_note (basic_block);
+extern rtx_note *bb_note (basic_block);
 extern bool purge_all_dead_edges (void);
 extern bool purge_dead_edges (basic_block);
 extern bool fixup_abnormal_edges (void);
@@ -824,17 +812,17 @@ enum replace_direction { dir_none, dir_forward, dir_backward, dir_both };
 
 /* In cfgcleanup.c.  */
 extern bool cleanup_cfg (int);
-extern int flow_find_cross_jump (basic_block, basic_block, rtx *, rtx *,
-                                 enum replace_direction*);
+extern int flow_find_cross_jump (basic_block, basic_block, rtx_insn **,
+				 rtx_insn **, enum replace_direction*);
 extern int flow_find_head_matching_sequence (basic_block, basic_block,
-					     rtx *, rtx *, int);
+					     rtx_insn **, rtx_insn **, int);
 
 extern bool delete_unreachable_blocks (void);
 
 extern void update_br_prob_note (basic_block);
-extern bool inside_basic_block_p (const_rtx);
-extern bool control_flow_insn_p (const_rtx);
-extern rtx get_last_bb_insn (basic_block);
+extern bool inside_basic_block_p (const rtx_insn *);
+extern bool control_flow_insn_p (const rtx_insn *);
+extern rtx_insn *get_last_bb_insn (basic_block);
 
 /* In dominance.c */
 
@@ -844,10 +832,13 @@ enum cdi_direction
   CDI_POST_DOMINATORS = 2
 };
 
+extern enum dom_state dom_info_state (function *, enum cdi_direction);
 extern enum dom_state dom_info_state (enum cdi_direction);
 extern void set_dom_info_availability (enum cdi_direction, enum dom_state);
+extern bool dom_info_available_p (function *, enum cdi_direction);
 extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);
+extern void free_dominance_info (function *, enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,
 					     basic_block, basic_block);
@@ -894,6 +885,14 @@ void set_loop_copy (struct loop *, struct loop *);
 struct loop *get_loop_copy (struct loop *);
 
 #include "cfghooks.h"
+
+/* Return true if BB is in a transaction.  */
+
+static inline bool
+bb_in_transaction (basic_block bb)
+{
+  return bb->flags & BB_IN_TRANSACTION;
+}
 
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
 static inline bool
@@ -997,5 +996,20 @@ inverse_probability (int prob1)
 {
   check_probability (prob1);
   return REG_BR_PROB_BASE - prob1;
+}
+
+/* Return true if BB has at least one abnormal outgoing edge.  */
+
+static inline bool
+has_abnormal_or_eh_outgoing_edge_p (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
+      return true;
+
+  return false;
 }
 #endif /* GCC_BASIC_BLOCK_H */

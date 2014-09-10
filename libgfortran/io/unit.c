@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -375,6 +375,36 @@ find_or_create_unit (int n)
 }
 
 
+/* Helper function to check rank, stride, format string, and namelist.
+   This is used for optimization. You can't trim out blanks or shorten
+   the string if trailing spaces are significant.  */
+static bool
+is_trim_ok (st_parameter_dt *dtp)
+{
+  /* Check rank and stride.  */
+  if (dtp->internal_unit_desc)
+    return false;
+  /* Format strings can not have 'BZ' or '/'.  */
+  if (dtp->common.flags & IOPARM_DT_HAS_FORMAT)
+    {
+      char *p = dtp->format;
+      off_t i;
+      if (dtp->common.flags & IOPARM_DT_HAS_BLANK)
+	return false;
+      for (i = 0; i < dtp->format_len; i++)
+	{
+	  if (p[i] == '/') return false;
+	  if (p[i] == 'b' || p[i] == 'B')
+	    if (p[i+1] == 'z' || p[i+1] == 'Z')
+	      return false;
+	}
+    }
+  if (dtp->u.p.ionml) /* A namelist.  */
+    return false;
+  return true;
+}
+
+
 gfc_unit *
 get_internal_unit (st_parameter_dt *dtp)
 {
@@ -402,38 +432,33 @@ get_internal_unit (st_parameter_dt *dtp)
      some other file I/O unit.  */
   iunit->unit_number = -1;
 
+  /* As an optimization, adjust the unit record length to not
+     include trailing blanks. This will not work under certain conditions
+     where trailing blanks have significance.  */
+  if (dtp->u.p.mode == READING && is_trim_ok (dtp))
+    {
+      int len;
+      if (dtp->common.unit == 0)
+	  len = string_len_trim (dtp->internal_unit_len,
+						   dtp->internal_unit);
+      else
+	  len = string_len_trim_char4 (dtp->internal_unit_len,
+			      (const gfc_char4_t*) dtp->internal_unit);
+      dtp->internal_unit_len = len; 
+      iunit->recl = dtp->internal_unit_len;
+    }
+
   /* Set up the looping specification from the array descriptor, if any.  */
 
   if (is_array_io (dtp))
     {
       iunit->rank = GFC_DESCRIPTOR_RANK (dtp->internal_unit_desc);
       iunit->ls = (array_loop_spec *)
-	xmalloc (iunit->rank * sizeof (array_loop_spec));
+	xmallocarray (iunit->rank, sizeof (array_loop_spec));
       dtp->internal_unit_len *=
 	init_loop_spec (dtp->internal_unit_desc, iunit->ls, &start_record);
 
       start_record *= iunit->recl;
-    }
-  else
-    {
-      /* If we are not processing an array, adjust the unit record length not
-	 to include trailing blanks for list-formatted reads.  */
-      if (dtp->u.p.mode == READING && !(dtp->common.flags & IOPARM_DT_HAS_FORMAT))
-	{
-	  if (dtp->common.unit == 0)
-	    {
-	      dtp->internal_unit_len =
-		string_len_trim (dtp->internal_unit_len, dtp->internal_unit);
-	      iunit->recl = dtp->internal_unit_len;
-	    }
-	  else
-	    {
-	      dtp->internal_unit_len =
-		string_len_trim_char4 (dtp->internal_unit_len,
-				       (const gfc_char4_t*) dtp->internal_unit);
-	      iunit->recl = dtp->internal_unit_len;
-	    }
-	}
     }
 
   /* Set initial values for unit parameters.  */
@@ -464,6 +489,7 @@ get_internal_unit (st_parameter_dt *dtp)
   iunit->flags.status = STATUS_UNSPECIFIED;
   iunit->flags.sign = SIGN_SUPPRESS;
   iunit->flags.decimal = DECIMAL_POINT;
+  iunit->flags.delim = DELIM_UNSPECIFIED;
   iunit->flags.encoding = ENCODING_DEFAULT;
   iunit->flags.async = ASYNC_NO;
   iunit->flags.round = ROUND_UNSPECIFIED;
@@ -584,6 +610,7 @@ init_units (void)
       u->flags.position = POSITION_ASIS;
       u->flags.sign = SIGN_SUPPRESS;
       u->flags.decimal = DECIMAL_POINT;
+      u->flags.delim = DELIM_UNSPECIFIED;
       u->flags.encoding = ENCODING_DEFAULT;
       u->flags.async = ASYNC_NO;
       u->flags.round = ROUND_UNSPECIFIED;
@@ -759,7 +786,6 @@ unit_truncate (gfc_unit * u, gfc_offset pos, st_parameter_common * common)
 char *
 filename_from_unit (int n)
 {
-  char *filename;
   gfc_unit *u;
   int c;
 
@@ -778,11 +804,7 @@ filename_from_unit (int n)
 
   /* Get the filename.  */
   if (u != NULL)
-    {
-      filename = (char *) xmalloc (u->file_len + 1);
-      unpack_filename (filename, u->file, u->file_len);
-      return filename;
-    }
+    return fc_strdup (u->file, u->file_len);
   else
     return (char *) NULL;
 }

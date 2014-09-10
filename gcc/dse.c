@@ -1,5 +1,5 @@
 /* RTL dead store elimination.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
    Contributed by Richard Sandiford <rsandifor@codesourcery.com>
    and Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -46,8 +47,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "target.h"
 #include "params.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
+#include "rtl-iter.h"
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).
@@ -374,7 +380,7 @@ struct insn_info
   bool contains_cselib_groups;
 
   /* The insn. */
-  rtx insn;
+  rtx_insn *insn;
 
   /* The list of mem sets or mem clobbers that are contained in this
      insn.  If the insn is deletable, it contains only one mem set.
@@ -602,11 +608,6 @@ static bitmap kill_on_calls;
 
 /* The number of bits used in the global bitmaps.  */
 static unsigned int current_position;
-
-
-static bool gate_dse1 (void);
-static bool gate_dse2 (void);
-
 
 /*----------------------------------------------------------------------------
    Zeroth step.
@@ -657,7 +658,7 @@ invariant_group_base_hasher::hash (const value_type *gi)
 }
 
 /* Tables of group_info structures, hashed by base value.  */
-static hash_table <invariant_group_base_hasher> rtx_group_table;
+static hash_table<invariant_group_base_hasher> *rtx_group_table;
 
 
 /* Get the GROUP for BASE.  Add a new group if it is not there.  */
@@ -674,7 +675,7 @@ get_group_info (rtx base)
       /* Find the store_base_info structure for BASE, creating a new one
 	 if necessary.  */
       tmp_gi.rtx_base = base;
-      slot = rtx_group_table.find_slot (&tmp_gi, INSERT);
+      slot = rtx_group_table->find_slot (&tmp_gi, INSERT);
       gi = (group_info_t) *slot;
     }
   else
@@ -764,9 +765,9 @@ dse_step0 (void)
     = create_alloc_pool ("deferred_change_pool",
 			 sizeof (struct deferred_change), 10);
 
-  rtx_group_table.create (11);
+  rtx_group_table = new hash_table<invariant_group_base_hasher> (11);
 
-  bb_table = XNEWVEC (bb_info_t, last_basic_block);
+  bb_table = XNEWVEC (bb_info_t, last_basic_block_for_fn (cfun));
   rtx_group_next_id = 0;
 
   stores_off_frame_dead_at_return = !cfun->stdarg;
@@ -811,7 +812,7 @@ free_store_info (insn_info_t insn_info)
 
 typedef struct
 {
-  rtx first, current;
+  rtx_insn *first, *current;
   regset fixed_regs_live;
   bool failure;
 } note_add_store_info;
@@ -822,7 +823,7 @@ typedef struct
 static void
 note_add_store (rtx loc, const_rtx expr ATTRIBUTE_UNUSED, void *data)
 {
-  rtx insn;
+  rtx_insn *insn;
   note_add_store_info *info = (note_add_store_info *) data;
   int r, n;
 
@@ -863,7 +864,7 @@ emit_inc_dec_insn_before (rtx mem ATTRIBUTE_UNUSED,
 			  rtx dest, rtx src, rtx srcoff, void *arg)
 {
   insn_info_t insn_info = (insn_info_t) arg;
-  rtx insn = insn_info->insn, new_insn, cur;
+  rtx_insn *insn = insn_info->insn, *new_insn, *cur;
   note_add_store_info info;
 
   /* We can reuse all operands without copying, because we are about
@@ -876,7 +877,7 @@ emit_inc_dec_insn_before (rtx mem ATTRIBUTE_UNUSED,
       end_sequence ();
     }
   else
-    new_insn = gen_move_insn (dest, src);
+    new_insn = as_a <rtx_insn *> (gen_move_insn (dest, src));
   info.first = new_insn;
   info.fixed_regs_live = insn_info->fixed_regs_live;
   info.failure = false;
@@ -893,7 +894,7 @@ emit_inc_dec_insn_before (rtx mem ATTRIBUTE_UNUSED,
 
   emit_insn_before (new_insn, insn);
 
-  return -1;
+  return 0;
 }
 
 /* Before we delete INSN_INFO->INSN, make sure that the auto inc/dec, if it
@@ -903,10 +904,11 @@ emit_inc_dec_insn_before (rtx mem ATTRIBUTE_UNUSED,
 static bool
 check_for_inc_dec_1 (insn_info_t insn_info)
 {
-  rtx insn = insn_info->insn;
+  rtx_insn *insn = insn_info->insn;
   rtx note = find_reg_note (insn, REG_INC, NULL_RTX);
   if (note)
-    return for_each_inc_dec (&insn, emit_inc_dec_insn_before, insn_info) == 0;
+    return for_each_inc_dec (PATTERN (insn), emit_inc_dec_insn_before,
+			     insn_info) == 0;
   return true;
 }
 
@@ -916,7 +918,7 @@ check_for_inc_dec_1 (insn_info_t insn_info)
    and add a parameter to this function so that it can be passed down in
    insn_info.fixed_regs_live.  */
 bool
-check_for_inc_dec (rtx insn)
+check_for_inc_dec (rtx_insn *insn)
 {
   struct insn_info insn_info;
   rtx note;
@@ -925,7 +927,8 @@ check_for_inc_dec (rtx insn)
   insn_info.fixed_regs_live = NULL;
   note = find_reg_note (insn, REG_INC, NULL_RTX);
   if (note)
-    return for_each_inc_dec (&insn, emit_inc_dec_insn_before, &insn_info) == 0;
+    return for_each_inc_dec (PATTERN (insn), emit_inc_dec_insn_before,
+			     &insn_info) == 0;
   return true;
 }
 
@@ -985,10 +988,9 @@ local_variable_can_escape (tree decl)
      of the escape analysis.  */
   if (cfun->gimple_df->decls_to_pointers != NULL)
     {
-      void *namep
-	= pointer_map_contains (cfun->gimple_df->decls_to_pointers, decl);
+      tree *namep = cfun->gimple_df->decls_to_pointers->get (decl);
       if (namep)
-	return TREE_ADDRESSABLE (*(tree *)namep);
+	return TREE_ADDRESSABLE (*namep);
     }
 
   return false;
@@ -1740,7 +1742,8 @@ find_shift_sequence (int access_size,
        GET_MODE_BITSIZE (new_mode) <= BITS_PER_WORD;
        new_mode = GET_MODE_WIDER_MODE (new_mode))
     {
-      rtx target, new_reg, shift_seq, insn, new_lhs;
+      rtx target, new_reg, new_lhs;
+      rtx_insn *shift_seq, *insn;
       int cost;
 
       /* If a constant was stored into memory, try to simplify it here,
@@ -1960,7 +1963,8 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
 {
   enum machine_mode store_mode = GET_MODE (store_info->mem);
   enum machine_mode read_mode = GET_MODE (read_info->mem);
-  rtx insns, this_insn, read_reg;
+  rtx_insn *insns, *this_insn;
+  rtx read_reg;
   basic_block bb;
 
   if (!dbg_cnt (dse))
@@ -2088,15 +2092,13 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
     }
 }
 
-/* A for_each_rtx callback in which DATA is the bb_info.  Check to see
-   if LOC is a mem and if it is look at the address and kill any
-   appropriate stores that may be active.  */
+/* Check the address of MEM *LOC and kill any appropriate stores that may
+   be active.  */
 
-static int
-check_mem_read_rtx (rtx *loc, void *data)
+static void
+check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
 {
   rtx mem = *loc, mem_addr;
-  bb_info_t bb_info;
   insn_info_t insn_info;
   HOST_WIDE_INT offset = 0;
   HOST_WIDE_INT width = 0;
@@ -2105,10 +2107,6 @@ check_mem_read_rtx (rtx *loc, void *data)
   int group_id;
   read_info_t read_info;
 
-  if (!mem || !MEM_P (mem))
-    return 0;
-
-  bb_info = (bb_info_t) data;
   insn_info = bb_info->last_insn;
 
   if ((MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
@@ -2118,20 +2116,20 @@ check_mem_read_rtx (rtx *loc, void *data)
 	fprintf (dump_file, " adding wild read, volatile or barrier.\n");
       add_wild_read (bb_info);
       insn_info->cannot_delete = true;
-      return 0;
+      return;
     }
 
   /* If it is reading readonly mem, then there can be no conflict with
      another write. */
   if (MEM_READONLY_P (mem))
-    return 0;
+    return;
 
   if (!canon_address (mem, &spill_alias_set, &group_id, &offset, &base))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, " adding wild read, canon_address failure.\n");
       add_wild_read (bb_info);
-      return 0;
+      return;
     }
 
   if (GET_MODE (mem) == BLKmode)
@@ -2259,7 +2257,7 @@ check_mem_read_rtx (rtx *loc, void *data)
 						 width)
 		      && replace_read (store_info, i_ptr, read_info,
 				       insn_info, loc, bb_info->regs_live))
-		    return 0;
+		    return;
 
 		  /* The bases are the same, just see if the offsets
 		     overlap.  */
@@ -2326,7 +2324,7 @@ check_mem_read_rtx (rtx *loc, void *data)
 					 offset - store_info->begin, width)
 	      && replace_read (store_info, i_ptr,  read_info, insn_info, loc,
 			       bb_info->regs_live))
-	    return 0;
+	    return;
 
 	  if (!store_info->alias_set)
 	    remove = canon_true_dependence (store_info->mem,
@@ -2350,17 +2348,22 @@ check_mem_read_rtx (rtx *loc, void *data)
 	  i_ptr = i_ptr->next_local_store;
 	}
     }
-  return 0;
 }
 
-/* A for_each_rtx callback in which DATA points the INSN_INFO for
+/* A note_uses callback in which DATA points the INSN_INFO for
    as check_mem_read_rtx.  Nullify the pointer if i_m_r_m_r returns
    true for any part of *LOC.  */
 
 static void
 check_mem_read_use (rtx *loc, void *data)
 {
-  for_each_rtx (loc, check_mem_read_rtx, data);
+  subrtx_ptr_iterator::array_type array;
+  FOR_EACH_SUBRTX_PTR (iter, array, loc, NONCONST)
+    {
+      rtx *loc = *iter;
+      if (MEM_P (*loc))
+	check_mem_read_rtx (loc, (bb_info_t) data);
+    }
 }
 
 
@@ -2443,7 +2446,7 @@ copy_fixed_regs (const_bitmap in)
    non-register target.  */
 
 static void
-scan_insn (bb_info_t bb_info, rtx insn)
+scan_insn (bb_info_t bb_info, rtx_insn *insn)
 {
   rtx body;
   insn_info_t insn_info = (insn_info_t) pool_alloc (insn_info_pool);
@@ -2460,16 +2463,6 @@ scan_insn (bb_info_t bb_info, rtx insn)
 
   if (DEBUG_INSN_P (insn))
     {
-      insn_info->cannot_delete = true;
-      return;
-    }
-
-  /* Cselib clears the table for this case, so we have to essentially
-     do the same.  */
-  if (NONJUMP_INSN_P (insn)
-      && volatile_insn_p (PATTERN (insn)))
-    {
-      add_wild_read (bb_info);
       insn_info->cannot_delete = true;
       return;
     }
@@ -2702,7 +2695,7 @@ dse_step1 (void)
   bitmap_set_bit (all_blocks, ENTRY_BLOCK);
   bitmap_set_bit (all_blocks, EXIT_BLOCK);
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       insn_info_t ptr;
       bb_info_t bb_info = (bb_info_t) pool_alloc (bb_info_pool);
@@ -2719,7 +2712,7 @@ dse_step1 (void)
 
       if (bb->index >= NUM_FIXED_BLOCKS)
 	{
-	  rtx insn;
+	  rtx_insn *insn;
 
 	  cse_store_info_pool
 	    = create_alloc_pool ("cse_store_info_pool",
@@ -2750,7 +2743,7 @@ dse_step1 (void)
 	  if (stores_off_frame_dead_at_return
 	      && (EDGE_COUNT (bb->succs) == 0
 		  || (single_succ_p (bb)
-		      && single_succ (bb) == EXIT_BLOCK_PTR
+		      && single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun)
 		      && ! crtl->calls_eh_return)))
 	    {
 	      insn_info_t i_ptr = active_local_stores;
@@ -2838,7 +2831,7 @@ dse_step1 (void)
 
   BITMAP_FREE (regs_live);
   cselib_finish ();
-  rtx_group_table.empty ();
+  rtx_group_table->empty ();
 }
 
 
@@ -3277,14 +3270,14 @@ static void
 dse_step3 (bool for_spills)
 {
   basic_block bb;
-  sbitmap unreachable_blocks = sbitmap_alloc (last_basic_block);
+  sbitmap unreachable_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   sbitmap_iterator sbi;
   bitmap all_ones = NULL;
   unsigned int i;
 
   bitmap_ones (unreachable_blocks);
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       bb_info_t bb_info = bb_table[bb->index];
       if (bb_info->gen)
@@ -3463,7 +3456,7 @@ dse_step4 (void)
       basic_block bb;
 
       fprintf (dump_file, "\n\n*** Global dataflow info after analysis.\n");
-      FOR_ALL_BB (bb)
+      FOR_ALL_BB_FN (bb, cfun)
 	{
 	  bb_info_t bb_info = bb_table[bb->index];
 
@@ -3501,7 +3494,7 @@ static void
 dse_step5_nospill (void)
 {
   basic_block bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       bb_info_t bb_info = bb_table[bb->index];
       insn_info_t insn_info = bb_info->last_insn;
@@ -3611,7 +3604,7 @@ dse_step6 (void)
 {
   basic_block bb;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       bb_info_t bb_info = bb_table[bb->index];
       insn_info_t insn_info = bb_info->last_insn;
@@ -3633,7 +3626,7 @@ dse_step6 (void)
 		  && s_info->redundant_reason->insn
 		  && INSN_P (s_info->redundant_reason->insn))
 		{
-		  rtx rinsn = s_info->redundant_reason->insn;
+		  rtx_insn *rinsn = s_info->redundant_reason->insn;
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "Locally deleting insn %d "
 					"because insn %d stores the "
@@ -3663,7 +3656,8 @@ dse_step7 (void)
 
   end_alias_analysis ();
   free (bb_table);
-  rtx_group_table.dispose ();
+  delete rtx_group_table;
+  rtx_group_table = NULL;
   rtx_group_vec.release ();
   BITMAP_FREE (all_blocks);
   BITMAP_FREE (scratch);
@@ -3716,20 +3710,6 @@ rest_of_handle_dse (void)
   return 0;
 }
 
-static bool
-gate_dse1 (void)
-{
-  return optimize > 0 && flag_dse
-    && dbg_cnt (dse1);
-}
-
-static bool
-gate_dse2 (void)
-{
-  return optimize > 0 && flag_dse
-    && dbg_cnt (dse2);
-}
-
 namespace {
 
 const pass_data pass_data_rtl_dse1 =
@@ -3737,14 +3717,12 @@ const pass_data pass_data_rtl_dse1 =
   RTL_PASS, /* type */
   "dse1", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_DSE1, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_rtl_dse1 : public rtl_opt_pass
@@ -3755,8 +3733,12 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_dse1 (); }
-  unsigned int execute () { return rest_of_handle_dse (); }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_dse && dbg_cnt (dse1);
+    }
+
+  virtual unsigned int execute (function *) { return rest_of_handle_dse (); }
 
 }; // class pass_rtl_dse1
 
@@ -3775,14 +3757,12 @@ const pass_data pass_data_rtl_dse2 =
   RTL_PASS, /* type */
   "dse2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_DSE2, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_rtl_dse2 : public rtl_opt_pass
@@ -3793,8 +3773,12 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_dse2 (); }
-  unsigned int execute () { return rest_of_handle_dse (); }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_dse && dbg_cnt (dse2);
+    }
+
+  virtual unsigned int execute (function *) { return rest_of_handle_dse (); }
 
 }; // class pass_rtl_dse2
 

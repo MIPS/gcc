@@ -1,5 +1,5 @@
 /* Graphite polyhedral representation.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Tobias Grosser <grosser@fim.uni-passau.de>.
 
@@ -21,22 +21,38 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
 #include <isl/constraint.h>
 #include <isl/ilp.h>
 #include <isl/aff.h>
+#include <isl/val.h>
+#if defined(__cplusplus)
+extern "C" {
+#endif
+#include <isl/val_gmp.h>
+#if defined(__cplusplus)
+}
+#endif
+#ifdef HAVE_cloog
 #include <cloog/cloog.h>
 #include <cloog/isl/domain.h>
+#endif
 #endif
 
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
 #include "dumpfile.h"
 #include "gimple-pretty-print.h"
@@ -46,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "sese.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include "graphite-poly.h"
 
 #define OPENSCOP_MAX_STRING 256
@@ -1023,10 +1039,7 @@ pbb_number_of_iterations_at_time (poly_bb_p pbb,
   isl_set *transdomain;
   isl_space *dc;
   isl_aff *aff;
-  isl_int isllb, islub;
-
-  isl_int_init (isllb);
-  isl_int_init (islub);
+  isl_val *isllb, *islub;
 
   /* Map the iteration domain through the current scatter, and work
      on the resulting set.  */
@@ -1040,15 +1053,14 @@ pbb_number_of_iterations_at_time (poly_bb_p pbb,
 
   /* And find the min/max for that function.  */
   /* XXX isl check results?  */
-  isl_set_min (transdomain, aff, &isllb);
-  isl_set_max (transdomain, aff, &islub);
+  isllb = isl_set_min_val (transdomain, aff);
+  islub = isl_set_max_val (transdomain, aff);
 
-  isl_int_sub (islub, islub, isllb);
-  isl_int_add_ui (islub, islub, 1);
-  isl_int_get_gmp (islub, res);
+  islub = isl_val_sub (islub, isllb);
+  islub = isl_val_add_ui (islub, 1);
+  isl_val_get_num_gmp (islub, res);
 
-  isl_int_clear (isllb);
-  isl_int_clear (islub);
+  isl_val_free (islub);
   isl_aff_free (aff);
   isl_set_free (transdomain);
 }

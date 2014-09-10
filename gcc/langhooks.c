@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -25,15 +25,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "tree-inline.h"
-#include "gimple.h"
+#include "gimplify.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "target.h"
 #include "langhooks-def.h"
-#include "ggc.h"
 #include "diagnostic.h"
 #include "tree-diagnostic.h"
 #include "cgraph.h"
@@ -319,7 +320,7 @@ write_global_declarations (void)
   timevar_start (TV_PHASE_OPT_GEN);
   /* This lang hook is dual-purposed, and also finalizes the
      compilation unit.  */
-  finalize_compilation_unit ();
+  symtab->finalize_compilation_unit ();
   timevar_stop (TV_PHASE_OPT_GEN);
 
   timevar_start (TV_PHASE_DBGINFO);
@@ -514,6 +515,13 @@ lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
   return build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
 }
 
+/* Finalize clause C.  */
+
+void
+lhd_omp_finish_clause (tree, gimple_seq *)
+{
+}
+
 /* Register language specific type size variables as potentially OpenMP
    firstprivate variables.  */
 
@@ -523,13 +531,15 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 {
 }
 
-/* Return true if TYPE is an OpenMP mappable type.  By default return true
-   if type is complete.  */
+/* Return true if TYPE is an OpenMP mappable type.  */
 
 bool
 lhd_omp_mappable_type (tree type)
 {
-  return COMPLETE_TYPE_P (type);
+  /* Mappable type has to be complete.  */
+  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+    return false;
+  return true;
 }
 
 /* Common function for add_builtin_function and
@@ -651,14 +661,13 @@ lhd_begin_section (const char *name)
 
 
 /* Write DATA of length LEN to the current LTO output section.  This default
-   implementation just calls assemble_string and frees BLOCK.  */
+   implementation just calls assemble_string.  */
 
 void
-lhd_append_data (const void *data, size_t len, void *block)
+lhd_append_data (const void *data, size_t len, void *)
 {
   if (data)
     assemble_string ((const char *)data, len);
-  free (block);
 }
 
 
@@ -674,4 +683,13 @@ lhd_end_section (void)
       switch_to_section (saved_section);
       saved_section = NULL;
     }
+}
+
+/* Default implementation of enum_underlying_base_type using type_for_size.  */
+
+tree
+lhd_enum_underlying_base_type (const_tree enum_type)
+{
+  return lang_hooks.types.type_for_size (TYPE_PRECISION (enum_type),
+					 TYPE_UNSIGNED (enum_type));
 }

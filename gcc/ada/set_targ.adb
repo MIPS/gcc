@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2013, Free Software Foundation, Inc.            --
+--          Copyright (C) 2013-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -60,6 +60,7 @@ package body Set_Targ is
    S_Maximum_Alignment          : constant Str := "Maximum_Alignment";
    S_Max_Unaligned_Field        : constant Str := "Max_Unaligned_Field";
    S_Pointer_Size               : constant Str := "Pointer_Size";
+   S_Short_Enums                : constant Str := "Short_Enums";
    S_Short_Size                 : constant Str := "Short_Size";
    S_Strict_Alignment           : constant Str := "Strict_Alignment";
    S_System_Allocator_Alignment : constant Str := "System_Allocator_Alignment";
@@ -88,6 +89,7 @@ package body Set_Targ is
           S_Maximum_Alignment          'Unrestricted_Access,
           S_Max_Unaligned_Field        'Unrestricted_Access,
           S_Pointer_Size               'Unrestricted_Access,
+          S_Short_Enums                'Unrestricted_Access,
           S_Short_Size                 'Unrestricted_Access,
           S_Strict_Alignment           'Unrestricted_Access,
           S_System_Allocator_Alignment 'Unrestricted_Access,
@@ -114,6 +116,7 @@ package body Set_Targ is
           Maximum_Alignment          'Address,
           Max_Unaligned_Field        'Address,
           Pointer_Size               'Address,
+          Short_Enums                'Address,
           Short_Size                 'Address,
           Strict_Alignment           'Address,
           System_Allocator_Alignment 'Address,
@@ -127,6 +130,10 @@ package body Set_Targ is
    -- Local Subprograms --
    -----------------------
 
+   procedure Read_Target_Dependent_Values (File_Name : String);
+   --  Read target dependent values from File_Name, and set the target
+   --  dependent values (global variables) declared in this package.
+
    procedure Fail (E : String);
    pragma No_Return (Fail);
    --  Terminate program with fatal error message passed as parameter
@@ -137,6 +144,7 @@ package body Set_Targ is
       Complex   : Boolean;
       Count     : Natural;
       Float_Rep : Float_Rep_Kind;
+      Precision : Positive;
       Size      : Positive;
       Alignment : Natural);
    pragma Convention (C, Register_Float_Type);
@@ -148,7 +156,8 @@ package body Set_Targ is
    --  non-zero if the type has real and imaginary parts (also ignored during
    --  registration). Count is the number of elements in a vector type (zero =
    --  not a vector, registration ignores vectors). Float_Rep shows the kind of
-   --  floating-point type, and Size/Alignment are the size/alignment in bits.
+   --  floating-point type, and Precision, Size and Alignment are the precision
+   --  size and alignment in bits.
    --
    --  So to summarize, the only types that are actually registered have Digs
    --  non-zero, Complex zero (false), and Count zero (not a vector).
@@ -176,6 +185,7 @@ package body Set_Targ is
       Complex   : Boolean;
       Count     : Natural;
       Float_Rep : Float_Rep_Kind;
+      Precision : Positive;
       Size      : Positive;
       Alignment : Natural)
    is
@@ -215,39 +225,32 @@ package body Set_Targ is
             Write_Str ("pragma Float_Representation (");
 
             case Float_Rep is
-               when IEEE_Binary =>
-                  Write_Str ("IEEE");
-
-               when VAX_Native =>
-                  case Digs is
-                     when  6 =>
-                        Write_Str ("VAXF");
-
-                     when  9 =>
-                        Write_Str ("VAXD");
-
-                     when 15 =>
-                        Write_Str ("VAXG");
-
-                     when others =>
-                        Write_Str ("VAX_");
-                        Write_Int (Int (Digs));
-                  end case;
-
-               when AAMP =>         Write_Str ("AAMP");
+               when IEEE_Binary => Write_Str ("IEEE");
+               when AAMP        => Write_Str ("AAMP");
             end case;
 
             Write_Line (", " & T (1 .. Last) & ");");
 
          else
             Write_Str ("mod 2**");
-            Write_Int (Int (Size / Positive'Max (1, Count)));
+            Write_Int (Int (Precision / Positive'Max (1, Count)));
             Write_Line (";");
          end if;
 
-         Write_Str ("for " & T (1 .. Last) & "'Size use ");
-         Write_Int (Int (Size));
-         Write_Line (";");
+         if Precision = Size then
+            Write_Str ("for " & T (1 .. Last) & "'Size use ");
+            Write_Int (Int (Size));
+            Write_Line (";");
+
+         else
+            Write_Str ("for " & T (1 .. Last) & "'Value_Size use ");
+            Write_Int (Int (Precision));
+            Write_Line (";");
+
+            Write_Str ("for " & T (1 .. Last) & "'Object_Size use ");
+            Write_Int (Int (Size));
+            Write_Line (";");
+         end if;
 
          Write_Str ("for " & T (1 .. Last) & "'Alignment use ");
          Write_Int (Int (Alignment / 8));
@@ -283,6 +286,7 @@ package body Set_Targ is
            (NAME      => new String'(T (1 .. Last)),
             DIGS      => Digs,
             FLOAT_REP => Float_Rep,
+            PRECISION => Precision,
             SIZE      => Size,
             ALIGNMENT => Alignment);
       end if;
@@ -437,15 +441,13 @@ package body Set_Targ is
             case E.FLOAT_REP is
                when IEEE_Binary =>
                   AddC ('I');
-               when VAX_Native  =>
-                  AddC ('V');
                when AAMP        =>
                   AddC ('A');
             end case;
 
             AddC (' ');
 
-            AddN (E.SIZE);
+            AddN (E.PRECISION);
             AddC (' ');
 
             AddN (E.ALIGNMENT);
@@ -462,6 +464,258 @@ package body Set_Targ is
                & Target_Dependent_Info_Write_Name.all);
       end if;
    end Write_Target_Dependent_Values;
+
+   ----------------------------------
+   -- Read_Target_Dependent_Values --
+   ----------------------------------
+
+   procedure Read_Target_Dependent_Values (File_Name : String) is
+      File_Desc : File_Descriptor;
+      N         : Natural;
+
+      type ANat is access all Natural;
+      --  Pointer to Nat or Pos value (it is harmless to treat Pos values
+      --  as Nat via Unchecked_Conversion).
+
+      function To_ANat is new Unchecked_Conversion (Address, ANat);
+
+      VP : ANat;
+
+      Buffer : String (1 .. 2000);
+      Buflen : Natural;
+      --  File information and length (2000 easily enough)
+
+      Nam_Buf : String (1 .. 40);
+      Nam_Len : Natural;
+
+      procedure Check_Spaces;
+      --  Checks that we have one or more spaces and skips them
+
+      procedure FailN (S : String);
+      --  Calls Fail adding " name in file xxx", where name is the currently
+      --  gathered name in Nam_Buf, surrounded by quotes, and xxx is the
+      --  name of the file.
+
+      procedure Get_Name;
+      --  Scan out name, leaving it in Nam_Buf with Nam_Len set. Calls
+      --  Skip_Spaces to skip any following spaces. Note that the name is
+      --  terminated by a sequence of at least two spaces.
+
+      function Get_Nat return Natural;
+      --  N on entry points to decimal integer, scan out decimal integer
+      --  and return it, leaving N pointing to following space or LF.
+
+      procedure Skip_Spaces;
+      --  Skip past spaces
+
+      ------------------
+      -- Check_Spaces --
+      ------------------
+
+      procedure Check_Spaces is
+      begin
+         if N > Buflen or else Buffer (N) /= ' ' then
+            FailN ("missing space for");
+         end if;
+
+         Skip_Spaces;
+         return;
+      end Check_Spaces;
+
+      -----------
+      -- FailN --
+      -----------
+
+      procedure FailN (S : String) is
+      begin
+         Fail (S & " """ & Nam_Buf (1 .. Nam_Len) & """ in file "
+               & File_Name);
+      end FailN;
+
+      --------------
+      -- Get_Name --
+      --------------
+
+      procedure Get_Name is
+      begin
+         Nam_Len := 0;
+
+         --  Scan out name and put it in Nam_Buf
+
+         loop
+            if N > Buflen or else Buffer (N) = ASCII.LF then
+               FailN ("incorrectly formatted line for");
+            end if;
+
+            --  Name is terminated by two blanks
+
+            exit when N < Buflen and then Buffer (N .. N + 1) = "  ";
+
+            Nam_Len := Nam_Len + 1;
+
+            if Nam_Len > Nam_Buf'Last then
+               Fail ("name too long");
+            end if;
+
+            Nam_Buf (Nam_Len) := Buffer (N);
+            N := N + 1;
+         end loop;
+
+         Check_Spaces;
+      end Get_Name;
+
+      -------------
+      -- Get_Nat --
+      -------------
+
+      function Get_Nat return Natural is
+         Result : Natural := 0;
+
+      begin
+         loop
+            if N > Buflen
+              or else Buffer (N) not in '0' .. '9'
+              or else Result > 999
+            then
+               FailN ("bad value for");
+            end if;
+
+            Result := Result * 10 + (Character'Pos (Buffer (N)) - 48);
+            N := N + 1;
+
+            exit when N <= Buflen
+              and then (Buffer (N) = ASCII.LF or else Buffer (N) = ' ');
+         end loop;
+
+         return Result;
+      end Get_Nat;
+
+      -----------------
+      -- Skip_Spaces --
+      -----------------
+
+      procedure Skip_Spaces is
+      begin
+         while N <= Buflen and Buffer (N) = ' ' loop
+            N := N + 1;
+         end loop;
+      end Skip_Spaces;
+
+   --  Start of processing for Read_Target_Dependent_Values
+
+   begin
+      File_Desc := Open_Read (File_Name, Text);
+
+      if File_Desc = Invalid_FD then
+         Fail ("cannot read file " & File_Name);
+      end if;
+
+      Buflen := Read (File_Desc, Buffer'Address, Buffer'Length);
+
+      if Buflen = Buffer'Length then
+         Fail ("file is too long: " & File_Name);
+      end if;
+
+      --  Scan through file for properly formatted entries in first section
+
+      N := 1;
+      while N <= Buflen and then Buffer (N) /= ASCII.LF loop
+         Get_Name;
+
+         --  Validate name and get corresponding value pointer
+
+         VP := null;
+
+         for J in DTN'Range loop
+            if DTN (J).all = Nam_Buf (1 .. Nam_Len) then
+               VP := To_ANat (DTV (J));
+               DTR (J) := True;
+               exit;
+            end if;
+         end loop;
+
+         if VP = null then
+            FailN ("unrecognized name");
+         end if;
+
+         --  Scan out value
+
+         VP.all := Get_Nat;
+
+         if N > Buflen or else Buffer (N) /= ASCII.LF then
+            FailN ("misformatted line for");
+         end if;
+
+         N := N + 1; -- skip LF
+      end loop;
+
+      --  Fall through this loop when all lines in first section read.
+      --  Check that values have been supplied for all entries.
+
+      for J in DTR'Range loop
+         if not DTR (J) then
+            Fail ("missing entry for " & DTN (J).all & " in file "
+                  & File_Name);
+         end if;
+      end loop;
+
+      --  Now acquire FPT entries
+
+      if N >= Buflen then
+         Fail ("missing entries for FPT modes in file " & File_Name);
+      end if;
+
+      if Buffer (N) = ASCII.LF then
+         N := N + 1;
+      else
+         Fail ("missing blank line in file " & File_Name);
+      end if;
+
+      Num_FPT_Modes := 0;
+      while N <= Buflen loop
+         Get_Name;
+
+         Num_FPT_Modes := Num_FPT_Modes + 1;
+
+         declare
+            E : FPT_Mode_Entry renames FPT_Mode_Table (Num_FPT_Modes);
+
+         begin
+            E.NAME := new String'(Nam_Buf (1 .. Nam_Len));
+
+            E.DIGS := Get_Nat;
+            Check_Spaces;
+
+            case Buffer (N) is
+               when 'I'    =>
+                  E.FLOAT_REP := IEEE_Binary;
+               when 'A'    =>
+                  E.FLOAT_REP := AAMP;
+               when others =>
+                  FailN ("bad float rep field for");
+            end case;
+
+            N := N + 1;
+            Check_Spaces;
+
+            E.PRECISION := Get_Nat;
+            Check_Spaces;
+
+            E.ALIGNMENT := Get_Nat;
+
+            if Buffer (N) /= ASCII.LF then
+               FailN ("junk at end of line for");
+            end if;
+
+            --  ??? We do not read E.SIZE, see Write_Target_Dependent_Values
+
+            E.SIZE :=
+              (E.PRECISION + E.ALIGNMENT - 1) / E.ALIGNMENT * E.ALIGNMENT;
+
+            N := N + 1;
+         end;
+      end loop;
+   end Read_Target_Dependent_Values;
 
 --  Package Initialization, set target dependent values. This must be done
 --  early on, before we start accessing various compiler packages, since
@@ -547,39 +801,6 @@ begin
       end loop;
    end;
 
-   --  If the switch is not set, we get all values from the back end
-
-   if Opt.Target_Dependent_Info_Read_Name = null then
-
-      --  Set values by direct calls to the back end
-
-      Bits_BE                    := Get_Bits_BE;
-      Bits_Per_Unit              := Get_Bits_Per_Unit;
-      Bits_Per_Word              := Get_Bits_Per_Word;
-      Bytes_BE                   := Get_Bytes_BE;
-      Char_Size                  := Get_Char_Size;
-      Double_Float_Alignment     := Get_Double_Float_Alignment;
-      Double_Scalar_Alignment    := Get_Double_Scalar_Alignment;
-      Double_Size                := Get_Double_Size;
-      Float_Size                 := Get_Float_Size;
-      Float_Words_BE             := Get_Float_Words_BE;
-      Int_Size                   := Get_Int_Size;
-      Long_Double_Size           := Get_Long_Double_Size;
-      Long_Long_Size             := Get_Long_Long_Size;
-      Long_Size                  := Get_Long_Size;
-      Maximum_Alignment          := Get_Maximum_Alignment;
-      Max_Unaligned_Field        := Get_Max_Unaligned_Field;
-      Pointer_Size               := Get_Pointer_Size;
-      Short_Size                 := Get_Short_Size;
-      Strict_Alignment           := Get_Strict_Alignment;
-      System_Allocator_Alignment := Get_System_Allocator_Alignment;
-      Wchar_T_Size               := Get_Wchar_T_Size;
-      Words_BE                   := Get_Words_BE;
-
-      --  Register floating-point types from the back end
-
-      Register_Back_End_Types (Register_Float_Type'Access);
-
    --  Case of reading the target dependent values from file
 
    --  This is bit more complex than might be expected, because it has to be
@@ -588,252 +809,50 @@ begin
    --  etc to read the file. We do this at the System.OS_Lib level since it is
    --  too early to be using Osint directly.
 
+   if Opt.Target_Dependent_Info_Read_Name /= null then
+      Read_Target_Dependent_Values (Target_Dependent_Info_Read_Name.all);
    else
-      Read_Target_Dependent_Values : declare
-         File_Desc : File_Descriptor;
-         N         : Natural;
+      --  If the back-end comes with a target config file, then use it
+      --  to set the values
 
-         type ANat is access all Natural;
-         --  Pointer to Nat or Pos value (it is harmless to treat Pos values
-         --  as Nat via Unchecked_Conversion).
-
-         function To_ANat is new Unchecked_Conversion (Address, ANat);
-
-         VP : ANat;
-
-         Buffer : String (1 .. 2000);
-         Buflen : Natural;
-         --  File information and length (2000 easily enough!)
-
-         Nam_Buf : String (1 .. 40);
-         Nam_Len : Natural;
-
-         procedure Check_Spaces;
-         --  Checks that we have one or more spaces and skips them
-
-         procedure FailN (S : String);
-         --  Calls Fail adding " name in file xxx", where name is the currently
-         --  gathered name in Nam_Buf, surrounded by quotes, and xxx is the
-         --  name of the file.
-
-         procedure Get_Name;
-         --  Scan out name, leaving it in Nam_Buf with Nam_Len set. Calls
-         --  Skip_Spaces to skip any following spaces. Note that the name is
-         --  terminated by a sequence of at least two spaces.
-
-         function Get_Nat return Natural;
-         --  N on entry points to decimal integer, scan out decimal integer
-         --  and return it, leaving N pointing to following space or LF.
-
-         procedure Skip_Spaces;
-         --  Skip past spaces
-
-         ------------------
-         -- Check_Spaces --
-         ------------------
-
-         procedure Check_Spaces is
-         begin
-            if N > Buflen or else Buffer (N) /= ' ' then
-               FailN ("missing space for");
-            end if;
-
-            Skip_Spaces;
-            return;
-         end Check_Spaces;
-
-         -----------
-         -- FailN --
-         -----------
-
-         procedure FailN (S : String) is
-         begin
-            Fail (S & " """ & Nam_Buf (1 .. Nam_Len) & """ in file "
-                  & Target_Dependent_Info_Read_Name.all);
-         end FailN;
-
-         --------------
-         -- Get_Name --
-         --------------
-
-         procedure Get_Name is
-         begin
-            Nam_Len := 0;
-
-            --  Scan out name and put it in Nam_Buf
-
-            loop
-               if N > Buflen or else Buffer (N) = ASCII.LF then
-                  FailN ("incorrectly formatted line for");
-               end if;
-
-               --  Name is terminated by two blanks
-
-               exit when N < Buflen and then Buffer (N .. N + 1) = "  ";
-
-               Nam_Len := Nam_Len + 1;
-
-               if Nam_Len > Nam_Buf'Last then
-                  Fail ("name too long");
-               end if;
-
-               Nam_Buf (Nam_Len) := Buffer (N);
-               N := N + 1;
-            end loop;
-
-            Check_Spaces;
-         end Get_Name;
-
-         -------------
-         -- Get_Nat --
-         -------------
-
-         function Get_Nat return Natural is
-            Result : Natural := 0;
-
-         begin
-            loop
-               if N > Buflen
-                 or else Buffer (N) not in '0' .. '9'
-                 or else Result > 999
-               then
-                  FailN ("bad value for");
-               end if;
-
-               Result := Result * 10 + (Character'Pos (Buffer (N)) - 48);
-               N := N + 1;
-
-               exit when N <= Buflen
-                 and then (Buffer (N) = ASCII.LF or else Buffer (N) = ' ');
-            end loop;
-
-            return Result;
-         end Get_Nat;
-
-         -----------------
-         -- Skip_Spaces --
-         -----------------
-
-         procedure Skip_Spaces is
-         begin
-            while N <= Buflen and Buffer (N) = ' ' loop
-               N := N + 1;
-            end loop;
-         end Skip_Spaces;
-
-      --  Start of processing for Read_Target_Dependent_Values
-
+      declare
+         Back_End_Config_File : constant String_Ptr :=
+           Get_Back_End_Config_File;
       begin
-         File_Desc := Open_Read (Target_Dependent_Info_Read_Name.all, Text);
+         if Back_End_Config_File /= null then
+            Read_Target_Dependent_Values (Back_End_Config_File.all);
 
-         if File_Desc = Invalid_FD then
-            Fail ("cannot read file " & Target_Dependent_Info_Read_Name.all);
-         end if;
+         --  Otherwise we get all values from the back end directly
 
-         Buflen := Read (File_Desc, Buffer'Address, Buffer'Length);
-
-         if Buflen = Buffer'Length then
-            Fail ("file is too long: " & Target_Dependent_Info_Read_Name.all);
-         end if;
-
-         --  Scan through file for properly formatted entries in first section
-
-         N := 1;
-         while N <= Buflen and then Buffer (N) /= ASCII.LF loop
-            Get_Name;
-
-            --  Validate name and get corresponding value pointer
-
-            VP := null;
-
-            for J in DTN'Range loop
-               if DTN (J).all = Nam_Buf (1 .. Nam_Len) then
-                  VP := To_ANat (DTV (J));
-                  DTR (J) := True;
-                  exit;
-               end if;
-            end loop;
-
-            if VP = null then
-               FailN ("unrecognized name");
-            end if;
-
-            --  Scan out value
-
-            VP.all := Get_Nat;
-
-            if N > Buflen or else Buffer (N) /= ASCII.LF then
-               FailN ("misformatted line for");
-            end if;
-
-            N := N + 1; -- skip LF
-         end loop;
-
-         --  Fall through this loop when all lines in first section read.
-         --  Check that values have been supplied for all entries.
-
-         for J in DTR'Range loop
-            if not DTR (J) then
-               Fail ("missing entry for " & DTN (J).all & " in file "
-                     & Target_Dependent_Info_Read_Name.all);
-            end if;
-         end loop;
-
-         --  Now acquire FPT entries
-
-         if N >= Buflen then
-            Fail ("missing entries for FPT modes in file "
-                  & Target_Dependent_Info_Read_Name.all);
-         end if;
-
-         if Buffer (N) = ASCII.LF then
-            N := N + 1;
          else
-            Fail ("missing blank line in file "
-                  & Target_Dependent_Info_Read_Name.all);
+            Bits_BE                    := Get_Bits_BE;
+            Bits_Per_Unit              := Get_Bits_Per_Unit;
+            Bits_Per_Word              := Get_Bits_Per_Word;
+            Bytes_BE                   := Get_Bytes_BE;
+            Char_Size                  := Get_Char_Size;
+            Double_Float_Alignment     := Get_Double_Float_Alignment;
+            Double_Scalar_Alignment    := Get_Double_Scalar_Alignment;
+            Double_Size                := Get_Double_Size;
+            Float_Size                 := Get_Float_Size;
+            Float_Words_BE             := Get_Float_Words_BE;
+            Int_Size                   := Get_Int_Size;
+            Long_Double_Size           := Get_Long_Double_Size;
+            Long_Long_Size             := Get_Long_Long_Size;
+            Long_Size                  := Get_Long_Size;
+            Maximum_Alignment          := Get_Maximum_Alignment;
+            Max_Unaligned_Field        := Get_Max_Unaligned_Field;
+            Pointer_Size               := Get_Pointer_Size;
+            Short_Enums                := Get_Short_Enums;
+            Short_Size                 := Get_Short_Size;
+            Strict_Alignment           := Get_Strict_Alignment;
+            System_Allocator_Alignment := Get_System_Allocator_Alignment;
+            Wchar_T_Size               := Get_Wchar_T_Size;
+            Words_BE                   := Get_Words_BE;
+
+            --  Register floating-point types from the back end
+
+            Register_Back_End_Types (Register_Float_Type'Access);
          end if;
-
-         Num_FPT_Modes := 0;
-         while N <= Buflen loop
-            Get_Name;
-
-            Num_FPT_Modes := Num_FPT_Modes + 1;
-
-            declare
-               E : FPT_Mode_Entry renames FPT_Mode_Table (Num_FPT_Modes);
-
-            begin
-               E.NAME := new String'(Nam_Buf (1 .. Nam_Len));
-
-               E.DIGS := Get_Nat;
-               Check_Spaces;
-
-               case Buffer (N) is
-                  when 'I'    =>
-                     E.FLOAT_REP := IEEE_Binary;
-                  when 'V'    =>
-                     E.FLOAT_REP := VAX_Native;
-                  when 'A'    =>
-                     E.FLOAT_REP := AAMP;
-                  when others =>
-                     FailN ("bad float rep field for");
-               end case;
-
-               N := N + 1;
-               Check_Spaces;
-
-               E.SIZE := Get_Nat;
-               Check_Spaces;
-
-               E.ALIGNMENT := Get_Nat;
-
-               if Buffer (N) /= ASCII.LF then
-                  FailN ("junk at end of line for");
-               end if;
-
-               N := N + 1;
-            end;
-         end loop;
-      end Read_Target_Dependent_Values;
+      end;
    end if;
 end Set_Targ;

@@ -10,7 +10,8 @@
 // Mac-specific code.
 //===----------------------------------------------------------------------===//
 
-#ifdef __APPLE__
+#include "sanitizer_common/sanitizer_platform.h"
+#if SANITIZER_MAC
 
 #include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_libc.h"
@@ -37,17 +38,18 @@
 
 namespace __tsan {
 
-ScopedInRtl::ScopedInRtl() {
-}
-
-ScopedInRtl::~ScopedInRtl() {
-}
-
 uptr GetShadowMemoryConsumption() {
   return 0;
 }
 
 void FlushShadowMemory() {
+}
+
+void WriteMemoryProfile(char *buf, uptr buf_size) {
+}
+
+uptr GetRSS() {
+  return 0;
 }
 
 #ifndef TSAN_GO
@@ -87,18 +89,20 @@ void FinalizePlatform() {
   fflush(0);
 }
 
-uptr GetTlsSize() {
-  return 0;
+#ifndef TSAN_GO
+int call_pthread_cancel_with_cleanup(int(*fn)(void *c, void *m,
+    void *abstime), void *c, void *m, void *abstime,
+    void(*cleanup)(void *arg), void *arg) {
+  // pthread_cleanup_push/pop are hardcore macros mess.
+  // We can't intercept nor call them w/o including pthread.h.
+  int res;
+  pthread_cleanup_push(cleanup, arg);
+  res = fn(c, m, abstime);
+  pthread_cleanup_pop(0);
+  return res;
 }
-
-void GetThreadStackAndTls(bool main, uptr *stk_addr, uptr *stk_size,
-                          uptr *tls_addr, uptr *tls_size) {
-  *stk_addr = 0;
-  *stk_size = 0;
-  *tls_addr = 0;
-  *tls_size = 0;
-}
+#endif
 
 }  // namespace __tsan
 
-#endif  // #ifdef __APPLE__
+#endif  // SANITIZER_MAC

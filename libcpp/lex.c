@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -263,11 +263,9 @@ search_line_acc_char (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
     }
 }
 
-/* Disable on Solaris 2/x86 until the following problems can be properly
+/* Disable on Solaris 2/x86 until the following problem can be properly
    autoconfed:
 
-   The Solaris 9 assembler cannot assemble SSE4.2 insns.
-   Before Solaris 9 Update 6, SSE insns cannot be executed.
    The Solaris 10+ assembler tags objects with the instruction set
    extensions used, so SSE4.2 executables cannot run on machines that
    don't support that extension.  */
@@ -559,8 +557,13 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
      beginning with all ones and shifting in zeros according to the
      mis-alignment.  The LVSR instruction pulls the exact shift we
      want from the address.  */
+#ifdef __BIG_ENDIAN__
   mask = __builtin_vec_lvsr(0, s);
   mask = __builtin_vec_perm(zero, ones, mask);
+#else
+  mask = __builtin_vec_lvsl(0, s);
+  mask = __builtin_vec_perm(ones, zero, mask);
+#endif
   data &= mask;
 
   /* While altivec loads mask addresses, we still need to align S so
@@ -624,7 +627,11 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
     /* L now contains 0xff in bytes for which we matched one of the
        relevant characters.  We can find the byte index by finding
        its bit index and dividing by 8.  */
+#ifdef __BIG_ENDIAN__
     l = __builtin_clzl(l) >> 3;
+#else
+    l = __builtin_ctzl(l) >> 3;
+#endif
     return s + l;
 
 #undef N
@@ -1168,9 +1175,16 @@ lex_identifier_intern (cpp_reader *pfile, const uchar *base)
 	 replacement list of a variadic macro.  */
       if (result == pfile->spec_nodes.n__VA_ARGS__
 	  && !pfile->state.va_args_ok)
-	cpp_error (pfile, CPP_DL_PEDWARN,
-		   "__VA_ARGS__ can only appear in the expansion"
-		   " of a C99 variadic macro");
+	{
+	  if (CPP_OPTION (pfile, cplusplus))
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C++11 variadic macro");
+	  else
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C99 variadic macro");
+	}
 
       /* For -Wc++-compat, warn about use of C++ named operators.  */
       if (result->flags & NODE_WARN_OPERATOR)
@@ -1204,11 +1218,14 @@ lex_identifier (cpp_reader *pfile, const uchar *base, bool starts_ucn,
 
   cur = pfile->buffer->cur;
   if (! starts_ucn)
-    while (ISIDNUM (*cur))
-      {
-	hash = HT_HASHSTEP (hash, *cur);
-	cur++;
-      }
+    {
+      while (ISIDNUM (*cur))
+	{
+	  hash = HT_HASHSTEP (hash, *cur);
+	  cur++;
+	}
+      NORMALIZE_STATE_UPDATE_IDNUM (nst, *(cur - 1));
+    }
   pfile->buffer->cur = cur;
   if (starts_ucn || forms_identifier_p (pfile, false, nst))
     {
@@ -1216,8 +1233,8 @@ lex_identifier (cpp_reader *pfile, const uchar *base, bool starts_ucn,
       do {
 	while (ISIDNUM (*pfile->buffer->cur))
 	  {
+	    NORMALIZE_STATE_UPDATE_IDNUM (nst, *pfile->buffer->cur);
 	    pfile->buffer->cur++;
-	    NORMALIZE_STATE_UPDATE_IDNUM (nst);
 	  }
       } while (forms_identifier_p (pfile, false, nst));
       result = _cpp_interpret_identifier (pfile, base,
@@ -1245,9 +1262,16 @@ lex_identifier (cpp_reader *pfile, const uchar *base, bool starts_ucn,
 	 replacement list of a variadic macro.  */
       if (result == pfile->spec_nodes.n__VA_ARGS__
 	  && !pfile->state.va_args_ok)
-	cpp_error (pfile, CPP_DL_PEDWARN,
-		   "__VA_ARGS__ can only appear in the expansion"
-		   " of a C99 variadic macro");
+	{
+	  if (CPP_OPTION (pfile, cplusplus))
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C++11 variadic macro");
+	  else
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C99 variadic macro");
+	}
 
       /* For -Wc++-compat, warn about use of C++ named operators.  */
       if (result->flags & NODE_WARN_OPERATOR)
@@ -1274,10 +1298,11 @@ lex_number (cpp_reader *pfile, cpp_string *number,
       cur = pfile->buffer->cur;
 
       /* N.B. ISIDNUM does not include $.  */
-      while (ISIDNUM (*cur) || *cur == '.' || VALID_SIGN (*cur, cur[-1]))
+      while (ISIDNUM (*cur) || *cur == '.' || DIGIT_SEP (*cur)
+	     || VALID_SIGN (*cur, cur[-1]))
 	{
+	  NORMALIZE_STATE_UPDATE_IDNUM (nst, *cur);
 	  cur++;
-	  NORMALIZE_STATE_UPDATE_IDNUM (nst);
 	}
 
       pfile->buffer->cur = cur;
@@ -1635,7 +1660,7 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
       if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
-	  if (CPP_OPTION (pfile, warn_literal_suffix))
+	  if (CPP_OPTION (pfile, warn_literal_suffix) && !pfile->state.skipping)
 	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
 				   token->src_loc, 0,
 				   "invalid suffix on literal; C++11 requires "
@@ -1764,7 +1789,7 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
       if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
-	  if (CPP_OPTION (pfile, warn_literal_suffix))
+	  if (CPP_OPTION (pfile, warn_literal_suffix) && !pfile->state.skipping)
 	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
 				   token->src_loc, 0,
 				   "invalid suffix on literal; C++11 requires "
@@ -2300,7 +2325,7 @@ _cpp_lex_direct (cpp_reader *pfile)
       else if (c == '/' && (CPP_OPTION (pfile, cplusplus_comments)
 			    || cpp_in_system_header (pfile)))
 	{
-	  /* Warn about comments only if pedantically GNUC89, and not
+	  /* Warn about comments if pedantically GNUC89, and not
 	     in system headers.  */
 	  if (CPP_OPTION (pfile, lang) == CLK_GNUC89 && CPP_PEDANTIC (pfile)
 	      && ! buffer->warned_cplusplus_comments)
@@ -2308,6 +2333,17 @@ _cpp_lex_direct (cpp_reader *pfile)
 	      cpp_error (pfile, CPP_DL_PEDWARN,
 			 "C++ style comments are not allowed in ISO C90");
 	      cpp_error (pfile, CPP_DL_PEDWARN,
+			 "(this will be reported only once per input file)");
+	      buffer->warned_cplusplus_comments = 1;
+	    }
+	  /* Or if specifically desired via -Wc90-c99-compat.  */
+	  else if (CPP_OPTION (pfile, cpp_warn_c90_c99_compat) > 0
+		   && ! CPP_OPTION (pfile, cplusplus)
+		   && ! buffer->warned_cplusplus_comments)
+	    {
+	      cpp_error (pfile, CPP_DL_WARNING,
+			 "C++ style comments are incompatible with C90");
+	      cpp_error (pfile, CPP_DL_WARNING,
 			 "(this will be reported only once per input file)");
 	      buffer->warned_cplusplus_comments = 1;
 	    }

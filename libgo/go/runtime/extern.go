@@ -21,11 +21,30 @@ is GOGC=100. Setting GOGC=off disables the garbage collector entirely.
 The runtime/debug package's SetGCPercent function allows changing this
 percentage at run time. See http://golang.org/pkg/runtime/debug/#SetGCPercent.
 
-The GOGCTRACE variable controls debug output from the garbage collector.
-Setting GOGCTRACE=1 causes the garbage collector to emit a single line to standard
-error at each collection, summarizing the amount of memory collected and the
-length of the pause. Setting GOGCTRACE=2 emits the same summary but also
-repeats each collection.
+The GODEBUG variable controls debug output from the runtime. GODEBUG value is
+a comma-separated list of name=val pairs. Supported names are:
+
+	allocfreetrace: setting allocfreetrace=1 causes every allocation to be
+	profiled and a stack trace printed on each object's allocation and free.
+
+	efence: setting efence=1 causes the allocator to run in a mode
+	where each object is allocated on a unique page and addresses are
+	never recycled.
+
+	gctrace: setting gctrace=1 causes the garbage collector to emit a single line to standard
+	error at each collection, summarizing the amount of memory collected and the
+	length of the pause. Setting gctrace=2 emits the same summary but also
+	repeats each collection.
+
+	gcdead: setting gcdead=1 causes the garbage collector to clobber all stack slots
+	that it thinks are dead.
+
+	scheddetail: setting schedtrace=X and scheddetail=1 causes the scheduler to emit
+	detailed multiline info every X milliseconds, describing state of the scheduler,
+	processors, threads and goroutines.
+
+	schedtrace: setting schedtrace=X causes the scheduler to emit a single line to standard
+	error every X milliseconds, summarizing the scheduler state.
 
 The GOMAXPROCS variable limits the number of operating system threads that
 can execute user-level Go code simultaneously. There is no limit to the number of threads
@@ -60,6 +79,11 @@ func Gosched()
 
 // Goexit terminates the goroutine that calls it.  No other goroutine is affected.
 // Goexit runs all deferred calls before terminating the goroutine.
+//
+// Calling Goexit from the main goroutine terminates that goroutine
+// without func main returning. Since func main has not returned,
+// the program continues execution of other goroutines.
+// If all other goroutines exit, the program crashes.
 func Goexit()
 
 // Caller reports file and line number information about function invocations on
@@ -77,9 +101,8 @@ func Caller(skip int) (pc uintptr, file string, line int, ok bool)
 // It returns the number of entries written to pc.
 func Callers(skip int, pc []uintptr) int
 
-type Func struct { // Keep in sync with runtime.h:struct Func
-	name  string
-	entry uintptr // entry pc
+type Func struct {
+	opaque struct{} // unexported field to disallow conversions
 }
 
 // FuncForPC returns a *Func describing the function that contains the
@@ -87,10 +110,14 @@ type Func struct { // Keep in sync with runtime.h:struct Func
 func FuncForPC(pc uintptr) *Func
 
 // Name returns the name of the function.
-func (f *Func) Name() string { return f.name }
+func (f *Func) Name() string {
+	return funcname_go(f)
+}
 
 // Entry returns the entry address of the function.
-func (f *Func) Entry() uintptr { return f.entry }
+func (f *Func) Entry() uintptr {
+	return funcentry_go(f)
+}
 
 // FileLine returns the file name and line number of the
 // source code corresponding to the program counter pc.
@@ -102,6 +129,8 @@ func (f *Func) FileLine(pc uintptr) (file string, line int) {
 
 // implemented in symtab.c
 func funcline_go(*Func, uintptr) (string, int)
+func funcname_go(*Func) string
+func funcentry_go(*Func) uintptr
 
 // SetFinalizer sets the finalizer associated with x to f.
 // When the garbage collector finds an unreachable block
@@ -116,8 +145,9 @@ func funcline_go(*Func, uintptr) (string, int)
 // The argument x must be a pointer to an object allocated by
 // calling new or by taking the address of a composite literal.
 // The argument f must be a function that takes a single argument
-// of x's type and can have arbitrary ignored return values.
-// If either of these is not true, SetFinalizer aborts the program.
+// to which x's type can be assigned, and can have arbitrary ignored return
+// values. If either of these is not true, SetFinalizer aborts the
+// program.
 //
 // Finalizers are run in dependency order: if A points at B, both have
 // finalizers, and they are otherwise unreachable, only the finalizer
@@ -138,6 +168,9 @@ func funcline_go(*Func, uintptr) (string, int)
 // to depend on a finalizer to flush an in-memory I/O buffer such as a
 // bufio.Writer, because the buffer would not be flushed at program exit.
 //
+// It is not guaranteed that a finalizer will run if the size of *x is
+// zero bytes.
+//
 // A single goroutine runs all finalizers for a program, sequentially.
 // If a finalizer must run for a long time, it should do so by starting
 // a new goroutine.
@@ -157,10 +190,8 @@ func GOROOT() string {
 }
 
 // Version returns the Go tree's version string.
-// It is either a sequence number or, when possible,
-// a release tag like "release.2010-03-04".
-// A trailing + indicates that the tree had local modifications
-// at the time of the build.
+// It is either the commit hash and date at the time of the build or,
+// when possible, a release tag like "go1.3".
 func Version() string {
 	return theVersion
 }
@@ -170,5 +201,5 @@ func Version() string {
 const GOOS string = theGoos
 
 // GOARCH is the running program's architecture target:
-// 386, amd64, or arm.
+// 386, amd64, arm or arm64.
 const GOARCH string = theGoarch

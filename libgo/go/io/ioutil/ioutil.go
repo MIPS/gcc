@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"sync"
 )
 
 // readAll reads from r until an error or EOF and returns the data it read
@@ -78,9 +79,11 @@ func WriteFile(filename string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	n, err := f.Write(data)
-	f.Close()
 	if err == nil && n < len(data) {
 		err = io.ErrShortWrite
+	}
+	if err1 := f.Close(); err == nil {
+		err = err1
 	}
 	return err
 }
@@ -130,14 +133,25 @@ func (devNull) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func (devNull) WriteString(s string) (int, error) {
+	return len(s), nil
+}
+
+var blackHolePool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 8192)
+		return &b
+	},
+}
+
 func (devNull) ReadFrom(r io.Reader) (n int64, err error) {
-	buf := blackHole()
-	defer blackHolePut(buf)
+	bufp := blackHolePool.Get().(*[]byte)
 	readSize := 0
 	for {
-		readSize, err = r.Read(buf)
+		readSize, err = r.Read(*bufp)
 		n += int64(readSize)
 		if err != nil {
+			blackHolePool.Put(bufp)
 			if err == io.EOF {
 				return n, nil
 			}

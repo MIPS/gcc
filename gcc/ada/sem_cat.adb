@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -277,7 +277,7 @@ package body Sem_Cat is
            and then Is_Preelaborated (Depended_Entity)
          then
             Error_Msg_NE
-              ("<must use private with clause for preelaborated unit& ",
+              ("<<must use private with clause for preelaborated unit& ",
                N, Depended_Entity);
 
          --  Subunit case
@@ -291,7 +291,7 @@ package body Sem_Cat is
 
          else
             Error_Msg_NE
-              ("<cannot depend on& " &
+              ("<<cannot depend on& " &
                "(wrong categorization)", N, Depended_Entity);
          end if;
 
@@ -299,7 +299,7 @@ package body Sem_Cat is
 
          if Unit_Category = Pure then
             Error_Msg_NE
-              ("\<pure unit cannot depend on non-pure unit",
+              ("\<<pure unit cannot depend on non-pure unit",
                N, Depended_Entity);
 
          elsif Is_Preelaborated (Unit_Entity)
@@ -307,7 +307,7 @@ package body Sem_Cat is
            and then not Is_Pure (Depended_Entity)
          then
             Error_Msg_NE
-              ("\<preelaborated unit cannot depend on "
+              ("\<<preelaborated unit cannot depend on "
                & "non-preelaborated unit",
                N, Depended_Entity);
          end if;
@@ -355,7 +355,7 @@ package body Sem_Cat is
       loop
          if Present (Expression (Component_Decl))
            and then Nkind (Expression (Component_Decl)) /= N_Null
-           and then not Is_Static_Expression (Expression (Component_Decl))
+           and then not Is_OK_Static_Expression (Expression (Component_Decl))
          then
             Error_Msg_Sloc := Sloc (Component_Decl);
             Error_Msg_F
@@ -815,7 +815,8 @@ package body Sem_Cat is
       Discriminant_Spec := First (L);
       while Present (Discriminant_Spec) loop
          if Present (Expression (Discriminant_Spec))
-           and then not Is_Static_Expression (Expression (Discriminant_Spec))
+           and then
+             not Is_OK_Static_Expression (Expression (Discriminant_Spec))
          then
             return False;
          end if;
@@ -1066,7 +1067,7 @@ package body Sem_Cat is
       --  Note that the 10.2.1(9) restrictions are not relevant to us anyway.
       --  We have to enforce them for RM compatibility, but we have no trouble
       --  accepting these objects and doing the right thing. Note that there is
-      --  no requirement that Preelaborate not actually generate any code!
+      --  no requirement that Preelaborate not actually generate any code.
 
       if In_Preelaborated_Unit
         and then not Debug_Flag_PP
@@ -1102,7 +1103,7 @@ package body Sem_Cat is
 
                Error_Msg_Warn := GNAT_Mode;
                Error_Msg_N
-                 ("<statements not allowed in preelaborated unit", Item);
+                 ("<<statements not allowed in preelaborated unit", Item);
 
                exit;
             end if;
@@ -1225,7 +1226,14 @@ package body Sem_Cat is
                   --  means that a pragma Preelaborable_Initialization was
                   --  given for the private type.
 
-                  if Has_Preelaborable_Initialization (Ent) then
+                  if Relaxed_RM_Semantics then
+
+                     --  In relaxed mode, do not issue these messages, this
+                     --  is basically similar to the GNAT_Mode test below.
+
+                     null;
+
+                  elsif Has_Preelaborable_Initialization (Ent) then
 
                      --  But for the predefined units, we will ignore this
                      --  status unless we are in Ada 2005 mode since we want
@@ -2041,7 +2049,8 @@ package body Sem_Cat is
    ---------------------------------
 
    procedure Validate_Static_Object_Name (N : Node_Id) is
-      E : Entity_Id;
+      E   : Entity_Id;
+      Val : Node_Id;
 
       function Is_Primary (N : Node_Id) return Boolean;
       --  Determine whether node is syntactically a primary in an expression
@@ -2144,7 +2153,8 @@ package body Sem_Cat is
          elsif Ekind (Entity (N)) = E_Constant
            and then not Is_Static_Expression (N)
          then
-            E := Entity (N);
+            E   := Entity (N);
+            Val := Constant_Value (E);
 
             if Is_Internal_File_Name (Unit_File_Name (Get_Source_Unit (N)))
               and then
@@ -2155,20 +2165,36 @@ package body Sem_Cat is
                                    and then Is_Entity_Name (Renamed_Object (E))
                                    and then
                                      (Is_Preelaborated
-                                       (Scope (Renamed_Object (E)))
-                                         or else
-                                           Is_Pure (Scope
-                                             (Renamed_Object (E))))))
+                                        (Scope (Renamed_Object (E)))
+                                       or else
+                                         Is_Pure
+                                           (Scope (Renamed_Object (E))))))
+            then
+               null;
+
+            --  If the value of the constant is a local variable that renames
+            --  an aggregate, this is in itself legal. The aggregate may be
+            --  expanded into a loop, but this does not affect preelaborability
+            --  in itself. If some aggregate components are non-static, that is
+            --  to say if they involve non static primaries, they will be
+            --  flagged when analyzed.
+
+            elsif Present (Val)
+              and then Is_Entity_Name (Val)
+              and then Is_Array_Type (Etype (Val))
+              and then not Comes_From_Source (Val)
+              and then Nkind (Original_Node (Val)) = N_Aggregate
             then
                null;
 
             --  This is the error case
 
             else
-               --  In GNAT mode, this is just a warning, to allow it to be
-               --  judiciously turned off. Otherwise it is a real error.
+               --  In GNAT mode or Relaxed RM Semantic mode, this is just a
+               --  warning, to allow it to be judiciously turned off.
+               --  Otherwise it is a real error.
 
-               if GNAT_Mode then
+               if GNAT_Mode or Relaxed_RM_Semantics then
                   Error_Msg_N
                     ("??non-static constant in preelaborated unit", N);
                else

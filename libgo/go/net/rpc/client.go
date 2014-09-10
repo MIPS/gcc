@@ -39,14 +39,16 @@ type Call struct {
 // with a single Client, and a Client may be used by
 // multiple goroutines simultaneously.
 type Client struct {
-	mutex    sync.Mutex // protects pending, seq, request
-	sending  sync.Mutex
+	codec ClientCodec
+
+	sending sync.Mutex
+
+	mutex    sync.Mutex // protects following
 	request  Request
 	seq      uint64
-	codec    ClientCodec
 	pending  map[uint64]*Call
-	closing  bool
-	shutdown bool
+	closing  bool // user has called Close
+	shutdown bool // server has told us to stop
 }
 
 // A ClientCodec implements writing of RPC requests and
@@ -58,6 +60,7 @@ type Client struct {
 // argument to force the body of the response to be read and then
 // discarded.
 type ClientCodec interface {
+	// WriteRequest must be safe for concurrent use by multiple goroutines.
 	WriteRequest(*Request, interface{}) error
 	ReadResponseHeader(*Response) error
 	ReadResponseBody(interface{}) error
@@ -160,7 +163,7 @@ func (client *Client) input() {
 	}
 	client.mutex.Unlock()
 	client.sending.Unlock()
-	if err != io.EOF && !closing {
+	if debugLog && err != io.EOF && !closing {
 		log.Println("rpc: client protocol error:", err)
 	}
 }
@@ -172,7 +175,9 @@ func (call *Call) done() {
 	default:
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
-		log.Println("rpc: discarding Call reply due to insufficient Done chan capacity")
+		if debugLog {
+			log.Println("rpc: discarding Call reply due to insufficient Done chan capacity")
+		}
 	}
 }
 
@@ -271,7 +276,7 @@ func Dial(network, address string) (*Client, error) {
 
 func (client *Client) Close() error {
 	client.mutex.Lock()
-	if client.shutdown || client.closing {
+	if client.closing {
 		client.mutex.Unlock()
 		return ErrShutdown
 	}

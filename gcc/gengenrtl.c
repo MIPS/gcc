@@ -1,5 +1,5 @@
 /* Generate code to allocate RTL structures.
-   Copyright (C) 1997-2013 Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -123,7 +123,10 @@ special_format (const char *fmt)
 static int
 special_rtx (int idx)
 {
-  return (strcmp (defs[idx].enumname, "CONST_INT") == 0
+  return (strcmp (defs[idx].enumname, "EXPR_LIST") == 0
+	  || strcmp (defs[idx].enumname, "INSN_LIST") == 0
+	  || strcmp (defs[idx].enumname, "INSN") == 0
+	  || strcmp (defs[idx].enumname, "CONST_INT") == 0
 	  || strcmp (defs[idx].enumname, "REG") == 0
 	  || strcmp (defs[idx].enumname, "SUBREG") == 0
 	  || strcmp (defs[idx].enumname, "MEM") == 0
@@ -141,8 +144,10 @@ special_rtx (int idx)
 static int
 excluded_rtx (int idx)
 {
-  return ((strcmp (defs[idx].enumname, "CONST_DOUBLE") == 0)
-	  || (strcmp (defs[idx].enumname, "CONST_FIXED") == 0));
+  return (strcmp (defs[idx].enumname, "VAR_LOCATION") == 0
+	  || strcmp (defs[idx].enumname, "CONST_DOUBLE") == 0
+	  || strcmp (defs[idx].enumname, "CONST_WIDE_INT") == 0
+	  || strcmp (defs[idx].enumname, "CONST_FIXED") == 0);
 }
 
 /* Place a list of all format specifiers we use into the array FORMAT.  */

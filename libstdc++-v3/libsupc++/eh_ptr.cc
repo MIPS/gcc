@@ -1,5 +1,5 @@
 // -*- C++ -*- Implement the members of exception_ptr.
-// Copyright (C) 2008-2013 Free Software Foundation, Inc.
+// Copyright (C) 2008-2014 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -34,6 +34,34 @@
 #include "unwind-cxx.h"
 
 using namespace __cxxabiv1;
+
+// Verify assumptions about member layout in exception types
+namespace
+{
+template<typename Ex>
+  constexpr std::size_t unwindhdr()
+  { return offsetof(Ex, unwindHeader); }
+
+template<typename Ex>
+  constexpr std::size_t termHandler()
+  { return unwindhdr<Ex>() - offsetof(Ex, terminateHandler); }
+
+static_assert( termHandler<__cxa_exception>()
+	       == termHandler<__cxa_dependent_exception>(),
+	       "__cxa_dependent_exception::termHandler layout must be"
+	       " consistent with __cxa_exception::termHandler" );
+
+#ifndef __ARM_EABI_UNWINDER__
+template<typename Ex>
+  constexpr std::ptrdiff_t adjptr()
+  { return unwindhdr<Ex>() - offsetof(Ex, adjustedPtr); }
+
+static_assert( adjptr<__cxa_exception>()
+	       == adjptr<__cxa_dependent_exception>(),
+	       "__cxa_dependent_exception::adjustedPtr layout must be"
+	       " consistent with __cxa_exception::adjustedPtr" );
+#endif
+}
 
 std::__exception_ptr::exception_ptr::exception_ptr() _GLIBCXX_USE_NOEXCEPT
 : _M_exception_object(0) { }

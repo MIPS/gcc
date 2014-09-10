@@ -7,6 +7,8 @@ package smtp
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"io"
 	"net"
 	"net/textproto"
@@ -238,6 +240,7 @@ func TestNewClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v\n(after %v)", err, out())
 	}
+	defer c.Close()
 	if ok, args := c.Extension("aUtH"); !ok || args != "LOGIN PLAIN" {
 		t.Fatalf("Expected AUTH supported")
 	}
@@ -278,6 +281,7 @@ func TestNewClient2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
+	defer c.Close()
 	if ok, _ := c.Extension("DSN"); ok {
 		t.Fatalf("Shouldn't support DSN")
 	}
@@ -323,6 +327,7 @@ func TestHello(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClient: %v", err)
 		}
+		defer c.Close()
 		c.localName = "customhost"
 		err = nil
 
@@ -501,3 +506,189 @@ SendMail is working for me.
 .
 QUIT
 `
+
+func TestAuthFailed(t *testing.T) {
+	server := strings.Join(strings.Split(authFailedServer, "\n"), "\r\n")
+	client := strings.Join(strings.Split(authFailedClient, "\n"), "\r\n")
+	var cmdbuf bytes.Buffer
+	bcmdbuf := bufio.NewWriter(&cmdbuf)
+	var fake faker
+	fake.ReadWriter = bufio.NewReadWriter(bufio.NewReader(strings.NewReader(server)), bcmdbuf)
+	c, err := NewClient(fake, "fake.host")
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	defer c.Close()
+
+	c.tls = true
+	c.serverName = "smtp.google.com"
+	err = c.Auth(PlainAuth("", "user", "pass", "smtp.google.com"))
+
+	if err == nil {
+		t.Error("Auth: expected error; got none")
+	} else if err.Error() != "535 Invalid credentials\nplease see www.example.com" {
+		t.Errorf("Auth: got error: %v, want: %s", err, "535 Invalid credentials\nplease see www.example.com")
+	}
+
+	bcmdbuf.Flush()
+	actualcmds := cmdbuf.String()
+	if client != actualcmds {
+		t.Errorf("Got:\n%s\nExpected:\n%s", actualcmds, client)
+	}
+}
+
+var authFailedServer = `220 hello world
+250-mx.google.com at your service
+250 AUTH LOGIN PLAIN
+535-Invalid credentials
+535 please see www.example.com
+221 Goodbye
+`
+
+var authFailedClient = `EHLO localhost
+AUTH PLAIN AHVzZXIAcGFzcw==
+*
+QUIT
+`
+
+func TestTLSClient(t *testing.T) {
+	ln := newLocalListener(t)
+	defer ln.Close()
+	errc := make(chan error)
+	go func() {
+		errc <- sendMail(ln.Addr().String())
+	}()
+	conn, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("failed to accept connection: %v", err)
+	}
+	defer conn.Close()
+	if err := serverHandle(conn, t); err != nil {
+		t.Fatalf("failed to handle connection: %v", err)
+	}
+	if err := <-errc; err != nil {
+		t.Fatalf("client error: %v", err)
+	}
+}
+
+func newLocalListener(t *testing.T) net.Listener {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		ln, err = net.Listen("tcp6", "[::1]:0")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ln
+}
+
+type smtpSender struct {
+	w io.Writer
+}
+
+func (s smtpSender) send(f string) {
+	s.w.Write([]byte(f + "\r\n"))
+}
+
+// smtp server, finely tailored to deal with our own client only!
+func serverHandle(c net.Conn, t *testing.T) error {
+	send := smtpSender{c}.send
+	send("220 127.0.0.1 ESMTP service ready")
+	s := bufio.NewScanner(c)
+	for s.Scan() {
+		switch s.Text() {
+		case "EHLO localhost":
+			send("250-127.0.0.1 ESMTP offers a warm hug of welcome")
+			send("250-STARTTLS")
+			send("250 Ok")
+		case "STARTTLS":
+			send("220 Go ahead")
+			keypair, err := tls.X509KeyPair(localhostCert, localhostKey)
+			if err != nil {
+				return err
+			}
+			config := &tls.Config{Certificates: []tls.Certificate{keypair}}
+			c = tls.Server(c, config)
+			defer c.Close()
+			return serverHandleTLS(c, t)
+		default:
+			t.Fatalf("unrecognized command: %q", s.Text())
+		}
+	}
+	return s.Err()
+}
+
+func serverHandleTLS(c net.Conn, t *testing.T) error {
+	send := smtpSender{c}.send
+	s := bufio.NewScanner(c)
+	for s.Scan() {
+		switch s.Text() {
+		case "EHLO localhost":
+			send("250 Ok")
+		case "MAIL FROM:<joe1@example.com>":
+			send("250 Ok")
+		case "RCPT TO:<joe2@example.com>":
+			send("250 Ok")
+		case "DATA":
+			send("354 send the mail data, end with .")
+			send("250 Ok")
+		case "Subject: test":
+		case "":
+		case "howdy!":
+		case ".":
+		case "QUIT":
+			send("221 127.0.0.1 Service closing transmission channel")
+			return nil
+		default:
+			t.Fatalf("unrecognized command during TLS: %q", s.Text())
+		}
+	}
+	return s.Err()
+}
+
+func init() {
+	testRootCAs := x509.NewCertPool()
+	testRootCAs.AppendCertsFromPEM(localhostCert)
+	testHookStartTLS = func(config *tls.Config) {
+		config.RootCAs = testRootCAs
+	}
+}
+
+func sendMail(hostPort string) error {
+	host, _, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return err
+	}
+	auth := PlainAuth("", "", "", host)
+	from := "joe1@example.com"
+	to := []string{"joe2@example.com"}
+	return SendMail(hostPort, auth, from, to, []byte("Subject: test\n\nhowdy!"))
+}
+
+// (copied from net/http/httptest)
+// localhostCert is a PEM-encoded TLS cert with SAN IPs
+// "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
+// of ASN.1 time).
+// generated from src/pkg/crypto/tls:
+// go run generate_cert.go  --rsa-bits 512 --host 127.0.0.1,::1,example.com --ca --start-date "Jan 1 00:00:00 1970" --duration=1000000h
+var localhostCert = []byte(`-----BEGIN CERTIFICATE-----
+MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwEjEQMA4GA1UEChMHQWNtZSBD
+bzAeFw03MDAxMDEwMDAwMDBaFw00OTEyMzEyMzU5NTlaMBIxEDAOBgNVBAoTB0Fj
+bWUgQ28wWjALBgkqhkiG9w0BAQEDSwAwSAJBAN55NcYKZeInyTuhcCwFMhDHCmwa
+IUSdtXdcbItRB/yfXGBhiex00IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEA
+AaNoMGYwDgYDVR0PAQH/BAQDAgCkMBMGA1UdJQQMMAoGCCsGAQUFBwMBMA8GA1Ud
+EwEB/wQFMAMBAf8wLgYDVR0RBCcwJYILZXhhbXBsZS5jb22HBH8AAAGHEAAAAAAA
+AAAAAAAAAAAAAAEwCwYJKoZIhvcNAQEFA0EAAoQn/ytgqpiLcZu9XKbCJsJcvkgk
+Se6AbGXgSlq+ZCEVo0qIwSgeBqmsJxUu7NCSOwVJLYNEBO2DtIxoYVk+MA==
+-----END CERTIFICATE-----`)
+
+// localhostKey is the private key for localhostCert.
+var localhostKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
+MIIBPAIBAAJBAN55NcYKZeInyTuhcCwFMhDHCmwaIUSdtXdcbItRB/yfXGBhiex0
+0IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEAAQJBAQdUx66rfh8sYsgfdcvV
+NoafYpnEcB5s4m/vSVe6SU7dCK6eYec9f9wpT353ljhDUHq3EbmE4foNzJngh35d
+AekCIQDhRQG5Li0Wj8TM4obOnnXUXf1jRv0UkzE9AHWLG5q3AwIhAPzSjpYUDjVW
+MCUXgckTpKCuGwbJk7424Nb8bLzf3kllAiA5mUBgjfr/WtFSJdWcPQ4Zt9KTMNKD
+EUO0ukpTwEIl6wIhAMbGqZK3zAAFdq8DD2jPx+UJXnh0rnOkZBzDtJ6/iN69AiEA
+1Aq8MJgTaYsDQWyU/hDq5YkDJc9e9DSCvUIzqxQWMQE=
+-----END RSA PRIVATE KEY-----`)

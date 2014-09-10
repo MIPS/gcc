@@ -1,5 +1,5 @@
 /* Prototypes of target machine for GNU compiler for Xtensa.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -47,7 +47,7 @@ extern rtx xtensa_copy_incoming_a7 (rtx);
 extern void xtensa_expand_nonlocal_goto (rtx *);
 extern void xtensa_expand_compare_and_swap (rtx, rtx, rtx, rtx);
 extern void xtensa_expand_atomic (enum rtx_code, rtx, rtx, rtx, bool);
-extern void xtensa_emit_loop_end (rtx, rtx *);
+extern void xtensa_emit_loop_end (rtx_insn *, rtx *);
 extern char *xtensa_emit_branch (bool, bool, rtx *);
 extern char *xtensa_emit_bit_branch (bool, bool, rtx *);
 extern char *xtensa_emit_movcc (bool, bool, bool, rtx *);

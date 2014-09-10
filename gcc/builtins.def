@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    builtins used in the GNU compiler.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -111,6 +111,13 @@ along with GCC; see the file COPYING3.  If not see
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
 	       true, true, !flag_isoc99, ATTRS, targetm.libc_has_function (function_c99_misc), true)
 
+/* Like DEF_LIB_BUILTIN, except that the function is only a part of
+   the standard in C11 or above.  */
+#undef DEF_C11_BUILTIN
+#define DEF_C11_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
+  DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
+	       true, true, !flag_isoc11, ATTRS, targetm.libc_has_function (function_c11_misc), true)
+
 /* Like DEF_C99_BUILTIN, but for complex math functions.  */
 #undef DEF_C99_COMPL_BUILTIN
 #define DEF_C99_COMPL_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
@@ -147,6 +154,13 @@ along with GCC; see the file COPYING3.  If not see
                false, true, true, ATTRS, false, \
 	       (flag_openmp || flag_tree_parallelize_loops))
 
+/* Builtin used by implementation of Cilk Plus.  Most of these are decomposed
+   by the compiler but a few are implemented in libcilkrts.  */ 
+#undef DEF_CILK_BUILTIN_STUB
+#define DEF_CILK_BUILTIN_STUB(ENUM, NAME) \
+  DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, BT_LAST, BT_LAST, false, false, \
+	       false, ATTR_LAST, false, false)
+
 /* Builtin used by the implementation of GNU TM.  These
    functions are mapped to the actual implementation of the STM library. */
 #undef DEF_TM_BUILTIN
@@ -162,12 +176,12 @@ along with GCC; see the file COPYING3.  If not see
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
 	       true, true, true, ATTRS, true, \
 	      (flag_sanitize & (SANITIZE_ADDRESS | SANITIZE_THREAD \
-				| SANITIZE_UNDEFINED)))
+				| SANITIZE_UNDEFINED | SANITIZE_NONDEFAULT)))
 
 #undef DEF_CILKPLUS_BUILTIN
 #define DEF_CILKPLUS_BUILTIN(ENUM, NAME, TYPE, ATTRS)  \
   DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, BT_FN_INT_VAR, BT_LAST, \
-  	       false, false, false, ATTRS, false, flag_enable_cilkplus) 
+  	       false, false, false, ATTRS, false, flag_cilkplus) 
 
 /* Define an attribute list for math functions that are normally
    "impure" because some of them may write into global memory for
@@ -200,6 +214,12 @@ along with GCC; see the file COPYING3.  If not see
 #undef ATTR_MATHFN_FPROUNDING_STORE
 #define ATTR_MATHFN_FPROUNDING_STORE ATTR_NOTHROW_LEAF_LIST
 
+/* Define an attribute list for leaf functions that do not throw
+   exceptions normally, but may throw exceptions when using
+   -fnon-call-exceptions.  */
+#define ATTR_NOTHROWCALL_LEAF_LIST (flag_non_call_exceptions ? \
+	ATTR_LEAF_LIST : ATTR_NOTHROW_LEAF_LIST)
+
 /* Make sure 0 is not a legitimate builtin.  */
 DEF_BUILTIN_STUB(BUILT_IN_NONE, (const char *)0)
 
@@ -210,6 +230,7 @@ DEF_C99_BUILTIN        (BUILT_IN_ACOSH, "acosh", BT_FN_DOUBLE_DOUBLE, ATTR_MATHF
 DEF_C99_BUILTIN        (BUILT_IN_ACOSHF, "acoshf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO)
 DEF_C99_BUILTIN        (BUILT_IN_ACOSHL, "acoshl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_ACOSL, "acosl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
+DEF_C11_BUILTIN        (BUILT_IN_ALIGNED_ALLOC, "aligned_alloc", BT_FN_PTR_SIZE_SIZE, ATTR_MALLOC_NOTHROW_LIST)
 DEF_LIB_BUILTIN        (BUILT_IN_ASIN, "asin", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_ASINF, "asinf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO)
 DEF_C99_BUILTIN        (BUILT_IN_ASINH, "asinh", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING)
@@ -742,6 +763,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNT, "popcount", BT_FN_INT_UINT, ATTR_CONS
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTIMAX, "popcountimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTL, "popcountl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTLL, "popcountll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_POSIX_MEMALIGN, "posix_memalign", BT_FN_INT_PTRPTR_SIZE_SIZE, ATTR_NOTHROW_NONNULL_LEAF)
 DEF_GCC_BUILTIN        (BUILT_IN_PREFETCH, "prefetch", BT_FN_VOID_CONST_PTR_VAR, ATTR_NOVOPS_LEAF_LIST)
 DEF_LIB_BUILTIN        (BUILT_IN_REALLOC, "realloc", BT_FN_PTR_PTR_SIZE, ATTR_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_RETURN, "return", BT_FN_VOID_PTR, ATTR_NORETURN_NOTHROW_LEAF_LIST)
@@ -770,7 +792,6 @@ DEF_BUILTIN_STUB (BUILT_IN_NONLOCAL_GOTO, "__builtin_nonlocal_goto")
 
 /* Implementing __builtin_setjmp.  */
 DEF_BUILTIN_STUB (BUILT_IN_SETJMP_SETUP, "__builtin_setjmp_setup")
-DEF_BUILTIN_STUB (BUILT_IN_SETJMP_DISPATCHER, "__builtin_setjmp_dispatcher")
 DEF_BUILTIN_STUB (BUILT_IN_SETJMP_RECEIVER, "__builtin_setjmp_receiver")
 
 /* Implementing variable sized local variables.  */
@@ -845,6 +866,9 @@ DEF_GCC_BUILTIN (BUILT_IN_LINE, "LINE", BT_FN_INT, ATTR_NOTHROW_LEAF_LIST)
 
 /* OpenMP builtins.  */
 #include "omp-builtins.def"
+
+/* Cilk keywords builtins.  */
+#include "cilk-builtins.def"
 
 /* GTM builtins. */
 #include "gtm-builtins.def"

@@ -20,8 +20,7 @@ type serverCodec struct {
 	c   io.Closer
 
 	// temporary work space
-	req  serverRequest
-	resp serverResponse
+	req serverRequest
 
 	// JSON-RPC clients can use arbitrary json values as request IDs.
 	// Package rpc expects uint64 request IDs.
@@ -101,7 +100,6 @@ func (c *serverCodec) ReadRequestBody(x interface{}) error {
 var null = json.RawMessage([]byte("null"))
 
 func (c *serverCodec) WriteResponse(r *rpc.Response, x interface{}) error {
-	var resp serverResponse
 	c.mutex.Lock()
 	b, ok := c.pending[r.Seq]
 	if !ok {
@@ -115,10 +113,9 @@ func (c *serverCodec) WriteResponse(r *rpc.Response, x interface{}) error {
 		// Invalid request so no id.  Use JSON null.
 		b = &null
 	}
-	resp.Id = b
-	resp.Result = x
+	resp := serverResponse{Id: b}
 	if r.Error == "" {
-		resp.Error = nil
+		resp.Result = x
 	} else {
 		resp.Error = r.Error
 	}

@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,6 +27,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "obstack.h"
 #include "flags.h"
 #include "java-except.h"
@@ -40,6 +41,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "cgraph.h"
 #include "bitmap.h"
 #include "target.h"
+#include "wide-int.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -312,13 +314,14 @@ set_source_filename (JCF *jcf, int index)
 {
   tree sfname_id = get_name_constant (jcf, index);
   const char *sfname = IDENTIFIER_POINTER (sfname_id);
-  const char *old_filename = input_filename;
+  const char *old_filename = LOCATION_FILE (input_location);
   int new_len = IDENTIFIER_LENGTH (sfname_id);
   if (old_filename != NULL)
     {
       int old_len = strlen (old_filename);
-      /* Use the current input_filename (derived from the class name)
-	 if it has a directory prefix, but otherwise matches sfname. */
+      /* Use the filename from current input_location (derived from the
+	 class name) if it has a directory prefix, but otherwise matches
+	 sfname.  */
       if (old_len > new_len
 	  && filename_cmp (sfname, old_filename + old_len - new_len) == 0
 	  && (old_filename[old_len - new_len - 1] == '/'
@@ -1039,14 +1042,13 @@ get_constant (JCF *jcf, int index)
     case CONSTANT_Long:
       {
 	unsigned HOST_WIDE_INT num;
-	double_int val;
 
 	num = JPOOL_UINT (jcf, index);
-	val = double_int::from_uhwi (num).llshift (32, 64);
+	wide_int val = wi::lshift (wide_int::from (num, 64, SIGNED), 32);
 	num = JPOOL_UINT (jcf, index + 1);
-	val |= double_int::from_uhwi (num);
+	val |= num;
 
-	value = double_int_to_tree (long_type_node, val);
+	value = wide_int_to_tree (long_type_node, val);
 	break;
       }
 
@@ -1559,7 +1561,8 @@ parse_class_file (void)
     linemap_add (line_table, LC_ENTER, 0, loc.file, loc.line);
   }
   file_start_location = input_location;
-  (*debug_hooks->start_source_file) (input_line, input_filename);
+  (*debug_hooks->start_source_file) (LOCATION_LINE (input_location),
+				     LOCATION_FILE (input_location));
 
   java_mark_class_local (current_class);
 
@@ -1617,7 +1620,8 @@ parse_class_file (void)
 	  for (ptr += 2; --i >= 0; ptr += 4)
 	    {
 	      int line = GET_u2 (ptr);
-	      /* Set initial input_line to smallest linenumber.
+	      /* Set initial line of input_location to smallest
+	       * linenumber.
 	       * Needs to be set before init_function_start. */
 	      if (min_line == 0 || line < min_line)
 		min_line = line;
@@ -1723,7 +1727,7 @@ java_emit_static_constructor (void)
 
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
       java_genericize (decl);
-      cgraph_finalize_function (decl, false);
+      cgraph_node::finalize_function (decl, false);
     }
 }
 
@@ -1747,7 +1751,7 @@ java_parse_file (void)
       int avail = 2000;
       finput = fopen (main_input_filename, "r");
       if (finput == NULL)
-	fatal_error ("can%'t open %s: %m", input_filename);
+	fatal_error ("can%'t open %s: %m", LOCATION_FILE (input_location));
       list = XNEWVEC (char, avail);
       next = list;
       for (;;)
@@ -1766,7 +1770,8 @@ java_parse_file (void)
 	  if (count == 0)
 	    {
 	      if (! feof (finput))
-		fatal_error ("error closing %s: %m", input_filename);
+		fatal_error ("error closing %s: %m",
+			     LOCATION_FILE (input_location));
 	      *next = '\0';
 	      break;
 	    }
@@ -1900,7 +1905,7 @@ java_parse_file (void)
       if (magic == 0xcafebabe)
 	{
 	  CLASS_FILE_P (node) = 1;
-	  current_jcf = ggc_alloc_cleared_JCF ();
+	  current_jcf = ggc_cleared_alloc<JCF> ();
 	  current_jcf->read_state = finput;
 	  current_jcf->filbuf = jcf_filbuf_from_stdio;
 	  jcf_parse (current_jcf);
@@ -1917,7 +1922,7 @@ java_parse_file (void)
 	}
       else if (magic == (JCF_u4)ZIPMAGIC)
 	{
-	  main_jcf = ggc_alloc_cleared_JCF ();
+	  main_jcf = ggc_cleared_alloc<JCF> ();
 	  main_jcf->read_state = finput;
 	  main_jcf->filbuf = jcf_filbuf_from_stdio;
 	  linemap_add (line_table, LC_ENTER, false, filename, 0);
@@ -2173,7 +2178,7 @@ process_zip_dir (FILE *finput)
 
       class_name = compute_class_name (zdir);
       file_name  = XNEWVEC (char, zdir->filename_length+1);
-      jcf = ggc_alloc_cleared_JCF ();
+      jcf = ggc_cleared_alloc<JCF> ();
 
       strncpy (file_name, class_name_in_zip_dir, zdir->filename_length);
       file_name [zdir->filename_length] = '\0';

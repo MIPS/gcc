@@ -1,5 +1,5 @@
 /* Specific implementation of the UNPACK intrinsic
-   Copyright (C) 2008-2013 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
    Contributed by Thomas Koenig <tkoenig@gcc.gnu.org>, based on
    unpack_generic.c by Paul Brook <paul@nowt.org>.
 
@@ -99,7 +99,7 @@ unpack0_c4 (gfc_array_c4 *ret, const gfc_array_c4 *vector,
 	  rs *= extent[n];
 	}
       ret->offset = 0;
-      ret->base_addr = xmalloc (rs * sizeof (GFC_COMPLEX_4));
+      ret->base_addr = xmallocarray (rs, sizeof (GFC_COMPLEX_4));
     }
   else
     {
@@ -244,7 +244,7 @@ unpack1_c4 (gfc_array_c4 *ret, const gfc_array_c4 *vector,
 	  rs *= extent[n];
 	}
       ret->offset = 0;
-      ret->base_addr = xmalloc (rs * sizeof (GFC_COMPLEX_4));
+      ret->base_addr = xmallocarray (rs, sizeof (GFC_COMPLEX_4));
     }
   else
     {

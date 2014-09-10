@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd windows
+// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package net
 
@@ -10,6 +10,18 @@ import (
 	"syscall"
 	"time"
 )
+
+// BUG(mikio): On every POSIX platform, reads from the "ip4" network
+// using the ReadFrom or ReadFromIP method might not return a complete
+// IPv4 packet, including its header, even if there is space
+// available. This can occur even in cases where Read or ReadMsgIP
+// could return a complete packet. For this reason, it is recommended
+// that you do not uses these methods if it is important to receive a
+// full packet.
+//
+// The Go 1 compatibility guidelines make it impossible for us to
+// change the behavior of these methods; use Read or ReadMsgIP
+// instead.
 
 func sockaddrToIP(sa syscall.Sockaddr) Addr {
 	switch sa := sa.(type) {
@@ -39,14 +51,10 @@ func (a *IPAddr) isWildcard() bool {
 }
 
 func (a *IPAddr) sockaddr(family int) (syscall.Sockaddr, error) {
-	return ipToSockaddr(family, a.IP, 0, a.Zone)
-}
-
-func (a *IPAddr) toAddr() sockaddr {
-	if a == nil { // nil *IPAddr
-		return nil // nil interface
+	if a == nil {
+		return nil, nil
 	}
-	return a
+	return ipToSockaddr(family, a.IP, 0, a.Zone)
 }
 
 // IPConn is the implementation of the Conn and PacketConn interfaces
@@ -71,7 +79,7 @@ func (c *IPConn) ReadFromIP(b []byte) (int, *IPAddr, error) {
 	// TODO(cw,rsc): consider using readv if we know the family
 	// type to avoid the header trim/copy
 	var addr *IPAddr
-	n, sa, err := c.fd.ReadFrom(b)
+	n, sa, err := c.fd.readFrom(b)
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
 		addr = &IPAddr{IP: sa.Addr[0:]}
@@ -104,7 +112,7 @@ func (c *IPConn) ReadMsgIP(b, oob []byte) (n, oobn, flags int, addr *IPAddr, err
 		return 0, 0, 0, nil, syscall.EINVAL
 	}
 	var sa syscall.Sockaddr
-	n, oobn, flags, sa, err = c.fd.ReadMsg(b, oob)
+	n, oobn, flags, sa, err = c.fd.readMsg(b, oob)
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
 		addr = &IPAddr{IP: sa.Addr[0:]}
@@ -125,11 +133,17 @@ func (c *IPConn) WriteToIP(b []byte, addr *IPAddr) (int, error) {
 	if !c.ok() {
 		return 0, syscall.EINVAL
 	}
+	if c.fd.isConnected {
+		return 0, &OpError{Op: "write", Net: c.fd.net, Addr: addr, Err: ErrWriteToConnected}
+	}
+	if addr == nil {
+		return 0, &OpError{Op: "write", Net: c.fd.net, Addr: nil, Err: errMissingAddress}
+	}
 	sa, err := addr.sockaddr(c.fd.family)
 	if err != nil {
 		return 0, &OpError{"write", c.fd.net, addr, err}
 	}
-	return c.fd.WriteTo(b, sa)
+	return c.fd.writeTo(b, sa)
 }
 
 // WriteTo implements the PacketConn WriteTo method.
@@ -151,11 +165,17 @@ func (c *IPConn) WriteMsgIP(b, oob []byte, addr *IPAddr) (n, oobn int, err error
 	if !c.ok() {
 		return 0, 0, syscall.EINVAL
 	}
+	if c.fd.isConnected {
+		return 0, 0, &OpError{Op: "write", Net: c.fd.net, Addr: addr, Err: ErrWriteToConnected}
+	}
+	if addr == nil {
+		return 0, 0, &OpError{Op: "write", Net: c.fd.net, Addr: nil, Err: errMissingAddress}
+	}
 	sa, err := addr.sockaddr(c.fd.family)
 	if err != nil {
 		return 0, 0, &OpError{"write", c.fd.net, addr, err}
 	}
-	return c.fd.WriteMsg(b, oob, sa)
+	return c.fd.writeMsg(b, oob, sa)
 }
 
 // DialIP connects to the remote address raddr on the network protocol
@@ -168,19 +188,19 @@ func DialIP(netProto string, laddr, raddr *IPAddr) (*IPConn, error) {
 func dialIP(netProto string, laddr, raddr *IPAddr, deadline time.Time) (*IPConn, error) {
 	net, proto, err := parseNetwork(netProto)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: raddr, Err: err}
 	}
 	switch net {
 	case "ip", "ip4", "ip6":
 	default:
-		return nil, UnknownNetworkError(netProto)
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: raddr, Err: UnknownNetworkError(netProto)}
 	}
 	if raddr == nil {
-		return nil, &OpError{"dial", netProto, nil, errMissingAddress}
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: nil, Err: errMissingAddress}
 	}
-	fd, err := internetSocket(net, laddr.toAddr(), raddr.toAddr(), deadline, syscall.SOCK_RAW, proto, "dial", sockaddrToIP)
+	fd, err := internetSocket(net, laddr, raddr, deadline, syscall.SOCK_RAW, proto, "dial", sockaddrToIP)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: raddr, Err: err}
 	}
 	return newIPConn(fd), nil
 }
@@ -192,16 +212,16 @@ func dialIP(netProto string, laddr, raddr *IPAddr, deadline time.Time) (*IPConn,
 func ListenIP(netProto string, laddr *IPAddr) (*IPConn, error) {
 	net, proto, err := parseNetwork(netProto)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: laddr, Err: err}
 	}
 	switch net {
 	case "ip", "ip4", "ip6":
 	default:
-		return nil, UnknownNetworkError(netProto)
+		return nil, &OpError{Op: "listen", Net: netProto, Addr: laddr, Err: UnknownNetworkError(netProto)}
 	}
-	fd, err := internetSocket(net, laddr.toAddr(), nil, noDeadline, syscall.SOCK_RAW, proto, "listen", sockaddrToIP)
+	fd, err := internetSocket(net, laddr, nil, noDeadline, syscall.SOCK_RAW, proto, "listen", sockaddrToIP)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "listen", Net: netProto, Addr: laddr, Err: err}
 	}
 	return newIPConn(fd), nil
 }

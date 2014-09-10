@@ -1,6 +1,6 @@
 /* Communication between the Integrated Register Allocator (IRA) and
    the rest of the compiler.
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -154,7 +154,7 @@ extern struct target_ira *this_target_ira;
   (this_target_ira->x_ira_no_alloc_regs)
 
 /* Major structure describing equivalence info for a pseudo.  */
-struct ira_reg_equiv
+struct ira_reg_equiv_s
 {
   /* True if we can use this equivalence.  */
   bool defined_p;
@@ -166,24 +166,24 @@ struct ira_reg_equiv
   rtx constant;
   rtx invariant;
   /* Always NULL_RTX if defined_p is false.  */
-  rtx init_insns;
+  rtx_insn_list *init_insns;
 };
 
 /* The length of the following array.  */
 extern int ira_reg_equiv_len;
 
 /* Info about equiv. info for each register.  */
-extern struct ira_reg_equiv *ira_reg_equiv;
+extern struct ira_reg_equiv_s *ira_reg_equiv;
 
 extern void ira_init_once (void);
 extern void ira_init (void);
 extern void ira_finish_once (void);
-extern void ira_setup_eliminable_regset (bool);
+extern void ira_setup_eliminable_regset (void);
 extern rtx ira_eliminate_regs (rtx, enum machine_mode);
 extern void ira_set_pseudo_classes (bool, FILE *);
 extern void ira_implicitly_set_insn_hard_regs (HARD_REG_SET *);
 extern void ira_expand_reg_equiv (void);
-extern void ira_update_equiv_info_by_shuffle_insn (int, int, rtx);
+extern void ira_update_equiv_info_by_shuffle_insn (int, int, rtx_insn *);
 
 extern void ira_sort_regnos_for_alter_reg (int *, int, unsigned int *);
 extern void ira_mark_allocation_change (int);

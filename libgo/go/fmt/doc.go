@@ -37,6 +37,7 @@
 		%e	scientific notation, e.g. -1234.456e+78
 		%E	scientific notation, e.g. -1234.456E+78
 		%f	decimal point but no exponent, e.g. 123.456
+		%F	synonym for %f
 		%g	whichever of %e or %f produces more compact output
 		%G	whichever of %E or %f produces more compact output
 	String and slice of bytes:
@@ -50,23 +51,39 @@
 	There is no 'u' flag.  Integers are printed unsigned if they have unsigned type.
 	Similarly, there is no need to specify the size of the operand (int8, int64).
 
-	The width and precision control formatting and are in units of Unicode
-	code points.  (This differs from C's printf where the units are numbers
+	Width is specified by an optional decimal number immediately following the verb.
+	If absent, the width is whatever is necessary to represent the value.
+	Precision is specified after the (optional) width by a period followed by a
+	decimal number. If no period is present, a default precision is used.
+	A period with no following number specifies a precision of zero.
+	Examples:
+		%f:    default width, default precision
+		%9f    width 9, default precision
+		%.2f   default width, precision 2
+		%9.2f  width 9, precision 2
+		%9.f   width 9, precision 0
+
+	Width and precision are measured in units of Unicode code points.
+	(This differs from C's printf where the units are numbers
 	of bytes.) Either or both of the flags may be replaced with the
 	character '*', causing their values to be obtained from the next
 	operand, which must be of type int.
 
-	For numeric values, width sets the minimum width of the field and
+	For most values, width is the minimum number of characters to output,
+	padding the formatted form with spaces if necessary.
+	For strings, precision is the maximum number of characters to output,
+	truncating if necessary.
+
+	For floating-point values, width sets the minimum width of the field and
 	precision sets the number of places after the decimal, if appropriate,
 	except that for %g/%G it sets the total number of digits. For example,
 	given 123.45 the format %6.2f prints 123.45 while %.4g prints 123.5.
 	The default precision for %e and %f is 6; for %g it is the smallest
 	number of digits necessary to identify the value uniquely.
 
-	For most values, width is the minimum number of characters to output,
-	padding the formatted form with spaces if necessary.
-	For strings, precision is the maximum number of characters to output,
-	truncating if necessary.
+	For complex numbers, the width and precision apply to the two
+	components independently and the result is parenthesized, so %f applied
+	to 1.2+3.4i produces (1.200000+3.400000i).
 
 	Other flags:
 		+	always print a sign for numeric values;
@@ -98,25 +115,60 @@
 		fmt.Printf("%v\n", i)
 	will print 23.
 
-	If an operand implements interface Formatter, that interface
-	can be used for fine control of formatting.
+	Except when printed using the verbs %T and %p, special
+	formatting considerations apply for operands that implement
+	certain interfaces. In order of application:
+
+	1. If an operand implements the Formatter interface, it will
+	be invoked. Formatter provides fine control of formatting.
+
+	2. If the %v verb is used with the # flag (%#v) and the operand
+	implements the GoStringer interface, that will be invoked.
 
 	If the format (which is implicitly %v for Println etc.) is valid
-	for a string (%s %q %v %x %X), the following two rules also apply:
+	for a string (%s %q %v %x %X), the following two rules apply:
 
-	1. If an operand implements the error interface, the Error method
-	will be used to convert the object to a string, which will then
+	3. If an operand implements the error interface, the Error method
+	will be invoked to convert the object to a string, which will then
 	be formatted as required by the verb (if any).
 
-	2. If an operand implements method String() string, that method
-	will be used to convert the object to a string, which will then
+	4. If an operand implements method String() string, that method
+	will be invoked to convert the object to a string, which will then
 	be formatted as required by the verb (if any).
+
+	For compound operands such as slices and structs, the format
+	applies to the elements of each operand, recursively, not to the
+	operand as a whole. Thus %q will quote each element of a slice
+	of strings, and %6.2f will control formatting for each element
+	of a floating-point array.
 
 	To avoid recursion in cases such as
 		type X string
 		func (x X) String() string { return Sprintf("<%s>", x) }
 	convert the value before recurring:
 		func (x X) String() string { return Sprintf("<%s>", string(x)) }
+
+	Explicit argument indexes:
+
+	In Printf, Sprintf, and Fprintf, the default behavior is for each
+	formatting verb to format successive arguments passed in the call.
+	However, the notation [n] immediately before the verb indicates that the
+	nth one-indexed argument is to be formatted instead. The same notation
+	before a '*' for a width or precision selects the argument index holding
+	the value. After processing a bracketed expression [n], arguments n+1,
+	n+2, etc. will be processed unless otherwise directed.
+
+	For example,
+		fmt.Sprintf("%[2]d %[1]d\n", 11, 22)
+	will yield "22, 11", while
+		fmt.Sprintf("%[3]*.[2]*[1]f", 12.0, 2, 6),
+	equivalent to
+		fmt.Sprintf("%6.2f", 12.0),
+	will yield " 12.00". Because an explicit index affects subsequent verbs,
+	this notation can be used to print the same values multiple times
+	by resetting the index for the first argument to be repeated:
+		fmt.Sprintf("%d %d %#[1]x %#x", 16, 17)
+	will yield "16 17 0x10 0x11".
 
 	Format errors:
 
@@ -133,6 +185,9 @@
 		Non-int for width or precision: %!(BADWIDTH) or %!(BADPREC)
 			Printf("%*s", 4.5, "hi"):  %!(BADWIDTH)hi
 			Printf("%.*s", 4.5, "hi"): %!(BADPREC)hi
+		Invalid or invalid use of argument index: %!(BADINDEX)
+			Printf("%*[2]d", 7):       %!d(BADINDEX)
+			Printf("%.[2]d", 7):       %!d(BADINDEX)
 
 	All errors begin with the string "%!" followed sometimes
 	by a single character (the verb) and end with a parenthesized
@@ -144,9 +199,9 @@
 	through the fmt package.  For example, if a String method
 	calls panic("bad"), the resulting formatted message will look
 	like
-		%s(PANIC=bad)
+		%!s(PANIC=bad)
 
-	The %s just shows the print verb in use when the failure
+	The %!s just shows the print verb in use when the failure
 	occurred.
 
 	Scanning
@@ -189,6 +244,10 @@
 	text in the format string must match the input text; scanning
 	stops if it does not, with the return value of the function
 	indicating the number of arguments scanned.
+
+	In all the scanning functions, a carriage return followed
+	immediately by a newline is treated as a plain newline
+	(\r\n means the same as \n).
 
 	In all the scanning functions, if an operand implements method
 	Scan (that is, it implements the Scanner interface) that

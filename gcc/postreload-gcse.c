@@ -1,5 +1,5 @@
 /* Post reload partially redundant load elimination
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -148,7 +148,7 @@ expr_hasher::equal (const value_type *exp1, const compare_type *exp2)
 }
 
 /* The table itself.  */
-static hash_table <expr_hasher> expr_table;
+static hash_table<expr_hasher> *expr_table;
 
 
 static struct obstack expr_obstack;
@@ -162,7 +162,7 @@ struct occr
   /* Next occurrence of this expression.  */
   struct occr *next;
   /* The insn that computes the expression.  */
-  rtx insn;
+  rtx_insn *insn;
   /* Nonzero if this [anticipatable] occurrence has been deleted.  */
   char deleted_p;
 };
@@ -175,7 +175,7 @@ struct unoccr
 {
   struct unoccr *next;
   edge pred;
-  rtx insn;
+  rtx_insn *insn;
 };
 
 static struct obstack unoccr_obstack;
@@ -194,7 +194,7 @@ static int *reg_avail_info;
 /* A list of insns that may modify memory within the current basic block.  */
 struct modifies_mem
 {
-  rtx insn;
+  rtx_insn *insn;
   struct modifies_mem *next;
 };
 static struct modifies_mem *modifies_mem_list;
@@ -218,12 +218,12 @@ static void alloc_mem (void);
 static void free_mem (void);
 
 /* Support for hash table construction and transformations.  */
-static bool oprs_unchanged_p (rtx, rtx, bool);
-static void record_last_reg_set_info (rtx, rtx);
-static void record_last_reg_set_info_regno (rtx, int);
-static void record_last_mem_set_info (rtx);
+static bool oprs_unchanged_p (rtx, rtx_insn *, bool);
+static void record_last_reg_set_info (rtx_insn *, rtx);
+static void record_last_reg_set_info_regno (rtx_insn *, int);
+static void record_last_mem_set_info (rtx_insn *);
 static void record_last_set_info (rtx, const_rtx, void *);
-static void record_opr_changes (rtx);
+static void record_opr_changes (rtx_insn *);
 
 static void find_mem_conflicts (rtx, const_rtx, void *);
 static int load_killed_in_block_p (int, rtx, bool);
@@ -231,7 +231,7 @@ static void reset_opr_set_tables (void);
 
 /* Hash table support.  */
 static hashval_t hash_expr (rtx, int *);
-static void insert_expr_in_table (rtx, rtx);
+static void insert_expr_in_table (rtx, rtx_insn *);
 static struct expr *lookup_expr_in_table (rtx);
 static void dump_hash_table (FILE *);
 
@@ -239,16 +239,16 @@ static void dump_hash_table (FILE *);
 static bool reg_killed_on_edge (rtx, edge);
 static bool reg_used_on_edge (rtx, edge);
 
-static rtx get_avail_load_store_reg (rtx);
+static rtx get_avail_load_store_reg (rtx_insn *);
 
 static bool bb_has_well_behaved_predecessors (basic_block);
 static struct occr* get_bb_avail_insn (basic_block, struct occr *);
-static void hash_scan_set (rtx);
+static void hash_scan_set (rtx_insn *);
 static void compute_hash_table (void);
 
 /* The work horses of this pass.  */
 static void eliminate_partially_redundant_load (basic_block,
-						rtx,
+						rtx_insn *,
 						struct expr *);
 static void eliminate_partially_redundant_loads (void);
 
@@ -261,12 +261,12 @@ alloc_mem (void)
 {
   int i;
   basic_block bb;
-  rtx insn;
+  rtx_insn *insn;
 
   /* Find the largest UID and create a mapping from UIDs to CUIDs.  */
   uid_cuid = XCNEWVEC (int, get_max_uid () + 1);
   i = 1;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       {
         if (INSN_P (insn))
@@ -279,7 +279,7 @@ alloc_mem (void)
      make the hash table too small, but unnecessarily making it too large
      also doesn't help.  The i/4 is a gcse.c relic, and seems like a
      reasonable choice.  */
-  expr_table.create (MAX (i / 4, 13));
+  expr_table = new hash_table<expr_hasher> (MAX (i / 4, 13));
 
   /* We allocate everything on obstacks because we often can roll back
      the whole obstack to some point.  Freeing obstacks is very fast.  */
@@ -306,7 +306,8 @@ free_mem (void)
 {
   free (uid_cuid);
 
-  expr_table.dispose ();
+  delete expr_table;
+  expr_table = NULL;
 
   obstack_free (&expr_obstack, NULL);
   obstack_free (&occr_obstack, NULL);
@@ -322,7 +323,7 @@ free_mem (void)
    basic block.  */
 
 static void
-insert_expr_in_table (rtx x, rtx insn)
+insert_expr_in_table (rtx x, rtx_insn *insn)
 {
   int do_not_record_p;
   hashval_t hash;
@@ -348,7 +349,7 @@ insert_expr_in_table (rtx x, rtx insn)
   cur_expr->hash = hash;
   cur_expr->avail_occr = NULL;
 
-  slot = expr_table.find_slot_with_hash (cur_expr, hash, INSERT);
+  slot = expr_table->find_slot_with_hash (cur_expr, hash, INSERT);
 
   if (! (*slot))
     /* The expression isn't found, so insert it.  */
@@ -416,7 +417,7 @@ lookup_expr_in_table (rtx pat)
   tmp_expr->hash = hash;
   tmp_expr->avail_occr = NULL;
 
-  slot = expr_table.find_slot_with_hash (tmp_expr, hash, INSERT);
+  slot = expr_table->find_slot_with_hash (tmp_expr, hash, INSERT);
   obstack_free (&expr_obstack, tmp_expr);
 
   if (!slot)
@@ -443,7 +444,7 @@ dump_expr_hash_table_entry (expr **slot, FILE *file)
   occr = exprs->avail_occr;
   while (occr)
     {
-      rtx insn = occr->insn;
+      rtx_insn *insn = occr->insn;
       print_rtl_single (file, insn);
       fprintf (file, "\n");
       occr = occr->next;
@@ -457,13 +458,13 @@ dump_hash_table (FILE *file)
 {
   fprintf (file, "\n\nexpression hash table\n");
   fprintf (file, "size %ld, %ld elements, %f collision/search ratio\n",
-           (long) expr_table.size (),
-           (long) expr_table.elements (),
-           expr_table.collisions ());
-  if (expr_table.elements () > 0)
+           (long) expr_table->size (),
+           (long) expr_table->elements (),
+           expr_table->collisions ());
+  if (expr_table->elements () > 0)
     {
       fprintf (file, "\n\ntable entries:\n");
-      expr_table.traverse <FILE *, dump_expr_hash_table_entry> (file);
+      expr_table->traverse <FILE *, dump_expr_hash_table_entry> (file);
     }
   fprintf (file, "\n");
 }
@@ -491,7 +492,7 @@ reg_changed_after_insn_p (rtx x, int cuid)
    2) from INSN to the end of INSN's basic block if AFTER_INSN is true.  */
 
 static bool
-oprs_unchanged_p (rtx x, rtx insn, bool after_insn)
+oprs_unchanged_p (rtx x, rtx_insn *insn, bool after_insn)
 {
   int i, j;
   enum rtx_code code;
@@ -605,7 +606,7 @@ load_killed_in_block_p (int uid_limit, rtx x, bool after_insn)
 
   while (list_entry)
     {
-      rtx setter = list_entry->insn;
+      rtx_insn *setter = list_entry->insn;
 
       /* Ignore entries in the list that do not apply.  */
       if ((after_insn
@@ -641,7 +642,7 @@ load_killed_in_block_p (int uid_limit, rtx x, bool after_insn)
 /* Record register first/last/block set information for REGNO in INSN.  */
 
 static inline void
-record_last_reg_set_info (rtx insn, rtx reg)
+record_last_reg_set_info (rtx_insn *insn, rtx reg)
 {
   unsigned int regno, end_regno;
 
@@ -653,7 +654,7 @@ record_last_reg_set_info (rtx insn, rtx reg)
 }
 
 static inline void
-record_last_reg_set_info_regno (rtx insn, int regno)
+record_last_reg_set_info_regno (rtx_insn *insn, int regno)
 {
   reg_avail_info[regno] = INSN_CUID (insn);
 }
@@ -664,7 +665,7 @@ record_last_reg_set_info_regno (rtx insn, int regno)
    a CALL_INSN).  We merely need to record which insns modify memory.  */
 
 static void
-record_last_mem_set_info (rtx insn)
+record_last_mem_set_info (rtx_insn *insn)
 {
   struct modifies_mem *list_entry;
 
@@ -682,7 +683,7 @@ record_last_mem_set_info (rtx insn)
 static void
 record_last_set_info (rtx dest, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
-  rtx last_set_insn = (rtx) data;
+  rtx_insn *last_set_insn = (rtx_insn *) data;
 
   if (GET_CODE (dest) == SUBREG)
     dest = SUBREG_REG (dest);
@@ -720,7 +721,7 @@ reset_opr_set_tables (void)
    This data is used by oprs_unchanged_p.  */
 
 static void
-record_opr_changes (rtx insn)
+record_opr_changes (rtx_insn *insn)
 {
   rtx note;
 
@@ -762,7 +763,7 @@ record_opr_changes (rtx insn)
    After reload we are interested in loads/stores only.  */
 
 static void
-hash_scan_set (rtx insn)
+hash_scan_set (rtx_insn *insn)
 {
   rtx pat = PATTERN (insn);
   rtx src = SET_SRC (pat);
@@ -828,9 +829,9 @@ compute_hash_table (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn;
+      rtx_insn *insn;
 
       /* First pass over the instructions records information used to
 	 determine when registers and memory are last set.
@@ -859,7 +860,7 @@ compute_hash_table (void)
 static bool
 reg_killed_on_edge (rtx reg, edge e)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = e->insns.r; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn) && reg_set_p (reg, insn))
@@ -876,7 +877,7 @@ reg_killed_on_edge (rtx reg, edge e)
 static bool
 reg_used_on_edge (rtx reg, edge e)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = e->insns.r; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn) && reg_overlap_mentioned_p (reg, PATTERN (insn)))
@@ -888,7 +889,7 @@ reg_used_on_edge (rtx reg, edge e)
 /* Return the loaded/stored register of a load/store instruction.  */
 
 static rtx
-get_avail_load_store_reg (rtx insn)
+get_avail_load_store_reg (rtx_insn *insn)
 {
   if (REG_P (SET_DEST (PATTERN (insn))))
     /* A load.  */
@@ -953,11 +954,11 @@ get_bb_avail_insn (basic_block bb, struct occr *occr)
    a redundancy is also worth doing, assuming it is possible.  */
 
 static void
-eliminate_partially_redundant_load (basic_block bb, rtx insn,
+eliminate_partially_redundant_load (basic_block bb, rtx_insn *insn,
 				    struct expr *expr)
 {
   edge pred;
-  rtx avail_insn = NULL_RTX;
+  rtx_insn *avail_insn = NULL;
   rtx avail_reg;
   rtx dest, pat;
   struct occr *a_occr;
@@ -986,9 +987,9 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
   /* Check potential for replacing load with copy for predecessors.  */
   FOR_EACH_EDGE (pred, ei, bb->preds)
     {
-      rtx next_pred_bb_end;
+      rtx_insn *next_pred_bb_end;
 
-      avail_insn = NULL_RTX;
+      avail_insn = NULL;
       avail_reg = NULL_RTX;
       pred_bb = pred->src;
       next_pred_bb_end = NEXT_INSN (BB_END (pred_bb));
@@ -1002,8 +1003,9 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
 
 	  /* Make sure we can generate a move from register avail_reg to
 	     dest.  */
-	  extract_insn (gen_move_insn (copy_rtx (dest),
-				       copy_rtx (avail_reg)));
+	  extract_insn (as_a <rtx_insn *> (
+			  gen_move_insn (copy_rtx (dest),
+					 copy_rtx (avail_reg))));
 	  if (! constrain_operands (1)
 	      || reg_killed_on_edge (avail_reg, pred)
 	      || reg_used_on_edge (dest, pred))
@@ -1051,7 +1053,7 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
 	  not_ok_count += pred->count;
 	  unoccr = (struct unoccr *) obstack_alloc (&unoccr_obstack,
 						    sizeof (struct unoccr));
-	  unoccr->insn = NULL_RTX;
+	  unoccr->insn = NULL;
 	  unoccr->pred = pred;
 	  unoccr->next = unavail_occrs;
 	  unavail_occrs = unoccr;
@@ -1153,17 +1155,17 @@ cleanup:
 static void
 eliminate_partially_redundant_loads (void)
 {
-  rtx insn;
+  rtx_insn *insn;
   basic_block bb;
 
   /* Note we start at block 1.  */
 
-  if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
+  if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   FOR_BB_BETWEEN (bb,
-		  ENTRY_BLOCK_PTR->next_bb->next_bb,
-		  EXIT_BLOCK_PTR,
+		  ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (cfun),
 		  next_bb)
     {
       /* Don't try anything on basic blocks with strange predecessors.  */
@@ -1253,7 +1255,7 @@ delete_redundant_insns_1 (expr **slot, void *data ATTRIBUTE_UNUSED)
 static void
 delete_redundant_insns (void)
 {
-  expr_table.traverse <void *, delete_redundant_insns_1> (NULL);
+  expr_table->traverse <void *, delete_redundant_insns_1> (NULL);
   if (dump_file)
     fprintf (dump_file, "\n");
 }
@@ -1279,7 +1281,7 @@ gcse_after_reload_main (rtx f ATTRIBUTE_UNUSED)
   if (dump_file)
     dump_hash_table (dump_file);
 
-  if (expr_table.elements () > 0)
+  if (expr_table->elements () > 0)
     {
       eliminate_partially_redundant_loads ();
       delete_redundant_insns ();
@@ -1308,13 +1310,6 @@ gcse_after_reload_main (rtx f ATTRIBUTE_UNUSED)
 }
 
 
-static bool
-gate_handle_gcse2 (void)
-{
-  return (optimize > 0 && flag_gcse_after_reload
-	  && optimize_function_for_speed_p (cfun));
-}
-
 
 static unsigned int
 rest_of_handle_gcse2 (void)
@@ -1331,14 +1326,12 @@ const pass_data pass_data_gcse2 =
   RTL_PASS, /* type */
   "gcse2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_GCSE_AFTER_RELOAD, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_rtl_sharing | TODO_verify_flow ), /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_gcse2 : public rtl_opt_pass
@@ -1349,8 +1342,13 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_gcse2 (); }
-  unsigned int execute () { return rest_of_handle_gcse2 (); }
+  virtual bool gate (function *fun)
+    {
+      return (optimize > 0 && flag_gcse_after_reload
+	      && optimize_function_for_speed_p (fun));
+    }
+
+  virtual unsigned int execute (function *) { return rest_of_handle_gcse2 (); }
 
 }; // class pass_gcse2
 

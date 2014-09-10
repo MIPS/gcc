@@ -8,7 +8,9 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -33,6 +35,10 @@ func TestFileInfoHeader(t *testing.T) {
 	}
 	if g, e := h.ModTime, fi.ModTime(); !g.Equal(e) {
 		t.Errorf("ModTime = %v; want %v", g, e)
+	}
+	// FileInfoHeader should error when passing nil FileInfo
+	if _, err := FileInfoHeader(nil, ""); err == nil {
+		t.Fatalf("Expected error when passing nil to FileInfoHeader")
 	}
 }
 
@@ -249,7 +255,14 @@ func TestHeaderRoundTrip(t *testing.T) {
 			t.Error(err)
 			continue
 		}
-		if got, want := h2.Name, g.h.Name; got != want {
+		if strings.Contains(fi.Name(), "/") {
+			t.Errorf("FileInfo of %q contains slash: %q", g.h.Name, fi.Name())
+		}
+		name := path.Base(g.h.Name)
+		if fi.IsDir() {
+			name += "/"
+		}
+		if got, want := h2.Name, name; got != want {
 			t.Errorf("i=%d: Name: got %v, want %v", i, got, want)
 		}
 		if got, want := h2.Size, g.h.Size; got != want {

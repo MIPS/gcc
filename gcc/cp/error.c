@@ -1,6 +1,6 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -30,7 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "cxx-pretty-print.h"
 #include "tree-pretty-print.h"
-#include "pointer-set.h"
 #include "c-family/c-objc.h"
 #include "ubsan.h"
 
@@ -99,7 +99,6 @@ static void print_instantiation_partial_context (diagnostic_context *,
 						 struct tinst_level *,
 						 location_t);
 static void cp_diagnostic_starter (diagnostic_context *, diagnostic_info *);
-static void cp_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 static void cp_print_error_function (diagnostic_context *, diagnostic_info *);
 
 static bool cp_printer (pretty_printer *, text_info *, const char *,
@@ -109,7 +108,7 @@ void
 init_error (void)
 {
   diagnostic_starter (global_dc) = cp_diagnostic_starter;
-  diagnostic_finalizer (global_dc) = cp_diagnostic_finalizer;
+  /* diagnostic_finalizer is already c_diagnostic_finalizer.  */
   diagnostic_format_decoder (global_dc) = cp_printer;
 
   new (cxx_pp) cxx_pretty_printer ();
@@ -317,6 +316,11 @@ dump_template_bindings (cxx_pretty_printer *pp, tree parms, tree args,
   if (vec_safe_is_empty (typenames) || uses_template_parms (args))
     return;
 
+  /* Don't try to print typenames when we're processing a clone.  */
+  if (current_function_decl
+      && !DECL_LANG_SPECIFIC (current_function_decl))
+    return;
+
   FOR_EACH_VEC_SAFE_ELT (typenames, i, t)
     {
       if (need_semicolon)
@@ -511,7 +515,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 	  pp_cxx_colon_colon (pp);
 	}
       pp_cxx_ws_string (pp, "template");
-      dump_type (pp, DECL_NAME (TYPE_NAME (t)), flags);
+      dump_type (pp, TYPE_IDENTIFIER (t), flags);
       break;
 
     case TYPEOF_TYPE:
@@ -816,6 +820,8 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
       if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
 	  || TREE_CODE (TREE_TYPE (t)) == FUNCTION_TYPE)
 	pp_cxx_right_paren (pp);
+      if (TREE_CODE (t) == POINTER_TYPE)
+	flags |= TFF_POINTER;
       dump_type_suffix (pp, TREE_TYPE (t), flags);
       break;
 
@@ -835,7 +841,9 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
 	dump_parameters (pp, arg, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
 
 	pp->padding = pp_before;
-	pp_cxx_cv_qualifiers (pp, type_memfn_quals (t));
+	pp_cxx_cv_qualifiers (pp, type_memfn_quals (t),
+			      TREE_CODE (t) == FUNCTION_TYPE
+			      && (flags & TFF_POINTER));
 	dump_ref_qualifier (pp, t, flags);
 	dump_exception_spec (pp, TYPE_RAISES_EXCEPTIONS (t), flags);
 	dump_type_suffix (pp, TREE_TYPE (t), flags);
@@ -851,8 +859,8 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
 	  tree max = TYPE_MAX_VALUE (dtype);
 	  if (integer_all_onesp (max))
 	    pp_character (pp, '0');
-	  else if (host_integerp (max, 0))
-	    pp_wide_integer (pp, tree_low_cst (max, 0) + 1);
+	  else if (tree_fits_shwi_p (max))
+	    pp_wide_integer (pp, tree_to_shwi (max) + 1);
 	  else
 	    {
 	      STRIP_NOPS (max);
@@ -923,7 +931,7 @@ dump_global_iord (cxx_pretty_printer *pp, tree t)
   else
     gcc_unreachable ();
 
-  pp_printf (pp, p, input_filename);
+  pp_printf (pp, p, LOCATION_FILE (input_location));
 }
 
 static void
@@ -1144,7 +1152,12 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 
     case FUNCTION_DECL:
       if (! DECL_LANG_SPECIFIC (t))
-	pp_string (pp, M_("<built-in>"));
+	{
+	  if (DECL_ABSTRACT_ORIGIN (t))
+	    dump_decl (pp, DECL_ABSTRACT_ORIGIN (t), flags);
+	  else
+	    pp_string (pp, M_("<built-in>"));
+	}
       else if (DECL_GLOBAL_CTOR_P (t) || DECL_GLOBAL_DTOR_P (t))
 	dump_global_iord (pp, t);
       else
@@ -1314,7 +1327,7 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 
 struct find_typenames_t
 {
-  struct pointer_set_t *p_set;
+  hash_set<tree> *p_set;
   vec<tree, va_gc> *typenames;
 };
 
@@ -1340,7 +1353,7 @@ find_typenames_r (tree *tp, int *walk_subtrees, void *data)
       return NULL_TREE;
     }
 
-  if (mv && (mv == *tp || !pointer_set_insert (d->p_set, mv)))
+  if (mv && (mv == *tp || !d->p_set->add (mv)))
     vec_safe_push (d->typenames, mv);
 
   /* Search into class template arguments, which cp_walk_subtrees
@@ -1356,11 +1369,11 @@ static vec<tree, va_gc> *
 find_typenames (tree t)
 {
   struct find_typenames_t ft;
-  ft.p_set = pointer_set_create ();
+  ft.p_set = new hash_set<tree>;
   ft.typenames = NULL;
   cp_walk_tree (&TREE_TYPE (DECL_TEMPLATE_RESULT (t)),
 		find_typenames_r, &ft, ft.p_set);
-  pointer_set_destroy (ft.p_set);
+  delete ft.p_set;
   return ft.typenames;
 }
 
@@ -1464,7 +1477,7 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
       else if (DECL_VIRTUAL_P (t))
 	pp_cxx_ws_string (pp, "virtual");
 
-      if (DECL_DECLARED_CONSTEXPR_P (STRIP_TEMPLATE (t)))
+      if (DECL_DECLARED_CONSTEXPR_P (t))
 	pp_cxx_ws_string (pp, "constexpr");
     }
 
@@ -1853,7 +1866,7 @@ static tree
 resolve_virtual_fun_from_obj_type_ref (tree ref)
 {
   tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
-  HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  HOST_WIDE_INT index = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (ref));
   tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
   while (index)
     {
@@ -1907,6 +1920,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	pp_cxx_ws_string (pp, M_("<unknown>"));
       break;
 
+    case VOID_CST:
     case INTEGER_CST:
     case REAL_CST:
     case STRING_CST:
@@ -2285,7 +2299,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      pp_cxx_right_paren (pp);
 	      break;
 	    }
-	  else if (host_integerp (idx, 0))
+	  else if (tree_fits_shwi_p (idx))
 	    {
 	      tree virtuals;
 	      unsigned HOST_WIDE_INT n;
@@ -2294,7 +2308,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = BINFO_VIRTUALS (TYPE_BINFO (TYPE_MAIN_VARIANT (t)));
 
-	      n = tree_low_cst (idx, 0);
+	      n = tree_to_shwi (idx);
 
 	      /* Map vtable index back one, to allow for the null pointer to
 		 member.  */
@@ -2803,7 +2817,7 @@ location_of (tree t)
 
   if (DECL_P (t))
     return DECL_SOURCE_LOCATION (t);
-  return EXPR_LOC_OR_HERE (t);
+  return EXPR_LOC_OR_LOC (t, input_location);
 }
 
 /* Now the interfaces from error et al to dump_type et al. Each takes an
@@ -2915,7 +2929,7 @@ type_to_string (tree typ, int verbose)
   if (typ && TYPE_P (typ) && typ != TYPE_CANONICAL (typ)
       && !uses_template_parms (typ))
     {
-      int aka_start; char *p;
+      int aka_start, aka_len; char *p;
       struct obstack *ob = pp_buffer (cxx_pp)->obstack;
       /* Remember the end of the initial dump.  */
       int len = obstack_object_size (ob);
@@ -2925,10 +2939,11 @@ type_to_string (tree typ, int verbose)
       /* And remember the start of the aka dump.  */
       aka_start = obstack_object_size (ob);
       dump_type (cxx_pp, aka, flags);
+      aka_len = obstack_object_size (ob) - aka_start;
       pp_right_brace (cxx_pp);
       p = (char*)obstack_base (ob);
       /* If they are identical, cut off the aka with a NUL.  */
-      if (memcmp (p, p+aka_start, len) == 0)
+      if (len == aka_len && memcmp (p, p+aka_start, len) == 0)
 	p[len] = '\0';
     }
   return pp_ggc_formatted_text (cxx_pp);
@@ -2998,6 +3013,15 @@ cv_to_string (tree p, int v)
   return pp_ggc_formatted_text (cxx_pp);
 }
 
+static const char *
+eh_spec_to_string (tree p, int /*v*/)
+{
+  int flags = 0;
+  reinit_cxx_pp ();
+  dump_exception_spec (cxx_pp, p, flags);
+  return pp_ggc_formatted_text (cxx_pp);
+}
+
 /* Langhook for print_error_function.  */
 void
 cxx_print_error_function (diagnostic_context *context, const char *file,
@@ -3018,14 +3042,6 @@ cp_diagnostic_starter (diagnostic_context *context,
   maybe_print_constexpr_context (context);
   pp_set_prefix (context->printer, diagnostic_build_prefix (context,
 								 diagnostic));
-}
-
-static void
-cp_diagnostic_finalizer (diagnostic_context *context,
-			 diagnostic_info *diagnostic)
-{
-  virt_loc_aware_diagnostic_finalizer (context, diagnostic);
-  pp_destroy_prefix (context->printer);
 }
 
 /* Print current function onto BUFFER, in the process of reporting
@@ -3379,8 +3395,10 @@ maybe_print_constexpr_context (diagnostic_context *context)
    %O	binary operator.
    %P   function parameter whose position is indicated by an integer.
    %Q	assignment operator.
+   %S   substitution (template + args)
    %T   type.
-   %V   cv-qualifier.  */
+   %V   cv-qualifier.
+   %X   exception-specification.  */
 static bool
 cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 	    int precision, bool wide, bool set_locus, bool verbose)
@@ -3427,6 +3445,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'S': result = subst_to_string (next_tree);		break;
     case 'T': result = type_to_string (next_tree, verbose);	break;
     case 'V': result = cv_to_string (next_tree, verbose);	break;
+    case 'X': result = eh_spec_to_string (next_tree, verbose);  break;
 
     case 'K':
       percent_K_format (text);
@@ -3450,7 +3469,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 void
 maybe_warn_cpp0x (cpp0x_warn_str str)
 {
-  if ((cxx_dialect == cxx98) && !in_system_header)
+  if ((cxx_dialect == cxx98) && !in_system_header_at (input_location))
     /* We really want to suppress this warning in system headers,
        because libstdc++ uses variadic templates even when we aren't
        in C++0x mode. */

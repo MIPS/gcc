@@ -1,5 +1,5 @@
 /* Process machine description and calculate constant conditions.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -95,7 +95,7 @@ write_header (void)
 
   puts ("\
 /* Dummy external declarations.  */\n\
-extern rtx insn;\n\
+extern rtx_insn *insn;\n\
 extern rtx ins1;\n\
 extern rtx operands[];\n\
 \n\

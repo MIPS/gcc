@@ -47,7 +47,7 @@ type BinOpTest struct {
 	i int
 }
 
-var compareTests = []struct {
+var equalTests = []struct {
 	a, b []byte
 	i    int
 }{
@@ -73,12 +73,8 @@ var compareTests = []struct {
 	{nil, []byte("a"), -1},
 }
 
-func TestCompare(t *testing.T) {
+func TestEqual(t *testing.T) {
 	for _, tt := range compareTests {
-		cmp := Compare(tt.a, tt.b)
-		if cmp != tt.i {
-			t.Errorf(`Compare(%q, %q) = %v`, tt.a, tt.b, cmp)
-		}
 		eql := Equal(tt.a, tt.b)
 		if eql != (tt.i == 0) {
 			t.Errorf(`Equal(%q, %q) = %v`, tt.a, tt.b, eql)
@@ -90,7 +86,7 @@ func TestCompare(t *testing.T) {
 	}
 }
 
-func TestEqual(t *testing.T) {
+func TestEqualExhaustive(t *testing.T) {
 	var size = 128
 	if testing.Short() {
 		size = 32
@@ -147,6 +143,7 @@ var indexTests = []BinOpTest{
 	{"", "a", -1},
 	{"", "foo", -1},
 	{"fo", "foo", -1},
+	{"foo", "baz", -1},
 	{"foo", "foo", 0},
 	{"oofofoofooo", "f", 2},
 	{"oofofoofooo", "foo", 4},
@@ -788,6 +785,16 @@ func TestMap(t *testing.T) {
 	if string(m) != expect {
 		t.Errorf("drop: expected %q got %q", expect, m)
 	}
+
+	// 6. Invalid rune
+	invalidRune := func(r rune) rune {
+		return utf8.MaxRune + 1
+	}
+	m = Map(invalidRune, []byte("x"))
+	expect = "\uFFFD"
+	if string(m) != expect {
+		t.Errorf("invalidRune: expected %q got %q", expect, m)
+	}
 }
 
 func TestToUpper(t *testing.T) { runStringTests(t, ToUpper, "ToUpper", upperTests) }
@@ -1076,12 +1083,32 @@ var TitleTests = []TitleTest{
 	{"123a456", "123a456"},
 	{"double-blind", "Double-Blind"},
 	{"ÿøû", "Ÿøû"},
+	{"with_underscore", "With_underscore"},
+	{"unicode \xe2\x80\xa8 line separator", "Unicode \xe2\x80\xa8 Line Separator"},
 }
 
 func TestTitle(t *testing.T) {
 	for _, tt := range TitleTests {
 		if s := string(Title([]byte(tt.in))); s != tt.out {
 			t.Errorf("Title(%q) = %q, want %q", tt.in, s, tt.out)
+		}
+	}
+}
+
+var ToTitleTests = []TitleTest{
+	{"", ""},
+	{"a", "A"},
+	{" aaa aaa aaa ", " AAA AAA AAA "},
+	{" Aaa Aaa Aaa ", " AAA AAA AAA "},
+	{"123a456", "123A456"},
+	{"double-blind", "DOUBLE-BLIND"},
+	{"ÿøû", "ŸØÛ"},
+}
+
+func TestToTitle(t *testing.T) {
+	for _, tt := range ToTitleTests {
+		if s := string(ToTitle([]byte(tt.in))); s != tt.out {
+			t.Errorf("ToTitle(%q) = %q, want %q", tt.in, s, tt.out)
 		}
 	}
 }
@@ -1110,6 +1137,55 @@ func TestEqualFold(t *testing.T) {
 		}
 		if out := EqualFold([]byte(tt.t), []byte(tt.s)); out != tt.out {
 			t.Errorf("EqualFold(%#q, %#q) = %v, want %v", tt.t, tt.s, out, tt.out)
+		}
+	}
+}
+
+func TestBufferGrowNegative(t *testing.T) {
+	defer func() {
+		if err := recover(); err == nil {
+			t.Fatal("Grow(-1) should have panicked")
+		}
+	}()
+	var b Buffer
+	b.Grow(-1)
+}
+
+func TestBufferTruncateNegative(t *testing.T) {
+	defer func() {
+		if err := recover(); err == nil {
+			t.Fatal("Truncate(-1) should have panicked")
+		}
+	}()
+	var b Buffer
+	b.Truncate(-1)
+}
+
+func TestBufferTruncateOutOfRange(t *testing.T) {
+	defer func() {
+		if err := recover(); err == nil {
+			t.Fatal("Truncate(20) should have panicked")
+		}
+	}()
+	var b Buffer
+	b.Write(make([]byte, 10))
+	b.Truncate(20)
+}
+
+var containsTests = []struct {
+	b, subslice []byte
+	want        bool
+}{
+	{[]byte("hello"), []byte("hel"), true},
+	{[]byte("日本語"), []byte("日本"), true},
+	{[]byte("hello"), []byte("Hello, world"), false},
+	{[]byte("東京"), []byte("京東"), false},
+}
+
+func TestContains(t *testing.T) {
+	for _, tt := range containsTests {
+		if got := Contains(tt.b, tt.subslice); got != tt.want {
+			t.Errorf("Contains(%q, %q) = %v, want %v", tt.b, tt.subslice, got, tt.want)
 		}
 	}
 }

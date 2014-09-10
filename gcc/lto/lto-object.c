@@ -1,5 +1,5 @@
 /* LTO routines to use object files.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 This file is part of GCC.
@@ -22,16 +22,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "diagnostic-core.h"
 #include "lto.h"
 #include "tm.h"
 #include "lto-streamer.h"
+#include "lto-section-names.h"
 #include "simple-object.h"
-
-/* Segment name for LTO sections.  This is only used for Mach-O.
-   FIXME: This needs to be kept in sync with darwin.c.  */
-
-#define LTO_SEGMENT_NAME "__GNU_LTO"
 
 /* An LTO file wrapped around an simple_object.  */
 
@@ -352,7 +354,7 @@ lto_obj_begin_section (const char *name)
    DATA.  */
 
 void
-lto_obj_append_data (const void *data, size_t len, void *block)
+lto_obj_append_data (const void *data, size_t len, void *)
 {
   struct lto_simple_object *lo;
   const char *errmsg;
@@ -370,8 +372,6 @@ lto_obj_append_data (const void *data, size_t len, void *block)
       else
 	fatal_error ("%s: %s", errmsg, xstrerror (errno));
     }
-
-  free (block);
 }
 
 /* Stop writing to the current output section.  */

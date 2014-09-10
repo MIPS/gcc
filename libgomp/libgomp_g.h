@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2013 Free Software Foundation, Inc.
+/* Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -29,6 +29,7 @@
 #define LIBGOMP_G_H 1
 
 #include <stdbool.h>
+#include <stddef.h>
 
 /* barrier.c */
 

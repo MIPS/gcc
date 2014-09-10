@@ -203,7 +203,7 @@ func parseCodeLine(line string, expectCode int) (code int, continued bool, messa
 
 // ReadCodeLine reads a response code line of the form
 //	code message
-// where code is a 3-digit status code and the message
+// where code is a three-digit status code and the message
 // extends to the rest of the line.  An example of such a line is:
 //	220 plan9.bell-labs.com ESMTP
 //
@@ -231,7 +231,7 @@ func (r *Reader) ReadCodeLine(expectCode int) (code int, message string, err err
 //	...
 //	code message line n
 //
-// where code is a 3-digit status code. The first line starts with the
+// where code is a three-digit status code. The first line starts with the
 // code and a hyphen. The response is terminated by a line that starts
 // with the same code followed by a space. Each line in message is
 // separated by a newline (\n).
@@ -456,7 +456,16 @@ func (r *Reader) ReadDotLines() ([]string, error) {
 //	}
 //
 func (r *Reader) ReadMIMEHeader() (MIMEHeader, error) {
-	m := make(MIMEHeader, 4)
+	// Avoid lots of small slice allocations later by allocating one
+	// large one ahead of time which we'll cut up into smaller
+	// slices. If this isn't big enough later, we allocate small ones.
+	var strs []string
+	hint := r.upcomingHeaderNewlines()
+	if hint > 0 {
+		strs = make([]string, hint)
+	}
+
+	m := make(MIMEHeader, hint)
 	for {
 		kv, err := r.readContinuedLineSlice()
 		if len(kv) == 0 {
@@ -483,12 +492,46 @@ func (r *Reader) ReadMIMEHeader() (MIMEHeader, error) {
 		}
 		value := string(kv[i:])
 
-		m[key] = append(m[key], value)
+		vv := m[key]
+		if vv == nil && len(strs) > 0 {
+			// More than likely this will be a single-element key.
+			// Most headers aren't multi-valued.
+			// Set the capacity on strs[0] to 1, so any future append
+			// won't extend the slice into the other strings.
+			vv, strs = strs[:1:1], strs[1:]
+			vv[0] = value
+			m[key] = vv
+		} else {
+			m[key] = append(vv, value)
+		}
 
 		if err != nil {
 			return m, err
 		}
 	}
+}
+
+// upcomingHeaderNewlines returns an approximation of the number of newlines
+// that will be in this header. If it gets confused, it returns 0.
+func (r *Reader) upcomingHeaderNewlines() (n int) {
+	// Try to determine the 'hint' size.
+	r.R.Peek(1) // force a buffer load if empty
+	s := r.R.Buffered()
+	if s == 0 {
+		return
+	}
+	peek, _ := r.R.Peek(s)
+	for len(peek) > 0 {
+		i := bytes.IndexByte(peek, '\n')
+		if i < 3 {
+			// Not present (-1) or found within the next few bytes,
+			// implying we're at the end ("\r\n\r\n" or "\n\n")
+			return
+		}
+		n++
+		peek = peek[i+1:]
+	}
+	return
 }
 
 // CanonicalMIMEHeaderKey returns the canonical format of the
@@ -519,85 +562,76 @@ const toLower = 'a' - 'A'
 // allowed to mutate the provided byte slice before returning the
 // string.
 func canonicalMIMEHeaderKey(a []byte) string {
-	// Look for it in commonHeaders , so that we can avoid an
-	// allocation by sharing the strings among all users
-	// of textproto. If we don't find it, a has been canonicalized
-	// so just return string(a).
 	upper := true
-	lo := 0
-	hi := len(commonHeaders)
-	for i := 0; i < len(a); i++ {
+	for i, c := range a {
 		// Canonicalize: first letter upper case
 		// and upper case after each dash.
 		// (Host, User-Agent, If-Modified-Since).
 		// MIME headers are ASCII only, so no Unicode issues.
-		if a[i] == ' ' {
-			a[i] = '-'
-			upper = true
-			continue
-		}
-		c := a[i]
-		if upper && 'a' <= c && c <= 'z' {
+		if c == ' ' {
+			c = '-'
+		} else if upper && 'a' <= c && c <= 'z' {
 			c -= toLower
 		} else if !upper && 'A' <= c && c <= 'Z' {
 			c += toLower
 		}
 		a[i] = c
 		upper = c == '-' // for next time
-
-		if lo < hi {
-			for lo < hi && (len(commonHeaders[lo]) <= i || commonHeaders[lo][i] < c) {
-				lo++
-			}
-			for hi > lo && commonHeaders[hi-1][i] > c {
-				hi--
-			}
-		}
 	}
-	if lo < hi && len(commonHeaders[lo]) == len(a) {
-		return commonHeaders[lo]
+	// The compiler recognizes m[string(byteSlice)] as a special
+	// case, so a copy of a's bytes into a new string does not
+	// happen in this map lookup:
+	if v := commonHeader[string(a)]; v != "" {
+		return v
 	}
 	return string(a)
 }
 
-var commonHeaders = []string{
-	"Accept",
-	"Accept-Charset",
-	"Accept-Encoding",
-	"Accept-Language",
-	"Accept-Ranges",
-	"Cache-Control",
-	"Cc",
-	"Connection",
-	"Content-Id",
-	"Content-Language",
-	"Content-Length",
-	"Content-Transfer-Encoding",
-	"Content-Type",
-	"Cookie",
-	"Date",
-	"Dkim-Signature",
-	"Etag",
-	"Expires",
-	"From",
-	"Host",
-	"If-Modified-Since",
-	"If-None-Match",
-	"In-Reply-To",
-	"Last-Modified",
-	"Location",
-	"Message-Id",
-	"Mime-Version",
-	"Pragma",
-	"Received",
-	"Return-Path",
-	"Server",
-	"Set-Cookie",
-	"Subject",
-	"To",
-	"User-Agent",
-	"Via",
-	"X-Forwarded-For",
-	"X-Imforwards",
-	"X-Powered-By",
+// commonHeader interns common header strings.
+var commonHeader = make(map[string]string)
+
+func init() {
+	for _, v := range []string{
+		"Accept",
+		"Accept-Charset",
+		"Accept-Encoding",
+		"Accept-Language",
+		"Accept-Ranges",
+		"Cache-Control",
+		"Cc",
+		"Connection",
+		"Content-Id",
+		"Content-Language",
+		"Content-Length",
+		"Content-Transfer-Encoding",
+		"Content-Type",
+		"Cookie",
+		"Date",
+		"Dkim-Signature",
+		"Etag",
+		"Expires",
+		"From",
+		"Host",
+		"If-Modified-Since",
+		"If-None-Match",
+		"In-Reply-To",
+		"Last-Modified",
+		"Location",
+		"Message-Id",
+		"Mime-Version",
+		"Pragma",
+		"Received",
+		"Return-Path",
+		"Server",
+		"Set-Cookie",
+		"Subject",
+		"To",
+		"User-Agent",
+		"Via",
+		"X-Forwarded-For",
+		"X-Imforwards",
+		"X-Powered-By",
+	} {
+		commonHeader[v] = v
+	}
 }

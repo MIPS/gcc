@@ -1,5 +1,5 @@
 ;; Constraint definitions for ARM and Thumb
-;; Copyright (C) 2006-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2014 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -31,12 +31,12 @@
 ;; 'H' was previously used for FPA.
 
 ;; The following multi-letter normal constraints have been used:
-;; in ARM/Thumb-2 state: Da, Db, Dc, Dd, Dn, Dl, DL, Do, Dv, Dy, Di, Dt, Dz
+;; in ARM/Thumb-2 state: Da, Db, Dc, Dd, Dn, Dl, DL, Do, Dv, Dy, Di, Dt, Dp, Dz
 ;; in Thumb-1 state: Pa, Pb, Pc, Pd, Pe
 ;; in Thumb-2 state: Pj, PJ, Ps, Pt, Pu, Pv, Pw, Px, Py
 
 ;; The following memory constraints have been used:
-;; in ARM/Thumb-2 state: Q, Ut, Uv, Uy, Un, Um, Us
+;; in ARM/Thumb-2 state: Q, Uh, Ut, Uv, Uy, Un, Um, Us
 ;; in ARM state: Uq
 ;; in Thumb state: Uu, Uw
 
@@ -328,11 +328,17 @@
  (and (match_code "const_double")
       (match_test "TARGET_32BIT && TARGET_VFP_DOUBLE && vfp3_const_double_rtx (op)")))
 
-(define_constraint "Dt" 
+(define_constraint "Dt"
  "@internal
   In ARM/ Thumb2 a const_double which can be used with a vcvt.f32.s32 with fract bits operation"
   (and (match_code "const_double")
        (match_test "TARGET_32BIT && TARGET_VFP && vfp3_const_double_for_fract_bits (op)")))
+
+(define_constraint "Dp"
+ "@internal
+  In ARM/ Thumb2 a const_double which can be used with a vcvt.s32.f32 with bits operation"
+  (and (match_code "const_double")
+       (match_test "TARGET_32BIT && TARGET_VFP && vfp3_const_double_for_bits (op)")))
 
 (define_register_constraint "Ts" "(arm_restrict_it) ? LO_REGS : GENERAL_REGS"
  "For arm_restrict_it the core registers @code{r0}-@code{r7}.  GENERAL_REGS otherwise.")
@@ -341,6 +347,12 @@
  "@internal
   An address valid for loading/storing register exclusive"
  (match_operand 0 "mem_noofs_operand"))
+
+(define_memory_constraint "Uh"
+ "@internal
+  An address suitable for byte and half-word loads which does not point inside a constant pool"
+ (and (match_code "mem")
+      (match_test "arm_legitimate_address_p (GET_MODE (op), XEXP (op, 0), false) && !arm_is_constant_pool_ref (op)")))
 
 (define_memory_constraint "Ut"
  "@internal
@@ -388,7 +400,8 @@
  (and (match_code "mem")
       (match_test "TARGET_ARM
 		   && arm_legitimate_address_outer_p (GET_MODE (op), XEXP (op, 0),
-						      SIGN_EXTEND, 0)")))
+						      SIGN_EXTEND, 0)
+		   && !arm_is_constant_pool_ref (op)")))
 
 (define_memory_constraint "Q"
  "@internal

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2006-2013, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2014, Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,7 +23,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Hostparm;
 with Makeutl;  use Makeutl;
 with MLib.Tgt;
 with Opt;      use Opt;
@@ -63,6 +62,14 @@ package body Prj.Conf is
       Equal      => "=");
    --  Stores the runtime names for the various languages. This is in general
    --  set from a --RTS command line option.
+
+   procedure Locate_Runtime
+     (Language : Name_Id;
+      Env      : Prj.Tree.Environment);
+   --  If RTS_Name is a base name (a name without path separator), then
+   --  do nothing. Otherwise, convert it to an absolute path (possibly by
+   --  searching it in the project path) and call Set_Runtime_For with the
+   --  absolute path. Raise Invalid_Config if the path does not exist.
 
    -----------------------
    -- Local_Subprograms --
@@ -201,6 +208,10 @@ package body Prj.Conf is
          else
             Create_Attribute (Name_Library_Auto_Init_Supported, "false");
          end if;
+
+         --  Declare an empty target
+
+         Create_Attribute (Name_Target, "");
 
          --  Setup Ada support (Ada is the default language here, since this
          --  is only called when no config file existed initially, ie for
@@ -573,8 +584,10 @@ package body Prj.Conf is
 
       OK :=
         Target = ""
-          or else (Tgt_Name /= No_Name
-                    and then Target = Get_Name_String (Tgt_Name));
+          or else
+            (Tgt_Name /= No_Name
+              and then (Length_Of_Name (Tgt_Name) = 0
+                          or else Target = Get_Name_String (Tgt_Name)));
 
       if not OK then
          if Autoconf_Specified then
@@ -715,7 +728,7 @@ package body Prj.Conf is
                               Set_Runtime_For
                                 (Name_Ada,
                                  Name_Buffer (7 .. Name_Len));
-                              Locate_Runtime (Name_Ada, Project_Tree);
+                              Locate_Runtime (Name_Ada, Env);
                            end if;
 
                         elsif Name_Len > 7
@@ -742,7 +755,7 @@ package body Prj.Conf is
 
                                  if not Runtime_Name_Set_For (Lang) then
                                     Set_Runtime_For (Lang, RTS);
-                                    Locate_Runtime (Lang, Project_Tree);
+                                    Locate_Runtime (Lang, Env);
                                  end if;
                               end;
                            end if;
@@ -1372,19 +1385,27 @@ package body Prj.Conf is
       Get_Project_Target;
       Check_Builder_Switches;
 
-      if Conf_File_Name'Length > 0 then
-         Config_File_Path := Locate_Config_File (Conf_File_Name.all);
-      else
-         Config_File_Path := Locate_Config_File (Default_File_Name);
-      end if;
+      --  Do not attempt to find a configuration project file when
+      --  Config_File_Name is No_Configuration_File.
 
-      if Config_File_Path = null then
-         if not Allow_Automatic_Generation
-           and then Conf_File_Name'Length > 0
-         then
-            Raise_Invalid_Config
-              ("could not locate main configuration project "
-               & Conf_File_Name.all);
+      if Config_File_Name = No_Configuration_File then
+         Config_File_Path := null;
+
+      else
+         if Conf_File_Name'Length > 0 then
+            Config_File_Path := Locate_Config_File (Conf_File_Name.all);
+         else
+            Config_File_Path := Locate_Config_File (Default_File_Name);
+         end if;
+
+         if Config_File_Path = null then
+            if not Allow_Automatic_Generation
+              and then Conf_File_Name'Length > 0
+            then
+               Raise_Invalid_Config
+                 ("could not locate main configuration project "
+                  & Conf_File_Name.all);
+            end if;
          end if;
       end if;
 
@@ -1394,18 +1415,10 @@ package body Prj.Conf is
       <<Process_Config_File>>
 
       if Automatically_Generated then
-         if Hostparm.OpenVMS then
 
-            --  There is no gprconfig on VMS
+         --  This might raise an Invalid_Config exception
 
-            Raise_Invalid_Config
-              ("could not locate any configuration project file");
-
-         else
-            --  This might raise an Invalid_Config exception
-
-            Do_Autoconf;
-         end if;
+         Do_Autoconf;
 
       --  If the config file is not auto-generated, warn if there is any --RTS
       --  switch, but not when the config file is generated in memory.
@@ -1415,7 +1428,8 @@ package body Prj.Conf is
         and then On_Load_Config = null
       then
          Write_Line
-           ("warning: --RTS is taken into account only in auto-configuration");
+           ("warning: " &
+              "--RTS is taken into account only in auto-configuration");
       end if;
 
       --  Parse the configuration file
@@ -1425,12 +1439,7 @@ package body Prj.Conf is
          Write_Line (Config_File_Path.all);
       end if;
 
-      if On_Load_Config /= null then
-         On_Load_Config
-           (Config_File       => Config_Project_Node,
-            Project_Node_Tree => Project_Node_Tree);
-
-      elsif Config_File_Path /= null then
+      if Config_File_Path /= null then
          Prj.Part.Parse
            (In_Tree           => Project_Node_Tree,
             Project           => Config_Project_Node,
@@ -1444,6 +1453,12 @@ package body Prj.Conf is
          Config_Project_Node := Empty_Node;
       end if;
 
+      if On_Load_Config /= null then
+         On_Load_Config
+           (Config_File       => Config_Project_Node,
+            Project_Node_Tree => Project_Node_Tree);
+      end if;
+
       if Config_Project_Node /= Empty_Node then
          Prj.Proc.Process_Project_Tree_Phase_1
            (In_Tree                => Project_Tree,
@@ -1453,7 +1468,8 @@ package body Prj.Conf is
             From_Project_Node      => Config_Project_Node,
             From_Project_Node_Tree => Project_Node_Tree,
             Env                    => Env,
-            Reset_Tree             => False);
+            Reset_Tree             => False,
+            On_New_Tree_Loaded     => null);
       end if;
 
       if Config_Project_Node = Empty_Node
@@ -1500,8 +1516,8 @@ package body Prj.Conf is
    --------------------
 
    procedure Locate_Runtime
-     (Language     : Name_Id;
-      Project_Tree : Prj.Project_Tree_Ref)
+     (Language : Name_Id;
+      Env      : Prj.Tree.Environment)
    is
       function Is_Base_Name (Path : String) return Boolean;
       --  Returns True if Path has no directory separator
@@ -1534,10 +1550,10 @@ package body Prj.Conf is
    begin
       if not Is_Base_Name (RTS_Name) then
          Full_Path :=
-           Find_Rts_In_Path (Root_Environment.Project_Path, RTS_Name);
+           Find_Rts_In_Path (Env.Project_Path, RTS_Name);
 
          if Full_Path = null then
-            Fail_Program (Project_Tree, "cannot find RTS " & RTS_Name);
+            Raise_Invalid_Config ("cannot find RTS " & RTS_Name);
          end if;
 
          Set_Runtime_For (Language, Normalize_Pathname (Full_Path.all));
@@ -1565,7 +1581,8 @@ package body Prj.Conf is
       Target_Name                : String := "";
       Normalized_Hostname        : String;
       On_Load_Config             : Config_File_Hook := null;
-      Implicit_Project           : Boolean := False)
+      Implicit_Project           : Boolean := False;
+      On_New_Tree_Loaded         : Prj.Proc.Tree_Loaded_Callback := null)
    is
    begin
       pragma Assert (Prj.Env.Is_Initialized (Env.Project_Path));
@@ -1607,7 +1624,8 @@ package body Prj.Conf is
          Config_File_Path           => Config_File_Path,
          Target_Name                => Target_Name,
          Normalized_Hostname        => Normalized_Hostname,
-         On_Load_Config             => On_Load_Config);
+         On_Load_Config             => On_Load_Config,
+         On_New_Tree_Loaded         => On_New_Tree_Loaded);
    end Parse_Project_And_Apply_Config;
 
    --------------------------------------
@@ -1629,7 +1647,8 @@ package body Prj.Conf is
       Target_Name                : String := "";
       Normalized_Hostname        : String;
       On_Load_Config             : Config_File_Hook := null;
-      Reset_Tree                 : Boolean := True)
+      Reset_Tree                 : Boolean := True;
+      On_New_Tree_Loaded         : Prj.Proc.Tree_Loaded_Callback := null)
    is
       Shared              : constant Shared_Project_Tree_Data_Access :=
                               Project_Tree.Shared;
@@ -1685,7 +1704,8 @@ package body Prj.Conf is
          From_Project_Node      => User_Project_Node,
          From_Project_Node_Tree => Project_Node_Tree,
          Env                    => Env,
-         Reset_Tree             => Reset_Tree);
+         Reset_Tree             => Reset_Tree,
+         On_New_Tree_Loaded     => On_New_Tree_Loaded);
 
       if not Success then
          Main_Project := No_Project;

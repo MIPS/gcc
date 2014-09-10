@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
 
    Contributed by Hartmut Penner (hpenner@de.ibm.com)
 
@@ -36,6 +36,8 @@ extern bool s390_check_symref_alignment (rtx addr, HOST_WIDE_INT alignment);
 extern HOST_WIDE_INT s390_initial_elimination_offset (int, int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
+extern bool s390_can_use_simple_return_insn (void);
+extern bool s390_can_use_return_insn (void);
 extern void s390_function_profiler (FILE *, int);
 extern void s390_set_has_landing_pad_p (bool);
 extern bool s390_hard_regno_mode_ok (unsigned int, enum machine_mode);
@@ -54,11 +56,11 @@ extern bool s390_overlap_p (rtx, rtx, HOST_WIDE_INT);
 extern bool s390_offset_p (rtx, rtx, rtx);
 extern int tls_symbolic_operand (rtx);
 
-extern bool s390_match_ccmode (rtx, enum machine_mode);
+extern bool s390_match_ccmode (rtx_insn *, enum machine_mode);
 extern enum machine_mode s390_tm_ccmode (rtx, rtx, bool);
 extern enum machine_mode s390_select_ccmode (enum rtx_code, rtx, rtx);
 extern rtx s390_emit_compare (enum rtx_code, rtx, rtx);
-extern rtx s390_emit_jump (rtx, rtx);
+extern rtx_insn *s390_emit_jump (rtx, rtx);
 extern bool symbolic_reference_mentioned_p (rtx);
 extern bool tls_symbolic_reference_mentioned_p (rtx);
 extern bool legitimate_la_operand_p (rtx);
@@ -90,7 +92,7 @@ extern void s390_expand_atomic (enum machine_mode, enum rtx_code,
 extern void s390_expand_tbegin (rtx, rtx, rtx, bool);
 extern rtx s390_return_addr_rtx (int, rtx);
 extern rtx s390_back_chain_rtx (void);
-extern rtx s390_emit_call (rtx, rtx, rtx, rtx);
+extern rtx_insn *s390_emit_call (rtx, rtx, rtx, rtx);
 extern void s390_expand_logical_operator (enum rtx_code,
 					  enum machine_mode, rtx *);
 extern bool s390_logical_operator_ok_p (rtx *);
@@ -101,8 +103,8 @@ extern void print_operand_address (FILE *, rtx);
 extern void print_operand (FILE *, rtx, int);
 extern void s390_output_pool_entry (rtx, enum machine_mode, unsigned int);
 extern int s390_label_align (rtx);
-extern int s390_agen_dep_p (rtx, rtx);
-extern rtx s390_load_got (void);
+extern int s390_agen_dep_p (rtx_insn *, rtx_insn *);
+extern rtx_insn *s390_load_got (void);
 extern rtx s390_get_thread_pointer (void);
 extern void s390_emit_tpf_eh_return (rtx);
 extern bool s390_legitimate_address_without_index_p (rtx);
@@ -110,5 +112,6 @@ extern bool s390_decompose_shift_count (rtx, rtx *, HOST_WIDE_INT *);
 extern int s390_branch_condition_mask (rtx);
 extern int s390_compare_and_branch_condition_mask (rtx);
 extern bool s390_extzv_shift_ok (int, int, unsigned HOST_WIDE_INT);
+extern void s390_asm_output_function_label (FILE *, const char *, tree);
 
 #endif /* RTX_CODE */

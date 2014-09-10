@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,7 +42,6 @@ with Exp_Intr; use Exp_Intr;
 with Exp_Pakd; use Exp_Pakd;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
-with Exp_VFpt; use Exp_VFpt;
 with Freeze;   use Freeze;
 with Inline;   use Inline;
 with Lib;      use Lib;
@@ -152,11 +151,11 @@ package body Exp_Ch4 is
       Bodies : List_Id) return Node_Id;
    --  Local recursive function used to expand equality for nested composite
    --  types. Used by Expand_Record/Array_Equality, Bodies is a list on which
-   --  to attach bodies of local functions that are created in the process.
-   --  It is the responsibility of the caller to insert those bodies at the
-   --  right place. Nod provides the Sloc value for generated code. Lhs and Rhs
-   --  are the left and right sides for the comparison, and Typ is the type of
-   --  the objects to compare.
+   --  to attach bodies of local functions that are created in the process. It
+   --  is the responsibility of the caller to insert those bodies at the right
+   --  place. Nod provides the Sloc value for generated code. Lhs and Rhs are
+   --  the left and right sides for the comparison, and Typ is the type of the
+   --  objects to compare.
 
    procedure Expand_Concatenate (Cnode : Node_Id; Opnds : List_Id);
    --  Routine to expand concatenation of a sequence of two or more operands
@@ -532,7 +531,7 @@ package body Exp_Ch4 is
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Fin_Mas_Id,
                 Object_Definition =>
-                  New_Reference_To (RTE (RE_Finalization_Master), Loc));
+                  New_Occurrence_Of (RTE (RE_Finalization_Master), Loc));
 
             Insert_Before_And_Analyze (First_Decl, Action);
 
@@ -553,13 +552,13 @@ package body Exp_Ch4 is
                Action :=
                  Make_Procedure_Call_Statement (Loc,
                    Name =>
-                     New_Reference_To (RTE (RE_Set_Base_Pool), Loc),
+                     New_Occurrence_Of (RTE (RE_Set_Base_Pool), Loc),
 
                    Parameter_Associations => New_List (
-                     New_Reference_To (Fin_Mas_Id, Loc),
+                     New_Occurrence_Of (Fin_Mas_Id, Loc),
                      Make_Attribute_Reference (Loc,
                        Prefix =>
-                         New_Reference_To (RTE (RE_Global_Pool_Object), Loc),
+                         New_Occurrence_Of (RTE (RE_Global_Pool_Object), Loc),
                        Attribute_Name => Name_Unrestricted_Access)));
 
                Insert_Before_And_Analyze (First_Decl, Action);
@@ -570,9 +569,9 @@ package body Exp_Ch4 is
                Action :=
                  Make_Procedure_Call_Statement (Loc,
                    Name =>
-                     New_Reference_To (RTE (RE_Set_Is_Heterogeneous), Loc),
+                     New_Occurrence_Of (RTE (RE_Set_Is_Heterogeneous), Loc),
                    Parameter_Associations => New_List (
-                     New_Reference_To (Fin_Mas_Id, Loc)));
+                     New_Occurrence_Of (Fin_Mas_Id, Loc)));
 
                Insert_Before_And_Analyze (First_Decl, Action);
             end if;
@@ -663,7 +662,7 @@ package body Exp_Ch4 is
             Rewrite (N,
               Unchecked_Convert_To (PtrT,
                 Make_Function_Call (Loc,
-                  Name => New_Reference_To (RTE (RE_Displace), Loc),
+                  Name => New_Occurrence_Of (RTE (RE_Displace), Loc),
                   Parameter_Associations => New_List (
                     Unchecked_Convert_To (RTE (RE_Address),
                       Relocate_Node (N)),
@@ -755,7 +754,25 @@ package body Exp_Ch4 is
                Remove_Side_Effects (Ref);
                Obj_Ref := New_Copy_Tree (Ref);
             else
-               Obj_Ref := New_Reference_To (Ref, Loc);
+               Obj_Ref := New_Occurrence_Of (Ref, Loc);
+            end if;
+
+            --  For access to interface types we must generate code to displace
+            --  the pointer to the base of the object since the subsequent code
+            --  references components located in the TSD of the object (which
+            --  is associated with the primary dispatch table --see a-tags.ads)
+            --  and also generates code invoking Free, which requires also a
+            --  reference to the base of the unallocated object.
+
+            if Is_Interface (DesigT) and then Tagged_Type_Expansion then
+               Obj_Ref :=
+                 Unchecked_Convert_To (Etype (Obj_Ref),
+                   Make_Function_Call (Loc,
+                     Name                   =>
+                       New_Occurrence_Of (RTE (RE_Base_Address), Loc),
+                     Parameter_Associations => New_List (
+                       Unchecked_Convert_To (RTE (RE_Address),
+                         New_Copy_Tree (Obj_Ref)))));
             end if;
 
             --  Step 1: Create the object clean up code
@@ -785,10 +802,10 @@ package body Exp_Ch4 is
 
             if Needs_Finalization (DesigT) then
                Fin_Call :=
-                 Make_Final_Call (
-                   Obj_Ref =>
-                     Make_Explicit_Dereference (Loc, New_Copy (Obj_Ref)),
-                   Typ     => DesigT);
+                 Make_Final_Call
+                   (Obj_Ref =>
+                      Make_Explicit_Dereference (Loc, New_Copy (Obj_Ref)),
+                    Typ     => DesigT);
 
                --  When the target or profile supports deallocation, wrap the
                --  finalization call in a block to ensure proper deallocation
@@ -826,7 +843,7 @@ package body Exp_Ch4 is
 
             Append_To (Stmts,
               Make_Raise_Program_Error (Loc,
-                Condition => New_Reference_To (Standard_True, Loc),
+                Condition => New_Occurrence_Of (Standard_True, Loc),
                 Reason    => PE_Accessibility_Check_Failed));
 
             --  Step 2: Create the accessibility comparison
@@ -856,7 +873,7 @@ package body Exp_Ch4 is
                Cond :=
                  Make_Function_Call (Loc,
                    Name                   =>
-                     New_Reference_To (RTE (RE_Get_Access_Level), Loc),
+                     New_Occurrence_Of (RTE (RE_Get_Access_Level), Loc),
                    Parameter_Associations => New_List (Obj_Ref));
             end if;
 
@@ -958,7 +975,7 @@ package body Exp_Ch4 is
          --    [Deep_]Adjust (Temp.all);
 
          --  We analyze by hand the new internal allocator to avoid any
-         --  recursion and inappropriate call to Initialize
+         --  recursion and inappropriate call to Initialize.
 
          --  We don't want to remove side effects when the expression must be
          --  built in place. In the case of a build-in-place function call,
@@ -1015,11 +1032,11 @@ package body Exp_Ch4 is
                Temp_Decl :=
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Temp,
-                   Object_Definition   => New_Reference_To (PtrT, Loc),
+                   Object_Definition   => New_Occurrence_Of (PtrT, Loc),
                    Expression          =>
                      Make_Allocator (Loc,
                        Expression =>
-                         New_Reference_To (Etype (Exp), Loc)));
+                         New_Occurrence_Of (Etype (Exp), Loc)));
 
                --  Copy the Comes_From_Source flag for the allocator we just
                --  built, since logically this allocator is a replacement of
@@ -1045,10 +1062,9 @@ package body Exp_Ch4 is
                  and then Present (Finalization_Master (PtrT))
                then
                   Insert_Action (N,
-                    Make_Attach_Call (
-                      Obj_Ref =>
-                        New_Reference_To (Temp, Loc),
-                      Ptr_Typ => PtrT));
+                    Make_Attach_Call
+                      (Obj_Ref => New_Occurrence_Of (Temp, Loc),
+                       Ptr_Typ => PtrT));
                end if;
 
             else
@@ -1059,7 +1075,7 @@ package body Exp_Ch4 is
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Temp,
                    Constant_Present    => True,
-                   Object_Definition   => New_Reference_To (PtrT, Loc),
+                   Object_Definition   => New_Occurrence_Of (PtrT, Loc),
                    Expression          => Node);
 
                Insert_Action (N, Temp_Decl);
@@ -1075,10 +1091,9 @@ package body Exp_Ch4 is
                  and then Present (Finalization_Master (PtrT))
                then
                   Insert_Action (N,
-                    Make_Attach_Call (
-                      Obj_Ref =>
-                        New_Reference_To (Temp, Loc),
-                      Ptr_Typ => PtrT));
+                    Make_Attach_Call
+                      (Obj_Ref => New_Occurrence_Of (Temp, Loc),
+                       Ptr_Typ => PtrT));
                end if;
             end if;
 
@@ -1095,24 +1110,25 @@ package body Exp_Ch4 is
                New_Decl :=
                  Make_Full_Type_Declaration (Loc,
                    Defining_Identifier => Def_Id,
-                   Type_Definition =>
+                   Type_Definition     =>
                      Make_Access_To_Object_Definition (Loc,
                        All_Present            => True,
                        Null_Exclusion_Present => False,
                        Constant_Present       =>
                          Is_Access_Constant (Etype (N)),
                        Subtype_Indication     =>
-                         New_Reference_To (Etype (Exp), Loc)));
+                         New_Occurrence_Of (Etype (Exp), Loc)));
 
                Insert_Action (N, New_Decl);
 
                --  Inherit the allocation-related attributes from the original
                --  access type.
 
-               Set_Finalization_Master (Def_Id, Finalization_Master (PtrT));
+               Set_Finalization_Master
+                 (Def_Id, Finalization_Master (PtrT));
 
-               Set_Associated_Storage_Pool (Def_Id,
-                 Associated_Storage_Pool (PtrT));
+               Set_Associated_Storage_Pool
+                 (Def_Id, Associated_Storage_Pool (PtrT));
 
                --  Declare the object using the previous type declaration
 
@@ -1120,10 +1136,10 @@ package body Exp_Ch4 is
                   Temp_Decl :=
                     Make_Object_Declaration (Loc,
                       Defining_Identifier => Temp,
-                      Object_Definition   => New_Reference_To (Def_Id, Loc),
+                      Object_Definition   => New_Occurrence_Of (Def_Id, Loc),
                       Expression          =>
                         Make_Allocator (Loc,
-                          New_Reference_To (Etype (Exp), Loc)));
+                          New_Occurrence_Of (Etype (Exp), Loc)));
 
                   --  Copy the Comes_From_Source flag for the allocator we just
                   --  built, since logically this allocator is a replacement of
@@ -1147,7 +1163,7 @@ package body Exp_Ch4 is
                     Make_Object_Declaration (Loc,
                       Defining_Identifier => Temp,
                       Constant_Present    => True,
-                      Object_Definition   => New_Reference_To (Def_Id, Loc),
+                      Object_Definition   => New_Occurrence_Of (Def_Id, Loc),
                       Expression          => Node);
 
                   Insert_Action (N, Temp_Decl);
@@ -1164,10 +1180,10 @@ package body Exp_Ch4 is
                New_Decl :=
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Make_Temporary (Loc, 'P'),
-                   Object_Definition   => New_Reference_To (PtrT, Loc),
+                   Object_Definition   => New_Occurrence_Of (PtrT, Loc),
                    Expression          =>
                      Unchecked_Convert_To (PtrT,
-                       New_Reference_To (Temp, Loc)));
+                       New_Occurrence_Of (Temp, Loc)));
 
                Insert_Action (N, New_Decl);
 
@@ -1196,7 +1212,7 @@ package body Exp_Ch4 is
 
          elsif Is_Tagged_Type (T) and then not Is_Class_Wide_Type (T) then
             TagT := T;
-            TagR := New_Reference_To (Temp, Loc);
+            TagR := New_Occurrence_Of (Temp, Loc);
 
          elsif Is_Private_Type (T)
            and then Is_Tagged_Type (Underlying_Type (T))
@@ -1205,23 +1221,26 @@ package body Exp_Ch4 is
             TagR :=
               Unchecked_Convert_To (Underlying_Type (T),
                 Make_Explicit_Dereference (Loc,
-                  Prefix => New_Reference_To (Temp, Loc)));
+                  Prefix => New_Occurrence_Of (Temp, Loc)));
          end if;
 
          if Present (TagT) then
             declare
                Full_T : constant Entity_Id := Underlying_Type (TagT);
+
             begin
                Tag_Assign :=
                  Make_Assignment_Statement (Loc,
-                   Name =>
+                   Name       =>
                      Make_Selected_Component (Loc,
-                       Prefix => TagR,
+                       Prefix        => TagR,
                        Selector_Name =>
-                         New_Reference_To (First_Tag_Component (Full_T), Loc)),
+                         New_Occurrence_Of
+                           (First_Tag_Component (Full_T), Loc)),
+
                    Expression =>
                      Unchecked_Convert_To (RTE (RE_Tag),
-                       New_Reference_To
+                       New_Occurrence_Of
                          (Elists.Node
                            (First_Elmt (Access_Disp_Table (Full_T))), Loc)));
             end;
@@ -1256,7 +1275,7 @@ package body Exp_Ch4 is
                    (Obj_Ref =>
                       Unchecked_Convert_To (T,
                         Make_Explicit_Dereference (Loc,
-                          Prefix => New_Reference_To (Temp, Loc))),
+                          Prefix => New_Occurrence_Of (Temp, Loc))),
                     Typ     => T));
             end if;
 
@@ -1285,7 +1304,7 @@ package body Exp_Ch4 is
             end if;
          end if;
 
-         Rewrite (N, New_Reference_To (Temp, Loc));
+         Rewrite (N, New_Occurrence_Of (Temp, Loc));
          Analyze_And_Resolve (N, PtrT);
 
          --  Ada 2005 (AI-251): Displace the pointer to reference the record
@@ -1301,10 +1320,10 @@ package body Exp_Ch4 is
          Temp_Decl :=
            Make_Object_Declaration (Loc,
              Defining_Identifier => Temp,
-             Object_Definition   => New_Reference_To (PtrT, Loc),
+             Object_Definition   => New_Occurrence_Of (PtrT, Loc),
              Expression          =>
                Make_Allocator (Loc,
-                 Expression => New_Reference_To (Etype (Exp), Loc)));
+                 Expression => New_Occurrence_Of (Etype (Exp), Loc)));
 
          --  Copy the Comes_From_Source flag for the allocator we just built,
          --  since logically this allocator is a replacement of the original
@@ -1331,11 +1350,11 @@ package body Exp_Ch4 is
          then
             Insert_Action (N,
               Make_Attach_Call
-                (Obj_Ref => New_Reference_To (Temp, Loc),
+                (Obj_Ref => New_Occurrence_Of (Temp, Loc),
                  Ptr_Typ => PtrT));
          end if;
 
-         Rewrite (N, New_Reference_To (Temp, Loc));
+         Rewrite (N, New_Occurrence_Of (Temp, Loc));
          Analyze_And_Resolve (N, PtrT);
 
       elsif Is_Access_Type (T) and then Can_Never_Be_Null (T) then
@@ -1347,9 +1366,8 @@ package body Exp_Ch4 is
       then
          --  Apply constraint to designated subtype indication
 
-         Apply_Constraint_Check (Expression (Exp),
-           Designated_Type (DesigT),
-           No_Sliding => True);
+         Apply_Constraint_Check
+           (Expression (Exp), Designated_Type (DesigT), No_Sliding => True);
 
          if Nkind (Expression (Exp)) = N_Raise_Constraint_Error then
 
@@ -1371,7 +1389,6 @@ package body Exp_Ch4 is
          Apply_Constraint_Check (Exp, T, No_Sliding => True);
 
          if Do_Range_Check (Exp) then
-            Set_Do_Range_Check (Exp, False);
             Generate_Range_Check (Exp, DesigT, CE_Range_Check_Failed);
          end if;
 
@@ -1387,7 +1404,6 @@ package body Exp_Ch4 is
               (Exp, DesigT, No_Sliding => False);
 
             if Do_Range_Check (Exp) then
-               Set_Do_Range_Check (Exp, False);
                Generate_Range_Check (Exp, DesigT, CE_Range_Check_Failed);
             end if;
          end if;
@@ -1649,7 +1665,7 @@ package body Exp_Ch4 is
       Func_Name := Defining_Unit_Name (Specification (Func_Body));
       Expr :=
         Make_Function_Call (Loc,
-          Name => New_Reference_To (Func_Name, Loc),
+          Name => New_Occurrence_Of (Func_Name, Loc),
           Parameter_Associations => New_List (Op1, Op2));
 
       Insert_Action (N, Func_Body);
@@ -1791,7 +1807,7 @@ package body Exp_Ch4 is
       --  components of the arrays.
       --
       --  The actual way the code works is to return the comparison of
-      --  corresponding components for the N+1 call. That's neater!
+      --  corresponding components for the N+1 call. That's neater.
 
       function Test_Empty_Arrays return Node_Id;
       --  This function constructs the test for both arrays being empty
@@ -1821,9 +1837,9 @@ package body Exp_Ch4 is
       begin
          return
            Make_Attribute_Reference (Loc,
-            Attribute_Name => Nam,
-            Prefix => New_Reference_To (Arr, Loc),
-            Expressions => New_List (Make_Integer_Literal (Loc, Num)));
+             Attribute_Name => Nam,
+             Prefix         => New_Occurrence_Of (Arr, Loc),
+             Expressions    => New_List (Make_Integer_Literal (Loc, Num)));
       end Arr_Attr;
 
       ------------------------
@@ -1865,7 +1881,7 @@ package body Exp_Ch4 is
          else
             return
               Make_Implicit_If_Statement (Nod,
-                Condition => Make_Op_Not (Loc, Right_Opnd => Test),
+                Condition       => Make_Op_Not (Loc, Right_Opnd => Test),
                 Then_Statements => New_List (
                   Make_Simple_Return_Statement (Loc,
                     Expression => New_Occurrence_Of (Standard_False, Loc))));
@@ -1942,8 +1958,8 @@ package body Exp_Ch4 is
             Bn := An;
          end if;
 
-         Append (New_Reference_To (An, Loc), Index_List1);
-         Append (New_Reference_To (Bn, Loc), Index_List2);
+         Append (New_Occurrence_Of (An, Loc), Index_List1);
+         Append (New_Occurrence_Of (Bn, Loc), Index_List2);
 
          Stm_List := New_List (
            Handle_One_Dimension (N + 1, Next_Index (Index)));
@@ -1956,26 +1972,28 @@ package body Exp_Ch4 is
                Make_Exit_Statement (Loc,
                  Condition =>
                    Make_Op_Eq (Loc,
-                      Left_Opnd => New_Reference_To (An, Loc),
+                      Left_Opnd  => New_Occurrence_Of (An, Loc),
                       Right_Opnd => Arr_Attr (A, Name_Last, N))));
 
             Append_To (Stm_List,
               Make_Assignment_Statement (Loc,
-                Name       => New_Reference_To (An, Loc),
+                Name       => New_Occurrence_Of (An, Loc),
                 Expression =>
                   Make_Attribute_Reference (Loc,
-                    Prefix         => New_Reference_To (Index_T, Loc),
+                    Prefix         => New_Occurrence_Of (Index_T, Loc),
                     Attribute_Name => Name_Succ,
-                    Expressions    => New_List (New_Reference_To (An, Loc)))));
+                    Expressions    => New_List (
+                      New_Occurrence_Of (An, Loc)))));
 
             Append_To (Stm_List,
               Make_Assignment_Statement (Loc,
-                Name       => New_Reference_To (Bn, Loc),
+                Name       => New_Occurrence_Of (Bn, Loc),
                 Expression =>
                   Make_Attribute_Reference (Loc,
-                    Prefix         => New_Reference_To (Index_T, Loc),
+                    Prefix         => New_Occurrence_Of (Index_T, Loc),
                     Attribute_Name => Name_Succ,
-                    Expressions    => New_List (New_Reference_To (Bn, Loc)))));
+                    Expressions    => New_List (
+                      New_Occurrence_Of (Bn, Loc)))));
          end if;
 
          --  If separate indexes, we need a declare block for An and Bn, and a
@@ -1990,12 +2008,12 @@ package body Exp_Ch4 is
                 Declarations => New_List (
                   Make_Object_Declaration (Loc,
                     Defining_Identifier => An,
-                    Object_Definition   => New_Reference_To (Index_T, Loc),
+                    Object_Definition   => New_Occurrence_Of (Index_T, Loc),
                     Expression          => Arr_Attr (A, Name_First, N)),
 
                   Make_Object_Declaration (Loc,
                     Defining_Identifier => Bn,
-                    Object_Definition   => New_Reference_To (Index_T, Loc),
+                    Object_Definition   => New_Occurrence_Of (Index_T, Loc),
                     Expression          => Arr_Attr (B, Name_First, N))),
 
                 Handled_Statement_Sequence =>
@@ -2118,11 +2136,11 @@ package body Exp_Ch4 is
       Formals := New_List (
         Make_Parameter_Specification (Loc,
           Defining_Identifier => A,
-          Parameter_Type      => New_Reference_To (Ltyp, Loc)),
+          Parameter_Type      => New_Occurrence_Of (Ltyp, Loc)),
 
         Make_Parameter_Specification (Loc,
           Defining_Identifier => B,
-          Parameter_Type      => New_Reference_To (Rtyp, Loc)));
+          Parameter_Type      => New_Occurrence_Of (Rtyp, Loc)));
 
       Func_Name := Make_Temporary (Loc, 'E');
 
@@ -2134,7 +2152,7 @@ package body Exp_Ch4 is
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => Func_Name,
               Parameter_Specifications => Formals,
-              Result_Definition => New_Reference_To (Standard_Boolean, Loc)),
+              Result_Definition => New_Occurrence_Of (Standard_Boolean, Loc)),
 
           Declarations =>  Decls,
 
@@ -2143,18 +2161,17 @@ package body Exp_Ch4 is
               Statements => New_List (
 
                 Make_Implicit_If_Statement (Nod,
-                  Condition => Test_Empty_Arrays,
+                  Condition       => Test_Empty_Arrays,
                   Then_Statements => New_List (
                     Make_Simple_Return_Statement (Loc,
                       Expression =>
                         New_Occurrence_Of (Standard_True, Loc)))),
 
                 Make_Implicit_If_Statement (Nod,
-                  Condition => Test_Lengths_Correspond,
+                  Condition       => Test_Lengths_Correspond,
                   Then_Statements => New_List (
                     Make_Simple_Return_Statement (Loc,
-                      Expression =>
-                        New_Occurrence_Of (Standard_False, Loc)))),
+                      Expression => New_Occurrence_Of (Standard_False, Loc)))),
 
                 Handle_One_Dimension (1, First_Index (Ltyp)),
 
@@ -2194,7 +2211,7 @@ package body Exp_Ch4 is
 
          return
            Make_Function_Call (Loc,
-             Name                   => New_Reference_To (Func_Name, Loc),
+             Name                   => New_Occurrence_Of (Func_Name, Loc),
              Parameter_Associations => Actuals);
    end Expand_Array_Equality;
 
@@ -2252,8 +2269,7 @@ package body Exp_Ch4 is
 
          elsif Nkind (Parent (N)) = N_Op_Not
            and then Nkind (N) = N_Op_And
-           and then
-             Safe_In_Place_Array_Op (Name (Parent (Parent (N))), L, R)
+           and then Safe_In_Place_Array_Op (Name (Parent (Parent (N))), L, R)
          then
             return;
          else
@@ -2266,12 +2282,12 @@ package body Exp_Ch4 is
 
             Rewrite (N,
               Make_Function_Call (Loc,
-                Name                   => New_Reference_To (Func_Name, Loc),
+                Name                   => New_Occurrence_Of (Func_Name, Loc),
                 Parameter_Associations =>
                   New_List (
                     L,
                     Make_Type_Conversion
-                      (Loc, New_Reference_To (Etype (L), Loc), R))));
+                      (Loc, New_Occurrence_Of (Etype (L), Loc), R))));
 
             Analyze_And_Resolve (N, Typ);
          end if;
@@ -2570,7 +2586,7 @@ package body Exp_Ch4 is
                else
                   return
                     Make_Function_Call (Loc,
-                      Name                   => New_Reference_To (Prim, Loc),
+                      Name                   => New_Occurrence_Of (Prim, Loc),
                       Parameter_Associations => New_List (Lhs, Rhs));
                end if;
             end if;
@@ -2675,7 +2691,7 @@ package body Exp_Ch4 is
 
          return
            Make_Function_Call (Loc,
-             Name => New_Reference_To (Eq_Op, Loc),
+             Name => New_Occurrence_Of (Eq_Op, Loc),
              Parameter_Associations =>
                New_List
                  (Unchecked_Convert_To (Etype (First_Formal (Eq_Op)), Lhs),
@@ -2698,7 +2714,7 @@ package body Exp_Ch4 is
                begin
                   return
                     Make_Function_Call (Loc,
-                      Name                  => New_Reference_To (Eq_Op, Loc),
+                      Name                  => New_Occurrence_Of (Eq_Op, Loc),
                       Parameter_Associations => New_List (
                         OK_Convert_To (T, Lhs),
                         OK_Convert_To (T, Rhs)));
@@ -2805,7 +2821,7 @@ package body Exp_Ch4 is
 
                      return
                        Make_Function_Call (Loc,
-                         Name => New_Reference_To (Eq_Op, Loc),
+                         Name => New_Occurrence_Of (Eq_Op, Loc),
                          Parameter_Associations => New_List (
                            Lhs,
                            Rhs,
@@ -2813,11 +2829,20 @@ package body Exp_Ch4 is
                            Rhs_Discr_Val));
                   end;
 
+               --  All cases other than comparing Unchecked_Union types
+
                else
-                  return
-                    Make_Function_Call (Loc,
-                      Name                   => New_Reference_To (Eq_Op, Loc),
-                      Parameter_Associations => New_List (Lhs, Rhs));
+                  declare
+                     T : constant Entity_Id := Etype (First_Formal (Eq_Op));
+                  begin
+                     return
+                       Make_Function_Call (Loc,
+                         Name                   =>
+                           New_Occurrence_Of (Eq_Op, Loc),
+                         Parameter_Associations => New_List (
+                           OK_Convert_To (T, Lhs),
+                           OK_Convert_To (T, Rhs)));
+                  end;
                end if;
             end if;
 
@@ -3044,6 +3069,16 @@ package body Exp_Ch4 is
 
       --  Local Declarations
 
+      Lib_Level_Target : constant Boolean :=
+        Nkind (Parent (Cnode)) = N_Object_Declaration
+          and then
+            Is_Library_Level_Entity (Defining_Identifier (Parent (Cnode)));
+
+      --  If the concatenation declares a library level entity, we call the
+      --  built-in concatenation routines to prevent code bloat, regardless
+      --  of optimization level. This is space-efficient, and prevent linking
+      --  problems when units are compiled with different optimizations.
+
       Opnd_Typ : Entity_Id;
       Ent      : Entity_Id;
       Len      : Uint;
@@ -3146,7 +3181,7 @@ package body Exp_Ch4 is
 
             Opnd_Low_Bound (NN) :=
               Make_Attribute_Reference (Loc,
-                Prefix         => New_Reference_To (Istyp, Loc),
+                Prefix         => New_Occurrence_Of (Istyp, Loc),
                 Attribute_Name => Name_First);
 
             Set := True;
@@ -3317,7 +3352,7 @@ package body Exp_Ch4 is
             if Is_Fixed_Length (1) then
                Aggr_Length (1) := Make_Integer_Literal (Loc, Fixed_Length (1));
             else
-               Aggr_Length (1) := New_Reference_To (Var_Length (1), Loc);
+               Aggr_Length (1) := New_Occurrence_Of (Var_Length (1), Loc);
             end if;
 
          --  If entry is fixed length and only fixed lengths so far, make
@@ -3339,7 +3374,7 @@ package body Exp_Ch4 is
             if Is_Fixed_Length (NN) then
                Clen := Make_Integer_Literal (Loc, Fixed_Length (NN));
             else
-               Clen := New_Reference_To (Var_Length (NN), Loc);
+               Clen := New_Occurrence_Of (Var_Length (NN), Loc);
             end if;
 
             Append_To (Actions,
@@ -3438,8 +3473,10 @@ package body Exp_Ch4 is
                       Expressions => New_List (
 
                         Make_Op_Ne (Loc,
-                          Left_Opnd  => New_Reference_To (Var_Length (J), Loc),
-                          Right_Opnd => Make_Integer_Literal (Loc, 0)),
+                          Left_Opnd  =>
+                            New_Occurrence_Of (Var_Length (J), Loc),
+                          Right_Opnd =>
+                            Make_Integer_Literal (Loc, 0)),
 
                         New_Copy (Opnd_Low_Bound (J)),
                         Get_Known_Bound (J + 1)));
@@ -3456,7 +3493,7 @@ package body Exp_Ch4 is
                 Object_Definition   => New_Occurrence_Of (Ityp, Loc),
                 Expression          => Get_Known_Bound (1)));
 
-            Low_Bound := New_Reference_To (Ent, Loc);
+            Low_Bound := New_Occurrence_Of (Ent, Loc);
          end;
       end if;
 
@@ -3464,13 +3501,13 @@ package body Exp_Ch4 is
       --  Low_Bound + Length - 1.
 
       High_Bound :=
-        To_Ityp (
-          Make_Op_Add (Loc,
-            Left_Opnd  => To_Artyp (New_Copy (Low_Bound)),
-            Right_Opnd =>
-              Make_Op_Subtract (Loc,
-                Left_Opnd  => New_Copy (Aggr_Length (NN)),
-                Right_Opnd => Make_Artyp_Literal (1))));
+        To_Ityp
+          (Make_Op_Add (Loc,
+             Left_Opnd  => To_Artyp (New_Copy (Low_Bound)),
+             Right_Opnd =>
+               Make_Op_Subtract (Loc,
+                 Left_Opnd  => New_Copy (Aggr_Length (NN)),
+                 Right_Opnd => Make_Artyp_Literal (1))));
 
       --  Note that calculation of the high bound may cause overflow in some
       --  very weird cases, so in the general case we need an overflow check on
@@ -3572,8 +3609,9 @@ package body Exp_Ch4 is
 
       if Atyp = Standard_String
         and then NN in 2 .. 9
-        and then (Opt.Optimization_Level = 0 or else Debug_Flag_Dot_CC)
-        and then not Debug_Flag_Dot_C
+        and then (Lib_Level_Target
+          or else ((Opt.Optimization_Level = 0 or else Debug_Flag_Dot_CC)
+                     and then not Debug_Flag_Dot_C))
       then
          declare
             RR : constant array (Nat range 2 .. 9) of RE_Id :=
@@ -3614,10 +3652,10 @@ package body Exp_Ch4 is
 
                   Insert_Action (Cnode,
                     Make_Procedure_Call_Statement (Loc,
-                      Name => New_Reference_To (RTE (RR (NN)), Loc),
+                      Name => New_Occurrence_Of (RTE (RR (NN)), Loc),
                       Parameter_Associations => Opnds));
 
-                  Result := New_Reference_To (Ent, Loc);
+                  Result := New_Occurrence_Of (Ent, Loc);
                   goto Done;
                end;
             end if;
@@ -3704,7 +3742,7 @@ package body Exp_Ch4 is
 
       --  Finally we build the result, which is a reference to the array object
 
-      Result := New_Reference_To (Ent, Loc);
+      Result := New_Occurrence_Of (Ent, Loc);
 
    <<Done>>
       Rewrite (Cnode, Result);
@@ -3769,14 +3807,14 @@ package body Exp_Ch4 is
          begin
             Rewrite (Rop,
               Make_Range (Loc,
-                Low_Bound =>
+                Low_Bound  =>
                   Make_Attribute_Reference (Loc,
                     Attribute_Name => Name_First,
-                    Prefix         => New_Reference_To (Rtyp, Loc)),
+                    Prefix         => New_Occurrence_Of (Rtyp, Loc)),
                 High_Bound =>
                   Make_Attribute_Reference (Loc,
                     Attribute_Name => Name_Last,
-                    Prefix         => New_Reference_To (Rtyp, Loc))));
+                    Prefix         => New_Occurrence_Of (Rtyp, Loc))));
             Analyze_And_Resolve (Rop, Rtyp, Suppress => All_Checks);
          end;
       end if;
@@ -3843,13 +3881,14 @@ package body Exp_Ch4 is
                     Name       => New_Occurrence_Of (Bnn, Loc),
                     Expression =>
                       Make_And_Then (Loc,
-                        Left_Opnd =>
+                        Left_Opnd  =>
                           Make_Function_Call (Loc,
                             Name                   =>
                               New_Occurrence_Of (RTE (RE_Big_GE), Loc),
                             Parameter_Associations => New_List (
                               New_Occurrence_Of (L, Loc),
                               Lbound)),
+
                         Right_Opnd =>
                           Make_Function_Call (Loc,
                             Name                   =>
@@ -3948,8 +3987,8 @@ package body Exp_Ch4 is
             --              Lnn in LLIB (T'Base'First) .. LLIB (T'Base'Last)
             --                and then T'Base (Lnn) in T;
             --         end if;
-            --
-            --          SS_Release (M);
+
+            --         SS_Release (M);
             --       end
             --   in
             --       Bnn
@@ -4103,12 +4142,14 @@ package body Exp_Ch4 is
                              Convert_To (LLIB,
                                Make_Attribute_Reference (Loc,
                                  Attribute_Name => Name_First,
-                                 Prefix => New_Occurrence_Of (TB, Loc))),
+                                 Prefix         =>
+                                   New_Occurrence_Of (TB, Loc))),
                            High_Bound =>
                              Convert_To (LLIB,
                                Make_Attribute_Reference (Loc,
                                  Attribute_Name => Name_Last,
-                                 Prefix => New_Occurrence_Of (TB, Loc))))),
+                                 Prefix         =>
+                                   New_Occurrence_Of (TB, Loc))))),
                    Right_Opnd => Nin));
                Set_Analyzed (N, False);
                Analyze_And_Resolve (N, Restype);
@@ -4278,26 +4319,29 @@ package body Exp_Ch4 is
 
          --  Anonymous access-to-controlled types allocate on the global pool.
          --  Do not set this attribute on .NET/JVM since those targets do not
-         --  support pools.
+         --  support pools. Note that this is a "root type only" attribute.
 
          if No (Associated_Storage_Pool (PtrT)) and then VM_Target = No_VM then
             if Present (Rel_Typ) then
-               Set_Associated_Storage_Pool (PtrT,
-                 Associated_Storage_Pool (Rel_Typ));
+               Set_Associated_Storage_Pool
+                 (Root_Type (PtrT), Associated_Storage_Pool (Rel_Typ));
             else
-               Set_Associated_Storage_Pool (PtrT,
-                 Get_Global_Pool_For_Access_Type (PtrT));
+               Set_Associated_Storage_Pool
+                 (Root_Type (PtrT), RTE (RE_Global_Pool_Object));
             end if;
          end if;
 
          --  The finalization master must be inserted and analyzed as part of
          --  the current semantic unit. Note that the master is updated when
-         --  analysis changes current units.
+         --  analysis changes current units. Note that this is a "root type
+         --  only" attribute.
 
          if Present (Rel_Typ) then
-            Set_Finalization_Master (PtrT, Finalization_Master (Rel_Typ));
+            Set_Finalization_Master
+              (Root_Type (PtrT), Finalization_Master (Rel_Typ));
          else
-            Set_Finalization_Master (PtrT, Current_Anonymous_Master);
+            Set_Finalization_Master
+              (Root_Type (PtrT), Current_Anonymous_Master);
          end if;
       end if;
 
@@ -4408,7 +4452,7 @@ package body Exp_Ch4 is
          Analyze_And_Resolve (N, PtrT);
 
          --  We set the variable as statically allocated, since we don't want
-         --  it going on the stack of the current procedure!
+         --  it going on the stack of the current procedure.
 
          Set_Is_Statically_Allocated (Temp);
          return;
@@ -4459,6 +4503,20 @@ package body Exp_Ch4 is
          end if;
       end if;
 
+      --  If no storage pool has been specified and we have the restriction
+      --  No_Standard_Allocators_After_Elaboration is present, then generate
+      --  a call to Elaboration_Allocators.Check_Standard_Allocator.
+
+      if Nkind (N) = N_Allocator
+        and then No (Storage_Pool (N))
+        and then Restriction_Active (No_Standard_Allocators_After_Elaboration)
+      then
+         Insert_Action (N,
+           Make_Procedure_Call_Statement (Loc,
+             Name =>
+               New_Occurrence_Of (RTE (RE_Check_Standard_Allocator), Loc)));
+      end if;
+
       --  Handle case of qualified expression (other than optimization above)
       --  First apply constraint checks, because the bounds or discriminants
       --  in the aggregate might not match the subtype mark in the allocator.
@@ -4483,7 +4541,7 @@ package body Exp_Ch4 is
       --  type of the access type is a task or contains tasks. In this case
       --  the call to Init (Temp.all ...) is replaced by code that ensures
       --  that tasks get activated (see Exp_Ch9.Build_Task_Allocate_Block
-      --  for details). In addition, if the type T is a task T, then the
+      --  for details). In addition, if the type T is a task type, then the
       --  first argument to Init must be converted to the task record type.
 
       declare
@@ -4551,7 +4609,7 @@ package body Exp_Ch4 is
                Init_Arg1 :=
                  Make_Explicit_Dereference (Loc,
                    Prefix =>
-                     New_Reference_To (Temp, Loc));
+                     New_Occurrence_Of (Temp, Loc));
 
                Set_Assignment_OK (Init_Arg1);
                Temp_Type := PtrT;
@@ -4672,7 +4730,7 @@ package body Exp_Ch4 is
                        New_Occurrence_Of (RTE (RE_Library_Task_Level), Loc));
                   else
                      Append_To (Args,
-                       New_Reference_To
+                       New_Occurrence_Of
                          (Master_Id (Base_Type (Root_Type (PtrT))), Loc));
                   end if;
 
@@ -4724,7 +4782,7 @@ package body Exp_Ch4 is
                                       (Typ, Current_Scope))
                      then
                         Typ := Build_Default_Subtype (Typ, N);
-                        Set_Expression (N, New_Reference_To (Typ, Loc));
+                        Set_Expression (N, New_Occurrence_Of (Typ, Loc));
                      end if;
 
                      Discr := First_Elmt (Discriminant_Constraint (Typ));
@@ -4769,7 +4827,7 @@ package body Exp_Ch4 is
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Temp,
                    Constant_Present    => True,
-                   Object_Definition   => New_Reference_To (Temp_Type, Loc),
+                   Object_Definition   => New_Occurrence_Of (Temp_Type, Loc),
                    Expression          => Nod);
 
                Set_Assignment_OK (Temp_Decl);
@@ -4795,7 +4853,7 @@ package body Exp_Ch4 is
                else
                   Insert_Action (N,
                     Make_Procedure_Call_Statement (Loc,
-                      Name                   => New_Reference_To (Init, Loc),
+                      Name                   => New_Occurrence_Of (Init, Loc),
                       Parameter_Associations => Args));
                end if;
 
@@ -4846,7 +4904,7 @@ package body Exp_Ch4 is
                   end if;
                end if;
 
-               Rewrite (N, New_Reference_To (Temp, Loc));
+               Rewrite (N, New_Occurrence_Of (Temp, Loc));
                Analyze_And_Resolve (N, PtrT);
             end if;
          end if;
@@ -4896,6 +4954,16 @@ package body Exp_Ch4 is
          return;
       end if;
 
+      --  If the case expression is a predicate specification, do not
+      --  expand, because it will be converted to the proper predicate
+      --  form when building the predicate function.
+
+      if Ekind_In (Current_Scope, E_Function, E_Procedure)
+        and then Is_Predicate_Function (Current_Scope)
+      then
+         return;
+      end if;
+
       --  We expand
 
       --    case X is when A => AX, when B => BX ...
@@ -4936,6 +5004,13 @@ package body Exp_Ch4 is
           Expression   => Expression (N),
           Alternatives => New_List);
 
+      --  Preserve the original context for which the case statement is being
+      --  generated. This is needed by the finalization machinery to prevent
+      --  the premature finalization of controlled objects found within the
+      --  case statement.
+
+      Set_From_Conditional_Expression (Cstmt);
+
       Actions := New_List;
 
       --  Scalar case
@@ -4951,7 +5026,7 @@ package body Exp_Ch4 is
              Type_Definition     =>
                Make_Access_To_Object_Definition (Loc,
                  All_Present        => True,
-                 Subtype_Indication => New_Reference_To (Typ, Loc))));
+                 Subtype_Indication => New_Occurrence_Of (Typ, Loc))));
          Ttyp := Pnn;
       end if;
 
@@ -5056,6 +5131,7 @@ package body Exp_Ch4 is
    --------------------------------------
 
    procedure Expand_N_Expression_With_Actions (N : Node_Id) is
+
       function Process_Action (Act : Node_Id) return Traverse_Result;
       --  Inspect and process a single action of an expression_with_actions for
       --  transient controlled objects. If such objects are found, the routine
@@ -5099,12 +5175,26 @@ package body Exp_Ch4 is
    --  Start of processing for Expand_N_Expression_With_Actions
 
    begin
+      --  Process the actions as described above
+
       Act := First (Actions (N));
       while Present (Act) loop
          Process_Single_Action (Act);
-
          Next (Act);
       end loop;
+
+      --  Deal with case where there are no actions. In this case we simply
+      --  rewrite the node with its expression since we don't need the actions
+      --  and the specification of this node does not allow a null action list.
+
+      --  Note: we use Rewrite instead of Replace, because Codepeer is using
+      --  the expanded tree and relying on being able to retrieve the original
+      --  tree in cases like this. This raises a whole lot of issues of whether
+      --  we have problems elsewhere, which will be addressed in the future???
+
+      if Is_Empty_List (Actions (N)) then
+         Rewrite (N, Relocate_Node (Expression (N)));
+      end if;
    end Expand_N_Expression_With_Actions;
 
    ----------------------------
@@ -5177,10 +5267,10 @@ package body Exp_Ch4 is
 
       if Compile_Time_Known_Value (Cond) then
          if Is_True (Expr_Value (Cond)) then
-            Expr := Thenx;
+            Expr    := Thenx;
             Actions := Then_Actions (N);
          else
-            Expr := Elsex;
+            Expr    := Elsex;
             Actions := Else_Actions (N);
          end if;
 
@@ -5203,11 +5293,9 @@ package body Exp_Ch4 is
          return;
       end if;
 
-      --  If the type is limited or unconstrained, we expand as follows to
-      --  avoid any possibility of improper copies.
-
-      --  Note: it may be possible to avoid this special processing if the
-      --  back end uses its own mechanisms for handling by-reference types ???
+      --  If the type is limited, and the back end does not handle limited
+      --  types, then we expand as follows to avoid the possibility of
+      --  improper copying.
 
       --      type Ptr is access all Typ;
       --      Cnn : Ptr;
@@ -5246,7 +5334,7 @@ package body Exp_Ch4 is
              Type_Definition     =>
                Make_Access_To_Object_Definition (Loc,
                  All_Present        => True,
-                 Subtype_Indication => New_Reference_To (Typ, Loc))));
+                 Subtype_Indication => New_Occurrence_Of (Typ, Loc))));
 
          --  Generate:
          --    Cnn : Ann;
@@ -5270,7 +5358,7 @@ package body Exp_Ch4 is
              Condition       => Relocate_Node (Cond),
              Then_Statements => New_List (
                Make_Assignment_Statement (Sloc (Thenx),
-                 Name       => New_Reference_To (Cnn, Sloc (Thenx)),
+                 Name       => New_Occurrence_Of (Cnn, Sloc (Thenx)),
                  Expression =>
                    Make_Attribute_Reference (Loc,
                      Prefix         => Relocate_Node (Thenx),
@@ -5278,15 +5366,54 @@ package body Exp_Ch4 is
 
              Else_Statements => New_List (
                Make_Assignment_Statement (Sloc (Elsex),
-                 Name       => New_Reference_To (Cnn, Sloc (Elsex)),
+                 Name       => New_Occurrence_Of (Cnn, Sloc (Elsex)),
                  Expression =>
                    Make_Attribute_Reference (Loc,
                      Prefix         => Relocate_Node (Elsex),
                      Attribute_Name => Name_Unrestricted_Access))));
 
-            New_N :=
-              Make_Explicit_Dereference (Loc,
-                Prefix => New_Occurrence_Of (Cnn, Loc));
+         --  Preserve the original context for which the if statement is being
+         --  generated. This is needed by the finalization machinery to prevent
+         --  the premature finalization of controlled objects found within the
+         --  if statement.
+
+         Set_From_Conditional_Expression (New_If);
+
+         New_N :=
+           Make_Explicit_Dereference (Loc,
+             Prefix => New_Occurrence_Of (Cnn, Loc));
+
+      --  If the result is an unconstrained array and the if expression is in a
+      --  context other than the initializing expression of the declaration of
+      --  an object, then we pull out the if expression as follows:
+
+      --     Cnn : constant typ := if-expression
+
+      --  and then replace the if expression with an occurrence of Cnn. This
+      --  avoids the need in the back end to create on-the-fly variable length
+      --  temporaries (which it cannot do!)
+
+      --  Note that the test for being in an object declaration avoids doing an
+      --  unnecessary expansion, and also avoids infinite recursion.
+
+      elsif Is_Array_Type (Typ) and then not Is_Constrained (Typ)
+        and then (Nkind (Parent (N)) /= N_Object_Declaration
+                   or else Expression (Parent (N)) /= N)
+      then
+         declare
+            Cnn : constant Node_Id := Make_Temporary (Loc, 'C', N);
+         begin
+            Insert_Action (N,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Cnn,
+                Constant_Present    => True,
+                Object_Definition   => New_Occurrence_Of (Typ, Loc),
+                Expression          => Relocate_Node (N),
+                Has_Init_Expression => True));
+
+            Rewrite (N, New_Occurrence_Of (Cnn, Loc));
+            return;
+         end;
 
       --  For other types, we only need to expand if there are other actions
       --  associated with either branch.
@@ -5519,7 +5646,7 @@ package body Exp_Ch4 is
               and then Nkind (Prefix (Lo_Orig)) in N_Has_Entity
               and then Entity (Prefix (Lo_Orig)) = Ltyp
 
-            --  Same tests for right operand
+              --  Same tests for right operand
 
               and then Nkind (Hi_Orig) = N_Attribute_Reference
               and then Attribute_Name (Hi_Orig) = Name_Last
@@ -5578,7 +5705,7 @@ package body Exp_Ch4 is
                   Error_Msg_N ("\?c?value is known to be out of range", N);
                end if;
 
-               Rewrite (N, New_Reference_To (Standard_False, Loc));
+               Rewrite (N, New_Occurrence_Of (Standard_False, Loc));
                Analyze_And_Resolve (N, Restyp);
                Set_Is_Static_Expression (N, Static);
                goto Leave;
@@ -5592,7 +5719,7 @@ package body Exp_Ch4 is
                   Error_Msg_N ("\?c?value is known to be in range", N);
                end if;
 
-               Rewrite (N, New_Reference_To (Standard_True, Loc));
+               Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
                Analyze_And_Resolve (N, Restyp);
                Set_Is_Static_Expression (N, Static);
                goto Leave;
@@ -5716,7 +5843,7 @@ package body Exp_Ch4 is
             --  way we get all the processing above for an explicit range.
 
             --  Don't do this for predicated types, since in this case we
-            --  want to check the predicate!
+            --  want to check the predicate.
 
             elsif Is_Scalar_Type (Typ) then
                if No (Predicate_Function (Typ)) then
@@ -5725,12 +5852,12 @@ package body Exp_Ch4 is
                       Low_Bound =>
                         Make_Attribute_Reference (Loc,
                           Attribute_Name => Name_First,
-                          Prefix         => New_Reference_To (Typ, Loc)),
+                          Prefix         => New_Occurrence_Of (Typ, Loc)),
 
                       High_Bound =>
                         Make_Attribute_Reference (Loc,
                           Attribute_Name => Name_Last,
-                          Prefix         => New_Reference_To (Typ, Loc))));
+                          Prefix         => New_Occurrence_Of (Typ, Loc))));
                   Analyze_And_Resolve (N, Restyp);
                end if;
 
@@ -5763,7 +5890,7 @@ package body Exp_Ch4 is
             end if;
 
             if not Is_Constrained (Typ) then
-               Rewrite (N, New_Reference_To (Standard_True, Loc));
+               Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
                Analyze_And_Resolve (N, Restyp);
 
             --  For the constrained array case, we have to check the subscripts
@@ -5824,7 +5951,7 @@ package body Exp_Ch4 is
                   if Is_Acc then
                      Cond :=
                        Make_Or_Else (Loc,
-                         Left_Opnd =>
+                         Left_Opnd  =>
                            Make_Op_Eq (Loc,
                              Left_Opnd  => Obj,
                              Right_Opnd => Make_Null (Loc)),
@@ -5851,7 +5978,7 @@ package body Exp_Ch4 is
 
                   if Is_Acc then
                      Cond := Make_Or_Else (Loc,
-                       Left_Opnd =>
+                       Left_Opnd  =>
                          Make_Op_Eq (Loc,
                            Left_Opnd  => Obj,
                            Right_Opnd => Make_Null (Loc)),
@@ -5993,7 +6120,7 @@ package body Exp_Ch4 is
 
       --  If a predicate is present, then we do the predicate test, but we
       --  most certainly want to omit this if we are within the predicate
-      --  function itself, since otherwise we have an infinite recursion!
+      --  function itself, since otherwise we have an infinite recursion.
       --  The check should also not be emitted when testing against a range
       --  (the check is only done when the right operand is a subtype; see
       --  RM12-4.5.2 (28.1/3-30/3)).
@@ -6050,10 +6177,17 @@ package body Exp_Ch4 is
       --  some problems in handling this peculiar case, for example, the issue
       --  of dealing specially with object renamings.
 
-      if Nkind (P) = N_Slice then
+      if Nkind (P) = N_Slice
+
+        --  This optimization is disabled for CodePeer because it can transform
+        --  an index-check constraint_error into a range-check constraint_error
+        --  and CodePeer cares about that distinction.
+
+        and then not CodePeer_Mode
+      then
          Rewrite (N,
            Make_Indexed_Component (Loc,
-             Prefix => Prefix (P),
+             Prefix      => Prefix (P),
              Expressions => New_List (
                Convert_To
                  (Etype (First_Index (Etype (P))),
@@ -6119,9 +6253,9 @@ package body Exp_Ch4 is
          return;
       end if;
 
-      --  For a reference to a component of a bit packed array, we have to
-      --  convert it to a reference to the corresponding Packed_Array_Type.
-      --  We only want to do this for simple references, and not for:
+      --  For a reference to a component of a bit packed array, we convert it
+      --  to a reference to the corresponding Packed_Array_Impl_Type. We only
+      --  want to do this for simple references, and not for:
 
       --    Left side of assignment, or prefix of left side of assignment, or
       --    prefix of the prefix, to handle packed arrays of packed arrays,
@@ -6287,7 +6421,7 @@ package body Exp_Ch4 is
 
    procedure Expand_N_Op_Abs (N : Node_Id) is
       Loc  : constant Source_Ptr := Sloc (N);
-      Expr : constant Node_Id := Right_Opnd (N);
+      Expr : constant Node_Id    := Right_Opnd (N);
 
    begin
       Unary_Op_Validity_Checks (N);
@@ -6319,16 +6453,10 @@ package body Exp_Ch4 is
                  Left_Opnd  => Duplicate_Subexpr (Expr),
                  Right_Opnd =>
                    Make_Attribute_Reference (Loc,
-                     Prefix =>
+                     Prefix         =>
                        New_Occurrence_Of (Base_Type (Etype (Expr)), Loc),
                      Attribute_Name => Name_First)),
              Reason => CE_Overflow_Check_Failed));
-      end if;
-
-      --  Vax floating-point types case
-
-      if Vax_Float (Etype (N)) then
-         Expand_Vax_Arith (N);
       end if;
    end Expand_N_Op_Abs;
 
@@ -6371,12 +6499,11 @@ package body Exp_Ch4 is
       if Is_Signed_Integer_Type (Typ) or else Is_Fixed_Point_Type (Typ) then
          Apply_Arithmetic_Overflow_Check (N);
          return;
-
-      --  Vax floating-point types case
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Add;
 
    ---------------------
@@ -6584,13 +6711,11 @@ package body Exp_Ch4 is
 
       elsif Is_Integer_Type (Typ) then
          Apply_Divide_Checks (N);
-
-      --  Deal with Vax_Float
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
-         return;
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Divide;
 
    --------------------
@@ -6624,10 +6749,12 @@ package body Exp_Ch4 is
 
       procedure Build_Equality_Call (Eq : Entity_Id) is
          Op_Type : constant Entity_Id := Etype (First_Formal (Eq));
-         L_Exp   : Node_Id := Relocate_Node (Lhs);
-         R_Exp   : Node_Id := Relocate_Node (Rhs);
+         L_Exp   : Node_Id            := Relocate_Node (Lhs);
+         R_Exp   : Node_Id            := Relocate_Node (Rhs);
 
       begin
+         --  Adjust operands if necessary to comparison type
+
          if Base_Type (Op_Type) /= Base_Type (A_Typ)
            and then not Is_Class_Wide_Type (A_Typ)
          then
@@ -6725,17 +6852,16 @@ package body Exp_Ch4 is
                   --  formal is that of the discriminant, with added suffix,
                   --  see Exp_Ch3.Build_Record_Equality for details.
 
-                  if Is_Unchecked_Union
-                       (Scope (Entity (Selector_Name (Lhs))))
+                  if Is_Unchecked_Union (Scope (Entity (Selector_Name (Lhs))))
                   then
                      Discr :=
                        First_Discriminant
                          (Scope (Entity (Selector_Name (Lhs))));
                      while Present (Discr) loop
-                        Append_Elmt (
-                          Make_Identifier (Loc,
-                            Chars => New_External_Name (Chars (Discr), 'A')),
-                          To => Lhs_Discr_Vals);
+                        Append_Elmt
+                          (Make_Identifier (Loc,
+                             Chars => New_External_Name (Chars (Discr), 'A')),
+                           To => Lhs_Discr_Vals);
                         Next_Discriminant (Discr);
                      end loop;
 
@@ -6745,15 +6871,15 @@ package body Exp_Ch4 is
                   else
                      Discr := First_Discriminant (Lhs_Type);
                      while Present (Discr) loop
-                        Append_Elmt (
-                          Make_Selected_Component (Loc,
-                            Prefix => Prefix (Lhs),
-                            Selector_Name =>
-                              New_Copy
-                                (Get_Discriminant_Value (Discr,
-                                    Lhs_Type,
-                                    Stored_Constraint (Lhs_Type)))),
-                          To => Lhs_Discr_Vals);
+                        Append_Elmt
+                          (Make_Selected_Component (Loc,
+                             Prefix        => Prefix (Lhs),
+                             Selector_Name =>
+                               New_Copy
+                                 (Get_Discriminant_Value (Discr,
+                                     Lhs_Type,
+                                     Stored_Constraint (Lhs_Type)))),
+                           To => Lhs_Discr_Vals);
                         Next_Discriminant (Discr);
                      end loop;
                   end if;
@@ -6765,12 +6891,12 @@ package body Exp_Ch4 is
 
                   Discr := First_Discriminant (Lhs_Type);
                   while Present (Discr) loop
-                     Append_Elmt (
-                       New_Copy
-                         (Get_Discriminant_Value (Discr,
+                     Append_Elmt
+                       (New_Copy
+                          (Get_Discriminant_Value (Discr,
                              Lhs_Type,
                              Stored_Constraint (Lhs_Type))),
-                       To => Lhs_Discr_Vals);
+                        To => Lhs_Discr_Vals);
                      Next_Discriminant (Discr);
                   end loop;
                end if;
@@ -6782,31 +6908,31 @@ package body Exp_Ch4 is
                    Has_Per_Object_Constraint (Entity (Selector_Name (Rhs)))
                then
                   if Is_Unchecked_Union
-                    (Scope (Entity (Selector_Name (Rhs))))
+                       (Scope (Entity (Selector_Name (Rhs))))
                   then
                      Discr :=
                        First_Discriminant
                          (Scope (Entity (Selector_Name (Rhs))));
                      while Present (Discr) loop
-                        Append_Elmt (
-                          Make_Identifier (Loc,
-                            Chars => New_External_Name (Chars (Discr), 'B')),
-                          To => Rhs_Discr_Vals);
+                        Append_Elmt
+                          (Make_Identifier (Loc,
+                             Chars => New_External_Name (Chars (Discr), 'B')),
+                           To => Rhs_Discr_Vals);
                         Next_Discriminant (Discr);
                      end loop;
 
                   else
                      Discr := First_Discriminant (Rhs_Type);
                      while Present (Discr) loop
-                        Append_Elmt (
-                          Make_Selected_Component (Loc,
-                            Prefix        => Prefix (Rhs),
-                            Selector_Name =>
-                              New_Copy (Get_Discriminant_Value
-                                          (Discr,
-                                           Rhs_Type,
-                                           Stored_Constraint (Rhs_Type)))),
-                          To => Rhs_Discr_Vals);
+                        Append_Elmt
+                          (Make_Selected_Component (Loc,
+                             Prefix        => Prefix (Rhs),
+                             Selector_Name =>
+                               New_Copy (Get_Discriminant_Value
+                                           (Discr,
+                                            Rhs_Type,
+                                            Stored_Constraint (Rhs_Type)))),
+                           To => Rhs_Discr_Vals);
                         Next_Discriminant (Discr);
                      end loop;
                   end if;
@@ -6814,12 +6940,12 @@ package body Exp_Ch4 is
                else
                   Discr := First_Discriminant (Rhs_Type);
                   while Present (Discr) loop
-                     Append_Elmt (
-                       New_Copy (Get_Discriminant_Value
-                                   (Discr,
-                                    Rhs_Type,
-                                    Stored_Constraint (Rhs_Type))),
-                       To => Rhs_Discr_Vals);
+                     Append_Elmt
+                       (New_Copy (Get_Discriminant_Value
+                                    (Discr,
+                                     Rhs_Type,
+                                     Stored_Constraint (Rhs_Type))),
+                        To => Rhs_Discr_Vals);
                      Next_Discriminant (Discr);
                   end loop;
                end if;
@@ -6845,7 +6971,7 @@ package body Exp_Ch4 is
 
                   Rewrite (N,
                     Make_Function_Call (Loc,
-                      Name                   => New_Reference_To (Eq, Loc),
+                      Name                   => New_Occurrence_Of (Eq, Loc),
                       Parameter_Associations => Params));
                end;
             end;
@@ -6855,7 +6981,7 @@ package body Exp_Ch4 is
          else
             Rewrite (N,
               Make_Function_Call (Loc,
-                Name                   => New_Reference_To (Eq, Loc),
+                Name                   => New_Occurrence_Of (Eq, Loc),
                 Parameter_Associations => New_List (L_Exp, R_Exp)));
          end if;
 
@@ -7028,6 +7154,25 @@ package body Exp_Ch4 is
 
       Typl := Base_Type (Typl);
 
+      --  Equality between variant records results in a call to a routine
+      --  that has conditional tests of the discriminant value(s), and hence
+      --  violates the No_Implicit_Conditionals restriction.
+
+      if Has_Variant_Part (Typl) then
+         declare
+            Msg : Boolean;
+
+         begin
+            Check_Restriction (Msg, No_Implicit_Conditionals, N);
+
+            if Msg then
+               Error_Msg_N
+                 ("\comparison of variant records tests discriminants", N);
+               return;
+            end if;
+         end;
+      end if;
+
       --  Deal with overflow checks in MINIMIZED/ELIMINATED mode and if that
       --  means we no longer have a comparison operation, we are all done.
 
@@ -7140,7 +7285,7 @@ package body Exp_Ch4 is
             then
                --  Search for equality operation, checking that the operands
                --  have the same type. Note that we must find a matching entry,
-               --  or something is very wrong!
+               --  or something is very wrong.
 
                Prim := First_Elmt (Collect_Primitive_Operations (A_Typ));
 
@@ -7158,15 +7303,15 @@ package body Exp_Ch4 is
                Op_Name := Node (Prim);
 
             --  Find the type's predefined equality or an overriding
-            --  user- defined equality. The reason for not simply calling
+            --  user-defined equality. The reason for not simply calling
             --  Find_Prim_Op here is that there may be a user-defined
-            --  overloaded equality op that precedes the equality that we want,
-            --  so we have to explicitly search (e.g., there could be an
-            --  equality with two different parameter types).
+            --  overloaded equality op that precedes the equality that we
+            --  want, so we have to explicitly search (e.g., there could be
+            --  an equality with two different parameter types).
 
             else
                if Is_Class_Wide_Type (Typl) then
-                  Typl := Root_Type (Typl);
+                  Typl := Find_Specific_Type (Typl);
                end if;
 
                Prim := First_Elmt (Primitive_Operations (Typl));
@@ -7222,12 +7367,25 @@ package body Exp_Ch4 is
                  Make_Raise_Program_Error (Loc,
                    Reason => PE_Unchecked_Union_Restriction));
 
+               --  Emit a warning on source equalities only, otherwise the
+               --  message may appear out of place due to internal use. The
+               --  warning is unconditional because it is required by the
+               --  language.
+
+               if Comes_From_Source (N) then
+                  Error_Msg_N
+                    ("Unchecked_Union discriminants cannot be determined??",
+                     N);
+                  Error_Msg_N
+                    ("\Program_Error will be raised for equality operation??",
+                     N);
+               end if;
+
                --  Prevent Gigi from generating incorrect code by rewriting
                --  the equality as a standard False (documented where???).
 
                Rewrite (N,
                  New_Occurrence_Of (Standard_False, Loc));
-
             end if;
 
          --  If a type support function is present (for complex cases), use it
@@ -7277,13 +7435,6 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
-      --  If we still have comparison for Vax_Float, process it
-
-      if Vax_Float (Typl) and then Nkind (N) in N_Op_Compare  then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
-
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Eq;
 
@@ -7331,7 +7482,6 @@ package body Exp_Ch4 is
          declare
             Bt : constant Entity_Id := Root_Type (Underlying_Type (Bastyp));
             Et : constant Entity_Id := Root_Type (Underlying_Type (Exptyp));
-
          begin
             Rewrite (N,
               Unchecked_Convert_To (Typ,
@@ -7353,7 +7503,12 @@ package body Exp_Ch4 is
       --  Test for case of known right argument where we can replace the
       --  exponentiation by an equivalent expression using multiplication.
 
-      if Compile_Time_Known_Value (Exp) then
+      --  Note: use CRT_Safe version of Compile_Time_Known_Value because in
+      --  configurable run-time mode, we may not have the exponentiation
+      --  routine available, and we don't want the legality of the program
+      --  to depend on how clever the compiler is in knowing values.
+
+      if CRT_Safe_Compile_Time_Known_Value (Exp) then
          Expv := Expr_Value (Exp);
 
          --  We only fold small non-negative exponents. You might think we
@@ -7421,7 +7576,7 @@ package body Exp_Ch4 is
                      Make_Object_Declaration (Loc,
                        Defining_Identifier => Temp,
                        Constant_Present    => True,
-                       Object_Definition   => New_Reference_To (Typ, Loc),
+                       Object_Definition   => New_Occurrence_Of (Typ, Loc),
                        Expression =>
                          Make_Op_Multiply (Loc,
                            Left_Opnd  =>
@@ -7431,8 +7586,8 @@ package body Exp_Ch4 is
 
                    Expression =>
                      Make_Op_Multiply (Loc,
-                       Left_Opnd  => New_Reference_To (Temp, Loc),
-                       Right_Opnd => New_Reference_To (Temp, Loc)));
+                       Left_Opnd  => New_Occurrence_Of (Temp, Loc),
+                       Right_Opnd => New_Occurrence_Of (Temp, Loc)));
             end if;
 
             Rewrite (N, Xnode);
@@ -7454,11 +7609,16 @@ package body Exp_Ch4 is
       --  a non-binary modulus in the multiplication case, since we get a wrong
       --  result if the shift causes an overflow before the modular reduction.
 
+      --  Note: we used to check that Exptyp was an unsigned type. But that is
+      --  an unnecessary check, since if Exp is negative, we have a run-time
+      --  error that is either caught (so we get the right result) or we have
+      --  suppressed the check, in which case the code is erroneous anyway.
+
       if Nkind (Base) = N_Integer_Literal
-        and then Intval (Base) = 2
+        and then CRT_Safe_Compile_Time_Known_Value (Base)
+        and then Expr_Value (Base) = Uint_2
         and then Is_Integer_Type (Root_Type (Exptyp))
         and then Esize (Root_Type (Exptyp)) <= Esize (Standard_Integer)
-        and then Is_Unsigned_Type (Exptyp)
         and then not Ovflo
       then
          --  First the multiply and divide cases
@@ -7516,9 +7676,10 @@ package body Exp_Ch4 is
             Rewrite (N,
               Convert_To (Typ,
                 Make_Function_Call (Loc,
-                  Name => New_Reference_To (RTE (RE_Exp_Modular), Loc),
+                  Name                   =>
+                    New_Occurrence_Of (RTE (RE_Exp_Modular), Loc),
                   Parameter_Associations => New_List (
-                    Convert_To (Standard_Integer, Base),
+                    Convert_To (RTE (RE_Unsigned), Base),
                     Make_Integer_Literal (Loc, Modulus (Rtyp)),
                     Exp))));
 
@@ -7536,9 +7697,9 @@ package body Exp_Ch4 is
             Rewrite (N,
               Convert_To (Typ,
                 Make_Op_And (Loc,
-                  Left_Opnd =>
+                  Left_Opnd  =>
                     Make_Function_Call (Loc,
-                      Name => New_Reference_To (Ent, Loc),
+                      Name                   => New_Occurrence_Of (Ent, Loc),
                       Parameter_Associations => New_List (
                         Convert_To (Etype (First_Formal (Ent)), Base),
                         Exp)),
@@ -7569,7 +7730,11 @@ package body Exp_Ch4 is
       then
          Etyp := Standard_Long_Long_Integer;
 
-         if Ovflo then
+         --  Overflow checking is the only choice on the AAMP target, where
+         --  arithmetic instructions check overflow automatically, so only
+         --  one version of the exponentiation unit is needed.
+
+         if Ovflo or AAMP_On_Target then
             Rent := RE_Exp_Long_Long_Integer;
          else
             Rent := RE_Exn_Long_Long_Integer;
@@ -7578,7 +7743,11 @@ package body Exp_Ch4 is
       elsif Is_Signed_Integer_Type (Rtyp) then
          Etyp := Standard_Integer;
 
-         if Ovflo then
+         --  Overflow checking is the only choice on the AAMP target, where
+         --  arithmetic instructions check overflow automatically, so only
+         --  one version of the exponentiation unit is needed.
+
+         if Ovflo or AAMP_On_Target then
             Rent := RE_Exp_Integer;
          else
             Rent := RE_Exn_Integer;
@@ -7605,7 +7774,7 @@ package body Exp_Ch4 is
       then
          Rewrite (N,
            Make_Function_Call (Loc,
-             Name => New_Reference_To (RTE (Rent), Loc),
+             Name                   => New_Occurrence_Of (RTE (Rent), Loc),
              Parameter_Associations => New_List (Base, Exp)));
 
       --  Otherwise we have to introduce conversions (conversions are also
@@ -7616,7 +7785,7 @@ package body Exp_Ch4 is
          Rewrite (N,
            Convert_To (Typ,
              Make_Function_Call (Loc,
-               Name => New_Reference_To (RTE (Rent), Loc),
+               Name => New_Occurrence_Of (RTE (Rent), Loc),
                Parameter_Associations => New_List (
                  Convert_To (Etyp, Base),
                  Exp))));
@@ -7670,13 +7839,6 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
-
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Ge;
 
@@ -7719,13 +7881,6 @@ package body Exp_Ch4 is
       end if;
 
       Rewrite_Comparison (N);
-
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
 
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Gt;
@@ -7770,13 +7925,6 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
-
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Le;
 
@@ -7820,13 +7968,6 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
-
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Lt;
 
@@ -7860,11 +8001,6 @@ package body Exp_Ch4 is
              Right_Opnd => Right_Opnd (N)));
 
          Analyze_And_Resolve (N, Typ);
-
-      --  Vax floating-point types case
-
-      elsif Vax_Float (Etype (N)) then
-         Expand_Vax_Arith (N);
       end if;
    end Expand_N_Op_Minus;
 
@@ -7919,12 +8055,19 @@ package body Exp_Ch4 is
       Determine_Range (Right, ROK, Rlo, Rhi, Assume_Valid => True);
       Determine_Range (Left,  LOK, Llo, Lhi, Assume_Valid => True);
 
-      --  Convert mod to rem if operands are known non-negative. We do this
-      --  since it is quite likely that this will improve the quality of code,
-      --  (the operation now corresponds to the hardware remainder), and it
-      --  does not seem likely that it could be harmful.
+      --  Convert mod to rem if operands are both known to be non-negative, or
+      --  both known to be non-positive (these are the cases in which rem and
+      --  mod are the same, see (RM 4.5.5(28-30)). We do this since it is quite
+      --  likely that this will improve the quality of code, (the operation now
+      --  corresponds to the hardware remainder), and it does not seem likely
+      --  that it could be harmful. It also avoids some cases of the elaborate
+      --  expansion in Modify_Tree_For_C mode below (since Ada rem = C %).
 
-      if LOK and then Llo >= 0 and then ROK and then Rlo >= 0 then
+      if (LOK and ROK)
+        and then ((Llo >= 0 and then Rlo >= 0)
+                     or else
+                  (Lhi <= 0 and then Rhi <= 0))
+      then
          Rewrite (N,
            Make_Op_Rem (Sloc (N),
              Left_Opnd  => Left_Opnd (N),
@@ -7939,6 +8082,7 @@ package body Exp_Ch4 is
          Set_Do_Division_Check (N, DDC);
          Expand_N_Op_Rem (N);
          Set_Analyzed (N);
+         return;
 
       --  Otherwise, normal mod processing
 
@@ -7962,10 +8106,108 @@ package body Exp_Ch4 is
             return;
          end if;
 
-         --  Deal with annoying case of largest negative number remainder
-         --  minus one. Gigi may not handle this case correctly, because
-         --  on some targets, the mod value is computed using a divide
-         --  instruction which gives an overflow trap for this case.
+         --  If we still have a mod operator and we are in Modify_Tree_For_C
+         --  mode, and we have a signed integer type, then here is where we do
+         --  the rewrite in terms of Rem. Note this rewrite bypasses the need
+         --  for the special handling of the annoying case of largest negative
+         --  number mod minus one.
+
+         if Nkind (N) = N_Op_Mod
+           and then Is_Signed_Integer_Type (Typ)
+           and then Modify_Tree_For_C
+         then
+            --  In the general case, we expand A mod B as
+
+            --    Tnn : constant typ := A rem B;
+            --    ..
+            --    (if (A >= 0) = (B >= 0) then Tnn
+            --     elsif Tnn = 0 then 0
+            --     else Tnn + B)
+
+            --  The comparison can be written simply as A >= 0 if we know that
+            --  B >= 0 which is a very common case.
+
+            --  An important optimization is when B is known at compile time
+            --  to be 2**K for some constant. In this case we can simply AND
+            --  the left operand with the bit string 2**K-1 (i.e. K 1-bits)
+            --  and that works for both the positive and negative cases.
+
+            declare
+               P2 : constant Nat := Power_Of_Two (Right);
+
+            begin
+               if P2 /= 0 then
+                  Rewrite (N,
+                    Unchecked_Convert_To (Typ,
+                      Make_Op_And (Loc,
+                        Left_Opnd  =>
+                          Unchecked_Convert_To
+                            (Corresponding_Unsigned_Type (Typ), Left),
+                        Right_Opnd =>
+                          Make_Integer_Literal (Loc, 2 ** P2 - 1))));
+                  Analyze_And_Resolve (N, Typ);
+                  return;
+               end if;
+            end;
+
+            --  Here for the full rewrite
+
+            declare
+               Tnn : constant Entity_Id := Make_Temporary (Sloc (N), 'T', N);
+               Cmp : Node_Id;
+
+            begin
+               Cmp :=
+                 Make_Op_Ge (Loc,
+                   Left_Opnd  => Duplicate_Subexpr_No_Checks (Left),
+                   Right_Opnd => Make_Integer_Literal (Loc, 0));
+
+               if not LOK or else Rlo < 0 then
+                  Cmp :=
+                     Make_Op_Eq (Loc,
+                       Left_Opnd  => Cmp,
+                       Right_Opnd =>
+                         Make_Op_Ge (Loc,
+                           Left_Opnd  => Duplicate_Subexpr_No_Checks (Right),
+                           Right_Opnd => Make_Integer_Literal (Loc, 0)));
+               end if;
+
+               Insert_Action (N,
+                 Make_Object_Declaration (Loc,
+                   Defining_Identifier => Tnn,
+                   Constant_Present    => True,
+                   Object_Definition   => New_Occurrence_Of (Typ, Loc),
+                   Expression          =>
+                     Make_Op_Rem (Loc,
+                       Left_Opnd  => Left,
+                       Right_Opnd => Right)));
+
+               Rewrite (N,
+                 Make_If_Expression (Loc,
+                   Expressions => New_List (
+                     Cmp,
+                     New_Occurrence_Of (Tnn, Loc),
+                     Make_If_Expression (Loc,
+                       Is_Elsif    => True,
+                       Expressions => New_List (
+                         Make_Op_Eq (Loc,
+                           Left_Opnd  => New_Occurrence_Of (Tnn, Loc),
+                           Right_Opnd => Make_Integer_Literal (Loc, 0)),
+                         Make_Integer_Literal (Loc, 0),
+                         Make_Op_Add (Loc,
+                           Left_Opnd  => New_Occurrence_Of (Tnn, Loc),
+                           Right_Opnd =>
+                             Duplicate_Subexpr_No_Checks (Right)))))));
+
+               Analyze_And_Resolve (N, Typ);
+               return;
+            end;
+         end if;
+
+         --  Deal with annoying case of largest negative number mod minus one.
+         --  Gigi may not handle this case correctly, because on some targets,
+         --  the mod value is computed using a divide instruction which gives
+         --  an overflow trap for this case.
 
          --  It would be a bit more efficient to figure out which targets
          --  this is really needed for, but in practice it is reasonable
@@ -8231,13 +8473,11 @@ package body Exp_Ch4 is
 
       elsif Is_Signed_Integer_Type (Etype (N)) then
          Apply_Arithmetic_Overflow_Check (N);
-
-      --  Deal with VAX float case
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
-         return;
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Multiply;
 
    --------------------
@@ -8274,13 +8514,6 @@ package body Exp_Ch4 is
          end if;
 
          Rewrite_Comparison (N);
-
-         --  If we still have comparison for Vax_Float, process it
-
-         if Vax_Float (Typ) and then Nkind (N) in N_Op_Compare  then
-            Expand_Vax_Comparison (N);
-            return;
-         end if;
 
       --  For all cases other than elementary types, we rewrite node as the
       --  negation of an equality operation, and reanalyze. The equality to be
@@ -8329,17 +8562,18 @@ package body Exp_Ch4 is
    ---------------------
 
    --  If the argument is other than a Boolean array type, there is no special
-   --  expansion required, except for VMS operations on signed integers.
+   --  expansion required, except for dealing with validity checks, and non-
+   --  standard boolean representations.
 
-   --  For the packed case, we call the special routine in Exp_Pakd, except
-   --  that if the component size is greater than one, we use the standard
-   --  routine generating a gruesome loop (it is so peculiar to have packed
-   --  arrays with non-standard Boolean representations anyway, so it does not
-   --  matter that we do not handle this case efficiently).
+   --  For the packed array case, we call the special routine in Exp_Pakd,
+   --  except that if the component size is greater than one, we use the
+   --  standard routine generating a gruesome loop (it is so peculiar to have
+   --  packed arrays with non-standard Boolean representations anyway, so it
+   --  does not matter that we do not handle this case efficiently).
 
-   --  For the unpacked case (and for the special packed case where we have non
-   --  standard Booleans, as discussed above), we generate and insert into the
-   --  tree the following function definition:
+   --  For the unpacked array case (and for the special packed case where we
+   --  have non standard Booleans, as discussed above), we generate and insert
+   --  into the tree the following function definition:
 
    --     function Nnnn (A : arr) is
    --       B : arr;
@@ -8377,49 +8611,6 @@ package body Exp_Ch4 is
          Set_Etype (N, Standard_Boolean);
          Adjust_Result_Type (N, Typ);
          return;
-      end if;
-
-      --  For the VMS "not" on signed integer types, use conversion to and from
-      --  a predefined modular type.
-
-      if Is_VMS_Operator (Entity (N)) then
-         declare
-            Rtyp : Entity_Id;
-            Utyp : Entity_Id;
-
-         begin
-            --  If this is a derived type, retrieve original VMS type so that
-            --  the proper sized type is used for intermediate values.
-
-            if Is_Derived_Type (Typ) then
-               Rtyp := First_Subtype (Etype (Typ));
-            else
-               Rtyp := Typ;
-            end if;
-
-            --  The proper unsigned type must have a size compatible with the
-            --  operand, to prevent misalignment.
-
-            if RM_Size (Rtyp) <= 8 then
-               Utyp := RTE (RE_Unsigned_8);
-
-            elsif RM_Size (Rtyp) <= 16 then
-               Utyp := RTE (RE_Unsigned_16);
-
-            elsif RM_Size (Rtyp) = RM_Size (Standard_Unsigned) then
-               Utyp := RTE (RE_Unsigned_32);
-
-            else
-               Utyp := RTE (RE_Long_Long_Unsigned);
-            end if;
-
-            Rewrite (N,
-              Unchecked_Convert_To (Typ,
-                Make_Op_Not (Loc,
-                  Unchecked_Convert_To (Utyp, Right_Opnd (N)))));
-            Analyze_And_Resolve (N, Typ);
-            return;
-         end;
       end if;
 
       --  Only array types need any other processing
@@ -8499,13 +8690,13 @@ package body Exp_Ch4 is
 
       A_J :=
         Make_Indexed_Component (Loc,
-          Prefix      => New_Reference_To (A, Loc),
-          Expressions => New_List (New_Reference_To (J, Loc)));
+          Prefix      => New_Occurrence_Of (A, Loc),
+          Expressions => New_List (New_Occurrence_Of (J, Loc)));
 
       B_J :=
         Make_Indexed_Component (Loc,
-          Prefix      => New_Reference_To (B, Loc),
-          Expressions => New_List (New_Reference_To (J, Loc)));
+          Prefix      => New_Occurrence_Of (B, Loc),
+          Expressions => New_List (New_Occurrence_Of (J, Loc)));
 
       Loop_Statement :=
         Make_Implicit_Loop_Statement (N,
@@ -8537,13 +8728,13 @@ package body Exp_Ch4 is
               Parameter_Specifications => New_List (
                 Make_Parameter_Specification (Loc,
                   Defining_Identifier => A,
-                  Parameter_Type      => New_Reference_To (Typ, Loc))),
-              Result_Definition => New_Reference_To (Typ, Loc)),
+                  Parameter_Type      => New_Occurrence_Of (Typ, Loc))),
+              Result_Definition => New_Occurrence_Of (Typ, Loc)),
 
           Declarations => New_List (
             Make_Object_Declaration (Loc,
               Defining_Identifier => B,
-              Object_Definition   => New_Reference_To (Arr, Loc))),
+              Object_Definition   => New_Occurrence_Of (Arr, Loc))),
 
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
@@ -8554,7 +8745,7 @@ package body Exp_Ch4 is
 
       Rewrite (N,
         Make_Function_Call (Loc,
-          Name                   => New_Reference_To (Func_Name, Loc),
+          Name                   => New_Occurrence_Of (Func_Name, Loc),
           Parameter_Associations => New_List (Opnd)));
 
       Analyze_And_Resolve (N, Typ);
@@ -8719,6 +8910,50 @@ package body Exp_Ch4 is
    procedure Expand_N_Op_Rotate_Left (N : Node_Id) is
    begin
       Binary_Op_Validity_Checks (N);
+
+      --  If we are in Modify_Tree_For_C mode, there is no rotate left in C,
+      --  so we rewrite in terms of logical shifts
+
+      --    Shift_Left (Num, Bits) or Shift_Right (num, Esize - Bits)
+
+      --  where Bits is the shift count mod Esize (the mod operation here
+      --  deals with ludicrous large shift counts, which are apparently OK).
+
+      --  What about non-binary modulus ???
+
+      declare
+         Loc : constant Source_Ptr := Sloc (N);
+         Rtp : constant Entity_Id  := Etype (Right_Opnd (N));
+         Typ : constant Entity_Id  := Etype (N);
+
+      begin
+         if Modify_Tree_For_C then
+            Rewrite (Right_Opnd (N),
+              Make_Op_Rem (Loc,
+                Left_Opnd  => Relocate_Node (Right_Opnd (N)),
+                Right_Opnd => Make_Integer_Literal (Loc, Esize (Typ))));
+
+            Analyze_And_Resolve (Right_Opnd (N), Rtp);
+
+            Rewrite (N,
+              Make_Op_Or (Loc,
+                Left_Opnd =>
+                  Make_Op_Shift_Left (Loc,
+                    Left_Opnd  => Left_Opnd (N),
+                    Right_Opnd => Right_Opnd (N)),
+
+                Right_Opnd =>
+                  Make_Op_Shift_Right (Loc,
+                    Left_Opnd  => Duplicate_Subexpr_No_Checks (Left_Opnd (N)),
+                    Right_Opnd =>
+                      Make_Op_Subtract (Loc,
+                        Left_Opnd  => Make_Integer_Literal (Loc, Esize (Typ)),
+                        Right_Opnd =>
+                          Duplicate_Subexpr_No_Checks (Right_Opnd (N))))));
+
+            Analyze_And_Resolve (N, Typ);
+         end if;
+      end;
    end Expand_N_Op_Rotate_Left;
 
    ------------------------------
@@ -8728,15 +8963,114 @@ package body Exp_Ch4 is
    procedure Expand_N_Op_Rotate_Right (N : Node_Id) is
    begin
       Binary_Op_Validity_Checks (N);
+
+      --  If we are in Modify_Tree_For_C mode, there is no rotate right in C,
+      --  so we rewrite in terms of logical shifts
+
+      --    Shift_Right (Num, Bits) or Shift_Left (num, Esize - Bits)
+
+      --  where Bits is the shift count mod Esize (the mod operation here
+      --  deals with ludicrous large shift counts, which are apparently OK).
+
+      --  What about non-binary modulus ???
+
+      declare
+         Loc : constant Source_Ptr := Sloc (N);
+         Rtp : constant Entity_Id  := Etype (Right_Opnd (N));
+         Typ : constant Entity_Id  := Etype (N);
+
+      begin
+         Rewrite (Right_Opnd (N),
+           Make_Op_Rem (Loc,
+             Left_Opnd  => Relocate_Node (Right_Opnd (N)),
+             Right_Opnd => Make_Integer_Literal (Loc, Esize (Typ))));
+
+         Analyze_And_Resolve (Right_Opnd (N), Rtp);
+
+         if Modify_Tree_For_C then
+            Rewrite (N,
+              Make_Op_Or (Loc,
+                Left_Opnd =>
+                  Make_Op_Shift_Right (Loc,
+                    Left_Opnd  => Left_Opnd (N),
+                    Right_Opnd => Right_Opnd (N)),
+
+                Right_Opnd =>
+                  Make_Op_Shift_Left (Loc,
+                    Left_Opnd  => Duplicate_Subexpr_No_Checks (Left_Opnd (N)),
+                    Right_Opnd =>
+                      Make_Op_Subtract (Loc,
+                        Left_Opnd  => Make_Integer_Literal (Loc, Esize (Typ)),
+                        Right_Opnd =>
+                          Duplicate_Subexpr_No_Checks (Right_Opnd (N))))));
+
+            Analyze_And_Resolve (N, Typ);
+         end if;
+      end;
    end Expand_N_Op_Rotate_Right;
 
    ----------------------------
    -- Expand_N_Op_Shift_Left --
    ----------------------------
 
+   --  Note: nothing in this routine depends on left as opposed to right shifts
+   --  so we share the routine for expanding shift right operations.
+
    procedure Expand_N_Op_Shift_Left (N : Node_Id) is
    begin
       Binary_Op_Validity_Checks (N);
+
+      --  If we are in Modify_Tree_For_C mode, then ensure that the right
+      --  operand is not greater than the word size (since that would not
+      --  be defined properly by the corresponding C shift operator).
+
+      if Modify_Tree_For_C then
+         declare
+            Right : constant Node_Id    := Right_Opnd (N);
+            Loc   : constant Source_Ptr := Sloc (Right);
+            Typ   : constant Entity_Id  := Etype (N);
+            Siz   : constant Uint       := Esize (Typ);
+            Orig  : Node_Id;
+            OK    : Boolean;
+            Lo    : Uint;
+            Hi    : Uint;
+
+         begin
+            if Compile_Time_Known_Value (Right) then
+               if Expr_Value (Right) >= Siz then
+                  Rewrite (N, Make_Integer_Literal (Loc, 0));
+                  Analyze_And_Resolve (N, Typ);
+               end if;
+
+            --  Not compile time known, find range
+
+            else
+               Determine_Range (Right, OK, Lo, Hi, Assume_Valid => True);
+
+               --  Nothing to do if known to be OK range, otherwise expand
+
+               if not OK or else Hi >= Siz then
+
+                  --  Prevent recursion on copy of shift node
+
+                  Orig := Relocate_Node (N);
+                  Set_Analyzed (Orig);
+
+                  --  Now do the rewrite
+
+                  Rewrite (N,
+                     Make_If_Expression (Loc,
+                       Expressions => New_List (
+                         Make_Op_Ge (Loc,
+                           Left_Opnd  => Duplicate_Subexpr_Move_Checks (Right),
+                           Right_Opnd => Make_Integer_Literal (Loc, Siz)),
+                         Make_Integer_Literal (Loc, 0),
+                         Orig)));
+                  Analyze_And_Resolve (N, Typ);
+               end if;
+            end if;
+         end;
+      end if;
    end Expand_N_Op_Shift_Left;
 
    -----------------------------
@@ -8745,7 +9079,9 @@ package body Exp_Ch4 is
 
    procedure Expand_N_Op_Shift_Right (N : Node_Id) is
    begin
-      Binary_Op_Validity_Checks (N);
+      --  Share shift left circuit
+
+      Expand_N_Op_Shift_Left (N);
    end Expand_N_Op_Shift_Right;
 
    ----------------------------------------
@@ -8755,6 +9091,84 @@ package body Exp_Ch4 is
    procedure Expand_N_Op_Shift_Right_Arithmetic (N : Node_Id) is
    begin
       Binary_Op_Validity_Checks (N);
+
+      --  If we are in Modify_Tree_For_C mode, there is no shift right
+      --  arithmetic in C, so we rewrite in terms of logical shifts.
+
+      --    Shift_Right (Num, Bits) or
+      --      (if Num >= Sign
+      --       then not (Shift_Right (Mask, bits))
+      --       else 0)
+
+      --  Here Mask is all 1 bits (2**size - 1), and Sign is 2**(size - 1)
+
+      --  Note: in almost all C compilers it would work to just shift a
+      --  signed integer right, but it's undefined and we cannot rely on it.
+
+      --  Note: the above works fine for shift counts greater than or equal
+      --  to the word size, since in this case (not (Shift_Right (Mask, bits)))
+      --  generates all 1'bits.
+
+      --  What about non-binary modulus ???
+
+      declare
+         Loc   : constant Source_Ptr := Sloc (N);
+         Typ   : constant Entity_Id  := Etype (N);
+         Sign  : constant Uint       := 2 ** (Esize (Typ) - 1);
+         Mask  : constant Uint       := (2 ** Esize (Typ)) - 1;
+         Left  : constant Node_Id    := Left_Opnd (N);
+         Right : constant Node_Id    := Right_Opnd (N);
+         Maskx : Node_Id;
+
+      begin
+         if Modify_Tree_For_C then
+
+            --  Here if not (Shift_Right (Mask, bits)) can be computed at
+            --  compile time as a single constant.
+
+            if Compile_Time_Known_Value (Right) then
+               declare
+                  Val : constant Uint := Expr_Value (Right);
+
+               begin
+                  if Val >= Esize (Typ) then
+                     Maskx := Make_Integer_Literal (Loc, Mask);
+
+                  else
+                     Maskx :=
+                       Make_Integer_Literal (Loc,
+                         Intval => Mask - (Mask / (2 ** Expr_Value (Right))));
+                  end if;
+               end;
+
+            else
+               Maskx :=
+                 Make_Op_Not (Loc,
+                   Right_Opnd =>
+                     Make_Op_Shift_Right (Loc,
+                       Left_Opnd  => Make_Integer_Literal (Loc, Mask),
+                       Right_Opnd => Duplicate_Subexpr_No_Checks (Right)));
+            end if;
+
+            --  Now do the rewrite
+
+            Rewrite (N,
+              Make_Op_Or (Loc,
+                Left_Opnd =>
+                  Make_Op_Shift_Right (Loc,
+                    Left_Opnd  => Left,
+                    Right_Opnd => Right),
+                Right_Opnd =>
+                  Make_If_Expression (Loc,
+                    Expressions => New_List (
+                      Make_Op_Ge (Loc,
+                        Left_Opnd  => Duplicate_Subexpr_No_Checks (Left),
+                        Right_Opnd => Make_Integer_Literal (Loc, Sign)),
+                      Maskx,
+                      Make_Integer_Literal (Loc, 0)))));
+            Analyze_And_Resolve (N, Typ);
+         end if;
+      end;
    end Expand_N_Op_Shift_Right_Arithmetic;
 
    --------------------------
@@ -8788,12 +9202,11 @@ package body Exp_Ch4 is
 
       if Is_Signed_Integer_Type (Typ) or else Is_Fixed_Point_Type (Typ) then
          Apply_Arithmetic_Overflow_Check (N);
-
-      --  VAX floating-point types case
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Subtract;
 
    ---------------------
@@ -9107,7 +9520,7 @@ package body Exp_Ch4 is
            and then Is_Constrained (Ptyp)
          then
             --  Do this optimization for discrete types only, and not for
-            --  access types (access discriminants get us into trouble!)
+            --  access types (access discriminants get us into trouble).
 
             if not Is_Discrete_Type (Etype (N)) then
                null;
@@ -9115,7 +9528,7 @@ package body Exp_Ch4 is
             --  Don't do this on the left hand of an assignment statement.
             --  Normally one would think that references like this would not
             --  occur, but they do in generated code, and mean that we really
-            --  do want to assign the discriminant!
+            --  do want to assign the discriminant.
 
             elsif Nkind (Par) = N_Assignment_Statement
               and then Name (Par) = N
@@ -9134,7 +9547,7 @@ package body Exp_Ch4 is
 
             --  Don't do this optimization if we are within the code for a
             --  discriminant check, since the whole point of such a check may
-            --  be to verify the condition on which the code below depends!
+            --  be to verify the condition on which the code below depends.
 
             elsif Is_In_Discriminant_Check (N) then
                null;
@@ -9200,7 +9613,7 @@ package body Exp_Ch4 is
                          Nkind (Parent (Entity (Dval))) = N_Object_Declaration
                        and then Present (Expression (Parent (Entity (Dval))))
                        and then not
-                         Is_Static_Expression
+                         Is_OK_Static_Expression
                            (Expression (Parent (Entity (Dval))))
                      then
                         exit Discr_Loop;
@@ -9228,7 +9641,7 @@ package body Exp_Ch4 is
                         return;
 
                      --  Otherwise we can just copy the constraint, but the
-                     --  result is certainly not static! In some cases the
+                     --  result is certainly not static. In some cases the
                      --  discriminant constraint has been analyzed in the
                      --  context of the original subtype indication, but for
                      --  itypes the constraint might not have been analyzed
@@ -9329,10 +9742,8 @@ package body Exp_Ch4 is
    --------------------
 
    procedure Expand_N_Slice (N : Node_Id) is
-      Loc  : constant Source_Ptr := Sloc (N);
-      Typ  : constant Entity_Id  := Etype (N);
-      Pfx  : constant Node_Id    := Prefix (N);
-      Ptp  : Entity_Id           := Etype (Pfx);
+      Loc : constant Source_Ptr := Sloc (N);
+      Typ : constant Entity_Id  := Etype (N);
 
       function Is_Procedure_Actual (N : Node_Id) return Boolean;
       --  Check whether the argument is an actual for a procedure call, in
@@ -9390,8 +9801,8 @@ package body Exp_Ch4 is
       ------------------------------
 
       procedure Make_Temporary_For_Slice is
-         Decl : Node_Id;
          Ent  : constant Entity_Id := Make_Temporary (Loc, 'T', N);
+         Decl : Node_Id;
 
       begin
          Decl :=
@@ -9404,36 +9815,40 @@ package body Exp_Ch4 is
          Insert_Actions (N, New_List (
            Decl,
            Make_Assignment_Statement (Loc,
-             Name => New_Occurrence_Of (Ent, Loc),
+             Name       => New_Occurrence_Of (Ent, Loc),
              Expression => Relocate_Node (N))));
 
          Rewrite (N, New_Occurrence_Of (Ent, Loc));
          Analyze_And_Resolve (N, Typ);
       end Make_Temporary_For_Slice;
 
+      --  Local variables
+
+      Pref     : constant Node_Id := Prefix (N);
+      Pref_Typ : Entity_Id        := Etype (Pref);
+
    --  Start of processing for Expand_N_Slice
 
    begin
       --  Special handling for access types
 
-      if Is_Access_Type (Ptp) then
+      if Is_Access_Type (Pref_Typ) then
+         Pref_Typ := Designated_Type (Pref_Typ);
 
-         Ptp := Designated_Type (Ptp);
-
-         Rewrite (Pfx,
+         Rewrite (Pref,
            Make_Explicit_Dereference (Sloc (N),
-            Prefix => Relocate_Node (Pfx)));
+            Prefix => Relocate_Node (Pref)));
 
-         Analyze_And_Resolve (Pfx, Ptp);
+         Analyze_And_Resolve (Pref, Pref_Typ);
       end if;
 
       --  Ada 2005 (AI-318-02): If the prefix is a call to a build-in-place
       --  function, then additional actuals must be passed.
 
       if Ada_Version >= Ada_2005
-        and then Is_Build_In_Place_Function_Call (Pfx)
+        and then Is_Build_In_Place_Function_Call (Pref)
       then
-         Make_Build_In_Place_Call_In_Anonymous_Context (Pfx);
+         Make_Build_In_Place_Call_In_Anonymous_Context (Pref);
       end if;
 
       --  The remaining case to be handled is packed slices. We can leave
@@ -9652,15 +10067,14 @@ package body Exp_Ch4 is
 
       procedure Raise_Accessibility_Error is
       begin
+         Error_Msg_Warn := SPARK_Mode /= On;
          Rewrite (N,
            Make_Raise_Program_Error (Sloc (N),
              Reason => PE_Accessibility_Check_Failed));
          Set_Etype (N, Target_Type);
 
-         Error_Msg_N
-           ("??accessibility check failure", N);
-         Error_Msg_NE
-           ("\??& will be raised at run time", N, Standard_Program_Error);
+         Error_Msg_N ("<<accessibility check failure", N);
+         Error_Msg_NE ("\<<& [", N, Standard_Program_Error);
       end Raise_Accessibility_Error;
 
       ----------------------
@@ -9754,7 +10168,13 @@ package body Exp_Ch4 is
                     and then S_Lov >= D_Lov
                     and then S_Hiv <= D_Hiv
                   then
-                     Set_Do_Range_Check (Operand, False);
+                     --  Unset the range check flag on the current value of
+                     --  Expression (N), since the captured Operand may have
+                     --  been rewritten (such as for the case of a conversion
+                     --  to a fixed-point type).
+
+                     Set_Do_Range_Check (Expression (N), False);
+
                      return;
                   end if;
                end;
@@ -9940,7 +10360,7 @@ package body Exp_Ch4 is
       --  in Checks.Apply_Arithmetic_Overflow_Check, but we catch more cases in
       --  the processing here. Also we still need the Checks circuit, since we
       --  have to be sure not to generate junk overflow checks in the first
-      --  place, since it would be trick to remove them here!
+      --  place, since it would be trick to remove them here.
 
       if Integer_Promotion_Possible (N) then
 
@@ -9953,7 +10373,7 @@ package body Exp_Ch4 is
          begin
             R :=
               Make_Type_Conversion (Loc,
-                Subtype_Mark => New_Reference_To (Standard_Integer, Loc),
+                Subtype_Mark => New_Occurrence_Of (Standard_Integer, Loc),
                 Expression   => Relocate_Node (Right_Opnd (Operand)));
 
             Opnd := New_Op_Node (Nkind (Operand), Loc);
@@ -9962,7 +10382,7 @@ package body Exp_Ch4 is
             if Nkind (Operand) in N_Binary_Op then
                L :=
                  Make_Type_Conversion (Loc,
-                   Subtype_Mark => New_Reference_To (Standard_Integer, Loc),
+                   Subtype_Mark => New_Occurrence_Of (Standard_Integer, Loc),
                    Expression   => Relocate_Node (Left_Opnd (Operand)));
 
                Set_Left_Opnd  (Opnd, L);
@@ -10016,13 +10436,29 @@ package body Exp_Ch4 is
          --  If the level of the operand type is statically deeper than the
          --  level of the target type, then force Program_Error. Note that this
          --  can only occur for cases where the attribute is within the body of
-         --  an instantiation (otherwise the conversion will already have been
-         --  rejected as illegal). Note: warnings are issued by the analyzer
-         --  for the instance cases.
+         --  an instantiation, otherwise the conversion will already have been
+         --  rejected as illegal.
+
+         --  Note: warnings are issued by the analyzer for the instance cases
 
          elsif In_Instance_Body
-           and then Type_Access_Level (Operand_Type) >
-                    Type_Access_Level (Target_Type)
+
+           --  The case where the target type is an anonymous access type of
+           --  a discriminant is excluded, because the level of such a type
+           --  depends on the context and currently the level returned for such
+           --  types is zero, resulting in warnings about about check failures
+           --  in certain legal cases involving class-wide interfaces as the
+           --  designated type (some cases, such as return statements, are
+           --  checked at run time, but not clear if these are handled right
+           --  in general, see 3.10.2(12/2-12.5/3) ???).
+
+           and then
+             not (Ekind (Target_Type) = E_Anonymous_Access_Type
+                   and then Present (Associated_Node_For_Itype (Target_Type))
+                   and then Nkind (Associated_Node_For_Itype (Target_Type)) =
+                                                  N_Discriminant_Specification)
+           and then
+             Type_Access_Level (Operand_Type) > Type_Access_Level (Target_Type)
          then
             Raise_Accessibility_Error;
 
@@ -10109,7 +10545,7 @@ package body Exp_Ch4 is
                           Left_Opnd  =>
                             Make_Explicit_Dereference (Loc,
                               Prefix => Duplicate_Subexpr_No_Checks (Operand)),
-                          Right_Opnd => New_Reference_To (Targ_Typ, Loc)));
+                          Right_Opnd => New_Occurrence_Of (Targ_Typ, Loc)));
 
                --  Generate:
                --    [Constraint_Error when Operand not in Targ_Typ]
@@ -10118,7 +10554,7 @@ package body Exp_Ch4 is
                   Cond :=
                     Make_Not_In (Loc,
                       Left_Opnd  => Duplicate_Subexpr_No_Checks (Operand),
-                      Right_Opnd => New_Reference_To (Targ_Typ, Loc));
+                      Right_Opnd => New_Occurrence_Of (Targ_Typ, Loc));
                end if;
 
                Insert_Action (N,
@@ -10444,69 +10880,80 @@ package body Exp_Ch4 is
 
       --  The only remaining step is to generate a range check if we still have
       --  a type conversion at this stage and Do_Range_Check is set. For now we
-      --  do this only for conversions of discrete types.
+      --  do this only for conversions of discrete types and for float-to-float
+      --  conversions.
 
-      if Nkind (N) = N_Type_Conversion
-        and then Is_Discrete_Type (Etype (N))
-      then
-         declare
-            Expr : constant Node_Id := Expression (N);
-            Ftyp : Entity_Id;
-            Ityp : Entity_Id;
+      if Nkind (N) = N_Type_Conversion then
 
-         begin
-            if Do_Range_Check (Expr)
-              and then Is_Discrete_Type (Etype (Expr))
+         --  For now we only support floating-point cases where both source
+         --  and target are floating-point types. Conversions where the source
+         --  and target involve integer or fixed-point types are still TBD,
+         --  though not clear whether those can even happen at this point, due
+         --  to transformations above. ???
+
+         if Is_Floating_Point_Type (Etype (N))
+           and then Is_Floating_Point_Type (Etype (Expression (N)))
+         then
+            if Do_Range_Check (Expression (N))
+              and then Is_Floating_Point_Type (Target_Type)
             then
-               Set_Do_Range_Check (Expr, False);
+               Generate_Range_Check
+                 (Expression (N), Target_Type, CE_Range_Check_Failed);
+            end if;
 
-               --  Before we do a range check, we have to deal with treating a
-               --  fixed-point operand as an integer. The way we do this is
-               --  simply to do an unchecked conversion to an appropriate
-               --  integer type large enough to hold the result.
+         --  Discrete-to-discrete conversions
 
-               --  This code is not active yet, because we are only dealing
-               --  with discrete types so far ???
+         elsif Is_Discrete_Type (Etype (N)) then
+            declare
+               Expr : constant Node_Id := Expression (N);
+               Ftyp : Entity_Id;
+               Ityp : Entity_Id;
 
-               if Nkind (Expr) in N_Has_Treat_Fixed_As_Integer
-                 and then Treat_Fixed_As_Integer (Expr)
+            begin
+               if Do_Range_Check (Expr)
+                 and then Is_Discrete_Type (Etype (Expr))
                then
-                  Ftyp := Base_Type (Etype (Expr));
+                  Set_Do_Range_Check (Expr, False);
 
-                  if Esize (Ftyp) >= Esize (Standard_Integer) then
-                     Ityp := Standard_Long_Long_Integer;
-                  else
-                     Ityp := Standard_Integer;
+                  --  Before we do a range check, we have to deal with treating
+                  --  a fixed-point operand as an integer. The way we do this
+                  --  is simply to do an unchecked conversion to an appropriate
+                  --  integer type large enough to hold the result.
+
+                  --  This code is not active yet, because we are only dealing
+                  --  with discrete types so far ???
+
+                  if Nkind (Expr) in N_Has_Treat_Fixed_As_Integer
+                    and then Treat_Fixed_As_Integer (Expr)
+                  then
+                     Ftyp := Base_Type (Etype (Expr));
+
+                     if Esize (Ftyp) >= Esize (Standard_Integer) then
+                        Ityp := Standard_Long_Long_Integer;
+                     else
+                        Ityp := Standard_Integer;
+                     end if;
+
+                     Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
                   end if;
 
-                  Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
+                  --  Reset overflow flag, since the range check will include
+                  --  dealing with possible overflow, and generate the check.
+                  --  If Address is either a source type or target type,
+                  --  suppress range check to avoid typing anomalies when
+                  --  it is a visible integer type.
+
+                  Set_Do_Overflow_Check (N, False);
+
+                  if not Is_Descendent_Of_Address (Etype (Expr))
+                    and then not Is_Descendent_Of_Address (Target_Type)
+                  then
+                     Generate_Range_Check
+                       (Expr, Target_Type, CE_Range_Check_Failed);
+                  end if;
                end if;
-
-               --  Reset overflow flag, since the range check will include
-               --  dealing with possible overflow, and generate the check. If
-               --  Address is either a source type or target type, suppress
-               --  range check to avoid typing anomalies when it is a visible
-               --  integer type.
-
-               Set_Do_Overflow_Check (N, False);
-               if not Is_Descendent_Of_Address (Etype (Expr))
-                 and then not Is_Descendent_Of_Address (Target_Type)
-               then
-                  Generate_Range_Check
-                    (Expr, Target_Type, CE_Range_Check_Failed);
-               end if;
-            end if;
-         end;
-      end if;
-
-      --  Final step, if the result is a type conversion involving Vax_Float
-      --  types, then it is subject for further special processing.
-
-      if Nkind (N) = N_Type_Conversion
-        and then (Vax_Float (Operand_Type) or else Vax_Float (Target_Type))
-      then
-         Expand_Vax_Conversion (N);
-         goto Done;
+            end;
+         end if;
       end if;
 
       --  Here at end of processing
@@ -10746,7 +11193,7 @@ package body Exp_Ch4 is
       --     and then ...
       --     and then Lhs.Cmpn = Rhs.Cmpn
 
-      Result := New_Reference_To (Standard_True, Loc);
+      Result := New_Occurrence_Of (Standard_True, Loc);
       C := Element_To_Compare (First_Entity (Typ));
       while Present (C) loop
          declare
@@ -10769,11 +11216,11 @@ package body Exp_Ch4 is
                Lhs =>
                  Make_Selected_Component (Loc,
                    Prefix        => New_Lhs,
-                   Selector_Name => New_Reference_To (C, Loc)),
+                   Selector_Name => New_Occurrence_Of (C, Loc)),
                Rhs =>
                  Make_Selected_Component (Loc,
                    Prefix        => New_Rhs,
-                   Selector_Name => New_Reference_To (C, Loc)),
+                   Selector_Name => New_Occurrence_Of (C, Loc)),
                Bodies => Bodies);
 
             --  If some (sub)component is an unchecked_union, the whole
@@ -11126,11 +11573,12 @@ package body Exp_Ch4 is
       Pool  : constant Entity_Id  := Associated_Storage_Pool (Typ);
       Pnod  : constant Node_Id    := Parent (N);
 
-      Addr  : Entity_Id;
-      Alig  : Entity_Id;
-      Deref : Node_Id;
-      Size  : Entity_Id;
-      Stmt  : Node_Id;
+      Addr      : Entity_Id;
+      Alig      : Entity_Id;
+      Deref     : Node_Id;
+      Size      : Entity_Id;
+      Size_Bits : Node_Id;
+      Stmt      : Node_Id;
 
    --  Start of processing for Insert_Dereference_Action
 
@@ -11166,7 +11614,7 @@ package body Exp_Ch4 is
         Make_Object_Declaration (Loc,
           Defining_Identifier => Addr,
           Object_Definition   =>
-            New_Reference_To (RTE (RE_Address), Loc),
+            New_Occurrence_Of (RTE (RE_Address), Loc),
           Expression          =>
             Make_Attribute_Reference (Loc,
               Prefix         => Duplicate_Subexpr_Move_Checks (N),
@@ -11181,23 +11629,36 @@ package body Exp_Ch4 is
           Prefix => Duplicate_Subexpr_Move_Checks (N));
       Set_Has_Dereference_Action (Deref);
 
-      Size := Make_Temporary (Loc, 'S');
+      Size_Bits :=
+        Make_Attribute_Reference (Loc,
+          Prefix         => Deref,
+          Attribute_Name => Name_Size);
 
+      --  Special case of an unconstrained array: need to add descriptor size
+
+      if Is_Array_Type (Desig)
+        and then not Is_Constrained (First_Subtype (Desig))
+      then
+         Size_Bits :=
+           Make_Op_Add (Loc,
+             Left_Opnd  =>
+               Make_Attribute_Reference (Loc,
+                 Prefix         =>
+                   New_Occurrence_Of (First_Subtype (Desig), Loc),
+                 Attribute_Name => Name_Descriptor_Size),
+             Right_Opnd => Size_Bits);
+      end if;
+
+      Size := Make_Temporary (Loc, 'S');
       Insert_Action (N,
         Make_Object_Declaration (Loc,
           Defining_Identifier => Size,
-
           Object_Definition   =>
-            New_Reference_To (RTE (RE_Storage_Count), Loc),
-
+            New_Occurrence_Of (RTE (RE_Storage_Count), Loc),
           Expression          =>
             Make_Op_Divide (Loc,
-              Left_Opnd   =>
-                Make_Attribute_Reference (Loc,
-                  Prefix         => Deref,
-                  Attribute_Name => Name_Size),
-               Right_Opnd =>
-                 Make_Integer_Literal (Loc, System_Storage_Unit))));
+              Left_Opnd  => Size_Bits,
+              Right_Opnd => Make_Integer_Literal (Loc, System_Storage_Unit))));
 
       --  Calculate the alignment of the dereferenced object. Generate:
       --    Alig : constant Storage_Count := <N>.all'Alignment;
@@ -11208,12 +11669,11 @@ package body Exp_Ch4 is
       Set_Has_Dereference_Action (Deref);
 
       Alig := Make_Temporary (Loc, 'A');
-
       Insert_Action (N,
         Make_Object_Declaration (Loc,
           Defining_Identifier => Alig,
           Object_Definition   =>
-            New_Reference_To (RTE (RE_Storage_Count), Loc),
+            New_Occurrence_Of (RTE (RE_Storage_Count), Loc),
           Expression          =>
             Make_Attribute_Reference (Loc,
               Prefix         => Deref,
@@ -11234,11 +11694,11 @@ package body Exp_Ch4 is
          Stmt :=
            Make_Procedure_Call_Statement (Loc,
              Name                   =>
-               New_Reference_To (RTE (RE_Adjust_Controlled_Dereference), Loc),
+               New_Occurrence_Of (RTE (RE_Adjust_Controlled_Dereference), Loc),
              Parameter_Associations => New_List (
-               New_Reference_To (Addr, Loc),
-               New_Reference_To (Size, Loc),
-               New_Reference_To (Alig, Loc)));
+               New_Occurrence_Of (Addr, Loc),
+               New_Occurrence_Of (Size, Loc),
+               New_Occurrence_Of (Alig, Loc)));
 
          --  Class-wide types complicate things because we cannot determine
          --  statically whether the actual object is truly controlled. We must
@@ -11259,7 +11719,7 @@ package body Exp_Ch4 is
                 Condition       =>
                   Make_Function_Call (Loc,
                     Name                   =>
-                      New_Reference_To (RTE (RE_Needs_Finalization), Loc),
+                      New_Occurrence_Of (RTE (RE_Needs_Finalization), Loc),
                     Parameter_Associations => New_List (
                       Make_Attribute_Reference (Loc,
                         Prefix         => Deref,
@@ -11276,13 +11736,13 @@ package body Exp_Ch4 is
       Insert_Action (N,
         Make_Procedure_Call_Statement (Loc,
           Name                   =>
-            New_Reference_To
+            New_Occurrence_Of
               (Find_Prim_Op (Etype (Pool), Name_Dereference), Loc),
           Parameter_Associations => New_List (
-            New_Reference_To (Pool, Loc),
-            New_Reference_To (Addr, Loc),
-            New_Reference_To (Size, Loc),
-            New_Reference_To (Alig, Loc))));
+            New_Occurrence_Of (Pool, Loc),
+            New_Occurrence_Of (Addr, Loc),
+            New_Occurrence_Of (Size, Loc),
+            New_Occurrence_Of (Alig, Loc))));
 
       --  Mark the explicit dereference as processed to avoid potential
       --  infinite expansion.
@@ -11382,6 +11842,9 @@ package body Exp_Ch4 is
    --  do not need to generate an actual or formal generic part, just the
    --  instantiated function itself.
 
+   --  Perhaps we could have the actual generic available in the run-time,
+   --  obtained by rtsfind, and actually expand a real instantiation ???
+
    function Make_Array_Comparison_Op
      (Typ : Entity_Id;
       Nod : Node_Id) return Node_Id
@@ -11417,10 +11880,10 @@ package body Exp_Ch4 is
         Make_Implicit_If_Statement (Nod,
           Condition =>
             Make_Op_Eq (Loc,
-              Left_Opnd => New_Reference_To (J, Loc),
+              Left_Opnd => New_Occurrence_Of (J, Loc),
               Right_Opnd =>
                 Make_Attribute_Reference (Loc,
-                  Prefix => New_Reference_To (Y, Loc),
+                  Prefix => New_Occurrence_Of (Y, Loc),
                   Attribute_Name => Name_Last)),
 
           Then_Statements => New_List (
@@ -11429,12 +11892,12 @@ package body Exp_Ch4 is
           Else_Statements =>
             New_List (
               Make_Assignment_Statement (Loc,
-                Name => New_Reference_To (J, Loc),
+                Name => New_Occurrence_Of (J, Loc),
                 Expression =>
                   Make_Attribute_Reference (Loc,
-                    Prefix => New_Reference_To (Index, Loc),
+                    Prefix => New_Occurrence_Of (Index, Loc),
                     Attribute_Name => Name_Succ,
-                    Expressions => New_List (New_Reference_To (J, Loc))))));
+                    Expressions => New_List (New_Occurrence_Of (J, Loc))))));
 
       --  if X (I) = Y (J) then
       --     if ... end if;
@@ -11448,13 +11911,13 @@ package body Exp_Ch4 is
             Make_Op_Eq (Loc,
               Left_Opnd =>
                 Make_Indexed_Component (Loc,
-                  Prefix      => New_Reference_To (X, Loc),
-                  Expressions => New_List (New_Reference_To (I, Loc))),
+                  Prefix      => New_Occurrence_Of (X, Loc),
+                  Expressions => New_List (New_Occurrence_Of (I, Loc))),
 
               Right_Opnd =>
                 Make_Indexed_Component (Loc,
-                  Prefix      => New_Reference_To (Y, Loc),
-                  Expressions => New_List (New_Reference_To (J, Loc)))),
+                  Prefix      => New_Occurrence_Of (Y, Loc),
+                  Expressions => New_List (New_Occurrence_Of (J, Loc)))),
 
           Then_Statements => New_List (Inner_If),
 
@@ -11464,14 +11927,14 @@ package body Exp_Ch4 is
                 Make_Op_Gt (Loc,
                   Left_Opnd =>
                     Make_Indexed_Component (Loc,
-                      Prefix      => New_Reference_To (X, Loc),
-                      Expressions => New_List (New_Reference_To (I, Loc))),
+                      Prefix      => New_Occurrence_Of (X, Loc),
+                      Expressions => New_List (New_Occurrence_Of (I, Loc))),
 
                   Right_Opnd =>
                     Make_Indexed_Component (Loc,
-                      Prefix      => New_Reference_To (Y, Loc),
+                      Prefix      => New_Occurrence_Of (Y, Loc),
                       Expressions => New_List (
-                        New_Reference_To (J, Loc)))))));
+                        New_Occurrence_Of (J, Loc)))))));
 
       --  for I in X'range loop
       --     if ... end if;
@@ -11488,7 +11951,7 @@ package body Exp_Ch4 is
                   Defining_Identifier => I,
                   Discrete_Subtype_Definition =>
                     Make_Attribute_Reference (Loc,
-                      Prefix => New_Reference_To (X, Loc),
+                      Prefix => New_Occurrence_Of (X, Loc),
                       Attribute_Name => Name_Range))),
 
           Statements => New_List (Loop_Body));
@@ -11504,12 +11967,12 @@ package body Exp_Ch4 is
 
       Length1 :=
         Make_Attribute_Reference (Loc,
-          Prefix => New_Reference_To (X, Loc),
+          Prefix => New_Occurrence_Of (X, Loc),
           Attribute_Name => Name_Length);
 
       Length2 :=
         Make_Attribute_Reference (Loc,
-          Prefix => New_Reference_To (Y, Loc),
+          Prefix => New_Occurrence_Of (Y, Loc),
           Attribute_Name => Name_Length);
 
       Final_Expr :=
@@ -11523,7 +11986,7 @@ package body Exp_Ch4 is
             Make_Op_Eq (Loc,
               Left_Opnd =>
                 Make_Attribute_Reference (Loc,
-                  Prefix => New_Reference_To (X, Loc),
+                  Prefix => New_Occurrence_Of (X, Loc),
                   Attribute_Name => Name_Length),
               Right_Opnd =>
                 Make_Integer_Literal (Loc, 0)),
@@ -11531,7 +11994,7 @@ package body Exp_Ch4 is
           Then_Statements =>
             New_List (
               Make_Simple_Return_Statement (Loc,
-                Expression => New_Reference_To (Standard_False, Loc))),
+                Expression => New_Occurrence_Of (Standard_False, Loc))),
 
           Elsif_Parts => New_List (
             Make_Elsif_Part (Loc,
@@ -11539,7 +12002,7 @@ package body Exp_Ch4 is
                 Make_Op_Eq (Loc,
                   Left_Opnd =>
                     Make_Attribute_Reference (Loc,
-                      Prefix => New_Reference_To (Y, Loc),
+                      Prefix => New_Occurrence_Of (Y, Loc),
                       Attribute_Name => Name_Length),
                   Right_Opnd =>
                     Make_Integer_Literal (Loc, 0)),
@@ -11547,7 +12010,7 @@ package body Exp_Ch4 is
               Then_Statements =>
                 New_List (
                   Make_Simple_Return_Statement (Loc,
-                     Expression => New_Reference_To (Standard_True, Loc))))),
+                     Expression => New_Occurrence_Of (Standard_True, Loc))))),
 
           Else_Statements => New_List (
             Loop_Statement,
@@ -11559,11 +12022,11 @@ package body Exp_Ch4 is
       Formals := New_List (
         Make_Parameter_Specification (Loc,
           Defining_Identifier => X,
-          Parameter_Type      => New_Reference_To (Typ, Loc)),
+          Parameter_Type      => New_Occurrence_Of (Typ, Loc)),
 
         Make_Parameter_Specification (Loc,
           Defining_Identifier => Y,
-          Parameter_Type      => New_Reference_To (Typ, Loc)));
+          Parameter_Type      => New_Occurrence_Of (Typ, Loc)));
 
       --  function Gnnn (...) return boolean is
       --    J : index := Y'first;
@@ -11579,15 +12042,15 @@ package body Exp_Ch4 is
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => Func_Name,
               Parameter_Specifications => Formals,
-              Result_Definition => New_Reference_To (Standard_Boolean, Loc)),
+              Result_Definition => New_Occurrence_Of (Standard_Boolean, Loc)),
 
           Declarations => New_List (
             Make_Object_Declaration (Loc,
               Defining_Identifier => J,
-              Object_Definition   => New_Reference_To (Index, Loc),
+              Object_Definition   => New_Occurrence_Of (Index, Loc),
               Expression =>
                 Make_Attribute_Reference (Loc,
-                  Prefix => New_Reference_To (Y, Loc),
+                  Prefix => New_Occurrence_Of (Y, Loc),
                   Attribute_Name => Name_First))),
 
           Handled_Statement_Sequence =>
@@ -11639,18 +12102,18 @@ package body Exp_Ch4 is
    begin
       A_J :=
         Make_Indexed_Component (Loc,
-          Prefix      => New_Reference_To (A, Loc),
-          Expressions => New_List (New_Reference_To (J, Loc)));
+          Prefix      => New_Occurrence_Of (A, Loc),
+          Expressions => New_List (New_Occurrence_Of (J, Loc)));
 
       B_J :=
         Make_Indexed_Component (Loc,
-          Prefix      => New_Reference_To (B, Loc),
-          Expressions => New_List (New_Reference_To (J, Loc)));
+          Prefix      => New_Occurrence_Of (B, Loc),
+          Expressions => New_List (New_Occurrence_Of (J, Loc)));
 
       C_J :=
         Make_Indexed_Component (Loc,
-          Prefix      => New_Reference_To (C, Loc),
-          Expressions => New_List (New_Reference_To (J, Loc)));
+          Prefix      => New_Occurrence_Of (C, Loc),
+          Expressions => New_List (New_Occurrence_Of (J, Loc)));
 
       if Nkind (N) = N_Op_And then
          Op :=
@@ -11682,7 +12145,7 @@ package body Exp_Ch4 is
                   Defining_Identifier => J,
                   Discrete_Subtype_Definition =>
                     Make_Attribute_Reference (Loc,
-                      Prefix => New_Reference_To (A, Loc),
+                      Prefix => New_Occurrence_Of (A, Loc),
                       Attribute_Name => Name_Range))),
 
           Statements => New_List (
@@ -11693,11 +12156,11 @@ package body Exp_Ch4 is
       Formals := New_List (
         Make_Parameter_Specification (Loc,
           Defining_Identifier => A,
-          Parameter_Type      => New_Reference_To (Typ, Loc)),
+          Parameter_Type      => New_Occurrence_Of (Typ, Loc)),
 
         Make_Parameter_Specification (Loc,
           Defining_Identifier => B,
-          Parameter_Type      => New_Reference_To (Typ, Loc)));
+          Parameter_Type      => New_Occurrence_Of (Typ, Loc)));
 
       Func_Name := Make_Temporary (Loc, 'A');
       Set_Is_Inlined (Func_Name);
@@ -11708,19 +12171,19 @@ package body Exp_Ch4 is
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => Func_Name,
               Parameter_Specifications => Formals,
-              Result_Definition        => New_Reference_To (Typ, Loc)),
+              Result_Definition        => New_Occurrence_Of (Typ, Loc)),
 
           Declarations => New_List (
             Make_Object_Declaration (Loc,
               Defining_Identifier => C,
-              Object_Definition   => New_Reference_To (Typ, Loc))),
+              Object_Definition   => New_Occurrence_Of (Typ, Loc))),
 
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
               Statements => New_List (
                 Loop_Statement,
                 Make_Simple_Return_Statement (Loc,
-                  Expression => New_Reference_To (C, Loc)))));
+                  Expression => New_Occurrence_Of (C, Loc)))));
 
       return Func_Body;
    end Make_Boolean_Array_Op;
@@ -12135,205 +12598,6 @@ package body Exp_Ch4 is
      (Decl     : Node_Id;
       Rel_Node : Node_Id)
    is
-      Hook_Context         : Node_Id;
-      --  Node on which to insert the hook pointer (as an action)
-
-      Finalization_Context : Node_Id;
-      --  Node after which to insert finalization actions
-
-      Finalize_Always : Boolean;
-      --  If False, call to finalizer includes a test of whether the
-      --  hook pointer is null.
-
-      procedure Find_Enclosing_Contexts (N : Node_Id);
-      --  Find the logical context where N appears, and initializae
-      --  Hook_Context and Finalization_Context accordingly. Also
-      --  sets Finalize_Always.
-
-      -----------------------------
-      -- Find_Enclosing_Contexts --
-      -----------------------------
-
-      procedure Find_Enclosing_Contexts (N : Node_Id) is
-         Par : Node_Id;
-         Top : Node_Id;
-
-         Wrapped_Node : Node_Id;
-         --  Note: if we are in a transient scope, we want to reuse it as
-         --  the context for actions insertion, if possible. But if N is itself
-         --  part of the stored actions for the current transient scope,
-         --  then we need to insert at the appropriate (inner) location in
-         --  the not as an action on Node_To_Be_Wrapped.
-
-         In_Cond_Expr : constant Boolean := Within_Case_Or_If_Expression (N);
-
-      begin
-         --  When the node is inside a case/if expression, the lifetime of any
-         --  temporary controlled object is extended. Find a suitable insertion
-         --  node by locating the topmost case or if expressions.
-
-         if In_Cond_Expr then
-            Par := N;
-            Top := N;
-            while Present (Par) loop
-               if Nkind_In (Original_Node (Par), N_Case_Expression,
-                                                 N_If_Expression)
-               then
-                  Top := Par;
-
-               --  Prevent the search from going too far
-
-               elsif Is_Body_Or_Package_Declaration (Par) then
-                  exit;
-               end if;
-
-               Par := Parent (Par);
-            end loop;
-
-            --  The topmost case or if expression is now recovered, but it may
-            --  still not be the correct place to add generated code. Climb to
-            --  find a parent that is part of a declarative or statement list.
-
-            Par := Top;
-            while Present (Par) loop
-               if Is_List_Member (Par)
-                 and then not Nkind_In (Par, N_Component_Association,
-                                             N_Discriminant_Association,
-                                             N_Parameter_Association,
-                                             N_Pragma_Argument_Association)
-               then
-                  Hook_Context := Par;
-                  goto Hook_Context_Found;
-
-               --  Prevent the search from going too far
-
-               elsif Is_Body_Or_Package_Declaration (Par) then
-                  exit;
-               end if;
-
-               Par := Parent (Par);
-            end loop;
-
-            Hook_Context := Par;
-            goto Hook_Context_Found;
-
-         else
-            Par := N;
-            while Present (Par) loop
-
-               --  Keep climbing past various operators
-
-               if Nkind (Parent (Par)) in N_Op
-                 or else Nkind_In (Parent (Par), N_And_Then, N_Or_Else)
-               then
-                  Par := Parent (Par);
-               else
-                  exit;
-               end if;
-            end loop;
-
-            Top := Par;
-
-            --  The node may be located in a pragma in which case return the
-            --  pragma itself:
-
-            --    pragma Precondition (... and then Ctrl_Func_Call ...);
-
-            --  Similar case occurs when the node is related to an object
-            --  declaration or assignment:
-
-            --    Obj [: Some_Typ] := ... and then Ctrl_Func_Call ...;
-
-            --  Another case to consider is when the node is part of a return
-            --  statement:
-
-            --    return ... and then Ctrl_Func_Call ...;
-
-            --  Another case is when the node acts as a formal in a procedure
-            --  call statement:
-
-            --    Proc (... and then Ctrl_Func_Call ...);
-
-            if Scope_Is_Transient then
-               Wrapped_Node := Node_To_Be_Wrapped;
-            else
-               Wrapped_Node := Empty;
-            end if;
-
-            while Present (Par) loop
-               if Par = Wrapped_Node
-                    or else
-                  Nkind_In (Par, N_Assignment_Statement,
-                                 N_Object_Declaration,
-                                 N_Pragma,
-                                 N_Procedure_Call_Statement,
-                                 N_Simple_Return_Statement)
-               then
-                  Hook_Context := Par;
-                  goto Hook_Context_Found;
-
-               --  Prevent the search from going too far
-
-               elsif Is_Body_Or_Package_Declaration (Par) then
-                  exit;
-               end if;
-
-               Par := Parent (Par);
-            end loop;
-
-            --  Return the topmost short circuit operator
-
-            Hook_Context := Top;
-         end if;
-
-      <<Hook_Context_Found>>
-
-         --  Special case for Boolean EWAs: capture expression in a temporary,
-         --  whose declaration will serve as the context around which to insert
-         --  finalization code. The finalization thus remains local to the
-         --  specific condition being evaluated.
-
-         if Is_Boolean_Type (Etype (N)) then
-
-            --  In this case, the finalization context is chosen so that
-            --  we know at finalization point that the hook pointer is
-            --  never null, so no need for a test, we can call the finalizer
-            --  unconditionally, except in the case where the object is
-            --  created in a specific branch of a conditional expression.
-
-            Finalize_Always :=
-               not (In_Cond_Expr
-                      or else
-                    Nkind_In (Original_Node (N), N_Case_Expression,
-                                                 N_If_Expression));
-
-            declare
-               Loc  : constant Source_Ptr := Sloc (N);
-               Temp : constant Entity_Id := Make_Temporary (Loc, 'E', N);
-            begin
-               Append_To (Actions (N),
-                 Make_Object_Declaration (Loc,
-                   Defining_Identifier => Temp,
-                   Constant_Present    => True,
-                   Object_Definition   =>
-                     New_Occurrence_Of (Etype (N), Loc),
-                   Expression          => Expression (N)));
-               Finalization_Context := Last (Actions (N));
-
-               Analyze (Last (Actions (N)));
-
-               Set_Expression (N, New_Occurrence_Of (Temp, Loc));
-               Analyze (Expression (N));
-            end;
-
-         else
-            Finalize_Always := False;
-            Finalization_Context := Hook_Context;
-         end if;
-      end Find_Enclosing_Contexts;
-
-      --  Local variables
-
       Loc       : constant Source_Ptr := Sloc (Decl);
       Obj_Id    : constant Entity_Id  := Defining_Identifier (Decl);
       Obj_Typ   : constant Node_Id    := Etype (Obj_Id);
@@ -12342,11 +12606,65 @@ package body Exp_Ch4 is
       Fin_Stmts : List_Id;
       Ptr_Id    : Entity_Id;
       Temp_Id   : Entity_Id;
+      Temp_Ins  : Node_Id;
 
-   --  Start of processing for Process_Transient_Object
+      Hook_Context : constant Node_Id := Find_Hook_Context (Rel_Node);
+      --  Node on which to insert the hook pointer (as an action): the
+      --  innermost enclosing non-transient scope.
+
+      Finalization_Context : Node_Id;
+      --  Node after which to insert finalization actions
+
+      Finalize_Always : Boolean;
+      --  If False, call to finalizer includes a test of whether the hook
+      --  pointer is null.
 
    begin
-      Find_Enclosing_Contexts (Rel_Node);
+      --  Step 0: determine where to attach finalization actions in the tree
+
+      --  Special case for Boolean EWAs: capture expression in a temporary,
+      --  whose declaration will serve as the context around which to insert
+      --  finalization code. The finalization thus remains local to the
+      --  specific condition being evaluated.
+
+      if Is_Boolean_Type (Etype (Rel_Node)) then
+
+         --  In this case, the finalization context is chosen so that we know
+         --  at finalization point that the hook pointer is never null, so no
+         --  need for a test, we can call the finalizer unconditionally, except
+         --  in the case where the object is created in a specific branch of a
+         --  conditional expression.
+
+         Finalize_Always :=
+           not Within_Case_Or_If_Expression (Rel_Node)
+             and then not Nkind_In
+                            (Original_Node (Rel_Node), N_Case_Expression,
+                                                       N_If_Expression);
+
+         declare
+            Loc  : constant Source_Ptr := Sloc (Rel_Node);
+            Temp : constant Entity_Id := Make_Temporary (Loc, 'E', Rel_Node);
+
+         begin
+            Append_To (Actions (Rel_Node),
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Temp,
+                Constant_Present    => True,
+                Object_Definition   =>
+                  New_Occurrence_Of (Etype (Rel_Node), Loc),
+                Expression          => Expression (Rel_Node)));
+            Finalization_Context := Last (Actions (Rel_Node));
+
+            Analyze (Last (Actions (Rel_Node)));
+
+            Set_Expression (Rel_Node, New_Occurrence_Of (Temp, Loc));
+            Analyze (Expression (Rel_Node));
+         end;
+
+      else
+         Finalize_Always := False;
+         Finalization_Context := Hook_Context;
+      end if;
 
       --  Step 1: Create the access type which provides a reference to the
       --  transient controlled object.
@@ -12370,7 +12688,7 @@ package body Exp_Ch4 is
           Type_Definition     =>
             Make_Access_To_Object_Definition (Loc,
               All_Present        => Ekind (Obj_Typ) = E_General_Access_Type,
-              Subtype_Indication => New_Reference_To (Desig_Typ, Loc))));
+              Subtype_Indication => New_Occurrence_Of (Desig_Typ, Loc))));
 
       --  Step 2: Create a temporary which acts as a hook to the transient
       --  controlled object. Generate:
@@ -12382,7 +12700,7 @@ package body Exp_Ch4 is
       Insert_Action (Hook_Context,
         Make_Object_Declaration (Loc,
           Defining_Identifier => Temp_Id,
-          Object_Definition   => New_Reference_To (Ptr_Id, Loc)));
+          Object_Definition   => New_Occurrence_Of (Ptr_Id, Loc)));
 
       --  Mark the temporary as created for the purposes of exporting the
       --  transient controlled object out of the expression_with_action or if
@@ -12406,11 +12724,12 @@ package body Exp_Ch4 is
       --  points to an existing object.
 
       if Is_Access_Type (Obj_Typ) then
-         Expr := Unchecked_Convert_To (Ptr_Id, New_Reference_To (Obj_Id, Loc));
+         Expr :=
+           Unchecked_Convert_To (Ptr_Id, New_Occurrence_Of (Obj_Id, Loc));
       else
          Expr :=
            Make_Attribute_Reference (Loc,
-             Prefix         => New_Reference_To (Obj_Id, Loc),
+             Prefix         => New_Occurrence_Of (Obj_Id, Loc),
              Attribute_Name => Name_Unrestricted_Access);
       end if;
 
@@ -12419,9 +12738,24 @@ package body Exp_Ch4 is
       --      <or>
       --    Temp := Obj_Id'Unrestricted_Access;
 
-      Insert_After_And_Analyze (Decl,
+      --  When the transient object is initialized by an aggregate, the hook
+      --  must capture the object after the last component assignment takes
+      --  place. Only then is the object fully initialized.
+
+      if Ekind (Obj_Id) = E_Variable
+        and then Present (Last_Aggregate_Assignment (Obj_Id))
+      then
+         Temp_Ins := Last_Aggregate_Assignment (Obj_Id);
+
+      --  Otherwise the hook seizes the related object immediately
+
+      else
+         Temp_Ins := Decl;
+      end if;
+
+      Insert_After_And_Analyze (Temp_Ins,
         Make_Assignment_Statement (Loc,
-          Name       => New_Reference_To (Temp_Id, Loc),
+          Name       => New_Occurrence_Of (Temp_Id, Loc),
           Expression => Expr));
 
       --  Step 4: Finalize the transient controlled object after the context
@@ -12444,11 +12778,11 @@ package body Exp_Ch4 is
            Make_Final_Call
              (Obj_Ref =>
                 Make_Explicit_Dereference (Loc,
-                  Prefix => New_Reference_To (Temp_Id, Loc)),
+                  Prefix => New_Occurrence_Of (Temp_Id, Loc)),
               Typ     => Desig_Typ),
 
            Make_Assignment_Statement (Loc,
-             Name       => New_Reference_To (Temp_Id, Loc),
+             Name       => New_Occurrence_Of (Temp_Id, Loc),
              Expression => Make_Null (Loc)));
 
          if not Finalize_Always then
@@ -12456,7 +12790,7 @@ package body Exp_Ch4 is
               Make_Implicit_If_Statement (Decl,
                 Condition =>
                   Make_Op_Ne (Loc,
-                    Left_Opnd  => New_Reference_To (Temp_Id, Loc),
+                    Left_Opnd  => New_Occurrence_Of (Temp_Id, Loc),
                     Right_Opnd => Make_Null (Loc)),
                 Then_Statements => Fin_Stmts));
          end if;
@@ -12758,7 +13092,7 @@ package body Exp_Ch4 is
         Make_Selected_Component (Loc,
           Prefix        => Relocate_Node (Left),
           Selector_Name =>
-            New_Reference_To (First_Tag_Component (Left_Type), Loc));
+            New_Occurrence_Of (First_Tag_Component (Left_Type), Loc));
 
       if Is_Class_Wide_Type (Right_Type) then
 
@@ -12793,7 +13127,7 @@ package body Exp_Ch4 is
                                            (Typ   => Left_Type,
                                             Iface => Etype (Right_Type))))
          then
-            Result := New_Reference_To (Standard_True, Loc);
+            Result := New_Occurrence_Of (Standard_True, Loc);
             return;
          end if;
 
@@ -12822,7 +13156,7 @@ package body Exp_Ch4 is
                    Make_Attribute_Reference (Loc,
                      Prefix => Obj_Tag,
                      Attribute_Name => Name_Address),
-                   New_Reference_To (
+                   New_Occurrence_Of (
                      Node (First_Elmt (Access_Disp_Table (Full_R_Typ))),
                      Loc)));
 
@@ -12832,7 +13166,7 @@ package body Exp_Ch4 is
             Build_CW_Membership (Loc,
               Obj_Tag_Node => Obj_Tag,
               Typ_Tag_Node =>
-                 New_Reference_To (
+                 New_Occurrence_Of (
                    Node (First_Elmt (Access_Disp_Table (Full_R_Typ))),  Loc),
               Related_Nod => N,
               New_Node    => New_Node);
@@ -12856,14 +13190,14 @@ package body Exp_Ch4 is
          --  No need to check the tag of the object if Right_Typ is abstract
 
          if Is_Abstract_Type (Right_Type) then
-            Result := New_Reference_To (Standard_False, Loc);
+            Result := New_Occurrence_Of (Standard_False, Loc);
 
          else
             Result :=
               Make_Op_Eq (Loc,
                 Left_Opnd  => Obj_Tag,
                 Right_Opnd =>
-                  New_Reference_To
+                  New_Occurrence_Of
                     (Node (First_Elmt (Access_Disp_Table (Full_R_Typ))), Loc));
          end if;
       end if;

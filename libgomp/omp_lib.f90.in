@@ -1,4 +1,4 @@
-!  Copyright (C) 2005-2013 Free Software Foundation, Inc.
+!  Copyright (C) 2005-2014 Free Software Foundation, Inc.
 !  Contributed by Jakub Jelinek <jakub@redhat.com>.
 
 !  This file is part of the GNU OpenMP Library (libgomp).
@@ -42,7 +42,7 @@
       module omp_lib
         use omp_lib_kinds
         implicit none
-        integer, parameter :: openmp_version = 201107
+        integer, parameter :: openmp_version = 201307
 
         interface
           subroutine omp_init_lock (svar)

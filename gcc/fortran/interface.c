@@ -1,5 +1,5 @@
 /* Deal with interfaces.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1114,8 +1114,37 @@ check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
       return false;
     }
 
-  /* FIXME: Do more comprehensive testing of attributes, like e.g.
-	    ASYNCHRONOUS, CONTIGUOUS, VALUE, VOLATILE, etc.  */
+  /* Check ASYNCHRONOUS attribute.  */
+  if (s1->attr.asynchronous != s2->attr.asynchronous)
+    {
+      snprintf (errmsg, err_len, "ASYNCHRONOUS mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check CONTIGUOUS attribute.  */
+  if (s1->attr.contiguous != s2->attr.contiguous)
+    {
+      snprintf (errmsg, err_len, "CONTIGUOUS mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check VALUE attribute.  */
+  if (s1->attr.value != s2->attr.value)
+    {
+      snprintf (errmsg, err_len, "VALUE mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check VOLATILE attribute.  */
+  if (s1->attr.volatile_ != s2->attr.volatile_)
+    {
+      snprintf (errmsg, err_len, "VOLATILE mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
 
   /* Check interface of dummy procedures.  */
   if (s1->attr.flavor == FL_PROCEDURE)
@@ -1985,7 +2014,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
   if (formal->ts.type == BT_CLASS && formal->attr.class_ok
       && actual->expr_type != EXPR_NULL
       && ((CLASS_DATA (formal)->attr.class_pointer
-	   && !formal->attr.intent == INTENT_IN)
+	   && formal->attr.intent != INTENT_IN)
           || CLASS_DATA (formal)->attr.allocatable))
     {
       if (actual->ts.type != BT_CLASS)
@@ -2092,7 +2121,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       && (actual->symtree->n.sym->attr.asynchronous
          || actual->symtree->n.sym->attr.volatile_)
       &&  (formal->attr.asynchronous || formal->attr.volatile_)
-      && actual->rank && !gfc_is_simply_contiguous (actual, true)
+      && actual->rank && formal->as && !gfc_is_simply_contiguous (actual, true)
       && ((formal->as->type != AS_ASSUMED_SHAPE
 	   && formal->as->type != AS_ASSUMED_RANK && !formal->attr.pointer)
 	  || formal->attr.contiguous))
@@ -2426,6 +2455,24 @@ get_expr_storage_size (gfc_expr *e)
 			- mpz_get_si (ref->u.ar.as->lower[i]->value.integer));
 	    }
         }
+      else if (ref->type == REF_COMPONENT && ref->u.c.component->attr.function
+	       && ref->u.c.component->attr.proc_pointer
+	       && ref->u.c.component->attr.dimension)
+	{
+	  /* Array-valued procedure-pointer components.  */
+	  gfc_array_spec *as = ref->u.c.component->as;
+	  for (i = 0; i < as->rank; i++)
+	    {
+	      if (!as->upper[i] || !as->lower[i]
+		  || as->upper[i]->expr_type != EXPR_CONSTANT
+		  || as->lower[i]->expr_type != EXPR_CONSTANT)
+		return 0;
+
+	      elements = elements
+			 * (mpz_get_si (as->upper[i]->value.integer)
+			    - mpz_get_si (as->lower[i]->value.integer) + 1L);
+	    }
+	}
     }
 
   if (substrlen)
@@ -2559,7 +2606,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
       if (UNLIMITED_POLY (f->sym)
 	  && a->expr->ts.type != BT_DERIVED
 	  && a->expr->ts.type != BT_CLASS)
-	gfc_find_intrinsic_vtab (&a->expr->ts);
+	gfc_find_vtab (&a->expr->ts);
 
       if (a->expr->expr_type == EXPR_NULL
 	  && ((f->sym->ts.type != BT_CLASS && !f->sym->attr.pointer
@@ -3123,17 +3170,26 @@ check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
 
   for (;; f = f->next, a = a->next)
     {
+      gfc_expr *expr;
+
       if (f == NULL && a == NULL)
 	break;
       if (f == NULL || a == NULL)
 	gfc_internal_error ("check_intents(): List mismatch");
 
-      if (a->expr == NULL || a->expr->expr_type != EXPR_VARIABLE)
+      if (a->expr && a->expr->expr_type == EXPR_FUNCTION
+	  && a->expr->value.function.isym
+	  && a->expr->value.function.isym->id == GFC_ISYM_CAF_GET)
+	expr = a->expr->value.function.actual->expr;
+      else
+	expr = a->expr;
+
+      if (expr == NULL || expr->expr_type != EXPR_VARIABLE)
 	continue;
 
       f_intent = f->sym->attr.intent;
 
-      if (gfc_pure (NULL) && gfc_impure_variable (a->expr->symtree->n.sym))
+      if (gfc_pure (NULL) && gfc_impure_variable (expr->symtree->n.sym))
 	{
 	  if ((f->sym->ts.type == BT_CLASS && f->sym->attr.class_ok
 	       && CLASS_DATA (f->sym)->attr.class_pointer)
@@ -3141,19 +3197,19 @@ check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
 	    {
 	      gfc_error ("Procedure argument at %L is local to a PURE "
 			 "procedure and has the POINTER attribute",
-			 &a->expr->where);
+			 &expr->where);
 	      return false;
 	    }
 	}
 
        /* Fortran 2008, C1283.  */
-       if (gfc_pure (NULL) && gfc_is_coindexed (a->expr))
+       if (gfc_pure (NULL) && gfc_is_coindexed (expr))
 	{
 	  if (f_intent == INTENT_INOUT || f_intent == INTENT_OUT)
 	    {
 	      gfc_error ("Coindexed actual argument at %L in PURE procedure "
 			 "is passed to an INTENT(%s) argument",
-			 &a->expr->where, gfc_intent_string (f_intent));
+			 &expr->where, gfc_intent_string (f_intent));
 	      return false;
 	    }
 
@@ -3163,18 +3219,18 @@ check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
 	    {
 	      gfc_error ("Coindexed actual argument at %L in PURE procedure "
 			 "is passed to a POINTER dummy argument",
-			 &a->expr->where);
+			 &expr->where);
 	      return false;
 	    }
 	}
 
        /* F2008, Section 12.5.2.4.  */
-       if (a->expr->ts.type == BT_CLASS && f->sym->ts.type == BT_CLASS
-	   && gfc_is_coindexed (a->expr))
+       if (expr->ts.type == BT_CLASS && f->sym->ts.type == BT_CLASS
+	   && gfc_is_coindexed (expr))
 	 {
 	   gfc_error ("Coindexed polymorphic actual argument at %L is passed "
 		      "polymorphic dummy argument '%s'",
-			 &a->expr->where, f->sym->name);
+			 &expr->where, f->sym->name);
 	   return false;
 	 }
     }

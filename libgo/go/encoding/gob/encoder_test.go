@@ -129,9 +129,11 @@ func TestBadData(t *testing.T) {
 	corruptDataCheck("", io.EOF, t)
 	corruptDataCheck("\x7Fhi", io.ErrUnexpectedEOF, t)
 	corruptDataCheck("\x03now is the time for all good men", errBadType, t)
+	// issue 6323.
+	corruptDataCheck("\x04\x24foo", errRange, t)
 }
 
-// Types not supported by the Encoder.
+// Types not supported at top level by the Encoder.
 var unsupportedValues = []interface{}{
 	make(chan int),
 	func(a int) bool { return true },
@@ -630,7 +632,7 @@ func TestSliceReusesMemory(t *testing.T) {
 // Used to crash: negative count in recvMessage.
 func TestBadCount(t *testing.T) {
 	b := []byte{0xfb, 0xa5, 0x82, 0x2f, 0xca, 0x1}
-	if err := NewDecoder(bytes.NewBuffer(b)).Decode(nil); err == nil {
+	if err := NewDecoder(bytes.NewReader(b)).Decode(nil); err == nil {
 		t.Error("expected error from bad count")
 	} else if err.Error() != errBadCount.Error() {
 		t.Error("expected bad count error; got", err)
@@ -662,19 +664,35 @@ func TestSequentialDecoder(t *testing.T) {
 	}
 }
 
-// Should be able to have unrepresentable fields (chan, func) as long as they
-// are unexported.
+// Should be able to have unrepresentable fields (chan, func, *chan etc.); we just ignore them.
 type Bug2 struct {
-	A int
-	b chan int
+	A   int
+	C   chan int
+	CP  *chan int
+	F   func()
+	FPP **func()
 }
 
-func TestUnexportedChan(t *testing.T) {
-	b := Bug2{23, make(chan int)}
-	var stream bytes.Buffer
-	enc := NewEncoder(&stream)
-	if err := enc.Encode(b); err != nil {
-		t.Fatalf("error encoding unexported channel: %s", err)
+func TestChanFuncIgnored(t *testing.T) {
+	c := make(chan int)
+	f := func() {}
+	fp := &f
+	b0 := Bug2{23, c, &c, f, &fp}
+	var buf bytes.Buffer
+	enc := NewEncoder(&buf)
+	if err := enc.Encode(b0); err != nil {
+		t.Fatal("error encoding:", err)
+	}
+	var b1 Bug2
+	err := NewDecoder(&buf).Decode(&b1)
+	if err != nil {
+		t.Fatal("decode:", err)
+	}
+	if b1.A != b0.A {
+		t.Fatalf("got %d want %d", b1.A, b0.A)
+	}
+	if b1.C != nil || b1.CP != nil || b1.F != nil || b1.FPP != nil {
+		t.Fatal("unexpected value for chan or func")
 	}
 }
 

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux openbsd netbsd
+// +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
 #include <sys/time.h>
 
@@ -100,13 +100,11 @@ runtime_resetcpuprofiler(int32 hz)
 	runtime_memclr((byte*)&it, sizeof it);
 	if(hz == 0) {
 		runtime_setitimer(ITIMER_PROF, &it, nil);
-		runtime_setprof(false);
 	} else {
 		it.it_interval.tv_sec = 0;
 		it.it_interval.tv_usec = 1000000 / hz;
 		it.it_value = it.it_interval;
 		runtime_setitimer(ITIMER_PROF, &it, nil);
-		runtime_setprof(true);
 	}
 	runtime_m()->profilehz = hz;
 }
@@ -121,6 +119,14 @@ os_sigpipe(void)
 			break;
 	runtime_setsig(i, GO_SIG_DFL, false);
 	runtime_raise(SIGPIPE);
+}
+
+void
+runtime_unblocksignals(void)
+{
+	sigset_t sigset_none;
+	sigemptyset(&sigset_none);
+	pthread_sigmask(SIG_SETMASK, &sigset_none, nil);
 }
 
 void
@@ -139,6 +145,7 @@ runtime_crash(void)
 		return;
 #endif
 
+	runtime_unblocksignals();
 	for(i = 0; runtime_sigtab[i].sig != -1; i++)
 		if(runtime_sigtab[i].sig == SIGABRT)
 			break;

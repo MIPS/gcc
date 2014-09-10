@@ -1,5 +1,5 @@
 ;; ARM Cortex-A15 pipeline description
-;; Copyright (C) 2011-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2014 Free Software Foundation, Inc.
 ;;
 ;; Written by Matthew Gretton-Dann <matthew.gretton-dann@arm.com>
 
@@ -62,9 +62,9 @@
 (define_insn_reservation "cortex_a15_alu" 2
   (and (eq_attr "tune" "cortexa15")
        (eq_attr "type" "alu_imm,alus_imm,logic_imm,logics_imm,\
-                        alu_reg,alus_reg,logic_reg,logics_reg,\
+                        alu_sreg,alus_sreg,logic_reg,logics_reg,\
                         adc_imm,adcs_imm,adc_reg,adcs_reg,\
-                        adr,bfm,rev,\
+                        adr,bfm,clz,rbit,rev,alu_dsp_reg,\
                         shift_imm,shift_reg,\
                         mov_imm,mov_reg,\
                         mvn_imm,mvn_reg,\
@@ -72,11 +72,14 @@
   "ca15_issue1,(ca15_sx1,ca15_sx1_alu)|(ca15_sx2,ca15_sx2_alu)")
 
 ;; ALU ops with immediate shift
+;; crc is also included here so that appropriate scheduling of CRC32 ARMv8-A
+;; instructions can be performed when tuning for the Cortex-A57 since that
+;; core reuses the Cortex-A15 pipeline description for the moment.
 (define_insn_reservation "cortex_a15_alu_shift" 3
   (and (eq_attr "tune" "cortexa15")
        (eq_attr "type" "extend,\
                         alu_shift_imm,alus_shift_imm,\
-                        logic_shift_imm,logics_shift_imm,\
+                        crc,logic_shift_imm,logics_shift_imm,\
                         mov_shift,mvn_shift"))
   "ca15_issue1,(ca15_sx1,ca15_sx1+ca15_sx1_shf,ca15_sx1_alu)\
 	       |(ca15_sx2,ca15_sx2+ca15_sx2_shf,ca15_sx2_alu)")
@@ -158,7 +161,7 @@
   "ca15_issue2,ca15_ls1+ca15_ls2,ca15_str,ca15_str")
 
 ;; We include Neon.md here to ensure that the branch can block the Neon units.
-(include "cortex-a15-neon.md")
+(include "../arm/cortex-a15-neon.md")
 
 ;; We lie with calls.  They take up all issue slots, and form a block in the
 ;; pipeline.  The result however is available the next cycle.

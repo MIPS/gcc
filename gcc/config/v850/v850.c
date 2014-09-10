@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for NEC V850 series
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -23,6 +23,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -41,6 +45,7 @@
 #include "target-def.h"
 #include "df.h"
 #include "opts.h"
+#include "builtins.h"
 
 #ifndef streq
 #define streq(a,b) (strcmp (a, b) == 0)
@@ -49,8 +54,8 @@
 static void v850_print_operand_address (FILE *, rtx);
 
 /* Names of the various data areas used on the v850.  */
-tree GHS_default_section_names [(int) COUNT_OF_GHS_SECTION_KINDS];
-tree GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_KINDS];
+const char * GHS_default_section_names [(int) COUNT_OF_GHS_SECTION_KINDS];
+const char * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_KINDS];
 
 /* Track the current data area set by the data area pragma (which 
    can be nested).  Tested by check_default_data_area.  */
@@ -1109,15 +1114,15 @@ ep_memory_operand (rtx op, enum machine_mode mode, int unsigned_load)
    taking care to save and preserve the ep.  */
 
 static void
-substitute_ep_register (rtx first_insn,
-                        rtx last_insn,
+substitute_ep_register (rtx_insn *first_insn,
+                        rtx_insn *last_insn,
                         int uses,
                         int regno,
                         rtx * p_r1,
                         rtx * p_ep)
 {
   rtx reg = gen_rtx_REG (Pmode, regno);
-  rtx insn;
+  rtx_insn *insn;
 
   if (!*p_r1)
     {
@@ -1222,8 +1227,8 @@ v850_reorg (void)
   struct
   {
     int uses;
-    rtx first_insn;
-    rtx last_insn;
+    rtx_insn *first_insn;
+    rtx_insn *last_insn;
   }
   regs[FIRST_PSEUDO_REGISTER];
 
@@ -1231,7 +1236,7 @@ v850_reorg (void)
   int use_ep = FALSE;
   rtx r1 = NULL_RTX;
   rtx ep = NULL_RTX;
-  rtx insn;
+  rtx_insn *insn;
   rtx pattern;
 
   /* If not ep mode, just return now.  */
@@ -1241,8 +1246,8 @@ v850_reorg (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       regs[i].uses = 0;
-      regs[i].first_insn = NULL_RTX;
-      regs[i].last_insn = NULL_RTX;
+      regs[i].first_insn = NULL;
+      regs[i].last_insn = NULL;
     }
 
   for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
@@ -1275,8 +1280,8 @@ v850_reorg (void)
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    {
 	      regs[i].uses = 0;
-	      regs[i].first_insn = NULL_RTX;
-	      regs[i].last_insn = NULL_RTX;
+	      regs[i].first_insn = NULL;
+	      regs[i].last_insn = NULL;
 	    }
 	  break;
 
@@ -1408,8 +1413,8 @@ v850_reorg (void)
 			  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 			    {
 			      regs[i].uses = 0;
-			      regs[i].first_insn = NULL_RTX;
-			      regs[i].last_insn = NULL_RTX;
+			      regs[i].first_insn = NULL;
+			      regs[i].last_insn = NULL;
 			    }
 			}
 		    }
@@ -1417,8 +1422,8 @@ v850_reorg (void)
 		  for (i = regno; i < endregno; i++)
 		    {
 		      regs[i].uses = 0;
-		      regs[i].first_insn = NULL_RTX;
-		      regs[i].last_insn = NULL_RTX;
+		      regs[i].first_insn = NULL;
+		      regs[i].last_insn = NULL;
 		    }
 		}
 	    }
@@ -2185,7 +2190,7 @@ v850_encode_data_area (tree decl, rtx symbol)
     {
       if (DECL_SECTION_NAME (decl))
 	{
-	  const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+	  const char *name = DECL_SECTION_NAME (decl);
 	  
 	  if (streq (name, ".zdata") || streq (name, ".zbss"))
 	    v850_set_data_area (decl, DATA_AREA_ZDA);
@@ -2564,19 +2569,19 @@ v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
   if (GHS_default_section_names [(int) GHS_SECTION_KIND_SDATA] == NULL)
     {
       GHS_default_section_names [(int) GHS_SECTION_KIND_SDATA]
-	= build_string (sizeof (".sdata")-1, ".sdata");
+	= ".sdata";
 
       GHS_default_section_names [(int) GHS_SECTION_KIND_ROSDATA]
-	= build_string (sizeof (".rosdata")-1, ".rosdata");
+	= ".rosdata";
 
       GHS_default_section_names [(int) GHS_SECTION_KIND_TDATA]
-	= build_string (sizeof (".tdata")-1, ".tdata");
+	= ".tdata";
       
       GHS_default_section_names [(int) GHS_SECTION_KIND_ZDATA]
-	= build_string (sizeof (".zdata")-1, ".zdata");
+	= ".zdata";
 
       GHS_default_section_names [(int) GHS_SECTION_KIND_ROZDATA]
-	= build_string (sizeof (".rozdata")-1, ".rozdata");
+	= ".rozdata";
     }
   
   if (current_function_decl == NULL_TREE
@@ -2587,7 +2592,7 @@ v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
       && !DECL_SECTION_NAME (decl))
     {
       enum GHS_section_kind kind = GHS_SECTION_KIND_DEFAULT;
-      tree chosen_section;
+      const char * chosen_section;
 
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	kind = GHS_SECTION_KIND_TEXT;
@@ -2639,7 +2644,7 @@ v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
 	  /* Only set the section name if specified by a pragma, because
 	     otherwise it will force those variables to get allocated storage
 	     in this module, rather than by the linker.  */
-	  DECL_SECTION_NAME (decl) = chosen_section;
+	  set_decl_section_name (decl, chosen_section);
 	}
     }
 }
@@ -3087,7 +3092,7 @@ v850_memory_move_cost (enum machine_mode mode,
 }
 
 int
-v850_adjust_insn_length (rtx insn, int length)
+v850_adjust_insn_length (rtx_insn *insn, int length)
 {
   if (TARGET_V850E3V5_UP)
     {
@@ -3268,6 +3273,9 @@ v850_gen_movdi (rtx * operands)
 
 #undef  TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P v850_legitimate_constant_p
+
+#undef  TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

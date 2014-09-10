@@ -5,6 +5,7 @@
 package filepath_test
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -107,6 +108,9 @@ func TestClean(t *testing.T) {
 		}
 	}
 
+	if testing.Short() {
+		t.Skip("skipping malloc count in short mode")
+	}
 	if runtime.GOMAXPROCS(0) > 1 {
 		t.Log("skipping AllocsPerRun checks; GOMAXPROCS>1")
 		return
@@ -458,6 +462,63 @@ func TestWalk(t *testing.T) {
 	}
 }
 
+func touch(t *testing.T, name string) {
+	f, err := os.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWalkFileError(t *testing.T) {
+	td, err := ioutil.TempDir("", "walktest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(td)
+
+	touch(t, filepath.Join(td, "foo"))
+	touch(t, filepath.Join(td, "bar"))
+	dir := filepath.Join(td, "dir")
+	if err := os.MkdirAll(filepath.Join(td, "dir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	touch(t, filepath.Join(dir, "baz"))
+	touch(t, filepath.Join(dir, "stat-error"))
+	defer func() {
+		*filepath.LstatP = os.Lstat
+	}()
+	statErr := errors.New("some stat error")
+	*filepath.LstatP = func(path string) (os.FileInfo, error) {
+		if strings.HasSuffix(path, "stat-error") {
+			return nil, statErr
+		}
+		return os.Lstat(path)
+	}
+	got := map[string]error{}
+	err = filepath.Walk(td, func(path string, fi os.FileInfo, err error) error {
+		rel, _ := filepath.Rel(td, path)
+		got[filepath.ToSlash(rel)] = err
+		return nil
+	})
+	if err != nil {
+		t.Errorf("Walk error: %v", err)
+	}
+	want := map[string]error{
+		".":              nil,
+		"foo":            nil,
+		"bar":            nil,
+		"dir":            nil,
+		"dir/baz":        nil,
+		"dir/stat-error": statErr,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Walked %#v; want %#v", got, want)
+	}
+}
+
 var basetests = []PathTest{
 	{"", "."},
 	{".", "."},
@@ -633,6 +694,11 @@ func simpleJoin(dir, path string) string {
 }
 
 func TestEvalSymlinks(t *testing.T) {
+	switch runtime.GOOS {
+	case "nacl", "plan9":
+		t.Skipf("skipping on %s", runtime.GOOS)
+	}
+
 	tmpDir, err := ioutil.TempDir("", "evalsymlink")
 	if err != nil {
 		t.Fatal("creating temp dir:", err)
@@ -926,28 +992,33 @@ func TestDriveLetterInEvalSymlinks(t *testing.T) {
    differently.
 
 func TestBug3486(t *testing.T) { // http://code.google.com/p/go/issues/detail?id=3486
-	root, err := filepath.EvalSymlinks(runtime.GOROOT())
+	root, err := filepath.EvalSymlinks(runtime.GOROOT() + "/test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	lib := filepath.Join(root, "lib")
-	src := filepath.Join(root, "src")
-	seenSrc := false
+	bugs := filepath.Join(root, "bugs")
+	ken := filepath.Join(root, "ken")
+	seenBugs := false
+	seenKen := false
 	filepath.Walk(root, func(pth string, info os.FileInfo, err error) error {
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		switch pth {
-		case lib:
+		case bugs:
+			seenBugs = true
 			return filepath.SkipDir
-		case src:
-			seenSrc = true
+		case ken:
+			if !seenBugs {
+				t.Fatal("filepath.Walk out of order - ken before bugs")
+			}
+			seenKen = true
 		}
 		return nil
 	})
-	if !seenSrc {
-		t.Fatalf("%q not seen", src)
+	if !seenKen {
+		t.Fatalf("%q not seen", ken)
 	}
 }
 

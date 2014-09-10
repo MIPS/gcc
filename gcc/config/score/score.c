@@ -1,5 +1,5 @@
 /* Output routines for Sunplus S+CORE processor
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Sunnorth.
 
    This file is part of GCC.
@@ -32,6 +32,10 @@
 #include "diagnostic-core.h"
 #include "output.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "calls.h"
+#include "varasm.h"
+#include "stor-layout.h"
 #include "function.h"
 #include "expr.h"
 #include "optabs.h"
@@ -47,6 +51,7 @@
 #include "langhooks.h"
 #include "df.h"
 #include "opts.h"
+#include "builtins.h"
 
 #define SCORE_SDATA_MAX                score_sdata_max
 #define SCORE_STACK_ALIGN(LOC)         (((LOC) + 3) & ~3)
@@ -448,7 +453,8 @@ score_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
                        HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
                        tree function)
 {
-  rtx this_rtx, temp1, insn, fnaddr;
+  rtx this_rtx, temp1, fnaddr;
+  rtx_insn *insn;
 
   /* Pretend to be a post-reload pass while generating rtl.  */
   reload_completed = 1;
@@ -510,30 +516,6 @@ score_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Clean up the vars set above.  Note that final_end_function resets
      the global pointer for us.  */
   reload_completed = 0;
-}
-
-/* Copy VALUE to a register and return that register.  If new psuedos
-   are allowed, copy it into a new register, otherwise use DEST.  */
-static rtx
-score_force_temporary (rtx dest, rtx value)
-{
-  if (can_create_pseudo_p ())
-    return force_reg (Pmode, value);
-  else
-    {
-      emit_move_insn (copy_rtx (dest), value);
-      return dest;
-    }
-}
-
-/* Return a LO_SUM expression for ADDR.  TEMP is as for score_force_temporary
-   and is used to load the high part into a register.  */
-static rtx
-score_split_symbol (rtx temp, rtx addr)
-{
-  rtx high = score_force_temporary (temp,
-                                     gen_rtx_HIGH (Pmode, copy_rtx (addr)));
-  return gen_rtx_LO_SUM (Pmode, high, addr);
 }
 
 /* Fill INFO with information about a single argument.  CUM is the
@@ -687,7 +669,7 @@ score_in_small_data_p (const_tree decl)
   if (TREE_CODE (decl) == VAR_DECL && DECL_SECTION_NAME (decl) != 0)
     {
       const char *name;
-      name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+      name = DECL_SECTION_NAME (decl);
       if (strcmp (name, ".sdata") != 0
           && strcmp (name, ".sbss") != 0)
         return true;
@@ -1219,7 +1201,7 @@ score_output_external (FILE *file ATTRIBUTE_UNUSED,
 
   if (score_in_small_data_p (decl))
     {
-      p = ggc_alloc_extern_list ();
+      p = ggc_alloc<extern_list> ();
       p->next = extern_head;
       p->name = name;
       p->size = int_size_in_bytes (TREE_TYPE (decl));
@@ -1496,7 +1478,7 @@ score_prologue (void)
 
   if (size > 0)
     {
-      rtx insn;
+      rtx_insn *insn;
 
       if (size >= -32768 && size <= 32767)
         EMIT_PL (emit_insn (gen_add3_insn (stack_pointer_rtx,

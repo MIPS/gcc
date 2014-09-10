@@ -1,3 +1,53 @@
+2014-09-01  Andi Kleen  <ak@linux.intel.com>
+
+	* bootstrap-lto.mk: Implement slim bootstrap.
+
+2014-08-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* isl.m4 (ISL_CHECK_VERSION): Check link of isl library
+	for cross_compiling.
+
+2014-08-18 Roman Gareev  <gareevroman@gmail.com>
+
+	* cloog.m4: Remove the path to isllibs from clooglibs.
+	* isl.m4: Add paths to islinc, isllibs.
+
+2014-07-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/47230
+	* mh-alpha-linux: New file.
+
+2014-05-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* mt-nios2-elf: New file.
+
+2014-04-25  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR target/43538
+	* mt-gnu: Don't reset CXXFLAGS_FOR_TARGET.
+
+2013-11-29  Marek Polacek  <polacek@redhat.com>
+
+	* bootstrap-ubsan.mk (POSTSTAGE1_LDFLAGS): Remove -lpthread -ldl.
+	Add -B$$r/prev-$(TARGET_SUBDIR)/libsanitizer/.
+
+2013-11-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* bootstrap-asan.mk (POSTSTAGE1_LDFLAGS): Add
+	-B$$r/prev-$(TARGET_SUBDIR)/libsanitizer/.
+
+2013-11-19  Marek Polacek  <polacek@redhat.com>
+
+	* bootstrap-ubsan.mk (POSTSTAGE1_LDFLAGS): Add -ldl.
+
+2013-11-18  Jan Hubicka  <jh@suse.cz>
+
+	* bootstrap-lto.mk: Use -ffat-lto-objects.
+
+2013-11-15  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* picflag.m4 (m68k-*-*): Use default PIC flag.
+
 2013-09-29  Iain Sandoe  <iain@codesourcery.com>
 
 	* mh-darwin (BOOT_CFLAGS): Only add -mdynamic-no-pic for m32 hosts.
@@ -17,6 +67,10 @@
 
 	* bootstrap-asan.mk (POSTSTAGE1_LDFLAGS): Add
 	-B$$r/prev-$(TARGET_SUBDIR)/libsanitizer/asan/.
+
+2013-01-23  Shenghou Ma  <minux.ma@gmail.com>
+
+	* isl.m4: don't echo $CFLAGS for ISL_CHECK_VERSION.
 
 2013-01-15  Richard Biener  <rguenther@suse.de>
 

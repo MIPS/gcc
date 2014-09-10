@@ -1,6 +1,5 @@
 /* Definitions of target machine for GNU compiler, Synopsys DesignWare ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 2007-2013
-   Free Software Foundation, Inc.
+   Copyright (C) 1994-2014 Free Software Foundation, Inc.
 
    Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
    behalf of Synopsys Inc.
@@ -174,7 +173,8 @@ along with GCC; see the file COPYING3.  If not see
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
-    %{fopenmp:%:include(libgomp.spec)%(link_gomp)} %(mflib)\
+    %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
+    %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
@@ -301,9 +301,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Define this if most significant word of a multiword number is the lowest
    numbered.  */
 #define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN)
-
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
 
 /* Width in bits of a "word", which is the contents of a machine register.
    Note that this is not necessarily the width of data type `int';
@@ -1086,6 +1083,22 @@ arc_select_cc_mode (OP, X, Y)
    expensive than reg->reg moves.  */
 #define BRANCH_COST(speed_p, predictable_p) 2
 
+/* Scc sets the destination to 1 and then conditionally zeroes it.
+   Best case, ORed SCCs can be made into clear - condset - condset.
+   But it could also end up as five insns.  So say it costs four on
+   average.
+   These extra instructions - and the second comparison - will also be
+   an extra cost if the first comparison would have been decisive.
+   So get an average saving, with a probability of the first branch
+   beging decisive of p0, we want:
+   p0 * (branch_cost - 4) > (1 - p0) * 5
+   ??? We don't get to see that probability to evaluate, so we can
+   only wildly guess that it might be 50%.
+   ??? The compiler also lacks the notion of branch predictability.  */
+#define LOGICAL_OP_NON_SHORT_CIRCUIT \
+  (BRANCH_COST (optimize_function_for_speed_p (cfun), \
+		false) > 9)
+
 /* Nonzero if access to memory by bytes is slow and undesirable.
    For RISC chips, it means that access to memory by bytes is no
    better than access by words when possible, so grab a whole word
@@ -1644,12 +1657,12 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
   ((LENGTH) \
    = (GET_CODE (PATTERN (X)) == SEQUENCE \
       ? ((LENGTH) \
-	 + arc_adjust_insn_length (XVECEXP (PATTERN (X), 0, 0), \
+	 + arc_adjust_insn_length (as_a <rtx_sequence *> (PATTERN (X))->insn (0), \
 				   get_attr_length (XVECEXP (PATTERN (X), \
 						    0, 0)), \
 				   true) \
 	 - get_attr_length (XVECEXP (PATTERN (X), 0, 0)) \
-	 + arc_adjust_insn_length (XVECEXP (PATTERN (X), 0, 1), \
+	 + arc_adjust_insn_length (as_a <rtx_sequence *> (PATTERN (X))->insn (1), \
 				   get_attr_length (XVECEXP (PATTERN (X), \
 						    0, 1)), \
 				   true) \

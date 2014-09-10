@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,6 +36,11 @@
 with Types; use Types;
 
 package Stand is
+
+   --  Warning: the entities defined in this package are written out by the
+   --  Tree_Write routine, and read back in by the Tree_Read routine, so be
+   --  sure to modify these two routines if you add entities that are not
+   --  part of Standard_Entity.
 
    type Standard_Entity_Type is (
    --  This enumeration type contains an entry for each name in Standard
@@ -153,7 +158,7 @@ package Stand is
       S_RS,             -- 16#1E#
       S_US,             -- 16#1F#
 
-      --  Here are the ones for Colonel Whitaker's O26 keypunch!
+      --  Here are the ones for Colonel Whitaker's O26 keypunch
 
       S_Exclam,         -- 16#21#
       S_Quotation,      -- 16#22#
@@ -371,14 +376,6 @@ package Stand is
    --  candidate interpretations has been examined. If after examining all of
    --  them the type is still Any_Type, the node has no possible interpretation
    --  and an error can be emitted (and Any_Type will be propagated upwards).
-   --
-   --  There is one situation in which Any_Type is used to legitimately
-   --  represent a case where the type is not known pre-resolution, and that
-   --  is for the N_Raise_Expression node. In this case, the Etype being set to
-   --  Any_Type is normal and does not represent an error. In particular, it is
-   --  compatible with the type of any constituent of the enclosing expression,
-   --  if any. The type is eventually replaced with the type of the context,
-   --  which plays no role in the resolution of the Raise_Expression.
 
    Any_Access : Entity_Id;
    --  Used to resolve the overloaded literal NULL
@@ -427,6 +424,16 @@ package Stand is
    --  component type is compatible with any character type, not just
    --  Standard_Character.
 
+   Raise_Type : Entity_Id;
+   --  The type Raise_Type denotes the type of a Raise_Expression. It is
+   --  compatible with all other types, and must eventually resolve to a
+   --  concrete type that is imposed by the context.
+   --
+   --  Historical note: we used to use Any_Type for this purpose, but the
+   --  confusion of meanings (Any_Type normally indicates an error) caused
+   --  difficulties. In particular some needed expansions were skipped since
+   --  the nodes in question looked like they had an error.
+
    Universal_Integer : Entity_Id;
    --  Entity for universal integer type. The bounds of this type correspond
    --  to the largest supported integer type (i.e. Long_Long_Integer). It is
@@ -436,8 +443,7 @@ package Stand is
    --  Entity for universal real type. The bounds of this type correspond to
    --  to the largest supported real type (i.e. Long_Long_Float). It is the
    --  type used for runtime calculations in type universal real. Note that
-   --  this type is always IEEE format, even if Long_Long_Float is Vax_Float
-   --  (and in that case the bounds don't correspond exactly).
+   --  this type is always IEEE format.
 
    Universal_Fixed : Entity_Id;
    --  Entity for universal fixed type. This is a type with  arbitrary
@@ -454,8 +460,12 @@ package Stand is
    --  These are signed integer types with the indicated sizes. Used for the
    --  underlying implementation types for fixed-point and enumeration types.
 
-   Standard_Unsigned : Entity_Id;
-   --  An unsigned type of the same size as Standard_Integer
+   Standard_Short_Short_Unsigned : Entity_Id;
+   Standard_Short_Unsigned       : Entity_Id;
+   Standard_Unsigned             : Entity_Id;
+   Standard_Long_Unsigned        : Entity_Id;
+   Standard_Long_Long_Unsigned   : Entity_Id;
+   --  Unsigned types with same Esize as corresponding signed integer types
 
    Standard_Unsigned_64 : Entity_Id;
    --  An unsigned type, mod 2 ** 64, size of 64 bits.

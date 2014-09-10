@@ -73,6 +73,9 @@ func (c *UDPConn) WriteToUDP(b []byte, addr *UDPAddr) (int, error) {
 	if !c.ok() || c.fd.data == nil {
 		return 0, syscall.EINVAL
 	}
+	if addr == nil {
+		return 0, &OpError{Op: "write", Net: c.fd.dir, Addr: nil, Err: errMissingAddress}
+	}
 	h := new(udpHeader)
 	h.raddr = addr.IP.To16()
 	h.laddr = c.fd.laddr.(*UDPAddr).IP.To16()
@@ -187,7 +190,8 @@ func ListenUDP(net string, laddr *UDPAddr) (*UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newUDPConn(l.netFD()), nil
+	fd, err := l.netFD()
+	return newUDPConn(fd), err
 }
 
 // ListenMulticastUDP listens for incoming multicast UDP packets

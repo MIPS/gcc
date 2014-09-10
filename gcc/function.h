@@ -1,5 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_FUNCTION_H
 
 #include "hashtab.h"
+#include "hash-set.h"
 #include "vec.h"
 #include "machmode.h"
 #include "tm.h"			/* For CUMULATIVE_ARGS.  */
@@ -34,8 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 
 struct GTY(()) sequence_stack {
   /* First and last insns in the chain of the saved sequence.  */
-  rtx first;
-  rtx last;
+  rtx_insn *first;
+  rtx_insn *last;
   struct sequence_stack *next;
 };
 
@@ -52,8 +53,8 @@ struct GTY(()) emit_status {
 
      start_sequence saves both of these on `sequence_stack' and then starts
      a new, nested sequence of insns.  */
-  rtx x_first_insn;
-  rtx x_last_insn;
+  rtx_insn *x_first_insn;
+  rtx_insn *x_last_insn;
 
   /* Stack of pending (incomplete) sequences saved by `start_sequence'.
      Each element describes one pending sequence.
@@ -135,7 +136,7 @@ struct GTY(()) expr_status {
   rtx x_apply_args_value;
 
   /* List of labels that must never be deleted.  */
-  rtx x_forced_labels;
+  rtx_insn_list *x_forced_labels;
 };
 
 typedef struct call_site_record_d *call_site_record;
@@ -144,10 +145,10 @@ typedef struct call_site_record_d *call_site_record;
 struct GTY(()) rtl_eh {
   rtx ehr_stackadj;
   rtx ehr_handler;
-  rtx ehr_label;
+  rtx_code_label *ehr_label;
 
   rtx sjlj_fc;
-  rtx sjlj_exit_after;
+  rtx_insn *sjlj_exit_after;
 
   vec<uchar, va_gc> *action_record_data;
 
@@ -165,10 +166,10 @@ struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
 struct call_site_record_d;
-struct dw_fde_struct;
+struct dw_fde_node;
 
-struct ipa_opt_pass_d;
-typedef struct ipa_opt_pass_d *ipa_opt_pass;
+class ipa_opt_pass_d;
+typedef ipa_opt_pass_d *ipa_opt_pass;
 
 
 struct GTY(()) varasm_status {
@@ -264,29 +265,29 @@ struct GTY(()) rtl_data {
      Used for detecting stack clobbers.  */
   tree stack_protect_guard;
 
-  /* List (chain of EXPR_LIST) of labels heading the current handlers for
+  /* List (chain of INSN_LIST) of labels heading the current handlers for
      nonlocal gotos.  */
-  rtx x_nonlocal_goto_handler_labels;
+  rtx_insn_list *x_nonlocal_goto_handler_labels;
 
   /* Label that will go on function epilogue.
      Jumping to this label serves as a "return" instruction
      on machines which require execution of the epilogue on all returns.  */
-  rtx x_return_label;
+  rtx_code_label *x_return_label;
 
   /* Label that will go on the end of function epilogue.
      Jumping to this label serves as a "naked return" instruction
      on machines which require execution of the epilogue on all returns.  */
-  rtx x_naked_return_label;
+  rtx_code_label *x_naked_return_label;
 
   /* List (chain of EXPR_LISTs) of all stack slots in this function.
      Made for the sake of unshare_all_rtl.  */
-  rtx x_stack_slot_list;
+  rtx_expr_list *x_stack_slot_list;
 
   /* List of empty areas in the stack frame.  */
   struct frame_space *frame_space_list;
 
   /* Place after which to insert the tail_recursion_label if we need one.  */
-  rtx x_stack_check_probe_note;
+  rtx_note *x_stack_check_probe_note;
 
   /* Location at which to save the argument pointer if it will need to be
      referenced.  There are two cases where this is done: if nonlocal gotos
@@ -303,7 +304,7 @@ struct GTY(()) rtl_data {
   HOST_WIDE_INT x_frame_offset;
 
   /* Insn after which register parms and SAVE_EXPRs are born, if nonopt.  */
-  rtx x_parm_birth_insn;
+  rtx_insn *x_parm_birth_insn;
 
   /* List of all used temporaries allocated, by level.  */
   vec<temp_slot_p, va_gc> *x_used_temp_slots;
@@ -552,6 +553,9 @@ struct GTY(()) function {
   /* Vector of function local variables, functions, types and constants.  */
   vec<tree, va_gc> *local_decls;
 
+  /* In a Cilk function, the VAR_DECL for the frame descriptor. */
+  tree cilk_frame_decl;
+
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
@@ -561,12 +565,12 @@ struct GTY(()) function {
   struct language_function * language;
 
   /* Used types hash table.  */
-  htab_t GTY ((param_is (union tree_node))) used_types_hash;
+  hash_set<tree> *GTY (()) used_types_hash;
 
   /* Dwarf2 Frame Description Entry, containing the Call Frame Instructions
      used for unwinding.  Only set when either dwarf2 unwinding or dwarf2
      debugging is enabled.  */
-  struct dw_fde_struct *fde;
+  struct dw_fde_node *fde;
 
   /* Last statement uid.  */
   int last_stmt_uid;
@@ -607,6 +611,12 @@ struct GTY(()) function {
      either as a subroutine or builtin.  */
   unsigned int calls_alloca : 1;
 
+  /* This will indicate whether a function is a cilk function */
+  unsigned int is_cilk_function : 1;
+
+  /* Nonzero if this is a Cilk function that spawns. */
+  unsigned int calls_cilk_spawn : 1;
+  
   /* Nonzero if function being compiled receives nonlocal gotos
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
@@ -652,12 +662,15 @@ struct GTY(()) function {
   unsigned int is_thunk : 1;
 
   /* Nonzero if the current function contains any loops with
-     loop->force_vect set.  */
-  unsigned int has_force_vect_loops : 1;
+     loop->force_vectorize set.  */
+  unsigned int has_force_vectorize_loops : 1;
 
   /* Nonzero if the current function contains any loops with
      nonzero value in loop->simduid.  */
   unsigned int has_simduid_loops : 1;
+
+  /* Set when the tail call has been identified.  */
+  unsigned int tail_call_marked : 1;
 };
 
 /* Add the decl D to the local_decls list of FUN.  */
@@ -797,10 +810,6 @@ extern void used_types_insert (tree);
 extern int get_next_funcdef_no (void);
 extern int get_last_funcdef_no (void);
 
-#ifdef HAVE_simple_return
-extern bool requires_stack_frame_p (rtx, HARD_REG_SET, HARD_REG_SET);
-#endif                        
-
 extern rtx get_hard_reg_initial_val (enum machine_mode, unsigned int);
 extern rtx has_hard_reg_initial_val (enum machine_mode, unsigned int);
 extern rtx get_hard_reg_initial_reg (rtx);
@@ -812,5 +821,26 @@ extern unsigned int emit_initial_value_sets (void);
 /* In predict.c */
 extern bool optimize_function_for_size_p (struct function *);
 extern bool optimize_function_for_speed_p (struct function *);
+
+/* In function.c */
+extern void expand_function_end (void);
+extern void expand_function_start (tree);
+extern void stack_protect_epilogue (void);
+extern void init_dummy_function_start (void);
+extern void expand_dummy_function_end (void);
+extern void allocate_struct_function (tree, bool);
+extern void push_struct_function (tree fndecl);
+extern void init_function_start (tree);
+extern bool use_register_for_decl (const_tree);
+extern void generate_setjmp_warnings (void);
+extern void init_temp_slots (void);
+extern void free_temp_slots (void);
+extern void pop_temp_slots (void);
+extern void push_temp_slots (void);
+extern void preserve_temp_slots (rtx);
+extern int aggregate_value_p (const_tree, const_tree);
+extern void push_function_context (void);
+extern void pop_function_context (void);
+extern gimple_seq gimplify_parameters (void);
 
 #endif  /* GCC_FUNCTION_H */

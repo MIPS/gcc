@@ -1,5 +1,5 @@
 /* Define per-register tables for data flow info and register allocation.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -135,9 +135,7 @@ extern size_t reg_info_p_size;
    or profile driven feedback is available and the function is never executed,
    frequency is always equivalent.  Otherwise rescale the basic block
    frequency.  */
-#define REG_FREQ_FROM_BB(bb) (optimize_size				      \
-			      || (flag_branch_probabilities		      \
-				  && !ENTRY_BLOCK_PTR->count)		      \
+#define REG_FREQ_FROM_BB(bb) (optimize_function_for_size_p (cfun)	      \
 			      ? REG_FREQ_MAX				      \
 			      : ((bb)->frequency * REG_FREQ_MAX / BB_FREQ_MAX)\
 			      ? ((bb)->frequency * REG_FREQ_MAX / BB_FREQ_MAX)\
@@ -215,14 +213,6 @@ extern short *reg_renumber;
    something in a call-clobbered register.  */
 
 extern int caller_save_needed;
-
-/* Predicate to decide whether to give a hard reg to a pseudo which
-   is referenced REFS times and would need to be saved and restored
-   around a call CALLS times.  */
-
-#ifndef CALLER_SAVE_PROFITABLE
-#define CALLER_SAVE_PROFITABLE(REFS, CALLS)  (4 * (CALLS) < (REFS))
-#endif
 
 /* Select a register mode required for caller save of hard regno REGNO.  */
 #ifndef HARD_REGNO_CALLER_SAVE_MODE
@@ -420,5 +410,9 @@ range_in_hard_reg_set_p (const HARD_REG_SET set, unsigned regno, int nregs)
       return false;
   return true;
 }
+
+/* Get registers used by given function call instruction.  */
+extern bool get_call_reg_set_usage (rtx_insn *insn, HARD_REG_SET *reg_set,
+				    HARD_REG_SET default_set);
 
 #endif /* GCC_REGS_H */

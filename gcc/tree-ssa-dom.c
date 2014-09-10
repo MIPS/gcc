@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -24,17 +24,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "cfgloop.h"
+#include "inchash.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "domwalk.h"
@@ -45,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-ssa-threadedge.h"
 #include "tree-ssa-dom.h"
+#include "inchash.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -149,21 +160,22 @@ static void free_expr_hash_elt (void *);
 
 struct expr_elt_hasher
 {
-  typedef expr_hash_elt value_type;
-  typedef expr_hash_elt compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef expr_hash_elt *value_type;
+  typedef expr_hash_elt *compare_type;
+  typedef int store_values_directly;
+  static inline hashval_t hash (const value_type &);
+  static inline bool equal (const value_type &, const compare_type &);
+  static inline void remove (value_type &);
 };
 
 inline hashval_t
-expr_elt_hasher::hash (const value_type *p)
+expr_elt_hasher::hash (const value_type &p)
 {
   return p->hash;
 }
 
 inline bool
-expr_elt_hasher::equal (const value_type *p1, const compare_type *p2)
+expr_elt_hasher::equal (const value_type &p1, const compare_type &p2)
 {
   gimple stmt1 = p1->stmt;
   const struct hashable_expr *expr1 = &p1->expr;
@@ -202,7 +214,7 @@ expr_elt_hasher::equal (const value_type *p1, const compare_type *p2)
 /* Delete an expr_hash_elt and reclaim its storage.  */
 
 inline void
-expr_elt_hasher::remove (value_type *element)
+expr_elt_hasher::remove (value_type &element)
 {
   free_expr_hash_elt (element);
 }
@@ -214,7 +226,7 @@ expr_elt_hasher::remove (value_type *element)
    global redundancy elimination).  Similarly as we pass through conditionals
    we record the conditional itself as having either a true or false value
    in this table.  */
-static hash_table <expr_elt_hasher> avail_exprs;
+static hash_table<expr_elt_hasher> *avail_exprs;
 
 /* Stack of dest,src pairs that need to be restored during finalization.
 
@@ -245,7 +257,8 @@ static struct opt_stats_d opt_stats;
 static void optimize_stmt (basic_block, gimple_stmt_iterator);
 static tree lookup_avail_expr (gimple, bool);
 static hashval_t avail_expr_hash (const void *);
-static void htab_statistics (FILE *, hash_table <expr_elt_hasher>);
+static void htab_statistics (FILE *,
+			     const hash_table<expr_elt_hasher> &);
 static void record_cond (cond_equivalence *);
 static void record_const_or_copy (tree, tree);
 static void record_equality (tree, tree);
@@ -513,6 +526,14 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
                                  expr1->ops.call.args[i], 0))
             return false;
 
+	if (stmt_could_throw_p (expr0->ops.call.fn_from))
+	  {
+	    int lp0 = lookup_stmt_eh_lp (expr0->ops.call.fn_from);
+	    int lp1 = lookup_stmt_eh_lp (expr1->ops.call.fn_from);
+	    if ((lp0 > 0 || lp1 > 0) && lp0 != lp1)
+	      return false;
+	  }
+
         return true;
       }
 
@@ -536,23 +557,43 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
     }
 }
 
+/* Generate a hash value for a pair of expressions.  This can be used
+   iteratively by passing a previous result in HSTATE.
+
+   The same hash value is always returned for a given pair of expressions,
+   regardless of the order in which they are presented.  This is useful in
+   hashing the operands of commutative functions.  */
+
+namespace inchash
+{
+
+static void
+add_expr_commutative (const_tree t1, const_tree t2, hash &hstate)
+{
+  hash one, two;
+
+  inchash::add_expr (t1, one);
+  inchash::add_expr (t2, two);
+  hstate.add_commutative (one, two);
+}
+
 /* Compute a hash value for a hashable_expr value EXPR and a
    previously accumulated hash value VAL.  If two hashable_expr
    values compare equal with hashable_expr_equal_p, they must
    hash to the same value, given an identical value of VAL.
-   The logic is intended to follow iterative_hash_expr in tree.c.  */
+   The logic is intended to follow inchash::add_expr in tree.c.  */
 
-static hashval_t
-iterative_hash_hashable_expr (const struct hashable_expr *expr, hashval_t val)
+static void
+add_hashable_expr (const struct hashable_expr *expr, hash &hstate)
 {
   switch (expr->kind)
     {
     case EXPR_SINGLE:
-      val = iterative_hash_expr (expr->ops.single.rhs, val);
+      inchash::add_expr (expr->ops.single.rhs, hstate);
       break;
 
     case EXPR_UNARY:
-      val = iterative_hash_object (expr->ops.unary.op, val);
+      hstate.add_object (expr->ops.unary.op);
 
       /* Make sure to include signedness in the hash computation.
          Don't hash the type, that can lead to having nodes which
@@ -560,34 +601,34 @@ iterative_hash_hashable_expr (const struct hashable_expr *expr, hashval_t val)
          have different hash codes.  */
       if (CONVERT_EXPR_CODE_P (expr->ops.unary.op)
           || expr->ops.unary.op == NON_LVALUE_EXPR)
-        val += TYPE_UNSIGNED (expr->type);
+        hstate.add_int (TYPE_UNSIGNED (expr->type));
 
-      val = iterative_hash_expr (expr->ops.unary.opnd, val);
+      inchash::add_expr (expr->ops.unary.opnd, hstate);
       break;
 
     case EXPR_BINARY:
-      val = iterative_hash_object (expr->ops.binary.op, val);
+      hstate.add_object (expr->ops.binary.op);
       if (commutative_tree_code (expr->ops.binary.op))
-	val = iterative_hash_exprs_commutative (expr->ops.binary.opnd0,
-						expr->ops.binary.opnd1, val);
+	inchash::add_expr_commutative (expr->ops.binary.opnd0,
+					  expr->ops.binary.opnd1, hstate);
       else
         {
-          val = iterative_hash_expr (expr->ops.binary.opnd0, val);
-          val = iterative_hash_expr (expr->ops.binary.opnd1, val);
+          inchash::add_expr (expr->ops.binary.opnd0, hstate);
+          inchash::add_expr (expr->ops.binary.opnd1, hstate);
         }
       break;
 
     case EXPR_TERNARY:
-      val = iterative_hash_object (expr->ops.ternary.op, val);
+      hstate.add_object (expr->ops.ternary.op);
       if (commutative_ternary_tree_code (expr->ops.ternary.op))
-	val = iterative_hash_exprs_commutative (expr->ops.ternary.opnd0,
-						expr->ops.ternary.opnd1, val);
+	inchash::add_expr_commutative (expr->ops.ternary.opnd0,
+					  expr->ops.ternary.opnd1, hstate);
       else
         {
-          val = iterative_hash_expr (expr->ops.ternary.opnd0, val);
-          val = iterative_hash_expr (expr->ops.ternary.opnd1, val);
+          inchash::add_expr (expr->ops.ternary.opnd0, hstate);
+          inchash::add_expr (expr->ops.ternary.opnd1, hstate);
         }
-      val = iterative_hash_expr (expr->ops.ternary.opnd2, val);
+      inchash::add_expr (expr->ops.ternary.opnd2, hstate);
       break;
 
     case EXPR_CALL:
@@ -596,15 +637,14 @@ iterative_hash_hashable_expr (const struct hashable_expr *expr, hashval_t val)
         enum tree_code code = CALL_EXPR;
         gimple fn_from;
 
-        val = iterative_hash_object (code, val);
+        hstate.add_object (code);
         fn_from = expr->ops.call.fn_from;
         if (gimple_call_internal_p (fn_from))
-          val = iterative_hash_hashval_t
-            ((hashval_t) gimple_call_internal_fn (fn_from), val);
+          hstate.merge_hash ((hashval_t) gimple_call_internal_fn (fn_from));
         else
-          val = iterative_hash_expr (gimple_call_fn (fn_from), val);
+          inchash::add_expr (gimple_call_fn (fn_from), hstate);
         for (i = 0; i < expr->ops.call.nargs; i++)
-          val = iterative_hash_expr (expr->ops.call.args[i], val);
+          inchash::add_expr (expr->ops.call.args[i], hstate);
       }
       break;
 
@@ -613,15 +653,15 @@ iterative_hash_hashable_expr (const struct hashable_expr *expr, hashval_t val)
         size_t i;
 
         for (i = 0; i < expr->ops.phi.nargs; i++)
-          val = iterative_hash_expr (expr->ops.phi.args[i], val);
+          inchash::add_expr (expr->ops.phi.args[i], hstate);
       }
       break;
 
     default:
       gcc_unreachable ();
     }
+}
 
-  return val;
 }
 
 /* Print a diagnostic dump of an expression hash table entry.  */
@@ -763,7 +803,7 @@ free_all_edge_infos (void)
   edge_iterator ei;
   edge e;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_EACH_EDGE (e, ei, bb->preds)
         {
@@ -800,13 +840,42 @@ private:
    every new symbol exposed, its corresponding bit will be set in
    VARS_TO_RENAME.  */
 
-static unsigned int
-tree_ssa_dominator_optimize (void)
+namespace {
+
+const pass_data pass_data_dominator =
+{
+  GIMPLE_PASS, /* type */
+  "dom", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_TREE_SSA_DOMINATOR_OPTS, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_cleanup_cfg | TODO_update_ssa ), /* todo_flags_finish */
+};
+
+class pass_dominator : public gimple_opt_pass
+{
+public:
+  pass_dominator (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_dominator, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_dominator (m_ctxt); }
+  virtual bool gate (function *) { return flag_tree_dom != 0; }
+  virtual unsigned int execute (function *);
+
+}; // class pass_dominator
+
+unsigned int
+pass_dominator::execute (function *fun)
 {
   memset (&opt_stats, 0, sizeof (opt_stats));
 
   /* Create our hash tables.  */
-  avail_exprs.create (1024);
+  avail_exprs = new hash_table<expr_elt_hasher> (1024);
   avail_exprs_stack.create (20);
   const_and_copies_stack.create (20);
   need_eh_cleanup = BITMAP_ALLOC (NULL);
@@ -817,8 +886,14 @@ tree_ssa_dominator_optimize (void)
   /* We need to know loop structures in order to avoid destroying them
      in jump threading.  Note that we still can e.g. thread through loop
      headers to an exit edge, or through loop header to the loop body, assuming
-     that we update the loop info.  */
-  loop_optimizer_init (LOOPS_HAVE_SIMPLE_LATCHES);
+     that we update the loop info.
+
+     TODO: We don't need to set LOOPS_HAVE_PREHEADERS generally, but due
+     to several overly conservative bail-outs in jump threading, case
+     gcc.dg/tree-ssa/pr21417.c can't be threaded if loop preheader is
+     missing.  We should improve jump threading in future then
+     LOOPS_HAVE_PREHEADERS won't be needed here.  */
+  loop_optimizer_init (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES);
 
   /* Initialize the value-handle array.  */
   threadedge_initialize_values ();
@@ -829,12 +904,12 @@ tree_ssa_dominator_optimize (void)
   mark_dfs_back_edges ();
 
   /* Recursively walk the dominator tree optimizing statements.  */
-  dom_opt_dom_walker (CDI_DOMINATORS).walk (cfun->cfg->x_entry_block_ptr);
+  dom_opt_dom_walker (CDI_DOMINATORS).walk (fun->cfg->x_entry_block_ptr);
 
   {
     gimple_stmt_iterator gsi;
     basic_block bb;
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, fun)
       {
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  update_stmt_if_modified (gsi_stmt (gsi));
@@ -870,13 +945,13 @@ tree_ssa_dominator_optimize (void)
 	 iterator.  */
       EXECUTE_IF_SET_IN_BITMAP (need_eh_cleanup, 0, i, bi)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
+	  basic_block bb = BASIC_BLOCK_FOR_FN (fun, i);
 	  if (bb == NULL)
 	    continue;
 	  while (single_succ_p (bb)
 		 && (single_succ_edge (bb)->flags & EDGE_EH) == 0)
 	    bb = single_succ (bb);
-	  if (bb == EXIT_BLOCK_PTR)
+	  if (bb == EXIT_BLOCK_PTR_FOR_FN (fun))
 	    continue;
 	  if ((unsigned) bb->index != i)
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
@@ -886,11 +961,11 @@ tree_ssa_dominator_optimize (void)
       bitmap_clear (need_eh_cleanup);
     }
 
-  statistics_counter_event (cfun, "Redundant expressions eliminated",
+  statistics_counter_event (fun, "Redundant expressions eliminated",
 			    opt_stats.num_re);
-  statistics_counter_event (cfun, "Constants propagated",
+  statistics_counter_event (fun, "Constants propagated",
 			    opt_stats.num_const_prop);
-  statistics_counter_event (cfun, "Copies propagated",
+  statistics_counter_event (fun, "Copies propagated",
 			    opt_stats.num_copy_prop);
 
   /* Debugging dumps.  */
@@ -900,7 +975,8 @@ tree_ssa_dominator_optimize (void)
   loop_optimizer_finalize ();
 
   /* Delete our main hashtable.  */
-  avail_exprs.dispose ();
+  delete avail_exprs;
+  avail_exprs = NULL;
 
   /* Free asserted bitmaps and stacks.  */
   BITMAP_FREE (need_eh_cleanup);
@@ -913,45 +989,6 @@ tree_ssa_dominator_optimize (void)
 
   return 0;
 }
-
-static bool
-gate_dominator (void)
-{
-  return flag_tree_dom != 0;
-}
-
-namespace {
-
-const pass_data pass_data_dominator =
-{
-  GIMPLE_PASS, /* type */
-  "dom", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_TREE_SSA_DOMINATOR_OPTS, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  ( TODO_cleanup_cfg | TODO_update_ssa
-    | TODO_verify_ssa
-    | TODO_verify_flow ), /* todo_flags_finish */
-};
-
-class pass_dominator : public gimple_opt_pass
-{
-public:
-  pass_dominator (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_dominator, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dominator (m_ctxt); }
-  bool gate () { return gate_dominator (); }
-  unsigned int execute () { return tree_ssa_dominator_optimize (); }
-
-}; // class pass_dominator
 
 } // anon namespace
 
@@ -1033,9 +1070,9 @@ remove_local_expressions_from_table (void)
           print_expr_hash_elt (dump_file, victim);
         }
 
-      slot = avail_exprs.find_slot_with_hash (victim, victim->hash, NO_INSERT);
+      slot = avail_exprs->find_slot (victim, NO_INSERT);
       gcc_assert (slot && *slot == victim);
-      avail_exprs.clear_slot (slot);
+      avail_exprs->clear_slot (slot);
     }
 }
 
@@ -1194,7 +1231,8 @@ record_equivalences_from_phis (basic_block bb)
 	 this, since this is a true assignment and not an equivalence
 	 inferred from a comparison.  All uses of this ssa name are dominated
 	 by this assignment, so unwinding just costs time and space.  */
-      if (i == gimple_phi_num_args (phi) && may_propagate_copy (lhs, rhs))
+      if (i == gimple_phi_num_args (phi)
+	  && may_propagate_copy (lhs, rhs))
 	set_ssa_name_value (lhs, rhs);
     }
 }
@@ -1314,7 +1352,7 @@ dump_dominator_optimization_stats (FILE *file)
   fprintf (file, "\nHash table statistics:\n");
 
   fprintf (file, "    avail_exprs: ");
-  htab_statistics (file, avail_exprs);
+  htab_statistics (file, *avail_exprs);
 }
 
 
@@ -1330,7 +1368,7 @@ debug_dominator_optimization_stats (void)
 /* Dump statistics for the hash table HTAB.  */
 
 static void
-htab_statistics (FILE *file, hash_table <expr_elt_hasher> htab)
+htab_statistics (FILE *file, const hash_table<expr_elt_hasher> &htab)
 {
   fprintf (file, "size %ld, %ld elements, %f collision/search ratio\n",
 	   (long) htab.size (),
@@ -1351,7 +1389,7 @@ record_cond (cond_equivalence *p)
 
   initialize_hash_element_from_expr (&p->cond, p->value, element);
 
-  slot = avail_exprs.find_slot_with_hash (element, element->hash, INSERT);
+  slot = avail_exprs->find_slot_with_hash (element, element->hash, INSERT);
   if (*slot == NULL)
     {
       *slot = element;
@@ -1529,33 +1567,6 @@ record_const_or_copy_1 (tree x, tree y, tree prev_x)
   const_and_copies_stack.quick_push (x);
 }
 
-/* Return the loop depth of the basic block of the defining statement of X.
-   This number should not be treated as absolutely correct because the loop
-   information may not be completely up-to-date when dom runs.  However, it
-   will be relatively correct, and as more passes are taught to keep loop info
-   up to date, the result will become more and more accurate.  */
-
-int
-loop_depth_of_name (tree x)
-{
-  gimple defstmt;
-  basic_block defbb;
-
-  /* If it's not an SSA_NAME, we have no clue where the definition is.  */
-  if (TREE_CODE (x) != SSA_NAME)
-    return 0;
-
-  /* Otherwise return the loop depth of the defining statement's bb.
-     Note that there may not actually be a bb for this statement, if the
-     ssa_name is live on entry.  */
-  defstmt = SSA_NAME_DEF_STMT (x);
-  defbb = gimple_bb (defstmt);
-  if (!defbb)
-    return 0;
-
-  return bb_loop_depth (defbb);
-}
-
 /* Record that X is equal to Y in const_and_copies.  Record undo
    information in the block-local vector.  */
 
@@ -1574,6 +1585,33 @@ record_const_or_copy (tree x, tree y)
     }
 
   record_const_or_copy_1 (x, y, prev_x);
+}
+
+/* Return the loop depth of the basic block of the defining statement of X.
+   This number should not be treated as absolutely correct because the loop
+   information may not be completely up-to-date when dom runs.  However, it
+   will be relatively correct, and as more passes are taught to keep loop info
+   up to date, the result will become more and more accurate.  */
+
+static int
+loop_depth_of_name (tree x)
+{
+  gimple defstmt;
+  basic_block defbb;
+
+  /* If it's not an SSA_NAME, we have no clue where the definition is.  */
+  if (TREE_CODE (x) != SSA_NAME)
+    return 0;
+
+  /* Otherwise return the loop depth of the defining statement's bb.
+     Note that there may not actually be a bb for this statement, if the
+     ssa_name is live on entry.  */
+  defstmt = SSA_NAME_DEF_STMT (x);
+  defbb = gimple_bb (defstmt);
+  if (!defbb)
+    return 0;
+
+  return bb_loop_depth (defbb);
 }
 
 /* Similarly, but assume that X and Y are the two operands of an EQ_EXPR.
@@ -1596,6 +1634,8 @@ record_equality (tree x, tree y)
   if (is_gimple_min_invariant (y))
     ;
   else if (is_gimple_min_invariant (x)
+	   /* ???  When threading over backedges the following is important
+	      for correctness.  See PR61757.  */
 	   || (loop_depth_of_name (x) <= loop_depth_of_name (y)))
     prev_x = x, x = y, y = prev_x, prev_x = prev_y;
   else if (prev_x && is_gimple_min_invariant (prev_x))
@@ -1761,7 +1801,7 @@ record_edge_info (basic_block bb)
 	    {
 	      int i;
               int n_labels = gimple_switch_num_labels (stmt);
-	      tree *info = XCNEWVEC (tree, last_basic_block);
+	      tree *info = XCNEWVEC (tree, last_basic_block_for_fn (cfun));
 	      edge e;
 	      edge_iterator ei;
 
@@ -2207,22 +2247,6 @@ cprop_operand (gimple stmt, use_operand_p op_p)
       if (!may_propagate_copy (op, val))
 	return;
 
-      /* Do not propagate addresses that point to volatiles into memory
-	 stmts without volatile operands.  */
-      if (POINTER_TYPE_P (TREE_TYPE (val))
-	  && TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (val)))
-	  && gimple_has_mem_ops (stmt)
-	  && !gimple_has_volatile_ops (stmt))
-	return;
-
-      /* Do not propagate copies if the propagated value is at a deeper loop
-	 depth than the propagatee.  Otherwise, this may move loop variant
-	 variables outside of their loops and prevent coalescing
-	 opportunities.  If the value was loop invariant, it will be hoisted
-	 by LICM and exposed for copy propagation.  */
-      if (loop_depth_of_name (val) > loop_depth_of_name (op))
-	return;
-
       /* Do not propagate copies into simple IV increment statements.
          See PR23821 for how this can disturb IV analysis.  */
       if (TREE_CODE (val) != INTEGER_CST
@@ -2514,8 +2538,7 @@ lookup_avail_expr (gimple stmt, bool insert)
     return NULL_TREE;
 
   /* Finally try to find the expression in the main expression hash table.  */
-  slot = avail_exprs.find_slot_with_hash (&element, element.hash,
-					  (insert ? INSERT : NO_INSERT));
+  slot = avail_exprs->find_slot (&element, (insert ? INSERT : NO_INSERT));
   if (slot == NULL)
     {
       free_expr_hash_elt_contents (&element);
@@ -2573,24 +2596,24 @@ avail_expr_hash (const void *p)
   gimple stmt = ((const struct expr_hash_elt *)p)->stmt;
   const struct hashable_expr *expr = &((const struct expr_hash_elt *)p)->expr;
   tree vuse;
-  hashval_t val = 0;
+  inchash::hash hstate;
 
-  val = iterative_hash_hashable_expr (expr, val);
+  inchash::add_hashable_expr (expr, hstate);
 
   /* If the hash table entry is not associated with a statement, then we
      can just hash the expression and not worry about virtual operands
      and such.  */
   if (!stmt)
-    return val;
+    return hstate.end ();
 
   /* Add the SSA version numbers of the vuse operand.  This is important
      because compound variables like arrays are not renamed in the
      operands.  Rather, the rename is done on the virtual variable
      representing all the elements of the array.  */
   if ((vuse = gimple_vuse (stmt)))
-    val = iterative_hash_expr (vuse, val);
+    inchash::add_expr (vuse, hstate);
 
-  return val;
+  return hstate.end ();
 }
 
 /* PHI-ONLY copy and constant propagation.  This pass is meant to clean
@@ -2657,13 +2680,8 @@ get_lhs_or_phi_result (gimple stmt)
 static void
 propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_names)
 {
-  /* First verify that propagation is valid and isn't going to move a
-     loop variant variable outside its loop.  */
-  if (! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs)
-      && (TREE_CODE (rhs) != SSA_NAME
-	  || ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
-      && may_propagate_copy (lhs, rhs)
-      && loop_depth_of_name (lhs) >= loop_depth_of_name (rhs))
+  /* First verify that propagation is valid.  */
+  if (may_propagate_copy (lhs, rhs))
     {
       use_operand_p use_p;
       imm_use_iterator iter;
@@ -2994,8 +3012,37 @@ eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
    pick up the secondary optimization opportunities with minimal
    cost.  */
 
-static unsigned int
-eliminate_degenerate_phis (void)
+namespace {
+
+const pass_data pass_data_phi_only_cprop =
+{
+  GIMPLE_PASS, /* type */
+  "phicprop", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_TREE_PHI_CPROP, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_cleanup_cfg | TODO_update_ssa ), /* todo_flags_finish */
+};
+
+class pass_phi_only_cprop : public gimple_opt_pass
+{
+public:
+  pass_phi_only_cprop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_phi_only_cprop, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_phi_only_cprop (m_ctxt); }
+  virtual bool gate (function *) { return flag_tree_dom != 0; }
+  virtual unsigned int execute (function *);
+
+}; // class pass_phi_only_cprop
+
+unsigned int
+pass_phi_only_cprop::execute (function *fun)
 {
   bitmap interesting_names;
   bitmap interesting_names1;
@@ -3028,7 +3075,8 @@ eliminate_degenerate_phis (void)
      phase in dominator order.  Presumably this is because walking
      in dominator order leaves fewer PHIs for later examination
      by the worklist phase.  */
-  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR, interesting_names);
+  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR_FOR_FN (fun),
+			       interesting_names);
 
   /* Second phase.  Eliminate second order degenerate PHIs as well
      as trivial copies or constant initializations identified by
@@ -3060,8 +3108,7 @@ eliminate_degenerate_phis (void)
     {
       free_dominance_info (CDI_DOMINATORS);
       /* If we changed the CFG schedule loops for fixup by cfgcleanup.  */
-      if (current_loops)
-	loops_state_set (LOOPS_NEED_FIXUP);
+      loops_state_set (LOOPS_NEED_FIXUP);
     }
 
   /* Propagation of const and copies may make some EH edges dead.  Purge
@@ -3076,39 +3123,6 @@ eliminate_degenerate_phis (void)
   BITMAP_FREE (interesting_names1);
   return 0;
 }
-
-namespace {
-
-const pass_data pass_data_phi_only_cprop =
-{
-  GIMPLE_PASS, /* type */
-  "phicprop", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_TREE_PHI_CPROP, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  ( TODO_cleanup_cfg | TODO_verify_ssa
-    | TODO_verify_stmts
-    | TODO_update_ssa ), /* todo_flags_finish */
-};
-
-class pass_phi_only_cprop : public gimple_opt_pass
-{
-public:
-  pass_phi_only_cprop (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_phi_only_cprop, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  opt_pass * clone () { return new pass_phi_only_cprop (m_ctxt); }
-  bool gate () { return gate_dominator (); }
-  unsigned int execute () { return eliminate_degenerate_phis (); }
-
-}; // class pass_phi_only_cprop
 
 } // anon namespace
 

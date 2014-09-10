@@ -1,5 +1,5 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,31 +22,41 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "target.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
-#include "tree-ssa-loop.h"
+#include "tree-ssa-loop-manip.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
+#include "hash-map.h"
 #include "hashtab.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "cfgloop.h"
+#include "cfgexpand.h"
 
 /* Pointer map of variable mappings, keyed by edge.  */
-static struct pointer_map_t *edge_var_maps;
+static hash_map<edge, auto_vec<edge_var_map> > *edge_var_maps;
 
 
 /* Add a mapping with PHI RESULT and PHI DEF associated with edge E.  */
@@ -54,23 +64,17 @@ static struct pointer_map_t *edge_var_maps;
 void
 redirect_edge_var_map_add (edge e, tree result, tree def, source_location locus)
 {
-  void **slot;
-  edge_var_map_vector *head;
   edge_var_map new_node;
 
   if (edge_var_maps == NULL)
-    edge_var_maps = pointer_map_create ();
+    edge_var_maps = new hash_map<edge, auto_vec<edge_var_map> >;
 
-  slot = pointer_map_insert (edge_var_maps, e);
-  head = (edge_var_map_vector *) *slot;
-  if (!head)
-    vec_safe_reserve (head, 5);
+  auto_vec<edge_var_map> &slot = edge_var_maps->get_or_insert (e);
   new_node.def = def;
   new_node.result = result;
   new_node.locus = locus;
 
-  vec_safe_push (head, new_node);
-  *slot = head;
+  slot.safe_push (new_node);
 }
 
 
@@ -79,82 +83,52 @@ redirect_edge_var_map_add (edge e, tree result, tree def, source_location locus)
 void
 redirect_edge_var_map_clear (edge e)
 {
-  void **slot;
-  edge_var_map_vector *head;
-
   if (!edge_var_maps)
     return;
 
-  slot = pointer_map_contains (edge_var_maps, e);
+  auto_vec<edge_var_map> *head = edge_var_maps->get (e);
 
-  if (slot)
-    {
-      head = (edge_var_map_vector *) *slot;
-      vec_free (head);
-      *slot = NULL;
-    }
+  if (head)
+    head->release ();
 }
 
 
 /* Duplicate the redirected var mappings in OLDE in NEWE.
 
-   Since we can't remove a mapping, let's just duplicate it.  This assumes a
-   pointer_map can have multiple edges mapping to the same var_map (many to
-   one mapping), since we don't remove the previous mappings.  */
+   This assumes a hash_map can have multiple edges mapping to the same
+   var_map (many to one mapping), since we don't remove the previous mappings.
+   */
 
 void
 redirect_edge_var_map_dup (edge newe, edge olde)
 {
-  void **new_slot, **old_slot;
-  edge_var_map_vector *head;
-
   if (!edge_var_maps)
     return;
 
-  new_slot = pointer_map_insert (edge_var_maps, newe);
-  old_slot = pointer_map_contains (edge_var_maps, olde);
-  if (!old_slot)
+  auto_vec<edge_var_map> *new_head = &edge_var_maps->get_or_insert (newe);
+  auto_vec<edge_var_map> *old_head = edge_var_maps->get (olde);
+  if (!old_head)
     return;
-  head = (edge_var_map_vector *) *old_slot;
 
-  edge_var_map_vector *new_head = NULL;
-  if (head)
-    new_head = vec_safe_copy (head);
-  else
-    vec_safe_reserve (new_head, 5);
-  *new_slot = new_head;
+  new_head->safe_splice (*old_head);
 }
 
 
 /* Return the variable mappings for a given edge.  If there is none, return
    NULL.  */
 
-edge_var_map_vector *
+vec<edge_var_map> *
 redirect_edge_var_map_vector (edge e)
 {
-  void **slot;
-
   /* Hey, what kind of idiot would... you'd be surprised.  */
   if (!edge_var_maps)
     return NULL;
 
-  slot = pointer_map_contains (edge_var_maps, e);
+  auto_vec<edge_var_map> *slot = edge_var_maps->get (e);
   if (!slot)
     return NULL;
 
-  return (edge_var_map_vector *) *slot;
-}
-
-/* Used by redirect_edge_var_map_destroy to free all memory.  */
-
-static bool
-free_var_map_entry (const void *key ATTRIBUTE_UNUSED,
-		    void **value,
-		    void *data ATTRIBUTE_UNUSED)
-{
-  edge_var_map_vector *head = (edge_var_map_vector *) *value;
-  vec_free (head);
-  return true;
+  return slot;
 }
 
 /* Clear the edge variable mappings.  */
@@ -162,12 +136,8 @@ free_var_map_entry (const void *key ATTRIBUTE_UNUSED,
 void
 redirect_edge_var_map_destroy (void)
 {
-  if (edge_var_maps)
-    {
-      pointer_map_traverse (edge_var_maps, free_var_map_entry, NULL);
-      pointer_map_destroy (edge_var_maps);
-      edge_var_maps = NULL;
-    }
+  delete edge_var_maps;
+  edge_var_maps = NULL;
 }
 
 
@@ -213,12 +183,11 @@ void
 flush_pending_stmts (edge e)
 {
   gimple phi;
-  edge_var_map_vector *v;
   edge_var_map *vm;
   int i;
   gimple_stmt_iterator gsi;
 
-  v = redirect_edge_var_map_vector (e);
+  vec<edge_var_map> *v = redirect_edge_var_map_vector (e);
   if (!v)
     return;
 
@@ -235,100 +204,6 @@ flush_pending_stmts (edge e)
 
   redirect_edge_var_map_clear (e);
 }
-
-
-/* Data structure used to count the number of dereferences to PTR
-   inside an expression.  */
-struct count_ptr_d
-{
-  tree ptr;
-  unsigned num_stores;
-  unsigned num_loads;
-};
-
-
-/* Helper for count_uses_and_derefs.  Called by walk_tree to look for
-   (ALIGN/MISALIGNED_)INDIRECT_REF nodes for the pointer passed in DATA.  */
-
-static tree
-count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
-{
-  struct walk_stmt_info *wi_p = (struct walk_stmt_info *) data;
-  struct count_ptr_d *count_p = (struct count_ptr_d *) wi_p->info;
-
-  /* Do not walk inside ADDR_EXPR nodes.  In the expression &ptr->fld,
-     pointer 'ptr' is *not* dereferenced, it is simply used to compute
-     the address of 'fld' as 'ptr + offsetof(fld)'.  */
-  if (TREE_CODE (*tp) == ADDR_EXPR)
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-
-  if (TREE_CODE (*tp) == MEM_REF && TREE_OPERAND (*tp, 0) == count_p->ptr)
-    {
-      if (wi_p->is_lhs)
-	count_p->num_stores++;
-      else
-	count_p->num_loads++;
-    }
-
-  return NULL_TREE;
-}
-
-
-/* Count the number of direct and indirect uses for pointer PTR in
-   statement STMT.  The number of direct uses is stored in
-   *NUM_USES_P.  Indirect references are counted separately depending
-   on whether they are store or load operations.  The counts are
-   stored in *NUM_STORES_P and *NUM_LOADS_P.  */
-
-void
-count_uses_and_derefs (tree ptr, gimple stmt, unsigned *num_uses_p,
-		       unsigned *num_loads_p, unsigned *num_stores_p)
-{
-  ssa_op_iter i;
-  tree use;
-
-  *num_uses_p = 0;
-  *num_loads_p = 0;
-  *num_stores_p = 0;
-
-  /* Find out the total number of uses of PTR in STMT.  */
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, i, SSA_OP_USE)
-    if (use == ptr)
-      (*num_uses_p)++;
-
-  /* Now count the number of indirect references to PTR.  This is
-     truly awful, but we don't have much choice.  There are no parent
-     pointers inside INDIRECT_REFs, so an expression like
-     '*x_1 = foo (x_1, *x_1)' needs to be traversed piece by piece to
-     find all the indirect and direct uses of x_1 inside.  The only
-     shortcut we can take is the fact that GIMPLE only allows
-     INDIRECT_REFs inside the expressions below.  */
-  if (is_gimple_assign (stmt)
-      || gimple_code (stmt) == GIMPLE_RETURN
-      || gimple_code (stmt) == GIMPLE_ASM
-      || is_gimple_call (stmt))
-    {
-      struct walk_stmt_info wi;
-      struct count_ptr_d count;
-
-      count.ptr = ptr;
-      count.num_stores = 0;
-      count.num_loads = 0;
-
-      memset (&wi, 0, sizeof (wi));
-      wi.info = &count;
-      walk_gimple_op (stmt, count_ptr_derefs, &wi);
-
-      *num_stores_p = count.num_stores;
-      *num_loads_p = count.num_loads;
-    }
-
-  gcc_assert (*num_uses_p >= *num_loads_p + *num_stores_p);
-}
-
 
 /* Replace the LHS of STMT, an assignment, either a GIMPLE_ASSIGN or a
    GIMPLE_CALL, with NLHS, in preparation for modifying the RHS to an
@@ -1043,7 +918,7 @@ error:
    TODO: verify the variable annotations.  */
 
 DEBUG_FUNCTION void
-verify_ssa (bool check_modified_stmt)
+verify_ssa (bool check_modified_stmt, bool check_ssa_operands)
 {
   size_t i;
   basic_block bb;
@@ -1072,9 +947,9 @@ verify_ssa (bool check_modified_stmt)
 	  if (!gimple_nop_p (stmt))
 	    {
 	      basic_block bb = gimple_bb (stmt);
-	      verify_def (bb, definition_block,
-			  name, stmt, virtual_operand_p (name));
-
+	      if (verify_def (bb, definition_block,
+			      name, stmt, virtual_operand_p (name)))
+		goto err;
 	    }
 	}
     }
@@ -1083,7 +958,7 @@ verify_ssa (bool check_modified_stmt)
 
   /* Now verify all the uses and make sure they agree with the definitions
      found in the previous pass.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       gimple phi;
@@ -1126,7 +1001,7 @@ verify_ssa (bool check_modified_stmt)
 	      goto err;
 	    }
 
-	  if (verify_ssa_operands (stmt))
+	  if (check_ssa_operands && verify_ssa_operands (cfun, stmt))
 	    {
 	      print_gimple_stmt (stderr, stmt, 0, TDF_VOPS);
 	      goto err;
@@ -1204,7 +1079,7 @@ uid_ssaname_map_hash (const void *item)
 void
 init_tree_ssa (struct function *fn)
 {
-  fn->gimple_df = ggc_alloc_cleared_gimple_df ();
+  fn->gimple_df = ggc_cleared_alloc<gimple_df> ();
   fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash,
 				                 uid_ssaname_map_eq, NULL);
   pt_solution_reset (&fn->gimple_df->escaped);
@@ -1223,15 +1098,6 @@ execute_init_datastructures (void)
   return 0;
 }
 
-/* Gate for IPCP optimization.  */
-
-static bool
-gate_init_datastructures (void)
-{
-  /* Do nothing for funcions that was produced already in SSA form.  */
-  return !(cfun->curr_properties & PROP_ssa);
-}
-
 namespace {
 
 const pass_data pass_data_init_datastructures =
@@ -1239,8 +1105,6 @@ const pass_data pass_data_init_datastructures =
   GIMPLE_PASS, /* type */
   "*init_datastructures", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */
@@ -1257,8 +1121,16 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_init_datastructures (); }
-  unsigned int execute () { return execute_init_datastructures (); }
+  virtual bool gate (function *fun)
+    {
+      /* Do nothing for funcions that was produced already in SSA form.  */
+      return !(fun->curr_properties & PROP_ssa);
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return execute_init_datastructures ();
+    }
 
 }; // class pass_init_datastructures
 
@@ -1279,13 +1151,13 @@ delete_tree_ssa (void)
 
   /* We no longer maintain the SSA operand cache at this point.  */
   if (ssa_operands_active (cfun))
-    fini_ssa_operands ();
+    fini_ssa_operands (cfun);
 
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
   pt_solution_reset (&cfun->gimple_df->escaped);
   if (cfun->gimple_df->decls_to_pointers != NULL)
-    pointer_map_destroy (cfun->gimple_df->decls_to_pointers);
+    delete cfun->gimple_df->decls_to_pointers;
   cfun->gimple_df->decls_to_pointers = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
   cfun->gimple_df = NULL;
@@ -1332,6 +1204,7 @@ tree_ssa_strip_useless_type_conversions (tree exp)
 bool
 ssa_undefined_value_p (tree t)
 {
+  gimple def_stmt;
   tree var = SSA_NAME_VAR (t);
 
   if (!var)
@@ -1348,7 +1221,22 @@ ssa_undefined_value_p (tree t)
     return false;
 
   /* The value is undefined iff its definition statement is empty.  */
-  return gimple_nop_p (SSA_NAME_DEF_STMT (t));
+  def_stmt = SSA_NAME_DEF_STMT (t);
+  if (gimple_nop_p (def_stmt))
+    return true;
+
+  /* Check if the complex was not only partially defined.  */
+  if (is_gimple_assign (def_stmt)
+      && gimple_assign_rhs_code (def_stmt) == COMPLEX_EXPR)
+    {
+      tree rhs1, rhs2;
+
+      rhs1 = gimple_assign_rhs1 (def_stmt);
+      rhs2 = gimple_assign_rhs2 (def_stmt);
+      return (TREE_CODE (rhs1) == SSA_NAME && ssa_undefined_value_p (rhs1))
+	     || (TREE_CODE (rhs2) == SSA_NAME && ssa_undefined_value_p (rhs2));
+    }
+  return false;
 }
 
 
@@ -1426,9 +1314,9 @@ non_rewritable_mem_ref_base (tree ref)
 	   || TREE_CODE (TREE_TYPE (decl)) == COMPLEX_TYPE)
 	  && useless_type_conversion_p (TREE_TYPE (base),
 					TREE_TYPE (TREE_TYPE (decl)))
-	  && mem_ref_offset (base).fits_uhwi ()
-	  && tree_to_double_int (TYPE_SIZE_UNIT (TREE_TYPE (decl)))
-	     .ugt (mem_ref_offset (base))
+	  && wi::fits_uhwi_p (mem_ref_offset (base))
+	  && wi::gtu_p (wi::to_offset (TYPE_SIZE_UNIT (TREE_TYPE (decl))),
+			mem_ref_offset (base))
 	  && multiple_of_p (sizetype, TREE_OPERAND (base, 1),
 			    TYPE_SIZE_UNIT (TREE_TYPE (base))))
 	return NULL_TREE;
@@ -1540,7 +1428,7 @@ execute_update_addresses_taken (void)
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within
      the function body.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -1642,7 +1530,7 @@ execute_update_addresses_taken (void)
      variables and operands need to be rewritten to expose bare symbols.  */
   if (!bitmap_empty_p (suitable_for_renaming))
     {
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	  {
 	    gimple stmt = gsi_stmt (gsi);
@@ -1770,8 +1658,6 @@ const pass_data pass_data_update_address_taken =
   GIMPLE_PASS, /* type */
   "addressables", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  false, /* has_execute */
   TV_ADDRESS_TAKEN, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */

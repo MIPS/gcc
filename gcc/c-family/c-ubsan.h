@@ -1,5 +1,5 @@
 /* UndefinedBehaviorSanitizer, undefined behavior detector.
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
    Contributed by Marek Polacek <polacek@redhat.com>
 
 This file is part of GCC.
@@ -23,5 +23,12 @@ along with GCC; see the file COPYING3.  If not see
 
 extern tree ubsan_instrument_division (location_t, tree, tree);
 extern tree ubsan_instrument_shift (location_t, enum tree_code, tree, tree);
+extern tree ubsan_instrument_vla (location_t, tree);
+extern tree ubsan_instrument_return (location_t);
+extern tree ubsan_instrument_bounds (location_t, tree, tree *, bool);
+extern bool ubsan_array_ref_instrumented_p (const_tree);
+extern void ubsan_maybe_instrument_array_ref (tree *, bool);
+extern void ubsan_maybe_instrument_reference (tree);
+extern void ubsan_maybe_instrument_member_call (tree, bool);
 
 #endif  /* GCC_C_UBSAN_H  */

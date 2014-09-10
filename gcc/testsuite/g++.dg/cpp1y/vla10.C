@@ -1,5 +1,5 @@
 // PR c++/57402
-// { dg-options "-std=c++1y -pedantic-errors" }
+// { dg-do compile { target c++14 } }
 
 int i = 2;
 

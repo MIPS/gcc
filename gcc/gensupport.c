@@ -1,5 +1,5 @@
 /* Support routines for the various generation passes.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -2806,7 +2806,12 @@ static const struct std_pred_table std_preds[] = {
   {"scratch_operand", false, false, {SCRATCH, REG}},
   {"immediate_operand", false, true, {UNKNOWN}},
   {"const_int_operand", false, false, {CONST_INT}},
+#if TARGET_SUPPORTS_WIDE_INT
+  {"const_scalar_int_operand", false, false, {CONST_INT, CONST_WIDE_INT}},
+  {"const_double_operand", false, false, {CONST_DOUBLE}},
+#else
   {"const_double_operand", false, false, {CONST_INT, CONST_DOUBLE}},
+#endif
   {"nonimmediate_operand", false, false, {SUBREG, REG, MEM}},
   {"nonmemory_operand", false, true, {SUBREG, REG}},
   {"push_operand", false, false, {MEM}},

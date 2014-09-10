@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,6 +37,7 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch5;  use Sem_Ch5;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
@@ -45,7 +46,6 @@ with Sem_Util; use Sem_Util;
 with Sem_Warn; use Sem_Warn;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
-with Uintp;    use Uintp;
 
 package body Sem_Ch11 is
 
@@ -60,7 +60,6 @@ package body Sem_Ch11 is
       Generate_Definition         (Id);
       Enter_Name                  (Id);
       Set_Ekind                   (Id, E_Exception);
-      Set_Exception_Code          (Id, Uint_0);
       Set_Etype                   (Id, Standard_Exception_Type);
       Set_Is_Statically_Allocated (Id);
       Set_Is_Pure                 (Id, PF);
@@ -434,7 +433,11 @@ package body Sem_Ch11 is
       Exception_Name : Entity_Id        := Empty;
 
    begin
-      Check_SPARK_Restriction ("raise expression is not allowed", N);
+      if Comes_From_Source (N) then
+         Check_Compiler_Unit ("raise expression", N);
+      end if;
+
+      Check_SPARK_05_Restriction ("raise expression is not allowed", N);
 
       --  Check exception restrictions on the original source
 
@@ -460,7 +463,6 @@ package body Sem_Ch11 is
       --  Deal with RAISE WITH case
 
       if Present (Expression (N)) then
-         Check_Compiler_Unit (Expression (N));
          Analyze_And_Resolve (Expression (N), Standard_String);
       end if;
 
@@ -474,9 +476,11 @@ package body Sem_Ch11 is
 
       Kill_Current_Values (Last_Assignment_Only => True);
 
-      --  Set type as Any_Type since we have no information at all on the type
+      --  Raise_Type is compatible with all other types so that the raise
+      --  expression is legal in any expression context. It will be eventually
+      --  replaced by the concrete type imposed by the context.
 
-      Set_Etype (N, Any_Type);
+      Set_Etype (N, Raise_Type);
    end Analyze_Raise_Expression;
 
    -----------------------------
@@ -491,7 +495,7 @@ package body Sem_Ch11 is
 
    begin
       if Comes_From_Source (N) then
-         Check_SPARK_Restriction ("raise statement is not allowed", N);
+         Check_SPARK_05_Restriction ("raise statement is not allowed", N);
       end if;
 
       Check_Unreachable_Code (N);
@@ -533,6 +537,13 @@ package body Sem_Ch11 is
                if Is_Scalar_Type (Etype (L))
                  and then Is_Entity_Name (L)
                  and then Is_Formal (Entity (L))
+
+                 --  Do this only for parameters to the current subprogram.
+                 --  This avoids some false positives for the nested case.
+
+                 and then Nearest_Dynamic_Scope (Current_Scope) =
+                            Scope (Entity (L))
+
                then
                   --  Don't give warning if we are covered by an exception
                   --  handler, since this may result in false positives, since
@@ -619,7 +630,6 @@ package body Sem_Ch11 is
          --  Deal with RAISE WITH case
 
          if Present (Expression (N)) then
-            Check_Compiler_Unit (Expression (N));
             Analyze_And_Resolve (Expression (N), Standard_String);
          end if;
       end if;
@@ -692,7 +702,7 @@ package body Sem_Ch11 is
 
    begin
       if Nkind (Original_Node (N)) = N_Raise_Statement then
-         Check_SPARK_Restriction ("raise statement is not allowed", N);
+         Check_SPARK_05_Restriction ("raise statement is not allowed", N);
       end if;
 
       if No (Etype (N)) then
@@ -728,14 +738,5 @@ package body Sem_Ch11 is
          Rewrite (N, Make_Null_Statement (Sloc (N)));
       end if;
    end Analyze_Raise_xxx_Error;
-
-   -----------------------------
-   -- Analyze_Subprogram_Info --
-   -----------------------------
-
-   procedure Analyze_Subprogram_Info (N : Node_Id) is
-   begin
-      Set_Etype (N, RTE (RE_Code_Loc));
-   end Analyze_Subprogram_Info;
 
 end Sem_Ch11;

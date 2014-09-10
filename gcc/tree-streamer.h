@@ -1,6 +1,6 @@
 /* Data structures and functions for streaming trees.
 
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "streamer-hooks.h"
 #include "lto-streamer.h"
+#include "hash-map.h"
 
 /* Cache of pickled nodes.  Used to avoid writing the same node more
    than once.  The first time a tree node is streamed out, it is
@@ -46,12 +47,15 @@ along with GCC; see the file COPYING3.  If not see
 struct streamer_tree_cache_d
 {
   /* The mapping between tree nodes and slots into the nodes array.  */
-  pointer_map<unsigned> *node_map;
+  hash_map<tree, unsigned> *node_map;
 
   /* The nodes pickled so far.  */
   vec<tree> nodes;
   /* The node hashes (if available).  */
   vec<hashval_t> hashes;
+
+  /* Next index to assign.  */
+  unsigned next_idx;
 };
 
 /* Return true if tree node EXPR should be streamed as a builtin.  For
@@ -97,7 +101,7 @@ void streamer_tree_cache_append (struct streamer_tree_cache_d *, tree,
 				 hashval_t);
 bool streamer_tree_cache_lookup (struct streamer_tree_cache_d *, tree,
 				 unsigned *);
-struct streamer_tree_cache_d *streamer_tree_cache_create (bool, bool);
+struct streamer_tree_cache_d *streamer_tree_cache_create (bool, bool, bool);
 void streamer_tree_cache_delete (struct streamer_tree_cache_d *);
 
 /* Return the tree node at slot IX in CACHE.  */

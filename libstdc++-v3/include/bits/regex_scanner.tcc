@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -52,106 +52,22 @@ namespace __detail
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
-  template<typename _FwdIter>
-    _Scanner<_FwdIter>::
-    _Scanner(_FwdIter __begin, _FwdIter __end,
+  template<typename _CharT>
+    _Scanner<_CharT>::
+    _Scanner(typename _Scanner::_IterT __begin,
+	     typename _Scanner::_IterT __end,
 	     _FlagT __flags, std::locale __loc)
-    : _M_state(_S_state_normal), _M_current(__begin), _M_end(__end),
-      _M_flags(__flags),
+    : _ScannerBase(__flags),
+      _M_current(__begin), _M_end(__end),
       _M_ctype(std::use_facet<_CtypeT>(__loc)),
-      _M_at_bracket_start(false),
-      _M_token_map
-	{
-	  {'^', _S_token_line_begin},
-	  {'$', _S_token_line_end},
-	  {'.', _S_token_anychar},
-	  {'*', _S_token_closure0},
-	  {'+', _S_token_closure1},
-	  {'?', _S_token_opt},
-	  {'|', _S_token_or},
-	  // grep and egrep
-	  {'\n', _S_token_or},
-	},
-      _M_ecma_escape_map
-	{
-	  {'0', '\0'},
-	  {'b', '\b'},
-	  {'f', '\f'},
-	  {'n', '\n'},
-	  {'r', '\r'},
-	  {'t', '\t'},
-	  {'v', '\v'},
-	},
-      _M_awk_escape_map
-	{
-	  {'"', '"'},
-	  {'/', '/'},
-	  {'\\', '\\'},
-	  {'a', '\a'},
-	  {'b', '\b'},
-	  {'f', '\f'},
-	  {'n', '\n'},
-	  {'r', '\r'},
-	  {'t', '\t'},
-	  {'v', '\v'},
-	},
-      _M_ecma_spec_char
-	{
-	  '^',
-	  '$',
-	  '\\',
-	  '.',
-	  '*',
-	  '+',
-	  '?',
-	  '(',
-	  ')',
-	  '[',
-	  ']',
-	  '{',
-	  '}',
-	  '|',
-	},
-      _M_basic_spec_char
-	{
-	  '.',
-	  '[',
-	  '\\',
-	  '*',
-	  '^',
-	  '$',
-	},
-      _M_extended_spec_char
-	{
-	  '.',
-	  '[',
-	  '\\',
-	  '(',
-	  ')',
-	  '*',
-	  '+',
-	  '?',
-	  '{',
-	  '|',
-	  '^',
-	  '$',
-	},
-      _M_escape_map(_M_is_ecma()
-		    ? _M_ecma_escape_map
-		    : _M_awk_escape_map),
-      _M_spec_char(_M_is_ecma()
-		   ? _M_ecma_spec_char
-		   : _M_is_basic()
-		   ? _M_basic_spec_char
-		   : _M_extended_spec_char),
       _M_eat_escape(_M_is_ecma()
 		    ? &_Scanner::_M_eat_escape_ecma
 		    : &_Scanner::_M_eat_escape_posix)
     { _M_advance(); }
 
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_advance()
     {
       if (_M_current == _M_end)
@@ -173,12 +89,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // Differences between styles:
   // 1) "\(", "\)", "\{" in basic. It's not escaping.
   // 2) "(?:", "(?=", "(?!" in ECMAScript.
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_scan_normal()
     {
       auto __c = *_M_current++;
+      const char* __pos;
 
       if (__c == '\\')
 	{
@@ -222,6 +139,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      else
 		__throw_regex_error(regex_constants::error_paren);
 	    }
+	  else if (_M_flags & regex_constants::nosubs)
+	    _M_token = _S_token_subexpr_no_group_begin;
 	  else
 	    _M_token = _S_token_subexpr_begin;
 	}
@@ -244,11 +163,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _M_state = _S_state_in_brace;
 	  _M_token = _S_token_interval_begin;
 	}
-      else if ((_M_spec_char.count(_M_ctype.narrow(__c, '\0'))
+      else if (((__pos = std::strchr(_M_spec_char, _M_ctype.narrow(__c, '\0')))
+		  != nullptr
+		&& *__pos != '\0'
 		&& __c != ']'
 		&& __c != '}')
 	       || (_M_is_grep() && __c == '\n'))
-	_M_token = _M_token_map.at(__c);
+	{
+	  auto __it = _M_token_tbl;
+	  auto __narrowc = _M_ctype.narrow(__c, '\0');
+	  for (; __it->first != '\0'; ++__it)
+	    if (__it->first == __narrowc)
+	      {
+		_M_token = __it->second;
+		return;
+	      }
+	  _GLIBCXX_DEBUG_ASSERT(false);
+	}
       else
 	{
 	  _M_token = _S_token_ord_char;
@@ -259,9 +190,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // Differences between styles:
   // 1) different semantics of "[]" and "[^]".
   // 2) Escaping in bracket expr.
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_scan_in_bracket()
     {
       if (_M_current == _M_end)
@@ -296,14 +227,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    }
 	}
       // In POSIX, when encountering "[]" or "[^]", the ']' is interpreted
-      // literally. So "[]]" or "[^]]" is valid regex. See the testcases
+      // literally. So "[]]" and "[^]]" are valid regexes. See the testcases
       // `*/empty_range.cc`.
       else if (__c == ']' && (_M_is_ecma() || !_M_at_bracket_start))
 	{
 	  _M_token = _S_token_bracket_end;
 	  _M_state = _S_state_normal;
 	}
-      // ECMAScirpt and awk permmits escaping in bracket.
+      // ECMAScript and awk permits escaping in bracket.
       else if (__c == '\\' && (_M_is_ecma() || _M_is_awk()))
 	(this->*_M_eat_escape)();
       else
@@ -316,9 +247,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Differences between styles:
   // 1) "\}" in basic style.
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_scan_in_brace()
     {
       if (_M_current == _M_end)
@@ -357,21 +288,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	__throw_regex_error(regex_constants::error_badbrace);
     }
 
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_eat_escape_ecma()
     {
       if (_M_current == _M_end)
 	__throw_regex_error(regex_constants::error_escape);
 
       auto __c = *_M_current++;
+      auto __pos = _M_find_escape(_M_ctype.narrow(__c, '\0'));
 
-      if (_M_escape_map.count(_M_ctype.narrow(__c, '\0'))
-	  && (__c != 'b' || _M_state == _S_state_in_bracket))
+      if (__pos != nullptr && (__c != 'b' || _M_state == _S_state_in_bracket))
 	{
 	  _M_token = _S_token_ord_char;
-	  _M_value.assign(1, _M_escape_map.at(__c));
+	  _M_value.assign(1, *__pos);
 	}
       else if (__c == 'b')
 	{
@@ -404,7 +335,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       else if (__c == 'x' || __c == 'u')
 	{
 	  _M_value.erase();
-	  for (int i = 0; i < (__c == 'x' ? 2 : 4); i++)
+	  for (int __i = 0; __i < (__c == 'x' ? 2 : 4); __i++)
 	    {
 	      if (_M_current == _M_end
 		  || !_M_ctype.is(_CtypeT::xdigit, *_M_current))
@@ -413,7 +344,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    }
 	  _M_token = _S_token_hex_num;
 	}
-      // ECMAScript recongnizes multi-digit back-references.
+      // ECMAScript recognizes multi-digit back-references.
       else if (_M_ctype.is(_CtypeT::digit, __c))
 	{
 	  _M_value.assign(1, __c);
@@ -431,17 +362,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Differences between styles:
   // 1) Extended doesn't support backref, but basic does.
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_eat_escape_posix()
     {
       if (_M_current == _M_end)
 	__throw_regex_error(regex_constants::error_escape);
 
       auto __c = *_M_current;
+      auto __pos = std::strchr(_M_spec_char, _M_ctype.narrow(__c, '\0'));
 
-      if (_M_spec_char.count(_M_ctype.narrow(__c, '\0')))
+      if (__pos != nullptr && *__pos != '\0')
 	{
 	  _M_token = _S_token_ord_char;
 	  _M_value.assign(1, __c);
@@ -460,6 +392,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       else
 	{
 #ifdef __STRICT_ANSI__
+	  // POSIX says it is undefined to escape ordinary characters
 	  __throw_regex_error(regex_constants::error_escape);
 #else
 	  _M_token = _S_token_ord_char;
@@ -469,17 +402,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       ++_M_current;
     }
 
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_eat_escape_awk()
     {
       auto __c = *_M_current++;
+      auto __pos = _M_find_escape(_M_ctype.narrow(__c, '\0'));
 
-      if (_M_escape_map.count(_M_ctype.narrow(__c, '\0')))
+      if (__pos != nullptr)
 	{
 	  _M_token = _S_token_ord_char;
-	  _M_value.assign(1, _M_escape_map.at(__c));
+	  _M_value.assign(1, *__pos);
 	}
       // \ddd for oct representation
       else if (_M_ctype.is(_CtypeT::digit, __c)
@@ -502,12 +436,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	__throw_regex_error(regex_constants::error_escape);
     }
 
-  // Eats a character class or throwns an exception.
-  // __ch cound be ':', '.' or '=', _M_current is the char after ']' when
+  // Eats a character class or throws an exception.
+  // __ch could be ':', '.' or '=', _M_current is the char after ']' when
   // returning.
-  template<typename _FwdIter>
+  template<typename _CharT>
     void
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_eat_class(char __ch)
     {
       for (_M_value.clear(); _M_current != _M_end && *_M_current != __ch;)
@@ -525,9 +459,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
 #ifdef _GLIBCXX_DEBUG
-  template<typename _FwdIter>
+  template<typename _CharT>
     std::ostream&
-    _Scanner<_FwdIter>::
+    _Scanner<_CharT>::
     _M_print(std::ostream& ostr)
     {
       switch (_M_token)

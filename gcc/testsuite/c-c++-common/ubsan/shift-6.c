@@ -1,6 +1,6 @@
 /* PR sanitizer/58413 */
 /* { dg-do run { target int32plus } } */
-/* { dg-options "-fsanitize=shift -w" } */
+/* { dg-options "-fsanitize=shift -w -fno-sanitize-recover" } */
 
 int x = 7;
 int

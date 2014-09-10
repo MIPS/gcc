@@ -1,6 +1,6 @@
 /* Insert USEs in instructions that require mode switching.
    This should probably be merged into mode-switching.c .
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Embecosm on behalf of Adapteva, Inc.
 
 This file is part of GCC.
@@ -49,7 +49,7 @@ insert_uses (void)
   for (e = N_ENTITIES - 1; e >= 0; e--)
     {
       int no_mode = num_modes[e];
-      rtx insn;
+      rtx_insn *insn;
       int mode;
 
       if (!OPTIMIZE_MODE_SWITCHING (e))
@@ -58,7 +58,7 @@ insert_uses (void)
 	{
 	  if (!INSN_P (insn))
 	    continue;
-	  mode = MODE_NEEDED (e, insn);
+	  mode = epiphany_mode_needed (e, insn);
 	  if (mode == no_mode)
 	    continue;
 	  if (target_insert_mode_switch_use)
@@ -78,8 +78,6 @@ const pass_data pass_data_mode_switch_use =
   RTL_PASS, /* type */
   "mode_switch_use", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -96,7 +94,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return insert_uses (); }
+  virtual unsigned int execute (function *) { return insert_uses (); }
 
 }; // class pass_mode_switch_use
 

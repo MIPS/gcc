@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2010-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2010-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,9 +36,10 @@ with Ada.Containers.Red_Black_Trees.Generic_Bounded_Set_Operations;
 pragma Elaborate_All
   (Ada.Containers.Red_Black_Trees.Generic_Bounded_Set_Operations);
 
-with System;  use type System.Address;
+with System; use type System.Address;
 
 package body Ada.Containers.Formal_Ordered_Sets is
+   pragma SPARK_Mode (Off);
 
    ------------------------------
    -- Access to Fields of Node --
@@ -51,13 +52,13 @@ package body Ada.Containers.Formal_Ordered_Sets is
    pragma Inline (Color);
 
    function Left_Son (Node : Node_Type) return Count_Type;
-   pragma Inline (Left);
+   pragma Inline (Left_Son);
 
    function Parent (Node : Node_Type) return Count_Type;
    pragma Inline (Parent);
 
    function Right_Son (Node : Node_Type) return Count_Type;
-   pragma Inline (Right);
+   pragma Inline (Right_Son);
 
    procedure Set_Color
      (Node  : in out Node_Type;
@@ -320,6 +321,10 @@ package body Ada.Containers.Formal_Ordered_Sets is
       Target : Set (Count_Type'Max (Source.Capacity, Capacity));
 
    begin
+      if 0 < Capacity and then Capacity < Source.Capacity then
+         raise Capacity_Error;
+      end if;
+
       if Length (Source) > 0 then
          Target.Length := Source.Length;
          Target.Root   := Source.Root;
@@ -353,6 +358,34 @@ package body Ada.Containers.Formal_Ordered_Sets is
 
       return Target;
    end Copy;
+
+   ---------------------
+   -- Current_To_Last --
+   ---------------------
+
+   function Current_To_Last (Container : Set; Current : Cursor) return Set is
+      Curs : Cursor := First (Container);
+      C    : Set (Container.Capacity) := Copy (Container, Container.Capacity);
+      Node : Count_Type;
+
+   begin
+      if Curs = No_Element then
+         Clear (C);
+         return C;
+      end if;
+
+      if Current /= No_Element and not Has_Element (Container, Current) then
+         raise Constraint_Error;
+      end if;
+
+      while Curs.Node /= Current.Node loop
+         Node := Curs.Node;
+         Delete (C, Curs);
+         Curs := Next (Container, (Node => Node));
+      end loop;
+
+      return C;
+   end Current_To_Last;
 
    ------------
    -- Delete --
@@ -561,6 +594,36 @@ package body Ada.Containers.Formal_Ordered_Sets is
          return N (Fst).Element;
       end;
    end First_Element;
+
+   -----------------------
+   -- First_To_Previous --
+   -----------------------
+
+   function First_To_Previous
+     (Container : Set;
+      Current   : Cursor) return Set
+   is
+      Curs : Cursor := Current;
+      C    : Set (Container.Capacity) := Copy (Container, Container.Capacity);
+      Node : Count_Type;
+
+   begin
+      if Curs = No_Element then
+         return C;
+
+      elsif not Has_Element (Container, Curs) then
+         raise Constraint_Error;
+
+      else
+         while Curs.Node /= 0 loop
+            Node := Curs.Node;
+            Delete (C, Curs);
+            Curs := Next (Container, (Node => Node));
+         end loop;
+
+         return C;
+      end if;
+   end First_To_Previous;
 
    -----------
    -- Floor --
@@ -1087,33 +1150,6 @@ package body Ada.Containers.Formal_Ordered_Sets is
       end;
    end Last_Element;
 
-   ----------
-   -- Left --
-   ----------
-
-   function Left (Container : Set; Position : Cursor) return Set is
-      Curs : Cursor := Position;
-      C    : Set (Container.Capacity) := Copy (Container, Container.Capacity);
-      Node : Count_Type;
-
-   begin
-      if Curs = No_Element then
-         return C;
-      end if;
-
-      if not Has_Element (Container, Curs) then
-         raise Constraint_Error;
-      end if;
-
-      while Curs.Node /= 0 loop
-         Node := Curs.Node;
-         Delete (C, Curs);
-         Curs := Next (Container, (Node => Node));
-      end loop;
-
-      return C;
-   end Left;
-
    --------------
    -- Left_Son --
    --------------
@@ -1356,34 +1392,6 @@ package body Ada.Containers.Formal_Ordered_Sets is
       Replace_Element (Container, Position.Node, New_Item);
    end Replace_Element;
 
-   -----------
-   -- Right --
-   -----------
-
-   function Right (Container : Set; Position : Cursor) return Set is
-      Curs : Cursor := First (Container);
-      C    : Set (Container.Capacity) := Copy (Container, Container.Capacity);
-      Node : Count_Type;
-
-   begin
-      if Curs = No_Element then
-         Clear (C);
-         return C;
-      end if;
-
-      if Position /= No_Element and not Has_Element (Container, Position) then
-         raise Constraint_Error;
-      end if;
-
-      while Curs.Node /= Position.Node loop
-         Node := Curs.Node;
-         Delete (C, Curs);
-         Curs := Next (Container, (Node => Node));
-      end loop;
-
-      return C;
-   end Right;
-
    ---------------
    -- Right_Son --
    ---------------
@@ -1450,8 +1458,7 @@ package body Ada.Containers.Formal_Ordered_Sets is
             return True;
          end if;
 
-         if Left.Nodes (LNode).Element /=
-           Right.Nodes (RNode).Element then
+         if Left.Nodes (LNode).Element /= Right.Nodes (RNode).Element then
             exit;
          end if;
 
@@ -1528,8 +1535,8 @@ package body Ada.Containers.Formal_Ordered_Sets is
       end if;
 
       return S : Set (Length (Left) + Length (Right)) do
-         S.Assign (Source => Left);
-         S.Union (Right);
+         Assign (S, Source => Left);
+         Union (S, Right);
       end return;
    end Union;
 

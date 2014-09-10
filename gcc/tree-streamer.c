@@ -1,7 +1,7 @@
 /* Miscellaneous utilities for tree streaming.  Things that are used
    in both input and output are here.
 
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -24,6 +24,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "streamer-hooks.h"
 #include "tree-streamer.h"
 
@@ -95,20 +102,19 @@ static void
 streamer_tree_cache_add_to_node_array (struct streamer_tree_cache_d *cache,
 				       unsigned ix, tree t, hashval_t hash)
 {
-  /* Make sure we're either replacing an old element or
-     appending consecutively.  */
-  gcc_assert (ix <= cache->nodes.length ());
-
-  if (ix == cache->nodes.length ())
+  /* We're either replacing an old element or appending consecutively.  */
+  if (cache->nodes.exists ())
     {
-      cache->nodes.safe_push (t);
-      if (cache->hashes.exists ())
-	cache->hashes.safe_push (hash);
+      if (cache->nodes.length () == ix)
+	cache->nodes.safe_push (t);
+      else
+	cache->nodes[ix] = t;
     }
-  else
+  if (cache->hashes.exists ())
     {
-      cache->nodes[ix] = t;
-      if (cache->hashes.exists ())
+      if (cache->hashes.length () == ix)
+	cache->hashes.safe_push (hash);
+      else
 	cache->hashes[ix] = hash;
     }
 }
@@ -129,28 +135,23 @@ streamer_tree_cache_insert_1 (struct streamer_tree_cache_d *cache,
 			      tree t, hashval_t hash, unsigned *ix_p,
 			      bool insert_at_next_slot_p)
 {
-  unsigned *slot;
-  unsigned ix;
   bool existed_p;
 
   gcc_assert (t);
 
-  slot = cache->node_map->insert (t, &existed_p);
+  unsigned int &ix = cache->node_map->get_or_insert (t, &existed_p);
   if (!existed_p)
     {
       /* Determine the next slot to use in the cache.  */
       if (insert_at_next_slot_p)
-	ix = cache->nodes.length ();
+	ix = cache->next_idx++;
       else
 	ix = *ix_p;
-       *slot = ix;
 
       streamer_tree_cache_add_to_node_array (cache, ix, t, hash);
     }
   else
     {
-      ix = *slot;
-
       if (!insert_at_next_slot_p && ix != *ix_p)
 	{
 	  /* If the caller wants to insert T at a specific slot
@@ -158,7 +159,6 @@ streamer_tree_cache_insert_1 (struct streamer_tree_cache_d *cache,
 	     the requested location slot.  */
 	  ix = *ix_p;
 	  streamer_tree_cache_add_to_node_array (cache, ix, t, hash);
-	  *slot = ix;
 	}
     }
 
@@ -205,7 +205,7 @@ void
 streamer_tree_cache_append (struct streamer_tree_cache_d *cache,
 			    tree t, hashval_t hash)
 {
-  unsigned ix = cache->nodes.length ();
+  unsigned ix = cache->next_idx++;
   if (!cache->node_map)
     streamer_tree_cache_add_to_node_array (cache, ix, t, hash);
   else
@@ -226,7 +226,7 @@ streamer_tree_cache_lookup (struct streamer_tree_cache_d *cache, tree t,
 
   gcc_assert (t);
 
-  slot = cache->node_map->contains (t);
+  slot = cache->node_map->get (t);
   if (slot == NULL)
     {
       retval = false;
@@ -320,15 +320,17 @@ preload_common_nodes (struct streamer_tree_cache_d *cache)
 /* Create a cache of pickled nodes.  */
 
 struct streamer_tree_cache_d *
-streamer_tree_cache_create (bool with_hashes, bool with_map)
+streamer_tree_cache_create (bool with_hashes, bool with_map, bool with_vec)
 {
   struct streamer_tree_cache_d *cache;
 
   cache = XCNEW (struct streamer_tree_cache_d);
 
   if (with_map)
-    cache->node_map = new pointer_map<unsigned>;
-  cache->nodes.create (165);
+    cache->node_map = new hash_map<tree, unsigned> (251);
+  cache->next_idx = 0;
+  if (with_vec)
+    cache->nodes.create (165);
   if (with_hashes)
     cache->hashes.create (165);
 
@@ -349,8 +351,8 @@ streamer_tree_cache_delete (struct streamer_tree_cache_d *c)
   if (c == NULL)
     return;
 
-  if (c->node_map)
-    delete c->node_map;
+  delete c->node_map;
+  c->node_map = NULL;
   c->nodes.release ();
   c->hashes.release ();
   free (c);

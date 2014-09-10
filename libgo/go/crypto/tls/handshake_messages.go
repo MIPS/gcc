@@ -7,19 +7,21 @@ package tls
 import "bytes"
 
 type clientHelloMsg struct {
-	raw                []byte
-	vers               uint16
-	random             []byte
-	sessionId          []byte
-	cipherSuites       []uint16
-	compressionMethods []uint8
-	nextProtoNeg       bool
-	serverName         string
-	ocspStapling       bool
-	supportedCurves    []uint16
-	supportedPoints    []uint8
-	ticketSupported    bool
-	sessionTicket      []uint8
+	raw                 []byte
+	vers                uint16
+	random              []byte
+	sessionId           []byte
+	cipherSuites        []uint16
+	compressionMethods  []uint8
+	nextProtoNeg        bool
+	serverName          string
+	ocspStapling        bool
+	supportedCurves     []CurveID
+	supportedPoints     []uint8
+	ticketSupported     bool
+	sessionTicket       []uint8
+	signatureAndHashes  []signatureAndHash
+	secureRenegotiation bool
 }
 
 func (m *clientHelloMsg) equal(i interface{}) bool {
@@ -37,10 +39,12 @@ func (m *clientHelloMsg) equal(i interface{}) bool {
 		m.nextProtoNeg == m1.nextProtoNeg &&
 		m.serverName == m1.serverName &&
 		m.ocspStapling == m1.ocspStapling &&
-		eqUint16s(m.supportedCurves, m1.supportedCurves) &&
+		eqCurveIDs(m.supportedCurves, m1.supportedCurves) &&
 		bytes.Equal(m.supportedPoints, m1.supportedPoints) &&
 		m.ticketSupported == m1.ticketSupported &&
-		bytes.Equal(m.sessionTicket, m1.sessionTicket)
+		bytes.Equal(m.sessionTicket, m1.sessionTicket) &&
+		eqSignatureAndHashes(m.signatureAndHashes, m1.signatureAndHashes) &&
+		m.secureRenegotiation == m1.secureRenegotiation
 }
 
 func (m *clientHelloMsg) marshal() []byte {
@@ -72,6 +76,14 @@ func (m *clientHelloMsg) marshal() []byte {
 	}
 	if m.ticketSupported {
 		extensionsLength += len(m.sessionTicket)
+		numExtensions++
+	}
+	if len(m.signatureAndHashes) > 0 {
+		extensionsLength += 2 + 2*len(m.signatureAndHashes)
+		numExtensions++
+	}
+	if m.secureRenegotiation {
+		extensionsLength += 1
 		numExtensions++
 	}
 	if numExtensions > 0 {
@@ -108,13 +120,13 @@ func (m *clientHelloMsg) marshal() []byte {
 	}
 	if m.nextProtoNeg {
 		z[0] = byte(extensionNextProtoNeg >> 8)
-		z[1] = byte(extensionNextProtoNeg)
+		z[1] = byte(extensionNextProtoNeg & 0xff)
 		// The length is always 0
 		z = z[4:]
 	}
 	if len(m.serverName) > 0 {
 		z[0] = byte(extensionServerName >> 8)
-		z[1] = byte(extensionServerName)
+		z[1] = byte(extensionServerName & 0xff)
 		l := len(m.serverName) + 5
 		z[2] = byte(l >> 8)
 		z[3] = byte(l)
@@ -199,6 +211,32 @@ func (m *clientHelloMsg) marshal() []byte {
 		copy(z, m.sessionTicket)
 		z = z[len(m.sessionTicket):]
 	}
+	if len(m.signatureAndHashes) > 0 {
+		// https://tools.ietf.org/html/rfc5246#section-7.4.1.4.1
+		z[0] = byte(extensionSignatureAlgorithms >> 8)
+		z[1] = byte(extensionSignatureAlgorithms)
+		l := 2 + 2*len(m.signatureAndHashes)
+		z[2] = byte(l >> 8)
+		z[3] = byte(l)
+		z = z[4:]
+
+		l -= 2
+		z[0] = byte(l >> 8)
+		z[1] = byte(l)
+		z = z[2:]
+		for _, sigAndHash := range m.signatureAndHashes {
+			z[0] = sigAndHash.hash
+			z[1] = sigAndHash.signature
+			z = z[2:]
+		}
+	}
+	if m.secureRenegotiation {
+		z[0] = byte(extensionRenegotiationInfo >> 8)
+		z[1] = byte(extensionRenegotiationInfo & 0xff)
+		z[2] = 0
+		z[3] = 1
+		z = z[5:]
+	}
 
 	m.raw = x
 
@@ -231,6 +269,9 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 	m.cipherSuites = make([]uint16, numCipherSuites)
 	for i := 0; i < numCipherSuites; i++ {
 		m.cipherSuites[i] = uint16(data[2+2*i])<<8 | uint16(data[3+2*i])
+		if m.cipherSuites[i] == scsvRenegotiation {
+			m.secureRenegotiation = true
+		}
 	}
 	data = data[2+cipherSuiteLen:]
 	if len(data) < 1 {
@@ -249,6 +290,7 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 	m.ocspStapling = false
 	m.ticketSupported = false
 	m.sessionTicket = nil
+	m.signatureAndHashes = nil
 
 	if len(data) == 0 {
 		// ClientHello is optionally followed by extension data
@@ -315,10 +357,10 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 				return false
 			}
 			numCurves := l / 2
-			m.supportedCurves = make([]uint16, numCurves)
+			m.supportedCurves = make([]CurveID, numCurves)
 			d := data[2:]
 			for i := 0; i < numCurves; i++ {
-				m.supportedCurves[i] = uint16(d[0])<<8 | uint16(d[1])
+				m.supportedCurves[i] = CurveID(d[0])<<8 | CurveID(d[1])
 				d = d[2:]
 			}
 		case extensionSupportedPoints:
@@ -336,6 +378,28 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 			// http://tools.ietf.org/html/rfc5077#section-3.2
 			m.ticketSupported = true
 			m.sessionTicket = data[:length]
+		case extensionSignatureAlgorithms:
+			// https://tools.ietf.org/html/rfc5246#section-7.4.1.4.1
+			if length < 2 || length&1 != 0 {
+				return false
+			}
+			l := int(data[0])<<8 | int(data[1])
+			if l != length-2 {
+				return false
+			}
+			n := l / 2
+			d := data[2:]
+			m.signatureAndHashes = make([]signatureAndHash, n)
+			for i := range m.signatureAndHashes {
+				m.signatureAndHashes[i].hash = d[0]
+				m.signatureAndHashes[i].signature = d[1]
+				d = d[2:]
+			}
+		case extensionRenegotiationInfo + 1:
+			if length != 1 || data[0] != 0 {
+				return false
+			}
+			m.secureRenegotiation = true
 		}
 		data = data[length:]
 	}
@@ -344,16 +408,17 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 }
 
 type serverHelloMsg struct {
-	raw               []byte
-	vers              uint16
-	random            []byte
-	sessionId         []byte
-	cipherSuite       uint16
-	compressionMethod uint8
-	nextProtoNeg      bool
-	nextProtos        []string
-	ocspStapling      bool
-	ticketSupported   bool
+	raw                 []byte
+	vers                uint16
+	random              []byte
+	sessionId           []byte
+	cipherSuite         uint16
+	compressionMethod   uint8
+	nextProtoNeg        bool
+	nextProtos          []string
+	ocspStapling        bool
+	ticketSupported     bool
+	secureRenegotiation bool
 }
 
 func (m *serverHelloMsg) equal(i interface{}) bool {
@@ -371,7 +436,8 @@ func (m *serverHelloMsg) equal(i interface{}) bool {
 		m.nextProtoNeg == m1.nextProtoNeg &&
 		eqStrings(m.nextProtos, m1.nextProtos) &&
 		m.ocspStapling == m1.ocspStapling &&
-		m.ticketSupported == m1.ticketSupported
+		m.ticketSupported == m1.ticketSupported &&
+		m.secureRenegotiation == m1.secureRenegotiation
 }
 
 func (m *serverHelloMsg) marshal() []byte {
@@ -396,6 +462,10 @@ func (m *serverHelloMsg) marshal() []byte {
 		numExtensions++
 	}
 	if m.ticketSupported {
+		numExtensions++
+	}
+	if m.secureRenegotiation {
+		extensionsLength += 1
 		numExtensions++
 	}
 	if numExtensions > 0 {
@@ -426,7 +496,7 @@ func (m *serverHelloMsg) marshal() []byte {
 	}
 	if m.nextProtoNeg {
 		z[0] = byte(extensionNextProtoNeg >> 8)
-		z[1] = byte(extensionNextProtoNeg)
+		z[1] = byte(extensionNextProtoNeg & 0xff)
 		z[2] = byte(nextProtoLen >> 8)
 		z[3] = byte(nextProtoLen)
 		z = z[4:]
@@ -450,6 +520,13 @@ func (m *serverHelloMsg) marshal() []byte {
 		z[0] = byte(extensionSessionTicket >> 8)
 		z[1] = byte(extensionSessionTicket)
 		z = z[4:]
+	}
+	if m.secureRenegotiation {
+		z[0] = byte(extensionRenegotiationInfo >> 8)
+		z[1] = byte(extensionRenegotiationInfo & 0xff)
+		z[2] = 0
+		z[3] = 1
+		z = z[5:]
 	}
 
 	m.raw = x
@@ -530,6 +607,11 @@ func (m *serverHelloMsg) unmarshal(data []byte) bool {
 				return false
 			}
 			m.ticketSupported = true
+		case extensionRenegotiationInfo:
+			if length != 1 || data[0] != 0 {
+				return false
+			}
+			m.secureRenegotiation = true
 		}
 		data = data[length:]
 	}
@@ -899,8 +981,14 @@ func (m *nextProtoMsg) unmarshal(data []byte) bool {
 }
 
 type certificateRequestMsg struct {
-	raw                    []byte
+	raw []byte
+	// hasSignatureAndHash indicates whether this message includes a list
+	// of signature and hash functions. This change was introduced with TLS
+	// 1.2.
+	hasSignatureAndHash bool
+
 	certificateTypes       []byte
+	signatureAndHashes     []signatureAndHash
 	certificateAuthorities [][]byte
 }
 
@@ -912,7 +1000,8 @@ func (m *certificateRequestMsg) equal(i interface{}) bool {
 
 	return bytes.Equal(m.raw, m1.raw) &&
 		bytes.Equal(m.certificateTypes, m1.certificateTypes) &&
-		eqByteSlices(m.certificateAuthorities, m1.certificateAuthorities)
+		eqByteSlices(m.certificateAuthorities, m1.certificateAuthorities) &&
+		eqSignatureAndHashes(m.signatureAndHashes, m1.signatureAndHashes)
 }
 
 func (m *certificateRequestMsg) marshal() (x []byte) {
@@ -928,6 +1017,10 @@ func (m *certificateRequestMsg) marshal() (x []byte) {
 	}
 	length += casLength
 
+	if m.hasSignatureAndHash {
+		length += 2 + 2*len(m.signatureAndHashes)
+	}
+
 	x = make([]byte, 4+length)
 	x[0] = typeCertificateRequest
 	x[1] = uint8(length >> 16)
@@ -938,6 +1031,19 @@ func (m *certificateRequestMsg) marshal() (x []byte) {
 
 	copy(x[5:], m.certificateTypes)
 	y := x[5+len(m.certificateTypes):]
+
+	if m.hasSignatureAndHash {
+		n := len(m.signatureAndHashes) * 2
+		y[0] = uint8(n >> 8)
+		y[1] = uint8(n)
+		y = y[2:]
+		for _, sigAndHash := range m.signatureAndHashes {
+			y[0] = sigAndHash.hash
+			y[1] = sigAndHash.signature
+			y = y[2:]
+		}
+	}
+
 	y[0] = uint8(casLength >> 8)
 	y[1] = uint8(casLength)
 	y = y[2:]
@@ -978,6 +1084,27 @@ func (m *certificateRequestMsg) unmarshal(data []byte) bool {
 
 	data = data[numCertTypes:]
 
+	if m.hasSignatureAndHash {
+		if len(data) < 2 {
+			return false
+		}
+		sigAndHashLen := uint16(data[0])<<8 | uint16(data[1])
+		data = data[2:]
+		if sigAndHashLen&1 != 0 {
+			return false
+		}
+		if len(data) < int(sigAndHashLen) {
+			return false
+		}
+		numSigAndHash := sigAndHashLen / 2
+		m.signatureAndHashes = make([]signatureAndHash, numSigAndHash)
+		for i := range m.signatureAndHashes {
+			m.signatureAndHashes[i].hash = data[0]
+			m.signatureAndHashes[i].signature = data[1]
+			data = data[2:]
+		}
+	}
+
 	if len(data) < 2 {
 		return false
 	}
@@ -1013,8 +1140,10 @@ func (m *certificateRequestMsg) unmarshal(data []byte) bool {
 }
 
 type certificateVerifyMsg struct {
-	raw       []byte
-	signature []byte
+	raw                 []byte
+	hasSignatureAndHash bool
+	signatureAndHash    signatureAndHash
+	signature           []byte
 }
 
 func (m *certificateVerifyMsg) equal(i interface{}) bool {
@@ -1024,6 +1153,9 @@ func (m *certificateVerifyMsg) equal(i interface{}) bool {
 	}
 
 	return bytes.Equal(m.raw, m1.raw) &&
+		m.hasSignatureAndHash == m1.hasSignatureAndHash &&
+		m.signatureAndHash.hash == m1.signatureAndHash.hash &&
+		m.signatureAndHash.signature == m1.signatureAndHash.signature &&
 		bytes.Equal(m.signature, m1.signature)
 }
 
@@ -1035,14 +1167,23 @@ func (m *certificateVerifyMsg) marshal() (x []byte) {
 	// See http://tools.ietf.org/html/rfc4346#section-7.4.8
 	siglength := len(m.signature)
 	length := 2 + siglength
+	if m.hasSignatureAndHash {
+		length += 2
+	}
 	x = make([]byte, 4+length)
 	x[0] = typeCertificateVerify
 	x[1] = uint8(length >> 16)
 	x[2] = uint8(length >> 8)
 	x[3] = uint8(length)
-	x[4] = uint8(siglength >> 8)
-	x[5] = uint8(siglength)
-	copy(x[6:], m.signature)
+	y := x[4:]
+	if m.hasSignatureAndHash {
+		y[0] = m.signatureAndHash.hash
+		y[1] = m.signatureAndHash.signature
+		y = y[2:]
+	}
+	y[0] = uint8(siglength >> 8)
+	y[1] = uint8(siglength)
+	copy(y[2:], m.signature)
 
 	m.raw = x
 
@@ -1061,12 +1202,23 @@ func (m *certificateVerifyMsg) unmarshal(data []byte) bool {
 		return false
 	}
 
-	siglength := int(data[4])<<8 + int(data[5])
-	if len(data)-6 != siglength {
+	data = data[4:]
+	if m.hasSignatureAndHash {
+		m.signatureAndHash.hash = data[0]
+		m.signatureAndHash.signature = data[1]
+		data = data[2:]
+	}
+
+	if len(data) < 2 {
+		return false
+	}
+	siglength := int(data[0])<<8 + int(data[1])
+	data = data[2:]
+	if len(data) != siglength {
 		return false
 	}
 
-	m.signature = data[6:]
+	m.signature = data
 
 	return true
 }
@@ -1142,6 +1294,18 @@ func eqUint16s(x, y []uint16) bool {
 	return true
 }
 
+func eqCurveIDs(x, y []CurveID) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	for i, v := range x {
+		if y[i] != v {
+			return false
+		}
+	}
+	return true
+}
+
 func eqStrings(x, y []string) bool {
 	if len(x) != len(y) {
 		return false
@@ -1160,6 +1324,19 @@ func eqByteSlices(x, y [][]byte) bool {
 	}
 	for i, v := range x {
 		if !bytes.Equal(v, y[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func eqSignatureAndHashes(x, y []signatureAndHash) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	for i, v := range x {
+		v2 := y[i]
+		if v.hash != v2.hash || v.signature != v2.signature {
 			return false
 		}
 	}

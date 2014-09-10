@@ -1,5 +1,5 @@
 /* Compiler arithmetic
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1974,6 +1974,17 @@ gfc_int2int (gfc_expr *src, int kind)
 	  gfc_free_expr (result);
 	  return NULL;
 	}
+    }
+
+  /*  If we do not trap numeric overflow, we need to convert the number to
+      signed, throwing away high-order bits if necessary.  */
+  if (gfc_option.flag_range_check == 0)
+    {
+      int k;
+
+      k = gfc_validate_kind (BT_INTEGER, kind, false);
+      gfc_convert_mpz_to_signed (result->value.integer,
+				 gfc_integer_kinds[k].bit_size);
     }
 
   return result;

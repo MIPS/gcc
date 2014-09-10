@@ -21,7 +21,8 @@ static Gogo* gogo;
 GO_EXTERN_C
 void
 go_create_gogo(int int_type_size, int pointer_size, const char *pkgpath,
-	       const char *prefix, const char *relative_import_path)
+	       const char *prefix, const char *relative_import_path,
+	       bool check_divide_by_zero, bool check_divide_overflow)
 {
   go_assert(::gogo == NULL);
   Linemap* linemap = go_get_linemap();
@@ -34,9 +35,10 @@ go_create_gogo(int int_type_size, int pointer_size, const char *pkgpath,
 
   if (relative_import_path != NULL)
     ::gogo->set_relative_import_path(relative_import_path);
-
-  // FIXME: This should be in the gcc dependent code.
-  ::gogo->define_builtin_function_trees();
+  if (check_divide_by_zero)
+    ::gogo->set_check_divide_by_zero(check_divide_by_zero);
+  if (check_divide_overflow)
+    ::gogo->set_check_divide_overflow(check_divide_overflow);
 }
 
 // Parse the input files.
@@ -119,12 +121,18 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   // Use temporary variables to force order of evaluation.
   ::gogo->order_evaluations();
 
+  // Convert named types to backend representation.
+  ::gogo->convert_named_types();
+
   // Build thunks for functions which call recover.
   ::gogo->build_recover_thunks();
 
   // Convert complicated go and defer statements into simpler ones.
   ::gogo->simplify_thunk_statements();
-  
+
+  // Flatten the parse tree.
+  ::gogo->flatten();
+
   // Dump ast, use filename[0] as the base name
   ::gogo->dump_ast(filenames[0]);
 }

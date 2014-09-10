@@ -1,5 +1,5 @@
 /* Part of CPP library.  File handling.
-   Copyright (C) 1986-2013 Free Software Foundation, Inc.
+   Copyright (C) 1986-2014 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -387,8 +387,14 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
       char *copy;
       void **pp;
 
-      /* We try to canonicalize system headers.  */
-      if (CPP_OPTION (pfile, canonical_system_headers) && file->dir->sysp)
+      /* We try to canonicalize system headers.  For DOS based file
+       * system, we always try to shorten non-system headers, as DOS
+       * has a tighter constraint on max path length.  */
+      if ((CPP_OPTION (pfile, canonical_system_headers) && file->dir->sysp)
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
+	  || !file->dir->sysp
+#endif
+	 )
 	{
 	  char * canonical_path = maybe_shorter_path (path);
 	  if (canonical_path)

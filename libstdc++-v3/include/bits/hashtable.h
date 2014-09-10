@@ -1,6 +1,6 @@
 // hashtable.h header -*- C++ -*-
 
-// Copyright (C) 2007-2013 Free Software Foundation, Inc.
+// Copyright (C) 2007-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,10 +42,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     using __cache_default
       =  __not_<__and_<// Do not cache for fast hasher.
 		       __is_fast_hash<_Hash>,
-		       // Mandatory to make local_iterator default
-		       // constructible and assignable.
-		       is_default_constructible<_Hash>,
-		       is_copy_assignable<_Hash>,
 		       // Mandatory to have erase not throwing.
 		       __detail::__is_noexcept_hash<_Tp, _Hash>>>;
 
@@ -260,9 +256,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       // Compile-time diagnostics.
 
+      // _Hash_code_base has everything protected, so use this derived type to
+      // access it.
+      struct __hash_code_base_access : __hash_code_base
+      { using __hash_code_base::_M_bucket_index; };
+
       // Getting a bucket index from a node shall not throw because it is used
       // in methods (erase, swap...) that shall not throw.
-      static_assert(noexcept(declval<const _Hashtable&>()
+      static_assert(noexcept(declval<const __hash_code_base_access&>()
 			     ._M_bucket_index((const __node_type*)nullptr,
 					      (std::size_t)0)),
 		    "Cache the hash code or qualify your functors involved"
@@ -276,25 +277,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       static_assert(__if_hash_cached<is_default_constructible<_H2>>::value,
 		    "Functor used to map hash code to bucket index"
 		    " must be default constructible");
-
-      // When hash codes are not cached local iterator inherits from
-      // __hash_code_base above to compute node bucket index so it has to be
-      // default constructible.
-      static_assert(__if_hash_not_cached<
-		    is_default_constructible<
-		      // We use _Hashtable_ebo_helper to access the protected
-		      // default constructor.
-		      __detail::_Hashtable_ebo_helper<0, __hash_code_base>>>::value,
-		    "Cache the hash code or make functors involved in hash code"
-		    " and bucket index computation default constructible");
-
-      // When hash codes are not cached local iterator inherits from
-      // __hash_code_base above to compute node bucket index so it has to be
-      // assignable.
-      static_assert(__if_hash_not_cached<
-		      is_copy_assignable<__hash_code_base>>::value,
-		    "Cache the hash code or make functors involved in hash code"
-		    " and bucket index computation copy assignable");
 
       template<typename _Keya, typename _Valuea, typename _Alloca,
 	       typename _ExtractKeya, typename _Equala,
@@ -328,20 +310,55 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 				   const_local_iterator;
 
     private:
-      __bucket_type*		_M_buckets;
-      size_type			_M_bucket_count;
+      __bucket_type*		_M_buckets		= &_M_single_bucket;
+      size_type			_M_bucket_count		= 1;
       __node_base		_M_before_begin;
-      size_type			_M_element_count;
+      size_type			_M_element_count	= 0;
       _RehashPolicy		_M_rehash_policy;
+
+      // A single bucket used when only need for 1 bucket. Especially
+      // interesting in move semantic to leave hashtable with only 1 buckets
+      // which is not allocated so that we can have those operations noexcept
+      // qualified.
+      // Note that we can't leave hashtable with 0 bucket without adding
+      // numerous checks in the code to avoid 0 modulus.
+      __bucket_type		_M_single_bucket	= nullptr;
+
+      bool
+      _M_uses_single_bucket(__bucket_type* __bkts) const
+      { return __builtin_expect(_M_buckets == &_M_single_bucket, false); }
+
+      bool
+      _M_uses_single_bucket() const
+      { return _M_uses_single_bucket(_M_buckets); }
 
       __hashtable_alloc&
       _M_base_alloc() { return *this; }
 
-      using __hashtable_alloc::_M_deallocate_buckets;
+      __bucket_type*
+      _M_allocate_buckets(size_type __n)
+      {
+	if (__builtin_expect(__n == 1, false))
+	  {
+	    _M_single_bucket = nullptr;
+	    return &_M_single_bucket;
+	  }
+
+	return __hashtable_alloc::_M_allocate_buckets(__n);
+      }
+
+      void
+      _M_deallocate_buckets(__bucket_type* __bkts, size_type __n)
+      {
+	if (_M_uses_single_bucket(__bkts))
+	  return;
+
+	__hashtable_alloc::_M_deallocate_buckets(__bkts, __n);
+      }
 
       void
       _M_deallocate_buckets()
-      { this->_M_deallocate_buckets(_M_buckets, _M_bucket_count); }
+      { _M_deallocate_buckets(_M_buckets, _M_bucket_count); }
 
       // Gets bucket begin, deals with the fact that non-empty buckets contain
       // their before begin node.
@@ -365,8 +382,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_reset() noexcept;
 
+      _Hashtable(const _H1& __h1, const _H2& __h2, const _Hash& __h,
+		 const _Equal& __eq, const _ExtractKey& __exk,
+		 const allocator_type& __a)
+	: __hashtable_base(__exk, __h1, __h2, __h, __eq),
+	  __hashtable_alloc(__node_alloc_type(__a))
+      { }
+
     public:
       // Constructor, destructor, assignment, swap
+      _Hashtable() = default;
       _Hashtable(size_type __bucket_hint,
 		 const _H1&, const _H2&, const _Hash&,
 		 const _Equal&, const _ExtractKey&,
@@ -390,18 +415,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Use delegating constructors.
       explicit
       _Hashtable(const allocator_type& __a)
-	: _Hashtable(10, _H1(), __detail::_Mod_range_hashing(),
-		     __detail::_Default_ranged_hash(), key_equal(),
-		     __key_extract(), __a)
+	: __hashtable_alloc(__node_alloc_type(__a))
       { }
 
       explicit
-      _Hashtable(size_type __n = 10,
+      _Hashtable(size_type __n,
 		 const _H1& __hf = _H1(),
 		 const key_equal& __eql = key_equal(),
 		 const allocator_type& __a = allocator_type())
-      : _Hashtable(__n, __hf, __detail::_Mod_range_hashing(),
-		   __detail::_Default_ranged_hash(), __eql,
+      : _Hashtable(__n, __hf, _H2(), _Hash(), __eql,
 		   __key_extract(), __a)
       { }
 
@@ -411,8 +433,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   const _H1& __hf = _H1(),
 		   const key_equal& __eql = key_equal(),
 		   const allocator_type& __a = allocator_type())
-	: _Hashtable(__f, __l, __n, __hf, __detail::_Mod_range_hashing(),
-		     __detail::_Default_ranged_hash(), __eql,
+	: _Hashtable(__f, __l, __n, __hf, _H2(), _Hash(), __eql,
 		     __key_extract(), __a)
 	{ }
 
@@ -421,9 +442,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		 const _H1& __hf = _H1(),
 		 const key_equal& __eql = key_equal(),
 		 const allocator_type& __a = allocator_type())
-      : _Hashtable(__l.begin(), __l.end(), __n, __hf,
-		   __detail::_Mod_range_hashing(),
-		   __detail::_Default_ranged_hash(), __eql,
+      : _Hashtable(__l.begin(), __l.end(), __n, __hf, _H2(), _Hash(), __eql,
 		   __key_extract(), __a)
       { }
 
@@ -726,11 +745,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       size_type
       erase(const key_type& __k)
-      {
-	if (__builtin_expect(_M_bucket_count == 0, false))
-	  return 0;
-	return _M_erase(__unique_keys(), __k);
-      }
+      { return _M_erase(__unique_keys(), __k); }
 
       iterator
       erase(const_iterator, const_iterator);
@@ -783,15 +798,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       const _H1& __h1, const _H2& __h2, const _Hash& __h,
 	       const _Equal& __eq, const _ExtractKey& __exk,
 	       const allocator_type& __a)
-    : __hashtable_base(__exk, __h1, __h2, __h, __eq),
-      __map_base(),
-      __rehash_base(),
-      __hashtable_alloc(__node_alloc_type(__a)),
-      _M_element_count(0),
-      _M_rehash_policy()
+      : _Hashtable(__h1, __h2, __h, __eq, __exk, __a)
     {
-      _M_bucket_count = _M_rehash_policy._M_next_bkt(__bucket_hint);
-      _M_buckets = this->_M_allocate_buckets(_M_bucket_count);
+      auto __bkt = _M_rehash_policy._M_next_bkt(__bucket_hint);
+      if (__bkt > _M_bucket_count)
+	{
+	  _M_buckets = _M_allocate_buckets(__bkt);
+	  _M_bucket_count = __bkt;
+	}
     }
 
   template<typename _Key, typename _Value,
@@ -806,20 +820,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		 const _H1& __h1, const _H2& __h2, const _Hash& __h,
 		 const _Equal& __eq, const _ExtractKey& __exk,
 		 const allocator_type& __a)
-      : __hashtable_base(__exk, __h1, __h2, __h, __eq),
-	__map_base(),
-	__rehash_base(),
-	__hashtable_alloc(__node_alloc_type(__a)),
-	_M_element_count(0),
-	_M_rehash_policy()
+	: _Hashtable(__h1, __h2, __h, __eq, __exk, __a)
       {
 	auto __nb_elems = __detail::__distance_fw(__f, __l);
-	_M_bucket_count =
+	auto __bkt_count =
 	  _M_rehash_policy._M_next_bkt(
 	    std::max(_M_rehash_policy._M_bkt_for_elements(__nb_elems),
 		     __bucket_hint));
 
-	_M_buckets = this->_M_allocate_buckets(_M_bucket_count);
+	if (__bkt_count > _M_bucket_count)
+	  {
+	    _M_buckets = _M_allocate_buckets(__bkt_count);
+	    _M_bucket_count = __bkt_count;
+	  }
+
 	__try
 	  {
 	    for (; __f != __l; ++__f)
@@ -856,9 +870,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      {
 		// Replacement allocator cannot free existing storage.
 		this->_M_deallocate_nodes(_M_begin());
-		if (__builtin_expect(_M_bucket_count != 0, true))
-		  _M_deallocate_buckets();
-		_M_reset();
+		_M_before_begin._M_nxt = nullptr;
+		_M_deallocate_buckets();
+		_M_buckets = nullptr;
 		std::__alloc_on_copy(__this_alloc, __that_alloc);
 		__hashtable_base::operator=(__ht);
 		_M_bucket_count = __ht._M_bucket_count;
@@ -890,7 +904,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	if (_M_bucket_count != __ht._M_bucket_count)
 	  {
 	    __former_buckets = _M_buckets;
-	    _M_buckets = this->_M_allocate_buckets(__ht._M_bucket_count);
+	    _M_buckets = _M_allocate_buckets(__ht._M_bucket_count);
 	    _M_bucket_count = __ht._M_bucket_count;
 	  }
 	else
@@ -908,8 +922,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		      [&__roan](const __node_type* __n)
 		      { return __roan(__n->_M_v()); });
 	    if (__former_buckets)
-	      this->_M_deallocate_buckets(__former_buckets,
-					  __former_bucket_count);
+	      _M_deallocate_buckets(__former_buckets, __former_bucket_count);
 	  }
 	__catch(...)
 	  {
@@ -940,7 +953,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
 	__bucket_type* __buckets = nullptr;
 	if (!_M_buckets)
-	  _M_buckets = __buckets = this->_M_allocate_buckets(_M_bucket_count);
+	  _M_buckets = __buckets = _M_allocate_buckets(_M_bucket_count);
 
 	__try
 	  {
@@ -987,8 +1000,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _M_reset() noexcept
     {
       _M_rehash_policy._M_reset();
-      _M_bucket_count = 0;
-      _M_buckets = nullptr;
+      _M_bucket_count = 1;
+      _M_single_bucket = nullptr;
+      _M_buckets = &_M_single_bucket;
       _M_before_begin._M_nxt = nullptr;
       _M_element_count = 0;
     }
@@ -1003,12 +1017,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _M_move_assign(_Hashtable&& __ht, std::true_type)
     {
       this->_M_deallocate_nodes(_M_begin());
-      if (__builtin_expect(_M_bucket_count != 0, true))
-	_M_deallocate_buckets();
-
+      _M_deallocate_buckets();
       __hashtable_base::operator=(std::move(__ht));
       _M_rehash_policy = __ht._M_rehash_policy;
-      _M_buckets = __ht._M_buckets;
+      if (!__ht._M_uses_single_bucket())
+	_M_buckets = __ht._M_buckets;
+      else
+	{
+	  _M_buckets = &_M_single_bucket;
+	  _M_single_bucket = __ht._M_single_bucket;
+	}
       _M_bucket_count = __ht._M_bucket_count;
       _M_before_begin._M_nxt = __ht._M_before_begin._M_nxt;
       _M_element_count = __ht._M_element_count;
@@ -1042,7 +1060,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  if (_M_bucket_count != __ht._M_bucket_count)
 	    {
 	      __former_buckets = _M_buckets;
-	      _M_buckets = this->_M_allocate_buckets(__ht._M_bucket_count);
+	      _M_buckets = _M_allocate_buckets(__ht._M_bucket_count);
 	      _M_bucket_count = __ht._M_bucket_count;
 	    }
 	  else
@@ -1089,7 +1107,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __rehash_base(__ht),
       __hashtable_alloc(
 	__node_alloc_traits::_S_select_on_copy(__ht._M_node_allocator())),
-      _M_buckets(),
+      _M_buckets(nullptr),
       _M_bucket_count(__ht._M_bucket_count),
       _M_element_count(__ht._M_element_count),
       _M_rehash_policy(__ht._M_rehash_policy)
@@ -1116,10 +1134,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _M_element_count(__ht._M_element_count),
       _M_rehash_policy(__ht._M_rehash_policy)
     {
+      // Update, if necessary, buckets if __ht is using its single bucket.
+      if (__ht._M_uses_single_bucket())
+	{
+	  _M_buckets = &_M_single_bucket;
+	  _M_single_bucket = __ht._M_single_bucket;
+	}
+
       // Update, if necessary, bucket pointing to before begin that hasn't
       // moved.
       if (_M_begin())
 	_M_buckets[_M_bucket_index(_M_begin())] = &_M_before_begin;
+
       __ht._M_reset();
     }
 
@@ -1155,14 +1181,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __map_base(__ht),
       __rehash_base(__ht),
       __hashtable_alloc(__node_alloc_type(__a)),
-      _M_buckets(),
+      _M_buckets(nullptr),
       _M_bucket_count(__ht._M_bucket_count),
       _M_element_count(__ht._M_element_count),
       _M_rehash_policy(__ht._M_rehash_policy)
     {
       if (__ht._M_node_allocator() == this->_M_node_allocator())
 	{
-	  _M_buckets = __ht._M_buckets;
+	  if (__ht._M_uses_single_bucket())
+	    {
+	      _M_buckets = &_M_single_bucket;
+	      _M_single_bucket = __ht._M_single_bucket;
+	    }
+	  else
+	    _M_buckets = __ht._M_buckets;
+
 	  _M_before_begin._M_nxt = __ht._M_before_begin._M_nxt;
 	  // Update, if necessary, bucket pointing to before begin that hasn't
 	  // moved.
@@ -1191,8 +1224,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     ~_Hashtable() noexcept
     {
       clear();
-      if (_M_buckets)
-	_M_deallocate_buckets();
+      _M_deallocate_buckets();
     }
 
   template<typename _Key, typename _Value,
@@ -1212,15 +1244,34 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       std::__alloc_on_swap(this->_M_node_allocator(), __x._M_node_allocator());
       std::swap(_M_rehash_policy, __x._M_rehash_policy);
-      std::swap(_M_buckets, __x._M_buckets);
+
+      // Deal properly with potentially moved instances.
+      if (this->_M_uses_single_bucket())
+	{
+	  if (!__x._M_uses_single_bucket())
+	    {
+	      _M_buckets = __x._M_buckets;
+	      __x._M_buckets = &__x._M_single_bucket;
+	    }
+	}
+      else if (__x._M_uses_single_bucket())
+	{
+	  __x._M_buckets = _M_buckets;
+	  _M_buckets = &_M_single_bucket;
+	}	
+      else
+	std::swap(_M_buckets, __x._M_buckets);
+
       std::swap(_M_bucket_count, __x._M_bucket_count);
       std::swap(_M_before_begin._M_nxt, __x._M_before_begin._M_nxt);
       std::swap(_M_element_count, __x._M_element_count);
+      std::swap(_M_single_bucket, __x._M_single_bucket);
 
       // Fix buckets containing the _M_before_begin pointers that can't be
       // swapped.
       if (_M_begin())
 	_M_buckets[_M_bucket_index(_M_begin())] = &_M_before_begin;
+
       if (__x._M_begin())
 	__x._M_buckets[__x._M_bucket_index(__x._M_begin())]
 	  = &__x._M_before_begin;
@@ -1235,10 +1286,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     __rehash_policy(const _RehashPolicy& __pol)
     {
-      size_type __n_bkt = __pol._M_bkt_for_elements(_M_element_count);
-      __n_bkt = __pol._M_next_bkt(__n_bkt);
-      if (__n_bkt != _M_bucket_count)
-	_M_rehash(__n_bkt, _M_rehash_policy._M_state());
+      auto __do_rehash =
+	__pol._M_need_rehash(_M_bucket_count, _M_element_count, 0);
+      if (__do_rehash.first)
+	_M_rehash(__do_rehash.second, _M_rehash_policy._M_state());
       _M_rehash_policy = __pol;
     }
 
@@ -1253,9 +1304,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     find(const key_type& __k)
     {
-      if (__builtin_expect(_M_bucket_count == 0, false))
-	return end();
-
       __hash_code __code = this->_M_hash_code(__k);
       std::size_t __n = _M_bucket_index(__k, __code);
       __node_type* __p = _M_find_node(__n, __k, __code);
@@ -1273,9 +1321,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     find(const key_type& __k) const
     {
-      if (__builtin_expect(_M_bucket_count == 0, false))
-	return end();
-      
       __hash_code __code = this->_M_hash_code(__k);
       std::size_t __n = _M_bucket_index(__k, __code);
       __node_type* __p = _M_find_node(__n, __k, __code);
@@ -1293,9 +1338,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     count(const key_type& __k) const
     {
-      if (__builtin_expect(_M_bucket_count == 0, false))
-	return 0;
-
       __hash_code __code = this->_M_hash_code(__k);
       std::size_t __n = _M_bucket_index(__k, __code);
       __node_type* __p = _M_bucket_begin(__n);
@@ -1310,7 +1352,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  else if (__result)
 	    // All equivalent values are next to each other, if we
 	    // found a non-equivalent value after an equivalent one it
-	    // means that we won't find any more equivalent values.
+	    // means that we won't find any new equivalent value.
 	    break;
 	  if (!__p->_M_nxt || _M_bucket_index(__p->_M_next()) != __n)
 	    break;
@@ -1334,9 +1376,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     equal_range(const key_type& __k)
     {
-      if (__builtin_expect(_M_bucket_count == 0, false))
-	return std::make_pair(end(), end());
-
       __hash_code __code = this->_M_hash_code(__k);
       std::size_t __n = _M_bucket_index(__k, __code);
       __node_type* __p = _M_find_node(__n, __k, __code);
@@ -1370,9 +1409,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     equal_range(const key_type& __k) const
     {
-      if (__builtin_expect(_M_bucket_count == 0, false))
-	return std::make_pair(end(), end());
-	
       __hash_code __code = this->_M_hash_code(__k);
       std::size_t __n = _M_bucket_index(__k, __code);
       __node_type* __p = _M_find_node(__n, __k, __code);
@@ -1967,7 +2003,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     _M_rehash_aux(size_type __n, std::true_type)
     {
-      __bucket_type* __new_buckets = this->_M_allocate_buckets(__n);
+      __bucket_type* __new_buckets = _M_allocate_buckets(__n);
       __node_type* __p = _M_begin();
       _M_before_begin._M_nxt = nullptr;
       std::size_t __bbegin_bkt = 0;
@@ -1992,8 +2028,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  __p = __next;
 	}
 
-      if (__builtin_expect(_M_bucket_count != 0, true))
-	_M_deallocate_buckets();
+      _M_deallocate_buckets();
       _M_bucket_count = __n;
       _M_buckets = __new_buckets;
     }
@@ -2009,7 +2044,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     _M_rehash_aux(size_type __n, std::false_type)
     {
-      __bucket_type* __new_buckets = this->_M_allocate_buckets(__n);
+      __bucket_type* __new_buckets = _M_allocate_buckets(__n);
 
       __node_type* __p = _M_begin();
       _M_before_begin._M_nxt = nullptr;
@@ -2083,8 +2118,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    __new_buckets[__next_bkt] = __prev_p;
 	}
 
-      if (__builtin_expect(_M_bucket_count != 0, true))
-	_M_deallocate_buckets();
+      _M_deallocate_buckets();
       _M_bucket_count = __n;
       _M_buckets = __new_buckets;
     }

@@ -1,5 +1,5 @@
 /* Language independent return value optimizations
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,8 +25,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "langhooks.h"
@@ -106,8 +113,37 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
    then we could either have the languages register the optimization or
    we could change the gating function to check the current language.  */
 
-static unsigned int
-tree_nrv (void)
+namespace {
+
+const pass_data pass_data_nrv =
+{
+  GIMPLE_PASS, /* type */
+  "nrv", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_TREE_NRV, /* tv_id */
+  ( PROP_ssa | PROP_cfg ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_nrv : public gimple_opt_pass
+{
+public:
+  pass_nrv (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_nrv, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *) { return optimize > 0; }
+
+  virtual unsigned int execute (function *);
+
+}; // class pass_nrv
+
+unsigned int
+pass_nrv::execute (function *fun)
 {
   tree result = DECL_RESULT (current_function_decl);
   tree result_type = TREE_TYPE (result);
@@ -137,7 +173,7 @@ tree_nrv (void)
     return 0;
 
   /* Look through each block for assignments to the RESULT_DECL.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -231,7 +267,7 @@ tree_nrv (void)
      RESULT.  */
   data.var = found;
   data.result = result;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
@@ -264,42 +300,6 @@ tree_nrv (void)
 
   return 0;
 }
-
-static bool
-gate_pass_return_slot (void)
-{
-  return optimize > 0;
-}
-
-namespace {
-
-const pass_data pass_data_nrv =
-{
-  GIMPLE_PASS, /* type */
-  "nrv", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_TREE_NRV, /* tv_id */
-  ( PROP_ssa | PROP_cfg ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_nrv : public gimple_opt_pass
-{
-public:
-  pass_nrv (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_nrv, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  bool gate () { return gate_pass_return_slot (); }
-  unsigned int execute () { return tree_nrv (); }
-
-}; // class pass_nrv
 
 } // anon namespace
 
@@ -346,35 +346,6 @@ dest_safe_for_nrv_p (gimple call)
    escaped prior to the call.  If it has, modifications to the local
    variable will produce visible changes elsewhere, as in PR c++/19317.  */
 
-static unsigned int
-execute_return_slot_opt (void)
-{
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    {
-      gimple_stmt_iterator gsi;
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	{
-	  gimple stmt = gsi_stmt (gsi);
-	  bool slot_opt_p;
-
-	  if (is_gimple_call (stmt)
-	      && gimple_call_lhs (stmt)
-	      && !gimple_call_return_slot_opt_p (stmt)
-	      && aggregate_value_p (TREE_TYPE (gimple_call_lhs (stmt)),
-				    gimple_call_fndecl (stmt)))
-	    {
-	      /* Check if the location being assigned to is
-	         clobbered by the call.  */
-	      slot_opt_p = dest_safe_for_nrv_p (stmt);
-	      gimple_call_set_return_slot_opt (stmt, slot_opt_p);
-	    }
-	}
-    }
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_return_slot =
@@ -382,8 +353,6 @@ const pass_data pass_data_return_slot =
   GIMPLE_PASS, /* type */
   "retslot", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
@@ -400,9 +369,38 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return execute_return_slot_opt (); }
+  virtual unsigned int execute (function *);
 
 }; // class pass_return_slot
+
+unsigned int
+pass_return_slot::execute (function *fun)
+{
+  basic_block bb;
+
+  FOR_EACH_BB_FN (bb, fun)
+    {
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  bool slot_opt_p;
+
+	  if (is_gimple_call (stmt)
+	      && gimple_call_lhs (stmt)
+	      && !gimple_call_return_slot_opt_p (stmt)
+	      && aggregate_value_p (TREE_TYPE (gimple_call_lhs (stmt)),
+				    gimple_call_fndecl (stmt)))
+	    {
+	      /* Check if the location being assigned to is
+		 clobbered by the call.  */
+	      slot_opt_p = dest_safe_for_nrv_p (stmt);
+	      gimple_call_set_return_slot_opt (stmt, slot_opt_p);
+	    }
+	}
+    }
+  return 0;
+}
 
 } // anon namespace
 

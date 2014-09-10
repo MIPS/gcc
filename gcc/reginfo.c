@@ -1,5 +1,5 @@
 /* Compute different info about registers.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -86,7 +86,7 @@ static const char initial_call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
 char global_regs[FIRST_PSEUDO_REGISTER];
 
 /* Declaration for the global register. */
-static tree GTY(()) global_regs_decl[FIRST_PSEUDO_REGISTER];
+tree global_regs_decl[FIRST_PSEUDO_REGISTER];
 
 /* Same information as REGS_INVALIDATED_BY_CALL but in regset form to be used
    in dataflow more conveniently.  */
@@ -533,7 +533,11 @@ reinit_regs (void)
   init_regs ();
   /* caller_save needs to be re-initialized.  */
   caller_save_initialized_p = false;
-  ira_init ();
+  if (this_target_rtl->target_specific_initialized)
+    {
+      ira_init ();
+      recog_init ();
+    }
 }
 
 /* Initialize some fake stack-frame MEM references for use in
@@ -968,8 +972,6 @@ const pass_data pass_data_reginfo_init =
   RTL_PASS, /* type */
   "reginfo", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -986,7 +988,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return reginfo_init (); }
+  virtual unsigned int execute (function *) { return reginfo_init (); }
 
 }; // class pass_reginfo_init
 
@@ -1020,12 +1022,12 @@ setup_reg_classes (int regno,
    again just before loop.  It finds the first and last use of each
    pseudo-register.  */
 
-static void reg_scan_mark_refs (rtx, rtx);
+static void reg_scan_mark_refs (rtx, rtx_insn *);
 
 void
-reg_scan (rtx f, unsigned int nregs ATTRIBUTE_UNUSED)
+reg_scan (rtx_insn *f, unsigned int nregs ATTRIBUTE_UNUSED)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   timevar_push (TV_REG_SCAN);
 
@@ -1046,7 +1048,7 @@ reg_scan (rtx f, unsigned int nregs ATTRIBUTE_UNUSED)
    We should only record information for REGs with numbers
    greater than or equal to MIN_REGNO.  */
 static void
-reg_scan_mark_refs (rtx x, rtx insn)
+reg_scan_mark_refs (rtx x, rtx_insn *insn)
 {
   enum rtx_code code;
   rtx dest;
@@ -1257,7 +1259,7 @@ void
 init_subregs_of_mode (void)
 {
   basic_block bb;
-  rtx insn;
+  rtx_insn *insn;
   bitmap_obstack srom_obstack;
   bitmap subregs_of_mode;
 
@@ -1266,7 +1268,7 @@ init_subregs_of_mode (void)
   bitmap_obstack_initialize (&srom_obstack);
   subregs_of_mode = BITMAP_ALLOC (&srom_obstack);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       if (NONDEBUG_INSN_P (insn))
         find_subregs_of_mode (PATTERN (insn), subregs_of_mode);

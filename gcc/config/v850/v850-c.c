@@ -1,5 +1,5 @@
 /* v850 specific, C compiler specific functions.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GCC.
@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "cpplib.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "c-family/c-pragma.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
@@ -173,8 +175,7 @@ ghs_pragma_section (cpp_reader * pfile ATTRIBUTE_UNUSED)
       if (streq (alias, "default"))
 	GHS_current_section_names [kind] = NULL;
       else
-	GHS_current_section_names [kind] =
-	  build_string (strlen (alias) + 1, alias);
+	GHS_current_section_names [kind] = alias;
     }
   while (repeat);
 

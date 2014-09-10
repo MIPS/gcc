@@ -1,5 +1,5 @@
 /* Definitions for 64-bit PowerPC running FreeBSD using the ELF format
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -367,7 +367,7 @@ extern int dot_symbols;
 /* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  ((TARGET_ALTIVEC && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)     \
+  (rs6000_special_adjust_field_align_p ((FIELD), (COMPUTED))		\
    ? 128                                                                \
    : (TARGET_64BIT                                                      \
       && TARGET_ALIGN_NATURAL == 0                                      \

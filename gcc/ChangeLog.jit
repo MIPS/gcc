@@ -1,3 +1,17 @@
+2014-09-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* cgraph.c (cgraph_c_finalize): Update to reflect the movement of
+	many globals into fields of the "symtab" object.
+	* cgraphunit.c (graphunit_c_finalize): Likewise.
+	* symtab.c (symtab_c_finalize): Likewise.
+
+	* toplev.c (initialize_rtl): Move static local "initialized_once"
+	into file scope, and rename to...
+	(rtl_initialized): New variable.
+	(toplev::finalize): Clear rtl_initialized and
+	this_target_rtl->target_specific_initialized so that RTL will be
+	reinitialized when the compiler is run more than once in-process.
+
 2014-07-14  David Malcolm  <dmalcolm@redhat.com>
 
 	* cgraph.h (ipa_cp_c_finalize): Add prototype.

@@ -81,12 +81,16 @@ func (p *Part) parseContentDisposition() {
 	}
 }
 
-// NewReader creates a new multipart Reader reading from reader using the
+// NewReader creates a new multipart Reader reading from r using the
 // given MIME boundary.
-func NewReader(reader io.Reader, boundary string) *Reader {
+//
+// The boundary is usually obtained from the "boundary" parameter of
+// the message's "Content-Type" header. Use mime.ParseMediaType to
+// parse such headers.
+func NewReader(r io.Reader, boundary string) *Reader {
 	b := []byte("\r\n--" + boundary + "--")
 	return &Reader{
-		bufReader: bufio.NewReader(reader),
+		bufReader: bufio.NewReader(r),
 
 		nl:               b[:2],
 		nlDashBoundary:   b[:len(b)-2],
@@ -272,7 +276,7 @@ func (r *Reader) NextPart() (*Part, error) {
 	}
 }
 
-// isFinalBoundary returns whether line is the final boundary line
+// isFinalBoundary reports whether line is the final boundary line
 // indicating that all parts are over.
 // It matches `^--boundary--[ \t]*(\r\n)?$`
 func (mr *Reader) isFinalBoundary(line []byte) bool {
@@ -307,8 +311,8 @@ func (mr *Reader) isBoundaryDelimiterLine(line []byte) (ret bool) {
 	return bytes.Equal(rest, mr.nl)
 }
 
-// peekBufferIsEmptyPart returns whether the provided peek-ahead
-// buffer represents an empty part.  This is only called if we've not
+// peekBufferIsEmptyPart reports whether the provided peek-ahead
+// buffer represents an empty part. It is called only if we've not
 // already read any bytes in this part and checks for the case of MIME
 // software not writing the \r\n on empty parts. Some does, some
 // doesn't.

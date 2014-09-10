@@ -1,5 +1,5 @@
 /* Translation of constants
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -23,15 +23,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "gfortran.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "realmpfr.h"
 #include "diagnostic-core.h"	/* For fatal_error.  */
 #include "double-int.h"
-#include "gfortran.h"
 #include "trans.h"
 #include "trans-const.h"
 #include "trans-types.h"
 #include "target-memory.h"
+#include "wide-int.h"
 
 tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];
 
@@ -79,6 +81,7 @@ gfc_build_string_const (int length, const char *s)
     build_array_type (gfc_character1_type_node,
 		      build_range_type (gfc_charlen_type_node,
 					size_one_node, len));
+  TYPE_STRING_FLAG (TREE_TYPE (str)) = 1;
   return str;
 }
 
@@ -108,6 +111,7 @@ gfc_build_wide_string_const (int kind, int length, const gfc_char_t *string)
     build_array_type (gfc_get_char_type (kind),
 		      build_range_type (gfc_charlen_type_node,
 					size_one_node, len));
+  TYPE_STRING_FLAG (TREE_TYPE (str)) = 1;
   return str;
 }
 
@@ -144,8 +148,7 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
 
   gcc_assert (expr->expr_type == EXPR_CONSTANT);
   gcc_assert (expr->ts.type == BT_CHARACTER);
-  gcc_assert (INTEGER_CST_P (length));
-  gcc_assert (TREE_INT_CST_HIGH (length) == 0);
+  gcc_assert (tree_fits_uhwi_p (length));
 
   len = TREE_INT_CST_LOW (length);
   slen = expr->value.character.length;
@@ -200,8 +203,8 @@ gfc_init_constants (void)
 tree
 gfc_conv_mpz_to_tree (mpz_t i, int kind)
 {
-  double_int val = mpz_get_double_int (gfc_get_int_type (kind), i, true);
-  return double_int_to_tree (gfc_get_int_type (kind), val);
+  wide_int val = wi::from_mpz (gfc_get_int_type (kind), i, true);
+  return wide_int_to_tree (gfc_get_int_type (kind), val);
 }
 
 /* Converts a backend tree into a GMP integer.  */
@@ -209,8 +212,7 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
 void
 gfc_conv_tree_to_mpz (mpz_t i, tree source)
 {
-  double_int val = tree_to_double_int (source);
-  mpz_set_double_int (i, val, TYPE_UNSIGNED (TREE_TYPE (source)));
+  wi::to_mpz (source, i, TYPE_SIGN (TREE_TYPE (source)));
 }
 
 /* Converts a real constant into backend form.  */

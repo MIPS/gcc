@@ -1,5 +1,5 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "except.h"
@@ -73,10 +74,12 @@ trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
 }
 
 /* Return an rtx for the sum of X and the integer C, given that X has
-   mode MODE.  */
+   mode MODE.  INPLACE is true if X can be modified inplace or false
+   if it must be treated as immutable.  */
 
 rtx
-plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c)
+plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c,
+	       bool inplace)
 {
   RTX_CODE code;
   rtx y;
@@ -95,38 +98,9 @@ plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c)
 
   switch (code)
     {
-    case CONST_INT:
-      if (GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT)
-	{
-	  double_int di_x = double_int::from_shwi (INTVAL (x));
-	  double_int di_c = double_int::from_shwi (c);
-
-	  bool overflow;
-	  double_int v = di_x.add_with_sign (di_c, false, &overflow);
-	  if (overflow)
-	    gcc_unreachable ();
-
-	  return immed_double_int_const (v, mode);
-	}
-
-      return gen_int_mode (INTVAL (x) + c, mode);
-
-    case CONST_DOUBLE:
-      {
-	double_int di_x = double_int::from_pair (CONST_DOUBLE_HIGH (x),
-						 CONST_DOUBLE_LOW (x));
-	double_int di_c = double_int::from_shwi (c);
-
-	bool overflow;
-	double_int v = di_x.add_with_sign (di_c, false, &overflow);
-	if (overflow)
-	  /* Sorry, we have no way to represent overflows this wide.
-	     To fix, add constant support wider than CONST_DOUBLE.  */
-	  gcc_assert (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_DOUBLE_INT);
-
-	return immed_double_int_const (v, mode);
-      }
-
+    CASE_CONST_SCALAR_INT:
+      return immed_wide_int_const (wi::add (std::make_pair (x, mode), c),
+				   mode);
     case MEM:
       /* If this is a reference to the constant pool, try replacing it with
 	 a reference to a new constant.  If the resulting address isn't
@@ -144,6 +118,8 @@ plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c)
     case CONST:
       /* If adding to something entirely constant, set a flag
 	 so that we can add a CONST around the result.  */
+      if (inplace && shared_const_p (x))
+	inplace = false;
       x = XEXP (x, 0);
       all_constant = 1;
       goto restart;
@@ -164,19 +140,25 @@ plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c)
 
       if (CONSTANT_P (XEXP (x, 1)))
 	{
-	  x = gen_rtx_PLUS (mode, XEXP (x, 0),
-			    plus_constant (mode, XEXP (x, 1), c));
+	  rtx term = plus_constant (mode, XEXP (x, 1), c, inplace);
+	  if (term == const0_rtx)
+	    x = XEXP (x, 0);
+	  else if (inplace)
+	    XEXP (x, 1) = term;
+	  else
+	    x = gen_rtx_PLUS (mode, XEXP (x, 0), term);
 	  c = 0;
 	}
-      else if (find_constant_term_loc (&y))
+      else if (rtx *const_loc = find_constant_term_loc (&y))
 	{
-	  /* We need to be careful since X may be shared and we can't
-	     modify it in place.  */
-	  rtx copy = copy_rtx (x);
-	  rtx *const_loc = find_constant_term_loc (&copy);
-
-	  *const_loc = plus_constant (mode, *const_loc, c);
-	  x = copy;
+	  if (!inplace)
+	    {
+	      /* We need to be careful since X may be shared and we can't
+		 modify it in place.  */
+	      x = copy_rtx (x);
+	      const_loc = find_constant_term_loc (&x);
+	    }
+	  *const_loc = plus_constant (mode, *const_loc, c, true);
 	  c = 0;
 	}
       break;
@@ -235,6 +217,18 @@ eliminate_constant_term (rtx x, rtx *constptr)
   return x;
 }
 
+/* Returns a tree for the size of EXP in bytes.  */
+
+static tree
+tree_expr_size (const_tree exp)
+{
+  if (DECL_P (exp)
+      && DECL_SIZE_UNIT (exp) != 0)
+    return DECL_SIZE_UNIT (exp);
+  else
+    return size_in_bytes (TREE_TYPE (exp));
+}
+
 /* Return an rtx for the size in bytes of the value of EXP.  */
 
 rtx
@@ -270,10 +264,10 @@ int_expr_size (tree exp)
       gcc_assert (size);
     }
 
-  if (size == 0 || !host_integerp (size, 0))
+  if (size == 0 || !tree_fits_shwi_p (size))
     return -1;
 
-  return tree_low_cst (size, 0);
+  return tree_to_shwi (size);
 }
 
 /* Return a copy of X in which all memory references
@@ -524,8 +518,9 @@ memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
   return x;
 }
 
-/* Convert a mem ref into one with a valid memory address.
-   Pass through anything else unchanged.  */
+/* If REF is a MEM with an invalid address, change it into a valid address.
+   Pass through anything else unchanged.  REF must be an unshared rtx and
+   the function may modify it in-place.  */
 
 rtx
 validize_mem (rtx ref)
@@ -537,8 +532,7 @@ validize_mem (rtx ref)
 				   MEM_ADDR_SPACE (ref)))
     return ref;
 
-  /* Don't alter REF itself, since that is probably a stack slot.  */
-  return replace_equiv_address (ref, XEXP (ref, 0));
+  return replace_equiv_address (ref, XEXP (ref, 0), true);
 }
 
 /* If X is a memory reference to a member of an object block, try rewriting
@@ -655,7 +649,8 @@ copy_to_mode_reg (enum machine_mode mode, rtx x)
 rtx
 force_reg (enum machine_mode mode, rtx x)
 {
-  rtx temp, insn, set;
+  rtx temp, set;
+  rtx_insn *insn;
 
   if (REG_P (x))
     return x;
@@ -886,7 +881,8 @@ static bool suppress_reg_args_size;
 static void
 adjust_stack_1 (rtx adjust, bool anti_p)
 {
-  rtx temp, insn;
+  rtx temp;
+  rtx_insn *insn;
 
 #ifndef STACK_GROWS_DOWNWARD
   /* Hereafter anti_p means subtract_p.  */
@@ -1166,7 +1162,8 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 			      unsigned required_align, bool cannot_accumulate)
 {
   HOST_WIDE_INT stack_usage_size = -1;
-  rtx final_label, final_target, target;
+  rtx_code_label *final_label;
+  rtx final_target, target;
   unsigned extra_align = 0;
   bool must_align;
 
@@ -1190,7 +1187,8 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
         {
 	  /* Look into the last emitted insn and see if we can deduce
 	     something for the register.  */
-	  rtx insn, set, note;
+	  rtx_insn *insn;
+	  rtx set, note;
 	  insn = get_last_insn ();
 	  if ((set = single_set (insn)) && rtx_equal_p (SET_DEST (set), size))
 	    {
@@ -1319,7 +1317,7 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 	current_function_has_unbounded_dynamic_stack_size = 1;
     }
 
-  final_label = NULL_RTX;
+  final_label = NULL;
   final_target = NULL_RTX;
 
   /* If we are splitting the stack, we need to ask the backend whether
@@ -1331,9 +1329,10 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
      least it doesn't cause a stack overflow.  */
   if (flag_split_stack)
     {
-      rtx available_label, ask, space, func;
+      rtx_code_label *available_label;
+      rtx ask, space, func;
 
-      available_label = NULL_RTX;
+      available_label = NULL;
 
 #ifdef HAVE_split_stack_space_check
       if (HAVE_split_stack_space_check)
@@ -1426,7 +1425,7 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
       if (crtl->limit_stack)
 	{
 	  rtx available;
-	  rtx space_available = gen_label_rtx ();
+	  rtx_code_label *space_available = gen_label_rtx ();
 #ifdef STACK_GROWS_DOWNWARD
 	  available = expand_binop (Pmode, sub_optab,
 				    stack_pointer_rtx, stack_limit_rtx,
@@ -1628,9 +1627,8 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
   else
     {
       rtx rounded_size, rounded_size_op, test_addr, last_addr, temp;
-      rtx loop_lab = gen_label_rtx ();
-      rtx end_lab = gen_label_rtx ();
-
+      rtx_code_label *loop_lab = gen_label_rtx ();
+      rtx_code_label *end_lab = gen_label_rtx ();
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
@@ -1716,6 +1714,9 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 	  emit_stack_probe (addr);
 	}
     }
+
+  /* Make sure nothing is scheduled before we are done.  */
+  emit_insn (gen_blockage ());
 }
 
 /* Adjust the stack pointer by minus SIZE (an rtx for a number of bytes)
@@ -1773,8 +1774,8 @@ anti_adjust_stack_and_probe (rtx size, bool adjust_back)
   else
     {
       rtx rounded_size, rounded_size_op, last_addr, temp;
-      rtx loop_lab = gen_label_rtx ();
-      rtx end_lab = gen_label_rtx ();
+      rtx_code_label *loop_lab = gen_label_rtx ();
+      rtx_code_label *end_lab = gen_label_rtx ();
 
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */

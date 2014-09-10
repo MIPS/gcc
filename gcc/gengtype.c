@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -25,7 +25,6 @@
 #include "system.h"
 #include "errors.h"		/* for fatal */
 #include "getopt.h"
-#include "double-int.h"
 #include "version.h"		/* for version_string & pkgversion_string.  */
 #include "hashtab.h"
 #include "xregex.h"
@@ -135,6 +134,24 @@ xasprintf (const char *format, ...)
   va_end (ap);
 
   return result;
+}
+
+/* Locate the ultimate base class of struct S.  */
+
+static const_type_p
+get_ultimate_base_class (const_type_p s)
+{
+  while (s->u.s.base_class)
+    s = s->u.s.base_class;
+  return s;
+}
+
+static type_p
+get_ultimate_base_class (type_p s)
+{
+  while (s->u.s.base_class)
+    s = s->u.s.base_class;
+  return s;
 }
 
 /* Input file handling. */
@@ -525,7 +542,7 @@ do_typedef (const char *s, type_p t, struct fileloc *pos)
   for (p = typedefs; p != NULL; p = p->next)
     if (strcmp (p->name, s) == 0)
       {
-	if (p->type != t)
+	if (p->type != t && strcmp (s, "result_type") != 0)
 	  {
 	    error_at_line (pos, "type `%s' previously defined", s);
 	    error_at_line (&p->line, "previously defined here");
@@ -552,6 +569,40 @@ do_scalar_typedef (const char *s, struct fileloc *pos)
   do_typedef (s, &scalar_nonchar, pos);
 }
 
+/* Similar to strtok_r.  */
+
+static char *
+strtoken (char *str, const char *delim, char **next)
+{
+  char *p;
+
+  if (str == NULL)
+    str = *next;
+
+  /* Skip the leading delimiters.  */
+  str += strspn (str, delim);
+  if (*str == '\0')
+    /* This is an empty token.  */
+    return NULL;
+
+  /* The current token.  */
+  p = str;
+
+  /* Find the next delimiter.  */
+  str += strcspn (str, delim);
+  if (*str == '\0')
+    /* This is the last token.  */
+    *next = str;
+  else
+    {
+      /* Terminate the current token.  */
+      *str = '\0';
+      /* Advance to the next token.  */
+      *next = str + 1;
+    }
+
+  return p;
+}
 
 /* Define TYPE_NAME to be a user defined type at location POS.  */
 
@@ -580,18 +631,39 @@ create_user_defined_type (const char *type_name, struct fileloc *pos)
       /* We only accept simple template declarations (see
 	 require_template_declaration), so we only need to parse a
 	 comma-separated list of strings, implicitly assumed to
-	 be type names.  */
+	 be type names, potentially with "*" characters.  */
       char *arg = open_bracket + 1;
-      char *type_id = strtok (arg, ",>");
+      char *next;
+      char *type_id = strtoken (arg, ",>", &next);
       pair_p fields = 0;
       while (type_id)
 	{
 	  /* Create a new field for every type found inside the template
 	     parameter list.  */
-	  const char *field_name = xstrdup (type_id);
-	  type_p arg_type = resolve_typedef (field_name, pos);
+
+	  /* Support a single trailing "*" character.  */
+	  const char *star = strchr (type_id, '*');
+	  int is_ptr = (star != NULL);
+	  size_t offset_to_star = star - type_id;
+	  if (is_ptr)
+	    offset_to_star = star - type_id;
+
+	  char *field_name = xstrdup (type_id);
+
+	  type_p arg_type;
+	  if (is_ptr)
+	    {
+	      /* Strip off the first '*' character (and any subsequent text). */
+	      *(field_name + offset_to_star) = '\0';
+
+	      arg_type = find_structure (field_name, TYPE_STRUCT);
+	      arg_type = create_pointer (arg_type);
+	    }
+	  else
+	    arg_type = resolve_typedef (field_name, pos);
+
 	  fields = create_field_at (fields, arg_type, field_name, 0, pos);
-	  type_id = strtok (0, ",>");
+	  type_id = strtoken (0, ",>", &next);
 	}
 
       /* Associate the field list to TY.  */
@@ -667,6 +739,16 @@ resolve_typedef (const char *s, struct fileloc *pos)
   return p;
 }
 
+/* Add SUBCLASS to head of linked list of BASE's subclasses.  */
+
+void add_subclass (type_p base, type_p subclass)
+{
+  gcc_assert (union_or_struct_p (base));
+  gcc_assert (union_or_struct_p (subclass));
+
+  subclass->u.s.next_sibling_class = base->u.s.first_subclass;
+  base->u.s.first_subclass = subclass;
+}
 
 /* Create and return a new structure with tag NAME at POS with fields
    FIELDS and options O.  The KIND of structure must be one of
@@ -674,7 +756,7 @@ resolve_typedef (const char *s, struct fileloc *pos)
 
 type_p
 new_structure (const char *name, enum typekind kind, struct fileloc *pos,
-	       pair_p fields, options_p o)
+	       pair_p fields, options_p o, type_p base_class)
 {
   type_p si;
   type_p s = NULL;
@@ -748,6 +830,9 @@ new_structure (const char *name, enum typekind kind, struct fileloc *pos,
   s->u.s.bitmap = bitmap;
   if (s->u.s.lang_struct)
     s->u.s.lang_struct->u.s.bitmap |= bitmap;
+  s->u.s.base_class = base_class;
+  if (base_class)
+    add_subclass (base_class, s);
 
   return s;
 }
@@ -976,7 +1061,7 @@ create_optional_field_ (pair_p next, type_p type, const char *name,
     create_string_option (union_fields->opt, "tag", "1");
   union_type = 
     new_structure (xasprintf ("%s_%d", "fake_union", id++), TYPE_UNION,
-                   &lexer_line, union_fields, NULL);
+                   &lexer_line, union_fields, NULL, NULL);
 
   /* Create the field and give it the new fake union type.  Add a "desc"
      tag that specifies the condition under which the field is valid.  */
@@ -1064,8 +1149,8 @@ gen_rtx_next (void)
       int k;
 
       rtx_next_new[i] = -1;
-      if (strncmp (rtx_format[i], "iuu", 3) == 0)
-	rtx_next_new[i] = 2;
+      if (strncmp (rtx_format[i], "uu", 2) == 0)
+	rtx_next_new[i] = 1;
       else if (i == COND_EXEC || i == SET || i == EXPR_LIST || i == INSN_LIST)
 	rtx_next_new[i] = 1;
       else
@@ -1167,7 +1252,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	    create_string_option (nodot, "tag", note_insn_name[c]);
       }
     note_union_tp = new_structure ("rtx_def_note_subunion", TYPE_UNION,
-				   &lexer_line, note_flds, NULL);
+				   &lexer_line, note_flds, NULL, NULL);
   }
   /* Create a type to represent the various forms of SYMBOL_REF_DATA.  */
   {
@@ -1177,7 +1262,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
     sym_flds = create_field (sym_flds, constant_tp, "rt_constant");
     sym_flds->opt = create_string_option (nodot, "tag", "1");
     symbol_union_tp = new_structure ("rtx_def_symbol_subunion", TYPE_UNION,
-				     &lexer_line, sym_flds, NULL);
+				     &lexer_line, sym_flds, NULL, NULL);
   }
   for (i = 0; i < NUM_RTX_CODE; i++)
     {
@@ -1205,19 +1290,19 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	    case '0':
 	      if (i == MEM && aindex == 1)
 		t = mem_attrs_tp, subname = "rt_mem";
-	      else if (i == JUMP_INSN && aindex == 8)
+	      else if (i == JUMP_INSN && aindex == 7)
 		t = rtx_tp, subname = "rt_rtx";
-	      else if (i == CODE_LABEL && aindex == 5)
-		t = scalar_tp, subname = "rt_int";
 	      else if (i == CODE_LABEL && aindex == 4)
+		t = scalar_tp, subname = "rt_int";
+	      else if (i == CODE_LABEL && aindex == 3)
 		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == LABEL_REF && (aindex == 1 || aindex == 2))
 		t = rtx_tp, subname = "rt_rtx";
-	      else if (i == NOTE && aindex == 4)
+	      else if (i == NOTE && aindex == 3)
 		t = note_union_tp, subname = "";
-	      else if (i == NOTE && aindex == 5)
+	      else if (i == NOTE && aindex == 4)
 		t = scalar_tp, subname = "rt_int";
-	      else if (i == NOTE && aindex >= 7)
+	      else if (i == NOTE && aindex >= 6)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == ADDR_DIFF_VEC && aindex == 4)
 		t = scalar_tp, subname = "rt_int";
@@ -1226,18 +1311,12 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	      else if (i == DEBUG_EXPR && aindex == 0)
 		t = tree_tp, subname = "rt_tree";
 	      else if (i == REG && aindex == 1)
-		t = scalar_tp, subname = "rt_int";
-	      else if (i == REG && aindex == 2)
 		t = reg_attrs_tp, subname = "rt_reg";
-	      else if (i == SCRATCH && aindex == 0)
-		t = scalar_tp, subname = "rt_int";
 	      else if (i == SYMBOL_REF && aindex == 1)
-		t = scalar_tp, subname = "rt_int";
-	      else if (i == SYMBOL_REF && aindex == 2)
 		t = symbol_union_tp, subname = "";
-	      else if (i == JUMP_TABLE_DATA && aindex >= 5)
+	      else if (i == JUMP_TABLE_DATA && aindex >= 4)
 		t = scalar_tp, subname = "rt_int";
-	      else if (i == BARRIER && aindex >= 3)
+	      else if (i == BARRIER && aindex >= 2)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == ENTRY_VALUE && aindex == 0)
 		t = rtx_tp, subname = "rt_rtx";
@@ -1319,7 +1398,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 
       sname = xasprintf ("rtx_def_%s", rtx_name[i]);
       substruct = new_structure (sname, TYPE_STRUCT, &lexer_line, subfields,
-				 NULL);
+				 NULL, NULL);
 
       ftag = xstrdup (rtx_name[i]);
       for (nmindex = 0; nmindex < strlen (ftag); nmindex++)
@@ -1328,7 +1407,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
       flds->opt = create_string_option (nodot, "tag", ftag);
     }
   return new_structure ("rtx_def_subunion", TYPE_UNION, &lexer_line, flds,
-			nodot);
+			nodot, NULL);
 }
 
 /* Handle `special("tree_exp")'.  This is a special case for
@@ -1358,7 +1437,7 @@ adjust_field_tree_exp (type_p t, options_p opt ATTRIBUTE_UNUSED)
   flds->opt = create_string_option (flds->opt, "default", "");
 
   return new_structure ("tree_exp_subunion", TYPE_UNION, &lexer_line, flds,
-			nodot);
+			nodot, NULL);
 }
 
 /* Perform any special processing on a type T, about to become the type
@@ -1531,7 +1610,17 @@ set_gc_used_type (type_p t, enum gc_used_enum level, type_p param[NUM_PARAM],
 	process_gc_options (t->u.s.opt, level, &dummy, &dummy, &dummy, &dummy,
 			    &dummy2);
 
-	for (f = t->u.s.fields; f; f = f->next)
+	if (t->u.s.base_class)
+	  set_gc_used_type (t->u.s.base_class, level, param,
+			    allow_undefined_types);
+	/* Anything pointing to a base class might actually be pointing
+	   to a subclass.  */
+	for (type_p subclass = t->u.s.first_subclass; subclass;
+	     subclass = subclass->u.s.next_sibling_class)
+	  set_gc_used_type (subclass, level, param,
+			    allow_undefined_types);
+
+	FOR_ALL_INHERITED_FIELDS(t, f)
 	  {
 	    int maybe_undef = 0;
 	    int pass_param = 0;
@@ -1632,7 +1721,7 @@ static outf_p
 create_file (const char *name, const char *oname)
 {
   static const char *const hdr[] = {
-    "   Copyright (C) 2004-2013 Free Software Foundation, Inc.\n",
+    "   Copyright (C) 2004-2014 Free Software Foundation, Inc.\n",
     "\n",
     "This file is part of GCC.\n",
     "\n",
@@ -1733,12 +1822,16 @@ open_base_files (void)
     static const char *const ifiles[] = {
       "config.h", "system.h", "coretypes.h", "tm.h",
       "hashtab.h", "splay-tree.h", "obstack.h", "bitmap.h", "input.h",
-      "tree.h", "rtl.h", "function.h", "insn-config.h", "expr.h",
+      "tree.h", "rtl.h", "wide-int.h", "function.h", "insn-config.h", "expr.h",
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
-      "gimple.h", "gimple-ssa.h", "tree-cfg.h", "tree-phinodes.h",
-      "ssa-iterators.h", "tree-ssanames.h", "tree-ssa-loop.h",
-      "tree-into-ssa.h", "tree-dfa.h", 
+      "hash-table.h", "vec.h", "ggc.h", "basic-block.h",
+      "tree-ssa-alias.h", "internal-fn.h", "gimple-fold.h", "tree-eh.h",
+      "gimple-expr.h", "is-a.h",
+      "gimple.h", "gimple-iterator.h", "gimple-ssa.h", "tree-cfg.h",
+      "tree-phinodes.h", "ssa-iterators.h", "stringpool.h", "tree-ssanames.h",
+      "tree-ssa-loop.h", "tree-ssa-loop-ivopts.h", "tree-ssa-loop-manip.h",
+      "tree-ssa-loop-niter.h", "tree-into-ssa.h", "tree-dfa.h", 
       "tree-ssa.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "except.h", "output.h",  "cfgloop.h",
       "target.h", "ipa-prop.h", "lto-streamer.h", "target-globals.h",
@@ -2342,6 +2435,8 @@ is_file_equal (outf_p of)
 	  break;
 	}
     }
+  if (equal && EOF != fgetc (newfile))
+    equal = false;
   fclose (newfile);
   return equal;
 }
@@ -2429,6 +2524,7 @@ struct write_types_data
   const char *reorder_note_routine;
   const char *comment;
   int skip_hooks;		/* skip hook generation if non zero */
+  enum write_types_kinds kind;
 };
 
 static void output_escaped_param (struct walk_type_data *d,
@@ -2505,7 +2601,8 @@ filter_type_name (const char *type_name)
       size_t i;
       char *s = xstrdup (type_name);
       for (i = 0; i < strlen (s); i++)
-	if (s[i] == '<' || s[i] == '>' || s[i] == ':' || s[i] == ',')
+	if (s[i] == '<' || s[i] == '>' || s[i] == ':' || s[i] == ','
+	    || s[i] == '*')
 	  s[i] = '_';
       return s;
     }
@@ -2543,6 +2640,10 @@ output_mangled_typename (outf_p of, const_type_p t)
       case TYPE_LANG_STRUCT:
       case TYPE_USER_STRUCT:
 	{
+	  /* For references to classes within an inheritance hierarchy,
+	     only ever reference the ultimate base class, since only
+	     it will have gt_ functions.  */
+	  t = get_ultimate_base_class (t);
 	  const char *id_for_tag = filter_type_name (t->u.s.tag);
 	  oprintf (of, "%lu%s", (unsigned long) strlen (id_for_tag),
 		   id_for_tag);
@@ -2605,6 +2706,75 @@ output_escaped_param (struct walk_type_data *d, const char *param,
 	}
 }
 
+const char *
+get_string_option (options_p opt, const char *key)
+{
+  for (; opt; opt = opt->next)
+    if (strcmp (opt->name, key) == 0)
+      return opt->info.string;
+  return NULL;
+}
+
+/* Machinery for avoiding duplicate tags within switch statements.  */
+struct seen_tag
+{
+  const char *tag;
+  struct seen_tag *next;
+};
+
+int
+already_seen_tag (struct seen_tag *seen_tags, const char *tag)
+{
+  /* Linear search, so O(n^2), but n is currently small.  */
+  while (seen_tags)
+    {
+      if (!strcmp (seen_tags->tag, tag))
+	return 1;
+      seen_tags = seen_tags->next;
+    }
+  /* Not yet seen this tag. */
+  return 0;
+}
+
+void
+mark_tag_as_seen (struct seen_tag **seen_tags, const char *tag)
+{
+  /* Add to front of linked list. */
+  struct seen_tag *new_node = XCNEW (struct seen_tag);
+  new_node->tag = tag;
+  new_node->next = *seen_tags;
+  *seen_tags = new_node;
+}
+
+static void
+walk_subclasses (type_p base, struct walk_type_data *d,
+		 struct seen_tag **seen_tags)
+{
+  for (type_p sub = base->u.s.first_subclass; sub != NULL;
+       sub = sub->u.s.next_sibling_class)
+    {
+      const char *type_tag = get_string_option (sub->u.s.opt, "tag");
+      if (type_tag && !already_seen_tag (*seen_tags, type_tag))
+	{
+	  mark_tag_as_seen (seen_tags, type_tag);
+	  oprintf (d->of, "%*scase %s:\n", d->indent, "", type_tag);
+	  d->indent += 2;
+	  oprintf (d->of, "%*s{\n", d->indent, "");
+	  d->indent += 2;
+	  oprintf (d->of, "%*s%s *sub = static_cast <%s *> (x);\n",
+		   d->indent, "", sub->u.s.tag, sub->u.s.tag);
+	  const char *old_val = d->val;
+	  d->val = "(*sub)";
+	  walk_type (sub, d);
+	  d->val = old_val;
+	  d->indent -= 2;
+	  oprintf (d->of, "%*s}\n", d->indent, "");
+	  oprintf (d->of, "%*sbreak;\n", d->indent, "");
+	  d->indent -= 2;
+	}
+      walk_subclasses (sub, d, seen_tags);
+    }
+}
 
 /* Call D->PROCESS_FIELD for every field (or subfield) of D->VAL,
    which is of type T.  Write code to D->OF to constrain execution (at
@@ -2622,6 +2792,7 @@ walk_type (type_p t, struct walk_type_data *d)
 {
   const char *length = NULL;
   const char *desc = NULL;
+  const char *type_tag = NULL;
   int maybe_undef_p = 0;
   int use_param_num = -1;
   int use_params_p = 0;
@@ -2650,7 +2821,7 @@ walk_type (type_p t, struct walk_type_data *d)
     else if (strcmp (oo->name, "dot") == 0)
       ;
     else if (strcmp (oo->name, "tag") == 0)
-      ;
+      type_tag = oo->info.string;
     else if (strcmp (oo->name, "special") == 0)
       ;
     else if (strcmp (oo->name, "skip") == 0)
@@ -2963,14 +3134,38 @@ walk_type (type_p t, struct walk_type_data *d)
 			       t->u.s.tag);
 		desc = "1";
 	      }
-	    oprintf (d->of, "%*sswitch (", d->indent, "");
+	    oprintf (d->of, "%*sswitch ((int) (", d->indent, "");
 	    output_escaped_param (d, desc, "desc");
-	    oprintf (d->of, ")\n");
+	    oprintf (d->of, "))\n");
 	    d->indent += 2;
 	    oprintf (d->of, "%*s{\n", d->indent, "");
 	  }
+	else if (desc)
+	  {
+	    /* We have a "desc" option on a struct, signifying the
+	       base class within a GC-managed inheritance hierarchy.
+	       The current code specialcases the base class, then walks
+	       into subclasses, recursing into this routine to handle them.
+	       This organization requires the base class to have a case in
+	       the switch statement, and hence a tag value is mandatory
+	       for the base class.   This restriction could be removed, but
+	       it would require some restructing of this code.  */
+	    if (!type_tag)
+	      {
+		error_at_line (d->line,
+			       "missing `tag' option for type `%s'",
+			       t->u.s.tag);
+	      }
+	    oprintf (d->of, "%*sswitch ((int) (", d->indent, "");
+	    output_escaped_param (d, desc, "desc");
+	    oprintf (d->of, "))\n");
+	    d->indent += 2;
+	    oprintf (d->of, "%*s{\n", d->indent, "");
+	    oprintf (d->of, "%*scase %s:\n", d->indent, "", type_tag);
+	    d->indent += 2;
+	  }
 
-	for (f = t->u.s.fields; f; f = f->next)
+	FOR_ALL_INHERITED_FIELDS (t, f)
 	  {
 	    options_p oo;
 	    int skip_p = 0;
@@ -3008,7 +3203,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	  }
 	endcounter = d->counter;
 
-	for (f = t->u.s.fields; f; f = f->next)
+	FOR_ALL_INHERITED_FIELDS (t, f)
 	  {
 	    options_p oo;
 	    const char *dot = ".";
@@ -3110,8 +3305,34 @@ walk_type (type_p t, struct walk_type_data *d)
 	    oprintf (d->of, "%*sdefault:\n", d->indent, "");
 	    oprintf (d->of, "%*s  break;\n", d->indent, "");
 	  }
+
+	if (desc && !union_p)
+	  {
+		oprintf (d->of, "%*sbreak;\n", d->indent, "");
+		d->indent -= 2;
+          }
 	if (union_p)
 	  {
+	    oprintf (d->of, "%*s}\n", d->indent, "");
+	    d->indent -= 2;
+	  }
+	else if (desc)
+	  {
+	    /* Add cases to handle subclasses.  */
+	    struct seen_tag *tags = NULL;
+	    walk_subclasses (t, d, &tags);
+
+	    /* Ensure that if someone forgets a "tag" option that we don't
+	       silent fail to traverse that subclass's fields.  */
+	    if (!seen_default_p)
+	      {
+		oprintf (d->of, "%*s/* Unrecognized tag value.  */\n",
+			 d->indent, "");
+		oprintf (d->of, "%*sdefault: gcc_unreachable (); \n",
+			 d->indent, "");
+	      }
+
+	    /* End of the switch statement */
 	    oprintf (d->of, "%*s}\n", d->indent, "");
 	    d->indent -= 2;
 	  }
@@ -3345,10 +3566,10 @@ write_marker_function_name (outf_p of, type_p s, const char *prefix)
 
 /* Write on OF a user-callable routine to act as an entry point for
    the marking routine for S, generated by write_func_for_structure.
-   PREFIX is the prefix to use to distinguish ggc and pch markers.  */
+   WTD distinguishes between ggc and pch markers.  */
 
 static void
-write_user_func_for_structure_ptr (outf_p of, type_p s, const char *prefix)
+write_user_func_for_structure_ptr (outf_p of, type_p s, const write_types_data *wtd)
 {
   /* Parameterized structures are not supported in user markers. There
      is no way for the marker function to know which specific type
@@ -3378,13 +3599,23 @@ write_user_func_for_structure_ptr (outf_p of, type_p s, const char *prefix)
 	break;
       }
 
+  DBGPRINTF ("write_user_func_for_structure_ptr: %s %s", s->u.s.tag,
+	     wtd->prefix);
+
+  /* Only write the function once. */
+  if (s->u.s.wrote_user_func_for_ptr[wtd->kind])
+    return;
+  s->u.s.wrote_user_func_for_ptr[wtd->kind] = true;
+
   oprintf (of, "\nvoid\n");
-  oprintf (of, "gt_%sx (", prefix);
+  oprintf (of, "gt_%sx (", wtd->prefix);
   write_type_decl (of, s);
   oprintf (of, " *& x)\n");
   oprintf (of, "{\n");
   oprintf (of, "  if (x)\n    ");
-  write_marker_function_name (of, alias_of ? alias_of : s, prefix);
+  write_marker_function_name (of,
+			      alias_of ? alias_of : get_ultimate_base_class (s),
+			      wtd->prefix);
   oprintf (of, " ((void *) x);\n");
   oprintf (of, "}\n");
 }
@@ -3422,7 +3653,8 @@ write_user_func_for_structure_body (type_p s, const char *prefix,
    which just marks the fields of T.  */
 
 static void
-write_user_marking_functions (type_p s, const char *prefix,
+write_user_marking_functions (type_p s,
+			      const write_types_data *w,
 			      struct walk_type_data *d)
 {
   gcc_assert (s->kind == TYPE_USER_STRUCT);
@@ -3434,10 +3666,10 @@ write_user_marking_functions (type_p s, const char *prefix,
 	{
 	  type_p pointed_to_type = fld_type->u.p;
 	  if (union_or_struct_p (pointed_to_type))
-	    write_user_func_for_structure_ptr (d->of, pointed_to_type, prefix);
+	    write_user_func_for_structure_ptr (d->of, pointed_to_type, w);
 	}
       else if (union_or_struct_p (fld_type))
-	write_user_func_for_structure_body (fld_type, prefix, d);
+	write_user_func_for_structure_body (fld_type, w->prefix, d);
     }
 }
 
@@ -3459,6 +3691,24 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   const char *mark_hook_name = NULL;
   options_p opt;
   struct walk_type_data d;
+
+  if (s->u.s.base_class)
+    {
+      /* Verify that the base class has a "desc", since otherwise
+	 the traversal hooks there won't attempt to visit fields of
+	 subclasses such as this one.  */
+      const_type_p ubc = get_ultimate_base_class (s);
+      if ((!opts_have (ubc->u.s.opt, "user")
+	   && !opts_have (ubc->u.s.opt, "desc")))
+	error_at_line (&s->u.s.line,
+		       ("'%s' is a subclass of non-GTY(user) GTY class '%s'"
+			", but '%s' lacks a discriminator 'desc' option"),
+		       s->u.s.tag, ubc->u.s.tag, ubc->u.s.tag);
+
+      /* Don't write fns for subclasses, only for the ultimate base class
+	 within an inheritance hierarchy.  */
+      return;
+    }
 
   memset (&d, 0, sizeof (d));
   d.of = get_output_file_for_structure (s, param);
@@ -3617,7 +3867,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   oprintf (d.of, "}\n");
 
   if (orig_s->kind == TYPE_USER_STRUCT)
-    write_user_marking_functions (orig_s, wtd->prefix, &d);
+    write_user_marking_functions (orig_s, wtd, &d);
 }
 
 
@@ -3636,7 +3886,10 @@ write_types (outf_p output_header, type_p structures, type_p param_structs,
      emitted afterwards.  This is needed in plugin mode.  */
   oprintf (output_header, "/* Macros and declarations.  */\n");
   for (s = structures; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO || s->gc_used == GC_MAYBE_POINTED_TO)
+    /* Do not emit handlers for derived classes; we only ever deal with
+       the ultimate base class within an inheritance hierarchy.  */
+    if ((s->gc_used == GC_POINTED_TO || s->gc_used == GC_MAYBE_POINTED_TO)
+        && !s->u.s.base_class)
       {
 	options_p opt;
 
@@ -3792,14 +4045,14 @@ write_types (outf_p output_header, type_p structures, type_p param_structs,
 static const struct write_types_data ggc_wtd = {
   "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", NULL,
   "GC marker procedures.  ",
-  FALSE
+  FALSE, WTK_GGC
 };
 
 static const struct write_types_data pch_wtd = {
   "pch_n", "pch_p", "gt_pch_note_object", "gt_pch_note_object",
   "gt_pch_note_reorder",
   "PCH type-walking procedures.  ",
-  TRUE
+  TRUE, WTK_PCH
 };
 
 /* Write out the local pointer-walking routines.  */
@@ -3940,6 +4193,11 @@ static void
 write_local_func_for_structure (const_type_p orig_s, type_p s, type_p *param)
 {
   struct walk_type_data d;
+
+  /* Don't write fns for subclasses, only for the ultimate base class
+     within an inheritance hierarchy.  */
+  if (s->u.s.base_class)
+    return;
 
   memset (&d, 0, sizeof (d));
   d.of = get_output_file_for_structure (s, param);
@@ -4085,7 +4343,9 @@ write_local (outf_p output_header, type_p structures, type_p param_structs)
 	   || ((s)->gc_used == GC_MAYBE_POINTED_TO			\
 	       && s->u.s.line.file != NULL)				\
 	   || ((s)->gc_used == GC_USED					\
-	       && strncmp (s->u.s.tag, "anonymous", strlen ("anonymous"))))))
+	       && strncmp (s->u.s.tag, "anonymous", strlen ("anonymous"))) \
+	   || (s->u.s.base_class && opts_have (s->u.s.opt, "tag")))))
+
 
 
 /* Might T contain any non-pointer elements?  */
@@ -4360,7 +4620,7 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 
     case TYPE_POINTER:
       {
-	type_p tp;
+	const_type_p tp;
 
 	if (!start_root_entry (f, v, name, line))
 	  return;
@@ -4369,6 +4629,7 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 
 	if (!has_length && union_or_struct_p (tp))
 	  {
+	    tp = get_ultimate_base_class (tp);
 	    const char *id_for_tag = filter_type_name (tp->u.s.tag);
 	    oprintf (f, "    &gt_ggc_mx_%s,\n", id_for_tag);
 	    if (emit_pch)
@@ -4744,130 +5005,6 @@ write_roots (pair_p variables, bool emit_pch)
 
   finish_root_table (flp, "pch_rs", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
 		     "gt_pch_scalar_rtab");
-}
-
-/* TRUE if type S has the GTY variable_size annotation.  */
-
-static bool
-variable_size_p (const type_p s)
-{
-  options_p o;
-  for (o = s->u.s.opt; o; o = o->next)
-    if (strcmp (o->name, "variable_size") == 0)
-      return true;
-  return false;
-}
-
-enum alloc_quantity
-{ single, vector };
-
-/* Writes one typed allocator definition into output F for type
-   identifier TYPE_NAME with optional type specifier TYPE_SPECIFIER.
-   The allocator name will contain ALLOCATOR_TYPE.  If VARIABLE_SIZE
-   is true, the allocator will have an extra parameter specifying
-   number of bytes to allocate.  If QUANTITY is set to VECTOR, a
-   vector allocator will be output.  */
-
-static void
-write_typed_alloc_def (outf_p f, 
-                       bool variable_size, const char *type_specifier,
-                       const char *type_name, const char *allocator_type,
-                       enum alloc_quantity quantity)
-{
-  bool two_args = variable_size && (quantity == vector);
-  gcc_assert (f != NULL);
-  const char *type_name_as_id = filter_type_name (type_name);
-  oprintf (f, "#define ggc_alloc_%s%s", allocator_type, type_name_as_id);
-  oprintf (f, "(%s%s%s) ",
-	   (variable_size ? "SIZE" : ""),
-	   (two_args ? ", " : ""),
-	   (quantity == vector) ? "n" : "");
-  oprintf (f, "((%s%s *)", type_specifier, type_name);
-  oprintf (f, "(ggc_internal_%salloc_stat (", allocator_type);
-  if (variable_size)
-    oprintf (f, "SIZE");
-  else
-    oprintf (f, "sizeof (%s%s)", type_specifier, type_name);
-  if (quantity == vector)
-    oprintf (f, ", n");
-  oprintf (f, " MEM_STAT_INFO)))\n");
-  if (type_name_as_id != type_name)
-    free (CONST_CAST (char *, type_name_as_id));
-}
-
-/* Writes a typed allocator definition into output F for a struct or
-   union S, with a given ALLOCATOR_TYPE and QUANTITY for ZONE.  */
-
-static void
-write_typed_struct_alloc_def (outf_p f,
-			      const type_p s, const char *allocator_type,
-			      enum alloc_quantity quantity)
-{
-  gcc_assert (union_or_struct_p (s));
-  write_typed_alloc_def (f, variable_size_p (s), get_type_specifier (s),
-                         s->u.s.tag, allocator_type, quantity);
-}
-
-/* Writes a typed allocator definition into output F for a typedef P,
-   with a given ALLOCATOR_TYPE and QUANTITY for ZONE.  */
-
-static void
-write_typed_typedef_alloc_def (outf_p f,
-                               const pair_p p, const char *allocator_type,
-                               enum alloc_quantity quantity)
-{
-  write_typed_alloc_def (f, variable_size_p (p->type), "", p->name,
-                         allocator_type, quantity);
-}
-
-/* Writes typed allocator definitions into output F for the types in
-   STRUCTURES and TYPEDEFS that are used by GC.  */
-
-static void
-write_typed_alloc_defns (outf_p f,
-                         const type_p structures, const pair_p typedefs)
-{
-  type_p s;
-  pair_p p;
-
-  gcc_assert (f != NULL);
-  oprintf (f,
-	   "\n/* Allocators for known structs and unions.  */\n\n");
-  for (s = structures; s; s = s->next)
-    {
-      if (!USED_BY_TYPED_GC_P (s))
-	continue;
-      gcc_assert (union_or_struct_p (s));
-      /* In plugin mode onput output ggc_alloc macro definitions
-	 relevant to plugin input files.  */
-      if (nb_plugin_files > 0 
-	  && ((s->u.s.line.file == NULL) || !s->u.s.line.file->inpisplugin))
-	continue;
-      write_typed_struct_alloc_def (f, s, "", single);
-      write_typed_struct_alloc_def (f, s, "cleared_", single);
-      write_typed_struct_alloc_def (f, s, "vec_", vector);
-      write_typed_struct_alloc_def (f, s, "cleared_vec_", vector);
-    }
-
-  oprintf (f, "\n/* Allocators for known typedefs.  */\n");
-  for (p = typedefs; p; p = p->next)
-    {
-      s = p->type;
-      if (!USED_BY_TYPED_GC_P (s) || (strcmp (p->name, s->u.s.tag) == 0))
-	continue;
-      /* In plugin mode onput output ggc_alloc macro definitions
-	 relevant to plugin input files.  */
-      if (nb_plugin_files > 0) 
-	{
-	  struct fileloc* filoc = type_fileloc (s);
-	  if (!filoc || !filoc->file->inpisplugin)
-	    continue;
-	};
-      write_typed_typedef_alloc_def (f, p, "", single);
-      write_typed_typedef_alloc_def (f, p, "cleared_", single);
-      write_typed_typedef_alloc_def (f, p, "vec_", vector);
-      write_typed_typedef_alloc_def (f, p, "cleared_vec_", vector);
-    }
 }
 
 /* Prints not-as-ugly version of a typename of T to OF.  Trades the uniquness
@@ -5478,6 +5615,9 @@ main (int argc, char **argv)
       POS_HERE (do_scalar_typedef ("REAL_VALUE_TYPE", &pos));
       POS_HERE (do_scalar_typedef ("FIXED_VALUE_TYPE", &pos));
       POS_HERE (do_scalar_typedef ("double_int", &pos));
+      POS_HERE (do_scalar_typedef ("offset_int", &pos));
+      POS_HERE (do_scalar_typedef ("widest_int", &pos));
+      POS_HERE (do_scalar_typedef ("int64_t", &pos));
       POS_HERE (do_scalar_typedef ("uint64_t", &pos));
       POS_HERE (do_scalar_typedef ("uint8", &pos));
       POS_HERE (do_scalar_typedef ("uintptr_t", &pos));
@@ -5580,7 +5720,6 @@ main (int argc, char **argv)
   open_base_files ();
 
   output_header = plugin_output ? plugin_output : header_file;
-  write_typed_alloc_defns (output_header, structures, typedefs);
   DBGPRINT_COUNT_TYPE ("structures before write_types outputheader",
 		       structures);
   DBGPRINT_COUNT_TYPE ("param_structs before write_types outputheader",

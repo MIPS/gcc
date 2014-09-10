@@ -1,5 +1,5 @@
 /* Map logical line numbers to (source file, line number) pairs.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -315,6 +315,10 @@ struct GTY(()) line_maps {
   line_map_round_alloc_size_func round_alloc_size;
 
   struct location_adhoc_data_map location_adhoc_data_map;
+
+  /* The special location value that is used as spelling location for
+     built-in tokens.  */
+  source_location builtin_location;
 };
 
 /* Returns the pointer to the memory region where information about
@@ -447,8 +451,12 @@ extern source_location get_location_from_adhoc_loc (struct line_maps *,
 
 extern void rebuild_location_adhoc_htab (struct line_maps *);
 
-/* Initialize a line map set.  */
-extern void linemap_init (struct line_maps *);
+/* Initialize a line map set.  SET is the line map set to initialize
+   and BUILTIN_LOCATION is the special location value to be used as
+   spelling location for built-in tokens.  This BUILTIN_LOCATION has
+   to be strictly less than RESERVED_LOCATION_COUNT.  */
+extern void linemap_init (struct line_maps *set,
+			  source_location builtin_location);
 
 /* Check for and warn about line_maps entered but not exited.  */
 
@@ -755,6 +763,14 @@ struct linemap_stats
   long macro_maps_locations_size;
   long duplicated_macro_maps_locations_size;
 };
+
+/* Return the highest location emitted for a given file for which
+   there is a line map in SET.  FILE_NAME is the file name to
+   consider.  If the function returns TRUE, *LOC is set to the highest
+   location emitted for that file.  */
+bool linemap_get_file_highest_location (struct line_maps * set,
+					const char *file_name,
+					source_location *loc);
 
 /* Compute and return statistics about the memory consumption of some
    parts of the line table SET.  */

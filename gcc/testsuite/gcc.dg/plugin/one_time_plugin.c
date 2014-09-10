@@ -6,6 +6,16 @@
 #include "tree.h"
 #include "tm.h"
 #include "toplev.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "ggc.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "intl.h"
@@ -20,8 +30,6 @@ const pass_data pass_data_one_pass =
   GIMPLE_PASS, /* type */
   "cfg", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   0, /* properties_provided */
@@ -39,8 +47,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate ();
-  unsigned int execute ();
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *);
 
 private:
   int counter;
@@ -48,12 +56,13 @@ private:
 
 } // anon namespace
 
-bool one_pass::gate (void)
+bool one_pass::gate (function *)
 {
   return true;
 }
 
-unsigned int one_pass::execute ()
+unsigned int
+one_pass::execute (function *)
 {
   if (counter > 0) {
     printf ("Executed more than once \n");

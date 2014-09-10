@@ -139,22 +139,6 @@ SigTab runtime_sigtab[] = {
 #undef P
 #undef D
 
-
-static int8 badsignal[] = "runtime: signal received on thread not created by Go.\n";
-
-static void
-runtime_badsignal(int32 sig)
-{
-	// Avoid -D_FORTIFY_SOURCE problems.
-	int rv __attribute__((unused));
-
-	if (sig == SIGPROF) {
-		return;  // Ignore SIGPROFs intended for a non-Go thread.
-	}
-	rv = runtime_write(2, badsignal, sizeof badsignal - 1);
-	runtime_exit(1);
-}
-
 /* Handle a signal, for cases where we don't panic.  We can split the
    stack here.  */
 
@@ -234,7 +218,7 @@ runtime_sighandler (int sig, Siginfo *info,
 	  G *g;
 
 	  g = runtime_g ();
-	  runtime_traceback (g);
+	  runtime_traceback ();
 	  runtime_tracebackothers (g);
 
 	  /* The gc library calls runtime_dumpregs here, and provides
@@ -254,21 +238,18 @@ runtime_sighandler (int sig, Siginfo *info,
 /* The start of handling a signal which panics.  */
 
 static void
-sig_panic_leadin (int sig)
+sig_panic_leadin (G *gp)
 {
   int i;
   sigset_t clear;
 
-  if (runtime_m ()->mallocing)
-    {
-      runtime_printf ("caught signal while mallocing: %d\n", sig);
-      runtime_throw ("caught signal while mallocing");
-    }
+  if (!runtime_canpanic (gp))
+    runtime_throw ("unexpected signal during runtime execution");
 
   /* The signal handler blocked signals; unblock them.  */
   i = sigfillset (&clear);
   __go_assert (i == 0);
-  i = sigprocmask (SIG_UNBLOCK, &clear, NULL);
+  i = pthread_sigmask (SIG_UNBLOCK, &clear, NULL);
   __go_assert (i == 0);
 }
 
@@ -297,13 +278,14 @@ sig_panic_info_handler (int sig, Siginfo *info, void *context)
   /* It would be nice to set g->sigpc here as the gc library does, but
      I don't know how to get it portably.  */
 
-  sig_panic_leadin (sig);
+  sig_panic_leadin (g);
 
   switch (sig)
     {
 #ifdef SIGBUS
     case SIGBUS:
-      if (info->si_code == BUS_ADRERR && (uintptr_t) info->si_addr < 0x1000)
+      if ((info->si_code == BUS_ADRERR && (uintptr_t) info->si_addr < 0x1000)
+	  || g->paniconfault)
 	runtime_panicstring ("invalid memory address or "
 			     "nil pointer dereference");
       runtime_printf ("unexpected fault address %p\n", info->si_addr);
@@ -312,10 +294,11 @@ sig_panic_info_handler (int sig, Siginfo *info, void *context)
 
 #ifdef SIGSEGV
     case SIGSEGV:
-      if ((info->si_code == 0
-	   || info->si_code == SEGV_MAPERR
-	   || info->si_code == SEGV_ACCERR)
-	  && (uintptr_t) info->si_addr < 0x1000)
+      if (((info->si_code == 0
+	    || info->si_code == SEGV_MAPERR
+	    || info->si_code == SEGV_ACCERR)
+	   && (uintptr_t) info->si_addr < 0x1000)
+	  || g->paniconfault)
 	runtime_panicstring ("invalid memory address or "
 			     "nil pointer dereference");
       runtime_printf ("unexpected fault address %p\n", info->si_addr);
@@ -358,7 +341,7 @@ sig_panic_handler (int sig)
   g->sigcode0 = 0;
   g->sigcode1 = 0;
 
-  sig_panic_leadin (sig);
+  sig_panic_leadin (g);
 
   switch (sig)
     {

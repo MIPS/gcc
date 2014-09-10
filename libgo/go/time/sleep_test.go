@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"runtime"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
 	. "time"
@@ -68,33 +69,81 @@ func TestAfterStress(t *testing.T) {
 	atomic.StoreUint32(&stop, 1)
 }
 
-func BenchmarkAfterFunc(b *testing.B) {
-	i := b.N
-	c := make(chan bool)
-	var f func()
-	f = func() {
-		i--
-		if i >= 0 {
-			AfterFunc(0, f)
-		} else {
-			c <- true
-		}
+func benchmark(b *testing.B, bench func(n int)) {
+	garbage := make([]*Timer, 1<<17)
+	for i := 0; i < len(garbage); i++ {
+		garbage[i] = AfterFunc(Hour, nil)
 	}
+	b.ResetTimer()
 
-	AfterFunc(0, f)
-	<-c
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			bench(1000)
+		}
+	})
+
+	b.StopTimer()
+	for i := 0; i < len(garbage); i++ {
+		garbage[i].Stop()
+	}
+}
+
+func BenchmarkAfterFunc(b *testing.B) {
+	benchmark(b, func(n int) {
+		c := make(chan bool)
+		var f func()
+		f = func() {
+			n--
+			if n >= 0 {
+				AfterFunc(0, f)
+			} else {
+				c <- true
+			}
+		}
+
+		AfterFunc(0, f)
+		<-c
+	})
 }
 
 func BenchmarkAfter(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		<-After(1)
-	}
+	benchmark(b, func(n int) {
+		for i := 0; i < n; i++ {
+			<-After(1)
+		}
+	})
 }
 
 func BenchmarkStop(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		NewTimer(1 * Second).Stop()
-	}
+	benchmark(b, func(n int) {
+		for i := 0; i < n; i++ {
+			NewTimer(1 * Second).Stop()
+		}
+	})
+}
+
+func BenchmarkSimultaneousAfterFunc(b *testing.B) {
+	benchmark(b, func(n int) {
+		var wg sync.WaitGroup
+		wg.Add(n)
+		for i := 0; i < n; i++ {
+			AfterFunc(0, wg.Done)
+		}
+		wg.Wait()
+	})
+}
+
+func BenchmarkStartStop(b *testing.B) {
+	benchmark(b, func(n int) {
+		timers := make([]*Timer, n)
+		for i := 0; i < n; i++ {
+			timers[i] = AfterFunc(Hour, nil)
+		}
+
+		for i := 0; i < n; i++ {
+			timers[i].Stop()
+		}
+	})
 }
 
 func TestAfter(t *testing.T) {
@@ -299,19 +348,47 @@ func TestReset(t *testing.T) {
 // Test that sleeping for an interval so large it overflows does not
 // result in a short sleep duration.
 func TestOverflowSleep(t *testing.T) {
-	const timeout = 25 * Millisecond
 	const big = Duration(int64(1<<63 - 1))
 	select {
 	case <-After(big):
 		t.Fatalf("big timeout fired")
-	case <-After(timeout):
+	case <-After(25 * Millisecond):
 		// OK
 	}
 	const neg = Duration(-1 << 63)
 	select {
 	case <-After(neg):
 		// OK
-	case <-After(timeout):
+	case <-After(1 * Second):
 		t.Fatalf("negative timeout didn't fire")
+	}
+}
+
+// Test that a panic while deleting a timer does not leave
+// the timers mutex held, deadlocking a ticker.Stop in a defer.
+func TestIssue5745(t *testing.T) {
+	ticker := NewTicker(Hour)
+	defer func() {
+		// would deadlock here before the fix due to
+		// lock taken before the segfault.
+		ticker.Stop()
+
+		if r := recover(); r == nil {
+			t.Error("Expected panic, but none happened.")
+		}
+	}()
+
+	// cause a panic due to a segfault
+	var timer *Timer
+	timer.Stop()
+	t.Error("Should be unreachable.")
+}
+
+func TestOverflowRuntimeTimer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in short mode, see issue 6874")
+	}
+	if err := CheckRuntimeTimerOverflow(); err != nil {
+		t.Fatalf(err.Error())
 	}
 }

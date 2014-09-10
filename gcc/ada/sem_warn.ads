@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,10 +39,13 @@ package Sem_Warn is
 
    type Warnings_Off_Entry is record
       N : Node_Id;
-      --  A pragma Warnings (Off, ent) node
+      --  A pragma Warnings (Off, ent [,Reason]) node
 
       E : Entity_Id;
       --  The entity involved
+
+      R : String_Id;
+      --  Warning reason if present, or null if not (not currently used)
    end record;
 
    --  An entry is made in the following table for any valid Pragma Warnings
@@ -127,7 +130,7 @@ package Sem_Warn is
    --  the end of the compilation process (see body of this routine for a
    --  discussion of why this is done). This procedure outputs the warnings.
    --  Note: this should be called before Output_Unreferenced_Messages, since
-   --  if we have an IN OUT warning, that's the one we want to see!
+   --  if we have an IN OUT warning, that's the one we want to see.
 
    procedure Output_Obsolescent_Entity_Warnings (N : Node_Id; E : Entity_Id);
    --  N is a reference to obsolescent entity E, for which appropriate warning
@@ -235,5 +238,19 @@ package Sem_Warn is
    --  Called at the end of a block or subprogram. Scans the entities of the
    --  block or subprogram to see if there are any variables for which useless
    --  assignments were made (assignments whose values were never read).
+
+   ----------------------
+   -- Utility Routines --
+   ----------------------
+
+   function Has_Junk_Name (E : Entity_Id) return Boolean;
+   --  Return True if the entity name contains any of the following substrings:
+   --    discard
+   --    dummy
+   --    ignore
+   --    junk
+   --    unused
+   --  Used to suppress warnings on names matching these patterns. The contents
+   --  of Name_Buffer and Name_Len are destroyed by this call.
 
 end Sem_Warn;

@@ -44,8 +44,8 @@ type Scanner struct {
 // to give. The return values are the number of bytes to advance the input
 // and the next token to return to the user, plus an error, if any. If the
 // data does not yet hold a complete token, for instance if it has no newline
-// while scanning lines, SplitFunc can return (0, nil) to signal the Scanner
-// to read more data into the slice and try again with a longer slice
+// while scanning lines, SplitFunc can return (0, nil, nil) to signal the
+// Scanner to read more data into the slice and try again with a longer slice
 // starting at the same point in the input.
 //
 // If the returned error is non-nil, scanning stops and the error
@@ -135,7 +135,7 @@ func (s *Scanner) Scan() bool {
 		}
 		// Must read more data.
 		// First, shift data to beginning of buffer if there's lots of empty space
-		// or space is neded.
+		// or space is needed.
 		if s.start > 0 && (s.end == len(s.buf) || s.start > len(s.buf)/2) {
 			copy(s.buf, s.buf[s.start:s.end])
 			s.end -= s.start
@@ -172,7 +172,7 @@ func (s *Scanner) Scan() bool {
 				break
 			}
 			loop++
-			if loop > 100 {
+			if loop > maxConsecutiveEmptyReads {
 				s.setErr(io.ErrNoProgress)
 				break
 			}
@@ -287,7 +287,7 @@ func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-// isSpace returns whether the character is a Unicode white space character.
+// isSpace reports whether the character is a Unicode white space character.
 // We avoid dependency on the unicode package, but check validity of the implementation
 // in the tests.
 func isSpace(r rune) bool {
@@ -306,7 +306,7 @@ func isSpace(r rune) bool {
 		return true
 	}
 	switch r {
-	case '\u1680', '\u180e', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000':
+	case '\u1680', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000':
 		return true
 	}
 	return false

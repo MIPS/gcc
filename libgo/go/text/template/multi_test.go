@@ -33,10 +33,10 @@ var multiParseTests = []multiParseTest{
 		nil},
 	{"one", `{{define "foo"}} FOO {{end}}`, noError,
 		[]string{"foo"},
-		[]string{`" FOO "`}},
+		[]string{" FOO "}},
 	{"two", `{{define "foo"}} FOO {{end}}{{define "bar"}} BAR {{end}}`, noError,
 		[]string{"foo", "bar"},
-		[]string{`" FOO "`, `" BAR "`}},
+		[]string{" FOO ", " BAR "}},
 	// errors
 	{"missing end", `{{define "foo"}} FOO `, hasError,
 		nil,
@@ -257,6 +257,18 @@ func TestAddParseTree(t *testing.T) {
 	if b.String() != "broot" {
 		t.Errorf("expected %q got %q", "broot", b.String())
 	}
+}
+
+// Issue 7032
+func TestAddParseTreeToUnparsedTemplate(t *testing.T) {
+	master := "{{define \"master\"}}{{end}}"
+	tmpl := New("master")
+	tree, err := parse.Parse("master", master, "", "", nil)
+	if err != nil {
+		t.Fatalf("unexpected parse err: %v", err)
+	}
+	masterTree := tree["master"]
+	tmpl.AddParseTree("master", masterTree) // used to panic
 }
 
 func TestRedefinition(t *testing.T) {

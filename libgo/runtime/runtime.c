@@ -8,8 +8,19 @@
 #include "config.h"
 
 #include "runtime.h"
+#include "arch.h"
 #include "array.h"
-#include "go-panic.h"
+
+enum {
+	maxround = sizeof(uintptr),
+};
+
+// Keep a cached value to make gotraceback fast,
+// since we call it on every call to gentraceback.
+// The cached value is a uint32 in which the low bit
+// is the "crash" setting and the top 31 bits are the
+// gotraceback value.
+static uint32 traceback_cache = ~(uint32)0;
 
 // The GOTRACEBACK environment variable controls the
 // behavior of a Go program that is crashing and exiting.
@@ -21,18 +32,28 @@ int32
 runtime_gotraceback(bool *crash)
 {
 	const byte *p;
+	uint32 x;
 
 	if(crash != nil)
 		*crash = false;
-	p = runtime_getenv("GOTRACEBACK");
-	if(p == nil || p[0] == '\0')
-		return 1;	// default is on
-	if(runtime_strcmp((const char *)p, "crash") == 0) {
-		if(crash != nil)
-			*crash = true;
-		return 2;	// extra information
+	if(runtime_m()->traceback != 0)
+		return runtime_m()->traceback;
+	x = runtime_atomicload(&traceback_cache);
+	if(x == ~(uint32)0) {
+		p = runtime_getenv("GOTRACEBACK");
+		if(p == nil)
+			p = (const byte*)"";
+		if(p[0] == '\0')
+			x = 1<<1;
+		else if(runtime_strcmp((const char *)p, "crash") == 0)
+			x = (2<<1) | 1;
+		else
+			x = runtime_atoi(p)<<1;	
+		runtime_atomicstore(&traceback_cache, x);
 	}
-	return runtime_atoi(p);
+	if(crash != nil)
+		*crash = x&1;
+	return x>>1;
 }
 
 static int32	argc;
@@ -57,11 +78,6 @@ runtime_progname()
 {
   return argc == 0 ? nil : argv[0];
 }
-
-// Information about what cpu features are available.
-// Set on startup in asm_{x86/amd64}.s.
-uint32 runtime_cpuid_ecx;
-uint32 runtime_cpuid_edx;
 
 void
 runtime_goargs(void)
@@ -96,6 +112,8 @@ runtime_goenvs_unix(void)
 	syscall_Envs.__values = (void*)s;
 	syscall_Envs.__count = n;
 	syscall_Envs.__capacity = n;
+
+	traceback_cache = ~(uint32)0;
 }
 
 int32
@@ -124,11 +142,12 @@ TestAtomic64(void)
 	z64 = 42;
 	x64 = 0;
 	PREFETCH(&z64);
-	if(runtime_cas64(&z64, &x64, 1))
+	if(runtime_cas64(&z64, x64, 1))
 		runtime_throw("cas64 failed");
-	if(x64 != 42)
+	if(x64 != 0)
 		runtime_throw("cas64 failed");
-	if(!runtime_cas64(&z64, &x64, 1))
+	x64 = 42;
+	if(!runtime_cas64(&z64, x64, 1))
 		runtime_throw("cas64 failed");
 	if(x64 != 42 || z64 != 1)
 		runtime_throw("cas64 failed");
@@ -225,15 +244,6 @@ runtime_tickspersecond(void)
 	return res;
 }
 
-int64 runtime_pprof_runtime_cyclesPerSecond(void)
-     __asm__ (GOSYM_PREFIX "runtime_pprof.runtime_cyclesPerSecond");
-
-int64
-runtime_pprof_runtime_cyclesPerSecond(void)
-{
-	return runtime_tickspersecond();
-}
-
 // Called to initialize a new m (including the bootstrap m).
 // Called on the parent thread (main thread in case of bootstrap), can allocate memory.
 void
@@ -255,7 +265,7 @@ runtime_minit(void)
 	runtime_signalstack(m->gsignalstack, m->gsignalstacksize);
 	if (sigemptyset(&sigs) != 0)
 		runtime_throw("sigemptyset");
-	sigprocmask(SIG_SETMASK, &sigs, nil);
+	pthread_sigmask(SIG_SETMASK, &sigs, nil);
 }
 
 // Called from dropm to undo the effect of an minit.
@@ -278,4 +288,79 @@ runtime_signalstack(byte *p, int32 n)
 		st.ss_flags = SS_DISABLE;
 	if(sigaltstack(&st, nil) < 0)
 		*(int *)0xf1 = 0xf1;
+}
+
+DebugVars	runtime_debug;
+
+static struct {
+	const char* name;
+	int32*	value;
+} dbgvar[] = {
+	{"allocfreetrace", &runtime_debug.allocfreetrace},
+	{"efence", &runtime_debug.efence},
+	{"gctrace", &runtime_debug.gctrace},
+	{"gcdead", &runtime_debug.gcdead},
+	{"scheddetail", &runtime_debug.scheddetail},
+	{"schedtrace", &runtime_debug.schedtrace},
+};
+
+void
+runtime_parsedebugvars(void)
+{
+	const byte *p;
+	intgo i, n;
+
+	p = runtime_getenv("GODEBUG");
+	if(p == nil)
+		return;
+	for(;;) {
+		for(i=0; i<(intgo)nelem(dbgvar); i++) {
+			n = runtime_findnull((const byte*)dbgvar[i].name);
+			if(runtime_mcmp(p, dbgvar[i].name, n) == 0 && p[n] == '=')
+				*dbgvar[i].value = runtime_atoi(p+n+1);
+		}
+		p = (const byte *)runtime_strstr((const char *)p, ",");
+		if(p == nil)
+			break;
+		p++;
+	}
+}
+
+// Poor mans 64-bit division.
+// This is a very special function, do not use it if you are not sure what you are doing.
+// int64 division is lowered into _divv() call on 386, which does not fit into nosplit functions.
+// Handles overflow in a time-specific manner.
+int32
+runtime_timediv(int64 v, int32 div, int32 *rem)
+{
+	int32 res, bit;
+
+	if(v >= (int64)div*0x7fffffffLL) {
+		if(rem != nil)
+			*rem = 0;
+		return 0x7fffffff;
+	}
+	res = 0;
+	for(bit = 30; bit >= 0; bit--) {
+		if(v >= ((int64)div<<bit)) {
+			v = v - ((int64)div<<bit);
+			res += 1<<bit;
+		}
+	}
+	if(rem != nil)
+		*rem = v;
+	return res;
+}
+
+// Setting the max stack size doesn't really do anything for gccgo.
+
+uintptr runtime_maxstacksize = 1<<20; // enough until runtime.main sets it for real
+
+void memclrBytes(Slice)
+     __asm__ (GOSYM_PREFIX "runtime.memclrBytes");
+
+void
+memclrBytes(Slice s)
+{
+	runtime_memclr(s.__values, s.__count);
 }

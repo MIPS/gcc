@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd windows
+// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package net
 
@@ -13,14 +13,7 @@ import (
 	"time"
 )
 
-func (a *UnixAddr) isUnnamed() bool {
-	if a == nil || a.Name == "" {
-		return true
-	}
-	return false
-}
-
-func unixSocket(net string, laddr, raddr *UnixAddr, mode string, deadline time.Time) (*netFD, error) {
+func unixSocket(net string, laddr, raddr sockaddr, mode string, deadline time.Time) (*netFD, error) {
 	var sotype int
 	switch net {
 	case "unix":
@@ -33,19 +26,18 @@ func unixSocket(net string, laddr, raddr *UnixAddr, mode string, deadline time.T
 		return nil, UnknownNetworkError(net)
 	}
 
-	var la, ra syscall.Sockaddr
 	switch mode {
 	case "dial":
-		if !laddr.isUnnamed() {
-			la = &syscall.SockaddrUnix{Name: laddr.Name}
+		if laddr != nil && laddr.isWildcard() {
+			laddr = nil
 		}
-		if raddr != nil {
-			ra = &syscall.SockaddrUnix{Name: raddr.Name}
-		} else if sotype != syscall.SOCK_DGRAM || laddr.isUnnamed() {
-			return nil, &OpError{Op: mode, Net: net, Err: errMissingAddress}
+		if raddr != nil && raddr.isWildcard() {
+			raddr = nil
+		}
+		if raddr == nil && (sotype != syscall.SOCK_DGRAM || laddr == nil) {
+			return nil, errMissingAddress
 		}
 	case "listen":
-		la = &syscall.SockaddrUnix{Name: laddr.Name}
 	default:
 		return nil, errors.New("unknown mode: " + mode)
 	}
@@ -57,19 +49,11 @@ func unixSocket(net string, laddr, raddr *UnixAddr, mode string, deadline time.T
 		f = sockaddrToUnixpacket
 	}
 
-	fd, err := socket(net, syscall.AF_UNIX, sotype, 0, false, la, ra, deadline, f)
+	fd, err := socket(net, syscall.AF_UNIX, sotype, 0, false, laddr, raddr, deadline, f)
 	if err != nil {
-		goto error
+		return nil, err
 	}
 	return fd, nil
-
-error:
-	addr := raddr
-	switch mode {
-	case "listen":
-		addr = laddr
-	}
-	return nil, &OpError{Op: mode, Net: net, Addr: addr, Err: err}
 }
 
 func sockaddrToUnix(sa syscall.Sockaddr) Addr {
@@ -106,6 +90,21 @@ func sotypeToNet(sotype int) string {
 	}
 }
 
+func (a *UnixAddr) family() int {
+	return syscall.AF_UNIX
+}
+
+func (a *UnixAddr) isWildcard() bool {
+	return a == nil || a.Name == ""
+}
+
+func (a *UnixAddr) sockaddr(family int) (syscall.Sockaddr, error) {
+	if a == nil {
+		return nil, nil
+	}
+	return &syscall.SockaddrUnix{Name: a.Name}, nil
+}
+
 // UnixConn is an implementation of the Conn interface for connections
 // to Unix domain sockets.
 type UnixConn struct {
@@ -125,7 +124,7 @@ func (c *UnixConn) ReadFromUnix(b []byte) (n int, addr *UnixAddr, err error) {
 	if !c.ok() {
 		return 0, nil, syscall.EINVAL
 	}
-	n, sa, err := c.fd.ReadFrom(b)
+	n, sa, err := c.fd.readFrom(b)
 	switch sa := sa.(type) {
 	case *syscall.SockaddrUnix:
 		if sa.Name != "" {
@@ -152,7 +151,7 @@ func (c *UnixConn) ReadMsgUnix(b, oob []byte) (n, oobn, flags int, addr *UnixAdd
 	if !c.ok() {
 		return 0, 0, 0, nil, syscall.EINVAL
 	}
-	n, oobn, flags, sa, err := c.fd.ReadMsg(b, oob)
+	n, oobn, flags, sa, err := c.fd.readMsg(b, oob)
 	switch sa := sa.(type) {
 	case *syscall.SockaddrUnix:
 		if sa.Name != "" {
@@ -172,11 +171,17 @@ func (c *UnixConn) WriteToUnix(b []byte, addr *UnixAddr) (n int, err error) {
 	if !c.ok() {
 		return 0, syscall.EINVAL
 	}
+	if c.fd.isConnected {
+		return 0, &OpError{Op: "write", Net: c.fd.net, Addr: addr, Err: ErrWriteToConnected}
+	}
+	if addr == nil {
+		return 0, &OpError{Op: "write", Net: c.fd.net, Addr: nil, Err: errMissingAddress}
+	}
 	if addr.Net != sotypeToNet(c.fd.sotype) {
 		return 0, syscall.EAFNOSUPPORT
 	}
 	sa := &syscall.SockaddrUnix{Name: addr.Name}
-	return c.fd.WriteTo(b, sa)
+	return c.fd.writeTo(b, sa)
 }
 
 // WriteTo implements the PacketConn WriteTo method.
@@ -198,14 +203,17 @@ func (c *UnixConn) WriteMsgUnix(b, oob []byte, addr *UnixAddr) (n, oobn int, err
 	if !c.ok() {
 		return 0, 0, syscall.EINVAL
 	}
+	if c.fd.sotype == syscall.SOCK_DGRAM && c.fd.isConnected {
+		return 0, 0, &OpError{Op: "write", Net: c.fd.net, Addr: addr, Err: ErrWriteToConnected}
+	}
 	if addr != nil {
 		if addr.Net != sotypeToNet(c.fd.sotype) {
 			return 0, 0, syscall.EAFNOSUPPORT
 		}
 		sa := &syscall.SockaddrUnix{Name: addr.Name}
-		return c.fd.WriteMsg(b, oob, sa)
+		return c.fd.writeMsg(b, oob, sa)
 	}
-	return c.fd.WriteMsg(b, oob, nil)
+	return c.fd.writeMsg(b, oob, nil)
 }
 
 // CloseRead shuts down the reading side of the Unix domain connection.
@@ -214,7 +222,7 @@ func (c *UnixConn) CloseRead() error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	return c.fd.CloseRead()
+	return c.fd.closeRead()
 }
 
 // CloseWrite shuts down the writing side of the Unix domain connection.
@@ -223,25 +231,25 @@ func (c *UnixConn) CloseWrite() error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	return c.fd.CloseWrite()
+	return c.fd.closeWrite()
 }
 
 // DialUnix connects to the remote address raddr on the network net,
 // which must be "unix", "unixgram" or "unixpacket".  If laddr is not
 // nil, it is used as the local address for the connection.
 func DialUnix(net string, laddr, raddr *UnixAddr) (*UnixConn, error) {
+	switch net {
+	case "unix", "unixgram", "unixpacket":
+	default:
+		return nil, &OpError{Op: "dial", Net: net, Addr: raddr, Err: UnknownNetworkError(net)}
+	}
 	return dialUnix(net, laddr, raddr, noDeadline)
 }
 
 func dialUnix(net string, laddr, raddr *UnixAddr, deadline time.Time) (*UnixConn, error) {
-	switch net {
-	case "unix", "unixgram", "unixpacket":
-	default:
-		return nil, UnknownNetworkError(net)
-	}
 	fd, err := unixSocket(net, laddr, raddr, "dial", deadline)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: net, Addr: raddr, Err: err}
 	}
 	return newUnixConn(fd), nil
 }
@@ -260,30 +268,29 @@ func ListenUnix(net string, laddr *UnixAddr) (*UnixListener, error) {
 	switch net {
 	case "unix", "unixpacket":
 	default:
-		return nil, UnknownNetworkError(net)
+		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: UnknownNetworkError(net)}
 	}
 	if laddr == nil {
-		return nil, &OpError{"listen", net, nil, errMissingAddress}
+		return nil, &OpError{Op: "listen", Net: net, Addr: nil, Err: errMissingAddress}
 	}
 	fd, err := unixSocket(net, laddr, nil, "listen", noDeadline)
 	if err != nil {
-		return nil, err
-	}
-	err = syscall.Listen(fd.sysfd, listenerBacklog)
-	if err != nil {
-		fd.Close()
 		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: err}
 	}
-	return &UnixListener{fd, laddr.Name}, nil
+	return &UnixListener{fd, fd.laddr.String()}, nil
 }
 
 // AcceptUnix accepts the next incoming call and returns the new
-// connection and the remote address.
+// connection.
 func (l *UnixListener) AcceptUnix() (*UnixConn, error) {
 	if l == nil || l.fd == nil {
 		return nil, syscall.EINVAL
 	}
-	fd, err := l.fd.accept(sockaddrToUnix)
+	toAddr := sockaddrToUnix
+	if l.fd.sotype == syscall.SOCK_SEQPACKET {
+		toAddr = sockaddrToUnixpacket
+	}
+	fd, err := l.fd.accept(toAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +340,7 @@ func (l *UnixListener) SetDeadline(t time.Time) (err error) {
 	if l == nil || l.fd == nil {
 		return syscall.EINVAL
 	}
-	return setDeadline(l.fd, t)
+	return l.fd.setDeadline(t)
 }
 
 // File returns a copy of the underlying os.File, set to blocking
@@ -353,14 +360,14 @@ func ListenUnixgram(net string, laddr *UnixAddr) (*UnixConn, error) {
 	switch net {
 	case "unixgram":
 	default:
-		return nil, UnknownNetworkError(net)
+		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: UnknownNetworkError(net)}
 	}
 	if laddr == nil {
-		return nil, &OpError{"listen", net, nil, errMissingAddress}
+		return nil, &OpError{Op: "listen", Net: net, Addr: nil, Err: errMissingAddress}
 	}
 	fd, err := unixSocket(net, laddr, nil, "listen", noDeadline)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: err}
 	}
 	return newUnixConn(fd), nil
 }

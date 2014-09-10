@@ -1,5 +1,5 @@
 /* Generate code from machine description to emit insns as rtl.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -204,6 +204,7 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
 
     case CONST_DOUBLE:
     case CONST_FIXED:
+    case CONST_WIDE_INT:
       /* These shouldn't be written in MD files.  Instead, the appropriate
 	 routines in varasm.c should be called.  */
       gcc_unreachable ();
@@ -556,15 +557,15 @@ gen_split (rtx split)
   /* Output the prototype, function name and argument declarations.  */
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
     {
-      printf ("extern rtx gen_%s_%d (rtx, rtx *);\n",
+      printf ("extern rtx gen_%s_%d (rtx_insn *, rtx *);\n",
 	      name, insn_code_number);
-      printf ("rtx\ngen_%s_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n",
+      printf ("rtx\ngen_%s_%d (rtx_insn *curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n",
 	      name, insn_code_number, unused);
     }
   else
     {
-      printf ("extern rtx gen_split_%d (rtx, rtx *);\n", insn_code_number);
-      printf ("rtx\ngen_split_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n",
+      printf ("extern rtx gen_split_%d (rtx_insn *, rtx *);\n", insn_code_number);
+      printf ("rtx\ngen_split_%d (rtx_insn *curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n",
 	      insn_code_number, unused);
     }
   printf ("{\n");
@@ -576,6 +577,10 @@ gen_split (rtx split)
 
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
     output_peephole2_scratches (split);
+
+  printf ("  if (dump_file)\n");
+  printf ("    fprintf (dump_file, \"Splitting with gen_%s_%d\\n\");\n",
+	  name, insn_code_number);
 
   printf ("  start_sequence ();\n");
 
@@ -791,6 +796,9 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"coretypes.h\"\n");
   printf ("#include \"tm.h\"\n");
   printf ("#include \"tree.h\"\n");
+  printf ("#include \"varasm.h\"\n");
+  printf ("#include \"stor-layout.h\"\n");
+  printf ("#include \"calls.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"function.h\"\n");
@@ -809,6 +817,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"tm-constrs.h\"\n");
   printf ("#include \"ggc.h\"\n");
   printf ("#include \"basic-block.h\"\n");
+  printf ("#include \"dumpfile.h\"\n");
   printf ("#include \"target.h\"\n\n");
   printf ("#define FAIL return (end_sequence (), _val)\n");
   printf ("#define DONE return (_val = get_insns (), end_sequence (), _val)\n\n");

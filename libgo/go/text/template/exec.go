@@ -108,6 +108,10 @@ func errRecover(errp *error) {
 
 // ExecuteTemplate applies the template associated with t that has the given name
 // to the specified data object and writes the output to wr.
+// If an error occurs executing the template or writing its output,
+// execution stops, but partial results may already have been written to
+// the output writer.
+// A template may be executed safely in parallel.
 func (t *Template) ExecuteTemplate(wr io.Writer, name string, data interface{}) error {
 	tmpl := t.tmpl[name]
 	if tmpl == nil {
@@ -118,6 +122,10 @@ func (t *Template) ExecuteTemplate(wr io.Writer, name string, data interface{}) 
 
 // Execute applies a parsed template to the specified data object,
 // and writes the output to wr.
+// If an error occurs executing the template or writing its output,
+// execution stops, but partial results may already have been written to
+// the output writer.
+// A template may be executed safely in parallel.
 func (t *Template) Execute(wr io.Writer, data interface{}) (err error) {
 	defer errRecover(&err)
 	value := reflect.ValueOf(data)
@@ -201,7 +209,7 @@ func (s *state) walkIfOrWith(typ parse.NodeType, dot reflect.Value, pipe *parse.
 	}
 }
 
-// isTrue returns whether the value is 'true', in the sense of not the zero of its type,
+// isTrue reports whether the value is 'true', in the sense of not the zero of its type,
 // and whether the value has a meaningful truth value.
 func isTrue(val reflect.Value) (truth, ok bool) {
 	if !val.IsValid() {
@@ -594,6 +602,9 @@ func (s *state) validateType(value reflect.Value, typ reflect.Type) reflect.Valu
 		switch {
 		case value.Kind() == reflect.Ptr && value.Type().Elem().AssignableTo(typ):
 			value = value.Elem()
+			if !value.IsValid() {
+				s.errorf("dereference of nil pointer of type %s", typ)
+			}
 		case reflect.PtrTo(value.Type()).AssignableTo(typ) && value.CanAddr():
 			value = value.Addr()
 		default:
@@ -755,12 +766,21 @@ func indirect(v reflect.Value) (rv reflect.Value, isNil bool) {
 // the template.
 func (s *state) printValue(n parse.Node, v reflect.Value) {
 	s.at(n)
+	iface, ok := printableValue(v)
+	if !ok {
+		s.errorf("can't print %s of type %s", n, v.Type())
+	}
+	fmt.Fprint(s.wr, iface)
+}
+
+// printableValue returns the, possibly indirected, interface value inside v that
+// is best for a call to formatted printer.
+func printableValue(v reflect.Value) (interface{}, bool) {
 	if v.Kind() == reflect.Ptr {
 		v, _ = indirect(v) // fmt.Fprint handles nil.
 	}
 	if !v.IsValid() {
-		fmt.Fprint(s.wr, "<no value>")
-		return
+		return "<no value>", true
 	}
 
 	if !v.Type().Implements(errorType) && !v.Type().Implements(fmtStringerType) {
@@ -769,11 +789,11 @@ func (s *state) printValue(n parse.Node, v reflect.Value) {
 		} else {
 			switch v.Kind() {
 			case reflect.Chan, reflect.Func:
-				s.errorf("can't print %s of type %s", n, v.Type())
+				return nil, false
 			}
 		}
 	}
-	fmt.Fprint(s.wr, v.Interface())
+	return v.Interface(), true
 }
 
 // Types to help sort the keys in a map for reproducible output.

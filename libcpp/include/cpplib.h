@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995-2013 Free Software Foundation, Inc.
+   Copyright (C) 1995-2014 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -166,7 +166,7 @@ enum cpp_ttype
 enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_GNUC11,
 	     CLK_STDC89, CLK_STDC94, CLK_STDC99, CLK_STDC11,
 	     CLK_GNUCXX, CLK_CXX98, CLK_GNUCXX11, CLK_CXX11,
-	     CLK_GNUCXX1Y, CLK_CXX1Y, CLK_ASM};
+	     CLK_GNUCXX14, CLK_CXX14, CLK_GNUCXX1Z, CLK_CXX1Z, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
 struct GTY(()) cpp_string {
@@ -337,6 +337,9 @@ struct cpp_options
   /* Nonzero means warn if slash-star appears in a comment.  */
   unsigned char warn_comments;
 
+  /* Nonzero means to warn about __DATA__, __TIME__ and __TIMESTAMP__ usage.   */
+  unsigned char warn_date_time;
+
   /* Nonzero means warn if a user-supplied include directory does not
      exist.  */
   unsigned char warn_missing_include_dirs;
@@ -434,8 +437,15 @@ struct cpp_options
      literal number suffixes as user-defined literal number suffixes.  */
   unsigned char ext_numeric_literals;
 
+  /* Nonzero means extended identifiers allow the characters specified
+     in C11 and C++11.  */
+  unsigned char c11_identifiers;
+
   /* Nonzero for C++ 2014 Standard binary constants.  */
   unsigned char binary_constants;
+
+  /* Nonzero for C++ 2014 Standard digit separators.  */
+  unsigned char digit_separators;
 
   /* Holds the name of the target (execution) character set.  */
   const char *narrow_charset;
@@ -455,6 +465,9 @@ struct cpp_options
 
   /* True if dependencies should be restored from a precompiled header.  */
   bool restore_pch_deps;
+
+  /* True if warn about differences between C90 and C99.  */
+  signed char cpp_warn_c90_c99_compat;
 
   /* Dependency generation.  */
   struct
@@ -809,7 +822,10 @@ extern int cpp_defined (cpp_reader *, const unsigned char *, int);
 
 /* A preprocessing number.  Code assumes that any unused high bits of
    the double integer are set to zero.  */
-typedef unsigned HOST_WIDE_INT cpp_num_part;
+
+/* This type has to be equal to unsigned HOST_WIDE_INT, see
+   gcc/c-family/c-lex.c.  */
+typedef uint64_t cpp_num_part;
 typedef struct cpp_num cpp_num;
 struct cpp_num
 {
@@ -922,7 +938,10 @@ enum {
   CPP_W_NORMALIZE,
   CPP_W_INVALID_PCH,
   CPP_W_WARNING_DIRECTIVE,
-  CPP_W_LITERAL_SUFFIX
+  CPP_W_LITERAL_SUFFIX,
+  CPP_W_DATE_TIME,
+  CPP_W_PEDANTIC,
+  CPP_W_C90_C99_COMPAT
 };
 
 /* Output a diagnostic of some kind.  */

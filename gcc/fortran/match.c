@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "match.h"
 #include "parse.h"
 #include "tree.h"
+#include "stringpool.h"
 
 int gfc_matching_ptr_assignment = 0;
 int gfc_matching_procptr_assignment = 0;
@@ -563,99 +564,6 @@ gfc_match_name (char *buffer)
 
   buffer[i] = '\0';
   gfc_current_locus = old_loc;
-
-  return MATCH_YES;
-}
-
-
-/* Match a valid name for C, which is almost the same as for Fortran,
-   except that you can start with an underscore, etc..  It could have
-   been done by modifying the gfc_match_name, but this way other
-   things C allows can be done, such as no limits on the length.
-   Also, by rewriting it, we use the gfc_next_char_C() to prevent the
-   input characters from being automatically lower cased, since C is
-   case sensitive.  The parameter, buffer, is used to return the name
-   that is matched.  Return MATCH_ERROR if the name is not a valid C
-   name, MATCH_NO if what we're seeing isn't a name, and MATCH_YES if
-   we successfully match a C name.  */
-
-match
-gfc_match_name_C (const char **buffer)
-{
-  locus old_loc;
-  size_t i = 0;
-  gfc_char_t c;
-  char* buf;
-  size_t cursz = 16;
-
-  old_loc = gfc_current_locus;
-  gfc_gobble_whitespace ();
-
-  /* Get the next char (first possible char of name) and see if
-     it's valid for C (either a letter or an underscore).  */
-  c = gfc_next_char_literal (INSTRING_WARN);
-
-  /* If the user put nothing expect spaces between the quotes, it is valid
-     and simply means there is no name= specifier and the name is the Fortran
-     symbol name, all lowercase.  */
-  if (c == '"' || c == '\'')
-    {
-      gfc_current_locus = old_loc;
-      return MATCH_YES;
-    }
-
-  if (!ISALPHA (c) && c != '_')
-    {
-      gfc_error ("Invalid C name in NAME= specifier at %C");
-      return MATCH_ERROR;
-    }
-
-  buf = XNEWVEC (char, cursz);
-  /* Continue to read valid variable name characters.  */
-  do
-    {
-      gcc_assert (gfc_wide_fits_in_byte (c));
-
-      buf[i++] = (unsigned char) c;
-
-      if (i >= cursz)
-	{
-	  cursz *= 2;
-	  buf = XRESIZEVEC (char, buf, cursz);
-	}
-
-      old_loc = gfc_current_locus;
-
-      /* Get next char; param means we're in a string.  */
-      c = gfc_next_char_literal (INSTRING_WARN);
-    } while (ISALNUM (c) || c == '_');
-
-  /* The binding label will be needed later anyway, so just insert it
-     into the symbol table.  */
-  buf[i] = '\0';
-  *buffer = IDENTIFIER_POINTER (get_identifier (buf));
-  XDELETEVEC (buf);
-  gfc_current_locus = old_loc;
-
-  /* See if we stopped because of whitespace.  */
-  if (c == ' ')
-    {
-      gfc_gobble_whitespace ();
-      c = gfc_peek_ascii_char ();
-      if (c != '"' && c != '\'')
-        {
-          gfc_error ("Embedded space in NAME= specifier at %C");
-          return MATCH_ERROR;
-        }
-    }
-
-  /* If we stopped because we had an invalid character for a C name, report
-     that to the user by returning MATCH_NO.  */
-  if (c != '"' && c != '\'')
-    {
-      gfc_error ("Invalid C name in NAME= specifier at %C");
-      return MATCH_ERROR;
-    }
 
   return MATCH_YES;
 }
@@ -1750,8 +1658,7 @@ gfc_match_critical (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (!gfc_notify_std (GFC_STD_F2008, "CRITICAL statement at %C"))
     return MATCH_ERROR;
@@ -2595,7 +2502,10 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
       && o != NULL
       && o->state == COMP_OMP_STRUCTURED_BLOCK
       && (o->head->op == EXEC_OMP_DO
-	  || o->head->op == EXEC_OMP_PARALLEL_DO))
+	  || o->head->op == EXEC_OMP_PARALLEL_DO
+	  || o->head->op == EXEC_OMP_SIMD
+	  || o->head->op == EXEC_OMP_DO_SIMD
+	  || o->head->op == EXEC_OMP_PARALLEL_DO_SIMD))
     {
       int collapse = 1;
       gcc_assert (o->head->next != NULL
@@ -2675,8 +2585,7 @@ gfc_match_stopcode (gfc_statement st)
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (st == ST_STOP && gfc_find_state (COMP_CRITICAL))
     {
@@ -2813,8 +2722,7 @@ lock_unlock_statement (gfc_statement st)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
@@ -3007,8 +2915,7 @@ sync_statement (gfc_statement st)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (!gfc_notify_std (GFC_STD_F2008, "SYNC statement at %C"))
     return MATCH_ERROR;
@@ -3478,15 +3385,15 @@ gfc_match_allocate (void)
       if (gfc_check_do_variable (tail->expr->symtree))
 	goto cleanup;
 
-      if (gfc_pure (NULL) && gfc_impure_variable (tail->expr->symtree->n.sym))
+      bool impure = gfc_impure_variable (tail->expr->symtree->n.sym);
+      if (impure && gfc_pure (NULL))
 	{
 	  gfc_error ("Bad allocate-object at %C for a PURE procedure");
 	  goto cleanup;
 	}
 
-      if (gfc_implicit_pure (NULL)
-	    && gfc_impure_variable (tail->expr->symtree->n.sym))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
 
       if (tail->expr->ts.deferred)
 	{
@@ -3867,14 +3774,15 @@ gfc_match_deallocate (void)
 
       sym = tail->expr->symtree->n.sym;
 
-      if (gfc_pure (NULL) && gfc_impure_variable (sym))
+      bool impure = gfc_impure_variable (sym);
+      if (impure && gfc_pure (NULL))
 	{
 	  gfc_error ("Illegal allocate-object at %C for a PURE procedure");
 	  goto cleanup;
 	}
 
-      if (gfc_implicit_pure (NULL) && gfc_impure_variable (sym))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
 
       if (gfc_is_coarray (tail->expr)
 	  && gfc_find_state (COMP_DO_CONCURRENT))
@@ -4566,6 +4474,30 @@ gfc_free_namelist (gfc_namelist *name)
 }
 
 
+/* Free an OpenMP namelist structure.  */
+
+void
+gfc_free_omp_namelist (gfc_omp_namelist *name)
+{
+  gfc_omp_namelist *n;
+
+  for (; name; name = n)
+    {
+      gfc_free_expr (name->expr);
+      if (name->udr)
+	{
+	  if (name->udr->combiner)
+	    gfc_free_statement (name->udr->combiner);
+	  if (name->udr->initializer)
+	    gfc_free_statement (name->udr->initializer);
+	  free (name->udr);
+	}
+      n = name->next;
+      free (name);
+    }
+}
+
+
 /* Match a NAMELIST statement.  */
 
 match
@@ -5147,8 +5079,7 @@ copy_ts_from_selector_to_associate (gfc_expr *associate, gfc_expr *selector)
       assoc_sym->ts.type = BT_CLASS;
       assoc_sym->ts.u.derived = CLASS_DATA (selector)->ts.u.derived;
       assoc_sym->attr.pointer = 1;
-      gfc_build_class_symbol (&assoc_sym->ts, &assoc_sym->attr,
-			      &assoc_sym->as, false);
+      gfc_build_class_symbol (&assoc_sym->ts, &assoc_sym->attr, &assoc_sym->as);
     }
 }
 
@@ -5272,7 +5203,7 @@ select_type_set_tmp (gfc_typespec *ts)
 
   if (ts->type == BT_CLASS)
     gfc_build_class_symbol (&tmp->n.sym->ts, &tmp->n.sym->attr,
-			    &tmp->n.sym->as, false);
+			    &tmp->n.sym->as);
     }
 
   /* Add an association for it, so the rest of the parser knows it is

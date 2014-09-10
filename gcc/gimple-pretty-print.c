@@ -1,5 +1,5 @@
 /* Pretty formatting of GIMPLE statements and expressions.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com> and
    Diego Novillo <dnovillo@google.com>
 
@@ -24,11 +24,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "hashtab.h"
 #include "bitmap.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
@@ -86,13 +94,13 @@ print_gimple_stmt (FILE *file, gimple g, int spc, int flags)
 }
 
 DEBUG_FUNCTION void
-debug (gimple_statement_d &ref)
+debug (gimple_statement_base &ref)
 {
   print_gimple_stmt (stderr, &ref, 0, 0);
 }
 
 DEBUG_FUNCTION void
-debug (gimple_statement_d *ptr)
+debug (gimple_statement_base *ptr)
 {
   if (ptr)
     debug (*ptr);
@@ -429,6 +437,16 @@ dump_ternary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
       pp_greater (buffer);
       break;
+
+    case SAD_EXPR:
+      pp_string (buffer, "SAD_EXPR <");
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
+      pp_greater (buffer);
+      break;
     
     case VEC_PERM_EXPR:
       pp_string (buffer, "VEC_PERM_EXPR <");
@@ -615,8 +633,18 @@ pp_points_to_solution (pretty_printer *buffer, struct pt_solution *pt)
 	  pp_space (buffer);
 	}
       pp_right_brace (buffer);
-      if (pt->vars_contains_global)
-	pp_string (buffer, " (glob)");
+      if (pt->vars_contains_nonlocal
+	  && pt->vars_contains_escaped_heap)
+	pp_string (buffer, " (nonlocal, escaped heap)");
+      else if (pt->vars_contains_nonlocal
+	       && pt->vars_contains_escaped)
+	pp_string (buffer, " (nonlocal, escaped)");
+      else if (pt->vars_contains_nonlocal)
+	pp_string (buffer, " (nonlocal)");
+      else if (pt->vars_contains_escaped_heap)
+	pp_string (buffer, " (escaped heap)");
+      else if (pt->vars_contains_escaped)
+	pp_string (buffer, " (escaped)");
     }
 }
 
@@ -1055,7 +1083,7 @@ dump_gimple_eh_dispatch (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_debug (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  switch (gs->gsbase.subcode)
+  switch (gs->subcode)
     {
     case GIMPLE_DEBUG_BIND:
       if (flags & TDF_RAW)
@@ -1101,8 +1129,14 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_SIMD:
 	  kind = " simd";
 	  break;
+	case GF_OMP_FOR_KIND_CILKSIMD:
+	  kind = " cilksimd";
+	  break;
 	case GF_OMP_FOR_KIND_DISTRIBUTE:
 	  kind = " distribute";
+	  break;
+	case GF_OMP_FOR_KIND_CILKFOR:
+	  kind = " _Cilk_for";
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -1132,19 +1166,30 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_SIMD:
 	  pp_string (buffer, "#pragma omp simd");
 	  break;
+	case GF_OMP_FOR_KIND_CILKSIMD:
+	  pp_string (buffer, "#pragma simd");
+	  break;
 	case GF_OMP_FOR_KIND_DISTRIBUTE:
 	  pp_string (buffer, "#pragma omp distribute");
+	  break;
+	case GF_OMP_FOR_KIND_CILKFOR:
 	  break;
 	default:
 	  gcc_unreachable ();
 	}
-      dump_omp_clauses (buffer, gimple_omp_for_clauses (gs), spc, flags);
+      if (gimple_omp_for_kind (gs) != GF_OMP_FOR_KIND_CILKFOR)
+	dump_omp_clauses (buffer, gimple_omp_for_clauses (gs), spc, flags);
       for (i = 0; i < gimple_omp_for_collapse (gs); i++)
 	{
 	  if (i)
 	    spc += 2;
-	  newline_and_indent (buffer, spc);
-	  pp_string (buffer, "for (");
+	  if (gimple_omp_for_kind (gs) == GF_OMP_FOR_KIND_CILKFOR)
+	    pp_string (buffer, "_Cilk_for (");
+	  else
+	    {
+	      newline_and_indent (buffer, spc);
+	      pp_string (buffer, "for (");
+	    }
 	  dump_generic_node (buffer, gimple_omp_for_index (gs, i), spc,
 			     flags, false);
 	  pp_string (buffer, " = ");
@@ -1169,6 +1214,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	    case GE_EXPR:
 	      pp_greater_equal (buffer);
 	      break;
+	    case NE_EXPR:
+	      pp_string (buffer, "!=");
+	      break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -1187,6 +1235,8 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 
       if (!gimple_seq_empty_p (gimple_omp_body (gs)))
 	{
+	  if (gimple_omp_for_kind (gs) == GF_OMP_FOR_KIND_CILKFOR)
+	    dump_omp_clauses (buffer, gimple_omp_for_clauses (gs), spc, flags);
 	  newline_and_indent (buffer, spc + 2);
 	  pp_left_brace (buffer);
 	  pp_newline (buffer);
@@ -1731,7 +1781,7 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
   if (!POINTER_TYPE_P (TREE_TYPE (node))
       && SSA_NAME_RANGE_INFO (node))
     {
-      double_int min, max;
+      wide_int min, max, nonzero_bits;
       value_range_type range_type = get_range_info (node, &min, &max);
 
       if (range_type == VR_VARYING)
@@ -1740,12 +1790,18 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
 	{
 	  pp_printf (buffer, "# RANGE ");
 	  pp_printf (buffer, "%s[", range_type == VR_RANGE ? "" : "~");
-	  pp_double_int (buffer, min, TYPE_UNSIGNED (TREE_TYPE (node)));
+	  pp_wide_int (buffer, min, TYPE_SIGN (TREE_TYPE (node)));
 	  pp_printf (buffer, ", ");
-	  pp_double_int (buffer, max, TYPE_UNSIGNED (TREE_TYPE (node)));
+	  pp_wide_int (buffer, max, TYPE_SIGN (TREE_TYPE (node)));
 	  pp_printf (buffer, "]");
-	  newline_and_indent (buffer, spc);
 	}
+      nonzero_bits = get_nonzero_bits (node);
+      if (nonzero_bits != -1)
+	{
+	  pp_string (buffer, " NONZERO ");
+	  pp_wide_int (buffer, nonzero_bits, UNSIGNED);
+	}
+      newline_and_indent (buffer, spc);
     }
 }
 
@@ -1985,10 +2041,6 @@ dump_gimple_mem_ops (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   tree vdef = gimple_vdef (gs);
   tree vuse = gimple_vuse (gs);
-
-  if (!ssa_operands_active (DECL_STRUCT_FUNCTION (current_function_decl))
-      || !gimple_references_memory_p (gs))
-    return;
 
   if (vdef != NULL_TREE)
     {

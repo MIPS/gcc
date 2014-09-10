@@ -1,6 +1,5 @@
 // Origin: Dodji Seketeli <dodji@redhat.com>
-// { dg-options "-std=c++1y -pedantic-errors" }
-// { dg-do compile } 
+// { dg-do compile { target c++14 } }
 
 #include "../system-binary-constants-1.h"
 
@@ -10,5 +9,5 @@ foo (void)
 #if BINARY_INT_CONSTANT_IN_SYSTEM_HEADER
   return 23;
 #endif
-  return 0b1101; // { dg-bogus "binary constants are a C..1y feature or GCC extension" }
+  return 0b1101; // { dg-bogus "binary constants are a C..14 feature or GCC extension" }
 }

@@ -9,6 +9,7 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -89,7 +90,7 @@ func testFunZZ(t *testing.T, msg string, f funZZ, a argZZ) {
 	var z Int
 	f(&z, a.x, a.y)
 	if !isNormalized(&z) {
-		t.Errorf("%s%v is not normalized", z, msg)
+		t.Errorf("%s%v is not normalized", msg, z)
 	}
 	if (&z).Cmp(a.z) != 0 {
 		t.Errorf("%s%+v\n\tgot z = %v; want %v", msg, a, &z, a.z)
@@ -767,6 +768,19 @@ var expTests = []struct {
 	x, y, m string
 	out     string
 }{
+	// y <= 0
+	{"0", "0", "", "1"},
+	{"1", "0", "", "1"},
+	{"-10", "0", "", "1"},
+	{"1234", "-1", "", "1"},
+
+	// m == 1
+	{"0", "0", "1", "0"},
+	{"1", "0", "1", "0"},
+	{"-10", "0", "1", "0"},
+	{"1234", "-1", "1", "0"},
+
+	// misc
 	{"5", "-7", "", "1"},
 	{"-5", "-7", "", "1"},
 	{"5", "0", "", "1"},
@@ -1484,6 +1498,32 @@ func TestIntGobEncoding(t *testing.T) {
 	}
 }
 
+// Sending a nil Int pointer (inside a slice) on a round trip through gob should yield a zero.
+// TODO: top-level nils.
+func TestGobEncodingNilIntInSlice(t *testing.T) {
+	buf := new(bytes.Buffer)
+	enc := gob.NewEncoder(buf)
+	dec := gob.NewDecoder(buf)
+
+	var in = make([]*Int, 1)
+	err := enc.Encode(&in)
+	if err != nil {
+		t.Errorf("gob encode failed: %q", err)
+	}
+	var out []*Int
+	err = dec.Decode(&out)
+	if err != nil {
+		t.Fatalf("gob decode failed: %q", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("wrong len; want 1 got %d", len(out))
+	}
+	var zero Int
+	if out[0].Cmp(&zero) != 0 {
+		t.Errorf("transmission of (*Int)(nill) failed: got %s want 0", out)
+	}
+}
+
 func TestIntJSONEncoding(t *testing.T) {
 	for _, test := range encodingTests {
 		var tx Int
@@ -1498,6 +1538,58 @@ func TestIntJSONEncoding(t *testing.T) {
 		}
 		if rx.Cmp(&tx) != 0 {
 			t.Errorf("JSON encoding of %s failed: got %s want %s", &tx, &rx, &tx)
+		}
+	}
+}
+
+var intVals = []string{
+	"-141592653589793238462643383279502884197169399375105820974944592307816406286",
+	"-1415926535897932384626433832795028841971",
+	"-141592653589793",
+	"-1",
+	"0",
+	"1",
+	"141592653589793",
+	"1415926535897932384626433832795028841971",
+	"141592653589793238462643383279502884197169399375105820974944592307816406286",
+}
+
+func TestIntJSONEncodingTextMarshaller(t *testing.T) {
+	for _, num := range intVals {
+		var tx Int
+		tx.SetString(num, 0)
+		b, err := json.Marshal(&tx)
+		if err != nil {
+			t.Errorf("marshaling of %s failed: %s", &tx, err)
+			continue
+		}
+		var rx Int
+		if err := json.Unmarshal(b, &rx); err != nil {
+			t.Errorf("unmarshaling of %s failed: %s", &tx, err)
+			continue
+		}
+		if rx.Cmp(&tx) != 0 {
+			t.Errorf("JSON encoding of %s failed: got %s want %s", &tx, &rx, &tx)
+		}
+	}
+}
+
+func TestIntXMLEncodingTextMarshaller(t *testing.T) {
+	for _, num := range intVals {
+		var tx Int
+		tx.SetString(num, 0)
+		b, err := xml.Marshal(&tx)
+		if err != nil {
+			t.Errorf("marshaling of %s failed: %s", &tx, err)
+			continue
+		}
+		var rx Int
+		if err := xml.Unmarshal(b, &rx); err != nil {
+			t.Errorf("unmarshaling of %s failed: %s", &tx, err)
+			continue
+		}
+		if rx.Cmp(&tx) != 0 {
+			t.Errorf("XML encoding of %s failed: got %s want %s", &tx, &rx, &tx)
 		}
 	}
 }

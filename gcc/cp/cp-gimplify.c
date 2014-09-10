@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
@@ -24,14 +24,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
 #include "tree-iterator.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "hashtab.h"
-#include "pointer-set.h"
 #include "flags.h"
 #include "splay-tree.h"
+#include "target.h"
+#include "c-family/c-ubsan.h"
+#include "cilk.h"
 
 /* Forward declarations.  */
 
@@ -575,12 +584,21 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	 LHS of an assignment might also be involved in the RHS, as in bug
 	 25979.  */
     case INIT_EXPR:
+      if (fn_contains_cilk_spawn_p (cfun)
+	  && cilk_detect_spawn_and_unwrap (expr_p)
+	  && !seen_error ())
+	return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
       cp_gimplify_init_expr (expr_p);
       if (TREE_CODE (*expr_p) != INIT_EXPR)
 	return GS_OK;
       /* Otherwise fall through.  */
     case MODIFY_EXPR:
       {
+	if (fn_contains_cilk_spawn_p (cfun)
+	    && cilk_detect_spawn_and_unwrap (expr_p)
+	    && !seen_error ())
+	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+
 	/* If the back end isn't clever enough to know that the lhs and rhs
 	   types are the same, add an explicit conversion.  */
 	tree op0 = TREE_OPERAND (*expr_p, 0);
@@ -610,19 +628,12 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
 	       Also drop volatile variables on the RHS to avoid infinite
 	       recursion from gimplify_expr trying to load the value.  */
-	    if (!TREE_SIDE_EFFECTS (op1)
-		|| (DECL_P (op1) && TREE_THIS_VOLATILE (op1)))
+	    if (!TREE_SIDE_EFFECTS (op1))
 	      *expr_p = op0;
-	    else if (TREE_CODE (op1) == MEM_REF
-		     && TREE_THIS_VOLATILE (op1))
-	      {
-		/* Similarly for volatile MEM_REFs on the RHS.  */
-		if (!TREE_SIDE_EFFECTS (TREE_OPERAND (op1, 0)))
-		  *expr_p = op0;
-		else
-		  *expr_p = build2 (COMPOUND_EXPR, TREE_TYPE (*expr_p),
-				    TREE_OPERAND (op1, 0), op0);
-	      }
+	    else if (TREE_THIS_VOLATILE (op1)
+		     && (REFERENCE_CLASS_P (op1) || DECL_P (op1)))
+	      *expr_p = build2 (COMPOUND_EXPR, TREE_TYPE (*expr_p),
+				build_fold_addr_expr (op1), op0);
 	    else
 	      *expr_p = build2 (COMPOUND_EXPR, TREE_TYPE (*expr_p),
 				op0, op1);
@@ -687,6 +698,42 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 					    : arg;
 	ret = GS_OK;
       }
+      break;
+
+    case CILK_SPAWN_STMT:
+      gcc_assert 
+	(fn_contains_cilk_spawn_p (cfun) 
+	 && cilk_detect_spawn_and_unwrap (expr_p));
+
+      /* If errors are seen, then just process it as a CALL_EXPR.  */
+      if (!seen_error ())
+	return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+      
+    case CALL_EXPR:
+      if (fn_contains_cilk_spawn_p (cfun)
+	  && cilk_detect_spawn_and_unwrap (expr_p)
+	  && !seen_error ())
+	return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+
+      /* DR 1030 says that we need to evaluate the elements of an
+	 initializer-list in forward order even when it's used as arguments to
+	 a constructor.  So if the target wants to evaluate them in reverse
+	 order and there's more than one argument other than 'this', gimplify
+	 them in order.  */
+      ret = GS_OK;
+      if (PUSH_ARGS_REVERSED && CALL_EXPR_LIST_INIT_P (*expr_p)
+	  && call_expr_nargs (*expr_p) > 2)
+	{
+	  int nargs = call_expr_nargs (*expr_p);
+	  location_t loc = EXPR_LOC_OR_LOC (*expr_p, input_location);
+	  for (int i = 1; i < nargs; ++i)
+	    {
+	      enum gimplify_status t
+		= gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p, loc);
+	      if (t == GS_ERROR)
+		ret = GS_ERROR;
+	    }
+	}
       break;
 
     default:
@@ -823,7 +870,7 @@ omp_cxx_notice_variable (struct cp_genericize_omp_taskreg *omp_ctx, tree decl)
 
 struct cp_genericize_data
 {
-  struct pointer_set_t *p_set;
+  hash_set<tree> *p_set;
   vec<tree> bind_expr_stack;
   struct cp_genericize_omp_taskreg *omp_ctx;
 };
@@ -836,7 +883,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 {
   tree stmt = *stmt_p;
   struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
-  struct pointer_set_t *p_set = wtd->p_set;
+  hash_set<tree> *p_set = wtd->p_set;
 
   /* If in an OpenMP context, note var uses.  */
   if (__builtin_expect (wtd->omp_ctx != NULL, 0)
@@ -876,7 +923,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     }
 
   /* Other than invisiref parms, don't walk the same tree twice.  */
-  if (pointer_set_contains (p_set, stmt))
+  if (p_set->contains (stmt))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
@@ -1150,8 +1197,29 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	*stmt_p = size_one_node;
       return NULL;
     }    
+  else if (flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
+    {
+      if (TREE_CODE (stmt) == NOP_EXPR
+	  && TREE_CODE (TREE_TYPE (stmt)) == REFERENCE_TYPE)
+	ubsan_maybe_instrument_reference (stmt);
+      else if (TREE_CODE (stmt) == CALL_EXPR)
+	{
+	  tree fn = CALL_EXPR_FN (stmt);
+	  if (fn != NULL_TREE
+	      && !error_operand_p (fn)
+	      && POINTER_TYPE_P (TREE_TYPE (fn))
+	      && TREE_CODE (TREE_TYPE (TREE_TYPE (fn))) == METHOD_TYPE)
+	    {
+	      bool is_ctor
+		= TREE_CODE (fn) == ADDR_EXPR
+		  && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
+		  && DECL_CONSTRUCTOR_P (TREE_OPERAND (fn, 0));
+	      ubsan_maybe_instrument_member_call (stmt, is_ctor);
+	    }
+	}
+    }
 
-  pointer_set_insert (p_set, *stmt_p);
+  p_set->add (*stmt_p);
 
   return NULL;
 }
@@ -1163,12 +1231,65 @@ cp_genericize_tree (tree* t_p)
 {
   struct cp_genericize_data wtd;
 
-  wtd.p_set = pointer_set_create ();
+  wtd.p_set = new hash_set<tree>;
   wtd.bind_expr_stack.create (0);
   wtd.omp_ctx = NULL;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
-  pointer_set_destroy (wtd.p_set);
+  delete wtd.p_set;
   wtd.bind_expr_stack.release ();
+}
+
+/* If a function that should end with a return in non-void
+   function doesn't obviously end with return, add ubsan
+   instrumentation code to verify it at runtime.  */
+
+static void
+cp_ubsan_maybe_instrument_return (tree fndecl)
+{
+  if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fndecl)))
+      || DECL_CONSTRUCTOR_P (fndecl)
+      || DECL_DESTRUCTOR_P (fndecl)
+      || !targetm.warn_func_return (fndecl))
+    return;
+
+  tree t = DECL_SAVED_TREE (fndecl);
+  while (t)
+    {
+      switch (TREE_CODE (t))
+	{
+	case BIND_EXPR:
+	  t = BIND_EXPR_BODY (t);
+	  continue;
+	case TRY_FINALLY_EXPR:
+	  t = TREE_OPERAND (t, 0);
+	  continue;
+	case STATEMENT_LIST:
+	  {
+	    tree_stmt_iterator i = tsi_last (t);
+	    if (!tsi_end_p (i))
+	      {
+		t = tsi_stmt (i);
+		continue;
+	      }
+	  }
+	  break;
+	case RETURN_EXPR:
+	  return;
+	default:
+	  break;
+	}
+      break;
+    }
+  if (t == NULL_TREE)
+    return;
+  t = DECL_SAVED_TREE (fndecl);
+  if (TREE_CODE (t) == BIND_EXPR
+      && TREE_CODE (BIND_EXPR_BODY (t)) == STATEMENT_LIST)
+    {
+      tree_stmt_iterator i = tsi_last (BIND_EXPR_BODY (t));
+      t = ubsan_instrument_return (DECL_SOURCE_LOCATION (fndecl));
+      tsi_link_after (&i, t, TSI_NEW_STMT);
+    }
 }
 
 void
@@ -1224,7 +1345,7 @@ cp_genericize (tree fndecl)
     return;
 
   /* Expand all the array notations here.  */
-  if (flag_enable_cilkplus 
+  if (flag_cilkplus 
       && contains_array_notation_expr (DECL_SAVED_TREE (fndecl)))
     DECL_SAVED_TREE (fndecl) = 
       expand_array_notation_exprs (DECL_SAVED_TREE (fndecl));
@@ -1232,6 +1353,12 @@ cp_genericize (tree fndecl)
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */
   cp_genericize_tree (&DECL_SAVED_TREE (fndecl));
+
+  if (flag_sanitize & SANITIZE_RETURN
+      && current_function_decl != NULL_TREE
+      && !lookup_attribute ("no_sanitize_undefined",
+			    DECL_ATTRIBUTES (current_function_decl)))
+    cp_ubsan_maybe_instrument_return (fndecl);
 
   /* Do everything else.  */
   c_genericize (fndecl);
@@ -1488,7 +1615,7 @@ cxx_omp_predetermined_sharing (tree decl)
 /* Finalize an implicitly determined clause.  */
 
 void
-cxx_omp_finish_clause (tree c)
+cxx_omp_finish_clause (tree c, gimple_seq *)
 {
   tree decl, inner_type;
   bool make_shared = false;

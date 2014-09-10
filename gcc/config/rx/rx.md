@@ -1,5 +1,5 @@
 ;;  Machine Description for Renesas RX processors
-;;  Copyright (C) 2008-2013 Free Software Foundation, Inc.
+;;  Copyright (C) 2008-2014 Free Software Foundation, Inc.
 ;;  Contributed by Red Hat.
 
 ;; This file is part of GCC.
@@ -617,7 +617,7 @@
   [(set (reg:SI SP_REG)
 	(minus:SI (reg:SI SP_REG)
 		  (const_int 4)))
-   (set (mem:SI (reg:SI SP_REG))
+   (set (mem:SI (minus:SI (reg:SI SP_REG) (const_int 4)))
 	(match_operand:SI 0 "register_operand" "r"))]
   ""
   "push.l\t%0"
@@ -2625,7 +2625,7 @@
 (define_insn "movdi"
   [(set:DI (match_operand:DI 0 "nonimmediate_operand" "=rm")
 	   (match_operand:DI 1 "general_operand"      "rmi"))]
-  "TARGET_ENABLE_LRA || 1"
+  "TARGET_ENABLE_LRA"
   { return rx_gen_move_template (operands, false); }
   [(set_attr "length" "16")
    (set_attr "timings" "22")]
@@ -2634,7 +2634,7 @@
 (define_insn "movdf"
   [(set:DF (match_operand:DF 0 "nonimmediate_operand" "=rm")
 	   (match_operand:DF 1 "general_operand"      "rmi"))]
-  "TARGET_ENABLE_LRA || 1"
+  "TARGET_ENABLE_LRA"
   { return rx_gen_move_template (operands, false); }
   [(set_attr "length" "16")
    (set_attr "timings" "22")]

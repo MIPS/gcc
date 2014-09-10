@@ -1,5 +1,5 @@
 /* Common definitions for Intel 386 and AMD x86-64 systems using
-   GNU userspace.  Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   GNU userspace.  Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich.
 
 This file is part of GCC.
@@ -61,7 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #undef LIBGCC2_HAS_TF_MODE
 #define LIBGCC2_HAS_TF_MODE 1
 #define LIBGCC2_TF_CEXT q
-#define TF_SIZE 113
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 

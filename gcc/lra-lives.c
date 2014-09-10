@@ -1,5 +1,5 @@
 /* Build live ranges for pseudos.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -358,7 +358,7 @@ mark_regno_dead (int regno, enum machine_mode mode, int point)
 }
 
 /* Insn currently scanned.  */
-static rtx curr_insn;
+static rtx_insn *curr_insn;
 /* The insn data.  */
 static lra_insn_recog_data_t curr_id;
 /* The insn static data.  */
@@ -558,7 +558,11 @@ process_bb_lives (basic_block bb, int &curr_point)
 	      /* It might be 'inheritance pseudo <- reload pseudo'.  */
 	      || (src_regno >= lra_constraint_new_regno_start
 		  && ((int) REGNO (SET_DEST (set))
-		      >= lra_constraint_new_regno_start))))
+		      >= lra_constraint_new_regno_start)
+		  /* Remember to skip special cases where src/dest regnos are
+		     the same, e.g. insn SET pattern has matching constraints
+		     like =r,0.  */
+		  && src_regno != (int) REGNO (SET_DEST (set)))))
 	{
 	  int hard_regno = -1, regno = -1;
 
@@ -624,6 +628,17 @@ process_bb_lives (basic_block bb, int &curr_point)
 
       if (call_p)
 	{
+	  if (flag_use_caller_save)
+	    {
+	      HARD_REG_SET this_call_used_reg_set;
+	      get_call_reg_set_usage (curr_insn, &this_call_used_reg_set,
+				      call_used_reg_set);
+
+	      EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, j)
+		IOR_HARD_REG_SET (lra_reg_info[j].actual_call_used_reg_set,
+				  this_call_used_reg_set);
+	    }
+
 	  sparseset_ior (pseudos_live_through_calls,
 			 pseudos_live_through_calls, pseudos_live);
 	  if (cfun->has_nonlocal_label
@@ -996,13 +1011,14 @@ lra_create_live_ranges (bool all_p)
   curr_point = 0;
   point_freq_vec.create (get_max_uid () * 2);
   lra_point_freq = point_freq_vec.address ();
-  int *post_order_rev_cfg = XNEWVEC (int, last_basic_block);
+  int *post_order_rev_cfg = XNEWVEC (int, last_basic_block_for_fn (cfun));
   int n_blocks_inverted = inverted_post_order_compute (post_order_rev_cfg);
-  lra_assert (n_blocks_inverted == n_basic_blocks);
+  lra_assert (n_blocks_inverted == n_basic_blocks_for_fn (cfun));
   for (i = n_blocks_inverted - 1; i >= 0; --i)
     {
-      bb = BASIC_BLOCK (post_order_rev_cfg[i]);
-      if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
+      bb = BASIC_BLOCK_FOR_FN (cfun, post_order_rev_cfg[i]);
+      if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun) || bb
+	  == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	continue;
       process_bb_lives (bb, curr_point);
     }

@@ -1,5 +1,5 @@
 /* Built-in and inline functions for gcj
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,6 +31,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
 #include "ggc.h"
 #include "flags.h"
 #include "langhooks.h"
@@ -392,7 +394,8 @@ putVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
   
   addr = build_addr_sum (value_type, obj_arg, offset_arg);
   addr 
-    = fold_convert (build_pointer_type (build_type_variant (value_type, 0, 1)),
+    = fold_convert (build_pointer_type (build_qualified_type
+					(value_type, TYPE_QUAL_VOLATILE)),
 		    addr);
   
   stmt = build_call_expr (builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE), 0);
@@ -416,8 +419,9 @@ getVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 
   addr = build_addr_sum (method_return_type, obj_arg, offset_arg);
   addr 
-    = fold_convert (build_pointer_type (build_type_variant 
-					(method_return_type, 0, 1)), addr);
+    = fold_convert (build_pointer_type (build_qualified_type
+					(method_return_type,
+					 TYPE_QUAL_VOLATILE)), addr);
   
   stmt = build_call_expr (builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE), 0);
   tmp = build_decl (BUILTINS_LOCATION, VAR_DECL, NULL, method_return_type);
@@ -579,7 +583,9 @@ initialize_builtins (void)
   define_builtin (BUILT_IN_RETURN_ADDRESS, "__builtin_return_address",
 		  build_function_type_list (ptr_type_node, int_type_node, NULL_TREE),
 		  "__builtin_return_address", ECF_NOTHROW | ECF_LEAF);
-
+  define_builtin (BUILT_IN_TRAP, "__builtin_trap",
+		  build_function_type_list (void_type_node, NULL_TREE),
+		  "__builtin_trap", ECF_NOTHROW | ECF_LEAF | ECF_NORETURN);
   build_common_builtin_nodes ();
 }
 

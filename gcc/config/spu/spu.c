@@ -1,4 +1,4 @@
-/* Copyright (C) 2006-2013 Free Software Foundation, Inc.
+/* Copyright (C) 2006-2014 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -28,6 +28,10 @@
 #include "recog.h"
 #include "obstack.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "expr.h"
 #include "optabs.h"
 #include "except.h"
@@ -45,7 +49,15 @@
 #include "sched-int.h"
 #include "params.h"
 #include "machmode.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "tm-constrs.h"
 #include "ddg.h"
 #include "sbitmap.h"
@@ -53,6 +65,7 @@
 #include "df.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
+#include "builtins.h"
 
 /* Builtin types, data and prototypes. */
 
@@ -147,7 +160,7 @@ static struct spu_builtin_range spu_builtin_range[] = {
 char regs_ever_allocated[FIRST_PSEUDO_REGISTER];
 
 /*  Prototypes and external defs.  */
-static int get_pipe (rtx insn);
+static int get_pipe (rtx_insn *insn);
 static int spu_naked_function_p (tree func);
 static int mem_is_padded_component_ref (rtx x);
 static void fix_range (const char *);
@@ -210,7 +223,7 @@ struct GTY(()) machine_function
 static struct machine_function *
 spu_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Implement TARGET_OPTION_OVERRIDE.  */
@@ -1619,7 +1632,7 @@ spu_saved_regs_size (void)
   return reg_save_size;
 }
 
-static rtx
+static rtx_insn *
 frame_emit_store (int regno, rtx addr, HOST_WIDE_INT offset)
 {
   rtx reg = gen_rtx_REG (V4SImode, regno);
@@ -1628,7 +1641,7 @@ frame_emit_store (int regno, rtx addr, HOST_WIDE_INT offset)
   return emit_insn (gen_movv4si (mem, reg));
 }
 
-static rtx
+static rtx_insn *
 frame_emit_load (int regno, rtx addr, HOST_WIDE_INT offset)
 {
   rtx reg = gen_rtx_REG (V4SImode, regno);
@@ -1638,10 +1651,10 @@ frame_emit_load (int regno, rtx addr, HOST_WIDE_INT offset)
 }
 
 /* This happens after reload, so we need to expand it.  */
-static rtx
+static rtx_insn *
 frame_emit_add_imm (rtx dst, rtx src, HOST_WIDE_INT imm, rtx scratch)
 {
-  rtx insn;
+  rtx_insn *insn;
   if (satisfies_constraint_K (GEN_INT (imm)))
     {
       insn = emit_insn (gen_addsi3 (dst, src, GEN_INT (imm)));
@@ -1712,7 +1725,8 @@ spu_expand_prologue (void)
   HOST_WIDE_INT saved_regs_size;
   rtx sp_reg = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
   rtx scratch_reg_0, scratch_reg_1;
-  rtx insn, real;
+  rtx_insn *insn;
+  rtx real;
 
   if (flag_pic && optimize == 0 && !cfun->machine->pic_reg)
     cfun->machine->pic_reg = pic_offset_table_rtx;
@@ -1956,7 +1970,7 @@ spu_const_from_ints(enum machine_mode mode, int a, int b, int c, int d)
 /* An array of these is used to propagate hints to predecessor blocks. */
 struct spu_bb_info
 {
-  rtx prop_jump; /* propagated from another block */
+  rtx_insn *prop_jump; /* propagated from another block */
   int bb_index;  /* the original block. */
 };
 static struct spu_bb_info *spu_bb_info;
@@ -1980,10 +1994,10 @@ static struct spu_bb_info *spu_bb_info;
    We check for TImode to handle a MULTI1 insn which has dual issued its
    first instruction.  get_pipe returns -1 for MULTI0 or inline asm.  */
 static void
-emit_nop_for_insn (rtx insn)
+emit_nop_for_insn (rtx_insn *insn)
 {
   int p;
-  rtx new_insn;
+  rtx_insn *new_insn;
 
   /* We need to handle JUMP_TABLE_DATA separately.  */
   if (JUMP_TABLE_DATA_P (insn))
@@ -2015,7 +2029,7 @@ emit_nop_for_insn (rtx insn)
 static void
 pad_bb(void)
 {
-  rtx insn, next_insn, prev_insn, hbr_insn = 0;
+  rtx_insn *insn, *next_insn, *prev_insn, *hbr_insn = 0;
   int length;
   int addr;
 
@@ -2051,7 +2065,7 @@ pad_bb(void)
 	    }
 	  hbr_insn = insn;
 	}
-      if (INSN_CODE (insn) == CODE_FOR_blockage)
+      if (INSN_CODE (insn) == CODE_FOR_blockage && next_insn)
 	{
 	  if (GET_MODE (insn) == TImode)
 	    PUT_MODE (next_insn, TImode);
@@ -2085,13 +2099,13 @@ pad_bb(void)
 /* Routines for branch hints. */
 
 static void
-spu_emit_branch_hint (rtx before, rtx branch, rtx target,
+spu_emit_branch_hint (rtx_insn *before, rtx_insn *branch, rtx target,
 		      int distance, sbitmap blocks)
 {
   rtx branch_label = 0;
-  rtx hint;
-  rtx insn;
-  rtx table;
+  rtx_insn *hint;
+  rtx_insn *insn;
+  rtx_jump_table_data *table;
 
   if (before == 0 || branch == 0 || target == 0)
     return;
@@ -2170,7 +2184,7 @@ spu_emit_branch_hint (rtx before, rtx branch, rtx target,
 /* Returns 0 if we don't want a hint for this branch.  Otherwise return
    the rtx for the branch target. */
 static rtx
-get_branch_target (rtx branch)
+get_branch_target (rtx_insn *branch)
 {
   if (JUMP_P (branch))
     {
@@ -2238,7 +2252,7 @@ get_branch_target (rtx branch)
    should only be used in a clobber, and this function searches for
    insns which clobber it.  */
 static bool
-insn_clobbers_hbr (rtx insn)
+insn_clobbers_hbr (rtx_insn *insn)
 {
   if (INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == PARALLEL)
@@ -2269,9 +2283,9 @@ insn_clobbers_hbr (rtx insn)
    and an hbrp within 16 instructions of FIRST.
  */
 static void
-insert_hbrp_for_ilb_runout (rtx first)
+insert_hbrp_for_ilb_runout (rtx_insn *first)
 {
-  rtx insn, before_4 = 0, before_16 = 0;
+  rtx_insn *insn, *before_4 = 0, *before_16 = 0;
   int addr = 0, length, first_addr = -1;
   int hbrp_addr0 = 128 * 4, hbrp_addr1 = 128 * 4;
   int insert_lnop_after = 0;
@@ -2401,7 +2415,7 @@ insert_hbrp_for_ilb_runout (rtx first)
 static void
 insert_hbrp (void)
 {
-  rtx insn;
+  rtx_insn *insn;
   if (TARGET_SAFE_HINTS)
     {
       shorten_branches (get_insns ());
@@ -2438,7 +2452,7 @@ spu_machine_dependent_reorg (void)
 {
   sbitmap blocks;
   basic_block bb;
-  rtx branch, insn;
+  rtx_insn *branch, *insn;
   rtx branch_target = 0;
   int branch_addr = 0, insn_addr, required_dist = 0;
   int i;
@@ -2456,7 +2470,7 @@ spu_machine_dependent_reorg (void)
       return;
     }
 
-  blocks = sbitmap_alloc (last_basic_block);
+  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (blocks);
 
   in_spu_reorg = 1;
@@ -2469,15 +2483,15 @@ spu_machine_dependent_reorg (void)
   compact_blocks ();
 
   spu_bb_info =
-    (struct spu_bb_info *) xcalloc (n_basic_blocks,
+    (struct spu_bb_info *) xcalloc (n_basic_blocks_for_fn (cfun),
 				    sizeof (struct spu_bb_info));
 
   /* We need exact insn addresses and lengths.  */
   shorten_branches (get_insns ());
 
-  for (i = n_basic_blocks - 1; i >= 0; i--)
+  for (i = n_basic_blocks_for_fn (cfun) - 1; i >= 0; i--)
     {
-      bb = BASIC_BLOCK (i);
+      bb = BASIC_BLOCK_FOR_FN (cfun, i);
       branch = 0;
       if (spu_bb_info[i].prop_jump)
 	{
@@ -2510,7 +2524,7 @@ spu_machine_dependent_reorg (void)
 		      || insn_clobbers_hbr (insn)
 		      || branch_addr - insn_addr > 600))
 		{
-		  rtx next = NEXT_INSN (insn);
+		  rtx_insn *next = NEXT_INSN (insn);
 		  int next_addr = INSN_ADDRESSES (INSN_UID (next));
 		  if (insn != BB_END (bb)
 		      && branch_addr - next_addr >= required_dist)
@@ -2549,7 +2563,7 @@ spu_machine_dependent_reorg (void)
 	  /* If we haven't emitted a hint for this branch yet, it might
 	     be profitable to emit it in one of the predecessor blocks,
 	     especially for loops.  */
-	  rtx bbend;
+	  rtx_insn *bbend;
 	  basic_block prev = 0, prop = 0, prev2 = 0;
 	  int loop_exit = 0, simple_loop = 0;
 	  int next_addr = INSN_ADDRESSES (INSN_UID (NEXT_INSN (insn)));
@@ -2632,7 +2646,7 @@ spu_machine_dependent_reorg (void)
     find_many_sub_basic_blocks (blocks);
 
   /* We have to schedule to make sure alignment is ok. */
-  FOR_EACH_BB (bb) bb->flags &= ~BB_DISABLE_SCHEDULE;
+  FOR_EACH_BB_FN (bb, cfun) bb->flags &= ~BB_DISABLE_SCHEDULE;
 
   /* The hints need to be scheduled, so call it again. */
   schedule_insns ();
@@ -2650,8 +2664,8 @@ spu_machine_dependent_reorg (void)
 	   label because GCC expects it at the beginning of the block. */
 	rtx unspec = SET_SRC (XVECEXP (PATTERN (insn), 0, 0));
 	rtx label_ref = XVECEXP (unspec, 0, 0);
-	rtx label = XEXP (label_ref, 0);
-	rtx branch;
+	rtx_insn *label = as_a <rtx_insn *> (XEXP (label_ref, 0));
+	rtx_insn *branch;
 	int offset = 0;
 	for (branch = NEXT_INSN (label);
 	     !JUMP_P (branch) && !CALL_P (branch);
@@ -2680,7 +2694,7 @@ spu_sched_issue_rate (void)
 }
 
 static int
-uses_ls_unit(rtx insn)
+uses_ls_unit(rtx_insn *insn)
 {
   rtx set = single_set (insn);
   if (set != 0
@@ -2691,7 +2705,7 @@ uses_ls_unit(rtx insn)
 }
 
 static int
-get_pipe (rtx insn)
+get_pipe (rtx_insn *insn)
 {
   enum attr_type t;
   /* Handle inline asm */
@@ -2787,7 +2801,8 @@ spu_sched_init (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 
 static int
 spu_sched_variable_issue (FILE *file ATTRIBUTE_UNUSED,
-			  int verbose ATTRIBUTE_UNUSED, rtx insn, int more)
+			  int verbose ATTRIBUTE_UNUSED,
+			  rtx_insn *insn, int more)
 {
   int len;
   int p;
@@ -2845,11 +2860,11 @@ spu_sched_variable_issue (FILE *file ATTRIBUTE_UNUSED,
    TARGET_SCHED_REORDER2.  */
 static int
 spu_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
-		   rtx *ready, int *nreadyp, int clock)
+		   rtx_insn **ready, int *nreadyp, int clock)
 {
   int i, nready = *nreadyp;
   int pipe_0, pipe_1, pipe_hbrp, pipe_ls, schedule_i;
-  rtx insn;
+  rtx_insn *insn;
 
   clock_var = clock;
 
@@ -2984,7 +2999,7 @@ spu_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 
 /* INSN is dependent on DEP_INSN. */
 static int
-spu_sched_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+spu_sched_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   rtx set;
 
@@ -4259,7 +4274,8 @@ ea_load_store_inline (rtx mem, bool is_store, rtx ea_addr, rtx data_addr)
   rtx tag_eq_pack = gen_reg_rtx (V4SImode);
   rtx tag_eq_pack_si = gen_reg_rtx (SImode);
   rtx eq_index = gen_reg_rtx (SImode);
-  rtx bcomp, hit_label, hit_ref, cont_label, insn;
+  rtx bcomp, hit_label, hit_ref, cont_label;
+  rtx_insn *insn;
 
   if (spu_ea_model != 32)
     {
@@ -6826,7 +6842,7 @@ spu_sms_res_mii (struct ddg *g)
 
   for (i = 0; i < g->num_nodes; i++)
     {
-      rtx insn = g->nodes[i].insn;
+      rtx_insn *insn = g->nodes[i].insn;
       int p = get_pipe (insn) + 2;
 
       gcc_assert (p >= 0);
@@ -7327,6 +7343,9 @@ static const struct attribute_spec spu_attribute_table[] =
 
 #undef TARGET_CANONICALIZE_COMPARISON
 #define TARGET_CANONICALIZE_COMPARISON spu_canonicalize_comparison
+
+#undef TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Renesas RL78 processors.
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -23,6 +23,9 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -52,6 +55,7 @@
 #include "context.h"
 #include "tm-constrs.h" /* for satisfies_constraint_*().  */
 #include "insn-flags.h" /* for gen_*().  */
+#include "builtins.h"
 
 static inline bool is_interrupt_func (const_tree decl);
 static inline bool is_brk_interrupt_func (const_tree decl);
@@ -108,25 +112,10 @@ rl78_init_machine_status (void)
 {
   struct machine_function *m;
 
-  m = ggc_alloc_cleared_machine_function ();
+  m = ggc_cleared_alloc<machine_function> ();
   m->virt_insns_ok = 1;
 
   return m;
-}
-
-/* Returns whether to run the devirtualization pass.  */
-static bool
-devirt_gate (void)
-{
-  return true;
-}
-
-/* Runs the devirtualization pass.  */
-static unsigned int
-devirt_pass (void)
-{
-  rl78_reorg ();
-  return 0;
 }
 
 /* This pass converts virtual instructions using virtual registers, to
@@ -139,8 +128,6 @@ const pass_data pass_data_rl78_devirt =
   RTL_PASS, /* type */
   "devirt", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_MACH_DEP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -158,8 +145,12 @@ public:
   }
 
   /* opt_pass methods: */
-  bool gate () { return devirt_gate (); }
-  unsigned int execute () { return devirt_pass (); }
+  virtual unsigned int execute (function *)
+    {
+      rl78_reorg ();
+      return 0;
+    }
+
 };
 
 } // anon namespace
@@ -176,7 +167,8 @@ make_pass_rl78_devirt (gcc::context *ctxt)
 static unsigned int
 move_elim_pass (void)
 {
-  rtx insn, ninsn, prev = NULL_RTX;
+  rtx_insn *insn, *ninsn;
+  rtx prev = NULL_RTX;
 
   for (insn = get_insns (); insn; insn = ninsn)
     {
@@ -223,8 +215,6 @@ const pass_data pass_data_rl78_move_elim =
   RTL_PASS, /* type */
   "move_elim", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_MACH_DEP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -242,8 +232,7 @@ public:
   }
 
   /* opt_pass methods: */
-  bool gate () { return devirt_gate (); }
-  unsigned int execute () { return move_elim_pass (); }
+  virtual unsigned int execute (function *) { return move_elim_pass (); }
 };
 
 } // anon namespace
@@ -324,13 +313,15 @@ rl78_option_override (void)
 }
 
 /* Most registers are 8 bits.  Some are 16 bits because, for example,
-   gcc doesn't like dealing with $FP as a register pair.  This table
-   maps register numbers to size in bytes.  */
+   gcc doesn't like dealing with $FP as a register pair (the second
+   half of $fp is also 2 to keep reload happy wrt register pairs, but
+   no register class includes it).  This table maps register numbers
+   to size in bytes.  */
 static const int register_sizes[] =
 {
   1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 2,
   1, 1, 1, 1, 1, 1, 1, 1,
   2, 2, 1, 1, 1
 };
@@ -378,7 +369,7 @@ rl78_hard_regno_mode_ok (int regno, enum machine_mode mode)
   /* These are not to be used by gcc.  */
   if (regno == 23 || regno == ES_REG || regno == CS_REG)
     return 0;
-  /* $fp can alway sbe accessed as a 16-bit value.  */
+  /* $fp can always be accessed as a 16-bit value.  */
   if (regno == FP_REG && s == 2)
     return 1;
   if (regno < SP_REG)
@@ -656,10 +647,10 @@ is_brk_interrupt_func (const_tree decl)
 /* Check "interrupt" attributes.  */
 static tree
 rl78_handle_func_attribute (tree * node,
-			  tree   name,
-			  tree   args,
-			  int    flags ATTRIBUTE_UNUSED,
-			  bool * no_add_attrs)
+			    tree   name,
+			    tree   args,
+			    int    flags ATTRIBUTE_UNUSED,
+			    bool * no_add_attrs)
 {
   gcc_assert (DECL_P (* node));
   gcc_assert (args == NULL_TREE);
@@ -817,14 +808,14 @@ rl78_far_p (rtx x)
   if (! MEM_P (x))
     return 0;
 #if DEBUG0
-  fprintf (stderr, "\033[35mrl78_far_p: "); debug_rtx(x);
+  fprintf (stderr, "\033[35mrl78_far_p: "); debug_rtx (x);
   fprintf (stderr, " = %d\033[0m\n", MEM_ADDR_SPACE (x) == ADDR_SPACE_FAR);
 #endif
   return MEM_ADDR_SPACE (x) == ADDR_SPACE_FAR;
 }
 
 /* Return the appropriate mode for a named address pointer.  */
-#undef TARGET_ADDR_SPACE_POINTER_MODE
+#undef  TARGET_ADDR_SPACE_POINTER_MODE
 #define TARGET_ADDR_SPACE_POINTER_MODE rl78_addr_space_pointer_mode
 static enum machine_mode
 rl78_addr_space_pointer_mode (addr_space_t addrspace)
@@ -841,7 +832,7 @@ rl78_addr_space_pointer_mode (addr_space_t addrspace)
 }
 
 /* Returns TRUE for valid addresses.  */
-#undef TARGET_VALID_POINTER_MODE
+#undef  TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE rl78_valid_pointer_mode
 static bool
 rl78_valid_pointer_mode (enum machine_mode m)
@@ -850,7 +841,7 @@ rl78_valid_pointer_mode (enum machine_mode m)
 }
 
 /* Return the appropriate mode for a named address address.  */
-#undef TARGET_ADDR_SPACE_ADDRESS_MODE
+#undef  TARGET_ADDR_SPACE_ADDRESS_MODE
 #define TARGET_ADDR_SPACE_ADDRESS_MODE rl78_addr_space_address_mode
 static enum machine_mode
 rl78_addr_space_address_mode (addr_space_t addrspace)
@@ -1793,7 +1784,7 @@ rl78_peep_movhi_p (rtx *operands)
 	    {
 #if DEBUG_PEEP
 	      fprintf (stderr, "no peep: wrong mem %d\n", i);
-	      debug_rtx(m);
+	      debug_rtx (m);
 	      debug_rtx (operands[i+2]);
 #endif
 	      return false;
@@ -1829,7 +1820,7 @@ rl78_setup_peep_movhi (rtx *operands)
 	  break;
 
 	case CONST_INT:
-	  operands[i+4] = GEN_INT ((INTVAL (operands[i]) & 0xff) + ((char)INTVAL (operands[i+2])) * 256);
+	  operands[i+4] = GEN_INT ((INTVAL (operands[i]) & 0xff) + ((char) INTVAL (operands[i+2])) * 256);
 	  break;
 
 	case MEM:
@@ -1894,8 +1885,8 @@ post-reload optimizers could operate on the real registers, but when I
 tried that there were some issues building the target libraries.
 
 During devirtualization, a simple register move optimizer is run.  It
-would be better to run a full CSE/propogation pass on it through, or
-re-run regmove, but that has not yet been attempted.
+would be better to run a full CSE/propogation pass on it though, but
+that has not yet been attempted.
 
  */
 #define DEBUG_ALLOC 0
@@ -2028,7 +2019,7 @@ update_content (unsigned char index, unsigned char val, enum machine_mode mode)
       else
 	fprintf (dump_file, "%s and vice versa\n", get_content_name (val, mode));
     }
-  
+
   if (mode == HImode)
     {
       val = val == NOT_KNOWN ? val : val + 1;
@@ -2051,7 +2042,7 @@ update_content (unsigned char index, unsigned char val, enum machine_mode mode)
 	    ++ i;
 	  continue;
 	}
-	
+
       if (content_memory[i] == index
 	  || (val != NOT_KNOWN && content_memory[i] == val))
 	{
@@ -2155,7 +2146,7 @@ rl78_es_base (rtx addr)
    carefully to ensure that all the constraint information is accurate
    for the newly matched insn.  */
 static bool
-insn_ok_now (rtx insn)
+insn_ok_now (rtx_insn *insn)
 {
   rtx pattern = PATTERN (insn);
   int i;
@@ -2266,7 +2257,7 @@ EM2 (int line ATTRIBUTE_UNUSED, rtx r)
 {
 #if DEBUG_ALLOC
   fprintf (stderr, "\033[36m%d: ", line);
-  debug_rtx(r);
+  debug_rtx (r);
   fprintf (stderr, "\033[0m");
 #endif
   /*SCHED_GROUP_P (r) = 1;*/
@@ -2360,7 +2351,7 @@ gen_and_emit_move (rtx to, rtx from, rtx where, bool before)
   else
     {
       rtx move = mode == QImode ? gen_movqi (to, from) : gen_movhi (to, from);
-      
+
       EM (move);
 
       if (where == NULL_RTX)
@@ -2518,7 +2509,7 @@ force_into_acc (rtx src, rtx before)
     return;
 
   move = mode == QImode ? gen_movqi (A, src) : gen_movhi (AX, src);
-      
+
   EM (move);
 
   emit_insn_before (move, before);
@@ -2627,7 +2618,7 @@ move_to_de (int opno, rtx before)
 
 /* Devirtualize an insn of the form (SET (op) (unop (op))).  */
 static void
-rl78_alloc_physical_registers_op1 (rtx insn)
+rl78_alloc_physical_registers_op1 (rtx_insn *insn)
 {
   /* op[0] = func op[1] */
 
@@ -2680,7 +2671,7 @@ has_constraint (unsigned int opnum, enum constraint_num constraint)
   /* No constraints means anything is accepted.  */
   if (p == NULL || *p == 0 || *p == ',')
     return true;
- 
+
   do
     {
       char c;
@@ -2706,7 +2697,7 @@ has_constraint (unsigned int opnum, enum constraint_num constraint)
 
 /* Devirtualize an insn of the form (SET (op) (binop (op) (op))).  */
 static void
-rl78_alloc_physical_registers_op2 (rtx insn)
+rl78_alloc_physical_registers_op2 (rtx_insn *insn)
 {
   rtx prev;
   rtx first;
@@ -2747,7 +2738,7 @@ rl78_alloc_physical_registers_op2 (rtx insn)
     }
 
   /* Make a note of whether (H)L is being used.  It matters
-     because if OP (2) alsoneeds reloading, then we must take
+     because if OP (2) also needs reloading, then we must take
      care not to corrupt HL.  */
   hl_used = reg_mentioned_p (L, OP (0)) || reg_mentioned_p (L, OP (1));
 
@@ -2761,7 +2752,7 @@ rl78_alloc_physical_registers_op2 (rtx insn)
       /* If op0 is a Ws1 type memory address then switching the base
 	 address register to HL might allow us to perform an in-memory
 	 operation.  (eg for the INCW instruction).
-	 
+
 	 FIXME: Adding the move into HL is costly if this optimization is not
 	 going to work, so for now, make sure that we know that the new insn will
 	 match the requirements of the addhi3_real pattern.  Really we ought to
@@ -2783,7 +2774,7 @@ rl78_alloc_physical_registers_op2 (rtx insn)
 	      newbase = gen_and_emit_move (HL, base, insn, true);
 	      record_content (newbase, NULL_RTX);
 	      newbase = gen_rtx_PLUS (HImode, newbase, addend);
-      
+
 	      OP (0) = OP (1) = change_address (OP (0), VOIDmode, newbase);
 
 	      /* We do not want to fail here as this means that
@@ -2814,7 +2805,7 @@ rl78_alloc_physical_registers_op2 (rtx insn)
 
 	      record_content (HL, NULL_RTX);
 	      newbase = gen_rtx_PLUS (HImode, HL, addend);
-      
+
 	      OP (2) = change_address (OP (2), VOIDmode, newbase);
 
 	      /* We do not want to fail here as this means that
@@ -2854,13 +2845,13 @@ rl78_alloc_physical_registers_op2 (rtx insn)
       ;
 
   OP (2) = hl_used ? move_to_de (2, first) : move_to_hl (2, first);
-  
+
   MUST_BE_OK (insn);
 }
 
 /* Devirtualize an insn of the form SET (PC) (MEM/REG).  */
 static void
-rl78_alloc_physical_registers_ro1 (rtx insn)
+rl78_alloc_physical_registers_ro1 (rtx_insn *insn)
 {
   OP (0) = transcode_memory_rtx (OP (0), BC, insn);
 
@@ -2873,7 +2864,7 @@ rl78_alloc_physical_registers_ro1 (rtx insn)
 
 /* Devirtualize a compare insn.  */
 static void
-rl78_alloc_physical_registers_cmp (rtx insn)
+rl78_alloc_physical_registers_cmp (rtx_insn *insn)
 {
   int tmp_id;
   rtx saved_op1;
@@ -2920,7 +2911,7 @@ rl78_alloc_physical_registers_cmp (rtx insn)
 	default:
 	  gcc_unreachable ();
 	}
-      
+
       if (GET_CODE (cmp) == EQ || GET_CODE (cmp) == NE)
 	PATTERN (insn) = gen_cbranchhi4_real (cmp, OP (2), OP (1), OP (3));
       else
@@ -2936,7 +2927,7 @@ rl78_alloc_physical_registers_cmp (rtx insn)
       OP (1) = OP (2) = BC;
       MUST_BE_OK (insn);
     }
-  
+
   tmp_id = get_max_insn_count ();
   saved_op1 = OP (1);
 
@@ -2964,9 +2955,9 @@ rl78_alloc_physical_registers_cmp (rtx insn)
   MUST_BE_OK (insn);
 }
 
-/* Like op2, but AX = A op X.  */
+/* Like op2, but AX = A * X.  */
 static void
-rl78_alloc_physical_registers_umul (rtx insn)
+rl78_alloc_physical_registers_umul (rtx_insn *insn)
 {
   rtx prev = prev_nonnote_nondebug_insn (insn);
   rtx first;
@@ -2993,8 +2984,18 @@ rl78_alloc_physical_registers_umul (rtx insn)
 
   tmp_id = get_max_insn_count ();
   saved_op1 = OP (1);
-  
-  OP (1) = move_to_acc (1, insn);
+
+  if (rtx_equal_p (OP (1), OP (2)))
+    {
+      gcc_assert (GET_MODE (OP (2)) == QImode);
+      /* The MULU instruction does not support duplicate arguments
+	 but we know that if we copy OP (2) to X it will do so via
+	 A and thus OP (1) will already be loaded into A.  */
+      OP (2) = move_to_x (2, insn);
+      OP (1) = A;
+    }
+  else
+    OP (1) = move_to_acc (1, insn);
 
   MAYBE_OK (insn);
 
@@ -3020,7 +3021,7 @@ rl78_alloc_physical_registers_umul (rtx insn)
 }
 
 static void
-rl78_alloc_address_registers_macax (rtx insn)
+rl78_alloc_address_registers_macax (rtx_insn *insn)
 {
   int which, op;
   bool replace_in_op0 = false;
@@ -3085,7 +3086,7 @@ rl78_alloc_physical_registers (void)
      registers.  At this point, we need to assign physical registers
      to the vitual ones, and copy in/out as needed.  */
 
-  rtx insn, curr;
+  rtx_insn *insn, *curr;
   enum attr_valloc valloc_method;
 
   for (insn = get_insns (); insn; insn = curr)
@@ -3126,7 +3127,7 @@ rl78_alloc_physical_registers (void)
 	{
 	  if (LABEL_P (insn))
 	    clear_content_memory ();
-	    
+
  	  continue;
 	}
 
@@ -3423,7 +3424,8 @@ rl78_propogate_register_origins (void)
 	    {
 	      rtx clobber = XVECEXP (pat, 0, 1);
 	      pat = XVECEXP (pat, 0, 0);
-	      if (GET_CODE (clobber) == CLOBBER)
+	      if (GET_CODE (clobber) == CLOBBER
+		  && GET_CODE (XEXP (clobber, 0)) == REG)
 		{
 		  int cr = REGNO (XEXP (clobber, 0));
 		  int mb = GET_MODE_SIZE (GET_MODE (XEXP (clobber, 0)));
@@ -3566,7 +3568,8 @@ rl78_propogate_register_origins (void)
 		    }
 		}
 	    }
-	  else if (GET_CODE (pat) == CLOBBER)
+	  else if (GET_CODE (pat) == CLOBBER
+		   && GET_CODE (XEXP (pat, 0)) == REG)
 	    {
 	      if (REG_P (XEXP (pat, 0)))
 		{
@@ -3584,17 +3587,18 @@ rl78_propogate_register_origins (void)
 static void
 rl78_remove_unused_sets (void)
 {
-  rtx insn, ninsn = NULL_RTX;
+  rtx_insn *insn, *ninsn = NULL;
   rtx dest;
 
   for (insn = get_insns (); insn; insn = ninsn)
     {
       ninsn = next_nonnote_nondebug_insn (insn);
 
-      if ((insn = single_set (insn)) == NULL_RTX)
+      rtx set = single_set (insn);
+      if (set == NULL)
 	continue;
 
-      dest = SET_DEST (insn);
+      dest = SET_DEST (set);
 
       if (GET_CODE (dest) != REG || REGNO (dest) > 23)
 	continue;

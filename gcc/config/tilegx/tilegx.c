@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Tilera TILE-Gx.
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Walter Lee (walt@tilera.com)
 
    This file is part of GCC.
@@ -40,11 +40,27 @@
 #include "dwarf2.h"
 #include "timevar.h"
 #include "tree.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "ggc.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
+#include "gimplify.h"
 #include "cfgloop.h"
 #include "tilegx-builtins.h"
 #include "tilegx-multiply.h"
 #include "diagnostic.h"
+#include "builtins.h"
 
 /* SYMBOL_REF for GOT */
 static GTY(()) rtx g_got_symbol = NULL;
@@ -159,6 +175,17 @@ tilegx_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 }
 
 
+/* Implement TARGET_RETURN_IN_MSB.  We return a value in the most
+   significant part of a register if:
+   - the target is big-endian; and
+   - the value has an aggregate type (e.g., structure or union).  */
+static bool
+tilegx_return_in_msb (const_tree valtype)
+{
+  return (TARGET_BIG_ENDIAN && AGGREGATE_TYPE_P (valtype));
+}
+
+
 /* Implement TARGET_RETURN_IN_MEMORY.  */
 static bool
 tilegx_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
@@ -204,9 +231,17 @@ tilegx_function_arg (cumulative_args_t cum_v,
   CUMULATIVE_ARGS cum = *get_cumulative_args (cum_v);
   int byte_size = ((mode == BLKmode)
 		   ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
+  bool doubleword_aligned_p;
 
   if (cum >= TILEGX_NUM_ARG_REGS)
     return NULL_RTX;
+
+  /* See whether the argument has doubleword alignment.  */
+  doubleword_aligned_p =
+    tilegx_function_arg_boundary (mode, type) > BITS_PER_WORD;
+
+  if (doubleword_aligned_p)
+    cum += cum & 1;
 
   /* The ABI does not allow parameters to be passed partially in reg
      and partially in stack.  */
@@ -229,6 +264,14 @@ tilegx_function_arg_advance (cumulative_args_t cum_v,
   int byte_size = ((mode == BLKmode)
 		   ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
   int word_size = (byte_size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  bool doubleword_aligned_p;
+
+  /* See whether the argument has doubleword alignment.  */
+  doubleword_aligned_p =
+    tilegx_function_arg_boundary (mode, type) > BITS_PER_WORD;
+
+  if (doubleword_aligned_p)
+    *cum += *cum & 1;
 
   /* If the current argument does not fit in the pretend_args space,
      skip over it.  */
@@ -401,14 +444,17 @@ tilegx_setup_incoming_varargs (cumulative_args_t cum,
 
    generates code equivalent to:
   
-    paddedsize = (sizeof(TYPE) + 3) & -4;
+    paddedsize = (sizeof(TYPE) + 7) & -8;
     if (  (VALIST.__args + paddedsize > VALIST.__skip)
 	& (VALIST.__args <= VALIST.__skip))
       addr = VALIST.__skip + STACK_POINTER_OFFSET;
     else
       addr = VALIST.__args;
     VALIST.__args = addr + paddedsize;
-    ret = *(TYPE *)addr;
+    if (BYTES_BIG_ENDIAN)
+      ret = *(TYPE *)(addr + paddedsize - sizeof(TYPE));
+    else
+      ret = *(TYPE *)addr;
  */
 static tree
 tilegx_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
@@ -441,9 +487,23 @@ tilegx_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   size = int_size_in_bytes (type);
   rsize = ((size + UNITS_PER_WORD - 1) / UNITS_PER_WORD) * UNITS_PER_WORD;
 
-  /* Assert alignment assumption.  */
-  gcc_assert (STACK_BOUNDARY == PARM_BOUNDARY);
+  /* If the alignment of the type is greater than the default for a
+     parameter, align to the STACK_BOUNDARY. */
+  if (TYPE_ALIGN (type) > PARM_BOUNDARY)
+    {
+      /* Assert the only case we generate code for: when
+	 stack boundary = 2 * parm boundary. */
+      gcc_assert (STACK_BOUNDARY == PARM_BOUNDARY * 2);
 
+      tmp = build2 (BIT_AND_EXPR, sizetype,
+		    fold_convert (sizetype, unshare_expr (args)),
+		    size_int (PARM_BOUNDARY / 8));
+      tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node,
+		    unshare_expr (args), tmp);
+
+      gimplify_assign (unshare_expr (args), tmp, pre_p);
+    }
+ 
   /* Build conditional expression to calculate addr. The expression
      will be gimplified later.  */
   tmp = fold_build_pointer_plus_hwi (unshare_expr (args), rsize);
@@ -457,10 +517,17 @@ tilegx_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 			size_int (STACK_POINTER_OFFSET)),
 		unshare_expr (args));
 
+  /* Adjust the address of va_arg if it is in big endian mode.  */
+  if (BYTES_BIG_ENDIAN && rsize > size)
+    tmp = fold_build_pointer_plus_hwi (tmp, rsize - size);
   gimplify_assign (addr, tmp, pre_p);
 
   /* Update VALIST.__args.  */
-  tmp = fold_build_pointer_plus_hwi (addr, rsize);
+  
+  if (BYTES_BIG_ENDIAN && rsize > size)
+    tmp = fold_build_pointer_plus_hwi (addr, size);
+  else
+    tmp = fold_build_pointer_plus_hwi (addr, rsize);
   gimplify_assign (unshare_expr (args), tmp, pre_p);
 
   addr = fold_convert (build_pointer_type (type), addr);
@@ -668,7 +735,7 @@ create_temp_reg_if_possible (enum machine_mode mode, rtx default_reg)
 static struct machine_function *
 tilegx_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 
@@ -700,6 +767,16 @@ tilegx_init_expanders (void)
 
       machine->calls_tls_get_addr = false;
     }
+}
+
+
+/* Implement TARGET_EXPAND_TO_RTL_HOOK.  */
+static void
+tilegx_expand_to_rtl_hook (void)
+{
+  /* Exclude earlier sets of crtl->uses_pic_offset_table, because we
+     only care about uses actually emitted.  */
+  crtl->uses_pic_offset_table = 0;
 }
 
 
@@ -964,7 +1041,8 @@ tilegx_legitimize_tls_address (rtx addr)
 	}
       case TLS_MODEL_INITIAL_EXEC:
 	{
-	  rtx temp, temp2, temp3, got, last;
+	  rtx temp, temp2, temp3, got;
+	  rtx_insn *last;
 
 	  ret = gen_reg_rtx (Pmode);
 	  temp = gen_reg_rtx (Pmode);
@@ -998,7 +1076,8 @@ tilegx_legitimize_tls_address (rtx addr)
 	}
       case TLS_MODEL_LOCAL_EXEC:
 	{
-	  rtx temp, temp2, last;
+	  rtx temp, temp2;
+	  rtx_insn *last;
 
 	  ret = gen_reg_rtx (Pmode);
 	  temp = gen_reg_rtx (Pmode);
@@ -1791,39 +1870,51 @@ tilegx_expand_unaligned_load (rtx dest_reg, rtx mem, HOST_WIDE_INT bitsize,
 
   mode = GET_MODE (dest_reg);
 
-  hi = gen_reg_rtx (mode);
-
   if (bitsize == 2 * BITS_PER_UNIT && (bit_offset % BITS_PER_UNIT) == 0)
     {
+      rtx mem_left, mem_right;
+      rtx left = gen_reg_rtx (mode);
+
       /* When just loading a two byte value, we can load the two bytes
 	 individually and combine them efficiently.  */
 
       mem_lo = adjust_address (mem, QImode, byte_offset);
       mem_hi = adjust_address (mem, QImode, byte_offset + 1);
 
+      if (BYTES_BIG_ENDIAN)
+	{
+	  mem_left = mem_lo;
+	  mem_right = mem_hi;
+	}
+      else
+	{
+	  mem_left = mem_hi;
+	  mem_right = mem_lo;
+	}
+
       if (sign)
 	{
 	  /* Do a signed load of the second byte and use bfins to set
 	     the high bits of the result.  */
 	  emit_insn (gen_zero_extendqidi2 (gen_lowpart (DImode, dest_reg),
-					   mem_lo));
-	  emit_insn (gen_extendqidi2 (gen_lowpart (DImode, hi), mem_hi));
+					   mem_right));
+	  emit_insn (gen_extendqidi2 (gen_lowpart (DImode, left), mem_left));
 	  emit_insn (gen_insv (gen_lowpart (DImode, dest_reg),
 			       GEN_INT (64 - 8), GEN_INT (8),
-			       gen_lowpart (DImode, hi)));
+			       gen_lowpart (DImode, left)));
 	}
       else
 	{
 	  /* Do two unsigned loads and use v1int_l to interleave
 	     them.  */
-	  rtx lo = gen_reg_rtx (mode);
-	  emit_insn (gen_zero_extendqidi2 (gen_lowpart (DImode, lo),
-					   mem_lo));
-	  emit_insn (gen_zero_extendqidi2 (gen_lowpart (DImode, hi),
-					   mem_hi));
+	  rtx right = gen_reg_rtx (mode);
+	  emit_insn (gen_zero_extendqidi2 (gen_lowpart (DImode, right),
+					   mem_right));
+	  emit_insn (gen_zero_extendqidi2 (gen_lowpart (DImode, left),
+					   mem_left));
 	  emit_insn (gen_insn_v1int_l (gen_lowpart (DImode, dest_reg),
-				       gen_lowpart (DImode, hi),
-				       gen_lowpart (DImode, lo)));
+				       gen_lowpart (DImode, left),
+				       gen_lowpart (DImode, right)));
 	}
 
       return;
@@ -1861,6 +1952,7 @@ tilegx_expand_unaligned_load (rtx dest_reg, rtx mem, HOST_WIDE_INT bitsize,
     }
 
   /* Load hi first in case dest_reg is used in mema.  */
+  hi = gen_reg_rtx (mode);
   emit_move_insn (hi, mem_hi);
   emit_move_insn (wide_result, mem_lo);
 
@@ -1889,12 +1981,17 @@ tilegx_expand_unaligned_store (rtx mem, rtx src, HOST_WIDE_INT bitsize,
 {
   HOST_WIDE_INT byte_offset = bit_offset / BITS_PER_UNIT;
   HOST_WIDE_INT bytesize = bitsize / BITS_PER_UNIT;
-  HOST_WIDE_INT shift_amt;
+  HOST_WIDE_INT shift_init, shift_increment, shift_amt;
   HOST_WIDE_INT i;
   rtx mem_addr;
   rtx store_val;
 
-  for (i = 0, shift_amt = 0; i < bytesize; i++, shift_amt += BITS_PER_UNIT)
+  shift_init = BYTES_BIG_ENDIAN ? (bitsize - BITS_PER_UNIT) : 0;
+  shift_increment = BYTES_BIG_ENDIAN ? -BITS_PER_UNIT : BITS_PER_UNIT;
+
+  for (i = 0, shift_amt = shift_init;
+       i < bytesize;
+       i++, shift_amt += shift_increment)
     {
       mem_addr = adjust_address (mem, QImode, byte_offset + i);
 
@@ -2524,7 +2621,7 @@ tilegx_emit_conditional_move (rtx cmp)
 /* Return true if INSN is annotated with a REG_BR_PROB note that
    indicates it's a branch that's predicted taken.  */
 static bool
-cbranch_predicted_p (rtx insn)
+cbranch_predicted_p (rtx_insn *insn)
 {
   rtx x = find_reg_note (insn, REG_BR_PROB, 0);
 
@@ -2542,7 +2639,7 @@ cbranch_predicted_p (rtx insn)
 /* Output assembly code for a specific branch instruction, appending
    the branch prediction flag to the opcode if appropriate.  */
 static const char *
-tilegx_output_simple_cbranch_with_opcode (rtx insn, const char *opcode,
+tilegx_output_simple_cbranch_with_opcode (rtx_insn *insn, const char *opcode,
 					  int regop, bool reverse_predicted)
 {
   static char buf[64];
@@ -2556,7 +2653,7 @@ tilegx_output_simple_cbranch_with_opcode (rtx insn, const char *opcode,
 /* Output assembly code for a specific branch instruction, appending
    the branch prediction flag to the opcode if appropriate.  */
 const char *
-tilegx_output_cbranch_with_opcode (rtx insn, rtx *operands,
+tilegx_output_cbranch_with_opcode (rtx_insn *insn, rtx *operands,
 				   const char *opcode,
 				   const char *rev_opcode, int regop)
 {
@@ -2604,7 +2701,7 @@ tilegx_output_cbranch_with_opcode (rtx insn, rtx *operands,
 
 /* Output assembly code for a conditional branch instruction.  */
 const char *
-tilegx_output_cbranch (rtx insn, rtx *operands, bool reversed)
+tilegx_output_cbranch (rtx_insn *insn, rtx *operands, bool reversed)
 {
   enum rtx_code code = GET_CODE (operands[1]);
   const char *opcode;
@@ -3544,6 +3641,12 @@ tilegx_expand_builtin (tree exp,
     }
   if (!pat)
     return NULL_RTX;
+
+  /* If we are generating a prefetch, tell the scheduler not to move
+     it around.  */
+  if (GET_CODE (pat) == PREFETCH)
+    PREFETCH_SCHEDULE_BARRIER_P (pat) = true;
+
   emit_insn (pat);
 
   if (nonvoid)
@@ -3656,7 +3759,7 @@ frame_emit_store (int regno, int regno_note, rtx addr, rtx cfa,
 /* Emit a load in the stack frame to load REGNO from address ADDR.
    Add a REG_CFA_RESTORE note to CFA_RESTORES if CFA_RESTORES is
    non-null.  Return the emitted insn.  */
-static rtx
+static rtx_insn *
 frame_emit_load (int regno, rtx addr, rtx *cfa_restores)
 {
   rtx reg = gen_rtx_REG (DImode, regno);
@@ -3672,8 +3775,8 @@ frame_emit_load (int regno, rtx addr, rtx *cfa_restores)
 static rtx
 set_frame_related_p (void)
 {
-  rtx seq = get_insns ();
-  rtx insn;
+  rtx_insn *seq = get_insns ();
+  rtx_insn *insn;
 
   end_sequence ();
 
@@ -3709,14 +3812,15 @@ set_frame_related_p (void)
    large register and using 'add'.
 
    This happens after reload, so we need to expand it ourselves.  */
-static rtx
+static rtx_insn *
 emit_sp_adjust (int offset, int *next_scratch_regno, bool frame_related,
 		rtx reg_notes)
 {
   rtx to_add;
   rtx imm_rtx = GEN_INT (offset);
+  rtx pat;
+  rtx_insn *insn;
 
-  rtx insn;
   if (satisfies_constraint_J (imm_rtx))
     {
       /* We can add this using a single immediate add.  */
@@ -3731,11 +3835,11 @@ emit_sp_adjust (int offset, int *next_scratch_regno, bool frame_related,
 
   /* Actually adjust the stack pointer.  */
   if (TARGET_32BIT)
-    insn = gen_sp_adjust_32bit (stack_pointer_rtx, stack_pointer_rtx, to_add);
+    pat = gen_sp_adjust_32bit (stack_pointer_rtx, stack_pointer_rtx, to_add);
   else
-    insn = gen_sp_adjust (stack_pointer_rtx, stack_pointer_rtx, to_add);
+    pat = gen_sp_adjust (stack_pointer_rtx, stack_pointer_rtx, to_add);
 
-  insn = emit_insn (insn);
+  insn = emit_insn (pat);
   REG_NOTES (insn) = reg_notes;
 
   /* Describe what just happened in a way that dwarf understands.  */
@@ -4047,7 +4151,7 @@ tilegx_expand_epilogue (bool sibcall_p)
   rtx reg_save_addr[ROUND_ROBIN_SIZE] = {
     NULL_RTX, NULL_RTX, NULL_RTX, NULL_RTX
   };
-  rtx last_insn, insn;
+  rtx_insn *last_insn, *insn;
   unsigned int which_scratch;
   int offset, start_offset, regno;
   rtx cfa_restores = NULL_RTX;
@@ -4280,7 +4384,7 @@ tilegx_frame_pointer_required (void)
    by attributes in the machine-description file.  This is where we
    account for bundles.  */
 int
-tilegx_adjust_insn_length (rtx insn, int length)
+tilegx_adjust_insn_length (rtx_insn *insn, int length)
 {
   enum machine_mode mode = GET_MODE (insn);
 
@@ -4325,7 +4429,8 @@ get_jump_target (rtx branch)
 
 /* Implement TARGET_SCHED_ADJUST_COST.  */
 static int
-tilegx_sched_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+tilegx_sched_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn,
+			  int cost)
 {
   /* If we have a true dependence, INSN is a call, and DEP_INSN
      defines a register that is needed by the call (argument or stack
@@ -4345,8 +4450,8 @@ tilegx_sched_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
 /* Skip over irrelevant NOTEs and such and look for the next insn we
    would consider bundling.  */
-static rtx
-next_insn_to_bundle (rtx r, rtx end)
+static rtx_insn *
+next_insn_to_bundle (rtx_insn *r, rtx_insn *end)
 {
   for (; r != end; r = NEXT_INSN (r))
     {
@@ -4356,7 +4461,7 @@ next_insn_to_bundle (rtx r, rtx end)
 	return r;
     }
 
-  return NULL_RTX;
+  return NULL;
 }
 
 
@@ -4367,12 +4472,14 @@ static void
 tilegx_gen_bundles (void)
 {
   basic_block bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn, next;
-      rtx end = NEXT_INSN (BB_END (bb));
+      rtx_insn *insn, *next, *prev;
+      rtx_insn *end = NEXT_INSN (BB_END (bb));
 
-      for (insn = next_insn_to_bundle (BB_HEAD (bb), end); insn; insn = next)
+      prev = NULL;
+      for (insn = next_insn_to_bundle (BB_HEAD (bb), end); insn;
+	   prev = insn, insn = next)
 	{
 	  next = next_insn_to_bundle (NEXT_INSN (insn), end);
 
@@ -4397,6 +4504,18 @@ tilegx_gen_bundles (void)
 		  PUT_MODE (insn, SImode);
 		}
 	    }
+
+	  /* Delete barrier insns, because they can mess up the
+	     emitting of bundle braces.  If it is end-of-bundle, then
+	     the previous insn must be marked end-of-bundle.  */
+	  if (get_attr_type (insn) == TYPE_NOTHING) {
+	    if (GET_MODE (insn) == QImode && prev != NULL
+		&& GET_MODE (prev) == SImode)
+	      {
+		PUT_MODE (prev, QImode);
+	      }
+	    delete_insn (insn);
+	  }
 	}
     }
 }
@@ -4404,7 +4523,7 @@ tilegx_gen_bundles (void)
 
 /* Replace OLD_INSN with NEW_INSN.  */
 static void
-replace_insns (rtx old_insn, rtx new_insns)
+replace_insns (rtx_insn *old_insn, rtx_insn *new_insns)
 {
   if (new_insns)
     emit_insn_before (new_insns, old_insn);
@@ -4434,12 +4553,12 @@ match_pcrel_step1 (rtx insn)
 
 /* Do the first replacement step in tilegx_fixup_pcrel_references.  */
 static void
-replace_mov_pcrel_step1 (rtx insn)
+replace_mov_pcrel_step1 (rtx_insn *insn)
 {
   rtx pattern = PATTERN (insn);
   rtx unspec;
   rtx opnds[2];
-  rtx new_insns;
+  rtx_insn *new_insns;
 
   gcc_assert (GET_CODE (pattern) == SET);
   opnds[0] = SET_DEST (pattern);
@@ -4475,7 +4594,7 @@ replace_mov_pcrel_step1 (rtx insn)
 /* Returns true if INSN is the second instruction of a pc-relative
    address compuatation.  */
 static bool
-match_pcrel_step2 (rtx insn)
+match_pcrel_step2 (rtx_insn *insn)
 {
   rtx unspec;
   rtx addr;
@@ -4502,13 +4621,13 @@ match_pcrel_step2 (rtx insn)
 
 /* Do the second replacement step in tilegx_fixup_pcrel_references.  */
 static void
-replace_mov_pcrel_step2 (rtx insn)
+replace_mov_pcrel_step2 (rtx_insn *insn)
 {
   rtx pattern = PATTERN (insn);
   rtx unspec;
   rtx addr;
   rtx opnds[3];
-  rtx new_insns;
+  rtx_insn *new_insns;
   rtx got_rtx = tilegx_got_rtx ();
 
   gcc_assert (GET_CODE (pattern) == SET);
@@ -4559,12 +4678,12 @@ replace_mov_pcrel_step2 (rtx insn)
 
 /* Do the third replacement step in tilegx_fixup_pcrel_references.  */
 static void
-replace_mov_pcrel_step3 (rtx insn)
+replace_mov_pcrel_step3 (rtx_insn *insn)
 {
   rtx pattern = PATTERN (insn);
   rtx unspec;
   rtx opnds[4];
-  rtx new_insns;
+  rtx_insn *new_insns;
   rtx got_rtx = tilegx_got_rtx ();
   rtx text_label_rtx = tilegx_text_label_rtx ();
 
@@ -4644,7 +4763,7 @@ replace_mov_pcrel_step3 (rtx insn)
 static void
 tilegx_fixup_pcrel_references (void)
 {
-  rtx insn, next_insn;
+  rtx_insn *insn, *next_insn;
   bool same_section_as_entry = true;
 
   for (insn = get_insns (); insn; insn = next_insn)
@@ -4693,10 +4812,10 @@ static void
 reorder_var_tracking_notes (void)
 {
   basic_block bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
   {
-    rtx insn, next;
-    rtx queue = NULL_RTX;
+    rtx_insn *insn, *next;
+    rtx_insn *queue = NULL;
     bool in_bundle = false;
 
     for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = next)
@@ -4711,11 +4830,11 @@ reorder_var_tracking_notes (void)
 	      {
 		while (queue)
 		  {
-		    rtx next_queue = PREV_INSN (queue);
-		    PREV_INSN (NEXT_INSN (insn)) = queue;
-		    NEXT_INSN (queue) = NEXT_INSN (insn);
-		    NEXT_INSN (insn) = queue;
-		    PREV_INSN (queue) = insn;
+		    rtx_insn *next_queue = PREV_INSN (queue);
+		    SET_PREV_INSN (NEXT_INSN (insn)) = queue;
+		    SET_NEXT_INSN (queue) = NEXT_INSN (insn);
+		    SET_NEXT_INSN (insn) = queue;
+		    SET_PREV_INSN (queue) = insn;
 		    queue = next_queue;
 		  }
 		in_bundle = false;
@@ -4727,11 +4846,11 @@ reorder_var_tracking_notes (void)
 	  {
 	    if (in_bundle)
 	      {
-		rtx prev = PREV_INSN (insn);
-		PREV_INSN (next) = prev;
-		NEXT_INSN (prev) = next;
+		rtx_insn *prev = PREV_INSN (insn);
+		SET_PREV_INSN (next) = prev;
+		SET_NEXT_INSN (prev) = next;
 
-		PREV_INSN (insn) = queue;
+		SET_PREV_INSN (insn) = queue;
 		queue = insn;
 	      }
 	  }
@@ -4801,7 +4920,8 @@ tilegx_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 			HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 			tree function)
 {
-  rtx this_rtx, insn, funexp, addend;
+  rtx this_rtx, funexp, addend;
+  rtx_insn *insn;
 
   /* Pretend to be a post-reload pass while generating rtl.  */
   reload_completed = 1;
@@ -5347,7 +5467,7 @@ static enum machine_mode insn_mode;
 
 /* Implement FINAL_PRESCAN_INSN.  This is used to emit bundles.  */
 void
-tilegx_final_prescan_insn (rtx insn)
+tilegx_final_prescan_insn (rtx_insn *insn)
 {
   /* Record this for tilegx_asm_output_opcode to examine.  */
   insn_mode = GET_MODE (insn);
@@ -5454,6 +5574,9 @@ tilegx_file_end (void)
 #undef  TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE tilegx_pass_by_reference
 
+#undef  TARGET_RETURN_IN_MSB
+#define TARGET_RETURN_IN_MSB tilegx_return_in_msb
+
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY tilegx_return_in_memory
 
@@ -5498,6 +5621,9 @@ tilegx_file_end (void)
 
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS tilegx_rtx_costs
+
+#undef  TARGET_EXPAND_TO_RTL_HOOK
+#define TARGET_EXPAND_TO_RTL_HOOK tilegx_expand_to_rtl_hook
 
 #undef  TARGET_SHIFT_TRUNCATION_MASK
 #define TARGET_SHIFT_TRUNCATION_MASK tilegx_shift_truncation_mask
@@ -5578,6 +5704,8 @@ tilegx_file_end (void)
 #undef  TARGET_ASM_ALIGNED_DI_OP
 #define TARGET_ASM_ALIGNED_DI_OP "\t.quad\t"
 
+#undef  TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

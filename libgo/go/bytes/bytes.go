@@ -11,32 +11,6 @@ import (
 	"unicode/utf8"
 )
 
-// Compare returns an integer comparing two byte slices lexicographically.
-// The result will be 0 if a==b, -1 if a < b, and +1 if a > b.
-// A nil argument is equivalent to an empty slice.
-func Compare(a, b []byte) int {
-	m := len(a)
-	if m > len(b) {
-		m = len(b)
-	}
-	for i, ac := range a[0:m] {
-		bc := b[i]
-		switch {
-		case ac > bc:
-			return 1
-		case ac < bc:
-			return -1
-		}
-	}
-	switch {
-	case len(a) < len(b):
-		return -1
-	case len(a) > len(b):
-		return 1
-	}
-	return 0
-}
-
 func equalPortable(a, b []byte) bool {
 	if len(a) != len(b) {
 		return false
@@ -103,7 +77,7 @@ func Count(s, sep []byte) int {
 	return count
 }
 
-// Contains returns whether subslice is within b.
+// Contains reports whether subslice is within b.
 func Contains(b, subslice []byte) bool {
 	return Index(b, subslice) != -1
 }
@@ -291,8 +265,8 @@ func Fields(s []byte) [][]byte {
 
 // FieldsFunc interprets s as a sequence of UTF-8-encoded Unicode code points.
 // It splits the slice s at each run of code points c satisfying f(c) and
-// returns a slice of subslices of s.  If no code points in s satisfy f(c), an
-// empty slice is returned.
+// returns a slice of subslices of s.  If all code points in s satisfy f(c), or
+// len(s) == 0, an empty slice is returned.
 func FieldsFunc(s []byte, f func(rune) bool) [][]byte {
 	n := 0
 	inField := false
@@ -382,7 +356,11 @@ func Map(mapping func(r rune) rune, s []byte) []byte {
 		}
 		r = mapping(r)
 		if r >= 0 {
-			if nbytes+utf8.RuneLen(r) > maxbytes {
+			rl := utf8.RuneLen(r)
+			if rl < 0 {
+				rl = len(string(utf8.RuneError))
+			}
+			if nbytes+rl > maxbytes {
 				// Grow the buffer.
 				maxbytes = maxbytes*2 + utf8.UTFMax
 				nb := make([]byte, maxbytes)
@@ -401,10 +379,7 @@ func Repeat(b []byte, count int) []byte {
 	nb := make([]byte, len(b)*count)
 	bp := 0
 	for i := 0; i < count; i++ {
-		for j := 0; j < len(b); j++ {
-			nb[bp] = b[j]
-			bp++
-		}
+		bp += copy(nb[bp:], b)
 	}
 	return nb
 }

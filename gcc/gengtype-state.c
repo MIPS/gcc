@@ -1,7 +1,7 @@
 /* Gengtype persistent state serialization & de-serialization.
    Useful for gengtype in plugin mode.
 
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -30,7 +30,6 @@
 #endif
 #include "system.h"
 #include "errors.h"	/* For fatal.  */
-#include "double-int.h"
 #include "hashtab.h"
 #include "version.h"	/* For version_string & pkgversion_string.  */
 #include "obstack.h"
@@ -283,7 +282,7 @@ state_writer::state_writer ()
 
 
 /* Fatal message while reading state.  */
-static inline void 
+static void 
 fatal_reading_state (struct state_token_st* tok, const char*msg)
 {
   if (tok)
@@ -957,6 +956,7 @@ state_writer::write_state_struct_type (type_p current)
 {
   write_state_struct_union_type (current, "struct");
   write_state_type (current->u.s.lang_struct);
+  write_state_type (current->u.s.base_class);
 }
 
 /* Write a GTY user-defined struct type.  */
@@ -1613,6 +1613,9 @@ read_state_struct_type (type_p type)
       read_state_options (&(type->u.s.opt));
       read_state_lang_bitmap (&(type->u.s.bitmap));
       read_state_type (&(type->u.s.lang_struct));
+      read_state_type (&(type->u.s.base_class));
+      if (type->u.s.base_class)
+	add_subclass (type->u.s.base_class, type);
     }
   else
     {
@@ -2647,7 +2650,7 @@ read_state_files_list (void)
 				 "expecting file in !fileslist of state file");
 	};
       t0 = peek_state_token (0);
-      if (!state_token_kind (t0) == STOK_RIGHTPAR)
+      if (state_token_kind (t0) != STOK_RIGHTPAR)
 	fatal_reading_state (t0, "missing ) for !fileslist in state file");
       next_state_tokens (1);
     }

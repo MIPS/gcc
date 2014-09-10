@@ -99,7 +99,7 @@ func nextJSCtx(s []byte, preceding jsCtx) jsCtx {
 	return jsCtxDivOp
 }
 
-// regexPrecederKeywords is a set of reserved JS keywords that can precede a
+// regexpPrecederKeywords is a set of reserved JS keywords that can precede a
 // regular expression in JS source.
 var regexpPrecederKeywords = map[string]bool{
 	"break":      true,
@@ -341,7 +341,7 @@ var jsRegexpReplacementTable = []string{
 	'}':  `\}`,
 }
 
-// isJSIdentPart returns whether the given rune is a JS identifier part.
+// isJSIdentPart reports whether the given rune is a JS identifier part.
 // It does not handle all the non-Latin letters, joiners, and combining marks,
 // but it does handle every codepoint that can occur in a numeric literal or
 // a keyword.

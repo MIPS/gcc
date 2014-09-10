@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the DEC Alpha.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -25,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -48,8 +51,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "langhooks.h"
 #include "splay-tree.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "tree-pass.h"
+#include "context.h"
+#include "pass_manager.h"
+#include "gimple-iterator.h"
+#include "gimplify.h"
 #include "gimple-ssa.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-stdarg.h"
 #include "tm-constrs.h"
@@ -57,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "opts.h"
 #include "params.h"
+#include "builtins.h"
 
 /* Specify which cpu to schedule for.  */
 enum processor_type alpha_tune;
@@ -192,6 +211,8 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_size =
 /* Declarations of static functions.  */
 static struct machine_function *alpha_init_machine_status (void);
 static rtx alpha_emit_xfloating_compare (enum rtx_code *, rtx, rtx);
+static void alpha_handle_trap_shadows (void);
+static void alpha_align_insns (void);
 
 #if TARGET_ABI_OPEN_VMS
 static void alpha_write_linkage (FILE *, const char *);
@@ -200,6 +221,113 @@ static bool vms_valid_pointer_mode (enum machine_mode);
 #define vms_patch_builtins()  gcc_unreachable()
 #endif
 
+static unsigned int
+rest_of_handle_trap_shadows (void)
+{
+  alpha_handle_trap_shadows ();
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_handle_trap_shadows =
+{
+  RTL_PASS,
+  "trap_shadows",			/* name */
+  OPTGROUP_NONE,			/* optinfo_flags */
+  TV_NONE,				/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_df_finish,			/* todo_flags_finish */
+};
+
+class pass_handle_trap_shadows : public rtl_opt_pass
+{
+public:
+  pass_handle_trap_shadows(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_handle_trap_shadows, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      return alpha_tp != ALPHA_TP_PROG || flag_exceptions;
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_trap_shadows ();
+    }
+
+}; // class pass_handle_trap_shadows
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_handle_trap_shadows (gcc::context *ctxt)
+{
+  return new pass_handle_trap_shadows (ctxt);
+}
+
+static unsigned int
+rest_of_align_insns (void)
+{
+  alpha_align_insns ();
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_align_insns =
+{
+  RTL_PASS,
+  "align_insns",			/* name */
+  OPTGROUP_NONE,			/* optinfo_flags */
+  TV_NONE,				/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_df_finish,			/* todo_flags_finish */
+};
+
+class pass_align_insns : public rtl_opt_pass
+{
+public:
+  pass_align_insns(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_align_insns, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Due to the number of extra trapb insns, don't bother fixing up
+	 alignment when trap precision is instruction.  Moreover, we can
+	 only do our job when sched2 is run.  */
+      return ((alpha_tune == PROCESSOR_EV4
+	       || alpha_tune == PROCESSOR_EV5)
+	      && optimize && !optimize_size
+	      && alpha_tp != ALPHA_TP_INSN
+	      && flag_schedule_insns_after_reload);
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_align_insns ();
+    }
+
+}; // class pass_align_insns
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_align_insns (gcc::context *ctxt)
+{
+  return new pass_align_insns (ctxt);
+}
+
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
 /* Implement TARGET_MANGLE_TYPE.  */
 
@@ -255,6 +383,18 @@ alpha_option_override (void)
     { "21264a",	PROCESSOR_EV6, MASK_BWX|MASK_MAX|MASK_FIX|MASK_CIX,
       64, 64, 16*1024 }
   };
+
+  opt_pass *pass_handle_trap_shadows = make_pass_handle_trap_shadows (g);
+  static struct register_pass_info handle_trap_shadows_info
+    = { pass_handle_trap_shadows, "eh_ranges",
+	1, PASS_POS_INSERT_AFTER
+      };
+
+  opt_pass *pass_align_insns = make_pass_align_insns (g);
+  static struct register_pass_info align_insns_info
+    = { pass_align_insns, "shorten",
+	1, PASS_POS_INSERT_BEFORE
+      };
 
   int const ct_size = ARRAY_SIZE (cpu_table);
   int line_size = 0, l1_size = 0, l2_size = 0;
@@ -489,6 +629,10 @@ alpha_option_override (void)
   if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
     target_flags |= MASK_LONG_DOUBLE_128;
 #endif
+
+  /* This needs to be done at start up.  It's convenient to do it here.  */
+  register_pass (&handle_trap_shadows_info);
+  register_pass (&align_insns_info);
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -665,7 +809,7 @@ alpha_in_small_data_p (const_tree exp)
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
     {
-      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      const char *section = DECL_SECTION_NAME (exp);
       if (strcmp (section, ".sdata") == 0
 	  || strcmp (section, ".sbss") == 0)
 	return true;
@@ -1130,7 +1274,7 @@ split_small_symbolic_operand (rtx x)
    containing the call and branch to the block containing the ldgp.  */
 
 static bool
-alpha_cannot_copy_insn_p (rtx insn)
+alpha_cannot_copy_insn_p (rtx_insn *insn)
 {
   if (!reload_completed || !TARGET_EXPLICIT_RELOCS)
     return false;
@@ -1557,7 +1701,7 @@ alpha_set_memflags_1 (rtx *xp, void *data)
 void
 alpha_set_memflags (rtx seq, rtx ref)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   if (!MEM_P (ref))
     return;
@@ -1570,7 +1714,7 @@ alpha_set_memflags (rtx seq, rtx ref)
       && !MEM_READONLY_P (ref))
     return;
 
-  for (insn = seq; insn; insn = NEXT_INSN (insn))
+  for (insn = as_a <rtx_insn *> (seq); insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       for_each_rtx (&PATTERN (insn), alpha_set_memflags_1, (void *) ref);
     else
@@ -1865,7 +2009,8 @@ alpha_emit_set_const (rtx target, enum machine_mode mode,
       result = alpha_emit_set_const_1 (target, mode, c, i, no_output);
       if (result)
 	{
-	  rtx insn, set;
+	  rtx_insn *insn;
+	  rtx set;
 
 	  if (no_output)
 	    return result;
@@ -4658,7 +4803,7 @@ alpha_split_atomic_exchange_12 (rtx operands[])
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-alpha_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+alpha_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type dep_insn_type;
 
@@ -4713,9 +4858,6 @@ struct GTY(()) alpha_links;
 
 struct GTY(()) machine_function
 {
-  /* For OSF.  */
-  const char *some_ld_name;
-
   /* For flag_reorder_blocks_and_partition.  */
   rtx gp_save_rtx;
 
@@ -4732,7 +4874,7 @@ struct GTY(()) machine_function
 static struct machine_function *
 alpha_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Support for frame based VMS condition handlers.  */
@@ -4811,7 +4953,8 @@ alpha_return_addr (int count, rtx frame ATTRIBUTE_UNUSED)
 rtx
 alpha_gp_save_rtx (void)
 {
-  rtx seq, m = cfun->machine->gp_save_rtx;
+  rtx_insn *seq;
+  rtx m = cfun->machine->gp_save_rtx;
 
   if (m == NULL)
     {
@@ -4830,7 +4973,8 @@ alpha_gp_save_rtx (void)
 	 label.  Emit the sequence properly on the edge.  We are only
 	 invoked from dw2_build_landing_pads and finish_eh_generation
 	 will call commit_edge_insertions thanks to a kludge.  */
-      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
+      insert_insn_on_edge (seq,
+			   single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
       cfun->machine->gp_save_rtx = m;
     }
@@ -4848,7 +4992,7 @@ alpha_instantiate_decls (void)
 static int
 alpha_ra_ever_killed (void)
 {
-  rtx top;
+  rtx_insn *top;
 
   if (!has_hard_reg_initial_val (Pmode, REG_RA))
     return (int)df_regs_ever_live_p (REG_RA);
@@ -4973,40 +5117,6 @@ get_round_mode_suffix (void)
   gcc_unreachable ();
 }
 
-/* Locate some local-dynamic symbol still in use by this function
-   so that we can print its name in some movdi_er_tlsldm pattern.  */
-
-static int
-get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *px;
-
-  if (GET_CODE (x) == SYMBOL_REF
-      && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
-    {
-      cfun->machine->some_ld_name = XSTR (x, 0);
-      return 1;
-    }
-
-  return 0;
-}
-
-static const char *
-get_some_local_dynamic_name (void)
-{
-  rtx insn;
-
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
-
-  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
-	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
-
-  gcc_unreachable ();
-}
-
 /* Print an operand.  Recognize special options, documented below.  */
 
 void
@@ -5022,7 +5132,11 @@ print_operand (FILE *file, rtx x, int code)
       break;
 
     case '&':
-      assemble_name (file, get_some_local_dynamic_name ());
+      if (const char *name = get_some_local_dynamic_name ())
+	assemble_name (file, name);
+      else
+	output_operand_lossage ("'%%&' used without any "
+				"local dynamic TLS references");
       break;
 
     case '/':
@@ -5433,22 +5547,23 @@ print_operand_address (FILE *file, rtx addr)
       offset = INTVAL (addr);
       break;
 
-#if TARGET_ABI_OPEN_VMS
     case SYMBOL_REF:
+      gcc_assert(TARGET_ABI_OPEN_VMS || this_is_asm_operands);
       fprintf (file, "%s", XSTR (addr, 0));
       return;
 
     case CONST:
+      gcc_assert(TARGET_ABI_OPEN_VMS || this_is_asm_operands);
       gcc_assert (GET_CODE (XEXP (addr, 0)) == PLUS
 		  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF);
       fprintf (file, "%s+" HOST_WIDE_INT_PRINT_DEC,
 	       XSTR (XEXP (XEXP (addr, 0), 0), 0),
 	       INTVAL (XEXP (XEXP (addr, 0), 1)));
       return;
-    
-#endif
+
     default:
-      gcc_unreachable ();
+      output_operand_lossage ("invalid operand address");
+      return;
     }
 
   fprintf (file, HOST_WIDE_INT_PRINT_DEC "($%d)", offset, basereg);
@@ -5859,7 +5974,7 @@ va_list_skip_additions (tree lhs)
       if (!CONVERT_EXPR_CODE_P (code)
 	  && ((code != PLUS_EXPR && code != POINTER_PLUS_EXPR)
 	      || TREE_CODE (gimple_assign_rhs2 (stmt)) != INTEGER_CST
-	      || !host_integerp (gimple_assign_rhs2 (stmt), 1)))
+	      || !tree_fits_uhwi_p (gimple_assign_rhs2 (stmt))))
 	return stmt;
 
       lhs = gimple_assign_rhs1 (stmt);
@@ -5985,10 +6100,10 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, const_gimple stmt)
 	  else
 	    goto escapes;
 
-	  if (!host_integerp (gimple_assign_rhs2 (arg2_stmt), 0))
+	  if (!tree_fits_shwi_p (gimple_assign_rhs2 (arg2_stmt)))
 	    goto escapes;
 
-	  sub = tree_low_cst (gimple_assign_rhs2 (arg2_stmt), 0);
+	  sub = tree_to_shwi (gimple_assign_rhs2 (arg2_stmt));
 	  if (code2 == MINUS_EXPR)
 	    sub = -sub;
 	  if (sub < -48 || sub > -32)
@@ -7026,9 +7141,6 @@ alpha_fold_builtin (tree fndecl, int n_args, tree *op,
     case ALPHA_BUILTIN_MSKQH:
       return alpha_fold_builtin_mskxx (op, opint, op_const, 0xff, true);
 
-    case ALPHA_BUILTIN_UMULH:
-      return fold_build2 (MULT_HIGHPART_EXPR, alpha_dimode_u, op[0], op[1]);
-
     case ALPHA_BUILTIN_ZAP:
       opint[1] ^= 0xff;
       /* FALLTHRU */
@@ -7077,6 +7189,49 @@ alpha_fold_builtin (tree fndecl, int n_args, tree *op,
     default:
       return NULL;
     }
+}
+
+bool
+alpha_gimple_fold_builtin (gimple_stmt_iterator *gsi)
+{
+  bool changed = false;
+  gimple stmt = gsi_stmt (*gsi);
+  tree call = gimple_call_fn (stmt);
+  gimple new_stmt = NULL;
+
+  if (call)
+    {
+      tree fndecl = gimple_call_fndecl (stmt);
+
+      if (fndecl)
+	{
+	  tree arg0, arg1;
+
+	  switch (DECL_FUNCTION_CODE (fndecl))
+	    {
+	    case ALPHA_BUILTIN_UMULH:
+	      arg0 = gimple_call_arg (stmt, 0);
+	      arg1 = gimple_call_arg (stmt, 1);
+
+	      new_stmt
+		= gimple_build_assign_with_ops (MULT_HIGHPART_EXPR,
+						gimple_call_lhs (stmt),
+						arg0,
+						arg1);
+	      break;
+	    default:
+	      break;
+	    }
+	}
+    }
+
+  if (new_stmt)
+    {
+      gsi_replace (gsi, new_stmt, true);
+      changed = true;
+    }
+
+  return changed;
 }
 
 /* This page contains routines that are used to determine what the function
@@ -7422,7 +7577,7 @@ alpha_find_lo_sum_using_gp (rtx insn)
 static int
 alpha_does_function_need_gp (void)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   /* The GP being variable is an OSF abi thing.  */
   if (! TARGET_ABI_OSF)
@@ -7465,16 +7620,16 @@ alpha_does_function_need_gp (void)
 /* Helper function to set RTX_FRAME_RELATED_P on instructions, including
    sequences.  */
 
-static rtx
+static rtx_insn *
 set_frame_related_p (void)
 {
-  rtx seq = get_insns ();
-  rtx insn;
+  rtx_insn *seq = get_insns ();
+  rtx_insn *insn;
 
   end_sequence ();
 
   if (!seq)
-    return NULL_RTX;
+    return NULL;
 
   if (INSN_P (seq))
     {
@@ -7506,7 +7661,8 @@ static void
 emit_frame_store_1 (rtx value, rtx base_reg, HOST_WIDE_INT frame_bias,
 		    HOST_WIDE_INT base_ofs, rtx frame_reg)
 {
-  rtx addr, mem, insn;
+  rtx addr, mem;
+  rtx_insn *insn;
 
   addr = plus_constant (Pmode, base_reg, base_ofs);
   mem = gen_frame_mem (DImode, addr);
@@ -7767,8 +7923,9 @@ alpha_expand_prologue (void)
       /* Register frame procedures save the fp.  */
       if (alpha_procedure_type == PT_REGISTER)
 	{
-	  rtx insn = emit_move_insn (gen_rtx_REG (DImode, vms_save_fp_regno),
-				     hard_frame_pointer_rtx);
+	  rtx_insn *insn =
+	    emit_move_insn (gen_rtx_REG (DImode, vms_save_fp_regno),
+			    hard_frame_pointer_rtx);
 	  add_reg_note (insn, REG_CFA_REGISTER, NULL);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
@@ -7784,7 +7941,7 @@ alpha_expand_prologue (void)
       /* If we have to allocate space for outgoing args, do it now.  */
       if (crtl->outgoing_args_size != 0)
 	{
-	  rtx seq
+	  rtx_insn *seq
 	    = emit_move_insn (stack_pointer_rtx,
 			      plus_constant
 			      (Pmode, hard_frame_pointer_rtx,
@@ -8224,7 +8381,7 @@ alpha_expand_epilogue (void)
 void
 alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   /* We output a nop after noreturn calls at the very end of the function to
      ensure that the return address always remains in the caller's code range,
@@ -8267,7 +8424,8 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 			   tree function)
 {
   HOST_WIDE_INT hi, lo;
-  rtx this_rtx, insn, funexp;
+  rtx this_rtx, funexp;
+  rtx_insn *insn;
 
   /* We always require a valid GP.  */
   emit_insn (gen_prologue_ldgp ());
@@ -8568,7 +8726,7 @@ alpha_handle_trap_shadows (void)
 {
   struct shadow_summary shadow;
   int trap_pending, exception_nesting;
-  rtx i, n;
+  rtx_insn *i, *n;
 
   trap_pending = 0;
   exception_nesting = 0;
@@ -8658,6 +8816,11 @@ alpha_handle_trap_shadows (void)
 			}
 		      break;
 
+		    case BARRIER:
+		      /* __builtin_unreachable can expand to no code at all,
+			 leaving (barrier) RTXes in the instruction stream.  */
+		      goto close_shadow_notrapb;
+
 		    case JUMP_INSN:
 		    case CALL_INSN:
 		    case CODE_LABEL:
@@ -8673,6 +8836,7 @@ alpha_handle_trap_shadows (void)
 		  n = emit_insn_before (gen_trapb (), i);
 		  PUT_MODE (n, TImode);
 		  PUT_MODE (i, TImode);
+		close_shadow_notrapb:
 		  trap_pending = 0;
 		  shadow.used.i = 0;
 		  shadow.used.fp = 0;
@@ -8722,7 +8886,7 @@ enum alphaev5_pipe {
 };
 
 static enum alphaev4_pipe
-alphaev4_insn_pipe (rtx insn)
+alphaev4_insn_pipe (rtx_insn *insn)
 {
   if (recog_memoized (insn) < 0)
     return EV4_STOP;
@@ -8771,7 +8935,7 @@ alphaev4_insn_pipe (rtx insn)
 }
 
 static enum alphaev5_pipe
-alphaev5_insn_pipe (rtx insn)
+alphaev5_insn_pipe (rtx_insn *insn)
 {
   if (recog_memoized (insn) < 0)
     return EV5_STOP;
@@ -8831,8 +8995,8 @@ alphaev5_insn_pipe (rtx insn)
 
    LEN is, of course, the length of the group in bytes.  */
 
-static rtx
-alphaev4_next_group (rtx insn, int *pin_use, int *plen)
+static rtx_insn *
+alphaev4_next_group (rtx_insn *insn, int *pin_use, int *plen)
 {
   int len, in_use;
 
@@ -8929,8 +9093,8 @@ alphaev4_next_group (rtx insn, int *pin_use, int *plen)
 
    LEN is, of course, the length of the group in bytes.  */
 
-static rtx
-alphaev5_next_group (rtx insn, int *pin_use, int *plen)
+static rtx_insn *
+alphaev5_next_group (rtx_insn *insn, int *pin_use, int *plen)
 {
   int len, in_use;
 
@@ -9113,16 +9277,16 @@ alphaev5_next_nop (int *pin_use)
 /* The instruction group alignment main loop.  */
 
 static void
-alpha_align_insns (unsigned int max_align,
-		   rtx (*next_group) (rtx, int *, int *),
-		   rtx (*next_nop) (int *))
+alpha_align_insns_1 (unsigned int max_align,
+		     rtx_insn *(*next_group) (rtx_insn *, int *, int *),
+		     rtx (*next_nop) (int *))
 {
   /* ALIGN is the known alignment for the insn group.  */
   unsigned int align;
   /* OFS is the offset of the current insn in the insn group.  */
   int ofs;
   int prev_in_use, in_use, len, ldgp;
-  rtx i, next;
+  rtx_insn *i, *next;
 
   /* Let shorten branches care for assigning alignments to code labels.  */
   shorten_branches (get_insns ());
@@ -9180,7 +9344,7 @@ alpha_align_insns (unsigned int max_align,
       else if ((int) align < len)
 	{
 	  unsigned int new_log_align = len > 8 ? 4 : 3;
-	  rtx prev, where;
+	  rtx_insn *prev, *where;
 
 	  where = prev = prev_nonnote_insn (i);
 	  if (!where || !LABEL_P (where))
@@ -9209,7 +9373,7 @@ alpha_align_insns (unsigned int max_align,
       else if (ofs + len > (int) align)
 	{
 	  int nop_count = (align - ofs) / 4;
-	  rtx where;
+	  rtx_insn *where;
 
 	  /* Insert nops before labels, branches, and calls to truly merge
 	     the execution of the nops with the previous instruction group.  */
@@ -9218,7 +9382,7 @@ alpha_align_insns (unsigned int max_align,
 	    {
 	      if (LABEL_P (where))
 		{
-		  rtx where2 = prev_nonnote_insn (where);
+		  rtx_insn *where2 = prev_nonnote_insn (where);
 		  if (where2 && JUMP_P (where2))
 		    where = where2;
 		}
@@ -9240,12 +9404,23 @@ alpha_align_insns (unsigned int max_align,
     }
 }
 
+static void
+alpha_align_insns (void)
+{
+  if (alpha_tune == PROCESSOR_EV4)
+    alpha_align_insns_1 (8, alphaev4_next_group, alphaev4_next_nop);
+  else if (alpha_tune == PROCESSOR_EV5)
+    alpha_align_insns_1 (16, alphaev5_next_group, alphaev5_next_nop);
+  else
+    gcc_unreachable ();
+}
+
 /* Insert an unop between sibcall or noreturn function call and GP load.  */
 
 static void
 alpha_pad_function_end (void)
 {
-  rtx insn, next;
+  rtx_insn *insn, *next;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
@@ -9259,12 +9434,6 @@ alpha_pad_function_end (void)
       next = NEXT_INSN (insn);
       if (next == NULL)
 	continue;
-      if (BARRIER_P (next))
-	{
-	  next = NEXT_INSN (next);
-	  if (next == NULL)
-	    continue;
-	}
       if (NOTE_P (next) && NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
 	insn = next;
 
@@ -9332,22 +9501,6 @@ And in the noreturn case:
 
   if (current_function_has_exception_handlers ())
     alpha_pad_function_end ();
-
-  if (alpha_tp != ALPHA_TP_PROG || flag_exceptions)
-    alpha_handle_trap_shadows ();
-
-  /* Due to the number of extra trapb insns, don't bother fixing up
-     alignment when trap precision is instruction.  Moreover, we can
-     only do our job when sched2 is run.  */
-  if (optimize && !optimize_size
-      && alpha_tp != ALPHA_TP_INSN
-      && flag_schedule_insns_after_reload)
-    {
-      if (alpha_tune == PROCESSOR_EV4)
-	alpha_align_insns (8, alphaev4_next_group, alphaev4_next_nop);
-      else if (alpha_tune == PROCESSOR_EV5)
-	alpha_align_insns (16, alphaev5_next_group, alphaev5_next_nop);
-    }
 }
 
 static void
@@ -9519,7 +9672,7 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
       linksym = (char *) alloca (buf_len);
       snprintf (linksym, buf_len, "$%d..%s..lk", cfun->funcdef_no, name);
 
-      al = ggc_alloc_alpha_links ();
+      al = ggc_alloc<alpha_links> ();
       al->func = func;
       al->linkage = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (linksym));
 
@@ -9706,6 +9859,72 @@ alpha_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
       *op1 = GEN_INT (255);
     }
 }
+
+/* Implement TARGET_ATOMIC_ASSIGN_EXPAND_FENV.  */
+
+static void
+alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
+{
+  const unsigned HOST_WIDE_INT SWCR_STATUS_MASK = (0x3fUL << 17);
+
+  tree fenv_var, get_fpscr, set_fpscr, mask, ld_fenv, masked_fenv;
+  tree new_fenv_var, reload_fenv, restore_fnenv;
+  tree update_call, atomic_feraiseexcept, hold_fnclex;
+
+  /* Assume OSF/1 compatible interfaces.  */
+  if (!TARGET_ABI_OSF)
+    return;
+
+  /* Generate the equivalent of :
+       unsigned long fenv_var;
+       fenv_var = __ieee_get_fp_control ();
+
+       unsigned long masked_fenv;
+       masked_fenv = fenv_var & mask;
+
+       __ieee_set_fp_control (masked_fenv);  */
+
+  fenv_var = create_tmp_var (long_unsigned_type_node, NULL);
+  get_fpscr
+    = build_fn_decl ("__ieee_get_fp_control",
+		     build_function_type_list (long_unsigned_type_node, NULL));
+  set_fpscr
+    = build_fn_decl ("__ieee_set_fp_control",
+		     build_function_type_list (void_type_node, NULL));
+  mask = build_int_cst (long_unsigned_type_node, ~SWCR_STATUS_MASK);
+  ld_fenv = build2 (MODIFY_EXPR, long_unsigned_type_node,
+		    fenv_var, build_call_expr (get_fpscr, 0));
+  masked_fenv = build2 (BIT_AND_EXPR, long_unsigned_type_node, fenv_var, mask);
+  hold_fnclex = build_call_expr (set_fpscr, 1, masked_fenv);
+  *hold = build2 (COMPOUND_EXPR, void_type_node,
+		  build2 (COMPOUND_EXPR, void_type_node, masked_fenv, ld_fenv),
+		  hold_fnclex);
+
+  /* Store the value of masked_fenv to clear the exceptions:
+     __ieee_set_fp_control (masked_fenv);  */
+
+  *clear = build_call_expr (set_fpscr, 1, masked_fenv);
+
+  /* Generate the equivalent of :
+       unsigned long new_fenv_var;
+       new_fenv_var = __ieee_get_fp_control ();
+
+       __ieee_set_fp_control (fenv_var);
+
+       __atomic_feraiseexcept (new_fenv_var);  */
+
+  new_fenv_var = create_tmp_var (long_unsigned_type_node, NULL);
+  reload_fenv = build2 (MODIFY_EXPR, long_unsigned_type_node, new_fenv_var,
+			build_call_expr (get_fpscr, 0));
+  restore_fnenv = build_call_expr (set_fpscr, 1, fenv_var);
+  atomic_feraiseexcept = builtin_decl_implicit (BUILT_IN_ATOMIC_FERAISEEXCEPT);
+  update_call
+    = build_call_expr (atomic_feraiseexcept, 1,
+		       fold_convert (integer_type_node, new_fenv_var));
+  *update = build2 (COMPOUND_EXPR, void_type_node,
+		    build2 (COMPOUND_EXPR, void_type_node,
+			    reload_fenv, restore_fnenv), update_call);
+}
 
 /* Initialize the GCC target structure.  */
 #if TARGET_ABI_OPEN_VMS
@@ -9774,6 +9993,8 @@ alpha_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
 #define TARGET_EXPAND_BUILTIN alpha_expand_builtin
 #undef  TARGET_FOLD_BUILTIN
 #define TARGET_FOLD_BUILTIN alpha_fold_builtin
+#undef  TARGET_GIMPLE_FOLD_BUILTIN
+#define TARGET_GIMPLE_FOLD_BUILTIN alpha_gimple_fold_builtin
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL alpha_function_ok_for_sibcall
@@ -9875,6 +10096,9 @@ alpha_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
 
 #undef TARGET_CANONICALIZE_COMPARISON
 #define TARGET_CANONICALIZE_COMPARISON alpha_canonicalize_comparison
+
+#undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+#define TARGET_ATOMIC_ASSIGN_EXPAND_FENV alpha_atomic_assign_expand_fenv
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

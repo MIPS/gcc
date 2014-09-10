@@ -54,7 +54,7 @@ func (f *file) readLine() (s string, ok bool) {
 		if n >= 0 {
 			f.data = f.data[0 : ln+n]
 		}
-		if err == io.EOF {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			f.atEOF = true
 		}
 	}
@@ -67,7 +67,7 @@ func open(name string) (*file, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &file{fd, make([]byte, os.Getpagesize())[0:0], false}, nil
+	return &file{fd, make([]byte, 0, os.Getpagesize()), false}, nil
 }
 
 func byteIndex(s string, c byte) int {

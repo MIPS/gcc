@@ -1,5 +1,5 @@
 /* Data structures and function exported by the C++ Parser.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -51,10 +51,10 @@ typedef struct GTY (()) cp_token {
   ENUM_BITFIELD (pragma_kind) pragma_kind : 6;
   /* True if this token is from a context where it is implicitly extern "C" */
   BOOL_BITFIELD implicit_extern_c : 1;
-  /* True for a CPP_NAME token that is not a keyword (i.e., for which
-     KEYWORD is RID_MAX) iff this name was looked up and found to be
-     ambiguous.  An error has already been reported.  */
-  BOOL_BITFIELD ambiguous_p : 1;
+  /* True if an error has already been reported for this token, such as a
+     CPP_NAME token that is not a keyword (i.e., for which KEYWORD is
+     RID_MAX) iff this name was looked up and found to be ambiguous.  */
+  BOOL_BITFIELD error_reported : 1;
   /* True for a token that has been purged.  If a token is purged,
      it is no longer a valid token and it should be considered
      deleted.  */
@@ -149,7 +149,7 @@ typedef struct GTY(()) cp_default_arg_entry_d {
 } cp_default_arg_entry;
 
 
-/* An entry in a stack for member functions of local classes.  */
+/* An entry in a stack for member functions defined within their classes.  */
 
 typedef struct GTY(()) cp_unparsed_functions_entry_d {
   /* Functions with default arguments that require post-processing.
@@ -163,6 +163,10 @@ typedef struct GTY(()) cp_unparsed_functions_entry_d {
   /* Non-static data members with initializers that require post-processing.
      FIELD_DECLs appear in this list in declaration order.  */
   vec<tree, va_gc> *nsdmis;
+
+  /* Nested classes go in this vector, so that we can do some final
+     processing after parsing any NSDMIs.  */
+  vec<tree, va_gc> *classes;
 } cp_unparsed_functions_entry;
 
 
@@ -300,6 +304,8 @@ typedef struct GTY(()) cp_parser {
 #define IN_OMP_BLOCK		4
 #define IN_OMP_FOR		8
 #define IN_IF_STMT             16
+#define IN_CILK_SIMD_FOR       32
+#define IN_CILK_SPAWN          64
   unsigned char in_statement;
 
   /* TRUE if we are presently parsing the body of a switch statement.
@@ -360,10 +366,36 @@ typedef struct GTY(()) cp_parser {
      data structure with everything needed for parsing the clauses.  */
   cp_omp_declare_simd_data * GTY((skip)) omp_declare_simd;
 
+  /* When parsing the vector attribute in Cilk Plus SIMD-enabled function,
+     this is a pointer to data structure with everything needed for parsing
+     the clauses.  The cp_omp_declare_simd_data struct will hold all the
+     necessary information, so creating another struct for this is not
+     necessary.  */
+  cp_omp_declare_simd_data * GTY((skip)) cilk_simd_fn_info;
+
+  /* Nonzero if parsing a parameter list where 'auto' should trigger an implicit
+     template parameter.  */
+  bool auto_is_implicit_function_template_parm_p;
+
   /* TRUE if the function being declared was made a template due to its
      parameter list containing generic type specifiers (`auto' or concept
      identifiers) rather than an explicit template parameter list.  */
   bool fully_implicit_function_template_p;
+
+  /* Tracks the function's template parameter list when declaring a function
+     using generic type parameters.  This is either a new chain in the case of a
+     fully implicit function template or an extension of the function's existing
+     template parameter list.  This is tracked to optimize calls subsequent
+     calls to synthesize_implicit_template_parm during
+     cp_parser_parameter_declaration.  */
+  tree implicit_template_parms;
+
+  /* The scope into which an implicit template parameter list has been
+     introduced or an existing template parameter list is being extended with
+     implicit template paramaters.  In most cases this is the sk_function_parms
+     scope containing the use of a generic type.  In the case of an out-of-line
+     member definition using a generic type, it is the sk_class scope.  */
+  cp_binding_level* implicit_template_scope;
 
 } cp_parser;
 

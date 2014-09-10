@@ -1,5 +1,5 @@
 /* SSA name expresssons routines
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -47,16 +47,16 @@ struct GTY(()) ptr_info_def
 
 /* Value range information for SSA_NAMEs representing non-pointer variables.  */
 
-struct GTY (()) range_info_def {
-  /* Minimum for value range.  */
-  double_int min;
-  /* Maximum for value range.  */
-  double_int max;
+struct GTY ((variable_size)) range_info_def {
+  /* Minimum, maximum and nonzero bits.  */
+  TRAILING_WIDE_INT_ACCESSOR (min, ints, 0)
+  TRAILING_WIDE_INT_ACCESSOR (max, ints, 1)
+  TRAILING_WIDE_INT_ACCESSOR (nonzero_bits, ints, 2)
+  trailing_wide_ints <3> ints;
 };
 
 
 #define SSANAMES(fun) (fun)->gimple_df->ssa_names
-#define MODIFIED_NORETURN_CALLS(fun) (fun)->gimple_df->modified_noreturn_calls
 #define DEFAULT_DEFS(fun) (fun)->gimple_df->default_defs
 
 #define num_ssa_names (vec_safe_length (cfun->gimple_df->ssa_names))
@@ -68,15 +68,18 @@ struct GTY (()) range_info_def {
 enum value_range_type { VR_UNDEFINED, VR_RANGE, VR_ANTI_RANGE, VR_VARYING };
 
 /* Sets the value range to SSA.  */
-extern void set_range_info (tree ssa, double_int min, double_int max);
+extern void set_range_info (tree, enum value_range_type, const wide_int_ref &,
+			    const wide_int_ref &);
 /* Gets the value range from SSA.  */
-extern enum value_range_type  get_range_info (tree name, double_int *min,
-					      double_int *max);
+extern enum value_range_type get_range_info (const_tree, wide_int *,
+					     wide_int *);
+extern void set_nonzero_bits (tree, const wide_int_ref &);
+extern wide_int get_nonzero_bits (const_tree);
 extern void init_ssanames (struct function *, int);
 extern void fini_ssanames (void);
 extern void ssanames_print_statistics (void);
 extern tree make_ssa_name_fn (struct function *, tree, gimple);
-extern void release_ssa_name (tree);
+extern void release_ssa_name_fn (struct function *, tree);
 extern bool get_ptr_info_alignment (struct ptr_info_def *, unsigned int *,
 				    unsigned int *);
 extern void mark_ptr_info_alignment_unknown (struct ptr_info_def *);
@@ -89,7 +92,8 @@ extern struct ptr_info_def *get_ptr_info (tree);
 extern tree copy_ssa_name_fn (struct function *, tree, gimple);
 extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern tree duplicate_ssa_name_fn (struct function *, tree, gimple);
-extern void duplicate_ssa_name_range_info (tree, struct range_info_def *);
+extern void duplicate_ssa_name_range_info (tree, enum value_range_type,
+					   struct range_info_def *);
 extern void release_defs (gimple);
 extern void replace_ssa_name_symbol (tree, tree);
 
@@ -119,6 +123,14 @@ static inline tree
 duplicate_ssa_name (tree var, gimple stmt)
 {
   return duplicate_ssa_name_fn (cfun, var, stmt);
+}
+
+/* Release the SSA name NAME used in function cfun.  */
+
+static inline void
+release_ssa_name (tree name)
+{
+  release_ssa_name_fn (cfun, name);
 }
 
 /* Return an anonymous SSA_NAME node for type TYPE defined in statement STMT

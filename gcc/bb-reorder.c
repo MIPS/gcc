@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -99,6 +99,7 @@
 #include "tree-pass.h"
 #include "df.h"
 #include "bb-reorder.h"
+#include "cgraph.h"
 #include "except.h"
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
@@ -275,7 +276,7 @@ find_traces (int *n_traces, struct trace *traces)
   heap = fibheap_new ();
   max_entry_frequency = 0;
   max_entry_count = 0;
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
     {
       bbd[e->dest->index].heap = heap;
       bbd[e->dest->index].node = fibheap_insert (heap, bb_to_key (e->dest),
@@ -348,7 +349,7 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest != EXIT_BLOCK_PTR
+	if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	    && bb_visited_trace (e->dest) != trace_n
 	    && (e->flags & EDGE_CAN_FALLTHRU)
 	    && !(e->flags & EDGE_COMPLEX))
@@ -425,8 +426,7 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 	      /* Duplicate HEADER if it is a small block containing cond jump
 		 in the end.  */
 	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0)
-		  && !find_reg_note (BB_END (header), REG_CROSSING_JUMP,
-				     NULL_RTX))
+		  && !CROSSING_JUMP_P (BB_END (header)))
 		copy_bb (header, single_succ_edge (prev_bb), prev_bb, trace_n);
 	    }
 	}
@@ -524,7 +524,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	    {
 	      gcc_assert (!(e->flags & EDGE_FAKE));
 
-	      if (e->dest == EXIT_BLOCK_PTR)
+	      if (e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 		continue;
 
 	      if (bb_visited_trace (e->dest)
@@ -605,7 +605,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
 	      if (e == best_edge
-		  || e->dest == EXIT_BLOCK_PTR
+		  || e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun)
 		  || bb_visited_trace (e->dest))
 		continue;
 
@@ -680,7 +680,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 			     header is not the first block of the function
 			     we can rotate the loop.  */
 
-			  if (best_edge->dest != ENTRY_BLOCK_PTR->next_bb)
+			  if (best_edge->dest
+			      != ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb)
 			    {
 			      if (dump_file)
 				{
@@ -776,7 +777,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	 is an end of the trace).  */
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  if (e->dest == EXIT_BLOCK_PTR
+	  if (e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun)
 	      || bb_visited_trace (e->dest))
 	    continue;
 
@@ -825,12 +826,13 @@ copy_bb (basic_block old_bb, edge e, basic_block bb, int trace)
 	     "Duplicated bb %d (created bb %d)\n",
 	     old_bb->index, new_bb->index);
 
-  if (new_bb->index >= array_size || last_basic_block > array_size)
+  if (new_bb->index >= array_size
+      || last_basic_block_for_fn (cfun) > array_size)
     {
       int i;
       int new_size;
 
-      new_size = MAX (last_basic_block, new_bb->index + 1);
+      new_size = MAX (last_basic_block_for_fn (cfun), new_bb->index + 1);
       new_size = GET_ARRAY_SIZE (new_size);
       bbd = XRESIZEVEC (bbro_basic_block_data, bbd, new_size);
       for (i = array_size; i < new_size; i++)
@@ -885,7 +887,8 @@ bb_to_key (basic_block bb)
      or whose predecessor edge is EDGE_DFS_BACK.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
-      if ((e->src != ENTRY_BLOCK_PTR && bbd[e->src->index].end_of_trace >= 0)
+      if ((e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
+	   && bbd[e->src->index].end_of_trace >= 0)
 	  || (e->flags & EDGE_DFS_BACK))
 	{
 	  int edge_freq = EDGE_FREQUENCY (e);
@@ -1098,7 +1101,7 @@ connect_traces (int n_traces, struct trace *traces)
 	    {
 	      int si = e->src->index;
 
-	      if (e->src != ENTRY_BLOCK_PTR
+	      if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 		  && (e->flags & EDGE_CAN_FALLTHRU)
 		  && !(e->flags & EDGE_COMPLEX)
 		  && bbd[si].end_of_trace >= 0
@@ -1141,7 +1144,7 @@ connect_traces (int n_traces, struct trace *traces)
 	    {
 	      int di = e->dest->index;
 
-	      if (e->dest != EXIT_BLOCK_PTR
+	      if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 		  && (e->flags & EDGE_CAN_FALLTHRU)
 		  && !(e->flags & EDGE_COMPLEX)
 		  && bbd[di].start_of_trace >= 0
@@ -1212,7 +1215,7 @@ connect_traces (int n_traces, struct trace *traces)
 	      bool try_copy = false;
 
 	      FOR_EACH_EDGE (e, ei, traces[t].last->succs)
-		if (e->dest != EXIT_BLOCK_PTR
+		if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 		    && (e->flags & EDGE_CAN_FALLTHRU)
 		    && !(e->flags & EDGE_COMPLEX)
 		    && (!best || e->probability > best->probability))
@@ -1237,7 +1240,7 @@ connect_traces (int n_traces, struct trace *traces)
 		      {
 			int di = e2->dest->index;
 
-			if (e2->dest == EXIT_BLOCK_PTR
+			if (e2->dest == EXIT_BLOCK_PTR_FOR_FN (cfun)
 			    || ((e2->flags & EDGE_CAN_FALLTHRU)
 				&& !(e2->flags & EDGE_COMPLEX)
 				&& bbd[di].start_of_trace >= 0
@@ -1253,7 +1256,7 @@ connect_traces (int n_traces, struct trace *traces)
 			  {
 			    best = e;
 			    best2 = e2;
-			    if (e2->dest != EXIT_BLOCK_PTR)
+			    if (e2->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 			      best2_len = traces[bbd[di].start_of_trace].length;
 			    else
 			      best2_len = INT_MAX;
@@ -1282,7 +1285,7 @@ connect_traces (int n_traces, struct trace *traces)
 			       traces[t].last->index, best->dest->index);
 		      if (!next_bb)
 			fputc ('\n', dump_file);
-		      else if (next_bb == EXIT_BLOCK_PTR)
+		      else if (next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 			fprintf (dump_file, "exit\n");
 		      else
 			fprintf (dump_file, "%d\n", next_bb->index);
@@ -1290,7 +1293,7 @@ connect_traces (int n_traces, struct trace *traces)
 
 		  new_bb = copy_bb (best->dest, best, traces[t].last, t);
 		  traces[t].last = new_bb;
-		  if (next_bb && next_bb != EXIT_BLOCK_PTR)
+		  if (next_bb && next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
 		    {
 		      t = bbd[next_bb->index].start_of_trace;
 		      traces[last_trace].last->aux = traces[t].first;
@@ -1328,7 +1331,7 @@ copy_bb_p (const_basic_block bb, int code_may_grow)
 {
   int size = 0;
   int max_size = uncond_jump_length;
-  rtx insn;
+  rtx_insn *insn;
 
   if (!bb->frequency)
     return false;
@@ -1368,7 +1371,7 @@ copy_bb_p (const_basic_block bb, int code_may_grow)
 int
 get_uncond_jump_length (void)
 {
-  rtx label, jump;
+  rtx_insn *label, *jump;
   int length;
 
   label = emit_label_before (gen_label_rtx (), get_insns ());
@@ -1390,7 +1393,8 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
 {
   eh_landing_pad new_lp;
   basic_block new_bb, last_bb, post_bb;
-  rtx new_label, jump, post_label;
+  rtx_insn *new_label, *jump;
+  rtx post_label;
   unsigned new_partition;
   edge_iterator ei;
   edge e;
@@ -1413,7 +1417,7 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   JUMP_LABEL (jump) = post_label;
 
   /* Create new basic block to be dest for lp.  */
-  last_bb = EXIT_BLOCK_PTR->prev_bb;
+  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
   new_bb = create_basic_block (new_label, jump, last_bb);
   new_bb->aux = last_bb->aux;
   last_bb->aux = new_bb;
@@ -1431,7 +1435,7 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   for (ei = ei_start (old_bb->preds); (e = ei_safe_edge (ei)) != NULL; )
     if (BB_PARTITION (e->src) == new_partition)
       {
-	rtx insn = BB_END (e->src);
+	rtx_insn *insn = BB_END (e->src);
 	rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
 
 	gcc_assert (note != NULL);
@@ -1563,7 +1567,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (void)
   vec<basic_block> bbs_in_hot_partition = vNULL;
 
   /* Mark which partition (hot/cold) each basic block belongs in.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       bool cold_bb = false;
 
@@ -1655,7 +1659,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (void)
 
   /* Mark every edge that crosses between sections.  */
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_EACH_EDGE (e, ei, bb->succs)
       {
 	unsigned int flags = e->flags;
@@ -1663,8 +1667,8 @@ find_rarely_executed_basic_blocks_and_crossing_edges (void)
         /* We should never have EDGE_CROSSING set yet.  */
 	gcc_checking_assert ((flags & EDGE_CROSSING) == 0);
 
-	if (e->src != ENTRY_BLOCK_PTR
-	    && e->dest != EXIT_BLOCK_PTR
+	if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
+	    && e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	    && BB_PARTITION (e->src) != BB_PARTITION (e->dest))
 	  {
 	    crossing_edges.safe_push (e);
@@ -1688,7 +1692,7 @@ set_edge_can_fallthru_flag (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       edge_iterator ei;
@@ -1729,16 +1733,17 @@ add_labels_and_missing_jumps (vec<edge> crossing_edges)
     {
       basic_block src = e->src;
       basic_block dest = e->dest;
-      rtx label, new_jump;
+      rtx label;
+      rtx_insn *new_jump;
 
-      if (dest == EXIT_BLOCK_PTR)
+      if (dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	continue;
 
       /* Make sure dest has a label.  */
       label = block_label (dest);
 
       /* Nothing to do for non-fallthru edges.  */
-      if (src == ENTRY_BLOCK_PTR)
+      if (src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	continue;
       if ((e->flags & EDGE_FALLTHRU) == 0)
 	continue;
@@ -1786,10 +1791,10 @@ fix_up_fall_thru_edges (void)
   edge e;
   bool cond_jump_crosses;
   int invert_worked;
-  rtx old_jump;
+  rtx_insn *old_jump;
   rtx fall_thru_label;
 
-  FOR_EACH_BB (cur_bb)
+  FOR_EACH_BB_FN (cur_bb, cfun)
     {
       fall_thru = NULL;
       if (EDGE_COUNT (cur_bb->succs) > 0)
@@ -1823,16 +1828,15 @@ fix_up_fall_thru_edges (void)
 	  edge e;
 	  edge_iterator ei;
 
-	  /* Find EDGE_CAN_FALLTHRU edge.  */
 	  FOR_EACH_EDGE (e, ei, cur_bb->succs)
-	    if (e->flags & EDGE_CAN_FALLTHRU)
+	    if (e->flags & EDGE_FALLTHRU)
 	      {
 		fall_thru = e;
 		break;
 	      }
 	}
 
-      if (fall_thru && (fall_thru->dest != EXIT_BLOCK_PTR))
+      if (fall_thru && (fall_thru->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)))
 	{
 	  /* Check to see if the fall-thru edge is a crossing edge.  */
 
@@ -1934,7 +1938,7 @@ find_jump_block (basic_block jump_dest)
 {
   basic_block source_bb = NULL;
   edge e;
-  rtx insn;
+  rtx_insn *insn;
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, jump_dest->preds)
@@ -1984,12 +1988,12 @@ fix_crossing_conditional_branches (void)
   edge succ2;
   edge crossing_edge;
   edge new_edge;
-  rtx old_jump;
+  rtx_insn *old_jump;
   rtx set_src;
   rtx old_label = NULL_RTX;
   rtx new_label;
 
-  FOR_EACH_BB (cur_bb)
+  FOR_EACH_BB_FN (cur_bb, cfun)
     {
       crossing_edge = NULL;
       if (EDGE_COUNT (cur_bb->succs) > 0)
@@ -2051,7 +2055,7 @@ fix_crossing_conditional_branches (void)
 	      else
 		{
 		  basic_block last_bb;
-		  rtx new_jump;
+		  rtx_insn *new_jump;
 
 		  /* Create new basic block to be dest for
 		     conditional jump.  */
@@ -2066,7 +2070,7 @@ fix_crossing_conditional_branches (void)
 		  new_jump = emit_jump_insn (gen_jump (old_label));
 		  JUMP_LABEL (new_jump) = old_label;
 
-		  last_bb = EXIT_BLOCK_PTR->prev_bb;
+		  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
 		  new_bb = create_basic_block (new_label, new_jump, last_bb);
 		  new_bb->aux = last_bb->aux;
 		  last_bb->aux = new_bb;
@@ -2111,16 +2115,16 @@ static void
 fix_crossing_unconditional_branches (void)
 {
   basic_block cur_bb;
-  rtx last_insn;
+  rtx_insn *last_insn;
   rtx label;
   rtx label_addr;
-  rtx indirect_jump_sequence;
-  rtx jump_insn = NULL_RTX;
+  rtx_insn *indirect_jump_sequence;
+  rtx_insn *jump_insn = NULL;
   rtx new_reg;
-  rtx cur_insn;
+  rtx_insn *cur_insn;
   edge succ;
 
-  FOR_EACH_BB (cur_bb)
+  FOR_EACH_BB_FN (cur_bb, cfun)
     {
       last_insn = BB_END (cur_bb);
 
@@ -2180,6 +2184,9 @@ fix_crossing_unconditional_branches (void)
 	      emit_insn_before (indirect_jump_sequence, last_insn);
 	      delete_insn (last_insn);
 
+	      JUMP_LABEL (jump_insn) = label;
+	      LABEL_NUSES (label)++;
+
 	      /* Make BB_END for cur_bb be the jump instruction (NOT the
 		 barrier instruction at the end of the sequence...).  */
 
@@ -2189,23 +2196,26 @@ fix_crossing_unconditional_branches (void)
     }
 }
 
-/* Add REG_CROSSING_JUMP note to all crossing jump insns.  */
+/* Update CROSSING_JUMP_P flags on all jump insns.  */
 
 static void
-add_reg_crossing_jump_notes (void)
+update_crossing_jump_flags (void)
 {
   basic_block bb;
   edge e;
   edge_iterator ei;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_EACH_EDGE (e, ei, bb->succs)
-      if ((e->flags & EDGE_CROSSING)
-	  && JUMP_P (BB_END (e->src))
-          /* Some notes were added during fix_up_fall_thru_edges, via
-             force_nonfallthru_and_redirect.  */
-          && !find_reg_note (BB_END (e->src), REG_CROSSING_JUMP, NULL_RTX))
-	add_reg_note (BB_END (e->src), REG_CROSSING_JUMP, NULL_RTX);
+      if (e->flags & EDGE_CROSSING)
+	{
+	  if (JUMP_P (BB_END (bb))
+	      /* Some flags were added during fix_up_fall_thru_edges, via
+		 force_nonfallthru_and_redirect.  */
+	      && !CROSSING_JUMP_P (BB_END (bb)))
+	    CROSSING_JUMP_P (BB_END (bb)) = 1;
+	  break;
+	}
 }
 
 /* Reorder basic blocks.  The main entry point to this file.  FLAGS is
@@ -2220,7 +2230,7 @@ reorder_basic_blocks (void)
 
   gcc_assert (current_ir_type () == IR_RTL_CFGLAYOUT);
 
-  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
+  if (n_basic_blocks_for_fn (cfun) <= NUM_FIXED_BLOCKS + 1)
     return;
 
   set_edge_can_fallthru_flag ();
@@ -2232,7 +2242,7 @@ reorder_basic_blocks (void)
     uncond_jump_length = get_uncond_jump_length ();
 
   /* We need to know some information for each basic block.  */
-  array_size = GET_ARRAY_SIZE (last_basic_block);
+  array_size = GET_ARRAY_SIZE (last_basic_block_for_fn (cfun));
   bbd = XNEWVEC (bbro_basic_block_data, array_size);
   for (i = 0; i < array_size; i++)
     {
@@ -2244,7 +2254,7 @@ reorder_basic_blocks (void)
       bbd[i].node = NULL;
     }
 
-  traces = XNEWVEC (struct trace, n_basic_blocks);
+  traces = XNEWVEC (struct trace, n_basic_blocks_for_fn (cfun));
   n_traces = 0;
   find_traces (&n_traces, traces);
   connect_traces (n_traces, traces);
@@ -2283,7 +2293,7 @@ insert_section_boundary_note (void)
   if (!crtl->has_bb_partition)
     return;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       if (!current_partition)
 	current_partition = BB_PARTITION (bb);
@@ -2297,35 +2307,6 @@ insert_section_boundary_note (void)
     }
 }
 
-static bool
-gate_handle_reorder_blocks (void)
-{
-  if (targetm.cannot_modify_jumps_p ())
-    return false;
-  return (optimize > 0
-	  && (flag_reorder_blocks || flag_reorder_blocks_and_partition));
-}
-
-static unsigned int
-rest_of_handle_reorder_blocks (void)
-{
-  basic_block bb;
-
-  /* Last attempt to optimize CFG, as scheduling, peepholing and insn
-     splitting possibly introduced more crossjumping opportunities.  */
-  cfg_layout_initialize (CLEANUP_EXPENSIVE);
-
-  reorder_basic_blocks ();
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  FOR_EACH_BB (bb)
-    if (bb->next_bb != EXIT_BLOCK_PTR)
-      bb->aux = bb->next_bb;
-  cfg_layout_finalize ();
-
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_reorder_blocks =
@@ -2333,14 +2314,12 @@ const pass_data pass_data_reorder_blocks =
   RTL_PASS, /* type */
   "bbro", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_REORDER_BLOCKS, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_reorder_blocks : public rtl_opt_pass
@@ -2351,10 +2330,37 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_reorder_blocks (); }
-  unsigned int execute () { return rest_of_handle_reorder_blocks (); }
+  virtual bool gate (function *)
+    {
+      if (targetm.cannot_modify_jumps_p ())
+	return false;
+      return (optimize > 0
+	      && (flag_reorder_blocks || flag_reorder_blocks_and_partition));
+    }
+
+  virtual unsigned int execute (function *);
 
 }; // class pass_reorder_blocks
+
+unsigned int
+pass_reorder_blocks::execute (function *fun)
+{
+  basic_block bb;
+
+  /* Last attempt to optimize CFG, as scheduling, peepholing and insn
+     splitting possibly introduced more crossjumping opportunities.  */
+  cfg_layout_initialize (CLEANUP_EXPENSIVE);
+
+  reorder_basic_blocks ();
+  cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  FOR_EACH_BB_FN (bb, fun)
+    if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (fun))
+      bb->aux = bb->next_bb;
+  cfg_layout_finalize ();
+
+  return 0;
+}
 
 } // anon namespace
 
@@ -2370,25 +2376,53 @@ make_pass_reorder_blocks (gcc::context *ctxt)
    which can seriously pessimize code with many computed jumps in the source
    code, such as interpreters.  See e.g. PR15242.  */
 
-static bool
-gate_duplicate_computed_gotos (void)
+namespace {
+
+const pass_data pass_data_duplicate_computed_gotos =
+{
+  RTL_PASS, /* type */
+  "compgotos", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_REORDER_BLOCKS, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_duplicate_computed_gotos : public rtl_opt_pass
+{
+public:
+  pass_duplicate_computed_gotos (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_duplicate_computed_gotos, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *);
+
+}; // class pass_duplicate_computed_gotos
+
+bool
+pass_duplicate_computed_gotos::gate (function *fun)
 {
   if (targetm.cannot_modify_jumps_p ())
     return false;
   return (optimize > 0
 	  && flag_expensive_optimizations
-	  && ! optimize_function_for_size_p (cfun));
+	  && ! optimize_function_for_size_p (fun));
 }
 
-
-static unsigned int
-duplicate_computed_gotos (void)
+unsigned int
+pass_duplicate_computed_gotos::execute (function *fun)
 {
   basic_block bb, new_bb;
   bitmap candidates;
   int max_size;
+  bool changed = false;
 
-  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
+  if (n_basic_blocks_for_fn (fun) <= NUM_FIXED_BLOCKS + 1)
     return 0;
 
   clear_bb_flags ();
@@ -2407,15 +2441,15 @@ duplicate_computed_gotos (void)
   /* Look for blocks that end in a computed jump, and see if such blocks
      are suitable for unfactoring.  If a block is a candidate for unfactoring,
      mark it in the candidates.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
-      rtx insn;
+      rtx_insn *insn;
       edge e;
       edge_iterator ei;
       int size, all_flags;
 
       /* Build the reorder chain for the original order of blocks.  */
-      if (bb->next_bb != EXIT_BLOCK_PTR)
+      if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (fun))
 	bb->aux = bb->next_bb;
 
       /* Obviously the block has to end in a computed jump.  */
@@ -2423,7 +2457,7 @@ duplicate_computed_gotos (void)
 	continue;
 
       /* Only consider blocks that can be duplicated.  */
-      if (find_reg_note (BB_END (bb), REG_CROSSING_JUMP, NULL_RTX)
+      if (CROSSING_JUMP_P (BB_END (bb))
 	  || !can_duplicate_block_p (bb))
 	continue;
 
@@ -2454,7 +2488,7 @@ duplicate_computed_gotos (void)
     goto done;
 
   /* Duplicate computed gotos.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       if (bb->flags & BB_VISITED)
 	continue;
@@ -2465,7 +2499,7 @@ duplicate_computed_gotos (void)
 	 the exit block or the next block.
 	 The destination must have more than one predecessor.  */
       if (!single_succ_p (bb)
-	  || single_succ (bb) == EXIT_BLOCK_PTR
+	  || single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (fun)
 	  || single_succ (bb) == bb->next_bb
 	  || single_pred_p (single_succ (bb)))
 	continue;
@@ -2476,51 +2510,34 @@ duplicate_computed_gotos (void)
 
       /* Don't duplicate a partition crossing edge, which requires difficult
          fixup.  */
-      if (find_reg_note (BB_END (bb), REG_CROSSING_JUMP, NULL_RTX))
+      if (JUMP_P (BB_END (bb)) && CROSSING_JUMP_P (BB_END (bb)))
 	continue;
 
       new_bb = duplicate_block (single_succ (bb), single_succ_edge (bb), bb);
       new_bb->aux = bb->aux;
       bb->aux = new_bb;
       new_bb->flags |= BB_VISITED;
+      changed = true;
     }
 
-done:
-  cfg_layout_finalize ();
+ done:
+  if (changed)
+    {
+      /* Duplicating blocks above will redirect edges and may cause hot
+	 blocks previously reached by both hot and cold blocks to become
+	 dominated only by cold blocks.  */
+      fixup_partitions ();
+
+      /* Merge the duplicated blocks into predecessors, when possible.  */
+      cfg_layout_finalize ();
+      cleanup_cfg (0);
+    }
+  else
+    cfg_layout_finalize ();
 
   BITMAP_FREE (candidates);
   return 0;
 }
-
-namespace {
-
-const pass_data pass_data_duplicate_computed_gotos =
-{
-  RTL_PASS, /* type */
-  "compgotos", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_REORDER_BLOCKS, /* tv_id */
-  0, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
-};
-
-class pass_duplicate_computed_gotos : public rtl_opt_pass
-{
-public:
-  pass_duplicate_computed_gotos (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_duplicate_computed_gotos, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  bool gate () { return gate_duplicate_computed_gotos (); }
-  unsigned int execute () { return duplicate_computed_gotos (); }
-
-}; // class pass_duplicate_computed_gotos
 
 } // anon namespace
 
@@ -2528,22 +2545,6 @@ rtl_opt_pass *
 make_pass_duplicate_computed_gotos (gcc::context *ctxt)
 {
   return new pass_duplicate_computed_gotos (ctxt);
-}
-
-static bool
-gate_handle_partition_blocks (void)
-{
-  /* The optimization to partition hot/cold basic blocks into separate
-     sections of the .o file does not work well with linkonce or with
-     user defined section attributes.  Don't call it if either case
-     arises.  */
-  return (flag_reorder_blocks_and_partition
-          && optimize
-	  /* See gate_handle_reorder_blocks.  We should not partition if
-	     we are going to omit the reordering.  */
-	  && optimize_function_for_speed_p (cfun)
-	  && !DECL_ONE_ONLY (current_function_decl)
-	  && !user_defined_section_attribute);
 }
 
 /* This function is the main 'entrance' for the optimization that
@@ -2635,12 +2636,56 @@ gate_handle_partition_blocks (void)
    Unconditional branches are dealt with by converting them into
    indirect jumps.  */
 
-static unsigned
-partition_hot_cold_basic_blocks (void)
+namespace {
+
+const pass_data pass_data_partition_blocks =
+{
+  RTL_PASS, /* type */
+  "bbpart", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_REORDER_BLOCKS, /* tv_id */
+  PROP_cfglayout, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_partition_blocks : public rtl_opt_pass
+{
+public:
+  pass_partition_blocks (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_partition_blocks, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *);
+
+}; // class pass_partition_blocks
+
+bool
+pass_partition_blocks::gate (function *fun)
+{
+  /* The optimization to partition hot/cold basic blocks into separate
+     sections of the .o file does not work well with linkonce or with
+     user defined section attributes.  Don't call it if either case
+     arises.  */
+  return (flag_reorder_blocks_and_partition
+	  && optimize
+	  /* See gate_handle_reorder_blocks.  We should not partition if
+	     we are going to omit the reordering.  */
+	  && optimize_function_for_speed_p (fun)
+	  && !DECL_COMDAT_GROUP (current_function_decl)
+	  && !user_defined_section_attribute);
+}
+
+unsigned
+pass_partition_blocks::execute (function *fun)
 {
   vec<edge> crossing_edges;
 
-  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
+  if (n_basic_blocks_for_fn (fun) <= NUM_FIXED_BLOCKS + 1)
     return 0;
 
   df_set_flags (DF_DEFER_INSN_RESCAN);
@@ -2674,7 +2719,7 @@ partition_hot_cold_basic_blocks (void)
   if (!HAS_LONG_UNCOND_BRANCH)
     fix_crossing_unconditional_branches ();
 
-  add_reg_crossing_jump_notes ();
+  update_crossing_jump_flags ();
 
   /* Clear bb->aux fields that the above routines were using.  */
   clear_aux_for_blocks ();
@@ -2701,7 +2746,7 @@ partition_hot_cold_basic_blocks (void)
 
      In the meantime, we have no other option but to throw away all
      of the DF data and recompute it all.  */
-  if (cfun->eh->lp_array)
+  if (fun->eh->lp_array)
     {
       df_finish_pass (true);
       df_scan_alloc (NULL);
@@ -2713,38 +2758,8 @@ partition_hot_cold_basic_blocks (void)
       df_analyze ();
     }
 
-  return TODO_verify_flow | TODO_verify_rtl_sharing;
+  return 0;
 }
-
-namespace {
-
-const pass_data pass_data_partition_blocks =
-{
-  RTL_PASS, /* type */
-  "bbpart", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_REORDER_BLOCKS, /* tv_id */
-  PROP_cfglayout, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_partition_blocks : public rtl_opt_pass
-{
-public:
-  pass_partition_blocks (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_partition_blocks, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  bool gate () { return gate_handle_partition_blocks (); }
-  unsigned int execute () { return partition_hot_cold_basic_blocks (); }
-
-}; // class pass_partition_blocks
 
 } // anon namespace
 

@@ -1,5 +1,5 @@
 /* Tail call optimization on trees.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,15 +22,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "gimple-pretty-print.h"
 #include "except.h"
@@ -276,9 +285,19 @@ process_assignment (gimple stmt, gimple_stmt_iterator call, tree *m,
     {
       /* Reject a tailcall if the type conversion might need
 	 additional code.  */
-      if (gimple_assign_cast_p (stmt)
-	  && TYPE_MODE (TREE_TYPE (dest)) != TYPE_MODE (TREE_TYPE (src_var)))
-	return false;
+      if (gimple_assign_cast_p (stmt))
+	{
+	  if (TYPE_MODE (TREE_TYPE (dest)) != TYPE_MODE (TREE_TYPE (src_var)))
+	    return false;
+
+	  /* Even if the type modes are the same, if the precision of the
+	     type is smaller than mode's precision,
+	     reduce_to_bit_field_precision would generate additional code.  */
+	  if (INTEGRAL_TYPE_P (TREE_TYPE (dest))
+	      && (GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (dest)))
+		  > TYPE_PRECISION (TREE_TYPE (dest))))
+	    return false;
+	}
 
       if (src_var != *ass_var)
 	return false;
@@ -816,7 +835,7 @@ eliminate_tail_call (struct tailcall *t)
 
   gcc_assert (is_gimple_call (stmt));
 
-  first = single_succ (ENTRY_BLOCK_PTR);
+  first = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   /* Remove the code after call_gsi that will become unreachable.  The
      possibly unreachable code in other blocks is removed later in
@@ -837,9 +856,10 @@ eliminate_tail_call (struct tailcall *t)
 
   /* Number of executions of function has reduced by the tailcall.  */
   e = single_succ_edge (gsi_bb (t->call_gsi));
-  decrease_profile (EXIT_BLOCK_PTR, e->count, EDGE_FREQUENCY (e));
-  decrease_profile (ENTRY_BLOCK_PTR, e->count, EDGE_FREQUENCY (e));
-  if (e->dest != EXIT_BLOCK_PTR)
+  decrease_profile (EXIT_BLOCK_PTR_FOR_FN (cfun), e->count, EDGE_FREQUENCY (e));
+  decrease_profile (ENTRY_BLOCK_PTR_FOR_FN (cfun), e->count,
+		    EDGE_FREQUENCY (e));
+  if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
     decrease_profile (e->dest, e->count, EDGE_FREQUENCY (e));
 
   /* Replace the call by a jump to the start of function.  */
@@ -899,6 +919,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
       gimple stmt = gsi_stmt (t->call_gsi);
 
       gimple_call_set_tail (stmt, true);
+      cfun->tail_call_marked = true;
       if (dump_file && (dump_flags & TDF_DETAILS))
         {
 	  fprintf (dump_file, "Found tail call ");
@@ -943,7 +964,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   bool phis_constructed = false;
   struct tailcall *tailcalls = NULL, *act, *next;
   bool changed = false;
-  basic_block first = single_succ (ENTRY_BLOCK_PTR);
+  basic_block first = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   tree param;
   gimple stmt;
   edge_iterator ei;
@@ -953,7 +974,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
-  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
       /* Only traverse the normal exits, i.e. those that end with return
 	 statement.  */
@@ -977,7 +998,8 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	     or if there are existing degenerate PHI nodes.  */
 	  if (!single_pred_p (first)
 	      || !gimple_seq_empty_p (phi_nodes (first)))
-	    first = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
+	    first =
+	      split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
 	  /* Copy the args if needed.  */
 	  for (param = DECL_ARGUMENTS (current_function_decl);
@@ -1024,7 +1046,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (a_acc || m_acc)
     {
       /* Modify the remaining return statements.  */
-      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
 	{
 	  stmt = last_stmt (e->src);
 
@@ -1037,8 +1059,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (changed)
     {
       /* We may have created new loops.  Make them magically appear.  */
-      if (current_loops)
-	loops_state_set (LOOPS_NEED_FIXUP);
+      loops_state_set (LOOPS_NEED_FIXUP);
       free_dominance_info (CDI_DOMINATORS);
     }
 
@@ -1051,12 +1072,6 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (changed)
     return TODO_cleanup_cfg | TODO_update_ssa_only_virtuals;
   return 0;
-}
-
-static unsigned int
-execute_tail_recursion (void)
-{
-  return tree_optimize_tail_calls_1 (false);
 }
 
 static bool
@@ -1078,14 +1093,12 @@ const pass_data pass_data_tail_recursion =
   GIMPLE_PASS, /* type */
   "tailr", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_ssa, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_tail_recursion : public gimple_opt_pass
@@ -1097,8 +1110,11 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_tail_recursion (m_ctxt); }
-  bool gate () { return gate_tail_calls (); }
-  unsigned int execute () { return execute_tail_recursion (); }
+  virtual bool gate (function *) { return gate_tail_calls (); }
+  virtual unsigned int execute (function *)
+    {
+      return tree_optimize_tail_calls_1 (false);
+    }
 
 }; // class pass_tail_recursion
 
@@ -1117,14 +1133,12 @@ const pass_data pass_data_tail_calls =
   GIMPLE_PASS, /* type */
   "tailc", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_ssa, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_tail_calls : public gimple_opt_pass
@@ -1135,8 +1149,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tail_calls (); }
-  unsigned int execute () { return execute_tail_calls (); }
+  virtual bool gate (function *) { return gate_tail_calls (); }
+  virtual unsigned int execute (function *) { return execute_tail_calls (); }
 
 }; // class pass_tail_calls
 

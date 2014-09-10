@@ -1,5 +1,5 @@
 /* Subroutines for the gcc driver.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Anatoly Sokolov <aesok@post.ru>
 
 This file is part of GCC.
@@ -59,8 +59,8 @@ avr_device_to_as (int argc, const char **argv)
   avr_set_current_device (argv[0]);
 
   return concat ("-mmcu=", avr_current_arch->arch_name,
-                 avr_current_device->errata_skip ? "" : " -mno-skip-bug",
-                 NULL);
+    avr_current_device->dev_attribute & AVR_ERRATA_SKIP ? "" : " -mno-skip-bug",
+    avr_current_device->dev_attribute & AVR_ISA_RMW ? " -mrmw" : "", NULL);
 }
 
 /* Returns command line parameters to pass to ld.  */
@@ -99,6 +99,30 @@ avr_device_to_data_start (int argc, const char **argv)
             "0x%lX", data_section_start);
   
   return concat ("-Tdata ", data_section_start_str, NULL);    
+}
+
+/* Returns command line parameters that describe start of text section.  */
+
+const char *
+avr_device_to_text_start (int argc, const char **argv)
+{
+  unsigned long text_section_start;
+  char text_section_start_str[16];
+
+  if (0 == argc)
+    return NULL;
+
+  avr_set_current_device (argv[0]);
+
+  if (avr_current_device->text_section_start == 0x0)
+    return NULL;
+
+  text_section_start = avr_current_device->text_section_start;
+
+  snprintf (text_section_start_str, sizeof(text_section_start_str) - 1,
+            "0x%lX", text_section_start);
+
+  return concat ("-Ttext ", text_section_start_str, NULL);
 }
 
 /* Returns command line parameters that describe the device startfile.  */
@@ -144,7 +168,7 @@ avr_device_to_sp8 (int argc, const char **argv)
           || avr_current_device->arch == ARCH_AVR25))
     return "";
 
-  return avr_current_device->short_sp
+  return (avr_current_device->dev_attribute & AVR_SHORT_SP)
     ? "-msp8"
     : "%<msp8";
 }

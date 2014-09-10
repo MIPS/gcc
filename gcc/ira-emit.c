@@ -1,5 +1,5 @@
 /* Integrated Register Allocator.  Changing code and generating moves.
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -172,7 +172,7 @@ struct move
      dependencies.  */
   move_t *deps;
   /* First insn generated for the move.  */
-  rtx insn;
+  rtx_insn *insn;
 };
 
 /* Array of moves (indexed by BB index) which should be put at the
@@ -196,7 +196,7 @@ create_move (ira_allocno_t to, ira_allocno_t from)
   move->to = to;
   move->from = from;
   move->next = NULL;
-  move->insn = NULL_RTX;
+  move->insn = NULL;
   move->visited_p = false;
   return move;
 }
@@ -298,6 +298,15 @@ change_regs (rtx *loc)
 	    result = change_regs (&XVECEXP (*loc, i, j)) || result;
 	}
     }
+  return result;
+}
+
+static bool
+change_regs_in_insn (rtx_insn **insn_ptr)
+{
+  rtx rtx = *insn_ptr;
+  bool result = change_regs (&rtx);
+  *insn_ptr = as_a <rtx_insn *> (rtx);
   return result;
 }
 
@@ -403,7 +412,7 @@ entered_from_non_parent_p (ira_loop_tree_node_t loop_node)
     if (bb_node->bb != NULL)
       {
 	FOR_EACH_EDGE (e, ei, bb_node->bb->preds)
-	  if (e->src != ENTRY_BLOCK_PTR
+	  if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 	      && (src_loop_node = IRA_BB_NODE (e->src)->parent) != loop_node)
 	    {
 	      for (parent = src_loop_node->parent;
@@ -557,7 +566,8 @@ change_loop (ira_loop_tree_node_t node)
   int regno;
   bool used_p;
   ira_allocno_t allocno, parent_allocno, *map;
-  rtx insn, original_reg;
+  rtx_insn *insn;
+  rtx original_reg;
   enum reg_class aclass, pclass;
   ira_loop_tree_node_t parent;
 
@@ -568,7 +578,7 @@ change_loop (ira_loop_tree_node_t node)
       if (node->bb != NULL)
 	{
 	  FOR_BB_INSNS (node->bb, insn)
-	    if (INSN_P (insn) && change_regs (&insn))
+	    if (INSN_P (insn) && change_regs_in_insn (&insn))
 	      {
 		df_insn_rescan (insn);
 		df_notes_rescan (insn);
@@ -893,12 +903,13 @@ modify_move_list (move_t list)
 
 /* Generate RTX move insns from the move list LIST.  This updates
    allocation cost using move execution frequency FREQ.  */
-static rtx
+static rtx_insn *
 emit_move_list (move_t list, int freq)
 {
   rtx to, from, dest;
   int to_regno, from_regno, cost, regno;
-  rtx result, insn, set;
+  rtx_insn *result, *insn;
+  rtx set;
   enum machine_mode mode;
   enum reg_class aclass;
 
@@ -984,9 +995,9 @@ emit_moves (void)
   basic_block bb;
   edge_iterator ei;
   edge e;
-  rtx insns, tmp;
+  rtx_insn *insns, *tmp;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       if (at_bb_start[bb->index] != NULL)
 	{
@@ -1203,7 +1214,7 @@ add_ranges_and_copies (void)
   bitmap live_through;
 
   live_through = ira_allocate_bitmap ();
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* It does not matter what loop_tree_node (of source or
 	 destination block) to use for searching allocnos by their
@@ -1234,20 +1245,22 @@ void
 ira_emit (bool loops_p)
 {
   basic_block bb;
-  rtx insn;
+  rtx_insn *insn;
   edge_iterator ei;
   edge e;
   ira_allocno_t a;
   ira_allocno_iterator ai;
+  size_t sz;
 
   FOR_EACH_ALLOCNO (a, ai)
     ALLOCNO_EMIT_DATA (a)->reg = regno_reg_rtx[ALLOCNO_REGNO (a)];
   if (! loops_p)
     return;
-  at_bb_start = (move_t *) ira_allocate (sizeof (move_t) * last_basic_block);
-  memset (at_bb_start, 0, sizeof (move_t) * last_basic_block);
-  at_bb_end = (move_t *) ira_allocate (sizeof (move_t) * last_basic_block);
-  memset (at_bb_end, 0, sizeof (move_t) * last_basic_block);
+  sz = sizeof (move_t) * last_basic_block_for_fn (cfun);
+  at_bb_start = (move_t *) ira_allocate (sz);
+  memset (at_bb_start, 0, sz);
+  at_bb_end = (move_t *) ira_allocate (sz);
+  memset (at_bb_end, 0, sz);
   local_allocno_bitmap = ira_allocate_bitmap ();
   used_regno_bitmap = ira_allocate_bitmap ();
   renamed_regno_bitmap = ira_allocate_bitmap ();
@@ -1258,12 +1271,12 @@ ira_emit (bool loops_p)
   ira_free_bitmap (renamed_regno_bitmap);
   ira_free_bitmap (local_allocno_bitmap);
   setup_entered_from_non_parent_p ();
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       at_bb_start[bb->index] = NULL;
       at_bb_end[bb->index] = NULL;
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest != EXIT_BLOCK_PTR)
+	if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	  generate_edge_moves (e);
     }
   allocno_last_set
@@ -1273,15 +1286,15 @@ ira_emit (bool loops_p)
   memset (allocno_last_set_check, 0, sizeof (int) * max_reg_num ());
   memset (hard_regno_last_set_check, 0, sizeof (hard_regno_last_set_check));
   curr_tick = 0;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     unify_moves (bb, true);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     unify_moves (bb, false);
   move_vec.create (ira_allocnos_num);
   emit_moves ();
   add_ranges_and_copies ();
   /* Clean up: */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       free_move_list (at_bb_start[bb->index]);
       free_move_list (at_bb_end[bb->index]);
@@ -1299,7 +1312,7 @@ ira_emit (bool loops_p)
      reload assumes initial insn codes defined.  The insn codes can be
      invalidated by CFG infrastructure for example in jump
      redirection.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS_REVERSE (bb, insn)
       if (INSN_P (insn))
 	recog_memoized (insn);

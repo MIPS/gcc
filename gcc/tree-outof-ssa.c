@@ -1,5 +1,5 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -23,19 +23,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "ggc.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "dumpfile.h"
 #include "diagnostic-core.h"
+#include "tree-ssa-live.h"
+#include "tree-ssa-ter.h"
+#include "tree-ssa-coalesce.h"
 #include "tree-outof-ssa.h"
 
 /* FIXME: A lot of code here deals with expanding to RTL.  All that code
@@ -250,8 +260,8 @@ insert_partition_copy_on_edge (edge e, int dest, int src, source_location locus)
     set_curr_insn_location (locus);
 
   var = partition_to_var (SA.map, src);
-  seq = emit_partition_copy (SA.partition_to_pseudo[dest],
-			     SA.partition_to_pseudo[src],
+  seq = emit_partition_copy (copy_rtx (SA.partition_to_pseudo[dest]),
+			     copy_rtx (SA.partition_to_pseudo[src]),
 			     TYPE_UNSIGNED (TREE_TYPE (var)),
 			     var);
 
@@ -264,7 +274,7 @@ insert_partition_copy_on_edge (edge e, int dest, int src, source_location locus)
 static void
 insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
 {
-  rtx seq, x;
+  rtx dest_rtx, seq, x;
   enum machine_mode dest_mode, src_mode;
   int unsignedp;
   tree var;
@@ -279,7 +289,8 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
       fprintf (dump_file, "\n");
     }
 
-  gcc_assert (SA.partition_to_pseudo[dest]);
+  dest_rtx = copy_rtx (SA.partition_to_pseudo[dest]);
+  gcc_assert (dest_rtx);
 
   set_location_for_edge (e);
   /* If a locus is provided, override the default.  */
@@ -290,9 +301,9 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
 
   var = SSA_NAME_VAR (partition_to_var (SA.map, dest));
   src_mode = TYPE_MODE (TREE_TYPE (src));
-  dest_mode = GET_MODE (SA.partition_to_pseudo[dest]);
+  dest_mode = GET_MODE (dest_rtx);
   gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (var)));
-  gcc_assert (!REG_P (SA.partition_to_pseudo[dest])
+  gcc_assert (!REG_P (dest_rtx)
 	      || dest_mode == promote_decl_mode (var, &unsignedp));
 
   if (src_mode != dest_mode)
@@ -302,15 +313,14 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
     }
   else if (src_mode == BLKmode)
     {
-      x = SA.partition_to_pseudo[dest];
+      x = dest_rtx;
       store_expr (src, x, 0, false);
     }
   else
-    x = expand_expr (src, SA.partition_to_pseudo[dest],
-		     dest_mode, EXPAND_NORMAL);
+    x = expand_expr (src, dest_rtx, dest_mode, EXPAND_NORMAL);
 
-  if (x != SA.partition_to_pseudo[dest])
-    emit_move_insn (SA.partition_to_pseudo[dest], x);
+  if (x != dest_rtx)
+    emit_move_insn (dest_rtx, x);
   seq = get_insns ();
   end_sequence ();
 
@@ -346,7 +356,7 @@ insert_rtx_to_part_on_edge (edge e, int dest, rtx src, int unsignedsrcp,
      mems.  Usually we give the source.  As we result from SSA names
      the left and right size should be the same (and no WITH_SIZE_EXPR
      involved), so it doesn't matter.  */
-  seq = emit_partition_copy (SA.partition_to_pseudo[dest],
+  seq = emit_partition_copy (copy_rtx (SA.partition_to_pseudo[dest]),
 			     src, unsignedsrcp,
 			     partition_to_var (SA.map, dest));
 
@@ -380,7 +390,7 @@ insert_part_to_rtx_on_edge (edge e, rtx dest, int src, source_location locus)
 
   var = partition_to_var (SA.map, src);
   seq = emit_partition_copy (dest,
-			     SA.partition_to_pseudo[src],
+			     copy_rtx (SA.partition_to_pseudo[src]),
 			     TYPE_UNSIGNED (TREE_TYPE (var)),
 			     var);
 
@@ -545,6 +555,23 @@ eliminate_name (elim_graph g, int T)
   elim_graph_add_node (g, T);
 }
 
+/* Return true if this phi argument T should have a copy queued when using
+   var_map MAP.  PHI nodes should contain only ssa_names and invariants.  A
+   test for ssa_name is definitely simpler, but don't let invalid contents
+   slip through in the meantime.  */
+
+static inline bool
+queue_phi_copy_p (var_map map, tree t)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    { 
+      if (var_to_partition (map, t) == NO_PARTITION)
+        return true;
+      return false;
+    }
+  gcc_checking_assert (is_gimple_min_invariant (t));
+  return true;
+}
 
 /* Build elimination graph G for basic block BB on incoming PHI edge
    G->e.  */
@@ -574,9 +601,7 @@ eliminate_build (elim_graph g)
       /* If this argument is a constant, or a SSA_NAME which is being
 	 left in SSA form, just queue a copy to be emitted on this
 	 edge.  */
-      if (!phi_ssa_name_p (Ti)
-	  || (TREE_CODE (Ti) == SSA_NAME
-	      && var_to_partition (g->map, Ti) == NO_PARTITION))
+      if (queue_phi_copy_p (g->map, Ti))
         {
 	  /* Save constant copies until all other copies have been emitted
 	     on this edge.  */
@@ -810,7 +835,7 @@ eliminate_useless_phis (void)
   gimple_stmt_iterator gsi;
   tree result;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
         {
@@ -868,7 +893,7 @@ rewrite_trees (var_map map ATTRIBUTE_UNUSED)
   /* Search for PHIs where the destination has no partition, but one
      or more arguments has a partition.  This should not happen and can
      create incorrect code.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -910,7 +935,8 @@ expand_phi_nodes (struct ssaexpand *sa)
   elim_graph g = new_elim_graph (sa->map->num_partitions);
   g->map = sa->map;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     if (!gimple_seq_empty_p (phi_nodes (bb)))
       {
 	edge e;
@@ -932,9 +958,9 @@ expand_phi_nodes (struct ssaexpand *sa)
 	    if (e->insns.r && (e->flags & EDGE_EH)
 		&& !single_pred_p (e->dest))
 	      {
-		rtx insns = e->insns.r;
+		rtx_insn *insns = e->insns.r;
 		basic_block bb;
-		e->insns.r = NULL_RTX;
+		e->insns.r = NULL;
 		bb = split_edge (e);
 		single_pred_edge (bb)->insns.r = insns;
 	      }
@@ -1075,7 +1101,7 @@ insert_backedge_copies (void)
 
   mark_dfs_back_edges ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* Mark block as possibly needing calculation of UIDs.  */
       bb->aux = &bb->aux;

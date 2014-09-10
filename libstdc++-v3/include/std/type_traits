@@ -1,6 +1,6 @@
 // C++11 <type_traits> -*- C++ -*-
 
-// Copyright (C) 2007-2013 Free Software Foundation, Inc.
+// Copyright (C) 2007-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,6 +36,18 @@
 #else
 
 #include <bits/c++config.h>
+
+#ifdef _GLIBCXX_USE_C99_STDINT_TR1
+# if defined (__UINT_LEAST16_TYPE__) && defined(__UINT_LEAST32_TYPE__)
+namespace std
+{
+  typedef __UINT_LEAST16_TYPE__ uint_least16_t;
+  typedef __UINT_LEAST32_TYPE__ uint_least32_t;
+}
+# else
+#  include <cstdint>
+# endif
+#endif
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -1438,6 +1450,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       add_const<typename add_volatile<_Tp>::type>::type     type;
     };
 
+#if __cplusplus > 201103L
+  /// Alias template for remove_const
+  template<typename _Tp>
+    using remove_const_t = typename remove_const<_Tp>::type;
+
+  /// Alias template for remove_volatile
+  template<typename _Tp>
+    using remove_volatile_t = typename remove_volatile<_Tp>::type;
+
+  /// Alias template for remove_cv
+  template<typename _Tp>
+    using remove_cv_t = typename remove_cv<_Tp>::type;
+
+  /// Alias template for add_const
+  template<typename _Tp>
+    using add_const_t = typename add_const<_Tp>::type;
+
+  /// Alias template for add_volatile
+  template<typename _Tp>
+    using add_volatile_t = typename add_volatile<_Tp>::type;
+
+  /// Alias template for add_cv
+  template<typename _Tp>
+    using add_cv_t = typename add_cv<_Tp>::type;
+#endif
 
   // Reference transformations.
 
@@ -1482,6 +1519,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public __add_rvalue_reference_helper<_Tp>
     { };
 
+#if __cplusplus > 201103L
+  /// Alias template for remove_reference
+  template<typename _Tp>
+    using remove_reference_t = typename remove_reference<_Tp>::type;
+
+  /// Alias template for add_lvalue_reference
+  template<typename _Tp>
+    using add_lvalue_reference_t = typename add_lvalue_reference<_Tp>::type;
+
+  /// Alias template for add_rvalue_reference
+  template<typename _Tp>
+    using add_rvalue_reference_t = typename add_rvalue_reference<_Tp>::type;
+#endif
 
   // Sign modifications.
 
@@ -1544,6 +1594,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<>
     struct __make_unsigned<long long>
     { typedef unsigned long long __type; };
+
+#if defined(_GLIBCXX_USE_WCHAR_T) && !defined(__WCHAR_UNSIGNED__)
+  template<>
+    struct __make_unsigned<wchar_t> : __make_unsigned<__WCHAR_TYPE__>
+    { };
+#endif
 
 #if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)
   template<>
@@ -1627,6 +1683,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct __make_signed<unsigned long long>
     { typedef signed long long __type; };
 
+#if defined(_GLIBCXX_USE_WCHAR_T) && defined(__WCHAR_UNSIGNED__)
+  template<>
+    struct __make_signed<wchar_t> : __make_signed<__WCHAR_TYPE__>
+    { };
+#endif
+
+#ifdef _GLIBCXX_USE_C99_STDINT_TR1
+  template<>
+    struct __make_signed<char16_t> : __make_signed<uint_least16_t>
+    { };
+  template<>
+    struct __make_signed<char32_t> : __make_signed<uint_least32_t>
+    { };
+#endif
+
 #if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)
   template<>
     struct __make_signed<unsigned __int128>
@@ -1679,6 +1750,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<>
     struct make_signed<bool>;
 
+#if __cplusplus > 201103L
+  /// Alias template for make_signed
+  template<typename _Tp>
+    using make_signed_t = typename make_signed<_Tp>::type;
+
+  /// Alias template for make_unsigned
+  template<typename _Tp>
+    using make_unsigned_t = typename make_unsigned<_Tp>::type;
+#endif
 
   // Array modifications.
 
@@ -1708,6 +1788,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct remove_all_extents<_Tp[]>
     { typedef typename remove_all_extents<_Tp>::type     type; };
 
+#if __cplusplus > 201103L
+  /// Alias template for remove_extent
+  template<typename _Tp>
+    using remove_extent_t = typename remove_extent<_Tp>::type;
+
+  /// Alias template for remove_all_extents
+  template<typename _Tp>
+    using remove_all_extents_t = typename remove_all_extents<_Tp>::type;
+#endif
 
   // Pointer modifications.
 
@@ -1740,6 +1829,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public __add_pointer_helper<_Tp>
     { };
 
+#if __cplusplus > 201103L
+  /// Alias template for remove_pointer
+  template<typename _Tp>
+    using remove_pointer_t = typename remove_pointer<_Tp>::type;
+
+  /// Alias template for add_pointer
+  template<typename _Tp>
+    using add_pointer_t = typename add_pointer<_Tp>::type;
+#endif
 
   template<std::size_t _Len>
     struct __aligned_storage_msa
@@ -1772,6 +1870,52 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       };
     };
 
+  template <typename... _Types>
+    struct __strictest_alignment
+    {
+      static const size_t _S_alignment = 0;
+      static const size_t _S_size = 0;
+    };
+
+  template <typename _Tp, typename... _Types>
+    struct __strictest_alignment<_Tp, _Types...>
+    {
+      static const size_t _S_alignment =
+        alignof(_Tp) > __strictest_alignment<_Types...>::_S_alignment
+	? alignof(_Tp) : __strictest_alignment<_Types...>::_S_alignment;
+      static const size_t _S_size =
+        sizeof(_Tp) > __strictest_alignment<_Types...>::_S_size
+	? sizeof(_Tp) : __strictest_alignment<_Types...>::_S_size;
+    };
+
+  /**
+   *  @brief Provide aligned storage for types.
+   *
+   *  [meta.trans.other]
+   *
+   *  Provides aligned storage for any of the provided types of at
+   *  least size _Len.
+   *
+   *  @see aligned_storage
+   */
+  template <size_t _Len, typename... _Types>
+    struct aligned_union
+    {
+    private:
+      static_assert(sizeof...(_Types) != 0, "At least one type is required");
+
+      using __strictest = __strictest_alignment<_Types...>;
+      static const size_t _S_len = _Len > __strictest::_S_size
+	? _Len : __strictest::_S_size;
+    public:
+      /// The value of the strictest alignment of _Types.
+      static const size_t alignment_value = __strictest::_S_alignment;
+      /// The storage.
+      typedef typename aligned_storage<_S_len, alignment_value>::type type;
+    };
+
+  template <size_t _Len, typename... _Types>
+    const size_t aligned_union<_Len, _Types...>::alignment_value;
 
   // Decay trait for arrays and functions, used for perfect forwarding
   // in make_pair, make_tuple, etc.
@@ -2101,6 +2245,40 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    _Functor, _ArgTypes...
       >::type
     { };
+
+#if __cplusplus > 201103L
+  /// Alias template for aligned_storage
+  template<size_t _Len, size_t _Align =
+	    __alignof__(typename __aligned_storage_msa<_Len>::__type)>
+    using aligned_storage_t = typename aligned_storage<_Len, _Align>::type;
+
+  template <size_t _Len, typename... _Types>
+    using aligned_union_t = typename aligned_union<_Len, _Types...>::type;
+
+  /// Alias template for decay
+  template<typename _Tp>
+    using decay_t = typename decay<_Tp>::type;
+
+  /// Alias template for enable_if
+  template<bool _Cond, typename _Tp = void>
+    using enable_if_t = typename enable_if<_Cond, _Tp>::type;
+
+  /// Alias template for conditional
+  template<bool _Cond, typename _Iftrue, typename _Iffalse>
+    using conditional_t = typename conditional<_Cond, _Iftrue, _Iffalse>::type;
+
+  /// Alias template for common_type
+  template<typename... _Tp>
+    using common_type_t = typename common_type<_Tp...>::type;
+
+  /// Alias template for underlying_type
+  template<typename _Tp>
+    using underlying_type_t = typename underlying_type<_Tp>::type;
+
+  /// Alias template for result_of
+  template<typename _Tp>
+    using result_of_t = typename result_of<_Tp>::type;
+#endif
 
   /// @} group metaprogramming
 	

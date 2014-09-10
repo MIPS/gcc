@@ -1,5 +1,5 @@
 /* Some code common to C++ and ObjC++ front ends.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -103,7 +103,11 @@ cp_tree_size (enum tree_code code)
 
     case USERDEF_LITERAL:	return sizeof (struct tree_userdef_literal);
 
+    case TEMPLATE_DECL:		return sizeof (struct tree_template_decl);
+
     default:
+      if (TREE_CODE_CLASS (code) == tcc_declaration)
+	return sizeof (struct tree_decl_non_common);
       gcc_unreachable ();
     }
   /* NOTREACHED */
@@ -160,7 +164,6 @@ bool
 cp_function_decl_explicit_p (tree decl)
 {
   return (decl
-	  && FUNCTION_FIRST_USER_PARMTYPE (decl) != void_list_node
 	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
 	  && DECL_NONCONVERTING_P (decl));
 }
@@ -209,7 +212,7 @@ decl_shadowed_for_var_insert (tree from, tree to)
   struct tree_decl_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_decl_map ();
+  h = ggc_alloc<tree_decl_map> ();
   h->base.from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (shadowed_var_for_decl, h, DECL_UID (from),
@@ -246,9 +249,8 @@ cxx_block_may_fallthru (const_tree stmt)
 void
 cp_common_init_ts (void)
 {
-  MARK_TS_DECL_NON_COMMON (NAMESPACE_DECL);
   MARK_TS_DECL_NON_COMMON (USING_DECL);
-  MARK_TS_DECL_NON_COMMON (TEMPLATE_DECL);
+  MARK_TS_DECL_COMMON (TEMPLATE_DECL);
 
   MARK_TS_COMMON (TEMPLATE_TEMPLATE_PARM);
   MARK_TS_COMMON (TEMPLATE_TYPE_PARM);

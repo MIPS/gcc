@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -144,6 +144,8 @@ extern enum insn_code find_widening_optab_handler_and_mode (optab,
 							    enum machine_mode,
 							    int,
 							    enum machine_mode *);
+extern enum insn_code widening_optab_handler (optab, enum machine_mode,
+					      enum machine_mode);
 
 /* An extra flag to control optab_for_tree_code's behavior.  This is needed to
    distinguish between machines with a vector shift that takes a scalar for the
@@ -236,7 +238,7 @@ extern rtx expand_vec_cond_expr (tree, tree, tree, tree, rtx);
 /* Generate code for VEC_LSHIFT_EXPR and VEC_RSHIFT_EXPR.  */
 extern rtx expand_vec_shift_expr (sepops, rtx);
 
-/* Return tree if target supports vector operations for VEC_PERM_EXPR.  */
+/* Return true if target supports vector operations for VEC_PERM_EXPR.  */
 extern bool can_vec_perm_p (enum machine_mode, bool, const unsigned char *);
 
 /* Generate code for VEC_PERM_EXPR.  */
@@ -247,6 +249,9 @@ extern int can_mult_highpart_p (enum machine_mode, bool);
 
 /* Generate code for MULT_HIGHPART_EXPR.  */
 extern rtx expand_mult_highpart (enum machine_mode, rtx, rtx, rtx, bool);
+
+/* Return true if target supports vector masked load/store for mode.  */
+extern bool can_vec_mask_load_store_p (enum machine_mode, bool);
 
 /* Return the insn used to implement mode MODE of OP, or CODE_FOR_nothing
    if the target does not have such an insn.  */
@@ -269,25 +274,6 @@ convert_optab_handler (convert_optab op, enum machine_mode to_mode,
 {
   unsigned scode = (op << 16) | (from_mode << 8) | to_mode;
   gcc_assert (op > unknown_optab && op <= LAST_CONV_OPTAB);
-  return raw_optab_handler (scode);
-}
-
-/* Like optab_handler, but for widening_operations that have a
-   TO_MODE and a FROM_MODE.  */
-
-static inline enum insn_code
-widening_optab_handler (optab op, enum machine_mode to_mode,
-			enum machine_mode from_mode)
-{
-  unsigned scode = (op << 16) | to_mode;
-  if (to_mode != from_mode && from_mode != VOIDmode)
-    {
-      /* ??? Why does find_widening_optab_handler_and_mode attempt to
-	 widen things that can't be widened?  E.g. add_optab... */
-      if (op > LAST_CONV_OPTAB)
-	return CODE_FOR_nothing;
-      scode |= from_mode << 8;
-    }
   return raw_optab_handler (scode);
 }
 
@@ -551,5 +537,6 @@ extern void gen_satfract_conv_libfunc (convert_optab, const char *,
 extern void gen_satfractuns_conv_libfunc (convert_optab, const char *,
 					  enum machine_mode,
 					  enum machine_mode);
+extern void init_tree_optimization_optabs (tree);
 
 #endif /* GCC_OPTABS_H */

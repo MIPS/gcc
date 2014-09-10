@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -677,7 +677,13 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 	
       if (c == ' ')
         {
-	  if (dtp->u.p.blank_status == BLANK_NULL) continue;
+	  if (dtp->u.p.blank_status == BLANK_NULL)
+	    {
+	      /* Skip spaces.  */
+	      for ( ; w > 0; p++, w--)
+		if (*p != ' ') break; 
+	      continue;
+	    }
 	  if (dtp->u.p.blank_status == BLANK_ZERO) c = '0';
         }
         
@@ -1150,7 +1156,9 @@ done:
 	  exponent = - exponent;
 	}
 
-      assert (exponent < 10000);
+      if (exponent >= 10000)
+	goto bad_float;
+
       for (dig = 3; dig >= 0; --dig)
 	{
 	  out[dig] = (char) ('0' + exponent % 10);

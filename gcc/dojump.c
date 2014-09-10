@@ -1,5 +1,5 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "function.h"
 #include "insn-config.h"
@@ -95,6 +96,29 @@ do_pending_stack_adjust (void)
       pending_stack_adjust = 0;
     }
 }
+
+/* Remember pending_stack_adjust/stack_pointer_delta.
+   To be used around code that may call do_pending_stack_adjust (),
+   but the generated code could be discarded e.g. using delete_insns_since.  */
+
+void
+save_pending_stack_adjust (saved_pending_stack_adjust *save)
+{
+  save->x_pending_stack_adjust = pending_stack_adjust;
+  save->x_stack_pointer_delta = stack_pointer_delta;
+}
+
+/* Restore the saved pending_stack_adjust/stack_pointer_delta.  */
+
+void
+restore_pending_stack_adjust (saved_pending_stack_adjust *save)
+{
+  if (inhibit_defer_pop == 0)
+    {
+      pending_stack_adjust = save->x_pending_stack_adjust;
+      stack_pointer_delta = save->x_stack_pointer_delta;
+    }
+}
 
 /* Expand conditional expressions.  */
 
@@ -142,6 +166,7 @@ static bool
 prefer_and_bit_test (enum machine_mode mode, int bitnum)
 {
   bool speed_p;
+  wide_int mask = wi::set_bit_in_zero (bitnum, GET_MODE_PRECISION (mode));
 
   if (and_test == 0)
     {
@@ -162,8 +187,7 @@ prefer_and_bit_test (enum machine_mode mode, int bitnum)
     }
 
   /* Fill in the integers.  */
-  XEXP (and_test, 1)
-    = immed_double_int_const (double_int_zero.set_bit (bitnum), mode);
+  XEXP (and_test, 1) = immed_wide_int_const (mask, mode);
   XEXP (XEXP (shift_test, 0), 1) = GEN_INT (bitnum);
 
   speed_p = optimize_insn_for_speed_p ();
@@ -180,7 +204,7 @@ do_jump_1 (enum tree_code code, tree op0, tree op1,
 	   rtx if_false_label, rtx if_true_label, int prob)
 {
   enum machine_mode mode;
-  rtx drop_through_label = 0;
+  rtx_code_label *drop_through_label = 0;
 
   switch (code)
     {
@@ -402,7 +426,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label, int prob)
   int i;
   tree type;
   enum machine_mode mode;
-  rtx drop_through_label = 0;
+  rtx_code_label *drop_through_label = 0;
 
   switch (code)
     {
@@ -452,7 +476,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label, int prob)
 
     case COND_EXPR:
       {
-	rtx label1 = gen_label_rtx ();
+	rtx_code_label *label1 = gen_label_rtx ();
 	if (!if_true_label || !if_false_label)
 	  {
 	    drop_through_label = gen_label_rtx ();
@@ -917,7 +941,7 @@ do_compare_rtx_and_jump (rtx op0, rtx op1, enum rtx_code code, int unsignedp,
 			 rtx if_true_label, int prob)
 {
   rtx tem;
-  rtx dummy_label = NULL_RTX;
+  rtx dummy_label = NULL;
 
   /* Reverse the comparison if that is safe and we want to jump if it is
      false.  Also convert to the reverse comparison if the target can
@@ -1079,6 +1103,11 @@ do_compare_rtx_and_jump (rtx op0, rtx op1, enum rtx_code code, int unsignedp,
 
 	  else
 	    {
+	      int first_prob = prob;
+	      if (first_code == UNORDERED)
+		first_prob = REG_BR_PROB_BASE / 100;
+	      else if (first_code == ORDERED)
+		first_prob = REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100;
 	      if (and_them)
 		{
 		  rtx dest_label;
@@ -1092,11 +1121,13 @@ do_compare_rtx_and_jump (rtx op0, rtx op1, enum rtx_code code, int unsignedp,
 		  else
 		    dest_label = if_false_label;
                   do_compare_rtx_and_jump (op0, op1, first_code, unsignedp, mode,
-					   size, dest_label, NULL_RTX, prob);
+					   size, dest_label, NULL_RTX,
+					   first_prob);
 		}
               else
                 do_compare_rtx_and_jump (op0, op1, first_code, unsignedp, mode,
-					 size, NULL_RTX, if_true_label, prob);
+					 size, NULL_RTX, if_true_label,
+					 first_prob);
 	    }
 	}
 

@@ -1,5 +1,5 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -197,9 +197,9 @@ extern bool mips_stack_address_p (rtx, enum machine_mode);
 extern int mips_address_insns (rtx, enum machine_mode, bool);
 extern int mips_const_insns (rtx);
 extern int mips_split_const_insns (rtx);
-extern int mips_load_store_insns (rtx, rtx);
+extern int mips_load_store_insns (rtx, rtx_insn *);
 extern int mips_idiv_insns (void);
-extern rtx mips_emit_move (rtx, rtx);
+extern rtx_insn *mips_emit_move (rtx, rtx);
 #ifdef RTX_CODE
 extern void mips_emit_binary (enum rtx_code, rtx, rtx, rtx);
 #endif
@@ -229,10 +229,10 @@ extern void mips_expand_conditional_move (rtx *);
 extern void mips_expand_conditional_trap (rtx);
 #endif
 extern bool mips_use_pic_fn_addr_reg_p (const_rtx);
-extern rtx mips_expand_call (enum mips_call_type, rtx, rtx, rtx, rtx, bool);
+extern rtx_insn *mips_expand_call (enum mips_call_type, rtx, rtx, rtx, rtx,
+				   bool);
 extern void mips_split_call (rtx, rtx);
 extern bool mips_get_pic_call_symbol (rtx *, int);
-extern void mips_expand_fcc_reload (rtx, rtx, rtx);
 extern void mips_set_return_address (rtx, rtx);
 extern bool mips_move_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
 extern bool mips_store_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
@@ -248,7 +248,6 @@ extern bool mips_expand_ext_as_unaligned_load (rtx, rtx, HOST_WIDE_INT,
 extern bool mips_expand_ins_as_unaligned_store (rtx, rtx, HOST_WIDE_INT,
 						HOST_WIDE_INT);
 extern bool mips_mem_fits_mode_p (enum machine_mode mode, rtx x);
-extern void mips_order_regs_for_local_alloc (void);
 extern HOST_WIDE_INT mips_debugger_offset (rtx, HOST_WIDE_INT);
 
 extern void mips_push_asm_switch (struct mips_asm_switch *);
@@ -288,19 +287,20 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   rtx, bool);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
 
-extern int mips_adjust_insn_length (rtx, int);
+extern int mips_adjust_insn_length (rtx_insn *, int);
 extern void mips_output_load_label (rtx);
-extern const char *mips_output_conditional_branch (rtx, rtx *, const char *,
-						   const char *);
-extern const char *mips_output_order_conditional_branch (rtx, rtx *, bool);
+extern const char *mips_output_conditional_branch (rtx_insn *, rtx *,
+						   const char *, const char *);
+extern const char *mips_output_order_conditional_branch (rtx_insn *, rtx *,
+							 bool);
 extern const char *mips_output_sync (void);
 extern const char *mips_output_sync_loop (rtx, rtx *);
 extern unsigned int mips_sync_loop_insns (rtx, rtx *);
 extern const char *mips_output_division (const char *, rtx *);
 extern const char *mips_output_probe_stack_range (rtx, rtx);
 extern unsigned int mips_hard_regno_nregs (int, enum machine_mode);
-extern bool mips_linked_madd_p (rtx, rtx);
-extern bool mips_store_data_bypass_p (rtx, rtx);
+extern bool mips_linked_madd_p (rtx_insn *, rtx_insn *);
+extern bool mips_store_data_bypass_p (rtx_insn *, rtx_insn *);
 extern int mips_dspalu_bypass_p (rtx, rtx);
 extern rtx mips_prefetch_cookie (rtx, rtx);
 
@@ -315,6 +315,7 @@ extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
 extern bool mask_low_and_shift_p (enum machine_mode, rtx, rtx, int);
 extern int mask_low_and_shift_len (enum machine_mode, rtx, rtx);
 extern bool and_operands_ok (enum machine_mode, rtx, rtx);
+extern bool mips_fmadd_bypass (rtx_insn *, rtx_insn *);
 
 union mips_gen_fn_ptrs
 {
@@ -345,10 +346,12 @@ extern bool lwsp_swsp_address_p (rtx, enum machine_mode);
 extern bool m16_based_address_p (rtx, enum machine_mode,
 			         int (*)(rtx_def*, machine_mode)); 
 extern rtx mips_expand_thread_pointer (rtx);
+extern void mips16_expand_get_fcsr (rtx);
+extern void mips16_expand_set_fcsr (rtx);
 
 extern bool mips_eh_uses (unsigned int);
 extern bool mips_epilogue_uses (unsigned int);
-extern void mips_final_prescan_insn (rtx, rtx *, int);
+extern void mips_final_prescan_insn (rtx_insn *, rtx *, int);
 extern int mips_trampoline_code_size (void);
 extern void mips_function_profiler (FILE *);
 

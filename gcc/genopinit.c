@@ -1,5 +1,5 @@
 /* Generate code to initialize optabs from machine description.
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -357,8 +357,7 @@ main (int argc, char **argv)
     }
 
   /* Sort the collected patterns.  */
-  qsort (patterns.address (), patterns.length (),
-	 sizeof (pattern), pattern_cmp);
+  patterns.qsort (pattern_cmp);
 
   /* Now that we've handled the "extra" patterns, eliminate them from
      the optabs array.  That way they don't get in the way below.  */
@@ -405,6 +404,9 @@ main (int argc, char **argv)
 	   "#include \"coretypes.h\"\n"
 	   "#include \"tm.h\"\n"
 	   "#include \"tree.h\"\n"
+	   "#include \"varasm.h\"\n"
+	   "#include \"stor-layout.h\"\n"
+	   "#include \"calls.h\"\n"
 	   "#include \"rtl.h\"\n"
 	   "#include \"tm_p.h\"\n"
 	   "#include \"flags.h\"\n"

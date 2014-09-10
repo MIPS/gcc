@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains routines to handle Array Notation expression
    handling routines in the C Compiler.
-   Copyright (C) 2013  Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
                   Intel Corporation.
 
@@ -70,6 +70,7 @@
 #include "coretypes.h"
 #include "tree.h"
 #include "c-tree.h"
+#include "gimple-expr.h"
 #include "tree-iterator.h"
 #include "opts.h"
 #include "c-family/c-common.h"
@@ -213,6 +214,13 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
   if (an_type == BUILT_IN_NONE)
     return NULL_TREE;
 
+  /* Builtin call should contain at least one argument.  */
+  if (call_expr_nargs (an_builtin_fn) == 0)
+    {
+      error_at (EXPR_LOCATION (an_builtin_fn), "Invalid builtin arguments");
+      return error_mark_node;
+    }
+
   if (an_type == BUILT_IN_CILKPLUS_SEC_REDUCE
       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING)
     {
@@ -228,6 +236,8 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
   /* Fully fold any EXCESSIVE_PRECISION EXPR that can occur in the function
      parameter.  */
   func_parm = c_fully_fold (func_parm, false, NULL);
+  if (func_parm == error_mark_node)
+    return error_mark_node;
   
   location = EXPR_LOCATION (an_builtin_fn);
   
@@ -235,7 +245,10 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
     return error_mark_node;
  
   if (rank == 0)
-    return an_builtin_fn;
+    {
+      error_at (location, "Invalid builtin arguments");
+      return error_mark_node;
+    }
   else if (rank > 1 
 	   && (an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MAX_IND
 	       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND))
@@ -282,8 +295,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 
   for (ii = 0; ii < rank; ii++)
     {
-      an_loop_info[ii].var = build_decl (location, VAR_DECL, NULL_TREE,
-				  integer_type_node);
+      an_loop_info[ii].var = create_tmp_var (integer_type_node, NULL);
       an_loop_info[ii].ind_init =
 	build_modify_expr (location, an_loop_info[ii].var,
 			   TREE_TYPE (an_loop_info[ii].var), NOP_EXPR,
@@ -308,7 +320,9 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND)
     array_ind_value = build_decl (location, VAR_DECL, NULL_TREE, 
 				  TREE_TYPE (func_parm));
-  array_op0 = (*array_operand)[0];			      
+  array_op0 = (*array_operand)[0];
+  if (TREE_CODE (array_op0) == INDIRECT_REF)
+    array_op0 = TREE_OPERAND (array_op0, 0);
   switch (an_type)
     {
     case BUILT_IN_CILKPLUS_SEC_REDUCE_ADD:
@@ -781,8 +795,8 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
   for (ii = 0; ii < lhs_rank; ii++)
     if (lhs_an_info[0][ii].is_vector)
       {
-	lhs_an_loop_info[ii].var = build_decl (location, VAR_DECL, NULL_TREE,
-					       integer_type_node);
+	lhs_an_loop_info[ii].var = create_tmp_var (integer_type_node,
+						   NULL);
 	lhs_an_loop_info[ii].ind_init = build_modify_expr
 	  (location, lhs_an_loop_info[ii].var,
 	   TREE_TYPE (lhs_an_loop_info[ii].var), NOP_EXPR,
@@ -793,8 +807,8 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
     {
       /* When we have a polynomial, we assume that the indices are of type 
 	 integer.  */
-      rhs_an_loop_info[ii].var = build_decl (location, VAR_DECL, NULL_TREE,
-					     integer_type_node);
+      rhs_an_loop_info[ii].var = create_tmp_var (integer_type_node,
+						 NULL);
       rhs_an_loop_info[ii].ind_init = build_modify_expr
 	(location, rhs_an_loop_info[ii].var,
 	 TREE_TYPE (rhs_an_loop_info[ii].var), NOP_EXPR,
@@ -970,8 +984,7 @@ fix_conditional_array_notations_1 (tree stmt)
   cilkplus_extract_an_triplets (array_list, list_size, rank, &an_info);
   for (ii = 0; ii < rank; ii++)
     {
-      an_loop_info[ii].var = build_decl (location, VAR_DECL, NULL_TREE,
-					 integer_type_node);
+      an_loop_info[ii].var = create_tmp_var (integer_type_node, NULL);
       an_loop_info[ii].ind_init =
 	build_modify_expr (location, an_loop_info[ii].var,
 			   TREE_TYPE (an_loop_info[ii].var), NOP_EXPR,
@@ -1067,8 +1080,7 @@ fix_array_notation_expr (location_t location, enum tree_code code,
   loop_init = push_stmt_list ();
   for (ii = 0; ii < rank; ii++)
     {
-      an_loop_info[ii].var = build_decl (location, VAR_DECL, NULL_TREE,
-					 integer_type_node);
+      an_loop_info[ii].var = create_tmp_var (integer_type_node, NULL);
       an_loop_info[ii].ind_init =
 	build_modify_expr (location, an_loop_info[ii].var,
 			   TREE_TYPE (an_loop_info[ii].var), NOP_EXPR,
@@ -1163,8 +1175,7 @@ fix_array_notation_call_expr (tree arg)
     }
   for (ii = 0; ii < rank; ii++)
     {
-      an_loop_info[ii].var = build_decl (location, VAR_DECL, NULL_TREE,
-					 integer_type_node);
+      an_loop_info[ii].var = create_tmp_var (integer_type_node, NULL);
       an_loop_info[ii].ind_init =
 	build_modify_expr (location, an_loop_info[ii].var,
 			   TREE_TYPE (an_loop_info[ii].var), NOP_EXPR, location,
@@ -1218,22 +1229,21 @@ fix_return_expr (tree expr)
   return new_mod_list;
 }
 
-/* Walks through tree node T and find all the call-statements that do not return
-   anything and fix up any array notations they may carry.  The return value
-   is the same type as T but with all array notations replaced with appropriate
-   STATEMENT_LISTS.  */
+/* Callback for walk_tree.  Expands all array notations in *TP.  *WALK_SUBTREES
+   is set to 1 unless *TP contains no array notation expressions.  */
 
-tree
-expand_array_notation_exprs (tree t)
+static tree
+expand_array_notations (tree *tp, int *walk_subtrees, void *)
 {
-  if (!contains_array_notation_expr (t))
-    return t;
-
-  switch (TREE_CODE (t))
+  if (!contains_array_notation_expr (*tp))
     {
-    case BIND_EXPR:
-      t = expand_array_notation_exprs (BIND_EXPR_BODY (t));
-      return t;
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+  *walk_subtrees = 1;
+
+  switch (TREE_CODE (*tp))
+    {
     case TRUTH_ORIF_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_OR_EXPR:
@@ -1241,61 +1251,82 @@ expand_array_notation_exprs (tree t)
     case TRUTH_XOR_EXPR:
     case TRUTH_NOT_EXPR:
     case COND_EXPR:
-      t = fix_conditional_array_notations (t);
-
-      /* After the expansion if they are still a COND_EXPR, we go into its
-	 subtrees.  */
-      if (TREE_CODE (t) == COND_EXPR)
-	{
-	  if (COND_EXPR_THEN (t))
-	    COND_EXPR_THEN (t) =
-	      expand_array_notation_exprs (COND_EXPR_THEN (t));
-	  if (COND_EXPR_ELSE (t))
-	    COND_EXPR_ELSE (t) =
-	      expand_array_notation_exprs (COND_EXPR_ELSE (t));
-	}
-      return t;
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator ii_tsi;
-	for (ii_tsi = tsi_start (t); !tsi_end_p (ii_tsi); tsi_next (&ii_tsi))
-	  *tsi_stmt_ptr (ii_tsi) = 
-	    expand_array_notation_exprs (*tsi_stmt_ptr (ii_tsi));
-      }
-      return t;
+      *tp = fix_conditional_array_notations (*tp);
+      break;
     case MODIFY_EXPR:
       {
-	location_t loc = EXPR_HAS_LOCATION (t) ? EXPR_LOCATION (t) :
+	location_t loc = EXPR_HAS_LOCATION (*tp) ? EXPR_LOCATION (*tp) :
 	  UNKNOWN_LOCATION;
-	tree lhs = TREE_OPERAND (t, 0);
-	tree rhs = TREE_OPERAND (t, 1);
+	tree lhs = TREE_OPERAND (*tp, 0);
+	tree rhs = TREE_OPERAND (*tp, 1);
 	location_t rhs_loc = EXPR_HAS_LOCATION (rhs) ? EXPR_LOCATION (rhs) :
 	  UNKNOWN_LOCATION;
-	t = build_array_notation_expr (loc, lhs, TREE_TYPE (lhs), NOP_EXPR,
-				       rhs_loc, rhs, TREE_TYPE (rhs));
-	return t;
+	*tp = build_array_notation_expr (loc, lhs, TREE_TYPE (lhs), NOP_EXPR,
+					 rhs_loc, rhs, TREE_TYPE (rhs));
       }
+      break;
+    case DECL_EXPR:
+      {
+	tree x = DECL_EXPR_DECL (*tp);
+	if (DECL_INITIAL (x))
+	  {
+	    location_t loc = DECL_SOURCE_LOCATION (x);
+	    tree lhs = x;
+	    tree rhs = DECL_INITIAL (x);
+	    DECL_INITIAL (x) = NULL;
+	    tree new_modify_expr = build_modify_expr (loc, lhs,
+						      TREE_TYPE (lhs),
+						      NOP_EXPR,
+						      loc, rhs,
+						      TREE_TYPE(rhs));
+	    expand_array_notations (&new_modify_expr, walk_subtrees, NULL);
+	    *tp = new_modify_expr;
+	  }
+      }
+      break;
     case CALL_EXPR:
-      t = fix_array_notation_call_expr (t);
-      return t;
+      *tp = fix_array_notation_call_expr (*tp);
+      break;
     case RETURN_EXPR:
-      if (contains_array_notation_expr (t))
-	t = fix_return_expr (t);
-      return t;
+      *tp = fix_return_expr (*tp);
+      break;
+    case COMPOUND_EXPR:
+      if (TREE_CODE (TREE_OPERAND (*tp, 0)) == SAVE_EXPR)
+	{
+	  /* In here we are calling expand_array_notations because
+	     we need to be able to catch the return value and check if
+	     it is an error_mark_node.  */
+	  expand_array_notations (&TREE_OPERAND (*tp, 1), walk_subtrees, NULL);
+
+	  /* SAVE_EXPR cannot have an error_mark_node inside it.  This check
+	     will make sure that if there is an error in expanding of
+	     array notations (e.g. rank mismatch) then replace the entire
+	     SAVE_EXPR with an error_mark_node.  */
+	  if (TREE_OPERAND (*tp, 1) == error_mark_node)
+	    *tp = error_mark_node;
+	}
+      break;
     case ARRAY_NOTATION_REF:
-      /* IF we are here, then we are dealing with cases like this:
+      /* If we are here, then we are dealing with cases like this:
 	 A[:];
 	 A[x:y:z];
 	 A[x:y];
 	 Replace those with just void zero node.  */
-      t = void_zero_node;
+      *tp = void_node;
     default:
-      for (int ii = 0; ii < TREE_CODE_LENGTH (TREE_CODE (t)); ii++)
-	if (contains_array_notation_expr (TREE_OPERAND (t, ii)))
-	  TREE_OPERAND (t, ii) =
-	    expand_array_notation_exprs (TREE_OPERAND (t, ii));
-      return t;
+      break;
     }
+  return NULL_TREE;
+} 
+
+/* Walks through tree node T and expands all array notations in its subtrees.
+   The return value is the same type as T but with all array notations 
+   replaced with appropriate ARRAY_REFS with a loop around it.  */
+
+tree
+expand_array_notation_exprs (tree t)
+{
+  walk_tree (&t, expand_array_notations, NULL, NULL);
   return t;
 }
 

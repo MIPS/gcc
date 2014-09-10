@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,6 +33,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 				   PARM_BOUNDARY.  */
 				   
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "java-tree.h"
 #include "javaop.h"
@@ -44,6 +46,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "tree-iterator.h"
 #include "target.h"
+#include "wide-int.h"
 
 static void flush_quick_stack (void);
 static void push_value (tree);
@@ -468,7 +471,7 @@ add_type_assertion (tree klass, int assertion_code, tree op1, tree op2)
   if (*as_pp)
     return;
 
-  *as_pp = ggc_alloc_type_assertion ();
+  *as_pp = ggc_alloc<type_assertion> ();
   **(type_assertion **)as_pp = as;
 }
 
@@ -1049,8 +1052,8 @@ build_newarray (int atype_value, tree length)
   tree prim_type = decode_newarray_type (atype_value);
   tree type
     = build_java_array_type (prim_type,
-			     host_integerp (length, 0) == INTEGER_CST
-			     ? tree_low_cst (length, 0) : -1);
+			     tree_fits_shwi_p (length)
+			     ? tree_to_shwi (length) : -1);
 
   /* Pass a reference to the primitive type class and save the runtime
      some work.  */
@@ -1069,8 +1072,8 @@ build_anewarray (tree class_type, tree length)
 {
   tree type
     = build_java_array_type (class_type,
-			     host_integerp (length, 0)
-			     ? tree_low_cst (length, 0) : -1);
+			     tree_fits_shwi_p (length)
+			     ? tree_to_shwi (length) : -1);
 
   return build_call_nary (promote_type (type),
 			  build_address_of (soft_anewarray_node),
@@ -1258,7 +1261,7 @@ expand_java_pushc (int ival, tree type)
   else if (type == float_type_node || type == double_type_node)
     {
       REAL_VALUE_TYPE x;
-      REAL_VALUE_FROM_INT (x, ival, 0, TYPE_MODE (type));
+      real_from_integer (&x, TYPE_MODE (type), ival, SIGNED);
       value = build_real (type, x);
     }
   else
@@ -1715,7 +1718,7 @@ build_field_ref (tree self_value, tree self_class, tree name)
 	  tree field_offset = byte_position (field_decl);
 	  if (! page_size)
 	    page_size = size_int (4096); 	      
-	  check = ! INT_CST_LT_UNSIGNED (field_offset, page_size);
+	  check = !tree_int_cst_lt (field_offset, page_size);
 	}
 
       if (base_type != TREE_TYPE (self_value))

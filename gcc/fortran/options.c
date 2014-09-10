@@ -1,5 +1,5 @@
 /* Parse and display command line options.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -66,7 +66,9 @@ void
 gfc_init_options_struct (struct gcc_options *opts)
 {
   opts->x_flag_errno_math = 0;
+  opts->frontend_set_flag_errno_math = true;
   opts->x_flag_associative_math = -1;
+  opts->frontend_set_flag_associative_math = true;
 }
 
 /* Get ready for options handling. Keep in sync with
@@ -105,6 +107,7 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.warn_tabs = 1;
   gfc_option.warn_underflow = 1;
   gfc_option.warn_intrinsic_shadow = 0;
+  gfc_option.warn_use_without_only = 0;
   gfc_option.warn_intrinsics_std = 0;
   gfc_option.warn_align_commons = 1;
   gfc_option.warn_real_q_constant = 0;
@@ -173,6 +176,7 @@ gfc_init_options (unsigned int decoded_options_count,
 
   /* Initialize cpp-related options.  */
   gfc_cpp_init_options (decoded_options_count, decoded_options);
+  gfc_diagnostics_init ();
 }
 
 
@@ -352,8 +356,8 @@ gfc_post_options (const char **pfilename)
       if (gfc_current_form == FORM_UNKNOWN)
 	{
 	  gfc_current_form = FORM_FREE;
-	  gfc_warning_now ("Reading file '%s' as free form", 
-			   (filename[0] == '\0') ? "<stdin>" : filename);
+	  gfc_warning_cmdline ("Reading file %qs as free form", 
+			       (filename[0] == '\0') ? "<stdin>" : filename);
 	}
     }
 
@@ -362,10 +366,10 @@ gfc_post_options (const char **pfilename)
   if (gfc_current_form == FORM_FREE)
     {
       if (gfc_option.flag_d_lines == 0)
-	gfc_warning_now ("'-fd-lines-as-comments' has no effect "
-			 "in free form");
+	gfc_warning_cmdline ("%<-fd-lines-as-comments%> has no effect "
+			     "in free form");
       else if (gfc_option.flag_d_lines == 1)
-	gfc_warning_now ("'-fd-lines-as-code' has no effect in free form");
+	gfc_warning_cmdline ("%<-fd-lines-as-code%> has no effect in free form");
     }
 
   /* If -pedantic, warn about the use of GNU extensions.  */
@@ -383,21 +387,21 @@ gfc_post_options (const char **pfilename)
 
   if (!gfc_option.flag_automatic && gfc_option.flag_max_stack_var_size != -2
       && gfc_option.flag_max_stack_var_size != 0)
-    gfc_warning_now ("Flag -fno-automatic overwrites -fmax-stack-var-size=%d",
-		     gfc_option.flag_max_stack_var_size);
+    gfc_warning_cmdline ("Flag %<-fno-automatic%> overwrites %<-fmax-stack-var-size=%d%>",
+			 gfc_option.flag_max_stack_var_size);
   else if (!gfc_option.flag_automatic && gfc_option.flag_recursive)
-    gfc_warning_now ("Flag -fno-automatic overwrites -frecursive");
+    gfc_warning_cmdline ("Flag %<-fno-automatic%> overwrites %<-frecursive%>");
   else if (!gfc_option.flag_automatic && gfc_option.gfc_flag_openmp)
-    gfc_warning_now ("Flag -fno-automatic overwrites -frecursive implied by "
-		     "-fopenmp");
+    gfc_warning_cmdline ("Flag %<-fno-automatic%> overwrites %<-frecursive%> implied by "
+			 "%<-fopenmp%>");
   else if (gfc_option.flag_max_stack_var_size != -2
 	   && gfc_option.flag_recursive)
-    gfc_warning_now ("Flag -frecursive overwrites -fmax-stack-var-size=%d",
-		     gfc_option.flag_max_stack_var_size);
+    gfc_warning_cmdline ("Flag %<-frecursive%> overwrites %<-fmax-stack-var-size=%d%>",
+			 gfc_option.flag_max_stack_var_size);
   else if (gfc_option.flag_max_stack_var_size != -2
 	   && gfc_option.gfc_flag_openmp)
-    gfc_warning_now ("Flag -fmax-stack-var-size=%d overwrites -frecursive "
-		     "implied by -fopenmp", 
+    gfc_warning_cmdline ("Flag %<-fmax-stack-var-size=%d%> overwrites %<-frecursive%> "
+			 "implied by %<-fopenmp%>", 
 		     gfc_option.flag_max_stack_var_size);
 
   /* Implement -frecursive as -fmax-stack-var-size=-1.  */
@@ -437,14 +441,7 @@ gfc_post_options (const char **pfilename)
 
   gfc_cpp_post_options ();
 
-/* FIXME: return gfc_cpp_preprocess_only ();
-
-   The return value of this function indicates whether the
-   backend needs to be initialized. On -E, we don't need
-   the backend. However, if we return 'true' here, an
-   ICE occurs. Initializing the backend doesn't hurt much,
-   hence, for now we can live with it as is.  */
-  return false;
+  return gfc_cpp_preprocess_only ();
 }
 
 
@@ -681,12 +678,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_Wextra:
-      handle_generated_option (&global_options, &global_options_set,
-			       OPT_Wunused_parameter, NULL, value,
-			       gfc_option_lang_mask (), kind, loc,
-			       handlers, global_dc);
       set_Wextra (value);
-
       break;
 
     case OPT_Wfunction_elimination:
@@ -735,6 +727,10 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_Wintrinsic_shadow:
       gfc_option.warn_intrinsic_shadow = value;
+      break;
+
+    case OPT_Wuse_without_only:
+      gfc_option.warn_use_without_only = value;
       break;
 
     case OPT_Walign_commons:
@@ -834,6 +830,10 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fopenmp:
       gfc_option.gfc_flag_openmp = value;
+      break;
+
+    case OPT_fopenmp_simd:
+      gfc_option.gfc_flag_openmp_simd = value;
       break;
 
     case OPT_ffree_line_length_none:

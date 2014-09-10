@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -24,6 +24,9 @@
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -46,6 +49,7 @@
 #include "opts.h"
 #include "cfgloop.h"
 #include "dumpfile.h"
+#include "builtins.h"
 
 /* This is used in the am33_2.0-linux-gnu port, in which global symbol
    names are not prefixed by underscores, to tell whether to prefix a
@@ -65,7 +69,6 @@ static int cc_flags_for_mode(enum machine_mode);
 static int cc_flags_for_code(enum rtx_code);
 
 /* Implement TARGET_OPTION_OVERRIDE.  */
-
 static void
 mn10300_option_override (void)
 {
@@ -739,16 +742,31 @@ mn10300_gen_multiple_store (unsigned int mask)
   F (emit_insn (x));
 }
 
+static inline unsigned int
+popcount (unsigned int mask)
+{
+  unsigned int count = 0;
+  
+  while (mask)
+    {
+      ++ count;
+      mask &= ~ (mask & - mask);
+    }
+  return count;
+}
+
 void
 mn10300_expand_prologue (void)
 {
   HOST_WIDE_INT size = mn10300_frame_size ();
+  unsigned int mask;
+
+  mask = mn10300_get_live_callee_saved_regs (NULL);
+  /* If we use any of the callee-saved registers, save them now.  */
+  mn10300_gen_multiple_store (mask);
 
   if (flag_stack_usage_info)
-    current_function_static_stack_size = size;
-
-  /* If we use any of the callee-saved registers, save them now.  */
-  mn10300_gen_multiple_store (mn10300_get_live_callee_saved_regs (NULL));
+    current_function_static_stack_size = size + popcount (mask) * 4;
 
   if (TARGET_AM33_2 && fp_regs_to_save ())
     {
@@ -764,6 +782,9 @@ mn10300_expand_prologue (void)
       } strategy;
       unsigned int strategy_size = (unsigned)-1, this_strategy_size;
       rtx reg;
+
+      if (flag_stack_usage_info)
+	current_function_static_stack_size += num_regs_to_save * 4;
 
       /* We have several different strategies to save FP registers.
 	 We can store them using SP offsets, which is beneficial if
@@ -1236,9 +1257,8 @@ mn10300_expand_epilogue (void)
    parallel.  If OP is a multiple store, return a mask indicating which
    registers it saves.  Return 0 otherwise.  */
 
-int
-mn10300_store_multiple_operation (rtx op,
-				  enum machine_mode mode ATTRIBUTE_UNUSED)
+unsigned int
+mn10300_store_multiple_regs (rtx op)
 {
   int count;
   int mask;
@@ -1411,7 +1431,6 @@ mn10300_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
       if (addr && CONSTANT_ADDRESS_P (addr))
 	return GENERAL_REGS;
     }
-
   /* Otherwise assume no secondary reloads are needed.  */
   return NO_REGS;
 }
@@ -2612,7 +2631,10 @@ mn10300_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
       || REGNO_REG_CLASS (regno) == FP_ACC_REGS)
     /* Do not store integer values in FP registers.  */
     return GET_MODE_CLASS (mode) == MODE_FLOAT && ((regno & 1) == 0);
-  
+
+  if (! TARGET_AM33 && REGNO_REG_CLASS (regno) == EXTENDED_REGS)
+    return false;
+
   if (((regno) & 1) == 0 || GET_MODE_SIZE (mode) == 4)
     return true;
 
@@ -2720,21 +2742,15 @@ mn10300_select_cc_mode (enum rtx_code code, rtx x, rtx y ATTRIBUTE_UNUSED)
 }
 
 static inline bool
-is_load_insn (rtx insn)
+set_is_load_p (rtx set)
 {
-  if (GET_CODE (PATTERN (insn)) != SET)
-    return false;
-
-  return MEM_P (SET_SRC (PATTERN (insn)));
+  return MEM_P (SET_SRC (set));
 }
 
 static inline bool
-is_store_insn (rtx insn)
+set_is_store_p (rtx set)
 {
-  if (GET_CODE (PATTERN (insn)) != SET)
-    return false;
-
-  return MEM_P (SET_DEST (PATTERN (insn)));
+  return MEM_P (SET_DEST (set));
 }
 
 /* Update scheduling costs for situations that cannot be
@@ -2744,35 +2760,38 @@ is_store_insn (rtx insn)
    COST is the current cycle cost for DEP.  */
 
 static int
-mn10300_adjust_sched_cost (rtx insn, rtx link, rtx dep, int cost)
+mn10300_adjust_sched_cost (rtx_insn *insn, rtx link, rtx_insn *dep, int cost)
 {
-  int timings = get_attr_timings (insn);
+  rtx insn_set;
+  rtx dep_set;
+  int timings;
 
   if (!TARGET_AM33)
     return 1;
 
-  if (GET_CODE (insn) == PARALLEL)
-    insn = XVECEXP (insn, 0, 0);
+  /* We are only interested in pairs of SET. */
+  insn_set = single_set (insn);
+  if (!insn_set)
+    return cost;
 
-  if (GET_CODE (dep) == PARALLEL)
-    dep = XVECEXP (dep, 0, 0);
+  dep_set = single_set (dep);
+  if (!dep_set)
+    return cost;
 
   /* For the AM34 a load instruction that follows a
      store instruction incurs an extra cycle of delay.  */
   if (mn10300_tune_cpu == PROCESSOR_AM34
-      && is_load_insn (dep)
-      && is_store_insn (insn))
+      && set_is_load_p (dep_set)
+      && set_is_store_p (insn_set))
     cost += 1;
 
   /* For the AM34 a non-store, non-branch FPU insn that follows
      another FPU insn incurs a one cycle throughput increase.  */
   else if (mn10300_tune_cpu == PROCESSOR_AM34
-      && ! is_store_insn (insn)
+      && ! set_is_store_p (insn_set)
       && ! JUMP_P (insn)
-      && GET_CODE (PATTERN (dep)) == SET
-      && GET_CODE (PATTERN (insn)) == SET
-      && GET_MODE_CLASS (GET_MODE (SET_SRC (PATTERN (dep)))) == MODE_FLOAT
-      && GET_MODE_CLASS (GET_MODE (SET_SRC (PATTERN (insn)))) == MODE_FLOAT)
+      && GET_MODE_CLASS (GET_MODE (SET_SRC (dep_set))) == MODE_FLOAT
+      && GET_MODE_CLASS (GET_MODE (SET_SRC (insn_set))) == MODE_FLOAT)
     cost += 1;
 
   /*  Resolve the conflict described in section 1-7-4 of
@@ -2794,23 +2813,21 @@ mn10300_adjust_sched_cost (rtx insn, rtx link, rtx dep, int cost)
     return cost;
 
   /* Check that the instruction about to scheduled is an FPU instruction.  */
-  if (GET_CODE (PATTERN (dep)) != SET)
-    return cost;
-
-  if (GET_MODE_CLASS (GET_MODE (SET_SRC (PATTERN (dep)))) != MODE_FLOAT)
+  if (GET_MODE_CLASS (GET_MODE (SET_SRC (dep_set))) != MODE_FLOAT)
     return cost;
 
   /* Now check to see if the previous instruction is a load or store.  */
-  if (! is_load_insn (insn) && ! is_store_insn (insn))
+  if (! set_is_load_p (insn_set) && ! set_is_store_p (insn_set))
     return cost;
 
   /* XXX: Verify: The text of 1-7-4 implies that the restriction
      only applies when an INTEGER load/store precedes an FPU
      instruction, but is this true ?  For now we assume that it is.  */
-  if (GET_MODE_CLASS (GET_MODE (SET_SRC (PATTERN (insn)))) != MODE_INT)
+  if (GET_MODE_CLASS (GET_MODE (SET_SRC (insn_set))) != MODE_INT)
     return cost;
 
   /* Extract the latency value from the timings attribute.  */
+  timings = get_attr_timings (insn);
   return timings < 100 ? (timings % 10) : (timings % 100);
 }
 
@@ -2957,14 +2974,14 @@ struct liw_data
    cannot be bundled.  */
 
 static bool
-extract_bundle (rtx insn, struct liw_data * pdata)
+extract_bundle (rtx_insn *insn, struct liw_data * pdata)
 {
   bool allow_consts = true;
   rtx p;
 
   gcc_assert (pdata != NULL);
 
-  if (insn == NULL_RTX)
+  if (insn == NULL)
     return false;
   /* Make sure that we are dealing with a simple SET insn.  */
   p = single_set (insn);
@@ -3083,11 +3100,11 @@ check_liw_constraints (struct liw_data * pliw1, struct liw_data * pliw2)
 static void
 mn10300_bundle_liw (void)
 {
-  rtx r;
+  rtx_insn *r;
 
-  for (r = get_insns (); r != NULL_RTX; r = next_nonnote_nondebug_insn (r))
+  for (r = get_insns (); r != NULL; r = next_nonnote_nondebug_insn (r))
     {
-      rtx insn1, insn2;
+      rtx_insn *insn1, *insn2;
       struct liw_data liw1, liw2;
 
       insn1 = r;
@@ -3113,17 +3130,18 @@ mn10300_bundle_liw (void)
 
       delete_insn (insn2);
 
+      rtx insn2_pat;
       if (liw1.op == LIW_OP_CMP)
-	insn2 = gen_cmp_liw (liw2.dest, liw2.src, liw1.dest, liw1.src,
-			     GEN_INT (liw2.op));
+	insn2_pat = gen_cmp_liw (liw2.dest, liw2.src, liw1.dest, liw1.src,
+				 GEN_INT (liw2.op));
       else if (liw2.op == LIW_OP_CMP)
-	insn2 = gen_liw_cmp (liw1.dest, liw1.src, liw2.dest, liw2.src,
-			     GEN_INT (liw1.op));
+	insn2_pat = gen_liw_cmp (liw1.dest, liw1.src, liw2.dest, liw2.src,
+				 GEN_INT (liw1.op));
       else
-	insn2 = gen_liw (liw1.dest, liw2.dest, liw1.src, liw2.src,
-			 GEN_INT (liw1.op), GEN_INT (liw2.op));
+	insn2_pat = gen_liw (liw1.dest, liw2.dest, liw1.src, liw2.src,
+			     GEN_INT (liw1.op), GEN_INT (liw2.op));
 
-      insn2 = emit_insn_after (insn2, insn1);
+      insn2 = emit_insn_after (insn2_pat, insn1);
       delete_insn (insn1);
       r = insn2;
     }
@@ -3152,7 +3170,7 @@ mn10300_insert_setlb_lcc (rtx label, rtx branch)
 
   if (LABEL_NUSES (label) > 1)
     {
-      rtx insn;
+      rtx_insn *insn;
 
       /* This label is used both as an entry point to the loop
 	 and as a loop-back point for the loop.  We need to separate
@@ -3194,7 +3212,7 @@ mn10300_insert_setlb_lcc (rtx label, rtx branch)
 static bool
 mn10300_block_contains_call (basic_block block)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   FOR_BB_INSNS (block, insn)
     if (CALL_P (insn))
@@ -3226,7 +3244,6 @@ mn10300_loop_contains_call_insn (loop_p loop)
 static void
 mn10300_scan_for_setlb_lcc (void)
 {
-  loop_iterator liter;
   loop_p loop;
 
   DUMP ("Looking for loops that can use the SETLB insn", NULL_RTX);
@@ -3241,7 +3258,7 @@ mn10300_scan_for_setlb_lcc (void)
      if an inner loop is not suitable for use with the SETLB/Lcc insns, it may
      be the case that its parent loop is suitable.  Thus we should check all
      loops, but work from the innermost outwards.  */
-  FOR_EACH_LOOP (liter, loop, LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
     {
       const char * reason = NULL;
 
@@ -3258,7 +3275,7 @@ mn10300_scan_for_setlb_lcc (void)
 	reason = "it contains CALL insns";
       else
 	{
-	  rtx branch = BB_END (loop->latch);
+	  rtx_insn *branch = BB_END (loop->latch);
 
 	  gcc_assert (JUMP_P (branch));
 	  if (single_set (branch) == NULL_RTX || ! any_condjump_p (branch))
@@ -3267,7 +3284,7 @@ mn10300_scan_for_setlb_lcc (void)
 	    reason = "it is not a simple loop";
 	  else
 	    {
-	      rtx label;
+	      rtx_insn *label;
 
 	      if (dump_file)
 		flow_loop_dump (loop, dump_file, NULL, 0);

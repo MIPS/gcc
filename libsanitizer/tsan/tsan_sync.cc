@@ -15,10 +15,13 @@
 
 namespace __tsan {
 
+void DDMutexInit(ThreadState *thr, uptr pc, SyncVar *s);
+
 SyncVar::SyncVar(uptr addr, u64 uid)
   : mtx(MutexTypeSyncVar, StatMtxSyncVar)
   , addr(addr)
   , uid(uid)
+  , creation_stack_id()
   , owner_tid(kInvalidTid)
   , last_lock()
   , recursion()
@@ -60,9 +63,11 @@ SyncVar* SyncTab::Create(ThreadState *thr, uptr pc, uptr addr) {
   void *mem = internal_alloc(MBlockSync, sizeof(SyncVar));
   const u64 uid = atomic_fetch_add(&uid_gen_, 1, memory_order_relaxed);
   SyncVar *res = new(mem) SyncVar(addr, uid);
-#ifndef TSAN_GO
-  res->creation_stack.ObtainCurrent(thr, pc);
-#endif
+  res->creation_stack_id = 0;
+  if (!kGoMode)  // Go does not use them
+    res->creation_stack_id = CurrentStackId(thr, pc);
+  if (flags()->detect_deadlocks)
+    DDMutexInit(thr, pc, res);
   return res;
 }
 
@@ -80,9 +85,10 @@ SyncVar* SyncTab::GetAndLock(ThreadState *thr, uptr pc,
   // the hashmap anyway.
   if (PrimaryAllocator::PointerIsMine((void*)addr)) {
     MBlock *b = user_mblock(thr, (void*)addr);
-    Lock l(&b->mtx);
+    CHECK_NE(b, 0);
+    MBlock::ScopedLock l(b);
     SyncVar *res = 0;
-    for (res = b->head; res; res = res->next) {
+    for (res = b->ListHead(); res; res = res->next) {
       if (res->addr == addr)
         break;
     }
@@ -90,8 +96,7 @@ SyncVar* SyncTab::GetAndLock(ThreadState *thr, uptr pc,
       if (!create)
         return 0;
       res = Create(thr, pc, addr);
-      res->next = b->head;
-      b->head = res;
+      b->ListPush(res);
     }
     if (write_lock)
       res->mtx.Lock();
@@ -145,26 +150,36 @@ SyncVar* SyncTab::GetAndRemove(ThreadState *thr, uptr pc, uptr addr) {
   }
   if (PrimaryAllocator::PointerIsMine((void*)addr)) {
     MBlock *b = user_mblock(thr, (void*)addr);
+    CHECK_NE(b, 0);
     SyncVar *res = 0;
     {
-      Lock l(&b->mtx);
-      SyncVar **prev = &b->head;
-      res = *prev;
-      while (res) {
+      MBlock::ScopedLock l(b);
+      res = b->ListHead();
+      if (res) {
         if (res->addr == addr) {
           if (res->is_linker_init)
             return 0;
-          *prev = res->next;
-          break;
+          b->ListPop();
+        } else {
+          SyncVar **prev = &res->next;
+          res = *prev;
+          while (res) {
+            if (res->addr == addr) {
+              if (res->is_linker_init)
+                return 0;
+              *prev = res->next;
+              break;
+            }
+            prev = &res->next;
+            res = *prev;
+          }
         }
-        prev = &res->next;
-        res = *prev;
+        if (res) {
+          StatInc(thr, StatSyncDestroyed);
+          res->mtx.Lock();
+          res->mtx.Unlock();
+        }
       }
-    }
-    if (res) {
-      StatInc(thr, StatSyncDestroyed);
-      res->mtx.Lock();
-      res->mtx.Unlock();
     }
     return res;
   }
@@ -193,26 +208,6 @@ SyncVar* SyncTab::GetAndRemove(ThreadState *thr, uptr pc, uptr addr) {
     res->mtx.Unlock();
   }
   return res;
-}
-
-uptr SyncVar::GetMemoryConsumption() {
-  return sizeof(*this)
-      + clock.size() * sizeof(u64)
-      + read_clock.size() * sizeof(u64)
-      + creation_stack.Size() * sizeof(uptr);
-}
-
-uptr SyncTab::GetMemoryConsumption(uptr *nsync) {
-  uptr mem = 0;
-  for (int i = 0; i < kPartCount; i++) {
-    Part *p = &tab_[i];
-    Lock l(&p->mtx);
-    for (SyncVar *s = p->val; s; s = s->next) {
-      *nsync += 1;
-      mem += s->GetMemoryConsumption();
-    }
-  }
-  return mem;
 }
 
 int SyncTab::PartIdx(uptr addr) {
@@ -273,6 +268,11 @@ void StackTrace::ObtainCurrent(ThreadState *thr, uptr toppc) {
       n_ = c_ - !!toppc;
     }
   } else {
+    // Cap potentially huge stacks.
+    if (n_ + !!toppc > kTraceStackSize) {
+      start = n_ - kTraceStackSize + !!toppc;
+      n_ = kTraceStackSize - !!toppc;
+    }
     s_ = (uptr*)internal_alloc(MBlockStackTrace,
                                (n_ + !!toppc) * sizeof(s_[0]));
   }

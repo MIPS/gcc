@@ -1,5 +1,5 @@
 /* Header file for SSA loop optimizations.
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,20 +20,18 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_SSA_LOOP_H
 #define GCC_TREE_SSA_LOOP_H
 
-#include "tree-ssa-loop-ivopts.h"
-#include "tree-ssa-loop-manip.h"
-#include "tree-ssa-loop-niter.h"
+#include "wide-int.h"
 
 /* Affine iv.  */
 
-typedef struct affine_iv_d
+struct affine_iv
 {
   /* Iv = BASE + STEP * i.  */
   tree base, step;
 
   /* True if this iv does not overflow.  */
   bool no_overflow;
-} affine_iv;
+};
 
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader
@@ -53,7 +51,7 @@ struct tree_niter_desc
 			   a loop (provided that assumptions == true and
 			   may_be_zero == false), more precisely the number
 			   of executions of the latch of the loop.  */
-  double_int max;	/* The upper bound on the number of iterations of
+  widest_int max;	/* The upper bound on the number of iterations of
 			   the loop.  */
 
   /* The simplified shape of the exit condition.  The loop exits if

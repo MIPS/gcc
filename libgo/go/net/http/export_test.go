@@ -16,10 +16,12 @@ func NewLoggingConn(baseName string, c net.Conn) net.Conn {
 	return newLoggingConn(baseName, c)
 }
 
+var ExportAppendTime = appendTime
+
 func (t *Transport) NumPendingRequestsForTesting() int {
 	t.reqMu.Lock()
 	defer t.reqMu.Unlock()
-	return len(t.reqConn)
+	return len(t.reqCanceler)
 }
 
 func (t *Transport) IdleConnKeysForTesting() (keys []string) {
@@ -30,7 +32,7 @@ func (t *Transport) IdleConnKeysForTesting() (keys []string) {
 		return
 	}
 	for key := range t.idleConn {
-		keys = append(keys, key)
+		keys = append(keys, key.String())
 	}
 	return
 }
@@ -41,11 +43,18 @@ func (t *Transport) IdleConnCountForTesting(cacheKey string) int {
 	if t.idleConn == nil {
 		return 0
 	}
-	conns, ok := t.idleConn[cacheKey]
-	if !ok {
-		return 0
+	for k, conns := range t.idleConn {
+		if k.String() == cacheKey {
+			return len(conns)
+		}
 	}
-	return len(conns)
+	return 0
+}
+
+func (t *Transport) IdleConnChMapSizeForTesting() int {
+	t.idleMu.Lock()
+	defer t.idleMu.Unlock()
+	return len(t.idleConnCh)
 }
 
 func NewTestTimeoutHandler(handler Handler, ch <-chan time.Time) Handler {
@@ -53,6 +62,11 @@ func NewTestTimeoutHandler(handler Handler, ch <-chan time.Time) Handler {
 		return ch
 	}
 	return &timeoutHandler{handler, f, ""}
+}
+
+func ResetCachedEnvironment() {
+	httpProxyEnv.reset()
+	noProxyEnv.reset()
 }
 
 var DefaultUserAgent = defaultUserAgent

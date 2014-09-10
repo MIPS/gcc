@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "constructor.h"
 #include "tree.h"
+#include "stringpool.h"
 
 /* Macros to access allocate memory for gfc_data_variable,
    gfc_data_value and gfc_data.  */
@@ -509,9 +510,7 @@ match_old_style_init (const char *name)
       free (newdata);
       return MATCH_ERROR;
     }
-
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   /* Mark the variable as having appeared in a data statement.  */
   if (!gfc_add_data (&sym->attr, sym->name, &sym->declared_at))
@@ -570,9 +569,7 @@ gfc_match_data (void)
       gfc_error ("DATA statement at %C is not allowed in a PURE procedure");
       return MATCH_ERROR;
     }
-
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   return MATCH_YES;
 
@@ -1198,7 +1195,7 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
   sym->attr.implied_index = 0;
 
   if (sym->ts.type == BT_CLASS)
-    return gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as, false);
+    return gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as);
 
   return true;
 }
@@ -1655,10 +1652,7 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 scalar:
   if (c->ts.type == BT_CLASS)
     {
-      bool delayed = (gfc_state_stack->sym == c->ts.u.derived)
-		     || (!c->ts.u.derived->components
-			 && !c->ts.u.derived->attr.zero_comp);
-      bool t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as, delayed);
+      bool t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as);
 
       if (t)
 	t = t2;
@@ -1741,6 +1735,7 @@ match_pointer_init (gfc_expr **init, int procptr)
 		 "a PURE procedure");
       return MATCH_ERROR;
     }
+  gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   /* Match NULL() initialization.  */
   m = gfc_match_null (init);
@@ -1909,8 +1904,9 @@ variable_decl (int elem)
     }
 
   /*  If this symbol has already shown up in a Cray Pointer declaration,
+      and this is not a component declaration,
       then we want to set the type & bail out.  */
-  if (gfc_option.flag_cray_pointer)
+  if (gfc_option.flag_cray_pointer && gfc_current_state () != COMP_DERIVED)
     {
       gfc_find_symbol (name, gfc_current_ns, 1, &sym);
       if (sym != NULL && sym->attr.cray_pointee)
@@ -2002,6 +1998,13 @@ variable_decl (int elem)
       if (!gfc_notify_std (GFC_STD_GNU, "Old-style "
 			   "initialization at %C"))
 	return MATCH_ERROR;
+      else if (gfc_current_state () == COMP_DERIVED)
+	{
+	  gfc_error ("Invalid old style initialization for derived type "
+		     "component at %C");
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
 
       return match_old_style_init (name);
     }
@@ -2047,6 +2050,10 @@ variable_decl (int elem)
 			 "a PURE procedure");
 	      m = MATCH_ERROR;
 	    }
+
+	  if (current_attr.flavor != FL_PARAMETER
+	      && gfc_state_stack->state != COMP_DERIVED)
+	    gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
 	  if (m != MATCH_YES)
 	    goto cleanup;
@@ -4286,12 +4293,10 @@ gfc_match_data_decl (void)
 	      || current_ts.u.derived->attr.zero_comp))
 	goto ok;
 
-      /* Now we have an error, which we signal, and then fix up
-	 because the knock-on is plain and simple confusing.  */
-      gfc_error_now ("Derived type at %C has not been previously defined "
-		     "and so cannot appear in a derived type definition");
-      current_attr.pointer = 1;
-      goto ok;
+      gfc_error ("Derived type at %C has not been previously defined "
+		 "and so cannot appear in a derived type definition");
+      m = MATCH_ERROR;
+      goto cleanup;
     }
 
 ok:
@@ -5782,6 +5787,54 @@ gfc_match_subroutine (void)
 }
 
 
+/* Check that the NAME identifier in a BIND attribute or statement
+   is conform to C identifier rules.  */
+
+match
+check_bind_name_identifier (char **name)
+{
+  char *n = *name, *p;
+
+  /* Remove leading spaces.  */
+  while (*n == ' ')
+    n++;
+
+  /* On an empty string, free memory and set name to NULL.  */
+  if (*n == '\0')
+    {
+      free (*name);
+      *name = NULL;
+      return MATCH_YES;
+    }
+
+  /* Remove trailing spaces.  */
+  p = n + strlen(n) - 1;
+  while (*p == ' ')
+    *(p--) = '\0';
+
+  /* Insert the identifier into the symbol table.  */
+  p = xstrdup (n);
+  free (*name);
+  *name = p;
+
+  /* Now check that identifier is valid under C rules.  */
+  if (ISDIGIT (*p))
+    {
+      gfc_error ("Invalid C identifier in NAME= specifier at %C");
+      return MATCH_ERROR;
+    }
+
+  for (; *p; p++)
+    if (!(ISALNUM (*p) || *p == '_' || *p == '$'))
+      {
+        gfc_error ("Invalid C identifier in NAME= specifier at %C");
+	return MATCH_ERROR;
+      }
+
+  return MATCH_YES;
+}
+
+
 /* Match a BIND(C) specifier, with the optional 'name=' specifier if
    given, and set the binding label in either the given symbol (if not
    NULL), or in the current_ts.  The symbol may be NULL because we may
@@ -5796,10 +5849,8 @@ gfc_match_subroutine (void)
 match
 gfc_match_bind_c (gfc_symbol *sym, bool allow_binding_name)
 {
-  /* binding label, if exists */
-  const char* binding_label = NULL;
-  match double_quote;
-  match single_quote;
+  char *binding_label = NULL;
+  gfc_expr *e = NULL;
 
   /* Initialize the flag that specifies whether we encountered a NAME=
      specifier or not.  */
@@ -5824,44 +5875,37 @@ gfc_match_bind_c (gfc_symbol *sym, bool allow_binding_name)
 
       has_name_equals = 1;
 
-      /* Get the opening quote.  */
-      double_quote = MATCH_YES;
-      single_quote = MATCH_YES;
-      double_quote = gfc_match_char ('"');
-      if (double_quote != MATCH_YES)
-	single_quote = gfc_match_char ('\'');
-      if (double_quote != MATCH_YES && single_quote != MATCH_YES)
-        {
-          gfc_error ("Syntax error in NAME= specifier for binding label "
-                     "at %C");
-          return MATCH_ERROR;
-        }
-
-      /* Grab the binding label, using functions that will not lower
-	 case the names automatically.	*/
-      if (gfc_match_name_C (&binding_label) != MATCH_YES)
-	 return MATCH_ERROR;
-
-      /* Get the closing quotation.  */
-      if (double_quote == MATCH_YES)
+      if (gfc_match_init_expr (&e) != MATCH_YES)
 	{
-	  if (gfc_match_char ('"') != MATCH_YES)
-            {
-              gfc_error ("Missing closing quote '\"' for binding label at %C");
-              /* User started string with '"' so looked to match it.  */
-              return MATCH_ERROR;
-            }
+	  gfc_free_expr (e);
+	  return MATCH_ERROR;
 	}
-      else
+
+      if (!gfc_simplify_expr(e, 0))
 	{
-	  if (gfc_match_char ('\'') != MATCH_YES)
-            {
-              gfc_error ("Missing closing quote '\'' for binding label at %C");
-              /* User started string with "'" char.  */
-              return MATCH_ERROR;
-            }
+	  gfc_error ("NAME= specifier at %C should be a constant expression");
+	  gfc_free_expr (e);
+	  return MATCH_ERROR;
 	}
-   }
+
+      if (e->expr_type != EXPR_CONSTANT || e->ts.type != BT_CHARACTER
+	  || e->ts.kind != gfc_default_character_kind || e->rank != 0)
+	{
+	  gfc_error ("NAME= specifier at %C should be a scalar of "
+	             "default character kind");
+	  gfc_free_expr(e);
+	  return MATCH_ERROR;
+	}
+
+      // Get a C string from the Fortran string constant
+      binding_label = gfc_widechar_to_char (e->value.character.string,
+					    e->value.character.length);
+      gfc_free_expr(e);
+
+      // Check that it is valid (old gfc_match_name_C)
+      if (check_bind_name_identifier (&binding_label) != MATCH_YES)
+	return MATCH_ERROR;
+    }
 
   /* Get the required right paren.  */
   if (gfc_match_char (')') != MATCH_YES)
@@ -6341,7 +6385,7 @@ attr_decl1 (void)
     }
 
   if (sym->ts.type == BT_CLASS
-      && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as, false))
+      && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as))
     {
       m = MATCH_ERROR;
       goto cleanup;

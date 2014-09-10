@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,10 +38,6 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
    procedure Allocate
      (Container : in out List;
       New_Item  : Element_Type;
-      New_Node  : out Count_Type);
-
-   procedure Allocate
-     (Container : in out List;
       New_Node  : out Count_Type);
 
    procedure Allocate
@@ -218,26 +214,6 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       end if;
    end Allocate;
 
-   procedure Allocate
-     (Container : in out List;
-      New_Node  : out Count_Type)
-   is
-      N : Node_Array renames Container.Nodes;
-
-   begin
-      if Container.Free >= 0 then
-         New_Node := Container.Free;
-         Container.Free := N (New_Node).Next;
-
-      else
-         --  As explained above, a negative free store value means that the
-         --  links for the nodes in the free store have not been initialized.
-
-         New_Node := abs Container.Free;
-         Container.Free := Container.Free - 1;
-      end if;
-   end Allocate;
-
    ------------
    -- Append --
    ------------
@@ -250,6 +226,24 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
    begin
       Insert (Container, No_Element, New_Item, Count);
    end Append;
+
+   ------------
+   -- Adjust --
+   ------------
+
+   procedure Adjust (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            C : List renames Control.Container.all;
+            B : Natural renames C.Busy;
+            L : Natural renames C.Lock;
+         begin
+            B := B + 1;
+            L := L + 1;
+         end;
+      end if;
+   end Adjust;
 
    ------------
    -- Assign --
@@ -348,8 +342,16 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
 
          declare
             N : Node_Type renames Container.Nodes (Position.Node);
+            B : Natural renames Position.Container.Busy;
+            L : Natural renames Position.Container.Lock;
          begin
-            return (Element => N.Element'Access);
+            return R : constant Constant_Reference_Type :=
+              (Element => N.Element'Access,
+               Control => (Controlled with Container'Unrestricted_Access))
+            do
+               B := B + 1;
+               L := L + 1;
+            end return;
          end;
       end if;
    end Constant_Reference;
@@ -566,6 +568,22 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
          begin
             B := B - 1;
          end;
+      end if;
+   end Finalize;
+
+   procedure Finalize (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            C : List renames Control.Container.all;
+            B : Natural renames C.Busy;
+            L : Natural renames C.Lock;
+         begin
+            B := B - 1;
+            L := L - 1;
+         end;
+
+         Control.Container := null;
       end if;
    end Finalize;
 
@@ -1091,7 +1109,8 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       Position  : out Cursor;
       Count     : Count_Type := 1)
    is
-      New_Node : Count_Type;
+      First_Node : Count_Type;
+      New_Node   : Count_Type;
 
    begin
       if Before.Container /= null then
@@ -1109,7 +1128,7 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       end if;
 
       if Container.Length > Container.Capacity - Count then
-         raise Constraint_Error with "new length exceeds capacity";
+         raise Capacity_Error with "capacity exceeded";
       end if;
 
       if Container.Busy > 0 then
@@ -1118,13 +1137,15 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       end if;
 
       Allocate (Container, New_Item, New_Node);
-      Insert_Internal (Container, Before.Node, New_Node => New_Node);
-      Position := Cursor'(Container'Unchecked_Access, Node => New_Node);
+      First_Node := New_Node;
+      Insert_Internal (Container, Before.Node, New_Node);
 
       for Index in Count_Type'(2) .. Count loop
-         Allocate (Container, New_Item, New_Node => New_Node);
-         Insert_Internal (Container, Before.Node, New_Node => New_Node);
+         Allocate (Container, New_Item, New_Node);
+         Insert_Internal (Container, Before.Node, New_Node);
       end loop;
+
+      Position := Cursor'(Container'Unchecked_Access, First_Node);
    end Insert;
 
    procedure Insert
@@ -1145,40 +1166,18 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       Position  : out Cursor;
       Count     : Count_Type := 1)
    is
-      New_Node : Count_Type;
+      New_Item : Element_Type;
+      pragma Unmodified (New_Item);
+      --  OK to reference, see below
 
    begin
-      if Before.Container /= null then
-         if Before.Container /= Container'Unrestricted_Access then
-            raise Program_Error with
-              "Before cursor designates wrong list";
-         end if;
+      --  There is no explicit element provided, but in an instance the element
+      --  type may be a scalar with a Default_Value aspect, or a composite
+      --  type with such a scalar component, or components with default
+      --  initialization, so insert the specified number of possibly
+      --  initialized elements at the given position.
 
-         pragma Assert (Vet (Before), "bad cursor in Insert");
-      end if;
-
-      if Count = 0 then
-         Position := Before;
-         return;
-      end if;
-
-      if Container.Length > Container.Capacity - Count then
-         raise Constraint_Error with "new length exceeds capacity";
-      end if;
-
-      if Container.Busy > 0 then
-         raise Program_Error with
-           "attempt to tamper with cursors (list is busy)";
-      end if;
-
-      Allocate (Container, New_Node => New_Node);
-      Insert_Internal (Container, Before.Node, New_Node);
-      Position := Cursor'(Container'Unchecked_Access, New_Node);
-
-      for Index in Count_Type'(2) .. Count loop
-         Allocate (Container, New_Node => New_Node);
-         Insert_Internal (Container, Before.Node, New_Node);
-      end loop;
+      Insert (Container, Before, New_Item, Position, Count);
    end Insert;
 
    ---------------------
@@ -1715,8 +1714,16 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
 
          declare
             N : Node_Type renames Container.Nodes (Position.Node);
+            B : Natural   renames Container.Busy;
+            L : Natural   renames Container.Lock;
          begin
-            return (Element => N.Element'Access);
+            return R : constant Reference_Type :=
+               (Element => N.Element'Access,
+                Control => (Controlled with Container'Unrestricted_Access))
+            do
+               B := B + 1;
+               L := L + 1;
+            end return;
          end;
       end if;
    end Reference;

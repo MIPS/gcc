@@ -1,5 +1,5 @@
 ;; Predicate definitions for S/390 and zSeries.
-;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;; Contributed by Hartmut Penner (hpenner@de.ibm.com) and
 ;;                Ulrich Weigand (uweigand@de.ibm.com).
 ;;
@@ -374,7 +374,7 @@
   (match_code "parallel")
 {
   rtx pattern = op;
-  rtx insn;
+  rtx_insn *insn;
   int icode;
 
   /* This is redundant but since this predicate is evaluated

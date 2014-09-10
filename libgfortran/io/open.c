@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -265,39 +265,39 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 	u->flags.round = flags->round;
       if (flags->sign != SIGN_UNSPECIFIED)
 	u->flags.sign = flags->sign;
-    }
 
-  /* Reposition the file if necessary.  */
-
-  switch (flags->position)
-    {
-    case POSITION_UNSPECIFIED:
-    case POSITION_ASIS:
-      break;
-
-    case POSITION_REWIND:
-      if (sseek (u->s, 0, SEEK_SET) != 0)
-	goto seek_error;
-
-      u->current_record = 0;
-      u->last_record = 0;
-
-      test_endfile (u);
-      break;
-
-    case POSITION_APPEND:
-      if (sseek (u->s, 0, SEEK_END) < 0)
-	goto seek_error;
-
-      if (flags->access != ACCESS_STREAM)
-	u->current_record = 0;
-
-      u->endfile = AT_ENDFILE;	/* We are at the end.  */
-      break;
-
-    seek_error:
-      generate_error (&opp->common, LIBERROR_OS, NULL);
-      break;
+      /* Reposition the file if necessary.  */
+    
+      switch (flags->position)
+	{
+	case POSITION_UNSPECIFIED:
+	case POSITION_ASIS:
+	  break;
+    
+	case POSITION_REWIND:
+	  if (sseek (u->s, 0, SEEK_SET) != 0)
+	    goto seek_error;
+    
+	  u->current_record = 0;
+	  u->last_record = 0;
+    
+	  test_endfile (u);
+	  break;
+    
+	case POSITION_APPEND:
+	  if (sseek (u->s, 0, SEEK_END) < 0)
+	    goto seek_error;
+    
+	  if (flags->access != ACCESS_STREAM)
+	    u->current_record = 0;
+    
+	  u->endfile = AT_ENDFILE;	/* We are at the end.  */
+	  break;
+    
+	seek_error:
+	  generate_error (&opp->common, LIBERROR_OS, NULL);
+	  break;
+	}
     }
 
   unlock_unit (u);
@@ -332,17 +332,13 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   /* Checks.  */
 
-  if (flags->delim == DELIM_UNSPECIFIED)
-    flags->delim = DELIM_NONE;
-  else
+  if (flags->delim != DELIM_UNSPECIFIED
+      && flags->form == FORM_UNFORMATTED)
     {
-      if (flags->form == FORM_UNFORMATTED)
-	{
-	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
-			  "DELIM parameter conflicts with UNFORMATTED form in "
-			  "OPEN statement");
-	  goto fail;
-	}
+      generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+		      "DELIM parameter conflicts with UNFORMATTED form in "
+		      "OPEN statement");
+      goto fail;
     }
 
   if (flags->blank == BLANK_UNSPECIFIED)
@@ -506,12 +502,9 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   s = open_external (opp, flags);
   if (s == NULL)
     {
-      char *path, *msg;
-      size_t msglen;
-      path = (char *) gfc_alloca (opp->file_len + 1);
-      msglen = opp->file_len + 51;
-      msg = (char *) gfc_alloca (msglen);
-      unpack_filename (path, opp->file, opp->file_len);
+      char *path = fc_strdup (opp->file, opp->file_len);
+      size_t msglen = opp->file_len + 51;
+      char *msg = xmalloc (msglen);
 
       switch (errno)
 	{
@@ -533,10 +526,13 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 	  break;
 
 	default:
+	  free (msg);
 	  msg = NULL;
 	}
 
       generate_error (&opp->common, LIBERROR_OS, msg);
+      free (msg);
+      free (path);
       goto cleanup;
     }
 
@@ -562,7 +558,10 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   if (flags->position == POSITION_APPEND)
     {
       if (sseek (u->s, 0, SEEK_END) < 0)
-	generate_error (&opp->common, LIBERROR_OS, NULL);
+	{
+	  generate_error (&opp->common, LIBERROR_OS, NULL);
+	  goto cleanup;
+	}
       u->endfile = AT_ENDFILE;
     }
 
@@ -677,15 +676,6 @@ already_open (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 
   if (!compare_file_filename (u, opp->file, opp->file_len))
     {
-#if !HAVE_UNLINK_OPEN_FILE
-      char *path = NULL;
-      if (u->file && u->flags.status == STATUS_SCRATCH)
-	{
-	  path = (char *) gfc_alloca (u->file_len + 1);
-	  unpack_filename (path, u->file, u->file_len);
-	}
-#endif
-
       if (sclose (u->s) == -1)
 	{
 	  unlock_unit (u);
@@ -700,8 +690,14 @@ already_open (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       u->file_len = 0;
 
 #if !HAVE_UNLINK_OPEN_FILE
+      char *path = NULL;
+      if (u->file && u->flags.status == STATUS_SCRATCH)
+	path = fc_strdup (u->file, u->file_len);
       if (path != NULL)
-	unlink (path);
+	{
+	  unlink (path);
+	  free (path);
+	}
 #endif
 
       u = new_unit (opp, u, flags);
@@ -852,8 +848,12 @@ st_open (st_parameter_open *opp)
 	{
 	  u = find_unit (opp->common.unit);
 	  if (u == NULL) /* Negative unit and no NEWUNIT-created unit found.  */
-	    generate_error (&opp->common, LIBERROR_BAD_OPTION,
-			    "Bad unit number in OPEN statement");
+	    {
+	      generate_error (&opp->common, LIBERROR_BAD_OPTION,
+			      "Bad unit number in OPEN statement");
+	      library_end ();
+	      return;
+	    }
 	}
 
       if (u == NULL)

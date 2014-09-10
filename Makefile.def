@@ -39,7 +39,7 @@ host_modules= { module= cgen; };
 host_modules= { module= dejagnu; };
 host_modules= { module= etc; };
 host_modules= { module= fastjar; no_check_cross= true; };
-host_modules= { module= fixincludes;
+host_modules= { module= fixincludes; bootstrap=true;
 		missing= TAGS; };
 host_modules= { module= flex; no_check_cross= true; };
 host_modules= { module= gas; bootstrap=true; };
@@ -85,6 +85,14 @@ host_modules= { module= libdecnumber; bootstrap=true; };
 host_modules= { module= libgui; };
 host_modules= { module= libiberty; bootstrap=true;
 	        extra_configure_flags='@extra_host_libiberty_configure_flags@';};
+// Linker plugins may need their own build of libiberty; see
+// gcc/doc/install.texi.  We take care that this build of libiberty doesn't get
+// installed.  It's a helper library for linker plugins, so we pay attention to
+// @extra_linker_plugin_flags@ and @extra_linker_plugin_configure_flags@.
+host_modules= { module= libiberty-linker-plugin; bootstrap=true;
+		module_srcdir=libiberty;
+	        extra_configure_flags='@extra_host_libiberty_configure_flags@ --disable-install-libiberty @extra_linker_plugin_flags@ @extra_linker_plugin_configure_flags@';
+		extra_make_flags='@extra_linker_plugin_flags@'; };
 // We abuse missing to avoid installing anything for libiconv.
 host_modules= { module= libiconv;
 		extra_configure_flags='--disable-shared';
@@ -111,13 +119,13 @@ host_modules= { module= libtermcap; no_check=true;
 host_modules= { module= utils; no_check=true; };
 host_modules= { module= gnattools; };
 host_modules= { module= lto-plugin; bootstrap=true;
-		extra_configure_flags=--enable-shared; };
+		extra_configure_flags='--enable-shared @extra_linker_plugin_flags@ @extra_linker_plugin_configure_flags@';
+		extra_make_flags='@extra_linker_plugin_flags@'; };
 
 target_modules = { module= libstdc++-v3;
 		   bootstrap=true;
 		   lib_path=src/.libs;
 		   raw_cxx=true; };
-target_modules = { module= libmudflap; lib_path=.libs; };
 target_modules = { module= libsanitizer;
 		   bootstrap=true;
 		   lib_path=.libs;
@@ -126,6 +134,8 @@ target_modules = { module= libvtv;
 		   bootstrap=true;
 		   lib_path=.libs;
 		   raw_cxx=true; };
+target_modules = { module= libcilkrts;
+		   lib_path=.libs; };
 target_modules = { module= libssp; lib_path=.libs; };
 target_modules = { module= newlib; };
 target_modules = { module= libgcc; bootstrap=true; no_check=true; };
@@ -335,8 +345,12 @@ dependencies = { module=all-libcpp; on=all-intl; };
 dependencies = { module=all-fixincludes; on=all-libiberty; };
 
 dependencies = { module=all-gnattools; on=all-target-libada; };
+dependencies = { module=all-gnattools; on=all-target-libstdc++-v3; };
 
+// Depending on the specific configuration, the LTO plugin will either use the
+// generic libiberty build or the specific build for linker plugins.
 dependencies = { module=all-lto-plugin; on=all-libiberty; };
+dependencies = { module=all-lto-plugin; on=all-libiberty-linker-plugin; };
 
 dependencies = { module=all-utils; on=all-libiberty; };
 
@@ -417,6 +431,7 @@ dependencies = { module=all-ld; on=all-build-bison; };
 dependencies = { module=all-ld; on=all-build-flex; };
 dependencies = { module=all-ld; on=all-intl; };
 dependencies = { module=all-ld; on=all-gas; };
+dependencies = { module=all-ld; on=all-binutils; };
 dependencies = { module=install-ld; on=install-gold; };
 dependencies = { module=install-strip-ld; on=install-strip-gold; };
 dependencies = { module=configure-gold; on=configure-intl; };
@@ -492,6 +507,7 @@ dependencies = { module=all-m4; on=all-build-texinfo; };
 // on libgcc and newlib/libgloss.
 lang_env_dependencies = { module=libjava; cxx=true; };
 lang_env_dependencies = { module=libitm; cxx=true; };
+lang_env_dependencies = { module=libcilkrts; cxx=true; };
 lang_env_dependencies = { module=newlib; no_c=true; };
 lang_env_dependencies = { module=libgloss; no_c=true; };
 lang_env_dependencies = { module=libgcc; no_gcc=true; no_c=true; };
@@ -532,6 +548,8 @@ dependencies = { module=install-target-libsanitizer; on=install-target-libstdc++
 dependencies = { module=install-target-libsanitizer; on=install-target-libgcc; };
 dependencies = { module=install-target-libvtv; on=install-target-libstdc++-v3; };
 dependencies = { module=install-target-libvtv; on=install-target-libgcc; };
+dependencies = { module=install-target-libcilkrts; on=install-target-libstdc++-v3; };
+dependencies = { module=install-target-libcilkrts; on=install-target-libgcc; };
 dependencies = { module=install-target-libjava; on=install-target-libgcc; };
 dependencies = { module=install-target-libitm; on=install-target-libgcc; };
 dependencies = { module=install-target-libobjc; on=install-target-libgcc; };
@@ -551,7 +569,6 @@ dependencies = { module=configure-target-libgfortran; on=all-target-libquadmath;
 languages = { language=c;	gcc-check-target=check-gcc; };
 languages = { language=c++;	gcc-check-target=check-c++;
 				lib-check-target=check-target-libstdc++-v3;
-				lib-check-target=check-target-libmudflap-c++;
 				lib-check-target=check-target-libitm-c++;
 				lib-check-target=check-target-libgomp-c++; };
 languages = { language=fortran;	gcc-check-target=check-fortran;

@@ -1,5 +1,5 @@
 /* Initialization of uninitialized regs.
-   Copyright (C) 2007-2013 Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -59,23 +59,21 @@ initialize_uninitialized_regs (void)
 
   df_analyze ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn;
+      rtx_insn *insn;
       bitmap lr = DF_LR_IN (bb);
       bitmap ur = DF_LIVE_IN (bb);
       bitmap_clear (already_genned);
 
       FOR_BB_INSNS (bb, insn)
 	{
-	  unsigned int uid = INSN_UID (insn);
-	  df_ref *use_rec;
+	  df_ref use;
 	  if (!NONDEBUG_INSN_P (insn))
 	    continue;
 
-	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+	  FOR_EACH_INSN_USE (use, insn)
 	    {
-	      df_ref use = *use_rec;
 	      unsigned int regno = DF_REF_REGNO (use);
 
 	      /* Only do this for the pseudos.  */
@@ -96,7 +94,7 @@ initialize_uninitialized_regs (void)
 	      if (bitmap_bit_p (lr, regno)
 		  && (!bitmap_bit_p (ur, regno)))
 		{
-		  rtx move_insn;
+		  rtx_insn *move_insn;
 		  rtx reg = DF_REF_REAL_REG (use);
 
 		  bitmap_set_bit (already_genned, regno);
@@ -109,7 +107,8 @@ initialize_uninitialized_regs (void)
 		  if (dump_file)
 		    fprintf (dump_file,
 			     "adding initialization in %s of reg %d at in block %d for insn %d.\n",
-			     current_function_name (), regno, bb->index, uid);
+			     current_function_name (), regno, bb->index,
+			     INSN_UID (insn));
 		}
 	    }
 	}
@@ -125,19 +124,6 @@ initialize_uninitialized_regs (void)
   BITMAP_FREE (already_genned);
 }
 
-static bool
-gate_initialize_regs (void)
-{
-  return optimize > 0;
-}
-
-static unsigned int
-rest_of_handle_initialize_regs (void)
-{
-  initialize_uninitialized_regs ();
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_initialize_regs =
@@ -145,8 +131,6 @@ const pass_data pass_data_initialize_regs =
   RTL_PASS, /* type */
   "init-regs", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -163,8 +147,12 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_initialize_regs (); }
-  unsigned int execute () { return rest_of_handle_initialize_regs (); }
+  virtual bool gate (function *) { return optimize > 0; }
+  virtual unsigned int execute (function *)
+    {
+      initialize_uninitialized_regs ();
+      return 0;
+    }
 
 }; // class pass_initialize_regs
 

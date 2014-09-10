@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the EPIPHANY cpu.
-   Copyright (C) 1994-2013 Free Software Foundation, Inc.
+   Copyright (C) 1994-2014 Free Software Foundation, Inc.
    Contributed by Embecosm on behalf of Adapteva, Inc.
 
 This file is part of GCC.
@@ -23,6 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
+#include "stringpool.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -47,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"	/* for current_pass */
 #include "context.h"
 #include "pass_manager.h"
+#include "builtins.h"
 
 /* Which cpu we're compiling for.  */
 int epiphany_cpu_type;
@@ -71,7 +76,7 @@ static tree epiphany_handle_forwarder_attribute (tree *, tree, tree, int,
 						 bool *);
 static bool epiphany_pass_by_reference (cumulative_args_t, enum machine_mode,
 					const_tree, bool);
-static rtx frame_insn (rtx);
+static rtx_insn *frame_insn (rtx);
 
 /* defines for the initialization of the GCC target structure.  */
 #define TARGET_ATTRIBUTE_TABLE epiphany_attribute_table
@@ -140,6 +145,27 @@ static rtx frame_insn (rtx);
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK \
   hook_bool_const_tree_hwi_hwi_const_tree_true
 #define TARGET_ASM_OUTPUT_MI_THUNK epiphany_output_mi_thunk
+
+/* ??? we can use larger offsets for wider-mode sized accesses, but there
+   is no concept of anchors being dependent on the modes that they are used
+   for, so we can only use an offset range that would suit all modes.  */
+#define TARGET_MAX_ANCHOR_OFFSET (optimize_size ? 31 : 2047)
+/* We further restrict the minimum to be a multiple of eight.  */
+#define TARGET_MIN_ANCHOR_OFFSET (optimize_size ? 0 : -2040)
+
+/* Mode switching hooks.  */
+
+#define TARGET_MODE_EMIT emit_set_fp_mode
+
+#define TARGET_MODE_NEEDED epiphany_mode_needed
+
+#define TARGET_MODE_PRIORITY epiphany_mode_priority
+
+#define TARGET_MODE_ENTRY epiphany_mode_entry
+
+#define TARGET_MODE_EXIT epiphany_mode_exit
+
+#define TARGET_MODE_AFTER epiphany_mode_after
 
 #include "target-def.h"
 
@@ -439,15 +465,28 @@ static const struct attribute_spec epiphany_attribute_table[] =
 /* Handle an "interrupt" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-epiphany_handle_interrupt_attribute (tree *node ATTRIBUTE_UNUSED,
-				     tree name, tree args,
+epiphany_handle_interrupt_attribute (tree *node, tree name, tree args,
 				     int flags ATTRIBUTE_UNUSED,
 				     bool *no_add_attrs)
 {
   tree value;
 
   if (!args)
-    return NULL_TREE;
+    {
+      gcc_assert (DECL_P (*node));
+      tree t = TREE_TYPE (*node);
+      if (TREE_CODE (t) != FUNCTION_TYPE)
+	warning (OPT_Wattributes, "%qE attribute only applies to functions",
+		 name);
+      /* Argument handling and the stack layout for interrupt handlers
+	 don't mix.  It makes no sense in the first place, so emit an
+	 error for this.  */
+      else if (TYPE_ARG_TYPES (t)
+	       && TREE_VALUE (TYPE_ARG_TYPES (t)) != void_type_node)
+	error_at (DECL_SOURCE_LOCATION (*node),
+		  "interrupt handlers cannot have arguments");
+      return NULL_TREE;
+    }
 
   value = TREE_VALUE (args);
 
@@ -759,6 +798,28 @@ epiphany_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       *total = COSTS_N_INSNS (1);
       return true;
 
+    case COMPARE:
+      switch (GET_MODE (x))
+	{
+	/* There are a number of single-insn combiner patterns that use
+	   the flag side effects of arithmetic.  */
+	case CC_N_NEmode:
+	case CC_C_LTUmode:
+	case CC_C_GTUmode:
+	  return true;
+	default:
+	  return false;
+	}
+
+	
+    case SET:
+      {
+	rtx src = SET_SRC (x);
+	if (BINARY_P (src))
+	  *total = 0;
+	return false;
+      }
+
     default:
       return false;
     }
@@ -922,7 +983,7 @@ epiphany_init_machine_status (void)
   /* Reset state info for each function.  */
   current_frame_info = zero_frame_info;
 
-  machine = ggc_alloc_cleared_machine_function_t ();
+  machine = ggc_cleared_alloc<machine_function_t> ();
 
   return machine;
 }
@@ -1129,7 +1190,7 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
       if (total_size + reg_size <= (unsigned) epiphany_stack_offset)
 	{
 	  gcc_assert (first_slot < 0);
-	  gcc_assert (reg_size == 0 || reg_size == epiphany_stack_offset);
+	  gcc_assert (reg_size == 0 || (int) reg_size == epiphany_stack_offset);
 	  last_slot_offset = EPIPHANY_STACK_ALIGN (total_size + reg_size);
 	}
       else
@@ -1379,7 +1440,7 @@ epiphany_print_operand_address (FILE *file, rtx addr)
 }
 
 void
-epiphany_final_prescan_insn (rtx insn ATTRIBUTE_UNUSED,
+epiphany_final_prescan_insn (rtx_insn *insn ATTRIBUTE_UNUSED,
 			     rtx *opvec ATTRIBUTE_UNUSED,
 			     int noperands ATTRIBUTE_UNUSED)
 {
@@ -1484,11 +1545,12 @@ frame_subreg_note (rtx set, int offset)
   return set;
 }
 
-static rtx
+static rtx_insn *
 frame_insn (rtx x)
 {
   int i;
   rtx note = NULL_RTX;
+  rtx_insn *insn;
 
   if (GET_CODE (x) == PARALLEL)
     {
@@ -1523,14 +1585,14 @@ frame_insn (rtx x)
     note = gen_rtx_PARALLEL (VOIDmode,
 			     gen_rtvec (2, frame_subreg_note (x, 0),
 					frame_subreg_note (x, UNITS_PER_WORD)));
-  x = emit_insn (x);
-  RTX_FRAME_RELATED_P (x) = 1;
+  insn = emit_insn (x);
+  RTX_FRAME_RELATED_P (insn) = 1;
   if (note)
-    add_reg_note (x, REG_FRAME_RELATED_EXPR, note);
-  return x;
+    add_reg_note (insn, REG_FRAME_RELATED_EXPR, note);
+  return insn;
 }
 
-static rtx
+static rtx_insn *
 frame_move_insn (rtx to, rtx from)
 {
   return frame_insn (gen_rtx_SET (VOIDmode, to, from));
@@ -1690,7 +1752,6 @@ epiphany_expand_prologue (void)
   int interrupt_p;
   enum epiphany_function_type fn_type;
   rtx addr, mem, off, reg;
-  rtx save_config;
 
   if (!current_frame_info.initialized)
     epiphany_compute_frame_size (get_frame_size ());
@@ -1759,7 +1820,8 @@ epiphany_expand_prologue (void)
      register save.  */
   if (current_frame_info.last_slot >= 0)
     {
-      rtx ip, mem2, insn, note;
+      rtx ip, mem2, note;
+      rtx_insn *insn;
 
       gcc_assert (current_frame_info.last_slot != GPR_FP
 		  || (!current_frame_info.need_fp
@@ -1924,7 +1986,7 @@ epiphany_issue_rate (void)
    the same cost as a data-dependence.  The return value should be
    the new value for COST.  */
 static int
-epiphany_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+epiphany_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   if (REG_NOTE_KIND (link) == 0)
     {
@@ -2000,7 +2062,7 @@ epiphany_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
       && LEGITIMATE_OFFSET_ADDRESS_P (mode, XEXP ((x), 1)))
     return true;
   if (mode == BLKmode)
-    return true;
+    return epiphany_legitimate_address_p (SImode, x, strict);
   return false;
 }
 
@@ -2274,8 +2336,8 @@ epiphany_optimize_mode_switching (int entity)
   gcc_unreachable ();
 }
 
-int
-epiphany_mode_priority_to_mode (int entity, unsigned priority)
+static int
+epiphany_mode_priority (int entity, int priority)
 {
   if (entity == EPIPHANY_MSW_ENTITY_AND || entity == EPIPHANY_MSW_ENTITY_OR
       || entity== EPIPHANY_MSW_ENTITY_CONFIG)
@@ -2323,7 +2385,7 @@ epiphany_mode_priority_to_mode (int entity, unsigned priority)
 }
 
 int
-epiphany_mode_needed (int entity, rtx insn)
+epiphany_mode_needed (int entity, rtx_insn *insn)
 {
   enum attr_fp_mode mode;
 
@@ -2383,7 +2445,7 @@ epiphany_mode_needed (int entity, rtx insn)
   }
 }
 
-int
+static int
 epiphany_mode_entry_exit (int entity, bool exit)
 {
   int normal_mode = epiphany_normal_fp_mode ;
@@ -2421,7 +2483,7 @@ epiphany_mode_entry_exit (int entity, bool exit)
 }
 
 int
-epiphany_mode_after (int entity, int last_mode, rtx insn)
+epiphany_mode_after (int entity, int last_mode, rtx_insn *insn)
 {
   /* We have too few call-saved registers to hope to keep the masks across
      calls.  */
@@ -2470,8 +2532,21 @@ epiphany_mode_after (int entity, int last_mode, rtx insn)
   return last_mode;
 }
 
+static int
+epiphany_mode_entry (int entity)
+{
+  return epiphany_mode_entry_exit (entity, false);
+}
+
+static int
+epiphany_mode_exit (int entity)
+{
+  return epiphany_mode_entry_exit (entity, true);
+}
+
 void
-emit_set_fp_mode (int entity, int mode, HARD_REG_SET regs_live ATTRIBUTE_UNUSED)
+emit_set_fp_mode (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
+		  HARD_REG_SET regs_live ATTRIBUTE_UNUSED)
 {
   rtx save_cc, cc_reg, mask, src, src2;
   enum attr_fp_mode fp_mode;
@@ -2758,11 +2833,11 @@ epiphany_special_round_type_align (tree type, unsigned computed,
 	continue;
       offset = bit_position (field);
       size = DECL_SIZE (field);
-      if (!host_integerp (offset, 1) || !host_integerp (size, 1)
-	  || TREE_INT_CST_LOW (offset) >= try_align
-	  || TREE_INT_CST_LOW (size) >= try_align)
+      if (!tree_fits_uhwi_p (offset) || !tree_fits_uhwi_p (size)
+	  || tree_to_uhwi (offset) >= try_align
+	  || tree_to_uhwi (size) >= try_align)
 	return try_align;
-      total = TREE_INT_CST_LOW (offset) + TREE_INT_CST_LOW (size);
+      total = tree_to_uhwi (offset) + tree_to_uhwi (size);
       if (total > max)
 	max = total;
     }
@@ -2785,7 +2860,7 @@ epiphany_adjust_field_align (tree field, unsigned computed)
     {
       tree elmsz = TYPE_SIZE (TREE_TYPE (TREE_TYPE (field)));
 
-      if (!host_integerp (elmsz, 1) || tree_low_cst (elmsz, 1) >= 32)
+      if (!tree_fits_uhwi_p (elmsz) || tree_to_uhwi (elmsz) >= 32)
 	return 64;
     }
   return computed;

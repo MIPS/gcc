@@ -13,6 +13,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/textproto"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -52,12 +53,14 @@ type FileSystem interface {
 
 // A File is returned by a FileSystem's Open method and can be
 // served by the FileServer implementation.
+//
+// The methods should behave the same as those on an *os.File.
 type File interface {
-	Close() error
-	Stat() (os.FileInfo, error)
+	io.Closer
+	io.Reader
 	Readdir(count int) ([]os.FileInfo, error)
-	Read([]byte) (int, error)
 	Seek(offset int64, whence int) (int64, error)
+	Stat() (os.FileInfo, error)
 }
 
 func dirList(w ResponseWriter, f File) {
@@ -73,8 +76,11 @@ func dirList(w ResponseWriter, f File) {
 			if d.IsDir() {
 				name += "/"
 			}
-			// TODO htmlescape
-			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", name, name)
+			// name may contain '?' or '#', which must be escaped to remain
+			// part of the URL path, and not indicate the start of a query
+			// string or fragment.
+			url := url.URL{Path: name}
+			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", url.String(), htmlReplacer.Replace(name))
 		}
 	}
 	fmt.Fprintf(w, "</pre>\n")
@@ -105,23 +111,31 @@ func dirList(w ResponseWriter, f File) {
 //
 // Note that *os.File implements the io.ReadSeeker interface.
 func ServeContent(w ResponseWriter, req *Request, name string, modtime time.Time, content io.ReadSeeker) {
-	size, err := content.Seek(0, os.SEEK_END)
-	if err != nil {
-		Error(w, "seeker can't seek", StatusInternalServerError)
-		return
+	sizeFunc := func() (int64, error) {
+		size, err := content.Seek(0, os.SEEK_END)
+		if err != nil {
+			return 0, errSeeker
+		}
+		_, err = content.Seek(0, os.SEEK_SET)
+		if err != nil {
+			return 0, errSeeker
+		}
+		return size, nil
 	}
-	_, err = content.Seek(0, os.SEEK_SET)
-	if err != nil {
-		Error(w, "seeker can't seek", StatusInternalServerError)
-		return
-	}
-	serveContent(w, req, name, modtime, size, content)
+	serveContent(w, req, name, modtime, sizeFunc, content)
 }
+
+// errSeeker is returned by ServeContent's sizeFunc when the content
+// doesn't seek properly. The underlying Seeker's error text isn't
+// included in the sizeFunc reply so it's not sent over HTTP to end
+// users.
+var errSeeker = errors.New("seeker can't seek")
 
 // if name is empty, filename is unknown. (used for mime type, before sniffing)
 // if modtime.IsZero(), modtime is unknown.
 // content must be seeked to the beginning of the file.
-func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, size int64, content io.ReadSeeker) {
+// The sizeFunc is called at most once. Its error, if any, is sent in the HTTP response.
+func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker) {
 	if checkLastModified(w, r, modtime) {
 		return
 	}
@@ -132,16 +146,17 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 
 	code := StatusOK
 
-	// If Content-Type isn't set, use the file's extension to find it.
-	ctype := w.Header().Get("Content-Type")
-	if ctype == "" {
+	// If Content-Type isn't set, use the file's extension to find it, but
+	// if the Content-Type is unset explicitly, do not sniff the type.
+	ctypes, haveType := w.Header()["Content-Type"]
+	var ctype string
+	if !haveType {
 		ctype = mime.TypeByExtension(filepath.Ext(name))
 		if ctype == "" {
 			// read a chunk to decide between utf-8 text and binary
-			var buf [1024]byte
+			var buf [sniffLen]byte
 			n, _ := io.ReadFull(content, buf[:])
-			b := buf[:n]
-			ctype = DetectContentType(b)
+			ctype = DetectContentType(buf[:n])
 			_, err := content.Seek(0, os.SEEK_SET) // rewind to output whole file
 			if err != nil {
 				Error(w, "seeker can't seek", StatusInternalServerError)
@@ -149,6 +164,14 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 			}
 		}
 		w.Header().Set("Content-Type", ctype)
+	} else if len(ctypes) > 0 {
+		ctype = ctypes[0]
+	}
+
+	size, err := sizeFunc()
+	if err != nil {
+		Error(w, err.Error(), StatusInternalServerError)
+		return
 	}
 
 	// handle Content-Range header.
@@ -160,7 +183,7 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 			Error(w, err.Error(), StatusRequestedRangeNotSatisfiable)
 			return
 		}
-		if sumRangesSize(ranges) >= size {
+		if sumRangesSize(ranges) > size {
 			// The total number of bytes in all the ranges
 			// is larger than the size of the file by
 			// itself, so this is probably an attack, or a
@@ -378,7 +401,8 @@ func serveFile(w ResponseWriter, r *Request, fs FileSystem, name string, redirec
 	}
 
 	// serverContent will check modification time
-	serveContent(w, r, d.Name(), d.ModTime(), d.Size(), f)
+	sizeFunc := func() (int64, error) { return d.Size(), nil }
+	serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f)
 }
 
 // localRedirect gives a Moved Permanently response.
@@ -503,7 +527,7 @@ func (w *countingWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// rangesMIMESize returns the nunber of bytes it takes to encode the
+// rangesMIMESize returns the number of bytes it takes to encode the
 // provided ranges as a multipart response.
 func rangesMIMESize(ranges []httpRange, contentType string, contentSize int64) (encSize int64) {
 	var w countingWriter

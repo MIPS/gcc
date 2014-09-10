@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2009-2013 Free Software Foundation, Inc.
+// Copyright (C) 2009-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -1198,7 +1198,7 @@ namespace __gnu_test
 	  try
 	    {
 	      // An exception while assigning might leave the container empty
-	      // making future attemps less relevant. So we copy it before to
+	      // making future attempts less relevant. So we copy it before to
 	      // always assign to a non empty container. It also check for copy
 	      // constructor exception safety at the same time.
 	      _Tp __clone(__container);

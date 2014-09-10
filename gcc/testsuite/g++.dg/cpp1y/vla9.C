@@ -1,5 +1,5 @@
 // PR c++/57408
-// { dg-options "-std=c++1y -pedantic-errors" }
+// { dg-do compile { target c++14 } }
 
 template<typename Callable>
   struct Impl

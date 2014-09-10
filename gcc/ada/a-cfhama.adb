@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2010-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2010-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,9 +33,10 @@ pragma Elaborate_All (Ada.Containers.Hash_Tables.Generic_Bounded_Keys);
 
 with Ada.Containers.Prime_Numbers; use Ada.Containers.Prime_Numbers;
 
-with System;  use type System.Address;
+with System; use type System.Address;
 
 package body Ada.Containers.Formal_Hashed_Maps is
+   pragma SPARK_Mode (Off);
 
    -----------------------
    -- Local Subprograms --
@@ -144,7 +145,7 @@ package body Ada.Containers.Formal_Hashed_Maps is
       procedure Insert_Element (Source_Node : Count_Type) is
          N : Node_Type renames Source.Nodes (Source_Node);
       begin
-         Target.Insert (N.Key, N.Element);
+         Insert (Target, N.Key, N.Element);
       end Insert_Element;
 
       --  Start of processing for Assign
@@ -207,6 +208,10 @@ package body Ada.Containers.Formal_Hashed_Maps is
       Cu     : Cursor;
 
    begin
+      if 0 < Capacity and then Capacity < Source.Capacity then
+         raise Capacity_Error;
+      end if;
+
       Target.Length := Source.Length;
       Target.Free := Source.Free;
 
@@ -230,6 +235,35 @@ package body Ada.Containers.Formal_Hashed_Maps is
 
       return Target;
    end Copy;
+
+   ---------------------
+   -- Current_To_Last --
+   ---------------------
+
+   function Current_To_Last (Container : Map; Current : Cursor) return Map is
+      Curs : Cursor := First (Container);
+      C    : Map (Container.Capacity, Container.Modulus) :=
+               Copy (Container, Container.Capacity);
+      Node : Count_Type;
+
+   begin
+      if Curs = No_Element then
+         Clear (C);
+         return C;
+
+      elsif Current /= No_Element and not Has_Element (Container, Current) then
+         raise Constraint_Error;
+
+      else
+         while Curs.Node /= Current.Node loop
+            Node := Curs.Node;
+            Delete (C, Curs);
+            Curs := Next (Container, (Node => Node));
+         end loop;
+
+         return C;
+      end if;
+   end Current_To_Last;
 
    ---------------------
    -- Default_Modulus --
@@ -425,6 +459,38 @@ package body Ada.Containers.Formal_Hashed_Maps is
       return (Node => Node);
    end First;
 
+   -----------------------
+   -- First_To_Previous --
+   -----------------------
+
+   function First_To_Previous
+     (Container : Map;
+      Current : Cursor) return Map is
+      Curs : Cursor;
+      C    : Map (Container.Capacity, Container.Modulus) :=
+               Copy (Container, Container.Capacity);
+      Node : Count_Type;
+
+   begin
+      Curs := Current;
+
+      if Curs = No_Element then
+         return C;
+
+      elsif not Has_Element (Container, Curs) then
+         raise Constraint_Error;
+
+      else
+         while Curs.Node /= 0 loop
+            Node := Curs.Node;
+            Delete (C, Curs);
+            Curs := Next (Container, (Node => Node));
+         end loop;
+
+         return C;
+      end if;
+   end First_To_Previous;
+
    ----------
    -- Free --
    ----------
@@ -455,12 +521,13 @@ package body Ada.Containers.Formal_Hashed_Maps is
 
    function Has_Element (Container : Map; Position : Cursor) return Boolean is
    begin
-      if Position.Node = 0 or else
-        not Container.Nodes (Position.Node).Has_Element then
+      if Position.Node = 0
+        or else not Container.Nodes (Position.Node).Has_Element
+      then
          return False;
+      else
+         return True;
       end if;
-
-      return True;
    end Has_Element;
 
    ---------------
@@ -590,36 +657,6 @@ package body Ada.Containers.Formal_Hashed_Maps is
 
       return Container.Nodes (Position.Node).Key;
    end Key;
-
-   ----------
-   -- Left --
-   ----------
-
-   function Left (Container : Map; Position : Cursor) return Map is
-      Curs : Cursor;
-      C    : Map (Container.Capacity, Container.Modulus) :=
-        Copy (Container, Container.Capacity);
-      Node : Count_Type;
-
-   begin
-      Curs := Position;
-
-      if Curs = No_Element then
-         return C;
-      end if;
-
-      if not Has_Element (Container, Curs) then
-         raise Constraint_Error;
-      end if;
-
-      while Curs.Node /= 0 loop
-         Node := Curs.Node;
-         Delete (C, Curs);
-         Curs := Next (Container, (Node => Node));
-      end loop;
-
-      return C;
-   end Left;
 
    ------------
    -- Length --
@@ -803,35 +840,6 @@ package body Ada.Containers.Formal_Hashed_Maps is
       end if;
    end Reserve_Capacity;
 
-   -----------
-   -- Right --
-   -----------
-
-   function Right (Container : Map; Position : Cursor) return Map is
-      Curs : Cursor := First (Container);
-      C    : Map (Container.Capacity, Container.Modulus) :=
-        Copy (Container, Container.Capacity);
-      Node : Count_Type;
-
-   begin
-      if Curs = No_Element then
-         Clear (C);
-         return C;
-      end if;
-
-      if Position /= No_Element and not Has_Element (Container, Position) then
-         raise Constraint_Error;
-      end if;
-
-      while Curs.Node /= Position.Node loop
-         Node := Curs.Node;
-         Delete (C, Curs);
-         Curs := Next (Container, (Node => Node));
-      end loop;
-
-      return C;
-   end Right;
-
    --------------
    -- Set_Next --
    --------------
@@ -854,12 +862,12 @@ package body Ada.Containers.Formal_Hashed_Maps is
          return False;
       end if;
 
-      while CuL.Node /= 0 or CuR.Node /= 0 loop
-         if CuL.Node /= CuR.Node or else
-           (Left.Nodes (CuL.Node).Element /=
-              Right.Nodes (CuR.Node).Element or
-              Left.Nodes (CuL.Node).Key /=
-              Right.Nodes (CuR.Node).Key) then
+      while CuL.Node /= 0 or else CuR.Node /= 0 loop
+         if CuL.Node /= CuR.Node
+           or else
+             Left.Nodes (CuL.Node).Element /= Right.Nodes (CuR.Node).Element
+           or else Left.Nodes (CuL.Node).Key /= Right.Nodes (CuR.Node).Key
+         then
             return False;
          end if;
 

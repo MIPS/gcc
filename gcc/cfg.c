@@ -1,5 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -68,18 +68,18 @@ void
 init_flow (struct function *the_fun)
 {
   if (!the_fun->cfg)
-    the_fun->cfg = ggc_alloc_cleared_control_flow_graph ();
-  n_edges_for_function (the_fun) = 0;
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)
-    = ggc_alloc_cleared_basic_block_def ();
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)
-    = ggc_alloc_cleared_basic_block_def ();
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = EXIT_BLOCK;
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->next_bb
-    = EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun);
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->prev_bb
-    = ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun);
+    the_fun->cfg = ggc_cleared_alloc<control_flow_graph> ();
+  n_edges_for_fn (the_fun) = 0;
+  ENTRY_BLOCK_PTR_FOR_FN (the_fun)
+    = ggc_cleared_alloc<basic_block_def> ();
+  ENTRY_BLOCK_PTR_FOR_FN (the_fun)->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR_FOR_FN (the_fun)
+    = ggc_cleared_alloc<basic_block_def> ();
+  EXIT_BLOCK_PTR_FOR_FN (the_fun)->index = EXIT_BLOCK;
+  ENTRY_BLOCK_PTR_FOR_FN (the_fun)->next_bb
+    = EXIT_BLOCK_PTR_FOR_FN (the_fun);
+  EXIT_BLOCK_PTR_FOR_FN (the_fun)->prev_bb
+    = ENTRY_BLOCK_PTR_FOR_FN (the_fun);
 }
 
 /* Helper function for remove_edge and clear_edges.  Frees edge structure
@@ -88,7 +88,7 @@ init_flow (struct function *the_fun)
 static void
 free_edge (edge e)
 {
-  n_edges--;
+  n_edges_for_fn (cfun)--;
   ggc_free (e);
 }
 
@@ -101,7 +101,7 @@ clear_edges (void)
   edge e;
   edge_iterator ei;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
 	free_edge (e);
@@ -109,12 +109,12 @@ clear_edges (void)
       vec_safe_truncate (bb->preds, 0);
     }
 
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
     free_edge (e);
-  vec_safe_truncate (EXIT_BLOCK_PTR->preds, 0);
-  vec_safe_truncate (ENTRY_BLOCK_PTR->succs, 0);
+  vec_safe_truncate (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds, 0);
+  vec_safe_truncate (ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs, 0);
 
-  gcc_assert (!n_edges);
+  gcc_assert (!n_edges_for_fn (cfun));
 }
 
 /* Allocate memory for basic_block.  */
@@ -123,7 +123,7 @@ basic_block
 alloc_block (void)
 {
   basic_block bb;
-  bb = ggc_alloc_cleared_basic_block_def ();
+  bb = ggc_cleared_alloc<basic_block_def> ();
   return bb;
 }
 
@@ -153,8 +153,8 @@ compact_blocks (void)
 {
   int i;
 
-  SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
-  SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
+  SET_BASIC_BLOCK_FOR_FN (cfun, ENTRY_BLOCK, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  SET_BASIC_BLOCK_FOR_FN (cfun, EXIT_BLOCK, EXIT_BLOCK_PTR_FOR_FN (cfun));
 
   if (df)
     df_compact_blocks ();
@@ -163,18 +163,18 @@ compact_blocks (void)
       basic_block bb;
 
       i = NUM_FIXED_BLOCKS;
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
-	  SET_BASIC_BLOCK (i, bb);
+	  SET_BASIC_BLOCK_FOR_FN (cfun, i, bb);
 	  bb->index = i;
 	  i++;
 	}
-      gcc_assert (i == n_basic_blocks);
+      gcc_assert (i == n_basic_blocks_for_fn (cfun));
 
-      for (; i < last_basic_block; i++)
-	SET_BASIC_BLOCK (i, NULL);
+      for (; i < last_basic_block_for_fn (cfun); i++)
+	SET_BASIC_BLOCK_FOR_FN (cfun, i, NULL);
     }
-  last_basic_block = n_basic_blocks;
+  last_basic_block_for_fn (cfun) = n_basic_blocks_for_fn (cfun);
 }
 
 /* Remove block B from the basic block array.  */
@@ -183,8 +183,8 @@ void
 expunge_block (basic_block b)
 {
   unlink_block (b);
-  SET_BASIC_BLOCK (b->index, NULL);
-  n_basic_blocks--;
+  SET_BASIC_BLOCK_FOR_FN (cfun, b->index, NULL);
+  n_basic_blocks_for_fn (cfun)--;
   /* We should be able to ggc_free here, but we are not.
      The dead SSA_NAMES are left pointing to dead statements that are pointing
      to dead basic blocks making garbage collector to die.
@@ -261,8 +261,8 @@ edge
 unchecked_make_edge (basic_block src, basic_block dst, int flags)
 {
   edge e;
-  e = ggc_alloc_cleared_edge_def ();
-  n_edges++;
+  e = ggc_cleared_alloc<edge_def> ();
+  n_edges_for_fn (cfun)++;
 
   e->src = src;
   e->dest = dst;
@@ -282,8 +282,8 @@ edge
 cached_make_edge (sbitmap edge_cache, basic_block src, basic_block dst, int flags)
 {
   if (edge_cache == NULL
-      || src == ENTRY_BLOCK_PTR
-      || dst == EXIT_BLOCK_PTR)
+      || src == ENTRY_BLOCK_PTR_FOR_FN (cfun)
+      || dst == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return make_edge (src, dst, flags);
 
   /* Does the requested edge already exist?  */
@@ -387,7 +387,7 @@ clear_bb_flags (void)
 {
   basic_block bb;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL, next_bb)
     bb->flags &= BB_FLAGS_TO_PRESERVE;
 }
 
@@ -408,10 +408,10 @@ check_bb_profile (basic_block bb, FILE * file, int indent, int flags)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  if (profile_status_for_function (fun) == PROFILE_ABSENT)
+  if (profile_status_for_fn (fun) == PROFILE_ABSENT)
     return;
 
-  if (bb != EXIT_BLOCK_PTR_FOR_FUNCTION (fun))
+  if (bb != EXIT_BLOCK_PTR_FOR_FN (fun))
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
 	sum += e->probability;
@@ -428,7 +428,7 @@ check_bb_profile (basic_block bb, FILE * file, int indent, int flags)
 		 (flags & TDF_COMMENT) ? ";; " : "", s_indent,
 		 (int) lsum, (int) bb->count);
     }
-    if (bb != ENTRY_BLOCK_PTR_FOR_FUNCTION (fun))
+    if (bb != ENTRY_BLOCK_PTR_FOR_FN (fun))
     {
       sum = 0;
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -473,8 +473,6 @@ dump_edge_info (FILE *file, edge e, int flags, int do_succ)
       && (flags & TDF_SLIM) == 0)
     do_details = true;
 
-  /* ENTRY_BLOCK_PTR/EXIT_BLOCK_PTR depend on cfun.
-     Compare against ENTRY_BLOCK/EXIT_BLOCK to avoid that dependency.  */
   if (side->index == ENTRY_BLOCK)
     fputs (" ENTRY", file);
   else if (side->index == EXIT_BLOCK)
@@ -488,7 +486,7 @@ dump_edge_info (FILE *file, edge e, int flags, int do_succ)
   if (e->count && do_details)
     {
       fputs (" count:", file);
-      fprintf (file, HOST_WIDEST_INT_PRINT_DEC, e->count);
+      fprintf (file, "%"PRId64, e->count);
     }
 
   if (e->flags && do_details)
@@ -578,7 +576,7 @@ alloc_aux_for_blocks (int size)
     {
       basic_block bb;
 
-      FOR_ALL_BB (bb)
+      FOR_ALL_BB_FN (bb, cfun)
 	alloc_aux_for_block (bb, size);
     }
 }
@@ -590,7 +588,7 @@ clear_aux_for_blocks (void)
 {
   basic_block bb;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     bb->aux = NULL;
 }
 
@@ -641,7 +639,8 @@ alloc_aux_for_edges (int size)
     {
       basic_block bb;
 
-      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
+		      EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
 	{
 	  edge e;
 	  edge_iterator ei;
@@ -660,7 +659,8 @@ clear_aux_for_edges (void)
   basic_block bb;
   edge e;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
       edge_iterator ei;
       FOR_EACH_EDGE (e, ei, bb->succs)
@@ -690,7 +690,7 @@ debug_bb (basic_block bb)
 DEBUG_FUNCTION basic_block
 debug_bb_n (int n)
 {
-  basic_block bb = BASIC_BLOCK (n);
+  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, n);
   debug_bb (bb);
   return bb;
 }
@@ -734,8 +734,8 @@ dump_bb_info (FILE *outf, basic_block bb, int indent, int flags,
       if (flags & TDF_DETAILS)
 	{
 	  struct function *fun = DECL_STRUCT_FUNCTION (current_function_decl);
-	  fprintf (outf, ", count " HOST_WIDEST_INT_PRINT_DEC,
-		   (HOST_WIDEST_INT) bb->count);
+	  fprintf (outf, ", count " "%"PRId64,
+		   (int64_t) bb->count);
 	  fprintf (outf, ", freq %i", bb->frequency);
 	  if (maybe_hot_bb_p (fun, bb))
 	    fputs (", maybe hot", outf);
@@ -743,11 +743,10 @@ dump_bb_info (FILE *outf, basic_block bb, int indent, int flags,
 	    fputs (", probably never executed", outf);
 	}
       fputc ('\n', outf);
-      if (TDF_DETAILS)
-	check_bb_profile (bb, outf, indent, flags);
 
       if (flags & TDF_DETAILS)
 	{
+	  check_bb_profile (bb, outf, indent, flags);
 	  if (flags & TDF_COMMENT)
 	    fputs (";; ", outf);
 	  fprintf (outf, "%s prev block ", s_indent);
@@ -828,7 +827,7 @@ brief_dump_cfg (FILE *file, int flags)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       dump_bb_info (file, bb, 0,
 		    flags & (TDF_COMMENT | TDF_DETAILS),
@@ -962,7 +961,7 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
 
 /* numbers smaller than this value are safe to multiply without getting
    64bit overflow.  */
-#define MAX_SAFE_MULTIPLIER (1 << (sizeof (HOST_WIDEST_INT) * 4 - 1))
+#define MAX_SAFE_MULTIPLIER (1 << (sizeof (int64_t) * 4 - 1))
 
 /* Multiply all frequencies of basic blocks in array BBS of length NBBS
    by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
@@ -1039,11 +1038,11 @@ bb_copy_hasher::equal (const value_type *data, const compare_type *data2)
 
 /* Data structures used to maintain mapping between basic blocks and
    copies.  */
-static hash_table <bb_copy_hasher> bb_original;
-static hash_table <bb_copy_hasher> bb_copy;
+static hash_table<bb_copy_hasher> *bb_original;
+static hash_table<bb_copy_hasher> *bb_copy;
 
 /* And between loops and copies.  */
-static hash_table <bb_copy_hasher> loop_copy;
+static hash_table<bb_copy_hasher> *loop_copy;
 static alloc_pool original_copy_bb_pool;
 
 
@@ -1056,9 +1055,9 @@ initialize_original_copy_tables (void)
   original_copy_bb_pool
     = create_alloc_pool ("original_copy",
 			 sizeof (struct htab_bb_copy_original_entry), 10);
-  bb_original.create (10);
-  bb_copy.create (10);
-  loop_copy.create (10);
+  bb_original = new hash_table<bb_copy_hasher> (10);
+  bb_copy = new hash_table<bb_copy_hasher> (10);
+  loop_copy = new hash_table<bb_copy_hasher> (10);
 }
 
 /* Free the data structures to maintain mapping between blocks and
@@ -1067,9 +1066,12 @@ void
 free_original_copy_tables (void)
 {
   gcc_assert (original_copy_bb_pool);
-  bb_copy.dispose ();
-  bb_original.dispose ();
-  loop_copy.dispose ();
+  delete bb_copy;
+  bb_copy = NULL;
+  delete bb_original;
+  bb_copy = NULL;
+  delete loop_copy;
+  loop_copy = NULL;
   free_alloc_pool (original_copy_bb_pool);
   original_copy_bb_pool = NULL;
 }
@@ -1077,7 +1079,7 @@ free_original_copy_tables (void)
 /* Removes the value associated with OBJ from table TAB.  */
 
 static void
-copy_original_table_clear (hash_table <bb_copy_hasher> tab, unsigned obj)
+copy_original_table_clear (hash_table<bb_copy_hasher> *tab, unsigned obj)
 {
   htab_bb_copy_original_entry **slot;
   struct htab_bb_copy_original_entry key, *elt;
@@ -1086,12 +1088,12 @@ copy_original_table_clear (hash_table <bb_copy_hasher> tab, unsigned obj)
     return;
 
   key.index1 = obj;
-  slot = tab.find_slot (&key, NO_INSERT);
+  slot = tab->find_slot (&key, NO_INSERT);
   if (!slot)
     return;
 
   elt = *slot;
-  tab.clear_slot (slot);
+  tab->clear_slot (slot);
   pool_free (original_copy_bb_pool, elt);
 }
 
@@ -1099,7 +1101,7 @@ copy_original_table_clear (hash_table <bb_copy_hasher> tab, unsigned obj)
    Do nothing when data structures are not initialized.  */
 
 static void
-copy_original_table_set (hash_table <bb_copy_hasher> tab,
+copy_original_table_set (hash_table<bb_copy_hasher> *tab,
 			 unsigned obj, unsigned val)
 {
   struct htab_bb_copy_original_entry **slot;
@@ -1109,7 +1111,7 @@ copy_original_table_set (hash_table <bb_copy_hasher> tab,
     return;
 
   key.index1 = obj;
-  slot = tab.find_slot (&key, INSERT);
+  slot = tab->find_slot (&key, INSERT);
   if (!*slot)
     {
       *slot = (struct htab_bb_copy_original_entry *)
@@ -1137,9 +1139,9 @@ get_bb_original (basic_block bb)
   gcc_assert (original_copy_bb_pool);
 
   key.index1 = bb->index;
-  entry = bb_original.find (&key);
+  entry = bb_original->find (&key);
   if (entry)
-    return BASIC_BLOCK (entry->index2);
+    return BASIC_BLOCK_FOR_FN (cfun, entry->index2);
   else
     return NULL;
 }
@@ -1162,9 +1164,9 @@ get_bb_copy (basic_block bb)
   gcc_assert (original_copy_bb_pool);
 
   key.index1 = bb->index;
-  entry = bb_copy.find (&key);
+  entry = bb_copy->find (&key);
   if (entry)
-    return BASIC_BLOCK (entry->index2);
+    return BASIC_BLOCK_FOR_FN (cfun, entry->index2);
   else
     return NULL;
 }
@@ -1192,7 +1194,7 @@ get_loop_copy (struct loop *loop)
   gcc_assert (original_copy_bb_pool);
 
   key.index1 = loop->num;
-  entry = loop_copy.find (&key);
+  entry = loop_copy->find (&key);
   if (entry)
     return get_loop (cfun, entry->index2);
   else

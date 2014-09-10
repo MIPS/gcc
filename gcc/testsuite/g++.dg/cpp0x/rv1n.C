@@ -2,8 +2,7 @@
 
 // Test overload resolution among reference types
 
-// { dg-do compile }
-// { dg-options "-std=c++11" }
+// { dg-do compile { target c++11 } }
 
 template <bool> struct sa;
 template <> struct sa<true> {};
@@ -38,13 +37,13 @@ int test1_1()
     const          A ca = a;	// { dg-error "deleted" }
           volatile A va;
     const volatile A cva = a;	// { dg-error "deleted" }
-    sink_1_1(ca);           // { dg-error "invalid initialization" }
-    sink_1_1(va);           // { dg-error "invalid initialization" }
-    sink_1_1(cva);          // { dg-error "invalid initialization" }
-    sink_1_1(source());     // { dg-error "invalid initialization" }
-    sink_1_1(c_source());   // { dg-error "invalid initialization" }
-    sink_1_1(v_source());   // { dg-error "invalid initialization" }
-    sink_1_1(cv_source());  // { dg-error "invalid initialization" }
+    sink_1_1(ca);           // { dg-error "" }
+    sink_1_1(va);           // { dg-error "" }
+    sink_1_1(cva);          // { dg-error "" }
+    sink_1_1(source());     // { dg-error "" }
+    sink_1_1(c_source());   // { dg-error "" }
+    sink_1_1(v_source());   // { dg-error "" }
+    sink_1_1(cv_source());  // { dg-error "" }
     return 0;
 }
 
@@ -56,10 +55,10 @@ int test1_2()
     const          A ca = a; // { dg-error "deleted" }
           volatile A va;
     const volatile A cva = a; // { dg-error "deleted" }
-    sink_1_2(va);           // { dg-error "invalid initialization" }
-    sink_1_2(cva);          // { dg-error "invalid initialization" }
-    sink_1_2(v_source());   // { dg-error "invalid initialization" }
-    sink_1_2(cv_source());  // { dg-error "invalid initialization" }
+    sink_1_2(va);           // { dg-error "" }
+    sink_1_2(cva);          // { dg-error "" }
+    sink_1_2(v_source());   // { dg-error "" }
+    sink_1_2(cv_source());  // { dg-error "" }
     return 0;
 }
 
@@ -71,12 +70,12 @@ int test1_3()
     const          A ca = a; // { dg-error "deleted" }
           volatile A va;
     const volatile A cva = a; // { dg-error "deleted" }
-    sink_1_3(ca);           // { dg-error "invalid initialization" }
-    sink_1_3(cva);          // { dg-error "invalid initialization" }
-    sink_1_3(source());     // { dg-error "invalid initialization" }
-    sink_1_3(c_source());   // { dg-error "invalid initialization" }
-    sink_1_3(v_source());   // { dg-error "invalid initialization" }
-    sink_1_3(cv_source());  // { dg-error "invalid initialization" }
+    sink_1_3(ca);           // { dg-error "" }
+    sink_1_3(cva);          // { dg-error "" }
+    sink_1_3(source());     // { dg-error "" }
+    sink_1_3(c_source());   // { dg-error "" }
+    sink_1_3(v_source());   // { dg-error "" }
+    sink_1_3(cv_source());  // { dg-error "" }
     return 0;
 }
 
@@ -88,10 +87,10 @@ int test1_4()
     const          A ca = a; // { dg-error "deleted" }
           volatile A va;
     const volatile A cva = a; // { dg-error "deleted" }
-    sink_1_4(source());     // { dg-error "invalid initialization" }
-    sink_1_4(c_source());   // { dg-error "invalid initialization" }
-    sink_1_4(v_source());   // { dg-error "invalid initialization" }
-    sink_1_4(cv_source());  // { dg-error "invalid initialization" }
+    sink_1_4(source());     // { dg-error "" }
+    sink_1_4(c_source());   // { dg-error "" }
+    sink_1_4(v_source());   // { dg-error "" }
+    sink_1_4(cv_source());  // { dg-error "" }
     return 0;
 }
 
@@ -104,12 +103,12 @@ int test1_5()
           volatile A va;
     const volatile A cva = a; // { dg-error "deleted" }
     sink_1_5(a);		// { dg-error "lvalue" }
-    sink_1_5(ca);           // { dg-error "invalid initialization" }
-    sink_1_5(va);           // { dg-error "invalid initialization" }
-    sink_1_5(cva);          // { dg-error "invalid initialization" }
-    sink_1_5(c_source());   // { dg-error "invalid initialization" }
-    sink_1_5(v_source());   // { dg-error "invalid initialization" }
-    sink_1_5(cv_source());  // { dg-error "invalid initialization" }
+    sink_1_5(ca);           // { dg-error "" }
+    sink_1_5(va);           // { dg-error "" }
+    sink_1_5(cva);          // { dg-error "" }
+    sink_1_5(c_source());   // { dg-error "" }
+    sink_1_5(v_source());   // { dg-error "" }
+    sink_1_5(cv_source());  // { dg-error "" }
     return 0;
 }
 
@@ -123,10 +122,10 @@ int test1_6()
     const volatile A cva = a; // { dg-error "deleted" }
     sink_1_6(a);		// { dg-error "lvalue" }
     sink_1_6(ca);		// { dg-error "lvalue" }
-    sink_1_6(va);           // { dg-error "invalid initialization" }
-    sink_1_6(cva);          // { dg-error "invalid initialization" }
-    sink_1_6(v_source());   // { dg-error "invalid initialization" }
-    sink_1_6(cv_source());  // { dg-error "invalid initialization" }
+    sink_1_6(va);           // { dg-error "" }
+    sink_1_6(cva);          // { dg-error "" }
+    sink_1_6(v_source());   // { dg-error "" }
+    sink_1_6(cv_source());  // { dg-error "" }
     return 0;
 }
 
@@ -139,11 +138,11 @@ int test1_7()
           volatile A va;
     const volatile A cva = a; // { dg-error "deleted" }
     sink_1_7(a);	    // { dg-error "lvalue" }
-    sink_1_7(ca);           // { dg-error "invalid initialization" }
+    sink_1_7(ca);           // { dg-error "" }
     sink_1_7(va);	    // { dg-error "lvalue" }
-    sink_1_7(cva);          // { dg-error "invalid initialization" }
-    sink_1_7(c_source());   // { dg-error "invalid initialization" }
-    sink_1_7(cv_source());  // { dg-error "invalid initialization" }
+    sink_1_7(cva);          // { dg-error "" }
+    sink_1_7(c_source());   // { dg-error "" }
+    sink_1_7(cv_source());  // { dg-error "" }
     return 0;
 }
 

@@ -1,11 +1,11 @@
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* powerpc-ibm-aix* } }
-// { dg-options " -std=gnu++1y -pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* powerpc-ibm-aix* } }
+// { dg-do run { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++1y -pthread" { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* powerpc-ibm-aix* } }
 // { dg-options " -std=gnu++1y -pthreads" { target *-*-solaris* } }
 // { dg-options " -std=gnu++1y " { target *-*-cygwin *-*-darwin* } }
 // { dg-require-cstdint "" }
 // { dg-require-gthreads-timed "" }
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,7 +31,7 @@
 int main()
 {
   bool test __attribute__((unused)) = true;
-  typedef std::shared_mutex mutex_type;
+  typedef std::shared_timed_mutex mutex_type;
   typedef std::shared_lock<mutex_type> lock_type;
 
   try

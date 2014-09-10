@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build !windows,!plan9
+// +build !windows,!nacl,!plan9
 
 package syslog
 
@@ -23,7 +23,7 @@ func unixSyslog() (conn serverConn, err error) {
 			if err != nil {
 				continue
 			} else {
-				return netConn{conn}, nil
+				return &netConn{conn: conn, local: true}, nil
 			}
 		}
 	}

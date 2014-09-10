@@ -1,6 +1,6 @@
 /* Collect static initialization info into data structures that can be
    traversed by C++ initialization and finalization routines.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Chris Smith (csmith@convex.com).
    Heavily modified by Michael Meissner (meissner@cygnus.com),
    Per Bothner (bothner@cygnus.com), and John Gilmore (gnu@cygnus.com).
@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "collect2.h"
 #include "collect2-aix.h"
+#include "collect-utils.h"
 #include "diagnostic.h"
 #include "demangle.h"
 #include "obstack.h"
@@ -175,13 +176,13 @@ struct head
   int number;
 };
 
-bool vflag;				/* true if -v or --version */ 
 static int rflag;			/* true if -r */
 static int strip_flag;			/* true if -s */
 #ifdef COLLECT_EXPORT_LIST
 static int export_flag;                 /* true if -bE */
 static int aix64_flag;			/* true if -b64 */
 static int aixrtl_flag;			/* true if -brtl */
+static int aixlazy_flag;               /* true if -blazy */
 #endif
 
 enum lto_mode_d {
@@ -191,9 +192,12 @@ enum lto_mode_d {
 };
 
 /* Current LTO mode.  */
+#ifdef ENABLE_LTO
+static enum lto_mode_d lto_mode = LTO_MODE_WHOPR;
+#else
 static enum lto_mode_d lto_mode = LTO_MODE_NONE;
+#endif
 
-bool debug;				/* true if -debug */
 bool helpflag;			/* true if --help */
 
 static int shared_obj;			/* true if -shared */
@@ -215,6 +219,13 @@ static const char *strip_file_name;		/* pathname of strip */
 const char *c_file_name;		/* pathname of gcc */
 static char *initname, *fininame;	/* names of init and fini funcs */
 
+
+#ifdef TARGET_AIX_VERSION
+static char *aix_shared_initname;
+static char *aix_shared_fininame;       /* init/fini names as per the scheme
+					   described in config/rs6000/aix.h */
+#endif
+
 static struct head constructors;	/* list of constructors found */
 static struct head destructors;		/* list of destructors found */
 #ifdef COLLECT_EXPORT_LIST
@@ -222,8 +233,7 @@ static struct head exports;		/* list of exported symbols */
 #endif
 static struct head frame_tables;	/* list of frame unwind info tables */
 
-static bool at_file_supplied;		/* Whether to use @file arguments */
-static char *response_file;		/* Name of any current response file */
+bool at_file_supplied;		/* Whether to use @file arguments */
 
 struct obstack temporary_obstack;
 char * temporary_firstobj;
@@ -279,15 +289,16 @@ typedef enum {
   SYM_DTOR = 2,  /* destructor  */
   SYM_INIT = 3,  /* shared object routine that calls all the ctors  */
   SYM_FINI = 4,  /* shared object routine that calls all the dtors  */
-  SYM_DWEH = 5   /* DWARF exception handling table  */
+  SYM_DWEH = 5,  /* DWARF exception handling table  */
+  SYM_AIXI = 6,
+  SYM_AIXD = 7
 } symkind;
+
+const char tool_name[] = "collect2";
 
 static symkind is_ctor_dtor (const char *);
 
 static void handler (int);
-static void do_wait (const char *, struct pex_obj *);
-static void fork_execute (const char *, char **);
-static void maybe_unlink (const char *);
 static void maybe_unlink_list (char **);
 static void add_to_list (struct head *, const char *);
 static int extract_init_priority (const char *);
@@ -340,6 +351,8 @@ enum scanfilter_masks {
   SCAN_INIT = 1 << SYM_INIT,
   SCAN_FINI = 1 << SYM_FINI,
   SCAN_DWEH = 1 << SYM_DWEH,
+  SCAN_AIXI = 1 << SYM_AIXI,
+  SCAN_AIXD = 1 << SYM_AIXD,
   SCAN_ALL  = ~0
 };
 
@@ -366,8 +379,8 @@ static void scan_prog_file (const char *, scanpass, scanfilter);
 
 /* Delete tempfiles and exit function.  */
 
-static void
-collect_atexit (void)
+void
+tool_cleanup (bool from_signal)
 {
   if (c_file != 0 && c_file[0])
     maybe_unlink (c_file);
@@ -385,32 +398,33 @@ collect_atexit (void)
 
   if (ldout != 0 && ldout[0])
     {
-      dump_ld_file (ldout, stdout);
+      if (!from_signal)
+	dump_ld_file (ldout, stdout);
       maybe_unlink (ldout);
     }
 
   if (lderrout != 0 && lderrout[0])
     {
-      dump_ld_file (lderrout, stderr);
+      if (!from_signal)
+	dump_ld_file (lderrout, stderr);
       maybe_unlink (lderrout);
     }
-
-  if (response_file)
-    maybe_unlink (response_file);
 }
 
-
-/* Notify user of a non-error.  */
-void
-notice (const char *cmsgid, ...)
+static void
+collect_atexit (void)
 {
-  va_list ap;
-
-  va_start (ap, cmsgid);
-  vfprintf (stderr, _(cmsgid), ap);
-  va_end (ap);
+  tool_cleanup (false);
 }
 
+static void
+handler (int signo)
+{
+  tool_cleanup (true);
+
+  signal (signo, SIG_DFL);
+  raise (signo);
+}
 /* Notify user of a non-error, without translating the format string.  */
 void
 notice_translated (const char *cmsgid, ...)
@@ -421,37 +435,6 @@ notice_translated (const char *cmsgid, ...)
   vfprintf (stderr, cmsgid, ap);
   va_end (ap);
 }
-
-static void
-handler (int signo)
-{
-  if (c_file != 0 && c_file[0])
-    maybe_unlink (c_file);
-
-  if (o_file != 0 && o_file[0])
-    maybe_unlink (o_file);
-
-  if (ldout != 0 && ldout[0])
-    maybe_unlink (ldout);
-
-  if (lderrout != 0 && lderrout[0])
-    maybe_unlink (lderrout);
-
-#ifdef COLLECT_EXPORT_LIST
-  if (export_file != 0 && export_file[0])
-    maybe_unlink (export_file);
-#endif
-
-  if (lto_o_files)
-    maybe_unlink_list (lto_o_files);
-
-  if (response_file)
-    maybe_unlink (response_file);
-
-  signal (signo, SIG_DFL);
-  raise (signo);
-}
-
 
 int
 file_exists (const char *name)
@@ -589,6 +572,10 @@ is_ctor_dtor (const char *s)
     { "GLOBAL__F_", sizeof ("GLOBAL__F_")-1, SYM_DWEH, 0 },
     { "GLOBAL__FI_", sizeof ("GLOBAL__FI_")-1, SYM_INIT, 0 },
     { "GLOBAL__FD_", sizeof ("GLOBAL__FD_")-1, SYM_FINI, 0 },
+#ifdef TARGET_AIX_VERSION
+    { "GLOBAL__AIXI_", sizeof ("GLOBAL__AIXI_")-1, SYM_AIXI, 0 },
+    { "GLOBAL__AIXD_", sizeof ("GLOBAL__AIXD_")-1, SYM_AIXD, 0 },
+#endif
     { NULL, 0, SYM_REGULAR, 0 }
   };
 
@@ -735,7 +722,8 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
       *lto_c_ptr = NULL;
 
       /* Run the LTO back end.  */
-      pex = collect_execute (prog, lto_c_argv, NULL, NULL, PEX_SEARCH);
+      pex = collect_execute (prog, lto_c_argv, NULL, NULL, PEX_SEARCH,
+			     at_file_supplied);
       {
 	int c;
 	FILE *stream;
@@ -815,7 +803,7 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
 
       /* Run the linker again, this time replacing the object files
          optimized by the LTO with the temporary file generated by the LTO.  */
-      fork_execute ("ld", out_lto_ld_argv);
+      fork_execute ("ld", out_lto_ld_argv, HAVE_GNU_LD && at_file_supplied);
       post_ld_pass (true);
       free (lto_ld_argv);
 
@@ -825,9 +813,11 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
     {
       /* Our caller is relying on us to do the link
          even though there is no LTO back end work to be done.  */
-      fork_execute ("ld", lto_ld_argv);
+      fork_execute ("ld", lto_ld_argv, HAVE_GNU_LD && at_file_supplied);
       post_ld_pass (false);
     }
+  else
+    post_ld_pass (true);
 }
 
 /* Main program.  */
@@ -1002,15 +992,11 @@ main (int argc, char **argv)
 	  debug = true;
         else if (! strcmp (argv[i], "-flto-partition=none"))
 	  no_partition = true;
-        else if ((! strncmp (argv[i], "-flto=", 6)
-		  || ! strcmp (argv[i], "-flto")) && ! use_plugin)
-	  lto_mode = LTO_MODE_WHOPR;
 	else if (!strncmp (argv[i], "-fno-lto", 8))
 	  lto_mode = LTO_MODE_NONE;
         else if (! strcmp (argv[i], "-plugin"))
 	  {
 	    use_plugin = true;
-	    lto_mode = LTO_MODE_NONE;
 	    if (selected_linker == USE_DEFAULT_LD)
 	      selected_linker = USE_PLUGIN_LD;
 	  }
@@ -1034,10 +1020,14 @@ main (int argc, char **argv)
 	    aixrtl_flag = 1;
 	else if (strcmp (argv[i], "-bnortl") == 0)
 	    aixrtl_flag = 0;
+	else if (strcmp (argv[i], "-blazy") == 0)
+	    aixlazy_flag = 1;
 #endif
       }
-    vflag = debug;
+    verbose = debug;
     find_file_set_debug (debug);
+    if (use_plugin)
+      lto_mode = LTO_MODE_NONE;
     if (no_partition && lto_mode == LTO_MODE_WHOPR)
       lto_mode = LTO_MODE_LTO;
   }
@@ -1103,7 +1093,35 @@ main (int argc, char **argv)
   /* Maybe we know the right file to use (if not cross).  */
   ld_file_name = 0;
 #ifdef DEFAULT_LINKER
-  if (access (DEFAULT_LINKER, X_OK) == 0)
+  if (selected_linker == USE_BFD_LD || selected_linker == USE_GOLD_LD)
+    {
+      char *linker_name;
+# ifdef HOST_EXECUTABLE_SUFFIX
+      int len = (sizeof (DEFAULT_LINKER)
+		 - sizeof (HOST_EXECUTABLE_SUFFIX));
+      linker_name = NULL;
+      if (len > 0)
+	{
+	  char *default_linker = xstrdup (DEFAULT_LINKER);
+	  /* Strip HOST_EXECUTABLE_SUFFIX if DEFAULT_LINKER contains
+	     HOST_EXECUTABLE_SUFFIX.  */
+	  if (! strcmp (&default_linker[len], HOST_EXECUTABLE_SUFFIX))
+	    {
+	      default_linker[len] = '\0';
+	      linker_name = concat (default_linker,
+				    &ld_suffixes[selected_linker][2],
+				    HOST_EXECUTABLE_SUFFIX, NULL);
+	    }
+	}
+      if (linker_name == NULL)
+# endif
+      linker_name = concat (DEFAULT_LINKER,
+			    &ld_suffixes[selected_linker][2],
+			    NULL);
+      if (access (linker_name, X_OK) == 0)
+	ld_file_name = linker_name;
+    }
+  if (ld_file_name == 0 && access (DEFAULT_LINKER, X_OK) == 0)
     ld_file_name = DEFAULT_LINKER;
   if (ld_file_name == 0)
 #endif
@@ -1401,7 +1419,7 @@ main (int argc, char **argv)
 
 	    case 'v':
 	      if (arg[2] == '\0')
-		vflag = true;
+		verbose = true;
 	      break;
 
 	    case '-':
@@ -1433,7 +1451,7 @@ main (int argc, char **argv)
 	      else if (strncmp (arg, "--sysroot=", 10) == 0)
 		target_system_root = arg + 10;
 	      else if (strcmp (arg, "--version") == 0)
-		vflag = true;
+		verbose = true;
 	      else if (strcmp (arg, "--help") == 0)
 		helpflag = true;
 	      break;
@@ -1528,7 +1546,7 @@ main (int argc, char **argv)
   *c_ptr++ = c_file;
   *c_ptr = *ld1 = *object = (char *) 0;
 
-  if (vflag)
+  if (verbose)
     notice ("collect2 version %s\n", version_string);
 
   if (helpflag)
@@ -1681,7 +1699,7 @@ main (int argc, char **argv)
 	  strip_argv[0] = strip_file_name;
 	  strip_argv[1] = output_file;
 	  strip_argv[2] = (char *) 0;
-	  fork_execute ("strip", real_strip_argv);
+	  fork_execute ("strip", real_strip_argv, false);
 	}
 
 #ifdef COLLECT_EXPORT_LIST
@@ -1728,6 +1746,11 @@ main (int argc, char **argv)
       if (! exports.first)
 	*ld2++ = concat ("-bE:", export_file, NULL);
 
+#ifdef TARGET_AIX_VERSION
+      add_to_list (&exports, aix_shared_initname);
+      add_to_list (&exports, aix_shared_fininame);
+#endif
+
 #ifndef LD_INIT_SWITCH
       add_to_list (&exports, initname);
       add_to_list (&exports, fininame);
@@ -1762,7 +1785,7 @@ main (int argc, char **argv)
   /* Assemble the constructor and destructor tables.
      Link the tables in with the rest of the program.  */
 
-  fork_execute ("gcc",  c_argv);
+  fork_execute ("gcc",  c_argv, at_file_supplied);
 #ifdef COLLECT_EXPORT_LIST
   /* On AIX we must call tlink because of possible templates resolution.  */
   do_tlink (ld2_argv, object_lst);
@@ -1775,7 +1798,7 @@ main (int argc, char **argv)
     maybe_run_lto_and_relink (ld2_argv, object_lst, object, true);
   else
     {
-      fork_execute ("ld", ld2_argv);
+      fork_execute ("ld", ld2_argv, HAVE_GNU_LD && at_file_supplied);
       post_ld_pass (false);
     }
 
@@ -1795,163 +1818,10 @@ main (int argc, char **argv)
 }
 
 
-/* Wait for a process to finish, and exit if a nonzero status is found.  */
-
-int
-collect_wait (const char *prog, struct pex_obj *pex)
-{
-  int status;
-
-  if (!pex_get_status (pex, 1, &status))
-    fatal_error ("can't get program status: %m");
-  pex_free (pex);
-
-  if (status)
-    {
-      if (WIFSIGNALED (status))
-	{
-	  int sig = WTERMSIG (status);
-	  error ("%s terminated with signal %d [%s]%s",
-		 prog, sig, strsignal (sig),
-		 WCOREDUMP (status) ? ", core dumped" : "");
-	  exit (FATAL_EXIT_CODE);
-	}
-
-      if (WIFEXITED (status))
-	return WEXITSTATUS (status);
-    }
-  return 0;
-}
-
-static void
-do_wait (const char *prog, struct pex_obj *pex)
-{
-  int ret = collect_wait (prog, pex);
-  if (ret != 0)
-    {
-      error ("%s returned %d exit status", prog, ret);
-      exit (ret);
-    }
-
-  if (response_file)
-    {
-      unlink (response_file);
-      response_file = NULL;
-    }
-}
-
-
-/* Execute a program, and wait for the reply.  */
-
-struct pex_obj *
-collect_execute (const char *prog, char **argv, const char *outname,
-		 const char *errname, int flags)
-{
-  struct pex_obj *pex;
-  const char *errmsg;
-  int err;
-  char *response_arg = NULL;
-  char *response_argv[3] ATTRIBUTE_UNUSED;
-
-  if (HAVE_GNU_LD && at_file_supplied && argv[0] != NULL)
-    {
-      /* If using @file arguments, create a temporary file and put the
-         contents of argv into it.  Then change argv to an array corresponding
-         to a single argument @FILE, where FILE is the temporary filename.  */
-
-      char **current_argv = argv + 1;
-      char *argv0 = argv[0];
-      int status;
-      FILE *f;
-
-      /* Note: we assume argv contains at least one element; this is
-         checked above.  */
-
-      response_file = make_temp_file ("");
-
-      f = fopen (response_file, "w");
-
-      if (f == NULL)
-        fatal_error ("could not open response file %s", response_file);
-
-      status = writeargv (current_argv, f);
-
-      if (status)
-        fatal_error ("could not write to response file %s", response_file);
-
-      status = fclose (f);
-
-      if (EOF == status)
-        fatal_error ("could not close response file %s", response_file);
-
-      response_arg = concat ("@", response_file, NULL);
-      response_argv[0] = argv0;
-      response_argv[1] = response_arg;
-      response_argv[2] = NULL;
-
-      argv = response_argv;
-    }
-
-  if (vflag || debug)
-    {
-      char **p_argv;
-      const char *str;
-
-      if (argv[0])
-	fprintf (stderr, "%s", argv[0]);
-      else
-	notice ("[cannot find %s]", prog);
-
-      for (p_argv = &argv[1]; (str = *p_argv) != (char *) 0; p_argv++)
-	fprintf (stderr, " %s", str);
-
-      fprintf (stderr, "\n");
-    }
-
-  fflush (stdout);
-  fflush (stderr);
-
-  /* If we cannot find a program we need, complain error.  Do this here
-     since we might not end up needing something that we could not find.  */
-
-  if (argv[0] == 0)
-    fatal_error ("cannot find '%s'", prog);
-
-  pex = pex_init (0, "collect2", NULL);
-  if (pex == NULL)
-    fatal_error ("pex_init failed: %m");
-
-  errmsg = pex_run (pex, flags, argv[0], argv, outname,
-		    errname, &err);
-  if (errmsg != NULL)
-    {
-      if (err != 0)
-	{
-	  errno = err;
-	  fatal_error ("%s: %m", _(errmsg));
-	}
-      else
-	fatal_error (errmsg);
-    }
-
-  free (response_arg);
-
-  return pex;
-}
-
-static void
-fork_execute (const char *prog, char **argv)
-{
-  struct pex_obj *pex;
-
-  pex = collect_execute (prog, argv, NULL, NULL, PEX_LAST | PEX_SEARCH);
-  do_wait (prog, pex);
-}
-
 /* Unlink FILE unless we are debugging or this is the output_file
    and we may not unlink it.  */
 
-static void
+void
 maybe_unlink (const char *file)
 {
   if (debug)
@@ -2019,6 +1889,19 @@ static int
 extract_init_priority (const char *name)
 {
   int pos = 0, pri;
+
+#ifdef TARGET_AIX_VERSION
+  /* Run dependent module initializers before any constructors in this
+     module.  */
+  switch (is_ctor_dtor (name))
+    {
+    case SYM_AIXI:
+    case SYM_AIXD:
+      return INT_MIN;
+    default:
+      break;
+    }
+#endif
 
   while (name[pos] == '_')
     ++pos;
@@ -2180,11 +2063,22 @@ write_c_file_stat (FILE *stream, const char *name ATTRIBUTE_UNUSED)
 
   initname = concat ("_GLOBAL__FI_", prefix, NULL);
   fininame = concat ("_GLOBAL__FD_", prefix, NULL);
+#ifdef TARGET_AIX_VERSION
+  aix_shared_initname = concat ("_GLOBAL__AIXI_", prefix, NULL);
+  aix_shared_fininame = concat ("_GLOBAL__AIXD_", prefix, NULL);
+#endif
 
   free (prefix);
 
   /* Write the tables as C code.  */
 
+  /* This count variable is used to prevent multiple calls to the
+     constructors/destructors.
+     This guard against multiple calls is important on AIX as the initfini
+     functions are deliberately invoked multiple times as part of the
+     mechanisms GCC uses to order constructors across different dependent
+     shared libraries (see config/rs6000/aix.h).
+   */
   fprintf (stream, "static int count;\n");
   fprintf (stream, "typedef void entry_pt();\n");
   write_list_with_asm (stream, "extern entry_pt ", constructors.first);
@@ -2430,7 +2324,7 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
   nm_argv[argc++] = (char *) 0;
 
   /* Trace if needed.  */
-  if (vflag)
+  if (verbose)
     {
       const char **p_argv;
       const char *str;
@@ -2531,6 +2425,7 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 
 
       *end = '\0';
+
       switch (is_ctor_dtor (name))
 	{
 	case SYM_CTOR:
@@ -2626,7 +2521,7 @@ scan_libraries (const char *prog_name)
   ldd_argv[argc++] = (char *) 0;
 
   /* Trace if needed.  */
-  if (vflag)
+  if (verbose)
     {
       const char **p_argv;
       const char *str;
@@ -2892,6 +2787,25 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 
 		      switch (is_ctor_dtor (name))
 			{
+#if TARGET_AIX_VERSION
+		      /* Add AIX shared library initalisers/finalisers
+			 to the constructors/destructors list of the
+			 current module.  */
+			case SYM_AIXI:
+			  if (! (filter & SCAN_CTOR))
+			    break;
+			  if (is_shared && !aixlazy_flag)
+			    add_to_list (&constructors, name);
+			  break;
+
+			case SYM_AIXD:
+			  if (! (filter & SCAN_DTOR))
+			    break;
+			  if (is_shared && !aixlazy_flag)
+			    add_to_list (&destructors, name);
+			  break;
+#endif
+
 			case SYM_CTOR:
 			  if (! (filter & SCAN_CTOR))
 			    break;
@@ -3096,7 +3010,8 @@ do_dsymutil (const char *output_file) {
   argv[1] = output_file;
   argv[2] = (char *) 0;
 
-  pex = collect_execute (dsymutil, real_argv, NULL, NULL, PEX_LAST | PEX_SEARCH);
+  pex = collect_execute (dsymutil, real_argv, NULL, NULL,
+			 PEX_LAST | PEX_SEARCH, false);
   do_wait (dsymutil, pex);
 }
 

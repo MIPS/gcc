@@ -1,5 +1,5 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,6 +65,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* For a FUNCTION_DECL, nonzero if it was an implicit declaration.  */
 #define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2 (EXP)
+
+/* For a PARM_DECL, nonzero if it was declared as an array.  */
+#define C_ARRAY_PARAMETER(NODE) DECL_LANG_FLAG_0 (NODE)
 
 /* For FUNCTION_DECLs, evaluates true if the decl is built-in but has
    been declared.  */
@@ -132,15 +135,6 @@ struct c_expr
    inside the VEC types.  */
 typedef struct c_expr c_expr_t;
 
-/* A varray of c_expr_t.  */
-
-/* Append a new c_expr_t element to V.  */
-#define C_EXPR_APPEND(V, ELEM) \
-  do { \
-    c_expr_t __elem = (ELEM); \
-    vec_safe_push (V, __elem); \
-  } while (0)
-
 /* A kind of type specifier.  Note that this information is currently
    only used to distinguish tag definitions, tag references and typeof
    uses.  */
@@ -163,7 +157,7 @@ enum c_typespec_kind {
   ctsk_typedef,
   /* An ObjC-specific kind of type specifier.  */
   ctsk_objc,
-  /* A typeof specifier.  */
+  /* A typeof specifier, or _Atomic ( type-name ).  */
   ctsk_typeof
 };
 
@@ -214,7 +208,8 @@ enum c_typespec_keyword {
   cts_dfloat64,
   cts_dfloat128,
   cts_fract,
-  cts_accum
+  cts_accum,
+  cts_auto_type
 };
 
 /* This enum lists all the possible declarator specifiers, storage
@@ -320,14 +315,18 @@ struct c_declspecs {
   BOOL_BITFIELD inline_p : 1;
   /* Whether "_Noreturn" was speciied.  */
   BOOL_BITFIELD noreturn_p : 1;
-  /* Whether "__thread" was specified.  */
+  /* Whether "__thread" or "_Thread_local" was specified.  */
   BOOL_BITFIELD thread_p : 1;
+  /* Whether "__thread" rather than "_Thread_local" was specified.  */
+  BOOL_BITFIELD thread_gnu_p : 1;
   /* Whether "const" was specified.  */
   BOOL_BITFIELD const_p : 1;
   /* Whether "volatile" was specified.  */
   BOOL_BITFIELD volatile_p : 1;
   /* Whether "restrict" was specified.  */
   BOOL_BITFIELD restrict_p : 1;
+  /* Whether "_Atomic" was specified.  */
+  BOOL_BITFIELD atomic_p : 1;
   /* Whether "_Sat" was specified.  */
   BOOL_BITFIELD saturating_p : 1;
   /* Whether any alignment specifier (even with zero alignment) was
@@ -585,6 +584,8 @@ extern struct c_expr default_function_array_conversion (location_t,
 							struct c_expr);
 extern struct c_expr default_function_array_read_conversion (location_t,
 							     struct c_expr);
+extern struct c_expr convert_lvalue_to_rvalue (location_t, struct c_expr,
+					       bool, bool);
 extern void mark_exp_read (tree);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (location_t, tree, tree);
@@ -604,20 +605,19 @@ extern tree build_compound_expr (location_t, tree, tree);
 extern tree c_cast_expr (location_t, struct c_type_name *, tree);
 extern tree build_c_cast (location_t, tree, tree);
 extern void store_init_value (location_t, tree, tree, tree);
-extern void error_init (const char *);
-extern void pedwarn_init (location_t, int opt, const char *);
-extern void maybe_warn_string_init (tree, struct c_expr);
+extern void maybe_warn_string_init (location_t, tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
 extern void really_start_incremental_init (tree);
-extern void push_init_level (int, struct obstack *);
-extern struct c_expr pop_init_level (int, struct obstack *);
-extern void set_init_index (tree, tree, struct obstack *);
-extern void set_init_label (tree, struct obstack *);
-extern void process_init_element (struct c_expr, bool, struct obstack *);
+extern void push_init_level (location_t, int, struct obstack *);
+extern struct c_expr pop_init_level (location_t, int, struct obstack *);
+extern void set_init_index (location_t, tree, tree, struct obstack *);
+extern void set_init_label (location_t, tree, struct obstack *);
+extern void process_init_element (location_t, struct c_expr, bool,
+				  struct obstack *);
 extern tree build_compound_literal (location_t, tree, tree, bool);
 extern void check_compound_literal_type (location_t, struct c_type_name *);
-extern tree c_start_case (location_t, location_t, tree);
+extern tree c_start_case (location_t, location_t, tree, bool);
 extern void c_finish_case (tree);
 extern tree build_asm_expr (location_t, tree, tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
@@ -645,6 +645,8 @@ extern tree c_finish_omp_clauses (tree);
 extern tree c_build_va_arg (location_t, tree, tree);
 extern tree c_finish_transaction (location_t, tree, int);
 extern bool c_tree_equal (tree, tree);
+extern tree c_build_function_call_vec (location_t, vec<location_t>, tree,
+				       vec<tree, va_gc> *, vec<tree, va_gc> *);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -674,7 +676,9 @@ extern tree c_omp_reduction_lookup (tree, tree);
 extern tree c_check_omp_declare_reduction_r (tree *, int *, void *);
 
 /* In c-errors.c */
-extern void pedwarn_c90 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);
-extern void pedwarn_c99 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);
+extern void pedwarn_c90 (location_t, int opt, const char *, ...)
+    ATTRIBUTE_GCC_DIAG(3,4);
+extern bool pedwarn_c99 (location_t, int opt, const char *, ...)
+    ATTRIBUTE_GCC_DIAG(3,4);
 
 #endif /* ! GCC_C_TREE_H */

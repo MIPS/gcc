@@ -1,6 +1,6 @@
 // ABI Support -*- C++ -*-
 
-// Copyright (C) 2000-2013 Free Software Foundation, Inc.
+// Copyright (C) 2000-2014 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -144,7 +144,7 @@ namespace __cxxabiv1
   void
   __cxa_deleted_virtual(void) __attribute__ ((__noreturn__));
 
-  // Exception handling auxillary.
+  // Exception handling auxiliary.
   void 
   __cxa_bad_cast() __attribute__((__noreturn__));
 
@@ -302,6 +302,14 @@ namespace __cxxabiv1
     __pointer_catch(const __pbase_type_info* __thr_type, void** __thr_obj,
 		    unsigned __outer) const;
   };
+
+  inline bool __pbase_type_info::
+  __pointer_catch (const __pbase_type_info *thrown_type,
+		   void **thr_obj,
+		   unsigned outer) const
+  {
+    return __pointee->__do_catch (thrown_type->__pointee, thr_obj, outer + 2);
+  }
 
   // Type information for simple pointers.
   class __pointer_type_info : public __pbase_type_info

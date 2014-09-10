@@ -1,5 +1,5 @@
 ;;  Machine Description for Renesas RL78 processors
-;;  Copyright (C) 2011-2013 Free Software Foundation, Inc.
+;;  Copyright (C) 2011-2014 Free Software Foundation, Inc.
 ;;  Contributed by Red Hat.
 
 ;; This file is part of GCC.
@@ -30,18 +30,23 @@
     if (rl78_far_p (operands[0]) && rl78_far_p (operands[1]))
       operands[1] = copy_to_mode_reg (QImode, operands[1]);
 
-    /* FIXME: Not sure how GCC can generate (SUBREG (SYMBOL_REF)),
-       but it does.  Since this makes no sense, reject it here.  */
+    /* GCC can generate (SUBREG (SYMBOL_REF)) when it has to store a symbol
+       into a bitfield, or a packed ordinary field.  We can handle this
+       provided that the destination is a register.  If not, then load the
+       source into a register first.  */
     if (GET_CODE (operands[1]) == SUBREG
-        && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF)
-      FAIL;
+        && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
+	&& ! REG_P (operands[0]))
+	operands[1] = copy_to_mode_reg (QImode, operands[1]);
+
     /* Similarly for (SUBREG (CONST (PLUS (SYMBOL_REF)))).
        cf. g++.dg/abi/packed.C.  */
     if (GET_CODE (operands[1]) == SUBREG
 	&& GET_CODE (XEXP (operands[1], 0)) == CONST
         && GET_CODE (XEXP (XEXP (operands[1], 0), 0)) == PLUS
-        && GET_CODE (XEXP (XEXP (XEXP (operands[1], 0), 0), 0)) == SYMBOL_REF)
-      FAIL;
+        && GET_CODE (XEXP (XEXP (XEXP (operands[1], 0), 0), 0)) == SYMBOL_REF
+	&& ! REG_P (operands[0]))
+	operands[1] = copy_to_mode_reg (QImode, operands[1]);
 
     if (CONST_INT_P (operands[1]) && ! IN_RANGE (INTVAL (operands[1]), (-1 << 8) + 1, (1 << 8) - 1))
       FAIL;
@@ -140,7 +145,7 @@
   [(set (match_operand:HI 0 "register_operand")
         (mult:HI (zero_extend:HI (match_operand:QI 1 "register_operand"))
                  (zero_extend:HI (match_operand:QI 2 "register_operand"))))]
-  ""
+  "!TARGET_G10"
   ""
 )
 
@@ -177,7 +182,7 @@
 (define_expand "one_cmplqi2"
   [(set (match_operand:QI         0 "nonimmediate_operand")
 	(xor:QI (match_operand:QI 1 "general_operand")
-		(const_int 255)))
+		(const_int -1)))
    ]
   ""
   "if (rl78_force_nonfar_2 (operands, gen_one_cmplqi2))
@@ -237,9 +242,9 @@
 )
 
 (define_expand "ashlsi3"
-  [(parallel [(set (match_operand:SI               0 "nonimmediate_operand")
-	(ashift:SI (match_operand:SI  1 "nonimmediate_operand")
-		      (match_operand:SI 2 "nonmemory_operand")))
+  [(parallel [(set (match_operand:SI            0 "nonimmediate_operand")
+		   (ashift:SI (match_operand:SI 1 "nonimmediate_operand")
+			      (match_operand:SI 2 "nonmemory_operand")))
 	      (clobber (reg:HI X_REG))])
    ]
   ""

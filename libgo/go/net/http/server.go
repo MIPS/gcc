@@ -16,11 +16,13 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"os"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -109,8 +111,6 @@ type conn struct {
 	sr         liveSwitchReader     // where the LimitReader reads from; usually the rwc
 	lr         *io.LimitedReader    // io.LimitReader(sr)
 	buf        *bufio.ReadWriter    // buffered(lr,rwc), reading from bufio->limitReader->sr->rwc
-	bufswr     *switchReader        // the *switchReader io.Reader source of buf
-	bufsww     *switchWriter        // the *switchWriter io.Writer dest of buf
 	tlsState   *tls.ConnectionState // or nil when not using TLS
 
 	mu           sync.Mutex // guards the following
@@ -139,6 +139,7 @@ func (c *conn) hijack() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
 	buf = c.buf
 	c.rwc = nil
 	c.buf = nil
+	c.setState(rwc, StateHijacked)
 	return
 }
 
@@ -246,6 +247,10 @@ func (cw *chunkWriter) Write(p []byte) (n int, err error) {
 	if !cw.wroteHeader {
 		cw.writeHeader(p)
 	}
+	if cw.res.req.Method == "HEAD" {
+		// Eat writes.
+		return len(p), nil
+	}
 	if cw.chunking {
 		_, err = fmt.Fprintf(cw.res.conn.buf, "%x\r\n", len(p))
 		if err != nil {
@@ -278,7 +283,7 @@ func (cw *chunkWriter) close() {
 		// zero EOF chunk, trailer key/value pairs (currently
 		// unsupported in Go's server), followed by a blank
 		// line.
-		io.WriteString(cw.res.conn.buf, "0\r\n\r\n")
+		cw.res.conn.buf.WriteString("0\r\n\r\n")
 	}
 }
 
@@ -320,6 +325,10 @@ type response struct {
 	requestBodyLimitHit bool
 
 	handlerDone bool // set true when the handler exits
+
+	// Buffers for Date and Content-Length
+	dateBuf [len(TimeFormat)]byte
+	clenBuf [10]byte
 }
 
 // requestTooLarge is called by maxBytesReader when too much input has
@@ -332,16 +341,50 @@ func (w *response) requestTooLarge() {
 	}
 }
 
-// needsSniff returns whether a Content-Type still needs to be sniffed.
+// needsSniff reports whether a Content-Type still needs to be sniffed.
 func (w *response) needsSniff() bool {
-	return !w.cw.wroteHeader && w.handlerHeader.Get("Content-Type") == "" && w.written < sniffLen
+	_, haveType := w.handlerHeader["Content-Type"]
+	return !w.cw.wroteHeader && !haveType && w.written < sniffLen
 }
 
+// writerOnly hides an io.Writer value's optional ReadFrom method
+// from io.Copy.
 type writerOnly struct {
 	io.Writer
 }
 
+func srcIsRegularFile(src io.Reader) (isRegular bool, err error) {
+	switch v := src.(type) {
+	case *os.File:
+		fi, err := v.Stat()
+		if err != nil {
+			return false, err
+		}
+		return fi.Mode().IsRegular(), nil
+	case *io.LimitedReader:
+		return srcIsRegularFile(v.R)
+	default:
+		return
+	}
+}
+
+// ReadFrom is here to optimize copying from an *os.File regular file
+// to a *net.TCPConn with sendfile.
 func (w *response) ReadFrom(src io.Reader) (n int64, err error) {
+	// Our underlying w.conn.rwc is usually a *TCPConn (with its
+	// own ReadFrom method). If not, or if our src isn't a regular
+	// file, just fall back to the normal copy method.
+	rf, ok := w.conn.rwc.(io.ReaderFrom)
+	regFile, err := srcIsRegularFile(src)
+	if err != nil {
+		return 0, err
+	}
+	if !ok || !regFile {
+		return io.Copy(writerOnly{w}, src)
+	}
+
+	// sendfile path:
+
 	if !w.wroteHeader {
 		w.WriteHeader(StatusOK)
 	}
@@ -359,16 +402,12 @@ func (w *response) ReadFrom(src io.Reader) (n int64, err error) {
 
 	// Now that cw has been flushed, its chunking field is guaranteed initialized.
 	if !w.cw.chunking && w.bodyAllowed() {
-		if rf, ok := w.conn.rwc.(io.ReaderFrom); ok {
-			n0, err := rf.ReadFrom(src)
-			n += n0
-			w.written += n0
-			return n, err
-		}
+		n0, err := rf.ReadFrom(src)
+		n += n0
+		w.written += n0
+		return n, err
 	}
 
-	// Fall back to default io.Copy implementation.
-	// Use wrapper to hide w.ReadFrom from io.Copy.
 	n0, err := io.Copy(writerOnly{w}, src)
 	n += n0
 	return n, err
@@ -392,93 +431,58 @@ func (srv *Server) newConn(rwc net.Conn) (c *conn, err error) {
 	}
 	c.sr = liveSwitchReader{r: c.rwc}
 	c.lr = io.LimitReader(&c.sr, noLimit).(*io.LimitedReader)
-	br, sr := newBufioReader(c.lr)
-	bw, sw := newBufioWriterSize(c.rwc, 4<<10)
+	br := newBufioReader(c.lr)
+	bw := newBufioWriterSize(c.rwc, 4<<10)
 	c.buf = bufio.NewReadWriter(br, bw)
-	c.bufswr = sr
-	c.bufsww = sw
 	return c, nil
 }
 
-// TODO: remove this, if issue 5100 is fixed
-type bufioReaderPair struct {
-	br *bufio.Reader
-	sr *switchReader // from which the bufio.Reader is reading
-}
-
-// TODO: remove this, if issue 5100 is fixed
-type bufioWriterPair struct {
-	bw *bufio.Writer
-	sw *switchWriter // to which the bufio.Writer is writing
-}
-
-// TODO: use a sync.Cache instead
 var (
-	bufioReaderCache   = make(chan bufioReaderPair, 4)
-	bufioWriterCache2k = make(chan bufioWriterPair, 4)
-	bufioWriterCache4k = make(chan bufioWriterPair, 4)
+	bufioReaderPool   sync.Pool
+	bufioWriter2kPool sync.Pool
+	bufioWriter4kPool sync.Pool
 )
 
-func bufioWriterCache(size int) chan bufioWriterPair {
+func bufioWriterPool(size int) *sync.Pool {
 	switch size {
 	case 2 << 10:
-		return bufioWriterCache2k
+		return &bufioWriter2kPool
 	case 4 << 10:
-		return bufioWriterCache4k
+		return &bufioWriter4kPool
 	}
 	return nil
 }
 
-func newBufioReader(r io.Reader) (*bufio.Reader, *switchReader) {
-	select {
-	case p := <-bufioReaderCache:
-		p.sr.Reader = r
-		return p.br, p.sr
-	default:
-		sr := &switchReader{r}
-		return bufio.NewReader(sr), sr
+func newBufioReader(r io.Reader) *bufio.Reader {
+	if v := bufioReaderPool.Get(); v != nil {
+		br := v.(*bufio.Reader)
+		br.Reset(r)
+		return br
 	}
+	return bufio.NewReader(r)
 }
 
-func putBufioReader(br *bufio.Reader, sr *switchReader) {
-	if n := br.Buffered(); n > 0 {
-		io.CopyN(ioutil.Discard, br, int64(n))
-	}
-	br.Read(nil) // clears br.err
-	sr.Reader = nil
-	select {
-	case bufioReaderCache <- bufioReaderPair{br, sr}:
-	default:
-	}
+func putBufioReader(br *bufio.Reader) {
+	br.Reset(nil)
+	bufioReaderPool.Put(br)
 }
 
-func newBufioWriterSize(w io.Writer, size int) (*bufio.Writer, *switchWriter) {
-	select {
-	case p := <-bufioWriterCache(size):
-		p.sw.Writer = w
-		return p.bw, p.sw
-	default:
-		sw := &switchWriter{w}
-		return bufio.NewWriterSize(sw, size), sw
+func newBufioWriterSize(w io.Writer, size int) *bufio.Writer {
+	pool := bufioWriterPool(size)
+	if pool != nil {
+		if v := pool.Get(); v != nil {
+			bw := v.(*bufio.Writer)
+			bw.Reset(w)
+			return bw
+		}
 	}
+	return bufio.NewWriterSize(w, size)
 }
 
-func putBufioWriter(bw *bufio.Writer, sw *switchWriter) {
-	if bw.Buffered() > 0 {
-		// It must have failed to flush to its target
-		// earlier. We can't reuse this bufio.Writer.
-		return
-	}
-	if err := bw.Flush(); err != nil {
-		// Its sticky error field is set, which is returned by
-		// Flush even when there's no data buffered.  This
-		// bufio Writer is dead to us.  Don't reuse it.
-		return
-	}
-	sw.Writer = nil
-	select {
-	case bufioWriterCache(bw.Available()) <- bufioWriterPair{bw, sw}:
-	default:
+func putBufioWriter(bw *bufio.Writer) {
+	bw.Reset(nil)
+	if pool := bufioWriterPool(bw.Available()); pool != nil {
+		pool.Put(bw)
 	}
 }
 
@@ -492,6 +496,10 @@ func (srv *Server) maxHeaderBytes() int {
 		return srv.MaxHeaderBytes
 	}
 	return DefaultMaxHeaderBytes
+}
+
+func (srv *Server) initialLimitedReaderSize() int64 {
+	return int64(srv.maxHeaderBytes()) + 4096 // bufio slop
 }
 
 // wrapper around io.ReaderCloser which on first read, sends an
@@ -508,7 +516,7 @@ func (ecr *expectContinueReader) Read(p []byte) (n int, err error) {
 	}
 	if !ecr.resp.wroteContinue && !ecr.resp.conn.hijacked() {
 		ecr.resp.wroteContinue = true
-		io.WriteString(ecr.resp.conn.buf, "HTTP/1.1 100 Continue\r\n\r\n")
+		ecr.resp.conn.buf.WriteString("HTTP/1.1 100 Continue\r\n\r\n")
 		ecr.resp.conn.buf.Flush()
 	}
 	return ecr.readCloser.Read(p)
@@ -524,6 +532,28 @@ func (ecr *expectContinueReader) Close() error {
 // or generating times in HTTP headers.
 // It is like time.RFC1123 but hard codes GMT as the time zone.
 const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
+
+// appendTime is a non-allocating version of []byte(t.UTC().Format(TimeFormat))
+func appendTime(b []byte, t time.Time) []byte {
+	const days = "SunMonTueWedThuFriSat"
+	const months = "JanFebMarAprMayJunJulAugSepOctNovDec"
+
+	t = t.UTC()
+	yy, mm, dd := t.Date()
+	hh, mn, ss := t.Clock()
+	day := days[3*t.Weekday():]
+	mon := months[3*(mm-1):]
+
+	return append(b,
+		day[0], day[1], day[2], ',', ' ',
+		byte('0'+dd/10), byte('0'+dd%10), ' ',
+		mon[0], mon[1], mon[2], ' ',
+		byte('0'+yy/1000), byte('0'+(yy/100)%10), byte('0'+(yy/10)%10), byte('0'+yy%10), ' ',
+		byte('0'+hh/10), byte('0'+hh%10), ':',
+		byte('0'+mn/10), byte('0'+mn%10), ':',
+		byte('0'+ss/10), byte('0'+ss%10), ' ',
+		'G', 'M', 'T')
+}
 
 var errTooLarge = errors.New("http: request too large")
 
@@ -542,7 +572,7 @@ func (c *conn) readRequest() (w *response, err error) {
 		}()
 	}
 
-	c.lr.N = int64(c.server.maxHeaderBytes()) + 4096 /* bufio slop */
+	c.lr.N = c.server.initialLimitedReaderSize()
 	var req *Request
 	if req, err = ReadRequest(c.buf.Reader); err != nil {
 		if c.lr.N == 0 {
@@ -562,7 +592,7 @@ func (c *conn) readRequest() (w *response, err error) {
 		contentLength: -1,
 	}
 	w.cw.res = w
-	w.w, w.sw = newBufioWriterSize(&w.cw, bufferBeforeChunkingSize)
+	w.w = newBufioWriterSize(&w.cw, bufferBeforeChunkingSize)
 	return w, nil
 }
 
@@ -590,11 +620,11 @@ const maxPostHandlerReadBytes = 256 << 10
 
 func (w *response) WriteHeader(code int) {
 	if w.conn.hijacked() {
-		log.Print("http: response.WriteHeader on hijacked connection")
+		w.conn.server.logf("http: response.WriteHeader on hijacked connection")
 		return
 	}
 	if w.wroteHeader {
-		log.Print("http: multiple response.WriteHeader calls")
+		w.conn.server.logf("http: multiple response.WriteHeader calls")
 		return
 	}
 	w.wroteHeader = true
@@ -609,7 +639,7 @@ func (w *response) WriteHeader(code int) {
 		if err == nil && v >= 0 {
 			w.contentLength = v
 		} else {
-			log.Printf("http: invalid Content-Length of %q", cl)
+			w.conn.server.logf("http: invalid Content-Length of %q", cl)
 			w.handlerHeader.Del("Content-Length")
 		}
 	}
@@ -620,27 +650,45 @@ func (w *response) WriteHeader(code int) {
 // the response Header map and all its 1-element slices.
 type extraHeader struct {
 	contentType      string
-	contentLength    string
 	connection       string
-	date             string
 	transferEncoding string
+	date             []byte // written if not nil
+	contentLength    []byte // written if not nil
 }
 
 // Sorted the same as extraHeader.Write's loop.
 var extraHeaderKeys = [][]byte{
-	[]byte("Content-Type"), []byte("Content-Length"),
-	[]byte("Connection"), []byte("Date"), []byte("Transfer-Encoding"),
+	[]byte("Content-Type"),
+	[]byte("Connection"),
+	[]byte("Transfer-Encoding"),
 }
 
-// The value receiver, despite copying 5 strings to the stack,
-// prevents an extra allocation. The escape analysis isn't smart
-// enough to realize this doesn't mutate h.
-func (h extraHeader) Write(w io.Writer) {
-	for i, v := range []string{h.contentType, h.contentLength, h.connection, h.date, h.transferEncoding} {
+var (
+	headerContentLength = []byte("Content-Length: ")
+	headerDate          = []byte("Date: ")
+)
+
+// Write writes the headers described in h to w.
+//
+// This method has a value receiver, despite the somewhat large size
+// of h, because it prevents an allocation. The escape analysis isn't
+// smart enough to realize this function doesn't mutate h.
+func (h extraHeader) Write(w *bufio.Writer) {
+	if h.date != nil {
+		w.Write(headerDate)
+		w.Write(h.date)
+		w.Write(crlf)
+	}
+	if h.contentLength != nil {
+		w.Write(headerContentLength)
+		w.Write(h.contentLength)
+		w.Write(crlf)
+	}
+	for i, v := range []string{h.contentType, h.connection, h.transferEncoding} {
 		if v != "" {
 			w.Write(extraHeaderKeys[i])
 			w.Write(colonSpace)
-			io.WriteString(w, v)
+			w.WriteString(v)
 			w.Write(crlf)
 		}
 	}
@@ -661,6 +709,8 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	cw.wroteHeader = true
 
 	w := cw.res
+	keepAlivesEnabled := w.conn.server.doKeepAlives()
+	isHEAD := w.req.Method == "HEAD"
 
 	// header is written out to w.conn.buf below. Depending on the
 	// state of the handler, we either own the map or not. If we
@@ -692,14 +742,22 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	// response header and this is our first (and last) write, set
 	// it, even to zero. This helps HTTP/1.0 clients keep their
 	// "keep-alive" connections alive.
-	if w.handlerDone && header.get("Content-Length") == "" && w.req.Method != "HEAD" {
+	// Exceptions: 304/204/1xx responses never get Content-Length, and if
+	// it was a HEAD request, we don't know the difference between
+	// 0 actual bytes and 0 bytes because the handler noticed it
+	// was a HEAD request and chose not to write anything.  So for
+	// HEAD, the handler should either write the Content-Length or
+	// write non-zero bytes.  If it's actually 0 bytes and the
+	// handler never looked at the Request.Method, we just don't
+	// send a Content-Length header.
+	if w.handlerDone && bodyAllowedForStatus(w.status) && header.get("Content-Length") == "" && (!isHEAD || len(p) > 0) {
 		w.contentLength = int64(len(p))
-		setHeader.contentLength = strconv.Itoa(len(p))
+		setHeader.contentLength = strconv.AppendInt(cw.res.clenBuf[:0], int64(len(p)), 10)
 	}
 
 	// If this was an HTTP/1.0 request with keep-alive and we sent a
 	// Content-Length back, we can make this a keep-alive response ...
-	if w.req.wantsHttp10KeepAlive() {
+	if w.req.wantsHttp10KeepAlive() && keepAlivesEnabled {
 		sentLength := header.get("Content-Length") != ""
 		if sentLength && header.get("Connection") == "keep-alive" {
 			w.closeAfterReply = false
@@ -709,7 +767,7 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	// Check for a explicit (and valid) Content-Length header.
 	hasCL := w.contentLength != -1
 
-	if w.req.wantsHttp10KeepAlive() && (w.req.Method == "HEAD" || hasCL) {
+	if w.req.wantsHttp10KeepAlive() && (isHEAD || hasCL) {
 		_, connectionHeaderSet := header["Connection"]
 		if !connectionHeaderSet {
 			setHeader.connection = "keep-alive"
@@ -718,7 +776,7 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 		w.closeAfterReply = true
 	}
 
-	if header.get("Connection") == "close" {
+	if header.get("Connection") == "close" || !keepAlivesEnabled {
 		w.closeAfterReply = true
 	}
 
@@ -741,21 +799,20 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	}
 
 	code := w.status
-	if code == StatusNotModified {
-		// Must not have body.
-		// RFC 2616 section 10.3.5: "the response MUST NOT include other entity-headers"
-		for _, k := range []string{"Content-Type", "Content-Length", "Transfer-Encoding"} {
-			delHeader(k)
+	if bodyAllowedForStatus(code) {
+		// If no content type, apply sniffing algorithm to body.
+		_, haveType := header["Content-Type"]
+		if !haveType {
+			setHeader.contentType = DetectContentType(p)
 		}
 	} else {
-		// If no content type, apply sniffing algorithm to body.
-		if header.get("Content-Type") == "" && w.req.Method != "HEAD" {
-			setHeader.contentType = DetectContentType(p)
+		for _, k := range suppressedHeaders(code) {
+			delHeader(k)
 		}
 	}
 
 	if _, ok := header["Date"]; !ok {
-		setHeader.date = time.Now().UTC().Format(TimeFormat)
+		setHeader.date = appendTime(cw.res.dateBuf[:0], time.Now())
 	}
 
 	te := header.get("Transfer-Encoding")
@@ -763,13 +820,13 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	if hasCL && hasTE && te != "identity" {
 		// TODO: return an error if WriteHeader gets a return parameter
 		// For now just ignore the Content-Length.
-		log.Printf("http: WriteHeader called with both Transfer-Encoding of %q and a Content-Length of %d",
+		w.conn.server.logf("http: WriteHeader called with both Transfer-Encoding of %q and a Content-Length of %d",
 			te, w.contentLength)
 		delHeader("Content-Length")
 		hasCL = false
 	}
 
-	if w.req.Method == "HEAD" || code == StatusNotModified {
+	if w.req.Method == "HEAD" || !bodyAllowedForStatus(code) {
 		// do nothing
 	} else if code == StatusNoContent {
 		delHeader("Transfer-Encoding")
@@ -799,14 +856,16 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 		return
 	}
 
-	if w.closeAfterReply && !hasToken(cw.header.get("Connection"), "close") {
+	if w.closeAfterReply && (!keepAlivesEnabled || !hasToken(cw.header.get("Connection"), "close")) {
 		delHeader("Connection")
-		setHeader.connection = "close"
+		if w.req.ProtoAtLeast(1, 1) {
+			setHeader.connection = "close"
+		}
 	}
 
-	io.WriteString(w.conn.buf, statusLine(w.req, code))
+	w.conn.buf.WriteString(statusLine(w.req, code))
 	cw.header.WriteSubset(w.conn.buf, excludeHeader)
-	setHeader.Write(w.conn.buf)
+	setHeader.Write(w.conn.buf.Writer)
 	w.conn.buf.Write(crlf)
 }
 
@@ -861,7 +920,7 @@ func (w *response) bodyAllowed() bool {
 	if !w.wroteHeader {
 		panic("")
 	}
-	return w.status != StatusNotModified && w.req.Method != "HEAD"
+	return bodyAllowedForStatus(w.status)
 }
 
 // The Life Of A Write is like this:
@@ -897,25 +956,38 @@ func (w *response) bodyAllowed() bool {
 // bufferBeforeChunkingSize smaller and having bufio's fast-paths deal
 // with this instead.
 func (w *response) Write(data []byte) (n int, err error) {
+	return w.write(len(data), data, "")
+}
+
+func (w *response) WriteString(data string) (n int, err error) {
+	return w.write(len(data), nil, data)
+}
+
+// either dataB or dataS is non-zero.
+func (w *response) write(lenData int, dataB []byte, dataS string) (n int, err error) {
 	if w.conn.hijacked() {
-		log.Print("http: response.Write on hijacked connection")
+		w.conn.server.logf("http: response.Write on hijacked connection")
 		return 0, ErrHijacked
 	}
 	if !w.wroteHeader {
 		w.WriteHeader(StatusOK)
 	}
-	if len(data) == 0 {
+	if lenData == 0 {
 		return 0, nil
 	}
 	if !w.bodyAllowed() {
 		return 0, ErrBodyNotAllowed
 	}
 
-	w.written += int64(len(data)) // ignoring errors, for errorKludge
+	w.written += int64(lenData) // ignoring errors, for errorKludge
 	if w.contentLength != -1 && w.written > w.contentLength {
 		return 0, ErrContentLength
 	}
-	return w.w.Write(data)
+	if dataB != nil {
+		return w.w.Write(dataB)
+	} else {
+		return w.w.WriteString(dataS)
+	}
 }
 
 func (w *response) finishRequest() {
@@ -926,20 +998,19 @@ func (w *response) finishRequest() {
 	}
 
 	w.w.Flush()
-	putBufioWriter(w.w, w.sw)
+	putBufioWriter(w.w)
 	w.cw.close()
 	w.conn.buf.Flush()
 
-	// Close the body, unless we're about to close the whole TCP connection
-	// anyway.
-	if !w.closeAfterReply {
-		w.req.Body.Close()
-	}
+	// Close the body (regardless of w.closeAfterReply) so we can
+	// re-use its bufio.Reader later safely.
+	w.req.Body.Close()
+
 	if w.req.MultipartForm != nil {
 		w.req.MultipartForm.RemoveAll()
 	}
 
-	if w.contentLength != -1 && w.bodyAllowed() && w.contentLength != w.written {
+	if w.req.Method != "HEAD" && w.contentLength != -1 && w.bodyAllowed() && w.contentLength != w.written {
 		// Did not write enough. Avoid getting out of sync.
 		w.closeAfterReply = true
 	}
@@ -959,11 +1030,11 @@ func (c *conn) finalFlush() {
 
 		// Steal the bufio.Reader (~4KB worth of memory) and its associated
 		// reader for a future connection.
-		putBufioReader(c.buf.Reader, c.bufswr)
+		putBufioReader(c.buf.Reader)
 
 		// Steal the bufio.Writer (~4KB worth of memory) and its associated
 		// writer for a future connection.
-		putBufioWriter(c.buf.Writer, c.bufsww)
+		putBufioWriter(c.buf.Writer)
 
 		c.buf = nil
 	}
@@ -1001,7 +1072,7 @@ func (c *conn) closeWriteAndWait() {
 	time.Sleep(rstAvoidanceDelay)
 }
 
-// validNPN returns whether the proto is not a blacklisted Next
+// validNPN reports whether the proto is not a blacklisted Next
 // Protocol Negotiation protocol.  Empty and built-in protocol types
 // are blacklisted and can't be overridden with alternate
 // implementations.
@@ -1013,17 +1084,25 @@ func validNPN(proto string) bool {
 	return true
 }
 
+func (c *conn) setState(nc net.Conn, state ConnState) {
+	if hook := c.server.ConnState; hook != nil {
+		hook(nc, state)
+	}
+}
+
 // Serve a new connection.
 func (c *conn) serve() {
+	origConn := c.rwc // copy it before it's set nil on Close or Hijack
 	defer func() {
 		if err := recover(); err != nil {
-			const size = 4096
+			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.Printf("http: panic serving %v: %v\n%s", c.remoteAddr, err, buf)
+			c.server.logf("http: panic serving %v: %v\n%s", c.remoteAddr, err, buf)
 		}
 		if !c.hijacked() {
 			c.close()
+			c.setState(origConn, StateClosed)
 		}
 	}()
 
@@ -1035,6 +1114,7 @@ func (c *conn) serve() {
 			c.rwc.SetWriteDeadline(time.Now().Add(d))
 		}
 		if err := tlsConn.Handshake(); err != nil {
+			c.server.logf("http: TLS handshake error from %s: %v", c.rwc.RemoteAddr(), err)
 			return
 		}
 		c.tlsState = new(tls.ConnectionState)
@@ -1050,6 +1130,10 @@ func (c *conn) serve() {
 
 	for {
 		w, err := c.readRequest()
+		if c.lr.N != c.server.initialLimitedReaderSize() {
+			// If we read any bytes off the wire, we're active.
+			c.setState(c.rwc, StateActive)
+		}
 		if err != nil {
 			if err == errTooLarge {
 				// Their HTTP client may or may not be
@@ -1072,15 +1156,9 @@ func (c *conn) serve() {
 		// Expect 100 Continue support
 		req := w.req
 		if req.expectsContinue() {
-			if req.ProtoAtLeast(1, 1) {
+			if req.ProtoAtLeast(1, 1) && req.ContentLength != 0 {
 				// Wrap the Body reader with one that replies on the connection
 				req.Body = &expectContinueReader{readCloser: req.Body, resp: w}
-			}
-			if req.ContentLength == 0 {
-				w.Header().Set("Connection", "close")
-				w.WriteHeader(StatusBadRequest)
-				w.finishRequest()
-				break
 			}
 			req.Header.Del("Expect")
 		} else if req.Header.get("Expect") != "" {
@@ -1104,6 +1182,7 @@ func (c *conn) serve() {
 			}
 			break
 		}
+		c.setState(c.rwc, StateIdle)
 	}
 }
 
@@ -1131,7 +1210,14 @@ func (w *response) Hijack() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
 	if w.wroteHeader {
 		w.cw.flush()
 	}
-	return w.conn.hijack()
+	// Release the bufioWriter that writes to the chunk writer, it is not
+	// used after a connection has been hijacked.
+	rwc, buf, err = w.conn.hijack()
+	if err == nil {
+		putBufioWriter(w.w)
+		w.w = nil
+	}
+	return rwc, buf, err
 }
 
 func (w *response) CloseNotify() <-chan bool {
@@ -1152,6 +1238,7 @@ func (f HandlerFunc) ServeHTTP(w ResponseWriter, r *Request) {
 // Helper handlers
 
 // Error replies to the request with the specified error message and HTTP code.
+// The error message should be plain text.
 func Error(w ResponseWriter, error string, code int) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(code)
@@ -1288,6 +1375,10 @@ func RedirectHandler(url string, code int) Handler {
 // former will receive requests for any other paths in the
 // "/images/" subtree.
 //
+// Note that since a pattern ending in a slash names a rooted subtree,
+// the pattern "/" matches all paths not matched by other registered
+// patterns, not just the URL with Path == "/".
+//
 // Patterns may optionally begin with a host name, restricting matches to
 // URLs on that host only.  Host-specific patterns take precedence over
 // general patterns, so that a handler might register for the two patterns
@@ -1378,7 +1469,9 @@ func (mux *ServeMux) Handler(r *Request) (h Handler, pattern string) {
 	if r.Method != "CONNECT" {
 		if p := cleanPath(r.URL.Path); p != r.URL.Path {
 			_, pattern = mux.handler(r.Host, p)
-			return RedirectHandler(p, StatusMovedPermanently), pattern
+			url := *r.URL
+			url.Path = p
+			return RedirectHandler(url.String(), StatusMovedPermanently), pattern
 		}
 	}
 
@@ -1408,7 +1501,9 @@ func (mux *ServeMux) handler(host, path string) (h Handler, pattern string) {
 // pattern most closely matches the request URL.
 func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
 	if r.RequestURI == "*" {
-		w.Header().Set("Connection", "close")
+		if r.ProtoAtLeast(1, 1) {
+			w.Header().Set("Connection", "close")
+		}
 		w.WriteHeader(StatusBadRequest)
 		return
 	}
@@ -1482,6 +1577,7 @@ func Serve(l net.Listener, handler Handler) error {
 }
 
 // A Server defines parameters for running an HTTP server.
+// The zero value for Server is a valid configuration.
 type Server struct {
 	Addr           string        // TCP address to listen on, ":http" if empty
 	Handler        Handler       // handler to invoke, http.DefaultServeMux if nil
@@ -1498,6 +1594,66 @@ type Server struct {
 	// and RemoteAddr if not already set.  The connection is
 	// automatically closed when the function returns.
 	TLSNextProto map[string]func(*Server, *tls.Conn, Handler)
+
+	// ConnState specifies an optional callback function that is
+	// called when a client connection changes state. See the
+	// ConnState type and associated constants for details.
+	ConnState func(net.Conn, ConnState)
+
+	// ErrorLog specifies an optional logger for errors accepting
+	// connections and unexpected behavior from handlers.
+	// If nil, logging goes to os.Stderr via the log package's
+	// standard logger.
+	ErrorLog *log.Logger
+
+	disableKeepAlives int32 // accessed atomically.
+}
+
+// A ConnState represents the state of a client connection to a server.
+// It's used by the optional Server.ConnState hook.
+type ConnState int
+
+const (
+	// StateNew represents a new connection that is expected to
+	// send a request immediately. Connections begin at this
+	// state and then transition to either StateActive or
+	// StateClosed.
+	StateNew ConnState = iota
+
+	// StateActive represents a connection that has read 1 or more
+	// bytes of a request. The Server.ConnState hook for
+	// StateActive fires before the request has entered a handler
+	// and doesn't fire again until the request has been
+	// handled. After the request is handled, the state
+	// transitions to StateClosed, StateHijacked, or StateIdle.
+	StateActive
+
+	// StateIdle represents a connection that has finished
+	// handling a request and is in the keep-alive state, waiting
+	// for a new request. Connections transition from StateIdle
+	// to either StateActive or StateClosed.
+	StateIdle
+
+	// StateHijacked represents a hijacked connection.
+	// This is a terminal state. It does not transition to StateClosed.
+	StateHijacked
+
+	// StateClosed represents a closed connection.
+	// This is a terminal state. Hijacked connections do not
+	// transition to StateClosed.
+	StateClosed
+)
+
+var stateName = map[ConnState]string{
+	StateNew:      "new",
+	StateActive:   "active",
+	StateIdle:     "idle",
+	StateHijacked: "hijacked",
+	StateClosed:   "closed",
+}
+
+func (c ConnState) String() string {
+	return stateName[c]
 }
 
 // serverHandler delegates to either the server's Handler or
@@ -1525,11 +1681,11 @@ func (srv *Server) ListenAndServe() error {
 	if addr == "" {
 		addr = ":http"
 	}
-	l, e := net.Listen("tcp", addr)
-	if e != nil {
-		return e
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
 	}
-	return srv.Serve(l)
+	return srv.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 }
 
 // Serve accepts incoming connections on the Listener l, creating a
@@ -1550,7 +1706,7 @@ func (srv *Server) Serve(l net.Listener) error {
 				if max := 1 * time.Second; tempDelay > max {
 					tempDelay = max
 				}
-				log.Printf("http: Accept error: %v; retrying in %v", e, tempDelay)
+				srv.logf("http: Accept error: %v; retrying in %v", e, tempDelay)
 				time.Sleep(tempDelay)
 				continue
 			}
@@ -1561,7 +1717,32 @@ func (srv *Server) Serve(l net.Listener) error {
 		if err != nil {
 			continue
 		}
+		c.setState(c.rwc, StateNew) // before Serve can return
 		go c.serve()
+	}
+}
+
+func (s *Server) doKeepAlives() bool {
+	return atomic.LoadInt32(&s.disableKeepAlives) == 0
+}
+
+// SetKeepAlivesEnabled controls whether HTTP keep-alives are enabled.
+// By default, keep-alives are always enabled. Only very
+// resource-constrained environments or servers in the process of
+// shutting down should disable them.
+func (s *Server) SetKeepAlivesEnabled(v bool) {
+	if v {
+		atomic.StoreInt32(&s.disableKeepAlives, 0)
+	} else {
+		atomic.StoreInt32(&s.disableKeepAlives, 1)
+	}
+}
+
+func (s *Server) logf(format string, args ...interface{}) {
+	if s.ErrorLog != nil {
+		s.ErrorLog.Printf(format, args...)
+	} else {
+		log.Printf(format, args...)
 	}
 }
 
@@ -1659,12 +1840,12 @@ func (srv *Server) ListenAndServeTLS(certFile, keyFile string) error {
 		return err
 	}
 
-	conn, err := net.Listen("tcp", addr)
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
 
-	tlsListener := tls.NewListener(conn, config)
+	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, config)
 	return srv.Serve(tlsListener)
 }
 
@@ -1754,6 +1935,24 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	tw.w.WriteHeader(code)
 }
 
+// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// connections. It's used by ListenAndServe and ListenAndServeTLS so
+// dead TCP connections (e.g. closing laptop mid-download) eventually
+// go away.
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(3 * time.Minute)
+	return tc, nil
+}
+
 // globalOptionsHandler responds to "OPTIONS *" requests.
 type globalOptionsHandler struct{}
 
@@ -1770,8 +1969,23 @@ func (globalOptionsHandler) ServeHTTP(w ResponseWriter, r *Request) {
 	}
 }
 
+type eofReaderWithWriteTo struct{}
+
+func (eofReaderWithWriteTo) WriteTo(io.Writer) (int64, error) { return 0, nil }
+func (eofReaderWithWriteTo) Read([]byte) (int, error)         { return 0, io.EOF }
+
 // eofReader is a non-nil io.ReadCloser that always returns EOF.
-var eofReader = ioutil.NopCloser(strings.NewReader(""))
+// It has a WriteTo method so io.Copy won't need a buffer.
+var eofReader = &struct {
+	eofReaderWithWriteTo
+	io.Closer
+}{
+	eofReaderWithWriteTo{},
+	ioutil.NopCloser(nil),
+}
+
+// Verify that an io.Copy from an eofReader won't require a buffer.
+var _ io.WriterTo = eofReader
 
 // initNPNRequest is an HTTP handler that initializes certain
 // uninitialized fields in its *Request. Such partially-initialized

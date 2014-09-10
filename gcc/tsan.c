@@ -1,5 +1,5 @@
 /* GCC instrumentation plugin for ThreadSanitizer.
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Dmitry Vyukov <dvyukov@google.com>
 
 This file is part of GCC.
@@ -23,14 +23,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "expr.h"
 #include "intl.h"
 #include "tm.h"
 #include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
 #include "function.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "tree-iterator.h"
@@ -445,9 +453,8 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	  case check_last:
 	  case fetch_op:
 	    last_arg = gimple_call_arg (stmt, num - 1);
-	    if (!host_integerp (last_arg, 1)
-		|| (unsigned HOST_WIDE_INT) tree_low_cst (last_arg, 1)
-		   > MEMMODEL_SEQ_CST)
+	    if (!tree_fits_uhwi_p (last_arg)
+		|| tree_to_uhwi (last_arg) > MEMMODEL_SEQ_CST)
 	      return;
 	    gimple_call_set_fndecl (stmt, decl);
 	    update_stmt (stmt);
@@ -517,13 +524,11 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	    gcc_assert (num == 6);
 	    for (j = 0; j < 6; j++)
 	      args[j] = gimple_call_arg (stmt, j);
-	    if (!host_integerp (args[4], 1)
-		|| (unsigned HOST_WIDE_INT) tree_low_cst (args[4], 1)
-		   > MEMMODEL_SEQ_CST)
+	    if (!tree_fits_uhwi_p (args[4])
+		|| tree_to_uhwi (args[4]) > MEMMODEL_SEQ_CST)
 	      return;
-	    if (!host_integerp (args[5], 1)
-		|| (unsigned HOST_WIDE_INT) tree_low_cst (args[5], 1)
-		   > MEMMODEL_SEQ_CST)
+	    if (!tree_fits_uhwi_p (args[5])
+		|| tree_to_uhwi (args[5]) > MEMMODEL_SEQ_CST)
 	      return;
 	    update_gimple_call (gsi, decl, 5, args[0], args[1], args[2],
 				args[4], args[5]);
@@ -604,7 +609,7 @@ instrument_gimple (gimple_stmt_iterator *gsi)
       && (gimple_call_fndecl (stmt)
 	  != builtin_decl_implicit (BUILT_IN_TSAN_INIT)))
     {
-      if (is_gimple_builtin_call (stmt))
+      if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
 	instrument_builtin_call (gsi);
       return true;
     }
@@ -635,7 +640,7 @@ instrument_memory_accesses (void)
   gimple_stmt_iterator gsi;
   bool fentry_exit_instrument = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       fentry_exit_instrument |= instrument_gimple (&gsi);
   return fentry_exit_instrument;
@@ -651,7 +656,7 @@ instrument_func_entry (void)
   tree ret_addr, builtin_decl;
   gimple g;
 
-  succ_bb = single_succ (ENTRY_BLOCK_PTR);
+  succ_bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   gsi = gsi_after_labels (succ_bb);
 
   builtin_decl = builtin_decl_implicit (BUILT_IN_RETURN_ADDRESS);
@@ -681,7 +686,7 @@ instrument_func_exit (void)
   edge_iterator ei;
 
   /* Find all function exits.  */
-  exit_bb = EXIT_BLOCK_PTR;
+  exit_bb = EXIT_BLOCK_PTR_FOR_FN (cfun);
   FOR_EACH_EDGE (e, ei, exit_bb->preds)
     {
       gsi = gsi_last_bb (e->src);
@@ -710,14 +715,6 @@ tsan_pass (void)
   return 0;
 }
 
-/* The pass's gate.  */
-
-static bool
-tsan_gate (void)
-{
-  return (flag_sanitize & SANITIZE_THREAD) != 0;
-}
-
 /* Inserts __tsan_init () into the list of CTORs.  */
 
 void
@@ -742,14 +739,12 @@ const pass_data pass_data_tsan =
   GIMPLE_PASS, /* type */
   "tsan", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_all | TODO_update_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_tsan : public gimple_opt_pass
@@ -761,8 +756,12 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_tsan (m_ctxt); }
-  bool gate () { return tsan_gate (); }
-  unsigned int execute () { return tsan_pass (); }
+  virtual bool gate (function *)
+{
+  return (flag_sanitize & SANITIZE_THREAD) != 0;
+}
+
+  virtual unsigned int execute (function *) { return tsan_pass (); }
 
 }; // class pass_tsan
 
@@ -774,12 +773,6 @@ make_pass_tsan (gcc::context *ctxt)
   return new pass_tsan (ctxt);
 }
 
-static bool
-tsan_gate_O0 (void)
-{
-  return (flag_sanitize & SANITIZE_THREAD) != 0 && !optimize;
-}
-
 namespace {
 
 const pass_data pass_data_tsan_O0 =
@@ -787,14 +780,12 @@ const pass_data pass_data_tsan_O0 =
   GIMPLE_PASS, /* type */
   "tsan0", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_all | TODO_update_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_tsan_O0 : public gimple_opt_pass
@@ -805,8 +796,12 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return tsan_gate_O0 (); }
-  unsigned int execute () { return tsan_pass (); }
+  virtual bool gate (function *)
+    {
+      return (flag_sanitize & SANITIZE_THREAD) != 0 && !optimize;
+    }
+
+  virtual unsigned int execute (function *) { return tsan_pass (); }
 
 }; // class pass_tsan_O0
 

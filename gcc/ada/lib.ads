@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -279,9 +279,9 @@ package Lib is
    --      This is the number of the unit within the generated dependency
    --      lines (D lines in the ALI file) which are sorted into alphabetical
    --      order. The number is ones origin, so a value of 2 refers to the
-   --      second generated D line. The Dependency_Number values are set
-   --      as the D lines are generated, and are used to generate proper
-   --      unit references in the generated xref information and SCO output.
+   --      second generated D line. The Dependency_Num values are set as the
+   --      D lines are generated, and are used to generate proper unit
+   --      references in the generated xref information and SCO output.
 
    --    Dynamic_Elab
    --      A flag indicating if this unit was compiled with dynamic elaboration
@@ -308,7 +308,7 @@ package Lib is
    --      from running (i.e. fatal error during parsing stops semantics,
    --      fatal error during semantics stops code generation). Note that
    --      currently, errors of any kind cause Fatal_Error to be set, but
-   --      eventually perhaps only errors labeled as Fatal_Errors should be
+   --      eventually perhaps only errors labeled as fatal errors should be
    --      this severe if we decide to try Sem on sources with minor errors.
 
    --    Generate_Code
@@ -316,19 +316,11 @@ package Lib is
    --      code is to be generated. This includes the unit explicitly compiled,
    --      together with its specification, and any subunits.
 
-   --    Has_Allocator
-   --      This flag is set if a subprogram unit has an allocator after the
-   --      BEGIN (it is used to set the AB flag in the M ALI line).
-
    --    Has_RACW
    --      A Boolean flag, initially set to False when a unit entry is created,
    --      and set to True if the unit defines a remote access to class wide
    --      (RACW) object. This is used for controlling generation of the RA
    --      attribute in the ali file.
-
-   --    Is_Compiler_Unit
-   --      A Boolean flag, initially set False by default, set to True if a
-   --      pragma Compiler_Unit appears in the unit.
 
    --    Ident_String
    --      N_String_Literal node from a valid pragma Ident that applies to
@@ -355,6 +347,11 @@ package Lib is
    --      The index of the unit within the file for multiple unit per file
    --      mode. Set to zero in normal single unit per file mode.
 
+   --    No_Elab_Code_All
+   --      A flag set when a pragma or aspect No_Elaboration_Code_All applies
+   --      to the unit. This is used to implement the transitive WITH rules
+   --      (and for no other purpose).
+
    --    OA_Setting
    --      This is a character field containing L if Optimize_Alignment mode
    --      was set locally, and O/T/S for Off/Time/Space default if not.
@@ -370,10 +367,6 @@ package Lib is
    --      The index in the source file table of the corresponding source file.
    --      Set when the entry is created by a call to Lib.Load and then cannot
    --      be changed.
-
-   --    SPARK_Mode_Pragma
-   --      Pointer to the configuration pragma SPARK_Mode that applies to the
-   --      whole unit. Add note of what this is used for ???
 
    --    Unit_File_Name
    --      The name of the source file containing the unit. Set when the entry
@@ -417,16 +410,14 @@ package Lib is
    function Fatal_Error       (U : Unit_Number_Type) return Boolean;
    function Generate_Code     (U : Unit_Number_Type) return Boolean;
    function Ident_String      (U : Unit_Number_Type) return Node_Id;
-   function Has_Allocator     (U : Unit_Number_Type) return Boolean;
    function Has_RACW          (U : Unit_Number_Type) return Boolean;
-   function Is_Compiler_Unit  (U : Unit_Number_Type) return Boolean;
    function Loading           (U : Unit_Number_Type) return Boolean;
    function Main_CPU          (U : Unit_Number_Type) return Int;
    function Main_Priority     (U : Unit_Number_Type) return Int;
    function Munit_Index       (U : Unit_Number_Type) return Nat;
+   function No_Elab_Code_All  (U : Unit_Number_Type) return Boolean;
    function OA_Setting        (U : Unit_Number_Type) return Character;
    function Source_Index      (U : Unit_Number_Type) return Source_File_Index;
-   function SPARK_Mode_Pragma (U : Unit_Number_Type) return Node_Id;
    function Unit_File_Name    (U : Unit_Number_Type) return File_Name_Type;
    function Unit_Name         (U : Unit_Number_Type) return Unit_Name_Type;
    --  Get value of named field from given units table entry
@@ -438,14 +429,12 @@ package Lib is
    procedure Set_Fatal_Error       (U : Unit_Number_Type; B : Boolean := True);
    procedure Set_Generate_Code     (U : Unit_Number_Type; B : Boolean := True);
    procedure Set_Has_RACW          (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Has_Allocator     (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Is_Compiler_Unit  (U : Unit_Number_Type; B : Boolean := True);
    procedure Set_Ident_String      (U : Unit_Number_Type; N : Node_Id);
    procedure Set_Loading           (U : Unit_Number_Type; B : Boolean := True);
    procedure Set_Main_CPU          (U : Unit_Number_Type; P : Int);
+   procedure Set_No_Elab_Code_All  (U : Unit_Number_Type; B : Boolean := True);
    procedure Set_Main_Priority     (U : Unit_Number_Type; P : Int);
    procedure Set_OA_Setting        (U : Unit_Number_Type; C : Character);
-   procedure Set_SPARK_Mode_Pragma (U : Unit_Number_Type; N : Node_Id);
    procedure Set_Unit_Name         (U : Unit_Number_Type; N : Unit_Name_Type);
    --  Set value of named field for given units table entry. Note that we
    --  do not have an entry for each possible field, since some of the fields
@@ -526,6 +515,14 @@ package Lib is
    --  instantiations are included in the extended main unit for this call.
    --  If the main unit is itself a subunit, then the extended main code unit
    --  includes its parent unit, and the parent unit spec if it is separate.
+   --
+   --  This routine (and the following three routines) all return False if
+   --  Sloc (N) is No_Location or Standard_Location. In an earlier version,
+   --  they returned True for Standard_Location, but this was odd, and some
+   --  archeology indicated that this was done for the sole benefit of the
+   --  call in Restrict.Check_Restriction_No_Dependence, so we have moved
+   --  the special case check to that routine. This avoids some difficulties
+   --  with some other calls that malfunctioned with the odd return of True.
 
    function In_Extended_Main_Code_Unit (Loc : Source_Ptr) return Boolean;
    --  Same function as above, but argument is a source pointer rather
@@ -730,29 +727,26 @@ private
    pragma Inline (Dependency_Num);
    pragma Inline (Fatal_Error);
    pragma Inline (Generate_Code);
-   pragma Inline (Has_Allocator);
    pragma Inline (Has_RACW);
-   pragma Inline (Is_Compiler_Unit);
    pragma Inline (Increment_Serial_Number);
    pragma Inline (Loading);
    pragma Inline (Main_CPU);
    pragma Inline (Main_Priority);
    pragma Inline (Munit_Index);
+   pragma Inline (No_Elab_Code_All);
    pragma Inline (OA_Setting);
    pragma Inline (Set_Cunit);
    pragma Inline (Set_Cunit_Entity);
    pragma Inline (Set_Fatal_Error);
    pragma Inline (Set_Generate_Code);
-   pragma Inline (Set_Has_Allocator);
    pragma Inline (Set_Has_RACW);
    pragma Inline (Set_Loading);
    pragma Inline (Set_Main_CPU);
    pragma Inline (Set_Main_Priority);
+   pragma Inline (Set_No_Elab_Code_All);
    pragma Inline (Set_OA_Setting);
-   pragma Inline (Set_SPARK_Mode_Pragma);
    pragma Inline (Set_Unit_Name);
    pragma Inline (Source_Index);
-   pragma Inline (SPARK_Mode_Pragma);
    pragma Inline (Unit_File_Name);
    pragma Inline (Unit_Name);
 
@@ -774,10 +768,10 @@ private
       Fatal_Error       : Boolean;
       Generate_Code     : Boolean;
       Has_RACW          : Boolean;
-      Is_Compiler_Unit  : Boolean;
       Dynamic_Elab      : Boolean;
+      No_Elab_Code_All  : Boolean;
+      Filler            : Boolean;
       Loading           : Boolean;
-      Has_Allocator     : Boolean;
       OA_Setting        : Character;
       SPARK_Mode_Pragma : Node_Id;
    end record;
@@ -805,10 +799,10 @@ private
       Generate_Code     at 57 range 0 ..  7;
       Has_RACW          at 58 range 0 ..  7;
       Dynamic_Elab      at 59 range 0 ..  7;
-      Is_Compiler_Unit  at 60 range 0 ..  7;
-      OA_Setting        at 61 range 0 ..  7;
-      Loading           at 62 range 0 ..  7;
-      Has_Allocator     at 63 range 0 ..  7;
+      No_Elab_Code_All  at 60 range 0 ..  7;
+      Filler            at 61 range 0 ..  7;
+      OA_Setting        at 62 range 0 ..  7;
+      Loading           at 63 range 0 ..  7;
       SPARK_Mode_Pragma at 64 range 0 .. 31;
    end record;
 
@@ -843,13 +837,8 @@ private
 
    --  The following table stores references to pragmas that generate Notes
 
-   type Notes_Entry is record
-      Pragma_Node : Node_Id;
-      Unit        : Unit_Number_Type;
-   end record;
-
    package Notes is new Table.Table (
-     Table_Component_Type => Notes_Entry,
+     Table_Component_Type => Node_Id,
      Table_Index_Type     => Integer,
      Table_Low_Bound      => 1,
      Table_Initial        => Alloc.Notes_Initial,

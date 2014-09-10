@@ -1,3 +1,59 @@
+2014-08-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/62260
+	* Makefile.am (gcc_build_dir): Set to @gcc_build_dir@.
+	* configure.ac (gcc_build_dir): Set and AC_SUBST according to
+	$host_subdir.
+	* Makefile.in: Regenerated.
+	* configure: Likewise.
+
+2014-06-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* configure.ac (--with-libiberty): New configure option.
+	* configure: Regenerate.
+	* Makefile.am (libiberty, libiberty_noasan, libiberty_pic): New
+	variables.
+	(liblto_plugin_la_LIBADD, liblto_plugin_la_LDFLAGS)
+	(liblto_plugin_la_DEPENDENCIES): Use them.
+	* Makefile.in: Regenerate.
+
+2014-05-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR lto/60981
+	* configure.ac: Check for -static-libgcc.
+	* configure: Regenerate.
+
+2014-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/56781
+	* Makefile.am (CFLAGS, LDFLAGS): Filter out -fsanitize=address.
+	(liblto_plugin_la_LIBADD, liblto_plugin_la_LDFLAGS,
+	liblto_plugin_la_DEPENDENCIES): Prefer ../libiberty/noasan/libiberty.a
+	over ../libiberty/pic/libiberty.a if the former exists.
+	* Makefile.in: Regenerated.
+
+	PR sanitizer/56781
+	* Makefile.am (LTLDFLAGS, liblto_plugin_la_LINK): New variables.
+	* Makefile.in: Regenerated.
+
+2014-04-02  Richard Biener  <rguenther@suse.de>
+
+	* lto-plugin.c (onload): Fail to load if -fno-use-linker-plugin
+	is set in COLLECT_GCC_OPTIONS.
+
+2014-03-28  Richard Biener  <rguenther@suse.de>
+
+	* lto-plugin.c (process_symtab): Handle EINTR and short reads.
+
+2014-03-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (ac_lto_plugin_ldflags): Set to -Wc,-static-libgcc
+	for gcc.
+	* configure: Regenerate.
+	* Makefile.am (AM_LDFLAGS): New variable.
+	(liblto_plugin_la_LDFLAGS): Add it.
+	* Makefile.in: Regenerate.
+
 2013-09-20  Alan Modra  <amodra@gmail.com>
 
 	* configure: Regenerate.
@@ -334,7 +390,7 @@
 	(claim_file_handler): Add n variable. Check return value of
 	process_symtab. Call resolve_conflicts.
 
-2010-07-27  Andi Kleen <ak@linux.intel.com>
+2010-07-27  Andi Kleen  <ak@linux.intel.com>
 
 	* lto-plugin.c (translate): Remove debug fprintf.
 
@@ -343,7 +399,7 @@
 	PR bootstrap/45042
 	* lto-plugin.c (translate): Cast to unsigned long.
 
-2010-07-23   Andi Kleen <ak@linux.intel.com>
+2010-07-23   Andi Kleen  <ak@linux.intel.com>
 
 	PR lto/44992
 	* lto-plugin.c (sym_aux): Add.

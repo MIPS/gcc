@@ -1,5 +1,5 @@
 ;; Hardware Transactional Memory (HTM) patterns.
-;; Copyright (C) 2013 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2014 Free Software Foundation, Inc.
 ;; Contributed by Peter Bergner <bergner@vnet.ibm.com>.
 
 ;; This file is part of GCC.
@@ -179,10 +179,10 @@
 			     (const_int 0)]
 			    UNSPECV_HTM_TABORTWCI))
    (set (subreg:CC (match_dup 2) 0) (match_dup 1))
-   (set (match_dup 3) (lshiftrt:SI (match_dup 2) (const_int 24)))
-   (parallel [(set (match_operand:SI 0 "int_reg_operand" "")
-		   (and:SI (match_dup 3) (const_int 15)))
-              (clobber (scratch:CC))])]
+   (set (match_dup 3) (lshiftrt:SI (match_dup 2) (const_int 28)))
+   (set (match_operand:SI 0 "int_reg_operand" "")
+	(and:SI (match_dup 3)
+		(const_int 15)))]
   "TARGET_HTM"
 {
   operands[1] = gen_rtx_REG (CCmode, CR0_REGNO);

@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997-2013 Free Software Foundation, Inc.
+// Copyright (C) 1997-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -71,6 +71,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _CharT, typename _Traits>
     class basic_filebuf : public basic_streambuf<_CharT, _Traits>
     {
+#if __cplusplus >= 201103L
+      template<typename _Tp>
+	using __chk_state = __and_<is_copy_assignable<_Tp>,
+				   is_copy_constructible<_Tp>,
+				   is_default_constructible<_Tp>>;
+
+      static_assert(__chk_state<typename _Traits::state_type>::value,
+		    "state_type must be CopyAssignable, CopyConstructible"
+		    " and DefaultConstructible");
+
+      static_assert(is_same<typename _Traits::pos_type,
+			    fpos<typename _Traits::state_type>>::value,
+		    "pos_type must be fpos<state_type>");
+#endif
     public:
       // Types:
       typedef _CharT                     	        char_type;
@@ -238,9 +252,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  given in @a __mode.
        *
        *  Table 92, adapted here, gives the relation between openmode
-       *  combinations and the equivalent fopen() flags.
+       *  combinations and the equivalent @c fopen() flags.
        *  (NB: lines app, in|out|app, in|app, binary|app, binary|in|out|app,
        *  and binary|in|app per DR 596)
+       *  <pre>
        *  +---------------------------------------------------------+
        *  | ios_base Flag combination            stdio equivalent   |
        *  |binary  in  out  trunc  app                              |
@@ -265,6 +280,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  |   +     +   +           +            a+b                |
        *  |   +     +               +            a+b                |
        *  +---------------------------------------------------------+
+       *  </pre>
        */
       __filebuf_type*
       open(const char* __s, ios_base::openmode __mode);
@@ -342,7 +358,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  If no file has been opened, and both @a __s and @a __n are zero, then
        *  the stream becomes unbuffered.  Otherwise, @c __s is used as a
        *  buffer; see
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt11ch25s02.html
+       *  https://gcc.gnu.org/onlinedocs/libstdc++/manual/streambufs.html#io.streambuf.buffering
        *  for more.
        */
       virtual __streambuf_type*
@@ -394,9 +410,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_set_buffer(streamsize __off)
       {
- 	const bool __testin = _M_mode & ios_base::in;
- 	const bool __testout = _M_mode & ios_base::out;
-	
+	const bool __testin = _M_mode & ios_base::in;
+	const bool __testout = (_M_mode & ios_base::out
+				|| _M_mode & ios_base::app);
+
 	if (__testin && __off > 0)
 	  this->setg(_M_buf, _M_buf, _M_buf + __off);
 	else

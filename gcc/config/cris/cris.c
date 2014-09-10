@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -30,6 +30,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "function.h"
@@ -47,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "opts.h"
 #include "cgraph.h"
+#include "builtins.h"
 
 /* Usable when we have an amount to add or subtract, and want the
    optimal size of the insn.  */
@@ -88,6 +93,8 @@ static int cris_reg_overlap_mentioned_p (rtx, rtx);
 
 static enum machine_mode cris_promote_function_mode (const_tree, enum machine_mode,
 						     int *, const_tree, int);
+
+static unsigned int cris_atomic_align_for_mode (enum machine_mode);
 
 static void cris_print_base (rtx, FILE *);
 
@@ -141,6 +148,7 @@ static rtx cris_function_incoming_arg (cumulative_args_t,
 static void cris_function_arg_advance (cumulative_args_t, enum machine_mode,
 				       const_tree, bool);
 static tree cris_md_asm_clobbers (tree, tree, tree);
+static bool cris_cannot_force_const_mem (enum machine_mode, rtx);
 
 static void cris_option_override (void);
 
@@ -208,6 +216,9 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P cris_legitimate_address_p
 
+#undef TARGET_LEGITIMATE_CONSTANT_P
+#define TARGET_LEGITIMATE_CONSTANT_P cris_legitimate_constant_p
+
 #undef TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS cris_preferred_reload_class
 
@@ -222,6 +233,9 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 
 #undef TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE cris_promote_function_mode
+
+#undef TARGET_ATOMIC_ALIGN_FOR_MODE
+#define TARGET_ATOMIC_ALIGN_FOR_MODE cris_atomic_align_for_mode
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
@@ -239,6 +253,10 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_FUNCTION_ARG_ADVANCE cris_function_arg_advance
 #undef TARGET_MD_ASM_CLOBBERS
 #define TARGET_MD_ASM_CLOBBERS cris_md_asm_clobbers
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM cris_cannot_force_const_mem
+
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED cris_frame_pointer_required
 
@@ -497,6 +515,21 @@ cris_cfun_uses_pic_table (void)
   return crtl->uses_pic_offset_table;
 }
 
+/* Worker function for TARGET_CANNOT_FORCE_CONST_MEM.
+   We can't put PIC addresses in the constant pool, not even the ones that
+   can be reached as pc-relative as we can't tell when or how to do that.  */
+
+static bool
+cris_cannot_force_const_mem (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+{
+  enum cris_symbol_type t = cris_symbol_type_of (x);
+
+  return
+    t == cris_unspec
+    || t == cris_got_symbol
+    || t == cris_rel_symbol;
+}
+
 /* Given an rtx, return the text string corresponding to the CODE of X.
    Intended for use in the assembly language output section of a
    define_insn.  */
@@ -592,7 +625,7 @@ cris_print_index (rtx index, FILE *file)
 
   if (REG_P (index))
     fprintf (file, "$%s.b", reg_names[REGNO (index)]);
-  else if (CONSTANT_P (index))
+  else if (CRIS_CONSTANT_P (index))
     cris_output_addr_const (file, index);
   else if (GET_CODE (index) == MULT)
     {
@@ -1032,7 +1065,7 @@ cris_print_operand (FILE *file, rtx x, int code)
       /* If this is a GOT symbol, force it to be emitted as :GOT and
 	 :GOTPLT regardless of -fpic (i.e. not as :GOT16, :GOTPLT16).
 	 Avoid making this too much of a special case.  */
-      if (flag_pic == 1 && CONSTANT_P (operand))
+      if (flag_pic == 1 && CRIS_CONSTANT_P (operand))
 	{
 	  int flag_pic_save = flag_pic;
 
@@ -1152,7 +1185,7 @@ cris_print_operand (FILE *file, rtx x, int code)
     default:
       /* No need to handle all strange variants, let output_addr_const
 	 do it for us.  */
-      if (CONSTANT_P (operand))
+      if (CRIS_CONSTANT_P (operand))
 	{
 	  cris_output_addr_const (file, operand);
 	  return;
@@ -1270,7 +1303,7 @@ cris_initial_frame_pointer_offset (void)
       push_topmost_sequence ();
       got_really_used
 	= reg_used_between_p (pic_offset_table_rtx, get_insns (),
-			      NULL_RTX);
+			      NULL);
       pop_topmost_sequence ();
     }
 
@@ -1349,7 +1382,7 @@ reg_ok_for_index_p (const_rtx x, bool strict)
 bool
 cris_constant_index_p (const_rtx x)
 {
-  return (CONSTANT_P (x) && (!flag_pic || cris_valid_pic_const (x, true)));
+  return (CRIS_CONSTANT_P (x) && (!flag_pic || cris_valid_pic_const (x, true)));
 }
 
 /* True if X is a valid base register.  */
@@ -1456,6 +1489,29 @@ cris_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
     }
 
   return false;
+}
+
+/* Worker function for TARGET_LEGITIMATE_CONSTANT_P.  We have to handle
+   PIC constants that aren't legitimized.  FIXME: there used to be a
+   guarantee that the target LEGITIMATE_CONSTANT_P didn't have to handle
+   PIC constants, but no more (4.7 era); testcase: glibc init-first.c.
+   While that may be seen as a bug, that guarantee seems a wart by design,
+   so don't bother; fix the documentation instead.  */
+
+bool
+cris_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+{
+  enum cris_symbol_type t;
+
+  if (flag_pic)
+    return LEGITIMATE_PIC_OPERAND_P (x);
+
+  t = cris_symbol_type_of (x);
+
+  return
+    t == cris_no_symbol
+    || t == cris_offsettable_symbol
+    || t == cris_unspec;
 }
 
 /* Worker function for LEGITIMIZE_RELOAD_ADDRESS.  */
@@ -1959,7 +2015,7 @@ cris_simple_epilogue (void)
     {
       push_topmost_sequence ();
       got_really_used
-	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL);
       pop_topmost_sequence ();
     }
 
@@ -1978,7 +2034,8 @@ cris_simple_epilogue (void)
 void
 cris_emit_trap_for_misalignment (rtx mem)
 {
-  rtx addr, reg, ok_label, andop, jmp;
+  rtx addr, reg, ok_label, andop;
+  rtx_insn *jmp;
   int natural_alignment;
   gcc_assert (MEM_P (mem));
 
@@ -1989,17 +2046,14 @@ cris_emit_trap_for_misalignment (rtx mem)
 
   /* This will yield a btstq without a separate register used, usually -
      with the exception for PRE hoisting the "and" but not the branch
-     around the trap: see gcc.dg/target/cris/sync-3s.c.  */
+     around the trap: see testsuite/gcc.target/cris/sync-3s.c.  */
   andop = gen_rtx_AND (Pmode, reg, GEN_INT (natural_alignment - 1));
   emit_cmp_and_jump_insns (force_reg (SImode, andop), const0_rtx, EQ,
 			   NULL_RTX, Pmode, 1, ok_label);
   jmp = get_last_insn ();
   gcc_assert (JUMP_P (jmp));
 
-  /* While this isn't mudflap, it is a similar kind of assertion.
-     If PRED_MUDFLAP stops working, use something else or introduce a
-     more suitable assertion predication type.  */
-  predict_insn_def (jmp, PRED_MUDFLAP, TAKEN);
+  predict_insn_def (jmp, PRED_NORETURN, TAKEN);
   expand_builtin_trap ();
   emit_label (ok_label);
 }
@@ -2208,7 +2262,7 @@ cris_address_cost (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
 	return (2 + 2) / 2;
 
       /* A BDAP with some other constant is 2 bytes extra.  */
-      if (CONSTANT_P (tem2))
+      if (CRIS_CONSTANT_P (tem2))
 	return (2 + 2 + 2) / 2;
 
       /* BDAP with something indirect should have a higher cost than
@@ -2306,7 +2360,7 @@ cris_side_effect_mode_ok (enum rtx_code code, rtx *ops,
 	return 0;
 
       /* Check allowed cases, like [r(+)?].[bwd] and const.  */
-      if (CONSTANT_P (val_rtx))
+      if (CRIS_CONSTANT_P (val_rtx))
 	return 1;
 
       if (MEM_P (val_rtx)
@@ -2356,7 +2410,7 @@ cris_side_effect_mode_ok (enum rtx_code code, rtx *ops,
 bool
 cris_cc0_user_requires_cmp (rtx insn)
 {
-  rtx cc0_user = NULL;
+  rtx_insn *cc0_user = NULL;
   rtx body;
   rtx set;
 
@@ -2458,36 +2512,38 @@ cris_valid_pic_const (const_rtx x, bool any_operand)
 	gcc_unreachable ();
       }
 
-  return cris_pic_symbol_type_of (x) == cris_no_symbol;
+  return cris_symbol_type_of (x) == cris_no_symbol;
 }
 
-/* Helper function to find the right PIC-type symbol to generate,
+/* Helper function to find the right symbol-type to generate,
    given the original (non-PIC) representation.  */
 
-enum cris_pic_symbol_type
-cris_pic_symbol_type_of (const_rtx x)
+enum cris_symbol_type
+cris_symbol_type_of (const_rtx x)
 {
   switch (GET_CODE (x))
     {
     case SYMBOL_REF:
-      return SYMBOL_REF_LOCAL_P (x)
-	? cris_rel_symbol : cris_got_symbol;
+      return flag_pic
+	? (SYMBOL_REF_LOCAL_P (x)
+	   ? cris_rel_symbol : cris_got_symbol)
+	: cris_offsettable_symbol;
 
     case LABEL_REF:
-      return cris_rel_symbol;
+      return flag_pic ? cris_rel_symbol : cris_offsettable_symbol;
 
     case CONST:
-      return cris_pic_symbol_type_of (XEXP (x, 0));
+      return cris_symbol_type_of (XEXP (x, 0));
 
     case PLUS:
     case MINUS:
       {
-	enum cris_pic_symbol_type t1 = cris_pic_symbol_type_of (XEXP (x, 0));
-	enum cris_pic_symbol_type t2 = cris_pic_symbol_type_of (XEXP (x, 1));
+	enum cris_symbol_type t1 = cris_symbol_type_of (XEXP (x, 0));
+	enum cris_symbol_type t2 = cris_symbol_type_of (XEXP (x, 1));
 
 	gcc_assert (t1 == cris_no_symbol || t2 == cris_no_symbol);
 
-	if (t1 == cris_got_symbol || t1 == cris_got_symbol)
+	if (t1 == cris_got_symbol || t2 == cris_got_symbol)
 	  return cris_got_symbol_needing_fixup;
 
 	return t1 != cris_no_symbol ? t1 : t2;
@@ -2498,9 +2554,7 @@ cris_pic_symbol_type_of (const_rtx x)
       return cris_no_symbol;
 
     case UNSPEC:
-      /* Likely an offsettability-test attempting to add a constant to
-	 a GOTREAD symbol, which can't be handled.  */
-      return cris_invalid_pic_symbol;
+      return cris_unspec;
 
     default:
       fatal_insn ("unrecognized supposed constant", x);
@@ -2524,7 +2578,7 @@ cris_legitimate_pic_operand (rtx x)
 void 
 cris_asm_output_ident (const char *string)
 {
-  if (cgraph_state != CGRAPH_STATE_PARSING)
+  if (symtab->state != PARSING)
     return;
 
   default_asm_output_ident_directive (string);
@@ -2802,7 +2856,7 @@ cris_init_expanders (void)
 static struct machine_function *
 cris_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Split a 2 word move (DI or presumably DF) into component parts.
@@ -3027,7 +3081,7 @@ cris_expand_prologue (void)
 	 it's still used.  */
       push_topmost_sequence ();
       got_really_used
-	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL);
       pop_topmost_sequence ();
     }
 
@@ -3310,7 +3364,7 @@ cris_expand_epilogue (void)
 	 it's still used.  */
       push_topmost_sequence ();
       got_really_used
-	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL);
       pop_topmost_sequence ();
     }
 
@@ -3708,19 +3762,19 @@ cris_emit_movem_store (rtx dest, rtx nregs_rtx, int increment,
 /* Worker function for expanding the address for PIC function calls.  */
 
 void
-cris_expand_pic_call_address (rtx *opp)
+cris_expand_pic_call_address (rtx *opp, rtx *markerp)
 {
   rtx op = *opp;
 
-  gcc_assert (MEM_P (op));
+  gcc_assert (flag_pic && MEM_P (op));
   op = XEXP (op, 0);
 
   /* It might be that code can be generated that jumps to 0 (or to a
      specific address).  Don't die on that.  (There is a
      testcase.)  */
-  if (CONSTANT_ADDRESS_P (op) && !CONST_INT_P (op))
+  if (CONSTANT_P (op) && !CONST_INT_P (op))
     {
-      enum cris_pic_symbol_type t = cris_pic_symbol_type_of (op);
+      enum cris_symbol_type t = cris_symbol_type_of (op);
 
       CRIS_ASSERT (can_create_pseudo_p ());
 
@@ -3746,18 +3800,21 @@ cris_expand_pic_call_address (rtx *opp)
 	    }
 	  else
 	    op = force_reg (Pmode, op);
+
+	  /* A local call.  */
+	  *markerp = const0_rtx;
 	}
       else if (t == cris_got_symbol)
 	{
 	  if (TARGET_AVOID_GOTPLT)
 	    {
 	      /* Change a "jsr sym" into (allocate register rM, rO)
-		 "move.d (const (unspec [sym rPIC] CRIS_UNSPEC_PLT_GOTREL)),rM"
+		 "move.d (const (unspec [sym] CRIS_UNSPEC_PLT_GOTREL)),rM"
 		 "add.d rPIC,rM,rO", "jsr rO" for pre-v32 and
-		 "jsr (const (unspec [sym rPIC] CRIS_UNSPEC_PLT_PCREL))"
+		 "jsr (const (unspec [sym] CRIS_UNSPEC_PLT_PCREL))"
 		 for v32.  */
 	      rtx tem, rm, ro;
-	      gcc_assert (can_create_pseudo_p ());
+
 	      crtl->uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
 				    TARGET_V32
@@ -3811,14 +3868,27 @@ cris_expand_pic_call_address (rtx *opp)
 	      MEM_NOTRAP_P (mem) = 1;
 	      op = mem;
 	    }
+
+	  /* We need to prepare this call to go through the PLT; we
+	     need to make GOT available.  */
+	  *markerp = pic_offset_table_rtx;
 	}
       else
-	/* Can't possibly get a GOT-needing-fixup for a function-call,
-	   right?  */
+	/* Can't possibly get anything else for a function-call, right?  */
 	fatal_insn ("unidentifiable call op", op);
 
-      *opp = replace_equiv_address (*opp, op);
+      /* If the validizing variant is called, it will try to validize
+	 the address as a valid any-operand constant, but as it's only
+	 valid for calls and moves, it will fail and always be forced
+	 into a register.  */
+      *opp = replace_equiv_address_nv (*opp, op);
     }
+  else
+    /* Can't tell what locality a call to a non-constant address has;
+       better make the GOT register alive at it.
+       FIXME: Can we see whether the register has known constant
+       contents?  */
+    *markerp = pic_offset_table_rtx;
 }
 
 /* Make sure operands are in the right order for an addsi3 insn as
@@ -4017,6 +4087,14 @@ cris_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
     return mode;
   return CRIS_PROMOTED_MODE (mode, *punsignedp, type);
 } 
+
+/* Atomic types require alignment to be at least their "natural" size.  */
+
+static unsigned int
+cris_atomic_align_for_mode (enum machine_mode mode)
+{
+  return GET_MODE_BITSIZE (mode);
+}
 
 /* Let's assume all functions return in r[CRIS_FIRST_ARG_REG] for the
    time being.  */

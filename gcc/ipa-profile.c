@@ -1,5 +1,5 @@
 /* Basic IPA optimizations based on profile.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,13 +51,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cgraph.h"
 #include "tree-pass.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
 #include "gimple.h"
-#include "ggc.h"
+#include "gimple-iterator.h"
 #include "flags.h"
 #include "target.h"
 #include "tree-iterator.h"
 #include "ipa-utils.h"
-#include "hash-table.h"
 #include "profile.h"
 #include "params.h"
 #include "value-prof.h"
@@ -110,12 +112,12 @@ histogram_hash::equal (const histogram_entry *val, const histogram_entry *val2)
    HASHTABLE is the on-side hash kept to avoid duplicates.  */
 
 static void
-account_time_size (hash_table <histogram_hash> hashtable,
+account_time_size (hash_table<histogram_hash> *hashtable,
 		   vec<histogram_entry *> &histogram,
 		   gcov_type count, int time, int size)
 {
   histogram_entry key = {count, 0, 0};
-  histogram_entry **val = hashtable.find_slot (&key, INSERT);
+  histogram_entry **val = hashtable->find_slot (&key, INSERT);
 
   if (!*val)
     {
@@ -161,8 +163,8 @@ dump_histogram (FILE *file, vec<histogram_entry *> histogram)
     {
       cumulated_time += histogram[i]->count * histogram[i]->time;
       cumulated_size += histogram[i]->size;
-      fprintf (file, "  "HOST_WIDEST_INT_PRINT_DEC": time:%i (%2.2f) size:%i (%2.2f)\n",
-	       (HOST_WIDEST_INT) histogram[i]->count,
+      fprintf (file, "  %"PRId64": time:%i (%2.2f) size:%i (%2.2f)\n",
+	       (int64_t) histogram[i]->count,
 	       histogram[i]->time,
 	       cumulated_time * 100.0 / overall_time,
 	       histogram[i]->size,
@@ -177,15 +179,14 @@ ipa_profile_generate_summary (void)
 {
   struct cgraph_node *node;
   gimple_stmt_iterator gsi;
-  hash_table <histogram_hash> hashtable;
   basic_block bb;
 
-  hashtable.create (10);
+  hash_table<histogram_hash> hashtable (10);
   histogram_pool = create_alloc_pool ("IPA histogram", sizeof (struct histogram_entry),
 				      10);
   
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-    FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->symbol.decl))
+    FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
       {
 	int time = 0;
 	int size = 0;
@@ -197,7 +198,7 @@ ipa_profile_generate_summary (void)
 	      {
 		histogram_value h;
 		h = gimple_histogram_value_of_type
-		      (DECL_STRUCT_FUNCTION (node->symbol.decl),
+		      (DECL_STRUCT_FUNCTION (node->decl),
 		       stmt, HIST_TYPE_INDIR_CALL);
 		/* No need to do sanity check: gimple_ic_transform already
 		   takes away bad histograms.  */
@@ -207,7 +208,9 @@ ipa_profile_generate_summary (void)
 		       counter 2 is total number of executions.  */
 		    if (h->hvalue.counters[2])
 		      {
-			struct cgraph_edge * e = cgraph_edge (node, stmt);
+			struct cgraph_edge * e = node->get_edge (stmt);
+			if (e && !e->indirect_unknown_callee)
+			  continue;
 			e->indirect_info->common_target_id
 			  = h->hvalue.counters [0];
 			e->indirect_info->common_target_probability
@@ -219,16 +222,15 @@ ipa_profile_generate_summary (void)
 			    e->indirect_info->common_target_probability = REG_BR_PROB_BASE;
 			  }
 		      }
-		    gimple_remove_histogram_value (DECL_STRUCT_FUNCTION (node->symbol.decl),
+		    gimple_remove_histogram_value (DECL_STRUCT_FUNCTION (node->decl),
 						    stmt, h);
 		  }
 	      }
 	    time += estimate_num_insns (stmt, &eni_time_weights);
 	    size += estimate_num_insns (stmt, &eni_size_weights);
 	  }
-	account_time_size (hashtable, histogram, bb->count, time, size);
+	account_time_size (&hashtable, histogram, bb->count, time, size);
       }
-  hashtable.dispose ();
   histogram.qsort (cmp_counts);
 }
 
@@ -259,10 +261,9 @@ ipa_profile_read_summary (void)
   struct lto_file_decl_data ** file_data_vec
     = lto_get_file_decl_data ();
   struct lto_file_decl_data * file_data;
-  hash_table <histogram_hash> hashtable;
   int j = 0;
 
-  hashtable.create (10);
+  hash_table<histogram_hash> hashtable (10);
   histogram_pool = create_alloc_pool ("IPA histogram", sizeof (struct histogram_entry),
 				      10);
 
@@ -283,7 +284,7 @@ ipa_profile_read_summary (void)
 	      gcov_type count = streamer_read_gcov_count (ib);
 	      int time = streamer_read_uhwi (ib);
 	      int size = streamer_read_uhwi (ib);
-	      account_time_size (hashtable, histogram,
+	      account_time_size (&hashtable, histogram,
 				 count, time, size);
 	    }
 	  lto_destroy_simple_input_block (file_data,
@@ -291,7 +292,6 @@ ipa_profile_read_summary (void)
 					  ib, data, len);
 	}
     }
-  hashtable.dispose ();
   histogram.qsort (cmp_counts);
 }
 
@@ -325,7 +325,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	  /* It makes sense to put main() together with the static constructors.
 	     It will be executed for sure, but rest of functions called from
 	     main are definitely not at startup only.  */
-	  if (MAIN_NAME_P (DECL_NAME (edge->caller->symbol.decl)))
+	  if (MAIN_NAME_P (DECL_NAME (edge->caller->decl)))
 	    d->only_called_at_startup = 0;
           d->only_called_at_exit &= edge->caller->only_called_at_exit;
 	}
@@ -350,7 +350,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	case NODE_FREQUENCY_EXECUTED_ONCE:
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Called by %s that is executed once\n",
-		     cgraph_node_name (edge->caller));
+		     edge->caller->name ());
 	  d->maybe_unlikely_executed = false;
 	  if (inline_edge_summary (edge)->loop_depth)
 	    {
@@ -363,7 +363,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	case NODE_FREQUENCY_NORMAL:
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Called by %s that is normal or hot\n",
-		     cgraph_node_name (edge->caller));
+		     edge->caller->name ());
 	  d->maybe_unlikely_executed = false;
 	  d->maybe_executed_once = false;
 	  break;
@@ -379,13 +379,13 @@ contains_hot_call_p (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
   for (e = node->callees; e; e = e->next_callee)
-    if (cgraph_maybe_hot_edge_p (e))
+    if (e->maybe_hot_p ())
       return true;
     else if (!e->inline_failed
 	     && contains_hot_call_p (e->callee))
       return true;
   for (e = node->indirect_calls; e; e = e->next_callee)
-    if (cgraph_maybe_hot_edge_p (e))
+    if (e->maybe_hot_p ())
       return true;
   return false;
 }
@@ -401,14 +401,15 @@ ipa_propagate_frequency (struct cgraph_node *node)
   /* We can not propagate anything useful about externally visible functions
      nor about virtuals.  */
   if (!node->local.local
-      || node->symbol.alias
-      || (flag_devirtualize && DECL_VIRTUAL_P (node->symbol.decl)))
+      || node->alias
+      || (flag_devirtualize && DECL_VIRTUAL_P (node->decl)))
     return false;
-  gcc_assert (node->symbol.analyzed);
+  gcc_assert (node->analyzed);
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Processing frequency %s\n", cgraph_node_name (node));
+    fprintf (dump_file, "Processing frequency %s\n", node->name ());
 
-  cgraph_for_node_and_aliases (node, ipa_propagate_frequency_1, &d, true);
+  node->call_for_symbol_thunks_and_aliases (ipa_propagate_frequency_1, &d,
+					    true);
 
   if ((d.only_called_at_startup && !d.only_called_at_exit)
       && !node->only_called_at_startup)
@@ -416,7 +417,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
        node->only_called_at_startup = true;
        if (dump_file)
          fprintf (dump_file, "Node %s promoted to only called at startup.\n",
-		  cgraph_node_name (node));
+		  node->name ());
        changed = true;
     }
   if ((d.only_called_at_exit && !d.only_called_at_startup)
@@ -425,7 +426,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
        node->only_called_at_exit = true;
        if (dump_file)
          fprintf (dump_file, "Node %s promoted to only called at exit.\n",
-		  cgraph_node_name (node));
+		  node->name ());
        changed = true;
     }
 
@@ -443,7 +444,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
 	    {
 	      if (dump_file)
 		fprintf (dump_file, "Node %s promoted to hot.\n",
-			 cgraph_node_name (node));
+			 node->name ());
 	      node->frequency = NODE_FREQUENCY_HOT;
 	      return true;
 	    }
@@ -453,7 +454,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Node %s reduced to normal.\n",
-		     cgraph_node_name (node));
+		     node->name ());
 	  node->frequency = NODE_FREQUENCY_NORMAL;
 	  changed = true;
 	}
@@ -467,7 +468,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
       node->frequency = NODE_FREQUENCY_UNLIKELY_EXECUTED;
       if (dump_file)
 	fprintf (dump_file, "Node %s promoted to unlikely executed.\n",
-		 cgraph_node_name (node));
+		 node->name ());
       changed = true;
     }
   else if (d.maybe_executed_once && node->frequency != NODE_FREQUENCY_EXECUTED_ONCE)
@@ -475,7 +476,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
       node->frequency = NODE_FREQUENCY_EXECUTED_ONCE;
       if (dump_file)
 	fprintf (dump_file, "Node %s promoted to executed once.\n",
-		 cgraph_node_name (node));
+		 node->name ());
       changed = true;
     }
   return changed;
@@ -512,8 +513,8 @@ ipa_profile (void)
 	{
 	  gcov_type min, cumulated_time = 0, cumulated_size = 0;
 
-	  fprintf (dump_file, "Overall time: "HOST_WIDEST_INT_PRINT_DEC"\n", 
-		   (HOST_WIDEST_INT)overall_time);
+	  fprintf (dump_file, "Overall time: %"PRId64"\n",
+		   (int64_t)overall_time);
 	  min = get_hot_bb_threshold ();
           for (i = 0; i < (int)histogram.length () && histogram[i]->count >= min;
 	       i++)
@@ -521,9 +522,9 @@ ipa_profile (void)
 	      cumulated_time += histogram[i]->count * histogram[i]->time;
 	      cumulated_size += histogram[i]->size;
 	    }
-	  fprintf (dump_file, "GCOV min count: "HOST_WIDEST_INT_PRINT_DEC
+	  fprintf (dump_file, "GCOV min count: %"PRId64
 		   " Time:%3.2f%% Size:%3.2f%%\n", 
-		   (HOST_WIDEST_INT)min,
+		   (int64_t)min,
 		   cumulated_time * 100.0 / overall_time,
 		   cumulated_size * 100.0 / overall_size);
 	}
@@ -547,9 +548,9 @@ ipa_profile (void)
 	      cumulated_time += histogram[i]->count * histogram[i]->time;
 	      cumulated_size += histogram[i]->size;
 	    }
-	  fprintf (dump_file, "Determined min count: "HOST_WIDEST_INT_PRINT_DEC
+	  fprintf (dump_file, "Determined min count: %"PRId64
 		   " Time:%3.2f%% Size:%3.2f%%\n", 
-		   (HOST_WIDEST_INT)threshold,
+		   (int64_t)threshold,
 		   cumulated_time * 100.0 / overall_time,
 		   cumulated_size * 100.0 / overall_size);
 	}
@@ -589,8 +590,8 @@ ipa_profile (void)
 		    {
 		      fprintf (dump_file, "Indirect call -> direct call from"
 			       " other module %s/%i => %s/%i, prob %3.2f\n",
-			       xstrdup (cgraph_node_name (n)), n->symbol.order,
-			       xstrdup (cgraph_node_name (n2)), n2->symbol.order,
+			       xstrdup (n->name ()), n->order,
+			       xstrdup (n2->name ()), n2->order,
 			       e->indirect_info->common_target_probability
 			       / (float)REG_BR_PROB_BASE);
 		    }
@@ -602,16 +603,15 @@ ipa_profile (void)
 			fprintf (dump_file,
 				 "Not speculating: probability is too low.\n");
 		    }
-		  else if (!cgraph_maybe_hot_edge_p (e))
+		  else if (!e->maybe_hot_p ())
 		    {
 		      nuseless++;
 		      if (dump_file)
 			fprintf (dump_file,
 				 "Not speculating: call is cold.\n");
 		    }
-		  else if (cgraph_function_body_availability (n2)
-			   <= AVAIL_OVERWRITABLE
-			   && symtab_can_be_discarded ((symtab_node) n2))
+		  else if (n2->get_availability () <= AVAIL_INTERPOSABLE
+			   && n2->can_be_discarded_p ())
 		    {
 		      nuseless++;
 		      if (dump_file)
@@ -625,17 +625,16 @@ ipa_profile (void)
 			 control flow goes to this particular implementation
 			 of N2.  Speculate on the local alias to allow inlining.
 		       */
-		      if (!symtab_can_be_discarded ((symtab_node) n2))
+		      if (!n2->can_be_discarded_p ())
 			{
 			  cgraph_node *alias;
-			  alias = cgraph (symtab_nonoverwritable_alias
-					   ((symtab_node)n2));
+			  alias = dyn_cast<cgraph_node *> (n2->noninterposable_alias ());
 			  if (alias)
 			    n2 = alias;
 			}
 		      nconverted++;
-		      cgraph_turn_edge_to_speculative
-			(e, n2,
+		      e->make_speculative
+			(n2,
 			 apply_scale (e->count,
 				      e->indirect_info->common_target_probability),
 			 apply_scale (e->frequency,
@@ -670,20 +669,20 @@ ipa_profile (void)
 	     nuseless, nuseless * 100.0 / nindirect,
 	     nconverted, nconverted * 100.0 / nindirect);
 
-  order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  order = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
   order_pos = ipa_reverse_postorder (order);
   for (i = order_pos - 1; i >= 0; i--)
     {
       if (order[i]->local.local && ipa_propagate_frequency (order[i]))
 	{
 	  for (e = order[i]->callees; e; e = e->next_callee)
-	    if (e->callee->local.local && !e->callee->symbol.aux)
+	    if (e->callee->local.local && !e->callee->aux)
 	      {
 	        something_changed = true;
-	        e->callee->symbol.aux = (void *)1;
+	        e->callee->aux = (void *)1;
 	      }
 	}
-      order[i]->symbol.aux = NULL;
+      order[i]->aux = NULL;
     }
 
   while (something_changed)
@@ -691,26 +690,20 @@ ipa_profile (void)
       something_changed = false;
       for (i = order_pos - 1; i >= 0; i--)
 	{
-	  if (order[i]->symbol.aux && ipa_propagate_frequency (order[i]))
+	  if (order[i]->aux && ipa_propagate_frequency (order[i]))
 	    {
 	      for (e = order[i]->callees; e; e = e->next_callee)
-		if (e->callee->local.local && !e->callee->symbol.aux)
+		if (e->callee->local.local && !e->callee->aux)
 		  {
 		    something_changed = true;
-		    e->callee->symbol.aux = (void *)1;
+		    e->callee->aux = (void *)1;
 		  }
 	    }
-	  order[i]->symbol.aux = NULL;
+	  order[i]->aux = NULL;
 	}
     }
   free (order);
   return 0;
-}
-
-static bool
-gate_ipa_profile (void)
-{
-  return flag_ipa_profile;
 }
 
 namespace {
@@ -720,8 +713,6 @@ const pass_data pass_data_ipa_profile =
   IPA_PASS, /* type */
   "profile_estimate", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_IPA_PROFILE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -747,8 +738,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_ipa_profile (); }
-  unsigned int execute () { return ipa_profile (); }
+  virtual bool gate (function *) { return flag_ipa_profile; }
+  virtual unsigned int execute (function *) { return ipa_profile (); }
 
 }; // class pass_ipa_profile
 

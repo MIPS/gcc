@@ -1,4 +1,4 @@
-#   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+#   Copyright (C) 2009-2014 Free Software Foundation, Inc.
 #   Written by Ian Lance Taylor <iant@google.com>.
 
 # This program is free software; you can redistribute it and/or modify
@@ -90,6 +90,21 @@ proc errchk { test opts } {
 	    puts $fdout $copy_line
 	    continue
 	}
+
+	# Combine quoted strings in comments, so that
+	# // ERROR "first error" "second error"
+	# turns into
+	# // ERROR "first error|second error"
+	# This format is used by the master testsuite to recognize
+	# multiple errors on a single line.  We don't require that all
+	# the errors be present, but we do want to accept any of them.
+	set changed ""
+	while { $changed != $copy_line } {
+	    set changed $copy_line
+	    regsub "\(// \[^\"\]*\"\[^\"\]*\)\" \"" $copy_line "\\1|" out_line
+	    set copy_line $out_line
+	}
+
 	regsub "// \(GCCGO_\)?ERROR \"\(\[^\"\]*\)\".*$" $copy_line "// \{ dg-error \"\\2\" \}" out_line
 	if [string match "*dg-error*\\\[*" $out_line] {
 	    set index [string first "dg-error" $out_line]
@@ -137,7 +152,7 @@ proc errchk { test opts } {
 
     set hold_runtests $runtests
     set runtests "go-test.exp"
-    go-dg-runtest $filename "-fno-show-column $DEFAULT_GOCFLAGS $opts"
+    go-dg-runtest $filename "" "-fno-show-column $DEFAULT_GOCFLAGS $opts"
     set runtests $hold_runtests
 
     file delete $filename
@@ -161,7 +176,7 @@ proc go-execute-xfail { test } {
 
     set hold_runtests $runtests
     set runtests "go-test.exp"
-    go-dg-runtest $filename "-w $DEFAULT_GOCFLAGS"
+    go-dg-runtest $filename "" "-w $DEFAULT_GOCFLAGS"
     set runtests $hold_runtests
 
     file delete $filename
@@ -172,6 +187,9 @@ proc go-set-goarch { } {
     global target_triplet
 
     switch -glob $target_triplet {
+	"aarch64*-*-*" {
+	    set goarch "arm64"
+	}
 	"alpha*-*-*" {
 	    set goarch "alpha"
 	}
@@ -385,17 +403,16 @@ proc go-gc-tests { } {
 	}
 
 	if { ( [file tail $test] == "select2.go" \
-		   || [file tail $test] == "stack.go" ) \
+		   || [file tail $test] == "stack.go" \
+		   || [file tail $test] == "peano.go" ) \
 		 && ! [check_effective_target_split_stack] } {
-	    # chan/select2.go fails on targets without split stack,
-	    # because they allocate a large stack segment that blows
-	    # out the memory calculations.
+	    # These tests fails on targets without split stack.
 	    untested $name
 	    continue
 	}
 
-	if { [file tail $test] == "rotate.go" } {
-	    # This test produces a temporary file that takes too long
+	if [string match "*go.test/test/rotate\[0123\].go" $test] {
+	    # These tests produces a temporary file that takes too long
 	    # to compile--5 minutes on my laptop without optimization.
 	    # When compiling without optimization it tests nothing
 	    # useful, since the point of the test is to see whether
@@ -507,7 +524,7 @@ proc go-gc-tests { } {
 	     || $test_line == "// echo bug395 is broken  # takes 90+ seconds to break" } {
 	    # This is a vanilla compile test.
 	    set dg-do-what-default "assemble"
-	    go-dg-runtest $test "-w $DEFAULT_GOCFLAGS"
+	    go-dg-runtest $test "" "-w $DEFAULT_GOCFLAGS"
 	} elseif { $test_line == "// run"
 		   || $test_line == "// \$G \$F.go && \$L \$F.\$A && ./\$A.out" } {
 	    # This is a vanilla execution test.
@@ -516,7 +533,7 @@ proc go-gc-tests { } {
 	} elseif { $test_line == "// build" } {
 	    # This is a vanilla compile and link test.
 	    set dg-do-what-default "link"
-	    go-dg-runtest $test "-w $DEFAULT_GOCFLAGS"
+	    go-dg-runtest $test "" "-w $DEFAULT_GOCFLAGS"
 	} elseif { [string match "// runoutput*" $test_line] \
 		       || ($test_line == "// \$G \$D/\$F.go && \$L \$F.\$A &&"
 			   && $test_line2 == "// ./\$A.out >tmp.go && \$G tmp.go && \$L -o \$A.out1 tmp.\$A && ./\$A.out1") } {
@@ -634,13 +651,17 @@ proc go-gc-tests { } {
 	    set runtests "go-test.exp"
 	    set dg-do-what-default "assemble"
 	    set dir "[file rootname $test].dir"
-	    set del {}
-	    foreach f [lsort [glob "$dir/*.go"]] {
-		dg-test -keep-output $f "-O" "-w $DEFAULT_GOCFLAGS"
-		lappend del "[file rootname [file tail $f]].o"
-	    }
-	    foreach f $del {
-		file delete $f
+	    set files [lsort [glob "$dir/*.go"]]
+	    set packages [go-find-packages $test $name $files]
+	    if { [llength $packages] > 0 } {
+		set del [list]
+		foreach p $packages {
+		    dg-test -keep-output [lindex $p 1] "[lrange $p 2 end] -O" "-w $DEFAULT_GOCFLAGS"
+		    lappend del "[file rootname [file tail [lindex $p 1]]].o"
+		}
+		foreach f $del {
+		    file delete $f
+		}
 	    }
 	    set runtests $hold_runtests
 	} elseif { $test_line == "// rundir" } {
@@ -659,8 +680,10 @@ proc go-gc-tests { } {
 		    lappend del "[file rootname [file tail [lindex $p 1]]].o"
 		}
 		set dg-do-what-default "link"
-		set go_compile_args $del
-		go-torture-execute [lrange $last 1 end]
+		set go_compile_args ""
+		append go_compile_args [lrange $last 2 end]
+		append go_compile_args $del
+		go-torture-execute [lindex $last 1]
 		foreach f $del {
 		    file delete $f
 		}
@@ -1129,6 +1152,10 @@ proc go-gc-tests { } {
 		   || $test_line == "// \$G \$D/pkg.go && pack grcS pkg.a pkg.\$A 2> /dev/null && rm pkg.\$A && \$G -I. -u \$D/main.go" } {
 	    # This tests the gc -u option, which gccgo does not
 	    # support.
+	} elseif { $test_line == "// errorcheck -0 -N -d=nil" \
+		       || $test_line == "// errorcheck -0 -d=nil" } {
+	    # This tests gc nil pointer checks using -d=nil, which
+	    # gccgo does not support.
 	} else {
 	    clone_output "$name: unrecognized test line: $test_line"
 	    unsupported $name

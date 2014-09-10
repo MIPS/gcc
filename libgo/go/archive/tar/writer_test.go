@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -96,6 +97,29 @@ var writerTests = []*writerTest{
 					Typeflag: '0',
 					Uname:    "dsymonds",
 					Gname:    "eng",
+				},
+				// fake contents
+				contents: strings.Repeat("\x00", 4<<10),
+			},
+		},
+	},
+	// The truncated test file was produced using these commands:
+	//   dd if=/dev/zero bs=1048576 count=16384 > (longname/)*15 /16gig.txt
+	//   tar -b 1 -c -f- (longname/)*15 /16gig.txt | dd bs=512 count=8 > writer-big-long.tar
+	{
+		file: "testdata/writer-big-long.tar",
+		entries: []*writerTestEntry{
+			{
+				header: &Header{
+					Name:     strings.Repeat("longname/", 15) + "16gig.txt",
+					Mode:     0644,
+					Uid:      1000,
+					Gid:      1000,
+					Size:     16 << 30,
+					ModTime:  time.Unix(1399583047, 0),
+					Typeflag: '0',
+					Uname:    "guillaume",
+					Gname:    "guillaume",
 				},
 				// fake contents
 				contents: strings.Repeat("\x00", 4<<10),
@@ -243,20 +267,190 @@ func TestPax(t *testing.T) {
 	}
 }
 
+func TestPaxSymlink(t *testing.T) {
+	// Create an archive with a large linkname
+	fileinfo, err := os.Stat("testdata/small.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hdr, err := FileInfoHeader(fileinfo, "")
+	hdr.Typeflag = TypeSymlink
+	if err != nil {
+		t.Fatalf("os.Stat:1 %v", err)
+	}
+	// Force a PAX long linkname to be written
+	longLinkname := strings.Repeat("1234567890/1234567890", 10)
+	hdr.Linkname = longLinkname
+
+	hdr.Size = 0
+	var buf bytes.Buffer
+	writer := NewWriter(&buf)
+	if err := writer.WriteHeader(hdr); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// Simple test to make sure PAX extensions are in effect
+	if !bytes.Contains(buf.Bytes(), []byte("PaxHeaders.")) {
+		t.Fatal("Expected at least one PAX header to be written.")
+	}
+	// Test that we can get a long name back out of the archive.
+	reader := NewReader(&buf)
+	hdr, err = reader.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hdr.Linkname != longLinkname {
+		t.Fatal("Couldn't recover long link name")
+	}
+}
+
+func TestPaxNonAscii(t *testing.T) {
+	// Create an archive with non ascii. These should trigger a pax header
+	// because pax headers have a defined utf-8 encoding.
+	fileinfo, err := os.Stat("testdata/small.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hdr, err := FileInfoHeader(fileinfo, "")
+	if err != nil {
+		t.Fatalf("os.Stat:1 %v", err)
+	}
+
+	// some sample data
+	chineseFilename := "文件名"
+	chineseGroupname := "組"
+	chineseUsername := "用戶名"
+
+	hdr.Name = chineseFilename
+	hdr.Gname = chineseGroupname
+	hdr.Uname = chineseUsername
+
+	contents := strings.Repeat(" ", int(hdr.Size))
+
+	var buf bytes.Buffer
+	writer := NewWriter(&buf)
+	if err := writer.WriteHeader(hdr); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = writer.Write([]byte(contents)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// Simple test to make sure PAX extensions are in effect
+	if !bytes.Contains(buf.Bytes(), []byte("PaxHeaders.")) {
+		t.Fatal("Expected at least one PAX header to be written.")
+	}
+	// Test that we can get a long name back out of the archive.
+	reader := NewReader(&buf)
+	hdr, err = reader.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hdr.Name != chineseFilename {
+		t.Fatal("Couldn't recover unicode name")
+	}
+	if hdr.Gname != chineseGroupname {
+		t.Fatal("Couldn't recover unicode group")
+	}
+	if hdr.Uname != chineseUsername {
+		t.Fatal("Couldn't recover unicode user")
+	}
+}
+
+func TestPaxXattrs(t *testing.T) {
+	xattrs := map[string]string{
+		"user.key": "value",
+	}
+
+	// Create an archive with an xattr
+	fileinfo, err := os.Stat("testdata/small.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hdr, err := FileInfoHeader(fileinfo, "")
+	if err != nil {
+		t.Fatalf("os.Stat: %v", err)
+	}
+	contents := "Kilts"
+	hdr.Xattrs = xattrs
+	var buf bytes.Buffer
+	writer := NewWriter(&buf)
+	if err := writer.WriteHeader(hdr); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = writer.Write([]byte(contents)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// Test that we can get the xattrs back out of the archive.
+	reader := NewReader(&buf)
+	hdr, err = reader.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(hdr.Xattrs, xattrs) {
+		t.Fatalf("xattrs did not survive round trip: got %+v, want %+v",
+			hdr.Xattrs, xattrs)
+	}
+}
+
 func TestPAXHeader(t *testing.T) {
 	medName := strings.Repeat("CD", 50)
 	longName := strings.Repeat("AB", 100)
 	paxTests := [][2]string{
-		{"name=/etc/hosts", "19 name=/etc/hosts\n"},
+		{paxPath + "=/etc/hosts", "19 path=/etc/hosts\n"},
 		{"a=b", "6 a=b\n"},          // Single digit length
 		{"a=names", "11 a=names\n"}, // Test case involving carries
-		{"name=" + longName, fmt.Sprintf("210 name=%s\n", longName)},
-		{"name=" + medName, fmt.Sprintf("110 name=%s\n", medName)}}
+		{paxPath + "=" + longName, fmt.Sprintf("210 path=%s\n", longName)},
+		{paxPath + "=" + medName, fmt.Sprintf("110 path=%s\n", medName)}}
 
 	for _, test := range paxTests {
 		key, expected := test[0], test[1]
 		if result := paxHeader(key); result != expected {
 			t.Fatalf("paxHeader: got %s, expected %s", result, expected)
 		}
+	}
+}
+
+func TestUSTARLongName(t *testing.T) {
+	// Create an archive with a path that failed to split with USTAR extension in previous versions.
+	fileinfo, err := os.Stat("testdata/small.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hdr, err := FileInfoHeader(fileinfo, "")
+	hdr.Typeflag = TypeDir
+	if err != nil {
+		t.Fatalf("os.Stat:1 %v", err)
+	}
+	// Force a PAX long name to be written. The name was taken from a practical example
+	// that fails and replaced ever char through numbers to anonymize the sample.
+	longName := "/0000_0000000/00000-000000000/0000_0000000/00000-0000000000000/0000_0000000/00000-0000000-00000000/0000_0000000/00000000/0000_0000000/000/0000_0000000/00000000v00/0000_0000000/000000/0000_0000000/0000000/0000_0000000/00000y-00/0000/0000/00000000/0x000000/"
+	hdr.Name = longName
+
+	hdr.Size = 0
+	var buf bytes.Buffer
+	writer := NewWriter(&buf)
+	if err := writer.WriteHeader(hdr); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// Test that we can get a long name back out of the archive.
+	reader := NewReader(&buf)
+	hdr, err = reader.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hdr.Name != longName {
+		t.Fatal("Couldn't recover long name")
 	}
 }

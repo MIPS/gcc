@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd windows
+// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package net
 
@@ -46,14 +46,10 @@ func (a *TCPAddr) isWildcard() bool {
 }
 
 func (a *TCPAddr) sockaddr(family int) (syscall.Sockaddr, error) {
-	return ipToSockaddr(family, a.IP, a.Port, a.Zone)
-}
-
-func (a *TCPAddr) toAddr() sockaddr {
-	if a == nil { // nil *TCPAddr
-		return nil // nil interface
+	if a == nil {
+		return nil, nil
 	}
-	return a
+	return ipToSockaddr(family, a.IP, a.Port, a.Zone)
 }
 
 // TCPConn is an implementation of the Conn interface for TCP network
@@ -82,7 +78,7 @@ func (c *TCPConn) CloseRead() error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	return c.fd.CloseRead()
+	return c.fd.closeRead()
 }
 
 // CloseWrite shuts down the writing side of the TCP connection.
@@ -91,20 +87,21 @@ func (c *TCPConn) CloseWrite() error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	return c.fd.CloseWrite()
+	return c.fd.closeWrite()
 }
 
-// SetLinger sets the behavior of Close() on a connection which still
+// SetLinger sets the behavior of Close on a connection which still
 // has data waiting to be sent or to be acknowledged.
 //
-// If sec < 0 (the default), Close returns immediately and the
-// operating system finishes sending the data in the background.
+// If sec < 0 (the default), the operating system finishes sending the
+// data in the background.
 //
-// If sec == 0, Close returns immediately and the operating system
-// discards any unsent or unacknowledged data.
+// If sec == 0, the operating system discards any unsent or
+// unacknowledged data.
 //
-// If sec > 0, Close blocks for at most sec seconds waiting for data
-// to be sent and acknowledged.
+// If sec > 0, the data is sent in the background as with sec < 0. On
+// some operating systems after sec seconds have elapsed any remaining
+// unsent data may be discarded.
 func (c *TCPConn) SetLinger(sec int) error {
 	if !c.ok() {
 		return syscall.EINVAL
@@ -119,6 +116,14 @@ func (c *TCPConn) SetKeepAlive(keepalive bool) error {
 		return syscall.EINVAL
 	}
 	return setKeepAlive(c.fd, keepalive)
+}
+
+// SetKeepAlivePeriod sets period between keep alives.
+func (c *TCPConn) SetKeepAlivePeriod(d time.Duration) error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return setKeepAlivePeriod(c.fd, d)
 }
 
 // SetNoDelay controls whether the operating system should delay
@@ -139,16 +144,16 @@ func DialTCP(net string, laddr, raddr *TCPAddr) (*TCPConn, error) {
 	switch net {
 	case "tcp", "tcp4", "tcp6":
 	default:
-		return nil, UnknownNetworkError(net)
+		return nil, &OpError{Op: "dial", Net: net, Addr: raddr, Err: UnknownNetworkError(net)}
 	}
 	if raddr == nil {
-		return nil, &OpError{"dial", net, nil, errMissingAddress}
+		return nil, &OpError{Op: "dial", Net: net, Addr: nil, Err: errMissingAddress}
 	}
 	return dialTCP(net, laddr, raddr, noDeadline)
 }
 
 func dialTCP(net string, laddr, raddr *TCPAddr, deadline time.Time) (*TCPConn, error) {
-	fd, err := internetSocket(net, laddr.toAddr(), raddr.toAddr(), deadline, syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
+	fd, err := internetSocket(net, laddr, raddr, deadline, syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
 
 	// TCP has a rarely used mechanism called a 'simultaneous connection' in
 	// which Dial("tcp", addr1, addr2) run on the machine at addr1 can
@@ -178,11 +183,11 @@ func dialTCP(net string, laddr, raddr *TCPAddr, deadline time.Time) (*TCPConn, e
 		if err == nil {
 			fd.Close()
 		}
-		fd, err = internetSocket(net, laddr.toAddr(), raddr.toAddr(), deadline, syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
+		fd, err = internetSocket(net, laddr, raddr, deadline, syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: net, Addr: raddr, Err: err}
 	}
 	return newTCPConn(fd), nil
 }
@@ -221,7 +226,7 @@ type TCPListener struct {
 }
 
 // AcceptTCP accepts the next incoming call and returns the new
-// connection and the remote address.
+// connection.
 func (l *TCPListener) AcceptTCP() (*TCPConn, error) {
 	if l == nil || l.fd == nil {
 		return nil, syscall.EINVAL
@@ -261,7 +266,7 @@ func (l *TCPListener) SetDeadline(t time.Time) error {
 	if l == nil || l.fd == nil {
 		return syscall.EINVAL
 	}
-	return setDeadline(l.fd, t)
+	return l.fd.setDeadline(t)
 }
 
 // File returns a copy of the underlying os.File, set to blocking
@@ -281,19 +286,14 @@ func ListenTCP(net string, laddr *TCPAddr) (*TCPListener, error) {
 	switch net {
 	case "tcp", "tcp4", "tcp6":
 	default:
-		return nil, UnknownNetworkError(net)
+		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: UnknownNetworkError(net)}
 	}
 	if laddr == nil {
 		laddr = &TCPAddr{}
 	}
-	fd, err := internetSocket(net, laddr.toAddr(), nil, noDeadline, syscall.SOCK_STREAM, 0, "listen", sockaddrToTCP)
+	fd, err := internetSocket(net, laddr, nil, noDeadline, syscall.SOCK_STREAM, 0, "listen", sockaddrToTCP)
 	if err != nil {
-		return nil, err
-	}
-	err = syscall.Listen(fd.sysfd, listenerBacklog)
-	if err != nil {
-		fd.Close()
-		return nil, &OpError{"listen", net, laddr, err}
+		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: err}
 	}
 	return &TCPListener{fd}, nil
 }

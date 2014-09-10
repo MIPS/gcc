@@ -25,6 +25,10 @@ var canonicalHeaderKeyTests = []canonicalHeaderKeyTest{
 	{"user-agent", "User-Agent"},
 	{"USER-AGENT", "User-Agent"},
 	{"üser-agenT", "üser-Agent"}, // non-ASCII unchanged
+
+	// This caused a panic due to mishandling of a space:
+	{"C Ontent-Transfer-Encoding", "C-Ontent-Transfer-Encoding"},
+	{"foo bar", "Foo-Bar"},
 }
 
 func TestCanonicalMIMEHeaderKey(t *testing.T) {
@@ -243,24 +247,21 @@ func TestRFC959Lines(t *testing.T) {
 }
 
 func TestCommonHeaders(t *testing.T) {
-	// need to disable the commonHeaders-based optimization
-	// during this check, or we'd not be testing anything
-	oldch := commonHeaders
-	commonHeaders = []string{}
-	defer func() { commonHeaders = oldch }()
-
-	last := ""
-	for _, h := range oldch {
-		if last > h {
-			t.Errorf("%v is out of order", h)
+	for h := range commonHeader {
+		if h != CanonicalMIMEHeaderKey(h) {
+			t.Errorf("Non-canonical header %q in commonHeader", h)
 		}
-		if last == h {
-			t.Errorf("%v is duplicated", h)
+	}
+	t.Skip("gccgo escape analysis")
+	b := []byte("content-Length")
+	want := "Content-Length"
+	n := testing.AllocsPerRun(200, func() {
+		if x := canonicalMIMEHeaderKey(b); x != want {
+			t.Fatalf("canonicalMIMEHeaderKey(%q) = %q; want %q", b, x, want)
 		}
-		if canon := CanonicalMIMEHeaderKey(h); h != canon {
-			t.Errorf("%v is not canonical", h)
-		}
-		last = h
+	})
+	if n > 0 {
+		t.Errorf("canonicalMIMEHeaderKey allocs = %v; want 0", n)
 	}
 }
 

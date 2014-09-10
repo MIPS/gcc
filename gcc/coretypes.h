@@ -1,5 +1,5 @@
 /* GCC core type declarations.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,30 +43,49 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #ifndef USED_FOR_TARGET
 
-typedef HOST_WIDEST_INT gcov_type;
-typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
+typedef int64_t gcov_type;
+typedef uint64_t gcov_type_unsigned;
 
-struct bitmap_head_def;
-typedef struct bitmap_head_def *bitmap;
-typedef const struct bitmap_head_def *const_bitmap;
+struct bitmap_head;
+typedef struct bitmap_head *bitmap;
+typedef const struct bitmap_head *const_bitmap;
 struct simple_bitmap_def;
 typedef struct simple_bitmap_def *sbitmap;
 typedef const struct simple_bitmap_def *const_sbitmap;
 struct rtx_def;
 typedef struct rtx_def *rtx;
 typedef const struct rtx_def *const_rtx;
+
+/* Subclasses of rtx_def, using indentation to show the class
+   hierarchy, along with the relevant invariant.
+   Where possible, keep this list in the same order as in rtl.def.  */
+class rtx_def;
+  class rtx_expr_list;           /* GET_CODE (X) == EXPR_LIST */
+  class rtx_insn_list;           /* GET_CODE (X) == INSN_LIST */
+  class rtx_sequence;            /* GET_CODE (X) == SEQUENCE */
+  class rtx_insn;
+    class rtx_debug_insn;      /* DEBUG_INSN_P (X) */
+    class rtx_nonjump_insn;    /* NONJUMP_INSN_P (X) */
+    class rtx_jump_insn;       /* JUMP_P (X) */
+    class rtx_call_insn;       /* CALL_P (X) */
+    class rtx_jump_table_data; /* JUMP_TABLE_DATA_P (X) */
+    class rtx_barrier;         /* BARRIER_P (X) */
+    class rtx_code_label;      /* LABEL_P (X) */
+    class rtx_note;            /* NOTE_P (X) */
+
 struct rtvec_def;
 typedef struct rtvec_def *rtvec;
 typedef const struct rtvec_def *const_rtvec;
+struct hwivec_def;
+typedef struct hwivec_def *hwivec;
+typedef const struct hwivec_def *const_hwivec;
 union tree_node;
 typedef union tree_node *tree;
 typedef const union tree_node *const_tree;
-union gimple_statement_d;
-typedef union gimple_statement_d *gimple;
-typedef const union gimple_statement_d *const_gimple;
+typedef struct gimple_statement_base *gimple;
+typedef const struct gimple_statement_base *const_gimple;
 typedef gimple gimple_seq;
-struct gimple_stmt_iterator_d;
-typedef struct gimple_stmt_iterator_d gimple_stmt_iterator;
+struct gimple_stmt_iterator;
 union section;
 typedef union section section;
 struct gcc_options;
@@ -196,7 +215,8 @@ enum function_class {
   function_c94,
   function_c99_misc,
   function_c99_math_complex,
-  function_sincos
+  function_sincos,
+  function_c11_misc
 };
 
 /* Memory model types for the __atomic* builtins. 

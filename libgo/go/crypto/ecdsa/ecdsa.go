@@ -84,6 +84,16 @@ func hashToInt(hash []byte, c elliptic.Curve) *big.Int {
 	return ret
 }
 
+// fermatInverse calculates the inverse of k in GF(P) using Fermat's method.
+// This has better constant-time properties than Euclid's method (implemented
+// in math/big.Int.ModInverse) although math/big itself isn't strictly
+// constant-time so it's not perfect.
+func fermatInverse(k, N *big.Int) *big.Int {
+	two := big.NewInt(2)
+	nMinus2 := new(big.Int).Sub(N, two)
+	return new(big.Int).Exp(k, nMinus2, N)
+}
+
 // Sign signs an arbitrary length hash (which should be the result of hashing a
 // larger message) using the private key, priv. It returns the signature as a
 // pair of integers. The security of the private key depends on the entropy of
@@ -102,7 +112,7 @@ func Sign(rand io.Reader, priv *PrivateKey, hash []byte) (r, s *big.Int, err err
 				return
 			}
 
-			kInv = new(big.Int).ModInverse(k, N)
+			kInv = fermatInverse(k, N)
 			r, _ = priv.Curve.ScalarBaseMult(k.Bytes())
 			r.Mod(r, N)
 			if r.Sign() != 0 {
@@ -123,8 +133,8 @@ func Sign(rand io.Reader, priv *PrivateKey, hash []byte) (r, s *big.Int, err err
 	return
 }
 
-// Verify verifies the signature in r, s of hash using the public key, pub. It
-// returns true iff the signature is valid.
+// Verify verifies the signature in r, s of hash using the public key, pub. Its
+// return value records whether the signature is valid.
 func Verify(pub *PublicKey, hash []byte, r, s *big.Int) bool {
 	// See [NSA] 3.4.2
 	c := pub.Curve

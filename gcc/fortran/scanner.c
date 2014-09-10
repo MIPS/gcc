@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -465,24 +465,6 @@ gfc_open_included_file (const char *name, bool include_cwd, bool module)
   return f;
 }
 
-FILE *
-gfc_open_intrinsic_module (const char *name)
-{
-  FILE *f = NULL;
-
-  if (IS_ABSOLUTE_PATH (name))
-    {
-      f = gfc_open_file (name);
-      if (f && gfc_cpp_makedep ())
-	gfc_cpp_add_dep (name, true);
-    }
-
-  if (!f)
-    f = open_included_file (name, intrinsic_modules_dirs, true, true);
-
-  return f;
-}
-
 
 /* Test to see if we're at the end of the main source file.  */
 
@@ -762,7 +744,7 @@ skip_free_comments (void)
       if (c == '!')
 	{
 	  /* Keep the !GCC$ line.  */
-		  if (at_bol && skip_gcc_attribute (start))
+	  if (at_bol && skip_gcc_attribute (start))
 	    return false;
 
 	  /* If -fopenmp, we need to handle here 2 things:
@@ -770,7 +752,8 @@ skip_free_comments (void)
 	     2) handle OpenMP conditional compilation, where
 		!$ should be treated as 2 spaces (for initial lines
 		only if followed by space).  */
-	  if (gfc_option.gfc_flag_openmp && at_bol)
+	  if ((gfc_option.gfc_flag_openmp
+	       || gfc_option.gfc_flag_openmp_simd) && at_bol)
 	    {
 	      locus old_loc = gfc_current_locus;
 	      if (next_char () == '$')
@@ -896,7 +879,7 @@ skip_fixed_comments (void)
 	      && continue_line < gfc_linebuf_linenum (gfc_current_locus.lb))
 	    continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
-	  if (gfc_option.gfc_flag_openmp)
+	  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
 	    {
 	      if (next_char () == '$')
 		{
@@ -1839,7 +1822,7 @@ include_line (gfc_char_t *line)
 
   c = line;
 
-  if (gfc_option.gfc_flag_openmp)
+  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
     {
       if (gfc_current_form == FORM_FREE)
 	{

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -50,7 +50,7 @@ extern int standard_sse_constant_p (rtx);
 extern const char *standard_sse_constant_opcode (rtx, rtx);
 extern bool symbolic_reference_mentioned_p (rtx);
 extern bool extended_reg_mentioned_p (rtx);
-extern bool x86_extended_QIreg_mentioned_p (rtx);
+extern bool x86_extended_QIreg_mentioned_p (rtx_insn *);
 extern bool x86_extended_reg_mentioned_p (rtx);
 extern bool x86_maybe_negate_const_int (rtx *, enum machine_mode);
 extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
@@ -58,9 +58,9 @@ extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 extern int avx_vpermilp_parallel (rtx par, enum machine_mode mode);
 extern int avx_vperm2f128_parallel (rtx par, enum machine_mode mode);
 
-extern bool ix86_expand_movmem (rtx, rtx, rtx, rtx, rtx, rtx);
-extern bool ix86_expand_setmem (rtx, rtx, rtx, rtx, rtx, rtx);
 extern bool ix86_expand_strlen (rtx, rtx, rtx, rtx);
+extern bool ix86_expand_set_or_movmem (rtx, rtx, rtx, rtx, rtx, rtx,
+				       rtx, rtx, rtx, rtx, bool);
 
 extern bool constant_address_p (rtx);
 extern bool legitimate_pic_operand_p (rtx);
@@ -84,7 +84,6 @@ extern void ix86_expand_clear (rtx);
 extern void ix86_expand_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move_misalign (enum machine_mode, rtx[]);
-extern void ix86_expand_push (enum machine_mode, rtx);
 extern rtx ix86_fixup_binary_operands (enum rtx_code,
 				       enum machine_mode, rtx[]);
 extern void ix86_fixup_binary_operands_no_copy (enum rtx_code,
@@ -94,14 +93,14 @@ extern void ix86_expand_binary_operator (enum rtx_code,
 extern void ix86_expand_vector_logical_operator (enum rtx_code,
 						 enum machine_mode, rtx[]);
 extern bool ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
-extern bool ix86_avoid_lea_for_add (rtx, rtx[]);
-extern bool ix86_use_lea_for_mov (rtx, rtx[]);
-extern bool ix86_avoid_lea_for_addr (rtx, rtx[]);
-extern void ix86_split_lea_for_addr (rtx, rtx[], enum machine_mode);
-extern bool ix86_lea_for_add_ok (rtx, rtx[]);
+extern bool ix86_avoid_lea_for_add (rtx_insn *, rtx[]);
+extern bool ix86_use_lea_for_mov (rtx_insn *, rtx[]);
+extern bool ix86_avoid_lea_for_addr (rtx_insn *, rtx[]);
+extern void ix86_split_lea_for_addr (rtx_insn *, rtx[], enum machine_mode);
+extern bool ix86_lea_for_add_ok (rtx_insn *, rtx[]);
 extern bool ix86_vec_interleave_v2df_operator_ok (rtx operands[3], bool high);
 extern bool ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn);
-extern bool ix86_agi_dependent (rtx set_insn, rtx use_insn);
+extern bool ix86_agi_dependent (rtx_insn *set_insn, rtx_insn *use_insn);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
 extern rtx ix86_build_const_vector (enum machine_mode, bool, rtx);
@@ -143,24 +142,23 @@ extern void ix86_split_lshr (rtx *, rtx, enum machine_mode);
 extern rtx ix86_find_base_term (rtx);
 extern bool ix86_check_movabs (rtx, int);
 extern void ix86_split_idivmod (enum machine_mode, rtx[], bool);
+extern bool ix86_emit_cfi ();
 
 extern rtx assign_386_stack_local (enum machine_mode, enum ix86_stack_slot);
-extern int ix86_attr_length_immediate_default (rtx, bool);
-extern int ix86_attr_length_address_default (rtx);
-extern int ix86_attr_length_vex_default (rtx, bool, bool);
+extern int ix86_attr_length_immediate_default (rtx_insn *, bool);
+extern int ix86_attr_length_address_default (rtx_insn *);
+extern int ix86_attr_length_vex_default (rtx_insn *, bool, bool);
 
 extern enum machine_mode ix86_fp_compare_mode (enum rtx_code);
 
 extern rtx ix86_libcall_value (enum machine_mode);
 extern bool ix86_function_arg_regno_p (int);
 extern void ix86_asm_output_function_label (FILE *, const char *, tree);
-extern rtx ix86_force_to_memory (enum machine_mode, rtx);
-extern void ix86_free_from_memory (enum machine_mode);
 extern void ix86_call_abi_override (const_tree);
 extern int ix86_reg_parm_stack_space (const_tree);
 
 extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx,
-				  rtx, rtx, rtx, rtx);
+				  rtx, rtx, rtx);
 extern bool ix86_hard_regno_mode_ok (int, enum machine_mode);
 extern bool ix86_modes_tieable_p (enum machine_mode, enum machine_mode);
 extern bool ix86_secondary_memory_needed (enum reg_class, enum reg_class,
@@ -168,16 +166,7 @@ extern bool ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 extern bool ix86_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
 
-extern int ix86_mode_needed (int, rtx);
-extern int ix86_mode_after (int, int, rtx);
-extern int ix86_mode_entry (int);
-extern int ix86_mode_exit (int);
-
 extern bool ix86_libc_has_function (enum function_class fn_class);
-
-#ifdef HARD_CONST
-extern void ix86_emit_mode_set (int, int, HARD_REG_SET);
-#endif
 
 extern void x86_order_regs_for_local_alloc (void);
 extern void x86_function_profiler (FILE *, int);
@@ -240,6 +229,7 @@ extern void ix86_expand_mul_widen_evenodd (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_mul_widen_hilo (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_sse2_mulv4si3 (rtx, rtx, rtx);
 extern void ix86_expand_sse2_mulvxdi3 (rtx, rtx, rtx);
+extern void ix86_expand_sse2_abs (rtx, rtx);
 
 /* In i386-c.c  */
 extern void ix86_target_macros (void);
@@ -270,7 +260,7 @@ extern void i386_pe_record_stub (const char *);
 
 extern void i386_pe_seh_init (FILE *);
 extern void i386_pe_seh_end_prologue (FILE *);
-extern void i386_pe_seh_unwind_emit (FILE *, rtx);
+extern void i386_pe_seh_unwind_emit (FILE *, rtx_insn *);
 extern void i386_pe_seh_emit_except_personality (rtx);
 extern void i386_pe_seh_init_sections (void);
 
@@ -312,7 +302,7 @@ extern int asm_preferred_eh_data_format (int, int);
 extern enum attr_cpu ix86_schedule;
 #endif
 
-extern const char * ix86_output_call_insn (rtx insn, rtx call_op);
+extern const char * ix86_output_call_insn (rtx_insn *insn, rtx call_op);
 
 #ifdef RTX_CODE
 /* Target data for multipass lookahead scheduling.

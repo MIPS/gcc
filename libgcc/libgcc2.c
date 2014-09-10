@@ -1,6 +1,6 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1989-2013 Free Software Foundation, Inc.
+/* Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -934,6 +934,74 @@ __parityDI2 (UDWtype x)
 #endif
 
 #ifdef L_udivmoddi4
+#ifdef TARGET_HAS_NO_HW_DIVIDE
+
+#if (defined (L_udivdi3) || defined (L_divdi3) || \
+     defined (L_umoddi3) || defined (L_moddi3))
+static inline __attribute__ ((__always_inline__))
+#endif
+UDWtype
+__udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
+{
+  UDWtype q = 0, r = n, y = d;
+  UWtype lz1, lz2, i, k;
+
+  /* Implements align divisor shift dividend method. This algorithm
+     aligns the divisor under the dividend and then perform number of
+     test-subtract iterations which shift the dividend left. Number of
+     iterations is k + 1 where k is the number of bit positions the
+     divisor must be shifted left  to align it under the dividend.
+     quotient bits can be saved in the rightmost positions of the dividend
+     as it shifts left on each test-subtract iteration. */
+
+  if (y <= r)
+    {
+      lz1 = __builtin_clzll (d);
+      lz2 = __builtin_clzll (n);
+
+      k = lz1 - lz2;
+      y = (y << k);
+
+      /* Dividend can exceed 2 ^ (width − 1) − 1 but still be less than the
+	 aligned divisor. Normal iteration can drops the high order bit
+	 of the dividend. Therefore, first test-subtract iteration is a
+	 special case, saving its quotient bit in a separate location and
+	 not shifting the dividend. */
+      if (r >= y)
+	{
+	  r = r - y;
+	  q =  (1ULL << k);
+	}
+
+      if (k > 0)
+	{
+	  y = y >> 1;
+
+	  /* k additional iterations where k regular test subtract shift
+	    dividend iterations are done.  */
+	  i = k;
+	  do
+	    {
+	      if (r >= y)
+		r = ((r - y) << 1) + 1;
+	      else
+		r =  (r << 1);
+	      i = i - 1;
+	    } while (i != 0);
+
+	  /* First quotient bit is combined with the quotient bits resulting
+	     from the k regular iterations.  */
+	  q = q + r;
+	  r = r >> k;
+	  q = q - (r << k);
+	}
+    }
+
+  if (rp)
+    *rp = r;
+  return q;
+}
+#else
 
 #if (defined (L_udivdi3) || defined (L_divdi3) || \
      defined (L_umoddi3) || defined (L_moddi3))
@@ -1151,6 +1219,7 @@ __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
   const DWunion ww = {{.low = q0, .high = q1}};
   return ww.ll;
 }
+#endif
 #endif
 
 #ifdef L_divdi3
@@ -1437,7 +1506,7 @@ __fixsfdi (SFtype a)
 XFtype
 __floatdixf (DWtype u)
 {
-#if W_TYPE_SIZE > XF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_XF_MANT_DIG__
 # error
 #endif
   XFtype d = (Wtype) (u >> W_TYPE_SIZE);
@@ -1451,7 +1520,7 @@ __floatdixf (DWtype u)
 XFtype
 __floatundixf (UDWtype u)
 {
-#if W_TYPE_SIZE > XF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_XF_MANT_DIG__
 # error
 #endif
   XFtype d = (UWtype) (u >> W_TYPE_SIZE);
@@ -1465,7 +1534,7 @@ __floatundixf (UDWtype u)
 TFtype
 __floatditf (DWtype u)
 {
-#if W_TYPE_SIZE > TF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_TF_MANT_DIG__
 # error
 #endif
   TFtype d = (Wtype) (u >> W_TYPE_SIZE);
@@ -1479,7 +1548,7 @@ __floatditf (DWtype u)
 TFtype
 __floatunditf (UDWtype u)
 {
-#if W_TYPE_SIZE > TF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_TF_MANT_DIG__
 # error
 #endif
   TFtype d = (UWtype) (u >> W_TYPE_SIZE);
@@ -1499,11 +1568,11 @@ __floatunditf (UDWtype u)
 #if defined(L_floatdisf)
 #define FUNC __floatdisf
 #define FSTYPE SFtype
-#define FSSIZE SF_SIZE
+#define FSSIZE __LIBGCC_SF_MANT_DIG__
 #else
 #define FUNC __floatdidf
 #define FSTYPE DFtype
-#define FSSIZE DF_SIZE
+#define FSSIZE __LIBGCC_DF_MANT_DIG__
 #endif
 
 FSTYPE
@@ -1515,18 +1584,18 @@ FUNC (DWtype u)
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
   return f;
-#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))	\
-     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))	\
-     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
+#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
 
-#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))
-# define FSIZE DF_SIZE
+#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))
+# define FSIZE __LIBGCC_DF_MANT_DIG__
 # define FTYPE DFtype
-#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))
-# define FSIZE XF_SIZE
+#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))
+# define FSIZE __LIBGCC_XF_MANT_DIG__
 # define FTYPE XFtype
-#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
-# define FSIZE TF_SIZE
+#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
+# define FSIZE __LIBGCC_TF_MANT_DIG__
 # define FTYPE TFtype
 #else
 # error
@@ -1615,11 +1684,11 @@ FUNC (DWtype u)
 #if defined(L_floatundisf)
 #define FUNC __floatundisf
 #define FSTYPE SFtype
-#define FSSIZE SF_SIZE
+#define FSSIZE __LIBGCC_SF_MANT_DIG__
 #else
 #define FUNC __floatundidf
 #define FSTYPE DFtype
-#define FSSIZE DF_SIZE
+#define FSSIZE __LIBGCC_DF_MANT_DIG__
 #endif
 
 FSTYPE
@@ -1631,18 +1700,18 @@ FUNC (UDWtype u)
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
   return f;
-#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))	\
-     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))	\
-     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
+#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
 
-#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))
-# define FSIZE DF_SIZE
+#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))
+# define FSIZE __LIBGCC_DF_MANT_DIG__
 # define FTYPE DFtype
-#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))
-# define FSIZE XF_SIZE
+#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))
+# define FSIZE __LIBGCC_XF_MANT_DIG__
 # define FTYPE XFtype
-#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
-# define FSIZE TF_SIZE
+#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
+# define FSIZE __LIBGCC_TF_MANT_DIG__
 # define FTYPE TFtype
 #else
 # error
@@ -2140,7 +2209,8 @@ TRANSFER_FROM_TRAMPOLINE
 #define SYMBOL__MAIN __main
 #endif
 
-#if defined (INIT_SECTION_ASM_OP) || defined (INIT_ARRAY_SECTION_ASM_OP)
+#if defined (__LIBGCC_INIT_SECTION_ASM_OP__) \
+    || defined (__LIBGCC_INIT_ARRAY_SECTION_ASM_OP__)
 #undef HAS_INIT_SECTION
 #define HAS_INIT_SECTION
 #endif
@@ -2150,7 +2220,7 @@ TRANSFER_FROM_TRAMPOLINE
 /* Some ELF crosses use crtstuff.c to provide __CTOR_LIST__, but use this
    code to run constructors.  In that case, we need to handle EH here, too.  */
 
-#ifdef EH_FRAME_SECTION_NAME
+#ifdef __LIBGCC_EH_FRAME_SECTION_NAME__
 #include "unwind-dw2-fde.h"
 extern unsigned char __EH_FRAME_BEGIN__[];
 #endif
@@ -2170,7 +2240,7 @@ __do_global_dtors (void)
       (*(p-1)) ();
     }
 #endif
-#if defined (EH_FRAME_SECTION_NAME) && !defined (HAS_INIT_SECTION)
+#if defined (__LIBGCC_EH_FRAME_SECTION_NAME__) && !defined (HAS_INIT_SECTION)
   {
     static int completed = 0;
     if (! completed)
@@ -2189,7 +2259,7 @@ __do_global_dtors (void)
 void
 __do_global_ctors (void)
 {
-#ifdef EH_FRAME_SECTION_NAME
+#ifdef __LIBGCC_EH_FRAME_SECTION_NAME__
   {
     static struct object object;
     __register_frame_info (__EH_FRAME_BEGIN__, &object);
@@ -2243,7 +2313,8 @@ SYMBOL__MAIN (void)
    must be in the bss/common section.
 
    Long term no port should use those extensions.  But many still do.  */
-#if !defined(INIT_SECTION_ASM_OP) && !defined(CTOR_LISTS_DEFINED_EXTERNALLY)
+#if !defined(__LIBGCC_INIT_SECTION_ASM_OP__) \
+    && !defined(CTOR_LISTS_DEFINED_EXTERNALLY)
 #if defined (TARGET_ASM_CONSTRUCTOR) || defined (USE_COLLECT2)
 func_ptr __CTOR_LIST__[2] = {0, 0};
 func_ptr __DTOR_LIST__[2] = {0, 0};
@@ -2251,6 +2322,6 @@ func_ptr __DTOR_LIST__[2] = {0, 0};
 func_ptr __CTOR_LIST__[2];
 func_ptr __DTOR_LIST__[2];
 #endif
-#endif /* no INIT_SECTION_ASM_OP and not CTOR_LISTS_DEFINED_EXTERNALLY */
+#endif /* no __LIBGCC_INIT_SECTION_ASM_OP__ and not CTOR_LISTS_DEFINED_EXTERNALLY */
 #endif /* L_ctors */
 #endif /* LIBGCC2_UNITS_PER_WORD <= MIN_UNITS_PER_WORD */

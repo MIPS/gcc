@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,6 +27,9 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "flags.h"
 #include "java-tree.h"
 #include "jcf.h"
@@ -761,8 +764,7 @@ add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
   fndecl = build_decl (input_location, FUNCTION_DECL, name, method_type);
   DECL_CONTEXT (fndecl) = this_class;
 
-  DECL_LANG_SPECIFIC (fndecl)
-    = ggc_alloc_cleared_lang_decl(sizeof (struct lang_decl));
+  DECL_LANG_SPECIFIC (fndecl) = ggc_cleared_alloc<struct lang_decl> ();
   DECL_LANG_SPECIFIC (fndecl)->desc = LANG_DECL_FUNC;
 
   /* Initialize the static initializer test table.  */
@@ -917,7 +919,7 @@ hashUtf8String (const char *str, int len)
 {
   const unsigned char* ptr = (const unsigned char*) str;
   const unsigned char *limit = ptr + len;
-  int32 hash = 0;
+  uint32 hash = 0;
   for (; ptr < limit;)
     {
       int ch = UTF8_GET (ptr, limit);
@@ -989,7 +991,7 @@ build_utf8_ref (tree name)
 		       | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
 	  sprintf (buf, ".rodata.jutf8.%d", decl_size);
 	  switch_to_section (get_section (buf, flags, NULL));
-	  DECL_SECTION_NAME (decl) = build_string (strlen (buf), buf);
+	  set_decl_section_name (decl, buf);
 	}
     }
 
@@ -1065,11 +1067,11 @@ build_classdollar_field (tree type)
       decl 
 	= build_decl (input_location,
 		      VAR_DECL, decl_name, 
-		      (build_type_variant 
+		      (build_qualified_type
 		       (build_pointer_type 
-			(build_type_variant (class_type_node, 
-					     /* const */ 1, 0)),
-			/* const */ 1, 0)));
+			(build_qualified_type (class_type_node,
+					       TYPE_QUAL_CONST)),
+			TYPE_QUAL_CONST)));
       TREE_STATIC (decl) = 1;
       TREE_CONSTANT (decl) = 1;
       TREE_READONLY (decl) = 1;
@@ -1576,14 +1578,14 @@ get_dispatch_vector (tree type)
       HOST_WIDE_INT i;
       tree method;
       tree super = CLASSTYPE_SUPER (type);
-      HOST_WIDE_INT nvirtuals = tree_low_cst (TYPE_NVIRTUALS (type), 0);
+      HOST_WIDE_INT nvirtuals = tree_to_shwi (TYPE_NVIRTUALS (type));
       vtable = make_tree_vec (nvirtuals);
       TYPE_VTABLE (type) = vtable;
       if (super != NULL_TREE)
 	{
 	  tree super_vtable = get_dispatch_vector (super);
 
-	  for (i = tree_low_cst (TYPE_NVIRTUALS (super), 0); --i >= 0; )
+	  for (i = tree_to_shwi (TYPE_NVIRTUALS (super)); --i >= 0; )
 	    TREE_VEC_ELT (vtable, i) = TREE_VEC_ELT (super_vtable, i);
 	}
 
@@ -1592,8 +1594,8 @@ get_dispatch_vector (tree type)
 	{
 	  tree method_index = get_method_index (method);
 	  if (method_index != NULL_TREE
-	      && host_integerp (method_index, 0))
-	    TREE_VEC_ELT (vtable, tree_low_cst (method_index, 0)) = method;
+	      && tree_fits_shwi_p (method_index))
+	    TREE_VEC_ELT (vtable, tree_to_shwi (method_index)) = method;
 	}
     }
 
@@ -2412,7 +2414,7 @@ maybe_layout_super_class (tree super_class, tree this_class ATTRIBUTE_UNUSED)
 }
 
 /* safe_layout_class just makes sure that we can load a class without
-   disrupting the current_class, input_file, input_line, etc, information
+   disrupting the current_class, input_location, etc, information
    about the class processed currently.  */
 
 void
@@ -2803,8 +2805,6 @@ emit_register_classes_in_jcr_section (void)
   cdecl = build_decl (UNKNOWN_LOCATION,
 		      VAR_DECL, get_identifier ("_Jv_JCR_SECTION_data"),
 		      class_array_type);
-  DECL_SECTION_NAME (cdecl) = build_string (strlen (JCR_SECTION_NAME),
-					    JCR_SECTION_NAME);
   DECL_ALIGN (cdecl) = POINTER_SIZE;
   DECL_USER_ALIGN (cdecl) = 1;
   DECL_INITIAL (cdecl) = build_constructor (class_array_type, init);
@@ -2815,6 +2815,7 @@ emit_register_classes_in_jcr_section (void)
   DECL_ARTIFICIAL (cdecl) = 1;
   DECL_IGNORED_P (cdecl) = 1;
   DECL_PRESERVE_P (cdecl) = 1;
+  set_decl_section_name (cdecl, JCR_SECTION_NAME);
   pushdecl_top_level (cdecl);
   relayout_decl (cdecl);
   rest_of_decl_compilation (cdecl, 1, 0);
@@ -3191,7 +3192,7 @@ java_treetreehash_new (htab_t ht, tree t)
   e = htab_find_slot_with_hash (ht, t, hv, INSERT);
   if (*e == NULL)
     {
-      tthe = ggc_alloc_cleared_treetreehash_entry ();
+      tthe = ggc_cleared_alloc<treetreehash_entry> ();
       tthe->key = t;
       *e = tthe;
     }

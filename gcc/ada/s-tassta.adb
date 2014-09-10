@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2013, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2014, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -150,27 +150,28 @@ package body System.Tasking.Stages is
       C : Task_Id;
       P : Task_Id;
 
+      --  Each task C will take care of its own dependents, so there is no
+      --  need to worry about them here. In fact, it would be wrong to abort
+      --  indirect dependents here, because we can't distinguish between
+      --  duplicate master ids. For example, suppose we have three nested
+      --  task bodies T1,T2,T3. And suppose T1 also calls P which calls Q (and
+      --  both P and Q are task masters). Q will have the same master id as
+      --  Master_of_Task of T3. Previous versions of this would abort T3 when
+      --  Q calls Complete_Master, which was completely wrong.
+
    begin
       C := All_Tasks_List;
       while C /= null loop
          P := C.Common.Parent;
-         while P /= null loop
-            if P = Self_ID then
 
-               --  ??? C is supposed to take care of its own dependents, so
-               --  there should be no need to worry about them. Need to double
-               --  check this.
-
-               if C.Master_of_Task = Self_ID.Master_Within then
-                  Utilities.Abort_One_Task (Self_ID, C);
-                  C.Dependents_Aborted := True;
-               end if;
-
-               exit;
+         if P = Self_ID then
+            if C.Master_of_Task = Self_ID.Master_Within then
+               pragma Debug
+                 (Debug.Trace (Self_ID, "Aborting", 'X', C));
+               Utilities.Abort_One_Task (Self_ID, C);
+               C.Dependents_Aborted := True;
             end if;
-
-            P := P.Common.Parent;
-         end loop;
+         end if;
 
          C := C.Common.All_Tasks_Link;
       end loop;
@@ -459,7 +460,7 @@ package body System.Tasking.Stages is
 
       Vulnerable_Complete_Task (Self_ID);
 
-      --  All of our dependents have terminated. Never undefer abort again!
+      --  All of our dependents have terminated, never undefer abort again
 
    end Complete_Task;
 
@@ -536,8 +537,6 @@ package body System.Tasking.Stages is
       if CPU /= Unspecified_CPU
         and then (CPU < Integer (System.Multiprocessors.CPU_Range'First)
                     or else
-                  CPU > Integer (System.Multiprocessors.CPU_Range'Last)
-                    or else
                   CPU > Integer (System.Multiprocessors.Number_Of_CPUs))
       then
          raise Tasking_Error with "CPU not in range";
@@ -546,8 +545,8 @@ package body System.Tasking.Stages is
 
       else
          --  When the application code says nothing about the task affinity
-         --  (task without CPU aspect) then the compiler inserts the
-         --  Unspecified_CPU value which indicates to the run-time library that
+         --  (task without CPU aspect) then the compiler inserts the value
+         --  Unspecified_CPU which indicates to the run-time library that
          --  the task will activate and execute on the same processor as its
          --  activating task if the activating task is assigned a processor
          --  (RM D.16(14/3)).
@@ -558,14 +557,20 @@ package body System.Tasking.Stages is
             else System.Multiprocessors.CPU_Range (CPU));
       end if;
 
-      --  Find parent P of new Task, via master level number
+      --  Find parent P of new Task, via master level number. Independent
+      --  tasks should have Parent = Environment_Task, and all tasks created
+      --  by independent tasks are also independent. See, for example,
+      --  s-interr.adb, where Interrupt_Manager does "new Server_Task". The
+      --  access type is at library level, so the parent of the Server_Task
+      --  is Environment_Task.
 
       P := Self_ID;
 
-      if P /= null then
-         while P.Master_of_Task >= Master loop
+      if P.Master_of_Task <= Independent_Task_Level then
+         P := Environment_Task;
+      else
+         while P /= null and then P.Master_of_Task >= Master loop
             P := P.Common.Parent;
-            exit when P = null;
          end loop;
       end if;
 
@@ -708,13 +713,16 @@ package body System.Tasking.Stages is
       SSL.Create_TSD (T.Common.Compiler_Data);
       T.Common.Activation_Link := Chain.T_ID;
       Chain.T_ID := T;
-      Initialization.Initialize_Attributes_Link.all (T);
       Created_Task := T;
       Initialization.Undefer_Abort_Nestable (Self_ID);
 
       if Runtime_Traces then
          Send_Trace_Info (T_Create, T);
       end if;
+
+      pragma Debug
+        (Debug.Trace
+           (Self_ID, "Created task in " & T.Master_of_Task'Img, 'C', T));
    end Create_Task;
 
    --------------------
@@ -734,6 +742,9 @@ package body System.Tasking.Stages is
       Self_ID : constant Task_Id := STPO.Self;
    begin
       Self_ID.Master_Within := Self_ID.Master_Within + 1;
+      pragma Debug
+        (Debug.Trace
+           (Self_ID, "Enter_Master ->" & Self_ID.Master_Within'Img, 'M'));
    end Enter_Master;
 
    -------------------------------
@@ -808,7 +819,6 @@ package body System.Tasking.Stages is
 
       Ignore_1 : Boolean;
       Ignore_2 : Boolean;
-      pragma Unreferenced (Ignore_1, Ignore_2);
 
       function State
         (Int : System.Interrupt_Management.Interrupt_ID) return Character;
@@ -829,7 +839,7 @@ package body System.Tasking.Stages is
 
          Initialization.Defer_Abort_Nestable (Self_ID);
 
-         --  Never undefer again!!!
+         --  Never undefer again
       end if;
 
       --  This code is only executed by the environment task
@@ -861,15 +871,17 @@ package body System.Tasking.Stages is
 
       Write_Lock (Self_ID);
 
-      --  If the Abort_Task signal is set to system, it means that we may not
-      --  have been able to abort all independent tasks (in particular
-      --  Server_Task may be blocked, waiting for a signal), in which case,
-      --  do not wait for Independent_Task_Count to go down to 0.
+      --  If the Abort_Task signal is set to system, it means that we may
+      --  not have been able to abort all independent tasks (in particular,
+      --  Server_Task may be blocked, waiting for a signal), in which case, do
+      --  not wait for Independent_Task_Count to go down to 0. We arbitrarily
+      --  limit the number of loop iterations; if an independent task does not
+      --  terminate, we do not want to hang here. In that case, the thread will
+      --  be terminated when the process exits.
 
-      if State
-          (System.Interrupt_Management.Abort_Task_Interrupt) /= Default
+      if State (System.Interrupt_Management.Abort_Task_Interrupt) /= Default
       then
-         loop
+         for J in 1 .. 10 loop
             exit when Utilities.Independent_Task_Count = 0;
 
             --  We used to yield here, but this did not take into account low
@@ -946,7 +958,7 @@ package body System.Tasking.Stages is
          Initialization.Task_Lock (Self_Id);
 
          Lock_RTS;
-         Initialization.Finalize_Attributes_Link.all (T);
+         Initialization.Finalize_Attributes (T);
          Initialization.Remove_From_All_Tasks_List (T);
          Unlock_RTS;
 
@@ -1040,7 +1052,10 @@ package body System.Tasking.Stages is
             SSE.Storage_Offset (Parameters.Sec_Stack_Percentage) / 100;
 
       Secondary_Stack : aliased SSE.Storage_Array (1 .. Secondary_Stack_Size);
-      --  Actual area allocated for secondary stack
+      for Secondary_Stack'Alignment use Standard'Maximum_Alignment;
+      --  Actual area allocated for secondary stack. Note that it is critical
+      --  that this have maximum alignment, since any kind of data can be
+      --  allocated here.
 
       Secondary_Stack_Address : System.Address := Secondary_Stack'Address;
       --  Address of secondary stack. In the fixed secondary stack case, this
@@ -1106,6 +1121,9 @@ package body System.Tasking.Stages is
 
    begin
       pragma Assert (Self_ID.Deferral_Level = 1);
+
+      Debug.Master_Hook
+        (Self_ID, Self_ID.Common.Parent, Self_ID.Master_of_Task);
 
       --  Assume a size of the stack taken at this stage
 
@@ -1394,7 +1412,7 @@ package body System.Tasking.Stages is
    --  unlocking, after which the parent was observed to race ahead, deallocate
    --  the ATCB, and then reallocate it to another task. The call to
    --  Undefer_Abort in Task_Unlock by the "terminated" task was overwriting
-   --  the data of the new task that reused the ATCB! To solve this problem, we
+   --  the data of the new task that reused the ATCB. To solve this problem, we
    --  introduced the new operation Final_Task_Unlock.
 
    procedure Terminate_Task (Self_ID : Task_Id) is
@@ -1512,12 +1530,6 @@ package body System.Tasking.Stages is
         Ada.Unchecked_Conversion
          (Task_Id, System.Task_Primitives.Task_Address);
 
-      function Tailored_Exception_Information
-        (E : Exception_Occurrence) return String;
-      pragma Import
-        (Ada, Tailored_Exception_Information,
-         "__gnat_tailored_exception_information");
-
       Excep : constant Exception_Occurrence_Access :=
                 SSL.Get_Current_Excep.all;
 
@@ -1541,7 +1553,7 @@ package body System.Tasking.Stages is
       To_Stderr (System.Address_Image (To_Address (Self_Id)));
       To_Stderr (" terminated by unhandled exception");
       To_Stderr ((1 => ASCII.LF));
-      To_Stderr (Tailored_Exception_Information (Excep.all));
+      To_Stderr (Exception_Information (Excep.all));
       Initialization.Task_Unlock (Self_Id);
    end Trace_Unhandled_Exception_In_Task;
 
@@ -1669,7 +1681,7 @@ package body System.Tasking.Stages is
 
    begin
       pragma Debug
-        (Debug.Trace (Self_ID, "V_Complete_Master", 'C'));
+        (Debug.Trace (Self_ID, "V_Complete_Master(" & CM'Img & ")", 'C'));
 
       pragma Assert (Self_ID.Common.Wait_Count = 0);
       pragma Assert
@@ -1712,7 +1724,7 @@ package body System.Tasking.Stages is
             Unlock (C);
          end if;
 
-         --  Count it if dependent on this master
+         --  Count it if directly dependent on this master
 
          if C.Common.Parent = Self_ID and then C.Master_of_Task = CM then
             Write_Lock (C);
@@ -1759,6 +1771,8 @@ package body System.Tasking.Stages is
                Write_Lock (Self_ID);
             end if;
          else
+            pragma Debug
+              (Debug.Trace (Self_ID, "master_completion_sleep", 'C'));
             Sleep (Self_ID, Master_Completion_Sleep);
          end if;
       end loop;
@@ -1977,6 +1991,8 @@ package body System.Tasking.Stages is
       --  since the value is only updated by each task for itself.
 
       Self_ID.Master_Within := CM - 1;
+
+      Debug.Master_Completed_Hook (Self_ID, CM);
    end Vulnerable_Complete_Master;
 
    ------------------------------
@@ -2067,7 +2083,7 @@ package body System.Tasking.Stages is
       end if;
 
       Write_Lock (T);
-      Initialization.Finalize_Attributes_Link.all (T);
+      Initialization.Finalize_Attributes (T);
       Unlock (T);
 
       if Single_Lock then

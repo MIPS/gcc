@@ -1,5 +1,5 @@
 ;; Constraint definitions for IA-32 and x86-64.
-;; Copyright (C) 2006-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -18,8 +18,8 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;     B     H           T
-;;;           h j
+;;;           H
+;;;           h j            w  z
 
 ;; Integer register constraints.
 ;; It is not necessary to define 'r' here.
@@ -78,10 +78,10 @@
  "TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387 ? FP_SECOND_REG : NO_REGS"
  "Second from top of 80387 floating-point stack (@code{%st(1)}).")
 
-(define_register_constraint "k" "TARGET_AVX512F ? MASK_EVEX_REGS : NO_REGS"
+(define_register_constraint "Yk" "TARGET_AVX512F ? MASK_EVEX_REGS : NO_REGS"
 "@internal Any mask register that can be used as predicate, i.e. k1-k7.")
 
-(define_register_constraint "Yk" "TARGET_AVX512F ? MASK_REGS : NO_REGS"
+(define_register_constraint "k" "TARGET_AVX512F ? MASK_REGS : NO_REGS"
 "@internal Any mask register.")
 
 ;; Vector registers (also used for plain floating point nowadays).
@@ -90,6 +90,9 @@
 
 (define_register_constraint "x" "TARGET_SSE ? SSE_REGS : NO_REGS"
  "Any SSE register.")
+
+(define_register_constraint "v" "TARGET_SSE ? ALL_SSE_REGS : NO_REGS"
+ "Any EVEX encodable SSE register (@code{%xmm0-%xmm31}).")
 
 ;; We use the Y prefix to denote any number of conditional register sets:
 ;;  z	First SSE register.
@@ -144,17 +147,24 @@
  "(ix86_fpmath & FPMATH_387) ? FLOAT_REGS : NO_REGS"
  "@internal Any x87 register when 80387 FP arithmetic is enabled.")
 
-(define_register_constraint "v" "TARGET_SSE ? ALL_SSE_REGS : NO_REGS"
- "Any EVEX encodable SSE register (@code{%xmm0-%xmm31}).")
+;; We use the B prefix to denote any number of internal operands:
+;;  s  Sibcall memory operand, not valid for TARGET_X32
+;;  w  Call memory operand, not valid for TARGET_X32
+;;  z  Constant call address operand.
 
-(define_constraint "z"
-  "@internal Constant call address operand."
-  (match_operand 0 "constant_call_address_operand"))
+(define_constraint "Bs"
+  "@internal Sibcall memory operand."
+  (and (not (match_test "TARGET_X32"))
+       (match_operand 0 "sibcall_memory_operand")))
 
-(define_constraint "w"
+(define_constraint "Bw"
   "@internal Call memory operand."
   (and (not (match_test "TARGET_X32"))
        (match_operand 0 "memory_operand")))
+
+(define_constraint "Bz"
+  "@internal Constant call address operand."
+  (match_operand 0 "constant_call_address_operand"))
 
 ;; Integer constant constraints.
 (define_constraint "I"
@@ -220,6 +230,13 @@
 ;; We use W prefix to denote any number of
 ;; constant-or-symbol-reference constraints
 
+(define_constraint "We"
+  "32-bit signed integer constant, or a symbolic reference known
+   to fit that range (for sign-extending conversion operations that
+   require non-VOIDmode immediate operands)."
+  (and (match_operand 0 "x86_64_immediate_operand")
+       (match_test "GET_MODE (op) != VOIDmode")))
+
 (define_constraint "Wz"
   "32-bit unsigned integer constant, or a symbolic reference known
    to fit that range (for zero-extending conversion operations that
@@ -232,3 +249,15 @@
    to fit that range (for immediate operands in zero-extending x86-64
    instructions)."
   (match_operand 0 "x86_64_zext_immediate_operand"))
+
+;; T prefix is used for different address constraints
+;;   v - VSIB address
+;;   s - address with no segment register
+
+(define_address_constraint "Tv"
+  "VSIB address operand"
+  (match_operand 0 "vsib_address_operand"))
+
+(define_address_constraint "Ts"
+  "Address operand without segment register"
+  (match_operand 0 "address_no_seg_operand"))

@@ -1,6 +1,6 @@
 // Iostreams wrapper for stdio FILE* -*- C++ -*-
 
-// Copyright (C) 2003-2013 Free Software Foundation, Inc.
+// Copyright (C) 2003-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -84,7 +84,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  Note that there is no way for the library to track what you do
        *  with the file, so be careful.
        */
-      std::__c_file* const
+      std::__c_file*
       file() { return this->_M_file; }
 
     protected:

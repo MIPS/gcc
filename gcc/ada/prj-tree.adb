@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -122,6 +122,7 @@ package body Prj.Tree is
             Src_Index => 0,
             Path_Name => No_Path,
             Value     => No_Name,
+            Default   => Empty_Value,
             Field1    => Empty_Node,
             Field2    => Empty_Node,
             Field3    => Empty_Node,
@@ -172,6 +173,7 @@ package body Prj.Tree is
                Src_Index        => 0,
                Path_Name        => No_Path,
                Value            => Comments.Table (J).Value,
+               Default          => Empty_Value,
                Field1           => Empty_Node,
                Field2           => Empty_Node,
                Field3           => Empty_Node,
@@ -340,6 +342,7 @@ package body Prj.Tree is
          Src_Index        => 0,
          Path_Name        => No_Path,
          Value            => No_Name,
+         Default          => Empty_Value,
          Field1           => Empty_Node,
          Field2           => Empty_Node,
          Field3           => Empty_Node,
@@ -385,6 +388,22 @@ package body Prj.Tree is
       return In_Tree.Project_Nodes.Table (Node).Field1;
    end Current_Term;
 
+   ----------------
+   -- Default_Of --
+   ----------------
+
+   function Default_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Attribute_Default_Value
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+          and then
+            In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Reference);
+      return In_Tree.Project_Nodes.Table (Node).Default;
+   end Default_Of;
+
    --------------------------
    -- Default_Project_Node --
    --------------------------
@@ -416,6 +435,7 @@ package body Prj.Tree is
          Src_Index        => 0,
          Path_Name        => No_Path,
          Value            => No_Name,
+         Default          => Empty_Value,
          Field1           => Empty_Node,
          Field2           => Empty_Node,
          Field3           => Empty_Node,
@@ -452,6 +472,7 @@ package body Prj.Tree is
                Src_Index        => 0,
                Path_Name        => No_Path,
                Value            => No_Name,
+               Default          => Empty_Value,
                Field1           => Empty_Node,
                Field2           => Empty_Node,
                Field3           => Empty_Node,
@@ -486,6 +507,7 @@ package body Prj.Tree is
                   Src_Index        => 0,
                   Path_Name        => No_Path,
                   Value            => Comments.Table (J).Value,
+                  Default          => Empty_Value,
                   Field1           => Empty_Node,
                   Field2           => Empty_Node,
                   Field3           => Empty_Node,
@@ -1121,21 +1143,29 @@ package body Prj.Tree is
       In_Tree   : Project_Node_Tree_Ref;
       With_Name : Name_Id) return Project_Node_Id
    is
-      With_Clause : Project_Node_Id :=
-        First_With_Clause_Of (Project, In_Tree);
+      With_Clause : Project_Node_Id;
       Result      : Project_Node_Id := Empty_Node;
 
    begin
       --  First check all the imported projects
 
+      With_Clause := First_With_Clause_Of (Project, In_Tree);
       while Present (With_Clause) loop
 
-         --  Only non limited imported project may be used as prefix
-         --  of variable or attributes.
+         --  Only non limited imported project may be used as prefix of
+         --  variables or attributes.
 
          Result := Non_Limited_Project_Node_Of (With_Clause, In_Tree);
-         exit when Present (Result)
-           and then Name_Of (Result, In_Tree) = With_Name;
+         while Present (Result) loop
+            if Name_Of (Result, In_Tree) = With_Name then
+               return Result;
+            end if;
+
+            Result :=
+              Extended_Project_Of
+                (Project_Declaration_Of (Result, In_Tree), In_Tree);
+         end loop;
+
          With_Clause := Next_With_Clause_Of (With_Clause, In_Tree);
       end loop;
 
@@ -1321,8 +1351,7 @@ package body Prj.Tree is
    begin
       pragma Assert
         (Present (Node)
-          and then
-            In_Tree.Project_Nodes.Table (Node).Kind = N_Term);
+          and then In_Tree.Project_Nodes.Table (Node).Kind = N_Term);
       return In_Tree.Project_Nodes.Table (Node).Field2;
    end Next_Term;
 
@@ -1332,18 +1361,17 @@ package body Prj.Tree is
 
    function Next_Variable
      (Node    : Project_Node_Id;
-      In_Tree : Project_Node_Tree_Ref)
-      return Project_Node_Id
+      In_Tree : Project_Node_Tree_Ref) return Project_Node_Id
    is
    begin
       pragma Assert
         (Present (Node)
           and then
-           (In_Tree.Project_Nodes.Table (Node).Kind =
-              N_Typed_Variable_Declaration
+            (In_Tree.Project_Nodes.Table (Node).Kind =
+                                                  N_Typed_Variable_Declaration
                or else
-            In_Tree.Project_Nodes.Table (Node).Kind =
-              N_Variable_Declaration));
+             In_Tree.Project_Nodes.Table (Node).Kind =
+                                                  N_Variable_Declaration));
 
       return In_Tree.Project_Nodes.Table (Node).Field3;
    end Next_Variable;
@@ -1681,13 +1709,15 @@ package body Prj.Tree is
                Empty_Line := False;
 
             when others =>
+
                --  If there are comments, where the first comment is not
                --  following an empty line, put the initial uninterrupted
                --  comment zone with the node of the preceding line (either
                --  a Previous_Line or a Previous_End node), if any.
 
                if Comments.Last > 0 and then
-                 not Comments.Table (1).Follows_Empty_Line then
+                 not Comments.Table (1).Follows_Empty_Line
+               then
                   if Present (Previous_Line_Node) then
                      Add_Comments
                        (To      => Previous_Line_Node,
@@ -1858,6 +1888,23 @@ package body Prj.Tree is
             In_Tree.Project_Nodes.Table (Node).Kind = N_Term);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
    end Set_Current_Term;
+
+   --------------------
+   -- Set_Default_Of --
+   --------------------
+
+   procedure Set_Default_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref;
+      To      : Attribute_Default_Value)
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+          and then
+            In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Reference);
+      In_Tree.Project_Nodes.Table (Node).Default := To;
+   end Set_Default_Of;
 
    ----------------------
    -- Set_Directory_Of --
@@ -2922,9 +2969,10 @@ package body Prj.Tree is
             Prj.Tree.Tree_Private_Part.Project_Name_And_Node'
               (Name           => Name,
                Display_Name   => Name,
-               Canonical_Path => No_Path,
+               Resolved_Path  => No_Path,
                Node           => Project,
                Extended       => False,
+               From_Extended  => False,
                Proj_Qualifier => Qualifier));
       end if;
 

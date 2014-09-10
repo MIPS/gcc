@@ -246,6 +246,16 @@ Variable_declaration_statement::do_lower(Gogo* gogo, Named_object* function,
   return this;
 }
 
+// Flatten the variable's initialization expression.
+
+Statement*
+Variable_declaration_statement::do_flatten(Gogo* gogo, Named_object* function,
+                                           Block*, Statement_inserter* inserter)
+{
+  this->var_->var_value()->flatten_init_expression(gogo, function, inserter);
+  return this;
+}
+
 // Convert a variable declaration to the backend representation.
 
 Bstatement*
@@ -254,8 +264,7 @@ Variable_declaration_statement::do_get_backend(Translate_context* context)
   Variable* var = this->var_->var_value();
   Bvariable* bvar = this->var_->get_backend_variable(context->gogo(),
 						     context->function());
-  tree init = var->get_init_tree(context->gogo(), context->function());
-  Bexpression* binit = init == NULL ? NULL : tree_to_expr(init);
+  Bexpression* binit = var->get_init(context->gogo(), context->function());
 
   if (!var->is_in_heap())
     {
@@ -282,12 +291,12 @@ Variable_declaration_statement::do_get_backend(Translate_context* context)
     {
       Expression* e = Expression::make_temporary_reference(temp, loc);
       e = Expression::make_unary(OPERATOR_MULT, e, loc);
-      Bexpression* be = tree_to_expr(e->get_tree(context));
+      Bexpression* be = e->get_backend(context);
       set = context->backend()->assignment_statement(be, binit, loc);
     }
 
   Expression* ref = Expression::make_temporary_reference(temp, loc);
-  Bexpression* bref = tree_to_expr(ref->get_tree(context));
+  Bexpression* bref = ref->get_backend(context);
   Bstatement* sinit = context->backend()->init_statement(bvar, bref);
 
   std::vector<Bstatement*> stats;
@@ -425,28 +434,22 @@ Temporary_statement::do_get_backend(Translate_context* context)
 {
   go_assert(this->bvariable_ == NULL);
 
-  // FIXME: Permitting FUNCTION to be NULL here is a temporary measure
-  // until we have a better representation of the init function.
   Named_object* function = context->function();
-  Bfunction* bfunction;
-  if (function == NULL)
-    bfunction = NULL;
-  else
-    bfunction = tree_to_function(function->func_value()->get_decl());
-
+  go_assert(function != NULL);
+  Bfunction* bfunction = function->func_value()->get_decl();
   Btype* btype = this->type()->get_backend(context->gogo());
 
   Bexpression* binit;
   if (this->init_ == NULL)
     binit = NULL;
   else if (this->type_ == NULL)
-    binit = tree_to_expr(this->init_->get_tree(context));
+    binit = this->init_->get_backend(context);
   else
     {
       Expression* init = Expression::make_cast(this->type_, this->init_,
 					       this->location());
       context->gogo()->lower_expression(context->function(), NULL, &init);
-      binit = tree_to_expr(init->get_tree(context));
+      binit = init->get_backend(context);
     }
 
   Bstatement* statement;
@@ -628,16 +631,18 @@ Assignment_statement::do_check_types(Gogo*)
 Bstatement*
 Assignment_statement::do_get_backend(Translate_context* context)
 {
-  tree rhs_tree = this->rhs_->get_tree(context);
   if (this->lhs_->is_sink_expression())
-    return context->backend()->expression_statement(tree_to_expr(rhs_tree));
-  tree lhs_tree = this->lhs_->get_tree(context);
-  rhs_tree = Expression::convert_for_assignment(context, this->lhs_->type(),
-						this->rhs_->type(), rhs_tree,
-						this->location());
-  return context->backend()->assignment_statement(tree_to_expr(lhs_tree),
-						  tree_to_expr(rhs_tree),
-						  this->location());
+    {
+      Bexpression* rhs = this->rhs_->get_backend(context);
+      return context->backend()->expression_statement(rhs);
+    }
+
+  Bexpression* lhs = this->lhs_->get_backend(context);
+  Expression* conv =
+      Expression::convert_for_assignment(context->gogo(), this->lhs_->type(),
+                                         this->rhs_, this->location());
+  Bexpression* rhs = conv->get_backend(context);
+  return context->backend()->assignment_statement(lhs, rhs, this->location());
 }
 
 // Dump the AST representation for an assignment statement.
@@ -1145,7 +1150,10 @@ Tuple_map_assignment_statement::do_lower(Gogo*, Named_object*,
 
   // var present_temp bool
   Temporary_statement* present_temp =
-    Statement::make_temporary(Type::lookup_bool_type(), NULL, loc);
+    Statement::make_temporary((this->present_->type()->is_sink_type())
+			      ? Type::make_boolean_type()
+			      : this->present_->type(),
+			      NULL, loc);
   b->add_statement(present_temp);
 
   // present_temp = mapaccess2(DESCRIPTOR, MAP, &key_temp, &val_temp)
@@ -1158,7 +1166,6 @@ Tuple_map_assignment_statement::do_lower(Gogo*, Named_object*,
   Expression* a4 = Expression::make_unary(OPERATOR_AND, ref, loc);
   Expression* call = Runtime::make_call(Runtime::MAPACCESS2, loc, 4,
 					a1, a2, a3, a4);
-
   ref = Expression::make_temporary_reference(present_temp, loc);
   ref->set_is_lvalue();
   Statement* s = Statement::make_assignment(ref, call, loc);
@@ -1421,7 +1428,10 @@ Tuple_receive_assignment_statement::do_lower(Gogo*, Named_object*,
 
   // var closed_temp bool
   Temporary_statement* closed_temp =
-    Statement::make_temporary(Type::lookup_bool_type(), NULL, loc);
+    Statement::make_temporary((this->closed_->type()->is_sink_type())
+			      ? Type::make_boolean_type()
+			      : this->closed_->type(),
+			      NULL, loc);
   b->add_statement(closed_temp);
 
   // closed_temp = chanrecv2(type, channel, &val_temp)
@@ -1741,8 +1751,8 @@ Expression_statement::do_may_fall_through() const
 Bstatement*
 Expression_statement::do_get_backend(Translate_context* context)
 {
-  tree expr_tree = this->expr_->get_tree(context);
-  return context->backend()->expression_statement(tree_to_expr(expr_tree));
+  Bexpression* bexpr = this->expr_->get_backend(context);
+  return context->backend()->expression_statement(bexpr);
 }
 
 // Dump the AST representation for an expression statement
@@ -2177,7 +2187,7 @@ Thunk_statement::simplify_statement(Gogo* gogo, Named_object* function,
 					      location);
 
   // Allocate the initialized struct on the heap.
-  constructor = Expression::make_heap_composite(constructor, location);
+  constructor = Expression::make_heap_expression(constructor, location);
 
   // Look up the thunk.
   Named_object* named_thunk = gogo->lookup(thunk_name, NULL);
@@ -2461,6 +2471,7 @@ Thunk_statement::build_thunk(Gogo* gogo, const std::string& thunk_name)
   gogo->add_block(b, location);
 
   gogo->lower_block(function, b);
+  gogo->flatten_block(function, b);
 
   // We already ran the determine_types pass, so we need to run it
   // just for the call statement now.  The other types are known.
@@ -2529,9 +2540,8 @@ Go_statement::do_get_backend(Translate_context* context)
 
   Expression* call = Runtime::make_call(Runtime::GO, this->location(), 2,
 					fn, arg);
-  tree call_tree = call->get_tree(context);
-  Bexpression* call_bexpr = tree_to_expr(call_tree);
-  return context->backend()->expression_statement(call_bexpr);
+  Bexpression* bcall = call->get_backend(context);
+  return context->backend()->expression_statement(bcall);
 }
 
 // Dump the AST representation for go statement.
@@ -2568,9 +2578,8 @@ Defer_statement::do_get_backend(Translate_context* context)
 
   Expression* call = Runtime::make_call(Runtime::DEFER, loc, 3,
 					ds, fn, arg);
-  tree call_tree = call->get_tree(context);
-  Bexpression* call_bexpr = tree_to_expr(call_tree);
-  return context->backend()->expression_statement(call_bexpr);
+  Bexpression* bcall = call->get_backend(context);
+  return context->backend()->expression_statement(bcall);
 }
 
 // Dump the AST representation for defer statement.
@@ -2660,6 +2669,7 @@ Return_statement::do_lower(Gogo*, Named_object* function, Block* enclosing,
       && vals->front()->call_expression() != NULL)
     {
       Call_expression* call = vals->front()->call_expression();
+      call->set_expected_result_count(results_count);
       delete vals;
       vals = new Expression_list;
       for (size_t i = 0; i < results_count; ++i)
@@ -2767,8 +2777,6 @@ Return_statement::do_get_backend(Translate_context* context)
   Location loc = this->location();
 
   Function* function = context->function()->func_value();
-  tree fndecl = function->get_decl();
-
   Function::Results* results = function->result_variables();
   std::vector<Bexpression*> retvals;
   if (results != NULL && !results->empty())
@@ -2779,11 +2787,11 @@ Return_statement::do_get_backend(Translate_context* context)
 	   p++)
 	{
 	  Expression* vr = Expression::make_var_reference(*p, loc);
-	  retvals.push_back(tree_to_expr(vr->get_tree(context)));
+	  retvals.push_back(vr->get_backend(context));
 	}
     }
 
-  return context->backend()->return_statement(tree_to_function(fndecl),
+  return context->backend()->return_statement(function->get_decl(),
 					      retvals, loc);
 }
 
@@ -3195,14 +3203,13 @@ If_statement::do_get_backend(Translate_context* context)
 {
   go_assert(this->cond_->type()->is_boolean_type()
 	     || this->cond_->type()->is_error());
-  tree cond_tree = this->cond_->get_tree(context);
-  Bexpression* cond_expr = tree_to_expr(cond_tree);
+  Bexpression* cond = this->cond_->get_backend(context);
   Bblock* then_block = this->then_block_->get_backend(context);
   Bblock* else_block = (this->else_block_ == NULL
 			? NULL
 			: this->else_block_->get_backend(context));
-  return context->backend()->if_statement(cond_expr, then_block,
-					  else_block, this->location());
+  return context->backend()->if_statement(cond, then_block, else_block,
+					  this->location());
 }
 
 // Dump the AST representation for an if statement
@@ -3479,10 +3486,7 @@ Case_clauses::Case_clause::get_backend(Translate_context* context,
 	      error_at(this->location_, "duplicate case in switch");
 	      e = Expression::make_error(this->location_);
 	    }
-
-	  tree case_tree = e->get_tree(context);
-	  Bexpression* case_expr = tree_to_expr(case_tree);
-	  cases->push_back(case_expr);
+	  cases->push_back(e->get_backend(context));
 	}
     }
 
@@ -3777,8 +3781,7 @@ Constant_switch_statement::do_check_types(Gogo*)
 Bstatement*
 Constant_switch_statement::do_get_backend(Translate_context* context)
 {
-  tree switch_val_tree = this->val_->get_tree(context);
-  Bexpression* switch_val_expr = tree_to_expr(switch_val_tree);
+  Bexpression* switch_val_expr = this->val_->get_backend(context);
 
   Unnamed_label* break_label = this->break_label_;
   if (break_label == NULL)
@@ -3789,8 +3792,10 @@ Constant_switch_statement::do_get_backend(Translate_context* context)
   this->clauses_->get_backend(context, break_label, &all_cases,
 			      &all_statements);
 
+  Bfunction* bfunction = context->function()->func_value()->get_decl();
   Bstatement* switch_statement;
-  switch_statement = context->backend()->switch_statement(switch_val_expr,
+  switch_statement = context->backend()->switch_statement(bfunction,
+							  switch_val_expr,
 							  all_cases,
 							  all_statements,
 							  this->location());
@@ -4511,7 +4516,7 @@ Send_statement::do_get_backend(Translate_context* context)
   Expression* call = Runtime::make_call(code, loc, 3, td, this->channel_, val);
 
   context->gogo()->lower_expression(context->function(), NULL, &call);
-  Bexpression* bcall = tree_to_expr(call->get_tree(context));
+  Bexpression* bcall = call->get_backend(context);
   Bstatement* s = context->backend()->expression_statement(bcall);
 
   if (btemp == NULL)
@@ -4940,7 +4945,7 @@ Select_clauses::get_backend(Translate_context* context,
       Expression* index_expr = Expression::make_integer(&ival, int32_type,
 							location);
       mpz_clear(ival);
-      cases[i].push_back(tree_to_expr(index_expr->get_tree(context)));
+      cases[i].push_back(index_expr->get_backend(context));
 
       Bstatement* s = p->get_statements_backend(context);
       Location gloc = (p->statements() == NULL
@@ -4958,7 +4963,7 @@ Select_clauses::get_backend(Translate_context* context,
   Expression* call = Runtime::make_call(Runtime::SELECTGO, location, 1,
 					selref);
   context->gogo()->lower_expression(context->function(), NULL, &call);
-  Bexpression* bcall = tree_to_expr(call->get_tree(context));
+  Bexpression* bcall = call->get_backend(context);
 
   if (count == 0)
     return context->backend()->expression_statement(bcall);
@@ -4966,7 +4971,9 @@ Select_clauses::get_backend(Translate_context* context,
   std::vector<Bstatement*> statements;
   statements.reserve(2);
 
-  Bstatement* switch_stmt = context->backend()->switch_statement(bcall,
+  Bfunction* bfunction = context->function()->func_value()->get_decl();
+  Bstatement* switch_stmt = context->backend()->switch_statement(bfunction,
+								 bcall,
 								 cases,
 								 clauses,
 								 location);
@@ -5540,7 +5547,7 @@ For_range_statement::lower_range_array(Gogo* gogo,
 
       ref = this->make_range_ref(range_object, range_temp, loc);
       Expression* ref2 = Expression::make_temporary_reference(index_temp, loc);
-      Expression* index = Expression::make_index(ref, ref2, NULL, loc);
+      Expression* index = Expression::make_index(ref, ref2, NULL, NULL, loc);
 
       tref = Expression::make_temporary_reference(value_temp, loc);
       tref->set_is_lvalue();
@@ -5641,7 +5648,7 @@ For_range_statement::lower_range_slice(Gogo* gogo,
 
       ref = Expression::make_temporary_reference(for_temp, loc);
       Expression* ref2 = Expression::make_temporary_reference(index_temp, loc);
-      Expression* index = Expression::make_index(ref, ref2, NULL, loc);
+      Expression* index = Expression::make_index(ref, ref2, NULL, NULL, loc);
 
       tref = Expression::make_temporary_reference(value_temp, loc);
       tref->set_is_lvalue();
@@ -5849,7 +5856,7 @@ For_range_statement::lower_range_map(Gogo*,
   Expression* zexpr = Expression::make_integer(&zval, NULL, loc);
   mpz_clear(zval);
 
-  Expression* index = Expression::make_index(ref, zexpr, NULL, loc);
+  Expression* index = Expression::make_index(ref, zexpr, NULL, NULL, loc);
 
   Expression* ne = Expression::make_binary(OPERATOR_NOTEQ, index,
 					   Expression::make_nil(loc),

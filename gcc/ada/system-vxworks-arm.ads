@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                          (VxWorks Version ARM)                           --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -35,10 +35,10 @@
 ------------------------------------------------------------------------------
 
 package System is
-pragma Pure (System);
---  Note that we take advantage of the implementation permission to make this
---  unit Pure instead of Preelaborable; see RM 13.7.1(15). In Ada 2005, this is
---  Pure in any case (AI-362).
+   pragma Pure;
+   --  Note that we take advantage of the implementation permission to make
+   --  this unit Pure instead of Preelaborable; see RM 13.7.1(15). In Ada
+   --  2005, this is Pure in any case (AI-362).
 
    type Name is (SYSTEM_NAME_GNAT);
    System_Name : constant Name := SYSTEM_NAME_GNAT;
@@ -115,6 +115,10 @@ pragma Pure (System);
 
 private
 
+   pragma Linker_Options ("--specs=vxworks-crtbe-link.spec");
+   --  Pull in crtbegin/crtend objects and register exceptions for ZCX.
+   --  This is commented out by our Makefile for SJLJ runtimes.
+
    type Address is mod Memory_Size;
    Null_Address : constant Address := 0;
 
@@ -151,6 +155,6 @@ private
    Always_Compatible_Rep     : constant Boolean := False;
    Suppress_Standard_Library : constant Boolean := False;
    Use_Ada_Main_Program_Name : constant Boolean := True;
-   ZCX_By_Default            : constant Boolean := False;
+   ZCX_By_Default            : constant Boolean := True;
 
 end System;

@@ -3,7 +3,7 @@
 ;; expander, and the actual vector instructions will be in altivec.md and
 ;; vsx.md
 
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 ;; Contributed by Michael Meissner <meissner@linux.vnet.ibm.com>
 
 ;; This file is part of GCC.
@@ -36,13 +36,13 @@
 (define_mode_iterator VEC_K [V16QI V8HI V4SI V4SF])
 
 ;; Vector logical modes
-(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
+(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI])
 
 ;; Vector modes for moves.  Don't do TImode here.
-(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF])
+(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI])
 
 ;; Vector modes for types that don't need a realignment under VSX
-(define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF])
+(define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF V1TI])
 
 ;; Vector comparison modes
 (define_mode_iterator VEC_C [V16QI V8HI V4SI V2DI V4SF V2DF])
@@ -54,7 +54,8 @@
 (define_mode_iterator VEC_64 [V2DI V2DF])
 
 ;; Vector reload iterator
-(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF SF SD SI DF DD DI TI])
+(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF V1TI
+			     SF SD SI DF DD DI TI])
 
 ;; Base type from vector mode
 (define_mode_attr VEC_base [(V16QI "QI")
@@ -63,6 +64,7 @@
 			    (V2DI  "DI")
 			    (V4SF  "SF")
 			    (V2DF  "DF")
+			    (V1TI  "TI")
 			    (TI    "TI")])
 
 ;; Same size integer type for floating point data
@@ -107,7 +109,7 @@
     }
   if (!BYTES_BIG_ENDIAN
       && VECTOR_MEM_VSX_P (<MODE>mode)
-      && <MODE>mode != TImode
+      && !gpr_or_gpr_p (operands[0], operands[1])
       && (memory_operand (operands[0], <MODE>mode)
           ^ memory_operand (operands[1], <MODE>mode)))
     {
@@ -222,25 +224,9 @@
   [(set (match_dup 0)
 	(plus:P (match_dup 1)
 		(match_dup 2)))
-   (parallel [(set (match_dup 0)
-		   (and:P (match_dup 0)
-			  (const_int -16)))
-	      (clobber:CC (scratch:CC))])])
-
-;; The normal ANDSI3/ANDDI3 won't match if reload decides to move an AND -16
-;; address to a register because there is no clobber of a (scratch), so we add
-;; it here.
-(define_insn_and_split "*vec_reload_and_reg_<mptrsize>"
-  [(set (match_operand:P 0 "gpc_reg_operand" "=b")
-	(and:P (match_operand:P 1 "gpc_reg_operand" "r")
-	       (const_int -16)))]
-  "(TARGET_ALTIVEC || TARGET_VSX) && (reload_in_progress || reload_completed)"
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-		   (and:P (match_dup 1)
-			  (const_int -16)))
-	      (clobber:CC (scratch:CC))])])
+   (set (match_dup 0)
+	(and:P (match_dup 0)
+	       (const_int -16)))])
 
 ;; Generic floating point vector arithmetic support
 (define_expand "add<mode>3"
@@ -607,8 +593,8 @@
 	(ge:VEC_F (match_dup 2)
 		  (match_dup 1)))
    (set (match_dup 0)
-	(not:VEC_F (ior:VEC_F (match_dup 3)
-			      (match_dup 4))))]
+        (and:VEC_F (not:VEC_F (match_dup 3))
+                   (not:VEC_F (match_dup 4))))]
   "
 {
   operands[3] = gen_reg_rtx (<MODE>mode);
@@ -951,8 +937,8 @@
     	      				 operands[2], operands[3]));
   else
     {
-      /* Avoid the "subtract from splat31" workaround for vperm since
-         we have changed lvsr to lvsl instead.  */
+      /* We have changed lvsr to lvsl, so to complete the transformation
+         of vperm for LE, we must swap the inputs.  */
       rtx unspec = gen_rtx_UNSPEC (<MODE>mode,
                                    gen_rtvec (3, operands[2],
                                               operands[1], operands[3]),

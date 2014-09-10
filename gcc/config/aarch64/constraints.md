@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -20,6 +20,9 @@
 
 (define_register_constraint "k" "STACK_REG"
   "@internal The stack register.")
+
+(define_register_constraint "Ucs" "CALLER_SAVE_REGS"
+  "@internal The caller save registers.")
 
 (define_register_constraint "w" "FP_REGS"
   "Floating point and SIMD vector registers.")
@@ -91,6 +94,10 @@
   A constraint that matches an immediate shift constant in DImode."
   (and (match_code "const_int")
        (match_test "(unsigned HOST_WIDE_INT) ival < 64")))
+
+(define_constraint "Usf"
+  "@internal Usf is a symbol reference."
+  (match_code "symbol_ref"))
 
 (define_constraint "UsM"
   "@internal

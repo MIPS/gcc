@@ -1,5 +1,4 @@
-// { dg-do compile }
-// { dg-options -std=c++1y }
+// { dg-do compile { target c++14 } }
 
 class [[deprecated]] A
 {

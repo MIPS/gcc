@@ -1,5 +1,5 @@
 /* Coalesce spilled pseudos.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -75,12 +75,12 @@ static int *first_coalesced_pseudo, *next_coalesced_pseudo;
 static int
 move_freq_compare_func (const void *v1p, const void *v2p)
 {
-  rtx mv1 = *(const rtx *) v1p;
-  rtx mv2 = *(const rtx *) v2p;
+  rtx_insn *mv1 = *(rtx_insn * const *) v1p;
+  rtx_insn *mv2 = *(rtx_insn * const *) v2p;
   int pri1, pri2;
 
-  pri1 = BLOCK_FOR_INSN (mv1)->frequency;
-  pri2 = BLOCK_FOR_INSN (mv2)->frequency;
+  pri1 = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (mv1));
+  pri2 = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (mv2));
   if (pri2 - pri1)
     return pri2 - pri1;
 
@@ -168,6 +168,16 @@ substitute (rtx *loc)
   return res;
 }
 
+/* Specialize "substitute" for use on an insn.  This can't change
+   the insn ptr, just the contents of the insn.  */
+
+static bool
+substitute_within_insn (rtx_insn *insn)
+{
+  rtx loc = insn;
+  return substitute (&loc);
+}
+
 /* The current iteration (1, 2, ...) of the coalescing pass.  */
 int lra_coalesce_iter;
 
@@ -219,11 +229,15 @@ bool
 lra_coalesce (void)
 {
   basic_block bb;
-  rtx mv, set, insn, next, *sorted_moves;
+  rtx_insn *mv, *insn, *next, **sorted_moves;
+  rtx set;
   int i, mv_num, sregno, dregno;
+  unsigned int regno;
   int coalesced_moves;
   int max_regno = max_reg_num ();
   bitmap_head involved_insns_bitmap;
+  bitmap_head result_pseudo_vals_bitmap;
+  bitmap_iterator bi;
 
   timevar_push (TV_LRA_COALESCE);
 
@@ -235,11 +249,11 @@ lra_coalesce (void)
   next_coalesced_pseudo = XNEWVEC (int, max_regno);
   for (i = 0; i < max_regno; i++)
     first_coalesced_pseudo[i] = next_coalesced_pseudo[i] = i;
-  sorted_moves = XNEWVEC (rtx, get_max_uid ());
+  sorted_moves = XNEWVEC (rtx_insn *, get_max_uid ());
   mv_num = 0;
   /* Collect moves.  */
   coalesced_moves = 0;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_BB_INSNS_SAFE (bb, insn, next)
 	if (INSN_P (insn)
@@ -274,7 +288,7 @@ lra_coalesce (void)
 	    fprintf
 	      (lra_dump_file, "      Coalescing move %i:r%d-r%d (freq=%d)\n",
 	       INSN_UID (mv), sregno, dregno,
-	       BLOCK_FOR_INSN (mv)->frequency);
+	       REG_FREQ_FROM_BB (BLOCK_FOR_INSN (mv)));
 	  /* We updated involved_insns_bitmap when doing the merge.  */
 	}
       else if (!(lra_intersected_live_ranges_p
@@ -288,7 +302,7 @@ lra_coalesce (void)
 	       "  Coalescing move %i:r%d(%d)-r%d(%d) (freq=%d)\n",
 	       INSN_UID (mv), sregno, ORIGINAL_REGNO (SET_SRC (set)),
 	       dregno, ORIGINAL_REGNO (SET_DEST (set)),
-	       BLOCK_FOR_INSN (mv)->frequency);
+	       REG_FREQ_FROM_BB (BLOCK_FOR_INSN (mv)));
 	  bitmap_ior_into (&involved_insns_bitmap,
 			   &lra_reg_info[sregno].insn_bitmap);
 	  bitmap_ior_into (&involved_insns_bitmap,
@@ -297,7 +311,7 @@ lra_coalesce (void)
 	}
     }
   bitmap_initialize (&used_pseudos_bitmap, &reg_obstack);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       update_live_info (df_get_live_in (bb));
       update_live_info (df_get_live_out (bb));
@@ -305,7 +319,7 @@ lra_coalesce (void)
 	if (INSN_P (insn)
 	    && bitmap_bit_p (&involved_insns_bitmap, INSN_UID (insn)))
 	  {
-	    if (! substitute (&insn))
+	    if (! substitute_within_insn (insn))
 	      continue;
 	    lra_update_insn_regno_info (insn);
 	    if ((set = single_set (insn)) != NULL_RTX && set_noop_p (set))
@@ -313,11 +327,40 @@ lra_coalesce (void)
 		/* Coalesced move.  */
 		if (lra_dump_file != NULL)
 		  fprintf (lra_dump_file, "	 Removing move %i (freq=%d)\n",
-			 INSN_UID (insn), BLOCK_FOR_INSN (insn)->frequency);
+			   INSN_UID (insn),
+			   REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn)));
 		lra_set_insn_deleted (insn);
 	      }
 	  }
     }
+  /* If we have situation after inheritance pass:
+
+     r1 <- ...  insn originally setting p1
+     i1 <- r1   setting inheritance i1 from reload r1
+       ...
+     ... <- ... p2 ... dead p2
+     ..
+     p1 <- i1
+     r2 <- i1
+     ...<- ... r2 ...
+
+     And we are coalescing p1 and p2 using p1.  In this case i1 and p1
+     should have different values, otherwise they can get the same
+     hard reg and this is wrong for insn using p2 before coalescing.
+     So invalidate such inheritance pseudo values.  */
+  bitmap_initialize (&result_pseudo_vals_bitmap, &reg_obstack);
+  EXECUTE_IF_SET_IN_BITMAP (&coalesced_pseudos_bitmap, 0, regno, bi)
+    bitmap_set_bit (&result_pseudo_vals_bitmap,
+		    lra_reg_info[first_coalesced_pseudo[regno]].val);
+  EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, regno, bi)
+    if (bitmap_bit_p (&result_pseudo_vals_bitmap, lra_reg_info[regno].val))
+      {
+	lra_set_regno_unique_value (regno);
+	if (lra_dump_file != NULL)
+	  fprintf (lra_dump_file,
+		   "	 Make unique value for inheritance r%d\n", regno);
+      }
+  bitmap_clear (&result_pseudo_vals_bitmap);
   bitmap_clear (&used_pseudos_bitmap);
   bitmap_clear (&involved_insns_bitmap);
   bitmap_clear (&coalesced_pseudos_bitmap);

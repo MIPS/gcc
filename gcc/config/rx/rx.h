@@ -1,5 +1,5 @@
 /* GCC backend definitions for the Renesas RX processor.
-   Copyright (C) 2008-2013 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -142,7 +142,7 @@
 
 /* RX load/store instructions can handle unaligned addresses.  */
 #define STRICT_ALIGNMENT 		0
-#define FUNCTION_BOUNDARY 		8
+#define FUNCTION_BOUNDARY 		((rx_cpu_type == RX100 || rx_cpu_type == RX200) ? 4 : 8)
 #define BIGGEST_ALIGNMENT 		32
 #define STACK_BOUNDARY 			32
 #define PARM_BOUNDARY 			8
@@ -334,8 +334,8 @@ typedef unsigned int CUMULATIVE_ARGS;
 
 #define HARD_REGNO_NREGS(REGNO, MODE)   CLASS_MAX_NREGS (0, MODE)
 
-#define HARD_REGNO_MODE_OK(REGNO, MODE) 			\
-  REGNO_REG_CLASS (REGNO) == GR_REGS
+#define HARD_REGNO_MODE_OK(REGNO, MODE)				\
+  (REGNO_REG_CLASS (REGNO) == GR_REGS)
 
 #define MODES_TIEABLE_P(MODE1, MODE2)				\
   (   (   GET_MODE_CLASS (MODE1) == MODE_FLOAT			\
@@ -433,9 +433,9 @@ typedef unsigned int CUMULATIVE_ARGS;
 /* Compute the alignment needed for label X in various situations.
    If the user has specified an alignment then honour that, otherwise
    use rx_align_for_label.  */
-#define JUMP_ALIGN(x)				(align_jumps ? align_jumps : rx_align_for_label (x, 0))
-#define LABEL_ALIGN(x)				(align_labels ? align_labels : rx_align_for_label (x, 3))
-#define LOOP_ALIGN(x)				(align_loops ? align_loops : rx_align_for_label (x, 2))
+#define JUMP_ALIGN(x)				(align_jumps > 1 ? align_jumps_log : rx_align_for_label (x, 0))
+#define LABEL_ALIGN(x)				(align_labels > 1 ? align_labels_log : rx_align_for_label (x, 3))
+#define LOOP_ALIGN(x)				(align_loops > 1 ? align_loops_log : rx_align_for_label (x, 2))
 #define LABEL_ALIGN_AFTER_BARRIER(x)		rx_align_for_label (x, 0)
 
 #define ASM_OUTPUT_MAX_SKIP_ALIGN(STREAM, LOG, MAX_SKIP)	\
@@ -645,7 +645,6 @@ typedef unsigned int CUMULATIVE_ARGS;
 
 #define INCOMING_FRAME_SP_OFFSET		4
 #define ARG_POINTER_CFA_OFFSET(FNDECL)		4
-#define FRAME_POINTER_CFA_OFFSET(FNDECL)	4
 
 #define TARGET_USE_FPU		(! TARGET_NO_USE_FPU)
 

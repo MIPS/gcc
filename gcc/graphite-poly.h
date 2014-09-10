@@ -1,5 +1,5 @@
 /* Graphite polyhedral representation.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Tobias Grosser <grosser@fim.uni-passau.de>.
 
@@ -1550,5 +1550,13 @@ compute_deps (scop_p scop, vec<poly_bb_p> pbbs,
 	      isl_union_map **may_waw,
 	      isl_union_map **must_waw_no_source,
 	      isl_union_map **may_waw_no_source);
+
+isl_union_map *
+scop_get_dependences (scop_p scop);
+
+bool
+carries_deps (__isl_keep isl_union_map *schedule,
+	      __isl_keep isl_union_map *deps,
+	      int depth);
 
 #endif

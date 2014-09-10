@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -638,6 +638,13 @@ package Sinput is
    --  value of the instantiation if this location is within an instance.
    --  If S is not within an instance, then this returns No_Location.
 
+   function Comes_From_Inlined_Body (S : Source_Ptr) return Boolean;
+   pragma Inline (Comes_From_Inlined_Body);
+   --  Given a source pointer S, returns whether it comes from an inlined body.
+   --  This allows distinguishing these source pointers from those that come
+   --  from instantiation of generics, since Instantiation_Location returns a
+   --  valid location in both cases.
+
    function Top_Level_Location (S : Source_Ptr) return Source_Ptr;
    --  Given a source pointer S, returns the argument unchanged if it is
    --  not in an instantiation. If S is in an instantiation, then it returns
@@ -693,8 +700,13 @@ package Sinput is
    --  as the locations of the first and last token in the node construct
    --  because parentheses at the outer level do not have a recorded Sloc.
    --
+   --  Note: At each step of the tree traversal, we make sure to go back to
+   --  the Original_Node, since this function is concerned about original
+   --  (source) locations.
+   --
    --  Note: if the tree for the expression contains no "real" Sloc values,
-   --  i.e. values > No_Location, then both Min and Max are set to Sloc (Expr).
+   --  i.e. values > No_Location, then both Min and Max are set to
+   --  Sloc (Original_Node (N)).
 
    function Source_Offset (S : Source_Ptr) return Nat;
    --  Returns the zero-origin offset of the given source location from the

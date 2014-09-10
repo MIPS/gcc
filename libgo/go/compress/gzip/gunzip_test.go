@@ -7,7 +7,10 @@ package gzip
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
+	"os"
 	"testing"
+	"time"
 )
 
 type gunzipTest struct {
@@ -281,7 +284,7 @@ var gunzipTests = []gunzipTest{
 func TestDecompressor(t *testing.T) {
 	b := new(bytes.Buffer)
 	for _, tt := range gunzipTests {
-		in := bytes.NewBuffer(tt.gzip)
+		in := bytes.NewReader(tt.gzip)
 		gzip, err := NewReader(in)
 		if err != nil {
 			t.Errorf("%s: NewReader: %s", tt.name, err)
@@ -300,5 +303,67 @@ func TestDecompressor(t *testing.T) {
 		if s != tt.raw {
 			t.Errorf("%s: got %d-byte %q want %d-byte %q", tt.name, n, s, len(tt.raw), tt.raw)
 		}
+
+		// Test Reader Reset.
+		in = bytes.NewReader(tt.gzip)
+		err = gzip.Reset(in)
+		if err != nil {
+			t.Errorf("%s: Reset: %s", tt.name, err)
+			continue
+		}
+		if tt.name != gzip.Name {
+			t.Errorf("%s: got name %s", tt.name, gzip.Name)
+		}
+		b.Reset()
+		n, err = io.Copy(b, gzip)
+		if err != tt.err {
+			t.Errorf("%s: io.Copy: %v want %v", tt.name, err, tt.err)
+		}
+		s = b.String()
+		if s != tt.raw {
+			t.Errorf("%s: got %d-byte %q want %d-byte %q", tt.name, n, s, len(tt.raw), tt.raw)
+		}
+	}
+}
+
+func TestIssue6550(t *testing.T) {
+	f, err := os.Open("testdata/issue6550.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gzip, err := NewReader(f)
+	if err != nil {
+		t.Fatalf("NewReader(testdata/issue6550.gz): %v", err)
+	}
+	defer gzip.Close()
+	done := make(chan bool, 1)
+	go func() {
+		_, err := io.Copy(ioutil.Discard, gzip)
+		if err == nil {
+			t.Errorf("Copy succeeded")
+		} else {
+			t.Logf("Copy failed (correctly): %v", err)
+		}
+		done <- true
+	}()
+	select {
+	case <-time.After(1 * time.Second):
+		t.Errorf("Copy hung")
+	case <-done:
+		// ok
+	}
+}
+
+func TestInitialReset(t *testing.T) {
+	var r Reader
+	if err := r.Reset(bytes.NewReader(gunzipTests[1].gzip)); err != nil {
+		t.Error(err)
+	}
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, &r); err != nil {
+		t.Error(err)
+	}
+	if s := buf.String(); s != gunzipTests[1].raw {
+		t.Errorf("got %q want %q", s, gunzipTests[1].raw)
 	}
 }

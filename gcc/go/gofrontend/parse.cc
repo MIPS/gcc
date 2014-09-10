@@ -1694,6 +1694,8 @@ Parse::init_vars_from_call(const Typed_identifier_list* vars, Type* type,
   // the right number of values, but it might.  Declare the variables,
   // and then assign the results of the call to them.
 
+  call->set_expected_result_count(vars->size());
+
   Named_object* first_var = NULL;
   unsigned int index = 0;
   bool any_new = false;
@@ -2113,8 +2115,8 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	  for (Typed_identifier_list::const_iterator p = til.begin();
 	       p != til.end();
 	       ++p)
-	    exprs->push_back(this->id_to_expression(p->name(),
-						    p->location()));
+	    exprs->push_back(this->id_to_expression(p->name(), p->location(),
+						    true));
 
 	  Expression_list* more_exprs =
 	    this->expression_list(NULL, true, may_be_composite_lit);
@@ -2507,7 +2509,10 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
 	    }
 	  case Named_object::NAMED_OBJECT_VAR:
 	  case Named_object::NAMED_OBJECT_RESULT_VAR:
-	    this->mark_var_used(named_object);
+	    // Any left-hand-side can be a sink, so if this can not be
+	    // a sink, then it must be a use of the variable.
+	    if (!may_be_sink)
+	      this->mark_var_used(named_object);
 	    return Expression::make_var_reference(named_object, location);
 	  case Named_object::NAMED_OBJECT_SINK:
 	    if (may_be_sink)
@@ -2722,7 +2727,7 @@ Parse::composite_lit(Type* type, int depth, Location location)
 	      Gogo* gogo = this->gogo_;
 	      val = this->id_to_expression(gogo->pack_hidden_name(identifier,
 								  is_exported),
-					   location);
+					   location, false);
 	      is_name = true;
 	    }
 	  else
@@ -2865,7 +2870,10 @@ Parse::function_lit()
   // For a function literal, the next token must be a '{'.  If we
   // don't see that, then we may have a type expression.
   if (!this->peek_token()->is_op(OPERATOR_LCURLY))
-    return Expression::make_type(type, location);
+    {
+      hold_enclosing_vars.swap(this->enclosing_vars_);
+      return Expression::make_type(type, location);
+    }
 
   bool hold_is_erroneous_function = this->is_erroneous_function_;
   if (fntype_is_error)
@@ -2955,7 +2963,7 @@ Parse::create_closure(Named_object* function, Enclosing_vars* enclosing_vars,
   Struct_type* st = closure_var->var_value()->type()->deref()->struct_type();
   Expression* cv = Expression::make_struct_composite_literal(st, initializer,
 							     location);
-  return Expression::make_heap_composite(cv, location);
+  return Expression::make_heap_expression(cv, location);
 }
 
 // PrimaryExpr = Operand { Selector | Index | Slice | TypeGuard | Call } .
@@ -3152,7 +3160,7 @@ Parse::selector(Expression* left, bool* is_type_switch)
 }
 
 // Index          = "[" Expression "]" .
-// Slice          = "[" Expression ":" [ Expression ] "]" .
+// Slice          = "[" Expression ":" [ Expression ] [ ":" Expression ] "]" .
 
 Expression*
 Parse::index(Expression* expr)
@@ -3178,14 +3186,31 @@ Parse::index(Expression* expr)
       // We use nil to indicate a missing high expression.
       if (this->advance_token()->is_op(OPERATOR_RSQUARE))
 	end = Expression::make_nil(this->location());
+      else if (this->peek_token()->is_op(OPERATOR_COLON))
+	{
+	  error_at(this->location(), "middle index required in 3-index slice");
+	  end = Expression::make_error(this->location());
+	}
       else
 	end = this->expression(PRECEDENCE_NORMAL, false, true, NULL, NULL);
+    }
+
+  Expression* cap = NULL;
+  if (this->peek_token()->is_op(OPERATOR_COLON))
+    {
+      if (this->advance_token()->is_op(OPERATOR_RSQUARE))
+	{
+	  error_at(this->location(), "final index required in 3-index slice");
+	  cap = Expression::make_error(this->location());
+	}
+      else
+        cap = this->expression(PRECEDENCE_NORMAL, false, true, NULL, NULL);
     }
   if (!this->peek_token()->is_op(OPERATOR_RSQUARE))
     error_at(this->location(), "missing %<]%>");
   else
     this->advance_token();
-  return Expression::make_index(expr, start, end, location);
+  return Expression::make_index(expr, start, end, cap, location);
 }
 
 // Call           = "(" [ ArgumentList [ "," ] ] ")" .
@@ -3222,7 +3247,8 @@ Parse::call(Expression* func)
 // Return an expression for a single unqualified identifier.
 
 Expression*
-Parse::id_to_expression(const std::string& name, Location location)
+Parse::id_to_expression(const std::string& name, Location location,
+			bool is_lhs)
 {
   Named_object* in_function;
   Named_object* named_object = this->gogo_->lookup(name, &in_function);
@@ -3241,7 +3267,8 @@ Parse::id_to_expression(const std::string& name, Location location)
       return Expression::make_const_reference(named_object, location);
     case Named_object::NAMED_OBJECT_VAR:
     case Named_object::NAMED_OBJECT_RESULT_VAR:
-      this->mark_var_used(named_object);
+      if (!is_lhs)
+	this->mark_var_used(named_object);
       return Expression::make_var_reference(named_object, location);
     case Named_object::NAMED_OBJECT_SINK:
       return Expression::make_sink(location);
@@ -3521,7 +3548,7 @@ Parse::unary_expr(bool may_be_sink, bool may_be_composite_lit,
 	expr = Expression::make_type(Type::make_pointer_type(expr->type()),
 				     location);
       else if (op == OPERATOR_AND && expr->is_composite_literal())
-	expr = Expression::make_heap_composite(expr, location);
+	expr = Expression::make_heap_expression(expr, location);
       else if (op != OPERATOR_CHANOP)
 	expr = Expression::make_unary(op, expr, location);
       else
@@ -3748,7 +3775,8 @@ Parse::labeled_stmt(const std::string& label_name, Location location)
     {
       // Mark the label as used to avoid a useless error about an
       // unused label.
-      label->set_is_used();
+      if (label != NULL)
+        label->set_is_used();
 
       error_at(location, "missing statement after label");
       this->unget_token(Token::make_operator_token(OPERATOR_SEMICOLON,
@@ -4083,6 +4111,7 @@ Parse::tuple_assignment(Expression_list* lhs, bool may_be_composite_lit,
     {
       if (op != OPERATOR_EQ)
 	error_at(location, "multiple results only permitted with %<=%>");
+      call->set_expected_result_count(lhs->size());
       delete vals;
       vals = new Expression_list;
       for (unsigned int i = 0; i < lhs->size(); ++i)
@@ -4270,6 +4299,16 @@ Parse::if_stat()
 	cond = this->expression(PRECEDENCE_NORMAL, false, false, NULL, NULL);
     }
 
+  // Check for the easy error of a newline before starting the block.
+  if (this->peek_token()->is_op(OPERATOR_SEMICOLON))
+    {
+      Location semi_loc = this->location();
+      if (this->advance_token()->is_op(OPERATOR_LCURLY))
+	error_at(semi_loc, "missing %<{%> after if clause");
+      // Otherwise we will get an error when we call this->block
+      // below.
+    }
+
   this->gogo_->start_block(this->location());
   Location end_loc = this->block();
   Block* then_block = this->gogo_->finish_block(end_loc);
@@ -4414,7 +4453,7 @@ Parse::switch_stat(Label* label)
       Location token_loc = this->location();
       if (this->peek_token()->is_op(OPERATOR_SEMICOLON)
 	  && this->advance_token()->is_op(OPERATOR_LCURLY))
-	error_at(token_loc, "unexpected semicolon or newline before %<{%>");
+	error_at(token_loc, "missing %<{%> after switch clause");
       else if (this->peek_token()->is_op(OPERATOR_COLONEQ))
 	{
 	  error_at(token_loc, "invalid variable name");
@@ -4994,7 +5033,7 @@ Parse::send_or_recv_stmt(bool* is_send, Expression** channel, Expression** val,
 
 	  *val = this->id_to_expression(gogo->pack_hidden_name(recv_var,
 							       is_rv_exported),
-					recv_var_loc);
+					recv_var_loc, true);
 	  saw_comma = true;
 	}
       else
@@ -5141,6 +5180,16 @@ Parse::for_stat(Label* label)
 	}
     }
 
+  // Check for the easy error of a newline before starting the block.
+  if (this->peek_token()->is_op(OPERATOR_SEMICOLON))
+    {
+      Location semi_loc = this->location();
+      if (this->advance_token()->is_op(OPERATOR_LCURLY))
+	error_at(semi_loc, "missing %<{%> after for clause");
+      // Otherwise we will get an error when we call this->block
+      // below.
+    }
+
   // Build the For_statement and note that it is the current target
   // for break and continue statements.
 
@@ -5207,8 +5256,7 @@ Parse::for_clause(Expression** cond, Block** post)
     *cond = NULL;
   else if (this->peek_token()->is_op(OPERATOR_LCURLY))
     {
-      error_at(this->location(),
-	       "unexpected semicolon or newline before %<{%>");
+      error_at(this->location(), "missing %<{%> after for clause");
       *cond = NULL;
       *post = NULL;
       return;
@@ -5687,6 +5735,13 @@ Parse::verify_not_sink(Expression* expr)
       error_at(expr->location(), "cannot use _ as value");
       expr = Expression::make_error(expr->location());
     }
+
+  // If this can not be a sink, and it is a variable, then we are
+  // using the variable, not just assigning to it.
+  Var_expression* ve = expr->var_expression();
+  if (ve != NULL)
+    this->mark_var_used(ve->named_object());
+
   return expr;
 }
 

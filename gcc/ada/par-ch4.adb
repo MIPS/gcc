@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,8 @@ package body Ch4 is
       Attribute_External_Tag => True,
       Attribute_Img          => True,
       Attribute_Loop_Entry   => True,
+      Attribute_Old          => True,
+      Attribute_Result       => True,
       Attribute_Stub_Type    => True,
       Attribute_Version      => True,
       Attribute_Type_Key     => True,
@@ -49,7 +51,8 @@ package body Ch4 is
    --  string or a type. For those attributes, a left parenthesis after
    --  the attribute should not be analyzed as the beginning of a parameters
    --  list because it may denote a slice operation (X'Img (1 .. 2)) or
-   --  a type conversion (X'Class (Y)).
+   --  a type conversion (X'Class (Y)). The Ada2012 attribute 'Old is in
+   --  this category.
 
    --  Note: Loop_Entry is in this list because, although it can take an
    --  optional argument (the loop name), we can't distinguish that at parse
@@ -374,7 +377,7 @@ package body Ch4 is
 
          --  If dot is at end of line and followed by nothing legal,
          --  then assume end of name and quit (dot will be taken as
-         --  an erroneous form of some other punctuation by our caller).
+         --  an incorrect form of some other punctuation by our caller).
 
          elsif Token_Is_At_Start_Of_Line then
             Restore_Scan_State (Scan_State);
@@ -768,11 +771,11 @@ package body Ch4 is
          Expr_Node := P_Expression_If_OK;
          goto LP_State_Expr;
 
-      --  LP_State_Call corresponds to the situation in which at least
-      --  one instance of Id => Expression has been encountered, so we
-      --  know that we do not have a name, but rather a call. We enter
-      --  it with the scan pointer pointing to the next argument to scan,
-      --  and Arg_List containing the list of arguments scanned so far.
+      --  LP_State_Call corresponds to the situation in which at least one
+      --  instance of Id => Expression has been encountered, so we know that
+      --  we do not have a name, but rather a call. We enter it with the
+      --  scan pointer pointing to the next argument to scan, and Arg_List
+      --  containing the list of arguments scanned so far.
 
       <<LP_State_Call>>
 
@@ -783,7 +786,7 @@ package body Ch4 is
             Ident_Node := Token_Node;
             Scan; -- past Id
 
-            --  Deal with => (allow := as erroneous substitute)
+            --  Deal with => (allow := as incorrect substitute)
 
             if Token = Tok_Arrow or else Token = Tok_Colon_Equal then
                Arg_Node := New_Node (N_Parameter_Association, Prev_Token_Ptr);
@@ -1510,7 +1513,7 @@ package body Ch4 is
 
          --  If we are at an expression terminator, something is seriously
          --  wrong, so let's get out now, before we start eating up stuff
-         --  that doesn't belong to us!
+         --  that doesn't belong to us.
 
          if Token in Token_Class_Eterm then
             Error_Msg_AP
@@ -1967,6 +1970,42 @@ package body Ch4 is
       Node2      : Node_Id;
       Tokptr     : Source_Ptr;
 
+      function At_Start_Of_Attribute return Boolean;
+      --  Tests if we have quote followed by attribute name, if so, return True
+      --  otherwise return False.
+
+      ---------------------------
+      -- At_Start_Of_Attribute --
+      ---------------------------
+
+      function At_Start_Of_Attribute return Boolean is
+      begin
+         if Token /= Tok_Apostrophe then
+            return False;
+
+         else
+            declare
+               Scan_State : Saved_Scan_State;
+
+            begin
+               Save_Scan_State (Scan_State);
+               Scan; -- past quote
+
+               if Token = Tok_Identifier
+                 and then Is_Attribute_Name (Chars (Token_Node))
+               then
+                  Restore_Scan_State (Scan_State);
+                  return True;
+               else
+                  Restore_Scan_State (Scan_State);
+                  return False;
+               end if;
+            end;
+         end if;
+      end At_Start_Of_Attribute;
+
+   --  Start of processing for P_Simple_Expression
+
    begin
       --  Check for cases starting with a name. There are two reasons for
       --  special casing. First speed things up by catching a common case
@@ -1990,7 +2029,7 @@ package body Ch4 is
 
             --  If range attribute, then we return with Token pointing to the
             --  apostrophe. Note: avoid the normal error check on exit. We
-            --  know that the expression really is complete in this case!
+            --  know that the expression really is complete in this case.
 
             else -- Token = Tok_Range then
                Restore_Scan_State (Scan_State); -- to apostrophe
@@ -2067,7 +2106,7 @@ package body Ch4 is
             Node1 := New_Op_Node (P_Unary_Adding_Operator, Tokptr);
 
             if Style_Check then
-               Style.Check_Unary_Plus_Or_Minus;
+               Style.Check_Unary_Plus_Or_Minus (Inside_Depends);
             end if;
 
             Scan; -- past operator
@@ -2114,6 +2153,11 @@ package body Ch4 is
                exit when Token not in Token_Class_Binary_Addop;
                Tokptr := Token_Ptr;
                Node2 := New_Op_Node (P_Binary_Adding_Operator, Tokptr);
+
+               if Style_Check and then not Debug_Flag_Dot_QQ then
+                  Style.Check_Binary_Operator;
+               end if;
+
                Scan; -- past operator
                Set_Left_Opnd (Node2, Node1);
                Node1 := P_Term;
@@ -2253,6 +2297,18 @@ package body Ch4 is
 
          if Prev_Token = Tok_Right_Paren and then Token = Tok_Left_Paren then
             T_Comma;
+
+         --  And if we have a quote, we may have a bad attribute
+
+         elsif At_Start_Of_Attribute then
+            Error_Msg_SC ("prefix of attribute must be a name");
+
+            if Ada_Version >= Ada_2012 then
+               Error_Msg_SC ("\qualify expression to turn it into a name");
+            end if;
+
+         --  Normal case for binary operator expected message
+
          else
             Error_Msg_AP ("binary operator expected");
          end if;
@@ -2356,6 +2412,11 @@ package body Ch4 is
          exit when Token not in Token_Class_Mulop;
          Tokptr := Token_Ptr;
          Node2 := New_Op_Node (P_Multiplying_Operator, Tokptr);
+
+         if Style_Check and then not Debug_Flag_Dot_QQ then
+            Style.Check_Binary_Operator;
+         end if;
+
          Scan; -- past operator
          Set_Left_Opnd (Node2, Node1);
          Set_Right_Opnd (Node2, P_Factor);
@@ -2632,7 +2693,7 @@ package body Ch4 is
                end if;
 
             --  Minus may well be an improper attempt at a unary minus. Give
-            --  a message, skip the minus and keep going!
+            --  a message, skip the minus and keep going.
 
             when Tok_Minus =>
                Error_Msg_SC ("parentheses required for unary minus");
@@ -2891,7 +2952,7 @@ package body Ch4 is
 
    --  Parsed by P_Factor (4.4)
 
-   --  Note: this rule is not in fact used by the grammar at any point!
+   --  Note: this rule is not in fact used by the grammar at any point
 
    --------------------------
    -- 4.6  Type Conversion --
@@ -3074,84 +3135,139 @@ package body Ch4 is
    ---------------------
 
    function P_If_Expression return Node_Id is
-      Exprs : constant List_Id    := New_List;
-      Loc   : constant Source_Ptr := Token_Ptr;
-      Expr  : Node_Id;
-      State : Saved_Scan_State;
 
-   begin
-      Inside_If_Expression := Inside_If_Expression + 1;
-      Error_Msg_Ada_2012_Feature ("|if expression", Token_Ptr);
-      Scan; -- past IF or ELSIF
-      Append_To (Exprs, P_Condition);
-      TF_Then;
-      Append_To (Exprs, P_Expression);
+      function P_If_Expression_Internal
+        (Loc  : Source_Ptr;
+         Cond : Node_Id) return Node_Id;
+      --  This is the internal recursive routine that does all the work, it is
+      --  recursive since it is used to process ELSIF parts, which internally
+      --  are N_If_Expression nodes with the Is_Elsif flag set. The calling
+      --  sequence is like the outer function except that the caller passes
+      --  the conditional expression (scanned using P_Expression), and the
+      --  scan pointer points just past this expression. Loc points to the
+      --  IF or ELSIF token.
 
-      --  We now have scanned out IF expr THEN expr
+      ------------------------------
+      -- P_If_Expression_Internal --
+      ------------------------------
 
-      --  Check for common error of semicolon before the ELSE
+      function P_If_Expression_Internal
+        (Loc  : Source_Ptr;
+         Cond : Node_Id) return Node_Id
+      is
+         Exprs : constant List_Id    := New_List;
+         Expr  : Node_Id;
+         State : Saved_Scan_State;
+         Eptr  : Source_Ptr;
 
-      if Token = Tok_Semicolon then
-         Save_Scan_State (State);
-         Scan; -- past semicolon
+      begin
+         --  All cases except where we are at right paren
 
-         if Token = Tok_Else or else Token = Tok_Elsif then
-            Error_Msg_SP -- CODEFIX
-              ("|extra "";"" ignored");
+         if Token /= Tok_Right_Paren then
+            TF_Then;
+            Append_To (Exprs, P_Condition (Cond));
+            Append_To (Exprs, P_Expression);
+
+         --  Case of right paren (missing THEN phrase). Note that we know this
+         --  is the IF case, since the caller dealt with this possibility in
+         --  the ELSIF case.
 
          else
-            Restore_Scan_State (State);
+            Error_Msg_BC ("missing THEN phrase");
+            Append_To (Exprs, P_Condition (Cond));
          end if;
-      end if;
 
-      --  Scan out ELSIF sequence if present
+         --  We now have scanned out IF expr THEN expr
 
-      if Token = Tok_Elsif then
-         Expr := P_If_Expression;
-         Set_Is_Elsif (Expr);
-         Append_To (Exprs, Expr);
+         --  Check for common error of semicolon before the ELSE
 
-      --  Scan out ELSE phrase if present
+         if Token = Tok_Semicolon then
+            Save_Scan_State (State);
+            Scan; -- past semicolon
 
-      elsif Token = Tok_Else then
+            if Token = Tok_Else or else Token = Tok_Elsif then
+               Error_Msg_SP -- CODEFIX
+                 ("|extra "";"" ignored");
 
-         --  Scan out ELSE expression
-
-         Scan; -- Past ELSE
-         Append_To (Exprs, P_Expression);
-
-         --  Skip redundant ELSE parts
-
-         while Token = Tok_Else loop
-            Error_Msg_SC ("only one ELSE part is allowed");
-            Scan; -- past ELSE
-            Discard_Junk_Node (P_Expression);
-         end loop;
-
-      --  Two expression case (implied True, filled in during semantics)
-
-      else
-         null;
-      end if;
-
-      --  If we have an END IF, diagnose as not needed
-
-      if Token = Tok_End then
-         Error_Msg_SC ("`END IF` not allowed at end of if expression");
-         Scan; -- past END
-
-         if Token = Tok_If then
-            Scan; -- past IF;
+            else
+               Restore_Scan_State (State);
+            end if;
          end if;
-      end if;
 
+         --  Scan out ELSIF sequence if present
+
+         if Token = Tok_Elsif then
+            Eptr := Token_Ptr;
+            Scan; -- past ELSIF
+            Expr := P_Expression;
+
+            --  If we are at a right paren, we assume the ELSIF should be ELSE
+
+            if Token = Tok_Right_Paren then
+               Error_Msg ("ELSIF should be ELSE", Eptr);
+               Append_To (Exprs, Expr);
+
+            --  Otherwise we have an OK ELSIF
+
+            else
+               Expr := P_If_Expression_Internal (Eptr, Expr);
+               Set_Is_Elsif (Expr);
+               Append_To (Exprs, Expr);
+            end if;
+
+         --  Scan out ELSE phrase if present
+
+         elsif Token = Tok_Else then
+
+            --  Scan out ELSE expression
+
+            Scan; -- Past ELSE
+            Append_To (Exprs, P_Expression);
+
+            --  Skip redundant ELSE parts
+
+            while Token = Tok_Else loop
+               Error_Msg_SC ("only one ELSE part is allowed");
+               Scan; -- past ELSE
+               Discard_Junk_Node (P_Expression);
+            end loop;
+
+         --  Two expression case (implied True, filled in during semantics)
+
+         else
+            null;
+         end if;
+
+         --  If we have an END IF, diagnose as not needed
+
+         if Token = Tok_End then
+            Error_Msg_SC ("`END IF` not allowed at end of if expression");
+            Scan; -- past END
+
+            if Token = Tok_If then
+               Scan; -- past IF;
+            end if;
+         end if;
+
+         --  Return the If_Expression node
+
+         return Make_If_Expression (Loc, Expressions => Exprs);
+      end P_If_Expression_Internal;
+
+   --  Local variables
+
+      Loc     : constant Source_Ptr := Token_Ptr;
+      If_Expr : Node_Id;
+
+   --  Start of processing for P_If_Expression
+
+   begin
+      Error_Msg_Ada_2012_Feature ("|if expression", Token_Ptr);
+      Scan; -- past IF
+      Inside_If_Expression := Inside_If_Expression + 1;
+      If_Expr := P_If_Expression_Internal (Loc, P_Expression);
       Inside_If_Expression := Inside_If_Expression - 1;
-
-      --  Return the If_Expression node
-
-      return
-        Make_If_Expression (Loc,
-          Expressions => Exprs);
+      return If_Expr;
    end P_If_Expression;
 
    -----------------------

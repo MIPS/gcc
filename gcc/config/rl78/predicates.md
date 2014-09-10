@@ -1,5 +1,5 @@
 ;;  Machine Description for Renesas RL78 processors
-;;  Copyright (C) 2011-2013 Free Software Foundation, Inc.
+;;  Copyright (C) 2011-2014 Free Software Foundation, Inc.
 ;;  Contributed by Red Hat.
 
 ;; This file is part of GCC.
@@ -31,6 +31,11 @@
 (define_predicate "rl78_nonfar_nonimm_operand"
   (and (match_operand 0 "nonimmediate_operand")
        (not (match_test "rl78_far_p (op)")))
+)
+
+(define_predicate "rl78_near_mem_operand"
+  (and (match_code "mem")
+       (match_test "!rl78_far_p (op) && rl78_as_legitimate_address (VOIDmode, XEXP (op, 0), true, ADDR_SPACE_GENERIC)"))
 )
 
 (define_predicate "ubyte_operand"

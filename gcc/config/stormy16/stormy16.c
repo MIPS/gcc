@@ -1,5 +1,5 @@
 /* Xstormy16 target functions.
-   Copyright (C) 1997-2013 Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
@@ -35,6 +35,10 @@
 #include "diagnostic-core.h"
 #include "obstack.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "expr.h"
 #include "optabs.h"
 #include "except.h"
@@ -43,10 +47,21 @@
 #include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "ggc.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "df.h"
 #include "reload.h"
-#include "ggc.h"
+#include "builtins.h"
 
 static rtx emit_addhi3_postreload (rtx, rtx, rtx);
 static void xstormy16_asm_out_constructor (rtx, int);
@@ -248,7 +263,7 @@ xstormy16_split_cbranch (enum machine_mode mode, rtx label, rtx comparison,
 {
   rtx op0 = XEXP (comparison, 0);
   rtx op1 = XEXP (comparison, 1);
-  rtx seq, last_insn;
+  rtx_insn *seq, *last_insn;
   rtx compare;
 
   start_sequence ();
@@ -2374,14 +2389,15 @@ xstormy16_expand_builtin (tree exp, rtx target,
    patterns.  */
 
 static void
-combine_bnp (rtx insn)
+combine_bnp (rtx_insn *insn)
 {
   int insn_code, regno, need_extend;
   unsigned int mask;
-  rtx cond, reg, and_insn, load, qireg, mem;
+  rtx cond, reg, qireg, mem;
+  rtx_insn *and_insn, *load;
   enum machine_mode load_mode = QImode;
   enum machine_mode and_mode = QImode;
-  rtx shift = NULL_RTX;
+  rtx_insn *shift = NULL;
 
   insn_code = recog_memoized (insn);
   if (insn_code != CODE_FOR_cbranchhi
@@ -2486,7 +2502,7 @@ combine_bnp (rtx insn)
 	      if (reg_mentioned_p (reg, shift)
 		  || (! NOTE_P (shift) && ! NONJUMP_INSN_P (shift)))
 		{
-		  shift = NULL_RTX;
+		  shift = NULL;
 		  break;
 		}
 	    }
@@ -2591,7 +2607,7 @@ combine_bnp (rtx insn)
 static void
 xstormy16_reorg (void)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {

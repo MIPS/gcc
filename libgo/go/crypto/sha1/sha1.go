@@ -62,16 +62,10 @@ func (d *digest) Write(p []byte) (nn int, err error) {
 	nn = len(p)
 	d.len += uint64(nn)
 	if d.nx > 0 {
-		n := len(p)
-		if n > chunk-d.nx {
-			n = chunk - d.nx
-		}
-		for i := 0; i < n; i++ {
-			d.x[d.nx+i] = p[i]
-		}
+		n := copy(d.x[d.nx:], p)
 		d.nx += n
 		if d.nx == chunk {
-			block(d, d.x[0:])
+			block(d, d.x[:])
 			d.nx = 0
 		}
 		p = p[n:]
@@ -90,9 +84,13 @@ func (d *digest) Write(p []byte) (nn int, err error) {
 func (d0 *digest) Sum(in []byte) []byte {
 	// Make a copy of d0 so that caller can keep writing and summing.
 	d := *d0
+	hash := d.checkSum()
+	return append(in, hash[:]...)
+}
 
-	// Padding.  Add a 1 bit and 0 bits until 56 bytes mod 64.
+func (d *digest) checkSum() [Size]byte {
 	len := d.len
+	// Padding.  Add a 1 bit and 0 bits until 56 bytes mod 64.
 	var tmp [64]byte
 	tmp[0] = 0x80
 	if len%64 < 56 {
@@ -120,5 +118,13 @@ func (d0 *digest) Sum(in []byte) []byte {
 		digest[i*4+3] = byte(s)
 	}
 
-	return append(in, digest[:]...)
+	return digest
+}
+
+// Sum returns the SHA1 checksum of the data.
+func Sum(data []byte) [Size]byte {
+	var d digest
+	d.Reset()
+	d.Write(data)
+	return d.checkSum()
 }

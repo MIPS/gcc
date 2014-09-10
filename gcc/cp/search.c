@@ -1,6 +1,6 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -917,9 +917,11 @@ accessible_p (tree type, tree decl, bool consider_local_p)
       /* Figure out where the reference is occurring.  Check to see if
 	 DECL is private or protected in this scope, since that will
 	 determine whether protected access is allowed.  */
-      if (current_class_type)
+      tree ct = current_nonlambda_class_type ();
+      if (ct)
 	protected_ok = protected_accessible_p (decl,
-					       current_class_type, binfo);
+					       ct,
+					       binfo);
 
       /* Now, loop through the classes of which we are a friend.  */
       if (!protected_ok)
@@ -2506,7 +2508,7 @@ lookup_conversions (tree type)
   tree list = NULL_TREE;
 
   complete_type (type);
-  if (!TYPE_BINFO (type))
+  if (!CLASS_TYPE_P (type) || !TYPE_BINFO (type))
     return NULL_TREE;
 
   lookup_conversions_r (TYPE_BINFO (type), 0, 0,

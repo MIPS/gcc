@@ -18,11 +18,17 @@ namespace __tsan {
 
 enum ReportType {
   ReportTypeRace,
+  ReportTypeVptrRace,
   ReportTypeUseAfterFree,
   ReportTypeThreadLeak,
   ReportTypeMutexDestroyLocked,
+  ReportTypeMutexDoubleLock,
+  ReportTypeMutexBadUnlock,
+  ReportTypeMutexBadReadLock,
+  ReportTypeMutexBadReadUnlock,
   ReportTypeSignalUnsafe,
-  ReportTypeErrnoInSignal
+  ReportTypeErrnoInSignal,
+  ReportTypeDeadlock
 };
 
 struct ReportStack {
@@ -86,6 +92,7 @@ struct ReportThread {
 
 struct ReportMutex {
   u64 id;
+  uptr addr;
   bool destroyed;
   ReportStack *stack;
 };
@@ -98,7 +105,9 @@ class ReportDesc {
   Vector<ReportLocation*> locs;
   Vector<ReportMutex*> mutexes;
   Vector<ReportThread*> threads;
+  Vector<int> unique_tids;
   ReportStack *sleep;
+  int count;
 
   ReportDesc();
   ~ReportDesc();

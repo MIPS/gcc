@@ -1,5 +1,5 @@
 /* Reassociation for trees.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
@@ -26,29 +26,41 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
+#include "hash-map.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
-#include "vec.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "cfgloop.h"
 #include "flags.h"
 #include "target.h"
 #include "params.h"
 #include "diagnostic-core.h"
+#include "builtins.h"
 
 /*  This is a simple global reassociation pass.  It is, in part, based
     on the LLVM pass of the same name (They do some things more/less
@@ -204,11 +216,41 @@ static int next_operand_entry_id;
 static long *bb_rank;
 
 /* Operand->rank hashtable.  */
-static struct pointer_map_t *operand_rank;
+static hash_map<tree, long> *operand_rank;
 
 /* Forward decls.  */
 static long get_rank (tree);
+static bool reassoc_stmt_dominates_stmt_p (gimple, gimple);
 
+/* Wrapper around gsi_remove, which adjusts gimple_uid of debug stmts
+   possibly added by gsi_remove.  */
+
+bool
+reassoc_remove_stmt (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+
+  if (!MAY_HAVE_DEBUG_STMTS || gimple_code (stmt) == GIMPLE_PHI)
+    return gsi_remove (gsi, true);
+
+  gimple_stmt_iterator prev = *gsi;
+  gsi_prev (&prev);
+  unsigned uid = gimple_uid (stmt);
+  basic_block bb = gimple_bb (stmt);
+  bool ret = gsi_remove (gsi, true);
+  if (!gsi_end_p (prev))
+    gsi_next (&prev);
+  else
+    prev = gsi_start_bb (bb);
+  gimple end_stmt = gsi_stmt (*gsi);
+  while ((stmt = gsi_stmt (prev)) != end_stmt)
+    {
+      gcc_assert (stmt && is_gimple_debug (stmt) && gimple_uid (stmt) == 0);
+      gimple_set_uid (stmt, uid);
+      gsi_next (&prev);
+    }
+  return ret;
+}
 
 /* Bias amount for loop-carried phis.  We want this to be larger than
    the depth of any reassociation tree we can see, but not larger than
@@ -320,8 +362,8 @@ propagate_rank (long rank, tree op)
 static inline long
 find_operand_rank (tree e)
 {
-  void **slot = pointer_map_contains (operand_rank, e);
-  return slot ? (long) (intptr_t) *slot : -1;
+  long *slot = operand_rank->get (e);
+  return slot ? *slot : -1;
 }
 
 /* Insert {E,RANK} into the operand rank hashtable.  */
@@ -329,11 +371,8 @@ find_operand_rank (tree e)
 static inline void
 insert_operand_rank (tree e, long rank)
 {
-  void **slot;
   gcc_assert (rank > 0);
-  slot = pointer_map_insert (operand_rank, e);
-  gcc_assert (!*slot);
-  *slot = (void *) (intptr_t) rank;
+  gcc_assert (!operand_rank->put (e, rank));
 }
 
 /* Given an expression E, return the rank of the expression.  */
@@ -495,11 +534,37 @@ sort_by_operand_rank (const void *pa, const void *pb)
     }
 
   /* Lastly, make sure the versions that are the same go next to each
-     other.  We use SSA_NAME_VERSION because it's stable.  */
+     other.  */
   if ((oeb->rank - oea->rank == 0)
       && TREE_CODE (oea->op) == SSA_NAME
       && TREE_CODE (oeb->op) == SSA_NAME)
     {
+      /* As SSA_NAME_VERSION is assigned pretty randomly, because we reuse
+	 versions of removed SSA_NAMEs, so if possible, prefer to sort
+	 based on basic block and gimple_uid of the SSA_NAME_DEF_STMT.
+	 See PR60418.  */
+      if (!SSA_NAME_IS_DEFAULT_DEF (oea->op)
+	  && !SSA_NAME_IS_DEFAULT_DEF (oeb->op)
+	  && SSA_NAME_VERSION (oeb->op) != SSA_NAME_VERSION (oea->op))
+	{
+	  gimple stmta = SSA_NAME_DEF_STMT (oea->op);
+	  gimple stmtb = SSA_NAME_DEF_STMT (oeb->op);
+	  basic_block bba = gimple_bb (stmta);
+	  basic_block bbb = gimple_bb (stmtb);
+	  if (bbb != bba)
+	    {
+	      if (bb_rank[bbb->index] != bb_rank[bba->index])
+		return bb_rank[bbb->index] - bb_rank[bba->index];
+	    }
+	  else
+	    {
+	      bool da = reassoc_stmt_dominates_stmt_p (stmta, stmtb);
+	      bool db = reassoc_stmt_dominates_stmt_p (stmtb, stmta);
+	      if (da != db)
+		return da ? 1 : -1;
+	    }
+	}
+
       if (SSA_NAME_VERSION (oeb->op) != SSA_NAME_VERSION (oea->op))
 	return SSA_NAME_VERSION (oeb->op) - SSA_NAME_VERSION (oea->op);
       else
@@ -795,8 +860,7 @@ eliminate_not_pairs (enum tree_code opcode,
 	  if (opcode == BIT_AND_EXPR)
 	    oe->op = build_zero_cst (TREE_TYPE (oe->op));
 	  else if (opcode == BIT_IOR_EXPR)
-	    oe->op = build_low_bits_mask (TREE_TYPE (oe->op),
-					  TYPE_PRECISION (TREE_TYPE (oe->op)));
+	    oe->op = build_all_ones_cst (TREE_TYPE (oe->op));
 
 	  reassociate_stats.ops_eliminated += ops->length () - 1;
 	  ops->truncate (0);
@@ -956,32 +1020,36 @@ static vec<oecount> cvec;
 
 /* Oecount hashtable helpers.  */
 
-struct oecount_hasher : typed_noop_remove <void>
+struct oecount_hasher
 {
-  /* Note that this hash table stores integers, not pointers.
-     So, observe the casting in the member functions.  */
-  typedef void value_type;
-  typedef void compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef int value_type;
+  typedef int compare_type;
+  typedef int store_values_directly;
+  static inline hashval_t hash (const value_type &);
+  static inline bool equal (const value_type &, const compare_type &);
+  static bool is_deleted (int &v) { return v == 1; }
+  static void mark_deleted (int &e) { e = 1; }
+  static bool is_empty (int &v) { return v == 0; }
+  static void mark_empty (int &e) { e = 0; }
+  static void remove (int &) {}
 };
 
 /* Hash function for oecount.  */
 
 inline hashval_t
-oecount_hasher::hash (const value_type *p)
+oecount_hasher::hash (const value_type &p)
 {
-  const oecount *c = &cvec[(size_t)p - 42];
+  const oecount *c = &cvec[p - 42];
   return htab_hash_pointer (c->op) ^ (hashval_t)c->oecode;
 }
 
 /* Comparison function for oecount.  */
 
 inline bool
-oecount_hasher::equal (const value_type *p1, const compare_type *p2)
+oecount_hasher::equal (const value_type &p1, const compare_type &p2)
 {
-  const oecount *c1 = &cvec[(size_t)p1 - 42];
-  const oecount *c2 = &cvec[(size_t)p2 - 42];
+  const oecount *c1 = &cvec[p1 - 42];
+  const oecount *c2 = &cvec[p2 - 42];
   return (c1->oecode == c2->oecode
 	  && c1->op == c2->op);
 }
@@ -1045,7 +1113,7 @@ decrement_power (gimple stmt)
       arg1 = gimple_call_arg (stmt, 1);
       c = TREE_REAL_CST (arg1);
       power = real_to_integer (&c) - 1;
-      real_from_integer (&cint, VOIDmode, power, 0, 0);
+      real_from_integer (&cint, VOIDmode, power, SIGNED);
       gimple_call_set_arg (stmt, 1, build_real (TREE_TYPE (arg1), cint));
       return power;
 
@@ -1086,7 +1154,7 @@ propagate_op_to_single_use (tree op, gimple stmt, tree *def)
     update_stmt (use_stmt);
   gsi = gsi_for_stmt (stmt);
   unlink_stmt_vdef (stmt);
-  gsi_remove (&gsi, true);
+  reassoc_remove_stmt (&gsi);
   release_defs (stmt);
 }
 
@@ -1264,11 +1332,11 @@ build_and_add_sum (tree type, tree op1, tree op2, enum tree_code opcode)
   if ((!op1def || gimple_nop_p (op1def))
       && (!op2def || gimple_nop_p (op2def)))
     {
-      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
+      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
       if (gsi_end_p (gsi))
 	{
 	  gimple_stmt_iterator gsi2
-	    = gsi_last_bb (single_succ (ENTRY_BLOCK_PTR));
+	    = gsi_last_bb (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 	  gimple_set_uid (sum,
 			  gsi_end_p (gsi2) ? 1 : gimple_uid (gsi_stmt (gsi2)));
 	}
@@ -1338,7 +1406,6 @@ undistribute_ops_list (enum tree_code opcode,
   unsigned nr_candidates, nr_candidates2;
   sbitmap_iterator sbi0;
   vec<operand_entry_t> *subops;
-  hash_table <oecount_hasher> ctable;
   bool changed = false;
   int next_oecount_id = 0;
 
@@ -1386,7 +1453,9 @@ undistribute_ops_list (enum tree_code opcode,
 
   /* Build linearized sub-operand lists and the counting table.  */
   cvec.create (0);
-  ctable.create (15);
+
+  hash_table<oecount_hasher> ctable (15);
+
   /* ??? Macro arguments cannot have multi-argument template types in
      them.  This typedef is needed to workaround that limitation.  */
   typedef vec<operand_entry_t> vec_operand_entry_t_heap;
@@ -1405,27 +1474,26 @@ undistribute_ops_list (enum tree_code opcode,
       FOR_EACH_VEC_ELT (subops[i], j, oe1)
 	{
 	  oecount c;
-	  void **slot;
-	  size_t idx;
+	  int *slot;
+	  int idx;
 	  c.oecode = oecode;
 	  c.cnt = 1;
 	  c.id = next_oecount_id++;
 	  c.op = oe1->op;
 	  cvec.safe_push (c);
 	  idx = cvec.length () + 41;
-	  slot = ctable.find_slot ((void *)idx, INSERT);
+	  slot = ctable.find_slot (idx, INSERT);
 	  if (!*slot)
 	    {
-	      *slot = (void *)idx;
+	      *slot = idx;
 	    }
 	  else
 	    {
 	      cvec.pop ();
-	      cvec[(size_t)*slot - 42].cnt++;
+	      cvec[*slot - 42].cnt++;
 	    }
 	}
     }
-  ctable.dispose ();
 
   /* Sort the counting table.  */
   cvec.qsort (oecount_cmp);
@@ -1829,7 +1897,8 @@ init_range_entry (struct range_entry *r, tree exp, gimple stmt)
 
       if (exp != NULL_TREE)
 	{
-	  if (TREE_CODE (exp) != SSA_NAME)
+	  if (TREE_CODE (exp) != SSA_NAME
+	      || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (exp))
 	    break;
 
 	  stmt = SSA_NAME_DEF_STMT (exp);
@@ -2017,7 +2086,8 @@ update_range_test (struct range_entry *range, struct range_entry *otherrange,
 {
   operand_entry_t oe = (*ops)[range->idx];
   tree op = oe->op;
-  gimple stmt = op ? SSA_NAME_DEF_STMT (op) : last_stmt (BASIC_BLOCK (oe->id));
+  gimple stmt = op ? SSA_NAME_DEF_STMT (op) :
+    last_stmt (BASIC_BLOCK_FOR_FN (cfun, oe->id));
   location_t loc = gimple_location (stmt);
   tree optype = op ? TREE_TYPE (op) : boolean_type_node;
   tree tem = build_range_check (loc, optype, exp, in_p, low, high);
@@ -2061,9 +2131,19 @@ update_range_test (struct range_entry *range, struct range_entry *otherrange,
 
   tem = fold_convert_loc (loc, optype, tem);
   gsi = gsi_for_stmt (stmt);
-  tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, true,
-				  GSI_SAME_STMT);
-  for (gsi_prev (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
+  /* In rare cases range->exp can be equal to lhs of stmt.
+     In that case we have to insert after the stmt rather then before
+     it.  */
+  if (op == range->exp)
+    tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, false,
+				    GSI_CONTINUE_LINKING);
+  else
+    {
+      tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, true,
+				      GSI_SAME_STMT);
+      gsi_prev (&gsi);
+    }
+  for (; !gsi_end_p (gsi); gsi_prev (&gsi))
     if (gimple_uid (gsi_stmt (gsi)))
       break;
     else
@@ -2270,7 +2350,8 @@ optimize_range_tests (enum tree_code opcode,
       oe = (*ops)[i];
       ranges[i].idx = i;
       init_range_entry (ranges + i, oe->op,
-			oe->op ? NULL : last_stmt (BASIC_BLOCK (oe->id)));
+			oe->op ? NULL :
+			  last_stmt (BASIC_BLOCK_FOR_FN (cfun, oe->id)));
       /* For | invert it now, we will invert it again before emitting
 	 the optimized expression.  */
       if (opcode == BIT_IOR_EXPR
@@ -2654,8 +2735,9 @@ maybe_optimize_range_tests (gimple stmt)
   basic_block bb;
   edge_iterator ei;
   edge e;
-  vec<operand_entry_t> ops = vNULL;
-  vec<inter_bb_range_test_entry> bbinfo = vNULL;
+  auto_vec<operand_entry_t> ops;
+  auto_vec<inter_bb_range_test_entry> bbinfo;
+  bool any_changes = false;
 
   /* Consider only basic blocks that end with GIMPLE_COND or
      a cast statement satisfying final_range_test_p.  All
@@ -2869,41 +2951,31 @@ maybe_optimize_range_tests (gimple stmt)
 	break;
     }
   if (ops.length () > 1)
+    any_changes = optimize_range_tests (ERROR_MARK, &ops);
+  if (any_changes)
     {
       unsigned int idx;
-      bool any_changes = optimize_range_tests (ERROR_MARK, &ops);
-      for (bb = last_bb, idx = 0; any_changes; bb = single_pred (bb), idx++)
+      /* update_ops relies on has_single_use predicates returning the
+	 same values as it did during get_ops earlier.  Additionally it
+	 never removes statements, only adds new ones and it should walk
+	 from the single imm use and check the predicate already before
+	 making those changes.
+	 On the other side, the handling of GIMPLE_COND directly can turn
+	 previously multiply used SSA_NAMEs into single use SSA_NAMEs, so
+	 it needs to be done in a separate loop afterwards.  */
+      for (bb = last_bb, idx = 0; ; bb = single_pred (bb), idx++)
 	{
-	  if (bbinfo[idx].first_idx < bbinfo[idx].last_idx)
+	  if (bbinfo[idx].first_idx < bbinfo[idx].last_idx
+	      && bbinfo[idx].op != NULL_TREE)
 	    {
-	      gimple stmt = last_stmt (bb);
 	      tree new_op;
 
-	      if (bbinfo[idx].op == NULL_TREE)
-		{
-		  if (ops[bbinfo[idx].first_idx]->op != NULL_TREE)
-		    {
-		      if (integer_zerop (ops[bbinfo[idx].first_idx]->op))
-			gimple_cond_make_false (stmt);
-		      else if (integer_onep (ops[bbinfo[idx].first_idx]->op))
-			gimple_cond_make_true (stmt);
-		      else
-			{
-			  gimple_cond_set_code (stmt, NE_EXPR);
-			  gimple_cond_set_lhs (stmt,
-					       ops[bbinfo[idx].first_idx]->op);
-			  gimple_cond_set_rhs (stmt, boolean_false_node);
-			}
-		      update_stmt (stmt);
-		    }
-		  bbinfo[idx].op = new_op = boolean_false_node;
-		}
-	      else
-		new_op = update_ops (bbinfo[idx].op,
-				     (enum tree_code)
-				     ops[bbinfo[idx].first_idx]->rank,
-				     ops, &bbinfo[idx].first_idx,
-				     loop_containing_stmt (stmt));
+	      stmt = last_stmt (bb);
+	      new_op = update_ops (bbinfo[idx].op,
+				   (enum tree_code)
+				   ops[bbinfo[idx].first_idx]->rank,
+				   ops, &bbinfo[idx].first_idx,
+				   loop_containing_stmt (stmt));
 	      if (new_op == NULL_TREE)
 		{
 		  gcc_assert (bb == last_bb);
@@ -2933,9 +3005,15 @@ maybe_optimize_range_tests (gimple stmt)
 		      tree new_lhs = make_ssa_name (TREE_TYPE (lhs), NULL);
 		      enum tree_code rhs_code
 			= gimple_assign_rhs_code (cast_stmt);
-		      gimple g
-			= gimple_build_assign_with_ops (rhs_code, new_lhs,
-							new_op, NULL_TREE);
+		      gimple g;
+		      if (is_gimple_min_invariant (new_op))
+			{
+			  new_op = fold_convert (TREE_TYPE (lhs), new_op);
+			  g = gimple_build_assign (new_lhs, new_op);
+			}
+		      else
+			g = gimple_build_assign_with_ops (rhs_code, new_lhs,
+							  new_op, NULL_TREE);
 		      gimple_stmt_iterator gsi = gsi_for_stmt (cast_stmt);
 		      gimple_set_uid (g, gimple_uid (cast_stmt));
 		      gimple_set_visited (g, true);
@@ -2955,9 +3033,29 @@ maybe_optimize_range_tests (gimple stmt)
 	  if (bb == first_bb)
 	    break;
 	}
+      for (bb = last_bb, idx = 0; ; bb = single_pred (bb), idx++)
+	{
+	  if (bbinfo[idx].first_idx < bbinfo[idx].last_idx
+	      && bbinfo[idx].op == NULL_TREE
+	      && ops[bbinfo[idx].first_idx]->op != NULL_TREE)
+	    {
+	      stmt = last_stmt (bb);
+	      if (integer_zerop (ops[bbinfo[idx].first_idx]->op))
+		gimple_cond_make_false (stmt);
+	      else if (integer_onep (ops[bbinfo[idx].first_idx]->op))
+		gimple_cond_make_true (stmt);
+	      else
+		{
+		  gimple_cond_set_code (stmt, NE_EXPR);
+		  gimple_cond_set_lhs (stmt, ops[bbinfo[idx].first_idx]->op);
+		  gimple_cond_set_rhs (stmt, boolean_false_node);
+		}
+	      update_stmt (stmt);
+	    }
+	  if (bb == first_bb)
+	    break;
+	}
     }
-  bbinfo.release ();
-  ops.release ();
 }
 
 /* Return true if OPERAND is defined by a PHI node which uses the LHS
@@ -3005,7 +3103,7 @@ remove_visited_stmt_chain (tree var)
 	{
 	  var = gimple_assign_rhs1 (stmt);
 	  gsi = gsi_for_stmt (stmt);
-	  gsi_remove (&gsi, true);
+	  reassoc_remove_stmt (&gsi);
 	  release_defs (stmt);
 	}
       else
@@ -3427,7 +3525,7 @@ linearize_expr (gimple stmt)
   update_stmt (stmt);
 
   gsi = gsi_for_stmt (oldbinrhs);
-  gsi_remove (&gsi, true);
+  reassoc_remove_stmt (&gsi);
   release_defs (oldbinrhs);
 
   gimple_set_visited (stmt, true);
@@ -3608,8 +3706,7 @@ acceptable_pow_call (gimple stmt, tree *base, HOST_WIDE_INT *exponent)
 	return false;
 
       *exponent = real_to_integer (&c);
-      real_from_integer (&cint, VOIDmode, *exponent,
-			 *exponent < 0 ? -1 : 0, 0);
+      real_from_integer (&cint, VOIDmode, *exponent, SIGNED);
       if (!real_identical (&c, &cint))
 	return false;
 
@@ -3619,10 +3716,10 @@ acceptable_pow_call (gimple stmt, tree *base, HOST_WIDE_INT *exponent)
       *base = gimple_call_arg (stmt, 0);
       arg1 = gimple_call_arg (stmt, 1);
 
-      if (!host_integerp (arg1, 0))
+      if (!tree_fits_shwi_p (arg1))
 	return false;
 
-      *exponent = TREE_INT_CST_LOW (arg1);
+      *exponent = tree_to_shwi (arg1);
       break;
 
     default:
@@ -3829,7 +3926,7 @@ repropagate_negates (void)
 	      gimple_assign_set_rhs_with_ops (&gsi2, NEGATE_EXPR, x, NULL);
 	      user = gsi_stmt (gsi2);
 	      update_stmt (user);
-	      gsi_remove (&gsi, true);
+	      reassoc_remove_stmt (&gsi);
 	      release_defs (feed);
 	      plus_negates.safe_push (gimple_assign_lhs (user));
 	    }
@@ -4346,7 +4443,7 @@ reassociate_bb (basic_block bb)
 		 reassociations.  */
 	      if (has_zero_uses (gimple_get_lhs (stmt)))
 		{
-		  gsi_remove (&gsi, true);
+		  reassoc_remove_stmt (&gsi);
 		  release_defs (stmt);
 		  /* We might end up removing the last stmt above which
 		     places the iterator to the end of the sequence.
@@ -4382,7 +4479,7 @@ reassociate_bb (basic_block bb)
 
 	  if (associative_tree_code (rhs_code))
 	    {
-	      vec<operand_entry_t> ops = vNULL;
+	      auto_vec<operand_entry_t> ops;
 	      tree powi_result = NULL_TREE;
 
 	      /* There may be no immediate uses left by the time we
@@ -4470,8 +4567,6 @@ reassociate_bb (basic_block bb)
 		      gsi_insert_after (&gsi, mul_stmt, GSI_NEW_STMT);
 		    }
 		}
-
-	      ops.release ();
 	    }
 	}
     }
@@ -4510,8 +4605,8 @@ debug_ops_vector (vec<operand_entry_t> ops)
 static void
 do_reassoc (void)
 {
-  break_up_subtract_bb (ENTRY_BLOCK_PTR);
-  reassociate_bb (EXIT_BLOCK_PTR);
+  break_up_subtract_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  reassociate_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 }
 
 /* Initialize the reassociation pass.  */
@@ -4521,7 +4616,7 @@ init_reassoc (void)
 {
   int i;
   long rank = 2;
-  int *bbs = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  int *bbs = XNEWVEC (int, n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS);
 
   /* Find the loops, so that we can prevent moving calculations in
      them.  */
@@ -4536,8 +4631,8 @@ init_reassoc (void)
   /* Reverse RPO (Reverse Post Order) will give us something where
      deeper loops come later.  */
   pre_and_rev_post_order_compute (NULL, bbs, false);
-  bb_rank = XCNEWVEC (long, last_basic_block);
-  operand_rank = pointer_map_create ();
+  bb_rank = XCNEWVEC (long, last_basic_block_for_fn (cfun));
+  operand_rank = new hash_map<tree, long>;
 
   /* Give each default definition a distinct rank.  This includes
      parameters and the static chain.  Walk backwards over all
@@ -4551,7 +4646,7 @@ init_reassoc (void)
     }
 
   /* Set up rank for each BB  */
-  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
+  for (i = 0; i < n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS; i++)
     bb_rank[bbs[i]] = ++rank  << 16;
 
   free (bbs);
@@ -4578,7 +4673,7 @@ fini_reassoc (void)
   statistics_counter_event (cfun, "Built-in powi calls created",
 			    reassociate_stats.pows_created);
 
-  pointer_map_destroy (operand_rank);
+  delete operand_rank;
   free_alloc_pool (operand_entry_pool);
   free (bb_rank);
   plus_negates.release ();
@@ -4600,12 +4695,6 @@ execute_reassoc (void)
   return 0;
 }
 
-static bool
-gate_tree_ssa_reassoc (void)
-{
-  return flag_tree_reassoc != 0;
-}
-
 namespace {
 
 const pass_data pass_data_reassoc =
@@ -4613,16 +4702,12 @@ const pass_data pass_data_reassoc =
   GIMPLE_PASS, /* type */
   "reassoc", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_TREE_REASSOC, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_ssa
-    | TODO_update_ssa_only_virtuals
-    | TODO_verify_flow ), /* todo_flags_finish */
+  TODO_update_ssa_only_virtuals, /* todo_flags_finish */
 };
 
 class pass_reassoc : public gimple_opt_pass
@@ -4634,8 +4719,8 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_reassoc (m_ctxt); }
-  bool gate () { return gate_tree_ssa_reassoc (); }
-  unsigned int execute () { return execute_reassoc (); }
+  virtual bool gate (function *) { return flag_tree_reassoc != 0; }
+  virtual unsigned int execute (function *) { return execute_reassoc (); }
 
 }; // class pass_reassoc
 

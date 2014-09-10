@@ -1,5 +1,5 @@
 ;; ARM Cortex-A53 pipeline description
-;; Copyright (C) 2013 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2014 Free Software Foundation, Inc.
 ;;
 ;; Contributed by ARM Ltd.
 ;;
@@ -61,6 +61,11 @@
 
 (define_cpu_unit "cortex_a53_fp_div_sqrt" "cortex_a53")
 
+;; The Advanced SIMD pipelines.
+
+(define_cpu_unit "cortex_a53_simd0" "cortex_a53")
+(define_cpu_unit "cortex_a53_simd1" "cortex_a53")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ALU instructions.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -68,9 +73,9 @@
 (define_insn_reservation "cortex_a53_alu" 2
   (and (eq_attr "tune" "cortexa53")
        (eq_attr "type" "alu_imm,alus_imm,logic_imm,logics_imm,\
-                        alu_reg,alus_reg,logic_reg,logics_reg,\
+                        alu_sreg,alus_sreg,logic_reg,logics_reg,\
                         adc_imm,adcs_imm,adc_reg,adcs_reg,\
-                        adr,bfm,csel,rev,\
+                        adr,bfm,csel,clz,rbit,rev,alu_dsp_reg,\
                         shift_imm,shift_reg,\
                         mov_imm,mov_reg,mvn_imm,mvn_reg,\
                         mrs,multiple,no_insn"))
@@ -79,8 +84,8 @@
 (define_insn_reservation "cortex_a53_alu_shift" 2
   (and (eq_attr "tune" "cortexa53")
        (eq_attr "type" "alu_shift_imm,alus_shift_imm,\
-                        logic_shift_imm,logics_shift_imm,\
-                        alu_shift_reg,alus_shift_reg,\
+                        crc,logic_shift_imm,logics_shift_imm,\
+                        alu_ext,alus_ext,alu_shift_reg,alus_shift_reg,\
                         logic_shift_reg,logics_shift_reg,\
                         extend,mov_shift,mov_shift_reg,\
                         mvn_shift,mvn_shift_reg"))
@@ -211,7 +216,8 @@
   (and (eq_attr "tune" "cortexa53")
        (eq_attr "type" "ffariths, fadds, ffarithd, faddd, fmov, fmuls,\
                         f_cvt,f_cvtf2i,f_cvti2f,\
-			fcmps, fcmpd, fcsel"))
+                        fcmps, fcmpd, fcsel, f_rints, f_rintd, f_minmaxs,\
+                        f_minmaxd"))
   "cortex_a53_slot0+cortex_a53_fpadd_pipe")
 
 (define_insn_reservation "cortex_a53_fconst" 2
@@ -240,12 +246,45 @@
 (define_insn_reservation "cortex_a53_fdivs" 14
   (and (eq_attr "tune" "cortexa53")
        (eq_attr "type" "fdivs, fsqrts"))
-  "cortex_a53_slot0, cortex_a53_fp_div_sqrt * 13")
+  "cortex_a53_slot0, cortex_a53_fp_div_sqrt * 5")
 
 (define_insn_reservation "cortex_a53_fdivd" 29
   (and (eq_attr "tune" "cortexa53")
        (eq_attr "type" "fdivd, fsqrtd"))
-  "cortex_a53_slot0, cortex_a53_fp_div_sqrt * 28")
+  "cortex_a53_slot0, cortex_a53_fp_div_sqrt * 8")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ARMv8-A Cryptographic extensions.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define_insn_reservation "cortex_a53_crypto_aese" 2
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "type" "crypto_aese"))
+  "cortex_a53_simd0")
+
+(define_insn_reservation "cortex_a53_crypto_aesmc" 2
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "type" "crypto_aesmc"))
+  "cortex_a53_simd0 | cortex_a53_simd1")
+
+(define_insn_reservation "cortex_a53_crypto_sha1_fast" 2
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "type" "crypto_sha1_fast, crypto_sha256_fast"))
+  "cortex_a53_simd0")
+
+(define_insn_reservation "cortex_a53_crypto_sha1_xor" 3
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "type" "crypto_sha1_xor"))
+  "cortex_a53_simd0")
+
+(define_insn_reservation "cortex_a53_crypto_sha_slow" 5
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "type" "crypto_sha1_slow, crypto_sha256_slow"))
+  "cortex_a53_simd0")
+
+(define_bypass 0 "cortex_a53_crypto_aese"
+                 "cortex_a53_crypto_aesmc"
+                 "aarch_crypto_can_dual_issue")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; VFP to/from core transfers.
@@ -284,6 +323,16 @@
        (eq_attr "type" "f_loadd"))
   "cortex_a53_slot0")
 
+(define_insn_reservation "cortex_a53_f_load_2reg" 5
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "type" "neon_load2_2reg_q"))
+  "(cortex_a53_slot_any+cortex_a53_ls)*2")
+
+(define_insn_reservation "cortex_a53_f_loadq" 5
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "type" "neon_load1_1reg_q"))
+  "cortex_a53_slot_any+cortex_a53_ls")
+
 (define_insn_reservation "cortex_a53_f_stores" 0
   (and (eq_attr "tune" "cortexa53")
        (eq_attr "type" "f_stores"))
@@ -307,3 +356,11 @@
 		  cortex_a53_fdivs, cortex_a53_fdivd,\
 		  cortex_a53_f2r")
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Crude Advanced SIMD approximation.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define_insn_reservation "cortex_53_advsimd" 4
+  (and (eq_attr "tune" "cortexa53")
+       (eq_attr "is_neon_type" "yes"))
+  "cortex_a53_simd0")

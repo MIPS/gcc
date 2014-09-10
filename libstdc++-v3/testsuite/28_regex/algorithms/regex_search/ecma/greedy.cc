@@ -3,7 +3,7 @@
 //
 // 2013-09-14  Tim Shen <timshen91@gmail.com>
 //
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -54,9 +54,9 @@ test01()
   VERIFY(regex_search_debug("aaaa", m, regex("(a+)(a+)")));
   TEST(1, "aaa");
   TEST(2, "a");
-  VERIFY(regex_search_debug("aaaa", m, regex("(a+?)(a+)")));
-  TEST(1, "a");
-  TEST(2, "aaa");
+  VERIFY(regex_search_debug("aaaa", m, regex("(a+)(a+?)")));
+  TEST(1, "aaa");
+  TEST(2, "a");
   VERIFY(regex_search_debug("aaaa", m, regex("(a+?)(a+)")));
   TEST(1, "a");
   TEST(2, "aaa");

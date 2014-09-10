@@ -1,5 +1,5 @@
 /* Array translation routines
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -78,11 +78,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "gfortran.h"
 #include "tree.h"
-#include "gimple.h"		/* For create_tmp_var_name.  */
+#include "gimple-expr.h"
 #include "diagnostic-core.h"	/* For internal_error/fatal_error.  */
 #include "flags.h"
-#include "gfortran.h"
 #include "constructor.h"
 #include "trans.h"
 #include "trans-stmt.h"
@@ -90,6 +90,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-array.h"
 #include "trans-const.h"
 #include "dependency.h"
+#include "wide-int.h"
 
 static bool gfc_get_array_constructor_size (mpz_t *, gfc_constructor_base);
 
@@ -297,7 +298,6 @@ gfc_conv_descriptor_token (tree desc)
 
   type = TREE_TYPE (desc);
   gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
-  gcc_assert (GFC_TYPE_ARRAY_AKIND (type) == GFC_ARRAY_ALLOCATABLE);
   gcc_assert (gfc_option.coarray == GFC_FCOARRAY_LIB);
   field = gfc_advance_chain (TYPE_FIELDS (type), CAF_TOKEN_FIELD);
 
@@ -2045,11 +2045,15 @@ gfc_build_constant_array_constructor (gfc_expr * expr, tree type)
   TREE_CONSTANT (init) = 1;
   TREE_STATIC (init) = 1;
 
-  tmp = gfc_create_var (tmptype, "A");
+  tmp = build_decl (input_location, VAR_DECL, create_tmp_var_name ("A"),
+		    tmptype);
+  DECL_ARTIFICIAL (tmp) = 1;
+  DECL_IGNORED_P (tmp) = 1;
   TREE_STATIC (tmp) = 1;
   TREE_CONSTANT (tmp) = 1;
   TREE_READONLY (tmp) = 1;
   DECL_INITIAL (tmp) = init;
+  pushdecl (tmp);
 
   return tmp;
 }
@@ -2491,6 +2495,11 @@ gfc_add_loop_ss_code (gfc_loopinfo * loop, gfc_ss * ss, bool subscript,
 		 a reference to the value.  */
 	      gfc_conv_expr (&se, expr);
 	    }
+
+	  /* Ensure that a pointer to the string is stored.  */
+	  if (expr->ts.type == BT_CHARACTER)
+	    gfc_conv_string_parameter (&se);
+
 	  gfc_add_block_to_block (&outer_loop->pre, &se.pre);
 	  gfc_add_block_to_block (&outer_loop->post, &se.post);
 	  if (gfc_is_class_scalar_expr (expr))
@@ -4335,10 +4344,18 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 
   for (ss = rss; ss != gfc_ss_terminator; ss = ss->next)
     {
-      if (ss->info->type != GFC_SS_SECTION)
-	continue;
-
       ss_expr = ss->info->expr;
+
+      if (ss->info->type != GFC_SS_SECTION)
+	{
+	  if (gfc_option.flag_realloc_lhs
+	      && dest_expr != ss_expr
+	      && gfc_is_reallocatable_lhs (dest_expr)
+	      && ss_expr->rank)
+	    nDepend = gfc_check_dependency (dest_expr, ss_expr, true);
+
+	  continue;
+	}
 
       if (dest_expr->symtree->n.sym != ss_expr->symtree->n.sym)
 	{
@@ -4980,12 +4997,14 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 					   TYPE_MAX_VALUE (gfc_array_index_type)),
 					   size);
       cond = gfc_unlikely (fold_build2_loc (input_location, LT_EXPR,
-					    boolean_type_node, tmp, stride));
+					    boolean_type_node, tmp, stride),
+			   PRED_FORTRAN_OVERFLOW);
       tmp = fold_build3_loc (input_location, COND_EXPR, integer_type_node, cond,
 			     integer_one_node, integer_zero_node);
       cond = gfc_unlikely (fold_build2_loc (input_location, EQ_EXPR,
 					    boolean_type_node, size,
-					    gfc_index_zero_node));
+					    gfc_index_zero_node),
+			   PRED_FORTRAN_SIZE_ZERO);
       tmp = fold_build3_loc (input_location, COND_EXPR, integer_type_node, cond,
 			     integer_zero_node, tmp);
       tmp = fold_build2_loc (input_location, PLUS_EXPR, integer_type_node,
@@ -5082,12 +5101,14 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 			 size_type_node,
 			 TYPE_MAX_VALUE (size_type_node), element_size);
   cond = gfc_unlikely (fold_build2_loc (input_location, LT_EXPR,
-					boolean_type_node, tmp, stride));
+					boolean_type_node, tmp, stride),
+		       PRED_FORTRAN_OVERFLOW);
   tmp = fold_build3_loc (input_location, COND_EXPR, integer_type_node, cond,
 			 integer_one_node, integer_zero_node);
   cond = gfc_unlikely (fold_build2_loc (input_location, EQ_EXPR,
 					boolean_type_node, element_size,
-					build_int_cst (size_type_node, 0)));
+					build_int_cst (size_type_node, 0)),
+		       PRED_FORTRAN_SIZE_ZERO);
   tmp = fold_build3_loc (input_location, COND_EXPR, integer_type_node, cond,
 			 integer_zero_node, tmp);
   tmp = fold_build2_loc (input_location, PLUS_EXPR, integer_type_node,
@@ -5269,7 +5290,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   if (dimension)
     {
       cond = gfc_unlikely (fold_build2_loc (input_location, NE_EXPR,
-			   boolean_type_node, var_overflow, integer_zero_node));
+			   boolean_type_node, var_overflow, integer_zero_node),
+			   PRED_FORTRAN_OVERFLOW);
       tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node, cond,
 			     error, gfc_finish_block (&elseblock));
     }
@@ -5290,7 +5312,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 			  build_int_cst (TREE_TYPE (status), 0));
       gfc_add_expr_to_block (&se->pre,
 		 fold_build3_loc (input_location, COND_EXPR, void_type_node,
-				  gfc_likely (cond), set_descriptor,
+				  gfc_likely (cond, PRED_FORTRAN_FAIL_ALLOC),
+				  set_descriptor,
 				  build_empty_stmt (input_location)));
     }
   else
@@ -5361,9 +5384,8 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
 {
   gfc_constructor *c;
   tree tmp;
+  offset_int wtmp;
   gfc_se se;
-  HOST_WIDE_INT hi;
-  unsigned HOST_WIDE_INT lo;
   tree index, range;
   vec<constructor_elt, va_gc> *v = NULL;
 
@@ -5385,20 +5407,12 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
       else
 	gfc_conv_structure (&se, expr, 1);
 
-      tmp = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-      gcc_assert (tmp && INTEGER_CST_P (tmp));
-      hi = TREE_INT_CST_HIGH (tmp);
-      lo = TREE_INT_CST_LOW (tmp);
-      lo++;
-      if (lo == 0)
-	hi++;
+      wtmp = wi::to_offset (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) + 1;
       /* This will probably eat buckets of memory for large arrays.  */
-      while (hi != 0 || lo != 0)
+      while (wtmp != 0)
         {
 	  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, se.expr);
-          if (lo == 0)
-            hi--;
-          lo--;
+	  wtmp -= 1;
         }
       break;
 
@@ -6788,8 +6802,9 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 
       /* Set offset for assignments to pointer only to zero if it is not
          the full array.  */
-      if (se->direct_byref
-	  && info->ref && info->ref->u.ar.type != AR_FULL)
+      if ((se->direct_byref || se->use_offset)
+	  && ((info->ref && info->ref->u.ar.type != AR_FULL)
+	      || (expr->expr_type == EXPR_ARRAY && se->use_offset)))
 	base = gfc_index_zero_node;
       else if (GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
 	base = gfc_evaluate_now (gfc_conv_array_offset (desc), &loop.pre);
@@ -6874,13 +6889,13 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				    stride, info->stride[n]);
 
 	  if (se->direct_byref
-	      && info->ref
-	      && info->ref->u.ar.type != AR_FULL)
+	      && ((info->ref && info->ref->u.ar.type != AR_FULL)
+		  || (expr->expr_type == EXPR_ARRAY && se->use_offset)))
 	    {
 	      base = fold_build2_loc (input_location, MINUS_EXPR,
 				      TREE_TYPE (base), base, stride);
 	    }
-	  else if (GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
+	  else if (GFC_ARRAY_TYPE_P (TREE_TYPE (desc)) || se->use_offset)
 	    {
 	      tmp = gfc_conv_array_lbound (desc, n);
 	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
@@ -6916,8 +6931,9 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	gfc_get_dataptr_offset (&loop.pre, parm, desc, offset,
 				subref_array_target, expr);
 
-      if ((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
-	  && !se->data_not_needed)
+      if (((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
+	   && !se->data_not_needed)
+	  || (se->use_offset && base != NULL_TREE))
 	{
 	  /* Set the offset.  */
 	  gfc_conv_descriptor_offset_set (&loop.pre, parm, base);
@@ -7214,7 +7230,50 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
       else
 	{
 	  tmp = build_fold_indirect_ref_loc (input_location, desc);
-	  gfc_conv_descriptor_data_set (&se->pre, tmp, ptr);
+
+	  gfc_ss * ss = gfc_walk_expr (expr);
+	  if (!transposed_dims (ss))
+	    gfc_conv_descriptor_data_set (&se->pre, tmp, ptr);
+	  else
+	    {
+	      tree old_field, new_field;
+
+	      /* The original descriptor has transposed dims so we can't reuse
+		 it directly; we have to create a new one.  */
+	      tree old_desc = tmp;
+	      tree new_desc = gfc_create_var (TREE_TYPE (old_desc), "arg_desc");
+
+	      old_field = gfc_conv_descriptor_dtype (old_desc);
+	      new_field = gfc_conv_descriptor_dtype (new_desc);
+	      gfc_add_modify (&se->pre, new_field, old_field);
+
+	      old_field = gfc_conv_descriptor_offset (old_desc);
+	      new_field = gfc_conv_descriptor_offset (new_desc);
+	      gfc_add_modify (&se->pre, new_field, old_field);
+
+	      for (int i = 0; i < expr->rank; i++)
+		{
+		  old_field = gfc_conv_descriptor_dimension (old_desc,
+			gfc_rank_cst[get_array_ref_dim_for_loop_dim (ss, i)]);
+		  new_field = gfc_conv_descriptor_dimension (new_desc,
+			gfc_rank_cst[i]);
+		  gfc_add_modify (&se->pre, new_field, old_field);
+		}
+
+	      if (gfc_option.coarray == GFC_FCOARRAY_LIB
+		  && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (old_desc))
+		  && GFC_TYPE_ARRAY_AKIND (TREE_TYPE (old_desc))
+		     == GFC_ARRAY_ALLOCATABLE)
+		{
+		  old_field = gfc_conv_descriptor_token (old_desc);
+		  new_field = gfc_conv_descriptor_token (new_desc);
+		  gfc_add_modify (&se->pre, new_field, old_field);
+		}
+
+	      gfc_conv_descriptor_data_set (&se->pre, new_desc, ptr);
+	      se->expr = gfc_build_addr_expr (NULL_TREE, new_desc);
+	    }
+	  gfc_free_ss (ss);
 	}
 
       if (gfc_option.rtcheck & GFC_RTCHECK_ARRAY_TEMPS)
@@ -7325,8 +7384,8 @@ gfc_trans_dealloc_allocated (tree descriptor, bool coarray, gfc_expr *expr)
 
 /* This helper function calculates the size in words of a full array.  */
 
-static tree
-get_full_array_size (stmtblock_t *block, tree decl, int rank)
+tree
+gfc_full_array_size (stmtblock_t *block, tree decl, int rank)
 {
   tree idx;
   tree nelems;
@@ -7352,7 +7411,7 @@ get_full_array_size (stmtblock_t *block, tree decl, int rank)
 
 static tree
 duplicate_allocatable (tree dest, tree src, tree type, int rank,
-		       bool no_malloc)
+		       bool no_malloc, bool no_memcpy, tree str_sz)
 {
   tree tmp;
   tree size;
@@ -7373,7 +7432,11 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
       null_data = gfc_finish_block (&block);
 
       gfc_init_block (&block);
-      size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+      if (str_sz != NULL_TREE)
+	size = str_sz;
+      else
+	size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+
       if (!no_malloc)
 	{
 	  tmp = gfc_call_malloc (&block, type, size);
@@ -7382,9 +7445,13 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 	  gfc_add_expr_to_block (&block, tmp);
 	}
 
-      tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
-      tmp = build_call_expr_loc (input_location, tmp, 3, dest, src,
-				 fold_convert (size_type_node, size));
+      if (!no_memcpy)
+	{
+	  tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
+	  tmp = build_call_expr_loc (input_location, tmp, 3, dest, src,
+				     fold_convert (size_type_node, size));
+	  gfc_add_expr_to_block (&block, tmp);
+	}
     }
   else
     {
@@ -7393,12 +7460,15 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 
       gfc_init_block (&block);
       if (rank)
-	nelems = get_full_array_size (&block, src, rank);
+	nelems = gfc_full_array_size (&block, src, rank);
       else
 	nelems = gfc_index_one_node;
 
-      tmp = fold_convert (gfc_array_index_type,
-			  TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+      if (str_sz != NULL_TREE)
+	tmp = fold_convert (gfc_array_index_type, str_sz);
+      else
+	tmp = fold_convert (gfc_array_index_type,
+			    TYPE_SIZE_UNIT (gfc_get_element_type (type)));
       size = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
 			      nelems, tmp);
       if (!no_malloc)
@@ -7410,14 +7480,17 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 
       /* We know the temporary and the value will be the same length,
 	 so can use memcpy.  */
-      tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
-      tmp = build_call_expr_loc (input_location,
-			tmp, 3, gfc_conv_descriptor_data_get (dest),
-			gfc_conv_descriptor_data_get (src),
-			fold_convert (size_type_node, size));
+      if (!no_memcpy)
+	{
+	  tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
+	  tmp = build_call_expr_loc (input_location, tmp, 3,
+				     gfc_conv_descriptor_data_get (dest),
+				     gfc_conv_descriptor_data_get (src),
+				     fold_convert (size_type_node, size));
+	  gfc_add_expr_to_block (&block, tmp);
+	}
     }
 
-  gfc_add_expr_to_block (&block, tmp);
   tmp = gfc_finish_block (&block);
 
   /* Null the destination if the source is null; otherwise do
@@ -7439,7 +7512,8 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 tree
 gfc_duplicate_allocatable (tree dest, tree src, tree type, int rank)
 {
-  return duplicate_allocatable (dest, src, type, rank, false);
+  return duplicate_allocatable (dest, src, type, rank, false, false,
+				NULL_TREE);
 }
 
 
@@ -7448,7 +7522,16 @@ gfc_duplicate_allocatable (tree dest, tree src, tree type, int rank)
 tree
 gfc_copy_allocatable_data (tree dest, tree src, tree type, int rank)
 {
-  return duplicate_allocatable (dest, src, type, rank, true);
+  return duplicate_allocatable (dest, src, type, rank, true, false,
+				NULL_TREE);
+}
+
+/* Allocate dest to the same size as src, but don't copy anything.  */
+
+tree
+gfc_duplicate_allocatable_nocopy (tree dest, tree src, tree type, int rank)
+{
+  return duplicate_allocatable (dest, src, type, rank, false, true, NULL_TREE);
 }
 
 
@@ -7508,7 +7591,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	  /* Use the descriptor for an allocatable array.  Since this
 	     is a full array reference, we only need the descriptor
 	     information from dimension = rank.  */
-	  tmp = get_full_array_size (&fnblock, decl, rank);
+	  tmp = gfc_full_array_size (&fnblock, decl, rank);
 	  tmp = fold_build2_loc (input_location, MINUS_EXPR,
 				 gfc_array_index_type, tmp,
 				 gfc_index_one_node);
@@ -7705,6 +7788,16 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				     void_type_node, comp,
 				     build_int_cst (TREE_TYPE (comp), 0));
 	      gfc_add_expr_to_block (&fnblock, tmp);
+	      if (gfc_deferred_strlen (c, &comp))
+		{
+		  comp = fold_build3_loc (input_location, COMPONENT_REF,
+					  TREE_TYPE (comp),
+					  decl, comp, NULL_TREE);
+		  tmp = fold_build2_loc (input_location, MODIFY_EXPR,
+					 TREE_TYPE (comp), comp,
+					 build_int_cst (TREE_TYPE (comp), 0));
+		  gfc_add_expr_to_block (&fnblock, tmp);
+		}
 	    }
 	  else if (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.allocatable)
 	    {
@@ -7842,8 +7935,26 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      continue;
 	    }
 
-	  if (c->attr.allocatable && !c->attr.proc_pointer
-	      && !cmp_has_alloc_comps)
+	  if (gfc_deferred_strlen (c, &tmp))
+	    {
+	      tree len, size;
+	      len = tmp;
+	      tmp = fold_build3_loc (input_location, COMPONENT_REF,
+				     TREE_TYPE (len),
+				     decl, len, NULL_TREE);
+	      len = fold_build3_loc (input_location, COMPONENT_REF,
+				     TREE_TYPE (len),
+				     dest, len, NULL_TREE);
+	      tmp = fold_build2_loc (input_location, MODIFY_EXPR,
+				     TREE_TYPE (len), len, tmp);
+	      gfc_add_expr_to_block (&fnblock, tmp);
+	      size = size_of_string_in_bytes (c->ts.kind, len);
+	      tmp = duplicate_allocatable (dcmp, comp, ctype, rank,
+					   false, false, size);
+	      gfc_add_expr_to_block (&fnblock, tmp);
+	    }
+	  else if (c->attr.allocatable && !c->attr.proc_pointer
+		   && !cmp_has_alloc_comps)
 	    {
 	      rank = c->as ? c->as->rank : 0;
 	      if (c->attr.codimension)
@@ -8068,6 +8179,7 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   tree size1;
   tree size2;
   tree array1;
+  tree cond_null;
   tree cond;
   tree tmp;
   tree tmp2;
@@ -8143,9 +8255,9 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   jump_label2 = gfc_build_label_decl (NULL_TREE);
 
   /* Allocate if data is NULL.  */
-  cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
+  cond_null = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
 			 array1, build_int_cst (TREE_TYPE (array1), 0));
-  tmp = build3_v (COND_EXPR, cond,
+  tmp = build3_v (COND_EXPR, cond_null,
 		  build1_v (GOTO_EXPR, jump_label1),
 		  build_empty_stmt (input_location));
   gfc_add_expr_to_block (&fblock, tmp);
@@ -8197,13 +8309,25 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   tmp = build1_v (LABEL_EXPR, jump_label1);
   gfc_add_expr_to_block (&fblock, tmp);
 
-  size1 = gfc_conv_descriptor_size (desc, expr1->rank);
+  /* If the lhs has not been allocated, its bounds will not have been
+     initialized and so its size is set to zero.  */
+  size1 = gfc_create_var (gfc_array_index_type, NULL);
+  gfc_init_block (&alloc_block);
+  gfc_add_modify (&alloc_block, size1, gfc_index_zero_node);
+  gfc_init_block (&realloc_block);
+  gfc_add_modify (&realloc_block, size1,
+		  gfc_conv_descriptor_size (desc, expr1->rank));
+  tmp = build3_v (COND_EXPR, cond_null,
+		  gfc_finish_block (&alloc_block),
+		  gfc_finish_block (&realloc_block));
+  gfc_add_expr_to_block (&fblock, tmp);
 
-  /* Get the rhs size.  Fix both sizes.  */
+  /* Get the rhs size and fix it.  */
   if (expr2)
     desc2 = rss->info->data.array.descriptor;
   else
     desc2 = NULL_TREE;
+
   size2 = gfc_index_one_node;
   for (n = 0; n < expr2->rank; n++)
     {
@@ -8217,8 +8341,6 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
 			       gfc_array_index_type,
 			       tmp, size2);
     }
-
-  size1 = gfc_evaluate_now (size1, &fblock);
   size2 = gfc_evaluate_now (size2, &fblock);
 
   cond = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
@@ -8318,10 +8440,24 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   /* Get the new lhs size in bytes.  */
   if (expr1->ts.type == BT_CHARACTER && expr1->ts.deferred)
     {
-      tmp = expr2->ts.u.cl->backend_decl;
-      gcc_assert (expr1->ts.u.cl->backend_decl);
-      tmp = fold_convert (TREE_TYPE (expr1->ts.u.cl->backend_decl), tmp);
-      gfc_add_modify (&fblock, expr1->ts.u.cl->backend_decl, tmp);
+      if (expr2->ts.deferred)
+	{
+	  if (TREE_CODE (expr2->ts.u.cl->backend_decl) == VAR_DECL)
+	    tmp = expr2->ts.u.cl->backend_decl;
+	  else
+	    tmp = rss->info->string_length;
+	}
+      else
+	{
+	  tmp = expr2->ts.u.cl->backend_decl;
+	  tmp = fold_convert (TREE_TYPE (expr1->ts.u.cl->backend_decl), tmp);
+	}
+
+      if (expr1->ts.u.cl->backend_decl
+	  && TREE_CODE (expr1->ts.u.cl->backend_decl) == VAR_DECL)
+	gfc_add_modify (&fblock, expr1->ts.u.cl->backend_decl, tmp);
+      else
+	gfc_add_modify (&fblock, lss->info->string_length, tmp);
     }
   else if (expr1->ts.type == BT_CHARACTER && expr1->ts.u.cl->backend_decl)
     {

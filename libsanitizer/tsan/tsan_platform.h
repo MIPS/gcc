@@ -35,9 +35,9 @@ C++ COMPAT linux memory layout:
 Go linux and darwin memory layout:
 0000 0000 0000 - 0000 1000 0000: executable
 0000 1000 0000 - 00f8 0000 0000: -
-00f8 0000 0000 - 0118 0000 0000: heap
-0118 0000 0000 - 1000 0000 0000: -
-1000 0000 0000 - 1460 0000 0000: shadow
+00c0 0000 0000 - 00e0 0000 0000: heap
+00e0 0000 0000 - 1000 0000 0000: -
+1000 0000 0000 - 1380 0000 0000: shadow
 1460 0000 0000 - 6000 0000 0000: -
 6000 0000 0000 - 6200 0000 0000: traces
 6200 0000 0000 - 7fff ffff ffff: -
@@ -45,8 +45,8 @@ Go linux and darwin memory layout:
 Go windows memory layout:
 0000 0000 0000 - 0000 1000 0000: executable
 0000 1000 0000 - 00f8 0000 0000: -
-00f8 0000 0000 - 0118 0000 0000: heap
-0118 0000 0000 - 0100 0000 0000: -
+00c0 0000 0000 - 00e0 0000 0000: heap
+00e0 0000 0000 - 0100 0000 0000: -
 0100 0000 0000 - 0560 0000 0000: shadow
 0560 0000 0000 - 0760 0000 0000: traces
 0760 0000 0000 - 07ff ffff ffff: -
@@ -63,11 +63,11 @@ namespace __tsan {
 
 #if defined(TSAN_GO)
 static const uptr kLinuxAppMemBeg = 0x000000000000ULL;
-static const uptr kLinuxAppMemEnd = 0x00fcffffffffULL;
-# if defined(_WIN32)
+static const uptr kLinuxAppMemEnd = 0x04dfffffffffULL;
+# if SANITIZER_WINDOWS
 static const uptr kLinuxShadowMsk = 0x010000000000ULL;
 # else
-static const uptr kLinuxShadowMsk = 0x100000000000ULL;
+static const uptr kLinuxShadowMsk = 0x200000000000ULL;
 # endif
 // TSAN_COMPAT_SHADOW is intended for COMPAT virtual memory layout,
 // when memory addresses are of the 0x2axxxxxxxxxx form.
@@ -75,6 +75,8 @@ static const uptr kLinuxShadowMsk = 0x100000000000ULL;
 #elif defined(TSAN_COMPAT_SHADOW) && TSAN_COMPAT_SHADOW
 static const uptr kLinuxAppMemBeg = 0x290000000000ULL;
 static const uptr kLinuxAppMemEnd = 0x7fffffffffffULL;
+static const uptr kAppMemGapBeg   = 0x2c0000000000ULL;
+static const uptr kAppMemGapEnd   = 0x7d0000000000ULL;
 #else
 static const uptr kLinuxAppMemBeg = 0x7cf000000000ULL;
 static const uptr kLinuxAppMemEnd = 0x7fffffffffffULL;
@@ -82,7 +84,7 @@ static const uptr kLinuxAppMemEnd = 0x7fffffffffffULL;
 
 static const uptr kLinuxAppMemMsk = 0x7c0000000000ULL;
 
-#if defined(_WIN32)
+#if SANITIZER_WINDOWS
 const uptr kTraceMemBegin = 0x056000000000ULL;
 #else
 const uptr kTraceMemBegin = 0x600000000000ULL;
@@ -103,7 +105,12 @@ static const uptr kLinuxShadowEnd =
     MemToShadow(kLinuxAppMemEnd) | 0xff;
 
 static inline bool IsAppMem(uptr mem) {
+#if defined(TSAN_COMPAT_SHADOW) && TSAN_COMPAT_SHADOW
+  return (mem >= kLinuxAppMemBeg && mem < kAppMemGapBeg) ||
+         (mem >= kAppMemGapEnd   && mem <= kLinuxAppMemEnd);
+#else
   return mem >= kLinuxAppMemBeg && mem <= kLinuxAppMemEnd;
+#endif
 }
 
 static inline bool IsShadowMem(uptr mem) {
@@ -130,26 +137,43 @@ static inline uptr AlternativeAddress(uptr addr) {
 #endif
 }
 
-uptr GetShadowMemoryConsumption();
 void FlushShadowMemory();
+void WriteMemoryProfile(char *buf, uptr buf_size);
+uptr GetRSS();
 
 const char *InitializePlatform();
 void FinalizePlatform();
-uptr ALWAYS_INLINE INLINE GetThreadTrace(int tid) {
-  uptr p = kTraceMemBegin + (uptr)tid * kTraceSize * sizeof(Event);
+
+// The additional page is to catch shadow stack overflow as paging fault.
+// Windows wants 64K alignment for mmaps.
+const uptr kTotalTraceSize = (kTraceSize * sizeof(Event) + sizeof(Trace)
+    + (64 << 10) + (64 << 10) - 1) & ~((64 << 10) - 1);
+
+uptr ALWAYS_INLINE GetThreadTrace(int tid) {
+  uptr p = kTraceMemBegin + (uptr)tid * kTotalTraceSize;
   DCHECK_LT(p, kTraceMemBegin + kTraceMemSize);
   return p;
 }
 
-void internal_start_thread(void(*func)(void*), void *arg);
+uptr ALWAYS_INLINE GetThreadTraceHeader(int tid) {
+  uptr p = kTraceMemBegin + (uptr)tid * kTotalTraceSize
+      + kTraceSize * sizeof(Event);
+  DCHECK_LT(p, kTraceMemBegin + kTraceMemSize);
+  return p;
+}
+
+void *internal_start_thread(void(*func)(void*), void *arg);
+void internal_join_thread(void *th);
 
 // Says whether the addr relates to a global var.
 // Guesses with high probability, may yield both false positives and negatives.
 bool IsGlobalVar(uptr addr);
-uptr GetTlsSize();
-void GetThreadStackAndTls(bool main, uptr *stk_addr, uptr *stk_size,
-                          uptr *tls_addr, uptr *tls_size);
 int ExtractResolvFDs(void *state, int *fds, int nfd);
+int ExtractRecvmsgFDs(void *msg, int *fds, int nfd);
+
+int call_pthread_cancel_with_cleanup(int(*fn)(void *c, void *m,
+    void *abstime), void *c, void *m, void *abstime,
+    void(*cleanup)(void *arg), void *arg);
 
 }  // namespace __tsan
 

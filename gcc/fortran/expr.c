@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1955,7 +1955,7 @@ scalarize_intrinsic_call (gfc_expr *e)
   for (; a; a = a->next)
     {
       n++;
-      if (a->expr->expr_type != EXPR_ARRAY)
+      if (!a->expr || a->expr->expr_type != EXPR_ARRAY)
 	continue;
       array_arg = n;
       expr = gfc_copy_expr (a->expr);
@@ -2460,9 +2460,23 @@ gfc_check_init_expr (gfc_expr *e)
 
       {
 	gfc_intrinsic_sym* isym;
-	gfc_symbol* sym;
+	gfc_symbol* sym = e->symtree->n.sym;
 
-	sym = e->symtree->n.sym;
+	/* Special case for IEEE_SELECTED_REAL_KIND from the intrinsic
+	   module IEEE_ARITHMETIC, which is allowed in initialization
+	   expressions.  */
+	if (!strcmp(sym->name, "ieee_selected_real_kind")
+	    && sym->from_intmod == INTMOD_IEEE_ARITHMETIC)
+	  {
+	    gfc_expr *new_expr = gfc_simplify_ieee_selected_real_kind (e);
+	    if (new_expr)
+	      {
+		gfc_replace_expr (e, new_expr);
+		t = true;
+		break;
+	      }
+	  }
+
 	if (!gfc_is_intrinsic (sym, 0, e->where)
 	    || (m = gfc_intrinsic_func_interface (e, 0)) != MATCH_YES)
 	  {
@@ -3581,6 +3595,16 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  return false;
 	}
 
+      /* Check F2008Cor2, C729.  */
+      if (!s2->attr.intrinsic && s2->attr.if_source == IFSRC_UNKNOWN
+	  && !s2->attr.external && !s2->attr.subroutine && !s2->attr.function)
+	{
+	  gfc_error ("Procedure pointer target '%s' at %L must be either an "
+		     "intrinsic, host or use associated, referenced or have "
+		     "the EXTERNAL attribute", s2->name, &rvalue->where);
+	  return false;
+	}
+
       return true;
     }
 
@@ -3618,11 +3642,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       return false;
     }
 
-    /* Make sure the vtab is present.  */
-  if (lvalue->ts.type == BT_CLASS && rvalue->ts.type == BT_DERIVED)
-    gfc_find_derived_vtab (rvalue->ts.u.derived);
-  else if (UNLIMITED_POLY (lvalue) && !UNLIMITED_POLY (rvalue))
-    gfc_find_intrinsic_vtab (&rvalue->ts);
+  /* Make sure the vtab is present.  */
+  if (lvalue->ts.type == BT_CLASS && !UNLIMITED_POLY (rvalue))
+    gfc_find_vtab (&rvalue->ts);
 
   /* Check rank remapping.  */
   if (rank_remap)
@@ -3696,8 +3718,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
     }
 
   if (is_implicit_pure && gfc_impure_variable (rvalue->symtree->n.sym))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
-
+    gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   if (gfc_has_vector_index (rvalue))
     {
@@ -3964,9 +3985,10 @@ gfc_get_variable_expr (gfc_symtree *var)
   e->symtree = var;
   e->ts = var->n.sym->ts;
 
-  if ((var->n.sym->as != NULL && var->n.sym->ts.type != BT_CLASS)
-      || (var->n.sym->ts.type == BT_CLASS && CLASS_DATA (var->n.sym)
-	  && CLASS_DATA (var->n.sym)->as))
+  if (var->n.sym->attr.flavor != FL_PROCEDURE
+      && ((var->n.sym->as != NULL && var->n.sym->ts.type != BT_CLASS)
+	   || (var->n.sym->ts.type == BT_CLASS && CLASS_DATA (var->n.sym)
+	       && CLASS_DATA (var->n.sym)->as)))
     {
       e->rank = var->n.sym->ts.type == BT_CLASS
 		? CLASS_DATA (var->n.sym)->as->rank : var->n.sym->as->rank;
@@ -4948,10 +4970,11 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 			  en = n->expr;
 			  if (gfc_dep_compare_expr (ec, en) == 0)
 			    {
-			      gfc_error_now ("Elements with the same value at %L"
-					     " and %L in vector subscript"
-					     " in a variable definition"
-					     " context (%s)", &(ec->where),
+			      if (context)
+				gfc_error_now ("Elements with the same value at %L"
+					       " and %L in vector subscript"
+					       " in a variable definition"
+					       " context (%s)", &(ec->where),
 					     &(en->where), context);
 			      return false;
 			    }

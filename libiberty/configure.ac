@@ -236,6 +236,12 @@ if [[ "${shared}" != "yes" ]]; then
 fi
 AC_SUBST(PICFLAG)
 
+NOASANFLAG=
+case " ${CFLAGS} " in
+  *\ -fsanitize=address\ *) NOASANFLAG=-fno-sanitize=address ;;
+esac
+AC_SUBST(NOASANFLAG)
+
 echo "# Warning: this fragment is automatically generated" > temp-frag
 
 if [[ -n "${frag}" ]] && [[ -f "${frag}" ]]; then
@@ -411,7 +417,6 @@ fi
 
 setobjs=
 CHECK=
-target_header_dir=
 if test -n "${with_target_subdir}"; then
 
   # We are being configured as a target library.  AC_REPLACE_FUNCS

@@ -10,6 +10,8 @@
 #include "cgraph.h"
 #include "toplev.h"
 #include "tree-iterator.h"
+#include "gimple-expr.h"
+#include "tree-ssa-alias.h"
 #include "gimple.h"
 #include "gimple-pretty-print.h"
 #include "timevar.h"
@@ -18,6 +20,10 @@
 #include "tree-cfg.h"
 #include "target.h"
 #include "convert.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "print-tree.h"
+#include "gimplify.h"
 
 #include <pthread.h>
 
@@ -2935,7 +2941,7 @@ new_rvalue_from_int (type *type,
   else
     {
       REAL_VALUE_TYPE real_value;
-      real_from_integer (&real_value, VOIDmode, value, 0, 0);
+      real_from_integer (&real_value, VOIDmode, value, SIGNED);
       tree inner = build_real (inner_type, real_value);
       return new rvalue (this, inner);
     }
@@ -3475,7 +3481,7 @@ void *
 playback::wrapper::
 operator new (size_t sz)
 {
-  return ggc_internal_cleared_alloc_stat (sz MEM_STAT_INFO);
+  return ggc_internal_cleared_alloc (sz MEM_STAT_INFO);
 }
 
 playback::function::
@@ -3623,7 +3629,7 @@ postprocess ()
 
       //printf("about to add to cgraph\n");
       /* Add to cgraph: */
-      cgraph_finalize_function (m_inner_fndecl, false);
+      cgraph_node::finalize_function (m_inner_fndecl, false);
       /* This can trigger a collection, so we need to have all of
 	 the funcs as roots.  */
 
@@ -3683,7 +3689,7 @@ add_comment (location *loc,
      + strlen (text)
      + 3 /* closing delim */
      + 1 /* terminator */);
-  char *wrapped = (char *)ggc_internal_alloc_stat (sz);
+  char *wrapped = (char *)ggc_internal_alloc (sz);
   snprintf (wrapped, sz, "/* %s */", text);
 
   /* For now we simply implement this by adding a dummy label with a name

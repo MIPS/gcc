@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -121,9 +121,8 @@ begin
    Write_Eol;
 
    --  Individual lines for switches. Write_Switch_Char outputs fourteen
-   --  characters, so the remaining message is allowed to be a maximum
-   --  of 65 characters to be comfortable on an 80 character device.
-   --  If the Write_Str fits on one line, it is short enough!
+   --  characters, so the remaining message is allowed to be a maximum of
+   --  65 characters to be comfortable in an 80 character window.
 
    --  Line for -gnata switch
 
@@ -153,7 +152,7 @@ begin
    --  Line for -gnatC switch
 
    Write_Switch_Char ("C");
-   Write_Line ("Generate CodePeer information (no code generation)");
+   Write_Line ("Generate CodePeer intermediate format (no code generation)");
 
    --  Line for -gnatd switch
 
@@ -178,6 +177,11 @@ begin
 
    Write_Switch_Char ("ec=?");
    Write_Line ("Specify configuration pragmas file, e.g. -gnatec=/x/f.adc");
+
+   --  Line for -gnateC switch
+
+   Write_Switch_Char ("eC");
+   Write_Line ("Generate CodePeer messages (ignored without -gnatcC)");
 
    --  Line for -gnated switch
 
@@ -212,12 +216,22 @@ begin
    --  Line for -gnatei switch
 
    Write_Switch_Char ("einn");
-   Write_Line ("Set maximumum number of instantiations to nn");
+   Write_Line ("Set maximum number of instantiations to nn");
 
    --  Line for -gnateI switch
 
    Write_Switch_Char ("eInn");
    Write_Line ("Index in multi-unit source, e.g. -gnateI2");
+
+   --  Line for -gnatel switch
+
+   Write_Switch_Char ("el");
+   Write_Line ("Turn on info messages on generated Elaborate[_All] pragmas");
+
+   --  Line for -gnateL switch
+
+   Write_Switch_Char ("eL");
+   Write_Line ("Turn off info messages on generated Elaborate[_All] pragmas");
 
    --  Line for -gnatem switch
 
@@ -235,6 +249,8 @@ begin
 
    Write_Switch_Char ("eP");
    Write_Line ("Pure/Prelaborate errors generate warnings rather than errors");
+
+   --  No line for -gnates=? : internal switch
 
    --  Line for -gnateS switch
 
@@ -478,16 +494,8 @@ begin
    Write_Line ("        .C*  turn off warnings for unrepped components");
    Write_Line ("        d    turn on warnings for implicit dereference");
    Write_Line ("        D*   turn off warnings for implicit dereference");
-
-   --  Switches -gnatw.d/w.D not available on VMS
-
-   if not OpenVMS_On_Target then
-      Write_Line
-        ("        .d   turn on tagging of warnings with -gnatw switch");
-      Write_Line
-        ("        .D*  turn off tagging of warnings with -gnatw switch");
-   end if;
-
+   Write_Line ("        .d   turn on tagging of warnings with -gnatw switch");
+   Write_Line ("        .D*  turn off tagging of warnings with -gnatw switch");
    Write_Line ("        e    treat all warnings (but not info) as errors");
    Write_Line ("        .e   turn on every optional info/warning " &
                                                   "(no exceptions)");
@@ -495,6 +503,7 @@ begin
    Write_Line ("        F*   turn off warnings for unreferenced formal");
    Write_Line ("        g*+  turn on warnings for unrecognized pragma");
    Write_Line ("        G    turn off warnings for unrecognized pragma");
+   Write_Line ("        .g   turn on GNAT warnings");
    Write_Line ("        h    turn on warnings for hiding declarations");
    Write_Line ("        H*   turn off warnings for hiding declarations");
    Write_Line ("        .h   turn on warnings for holes in records");
@@ -511,17 +520,15 @@ begin
    Write_Line ("        K*   turn off warnings on constant variable");
    Write_Line ("        .k   turn on warnings for standard redefinition");
    Write_Line ("        .K*  turn off warnings for standard redefinition");
-   Write_Line ("        l    turn on warnings for missing " &
-                                                  "elaboration pragma");
-   Write_Line ("        L*   turn off warnings for missing " &
-                                                  "elaboration pragma");
+   Write_Line ("        l    turn on warnings for elaboration problems");
+   Write_Line ("        L*   turn off warnings for elaboration problems");
    Write_Line ("        .l   turn on info messages for inherited aspects");
    Write_Line ("        .L*  turn off info messages for inherited aspects");
    Write_Line ("        m+   turn on warnings for variable assigned " &
                                                   "but not read");
    Write_Line ("        M*   turn off warnings for variable assigned " &
                                                   "but not read");
-   Write_Line ("        .m*  turn on warnings for suspicious modulus value");
+   Write_Line ("        .m*+ turn on warnings for suspicious modulus value");
    Write_Line ("        .M   turn off warnings for suspicious modulus value");
    Write_Line ("        n*   normal warning mode (cancels -gnatws/-gnatwe)");
    Write_Line ("        .n   turn on info messages for atomic " &
@@ -582,6 +589,10 @@ begin
                                                   "unchecked conversion");
    Write_Line ("        Z    turn off warnings for suspicious " &
                                                   "unchecked conversion");
+   Write_Line ("        .z*+ turn on warnings for record size not a " &
+                                                  "multiple of alignment");
+   Write_Line ("        .Z   turn off warnings for record size not a " &
+                                                  "multiple of alignment");
 
    --  Line for -gnatW switch
 
@@ -626,7 +637,7 @@ begin
    Write_Line ("        d    check no DOS line terminators");
    Write_Line ("        e    check end/exit labels present");
    Write_Line ("        f    check no form feeds/vertical tabs in source");
-   Write_Line ("        g    check standard GNAT style rules");
+   Write_Line ("        g    check standard GNAT style rules, same as ydISux");
    Write_Line ("        h    check no horizontal tabs in source");
    Write_Line ("        i    check if-then layout");
    Write_Line ("        I    check mode in");

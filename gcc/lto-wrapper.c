@@ -1,5 +1,5 @@
 /* Wrapper to call lto.  Used by collect2 and the linker plugin.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
    Factored out of collect2 by Rafael Espindola <espindola@google.com>
 
@@ -46,16 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "options.h"
 #include "simple-object.h"
-
-/* From lto-streamer.h which we cannot include with -fkeep-inline-functions.
-   ???  Split out a lto-streamer-core.h.  */
-
-#define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
-
-/* End of lto-streamer.h copy.  */
-
-int debug;				/* true if -save-temps.  */
-int verbose;				/* true if -v.  */
+#include "lto-section-names.h"
+#include "collect-utils.h"
 
 enum lto_mode_d {
   LTO_MODE_NONE,			/* Not doing LTO.  */
@@ -68,223 +60,53 @@ static enum lto_mode_d lto_mode = LTO_MODE_NONE;
 
 static char *ltrans_output_file;
 static char *flto_out;
-static char *args_name;
 static unsigned int nr;
 static char **input_names;
 static char **output_names;
 static char *makefile;
 
-static void maybe_unlink_file (const char *);
+const char tool_name[] = "lto-wrapper";
 
- /* Delete tempfiles.  */
+/* Delete tempfiles.  Called from utils_cleanup.  */
+
+void
+tool_cleanup (bool)
+{
+  unsigned int i;
+
+  if (ltrans_output_file)
+    maybe_unlink (ltrans_output_file);
+  if (flto_out)
+    maybe_unlink (flto_out);
+  if (makefile)
+    maybe_unlink (makefile);
+  for (i = 0; i < nr; ++i)
+    {
+      maybe_unlink (input_names[i]);
+      if (output_names[i])
+	maybe_unlink (output_names[i]);
+    }
+}
 
 static void
 lto_wrapper_cleanup (void)
 {
-  static bool cleanup_done = false;
-  unsigned int i;
-
-  if (cleanup_done)
-    return;
-
-  /* Setting cleanup_done prevents an infinite loop if one of the
-     calls to maybe_unlink_file fails. */
-  cleanup_done = true;
-
-  if (ltrans_output_file)
-    maybe_unlink_file (ltrans_output_file);
-  if (flto_out)
-    maybe_unlink_file (flto_out);
-  if (args_name)
-    maybe_unlink_file (args_name);
-  if (makefile)
-    maybe_unlink_file (makefile);
-  for (i = 0; i < nr; ++i)
-    {
-      maybe_unlink_file (input_names[i]);
-      if (output_names[i])
-	maybe_unlink_file (output_names[i]);
-    }
+  utils_cleanup (false);
 }
-
-static void
-fatal_signal (int signum)
-{
-  signal (signum, SIG_DFL);
-  lto_wrapper_cleanup ();
-  /* Get the same signal again, this time not handled,
-     so its normal effect occurs.  */
-  kill (getpid (), signum);
-}
-
-/* Just die. CMSGID is the error message. */
-
-static void __attribute__ ((format (printf, 1, 2)))
-fatal (const char * cmsgid, ...)
-{
-  va_list ap;
-
-  va_start (ap, cmsgid);
-  fprintf (stderr, "lto-wrapper: ");
-  vfprintf (stderr, _(cmsgid), ap);
-  fprintf (stderr, "\n");
-  va_end (ap);
-
-  lto_wrapper_cleanup ();
-  exit (FATAL_EXIT_CODE);
-}
-
-
-/* Die when sys call fails. CMSGID is the error message.  */
-
-static void __attribute__ ((format (printf, 1, 2)))
-fatal_perror (const char *cmsgid, ...)
-{
-  int e = errno;
-  va_list ap;
-
-  va_start (ap, cmsgid);
-  fprintf (stderr, "lto-wrapper: ");
-  vfprintf (stderr, _(cmsgid), ap);
-  fprintf (stderr, ": %s\n", xstrerror (e));
-  va_end (ap);
-
-  lto_wrapper_cleanup ();
-  exit (FATAL_EXIT_CODE);
-}
-
-
-/* Execute a program, and wait for the reply. ARGV are the arguments. The
-   last one must be NULL. */
-
-static struct pex_obj *
-collect_execute (char **argv)
-{
-  struct pex_obj *pex;
-  const char *errmsg;
-  int err;
-
-  if (verbose)
-    {
-      char **p_argv;
-      const char *str;
-
-      for (p_argv = argv; (str = *p_argv) != (char *) 0; p_argv++)
-	fprintf (stderr, " %s", str);
-
-      fprintf (stderr, "\n");
-    }
-
-  fflush (stdout);
-  fflush (stderr);
-
-  pex = pex_init (0, "lto-wrapper", NULL);
-  if (pex == NULL)
-    fatal_perror ("pex_init failed");
-
-  /* Do not use PEX_LAST here, we use our stdout for communicating with
-     collect2 or the linker-plugin.  Any output from the sub-process
-     will confuse that.  */
-  errmsg = pex_run (pex, PEX_SEARCH, argv[0], argv, NULL,
-		    NULL, &err);
-  if (errmsg != NULL)
-    {
-      if (err != 0)
-	{
-	  errno = err;
-	  fatal_perror (errmsg);
-	}
-      else
-	fatal (errmsg);
-    }
-
-  return pex;
-}
-
-
-/* Wait for a process to finish, and exit if a nonzero status is found.
-   PROG is the program name. PEX is the process we should wait for. */
-
-static int
-collect_wait (const char *prog, struct pex_obj *pex)
-{
-  int status;
-
-  if (!pex_get_status (pex, 1, &status))
-    fatal_perror ("can't get program status");
-  pex_free (pex);
-
-  if (status)
-    {
-      if (WIFSIGNALED (status))
-	{
-	  int sig = WTERMSIG (status);
-	  if (WCOREDUMP (status))
-	    fatal ("%s terminated with signal %d [%s], core dumped",
-		   prog, sig, strsignal (sig));
-	  else
-	    fatal ("%s terminated with signal %d [%s]",
-		   prog, sig, strsignal (sig));
-	}
-
-      if (WIFEXITED (status))
-	fatal ("%s returned %d exit status", prog, WEXITSTATUS (status));
-    }
-
-  return 0;
-}
-
 
 /* Unlink a temporary LTRANS file unless requested otherwise.  */
 
-static void
-maybe_unlink_file (const char *file)
+void
+maybe_unlink (const char *file)
 {
-  if (! debug)
+  if (!save_temps)
     {
       if (unlink_if_ordinary (file)
 	  && errno != ENOENT)
-	fatal_perror ("deleting LTRANS file %s", file);
+	fatal_error ("deleting LTRANS file %s: %m", file);
     }
-  else
+  else if (verbose)
     fprintf (stderr, "[Leaving LTRANS %s]\n", file);
-}
-
-
-/* Execute program ARGV[0] with arguments ARGV. Wait for it to finish.  */
-
-static void
-fork_execute (char **argv)
-{
-  struct pex_obj *pex;
-  char *new_argv[3];
-  char *at_args;
-  FILE *args;
-  int status;
-
-  args_name = make_temp_file (".args");
-  at_args = concat ("@", args_name, NULL);
-  args = fopen (args_name, "w");
-  if (args == NULL)
-    fatal ("failed to open %s", args_name);
-
-  status = writeargv (&argv[1], args);
-
-  if (status)
-    fatal ("could not write to temporary file %s",  args_name);
-
-  fclose (args);
-
-  new_argv[0] = argv[0];
-  new_argv[1] = at_args;
-  new_argv[2] = NULL;
-
-  pex = collect_execute (new_argv);
-  collect_wait (new_argv[0], pex);
-
-  maybe_unlink_file (args_name);
-  args_name = NULL;
-  free (at_args);
 }
 
 /* Template of LTRANS dumpbase suffix.  */
@@ -318,7 +140,7 @@ get_options_from_collect_gcc_options (const char *collect_gcc,
 	  do
 	    {
 	      if (argv_storage[j] == '\0')
-		fatal ("malformed COLLECT_GCC_OPTIONS");
+		fatal_error ("malformed COLLECT_GCC_OPTIONS");
 	      else if (strncmp (&argv_storage[j], "'\\''", 4) == 0)
 		{
 		  argv_storage[k++] = '\'';
@@ -406,9 +228,11 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	  /* Fallthru.  */
 	case OPT_fPIC:
 	case OPT_fpic:
+	case OPT_fPIE:
 	case OPT_fpie:
 	case OPT_fcommon:
 	case OPT_fexceptions:
+	case OPT_fnon_call_exceptions:
 	case OPT_fgnu_tm:
 	  /* Do what the old LTO code did - collect exactly one option
 	     setting per OPT code, we pick the first we encounter.
@@ -421,14 +245,114 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	    append_option (decoded_options, decoded_options_count, foption);
 	  break;
 
-	case OPT_freg_struct_return:
-	case OPT_fpcc_struct_return:
+	case OPT_ftrapv:
+	case OPT_fstrict_overflow:
+	case OPT_ffp_contract_:
+	  /* For selected options we can merge conservatively.  */
 	  for (j = 0; j < *decoded_options_count; ++j)
 	    if ((*decoded_options)[j].opt_index == foption->opt_index)
 	      break;
 	  if (j == *decoded_options_count)
-	    fatal ("Option %s not used consistently in all LTO input files",
-		   foption->orig_option_with_args_text);
+	    append_option (decoded_options, decoded_options_count, foption);
+	  /* FP_CONTRACT_OFF < FP_CONTRACT_ON < FP_CONTRACT_FAST,
+	     -fno-trapv < -ftrapv,
+	     -fno-strict-overflow < -fstrict-overflow  */
+	  else if (foption->value < (*decoded_options)[j].value)
+	    (*decoded_options)[j] = *foption;
+	  break;
+
+	case OPT_fwrapv:
+	  /* For selected options we can merge conservatively.  */
+	  for (j = 0; j < *decoded_options_count; ++j)
+	    if ((*decoded_options)[j].opt_index == foption->opt_index)
+	      break;
+	  if (j == *decoded_options_count)
+	    append_option (decoded_options, decoded_options_count, foption);
+	  /* -fwrapv > -fno-wrapv.  */
+	  else if (foption->value > (*decoded_options)[j].value)
+	    (*decoded_options)[j] = *foption;
+	  break;
+
+	case OPT_freg_struct_return:
+	case OPT_fpcc_struct_return:
+	case OPT_fshort_double:
+	  for (j = 0; j < *decoded_options_count; ++j)
+	    if ((*decoded_options)[j].opt_index == foption->opt_index)
+	      break;
+	  if (j == *decoded_options_count)
+	    fatal_error ("Option %s not used consistently in all LTO input"
+			 " files", foption->orig_option_with_args_text);
+	  break;
+
+	case OPT_O:
+	case OPT_Ofast:
+	case OPT_Og:
+	case OPT_Os:
+	  for (j = 0; j < *decoded_options_count; ++j)
+	    if ((*decoded_options)[j].opt_index == OPT_O
+		|| (*decoded_options)[j].opt_index == OPT_Ofast
+		|| (*decoded_options)[j].opt_index == OPT_Og
+		|| (*decoded_options)[j].opt_index == OPT_Os)
+	      break;
+	  if (j == *decoded_options_count)
+	    append_option (decoded_options, decoded_options_count, foption);
+	  else if ((*decoded_options)[j].opt_index == foption->opt_index
+		   && foption->opt_index != OPT_O)
+	    /* Exact same options get merged.  */
+	    ;
+	  else
+	    {
+	      /* For mismatched option kinds preserve the optimization
+	         level only, thus merge it as -On.  This also handles
+		 merging of same optimization level -On.  */
+	      int level = 0;
+	      switch (foption->opt_index)
+		{
+		case OPT_O:
+		  if (foption->arg[0] == '\0')
+		    level = MAX (level, 1);
+		  else
+		    level = MAX (level, atoi (foption->arg));
+		  break;
+		case OPT_Ofast:
+		  level = MAX (level, 3);
+		  break;
+		case OPT_Og:
+		  level = MAX (level, 1);
+		  break;
+		case OPT_Os:
+		  level = MAX (level, 2);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      switch ((*decoded_options)[j].opt_index)
+		{
+		case OPT_O:
+		  if ((*decoded_options)[j].arg[0] == '\0')
+		    level = MAX (level, 1);
+		  else
+		    level = MAX (level, atoi ((*decoded_options)[j].arg));
+		  break;
+		case OPT_Ofast:
+		  level = MAX (level, 3);
+		  break;
+		case OPT_Og:
+		  level = MAX (level, 1);
+		  break;
+		case OPT_Os:
+		  level = MAX (level, 2);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      (*decoded_options)[j].opt_index = OPT_O;
+	      char *tem;
+	      asprintf (&tem, "-O%d", level);
+	      (*decoded_options)[j].arg = &tem[2];
+	      (*decoded_options)[j].canonical_option[0] = tem;
+	      (*decoded_options)[j].value = 1;
+	    }
 	  break;
 	}
     }
@@ -458,10 +382,10 @@ run_gcc (unsigned argc, char *argv[])
   /* Get the driver and options.  */
   collect_gcc = getenv ("COLLECT_GCC");
   if (!collect_gcc)
-    fatal ("environment variable COLLECT_GCC must be set");
+    fatal_error ("environment variable COLLECT_GCC must be set");
   collect_gcc_options = getenv ("COLLECT_GCC_OPTIONS");
   if (!collect_gcc_options)
-    fatal ("environment variable COLLECT_GCC_OPTIONS must be set");
+    fatal_error ("environment variable COLLECT_GCC_OPTIONS must be set");
   get_options_from_collect_gcc_options (collect_gcc, collect_gcc_options,
 					CL_LANG_ALL,
 					&decoded_options,
@@ -555,9 +479,7 @@ run_gcc (unsigned argc, char *argv[])
 	  /* Drop arguments that we want to take from the link line.  */
 	  case OPT_flto_:
 	  case OPT_flto:
-	  case OPT_flto_partition_none:
-	  case OPT_flto_partition_1to1:
-	  case OPT_flto_partition_balanced:
+	  case OPT_flto_partition_:
 	      continue;
 
 	  default:
@@ -570,12 +492,23 @@ run_gcc (unsigned argc, char *argv[])
 	{
 	case OPT_fPIC:
 	case OPT_fpic:
+	case OPT_fPIE:
 	case OPT_fpie:
 	case OPT_fcommon:
 	case OPT_fexceptions:
+	case OPT_fnon_call_exceptions:
 	case OPT_fgnu_tm:
 	case OPT_freg_struct_return:
 	case OPT_fpcc_struct_return:
+	case OPT_fshort_double:
+	case OPT_ffp_contract_:
+	case OPT_fwrapv:
+	case OPT_ftrapv:
+	case OPT_fstrict_overflow:
+	case OPT_O:
+	case OPT_Ofast:
+	case OPT_Og:
+	case OPT_Os:
 	  break;
 
 	default:
@@ -607,15 +540,16 @@ run_gcc (unsigned argc, char *argv[])
 	  continue;
 
 	case OPT_save_temps:
-	  debug = 1;
+	  save_temps = 1;
 	  break;
 
 	case OPT_v:
 	  verbose = 1;
 	  break;
 
-	case OPT_flto_partition_none:
-	  no_partition = true;
+	case OPT_flto_partition_:
+	  if (strcmp (option->arg, "none") == 0)
+	    no_partition = true;
 	  break;
 
 	case OPT_flto_:
@@ -639,6 +573,7 @@ run_gcc (unsigned argc, char *argv[])
 
 	case OPT_freg_struct_return:
 	case OPT_fpcc_struct_return:
+	case OPT_fshort_double:
 	  /* Ignore these, they are determined by the input files.
 	     ???  We fail to diagnose a possible mismatch here.  */
 	  continue;
@@ -712,7 +647,7 @@ run_gcc (unsigned argc, char *argv[])
 	  obstack_ptr_grow (&argv_obstack, dumpbase);
 	}
 
-      if (linker_output && debug)
+      if (linker_output && save_temps)
 	{
 	  ltrans_output_file = (char *) xmalloc (strlen (linker_output)
 						 + sizeof (".ltrans.out") + 1);
@@ -730,7 +665,16 @@ run_gcc (unsigned argc, char *argv[])
       tmp += list_option_len;
       strcpy (tmp, ltrans_output_file);
 
-      obstack_ptr_grow (&argv_obstack, "-fwpa");
+      if (jobserver)
+	obstack_ptr_grow (&argv_obstack, xstrdup ("-fwpa=jobserver"));
+      else if (parallel > 1)
+	{
+	  char buf[256];
+	  sprintf (buf, "-fwpa=%i", parallel);
+	  obstack_ptr_grow (&argv_obstack, xstrdup (buf));
+	}
+      else
+        obstack_ptr_grow (&argv_obstack, "-fwpa");
     }
 
   /* Append the input objects and possible preceding arguments.  */
@@ -740,7 +684,7 @@ run_gcc (unsigned argc, char *argv[])
 
   new_argv = XOBFINISH (&argv_obstack, const char **);
   argv_ptr = &new_argv[new_head_argc];
-  fork_execute (CONST_CAST (char **, new_argv));
+  fork_execute (new_argv[0], CONST_CAST (char **, new_argv), true);
 
   if (lto_mode == LTO_MODE_LTO)
     {
@@ -755,7 +699,7 @@ run_gcc (unsigned argc, char *argv[])
       struct obstack env_obstack;
 
       if (!stream)
-	fatal_perror ("fopen: %s", ltrans_output_file);
+	fatal_error ("fopen: %s: %m", ltrans_output_file);
 
       /* Parse the list of LTRANS inputs from the WPA stage.  */
       obstack_init (&env_obstack);
@@ -790,7 +734,7 @@ cont:
 	  output_names[nr-1] = output_name;
 	}
       fclose (stream);
-      maybe_unlink_file (ltrans_output_file);
+      maybe_unlink (ltrans_output_file);
       ltrans_output_file = NULL;
 
       if (parallel)
@@ -841,15 +785,16 @@ cont:
 	      /* If we are not preserving the ltrans input files then
 	         truncate them as soon as we have processed it.  This
 		 reduces temporary disk-space usage.  */
-	      if (! debug)
+	      if (! save_temps)
 		fprintf (mstream, "\t@-touch -r %s %s.tem > /dev/null 2>&1 "
 			 "&& mv %s.tem %s\n",
 			 input_name, input_name, input_name, input_name); 
 	    }
 	  else
 	    {
-	      fork_execute (CONST_CAST (char **, new_argv));
-	      maybe_unlink_file (input_name);
+	      fork_execute (new_argv[0], CONST_CAST (char **, new_argv),
+			    true);
+	      maybe_unlink (input_name);
 	    }
 
 	  output_names[i] = output_name;
@@ -884,12 +829,13 @@ cont:
 	    }
 	  new_argv[i++] = "all";
 	  new_argv[i++] = NULL;
-	  pex = collect_execute (CONST_CAST (char **, new_argv));
-	  collect_wait (new_argv[0], pex);
-	  maybe_unlink_file (makefile);
+	  pex = collect_execute (new_argv[0], CONST_CAST (char **, new_argv),
+				 NULL, NULL, PEX_SEARCH, false);
+	  do_wait (new_argv[0], pex);
+	  maybe_unlink (makefile);
 	  makefile = NULL;
 	  for (i = 0; i < nr; ++i)
-	    maybe_unlink_file (input_names[i]);
+	    maybe_unlink (input_names[i]);
 	}
       for (i = 0; i < nr; ++i)
 	{
@@ -923,6 +869,9 @@ main (int argc, char *argv[])
   progname = p;
 
   xmalloc_set_program_name (progname);
+
+  if (atexit (lto_wrapper_cleanup) != 0)
+    fatal_error ("atexit failed");
 
   gcc_init_libintl ();
 

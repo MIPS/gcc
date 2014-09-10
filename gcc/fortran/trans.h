@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GFC_TRANS_H
 #define GFC_TRANS_H
+
+#include "predict.h"  /* For enum br_predictor and PRED_*.  */
 
 /* Mangled symbols take the form __module__name.  */
 #define GFC_MAX_MANGLED_SYMBOL_LEN  (GFC_MAX_SYMBOL_LEN*2+4)
@@ -85,6 +87,10 @@ typedef struct gfc_se
      args alias.  */
   unsigned force_tmp:1;
 
+  /* Unconditionally calculate offset for array segments and constant
+     arrays in gfc_conv_expr_descriptor.  */
+  unsigned use_offset:1;
+
   unsigned want_coarray:1;
 
   /* Scalarization parameters.  */
@@ -97,12 +103,13 @@ gfc_se;
 
 /* Denotes different types of coarray.
    Please keep in sync with libgfortran/caf/libcaf.h.  */
-typedef enum 
+typedef enum
 {
   GFC_CAF_COARRAY_STATIC,
   GFC_CAF_COARRAY_ALLOC,
-  GFC_CAF_LOCK,
-  GFC_CAF_LOCK_COMP
+  GFC_CAF_LOCK_STATIC,
+  GFC_CAF_LOCK_ALLOC,
+  GFC_CAF_CRITICAL
 }
 gfc_coarray_type;
 
@@ -176,7 +183,7 @@ typedef enum
   /* An intrinsic function call.  Many intrinsic functions which map directly
      to library calls are created as GFC_SS_FUNCTION nodes.  */
   GFC_SS_INTRINSIC,
-  
+
   /* A component of a derived type.  */
   GFC_SS_COMPONENT
 }
@@ -412,6 +419,9 @@ tree gfc_conv_scalar_to_descriptor (gfc_se *, tree, symbol_attribute);
 /* trans-expr.c */
 void gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr);
 tree gfc_string_to_single_character (tree len, tree str, int kind);
+tree gfc_get_tree_for_caf_expr (gfc_expr *);
+void gfc_get_caf_token_offset (tree *, tree *, tree, tree, gfc_expr *);
+tree gfc_caf_get_image_index (stmtblock_t *, gfc_expr *, tree);
 
 /* Find the decl containing the auxiliary variables for assigned variables.  */
 void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
@@ -421,6 +431,8 @@ tree gfc_evaluate_now (tree, stmtblock_t *);
 
 /* Find the appropriate variant of a math intrinsic.  */
 tree gfc_builtin_decl_for_float_kind (enum built_in_function, int);
+
+tree size_of_string_in_bytes (int, tree);
 
 /* Intrinsic procedure handling.  */
 tree gfc_conv_intrinsic_subroutine (gfc_code *);
@@ -539,6 +551,9 @@ void gfc_set_decl_assembler_name (tree, tree);
 /* Returns true if a variable of specified size should go on the stack.  */
 int gfc_can_put_var_on_stack (tree);
 
+/* Set GFC_DECL_SCALAR_* on decl from sym if needed.  */
+void gfc_finish_decl_attrs (tree, symbol_attribute *);
+
 /* Allocate the lang-specific part of a decl node.  */
 void gfc_allocate_lang_decl (tree);
 
@@ -578,8 +593,11 @@ void gfc_generate_constructors (void);
 bool get_array_ctor_strlen (stmtblock_t *, gfc_constructor_base, tree *);
 
 /* Mark a condition as likely or unlikely.  */
-tree gfc_likely (tree);
-tree gfc_unlikely (tree);
+tree gfc_likely (tree, enum br_predictor);
+tree gfc_unlikely (tree, enum br_predictor);
+
+/* Return the string length of a deferred character length component.  */
+bool gfc_deferred_strlen (gfc_component *, tree *);
 
 /* Generate a runtime error call.  */
 tree gfc_trans_runtime_error (bool, locus*, const char*, ...);
@@ -625,7 +643,6 @@ tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
 /* Initialize function decls for library functions.  */
 void gfc_build_intrinsic_lib_fndecls (void);
 /* Create function decls for IO library functions.  */
-void gfc_trans_io_runtime_check (tree, tree, int, const char *, stmtblock_t *);
 void gfc_build_io_library_fndecls (void);
 /* Build a function decl for a library function.  */
 tree gfc_build_library_function_decl (tree, tree, int, ...);
@@ -656,7 +673,9 @@ tree gfc_omp_report_decl (tree);
 tree gfc_omp_clause_default_ctor (tree, tree, tree);
 tree gfc_omp_clause_copy_ctor (tree, tree, tree);
 tree gfc_omp_clause_assign_op (tree, tree, tree);
+tree gfc_omp_clause_linear_ctor (tree, tree, tree, tree);
 tree gfc_omp_clause_dtor (tree, tree);
+void gfc_omp_finish_clause (tree, gimple_seq *);
 bool gfc_omp_disregard_value_expr (tree, bool);
 bool gfc_omp_private_debug_clause (tree, bool);
 bool gfc_omp_private_outer_ref (tree);
@@ -684,23 +703,33 @@ extern GTY(()) tree gfor_fndecl_fdate;
 extern GTY(()) tree gfor_fndecl_in_pack;
 extern GTY(()) tree gfor_fndecl_in_unpack;
 extern GTY(()) tree gfor_fndecl_associated;
+extern GTY(()) tree gfor_fndecl_system_clock4;
+extern GTY(()) tree gfor_fndecl_system_clock8;
 
 
 /* Coarray run-time library function decls.  */
 extern GTY(()) tree gfor_fndecl_caf_init;
 extern GTY(()) tree gfor_fndecl_caf_finalize;
+extern GTY(()) tree gfor_fndecl_caf_this_image;
+extern GTY(()) tree gfor_fndecl_caf_num_images;
 extern GTY(()) tree gfor_fndecl_caf_register;
 extern GTY(()) tree gfor_fndecl_caf_deregister;
-extern GTY(()) tree gfor_fndecl_caf_critical;
-extern GTY(()) tree gfor_fndecl_caf_end_critical;
+extern GTY(()) tree gfor_fndecl_caf_get;
+extern GTY(()) tree gfor_fndecl_caf_send;
+extern GTY(()) tree gfor_fndecl_caf_sendget;
 extern GTY(()) tree gfor_fndecl_caf_sync_all;
 extern GTY(()) tree gfor_fndecl_caf_sync_images;
 extern GTY(()) tree gfor_fndecl_caf_error_stop;
 extern GTY(()) tree gfor_fndecl_caf_error_stop_str;
-
-/* Coarray global variables for num_images/this_image.  */
-extern GTY(()) tree gfort_gvar_caf_num_images;
-extern GTY(()) tree gfort_gvar_caf_this_image;
+extern GTY(()) tree gfor_fndecl_caf_atomic_def;
+extern GTY(()) tree gfor_fndecl_caf_atomic_ref;
+extern GTY(()) tree gfor_fndecl_caf_atomic_cas;
+extern GTY(()) tree gfor_fndecl_caf_atomic_op;
+extern GTY(()) tree gfor_fndecl_caf_lock;
+extern GTY(()) tree gfor_fndecl_caf_unlock;
+extern GTY(()) tree gfor_fndecl_co_max;
+extern GTY(()) tree gfor_fndecl_co_min;
+extern GTY(()) tree gfor_fndecl_co_sum;
 
 
 /* Math functions.  Many other math functions are handled in
@@ -782,10 +811,7 @@ enum gfc_array_kind
 };
 
 /* Array types only.  */
-/* FIXME: the variable_size annotation here is needed because these types are
-   variable-sized in some other frontends.  Due to gengtype deficiency the GTY
-   options of such types have to agree across all frontends. */
-struct GTY((variable_size))	lang_type	 {
+struct GTY(())	lang_type	 {
   int rank, corank;
   enum gfc_array_kind akind;
   tree lbound[GFC_MAX_DIMENSIONS];
@@ -802,7 +828,7 @@ struct GTY((variable_size))	lang_type	 {
   tree caf_offset;
 };
 
-struct GTY((variable_size)) lang_decl {
+struct GTY(()) lang_decl {
   /* Dummy variables.  */
   tree saved_descriptor;
   /* Assigned integer nodes.  Stringlength is the IO format string's length.
@@ -814,6 +840,8 @@ struct GTY((variable_size)) lang_decl {
   tree span;
   /* For assumed-shape coarrays.  */
   tree token, caf_offset;
+  unsigned int scalar_allocatable : 1;
+  unsigned int scalar_pointer : 1;
 };
 
 
@@ -824,6 +852,14 @@ struct GTY((variable_size)) lang_decl {
 #define GFC_DECL_CAF_OFFSET(node) DECL_LANG_SPECIFIC(node)->caf_offset
 #define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
+#define GFC_DECL_SCALAR_ALLOCATABLE(node) \
+  (DECL_LANG_SPECIFIC (node)->scalar_allocatable)
+#define GFC_DECL_SCALAR_POINTER(node) \
+  (DECL_LANG_SPECIFIC (node)->scalar_pointer)
+#define GFC_DECL_GET_SCALAR_ALLOCATABLE(node) \
+  (DECL_LANG_SPECIFIC (node) ? GFC_DECL_SCALAR_ALLOCATABLE (node) : 0)
+#define GFC_DECL_GET_SCALAR_POINTER(node) \
+  (DECL_LANG_SPECIFIC (node) ? GFC_DECL_SCALAR_POINTER (node) : 0)
 #define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
 #define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
 #define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_2(node)
@@ -831,14 +867,13 @@ struct GTY((variable_size)) lang_decl {
 #define GFC_DECL_CRAY_POINTEE(node) DECL_LANG_FLAG_4(node)
 #define GFC_DECL_RESULT(node) DECL_LANG_FLAG_5(node)
 #define GFC_DECL_SUBREF_ARRAY_P(node) DECL_LANG_FLAG_6(node)
+#define GFC_DECL_ASSOCIATE_VAR_P(node) DECL_LANG_FLAG_7(node)
 #define GFC_DECL_CLASS(node) DECL_LANG_FLAG_8(node)
 
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
 /* An array without a descriptor.  */
 #define GFC_ARRAY_TYPE_P(node) TYPE_LANG_FLAG_2(node)
-/* Fortran POINTER type.  */
-#define GFC_POINTER_TYPE_P(node) TYPE_LANG_FLAG_3(node)
 /* Fortran CLASS type.  */
 #define GFC_CLASS_TYPE_P(node) TYPE_LANG_FLAG_4(node)
 /* The GFC_TYPE_ARRAY_* members are present in both descriptor and

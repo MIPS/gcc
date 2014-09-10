@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -302,7 +302,7 @@ hook_bool_tree_bool_false (tree a ATTRIBUTE_UNUSED, bool b ATTRIBUTE_UNUSED)
 }
 
 bool
-hook_bool_rtx_true (rtx a ATTRIBUTE_UNUSED)
+hook_bool_rtx_insn_true (rtx_insn *insn ATTRIBUTE_UNUSED)
 {
   return true;
 }
@@ -331,6 +331,13 @@ hook_bool_rtx_int_int_int_intp_bool_false (rtx a ATTRIBUTE_UNUSED,
   return false;
 }
 
+bool
+hook_bool_wint_wint_uint_bool_true (const widest_int &, const widest_int &,
+				    unsigned int, bool)
+{
+  return true;
+}
+
 /* Generic hook that takes an rtx and returns it.  */
 rtx
 hook_rtx_rtx_identity (rtx x)
@@ -350,6 +357,13 @@ rtx
 hook_rtx_tree_int_null (tree a ATTRIBUTE_UNUSED, int b ATTRIBUTE_UNUSED)
 {
   return NULL;
+}
+
+/* Generic hook that takes a machine mode and returns an unsigned int 0.  */
+unsigned int
+hook_uint_mode_0 (enum machine_mode m ATTRIBUTE_UNUSED)
+{
+  return 0;
 }
 
 /* Generic hook that takes three trees and returns the last one as is.  */
@@ -397,9 +411,9 @@ hook_tree_tree_tree_tree_null (tree t0 ATTRIBUTE_UNUSED,
   return NULL;
 }
 
-/* Generic hook that takes a rtx and returns a NULL string.  */
+/* Generic hook that takes an rtx_insn *and returns a NULL string.  */
 const char *
-hook_constcharptr_const_rtx_null (const_rtx r ATTRIBUTE_UNUSED)
+hook_constcharptr_const_rtx_insn_null (const rtx_insn *insn ATTRIBUTE_UNUSED)
 {
   return NULL;
 }
@@ -433,18 +447,20 @@ hook_tree_const_tree_null (const_tree t ATTRIBUTE_UNUSED)
   return NULL;
 }
 
-/* Generic hook that takes a rtx and an int and returns a bool.  */
+/* Generic hook that takes a rtx_insn * and an int and returns a bool.  */
 
 bool
-hook_bool_rtx_int_false (rtx insn ATTRIBUTE_UNUSED, int mode ATTRIBUTE_UNUSED)
+hook_bool_rtx_insn_int_false (rtx_insn *insn ATTRIBUTE_UNUSED,
+			      int mode ATTRIBUTE_UNUSED)
 {
   return false;
 }
 
-/* Generic hook that takes a rtx and an int and returns void.  */
+/* Generic hook that takes a rtx_insn * and an int and returns void.  */
 
 void
-hook_void_rtx_int (rtx insn ATTRIBUTE_UNUSED, int mode ATTRIBUTE_UNUSED)
+hook_void_rtx_insn_int (rtx_insn *insn ATTRIBUTE_UNUSED,
+			int mode ATTRIBUTE_UNUSED)
 {
 }
 

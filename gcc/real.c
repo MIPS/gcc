@@ -1,5 +1,5 @@
 /* real.c - software floating point emulation.
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -29,6 +29,7 @@
 #include "realmpfr.h"
 #include "tm_p.h"
 #include "dfp.h"
+#include "wide-int.h"
 
 /* The floating point model used internally is not exactly IEEE 754
    compliant, and close to the description in the ISO C99 standard,
@@ -57,14 +58,7 @@
 
    Both of these requirements are easily satisfied.  The largest target
    significand is 113 bits; we store at least 160.  The smallest
-   denormal number fits in 17 exponent bits; we store 26.
-
-   Note that the decimal string conversion routines are sensitive to
-   rounding errors.  Since the raw arithmetic routines do not themselves
-   have guard digits or rounding, the computation of 10**exp can
-   accumulate more than a few digits of error.  The previous incarnation
-   of real.c successfully used a 144-bit fraction; given the current
-   layout of REAL_VALUE_TYPE we're forced to expand to at least 160 bits.  */
+   denormal number fits in 17 exponent bits; we store 26.  */
 
 
 /* Used to classify two numbers simultaneously.  */
@@ -1377,42 +1371,36 @@ real_to_integer (const REAL_VALUE_TYPE *r)
     }
 }
 
-/* Likewise, but to an integer pair, HI+LOW.  */
+/* Likewise, but producing a wide-int of PRECISION.  If the value cannot
+   be represented in precision, *FAIL is set to TRUE.  */
 
-void
-real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
-		  const REAL_VALUE_TYPE *r)
+wide_int
+real_to_integer (const REAL_VALUE_TYPE *r, bool *fail, int precision)
 {
-  REAL_VALUE_TYPE t;
-  HOST_WIDE_INT low, high;
+  HOST_WIDE_INT val[2 * WIDE_INT_MAX_ELTS];
   int exp;
+  int words, w;
+  wide_int result;
 
   switch (r->cl)
     {
     case rvc_zero:
     underflow:
-      low = high = 0;
-      break;
+      return wi::zero (precision);
 
     case rvc_inf:
     case rvc_nan:
     overflow:
-      high = (unsigned HOST_WIDE_INT) 1 << (HOST_BITS_PER_WIDE_INT - 1);
+      *fail = true;
+
       if (r->sign)
-	low = 0;
+	return wi::set_bit_in_zero (precision - 1, precision);
       else
-	{
-	  high--;
-	  low = -1;
-	}
-      break;
+	return ~wi::set_bit_in_zero (precision - 1, precision);
 
     case rvc_normal:
       if (r->decimal)
-	{
-	  decimal_real_to_integer2 (plow, phigh, r);
-	  return;
-	}
+	return decimal_real_to_integer (r, fail, precision);
 
       exp = REAL_EXP (r);
       if (exp <= 0)
@@ -1421,42 +1409,49 @@ real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
 	 undefined, so it doesn't matter what we return, and some callers
 	 expect to be able to use this routine for both signed and
 	 unsigned conversions.  */
-      if (exp > HOST_BITS_PER_DOUBLE_INT)
+      if (exp > precision)
 	goto overflow;
 
-      rshift_significand (&t, r, HOST_BITS_PER_DOUBLE_INT - exp);
-      if (HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG)
-	{
-	  high = t.sig[SIGSZ-1];
-	  low = t.sig[SIGSZ-2];
-	}
-      else
-	{
-	  gcc_assert (HOST_BITS_PER_WIDE_INT == 2*HOST_BITS_PER_LONG);
-	  high = t.sig[SIGSZ-1];
-	  high = high << (HOST_BITS_PER_LONG - 1) << 1;
-	  high |= t.sig[SIGSZ-2];
+      /* Put the significand into a wide_int that has precision W, which
+	 is the smallest HWI-multiple that has at least PRECISION bits.
+	 This ensures that the top bit of the significand is in the
+	 top bit of the wide_int.  */
+      words = (precision + HOST_BITS_PER_WIDE_INT - 1) / HOST_BITS_PER_WIDE_INT;
+      w = words * HOST_BITS_PER_WIDE_INT;
 
-	  low = t.sig[SIGSZ-3];
-	  low = low << (HOST_BITS_PER_LONG - 1) << 1;
-	  low |= t.sig[SIGSZ-4];
+#if (HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG)
+      for (int i = 0; i < words; i++)
+	{
+	  int j = SIGSZ - words + i;
+	  val[i] = (j < 0) ? 0 : r->sig[j];
 	}
+#else
+      gcc_assert (HOST_BITS_PER_WIDE_INT == 2 * HOST_BITS_PER_LONG);
+      for (int i = 0; i < words; i++)
+	{
+	  int j = SIGSZ - (words * 2) + (i * 2);
+	  if (j < 0)
+	    val[i] = 0;
+	  else
+	    val[i] = r->sig[j];
+	  j += 1;
+	  if (j >= 0)
+	    val[i] |= (unsigned HOST_WIDE_INT) r->sig[j] << HOST_BITS_PER_LONG;
+	}
+#endif
+      /* Shift the value into place and truncate to the desired precision.  */
+      result = wide_int::from_array (val, words, w);
+      result = wi::lrshift (result, w - exp);
+      result = wide_int::from (result, precision, UNSIGNED);
 
       if (r->sign)
-	{
-	  if (low == 0)
-	    high = -high;
-	  else
-	    low = -low, high = ~high;
-	}
-      break;
+	return -result;
+      else
+	return result;
 
     default:
       gcc_unreachable ();
     }
-
-  *plow = low;
-  *phigh = high;
 }
 
 /* A subroutine of real_to_decimal.  Compute the quotient and remainder
@@ -2029,75 +2024,50 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
   else
     {
       /* Decimal floating point.  */
-      const REAL_VALUE_TYPE *ten = ten_to_ptwo (0);
-      int d;
+      const char *cstr = str;
+      mpfr_t m;
+      bool inexact;
 
-      while (*str == '0')
-	str++;
-      while (ISDIGIT (*str))
+      while (*cstr == '0')
+	cstr++;
+      if (*cstr == '.')
 	{
-	  d = *str++ - '0';
-	  do_multiply (r, r, ten);
-	  if (d)
-	    do_add (r, r, real_digit (d), 0);
-	}
-      if (*str == '.')
-	{
-	  str++;
-	  if (r->cl == rvc_zero)
-	    {
-	      while (*str == '0')
-		str++, exp--;
-	    }
-	  while (ISDIGIT (*str))
-	    {
-	      d = *str++ - '0';
-	      do_multiply (r, r, ten);
-	      if (d)
-	        do_add (r, r, real_digit (d), 0);
-	      exp--;
-	    }
+	  cstr++;
+	  while (*cstr == '0')
+	    cstr++;
 	}
 
       /* If the mantissa is zero, ignore the exponent.  */
-      if (r->cl == rvc_zero)
+      if (!ISDIGIT (*cstr))
 	goto is_a_zero;
 
-      if (*str == 'e' || *str == 'E')
+      /* Nonzero value, possibly overflowing or underflowing.  */
+      mpfr_init2 (m, SIGNIFICAND_BITS);
+      inexact = mpfr_strtofr (m, str, NULL, 10, GMP_RNDZ);
+      /* The result should never be a NaN, and because the rounding is
+	 toward zero should never be an infinity.  */
+      gcc_assert (!mpfr_nan_p (m) && !mpfr_inf_p (m));
+      if (mpfr_zero_p (m) || mpfr_get_exp (m) < -MAX_EXP + 4)
 	{
-	  bool exp_neg = false;
-
-	  str++;
-	  if (*str == '-')
-	    {
-	      exp_neg = true;
-	      str++;
-	    }
-	  else if (*str == '+')
-	    str++;
-
-	  d = 0;
-	  while (ISDIGIT (*str))
-	    {
-	      d *= 10;
-	      d += *str - '0';
-	      if (d > MAX_EXP)
-		{
-		  /* Overflowed the exponent.  */
-		  if (exp_neg)
-		    goto underflow;
-		  else
-		    goto overflow;
-		}
-	      str++;
-	    }
-	  if (exp_neg)
-	    d = -d;
-	  exp += d;
+	  mpfr_clear (m);
+	  goto underflow;
 	}
-
-      if (exp)
-	times_pten (r, exp);
+      else if (mpfr_get_exp (m) > MAX_EXP - 4)
+	{
+	  mpfr_clear (m);
+	  goto overflow;
+	}
+      else
+	{
+	  real_from_mpfr (r, m, NULL_TREE, GMP_RNDZ);
+	  /* 1 to 3 bits may have been shifted off (with a sticky bit)
+	     because the hex digits used in real_from_mpfr did not
+	     start with a digit 8 to f, but the exponent bounds above
+	     should have avoided underflow or overflow.  */
+	  gcc_assert (r->cl = rvc_normal);
+	  /* Set a sticky bit if mpfr_strtofr was inexact.  */
+	  r->sig[0] |= inexact;
+	}
     }
 
   r->sign = sign;
@@ -2144,43 +2114,88 @@ real_from_string3 (REAL_VALUE_TYPE *r, const char *s, enum machine_mode mode)
     real_convert (r, mode, r);
 }
 
-/* Initialize R from the integer pair HIGH+LOW.  */
+/* Initialize R from the wide_int VAL_IN.  The MODE is not VOIDmode,*/
 
 void
 real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
-		   unsigned HOST_WIDE_INT low, HOST_WIDE_INT high,
-		   int unsigned_p)
+		   const wide_int_ref &val_in, signop sgn)
 {
-  if (low == 0 && high == 0)
+  if (val_in == 0)
     get_zero (r, 0);
   else
     {
+      unsigned int len = val_in.get_precision ();
+      int i, j, e = 0;
+      int maxbitlen = MAX_BITSIZE_MODE_ANY_INT + HOST_BITS_PER_WIDE_INT;
+      const unsigned int realmax = (SIGNIFICAND_BITS / HOST_BITS_PER_WIDE_INT
+				    * HOST_BITS_PER_WIDE_INT);
+
       memset (r, 0, sizeof (*r));
       r->cl = rvc_normal;
-      r->sign = high < 0 && !unsigned_p;
-      SET_REAL_EXP (r, HOST_BITS_PER_DOUBLE_INT);
+      r->sign = wi::neg_p (val_in, sgn);
+
+      /* We have to ensure we can negate the largest negative number.  */
+      wide_int val = wide_int::from (val_in, maxbitlen, sgn);
 
       if (r->sign)
+	val = -val;
+
+      /* Ensure a multiple of HOST_BITS_PER_WIDE_INT, ceiling, as elt
+	 won't work with precisions that are not a multiple of
+	 HOST_BITS_PER_WIDE_INT.  */
+      len += HOST_BITS_PER_WIDE_INT - 1;
+
+      /* Ensure we can represent the largest negative number.  */
+      len += 1;
+
+      len = len/HOST_BITS_PER_WIDE_INT * HOST_BITS_PER_WIDE_INT;
+
+      /* Cap the size to the size allowed by real.h.  */
+      if (len > realmax)
 	{
-	  high = ~high;
-	  if (low == 0)
-	    high += 1;
-	  else
-	    low = -low;
+	  HOST_WIDE_INT cnt_l_z;
+	  cnt_l_z = wi::clz (val);
+
+	  if (maxbitlen - cnt_l_z > realmax)
+	    {
+	      e = maxbitlen - cnt_l_z - realmax;
+
+	      /* This value is too large, we must shift it right to
+		 preserve all the bits we can, and then bump the
+		 exponent up by that amount.  */
+	      val = wi::lrshift (val, e);
+	    }
+	  len = realmax;
 	}
 
+      /* Clear out top bits so elt will work with precisions that aren't
+	 a multiple of HOST_BITS_PER_WIDE_INT.  */
+      val = wide_int::from (val, len, sgn);
+      len = len / HOST_BITS_PER_WIDE_INT;
+
+      SET_REAL_EXP (r, len * HOST_BITS_PER_WIDE_INT + e);
+
+      j = SIGSZ - 1;
       if (HOST_BITS_PER_LONG == HOST_BITS_PER_WIDE_INT)
-	{
-	  r->sig[SIGSZ-1] = high;
-	  r->sig[SIGSZ-2] = low;
-	}
+	for (i = len - 1; i >= 0; i--)
+	  {
+	    r->sig[j--] = val.elt (i);
+	    if (j < 0)
+	      break;
+	  }
       else
 	{
 	  gcc_assert (HOST_BITS_PER_LONG*2 == HOST_BITS_PER_WIDE_INT);
-	  r->sig[SIGSZ-1] = high >> (HOST_BITS_PER_LONG - 1) >> 1;
-	  r->sig[SIGSZ-2] = high;
-	  r->sig[SIGSZ-3] = low >> (HOST_BITS_PER_LONG - 1) >> 1;
-	  r->sig[SIGSZ-4] = low;
+	  for (i = len - 1; i >= 0; i--)
+	    {
+	      HOST_WIDE_INT e = val.elt (i);
+	      r->sig[j--] = e >> (HOST_BITS_PER_LONG - 1) >> 1;
+	      if (j < 0)
+		break;
+	      r->sig[j--] = e;
+	      if (j < 0)
+		break;
+	    }
 	}
 
       normalize (r);
@@ -2270,7 +2285,7 @@ ten_to_ptwo (int n)
 	  for (i = 0; i < n; ++i)
 	    t *= t;
 
-	  real_from_integer (&tens[n], VOIDmode, t, 0, 1);
+	  real_from_integer (&tens[n], VOIDmode, t, UNSIGNED);
 	}
       else
 	{
@@ -2309,7 +2324,7 @@ real_digit (int n)
   gcc_assert (n <= 9);
 
   if (n > 0 && num[n].cl == rvc_zero)
-    real_from_integer (&num[n], VOIDmode, n, 0, 1);
+    real_from_integer (&num[n], VOIDmode, n, UNSIGNED);
 
   return &num[n];
 }
@@ -3465,6 +3480,11 @@ encode_ieee_extended_motorola (const struct real_format *fmt, long *buf,
 {
   long intermed[3];
   encode_ieee_extended (fmt, intermed, r);
+
+  if (r->cl == rvc_inf)
+    /* For infinity clear the explicit integer bit again, so that the
+       format matches the canonical infinity generated by the FPU.  */
+    intermed[1] = 0;
 
   /* Motorola chips are assumed always to be big-endian.  Also, the
      padding in a Motorola extended real goes between the exponent and
@@ -4797,84 +4817,6 @@ const struct real_format real_internal_format =
     false
   };
 
-/* Calculate the square root of X in mode MODE, and store the result
-   in R.  Return TRUE if the operation does not raise an exception.
-   For details see "High Precision Division and Square Root",
-   Alan H. Karp and Peter Markstein, HP Lab Report 93-93-42, June
-   1993.  http://www.hpl.hp.com/techreports/93/HPL-93-42.pdf.  */
-
-bool
-real_sqrt (REAL_VALUE_TYPE *r, enum machine_mode mode,
-	   const REAL_VALUE_TYPE *x)
-{
-  static REAL_VALUE_TYPE halfthree;
-  static bool init = false;
-  REAL_VALUE_TYPE h, t, i;
-  int iter, exp;
-
-  /* sqrt(-0.0) is -0.0.  */
-  if (real_isnegzero (x))
-    {
-      *r = *x;
-      return false;
-    }
-
-  /* Negative arguments return NaN.  */
-  if (real_isneg (x))
-    {
-      get_canonical_qnan (r, 0);
-      return false;
-    }
-
-  /* Infinity and NaN return themselves.  */
-  if (!real_isfinite (x))
-    {
-      *r = *x;
-      return false;
-    }
-
-  if (!init)
-    {
-      do_add (&halfthree, &dconst1, &dconsthalf, 0);
-      init = true;
-    }
-
-  /* Initial guess for reciprocal sqrt, i.  */
-  exp = real_exponent (x);
-  real_ldexp (&i, &dconst1, -exp/2);
-
-  /* Newton's iteration for reciprocal sqrt, i.  */
-  for (iter = 0; iter < 16; iter++)
-    {
-      /* i(n+1) = i(n) * (1.5 - 0.5*i(n)*i(n)*x).  */
-      do_multiply (&t, x, &i);
-      do_multiply (&h, &t, &i);
-      do_multiply (&t, &h, &dconsthalf);
-      do_add (&h, &halfthree, &t, 1);
-      do_multiply (&t, &i, &h);
-
-      /* Check for early convergence.  */
-      if (iter >= 6 && real_identical (&i, &t))
-	break;
-
-      /* ??? Unroll loop to avoid copying.  */
-      i = t;
-    }
-
-  /* Final iteration: r = i*x + 0.5*i*x*(1.0 - i*(i*x)).  */
-  do_multiply (&t, x, &i);
-  do_multiply (&h, &t, &i);
-  do_add (&i, &dconst1, &h, 1);
-  do_multiply (&h, &t, &i);
-  do_multiply (&i, &dconsthalf, &h);
-  do_add (&h, &t, &i, 0);
-
-  /* ??? We need a Tuckerman test to get the last bit.  */
-
-  real_convert (r, mode, &h);
-  return true;
-}
-
 /* Calculate X raised to the integer exponent N in mode MODE and store
    the result in R.  Return true if the result may be inexact due to
    loss of precision.  The algorithm is the classic "left-to-right binary

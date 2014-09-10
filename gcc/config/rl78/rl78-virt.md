@@ -1,5 +1,5 @@
 ;;  Machine Description for Renesas RL78 processors
-;;  Copyright (C) 2011-2013 Free Software Foundation, Inc.
+;;  Copyright (C) 2011-2014 Free Software Foundation, Inc.
 ;;  Contributed by Red Hat.
 
 ;; This file is part of GCC.
@@ -33,17 +33,33 @@
 
 ;;---------- Moving ------------------------
 
-(define_insn "*movqi_virt"
-  [(set (match_operand:QI 0 "nonimmediate_operand" "=vY,v,Wfr")
-	(match_operand    1 "general_operand" "vInt8JY,Wfr,vInt8J"))]
+(define_insn "*movqi_virt_mm"
+  [(set (match_operand:QI 0 "rl78_near_mem_operand" "=Y")
+	(match_operand    1 "rl78_near_mem_operand" "Y"))]
   "rl78_virt_insns_ok ()"
   "v.mov %0, %1"
   [(set_attr "valloc" "op1")]
 )
 
+(define_insn "*movqi_virt"
+  [(set (match_operand:QI 0 "nonimmediate_operand" "=vY,v,Wfr")
+	(match_operand    1 "general_operand" "vInt8J,YWfr,vInt8J"))]
+  "rl78_virt_insns_ok ()"
+  "v.mov %0, %1"
+  [(set_attr "valloc" "op1")]
+)
+
+(define_insn "*movhi_virt_mm"
+  [(set (match_operand:HI 0 "rl78_near_mem_operand" "=Y")
+	(match_operand:HI 1 "rl78_near_mem_operand" "Y"))]
+  "rl78_virt_insns_ok ()"
+  "v.movw %0, %1"
+  [(set_attr "valloc" "op1")]
+)
+
 (define_insn "*movhi_virt"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=vYS,v,Wfr")
-	(match_operand:HI 1 "general_operand" "viYS,Wfr,v"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=vS,  Y,   v,   Wfr")
+	(match_operand:HI 1 "general_operand"      "viYS, viS, Wfr, vi"))]
   "rl78_virt_insns_ok ()"
   "v.movw %0, %1"
   [(set_attr "valloc" "op1")]
@@ -91,7 +107,7 @@
   [(set (match_operand:HI 0 "register_operand" "=vm")
         (mult:HI (match_operand:HI 1 "rl78_nonfar_operand" "%vim")
                  (match_operand:HI 2 "rl78_24_operand" "Ni")))]
-  "rl78_virt_insns_ok ()"
+  "rl78_virt_insns_ok () && !TARGET_G10"
   "v.mulu\t%0, %1, %2"
   [(set_attr "valloc" "umul")]
 )
@@ -100,7 +116,7 @@
   [(set (match_operand:HI 0 "register_operand" "=vm")
         (mult:HI (zero_extend:HI (match_operand:QI 1 "rl78_nonfar_operand" "%vim"))
                  (zero_extend:HI (match_operand:QI 2 "general_operand" "vim"))))]
-  "rl78_virt_insns_ok ()"
+  "rl78_virt_insns_ok () && !TARGET_G10"
   "v.mulu\t%0, %2"
   [(set_attr "valloc" "umul")]
 )
@@ -405,3 +421,12 @@
    ]
   "rl78_setup_peep_movhi (operands);"
   )
+
+(define_insn "*negandhi3_virt"
+  [(set (match_operand:HI                 0 "register_operand" "=v")
+	(and:HI (neg:HI (match_operand:HI 1 "register_operand"  "0"))
+ 		(match_operand:HI         2 "immediate_operand" "n")))
+   ]
+  "rl78_virt_insns_ok ()"
+  "v.nand\t%0, %1, %2"
+)

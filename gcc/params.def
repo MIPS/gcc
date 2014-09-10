@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -673,6 +673,11 @@ DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "The maximum number of RTL nodes that can be recorded as combiner's last value",
 	 10000, 0, 0)
 
+DEFPARAM(PARAM_MAX_COMBINE_INSNS,
+	 "max-combine-insns",
+	 "The maximum number of insns combine tries to combine",
+	 4, 2, 4)
+
 /* INTEGER_CST nodes are shared for values [{-1,0} .. N) for
    {signed,unsigned} integral types.  This determines N.
    Experimentation shows 251 to be a good value that generates the
@@ -821,6 +826,11 @@ DEFPARAM (PARAM_IRA_LOOP_RESERVED_REGS,
 	  "The number of registers in each class kept unused by loop invariant motion",
 	  2, 0, 0)
 
+DEFPARAM (PARAM_LRA_MAX_CONSIDERED_RELOAD_PSEUDOS,
+	  "lra-max-considered-reload-pseudos",
+	  "The max number of reload pseudos which are considered during spilling a non-reload pseudo",
+	  500, 0, 0)
+
 /* Switch initialization conversion will refuse to create arrays that are
    bigger than this parameter times the number of switch branches.  */
 
@@ -863,6 +873,14 @@ DEFPARAM (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP,
 	  "loop-invariant-max-bbs-in-loop",
 	  "Max basic blocks number in loop for loop invariant motion",
 	  10000, 0, 0)
+
+/* When the parameter is 1, use the internal function id
+   to look up for profile data. Otherwise, use a more stable
+   external id based on assembler name and source location. */
+DEFPARAM (PARAM_PROFILE_FUNC_INTERNAL_ID,
+         "profile-func-internal-id",
+         "use internal function id in profile lookup",
+          0, 0, 1)
 
 /* Avoid SLP vectorization of large basic blocks.  */
 DEFPARAM (PARAM_SLP_MAX_INSNS_IN_BB,
@@ -954,6 +972,12 @@ DEFPARAM (PARAM_IPA_CP_ARRAY_INDEX_HINT_BONUS,
 	  "index known.",
 	  48, 0, 0)
 
+DEFPARAM (PARAM_IPA_MAX_AA_STEPS,
+	  "ipa-max-aa-steps",
+	  "Maximum number of statements that will be visited by IPA formal "
+	  "parameter analysis based on alias analysis in any given function",
+	  25000, 0, 0)
+
 /* WHOPR partitioning configuration.  */
 
 DEFPARAM (PARAM_LTO_PARTITIONS,
@@ -991,25 +1015,10 @@ DEFPARAM (PARAM_CASE_VALUES_THRESHOLD,
           0, 0, 0)
 
 /* Data race flags for C++0x memory model compliance.  */
-DEFPARAM (PARAM_ALLOW_LOAD_DATA_RACES,
-	  "allow-load-data-races",
-	  "Allow new data races on loads to be introduced",
-	  1, 0, 1)
-
 DEFPARAM (PARAM_ALLOW_STORE_DATA_RACES,
 	  "allow-store-data-races",
 	  "Allow new data races on stores to be introduced",
-	  1, 0, 1)
-
-DEFPARAM (PARAM_ALLOW_PACKED_LOAD_DATA_RACES,
-	  "allow-packed-load-data-races",
-	  "Allow new data races on packed data loads to be introduced",
-	  1, 0, 1)
-
-DEFPARAM (PARAM_ALLOW_PACKED_STORE_DATA_RACES,
-	  "allow-packed-store-data-races",
-	  "Allow new data races on packed data stores to be introduced",
-	  1, 0, 1)
+	  0, 0, 1)
 
 /* Reassociation width to be used by tree reassoc optimization.  */
 DEFPARAM (PARAM_TREE_REASSOC_WIDTH,
@@ -1049,7 +1058,49 @@ DEFPARAM (PARAM_MAX_SLSR_CANDIDATE_SCAN,
 	  "strength reduction",
 	  50, 1, 999999)
 
+DEFPARAM (PARAM_ASAN_STACK,
+         "asan-stack",
+         "Enable asan stack protection",
+         1, 0, 1)
+
+DEFPARAM (PARAM_ASAN_GLOBALS,
+         "asan-globals",
+         "Enable asan globals protection",
+         1, 0, 1)
+
+DEFPARAM (PARAM_ASAN_INSTRUMENT_WRITES,
+         "asan-instrument-writes",
+         "Enable asan store operations protection",
+         1, 0, 1)
+
+DEFPARAM (PARAM_ASAN_INSTRUMENT_READS,
+         "asan-instrument-reads",
+         "Enable asan load operations protection",
+         1, 0, 1)
+
+DEFPARAM (PARAM_ASAN_MEMINTRIN,
+         "asan-memintrin",
+         "Enable asan builtin functions protection",
+         1, 0, 1)
+
+DEFPARAM (PARAM_ASAN_USE_AFTER_RETURN,
+         "asan-use-after-return",
+         "Enable asan detection of use-after-return bugs",
+         1, 0, 1)
+
+DEFPARAM (PARAM_ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD,
+         "asan-instrumentation-with-call-threshold",
+         "Use callbacks instead of inline code if number of accesses "
+         "in function becomes greater or equal to this number",
+         7000, 0, INT_MAX)
+
+DEFPARAM (PARAM_UNINIT_CONTROL_DEP_ATTEMPTS,
+	  "uninit-control-dep-attempts",
+	  "Maximum number of nested calls to search for control dependencies "
+	  "during uninitialized variable analysis",
+	  1000, 1, 0)
 /*
+
 Local variables:
 mode:c
 End:

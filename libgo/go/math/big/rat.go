@@ -47,7 +47,7 @@ func (z *Rat) SetFloat64(f float64) *Rat {
 
 	shift := 52 - exp
 
-	// Optimisation (?): partially pre-normalise.
+	// Optimization (?): partially pre-normalise.
 	for mantissa&1 == 0 && shift > 0 {
 		mantissa >>= 1
 		shift--
@@ -164,8 +164,9 @@ func quotToFloat(a, b nat) (f float64, exact bool) {
 }
 
 // Float64 returns the nearest float64 value for x and a bool indicating
-// whether f represents x exactly. The sign of f always matches the sign
-// of x, even if f == 0.
+// whether f represents x exactly. If the magnitude of x is too large to
+// be represented by a float64, f is an infinity and exact is false.
+// The sign of f always matches the sign of x, even if f == 0.
 func (x *Rat) Float64() (f float64, exact bool) {
 	b := x.b.abs
 	if len(b) == 0 {
@@ -476,7 +477,7 @@ func (z *Rat) SetString(s string) (*Rat, bool) {
 	return z, true
 }
 
-// String returns a string representation of z in the form "a/b" (even if b == 1).
+// String returns a string representation of x in the form "a/b" (even if b == 1).
 func (x *Rat) String() string {
 	s := "/1"
 	if len(x.b.abs) != 0 {
@@ -485,7 +486,7 @@ func (x *Rat) String() string {
 	return x.a.String() + s
 }
 
-// RatString returns a string representation of z in the form "a/b" if b != 1,
+// RatString returns a string representation of x in the form "a/b" if b != 1,
 // and in the form "a" if b == 1.
 func (x *Rat) RatString() string {
 	if x.IsInt() {
@@ -494,7 +495,7 @@ func (x *Rat) RatString() string {
 	return x.String()
 }
 
-// FloatString returns a string representation of z in decimal form with prec
+// FloatString returns a string representation of x in decimal form with prec
 // digits of precision after the decimal point and the last digit rounded.
 func (x *Rat) FloatString(prec int) string {
 	if x.IsInt() {
@@ -545,6 +546,9 @@ const ratGobVersion byte = 1
 
 // GobEncode implements the gob.GobEncoder interface.
 func (x *Rat) GobEncode() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
 	buf := make([]byte, 1+4+(len(x.a.abs)+len(x.b.abs))*_S) // extra bytes for version and sign bit (1), and numerator length (4)
 	i := x.b.abs.bytes(buf)
 	j := x.a.abs.bytes(buf[0:i])
@@ -566,7 +570,9 @@ func (x *Rat) GobEncode() ([]byte, error) {
 // GobDecode implements the gob.GobDecoder interface.
 func (z *Rat) GobDecode(buf []byte) error {
 	if len(buf) == 0 {
-		return errors.New("Rat.GobDecode: no data")
+		// Other side sent a nil or default value.
+		*z = Rat{}
+		return nil
 	}
 	b := buf[0]
 	if b>>1 != ratGobVersion {
@@ -577,5 +583,18 @@ func (z *Rat) GobDecode(buf []byte) error {
 	z.a.neg = b&1 != 0
 	z.a.abs = z.a.abs.setBytes(buf[j:i])
 	z.b.abs = z.b.abs.setBytes(buf[i:])
+	return nil
+}
+
+// MarshalText implements the encoding.TextMarshaler interface
+func (r *Rat) MarshalText() (text []byte, err error) {
+	return []byte(r.RatString()), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface
+func (r *Rat) UnmarshalText(text []byte) error {
+	if _, ok := r.SetString(string(text)); !ok {
+		return fmt.Errorf("math/big: cannot unmarshal %q into a *big.Rat", text)
+	}
 	return nil
 }

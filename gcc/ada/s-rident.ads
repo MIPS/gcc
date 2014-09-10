@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -69,7 +69,7 @@
 --  restrictions are ignored, and the consistency checking for restrictions
 --  might be incomplete, which is no big deal.
 
-pragma Compiler_Unit;
+pragma Compiler_Unit_Warning;
 
 generic
 package System.Rident is
@@ -112,6 +112,7 @@ package System.Rident is
       No_Exception_Registration,                 -- GNAT
       No_Exceptions,                             -- (RM H.4(12))
       No_Finalization,                           -- GNAT
+      No_Fixed_IO,                               -- GNAT
       No_Fixed_Point,                            -- (RM H.4(15))
       No_Floating_Point,                         -- (RM H.4(14))
       No_IO,                                     -- (RM H.4(20))
@@ -123,6 +124,8 @@ package System.Rident is
       No_Local_Allocators,                       -- (RM H.4(8))
       No_Local_Timing_Events,                    -- (RM D.7(10.2/2))
       No_Local_Protected_Objects,                -- Ada 2012 (D.7(10/1.3))
+      No_Long_Long_Integers,                     -- GNAT
+      No_Multiple_Elaboration,                   -- GNAT
       No_Nested_Finalization,                    -- (RM D.7(4))
       No_Protected_Type_Allocators,              -- Ada 2012 (D.7 (10.3/2))
       No_Protected_Types,                        -- (RM H.4(5))
@@ -476,13 +479,15 @@ package System.Rident is
 
                            --  plus these additional restrictions:
 
-                           No_Calendar                     => True,
-                           No_Implicit_Heap_Allocations    => True,
-                           No_Relative_Delay               => True,
-                           No_Select_Statements            => True,
-                           No_Task_Termination             => True,
-                           Simple_Barriers                 => True,
-                           others                          => False),
+                           No_Calendar                      => True,
+                           No_Implicit_Heap_Allocations     => True,
+                           No_Local_Timing_Events           => True,
+                           No_Relative_Delay                => True,
+                           No_Select_Statements             => True,
+                           No_Specific_Termination_Handlers => True,
+                           No_Task_Termination              => True,
+                           Simple_Barriers                  => True,
+                           others                           => False),
 
                         --  Value settings for Ravenscar (same as Restricted)
 

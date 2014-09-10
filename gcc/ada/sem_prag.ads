@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,10 +27,37 @@
 --  (logically this processing belongs in chapter 4)
 
 with Namet;  use Namet;
+with Opt;    use Opt;
 with Snames; use Snames;
 with Types;  use Types;
 
 package Sem_Prag is
+
+   --  The following table lists all pragmas that act as an assertion
+   --  expression.
+
+   Assertion_Expression_Pragma : constant array (Pragma_Id) of Boolean :=
+     (Pragma_Assert               => True,
+      Pragma_Assert_And_Cut       => True,
+      Pragma_Assume               => True,
+      Pragma_Check                => True,
+      Pragma_Contract_Cases       => True,
+      Pragma_Initial_Condition    => True,
+      Pragma_Invariant            => True,
+      Pragma_Loop_Invariant       => True,
+      Pragma_Loop_Variant         => True,
+      Pragma_Post                 => True,
+      Pragma_Post_Class           => True,
+      Pragma_Postcondition        => True,
+      Pragma_Pre                  => True,
+      Pragma_Pre_Class            => True,
+      Pragma_Precondition         => True,
+      Pragma_Predicate            => True,
+      Pragma_Refined_Post         => True,
+      Pragma_Test_Case            => True,
+      Pragma_Type_Invariant       => True,
+      Pragma_Type_Invariant_Class => True,
+      others                      => False);
 
    --  The following table lists all the implementation-defined pragmas that
    --  may apply to a body stub (no language defined pragmas apply). The table
@@ -58,6 +85,13 @@ package Sem_Prag is
    procedure Analyze_Depends_In_Decl_Part (N : Node_Id);
    --  Perform full analysis of delayed pragma Depends. This routine is also
    --  capable of performing basic analysis of pragma Refined_Depends.
+
+   procedure Analyze_External_Property_In_Decl_Part
+     (N        : Node_Id;
+      Expr_Val : out Boolean);
+   --  Perform full analysis of delayed pragmas Async_Readers, Async_Writers,
+   --  Effective_Reads and Effective_Writes. Flag Expr_Val contains the Boolean
+   --  argument of the pragma or a default True if no argument is present.
 
    procedure Analyze_Global_In_Decl_Part (N : Node_Id);
    --  Perform full analysis of delayed pragma Global. This routine is also
@@ -120,6 +154,34 @@ package Sem_Prag is
    --  whether -gnata was used, if so, then the call has no effect, otherwise
    --  Is_Ignored (but not Is_Disabled) is set True.
 
+   procedure Check_External_Properties
+     (Item : Node_Id;
+      AR   : Boolean;
+      AW   : Boolean;
+      ER   : Boolean;
+      EW   : Boolean);
+   --  Flags AR, AW, ER and EW denote the static values of external properties
+   --  Async_Readers, Async_Writers, Effective_Reads and Effective_Writes. Item
+   --  is the related variable or state. Ensure legality of the combination and
+   --  issue an error for an illegal combination.
+
+   procedure Check_Missing_Part_Of (Item_Id : Entity_Id);
+   --  Determine whether the placement within the state space of an abstract
+   --  state, variable or package instantiation denoted by Item_Id requires the
+   --  use of indicator/option Part_Of. If this is the case, emit an error.
+
+   procedure Collect_Subprogram_Inputs_Outputs
+     (Subp_Id      : Entity_Id;
+      Subp_Inputs  : in out Elist_Id;
+      Subp_Outputs : in out Elist_Id;
+      Global_Seen  : out Boolean);
+   --  Used during the analysis of pragmas Depends, Global, Refined_Depends,
+   --  and Refined_Global. Also used by GNATprove. Gathers all inputs and
+   --  outputs of subprogram Subp_Id in lists Subp_Inputs and Subp_Outputs.
+   --  If subprogram has no inputs and/or outputs, then the returned list
+   --  is No_Elist. Global_Seen is set when the related subprogram has
+   --  pragma [Refined_]Global.
+
    function Delay_Config_Pragma_Analyze (N : Node_Id) return Boolean;
    --  N is a pragma appearing in a configuration pragma file. Most such
    --  pragmas are analyzed when the file is read, before parsing and analyzing
@@ -130,8 +192,8 @@ package Sem_Prag is
    --  True have their analysis delayed until after the main program is parsed
    --  and analyzed.
 
-   function Get_SPARK_Mode_Id (N : Node_Id) return SPARK_Mode_Id;
-   --  Given a pragma SPARK_Mode node, return the corresponding mode id
+   function Get_SPARK_Mode_From_Pragma (N : Node_Id) return SPARK_Mode_Type;
+   --  Given a pragma SPARK_Mode node, return corresponding mode id
 
    procedure Initialize;
    --  Initializes data structures used for pragma processing. Must be called
@@ -200,13 +262,11 @@ package Sem_Prag is
    --  dealing with subprogram body stubs or expression functions.
 
    procedure Set_Encoded_Interface_Name (E : Entity_Id; S : Node_Id);
-   --  This routine is used to set an encoded interface name. The node S is an
-   --  N_String_Literal node for the external name to be set, and E is an
+   --  This routine is used to set an encoded interface name. The node S is
+   --  an N_String_Literal node for the external name to be set, and E is an
    --  entity whose Interface_Name field is to be set. In the normal case where
    --  S contains a name that is a valid C identifier, then S is simply set as
-   --  the value of the Interface_Name. Otherwise it is encoded. See the body
-   --  for details of the encoding. This encoding is only done on VMS systems,
-   --  since it seems pretty silly, but is needed to pass some dubious tests in
-   --  the test suite.
+   --  the value of the Interface_Name. Otherwise it is encoded as needed by
+   --  particular operating systems. See the body for details of the encoding.
 
 end Sem_Prag;

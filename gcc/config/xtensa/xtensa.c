@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -34,6 +34,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "expr.h"
 #include "flags.h"
 #include "reload.h"
@@ -46,8 +50,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "target-def.h"
 #include "langhooks.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "df.h"
+#include "builtins.h"
 
 
 /* Enumeration for all of the relational tests, so that we can build
@@ -86,7 +99,7 @@ struct GTY(()) machine_function
   bool need_a7_copy;
   bool vararg_a7;
   rtx vararg_a7_copy;
-  rtx set_frame_ptr_insn;
+  rtx_insn *set_frame_ptr_insn;
 };
 
 /* Vector, indexed by hard register number, which contains 1 for a
@@ -1342,7 +1355,7 @@ xtensa_expand_nonlocal_goto (rtx *operands)
 static struct machine_function *
 xtensa_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 
@@ -1450,8 +1463,8 @@ xtensa_expand_compare_and_swap (rtx target, rtx mem, rtx cmp, rtx new_rtx)
   rtx tmp, cmpv, newv, val;
   rtx oldval = gen_reg_rtx (SImode);
   rtx res = gen_reg_rtx (SImode);
-  rtx csloop = gen_label_rtx ();
-  rtx csend = gen_label_rtx ();
+  rtx_code_label *csloop = gen_label_rtx ();
+  rtx_code_label *csend = gen_label_rtx ();
 
   init_alignment_context (&ac, mem);
 
@@ -1511,7 +1524,7 @@ xtensa_expand_atomic (enum rtx_code code, rtx target, rtx mem, rtx val,
 {
   enum machine_mode mode = GET_MODE (mem);
   struct alignment_context ac;
-  rtx csloop = gen_label_rtx ();
+  rtx_code_label *csloop = gen_label_rtx ();
   rtx cmp, tmp;
   rtx old = gen_reg_rtx (SImode);
   rtx new_rtx = gen_reg_rtx (SImode);
@@ -1629,7 +1642,7 @@ xtensa_setup_frame_addresses (void)
    when the branch is taken.  */
 
 void
-xtensa_emit_loop_end (rtx insn, rtx *operands)
+xtensa_emit_loop_end (rtx_insn *insn, rtx *operands)
 {
   char done = 0;
 
@@ -1849,10 +1862,11 @@ xtensa_tls_module_base (void)
 }
 
 
-static rtx
+static rtx_insn *
 xtensa_call_tls_desc (rtx sym, rtx *retp)
 {
-  rtx fn, arg, a10, call_insn, insns;
+  rtx fn, arg, a10;
+  rtx_insn *call_insn, *insns;
 
   start_sequence ();
   fn = gen_reg_rtx (Pmode);
@@ -1876,7 +1890,8 @@ static rtx
 xtensa_legitimize_tls_address (rtx x)
 {
   unsigned int model = SYMBOL_REF_TLS_MODEL (x);
-  rtx dest, tp, ret, modbase, base, addend, insns;
+  rtx dest, tp, ret, modbase, base, addend;
+  rtx_insn *insns;
 
   dest = gen_reg_rtx (Pmode);
   switch (model)
@@ -2635,7 +2650,8 @@ xtensa_expand_prologue (void)
 {
   HOST_WIDE_INT total_size;
   rtx size_rtx;
-  rtx insn, note_rtx;
+  rtx_insn *insn;
+  rtx note_rtx;
 
   total_size = compute_frame_size (get_frame_size ());
   size_rtx = GEN_INT (total_size);
@@ -2656,7 +2672,7 @@ xtensa_expand_prologue (void)
     {
       if (cfun->machine->set_frame_ptr_insn)
 	{
-	  rtx first;
+	  rtx_insn *first;
 
 	  push_topmost_sequence ();
 	  first = get_insns ();

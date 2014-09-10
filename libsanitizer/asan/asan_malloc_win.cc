@@ -9,13 +9,15 @@
 //
 // Windows-specific malloc interception.
 //===----------------------------------------------------------------------===//
-#ifdef _WIN32
+
+#include "sanitizer_common/sanitizer_platform.h"
+#if SANITIZER_WINDOWS
 
 #include "asan_allocator.h"
 #include "asan_interceptors.h"
 #include "asan_internal.h"
 #include "asan_stack.h"
-#include "interception/interception.h"
+#include "sanitizer_common/sanitizer_interception.h"
 
 #include <stddef.h>
 
@@ -28,11 +30,13 @@ using namespace __asan;  // NOLINT
 // revisited in the future.
 
 extern "C" {
+SANITIZER_INTERFACE_ATTRIBUTE
 void free(void *ptr) {
   GET_STACK_TRACE_FREE;
   return asan_free(ptr, &stack, FROM_MALLOC);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void _free_dbg(void* ptr, int) {
   free(ptr);
 }
@@ -41,38 +45,46 @@ void cfree(void *ptr) {
   CHECK(!"cfree() should not be used on Windows?");
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void *malloc(size_t size) {
   GET_STACK_TRACE_MALLOC;
   return asan_malloc(size, &stack);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void* _malloc_dbg(size_t size, int , const char*, int) {
   return malloc(size);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void *calloc(size_t nmemb, size_t size) {
   GET_STACK_TRACE_MALLOC;
   return asan_calloc(nmemb, size, &stack);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void* _calloc_dbg(size_t n, size_t size, int, const char*, int) {
   return calloc(n, size);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void *_calloc_impl(size_t nmemb, size_t size, int *errno_tmp) {
   return calloc(nmemb, size);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void *realloc(void *ptr, size_t size) {
   GET_STACK_TRACE_MALLOC;
   return asan_realloc(ptr, size, &stack);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void *_realloc_dbg(void *ptr, size_t size, int) {
   CHECK(!"_realloc_dbg should not exist!");
   return 0;
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 void* _recalloc(void* p, size_t n, size_t elem_size) {
   if (!p)
     return calloc(n, elem_size);
@@ -82,10 +94,27 @@ void* _recalloc(void* p, size_t n, size_t elem_size) {
   return realloc(p, size);
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
 size_t _msize(void *ptr) {
-  GET_STACK_TRACE_MALLOC;
-  return asan_malloc_usable_size(ptr, &stack);
+  GET_CURRENT_PC_BP_SP;
+  (void)sp;
+  return asan_malloc_usable_size(ptr, pc, bp);
 }
+
+SANITIZER_INTERFACE_ATTRIBUTE
+void *_expand(void *memblock, size_t size) {
+  // _expand is used in realloc-like functions to resize the buffer if possible.
+  // We don't want memory to stand still while resizing buffers, so return 0.
+  return 0;
+}
+
+SANITIZER_INTERFACE_ATTRIBUTE
+void *_expand_dbg(void *memblock, size_t size) {
+  return 0;
+}
+
+// TODO(timurrrr): Might want to add support for _aligned_* allocation
+// functions to detect a bit more bugs.  Those functions seem to wrap malloc().
 
 int _CrtDbgReport(int, const char*, int,
                   const char*, const char*, ...) {

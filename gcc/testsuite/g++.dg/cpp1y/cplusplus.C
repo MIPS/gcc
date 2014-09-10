@@ -1,5 +1,5 @@
-// { dg-options "-std=c++1y" }
+// { dg-do compile { target c++14_only } }
 
-#if __cplusplus <= 201103L
-#error
+#if __cplusplus != 201402L
+#error "__cplusplus != 201402L"
 #endif

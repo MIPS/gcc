@@ -1,5 +1,5 @@
 /* Generate code from machine description to recognize rtl as insns.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -457,9 +457,8 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	  {
 	    pred = lookup_predicate (pred_name);
 	    if (!pred)
-	      message_with_line (pattern_lineno,
-				 "warning: unknown predicate '%s'",
-				 pred_name);
+	      error_with_line (pattern_lineno, "unknown predicate '%s'",
+			       pred_name);
 	  }
 	else
 	  pred = 0;
@@ -477,9 +476,9 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 		|| GET_CODE (insn) == DEFINE_PEEPHOLE2)
 	      {
 		if (constraints0)
-		  message_with_line (pattern_lineno,
-				     "warning: constraints not supported in %s",
-				     rtx_name[GET_CODE (insn)]);
+		  error_with_line (pattern_lineno,
+				   "constraints not supported in %s",
+				   rtx_name[GET_CODE (insn)]);
 	      }
 
 	    /* A MATCH_OPERAND that is a SET should have an output reload.  */
@@ -510,10 +509,9 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	   while not likely to occur at runtime, results in less efficient
 	   code from insn-recog.c.  */
 	if (set && pred && pred->allows_non_lvalue)
-	  message_with_line (pattern_lineno,
-			     "warning: destination operand %d "
-			     "allows non-lvalue",
-			     XINT (pattern, 0));
+	  error_with_line (pattern_lineno,
+			   "destination operand %d allows non-lvalue",
+			   XINT (pattern, 0));
 
 	/* A modeless MATCH_OPERAND can be handy when we can check for
 	   multiple modes in the c_test.  In most other cases, it is a
@@ -588,6 +586,7 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 		 && GET_CODE (src) != PC
 		 && GET_CODE (src) != CC0
 		 && !CONST_INT_P (src)
+		 && !CONST_WIDE_INT_P (src)
 		 && GET_CODE (src) != CALL)
 	  {
 	    const char *which;
@@ -772,25 +771,26 @@ add_to_sequence (rtx pattern, struct decision_head *last,
 
 	       We can optimize the generated code a little if either
 	       (a) the predicate only accepts one code, or (b) the
-	       predicate does not allow CONST_INT, in which case it
-	       can match only if the modes match.  */
+	       predicate does not allow CONST_INT or CONST_WIDE_INT,
+	       in which case it can match only if the modes match.  */
 	    pred = lookup_predicate (pred_name);
 	    if (pred)
 	      {
 		test->u.pred.data = pred;
-		allows_const_int = pred->codes[CONST_INT];
+		allows_const_int = (pred->codes[CONST_INT]
+				    || pred->codes[CONST_WIDE_INT]);
 		if (was_code == MATCH_PARALLEL
 		    && pred->singleton != PARALLEL)
-		  message_with_line (pattern_lineno,
-			"predicate '%s' used in match_parallel "
-			"does not allow only PARALLEL", pred->name);
+		  error_with_line (pattern_lineno,
+				   "predicate '%s' used in match_parallel "
+				   "does not allow only PARALLEL", pred->name);
 		else
 		  code = pred->singleton;
 	      }
 	    else
-	      message_with_line (pattern_lineno,
-			"warning: unknown predicate '%s' in '%s' expression",
-			pred_name, GET_RTX_NAME (was_code));
+	      error_with_line (pattern_lineno,
+			       "unknown predicate '%s' in '%s' expression",
+			       pred_name, GET_RTX_NAME (was_code));
 	  }
 
 	/* Can't enforce a mode if we allow const_int.  */
@@ -2180,6 +2180,7 @@ write_subroutine (struct decision_head *head, enum routine_type type)
   const char *s_or_e;
   char extension[32];
   int i;
+  const char *insn_param;
 
   s_or_e = subfunction ? "static " : "";
 
@@ -2190,21 +2191,27 @@ write_subroutine (struct decision_head *head, enum routine_type type)
   else
     strcpy (extension, "_insns");
 
+  /* For now, the top-level functions take a plain "rtx", and perform a
+     checked cast to "rtx_insn *" for use throughout the rest of the
+     function and the code it calls.  */
+  insn_param = subfunction ? "rtx_insn *insn" : "rtx uncast_insn";
+
   switch (type)
     {
     case RECOG:
       printf ("%sint\n\
-recog%s (rtx x0 ATTRIBUTE_UNUSED,\n\trtx insn ATTRIBUTE_UNUSED,\n\tint *pnum_clobbers ATTRIBUTE_UNUSED)\n", s_or_e, extension);
+recog%s (rtx x0 ATTRIBUTE_UNUSED,\n\t%s ATTRIBUTE_UNUSED,\n\tint *pnum_clobbers ATTRIBUTE_UNUSED)\n",
+	      s_or_e, extension, insn_param);
       break;
     case SPLIT:
       printf ("%srtx\n\
-split%s (rtx x0 ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED)\n",
-	      s_or_e, extension);
+split%s (rtx x0 ATTRIBUTE_UNUSED, %s ATTRIBUTE_UNUSED)\n",
+	      s_or_e, extension, insn_param);
       break;
     case PEEPHOLE2:
       printf ("%srtx\n\
-peephole2%s (rtx x0 ATTRIBUTE_UNUSED,\n\trtx insn ATTRIBUTE_UNUSED,\n\tint *_pmatch_len ATTRIBUTE_UNUSED)\n",
-	      s_or_e, extension);
+peephole2%s (rtx x0 ATTRIBUTE_UNUSED,\n\t%s ATTRIBUTE_UNUSED,\n\tint *_pmatch_len ATTRIBUTE_UNUSED)\n",
+	      s_or_e, extension, insn_param);
       break;
     }
 
@@ -2216,6 +2223,14 @@ peephole2%s (rtx x0 ATTRIBUTE_UNUSED,\n\trtx insn ATTRIBUTE_UNUSED,\n\tint *_pma
 
   if (!subfunction)
     printf ("  recog_data.insn = NULL_RTX;\n");
+
+  /* For now add the downcast to rtx_insn *, at the top of each top-level
+     function.  */
+  if (!subfunction)
+    {
+      printf ("  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
+      printf ("  insn = safe_as_a <rtx_insn *> (uncast_insn);\n");
+    }
 
   if (head->first)
     write_tree (head, &root_pos, type, 1);
@@ -2461,12 +2476,12 @@ make_insn_sequence (rtx insn, enum routine_type type)
 
     case SPLIT:
       /* Define the subroutine we will call below and emit in genemit.  */
-      printf ("extern rtx gen_split_%d (rtx, rtx *);\n", next_insn_code);
+      printf ("extern rtx gen_split_%d (rtx_insn *, rtx *);\n", next_insn_code);
       break;
 
     case PEEPHOLE2:
       /* Define the subroutine we will call below and emit in genemit.  */
-      printf ("extern rtx gen_peephole2_%d (rtx, rtx *);\n",
+      printf ("extern rtx gen_peephole2_%d (rtx_insn *, rtx *);\n",
 	      next_insn_code);
       break;
     }

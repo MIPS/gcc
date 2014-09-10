@@ -168,6 +168,15 @@ func BenchmarkIndex(b *testing.B) {
 	}
 }
 
+func BenchmarkIndexByte(b *testing.B) {
+	if got := IndexByte(benchmarkString, 'v'); got != 17 {
+		b.Fatalf("wrong index: expected 17, got=%d", got)
+	}
+	for i := 0; i < b.N; i++ {
+		IndexByte(benchmarkString, 'v')
+	}
+}
+
 var explodetests = []struct {
 	s string
 	n int
@@ -643,7 +652,7 @@ func equal(m string, s1, s2 string, t *testing.T) bool {
 	e1 := Split(s1, "")
 	e2 := Split(s2, "")
 	for i, c1 := range e1 {
-		if i > len(e2) {
+		if i >= len(e2) {
 			break
 		}
 		r1, _ := utf8.DecodeRuneInString(c1)
@@ -849,6 +858,32 @@ func TestReadRune(t *testing.T) {
 	}
 }
 
+var UnreadRuneErrorTests = []struct {
+	name string
+	f    func(*Reader)
+}{
+	{"Read", func(r *Reader) { r.Read([]byte{0}) }},
+	{"ReadByte", func(r *Reader) { r.ReadByte() }},
+	{"UnreadRune", func(r *Reader) { r.UnreadRune() }},
+	{"Seek", func(r *Reader) { r.Seek(0, 1) }},
+	{"WriteTo", func(r *Reader) { r.WriteTo(&bytes.Buffer{}) }},
+}
+
+func TestUnreadRuneError(t *testing.T) {
+	for _, tt := range UnreadRuneErrorTests {
+		reader := NewReader("0123456789")
+		if _, _, err := reader.ReadRune(); err != nil {
+			// should not happen
+			t.Fatal(err)
+		}
+		tt.f(reader)
+		err := reader.UnreadRune()
+		if err == nil {
+			t.Errorf("Unreading after %s: expected error", tt.name)
+		}
+	}
+}
+
 var ReplaceTests = []struct {
 	in       string
 	old, new string
@@ -894,6 +929,8 @@ var TitleTests = []struct {
 	{"123a456", "123a456"},
 	{"double-blind", "Double-Blind"},
 	{"ÿøû", "Ÿøû"},
+	{"with_underscore", "With_underscore"},
+	{"unicode \xe2\x80\xa8 line separator", "Unicode \xe2\x80\xa8 Line Separator"},
 }
 
 func TestTitle(t *testing.T) {
@@ -997,6 +1034,30 @@ func TestEqualFold(t *testing.T) {
 		}
 		if out := EqualFold(tt.t, tt.s); out != tt.out {
 			t.Errorf("EqualFold(%#q, %#q) = %v, want %v", tt.t, tt.s, out, tt.out)
+		}
+	}
+}
+
+var CountTests = []struct {
+	s, sep string
+	num    int
+}{
+	{"", "", 1},
+	{"", "notempty", 0},
+	{"notempty", "", 9},
+	{"smaller", "not smaller", 0},
+	{"12345678987654321", "6", 2},
+	{"611161116", "6", 3},
+	{"notequal", "NotEqual", 0},
+	{"equal", "equal", 1},
+	{"abc1231231123q", "123", 3},
+	{"11111", "11", 2},
+}
+
+func TestCount(t *testing.T) {
+	for _, tt := range CountTests {
+		if num := Count(tt.s, tt.sep); num != tt.num {
+			t.Errorf("Count(\"%s\", \"%s\") = %d, want %d", tt.s, tt.sep, num, tt.num)
 		}
 	}
 }

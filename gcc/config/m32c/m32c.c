@@ -1,5 +1,5 @@
 /* Target Code for R8C/M16C/M32C
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -36,6 +36,9 @@
 #include "diagnostic-core.h"
 #include "obstack.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "expr.h"
 #include "optabs.h"
 #include "except.h"
@@ -45,9 +48,19 @@
 #include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "df.h"
 #include "tm-constrs.h"
+#include "builtins.h"
 
 /* Prototypes */
 
@@ -447,7 +460,7 @@ m32c_override_options_after_change (void)
 static struct machine_function *
 m32c_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Implements INIT_EXPANDERS.  We just set up to call the above
@@ -840,7 +853,7 @@ m32c_cannot_change_mode_class (enum machine_mode from,
 
 #define A0_OR_PSEUDO(x) (IS_REG(x, A0_REGNO) || REGNO (x) >= FIRST_PSEUDO_REGISTER)
 
-/* Implements EXTRA_CONSTRAINT_STR (see next function too).  'S' is
+/* Implements matching for constraints (see next function too).  'S' is
    for memory constraints, plus "Rpa" for PARALLEL rtx's we use for
    call return values.  */
 bool
@@ -3062,7 +3075,7 @@ m32c_note_pragma_address (const char *varname, unsigned address)
 
   if (!*slot)
     {
-      *slot = ggc_alloc_pragma_entry ();
+      *slot = ggc_alloc<pragma_entry> ();
       (*slot)->varname = ggc_strdup (varname);
     }
   (*slot)->address = address;
@@ -3146,7 +3159,7 @@ m32c_illegal_subreg_p (rtx op)
 {
   int offset;
   unsigned int i;
-  int src_mode, dest_mode;
+  enum machine_mode src_mode, dest_mode;
 
   if (GET_CODE (op) == MEM
       && ! m32c_legitimate_address_p (Pmode, XEXP (op, 0), false))
@@ -3806,7 +3819,8 @@ m32c_prepare_shift (rtx * operands, int scale, int shift_code)
 	 undefined to skip one of the comparisons.  */
 
       rtx count;
-      rtx label, insn, tempvar;
+      rtx label, tempvar;
+      rtx_insn *insn;
 
       emit_move_insn (operands[0], operands[1]);
 
@@ -4032,7 +4046,7 @@ m32c_encode_section_info (tree decl, rtx rtl, int first)
 static int
 m32c_leaf_function_p (void)
 {
-  rtx saved_first, saved_last;
+  rtx_insn *saved_first, *saved_last;
   struct sequence_stack *seq;
   int rv;
 
@@ -4059,7 +4073,7 @@ m32c_leaf_function_p (void)
 static bool
 m32c_function_needs_enter (void)
 {
-  rtx insn;
+  rtx_insn *insn;
   struct sequence_stack *seq;
   rtx sp = gen_rtx_REG (Pmode, SP_REGNO);
   rtx fb = gen_rtx_REG (Pmode, FB_REGNO);

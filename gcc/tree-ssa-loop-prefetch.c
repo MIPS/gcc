@@ -1,5 +1,5 @@
 /* Array prefetching.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,11 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
 #include "cfgloop.h"
@@ -1275,7 +1286,7 @@ may_use_storent_in_loop_p (struct loop *loop)
 
       FOR_EACH_VEC_ELT (exits, i, exit)
 	if ((exit->flags & EDGE_ABNORMAL)
-	    && exit->dest == EXIT_BLOCK_PTR)
+	    && exit->dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	  ret = false;
 
       exits.release ();
@@ -1452,8 +1463,8 @@ add_subscript_strides (tree access_fn, unsigned stride,
       if ((unsigned) loop_depth (aloop) <= min_depth)
 	continue;
 
-      if (host_integerp (step, 0))
-	astep = tree_low_cst (step, 0);
+      if (tree_fits_shwi_p (step))
+	astep = tree_to_shwi (step);
       else
 	astep = L1_CACHE_LINE_SIZE;
 
@@ -1502,8 +1513,8 @@ self_reuse_distance (data_reference_p dr, unsigned *loop_sizes, unsigned n,
       if (TREE_CODE (ref) == ARRAY_REF)
 	{
 	  stride = TYPE_SIZE_UNIT (TREE_TYPE (ref));
-	  if (host_integerp (stride, 1))
-	    astride = tree_low_cst (stride, 1);
+	  if (tree_fits_uhwi_p (stride))
+	    astride = tree_to_uhwi (stride);
 	  else
 	    astride = L1_CACHE_LINE_SIZE;
 
@@ -1923,7 +1934,6 @@ fail:
 unsigned int
 tree_ssa_prefetch_arrays (void)
 {
-  loop_iterator li;
   struct loop *loop;
   bool unrolled = false;
   int todo_flags = 0;
@@ -1971,7 +1981,7 @@ tree_ssa_prefetch_arrays (void)
      here.  */
   gcc_assert ((PREFETCH_BLOCK & (PREFETCH_BLOCK - 1)) == 0);
 
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Processing loop %d:\n", loop->num);
@@ -1994,21 +2004,6 @@ tree_ssa_prefetch_arrays (void)
 
 /* Prefetching.  */
 
-static unsigned int
-tree_ssa_loop_prefetch (void)
-{
-  if (number_of_loops (cfun) <= 1)
-    return 0;
-
-  return tree_ssa_prefetch_arrays ();
-}
-
-static bool
-gate_tree_ssa_loop_prefetch (void)
-{
-  return flag_prefetch_loop_arrays > 0;
-}
-
 namespace {
 
 const pass_data pass_data_loop_prefetch =
@@ -2016,8 +2011,6 @@ const pass_data pass_data_loop_prefetch =
   GIMPLE_PASS, /* type */
   "aprefetch", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_TREE_PREFETCH, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -2034,10 +2027,19 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tree_ssa_loop_prefetch (); }
-  unsigned int execute () { return tree_ssa_loop_prefetch (); }
+  virtual bool gate (function *) { return flag_prefetch_loop_arrays > 0; }
+  virtual unsigned int execute (function *);
 
 }; // class pass_loop_prefetch
+
+unsigned int
+pass_loop_prefetch::execute (function *fun)
+{
+  if (number_of_loops (fun) <= 1)
+    return 0;
+
+  return tree_ssa_prefetch_arrays ();
+}
 
 } // anon namespace
 

@@ -563,34 +563,35 @@ func (z *Int) SetBytes(buf []byte) *Int {
 	return z
 }
 
-// Bytes returns the absolute value of z as a big-endian byte slice.
+// Bytes returns the absolute value of x as a big-endian byte slice.
 func (x *Int) Bytes() []byte {
 	buf := make([]byte, len(x.abs)*_S)
 	return buf[x.abs.bytes(buf):]
 }
 
-// BitLen returns the length of the absolute value of z in bits.
+// BitLen returns the length of the absolute value of x in bits.
 // The bit length of 0 is 0.
 func (x *Int) BitLen() int {
 	return x.abs.bitLen()
 }
 
 // Exp sets z = x**y mod |m| (i.e. the sign of m is ignored), and returns z.
-// If y <= 0, the result is 1; if m == nil or m == 0, z = x**y.
+// If y <= 0, the result is 1 mod |m|; if m == nil or m == 0, z = x**y.
 // See Knuth, volume 2, section 4.6.3.
 func (z *Int) Exp(x, y, m *Int) *Int {
-	if y.neg || len(y.abs) == 0 {
-		return z.SetInt64(1)
+	var yWords nat
+	if !y.neg {
+		yWords = y.abs
 	}
-	// y > 0
+	// y >= 0
 
 	var mWords nat
 	if m != nil {
 		mWords = m.abs // m.abs may be nil for m == 0
 	}
 
-	z.abs = z.abs.expNN(x.abs, y.abs, mWords)
-	z.neg = len(z.abs) > 0 && x.neg && y.abs[0]&1 == 1 // 0 has no sign
+	z.abs = z.abs.expNN(x.abs, yWords, mWords)
+	z.neg = len(z.abs) > 0 && x.neg && len(yWords) > 0 && yWords[0]&1 == 1 // 0 has no sign
 	return z
 }
 
@@ -703,14 +704,15 @@ func (z *Int) binaryGCD(a, b *Int) *Int {
 		// reduce t
 		t.Rsh(t, t.abs.trailingZeroBits())
 		if t.neg {
-			v.Neg(t)
+			v, t = t, v
+			v.neg = len(v.abs) > 0 && !v.neg // 0 has no sign
 		} else {
-			u.Set(t)
+			u, t = t, u
 		}
 		t.Sub(u, v)
 	}
 
-	return u.Lsh(u, k)
+	return z.Lsh(u, k)
 }
 
 // ProbablyPrime performs n Miller-Rabin tests to check whether x is prime.
@@ -951,6 +953,9 @@ const intGobVersion byte = 1
 
 // GobEncode implements the gob.GobEncoder interface.
 func (x *Int) GobEncode() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
 	buf := make([]byte, 1+len(x.abs)*_S) // extra byte for version and sign bit
 	i := x.abs.bytes(buf) - 1            // i >= 0
 	b := intGobVersion << 1              // make space for sign bit
@@ -964,7 +969,9 @@ func (x *Int) GobEncode() ([]byte, error) {
 // GobDecode implements the gob.GobDecoder interface.
 func (z *Int) GobDecode(buf []byte) error {
 	if len(buf) == 0 {
-		return errors.New("Int.GobDecode: no data")
+		// Other side sent a nil or default value.
+		*z = Int{}
+		return nil
 	}
 	b := buf[0]
 	if b>>1 != intGobVersion {
@@ -976,17 +983,29 @@ func (z *Int) GobDecode(buf []byte) error {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (x *Int) MarshalJSON() ([]byte, error) {
+func (z *Int) MarshalJSON() ([]byte, error) {
 	// TODO(gri): get rid of the []byte/string conversions
-	return []byte(x.String()), nil
+	return []byte(z.String()), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
-func (z *Int) UnmarshalJSON(x []byte) error {
+func (z *Int) UnmarshalJSON(text []byte) error {
 	// TODO(gri): get rid of the []byte/string conversions
-	_, ok := z.SetString(string(x), 0)
-	if !ok {
-		return fmt.Errorf("math/big: cannot unmarshal %s into a *big.Int", x)
+	if _, ok := z.SetString(string(text), 0); !ok {
+		return fmt.Errorf("math/big: cannot unmarshal %q into a *big.Int", text)
+	}
+	return nil
+}
+
+// MarshalText implements the encoding.TextMarshaler interface
+func (z *Int) MarshalText() (text []byte, err error) {
+	return []byte(z.String()), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface
+func (z *Int) UnmarshalText(text []byte) error {
+	if _, ok := z.SetString(string(text), 0); !ok {
+		return fmt.Errorf("math/big: cannot unmarshal %q into a *big.Int", text)
 	}
 	return nil
 }

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for VAX.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "df.h"
 #include "tree.h"
+#include "calls.h"
+#include "varasm.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -43,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "wide-int.h"
+#include "builtins.h"
 
 static void vax_option_override (void);
 static bool vax_legitimate_address_p (enum machine_mode, rtx, bool);
@@ -643,7 +647,7 @@ vax_float_literal (rtx c)
     {
       int x = 1 << i;
       bool ok;
-      REAL_VALUE_FROM_INT (s, x, 0, mode);
+      real_from_integer (&s, mode, x, SIGNED);
 
       if (REAL_VALUES_EQUAL (r, s))
 	return true;

@@ -1,5 +1,5 @@
 # Python hooks for gdb for debugging GCC
-# Copyright (C) 2013 Free Software Foundation, Inc.
+# Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 # Contributed by David Malcolm <dmalcolm@redhat.com>
 
@@ -109,7 +109,28 @@ available:
   1594	  execute_pass_list (g->get_passes ()->all_passes);
   (gdb) p node
   $1 = <cgraph_node* 0x7ffff0312720 "foo">
+
+vec<> pointers are printed as the address followed by the elements in
+braces.  Here's a length 2 vec:
+  (gdb) p bb->preds
+  $18 = 0x7ffff0428b68 = {<edge 0x7ffff044d380 (3 -> 5)>, <edge 0x7ffff044d3b8 (4 -> 5)>}
+
+and here's a length 1 vec:
+  (gdb) p bb->succs
+  $19 = 0x7ffff0428bb8 = {<edge 0x7ffff044d3f0 (5 -> EXIT)>}
+
+You cannot yet use array notation [] to access the elements within the
+vector: attempting to do so instead gives you the vec itself (for vec[0]),
+or a (probably) invalid cast to vec<> for the memory after the vec (for
+vec[1] onwards).
+
+Instead (for now) you must access m_vecdata:
+  (gdb) p bb->preds->m_vecdata[0]
+  $20 = <edge 0x7ffff044d380 (3 -> 5)>
+  (gdb) p bb->preds->m_vecdata[1]
+  $21 = <edge 0x7ffff044d3b8 (4 -> 5)>
 """
+import os.path
 import re
 
 import gdb
@@ -223,11 +244,10 @@ class CGraphNodePrinter:
     def to_string (self):
         result = '<cgraph_node* 0x%x' % long(self.gdbval)
         if long(self.gdbval):
-            # symtab_node_name calls lang_hooks.decl_printable_name
+            # symtab_node::name calls lang_hooks.decl_printable_name
             # default implementation (lhd_decl_printable_name) is:
             #    return IDENTIFIER_POINTER (DECL_NAME (decl));
-            symbol = self.gdbval['symbol']
-            tree_decl = Tree(symbol['decl'])
+            tree_decl = Tree(self.gdbval['decl'])
             result += ' "%s"' % tree_decl.DECL_NAME().IDENTIFIER_POINTER()
         result += '>'
         return result
@@ -241,7 +261,7 @@ class GimplePrinter:
     def to_string (self):
         if long(self.gdbval) == 0:
             return '<gimple 0x0>'
-        val_gimple_code = self.gdbval['gsbase']['code']
+        val_gimple_code = self.gdbval['code']
         val_gimple_code_name = gdb.parse_and_eval('gimple_code_name')
         val_code_name = val_gimple_code_name[long(val_gimple_code)]
         result = '<%s 0x%x' % (val_code_name.string(),
@@ -350,29 +370,79 @@ class PassPrinter:
 
 ######################################################################
 
+class VecPrinter:
+    #    -ex "up" -ex "p bb->preds"
+    def __init__(self, gdbval):
+        self.gdbval = gdbval
+
+    def display_hint (self):
+        return 'array'
+
+    def to_string (self):
+        # A trivial implementation; prettyprinting the contents is done
+        # by gdb calling the "children" method below.
+        return '0x%x' % long(self.gdbval)
+
+    def children (self):
+        if long(self.gdbval) == 0:
+            return
+        m_vecpfx = self.gdbval['m_vecpfx']
+        m_num = m_vecpfx['m_num']
+        m_vecdata = self.gdbval['m_vecdata']
+        for i in range(m_num):
+            yield ('[%d]' % i, m_vecdata[i])
+
+######################################################################
+
 # TODO:
-#   * vec
 #   * hashtab
 #   * location_t
 
 class GdbSubprinter(gdb.printing.SubPrettyPrinter):
-    def __init__(self, name, str_type_, class_):
+    def __init__(self, name, class_):
         super(GdbSubprinter, self).__init__(name)
-        self.str_type_ = str_type_
         self.class_ = class_
+
+    def handles_type(self, str_type):
+        raise NotImplementedError
+
+class GdbSubprinterTypeList(GdbSubprinter):
+    """
+    A GdbSubprinter that handles a specific set of types
+    """
+    def __init__(self, str_types, name, class_):
+        super(GdbSubprinterTypeList, self).__init__(name, class_)
+        self.str_types = frozenset(str_types)
+
+    def handles_type(self, str_type):
+        return str_type in self.str_types
+
+class GdbSubprinterRegex(GdbSubprinter):
+    """
+    A GdbSubprinter that handles types that match a regex
+    """
+    def __init__(self, regex, name, class_):
+        super(GdbSubprinterRegex, self).__init__(name, class_)
+        self.regex = re.compile(regex)
+
+    def handles_type(self, str_type):
+        return self.regex.match(str_type)
 
 class GdbPrettyPrinters(gdb.printing.PrettyPrinter):
     def __init__(self, name):
         super(GdbPrettyPrinters, self).__init__(name, [])
 
-    def add_printer(self, name, exp, class_):
-        self.subprinters.append(GdbSubprinter(name, exp, class_))
+    def add_printer_for_types(self, name, class_, types):
+        self.subprinters.append(GdbSubprinterTypeList(name, class_, types))
+
+    def add_printer_for_regex(self, name, class_, regex):
+        self.subprinters.append(GdbSubprinterRegex(name, class_, regex))
 
     def __call__(self, gdbval):
         type_ = gdbval.type.unqualified()
-        str_type_ = str(type_)
+        str_type = str(type_)
         for printer in self.subprinters:
-            if printer.enabled and str_type_ == printer.str_type_:
+            if printer.enabled and printer.handles_type(str_type):
                 return printer.class_(gdbval)
 
         # Couldn't find a pretty printer (or it was disabled):
@@ -381,17 +451,96 @@ class GdbPrettyPrinters(gdb.printing.PrettyPrinter):
 
 def build_pretty_printer():
     pp = GdbPrettyPrinters('gcc')
-    pp.add_printer('tree', 'tree', TreePrinter)
-    pp.add_printer('cgraph_node', 'cgraph_node *', CGraphNodePrinter)
-    pp.add_printer('gimple', 'gimple', GimplePrinter)
-    pp.add_printer('basic_block', 'basic_block', BasicBlockPrinter)
-    pp.add_printer('edge', 'edge', CfgEdgePrinter)
-    pp.add_printer('rtx_def', 'rtx_def *', RtxPrinter)
-    pp.add_printer('opt_pass', 'opt_pass *', PassPrinter)
+    pp.add_printer_for_types(['tree'],
+                             'tree', TreePrinter)
+    pp.add_printer_for_types(['cgraph_node *'],
+                             'cgraph_node', CGraphNodePrinter)
+    pp.add_printer_for_types(['gimple', 'gimple_statement_base *'],
+                             'gimple',
+                             GimplePrinter)
+    pp.add_printer_for_types(['basic_block', 'basic_block_def *'],
+                             'basic_block',
+                             BasicBlockPrinter)
+    pp.add_printer_for_types(['edge', 'edge_def *'],
+                             'edge',
+                             CfgEdgePrinter)
+    pp.add_printer_for_types(['rtx_def *'], 'rtx_def', RtxPrinter)
+    pp.add_printer_for_types(['opt_pass *'], 'opt_pass', PassPrinter)
+
+    pp.add_printer_for_regex(r'vec<(\S+), (\S+), (\S+)> \*',
+                             'vec',
+                             VecPrinter)
+
     return pp
 
 gdb.printing.register_pretty_printer(
     gdb.current_objfile(),
     build_pretty_printer())
+
+def find_gcc_source_dir():
+    # Use location of global "g" to locate the source tree
+    sym_g = gdb.lookup_global_symbol('g')
+    path = sym_g.symtab.filename # e.g. '../../src/gcc/context.h'
+    srcdir = os.path.split(path)[0] # e.g. '../../src/gcc'
+    return srcdir
+
+class PassNames:
+    """Parse passes.def, gathering a list of pass class names"""
+    def __init__(self):
+        srcdir = find_gcc_source_dir()
+        self.names = []
+        with open(os.path.join(srcdir, 'passes.def')) as f:
+            for line in f:
+                m = re.match('\s*NEXT_PASS \((.+)\);', line)
+                if m:
+                    self.names.append(m.group(1))
+
+class BreakOnPass(gdb.Command):
+    """
+    A custom command for putting breakpoints on the execute hook of passes.
+    This is largely a workaround for issues with tab-completion in gdb when
+    setting breakpoints on methods on classes within anonymous namespaces.
+
+    Example of use: putting a breakpoint on "final"
+      (gdb) break-on-pass
+    Press <TAB>; it autocompletes to "pass_":
+      (gdb) break-on-pass pass_
+    Press <TAB>:
+      Display all 219 possibilities? (y or n)
+    Press "n"; then type "f":
+      (gdb) break-on-pass pass_f
+    Press <TAB> to autocomplete to pass classnames beginning with "pass_f":
+      pass_fast_rtl_dce              pass_fold_builtins
+      pass_feedback_split_functions  pass_forwprop
+      pass_final                     pass_fre
+      pass_fixup_cfg                 pass_free_cfg
+    Type "in<TAB>" to complete to "pass_final":
+      (gdb) break-on-pass pass_final
+    ...and hit <RETURN>:
+      Breakpoint 6 at 0x8396ba: file ../../src/gcc/final.c, line 4526.
+    ...and we have a breakpoint set; continue execution:
+      (gdb) cont
+      Continuing.
+      Breakpoint 6, (anonymous namespace)::pass_final::execute (this=0x17fb990) at ../../src/gcc/final.c:4526
+      4526	  virtual unsigned int execute (function *) { return rest_of_handle_final (); }
+    """
+    def __init__(self):
+        gdb.Command.__init__(self, 'break-on-pass', gdb.COMMAND_BREAKPOINTS)
+        self.pass_names = None
+
+    def complete(self, text, word):
+        # Lazily load pass names:
+        if not self.pass_names:
+            self.pass_names = PassNames()
+
+        return [name
+                for name in sorted(self.pass_names.names)
+                if name.startswith(text)]
+
+    def invoke(self, arg, from_tty):
+        sym = '(anonymous namespace)::%s::execute' % arg
+        breakpoint = gdb.Breakpoint(sym)
+
+BreakOnPass()
 
 print('Successfully loaded GDB hooks for GCC')

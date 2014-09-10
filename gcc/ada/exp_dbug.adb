@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -306,6 +306,16 @@ package body Exp_Dbug is
       Obj : Entity_Id;
       Res : Node_Id;
 
+      Enable : Boolean := Nkind (N) = N_Package_Renaming_Declaration;
+      --  By default, we do not generate an encoding for renaming. This is
+      --  however done (in which case this is set to True) in a few cases:
+      --    - when a package is renamed,
+      --    - when the renaming involves a packed array,
+      --    - when the renaming involves a packed record.
+
+      procedure Enable_If_Packed_Array (N : Node_Id);
+      --  Enable encoding generation if N is a packed array
+
       function Output_Subscript (N : Node_Id; S : String) return Boolean;
       --  Outputs a single subscript value as ?nnn (subscript is compile time
       --  known value with value nnn) or as ?e (subscript is local constant
@@ -313,6 +323,18 @@ package body Exp_Dbug is
       --  Returns False if the subscript is not of an appropriate type to
       --  output in one of these two forms. The result is prepended to the
       --  name stored in Name_Buffer.
+
+      ----------------------------
+      -- Enable_If_Packed_Array --
+      ----------------------------
+
+      procedure Enable_If_Packed_Array (N : Node_Id) is
+         T : constant Entity_Id := Etype (N);
+      begin
+         Enable :=
+           Enable or else (Ekind (T) in Array_Kind
+                            and then Present (Packed_Array_Impl_Type (T)));
+      end Enable_If_Packed_Array;
 
       ----------------------
       -- Output_Subscript --
@@ -372,6 +394,7 @@ package body Exp_Dbug is
                exit;
 
             when N_Selected_Component =>
+               Enable := Enable or else Is_Packed (Etype (Prefix (Ren)));
                Prepend_String_To_Buffer
                  (Get_Name_String (Chars (Selector_Name (Ren))));
                Prepend_String_To_Buffer ("XR");
@@ -379,9 +402,12 @@ package body Exp_Dbug is
 
             when N_Indexed_Component =>
                declare
-                  X : Node_Id := Last (Expressions (Ren));
+                  X : Node_Id;
 
                begin
+                  Enable_If_Packed_Array (Prefix (Ren));
+
+                  X := Last (Expressions (Ren));
                   while Present (X) loop
                      if not Output_Subscript (X, "XS") then
                         Set_Materialize_Entity (Ent);
@@ -395,7 +421,7 @@ package body Exp_Dbug is
                Ren := Prefix (Ren);
 
             when N_Slice =>
-
+               Enable_If_Packed_Array (Prefix (Ren));
                Typ := Etype (First_Index (Etype (Nam)));
 
                if not Output_Subscript (Type_High_Bound (Typ), "XS") then
@@ -421,6 +447,13 @@ package body Exp_Dbug is
                return Empty;
          end case;
       end loop;
+
+      --  If we found no reason here to emit an encoding, stop now
+
+      if not Enable then
+         Set_Materialize_Entity (Ent);
+         return Empty;
+      end if;
 
       Prepend_String_To_Buffer ("___XE");
 
@@ -472,12 +505,19 @@ package body Exp_Dbug is
       Res :=
         Make_Object_Declaration (Loc,
           Defining_Identifier => Obj,
-          Object_Definition   => New_Reference_To
+          Object_Definition   => New_Occurrence_Of
                                    (Standard_Debug_Renaming_Type, Loc));
 
       Set_Debug_Renaming_Link (Obj, Entity (Ren));
 
       Set_Debug_Info_Needed (Obj);
+
+      --  The renamed entity may be a temporary, e.g. the result of an
+      --  implicit dereference in an iterator. Indicate that the temporary
+      --  itself requires debug information. If the renamed entity comes
+      --  from source this is a no-op.
+
+      Set_Debug_Info_Needed (Entity (Ren));
 
       --  Mark the object as internal so that it won't be initialized when
       --  pragma Initialize_Scalars or Normalize_Scalars is in use.
@@ -488,7 +528,7 @@ package body Exp_Dbug is
 
    --  If we get an exception, just figure it is a case that we cannot
    --  successfully handle using our current approach, since this is
-   --  only for debugging, no need to take the compilation with us!
+   --  only for debugging, no need to take the compilation with us.
 
    exception
       when others =>
@@ -507,8 +547,8 @@ package body Exp_Dbug is
    begin
       --  If not generating code, there is no need to create encoded names, and
       --  problems when the back-end is called to annotate types without full
-      --  code generation. See comments in Get_External_Name_With_Suffix for
-      --  additional details.
+      --  code generation. See comments in Get_External_Name for additional
+      --  details.
 
       --  However we do create encoded names if the back end is active, even
       --  if Operating_Mode got reset. Otherwise any serious error reported
@@ -556,26 +596,12 @@ package body Exp_Dbug is
       --  Fixed-point case
 
       if Is_Fixed_Point_Type (E) then
-         Get_External_Name_With_Suffix (E, "XF_");
+         Get_External_Name (E, True, "XF_");
          Add_Real_To_Buffer (Delta_Value (E));
 
          if Small_Value (E) /= Delta_Value (E) then
             Add_Str_To_Name_Buffer ("_");
             Add_Real_To_Buffer (Small_Value (E));
-         end if;
-
-      --  Vax floating-point case
-
-      elsif Vax_Float (E) then
-         if Digits_Value (Base_Type (E)) = 6 then
-            Get_External_Name_With_Suffix (E, "XFF");
-
-         elsif Digits_Value (Base_Type (E)) = 9 then
-            Get_External_Name_With_Suffix (E, "XFF");
-
-         else
-            pragma Assert (Digits_Value (Base_Type (E)) = 15);
-            Get_External_Name_With_Suffix (E, "XFG");
          end if;
 
       --  Discrete case where bounds do not match size
@@ -607,9 +633,9 @@ package body Exp_Dbug is
 
          begin
             if Biased then
-               Get_External_Name_With_Suffix (E, "XB");
+               Get_External_Name (E, True, "XB");
             else
-               Get_External_Name_With_Suffix (E, "XD");
+               Get_External_Name (E, True, "XD");
             end if;
 
             if Lo_Encode or Hi_Encode then
@@ -649,7 +675,7 @@ package body Exp_Dbug is
 
       else
          Has_Suffix := False;
-         Get_External_Name (E, Has_Suffix);
+         Get_External_Name (E);
       end if;
 
       if Debug_Flag_B and then Has_Suffix then
@@ -667,7 +693,11 @@ package body Exp_Dbug is
    -- Get_External_Name --
    -----------------------
 
-   procedure Get_External_Name (Entity : Entity_Id; Has_Suffix : Boolean) is
+   procedure Get_External_Name
+     (Entity     : Entity_Id;
+      Has_Suffix : Boolean := False;
+      Suffix     : String := "")
+   is
       E    : Entity_Id := Entity;
       Kind : Entity_Kind;
 
@@ -704,6 +734,20 @@ package body Exp_Dbug is
    --  Start of processing for Get_External_Name
 
    begin
+      --  If we are not in code generation mode, this procedure may still be
+      --  called from Back_End (more specifically - from gigi for doing type
+      --  representation annotation or some representation-specific checks).
+      --  But in this mode there is no need to mess with external names.
+
+      --  Furthermore, the call causes difficulties in this case because the
+      --  string representing the homonym number is not correctly reset as a
+      --  part of the call to Output_Homonym_Numbers_Suffix (which is not
+      --  called in gigi).
+
+      if Operating_Mode /= Generate_Code then
+         return;
+      end if;
+
       Reset_Buffers;
 
       --  If this is a child unit, we want the child
@@ -762,42 +806,13 @@ package body Exp_Dbug is
          Get_Qualified_Name_And_Append (E);
       end if;
 
-      Name_Buffer (Name_Len + 1) := ASCII.NUL;
-   end Get_External_Name;
-
-   -----------------------------------
-   -- Get_External_Name_With_Suffix --
-   -----------------------------------
-
-   procedure Get_External_Name_With_Suffix
-     (Entity : Entity_Id;
-      Suffix : String)
-   is
-      Has_Suffix : constant Boolean := (Suffix /= "");
-
-   begin
-      --  If we are not in code generation mode, this procedure may still be
-      --  called from Back_End (more specifically - from gigi for doing type
-      --  representation annotation or some representation-specific checks).
-      --  But in this mode there is no need to mess with external names.
-
-      --  Furthermore, the call causes difficulties in this case because the
-      --  string representing the homonym number is not correctly reset as a
-      --  part of the call to Output_Homonym_Numbers_Suffix (which is not
-      --  called in gigi).
-
-      if Operating_Mode /= Generate_Code then
-         return;
-      end if;
-
-      Get_External_Name (Entity, Has_Suffix);
-
       if Has_Suffix then
          Add_Str_To_Name_Buffer ("___");
          Add_Str_To_Name_Buffer (Suffix);
-         Name_Buffer (Name_Len + 1) := ASCII.NUL;
       end if;
-   end Get_External_Name_With_Suffix;
+
+      Name_Buffer (Name_Len + 1) := ASCII.NUL;
+   end Get_External_Name;
 
    --------------------------
    -- Get_Variant_Encoding --
@@ -944,7 +959,7 @@ package body Exp_Dbug is
       Suffix_Index : Int)
    is
    begin
-      Get_External_Name (Typ, Has_Suffix => False);
+      Get_External_Name (Typ);
 
       if Ancestor_Typ /= Typ then
          declare
@@ -952,7 +967,7 @@ package body Exp_Dbug is
             Save_Str : constant String (1 .. Name_Len)
                          := Name_Buffer (1 .. Name_Len);
          begin
-            Get_External_Name (Ancestor_Typ, Has_Suffix => False);
+            Get_External_Name (Ancestor_Typ);
 
             --  Append the extended name of the ancestor to the
             --  extended name of Typ
@@ -969,10 +984,10 @@ package body Exp_Dbug is
    end Get_Secondary_DT_External_Name;
 
    ---------------------------------
-   -- Make_Packed_Array_Type_Name --
+   -- Make_Packed_Array_Impl_Type_Name --
    ---------------------------------
 
-   function Make_Packed_Array_Type_Name
+   function Make_Packed_Array_Impl_Type_Name
      (Typ   : Entity_Id;
       Csize : Uint)
       return  Name_Id
@@ -982,7 +997,7 @@ package body Exp_Dbug is
       Add_Str_To_Name_Buffer ("___XP");
       Add_Uint_To_Buffer (Csize);
       return Name_Find;
-   end Make_Packed_Array_Type_Name;
+   end Make_Packed_Array_Impl_Type_Name;
 
    -----------------------------------
    -- Output_Homonym_Numbers_Suffix --
@@ -1107,7 +1122,8 @@ package body Exp_Dbug is
 
       function Qualify_Needed (S : Entity_Id) return Boolean;
       --  Given a scope, determines if the scope is to be included in the
-      --  fully qualified name, True if so, False if not.
+      --  fully qualified name, True if so, False if not. Blocks and loops
+      --  are excluded from a qualified name.
 
       procedure Set_BNPE_Suffix (E : Entity_Id);
       --  Recursive routine to append the BNPE qualification suffix. Works
@@ -1199,9 +1215,7 @@ package body Exp_Dbug is
 
       function Is_BNPE (S : Entity_Id) return Boolean is
       begin
-         return
-           Ekind (S) = E_Package
-             and then Is_Package_Body_Entity (S);
+         return Ekind (S) = E_Package and then Is_Package_Body_Entity (S);
       end Is_BNPE;
 
       --------------------
@@ -1212,7 +1226,7 @@ package body Exp_Dbug is
       begin
          --  If we got all the way to Standard, then we have certainly
          --  fully qualified the name, so set the flag appropriately,
-         --  and then return False, since we are most certainly done!
+         --  and then return False, since we are most certainly done.
 
          if S = Standard_Standard then
             Set_Has_Fully_Qualified_Name (Ent, True);
@@ -1221,13 +1235,11 @@ package body Exp_Dbug is
          --  Otherwise figure out if further qualification is required
 
          else
-            return
-              Is_Subprogram (Ent)
-                or else
-              Ekind (Ent) = E_Subprogram_Body
-                or else
-                  (Ekind (S) /= E_Block
-                    and then not Is_Dynamic_Scope (S));
+            return Is_Subprogram (Ent)
+              or else Ekind (Ent) = E_Subprogram_Body
+              or else (Ekind (S) /= E_Block
+                        and then Ekind (S) /= E_Loop
+                        and then not Is_Dynamic_Scope (S));
          end if;
       end Qualify_Needed;
 
@@ -1314,7 +1326,7 @@ package body Exp_Dbug is
       --  name as being qualified, as Qualify_Entity_Name may be called more
       --  than once on the same entity.
 
-      elsif SPARK_Mode then
+      elsif GNATprove_Mode then
          if Has_Homonym (Ent) then
             Get_Name_String (Chars (Ent));
             Append_Homonym_Number (Ent);

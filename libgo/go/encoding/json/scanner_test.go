@@ -63,6 +63,25 @@ func TestCompact(t *testing.T) {
 	}
 }
 
+func TestCompactSeparators(t *testing.T) {
+	// U+2028 and U+2029 should be escaped inside strings.
+	// They should not appear outside strings.
+	tests := []struct {
+		in, compact string
+	}{
+		{"{\"\u2028\": 1}", `{"\u2028":1}`},
+		{"{\"\u2029\" :2}", `{"\u2029":2}`},
+	}
+	for _, tt := range tests {
+		var buf bytes.Buffer
+		if err := Compact(&buf, []byte(tt.in)); err != nil {
+			t.Errorf("Compact(%q): %v", tt.in, err)
+		} else if s := buf.String(); s != tt.compact {
+			t.Errorf("Compact(%q) = %q, want %q", tt.in, s, tt.compact)
+		}
+	}
+}
+
 func TestIndent(t *testing.T) {
 	var buf bytes.Buffer
 	for _, tt := range examples {
@@ -220,23 +239,16 @@ func trim(b []byte) []byte {
 
 var jsonBig []byte
 
-const (
-	big   = 10000
-	small = 100
-)
-
 func initBig() {
-	n := big
+	n := 10000
 	if testing.Short() {
-		n = small
+		n = 100
 	}
-	if len(jsonBig) != n {
-		b, err := Marshal(genValue(n))
-		if err != nil {
-			panic(err)
-		}
-		jsonBig = b
+	b, err := Marshal(genValue(n))
+	if err != nil {
+		panic(err)
 	}
+	jsonBig = b
 }
 
 func genValue(n int) interface{} {
@@ -276,6 +288,9 @@ func genArray(n int) []interface{} {
 	f := int(math.Abs(rand.NormFloat64()) * math.Min(10, float64(n/2)))
 	if f > n {
 		f = n
+	}
+	if f < 1 {
+		f = 1
 	}
 	x := make([]interface{}, f)
 	for i := range x {

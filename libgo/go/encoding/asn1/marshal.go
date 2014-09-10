@@ -240,11 +240,11 @@ func marshalBitString(out *forkableWriter, b BitString) (err error) {
 }
 
 func marshalObjectIdentifier(out *forkableWriter, oid []int) (err error) {
-	if len(oid) < 2 || oid[0] > 6 || oid[1] >= 40 {
+	if len(oid) < 2 || oid[0] > 2 || (oid[0] < 2 && oid[1] >= 40) {
 		return StructuralError{"invalid object identifier"}
 	}
 
-	err = out.WriteByte(byte(oid[0]*40 + oid[1]))
+	err = marshalBase128Int(out, int64(oid[0]*40+oid[1]))
 	if err != nil {
 		return
 	}
@@ -295,8 +295,23 @@ func marshalTwoDigits(out *forkableWriter, v int) (err error) {
 	return out.WriteByte(byte('0' + v%10))
 }
 
+func marshalFourDigits(out *forkableWriter, v int) (err error) {
+	var bytes [4]byte
+	for i := range bytes {
+		bytes[3-i] = '0' + byte(v%10)
+		v /= 10
+	}
+	_, err = out.Write(bytes[:])
+	return
+}
+
+func outsideUTCRange(t time.Time) bool {
+	year := t.Year()
+	return year < 1950 || year >= 2050
+}
+
 func marshalUTCTime(out *forkableWriter, t time.Time) (err error) {
-	year, month, day := t.Date()
+	year := t.Year()
 
 	switch {
 	case 1950 <= year && year < 2000:
@@ -304,11 +319,29 @@ func marshalUTCTime(out *forkableWriter, t time.Time) (err error) {
 	case 2000 <= year && year < 2050:
 		err = marshalTwoDigits(out, int(year-2000))
 	default:
-		return StructuralError{"Cannot represent time as UTCTime"}
+		return StructuralError{"cannot represent time as UTCTime"}
 	}
 	if err != nil {
 		return
 	}
+
+	return marshalTimeCommon(out, t)
+}
+
+func marshalGeneralizedTime(out *forkableWriter, t time.Time) (err error) {
+	year := t.Year()
+	if year < 0 || year > 9999 {
+		return StructuralError{"cannot represent time as GeneralizedTime"}
+	}
+	if err = marshalFourDigits(out, year); err != nil {
+		return
+	}
+
+	return marshalTimeCommon(out, t)
+}
+
+func marshalTimeCommon(out *forkableWriter, t time.Time) (err error) {
+	_, month, day := t.Date()
 
 	err = marshalTwoDigits(out, int(month))
 	if err != nil {
@@ -378,7 +411,12 @@ func stripTagAndLength(in []byte) []byte {
 func marshalBody(out *forkableWriter, value reflect.Value, params fieldParameters) (err error) {
 	switch value.Type() {
 	case timeType:
-		return marshalUTCTime(out, value.Interface().(time.Time))
+		t := value.Interface().(time.Time)
+		if outsideUTCRange(t) {
+			return marshalGeneralizedTime(out, t)
+		} else {
+			return marshalUTCTime(out, t)
+		}
 	case bitStringType:
 		return marshalBitString(out, value.Interface().(BitString))
 	case objectIdentifierType:
@@ -441,11 +479,11 @@ func marshalBody(out *forkableWriter, value reflect.Value, params fieldParameter
 			return
 		}
 
-		var params fieldParameters
+		var fp fieldParameters
 		for i := 0; i < v.Len(); i++ {
 			var pre *forkableWriter
 			pre, out = out.fork()
-			err = marshalField(pre, v.Index(i), params)
+			err = marshalField(pre, v.Index(i), fp)
 			if err != nil {
 				return
 			}
@@ -501,10 +539,11 @@ func marshalField(out *forkableWriter, v reflect.Value, params fieldParameters) 
 	class := classUniversal
 
 	if params.stringType != 0 && tag != tagPrintableString {
-		return StructuralError{"Explicit string type given to non-string member"}
+		return StructuralError{"explicit string type given to non-string member"}
 	}
 
-	if tag == tagPrintableString {
+	switch tag {
+	case tagPrintableString:
 		if params.stringType == 0 {
 			// This is a string without an explicit string type. We'll use
 			// a PrintableString if the character set in the string is
@@ -521,11 +560,15 @@ func marshalField(out *forkableWriter, v reflect.Value, params fieldParameters) 
 		} else {
 			tag = params.stringType
 		}
+	case tagUTCTime:
+		if outsideUTCRange(v.Interface().(time.Time)) {
+			tag = tagGeneralizedTime
+		}
 	}
 
 	if params.set {
 		if tag != tagSequence {
-			return StructuralError{"Non sequence tagged as set"}
+			return StructuralError{"non sequence tagged as set"}
 		}
 		tag = tagSet
 	}
@@ -568,6 +611,14 @@ func marshalField(out *forkableWriter, v reflect.Value, params fieldParameters) 
 }
 
 // Marshal returns the ASN.1 encoding of val.
+//
+// In addition to the struct tags recognised by Unmarshal, the following can be
+// used:
+//
+//	ia5:		causes strings to be marshaled as ASN.1, IA5 strings
+//	omitempty:	causes empty slices to be skipped
+//	printable:	causes strings to be marshaled as ASN.1, PrintableString strings.
+//	utf8:		causes strings to be marshaled as ASN.1, UTF8 strings
 func Marshal(val interface{}) ([]byte, error) {
 	var out bytes.Buffer
 	v := reflect.ValueOf(val)

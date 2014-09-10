@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -24,9 +24,6 @@
    <http://www.gnu.org/licenses/>.  */
 
 #ifndef RS6000_BI_ARCH
-
-#undef	DEFAULT_ABI
-#define	DEFAULT_ABI ABI_AIX
 
 #undef	TARGET_64BIT
 #define	TARGET_64BIT 1
@@ -74,7 +71,11 @@ extern int dot_symbols;
 #undef  PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_POWER7
 #undef  PROCESSOR_DEFAULT64
+#ifdef LINUX64_DEFAULT_ABI_ELFv2
+#define PROCESSOR_DEFAULT64 PROCESSOR_POWER8
+#else
 #define PROCESSOR_DEFAULT64 PROCESSOR_POWER7
+#endif
 
 /* We don't need to generate entries in .fixup, except when
    -mrelocatable or -mrelocatable-lib is given.  */
@@ -87,6 +88,12 @@ extern int dot_symbols;
 
 #define INVALID_64BIT "-m%s not supported in this configuration"
 #define INVALID_32BIT INVALID_64BIT
+
+#ifdef LINUX64_DEFAULT_ABI_ELFv2
+#define ELFv2_ABI_CHECK (rs6000_elf_abi != 1)
+#else
+#define ELFv2_ABI_CHECK (rs6000_elf_abi == 2)
+#endif
 
 #undef	SUBSUBTARGET_OVERRIDE_OPTIONS
 #define	SUBSUBTARGET_OVERRIDE_OPTIONS				\
@@ -102,6 +109,12 @@ extern int dot_symbols;
 	      error (INVALID_64BIT, "call");			\
 	    }							\
 	  dot_symbols = !strcmp (rs6000_abi_name, "aixdesc");	\
+	  if (ELFv2_ABI_CHECK)					\
+	    {							\
+	      rs6000_current_abi = ABI_ELFv2;			\
+	      if (dot_symbols)					\
+		error ("-mcall-aixdesc incompatible with -mabi=elfv2"); \
+	    }							\
 	  if (rs6000_isa_flags & OPTION_MASK_RELOCATABLE)	\
 	    {							\
 	      rs6000_isa_flags &= ~OPTION_MASK_RELOCATABLE;	\
@@ -233,7 +246,7 @@ extern int dot_symbols;
 /* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  ((TARGET_ALTIVEC && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)	\
+  (rs6000_special_adjust_field_align_p ((FIELD), (COMPUTED))		\
    ? 128								\
    : (TARGET_64BIT							\
       && TARGET_ALIGN_NATURAL == 0					\
@@ -299,7 +312,7 @@ extern int dot_symbols;
 /* Determine what functions are present at the runtime;
    this includes full c99 runtime and sincos.  */
 #undef TARGET_LIBC_HAS_FUNCTION
-#define TARGET_LIBC_HAS_FUNCTION linux_android_libc_has_function
+#define TARGET_LIBC_HAS_FUNCTION linux_libc_has_function
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()			\
@@ -330,12 +343,6 @@ extern int dot_symbols;
 #undef  CPP_OS_DEFAULT_SPEC
 #define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux)"
 
-/* The GNU C++ standard library currently requires _GNU_SOURCE being
-   defined on glibc-based systems. This temporary hack accomplishes this,
-   it should go away as soon as libstdc++-v3 has a real fix.  */
-#undef  CPLUSPLUS_CPP_SPEC
-#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
-
 #undef  LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"
 
@@ -355,7 +362,11 @@ extern int dot_symbols;
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
 #define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
-#define GLIBC_DYNAMIC_LINKER64 "/lib64/ld64.so.1"
+#ifdef LINUX64_DEFAULT_ABI_ELFv2
+#define GLIBC_DYNAMIC_LINKER64 "%{mabi=elfv1:/lib64/ld64.so.1;:/lib64/ld64.so.2}"
+#else
+#define GLIBC_DYNAMIC_LINKER64 "%{mabi=elfv2:/lib64/ld64.so.2;:/lib64/ld64.so.1}"
+#endif
 #define UCLIBC_DYNAMIC_LINKER32 "/lib/ld-uClibc.so.0"
 #define UCLIBC_DYNAMIC_LINKER64 "/lib/ld64-uClibc.so.0"
 #if DEFAULT_LIBC == LIBC_UCLIBC
@@ -422,14 +433,6 @@ extern int dot_symbols;
 #define	WCHAR_TYPE (TARGET_64BIT ? "int" : "long int")
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
-
-/* Override rs6000.h definition.  */
-#undef  ASM_APP_ON
-#define ASM_APP_ON "#APP\n"
-
-/* Override rs6000.h definition.  */
-#undef  ASM_APP_OFF
-#define ASM_APP_OFF "#NO_APP\n"
 
 #undef  RS6000_MCOUNT
 #define RS6000_MCOUNT "_mcount"
@@ -530,16 +533,6 @@ extern int dot_symbols;
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET (!TARGET_64BIT)
 
-#define TARGET_POSIX_IO
-
-#define LINK_GCC_C_SEQUENCE_SPEC \
-  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
-
-/* Use --as-needed -lgcc_s for eh support.  */
-#ifdef HAVE_LD_AS_NEEDED
-#define USE_LD_AS_NEEDED 1
-#endif
-
 #ifdef TARGET_LIBC_PROVIDES_SSP
 /* ppc32 glibc provides __stack_chk_guard in -0x7008(2),
    ppc64 glibc provides it at -0x7010(13).  */
@@ -558,3 +551,9 @@ extern int dot_symbols;
 
 /* The default value isn't sufficient in 64-bit mode.  */
 #define STACK_CHECK_PROTECT (TARGET_64BIT ? 16 * 1024 : 12 * 1024)
+
+/* Software floating point support for exceptions and rounding modes
+   depends on the C library in use.  */
+#undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
+#define TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P \
+  rs6000_linux_float_exceptions_rounding_supported_p

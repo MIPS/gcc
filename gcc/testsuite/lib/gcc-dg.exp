@@ -1,4 +1,4 @@
-#   Copyright (C) 1997-2013 Free Software Foundation, Inc.
+#   Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -181,6 +181,7 @@ proc gcc-dg-test-1 { target_compile prog do_what extra_tool_flags } {
 	lappend options "additional_flags=$extra_tool_flags"
     }
 
+    verbose "$target_compile $prog $output_file $compile_type $options" 4
     set comp_output [$target_compile "$prog" "$output_file" "$compile_type" $options]
 
     # Look for an internal compiler error, which sometimes masks the fact
@@ -230,6 +231,11 @@ proc gcc-dg-prune { system text } {
     if [regexp "(^|\n)\[^\n\]*: region \[^\n\]* is full" $text] {
 	# The format here is important.  See dg.exp.
 	return "::unsupported::memory full"
+    }
+
+    if { [regexp "(^|\n)\[^\n\]*: relocation truncated to fit" $text]
+          && [check_effective_target_tiny] } {
+        return "::unsupported::memory full"
     }
 
     # Likewise, if we see ".text exceeds local store range" or
@@ -294,8 +300,8 @@ proc set-target-env-var { } {
     foreach env_var $set_target_env_var {
 	set var [lindex $env_var 0]
 	set value [lindex $env_var 1]
-	if [info exists env($var)] {
-	    lappend saved_target_env_var [list $var 1 $env($var)]
+	if [info exists ::env($var)] {
+	    lappend saved_target_env_var [list $var 1 $::env($var)]
 	} else {
 	    lappend saved_target_env_var [list $var 0]
 	}
@@ -336,7 +342,7 @@ proc search_for { file pattern } {
 
 # Modified dg-runtest that can cycle through a list of optimization options
 # as c-torture does.
-proc gcc-dg-runtest { testcases default-extra-flags } {
+proc gcc-dg-runtest { testcases flags default-extra-flags } {
     global runtests
 
     # Some callers set torture options themselves; don't override those.
@@ -366,9 +372,9 @@ proc gcc-dg-runtest { testcases default-extra-flags } {
 
 	set nshort [file tail [file dirname $test]]/[file tail $test]
 
-	foreach flags $option_list {
-	    verbose "Testing $nshort, $flags" 1
-	    dg-test $test $flags ${default-extra-flags}
+	foreach flags_t $option_list {
+	    verbose "Testing $nshort, $flags $flags_t" 1
+	    dg-test $test "$flags $flags_t" ${default-extra-flags}
 	}
     }
 
@@ -600,7 +606,7 @@ proc cleanup-saved-temps { args } {
     set suffixes {}
 
     # add the to-be-kept suffixes
-    foreach suffix {".mii" ".ii" ".i" ".s" ".o" ".gkd"} {
+    foreach suffix {".mii" ".ii" ".i" ".s" ".o" ".gkd" ".res" ".ltrans.out"} {
 	if {[lsearch $args $suffix] < 0} {
 	    lappend suffixes $suffix
 	}
@@ -611,6 +617,8 @@ proc cleanup-saved-temps { args } {
     set testcase [lindex $testcase 0]
     foreach suffix $suffixes {
 	remove-build-file "[file rootname [file tail $testcase]]$suffix"
+	remove-build-file "[file rootname [file tail $testcase]].exe$suffix"
+	remove-build-file "[file rootname [file tail $testcase]].exe.ltrans\[0-9\]*$suffix"
 	# -fcompare-debug dumps
 	remove-build-file "[file rootname [file tail $testcase]].gk$suffix"
     }
@@ -620,6 +628,9 @@ proc cleanup-saved-temps { args } {
 	foreach srcfile $additional_sources {
 	    foreach suffix $suffixes {
 		remove-build-file "[file rootname [file tail $srcfile]]$suffix"
+		remove-build-file "[file rootname [file tail $srcfile]].exe$suffix"
+		remove-build-file "[file rootname [file tail $srcfile]].exe.ltrans\[0-9\]*$suffix"
+
 		# -fcompare-debug dumps
 		remove-build-file "[file rootname [file tail $srcfile]].gk$suffix"
 	    }
@@ -651,7 +662,7 @@ proc scan-module { args } {
 # Argument 1 is the regexp to match
 proc scan-module-absence { args } {
     set modfilename [string tolower [lindex $args 0]].mod
-    set fd [open $modfilename r]
+    set fd [open [list | gzip -dc $modfilename] r]
     set text [read $fd]
     close $fd
 

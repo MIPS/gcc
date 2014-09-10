@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // regex utils for the C++ library testsuite.
 //
-// Copyright (C) 2012-2013 Free Software Foundation, Inc.
+// Copyright (C) 2012-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,12 +19,12 @@
 // <http://www.gnu.org/licenses/>.
 //
 
+#ifndef _TESTSUITE_REGEX_H
+#define _TESTSUITE_REGEX_H 1
+
 #include <regex>
 #include <stdexcept>
 #include <iostream>
-
-#ifndef _TESTSUITE_REGEX_H
-#define _TESTSUITE_REGEX_H 1
 
 namespace __gnu_test
 {
@@ -131,7 +131,7 @@ namespace __gnu_test
 
   // regex_match_debug behaves like regex_match, but will run *two* executors
   // (if there's no back-reference) and check if their results agree. If not,
-  // an exception throws. One can use them just in the way of using regex_match.
+  // an exception is thrown. The arguments are the same as for regex_match.
   template<typename _Bi_iter, typename _Alloc,
 	   typename _Ch_type, typename _Rx_traits>
     bool
@@ -150,9 +150,10 @@ namespace __gnu_test
       auto __res2 = __regex_algo_impl<_Bi_iter, _Alloc, _Ch_type, _Rx_traits,
 	   _RegexExecutorPolicy::_S_alternate, true>
 	(__s, __e, __mm, __re, __flags);
-      if (__res1 == __res2 && __m == __mm)
+      // __m is unspecified if return value is false.
+      if (__res1 == __res2 && (!__res1 || __m == __mm))
 	return __res1;
-      throw(std::exception());
+      throw std::exception();
     }
 
   // No match_results version

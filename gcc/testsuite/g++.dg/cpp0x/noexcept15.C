@@ -1,5 +1,5 @@
 // PR c++/50391
-// { dg-options -std=c++11 }
+// { dg-do compile { target c++11 } }
 
 #include <type_traits>
 
@@ -23,12 +23,10 @@ template<class Tp>
     return single<typename std::decay<Tp>::type>(x);
   }
 
-class Blob;  // { dg-error "forward declaration" }
+class Blob;  // { dg-message "forward declaration" }
 
 void
 foo(Blob *b)
 {
   make_single(*b);
 }
-
-// { dg-prune-output "include" }

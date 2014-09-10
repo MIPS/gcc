@@ -132,6 +132,12 @@ func matchChunk(chunk, s string) (rest string, ok bool, err error) {
 			r, n := utf8.DecodeRuneInString(s)
 			s = s[n:]
 			chunk = chunk[1:]
+			// We can't end right after '[', we're expecting at least
+			// a closing bracket and possibly a caret.
+			if len(chunk) == 0 {
+				err = ErrBadPattern
+				return
+			}
 			// possibly negated
 			negated := chunk[0] == '^'
 			if negated {
@@ -224,7 +230,7 @@ func getEsc(chunk string) (r rune, nchunk string, err error) {
 //
 func Glob(pattern string) (matches []string, err error) {
 	if !hasMeta(pattern) {
-		if _, err = os.Stat(pattern); err != nil {
+		if _, err = os.Lstat(pattern); err != nil {
 			return nil, nil
 		}
 		return []string{pattern}, nil

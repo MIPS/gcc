@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -113,6 +114,14 @@ func TestDateParsing(t *testing.T) {
 		if !date.Equal(test.exp) {
 			t.Errorf("Parse of %q: got %+v, want %+v", test.dateStr, date, test.exp)
 		}
+	}
+}
+
+func TestAddressParsingError(t *testing.T) {
+	const txt = "=?iso-8859-2?Q?Bogl=E1rka_Tak=E1cs?= <unknown@gmail.com>"
+	_, err := ParseAddress(txt)
+	if err == nil || !strings.Contains(err.Error(), "charset not supported") {
+		t.Errorf(`mail.ParseAddress(%q) err: %q, want ".*charset not supported.*"`, txt, err)
 	}
 }
 
@@ -225,6 +234,16 @@ func TestAddressParsing(t *testing.T) {
 				},
 			},
 		},
+		// Custom example with "." in name. For issue 4938
+		{
+			`Asem H. <noreply@example.com>`,
+			[]*Address{
+				{
+					Name:    `Asem H.`,
+					Address: "noreply@example.com",
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		if len(test.exp) == 1 {
@@ -266,6 +285,14 @@ func TestAddressFormatting(t *testing.T) {
 			// note the ö (o with an umlaut)
 			&Address{Name: "Böb", Address: "bob@example.com"},
 			`=?utf-8?q?B=C3=B6b?= <bob@example.com>`,
+		},
+		{
+			&Address{Name: "Bob Jane", Address: "bob@example.com"},
+			`"Bob Jane" <bob@example.com>`,
+		},
+		{
+			&Address{Name: "Böb Jacöb", Address: "bob@example.com"},
+			`=?utf-8?q?B=C3=B6b_Jac=C3=B6b?= <bob@example.com>`,
 		},
 	}
 	for _, test := range tests {

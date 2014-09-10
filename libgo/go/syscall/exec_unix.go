@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd
+// +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
 // Fork, exec, wait, etc.
 
@@ -30,7 +30,7 @@ import (
 //chdir(path *byte) _C_int
 
 //sysnb	raw_fcntl(fd int, cmd int, arg int) (val int, err Errno)
-//fcntl(fd _C_int, cmd _C_int, arg _C_int) _C_int
+//__go_fcntl(fd _C_int, cmd _C_int, arg _C_int) _C_int
 
 //sysnb	raw_close(fd int) (err Errno)
 //close(fd _C_int) _C_int
@@ -194,7 +194,7 @@ func forkExec(argv0 string, argv []string, attr *ProcAttr) (pid int, err error) 
 		return 0, err
 	}
 
-	if runtime.GOOS == "freebsd" && len(argv[0]) > len(argv0) {
+	if (runtime.GOOS == "freebsd" || runtime.GOOS == "dragonfly") && len(argv[0]) > len(argv0) {
 		argvp[0] = argv0p
 	}
 

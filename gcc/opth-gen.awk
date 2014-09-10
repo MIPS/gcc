@@ -1,4 +1,4 @@
-#  Copyright (C) 2003-2013 Free Software Foundation, Inc.
+#  Copyright (C) 2003-2014 Free Software Foundation, Inc.
 #  Contributed by Kelley Cook, June 2004.
 #  Original code from Neil Booth, May 2003.
 #
@@ -315,6 +315,10 @@ for (i = 0; i < n_langs; i++) {
     print "                           const struct cl_option_handlers *handlers, "
     print "                           diagnostic_context *dc);                   "
 }
+print "void cpp_handle_option_auto (const struct gcc_options * opts, size_t scode,"
+print "                             struct cpp_options * cpp_opts);"
+print "void init_global_opts_from_cpp(struct gcc_options * opts,      "
+print "                               const struct cpp_options * cpp_opts);"    
 print "#endif";
 print "#endif";
 print "";

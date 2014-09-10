@@ -1,5 +1,5 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -32,6 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
+#include "stor-layout.h"
 #include "expr.h"
 #include "reload.h"
 #include "function.h"
@@ -45,7 +48,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "debug.h"
 #include "obstack.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
 #include "lto-streamer.h"
+#include "lto-section-names.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -546,7 +561,7 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
     }
   else
     {
-      p = ggc_alloc_machopic_indirection ();
+      p = ggc_alloc<machopic_indirection> ();
       p->symbol = sym_ref;
       p->ptr_name = xstrdup (buffer);
       p->stub_p = stub_p;
@@ -1284,22 +1299,17 @@ darwin_mergeable_constant_section (tree exp,
     {
       tree size = TYPE_SIZE_UNIT (TREE_TYPE (exp));
 
-      if (TREE_CODE (size) == INTEGER_CST
-	  && TREE_INT_CST_LOW (size) == 4
-	  && TREE_INT_CST_HIGH (size) == 0)
-        return darwin_sections[literal4_section];
-      else if (TREE_CODE (size) == INTEGER_CST
-	       && TREE_INT_CST_LOW (size) == 8
-	       && TREE_INT_CST_HIGH (size) == 0)
-        return darwin_sections[literal8_section];
-      else if (HAVE_GAS_LITERAL16
-	       && TARGET_64BIT
-               && TREE_CODE (size) == INTEGER_CST
-               && TREE_INT_CST_LOW (size) == 16
-               && TREE_INT_CST_HIGH (size) == 0)
-        return darwin_sections[literal16_section];
-      else
-        return readonly_data_section;
+      if (TREE_CODE (size) == INTEGER_CST)
+	{
+	  if (wi::eq_p (size, 4))
+	    return darwin_sections[literal4_section];
+	  else if (wi::eq_p (size, 8))
+	    return darwin_sections[literal8_section];
+	  else if (HAVE_GAS_LITERAL16
+		   && TARGET_64BIT
+		   && wi::eq_p (size, 16))
+	    return darwin_sections[literal16_section];
+	}
     }
 
   return readonly_data_section;
@@ -1507,11 +1517,11 @@ machopic_select_section (tree decl,
 
   zsize = (DECL_P (decl) 
 	   && (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == CONST_DECL) 
-	   && tree_low_cst (DECL_SIZE_UNIT (decl), 1) == 0);
+	   && tree_to_uhwi (DECL_SIZE_UNIT (decl)) == 0);
 
   one = DECL_P (decl) 
 	&& TREE_CODE (decl) == VAR_DECL 
-	&& DECL_ONE_ONLY (decl);
+	&& DECL_COMDAT_GROUP (decl);
 
   ro = TREE_READONLY (decl) || TREE_CONSTANT (decl) ;
 
@@ -1648,7 +1658,7 @@ machopic_select_section (tree decl,
       static bool warned_objc_46 = false;
       /* We shall assert that zero-sized objects are an error in ObjC 
          meta-data.  */
-      gcc_assert (tree_low_cst (DECL_SIZE_UNIT (decl), 1) != 0);
+      gcc_assert (tree_to_uhwi (DECL_SIZE_UNIT (decl)) != 0);
       
       /* ??? This mechanism for determining the metadata section is
 	 broken when LTO is in use, since the frontend that generated
@@ -1726,16 +1736,19 @@ machopic_select_rtx_section (enum machine_mode mode, rtx x,
 {
   if (GET_MODE_SIZE (mode) == 8
       && (GET_CODE (x) == CONST_INT
+	  || GET_CODE (x) == CONST_WIDE_INT
 	  || GET_CODE (x) == CONST_DOUBLE))
     return darwin_sections[literal8_section];
   else if (GET_MODE_SIZE (mode) == 4
 	   && (GET_CODE (x) == CONST_INT
+	       || GET_CODE (x) == CONST_WIDE_INT
 	       || GET_CODE (x) == CONST_DOUBLE))
     return darwin_sections[literal4_section];
   else if (HAVE_GAS_LITERAL16
 	   && TARGET_64BIT
 	   && GET_MODE_SIZE (mode) == 16
 	   && (GET_CODE (x) == CONST_INT
+	       || GET_CODE (x) == CONST_WIDE_INT
 	       || GET_CODE (x) == CONST_DOUBLE
 	       || GET_CODE (x) == CONST_VECTOR))
     return darwin_sections[literal16_section];
@@ -1884,9 +1897,6 @@ typedef struct GTY (()) darwin_lto_section_e {
 } darwin_lto_section_e ;
 
 static GTY (()) vec<darwin_lto_section_e, va_gc> *lto_section_names;
-
-/* Segment for LTO data.  */
-#define LTO_SEGMENT_NAME "__GNU_LTO"
 
 /* Section wrapper scheme (used here to wrap the unlimited number of LTO
    sections into three Mach-O ones).
@@ -2185,7 +2195,7 @@ darwin_asm_declare_object_name (FILE *file,
 	machopic_define_symbol (DECL_RTL (decl));
     }
 
-  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
 
 #ifdef DEBUG_DARWIN_MEM_ALLOCATORS
 fprintf (file, "# dadon: %s %s (%llu, %u) local %d weak %d"
@@ -3486,7 +3496,7 @@ darwin_build_constant_cfstring (tree str)
 	      }
 	}
 
-      *loc = desc = ggc_alloc_cleared_cfstring_descriptor ();
+      *loc = desc = ggc_cleared_alloc<cfstring_descriptor> ();
       desc->literal = str;
 
       /* isa *. */
@@ -3573,7 +3583,7 @@ darwin_enter_string_into_cfstring_table (tree str)
 
   if (!*loc)
     {
-      *loc = ggc_alloc_cleared_cfstring_descriptor ();
+      *loc = ggc_cleared_alloc<cfstring_descriptor> ();
       ((struct cfstring_descriptor *)*loc)->literal = str;
     }
 }
@@ -3593,48 +3603,39 @@ darwin_function_section (tree decl, enum node_frequency freq,
 
   /* If there is a specified section name, we should not be trying to
      override.  */
-  if (decl && DECL_SECTION_NAME (decl) != NULL_TREE)
+  if (decl && DECL_SECTION_NAME (decl) != NULL)
     return get_named_section (decl, NULL, 0);
 
-  /* Default when there is no function re-ordering.  */
-  if (!flag_reorder_functions)
-    return (weak)
-	    ? darwin_sections[text_coal_section]
-	    : text_section;
+  /* We always put unlikely executed stuff in the cold section.  */
+  if (freq == NODE_FREQUENCY_UNLIKELY_EXECUTED)
+    return (weak) ? darwin_sections[text_cold_coal_section]
+		  : darwin_sections[text_cold_section];
 
-  /* Startup code should go to startup subsection unless it is
-     unlikely executed (this happens especially with function splitting
-     where we can split away unnecessary parts of static constructors).  */
-  if (startup && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return (weak)
-	    ? darwin_sections[text_startup_coal_section]
-	    : darwin_sections[text_startup_section];
+  /* If we have LTO *and* feedback information, then let LTO handle
+     the function ordering, it makes a better job (for normal, hot,
+     startup and exit - hence the bailout for cold above).  */
+  if (in_lto_p && flag_profile_values)
+    goto default_function_sections;
+
+  /* Non-cold startup code should go to startup subsection.  */
+  if (startup)
+    return (weak) ? darwin_sections[text_startup_coal_section]
+		  : darwin_sections[text_startup_section];
 
   /* Similarly for exit.  */
-  if (exit && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return (weak)
-	    ? darwin_sections[text_exit_coal_section]
-	    : darwin_sections[text_exit_section];
+  if (exit)
+    return (weak) ? darwin_sections[text_exit_coal_section]
+		  : darwin_sections[text_exit_section];
 
-  /* Group cold functions together, similarly for hot code.  */
-  switch (freq)
-    {
-      case NODE_FREQUENCY_UNLIKELY_EXECUTED:
-	return (weak)
-		? darwin_sections[text_cold_coal_section]
-		: darwin_sections[text_cold_section];
-	break;
-      case NODE_FREQUENCY_HOT:
-	return (weak)
-		? darwin_sections[text_hot_coal_section]
-		: darwin_sections[text_hot_section];
-	break;
-      default:
-	return (weak)
-		? darwin_sections[text_coal_section]
+  /* Place hot code.  */
+  if (freq == NODE_FREQUENCY_HOT)
+    return (weak) ? darwin_sections[text_hot_coal_section]
+		  : darwin_sections[text_hot_section];
+
+  /* Otherwise, default to the 'normal' non-reordered sections.  */
+default_function_sections:
+  return (weak) ? darwin_sections[text_coal_section]
 		: text_section;
-	break;
-    }
 }
 
 /* When a function is partitioned between sections, we need to insert a label

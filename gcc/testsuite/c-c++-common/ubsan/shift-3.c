@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=shift -w" } */
+/* { dg-options "-fsanitize=shift -w -fno-sanitize-recover" } */
 
 int
 main (void)

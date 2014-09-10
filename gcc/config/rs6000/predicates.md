@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -19,7 +19,7 @@
 
 ;; Return 1 for anything except PARALLEL.
 (define_predicate "any_operand"
-  (match_code "const_int,const_double,const,symbol_ref,label_ref,subreg,reg,mem"))
+  (match_code "const_int,const_double,const_wide_int,const,symbol_ref,label_ref,subreg,reg,mem"))
 
 ;; Return 1 for any PARALLEL.
 (define_predicate "any_parallel_operand"
@@ -171,6 +171,11 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 1)")))
 
+;; Match op = 0..3.
+(define_predicate "const_0_to_3_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 3)")))
+
 ;; Match op = 2 or op = 3.
 (define_predicate "const_2_to_3_operand"
   (and (match_code "const_int")
@@ -270,7 +275,7 @@
 {
   HOST_WIDE_INT r;
 
-  if (!TARGET_QUAD_MEMORY)
+  if (!TARGET_QUAD_MEMORY && !TARGET_QUAD_MEMORY_ATOMIC)
     return 0;
 
   if (GET_CODE (op) == SUBREG)
@@ -596,7 +601,7 @@
 
 ;; Return 1 if operand is constant zero (scalars and vectors).
 (define_predicate "zero_constant"
-  (and (match_code "const_int,const_double,const_vector")
+  (and (match_code "const_int,const_double,const_wide_int,const_vector")
        (match_test "op == CONST0_RTX (mode)")))
 
 ;; Return 1 if operand is 0.0.
@@ -624,13 +629,14 @@
        (match_test "offsettable_nonstrict_memref_p (op)")))
 
 ;; Return 1 if the operand is suitable for load/store quad memory.
+;; This predicate only checks for non-atomic loads/stores (not lqarx/stqcx).
 (define_predicate "quad_memory_operand"
   (match_code "mem")
 {
   rtx addr, op0, op1;
   int ret;
 
-  if (!TARGET_QUAD_MEMORY)
+  if (!TARGET_QUAD_MEMORY && !TARGET_SYNC_TI)
     ret = 0;
 
   else if (!memory_operand (op, mode))
@@ -737,13 +743,12 @@
 		    || GET_CODE (XEXP (op, 0)) == PRE_DEC
 		    || GET_CODE (XEXP (op, 0)) == PRE_MODIFY))"))
 
-;; Return 1 if the operand is a MEM with an update-indexed-form address. Note
-;; that PRE_INC/PRE_DEC will always be non-indexed (i.e. non X-form) since the
-;; increment is based on the mode size and will therefor always be a const.
-(define_special_predicate "update_indexed_address_mem"
+;; Return 1 if the operand is a MEM with an indexed-form address.
+(define_special_predicate "indexed_address_mem"
   (match_test "(MEM_P (op)
-		&& GET_CODE (XEXP (op, 0)) == PRE_MODIFY
-		&& indexed_address (XEXP (XEXP (op, 0), 1), mode))"))
+		&& (indexed_address (XEXP (op, 0), mode)
+		    || (GET_CODE (XEXP (op, 0)) == PRE_MODIFY
+			&& indexed_address (XEXP (XEXP (op, 0), 1), mode))))"))
 
 ;; Used for the destination of the fix_truncdfsi2 expander.
 ;; If stfiwx will be used, the result goes to memory; otherwise,
@@ -790,7 +795,7 @@
 ;; Return 1 if op is a constant that is not a logical operand, but could
 ;; be split into one.
 (define_predicate "non_logical_cint_operand"
-  (and (match_code "const_int,const_double")
+  (and (match_code "const_int,const_wide_int")
        (and (not (match_operand 0 "logical_operand"))
 	    (match_operand 0 "reg_or_logical_cint_operand"))))
 
@@ -935,6 +940,12 @@
   return c == -lsb;
 })
 
+;; Match a mask_operand or a mask64_operand.
+(define_predicate "any_mask_operand"
+  (ior (match_operand 0 "mask_operand")
+       (and (match_test "TARGET_POWERPC64 && mode == DImode")
+	    (match_operand 0 "mask64_operand"))))
+
 ;; Like and_operand, but also match constants that can be implemented
 ;; with two rldicl or rldicr insns.
 (define_predicate "and64_2_operand"
@@ -947,11 +958,18 @@
 ;; constant that can be used as the operand of a logical AND.
 (define_predicate "and_operand"
   (ior (match_operand 0 "mask_operand")
-       (ior (and (match_test "TARGET_POWERPC64 && mode == DImode")
-		 (match_operand 0 "mask64_operand"))
-            (if_then_else (match_test "fixed_regs[CR0_REGNO]")
-	      (match_operand 0 "gpc_reg_operand")
-	      (match_operand 0 "logical_operand")))))
+       (and (match_test "TARGET_POWERPC64 && mode == DImode")
+	    (match_operand 0 "mask64_operand"))
+       (if_then_else (match_test "fixed_regs[CR0_REGNO]")
+	 (match_operand 0 "gpc_reg_operand")
+	 (match_operand 0 "logical_operand"))))
+
+;; Return 1 if the operand is a constant that can be used as the operand
+;; of a logical AND, implemented with two rld* insns, and it cannot be done
+;; using just one insn.
+(define_predicate "and_2rld_operand"
+  (and (match_operand 0 "and64_2_operand")
+       (not (match_operand 0 "and_operand"))))
 
 ;; Return 1 if the operand is either a logical operand or a short cint operand.
 (define_predicate "scc_eq_operand"
@@ -980,6 +998,14 @@
   (ior (match_operand 0 "zero_fp_constant")
        (match_operand 0 "reg_or_mem_operand")))
 
+;; Return 1 if the operand is a CONST_INT and it is the element for 64-bit
+;; data types inside of a vector that scalar instructions operate on
+(define_predicate "vsx_scalar_64bit"
+  (match_code "const_int")
+{
+  return (INTVAL (op) == VECTOR_ELEMENT_SCALAR_64BIT);
+})
+
 ;; Return 1 if the operand is a general register or memory operand without
 ;; pre_inc or pre_dec or pre_modify, which produces invalid form of PowerPC
 ;; lwa instruction.
@@ -996,6 +1022,9 @@
     return true;
   if (!memory_operand (inner, mode))
     return false;
+  if (!rs6000_gen_cell_microcode)
+    return false;
+
   addr = XEXP (inner, 0);
   if (GET_CODE (addr) == PRE_INC
       || GET_CODE (addr) == PRE_DEC
@@ -1050,7 +1079,8 @@
   (and (match_code "symbol_ref")
        (match_test "(DEFAULT_ABI != ABI_AIX || SYMBOL_REF_FUNCTION_P (op))
 		    && ((SYMBOL_REF_LOCAL_P (op)
-			 && (DEFAULT_ABI != ABI_AIX
+			 && ((DEFAULT_ABI != ABI_AIX
+			      && DEFAULT_ABI != ABI_ELFv2)
 			     || !SYMBOL_REF_EXTERNAL_P (op)))
 		        || (op == XEXP (DECL_RTL (current_function_decl),
 						  0)))")))
@@ -1058,7 +1088,7 @@
 ;; Return 1 if this operand is a valid input for a move insn.
 (define_predicate "input_operand"
   (match_code "symbol_ref,const,reg,subreg,mem,
-	       const_double,const_vector,const_int")
+	       const_double,const_wide_int,const_vector,const_int")
 {
   /* Memory is always valid.  */
   if (memory_operand (op, mode))
@@ -1071,8 +1101,7 @@
 
   /* Allow any integer constant.  */
   if (GET_MODE_CLASS (mode) == MODE_INT
-      && (GET_CODE (op) == CONST_INT
-	  || GET_CODE (op) == CONST_DOUBLE))
+      && CONST_SCALAR_INT_P (op))
     return 1;
 
   /* Allow easy vector constants.  */
@@ -1111,7 +1140,7 @@
 ;; Return 1 if this operand is a valid input for a vsx_splat insn.
 (define_predicate "splat_input_operand"
   (match_code "symbol_ref,const,reg,subreg,mem,
-	       const_double,const_vector,const_int")
+	       const_double,const_wide_int,const_vector,const_int")
 {
   if (MEM_P (op))
     {
@@ -1533,6 +1562,26 @@
 	  || XVECEXP (unspec, 0, 0) != src_reg
 	  || GET_CODE (XVECEXP (unspec, 0, 1)) != CONST_INT
 	  || INTVAL (XVECEXP (unspec, 0, 1)) != maskval)
+	return 0;
+    }
+  return 1;
+})
+
+;; Return 1 if OP is valid for crsave insn, known to be a PARALLEL.
+(define_predicate "crsave_operation"
+  (match_code "parallel")
+{
+  int count = XVECLEN (op, 0);
+  int i;
+
+  for (i = 1; i < count; i++)
+    {
+      rtx exp = XVECEXP (op, 0, i);
+
+      if (GET_CODE (exp) != USE
+	  || GET_CODE (XEXP (exp, 0)) != REG
+	  || GET_MODE (XEXP (exp, 0)) != CCmode
+	  || ! CR_REGNO_P (REGNO (XEXP (exp, 0))))
 	return 0;
     }
   return 1;

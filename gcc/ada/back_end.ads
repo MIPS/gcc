@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,6 +24,8 @@
 ------------------------------------------------------------------------------
 
 --  Call the back end with all the information needed
+--  Note: there are multiple bodies/variants of this package, so do not
+--  modify this spec without coordination.
 
 package Back_End is
 
@@ -59,6 +61,17 @@ package Back_End is
    --
    --  Any processed switches that influence the result of a compilation must
    --  be added to the Compilation_Arguments table.
+   --
+   --  This routine is expected to set the following to True if necessary (the
+   --  default for all of these in Opt is False).
+   --
+   --    Opt.Suppress_All_Inlining
+   --    Opt.Suppress_Control_Float_Optimizations
+   --    Opt.Generate_SCO
+   --    Opt.Generate_SCO_Instance_Table
+   --    Opt.Stack_Checking_Enabled
+   --    Opt.No_Stdinc
+   --    Opt.No_Stdlib
 
    procedure Gen_Or_Update_Object_File;
    --  Is used to generate the object file (if generated directly by gnat1), or

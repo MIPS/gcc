@@ -378,3 +378,114 @@ func testMapLookups(t *testing.T, m map[string]string) {
 		}
 	}
 }
+
+// Tests whether the iterator returns the right elements when
+// started in the middle of a grow, when the keys are NaNs.
+func TestMapNanGrowIterator(t *testing.T) {
+	m := make(map[float64]int)
+	nan := math.NaN()
+	const nBuckets = 16
+	// To fill nBuckets buckets takes LOAD * nBuckets keys.
+	nKeys := int(nBuckets * *runtime.HashLoad)
+
+	// Get map to full point with nan keys.
+	for i := 0; i < nKeys; i++ {
+		m[nan] = i
+	}
+	// Trigger grow
+	m[1.0] = 1
+	delete(m, 1.0)
+
+	// Run iterator
+	found := make(map[int]struct{})
+	for _, v := range m {
+		if v != -1 {
+			if _, repeat := found[v]; repeat {
+				t.Fatalf("repeat of value %d", v)
+			}
+			found[v] = struct{}{}
+		}
+		if len(found) == nKeys/2 {
+			// Halfway through iteration, finish grow.
+			for i := 0; i < nBuckets; i++ {
+				delete(m, 1.0)
+			}
+		}
+	}
+	if len(found) != nKeys {
+		t.Fatalf("missing value")
+	}
+}
+
+func TestMapIterOrder(t *testing.T) {
+	if runtime.Compiler == "gccgo" {
+		t.Skip("skipping for gccgo")
+	}
+
+	for _, n := range [...]int{3, 7, 9, 15} {
+		// Make m be {0: true, 1: true, ..., n-1: true}.
+		m := make(map[int]bool)
+		for i := 0; i < n; i++ {
+			m[i] = true
+		}
+		// Check that iterating over the map produces at least two different orderings.
+		ord := func() []int {
+			var s []int
+			for key := range m {
+				s = append(s, key)
+			}
+			return s
+		}
+		first := ord()
+		ok := false
+		for try := 0; try < 100; try++ {
+			if !reflect.DeepEqual(first, ord()) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			t.Errorf("Map with n=%d elements had consistent iteration order: %v", n, first)
+		}
+	}
+}
+
+func TestMapStringBytesLookup(t *testing.T) {
+	if runtime.Compiler == "gccgo" {
+		t.Skip("skipping for gccgo")
+	}
+	// Use large string keys to avoid small-allocation coalescing,
+	// which can cause AllocsPerRun to report lower counts than it should.
+	m := map[string]int{
+		"1000000000000000000000000000000000000000000000000": 1,
+		"2000000000000000000000000000000000000000000000000": 2,
+	}
+	buf := []byte("1000000000000000000000000000000000000000000000000")
+	if x := m[string(buf)]; x != 1 {
+		t.Errorf(`m[string([]byte("1"))] = %d, want 1`, x)
+	}
+	buf[0] = '2'
+	if x := m[string(buf)]; x != 2 {
+		t.Errorf(`m[string([]byte("2"))] = %d, want 2`, x)
+	}
+
+	var x int
+	n := testing.AllocsPerRun(100, func() {
+		x += m[string(buf)]
+	})
+	if n != 0 {
+		t.Errorf("AllocsPerRun for m[string(buf)] = %v, want 0", n)
+	}
+
+	x = 0
+	n = testing.AllocsPerRun(100, func() {
+		y, ok := m[string(buf)]
+		if !ok {
+			panic("!ok")
+		}
+		x += y
+	})
+	if n != 0 {
+		t.Errorf("AllocsPerRun for x,ok = m[string(buf)] = %v, want 0", n)
+	}
+}

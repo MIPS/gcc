@@ -1,6 +1,6 @@
 /* Declarations for insn-output.c and other code to write to asm_out_file.
    These functions are defined in final.c, and varasm.c.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -50,14 +50,16 @@ extern int get_attr_min_length (rtx);
 
 /* Make a pass over all insns and compute their actual lengths by shortening
    any branches of variable length if possible.  */
-extern void shorten_branches (rtx);
+extern void shorten_branches (rtx_insn *);
+
+const char *get_some_local_dynamic_name ();
 
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
    for the new function.  The label for the function and associated
    assembler pseudo-ops have already been output in
    `assemble_start_function'.  */
-extern void final_start_function (rtx, FILE *, int);
+extern void final_start_function (rtx_insn *, FILE *, int);
 
 /* Output assembler code for the end of a function.
    For clarity, args are same as those of `final_start_function'
@@ -65,12 +67,12 @@ extern void final_start_function (rtx, FILE *, int);
 extern void final_end_function (void);
 
 /* Output assembler code for some insns: all or part of a function.  */
-extern void final (rtx, FILE *, int);
+extern void final (rtx_insn *, FILE *, int);
 
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx final_scan_insn (rtx, FILE *, int, int, int *);
+extern rtx_insn *final_scan_insn (rtx_insn *, FILE *, int, int, int *);
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
@@ -90,7 +92,7 @@ extern void output_asm_insn (const char *, rtx *);
 /* Compute a worst-case reference address of a branch so that it
    can be safely used in the presence of aligned labels.
    Defined in final.c.  */
-extern int insn_current_reference_address (rtx);
+extern int insn_current_reference_address (rtx_insn *);
 
 /* Find the alignment associated with a CODE_LABEL.
    Defined in final.c.  */
@@ -136,7 +138,7 @@ extern int leaf_function_p (void);
 /* Return 1 if branch is a forward branch.
    Uses insn_shuid array, so it works only in the final pass.  May be used by
    output templates to add branch prediction hints, for example.  */
-extern int final_forward_branch_p (rtx);
+extern int final_forward_branch_p (rtx_insn *);
 
 /* Return 1 if this function uses only the registers that can be
    safely renumbered.  */
@@ -281,7 +283,7 @@ extern void assemble_addr_to_section (rtx, section *);
 extern int get_pool_size (void);
 
 #ifdef HAVE_peephole
-extern rtx peephole (rtx);
+extern rtx_insn *peephole (rtx_insn *);
 #endif
 
 extern void output_shared_constant_pool (void);
@@ -290,23 +292,13 @@ extern void output_object_blocks (void);
 
 extern void output_quoted_string (FILE *, const char *);
 
-/* Output assembler code for constant EXP to FILE, with no label.
-   This includes the pseudo-op such as ".int" or ".byte", and a newline.
-   Assumes output_addressed_constants has been done on EXP already.
-
-   Generate exactly SIZE bytes of assembler data, padding at the end
-   with zeros if necessary.  SIZE must always be specified.
-
-   ALIGN is the alignment in bits that may be assumed for the data.  */
-extern void output_constant (tree, unsigned HOST_WIDE_INT, unsigned int);
-
 /* When outputting delayed branch sequences, this rtx holds the
    sequence being output.  It is null when no delayed branch
    sequence is being output, so it can be used as a test in the
    insn output code.
 
    This variable is defined  in final.c.  */
-extern rtx final_sequence;
+extern rtx_sequence *final_sequence;
 
 /* The line number of the beginning of the current function.  Various
    md code needs this so that it can output relative linenumbers.  */
@@ -331,7 +323,7 @@ extern const char *weak_global_object_name;
 extern rtx current_insn_predicate;
 
 /* Last insn processed by final_scan_insn.  */
-extern rtx current_output_insn;
+extern rtx_insn *current_output_insn;
 
 /* Nonzero while outputting an `asm' with operands.
    This means that inconsistencies are the user's fault, so don't die.

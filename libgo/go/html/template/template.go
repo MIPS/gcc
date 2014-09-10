@@ -21,7 +21,9 @@ type Template struct {
 	// We could embed the text/template field, but it's safer not to because
 	// we need to keep our version of the name space and the underlying
 	// template's in sync.
-	text       *template.Template
+	text *template.Template
+	// The underlying template's parse tree, updated to be HTML-safe.
+	Tree       *parse.Tree
 	*nameSpace // common to all associated templates
 }
 
@@ -60,6 +62,10 @@ func (t *Template) escape() error {
 
 // Execute applies a parsed template to the specified data object,
 // writing the output to wr.
+// If an error occurs executing the template or writing its output,
+// execution stops, but partial results may already have been written to
+// the output writer.
+// A template may be executed safely in parallel.
 func (t *Template) Execute(wr io.Writer, data interface{}) error {
 	if err := t.escape(); err != nil {
 		return err
@@ -69,6 +75,10 @@ func (t *Template) Execute(wr io.Writer, data interface{}) error {
 
 // ExecuteTemplate applies the template associated with t that has the given
 // name to the specified data object and writes the output to wr.
+// If an error occurs executing the template or writing its output,
+// execution stops, but partial results may already have been written to
+// the output writer.
+// A template may be executed safely in parallel.
 func (t *Template) ExecuteTemplate(wr io.Writer, name string, data interface{}) error {
 	tmpl, err := t.lookupAndEscapeTemplate(name)
 	if err != nil {
@@ -126,8 +136,10 @@ func (t *Template) Parse(src string) (*Template, error) {
 		if tmpl == nil {
 			tmpl = t.new(name)
 		}
+		// Restore our record of this text/template to its unescaped original state.
 		tmpl.escaped = false
 		tmpl.text = v
+		tmpl.Tree = v.Tree
 	}
 	return t, nil
 }
@@ -149,6 +161,7 @@ func (t *Template) AddParseTree(name string, tree *parse.Tree) (*Template, error
 	ret := &Template{
 		false,
 		text,
+		text.Tree,
 		t.nameSpace,
 	}
 	t.set[name] = ret
@@ -176,6 +189,7 @@ func (t *Template) Clone() (*Template, error) {
 	ret := &Template{
 		false,
 		textClone,
+		textClone.Tree,
 		&nameSpace{
 			set: make(map[string]*Template),
 		},
@@ -186,15 +200,11 @@ func (t *Template) Clone() (*Template, error) {
 		if src == nil || src.escaped {
 			return nil, fmt.Errorf("html/template: cannot Clone %q after it has executed", t.Name())
 		}
-		if x.Tree != nil {
-			x.Tree = &parse.Tree{
-				Name: x.Tree.Name,
-				Root: x.Tree.Root.CopyList(),
-			}
-		}
+		x.Tree = x.Tree.Copy()
 		ret.set[name] = &Template{
 			false,
 			x,
+			x.Tree,
 			ret.nameSpace,
 		}
 	}
@@ -206,6 +216,7 @@ func New(name string) *Template {
 	tmpl := &Template{
 		false,
 		template.New(name),
+		nil,
 		&nameSpace{
 			set: make(map[string]*Template),
 		},
@@ -228,6 +239,7 @@ func (t *Template) new(name string) *Template {
 	tmpl := &Template{
 		false,
 		t.text.New(name),
+		nil,
 		t.nameSpace,
 	}
 	tmpl.set[name] = tmpl

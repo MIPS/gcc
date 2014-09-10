@@ -1,5 +1,5 @@
 /* Backward propagation of indirect loads through PHIs.
-   Copyright (C) 2007-2013 Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
    Contributed by Richard Guenther <rguenther@suse.de>
 
 This file is part of GCC.
@@ -26,10 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "langhooks.h"
@@ -301,6 +309,12 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
       gimple def_stmt;
       tree vuse;
 
+      /* Only replace loads in blocks that post-dominate the PHI node.  That
+         makes sure we don't end up speculating loads.  */
+      if (!dominated_by_p (CDI_POST_DOMINATORS,
+			   bb, gimple_bb (use_stmt)))
+	continue;
+         
       /* Check whether this is a load of *ptr.  */
       if (!(is_gimple_assign (use_stmt)
 	    && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME
@@ -360,44 +374,6 @@ next:;
 
 /* Main entry for phiprop pass.  */
 
-static unsigned int
-tree_ssa_phiprop (void)
-{
-  vec<basic_block> bbs;
-  struct phiprop_d *phivn;
-  bool did_something = false;
-  basic_block bb;
-  gimple_stmt_iterator gsi;
-  unsigned i;
-  size_t n;
-
-  calculate_dominance_info (CDI_DOMINATORS);
-
-  n = num_ssa_names;
-  phivn = XCNEWVEC (struct phiprop_d, n);
-
-  /* Walk the dominator tree in preorder.  */
-  bbs = get_all_dominated_blocks (CDI_DOMINATORS,
-				  single_succ (ENTRY_BLOCK_PTR));
-  FOR_EACH_VEC_ELT (bbs, i, bb)
-    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-      did_something |= propagate_with_phi (bb, gsi_stmt (gsi), phivn, n);
-
-  if (did_something)
-    gsi_commit_edge_inserts ();
-
-  bbs.release ();
-  free (phivn);
-
-  return 0;
-}
-
-static bool
-gate_phiprop (void)
-{
-  return flag_tree_phiprop;
-}
-
 namespace {
 
 const pass_data pass_data_phiprop =
@@ -405,14 +381,12 @@ const pass_data pass_data_phiprop =
   GIMPLE_PASS, /* type */
   "phiprop", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_TREE_PHIPROP, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_phiprop : public gimple_opt_pass
@@ -423,10 +397,45 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_phiprop (); }
-  unsigned int execute () { return tree_ssa_phiprop (); }
+  virtual bool gate (function *) { return flag_tree_phiprop; }
+  virtual unsigned int execute (function *);
 
 }; // class pass_phiprop
+
+unsigned int
+pass_phiprop::execute (function *fun)
+{
+  vec<basic_block> bbs;
+  struct phiprop_d *phivn;
+  bool did_something = false;
+  basic_block bb;
+  gimple_stmt_iterator gsi;
+  unsigned i;
+  size_t n;
+
+  calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
+
+  n = num_ssa_names;
+  phivn = XCNEWVEC (struct phiprop_d, n);
+
+  /* Walk the dominator tree in preorder.  */
+  bbs = get_all_dominated_blocks (CDI_DOMINATORS,
+				  single_succ (ENTRY_BLOCK_PTR_FOR_FN (fun)));
+  FOR_EACH_VEC_ELT (bbs, i, bb)
+    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      did_something |= propagate_with_phi (bb, gsi_stmt (gsi), phivn, n);
+
+  if (did_something)
+    gsi_commit_edge_inserts ();
+
+  bbs.release ();
+  free (phivn);
+
+  free_dominance_info (CDI_POST_DOMINATORS);
+
+  return 0;
+}
 
 } // anon namespace
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +24,6 @@
 ------------------------------------------------------------------------------
 
 with Csets;
-with Hostparm;
 with Makeutl;  use Makeutl;
 with Opt;
 with Output;
@@ -38,6 +37,7 @@ with Prj.Tree; use Prj.Tree;
 with Prj.Util; use Prj.Util;
 with Sdefault;
 with Snames;   use Snames;
+with Stringt;
 with Table;    use Table;
 with Tempdir;
 
@@ -804,6 +804,7 @@ package body Prj.Makr is
 
       Csets.Initialize;
       Snames.Initialize;
+      Stringt.Initialize;
 
       Prj.Initialize (No_Project_Tree);
 
@@ -888,6 +889,14 @@ package body Prj.Makr is
 
             if No (Project_Node) then
                Prj.Com.Fail ("parsing of existing project file failed");
+
+            elsif Project_Qualifier_Of (Project_Node, Tree) = Aggregate then
+               Prj.Com.Fail ("aggregate projects are not supported");
+
+            elsif Project_Qualifier_Of (Project_Node, Tree) =
+                                                    Aggregate_Library
+            then
+               Prj.Com.Fail ("aggregate library projects are not supported");
 
             else
                --  If parsing was successful, remove the components that are
@@ -1048,11 +1057,9 @@ package body Prj.Makr is
            Project_File_Extension;
          Output_Name_Last := Output_Name_Last + Project_File_Extension'Length;
 
-         --  Back up project file if it already exists (not needed in VMS since
-         --  versioning of files takes care of this requirement on VMS).
+         --  Back up project file if it already exists
 
-         if not Hostparm.OpenVMS
-           and then not Opt.No_Backup
+         if not Opt.No_Backup
            and then Is_Regular_File (Path_Name (1 .. Path_Last))
          then
             declare
@@ -1268,15 +1275,6 @@ package body Prj.Makr is
                         else
                            Temp_File_Name :=
                              new String'(Get_Name_String (Tmp_File));
-                        end if;
-
-                        --  On VMS, a file created with Create_Temp_File cannot
-                        --  be used to redirect output.
-
-                        if Hostparm.OpenVMS then
-                           Close (FD);
-                           Delete_File (Temp_File_Name.all, Success);
-                           FD := Create_Output_Text_File (Temp_File_Name.all);
                         end if;
 
                         Args (Args'Last) := new String'

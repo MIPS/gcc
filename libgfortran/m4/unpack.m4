@@ -1,5 +1,5 @@
 `/* Specific implementation of the UNPACK intrinsic
-   Copyright (C) 2008-2013 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
    Contributed by Thomas Koenig <tkoenig@gcc.gnu.org>, based on
    unpack_generic.c by Paul Brook <paul@nowt.org>.
 
@@ -100,7 +100,7 @@ unpack0_'rtype_code` ('rtype` *ret, const 'rtype` *vector,
 	  rs *= extent[n];
 	}
       ret->offset = 0;
-      ret->base_addr = xmalloc (rs * sizeof ('rtype_name`));
+      ret->base_addr = xmallocarray (rs, sizeof ('rtype_name`));
     }
   else
     {
@@ -245,7 +245,7 @@ unpack1_'rtype_code` ('rtype` *ret, const 'rtype` *vector,
 	  rs *= extent[n];
 	}
       ret->offset = 0;
-      ret->base_addr = xmalloc (rs * sizeof ('rtype_name`));
+      ret->base_addr = xmallocarray (rs, sizeof ('rtype_name`));
     }
   else
     {

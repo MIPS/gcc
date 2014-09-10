@@ -1,3 +1,24 @@
+2014-09-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* dummy-frontend.c: Fix up for the header file flattening on
+	trunk by adding includes of signop.h, tree-core.h, stor-layout.h,
+	tree-ssa-alias.h, gimple-expr.h.
+	(jit_langhook_write_globals): Update call to
+	finalize_compilation_unit to symtab->finalize_compilation_unit to
+	track change made on trunk in r214422.
+
+	* internal-api.c: Fix up for the header file flattening on trunk
+	by adding includes of gimple-expr.h, tree-ssa-alias.h,
+	stringpool.h, stor-layout.h, print-tree.h, gimplify.h.
+	(new_rvalue_from_int): Update call to real_from_integer.
+	(gcc::jit::playback::wrapper::operator new): Use
+	ggc_internal_cleared_alloc rather than
+	ggc_internal_cleared_alloc_stat.
+	(gcc::jit::playback::function::postprocess): Update call to
+	cgraph_finalize_function tocgraph_node::finalize_function.
+	(gcc::jit::playback::block::add_comment): Update call to
+	ggc_internal_alloc_stat to ggc_internal_alloc.
+
 2014-08-08  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_context_new_union_type): New entrypoint.

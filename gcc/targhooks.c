@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -53,6 +53,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "expr.h"
 #include "output.h"
 #include "diagnostic-core.h"
@@ -60,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
-#include "ggc.h"
 #include "hard-reg-set.h"
 #include "regs.h"
 #include "reload.h"
@@ -68,9 +69,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "intl.h"
 #include "opts.h"
-#include "gimple.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-alias.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "insn-codes.h"
 
 
@@ -137,7 +140,6 @@ default_promote_function_mode_always_promote (const_tree type,
 {
   return promote_mode (type, mode, punsignedp);
 }
-
 
 enum machine_mode
 default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
@@ -272,7 +274,6 @@ default_cxx_guard_type (void)
   return long_long_integer_type_node;
 }
 
-
 /* Returns the size of the cookie to use when allocating an array
    whose elements have the indicated TYPE.  Assumes that it is already
    known that a cookie is needed.  */
@@ -289,7 +290,7 @@ default_cxx_get_cookie_size (tree type)
 
   sizetype_size = size_in_bytes (sizetype);
   type_align = size_int (TYPE_ALIGN_UNIT (type));
-  if (INT_CST_LT_UNSIGNED (type_align, sizetype_size))
+  if (tree_int_cst_lt (type_align, sizetype_size))
     cookie_size = sizetype_size;
   else
     cookie_size = type_align;
@@ -436,6 +437,19 @@ targhook_float_words_big_endian (void)
   return !!FLOAT_WORDS_BIG_ENDIAN;
 }
 
+/* True if the target supports floating-point exceptions and rounding
+   modes.  */
+
+bool
+default_float_exceptions_rounding_supported_p (void)
+{
+#ifdef HAVE_adddf3
+  return HAVE_adddf3;
+#else
+  return false;
+#endif
+}
+
 /* True if the target supports decimal floating point.  */
 
 bool
@@ -471,7 +485,7 @@ default_has_ifunc_p (void)
    these cases.  */
 
 const char *
-default_invalid_within_doloop (const_rtx insn)
+default_invalid_within_doloop (const rtx_insn *insn)
 {
   if (CALL_P (insn))
     return "Function call in loop.";
@@ -905,7 +919,6 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
       else if (icode != CODE_FOR_nothing)
 	{
 	  const char *insn_constraint, *scratch_constraint;
-	  char insn_letter, scratch_letter;
 	  enum reg_class insn_class, scratch_class;
 
 	  gcc_assert (insn_data[(int) icode].n_operands == 3);
@@ -919,11 +932,8 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 		  gcc_assert (*insn_constraint == '=');
 		  insn_constraint++;
 		}
-	      insn_letter = *insn_constraint;
-	      insn_class
-		= (insn_letter == 'r' ? GENERAL_REGS
-		   : REG_CLASS_FROM_CONSTRAINT ((unsigned char) insn_letter,
-						insn_constraint));
+	      insn_class = (reg_class_for_constraint
+			    (lookup_constraint (insn_constraint)));
 	      gcc_assert (insn_class != NO_REGS);
 	    }
 
@@ -937,11 +947,8 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 	  scratch_constraint++;
 	  if (*scratch_constraint == '&')
 	    scratch_constraint++;
-	  scratch_letter = *scratch_constraint;
-	  scratch_class
-	    = (scratch_letter == 'r' ? GENERAL_REGS
-	       : REG_CLASS_FROM_CONSTRAINT ((unsigned char) scratch_letter,
-					    scratch_constraint));
+	  scratch_class = (reg_class_for_constraint
+			   (lookup_constraint (scratch_constraint)));
 
 	  if (reg_class_subset_p (reload_class, insn_class))
 	    {
@@ -980,7 +987,7 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 HOST_WIDE_INT
 default_vector_alignment (const_tree type)
 {
-  return tree_low_cst (TYPE_SIZE (type), 0);
+  return tree_to_shwi (TYPE_SIZE (type));
 }
 
 bool
@@ -1059,8 +1066,8 @@ default_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   unsigned retval = 0;
 
   tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
-  int stmt_cost = default_builtin_vectorization_cost (kind, vectype,
-							  misalign);
+  int stmt_cost = targetm.vectorize.builtin_vectorization_cost (kind, vectype,
+								misalign);
    /* Statements in an inner loop relative to the loop being
       vectorized are weighted more heavily.  The value here is
       arbitrary and could potentially be improved with analysis.  */
@@ -1308,6 +1315,31 @@ default_have_conditional_execution (void)
 #endif
 }
 
+/* By default we assume that c99 functions are present at the runtime,
+   but sincos is not.  */
+bool
+default_libc_has_function (enum function_class fn_class)
+{
+  if (fn_class == function_c94
+      || fn_class == function_c99_misc
+      || fn_class == function_c99_math_complex)
+    return true;
+
+  return false;
+}
+
+bool
+gnu_libc_has_function (enum function_class fn_class ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+bool
+no_c99_libc_has_function (enum function_class fn_class ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 tree
 default_builtin_tm_load_store (tree ARG_UNUSED (type))
 {
@@ -1424,6 +1456,19 @@ default_debug_unwind_info (void)
   return UI_NONE;
 }
 
+/* Determine the correct mode for a Dwarf frame register that represents
+   register REGNO.  */
+
+enum machine_mode
+default_dwarf_frame_reg_mode (int regno)
+{
+  enum machine_mode save_mode = reg_raw_mode[regno];
+
+  if (HARD_REGNO_CALL_PART_CLOBBERED (regno, save_mode))
+    save_mode = choose_hard_reg_mode (regno, 1, true);
+  return save_mode;
+}
+
 /* To be used by targets where reg_raw_mode doesn't return the right
    mode for registers used in apply_builtin_return and apply_builtin_arg.  */
 
@@ -1431,6 +1476,15 @@ enum machine_mode
 default_get_reg_raw_mode (int regno)
 {
   return reg_raw_mode[regno];
+}
+
+/* Return true if a leaf function should stay leaf even with profiling
+   enabled.  */
+
+bool
+default_keep_leaf_when_profiled ()
+{
+  return false;
 }
 
 /* Return true if the state of option OPTION should be stored in PCH files
@@ -1441,6 +1495,8 @@ static inline bool
 option_affects_pch_p (int option, struct cl_option_state *state)
 {
   if ((cl_options[option].flags & CL_TARGET) == 0)
+    return false;
+  if ((cl_options[option].flags & CL_PCH_IGNORE) != 0)
     return false;
   if (option_flag_var (option, &global_options) == &target_flags)
     if (targetm.check_pch_target_flags)
@@ -1563,6 +1619,133 @@ default_member_type_forces_blk (const_tree, enum machine_mode)
 void
 default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
+}
+
+/* Default implementation of TARGET_ATOMIC_ASSIGN_EXPAND_FENV.  */
+
+void
+default_atomic_assign_expand_fenv (tree *, tree *, tree *)
+{
+}
+
+#ifndef PAD_VARARGS_DOWN
+#define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
+#endif
+
+/* Build an indirect-ref expression over the given TREE, which represents a
+   piece of a va_arg() expansion.  */
+tree
+build_va_arg_indirect_ref (tree addr)
+{
+  addr = build_simple_mem_ref_loc (EXPR_LOCATION (addr), addr);
+  return addr;
+}
+
+/* The "standard" implementation of va_arg: read the value from the
+   current (padded) address and increment by the (padded) size.  */
+
+tree
+std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			  gimple_seq *post_p)
+{
+  tree addr, t, type_size, rounded_size, valist_tmp;
+  unsigned HOST_WIDE_INT align, boundary;
+  bool indirect;
+
+#ifdef ARGS_GROW_DOWNWARD
+  /* All of the alignment and movement below is for args-grow-up machines.
+     As of 2004, there are only 3 ARGS_GROW_DOWNWARD targets, and they all
+     implement their own specialized gimplify_va_arg_expr routines.  */
+  gcc_unreachable ();
+#endif
+
+  indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  if (indirect)
+    type = build_pointer_type (type);
+
+  align = PARM_BOUNDARY / BITS_PER_UNIT;
+  boundary = targetm.calls.function_arg_boundary (TYPE_MODE (type), type);
+
+  /* When we align parameter on stack for caller, if the parameter
+     alignment is beyond MAX_SUPPORTED_STACK_ALIGNMENT, it will be
+     aligned at MAX_SUPPORTED_STACK_ALIGNMENT.  We will match callee
+     here with caller.  */
+  if (boundary > MAX_SUPPORTED_STACK_ALIGNMENT)
+    boundary = MAX_SUPPORTED_STACK_ALIGNMENT;
+
+  boundary /= BITS_PER_UNIT;
+
+  /* Hoist the valist value into a temporary for the moment.  */
+  valist_tmp = get_initialized_tmp_var (valist, pre_p, NULL);
+
+  /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
+     requires greater alignment, we must perform dynamic alignment.  */
+  if (boundary > align
+      && !integer_zerop (TYPE_SIZE (type)))
+    {
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
+		  fold_build_pointer_plus_hwi (valist_tmp, boundary - 1));
+      gimplify_and_add (t, pre_p);
+
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
+		  fold_build2 (BIT_AND_EXPR, TREE_TYPE (valist),
+			       valist_tmp,
+			       build_int_cst (TREE_TYPE (valist), -boundary)));
+      gimplify_and_add (t, pre_p);
+    }
+  else
+    boundary = align;
+
+  /* If the actual alignment is less than the alignment of the type,
+     adjust the type accordingly so that we don't assume strict alignment
+     when dereferencing the pointer.  */
+  boundary *= BITS_PER_UNIT;
+  if (boundary < TYPE_ALIGN (type))
+    {
+      type = build_variant_type_copy (type);
+      TYPE_ALIGN (type) = boundary;
+    }
+
+  /* Compute the rounded size of the type.  */
+  type_size = size_in_bytes (type);
+  rounded_size = round_up (type_size, align);
+
+  /* Reduce rounded_size so it's sharable with the postqueue.  */
+  gimplify_expr (&rounded_size, pre_p, post_p, is_gimple_val, fb_rvalue);
+
+  /* Get AP.  */
+  addr = valist_tmp;
+  if (PAD_VARARGS_DOWN && !integer_zerop (rounded_size))
+    {
+      /* Small args are padded downward.  */
+      t = fold_build2_loc (input_location, GT_EXPR, sizetype,
+		       rounded_size, size_int (align));
+      t = fold_build3 (COND_EXPR, sizetype, t, size_zero_node,
+		       size_binop (MINUS_EXPR, rounded_size, type_size));
+      addr = fold_build_pointer_plus (addr, t);
+    }
+
+  /* Compute new value for AP.  */
+  t = fold_build_pointer_plus (valist_tmp, rounded_size);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
+  gimplify_and_add (t, pre_p);
+
+  addr = fold_convert (build_pointer_type (type), addr);
+
+  if (indirect)
+    addr = build_va_arg_indirect_ref (addr);
+
+  return build_va_arg_indirect_ref (addr);
+}
+
+/* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do
+   not support nested low-overhead loops.  */
+
+bool
+can_use_doloop_if_innermost (const widest_int &, const widest_int &,
+			     unsigned int loop_depth, bool)
+{
+  return loop_depth == 1;
 }
 
 #include "gt-targhooks.h"

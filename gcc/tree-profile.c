@@ -1,5 +1,5 @@
 /* Calculate branch probabilities, and basic block execution counts.
-   Copyright (C) 1990-2013 Free Software Foundation, Inc.
+   Copyright (C) 1990-2014 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -34,10 +34,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "coverage.h"
 #include "tree.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "varasm.h"
+#include "tree-nested.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-pass.h"
@@ -45,15 +55,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "profile.h"
 #include "target.h"
 #include "tree-cfgcleanup.h"
+#include "tree-nested.h"
 
 static GTY(()) tree gcov_type_node;
 static GTY(()) tree tree_interval_profiler_fn;
 static GTY(()) tree tree_pow2_profiler_fn;
 static GTY(()) tree tree_one_value_profiler_fn;
 static GTY(()) tree tree_indirect_call_profiler_fn;
+static GTY(()) tree tree_time_profiler_fn;
 static GTY(()) tree tree_average_profiler_fn;
 static GTY(()) tree tree_ior_profiler_fn;
-
+
 
 static GTY(()) tree ic_void_ptr_var;
 static GTY(()) tree ic_gcov_type_ptr_var;
@@ -63,7 +75,8 @@ static GTY(()) tree ptr_void;
 
 /* Add code:
    __thread gcov*	__gcov_indirect_call_counters; // pointer to actual counter
-   __thread  void*	__gcov_indirect_call_callee; // actual callee address
+   __thread void*	__gcov_indirect_call_callee; // actual callee address
+   __thread int __gcov_function_counter; // time profiler function counter
 */
 static void
 init_ic_make_global_vars (void)
@@ -97,10 +110,9 @@ init_ic_make_global_vars (void)
   DECL_ARTIFICIAL (ic_void_ptr_var) = 1;
   DECL_INITIAL (ic_void_ptr_var) = NULL;
   if (targetm.have_tls)
-    DECL_TLS_MODEL (ic_void_ptr_var) =
-      decl_default_tls_model (ic_void_ptr_var);
+    set_decl_tls_model (ic_void_ptr_var, decl_default_tls_model (ic_void_ptr_var));
 
-  varpool_finalize_decl (ic_void_ptr_var);
+  varpool_node::finalize_decl (ic_void_ptr_var);
 
   gcov_type_ptr = build_pointer_type (get_gcov_type ());
   /* Workaround for binutils bug 14342.  Once it is fixed, remove lto path.  */
@@ -128,10 +140,9 @@ init_ic_make_global_vars (void)
   DECL_ARTIFICIAL (ic_gcov_type_ptr_var) = 1;
   DECL_INITIAL (ic_gcov_type_ptr_var) = NULL;
   if (targetm.have_tls)
-    DECL_TLS_MODEL (ic_gcov_type_ptr_var) =
-      decl_default_tls_model (ic_gcov_type_ptr_var);
+    set_decl_tls_model (ic_gcov_type_ptr_var, decl_default_tls_model (ic_gcov_type_ptr_var));
 
-  varpool_finalize_decl (ic_gcov_type_ptr_var);
+  varpool_node::finalize_decl (ic_gcov_type_ptr_var);
 }
 
 /* Create the type and function decls for the interface with gcov.  */
@@ -145,6 +156,7 @@ gimple_init_edge_profiler (void)
   tree gcov_type_ptr;
   tree ic_profiler_fn_type;
   tree average_profiler_fn_type;
+  tree time_profiler_fn_type;
 
   if (!gcov_type_node)
     {
@@ -222,6 +234,18 @@ gimple_init_edge_profiler (void)
 	= tree_cons (get_identifier ("leaf"), NULL,
 		     DECL_ATTRIBUTES (tree_indirect_call_profiler_fn));
 
+      /* void (*) (gcov_type *, gcov_type, void *)  */
+      time_profiler_fn_type
+	       = build_function_type_list (void_type_node,
+					  gcov_type_ptr, NULL_TREE);
+      tree_time_profiler_fn
+	      = build_fn_decl ("__gcov_time_profiler",
+				     time_profiler_fn_type);
+      TREE_NOTHROW (tree_time_profiler_fn) = 1;
+      DECL_ATTRIBUTES (tree_time_profiler_fn)
+	= tree_cons (get_identifier ("leaf"), NULL,
+		     DECL_ATTRIBUTES (tree_time_profiler_fn));
+
       /* void (*) (gcov_type *, gcov_type)  */
       average_profiler_fn_type
 	      = build_function_type_list (void_type_node,
@@ -247,6 +271,7 @@ gimple_init_edge_profiler (void)
       DECL_ASSEMBLER_NAME (tree_pow2_profiler_fn);
       DECL_ASSEMBLER_NAME (tree_one_value_profiler_fn);
       DECL_ASSEMBLER_NAME (tree_indirect_call_profiler_fn);
+      DECL_ASSEMBLER_NAME (tree_time_profiler_fn);
       DECL_ASSEMBLER_NAME (tree_average_profiler_fn);
       DECL_ASSEMBLER_NAME (tree_ior_profiler_fn);
     }
@@ -402,12 +427,12 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 void
 gimple_gen_ic_func_profiler (void)
 {
-  struct cgraph_node * c_node = cgraph_get_node (current_function_decl);
+  struct cgraph_node * c_node = cgraph_node::get (current_function_decl);
   gimple_stmt_iterator gsi;
   gimple stmt1, stmt2;
   tree tree_uid, cur_func, void0;
 
-  if (cgraph_only_called_directly_p (c_node))
+  if (c_node->only_called_directly_p ())
     return;
 
   gimple_init_edge_profiler ();
@@ -417,7 +442,8 @@ gimple_gen_ic_func_profiler (void)
     stmt1: __gcov_indirect_call_profiler_v2 (profile_id,
 					     &current_function_decl)
    */
-  gsi = gsi_after_labels (split_edge (single_succ_edge (ENTRY_BLOCK_PTR)));
+  gsi =
+					     gsi_after_labels (split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun))));
 
   cur_func = force_gimple_operand_gsi (&gsi,
 				       build_addr (current_function_decl,
@@ -425,7 +451,7 @@ gimple_gen_ic_func_profiler (void)
 				       true, NULL_TREE,
 				       true, GSI_SAME_STMT);
   tree_uid = build_int_cst
-	      (gcov_type_node, cgraph_get_node (current_function_decl)->profile_id);
+	      (gcov_type_node, cgraph_node::get (current_function_decl)->profile_id);
   /* Workaround for binutils bug 14342.  Once it is fixed, remove lto path.  */
   if (flag_lto)
     {
@@ -453,6 +479,23 @@ gimple_gen_ic_func_profiler (void)
   void0 = build_int_cst (build_pointer_type (void_type_node), 0);
   stmt2 = gimple_build_assign (ic_void_ptr_var, void0);
   gsi_insert_before (&gsi, stmt2, GSI_SAME_STMT);
+}
+
+/* Output instructions as GIMPLE tree at the beginning for each function.
+   TAG is the tag of the section for counters, BASE is offset of the
+   counter position and GSI is the iterator we place the counter.  */
+
+void
+gimple_gen_time_profiler (unsigned tag, unsigned base,
+                          gimple_stmt_iterator &gsi)
+{
+  tree ref_ptr = tree_coverage_counter_addr (tag, base);
+  gimple call;
+
+  ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,
+				      true, NULL_TREE, true, GSI_SAME_STMT);
+  call = gimple_build_call (tree_time_profiler_fn, 1, ref_ptr);
+  gsi_insert_before (&gsi, call, GSI_NEW_STMT);
 }
 
 /* Output instructions as GIMPLE trees for code to find the most common value
@@ -522,20 +565,27 @@ tree_profiling (void)
 
   /* This is a small-ipa pass that gets called only once, from
      cgraphunit.c:ipa_passes().  */
-  gcc_assert (cgraph_state == CGRAPH_STATE_IPA_SSA);
+  gcc_assert (symtab->state == IPA_SSA);
 
   init_node_map (true);
 
   FOR_EACH_DEFINED_FUNCTION (node)
     {
-      if (!gimple_has_body_p (node->symbol.decl))
+      if (!gimple_has_body_p (node->decl))
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
+      if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
 	continue;
 
-      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+      /* Do not instrument extern inline functions when testing coverage.
+	 While this is not perfectly consistent (early inlined extern inlines
+	 will get acocunted), testsuite expects that.  */
+      if (DECL_EXTERNAL (node->decl)
+	  && flag_test_coverage)
+	continue;
+
+      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 
       /* Local pure-const may imply need to fixup the cfg.  */
       if (execute_fixup_cfg () & TODO_cleanup_cfg)
@@ -563,17 +613,17 @@ tree_profiling (void)
   /* Drop pure/const flags from instrumented functions.  */
   FOR_EACH_DEFINED_FUNCTION (node)
     {
-      if (!gimple_has_body_p (node->symbol.decl)
+      if (!gimple_has_body_p (node->decl)
 	  || !(!node->clone_of
-	  || node->symbol.decl != node->clone_of->symbol.decl))
+	  || node->decl != node->clone_of->decl))
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
+      if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
 	continue;
 
-      cgraph_set_const_flag (node, false, false);
-      cgraph_set_pure_flag (node, false, false);
+      node->set_const_flag (false, false);
+      node->set_pure_flag (false, false);
     }
 
   /* Update call statements and rebuild the cgraph.  */
@@ -581,18 +631,18 @@ tree_profiling (void)
     {
       basic_block bb;
 
-      if (!gimple_has_body_p (node->symbol.decl)
+      if (!gimple_has_body_p (node->decl)
 	  || !(!node->clone_of
-	  || node->symbol.decl != node->clone_of->symbol.decl))
+	  || node->decl != node->clone_of->decl))
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
+      if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
 	continue;
 
-      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
 	  gimple_stmt_iterator gsi;
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -607,23 +657,15 @@ tree_profiling (void)
       cleanup_tree_cfg ();
       update_ssa (TODO_update_ssa);
 
-      rebuild_cgraph_edges ();
+      cgraph_edge::rebuild_edges ();
 
       pop_cfun ();
     }
 
+  handle_missing_profiles ();
+
   del_node_map ();
   return 0;
-}
-
-/* When profile instrumentation, use or test coverage shall be performed.  */
-
-static bool
-gate_tree_profile_ipa (void)
-{
-  return (!in_lto_p
-	  && (flag_branch_probabilities || flag_test_coverage
-	      || profile_arc_flag));
 }
 
 namespace {
@@ -633,8 +675,6 @@ const pass_data pass_data_ipa_tree_profile =
   SIMPLE_IPA_PASS, /* type */
   "profile", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_IPA_PROFILE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -651,10 +691,19 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tree_profile_ipa (); }
-  unsigned int execute () { return tree_profiling (); }
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *) { return tree_profiling (); }
 
 }; // class pass_ipa_tree_profile
+
+bool
+pass_ipa_tree_profile::gate (function *)
+{
+  /* When profile instrumentation, use or test coverage shall be performed.  */
+  return (!in_lto_p
+	  && (flag_branch_probabilities || flag_test_coverage
+	      || profile_arc_flag));
+}
 
 } // anon namespace
 

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build !plan9,!windows
+// +build !nacl,!plan9,!windows
 
 package net
 
@@ -107,7 +107,7 @@ func TestReadUnixgramWithZeroBytesBuffer(t *testing.T) {
 	}
 }
 
-func TestUnixAutobind(t *testing.T) {
+func TestUnixgramAutobind(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("skipping: autobind is linux only")
 	}
@@ -139,8 +139,88 @@ func TestUnixAutobind(t *testing.T) {
 	}
 }
 
+func TestUnixAutobindClose(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("skipping: autobind is linux only")
+	}
+	laddr := &UnixAddr{Name: "", Net: "unix"}
+	ln, err := ListenUnix("unix", laddr)
+	if err != nil {
+		t.Fatalf("ListenUnix failed: %v", err)
+	}
+	ln.Close()
+}
+
+func TestUnixgramWrite(t *testing.T) {
+	addr := testUnixAddr()
+	laddr, err := ResolveUnixAddr("unixgram", addr)
+	if err != nil {
+		t.Fatalf("ResolveUnixAddr failed: %v", err)
+	}
+	c, err := ListenPacket("unixgram", addr)
+	if err != nil {
+		t.Fatalf("ListenPacket failed: %v", err)
+	}
+	defer os.Remove(addr)
+	defer c.Close()
+
+	testUnixgramWriteConn(t, laddr)
+	testUnixgramWritePacketConn(t, laddr)
+}
+
+func testUnixgramWriteConn(t *testing.T, raddr *UnixAddr) {
+	c, err := Dial("unixgram", raddr.String())
+	if err != nil {
+		t.Fatalf("Dial failed: %v", err)
+	}
+	defer c.Close()
+
+	if _, err := c.(*UnixConn).WriteToUnix([]byte("Connection-oriented mode socket"), raddr); err == nil {
+		t.Fatal("WriteToUnix should fail")
+	} else if err.(*OpError).Err != ErrWriteToConnected {
+		t.Fatalf("WriteToUnix should fail as ErrWriteToConnected: %v", err)
+	}
+	if _, err = c.(*UnixConn).WriteTo([]byte("Connection-oriented mode socket"), raddr); err == nil {
+		t.Fatal("WriteTo should fail")
+	} else if err.(*OpError).Err != ErrWriteToConnected {
+		t.Fatalf("WriteTo should fail as ErrWriteToConnected: %v", err)
+	}
+	if _, _, err = c.(*UnixConn).WriteMsgUnix([]byte("Connection-oriented mode socket"), nil, raddr); err == nil {
+		t.Fatal("WriteTo should fail")
+	} else if err.(*OpError).Err != ErrWriteToConnected {
+		t.Fatalf("WriteMsgUnix should fail as ErrWriteToConnected: %v", err)
+	}
+	if _, err := c.Write([]byte("Connection-oriented mode socket")); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+}
+
+func testUnixgramWritePacketConn(t *testing.T, raddr *UnixAddr) {
+	addr := testUnixAddr()
+	c, err := ListenPacket("unixgram", addr)
+	if err != nil {
+		t.Fatalf("ListenPacket failed: %v", err)
+	}
+	defer os.Remove(addr)
+	defer c.Close()
+
+	if _, err := c.(*UnixConn).WriteToUnix([]byte("Connectionless mode socket"), raddr); err != nil {
+		t.Fatalf("WriteToUnix failed: %v", err)
+	}
+	if _, err := c.WriteTo([]byte("Connectionless mode socket"), raddr); err != nil {
+		t.Fatalf("WriteTo failed: %v", err)
+	}
+	if _, _, err := c.(*UnixConn).WriteMsgUnix([]byte("Connectionless mode socket"), nil, raddr); err != nil {
+		t.Fatalf("WriteMsgUnix failed: %v", err)
+	}
+	if _, err := c.(*UnixConn).Write([]byte("Connectionless mode socket")); err == nil {
+		t.Fatal("Write should fail")
+	}
+}
+
 func TestUnixConnLocalAndRemoteNames(t *testing.T) {
 	for _, laddr := range []string{"", testUnixAddr()} {
+		laddr := laddr
 		taddr := testUnixAddr()
 		ta, err := ResolveUnixAddr("unix", taddr)
 		if err != nil {
@@ -196,6 +276,7 @@ func TestUnixConnLocalAndRemoteNames(t *testing.T) {
 
 func TestUnixgramConnLocalAndRemoteNames(t *testing.T) {
 	for _, laddr := range []string{"", testUnixAddr()} {
+		laddr := laddr
 		taddr := testUnixAddr()
 		ta, err := ResolveUnixAddr("unixgram", taddr)
 		if err != nil {
@@ -212,7 +293,6 @@ func TestUnixgramConnLocalAndRemoteNames(t *testing.T) {
 
 		var la *UnixAddr
 		if laddr != "" {
-			var err error
 			if la, err = ResolveUnixAddr("unixgram", laddr); err != nil {
 				t.Fatalf("ResolveUnixAddr failed: %v", err)
 			}

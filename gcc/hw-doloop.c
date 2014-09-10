@@ -1,6 +1,6 @@
 /* Code to analyze doloop loops in order for targets to perform late
    optimizations converting doloops to other forms of hardware loops.
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -94,7 +94,7 @@ scan_loop (hwloop_info loop)
 
   for (ix = 0; loop->blocks.iterate (ix, &bb); ix++)
     {
-      rtx insn;
+      rtx_insn *insn;
       edge e;
       edge_iterator ei;
 
@@ -119,7 +119,7 @@ scan_loop (hwloop_info loop)
 	   insn != NEXT_INSN (BB_END (bb));
 	   insn = NEXT_INSN (insn))
 	{
-	  df_ref *def_rec;
+	  df_ref def;
 	  HARD_REG_SET set_this_insn;
 
 	  if (!NONDEBUG_INSN_P (insn))
@@ -131,9 +131,9 @@ scan_loop (hwloop_info loop)
 	    loop->has_asm = true;
 
 	  CLEAR_HARD_REG_SET (set_this_insn);
-	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	  FOR_EACH_INSN_DEF (def, insn)
 	    {
-	      rtx dreg = DF_REF_REG (*def_rec);
+	      rtx dreg = DF_REF_REG (def);
 
 	      if (!REG_P (dreg))
 		continue;
@@ -232,18 +232,17 @@ add_forwarder_blocks (hwloop_info loop)
    the expected use; targets that call into this code usually replace the
    loop counter with a different special register.  */
 static void
-discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
+discover_loop (hwloop_info loop, basic_block tail_bb, rtx_insn *tail_insn, rtx reg)
 {
   bool found_tail;
   unsigned dwork = 0;
   basic_block bb;
-  vec<basic_block> works;
 
   loop->tail = tail_bb;
   loop->loop_end = tail_insn;
   loop->iter_reg = reg;
   vec_alloc (loop->incoming, 2);
-  loop->start_label = JUMP_LABEL (tail_insn);
+  loop->start_label = as_a <rtx_insn *> (JUMP_LABEL (tail_insn));
 
   if (EDGE_COUNT (tail_bb->succs) != 2)
     {
@@ -253,7 +252,7 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
   loop->head = BRANCH_EDGE (tail_bb)->dest;
   loop->successor = FALLTHRU_EDGE (tail_bb)->dest;
 
-  works.create (20);
+  auto_vec<basic_block, 20> works;
   works.safe_push (loop->head);
 
   found_tail = false;
@@ -261,7 +260,7 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
     {
       edge e;
       edge_iterator ei;
-      if (bb == EXIT_BLOCK_PTR)
+      if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	{
 	  /* We've reached the exit block.  The loop must be bad. */
 	  if (dump_file)
@@ -340,8 +339,6 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
 	    }
 	}
     }
-
-  works.release ();
 }
 
 /* Analyze the structure of the loops in the current function.  Use
@@ -360,10 +357,11 @@ discover_loops (bitmap_obstack *loop_stack, struct hw_doloop_hooks *hooks)
   /* Find all the possible loop tails.  This means searching for every
      loop_end instruction.  For each one found, create a hwloop_info
      structure and add the head block to the work list. */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx tail = BB_END (bb);
-      rtx insn, reg;
+      rtx_insn *tail = BB_END (bb);
+      rtx_insn *insn;
+      rtx reg;
 
       while (tail && NOTE_P (tail) && tail != BB_HEAD (bb))
 	tail = PREV_INSN (tail);
@@ -381,7 +379,7 @@ discover_loops (bitmap_obstack *loop_stack, struct hw_doloop_hooks *hooks)
 
       /* There's a degenerate case we can handle - an empty loop consisting
 	 of only a back branch.  Handle that by deleting the branch.  */
-      insn = JUMP_LABEL (tail);
+      insn = JUMP_LABEL_AS_INSN (tail);
       while (insn && !NONDEBUG_INSN_P (insn))
 	insn = NEXT_INSN (insn);
       if (insn == tail)
@@ -483,7 +481,7 @@ set_bb_indices (void)
   intptr_t index;
 
   index = 0;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     bb->aux = (void *) index++;
 }
 
@@ -540,9 +538,9 @@ reorder_loops (hwloop_info loops)
       loops = loops->next;
     }
   
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
-      if (bb->next_bb != EXIT_BLOCK_PTR)
+      if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	bb->aux = bb->next_bb;
       else
 	bb->aux = NULL;
@@ -639,7 +637,9 @@ reorg_loops (bool do_reorder, struct hw_doloop_hooks *hooks)
 
   loops = discover_loops (&loop_stack, hooks);
 
-  if (do_reorder)
+  /* We can't enter cfglayout mode anymore if basic block partitioning
+     already happened.  */
+  if (do_reorder && !flag_reorder_blocks_and_partition)
     {
       reorder_loops (loops);
       free_loops (loops);
@@ -664,6 +664,7 @@ reorg_loops (bool do_reorder, struct hw_doloop_hooks *hooks)
     }
 
   free_loops (loops);
+  bitmap_obstack_release (&loop_stack);
 
   if (dump_file)
     print_rtl (dump_file, get_insns ());

@@ -217,10 +217,11 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 // Register publishes in the server the set of methods of the
 // receiver value that satisfy the following conditions:
 //	- exported method
-//	- two arguments, both pointers to exported structs
+//	- two arguments, both of exported type
+//	- the second argument is a pointer
 //	- one return value, of type error
 // It returns an error if the receiver is not an exported type or has
-// no methods or unsuitable methods. It also logs the error using package log.
+// no suitable methods. It also logs the error using package log.
 // The client accesses each method using a string of the form "Type.Method",
 // where Type is the receiver's concrete type.
 func (server *Server) Register(rcvr interface{}) error {
@@ -247,10 +248,12 @@ func (server *Server) register(rcvr interface{}, name string, useName bool) erro
 		sname = name
 	}
 	if sname == "" {
-		log.Fatal("rpc: no service name for type", s.typ.String())
+		s := "rpc.Register: no service name for type " + s.typ.String()
+		log.Print(s)
+		return errors.New(s)
 	}
 	if !isExported(sname) && !useName {
-		s := "rpc Register: type " + sname + " is not exported"
+		s := "rpc.Register: type " + sname + " is not exported"
 		log.Print(s)
 		return errors.New(s)
 	}
@@ -258,13 +261,13 @@ func (server *Server) register(rcvr interface{}, name string, useName bool) erro
 		return errors.New("rpc: service already defined: " + sname)
 	}
 	s.name = sname
-	s.method = make(map[string]*methodType)
 
 	// Install the methods
 	s.method = suitableMethods(s.typ, true)
 
 	if len(s.method) == 0 {
 		str := ""
+
 		// To help the user, see if a pointer receiver would work.
 		method := suitableMethods(reflect.PtrTo(s.typ), false)
 		if len(method) != 0 {
@@ -356,7 +359,7 @@ func (server *Server) sendResponse(sending *sync.Mutex, req *Request, reply inte
 	resp.Seq = req.Seq
 	sending.Lock()
 	err := codec.WriteResponse(resp, reply)
-	if err != nil {
+	if debugLog && err != nil {
 		log.Println("rpc: writing response:", err)
 	}
 	sending.Unlock()
@@ -434,7 +437,7 @@ func (server *Server) ServeCodec(codec ServerCodec) {
 	for {
 		service, mtype, req, argv, replyv, keepReading, err := server.readRequest(codec)
 		if err != nil {
-			if err != io.EOF {
+			if debugLog && err != io.EOF {
 				log.Println("rpc:", err)
 			}
 			if !keepReading {
@@ -560,20 +563,23 @@ func (server *Server) readRequestHeader(codec ServerCodec) (service *service, mt
 	// we can still recover and move on to the next request.
 	keepReading = true
 
-	serviceMethod := strings.Split(req.ServiceMethod, ".")
-	if len(serviceMethod) != 2 {
+	dot := strings.LastIndex(req.ServiceMethod, ".")
+	if dot < 0 {
 		err = errors.New("rpc: service/method request ill-formed: " + req.ServiceMethod)
 		return
 	}
+	serviceName := req.ServiceMethod[:dot]
+	methodName := req.ServiceMethod[dot+1:]
+
 	// Look up the request.
 	server.mu.RLock()
-	service = server.serviceMap[serviceMethod[0]]
+	service = server.serviceMap[serviceName]
 	server.mu.RUnlock()
 	if service == nil {
 		err = errors.New("rpc: can't find service " + req.ServiceMethod)
 		return
 	}
-	mtype = service.method[serviceMethod[1]]
+	mtype = service.method[methodName]
 	if mtype == nil {
 		err = errors.New("rpc: can't find method " + req.ServiceMethod)
 	}
@@ -612,6 +618,7 @@ func RegisterName(name string, rcvr interface{}) error {
 type ServerCodec interface {
 	ReadRequestHeader(*Request) error
 	ReadRequestBody(interface{}) error
+	// WriteResponse must be safe for concurrent use by multiple goroutines.
 	WriteResponse(*Response, interface{}) error
 
 	Close() error

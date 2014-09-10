@@ -166,9 +166,12 @@ var dualStackListenerTests = []struct {
 }
 
 // TestDualStackTCPListener tests both single and double listen
-// to a test listener with various address families, differnet
+// to a test listener with various address families, different
 // listening address and same port.
 func TestDualStackTCPListener(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in -short mode, see issue 5001")
+	}
 	switch runtime.GOOS {
 	case "plan9":
 		t.Skipf("skipping test on %q", runtime.GOOS)
@@ -178,7 +181,7 @@ func TestDualStackTCPListener(t *testing.T) {
 	}
 
 	for _, tt := range dualStackListenerTests {
-		if tt.wildcard && (testing.Short() || !*testExternal) {
+		if tt.wildcard && !*testExternal {
 			continue
 		}
 		switch runtime.GOOS {
@@ -349,12 +352,16 @@ func checkDualStackSecondListener(t *testing.T, net, laddr string, xerr, err err
 		if xerr == nil && err != nil || xerr != nil && err == nil {
 			t.Fatalf("Second Listen(%q, %q) returns %v, expected %v", net, laddr, err, xerr)
 		}
-		l.(*TCPListener).Close()
+		if err == nil {
+			l.(*TCPListener).Close()
+		}
 	case "udp", "udp4", "udp6":
 		if xerr == nil && err != nil || xerr != nil && err == nil {
 			t.Fatalf("Second ListenPacket(%q, %q) returns %v, expected %v", net, laddr, err, xerr)
 		}
-		l.(*UDPConn).Close()
+		if err == nil {
+			l.(*UDPConn).Close()
+		}
 	default:
 		t.Fatalf("Unexpected network: %q", net)
 	}
@@ -436,8 +443,8 @@ func TestWildWildcardListener(t *testing.T) {
 	}
 
 	defer func() {
-		if recover() != nil {
-			t.Fatalf("panicked")
+		if p := recover(); p != nil {
+			t.Fatalf("Listen, ListenPacket or protocol-specific Listen panicked: %v", p)
 		}
 	}()
 

@@ -1,5 +1,5 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -23,11 +23,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "attribs.h"
 #include "intl.h"
 #include "c-pretty-print.h"
 #include "tree-pretty-print.h"
 #include "tree-iterator.h"
 #include "diagnostic.h"
+#include "wide-int-print.h"
 
 /* The pretty-printer code is primarily designed to closely follow
    (GNU) C and C++ grammars.  That is to be contrasted with spaghetti
@@ -179,8 +182,16 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
   if (p != NULL && (*p == '*' || *p == '&'))
     pp_c_whitespace (pp);
 
+  if (qualifiers & TYPE_QUAL_ATOMIC)
+    {
+      pp_c_ws_string (pp, "_Atomic");
+      previous = true;
+    }
+
   if (qualifiers & TYPE_QUAL_CONST)
     {
+      if (previous)
+        pp_c_whitespace (pp);
       pp_c_ws_string (pp, func_type ? "__attribute__((const))" : "const");
       previous = true;
     }
@@ -244,6 +255,7 @@ pp_c_space_for_pointer_operator (c_pretty_printer *pp, tree t)
        __restrict__                          -- GNU C
        address-space-qualifier		     -- GNU C
        volatile
+       _Atomic                               -- C11
 
    address-space-qualifier:
        identifier			     -- GNU C  */
@@ -577,8 +589,8 @@ c_pretty_printer::direct_abstract_declarator (tree t)
 	  tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (t));
 	  tree type = TREE_TYPE (maxval);
 
-	  if (host_integerp (maxval, 0))
-	    pp_wide_integer (this, tree_low_cst (maxval, 0) + 1);
+	  if (tree_fits_shwi_p (maxval))
+	    pp_wide_integer (this, tree_to_shwi (maxval) + 1);
 	  else
 	    expression (fold_build2 (PLUS_EXPR, type, maxval,
                                      build_int_cst (type, 1)));
@@ -894,6 +906,15 @@ pp_c_string_literal (c_pretty_printer *pp, tree s)
   pp_doublequote (pp);
 }
 
+/* Pretty-print a VOID_CST (void_node).  */
+
+static void
+pp_c_void_constant (c_pretty_printer *pp)
+{
+  pp_c_type_cast (pp, void_type_node);
+  pp_string (pp, "0");
+}
+
 /* Pretty-print an INTEGER literal.  */
 
 static void
@@ -906,22 +927,20 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
     ? TYPE_CANONICAL (TREE_TYPE (i))
     : TREE_TYPE (i);
 
-  if (host_integerp (i, 0))
-    pp_wide_integer (pp, TREE_INT_CST_LOW (i));
-  else if (host_integerp (i, 1))
-    pp_unsigned_wide_integer (pp, TREE_INT_CST_LOW (i));
+  if (tree_fits_shwi_p (i))
+    pp_wide_integer (pp, tree_to_shwi (i));
+  else if (tree_fits_uhwi_p (i))
+    pp_unsigned_wide_integer (pp, tree_to_uhwi (i));
   else
     {
-      unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (i);
-      HOST_WIDE_INT high = TREE_INT_CST_HIGH (i);
-      if (tree_int_cst_sgn (i) < 0)
+      wide_int wi = i;
+
+      if (wi::lt_p (i, 0, TYPE_SIGN (TREE_TYPE (i))))
 	{
 	  pp_minus (pp);
-	  high = ~high + !low;
-	  low = -low;
+	  wi = -wi;
 	}
-      sprintf (pp_buffer (pp)->digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-	       (unsigned HOST_WIDE_INT) high, (unsigned HOST_WIDE_INT) low);
+      print_hex (wi, pp_buffer (pp)->digit_buffer);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
   if (TYPE_UNSIGNED (type))
@@ -941,14 +960,8 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
 static void
 pp_c_character_constant (c_pretty_printer *pp, tree c)
 {
-  tree type = TREE_TYPE (c);
-  if (type == wchar_type_node)
-    pp_character (pp, 'L');
   pp_quote (pp);
-  if (host_integerp (c, TYPE_UNSIGNED (type)))
-    pp_c_char (pp, tree_low_cst (c, TYPE_UNSIGNED (type)));
-  else
-    pp_scalar (pp, "\\x%x", (unsigned) TREE_INT_CST_LOW (c));
+  pp_c_char (pp, (unsigned) TREE_INT_CST_LOW (c));
   pp_quote (pp);
 }
 
@@ -1132,6 +1145,10 @@ c_pretty_printer::constant (tree e)
 
   switch (code)
     {
+    case VOID_CST:
+      pp_c_void_constant (this);
+      break;
+
     case INTEGER_CST:
       {
 	tree type = TREE_TYPE (e);
@@ -1237,6 +1254,7 @@ c_pretty_printer::primary_expression (tree e)
       translate_string ("<return-value>");
       break;
 
+    case VOID_CST:
     case INTEGER_CST:
     case REAL_CST:
     case FIXED_CST:
@@ -1596,8 +1614,8 @@ c_pretty_printer::postfix_expression (tree e)
 	if (type
 	    && tree_int_cst_equal (TYPE_SIZE (type), TREE_OPERAND (e, 1)))
 	  {
-	    HOST_WIDE_INT bitpos = tree_low_cst (TREE_OPERAND (e, 2), 0);
-	    HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 0);
+	    HOST_WIDE_INT bitpos = tree_to_shwi (TREE_OPERAND (e, 2));
+	    HOST_WIDE_INT size = tree_to_shwi (TYPE_SIZE (type));
 	    if ((bitpos % size) == 0)
 	      {
 		pp_c_left_paren (this);
@@ -2127,6 +2145,10 @@ c_pretty_printer::expression (tree e)
 {
   switch (TREE_CODE (e))
     {
+    case VOID_CST:
+      pp_c_void_constant (this);
+      break;
+
     case INTEGER_CST:
       pp_c_integer_constant (this, e);
       break;
