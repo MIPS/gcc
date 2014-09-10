@@ -1,6 +1,11 @@
 
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_compound_expr, tree_init_expr)
+	(tree_modify_expr, tree_target_expr): New.
+
+2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (foreach_element_in_tree_constructor)
 	(foreach_argument_in_function_tree, foreach_maptree): Add :doc
 	string.

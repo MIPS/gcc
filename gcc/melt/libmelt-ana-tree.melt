@@ -1801,6 +1801,75 @@ treerr
   }#
 )
 
+
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_compound_expr
+  (:tree tr)
+  (:tree tleft tright)
+  trcompnd
+  :doc #{$TREE_COMPOUND_EXPR match @code{COMPOUND_EXPR} tree $TR for comma operator extracting its $TLEFT and $TRIGHT operands.}#
+  ;; test
+  #{ /* tree_compound_expr $TRCOMPND ? */ (($TR)
+					   && TREE_CODE($TR) == COMPOUND_EXPR)
+  }#
+  ;; fill
+  #{ /* tree_compound_expr $TRCOMPND ! */
+  $TLEFT = TREE_OPERAND ($TR, 0);
+  $TRIGHT = TREE_OPERAND ($TR, 1);
+  }#)
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_modify_expr
+  (:tree tr)
+  (:tree tleft tright)
+  trmodif
+  :doc #{$TREE_MODIFY_EXPR match @code{MODIFY_EXPR} tree $TR for
+  assignment extracting its $TLEFT and $TRIGHT operands.}#
+  ;; test
+  #{ /* tree_modify_expr $TRMODIF ? */ (($TR)
+					   && TREE_CODE($TR) == COMPOUND_EXPR)
+  }#
+  ;; fill
+  #{ /* tree_modify_expr $TRMODIF ! */
+  $TLEFT = TREE_OPERAND ($TR, 0);
+  $TRIGHT = TREE_OPERAND ($TR, 1);
+  }#)
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_init_expr
+  (:tree tr)
+  (:tree tleft tright)
+  trinit
+  :doc #{$TREE_INIT_EXPR match @code{INIT_EXPR} tree $TR for
+  initialization extracting its $TLEFT and $TRIGHT operands.}#
+  ;; test
+  #{ /* tree_init_expr $TRINIT ? */ (($TR) && TREE_CODE($TR) == INIT_EXPR)
+  }#
+  ;; fill
+  #{ /* tree_init_expr $TRINIT ! */
+  $TLEFT = TREE_OPERAND ($TR, 0);
+  $TRIGHT = TREE_OPERAND ($TR, 1);
+  }#)
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_target_expr
+  (:tree tr)
+  (:tree ttarget tinit tcleanup tsaved)
+  trtarget
+  :doc #{$TREE_TARGET_EXPR match @code{TARGET_EXPR} tree $TR for
+  initialization extracting its $TTARGET, $TINIT, $TCLEANUP, $TSAVED operands.}#
+  ;; test
+  #{ /* tree_target_expr $TRTARGET ? */ (($TR) && TREE_CODE($TR) == TARGET_EXPR)
+  }#
+  ;; fill
+  #{ /* tree_target_expr $TRTARGET ! */
+  $TTARGET = TREE_OPERAND ($TR, 0);
+  $TINIT = TREE_OPERAND ($TR, 1);
+  $TCLEANUP = TREE_OPERAND ($TR, 2);
+  $TSAVED = TREE_OPERAND ($TR, 3);
+  }#)
+
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_addr_expr
   (:tree tr)
@@ -2891,6 +2960,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_component_ref
  tree_component_ref_full
  tree_component_ref_typed
+ tree_compound_expr
  tree_const_decl
  tree_const_decl_named
  tree_const_decl_of_name
@@ -2919,6 +2989,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_imagpart_expr
  tree_imported_decl
  tree_indirect_reference
+ tree_init_expr
  tree_int128_integer_type_node 
  tree_int128_unsigned_type_node 
  tree_integer_cst
@@ -2937,6 +3008,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_long_long_unsigned_type_node 
  tree_long_unsigned_type_node 
  tree_mem_ref
+ tree_modify_expr
  tree_namelist_decl
  tree_namespace_decl
  tree_null_pointer_node 
@@ -2969,6 +3041,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_size_type_node 
  tree_ssa_name 
  tree_string_cst
+ tree_target_expr
  tree_translation_unit_decl
  tree_type   
  tree_type_addr_space
