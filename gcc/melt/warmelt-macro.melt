@@ -8824,6 +8824,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  expand_pairlist_as_tuple
  expand_pairlist_as_list
  expand_restlist_as_list
+ expand_restlist_as_tuple
  expand_tuple_slice_as_tuple 
  expand_primitive
  hook_macro_installer

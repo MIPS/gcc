@@ -2188,6 +2188,61 @@ treerr
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ********* BINARY TREE OPERATORS *********
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; we have so many tcc_binary tree codes in tree.def that it is worth
+;; expanding them thru a macro.
+(defmacro define_gcc_binary_tree (sexp env mexpander modctx)
+  :doc #{The macro $DEFINE_GCC_BINARY_TREE takes one or many treecode names and
+  expands to exported cmatchers.}#
+  (debug "define_gcc_binary_tree sexp=" sexp)
+  (let (
+	(sloc (get_field :loca_location sexp))
+	(sexcont (get_field :sexp_contents sexp))
+	(xargs (expand_restlist_as_tuple sexcont))
+	(reslist (make_list discr_list))
+	)
+    (debug "define_gcc_binary_tree xargs=" xargs)
+    (foreach_in_multiple
+     (xargs)
+     (curarg :long ix)
+     (debug "define_gcc_binary_tree ix#" ix "; curarg=" curarg)
+     (unless (is_a curarg class_symbol)
+       (error_at sloc "DEFINE_GCC_BINARY_TREE bad argument #$1 : $2" ix curarg)
+       (return))
+     (let (
+	   (curname (get_field :named_name curarg))
+	   (treename (create_symbolstr (string4out discr_string "TREE_" curname)))
+	   (xcmatcher
+	    `(defcmatcher ,treename (:tree tr) (:tree tleft tright) treebin
+	       :doc #{$(comma treename) match a binary operation @code{$(comma curname)} extracting its $TLEFT and $TRIGHT}#
+	       #{ /* $(comma treename) $TREEBIN ? */  (($tr) && TREE_CODE($tr) == $(comma curname)) }#
+	       #{  /* $(comma treename) $TREEBIN ! */
+	       $TLEFT =  TREE_OPERAND ($TR, 0) ;
+	       $TRIGHT = TREE_OPERAND ($TR, 1) ;
+	       }#
+	       ))
+	   (xexport `(export_values ,treename))
+	   )
+       (debug "define_gcc_binary_tree treename=" treename " xcmatcher=" xcmatcher
+	      "\n.. xexport=" xexport)
+       (let ( (resultx (tuple (mexpander xcmatcher env mexpander modctx)
+			      (mexpander xexport env mexpander modctx))
+		       )
+	      )
+	 (debug "define_gcc_binary_tree resultx=" resultx)
+	 (return resultx)
+	 )
+       ))
+    ))
+(export_macro define_gcc_binary_tree)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; constant c-matchers for predefined tree nodes
 
 ;;; "char"
