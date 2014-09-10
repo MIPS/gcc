@@ -2414,7 +2414,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
   vec<const char *> user_ids = vNULL;
   vec< vec<const char *> > opers_vec = vNULL;
   const cpp_token *token;
-  unsigned n_opers = 0;
+  unsigned min_n_opers = 0, max_n_opers = 0;
 
   while (1)
     {
@@ -2445,13 +2445,29 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 	  
 	  opers.safe_push (oper);
 	}
+      token = expect (r, CPP_CLOSE_PAREN);
+      if (opers.length () == 0)
+	fatal_at (token, "A user-defined identifier must have at least one substitution");
+      if (opers_vec.length () == 0)
+	{
+	  min_n_opers = opers.length ();
+	  max_n_opers = opers.length ();
+	}
+      else
+	{
+	  if (opers.length () % min_n_opers != 0
+	      && min_n_opers % opers.length () != 0)
+	    fatal_at (token, "All user-defined identifiers must have a "
+		      "multiple number of operator substitutions of the "
+		      "smallest number of substitutions");
+	  if (opers.length () < min_n_opers)
+	    min_n_opers = opers.length ();
+	  else if (opers.length () > max_n_opers)
+	    max_n_opers = opers.length ();
+	}
+
       opers_vec.safe_push (opers);
-      if (n_opers == 0)
-	n_opers = opers.length ();
-      else if (n_opers != opers.length ())
-	fatal_at (token, "All user-defined identifiers must have same number of operator substitutions");
-      eat_token (r, CPP_CLOSE_PAREN);
-    }	  
+    }
 
   if (user_ids.length () == 0)
     fatal_at (token, "for requires at least one user-defined identifier");
@@ -2474,12 +2490,8 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
     {
       simplify *s = for_simplifiers[ix];
 
-      for (unsigned j = 0; j < n_opers; ++j)
+      for (unsigned j = 0; j < max_n_opers; ++j)
 	{
-	  vec<const char *> opers = vNULL;
-	  for (unsigned i = 0; i < opers_vec.length (); ++i)
-	    opers.safe_push (opers_vec[i][j]);
-	  
 	  operand *match_op = s->match;
 	  operand *result_op = s->result;
 	  vec<if_or_with> ifexpr_vec = vNULL;
@@ -2489,16 +2501,17 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 
 	  for (unsigned i = 0; i < n_ids; ++i)
 	    {
-	      match_op = replace_id (match_op, user_ids[i], opers[i]);
-	      result_op = replace_id (result_op, user_ids[i], opers[i]);
+	      const char *oper = opers_vec[i][j % opers_vec[i].length ()];
+	      match_op = replace_id (match_op, user_ids[i], oper);
+	      result_op = replace_id (result_op, user_ids[i], oper);
 
 	      for (unsigned k = 0; k < s->ifexpr_vec.length (); ++k)
-		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, user_ids[i], opers[i]);
+		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, user_ids[i], oper);
 
 	    }
-	    simplify *ns = new simplify (s->name, match_op, s->match_location,
-					 result_op, s->result_location, ifexpr_vec);
-	    simplifiers.safe_push (ns);
+	  simplify *ns = new simplify (s->name, match_op, s->match_location,
+				       result_op, s->result_location, ifexpr_vec);
+	  simplifiers.safe_push (ns);
 	}
     }
 } 

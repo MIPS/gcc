@@ -18,29 +18,44 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 
-/* ???  For math builtins we fail to properly repeat patterns for
-   all FP type kinds (sqrtf, sqrt, sqrtl).  And we fail to provide
-   a mechanism to iterate two ops in lock-step like
-   (for fn1 in sqrt sqrtf sqrtl and fn2 in pow powf powl ...)
-   if we were to do that repetition semi-manually.
-   We could also automagically use the type of the expr to
-   always do mathfn_built_in at code-gen time and always
-   automagically iterate over kinds (but that's bogus for
-   things like (convert (BUILT_IN_SQRT @0)) -> (BUILT_IN_SQRTF @0).  */
-
-
-/* One builtin function to builtin function.  */
-(simplify
-  (BUILT_IN_CABS (complex:c @0 real_zerop))
+/* From fold_builtin_cabs.  */
+/* If either part is zero, cabs is fabs of the other.  */
+(for CABS (BUILT_IN_CABSF BUILT_IN_CABS BUILT_IN_CABSL)
+ (simplify
+  (CABS (complex:c @0 real_zerop))
   (abs @0))
-/* One builtin function to expr.  */
-(simplify
-  (BUILT_IN_CABS (complex @0 @0))
-  (mult (abs @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); }))
-/* One nested fn.  */
-(simplify
-  (mult:c (BUILT_IN_POW @0 @1) @0)
-  (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
+ /* cabs(x+xi) -> fabs(x)*sqrt(2).  */
+ (if (flag_unsafe_math_optimizations)
+  (simplify
+   (CABS (complex @0 @0))
+   (mult (abs @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); })))
+ /* Optimize cabs(-z) and cabs(conj(z)) as cabs(z).  */
+ (for op (negate conj)
+  (simplify
+   (CABS (op @0))
+   (CABS @0))))
+/* Don't do this when optimizing for size.  */
+(if (flag_unsafe_math_optimizations && optimize_function_for_speed_p (cfun))
+ (for CABS (BUILT_IN_CABSF BUILT_IN_CABS BUILT_IN_CABSL)
+      SQRT (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
+  (simplify
+   (CABS @0)
+   (SQRT (plus
+	  /* ???  There is no way to CSE here.  We'd need to support
+	     expression captures here, like with
+	      (mult (realpart@1 @0) @1) */
+	  (mult (realpart @0) (realpart @0))
+	  (mult (imagpart @0) (imagpart @0)))))))
+
+/* From fold_binary.  */
+/* Optimize x*pow(x,c) as pow(x,c+1).  */
+(if (flag_unsafe_math_optimizations
+     /* ???  fold-const.c does not check for flag_errno_math.  */
+     && !flag_errno_math)
+ (for POW (BUILT_IN_POW BUILT_IN_POWF BUILT_IN_POWL)
+  (simplify
+   (mult:c (POW @0 REAL_CST@1) @0)
+   (POW @0 (plus @1 { build_one_cst (TREE_TYPE (@1)); })))))
 
 /* From fold_builtin_fabs and fold_builtin_abs.  */
 /* Fold a call to fabs, fabsf or fabsl, to abs, labs, llabs or imaxabs.  */
@@ -50,14 +65,14 @@ along with GCC; see the file COPYING3.  If not see
   (abs @0)))
 
 /* From fold_builtin_pow.  */
-/* Optimize pow(1.0,y) = 1.0.  */
-(simplify
- (BUILT_IN_POW real_onep@0 @1)
- @0)
-
 (for POW (BUILT_IN_POWF BUILT_IN_POW BUILT_IN_POWL)
      SQRT (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
      CBRT (BUILT_IN_CBRTF BUILT_IN_CBRT BUILT_IN_CBRTL)
+ /* Optimize pow(1.0,y) = 1.0.  */
+ (simplify
+  (POW real_onep@0 @1)
+  @0)
+
 (simplify
  (POW @0 REAL_CST@1)
  (with { REAL_VALUE_TYPE c = TREE_REAL_CST (@1); }
@@ -80,14 +95,14 @@ along with GCC; see the file COPYING3.  If not see
         = real_value_truncate (TYPE_MODE (type), dconst_third ()); }
     (if (flag_unsafe_math_optimizations
 	 && REAL_VALUES_EQUAL (c, dconstroot))
-     (CBRT @0))))))
+     (CBRT @0)))))
 
-/* Strip sign ops from even integer powers.
-   ???  The code in builtins.c manages to perform this recursively
-   through the whole expression in arg0 of pow.  */
-(for sgnop (abs negate)
+ /* Strip sign ops from even integer powers.
+    ???  The code in builtins.c manages to perform this recursively
+    through the whole expression in arg0 of pow.  */
+ (for sgnop (abs negate)
   (simplify
-    (BUILT_IN_POW (sgnop @0) REAL_CST@1)
+    (POW (sgnop @0) REAL_CST@1)
     (with
       { 
 	REAL_VALUE_TYPE c = TREE_REAL_CST (@1);
@@ -98,19 +113,26 @@ along with GCC; see the file COPYING3.  If not see
       (if (real_identical (&c, &cint)
 	   && (n & 1) == 0
 	   && flag_unsafe_math_optimizations)
-       (BUILT_IN_POW @0 @1)))))
+       (POW @0 @1))))))
 
 /* From fold_builtin_sqrt.  */
 (if (flag_unsafe_math_optimizations)
  /* Optimize sqrt(expN(x)) = expN(x*0.5).  */
- (for expfn (BUILT_IN_EXP10 BUILT_IN_POW10 BUILT_IN_EXP BUILT_IN_EXP2)
+ (for expfn (BUILT_IN_EXP10F BUILT_IN_EXP10 BUILT_IN_EXP10L
+	     BUILT_IN_POW10F BUILT_IN_POW10 BUILT_IN_POW10L
+	     BUILT_IN_EXPF BUILT_IN_EXP BUILT_IN_EXPL
+	     BUILT_IN_EXP2F BUILT_IN_EXP2 BUILT_IN_EXP2L)
+      SQRT (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
   (simplify
-   (BUILT_IN_SQRT (expfn @0))
+   (SQRT (expfn @0))
    (expfn (mult @0 { build_real (type, dconsthalf); }))))
  /* Optimize sqrt(Nroot(x)) -> pow(x,1/(2*N)).  */
- (for rootfn (BUILT_IN_SQRT BUILT_IN_CBRT)
+ (for rootfn (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL
+	      BUILT_IN_CBRTF BUILT_IN_CBRT BUILT_IN_CBRTL)
+      SQRT (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
+      POW (BUILT_IN_POWF BUILT_IN_POW BUILT_IN_POWL)
   (simplify
-   (BUILT_IN_SQRT (rootfn @0))
+   (SQRT (rootfn @0))
    (with
     { REAL_VALUE_TYPE dconstroot;
       if (BUILTIN_SQRT_P (rootfn)) dconstroot = dconsthalf;
@@ -118,8 +140,10 @@ along with GCC; see the file COPYING3.  If not see
       /* Adjust for the outer root.  */
       SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
       dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot); }
-    (BUILT_IN_POW @0 { build_real (type, dconstroot); }))))
+    (POW @0 { build_real (type, dconstroot); }))))
  /* Optimize sqrt(pow(x,y)) = pow(|x|,y*0.5).  */
- (simplify
-  (BUILT_IN_SQRT (BUILT_IN_POW @0 @1))
-  (BUILT_IN_POW (abs @0) (mult @1 { build_real (TREE_TYPE (@1), dconsthalf); }))))
+ (for SQRT (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
+      POW (BUILT_IN_POWF BUILT_IN_POW BUILT_IN_POWL)
+  (simplify
+   (SQRT (POW @0 @1))
+   (POW (abs @0) (mult @1 { build_real (TREE_TYPE (@1), dconsthalf); })))))
