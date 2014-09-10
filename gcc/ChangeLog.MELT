@@ -1,6 +1,11 @@
 
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_with_cleanup_expr)
+	(tree_cleanup_point_expr, tree_placeholder_expr): New.
+
+2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_bind_expr): New.
 
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>

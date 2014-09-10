@@ -26,7 +26,7 @@
 ***")
 
 ;; the copyright notice above apply both to libmelt-ana-tree.melt and 
-;; to the generated file  libmelt-ana-tree*.c
+;; to the generated file  libmelt-ana-tree*.cc
 
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
@@ -1954,6 +1954,43 @@ treerr
   $TBLOCK = BIND_EXPR_BLOCK($TR);
   }#)
 
+
+;;;;;;;;
+(defcmatcher tree_with_cleanup_expr
+  (:tree tr)
+  (:tree texp)
+  twclean
+  :doc #{$TREE_WITH_CLEANUP_EXPR match tree of @code{WITH_CLEANUP_EXPR} extracting their $TEXP}#
+  ;; test
+  #{ /* tree_with_cleanup_expr $TWCLEAN ? */ (($TR) && TREE_CODE($TR) == WITH_CLEANUP_EXPR) }#
+  ;; fill
+  #{  /* tree_with_cleanup_expr $TWCLEAN ! */
+  $TEXP = TREE_OPERAND($TR, 0);
+  }#)
+
+;;;;;;;;
+(defcmatcher tree_cleanup_point_expr
+  (:tree tr)
+  (:tree texp)
+  tpclean
+  :doc #{$TREE_CLEANUP_POINT_EXPR match tree of @code{CLEANUP_POINT_EXPR} extracting their $TEXP}#
+  ;; test
+  #{ /* tree_cleanup_point_expr $TPCLEAN ? */ (($TR) && TREE_CODE($TR) == CLEANUP_POINT_EXPR) }#
+  ;; fill
+  #{  /* tree_cleanup_point_expr $TPCLEAN ! */
+  $TEXP = TREE_OPERAND($TR, 0);
+  }#)
+
+;;;;;;;;
+(defcmatcher tree_placeholder_expr
+  (:tree tr)
+  ()
+  tplach
+  :doc #{$TREE_PLACEHOLDER_EXPR is used to match @code{PLACEHOLDER_EXPR} trees.}#
+  ;; test
+  #{ /* tree_placeholder_expr $TPLACH ? */ (($TR) && TREE_CODE($TR) == PLACEHOLDER_EXPR) }#
+  )
+
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_va_arg_expr
   (:tree tr)
@@ -3016,7 +3053,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_chain_join
  tree_chain_prepend
  tree_chain_to_tuple
- tree_char_type_node 
+ tree_char_type_node
+ tree_cleanup_point_expr
  tree_complex_cst
  tree_complex_type
  tree_component_ref
@@ -3084,6 +3122,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_parm_decl_of_name
  tree_pointer_type
  tree_pointer_type_p
+ tree_placeholder_expr
  tree_ptr_type_node 
  tree_qual_union_type
  tree_qual_union_type_with_fields
@@ -3135,7 +3174,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_vector_type
  tree_view_convert_expr
  tree_void_type
- tree_void_type_node 
+ tree_void_type_node
+ tree_with_cleanup_expr
  warning_at_tree
  warning_at_tree_decl_with_number
 )
