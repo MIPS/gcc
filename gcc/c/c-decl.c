@@ -10270,9 +10270,8 @@ finish_declspecs (struct c_declspecs *specs)
   return specs;
 }
 
-/* A subroutine of c_write_global_declarations.  Perform final processing
-   on one file scope's declarations (or the external scope's declarations),
-   GLOBALS.  */
+/* Perform final processing on one file scope's declarations (or the
+   external scope's declarations), GLOBALS.  */
 
 static void
 c_write_global_declarations_1 (tree globals)
@@ -10310,20 +10309,8 @@ c_write_global_declarations_1 (tree globals)
   for (decl = globals; decl; decl = DECL_CHAIN (decl))
     {
       check_global_declaration_1 (decl);
-      debug_hooks->global_decl (decl, /*early=*/true);
+      debug_hooks->early_global_decl (decl);
     }
-}
-
-/* A subroutine of c_write_global_declarations Emit debug information for each
-   of the declarations in GLOBALS.  */
-
-static void
-c_write_global_declarations_2 (tree globals)
-{
-  tree decl;
-
-  for (decl = globals; decl ; decl = DECL_CHAIN (decl))
-    debug_hooks->global_decl (decl, /*early=*/false);
 }
 
 /* Callback to collect a source_ref from a DECL.  */
@@ -10373,8 +10360,11 @@ for_each_global_decl (void (*callback) (tree decl))
     callback (decl);
 }
 
+/* Perform any final parser cleanups and generate initial debugging
+   information.  */
+
 void
-c_write_global_declarations (void)
+c_parse_final_cleanups (void)
 {
   tree t;
   unsigned i;
@@ -10427,28 +10417,8 @@ c_write_global_declarations (void)
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
 
   timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_OPT_GEN);
-
-  /* We're done parsing; proceed to optimize and emit assembly.
-     FIXME: shouldn't be the front end's responsibility to call this.  */
-  symtab->finalize_compilation_unit ();
-
-  timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_DBGINFO);
-
-  /* After cgraph has had a chance to emit everything that's going to
-     be emitted, output debug information for globals.  */
-  if (!seen_error ())
-    {
-      timevar_push (TV_SYMOUT);
-      FOR_EACH_VEC_ELT (*all_translation_units, i, t)
-	c_write_global_declarations_2 (BLOCK_VARS (DECL_INITIAL (t)));
-      c_write_global_declarations_2 (BLOCK_VARS (ext_block));
-      timevar_pop (TV_SYMOUT);
-    }
 
   ext_block = NULL;
-  timevar_stop (TV_PHASE_DBGINFO);
 }
 
 /* Register reserved keyword WORD as qualifier for address space AS.  */

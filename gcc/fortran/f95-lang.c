@@ -108,7 +108,6 @@ static const struct attribute_spec gfc_attribute_table[] =
 #undef LANG_HOOKS_NAME
 #undef LANG_HOOKS_INIT
 #undef LANG_HOOKS_FINISH
-#undef LANG_HOOKS_WRITE_GLOBALS
 #undef LANG_HOOKS_OPTION_LANG_MASK
 #undef LANG_HOOKS_INIT_OPTIONS_STRUCT
 #undef LANG_HOOKS_INIT_OPTIONS
@@ -142,7 +141,6 @@ static const struct attribute_spec gfc_attribute_table[] =
 #define LANG_HOOKS_NAME                 "GNU Fortran"
 #define LANG_HOOKS_INIT                 gfc_init
 #define LANG_HOOKS_FINISH               gfc_finish
-#define LANG_HOOKS_WRITE_GLOBALS	gfc_write_global_declarations
 #define LANG_HOOKS_OPTION_LANG_MASK	gfc_option_lang_mask
 #define LANG_HOOKS_INIT_OPTIONS_STRUCT  gfc_init_options_struct
 #define LANG_HOOKS_INIT_OPTIONS         gfc_init_options
@@ -286,6 +284,15 @@ gfc_write_global_declarations (void)
   for (decl = getdecls(); decl ; decl = DECL_CHAIN (decl))
     rest_of_decl_compilation (decl, true, true);
 
+  /* ?? The above looks redundant because
+        write_global_declarations
+	  -> wrapup_global_declarations
+	       -> wrapup_global_declaration_2
+	            -> rest_of_decl_compilation
+     The call to rest_of_decl_compilation above looks redundant.  */
+  /* Fortran looks generic enough (apart from the problem specified
+     above), because it calls write_global_declarations which is the
+     generic thinggie.  */
   write_global_declarations ();
 }
 

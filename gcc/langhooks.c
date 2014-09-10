@@ -298,6 +298,8 @@ write_global_declarations (void)
   tree globals, decl, *vec;
   int len, i;
 
+  gcc_unreachable(); // FIXME
+
   timevar_start (TV_PHASE_DEFERRED);
   /* Really define vars that have had only a tentative definition.
      Really output inline functions that must actually be callable

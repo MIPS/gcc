@@ -119,7 +119,8 @@ static void sdbout_begin_block		(unsigned int, unsigned int);
 static void sdbout_end_block		(unsigned int, unsigned int);
 static void sdbout_source_line		(unsigned int, const char *, int, bool);
 static void sdbout_end_epilogue		(unsigned int, const char *);
-static void sdbout_global_decl		(tree, bool);
+static void sdbout_early_global_decl	(tree);
+static void sdbout_late_global_decl	(tree);
 static void sdbout_begin_prologue	(unsigned int, const char *);
 static void sdbout_end_prologue		(unsigned int, const char *);
 static void sdbout_begin_function	(tree);
@@ -294,7 +295,8 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   sdbout_begin_function,	         /* begin_function */
   sdbout_end_function,		         /* end_function */
   debug_nothing_tree,		         /* function_decl */
-  sdbout_global_decl,		         /* global_decl */
+  sdbout_early_global_decl,		 /* early_global_decl */
+  sdbout_late_global_decl,		 /* late_global_decl */
   sdbout_symbol,			 /* type_decl */
   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
@@ -1417,11 +1419,17 @@ sdbout_reg_parms (tree parms)
       }
 }
 
+static void
+sdbout_early_global_decl (tree decl ATTRIBUTE_UNUSED)
+{
+  /* NYI for non-dwarf.  */
+}
+
 /* Output debug information for a global DECL.  Called from toplev.c
    after compilation proper has finished.  */
 
 static void
-sdbout_global_decl (tree decl, bool early ATTRIBUTE_UNUSED)
+sdbout_late_global_decl (tree decl)
 {
   if (TREE_CODE (decl) == VAR_DECL
       && !DECL_EXTERNAL (decl)

@@ -2430,7 +2430,8 @@ static void dwarf2out_function_decl (tree);
 static void dwarf2out_begin_block (unsigned, unsigned);
 static void dwarf2out_end_block (unsigned, unsigned);
 static bool dwarf2out_ignore_block (const_tree);
-static void dwarf2out_global_decl (tree, bool);
+static void dwarf2out_early_global_decl (tree);
+static void dwarf2out_late_global_decl (tree);
 static void dwarf2out_type_decl (tree, int);
 static void dwarf2out_imported_module_or_decl (tree, tree, tree, bool);
 static void dwarf2out_imported_module_or_decl_1 (tree, tree, tree,
@@ -2468,7 +2469,8 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_begin_function,
   dwarf2out_end_function,	/* end_function */
   dwarf2out_function_decl,	/* function_decl */
-  dwarf2out_global_decl,
+  dwarf2out_early_global_decl,
+  dwarf2out_late_global_decl,
   dwarf2out_type_decl,		/* type_decl */
   dwarf2out_imported_module_or_decl,
   debug_nothing_tree,		/* deferred_inline_function */
@@ -2609,7 +2611,7 @@ typedef struct GTY((chain_circular ("%h.die_sib"))) die_struct {
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
   BOOL_BITFIELD comdat_type_p : 1; /* DIE has a type signature */
-  /* Die was generated early via dwarf2out_early_decl.  */
+  /* Die was generated early via dwarf2out_early_global_decl.  */
   BOOL_BITFIELD dumped_early : 1;
   /* Lots of spare bits.  */
 }
@@ -20817,29 +20819,64 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
   return NULL;
 }
 
-/* Output debug information for global decl DECL.  Called from
-   toplev.c after compilation proper has finished.
+/* Output initial debug information for global DECL.  Called from the
+   end of the parsing process.
 
-   dwarf2out_decl() will be called twice on each global symbol: once
-   immediately after parsing (EARLY=true), and once after the full
-   compilation has finished (EARLY=false).  There are checks in
-   dwarf2out_decl() to make sure that if we have a DECL DIE upon
-   entry, that the previously created DIE is reused.  No new DECL DIEs
-   should be created when EARLY=false.
-
-   The second time dwarf2out_decl() is called (or for that matter, the
-   second time any DECL DIE is seen throughout dwarf2out), only
-   information not previously available (e.g. location) is tacked onto
-   the early dumped DIE.  That's the plan anyhow ;-).  */
+   This is the initial debug generation process.  As such, the DIEs
+   generated may be incomplete.  A later debug generation pass
+   (dwarf2out_late_global_decl) will augment the information generated
+   in this pass (e.g., with complete location info).  */
 
 static void
-dwarf2out_global_decl (tree decl, bool early)
+dwarf2out_early_global_decl (tree decl)
 {
-  if (early)
+  /* gen_decl_die() will set DECL_ABSTRACT because
+     cgraph_function_possibly_inlined_p() returns true.  This is in
+     turn will cause DW_AT_inline attributes to be set.
+
+     This happens because at early dwarf generation, there is no
+     cgraph information, causing cgraph_function_possibly_inlined_p()
+     to return true.  Trick cgraph_function_possibly_inlined_p()
+     while we generate dwarf early.  */
+  bool save = symtab->global_info_ready;
+  symtab->global_info_ready = true;
+
+  /* We don't handle TYPE_DECLs.  If required, they'll be reached via
+     other DECLs and they can point to template types or other things
+     that dwarf2out can't handle when done via dwarf2out_decl.  */
+  if (TREE_CODE (decl) != TYPE_DECL
+      && TREE_CODE (decl) != PARM_DECL)
     {
-      dwarf2out_early_decl (decl);
-      return;
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  /* A missing cfun means the symbol is unused and was removed
+	     from the callgraph.  */
+	  if (!DECL_STRUCT_FUNCTION (decl))
+	    goto early_decl_exit;
+
+	  push_cfun (DECL_STRUCT_FUNCTION (decl));
+	  current_function_decl = decl;
+	}
+      dw_die_ref die = dwarf2out_decl (decl);
+      if (die)
+	die->dumped_early = true;
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  pop_cfun ();
+	  current_function_decl = NULL;
+	}
     }
+ early_decl_exit:
+  symtab->global_info_ready = save;
+  return;
+}
+
+/* Output debug information for global decl DECL.  Called from
+   toplev.c after compilation proper has finished.  */
+
+static void
+dwarf2out_late_global_decl (tree decl)
+{
   /* Output DWARF2 information for file-scope tentative data object
      declarations, file-scope (extern) function declarations (which
      had no corresponding body) and file-scope tagged type declarations
@@ -21179,52 +21216,6 @@ dwarf2out_decl (tree decl)
   gcc_assert (!early_die || early_die == die);
 #endif
   return die;
-}
-
-/* Early dumping of DECLs before we lose language data.  */
-
-void
-dwarf2out_early_decl (tree decl)
-{
-  /* gen_decl_die() will set DECL_ABSTRACT because
-     cgraph_function_possibly_inlined_p() returns true.  This is in
-     turn will cause DW_AT_inline attributes to be set.
-
-     This happens because at early dwarf generation, there is no
-     cgraph information, causing cgraph_function_possibly_inlined_p()
-     to return true.  Trick cgraph_function_possibly_inlined_p()
-     while we generate dwarf early.  */
-  bool save = symtab->global_info_ready;
-  symtab->global_info_ready = true;
-
-  /* We don't handle TYPE_DECLs.  If required, they'll be reached via
-     other DECLs and they can point to template types or other things
-     that dwarf2out can't handle when done via dwarf2out_decl.  */
-  if (TREE_CODE (decl) != TYPE_DECL
-      && TREE_CODE (decl) != PARM_DECL)
-    {
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  /* A missing cfun means the symbol is unused and was removed
-	     from the callgraph.  */
-	  if (!DECL_STRUCT_FUNCTION (decl))
-	    goto early_decl_exit;
-
-	  push_cfun (DECL_STRUCT_FUNCTION (decl));
-	  current_function_decl = decl;
-	}
-      dw_die_ref die = dwarf2out_decl (decl);
-      if (die)
-	die->dumped_early = true;
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  pop_cfun ();
-	  current_function_decl = NULL;
-	}
-    }
- early_decl_exit:
-  symtab->global_info_ready = save;
-  return;
 }
 
 /* Write the debugging output for DECL.  */

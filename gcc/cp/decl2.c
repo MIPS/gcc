@@ -4292,7 +4292,7 @@ dump_tu (void)
    first, since that way we only need to reverse the decls once.  */
 
 void
-cp_write_global_declarations (void)
+c_parse_final_cleanups (void)
 {
   tree vars;
   bool reconsider;

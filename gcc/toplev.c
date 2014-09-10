@@ -526,13 +526,14 @@ emit_debug_global_declarations (tree *vec, int len)
 {
   int i;
 
+  gcc_unreachable(); // FIXME
   /* Avoid confusing the debug information machinery when there are errors.  */
   if (seen_error ())
     return;
 
   timevar_push (TV_SYMOUT);
   for (i = 0; i < len; i++)
-    debug_hooks->global_decl (vec[i], /*early=*/false);
+    debug_hooks->late_global_decl (vec[i]);
   timevar_pop (TV_SYMOUT);
 }
 
@@ -545,8 +546,7 @@ compile_file (void)
   timevar_start (TV_PHASE_PARSING);
   timevar_push (TV_PARSE_GLOBAL);
 
-  /* Call the parser, which parses the entire file (calling
-     rest_of_compilation for each function).  */
+  /* Parse entire file and generate initial debug information.  */
   lang_hooks.parse_file ();
 
   timevar_pop (TV_PARSE_GLOBAL);
@@ -560,8 +560,31 @@ compile_file (void)
 
   ggc_protect_identifiers = false;
 
-  /* This must also call finalize_compilation_unit.  */
-  lang_hooks.decls.final_write_globals ();
+  /* Run the actual compilation process.  */
+  if (!in_lto_p)
+    {
+      timevar_start (TV_PHASE_OPT_GEN);
+      symtab->finalize_compilation_unit ();
+      timevar_stop (TV_PHASE_OPT_GEN);
+    }
+
+  /* Perform any post compilation-proper parser cleanups and
+     processing.  This is currently only needed for the C++ parser,
+     which hopefully can be cleaned up so this hook is no longer
+     necessary.  */
+#if 0
+  if (lang_hooks.decls.post_compilation_parsing_cleanups)
+    lang_hooks.decls.post_compilation_parsing_cleanups ();
+#endif
+
+  /* After the parser has generated debugging information, augment
+     this information with any new location/etc information that may
+     have become available after the compilation proper.  */
+  timevar_start (TV_PHASE_DBGINFO);
+  symtab_node *node;
+  FOR_EACH_DEFINED_SYMBOL (node)
+    debug_hooks->late_global_decl (node->decl);
+  timevar_stop (TV_PHASE_DBGINFO);
 
   if (seen_error ())
     return;

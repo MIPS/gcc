@@ -181,10 +181,6 @@ struct lang_hooks_for_decls
      We will already have checked that it has static binding.  */
   bool (*warn_unused_global) (const_tree);
 
-  /* Obtain a list of globals and do final output on them at end
-     of compilation */
-  void (*final_write_globals) (void);
-
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (const_tree);
 

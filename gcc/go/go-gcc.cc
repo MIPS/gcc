@@ -2990,6 +2990,16 @@ Gcc_backend::write_global_definitions(
 
   symtab->finalize_compilation_unit();
 
+  /* ?? The generic write_global_declarations() has the
+     check_global_declarations call below before
+     finalize_compilation_unit.
+
+     Does it make a difference?  That is, does the
+     finalize_compilation_unit() above change the globals in some way?
+
+     Go does not use TV_PHASE_*, so if we genericize all this
+     write_global_declarations business, care must be taken to avoid
+     TV_PHASE* for go.  */
   check_global_declarations(defs, i);
   emit_debug_global_declarations(defs, i);
 
