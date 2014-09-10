@@ -53,9 +53,9 @@ AWK?= gawk
 MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
 $(info building MELT: GCC version $(MELTGCC_VERSION))
 
-## check that we have a gcc 4.7 or 4.8 or 4.9
-ifeq ($(filter 4.7.% 4.8.% 4.9.%, $(MELTGCC_VERSION)),)
-$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.7 or 4.8 or 4.9)
+## check that we have a 4.8 or 4.9
+ifeq ($(filter 4.8.% 4.9.%, $(MELTGCC_VERSION)),)
+$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.8 or 4.9)
 endif
 ## You may want to set MELTGCC_NO_CHECK_RUNTIME environment variable
 ## when cross-compiling (since you cannot compile melt-runtime.cc with
@@ -64,9 +64,9 @@ endif
 
 ## The compiler and flags used to build the melt.so plugin and to
 ## compile MELT generated code.  Notice that melt-module.mk use the
-## same Make variables.  For a melt plugin to GCC 4.7 or later, that
+## same Make variables.  For a melt plugin to GCC 4.9 or later, that
 ## should be a C++ compiler! eg
-##   make MELTGCC=gcc-4.7 GCCMELT_CXX=g++-4.7
+##   make MELTGCC=gcc-4.9 GCCMELT_CXX=g++-4.9
 ifndef GCCMELT_CXX
 GCCMELT_CXX = $(or $(CXX),g++)
 $(info building MELT: GCCMELT_CXX= $(GCCMELT_CXX) is a C++ compiler)

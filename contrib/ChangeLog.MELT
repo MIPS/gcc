@@ -1,6 +1,10 @@
 
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* MELT-Plugin-Makefile: Don't mention GCC 4.7 anymore.
+	
+2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* build-melt-plugin.sh: Generate _warmelt-predef.melt...
 
 2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
