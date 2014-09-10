@@ -934,9 +934,18 @@ lra_set_insn_recog_data (rtx insn)
 	  /* Its is a special insn like USE or CLOBBER.  We should
 	     recognize any regular insn otherwise LRA can do nothing
 	     with this insn.  */
-	  gcc_assert (GET_CODE (PATTERN (insn)) == USE
+	  if (! (GET_CODE (PATTERN (insn)) == USE
 		      || GET_CODE (PATTERN (insn)) == CLOBBER
-		      || GET_CODE (PATTERN (insn)) == ASM_INPUT);
+		      || GET_CODE (PATTERN (insn)) == ASM_INPUT) )
+	  {
+	    fprintf (stderr, "beh %d %d %d\n",
+		     GET_CODE (PATTERN (insn)) == USE,
+		     GET_CODE (PATTERN (insn)) == CLOBBER,
+		     GET_CODE (PATTERN (insn)) == ASM_INPUT);
+	    print_rtl_single (stderr, insn);
+	    fprintf (stderr, "\n");
+	    gcc_assert (false);
+	  }
 	  data->insn_static_data = insn_static_data
 	    = get_static_insn_data (-1, 0, 0, nalt);
 	}

@@ -1128,10 +1128,22 @@ check_and_process_move (bool *change_p, bool *sec_mem_p ATTRIBUTE_UNUSED)
 						     (reg_class_t) dclass,
 						     sreg_mode, &sri);
       /* Check the target hook consistency.  */
-      lra_assert
+      if (!
 	((secondary_class == NO_REGS && sri.icode == CODE_FOR_nothing)
 	 || (old_sclass == NO_REGS && old_sri.icode == CODE_FOR_nothing)
-	 || (secondary_class == old_sclass && sri.icode == old_sri.icode));
+	 || (secondary_class == old_sclass && sri.icode == old_sri.icode)) )
+      {
+	fprintf (stderr, "beh %d %d %d\n",
+		 secondary_class == NO_REGS && sri.icode == CODE_FOR_nothing,
+		 old_sclass == NO_REGS && old_sri.icode == CODE_FOR_nothing,
+		 secondary_class == old_sclass && sri.icode == old_sri.icode);
+
+	fprintf (stderr, "\n\n%s curr_insn_set = \n", __FUNCTION__);
+	print_rtl (stderr, curr_insn_set);
+	fprintf (stderr, "\n");
+
+        lra_assert (false);
+      }
     }
   if (sregno >= 0)
     reg_renumber [sregno] = -1;

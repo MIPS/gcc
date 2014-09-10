@@ -13204,7 +13204,7 @@ sh_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
     {
       if (rclass == FPUL_REGS)
 	return GENERAL_REGS;
-      return FPUL_REGS;
+      return NO_REGS;  // LRA wants NO_REGS here, it used to be FPUL_REGS;
     }
   if ((rclass == TARGET_REGS
        || (TARGET_SHMEDIA && rclass == SIBCALL_REGS))
