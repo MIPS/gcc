@@ -1894,6 +1894,51 @@ treerr
 )
 
 ;;;;;;;;;;;;;;;;
+(defcmatcher tree_cond_expr
+  (:tree tr)
+  (:tree ttest tthen telse)
+  trcond
+  :doc #{$TREE_COND_EXPR match @code{COND_EXPR} trees filling $TTEST $TTHEN $TELSE}#
+  ;; test
+  #{ /* tree_cond_expr $TRCOND ? */ (($TR) && TREE_CODE($TR)==COND_EXPR) }#
+  ;; fill
+  #{ /* tree_cond_expr $TRCOND ! */
+  $TTEST = TREE_OPERAND($TR, 0);
+  $TTHEN = TREE_OPERAND($TR, 1);
+  $TELSE = TREE_OPERAND($TR, 2);
+  }#)
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_vec_cond_expr
+  (:tree tr)
+  (:tree ttest tthen telse)
+  trvcond
+  :doc #{$TREE_VEC_COND_EXPR match @code{VEC_COND_EXPR} trees filling $TTEST $TTHEN $TELSE}#
+  ;; test
+  #{ /* tree_vec_cond_expr $TRVCOND ? */ (($TR) && TREE_CODE($TR) == VEC_COND_EXPR) }#
+  ;; fill
+  #{ /* tree_vec_cond_expr $TRVCOND ! */
+  $TTEST = TREE_OPERAND($TR, 0);
+  $TTHEN = TREE_OPERAND($TR, 1);
+  $TELSE = TREE_OPERAND($TR, 2);
+  }#)
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_vec_perm_expr
+  (:tree tr)
+  (:tree tv0 tv1 tmask)
+  trvperm
+  :doc #{$TREE_VEC_PERM_EXPR match @code{VEC_PERM_EXPR} trees filling $TV0, $TV1, $TMASK}#
+  ;; test
+  #{ /* tree_vec_perm_expr $TRVPERM ? */ (($TR) && TREE_CODE($TR) == VEC_PERM_EXPR) }#
+  ;; fill
+  #{ /* tree_vec_perm_expr $TRVPERM ! */
+  $TV0 = TREE_OPERAND($TR, 0);
+  $TV1 = TREE_OPERAND($TR, 1);
+  $TMASK = TREE_OPERAND($TR, 2);
+  }#)
+
+;;;;;;;;;;;;;;;;
 (defcmatcher tree_va_arg_expr
   (:tree tr)
   (:tree trva trtype)
@@ -2961,6 +3006,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_component_ref_full
  tree_component_ref_typed
  tree_compound_expr
+ tree_cond_expr
  tree_const_decl
  tree_const_decl_named
  tree_const_decl_of_name
@@ -3066,6 +3112,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_var_decl_named
  tree_var_decl_of_name
  tree_vec
+ tree_vec_cond_expr
+ tree_vec_perm_expr
  tree_vector_cst
  tree_vector_type
  tree_view_convert_expr
