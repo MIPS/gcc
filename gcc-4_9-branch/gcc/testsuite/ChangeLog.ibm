@@ -1,3 +1,7 @@
+2014-09-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 215140.
+
 2014-09-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/swaps-p8-1.c: New test.

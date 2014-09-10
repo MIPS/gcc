@@ -3490,6 +3490,7 @@ finish_id_expression (tree id_expression,
       tree wrap;
       if (VAR_P (decl)
 	  && !cp_unevaluated_operand
+	  && !processing_template_decl
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
 	{
@@ -10180,6 +10181,11 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
             designates an object with thread or automatic storage
             duration;  */
       t = TREE_OPERAND (t, 0);
+
+      if (TREE_CODE (t) == OFFSET_REF && PTRMEM_OK_P (t))
+	/* A pointer-to-member constant.  */
+	return true;
+
 #if 0
       /* FIXME adjust when issue 1197 is fully resolved.  For now don't do
          any checking here, as we might dereference the pointer later.  If

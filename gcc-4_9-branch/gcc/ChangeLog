@@ -1,6 +1,223 @@
+2014-09-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2014-09-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_fmav4sf4): Use correct constraints for
+	V2DF, V4SF, DF, and DI modes.
+	(vsx_fmav2df2): Likewise.
+	(vsx_float_fix_<mode>2): Likewise.
+	(vsx_reduc_<VEC_reduc_name>_v2df_scalar): Likewise.
+
+2014-09-10  Xinliang David Li  <davidxl@google.com>
+
+	Backport from mainline
+	PR target/63209
+	* config/arm/arm.md (movcond_addsi): Handle case where source
+	and target operands are the same.
+
+2014-09-10  Alan Modra  <amodra@gmail.com>
+
+	PR debug/60655
+	* dwarf2out.c (mem_loc_descriptor <PLUS>): Return NULL if addend
+	can't be output.
+
+2014-09-09  Bill Schmidt  <wschmidt@us.ibm.com>
+
+	Backported from mainline
+	2014-09-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (*vsx_extract_<mode>_load): Always match
+	selection of 0th memory doubleword, regardless of endianness.
+
+2014-09-09  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline
+	2014-09-09  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/invoke.texi (-march): Use GNU/Linux rather than Linux.
+	(-mtune): Likewise.
+	(-mcpu): Likewise.
+
+2014-09-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61214
+	PR c++/62224
+	* gimple-fold.c (can_refer_decl_in_current_unit_p): Don't allow
+	reference to a DECL_EXTERNAL COMDAT.
+
+2014-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/61672
+	* emit-rtl.h (mem_attrs_eq_p): Declare.
+	* emit-rtl.c (mem_attrs_eq_p): Export.  Handle NULL mem-attrs.
+	* cse.c (exp_equiv_p): Use mem_attrs_eq_p.
+	* cfgcleanup.c (merge_memattrs): Likewise.
+	Include emit-rtl.h.
+
+	2014-08-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62075
+	* tree-vect-slp.c (vect_detect_hybrid_slp_stmts): Properly
+	handle uses in patterns.
+
+	2014-08-14  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/62079
+	* recog.c (peephole2_optimize): If peep2_do_cleanup_cfg
+	run cleanup_cfg.
+
+	2014-08-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62175
+	* tree-ssa-loop-niter.c (expand_simple_operations): Do not
+	expand possibly trapping operations.
+
+2014-09-08  DJ Delorie  <dj@redhat.com>
+
+	* doc/invoke.texi (MSP430 Options): Add -minrt.
+
+2014-09-05  Easwaran Raman  <eraman@google.com>
+
+	Backport from mainline
+	PR rtl-optimization/62146
+	* ifcvt.c (dead_or_predicable): Make removal of REG_EQUAL note of
+	hoisted instruction unconditional.
+
+2014-09-04  Guozhi Wei  <carrot@google.com>
+
+	PR target/62040
+	* config/aarch64/iterators.md (VQ_NO2E, VQ_2E): New iterators.
+	* config/aarch64/aarch64-simd.md (move_lo_quad_internal_<mode>): Split
+	it into two patterns.
+	(move_lo_quad_internal_be_<mode>): Likewise.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/62015
+	* ipa-cp.c (intersect_aggregates_with_edge): Handle impermissible
+	pass-trough jump functions correctly.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61986
+	* ipa-cp.c (find_aggregate_values_for_callers_subset): Chain
+	created replacements in ascending order of offsets.
+	(known_aggs_to_agg_replacement_list): Likewise.
+
+2014-09-02  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2014-08-27  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+        PR target/62261
+        * config/sh/sh.md (ashlsi3): Handle negative shift count for
+	TARGET_SHMEDIA.
+	(ashldi3, ashrsi3, ashrdi3, lshrsi3, lshrdi3): Likewise.
+
+2014-09-02  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2014-08-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/62111
+	* config/sh/predicates.md (general_extend_operand): Disable
+	TRUNCATE before reload completes.
+
+2014-09-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2014-09-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/62312
+	* config/sh/sh.md (*cmp_div0s_0): Add missing constraints.
+
+2014-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/62025
+	* sched-deps.c (add_or_update_dep_1): If ask_dependency_caches
+	returned DEP_PRESENT, make sure to set DEP_MULTIPLE on present_dep.
+	(find_inc): Revert 2014-08-12 change.
+
+	* config/gnu-user.h (LIBLSAN_EARLY_SPEC): Define.
+	* gcc.c (LIBLSAN_SPEC, LIBLSAN_EARLY_SPEC): Follow LIBTSAN*_SPEC.
+	(SANITIZER_EARLY_SPEC): Include LIBLSAN_EARLY_SPEC for -fsanitize=leak.
+
+2014-09-01  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-08-21  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61271
+	* expr.c (is_aligning_offset): Remove logical not.
+
+2014-09-01  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-08-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61271
+	* cgraphunit.c (handle_alias_pairs): Fix condition.
+
+2014-08-30  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_assemble_integer): Don't add PLABEL relocation
+	prefix to function labels when generating fast indirect calls.
+
+2014-08-29  Yvan Roux  <yvan.roux@linaro.org>
+
+	Backport from mainline
+	2014-08-27  Yvan Roux  <yvan.roux@linaro.org>
+
+	PR other/62248
+	* config.gcc (arm*-*-*): Check --with-fpu against arm-fpus.def.
+
+2014-08-27  Guozhi Wei  <carrot@google.com>
+
+	PR target/62262
+	* config/aarch64/aarch64.md (*andim_ashift<mode>_bfiz): Check the shift
+	amount before using it.
+
+2014-08-26  Joel Sherrill <joel.sherrill@oarcorp.com>
+
+	* doc/invoke.texi: -fno-cxa-atexit should be -fno-use-cxa-atexit.
+
+2014-08-26  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-08-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61271
+	* tree-vectorizer.h (LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT,
+	LOOP_REQUIRES_VERSIONING_FOR_ALIAS): Wrap in parens.
+
+2014-08-24  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2014-08-24  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/61996
+	* config/sh/sh.opt (musermode): Allow negative form.
+	* config/sh/sh.c (sh_option_override): Disable TARGET_USERMODE for
+	targets that don't support it.
+	* doc/invoke.texi (SH Options): Rename sh-*-linux* to sh*-*-linux*.
+	Document -mno-usermode option.
+
+2014-08-23  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/62038
+	* config/pa/pa.c (pa_output_function_epilogue): Don't set
+	last_address when the current function is a thunk.
+	(pa_asm_output_mi_thunk): When we don't have named sections or they
+	are not being used, check that thunk can reach the stub table with a
+	short branch.
+
 2014-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Backport fro mainline
+	Backport from mainline
 	2014-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/62195
@@ -123,7 +340,6 @@
 	OMP_CLAUSE_SHARED for global vars if the global var is mentioned
 	in OMP_CLAUSE_MAP in some outer target region.
 
->>>>>>> .r214216
 2014-08-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	Backport from mainline
