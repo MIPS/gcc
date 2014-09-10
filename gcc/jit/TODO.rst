@@ -104,10 +104,6 @@ Test suite
 ==========
 * get DejaGnu to build and run C++ testcases
 
-* add a multi-threaded test (perhaps based on test-combination.c, with a
-  thread pool working through multiple instances of the various underlying
-  tests, each thread having a separate gcc_jit_context)
-
 Future milestones
 =================
 * try porting llvmpipe to gcc

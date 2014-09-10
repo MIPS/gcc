@@ -1,5 +1,9 @@
 2014-09-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* TODO.rst (Test suite): Multithreaded test is done.
+
+2014-09-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* dummy-frontend.c: Fix up for the header file flattening on
 	trunk by adding includes of signop.h, tree-core.h, stor-layout.h,
 	tree-ssa-alias.h, gimple-expr.h.
