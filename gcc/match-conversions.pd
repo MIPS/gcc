@@ -59,9 +59,8 @@
       && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (@0)))
   (if (TYPE_OVERFLOW_WRAPS (type))
    (mult (convert @0) (convert @1)))
-  (with { tree utype = unsigned_type_for (TREE_TYPE (@0)); }
+  (with { tree utype = unsigned_type_for (type); }
    (convert (mult (convert:utype @0) (convert:utype @1))))))
-
 
 /* For integral conversions with the same precision or pointer
    conversions use a NOP_EXPR instead.  */

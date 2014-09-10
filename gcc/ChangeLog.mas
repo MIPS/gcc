@@ -1,3 +1,8 @@
+2014-09-10  Richard Biener  <rguenther@suse.de>
+
+	* match-conversions.pd: Fix unsigned type used for
+	shortened multiplication.
+
 2014-09-09  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (struct expr): Add expr_type member.
