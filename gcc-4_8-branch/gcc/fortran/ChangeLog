@@ -1,3 +1,22 @@
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from trunk
+	PR fortran/62270
+	* interface.c (compare_parameter): Fix condition.
+
+2014-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/62214
+	* gfortran.dg/array_assignment_5.f90:  New test.
+
+2014-08-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/61999
+	* simplify.c (gfc_simplify_dot_product): Convert types of
+	vectors before calculating the result.
+
 2014-07-19  Paul Thomas  <pault@gcc.gnu.org>
 
 	Backport from trunk.
