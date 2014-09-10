@@ -20,8 +20,8 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 214981] MELT_1\
-.1.3pre0"
+const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 215107] MELT_1\
+.1.3pre1"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -30,36 +30,36 @@ const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.1.3pre0 [melt-branch_revision_214981]";
+const char melt_versionmeltstr[]="1.1.3pre1 [melt-branch_revision_215107]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-moremacro */
 const char melt_modulename[]="warmelt-moremacro";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.1.3pre0/warmelt-moremacro";
+/1.1.3pre1/warmelt-moremacro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="568950a2361d8d20b4a122a89df0c4a6";
+const char melt_prepromd5meltrun[]="61f80e216a93a8ed82e8193ef9450739";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="edf1423ac668dfce5458cb4c76f1e76e";
+const char melt_primaryhexmd5[]="199798efdda81ce85b7ec571197b9cf7";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "b9df744a285082661e87a56551801808",
+ /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "05a81001a1a82687c121ba0a47839b29",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=1;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="ce47452d6ef6d4e7ae969017e979b9e6" ;
+const char melt_cumulated_hexmd5[]="0dbb772f94c6cebea8fa626267815d85" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMOREMACRO_mds__CE47452D6EF6D4E7AE969017E979B9E6 1
+#define meltmod_WARMELTmiMOREMACRO_mds__0DBB772F94C6CEBEA8FA626267815D85 1
 #include "warmelt-moremacro+melttime.h"
 	 
 

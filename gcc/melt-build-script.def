@@ -58,8 +58,8 @@ melt_translator_file = {
 
 melt_translator_file = {
   base = "warmelt-normal";
-  // warmelt-normal.melt contains (load "warmelt-predef.melt")
-  includeload = "warmelt-predef.melt";
+  // warmelt-normal.melt contains (load "_warmelt-predef.melt")
+  includeload = "_warmelt-predef.melt";
   varsuf = NORMAL;
 };
 

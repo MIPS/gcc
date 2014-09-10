@@ -2091,7 +2091,7 @@ melt-run-md5.h melt-run.h:  $(srcdir)/melt-run.proto.h \
 melt-predef.h: $(srcdir)/make-melt-predefh.awk $(srcdir)/melt-predef.list
 	$(AWK) -f $(srcdir)/make-melt-predefh.awk $(srcdir)/melt-predef.list > $@-tmp
 	$(SHELL) $(srcdir)/../move-if-change  $@-tmp $@
-warmelt-predef.melt: $(srcdir)/melt-predef.list  $(srcdir)/make-warmelt-predef.awk
+_warmelt-predef.melt: $(srcdir)/melt-predef.list  $(srcdir)/make-warmelt-predef.awk
 	$(AWK) -f $(srcdir)/make-warmelt-predef.awk $< > $@-tmp
 	$(SHELL) $(srcdir)/../move-if-change  $@-tmp $@
 ### end of Melt stuff
@@ -4022,27 +4022,27 @@ $(srcdir)/melt-build-script.sh: $(srcdir)/melt-build-script.def $(srcdir)/melt-b
 
 ## melt.encap may need the include/stdint.h to compile & check the
 ## MELT runtime so depends upon stmp-int-hdrs ...
-melt.encap  meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh stmp-int-hdrs melt-runtime.ii $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch]) melt-gendoc
+melt.encap  meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh stmp-int-hdrs melt-runtime.ii $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch]) melt-gendoc
 
 melt-clean:
 	$(RM) -rf meltbuild*
 
-melt-translator: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
+melt-translator: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
 	@echo melt-translator script $(realpath $(srcdir)/melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) $(srcdir)/melt-build-script.sh translator
 
 
-melt-applications: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
+melt-applications: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
 	@echo melt-application script $(realpath $(srcdir)/melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) $(srcdir)/melt-build-script.sh applications
 
 
-melt-modlists: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
+melt-modlists: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
 	@echo melt-modlists script $(realpath $(srcdir)/melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) $(srcdir)/melt-build-script.sh modlists
 
 
-melt-gendoc: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
+melt-gendoc: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch])
 	@echo melt-gendoc script $(realpath $(srcdir)/melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) $(srcdir)/melt-build-script.sh gendoc
 
@@ -4177,7 +4177,7 @@ install-melt-default-modules-list: melt-modlists
 .PHONY: upgrade-warmelt
 
 
-upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch] $(srcdir)/melt/generated/*.[ch][ch]) 
+upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch] $(srcdir)/melt/generated/*.[ch][ch]) 
 	@which astyle > /dev/zero || (echo astyle not found but needed to upgrade-warmelt ; exit 1)
 	@which unifdef > /dev/zero || (echo unifdef not found but needed to upgrade-warmelt ; exit 1)
 	@echo upgrade-warmelt script $(realpath $(srcdir)/melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)

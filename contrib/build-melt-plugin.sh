@@ -341,11 +341,12 @@ do_melt_make () {
 bootstrap_melt() {
     verbose_echo Before bootstrapping the MELT translator
     verbose_sleep
-    ## generate the warmelt-predef.melt file
-    verbose_echo Making warmelt-predef.melt
-    rm -f warmelt-predef.melt
-    if $GAWK -f $GCCMELT_SOURCE_TREE/make-warmelt-predef.awk $GCCMELT_SOURCE_TREE/melt-predef.list > warmelt-predef.melt; then
-	verbose_echo Generated warmelt-predef.melt with $(wc -l warmelt-predef.melt| cut -d ' ' -f 1) lines
+    ## generate the _warmelt-predef.melt file
+    verbose_echo Making _warmelt-predef.melt
+    rm -f _warmelt-predef.melt _warmelt-predef.melt-tmp
+    if $GAWK -f $GCCMELT_SOURCE_TREE/make-warmelt-predef.awk $GCCMELT_SOURCE_TREE/melt-predef.list > _warmelt-predef.melt-tmp; then
+	mv _warmelt-predef.melt-tmp _warmelt-predef.melt
+	verbose_echo Generated _warmelt-predef.melt with $(wc -l warmelt-predef.melt| cut -d ' ' -f 1) lines
     else
 	error_echo failed to generate warmelt-predef.melt
     fi

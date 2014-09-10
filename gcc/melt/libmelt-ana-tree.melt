@@ -2239,7 +2239,8 @@ treerr
     ))
 (export_macro define_gcc_binary_tree)
 
-
+;; the following sed command on tree.def produces a useful MELT file
+;; sed -n 's/DEFTREECODE *(\([A-Z_]*\),.*tcc_binary.*/(define_gcc_binary_tree \1)/p' tree.def
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

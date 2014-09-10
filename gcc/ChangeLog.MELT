@@ -1,6 +1,27 @@
 
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Changing to _warmelt-predef.melt the generated file name}}
+	* Makefile.in: Use _warmelt-predef.melt instead of
+	warmelt-predef.melt
+
+	* melt-predef.list: Improve comment to mention
+	_warmelt-predef.melt
+
+	* melt/warmelt-normal.melt: Load _warmelt-predef.melt instead of
+	warmelt-predef.melt generated file...
+
+	* melt-build-script.def: warmelt-normal element is including
+	_warmelt-predef.melt now.
+	* melt-build-script.sh: Regenerate.
+
+	* melt/libmelt-ana-tree.melt: Add a comment explaining how the
+	binary tree-codes could be automatically handled.
+
+	* melt/generated/*: Regenerate.
+
+2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (expand_restlist_as_tuple): Exported.
 
 	* melt/libmelt-ana-tree.melt (define_gcc_binary_tree): New macro.

@@ -1000,8 +1000,9 @@ routine procedures.}#
     ndata
     ))
 
-  ;; the automatically generated warmelt-predef.melt file defines a fill_initial_predefmap function
-(load "warmelt-predef.melt")
+  ;; the automatically generated _warmelt-predef.melt file defines a
+  ;; fill_initial_predefmap function
+(load "_warmelt-predef.melt")
 
   ;; internal primitive to return the last predefined index
 (defprimitive last_globpredef_index () :long

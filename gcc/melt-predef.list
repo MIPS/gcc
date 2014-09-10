@@ -26,6 +26,8 @@
 ## making upgrade-warmelt.  Don't remove more than a few predefined
 ## values at a time!
 
+## This is used to generate the _warmelt-predef.melt generated file.
+
 ## predefined-name                              [ @qualifier ]
   CLASS_ALARM_HANDLER
   CLASS_CHILD_PROCESS_HANDLER
