@@ -1938,6 +1938,22 @@ treerr
   $TMASK = TREE_OPERAND($TR, 2);
   }#)
 
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_bind_expr
+  (:tree tr)
+  (:tree tbvars tbody tblock)
+  trbind
+  :doc #{$TREE_BIND_EXPR match @code{BIND_EXPR} trees filling $TBVARS, $TBODY, TBLOCK}#
+  ;;test
+  #{ /* tree_bind_expr $TRBIND ? */ (($TR) && TREE_CODE($TR) == BIND_EXPR) }#
+  ;;fill
+  #{ /* tree_bind_expr $TRBIND ! */
+  $TBVARS = BIND_EXPR_VARS($TR);
+  $TBODY = BIND_EXPR_BODY($TR);
+  $TBLOCK = BIND_EXPR_BLOCK($TR);
+  }#)
+
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_va_arg_expr
   (:tree tr)
@@ -2990,6 +3006,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_array_ref_full
  tree_array_type
  tree_bit_field_ref
+ tree_bind_expr
  tree_block
  tree_boolean_false_node 
  tree_boolean_true_node 
