@@ -1778,14 +1778,23 @@ treerr
   $NELTS = CONSTRUCTOR_NELTS($TR);
   }#)
 
+
+
+;;;;;;;;;;;;;;;;
 (defciterator foreach_element_in_tree_constructor
   (:tree trcons)
   eachelcon
   (:tree tindex tvalue :long num)
+  :doc #{$FOREACH_ELEMENT_IN_TREE_CONSTRUCTOR iterates using
+  @code{FOR_EACH_CONSTRUCTOR_ELT} over the @code{CONSTRUCTOR} tree
+  $TRCONS, binding the "index" or "field" to $TINDEX, the
+  corresponding "value" to $TVALUE, and the current rank to $NUM.}#
+  ;; before
   #{ /* foreach_element_in_tree_constructor $EACHELCON start */
   if ($TRCONS && TREE_CODE($TRCONS) == CONSTRUCTOR) {
     FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS ($TRCONS), $NUM, $TINDEX, $TVALUE) {
   }#
+  ;; after
   #{ /* foreach_element_in_tree_constructor $EACHELCON ending */
   } // end FOR_EACH_CONSTRUCTOR_ELT 
   } // end if $TRCONS
@@ -1977,11 +1986,17 @@ treerr
 
 
 
+
+
 ;; Iterator on function argument 
 (defciterator foreach_argument_in_function_tree
   (:tree tr_fun)
   eachtrfun
   (:tree trarg)
+  :doc #{The $FOREACH_ARGUMENT_IN_FUNCTION_TREE iterator iterates,
+  using @code{FOREACH_FUNCTION_ARGS} on the argument of the tree
+  $TR_FUN of @code{FUNCTION_TYPE}, binding $TRARG.}#
+  ;; before
   #{
       /* foreach_argument_in_function_tree $EACHTRFUN start */
       tree $EACHTRFUN#_tr = NULL;
@@ -1994,7 +2009,8 @@ treerr
           {
               $TRARG = $EACHTRFUN#_tr;
    }#
-              
+   ;;
+   ;; after
    #{ /* ending  foreach_argument_in_function_tree $EACHTRFUN */
               $TRARG = (tree) NULL;
           } 
@@ -2332,6 +2348,9 @@ pointer type node.}#
   (trmap)				; startformals
   eachmaptr 				;state symbol
   (:tree tratt :value trval)	;local formals
+  :doc #{$FOREACH_MAPTREE iterates on entries of a maptree value
+  $TRMAP, binding the tree attribute to $TRATT and its value to
+  $TRVAL.}#
   ;; before expansion
   #{
    /*$EACHMAPTR*/ int $EACHMAPTR#_rk=0;
