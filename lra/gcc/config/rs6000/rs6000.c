@@ -1081,7 +1081,7 @@ static bool is_nonpipeline_insn (rtx);
 static bool is_cracked_insn (rtx);
 static bool is_load_insn (rtx, rtx *);
 static bool is_store_insn (rtx, rtx *);
-static bool set_to_load_agen (rtx,rtx);
+static bool set_to_load_agen (rtx_insn *,rtx_insn *);
 static bool insn_terminates_group_p (rtx , enum group_termination);
 static bool insn_must_be_first_in_group (rtx);
 static bool insn_must_be_last_in_group (rtx);
@@ -26740,7 +26740,7 @@ is_branch_slot_insn (rtx insn)
 /* The function returns true if out_inst sets a value that is
    used in the address generation computation of in_insn */
 static bool
-set_to_load_agen (rtx out_insn, rtx in_insn)
+set_to_load_agen (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   rtx out_set, in_set;
 
@@ -28929,7 +28929,7 @@ get_prev_label (tree function_name)
    CALL_DEST is the routine we are calling.  */
 
 char *
-output_call (rtx insn, rtx *operands, int dest_operand_number,
+output_call (rtx_insn *insn, rtx *operands, int dest_operand_number,
 	     int cookie_operand_number)
 {
   static char buf[256];
@@ -33761,8 +33761,6 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  case UNSPEC_VSUMSWS:
 	  case UNSPEC_VSUMSWS_DIRECT:
 	  case UNSPEC_VSX_CONCAT:
-	  case UNSPEC_VSX_CVSPDP:
-	  case UNSPEC_VSX_CVSPDPN:
 	  case UNSPEC_VSX_SET:
 	  case UNSPEC_VSX_SLDWI:
 	  case UNSPEC_VUNPACK_HI_SIGN:
@@ -33775,6 +33773,15 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  case UNSPEC_VUPKLPX:
 	  case UNSPEC_VUPKLS_V4SF:
 	  case UNSPEC_VUPKLU_V4SF:
+	  /* The following could be handled as an idiom with XXSPLTW.
+	     These place a scalar in BE element zero, but the XXSPLTW
+	     will currently expect it in BE element 2 in a swapped
+	     region.  When one of these feeds an XXSPLTW with no other
+	     defs/uses either way, we can avoid the lane change for
+	     XXSPLTW and things will be correct.  TBD.  */
+	  case UNSPEC_VSX_CVDPSPN:
+	  case UNSPEC_VSX_CVSPDP:
+	  case UNSPEC_VSX_CVSPDPN:
 	    return 0;
 	  case UNSPEC_VSPLT_DIRECT:
 	    *special = SH_SPLAT;

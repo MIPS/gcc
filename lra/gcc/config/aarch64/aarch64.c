@@ -7941,14 +7941,6 @@ aarch64_simd_const_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
     error ("constant out of range");
 }
 
-/* Emit code to reinterpret one AdvSIMD type as another,
-   without altering bits.  */
-void
-aarch64_simd_reinterpret (rtx dest, rtx src)
-{
-  emit_move_insn (dest, gen_lowpart (GET_MODE (dest), src));
-}
-
 /* Emit code to place a AdvSIMD pair result in memory locations (with equal
    registers).  */
 void
@@ -8009,7 +8001,7 @@ aarch64_simd_disambiguate_copy (rtx *operands, rtx *dest,
 /* Compute and return the length of aarch64_simd_mov<mode>, where <mode> is
    one of VSTRUCT modes: OI, CI or XI.  */
 int
-aarch64_simd_attr_length_move (rtx insn)
+aarch64_simd_attr_length_move (rtx_insn *insn)
 {
   enum machine_mode mode;
 
