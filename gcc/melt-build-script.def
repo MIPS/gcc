@@ -101,6 +101,8 @@ melt_library_file = {
 melt_library_file = {
   base = "libmelt-ana-tree";
   varsuf = ANA_TREE;
+  // libmelt-ana-tree.melt contains (load "_libmelt-treecode.melt")
+  includeload = "_libmelt-treecode.melt";
 };
 
 melt_library_file = {

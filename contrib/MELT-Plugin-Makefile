@@ -423,27 +423,27 @@ GCCMELTGEN_BUILD=melt-workdir/
 
 .PHONY: melt-clean melt-translator melt-applications melt-modlists melt-gendoc
 
-meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt-gendoc
+meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt  _libmelt-treecode.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt-gendoc
 
 melt-clean:
-	$(RM) -rf meltbuild* melt-build-param.sh melt-build-settings.sh
+	$(RM) -rf meltbuild* melt-build-param.sh melt-build-settings.sh _warmelt-predef.melt _libmelt-treecode.melt
 
-melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt.so melt-runtime.ii
+melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) _warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt.so melt-runtime.ii
 	@echo melt-translator script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh translator
 
 
-melt-applications: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt-translator
+melt-applications: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) _libmelt-treecode.melt melt-translator
 	@echo melt-application script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh applications
 
 
-melt-modlists: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
+melt-modlists: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
 	@echo melt-modlists script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh modlists
 
 
-melt-gendoc: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
+melt-gendoc: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt _libmelt-treecode.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
 	@echo melt-gendoc script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	@which "$(TEXI2HTML)" > /dev/null || (echo MELT bad TEXI2HTML: $(TEXI2HTML) ; exit 1)
 	@which "$(TEXI2PDF)" > /dev/null || (echo MELT bad TEXI2PDF: $(TEXI2PDF) ; exit 1)
@@ -466,10 +466,16 @@ ifneq ($(filter 4.7.%, $(MELTGCC_VERSION)),)
 	$(RM) *4d7*
 endif
 
-bootstrap-melt: melt.so warmelt-predef.melt warmelt0 warmelt1 warmelt2 warmelt all-melt  melt-runtime.ii
+bootstrap-melt: melt.so _warmelt-predef.melt warmelt0 warmelt1 warmelt2 warmelt all-melt  melt-runtime.ii
 
-warmelt-predef.melt: make-warmelt-predef.awk melt-predef.list
+_warmelt-predef.melt: make-warmelt-predef.awk melt-predef.list
 	$(AWK) -f $^ > $@-tmp
+	mv $@-tmp $@
+
+_libmelt-treecode.melt: emit-libmelt-treecode.inc $(MELTGCC_PLUGIN_DIR)/include/tree.def
+	date '+;; DO NOT EDIT: file _libmelt-treecode.melt generated at %D' > $@-tmp
+	echo ';; .... using emit-libmelt-treecode.inc' >> $@-tmp
+	$(GCCMELT_CXX) -c -I $(MELTGCC_PLUGIN_DIR)/include  -E -x c++ $< | grep -v '^#' | cat -s >> $@-tmp
 	mv $@-tmp $@
 
 ################### documentation

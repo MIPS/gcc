@@ -130,6 +130,7 @@ copymelt gcc/doc/gnu.texi
 copymelt gcc/doc/include/gpl.texi 
 copymelt gcc/doc/include/gpl_v3.texi 
 copymelt gcc/doc/include/texinfo.tex
+copymelt gcc/emit-libmelt-treecode.inc
 
 for f in gcc/testsuite/melt/* ; do
    copymelt $f testmelt/

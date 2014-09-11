@@ -1,4 +1,16 @@
 
+2014-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* libmelt-ana-tree.melt: More, should include
+	_libmelt-treecode.melt ...
+
+	* melt-build-script.def: libmelt-ana-tree has includeload with
+	_libmelt-treecode.melt...
+
+	* melt-build-script.sh: Regenerate.
+
+	* emit-libmelt-treecode.inc: New file.
+
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Changing to _warmelt-predef.melt the generated file name}}

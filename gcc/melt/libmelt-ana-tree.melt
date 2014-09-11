@@ -31,9 +31,71 @@
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
 
+;;; NB. The generated file _libmelt-treecode.melt is generated from 
+;;; GCC tree.def file using emit-libmelt-treecode.inc
+;;; it contains lines like
+;;;;;; (gcc_tree_code ERROR_MARK "error_mark" tcc_exceptional 0)
+;;; corresponding to a line like
+;;;;;;; DEFTREECODE (ERROR_MARK, "error_mark", tcc_exceptional, 0)
+;;; from file tree.def
 
+(defclass class_gcc_tree_code
+  :super class_named
+  :fields (gcctreecode_string
+	   gcctreecode_type
+	   gcctreecode_nargs
+	   gcctreecode_data))
+(export_class class_gcc_tree_code)
 
+;; the internal macro expander to define gcc tree code
+(defun mexpand_gcc_tree_code_define (sexp env mexpander modctx)
+  (debug "mexpand_gcc_tree_code_define" " start sexp=" sexp)
+  (let (
+	(sloc (get_field :loca_location sexp))
+	(sexcont (get_field :sexp_contents sexp))
+	(xargs (expand_restlist_as_tuple sexcont))
+	(namecod (multiple_nth xargs 0))
+	(strcod (multiple_nth xargs 1))
+	(typcod (multiple_nth xargs 2))
+	(nargcod (multiple_nth xargs 3))
+	)
+    (when (!=i 4 (multiple_length xargs))
+      (error_at sloc "GCC_TREE_CODE need four arguments, got $1" xargs)
+      (return))
+    ;;
+    (debug "mexpand_gcc_tree_code_define" 
+	   " namecod=" namecod
+	   " strcod=" strcod
+	   " typcod=" typcod
+	   " nargcod=" nargcod)
+    (assert_msg "mexpand_gcc_tree_code_define check namecod"
+		(is_a namecod class_symbol))
+    (let ( (namcodstr (get_field :named_name namecod)) 
+	   (xdefinst 
+	    `(definstance ,namecod class_gcc_tree_code
+	       :named_name ',namcodstr
+	       :gcctreecode_string ',strcod
+	       :gcctreecode_type ',typcod
+	       :gcctreecode_nargs ',nargcod))
+	   (xexport `(export_values ,namecod))
+	  )
+      (debug "mexpand_gcc_tree_code_define xdefinst=" xdefinst
+	     "\n.. xexport=" xexport)
+      (let ( (resultx (tuple (mexpander xdefinst env mexpander modctx)
+			     (mexpander xexport  env mexpander modctx)))
+	    )
+	(debug "mexpand_gcc_tree_code_define resultx=" resultx)
+	(return resultx)
+))))
 
+#|
+(let ( (:macro gcc_tree_code mexpand_gcc_tree_code_define
+	       (sexp env mexpander modctx)
+	       (mexpand_gcc_tree_code_define sexp env mexpander modctx)
+	       )
+       )
+  (load "_libmelt-treecode.melt"))
+|#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

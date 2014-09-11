@@ -1,8 +1,18 @@
 
+2014-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* make-melt-plugin-source-tar.sh: Also copy
+	emit-libmelt-treecode.inc
+
+	* MELT-Plugin-Makefile: Mention _warmelt-predef instead of
+	warmelt-predef.
+	(melt-clean, melt-applications, meltgendoc.texi): Mention
+	_libmelt-treecode.melt
+
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: Don't mention GCC 4.7 anymore.
-	
+
 2014-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* build-melt-plugin.sh: Generate _warmelt-predef.melt...

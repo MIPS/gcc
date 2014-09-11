@@ -2094,6 +2094,14 @@ melt-predef.h: $(srcdir)/make-melt-predefh.awk $(srcdir)/melt-predef.list
 _warmelt-predef.melt: $(srcdir)/melt-predef.list  $(srcdir)/make-warmelt-predef.awk
 	$(AWK) -f $(srcdir)/make-warmelt-predef.awk $< > $@-tmp
 	$(SHELL) $(srcdir)/../move-if-change  $@-tmp $@
+
+
+_libmelt-treecode.melt: $(srcdir)/emit-libmelt-treecode.inc $(srcdir)/tree.def
+	date '+;; DO NOT EDIT: file _libmelt-treecode.melt generated at %D' > $@-tmp
+	echo ';; .... using emit-libmelt-treecode.inc' >> $@-tmp
+	$(GXX) -c -I $(srcdir)/.  -E -x c++ $< | grep -v '^#' | cat -s >> $@-tmp
+	mv $@-tmp $@
+
 ### end of Melt stuff
 
 bversion.h: s-bversion; @true
