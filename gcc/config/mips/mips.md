@@ -2474,11 +2474,11 @@
 
 (define_insn "*maddf<mode>"
   [(set (match_operand:ANYF 0 "register_operand" "=f")
-	(plus:ANYF (match_operand:ANYF 1 "register_operand" "0")
-		   (mult:ANYF (match_operand:ANYF 2 "register_operand" "f")
-			      (match_operand:ANYF 3 "register_operand" "f"))))]
-  "ISA_HAS_FP_MADDF_MSUBF"
-  "maddf.<fmt>\t%0,%2,%3"
+	(plus:ANYF (mult:ANYF (match_operand:ANYF 1 "register_operand" "f")
+			      (match_operand:ANYF 2 "register_operand" "f"))
+		   (match_operand:ANYF 3 "register_operand" "0")))]
+  "ISA_HAS_FP_MADDF_MSUBF && TARGET_FUSED_MADD"
+  "maddf.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
    (set_attr "mode" "<UNITMODE>")])
 
@@ -2509,7 +2509,7 @@
 	(minus:ANYF (match_operand:ANYF 1 "register_operand" "0")
 		    (mult:ANYF (match_operand:ANYF 2 "register_operand" "f")
 			       (match_operand:ANYF 3 "register_operand" "f"))))]
-  "ISA_HAS_FP_MADDF_MSUBF"
+  "ISA_HAS_FP_MADDF_MSUBF && TARGET_FUSED_MADD"
   "msubf.<fmt>\t%0,%2,%3"
   [(set_attr "type" "fmadd")
    (set_attr "mode" "<UNITMODE>")])

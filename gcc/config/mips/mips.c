@@ -4073,7 +4073,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  /* If this is part of a MADD or MSUB, treat the PLUS as
 	     being free.  */
-	  if ((ISA_HAS_FP_MADD4_MSUB4 || ISA_HAS_FP_MADD3_MSUB3)
+	  if ((ISA_HAS_FP_MADD4_MSUB4 || ISA_HAS_FP_MADD3_MSUB3
+	       || ISA_HAS_FP_MADDF_MSUBF)
 	      && TARGET_FUSED_MADD
 	      && GET_CODE (XEXP (x, 0)) == MULT)
 	    *total = 0;
