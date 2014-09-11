@@ -61,21 +61,21 @@ along with GCC; see the file COPYING3.  If not see
   (for outer_op (plus minus)
    (for inner_op (plus minus)
     (simplify
-     (outer_op (inner_op @0 INTEGER_CST@1) INTEGER_CST@2)
+     (outer_op (inner_op @0 CONSTANT_CLASS_P@1) CONSTANT_CLASS_P@2)
      /* If the constant operation overflows we cannot do the transform
 	as we would introduce undefined overflow, for example
 	with (a - 1) + INT_MIN.  */
-     (with { tree cst = int_const_binop (outer_op == inner_op
-					 ? PLUS_EXPR : MINUS_EXPR, @1, @2); }
-      (if (!TREE_OVERFLOW (cst))
+     (with { tree cst = fold_binary (outer_op == inner_op
+				     ? PLUS_EXPR : MINUS_EXPR, type, @1, @2); }
+      (if (cst && !TREE_OVERFLOW (cst))
        (inner_op @0 { cst; } ))))))
 
   /* (CST - A) +- CST -> CST - A  */
   (for outer_op (plus minus)
    (simplify
-    (outer_op (minus INTEGER_CST@1 @0) INTEGER_CST@2)
-    (with { tree cst = int_const_binop (outer_op, @1, @2); }
-     (if (!TREE_OVERFLOW (cst))
+    (outer_op (minus CONSTANT_CLASS_P@1 @0) CONSTANT_CLASS_P@2)
+    (with { tree cst = fold_binary (outer_op, type, @1, @2); }
+     (if (cst && !TREE_OVERFLOW (cst))
       (minus { cst; } @0)))))
 
   /* ~A + A -> -1 */
@@ -85,7 +85,7 @@ along with GCC; see the file COPYING3.  If not see
 
   /* ~A + 1 -> -A */
   (simplify
-   (plus (bit_not integral_op_p@0) integer_onep@1)
+   (plus (bit_not @0) integer_onep@1)
    (if (TREE_CODE (TREE_TYPE (@1)) != COMPLEX_TYPE
 	|| (TREE_CODE (@1) == COMPLEX_CST
 	    && integer_onep (TREE_REALPART (@1))
@@ -136,7 +136,9 @@ along with GCC; see the file COPYING3.  If not see
 (simplify
   (pointer_plus @0 (convert?@2 (minus@3 (convert @1) (convert @0))))
   /* Conditionally look through a sign-changing conversion.  */
-  (if (TYPE_PRECISION (TREE_TYPE (@2)) == TYPE_PRECISION (TREE_TYPE (@3)))
+  (if (TYPE_PRECISION (TREE_TYPE (@2)) == TYPE_PRECISION (TREE_TYPE (@3))
+       && ((GIMPLE && useless_type_conversion_p (type, TREE_TYPE (@1))
+	    || (GENERIC && type == TREE_TYPE (@1)))))
    @1))
 
 /* From tree-ssa-forwprop.c:associate_pointerplus_align.  */

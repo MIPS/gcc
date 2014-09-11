@@ -1,5 +1,9 @@
 2014-09-11  Richard Biener  <rguenther@suse.de>
 
+	* match-plusminus.pd: More closely match tree-ssa-forwprop.c code.
+
+2014-09-11  Richard Biener  <rguenther@suse.de>
+
 	* match-plusminus.pd: Complete associate_plusminus patterns.
 	Properly guard all patterns.  Add associate_pointerplus_align
 	pattern.
