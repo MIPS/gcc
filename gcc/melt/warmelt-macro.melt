@@ -6797,7 +6797,7 @@ applications of @code{/i} primitives.}#
     (if (null var) 
 	(error_at loc "missing variable in letbinding"_))
     ;; special case for :macro i.e. quasi_ctype_macro
-    ;; syntax of the macro binding (:macro <name> <formals> <body>)
+    ;; syntax of the macro binding (:macro <name> <formals> <body>...)
     (if (== ctyp quasi_ctype_macro)
 	(let ( (macformals (lambda_arg_bindings curarg :true))
 	       (varname (unsafe_get_field :named_name var))

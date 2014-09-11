@@ -5,7 +5,7 @@
 
  ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
     -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tletmacro-1.melt \
-    -x c -c /dev/null -o /dev/null
+     /dev/null -o /dev/null
 
 or in a MELT module
 
@@ -18,7 +18,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 	       (sexp env mexpander modctx)
 	       (debug "macro mac" " sexp=" sexp)
 	       (let ( (sloc (get_field :loca_location sexp))
-		      (scont (get_field :sexpr_contents sexp))
+		      (scont (get_field :sexp_contents sexp))
 		      (xargs (expand_restlist_as_tuple sexcont 
 						       env mexpander modctx))
 		      (xtup `(tuple ,xargs ,xargs))
