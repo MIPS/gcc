@@ -56,7 +56,15 @@
  (convert (mult @0 @1))
  (if (INTEGRAL_TYPE_P (type)
       && INTEGRAL_TYPE_P (TREE_TYPE (@0))
-      && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (@0)))
+      && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (@0))
+      /* ???  These kind of patterns are a bad idea - see PR41043.  We
+	 create a lot of redundant statements if operands are used multiple
+	 times.  Maybe we want a flag for this.  But eventually these
+	 kind of transforms should be done in a pass.  */
+      && (GENERIC
+          || TREE_CODE (@0) != SSA_NAME || TREE_CODE (@1) != SSA_NAME
+	  || ((TREE_CODE (@0) != SSA_NAME || has_single_use (@0))
+	       && (TREE_CODE (@1) != SSA_NAME || has_single_use (@1)))))
   (if (TYPE_OVERFLOW_WRAPS (type))
    (mult (convert @0) (convert @1)))
   (with { tree utype = unsigned_type_for (type); }

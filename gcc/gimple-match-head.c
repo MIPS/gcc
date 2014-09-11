@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-dfa.h"
 #include "builtins.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "dumpfile.h"
 #include "gimple-match.h"
 
