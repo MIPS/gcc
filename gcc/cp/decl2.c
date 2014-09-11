@@ -4354,8 +4354,6 @@ c_parse_final_cleanups (void)
 
   /* FIXME - huh?  was  input_line -= 1;*/
 
-  timevar_start (TV_PHASE_DEFERRED);
-
   /* We now have to write out all the stuff we put off writing out.
      These include:
 
@@ -4672,8 +4670,6 @@ c_parse_final_cleanups (void)
 
   /* Collect candidates for Java hidden aliases.  */
   java_hidden_aliases = collect_candidates_for_java_method_aliases ();
-
-  timevar_stop (TV_PHASE_DEFERRED);
 
   if (flag_vtable_verify)
     {
