@@ -393,6 +393,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dce.h"
 #include "dbgcnt.h"
 #include "rtl-iter.h"
+#include "shrink-wrap.h"
 
 struct target_ira default_target_ira;
 struct target_ira_int default_target_ira_int;
@@ -1736,7 +1737,8 @@ static void
 setup_prohibited_mode_move_regs (void)
 {
   int i, j;
-  rtx test_reg1, test_reg2, move_pat, move_insn;
+  rtx test_reg1, test_reg2, move_pat;
+  rtx_insn *move_insn;
 
   if (ira_prohibited_mode_move_regs_initialized_p)
     return;
@@ -1772,7 +1774,7 @@ setup_prohibited_mode_move_regs (void)
 
 /* Setup possible alternatives in ALTS for INSN.  */
 void
-ira_setup_alts (rtx insn, HARD_REG_SET &alts)
+ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts)
 {
   /* MAP nalt * nop -> start of constraints for given operand and
      alternative */
@@ -2604,7 +2606,7 @@ ira_update_equiv_info_by_shuffle_insn (int to_regno, int from_regno, rtx_insn *i
       ira_reg_equiv[to_regno].memory
 	= ira_reg_equiv[to_regno].constant
 	= ira_reg_equiv[to_regno].invariant
-	= ira_reg_equiv[to_regno].init_insns = NULL_RTX;
+	= ira_reg_equiv[to_regno].init_insns = NULL;
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	fprintf (ira_dump_file,
 		 "      Invalidating equiv info for reg %d\n", to_regno);
@@ -2687,7 +2689,7 @@ fix_reg_equiv_init (void)
 	  {
 	    next = XEXP (x, 1);
 	    insn = XEXP (x, 0);
-	    set = single_set (insn);
+	    set = single_set (as_a <rtx_insn *> (insn));
 	    ira_assert (set != NULL_RTX
 			&& (REG_P (SET_DEST (set)) || REG_P (SET_SRC (set))));
 	    if (REG_P (SET_DEST (set))
@@ -3258,7 +3260,7 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
   if (reg_equiv[regno].is_arg_equivalence)
     return;
   ira_reg_equiv[regno].defined_p = false;
-  ira_reg_equiv[regno].init_insns = NULL_RTX;
+  ira_reg_equiv[regno].init_insns = NULL;
   for (; list; list =  XEXP (list, 1))
     {
       rtx insn = XEXP (list, 0);
@@ -3731,7 +3733,7 @@ update_equiv_regs (void)
 		      reg_equiv[regno].init_insns
 			= XEXP (reg_equiv[regno].init_insns, 1);
 
-		      ira_reg_equiv[regno].init_insns = NULL_RTX;
+		      ira_reg_equiv[regno].init_insns = NULL;
 		      bitmap_set_bit (cleared_regs, regno);
 		    }
 		  /* Move the initialization of the register to just before
@@ -3819,15 +3821,17 @@ static void
 setup_reg_equiv (void)
 {
   int i;
-  rtx elem, prev_elem, next_elem, insn, set, x;
+  rtx_insn_list *elem, *prev_elem, *next_elem;
+  rtx_insn *insn;
+  rtx set, x;
 
   for (i = FIRST_PSEUDO_REGISTER; i < ira_reg_equiv_len; i++)
     for (prev_elem = NULL, elem = ira_reg_equiv[i].init_insns;
 	 elem;
 	 prev_elem = elem, elem = next_elem)
       {
-	next_elem = XEXP (elem, 1);
-	insn = XEXP (elem, 0);
+	next_elem = elem->next ();
+	insn = elem->insn ();
 	set = single_set (insn);
 	
 	/* Init insns can set up equivalence when the reg is a destination or
@@ -3896,7 +3900,7 @@ setup_reg_equiv (void)
 			if (ira_reg_equiv[i].memory == NULL_RTX)
 			  {
 			    ira_reg_equiv[i].defined_p = false;
-			    ira_reg_equiv[i].init_insns = NULL_RTX;
+			    ira_reg_equiv[i].init_insns = NULL;
 			    break;
 			  }
 		      }
@@ -3906,7 +3910,7 @@ setup_reg_equiv (void)
 	      }
 	  }
 	ira_reg_equiv[i].defined_p = false;
-	ira_reg_equiv[i].init_insns = NULL_RTX;
+	ira_reg_equiv[i].init_insns = NULL;
 	break;
       }
 }
@@ -4780,7 +4784,7 @@ split_live_ranges_for_shrink_wrap (void)
   bitmap_head need_new, reachable;
   vec<basic_block> queue;
 
-  if (!flag_shrink_wrap)
+  if (!SHRINK_WRAPPING_ENABLED)
     return false;
 
   bitmap_initialize (&need_new, 0);
