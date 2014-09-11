@@ -57,8 +57,6 @@ Initial Release
 
 * add a SONAME to the library (and potentially version the symbols?)
 
-* add myself as maintainer
-
 * do we need alternative forms of division (floor vs rounding)?
 
 * are we missing any ops?
