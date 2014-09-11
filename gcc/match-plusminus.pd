@@ -137,8 +137,8 @@ along with GCC; see the file COPYING3.  If not see
   (pointer_plus @0 (convert?@2 (minus@3 (convert @1) (convert @0))))
   /* Conditionally look through a sign-changing conversion.  */
   (if (TYPE_PRECISION (TREE_TYPE (@2)) == TYPE_PRECISION (TREE_TYPE (@3))
-       && ((GIMPLE && useless_type_conversion_p (type, TREE_TYPE (@1))
-	    || (GENERIC && type == TREE_TYPE (@1)))))
+       && ((GIMPLE && useless_type_conversion_p (type, TREE_TYPE (@1)))
+	    || (GENERIC && type == TREE_TYPE (@1))))
    @1))
 
 /* From tree-ssa-forwprop.c:associate_pointerplus_align.  */
