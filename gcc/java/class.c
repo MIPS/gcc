@@ -3267,20 +3267,4 @@ in_same_package (tree name1, tree name2)
   return (pkg1 == pkg2);
 }
 
-/* lang_hooks.decls.final_write_globals: perform final processing on
-   global variables.  */
-
-void
-java_write_globals (void)
-{
-  tree *vec = vec_safe_address (pending_static_fields);
-  int len = vec_safe_length (pending_static_fields);
-  write_global_declarations ();
-  /* ?? The call to write_global_declarations() above will call
-     emit_debug_global_declarations (like below), but for
-     lang_hooks.decls.getdecls.  Can we make "this" smarter?  */
-  emit_debug_global_declarations (vec, len);
-  vec_free (pending_static_fields);
-}
-
 #include "gt-java-class.h"

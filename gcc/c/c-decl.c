@@ -10373,8 +10373,6 @@ c_parse_final_cleanups (void)
   if (pch_file)
     return;
 
-  timevar_start (TV_PHASE_DEFERRED);
-
   /* Do the Objective-C stuff.  This is where all the Objective-C
      module stuff gets generated (symtab, class/protocol/selector
      lists etc).  */
@@ -10415,8 +10413,6 @@ c_parse_final_cleanups (void)
   FOR_EACH_VEC_ELT (*all_translation_units, i, t)
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
-
-  timevar_stop (TV_PHASE_DEFERRED);
 
   ext_block = NULL;
 }

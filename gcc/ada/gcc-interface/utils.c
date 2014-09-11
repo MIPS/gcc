@@ -5178,27 +5178,9 @@ gnat_write_global_declarations (void)
 	}
     }
 
-  /* Output debug information for all global type declarations first.  This
-     ensures that global types whose compilation hasn't been finalized yet,
-     for example pointers to Taft amendment types, have their compilation
-     finalized in the right context.  */
   FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
     if (TREE_CODE (iter) == TYPE_DECL && !DECL_IGNORED_P (iter))
-      debug_hooks->global_decl (iter);
-
-  /* Proceed to optimize and emit assembly. */
-  symtab->finalize_compilation_unit ();
-
-  /* After cgraph has had a chance to emit everything that's going to
-     be emitted, output debug information for the rest of globals.  */
-  if (!seen_error ())
-    {
-      timevar_push (TV_SYMOUT);
-      FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
-	if (TREE_CODE (iter) != TYPE_DECL && !DECL_IGNORED_P (iter))
-	  debug_hooks->global_decl (iter);
-      timevar_pop (TV_SYMOUT);
-    }
+      debug_hooks->early_global_decl (iter);
 }
 
 /* ************************************************************************

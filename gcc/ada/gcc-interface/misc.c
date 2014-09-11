@@ -105,6 +105,10 @@ gnat_parse_file (void)
 
   /* Call the front end.  */
   _ada_gnat1drv ();
+
+  /* Output global declarations and generate debug information for
+     them.  */
+  gnat_write_global_declarations ();
 }
 
 /* Return language mask for option processing.  */

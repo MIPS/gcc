@@ -2915,7 +2915,8 @@ Gcc_backend::lookup_builtin(const std::string& name)
 }
 
 // Write the definitions for all TYPE_DECLS, CONSTANT_DECLS,
-// FUNCTION_DECLS, and VARIABLE_DECLS declared globally.
+// FUNCTION_DECLS, and VARIABLE_DECLS declared globally, as well as
+// emit early debugging information.
 
 void
 Gcc_backend::write_global_definitions(
@@ -2988,20 +2989,15 @@ Gcc_backend::write_global_definitions(
 
   wrapup_global_declarations(defs, i);
 
-  symtab->finalize_compilation_unit();
+  emit_debug_global_declarations (defs, i, EMIT_DEBUG_EARLY);
 
-  /* ?? The generic write_global_declarations() has the
-     check_global_declarations call below before
-     finalize_compilation_unit.
+  /* ?? Can we leave this call here, thus getting called before
+     finalize_compilation_unit?
 
-     Does it make a difference?  That is, does the
-     finalize_compilation_unit() above change the globals in some way?
-
-     Go does not use TV_PHASE_*, so if we genericize all this
-     write_global_declarations business, care must be taken to avoid
-     TV_PHASE* for go.  */
+     Originally this was called *AFTER* finalize_compilation_unit.  If
+     `go' really needs this call after finalize_compilation_unit, we
+     can use LANG_HOOKS_POST_COMPILATION_PARSING_CLEANUPS (yuck).  */
   check_global_declarations(defs, i);
-  emit_debug_global_declarations(defs, i);
 
   delete[] defs;
 }

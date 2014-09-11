@@ -290,17 +290,16 @@ lhd_decl_ok_for_sibcall (const_tree decl ATTRIBUTE_UNUSED)
   return true;
 }
 
-/* lang_hooks.decls.final_write_globals: perform final processing on
-   global variables.  */
+/* Generic global declaration processing and early debug generation.
+   This is meant to be called by the front-ends at the end of parsing.
+   C/C++ do their own thing, but other front-ends may call this.  */
+
 void
-write_global_declarations (void)
+global_decl_processing_and_early_debug (void)
 {
   tree globals, decl, *vec;
   int len, i;
 
-  gcc_unreachable(); // FIXME
-
-  timevar_start (TV_PHASE_DEFERRED);
   /* Really define vars that have had only a tentative definition.
      Really output inline functions that must actually be callable
      and have not been output so far.  */
@@ -317,19 +316,9 @@ write_global_declarations (void)
 
   wrapup_global_declarations (vec, len);
   check_global_declarations (vec, len);
-  timevar_stop (TV_PHASE_DEFERRED);
 
-  timevar_start (TV_PHASE_OPT_GEN);
-  /* This lang hook is dual-purposed, and also finalizes the
-     compilation unit.  */
-  symtab->finalize_compilation_unit ();
-  timevar_stop (TV_PHASE_OPT_GEN);
+  emit_debug_global_declarations (vec, len, EMIT_DEBUG_EARLY);
 
-  timevar_start (TV_PHASE_DBGINFO);
-  emit_debug_global_declarations (vec, len);
-  timevar_stop (TV_PHASE_DBGINFO);
-
-  /* Clean up.  */
   free (vec);
 }
 

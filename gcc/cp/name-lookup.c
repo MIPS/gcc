@@ -3858,9 +3858,8 @@ do_namespace_alias (tree alias, tree name_space)
   pushdecl (alias);
 
   /* Emit debug info for namespace alias.  */
-  gcc_unreachable(); // FIXME
   if (!building_stmt_list_p ())
-    (*debug_hooks->late_global_decl) (alias);
+    (*debug_hooks->early_global_decl) (alias);
 }
 
 /* Like pushdecl, only it places X in the current namespace,

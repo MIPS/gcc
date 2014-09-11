@@ -81,7 +81,6 @@ static bool global_bindings_p (void);
 /* Each front end provides its own.  */
 static bool gfc_init (void);
 static void gfc_finish (void);
-static void gfc_write_global_declarations (void);
 static void gfc_be_parse_file (void);
 static alias_set_type gfc_get_alias_set (tree);
 static void gfc_init_ts (void);
@@ -218,6 +217,19 @@ gfc_be_parse_file (void)
   /* Clear the binding level stack.  */
   while (!global_bindings_p ())
     poplevel (0, 0);
+
+  /* Finalize all of the globals.
+
+     Emulated tls lowering needs to see all TLS variables before we
+     call finalize_compilation_unit.  The C/C++ front ends manage this
+     by calling decl_rest_of_compilation on each global and static
+     variable as they are seen.  The Fortran front end waits until
+     here.  */
+  for (tree decl = getdecls (); decl ; decl = DECL_CHAIN (decl))
+    rest_of_decl_compilation (decl, true, true);
+
+  /* Do the debug dance.  */
+  global_decl_processing_and_early_debug ();
 }
 
 
@@ -259,41 +271,6 @@ gfc_finish (void)
   gfc_done_1 ();
   gfc_release_include_path ();
   return;
-}
-
-/* ??? This is something of a hack.
-
-   Emulated tls lowering needs to see all TLS variables before we call
-   finalize_compilation_unit.  The C/C++ front ends manage this
-   by calling decl_rest_of_compilation on each global and static variable
-   as they are seen.  The Fortran front end waits until this hook.
-
-   A Correct solution is for finalize_compilation_unit not to be
-   called during the WRITE_GLOBALS langhook, and have that hook only do what
-   its name suggests and write out globals.  But the C++ and Java front ends
-   have (unspecified) problems with aliases that gets in the way.  It has
-   been suggested that these problems would be solved by completing the
-   conversion to cgraph-based aliases.  */
-
-static void
-gfc_write_global_declarations (void)
-{
-  tree decl;
-
-  /* Finalize all of the globals.  */
-  for (decl = getdecls(); decl ; decl = DECL_CHAIN (decl))
-    rest_of_decl_compilation (decl, true, true);
-
-  /* ?? The above looks redundant because
-        write_global_declarations
-	  -> wrapup_global_declarations
-	       -> wrapup_global_declaration_2
-	            -> rest_of_decl_compilation
-     The call to rest_of_decl_compilation above looks redundant.  */
-  /* Fortran looks generic enough (apart from the problem specified
-     above), because it calls write_global_declarations which is the
-     generic thinggie.  */
-  write_global_declarations ();
 }
 
 /* These functions and variables deal with binding contours.  We only

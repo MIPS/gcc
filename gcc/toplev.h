@@ -42,7 +42,13 @@ extern bool wrapup_global_declaration_2 (tree);
 extern bool wrapup_global_declarations (tree *, int);
 extern void check_global_declaration_1 (tree);
 extern void check_global_declarations (tree *, int);
-extern void emit_debug_global_declarations (tree *, int);
+
+enum emit_debug {
+  EMIT_DEBUG_EARLY,
+  EMIT_DEBUG_LATE
+};
+extern void emit_debug_global_declarations (tree *, int, enum emit_debug);
+
 extern void write_global_declarations (void);
 
 extern void dump_memory_report (bool);

@@ -284,6 +284,9 @@ go_langhook_parse_file (void)
 {
   go_parse_input_files (in_fnames, num_in_fnames, flag_syntax_only,
 			go_require_return_statement);
+
+  /* Final processing of globals and early debug info generation.  */
+  go_write_globals ();
 }
 
 static tree
@@ -427,14 +430,6 @@ static tree
 go_langhook_getdecls (void)
 {
   return NULL;
-}
-
-/* Write out globals.  */
-
-static void
-go_langhook_write_globals (void)
-{
-  go_write_globals ();
 }
 
 /* Go specific gimplification.  We need to gimplify

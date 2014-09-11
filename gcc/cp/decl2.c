@@ -4286,6 +4286,27 @@ dump_tu (void)
     }
 }
 
+/* Issue warnings for globals in NAME_SPACE (unused statics, etc) and
+   generate debug information for said globals.  */
+
+static int
+emit_debug_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
+{
+  cp_binding_level *level = NAMESPACE_LEVEL (name_space);
+  vec<tree, va_gc> *statics = level->static_decls;
+  tree *vec = statics->address ();
+  int len = statics->length ();
+
+  check_global_declarations (vec, len);
+  emit_debug_global_declarations (vec, len, EMIT_DEBUG_EARLY);
+  return 0;
+}
+
+/* Candidates for Java hidden aliases.  */
+static hash_set<tree> *java_hidden_aliases;
+
+static location_t locus_at_end_of_parsing;
+
 /* This routine is called at the end of compilation.
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -4297,13 +4318,11 @@ c_parse_final_cleanups (void)
   tree vars;
   bool reconsider;
   size_t i;
-  location_t locus;
   unsigned ssdf_count = 0;
   int retries = 0;
   tree decl;
-  hash_set<tree> *candidates;
 
-  locus = input_location;
+  locus_at_end_of_parsing = input_location;
   at_eof = 1;
 
   /* Bad parse errors.  Just forget about it.  */
@@ -4432,7 +4451,7 @@ c_parse_final_cleanups (void)
 
 	  /* Set the line and file, so that it is obviously not from
 	     the source file.  */
-	  input_location = locus;
+	  input_location = locus_at_end_of_parsing;
 	  ssdf_body = start_static_storage_duration_function (ssdf_count);
 
 	  /* Make sure the back end knows about all the variables.  */
@@ -4458,7 +4477,7 @@ c_parse_final_cleanups (void)
 
 	  /* Finish up the static storage duration function for this
 	     round.  */
-	  input_location = locus;
+	  input_location = locus_at_end_of_parsing;
 	  finish_static_storage_duration_function (ssdf_body);
 
 	  /* All those initializations and finalizations might cause
@@ -4466,7 +4485,7 @@ c_parse_final_cleanups (void)
 	     instantiations, etc.  */
 	  reconsider = true;
 	  ssdf_count++;
-	  /* ??? was:  locus.line++; */
+	  /* ??? was:  locus_at_end_of_parsing.line++; */
 	}
 
       /* Now do the same for thread_local variables.  */
@@ -4632,12 +4651,13 @@ c_parse_final_cleanups (void)
   if (priority_info_map)
     splay_tree_foreach (priority_info_map,
 			generate_ctor_and_dtor_functions_for_priority,
-			/*data=*/&locus);
+			/*data=*/&locus_at_end_of_parsing);
   else if (c_dialect_objc () && objc_static_init_needed_p ())
     /* If this is obj-c++ and we need a static init, call
        generate_ctor_or_dtor_function.  */
     generate_ctor_or_dtor_function (/*constructor_p=*/true,
-				    DEFAULT_INIT_PRIORITY, &locus);
+				    DEFAULT_INIT_PRIORITY,
+				    &locus_at_end_of_parsing);
 
   /* We're done with the splay-tree now.  */
   if (priority_info_map)
@@ -4651,10 +4671,9 @@ c_parse_final_cleanups (void)
   pop_lang_context ();
 
   /* Collect candidates for Java hidden aliases.  */
-  candidates = collect_candidates_for_java_method_aliases ();
+  java_hidden_aliases = collect_candidates_for_java_method_aliases ();
 
   timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_OPT_GEN);
 
   if (flag_vtable_verify)
     {
@@ -4663,7 +4682,28 @@ c_parse_final_cleanups (void)
       vtv_build_vtable_verify_fndecl ();
     }
 
-  symtab->finalize_compilation_unit ();
+  /* Issue warnings about static, but not defined, functions, etc, and
+     generate initial debug information.  */
+  walk_namespaces (emit_debug_for_namespace, 0);
+  if (vec_safe_length (pending_statics) != 0)
+    {
+      check_global_declarations (pending_statics->address (),
+				 pending_statics->length ());
+      emit_debug_global_declarations (pending_statics->address (),
+				      pending_statics->length (),
+				      EMIT_DEBUG_EARLY);
+    }
+
+}
+
+/* Perform any post compilation-proper cleanups for the C++ front-end.
+   This should really go away.  No front-end should need to do
+   anything past the compilation process.  */
+
+void
+cxx_post_compilation_parsing_cleanups (void)
+{
+  timevar_start (TV_PHASE_LATE_PARSING_CLEANUPS);
 
   if (flag_vtable_verify)
     {
@@ -4675,27 +4715,13 @@ c_parse_final_cleanups (void)
       vtv_generate_init_routine ();
     }
 
-  timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_CHECK_DBGINFO);
-
-  /* Now, issue warnings about static, but not defined, functions,
-     etc., and emit debugging information.  */
-  walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
-  if (vec_safe_length (pending_statics) != 0)
-    {
-      check_global_declarations (pending_statics->address (),
-				 pending_statics->length ());
-      emit_debug_global_declarations (pending_statics->address (),
-				      pending_statics->length ());
-    }
-
   perform_deferred_noexcept_checks ();
 
   /* Generate hidden aliases for Java.  */
-  if (candidates)
+  if (java_hidden_aliases)
     {
-      build_java_method_aliases (candidates);
-      delete candidates;
+      build_java_method_aliases (java_hidden_aliases);
+      delete java_hidden_aliases;
     }
 
   finish_repo ();
@@ -4709,13 +4735,13 @@ c_parse_final_cleanups (void)
       dump_tree_statistics ();
       dump_time_statistics ();
     }
-  input_location = locus;
+  input_location = locus_at_end_of_parsing;
 
 #ifdef ENABLE_CHECKING
   validate_conversion_obstack ();
 #endif /* ENABLE_CHECKING */
 
-  timevar_stop (TV_PHASE_CHECK_DBGINFO);
+  timevar_stop (TV_PHASE_LATE_PARSING_CLEANUPS);
 }
 
 /* FN is an OFFSET_REF, DOTSTAR_EXPR or MEMBER_REF indicating the

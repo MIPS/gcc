@@ -1980,6 +1980,13 @@ java_parse_file (void)
   /* Arrange for any necessary initialization to happen.  */
   java_emit_static_constructor ();
   gcc_assert (global_bindings_p ());
+
+  /* Do final processing on globals and emit early debug information.  */
+  tree *vec = vec_safe_address (pending_static_fields);
+  int len = vec_safe_length (pending_static_fields);
+  global_decl_processing_and_early_debug ();
+  emit_debug_global_declarations (vec, len, EMIT_DEBUG_EARLY);
+  vec_free (pending_static_fields);
 }
 
 

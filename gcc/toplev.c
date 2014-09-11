@@ -519,21 +519,30 @@ check_global_declarations (tree *v, int len)
     check_global_declaration_1 (v[i]);
 }
 
-/* Emit debugging information for all global declarations in VEC.  */
+/* Emit debugging information for all global declarations in VEC.
+   WHEN is either EMIT_DEBUG_EARLY or EMIT_DEBUG_LATE depending on if
+   we are generating early debug (at the end of parsing), or the late
+   (post compilation) version.  */
 
 void
-emit_debug_global_declarations (tree *vec, int len)
+emit_debug_global_declarations (tree *vec, int len, enum emit_debug when)
 {
   int i;
 
-  gcc_unreachable(); // FIXME
   /* Avoid confusing the debug information machinery when there are errors.  */
   if (seen_error ())
     return;
 
   timevar_push (TV_SYMOUT);
   for (i = 0; i < len; i++)
-    debug_hooks->late_global_decl (vec[i]);
+    {
+      if (when == EMIT_DEBUG_EARLY)
+	debug_hooks->early_global_decl (vec[i]);
+      else if (when == EMIT_DEBUG_LATE)
+	debug_hooks->late_global_decl (vec[i]);
+      else
+	gcc_unreachable ();
+    }
   timevar_pop (TV_SYMOUT);
 }
 
@@ -570,12 +579,13 @@ compile_file (void)
 
   /* Perform any post compilation-proper parser cleanups and
      processing.  This is currently only needed for the C++ parser,
-     which hopefully can be cleaned up so this hook is no longer
+     which can be hopefully cleaned up so this hook is no longer
      necessary.  */
-#if 0
   if (lang_hooks.decls.post_compilation_parsing_cleanups)
     lang_hooks.decls.post_compilation_parsing_cleanups ();
-#endif
+
+  if (seen_error ())
+    return;
 
   /* After the parser has generated debugging information, augment
      this information with any new location/etc information that may
@@ -585,9 +595,6 @@ compile_file (void)
   FOR_EACH_DEFINED_SYMBOL (node)
     debug_hooks->late_global_decl (node->decl);
   timevar_stop (TV_PHASE_DBGINFO);
-
-  if (seen_error ())
-    return;
 
   timevar_start (TV_PHASE_LATE_ASM);
 
