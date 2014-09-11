@@ -64,16 +64,28 @@ fatal_at (const cpp_token *tk, const char *msg, ...)
 }
 
 static void
-output_line_directive (FILE *f, source_location location)
+output_line_directive (FILE *f, source_location location,
+		       bool dumpfile = false)
 {
   const line_map *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
-  /* Other gen programs really output line directives here, at least for
-     development it's right now more convenient to have line information
-     from the generated file.  Still keep the directives as comment for now
-     to easily back-point to the meta-description.  */
-  fprintf (f, "/* #line %d \"%s\" */\n", loc.line, loc.file);
+  if (dumpfile)
+    {
+      /* When writing to a dumpfile only dump the filename.  */
+      const char *file = strrchr (loc.file, DIR_SEPARATOR);
+      if (!file)
+	file = loc.file;
+      else
+	++file;
+      fprintf (f, "%s:%d", file, loc.line);
+    }
+  else
+    /* Other gen programs really output line directives here, at least for
+       development it's right now more convenient to have line information
+       from the generated file.  Still keep the directives as comment for now
+       to easily back-point to the meta-description.  */
+    fprintf (f, "/* #line %d \"%s\" */\n", loc.line, loc.file);
 }
 
 
@@ -1710,9 +1722,8 @@ dt_operand::gen_generic_kids (FILE *f)
 void
 dt_simplify::gen (FILE *f, bool gimple)
 {
-  output_line_directive (f, s->result_location);
-
   fprintf (f, "{\n");
+  output_line_directive (f, s->result_location);
   fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n", dt_simplify::capture_max);
 
   for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
@@ -1729,15 +1740,16 @@ dt_simplify::gen (FILE *f, bool gimple)
       for (int i = s->ifexpr_vec.length () - 1; i >= 0; --i)
 	{
 	  if_or_with &w = s->ifexpr_vec[i];
-	  output_line_directive (f, w.location);
 	  if (w.is_with)
 	    {
 	      fprintf (f, "{\n");
+	      output_line_directive (f, w.location);
 	      w.cexpr->gen_transform (f, NULL, true, 1, "type");
 	      n_braces++;
 	    }
 	  else
 	    {
+	      output_line_directive (f, w.location);
 	      fprintf (f, "if (");
 	      if (i == 0 || s->ifexpr_vec[i-1].is_with)
 		w.cexpr->gen_transform (f, NULL, true, 1, "type");
@@ -1767,6 +1779,11 @@ dt_simplify::gen (FILE *f, bool gimple)
       fprintf (f, "{\n");
       n_braces++;
     }
+
+  fprintf (f, "if (dump_file && (dump_flags & TDF_DETAILS)) "
+	   "fprintf (dump_file, \"Applying pattern ");
+  output_line_directive (f, s->result_location, true);
+  fprintf (f, ", %%s:%%d\\n\", __FILE__, __LINE__);\n");
 
   if (gimple)
     {

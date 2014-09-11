@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-dfa.h"
 #include "builtins.h"
+#include "dumpfile.h"
 #include "gimple-match.h"
 
 #define integral_op_p(node) INTEGRAL_TYPE_P(TREE_TYPE(node))

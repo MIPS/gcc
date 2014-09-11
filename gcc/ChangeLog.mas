@@ -1,3 +1,11 @@
+2014-09-11  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (output_line_directive): Add variant for dump files.
+	(dt_simplify::gen): Write to dump file with TDF_DETAILS what
+	patterns get applied.
+	* gimple-match-head: Include dumpfile.h.
+	* generic-match-head: Likewise.
+
 2014-09-10  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (parse_for): Allow more flexible replacement counts.
