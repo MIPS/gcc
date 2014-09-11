@@ -1,5 +1,11 @@
 2014-09-11  Richard Biener  <rguenther@suse.de>
 
+	* match-plusminus.pd: Complete associate_plusminus patterns.
+	Properly guard all patterns.  Add associate_pointerplus_align
+	pattern.
+
+2014-09-11  Richard Biener  <rguenther@suse.de>
+
 	PR middle-end/41043
 	* match-conversions.pd ((T1)(X * Y) -> (T1)X * (T1)Y): Restrict
 	to a single or single-use SSA names.

@@ -17,101 +17,138 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* ???  Have simplify groups guarded with common
-   predicates on the outermost type?  */
 
-/* Contract negates.  */
-(simplify
+/* From tree-ssa-forwprop.c:associate_plusminus.  */
+
+/* We can't reassociate at all for saturating types.  */
+(if (!TYPE_SATURATING (type))
+
+ /* Contract negates.  */
+ (simplify
   (plus:c @0 (negate @1))
-  (if (!TYPE_SATURATING (type))
-   (minus @0 @1)))
-(simplify
+  (minus @0 @1))
+ (simplify
   (minus @0 (negate @1))
-  (if (!TYPE_SATURATING (type))
-   (plus @0 @1)))
+  (plus @0 @1))
 
+ /* We can't reassociate floating-point or fixed-point plus or minus
+    because of saturation to +-Inf.  */
+ (if (!FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
 
-/* Match patterns that allow contracting a plus-minus pair
-   irrespective of overflow issues.
-   ???  !TYPE_SATURATING condition missing.
-   ???  !FLOAT_TYPE_P && !FIXED_POINT_TYPE_P condition missing
-   because of saturation to +-Inf.  */
-
-(if (!TYPE_SATURATING (type)
-    && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
+  /* Match patterns that allow contracting a plus-minus pair
+     irrespective of overflow issues.  */
+  /* (A +- B) - A       ->  +- B */
+  /* (A +- B) -+ B      ->  A */
+  /* A - (A +- B)       -> -+ B */
+  /* A +- (B -+ A)      ->  +- B */
   (simplify
-    (minus (plus @0 @1) @0)
+    (minus (plus:c @0 @1) @0)
     @1)
-
   (simplify
     (minus (minus @0 @1) @0)
     (negate @1))
-
-  (simplify
-    (minus (plus @0 @1) @1)
-    @0)
-
   (simplify
     (plus:c (minus @0 @1) @1)
-    @0))
+    @0)
+  (simplify
+   (minus @0 (plus:c @0 @1))
+   (negate @1))
+  (simplify
+   (minus @0 (minus @0 @1))
+   @1)
 
-/* (CST +- A) +- CST -> CST' +- A.  */
-/* simplify handles constant folding for us so we can
-   implement these as re-association patterns.
-   Watch out for operand order and constant canonicalization
-   we do!  A - CST -> A + -CST, CST + A -> A + CST.  */
-(simplify
-  (plus (plus @0 INTEGER_CST@1) INTEGER_CST@2)
-  /* If the constant operation overflows we cannot do the transform
-     as we would introduce undefined overflow, for example
-     with (a - 1) + INT_MIN.  */
-  (if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2)))
-   (plus @0 @1)))
-(simplify
-  (plus (minus INTEGER_CST@0 @1) INTEGER_CST@2)
-  (minus (plus @0 @2) @1))
-/* TODO:
-   (A +- CST) +- CST  ->  A +- CST
-   ~A + A             ->  -1
-   ~A + 1             ->  -A
-   A - (A +- B)       ->  -+ B
-   A +- (B +- A)      ->  +- B
-   CST +- (CST +- A)  ->  CST +- A
-   CST +- (A +- CST)  ->  CST +- A
-   A + ~A             ->  -1
-   (T)(P + A) - (T)P  -> (T)A
- */
+  /* (A +- CST) +- CST -> A + CST  */
+  (for outer_op (plus minus)
+   (for inner_op (plus minus)
+    (simplify
+     (outer_op (inner_op @0 INTEGER_CST@1) INTEGER_CST@2)
+     /* If the constant operation overflows we cannot do the transform
+	as we would introduce undefined overflow, for example
+	with (a - 1) + INT_MIN.  */
+     (with { tree cst = int_const_binop (outer_op == inner_op
+					 ? PLUS_EXPR : MINUS_EXPR, @1, @2); }
+      (if (!TREE_OVERFLOW (cst))
+       (inner_op @0 { cst; } ))))))
 
-/* ~A + A -> -1 */
-(simplify
-  (plus:c (bit_not @0) @0)
-  { build_all_ones_cst (type); })
+  /* (CST - A) +- CST -> CST - A  */
+  (for outer_op (plus minus)
+   (simplify
+    (outer_op (minus INTEGER_CST@1 @0) INTEGER_CST@2)
+    (with { tree cst = int_const_binop (outer_op, @1, @2); }
+     (if (!TREE_OVERFLOW (cst))
+      (minus { cst; } @0)))))
 
-/* ~A + 1 -> -A */
-(simplify
-  (plus (bit_not integral_op_p@0) integer_onep)
-  (negate @0)) 
+  /* ~A + A -> -1 */
+  (simplify
+   (plus:c (bit_not @0) @0)
+   { build_all_ones_cst (type); })
 
-/* A - (A +- B) -> -+ B */
-(simplify
-  (minus @0 (plus:c @0 @1))
-  (negate @1))
-(simplify
-  (minus @0 (minus @0 @1))
-  @1)
+  /* ~A + 1 -> -A */
+  (simplify
+   (plus (bit_not integral_op_p@0) integer_onep@1)
+   (if (TREE_CODE (TREE_TYPE (@1)) != COMPLEX_TYPE
+	|| (TREE_CODE (@1) == COMPLEX_CST
+	    && integer_onep (TREE_REALPART (@1))
+	    && integer_onep (TREE_IMAGPART (@1))))
+    (negate @0)))
 
-/* (T)(P + A) - (T)P -> (T) A */
-(simplify
-  (minus (convert (pointer_plus @0 @1))
-	 (convert @0))
-  (convert @1)) 
+  /* (T)(P + A) - (T)P -> (T) A */
+  (for add (plus pointer_plus)
+   (simplify
+    (minus (convert (add @0 @1))
+     (convert @0))
+    (if (TYPE_PRECISION (type) <= TYPE_PRECISION (TREE_TYPE (@1))
+	 /* For integer types, if A has a smaller type
+	    than T the result depends on the possible
+	    overflow in P + A.
+	    E.g. T=size_t, A=(unsigned)429497295, P>0.
+	    However, if an overflow in P + A would cause
+	    undefined behavior, we can assume that there
+	    is no overflow.  */
+	 || (INTEGRAL_TYPE_P (TREE_TYPE (@0))
+	     && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (@0)))
+	 /* For pointer types, if the conversion of A to the
+	    final type requires a sign- or zero-extension,
+	    then we have to punt - it is not defined which
+	    one is correct.  */
+	 || (POINTER_TYPE_P (TREE_TYPE (@0))
+	     && TREE_CODE (@1) == INTEGER_CST
+	     && tree_int_cst_sign_bit (@1) == 0))
+     (convert @1))))))
 
-/* associate_pointerplus: (ptr p+ off1) p+ off2 -> ptr p+ (off1 + off2) */
+/* From tree-ssa-forwprop.c:associate_pointerplus.  */
+
+/* Associate (p +p off1) +p off2 as (p +p (off1 + off2)).  */
 (simplify
   (pointer_plus (pointer_plus @0 @1) @3)
   (pointer_plus @0 (plus @1 @3)))
 
-/* associate_pointerplus_diff: ptr1 p+ (ptr2 - ptr1) -> ptr2 */
+/* From tree-ssa-forwprop.c:associate_pointerplus_diff.  */
+
+/* Pattern match
+     tem1 = (long) ptr1;
+     tem2 = (long) ptr2;
+     tem3 = tem2 - tem1;
+     tem4 = (unsigned long) tem3;
+     tem5 = ptr1 + tem4;
+   and produce
+     tem5 = ptr2;  */
 (simplify
-  (pointer_plus @0 (convert (minus (convert @1) (convert @0))))
-  @1)
+  (pointer_plus @0 (convert?@2 (minus@3 (convert @1) (convert @0))))
+  /* Conditionally look through a sign-changing conversion.  */
+  (if (TYPE_PRECISION (TREE_TYPE (@2)) == TYPE_PRECISION (TREE_TYPE (@3)))
+   @1))
+
+/* From tree-ssa-forwprop.c:associate_pointerplus_align.  */
+
+/* Pattern match
+     tem = (sizetype) ptr;
+     tem = tem & algn;
+     tem = -tem;
+     ... = ptr p+ tem;
+   and produce the simpler and easier to analyze with respect to alignment
+     ... = ptr & ~algn;  */
+(simplify
+  (pointer_plus @0 (negate (bit_and (convert @0) INTEGER_CST@1)))
+  (with { tree algn = wide_int_to_tree (TREE_TYPE (@0), wi::bit_not (@1)); }
+   (bit_and @0 { algn; })))
