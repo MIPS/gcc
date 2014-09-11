@@ -1,0 +1,37 @@
+;; file tletmacro-1.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tletmacro-1.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tletmacro-1.melt \
+    -x c -c /dev/null -o /dev/null
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tletmacro-1.melt \
+     -c -x c /dev/null -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(let ( (:macro mac 
+	       (sexp env mexpander modctx)
+	       (debug "macro mac" " sexp=" sexp)
+	       (let ( (sloc (get_field :loca_location sexp))
+		      (scont (get_field :sexpr_contents sexp))
+		      (xargs (expand_restlist_as_tuple sexcont 
+						       env mexpander modctx))
+		      (xtup `(tuple ,xargs ,xargs))
+		     )
+		 (debug "mac sloc=" sloc " xargs=" xargs 
+			" xtup=" xtup)
+		 (let ( (res (mexpander xtup env mexpander modctx))
+			)
+		   (debug "mac res=" res)
+		   (return res)
+		 )
+	       ))
+       (v (mac 'a 'b (list '1 '2)))
+       )
+  (debug "v=" v))
+;; eof tletmacro-1.melt

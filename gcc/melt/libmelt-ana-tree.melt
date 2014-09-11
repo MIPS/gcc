@@ -90,7 +90,8 @@
 
 #|
 (let ( (:macro gcc_tree_code mexpand_gcc_tree_code_define
-	       (sexp env mexpander modctx)
+	       (sexp env mexpander modctx)*
+	       (debug "gcc_tree_code macro" " sexp=" sexp)
 	       (mexpand_gcc_tree_code_define sexp env mexpander modctx)
 	       )
        )
@@ -2263,7 +2264,7 @@ treerr
   (let (
 	(sloc (get_field :loca_location sexp))
 	(sexcont (get_field :sexp_contents sexp))
-	(xargs (expand_restlist_as_tuple sexcont))
+	(xargs (expand_restlist_as_tuple sexcont env mexpander modctx))
 	(reslist (make_list discr_list))
 	)
     (debug "define_gcc_binary_tree xargs=" xargs)

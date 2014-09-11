@@ -1,6 +1,11 @@
 
 2014-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tletmacro-1.melt: New file.
+
+	* libmelt-ana-tree.melt: Improve macro.
+2014-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* libmelt-ana-tree.melt: More, should include
 	_libmelt-treecode.melt ...
 
