@@ -30,6 +30,10 @@ along with GCC; see the file COPYING3.  If not see
  (simplify
   (minus @0 (negate @1))
   (plus @0 @1))
+ /* From tree-ssa-forwprop.c:simplify_not_neg_expr.  */
+ (simplify
+  (negate (negate @1))
+  @1)
 
  /* We can't reassociate floating-point or fixed-point plus or minus
     because of saturation to +-Inf.  */
@@ -155,3 +159,13 @@ along with GCC; see the file COPYING3.  If not see
   (pointer_plus @0 (negate (bit_and (convert @0) INTEGER_CST@1)))
   (with { tree algn = wide_int_to_tree (TREE_TYPE (@0), wi::bit_not (@1)); }
    (bit_and @0 { algn; })))
+
+
+/* From tree-ssa-forwprop.c:simplify_mult.  */
+
+/* (X /[ex] A) * A -> X.  */
+(simplify
+  (mult (convert? (exact_div @0 @1)) @1)
+  /* Look through a sign-changing conversion.  */
+  (if (TYPE_PRECISION (TREE_TYPE (@0)) == TYPE_PRECISION (type))
+   (convert @0)))

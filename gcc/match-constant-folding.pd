@@ -60,11 +60,6 @@ along with GCC; see the file COPYING3.  If not see
   (bit_ior @0 integer_all_onesp@1)
   @1)
 
-/* x ^ ~0 -> ~x  */
-(simplify
-  (bit_and @0 integer_all_onesp)
-  @0)
-
 /* x & 0 -> 0  */
 (simplify
   (bit_and @0 integer_zerop@1)

@@ -135,9 +135,22 @@ along with GCC; see the file COPYING3.  If not see
        && TYPE_PRECISION (TREE_TYPE (@1)) == 1)
    (le @0 @1)))
 
+/* From tree-ssa-forwprop.c:simplify_not_neg_expr.  */
+
+/* ~~x -> x */
+(simplify
+  (bit_not (bit_not @0))
+  @0)
+/* The corresponding (negate (negate @0)) -> @0 is in match-plusminus.pd.  */
+
 
 /* End of known transform origin.  Note that some bitwise transforms
    are handled in match-constant-folding.pd.  */
+
+/* x & ~0 -> x  */
+(simplify
+ (bit_and @0 integer_all_onesp)
+  @0)
 
 /* ~x & ~y -> ~(x | y) */
 (simplify
@@ -148,11 +161,6 @@ along with GCC; see the file COPYING3.  If not see
 (simplify
   (bit_ior (bit_not @0) (bit_not @1))
   (bit_not (bit_and @0 @1)))
-
-/* ~~x -> x */
-(simplify
-  (bit_not (bit_not @0))
-  @0)
 
 /* Simple association cases that cancel one operand.  */
 

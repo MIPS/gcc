@@ -1,5 +1,11 @@
 2014-09-12  Richard Biener  <rguenther@suse.de>
 
+	* match-constant-folding.pd (x & ~0 -> x): Move ...
+	* match-bitwise.pd: ... here.  Implement simplify_not_neg_expr.
+	* match-plusminus.pd: Likewise.  Implement simplify_mult.
+
+2014-09-12  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (expr::gen_transform): Properly autocompute
 	type of REALPART_EXPR and IMAGPART_EXPR.
 
