@@ -898,7 +898,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 {
   bool conversion_p = is_conversion (operation->op);
   const char *type = expr_type;
-  char optype[20];
+  char optype[64];
   if (type)
     /* If there was a type specification in the pattern use it.  */
     ;
@@ -906,6 +906,15 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
     /* For conversions we need to build the expression using the
        outer type passed in.  */
     type = in_type;
+  else if (*operation->op == REALPART_EXPR
+	   || *operation->op == IMAGPART_EXPR)
+    {
+      /* __real and __imag use the component type of its operand.  */
+      sprintf (optype, "TREE_TYPE (TREE_TYPE (ops%d[0]))", depth);
+      type = optype;
+      /* Avoid passing in_type / type to operand creation.  */
+      conversion_p = true;
+    }
   else
     {
       /* Other operations are of the same type as their first operand.  */
