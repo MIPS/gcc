@@ -6920,8 +6920,14 @@ applications of @code{/i} primitives.}#
 	  (put_env newenv lb)
 	  ))
       ( (is_a slb class_source_macro_let_binding)
-	(assert_msg "@$@unimplemented mexpand_let :macro binding" () slb)	
-	(return))
+	(let (
+	      (macbnd (instance class_defined_macro_binding
+				))
+	      )
+	  (debug "mexpand_let:macro" " macbnd=" macbnd "\n class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
+		 "\n class_source_macro_installation="class_source_macro_installation)	  
+	  (assert_msg "@$@unimplemented mexpand_let :macro binding" () slb macbnd)	
+	(return)))
       (:else
        (error_at loc "invalid LET binding of $1 : $2"
 		 (get_field :named_name (discrim slb))
