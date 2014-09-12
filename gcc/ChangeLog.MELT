@@ -1,10 +1,15 @@
 
+2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_let): The :macro letbinding is
+	not yet implemented!
+
 2014-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tletmacro-1.melt: Typo.
 
 	* melt/warmelt-macro.melt: Improve comment.
-	
+
 2014-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tletmacro-1.melt: New file.

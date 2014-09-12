@@ -6907,18 +6907,27 @@ applications of @code{/i} primitives.}#
      (bindtup)
      (slb :long bix)
      (debug "mexpand_let slb=" slb " bix=" bix)
-     (assert_msg "mexpand_let check slb" (is_a slb class_source_let_binding) slb)
-     (let (
-	   (sx (unsafe_get_field :sletb_expr slb))
-	   (lb (instance class_let_binding
-			 :binder (unsafe_get_field :sletb_binder slb)
-			 :letbind_type (unsafe_get_field :sletb_type slb)
-			 :letbind_expr sx
-			 :letbind_loc (or (get_field :loca_location slb) loc)))
-	   )
-       (assert_msg "mexpand_let not list lb" (not (is_list lb)) lb)
-       (put_env newenv lb)
-       ))
+     (cond
+      ( (is_a slb class_source_let_binding)
+	(let (
+	      (sx (unsafe_get_field :sletb_expr slb))
+	      (lb (instance class_let_binding
+			    :binder (unsafe_get_field :sletb_binder slb)
+			    :letbind_type (unsafe_get_field :sletb_type slb)
+			    :letbind_expr sx
+			    :letbind_loc (or (get_field :loca_location slb) loc)))
+	      )
+	  (put_env newenv lb)
+	  ))
+      ( (is_a slb class_source_macro_let_binding)
+	(assert_msg "@$@unimplemented mexpand_let :macro binding" () slb)	
+	(return))
+      (:else
+       (error_at loc "invalid LET binding of $1 : $2"
+		 (get_field :named_name (discrim slb))
+		 slb)
+       (return))))
+    ;;
     (setq bodytup (pairlist_to_multiple 
 		   restpair discr_multiple 
 		   (lambda (e) (mexpander e newenv mexpander modctx))))
