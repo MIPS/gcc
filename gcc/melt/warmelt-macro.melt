@@ -6943,6 +6943,8 @@ applications of @code{/i} primitives.}#
 		 "\n.. class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
 		 "\n.. class_source_macro_installation="class_source_macro_installation
 		 "\n")
+	  (list_append maclist sinstmac)
+	  (debug "mexpand_let:macro updated maclist=" maclist)
 	  (letrec ( (mexpanser
 		     (lambda (sexprm envm mexpanderm modctxm)
 		       (debug "mexpand_let:mexpanser sexprm=" sexprm

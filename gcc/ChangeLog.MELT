@@ -1,8 +1,13 @@
 
 2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* melt/warmelt-macro.melt (mexpand_let): :macro letbinding handled
-	but untested...
+	* melt/warmelt-macro.melt (mexpand_let): Append to the module's
+	macro list.
+
+2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_let): LET :macro binding
+	handled but untested...
 
 2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
