@@ -1,6 +1,10 @@
 
 2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-build-script.sh: Regenerate.
+
+2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (mexpand_let): Append to the module's
 	macro list.
 
