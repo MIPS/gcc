@@ -42,6 +42,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "bitmap.h"
 #include "target.h"
 #include "wide-int.h"
+#include "toplev.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>

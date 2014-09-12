@@ -49,7 +49,7 @@ enum emit_debug {
 };
 extern void emit_debug_global_declarations (tree *, int, enum emit_debug);
 
-extern void write_global_declarations (void);
+extern void global_decl_processing_and_early_debug (void);
 
 extern void dump_memory_report (bool);
 extern void dump_profile_report (void);
