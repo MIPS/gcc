@@ -6888,6 +6888,7 @@ applications of @code{/i} primitives.}#
 	(restpair (pair_tail secpair))
 	(bindexpr (pair_head secpair))
 	(newenv (fresh_env env))
+	(maclist (get_field :mocx_macrolist modctx))	
 	(bindtup ())
 	(bodytup ())
 	)
@@ -6920,14 +6921,59 @@ applications of @code{/i} primitives.}#
 	  (put_env newenv lb)
 	  ))
       ( (is_a slb class_source_macro_let_binding)
+	(assert_msg "check maclist" (is_list maclist) maclist)
 	(let (
+	      (macsymb (get_field :sletb_binder slb))
+	      (macloc (or (get_field :loca_location slb) loc))
+	      (macformals (get_field :sletm_macro_formals slb))
+	      (macbody (get_field :sletm_macro_body slb))
 	      (macbnd (instance class_defined_macro_binding
+				:binder macsymb
+				:mbind_expanser ()
+				:mbind_defmacro slb
+				:mbind_data ()
 				))
+	      (sinstmac (instance class_source_macro_installation
+				  :loca_location loc
+				  :smacinst_defmacro slb))
 	      )
-	  (debug "mexpand_let:macro" " macbnd=" macbnd "\n class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
-		 "\n class_source_macro_installation="class_source_macro_installation)	  
-	  (assert_msg "@$@unimplemented mexpand_let :macro binding" () slb macbnd)	
-	(return)))
+	  (put_env newenv macbnd)
+	  (debug "mexpand_let:macro" " macbnd=" macbnd
+		 "\n.. sinstmac=" sinstmac
+		 "\n.. class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
+		 "\n.. class_source_macro_installation="class_source_macro_installation
+		 "\n")
+	  (letrec ( (mexpanser
+		     (lambda (sexprm envm mexpanderm modctxm)
+		       (debug "mexpand_let:mexpanser sexprm=" sexprm
+			      "\n.. envm=" debug_less envm
+			      "\n.. modctxm=" debug_less modctxm
+			      "\n.. mexpanderm=" debug_less mexpanderm
+			      "\n.. macbnd=" macbnd)
+		       (shortbacktrace_dbg "mexpand_let:mexpanser" 15)
+		       (debug "mexpand_let:mexpanser before melt_delayed_macro_expander" " maclist=" maclist "\n.. macbnd=" macbnd)
+		       (melt_delayed_macro_expander macbnd maclist envm mexpanderm modctx)
+		       (debug "mexpand_let:mexpanser after melt_delayed_macro_expander" " maclist=" maclist "\n.. macbnd=" macbnd)
+		       (let ( (mclos (get_field :mbind_expanser macbnd))
+			      (locm (get_field :loca_location sexprm))
+			      )
+			 (debug "mexpand_let:mexpanser mclos=" mclos)
+			 (when (== mclos mexpanser)
+			   (error_at locm "failed to macro-expand LET :macro $1" macsymb)
+			   (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
+			   (return))
+			 (multicall 
+			  (expmac othermac)
+			  (mclos sexprm envm mexpanderm modctxm)
+			  (debug "mexpand_let:mexpanser expmac=" expmac " othermac=" othermac)
+			  (return expmac othermac)
+			  )
+			 )
+		       ))
+		    )
+	    (put_fields macbnd :mbind_expanser mexpanser)
+	    (debug "mexpand_let:macro update macbnd=" macbnd)
+	    (return))))
       (:else
        (error_at loc "invalid LET binding of $1 : $2"
 		 (get_field :named_name (discrim slb))

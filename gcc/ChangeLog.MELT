@@ -1,6 +1,11 @@
 
 2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (mexpand_let): :macro letbinding handled
+	but untested...
+
+2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (mexpand_let): The :macro letbinding
 	might need class_source_lazy_macro_expansion or
 	class_source_macro_installation...
