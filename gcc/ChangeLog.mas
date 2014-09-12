@@ -1,3 +1,10 @@
+2014-09-12  Richard Biener  <rguenther@suse.de>
+
+	* match-bitwise.pd: Complete tree-ssa-forwprop.c patterns
+	from simplify_bitwise_binary.  Implement some from fold_binary.
+	* match-constant-folding.pd: Add some comments.
+	* match-plusminus.pd (~A + 1 -> -A): Fix COMPLEX_TYPE handling.
+
 2014-09-11  Richard Biener  <rguenther@suse.de>
 
 	* match-plusminus.pd: Fix typo.

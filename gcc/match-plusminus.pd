@@ -85,8 +85,9 @@ along with GCC; see the file COPYING3.  If not see
 
   /* ~A + 1 -> -A */
   (simplify
-   (plus (bit_not @0) integer_onep@1)
-   (if (TREE_CODE (TREE_TYPE (@1)) != COMPLEX_TYPE
+   (plus (bit_not @0) @1)
+   (if ((TREE_CODE (TREE_TYPE (@1)) != COMPLEX_TYPE
+   	 && integer_onep (@1))
 	|| (TREE_CODE (@1) == COMPLEX_CST
 	    && integer_onep (TREE_REALPART (@1))
 	    && integer_onep (TREE_IMAGPART (@1))))
