@@ -4697,6 +4697,9 @@ push_template_decl_real (tree decl, bool is_friend)
          template <typename T> friend void A<T>::f();
        is not primary.  */
     is_primary = false;
+  else if (TREE_CODE (decl) == TYPE_DECL
+	   && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+    is_primary = false;
   else
     is_primary = template_parm_scope_p ();
 
@@ -9135,6 +9138,11 @@ instantiate_class_template_1 (tree type)
 		  && DECL_OMP_DECLARE_REDUCTION_P (r))
 		cp_check_omp_declare_reduction (r);
 	    }
+	  else if (DECL_CLASS_TEMPLATE_P (t)
+		   && LAMBDA_TYPE_P (TREE_TYPE (t)))
+	    /* A closure type for a lambda in a default argument for a
+	       member template.  Ignore it; it will be instantiated with
+	       the default argument.  */;
 	  else
 	    {
 	      /* Build new TYPE_FIELDS.  */
@@ -9807,6 +9815,11 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	  unsubstituted_packs = true;
 	}
     }
+
+  /* If the expansion is just T..., return the matching argument pack.  */
+  if (!unsubstituted_packs
+      && TREE_PURPOSE (packs) == pattern)
+    return ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
 
   /* We cannot expand this expansion expression, because we don't have
      all of the argument packs we need.  */
@@ -10668,6 +10681,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      /* We instantiated this while substituting into
 		 the type earlier (template/friend54.C).  */
 	      RETURN (new_r);
+
+	    if (!DECL_FRIEND_P (r))
+	      note_comdat_fn (r);
 
 	    /* We're not supposed to instantiate default arguments
 	       until they are called, for a template.  But, for a
@@ -15185,6 +15201,16 @@ tsubst_copy_and_build (tree t,
     case PARM_DECL:
       {
 	tree r = tsubst_copy (t, args, complain, in_decl);
+	if (TREE_CODE (r) == VAR_DECL
+	    && !processing_template_decl
+	    && !cp_unevaluated_operand
+	    && DECL_THREAD_LOCAL_P (r))
+	  {
+	    if (tree wrap = get_tls_wrapper_fn (r))
+	      /* Replace an evaluated use of the thread_local variable with
+		 a call to its wrapper.  */
+	      r = build_cxx_call (wrap, 0, NULL, tf_warning_or_error);
+	  }
 
 	if (TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE)
 	  /* If the original type was a reference, we'll be wrapped in
