@@ -1387,6 +1387,11 @@ mul_identity_replacement ( basic_block phi_block, edge e0, edge e1,
   gimple_seq phis;
   edge e;
 
+  /*If this phi node has more than 2 incoming edges then 
+    we cannot do this optimization*/
+  if (gimple_phi_num_args (phi) != 2)
+     return false;
+
   /* If the type says honor signed zeros we cannot do this
      optimization.  */
   if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg1))))
