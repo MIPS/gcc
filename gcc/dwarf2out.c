@@ -17723,12 +17723,12 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
 				decl_quals (node_or_origin),
 				context_die);
 	}
+    add_location:
       if (origin == NULL && DECL_ARTIFICIAL (node))
 	add_AT_flag (parm_die, DW_AT_artificial, 1);
 
       if (node && node != origin)
         equate_decl_number_to_die (node, parm_die);
-    add_location:
       if (! DECL_ABSTRACT (node_or_origin))
 	add_location_or_const_value_attribute (parm_die, node_or_origin,
 					       node == NULL, DW_AT_location);
@@ -21078,11 +21078,7 @@ dwarf2out_decl (tree decl)
      We should always be reusing DIEs created early.  */
   dw_die_ref early_die = NULL;
   if (decl_die_table)
-    {
-      early_die = lookup_decl_die (decl);
-      if (early_die && !early_die->dumped_early)
-	early_die = NULL;
-    }
+    early_die = lookup_decl_die (decl);
 #endif
 
   switch (TREE_CODE (decl))
@@ -21213,7 +21209,8 @@ dwarf2out_decl (tree decl)
 #ifdef ENABLE_CHECKING
   /* If we early created a DIE, make sure it didn't get re-created by
      mistake.  */
-  gcc_assert (!early_die || early_die == die);
+  if (early_die && early_die->dumped_early)
+    gcc_assert (early_die == die);
 #endif
   return die;
 }

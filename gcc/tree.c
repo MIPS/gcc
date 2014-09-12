@@ -5089,6 +5089,8 @@ free_lang_data_in_decl (tree decl)
 	 At this point, it is not needed anymore.  */
       DECL_SAVED_TREE (decl) = NULL_TREE;
 
+      /* ?? This should be OK to remove now that we are generating dwarf
+	 early.  */
       /* Clear the abstract origin if it refers to a method.  Otherwise
          dwarf2out.c will ICE as we clear TYPE_METHODS and thus the
 	 origin will not be output correctly.  */
@@ -5630,7 +5632,11 @@ free_lang_data (void)
   unsigned i;
 
   /* If we are the LTO frontend we have freed lang-specific data already.  */
-  if (in_lto_p)
+  if (in_lto_p
+      /* FIXME: Eventually we need to remove this so the function
+	 proceeds and we can be sure there is no language specific
+	 data past cgraph.  */
+      || !flag_generate_lto)
     return 0;
 
   /* Allocate and assign alias sets to the standard integer types
