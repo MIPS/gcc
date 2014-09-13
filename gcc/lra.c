@@ -20,28 +20,28 @@ along with GCC; see the file COPYING3.	If not see
 
 
 /* The Local Register Allocator (LRA) is a replacement of former
-   reload pass.	 It is focused to simplify code solving the reload
+   reload pass.	 It's focus is to simplify code solving the reload
    pass tasks, to make the code maintenance easier, and to implement new
    perspective optimizations.
 
    The major LRA design solutions are:
-     o division small manageable, separated sub-tasks
-     o reflection of all transformations and decisions in RTL as more
+     o division into small manageable, separated sub-tasks
+     o reflection of all transformations and decisions in RTL as much
        as possible
-     o insn constraints as a primary source of the info (minimizing
+     o using insn constraints as a primary source of the info (minimizing
        number of target-depended macros/hooks)
 
-   In brief LRA works by iterative insn process with the final goal is
+   In brief LRA works by iterative insn process with the final goal being
    to satisfy all insn and address constraints:
      o New reload insns (in brief reloads) and reload pseudos might be
        generated;
      o Some pseudos might be spilled to assign hard registers to
        new reload pseudos;
      o Changing spilled pseudos to stack memory or their equivalences;
-     o Allocation stack memory changes the address displacement and
-       new iteration is needed.
+     o Allocation of stack memory changes the address displacement and
+       new a iteration is needed.
 
-   Here is block diagram of LRA passes:
+   Here is the block diagram of LRA passes:
 
                                 ------------------------
            ---------------     | Undo inheritance for   |     ---------------
@@ -119,7 +119,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "df.h"
 
 /* Hard registers currently not available for allocation.  It can
-   changed after some hard  registers become not eliminable.  */
+   change after some hard registers become not eliminable.  */
 HARD_REG_SET lra_no_alloc_regs;
 
 static int get_new_reg_value (void);
@@ -186,22 +186,20 @@ lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
   return new_reg;
 }
 
-/* Analogous to the previous function but also inherits value of
+/* Analogous to the previous function but also inherits the value of
    ORIGINAL.  */
 rtx
 lra_create_new_reg (enum machine_mode md_mode, rtx original,
 		    enum reg_class rclass, const char *title)
 {
-  rtx new_reg;
-
-  new_reg
+  rtx new_reg
     = lra_create_new_reg_with_unique_value (md_mode, original, rclass, title);
   if (original != NULL_RTX && REG_P (original))
     lra_assign_reg_val (REGNO (original), REGNO (new_reg));
   return new_reg;
 }
 
-/* Set up for REGNO unique hold value.	*/
+/* Set up for REGNO unique hold value.  */
 void
 lra_set_regno_unique_value (int regno)
 {
@@ -678,7 +676,7 @@ init_insn_recog_data (void)
   init_insn_regs ();
 }
 
-/* Expand, if necessary, LRA data about insns.	*/
+/* Expand, if necessary, LRA data about insns.  */
 static void
 check_and_expand_insn_recog_data (int index)
 {
@@ -695,7 +693,7 @@ check_and_expand_insn_recog_data (int index)
     lra_insn_recog_data[i] = NULL;
 }
 
-/* Finish LRA DATA about insn.	*/
+/* Finish LRA DATA about insn.  */
 static void
 free_insn_recog_data (lra_insn_recog_data_t data)
 {
@@ -722,10 +720,9 @@ free_insn_recog_data (lra_insn_recog_data_t data)
 static void
 finish_insn_recog_data (void)
 {
-  int i;
   lra_insn_recog_data_t data;
 
-  for (i = 0; i < lra_insn_recog_data_len; i++)
+  for (int i = 0; i < lra_insn_recog_data_len; i++)
     if ((data = lra_insn_recog_data[i]) != NULL)
       free_insn_recog_data (data);
   finish_insn_regs ();
@@ -1929,7 +1926,14 @@ check_rtl (bool final_p)
 	if (final_p)
 	  {
 	    extract_insn (insn);
-	    lra_assert (constrain_operands (1));
+
+	    if (!constrain_operands (1))
+	    {
+	      fprintf (stderr, "\nbeh\n");
+	      print_rtl_single (stderr, insn);
+	      fprintf (stderr, "\n");
+	      lra_assert (false);
+	    }
 	    continue;
 	  }
 	/* LRA code is based on assumption that all addresses can be
