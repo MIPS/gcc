@@ -4140,9 +4140,14 @@ lra_constraints (bool first_p)
 	  new_insns_num = 0;
 	}
       if (new_insns_num > MAX_RELOAD_INSNS_NUMBER)
+	{
+	fprintf (stderr, "\ncurr_insn = ");
+	print_rtl_single (stderr, curr_insn);
+	fprintf (stderr, "\n");
 	internal_error
 	  ("Max. number of generated reload insns per insn is achieved (%d)\n",
 	   MAX_RELOAD_INSNS_NUMBER);
+	}
       new_insns_num++;
       if (DEBUG_INSN_P (curr_insn))
 	{
