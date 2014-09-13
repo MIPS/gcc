@@ -109,7 +109,6 @@ extern bool fp_zero_operand (rtx);
 extern bool fp_one_operand (rtx);
 extern rtx get_fpscr_rtx (void);
 extern bool sh_legitimate_index_p (enum machine_mode, rtx, bool, bool);
-extern bool sh_legitimize_reload_address (rtx *, enum machine_mode, int, int);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern bool nonpic_symbol_mentioned_p (rtx);
 extern void emit_sf_insn (rtx);
