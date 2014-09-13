@@ -493,6 +493,14 @@
 	  && GET_CODE (x) == PLUS && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1)))
 	return false;
 
+      if (GET_CODE (x) == PLUS)
+	{
+	  if (! REG_P (XEXP (x, 0)))
+	    return false;
+	  if (! (REG_P (XEXP (x, 1)) || (CONST_INT_P (XEXP (x, 1)))))
+	    return false;
+	}
+
       /* LRA will try to satisfy the constraints for the memory displacements
 	 and thus we must not reject invalid displacements in the predicate,
 	 or else LRA will bail out.
@@ -578,6 +586,14 @@
       if (! ALLOW_INDEXED_ADDRESS
 	  && GET_CODE (x) == PLUS && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1)))
 	return false;
+
+      if (GET_CODE (x) == PLUS)
+	{
+	  if (! REG_P (XEXP (x, 0)))
+	    return false;
+	  if (! (REG_P (XEXP (x, 1)) || (CONST_INT_P (XEXP (x, 1)))))
+	    return false;
+	}
 
       /* LRA will try to satisfy the constraints for the memory displacements
 	 and thus we must not reject invalid displacements in the predicate,
