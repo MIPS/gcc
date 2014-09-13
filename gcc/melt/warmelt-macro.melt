@@ -2001,7 +2001,10 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		       (multicall 
 			(resm otherm)
 			(mexp sexpr env mexpander modctx)
-			 (debug "macroexpand_1 result for macro resm=" resm " otherm=" otherm)
+			(debug "macroexpand_1 result for macro resm=" resm "\n.. otherm=" otherm)
+			(cppif MELT_HAVE_DEBUG
+			       (if (null resm)
+				   (debug "macroexpand_1 null result for macro sexpr=" sexpr)))
 			 (return resm otherm)
 			 )))
 		   ( (is_a opbind class_selector_binding)
@@ -6888,7 +6891,8 @@ applications of @code{/i} primitives.}#
 	(restpair (pair_tail secpair))
 	(bindexpr (pair_head secpair))
 	(newenv (fresh_env env))
-	(maclist (get_field :mocx_macrolist modctx))	
+	(maclist (get_field :mocx_macrolist modctx))
+	(macrobindlist (make_list discr_list))
 	(bindtup ())
 	(bodytup ())
 	)
@@ -6937,7 +6941,10 @@ applications of @code{/i} primitives.}#
 				  :loca_location loc
 				  :smacinst_defmacro slb))
 	      )
+	  (put_int macbnd bix)
 	  (put_env newenv macbnd)
+	  ;;@@TODO: make also a normal function binding for that
+	  ;;macro, if it occurs as a plain variable...
 	  (debug "mexpand_let:macro" " macbnd=" macbnd
 		 "\n.. sinstmac=" sinstmac
 		 "\n.. class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
@@ -6975,21 +6982,27 @@ applications of @code{/i} primitives.}#
 		    )
 	    (put_fields macbnd :mbind_expanser mexpanser)
 	    (debug "mexpand_let:macro update macbnd=" macbnd)
-	    (return))))
+	    (list_append macrobindlist macbnd)
+	    (assert_msg "mexpand_let:macro should also bind the macro to a function" ())
+	    )))
       (:else
        (error_at loc "invalid LET binding of $1 : $2"
 		 (get_field :named_name (discrim slb))
 		 slb)
        (return))))
     ;;
+    (debug "mexpand_let" " macrobindlist=" macrobindlist "\n.. bindtup=" bindtup)
     (setq bodytup (pairlist_to_multiple 
 		   restpair discr_multiple 
 		   (lambda (e) (mexpander e newenv mexpander modctx))))
+    (debug "mexpand_let" " bodytup=" bodytup
+	   "\n.. bindtup=" bindtup)
     (let ( (letr
 	    (instance class_source_let
 		      :loca_location loc
 		      :slet_bindings bindtup
 		      :slet_body bodytup)) )
+      (debug "mexpand_let" " return letr=" debug_less letr)
       (return letr)
       )))
 (install_initial_macro 'let mexpand_let)

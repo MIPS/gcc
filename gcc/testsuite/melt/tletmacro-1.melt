@@ -27,7 +27,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 			" xtup=" xtup)
 		 (let ( (res (mexpander xtup env mexpander modctx))
 			)
-		   (debug "mac res=" res)
+		   (debug "macro mac" " res=" res)
 		   (return res)
 		 )
 	       ))

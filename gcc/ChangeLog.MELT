@@ -1,4 +1,12 @@
 
+2014-09-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_let): For macros, should also
+	make a normal function binding, in the case the macro occurs as
+	simple variable in the let ...
+
+	* testsuite/melt/tletmacro-1.melt: More debug.
+
 2014-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-build-script.sh: Regenerate.
