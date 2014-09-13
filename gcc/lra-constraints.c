@@ -197,6 +197,7 @@ get_hard_regno (rtx x)
 {
   rtx reg;
   int offset, hard_regno;
+  bool is_virtual = false;
 
   reg = x;
   if (GET_CODE (x) == SUBREG)
@@ -204,14 +205,19 @@ get_hard_regno (rtx x)
   if (! REG_P (reg))
     return -1;
   if ((hard_regno = REGNO (reg)) >= FIRST_PSEUDO_REGISTER)
-    hard_regno = lra_get_regno_hard_regno (hard_regno);
+    {
+      is_virtual = true;
+      hard_regno = lra_get_regno_hard_regno (hard_regno);
+    }
   if (hard_regno < 0)
     return -1;
   offset = 0;
   if (GET_CODE (x) == SUBREG)
     offset += subreg_regno_offset (hard_regno, GET_MODE (reg),
 				   SUBREG_BYTE (x),  GET_MODE (x));
-  return get_final_hard_regno (hard_regno, offset);
+  return is_virtual
+	 ? hard_regno + offset
+	 : get_final_hard_regno (hard_regno, offset);
 }
 
 /* If REGNO is a hard register or has been allocated a hard register,
