@@ -388,29 +388,46 @@ package body Checks is
    -----------------------------
 
    procedure Activate_Overflow_Check (N : Node_Id) is
+      Typ : constant Entity_Id := Etype (N);
+
    begin
-      --  Nothing to do for unconstrained floating-point types (the test for
-      --  Etype (N) being present seems necessary in some cases, should be
-      --  tracked down, but for now just ignore the check in this case ???)
+      --  Floating-point case. If Etype is not set (this can happen when we
+      --  activate a check on a node that has not yet been analyzed), then
+      --  we assume we do not have a floating-point type (as per our spec).
 
-      if Present (Etype (N))
-        and then Is_Floating_Point_Type (Etype (N))
-        and then not Is_Constrained (Etype (N))
+      if Present (Typ) and then Is_Floating_Point_Type (Typ) then
 
-        --  But do the check after all if float overflow checking enforced
+         --  Ignore call if we have no automatic overflow checks on the target
+         --  and Check_Float_Overflow mode is not set. These are the cases in
+         --  which we expect to generate infinities and NaN's with no check.
 
-        and then not Check_Float_Overflow
-      then
-         return;
+         if not (Machine_Overflows_On_Target or Check_Float_Overflow) then
+            return;
+
+         --  Ignore for unary operations ("+", "-", abs) since these can never
+         --  result in overflow for floating-point cases.
+
+         elsif Nkind (N) in N_Unary_Op then
+            return;
+
+         --  Otherwise we will set the flag
+
+         else
+            null;
+         end if;
+
+      --  Discrete case
+
+      else
+         --  Nothing to do for Rem/Mod/Plus (overflow not possible, the check
+         --  for zero-divide is a divide check, not an overflow check).
+
+         if Nkind_In (N, N_Op_Rem, N_Op_Mod, N_Op_Plus) then
+            return;
+         end if;
       end if;
 
-      --  Nothing to do for Rem/Mod/Plus (overflow not possible)
-
-      if Nkind_In (N, N_Op_Rem, N_Op_Mod, N_Op_Plus) then
-         return;
-      end if;
-
-      --  Otherwise set the flag
+      --  Fall through for cases where we do set the flag
 
       Set_Do_Overflow_Check (N, True);
       Possible_Local_Raise (N, Standard_Constraint_Error);
@@ -2871,11 +2888,6 @@ package body Checks is
            and then not Has_Infinities (Target_Typ)
          then
             Enable_Range_Check (Expr);
-
-         --  Always do a range check for operators if option set
-
-         elsif Check_Float_Overflow and then Nkind (Expr) in N_Op then
-            Enable_Range_Check (Expr);
          end if;
       end if;
 
@@ -2959,11 +2971,18 @@ package body Checks is
         and then Is_Discrete_Type (S_Typ) = Is_Discrete_Type (Target_Typ)
         and then
           (In_Subrange_Of (S_Typ, Target_Typ, Fixed_Int)
+
+             --  Also check if the expression itself is in the range of the
+             --  target type if it is a known at compile time value. We skip
+             --  this test if S_Typ is set since for OUT and IN OUT parameters
+             --  the Expr itself is not relevant to the checking.
+
              or else
-               Is_In_Range (Expr, Target_Typ,
-                            Assume_Valid => True,
-                            Fixed_Int    => Fixed_Int,
-                            Int_Real     => Int_Real))
+               (No (Source_Typ)
+                  and then Is_In_Range (Expr, Target_Typ,
+                                        Assume_Valid => True,
+                                        Fixed_Int    => Fixed_Int,
+                                        Int_Real     => Int_Real)))
       then
          return;
 
@@ -2984,9 +3003,9 @@ package body Checks is
 
       --  Normally, we only do range checks if the type is constrained. We do
       --  NOT want range checks for unconstrained types, since we want to have
-      --  infinities. Override this decision in Check_Float_Overflow mode.
+      --  infinities.
 
-         if Is_Constrained (S_Typ) or else Check_Float_Overflow then
+         if Is_Constrained (S_Typ) then
             Enable_Range_Check (Expr);
          end if;
 
@@ -6402,6 +6421,58 @@ package body Checks is
       Source_Base_Type : constant Entity_Id  := Base_Type (Source_Type);
       Target_Base_Type : constant Entity_Id  := Base_Type (Target_Type);
 
+      procedure Convert_And_Check_Range;
+      --  Convert the conversion operand to the target base type and save in
+      --  a temporary. Then check the converted value against the range of the
+      --  target subtype.
+
+      -----------------------------
+      -- Convert_And_Check_Range --
+      -----------------------------
+
+      procedure Convert_And_Check_Range is
+         Tnn : constant Entity_Id := Make_Temporary (Loc, 'T', N);
+
+      begin
+         --  We make a temporary to hold the value of the converted value
+         --  (converted to the base type), and then do the test against this
+         --  temporary. The conversion itself is replaced by an occurrence of
+         --  Tnn and followed by the explicit range check. Note that checks
+         --  are suppressed for this code, since we don't want a recursive
+         --  range check popping up.
+
+         --     Tnn : constant Target_Base_Type := Target_Base_Type (N);
+         --     [constraint_error when Tnn not in Target_Type]
+
+         Insert_Actions (N, New_List (
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Tnn,
+             Object_Definition   => New_Occurrence_Of (Target_Base_Type, Loc),
+             Constant_Present    => True,
+             Expression          =>
+               Make_Type_Conversion (Loc,
+                 Subtype_Mark => New_Occurrence_Of (Target_Base_Type, Loc),
+                 Expression   => Duplicate_Subexpr (N))),
+
+           Make_Raise_Constraint_Error (Loc,
+             Condition =>
+               Make_Not_In (Loc,
+                 Left_Opnd  => New_Occurrence_Of (Tnn, Loc),
+                 Right_Opnd => New_Occurrence_Of (Target_Type, Loc)),
+             Reason => Reason)),
+           Suppress => All_Checks);
+
+         Rewrite (N, New_Occurrence_Of (Tnn, Loc));
+
+         --  Set the type of N, because the declaration for Tnn might not
+         --  be analyzed yet, as is the case if N appears within a record
+         --  declaration, as a discriminant constraint or expression.
+
+         Set_Etype (N, Target_Base_Type);
+      end Convert_And_Check_Range;
+
+   --  Start of processing for Generate_Range_Check
+
    begin
       --  First special case, if the source type is already within the range
       --  of the target type, then no check is needed (probably we should have
@@ -6419,11 +6490,6 @@ package body Checks is
              or else
                (Is_Entity_Name (N)
                  and then Ekind (Entity (N)) = E_Enumeration_Literal))
-
-        --  Also do not apply this for floating-point if Check_Float_Overflow
-
-        and then not
-          (Is_Floating_Point_Type (Source_Type) and Check_Float_Overflow)
       then
          Set_Do_Range_Check (N, False);
          return;
@@ -6500,29 +6566,44 @@ package body Checks is
          --  Insert the explicit range check. Note that we suppress checks for
          --  this code, since we don't want a recursive range check popping up.
 
-         Insert_Action (N,
-           Make_Raise_Constraint_Error (Loc,
-             Condition =>
-               Make_Not_In (Loc,
-                 Left_Opnd  => Duplicate_Subexpr (N),
+         if Is_Discrete_Type (Source_Base_Type)
+              and then
+            Is_Discrete_Type (Target_Base_Type)
+         then
+            Insert_Action (N,
+              Make_Raise_Constraint_Error (Loc,
+                Condition =>
+                  Make_Not_In (Loc,
+                    Left_Opnd  => Duplicate_Subexpr (N),
 
-                 Right_Opnd =>
-                   Make_Range (Loc,
-                     Low_Bound =>
-                       Unchecked_Convert_To (Source_Base_Type,
-                         Make_Attribute_Reference (Loc,
-                           Prefix =>
-                             New_Occurrence_Of (Target_Type, Loc),
-                           Attribute_Name => Name_First)),
+                    Right_Opnd =>
+                      Make_Range (Loc,
+                        Low_Bound  =>
+                          Unchecked_Convert_To (Source_Base_Type,
+                            Make_Attribute_Reference (Loc,
+                              Prefix         =>
+                                New_Occurrence_Of (Target_Type, Loc),
+                              Attribute_Name => Name_First)),
 
-                     High_Bound =>
-                       Unchecked_Convert_To (Source_Base_Type,
-                         Make_Attribute_Reference (Loc,
-                           Prefix =>
-                             New_Occurrence_Of (Target_Type, Loc),
-                           Attribute_Name => Name_Last)))),
-             Reason => Reason),
-           Suppress => All_Checks);
+                        High_Bound =>
+                          Unchecked_Convert_To (Source_Base_Type,
+                            Make_Attribute_Reference (Loc,
+                              Prefix         =>
+                                New_Occurrence_Of (Target_Type, Loc),
+                              Attribute_Name => Name_Last)))),
+                Reason    => Reason),
+              Suppress => All_Checks);
+
+         --  For conversions involving at least one type that is not discrete,
+         --  first convert to target type and then generate the range check.
+         --  This avoids problems with values that are close to a bound of the
+         --  target type that would fail a range check when done in a larger
+         --  source type before converting but would pass if converted with
+         --  rounding and then checked (such as in float-to-float conversions).
+
+         else
+            Convert_And_Check_Range;
+         end if;
 
       --  Note that at this stage we now that the Target_Base_Type is not in
       --  the range of the Source_Base_Type (since even the Target_Type itself
@@ -6533,51 +6614,7 @@ package body Checks is
       --  and then test the target result against the bounds.
 
       elsif In_Subrange_Of (Source_Type, Target_Base_Type) then
-
-         --  We make a temporary to hold the value of the converted value
-         --  (converted to the base type), and then we will do the test against
-         --  this temporary.
-
-         --     Tnn : constant Target_Base_Type := Target_Base_Type (N);
-         --     [constraint_error when Tnn not in Target_Type]
-
-         --  Then the conversion itself is replaced by an occurrence of Tnn
-
-         --  Insert the explicit range check. Note that we suppress checks for
-         --  this code, since we don't want a recursive range check popping up.
-
-         declare
-            Tnn : constant Entity_Id := Make_Temporary (Loc, 'T', N);
-
-         begin
-            Insert_Actions (N, New_List (
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Tnn,
-                Object_Definition   =>
-                  New_Occurrence_Of (Target_Base_Type, Loc),
-                Constant_Present    => True,
-                Expression          =>
-                  Make_Type_Conversion (Loc,
-                    Subtype_Mark => New_Occurrence_Of (Target_Base_Type, Loc),
-                    Expression   => Duplicate_Subexpr (N))),
-
-              Make_Raise_Constraint_Error (Loc,
-                Condition =>
-                  Make_Not_In (Loc,
-                    Left_Opnd  => New_Occurrence_Of (Tnn, Loc),
-                    Right_Opnd => New_Occurrence_Of (Target_Type, Loc)),
-
-                Reason => Reason)),
-              Suppress => All_Checks);
-
-            Rewrite (N, New_Occurrence_Of (Tnn, Loc));
-
-            --  Set the type of N, because the declaration for Tnn might not
-            --  be analyzed yet, as is the case if N appears within a record
-            --  declaration, as a discriminant constraint or expression.
-
-            Set_Etype (N, Target_Base_Type);
-         end;
+         Convert_And_Check_Range;
 
       --  At this stage, we know that we have two scalar types, which are
       --  directly convertible, and where neither scalar type has a base

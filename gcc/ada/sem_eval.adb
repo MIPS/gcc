@@ -3661,16 +3661,11 @@ package body Sem_Eval is
       --  Test for illegal Ada 95 cases. A string literal is illegal in Ada 95
       --  if its bounds are outside the index base type and this index type is
       --  static. This can happen in only two ways. Either the string literal
-      --  is too long, or it is null, and the lower bound is type'First. In
-      --  either case it is the upper bound that is out of range of the index
-      --  type.
+      --  is too long, or it is null, and the lower bound is type'First. Either
+      --  way it is the upper bound that is out of range of the index type.
+
       if Ada_Version >= Ada_95 then
-         if Root_Type (Bas) = Standard_String
-              or else
-            Root_Type (Bas) = Standard_Wide_String
-              or else
-            Root_Type (Bas) = Standard_Wide_Wide_String
-         then
+         if Is_Standard_String_Type (Bas) then
             Xtp := Standard_Positive;
          else
             Xtp := Etype (First_Index (Bas));
@@ -6190,6 +6185,18 @@ package body Sem_Eval is
 
       elsif Assume_Valid
         and then (Etype (N) = Typ or else Is_Subtype_Of (Etype (N), Typ))
+      then
+         return In_Range;
+
+      --  Another special case. For signed integer types, if the target type
+      --  has Is_Known_Valid set, and the source type does not have a larger
+      --  size, then the source value must be in range. We exclude biased
+      --  types, because they bizarrely can generate out of range values.
+
+      elsif Is_Signed_Integer_Type (Etype (N))
+        and then Is_Known_Valid (Typ)
+        and then Esize (Etype (N)) <= Esize (Typ)
+        and then not Has_Biased_Representation (Etype (N))
       then
          return In_Range;
 

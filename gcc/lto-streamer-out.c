@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "input.h"
 #include "hashtab.h"
+#include "hash-set.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -188,10 +189,7 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
   bp_pack_value (bp, ob->current_col != xloc.column, 1);
 
   if (ob->current_file != xloc.file)
-    bp_pack_var_len_unsigned (bp,
-	                      streamer_string_index (ob, xloc.file,
-						     strlen (xloc.file) + 1,
-						     true));
+    bp_pack_string (ob, bp, xloc.file, true);
   ob->current_file = xloc.file;
 
   if (ob->current_line != xloc.line)
@@ -474,7 +472,7 @@ private:
   hash_scc (struct output_block *ob, unsigned first, unsigned size);
 
   unsigned int next_dfs_num;
-  struct pointer_map_t *sccstate;
+  hash_map<tree, sccs *> sccstate;
   struct obstack sccstate_obstack;
 };
 
@@ -482,7 +480,6 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 	  bool single_p)
 {
   sccstack.create (0);
-  sccstate = pointer_map_create ();
   gcc_obstack_init (&sccstate_obstack);
   next_dfs_num = 1;
   DFS_write_tree (ob, NULL, expr, ref_p, this_ref_p, single_p);
@@ -491,7 +488,6 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 DFS::~DFS ()
 {
   sccstack.release ();
-  pointer_map_destroy (sccstate);
   obstack_free (&sccstate_obstack, NULL);
 }
 
@@ -652,9 +648,13 @@ DFS::DFS_write_tree_body (struct output_block *ob,
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
     {
       for (tree t = BLOCK_VARS (expr); t; t = TREE_CHAIN (t))
-	/* ???  FIXME.  See also streamer_write_chain.  */
-	if (!(VAR_OR_FUNCTION_DECL_P (t)
-	      && DECL_EXTERNAL (t)))
+	if (VAR_OR_FUNCTION_DECL_P (t)
+	    && DECL_EXTERNAL (t))
+	  /* We have to stream externals in the block chain as
+	     non-references.  See also
+	     tree-streamer-out.c:streamer_write_chain.  */
+	  DFS_write_tree (ob, expr_state, t, ref_p, false, single_p);
+	else
 	  DFS_follow_tree_edge (t);
 
       DFS_follow_tree_edge (BLOCK_SUPERCONTEXT (expr));
@@ -1313,7 +1313,6 @@ DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
 		     tree expr, bool ref_p, bool this_ref_p, bool single_p)
 {
   unsigned ix;
-  sccs **slot;
 
   /* Handle special cases.  */
   if (expr == NULL_TREE)
@@ -1327,7 +1326,7 @@ DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
   if (streamer_tree_cache_lookup (ob->writer_cache, expr, &ix))
     return;
 
-  slot = (sccs **)pointer_map_insert (sccstate, expr);
+  sccs **slot = &sccstate.get_or_insert (expr);
   sccs *cstate = *slot;
   if (!cstate)
     {
@@ -1888,10 +1887,8 @@ produce_asm (struct output_block *ob, tree fn)
   memset (&header, 0, sizeof (struct lto_function_header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
-
-  header.compressed_size = 0;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   if (section_type == LTO_section_function_body)
     header.cfg_size = ob->cfg_stream->total_size;
@@ -2099,9 +2096,9 @@ lto_output_toplevel_asms (void)
   struct output_block *ob;
   struct asm_node *can;
   char *section_name;
-  struct lto_asm_header header;
+  struct lto_simple_header_with_strings header;
 
-  if (! asm_nodes)
+  if (!symtab->first_asm_symbol ())
     return;
 
   ob = create_output_block (LTO_section_asm);
@@ -2109,7 +2106,7 @@ lto_output_toplevel_asms (void)
   /* Make string 0 be a NULL string.  */
   streamer_write_char_stream (ob->string_stream, 0);
 
-  for (can = asm_nodes; can; can = can->next)
+  for (can = symtab->first_asm_symbol (); can; can = can->next)
     {
       streamer_write_string_cst (ob, ob->main_stream, can->asm_str);
       streamer_write_hwi (ob, can->order);
@@ -2125,8 +2122,8 @@ lto_output_toplevel_asms (void)
   memset (&header, 0, sizeof (header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
@@ -2421,7 +2418,7 @@ lto_out_decl_state_written_size (struct lto_out_decl_state *state)
 
 static void
 write_symbol (struct streamer_tree_cache_d *cache,
-	      tree t, struct pointer_set_t *seen, bool alias)
+	      tree t, hash_set<const char *> *seen, bool alias)
 {
   const char *name;
   enum gcc_plugin_symbol_kind kind;
@@ -2449,9 +2446,8 @@ write_symbol (struct streamer_tree_cache_d *cache,
      same name manipulations that ASM_OUTPUT_LABELREF does. */
   name = IDENTIFIER_POINTER ((*targetm.asm_out.mangle_assembler_name) (name));
 
-  if (pointer_set_contains (seen, name))
+  if (seen->add (name))
     return;
-  pointer_set_insert (seen, name);
 
   streamer_tree_cache_lookup (cache, t, &slot_num);
   gcc_assert (slot_num != (unsigned)-1);
@@ -2576,14 +2572,13 @@ produce_symtab (struct output_block *ob)
 {
   struct streamer_tree_cache_d *cache = ob->writer_cache;
   char *section_name = lto_get_section_name (LTO_section_symtab, NULL, NULL);
-  struct pointer_set_t *seen;
   lto_symtab_encoder_t encoder = ob->decl_state->symtab_node_encoder;
   lto_symtab_encoder_iterator lsei;
 
   lto_begin_section (section_name, false);
   free (section_name);
 
-  seen = pointer_set_create ();
+  hash_set<const char *> seen;
 
   /* Write the symbol table.
      First write everything defined and then all declarations.
@@ -2595,7 +2590,7 @@ produce_symtab (struct output_block *ob)
 
       if (!output_symbol_p (node) || DECL_EXTERNAL (node->decl))
 	continue;
-      write_symbol (cache, node->decl, seen, false);
+      write_symbol (cache, node->decl, &seen, false);
     }
   for (lsei = lsei_start (encoder);
        !lsei_end_p (lsei); lsei_next (&lsei))
@@ -2604,10 +2599,8 @@ produce_symtab (struct output_block *ob)
 
       if (!output_symbol_p (node) || !DECL_EXTERNAL (node->decl))
 	continue;
-      write_symbol (cache, node->decl, seen, false);
+      write_symbol (cache, node->decl, &seen, false);
     }
-
-  pointer_set_destroy (seen);
 
   lto_end_section ();
 }
@@ -2663,8 +2656,8 @@ produce_asm_for_decls (void)
       lto_output_decl_state_streams (ob, fn_out_state);
     }
 
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   /* Currently not used.  This field would allow us to preallocate
      the globals vector, so that it need not be resized as it is extended.  */

@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "diagnostic-core.h"
 #include "dumpfile.h"
-#include "pointer-set.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
 
@@ -86,7 +85,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   id.src_fn = fn;
   id.dst_fn = clone;
   id.src_cfun = DECL_STRUCT_FUNCTION (fn);
-  id.decl_map = (struct pointer_map_t *) arg_map;
+  id.decl_map = static_cast<hash_map<tree, tree> *> (arg_map);
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
@@ -160,18 +159,12 @@ build_delete_destructor_body (tree delete_dtor, tree complete_dtor)
 static tree
 cdtor_comdat_group (tree complete, tree base)
 {
-  tree complete_name = DECL_COMDAT_GROUP (complete);
-  tree base_name = DECL_COMDAT_GROUP (base);
+  tree complete_name = DECL_ASSEMBLER_NAME (complete);
+  tree base_name = DECL_ASSEMBLER_NAME (base);
   char *grp_name;
   const char *p, *q;
   bool diff_seen = false;
   size_t idx;
-  if (complete_name == NULL)
-    complete_name = cxx_comdat_group (complete);
-  if (base_name == NULL)
-    base_name = cxx_comdat_group (base);
-  complete_name = DECL_ASSEMBLER_NAME (complete_name);
-  base_name = DECL_ASSEMBLER_NAME (base_name);
   gcc_assert (IDENTIFIER_LENGTH (complete_name)
 	      == IDENTIFIER_LENGTH (base_name));
   grp_name = XALLOCAVEC (char, IDENTIFIER_LENGTH (complete_name) + 1);
@@ -191,7 +184,7 @@ cdtor_comdat_group (tree complete, tree base)
 	diff_seen = true;
       }
   grp_name[idx] = '\0';
-  gcc_assert (diff_seen || symtab_node::get (complete)->alias);
+  gcc_assert (diff_seen);
   return get_identifier (grp_name);
 }
 
@@ -527,7 +520,7 @@ maybe_clone_body (tree fn)
       tree parm;
       tree clone_parm;
       int parmno;
-      struct pointer_map_t *decl_map;
+      hash_map<tree, tree> *decl_map;
       bool alias = false;
 
       clone = fns[idx];
@@ -587,7 +580,7 @@ maybe_clone_body (tree fn)
 	    }
 
           /* Remap the parameters.  */
-          decl_map = pointer_map_create ();
+          decl_map = new hash_map<tree, tree>;
           for (parmno = 0,
                 parm = DECL_ARGUMENTS (fn),
                 clone_parm = DECL_ARGUMENTS (clone);
@@ -600,7 +593,7 @@ maybe_clone_body (tree fn)
                 {
                   tree in_charge;
                   in_charge = in_charge_arg_for_name (DECL_NAME (clone));
-                  *pointer_map_insert (decl_map, parm) = in_charge;
+                  decl_map->put (parm, in_charge);
                 }
               else if (DECL_ARTIFICIAL (parm)
                        && DECL_NAME (parm) == vtt_parm_identifier)
@@ -611,19 +604,22 @@ maybe_clone_body (tree fn)
                   if (DECL_HAS_VTT_PARM_P (clone))
                     {
                       DECL_ABSTRACT_ORIGIN (clone_parm) = parm;
-                      *pointer_map_insert (decl_map, parm) = clone_parm;
+                      decl_map->put (parm, clone_parm);
                       clone_parm = DECL_CHAIN (clone_parm);
                     }
                   /* Otherwise, map the VTT parameter to `NULL'.  */
                   else
-                    *pointer_map_insert (decl_map, parm)
-                       = fold_convert (TREE_TYPE (parm), null_pointer_node);
+		    {
+		      tree t
+			= fold_convert (TREE_TYPE (parm), null_pointer_node);
+		      decl_map->put (parm, t);
+		    }
                 }
               /* Map other parameters to their equivalents in the cloned
                  function.  */
               else
                 {
-                  *pointer_map_insert (decl_map, parm) = clone_parm;
+                  decl_map->put (parm, clone_parm);
                   clone_parm = DECL_CHAIN (clone_parm);
                 }
             }
@@ -632,14 +628,14 @@ maybe_clone_body (tree fn)
             {
               parm = DECL_RESULT (fn);
               clone_parm = DECL_RESULT (clone);
-              *pointer_map_insert (decl_map, parm) = clone_parm;
+              decl_map->put (parm, clone_parm);
             }
 
           /* Clone the body.  */
           clone_body (clone, fn, decl_map);
 
           /* Clean up.  */
-          pointer_map_destroy (decl_map);
+          delete decl_map;
         }
 
       /* The clone can throw iff the original function can throw.  */

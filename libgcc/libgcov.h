@@ -100,7 +100,6 @@ typedef unsigned gcov_type_unsigned __attribute__ ((mode (QI)));
 #define gcov_read_unsigned __gcov_read_unsigned
 #define gcov_read_counter __gcov_read_counter
 #define gcov_read_summary __gcov_read_summary
-#define gcov_do_dump __gcov_do_dump
 
 #else /* IN_GCOV_TOOL */
 /* About the host.  */
@@ -207,14 +206,29 @@ struct gcov_info
 #endif /* !IN_GCOV_TOOL */
 };
 
+/* Root of a program/shared-object state */
+struct gcov_root
+{
+  struct gcov_info *list;
+  unsigned dumped : 1;	/* counts have been dumped.  */
+  unsigned run_counted : 1;  /* run has been accounted for.  */
+};
+
+extern struct gcov_root __gcov_root ATTRIBUTE_HIDDEN;
+
+/* Dump a set of gcov objects.  */
+extern void __gcov_dump_one (struct gcov_root *) ATTRIBUTE_HIDDEN;
+
 /* Register a new object file module.  */
 extern void __gcov_init (struct gcov_info *) ATTRIBUTE_HIDDEN;
 
 /* Called before fork, to avoid double counting.  */
 extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
 
-/* Function to reset all counters to 0.  */
+/* Function to reset all counters to 0.  Both externally visible (and
+   overridable) and internal version.  */
 extern void __gcov_reset (void);
+extern void __gcov_reset_int (void) ATTRIBUTE_HIDDEN;
 
 /* Function to enable early write of profile information so far.  */
 extern void __gcov_dump (void);

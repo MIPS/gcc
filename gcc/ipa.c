@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "hash-map.h"
-#include "pointer-set.h"
+#include "hash-set.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "flags.h"
@@ -84,14 +84,14 @@ update_inlined_to_pointer (struct cgraph_node *node, struct cgraph_node *inlined
 
 static void
 enqueue_node (symtab_node *node, symtab_node **first,
-	      struct pointer_set_t *reachable)
+	      hash_set<symtab_node *> *reachable)
 {
   /* Node is still in queue; do nothing.  */
   if (node->aux && node->aux != (void *) 2)
     return;
   /* Node was already processed as unreachable, re-enqueue
      only if it became reachable now.  */
-  if (node->aux == (void *)2 && !pointer_set_contains (reachable, node))
+  if (node->aux == (void *)2 && !reachable->contains (node))
     return;
   node->aux = *first;
   *first = node;
@@ -103,7 +103,7 @@ static void
 process_references (symtab_node *snode,
 		    symtab_node **first,
 		    bool before_inlining_p,
-		    struct pointer_set_t *reachable)
+		    hash_set<symtab_node *> *reachable)
 {
   int i;
   struct ipa_ref *ref = NULL;
@@ -114,7 +114,7 @@ process_references (symtab_node *snode,
       if (node->definition && !node->in_other_partition
 	  && ((!DECL_EXTERNAL (node->decl) || node->alias)
 	      || (((before_inlining_p
-		    && (cgraph_state < CGRAPH_STATE_IPA_SSA
+		    && (symtab->state < IPA_SSA
 		        || !lookup_attribute ("always_inline",
 					      DECL_ATTRIBUTES (node->decl)))))
 		  /* We use variable constructors during late complation for
@@ -124,7 +124,7 @@ process_references (symtab_node *snode,
 		      && flag_wpa
 		      && ctor_for_folding (node->decl)
 		         != error_mark_node))))
-	pointer_set_insert (reachable, node);
+	reachable->add (node);
       enqueue_node (node, first, reachable);
     }
 }
@@ -138,10 +138,11 @@ process_references (symtab_node *snode,
    possible.  */
 
 static void
-walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
+walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 			       struct cgraph_edge *edge,
 			       symtab_node **first,
-			       pointer_set_t *reachable, bool before_inlining_p)
+			       hash_set<symtab_node *> *reachable,
+			       bool before_inlining_p)
 {
   unsigned int i;
   void *cache_token;
@@ -150,8 +151,7 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
     = possible_polymorphic_call_targets
 	(edge, &final, &cache_token);
 
-  if (!pointer_set_insert (reachable_call_targets,
-			   cache_token))
+  if (!reachable_call_targets->add (cache_token))
     {
       for (i = 0; i < targets.length (); i++)
 	{
@@ -169,10 +169,10 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
 	     devirtualization.  */
 	   if (n->definition
 	       && (before_inlining_p
-		   && (cgraph_state < CGRAPH_STATE_IPA_SSA
+		   && (symtab->state < IPA_SSA
 		       || !lookup_attribute ("always_inline",
 					     DECL_ATTRIBUTES (n->decl)))))
-	     pointer_set_insert (reachable, n);
+	     reachable->add (n);
 
 	  /* Even after inlining we want to keep the possible targets in the
 	     boundary, so late passes can still produce direct call even if
@@ -205,11 +205,11 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
                                target->name (),
                                target->order);
 	    }
-	  edge = cgraph_make_edge_direct (edge, target);
+	  edge = edge->make_direct (target);
 	  if (inline_summary_vec)
 	    inline_update_overall_summary (node);
 	  else if (edge->call_stmt)
-	    cgraph_redirect_edge_call_stmt_to_callee (edge);
+	    edge->redirect_call_stmt_to_callee ();
 	}
     }
 }
@@ -270,15 +270,15 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
    we set AUX pointer of processed symbols in the boundary to constant 2.  */
 
 bool
-symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
+symbol_table::remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 {
   symtab_node *first = (symtab_node *) (void *) 1;
   struct cgraph_node *node, *next;
   varpool_node *vnode, *vnext;
   bool changed = false;
-  struct pointer_set_t *reachable = pointer_set_create ();
-  struct pointer_set_t *body_needed_for_clonning = pointer_set_create ();
-  struct pointer_set_t *reachable_call_targets = pointer_set_create ();
+  hash_set<symtab_node *> reachable;
+  hash_set<tree> body_needed_for_clonning;
+  hash_set<void *> reachable_call_targets;
 
   timevar_push (TV_IPA_UNREACHABLE);
   if (optimize && flag_devirtualize)
@@ -304,8 +304,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  && !node->can_remove_if_no_direct_calls_and_refs_p ())
 	{
 	  gcc_assert (!node->global.inlined_to);
-	  pointer_set_insert (reachable, node);
-	  enqueue_node (node, &first, reachable);
+	  reachable.add (node);
+	  enqueue_node (node, &first, &reachable);
 	}
       else
 	gcc_assert (!node->aux);
@@ -316,14 +316,14 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
     if (!vnode->can_remove_if_no_refs_p()
 	&& !vnode->in_other_partition)
       {
-	pointer_set_insert (reachable, vnode);
-	enqueue_node (vnode, &first, reachable);
+	reachable.add (vnode);
+	enqueue_node (vnode, &first, &reachable);
       }
 
   /* Perform reachability analysis.  */
   while (first != (symtab_node *) (void *) 1)
     {
-      bool in_boundary_p = !pointer_set_contains (reachable, first);
+      bool in_boundary_p = !reachable.contains (first);
       symtab_node *node = first;
 
       first = (symtab_node *)first->aux;
@@ -340,7 +340,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      struct cgraph_node *origin_node
 	      = cgraph_node::get_create (DECL_ABSTRACT_ORIGIN (node->decl));
 	      origin_node->used_as_abstract_origin = true;
-	      enqueue_node (origin_node, &first, reachable);
+	      enqueue_node (origin_node, &first, &reachable);
 	    }
 	  /* If any symbol in a comdat group is reachable, force
 	     all externally visible symbols in the same comdat
@@ -353,11 +353,11 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		   next != node;
 		   next = next->same_comdat_group)
 		if (!next->comdat_local_p ()
-		    && !pointer_set_insert (reachable, next))
-		  enqueue_node (next, &first, reachable);
+		    && !reachable.add (next))
+		  enqueue_node (next, &first, &reachable);
 	    }
 	  /* Mark references as reachable.  */
-	  process_references (node, &first, before_inlining_p, reachable);
+	  process_references (node, &first, before_inlining_p, &reachable);
 	}
 
       if (cgraph_node *cnode = dyn_cast <cgraph_node *> (node))
@@ -375,8 +375,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		    {
 		      next = e->next_callee;
 		      if (e->indirect_info->polymorphic)
-			walk_polymorphic_call_targets (reachable_call_targets,
-						       e, &first, reachable,
+			walk_polymorphic_call_targets (&reachable_call_targets,
+						       e, &first, &reachable,
 						       before_inlining_p);
 		    }
 		}
@@ -394,17 +394,16 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		      if (DECL_EXTERNAL (e->callee->decl)
 			  && e->callee->alias
 			  && before_inlining_p)
-			pointer_set_insert (reachable,
-					    e->callee->function_symbol ());
-		      pointer_set_insert (reachable, e->callee);
+			reachable.add (e->callee->function_symbol ());
+		      reachable.add (e->callee);
 		    }
-		  enqueue_node (e->callee, &first, reachable);
+		  enqueue_node (e->callee, &first, &reachable);
 		}
 
 	      /* When inline clone exists, mark body to be preserved so when removing
 		 offline copy of the function we don't kill it.  */
 	      if (cnode->global.inlined_to)
-	        pointer_set_insert (body_needed_for_clonning, cnode->decl);
+	        body_needed_for_clonning.add (cnode->decl);
 
 	      /* For non-inline clones, force their origins to the boundary and ensure
 		 that body is not removed.  */
@@ -414,8 +413,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		  cnode = cnode->clone_of;
 		  if (noninline)
 		    {
-		      pointer_set_insert (body_needed_for_clonning, cnode->decl);
-		      enqueue_node (cnode, &first, reachable);
+		      body_needed_for_clonning.add (cnode->decl);
+		      enqueue_node (cnode, &first, &reachable);
 		    }
 		}
 
@@ -429,8 +428,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		   next;
 		   next = next->simdclone->next_clone)
 		if (in_boundary_p
-		    || !pointer_set_insert (reachable, next))
-		  enqueue_node (next, &first, reachable);
+		    || !reachable.add (next))
+		  enqueue_node (next, &first, &reachable);
 	    }
 	}
       /* When we see constructor of external variable, keep referred nodes in the
@@ -444,14 +443,14 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	{
 	  struct ipa_ref *ref = NULL;
 	  for (int i = 0; node->iterate_reference (i, ref); i++)
-	    enqueue_node (ref->referred, &first, reachable);
+	    enqueue_node (ref->referred, &first, &reachable);
 	}
     }
 
   /* Remove unreachable functions.   */
-  for (node = cgraph_first_function (); node; node = next)
+  for (node = first_function (); node; node = next)
     {
-      next = cgraph_next_function (node);
+      next = next_function (node);
 
       /* If node is not needed at all, remove it.  */
       if (!node->aux)
@@ -462,9 +461,9 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  changed = true;
 	}
       /* If node is unreachable, remove its body.  */
-      else if (!pointer_set_contains (reachable, node))
+      else if (!reachable.contains (node))
         {
-	  if (!pointer_set_contains (body_needed_for_clonning, node->decl))
+	  if (!body_needed_for_clonning.contains (node->decl))
 	    node->release_body ();
 	  else if (!node->clone_of)
 	    gcc_assert (in_lto_p || DECL_RESULT (node->decl));
@@ -516,9 +515,9 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
   /* Remove unreachable variables.  */
   if (file)
     fprintf (file, "\nReclaiming variables:");
-  for (vnode = varpool_first_variable (); vnode; vnode = vnext)
+  for (vnode = first_variable (); vnode; vnode = vnext)
     {
-      vnext = varpool_next_variable (vnode);
+      vnext = next_variable (vnode);
       if (!vnode->aux
 	  /* For can_refer_decl_in_current_unit_p we want to track for
 	     all external variables if they are defined in other partition
@@ -530,7 +529,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  vnode->remove ();
 	  changed = true;
 	}
-      else if (!pointer_set_contains (reachable, vnode))
+      else if (!reachable.contains (vnode))
         {
 	  tree init;
 	  if (vnode->definition)
@@ -556,10 +555,6 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
       else
 	vnode->aux = NULL;
     }
-
-  pointer_set_destroy (reachable);
-  pointer_set_destroy (body_needed_for_clonning);
-  pointer_set_destroy (reachable_call_targets);
 
   /* Now update address_taken flags and try to promote functions to be local.  */
   if (file)
@@ -732,14 +727,17 @@ namespace {
 const pass_data pass_data_ipa_free_inline_summary =
 {
   SIMPLE_IPA_PASS, /* type */
-  "*free_inline_summary", /* name */
+  "free-inline-summary", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_IPA_FREE_INLINE_SUMMARY, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  0, /* todo_flags_finish */
+  /* Early optimizations may make function unreachable.  We can not
+     remove unreachable functions as part of the ealry opts pass because
+     TODOs are run before subpasses.  Do it here.  */
+  ( TODO_remove_functions | TODO_dump_symtab ), /* todo_flags_finish */
 };
 
 class pass_ipa_free_inline_summary : public simple_ipa_opt_pass

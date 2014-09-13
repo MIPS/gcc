@@ -25,11 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #  define GCC_EXCEPT_H
 #endif
 
+#include "hash-map.h"
 #include "hashtab.h"
 
 struct function;
 struct eh_region_d;
-struct pointer_map_t;
 
 /* The type of an exception region.  */
 enum eh_region_type
@@ -87,7 +87,7 @@ struct GTY(()) eh_landing_pad_d
      EXCEPTION_RECEIVER pattern will be expanded here, as well as other
      bookkeeping specific to exceptions.  There must not be normal edges
      into the block containing the landing-pad label.  */
-  rtx landing_pad;
+  rtx_code_label *landing_pad;
 
   /* The index of this landing pad within fun->eh->lp_array.  */
   int index;
@@ -204,7 +204,7 @@ struct GTY(()) eh_status
 
   /* At the gimple level, a mapping from gimple statement to landing pad
      or must-not-throw region.  See record_stmt_eh_region.  */
-  htab_t GTY((param_is (struct throw_stmt_node))) throw_stmt_table;
+  hash_map<gimple, int> *GTY(()) throw_stmt_table;
 
   /* All of the runtime type data used by the function.  These objects
      are emitted to the lang-specific-data-area for the function.  */
@@ -249,10 +249,10 @@ extern rtx expand_builtin_extend_pointer (tree);
 extern void expand_dw2_landing_pad_for_region (eh_region);
 
 typedef tree (*duplicate_eh_regions_map) (tree, void *);
-extern struct pointer_map_t *duplicate_eh_regions
+extern hash_map<void *, void *> *duplicate_eh_regions
   (struct function *, eh_region, int, duplicate_eh_regions_map, void *);
 
-extern void sjlj_emit_function_exit_after (rtx);
+extern void sjlj_emit_function_exit_after (rtx_insn *);
 
 extern eh_region gen_eh_region_cleanup (eh_region);
 extern eh_region gen_eh_region_try (eh_region);
@@ -291,8 +291,8 @@ struct GTY(()) throw_stmt_node {
   int lp_nr;
 };
 
-extern struct htab *get_eh_throw_stmt_table (struct function *);
-extern void set_eh_throw_stmt_table (struct function *, struct htab *);
+extern hash_map<gimple, int> *get_eh_throw_stmt_table (struct function *);
+extern void set_eh_throw_stmt_table (function *, hash_map<gimple, int> *);
 
 enum eh_personality_kind {
   eh_personality_none,

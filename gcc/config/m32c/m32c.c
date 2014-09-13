@@ -48,7 +48,6 @@
 #include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "vec.h"
 #include "basic-block.h"
@@ -3820,7 +3819,8 @@ m32c_prepare_shift (rtx * operands, int scale, int shift_code)
 	 undefined to skip one of the comparisons.  */
 
       rtx count;
-      rtx label, insn, tempvar;
+      rtx label, tempvar;
+      rtx_insn *insn;
 
       emit_move_insn (operands[0], operands[1]);
 
@@ -4046,7 +4046,7 @@ m32c_encode_section_info (tree decl, rtx rtl, int first)
 static int
 m32c_leaf_function_p (void)
 {
-  rtx saved_first, saved_last;
+  rtx_insn *saved_first, *saved_last;
   struct sequence_stack *seq;
   int rv;
 
@@ -4073,7 +4073,7 @@ m32c_leaf_function_p (void)
 static bool
 m32c_function_needs_enter (void)
 {
-  rtx insn;
+  rtx_insn *insn;
   struct sequence_stack *seq;
   rtx sp = gen_rtx_REG (Pmode, SP_REGNO);
   rtx fb = gen_rtx_REG (Pmode, FB_REGNO);

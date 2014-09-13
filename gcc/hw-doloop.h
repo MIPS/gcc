@@ -66,16 +66,16 @@ struct GTY (()) hwloop_info_d
   basic_block successor;
 
   /* The last instruction in the tail.  */
-  rtx last_insn;
+  rtx_insn *last_insn;
 
   /* The loop_end insn.  */
-  rtx loop_end;
+  rtx_insn *loop_end;
 
   /* The iteration register.  */
   rtx iter_reg;
 
   /* The new label placed at the beginning of the loop. */
-  rtx start_label;
+  rtx_insn *start_label;
 
   /* The new label placed at the end of the loop. */
   rtx end_label;
@@ -140,7 +140,7 @@ struct hw_doloop_hooks
   /* Examine INSN.  If it is a suitable doloop_end pattern, return the
      iteration register, which should be a single hard register.
      Otherwise, return NULL_RTX.  */
-  rtx (*end_pattern_reg) (rtx insn);
+  rtx (*end_pattern_reg) (rtx_insn *insn);
   /* Optimize LOOP.  The target should perform any additional analysis
      (e.g. checking that the loop isn't too long), and then perform
      its transformations.  Return true if successful, false if the

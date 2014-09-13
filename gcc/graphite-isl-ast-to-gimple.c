@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -55,7 +55,7 @@ extern "C" {
 #include "tree-into-ssa.h"
 #include <map>
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include "graphite-poly.h"
 #include "graphite-isl-ast-to-gimple.h"
 
@@ -72,6 +72,14 @@ static int max_mode_int_precision =
   GET_MODE_PRECISION (mode_for_size (MAX_FIXED_MODE_SIZE, MODE_INT, 0));
 static int graphite_expression_type_precision = 128 <= max_mode_int_precision ?
 						128 : max_mode_int_precision;
+
+struct ast_build_info
+{
+  ast_build_info()
+    : is_parallelizable(false)
+  { };
+  bool is_parallelizable;
+};
 
 /* Converts a GMP constant VAL to a tree and returns it.  */
 
@@ -435,7 +443,15 @@ translate_isl_ast_for_loop (loop_p context_loop,
   redirect_edge_succ_nodup (next_e, after);
   set_immediate_dominator (CDI_DOMINATORS, next_e->dest, next_e->src);
 
-  /* TODO: Add checking for the loop parallelism.  */
+  if (flag_loop_parallelize_all)
+  {
+    isl_id *id = isl_ast_node_get_annotation (node_for);
+    gcc_assert (id);
+    ast_build_info *for_info = (ast_build_info *) isl_id_get_user (id);
+    loop->can_be_parallel = for_info->is_parallelizable;
+    free (for_info);
+    isl_id_free (id);
+  }
 
   return last_e;
 }
@@ -616,9 +632,9 @@ translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
   gcc_assert (GBB_BB (gbb) != ENTRY_BLOCK_PTR_FOR_FN (cfun) &&
 	      "The entry block should not even appear within a scop");
 
-  loop_p loop = gbb_loop (gbb);
-  iv_map.create (loop->num + 1);
-  iv_map.safe_grow_cleared (loop->num + 1);
+  int nb_loops = number_of_loops (cfun);
+  iv_map.create (nb_loops);
+  iv_map.safe_grow_cleared (nb_loops);
 
   build_iv_mapping (iv_map, gbb, user_expr, ip, SCOP_REGION (pbb->scop));
   isl_ast_expr_free (user_expr);
@@ -834,6 +850,42 @@ generate_isl_schedule (scop_p scop)
   return schedule_isl;
 }
 
+/* This method is executed before the construction of a for node.  */
+static __isl_give isl_id *
+ast_build_before_for (__isl_keep isl_ast_build *build, void *user)
+{
+  isl_union_map *dependences = (isl_union_map *) user;
+  ast_build_info *for_info = XNEW (struct ast_build_info);
+  isl_union_map *schedule = isl_ast_build_get_schedule (build);
+  isl_space *schedule_space = isl_ast_build_get_schedule_space (build);
+  int dimension = isl_space_dim (schedule_space, isl_dim_out);
+  for_info->is_parallelizable =
+    !carries_deps (schedule, dependences, dimension);
+  isl_union_map_free (schedule);
+  isl_space_free (schedule_space);
+  isl_id *id = isl_id_alloc (isl_ast_build_get_ctx (build), "", for_info);
+  return id;
+}
+
+/* Set the separate option for all dimensions.
+   This helps to reduce control overhead.  */
+
+static __isl_give isl_ast_build *
+set_options (__isl_take isl_ast_build *control,
+	     __isl_keep isl_union_map *schedule)
+{
+  isl_ctx *ctx = isl_union_map_get_ctx (schedule);
+  isl_space *range_space = isl_space_set_alloc (ctx, 0, 1);
+  range_space =
+    isl_space_set_tuple_name (range_space, isl_dim_set, "separate");
+  isl_union_set *range =
+    isl_union_set_from_set (isl_set_universe (range_space));  
+  isl_union_set *domain = isl_union_map_range (isl_union_map_copy (schedule));
+  domain = isl_union_set_universe (domain);
+  isl_union_map *options = isl_union_map_from_domain_and_range (domain, range);
+  return isl_ast_build_set_options (control, options);
+}
+
 static __isl_give isl_ast_node *
 scop_to_isl_ast (scop_p scop, ivs_params &ip)
 {
@@ -846,8 +898,19 @@ scop_to_isl_ast (scop_p scop, ivs_params &ip)
   add_parameters_to_ivs_params (scop, ip);
   isl_union_map *schedule_isl = generate_isl_schedule (scop);
   isl_ast_build *context_isl = generate_isl_context (scop);
+  context_isl = set_options (context_isl, schedule_isl);
+  isl_union_map *dependences = NULL;
+  if (flag_loop_parallelize_all)
+  {
+    dependences = scop_get_dependences (scop);
+    context_isl =
+      isl_ast_build_set_before_each_for (context_isl, ast_build_before_for,
+					 dependences);
+  }
   isl_ast_node *ast_isl = isl_ast_build_ast_from_schedule (context_isl,
 							   schedule_isl);
+  if(dependences)
+    isl_union_map_free (dependences);
   isl_ast_build_free (context_isl);
   return ast_isl;
 }
@@ -908,7 +971,20 @@ graphite_regenerate_ast_isl (scop_p scop)
   ivs_params_clear (ip);
   isl_ast_node_free (root_node);
   timevar_pop (TV_GRAPHITE_CODE_GEN);
-  /* TODO: Add dump  */
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      loop_p loop;
+      int num_no_dependency = 0;
+
+      FOR_EACH_LOOP (loop, 0)
+	if (loop->can_be_parallel)
+	  num_no_dependency++;
+
+      fprintf (dump_file, "\n%d loops carried no dependency.\n",
+	       num_no_dependency);
+    }
+
   return !graphite_regenerate_error;
 }
 #endif

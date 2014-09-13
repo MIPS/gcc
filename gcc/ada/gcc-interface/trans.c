@@ -36,7 +36,7 @@
 #include "output.h"
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
-#include "pointer-set.h"
+#include "hash-set.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "bitmap.h"
@@ -1417,7 +1417,8 @@ Pragma_to_gnu (Node_Id gnat_node)
 		  gcc_unreachable ();
 	      }
 
-	    if (Present (Next (gnat_temp)))
+	    /* Deal with optional pattern (but ignore Reason => "...").  */
+	    if (Present (Next (gnat_temp)) && No (Chars (Next (gnat_temp))))
 	      {
 		/* pragma Warnings (On | Off, Name) is handled differently.  */
 		if (Nkind (Expression (Next (gnat_temp))) != N_String_Literal)
@@ -3008,7 +3009,7 @@ struct nrv_data
   bitmap nrv;
   tree result;
   Node_Id gnat_ret;
-  struct pointer_set_t *visited;
+  hash_set<tree> *visited;
 };
 
 /* Return true if T is a Named Return Value.  */
@@ -3142,7 +3143,7 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
   /* Avoid walking into the same tree more than once.  Unfortunately, we
      can't just use walk_tree_without_duplicates because it would only
      call us for the first occurrence of NRVs in the function body.  */
-  if (pointer_set_insert (dp->visited, *tp))
+  if (dp->visited->add (*tp))
     *walk_subtrees = 0;
 
   return NULL_TREE;
@@ -3282,7 +3283,7 @@ finalize_nrv_unc_r (tree *tp, int *walk_subtrees, void *data)
   /* Avoid walking into the same tree more than once.  Unfortunately, we
      can't just use walk_tree_without_duplicates because it would only
      call us for the first occurrence of NRVs in the function body.  */
-  if (pointer_set_insert (dp->visited, *tp))
+  if (dp->visited->add (*tp))
     *walk_subtrees = 0;
 
   return NULL_TREE;
@@ -3330,13 +3331,13 @@ finalize_nrv (tree fndecl, bitmap nrv, vec<tree, va_gc> *other, Node_Id gnat_ret
   data.nrv = nrv;
   data.result = DECL_RESULT (fndecl);
   data.gnat_ret = gnat_ret;
-  data.visited = pointer_set_create ();
+  data.visited = new hash_set<tree>;
   if (TYPE_RETURN_UNCONSTRAINED_P (TREE_TYPE (fndecl)))
     func = finalize_nrv_unc_r;
   else
     func = finalize_nrv_r;
   walk_tree (&DECL_SAVED_TREE (fndecl), func, &data, NULL);
-  pointer_set_destroy (data.visited);
+  delete data.visited;
 }
 
 /* Return true if RET_VAL can be used as a Named Return Value for the
@@ -5767,7 +5768,7 @@ gnat_to_gnu (Node_Id gnat_node)
 
 	/* For discriminant references in tagged types always substitute the
 	   corresponding discriminant as the actual selected component.  */
-	if (Is_Tagged_Type (Etype (gnat_prefix)))
+	if (Is_Tagged_Type (Underlying_Type (Etype (gnat_prefix))))
 	  while (Present (Corresponding_Discriminant (gnat_field)))
 	    gnat_field = Corresponding_Discriminant (gnat_field);
 
@@ -7910,12 +7911,14 @@ process_freeze_entity (Node_Id gnat_node)
 	{
 	  Entity_Id full_view = Full_View (gnat_entity);
 
+	  save_gnu_tree (full_view, NULL_TREE, false);
+
           if (IN (Ekind (full_view), Private_Kind)
 	      && Present (Underlying_Full_View (full_view)))
-	    full_view = Underlying_Full_View (full_view);
-
-	  if (present_gnu_tree (full_view))
-	    save_gnu_tree (full_view, NULL_TREE, false);
+	    {
+	      full_view = Underlying_Full_View (full_view);
+	      save_gnu_tree (full_view, NULL_TREE, false);
+	    }
 	}
 
       if (IN (kind, Type_Kind)

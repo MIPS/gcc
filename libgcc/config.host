@@ -322,13 +322,15 @@ esac
 case ${host} in
 aarch64*-*-elf)
 	extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
+	extra_parts="$extra_parts crtfastmath.o"
 	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
-	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp"
+	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp t-crtfm"
 	;;
 aarch64*-*-linux*)
+	extra_parts="$extra_parts crtfastmath.o"
 	md_unwind_header=aarch64/linux-unwind.h
 	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
-	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp"
+	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp t-crtfm"
 	;;
 alpha*-*-linux*)
 	tmake_file="${tmake_file} alpha/t-alpha alpha/t-ieee t-crtfm alpha/t-linux"
@@ -614,7 +616,7 @@ i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*)
 i[4567]86-wrs-vxworks|i[4567]86-wrs-vxworksae)
 	;;
 i[34567]86-*-cygwin*)
-	extra_parts="crtbegin.o crtend.o crtfastmath.o"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtfastmath.o"
 	# This has to match the logic for DWARF2_UNWIND_INFO in gcc/config/i386/cygming.h
 	if test x$enable_sjlj_exceptions = xyes; then
 		tmake_eh_file="i386/t-sjlj-eh"
@@ -630,7 +632,7 @@ i[34567]86-*-cygwin*)
 	tmake_file="${tmake_file} ${tmake_eh_file} ${tmake_dlldir_file} i386/t-slibgcc-cygming i386/t-cygming i386/t-cygwin i386/t-crtfm i386/t-chkstk t-dfprules"
 	;;
 x86_64-*-cygwin*)
-	extra_parts="crtbegin.o crtend.o crtfastmath.o"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtfastmath.o"
 	# This has to match the logic for DWARF2_UNWIND_INFO in gcc/config/i386/cygming.h
 	if test x$enable_sjlj_exceptions = xyes; then
 		tmake_eh_file="i386/t-sjlj-eh"
@@ -928,9 +930,6 @@ nios2-*-*)
 pdp11-*-*)
 	tmake_file="pdp11/t-pdp11 t-fdpbit"
 	;;
-picochip-*-*)
-	tmake_file="picochip/t-picochip t-fpbit"
-        ;;
 powerpc-*-darwin*)
 	case ${host} in
 	*-*-darwin9* | *-*-darwin[12][0-9]*)
