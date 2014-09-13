@@ -493,7 +493,11 @@
 	  && GET_CODE (x) == PLUS && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1)))
 	return false;
 
-      if ((mode == QImode || mode == HImode)
+      /* LRA will try to satisfy the constraints for the memory displacements
+	 and thus we must not reject invalid displacements in the predicate,
+	 or else LRA will bail out.
+	 FIXME: maybe remove this check completely?  */
+      if (!lra_in_progress && (mode == QImode || mode == HImode)
 	  && GET_CODE (x) == PLUS
 	  && REG_P (XEXP (x, 0))
 	  && CONST_INT_P (XEXP (x, 1)))
@@ -575,7 +579,11 @@
 	  && GET_CODE (x) == PLUS && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1)))
 	return false;
 
-      if ((mode == QImode || mode == HImode)
+      /* LRA will try to satisfy the constraints for the memory displacements
+	 and thus we must not reject invalid displacements in the predicate,
+	 or else LRA will bail out.
+	 FIXME: maybe remove this check completely?  */
+      if (!lra_in_progress && (mode == QImode || mode == HImode)
 	  && GET_CODE (x) == PLUS
 	  && REG_P (XEXP (x, 0))
 	  && CONST_INT_P (XEXP (x, 1)))
