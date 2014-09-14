@@ -280,7 +280,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 (export_macro diagnostic_args_macro)
 
 (defun diagnostic_expand_message (diagstate :cstring sfmt)
-  (debug "diagnostic_expand_message diagstate=" diagstate " sfmt=" sfmt)
+  ;;(debug "diagnostic_expand_message diagstate=" diagstate " sfmt=" sfmt)
   (assert_msg "check diagstate" (is_a diagstate class_diagnostic_state) diagstate)
   (assert_msg "check sfmt" sfmt sfmt)
   (let ( (diagvec (get_field :diag_vect diagstate))
@@ -295,7 +295,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		#{/* diagnostic_expand_message $SLEN_CHK*/ $FMTLEN = (($SFMT)?strlen($SFMT):0);
 		}#)
     (assert_msg "check diagvec" (is_multiple diagvec) diagvec)
-    (debug "diagnostic_expand_message sfmt=" sfmt " fmtlen=" fmtlen " diagvec=" diagvec)
+    ;;(debug "diagnostic_expand_message sfmt=" sfmt " fmtlen=" fmtlen " diagvec=" diagvec)
     (assert_msg "check diagvec" (is_multiple diagvec) diagvec)
     (forever 
      diagloop
@@ -319,7 +319,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		    }
 		    /* end diagnostic_expand_message $DOLPOS_CHK */
 		 }#)
-     ;(debug "diagnostic_expand_message dollarpos=" dollarpos " ixdoll=" ixdoll " dpos=" dpos)
+     ;;(debug "diagnostic_expand_message dollarpos=" dollarpos " ixdoll=" ixdoll " dpos=" dpos)
      (when (<i dollarpos 0)
 	 (exit diagloop))
      (if (<i ixdoll 0) 
@@ -327,13 +327,13 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
      (if (<=i ixdoll dpos)
        (let ( (diagcomp (multiple_nth diagvec ixdoll))
 	      )
-	 ;(debug "ixdoll=" ixdoll " diagcomp=" diagcomp)
+	 ;;(debug "ixdoll=" ixdoll " diagcomp=" diagcomp)
 	 (add2out sbuf diagcomp)))
      (setq spos (+i dollarpos 2))
      )					;end forever diagloop
     (let ( (diagmsg (strbuf2string discr_string sbuf))
 	   )
-      (debug "diagnostic_expand_message gives diagmsg=" diagmsg)
+      ;;(debug "diagnostic_expand_message gives diagmsg=" diagmsg)
       (return diagmsg))
   ))
 
@@ -1995,7 +1995,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
       (let ( (scont (unsafe_get_field :sexp_contents sexpr))
 	     (sloc (unsafe_get_field :loca_location sexpr))
 	     (soper (pair_head (list_first scont))) )
-	(debug "macroexpand_1 sexpr=" sexpr "\n soper" soper)
+	(debug "macroexpand_1 sexpr=" sexpr "\n.. soper" soper)
 	(if (melt_call_deeper_than 64)
 	    (warning_plain sloc "MELT quite deep macro expansion"))
 	(cond 
@@ -2009,7 +2009,8 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	   (let ( (opbind (find_env env soper)) 
 		  (opname (get_field :named_name soper))
 		  )
-	     (debug "macroexpand_1 opbind=" opbind "; for sloc=" debug_less sloc)
+	     (debug "macroexpand_1 opbind=" opbind "; for sloc=" debug_less sloc
+		    "\n.. for soper=" soper)
 	     (cond ( (is_a opbind class_macro_binding)
 		     (let ( (mexp (unsafe_get_field :mbind_expanser opbind)) 
 			    )
@@ -2130,6 +2131,11 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		      (null opbind)
 		      (not (melt_is_bootstrapping))
 		      )
+		     (debug "macroexpand_1 null opbind for soper=" soper
+			    "; sloc=" sloc
+			    "\n.. sexpr=" sexpr
+			    "\n.. env=" debug_more env)
+		     (shortbacktrace_dbg "macroexpand_1 nullopbind" 15)
 		     (let ( (macthunk (lambda ()
 					(mexpander sexpr env mexpander modctx)
 					))
@@ -2139,7 +2145,10 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 					       :slazymacro_oper soper
 					       ))
 			    )
-		       (debug "macroexpand_1 return lazymac" lazymac)
+		       (debug "macroexpand_1 return lazymac" lazymac
+			      "\n.. for sexpr=" debug_less sexpr
+			      "\n.. in env=" env)
+		       (shortbacktrace_dbg "macroexpand_1 lazymac" 15)
 		       (return lazymac ())
 		       ))
 		   (:else 
@@ -6900,7 +6909,8 @@ applications of @code{/i} primitives.}#
 
 ;;; the LET expander itself
 (defun mexpand_let (sexpr env mexpander modctx)
-  (debug "mexpand_let sexpr=" sexpr)
+  (debug "mexpand_let sexpr=" sexpr ";\n .. env=" env)
+  (shortbacktrace_dbg "mexpand_let" 10)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (if (null mexpander) (setq mexpander macroexpand_1))
@@ -6937,15 +6947,17 @@ applications of @code{/i} primitives.}#
       ( (is_a slb class_source_let_binding)
 	(let (
 	      (sx (unsafe_get_field :sletb_expr slb))
-	      (lb (instance class_let_binding
+	      (letbind (instance class_let_binding
 			    :binder (unsafe_get_field :sletb_binder slb)
 			    :letbind_type (unsafe_get_field :sletb_type slb)
 			    :letbind_expr sx
 			    :letbind_loc (or (get_field :loca_location slb) loc)))
 	      )
-	  (put_env newenv lb)
+	  (put_env newenv letbind)
+	  (debug "mexpand_let bix#" bix "; slb=" slb "\n.. letbind=" letbind "\n.. let:updated newenv=" newenv)
 	  ))
       ( (is_a slb class_source_macro_let_binding)
+	(debug "mexpand_let:macro slb=" slb "\n.. maclist=" maclist)
 	(assert_msg "check maclist" (is_list maclist) maclist)
 	(let (
 	      (macsymb (get_field :sletb_binder slb))
@@ -6966,7 +6978,7 @@ applications of @code{/i} primitives.}#
 	  (put_env newenv macbnd)
 	  (debug "mexpand_let:macro" " macbnd=" macbnd
 		 "\n.. sinstmac=" sinstmac
-		 "\n.. updated:macro newenv=" newenv
+		 "\n.. let:updated:macro newenv=" newenv
 		 "\n.. class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
 		 "\n.. class_source_macro_installation="class_source_macro_installation
 		 "\n")

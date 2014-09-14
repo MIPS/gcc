@@ -1487,7 +1487,7 @@ $TORANK}#
 	(put_int (unsafe_get_field :dbgi_maxdepth dbgi) oldmaxdepth)
 	)
       (when (and (not didshowfields)
-		  (<i (+i depth 3) oldmaxdepth) 
+		 (<i (+i depth 3) oldmaxdepth) 
 		 (is_a self class_described_environment))
 	(add2out_strconst out " %")
 	(dbg_out (get_field :denv_descr self) dbgi (+i depth 2))

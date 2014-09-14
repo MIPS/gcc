@@ -1,6 +1,16 @@
 
 2014-09-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-build-script.tpl (melt_build_error): Better date command.
+
+	* melt-build-script.sh: Regenerate.
+	* melt/warmelt-debug.melt: Improve indentation.
+
+	* melt/warmelt-macro.melt (diagnostic_expand_message): Comment all debug.
+	(macroexpand_1, mexpand_let): More debug.
+
+2014-09-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-build-script.tpl (melt_build_error): Redirect some error
 	info to _meltbuild_error.log file...
 
