@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f3[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h408594659; // forward declaration fromline 6588
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h408594659 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h126590395; // forward declaration fromline 6588
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h126590395 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -340,7 +340,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h408594659 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h126590395 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
