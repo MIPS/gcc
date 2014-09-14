@@ -14,24 +14,25 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
      -c -x c /dev/null -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
-(let ( (:macro mac 
+(let ( (one '1)
+       (:macro mac 
 	       (sexp env mexpander modctx)
 	       (debug "macro mac" " sexp=" sexp)
 	       (let ( (sloc (get_field :loca_location sexp))
 		      (scont (get_field :sexp_contents sexp))
-		      (xargs (expand_restlist_as_tuple sexcont 
+		      (xargs (expand_restlist_as_tuple scont 
 						       env mexpander modctx))
 		      (xtup `(tuple ,xargs ,xargs))
-		     )
+		      )
 		 (debug "mac sloc=" sloc " xargs=" xargs 
 			" xtup=" xtup)
 		 (let ( (res (mexpander xtup env mexpander modctx))
 			)
 		   (debug "macro mac" " res=" res)
 		   (return res)
-		 )
-	       ))
-       (v (mac 'a 'b (list '1 '2)))
+		   )
+		 ))
+       (v (mac 'a 'b (list one '2)))
        )
   (debug "v=" v))
 ;; eof tletmacro-1.melt

@@ -1,4 +1,22 @@
 
+2014-09-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-build-script.tpl (melt_build_error): Redirect some error
+	info to _meltbuild_error.log file...
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-macro.melt (class_source_lambda_for_macro): New
+	class with slam_origmacro field.
+	(class_source_let_binding_for_macro): New class with
+	sletfm_macroletbind field.
+	(mexpand_let): More code to handle :macro binding, but probably
+	not working yet.
+
+	* melt/warmelt-normal.melt (normexp_let): Error when unexpected
+	macro binding.
+
+	* testsuite/melt/tletmacro-1.melt: Improve.
 2014-09-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (mexpand_let): For macros, should also

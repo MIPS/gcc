@@ -68,10 +68,12 @@ date +"/*empty file for MELT build %c*/" > meltbuild-empty-file.c
 function meltbuild_error () {
     echo MELT BUILD SCRIPT FAILURE: $@ >&2
     printf '\n\n\n\n\n\n_________________________________________________\n\n' >&2
-    printenv >&2
-    echo >&2
-    pstree -a -l -p -s $USER >&2
-    echo >&2
+    date +"MELT BUILD FAILURE $@ at %c" > _meltbuild_error.log
+    printenv >> _meltbuild_error.log
+    echo >>  _meltbuild_error.log
+    pstree -a -l -p -s $USER >>  _meltbuild_error.log
+    echo >>  _meltbuild_error.log
+    ls -l _meltbuild_error.log >&2
     sleep 1
     exit 1
 }

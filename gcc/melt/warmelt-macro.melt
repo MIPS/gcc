@@ -1112,6 +1112,18 @@ $CLASS_SOURCE_CASEMATCH.}#
 	   sletb_expr			;the expression
 	   ))
 
+
+(defclass class_source_let_binding_for_macro
+  :doc #{The internal $CLASS_SOURCE_LET_BINDING_FOR_MACRO is abstract
+  syntax for $LET bindings [of things] in the source. The $SLETB_TYPE
+  is $CTYPE_VALUE, the $SLETB_BINDER gives the binder,
+  and the $SLETB_EXPR gives the bound lambda-expression. Field
+  $SLETM_MACROLETBIND gives the instance of
+  $CLASS_SOURCE_MACRO_LET_BINDING.}#
+  :super class_source_let_binding
+  :fields (sletfm_macroletbind))
+
+
 (defclass class_source_letrec_binding
   :doc #{The internal $CLASS_SOURCE_LETREC_BINDING is abstract syntax for $LETREC bindings in the source.}#
   :super class_source_let_binding
@@ -1145,6 +1157,15 @@ body.}#
   :fields (slam_argbind			;tuple of argument bindings
 	   slam_body			;tuple for body
 	   ))
+
+;; lambda
+(defclass class_source_lambda_for_macro
+  :doc #{The internal $CLASS_SOURCE_LAMBDA_FOR_MACRO is for abstract
+  syntax of macro lambdas. Field $SLAM_ORIGMACRO gives the original
+  macro or macrobinding}#
+  :super class_source_lambda
+  :fields (slam_origmacro)
+  )
 
 (defclass class_source_ifvariadic
   :doc #{The internal $CLASS_SOURCE_IFVARIADIC is for abstract syntax of
@@ -6943,10 +6964,9 @@ applications of @code{/i} primitives.}#
 	      )
 	  (put_int macbnd bix)
 	  (put_env newenv macbnd)
-	  ;;@@TODO: make also a normal function binding for that
-	  ;;macro, if it occurs as a plain variable...
 	  (debug "mexpand_let:macro" " macbnd=" macbnd
 		 "\n.. sinstmac=" sinstmac
+		 "\n.. updated:macro newenv=" newenv
 		 "\n.. class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
 		 "\n.. class_source_macro_installation="class_source_macro_installation
 		 "\n")
@@ -6983,7 +7003,7 @@ applications of @code{/i} primitives.}#
 	    (put_fields macbnd :mbind_expanser mexpanser)
 	    (debug "mexpand_let:macro update macbnd=" macbnd)
 	    (list_append macrobindlist macbnd)
-	    (assert_msg "mexpand_let:macro should also bind the macro to a function" ())
+	    ;;(assert_msg "mexpand_let:macro should also bind the macro to a function" ())
 	    )))
       (:else
        (error_at loc "invalid LET binding of $1 : $2"
@@ -6996,7 +7016,42 @@ applications of @code{/i} primitives.}#
 		   restpair discr_multiple 
 		   (lambda (e) (mexpander e newenv mexpander modctx))))
     (debug "mexpand_let" " bodytup=" bodytup
-	   "\n.. bindtup=" bindtup)
+	   "\n.. bindtup=" bindtup
+	   "\n.. macrobindlist=" macrobindlist)
+    (each_component_in_list
+     macrobindlist
+     curmacbind
+     (debug "mexpand_let" " curmacbind=" curmacbind)
+     (assert_msg "check curmacbind" (is_a curmacbind class_defined_macro_binding) curmacbind)
+     (let ( (:long macix (get_int curmacbind))
+	    (msymb (get_field :binder curmacbind))
+	    (smacdefbind (get_field :mbind_defmacro curmacbind))
+	    (oldbind (multiple_nth bindtup macix))
+	    )
+       (debug "mexpand_let" " macix#" macix " msymb=" msymb "\n.. smacdefbind=" smacdefbind
+	      "\n.. bindtup=" bindtup
+	      "\n.. oldbind=" oldbind)
+       (assert_msg "check goodix" (== oldbind smacdefbind) smacdefbind oldbind bindtup macix)
+       (assert_msg "check smacdefbind" (is_a smacdefbind class_source_macro_let_binding))
+       (let (
+	     (slambdamac (instance class_source_lambda_for_macro
+				   :loca_location (get_field :loca_location smacdefbind)
+				   :slam_argbind (get_field :sletm_macro_formals smacdefbind) 
+				   :slam_body (get_field :sletm_macro_body smacdefbind) 
+				   :slam_origmacro smacdefbind
+				   ))
+	     (sbindformac
+	      (instance class_source_let_binding_for_macro
+			:sletb_type ctype_value
+			:sletb_binder msymb
+			:sletb_expr slambdamac
+			:sletfm_macroletbind smacdefbind
+			))
+	     )
+	 (debug "mexpand_let" " sbindformac=" sbindformac)
+	 (multiple_put_nth bindtup macix sbindformac)
+	 )))
+    (debug "mexpand_let" " updated bindtup=" bindtup)
     (let ( (letr
 	    (instance class_source_let
 		      :loca_location loc
@@ -8839,9 +8894,11 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_instance
  class_source_labelled
  class_source_lambda
+ class_source_lambda_for_macro
  class_source_lazy_macro_expansion
  class_source_let
  class_source_let_binding
+ class_source_let_binding_for_macro
  class_source_letrec
  class_source_letrec_binding
  class_source_list
