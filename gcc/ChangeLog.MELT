@@ -1,4 +1,10 @@
 
+2014-09-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-debug.melt (dbgout_environment_method): Compute the
+	environment depth into envdepth variable, not into depth formal!
+	Now, environments are better displayed!
+
 2014-09-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate.
