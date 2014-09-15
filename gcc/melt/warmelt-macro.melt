@@ -2137,6 +2137,8 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 			    "\n.. env=" debug_more env)
 		     (shortbacktrace_dbg "macroexpand_1 nullopbind" 15)
 		     (let ( (macthunk (lambda ()
+					(debug "macroexpand_1 macthunk sloc=" sloc)
+					(shortbacktrace_dbg "macroexpand_1 macthunk" 15)
 					(mexpander sexpr env mexpander modctx)
 					))
 			    (lazymac (instance class_source_lazy_macro_expansion
@@ -6954,7 +6956,7 @@ applications of @code{/i} primitives.}#
 			    :letbind_loc (or (get_field :loca_location slb) loc)))
 	      )
 	  (put_env newenv letbind)
-	  (debug "mexpand_let bix#" bix "; slb=" slb "\n.. letbind=" letbind "\n.. let:updated newenv=" newenv)
+	  (debug "mexpand_let bix#" bix "; slb=" slb "\n.. letbind=" letbind "\n.. let:updated newenv=" debug_more newenv)
 	  ))
       ( (is_a slb class_source_macro_let_binding)
 	(debug "mexpand_let:macro slb=" slb "\n.. maclist=" maclist)
@@ -6978,7 +6980,7 @@ applications of @code{/i} primitives.}#
 	  (put_env newenv macbnd)
 	  (debug "mexpand_let:macro" " macbnd=" macbnd
 		 "\n.. sinstmac=" sinstmac
-		 "\n.. let:updated:macro newenv=" newenv
+		 "\n.. let:updated:macro newenv=" debug_more newenv
 		 "\n.. class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
 		 "\n.. class_source_macro_installation="class_source_macro_installation
 		 "\n")
@@ -7023,10 +7025,16 @@ applications of @code{/i} primitives.}#
 		 slb)
        (return))))
     ;;
-    (debug "mexpand_let" " macrobindlist=" macrobindlist "\n.. bindtup=" bindtup)
+    (debug "mexpand_let" " macrobindlist=" macrobindlist
+	   "\n.. bindtup=" bindtup
+	   "\n.. newenv=" debug_more newenv
+	   "\n.. restpair=" restpair)
+    ;; we could force the build of every macro at this point???
     (setq bodytup (pairlist_to_multiple 
 		   restpair discr_multiple 
-		   (lambda (e) (mexpander e newenv mexpander modctx))))
+		   (lambda (e)
+		     (debug "mexpand_let:macro:lambda-e e=" e "\n.. newenv=" newenv)
+		     (mexpander e newenv mexpander modctx))))
     (debug "mexpand_let" " bodytup=" bodytup
 	   "\n.. bindtup=" bindtup
 	   "\n.. macrobindlist=" macrobindlist)
