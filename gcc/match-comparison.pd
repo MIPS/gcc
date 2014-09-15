@@ -1,10 +1,18 @@
 /* From fold_binary.  */
 
+/* On GIMPLE bool != 0 is simply the canonical way to express a
+   condition in COND_EXPRs and GIMPLE_CONDs.
+   ???  Of course for assignments we still may want to strip those...  */
 (simplify
  (ne @0 integer_zerop@1)
  (if (TREE_CODE (TREE_TYPE (@0)) == BOOLEAN_TYPE)
-  /* ???  In GENERIC the type of the comparison may be 'int'.  */
-  (convert @0)))
+  /* On GENERIC comparisons can have arbitrary integer types.  */
+  (if (GENERIC)
+    (convert @0))
+  /* On GIMPLE boolean types may have a precision != 1 thus the
+     comparison serves as a more canonical required conversion.  */
+  (if (GIMPLE && useless_type_conversion_p (type, TREE_TYPE (@0)))
+    @0)))
 
 /* Distribute operations in equality compares.  */
 (for op (eq ne)

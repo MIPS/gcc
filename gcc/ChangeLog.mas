@@ -1,3 +1,11 @@
+2014-09-15  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c: Include tree-eh.c.
+	(fold_stmt_1): Handle GIMPLE_CONDs for gimple_simplify.
+	* gimple-match-head.c (gimple_simplify): Likewise.
+	* match-comparison.pd (bool != 0): Avoid some churn on
+	GIMPLE and amend comment.
+
 2014-09-12  Richard Biener  <rguenther@suse.de>
 
 	* match-constant-folding.pd (x & ~0 -> x): Move ...
