@@ -8244,7 +8244,7 @@ mips_print_operand_punctuation (FILE *file, int ch)
 	 compact version.  */
       if (final_sequence == 0
 	  || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2)
-	putc ('s', file);
+	putc ((TARGET_MICROMIPS && mips_isa_rev > 5) ? 'c' :'s', file);
       break;
 
     default:
@@ -12727,8 +12727,16 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       inverted_p = !inverted_p;
       /* Fall through.  */
     case GTU:
-      branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%0");
-      branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%0");
+      if (TARGET_MICROMIPS && mips_isa_rev > 5)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("bnec", "%2,%.,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("beqc", "%2,%.,%0");
+	}
+      else
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%0");
+	}
       break;
 
       /* These cases are always true or always false.  */
@@ -12736,13 +12744,29 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       inverted_p = !inverted_p;
       /* Fall through.  */
     case GEU:
-      branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%0");
-      branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%0");
+      if (TARGET_MICROMIPS && mips_isa_rev > 5)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("beqc", "%.,%.,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("bnec", "%.,%.,%0");
+	}
+      else
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%0");
+	}
       break;
 
     default:
-      branch[!inverted_p] = MIPS_BRANCH ("b%C1z", "%2,%0");
-      branch[inverted_p] = MIPS_BRANCH ("b%N1z", "%2,%0");
+      if (TARGET_MICROMIPS && mips_isa_rev > 5)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("b%C1zc", "%2,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("b%N1zc", "%2,%0");
+	}
+      else
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("b%C1z", "%2,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("b%N1z", "%2,%0");
+	}
       break;
     }
   return mips_output_conditional_branch (insn, operands, branch[1], branch[0]);
@@ -12947,6 +12971,8 @@ mips_process_sync_loop (rtx insn, rtx *operands)
 	  tmp1 = at;
 	}
       mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
+      if (TARGET_MICROMIPS && mips_isa_rev > 5)
+	mips_multi_add_insn ("nop", NULL);
 
       /* CMP = 0 [delay slot].  */
       if (cmp)
@@ -13007,6 +13033,8 @@ mips_process_sync_loop (rtx insn, rtx *operands)
      for details.  */
   mips_multi_add_insn (is_64bit_p ? "scd\t%0,%1" : "sc\t%0,%1", at, mem, NULL);
   mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+  if (TARGET_MICROMIPS && mips_isa_rev > 5)
+    mips_multi_add_insn ("nop", NULL);
 
   /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
   if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
@@ -16383,6 +16411,9 @@ mips_reorg_process_insns (void)
   /* Profiled functions can't be all noreorder because the profiler
      support uses assembler macros.  */
   if (crtl->profile)
+    cfun->machine->all_noreorder_p = false;
+
+  if (TARGET_MICROMIPS && mips_isa_rev > 5)
     cfun->machine->all_noreorder_p = false;
 
   /* Code compiled with -mfix-vr4120, -mfix-rm7000 or -mfix-24k can't be

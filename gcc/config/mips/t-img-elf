@@ -22,9 +22,16 @@
 # A multilib for mips64r6+LE
 # A multilib for mips32r6+LE+singlefloat+shortdouble
 
-MULTILIB_OPTIONS = mips64r6 mabi=64 EL msoft-float/msingle-float fshort-double
-MULTILIB_DIRNAMES = mips64r6 64 el sof sgl short
+#MULTILIB_OPTIONS = mips64r6 mabi=64 EL msoft-float/msingle-float fshort-double mmicromips
+#MULTILIB_DIRNAMES = mips64r6 64 el sof sgl short micromips
+MULTILIB_OPTIONS = mips64r6 mmicromips
+MULTILIB_DIRNAMES = mips64r6 micromips
 MULTILIB_MATCHES = EL=mel EB=meb
+
+# We only want micromips for mips32r2 architecture.
+MULTILIB_EXCEPTIONS += *mips32/mmicromips*
+MULTILIB_EXCEPTIONS += *mips64*/mmicromips*
+MULTILIB_EXCEPTIONS += *mmicromips/mabi=64*
 
 # Don't build 64r6 with single-float
 MULTILIB_EXCEPTIONS += mips64r6/*msingle-float*
