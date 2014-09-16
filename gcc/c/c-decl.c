@@ -10306,11 +10306,16 @@ c_write_global_declarations_1 (tree globals)
     }
   while (reconsider);
 
+  /* ?? For completeness, we could stop the TV_PHASE_DEFERRED timer
+     here, and start the TV_PHASE_DBGINFO timer.  Is it worth it, or
+     would it convolute things?  */
   for (decl = globals; decl; decl = DECL_CHAIN (decl))
     {
       check_global_declaration_1 (decl);
       debug_hooks->early_global_decl (decl);
     }
+  /* ?? Similarly here. Stop TV_PHASE_DBGINFO and start
+     TV_PHASE_DEFERRED again.  */
 }
 
 /* Callback to collect a source_ref from a DECL.  */
@@ -10373,6 +10378,9 @@ c_parse_final_cleanups (void)
   if (pch_file)
     return;
 
+  timevar_stop (TV_PHASE_PARSING);
+  timevar_start (TV_PHASE_DEFERRED);
+
   /* Do the Objective-C stuff.  This is where all the Objective-C
      module stuff gets generated (symtab, class/protocol/selector
      lists etc).  */
@@ -10413,6 +10421,9 @@ c_parse_final_cleanups (void)
   FOR_EACH_VEC_ELT (*all_translation_units, i, t)
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
+
+  timevar_stop (TV_PHASE_DEFERRED);
+  timevar_start (TV_PHASE_PARSING);
 
   ext_block = NULL;
 }

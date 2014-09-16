@@ -300,6 +300,8 @@ global_decl_processing_and_early_debug (void)
   tree globals, decl, *vec;
   int len, i;
 
+  timevar_stop (TV_PHASE_PARSING);
+  timevar_start (TV_PHASE_DEFERRED);
   /* Really define vars that have had only a tentative definition.
      Really output inline functions that must actually be callable
      and have not been output so far.  */
@@ -316,9 +318,13 @@ global_decl_processing_and_early_debug (void)
 
   wrapup_global_declarations (vec, len);
   check_global_declarations (vec, len);
+  timevar_stop (TV_PHASE_DEFERRED);
 
+  timevar_start (TV_PHASE_DBGINFO);
   emit_debug_global_declarations (vec, len, EMIT_DEBUG_EARLY);
+  timevar_stop (TV_PHASE_DBGINFO);
 
+  timevar_start (TV_PHASE_PARSING);
   free (vec);
 }
 

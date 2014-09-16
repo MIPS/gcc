@@ -40,6 +40,7 @@ DEFTIMEVAR (TV_TOTAL                 , "total time")
    validate_phases).  */
 DEFTIMEVAR (TV_PHASE_SETUP           , "phase setup")
 DEFTIMEVAR (TV_PHASE_PARSING         , "phase parsing")
+DEFTIMEVAR (TV_PHASE_DEFERRED        , "phase lang. deferred")
 DEFTIMEVAR (TV_PHASE_LATE_PARSING_CLEANUPS, "phase late parsing cleanups")
 DEFTIMEVAR (TV_PHASE_OPT_GEN         , "phase opt and generate")
 DEFTIMEVAR (TV_PHASE_DBGINFO         , "phase debug info")

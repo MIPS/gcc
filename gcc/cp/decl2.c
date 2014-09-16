@@ -4354,6 +4354,9 @@ c_parse_final_cleanups (void)
 
   /* FIXME - huh?  was  input_line -= 1;*/
 
+  timevar_stop (TV_PHASE_PARSING);
+  timevar_start (TV_PHASE_DEFERRED);
+
   /* We now have to write out all the stuff we put off writing out.
      These include:
 
@@ -4671,6 +4674,9 @@ c_parse_final_cleanups (void)
   /* Collect candidates for Java hidden aliases.  */
   java_hidden_aliases = collect_candidates_for_java_method_aliases ();
 
+  timevar_stop (TV_PHASE_DEFERRED);
+  timevar_start (TV_PHASE_PARSING);
+
   if (flag_vtable_verify)
     {
       vtv_recover_class_info ();
@@ -4680,6 +4686,8 @@ c_parse_final_cleanups (void)
 
   /* Issue warnings about static, but not defined, functions, etc, and
      generate initial debug information.  */
+  timevar_stop (TV_PHASE_PARSING);
+  timevar_start (TV_PHASE_DBGINFO);
   walk_namespaces (emit_debug_for_namespace, 0);
   if (vec_safe_length (pending_statics) != 0)
     {
@@ -4689,7 +4697,8 @@ c_parse_final_cleanups (void)
 				      pending_statics->length (),
 				      EMIT_DEBUG_EARLY);
     }
-
+  timevar_stop (TV_PHASE_DBGINFO);
+  timevar_start (TV_PHASE_PARSING);
 }
 
 /* Perform any post compilation-proper cleanups for the C++ front-end.
