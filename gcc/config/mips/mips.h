@@ -782,6 +782,8 @@ struct mips_cpu_info {
    --with-float is ignored if -mhard-float or -msoft-float are
      specified.
    --with-nan is ignored if -mnan is specified.
+   --with-fp-32 is ignored if -mfp is specified.
+   --with-odd-spreg-32 is ignored if -modd-spreg or -mno-odd-spreg are specified.
    --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
      specified. */
 #define OPTION_DEFAULT_SPECS \
@@ -795,6 +797,8 @@ struct mips_cpu_info {
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
   {"fpu", "%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}" }, \
   {"nan", "%{!mnan=*:-mnan=%(VALUE)}" }, \
+  {"fp_32", "%{" OPT_ARCH32 ":%{!mfp*:-mfp%(VALUE)}}" }, \
+  {"odd_spreg_32", "%{" OPT_ARCH32 ":%{!modd-spreg:%{!mno-odd-spreg:-m%(VALUE)}}}" }, \
   {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }, \
   {"llsc", "%{!mllsc:%{!mno-llsc:-m%(VALUE)}}" }, \
   {"mips-plt", "%{!mplt:%{!mno-plt:-m%(VALUE)}}" }, \
@@ -1196,7 +1200,8 @@ struct mips_cpu_info {
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi=*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
-%{mfp32} %{mfp64} %{mnan=*} \
+%{mfp32} %{mfpxx} %{mfp64} %{mnan=*} \
+%{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*} \
