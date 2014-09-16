@@ -1,3 +1,11 @@
+2014-09-16  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (operator_id): Add tcc member.
+	(get_operand_type): New function, split out from ...
+	(expr::gen_transform): ... here.  Treat comparisons
+	properly.
+	(dt_simplify::gen): Use get_operand_type.
+
 2014-09-15  Richard Biener  <rguenther@suse.de>
 
 	* gimple-fold.c: Include tree-eh.c.

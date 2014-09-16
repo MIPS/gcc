@@ -171,12 +171,14 @@ id_base::id_base (id_kind kind_, const char *id_)
 
 struct operator_id : public id_base
 {
-  operator_id (enum tree_code code_, const char *id_, unsigned nargs_)
+  operator_id (enum tree_code code_, const char *id_, unsigned nargs_,
+	       const char *tcc_)
       : id_base (id_base::CODE, id_),
-      code (code_), nargs (nargs_) {}
+      code (code_), nargs (nargs_), tcc (tcc_) {}
   unsigned get_required_nargs () const { return nargs; }
   enum tree_code code;
   unsigned nargs;
+  const char *tcc;
 };
 
 struct fn_id : public id_base
@@ -215,7 +217,7 @@ add_operator (enum tree_code code, const char *id,
       /* To have INTEGER_CST and friends as "predicate operators".  */
       && strcmp (tcc, "tcc_constant") != 0)
     return;
-  operator_id *op = new operator_id (code, id, nargs);
+  operator_id *op = new operator_id (code, id, nargs, tcc);
   id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
   if (*slot)
     fatal ("duplicate id definition");
@@ -890,6 +892,38 @@ is_conversion (id_base *op)
 	  || *op == VIEW_CONVERT_EXPR);
 }
 
+/* Get the type to be used for generating operands of OP from the
+   various sources.  */
+
+static const char *
+get_operand_type (id_base *op, const char *in_type,
+		  const char *expr_type,
+		  const char *other_oprnd_type)
+{
+  /* Generally operands whose type does not match the type of the
+     expression generated need to know their types but match and
+     thus can fall back to 'other_oprnd_type'.  */
+  if (is_conversion (op))
+    return other_oprnd_type;
+  else if (*op == REALPART_EXPR
+	   || *op == IMAGPART_EXPR)
+    return other_oprnd_type;
+  else if (is_a <operator_id *> (op)
+	   && strcmp (as_a <operator_id *> (op)->tcc, "tcc_comparison") == 0)
+    return other_oprnd_type;
+  else
+    {
+      /* Otherwise all types should match - choose one in order of
+         preference.  */
+      if (expr_type)
+	return expr_type;
+      else if (in_type)
+	return in_type;
+      else
+	return other_oprnd_type;
+    }
+}
+
 /* Code gen off the AST.  */
 
 void
@@ -912,8 +946,14 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       /* __real and __imag use the component type of its operand.  */
       sprintf (optype, "TREE_TYPE (TREE_TYPE (ops%d[0]))", depth);
       type = optype;
-      /* Avoid passing in_type / type to operand creation.  */
-      conversion_p = true;
+    }
+  else if (is_a <operator_id *> (operation->op)
+	   && strcmp (as_a <operator_id *> (operation->op)->tcc, "tcc_comparison") == 0)
+    {
+      /* comparisons use boolean_type_node (or what gets in), but
+         their operands need to figure out the types themselves.  */
+      sprintf (optype, "boolean_type_node");
+      type = optype;
     }
   else
     {
@@ -926,26 +966,16 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 
   fprintf (f, "{\n");
   fprintf (f, "  tree ops%d[%u], res;\n", depth, ops.length ());
+  char op0type[64];
+  snprintf (op0type, 64, "TREE_TYPE (ops%d[0])", depth);
   for (unsigned i = 0; i < ops.length (); ++i)
     {
       char dest[32];
       snprintf (dest, 32, "  ops%d[%u]", depth, i);
-      ops[i]->gen_transform (f, dest, gimple, depth + 1,
-			     conversion_p
-			     /* If this op is a conversion its single
-			        operand has to know its type itself.  */
-			     ? NULL
-			     /* For other ops the type is the type
-			        we got passed in, or if that is from
-				a conversion we can at most use the
-				first operand type for all further
-				operands.  So (convert (plus @1 (convert @2))
-				is possible while
-				(convert (plus (convert @1) @2))
-				is not unless we somehow discover what
-				operand we can generate first and do it
-				in the appropriate order.  */
-			     : (i == 0 ? in_type : type));
+      const char *optype
+	= get_operand_type (operation->op, in_type, expr_type,
+			    i == 0 ? NULL : op0type);
+      ops[i]->gen_transform (f, dest, gimple, depth + 1, optype);
     }
 
   if (gimple)
@@ -1804,9 +1834,12 @@ dt_simplify::gen (FILE *f, bool gimple)
 	    {
 	      char dest[32];
 	      snprintf (dest, 32, "  res_ops[%d]", j);
-	      e->ops[j]->gen_transform (f, dest, true, 1,
-					is_conversion (e->operation->op)
-					? NULL : "type");
+	      const char *optype
+	        = get_operand_type (e->operation->op,
+				    "type", e->expr_type,
+				    j == 0
+				    ? NULL : "TREE_TYPE (res_ops[0])");
+	      e->ops[j]->gen_transform (f, dest, true, 1, optype);
 	    }
 	  /* Re-fold the toplevel result.  It's basically an embedded
 	     gimple_build w/o actually building the stmt.  */
@@ -1833,9 +1866,12 @@ dt_simplify::gen (FILE *f, bool gimple)
 	      fprintf (f, "   tree res_op%d;\n", j);
 	      char dest[32];
 	      snprintf (dest, 32, "  res_op%d", j);
-	      e->ops[j]->gen_transform (f, dest, false, 1,
-					is_conversion (e->operation->op)
-					? NULL : "type");
+	      const char *optype
+	        = get_operand_type (e->operation->op,
+				    "type", e->expr_type,
+				    j == 0
+				    ? NULL : "TREE_TYPE (res_op0)");
+	      e->ops[j]->gen_transform (f, dest, false, 1, optype);
 	    }
 	  /* Re-fold the toplevel result.  */
 	  if (e->operation->op->kind == id_base::CODE)
