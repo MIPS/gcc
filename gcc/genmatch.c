@@ -132,7 +132,7 @@ END_BUILTINS
 
 struct id_base : typed_free_remove<id_base>
 {
-  enum id_kind { CODE, FN, USER_DEFINED } kind;
+  enum id_kind { CODE, FN, PREDICATE, USER_DEFINED } kind;
 
   id_base (id_kind, const char *);
 
@@ -188,6 +188,11 @@ struct fn_id : public id_base
   enum built_in_function fn;
 };
 
+struct predicate_id : public id_base
+{
+  predicate_id (const char *id_) : id_base (id_base::PREDICATE, id_) {}
+};
+
 template<>
 template<>
 inline bool
@@ -202,6 +207,24 @@ inline bool
 is_a_helper <operator_id *>::test (id_base *id)
 {
   return id->kind == id_base::CODE;
+}
+
+template<>
+template<>
+inline bool
+is_a_helper <predicate_id *>::test (id_base *id)
+{
+  return id->kind == id_base::PREDICATE;
+}
+
+static void
+add_predicate (const char *id)
+{
+  predicate_id *p = new predicate_id (id);
+  id_base **slot = operators->find_slot_with_hash (p, p->hashval, INSERT);
+  if (*slot)
+    fatal ("duplicate id definition");
+  *slot = p;
 }
 
 static void
@@ -257,8 +280,8 @@ struct operand {
 
 struct predicate : public operand
 {
-  predicate (const char *ident_) : operand (OP_PREDICATE), ident (ident_) {}
-  const char *ident;
+  predicate (predicate_id *p_) : operand (OP_PREDICATE), p (p_) {}
+  predicate_id *p;
   virtual void gen_transform (FILE *, const char *, bool, int, const char *, dt_operand ** = 0)
     { gcc_unreachable (); }
 };
@@ -525,7 +548,7 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
     }
 
   else if (predicate *p = dyn_cast<predicate *> (o))
-    fprintf (f, "%s", p->ident);
+    fprintf (f, "%s", p->p->id);
 
   else if (is_a<c_expr *> (o))
     fprintf (f, "c_expr");
@@ -1116,9 +1139,9 @@ cmp_operand (operand *o1, operand *o2)
 
   if (o1->type == operand::OP_PREDICATE)
     {
-      predicate *p1 = static_cast<predicate *>(o1);
-      predicate *p2 = static_cast<predicate *>(o2);
-      return strcmp (p1->ident, p2->ident) == 0;
+      predicate *p1 = as_a<predicate *>(o1);
+      predicate *p2 = as_a<predicate *>(o2);
+      return p1->p == p2->p;
     }
   else if (o1->type == operand::OP_EXPR)
     {
@@ -1381,9 +1404,9 @@ dt_operand::gen_opname (char *name, unsigned pos)
 unsigned
 dt_operand::gen_predicate (FILE *f, const char *opname)
 {
-  predicate *p = static_cast<predicate *> (op);
+  predicate *p = as_a <predicate *> (op);
 
-  fprintf (f, "if (%s (%s))\n", p->ident, opname);
+  fprintf (f, "if (%s (%s))\n", p->p->id, opname);
   fprintf (f, "{\n");
   return 1;
 }
@@ -2336,23 +2359,21 @@ parse_op (cpp_reader *r)
       if (token->type == CPP_NAME)
 	{
 	  const char *id = get_ident (r);
-	  /* We support zero-operand operator names as predicates.  */
 	  id_base *opr = get_operator (id);
-	  if (opr)
+	  if (!opr)
+	    fatal_at (token, "expected predicate name");
+	  if (operator_id *code = dyn_cast <operator_id *> (opr))
 	    {
-	      if (operator_id *code = dyn_cast <operator_id *> (opr))
-		{
-		  if (code->nargs != 0)
-		    fatal_at (token, "using an operator with operands as predicate");
-		  /* Parse the zero-operand operator "predicates" as
-		     expression.  */
-		  op = new expr (new e_operation (id));
-		}
-	      else
-		fatal_at (token, "using an unsupported operator as predicate");
+	      if (code->nargs != 0)
+		fatal_at (token, "using an operator with operands as predicate");
+	      /* Parse the zero-operand operator "predicates" as
+		 expression.  */
+	      op = new expr (new e_operation (id));
 	    }
+	  else if (predicate_id *p = dyn_cast <predicate_id *> (opr))
+	    op = new predicate (p);
 	  else
-	    op = new predicate (id);
+	    fatal_at (token, "using an unsupported operator as predicate");
 	  token = peek (r);
 	  if (token->flags & PREV_WHITE)
 	    return op;
@@ -2612,6 +2633,20 @@ parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers)
     simplifiers[i]->ifexpr_vec.safe_push (if_or_with (ifexpr, loc, false));
 }
 
+static void
+parse_predicates (cpp_reader *r, source_location)
+{
+  do
+    {
+      const cpp_token *token = peek (r);
+      if (token->type != CPP_NAME)
+	break;
+
+      add_predicate (get_ident (r));
+    }
+  while (1);
+}
+
 static size_t
 round_alloc_size (size_t s)
 {
@@ -2631,6 +2666,8 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
     parse_for (r, token->src_loc, simplifiers); 
   else if (strcmp (id, "if") == 0)
     parse_if (r, token->src_loc, simplifiers);
+  else if (strcmp (id, "define_predicates") == 0)
+    parse_predicates (r, token->src_loc);
   else
     fatal_at (token, "expected 'simplify' or 'for' or 'if'");
 

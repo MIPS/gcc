@@ -1,3 +1,18 @@
+2014-09-16  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (id_base::id_kind): Add PREDICATE.
+	(struct predicate_id): New id_base variant.
+	(is_a_helper): Add predicate_id support.
+	(add_predicate): New function.
+	(struct predicate): Adjust.
+	(print_operand): Likewise.
+	(cmp_operand): Likewise.
+	(dt_operand::gen_predicate): Likewise.
+	(parse_op): Likewise.  Error out on unknown predicates.
+	(parse_predicates): New function.
+	(parse_pattern): Call it.
+	* match.pd: Define used predicates.
+
 2014-09-16  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (operand::gen_transform): Add dt_operand ** default
