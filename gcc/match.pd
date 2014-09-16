@@ -30,6 +30,45 @@ along with GCC; see the file COPYING3.  If not see
    CONSTANT_CLASS_P)
 
 
+/* Simple example for a user-defined predicate - modeled after
+   fold-const.c:negate_expr_p.  */
+(match negate_expr_p
+ INTEGER_CST
+ (if (TYPE_OVERFLOW_WRAPS (type)
+      || may_negate_without_overflow_p (t))))
+(match negate_expr_p
+ (bit_not @0)
+ (if (INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_WRAPS (type))))
+(match negate_expr_p
+ FIXED_CST)
+(match negate_expr_p
+ (negate @0))
+(match negate_expr_p
+ REAL_CST
+ (if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (t)))))
+/* ???  For VECTOR_CST and COMPLEX_CST we don't have an easy way
+   to express the recursion (in the match pattern).  Recursing
+   in the if expression causes us to refer to the fold-const.c:negate_expr_p
+   predicate as predicates are not "replaced" (mangled) in c-exprs.  */
+(match negate_expr_p
+ /* -(A + B) -> (-A) - B.  */
+ /* -(A + B) -> (-B) - A.  */
+ (plus:c negate_expr_p @0)
+ (if (!HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type))
+      && !HONOR_SIGNED_ZEROS (TYPE_MODE (type)))))
+(match negate_expr_p
+  (minus @0 @1)
+  (if (!HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type))
+       && !HONOR_SIGNED_ZEROS (TYPE_MODE (type)))))
+/* ???  To be continued.  Match up with actual simplifications!  */
+/* ???  Unfortunately combining the predicate definition with
+   the actual simplification isn't possible.  Would be a special-case
+   for negate_expr_p anyway.
+     (simplify
+       (negate (match negate_expr_p (....))
+   anyone?  */
+
+
 /* tree-ssa/ifc-pr44710.c requires a < b ? c : d to fold to 1.
    ???  probably runs into issue of recursive folding of a < b op0.  */
 /* tree-ssa/ssa-ccp-16.c wants to fold "hello"[i_2] to 0

@@ -188,9 +188,13 @@ struct fn_id : public id_base
   enum built_in_function fn;
 };
 
+struct simplify;
+
 struct predicate_id : public id_base
 {
-  predicate_id (const char *id_) : id_base (id_base::PREDICATE, id_) {}
+  predicate_id (const char *id_)
+    : id_base (id_base::PREDICATE, id_), matchers (vNULL) {}
+  vec<simplify *> matchers;
 };
 
 template<>
@@ -217,7 +221,7 @@ is_a_helper <predicate_id *>::test (id_base *id)
   return id->kind == id_base::PREDICATE;
 }
 
-static void
+static predicate_id * 
 add_predicate (const char *id)
 {
   predicate_id *p = new predicate_id (id);
@@ -225,6 +229,7 @@ add_predicate (const char *id)
   if (*slot)
     fatal ("duplicate id definition");
   *slot = p;
+  return p;
 }
 
 static void
@@ -461,6 +466,9 @@ struct dt_node
 
   virtual void gen_gimple (FILE *) {}
   virtual void gen_generic (FILE *) {}
+
+  void gen_gimple_kids (FILE *);
+  void gen_generic_kids (FILE *);
 };
 
 struct dt_operand: public dt_node
@@ -475,7 +483,7 @@ struct dt_operand: public dt_node
 
   virtual void gen_gimple (FILE *);
   virtual void gen_generic (FILE *);
-  unsigned gen_predicate (FILE *, const char *);
+  unsigned gen_predicate (FILE *, const char *, bool);
   unsigned gen_match_op (FILE *, const char *);
 
   unsigned gen_gimple_expr (FILE *);
@@ -483,9 +491,6 @@ struct dt_operand: public dt_node
 
   char *get_name (char *);
   void gen_opname (char *, unsigned);
-
-  void gen_gimple_kids (FILE *);
-  void gen_generic_kids (FILE *);
 };
 
 
@@ -901,7 +906,8 @@ void
 check_no_user_id (simplify *s)
 {
   check_no_user_id (s->match);
-  check_no_user_id (s->result);
+  if (s->result)
+    check_no_user_id (s->result);
 }
 
 bool
@@ -1386,7 +1392,9 @@ decision_tree::print (FILE *f)
 char *
 dt_operand::get_name (char *name)
 {
-  if (parent->level == 1)
+  if (!parent)
+    sprintf (name, "t");
+  else if (parent->level == 1)
     sprintf (name, "op%u", pos);
   else if (parent->type == dt_node::DT_MATCH)
     return parent->get_name (name); 
@@ -1398,15 +1406,28 @@ dt_operand::get_name (char *name)
 void
 dt_operand::gen_opname (char *name, unsigned pos)
 {
-  sprintf (name, "o%u%u", level, pos);
+  if (!parent)
+    sprintf (name, "op%u", pos);
+  else
+    sprintf (name, "o%u%u", level, pos);
 }
 
 unsigned
-dt_operand::gen_predicate (FILE *f, const char *opname)
+dt_operand::gen_predicate (FILE *f, const char *opname, bool gimple)
 {
   predicate *p = as_a <predicate *> (op);
 
-  fprintf (f, "if (%s (%s))\n", p->p->id, opname);
+  if (p->p->matchers.exists ())
+    {
+      /* If this is a predicate generated from a pattern mangle its
+	 name and pass on the valueize hook.  */
+      if (gimple)
+	fprintf (f, "if (gimple_%s (%s, valueize))\n", p->p->id, opname);
+      else
+	fprintf (f, "if (tree_%s (%s))\n", p->p->id, opname);
+    }
+  else
+    fprintf (f, "if (%s (%s))\n", p->p->id, opname);
   fprintf (f, "{\n");
   return 1;
 }
@@ -1489,7 +1510,7 @@ dt_operand::gen_generic_expr (FILE *f, const char *opname)
 }
 
 void
-dt_operand::gen_gimple_kids (FILE *f)
+dt_node::gen_gimple_kids (FILE *f)
 {
   vec<dt_operand *> gimple_exprs = vNULL;
   vec<dt_operand *> generic_exprs = vNULL;
@@ -1636,7 +1657,7 @@ dt_operand::gen_gimple (FILE *f)
     switch (op->type)
       {
 	case operand::OP_PREDICATE:
-	  n_braces = gen_predicate (f, opname);
+	  n_braces = gen_predicate (f, opname, true);
 	  break;
 
 	case operand::OP_EXPR:
@@ -1672,7 +1693,7 @@ dt_operand::gen_generic (FILE *f)
     switch (op->type)
       {
 	case operand::OP_PREDICATE:
-	  n_braces = gen_predicate (f, opname);
+	  n_braces = gen_predicate (f, opname, false);
 	  break;
 
 	case operand::OP_EXPR:
@@ -1698,7 +1719,7 @@ dt_operand::gen_generic (FILE *f)
 }
 
 void
-dt_operand::gen_generic_kids (FILE *f)
+dt_node::gen_generic_kids (FILE *f)
 {
   bool any = false;
   for (unsigned j = 0; j < kids.length (); ++j)
@@ -1857,7 +1878,12 @@ dt_simplify::gen (FILE *f, bool gimple)
   output_line_directive (f, s->result_location, true);
   fprintf (f, ", %%s:%%d\\n\", __FILE__, __LINE__);\n");
 
-  if (gimple)
+  if (!s->result)
+    {
+      /* If there is no result then this is a predicate implementation.  */
+      fprintf (f, "return true;\n");
+    }
+  else if (gimple)
     {
       if (s->result->type == operand::OP_EXPR)
 	{
@@ -2035,6 +2061,30 @@ decision_tree::gen_generic (FILE *f)
     }
 }
 
+void
+write_predicate (FILE *f, predicate_id *p, decision_tree &dt, bool gimple)
+{
+  fprintf (f, "\nbool\n"
+	   "%s%s (tree t%s)\n"
+	   "{\n", gimple ? "gimple_" : "tree_", p->id,
+	   gimple ? ", tree (*valueize)(tree) = NULL" : "");
+  /* Conveniently make 'type' available.  */
+  fprintf (f, "tree type = TREE_TYPE (t);\n");
+
+  if (!gimple)
+    {
+      fprintf (f, "if (TREE_SIDE_EFFECTS (t)) return false;\n");
+      dt.root->gen_generic_kids (f);
+    }
+  else
+    {
+      dt.root->gen_gimple_kids (f);
+    }
+  
+  fprintf (f, "return false;\n"
+	   "}\n");
+}
+
 
 static void
 outline_c_exprs (FILE *f, struct operand *op)
@@ -2071,17 +2121,13 @@ outline_c_exprs (FILE *f, struct operand *op)
 }
 
 static void
-write_header (FILE *f, vec<simplify *>& simplifiers, const char *head)
+write_header (FILE *f, const char *head)
 {
   fprintf (f, "/* Generated automatically by the program `genmatch' from\n");
   fprintf (f, "   a IL pattern matching and simplification description.  */\n");
 
   /* Include the header instead of writing it awkwardly quoted here.  */
   fprintf (f, "\n#include \"%s\"\n", head);
-
-  /* Outline complex C expressions to helper functions.  */
-  for (unsigned i = 0; i < simplifiers.length (); ++i)
-    outline_c_exprs (stdout, simplifiers[i]->result);
 }
 
 
@@ -2412,38 +2458,44 @@ copy_reverse (vec<T> v)
    and fill SIMPLIFIERS with the results.  */
 
 static void
-parse_simplify (cpp_reader *r, source_location match_location,
+parse_simplify (cpp_reader *r, const char *id, source_location match_location,
 		vec<simplify *>& simplifiers)
 {
-  const cpp_token *token = peek (r);
-  const char *id;
-  if (token->type == CPP_NAME)
-    id = get_ident (r);
-  else
-    {
-      static int cnt;
-      char *tem;
-      asprintf (&tem, "anon_%d", ++cnt);
-      id = tem;
-    }
   const cpp_token *loc = peek (r);
   struct operand *match = parse_op (r);
   if (match->type != operand::OP_EXPR)
     fatal_at (loc, "expected uncaptured expression");
 
-  token = peek (r);
+  const cpp_token *token = peek (r);
+
+  /* If this if is immediately closed then it is part of a predicate
+     definition.  Push it.  */
+  if (token->type == CPP_CLOSE_PAREN)
+    {
+      simplifiers.safe_push
+	(new simplify (id, match, match_location, NULL, token->src_loc));
+      return;
+    }
 
   auto_vec<if_or_with> ifexprs;
   while (1)
     {
       if (token->type == CPP_OPEN_PAREN)
 	{
+	  source_location paren_loc = token->src_loc;
 	  eat_token (r, CPP_OPEN_PAREN);
 	  if (peek_ident (r, "if"))
 	    {
 	      eat_ident (r, "if");
 	      ifexprs.safe_push (if_or_with (parse_c_expr (r, CPP_OPEN_PAREN),
 					     token->src_loc, false));
+	      /* If this if is immediately closed then it contains a
+	         manual matcher or is part of a predicate definition.
+		 Push it.  */
+	      if (peek (r)->type == CPP_CLOSE_PAREN)
+		simplifiers.safe_push
+		   (new simplify (id, match, match_location, NULL,
+				  paren_loc, copy_reverse (ifexprs)));
 	    }
 	  else if (peek_ident (r, "with"))
 	    {
@@ -2661,7 +2713,21 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
   const cpp_token *token = peek (r);
   const char *id = get_ident (r);
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (r, token->src_loc, simplifiers);
+    parse_simplify (r, NULL, token->src_loc, simplifiers);
+  else if (strcmp (id, "match") == 0)
+    {
+      const char *name = get_ident (r);
+      id_base *id = get_operator (name);
+      predicate_id *p;
+      if (!id)
+	p = add_predicate (name);
+      else if ((p = dyn_cast <predicate_id *> (id)))
+	;
+      else
+	fatal_at (token, "cannot add a match to a non-predicate ID");
+      parse_simplify (r, name, token->src_loc, p->matchers);
+      /* ???  Sanity check the added "simplifiers".  */
+    }
   else if (strcmp (id, "for") == 0)
     parse_for (r, token->src_loc, simplifiers); 
   else if (strcmp (id, "if") == 0)
@@ -2672,6 +2738,23 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
     fatal_at (token, "expected 'simplify' or 'for' or 'if'");
 
   eat_token (r, CPP_CLOSE_PAREN);
+}
+
+static vec<simplify *>
+lower (vec<simplify *> simplifiers)
+{
+  for (unsigned i = 0; i < simplifiers.length (); ++i)
+    check_no_user_id (simplifiers[i]);
+
+  vec<simplify *> out_simplifiers0 = vNULL;
+  for (unsigned i = 0; i < simplifiers.length (); ++i)
+    lower_opt_convert (simplifiers[i], out_simplifiers0);
+
+  vec<simplify *> out_simplifiers = vNULL;
+  for (unsigned i = 0; i < out_simplifiers0.length (); ++i)
+    lower_commutative (out_simplifiers0[i], out_simplifiers);
+
+  return out_simplifiers;
 }
 
 int
@@ -2746,16 +2829,39 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
       token = next (r);
     }
 
-  for (unsigned i = 0; i < simplifiers.length (); ++i)
-    check_no_user_id (simplifiers[i]);
+  if (gimple)
+    write_header (stdout, "gimple-match-head.c");
+  else
+    write_header (stdout, "generic-match-head.c");
 
-  vec<simplify *> out_simplifiers0 = vNULL;
-  for (unsigned i = 0; i < simplifiers.length (); ++i)
-    lower_opt_convert (simplifiers[i], out_simplifiers0);
+  /* Go over all predicates defined with patterns and perform
+     lowering and code generation.  */
+  for (hash_table<id_base>::iterator iter = operators->begin ();
+       iter != operators->end (); ++iter)
+    {
+      id_base *id = *iter;
+      if (predicate_id *p = dyn_cast <predicate_id *> (id))
+	if (p->matchers.exists ())
+	  {
+	    vec<simplify *> matchers = lower (p->matchers);
+	    p->matchers = matchers;
 
-  vec<simplify *> out_simplifiers = vNULL;
-  for (unsigned i = 0; i < out_simplifiers0.length (); ++i)
-    lower_commutative (out_simplifiers0[i], out_simplifiers);
+	    if (verbose)
+	      for (unsigned i = 0; i < matchers.length (); ++i)
+		print_matches (matchers[i]);
+
+	    decision_tree dt;
+	    for (unsigned i = 0; i < matchers.length (); ++i)
+	      dt.insert (matchers[i], i);
+
+	    if (verbose)
+	      dt.print (stderr);
+
+	    write_predicate (stdout, p, dt, gimple);
+	  }
+    }
+
+  vec<simplify *> out_simplifiers = lower (simplifiers);
 
   if (verbose)
     for (unsigned i = 0; i < out_simplifiers.length (); ++i)
@@ -2768,16 +2874,14 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
   if (verbose)
     dt.print (stderr);
 
+  /* Outline complex C expressions to helper functions.  */
+  for (unsigned i = 0; i < out_simplifiers.length (); ++i)
+    outline_c_exprs (stdout, out_simplifiers[i]->result);
+
   if (gimple)
-    {
-      write_header (stdout, out_simplifiers, "gimple-match-head.c");
-      dt.gen_gimple (stdout);
-    }
+    dt.gen_gimple (stdout);
   else
-    {
-      write_header (stdout, out_simplifiers, "generic-match-head.c");
-      dt.gen_generic (stdout);
-    }
+    dt.gen_generic (stdout);
 
   cpp_finish (r, NULL);
   cpp_destroy (r);

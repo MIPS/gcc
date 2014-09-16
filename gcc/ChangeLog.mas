@@ -1,5 +1,31 @@
 2014-09-16  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (struct predicate_id): Add matchers member.
+	(add_predicate): Return added predicate.
+	(dt_node::gen_gimple_kids, dt_node::gen_generic_kids): Relocate
+	from ...
+	(dt_operand::gen_gimple_kids, dt_node::gen_generic_kids): ... here.
+	(check_no_user_id): Guard against NULL result.
+	(dt_operand::get_name): Handle NULL parent.
+	(dt_operand::gen_opname): Likewise.
+	(dt_operand::gen_predicate): Mangle user-defined predicates.
+	(dt_operand::gen_generic): Adjust.
+	(dt_operand::gen_gimple): Likewise.
+	(dt_simplify::gen): Guard against NULL result.
+	(write_predicate): New function.
+	(write_header): Only write header, not split out c-exprs.
+	(parse_simplify): Move identifier handling out, handle
+	"empty" result.
+	(parse_pattern): Parse (match <id> ...).  Drop optional
+	identifier from (simplify...).
+	(lower): New function, split out from ...
+	(main): ... here.  Generate code for all user-defined
+	predicates.
+	* match.pd (negate_expr_p): Implement as predicate.
+	* match-comparison.pd: Use negate_expr_p predicate.
+
+2014-09-16  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (id_base::id_kind): Add PREDICATE.
 	(struct predicate_id): New id_base variant.
 	(is_a_helper): Add predicate_id support.
