@@ -468,7 +468,6 @@ struct dt_operand: public dt_node
 
 struct dt_simplify: public dt_node
 {
-  static const unsigned level_max = UINT_MAX;
   static const unsigned capture_max = 6;
   simplify *s; 
   unsigned pattern_no;

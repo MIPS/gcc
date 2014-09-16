@@ -1,3 +1,7 @@
+2014-09-16  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (dt_node::level_max): Remove.
+
 2014-09-16  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (operator_id): Add tcc member.
