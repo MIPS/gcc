@@ -6788,7 +6788,7 @@ applications of @code{/i} primitives.}#
   (shortbacktrace_dbg "mexpand_letbinding" 7)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
-  (if (null mexpander) (setq mexpander macroexpand_1))
+  (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
@@ -6911,13 +6911,11 @@ applications of @code{/i} primitives.}#
 
 
 ;;; the LET expander itself
-;;; mexpand_let should process the binding list incrementally, in one pass.
 (defun mexpand_let (sexpr env mexpander modctx)
-  (debug "mexpand_let sexpr=" sexpr ";\n .. env=" env)
-  (shortbacktrace_dbg "mexpand_let" 10)
+  (debug "mexpand_let" " start sexpr=" sexpr " env=" debug_less env)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
-  (if (null mexpander) (setq mexpander macroexpand_1))
+  (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
@@ -6925,166 +6923,85 @@ applications of @code{/i} primitives.}#
 	(secpair (pair_tail (list_first cont)))
 	(restpair (pair_tail secpair))
 	(bindexpr (pair_head secpair))
+	(sbindlist (cond
+		    ( (is_a bindexpr class_sexpr)
+		      (get_field :sexp_contents bindexpr))
+		    ( (null bindexpr)
+		      ())
+		    ( (is_list bindexpr)
+		      bindexpr)
+		    (:else
+		     (error_at loc "invalid bindings in LET")
+		     ())))
+	(letbindlist (make_list discr_list))
 	(newenv (fresh_env env))
 	(maclist (get_field :mocx_macrolist modctx))
-	(macrobindlist (make_list discr_list))
-	(bindtup ())
-	(bodytup ())
 	)
-    (if bindexpr 
-	(if (is_a bindexpr class_sexpr) 
-	    (setq bindtup 
-		  (pairlist_to_multiple 
-		   (list_first (unsafe_get_field :sexp_contents bindexpr))
-		   discr_multiple
-		   ;;; we should actually use newenv, not env, below
-		   ;;; and update newenv incrementally...
-		   (lambda (b)
-		     (debug "mexpand_let:lambda-b b=" b)
-		     (if (is_not_a b class_sexpr)
-			 (error_plain loc "sexpr expected in LET binding"))
-		     (mexpand_letbinding b env mexpander modctx))))
-	  (error_plain loc "missing letbinding-s in LET"_))
-      )
-    (foreach_in_multiple
-     (bindtup)
-     (slb :long bix)
-     (debug "mexpand_let slb=" slb " bix=" bix)
-     (cond
-      ( (is_a slb class_source_let_binding)
-	(let (
-	      (sx (unsafe_get_field :sletb_expr slb))
-	      (letbind (instance class_let_binding
-			    :binder (unsafe_get_field :sletb_binder slb)
-			    :letbind_type (unsafe_get_field :sletb_type slb)
-			    :letbind_expr sx
-			    :letbind_loc (or (get_field :loca_location slb) loc)))
-	      )
-	  (put_env newenv letbind)
-	  (debug "mexpand_let bix#" bix "; slb=" slb "\n.. letbind=" letbind "\n.. let:updated newenv=" debug_more newenv)
-	  ))
-      ( (is_a slb class_source_macro_let_binding)
-	(debug "mexpand_let:macro slb=" slb "\n.. maclist=" maclist)
-	(assert_msg "check maclist" (is_list maclist) maclist)
-	(let (
-	      (macsymb (get_field :sletb_binder slb))
-	      (macloc (or (get_field :loca_location slb) loc))
-	      (macformals (get_field :sletm_macro_formals slb))
-	      (macbody (get_field :sletm_macro_body slb))
-	      (macbnd (instance class_defined_macro_binding
-				:binder macsymb
-				:mbind_expanser ()
-				:mbind_defmacro slb
-				:mbind_data ()
-				))
-	      (sinstmac (instance class_source_macro_installation
-				  :loca_location loc
-				  :smacinst_defmacro slb))
-	      )
-	  (put_int macbnd bix)
-	  (put_env newenv macbnd)
-	  (debug "mexpand_let:macro" " macbnd=" macbnd
-		 "\n.. sinstmac=" sinstmac
-		 "\n.. let:updated:macro newenv=" debug_more newenv
-		 "\n.. class_source_lazy_macro_expansion=" class_source_lazy_macro_expansion
-		 "\n.. class_source_macro_installation="class_source_macro_installation
-		 "\n")
-	  (list_append maclist sinstmac)
-	  (debug "mexpand_let:macro updated maclist=" maclist)
-	  (letrec ( (mexpanser
-		     (lambda (sexprm envm mexpanderm modctxm)
-		       (debug "mexpand_let:mexpanser sexprm=" sexprm
-			      "\n.. envm=" debug_less envm
-			      "\n.. modctxm=" debug_less modctxm
-			      "\n.. mexpanderm=" debug_less mexpanderm
-			      "\n.. macbnd=" macbnd)
-		       (shortbacktrace_dbg "mexpand_let:mexpanser" 15)
-		       (debug "mexpand_let:mexpanser before melt_delayed_macro_expander" " maclist=" maclist "\n.. macbnd=" macbnd)
-		       (melt_delayed_macro_expander macbnd maclist envm mexpanderm modctx)
-		       (debug "mexpand_let:mexpanser after melt_delayed_macro_expander" " maclist=" maclist "\n.. macbnd=" macbnd)
-		       (let ( (mclos (get_field :mbind_expanser macbnd))
-			      (locm (get_field :loca_location sexprm))
-			      )
-			 (debug "mexpand_let:mexpanser mclos=" mclos)
-			 (when (== mclos mexpanser)
-			   (error_at locm "failed to macro-expand LET :macro $1" macsymb)
-			   (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
-			   (return))
-			 (multicall 
-			  (expmac othermac)
-			  (mclos sexprm envm mexpanderm modctxm)
-			  (debug "mexpand_let:mexpanser expmac=" expmac " othermac=" othermac)
-			  (return expmac othermac)
-			  )
-			 )
-		       ))
-		    )
-	    (put_fields macbnd :mbind_expanser mexpanser)
-	    (debug "mexpand_let:macro update macbnd=" macbnd)
-	    (list_append macrobindlist macbnd)
-	    ;;(assert_msg "mexpand_let:macro should also bind the macro to a function" ())
-	    )))
-      (:else
-       (error_at loc "invalid LET binding of $1 : $2"
-		 (get_field :named_name (discrim slb))
-		 slb)
-       (return))))
-    ;;
-    (debug "mexpand_let" " macrobindlist=" macrobindlist
-	   "\n.. bindtup=" bindtup
-	   "\n.. newenv=" debug_more newenv
-	   "\n.. restpair=" restpair)
-    ;; we could force the build of every macro at this point???
-    (setq bodytup (pairlist_to_multiple 
-		   restpair discr_multiple 
-		   (lambda (e)
-		     (debug "mexpand_let:macro:lambda-e e=" e "\n.. newenv=" newenv)
-		     (mexpander e newenv mexpander modctx))))
-    (debug "mexpand_let" " bodytup=" bodytup
-	   "\n.. bindtup=" bindtup
-	   "\n.. macrobindlist=" macrobindlist)
+    (debug "mexpand_let" " loc=" loc " cont=" cont "\n.. newenv=" debug_less newenv
+	   "\n..sbindlist=" sbindlist "\n.. maclist=" maclist)
+    (assert_msg "check sbindlist" (is_list_or_null sbindlist) sbindlist sexpr)
     (each_component_in_list
-     macrobindlist
-     curmacbind
-     (debug "mexpand_let" " curmacbind=" curmacbind)
-     (assert_msg "check curmacbind" (is_a curmacbind class_defined_macro_binding) curmacbind)
-     (let ( (:long macix (get_int curmacbind))
-	    (msymb (get_field :binder curmacbind))
-	    (smacdefbind (get_field :mbind_defmacro curmacbind))
-	    (oldbind (multiple_nth bindtup macix))
+     sbindlist
+     curbindsrc
+     (debug "mexpand_let" " curbindsrc=" curbindsrc)
+     (let ( (cursbind
+	     (cond
+	      ( (is_a curbindsrc class_source_any_let_binding)
+		;;can happen only if the LET expression comes from some macro
+		curbindsrc)
+	      ( (is_a curbindsrc class_sexpr)
+		(mexpand_letbinding curbindsrc newenv mexpander modctx))
+	      (:else
+	       (error_at loc "inexpected binding $1 in LET" curbindsrc)
+	       ())))
 	    )
-       (debug "mexpand_let" " macix#" macix " msymb=" msymb "\n.. smacdefbind=" smacdefbind
-	      "\n.. bindtup=" bindtup
-	      "\n.. oldbind=" oldbind)
-       (assert_msg "check goodix" (== oldbind smacdefbind) smacdefbind oldbind bindtup macix)
-       (assert_msg "check smacdefbind" (is_a smacdefbind class_source_macro_let_binding))
-       (let (
-	     (slambdamac (instance class_source_lambda_for_macro
-				   :loca_location (get_field :loca_location smacdefbind)
-				   :slam_argbind (get_field :sletm_macro_formals smacdefbind) 
-				   :slam_body (get_field :sletm_macro_body smacdefbind) 
-				   :slam_origmacro smacdefbind
-				   ))
-	     (sbindformac
-	      (instance class_source_let_binding_for_macro
-			:sletb_type ctype_value
-			:sletb_binder msymb
-			:sletb_expr slambdamac
-			:sletfm_macroletbind smacdefbind
-			))
-	     )
-	 (debug "mexpand_let" " sbindformac=" sbindformac)
-	 (multiple_put_nth bindtup macix sbindformac)
-	 )))
-    (debug "mexpand_let" " updated bindtup=" bindtup)
-    (let ( (letr
+       (debug "mexpand_let" " cursbind=" cursbind
+	      "\n..for curbindsrc=" debug_less curbindsrc)
+       (assert_msg "check cursbind" (is_a cursbind class_source_any_let_binding)
+		   cursbind curbindsrc sexpr)
+       (cond ( (is_a cursbind class_source_let_binding)
+	       (let (
+		     (sx (unsafe_get_field :sletb_expr cursbind))
+		     (letbind (instance class_let_binding
+					:binder (unsafe_get_field :sletb_binder cursbind)
+					:letbind_type (unsafe_get_field :sletb_type cursbind)
+					:letbind_expr sx
+					:letbind_loc (or (get_field :loca_location cursbind) loc)))
+		     )
+		 (debug "mexpand_let" " letbind=" letbind)
+		 (put_env newenv letbind)
+		 (list_append letbindlist cursbind)
+		 (debug "mexpand_let" " letbind-updated newenv=" newenv
+			"\n.. for cursbind=" cursbind)
+		 )
+		 
+	       )
+	     ( (is_a cursbind class_source_macro_let_binding)
+	       (assert_msg "@$@unimplemented macro binding in mexpand_let"
+			   () cursbind)
+	       )
+	     (:else
+	      (assert_msg "impossible cursbind" () cursbind curbindsrc)))
+       )
+     )					; end each_component_in_list
+    (debug "mexpand_let" " loc=" loc " final newenv=" newenv
+	   "\n.. restpair=" restpair)
+    (let ( (bodytup (pairlist_to_multiple 
+		     restpair discr_multiple 
+		     (lambda (bex)
+		       (debug "mexpand_let" " lambda-bex bex=" bex)
+		       (mexpander bex newenv mexpander modctx))))
+	   (bindtup (list_to_multiple letbindlist discr_multiple))
+	   (letr 
 	    (instance class_source_let
 		      :loca_location loc
 		      :slet_bindings bindtup
-		      :slet_body bodytup)) )
-      (debug "mexpand_let" " return letr=" debug_less letr)
+		      :slet_body bodytup))
+	   )
+      (debug "mexpand_let" " loc=" loc " result letr=" letr)
       (return letr)
       )))
+;;;
 (install_initial_macro 'let mexpand_let)
 (export_macro
  let mexpand_let
