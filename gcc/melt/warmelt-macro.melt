@@ -355,15 +355,15 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
   :doc #{Variadic $ERROR_AT function to emit an error message for source location $LOC. The $FMT format
   string may contain @code{$$1} ... @code{$$9} to refer to the first,
   ... nineth argument (after $FMT).}#
-  (debug "error_at start loc=" loc " fmt=" fmt)
+  ;;(debug "error_at start loc=" loc " fmt=" fmt)
   (let ( (vect (make_multiple discr_multiple 9))
 	 (:long nbargs 0)
 	 (diagstate (diagnostic_args_macro nbargs vect))
 	 )
-    (debug "error_at diagstate=" diagstate)
+    ;;(debug "error_at diagstate=" diagstate)
     (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
 	   )
-      (debug "error_at diagmsg=" diagmsg)
+      ;;(debug "error_at diagmsg=" diagmsg)
       (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
       (code_chunk error_chk
 		  #{ /* start error_at $ERROR_CHK */
@@ -377,15 +377,15 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
   :doc #{Variadic $FATAL_ERROR_AT function to emit a fatal error message for source location $LOC. The $FMT format
   string may contain @code{$$1} ... @code{$$9} to refer to the first,
   ... nineth argument (after $FMT).}#
-  (debug "fatal_error_at start loc=" loc " fmt=" fmt)
+  ;;(debug "fatal_error_at start loc=" loc " fmt=" fmt)
   (let ( (vect (make_multiple discr_multiple 9))
 	 (:long nbargs 0)
 	 (diagstate (diagnostic_args_macro nbargs vect))
 	 )
-    (debug "fatal_error_at diagstate=" diagstate)
+    ;;(debug "fatal_error_at diagstate=" diagstate)
     (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
 	   )
-      (debug "fatal_error_at diagmsg=" diagmsg)
+      ;;(debug "fatal_error_at diagmsg=" diagmsg)
       (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
       (code_chunk error_chk
 		  #{ /* start fatal_error_at $ERROR_CHK */
@@ -402,15 +402,15 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
   :doc #{Variadic $WARNING_AT function to emit an warning message for source location $LOC. The $FMT format
   string may contain @code{$$1} ... @code{$$9} to refer to the first,
   ... nineth argument (after $FMT).}#
-  (debug "warning_at start loc=" loc " fmt=" fmt)
+  ;;(debug "warning_at start loc=" loc " fmt=" fmt)
   (let ( (vect (make_multiple discr_multiple 9))
 	 (:long nbargs 0)
 	 (diagstate (diagnostic_args_macro nbargs vect))
 	 )
-    (debug "warning_at diagstate=" diagstate)
+    ;;(debug "warning_at diagstate=" diagstate)
     (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
 	   )
-      (debug "warning_at diagmsg=" diagmsg)
+      ;;(debug "warning_at diagmsg=" diagmsg)
       (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
       (code_chunk warning_chk
 		  #{ /* start warning_at $WARNING_CHK */
@@ -424,12 +424,12 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
   :doc #{Variadic $INFORM function to emit an inform notice. The $FMT format
   string may contain @code{$$1} ... @code{$$9} to refer to the first,
   ... nineth argument (after $FMT).}#
-  (debug "inform_at start loc=" loc " fmt=" fmt)
+  ;;(debug "inform_at start loc=" loc " fmt=" fmt)
   (let ( (vect (make_multiple discr_multiple 9))
 	 (:long nbargs 0)
 	 (diagstate (diagnostic_args_macro nbargs vect))
 	 )
-    (debug "inform_at diagstate=" diagstate)
+    ;;(debug "inform_at diagstate=" diagstate)
     (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
 	   )
       (debug "inform_at diagmsg=" diagmsg)
@@ -815,6 +815,12 @@ with a formal arguments binding tuple given in $SFORMAL_ARGS.}#
   :super class_source_defun
   :fields (smacro_binding			;body sequence
 	   ))
+
+(defclass class_source_defmacro_in_let
+  :doc #{The internal $CLASS_SOURCE_DEFMACRO_IN_LET is for delayed expansion of :macro let bindings.}#
+  :super class_source_defmacro
+  :fields (smacro_sourceletbinding)
+  )
 
 (defclass class_defined_macro_binding
   :doc #{The internal $CLASS_DEFINED_MACRO_BINDING is for macros defined with $DEFMACRO.}#
@@ -3647,9 +3653,9 @@ $EXPORT_VALUES to be visible outside its module.}#)
   ;;
   (let ( (macroenv (get_field :mocx_macroenv modctx))
 	 )
-  (debug "melt_delayed_macro_expander maclist=" maclist "\n.. env=" env
+  (debug "melt_delayed_macro_expander maclist=" maclist "\n.. env=" debug_more env
 	 "\n.. macroenv=" debug_more macroenv 
-	 "\n modctx=" debug_less modctx
+	 "\n.. modctx=" debug_less modctx
 	 "\n.. mbind=" debug_less mbind "\n")
   (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
   (let ( (res (melt_invoke_translator_runner_macroexpansions maclist macroenv modctx))
@@ -6988,12 +6994,22 @@ applications of @code{/i} primitives.}#
 					:mbind_defmacro cursbind
 					:mbind_data ()
 					))
+		     (defmaclet (instance class_source_defmacro_in_let
+					  :loca_location loc
+					  :sdef_name macsymb
+					  :sdef_doc ()
+					  :sformal_args macformals
+					  :sfun_body macbody
+					  :smacro_binding macbind
+					  :smacro_sourceletbinding cursbind))
 		     (sinstmac (instance class_source_macro_installation
 					 :loca_location loc
-					 :smacinst_defmacro cursbind))
+					 :smacinst_defmacro defmaclet))
 		     )
 		 (list_append maclist sinstmac)
-		 (debug "mexpand_let:macro" " updated maclist=" maclist
+		 (debug "mexpand_let:macro" 
+			" defmaclet=" defmaclet
+			"\n.. updated maclist=" maclist
 			"\n.. sinstmac=" sinstmac)
 		 (letrec ( (mexpanser
 			    (lambda (sexprm envm mexpanderm modctxm)
@@ -8863,6 +8879,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_defobjcommon
  class_source_defprimitive
  class_source_defmacro
+ class_source_defmacro_in_let
  class_source_defselector
  class_source_defun
  class_source_defunmatcher

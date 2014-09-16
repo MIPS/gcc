@@ -3888,7 +3888,7 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	 
 ;;;;;; normalize a LET
 (defun normexp_let (recv env ncx psloc)
-  (debug "normexp_let recv=" recv)
+  (debug "normexp_let recv=" recv "\n.. env=" debug_less env)
   (assert_msg "check let recv" (is_a recv class_source_let))
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -3902,7 +3902,7 @@ source location.}#
     (foreach_in_multiple
      (sbindings)
      (sb :long sbix)
-     (debug "normexp_let sb=" sb " sbix=" sbix)
+     (debug "normexp_let" " sloc=" sloc "sbix#" sbix "; sb=" sb)
      ;; we should never have a source macro binding, if we have one something is wrong
      (when (is_a sb class_source_macro_let_binding)
        (debug "normexp_let" " bad macrobinding sb=" sb)
@@ -3912,6 +3912,7 @@ source location.}#
 	 (error_at mloc "unexpected MELT macro binding for $1" macsymb)
 	 (if (!= mloc sloc)
 	     (inform_at sloc "unexpected MELT macro binding of $1 in this LET" macsymb))
+	 (assert_msg "normexp_let got macrobinding!!" () sb)
 	 (return)
        ))
      (assert_msg "check sb" (is_a sb class_source_let_binding) sb)
@@ -4970,7 +4971,7 @@ source location.}#
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (let ( (sloc (or (unsafe_get_field :loca_location recv) psloc))
-	 (snam (unsafe_get_field :sdef_name recv))
+	 (snam (get_field :sdef_name recv))
 	 (sformals (unsafe_get_field :sformal_args recv))
 	 (sbody (unsafe_get_field :sfun_body recv))
 	 (:long ismacro (is_a recv class_source_defmacro))
@@ -4981,6 +4982,10 @@ source location.}#
 			)
 		   (debug "normexp_defun_defmacro sloc=" debug_less sloc 
 			  "; ismacro=" ismacro "; basenv=" be)
+		   (debug "normexp_defun_defmacro snam=" snam
+			  "\n in env got:" (find_env env snam)
+			  "\n in macroenv got:" (find_env macroenv snam))
+		   (assert_msg "check basenv" (is_a be class_environment))
 		   be))
 	 (sfubind (find_env basenv snam))
 	 (newenv (fresh_env basenv))

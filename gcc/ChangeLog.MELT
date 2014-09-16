@@ -1,5 +1,14 @@
 
 2014-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (melt_delayed_macro_expander): More debug.
+	(class_source_defmacro_in_let): New class, with field
+	smacro_sourceletbinding.
+	(mexpand_let): Create an instance of class_source_defmacro_in_let.
+
+	* melt/warmelt-normal.melt (normexp_let, normexp_defun_defmacro):
+	More debug...
+
+2014-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (mexpand_let): Tentatively handling
 	macros...
 
