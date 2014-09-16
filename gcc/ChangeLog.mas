@@ -1,5 +1,15 @@
 2014-09-16  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* genmatch.c (operand::gen_transform): Add dt_operand ** default
+	argument to operand heirarchy.
+	(expr::gen_transform): Adjust.
+	(capture::gen_transform): Likewise.
+	(dt_simplify::gen): Likewise.
+	* match-builtins.pd: Adjust pattern to use expression captures in
+	transform.
+
+2014-09-16  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (dt_node::level_max): Remove.
 
 2014-09-16  Richard Biener  <rguenther@suse.de>

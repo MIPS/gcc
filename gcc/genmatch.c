@@ -252,14 +252,14 @@ struct operand {
   enum op_type { OP_PREDICATE, OP_EXPR, OP_CAPTURE, OP_C_EXPR };
   operand (enum op_type type_) : type (type_) {}
   enum op_type type;
-  virtual void gen_transform (FILE *f, const char *, bool, int, const char *) = 0;
+  virtual void gen_transform (FILE *f, const char *, bool, int, const char *, dt_operand ** = 0) = 0;
 };
 
 struct predicate : public operand
 {
   predicate (const char *ident_) : operand (OP_PREDICATE), ident (ident_) {}
   const char *ident;
-  virtual void gen_transform (FILE *, const char *, bool, int, const char *)
+  virtual void gen_transform (FILE *, const char *, bool, int, const char *, dt_operand ** = 0)
     { gcc_unreachable (); }
 };
 
@@ -279,7 +279,7 @@ struct expr : public operand
   e_operation *operation;
   vec<operand *> ops;
   const char *expr_type;
-  virtual void gen_transform (FILE *f, const char *, bool, int, const char *);
+  virtual void gen_transform (FILE *f, const char *, bool, int, const char *, dt_operand ** = 0);
 };
 
 struct c_expr : public operand
@@ -302,7 +302,7 @@ struct c_expr : public operand
   char *fname;
   vec<id_tab> ids;
 
-  virtual void gen_transform (FILE *f, const char *, bool, int, const char *);
+  virtual void gen_transform (FILE *f, const char *, bool, int, const char *, dt_operand **);
   void output_code (FILE *f, bool);
 };
 
@@ -312,7 +312,7 @@ struct capture : public operand
       : operand (OP_CAPTURE), where (where_), what (what_) {}
   const char *where;
   operand *what;
-  virtual void gen_transform (FILE *f, const char *, bool, int, const char *);
+  virtual void gen_transform (FILE *f, const char *, bool, int, const char *, dt_operand ** = 0);
 };
 
 template<>
@@ -927,7 +927,7 @@ get_operand_type (id_base *op, const char *in_type,
 
 void
 expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
-		     const char *in_type)
+		     const char *in_type, dt_operand **indexes)
 {
   bool conversion_p = is_conversion (operation->op);
   const char *type = expr_type;
@@ -974,7 +974,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       const char *optype
 	= get_operand_type (operation->op, in_type, expr_type,
 			    i == 0 ? NULL : op0type);
-      ops[i]->gen_transform (f, dest, gimple, depth + 1, optype);
+      ops[i]->gen_transform (f, dest, gimple, depth + 1, optype, indexes);
     }
 
   if (gimple)
@@ -1072,7 +1072,7 @@ c_expr::output_code (FILE *f, bool for_fn)
 
 
 void
-c_expr::gen_transform (FILE *f, const char *dest, bool, int, const char *)
+c_expr::gen_transform (FILE *f, const char *dest, bool, int, const char *, dt_operand **)
 {
   /* If this expression has an outlined function variant, call it.  */
   if (fname)
@@ -1092,8 +1092,19 @@ c_expr::gen_transform (FILE *f, const char *dest, bool, int, const char *)
 }
 
 void
-capture::gen_transform (FILE *f, const char *dest, bool, int, const char *)
+capture::gen_transform (FILE *f, const char *dest, bool gimple, int depth, const char *in_type, dt_operand **indexes)
 {
+  if (what && is_a<expr *> (what))
+    {
+      int index = atoi (where);
+      if (indexes[index] == 0)
+	{
+	  char buf[20];
+	  sprintf (buf, "captures[%s]", where);
+	  what->gen_transform (f, buf, gimple, depth, in_type, NULL);
+	}
+    }
+	   
   fprintf (f, "%s = captures[%s];\n", dest, where); 
 }
 
@@ -1838,7 +1849,7 @@ dt_simplify::gen (FILE *f, bool gimple)
 				    "type", e->expr_type,
 				    j == 0
 				    ? NULL : "TREE_TYPE (res_ops[0])");
-	      e->ops[j]->gen_transform (f, dest, true, 1, optype);
+	      e->ops[j]->gen_transform (f, dest, true, 1, optype, indexes);
 	    }
 	  /* Re-fold the toplevel result.  It's basically an embedded
 	     gimple_build w/o actually building the stmt.  */
@@ -1848,7 +1859,7 @@ dt_simplify::gen (FILE *f, bool gimple)
       else if (s->result->type == operand::OP_CAPTURE
 	       || s->result->type == operand::OP_C_EXPR)
 	{
-	  s->result->gen_transform (f, "res_ops[0]", true, 1, "type");
+	  s->result->gen_transform (f, "res_ops[0]", true, 1, "type", indexes);
 	  fprintf (f, "*res_code = TREE_CODE (res_ops[0]);\n");
 	}
       else
@@ -1870,7 +1881,7 @@ dt_simplify::gen (FILE *f, bool gimple)
 				    "type", e->expr_type,
 				    j == 0
 				    ? NULL : "TREE_TYPE (res_op0)");
-	      e->ops[j]->gen_transform (f, dest, false, 1, optype);
+	      e->ops[j]->gen_transform (f, dest, false, 1, optype, indexes);
 	    }
 	  /* Re-fold the toplevel result.  */
 	  if (e->operation->op->kind == id_base::CODE)
@@ -1887,7 +1898,7 @@ dt_simplify::gen (FILE *f, bool gimple)
 	       || s->result->type == operand::OP_C_EXPR)
 	{
 	  fprintf (f, "  tree res;\n");
-	  s->result->gen_transform (f, " res", false, 1, "type");
+	  s->result->gen_transform (f, " res", false, 1, "type", indexes);
 	  fprintf (f, "  return res;\n");
 	}
       else

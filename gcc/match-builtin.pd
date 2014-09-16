@@ -41,16 +41,17 @@ along with GCC; see the file COPYING3.  If not see
   (simplify
    (CABS @0)
    (SQRT (plus
-	  /* ???  There is no way to CSE here.  We'd need to support
-	     expression captures here, like with
-	      (mult (realpart@1 @0) @1) */
-	  (mult (realpart @0) (realpart @0))
-	  (mult (imagpart @0) (imagpart @0)))))))
+	  (mult (realpart@1 @0) @1)
+	  (mult (imagpart@2 @0) @2))))))
 
 /* From fold_binary.  */
 /* Optimize x*pow(x,c) as pow(x,c+1).  */
 (if (flag_unsafe_math_optimizations
-     /* ???  fold-const.c does not check for flag_errno_math.  */
+     /* ???  fold-const.c does not check for flag_errno_math, but without
+        this transform wouldn't be correct and we'd leave the original
+	pow around for its side-effect (single-use would be another thing
+	to consider requiring, maybe with another expression flag like :s
+	which should also allow zero uses if re-simplifying).  */
      && !flag_errno_math)
  (for POW (BUILT_IN_POW BUILT_IN_POWF BUILT_IN_POWL)
   (simplify
