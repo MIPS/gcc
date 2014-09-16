@@ -6784,7 +6784,8 @@ applications of @code{/i} primitives.}#
 ;;;;;;;; for LET
 ;; internal routine to make a letbinding, called from mexpand_let
 (defun mexpand_letbinding (sexpr env mexpander modctx)
-  (debug "mexpand_letbinding sexpr=" sexpr)
+  (debug "mexpand_letbinding" " sexpr=" sexpr "\n.. env=" debug_less env)
+  (shortbacktrace_dbg "mexpand_letbinding" 7)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (if (null mexpander) (setq mexpander macroexpand_1))
@@ -6839,7 +6840,7 @@ applications of @code{/i} primitives.}#
 	       (macbody ())
 	       (newenv (fresh_env env))
 	       )
-	  (debug "mexpand_letbinding macformals=" macformals)
+	  (debug "mexpand_letbinding macformals=" macformals "\n.. newenv=" debug_less newenv)
 	  (setq curpair (pair_tail curpair))
 	  (if (is_a macformals discr_variadic_formal_sequence)
 	      (error_at loc ":macro let-binding $1 cannot be variadic" varname))
@@ -6910,6 +6911,7 @@ applications of @code{/i} primitives.}#
 
 
 ;;; the LET expander itself
+;;; mexpand_let should process the binding list incrementally, in one pass.
 (defun mexpand_let (sexpr env mexpander modctx)
   (debug "mexpand_let sexpr=" sexpr ";\n .. env=" env)
   (shortbacktrace_dbg "mexpand_let" 10)
@@ -6935,7 +6937,10 @@ applications of @code{/i} primitives.}#
 		  (pairlist_to_multiple 
 		   (list_first (unsafe_get_field :sexp_contents bindexpr))
 		   discr_multiple
-		   (lambda (b) 
+		   ;;; we should actually use newenv, not env, below
+		   ;;; and update newenv incrementally...
+		   (lambda (b)
+		     (debug "mexpand_let:lambda-b b=" b)
 		     (if (is_not_a b class_sexpr)
 			 (error_plain loc "sexpr expected in LET binding"))
 		     (mexpand_letbinding b env mexpander modctx))))

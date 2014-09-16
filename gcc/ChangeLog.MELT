@@ -1,4 +1,9 @@
 
+2014-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_let): Should update newenv
+	incrementally in one pass...
+
 2014-09-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (macroexpand_1, mexpand_let): More
