@@ -1,5 +1,9 @@
 
 2014-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (mexpand_let): Tentatively handling
+	macros...
+
+2014-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate.
 

@@ -6974,12 +6974,67 @@ applications of @code{/i} primitives.}#
 		 (debug "mexpand_let" " letbind-updated newenv=" newenv
 			"\n.. for cursbind=" cursbind)
 		 )
-		 
 	       )
 	     ( (is_a cursbind class_source_macro_let_binding)
-	       (assert_msg "@$@unimplemented macro binding in mexpand_let"
-			   () cursbind)
-	       )
+	       (assert_msg "check maclist" (is_list maclist) maclist modctx)
+	       (let ( 
+		     (macsymb (get_field :sletb_binder cursbind))
+		     (macloc (or (get_field :loca_location cursbind) loc))
+		     (macformals (get_field :sletm_macro_formals cursbind))
+		     (macbody (get_field :sletm_macro_body cursbind))
+		     (macbind (instance class_defined_macro_binding
+					:binder macsymb
+					:mbind_expanser ()
+					:mbind_defmacro cursbind
+					:mbind_data ()
+					))
+		     (sinstmac (instance class_source_macro_installation
+					 :loca_location loc
+					 :smacinst_defmacro cursbind))
+		     )
+		 (list_append maclist sinstmac)
+		 (debug "mexpand_let:macro" " updated maclist=" maclist
+			"\n.. sinstmac=" sinstmac)
+		 (letrec ( (mexpanser
+			    (lambda (sexprm envm mexpanderm modctxm)
+			      (debug "mexpand_let:mexpanser sexprm=" sexprm
+				     "\n.. envm=" debug_less envm
+				     "\n.. modctxm=" debug_less modctxm
+				     "\n.. mexpanderm=" debug_less mexpanderm
+				     "\n.. macbind=" macbind)
+			      (shortbacktrace_dbg "mexpand_let:mexpanser" 15)
+			      (debug "mexpand_let:mexpanser before melt_delayed_macro_expander"
+				     " maclist=" maclist "\n.. macbind=" macbind)
+			      (melt_delayed_macro_expander macbind maclist envm mexpanderm modctx)
+			      (debug "mexpand_let:mexpanser after melt_delayed_macro_expander"
+				     " maclist=" maclist "\n.. macbind=" macbind)
+			      (let ( (mclos (get_field :mbind_expanser macbind))
+				     (locm (get_field :loca_location sexprm))
+				     )
+				(debug "mexpand_let:mexpanser mclos=" mclos)
+				(when (== mclos mexpanser)
+				  (error_at locm "failed to macro-expand LET :macro $1" macsymb)
+				  (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
+				  (return))
+				(multicall 
+				 (expmac othermac)
+				 (mclos sexprm envm mexpanderm modctxm)
+				 (debug "mexpand_let:mexpanser expmac=" expmac " othermac=" othermac)
+				 (return expmac othermac)
+				 )
+				)
+			      ))
+			   )
+		   (debug "mexpand_let:macro" " loc=" loc " mexpanser=" mexpanser)
+		   (put_fields macbind :mbind_expanser mexpanser)
+		   (debug "mexpand_let:macro" " loc=" loc " update macbind=" macbind)
+		   (put_env newenv macbind)
+		   (list_append letbindlist cursbind)
+		   (debug "mexpand_let:macro" " letbind-updated newenv=" newenv
+			  "\n.. for cursbind=" cursbind
+			  "\n.. macbind=" macbind)
+		   )
+		 ))
 	     (:else
 	      (assert_msg "impossible cursbind" () cursbind curbindsrc)))
        )
