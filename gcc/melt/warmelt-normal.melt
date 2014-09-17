@@ -5155,7 +5155,7 @@ source location.}#
     (shortbacktrace_dbg "normexp_macro_installation" 10)
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
     (let (
-	  (nclos (normexp_defun_defmacro sdefmacro macroenv ncx loc))
+	  (nclos (normexp_defun_defmacro sdefmacro srcenv ncx loc))
 	  (mbind (get_field :smacro_binding sdefmacro))
 	  (msymb (get_field :binder mbind))
 	  )
