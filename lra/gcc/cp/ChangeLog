@@ -1,3 +1,41 @@
+2014-09-15  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (lookup_template_class_1): Splice out abi_tag attribute if
+	necessary.  Call inherit_targ_abi_tags here.
+	* class.c (check_bases_and_members): Not here.
+	(inherit_targ_abi_tags): Check CLASS_TYPE_P.
+	* cp-tree.h: Declare inherit_targ_abi_tags.
+
+2014-09-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Do not diagnose lambda default arguments in c++14 modes.
+	* parser.c (cp_parser_lambda_declarator_opt): Make the pedwarn
+	conditional.
+
+2014-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (check_g++_parallelize): Change to just an upper bound
+	number.
+
+2014-09-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/60862
+	* parser.c (cp_parser_postfix_expression) <case CPP_OPEN_PAREN>: Set
+	location of a call expression.
+
+2014-09-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63201
+	* decl.c (start_decl): Handle specialization of member variable
+	template.
+	* pt.c (check_explicit_specialization): Adjust error.
+
+2014-09-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61489
+	* typeck2.c (process_init_constructor_record): Do not warn about
+	missing field initializer if EMPTY_CONSTRUCTOR_P (init).
+
 2014-09-11  Jason Merrill  <jason@redhat.com>
 
 	PR c++/63139

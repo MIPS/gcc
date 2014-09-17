@@ -490,6 +490,7 @@ is_a_helper <const rtx_sequence *>::test (const_rtx rt)
 
 class GTY(()) rtx_insn : public rtx_def
 {
+public:
   /* No extra fields, but adds the invariant:
 
      (INSN_P (X)
@@ -505,6 +506,18 @@ class GTY(()) rtx_insn : public rtx_def
     i.e. we have an rtx that has an INSN_UID field and can be part of
     a linked list of insns.
   */
+
+  /* Returns true if this insn has been deleted.  */
+
+  bool deleted () const { return volatil; }
+
+  /* Mark this insn as deleted.  */
+
+  void set_deleted () { volatil = true; }
+
+  /* Mark this insn as not deleted.  */
+
+  void set_undeleted () { volatil = false; }
 };
 
 /* Subclasses of rtx_insn.  */
@@ -1406,10 +1419,6 @@ inline rtvec rtx_jump_table_data::get_labels () const
   (RTL_FLAG_CHECK6 ("RTX_FRAME_RELATED_P", (RTX), DEBUG_INSN, INSN,	\
 		    CALL_INSN, JUMP_INSN, BARRIER, SET)->frame_related)
 
-/* 1 if RTX is an insn that has been deleted.  */
-#define INSN_DELETED_P(RTX)						\
-  (RTL_INSN_CHAIN_FLAG_CHECK ("INSN_DELETED_P", (RTX))->volatil)
-
 /* 1 if JUMP RTX is a crossing jump.  */
 #define CROSSING_JUMP_P(RTX) \
   (RTL_FLAG_CHECK1 ("CROSSING_JUMP_P", (RTX), JUMP_INSN)->jump)
@@ -1673,6 +1682,10 @@ inline rtx_insn *JUMP_LABEL_AS_INSN (const rtx_insn *insn)
    goes through all the LABEL_REFs that jump to that label.  The chain
    eventually winds up at the CODE_LABEL: it is circular.  */
 #define LABEL_REFS(LABEL) XCEXP (LABEL, 3, CODE_LABEL)
+
+/* Get the label that a LABEL_REF references.  */
+#define LABEL_REF_LABEL(LABREF) XCEXP (LABREF, 0, LABEL_REF)
+
 
 /* For a REG rtx, REGNO extracts the register number.  REGNO can only
    be used on RHS.  Use SET_REGNO to change the value.  */
@@ -2657,7 +2670,7 @@ extern enum rtx_code reverse_condition_maybe_unordered (enum rtx_code);
 extern enum rtx_code swap_condition (enum rtx_code);
 extern enum rtx_code unsigned_condition (enum rtx_code);
 extern enum rtx_code signed_condition (enum rtx_code);
-extern void mark_jump_label (rtx, rtx, int);
+extern void mark_jump_label (rtx, rtx_insn *, int);
 
 /* In jump.c */
 extern rtx_insn *delete_related_insns (rtx);
@@ -2755,7 +2768,7 @@ extern int reg_mentioned_p (const_rtx, const_rtx);
 extern int count_occurrences (const_rtx, const_rtx, int);
 extern int reg_referenced_p (const_rtx, const_rtx);
 extern int reg_used_between_p (const_rtx, const rtx_insn *, const rtx_insn *);
-extern int reg_set_between_p (const_rtx, const_rtx, const_rtx);
+extern int reg_set_between_p (const_rtx, const rtx_insn *, const rtx_insn *);
 extern int commutative_operand_precedence (rtx);
 extern bool swap_commutative_operands_p (rtx, rtx);
 extern int modified_between_p (const_rtx, const rtx_insn *, const rtx_insn *);
