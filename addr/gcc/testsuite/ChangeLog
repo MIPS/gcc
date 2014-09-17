@@ -1,3 +1,24 @@
+2014-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63284
+	* gcc.dg/pr63284.c: New test.
+
+	* ada/acats/run_all.sh: Redirect mkdir stderr to /dev/null.
+
+2014-09-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63241
+	* g++.dg/cpp0x/constexpr-63241.C: New.
+
+2014-09-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/62768
+	* gfortran.dg/filename_null.f90: New test.
+
+2014-09-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/pg-override.c: Fix a typo.
+
 2014-09-16  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.dg/pg.c: Fix a typo.

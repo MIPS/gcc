@@ -1,3 +1,8 @@
+2014-09-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 215333.
+	* REVISION: Update subversion id.
+
 2014-09-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (fusion_gpr_mem_load): Move testing
@@ -28,6 +33,8 @@
 	address, so that the fused operation is kept together after
 	register allocation is done.
 	(fusion_gpr_load_<mode>): Likewise.
+
+2014-09-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 215302.
 	* REVISION: New file, track subversion id.
