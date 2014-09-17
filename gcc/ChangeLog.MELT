@@ -1,5 +1,8 @@
 
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (class_source_macro_installation): Add
 	smacinst_env field.
 	(mexpand_defmacro, mexpand_let): Fill it.
