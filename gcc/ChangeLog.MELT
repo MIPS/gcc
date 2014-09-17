@@ -1,4 +1,9 @@
 
+2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (class_source_macro_installation): Add
+	smacinst_env field.
+	(mexpand_defmacro, mexpand_let): Fill it.
+
 2014-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (melt_delayed_macro_expander): More debug.
 	(class_source_defmacro_in_let): New class, with field

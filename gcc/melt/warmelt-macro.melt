@@ -832,7 +832,11 @@ with a formal arguments binding tuple given in $SFORMAL_ARGS.}#
 
 (defclass class_source_macro_installation
   :super class_source
-  :fields (smacinst_defmacro))
+  :doc #{The $CLASS_SOURCE_MACRO_INSTALLATION, for gurus, is an
+  internal class used to install macros. $SMACINST_DEFMACRO is the
+  macro definition and $SMACINST_ENV is the environment.}#
+  :fields (smacinst_defmacro
+	   smacinst_env))
 
 ;;; define a primitive
 (defclass class_source_defprimitive
@@ -3762,6 +3766,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	      (instance class_source_macro_installation
 			:loca_location loc
 			:smacinst_defmacro sdefmacro
+			:smacinst_env modmacroenv
 			))
 	     )
 	(debug "mexpand_defmacro loc=" loc "; bodytup=" bodytup "\n.. newenv=" newenv)
@@ -7004,7 +7009,8 @@ applications of @code{/i} primitives.}#
 					  :smacro_sourceletbinding cursbind))
 		     (sinstmac (instance class_source_macro_installation
 					 :loca_location loc
-					 :smacinst_defmacro defmaclet))
+					 :smacinst_defmacro defmaclet
+					 :smacinst_env newenv))
 		     )
 		 (list_append maclist sinstmac)
 		 (debug "mexpand_let:macro" 
