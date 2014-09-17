@@ -495,9 +495,15 @@
 
       if (GET_CODE (x) == PLUS)
 	{
-	  if (! REG_P (XEXP (x, 0)))
+	  rtx y = XEXP (x, 0);
+
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y))))
 	    return false;
-	  if (! (REG_P (XEXP (x, 1)) || (CONST_INT_P (XEXP (x, 1)))))
+	  y = XEXP (x, 1);
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y)))
+	      && ! CONST_INT_P (y))
 	    return false;
 	}
 
@@ -589,9 +595,15 @@
 
       if (GET_CODE (x) == PLUS)
 	{
-	  if (! REG_P (XEXP (x, 0)))
+	  rtx y = XEXP (x, 0);
+
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y))))
 	    return false;
-	  if (! (REG_P (XEXP (x, 1)) || (CONST_INT_P (XEXP (x, 1)))))
+	  y = XEXP (x, 1);
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y)))
+	      && ! CONST_INT_P (y))
 	    return false;
 	}
 
@@ -1121,6 +1133,8 @@
 
       case ZERO_EXTEND:
       case SIGN_EXTEND:
+        if (REG_P (XEXP (op, 0)) && REGNO (XEXP (op, 0)) == T_REG)
+	  return true;
 	return GET_CODE (XEXP (op, 0)) == SUBREG
 	       && REG_P (SUBREG_REG (XEXP (op, 0)))
 	       && REGNO (SUBREG_REG (XEXP (op, 0))) == T_REG;
