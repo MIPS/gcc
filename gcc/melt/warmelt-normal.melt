@@ -4978,9 +4978,24 @@ source location.}#
 	 (modctx (get_field :nctx_modulcontext ncx))
 	 (modinienv (get_field :mocx_initialenv modctx))
 	 (macroenv (get_field :mocx_macroenv modctx))
-	 (basenv (let ( (be (if ismacro macroenv env))
+	 (basenv (let
+		     ( (:cstring hackstr (melt_argument "normexp-defun-hack"))
+		       (be (cond
+			    ( (expr_chunk forcemacro_chk :long 
+					  #{ /*normexp defun forcemacro hack $FORCEMACRO_CHK */
+					  $HACKSTR && !strcmp($HACKSTR, "macro")
+					  }#)
+			      macroenv)
+			    ( (expr_chunk forcenv_chk :long 
+					  #{ /*normexp defun forcenv hack $FORCENV_CHK */
+					  $HACKSTR && !strcmp($HACKSTR, "env")
+					  }#)
+			      env)
+			    (:else
+			      (if ismacro macroenv env))))
 			)
-		   (debug "normexp_defun_defmacro sloc=" debug_less sloc 
+		   (debug "normexp_defun_defmacro sloc=" debug_less sloc
+			  ", hackstr=" hackstr
 			  "; ismacro=" ismacro "; basenv=" be)
 		   (debug "normexp_defun_defmacro snam=" snam
 			  "\n in env got:" (find_env env snam)
