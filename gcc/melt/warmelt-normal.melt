@@ -5144,11 +5144,14 @@ source location.}#
 	 (modctx (get_field :nctx_modulcontext ncx))
 	 (macroenv (get_field :mocx_macroenv modctx))
 	 (modname (get_field :mocx_modulename modctx))
+	 (srcenv (get_field :smacinst_env recv))
 	 )
     (debug "normexp_macro_installation loc=" debug_less loc "; sdefmacro=" sdefmacro
-	   "\n.. macroenv=" macroenv)
+	   "\n.. macroenv=" macroenv
+	   "\n.. srcenv=" srcenv)
     (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
     (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
+    (assert_msg "check srcenv" (is_a srcenv class_environment) srcenv)
     (shortbacktrace_dbg "normexp_macro_installation" 10)
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
     (let (

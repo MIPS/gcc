@@ -1,5 +1,9 @@
 
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normexp_macro_installation):
+	Retrieve using :smacinst_env the srcenv. Check it.
+
+2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
