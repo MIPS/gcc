@@ -4965,7 +4965,9 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; normalize a DEFUN or a DEFMACRO
 (defun normexp_defun_defmacro (recv env ncx psloc)
-  (debug "normexp_defun_defmacro recv=" recv "\n env=" debug_more env "\n")
+  (debug "normexp_defun_defmacro recv=" recv
+	 "\n.. env=" debug_more env
+	 "\n.. psloc=" psloc)
   (shortbacktrace_dbg "normexp_defun_defmacro" 8)
   (assert_msg "check defun recv" (is_a recv class_source_defun) recv)
   (assert_msg "check env" (is_a env class_environment) env)
@@ -5065,6 +5067,7 @@ source location.}#
 	   (is_not_a sfubind class_function_binding)
 	   (is_not_a sfubind class_macro_binding)
 	   (is_not_a sfubind class_defined_macro_binding))
+      (debug "normexp_defun_defmacro strange sfubind=" sfubind)
       (if ismacro
 	  (error_at sloc
 		    "bad defmacro-ed function $1 with binding of $2 [nested definitions are prohibited]"
@@ -5162,8 +5165,8 @@ source location.}#
 	 (srcenv (get_field :smacinst_env recv))
 	 )
     (debug "normexp_macro_installation loc=" debug_less loc "; sdefmacro=" sdefmacro
-	   "\n.. macroenv=" macroenv
-	   "\n.. srcenv=" srcenv)
+	   "\n.. macroenv=" debug_more macroenv
+	   "\n.. srcenv=" debug_more srcenv)
     (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
     (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
     (assert_msg "check srcenv" (is_a srcenv class_environment) srcenv)

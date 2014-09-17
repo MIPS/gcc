@@ -1,5 +1,7 @@
 
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normexp_defun_defmacro): More debug.
+2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normexp_defun_defmacro): Temporarily
 	use the -fmelt-normexp-defun-hack program argument -either
 	"macro", or "env", or anything else to keep as before- to force
