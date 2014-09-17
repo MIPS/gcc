@@ -2779,7 +2779,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 
 ;;;;;;;;;;;;;;;; install an initial macro expanser
 (defun install_initial_macro (symb expander)
-  (debug "install_initial_macro symb" symb)
+  ;;(debug "install_initial_macro symb" symb)
   (assert_msg "check symb" (is_a symb class_symbol) symb)
   (assert_msg "check expander" (is_closure expander) expander)
   (let ( (mbind (instance class_macro_binding 
@@ -2787,12 +2787,13 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			  :mbind_expanser expander
 			  )) )
     (put_env initial_environment mbind)
-    (debug "install_initial_macro done symb" symb)
+    ;;(debug "install_initial_macro done symb" symb)
+    (return)
     ))
 
 ;;;;;;;;;;;;;;;; install an initial patmacro expanser
 (defun install_initial_patmacro (symb patexpander macexpander)
-  (debug "install_initial_patmacro symb" symb)
+  ;(debug "install_initial_patmacro symb" symb)
   (assert_msg "check symb" (is_a symb class_symbol) symb)
   (assert_msg "check patexpander" (is_closure patexpander) patexpander)
   (assert_msg "check macexpander" (is_closure macexpander) macexpander)
@@ -2802,8 +2803,8 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			  :patbind_expanser patexpander
 			  )) )
     (put_env initial_environment mbind)
-    (debug "install_initial_patmacro done symb" symb)
-    (debug "install_initial_patmacro done mbind" mbind)
+    ;;(debug "install_initial_patmacro done symb" symb "\n.. mbind" mbind)
+    (return)
     ))
 
 

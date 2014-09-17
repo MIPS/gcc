@@ -1,5 +1,9 @@
 
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (install_initial_macro)
+	(install_initial_patmacro ): Comment-out the debug ...
+
+2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
