@@ -1,3 +1,19 @@
+2014-09-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt (Wpsabi): Use LangEnabledBy.
+	* c-opts.c (c_common_handle_option): Do not handle here.
+
+2014-09-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __LIBGCC_HAS_%s_MODE__
+	macros for floating-point modes.
+
+2014-09-11  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR target/58757
+	* c-cppbuiltin.c (builtin_define_float_constants): Correct
+	__*_DENORM_MIN__ without denormals.
+
 2014-09-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-ubsan.c (ubsan_instrument_division, ubsan_instrument_shift,
