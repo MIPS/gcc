@@ -1,8 +1,3 @@
-2014-09-18  David Malcolm  <dmalcolm@redhat.com>
-
-	* jit.dg/jit.exp: When constructing "tests", add the example files
-	from the documentation, to ensure that they compile.
-
 2014-09-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/swaps-p8-15.c: Remove scan-assembler-not for
