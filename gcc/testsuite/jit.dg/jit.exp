@@ -33,7 +33,14 @@ if ![info exists GCC_UNDER_TEST] {
 dg-init
 
 # Gather a list of all tests.
+
+# Tests within the testsuite: gcc/testsuite/jit.dg/test-*.c
 set tests [lsort [find $srcdir/$subdir test-*.c]]
+
+# We also test the examples within the documentation, to ensure that
+# they compile:
+set tests [lsort [concat $tests [find $srcdir/../jit/docs/examples *.c]]]
+
 verbose "tests: $tests"
 
 proc jit-dg-test { prog do_what extra_tool_flags } {

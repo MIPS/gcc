@@ -149,4 +149,5 @@ main (int argc, char **argv)
  error:
   gcc_jit_context_release (ctxt);
   gcc_jit_result_release (result);
+  return 0;
 }

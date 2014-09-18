@@ -1,3 +1,10 @@
+2014-09-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/examples/install-hello-world.c (main): Fix missing
+	"return".
+	* docs/examples/tut01-square.c (main): Likewise.
+	* docs/examples/tut02-sum-of-squares.c (main): Likewise.
+
 2014-09-17  David Malcolm  <dmalcolm@redhat.com>
 
 	* docs/Makefile: New file.
