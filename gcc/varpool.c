@@ -160,6 +160,8 @@ void
 varpool_remove_node (varpool_node *node)
 {
   tree init;
+
+  node->ipa_transforms_to_apply.release ();
   varpool_call_node_removal_hooks (node);
   symtab_unregister_node (node);
 

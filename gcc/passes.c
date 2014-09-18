@@ -2092,7 +2092,7 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
 /* For the current function, execute all ipa transforms. */
 
 void
-execute_all_ipa_transforms (void)
+execute_all_ipa_func_transforms (void)
 {
   struct cgraph_node *node;
   if (!cfun)
@@ -2109,6 +2109,36 @@ execute_all_ipa_transforms (void)
     }
 }
 
+/* For the current variable, execute all ipa transforms. */
+
+void
+execute_all_ipa_var_transforms (void)
+{
+  struct varpool_node *vnode;
+
+  FOR_EACH_VARIABLE (vnode)
+    if (vnode->ipa_transforms_to_apply.exists ())
+      {
+	unsigned int i;
+	ipa_opt_pass_d *pass;
+
+	for (i = 0; i < vnode->ipa_transforms_to_apply.length (); i++)
+	  {
+	    pass = vnode->ipa_transforms_to_apply[i];
+	    current_pass = pass;
+
+	    if (pass->variable_transform) 
+	      {
+		pass_init_dump_file (pass);
+		pass->variable_transform (vnode);
+		pass_fini_dump_file (pass);
+	      }
+	    current_pass = NULL;
+	  }
+	vnode->ipa_transforms_to_apply.release ();
+      }
+}
+
 /* Callback for do_per_function to apply all IPA transforms.  */
 
 static void
@@ -2118,7 +2148,7 @@ apply_ipa_transforms (void *data)
   if (!node->global.inlined_to && node->ipa_transforms_to_apply.exists ())
     {
       *(bool *)data = true;
-      execute_all_ipa_transforms ();
+      execute_all_ipa_func_transforms ();
       rebuild_cgraph_edges ();
     }
 }
@@ -2250,8 +2280,13 @@ execute_one_pass (opt_pass *pass)
   if (pass->type == IPA_PASS)
     {
       struct cgraph_node *node;
+      struct varpool_node *var;
+
       FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
 	node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
+
+      FOR_EACH_VARIABLE (var)
+	var->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
     }
 
   if (!current_function_decl)

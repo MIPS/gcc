@@ -641,6 +641,12 @@ public:
   /* Set if the variable is dynamically initialized, except for
      function local statics.   */
   unsigned dynamically_initialized : 1;
+
+  /* Similarly to cgraph_node, variables also have their transform functions.
+     We maintain them per-variable in order to allow IPA passes to introduce
+     new ones.  */
+  vec<ipa_opt_pass> GTY((skip)) ipa_transforms_to_apply;
+
 };
 
 /* Every top level asm statement is put into a asm_node.  */

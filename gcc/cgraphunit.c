@@ -1764,7 +1764,7 @@ expand_function (struct cgraph_node *node)
 
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
 
-  execute_all_ipa_transforms ();
+  execute_all_ipa_func_transforms ();
 
   /* Perform all tree transforms and optimizations.  */
 
@@ -2161,6 +2161,7 @@ compile (void)
       fprintf (stderr, "Memory consumption before IPA\n");
       dump_memory_report (false);
     }
+
   if (!quiet_flag)
     fprintf (stderr, "Performing interprocedural optimizations\n");
   cgraph_state = CGRAPH_STATE_IPA;
@@ -2248,8 +2249,8 @@ compile (void)
   else
     {
       output_asm_statements ();
-
       expand_all_functions ();
+      execute_all_ipa_var_transforms ();
       varpool_output_variables ();
     }
 

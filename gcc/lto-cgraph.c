@@ -548,8 +548,9 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
 {
   bool boundary_p = !lto_symtab_encoder_in_partition_p (encoder, node);
   struct bitpack_d bp;
-  int ref;
+  int ref, i;
   bool alias_p;
+  ipa_opt_pass_d *pass;
 
   streamer_write_enum (ob->main_stream, LTO_symtab_tags, LTO_symtab_last_tag,
 		       LTO_symtab_variable);
@@ -595,6 +596,10 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
   streamer_write_hwi_stream (ob->main_stream, ref);
   streamer_write_enum (ob->main_stream, ld_plugin_symbol_resolution,
 		       LDPR_NUM_KNOWN, node->resolution);
+  streamer_write_hwi_stream (ob->main_stream,
+			     node->ipa_transforms_to_apply.length ());
+  FOR_EACH_VEC_ELT (node->ipa_transforms_to_apply, i, pass)
+    streamer_write_hwi_stream (ob->main_stream, pass->static_pass_number);
 }
 
 /* Output the varpool NODE to OB. 
@@ -1119,12 +1124,14 @@ static varpool_node *
 input_varpool_node (struct lto_file_decl_data *file_data,
 		    struct lto_input_block *ib)
 {
+  gcc::pass_manager *passes = g->get_passes ();
   int decl_index;
   tree var_decl;
   varpool_node *node;
   struct bitpack_d bp;
   int ref = LCC_NOT_FOUND;
   int order;
+  int i, count;
 
   order = streamer_read_hwi (ib) + order_base;
   decl_index = streamer_read_uhwi (ib);
@@ -1165,6 +1172,17 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   node->same_comdat_group = (symtab_node *) (intptr_t) ref;
   node->resolution = streamer_read_enum (ib, ld_plugin_symbol_resolution,
 					        LDPR_NUM_KNOWN);
+  count = streamer_read_hwi (ib);
+  node->ipa_transforms_to_apply = vNULL;
+  for (i = 0; i < count; i++)
+    {
+      opt_pass *pass;
+      int pid = streamer_read_hwi (ib);
+
+      gcc_assert (pid < passes->passes_by_id_size);
+      pass = passes->passes_by_id[pid];
+      node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *) pass);
+    }
 
   return node;
 }
