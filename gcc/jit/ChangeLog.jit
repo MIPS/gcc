@@ -1,3 +1,23 @@
+2014-09-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/Makefile: New file.
+	* docs/conf.py: New file.
+	* docs/examples/install-hello-world.c: New file.
+	* docs/examples/tut01-square.c: New file.
+	* docs/examples/tut02-sum-of-squares.c: New file.
+	* docs/index.rst: New file.
+	* docs/intro/install.rst: New file.
+	* docs/intro/sum-of-squares.png: New file.
+	* docs/intro/tutorial01.rst: New file.
+	* docs/intro/tutorial02.rst: New file.
+	* docs/topics/contexts.rst: New file.
+	* docs/topics/expressions.rst: New file.
+	* docs/topics/functions.rst: New file.
+	* docs/topics/locations.rst: New file.
+	* docs/topics/objects.rst: New file.
+	* docs/topics/results.rst: New file.
+	* docs/topics/types.rst: New file.
+
 2014-09-11  David Malcolm  <dmalcolm@redhat.com>
 
 	* TODO.rst (Initial Release): Update for addition of myself as
