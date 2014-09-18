@@ -1,5 +1,16 @@
 2014-09-18  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/intro/install.rst: Markup fixes.
+	* docs/intro/tutorial01.rst: Likewise.
+	* docs/intro/tutorial02.rst: Likewise.
+	* docs/topics/contexts.rst: Likewise.
+	* docs/topics/expressions.rst: Likewise.
+	* docs/topics/functions.rst: Likewise.
+	* docs/topics/locations.rst: Likewise.
+	* docs/topics/types.rst: Likewise.
+
+2014-09-18  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/examples/install-hello-world.c (main): Fix missing
 	"return".
 	* docs/examples/tut01-square.c (main): Likewise.

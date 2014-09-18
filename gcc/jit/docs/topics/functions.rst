@@ -185,7 +185,9 @@ Statements
    Add evaluation of an rvalue, discarding the result
    (e.g. a function call that "returns" void).
 
-   This is equivalent to this C code::
+   This is equivalent to this C code:
+
+   .. code-block:: c
 
      (void)expression;
 
@@ -198,7 +200,9 @@ Statements
    Add evaluation of an rvalue, assigning the result to the given
    lvalue.
 
-   This is roughly equivalent to this C code::
+   This is roughly equivalent to this C code:
+
+   .. code-block:: c
 
      lvalue = rvalue;
 
@@ -212,7 +216,9 @@ Statements
    Add evaluation of an rvalue, using the result to modify an
    lvalue.
 
-   This is analogous to "+=" and friends::
+   This is analogous to "+=" and friends:
+
+   .. code-block:: c
 
      lvalue += rvalue;
      lvalue *= rvalue;
@@ -242,7 +248,9 @@ Statements
    Terminate a block by adding evaluation of an rvalue, branching on the
    result to the appropriate successor block.
 
-   This is roughly equivalent to this C code::
+   This is roughly equivalent to this C code:
+
+   .. code-block:: c
 
      if (boolval)
        goto on_true;
@@ -259,7 +267,9 @@ Statements
 
    Terminate a block by adding a jump to the given target block.
 
-   This is roughly equivalent to this C code::
+   This is roughly equivalent to this C code:
+
+   .. code-block:: c
 
       goto target;
 
@@ -271,7 +281,9 @@ Statements
 
    Terminate a block by adding evaluation of an rvalue, returning the value.
 
-   This is roughly equivalent to this C code::
+   This is roughly equivalent to this C code:
+
+   .. code-block:: c
 
       return expression;
 
@@ -283,6 +295,8 @@ Statements
    Terminate a block by adding a valueless return, for use within a function
    with "void" return type.
 
-   This is equivalent to this C code::
+   This is equivalent to this C code:
+
+   .. code-block:: c
 
       return;

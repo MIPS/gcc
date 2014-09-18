@@ -266,7 +266,7 @@ before compiling:
     1);
   result = gcc_jit_context_compile (ctxt);
 
-.. code-block:: asm
+.. code-block:: gas
 
         .file   "fake.c"
         .text
@@ -305,7 +305,7 @@ By default, no optimizations are performed, the equivalent of GCC's
     GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
     3);
 
-.. code-block:: asm
+.. code-block:: gas
 
         .file   "fake.c"
         .text
@@ -337,7 +337,9 @@ Here's what the above looks like as a complete program:
     :lines: 1-
     :language: c
 
-Building and running it::
+Building and running it:
+
+.. code-block:: console
 
   $ gcc \
       tut01-square.c \

@@ -66,15 +66,19 @@ Simple expressions
                                                      gcc_jit_type *numeric_type)
 
    Given a numeric type (integer or floating point), get the rvalue for
-   zero.  Essentially this is just a shortcut for::
+   zero.  Essentially this is just a shortcut for:
 
-      gcc_jit_context_new_rvalue_from_int (ctxt, numeric_type, 0);
+   .. code-block:: c
+
+      gcc_jit_context_new_rvalue_from_int (ctxt, numeric_type, 0)
 
 .. function::  gcc_jit_rvalue *gcc_jit_context_one (gcc_jit_context *ctxt, \
                                                     gcc_jit_type *numeric_type)
 
    Given a numeric type (integer or floating point), get the rvalue for
-   zero.  Essentially this is just a shortcut for::
+   zero.  Essentially this is just a shortcut for:
+
+   .. code-block:: c
 
       gcc_jit_context_new_rvalue_from_int (ctxt, numeric_type, 1)
 
@@ -97,7 +101,9 @@ Simple expressions
                                                     gcc_jit_type *pointer_type)
 
    Given a pointer type, build an rvalue for ``NULL``.  Essentially this
-   is just a shortcut for::
+   is just a shortcut for:
+
+   .. code-block:: c
 
       gcc_jit_context_new_rvalue_from_ptr (ctxt, pointer_type, NULL)
 
@@ -403,7 +409,9 @@ Working with pointers, structs and unions
                                           gcc_jit_location *loc)
 
    Given an rvalue of pointer type ``T *``, dereferencing the pointer,
-   getting an lvalue of type ``T``.  Analogous to::
+   getting an lvalue of type ``T``.  Analogous to:
+
+   .. code-block:: c
 
      *(EXPR)
 
@@ -417,7 +425,9 @@ Field access is provided separately for both lvalues and rvalues.
                                            gcc_jit_field *field)
 
    Given an lvalue of struct or union type, access the given field,
-   getting an lvalue of the field's type.  Analogous to::
+   getting an lvalue of the field's type.  Analogous to:
+
+   .. code-block:: c
 
       (EXPR).field = ...;
 
@@ -429,7 +439,9 @@ Field access is provided separately for both lvalues and rvalues.
                                            gcc_jit_field *field)
 
    Given an rvalue of struct or union type, access the given field
-   as an rvalue.  Analogous to::
+   as an rvalue.  Analogous to:
+
+   .. code-block:: c
 
       (EXPR).field
 
@@ -441,7 +453,9 @@ Field access is provided separately for both lvalues and rvalues.
                                                 gcc_jit_field *field)
 
    Given an rvalue of pointer type ``T *`` where T is of struct or union
-   type, access the given field as an lvalue.  Analogous to::
+   type, access the given field as an lvalue.  Analogous to:
+
+   .. code-block:: c
 
       (EXPR)->field
 
@@ -456,7 +470,9 @@ Field access is provided separately for both lvalues and rvalues.
    Given an rvalue of pointer type ``T *``, get at the element `T` at
    the given index, using standard C array indexing rules i.e. each
    increment of ``index`` corresponds to ``sizeof(T)`` bytes.
-   Analogous to::
+   Analogous to:
+
+   .. code-block:: c
 
       PTR[INDEX]
 

@@ -34,7 +34,9 @@ Source Locations
 
    You need to enable :c:macro:`GCC_JIT_BOOL_OPTION_DEBUGINFO` on the
    :c:type:`gcc_jit_context` for these locations to actually be usable by
-   the debugger::
+   the debugger:
+
+   .. code-block:: c
 
      gcc_jit_context_set_bool_option (
        ctxt,
@@ -54,7 +56,9 @@ Faking it
 ---------
 If you don't have source code for your internal representation, but need
 to debug, you can generate a C-like representation of the functions in
-your context using :c:func:`gcc_jit_context_dump_to_file()`::
+your context using :c:func:`gcc_jit_context_dump_to_file()`:
+
+.. code-block:: c
 
   gcc_jit_context_dump_to_file (ctxt, "/tmp/something.c",
                                 1 /* update_locations */);

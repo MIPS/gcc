@@ -364,7 +364,9 @@ Full example
     :lines: 1-
     :language: c
 
-Building and running it::
+Building and running it:
+
+.. code-block:: console
 
   $ gcc \
       tut02-sum-of-squares.c \

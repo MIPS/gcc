@@ -153,9 +153,11 @@ String Options
 
    Set a string option of the context.
 
+   .. type:: enum gcc_jit_str_option
+
    There is currently just one string option:
 
-   .. describe:: GCC_JIT_STR_OPTION_PROGNAME
+   .. macro:: GCC_JIT_STR_OPTION_PROGNAME
 
       The name of the program, for use as a prefix when printing error
       messages to stderr.  If `NULL`, or default, "libgccjit.so" is used.
@@ -169,6 +171,8 @@ Boolean options
 
   Set a boolean option of the context.
   Zero is "false" (the default), non-zero is "true".
+
+  .. type:: enum gcc_jit_bool_option
 
   .. macro:: GCC_JIT_BOOL_OPTION_DEBUGINFO
 
@@ -215,7 +219,9 @@ Boolean options
 
      If true, :func:`gcc_jit_context_compile` will dump the "gimple"
      representation of your code to stderr, before any optimizations
-     are performed.  The dump resembles C code::
+     are performed.  The dump resembles C code:
+
+     .. code-block:: c
 
        square (signed int i)
        {
@@ -229,7 +235,9 @@ Boolean options
   .. macro:: GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE
 
      If true, :func:`gcc_jit_context_compile` will dump the final
-     generated code to stderr, in the form of assembly language::
+     generated code to stderr, in the form of assembly language:
+
+     .. code-block:: gas
 
            .file    "fake.c"
            .text
@@ -292,6 +300,8 @@ Integer options
 				                   int value)
 
   Set an integer option of the context.
+
+  .. type:: enum gcc_jit_int_option
 
   There is currently just one integer option:
 

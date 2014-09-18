@@ -31,14 +31,18 @@ Types
 Types can be created in several ways:
 
 * fundamental types can be accessed using
-  :func:`gcc_jit_context_get_type`::
+  :func:`gcc_jit_context_get_type`:
+
+  .. code-block:: c
 
       gcc_jit_type *int_type = gcc_jit_context_get_type (GCC_JIT_TYPE_INT);
 
   See :func:`gcc_jit_context_get_type` for the available types.
 
 * derived types can be accessed by using functions such as
-  :func:`gcc_jit_type_get_pointer` and :func:`gcc_jit_type_get_const`::
+  :func:`gcc_jit_type_get_pointer` and :func:`gcc_jit_type_get_const`:
+
+  .. code-block:: c
 
     gcc_jit_type *const_int_star = gcc_jit_type_get_pointer (gcc_jit_type_get_const (int_type));
     gcc_jit_type *int_const_star = gcc_jit_type_get_const (gcc_jit_type_get_pointer (int_type));
@@ -131,7 +135,9 @@ You can model C `struct` types by creating :c:type:`gcc_jit_struct *` and
 
     struct coord {double x; double y; };
 
-  you could call::
+  you could call:
+
+  .. code-block:: c
 
     gcc_jit_field *field_x =
       gcc_jit_context_new_field (ctxt, NULL, double_type, "x");
@@ -148,7 +154,9 @@ You can model C `struct` types by creating :c:type:`gcc_jit_struct *` and
 
     struct node { int m_hash; struct node *m_next; };
 
-  like this::
+  like this:
+
+  .. code-block:: c
 
     gcc_jit_type *node =
       gcc_jit_context_new_opaque_struct (ctxt, NULL, "node");

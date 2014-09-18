@@ -41,12 +41,14 @@ your system.  Having done this,
   sudo yum install libgccjit-devel
 
 should give you both the JIT library (`libgccjit`) and the header files
-needed to develop against it (`libgccjit-devel`)::
+needed to develop against it (`libgccjit-devel`):
 
-  [david@c64 ~]$ rpm -qlv libgccjit
+.. code-block:: console
+
+  $ rpm -qlv libgccjit
   lrwxrwxrwx    1 root    root                       18 Aug 12 07:56 /usr/lib64/libgccjit.so.0 -> libgccjit.so.0.0.1
   -rwxr-xr-x    1 root    root                 14463448 Aug 12 07:57 /usr/lib64/libgccjit.so.0.0.1
-  [david@c64 ~]$ rpm -qlv libgccjit-devel
+  $ rpm -qlv libgccjit-devel
   -rwxr-xr-x    1 root    root                    37654 Aug 12 07:56 /usr/include/libgccjit++.h
   -rwxr-xr-x    1 root    root                    28967 Aug 12 07:56 /usr/include/libgccjit.h
   lrwxrwxrwx    1 root    root                       14 Aug 12 07:56 /usr/lib64/libgccjit.so -> libgccjit.so.0
@@ -103,7 +105,9 @@ To build it (within the "jit/build" subdirectory, installing to
 On my 4-core laptop this takes 17 minutes and 1.1G of disk space
 (it's much faster with many cores and a corresponding -j setting).
 
-This should build a libgccjit.so within jit/build/gcc::
+This should build a libgccjit.so within jit/build/gcc:
+
+.. code-block:: console
 
  [build] $ file gcc/libgccjit.so*
  gcc/libgccjit.so:       symbolic link to `libgccjit.so.0'
@@ -126,14 +130,18 @@ earlier) via:
 On my laptop this uses a further 0.4G of disk space.
 
 You should be able to see the header files within the `include`
-subdirectory of the installation prefix::
+subdirectory of the installation prefix:
+
+.. code-block:: console
 
   $ find $PREFIX/include
   /home/david/gcc-jit/install/include
   /home/david/gcc-jit/install/include/libgccjit.h
   /home/david/gcc-jit/install/include/libgccjit++.h
 
-and the library within the `lib` subdirectory::
+and the library within the `lib` subdirectory:
+
+.. code-block:: console
 
   $ find $PREFIX/lib/libgccjit.*
   /home/david/gcc-jit/install/lib/libgccjit.so
@@ -152,7 +160,9 @@ a call to `printf` and use it to write a message to stdout.
 
 Copy it to `jit-hello-world.c`.
 
-To build it with prebuilt packages, use::
+To build it with prebuilt packages, use:
+
+.. code-block:: console
 
   $ gcc \
       jit-hello-world.c \
@@ -165,7 +175,9 @@ To build it with prebuilt packages, use::
 
 
 If building against an locally-built install (to $PREFIX), specify the
-include and library paths with -I and -L::
+include and library paths with -I and -L:
+
+.. code-block:: console
 
   $ gcc \
       jit-hello-world.c \
@@ -173,7 +185,9 @@ include and library paths with -I and -L::
       -lgccjit \
       -I$PREFIX/include -L$PREFIX/lib
 
-and when running, specify the dynamic linkage path via LD_LIBRARY_PATH::
+and when running, specify the dynamic linkage path via LD_LIBRARY_PATH:
+
+.. code-block:: console
 
   $ LD_LIBRARY_PATH=$PREFIX/lib ./jit-hello-world
   hello world
