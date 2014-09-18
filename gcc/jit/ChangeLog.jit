@@ -1,5 +1,10 @@
 2014-09-18  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/conf.py (Options for HTML output): Update html_theme from
+	"default" to "pyramid".
+
+2014-09-18  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/intro/install.rst: Markup fixes.
 	* docs/intro/tutorial01.rst: Likewise.
 	* docs/intro/tutorial02.rst: Likewise.
