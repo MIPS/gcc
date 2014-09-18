@@ -4771,7 +4771,7 @@ move_all_children (dw_die_ref old_parent, dw_die_ref new_parent)
 /* Remove child DIE whose die_tag is TAG.  Do nothing if no child
    matches TAG.  */
 
-static void
+static void ATTRIBUTE_UNUSED
 remove_child_TAG (dw_die_ref die, enum dwarf_tag tag)
 {
   dw_die_ref c;
@@ -18301,17 +18301,16 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  /* ??? Hmmm, early dwarf generation happened earlier, so no
 	     sense in removing the parameters.  Let's keep them and
 	     augment them with location information later.  */
-	  if (!old_die->dumped_early)
-	    {
-	      /* Clear out the declaration attribute and the formal parameters.
-		 Do not remove all children, because it is possible that this
-		 declaration die was forced using force_decl_die(). In such
-		 cases die that forced declaration die (e.g. TAG_imported_module)
-		 is one of the children that we do not want to remove.  */
-	      remove_AT (subr_die, DW_AT_declaration);
-	      remove_AT (subr_die, DW_AT_object_pointer);
-	      remove_child_TAG (subr_die, DW_TAG_formal_parameter);
-	    }
+#if 0
+	  /* Clear out the declaration attribute and the formal parameters.
+	     Do not remove all children, because it is possible that this
+	     declaration die was forced using force_decl_die(). In such
+	     cases die that forced declaration die (e.g. TAG_imported_module)
+	     is one of the children that we do not want to remove.  */
+	  remove_AT (subr_die, DW_AT_declaration);
+	  remove_AT (subr_die, DW_AT_object_pointer);
+	  remove_child_TAG (subr_die, DW_TAG_formal_parameter);
+#endif
 	}
       else
 	{
