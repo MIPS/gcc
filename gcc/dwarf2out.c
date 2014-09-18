@@ -3683,7 +3683,7 @@ decl_ultimate_origin (const_tree decl)
   /* output_inline_function sets DECL_ABSTRACT_ORIGIN for all the
      nodes in the function to point to themselves; ignore that if
      we're trying to output the abstract instance of this function.  */
-  if (/*DECL_ABSTRACT (decl) &&*/ DECL_ABSTRACT_ORIGIN (decl) == decl)
+  if (DECL_ABSTRACT (decl) && DECL_ABSTRACT_ORIGIN (decl) == decl)
     return NULL_TREE;
 
   /* Since the DECL_ABSTRACT_ORIGIN for a DECL is supposed to be the

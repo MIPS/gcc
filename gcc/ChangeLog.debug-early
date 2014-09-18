@@ -1,5 +1,10 @@
 2014-09-18  Aldy Hernandez  <aldyh@redhat.com>
 
+	* dwarf2out.c (decl_ultimate_origin): Allow checking of
+	DECL_ABSTRACT.
+
+2014-09-18  Aldy Hernandez  <aldyh@redhat.com>
+
 	* dwarf2out.c (gen_subprogram_die): Disable removal of
 	DW_AT_{declaration,object_pointer,formal_parameter}.
 	(remove_child_TAG): Mark as ATTRIBUTE_UNUSED temporarily.
