@@ -15,35 +15,16 @@
    along with this program.  If not, see
    <http://www.gnu.org/licenses/>.
 
-libgccjit
-=========
-
-Contents:
+Topic Reference
+===============
 
 .. toctree::
    :maxdepth: 2
 
-   intro/index.rst
-   topics/index.rst
-
-This document describes `libgccjit <http://gcc.gnu.org/wiki/JIT>`_, an API
-for embedding GCC inside programs and libraries.
-
-Note that libgccjit is currently of "Alpha" quality;
-the APIs are not yet set in stone, and they shouldn't be used in
-production yet.
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-.. Some notes:
-
-   The Sphinx C domain appears to lack explicit support for enum values,
-   so I've been using :c:macro: for them.
-
-   See http://sphinx-doc.org/domains.html#the-c-domain
+   contexts.rst
+   objects.rst
+   types.rst
+   expressions.rst
+   functions.rst
+   locations.rst
+   results.rst
