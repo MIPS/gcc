@@ -1,4 +1,8 @@
 
+2014-09-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (class_nrep_macrolambda): New class.
+	(normexp_let): Start handling macro, but incomplete code.
+
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normexp_defun_defmacro): More debug.
 2014-09-17  Basile Starynkevitch  <basile@starynkevitch.net>

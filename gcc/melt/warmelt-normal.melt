@@ -402,6 +402,11 @@ part, $NIFP_ELSE the else part, $NIFP_CTYP the ctype.}#
 	   nlambda_closedv		;the tuple of closed normal values
 	   ))
 
+;; normalized lambda for :macro binding
+(defclass class_nrep_macrolambda
+  :super class_nrep_lambda
+  :fields ()
+)
 
 ;; normalized citeration
 (defclass class_nrep_citeration
@@ -930,6 +935,7 @@ routine procedures.}#
  class_nrep_literalnamedvalue
  class_nrep_literalvalue
  class_nrep_locsymocc
+ class_nrep_macrolambda
  class_nrep_msend
  class_nrep_multacc
  class_nrep_multiapply
@@ -3903,18 +3909,35 @@ source location.}#
      (sbindings)
      (sb :long sbix)
      (debug "normexp_let" " sloc=" sloc "sbix#" sbix "; sb=" sb)
-     ;; we should never have a source macro binding, if we have one something is wrong
+     ;; handle the local :macro binding case
      (when (is_a sb class_source_macro_let_binding)
        (debug "normexp_let" " bad macrobinding sb=" sb)
        (let ( (macsymb (get_field :sletb_binder sb))
 	      (mloc (or (get_field :loca_location sb) sloc))
+	      (mformals (get_field :sletm_macro_formals sb))
+	      (mbody (get_field :sletm_macro_body sb))
+	      (slambda (instance class_source_lambda_for_macro
+				 :loca_location mloc
+				 :slam_argbind mformals
+				 :slam_body mbody
+				 :slam_origmacro sb
+				 ))
 	      )
-	 (error_at mloc "unexpected MELT macro binding for $1" macsymb)
-	 (if (!= mloc sloc)
-	     (inform_at sloc "unexpected MELT macro binding of $1 in this LET" macsymb))
-	 (assert_msg "normexp_let got macrobinding!!" () sb)
-	 (return)
-       ))
+	 (debug "normexp_let:macro sloc=" sloc "; slambda=" slambda)
+	 (multicall 
+	  (manproc macsym maclocc maconstrout maclovtup masloc maoldproc mandatarout :long mainsideflag)
+	  (normalize_lambda slambda env newenv ncx psloc)
+	  (debug "normexp_let:macro after normalize_lambda manproc=" manproc "\n.. macsym=" macsym 
+		 "\n.. maclocc=" maclocc "\n.. maconstrout=" maconstrout "\n.. maclovtup=" maclovtup
+		 "\n.. masloc=" masloc "\n.. maoldproc=" maoldproc "\n.. mandatarout=" mandatarout
+		 "\n.. mainsideflag=" mainsideflag)
+
+	  (error_at mloc "unexpected MELT macro binding for $1" macsymb)
+	  (if (!= mloc sloc)
+	      (inform_at sloc "unexpected MELT macro binding of $1 in this LET" macsymb))
+	  (assert_msg "normexp_let got macrobinding!!" () sb)
+	  (return)
+	  )))
      (assert_msg "check sb" (is_a sb class_source_let_binding) sb)
      (let ( (sbloc (unsafe_get_field :loca_location sb))
 	    (sbtyp (unsafe_get_field :sletb_type sb))
@@ -3943,13 +3966,13 @@ source location.}#
 	      (setq sbtyp nbctype))
 	  ;; check ctype compatibility
 	  (when (!= nbctype sbtyp)
-		(error_at 
-		 sbloc
-		 "ctype mismatch in LET binding of local variable $1 got $2 expecting $3"
-		 (get_field :named_name  sbinder)
-		 (get_field :named_name nbctype)
-		 (get_field :named_name sbtyp))
-		))
+	    (error_at 
+	     sbloc
+	     "ctype mismatch in LET binding of local variable $1 got $2 expecting $3"
+	     (get_field :named_name  sbinder)
+	     (get_field :named_name nbctype)
+	     (get_field :named_name sbtyp))
+	    ))
 	;;
 	(let ( (lastnbinding (pair_head (list_last nbindings))) )
 	  ;; common case of a normalized apply or primitive, hence a
