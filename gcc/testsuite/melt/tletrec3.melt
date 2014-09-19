@@ -2,11 +2,17 @@
 ;; file tletrec3.melt
 
 #| run in buildir/gcc
- ./cc1 -fmelt=runfile  -fmelt-module-path=.    \
-    -fmelt-source-path=.:$GCCMELTSOURCE/gcc/melt \
-    -fmelt-tempdir=/tmp -fmelt-init=@warmelt2 \
-    -fmelt-arg=$GCCMELTSOURCE/gcc/testsuite/melt/tletrec3.melt \
-    -fmelt-debug empty-file-for-melt.c
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tletrec3.melt
+
+ ./cc1 -fmelt-mode=runfile   @meltbuild-common.args     \
+    -fmelt-arg=tletrec3.melt \
+    -fmelt-debugging=all meltbuild-empty-file.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tletmacro-1.melt \
+     -c -x c /dev/null -o /dev/null
 |#
 
 (defclass class_abc
@@ -29,7 +35,7 @@
 	    )
 	  li))
 
-(debug_msg (testlist 'xx 'yy 'zz) "testlist")
+(debug "testlist:" (testlist 'xx 'yy 'zz) )
 
 
 (defun testtuple (x y z)
@@ -37,7 +43,7 @@
 	    )
 	  tu))
 
-(debug_msg (testtuple 'xx 'yy 'zz) "testtuple")
+(debug "testtuple:" (testtuple 'xx 'yy 'zz))
 
 
 (defun testinstance1 (x y z)
@@ -48,7 +54,7 @@
    (checknonull "check aa in ob1" (unsafe_get_field :aa ob1))
    ob1))
 
-(debug_msg (testinstance1 'xx 'yy 'zz) "testinstance1")
+(debug  "testinstance1:" (testinstance1 'xx 'yy 'zz))
 
 
 (defun testletrec3 (x y)
@@ -60,16 +66,16 @@
 			  :aa tu 
 			  :bb 'zzzz
 			  :cc ob
-			  :dd (instance class_container :container_value x)
+			  :dd (instance class_reference :reference_value x)
 			  :ee obcont))
-	    (obcont (instance class_container :container_value ob))
+	    (obcont (instance class_reference :reference_value ob))
 	    )
-	  (debug_msg obcont "testletrec3 obcont")
+	  (debug "testletrec3 obcont:" obcont)
 	  (checknonull "check aa in ob" (unsafe_get_field :aa ob))
 	  (checknonull "check dd in ob" (unsafe_get_field :dd ob))
 	  ob
 	  ))
 
-(debug_msg (testletrec3 'xxx 'yyy) "testletrec3")
+(debug  "testletrec3" (testletrec3 'xxx 'yyy))
 
 ;; eof tletrec3.melt

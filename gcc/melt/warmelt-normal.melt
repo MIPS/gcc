@@ -3891,6 +3891,8 @@ source location.}#
 		(lambda (recv env) (get_ctype (unsafe_get_field :nprogn_last recv) env)))
 
 
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	 
 ;;;;;; normalize a LET
 (defun normexp_let (recv env ncx psloc)
@@ -3909,8 +3911,9 @@ source location.}#
      (sbindings)
      (sb :long sbix)
      (debug "normexp_let" " sloc=" sloc "sbix#" sbix "; sb=" sb)
-     ;; handle the local :macro binding case
-     (when (is_a sb class_source_macro_let_binding)
+     (cond
+      ;; handle the local :macro binding case, this is happening after macro expansion
+      ((is_a sb class_source_macro_let_binding)
        (debug "normexp_let" " bad macrobinding sb=" sb)
        (let ( (macsymb (get_field :sletb_binder sb))
 	      (mloc (or (get_field :loca_location sb) sloc))
@@ -3923,96 +3926,119 @@ source location.}#
 				 :slam_origmacro sb
 				 ))
 	      )
-	 (debug "normexp_let:macro sloc=" sloc "; slambda=" slambda)
+	 (debug "normexp_let:macro" " sloc=" sloc "; slambda=" slambda)
 	 (multicall 
 	  (manproc macsym maclocc maconstrout maclovtup masloc maoldproc mandatarout :long mainsideflag)
 	  (normalize_lambda slambda env newenv ncx psloc)
-	  (debug "normexp_let:macro after normalize_lambda manproc=" manproc "\n.. macsym=" macsym 
+	  (debug "normexp_let:macro" " after normalize_lambda manproc=" manproc "\n.. macsym=" macsym 
 		 "\n.. maclocc=" maclocc "\n.. maconstrout=" maconstrout "\n.. maclovtup=" maclovtup
 		 "\n.. masloc=" masloc "\n.. maoldproc=" maoldproc "\n.. mandatarout=" mandatarout
 		 "\n.. mainsideflag=" mainsideflag)
-
-	  (error_at mloc "unexpected MELT macro binding for $1" macsymb)
-	  (if (!= mloc sloc)
-	      (inform_at sloc "unexpected MELT macro binding of $1 in this LET" macsymb))
-	  (assert_msg "normexp_let got macrobinding!!" () sb)
-	  (return)
-	  )))
-     (assert_msg "check sb" (is_a sb class_source_let_binding) sb)
-     (let ( (sbloc (unsafe_get_field :loca_location sb))
-	    (sbtyp (unsafe_get_field :sletb_type sb))
-	    (sbinder (unsafe_get_field :sletb_binder sb))
-	    (sbexpr (unsafe_get_field :sletb_expr sb)) 
-	    )
-       (assert_msg "check sbtyp" (is_a sbtyp class_quasi_ctype) sbtyp)
-       ;; issue an inform message if the let binding overrides a previous one
-       (and
-	(has_extra_warnings)
-	(find_env env sbinder)
-	(inform_strv sbloc "this LET binding hides another one in enclosing scope - "
-		     (get_field :named_name  sbinder))
-	)
-;;; normalize the binding's expression
-       (multicall
-	(nbdexpr nbindings)
-	(normal_exp sbexpr newenv ncx sbloc)
-	;; check that the ctype of the normalized expression
-	;; is the same as the let binding's ctype
-	(let ( (nbctype (get_ctype nbdexpr newenv)) 
-	       )
-	  (assert_msg "check nbctype" (is_a nbctype class_ctype) nbctype)
-	  ;; replace an :auto binding with the appropriate ctype
-	  (if (== sbtyp quasi_ctype_auto)
-	      (setq sbtyp nbctype))
-	  ;; check ctype compatibility
-	  (when (!= nbctype sbtyp)
-	    (error_at 
-	     sbloc
-	     "ctype mismatch in LET binding of local variable $1 got $2 expecting $3"
-	     (get_field :named_name  sbinder)
-	     (get_field :named_name nbctype)
-	     (get_field :named_name sbtyp))
-	    ))
-	;;
-	(let ( (lastnbinding (pair_head (list_last nbindings))) )
-	  ;; common case of a normalized apply or primitive, hence a
-	  ;; gensymed variable which is the last in the nbindings
-	  (if (and
-	       (is_a lastnbinding class_normal_let_binding)
-	       (is_a nbdexpr class_nrep_locsymocc)
-	       (== (unsafe_get_field :binder lastnbinding) 
-		   (unsafe_get_field :nocc_symb nbdexpr))
-	       )
-	      (let ( (lastnormexp (unsafe_get_field :letbind_expr nbdexpr)) )
-		(list_every
-		 nbindings
-		 (lambda (b)
-		   (if (!= b lastnbinding)
-		       (list_append bindlist b))))
-		(let ( (newcbnd
-			(instance class_normal_let_binding
-				  :binder sbinder
-				  :letbind_type (unsafe_get_field :letbind_type lastnbinding)
-				  :letbind_expr (unsafe_get_field :letbind_expr lastnbinding)
-				  :letbind_loc (unsafe_get_field :letbind_loc lastnbinding)))
-		       )
-		  (list_append bindlist newcbnd)
-		  (put_env newenv newcbnd)
-		  )
-		)
-	    (progn
-;;; otherwise, eg a plain constant, a complex if...
-	      (list_append2list bindlist  nbindings)
-	      (let ( (newpbnd 
-		      (instance class_normal_let_binding
-				:binder sbinder
-				:letbind_type sbtyp
-				:letbind_expr nbdexpr
-				:letbind_loc sbloc)) )
-		(list_append bindlist newpbnd)
-		(put_env newenv newpbnd)
-		))
+	  (let (
+		 (maloc (or masloc mloc))
+		 (maclambda (instance class_nrep_macrolambda
+				      :nrep_loc maloc
+				      :nlambda_proc manproc
+				      :nlambda_constrout maconstrout
+				      :nlambda_closedv maclovtup))
+		 (macbind (instance class_normal_let_binding
+				    :letbind_loc maloc
+				    :binder macsym
+				    :letbind_type ctype_value
+				    :letbind_expr maclambda))
+		 )
+	    (debug "normexp_let:macro" " maclambda=" maclambda)
+	    (put_fields maclocc :nocc_bind macbind)
+	    (debug "normexp_let:macro" " updated maclocc=" maclocc)
+	    ;; should do something with maclocc, maconstrout, mainsideflag, etc...
+	    (error_at mloc "unexpected MELT macro binding for $1" macsymb)
+	    (if (!= mloc sloc)
+		(inform_at sloc "unexpected MELT macro binding of $1 in this LET" macsymb))
+	    (assert_msg "normexp_let got macrobinding!!" () sb)
+	    (return)
 	    ))))
+      ;; handle the normal source let binding case
+      (  (is_a sb class_source_let_binding)
+	 (let ( (sbloc (unsafe_get_field :loca_location sb))
+		(sbtyp (unsafe_get_field :sletb_type sb))
+		(sbinder (unsafe_get_field :sletb_binder sb))
+		(sbexpr (unsafe_get_field :sletb_expr sb)) 
+		)
+	   (assert_msg "check sbtyp" (is_a sbtyp class_quasi_ctype) sbtyp)
+	   ;; issue an inform message if the let binding overrides a previous one
+	   (and
+	    (has_extra_warnings)
+	    (find_env env sbinder)
+	    (inform_strv sbloc "this LET binding hides another one in enclosing scope - "
+			 (get_field :named_name  sbinder))
+	    )
+;;; normalize the binding's expression
+	   (multicall
+	    (nbdexpr nbindings)
+	    (normal_exp sbexpr newenv ncx sbloc)
+	    ;; check that the ctype of the normalized expression
+	    ;; is the same as the let binding's ctype
+	    (let ( (nbctype (get_ctype nbdexpr newenv)) 
+		   )
+	      (assert_msg "check nbctype" (is_a nbctype class_ctype) nbctype)
+	      ;; replace an :auto binding with the appropriate ctype
+	      (if (== sbtyp quasi_ctype_auto)
+		  (setq sbtyp nbctype))
+	      ;; check ctype compatibility
+	      (when (!= nbctype sbtyp)
+		(error_at 
+		 sbloc
+		 "ctype mismatch in LET binding of local variable $1 got $2 expecting $3"
+		 (get_field :named_name  sbinder)
+		 (get_field :named_name nbctype)
+		 (get_field :named_name sbtyp))
+		))
+	    ;;
+	    (let ( (lastnbinding (pair_head (list_last nbindings))) )
+	      ;; common case of a normalized apply or primitive, hence a
+	      ;; gensymed variable which is the last in the nbindings
+	      (if (and
+		   (is_a lastnbinding class_normal_let_binding)
+		   (is_a nbdexpr class_nrep_locsymocc)
+		   (== (unsafe_get_field :binder lastnbinding) 
+		       (unsafe_get_field :nocc_symb nbdexpr))
+		   )
+		  (let ( (lastnormexp (unsafe_get_field :letbind_expr nbdexpr)) )
+		    (list_every
+		     nbindings
+		     (lambda (b)
+		       (if (!= b lastnbinding)
+			   (list_append bindlist b))))
+		    (let ( (newcbnd
+			    (instance class_normal_let_binding
+				      :binder sbinder
+				      :letbind_type (unsafe_get_field :letbind_type lastnbinding)
+				      :letbind_expr (unsafe_get_field :letbind_expr lastnbinding)
+				      :letbind_loc (unsafe_get_field :letbind_loc lastnbinding)))
+			   )
+		      (list_append bindlist newcbnd)
+		      (put_env newenv newcbnd)
+		      )
+		    )
+		(progn
+;;; otherwise, eg a plain constant, a complex if...
+		  (list_append2list bindlist  nbindings)
+		  (let ( (newpbnd 
+			  (instance class_normal_let_binding
+				    :binder sbinder
+				    :letbind_type sbtyp
+				    :letbind_expr nbdexpr
+				    :letbind_loc sbloc)) )
+		    (list_append bindlist newpbnd)
+		    (put_env newenv newpbnd)
+		    ))
+		))))
+	 )
+      (:else
+       (error_at sloc "impossible LET binding #$1" sbix)
+       (assert_msg "impossible let binding" () sb sbix)
+       (return))
+      )
      )
 ;;; end of loop on source bindings
     (multicall
@@ -4060,6 +4086,7 @@ source location.}#
        (return clocc resbinds)
        )
      )))
+;;;;
 (install_method class_source_let normal_exp normexp_let)
 (install_method class_nrep_let get_ctype 
 		(lambda (recv env)
@@ -4067,6 +4094,8 @@ source location.}#
 			 (:long lenb (multiple_length lbod)) )
 		    (if (<=i lenb 0) ctype_void
 		      (get_ctype (multiple_nth lbod (-i lenb 1)) env)))))
+
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
