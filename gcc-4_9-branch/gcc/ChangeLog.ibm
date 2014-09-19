@@ -1,3 +1,8 @@
+2014-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 215405 to pick up power8 fusion improvements.
+	* REVISION: Update subversion id.
+
 2014-09-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 215140.

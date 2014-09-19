@@ -9816,6 +9816,11 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	}
     }
 
+  /* If the expansion is just T..., return the matching argument pack.  */
+  if (!unsubstituted_packs
+      && TREE_PURPOSE (packs) == pattern)
+    return ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+
   /* We cannot expand this expansion expression, because we don't have
      all of the argument packs we need.  */
   if (use_pack_expansion_extra_args_p (packs, len, unsubstituted_packs))
@@ -13863,13 +13868,27 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case OMP_TEAMS:
-    case OMP_TARGET_DATA:
-    case OMP_TARGET:
       tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
 				args, complain, in_decl);
       stmt = push_stmt_list ();
       RECUR (OMP_BODY (t));
       stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      OMP_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
+    case OMP_TARGET_DATA:
+    case OMP_TARGET:
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
+				args, complain, in_decl);
+      keep_next_level (true);
+      stmt = begin_omp_structured_block ();
+
+      RECUR (OMP_BODY (t));
+      stmt = finish_omp_structured_block (stmt);
 
       t = copy_node (t);
       OMP_BODY (t) = stmt;
