@@ -421,7 +421,9 @@ $ find $PREFIX/lib/libgccjit.*
 @subsection "Hello world"
 
 
-Here's a trivial "hello world" program that uses the library to synthesize
+Let's look at how to build and run programs that use the library.
+
+Here's a toy "hello world" program that uses the library to synthesize
 a call to @cite{printf} and use it to write a message to stdout.
 
 @quotation
@@ -554,8 +556,35 @@ hello world
 
 @noindent
 
-If building against an locally-built install (to $PREFIX), specify the
-include and library paths with -I and -L:
+If building against an locally-built install (to @cite{$PREFIX}), you can use
+pkg-config@footnote{http://www.freedesktop.org/wiki/Software/pkg-config/} to
+specify the compilation and linkage flags:
+
+@example
+$ export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+$ gcc \
+    jit-hello-world.c \
+    -o jit-hello-world \
+    $(pkg-config libgccjit --cflags --libs)
+@end example
+
+@noindent
+
+and ensure that @cite{LD_LIBRARY_PATH} is set appropriate when running the
+built program, so that it can locate and dynamically link against
+@cite{libgccjit.so}:
+
+@example
+# Run the built program:
+$ export LD_LIBRARY_PATH=$PREFIX/lib
+$ ./jit-hello-world
+hello world
+@end example
+
+@noindent
+
+This is equivalent to handcoding the include and library paths with @cite{-I}
+and @cite{-L} and specifying @cite{-lgccjit} (i.e. linkage against libgccjit):
 
 @example
 $ gcc \
@@ -563,13 +592,7 @@ $ gcc \
     -o jit-hello-world \
     -lgccjit \
     -I$PREFIX/include -L$PREFIX/lib
-@end example
 
-@noindent
-
-and when running, specify the dynamic linkage path via LD_LIBRARY_PATH:
-
-@example
 $ LD_LIBRARY_PATH=$PREFIX/lib ./jit-hello-world
 hello world
 @end example

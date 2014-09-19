@@ -36,3 +36,7 @@ gtfiles="\$(srcdir)/jit/dummy-frontend.c"
 # Hence to get the jit, one must configure with:
 #   --enable-host-shared --enable-languages=jit
 build_by_default="no"
+
+# Ensure that libgccjit.pc is built from libgccjit.pc.in
+# via AC_CONFIG_FILES in gcc/configure.ac
+outputs="jit/libgccjit.pc"

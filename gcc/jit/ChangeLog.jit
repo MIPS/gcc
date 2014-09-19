@@ -1,5 +1,18 @@
 2014-09-18  David Malcolm  <dmalcolm@redhat.com>
 
+	* Make-lang.in (jit.install-common): Install libgccjit.pc to
+	"$(DESTDIR)/$(libdir)/pkgconfig".
+	* config-lang.in (outputs): Define this, adding jit/libgccjit.pc
+	so that it makes it into AC_CONFIG_FILES and is thus generated from
+	jit/libgccjit.pc.in at configure time.
+	* docs/intro/install.rst ("Hello world"): Add discussion about the
+	use of pkg-config when building against an install in
+	a non-standard location.
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+	* libgccjit.pc.in: New.
+
+2014-09-18  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/index.rst: Split index out into two new files...
 	* docs/intro/index.rst: New file.
 	* docs/topics/index.rst: New file.

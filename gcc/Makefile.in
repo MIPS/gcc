@@ -585,6 +585,8 @@ bindir = @bindir@
 libdir = @libdir@
 # Directory in which GCC puts its executables.
 libexecdir = @libexecdir@
+# Directory in which to install .pc files for pkgconfig
+pkgconfigdir = @libdir@/pkgconfig
 
 # --------
 # UNSORTED
@@ -3144,6 +3146,7 @@ installdirs:
 	$(mkinstalldirs) $(DESTDIR)$(infodir)
 	$(mkinstalldirs) $(DESTDIR)$(man1dir)
 	$(mkinstalldirs) $(DESTDIR)$(man7dir)
+	$(mkinstalldirs) $(DESTDIR)$(pkgconfigdir)
 
 PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   toplev.h $(DIAGNOSTIC_CORE_H) $(BASIC_BLOCK_H) $(HASH_TABLE_H) \

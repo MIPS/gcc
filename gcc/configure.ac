@@ -29,6 +29,7 @@ AC_CONFIG_SRCDIR(tree.c)
 AC_CONFIG_HEADER(auto-host.h:config.in)
 
 gcc_version=`cat $srcdir/BASE-VER`
+AC_SUBST(gcc_version)
 
 # Determine the host, build, and target systems
 AC_CANONICAL_BUILD

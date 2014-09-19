@@ -117,6 +117,8 @@ jit.install-common: installdirs
 	  $(DESTDIR)/$(includedir)/libgccjit.h
 	$(INSTALL_PROGRAM) $(srcdir)/jit/libgccjit++.h \
 	  $(DESTDIR)/$(includedir)/libgccjit++.h
+	$(INSTALL_PROGRAM) jit/libgccjit.pc \
+	  $(DESTDIR)/$(libdir)/pkgconfig/libgccjit.pc
 
 jit.install-man:
 
