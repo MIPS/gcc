@@ -24,3 +24,4 @@ Tutorial
    install.rst
    tutorial01.rst
    tutorial02.rst
+   tutorial03.rst

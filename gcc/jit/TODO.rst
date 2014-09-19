@@ -114,6 +114,8 @@ Future milestones
 
 * "switch" and "case" ?
 
+* Detect and issue warnings/errors about uses of uninitialized variables
+
 * do we need unary plus?
 * shift operators?
 * sizeof (should this be an API hook?)  do we even need it? presumably

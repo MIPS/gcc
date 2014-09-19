@@ -1,3 +1,23 @@
+2014-09-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* TODO.rst: Add detection of uninitialized variables, since
+	this bit me when developing "toyvm".
+
+	* docs/examples/tut03-toyvm/Makefile: New.
+	* docs/examples/tut03-toyvm/factorial.toy: New.
+	* docs/examples/tut03-toyvm/fibonacci.toy: New.
+	* docs/examples/tut03-toyvm/toyvm.c: New.
+
+	* docs/intro/index.rst: Add tutorial03.rst.
+	* docs/intro/tutorial01.rst: Fix example of how to dump
+	generated machine code.
+	* docs/intro/tutorial03.rst: New.
+	* docs/intro/factorial.png: New.
+
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+	* docs/_build/texinfo/factorial.png: New (copied by sphinx from
+	docs/intro/factorial.png).
+
 2014-09-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* Make-lang.in (jit.install-common): Install libgccjit.pc to

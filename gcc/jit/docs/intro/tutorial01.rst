@@ -262,7 +262,7 @@ before compiling:
 
   gcc_jit_context_set_bool_option (
     ctxt,
-    GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+    GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
     1);
   result = gcc_jit_context_compile (ctxt);
 
