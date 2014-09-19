@@ -3935,27 +3935,29 @@ source location.}#
 		 "\n.. masloc=" masloc "\n.. maoldproc=" maoldproc "\n.. mandatarout=" mandatarout
 		 "\n.. mainsideflag=" mainsideflag)
 	  (let (
-		 (maloc (or masloc mloc))
-		 (maclambda (instance class_nrep_macrolambda
-				      :nrep_loc maloc
-				      :nlambda_proc manproc
-				      :nlambda_constrout maconstrout
-				      :nlambda_closedv maclovtup))
-		 (macbind (instance class_normal_let_binding
-				    :letbind_loc maloc
-				    :binder macsym
-				    :letbind_type ctype_value
-				    :letbind_expr maclambda))
-		 )
+		(maloc (or masloc mloc))
+		(maclambda (instance class_nrep_macrolambda
+				     :nrep_loc maloc
+				     :nlambda_proc manproc
+				     :nlambda_constrout maconstrout
+				     :nlambda_closedv maclovtup))
+		(macbind (instance class_normal_let_binding
+				   :letbind_loc maloc
+				   :binder macsym
+				   :letbind_type ctype_value
+				   :letbind_expr maclambda))
+		)
 	    (debug "normexp_let:macro" " maclambda=" maclambda)
 	    (put_fields maclocc :nocc_bind macbind)
 	    (debug "normexp_let:macro" " updated maclocc=" maclocc)
-	    ;; should do something with maclocc, maconstrout, mainsideflag, etc...
-	    (error_at mloc "unexpected MELT macro binding for $1" macsymb)
-	    (if (!= mloc sloc)
-		(inform_at sloc "unexpected MELT macro binding of $1 in this LET" macsymb))
-	    (assert_msg "normexp_let got macrobinding!!" () sb)
-	    (return)
+	    (list_append bindlist macbind)
+	    (debug "normexp_let:macro" " updated bindlist=" bindlist)
+	    (put_env newenv macbind)
+	    (debug "normexp_let:macro" " updated newenv=" newenv "\n.. mainsideflag=" mainsideflag)
+	    (when mainsideflag
+	      (list_append (get_field :nrclop_constlist maoldproc) mandatarout)
+	      (debug "normexp_let:macro" " updated constlist in maoldproc=" maoldproc)
+	      )
 	    ))))
       ;; handle the normal source let binding case
       (  (is_a sb class_source_let_binding)
@@ -4040,6 +4042,10 @@ source location.}#
        (return))
       )
      )
+;;;
+    (debug "normexp_let" " sloc=" sloc "; bindlist=" bindlist
+	   "\n.. sbody=" sbody "\n.. newenv=" newenv
+	   "\n")
 ;;; end of loop on source bindings
     (multicall
      (nbody nbodbindings)

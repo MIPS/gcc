@@ -1,5 +1,9 @@
 
 2014-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normexp_let): More for :macro binding.
+	Untested yet.
+
+2014-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normexp_let): More for :macro binding,
 	but incomplete.
 	* testsuite/melt/tletrec3.melt: Slighty updated.
