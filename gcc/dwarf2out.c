@@ -18310,6 +18310,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  remove_AT (subr_die, DW_AT_declaration);
 	  remove_AT (subr_die, DW_AT_object_pointer);
 	  remove_child_TAG (subr_die, DW_TAG_formal_parameter);
+#else
+	  /* We don't need the DW_AT_declaration the second or third
+	     time around anyhow.  */
+	  remove_AT (subr_die, DW_AT_declaration);
 #endif
 	}
       else
