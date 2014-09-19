@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 215315] MELT_1\
+const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 215374] MELT_1\
 .1.3pre1"
 
 	     #ifdef __cplusplus
@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1.3pre1/warmelt-first";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="6b77f82053391164c310144924fc84c9";
+const char melt_prepromd5meltrun[]="6311473b6ae413d7d4b8a6644f7fdb0c";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="7fb808c9eb735c17d914b53ae095be1f";
+const char melt_primaryhexmd5[]="15d22460e5996cdfa7e5f297d0926bd7";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "069242dbdfaf2cae364bd29889ee8796",
- /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "40b92e60b959f60156de39ed7240f4a0",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "e733827c9226e08ffa9ac4f7590d5876",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "b90a73ec3e2b73dc0a40bb1b23c6e730",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="c2e72e898ce46115cabfd5bac3e75edc" ;
+const char melt_cumulated_hexmd5[]="145baacaa842e5c7de3fd6fcf5dd5a1e" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiFIRST_mds__C2E72E898CE46115CABFD5BAC3E75EDC 1
+#define meltmod_WARMELTmiFIRST_mds__145BAACAA842E5C7DE3FD6FCF5DD5A1E 1
 #include "warmelt-first+melttime.h"
 	 
 

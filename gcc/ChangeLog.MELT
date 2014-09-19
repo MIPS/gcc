@@ -1,5 +1,7 @@
 
 2014-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+2014-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tletmacro-1 test is compiled completely but then crashes; unstable!!}}
 	* melt/warmelt-normal.melt (normexp_defun_defmacro): Special case
 	with isletmacro... Remove normexp-defun-hack program argument.
