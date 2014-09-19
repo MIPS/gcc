@@ -5035,33 +5035,35 @@ source location.}#
 	 (sformals (unsafe_get_field :sformal_args recv))
 	 (sbody (unsafe_get_field :sfun_body recv))
 	 (:long ismacro (is_a recv class_source_defmacro))
+	 (:long isletmacro (is_a recv class_source_defmacro_in_let))
 	 (modctx (get_field :nctx_modulcontext ncx))
 	 (modinienv (get_field :mocx_initialenv modctx))
 	 (macroenv (get_field :mocx_macroenv modctx))
-	 (basenv (let
-		     ( (:cstring hackstr (melt_argument "normexp-defun-hack"))
-		       (be (cond
-			    ( (expr_chunk forcemacro_chk :long 
-					  #{ /*normexp defun forcemacro hack $FORCEMACRO_CHK */
-					  $HACKSTR && !strcmp($HACKSTR, "macro")
-					  }#)
-			      macroenv)
-			    ( (expr_chunk forcenv_chk :long 
-					  #{ /*normexp defun forcenv hack $FORCENV_CHK */
-					  $HACKSTR && !strcmp($HACKSTR, "env")
-					  }#)
+	 (basenv (progn
+		   (debug "normexp_defun_defmacro" " sloc=" sloc
+			  " ismacro=" ismacro " isletmacro=" isletmacro
+			  "\n.. env=" env
+			  "\n.. macroenv=" macroenv)
+		   (let
+		       ( 
+			(be (cond
+			     (isletmacro
+			      (debug "normexp_defun_defmacro" " isletmacro basenv=env=" debug_less env)
 			      env)
-			    (:else
-			      (if ismacro macroenv env))))
+			     (ismacro
+			      (debug "normexp_defun_defmacro" " ismacro basenv=macroenv=" debug_less macroenv)
+			      macroenv)
+			     (:else
+			      (debug "normexp_defun_defmacro" " nonmacro basenv=env=" debug_less env)
+			      env)))
 			)
-		   (debug "normexp_defun_defmacro sloc=" debug_less sloc
-			  ", hackstr=" hackstr
-			  "; ismacro=" ismacro "; basenv=" be)
-		   (debug "normexp_defun_defmacro snam=" snam
-			  "\n in env got:" (find_env env snam)
-			  "\n in macroenv got:" (find_env macroenv snam))
-		   (assert_msg "check basenv" (is_a be class_environment))
-		   be))
+		     (debug "normexp_defun_defmacro sloc=" debug_less sloc
+			    "; basenv=" be)
+		     (debug "normexp_defun_defmacro snam=" snam
+			    "\n in env got:" (find_env env snam)
+			    "\n in macroenv got:" (find_env macroenv snam))
+		     (assert_msg "check basenv" (is_a be class_environment))
+		     be)))
 	 (sfubind (find_env basenv snam))
 	 (newenv (fresh_env basenv))
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
@@ -5230,15 +5232,18 @@ source location.}#
     (assert_msg "check srcenv" (is_a srcenv class_environment) srcenv)
     (shortbacktrace_dbg "normexp_macro_installation" 10)
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
+    (debug "normexp_macro_installation" " before normalizing loc=" loc "; sdefmacro=" sdefmacro)
     (let (
 	  (nclos (normexp_defun_defmacro sdefmacro srcenv ncx loc))
 	  (mbind (get_field :smacro_binding sdefmacro))
 	  (msymb (get_field :binder mbind))
 	  )
-      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos "\n.. mbind=" mbind "\n.. macroenv=" macroenv)
-      (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
-      (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos env)
-      (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind env)
+      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos
+	     "\n.. mbind=" mbind "\n.. macroenv=" macroenv
+	     "\n")
+      (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx recv)
+      (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos env recv)
+      (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind env recv)
       (let ( 
 	    (nlitsym (clone_symbol msymb))
 	    (nclosym (clone_symbol msymb))
