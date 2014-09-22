@@ -1,4 +1,8 @@
 
+2014-09-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        * testsuite/melt/tletmacro-1.melt: Crashing, and added output to stdout.
+
 2014-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 2014-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
