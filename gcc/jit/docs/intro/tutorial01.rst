@@ -31,8 +31,6 @@ Consider this C function:
 
 How can we construct this at run-time using libgccjit?
 
-.. FIXME
-
 First we need to include the relevant header:
 
 .. code-block:: c

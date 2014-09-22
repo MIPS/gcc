@@ -1,5 +1,10 @@
 2014-09-22  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/intro/tutorial01.rst: Remove stray "FIXME".
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2014-09-22  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/index.rst: Add internals/index.rst.
 	* docs/internals/index.rst: New.
 	* notes.txt: Update to reflect renaming of toplev_main to
