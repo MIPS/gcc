@@ -1,3 +1,42 @@
+2014-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63328
+	* c-c++-common/gomp/pr63328.c: New test.
+
+2014-09-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2014-09-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/pr61053.c: Updated for x32.
+
+2014-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/62017
+	* g++.dg/asan/pr62017.C: New test.
+
+	PR testsuite/63292
+	* gcc.dg/vect/pr59594.c (b): Increase size to N + 2 elements.
+
+2014-09-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/float128-exact-underflow.c: New test.
+
+2014-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63284
+	* gcc.dg/pr63284.c: New test.
+
+2014-09-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63241
+	* g++.dg/cpp0x/constexpr-63241.C: New.
+
+2014-09-12  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61654
+        * g++.dg/ipa/pr61654.C: New test.
+
 2014-09-11  Alan Lawrence  <alan.lawrence@arm.com>
 
 	Backport r214953 from mainline
