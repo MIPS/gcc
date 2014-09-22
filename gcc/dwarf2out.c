@@ -20844,6 +20844,7 @@ dwarf2out_early_global_decl (tree decl)
   bool save = symtab->global_info_ready;
   symtab->global_info_ready = true;
 
+  bool fndecl_was_null = false;
   /* We don't handle TYPE_DECLs.  If required, they'll be reached via
      other DECLs and they can point to template types or other things
      that dwarf2out can't handle when done via dwarf2out_decl.  */
@@ -20857,7 +20858,13 @@ dwarf2out_early_global_decl (tree decl)
 	  if (!DECL_STRUCT_FUNCTION (decl))
 	    goto early_decl_exit;
 
-	  push_cfun (DECL_STRUCT_FUNCTION (decl));
+	  if (current_function_decl)
+	    push_cfun (DECL_STRUCT_FUNCTION (decl));
+	  else
+	    {
+	      set_cfun (DECL_STRUCT_FUNCTION (decl));
+	      fndecl_was_null = true;
+	    }
 	  current_function_decl = decl;
 	}
       dw_die_ref die = dwarf2out_decl (decl);
@@ -20865,7 +20872,10 @@ dwarf2out_early_global_decl (tree decl)
 	die->dumped_early = true;
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
-	  pop_cfun ();
+	  if (fndecl_was_null)
+	    set_cfun (NULL);
+	  else
+	    pop_cfun ();
 	  current_function_decl = NULL;
 	}
     }
