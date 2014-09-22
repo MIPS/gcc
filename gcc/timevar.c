@@ -223,7 +223,6 @@ timevar_accumulate (struct timevar_time_def *timer,
 void
 timevar_init (void)
 {
-  /* FIXME */
   if (timevar_enable)
     return;
 

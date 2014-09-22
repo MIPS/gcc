@@ -3080,7 +3080,7 @@ gimple_check_call_matching_types (gimple call_stmt, tree callee,
 
 void cgraph_c_finalize (void)
 {
-  symtab = NULL; /* FIXME: check this; any non-GC cleanup needed? */
+  symtab = NULL;
 
   x_cgraph_nodes_queue = NULL;
 
