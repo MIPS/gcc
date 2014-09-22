@@ -561,6 +561,12 @@ variadic.}#
 related routine procedures.}#
   :fields ())
 
+(defclass class_nrep_macrolambdaroutproc
+  :super class_nrep_routproc
+  :doc #{The $CLASS_NREP_LAMBDAROUTPROC is the class for :macro lambda
+related routine procedures.}#
+  :fields ())
+
 (defclass class_nrep_defunroutproc
   :super class_nrep_routproc
   :doc #{The $CLASS_NREP_DEFUNROUTPROC is the class for $DEFUN related
@@ -936,6 +942,7 @@ routine procedures.}#
  class_nrep_literalvalue
  class_nrep_locsymocc
  class_nrep_macrolambda
+ class_nrep_macrolambdaroutproc
  class_nrep_msend
  class_nrep_multacc
  class_nrep_multiapply
@@ -3896,7 +3903,8 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	 
 ;;;;;; normalize a LET
 (defun normexp_let (recv env ncx psloc)
-  (debug "normexp_let recv=" recv "\n.. env=" debug_less env)
+  (debug "normexp_let" " recv=" recv "\n.. env=" debug_less env)
+  (debug "normexp_let" " ncx=" debug_less ncx)
   (assert_msg "check let recv" (is_a recv class_source_let))
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -4043,14 +4051,21 @@ source location.}#
       )
      )
 ;;;
-    (debug "normexp_let" " sloc=" sloc "; bindlist=" bindlist
-	   "\n.. sbody=" sbody "\n.. newenv=" newenv
-	   "\n")
+    (debug "normexp_let" " before normabody sloc=" sloc "; bindlist=" bindlist
+	   "\n.. sbody=" sbody)
+    (shortbacktrace_dbg "normexp_let before-normalizing-sbody" 10)
+    (debug "normexp_let" " before normabody sloc=" sloc "; ncx=" debug_less ncx
+	   "\n.. newenv=" newenv)
 ;;; end of loop on source bindings
     (multicall
      (nbody nbodbindings)
      (normalize_tuple sbody newenv ncx sloc)
+     (debug "normexp_let"  " after normabody sloc=" sloc "; nbody=" nbody 
+	    "\n.. nbodbindings=" nbodbindings
+	    "\n.. old bindlist=" bindlist)
      (list_append2list bindlist  nbodbindings)
+     (debug "normexp_let"  " after normabody sloc=" sloc 
+	    "; updated bindlist=" bindlist)
      (assert_msg "normexp_let check bindlist" (is_list_or_null bindlist) bindlist)
      (foreach_pair_component_in_list
       (bindlist)
@@ -5543,7 +5558,8 @@ source location.}#
 ;;; an internal routine useful for lambda inside letrec ... to share
 ;;; code between normexp_lambda and handling of lambda-s inside letrec
 (defun normalize_lambda (recv env newenv ncx psloc)
-  (debug "normalize_lambda recv=" recv " env=" env " newenv=" newenv)
+  (debug "normalize_lambda recv=" recv "\n.. env=" env "\n.. newenv=" newenv
+	 "\n ncx=" debug_less ncx)
   (shortbacktrace_dbg "normalize_lambda" 15)
   (assert_msg "check lambda recv" (is_a recv class_source_lambda) recv)
   (assert_msg "check env" (is_a env class_environment) env)
@@ -5552,7 +5568,10 @@ source location.}#
   (let ( (sloc (unsafe_get_field :loca_location recv))
 	 (sformalargs (unsafe_get_field :slam_argbind recv))
 	 (sbody (unsafe_get_field :slam_body recv))
-	 (csym (clone_symbol 'lambda_))
+	 (:long ismacrosrc (is_a recv class_source_lambda_for_macro))
+	 (csym (if ismacrosrc
+		   (clone_symbol 'lambdamacro_) 
+		 (clone_symbol 'lambda_)))
 	 (clocc (instance class_nrep_locsymocc
 			  :nrep_loc sloc
 			  :nocc_ctyp ctype_value
@@ -5561,7 +5580,8 @@ source location.}#
 	 (savedcachemap (unsafe_get_field :nctx_symbcachemap ncx))
 	 (closedblist (make_list discr_list))
 	 (cnstlist (make_list discr_list))
-	 (nproc (instance class_nrep_lambdaroutproc
+	 (nproc (if ismacrosrc
+		    (instance class_nrep_macrolambdaroutproc
 			  :nrep_loc sloc
 			  :nproc_body () ;filled later
 			  :nrclop_name csym
@@ -5573,14 +5593,27 @@ source location.}#
 			  :nrpro_dataclos () ; not filled
 			  :nrpro_thunklist (make_list discr_list)
 			  :nrpro_variadic () ; filled below
-			  ))
+			      )
+		    (instance class_nrep_lambdaroutproc
+			  :nrep_loc sloc
+			  :nproc_body () ;filled later
+			  :nrclop_name csym
+			  :nrclop_argbindtuple sformalargs
+			  :nrclop_clobindlist closedblist
+			  :nrclop_constlist cnstlist
+			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
+			  :nrpro_datarout () ; filled below
+			  :nrpro_dataclos () ; not filled
+			  :nrpro_thunklist (make_list discr_list)
+			  :nrpro_variadic () ; filled below
+			  )))
 	 (ndatarout (instance class_nrep_dataroutine
 			      :ndata_name csym
 			      :ndata_discrx (normal_predef discr_routine ncx sloc "discr_routine")
 			      :ndrou_proc nproc
 			      ))
 	 )
-    (debug "normalize_lambda made nproc=" nproc "\n.. ndatarout=" ndatarout)
+    (debug "normalize_lambda" " sloc=" sloc " made nproc=" nproc "\n.. ndatarout=" ndatarout)
     (shortbacktrace_dbg "normalize_lambda" 10)
     (add_nctx_data ncx ndatarout)
     ;; update the context for the new proc & a fresh symbol cache map
@@ -5623,7 +5656,8 @@ source location.}#
 		 :nctx_symbcachemap savedcachemap
 		 :nctx_curproc oldproc
 		 )
-     (debug "normalize_lambda restored ncx=" ncx "\n.. updated nproc=" nproc)
+     (debug "normalize_lambda restored ncx=" ncx "\n.. updated nproc=" nproc
+	    "\n.. oldproc=" oldproc)
      (let ( 
 	   ;; we make an anonymous constant for the routine unless in toplevel
 	   (:long insideflag (is_a oldproc class_nrep_closproc))
@@ -5647,9 +5681,17 @@ source location.}#
 		 nsy))))
 	   (constrout  (if insideflag krout ndatarout))
 	   )
-       (debug "normalize_lambda return nproc=" nproc
-	      "\n.. clocc=" clocc "\n.. constrout=" constrout
+       (shortbacktrace_dbg "normalize_lambda returning" 8)
+       (debug "normalize_lambda" " return nproc=" nproc
+	      "\n.. csym=" csym 
+	      "\n.. clocc=" clocc 
+	      "\n.. constrout=" constrout
+	      "\n.. clovtup=" clovtup
+	      "\n.. sloc=" sloc
+	      "\n.. oldproc=" oldproc
+	      "\n.. ndatarout=" ndatarout
 	      "\n.. insideflag=" insideflag "\n")
+       (debug "normalize_lambda" " final ncx=" ncx)
        (return nproc csym clocc constrout clovtup sloc oldproc ndatarout insideflag)
        ))))
 

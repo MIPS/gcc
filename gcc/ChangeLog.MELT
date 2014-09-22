@@ -1,6 +1,15 @@
 
 2014-09-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{tletmacro-0 & tletmacro-1 tests still crashing}}
+	* melt/warmelt-normal.melt (class_nrep_macrolambdaroutproc): New
+	class.
+	(normexp_let): More debug.
+	(normalize_lambda): Some special treatement for :macro lambdas,
+	and more debug.
+
+2014-09-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
         * testsuite/melt/tletmacro-0.melt: New file, simpler but still
 	crashing, example.
 	* testsuite/melt/tletmacro-1.melt: Slightly simplified, still

@@ -17,20 +17,20 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 (let ( 
       (the_stdout (get_field :sysdata_stdout initial_system_data))
       (:macro mac 
-	      (sexp env mexpander modctx)
-	      (debug "macro mac" " sexp=" sexp)
-	      (let ( (sloc (get_field :loca_location sexp))
-		     )
-		(debug "mac sloc=" sloc)
-		(return sloc)
-		)
-	      )
+              (sexp env mexpander modctx)
+              (debug "macro mac" " sexp=" sexp)
+              (let ( (sloc (get_field :loca_location sexp))
+                     )
+                (debug "mac sloc=" sloc)
+                (return sloc)
+                )
+              )
       (v (mac))
-      ;;; (w (mac))
+      ;; (w (mac))
       )
   (debug "tletmacro-0" " v=" v 
-	 ;;; "\n.. w=" w
-	 )
+         ;; "\n.. w=" w
+         )
   (debug "tletmacro-0" " the_stdout=" the_stdout)
   (add2out the_stdout "ending tletmacro-0" "v=" v "\n")
   (debug "tletmacro-0" " done output v=" v " to the_stdout=" the_stdout)
