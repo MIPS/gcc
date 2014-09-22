@@ -110,10 +110,20 @@ stack depth will be at each opcode, and optimize away the stack
 manipulation "by hand".  We'll see below that libgccjit is able to do
 this for us, so we'll implement stack manipulation
 in a direct way, by creating a ``stack`` array and ``stack_depth``
-variables, local within the generated function.
+variables, local within the generated function, equivalent to this C code:
+
+.. code-block:: c
+
+  int stack_depth;
+  int stack[MAX_STACK_DEPTH];
 
 We'll also have local variables ``x`` and ``y`` for use when implementing
-the opcodes.
+the opcodes, equivalent to this:
+
+.. code-block:: c
+
+  int x;
+  int y;
 
 This means our compiler has the following state:
 
@@ -140,8 +150,8 @@ along with extracting a useful `int` constant:
     :language: c
 
 We'll implement push and pop in terms of the ``stack`` array and
-``stack_depth``.  Here are helper functions for pushing and popping
-values:
+``stack_depth``.  Here are helper functions for adding statements to
+a block, implementing pushing and popping values:
 
    .. literalinclude:: ../examples/tut03-toyvm/toyvm.c
     :start-after: /* Stack manipulation.  */
@@ -209,8 +219,10 @@ through them, adding instructions to their blocks:
     :end-before: /* Helper macros.  */
     :language: c
 
-It's helpful to have macros for implementing push and pop, so that we
-can make the big ``switch`` statement that's coming up look as much as
+We're going to have another big ``switch`` statement for implementing
+the opcodes, this time for compiling them, rather than interpreting
+them.  It's helpful to have macros for implementing push and pop, so that
+we can make the ``switch`` statement that's coming up look as much as
 possible like the one above within the interpreter:
 
 .. literalinclude:: ../examples/tut03-toyvm/toyvm.c
@@ -220,9 +232,10 @@ possible like the one above within the interpreter:
 
 .. note::
 
-   A particularly clever implementation would have *identical* code shared
-   by the interpreter and the compiler.  We're not doing that here, for
-   the sake of simplicity.
+   A particularly clever implementation would have an *identical*
+   ``switch`` statement shared by the interpreter and the compiler, with
+   some preprocessor "magic".  We're not doing that here, for the sake
+   of simplicity.
 
 When I first implemented this compiler, I accidentally missed an edit
 when copying and pasting the ``Y_EQUALS_POP`` macro, so that popping the
@@ -239,8 +252,8 @@ the generated IR for, say ``factorial``:
     :end-before: /* Handle the individual opcodes.  */
     :language: c
 
-We can now implement the individual opcodes with another big ``switch``
-statement, populating the relevant block with statements:
+We can now write the big ``switch`` statement that implements the
+individual opcodes, populating the relevant block with statements:
 
    .. literalinclude:: ../examples/tut03-toyvm/toyvm.c
     :start-after: /* Handle the individual opcodes.  */
@@ -279,7 +292,8 @@ errors in our compiler.
 
 Compiling the context
 *********************
-Having finished looping over the blocks, the context is complete.
+Having finished looping over the blocks and populating them with
+statements, the context is complete.
 
 We can now compile it, and extract machine code from the result:
 
@@ -448,7 +462,7 @@ You can see the generated machine code in assembly form via:
     1);
   result = gcc_jit_context_compile (ctxt);
 
-which shows that (on this box) the compiler has unrolled the loop
+which shows that (on this x86_64 box) the compiler has unrolled the loop
 and is using MMX instructions to perform several multiplications
 simultaneously:
 
@@ -501,12 +515,95 @@ This is clearly overkill for a function that will likely overflow the
 ``int`` type before the vectorization is worthwhile - but then again, this
 is a toy example.
 
+Turning down the optimization level to 2:
 
-Behind the curtain: optimizing away stack manipulation
-******************************************************
-Recall our simple implementation of stack operations.  To verify that the
-stack operations are optimized away, we can examine what the compiler is
-doing in detail by setting:
+.. code-block:: c
+
+  gcc_jit_context_set_int_option (
+    ctxt,
+    GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+    3);
+
+yields this code, which is simple enough to quote in its entirety:
+
+.. code-block:: gas
+
+          .file   "fake.c"
+          .text
+          .p2align 4,,15
+          .globl  factorial
+          .type   factorial, @function
+  factorial:
+  .LFB0:
+          .cfi_startproc
+  .L2:
+          cmpl    $1, %edi
+          jle     .L8
+          movl    $1, %edx
+          jmp     .L4
+          .p2align 4,,10
+          .p2align 3
+  .L6:
+          movl    %eax, %edi
+  .L4:
+  .L5:
+          leal    -1(%rdi), %eax
+          imull   %edi, %edx
+          cmpl    $1, %eax
+          jne     .L6
+  .L3:
+  .L7:
+          imull   %edx, %eax
+          ret
+  .L8:
+          movl    %edi, %eax
+          movl    $1, %edx
+          jmp     .L7
+          .cfi_endproc
+  .LFE0:
+          .size   factorial, .-factorial
+          .ident  "GCC: (GNU) 4.9.0 20131023 (Red Hat 0.2-%{gcc_release})"
+          .section        .note.GNU-stack,"",@progbits
+
+Note that the stack pushing and popping have been eliminated, as has the
+recursive call (in favor of an iteration).
+
+Putting it all together
+***********************
+
+The complete example can be seen in the source tree at
+``gcc/jit/docs/examples/tut03-toyvm/toyvm.c``
+
+along with a Makefile and a couple of sample .toy scripts:
+
+.. code-block:: console
+
+  $ ls -al
+  drwxrwxr-x. 2 david david   4096 Sep 19 17:46 .
+  drwxrwxr-x. 3 david david   4096 Sep 19 15:26 ..
+  -rw-rw-r--. 1 david david    615 Sep 19 12:43 factorial.toy
+  -rw-rw-r--. 1 david david    834 Sep 19 13:08 fibonacci.toy
+  -rw-rw-r--. 1 david david    238 Sep 19 14:22 Makefile
+  -rw-rw-r--. 1 david david  16457 Sep 19 17:07 toyvm.c
+
+  $ make toyvm
+  g++ -Wall -g -o toyvm toyvm.c -lgccjit
+
+  $ ./toyvm factorial.toy 10
+  interpreter result: 3628800
+  compiler result: 3628800
+
+  $ ./toyvm fibonacci.toy 10
+  interpreter result: 55
+  compiler result: 55
+
+Behind the curtain: How does our code get optimized?
+****************************************************
+
+Our example is done, but you may be wondering about exactly how the
+compiler turned what we gave it into the machine code seen above.
+
+We can examine what the compiler is doing in detail by setting:
 
 .. code-block:: c
 
@@ -521,6 +618,7 @@ This will dump detailed information about the compiler's state to a
 directory under ``/tmp``, and keep it from being cleaned up.
 
 The precise names and their formats of these files is subject to change.
+Higher optimization levels lead to more files.
 Here's what I saw (edited for brevity; there were almost 200 files):
 
 .. code-block:: console
@@ -539,7 +637,7 @@ Here's what I saw (edited for brevity; there were almost 200 files):
   fake.c.016t.ssa
   # etc
 
-The gimple code is converted into Static Single Assigment form,
+The gimple code is converted into Static Single Assignment form,
 with annotations for use when generating the debuginfo:
 
 .. code-block:: console
@@ -587,12 +685,114 @@ with annotations for use when generating the debuginfo:
 
     /* etc; edited for brevity */
 
-After a pass of constant-propagation, the stack depths can be determined
-at compile-time:
+We can perhaps better see the code by turning off
+:c:macro:`GCC_JIT_BOOL_OPTION_DEBUGINFO` to suppress all those ``DEBUG``
+statements, giving:
 
 .. code-block:: console
 
-  $ less /tmp/libgccjit-KPQbGw/fake.c.021t.ccp1
+  $ less /tmp/libgccjit-1Hywc0/fake.c.016t.ssa
+
+.. code-block:: c
+
+  ;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
+
+  factorial (signed int arg)
+  {
+    signed int stack[8];
+    signed int stack_depth;
+    signed int x;
+    signed int y;
+    <unnamed type> _20;
+    signed int _21;
+    signed int _38;
+    signed int _44;
+    signed int _51;
+    signed int _56;
+
+  initial:
+    stack_depth_3 = 0;
+    stack[stack_depth_3] = arg_5(D);
+    stack_depth_7 = stack_depth_3 + 1;
+    stack_depth_8 = stack_depth_7 + -1;
+    x_9 = stack[stack_depth_8];
+    stack[stack_depth_8] = x_9;
+    stack_depth_11 = stack_depth_8 + 1;
+    stack[stack_depth_11] = x_9;
+    stack_depth_13 = stack_depth_11 + 1;
+    stack[stack_depth_13] = 2;
+    stack_depth_15 = stack_depth_13 + 1;
+    stack_depth_16 = stack_depth_15 + -1;
+    y_17 = stack[stack_depth_16];
+    stack_depth_18 = stack_depth_16 + -1;
+    x_19 = stack[stack_depth_18];
+    _20 = x_19 < y_17;
+    _21 = (signed int) _20;
+    stack[stack_depth_18] = _21;
+    stack_depth_23 = stack_depth_18 + 1;
+    stack_depth_24 = stack_depth_23 + -1;
+    x_25 = stack[stack_depth_24];
+    if (x_25 != 0)
+      goto <bb 4> (instr9);
+    else
+      goto <bb 3> (instr4);
+
+  instr4:
+  /* DUP */:
+    stack_depth_26 = stack_depth_24 + -1;
+    x_27 = stack[stack_depth_26];
+    stack[stack_depth_26] = x_27;
+    stack_depth_29 = stack_depth_26 + 1;
+    stack[stack_depth_29] = x_27;
+    stack_depth_31 = stack_depth_29 + 1;
+    stack[stack_depth_31] = 1;
+    stack_depth_33 = stack_depth_31 + 1;
+    stack_depth_34 = stack_depth_33 + -1;
+    y_35 = stack[stack_depth_34];
+    stack_depth_36 = stack_depth_34 + -1;
+    x_37 = stack[stack_depth_36];
+    _38 = x_37 - y_35;
+    stack[stack_depth_36] = _38;
+    stack_depth_40 = stack_depth_36 + 1;
+    stack_depth_41 = stack_depth_40 + -1;
+    x_42 = stack[stack_depth_41];
+    _44 = factorial (x_42);
+    stack[stack_depth_41] = _44;
+    stack_depth_46 = stack_depth_41 + 1;
+    stack_depth_47 = stack_depth_46 + -1;
+    y_48 = stack[stack_depth_47];
+    stack_depth_49 = stack_depth_47 + -1;
+    x_50 = stack[stack_depth_49];
+    _51 = x_50 * y_48;
+    stack[stack_depth_49] = _51;
+    stack_depth_53 = stack_depth_49 + 1;
+
+    # stack_depth_1 = PHI <stack_depth_24(2), stack_depth_53(3)>
+  instr9:
+  /* RETURN */:
+    stack_depth_54 = stack_depth_1 + -1;
+    x_55 = stack[stack_depth_54];
+    _56 = x_55;
+    stack ={v} {CLOBBER};
+    return _56;
+
+  }
+
+Note in the above how all the :c:type:`gcc_jit_block` instances we
+created have been consolidated into just 3 blocks in GCC's internal
+representation: ``initial``, ``instr4`` and ``instr9``.
+
+Optimizing away stack manipulation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Recall our simple implementation of stack operations.  Let's examine
+how the stack operations are optimized away.
+
+After a pass of constant-propagation, the depth of the stack at each
+opcode can be determined at compile-time:
+
+.. code-block:: console
+
+  $ less /tmp/libgccjit-1Hywc0/fake.c.021t.ccp1
 
 .. code-block:: c
 
@@ -611,23 +811,48 @@ at compile-time:
     signed int _51;
 
   initial:
-    # DEBUG stack_depth => 0
     stack[0] = arg_5(D);
-    # DEBUG stack_depth => 1
-    # DEBUG instr0 => NULL
-    # DEBUG /* DUP */ => NULL
-    # DEBUG stack_depth => 0
     x_9 = stack[0];
-    # DEBUG x => x_9
     stack[0] = x_9;
-    # DEBUG stack_depth => 1
     stack[1] = x_9;
-    # DEBUG stack_depth => 2
-    # DEBUG instr1 => NULL
-    # DEBUG /* PUSH_CONST */ => NULL
     stack[2] = 2;
+    y_17 = stack[2];
+    x_19 = stack[1];
+    _20 = x_19 < y_17;
+    _21 = (signed int) _20;
+    stack[1] = _21;
+    x_25 = stack[1];
+    if (x_25 != 0)
+      goto <bb 4> (instr9);
+    else
+      goto <bb 3> (instr4);
 
-    /* etc; again edited for brevity */
+  instr4:
+  /* DUP */:
+    x_27 = stack[0];
+    stack[0] = x_27;
+    stack[1] = x_27;
+    stack[2] = 1;
+    y_35 = stack[2];
+    x_37 = stack[1];
+    _38 = x_37 - y_35;
+    stack[1] = _38;
+    x_42 = stack[1];
+    _44 = factorial (x_42);
+    stack[1] = _44;
+    y_48 = stack[1];
+    x_50 = stack[0];
+    _51 = x_50 * y_48;
+    stack[0] = _51;
+
+  instr9:
+  /* RETURN */:
+    x_55 = stack[0];
+    x_56 = x_55;
+    stack ={v} {CLOBBER};
+    return x_56;
+
+  }
 
 Note how, in the above, all those ``stack_depth`` values are now just
 constants: we're accessing specific stack locations at each opcode.
@@ -637,7 +862,7 @@ out our "stack" array into individual elements:
 
 .. code-block:: console
 
-  $ less /tmp/libgccjit-KPQbGw/fake.c.024t.esra
+  $ less /tmp/libgccjit-1Hywc0/fake.c.024t.esra
 
 .. code-block:: c
 
@@ -646,6 +871,13 @@ out our "stack" array into individual elements:
   Created a replacement for stack offset: 0, size: 32: stack$0
   Created a replacement for stack offset: 32, size: 32: stack$1
   Created a replacement for stack offset: 64, size: 32: stack$2
+
+  Symbols to be put in SSA form
+  { D.89 D.90 D.91 }
+  Incremental SSA update started at block: 0
+  Number of blocks in CFG: 5
+  Number of blocks to update: 4 ( 80%)
+
 
   factorial (signed int arg)
   {
@@ -663,55 +895,214 @@ out our "stack" array into individual elements:
     signed int _51;
 
   initial:
-    # DEBUG stack_depth => 0
     stack$0_45 = arg_5(D);
-    # DEBUG stack$0 => stack$0_45
-    # DEBUG stack_depth => 1
-    # DEBUG instr0 => NULL
-    # DEBUG /* DUP */ => NULL
-    # DEBUG stack_depth => 0
     x_9 = stack$0_45;
-    # DEBUG x => x_9
     stack$0_39 = x_9;
-    # DEBUG stack$0 => stack$0_39
-    # DEBUG stack_depth => 1
     stack$1_32 = x_9;
-    # DEBUG stack$1 => stack$1_32
-    # DEBUG stack_depth => 2
-    # DEBUG instr1 => NULL
-    # DEBUG /* PUSH_CONST */ => NULL
     stack$2_30 = 2;
+    y_17 = stack$2_30;
+    x_19 = stack$1_32;
+    _20 = x_19 < y_17;
+    _21 = (signed int) _20;
+    stack$1_28 = _21;
+    x_25 = stack$1_28;
+    if (x_25 != 0)
+      goto <bb 4> (instr9);
+    else
+      goto <bb 3> (instr4);
 
-    /* etc */
+  instr4:
+  /* DUP */:
+    x_27 = stack$0_39;
+    stack$0_22 = x_27;
+    stack$1_14 = x_27;
+    stack$2_12 = 1;
+    y_35 = stack$2_12;
+    x_37 = stack$1_14;
+    _38 = x_37 - y_35;
+    stack$1_10 = _38;
+    x_42 = stack$1_10;
+    _44 = factorial (x_42);
+    stack$1_6 = _44;
+    y_48 = stack$1_6;
+    x_50 = stack$0_22;
+    _51 = x_50 * y_48;
+    stack$0_1 = _51;
 
-Hence at this point, all those stack manpulations are in a form that can
-be optimized away.
+    # stack$0_52 = PHI <stack$0_39(2), stack$0_1(3)>
+  instr9:
+  /* RETURN */:
+    x_55 = stack$0_52;
+    x_56 = x_55;
+    stack ={v} {CLOBBER};
+    return x_56;
 
-Putting it all together
-***********************
+  }
 
-The complete example can be seen in the source tree at
-``gcc/jit/docs/examples/tut03-toyvm/toyvm.c``
+Hence at this point, all those pushes and pops of the stack are now
+simply assignments to specific temporary variables.
 
-along with a Makefile and a couple of sample .toy scripts:
+After some copy propagation, the stack manipulation has been completely
+optimized away:
 
 .. code-block:: console
 
-  $ ls -al
-  drwxrwxr-x. 2 david david   4096 Sep 19 17:46 .
-  drwxrwxr-x. 3 david david   4096 Sep 19 15:26 ..
-  -rw-rw-r--. 1 david david    615 Sep 19 12:43 factorial.toy
-  -rw-rw-r--. 1 david david    834 Sep 19 13:08 fibonacci.toy
-  -rw-rw-r--. 1 david david    238 Sep 19 14:22 Makefile
-  -rw-rw-r--. 1 david david  16457 Sep 19 17:07 toyvm.c
+  $ less /tmp/libgccjit-1Hywc0/fake.c.026t.copyprop1
 
-  $ make toyvm
-  g++ -Wall -g -o toyvm toyvm.c -lgccjit
+.. code-block:: c
 
-  $ ./toyvm factorial.toy 10
-  interpreter result: 3628800
-  compiler result: 3628800
+  ;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
 
-  $ ./toyvm fibonacci.toy 10
-  interpreter result: 55
-  compiler result: 55
+  factorial (signed int arg)
+  {
+    signed int stack$2;
+    signed int stack$1;
+    signed int stack$0;
+    signed int stack[8];
+    signed int stack_depth;
+    signed int x;
+    signed int y;
+    <unnamed type> _20;
+    signed int _21;
+    signed int _38;
+    signed int _44;
+    signed int _51;
+
+  initial:
+    stack$0_39 = arg_5(D);
+    _20 = arg_5(D) <= 1;
+    _21 = (signed int) _20;
+    if (_21 != 0)
+      goto <bb 4> (instr9);
+    else
+      goto <bb 3> (instr4);
+
+  instr4:
+  /* DUP */:
+    _38 = arg_5(D) + -1;
+    _44 = factorial (_38);
+    _51 = arg_5(D) * _44;
+    stack$0_1 = _51;
+
+    # stack$0_52 = PHI <arg_5(D)(2), _51(3)>
+  instr9:
+  /* RETURN */:
+    stack ={v} {CLOBBER};
+    return stack$0_52;
+
+  }
+
+Later on, another pass finally eliminated ``stack_depth`` local and the
+unused parts of the `stack`` array altogether:
+
+.. code-block:: console
+
+  $ less /tmp/libgccjit-1Hywc0/fake.c.036t.release_ssa
+
+.. code-block:: c
+
+  ;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
+
+  Released 44 names, 314.29%, removed 44 holes
+  factorial (signed int arg)
+  {
+    signed int stack$0;
+    signed int mult_acc_1;
+    <unnamed type> _5;
+    signed int _6;
+    signed int _7;
+    signed int mul_tmp_10;
+    signed int mult_acc_11;
+    signed int mult_acc_13;
+
+    # arg_9 = PHI <arg_8(D)(0)>
+    # mult_acc_13 = PHI <1(0)>
+  initial:
+
+    <bb 5>:
+    # arg_4 = PHI <arg_9(2), _7(3)>
+    # mult_acc_1 = PHI <mult_acc_13(2), mult_acc_11(3)>
+    _5 = arg_4 <= 1;
+    _6 = (signed int) _5;
+    if (_6 != 0)
+      goto <bb 4> (instr9);
+    else
+      goto <bb 3> (instr4);
+
+  instr4:
+  /* DUP */:
+    _7 = arg_4 + -1;
+    mult_acc_11 = mult_acc_1 * arg_4;
+    goto <bb 5>;
+
+    # stack$0_12 = PHI <arg_4(5)>
+  instr9:
+  /* RETURN */:
+    mul_tmp_10 = mult_acc_1 * stack$0_12;
+    return mul_tmp_10;
+
+  }
+
+
+Elimination of tail recursion
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Another significant optimization is the detection that the call to
+``factorial`` is tail recursion, which can be eliminated in favor of
+an iteration:
+
+.. code-block:: console
+
+  $ less /tmp/libgccjit-1Hywc0/fake.c.030t.tailr1
+
+.. code-block:: c
+
+  ;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
+
+
+  Symbols to be put in SSA form
+  { D.88 }
+  Incremental SSA update started at block: 0
+  Number of blocks in CFG: 5
+  Number of blocks to update: 4 ( 80%)
+
+
+  factorial (signed int arg)
+  {
+    signed int stack$2;
+    signed int stack$1;
+    signed int stack$0;
+    signed int stack[8];
+    signed int stack_depth;
+    signed int x;
+    signed int y;
+    signed int mult_acc_1;
+    <unnamed type> _20;
+    signed int _21;
+    signed int _38;
+    signed int mul_tmp_44;
+    signed int mult_acc_51;
+
+    # arg_5 = PHI <arg_39(D)(0), _38(3)>
+    # mult_acc_1 = PHI <1(0), mult_acc_51(3)>
+  initial:
+    _20 = arg_5 <= 1;
+    _21 = (signed int) _20;
+    if (_21 != 0)
+      goto <bb 4> (instr9);
+    else
+      goto <bb 3> (instr4);
+
+  instr4:
+  /* DUP */:
+    _38 = arg_5 + -1;
+    mult_acc_51 = mult_acc_1 * arg_5;
+    goto <bb 2> (initial);
+
+    # stack$0_52 = PHI <arg_5(2)>
+  instr9:
+  /* RETURN */:
+    stack ={v} {CLOBBER};
+    mul_tmp_44 = mult_acc_1 * stack$0_52;
+    return mul_tmp_44;
+
+  }

@@ -59,7 +59,7 @@ As before, we include the libgccjit header and make a
 
 .. code-block:: c
 
-  #include "libgccjit.h"
+  #include <libgccjit.h>
 
   void test (void)
   {

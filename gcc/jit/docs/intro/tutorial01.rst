@@ -37,7 +37,7 @@ First we need to include the relevant header:
 
 .. code-block:: c
 
-  #include "libgccjit.h"
+  #include <libgccjit.h>
 
 All state associated with compilation is associated with a
 :c:type:`gcc_jit_context *`.

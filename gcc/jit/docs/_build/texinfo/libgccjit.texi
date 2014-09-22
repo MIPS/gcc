@@ -19,7 +19,7 @@
 
 @copying
 @quotation
-libgccjit 0.1, September 19, 2014
+libgccjit 0.1, September 22, 2014
 
 David Malcolm
 
@@ -131,8 +131,13 @@ Tutorial part 3: Adding JIT-compilation to a toy interpreter
 * Compiling the context:: 
 * Single-stepping through the generated code:: 
 * Examining the generated code:: 
-* Behind the curtain; optimizing away stack manipulation: Behind the curtain optimizing away stack manipulation. 
 * Putting it all together:: 
+* Behind the curtain; How does our code get optimized?: Behind the curtain How does our code get optimized?. 
+
+Behind the curtain: How does our code get optimized?
+
+* Optimizing away stack manipulation:: 
+* Elimination of tail recursion:: 
 
 Topic Reference
 
@@ -259,8 +264,13 @@ Tutorial part 3: Adding JIT-compilation to a toy interpreter
 * Compiling the context:: 
 * Single-stepping through the generated code:: 
 * Examining the generated code:: 
-* Behind the curtain; optimizing away stack manipulation: Behind the curtain optimizing away stack manipulation. 
 * Putting it all together:: 
+* Behind the curtain; How does our code get optimized?: Behind the curtain How does our code get optimized?. 
+
+Behind the curtain: How does our code get optimized?
+
+* Optimizing away stack manipulation:: 
+* Elimination of tail recursion:: 
 
 @end menu
 
@@ -321,12 +331,13 @@ needed to develop against it (@cite{libgccjit-devel}):
 
 @example
 $ rpm -qlv libgccjit
-lrwxrwxrwx    1 root    root                       18 Aug 12 07:56 /usr/lib64/libgccjit.so.0 -> libgccjit.so.0.0.1
--rwxr-xr-x    1 root    root                 14463448 Aug 12 07:57 /usr/lib64/libgccjit.so.0.0.1
+lrwxrwxrwx    1 root    root       18 Aug 12 07:56 /usr/lib64/libgccjit.so.0 -> libgccjit.so.0.0.1
+-rwxr-xr-x    1 root    root 14463448 Aug 12 07:57 /usr/lib64/libgccjit.so.0.0.1
+
 $ rpm -qlv libgccjit-devel
--rwxr-xr-x    1 root    root                    37654 Aug 12 07:56 /usr/include/libgccjit++.h
--rwxr-xr-x    1 root    root                    28967 Aug 12 07:56 /usr/include/libgccjit.h
-lrwxrwxrwx    1 root    root                       14 Aug 12 07:56 /usr/lib64/libgccjit.so -> libgccjit.so.0
+-rwxr-xr-x    1 root    root    37654 Aug 12 07:56 /usr/include/libgccjit++.h
+-rwxr-xr-x    1 root    root    28967 Aug 12 07:56 /usr/include/libgccjit.h
+lrwxrwxrwx    1 root    root       14 Aug 12 07:56 /usr/lib64/libgccjit.so -> libgccjit.so.0
 @end example
 
 @noindent
@@ -667,7 +678,7 @@ How can we construct this at run-time using libgccjit?
 First we need to include the relevant header:
 
 @example
-#include "libgccjit.h"
+#include <libgccjit.h>
 @end example
 
 @noindent
@@ -1217,7 +1228,7 @@ As before, we include the libgccjit header and make a
 @pxref{d,,gcc_jit_context *}.
 
 @example
-#include "libgccjit.h"
+#include <libgccjit.h>
 
 void test (void)
 @{
@@ -1814,8 +1825,8 @@ to it.
 * Compiling the context:: 
 * Single-stepping through the generated code:: 
 * Examining the generated code:: 
-* Behind the curtain; optimizing away stack manipulation: Behind the curtain optimizing away stack manipulation. 
 * Putting it all together:: 
+* Behind the curtain; How does our code get optimized?: Behind the curtain How does our code get optimized?. 
 
 @end menu
 
@@ -2255,10 +2266,24 @@ stack depth will be at each opcode, and optimize away the stack
 manipulation "by hand".  We'll see below that libgccjit is able to do
 this for us, so we'll implement stack manipulation
 in a direct way, by creating a @code{stack} array and @code{stack_depth}
-variables, local within the generated function.
+variables, local within the generated function, equivalent to this C code:
+
+@example
+int stack_depth;
+int stack[MAX_STACK_DEPTH];
+@end example
+
+@noindent
 
 We'll also have local variables @code{x} and @code{y} for use when implementing
-the opcodes.
+the opcodes, equivalent to this:
+
+@example
+int x;
+int y;
+@end example
+
+@noindent
 
 This means our compiler has the following state:
 
@@ -2333,8 +2358,8 @@ along with extracting a useful @cite{int} constant:
 @end quotation
 
 We'll implement push and pop in terms of the @code{stack} array and
-@code{stack_depth}.  Here are helper functions for pushing and popping
-values:
+@code{stack_depth}.  Here are helper functions for adding statements to
+a block, implementing pushing and popping values:
 
 @quotation
 
@@ -2566,8 +2591,10 @@ through them, adding instructions to their blocks:
 @noindent
 @end quotation
 
-It's helpful to have macros for implementing push and pop, so that we
-can make the big @code{switch} statement that's coming up look as much as
+We're going to have another big @code{switch} statement for implementing
+the opcodes, this time for compiling them, rather than interpreting
+them.  It's helpful to have macros for implementing push and pop, so that
+we can make the @code{switch} statement that's coming up look as much as
 possible like the one above within the interpreter:
 
 @example
@@ -2590,9 +2617,10 @@ possible like the one above within the interpreter:
 
 @cartouche
 @quotation Note 
-A particularly clever implementation would have @emph{identical} code shared
-by the interpreter and the compiler.  We're not doing that here, for
-the sake of simplicity.
+A particularly clever implementation would have an @emph{identical}
+@code{switch} statement shared by the interpreter and the compiler, with
+some preprocessor "magic".  We're not doing that here, for the sake
+of simplicity.
 @end quotation
 @end cartouche
 
@@ -2618,8 +2646,8 @@ the generated IR for, say @code{factorial}:
 @noindent
 @end quotation
 
-We can now implement the individual opcodes with another big @code{switch}
-statement, populating the relevant block with statements:
+We can now write the big @code{switch} statement that implements the
+individual opcodes, populating the relevant block with statements:
 
 @quotation
 
@@ -2811,7 +2839,8 @@ errors in our compiler.
 @subsection Compiling the context
 
 
-Having finished looping over the blocks, the context is complete.
+Having finished looping over the blocks and populating them with
+statements, the context is complete.
 
 We can now compile it, and extract machine code from the result:
 
@@ -2940,7 +2969,7 @@ optimization level in a regular compiler.
 @end quotation
 @end cartouche
 
-@node Examining the generated code,Behind the curtain optimizing away stack manipulation,Single-stepping through the generated code,Tutorial part 3 Adding JIT-compilation to a toy interpreter
+@node Examining the generated code,Putting it all together,Single-stepping through the generated code,Tutorial part 3 Adding JIT-compilation to a toy interpreter
 @anchor{intro/tutorial03 examining-the-generated-code}@anchor{45}
 @subsection Examining the generated code
 
@@ -3028,7 +3057,7 @@ result = gcc_jit_context_compile (ctxt);
 
 @noindent
 
-which shows that (on this box) the compiler has unrolled the loop
+which shows that (on this x86_64 box) the compiler has unrolled the loop
 and is using MMX instructions to perform several multiplications
 simultaneously:
 
@@ -3083,14 +3112,105 @@ This is clearly overkill for a function that will likely overflow the
 @code{int} type before the vectorization is worthwhile - but then again, this
 is a toy example.
 
-@node Behind the curtain optimizing away stack manipulation,Putting it all together,Examining the generated code,Tutorial part 3 Adding JIT-compilation to a toy interpreter
-@anchor{intro/tutorial03 behind-the-curtain-optimizing-away-stack-manipulation}@anchor{46}
-@subsection Behind the curtain: optimizing away stack manipulation
+Turning down the optimization level to 2:
+
+@example
+gcc_jit_context_set_int_option (
+  ctxt,
+  GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+  3);
+@end example
+
+@noindent
+
+yields this code, which is simple enough to quote in its entirety:
+
+@example
+        .file   "fake.c"
+        .text
+        .p2align 4,,15
+        .globl  factorial
+        .type   factorial, @@function
+factorial:
+.LFB0:
+        .cfi_startproc
+.L2:
+        cmpl    $1, %edi
+        jle     .L8
+        movl    $1, %edx
+        jmp     .L4
+        .p2align 4,,10
+        .p2align 3
+.L6:
+        movl    %eax, %edi
+.L4:
+.L5:
+        leal    -1(%rdi), %eax
+        imull   %edi, %edx
+        cmpl    $1, %eax
+        jne     .L6
+.L3:
+.L7:
+        imull   %edx, %eax
+        ret
+.L8:
+        movl    %edi, %eax
+        movl    $1, %edx
+        jmp     .L7
+        .cfi_endproc
+.LFE0:
+        .size   factorial, .-factorial
+        .ident  "GCC: (GNU) 4.9.0 20131023 (Red Hat 0.2-%@{gcc_release@})"
+        .section        .note.GNU-stack,"",@@progbits
+@end example
+
+@noindent
+
+Note that the stack pushing and popping have been eliminated, as has the
+recursive call (in favor of an iteration).
+
+@node Putting it all together,Behind the curtain How does our code get optimized?,Examining the generated code,Tutorial part 3 Adding JIT-compilation to a toy interpreter
+@anchor{intro/tutorial03 putting-it-all-together}@anchor{46}
+@subsection Putting it all together
 
 
-Recall our simple implementation of stack operations.  To verify that the
-stack operations are optimized away, we can examine what the compiler is
-doing in detail by setting:
+The complete example can be seen in the source tree at
+@code{gcc/jit/docs/examples/tut03-toyvm/toyvm.c}
+
+along with a Makefile and a couple of sample .toy scripts:
+
+@example
+$ ls -al
+drwxrwxr-x. 2 david david   4096 Sep 19 17:46 .
+drwxrwxr-x. 3 david david   4096 Sep 19 15:26 ..
+-rw-rw-r--. 1 david david    615 Sep 19 12:43 factorial.toy
+-rw-rw-r--. 1 david david    834 Sep 19 13:08 fibonacci.toy
+-rw-rw-r--. 1 david david    238 Sep 19 14:22 Makefile
+-rw-rw-r--. 1 david david  16457 Sep 19 17:07 toyvm.c
+
+$ make toyvm
+g++ -Wall -g -o toyvm toyvm.c -lgccjit
+
+$ ./toyvm factorial.toy 10
+interpreter result: 3628800
+compiler result: 3628800
+
+$ ./toyvm fibonacci.toy 10
+interpreter result: 55
+compiler result: 55
+@end example
+
+@noindent
+
+@node Behind the curtain How does our code get optimized?,,Putting it all together,Tutorial part 3 Adding JIT-compilation to a toy interpreter
+@anchor{intro/tutorial03 behind-the-curtain-how-does-our-code-get-optimized}@anchor{47}
+@subsection Behind the curtain: How does our code get optimized?
+
+
+Our example is done, but you may be wondering about exactly how the
+compiler turned what we gave it into the machine code seen above.
+
+We can examine what the compiler is doing in detail by setting:
 
 @example
 gcc_jit_context_set_bool_option (state.ctxt,
@@ -3107,6 +3227,7 @@ This will dump detailed information about the compiler's state to a
 directory under @code{/tmp}, and keep it from being cleaned up.
 
 The precise names and their formats of these files is subject to change.
+Higher optimization levels lead to more files.
 Here's what I saw (edited for brevity; there were almost 200 files):
 
 @example
@@ -3127,7 +3248,7 @@ fake.c.016t.ssa
 
 @noindent
 
-The gimple code is converted into Static Single Assigment form,
+The gimple code is converted into Static Single Assignment form,
 with annotations for use when generating the debuginfo:
 
 @example
@@ -3179,11 +3300,126 @@ initial:
 
 @noindent
 
-After a pass of constant-propagation, the stack depths can be determined
-at compile-time:
+We can perhaps better see the code by turning off
+@pxref{44,,GCC_JIT_BOOL_OPTION_DEBUGINFO} to suppress all those @code{DEBUG}
+statements, giving:
 
 @example
-$ less /tmp/libgccjit-KPQbGw/fake.c.021t.ccp1
+$ less /tmp/libgccjit-1Hywc0/fake.c.016t.ssa
+@end example
+
+@noindent
+
+@example
+;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
+
+factorial (signed int arg)
+@{
+  signed int stack[8];
+  signed int stack_depth;
+  signed int x;
+  signed int y;
+  <unnamed type> _20;
+  signed int _21;
+  signed int _38;
+  signed int _44;
+  signed int _51;
+  signed int _56;
+
+initial:
+  stack_depth_3 = 0;
+  stack[stack_depth_3] = arg_5(D);
+  stack_depth_7 = stack_depth_3 + 1;
+  stack_depth_8 = stack_depth_7 + -1;
+  x_9 = stack[stack_depth_8];
+  stack[stack_depth_8] = x_9;
+  stack_depth_11 = stack_depth_8 + 1;
+  stack[stack_depth_11] = x_9;
+  stack_depth_13 = stack_depth_11 + 1;
+  stack[stack_depth_13] = 2;
+  stack_depth_15 = stack_depth_13 + 1;
+  stack_depth_16 = stack_depth_15 + -1;
+  y_17 = stack[stack_depth_16];
+  stack_depth_18 = stack_depth_16 + -1;
+  x_19 = stack[stack_depth_18];
+  _20 = x_19 < y_17;
+  _21 = (signed int) _20;
+  stack[stack_depth_18] = _21;
+  stack_depth_23 = stack_depth_18 + 1;
+  stack_depth_24 = stack_depth_23 + -1;
+  x_25 = stack[stack_depth_24];
+  if (x_25 != 0)
+    goto <bb 4> (instr9);
+  else
+    goto <bb 3> (instr4);
+
+instr4:
+/* DUP */:
+  stack_depth_26 = stack_depth_24 + -1;
+  x_27 = stack[stack_depth_26];
+  stack[stack_depth_26] = x_27;
+  stack_depth_29 = stack_depth_26 + 1;
+  stack[stack_depth_29] = x_27;
+  stack_depth_31 = stack_depth_29 + 1;
+  stack[stack_depth_31] = 1;
+  stack_depth_33 = stack_depth_31 + 1;
+  stack_depth_34 = stack_depth_33 + -1;
+  y_35 = stack[stack_depth_34];
+  stack_depth_36 = stack_depth_34 + -1;
+  x_37 = stack[stack_depth_36];
+  _38 = x_37 - y_35;
+  stack[stack_depth_36] = _38;
+  stack_depth_40 = stack_depth_36 + 1;
+  stack_depth_41 = stack_depth_40 + -1;
+  x_42 = stack[stack_depth_41];
+  _44 = factorial (x_42);
+  stack[stack_depth_41] = _44;
+  stack_depth_46 = stack_depth_41 + 1;
+  stack_depth_47 = stack_depth_46 + -1;
+  y_48 = stack[stack_depth_47];
+  stack_depth_49 = stack_depth_47 + -1;
+  x_50 = stack[stack_depth_49];
+  _51 = x_50 * y_48;
+  stack[stack_depth_49] = _51;
+  stack_depth_53 = stack_depth_49 + 1;
+
+  # stack_depth_1 = PHI <stack_depth_24(2), stack_depth_53(3)>
+instr9:
+/* RETURN */:
+  stack_depth_54 = stack_depth_1 + -1;
+  x_55 = stack[stack_depth_54];
+  _56 = x_55;
+  stack =@{v@} @{CLOBBER@};
+  return _56;
+
+@}
+@end example
+
+@noindent
+
+Note in the above how all the @pxref{2b,,gcc_jit_block} instances we
+created have been consolidated into just 3 blocks in GCC's internal
+representation: @code{initial}, @code{instr4} and @code{instr9}.
+
+@menu
+* Optimizing away stack manipulation:: 
+* Elimination of tail recursion:: 
+
+@end menu
+
+@node Optimizing away stack manipulation,Elimination of tail recursion,,Behind the curtain How does our code get optimized?
+@anchor{intro/tutorial03 optimizing-away-stack-manipulation}@anchor{48}
+@subsubsection Optimizing away stack manipulation
+
+
+Recall our simple implementation of stack operations.  Let's examine
+how the stack operations are optimized away.
+
+After a pass of constant-propagation, the depth of the stack at each
+opcode can be determined at compile-time:
+
+@example
+$ less /tmp/libgccjit-1Hywc0/fake.c.021t.ccp1
 @end example
 
 @noindent
@@ -3204,23 +3440,48 @@ factorial (signed int arg)
   signed int _51;
 
 initial:
-  # DEBUG stack_depth => 0
   stack[0] = arg_5(D);
-  # DEBUG stack_depth => 1
-  # DEBUG instr0 => NULL
-  # DEBUG /* DUP */ => NULL
-  # DEBUG stack_depth => 0
   x_9 = stack[0];
-  # DEBUG x => x_9
   stack[0] = x_9;
-  # DEBUG stack_depth => 1
   stack[1] = x_9;
-  # DEBUG stack_depth => 2
-  # DEBUG instr1 => NULL
-  # DEBUG /* PUSH_CONST */ => NULL
   stack[2] = 2;
+  y_17 = stack[2];
+  x_19 = stack[1];
+  _20 = x_19 < y_17;
+  _21 = (signed int) _20;
+  stack[1] = _21;
+  x_25 = stack[1];
+  if (x_25 != 0)
+    goto <bb 4> (instr9);
+  else
+    goto <bb 3> (instr4);
 
-  /* etc; again edited for brevity */
+instr4:
+/* DUP */:
+  x_27 = stack[0];
+  stack[0] = x_27;
+  stack[1] = x_27;
+  stack[2] = 1;
+  y_35 = stack[2];
+  x_37 = stack[1];
+  _38 = x_37 - y_35;
+  stack[1] = _38;
+  x_42 = stack[1];
+  _44 = factorial (x_42);
+  stack[1] = _44;
+  y_48 = stack[1];
+  x_50 = stack[0];
+  _51 = x_50 * y_48;
+  stack[0] = _51;
+
+instr9:
+/* RETURN */:
+  x_55 = stack[0];
+  x_56 = x_55;
+  stack =@{v@} @{CLOBBER@};
+  return x_56;
+
+@}
 @end example
 
 @noindent
@@ -3232,7 +3493,7 @@ The "esra" pass ("Early Scalar Replacement of Aggregates") breaks
 out our "stack" array into individual elements:
 
 @example
-$ less /tmp/libgccjit-KPQbGw/fake.c.024t.esra
+$ less /tmp/libgccjit-1Hywc0/fake.c.024t.esra
 @end example
 
 @noindent
@@ -3243,6 +3504,13 @@ $ less /tmp/libgccjit-KPQbGw/fake.c.024t.esra
 Created a replacement for stack offset: 0, size: 32: stack$0
 Created a replacement for stack offset: 32, size: 32: stack$1
 Created a replacement for stack offset: 64, size: 32: stack$2
+
+Symbols to be put in SSA form
+@{ D.89 D.90 D.91 @}
+Incremental SSA update started at block: 0
+Number of blocks in CFG: 5
+Number of blocks to update: 4 ( 80%)
+
 
 factorial (signed int arg)
 @{
@@ -3260,62 +3528,231 @@ factorial (signed int arg)
   signed int _51;
 
 initial:
-  # DEBUG stack_depth => 0
   stack$0_45 = arg_5(D);
-  # DEBUG stack$0 => stack$0_45
-  # DEBUG stack_depth => 1
-  # DEBUG instr0 => NULL
-  # DEBUG /* DUP */ => NULL
-  # DEBUG stack_depth => 0
   x_9 = stack$0_45;
-  # DEBUG x => x_9
   stack$0_39 = x_9;
-  # DEBUG stack$0 => stack$0_39
-  # DEBUG stack_depth => 1
   stack$1_32 = x_9;
-  # DEBUG stack$1 => stack$1_32
-  # DEBUG stack_depth => 2
-  # DEBUG instr1 => NULL
-  # DEBUG /* PUSH_CONST */ => NULL
   stack$2_30 = 2;
+  y_17 = stack$2_30;
+  x_19 = stack$1_32;
+  _20 = x_19 < y_17;
+  _21 = (signed int) _20;
+  stack$1_28 = _21;
+  x_25 = stack$1_28;
+  if (x_25 != 0)
+    goto <bb 4> (instr9);
+  else
+    goto <bb 3> (instr4);
 
-  /* etc */
+instr4:
+/* DUP */:
+  x_27 = stack$0_39;
+  stack$0_22 = x_27;
+  stack$1_14 = x_27;
+  stack$2_12 = 1;
+  y_35 = stack$2_12;
+  x_37 = stack$1_14;
+  _38 = x_37 - y_35;
+  stack$1_10 = _38;
+  x_42 = stack$1_10;
+  _44 = factorial (x_42);
+  stack$1_6 = _44;
+  y_48 = stack$1_6;
+  x_50 = stack$0_22;
+  _51 = x_50 * y_48;
+  stack$0_1 = _51;
+
+  # stack$0_52 = PHI <stack$0_39(2), stack$0_1(3)>
+instr9:
+/* RETURN */:
+  x_55 = stack$0_52;
+  x_56 = x_55;
+  stack =@{v@} @{CLOBBER@};
+  return x_56;
+
+@}
 @end example
 
 @noindent
 
-Hence at this point, all those stack manpulations are in a form that can
-be optimized away.
+Hence at this point, all those pushes and pops of the stack are now
+simply assignments to specific temporary variables.
 
-@node Putting it all together,,Behind the curtain optimizing away stack manipulation,Tutorial part 3 Adding JIT-compilation to a toy interpreter
-@anchor{intro/tutorial03 putting-it-all-together}@anchor{47}
-@subsection Putting it all together
-
-
-The complete example can be seen in the source tree at
-@code{gcc/jit/docs/examples/tut03-toyvm/toyvm.c}
-
-along with a Makefile and a couple of sample .toy scripts:
+After some copy propagation, the stack manipulation has been completely
+optimized away:
 
 @example
-$ ls -al
-drwxrwxr-x. 2 david david   4096 Sep 19 17:46 .
-drwxrwxr-x. 3 david david   4096 Sep 19 15:26 ..
--rw-rw-r--. 1 david david    615 Sep 19 12:43 factorial.toy
--rw-rw-r--. 1 david david    834 Sep 19 13:08 fibonacci.toy
--rw-rw-r--. 1 david david    238 Sep 19 14:22 Makefile
--rw-rw-r--. 1 david david  16457 Sep 19 17:07 toyvm.c
+$ less /tmp/libgccjit-1Hywc0/fake.c.026t.copyprop1
+@end example
 
-$ make toyvm
-g++ -Wall -g -o toyvm toyvm.c -lgccjit
+@noindent
 
-$ ./toyvm factorial.toy 10
-interpreter result: 3628800
-compiler result: 3628800
+@example
+;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
 
-$ ./toyvm fibonacci.toy 10
-interpreter result: 55
-compiler result: 55
+factorial (signed int arg)
+@{
+  signed int stack$2;
+  signed int stack$1;
+  signed int stack$0;
+  signed int stack[8];
+  signed int stack_depth;
+  signed int x;
+  signed int y;
+  <unnamed type> _20;
+  signed int _21;
+  signed int _38;
+  signed int _44;
+  signed int _51;
+
+initial:
+  stack$0_39 = arg_5(D);
+  _20 = arg_5(D) <= 1;
+  _21 = (signed int) _20;
+  if (_21 != 0)
+    goto <bb 4> (instr9);
+  else
+    goto <bb 3> (instr4);
+
+instr4:
+/* DUP */:
+  _38 = arg_5(D) + -1;
+  _44 = factorial (_38);
+  _51 = arg_5(D) * _44;
+  stack$0_1 = _51;
+
+  # stack$0_52 = PHI <arg_5(D)(2), _51(3)>
+instr9:
+/* RETURN */:
+  stack =@{v@} @{CLOBBER@};
+  return stack$0_52;
+
+@}
+@end example
+
+@noindent
+
+Later on, another pass finally eliminated @code{stack_depth} local and the
+unused parts of the @cite{stack`} array altogether:
+
+@example
+$ less /tmp/libgccjit-1Hywc0/fake.c.036t.release_ssa
+@end example
+
+@noindent
+
+@example
+;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
+
+Released 44 names, 314.29%, removed 44 holes
+factorial (signed int arg)
+@{
+  signed int stack$0;
+  signed int mult_acc_1;
+  <unnamed type> _5;
+  signed int _6;
+  signed int _7;
+  signed int mul_tmp_10;
+  signed int mult_acc_11;
+  signed int mult_acc_13;
+
+  # arg_9 = PHI <arg_8(D)(0)>
+  # mult_acc_13 = PHI <1(0)>
+initial:
+
+  <bb 5>:
+  # arg_4 = PHI <arg_9(2), _7(3)>
+  # mult_acc_1 = PHI <mult_acc_13(2), mult_acc_11(3)>
+  _5 = arg_4 <= 1;
+  _6 = (signed int) _5;
+  if (_6 != 0)
+    goto <bb 4> (instr9);
+  else
+    goto <bb 3> (instr4);
+
+instr4:
+/* DUP */:
+  _7 = arg_4 + -1;
+  mult_acc_11 = mult_acc_1 * arg_4;
+  goto <bb 5>;
+
+  # stack$0_12 = PHI <arg_4(5)>
+instr9:
+/* RETURN */:
+  mul_tmp_10 = mult_acc_1 * stack$0_12;
+  return mul_tmp_10;
+
+@}
+@end example
+
+@noindent
+
+@node Elimination of tail recursion,,Optimizing away stack manipulation,Behind the curtain How does our code get optimized?
+@anchor{intro/tutorial03 elimination-of-tail-recursion}@anchor{49}
+@subsubsection Elimination of tail recursion
+
+
+Another significant optimization is the detection that the call to
+@code{factorial} is tail recursion, which can be eliminated in favor of
+an iteration:
+
+@example
+$ less /tmp/libgccjit-1Hywc0/fake.c.030t.tailr1
+@end example
+
+@noindent
+
+@example
+;; Function factorial (factorial, funcdef_no=0, decl_uid=53, symbol_order=0)
+
+
+Symbols to be put in SSA form
+@{ D.88 @}
+Incremental SSA update started at block: 0
+Number of blocks in CFG: 5
+Number of blocks to update: 4 ( 80%)
+
+
+factorial (signed int arg)
+@{
+  signed int stack$2;
+  signed int stack$1;
+  signed int stack$0;
+  signed int stack[8];
+  signed int stack_depth;
+  signed int x;
+  signed int y;
+  signed int mult_acc_1;
+  <unnamed type> _20;
+  signed int _21;
+  signed int _38;
+  signed int mul_tmp_44;
+  signed int mult_acc_51;
+
+  # arg_5 = PHI <arg_39(D)(0), _38(3)>
+  # mult_acc_1 = PHI <1(0), mult_acc_51(3)>
+initial:
+  _20 = arg_5 <= 1;
+  _21 = (signed int) _20;
+  if (_21 != 0)
+    goto <bb 4> (instr9);
+  else
+    goto <bb 3> (instr4);
+
+instr4:
+/* DUP */:
+  _38 = arg_5 + -1;
+  mult_acc_51 = mult_acc_1 * arg_5;
+  goto <bb 2> (initial);
+
+  # stack$0_52 = PHI <arg_5(2)>
+instr9:
+/* RETURN */:
+  stack =@{v@} @{CLOBBER@};
+  mul_tmp_44 = mult_acc_1 * stack$0_52;
+  return mul_tmp_44;
+
+@}
 @end example
 
 @noindent
@@ -3338,7 +3775,7 @@ compiler result: 55
 @c <http://www.gnu.org/licenses/>.
 
 @node Topic Reference,Indices and tables,Tutorial,Top
-@anchor{topics/index doc}@anchor{48}@anchor{topics/index topic-reference}@anchor{49}
+@anchor{topics/index doc}@anchor{4a}@anchor{topics/index topic-reference}@anchor{4b}
 @chapter Topic Reference
 
 
@@ -3422,7 +3859,7 @@ Source Locations
 
 
 @node Compilation contexts,Objects,,Topic Reference
-@anchor{topics/contexts compilation-contexts}@anchor{4a}@anchor{topics/contexts doc}@anchor{4b}
+@anchor{topics/contexts compilation-contexts}@anchor{4c}@anchor{topics/contexts doc}@anchor{4d}
 @section Compilation contexts
 
 
@@ -3450,7 +3887,7 @@ Invoking @pxref{1a,,gcc_jit_context_compile()} on it gives you a
 @end menu
 
 @node Lifetime-management,Thread-safety,,Compilation contexts
-@anchor{topics/contexts lifetime-management}@anchor{4c}
+@anchor{topics/contexts lifetime-management}@anchor{4e}
 @subsection Lifetime-management
 
 
@@ -3487,7 +3924,7 @@ gcc_jit_context_release (ctxt);
 @end deffn
 
 @geindex gcc_jit_context_new_child_context (C function)
-@anchor{topics/contexts gcc_jit_context_new_child_context}@anchor{4d}
+@anchor{topics/contexts gcc_jit_context_new_child_context}@anchor{4f}
 @deffn {C Function} gcc_jit_context * gcc_jit_context_new_child_context (gcc_jit_context@w{ }*parent_ctxt)
 
 Given an existing JIT context, create a child context.
@@ -3519,7 +3956,7 @@ there will likely be a performance hit for such nesting.
 @end deffn
 
 @node Thread-safety,Error-handling,Lifetime-management,Compilation contexts
-@anchor{topics/contexts thread-safety}@anchor{4e}
+@anchor{topics/contexts thread-safety}@anchor{50}
 @subsection Thread-safety
 
 
@@ -3528,7 +3965,7 @@ Instances of @pxref{13,,gcc_jit_object *} created via
 only one thread may use a given context at once, but multiple threads
 could each have their own contexts without needing locks.
 
-Contexts created via @pxref{4d,,gcc_jit_context_new_child_context()} are
+Contexts created via @pxref{4f,,gcc_jit_context_new_child_context()} are
 related to their parent context.  They can be partitioned by their
 ultimate ancestor into independent "family trees".   Only one thread
 within a process may use a given "family tree" of such contexts at once,
@@ -3536,7 +3973,7 @@ and if you're using multiple threads you should provide your own locking
 around entire such context partitions.
 
 @node Error-handling,Debugging,Thread-safety,Compilation contexts
-@anchor{topics/contexts error-handling}@anchor{4f}
+@anchor{topics/contexts error-handling}@anchor{51}
 @subsection Error-handling
 
 
@@ -3547,10 +3984,10 @@ NULL.  You don't have to check everywhere for NULL results, since the
 API gracefully handles a NULL being passed in for any argument.
 
 Errors are printed on stderr and can be queried using
-@pxref{50,,gcc_jit_context_get_first_error()}.
+@pxref{52,,gcc_jit_context_get_first_error()}.
 
 @geindex gcc_jit_context_get_first_error (C function)
-@anchor{topics/contexts gcc_jit_context_get_first_error}@anchor{50}
+@anchor{topics/contexts gcc_jit_context_get_first_error}@anchor{52}
 @deffn {C Function} const char *           gcc_jit_context_get_first_error (gcc_jit_context@w{ }*ctxt)
 
 Returns the first error message that occurred on the context.
@@ -3562,12 +3999,12 @@ If no errors occurred, this will be NULL.
 @end deffn
 
 @node Debugging,Options<2>,Error-handling,Compilation contexts
-@anchor{topics/contexts debugging}@anchor{51}
+@anchor{topics/contexts debugging}@anchor{53}
 @subsection Debugging
 
 
 @geindex gcc_jit_context_dump_to_file (C function)
-@anchor{topics/contexts gcc_jit_context_dump_to_file}@anchor{52}
+@anchor{topics/contexts gcc_jit_context_dump_to_file}@anchor{54}
 @deffn {C Function} void           gcc_jit_context_dump_to_file (gcc_jit_context@w{ }*ctxt, const char@w{ }*path, int@w{ }update_locations)
 
 To help with debugging: dump a C-like representation to the given path,
@@ -3581,7 +4018,7 @@ code in a debugger.
 @end deffn
 
 @node Options<2>,,Debugging,Compilation contexts
-@anchor{topics/contexts options}@anchor{53}
+@anchor{topics/contexts options}@anchor{55}
 @subsection Options
 
 
@@ -3593,25 +4030,25 @@ code in a debugger.
 @end menu
 
 @node String Options,Boolean options,,Options<2>
-@anchor{topics/contexts string-options}@anchor{54}
+@anchor{topics/contexts string-options}@anchor{56}
 @subsubsection String Options
 
 
 @geindex gcc_jit_context_set_str_option (C function)
-@anchor{topics/contexts gcc_jit_context_set_str_option}@anchor{55}
+@anchor{topics/contexts gcc_jit_context_set_str_option}@anchor{57}
 @deffn {C Function} void gcc_jit_context_set_str_option (gcc_jit_context@w{ }*ctxt, enum gcc_jit_str_option@w{ }opt, const char@w{ }*value)
 
 Set a string option of the context.
 
 @geindex gcc_jit_str_option (C type)
-@anchor{topics/contexts gcc_jit_str_option}@anchor{56}
+@anchor{topics/contexts gcc_jit_str_option}@anchor{58}
 @deffn {C Type} enum gcc_jit_str_option
 @end deffn
 
 There is currently just one string option:
 
 @geindex GCC_JIT_STR_OPTION_PROGNAME (C macro)
-@anchor{topics/contexts GCC_JIT_STR_OPTION_PROGNAME}@anchor{57}
+@anchor{topics/contexts GCC_JIT_STR_OPTION_PROGNAME}@anchor{59}
 @deffn {C Macro} GCC_JIT_STR_OPTION_PROGNAME
 
 The name of the program, for use as a prefix when printing error
@@ -3620,7 +4057,7 @@ messages to stderr.  If @cite{NULL}, or default, "libgccjit.so" is used.
 @end deffn
 
 @node Boolean options,Integer options,String Options,Options<2>
-@anchor{topics/contexts boolean-options}@anchor{58}
+@anchor{topics/contexts boolean-options}@anchor{5a}
 @subsubsection Boolean options
 
 
@@ -3632,7 +4069,7 @@ Set a boolean option of the context.
 Zero is "false" (the default), non-zero is "true".
 
 @geindex gcc_jit_bool_option (C type)
-@anchor{topics/contexts gcc_jit_bool_option}@anchor{59}
+@anchor{topics/contexts gcc_jit_bool_option}@anchor{5b}
 @deffn {C Type} enum gcc_jit_bool_option
 @end deffn
 
@@ -3650,7 +4087,7 @@ location information for the code (by creating and passing in
 @end deffn
 
 @geindex GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE (C macro)
-@anchor{topics/contexts GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE}@anchor{5a}
+@anchor{topics/contexts GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE}@anchor{5c}
 @deffn {C Macro} GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE
 
 If true, @pxref{1a,,gcc_jit_context_compile()} will dump its initial
@@ -3747,7 +4184,7 @@ square:
 @end deffn
 
 @geindex GCC_JIT_BOOL_OPTION_DUMP_SUMMARY (C macro)
-@anchor{topics/contexts GCC_JIT_BOOL_OPTION_DUMP_SUMMARY}@anchor{5b}
+@anchor{topics/contexts GCC_JIT_BOOL_OPTION_DUMP_SUMMARY}@anchor{5d}
 @deffn {C Macro} GCC_JIT_BOOL_OPTION_DUMP_SUMMARY
 
 If true, @pxref{1a,,gcc_jit_context_compile()} will print information to stderr
@@ -3756,19 +4193,19 @@ the time taken and memory usage of each phase.
 @end deffn
 
 @geindex GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING (C macro)
-@anchor{topics/contexts GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING}@anchor{5c}
+@anchor{topics/contexts GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING}@anchor{5e}
 @deffn {C Macro} GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING
 
 If true, @pxref{1a,,gcc_jit_context_compile()} will dump copious
 amount of information on what it's doing to various
 files within a temporary directory.  Use
-@pxref{5d,,GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES} (see below) to
+@pxref{5f,,GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES} (see below) to
 see the results.  The files are intended to be human-readable,
 but the exact files and their formats are subject to change.
 @end deffn
 
 @geindex GCC_JIT_BOOL_OPTION_SELFCHECK_GC (C macro)
-@anchor{topics/contexts GCC_JIT_BOOL_OPTION_SELFCHECK_GC}@anchor{5e}
+@anchor{topics/contexts GCC_JIT_BOOL_OPTION_SELFCHECK_GC}@anchor{60}
 @deffn {C Macro} GCC_JIT_BOOL_OPTION_SELFCHECK_GC
 
 If true, libgccjit will aggressively run its garbage collector, to
@@ -3778,7 +4215,7 @@ used when running the selftest suite.
 @end deffn
 
 @geindex GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES (C macro)
-@anchor{topics/contexts GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES}@anchor{5d}
+@anchor{topics/contexts GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES}@anchor{5f}
 @deffn {C Macro} GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES
 
 If true, the @pxref{d,,gcc_jit_context} will not clean up intermediate files
@@ -3787,7 +4224,7 @@ written to the filesystem, and will display their location on stderr.
 @end deffn
 
 @node Integer options,,Boolean options,Options<2>
-@anchor{topics/contexts integer-options}@anchor{5f}
+@anchor{topics/contexts integer-options}@anchor{61}
 @subsubsection Integer options
 
 
@@ -3798,7 +4235,7 @@ written to the filesystem, and will display their location on stderr.
 Set an integer option of the context.
 
 @geindex gcc_jit_int_option (C type)
-@anchor{topics/contexts gcc_jit_int_option}@anchor{60}
+@anchor{topics/contexts gcc_jit_int_option}@anchor{62}
 @deffn {C Type} enum gcc_jit_int_option
 @end deffn
 
@@ -3835,7 +4272,7 @@ The default value is 0 (unoptimized).
 @c <http://www.gnu.org/licenses/>.
 
 @node Objects,Types,Compilation contexts,Topic Reference
-@anchor{topics/objects objects}@anchor{61}@anchor{topics/objects doc}@anchor{62}
+@anchor{topics/objects objects}@anchor{63}@anchor{topics/objects doc}@anchor{64}
 @section Objects
 
 
@@ -3895,7 +4332,7 @@ gcc_jit_object *obj = gcc_jit_type_as_object (int_type);
 The object "base class" has the following operations:
 
 @geindex gcc_jit_object_get_context (C function)
-@anchor{topics/objects gcc_jit_object_get_context}@anchor{63}
+@anchor{topics/objects gcc_jit_object_get_context}@anchor{65}
 @deffn {C Function} gcc_jit_context *gcc_jit_object_get_context (gcc_jit_object@w{ }*obj)
 
 Which context is "obj" within?
@@ -3951,7 +4388,7 @@ object's context is released.
 @c <http://www.gnu.org/licenses/>.
 
 @node Types,Expressions,Objects,Topic Reference
-@anchor{topics/types doc}@anchor{64}@anchor{topics/types types}@anchor{65}
+@anchor{topics/types doc}@anchor{66}@anchor{topics/types types}@anchor{67}
 @section Types
 
 
@@ -3988,7 +4425,7 @@ See @pxref{10,,gcc_jit_context_get_type()} for the available types.
 
 @item 
 derived types can be accessed by using functions such as
-@pxref{66,,gcc_jit_type_get_pointer()} and @pxref{67,,gcc_jit_type_get_const()}:
+@pxref{68,,gcc_jit_type_get_pointer()} and @pxref{69,,gcc_jit_type_get_const()}:
 
 @example
 gcc_jit_type *const_int_star = gcc_jit_type_get_pointer (gcc_jit_type_get_const (int_type));
@@ -4009,7 +4446,7 @@ by creating structures (see below).
 @end menu
 
 @node Standard types,Pointers const and volatile,,Types
-@anchor{topics/types standard-types}@anchor{68}
+@anchor{topics/types standard-types}@anchor{6a}
 @subsection Standard types
 
 
@@ -4190,66 +4627,66 @@ C type: @code{(FILE *)}
 @end deffn
 
 @geindex gcc_jit_context_get_int_type (C function)
-@anchor{topics/types gcc_jit_context_get_int_type}@anchor{69}
+@anchor{topics/types gcc_jit_context_get_int_type}@anchor{6b}
 @deffn {C Function} gcc_jit_type *           gcc_jit_context_get_int_type (gcc_jit_context@w{ }*ctxt, int@w{ }num_bytes, int@w{ }is_signed)
 
 Access the integer type of the given size.
 @end deffn
 
 @node Pointers const and volatile,Structures and unions,Standard types,Types
-@anchor{topics/types pointers-const-and-volatile}@anchor{6a}
+@anchor{topics/types pointers-const-and-volatile}@anchor{6c}
 @subsection Pointers, @cite{const}, and @cite{volatile}
 
 
 @geindex gcc_jit_type_get_pointer (C function)
-@anchor{topics/types gcc_jit_type_get_pointer}@anchor{66}
+@anchor{topics/types gcc_jit_type_get_pointer}@anchor{68}
 @deffn {C Function} gcc_jit_type *gcc_jit_type_get_pointer (gcc_jit_type@w{ }*type)
 
 Given type "T", get type "T*".
 @end deffn
 
 @geindex gcc_jit_type_get_const (C function)
-@anchor{topics/types gcc_jit_type_get_const}@anchor{67}
+@anchor{topics/types gcc_jit_type_get_const}@anchor{69}
 @deffn {C Function} gcc_jit_type *gcc_jit_type_get_const (gcc_jit_type@w{ }*type)
 
 Given type "T", get type "const T".
 @end deffn
 
 @geindex gcc_jit_type_get_volatile (C function)
-@anchor{topics/types gcc_jit_type_get_volatile}@anchor{6b}
+@anchor{topics/types gcc_jit_type_get_volatile}@anchor{6d}
 @deffn {C Function} gcc_jit_type *gcc_jit_type_get_volatile (gcc_jit_type@w{ }*type)
 
 Given type "T", get type "volatile T".
 @end deffn
 
 @geindex gcc_jit_context_new_array_type (C function)
-@anchor{topics/types gcc_jit_context_new_array_type}@anchor{6c}
+@anchor{topics/types gcc_jit_context_new_array_type}@anchor{6e}
 @deffn {C Function} gcc_jit_type *            gcc_jit_context_new_array_type (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_type@w{ }*element_type, int@w{ }num_elements)
 
 Given type "T", get type "T[N]" (for a constant N).
 @end deffn
 
 @node Structures and unions,,Pointers const and volatile,Types
-@anchor{topics/types structures-and-unions}@anchor{6d}
+@anchor{topics/types structures-and-unions}@anchor{6f}
 @subsection Structures and unions
 
 
 @geindex gcc_jit_struct (C type)
-@anchor{topics/types gcc_jit_struct}@anchor{6e}
+@anchor{topics/types gcc_jit_struct}@anchor{70}
 @deffn {C Type} gcc_jit_struct
 @end deffn
 
 A compound type analagous to a C @cite{struct}.
 
 @geindex gcc_jit_field (C type)
-@anchor{topics/types gcc_jit_field}@anchor{6f}
+@anchor{topics/types gcc_jit_field}@anchor{71}
 @deffn {C Type} gcc_jit_field
 @end deffn
 
-A field within a @pxref{6e,,gcc_jit_struct}.
+A field within a @pxref{70,,gcc_jit_struct}.
 
-You can model C @cite{struct} types by creating @pxref{6e,,gcc_jit_struct *} and
-@pxref{6f,,gcc_jit_field} instances, in either order:
+You can model C @cite{struct} types by creating @pxref{70,,gcc_jit_struct *} and
+@pxref{71,,gcc_jit_field} instances, in either order:
 
 
 @itemize *
@@ -4306,21 +4743,21 @@ gcc_jit_struct_set_fields (node, NULL, 2, fields);
 @end itemize
 
 @geindex gcc_jit_context_new_field (C function)
-@anchor{topics/types gcc_jit_context_new_field}@anchor{70}
+@anchor{topics/types gcc_jit_context_new_field}@anchor{72}
 @deffn {C Function} gcc_jit_field *           gcc_jit_context_new_field (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_type@w{ }*type, const char@w{ }*name)
 
 Construct a new field, with the given type and name.
 @end deffn
 
 @geindex gcc_jit_field_as_object (C function)
-@anchor{topics/types gcc_jit_field_as_object}@anchor{71}
+@anchor{topics/types gcc_jit_field_as_object}@anchor{73}
 @deffn {C Function} gcc_jit_object *           gcc_jit_field_as_object (gcc_jit_field@w{ }*field)
 
 Upcast from field to object.
 @end deffn
 
 @geindex gcc_jit_context_new_struct_type (C function)
-@anchor{topics/types gcc_jit_context_new_struct_type}@anchor{72}
+@anchor{topics/types gcc_jit_context_new_struct_type}@anchor{74}
 @deffn {C Function} gcc_jit_struct *gcc_jit_context_new_struct_type (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, const char@w{ }*name, int@w{ }num_fields, gcc_jit_field@w{ }**fields)
 
 @quotation
@@ -4330,24 +4767,24 @@ Construct a new struct type, with the given name and fields.
 @end deffn
 
 @geindex gcc_jit_context_new_opaque_struct (C function)
-@anchor{topics/types gcc_jit_context_new_opaque_struct}@anchor{73}
+@anchor{topics/types gcc_jit_context_new_opaque_struct}@anchor{75}
 @deffn {C Function} gcc_jit_struct *         gcc_jit_context_new_opaque_struct (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, const char@w{ }*name)
 
 Construct a new struct type, with the given name, but without
 specifying the fields.   The fields can be omitted (in which case the
 size of the struct is not known), or later specified using
-@pxref{74,,gcc_jit_struct_set_fields()}.
+@pxref{76,,gcc_jit_struct_set_fields()}.
 @end deffn
 
 @geindex gcc_jit_struct_as_type (C function)
-@anchor{topics/types gcc_jit_struct_as_type}@anchor{75}
+@anchor{topics/types gcc_jit_struct_as_type}@anchor{77}
 @deffn {C Function} gcc_jit_type *           gcc_jit_struct_as_type (gcc_jit_struct@w{ }*struct_type)
 
 Upcast from struct to type.
 @end deffn
 
 @geindex gcc_jit_struct_set_fields (C function)
-@anchor{topics/types gcc_jit_struct_set_fields}@anchor{74}
+@anchor{topics/types gcc_jit_struct_set_fields}@anchor{76}
 @deffn {C Function} void           gcc_jit_struct_set_fields (gcc_jit_struct@w{ }*struct_type, gcc_jit_location@w{ }*loc, int@w{ }num_fields, gcc_jit_field@w{ }**fields)
 
 Populate the fields of a formerly-opaque struct type.
@@ -4373,7 +4810,7 @@ This can only be called once on a given struct type.
 @c <http://www.gnu.org/licenses/>.
 
 @node Expressions,Creating and using functions,Types,Topic Reference
-@anchor{topics/expressions expressions}@anchor{76}@anchor{topics/expressions doc}@anchor{77}
+@anchor{topics/expressions expressions}@anchor{78}@anchor{topics/expressions doc}@anchor{79}
 @section Expressions
 
 
@@ -4399,7 +4836,7 @@ Lvalues
 
 
 @node Rvalues,Lvalues,,Expressions
-@anchor{topics/expressions rvalues}@anchor{78}
+@anchor{topics/expressions rvalues}@anchor{7a}
 @subsection Rvalues
 
 
@@ -4453,7 +4890,7 @@ Every rvalue has an associated type, and the API will check to ensure
 that types match up correctly (otherwise the context will emit an error).
 
 @geindex gcc_jit_rvalue_get_type (C function)
-@anchor{topics/expressions gcc_jit_rvalue_get_type}@anchor{79}
+@anchor{topics/expressions gcc_jit_rvalue_get_type}@anchor{7b}
 @deffn {C Function} gcc_jit_type *gcc_jit_rvalue_get_type (gcc_jit_rvalue@w{ }*rvalue)
 
 Get the type of this rvalue.
@@ -4477,7 +4914,7 @@ Upcast the given rvalue to be an object.
 @end menu
 
 @node Simple expressions,Unary Operations,,Rvalues
-@anchor{topics/expressions simple-expressions}@anchor{7a}
+@anchor{topics/expressions simple-expressions}@anchor{7c}
 @subsubsection Simple expressions
 
 
@@ -4526,14 +4963,14 @@ the given constant value.
 @end deffn
 
 @geindex gcc_jit_context_new_rvalue_from_ptr (C function)
-@anchor{topics/expressions gcc_jit_context_new_rvalue_from_ptr}@anchor{7b}
+@anchor{topics/expressions gcc_jit_context_new_rvalue_from_ptr}@anchor{7d}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context@w{ }*ctxt, gcc_jit_type@w{ }*pointer_type, void@w{ }*value)
 
 Given a pointer type, build an rvalue for the given address.
 @end deffn
 
 @geindex gcc_jit_context_null (C function)
-@anchor{topics/expressions gcc_jit_context_null}@anchor{7c}
+@anchor{topics/expressions gcc_jit_context_null}@anchor{7e}
 @deffn {C Function} gcc_jit_rvalue *gcc_jit_context_null (gcc_jit_context@w{ }*ctxt, gcc_jit_type@w{ }*pointer_type)
 
 Given a pointer type, build an rvalue for @code{NULL}.  Essentially this
@@ -4547,7 +4984,7 @@ gcc_jit_context_new_rvalue_from_ptr (ctxt, pointer_type, NULL)
 @end deffn
 
 @geindex gcc_jit_context_new_string_literal (C function)
-@anchor{topics/expressions gcc_jit_context_new_string_literal}@anchor{7d}
+@anchor{topics/expressions gcc_jit_context_new_string_literal}@anchor{7f}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_context_new_string_literal (gcc_jit_context@w{ }*ctxt, const char@w{ }*value)
 
 Generate an rvalue for the given NIL-terminated string, of type
@@ -4555,19 +4992,19 @@ Generate an rvalue for the given NIL-terminated string, of type
 @end deffn
 
 @node Unary Operations,Binary Operations,Simple expressions,Rvalues
-@anchor{topics/expressions unary-operations}@anchor{7e}
+@anchor{topics/expressions unary-operations}@anchor{80}
 @subsubsection Unary Operations
 
 
 @geindex gcc_jit_context_new_unary_op (C function)
-@anchor{topics/expressions gcc_jit_context_new_unary_op}@anchor{7f}
+@anchor{topics/expressions gcc_jit_context_new_unary_op}@anchor{81}
 @deffn {C Function} gcc_jit_rvalue *            gcc_jit_context_new_unary_op (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, enum gcc_jit_unary_op@w{ }op, gcc_jit_type@w{ }*result_type, gcc_jit_rvalue@w{ }*rvalue)
 
 Build a unary operation out of an input rvalue.
 @end deffn
 
 @geindex gcc_jit_unary_op (C type)
-@anchor{topics/expressions gcc_jit_unary_op}@anchor{80}
+@anchor{topics/expressions gcc_jit_unary_op}@anchor{82}
 @deffn {C Type} enum gcc_jit_unary_op
 @end deffn
 
@@ -4585,7 +5022,7 @@ C equivalent
 
 @item
 
-@pxref{81,,GCC_JIT_UNARY_OP_MINUS}
+@pxref{83,,GCC_JIT_UNARY_OP_MINUS}
 
 @tab
 
@@ -4593,7 +5030,7 @@ C equivalent
 
 @item
 
-@pxref{82,,GCC_JIT_UNARY_OP_BITWISE_NEGATE}
+@pxref{84,,GCC_JIT_UNARY_OP_BITWISE_NEGATE}
 
 @tab
 
@@ -4601,7 +5038,7 @@ C equivalent
 
 @item
 
-@pxref{83,,GCC_JIT_UNARY_OP_LOGICAL_NEGATE}
+@pxref{85,,GCC_JIT_UNARY_OP_LOGICAL_NEGATE}
 
 @tab
 
@@ -4611,7 +5048,7 @@ C equivalent
 
 
 @geindex GCC_JIT_UNARY_OP_MINUS (C macro)
-@anchor{topics/expressions GCC_JIT_UNARY_OP_MINUS}@anchor{81}
+@anchor{topics/expressions GCC_JIT_UNARY_OP_MINUS}@anchor{83}
 @deffn {C Macro} GCC_JIT_UNARY_OP_MINUS
 
 Negate an arithmetic value; analogous to:
@@ -4626,7 +5063,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_UNARY_OP_BITWISE_NEGATE (C macro)
-@anchor{topics/expressions GCC_JIT_UNARY_OP_BITWISE_NEGATE}@anchor{82}
+@anchor{topics/expressions GCC_JIT_UNARY_OP_BITWISE_NEGATE}@anchor{84}
 @deffn {C Macro} GCC_JIT_UNARY_OP_BITWISE_NEGATE
 
 Bitwise negation of an integer value (one's complement); analogous
@@ -4642,7 +5079,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_UNARY_OP_LOGICAL_NEGATE (C macro)
-@anchor{topics/expressions GCC_JIT_UNARY_OP_LOGICAL_NEGATE}@anchor{83}
+@anchor{topics/expressions GCC_JIT_UNARY_OP_LOGICAL_NEGATE}@anchor{85}
 @deffn {C Macro} GCC_JIT_UNARY_OP_LOGICAL_NEGATE
 
 Logical negation of an arithmetic or pointer value; analogous to:
@@ -4657,7 +5094,7 @@ in C.
 @end deffn
 
 @node Binary Operations,Comparisons,Unary Operations,Rvalues
-@anchor{topics/expressions binary-operations}@anchor{84}
+@anchor{topics/expressions binary-operations}@anchor{86}
 @subsubsection Binary Operations
 
 
@@ -4669,7 +5106,7 @@ Build a binary operation out of two constituent rvalues.
 @end deffn
 
 @geindex gcc_jit_binary_op (C type)
-@anchor{topics/expressions gcc_jit_binary_op}@anchor{85}
+@anchor{topics/expressions gcc_jit_binary_op}@anchor{87}
 @deffn {C Type} enum gcc_jit_binary_op
 @end deffn
 
@@ -4687,7 +5124,7 @@ C equivalent
 
 @item
 
-@pxref{86,,GCC_JIT_BINARY_OP_PLUS}
+@pxref{88,,GCC_JIT_BINARY_OP_PLUS}
 
 @tab
 
@@ -4703,7 +5140,7 @@ C equivalent
 
 @item
 
-@pxref{87,,GCC_JIT_BINARY_OP_MULT}
+@pxref{89,,GCC_JIT_BINARY_OP_MULT}
 
 @tab
 
@@ -4711,7 +5148,7 @@ C equivalent
 
 @item
 
-@pxref{88,,GCC_JIT_BINARY_OP_DIVIDE}
+@pxref{8a,,GCC_JIT_BINARY_OP_DIVIDE}
 
 @tab
 
@@ -4719,7 +5156,7 @@ C equivalent
 
 @item
 
-@pxref{89,,GCC_JIT_BINARY_OP_MODULO}
+@pxref{8b,,GCC_JIT_BINARY_OP_MODULO}
 
 @tab
 
@@ -4727,7 +5164,7 @@ C equivalent
 
 @item
 
-@pxref{8a,,GCC_JIT_BINARY_OP_BITWISE_AND}
+@pxref{8c,,GCC_JIT_BINARY_OP_BITWISE_AND}
 
 @tab
 
@@ -4735,7 +5172,7 @@ C equivalent
 
 @item
 
-@pxref{8b,,GCC_JIT_BINARY_OP_BITWISE_XOR}
+@pxref{8d,,GCC_JIT_BINARY_OP_BITWISE_XOR}
 
 @tab
 
@@ -4743,7 +5180,7 @@ C equivalent
 
 @item
 
-@pxref{8c,,GCC_JIT_BINARY_OP_BITWISE_OR}
+@pxref{8e,,GCC_JIT_BINARY_OP_BITWISE_OR}
 
 @tab
 
@@ -4751,7 +5188,7 @@ C equivalent
 
 @item
 
-@pxref{8d,,GCC_JIT_BINARY_OP_LOGICAL_AND}
+@pxref{8f,,GCC_JIT_BINARY_OP_LOGICAL_AND}
 
 @tab
 
@@ -4759,7 +5196,7 @@ C equivalent
 
 @item
 
-@pxref{8e,,GCC_JIT_BINARY_OP_LOGICAL_OR}
+@pxref{90,,GCC_JIT_BINARY_OP_LOGICAL_OR}
 
 @tab
 
@@ -4769,7 +5206,7 @@ C equivalent
 
 
 @geindex GCC_JIT_BINARY_OP_PLUS (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_PLUS}@anchor{86}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_PLUS}@anchor{88}
 @deffn {C Macro} GCC_JIT_BINARY_OP_PLUS
 
 Addition of arithmetic values; analogous to:
@@ -4782,7 +5219,7 @@ Addition of arithmetic values; analogous to:
 
 in C.
 
-For pointer addition, use @pxref{8f,,gcc_jit_context_new_array_access()}.
+For pointer addition, use @pxref{91,,gcc_jit_context_new_array_access()}.
 @end deffn
 
 
@@ -4800,7 +5237,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_MULT (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_MULT}@anchor{87}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_MULT}@anchor{89}
 @deffn {C Macro} GCC_JIT_BINARY_OP_MULT
 
 Multiplication of a pair of arithmetic values; analogous to:
@@ -4815,7 +5252,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_DIVIDE (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_DIVIDE}@anchor{88}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_DIVIDE}@anchor{8a}
 @deffn {C Macro} GCC_JIT_BINARY_OP_DIVIDE
 
 Quotient of division of arithmetic values; analogous to:
@@ -4834,7 +5271,7 @@ a floating-point result type indicates floating-point division.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_MODULO (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_MODULO}@anchor{89}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_MODULO}@anchor{8b}
 @deffn {C Macro} GCC_JIT_BINARY_OP_MODULO
 
 Remainder of division of arithmetic values; analogous to:
@@ -4849,7 +5286,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_BITWISE_AND (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_BITWISE_AND}@anchor{8a}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_BITWISE_AND}@anchor{8c}
 @deffn {C Macro} GCC_JIT_BINARY_OP_BITWISE_AND
 
 Bitwise AND; analogous to:
@@ -4864,7 +5301,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_BITWISE_XOR (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_BITWISE_XOR}@anchor{8b}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_BITWISE_XOR}@anchor{8d}
 @deffn {C Macro} GCC_JIT_BINARY_OP_BITWISE_XOR
 
 Bitwise exclusive OR; analogous to:
@@ -4879,7 +5316,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_BITWISE_OR (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_BITWISE_OR}@anchor{8c}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_BITWISE_OR}@anchor{8e}
 @deffn {C Macro} GCC_JIT_BINARY_OP_BITWISE_OR
 
 Bitwise inclusive OR; analogous to:
@@ -4894,7 +5331,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_LOGICAL_AND (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_LOGICAL_AND}@anchor{8d}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_LOGICAL_AND}@anchor{8f}
 @deffn {C Macro} GCC_JIT_BINARY_OP_LOGICAL_AND
 
 Logical AND; analogous to:
@@ -4909,7 +5346,7 @@ in C.
 @end deffn
 
 @geindex GCC_JIT_BINARY_OP_LOGICAL_OR (C macro)
-@anchor{topics/expressions GCC_JIT_BINARY_OP_LOGICAL_OR}@anchor{8e}
+@anchor{topics/expressions GCC_JIT_BINARY_OP_LOGICAL_OR}@anchor{90}
 @deffn {C Macro} GCC_JIT_BINARY_OP_LOGICAL_OR
 
 Logical OR; analogous to:
@@ -4924,7 +5361,7 @@ in C.
 @end deffn
 
 @node Comparisons,Function calls,Binary Operations,Rvalues
-@anchor{topics/expressions comparisons}@anchor{90}
+@anchor{topics/expressions comparisons}@anchor{92}
 @subsubsection Comparisons
 
 
@@ -4936,7 +5373,7 @@ Build a boolean rvalue out of the comparison of two other rvalues.
 @end deffn
 
 @geindex gcc_jit_comparison (C type)
-@anchor{topics/expressions gcc_jit_comparison}@anchor{91}
+@anchor{topics/expressions gcc_jit_comparison}@anchor{93}
 @deffn {C Type} enum gcc_jit_comparison
 @end deffn
 
@@ -5002,12 +5439,12 @@ C equivalent
 
 
 @node Function calls,Type-coercion,Comparisons,Rvalues
-@anchor{topics/expressions function-calls}@anchor{92}
+@anchor{topics/expressions function-calls}@anchor{94}
 @subsubsection Function calls
 
 
 @geindex gcc_jit_context_new_call (C function)
-@anchor{topics/expressions gcc_jit_context_new_call}@anchor{93}
+@anchor{topics/expressions gcc_jit_context_new_call}@anchor{95}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_context_new_call (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_function@w{ }*func, int@w{ }numargs, gcc_jit_rvalue@w{ }**args)
 
 Given a function and the given table of argument rvalues, construct a
@@ -5015,12 +5452,12 @@ call to the function, with the result as an rvalue.
 @end deffn
 
 @node Type-coercion,,Function calls,Rvalues
-@anchor{topics/expressions type-coercion}@anchor{94}
+@anchor{topics/expressions type-coercion}@anchor{96}
 @subsubsection Type-coercion
 
 
 @geindex gcc_jit_context_new_cast (C function)
-@anchor{topics/expressions gcc_jit_context_new_cast}@anchor{95}
+@anchor{topics/expressions gcc_jit_context_new_cast}@anchor{97}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_context_new_cast (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*rvalue, gcc_jit_type@w{ }*type)
 
 Given an rvalue of T, construct another rvalue of another type.
@@ -5042,7 +5479,7 @@ int <-> bool
 @end deffn
 
 @node Lvalues,Working with pointers structs and unions,Rvalues,Expressions
-@anchor{topics/expressions lvalues}@anchor{96}
+@anchor{topics/expressions lvalues}@anchor{98}
 @subsection Lvalues
 
 
@@ -5056,21 +5493,21 @@ a storage area (such as a variable).  It is also usable as an rvalue,
 where the rvalue is computed by reading from the storage area.
 
 @geindex gcc_jit_lvalue_as_object (C function)
-@anchor{topics/expressions gcc_jit_lvalue_as_object}@anchor{97}
+@anchor{topics/expressions gcc_jit_lvalue_as_object}@anchor{99}
 @deffn {C Function} gcc_jit_object *           gcc_jit_lvalue_as_object (gcc_jit_lvalue@w{ }*lvalue)
 
 Upcast an lvalue to be an object.
 @end deffn
 
 @geindex gcc_jit_lvalue_as_rvalue (C function)
-@anchor{topics/expressions gcc_jit_lvalue_as_rvalue}@anchor{98}
+@anchor{topics/expressions gcc_jit_lvalue_as_rvalue}@anchor{9a}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue@w{ }*lvalue)
 
 Upcast an lvalue to be an rvalue.
 @end deffn
 
 @geindex gcc_jit_lvalue_get_address (C function)
-@anchor{topics/expressions gcc_jit_lvalue_get_address}@anchor{99}
+@anchor{topics/expressions gcc_jit_lvalue_get_address}@anchor{9b}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_lvalue_get_address (gcc_jit_lvalue@w{ }*lvalue, gcc_jit_location@w{ }*loc)
 
 Take the address of an lvalue; analogous to:
@@ -5090,24 +5527,24 @@ in C.
 @end menu
 
 @node Global variables,,,Lvalues
-@anchor{topics/expressions global-variables}@anchor{9a}
+@anchor{topics/expressions global-variables}@anchor{9c}
 @subsubsection Global variables
 
 
 @geindex gcc_jit_context_new_global (C function)
-@anchor{topics/expressions gcc_jit_context_new_global}@anchor{9b}
+@anchor{topics/expressions gcc_jit_context_new_global}@anchor{9d}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_context_new_global (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_type@w{ }*type, const char@w{ }*name)
 
 Add a new global variable of the given type and name to the context.
 @end deffn
 
 @node Working with pointers structs and unions,,Lvalues,Expressions
-@anchor{topics/expressions working-with-pointers-structs-and-unions}@anchor{9c}
+@anchor{topics/expressions working-with-pointers-structs-and-unions}@anchor{9e}
 @subsection Working with pointers, structs and unions
 
 
 @geindex gcc_jit_rvalue_dereference (C function)
-@anchor{topics/expressions gcc_jit_rvalue_dereference}@anchor{9d}
+@anchor{topics/expressions gcc_jit_rvalue_dereference}@anchor{9f}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_rvalue_dereference (gcc_jit_rvalue@w{ }*rvalue, gcc_jit_location@w{ }*loc)
 
 Given an rvalue of pointer type @code{T *}, dereferencing the pointer,
@@ -5125,7 +5562,7 @@ in C.
 Field access is provided separately for both lvalues and rvalues.
 
 @geindex gcc_jit_lvalue_access_field (C function)
-@anchor{topics/expressions gcc_jit_lvalue_access_field}@anchor{9e}
+@anchor{topics/expressions gcc_jit_lvalue_access_field}@anchor{a0}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_lvalue_access_field (gcc_jit_lvalue@w{ }*struct_, gcc_jit_location@w{ }*loc, gcc_jit_field@w{ }*field)
 
 Given an lvalue of struct or union type, access the given field,
@@ -5141,7 +5578,7 @@ in C.
 @end deffn
 
 @geindex gcc_jit_rvalue_access_field (C function)
-@anchor{topics/expressions gcc_jit_rvalue_access_field}@anchor{9f}
+@anchor{topics/expressions gcc_jit_rvalue_access_field}@anchor{a1}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_rvalue_access_field (gcc_jit_rvalue@w{ }*struct_, gcc_jit_location@w{ }*loc, gcc_jit_field@w{ }*field)
 
 Given an rvalue of struct or union type, access the given field
@@ -5157,7 +5594,7 @@ in C.
 @end deffn
 
 @geindex gcc_jit_rvalue_dereference_field (C function)
-@anchor{topics/expressions gcc_jit_rvalue_dereference_field}@anchor{a0}
+@anchor{topics/expressions gcc_jit_rvalue_dereference_field}@anchor{a2}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_rvalue_dereference_field (gcc_jit_rvalue@w{ }*ptr, gcc_jit_location@w{ }*loc, gcc_jit_field@w{ }*field)
 
 Given an rvalue of pointer type @code{T *} where T is of struct or union
@@ -5173,7 +5610,7 @@ in C, itself equivalent to @code{(*EXPR).FIELD}.
 @end deffn
 
 @geindex gcc_jit_context_new_array_access (C function)
-@anchor{topics/expressions gcc_jit_context_new_array_access}@anchor{8f}
+@anchor{topics/expressions gcc_jit_context_new_array_access}@anchor{91}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_context_new_array_access (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*ptr, gcc_jit_rvalue@w{ }*index)
 
 Given an rvalue of pointer type @code{T *}, get at the element @cite{T} at
@@ -5208,7 +5645,7 @@ in C (or, indeed, to @code{PTR + INDEX}).
 @c <http://www.gnu.org/licenses/>.
 
 @node Creating and using functions,Source Locations,Expressions,Topic Reference
-@anchor{topics/functions doc}@anchor{a1}@anchor{topics/functions creating-and-using-functions}@anchor{a2}
+@anchor{topics/functions doc}@anchor{a3}@anchor{topics/functions creating-and-using-functions}@anchor{a4}
 @section Creating and using functions
 
 
@@ -5221,7 +5658,7 @@ in C (or, indeed, to @code{PTR + INDEX}).
 @end menu
 
 @node Params,Functions,,Creating and using functions
-@anchor{topics/functions params}@anchor{a3}
+@anchor{topics/functions params}@anchor{a5}
 @subsection Params
 
 
@@ -5244,28 +5681,28 @@ Parameters are lvalues, and thus are also rvalues (and objects), so the
 following upcasts are available:
 
 @geindex gcc_jit_param_as_lvalue (C function)
-@anchor{topics/functions gcc_jit_param_as_lvalue}@anchor{a4}
+@anchor{topics/functions gcc_jit_param_as_lvalue}@anchor{a6}
 @deffn {C Function} gcc_jit_lvalue *            gcc_jit_param_as_lvalue (gcc_jit_param@w{ }*param)
 
 Upcasting from param to lvalue.
 @end deffn
 
 @geindex gcc_jit_param_as_rvalue (C function)
-@anchor{topics/functions gcc_jit_param_as_rvalue}@anchor{a5}
+@anchor{topics/functions gcc_jit_param_as_rvalue}@anchor{a7}
 @deffn {C Function} gcc_jit_rvalue *            gcc_jit_param_as_rvalue (gcc_jit_param@w{ }*param)
 
 Upcasting from param to rvalue.
 @end deffn
 
 @geindex gcc_jit_param_as_object (C function)
-@anchor{topics/functions gcc_jit_param_as_object}@anchor{a6}
+@anchor{topics/functions gcc_jit_param_as_object}@anchor{a8}
 @deffn {C Function} gcc_jit_object *            gcc_jit_param_as_object (gcc_jit_param@w{ }*param)
 
 Upcasting from param to object.
 @end deffn
 
 @node Functions,Blocks,Params,Creating and using functions
-@anchor{topics/functions functions}@anchor{a7}
+@anchor{topics/functions functions}@anchor{a9}
 @subsection Functions
 
 
@@ -5284,7 +5721,7 @@ creating ourselves, or one that we're referencing.
 Create a gcc_jit_function with the given name and parameters.
 
 @geindex gcc_jit_function_kind (C type)
-@anchor{topics/functions gcc_jit_function_kind}@anchor{a8}
+@anchor{topics/functions gcc_jit_function_kind}@anchor{aa}
 @deffn {C Type} enum gcc_jit_function_kind
 @end deffn
 
@@ -5294,7 +5731,7 @@ values:
 @quotation
 
 @geindex GCC_JIT_FUNCTION_EXPORTED (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_EXPORTED}@anchor{a9}
+@anchor{topics/functions GCC_JIT_FUNCTION_EXPORTED}@anchor{ab}
 @deffn {C Macro} GCC_JIT_FUNCTION_EXPORTED
 
 Function is defined by the client code and visible
@@ -5302,7 +5739,7 @@ by name outside of the JIT.
 @end deffn
 
 @geindex GCC_JIT_FUNCTION_INTERNAL (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_INTERNAL}@anchor{aa}
+@anchor{topics/functions GCC_JIT_FUNCTION_INTERNAL}@anchor{ac}
 @deffn {C Macro} GCC_JIT_FUNCTION_INTERNAL
 
 Function is defined by the client code, but is invisible
@@ -5310,7 +5747,7 @@ outside of the JIT.  Analogous to a "static" function.
 @end deffn
 
 @geindex GCC_JIT_FUNCTION_IMPORTED (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_IMPORTED}@anchor{ab}
+@anchor{topics/functions GCC_JIT_FUNCTION_IMPORTED}@anchor{ad}
 @deffn {C Macro} GCC_JIT_FUNCTION_IMPORTED
 
 Function is not defined by the client code; we're merely
@@ -5319,7 +5756,7 @@ header file.
 @end deffn
 
 @geindex GCC_JIT_FUNCTION_ALWAYS_INLINE (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_ALWAYS_INLINE}@anchor{ac}
+@anchor{topics/functions GCC_JIT_FUNCTION_ALWAYS_INLINE}@anchor{ae}
 @deffn {C Macro} GCC_JIT_FUNCTION_ALWAYS_INLINE
 
 Function is only ever inlined into other functions, and is
@@ -5336,19 +5773,19 @@ same as GCC_JIT_FUNCTION_INTERNAL.
 @end deffn
 
 @geindex gcc_jit_context_get_builtin_function (C function)
-@anchor{topics/functions gcc_jit_context_get_builtin_function}@anchor{ad}
+@anchor{topics/functions gcc_jit_context_get_builtin_function}@anchor{af}
 @deffn {C Function} gcc_jit_function *gcc_jit_context_get_builtin_function (gcc_jit_context@w{ }*ctxt, const char@w{ }*name)
 @end deffn
 
 @geindex gcc_jit_function_as_object (C function)
-@anchor{topics/functions gcc_jit_function_as_object}@anchor{ae}
+@anchor{topics/functions gcc_jit_function_as_object}@anchor{b0}
 @deffn {C Function} gcc_jit_object *           gcc_jit_function_as_object (gcc_jit_function@w{ }*func)
 
 Upcasting from function to object.
 @end deffn
 
 @geindex gcc_jit_function_get_param (C function)
-@anchor{topics/functions gcc_jit_function_get_param}@anchor{af}
+@anchor{topics/functions gcc_jit_function_get_param}@anchor{b1}
 @deffn {C Function} gcc_jit_param *            gcc_jit_function_get_param (gcc_jit_function@w{ }*func, int@w{ }index)
 
 Get the param of the given index (0-based).
@@ -5370,7 +5807,7 @@ name.
 @end deffn
 
 @node Blocks,Statements,Functions,Creating and using functions
-@anchor{topics/functions blocks}@anchor{b0}
+@anchor{topics/functions blocks}@anchor{b2}
 @subsection Blocks
 
 
@@ -5393,7 +5830,7 @@ one function.
 @end deffn
 
 @geindex gcc_jit_function_new_block (C function)
-@anchor{topics/functions gcc_jit_function_new_block}@anchor{b1}
+@anchor{topics/functions gcc_jit_function_new_block}@anchor{b3}
 @deffn {C Function} gcc_jit_block *            gcc_jit_function_new_block (gcc_jit_function@w{ }*func, const char@w{ }*name)
 
 Create a basic block of the given name.  The name may be NULL, but
@@ -5403,26 +5840,26 @@ messages.
 @end deffn
 
 @geindex gcc_jit_block_as_object (C function)
-@anchor{topics/functions gcc_jit_block_as_object}@anchor{b2}
+@anchor{topics/functions gcc_jit_block_as_object}@anchor{b4}
 @deffn {C Function} gcc_jit_object *            gcc_jit_block_as_object (gcc_jit_block@w{ }*block)
 
 Upcast from block to object.
 @end deffn
 
 @geindex gcc_jit_block_get_function (C function)
-@anchor{topics/functions gcc_jit_block_get_function}@anchor{b3}
+@anchor{topics/functions gcc_jit_block_get_function}@anchor{b5}
 @deffn {C Function} gcc_jit_function *            gcc_jit_block_get_function (gcc_jit_block@w{ }*block)
 
 Which function is this block within?
 @end deffn
 
 @node Statements,,Blocks,Creating and using functions
-@anchor{topics/functions statements}@anchor{b4}
+@anchor{topics/functions statements}@anchor{b6}
 @subsection Statements
 
 
 @geindex gcc_jit_block_add_eval (C function)
-@anchor{topics/functions gcc_jit_block_add_eval}@anchor{b5}
+@anchor{topics/functions gcc_jit_block_add_eval}@anchor{b7}
 @deffn {C Function} void           gcc_jit_block_add_eval (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*rvalue)
 
 Add evaluation of an rvalue, discarding the result
@@ -5479,7 +5916,7 @@ etc.
 
 Add a no-op textual comment to the internal representation of the
 code.  It will be optimized away, but will be visible in the dumps
-seen via @pxref{5a,,GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE}
+seen via @pxref{5c,,GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE}
 and @pxref{1f,,GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE},
 and thus may be of use when debugging how your project's internal
 representation gets converted to the libgccjit IR.
@@ -5507,7 +5944,7 @@ block, boolval, on_true, and on_false must be non-NULL.
 @end deffn
 
 @geindex gcc_jit_block_end_with_jump (C function)
-@anchor{topics/functions gcc_jit_block_end_with_jump}@anchor{b6}
+@anchor{topics/functions gcc_jit_block_end_with_jump}@anchor{b8}
 @deffn {C Function} void           gcc_jit_block_end_with_jump (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc, gcc_jit_block@w{ }*target)
 
 Terminate a block by adding a jump to the given target block.
@@ -5522,7 +5959,7 @@ goto target;
 @end deffn
 
 @geindex gcc_jit_block_end_with_return (C function)
-@anchor{topics/functions gcc_jit_block_end_with_return}@anchor{b7}
+@anchor{topics/functions gcc_jit_block_end_with_return}@anchor{b9}
 @deffn {C Function} void           gcc_jit_block_end_with_return (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*rvalue)
 
 Terminate a block by adding evaluation of an rvalue, returning the value.
@@ -5537,7 +5974,7 @@ return expression;
 @end deffn
 
 @geindex gcc_jit_block_end_with_void_return (C function)
-@anchor{topics/functions gcc_jit_block_end_with_void_return}@anchor{b8}
+@anchor{topics/functions gcc_jit_block_end_with_void_return}@anchor{ba}
 @deffn {C Function} void           gcc_jit_block_end_with_void_return (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc)
 
 Terminate a block by adding a valueless return, for use within a function
@@ -5570,7 +6007,7 @@ return;
 @c <http://www.gnu.org/licenses/>.
 
 @node Source Locations,Compilation results,Creating and using functions,Topic Reference
-@anchor{topics/locations source-locations}@anchor{b9}@anchor{topics/locations doc}@anchor{ba}
+@anchor{topics/locations source-locations}@anchor{bb}@anchor{topics/locations doc}@anchor{bc}
 @section Source Locations
 
 
@@ -5616,13 +6053,13 @@ location.
 @end menu
 
 @node Faking it,,,Source Locations
-@anchor{topics/locations faking-it}@anchor{bb}
+@anchor{topics/locations faking-it}@anchor{bd}
 @subsection Faking it
 
 
 If you don't have source code for your internal representation, but need
 to debug, you can generate a C-like representation of the functions in
-your context using @pxref{52,,gcc_jit_context_dump_to_file()}:
+your context using @pxref{54,,gcc_jit_context_dump_to_file()}:
 
 @example
 gcc_jit_context_dump_to_file (ctxt, "/tmp/something.c",
@@ -5654,7 +6091,7 @@ file, giving you @emph{something} you can step through in the debugger.
 @c <http://www.gnu.org/licenses/>.
 
 @node Compilation results,,Source Locations,Topic Reference
-@anchor{topics/results compilation-results}@anchor{bc}@anchor{topics/results doc}@anchor{bd}
+@anchor{topics/results compilation-results}@anchor{be}@anchor{topics/results doc}@anchor{bf}
 @section Compilation results
 
 
@@ -5683,7 +6120,7 @@ correct type before it can be called.
 @end deffn
 
 @geindex gcc_jit_result_release (C function)
-@anchor{topics/results gcc_jit_result_release}@anchor{be}
+@anchor{topics/results gcc_jit_result_release}@anchor{c0}
 @deffn {C Function} void           gcc_jit_result_release (gcc_jit_result@w{ }*result)
 
 Once we're done with the code, this unloads the built .so file.
@@ -5699,7 +6136,7 @@ the APIs are not yet set in stone, and they shouldn't be used in
 production yet.
 
 @node Indices and tables,Index,Topic Reference,Top
-@anchor{index indices-and-tables}@anchor{bf}
+@anchor{index indices-and-tables}@anchor{c1}
 @unnumbered Indices and tables
 
 

@@ -46,12 +46,13 @@ needed to develop against it (`libgccjit-devel`):
 .. code-block:: console
 
   $ rpm -qlv libgccjit
-  lrwxrwxrwx    1 root    root                       18 Aug 12 07:56 /usr/lib64/libgccjit.so.0 -> libgccjit.so.0.0.1
-  -rwxr-xr-x    1 root    root                 14463448 Aug 12 07:57 /usr/lib64/libgccjit.so.0.0.1
+  lrwxrwxrwx    1 root    root       18 Aug 12 07:56 /usr/lib64/libgccjit.so.0 -> libgccjit.so.0.0.1
+  -rwxr-xr-x    1 root    root 14463448 Aug 12 07:57 /usr/lib64/libgccjit.so.0.0.1
+
   $ rpm -qlv libgccjit-devel
-  -rwxr-xr-x    1 root    root                    37654 Aug 12 07:56 /usr/include/libgccjit++.h
-  -rwxr-xr-x    1 root    root                    28967 Aug 12 07:56 /usr/include/libgccjit.h
-  lrwxrwxrwx    1 root    root                       14 Aug 12 07:56 /usr/lib64/libgccjit.so -> libgccjit.so.0
+  -rwxr-xr-x    1 root    root    37654 Aug 12 07:56 /usr/include/libgccjit++.h
+  -rwxr-xr-x    1 root    root    28967 Aug 12 07:56 /usr/include/libgccjit.h
+  lrwxrwxrwx    1 root    root       14 Aug 12 07:56 /usr/lib64/libgccjit.so -> libgccjit.so.0
 
 
 Other distributions

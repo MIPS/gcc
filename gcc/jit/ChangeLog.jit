@@ -1,3 +1,18 @@
+2014-09-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+	* docs/intro/install.rst: Reduce width of listing.
+	* docs/intro/tutorial01.rst: Use <libgccjit.h> rather than
+	"libgccjit.h" when including the header.
+	* docs/intro/tutorial02.rst: Likewise.
+	* docs/intro/tutorial03.rst: Clarify various sections; show
+	effect of reducing optimization level down from 3 to 2.
+	("Putting it all together"): Move to above...
+	("Behind the curtain: optimizing away stack manipulation"):
+	...this, and rename this to...
+	("Behind the curtain: How does our code get optimized?"): ...and
+	add more detail, and discussion of elimination of tail recursion.
+
 2014-09-19  David Malcolm  <dmalcolm@redhat.com>
 
 	* TODO.rst: Add detection of uninitialized variables, since
