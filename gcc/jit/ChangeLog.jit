@@ -1,5 +1,12 @@
 2014-09-22  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/index.rst: Add internals/index.rst.
+	* docs/internals/index.rst: New.
+	* notes.txt: Update to reflect renaming of toplev_main to
+	toplev::main.
+
+2014-09-22  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/_build/texinfo/libgccjit.texi: Regenerate.
 	* docs/intro/install.rst: Reduce width of listing.
 	* docs/intro/tutorial01.rst: Use <libgccjit.h> rather than

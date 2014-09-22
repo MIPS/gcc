@@ -16,7 +16,7 @@ Client Code   . Generated .            libgccjit.so
               .           .    │     .               .
               .           .    │ ACQUIRE MUTEX       .
               .           .    │     .               .
-              .           .    V───────────────────────> toplev_main (for now)
+              .           .    V───────────────────────> toplev::main (for now)
               .           .          .               .       │
               .           .          .               .   (various code)
               .           .          .               .       │
@@ -59,7 +59,7 @@ Client Code   . Generated .            libgccjit.so
               .           .          .               .       │
               .           .          .               .   (the middle─end and backend)
               .           .          .               .       ↓
-              .           .    <───────────────────────────── end of toplev_main
+              .           .    <───────────────────────────── end of toplev::main
               .           .    │ RELEASE MUTEX       .
               .           .    │     .               .
               .           .    │ Convert assembler to DSO

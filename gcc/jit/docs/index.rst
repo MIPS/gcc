@@ -25,6 +25,7 @@ Contents:
 
    intro/index.rst
    topics/index.rst
+   internals/index.rst
 
 This document describes `libgccjit <http://gcc.gnu.org/wiki/JIT>`_, an API
 for embedding GCC inside programs and libraries.
