@@ -1780,7 +1780,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return GET_MODE_CLASS (mode) == MODE_CC;
 
   if (CA_REGNO_P (regno))
-    return mode == BImode;
+    return mode == Pmode || mode == SImode;
 
   /* AltiVec only in AldyVec registers.  */
   if (ALTIVEC_REGNO_P (regno))
@@ -2475,7 +2475,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   rs6000_regno_regclass[LR_REGNO] = LINK_REGS;
   rs6000_regno_regclass[CTR_REGNO] = CTR_REGS;
-  rs6000_regno_regclass[CA_REGNO] = CA_REGS;
+  rs6000_regno_regclass[CA_REGNO] = NO_REGS;
   rs6000_regno_regclass[VRSAVE_REGNO] = VRSAVE_REGS;
   rs6000_regno_regclass[VSCR_REGNO] = VRSAVE_REGS;
   rs6000_regno_regclass[SPE_ACC_REGNO] = SPE_ACC_REGS;
@@ -5939,7 +5939,7 @@ rs6000_special_adjust_field_align_p (tree field, unsigned int computed)
 	      warned = true;
 	      inform (input_location,
 		      "the layout of aggregates containing vectors with"
-		      " %d-byte alignment has changed in GCC 4.10",
+		      " %d-byte alignment has changed in GCC 5",
 		      computed / BITS_PER_UNIT);
 	    }
 	}
@@ -9307,7 +9307,7 @@ rs6000_function_arg_boundary (enum machine_mode mode, const_tree type)
 	      warned = true;
 	      inform (input_location,
 		      "the ABI of passing aggregates with %d-byte alignment"
-		      " has changed in GCC 4.10",
+		      " has changed in GCC 5",
 		      (int) TYPE_ALIGN (type) / BITS_PER_UNIT);
 	    }
 	}
@@ -10428,7 +10428,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		  warned = true;
 		  inform (input_location,
 			  "the ABI of passing homogeneous float aggregates"
-			  " has changed in GCC 4.10");
+			  " has changed in GCC 5");
 		}
 	    }
 
@@ -30111,6 +30111,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	}
       break;
 
+    case NE:
     case EQ:
     case GTU:
     case LTU:

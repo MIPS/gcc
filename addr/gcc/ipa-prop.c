@@ -592,7 +592,7 @@ ipa_get_bb_info (struct func_body_info *fbi, basic_block bb)
 /* Structure to be passed in between detect_type_change and
    check_stmt_for_type_change.  */
 
-struct type_change_info
+struct prop_type_change_info
 {
   /* Offset into the object where there is the virtual method pointer we are
      looking for.  */
@@ -680,7 +680,7 @@ stmt_may_be_vtbl_ptr_store (gimple stmt)
    identified, return the type.  Otherwise return NULL_TREE.  */
 
 static tree
-extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci)
+extr_type_from_vtbl_ptr_store (gimple stmt, struct prop_type_change_info *tci)
 {
   HOST_WIDE_INT offset, size, max_size;
   tree lhs, rhs, base, binfo;
@@ -726,13 +726,13 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci)
    detect_type_change to check whether a particular statement may modify
    the virtual table pointer, and if possible also determine the new type of
    the (sub-)object.  It stores its result into DATA, which points to a
-   type_change_info structure.  */
+   prop_type_change_info structure.  */
 
 static bool
 check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
 {
   gimple stmt = SSA_NAME_DEF_STMT (vdef);
-  struct type_change_info *tci = (struct type_change_info *) data;
+  struct prop_type_change_info *tci = (struct prop_type_change_info *) data;
 
   if (stmt_may_be_vtbl_ptr_store (stmt))
     {
@@ -830,7 +830,7 @@ detect_type_change_from_memory_writes (tree arg, tree base, tree comp_type,
 				       gimple call, struct ipa_jump_func *jfunc,
 				       HOST_WIDE_INT offset)
 {
-  struct type_change_info tci;
+  struct prop_type_change_info tci;
   ao_ref ao;
   bool entry_reached = false;
 
@@ -2347,14 +2347,13 @@ ipa_analyze_call_uses (struct func_body_info *fbi, gimple call)
     {
       tree otr_type;
       HOST_WIDE_INT otr_token;
-      ipa_polymorphic_call_context context;
       tree instance;
       tree target = gimple_call_fn (call);
+      ipa_polymorphic_call_context context (current_function_decl,
+					    target, call, &instance);
 
-      instance = get_polymorphic_call_info (current_function_decl,
-					    target,
-					    &otr_type, &otr_token,
-					    &context, call);
+      otr_type = obj_type_ref_class (target);
+      otr_token = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (target));
 
       if (context.get_dynamic_type (instance,
 				    OBJ_TYPE_REF_OBJECT (target),
@@ -2609,7 +2608,7 @@ ipa_intraprocedural_devirtualization (gimple call)
 #ifdef ENABLE_CHECKING
   if (fndecl)
     gcc_assert (possible_polymorphic_call_target_p
-		  (otr, cgraph_node::get (fndecl)));
+		  (otr, call, cgraph_node::get (fndecl)));
 #endif
   return fndecl;
 }
@@ -3121,14 +3120,12 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 
   if (TREE_CODE (binfo) != TREE_BINFO)
     {
-      ipa_polymorphic_call_context context;
+      ipa_polymorphic_call_context context (binfo,
+					    ie->indirect_info->otr_type,
+					    ie->indirect_info->offset);
       vec <cgraph_node *>targets;
       bool final;
 
-      if (!get_polymorphic_call_info_from_invariant
-	     (&context, binfo, ie->indirect_info->otr_type,
-	      ie->indirect_info->offset))
-	return NULL;
       targets = possible_polymorphic_call_targets
 		 (ie->indirect_info->otr_type,
 		  ie->indirect_info->otr_token,
