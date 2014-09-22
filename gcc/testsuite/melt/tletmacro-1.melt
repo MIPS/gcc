@@ -15,6 +15,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 |#
 (module_is_gpl_compatible "public domain")
 (let ( (one '1)
+       (the_stdout (get_field :sysdata_stdout initial_system_data))
        (:macro mac 
 	       (sexp env mexpander modctx)
 	       (debug "macro mac" " sexp=" sexp)
@@ -34,11 +35,9 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		 ))
        (v (mac 'a 'b (list one '2)))
        )
-  (debug "v=" v)
-  (let ( (the_stdout (get_field :sysdata_stdout initial_system_data))
-	 )
-    (debug "tletmacro-1" " the_stdout=" the_stdout)
-    (add2out the_stdout "ending tletmacro-1" v "\n")
-    (debug "tletmacro-1" " done output v=" v " to the_stdout=" the_stdout)
-    ))
+  (debug "tletmacro-1" " v=" v)
+  (debug "tletmacro-1" " the_stdout=" the_stdout)
+  (add2out the_stdout "ending tletmacro-1" v "\n")
+  (debug "tletmacro-1" " done output v=" v " to the_stdout=" the_stdout)
+  )
 ;; eof tletmacro-1.melt
