@@ -749,3 +749,27 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm6_operand")))
 
+(define_special_predicate "msa_ilvev_selector"
+  (match_code "parallel")
+{
+  return vec_par_const_operand (op, mode, 0, 2);
+})
+
+(define_special_predicate "msa_ilvod_selector"
+  (match_code "parallel")
+{
+  return vec_par_const_operand (op, mode, 1, 2);
+})
+
+(define_special_predicate "msa_ilvl_selector"
+  (match_code "parallel")
+{
+  HOST_WIDE_INT count = XVECLEN (op, 0);
+  return vec_par_const_operand (op, mode, count / 2, 1);
+})
+
+(define_special_predicate "msa_ilvr_selector"
+  (match_code "parallel")
+{
+  return vec_par_const_operand (op, mode, 0, 1);
+})

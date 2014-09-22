@@ -19666,7 +19666,7 @@ mips_prepare_pch_save (void)
 
 /* Generate or test for an insn that supports a constant permutation.  */
 
-#define MAX_VECT_LEN 8
+#define MAX_VECT_LEN 16
 
 struct expand_vec_perm_d
 {
@@ -19692,7 +19692,7 @@ mips_expand_vselect (rtx target, rtx op0,
   for (i = 0; i < nelt; ++i)
     rperm[i] = GEN_INT (perm[i]);
 
-  x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelt, rperm));
+  x = gen_rtx_PARALLEL (GET_MODE (target), gen_rtvec_v (nelt, rperm));
   x = gen_rtx_VEC_SELECT (GET_MODE (target), op0, x);
   x = gen_rtx_SET (VOIDmode, target, x);
 
@@ -20036,6 +20036,62 @@ mips_vectorize_vec_perm_const_ok (enum machine_mode vmode,
   return ret;
 }
 
+bool
+vec_par_const_operand (rtx op, enum machine_mode mode, int init, int stride)
+{
+  HOST_WIDE_INT count = XVECLEN (op, 0);
+  int i;
+  int prev_val = -1;
+  int base = GET_MODE_NUNITS (mode);
+
+  /* Const parallel with no elements or less/more elementes
+     than needed for vector.  */
+  if ((count < 1)
+      || (count != base))
+    return false;
+
+  if (!VECTOR_MODE_P (mode))
+    return false;
+
+  for (i = 0; i < count; i++)
+    {
+      rtx elt = XVECEXP (op, 0, i);
+      int val;
+      bool is_wt = false;
+  
+      /* Element is not const_int as needed by vec_select.  */
+      if (!CONST_INT_P (elt))
+	return false;
+  
+      val = INTVAL (elt);
+  
+      /* First element should be INIT as expected by ilv* patterns.  */
+      if (i == 0 && val != init)
+	return false;
+  
+      is_wt = (i % 2 == 0);
+  
+      /* For ilv* pattern, even-indexed elements in output vector are always
+	 from wt, odd-indexed elements from ws.  ws and wt are seperated by COUNT
+	 in concatenated vector.  */
+      if (is_wt != (val < count))
+	return false;
+  
+      /* For every element from ws, prev_element will have corresponding element
+	 from wt - which will be seperated by COUNT in concatenated vector.  */
+      if (!is_wt && (val - prev_val) != count)
+	return false;
+  
+      /* For every element in wt, its value will be multiple of STRIDE away from
+	 INIT.  */
+      if (is_wt && ((val - stride * (i >> 1))) != init)
+	return false;
+  
+      prev_val = val;
+    }
+  return true;
+}
+
 /* Expand an integral vector unpack operation.  */
 
 void
@@ -20044,35 +20100,39 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
   enum machine_mode imode = GET_MODE (operands[1]);
   rtx (*unpack) (rtx, rtx, rtx);
   rtx (*cmpFunc) (rtx, rtx, rtx);
-  rtx tmp, dest, zero;
+  rtx tmp, dest, zero, par;
+  int i, init, nelt;
+
+  nelt = GET_MODE_NUNITS (imode);
 
   if (ISA_HAS_MSA)
   {
+    rtx (*unpack) (rtx, rtx, rtx, rtx);
     switch (imode)
       {
       case V4SImode:
 	if (BYTES_BIG_ENDIAN != high_p)
-	  unpack = gen_msa_tc_ilvl_w;
+	  unpack = gen_msa_ilvl_w;
 	else
-	  unpack = gen_msa_tc_ilvr_w;
+	  unpack = gen_msa_ilvr_w;
 
 	cmpFunc = gen_msa_clti_si_w;
 	break;
 
       case V8HImode:
 	if (BYTES_BIG_ENDIAN != high_p)
-	  unpack = gen_msa_tc_ilvl_h;
+	  unpack = gen_msa_ilvl_h;
 	else
-	  unpack = gen_msa_tc_ilvr_h;
+	  unpack = gen_msa_ilvr_h;
 
 	cmpFunc = gen_msa_clti_si_h;
 	break;
 
       case V16QImode:
 	if (BYTES_BIG_ENDIAN != high_p)
-	  unpack = gen_msa_tc_ilvl_b;
+	  unpack = gen_msa_ilvl_b;
 	else
-	  unpack = gen_msa_tc_ilvr_b;
+	  unpack = gen_msa_ilvr_b;
 
 	cmpFunc = gen_msa_clti_si_b;
 	break;
@@ -20094,7 +20154,22 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
       tmp = force_reg (imode, CONST0_RTX (imode));
     }
 
-    emit_insn (unpack (operands[0], tmp, operands[1]));
+    dest = gen_reg_rtx (imode);
+
+    if (high_p)
+      init = nelt >> 1;
+    else
+      init = 0;
+
+    par = gen_rtx_PARALLEL (imode, rtvec_alloc (nelt));
+    for (i = 0; i < (nelt >> 1); i++)
+      {
+        XVECEXP (par, 0, (2 * i)) = GEN_INT (init + i);
+        XVECEXP (par, 0, (2 * i + 1)) = GEN_INT (init + nelt + i);
+      }
+
+    emit_insn (unpack (dest, tmp, operands[1], par));
+    emit_move_insn (operands[0], gen_lowpart (GET_MODE (operands[0]), dest));
     return;
   }
 
