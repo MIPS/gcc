@@ -1,5 +1,13 @@
 
 2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{when translating with -f[plugin-arg-]melt-out-descr-comment, the
+	emitted C code contains descriptive comments giving class name and
+	hash code of the C output AST.}}
+	* melt/warmelt-outobj.melt (flagval_utput_descr_comment): New variable.
+	(do_output_descriptive_comment): New function.
+	(output_descriptive_comment): New macro using above function.
+
+2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (wrap_normal_letseq, normalize_lambda):
 	More debug.
 
