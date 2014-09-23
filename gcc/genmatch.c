@@ -48,6 +48,29 @@ error_cb (cpp_reader *, int, int, source_location location,
   fprintf (stderr, "%s:%d:%d error: ", loc.file, loc.line, loc.column);
   vfprintf (stderr, msg, *ap);
   fprintf (stderr, "\n");
+  FILE *f = fopen (loc.file, "r");
+  if (f)
+    {
+      char buf[128];
+      while (loc.line > 0)
+	{
+	  if (!fgets (buf, 128, f))
+	    goto notfound;
+	  if (buf[strlen (buf) - 1] != '\n')
+	    {
+	      if (loc.line > 1)
+		loc.line++;
+	    }
+	  loc.line--;
+	}
+      fprintf (stderr, "%s", buf);
+      for (int i = 0; i < loc.column - 1; ++i)
+	fputc (' ', stderr);
+      fputc ('^', stderr);
+      fputc ('\n', stderr);
+notfound:
+      fclose (f);
+    }
   exit (1);
 }
 
