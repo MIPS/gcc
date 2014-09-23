@@ -1,5 +1,9 @@
 
 2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate.
+
+2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{when translating with -f[plugin-arg-]melt-out-descr-comment, the
 	emitted C code contains descriptive comments giving class name and
 	hash code of the C output AST.}}
