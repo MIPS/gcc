@@ -193,8 +193,9 @@ struct simplify;
 struct predicate_id : public id_base
 {
   predicate_id (const char *id_)
-    : id_base (id_base::PREDICATE, id_), matchers (vNULL) {}
+    : id_base (id_base::PREDICATE, id_), matchers (vNULL), nargs(-1) {}
   vec<simplify *> matchers;
+  int nargs;
 };
 
 template<>
@@ -433,14 +434,12 @@ struct if_or_with {
 };
 
 struct simplify {
-  simplify (const char *name_,
-	    operand *match_, source_location match_location_,
+  simplify (operand *match_, source_location match_location_,
 	    struct operand *result_, source_location result_location_, vec<if_or_with> ifexpr_vec_ = vNULL)
-      : name (name_), match (match_), match_location (match_location_),
+      : match (match_), match_location (match_location_),
       result (result_), result_location (result_location_),
       ifexpr_vec (ifexpr_vec_) {}
 
-  const char *name;
   operand *match; 
   source_location match_location;
   struct operand *result;
@@ -682,7 +681,7 @@ lower_commutative (simplify *s, vec<simplify *>& simplifiers)
   vec<operand *> matchers = commutate (s->match);
   for (unsigned i = 0; i < matchers.length (); ++i)
     {
-      simplify *ns = new simplify (s->name, matchers[i], s->match_location,
+      simplify *ns = new simplify (matchers[i], s->match_location,
 				   s->result, s->result_location, s->ifexpr_vec);
       simplifiers.safe_push (ns);
     }
@@ -810,7 +809,7 @@ lower_opt_convert (simplify *s, vec<simplify *>& simplifiers)
   vec<operand *> matchers = lower_opt_convert (s->match);
   for (unsigned i = 0; i < matchers.length (); ++i)
     {
-      simplify *ns = new simplify (s->name, matchers[i], s->match_location,
+      simplify *ns = new simplify (matchers[i], s->match_location,
 				   s->result, s->result_location, s->ifexpr_vec);
       simplifiers.safe_push (ns);
     }
@@ -1512,10 +1511,11 @@ dt_operand::gen_generic_expr (FILE *f, const char *opname)
 void
 dt_node::gen_gimple_kids (FILE *f)
 {
-  vec<dt_operand *> gimple_exprs = vNULL;
-  vec<dt_operand *> generic_exprs = vNULL;
-  vec<dt_operand *> fns = vNULL;
-  vec<dt_node *> others = vNULL;
+  auto_vec<dt_operand *> gimple_exprs;
+  auto_vec<dt_operand *> generic_exprs;
+  auto_vec<dt_operand *> fns;
+  auto_vec<dt_operand *> preds;
+  auto_vec<dt_node *> others;
   dt_node *true_operand = NULL;
   for (unsigned i = 0; i < kids.length (); ++i)
     {
@@ -1527,6 +1527,8 @@ dt_node::gen_gimple_kids (FILE *f)
 		generic_exprs.safe_push (op);
 	      else if (e->operation->op->kind == id_base::FN)
 		fns.safe_push (op);
+	      else if (e->operation->op->kind == id_base::PREDICATE)
+		preds.safe_push (op);
 	      else
 		gimple_exprs.safe_push (op);
 	    }
@@ -1638,6 +1640,25 @@ dt_node::gen_gimple_kids (FILE *f)
     fprintf (f, "default:;\n"
 	     "}\n");
 
+  for (unsigned i = 0; i < preds.length (); ++i)
+    {
+      expr *e = as_a <expr *> (preds[i]->op);
+      predicate_id *p = as_a <predicate_id *> (e->operation->op);
+      preds[i]->get_name (kid_opname);
+      fprintf (f, "tree %s_pops[%d];\n", kid_opname, p->nargs);
+      fprintf (f, "if (gimple_%s (%s, %s_pops, valueize))\n", p->id,
+	       kid_opname, kid_opname);
+      fprintf (f, "{\n");
+      for (int j = 0; j < p->nargs; ++j)
+	{
+	  char child_opname[20];
+	  preds[i]->gen_opname (child_opname, j);
+	  fprintf (f, "tree %s = %s_pops[%d];\n", child_opname, kid_opname, j);
+	}
+      preds[i]->gen_gimple_kids (f);
+      fprintf (f, "}\n");
+    }
+
   for (unsigned i = 0; i < others.length (); ++i)
     others[i]->gen_gimple (f);
 
@@ -1721,6 +1742,10 @@ dt_operand::gen_generic (FILE *f)
 void
 dt_node::gen_generic_kids (FILE *f)
 {
+  auto_vec<dt_operand *> generic_exprs;
+  auto_vec<dt_operand *> fns;
+  auto_vec<dt_operand *> preds;
+
   bool any = false;
   for (unsigned j = 0; j < kids.length (); ++j)
     {
@@ -1729,7 +1754,23 @@ dt_node::gen_generic_kids (FILE *f)
 	{
 	  dt_operand *kid = static_cast<dt_operand *>(node);
 	  if (kid->op->type == operand::OP_EXPR)
-	    any = true;
+	    {
+	      expr *e = as_a <expr *> (kid->op);
+	      if (e->operation->op->kind == id_base::CODE)
+		{
+		  generic_exprs.safe_push (kid);
+		  any = true;
+		}
+	      else if (e->operation->op->kind == id_base::FN)
+		{
+		  fns.safe_push (kid);
+		  any = true;
+		}
+	      else if (e->operation->op->kind == id_base::PREDICATE)
+		preds.safe_push (kid);
+	      else
+		gcc_unreachable ();
+	    }
 	}
     }
 
@@ -1739,17 +1780,11 @@ dt_node::gen_generic_kids (FILE *f)
       static_cast <dt_operand *>(kids[0])->get_name (opname); 
       fprintf (f, "switch (TREE_CODE (%s))\n"
 	       "{\n", opname);
-      for (unsigned j = 0; j < kids.length (); ++j)
+      for (unsigned j = 0; j < generic_exprs.length (); ++j)
 	{
-	  dt_node *node = kids[j];
-	  if (node->type != DT_OPERAND)
-	    continue;
-	  dt_operand *kid = static_cast<dt_operand *>(node);
-	  if (kid->op->type != operand::OP_EXPR)
-	    continue;
-	  expr *e = static_cast <expr *>(kid->op);
-	  if (e->operation->op->kind != id_base::CODE)
-	    continue;
+	  dt_operand *kid = generic_exprs[j];
+	  expr *e = as_a <expr *>(kid->op);
+	  gcc_assert (e->operation->op->kind == id_base::CODE);
 
 	  /* ??? CONVERT */
 	  fprintf (f, "case %s:\n"
@@ -1760,17 +1795,11 @@ dt_node::gen_generic_kids (FILE *f)
 	}
 
       bool first = true;
-      for (unsigned j = 0; j < kids.length (); ++j)
+      for (unsigned j = 0; j < fns.length (); ++j)
 	{
-	  dt_node *node = kids[j];
-	  if (node->type != DT_OPERAND)
-	    continue;
-	  dt_operand *kid = static_cast<dt_operand *>(node);
-	  if (kid->op->type != operand::OP_EXPR)
-	    continue;
-	  expr *e = static_cast <expr *>(kid->op);
-	  if (e->operation->op->kind != id_base::FN)
-	    continue;
+	  dt_operand *kid = fns[j];
+	  expr *e = as_a <expr *>(kid->op);
+	  gcc_assert (e->operation->op->kind == id_base::FN);
 
 	  if (first)
 	    fprintf (f, "case CALL_EXPR:\n"
@@ -1795,6 +1824,26 @@ dt_node::gen_generic_kids (FILE *f)
       /* Close switch of TREE_CODE.  */
       fprintf (f, "default:;\n"
 	       "}\n");
+    }
+
+  for (unsigned i = 0; i < preds.length (); ++i)
+    {
+      expr *e = as_a <expr *> (preds[i]->op);
+      predicate_id *p = as_a <predicate_id *> (e->operation->op);
+      char kid_opname[128];
+      preds[i]->get_name (kid_opname);
+      fprintf (f, "tree %s_pops[%d];\n", kid_opname, p->nargs);
+      fprintf (f, "if (tree_%s (%s, %s_pops))\n", p->id,
+	       kid_opname, kid_opname);
+      fprintf (f, "{\n");
+      for (int j = 0; j < p->nargs; ++j)
+	{
+	  char child_opname[20];
+	  preds[i]->gen_opname (child_opname, j);
+	  fprintf (f, "tree %s = %s_pops[%d];\n", child_opname, kid_opname, j);
+	}
+      preds[i]->gen_generic_kids (f);
+      fprintf (f, "}\n");
     }
 
   for (unsigned j = 0; j < kids.length (); ++j)
@@ -1887,23 +1936,27 @@ dt_simplify::gen (FILE *f, bool gimple)
     {
       if (s->result->type == operand::OP_EXPR)
 	{
-	  expr *e = static_cast <expr *> (s->result);
-	  fprintf (f, "*res_code = %s;\n", e->operation->op->id);
+	  expr *e = as_a <expr *> (s->result);
+	  bool is_predicate = is_a <predicate_id *> (e->operation->op);
+	  if (!is_predicate)
+	    fprintf (f, "*res_code = %s;\n", e->operation->op->id);
 	  for (unsigned j = 0; j < e->ops.length (); ++j)
 	    {
 	      char dest[32];
 	      snprintf (dest, 32, "  res_ops[%d]", j);
 	      const char *optype
-	        = get_operand_type (e->operation->op,
-				    "type", e->expr_type,
-				    j == 0
-				    ? NULL : "TREE_TYPE (res_ops[0])");
+		  = get_operand_type (e->operation->op,
+				      "type", e->expr_type,
+				      j == 0
+				      ? NULL : "TREE_TYPE (res_ops[0])");
 	      e->ops[j]->gen_transform (f, dest, true, 1, optype, indexes);
 	    }
+
 	  /* Re-fold the toplevel result.  It's basically an embedded
 	     gimple_build w/o actually building the stmt.  */
-	  fprintf (f, "gimple_resimplify%d (seq, res_code, type, "
-		   "res_ops, valueize);\n", e->ops.length ());
+	  if (!is_predicate)
+	    fprintf (f, "gimple_resimplify%d (seq, res_code, type, "
+		     "res_ops, valueize);\n", e->ops.length ());
 	}
       else if (s->result->type == operand::OP_CAPTURE
 	       || s->result->type == operand::OP_C_EXPR)
@@ -1919,12 +1972,18 @@ dt_simplify::gen (FILE *f, bool gimple)
     {
       if (s->result->type == operand::OP_EXPR)
 	{
-	  expr *e = static_cast <expr *> (s->result);
+	  expr *e = as_a <expr *> (s->result);
+	  bool is_predicate = is_a <predicate_id *> (e->operation->op);
 	  for (unsigned j = 0; j < e->ops.length (); ++j)
 	    {
-	      fprintf (f, "   tree res_op%d;\n", j);
 	      char dest[32];
-	      snprintf (dest, 32, "  res_op%d", j);
+	      if (is_predicate)
+		snprintf (dest, 32, "res_ops[%d]", j);
+	      else
+		{
+		  fprintf (f, "   tree res_op%d;\n", j);
+		  snprintf (dest, 32, "  res_op%d", j);
+		}
 	      const char *optype
 	        = get_operand_type (e->operation->op,
 				    "type", e->expr_type,
@@ -1932,16 +1991,21 @@ dt_simplify::gen (FILE *f, bool gimple)
 				    ? NULL : "TREE_TYPE (res_op0)");
 	      e->ops[j]->gen_transform (f, dest, false, 1, optype, indexes);
 	    }
-	  /* Re-fold the toplevel result.  */
-	  if (e->operation->op->kind == id_base::CODE)
-	    fprintf (f, "  return fold_build%d (%s, type",
-		     e->ops.length (), e->operation->op->id);
+	  if (is_a <predicate_id *> (e->operation->op))
+	    fprintf (f, "return true;\n");
 	  else
-	    fprintf (f, "  return build_call_expr (builtin_decl_implicit (%s), %d",
-		     e->operation->op->id, e->ops.length());
-	  for (unsigned j = 0; j < e->ops.length (); ++j)
-	    fprintf (f, ", res_op%d", j);
-	  fprintf (f, ");\n");
+	    {
+	      /* Re-fold the toplevel result.  */
+	      if (e->operation->op->kind == id_base::CODE)
+		fprintf (f, "  return fold_build%d (%s, type",
+			 e->ops.length (), e->operation->op->id);
+	      else
+		fprintf (f, "  return build_call_expr (builtin_decl_implicit (%s), %d",
+			 e->operation->op->id, e->ops.length());
+	      for (unsigned j = 0; j < e->ops.length (); ++j)
+		fprintf (f, ", res_op%d", j);
+	      fprintf (f, ");\n");
+	    }
 	}
       else if (s->result->type == operand::OP_CAPTURE
 	       || s->result->type == operand::OP_C_EXPR)
@@ -2062,12 +2126,22 @@ decision_tree::gen_generic (FILE *f)
 }
 
 void
+write_predicate_prototype (FILE *f, predicate_id *p, bool gimple)
+{
+  fprintf (f, "bool %s%s (tree t%s%s);\n",
+	   gimple ? "gimple_" : "tree_", p->id,
+	   p->nargs > 0 ? ", tree *res_ops" : "",
+	   gimple ? ", tree (*valueize)(tree) = NULL" : "");
+}
+
+void
 write_predicate (FILE *f, predicate_id *p, decision_tree &dt, bool gimple)
 {
   fprintf (f, "\nbool\n"
-	   "%s%s (tree t%s)\n"
+	   "%s%s (tree t%s%s)\n"
 	   "{\n", gimple ? "gimple_" : "tree_", p->id,
-	   gimple ? ", tree (*valueize)(tree) = NULL" : "");
+	   p->nargs > 0 ? ", tree *res_ops" : "",
+	   gimple ? ", tree (*valueize)(tree)" : "");
   /* Conveniently make 'type' available.  */
   fprintf (f, "tree type = TREE_TYPE (t);\n");
 
@@ -2458,13 +2532,16 @@ copy_reverse (vec<T> v)
    and fill SIMPLIFIERS with the results.  */
 
 static void
-parse_simplify (cpp_reader *r, const char *id, source_location match_location,
-		vec<simplify *>& simplifiers)
+parse_simplify (cpp_reader *r, source_location match_location,
+		vec<simplify *>& simplifiers, predicate_id *matcher)
 {
   const cpp_token *loc = peek (r);
   struct operand *match = parse_op (r);
-  if (match->type != operand::OP_EXPR)
-    fatal_at (loc, "expected uncaptured expression");
+  if (match->type == operand::OP_CAPTURE && !matcher)
+    fatal_at (loc, "outermost expression cannot be captured");
+  if (match->type == operand::OP_EXPR
+      && is_a <predicate_id *> (as_a <expr *> (match)->operation->op))
+    fatal_at (loc, "outermost expression cannot be a predicate");
 
   const cpp_token *token = peek (r);
 
@@ -2472,8 +2549,14 @@ parse_simplify (cpp_reader *r, const char *id, source_location match_location,
      definition.  Push it.  */
   if (token->type == CPP_CLOSE_PAREN)
     {
+      if (!matcher)
+	fatal_at (token, "expected transform expression");
+      else if (matcher->nargs > 0)
+	fatal_at (token, "expected match operand expression");
+      if (matcher->nargs == -1)
+	matcher->nargs = 0;
       simplifiers.safe_push
-	(new simplify (id, match, match_location, NULL, token->src_loc));
+	(new simplify (match, match_location, NULL, token->src_loc));
       return;
     }
 
@@ -2493,9 +2576,17 @@ parse_simplify (cpp_reader *r, const char *id, source_location match_location,
 	         manual matcher or is part of a predicate definition.
 		 Push it.  */
 	      if (peek (r)->type == CPP_CLOSE_PAREN)
-		simplifiers.safe_push
-		   (new simplify (id, match, match_location, NULL,
-				  paren_loc, copy_reverse (ifexprs)));
+		{
+		  if (!matcher)
+		    fatal_at (token, "manual transform not implemented");
+		  else if (matcher->nargs > 0)
+		    fatal_at (token, "expected match operand expression");
+		  if (matcher->nargs == -1)
+		    matcher->nargs = 0;
+		  simplifiers.safe_push
+		      (new simplify (match, match_location, NULL,
+				     paren_loc, copy_reverse (ifexprs)));
+		}
 	    }
 	  else if (peek_ident (r, "with"))
 	    {
@@ -2507,8 +2598,20 @@ parse_simplify (cpp_reader *r, const char *id, source_location match_location,
 	    }
 	  else
 	    {
+	      operand *op = parse_expr (r);
+	      if (matcher)
+		{
+		  expr *e = dyn_cast <expr *> (op);
+		  if (!e)
+		    fatal_at (token, "match operand expression cannot be captured");
+		  if (matcher->nargs == -1)
+		    matcher->nargs = e->ops.length ();
+		  if (matcher->nargs == 0
+		      || (unsigned) matcher->nargs != e->ops.length ())
+		    fatal_at (token, "match arity doesn't match");
+		}
 	      simplifiers.safe_push
-		  (new simplify (id, match, match_location, parse_expr (r),
+		  (new simplify (match, match_location, op,
 				 token->src_loc, copy_reverse (ifexprs)));
 	      eat_token (r, CPP_CLOSE_PAREN);
 	      /* A "default" result closes the enclosing scope.  */
@@ -2535,8 +2638,10 @@ parse_simplify (cpp_reader *r, const char *id, source_location match_location,
 	}
       else
 	{
+	  if (matcher)
+	    fatal_at (token, "expected match operand expression");
 	  simplifiers.safe_push
-	      (new simplify (id, match, match_location, parse_op (r),
+	      (new simplify (match, match_location, parse_op (r),
 			     token->src_loc, copy_reverse (ifexprs)));
 	  /* A "default" result closes the enclosing scope.  */
 	  if (ifexprs.length () > 0)
@@ -2654,7 +2759,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, user_ids[i], oper);
 
 	    }
-	  simplify *ns = new simplify (s->name, match_op, s->match_location,
+	  simplify *ns = new simplify (match_op, s->match_location,
 				       result_op, s->result_location, ifexpr_vec);
 	  simplifiers.safe_push (ns);
 	}
@@ -2713,7 +2818,7 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
   const cpp_token *token = peek (r);
   const char *id = get_ident (r);
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (r, NULL, token->src_loc, simplifiers);
+    parse_simplify (r, token->src_loc, simplifiers, NULL);
   else if (strcmp (id, "match") == 0)
     {
       const char *name = get_ident (r);
@@ -2725,8 +2830,7 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
 	;
       else
 	fatal_at (token, "cannot add a match to a non-predicate ID");
-      parse_simplify (r, name, token->src_loc, p->matchers);
-      /* ???  Sanity check the added "simplifiers".  */
+      parse_simplify (r, token->src_loc, p->matchers, p);
     }
   else if (strcmp (id, "for") == 0)
     parse_for (r, token->src_loc, simplifiers); 
@@ -2836,6 +2940,15 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   /* Go over all predicates defined with patterns and perform
      lowering and code generation.  */
+  for (hash_table<id_base>::iterator iter = operators->begin ();
+       iter != operators->end (); ++iter)
+    {
+      id_base *id = *iter;
+      if (predicate_id *p = dyn_cast <predicate_id *> (id))
+	if (p->matchers.exists ())
+	  /* ???  Write prototypes to some header?  */
+	  write_predicate_prototype (stdout, p, gimple);
+    }
   for (hash_table<id_base>::iterator iter = operators->begin ();
        iter != operators->end (); ++iter)
     {

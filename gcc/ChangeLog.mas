@@ -1,5 +1,25 @@
 2014-09-23  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (struct predicate_id): Add nargs member.
+	(struct simplify): Remove name member.
+	(lower_commutative): Adjust.
+	(lower_opt_convert): Likewise.
+	(dt_node::gen_gimple_kids): Generate code for predicate
+	expressions.
+	(dt_node::gen_generic_kids): Likewise.
+	(dt_simplify::gen): Likewise.
+	(write_predicate_prototype): New function.
+	(write_predicate): Adjust.
+	(parse_simplify): Be less forgiving about errors, handle
+	predicate expression definitions.
+	(parse_pattern): Adjust.
+	(main): Output prototypes for all predicates first.
+	* match-bitwise.pd (X & !X -> 0, X | !X and X ^ !X -> 1):
+	Implement using predicate expressions, more closely matching
+	code in tree-ssa-forwprop.c.
+
+2014-09-23  Richard Biener  <rguenther@suse.de>
+
 	* gimple-match-head.c (gimple_resimplify2): Also swap
 	comparison operands.
 	(gimple_simplify): Likewise.

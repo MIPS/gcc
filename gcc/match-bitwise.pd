@@ -65,6 +65,42 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Try simple folding for X op !X, and X op X.
    From tree-ssa-forwprop.c:simplify_bitwise_binary_1.  */
+/* tree-ssa-forwprop.c:truth_valued_ssa_name.  */
+(match truth_valued_p
+ @0
+ (if (INTEGRAL_TYPE_P (type) && TYPE_PRECISION (type) == 1)))
+#if 0
+/* ???  for doesn't yet work for matchers.  */
+(for op (lt le eq ne ge gt truth_and truth_andif truth_or truth_orif truth_xor)
+ (match truth_valued_p
+  (op @0 @1)))
+#endif
+(match truth_valued_p
+  (truth_not @0))
+(match logical_inverted_value
+ (bit_not truth_valued_p@0)
+ (logical_inverted_value @0))
+(match logical_inverted_value
+ (eq @0 integer_zerop)
+ (if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (logical_inverted_value @0)))
+(match logical_inverted_value
+ (ne truth_valued_p@0 integer_onep)
+ (if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (logical_inverted_value @0)))
+(match logical_inverted_value
+ (bit_xor truth_valued_p@0 integer_onep)
+ (logical_inverted_value @0))
+/* X & !X -> 0.  */
+(simplify
+ (bit_and @0 (logical_inverted_value @0))
+ { build_zero_cst (type); })
+/* X | !X and X ^ !X -> 1, , if X is truth-valued.  */
+(for op (bit_ior bit_xor)
+ (simplify
+  (op truth_valued_p@0 (logical_inverted_value @0))
+  { build_one_cst (type); }))
+#if 0
 /* x & x -> x,  x | x -> x  */
 (for bitop (bit_and bit_ior)
  (simplify
@@ -97,6 +133,7 @@ along with GCC; see the file COPYING3.  If not see
    (bitop:c @0 (op @0 integer_onep))
    (if (truth_valued_ssa_name (@0))
     { bitop == BIT_AND ? build_zero_cst (type) : build_one_cst (type); }))))
+#endif
 #endif
 
 (for bitop (bit_and bit_ior)
