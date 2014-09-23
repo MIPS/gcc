@@ -1524,7 +1524,7 @@ routine procedures.}#
 ;; add an interrupt check
 (defun wrap_normal_letseq (tupnexp bindlist loc)
   (debug "wrap_normal_letseq tupnexp=" tupnexp " bindlist=" bindlist " loc=" loc)
-  (shortbacktrace_dbg "wrap_normal_letseq" 6)
+  (shortbacktrace_dbg "wrap_normal_letseq" 10)
   (assert_msg "check tupnexp" (is_multiple_or_null tupnexp) tupnexp)
   (assert_msg "check bindlist" (is_list_or_null bindlist) bindlist)
   (let ( (:long nbnexp (multiple_length tupnexp))
@@ -5621,7 +5621,7 @@ source location.}#
 		       :nctx_curproc nproc
 		       :nctx_symbcachemap (make_mapobject discr_map_objects 40))
     (put_fields nproc :nrpro_datarout ndatarout)
-    (debug "normalize_lambda updated ncx=" ncx "\n.. nproc=" nproc)
+    (debug "normalize_lambda" " sloc=" sloc " updated ncx=" ncx "\n.. nproc=" nproc)
     (foreach_in_multiple
      (sformalargs)
      (fbi :long ix)
@@ -5630,19 +5630,19 @@ source location.}#
     (if (is_a sformalargs discr_variadic_formal_sequence)
 	(put_fields nproc :nrpro_variadic csym))
     (put_fields newenv :env_proc nproc)
-    (debug "normalize_lambda updated newenv=" newenv)
+    (debug "normalize_lambda"  " sloc=" sloc " updated newenv=" debug_more newenv)
     (shortbacktrace_dbg "normalize_lambda" 15)
     ;; add nproc into ncx
     (let ( (ncplis (get_field :nctx_proclist ncx)) 
 	   )
       (list_append ncplis nproc)
-      (debug "normalize_lambda updated ncplis=" ncplis "\n.. ncx=" ncx)
+      (debug "normalize_lambda"  " sloc=" sloc " updated ncplis=" ncplis "\n.. ncx=" ncx)
     )
     ;;
     (multicall
      (nbody nbindings)
      (normalize_tuple sbody newenv ncx sloc)
-     (debug "normalize_lambda nbody=" nbody "\n.. nbindings=" nbindings)
+     (debug "normalize_lambda" " sloc=" sloc " nbody=" nbody "\n.. nbindings=" nbindings)
      (foreach_in_multiple
       (nbindings)
       (nbi :long ix)
@@ -5651,6 +5651,7 @@ source location.}#
       nproc
       :nproc_body (wrap_normal_letseq (replace_last_by_return nbody newenv sloc) nbindings sloc)
       )
+     (debug "normalize_lambda" " sloc=" sloc " newenv=" newenv "\n.. nproc=" nproc)
      ;; restore the previous symbol cache map & the old proc and return the normalized lambda
      (put_fields ncx 
 		 :nctx_symbcachemap savedcachemap
@@ -5672,15 +5673,19 @@ source location.}#
 	     closedblist
 	     discr_multiple
 	     (lambda (bnd)
+	       (debug "normalize_lambda:lambdaclos" " sloc=" sloc "; bnd=" bnd)
 	       (assert_msg "normalize_lambda check bnd" (is_a bnd class_any_binding) bnd)
 	       (let ( (sy (unsafe_get_field :binder bnd)) 
 		      ;; since sy is a symbol, its normalized form does not add any binding
 		      ;; we normalize it in the *old* environment, not the new one
 		      (nsy (normal_exp sy env ncx sloc))
 		      )
+		 (debug "normalize_lambda:lambdaclos" " sloc=" sloc "; nsy=" nsy)
 		 nsy))))
 	   (constrout  (if insideflag krout ndatarout))
 	   )
+       (debug "normalize_lambda" " sloc=" sloc " insideflag=" insideflag
+	      "\n.. constrout=" constrout)
        (shortbacktrace_dbg "normalize_lambda returning" 8)
        (debug "normalize_lambda" " return nproc=" nproc
 	      "\n.. csym=" csym 

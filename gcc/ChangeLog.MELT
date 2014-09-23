@@ -1,4 +1,8 @@
 
+2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (wrap_normal_letseq, normalize_lambda):
+	More debug.
+
 2014-09-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{tletmacro-0 & tletmacro-1 tests still crashing}}
