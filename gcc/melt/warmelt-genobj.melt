@@ -5969,6 +5969,7 @@
 ;;;;;;;;;;;;;;;; compile a data routine
 (defun compilobj_dataroutine (ndrou gcx)
   (debug "compilobj_dataroutine ndrou=" ndrou "\n.. gcx=" gcx)
+  (shortbacktrace_dbg "compilobj_dataroutine" 16)
   (assert_msg "check ndrou" (is_a ndrou class_nrep_dataroutine) ndrou)
   (assert_msg "check gcx" (is_a gcx class_c_generation_context) gcx)
   (let ( (compicache (unsafe_get_field :gncx_compicache gcx)) 
@@ -6021,7 +6022,7 @@
 	      )
 	  (debug "compilobj_dataroutine oirout=" oirout "\n .. oinipro=" oinipro
 		 "\n.. npro=" npro "\n.. compicache=" compicache)
-	  (assert_msg "check oinipro" (is_object oinipro) oinipro)
+	  (assert_msg "check oinipro" (is_object oinipro) oinipro npro compicache)
 	  (mapobject_put compicache ndrou oirout)
 	  (debug "compilobj_dataroutine updated compicache=" compicache 
 		 "\n.. ndrou=" ndrou "\n.. oirout=" oirout)
