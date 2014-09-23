@@ -219,6 +219,18 @@ make_tests_of_binary_ops (gcc_jit_context *ctxt)
 			    GCC_JIT_BINARY_OP_LOGICAL_OR,
 			    "test_BINARY_OP_LOGICAL_OR_on_int"),
     "a || b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_LSHIFT,
+			    "test_BINARY_OP_LSHIFT_on_int"),
+    "a << b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_RSHIFT,
+			    "test_BINARY_OP_RSHIFT_on_int"),
+    "a >> b");
 }
 
 static void
@@ -309,6 +321,32 @@ verify_binary_ops (gcc_jit_result *result)
   CHECK_VALUE (test_BINARY_OP_LOGICAL_OR_on_int (42, 0), 1);
   CHECK_VALUE (test_BINARY_OP_LOGICAL_OR_on_int (0, -13), 1);
   CHECK_VALUE (test_BINARY_OP_LOGICAL_OR_on_int (1997, 1998), 1);
+
+  test_fn test_BINARY_OP_LSHIFT_on_int =
+    (test_fn)gcc_jit_result_get_code (result,
+				      "test_BINARY_OP_LSHIFT_on_int");
+  CHECK_NON_NULL (test_BINARY_OP_LSHIFT_on_int);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (0, 0), 0);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (0, 1), 0);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (0, 2), 0);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (1, 0), 1);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (1, 1), 2);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (1, 2), 4);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (1, 3), 8);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (3, 0), 3);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (3, 1), 6);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (3, 5), 3 * 32);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (42, 0), 42);
+  CHECK_VALUE (test_BINARY_OP_LSHIFT_on_int (42, 1), 84);
+
+  test_fn test_BINARY_OP_RSHIFT_on_int =
+    (test_fn)gcc_jit_result_get_code (result,
+				      "test_BINARY_OP_RSHIFT_on_int");
+  CHECK_NON_NULL (test_BINARY_OP_RSHIFT_on_int);
+  CHECK_VALUE (test_BINARY_OP_RSHIFT_on_int (0, 0), 0);
+  CHECK_VALUE (test_BINARY_OP_RSHIFT_on_int (42, 0), 42);
+  CHECK_VALUE (test_BINARY_OP_RSHIFT_on_int (42, 1), 21);
+  CHECK_VALUE (test_BINARY_OP_RSHIFT_on_int (42, 2), 10);
 }
 
 /**********************************************************************

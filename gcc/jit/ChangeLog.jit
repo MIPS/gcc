@@ -1,5 +1,13 @@
 2014-09-23  David Malcolm  <dmalcolm@redhat.com>
 
+	* TODO.rst (API): Shift operators are done.
+	* docs/topics/expressions.rst (Binary): Add shift operators.
+	* internal-api.c (binary_op_strings): Likewise.
+	(gcc::jit::playback::context::new_binary_op): Likewise.
+	* libgccjit.h (enum gcc_jit_binary_op): Likewise.
+
+2014-09-23  David Malcolm  <dmalcolm@redhat.com>
+
 	* TODO.rst: Rename "Initial Release" section to "API", and
 	remove completed items: builtins, docs, pkgconfig file, fuzz
 	testing.  Move ability to name contexts and stmt_list per block

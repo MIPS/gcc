@@ -55,8 +55,6 @@ API
 
 * are we missing any ops?
 
-  * shift operators
-
 * error-checking:
 
     * gcc_jit_context_new_unary_op: various checks needed

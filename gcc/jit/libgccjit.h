@@ -682,7 +682,17 @@ enum gcc_jit_binary_op
   /* Logical OR; analogous to:
        (EXPR_A) || (EXPR_B)
      in C.  */
-  GCC_JIT_BINARY_OP_LOGICAL_OR
+  GCC_JIT_BINARY_OP_LOGICAL_OR,
+
+  /* Left shift; analogous to:
+       (EXPR_A) << (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_LSHIFT,
+
+  /* Right shift; analogous to:
+       (EXPR_A) >> (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_RSHIFT
 };
 
 extern gcc_jit_rvalue *

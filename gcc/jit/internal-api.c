@@ -2064,7 +2064,9 @@ static const char * const binary_op_strings[] = {
   "^", /* GCC_JIT_BINARY_OP_BITWISE_XOR */
   "|", /* GCC_JIT_BINARY_OP_BITWISE_OR */
   "&&", /* GCC_JIT_BINARY_OP_LOGICAL_AND */
-  "||" /* GCC_JIT_BINARY_OP_LOGICAL_OR */
+  "||", /* GCC_JIT_BINARY_OP_LOGICAL_OR */
+  "<<", /* GCC_JIT_BINARY_OP_LSHIFT */
+  ">>", /* GCC_JIT_BINARY_OP_RSHIFT */
 };
 
 recording::string *
@@ -3137,6 +3139,14 @@ new_binary_op (location *loc,
       node_a = as_truth_value (node_a, loc);
       node_b = as_truth_value (node_b, loc);
       inner_op = TRUTH_ORIF_EXPR;
+      break;
+
+    case GCC_JIT_BINARY_OP_LSHIFT:
+      inner_op = LSHIFT_EXPR;
+      break;
+
+    case GCC_JIT_BINARY_OP_RSHIFT:
+      inner_op = RSHIFT_EXPR;
       break;
     }
 

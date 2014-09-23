@@ -1,3 +1,9 @@
+2014-09-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-expressions.c (make_tests_of_binary_ops): Add
+	shift operators.
+	(verify_binary_ops): Likewise.
+
 2014-09-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/jit.exp: When constructing "tests", add the example files

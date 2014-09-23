@@ -198,6 +198,8 @@ Binary Operation                          C equivalent
 :c:macro:`GCC_JIT_BINARY_OP_BITWISE_OR`   `x | y`
 :c:macro:`GCC_JIT_BINARY_OP_LOGICAL_AND`  `x && y`
 :c:macro:`GCC_JIT_BINARY_OP_LOGICAL_OR`   `x || y`
+:c:macro:`GCC_JIT_BINARY_OP_LSHIFT`       `x << y`
+:c:macro:`GCC_JIT_BINARY_OP_RSHIFT`       `x >> y`
 ========================================  ============
 
 .. c:macro:: GCC_JIT_BINARY_OP_PLUS
@@ -303,6 +305,26 @@ Binary Operation                          C equivalent
    .. code-block:: c
 
      (EXPR_A) || (EXPR_B)
+
+   in C.
+
+.. c:macro:: GCC_JIT_BINARY_OP_LSHIFT
+
+   Left shift; analogous to:
+
+   .. code-block:: c
+
+     (EXPR_A) << (EXPR_B)
+
+   in C.
+
+.. c:macro:: GCC_JIT_BINARY_OP_RSHIFT
+
+   Right shift; analogous to:
+
+   .. code-block:: c
+
+     (EXPR_A) >> (EXPR_B)
 
    in C.
 
