@@ -1,3 +1,16 @@
+2014-09-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* passes.c (execute_ipa_summary_passes): Fix whitespace when
+	assigning to current_pass.
+	(ipa_write_summaries_2): Assign "pass" to "current_pass" global
+	before calling write_summary hook.
+	(ipa_write_optimization_summaries_1): Likewise when calling
+	write_optimization_summary hook.
+	(ipa_read_summaries_1): Likewise for read_summary hook.
+	(ipa_read_optimization_summaries_1): Likewise for
+	read_optimization_summary hook.
+	(execute_ipa_stmt_fixups): Likewise for stmt_fixup hook.
+
 2014-09-22  David Malcolm  <dmalcolm@redhat.com>
 
 	* cgraph.c (cgraph_c_finalize): Remove FIXME.
