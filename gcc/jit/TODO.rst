@@ -1,8 +1,8 @@
 TODOs
 -----
 
-Initial Release
-===============
+API
+===
 * error-handling:
     * have a client-provided error-handling callback for the context, and
       call it, rather than asserting/crashing etc, to make the API resilient and helpful
@@ -49,17 +49,13 @@ Initial Release
 
   be better?  (for expressing how hot the current location is)
 
-* ability to give contexts names, for ease of debugging?
-
-* can we call into GCC builtins?  What might people need?
-
-* docs
-
 * add a SONAME to the library (and potentially version the symbols?)
 
 * do we need alternative forms of division (floor vs rounding)?
 
 * are we missing any ops?
+
+  * shift operators
 
 * error-checking:
 
@@ -77,11 +73,6 @@ Initial Release
 
     * gcc_jit_block_add_assignment_op: check the types
 
-* Currently each function has a single stmt_list, which is built in
-  postprocessing by walking the list of blocks.  Presumably we could
-  have each block have its own stmt_list, avoiding the need for this
-  traversal, and having the block structure show up within tree dumps.
-
 * Implement more kinds of casts e.g. pointers
 
 Bugs
@@ -90,8 +81,6 @@ Bugs
   turned up to full.
 
 * make the dirty dirty hacks less egregious...
-
-* pkgconfig .pc file
 
 * test under valgrind; fix memory leaks
 
@@ -102,23 +91,36 @@ Test suite
 ==========
 * get DejaGnu to build and run C++ testcases
 
+* measure code coverage in testing of libgccjit.so
+
 Future milestones
 =================
 * try porting llvmpipe to gcc
 
-* fuzz testing
-
 * inline assembler?
-
-* measure code coverage in testing of libgccjit.so
-
-* "switch" and "case" ?
 
 * Detect and issue warnings/errors about uses of uninitialized variables
 
-* do we need unary plus?
-* shift operators?
+* Warn about unused objects in a context (e.g. rvalues/lvalues)?
+
+Nice to have
+============
+* Currently each function has a single stmt_list, which is built in
+  postprocessing by walking the list of blocks.  Presumably we could
+  have each block have its own stmt_list, avoiding the need for this
+  traversal, and having the block structure show up within tree dumps.
+  Alternatively, could we skip tree and go straight to gimple?
+
+* ability to give contexts names, for ease of debugging?
+
+
+Probably not needed
+===================
+* "switch" and "case" ?
+
 * sizeof (should this be an API hook?)  do we even need it? presumably
   client code can just do the sizeof() in its own code.
+
+* do we need unary plus?
 
 etc etc
