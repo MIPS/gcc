@@ -1878,8 +1878,7 @@ dt_simplify::gen (FILE *f, bool gimple)
   unsigned n_braces = 0;
   if (s->ifexpr_vec != vNULL)
     {
-      // we add in LIFO order, so traverse backwards
-      for (int i = s->ifexpr_vec.length () - 1; i >= 0; --i)
+      for (unsigned i = 0; i < s->ifexpr_vec.length (); ++i)
 	{
 	  if_or_with &w = s->ifexpr_vec[i];
 	  if (w.is_with)
@@ -1893,11 +1892,12 @@ dt_simplify::gen (FILE *f, bool gimple)
 	    {
 	      output_line_directive (f, w.location);
 	      fprintf (f, "if (");
-	      if (i == 0 || s->ifexpr_vec[i-1].is_with)
+	      if (i == s->ifexpr_vec.length () - 1
+		  || s->ifexpr_vec[i+1].is_with)
 		w.cexpr->gen_transform (f, NULL, true, 1, "type");
 	      else
 		{
-		  int j = i;
+		  unsigned j = i;
 		  do
 		    {
 		      if (j != i)
@@ -1910,10 +1910,11 @@ dt_simplify::gen (FILE *f, bool gimple)
 		      s->ifexpr_vec[j].cexpr->gen_transform (f, NULL,
 							     true, 1, "type");
 		      fprintf (f, ")");
-		      --j;
+		      ++j;
 		    }
-		  while (j >= 0 && !s->ifexpr_vec[j].is_with);
-		  i = j + 1;
+		  while (j < s->ifexpr_vec.length ()
+			 && !s->ifexpr_vec[j].is_with);
+		  i = j - 1;
 		}
 	      fprintf (f, ")\n");
 	    }
@@ -2511,18 +2512,6 @@ parse_op (cpp_reader *r)
   return op;
 }
 
-/* Return a reversed copy of V.  */
-
-template <class T>
-static vec<T>
-copy_reverse (vec<T> v)
-{
-  vec<T> c = vNULL;
-  for (int i = v.length ()-1; i >= 0; --i)
-    c.safe_push (v[i]);
-  return c;
-}
-
 /* Parse
      'simplify' [ <ident> ] <expr> <result-op>
    with
@@ -2533,7 +2522,8 @@ copy_reverse (vec<T> v)
 
 static void
 parse_simplify (cpp_reader *r, source_location match_location,
-		vec<simplify *>& simplifiers, predicate_id *matcher)
+		vec<simplify *>& simplifiers, predicate_id *matcher,
+		vec<if_or_with>& active_ifs)
 {
   const cpp_token *loc = peek (r);
   struct operand *match = parse_op (r);
@@ -2556,11 +2546,12 @@ parse_simplify (cpp_reader *r, source_location match_location,
       if (matcher->nargs == -1)
 	matcher->nargs = 0;
       simplifiers.safe_push
-	(new simplify (match, match_location, NULL, token->src_loc));
+	(new simplify (match, match_location, NULL,
+		       token->src_loc, active_ifs.copy ()));
       return;
     }
 
-  auto_vec<if_or_with> ifexprs;
+  unsigned active_ifs_len = active_ifs.length ();
   while (1)
     {
       if (token->type == CPP_OPEN_PAREN)
@@ -2570,8 +2561,8 @@ parse_simplify (cpp_reader *r, source_location match_location,
 	  if (peek_ident (r, "if"))
 	    {
 	      eat_ident (r, "if");
-	      ifexprs.safe_push (if_or_with (parse_c_expr (r, CPP_OPEN_PAREN),
-					     token->src_loc, false));
+	      active_ifs.safe_push (if_or_with (parse_c_expr (r, CPP_OPEN_PAREN),
+						token->src_loc, false));
 	      /* If this if is immediately closed then it contains a
 	         manual matcher or is part of a predicate definition.
 		 Push it.  */
@@ -2585,7 +2576,7 @@ parse_simplify (cpp_reader *r, source_location match_location,
 		    matcher->nargs = 0;
 		  simplifiers.safe_push
 		      (new simplify (match, match_location, NULL,
-				     paren_loc, copy_reverse (ifexprs)));
+				     paren_loc, active_ifs.copy ()));
 		}
 	    }
 	  else if (peek_ident (r, "with"))
@@ -2594,7 +2585,7 @@ parse_simplify (cpp_reader *r, source_location match_location,
 	      /* Parse (with c-expr expr) as (if-with (true) expr).  */
 	      c_expr *e = parse_c_expr (r, CPP_OPEN_BRACE);
 	      e->nr_stmts = 0;
-	      ifexprs.safe_push (if_or_with (e, token->src_loc, true));
+	      active_ifs.safe_push (if_or_with (e, token->src_loc, true));
 	    }
 	  else
 	    {
@@ -2612,13 +2603,13 @@ parse_simplify (cpp_reader *r, source_location match_location,
 		}
 	      simplifiers.safe_push
 		  (new simplify (match, match_location, op,
-				 token->src_loc, copy_reverse (ifexprs)));
+				 token->src_loc, active_ifs.copy ()));
 	      eat_token (r, CPP_CLOSE_PAREN);
 	      /* A "default" result closes the enclosing scope.  */
-	      if (ifexprs.length () > 0)
+	      if (active_ifs.length () > active_ifs_len)
 		{
 		  eat_token (r, CPP_CLOSE_PAREN);
-		  ifexprs.pop ();
+		  active_ifs.pop ();
 		}
 	      else
 		return;
@@ -2627,10 +2618,10 @@ parse_simplify (cpp_reader *r, source_location match_location,
       else if (token->type == CPP_CLOSE_PAREN)
 	{
 	  /* Close a scope if requested.  */
-	  if (ifexprs.length () > 0)
+	  if (active_ifs.length () > active_ifs_len)
 	    {
 	      eat_token (r, CPP_CLOSE_PAREN);
-	      ifexprs.pop ();
+	      active_ifs.pop ();
 	      token = peek (r);
 	    }
 	  else
@@ -2642,12 +2633,12 @@ parse_simplify (cpp_reader *r, source_location match_location,
 	    fatal_at (token, "expected match operand expression");
 	  simplifiers.safe_push
 	      (new simplify (match, match_location, parse_op (r),
-			     token->src_loc, copy_reverse (ifexprs)));
+			     token->src_loc, active_ifs.copy ()));
 	  /* A "default" result closes the enclosing scope.  */
-	  if (ifexprs.length () > 0)
+	  if (active_ifs.length () > active_ifs_len)
 	    {
 	      eat_token (r, CPP_CLOSE_PAREN);
-	      ifexprs.pop ();
+	      active_ifs.pop ();
 	    }
 	  else
 	    return;
@@ -2656,10 +2647,11 @@ parse_simplify (cpp_reader *r, source_location match_location,
     }
 }
 
-void parse_pattern (cpp_reader *, vec<simplify *>&);
+void parse_pattern (cpp_reader *, vec<simplify *>&, vec<if_or_with>&);
 
 void
-parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
+parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
+	   vec<if_or_with>& active_ifs)
 {
   vec<const char *> user_ids = vNULL;
   vec< vec<const char *> > opers_vec = vNULL;
@@ -2728,7 +2720,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
       token = peek (r);
       if (token->type == CPP_CLOSE_PAREN)
  	break;
-      parse_pattern (r, for_simplifiers);
+      parse_pattern (r, for_simplifiers, active_ifs);
     }
 
   if (for_simplifiers.length () == 0)
@@ -2744,10 +2736,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 	{
 	  operand *match_op = s->match;
 	  operand *result_op = s->result;
-	  vec<if_or_with> ifexpr_vec = vNULL;
-
-	  for (unsigned i = 0; i < s->ifexpr_vec.length (); ++i)
-	    ifexpr_vec.safe_push (if_or_with (s->ifexpr_vec[i].cexpr, s->ifexpr_vec[i].location, s->ifexpr_vec[i].is_with)); 
+	  vec<if_or_with> ifexpr_vec = s->ifexpr_vec.copy ();
 
 	  for (unsigned i = 0; i < n_ids; ++i)
 	    {
@@ -2757,37 +2746,34 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 
 	      for (unsigned k = 0; k < s->ifexpr_vec.length (); ++k)
 		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, user_ids[i], oper);
-
 	    }
 	  simplify *ns = new simplify (match_op, s->match_location,
 				       result_op, s->result_location, ifexpr_vec);
 	  simplifiers.safe_push (ns);
 	}
     }
-} 
+}
 
 void
-parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers)
+parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers,
+	  vec<if_or_with>& active_ifs)
 {
   operand *ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
-
-  unsigned pos = (simplifiers != vNULL) ? simplifiers.length () - 1 : 0;
 
   const cpp_token *token = peek (r);
   if (token->type == CPP_CLOSE_PAREN)
     fatal_at (token, "no pattern defined in if");
 
+  active_ifs.safe_push (if_or_with (ifexpr, loc, false));
   while (1)
     {
       const cpp_token *token = peek (r);
       if (token->type == CPP_CLOSE_PAREN)
 	break;
     
-      parse_pattern (r, simplifiers);
+      parse_pattern (r, simplifiers, active_ifs);
     }
-
-  for (unsigned i = pos; i < simplifiers.length (); ++i)
-    simplifiers[i]->ifexpr_vec.safe_push (if_or_with (ifexpr, loc, false));
+  active_ifs.pop ();
 }
 
 static void
@@ -2811,14 +2797,15 @@ round_alloc_size (size_t s)
 }
 
 void
-parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
+parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers,
+	       vec<if_or_with>& active_ifs)
 {
   /* All clauses start with '('.  */
   eat_token (r, CPP_OPEN_PAREN);
   const cpp_token *token = peek (r);
   const char *id = get_ident (r);
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (r, token->src_loc, simplifiers, NULL);
+    parse_simplify (r, token->src_loc, simplifiers, NULL, active_ifs);
   else if (strcmp (id, "match") == 0)
     {
       const char *name = get_ident (r);
@@ -2830,14 +2817,18 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
 	;
       else
 	fatal_at (token, "cannot add a match to a non-predicate ID");
-      parse_simplify (r, token->src_loc, p->matchers, p);
+      parse_simplify (r, token->src_loc, p->matchers, p, active_ifs);
     }
   else if (strcmp (id, "for") == 0)
-    parse_for (r, token->src_loc, simplifiers); 
+    parse_for (r, token->src_loc, simplifiers, active_ifs);
   else if (strcmp (id, "if") == 0)
-    parse_if (r, token->src_loc, simplifiers);
+    parse_if (r, token->src_loc, simplifiers, active_ifs);
   else if (strcmp (id, "define_predicates") == 0)
-    parse_predicates (r, token->src_loc);
+    {
+      if (active_ifs.length () > 0)
+	fatal_at (token, "define_predicates inside if is not supported");
+      parse_predicates (r, token->src_loc);
+    }
   else
     fatal_at (token, "expected 'simplify' or 'for' or 'if'");
 
@@ -2924,12 +2915,13 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 #undef DEF_BUILTIN
 
   vec<simplify *> simplifiers = vNULL;
+  auto_vec<if_or_with> active_ifs;
 
   const cpp_token *token = next (r);
   while (token->type != CPP_EOF)
     {
       _cpp_backup_tokens (r, 1);
-      parse_pattern (r, simplifiers);
+      parse_pattern (r, simplifiers, active_ifs);
       token = next (r);
     }
 

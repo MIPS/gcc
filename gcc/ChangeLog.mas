@@ -1,5 +1,16 @@
 2014-09-23  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (parse_if): Maintain a vector of active ifs and
+	pass it down.
+	(dt_simplify::gen): Adjust.
+	(copy_reverse): Remove.
+	(parse_simplify): Adjust.
+	(parse_for): Likewise.
+	(parse_pattern): Likewise.
+	(main): Likewise.
+
+2014-09-23  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (struct predicate_id): Add nargs member.
 	(struct simplify): Remove name member.
 	(lower_commutative): Adjust.
