@@ -1,3 +1,9 @@
+2014-09-23  Richard Biener  <rguenther@suse.de>
+
+	* gimple-match-head.c (gimple_resimplify2): Also swap
+	comparison operands.
+	(gimple_simplify): Likewise.
+
 2014-09-16  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (struct predicate_id): Add matchers member.

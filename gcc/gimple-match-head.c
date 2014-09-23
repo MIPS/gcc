@@ -174,12 +174,15 @@ gimple_resimplify2 (gimple_seq *seq,
   /* Canonicalize operand order.  */
   bool canonicalized = false;
   if (res_code->is_tree_code ()
-      && commutative_tree_code (*res_code)
+      && (TREE_CODE_CLASS ((enum tree_code) *res_code) == tcc_comparison
+	  || commutative_tree_code (*res_code))
       && tree_swap_operands_p (res_ops[0], res_ops[1], false))
     {
       tree tem = res_ops[0];
       res_ops[0] = res_ops[1];
       res_ops[1] = tem;
+      if (TREE_CODE_CLASS ((enum tree_code) *res_code) == tcc_comparison)
+	*res_code = swap_tree_comparison (*res_code);
       canonicalized = true;
     }
 
@@ -408,12 +411,15 @@ gimple_simplify (enum tree_code code, tree type,
 
   /* Canonicalize operand order both for matching and fallback stmt
      generation.  */
-  if (commutative_tree_code (code)
+  if ((commutative_tree_code (code)
+       || TREE_CODE_CLASS (code) == tcc_comparison)
       && tree_swap_operands_p (op0, op1, false))
     {
       tree tem = op0;
       op0 = op1;
       op1 = tem;
+      if (TREE_CODE_CLASS (code) == tcc_comparison)
+	code = swap_tree_comparison (code);
     }
 
   code_helper rcode;
