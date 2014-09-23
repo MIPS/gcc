@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.1.3pre1 [melt-branch_revision_215391]";
+const char melt_versionmeltstr[]="1.1.3pre1 [melt-branch_revision_215492]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-modes */
@@ -39,29 +39,29 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1.3pre1/warmelt-modes";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="90c18c66ca8fb287f477a636005de4fd";
+const char melt_prepromd5meltrun[]="39b34ffe7d6ac9bf58e077ea385458a4";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="819f1b1ce38788ec9d8bdc7c5ef58be8";
+const char melt_primaryhexmd5[]="a00b19d1257a9d0e0660c8c4d03c407f";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-modes+01.cc #1 */ "3679370b26279872547f943fdcb40cdc",
- /*sechexmd5checksum meltbuild-sources/warmelt-modes+02.cc #2 */ "a4eba4d1ac7f2c4841b9e30ad56d2dfd",
- /*sechexmd5checksum meltbuild-sources/warmelt-modes+03.cc #3 */ "98c33901819b7c44a535f135aae835ff",
+ /*sechexmd5checksum meltbuild-sources/warmelt-modes+01.cc #1 */ "64ce4070caf92074be6ac6a67e2249c6",
+ /*sechexmd5checksum meltbuild-sources/warmelt-modes+02.cc #2 */ "36b5302f8a727c169703a2d76243ef6b",
+ /*sechexmd5checksum meltbuild-sources/warmelt-modes+03.cc #3 */ "d9351f6ca20c4f056cfae594a7d6fd16",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=3;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="57fad56cbbdf7a0e44f64621e3485d3b" ;
+const char melt_cumulated_hexmd5[]="270d5a3e76d3b3478da2c1400ca58eb7" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMODES_mds__57FAD56CBBDF7A0E44F64621E3485D3B 1
+#define meltmod_WARMELTmiMODES_mds__270D5A3E76D3B3478DA2C1400CA58EB7 1
 #include "warmelt-modes+melttime.h"
 	 
 

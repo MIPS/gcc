@@ -1,5 +1,9 @@
 
 2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate.
+
+2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tletmacro-0 does not crash in the generated code, but fails to run}}
 	* melt/warmelt-base.melt (list_clone): New function.
 
