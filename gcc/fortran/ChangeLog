@@ -1,3 +1,205 @@
+2014-09-21  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	* resolve.c (resolve_fl_procedure): Remove duplicated lines.
+
+2014-09-20  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* trans-intrinsic.c (conv_intrinsic_atomic_op): Fix issue with
+	generating temporary for value argument.
+
+2014-09-20  Joost VandeVondele  <vondele@gcc.gnu.org>
+
+	* trans-expr.c (gfc_reset_vptr): Fix comment whitespace.
+	(gfc_conv_class_to_class): Likewise.
+	(gfc_conv_procedure_call): Likewise.
+	(arrayfunc_assign_needs_temporary): Likewise.
+	(realloc_lhs_loop_for_fcn_call): Likewise.
+	(gfc_trans_assignment_1): Likewise.
+	* trans-array.c (gfc_conv_array_ref): Likewise.
+	(gfc_array_allocate): Likewise.
+	(gfc_alloc_allocatable_for_assignment): Likewise.
+	* symbol.c (generate_isocbinding_symbol): Likewise.
+	* class.c (finalization_scalarizer): Likewise.
+	(finalizer_insert_packed_call): Likewise.
+	(generate_finalization_wrapper): Likewise.
+	(find_intrinsic_vtab): Likewise.
+	* decl.c (gfc_match_import): Likewise.
+	(match_procedure_decl): Likewise.
+	(gfc_match_subroutine): Likewise.
+	(gfc_match_bind_c): Likewise.
+	(gfc_match_volatile): Likewise.
+	* trans-common.c (create_common): Likewise.
+	* error.c (gfc_diagnostic_starter): Likewise.
+	* trans-stmt.c (gfc_trans_sync): Likewise.
+	(gfc_trans_critical): Likewise.
+	(gfc_trans_simple_do): Likewise.
+	(gfc_trans_do): Likewise.
+	(gfc_trans_where_assign): Likewise.
+	* expr.c (gfc_is_simply_contiguous): Likewise.
+	* module.c (unquote_string): Likewise.
+	* trans.c (gfc_add_finalizer_call): Likewise.
+	* trans-types.c (gfc_init_kinds): Likewise.
+	* scanner.c (preprocessor_line): Likewise.
+	* gfortranspec.c (lang_specific_driver): Likewise.
+	* frontend-passes.c (create_var): Likewise.
+	(cfe_expr_0): Likewise.
+	* resolve.c (check_host_association): Likewise.
+	(gfc_resolve_code): Likewise.
+	(resolve_fl_derived0): Likewise.
+	(resolve_symbol): Likewise.
+	* f95-lang.c (poplevel): Likewise.
+	* trans-decl.c (create_main_function): Likewise.
+	* trans-io.c (transfer_expr): Likewise.
+	* arith.c (gfc_arith_divide): Likewise.
+	* parse.c (resolve_all_program_units): Likewise.
+	* check.c (gfc_check_rank): Likewise.
+	(gfc_check_sizeof): Likewise.
+	(is_c_interoperable): Likewise.
+	* dependency.c (gfc_dep_difference): Likewise.
+	* primary.c (gfc_match_rvalue): Likewise.
+	* trans-intrinsic.c (conv_intrinsic_system_clock): Likewise.
+	(conv_isocbinding_subroutine): Likewise.
+	* options.c (gfc_post_options): Likewise.
+	(gfc_handle_fpe_option): Likewise.
+	(gfc_get_option_string): Likewise.
+	* simplify.c (simplify_transformation_to_scalar): Likewise.
+	(gfc_simplify_spread): Likewise.
+
+2014-09-19  Joost VandeVondele  <vondele@gcc.gnu.org>
+
+	PR fortran/63152
+	* trans-array.c (gfc_trans_deferred_array): Only nullify allocatables.
+
+2014-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (check_gfortran_parallelize): Change to just an upper
+	bound number.
+
+2014-09-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/63252
+	* trans-decl.c (gfc_build_builtin_function_decls): Fix
+	caf_unlock declaration.
+
+2014-09-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* trans-types.c (gfc_init_kinds): Check
+	targetm.libgcc_floating_mode_supported_p for floating-point
+	modes.  Check HAVE_TFmode instead of LIBGCC2_HAS_TF_MODE.
+
+2014-09-05  Joost VandeVondele  <vondele@gcc.gnu.org>
+
+	PR fortran/62245
+	* intrinsic.texi (INT): clarify result.
+
+2014-09-03  Fritz Reese  <Reese-Fritz@zai.com>
+
+	PR fortran/62174
+	* decl.c (variable_decl): Don't overwrite typespecs of Cray pointees
+	when matching a component declaration.
+
+2014-09-02  Marek Polacek  <polacek@redhat.com>
+
+	PR fortran/62270
+	* interface.c (compare_parameter): Fix condition.
+	* trans-expr.c (gfc_conv_procedure_call): Likewise.
+
+2014-08-31  Fritz Reese  <Reese-Fritz@zai.com>
+
+	PR fortran/62309
+	* resolve.c (apply_default_init_local): Don't treat variables
+	in RECURSIVE procedures as saved.
+
+2014-08-31  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_build_builtin_function_decls): Add
+	may_require_tmp dummy argument.
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get,
+	conv_caf_send): Handle may_require_tmp argument.
+	(gfc_conv_intrinsic_function): Update call.
+	* gfortran.texi (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Update interface description.
+
+2014-08-30  Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (gfc_caf_get_image_index,
+	gfc_get_caf_token_offset): New prototypes.
+	* trans-expr.c (gfc_caf_get_image_index): Moved from
+	trans-intrinsic.c and renamed.
+	(gfc_get_caf_token_offset) Ditto; support offset = NULL
+	with early return.
+	* trans-intrinsic.c (get_caf_token_offset, caf_get_image_index):
+	Moved to trans-expr.
+	(gfc_conv_intrinsic_caf_get, conv_caf_send,
+	conv_intrinsic_atomic_op, conv_intrinsic_atomic_ref,
+	conv_intrinsic_atomic_cas): Update callers.
+
+2014-08-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/62278
+	PR fortran/44735
+	PR fortran/60593
+	* dependency.c (gfc_check_dependency): Allow for optimizations
+	in the pointer-alias check.
+
+2014-08-30  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* module.c (gfc_dump_module): Use ISO C remove() instead of POSIX
+	unlink().
+
+2014-08-29  Jeffrey Armstrong  <jeffrey.armstrong@approximatrix.com>
+
+	PR fortran/62215
+	* module.c (gfc_dump_module): Unlink old module file before
+	renaming new one.
+
+2014-08-26  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* frontend_passes (expr_array):  Replace by vec template.
+	(expr_size):  Remove.
+	(expr_count):  Remove.
+	(doloop_list):  Replace by vec template.
+	(doloop_size):  Remove.
+	(gfc_run_passes):  Adjust to use of vec template.
+	(cfe_register_funcs):  Likewise.
+	(cfe_expr_0):  Likewise.
+	(doloop_code):  Likewise.
+
+2014-08-22  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR fortran/62135
+	* resolve.c (resolve_select): Fix list traversal in case the
+	last element of the CASE list was dropped as unreachable code.
+
+2014-08-22  Joost VandeVondele  <Joost.VandeVondele@mat.ethz.ch>
+
+	PR fortran/61234
+	* lang.opt (Wuse-without-only): New flag.
+	* gfortran.h (gfc_option_t): Add it.
+	* invoke.texi: Document it.
+	* module.c (gfc_use_module): Warn if needed.
+	* options.c (gfc_init_options,gfc_handle_option): Init accordingly.
+
+2014-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/62214
+	* frontend-passes.c (optimize_binop_array_assignment):
+	Do not try to optimize the array assignment for string
+	concatenation.
+
+2014-08-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* error.c (gfc_diagnostic_build_locus_prefix): New function.
+	(gfc_diagnostic_starter): Follow Fortran FE diagnostics.
+	(gfc_diagnostic_finalizer): Do not call default finalizer.
+
+2014-08-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* error.c (gfc_diagnostic_finalizer): Call default finalizer.
+
 2014-08-20  Joost VandeVondele  <Joost.VandeVondele@mat.ethz.ch>
 
 	* options.c (gfc_init_options_struct): assert that the frontend sets

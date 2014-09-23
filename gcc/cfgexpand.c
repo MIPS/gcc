@@ -1307,7 +1307,12 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
   else if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
     {
       if (really_expand)
-        expand_one_hard_reg_var (var);
+	{
+	  expand_one_hard_reg_var (var);
+	  if (!DECL_HARD_REGISTER (var))
+	    /* Invalid register specification.  */
+	    expand_one_error_var (var);
+	}
     }
   else if (use_register_for_decl (var))
     {
@@ -1969,7 +1974,7 @@ maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx_insn *since)
 
 /* Maps the blocks that do not contain tree labels to rtx labels.  */
 
-static hash_map<basic_block, rtx> *lab_rtx_for_bb;
+static hash_map<basic_block, rtx_code_label *> *lab_rtx_for_bb;
 
 /* Returns the label_rtx expression for a label starting basic block BB.  */
 
@@ -1983,7 +1988,7 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
   if (bb->flags & BB_RTL)
     return block_label (bb);
 
-  rtx *elt = lab_rtx_for_bb->get (bb);
+  rtx_code_label **elt = lab_rtx_for_bb->get (bb);
   if (elt)
     return *elt;
 
@@ -2002,7 +2007,7 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
       return label_rtx (lab);
     }
 
-  rtx l = gen_label_rtx ();
+  rtx_code_label *l = gen_label_rtx ();
   lab_rtx_for_bb->put (bb, l);
   return l;
 }
@@ -2170,9 +2175,9 @@ expand_gimple_cond (basic_block bb, gimple stmt)
     set_curr_insn_location (false_edge->goto_locus);
   emit_jump (label_rtx_for_bb (false_edge->dest));
 
-  SET_BB_END (bb) = last;
+  BB_END (bb) = last;
   if (BARRIER_P (BB_END (bb)))
-    SET_BB_END (bb) = PREV_INSN (BB_END (bb));
+    BB_END (bb) = PREV_INSN (BB_END (bb));
   update_bb_for_insn (bb);
 
   new_bb = create_basic_block (NEXT_INSN (last), get_last_insn (), bb);
@@ -2186,7 +2191,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   new_edge->probability = REG_BR_PROB_BASE;
   new_edge->count = new_bb->count;
   if (BARRIER_P (BB_END (new_bb)))
-    SET_BB_END (new_bb) = PREV_INSN (BB_END (new_bb));
+    BB_END (new_bb) = PREV_INSN (BB_END (new_bb));
   update_bb_for_insn (new_bb);
 
   maybe_dump_rtl_for_gimple_stmt (stmt, last2);
@@ -2464,7 +2469,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   enum machine_mode *inout_mode = XALLOCAVEC (enum machine_mode, noutputs);
   const char **constraints = XALLOCAVEC (const char *, noutputs + ninputs);
   int old_generating_concat_p = generating_concat_p;
-  rtx fallthru_label = NULL_RTX;
+  rtx_code_label *fallthru_label = NULL;
 
   /* An ASM with no outputs needs to be treated as volatile, for now.  */
   if (noutputs == 0)
@@ -3320,13 +3325,7 @@ expand_gimple_stmt_1 (gimple stmt)
 					  GET_MODE (target), temp, unsignedp);
 		  }
 
-		if ((SUBREG_PROMOTED_GET (target) == SRP_SIGNED_AND_UNSIGNED)
-		    && (GET_CODE (temp) == SUBREG)
-		    && (GET_MODE (target) == GET_MODE (temp))
-		    && (GET_MODE (SUBREG_REG (target)) == GET_MODE (SUBREG_REG (temp))))
-		  emit_move_insn (SUBREG_REG (target), SUBREG_REG (temp));
-		else
-		  convert_move (SUBREG_REG (target), temp, unsignedp);
+		convert_move (SUBREG_REG (target), temp, unsignedp);
 	      }
 	    else if (nontemporal && emit_storent_insn (target, temp))
 	      ;
@@ -3485,7 +3484,7 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
 		 | EDGE_SIBCALL);
   e->probability += probability;
   e->count += count;
-  SET_BB_END (bb) = last;
+  BB_END (bb) = last;
   update_bb_for_insn (bb);
 
   if (NEXT_INSN (last))
@@ -3494,7 +3493,7 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
 
       last = BB_END (bb);
       if (BARRIER_P (last))
-	SET_BB_END (bb) = PREV_INSN (last);
+	BB_END (bb) = PREV_INSN (last);
     }
 
   maybe_dump_rtl_for_gimple_stmt (stmt, last2);
@@ -3625,7 +3624,7 @@ convert_debug_memory_address (enum machine_mode mode, rtx x,
 	    return SUBREG_REG (x);
 	  break;
 	case LABEL_REF:
-	  temp = gen_rtx_LABEL_REF (mode, XEXP (x, 0));
+	  temp = gen_rtx_LABEL_REF (mode, LABEL_REF_LABEL (x));
 	  LABEL_REF_NONLOCAL_P (temp) = LABEL_REF_NONLOCAL_P (x);
 	  return temp;
 	case SYMBOL_REF:
@@ -4940,7 +4939,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	stmt = NULL;
     }
 
-  rtx *elt = lab_rtx_for_bb->get (bb);
+  rtx_code_label **elt = lab_rtx_for_bb->get (bb);
 
   if (stmt || elt)
     {
@@ -4957,15 +4956,15 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 
       /* Java emits line number notes in the top of labels.
 	 ??? Make this go away once line number notes are obsoleted.  */
-      SET_BB_HEAD (bb) = NEXT_INSN (last);
+      BB_HEAD (bb) = NEXT_INSN (last);
       if (NOTE_P (BB_HEAD (bb)))
-	SET_BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
+	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
       note = emit_note_after (NOTE_INSN_BASIC_BLOCK, BB_HEAD (bb));
 
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
     }
   else
-    SET_BB_HEAD (bb) = note = emit_note (NOTE_INSN_BASIC_BLOCK);
+    BB_HEAD (bb) = note = emit_note (NOTE_INSN_BASIC_BLOCK);
 
   NOTE_BASIC_BLOCK (note) = bb;
 
@@ -5248,7 +5247,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
     last = PREV_INSN (last);
   if (JUMP_TABLE_DATA_P (last))
     last = PREV_INSN (PREV_INSN (last));
-  SET_BB_END (bb) = last;
+  BB_END (bb) = last;
 
   update_bb_for_insn (bb);
 
@@ -5350,7 +5349,7 @@ construct_exit_block (void)
     return;
   /* While emitting the function end we could move end of the last basic
      block.  */
-  SET_BB_END (prev_bb) = orig_end;
+  BB_END (prev_bb) = orig_end;
   while (NEXT_INSN (head) && NOTE_P (NEXT_INSN (head)))
     head = NEXT_INSN (head);
   /* But make sure exit_block starts with RETURN_LABEL, otherwise the
@@ -5362,7 +5361,7 @@ construct_exit_block (void)
       while (NEXT_INSN (head) != return_label)
 	{
 	  if (!NOTE_P (NEXT_INSN (head)))
-	    SET_BB_END (prev_bb) = NEXT_INSN (head);
+	    BB_END (prev_bb) = NEXT_INSN (head);
 	  head = NEXT_INSN (head);
 	}
     }
@@ -5810,7 +5809,7 @@ pass_expand::execute (function *fun)
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (fun)->succs)
     e->flags &= ~EDGE_EXECUTABLE;
 
-  lab_rtx_for_bb = new hash_map<basic_block, rtx>;
+  lab_rtx_for_bb = new hash_map<basic_block, rtx_code_label *>;
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR_FOR_FN (fun),
 		  next_bb)
     bb = expand_gimple_basic_block (bb, var_ret_seq != NULL_RTX);
@@ -5842,7 +5841,7 @@ pass_expand::execute (function *fun)
 
   if (var_ret_seq)
     {
-      rtx after = return_label;
+      rtx_insn *after = return_label;
       rtx_insn *next = NEXT_INSN (after);
       if (next && NOTE_INSN_BASIC_BLOCK_P (next))
 	after = next;
@@ -5871,8 +5870,8 @@ pass_expand::execute (function *fun)
 	      if (e->src == ENTRY_BLOCK_PTR_FOR_FN (fun)
 		  && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (fun)))
 		{
-		  rtx insns = e->insns.r;
-		  e->insns.r = NULL_RTX;
+		  rtx_insn *insns = e->insns.r;
+		  e->insns.r = NULL;
 		  if (NOTE_P (parm_birth_insn)
 		      && NOTE_KIND (parm_birth_insn) == NOTE_INSN_FUNCTION_BEG)
 		    emit_insn_before_noloc (insns, parm_birth_insn, e->dest);

@@ -1736,7 +1736,7 @@ loop_exits_from_bb_p (struct loop *loop, basic_block bb)
 location_t
 get_loop_location (struct loop *loop)
 {
-  rtx insn = NULL;
+  rtx_insn *insn = NULL;
   struct niter_desc *desc = NULL;
   edge exit;
 
@@ -1921,3 +1921,15 @@ bb_loop_depth (const_basic_block bb)
 {
   return bb->loop_father ? loop_depth (bb->loop_father) : 0;
 }
+
+/* Marks LOOP for removal and sets LOOPS_NEED_FIXUP.  */
+
+void
+mark_loop_for_removal (loop_p loop)
+{
+  loop->former_header = loop->header;
+  loop->header = NULL;
+  loop->latch = NULL;
+  loops_state_set (LOOPS_NEED_FIXUP);
+}
+

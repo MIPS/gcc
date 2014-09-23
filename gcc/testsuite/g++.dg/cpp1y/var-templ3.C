@@ -1,5 +1,4 @@
-// { dg-do run }
-// { dg-options "-std=c++1y" }
+// { dg-do compile { target c++14 } }
 
 template<typename T>
  constexpr int var = sizeof (T);
@@ -13,7 +12,5 @@ template<typename T>
 
 int main ()
 {
-  return !(
-    var<int> + var<char> == S1<int>::a<char>
-  );
+  static_assert(var<int> + var<char> == S1<int>::a<char>, "");
 }

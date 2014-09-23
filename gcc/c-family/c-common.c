@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "c-common.h"
 #include "tm.h"
 #include "intl.h"
 #include "tree.h"
@@ -32,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-mem.h"
 #include "flags.h"
 #include "c-pragma.h"
-#include "c-common.h"
 #include "c-objc.h"
 #include "tm_p.h"
 #include "obstack.h"
@@ -419,6 +419,7 @@ const struct c_common_resword c_common_reswords[] =
   { "_Complex",		RID_COMPLEX,	0 },
   { "_Cilk_spawn",      RID_CILK_SPAWN, 0 },
   { "_Cilk_sync",       RID_CILK_SYNC,  0 },
+  { "_Cilk_for",        RID_CILK_FOR,   0 },
   { "_Imaginary",	RID_IMAGINARY, D_CONLY },
   { "_Decimal32",       RID_DFLOAT32,  D_CONLY | D_EXT },
   { "_Decimal64",       RID_DFLOAT64,  D_CONLY | D_EXT },
@@ -1730,21 +1731,15 @@ warn_logical_operator (location_t location, enum tree_code code, tree type,
 
 /* Warn about logical not used on the left hand side operand of a comparison.
    This function assumes that the LHS is inside of TRUTH_NOT_EXPR.
-   Do not warn if the LHS or RHS is of a boolean or a vector type.  */
+   Do not warn if RHS is of a boolean type.  */
 
 void
 warn_logical_not_parentheses (location_t location, enum tree_code code,
-			      tree lhs, tree rhs)
+			      tree rhs)
 {
-  if (TREE_CODE_CLASS (code) != tcc_comparison)
-    return;
-  if (TREE_TYPE (lhs) == NULL_TREE
-      || TREE_TYPE (rhs) == NULL_TREE)
-    ;
-  else if (TREE_CODE (TREE_TYPE (lhs)) == BOOLEAN_TYPE
-	   || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE
-	   || VECTOR_TYPE_P (TREE_TYPE (lhs))
-	   || VECTOR_TYPE_P (TREE_TYPE (rhs)))
+  if (TREE_CODE_CLASS (code) != tcc_comparison
+      || TREE_TYPE (rhs) == NULL_TREE
+      || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE)
     return;
 
   warning_at (location, OPT_Wlogical_not_parentheses,
@@ -7782,6 +7777,19 @@ handle_alias_ifunc_attribute (bool is_alias, tree *node, tree name, tree args,
       *no_add_attrs = true;
     }
 
+  if (decl_in_symtab_p (*node))
+    {
+      struct symtab_node *n = symtab_node::get (decl);
+      if (n && n->refuse_visibility_changes)
+	{
+	  if (is_alias)
+	    error ("%+D declared alias after being used", decl);
+	  else
+	    error ("%+D declared ifunc after being used", decl);
+	}
+    }
+
+
   return NULL_TREE;
 }
 
@@ -7856,6 +7864,13 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	 and that isn't supported; and because it wants to add it to
 	 the list of weak decls, which isn't helpful.  */
       DECL_WEAK (*node) = 1;
+    }
+
+  if (decl_in_symtab_p (*node))
+    {
+      struct symtab_node *n = symtab_node::get (*node);
+      if (n && n->refuse_visibility_changes)
+	error ("%+D declared weakref after being used", *node);
     }
 
   return NULL_TREE;
@@ -9691,45 +9706,15 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
 #undef catenate_messages
 }
 
-/* Mapping for cpp message reasons to the options that enable them.  */
-
-struct reason_option_codes_t
-{
-  const int reason;		/* cpplib message reason.  */
-  const int option_code;	/* gcc option that controls this message.  */
-};
-
-static const struct reason_option_codes_t option_codes[] = {
-  {CPP_W_BUILTIN_MACRO_REDEFINED,	OPT_Wbuiltin_macro_redefined},
-  {CPP_W_COMMENTS,			OPT_Wcomment},
-  {CPP_W_CXX_OPERATOR_NAMES,		OPT_Wc___compat},
-  {CPP_W_DATE_TIME,			OPT_Wdate_time},
-  {CPP_W_DEPRECATED,			OPT_Wdeprecated},
-  {CPP_W_ENDIF_LABELS,			OPT_Wendif_labels},
-  {CPP_W_INVALID_PCH,			OPT_Winvalid_pch},
-  {CPP_W_LITERAL_SUFFIX,		OPT_Wliteral_suffix},
-  {CPP_W_LONG_LONG,			OPT_Wlong_long},
-  {CPP_W_MISSING_INCLUDE_DIRS,          OPT_Wmissing_include_dirs},
-  {CPP_W_MULTICHAR,			OPT_Wmultichar},
-  {CPP_W_NORMALIZE,			OPT_Wnormalized_},
-  {CPP_W_TRADITIONAL,			OPT_Wtraditional},
-  {CPP_W_TRIGRAPHS,			OPT_Wtrigraphs},
-  {CPP_W_UNDEF,				OPT_Wundef},
-  {CPP_W_UNUSED_MACROS,			OPT_Wunused_macros},
-  {CPP_W_VARIADIC_MACROS,		OPT_Wvariadic_macros},
-  {CPP_W_WARNING_DIRECTIVE,		OPT_Wcpp},
-  {CPP_W_NONE,				0}
-};
-
 /* Return the gcc option code associated with the reason for a cpp
    message, or 0 if none.  */
 
 static int
 c_option_controlling_cpp_error (int reason)
 {
-  const struct reason_option_codes_t *entry;
+  const struct cpp_reason_option_codes_t *entry;
 
-  for (entry = option_codes; entry->reason != CPP_W_NONE; entry++)
+  for (entry = cpp_reason_option_codes; entry->reason != CPP_W_NONE; entry++)
     {
       if (entry->reason == reason)
 	return entry->option_code;

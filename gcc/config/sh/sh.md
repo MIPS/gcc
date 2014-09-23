@@ -869,9 +869,9 @@
 
 (define_insn "*cmp_div0s_0"
   [(set (reg:SI T_REG)
-	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand")
+	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand" "%r")
 			    (const_int 31))
-	       (ge:SI (match_operand:SI 1 "arith_reg_operand")
+	       (ge:SI (match_operand:SI 1 "arith_reg_operand" "r")
 		      (const_int 0))))]
   "TARGET_SH1"
   "div0s	%0,%1"
@@ -1566,7 +1566,8 @@
   [(set (match_dup 0) (match_dup 3))
    (set (match_dup 4) (match_dup 5))]
 {
-  rtx set1, set2, insn2;
+  rtx set1, set2;
+  rtx_insn *insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -3335,7 +3336,8 @@ label:
 	(reg:SI MACL_REG))]
   "TARGET_SH1"
 {
-  rtx insn, macl;
+  rtx_insn *insn;
+  rtx macl;
 
   macl = gen_rtx_REG (SImode, MACL_REG);
   start_sequence ();
@@ -3364,7 +3366,8 @@ label:
 	(reg:SI MACL_REG))]
   "TARGET_SH1"
 {
-  rtx insn, macl;
+  rtx_insn *insn;
+  rtx macl;
 
   macl = gen_rtx_REG (SImode, MACL_REG);
   start_sequence ();
@@ -3612,7 +3615,8 @@ label:
 	(reg:SI MACH_REG))]
   "TARGET_SH2"
 {
-  rtx insn, mach;
+  rtx_insn *insn;
+  rtx mach;
 
   mach = gen_rtx_REG (SImode, MACH_REG);
   start_sequence ();
@@ -3658,7 +3662,8 @@ label:
 	(reg:SI MACH_REG))]
   "TARGET_SH2"
 {
-  rtx insn, mach;
+  rtx_insn *insn;
+  rtx mach;
 
   mach = gen_rtx_REG (SImode, MACH_REG);
   start_sequence ();
@@ -4579,6 +4584,12 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
+       if (CONST_INT_P (operands[2]) && INTVAL (operands[2]) < 0)
+	{
+	  operands[2] = GEN_INT (-INTVAL (operands[2]));
+	  emit_insn (gen_ashrsi3_media (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
       emit_insn (gen_ashlsi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
@@ -4819,6 +4830,12 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
+       if (CONST_INT_P (operands[2]) && INTVAL (operands[2]) < 0)
+	{
+	  operands[2] = GEN_INT (-INTVAL (operands[2]));
+	  emit_insn (gen_ashrdi3_media (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
       emit_insn (gen_ashldi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
@@ -4912,6 +4929,12 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
+      if (CONST_INT_P (operands[2]) && INTVAL (operands[2]) < 0)
+	{
+	  operands[2] = GEN_INT (-INTVAL (operands[2]));
+	  emit_insn (gen_ashlsi3_media (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
       emit_insn (gen_ashrsi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
@@ -5011,6 +5034,12 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
+      if (CONST_INT_P (operands[2]) && INTVAL (operands[2]) < 0)
+	{
+	  operands[2] = GEN_INT (-INTVAL (operands[2]));
+	  emit_insn (gen_ashldi3_media (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
       emit_insn (gen_ashrdi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
@@ -5085,6 +5114,12 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
+      if (CONST_INT_P (operands[2]) && INTVAL (operands[2]) < 0)
+	{
+	  operands[2] = GEN_INT (-INTVAL (operands[2]));
+	  emit_insn (gen_ashlsi3_media (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
       emit_insn (gen_lshrsi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
@@ -5279,6 +5314,12 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
+      if (CONST_INT_P (operands[2]) && INTVAL (operands[2]) < 0)
+	{
+	  operands[2] = GEN_INT (-INTVAL (operands[2]));
+	  emit_insn (gen_ashldi3_media (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
       emit_insn (gen_lshrdi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
@@ -7668,10 +7709,10 @@ label:
 ;; use that will prevent scheduling of other stack accesses beyond this
 ;; instruction.
 (define_split
-  [(set (match_operand:DF 0 "register_operand" "")
-	(match_operand:DF 1 "register_operand" ""))
-   (use (match_operand:PSI 2 "fpscr_operand" ""))
-   (clobber (match_scratch:SI 3 "=X"))]
+  [(set (match_operand:DF 0 "register_operand")
+	(match_operand:DF 1 "register_operand"))
+   (use (match_operand:PSI 2 "fpscr_operand"))
+   (clobber (match_scratch:SI 3))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE) && reload_completed
    && (true_regnum (operands[0]) < 16) != (true_regnum (operands[1]) < 16)"
   [(const_int 0)]
@@ -9960,7 +10001,8 @@ label:
   sh_expand_epilogue (true);
   if (TARGET_SHCOMPACT)
     {
-      rtx insn, set;
+      rtx_insn *insn;
+      rtx set;
 
       /* If epilogue clobbers r0, preserve it in macl.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -10842,7 +10884,7 @@ label:
    (clobber (match_scratch:SI 3 "=X,1"))]
   "TARGET_SH1"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -10876,7 +10918,7 @@ label:
    (clobber (match_operand:SI 4 "" "=X,1"))]
   "TARGET_SH2 && reload_completed && flag_pic"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
   switch (GET_MODE (diff_vec))
@@ -10914,7 +10956,7 @@ label:
 		    UNSPEC_CASESI)))]
   "TARGET_SHMEDIA"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -10941,7 +10983,7 @@ label:
 		      (label_ref:DI (match_operand 3 "" ""))] UNSPEC_CASESI)))]
   "TARGET_SHMEDIA"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[3]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[3])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 

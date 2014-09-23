@@ -277,6 +277,13 @@ varpool_node::externally_visible_p (void)
   if (used_from_object_file_p ())
     return true;
 
+  /* Bringing TLS variables local may cause dynamic linker failures
+     on limits of static TLS vars.  */
+  if (DECL_THREAD_LOCAL_P (decl)
+      && (DECL_TLS_MODEL (decl) != TLS_MODEL_EMULATED
+	  && DECL_TLS_MODEL (decl) != TLS_MODEL_INITIAL_EXEC))
+    return true;
+
   if (DECL_HARD_REGISTER (decl))
     return true;
   if (DECL_PRESERVE_P (decl))
@@ -580,11 +587,11 @@ function_and_variable_visibility (bool whole_program)
 		{
 		  struct cgraph_edge *e = node->callers;
 
-		  cgraph_redirect_edge_callee (e, alias);
+		  e->redirect_callee (alias);
 		  if (gimple_has_body_p (e->caller->decl))
 		    {
 		      push_cfun (DECL_STRUCT_FUNCTION (e->caller->decl));
-		      cgraph_redirect_edge_call_stmt_to_callee (e);
+		      e->redirect_call_stmt_to_callee ();
 		      pop_cfun ();
 		    }
 		}
@@ -717,7 +724,7 @@ function_and_variable_visibility (bool whole_program)
 	  fprintf (dump_file, " %s", vnode->name ());
       fprintf (dump_file, "\n\n");
     }
-  cgraph_function_flags_ready = true;
+  symtab->function_flags_ready = true;
   return 0;
 }
 

@@ -1537,8 +1537,8 @@ compute_known_type_jump_func (tree op, struct ipa_jump_func *jfunc,
 				    call, current_function_decl)
       /* Even if the var seems to be in construction by inline call stack,
 	 we may work out the actual type by walking memory writes.  */
-      && (!is_global_var (base)
-	  && detect_type_change (op, base, expected_type, call, jfunc, offset)))
+      && (is_global_var (base)
+	  || detect_type_change (op, base, expected_type, call, jfunc, offset)))
     return;
 
   ipa_set_jf_known_type (jfunc, offset, TREE_TYPE (base),
@@ -2347,14 +2347,13 @@ ipa_analyze_call_uses (struct func_body_info *fbi, gimple call)
     {
       tree otr_type;
       HOST_WIDE_INT otr_token;
-      ipa_polymorphic_call_context context;
       tree instance;
       tree target = gimple_call_fn (call);
+      ipa_polymorphic_call_context context (current_function_decl,
+					    target, call, &instance);
 
-      instance = get_polymorphic_call_info (current_function_decl,
-					    target,
-					    &otr_type, &otr_token,
-					    &context, call);
+      otr_type = obj_type_ref_class (target);
+      otr_token = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (target));
 
       if (context.get_dynamic_type (instance,
 				    OBJ_TYPE_REF_OBJECT (target),
@@ -2609,7 +2608,7 @@ ipa_intraprocedural_devirtualization (gimple call)
 #ifdef ENABLE_CHECKING
   if (fndecl)
     gcc_assert (possible_polymorphic_call_target_p
-		  (otr, cgraph_node::get (fndecl)));
+		  (otr, call, cgraph_node::get (fndecl)));
 #endif
   return fndecl;
 }
@@ -2897,7 +2896,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 		       "converting indirect call in %s to direct call to %s\n",
 		       ie->caller->name (), callee->name ());
     }
-  ie = cgraph_make_edge_direct (ie, callee);
+  ie = ie->make_direct (callee);
   es = inline_edge_summary (ie);
   es->call_stmt_size -= (eni_size_weights.indirect_call_cost
 			 - eni_size_weights.call_cost);
@@ -3121,14 +3120,12 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 
   if (TREE_CODE (binfo) != TREE_BINFO)
     {
-      ipa_polymorphic_call_context context;
+      ipa_polymorphic_call_context context (binfo,
+					    ie->indirect_info->otr_type,
+					    ie->indirect_info->offset);
       vec <cgraph_node *>targets;
       bool final;
 
-      if (!get_polymorphic_call_info_from_invariant
-	     (&context, binfo, ie->indirect_info->otr_type,
-	      ie->indirect_info->offset))
-	return NULL;
       targets = possible_polymorphic_call_targets
 		 (ie->indirect_info->otr_type,
 		  ie->indirect_info->otr_token,
@@ -3510,8 +3507,10 @@ void
 ipa_set_node_agg_value_chain (struct cgraph_node *node,
 			      struct ipa_agg_replacement_value *aggvals)
 {
-  if (vec_safe_length (ipa_node_agg_replacements) <= (unsigned) cgraph_max_uid)
-    vec_safe_grow_cleared (ipa_node_agg_replacements, cgraph_max_uid + 1);
+  if (vec_safe_length (ipa_node_agg_replacements)
+      <= (unsigned) symtab->cgraph_max_uid)
+    vec_safe_grow_cleared (ipa_node_agg_replacements,
+			   symtab->cgraph_max_uid + 1);
 
   (*ipa_node_agg_replacements)[node->uid] = aggvals;
 }
@@ -3699,18 +3698,18 @@ ipa_register_cgraph_hooks (void)
 {
   if (!edge_removal_hook_holder)
     edge_removal_hook_holder =
-      cgraph_add_edge_removal_hook (&ipa_edge_removal_hook, NULL);
+      symtab->add_edge_removal_hook (&ipa_edge_removal_hook, NULL);
   if (!node_removal_hook_holder)
     node_removal_hook_holder =
-      cgraph_add_node_removal_hook (&ipa_node_removal_hook, NULL);
+      symtab->add_cgraph_removal_hook (&ipa_node_removal_hook, NULL);
   if (!edge_duplication_hook_holder)
     edge_duplication_hook_holder =
-      cgraph_add_edge_duplication_hook (&ipa_edge_duplication_hook, NULL);
+      symtab->add_edge_duplication_hook (&ipa_edge_duplication_hook, NULL);
   if (!node_duplication_hook_holder)
     node_duplication_hook_holder =
-      cgraph_add_node_duplication_hook (&ipa_node_duplication_hook, NULL);
+      symtab->add_cgraph_duplication_hook (&ipa_node_duplication_hook, NULL);
   function_insertion_hook_holder =
-      cgraph_add_function_insertion_hook (&ipa_add_new_function, NULL);
+      symtab->add_cgraph_insertion_hook (&ipa_add_new_function, NULL);
 }
 
 /* Unregister our cgraph hooks if they are not already there.  */
@@ -3718,15 +3717,15 @@ ipa_register_cgraph_hooks (void)
 static void
 ipa_unregister_cgraph_hooks (void)
 {
-  cgraph_remove_edge_removal_hook (edge_removal_hook_holder);
+  symtab->remove_edge_removal_hook (edge_removal_hook_holder);
   edge_removal_hook_holder = NULL;
-  cgraph_remove_node_removal_hook (node_removal_hook_holder);
+  symtab->remove_cgraph_removal_hook (node_removal_hook_holder);
   node_removal_hook_holder = NULL;
-  cgraph_remove_edge_duplication_hook (edge_duplication_hook_holder);
+  symtab->remove_edge_duplication_hook (edge_duplication_hook_holder);
   edge_duplication_hook_holder = NULL;
-  cgraph_remove_node_duplication_hook (node_duplication_hook_holder);
+  symtab->remove_cgraph_duplication_hook (node_duplication_hook_holder);
   node_duplication_hook_holder = NULL;
-  cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
+  symtab->remove_cgraph_insertion_hook (function_insertion_hook_holder);
   function_insertion_hook_holder = NULL;
 }
 
@@ -4256,7 +4255,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
     }
   gsi_replace (&gsi, new_stmt, true);
   if (cs)
-    cgraph_set_call_stmt (cs, new_stmt);
+    cs->set_call_stmt (new_stmt);
   do
     {
       current_node->record_stmt_references (gsi_stmt (gsi));

@@ -3346,8 +3346,9 @@ ix86_option_override_internal (bool main_args_p,
       /* When TARGET_BI_ARCH == 2, by default, OPTION_MASK_ABI_X32 is
 	 on and OPTION_MASK_ABI_64 is off.  We turn off
 	 OPTION_MASK_ABI_X32 if OPTION_MASK_ABI_64 is turned on by
-	 -m64.  */
-      if (TARGET_LP64_P (opts->x_ix86_isa_flags))
+	 -m64 or OPTION_MASK_CODE16 is turned on by -m16.  */
+      if (TARGET_LP64_P (opts->x_ix86_isa_flags)
+	  || TARGET_16BIT_P (opts->x_ix86_isa_flags))
 	opts->x_ix86_isa_flags &= ~OPTION_MASK_ABI_X32;
 #endif
     }
@@ -5664,7 +5665,7 @@ ix86_function_regparm (const_tree type, const_tree decl)
       && !(profile_flag && !flag_fentry))
     {
       /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
-      struct cgraph_local_info *i = cgraph_local_info (CONST_CAST_TREE (decl));
+      cgraph_local_info *i = cgraph_node::local_info (CONST_CAST_TREE (decl));
       if (i && i->local && i->can_change_signature)
 	{
 	  int local_regparm, globals = 0, regno;
@@ -5741,7 +5742,7 @@ ix86_function_sseregparm (const_tree type, const_tree decl, bool warn)
       && !(profile_flag && !flag_fentry))
     {
       /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
-      struct cgraph_local_info *i = cgraph_local_info (CONST_CAST_TREE(decl));
+      cgraph_local_info *i = cgraph_node::local_info (CONST_CAST_TREE(decl));
       if (i && i->local && i->can_change_signature)
 	return TARGET_SSE2 ? 2 : 1;
     }
@@ -5833,7 +5834,7 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
 /* Implement the TARGET_LEGITIMATE_COMBINED_INSN hook.  */
 
 static bool
-ix86_legitimate_combined_insn (rtx insn)
+ix86_legitimate_combined_insn (rtx_insn *insn)
 {
   /* Check operand constraints in case hard registers were propagated
      into insn pattern.  This check prevents combine pass from
@@ -6150,7 +6151,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 
   if (fndecl)
     {
-      i = cgraph_local_info (fndecl);
+      i = cgraph_node::local_info (fndecl);
       cum->call_abi = ix86_function_abi (fndecl);
     }
   else
@@ -8263,7 +8264,8 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   if (ix86_varargs_fpr_size)
     {
       enum machine_mode smode;
-      rtx label, test;
+      rtx_code_label *label;
+      rtx test;
 
       /* Now emit code to save SSE registers.  The AX parameter contains number
 	 of SSE parameter registers used to call this function, though all we
@@ -8400,7 +8402,8 @@ ix86_va_start (tree valist, rtx nextarg)
       scratch_regno = split_stack_prologue_scratch_regno ();
       if (scratch_regno != INVALID_REGNUM)
 	{
-	  rtx reg, seq;
+	  rtx reg;
+	  rtx_insn *seq;
 
 	  reg = gen_reg_rtx (Pmode);
 	  cfun->machine->split_stack_varargs_pointer = reg;
@@ -8989,7 +8992,7 @@ standard_sse_constant_p (rtx x)
    the constant X.  */
 
 const char *
-standard_sse_constant_opcode (rtx insn, rtx x)
+standard_sse_constant_opcode (rtx_insn *insn, rtx x)
 {
   switch (standard_sse_constant_p (x))
     {
@@ -10211,7 +10214,7 @@ ix86_get_drap_rtx (void)
       unsigned int regno = find_drap_reg ();
       rtx drap_vreg;
       rtx arg_ptr;
-      rtx seq, insn;
+      rtx_insn *seq, *insn;
 
       arg_ptr = gen_rtx_REG (Pmode, regno);
       crtl->drap_reg = arg_ptr;
@@ -10698,7 +10701,7 @@ ix86_finalize_stack_realign_flags (void)
 			   HARD_FRAME_POINTER_REGNUM);
       FOR_EACH_BB_FN (bb, cfun)
         {
-          rtx insn;
+          rtx_insn *insn;
 	  FOR_BB_INSNS (bb, insn)
 	    if (NONDEBUG_INSN_P (insn)
 		&& requires_stack_frame_p (insn, prologue_used,
@@ -11217,7 +11220,8 @@ ix86_expand_prologue (void)
 	{
 	  if (ix86_cmodel == CM_LARGE_PIC)
 	    {
-	      rtx label, tmp_reg;
+	      rtx_code_label *label;
+	      rtx tmp_reg;
 
 	      gcc_assert (Pmode == DImode);
 	      label = gen_label_rtx ();
@@ -11795,8 +11799,8 @@ ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED, HOST_WIDE_INT)
   /* Mach-O doesn't support labels at the end of objects, so if
      it looks like we might want one, insert a NOP.  */
   {
-    rtx insn = get_last_insn ();
-    rtx deleted_debug_label = NULL_RTX;
+    rtx_insn *insn = get_last_insn ();
+    rtx_insn *deleted_debug_label = NULL;
     while (insn
 	   && NOTE_P (insn)
 	   && NOTE_KIND (insn) != NOTE_INSN_DELETED_LABEL)
@@ -11907,9 +11911,10 @@ ix86_expand_split_stack_prologue (void)
   struct ix86_frame frame;
   HOST_WIDE_INT allocate;
   unsigned HOST_WIDE_INT args_size;
-  rtx label, limit, current, jump_insn, allocate_rtx, call_insn, call_fusage;
+  rtx_code_label *label;
+  rtx limit, current, jump_insn, allocate_rtx, call_insn, call_fusage;
   rtx scratch_reg = NULL_RTX;
-  rtx varargs_label = NULL_RTX;
+  rtx_code_label *varargs_label = NULL;
   rtx fn;
 
   gcc_assert (flag_split_stack && reload_completed);
@@ -12025,7 +12030,8 @@ ix86_expand_split_stack_prologue (void)
 
 	  if (ix86_cmodel == CM_LARGE_PIC)
 	    {
-	      rtx label, x;
+	      rtx_code_label *label;
+	      rtx x;
 
 	      label = gen_label_rtx ();
 	      emit_label (label);
@@ -13490,7 +13496,7 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	  if (TARGET_64BIT)
 	    {
 	      rtx rax = gen_rtx_REG (Pmode, AX_REG);
-	      rtx insns;
+	      rtx_insn *insns;
 
 	      start_sequence ();
 	      emit_call_insn
@@ -13543,7 +13549,8 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	  if (TARGET_64BIT)
 	    {
 	      rtx rax = gen_rtx_REG (Pmode, AX_REG);
-	      rtx insns, eqv;
+	      rtx_insn *insns;
+	      rtx eqv;
 
 	      start_sequence ();
 	      emit_call_insn
@@ -14748,41 +14755,6 @@ print_reg (rtx x, int code, FILE *file)
       else
 	fprintf (file, ", %s", reg);
     }
-}
-
-/* Locate some local-dynamic symbol still in use by this function
-   so that we can print its name in some tls_local_dynamic_base
-   pattern.  */
-
-static int
-get_some_local_dynamic_name_1 (rtx *px, void *)
-{
-  rtx x = *px;
-
-  if (GET_CODE (x) == SYMBOL_REF
-      && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
-    {
-      cfun->machine->some_ld_name = XSTR (x, 0);
-      return 1;
-    }
-
-  return 0;
-}
-
-static const char *
-get_some_local_dynamic_name (void)
-{
-  rtx insn;
-
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
-
-  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
-    if (NONDEBUG_INSN_P (insn)
-	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
-
-  return NULL;
 }
 
 /* Meaning of CODE:
@@ -16098,7 +16070,7 @@ ix86_check_avx256_register (rtx *pexp, void *)
 /* Return needed mode for entity in optimize_mode_switching pass.  */
 
 static int
-ix86_avx_u128_mode_needed (rtx insn)
+ix86_avx_u128_mode_needed (rtx_insn *insn)
 {
   if (CALL_P (insn))
     {
@@ -16136,7 +16108,7 @@ ix86_avx_u128_mode_needed (rtx insn)
    prior to the execution of insn.  */
 
 static int
-ix86_i387_mode_needed (int entity, rtx insn)
+ix86_i387_mode_needed (int entity, rtx_insn *insn)
 {
   enum attr_i387_cw mode;
 
@@ -16189,7 +16161,7 @@ ix86_i387_mode_needed (int entity, rtx insn)
    prior to the execution of insn.  */
 
 static int
-ix86_mode_needed (int entity, rtx insn)
+ix86_mode_needed (int entity, rtx_insn *insn)
 {
   switch (entity)
     {
@@ -16221,7 +16193,7 @@ ix86_check_avx256_stores (rtx dest, const_rtx, void *data)
 /* Calculate mode of upper 128bit AVX registers after the insn.  */
 
 static int
-ix86_avx_u128_mode_after (int mode, rtx insn)
+ix86_avx_u128_mode_after (int mode, rtx_insn *insn)
 {
   rtx pat = PATTERN (insn);
 
@@ -16248,7 +16220,7 @@ ix86_avx_u128_mode_after (int mode, rtx insn)
 /* Return the mode that an insn results in.  */
 
 int
-ix86_mode_after (int entity, int mode, rtx insn)
+ix86_mode_after (int entity, int mode, rtx_insn *insn)
 {
   switch (entity)
     {
@@ -16489,7 +16461,7 @@ ix86_emit_mode_set (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
    operand may be [SDX]Fmode.  */
 
 const char *
-output_fix_trunc (rtx insn, rtx *operands, bool fisttp)
+output_fix_trunc (rtx_insn *insn, rtx *operands, bool fisttp)
 {
   int stack_top_dies = find_regno_note (insn, REG_DEAD, FIRST_STACK_REG) != 0;
   int dimode_p = GET_MODE (operands[0]) == DImode;
@@ -17667,7 +17639,7 @@ void
 ix86_split_idivmod (enum machine_mode mode, rtx operands[],
 		    bool signed_p)
 {
-  rtx end_label, qimode_label;
+  rtx_code_label *end_label, *qimode_label;
   rtx insn, div, mod;
   rtx scratch, tmp0, tmp1, tmp2;
   rtx (*gen_divmod4_1) (rtx, rtx, rtx, rtx);
@@ -17778,7 +17750,7 @@ ix86_emit_cfi ()
    go to next cycle if there is some dependecy.  */
 
 static unsigned int
-increase_distance (rtx prev, rtx next, unsigned int distance)
+increase_distance (rtx_insn *prev, rtx_insn *next, unsigned int distance)
 {
   df_ref def, use;
 
@@ -17843,12 +17815,12 @@ insn_uses_reg_mem (unsigned int regno, rtx insn)
 
 static int
 distance_non_agu_define_in_bb (unsigned int regno1, unsigned int regno2,
-			       rtx insn, int distance,
-			       rtx start, bool *found)
+			       rtx_insn *insn, int distance,
+			       rtx_insn *start, bool *found)
 {
   basic_block bb = start ? BLOCK_FOR_INSN (start) : NULL;
-  rtx prev = start;
-  rtx next = NULL;
+  rtx_insn *prev = start;
+  rtx_insn *next = NULL;
 
   *found = false;
 
@@ -17890,7 +17862,7 @@ distance_non_agu_define_in_bb (unsigned int regno1, unsigned int regno2,
 
 static int
 distance_non_agu_define (unsigned int regno1, unsigned int regno2,
-			 rtx insn)
+			 rtx_insn *insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
@@ -17967,12 +17939,12 @@ distance_non_agu_define (unsigned int regno1, unsigned int regno2,
 
 static int
 distance_agu_use_in_bb (unsigned int regno,
-			rtx insn, int distance, rtx start,
+			rtx_insn *insn, int distance, rtx_insn *start,
 			bool *found, bool *redefined)
 {
   basic_block bb = NULL;
-  rtx next = start;
-  rtx prev = NULL;
+  rtx_insn *next = start;
+  rtx_insn *prev = NULL;
 
   *found = false;
   *redefined = false;
@@ -18026,7 +17998,7 @@ distance_agu_use_in_bb (unsigned int regno,
    a use is found within LEA_SEARCH_THRESHOLD or REGNO0 is set.  */
 
 static int
-distance_agu_use (unsigned int regno0, rtx insn)
+distance_agu_use (unsigned int regno0, rtx_insn *insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
@@ -18100,7 +18072,7 @@ distance_agu_use (unsigned int regno0, rtx insn)
    SPLIT_COST cycles higher latency than lea latency.  */
 
 static bool
-ix86_lea_outperforms (rtx insn, unsigned int regno0, unsigned int regno1,
+ix86_lea_outperforms (rtx_insn *insn, unsigned int regno0, unsigned int regno1,
 		      unsigned int regno2, int split_cost, bool has_scale)
 {
   int dist_define, dist_use;
@@ -18154,7 +18126,7 @@ ix86_lea_outperforms (rtx insn, unsigned int regno0, unsigned int regno1,
    false otherwise.  */
 
 static bool
-ix86_ok_to_clobber_flags (rtx insn)
+ix86_ok_to_clobber_flags (rtx_insn *insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   df_ref use;
@@ -18186,7 +18158,7 @@ ix86_ok_to_clobber_flags (rtx insn)
    move and add to avoid AGU stalls.  */
 
 bool
-ix86_avoid_lea_for_add (rtx insn, rtx operands[])
+ix86_avoid_lea_for_add (rtx_insn *insn, rtx operands[])
 {
   unsigned int regno0, regno1, regno2;
 
@@ -18214,7 +18186,7 @@ ix86_avoid_lea_for_add (rtx insn, rtx operands[])
    instruction.  */
 
 bool
-ix86_use_lea_for_mov (rtx insn, rtx operands[])
+ix86_use_lea_for_mov (rtx_insn *insn, rtx operands[])
 {
   unsigned int regno0, regno1;
 
@@ -18236,7 +18208,7 @@ ix86_use_lea_for_mov (rtx insn, rtx operands[])
    instructions to avoid AGU stalls. */
 
 bool
-ix86_avoid_lea_for_addr (rtx insn, rtx operands[])
+ix86_avoid_lea_for_addr (rtx_insn *insn, rtx operands[])
 {
   unsigned int regno0, regno1, regno2;
   int split_cost;
@@ -18340,10 +18312,10 @@ ix86_emit_binop (enum rtx_code code, enum machine_mode mode,
 /* Return true if regno1 def is nearest to the insn.  */
 
 static bool
-find_nearest_reg_def (rtx insn, int regno1, int regno2)
+find_nearest_reg_def (rtx_insn *insn, int regno1, int regno2)
 {
-  rtx prev = insn;
-  rtx start = BB_HEAD (BLOCK_FOR_INSN (insn));
+  rtx_insn *prev = insn;
+  rtx_insn *start = BB_HEAD (BLOCK_FOR_INSN (insn));
 
   if (insn == start)
     return false;
@@ -18371,7 +18343,7 @@ find_nearest_reg_def (rtx insn, int regno1, int regno2)
    at lea position.  */
 
 void
-ix86_split_lea_for_addr (rtx insn, rtx operands[], enum machine_mode mode)
+ix86_split_lea_for_addr (rtx_insn *insn, rtx operands[], enum machine_mode mode)
 {
   unsigned int regno0, regno1, regno2;
   struct ix86_address parts;
@@ -18491,7 +18463,7 @@ ix86_split_lea_for_addr (rtx insn, rtx operands[], enum machine_mode mode)
    used soon, LEA is better and otherwise ADD is better.  */
 
 bool
-ix86_lea_for_add_ok (rtx insn, rtx operands[])
+ix86_lea_for_add_ok (rtx_insn *insn, rtx operands[])
 {
   unsigned int regno0 = true_regnum (operands[0]);
   unsigned int regno1 = true_regnum (operands[1]);
@@ -19925,7 +19897,8 @@ ix86_expand_branch (enum rtx_code code, rtx op0, rtx op1, rtx label)
     case TImode:
       /* Expand DImode branch into multiple compare+branch.  */
       {
-	rtx lo[2], hi[2], label2;
+	rtx lo[2], hi[2];
+	rtx_code_label *label2;
 	enum rtx_code code1, code2, code3;
 	enum machine_mode submode;
 
@@ -20097,7 +20070,8 @@ ix86_expand_carry_flag_compare (enum rtx_code code, rtx op0, rtx op1, rtx *pop)
 
   if (SCALAR_FLOAT_MODE_P (mode))
     {
-      rtx compare_op, compare_seq;
+      rtx compare_op;
+      rtx_insn *compare_seq;
 
       gcc_assert (!DECIMAL_FLOAT_MODE_P (mode));
 
@@ -20215,7 +20189,8 @@ bool
 ix86_expand_int_movcc (rtx operands[])
 {
   enum rtx_code code = GET_CODE (operands[1]), compare_code;
-  rtx compare_seq, compare_op;
+  rtx_insn *compare_seq;
+  rtx compare_op;
   enum machine_mode mode = GET_MODE (operands[0]);
   bool sign_bit_compare_p = false;
   rtx op0 = XEXP (operands[1], 0);
@@ -22734,10 +22709,10 @@ predict_jump (int prob)
 
 /* Helper function for the string operations below.  Dest VARIABLE whether
    it is aligned to VALUE bytes.  If true, jump to the label.  */
-static rtx
+static rtx_code_label *
 ix86_expand_aligntest (rtx variable, int value, bool epilogue)
 {
-  rtx label = gen_label_rtx ();
+  rtx_code_label *label = gen_label_rtx ();
   rtx tmpcount = gen_reg_rtx (GET_MODE (variable));
   if (GET_MODE (variable) == DImode)
     emit_insn (gen_anddi3 (tmpcount, variable, GEN_INT (value)));
@@ -22832,7 +22807,8 @@ expand_set_or_movmem_via_loop (rtx destmem, rtx srcmem,
 			       rtx count, enum machine_mode mode, int unroll,
 			       int expected_size, bool issetmem)
 {
-  rtx out_label, top_label, iter, tmp;
+  rtx_code_label *out_label, *top_label;
+  rtx iter, tmp;
   enum machine_mode iter_mode = counter_mode (count);
   int piece_size_n = GET_MODE_SIZE (mode) * unroll;
   rtx piece_size = GEN_INT (piece_size_n);
@@ -23149,7 +23125,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
     {
       if (max_size > 4)
 	{
-	  rtx label = ix86_expand_aligntest (count, 4, true);
+	  rtx_code_label *label = ix86_expand_aligntest (count, 4, true);
 	  src = change_address (srcmem, SImode, srcptr);
 	  dest = change_address (destmem, SImode, destptr);
 	  emit_insn (gen_strmov (destptr, dest, srcptr, src));
@@ -23158,7 +23134,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
 	}
       if (max_size > 2)
 	{
-	  rtx label = ix86_expand_aligntest (count, 2, true);
+	  rtx_code_label *label = ix86_expand_aligntest (count, 2, true);
 	  src = change_address (srcmem, HImode, srcptr);
 	  dest = change_address (destmem, HImode, destptr);
 	  emit_insn (gen_strmov (destptr, dest, srcptr, src));
@@ -23167,7 +23143,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
 	}
       if (max_size > 1)
 	{
-	  rtx label = ix86_expand_aligntest (count, 1, true);
+	  rtx_code_label *label = ix86_expand_aligntest (count, 1, true);
 	  src = change_address (srcmem, QImode, srcptr);
 	  dest = change_address (destmem, QImode, destptr);
 	  emit_insn (gen_strmov (destptr, dest, srcptr, src));
@@ -23182,7 +23158,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
 
       if (max_size > 4)
 	{
-	  rtx label = ix86_expand_aligntest (count, 4, true);
+	  rtx_code_label *label = ix86_expand_aligntest (count, 4, true);
 	  src = change_address (srcmem, SImode, srcptr);
 	  dest = change_address (destmem, SImode, destptr);
 	  emit_move_insn (dest, src);
@@ -23195,7 +23171,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
 	}
       if (max_size > 2)
 	{
-	  rtx label = ix86_expand_aligntest (count, 2, true);
+	  rtx_code_label *label = ix86_expand_aligntest (count, 2, true);
 	  tmp = gen_rtx_PLUS (Pmode, srcptr, offset);
 	  src = change_address (srcmem, HImode, tmp);
 	  tmp = gen_rtx_PLUS (Pmode, destptr, offset);
@@ -23210,7 +23186,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
 	}
       if (max_size > 1)
 	{
-	  rtx label = ix86_expand_aligntest (count, 1, true);
+	  rtx_code_label *label = ix86_expand_aligntest (count, 1, true);
 	  tmp = gen_rtx_PLUS (Pmode, srcptr, offset);
 	  src = change_address (srcmem, QImode, tmp);
 	  tmp = gen_rtx_PLUS (Pmode, destptr, offset);
@@ -23326,7 +23302,7 @@ expand_setmem_epilogue (rtx destmem, rtx destptr, rtx value, rtx vec_value,
     }
   if (max_size > 16)
     {
-      rtx label = ix86_expand_aligntest (count, 16, true);
+      rtx_code_label *label = ix86_expand_aligntest (count, 16, true);
       if (TARGET_64BIT)
 	{
 	  dest = change_address (destmem, DImode, destptr);
@@ -23350,7 +23326,7 @@ expand_setmem_epilogue (rtx destmem, rtx destptr, rtx value, rtx vec_value,
     }
   if (max_size > 8)
     {
-      rtx label = ix86_expand_aligntest (count, 8, true);
+      rtx_code_label *label = ix86_expand_aligntest (count, 8, true);
       if (TARGET_64BIT)
 	{
 	  dest = change_address (destmem, DImode, destptr);
@@ -23368,7 +23344,7 @@ expand_setmem_epilogue (rtx destmem, rtx destptr, rtx value, rtx vec_value,
     }
   if (max_size > 4)
     {
-      rtx label = ix86_expand_aligntest (count, 4, true);
+      rtx_code_label *label = ix86_expand_aligntest (count, 4, true);
       dest = change_address (destmem, SImode, destptr);
       emit_insn (gen_strset (destptr, dest, gen_lowpart (SImode, value)));
       emit_label (label);
@@ -23376,7 +23352,7 @@ expand_setmem_epilogue (rtx destmem, rtx destptr, rtx value, rtx vec_value,
     }
   if (max_size > 2)
     {
-      rtx label = ix86_expand_aligntest (count, 2, true);
+      rtx_code_label *label = ix86_expand_aligntest (count, 2, true);
       dest = change_address (destmem, HImode, destptr);
       emit_insn (gen_strset (destptr, dest, gen_lowpart (HImode, value)));
       emit_label (label);
@@ -23384,7 +23360,7 @@ expand_setmem_epilogue (rtx destmem, rtx destptr, rtx value, rtx vec_value,
     }
   if (max_size > 1)
     {
-      rtx label = ix86_expand_aligntest (count, 1, true);
+      rtx_code_label *label = ix86_expand_aligntest (count, 1, true);
       dest = change_address (destmem, QImode, destptr);
       emit_insn (gen_strset (destptr, dest, gen_lowpart (QImode, value)));
       emit_label (label);
@@ -23408,7 +23384,7 @@ expand_set_or_movmem_prologue (rtx destmem, rtx srcmem,
     {
       if (align <= i)
 	{
-	  rtx label = ix86_expand_aligntest (destptr, i, false);
+	  rtx_code_label *label = ix86_expand_aligntest (destptr, i, false);
 	  if (issetmem)
 	    {
 	      if (vec_value && i > GET_MODE_SIZE (GET_MODE (value)))
@@ -23437,7 +23413,7 @@ expand_small_movmem_or_setmem (rtx destmem, rtx srcmem,
 			       rtx count, int size,
 			       rtx done_label, bool issetmem)
 {
-  rtx label = ix86_expand_aligntest (count, size, false);
+  rtx_code_label *label = ix86_expand_aligntest (count, size, false);
   enum machine_mode mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 1);
   rtx modesize;
   int n;
@@ -23562,7 +23538,7 @@ expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx src
 							    enum machine_mode mode,
 							    rtx value, rtx vec_value,
 							    rtx *count,
-							    rtx *done_label,
+							    rtx_code_label **done_label,
 							    int size,
 							    int desired_align,
 							    int align,
@@ -23570,7 +23546,7 @@ expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx src
 							    bool dynamic_check,
 							    bool issetmem)
 {
-  rtx loop_label = NULL, label;
+  rtx_code_label *loop_label = NULL, *label;
   int n;
   rtx modesize;
   int prolog_size = 0;
@@ -24168,9 +24144,9 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 {
   rtx destreg;
   rtx srcreg = NULL;
-  rtx label = NULL;
+  rtx_code_label *label = NULL;
   rtx tmp;
-  rtx jump_around_label = NULL;
+  rtx_code_label *jump_around_label = NULL;
   HOST_WIDE_INT align = 1;
   unsigned HOST_WIDE_INT count = 0;
   HOST_WIDE_INT expected_size = -1;
@@ -24444,7 +24420,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	}
       else
 	{
-	  rtx hot_label = gen_label_rtx ();
+	  rtx_code_label *hot_label = gen_label_rtx ();
 	  if (jump_around_label == NULL_RTX)
 	    jump_around_label = gen_label_rtx ();
 	  emit_cmp_and_jump_insns (count_exp, GEN_INT (dynamic_check - 1),
@@ -24642,10 +24618,10 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 {
   int align;
   rtx tmp;
-  rtx align_2_label = NULL_RTX;
-  rtx align_3_label = NULL_RTX;
-  rtx align_4_label = gen_label_rtx ();
-  rtx end_0_label = gen_label_rtx ();
+  rtx_code_label *align_2_label = NULL;
+  rtx_code_label *align_3_label = NULL;
+  rtx_code_label *align_4_label = gen_label_rtx ();
+  rtx_code_label *end_0_label = gen_label_rtx ();
   rtx mem;
   rtx tmpreg = gen_reg_rtx (SImode);
   rtx scratch = gen_reg_rtx (SImode);
@@ -24769,7 +24745,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
     }
   else
     {
-       rtx end_2_label = gen_label_rtx ();
+       rtx_code_label *end_2_label = gen_label_rtx ();
        /* Is zero in the first two bytes? */
 
        emit_insn (gen_testsi_ccno_1 (tmpreg, GEN_INT (0x8080)));
@@ -24889,9 +24865,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 		  rtx callarg2,
 		  rtx pop, bool sibcall)
 {
-  unsigned int const cregs_size
-    = ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
-  rtx vec[3 + cregs_size];
+  rtx vec[3];
   rtx use = NULL, call;
   unsigned int vec_len = 0;
 
@@ -24954,18 +24928,16 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   if (TARGET_64BIT_MS_ABI
       && (!callarg2 || INTVAL (callarg2) != -2))
     {
-      unsigned i;
-
-      vec[vec_len++] = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx),
-				       UNSPEC_MS_TO_SYSV_CALL);
+      int const cregs_size
+	= ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
+      int i;
 
       for (i = 0; i < cregs_size; i++)
 	{
 	  int regno = x86_64_ms_sysv_extra_clobbered_registers[i];
 	  enum machine_mode mode = SSE_REGNO_P (regno) ? TImode : DImode;
 
-	  vec[vec_len++]
-	    = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (mode, regno));
+	  clobber_reg (&use, gen_rtx_REG (mode, regno));
 	}
     }
 
@@ -24981,7 +24953,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 /* Output the assembly for a call instruction.  */
 
 const char *
-ix86_output_call_insn (rtx insn, rtx call_op)
+ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 {
   bool direct_p = constant_call_address_operand (call_op, VOIDmode);
   bool seh_nop_p = false;
@@ -25006,7 +24978,7 @@ ix86_output_call_insn (rtx insn, rtx call_op)
      circumstances.  Determine if we have one of those.  */
   if (TARGET_SEH)
     {
-      rtx i;
+      rtx_insn *i;
 
       for (i = NEXT_INSN (insn); i ; i = NEXT_INSN (i))
 	{
@@ -25237,7 +25209,7 @@ memory_address_length (rtx addr, bool lea)
 /* Compute default value for "length_immediate" attribute.  When SHORTFORM
    is set, expect that insn have 8bit immediate alternative.  */
 int
-ix86_attr_length_immediate_default (rtx insn, bool shortform)
+ix86_attr_length_immediate_default (rtx_insn *insn, bool shortform)
 {
   int len = 0;
   int i;
@@ -25296,7 +25268,7 @@ ix86_attr_length_immediate_default (rtx insn, bool shortform)
 
 /* Compute default value for "length_address" attribute.  */
 int
-ix86_attr_length_address_default (rtx insn)
+ix86_attr_length_address_default (rtx_insn *insn)
 {
   int i;
 
@@ -25342,7 +25314,8 @@ ix86_attr_length_address_default (rtx insn)
    2 or 3 byte VEX prefix and 1 opcode byte.  */
 
 int
-ix86_attr_length_vex_default (rtx insn, bool has_0f_opcode, bool has_vex_w)
+ix86_attr_length_vex_default (rtx_insn *insn, bool has_0f_opcode,
+			      bool has_vex_w)
 {
   int i;
 
@@ -25420,7 +25393,7 @@ ix86_issue_rate (void)
    by DEP_INSN and nothing set by DEP_INSN.  */
 
 static bool
-ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
+ix86_flags_dependent (rtx_insn *insn, rtx_insn *dep_insn, enum attr_type insn_type)
 {
   rtx set, set2;
 
@@ -25465,7 +25438,7 @@ ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
    SET_INSN.  */
 
 bool
-ix86_agi_dependent (rtx set_insn, rtx use_insn)
+ix86_agi_dependent (rtx_insn *set_insn, rtx_insn *use_insn)
 {
   int i;
   extract_insn_cached (use_insn);
@@ -25528,7 +25501,7 @@ exact_dependency_1 (rtx addr, rtx insn)
 /* Return true if there exists exact dependency for store & load, i.e.
    the same memory address is used in them.  */
 static bool
-exact_store_load_dependency (rtx store, rtx load)
+exact_store_load_dependency (rtx_insn *store, rtx_insn *load)
 {
   rtx set1, set2;
 
@@ -25546,7 +25519,7 @@ exact_store_load_dependency (rtx store, rtx load)
 }
 
 static int
-ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+ix86_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type insn_type, dep_insn_type;
   enum attr_memory memory;
@@ -25824,10 +25797,9 @@ ix86_macro_fusion_p ()
    "Intel Architectures Optimization Reference Manual". */
 
 static bool
-ix86_macro_fusion_pair_p (rtx condgen, rtx condjmp)
+ix86_macro_fusion_pair_p (rtx_insn *condgen, rtx_insn *condjmp)
 {
   rtx src, dest;
-  rtx single_set = single_set (condgen);
   enum rtx_code ccode;
   rtx compare_set = NULL_RTX, test_if, cond;
   rtx alu_set = NULL_RTX, addr = NULL_RTX;
@@ -25841,13 +25813,12 @@ ix86_macro_fusion_pair_p (rtx condgen, rtx condjmp)
       && get_attr_type (condgen) != TYPE_ALU)
     return false;
 
-  if (single_set == NULL_RTX
+  compare_set = single_set (condgen);
+  if (compare_set == NULL_RTX
       && !TARGET_FUSE_ALU_AND_BRANCH)
     return false;
 
-  if (single_set != NULL_RTX)
-    compare_set = single_set;
-  else
+  if (compare_set == NULL_RTX)
     {
       int i;
       rtx pat = PATTERN (condgen);
@@ -25934,9 +25905,10 @@ ix86_macro_fusion_pair_p (rtx condgen, rtx condjmp)
        ready list.
    Return index of IMUL producer if it was found and -1 otherwise.  */
 static int
-do_reorder_for_imul (rtx *ready, int n_ready)
+do_reorder_for_imul (rtx_insn **ready, int n_ready)
 {
-  rtx insn, set, insn1, insn2;
+  rtx_insn *insn;
+  rtx set, insn1, insn2;
   sd_iterator_def sd_it;
   dep_t dep;
   int index = -1;
@@ -26011,10 +25983,10 @@ do_reorder_for_imul (rtx *ready, int n_ready)
    scheduled earlier. Applied for Silvermont only.
    Return true if top 2 insns must be interchanged.  */
 static bool
-swap_top_of_ready_list (rtx *ready, int n_ready)
+swap_top_of_ready_list (rtx_insn **ready, int n_ready)
 {
-  rtx top = ready[n_ready - 1];
-  rtx next = ready[n_ready - 2];
+  rtx_insn *top = ready[n_ready - 1];
+  rtx_insn *next = ready[n_ready - 2];
   rtx set;
   sd_iterator_def sd_it;
   dep_t dep;
@@ -26082,13 +26054,13 @@ swap_top_of_ready_list (rtx *ready, int n_ready)
 /* Perform possible reodering of ready list for Atom/Silvermont only.
    Return issue rate.  */
 static int
-ix86_sched_reorder (FILE *dump, int sched_verbose, rtx *ready, int *pn_ready,
-		   int clock_var)
+ix86_sched_reorder (FILE *dump, int sched_verbose, rtx_insn **ready,
+		    int *pn_ready, int clock_var)
 {
   int issue_rate = -1;
   int n_ready = *pn_ready;
   int i;
-  rtx insn;
+  rtx_insn *insn;
   int index = -1;
 
   /* Set up issue rate.  */
@@ -26168,12 +26140,12 @@ insn_is_function_arg (rtx insn, bool* is_spilled)
 /* Add output dependencies for chain of function adjacent arguments if only
    there is a move to likely spilled HW register.  Return first argument
    if at least one dependence was added or NULL otherwise.  */
-static rtx
-add_parameter_dependencies (rtx call, rtx head)
+static rtx_insn *
+add_parameter_dependencies (rtx_insn *call, rtx_insn *head)
 {
-  rtx insn;
-  rtx last = call;
-  rtx first_arg = NULL;
+  rtx_insn *insn;
+  rtx_insn *last = call;
+  rtx_insn *first_arg = NULL;
   bool is_spilled = false;
 
   head = PREV_INSN (head);
@@ -26223,7 +26195,7 @@ add_parameter_dependencies (rtx call, rtx head)
 /* Add output or anti dependency from insn to first_arg to restrict its code
    motion.  */
 static void
-avoid_func_arg_motion (rtx first_arg, rtx insn)
+avoid_func_arg_motion (rtx_insn *first_arg, rtx_insn *insn)
 {
   rtx set;
   rtx tmp;
@@ -26245,9 +26217,9 @@ avoid_func_arg_motion (rtx first_arg, rtx insn)
 /* Avoid cross block motion of function argument through adding dependency
    from the first non-jump instruction in bb.  */
 static void
-add_dependee_for_func_arg (rtx arg, basic_block bb)
+add_dependee_for_func_arg (rtx_insn *arg, basic_block bb)
 {
-  rtx insn = BB_END (bb);
+  rtx_insn *insn = BB_END (bb);
 
   while (insn)
     {
@@ -26269,10 +26241,10 @@ add_dependee_for_func_arg (rtx arg, basic_block bb)
 /* Hook for pre-reload schedule - avoid motion of function arguments
    passed in likely spilled HW registers.  */
 static void
-ix86_dependencies_evaluation_hook (rtx head, rtx tail)
+ix86_dependencies_evaluation_hook (rtx_insn *head, rtx_insn *tail)
 {
-  rtx insn;
-  rtx first_arg = NULL;
+  rtx_insn *insn;
+  rtx_insn *first_arg = NULL;
   if (reload_completed)
     return;
   while (head != tail && DEBUG_INSN_P (head))
@@ -26322,7 +26294,7 @@ ix86_dependencies_evaluation_hook (rtx head, rtx tail)
    moves from function argument registers at the top of the function entry
    and moves from function return value registers after call.  */
 static int
-ix86_adjust_priority (rtx insn, int priority)
+ix86_adjust_priority (rtx_insn *insn, int priority)
 {
   rtx set;
 
@@ -26398,7 +26370,7 @@ core2i7_dfa_post_advance_cycle (void)
   data->ifetch_block_n_insns = 0;
 }
 
-static int min_insn_size (rtx);
+static int min_insn_size (rtx_insn *);
 
 /* Filter out insns from ready_try that the core will not be able to issue
    on current cycle due to decoder.  */
@@ -26409,7 +26381,7 @@ core2i7_first_cycle_multipass_filter_ready_try
 {
   while (n_ready--)
     {
-      rtx insn;
+      rtx_insn *insn;
       int insn_size;
 
       if (ready_try[n_ready])
@@ -26461,7 +26433,7 @@ core2i7_first_cycle_multipass_begin (void *_data,
 static void
 core2i7_first_cycle_multipass_issue (void *_data,
 				     signed char *ready_try, int n_ready,
-				     rtx insn, const void *_prev_data)
+				     rtx_insn *insn, const void *_prev_data)
 {
   ix86_first_cycle_multipass_data_t data
     = (ix86_first_cycle_multipass_data_t) _data;
@@ -28778,6 +28750,10 @@ enum ix86_builtins
   IX86_BUILTIN_ADDCARRYX32,
   IX86_BUILTIN_ADDCARRYX64,
 
+  /* SBB instructions.  */
+  IX86_BUILTIN_SBB32,
+  IX86_BUILTIN_SBB64,
+
   /* FSGSBASE instructions.  */
   IX86_BUILTIN_RDFSBASE32,
   IX86_BUILTIN_RDFSBASE64,
@@ -30306,8 +30282,8 @@ static const struct builtin_description bdesc_round_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_sgetexpv4sf_round, "__builtin_ia32_getexpss128_round", IX86_BUILTIN_GETEXPSS128, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_getmantv8df_mask_round, "__builtin_ia32_getmantpd512_mask", IX86_BUILTIN_GETMANTPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF_INT_V8DF_QI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_getmantv16sf_mask_round, "__builtin_ia32_getmantps512_mask", IX86_BUILTIN_GETMANTPS512, UNKNOWN, (int) V16SF_FTYPE_V16SF_INT_V16SF_HI_INT },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_getmantv2df_round, "__builtin_ia32_getmantsd_round", IX86_BUILTIN_GETMANTSD128, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_INT_INT },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_getmantv4sf_round, "__builtin_ia32_getmantss_round", IX86_BUILTIN_GETMANTSS128, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_INT_INT },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vgetmantv2df_round, "__builtin_ia32_getmantsd_round", IX86_BUILTIN_GETMANTSD128, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_INT_INT },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vgetmantv4sf_round, "__builtin_ia32_getmantss_round", IX86_BUILTIN_GETMANTSS128, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_INT_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_smaxv8df3_mask_round, "__builtin_ia32_maxpd512_mask", IX86_BUILTIN_MAXPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_V8DF_QI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_smaxv16sf3_mask_round, "__builtin_ia32_maxps512_mask", IX86_BUILTIN_MAXPS512, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_V16SF_HI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_sse2_vmsmaxv2df3_round, "__builtin_ia32_maxsd_round", IX86_BUILTIN_MAXSD_ROUND, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_INT },
@@ -31212,6 +31188,14 @@ ix86_init_mmx_sse_builtins (void)
 	       "__builtin_ia32_addcarryx_u64",
 	       UCHAR_FTYPE_UCHAR_ULONGLONG_ULONGLONG_PULONGLONG,
 	       IX86_BUILTIN_ADDCARRYX64);
+
+  /* SBB */
+  def_builtin (0, "__builtin_ia32_sbb_u32",
+	       UCHAR_FTYPE_UCHAR_UINT_UINT_PUNSIGNED, IX86_BUILTIN_SBB32);
+  def_builtin (OPTION_MASK_ISA_64BIT,
+	       "__builtin_ia32_sbb_u64",
+	       UCHAR_FTYPE_UCHAR_ULONGLONG_ULONGLONG_PULONGLONG,
+	       IX86_BUILTIN_SBB64);
 
   /* Read/write FLAGS.  */
   def_builtin (~OPTION_MASK_ISA_64BIT, "__builtin_ia32_readeflags_u32",
@@ -32231,7 +32215,7 @@ make_resolver_func (const tree default_decl,
   *empty_bb = init_lowered_empty_function (decl, false);
 
   cgraph_node::add_new_function (decl, true);
-  cgraph_node::get_create (decl)->call_function_insertion_hooks ();
+  symtab->call_cgraph_insertion_hooks (cgraph_node::get_create (decl));
 
   pop_cfun ();
 
@@ -32304,7 +32288,7 @@ ix86_generate_version_dispatcher_body (void *node_p)
     }
 
   dispatch_function_versions (resolver_decl, &fn_ver_vec, &empty_bb);
-  rebuild_cgraph_edges (); 
+  cgraph_edge::rebuild_edges ();
   pop_cfun ();
   return resolver_decl;
 }
@@ -32493,7 +32477,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
 					"__cpu_model");
 
 
-  varpool_add_new_variable (__cpu_model_var);
+  varpool_node::add (__cpu_model_var);
 
   gcc_assert ((args != NULL) && (*args != NULL));
 
@@ -34099,6 +34083,16 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 	      case CODE_FOR_avx_vpermilv4df:
 	      case CODE_FOR_avx512f_getmantv8df_mask:
 	      case CODE_FOR_avx512f_getmantv16sf_mask:
+	      case CODE_FOR_avx512vl_getmantv8sf_mask:
+	      case CODE_FOR_avx512vl_getmantv4df_mask:
+	      case CODE_FOR_avx512vl_getmantv4sf_mask:
+	      case CODE_FOR_avx512vl_getmantv2df_mask:
+	      case CODE_FOR_avx512dq_rangepv8df_mask_round:
+	      case CODE_FOR_avx512dq_rangepv16sf_mask_round:
+	      case CODE_FOR_avx512dq_rangepv4df_mask:
+	      case CODE_FOR_avx512dq_rangepv8sf_mask:
+	      case CODE_FOR_avx512dq_rangepv2df_mask:
+	      case CODE_FOR_avx512dq_rangepv4sf_mask:
 		error ("the last argument must be a 4-bit immediate");
 		return const0_rtx;
 
@@ -34505,8 +34499,8 @@ ix86_expand_round_builtin (const struct builtin_description *d,
 		{
 		case CODE_FOR_avx512f_getmantv8df_mask_round:
 		case CODE_FOR_avx512f_getmantv16sf_mask_round:
-		case CODE_FOR_avx512f_getmantv2df_round:
-		case CODE_FOR_avx512f_getmantv4sf_round:
+		case CODE_FOR_avx512f_vgetmantv2df_round:
+		case CODE_FOR_avx512f_vgetmantv4sf_round:
 		  error ("the immediate argument must be a 4-bit immediate");
 		  return const0_rtx;
 		case CODE_FOR_avx512f_cmpv8df3_mask_round:
@@ -35616,6 +35610,16 @@ rdseed_step:
 
       emit_insn (gen_zero_extendqisi2 (target, op2));
       return target;
+
+    case IX86_BUILTIN_SBB32:
+      icode = CODE_FOR_subsi3_carry;
+      mode0 = SImode;
+      goto addcarryx;
+
+    case IX86_BUILTIN_SBB64:
+      icode = CODE_FOR_subdi3_carry;
+      mode0 = DImode;
+      goto addcarryx;
 
     case IX86_BUILTIN_ADDCARRYX32:
       icode = TARGET_ADX ? CODE_FOR_adcxsi3 : CODE_FOR_addsi3_carry;
@@ -37518,13 +37522,6 @@ ix86_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
 	 the vec_dupv4hi pattern.  */
       if (GET_MODE_SIZE (from) < 4)
 	return true;
-
-      /* Vector registers do not support subreg with nonzero offsets, which
-	 are otherwise valid for integer registers.  Since we can't see
-	 whether we have a nonzero offset from here, prohibit all
-         nonparadoxical subregs changing size.  */
-      if (GET_MODE_SIZE (to) < GET_MODE_SIZE (from))
-	return true;
     }
 
   return false;
@@ -38831,6 +38828,7 @@ x86_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
   rtx this_param = x86_this_parameter (function);
   rtx this_reg, tmp, fnaddr;
   unsigned int tmp_regno;
+  rtx_insn *insn;
 
   if (TARGET_64BIT)
     tmp_regno = R10_REG;
@@ -38990,10 +38988,10 @@ x86_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
 
   /* Emit just enough of rest_of_compilation to get the insns emitted.
      Note that use_thunk calls assemble_start_function et al.  */
-  tmp = get_insns ();
-  shorten_branches (tmp);
-  final_start_function (tmp, file, 1);
-  final (tmp, file, 1);
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1);
   final_end_function ();
 }
 
@@ -39073,7 +39071,7 @@ x86_function_profiler (FILE *file, int labelno ATTRIBUTE_UNUSED)
    99% of cases.  */
 
 static int
-min_insn_size (rtx insn)
+min_insn_size (rtx_insn *insn)
 {
   int l = 0, len;
 
@@ -39134,7 +39132,7 @@ min_insn_size (rtx insn)
 static void
 ix86_avoid_jump_mispredicts (void)
 {
-  rtx insn, start = get_insns ();
+  rtx_insn *insn, *start = get_insns ();
   int nbytes = 0, njumps = 0;
   int isjump = 0;
 
@@ -39240,8 +39238,8 @@ ix86_pad_returns (void)
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
       basic_block bb = e->src;
-      rtx ret = BB_END (bb);
-      rtx prev;
+      rtx_insn *ret = BB_END (bb);
+      rtx_insn *prev;
       bool replace = false;
 
       if (!JUMP_P (ret) || !ANY_RETURN_P (PATTERN (ret))
@@ -39289,7 +39287,7 @@ ix86_pad_returns (void)
 static int
 ix86_count_insn_bb (basic_block bb)
 {
-  rtx insn;
+  rtx_insn *insn;
   int insn_count = 0;
 
   /* Count number of instructions in this block.  Return 4 if the number
@@ -39370,7 +39368,7 @@ ix86_pad_short_function (void)
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
-      rtx ret = BB_END (e->src);
+      rtx_insn *ret = BB_END (e->src);
       if (JUMP_P (ret) && ANY_RETURN_P (PATTERN (ret)))
 	{
 	  int insn_count = ix86_count_insn (e->src);
@@ -39378,7 +39376,7 @@ ix86_pad_short_function (void)
 	  /* Pad short function.  */
 	  if (insn_count < 4)
 	    {
-	      rtx insn = ret;
+	      rtx_insn *insn = ret;
 
 	      /* Find epilogue.  */
 	      while (insn
@@ -39410,7 +39408,7 @@ ix86_seh_fixup_eh_fallthru (void)
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
-      rtx insn, next;
+      rtx_insn *insn, *next;
 
       /* Find the beginning of the epilogue.  */
       for (insn = BB_END (e->src); insn != NULL; insn = PREV_INSN (insn))
@@ -39465,7 +39463,7 @@ ix86_reorg (void)
 /* Return nonzero when QImode register that must be represented via REX prefix
    is used.  */
 bool
-x86_extended_QIreg_mentioned_p (rtx insn)
+x86_extended_QIreg_mentioned_p (rtx_insn *insn)
 {
   int i;
   extract_insn_cached (insn);
@@ -39549,7 +39547,8 @@ x86_maybe_negate_const_int (rtx *loc, enum machine_mode mode)
 void
 x86_emit_floatuns (rtx operands[2])
 {
-  rtx neglab, donelab, i0, i1, f0, in, out;
+  rtx_code_label *neglab, *donelab;
+  rtx i0, i1, f0, in, out;
   enum machine_mode mode, inmode;
 
   inmode = GET_MODE (operands[1]);
@@ -39622,14 +39621,15 @@ static bool
 ix86_vector_duplicate_value (enum machine_mode mode, rtx target, rtx val)
 {
   bool ok;
-  rtx insn, dup;
+  rtx_insn *insn;
+  rtx dup;
 
   /* First attempt to recognize VAL as-is.  */
   dup = gen_rtx_VEC_DUPLICATE (mode, val);
   insn = emit_insn (gen_rtx_SET (VOIDmode, target, dup));
   if (recog_memoized (insn) < 0)
     {
-      rtx seq;
+      rtx_insn *seq;
       /* If that fails, force VAL into a register.  */
 
       start_sequence ();
@@ -40968,6 +40968,32 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
 	}
       break;
 
+    case V32HImode:
+      if (TARGET_AVX512BW)
+	{
+	  tmp = gen_reg_rtx (V16HImode);
+	  if (elt < 16)
+	    emit_insn (gen_vec_extract_lo_v32hi (tmp, vec));
+	  else
+	    emit_insn (gen_vec_extract_hi_v32hi (tmp, vec));
+	  ix86_expand_vector_extract (false, target, tmp, elt & 15);
+	  return;
+	}
+      break;
+
+    case V64QImode:
+      if (TARGET_AVX512BW)
+	{
+	  tmp = gen_reg_rtx (V32QImode);
+	  if (elt < 32)
+	    emit_insn (gen_vec_extract_lo_v64qi (tmp, vec));
+	  else
+	    emit_insn (gen_vec_extract_hi_v64qi (tmp, vec));
+	  ix86_expand_vector_extract (false, target, tmp, elt & 31);
+	  return;
+	}
+      break;
+
     case V16SFmode:
       tmp = gen_reg_rtx (V8SFmode);
       if (elt < 8)
@@ -41207,6 +41233,31 @@ ix86_vector_mode_supported_p (enum machine_mode mode)
   return false;
 }
 
+/* Implement target hook libgcc_floating_mode_supported_p.  */
+static bool
+ix86_libgcc_floating_mode_supported_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case SFmode:
+    case DFmode:
+    case XFmode:
+      return true;
+
+    case TFmode:
+#ifdef IX86_NO_LIBGCC_TFMODE
+      return false;
+#elif defined IX86_MAYBE_NO_LIBGCC_TFMODE
+      return TARGET_LONG_DOUBLE_128;
+#else
+      return true;
+#endif
+
+    default:
+      return false;
+    }
+}
+
 /* Target hook for c_mode_for_suffix.  */
 static enum machine_mode
 ix86_c_mode_for_suffix (char suffix)
@@ -41334,8 +41385,8 @@ ix86_emit_fp_unordered_jump (rtx label)
 
 void ix86_emit_i387_log1p (rtx op0, rtx op1)
 {
-  rtx label1 = gen_label_rtx ();
-  rtx label2 = gen_label_rtx ();
+  rtx_code_label *label1 = gen_label_rtx ();
+  rtx_code_label *label2 = gen_label_rtx ();
 
   rtx tmp = gen_reg_rtx (XFmode);
   rtx tmp2 = gen_reg_rtx (XFmode);
@@ -41369,7 +41420,7 @@ void ix86_emit_i387_round (rtx op0, rtx op1)
   rtx e1, e2, res, tmp, tmp1, half;
   rtx scratch = gen_reg_rtx (HImode);
   rtx flags = gen_rtx_REG (CCNOmode, FLAGS_REG);
-  rtx jump_label = gen_label_rtx ();
+  rtx_code_label *jump_label = gen_label_rtx ();
   rtx insn;
   rtx (*gen_abs) (rtx, rtx);
   rtx (*gen_neg) (rtx, rtx);
@@ -41805,12 +41856,13 @@ ix86_expand_sse_fabs (rtx op0, rtx *smask)
    swapping the operands if SWAP_OPERANDS is true.  The expanded
    code is a forward jump to a newly created label in case the
    comparison is true.  The generated label rtx is returned.  */
-static rtx
+static rtx_code_label *
 ix86_expand_sse_compare_and_jump (enum rtx_code code, rtx op0, rtx op1,
                                   bool swap_operands)
 {
   enum machine_mode fpcmp_mode = ix86_fp_compare_mode (code);
-  rtx label, tmp;
+  rtx_code_label *label;
+  rtx tmp;
 
   if (swap_operands)
     {
@@ -41914,7 +41966,8 @@ ix86_expand_lfloorceil (rtx op0, rtx op1, bool do_floor)
    */
   enum machine_mode fmode = GET_MODE (op1);
   enum machine_mode imode = GET_MODE (op0);
-  rtx ireg, freg, label, tmp;
+  rtx ireg, freg, tmp;
+  rtx_code_label *label;
 
   /* reg = (long)op1 */
   ireg = gen_reg_rtx (imode);
@@ -41950,7 +42003,8 @@ ix86_expand_rint (rtx operand0, rtx operand1)
         return copysign (xa, operand1);
    */
   enum machine_mode mode = GET_MODE (operand0);
-  rtx res, xa, label, TWO52, mask;
+  rtx res, xa, TWO52, mask;
+  rtx_code_label *label;
 
   res = gen_reg_rtx (mode);
   emit_move_insn (res, operand1);
@@ -41993,7 +42047,8 @@ ix86_expand_floorceildf_32 (rtx operand0, rtx operand1, bool do_floor)
         return x2;
    */
   enum machine_mode mode = GET_MODE (operand0);
-  rtx xa, TWO52, tmp, label, one, res, mask;
+  rtx xa, TWO52, tmp, one, res, mask;
+  rtx_code_label *label;
 
   TWO52 = ix86_gen_TWO52 (mode);
 
@@ -42056,7 +42111,8 @@ ix86_expand_floorceil (rtx operand0, rtx operand1, bool do_floor)
 	return x2;
    */
   enum machine_mode mode = GET_MODE (operand0);
-  rtx xa, xi, TWO52, tmp, label, one, res, mask;
+  rtx xa, xi, TWO52, tmp, one, res, mask;
+  rtx_code_label *label;
 
   TWO52 = ix86_gen_TWO52 (mode);
 
@@ -42119,7 +42175,8 @@ ix86_expand_rounddf_32 (rtx operand0, rtx operand1)
         return x2;
    */
   enum machine_mode mode = GET_MODE (operand0);
-  rtx xa, xa2, dxa, TWO52, tmp, label, half, mhalf, one, res, mask;
+  rtx xa, xa2, dxa, TWO52, tmp, half, mhalf, one, res, mask;
+  rtx_code_label *label;
 
   TWO52 = ix86_gen_TWO52 (mode);
 
@@ -42184,7 +42241,8 @@ ix86_expand_trunc (rtx operand0, rtx operand1)
 	return x2;
    */
   enum machine_mode mode = GET_MODE (operand0);
-  rtx xa, xi, TWO52, label, res, mask;
+  rtx xa, xi, TWO52, res, mask;
+  rtx_code_label *label;
 
   TWO52 = ix86_gen_TWO52 (mode);
 
@@ -42219,7 +42277,8 @@ void
 ix86_expand_truncdf_32 (rtx operand0, rtx operand1)
 {
   enum machine_mode mode = GET_MODE (operand0);
-  rtx xa, mask, TWO52, label, one, res, smask, tmp;
+  rtx xa, mask, TWO52, one, res, smask, tmp;
+  rtx_code_label *label;
 
   /* C code for SSE variant we expand below.
         double xa = fabs (x), x2;
@@ -42284,7 +42343,8 @@ ix86_expand_round (rtx operand0, rtx operand1)
         return copysign (xa, x);
    */
   enum machine_mode mode = GET_MODE (operand0);
-  rtx res, TWO52, xa, label, xi, half, mask;
+  rtx res, TWO52, xa, xi, half, mask;
+  rtx_code_label *label;
   const struct real_format *fmt;
   REAL_VALUE_TYPE pred_half, half_minus_pred_half;
 
@@ -42489,7 +42549,7 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
    insn, so that expand_vselect{,_vconcat} doesn't have to create a fresh
    insn every time.  */
 
-static GTY(()) rtx vselect_insn;
+static GTY(()) rtx_insn *vselect_insn;
 
 /* Initialize vselect_insn.  */
 
@@ -43339,7 +43399,7 @@ expand_vec_perm_interleave2 (struct expand_vec_perm_d *d)
   unsigned i, nelt = d->nelt, nelt2 = nelt / 2;
   unsigned HOST_WIDE_INT contents;
   unsigned char remap[2 * MAX_VECT_LEN];
-  rtx seq;
+  rtx_insn *seq;
   bool ok, same_halves = false;
 
   if (GET_MODE_SIZE (d->vmode) == 16)
@@ -43888,7 +43948,7 @@ expand_vec_perm_vperm2f128_vblend (struct expand_vec_perm_d *d)
 {
   struct expand_vec_perm_d dfirst, dsecond;
   unsigned i, j, msk, nelt = d->nelt, nelt2 = nelt / 2;
-  rtx seq;
+  rtx_insn *seq;
   bool ok;
   rtx (*blend) (rtx, rtx, rtx, rtx) = NULL;
 
@@ -45791,7 +45851,7 @@ static dispatch_windows *dispatch_window_list1;
 /* Get dispatch group of insn.  */
 
 static enum dispatch_group
-get_mem_group (rtx insn)
+get_mem_group (rtx_insn *insn)
 {
   enum attr_memory memory;
 
@@ -45813,7 +45873,7 @@ get_mem_group (rtx insn)
 /* Return true if insn is a compare instruction.  */
 
 static bool
-is_cmp (rtx insn)
+is_cmp (rtx_insn *insn)
 {
   enum attr_type type;
 
@@ -46050,7 +46110,7 @@ has_immediate (rtx insn)
 /* Return single or double path for instructions.  */
 
 static enum insn_path
-get_insn_path (rtx insn)
+get_insn_path (rtx_insn *insn)
 {
   enum attr_amdfam10_decode path = get_attr_amdfam10_decode (insn);
 
@@ -46066,7 +46126,7 @@ get_insn_path (rtx insn)
 /* Return insn dispatch group.  */
 
 static enum dispatch_group
-get_insn_group (rtx insn)
+get_insn_group (rtx_insn *insn)
 {
   enum dispatch_group group = get_mem_group (insn);
   if (group)
@@ -46091,7 +46151,7 @@ get_insn_group (rtx insn)
    window WINDOW_LIST.  */
 
 static int
-count_num_restricted (rtx insn, dispatch_windows *window_list)
+count_num_restricted (rtx_insn *insn, dispatch_windows *window_list)
 {
   enum dispatch_group group = get_insn_group (insn);
   int imm_size;
@@ -46141,7 +46201,7 @@ count_num_restricted (rtx insn, dispatch_windows *window_list)
    last window scheduled.  */
 
 static bool
-fits_dispatch_window (rtx insn)
+fits_dispatch_window (rtx_insn *insn)
 {
   dispatch_windows *window_list = dispatch_window_list;
   dispatch_windows *window_list_next = dispatch_window_list->next;
@@ -46198,7 +46258,7 @@ fits_dispatch_window (rtx insn)
    dispatch window WINDOW_LIST.  */
 
 static void
-add_insn_window (rtx insn, dispatch_windows *window_list, int num_uops)
+add_insn_window (rtx_insn *insn, dispatch_windows *window_list, int num_uops)
 {
   int byte_len = min_insn_size (insn);
   int num_insn = window_list->num_insn;
@@ -46249,7 +46309,7 @@ add_insn_window (rtx insn, dispatch_windows *window_list, int num_uops)
    the window exceed allowable, it allocates a new window.  */
 
 static void
-add_to_dispatch_window (rtx insn)
+add_to_dispatch_window (rtx_insn *insn)
 {
   int byte_len;
   dispatch_windows *window_list;
@@ -46384,7 +46444,7 @@ debug_dispatch_window (int window_num)
 /* Print INSN dispatch information to FILE.  */
 
 DEBUG_FUNCTION static void
-debug_insn_dispatch_info_file (FILE *file, rtx insn)
+debug_insn_dispatch_info_file (FILE *file, rtx_insn *insn)
 {
   int byte_len;
   enum insn_path path;
@@ -46428,7 +46488,7 @@ debug_ready_dispatch (void)
 /* This routine is the driver of the dispatch scheduler.  */
 
 static void
-do_dispatch (rtx insn, int mode)
+do_dispatch (rtx_insn *insn, int mode)
 {
   if (mode == DISPATCH_INIT)
     init_dispatch_sched ();
@@ -46439,7 +46499,7 @@ do_dispatch (rtx insn, int mode)
 /* Return TRUE if Dispatch Scheduling is supported.  */
 
 static bool
-has_dispatch (rtx insn, int action)
+has_dispatch (rtx_insn *insn, int action)
 {
   if ((TARGET_BDVER1 || TARGET_BDVER2 || TARGET_BDVER3 || TARGET_BDVER4)
       && flag_dispatch_scheduler)
@@ -46885,7 +46945,7 @@ static unsigned
 ix86_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
 {
   basic_block *bbs;
-  rtx insn;
+  rtx_insn *insn;
   unsigned i;
   unsigned mem_count = 0;
 
@@ -46898,7 +46958,8 @@ ix86_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
     {
       for (insn = BB_HEAD (bbs[i]); insn != BB_END (bbs[i]); insn = NEXT_INSN (insn))
         if (NONDEBUG_INSN_P (insn))
-            for_each_rtx (&insn, (rtx_function) ix86_loop_memcount, &mem_count);
+            for_each_rtx_in_insn (&insn, (rtx_function) ix86_loop_memcount,
+				  &mem_count);
     }
   free (bbs);
 
@@ -47261,6 +47322,10 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
+
+#undef TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
+#define TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P \
+  ix86_libgcc_floating_mode_supported_p
 
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ix86_c_mode_for_suffix

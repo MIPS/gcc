@@ -2565,7 +2565,7 @@ build_entry_thunks (gfc_namespace * ns, bool global)
 
       current_function_decl = NULL_TREE;
 
-      cgraph_finalize_function (thunk_fndecl, true);
+      cgraph_node::finalize_function (thunk_fndecl, true);
 
       /* We share the symbols in the formal argument list with other entry
 	 points and the master function.  Clear them so that they are
@@ -3353,20 +3353,23 @@ gfc_build_builtin_function_decls (void)
         ppvoid_type_node, pint_type, pchar_type_node, integer_type_node);
 
       gfor_fndecl_caf_get = gfc_build_library_function_decl_with_spec (
-	get_identifier (PREFIX("caf_get")), ".R.RRRW", void_type_node, 8,
+	get_identifier (PREFIX("caf_get")), ".R.RRRW", void_type_node, 9,
         pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
-	pvoid_type_node, pvoid_type_node, integer_type_node, integer_type_node);
+	pvoid_type_node, pvoid_type_node, integer_type_node, integer_type_node,
+	boolean_type_node);
 
       gfor_fndecl_caf_send = gfc_build_library_function_decl_with_spec (
-	get_identifier (PREFIX("caf_send")), ".R.RRRR", void_type_node, 8,
+	get_identifier (PREFIX("caf_send")), ".R.RRRR", void_type_node, 9,
         pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
-	pvoid_type_node, pvoid_type_node, integer_type_node, integer_type_node);
+	pvoid_type_node, pvoid_type_node, integer_type_node, integer_type_node,
+	boolean_type_node);
 
       gfor_fndecl_caf_sendget = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_sendget")), ".R.RRRR.RRR", void_type_node,
-	12, pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+	13, pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
 	pvoid_type_node, pvoid_type_node, size_type_node, integer_type_node,
-	pvoid_type_node, pvoid_type_node, integer_type_node, integer_type_node);
+	pvoid_type_node, pvoid_type_node, integer_type_node, integer_type_node,
+	boolean_type_node);
 
       gfor_fndecl_caf_sync_all = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_sync_all")), ".WW", void_type_node,
@@ -3418,7 +3421,7 @@ gfc_build_builtin_function_decls (void)
 
       gfor_fndecl_caf_unlock = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_unlock")), "R..WW",
-	void_type_node, 7, pvoid_type_node, size_type_node, integer_type_node,
+	void_type_node, 6, pvoid_type_node, size_type_node, integer_type_node,
 	pint_type, pchar_type_node, integer_type_node);
 
       gfor_fndecl_co_max = gfc_build_library_function_decl_with_spec (
@@ -3648,7 +3651,7 @@ gfc_init_default_dt (gfc_symbol * sym, stmtblock_t * block, bool dealloc)
 
 /* Initialize INTENT(OUT) derived type dummies.  As well as giving
    them their default initializer, if they do not have allocatable
-   components, they have their allocatable components deallocated. */
+   components, they have their allocatable components deallocated.  */
 
 static void
 init_intent_out_dt (gfc_symbol * proc_sym, gfc_wrapped_block * block)
@@ -4817,7 +4820,7 @@ generate_coarray_init (gfc_namespace * ns __attribute((unused)))
   if (decl_function_context (fndecl))
     (void) cgraph_node::create (fndecl);
   else
-    cgraph_finalize_function (fndecl, true);
+    cgraph_node::finalize_function (fndecl, true);
 
   pop_function_context ();
   current_function_decl = save_fn_decl;
@@ -5347,7 +5350,7 @@ create_main_function (tree fndecl)
 
   gfc_init_block (&body);
 
-  /* Call some libgfortran initialization routines, call then MAIN__(). */
+  /* Call some libgfortran initialization routines, call then MAIN__().  */
 
   /* Call _gfortran_caf_init (*argc, ***argv).  */
   if (gfc_option.coarray == GFC_FCOARRAY_LIB)
@@ -5410,7 +5413,7 @@ create_main_function (tree fndecl)
     /* TODO: This is the -frange-check option, which no longer affects
        library behavior; when bumping the library ABI this slot can be
        reused for something else. As it is the last element in the
-       array, we can instead leave it out altogether. */
+       array, we can instead leave it out altogether.  */
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
                             build_int_cst (integer_type_node, 0));
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
@@ -5529,7 +5532,7 @@ create_main_function (tree fndecl)
   /* Output the GENERIC tree.  */
   dump_function (TDI_original, ftn_main);
 
-  cgraph_finalize_function (ftn_main, true);
+  cgraph_node::finalize_function (ftn_main, true);
 
   if (old_context)
     {
@@ -5911,7 +5914,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 	(void) cgraph_node::create (fndecl);
     }
   else
-    cgraph_finalize_function (fndecl, true);
+    cgraph_node::finalize_function (fndecl, true);
 
   gfc_trans_use_stmts (ns);
   gfc_traverse_ns (ns, gfc_emit_parameter_debug_info);

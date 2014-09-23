@@ -667,6 +667,8 @@ write_mangled_name (const tree decl, bool top_level)
 	}
     }
   else if (VAR_P (decl)
+	   /* Variable template instantiations are mangled.  */
+	   && !(DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl))
 	   /* The names of non-static global variables aren't mangled.  */
 	   && DECL_EXTERNAL_LINKAGE_P (decl)
 	   && (CP_DECL_CONTEXT (decl) == global_namespace
@@ -2859,11 +2861,16 @@ write_expression (tree expr)
 	    {
 	      write_string (operator_name_info[(int)code].mangled_name);
 	      ob = TREE_OPERAND (ob, 0);
+	      write_expression (ob);
 	    }
-	  else
-	    write_string ("dt");
+	  else if (!is_dummy_object (ob))
+	    {
+	      write_string ("dt");
+	      write_expression (ob);
+	    }
+	  /* else, for a non-static data member with no associated object (in
+	     unevaluated context), use the unresolved-name mangling.  */
 
-	  write_expression (ob);
 	  write_member_name (TREE_OPERAND (expr, 1));
 	  return;
 	}

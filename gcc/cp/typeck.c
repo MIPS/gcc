@@ -1154,7 +1154,7 @@ comp_template_parms_position (tree t1, tree t2)
 
   /* In C++14 we can end up comparing 'auto' to a normal template
      parameter.  Don't confuse them.  */
-  if (cxx_dialect >= cxx1y && (is_auto (t1) || is_auto (t2)))
+  if (cxx_dialect >= cxx14 && (is_auto (t1) || is_auto (t2)))
     return TYPE_IDENTIFIER (t1) == TYPE_IDENTIFIER (t2);
 
   return true;
@@ -1566,7 +1566,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
       return value;
     }
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
       && (flag_iso || warn_vla > 0))
     {
       if (complain)
@@ -2359,10 +2359,8 @@ build_class_member_access_expr (tree object, tree member,
 	    {
 	      if (complain & tf_error)
 		{
-		  error ("invalid access to non-static data member %qD of "
-			 "NULL object",
-			 member);
-		  error ("(perhaps the %<offsetof%> macro was used incorrectly)");
+		  error ("invalid access to non-static data member %qD in "
+			 "virtual base of NULL object", member);
 		}
 	      return error_mark_node;
 	    }
@@ -2373,27 +2371,6 @@ build_class_member_access_expr (tree object, tree member,
 	  /* If we found the base successfully then we should be able
 	     to convert to it successfully.  */
 	  gcc_assert (object != error_mark_node);
-	}
-
-      /* Complain about other invalid uses of offsetof, even though they will
-	 give the right answer.  Note that we complain whether or not they
-	 actually used the offsetof macro, since there's no way to know at this
-	 point.  So we just give a warning, instead of a pedwarn.  */
-      /* Do not produce this warning for base class field references, because
-	 we know for a fact that didn't come from offsetof.  This does occur
-	 in various testsuite cases where a null object is passed where a
-	 vtable access is required.  */
-      if (null_object_p && warn_invalid_offsetof
-	  && CLASSTYPE_NON_STD_LAYOUT (object_type)
-	  && !DECL_FIELD_IS_BASE (member)
-	  && cp_unevaluated_operand == 0
-	  && (complain & tf_warning))
-	{
-	  warning (OPT_Winvalid_offsetof, 
-                   "invalid access to non-static data member %qD "
-                   " of NULL object", member);
-	  warning (OPT_Winvalid_offsetof, 
-                   "(perhaps the %<offsetof%> macro was used incorrectly)");
 	}
 
       /* If MEMBER is from an anonymous aggregate, we have converted
@@ -5526,7 +5503,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 
   if (argtype != error_mark_node)
     {
-      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (argtype)
+      if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (argtype)
 	  && (flag_iso || warn_vla > 0))
 	{
 	  if (complain & tf_warning_or_error)
@@ -6348,7 +6325,7 @@ maybe_warn_about_useless_cast (tree type, tree expr, tsubst_flags_t complain)
       /* In C++14 mode, this interacts badly with force_paren_expr.  And it
 	 isn't necessary in any mode, because the code below handles
 	 glvalues properly.  For 4.9, just skip it in C++14 mode.  */
-      if (cxx_dialect < cxx1y && REFERENCE_REF_P (expr))
+      if (cxx_dialect < cxx14 && REFERENCE_REF_P (expr))
 	expr = TREE_OPERAND (expr, 0);
 
       if ((TREE_CODE (type) == REFERENCE_TYPE

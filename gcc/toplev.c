@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "reload.h"
 #include "ira.h"
+#include "lra.h"
 #include "dwarf2asm.h"
 #include "debug.h"
 #include "target.h"
@@ -93,6 +94,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
 #endif
+
+#include <new>
 
 static void general_init (const char *);
 static void do_compile (void);
@@ -402,7 +405,7 @@ wrapup_global_declaration_2 (tree decl)
 	needed = false;
       else if (node && node->alias)
 	needed = false;
-      else if (!cgraph_global_info_ready
+      else if (!symtab->global_info_ready
 	       && (TREE_USED (decl)
 		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 	/* needed */;
@@ -1118,11 +1121,6 @@ general_init (const char *argv0)
   /* Set a default printer.  Language specific initializations will
      override it later.  */
   tree_diagnostics_defaults (global_dc);
-  /* FIXME: This should probably be moved to C-family
-     language-specific initializations.  */
-  /* By default print macro expansion contexts in the diagnostic
-     finalizer -- for tokens resulting from macro expansion.  */
-  diagnostic_finalizer (global_dc) = virt_loc_aware_diagnostic_finalizer;
 
   global_dc->show_caret
     = global_options_init.x_flag_diagnostics_show_caret;
@@ -1181,6 +1179,7 @@ general_init (const char *argv0)
   /* Create the singleton holder for global state.
      Doing so also creates the pass manager and with it the passes.  */
   g = new gcc::context ();
+  symtab = ggc_cleared_alloc <symbol_table> ();
 
   statistics_early_init ();
   finish_params ();
@@ -1892,7 +1891,7 @@ finalize (bool no_backend)
 
       g->get_passes ()->finish_optimization_passes ();
 
-      ira_finish_once ();
+      lra_finish_once ();
     }
 
   if (mem_report)
@@ -1939,7 +1938,7 @@ do_compile (void)
 
           ggc_protect_identifiers = true;
 
-          init_cgraph ();
+	  symtab->initialize ();
           init_final (main_input_filename);
           coverage_init (aux_base_name);
           statistics_init ();
