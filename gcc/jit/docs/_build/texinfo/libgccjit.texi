@@ -19,7 +19,7 @@
 
 @copying
 @quotation
-libgccjit 0.1, September 22, 2014
+libgccjit 5.0.0 (experimental 20140909), September 23, 2014
 
 David Malcolm
 

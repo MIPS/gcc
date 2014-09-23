@@ -1,3 +1,16 @@
+2014-09-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/conf.py (__read_file): New helper function, for
+	extracting...
+	(gcc_BASEVER): New variable, read from "BASE-VER" in gcc src dir.
+	(gcc_DEVPHASE): Likewise, from file "DEV-PHASE".
+	(gcc_DATESTAMP): Likewise, from file "DATESTAMP".
+	(gcc_REVISION): Likewise, from file "REVISION" (if present).
+	(version): Rather than hardcoding this variable, extract from file
+	BASE-VER, via gcc_BASEVER local.
+	(release): Likewise, building it up from the files read above.
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
 2014-09-22  David Malcolm  <dmalcolm@redhat.com>
 
 	* docs/intro/tutorial01.rst: Remove stray "FIXME".
