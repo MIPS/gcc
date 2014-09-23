@@ -1,5 +1,18 @@
 2014-09-23  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/examples/tut03-toyvm/toyvm.c: Include <dejagnu.h>.
+	Add missing typedef of compilation_state.
+	(toyvm_function_parse): Add "name param.
+	(test): New.
+	(CHECK_NON_NULL): New, from harness.h
+	(CHECK_VALUE): Likewise.
+	(test_script): New.
+	(PATH_TO_SCRIPTS): New define.
+	(test_suite): New.
+	(main): If called with no args, run the test suite.
+
+2014-09-23  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/conf.py (__read_file): New helper function, for
 	extracting...
 	(gcc_BASEVER): New variable, read from "BASE-VER" in gcc src dir.

@@ -7,12 +7,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <dejagnu.h>
+
 #include <libgccjit.h>
 
 /* Typedefs.  */
 typedef struct toyvm_op toyvm_op;
 typedef struct toyvm_function toyvm_function;
 typedef struct toyvm_frame toyvm_frame;
+typedef struct compilation_state compilation_state;
 
 /* Functions are compiled to this function ptr type.  */
 typedef int (*toyvm_compiled_func) (int);
@@ -101,7 +104,7 @@ add_unary_op (toyvm_function *fn, enum opcode opcode,
 }
 
 static toyvm_function *
-toyvm_function_parse (const char *filename)
+toyvm_function_parse (const char *filename, const char *name)
 {
   FILE *f = NULL;
   toyvm_function *fn = NULL;
@@ -111,6 +114,7 @@ toyvm_function_parse (const char *filename)
   int linenum = 0;
 
   assert (filename);
+  assert (name);
 
   f = fopen (filename, "r");
   if (!f)
@@ -127,7 +131,7 @@ toyvm_function_parse (const char *filename)
       fprintf (stderr, "out of memory allocating toyvm_function\n");
       goto error;
     }
-  fn->fn_filename = filename;
+  fn->fn_filename = name;
 
   /* Read the lines of the file.  */
   while ((linelen = getline (&line, &bufsize, f)) != -1)
@@ -711,11 +715,106 @@ toyvm_function_compile (toyvm_function *fn)
   /* (this leaks "result" and "funcname") */
 }
 
+char test[1024];
+
+#define CHECK_NON_NULL(PTR) \
+  do {                                       \
+    if ((PTR) != NULL)                       \
+      {                                      \
+	pass ("%s: %s is non-null", test, #PTR); \
+      }                                      \
+    else                                     \
+      {                                      \
+	fail ("%s: %s is NULL", test, #PTR); \
+	abort ();                            \
+    }                                        \
+  } while (0)
+
+#define CHECK_VALUE(ACTUAL, EXPECTED) \
+  do {                                       \
+    if ((ACTUAL) == (EXPECTED))              \
+      {                                      \
+	pass ("%s: actual: %s == expected: %s", test, #ACTUAL, #EXPECTED); \
+      }                                      \
+    else                                     \
+      {                                        \
+	fail ("%s: actual: %s != expected: %s", test, #ACTUAL, #EXPECTED); \
+	fprintf (stderr, "incorrect value\n"); \
+	abort ();                              \
+    }                                        \
+  } while (0)
+
+static void
+test_script (const char *scripts_dir, const char *script_name, int input,
+	     int expected_result)
+{
+  char *script_path;
+  toyvm_function *fn;
+  int interpreted_result;
+  toyvm_compiled_func code;
+  int compiled_result;
+
+  snprintf (test, sizeof (test), "toyvm.c: %s", script_name);
+
+  script_path = (char *)malloc (strlen (scripts_dir)
+				+ strlen (script_name) + 1);
+  CHECK_NON_NULL (script_path);
+  sprintf (script_path, "%s%s", scripts_dir, script_name);
+
+  fn = toyvm_function_parse (script_path, script_name);
+  CHECK_NON_NULL (fn);
+
+  interpreted_result = toyvm_function_interpret (fn, input, NULL);
+  CHECK_VALUE (interpreted_result, expected_result);
+
+  code = toyvm_function_compile (fn);
+  CHECK_NON_NULL (code);
+
+  compiled_result = code (input);
+  CHECK_VALUE (compiled_result, expected_result);
+
+  free (script_path);
+}
+
+#define PATH_TO_SCRIPTS  ("/jit/docs/examples/tut03-toyvm/")
+
+static void
+test_suite (void)
+{
+  const char *srcdir;
+  char *scripts_dir;
+
+  snprintf (test, sizeof (test), "toyvm.c");
+
+  /* We need to locate the test scripts.
+     Rely on "srcdir" being set in the environment.  */
+
+  srcdir = getenv ("srcdir");
+  CHECK_NON_NULL (srcdir);
+
+  scripts_dir = (char *)malloc (strlen (srcdir) + strlen(PATH_TO_SCRIPTS)
+				+ 1);
+  CHECK_NON_NULL (scripts_dir);
+  sprintf (scripts_dir, "%s%s", srcdir, PATH_TO_SCRIPTS);
+
+  test_script (scripts_dir, "factorial.toy", 10, 3628800);
+  test_script (scripts_dir, "fibonacci.toy", 10, 55);
+
+  free (scripts_dir);
+}
+
 int
 main (int argc, char **argv)
 {
   const char *filename = NULL;
   toyvm_function *fn = NULL;
+
+  /* If called with no args, assume we're being run by the test suite.  */
+  if (argc < 3)
+    {
+      test_suite ();
+      return 0;
+    }
 
   if (argc != 3)
     {
@@ -726,7 +825,7 @@ main (int argc, char **argv)
     }
 
   filename = argv[1];
-  fn = toyvm_function_parse (filename);
+  fn = toyvm_function_parse (filename, filename);
   if (!fn)
     exit (1);
 
