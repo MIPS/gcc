@@ -540,6 +540,21 @@ number $NUM opaque location number $LOC.}#
   )
 
 
+(defun list_clone (lis disc)
+  :doc #{The function $LIST_CLONE is cloning the given $LIS into a fresh list of given $DISC or else $DISCR_LIST}#
+  (unless (is_list lis)
+    (return))
+  (if (null disc) (setq disc discr_list))
+  (let ( (newlis (make_list disc))
+	 )
+    (if (null newlis) (return))
+    (foreach_pair_component_in_list
+     (lis)
+     (curpair curcomp)
+     (list_append newlis curcomp))
+    (return newlis)
+    ))
+
 ;; to signal an error in a  source with some additional string value
 (defprimitive error_strv (loc :cstring cmsg :value strv) :void
   :doc #{Show an error at boxed location $LOC with raw message string $CMSG and string value $STRV.}#
@@ -4184,6 +4199,7 @@ given object map $MAPO}#
  json_canonical_name
  json_name_less
  json_name_equal
+ list_clone
  list_nth_element
  list_remove_last_element
  longbacktrace_dbg

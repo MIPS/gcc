@@ -2213,7 +2213,7 @@
  (defun get_free_objlocptr (gcx nam)
    (assert_msg "check gcx" (is_a gcx class_c_generation_context) gcx)
    (debug "get_free_objlocptr start nam=" nam)
-   (shortbacktrace_dbg "get_free_objlocptr" 6)
+   (shortbacktrace_dbg "get_free_objlocptr" 7)
    (let ( (orout (unsafe_get_field :gncx_objrout gcx))
 	  (freeli (unsafe_get_field :gncx_freeptrlist gcx)) 
 	  (pfree (list_popfirst freeli))
@@ -2253,7 +2253,7 @@
 			      :obl_proc orout
 			      :obl_cname namstr)) 
 	      )
-	 (debug "get_free_objlocptr new nloc" nloc)
+	 (debug "get_free_objlocptr" " new nloc" nloc "\n.. for nam=" nam)
 	 (return nloc)
 	 ))))
 
@@ -2638,7 +2638,7 @@
 			     :obc_off (constant_box cnstrank)
 			     :obc_proc lastcproc
 			     :obc_name (unsafe_get_field :named_name osym))) )
-	      (debug "compilobj_nrep_constocc result oconstv=" oconstv)
+	      (debug "compilobj_nrep_constocc result oconstv=" oconstv ";\n.. from ncnst=" ncnst)
 	      (return oconstv)
 	      ))))
       ;; handle hook routines
@@ -2667,7 +2667,7 @@
 				      :obc_proc lastcproc
 				      :obc_name (unsafe_get_field :named_name osym))) 
 		 )
-	    (debug "compilobj_nrep_constocc result ohkconstv=" ohkconstv)
+	    (debug "compilobj_nrep_constocc result ohkconstv=" ohkconstv ";\n.. from ncnst=" ncnst)
 	    (return ohkconstv)
 	    )))
       (:else

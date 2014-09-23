@@ -1830,15 +1830,19 @@ source location.}#
 ;;;; normalize a symbol occurrence
 (defun normexp_symbol (recv env ncx psloc)
   (debug "normexp_symbol recv=" recv 
-	 "\n.. env=" debug_less env "\n.. ncx=" debug_less ncx "\n.. psloc=" psloc 
+	 "\n.. env=" debug_more env
+	 "\n.. ncx=" ncx
+	 "\n.. psloc=" psloc 
 	 )
+  (shortbacktrace_dbg "normexp_symbol" 25)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (assert_msg "check recv" (is_a recv class_symbol) recv)
   (multicall
    (bind procs gotenv)
    (find_enclosing_env env recv)
    (debug "normexp_symbol after find_enclosing_env bind=" debug_less bind 
-	  "\n.. procs=" debug_less procs "\n.. gotenv=" debug_less gotenv)
+	  "\n.. procs=" debug_less procs "\n.. gotenv=" debug_less gotenv
+	  "\n.. env=" debug_less env "\n.. recv=" recv)
    (assert_msg "normexp_symbol check recv" (is_a recv class_symbol) recv)
    (let ( (modctx  (unsafe_get_field :nctx_modulcontext ncx))
 	  (valbindmap (unsafe_get_field :nctx_valbindmap ncx))
@@ -1931,8 +1935,8 @@ source location.}#
 		       )
 		  ;; cache the result
 		  (mapobject_put sycmap recv fxocc)
-		  (debug "normexp_symbol const value fxocc=" fxocc
-			 " updated sycmap=" sycmap "\n.. procs=" debug_less procs "\n.. for symbname=" symbname)
+		  (debug "normexp_symbol const value fxocc=" fxocc "\n.. recv=" recv
+			 "\n.. updated sycmap=" sycmap "\n.. procs=" debug_less procs "\n.. for symbname=" symbname)
 		  ;; put the const occurrence if needed in the const
 		  ;; list of each proc
 		  (foreach_pair_component_in_list
@@ -3146,7 +3150,8 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; normalize an application
 (defun normexp_apply (recv env ncx psloc)
-  (debug "normexp_apply recv=" recv "\n env=" env)
+  (debug "normexp_apply" " recv=" recv "\n.. env=" env "\n.. ncx=" ncx "\n.. psloc=" psloc)
+  (shortbacktrace_dbg "normexp_apply" 15)
   (assert_msg "check apply recv" (is_a recv class_source_apply) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -3918,7 +3923,8 @@ source location.}#
     (foreach_in_multiple
      (sbindings)
      (sb :long sbix)
-     (debug "normexp_let" " sloc=" sloc "sbix#" sbix "; sb=" sb)
+     (debug "normexp_let" " sloc=" sloc "sbix#" sbix "; sb=" sb
+	    ";\n ncx=" debug_less ncx)
      (cond
       ;; handle the local :macro binding case, this is happening after macro expansion
       ((is_a sb class_source_macro_let_binding)
@@ -3933,15 +3939,18 @@ source location.}#
 				 :slam_body mbody
 				 :slam_origmacro sb
 				 ))
+	      (oldproclist (list_clone (get_field :nctx_proclist ncx) discr_list))
 	      )
-	 (debug "normexp_let:macro" " sloc=" sloc "; slambda=" slambda)
+	 (debug "normexp_let:macro" " before normalize_lambda sloc=" sloc "; slambda=" slambda
+		"\n.. old ncx=" ncx "\n.. oldproclist=" oldproclist)
 	 (multicall 
 	  (manproc macsym maclocc maconstrout maclovtup masloc maoldproc mandatarout :long mainsideflag)
 	  (normalize_lambda slambda env newenv ncx psloc)
 	  (debug "normexp_let:macro" " after normalize_lambda manproc=" manproc "\n.. macsym=" macsym 
 		 "\n.. maclocc=" maclocc "\n.. maconstrout=" maconstrout "\n.. maclovtup=" maclovtup
 		 "\n.. masloc=" masloc "\n.. maoldproc=" maoldproc "\n.. mandatarout=" mandatarout
-		 "\n.. mainsideflag=" mainsideflag)
+		 "\n.. mainsideflag=" mainsideflag
+		 "\n.. ncx=" ncx)
 	  (let (
 		(maloc (or masloc mloc))
 		(maclambda (instance class_nrep_macrolambda
@@ -3966,6 +3975,8 @@ source location.}#
 	      (list_append (get_field :nrclop_constlist maoldproc) mandatarout)
 	      (debug "normexp_let:macro" " updated constlist in maoldproc=" maoldproc)
 	      )
+	    (put_fields ncx :nctx_proclist oldproclist)
+	    (debug "normexp_let:macro" " restored ncx=" ncx)
 	    ))))
       ;; handle the normal source let binding case
       (  (is_a sb class_source_let_binding)
@@ -4053,7 +4064,7 @@ source location.}#
 ;;;
     (debug "normexp_let" " before normabody sloc=" sloc "; bindlist=" bindlist
 	   "\n.. sbody=" sbody)
-    (shortbacktrace_dbg "normexp_let before-normalizing-sbody" 10)
+    (shortbacktrace_dbg "normexp_let before-normalizing-sbody" 15)
     (debug "normexp_let" " before normabody sloc=" sloc "; ncx=" debug_less ncx
 	   "\n.. newenv=" newenv)
 ;;; end of loop on source bindings
@@ -4063,7 +4074,7 @@ source location.}#
      (debug "normexp_let"  " after normabody sloc=" sloc "; nbody=" nbody 
 	    "\n.. nbodbindings=" nbodbindings
 	    "\n.. old bindlist=" bindlist)
-     (list_append2list bindlist  nbodbindings)
+     (list_append2list bindlist nbodbindings)
      (debug "normexp_let"  " after normabody sloc=" sloc 
 	    "; updated bindlist=" bindlist)
      (assert_msg "normexp_let check bindlist" (is_list_or_null bindlist) bindlist)
@@ -5168,7 +5179,10 @@ source location.}#
     (let ( (ncplis (get_field :nctx_proclist ncx)) 
 	   )
       (list_append ncplis nproc)
-      (debug "normexp_defun_defmacro appended to nctxproclist ncplis=" ncplis))
+      (debug "normexp_defun_defmacro appended to nctxproclist ncplis=" ncplis
+	     "\n.. ncx=" ncx)
+      (shortbacktrace_dbg "normexp_defun_defmacro" 15)
+      )
     ;;
     (multicall
      (nbody nbindings)
@@ -5658,10 +5672,14 @@ source location.}#
 		 :nctx_curproc oldproc
 		 )
      (debug "normalize_lambda restored ncx=" ncx "\n.. updated nproc=" nproc
-	    "\n.. oldproc=" oldproc)
+	    "\n.. oldproc=" oldproc
+	    "\n.. closedblist=" closedblist)
      (let ( 
 	   ;; we make an anonymous constant for the routine unless in toplevel
-	   (:long insideflag (is_a oldproc class_nrep_closproc))
+	   (:long insideflag (let ( (insfl (is_a oldproc class_nrep_closproc))
+				    )
+			       (debug "normalize_lambda insideflag=" insfl)
+			       insfl))
 	   (krout (if insideflag
 		      (instance class_nrep_constant
 				:nrep_loc sloc
@@ -5674,6 +5692,7 @@ source location.}#
 	     discr_multiple
 	     (lambda (bnd)
 	       (debug "normalize_lambda:lambdaclos" " sloc=" sloc "; bnd=" bnd)
+	       (shortbacktrace_dbg "normalize_lambda:lambdaclos" 10)
 	       (assert_msg "normalize_lambda check bnd" (is_a bnd class_any_binding) bnd)
 	       (let ( (sy (unsafe_get_field :binder bnd)) 
 		      ;; since sy is a symbol, its normalized form does not add any binding
