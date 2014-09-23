@@ -3627,6 +3627,7 @@ meltlabend_rout:
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
 	 )
     (output_location cloc implbuf depth "compute")
+    (output_descriptive_comment implbuf obcomp)
     (if (is_list cdest)
 	(foreach_pair_component_in_list 
 	 (cdest)
@@ -3955,6 +3956,7 @@ meltlabend_rout:
 		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
      (add2sbuf_strconst implbuf " = "))
     ;; output the apply and the closure
+    (output_descriptive_comment implbuf oapp)
     (add2sbuf_strconst implbuf " melt_apply ((meltclosure_ptr_t)(")
     (output_c_code oclos declbuf implbuf (+i 1 depth))
     (add2sbuf_strconst implbuf "), (melt_ptr_t)(")
