@@ -1,6 +1,6 @@
 !  OpenACC Runtime Library Definitions.                   -*- mode: fortran -*-
 
-!  Copyright (C) 2013 Free Software Foundation, Inc.
+!  Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 !  Contributed by Thomas Schwinge <thomas@codesourcery.com>.
 
@@ -27,3 +27,17 @@
 
       integer openacc_version
       parameter (openacc_version = 201306)
+
+      integer acc_device_kind
+      parameter (acc_device_kind = 4)
+      integer (acc_device_kind) acc_device_none
+      parameter (acc_device_none = 0)
+      integer (acc_device_kind) acc_device_default
+      parameter (acc_device_default = 1)
+      integer (acc_device_kind) acc_device_host
+      parameter (acc_device_host = 2)
+      integer (acc_device_kind) acc_device_not_host
+      parameter (acc_device_not_host = 3)
+
+      external acc_on_device
+      logical (4) acc_on_device

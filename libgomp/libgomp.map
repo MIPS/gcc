@@ -234,6 +234,9 @@ GOMP_4.0.1 {
 } GOMP_4.0;
 
 OACC_2.0 {
+  global:
+	acc_on_device;
+	acc_on_device_;
 };
 
 GOACC_2.0 {

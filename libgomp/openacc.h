@@ -37,7 +37,18 @@ extern "C" {
 #else
 # define __GOACC_NOTHROW __attribute__ ((__nothrow__))
 #endif
-  
+
+typedef enum acc_device_t
+  {
+    acc_device_none = 0,
+    acc_device_default, /* This has to be a distinct value, as no
+			   return value can match it.  */
+    acc_device_host = 2,
+    acc_device_not_host = 3
+  } acc_device_t;
+
+int acc_on_device (acc_device_t __dev) __GOACC_NOTHROW;
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,6 +1,6 @@
 !  OpenACC Runtime Library Definitions.
 
-!  Copyright (C) 2013 Free Software Foundation, Inc.
+!  Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 !  Contributed by Thomas Schwinge <thomas@codesourcery.com>.
 
@@ -28,6 +28,8 @@
 module openacc_kinds
   implicit none
 
+  integer, parameter :: acc_device_kind = 4
+
 end module openacc_kinds
 
 module openacc
@@ -35,5 +37,18 @@ module openacc
   implicit none
 
   integer, parameter :: openacc_version = 201306
+
+  integer (acc_device_kind), parameter :: acc_device_none = 0
+  integer (acc_device_kind), parameter :: acc_device_default = 1
+  integer (acc_device_kind), parameter :: acc_device_host = 2
+  integer (acc_device_kind), parameter :: acc_device_not_host = 3
+
+  interface
+     function acc_on_device (dev)
+       use openacc_kinds
+       logical (4) :: acc_on_device
+       integer (acc_device_kind), intent (in) :: dev
+     end function acc_on_device
+  end interface
 
 end module openacc

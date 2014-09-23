@@ -146,12 +146,16 @@ along with GCC; see the file COPYING3.  If not see
   DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, BT_LAST, BT_LAST, false, false, \
 	       false, ATTR_LAST, false, false)
 
-/* Builtin used by the implementation of GNU OpenACC.  None of these are
-   actually implemented in the compiler; they're all in libgomp.  */
+/* Builtin used by the implementation of GNU OpenACC.  Few of these are
+   actually implemented in the compiler; most are in libgomp.  */
 #undef DEF_GOACC_BUILTIN
 #define DEF_GOACC_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
                false, true, true, ATTRS, false, flag_openacc)
+#undef DEF_GOACC_BUILTIN_COMPILER
+#define DEF_GOACC_BUILTIN_COMPILER(ENUM, NAME, TYPE, ATTRS) \
+  DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
+               flag_openacc, true, true, ATTRS, false, true)
 
 /* Builtin used by the implementation of GNU OpenMP.  None of these are
    actually implemented in the compiler; they're all in libgomp.  */

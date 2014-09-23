@@ -27,6 +27,7 @@
 
 #include "libgomp.h"
 #include "libgomp_g.h"
+#include "openacc.h"
 
 void
 GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
@@ -128,3 +129,12 @@ GOACC_update (int device, const void *openmp_target, size_t mapnum,
     }
   GOMP_target_update (device, openmp_target, mapnum, hostaddrs, sizes, kinds_);
 }
+
+/* TODO: Move elsewhere.  */
+int
+acc_on_device (acc_device_t dev)
+{
+  /* Just rely on the compiler builtin.  */
+  return __builtin_acc_on_device (dev);
+}
+ialias (acc_on_device)

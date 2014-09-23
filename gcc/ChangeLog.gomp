@@ -1,3 +1,11 @@
+2014-09-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* builtins.def (DEF_GOACC_BUILTIN_COMPILER): New macro.
+	* oacc-builtins.def (BUILT_IN_GOACC_UPDATE): New builtin.
+	* builtins.c (expand_builtin_acc_on_device): New function.
+	(expand_builtin): Use it to handle BUILT_IN_ACC_ON_DEVICE.
+	(is_inexpensive_builtin): Handle BUILT_IN_ACC_ON_DEVICE.
+
 2014-09-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* configure.ac (offload_targets): Remove.

@@ -1,3 +1,8 @@
+2014-09-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* f95-lang.c (DEF_GOACC_BUILTIN_COMPILER): New macro.
+	* types.def (BT_FN_INT_INT): New type.
+
 2014-09-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.h (enum OMP_LIST_FIRST, OMP_LIST_LAST): New

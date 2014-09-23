@@ -5747,6 +5747,49 @@ expand_stack_save (void)
   return ret;
 }
 
+
+/* Expand OpenACC acc_on_device.
+
+   This has to happen late (that is, not in early folding; expand_builtin_*,
+   rather than fold_builtin_*), as we have to act differently for host and
+   acceleration device (ACCEL_COMPILER conditional).  */
+
+static rtx
+expand_builtin_acc_on_device (tree exp, rtx target ATTRIBUTE_UNUSED)
+{
+  if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  tree arg, v1, v2, ret;
+  location_t loc;
+
+  arg = CALL_EXPR_ARG (exp, 0);
+  arg = builtin_save_expr (arg);
+  loc = EXPR_LOCATION (exp);
+
+  /* Build: (arg == v1 || arg == v2) ? 1 : 0.  */
+
+#ifdef ACCEL_COMPILER
+  v1 = build_int_cst (TREE_TYPE (arg), /* TODO: acc_device_not_host */ 3);
+  v2 = build_int_cst (TREE_TYPE (arg), ACCEL_COMPILER_acc_device);
+#else
+  v1 = build_int_cst (TREE_TYPE (arg), /* TODO: acc_device_none */ 0);
+  v2 = build_int_cst (TREE_TYPE (arg), /* TODO: acc_device_host */ 2);
+#endif
+
+  v1 = fold_build2_loc (loc, EQ_EXPR, integer_type_node, arg, v1);
+  v2 = fold_build2_loc (loc, EQ_EXPR, integer_type_node, arg, v2);
+
+  /* Can't use TRUTH_ORIF_EXPR, as that is not supported by
+     expand_expr_real*.  */
+  ret = fold_build3_loc (loc, COND_EXPR, integer_type_node, v1, v1, v2);
+  ret = fold_build3_loc (loc, COND_EXPR, integer_type_node,
+			 ret, integer_one_node, integer_zero_node);
+
+  return expand_normal (ret);
+}
+
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -6815,6 +6858,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_CILK_POP_FRAME:
       expand_builtin_cilk_pop_frame (exp);
       return const0_rtx;
+
+    case BUILT_IN_ACC_ON_DEVICE:
+      target = expand_builtin_acc_on_device (exp, target);
+      if (target)
+	return target;
+      break;
 
     default:	/* just do library call, if unknown builtin */
       break;
@@ -12748,6 +12797,7 @@ is_inexpensive_builtin (tree decl)
       case BUILT_IN_LABS:
       case BUILT_IN_LLABS:
       case BUILT_IN_PREFETCH:
+      case BUILT_IN_ACC_ON_DEVICE:
 	return true;
 
       default:

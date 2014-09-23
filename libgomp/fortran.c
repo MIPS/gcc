@@ -26,6 +26,7 @@
 
 #include "libgomp.h"
 #include "libgomp_f.h"
+#include "openacc.h"
 #include <stdlib.h>
 #include <limits.h>
 
@@ -73,6 +74,7 @@ ialias_redirect (omp_get_num_devices)
 ialias_redirect (omp_get_num_teams)
 ialias_redirect (omp_get_team_num)
 ialias_redirect (omp_is_initial_device)
+ialias_redirect (acc_on_device)
 #endif
 
 #ifndef LIBGOMP_GNU_SYMBOL_VERSIONING
@@ -491,4 +493,10 @@ int32_t
 omp_is_initial_device_ (void)
 {
   return omp_is_initial_device ();
+}
+
+int32_t
+acc_on_device_ (const int32_t *dev)
+{
+  return acc_on_device (*dev);
 }
