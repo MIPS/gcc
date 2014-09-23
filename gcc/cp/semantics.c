@@ -1685,17 +1685,17 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
   if (object == error_mark_node)
     return error_mark_node;
 
-  /* DR 613: Can use non-static data members without an associated
+  /* DR 613/850: Can use non-static data members without an associated
      object in sizeof/decltype/alignof.  */
   if (is_dummy_object (object) && cp_unevaluated_operand == 0
       && (!processing_template_decl || !current_class_ref))
     {
       if (current_function_decl
 	  && DECL_STATIC_FUNCTION_P (current_function_decl))
-	error ("invalid use of member %q+D in static member function", decl);
+	error ("invalid use of member %qD in static member function", decl);
       else
-	error ("invalid use of non-static data member %q+D", decl);
-      error ("from this location");
+	error ("invalid use of non-static data member %qD", decl);
+      inform (DECL_SOURCE_LOCATION (decl), "declared here");
 
       return error_mark_node;
     }
@@ -3814,7 +3814,7 @@ finish_bases (tree type, bool direct)
    fold_offsetof.  */
 
 tree
-finish_offsetof (tree expr)
+finish_offsetof (tree expr, location_t loc)
 {
   if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
     {
@@ -3846,6 +3846,13 @@ finish_offsetof (tree expr)
       tree object = TREE_OPERAND (expr, 0);
       if (!complete_type_or_else (TREE_TYPE (object), object))
 	return error_mark_node;
+      if (warn_invalid_offsetof
+	  && CLASS_TYPE_P (TREE_TYPE (object))
+	  && CLASSTYPE_NON_STD_LAYOUT (TREE_TYPE (object))
+	  && cp_unevaluated_operand == 0)
+	pedwarn (loc, OPT_Winvalid_offsetof,
+		 "offsetof within non-standard-layout type %qT is undefined",
+		 TREE_TYPE (object));
     }
   return fold_offsetof (expr);
 }
@@ -5661,7 +5668,9 @@ finish_omp_clauses (tree clauses)
 	      else
 		{
 		  t = OMP_CLAUSE_DECL (c);
-		  if (!cp_omp_mappable_type (TREE_TYPE (t)))
+		  if (TREE_CODE (t) != TREE_LIST
+		      && !type_dependent_expression_p (t)
+		      && !cp_omp_mappable_type (TREE_TYPE (t)))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -5701,6 +5710,7 @@ finish_omp_clauses (tree clauses)
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))

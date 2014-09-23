@@ -175,7 +175,7 @@ interesting_second_load (rtx set, struct load ***load, rtx_insn *insn)
      stale, disregard it.  */
   if (rtx_equal_p (reg, (**load)->reg)
       || !(**load)->reg_kill
-      || INSN_DELETED_P ((**load)->reg_kill)
+      || (**load)->reg_kill->deleted ()
       || reg_used_between_p (reg, PREV_INSN ((**load)->reg_kill),
 			     NEXT_INSN (insn))
       || reg_set_between_p (reg, PREV_INSN ((**load)->reg_kill), insn))
@@ -273,9 +273,9 @@ pass_postreload_load::execute (function*)
 	  set = single_set (insn);
 	  if (interesting_second_load (set, &load, insn))
 	    {
-	      rtx move;
+	      rtx_insn *move;
 
-	      move = gen_move_insn (SET_DEST (set), (*load)->reg);
+	      move = as_a <rtx_insn *> (gen_move_insn (SET_DEST (set), (*load)->reg));
 	      /* Make sure we can generate a move.  */
 	      extract_insn (move);
 	      if (! constrain_operands (1))

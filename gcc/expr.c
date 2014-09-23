@@ -70,7 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
 #include "builtins.h"
-#include "tree-ssa.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -3882,7 +3881,7 @@ mem_autoinc_base (rtx mem)
    cannot be trivially extracted, the return value is INT_MIN.  */
 
 HOST_WIDE_INT
-find_args_size_adjust (rtx insn)
+find_args_size_adjust (rtx_insn *insn)
 {
   rtx dest, set, pat;
   int i;
@@ -10340,10 +10339,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	  temp = gen_lowpart_SUBREG (mode, decl_rtl);
 	  SUBREG_PROMOTED_VAR_P (temp) = 1;
-	  if (promoted_for_signed_and_unsigned_p (ssa_name, mode))
-	    SUBREG_PROMOTED_SET (temp, SRP_SIGNED_AND_UNSIGNED);
-	  else
-	    SUBREG_PROMOTED_SET (temp, unsignedp);
+	  SUBREG_PROMOTED_SET (temp, unsignedp);
 	  return temp;
 	}
 

@@ -6664,8 +6664,8 @@ tree_swap_operands_p (const_tree arg0, const_tree arg1, bool reorder)
   if (CONSTANT_CLASS_P (arg0))
     return 1;
 
-  STRIP_NOPS (arg0);
-  STRIP_NOPS (arg1);
+  STRIP_SIGN_NOPS (arg0);
+  STRIP_SIGN_NOPS (arg1);
 
   if (TREE_CONSTANT (arg1))
     return 0;
@@ -10109,7 +10109,7 @@ fold_binary_loc (location_t loc,
 	{
 	  /* Convert ~A + 1 to -A.  */
 	  if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	      && integer_onep (arg1))
+	      && integer_each_onep (arg1))
 	    return fold_build1_loc (loc, NEGATE_EXPR, type,
 				fold_convert_loc (loc, type,
 						  TREE_OPERAND (arg0, 0)));
@@ -10636,9 +10636,8 @@ fold_binary_loc (location_t loc,
 			    fold_convert_loc (loc, type,
 					      TREE_OPERAND (arg0, 0)));
       /* Convert -A - 1 to ~A.  */
-      if (TREE_CODE (type) != COMPLEX_TYPE
-	  && TREE_CODE (arg0) == NEGATE_EXPR
-	  && integer_onep (arg1)
+      if (TREE_CODE (arg0) == NEGATE_EXPR
+	  && integer_each_onep (arg1)
 	  && !TYPE_OVERFLOW_TRAPS (type))
 	return fold_build1_loc (loc, BIT_NOT_EXPR, type,
 			    fold_convert_loc (loc, type,
@@ -11401,6 +11400,7 @@ fold_binary_loc (location_t loc,
 
       /* Fold (X & 1) ^ 1 as (X & 1) == 0.  */
       if (TREE_CODE (arg0) == BIT_AND_EXPR
+	  && INTEGRAL_TYPE_P (type)
 	  && integer_onep (TREE_OPERAND (arg0, 1))
 	  && integer_onep (arg1))
 	return fold_build2_loc (loc, EQ_EXPR, type, arg0,
@@ -11511,6 +11511,7 @@ fold_binary_loc (location_t loc,
 
       /* Fold (X ^ 1) & 1 as (X & 1) == 0.  */
       if (TREE_CODE (arg0) == BIT_XOR_EXPR
+	  && INTEGRAL_TYPE_P (type)
 	  && integer_onep (TREE_OPERAND (arg0, 1))
 	  && integer_onep (arg1))
 	{
@@ -11524,6 +11525,7 @@ fold_binary_loc (location_t loc,
 	}
       /* Fold ~X & 1 as (X & 1) == 0.  */
       if (TREE_CODE (arg0) == BIT_NOT_EXPR
+	  && INTEGRAL_TYPE_P (type)
 	  && integer_onep (arg1))
 	{
 	  tree tem2;
@@ -15865,7 +15867,7 @@ tree_single_nonzero_warnv_p (tree t, bool *strict_overflow_p)
 	  {
 	    struct symtab_node *symbol;
 
-	    symbol = symtab_node::get (base);
+	    symbol = symtab_node::get_create (base);
 	    if (symbol)
 	      return symbol->nonzero_address ();
 	    else
