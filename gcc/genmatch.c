@@ -315,22 +315,17 @@ struct predicate : public operand
     { gcc_unreachable (); }
 };
 
-struct e_operation {
-  e_operation (const char *id, bool is_commutative_ = false, bool add_new_id = true);
-  id_base *op;
-  bool is_commutative;
-};
-
 
 struct expr : public operand
 {
-  expr (e_operation *operation_)
+  expr (id_base *operation_, bool is_commutative_ = false)
     : operand (OP_EXPR), operation (operation_),
-      ops (vNULL), expr_type (NULL) {}
+      ops (vNULL), expr_type (NULL), is_commutative (is_commutative_) {}
   void append_op (operand *op) { ops.safe_push (op); }
-  e_operation *operation;
+  id_base *operation;
   vec<operand *> ops;
   const char *expr_type;
+  bool is_commutative;
   virtual void gen_transform (FILE *f, const char *, bool, int, const char *, dt_operand ** = 0);
 };
 
@@ -432,20 +427,6 @@ get_operator (const char *id)
     }
 
   return 0;
-}
-
-e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
-{
-  is_commutative = is_commutative_;
-  op = get_operator (id);
-  if (op)
-    return;
-
-  if (add_new_id == false)
-    fatal ("%s is not an operator/built-in function", id);
-
-  op = new id_base (id_base::USER_DEFINED, id);
-  operators->find_slot_with_hash (op, op->hashval, INSERT);
 }
 
 struct if_or_with {
@@ -582,7 +563,7 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 
   else if (expr *e = dyn_cast<expr *> (o))
     {
-      fprintf (f, "(%s", e->operation->op->id);
+      fprintf (f, "(%s", e->operation->id);
 
       if (flattened == false)
 	{
@@ -683,7 +664,7 @@ commutate (operand *op)
       ret.safe_push (ne);
     }
 
-  if (!e->operation->is_commutative)
+  if (!e->is_commutative)
     return ret;
 
   for (unsigned i = 0; i < result.length (); ++i)
@@ -725,14 +706,14 @@ lower_opt_convert (operand *o, enum tree_code oper)
     return o;
 
   expr *e = as_a<expr *> (o);
-  if (*e->operation->op == oper)
+  if (*e->operation == oper)
     {
-      expr *ne = new expr (new e_operation ("CONVERT_EXPR"));
+      expr *ne = new expr (get_operator ("CONVERT_EXPR"));
       ne->append_op (lower_opt_convert (e->ops[0], oper));
       return ne; 
     }
 
-  expr *ne = new expr (e->operation);
+  expr *ne = new expr (e->operation, e->is_commutative);
   for (unsigned i = 0; i < e->ops.length (); ++i)
     ne->append_op (lower_opt_convert (e->ops[i], oper));
 
@@ -754,10 +735,10 @@ remove_opt_convert (operand *o, enum tree_code oper)
     return o;
 
   expr *e = as_a<expr *> (o);
-  if (*e->operation->op == oper)
+  if (*e->operation == oper)
     return remove_opt_convert (e->ops[0], oper);
 
-  expr *ne = new expr (e->operation);
+  expr *ne = new expr (e->operation, e->is_commutative);
   for (unsigned i = 0; i < e->ops.length (); ++i)
     ne->append_op (remove_opt_convert (e->ops[i], oper));
 
@@ -780,7 +761,7 @@ has_opt_convert (operand *o, enum tree_code oper)
 
   expr *e = as_a<expr *> (o);
   
-  if (*e->operation->op == oper)
+  if (*e->operation == oper)
     return true;
 
   for (unsigned i = 0; i < e->ops.length (); ++i)
@@ -883,14 +864,14 @@ replace_id (operand *o, const char *user_id, const char *oper)
   expr *e = static_cast<expr *> (o);
   expr *ne;
 
-  if (e->operation->op->kind == id_base::USER_DEFINED && strcmp (e->operation->op->id, user_id) == 0)
+  if (e->operation->kind == id_base::USER_DEFINED
+      && strcmp (e->operation->id, user_id) == 0)
     {
-      struct e_operation *operation = new e_operation (oper, e->operation->is_commutative, false);
-      check_operator (operation->op, e->ops.length ());
-      ne = new expr (operation);
+      ne = new expr (get_operator (oper), e->is_commutative);
+      check_operator (ne->operation, e->ops.length ());
     }
   else
-    ne = new expr (e->operation);
+    ne = new expr (e->operation, e->is_commutative);
 
   for (unsigned i = 0; i < e->ops.length (); ++i)
     ne->append_op (replace_id (e->ops[i], user_id, oper));
@@ -917,8 +898,8 @@ check_no_user_id (operand *o)
 
 check_expr:
   expr *e = static_cast<expr *> (o);
-  if (e->operation->op->kind == id_base::USER_DEFINED)
-    fatal ("%s is not defined in for", e->operation->op->id);
+  if (e->operation->kind == id_base::USER_DEFINED)
+    fatal ("%s is not defined in for", e->operation->id);
 
   for (unsigned i = 0; i < e->ops.length (); ++i)
     check_no_user_id (e->ops[i]);
@@ -980,7 +961,7 @@ void
 expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 		     const char *in_type, dt_operand **indexes)
 {
-  bool conversion_p = is_conversion (operation->op);
+  bool conversion_p = is_conversion (operation);
   const char *type = expr_type;
   char optype[64];
   if (type)
@@ -990,15 +971,15 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
     /* For conversions we need to build the expression using the
        outer type passed in.  */
     type = in_type;
-  else if (*operation->op == REALPART_EXPR
-	   || *operation->op == IMAGPART_EXPR)
+  else if (*operation == REALPART_EXPR
+	   || *operation == IMAGPART_EXPR)
     {
       /* __real and __imag use the component type of its operand.  */
       sprintf (optype, "TREE_TYPE (TREE_TYPE (ops%d[0]))", depth);
       type = optype;
     }
-  else if (is_a <operator_id *> (operation->op)
-	   && strcmp (as_a <operator_id *> (operation->op)->tcc, "tcc_comparison") == 0)
+  else if (is_a <operator_id *> (operation)
+	   && strcmp (as_a <operator_id *> (operation)->tcc, "tcc_comparison") == 0)
     {
       /* comparisons use boolean_type_node (or what gets in), but
          their operands need to figure out the types themselves.  */
@@ -1023,7 +1004,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       char dest[32];
       snprintf (dest, 32, "  ops%d[%u]", depth, i);
       const char *optype
-	= get_operand_type (operation->op, in_type, expr_type,
+	= get_operand_type (operation, in_type, expr_type,
 			    i == 0 ? NULL : op0type);
       ops[i]->gen_transform (f, dest, gimple, depth + 1, optype, indexes);
     }
@@ -1035,7 +1016,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       fprintf (f, "  if (!seq)\n"
 	       "    {\n"
 	       "      res = gimple_simplify (%s, %s",
-	       operation->op->id, type);
+	       operation->id, type);
       for (unsigned i = 0; i < ops.length (); ++i)
 	fprintf (f, ", ops%d[%u]", depth, i);
       fprintf (f, ", seq, valueize);\n");
@@ -1043,19 +1024,19 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       fprintf (f, "    }\n");
       fprintf (f, "  else\n");
       fprintf (f, "    res = gimple_build (seq, UNKNOWN_LOCATION, %s, %s",
-	       operation->op->id, type);
+	       operation->id, type);
       for (unsigned i = 0; i < ops.length (); ++i)
 	fprintf (f, ", ops%d[%u]", depth, i);
       fprintf (f, ", valueize);\n");
     }
   else
     {
-      if (operation->op->kind == id_base::CODE)
+      if (operation->kind == id_base::CODE)
 	fprintf (f, "  res = fold_build%d (%s, %s",
-		 ops.length(), operation->op->id, type);
+		 ops.length(), operation->id, type);
       else
 	fprintf (f, "  res = build_call_expr (builtin_decl_implicit (%s), %d",
-		 operation->op->id, ops.length());
+		 operation->id, ops.length());
       for (unsigned i = 0; i < ops.length (); ++i)
 	fprintf (f, ", ops%d[%u]", depth, i);
       fprintf (f, ");\n");
@@ -1175,7 +1156,7 @@ cmp_operand (operand *o1, operand *o2)
     {
       expr *e1 = static_cast<expr *>(o1);
       expr *e2 = static_cast<expr *>(o2);
-      return strcmp (e1->operation->op->id, e2->operation->op->id) == 0;
+      return strcmp (e1->operation->id, e2->operation->id) == 0;
     }
   else
     return false;
@@ -1469,7 +1450,7 @@ unsigned
 dt_operand::gen_gimple_expr (FILE *f)
 {
   expr *e = static_cast<expr *> (op);
-  id_base *id = e->operation->op;
+  id_base *id = e->operation;
   unsigned n_ops = e->ops.length ();
 
   for (unsigned i = 0; i < n_ops; ++i)
@@ -1520,7 +1501,7 @@ dt_operand::gen_generic_expr (FILE *f, const char *opname)
       char child_opname[20];
       gen_opname (child_opname, i);
 
-      if (e->operation->op->kind == id_base::CODE)
+      if (e->operation->kind == id_base::CODE)
 	fprintf (f, "tree %s = TREE_OPERAND (%s, %u);\n",
 		 child_opname, opname, i);
       else
@@ -1548,9 +1529,9 @@ dt_node::gen_gimple_kids (FILE *f)
 	    {
 	      if (e->ops.length () == 0)
 		generic_exprs.safe_push (op);
-	      else if (e->operation->op->kind == id_base::FN)
+	      else if (e->operation->kind == id_base::FN)
 		fns.safe_push (op);
-	      else if (e->operation->op->kind == id_base::PREDICATE)
+	      else if (e->operation->kind == id_base::PREDICATE)
 		preds.safe_push (op);
 	      else
 		gimple_exprs.safe_push (op);
@@ -1603,7 +1584,7 @@ dt_node::gen_gimple_kids (FILE *f)
 	  for (unsigned i = 0; i < exprs_len; ++i)
 	    {
 	      expr *e = as_a <expr *> (gimple_exprs[i]->op);
-	      id_base *op = e->operation->op;
+	      id_base *op = e->operation;
 	      if (*op == CONVERT_EXPR || *op == NOP_EXPR)
 		fprintf (f, "CASE_CONVERT:\n");
 	      else
@@ -1632,7 +1613,7 @@ dt_node::gen_gimple_kids (FILE *f)
 	    {
 	      expr *e = as_a <expr *>(fns[i]->op);
 	      fprintf (f, "case %s:\n"
-		       "{\n", e->operation->op->id);
+		       "{\n", e->operation->id);
 	      fns[i]->gen_gimple (f);
 	      fprintf (f, "break;\n"
 		       "}\n");
@@ -1651,7 +1632,7 @@ dt_node::gen_gimple_kids (FILE *f)
     {
       expr *e = as_a <expr *>(generic_exprs[i]->op);
       fprintf (f, "case %s:\n"
-	       "{\n", e->operation->op->id);
+	       "{\n", e->operation->id);
 
       generic_exprs[i]->gen_gimple (f);
       fprintf (f, "break;\n"
@@ -1666,7 +1647,7 @@ dt_node::gen_gimple_kids (FILE *f)
   for (unsigned i = 0; i < preds.length (); ++i)
     {
       expr *e = as_a <expr *> (preds[i]->op);
-      predicate_id *p = as_a <predicate_id *> (e->operation->op);
+      predicate_id *p = as_a <predicate_id *> (e->operation);
       preds[i]->get_name (kid_opname);
       fprintf (f, "tree %s_pops[%d];\n", kid_opname, p->nargs);
       fprintf (f, "if (gimple_%s (%s, %s_pops, valueize))\n", p->id,
@@ -1779,17 +1760,17 @@ dt_node::gen_generic_kids (FILE *f)
 	  if (kid->op->type == operand::OP_EXPR)
 	    {
 	      expr *e = as_a <expr *> (kid->op);
-	      if (e->operation->op->kind == id_base::CODE)
+	      if (e->operation->kind == id_base::CODE)
 		{
 		  generic_exprs.safe_push (kid);
 		  any = true;
 		}
-	      else if (e->operation->op->kind == id_base::FN)
+	      else if (e->operation->kind == id_base::FN)
 		{
 		  fns.safe_push (kid);
 		  any = true;
 		}
-	      else if (e->operation->op->kind == id_base::PREDICATE)
+	      else if (e->operation->kind == id_base::PREDICATE)
 		preds.safe_push (kid);
 	      else
 		gcc_unreachable ();
@@ -1807,11 +1788,11 @@ dt_node::gen_generic_kids (FILE *f)
 	{
 	  dt_operand *kid = generic_exprs[j];
 	  expr *e = as_a <expr *>(kid->op);
-	  gcc_assert (e->operation->op->kind == id_base::CODE);
+	  gcc_assert (e->operation->kind == id_base::CODE);
 
 	  /* ??? CONVERT */
 	  fprintf (f, "case %s:\n"
-		   "{\n", e->operation->op->id);
+		   "{\n", e->operation->id);
 	  kid->gen_generic (f);
 	  fprintf (f, "break;\n"
 		   "}\n");
@@ -1822,7 +1803,7 @@ dt_node::gen_generic_kids (FILE *f)
 	{
 	  dt_operand *kid = fns[j];
 	  expr *e = as_a <expr *>(kid->op);
-	  gcc_assert (e->operation->op->kind == id_base::FN);
+	  gcc_assert (e->operation->kind == id_base::FN);
 
 	  if (first)
 	    fprintf (f, "case CALL_EXPR:\n"
@@ -1834,7 +1815,7 @@ dt_node::gen_generic_kids (FILE *f)
 	  first = false;
 
 	  fprintf (f, "case %s:\n"
-		   "{\n", e->operation->op->id);
+		   "{\n", e->operation->id);
 	  kid->gen_generic (f);
 	  fprintf (f, "break;\n"
 		   "}\n");
@@ -1852,7 +1833,7 @@ dt_node::gen_generic_kids (FILE *f)
   for (unsigned i = 0; i < preds.length (); ++i)
     {
       expr *e = as_a <expr *> (preds[i]->op);
-      predicate_id *p = as_a <predicate_id *> (e->operation->op);
+      predicate_id *p = as_a <predicate_id *> (e->operation);
       char kid_opname[128];
       preds[i]->get_name (kid_opname);
       fprintf (f, "tree %s_pops[%d];\n", kid_opname, p->nargs);
@@ -1961,15 +1942,15 @@ dt_simplify::gen (FILE *f, bool gimple)
       if (s->result->type == operand::OP_EXPR)
 	{
 	  expr *e = as_a <expr *> (s->result);
-	  bool is_predicate = is_a <predicate_id *> (e->operation->op);
+	  bool is_predicate = is_a <predicate_id *> (e->operation);
 	  if (!is_predicate)
-	    fprintf (f, "*res_code = %s;\n", e->operation->op->id);
+	    fprintf (f, "*res_code = %s;\n", e->operation->id);
 	  for (unsigned j = 0; j < e->ops.length (); ++j)
 	    {
 	      char dest[32];
 	      snprintf (dest, 32, "  res_ops[%d]", j);
 	      const char *optype
-		  = get_operand_type (e->operation->op,
+		  = get_operand_type (e->operation,
 				      "type", e->expr_type,
 				      j == 0
 				      ? NULL : "TREE_TYPE (res_ops[0])");
@@ -1997,7 +1978,7 @@ dt_simplify::gen (FILE *f, bool gimple)
       if (s->result->type == operand::OP_EXPR)
 	{
 	  expr *e = as_a <expr *> (s->result);
-	  bool is_predicate = is_a <predicate_id *> (e->operation->op);
+	  bool is_predicate = is_a <predicate_id *> (e->operation);
 	  for (unsigned j = 0; j < e->ops.length (); ++j)
 	    {
 	      char dest[32];
@@ -2009,23 +1990,23 @@ dt_simplify::gen (FILE *f, bool gimple)
 		  snprintf (dest, 32, "  res_op%d", j);
 		}
 	      const char *optype
-	        = get_operand_type (e->operation->op,
+	        = get_operand_type (e->operation,
 				    "type", e->expr_type,
 				    j == 0
 				    ? NULL : "TREE_TYPE (res_op0)");
 	      e->ops[j]->gen_transform (f, dest, false, 1, optype, indexes);
 	    }
-	  if (is_a <predicate_id *> (e->operation->op))
+	  if (is_a <predicate_id *> (e->operation))
 	    fprintf (f, "return true;\n");
 	  else
 	    {
 	      /* Re-fold the toplevel result.  */
-	      if (e->operation->op->kind == id_base::CODE)
+	      if (e->operation->kind == id_base::CODE)
 		fprintf (f, "  return fold_build%d (%s, type",
-			 e->ops.length (), e->operation->op->id);
+			 e->ops.length (), e->operation->id);
 	      else
 		fprintf (f, "  return build_call_expr (builtin_decl_implicit (%s), %d",
-			 e->operation->op->id, e->ops.length());
+			 e->operation->id, e->ops.length());
 	      for (unsigned j = 0; j < e->ops.length (); ++j)
 		fprintf (f, ", res_op%d", j);
 	      fprintf (f, ");\n");
@@ -2072,13 +2053,13 @@ decision_tree::gen_gimple (FILE *f)
 	  if (e->ops.length () != n)
 	    continue;
 
-	  if (*e->operation->op == CONVERT_EXPR
-	      || *e->operation->op == NOP_EXPR)
+	  if (*e->operation == CONVERT_EXPR
+	      || *e->operation == NOP_EXPR)
 	    fprintf (f, "CASE_CONVERT:\n");
 	  else
 	    fprintf (f, "case %s%s:\n",
-		     is_a <fn_id *> (e->operation->op) ? "-" : "",
-		     e->operation->op->id);
+		     is_a <fn_id *> (e->operation) ? "-" : "",
+		     e->operation->id);
 	  fprintf (f, "{\n");
 	  dop->gen_gimple_kids (f); 
 	  fprintf (f, "break;\n");
@@ -2128,14 +2109,14 @@ decision_tree::gen_generic (FILE *f)
 	         GENERIC.  The following drops patterns with outermost
 		 calls.  It's easy to emit overloads for function code
 		 though if necessary.  */
-	      || e->operation->op->kind != id_base::CODE)
+	      || e->operation->kind != id_base::CODE)
 	    continue;
 
-	  operator_id *op_id = static_cast <operator_id *> (e->operation->op);
+	  operator_id *op_id = static_cast <operator_id *> (e->operation);
 	  if (op_id->code == NOP_EXPR || op_id->code == CONVERT_EXPR)
 	    fprintf (f, "CASE_CONVERT:\n");
 	  else
-	    fprintf (f, "case %s:\n", e->operation->op->id);
+	    fprintf (f, "case %s:\n", e->operation->id);
 	  fprintf (f, "{\n");
 	  dop->gen_generic_kids (f);
 	  fprintf (f, "break;\n"
@@ -2346,7 +2327,7 @@ get_number (cpp_reader *r)
 
 /* Parsing.  */
 
-static e_operation *
+static id_base *
 parse_operation (cpp_reader *r)
 {
   const char *id = get_ident (r);
@@ -2367,7 +2348,10 @@ parse_operation (cpp_reader *r)
   else if (strcmp  (id, "convert0") == 0
 	   || strcmp  (id, "convert1") == 0)
     fatal_at (token, "expected '?' after conditional operator");
-  return new e_operation (id);
+  id_base *op = get_operator (id);
+  if (!op)
+    fatal_at (token, "unknown operator %s", id);
+  return op;
 }
 
 static struct operand * parse_op (cpp_reader *r);
@@ -2422,11 +2406,11 @@ parse_expr (cpp_reader *r)
       const cpp_token *token = peek (r);
       if (token->type == CPP_CLOSE_PAREN)
 	{
-	  check_operator (e->operation->op, e->ops.length (), token); 
+	  check_operator (e->operation, e->ops.length (), token);
 	  if (is_commutative)
 	    {
 	      if (e->ops.length () == 2)
-		e->operation->is_commutative = true;
+		e->is_commutative = true;
 	      else
 		fatal_at (token, "only binary operators or function with two arguments can be marked commutative");
 	    }
@@ -2512,7 +2496,7 @@ parse_op (cpp_reader *r)
 		fatal_at (token, "using an operator with operands as predicate");
 	      /* Parse the zero-operand operator "predicates" as
 		 expression.  */
-	      op = new expr (new e_operation (id));
+	      op = new expr (opr);
 	    }
 	  else if (predicate_id *p = dyn_cast <predicate_id *> (opr))
 	    op = new predicate (p);
@@ -2553,7 +2537,7 @@ parse_simplify (cpp_reader *r, source_location match_location,
   if (match->type == operand::OP_CAPTURE && !matcher)
     fatal_at (loc, "outermost expression cannot be captured");
   if (match->type == operand::OP_EXPR
-      && is_a <predicate_id *> (as_a <expr *> (match)->operation->op))
+      && is_a <predicate_id *> (as_a <expr *> (match)->operation))
     fatal_at (loc, "outermost expression cannot be a predicate");
 
   const cpp_token *token = peek (r);
@@ -2676,7 +2660,7 @@ void
 parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 	   vec<if_or_with>& active_ifs)
 {
-  vec<const char *> user_ids = vNULL;
+  vec<id_base *> user_ids = vNULL;
   vec< vec<const char *> > opers_vec = vNULL;
   const cpp_token *token;
   unsigned min_n_opers = 0, max_n_opers = 0;
@@ -2687,12 +2671,14 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
       if (token == 0)
 	break;
 
-      const char *id = (const char *) NODE_NAME (token->val.node.node);
-      if (get_operator (id))
-	fatal_at (token, "built-in operators cannot be user defined identifiers in for");
-
-      user_ids.safe_push (id);
-      eat_token (r, CPP_NAME);
+      /* Insert the user defined operators into the operator hash.  */
+      const char *id = get_ident (r);
+      id_base *op = new id_base (id_base::USER_DEFINED, id);
+      id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
+      if (*slot)
+	fatal_at (token, "operator already defined");
+      *slot = op;
+      user_ids.safe_push (op);
 
       eat_token (r, CPP_OPEN_PAREN);
 
@@ -2700,10 +2686,9 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 
       while ((token = peek_ident (r)) != 0)
 	{
-	  eat_token (r, CPP_NAME);
-	  const char *oper = (const char *) NODE_NAME (token->val.node.node);
+	  const char *oper = get_ident (r);
 	  id_base *idb = get_operator (oper);
-	  if (idb == 0)
+	  if (idb == NULL)
 	    fatal_at (token, "no such operator %s", oper);
 	  if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2)
 	    fatal_at (token, "conditional operators cannot be used inside for");
@@ -2712,7 +2697,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 	}
       token = expect (r, CPP_CLOSE_PAREN);
       if (opers.length () == 0)
-	fatal_at (token, "A user-defined identifier must have at least one substitution");
+	fatal_at (token, "A user-defined operator must have at least one substitution");
       if (opers_vec.length () == 0)
 	{
 	  min_n_opers = opers.length ();
@@ -2763,18 +2748,23 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 
 	  for (unsigned i = 0; i < n_ids; ++i)
 	    {
+	      const char *op = user_ids[i]->id;
 	      const char *oper = opers_vec[i][j % opers_vec[i].length ()];
-	      match_op = replace_id (match_op, user_ids[i], oper);
-	      result_op = replace_id (result_op, user_ids[i], oper);
+	      match_op = replace_id (match_op, op, oper);
+	      result_op = replace_id (result_op, op, oper);
 
 	      for (unsigned k = 0; k < s->ifexpr_vec.length (); ++k)
-		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, user_ids[i], oper);
+		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, op, oper);
 	    }
 	  simplify *ns = new simplify (match_op, s->match_location,
 				       result_op, s->result_location, ifexpr_vec);
 	  simplifiers.safe_push (ns);
 	}
     }
+
+  /* Remove user-defined operators from the hash again.  */
+  for (unsigned i = 0; i < user_ids.length (); ++i)
+    operators->remove_elt (user_ids[i]);
 }
 
 void
