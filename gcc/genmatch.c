@@ -355,7 +355,6 @@ struct c_expr : public operand
   vec<id_tab> ids;
 
   virtual void gen_transform (FILE *f, const char *, bool, int, const char *, dt_operand **);
-  void output_code (FILE *f, bool);
 };
 
 struct capture : public operand
@@ -1051,9 +1050,17 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
   fprintf (f, "}\n");
 }
 
+/* Generate code for a c_expr which is either the expression inside
+   an if statement or a sequence of statements which computes a
+   result to be stored to DEST.  */
+
 void
-c_expr::output_code (FILE *f, bool for_fn)
+c_expr::gen_transform (FILE *f, const char *dest,
+		       bool, int, const char *, dt_operand **)
 {
+  if (dest && nr_stmts == 1)
+    fprintf (f, "%s = ", dest);
+
   unsigned stmt_nr = 1;
   for (unsigned i = 0; i < code.length (); ++i)
     {
@@ -1100,33 +1107,12 @@ c_expr::output_code (FILE *f, bool for_fn)
       if (token->type == CPP_SEMICOLON)
 	{
 	  stmt_nr++;
-	  if (for_fn && stmt_nr == nr_stmts)
-	    fputs ("\n return ", f);
+	  if (dest && stmt_nr == nr_stmts)
+	    fprintf (f, "\n %s = ", dest);
 	  else
 	    fputc ('\n', f);
 	}
     }
-}
-
-
-void
-c_expr::gen_transform (FILE *f, const char *dest, bool, int, const char *, dt_operand **)
-{
-  /* If this expression has an outlined function variant, call it.  */
-  if (fname)
-    {
-      fprintf (f, "%s = %s (type, captures);\n", dest, fname);
-      return;
-    }
-
-  /* All multi-stmt expressions should have been outlined.  Expressions
-     with nr_stmts == 0 are used for if-expressions.  */
-  gcc_assert (nr_stmts <= 1);
-
-  if (nr_stmts == 1)
-    fprintf (f, "%s = ", dest);
-
-  output_code (f, false);
 }
 
 void
@@ -2172,40 +2158,6 @@ write_predicate (FILE *f, predicate_id *p, decision_tree &dt, bool gimple)
 
 
 static void
-outline_c_exprs (FILE *f, struct operand *op)
-{
-  if (op->type == operand::OP_C_EXPR)
-    {
-      c_expr *e = static_cast <c_expr *>(op);
-      static unsigned fnnr = 1;
-      if (e->nr_stmts > 1
-	  && !e->fname)
-	{
-	  e->fname = (char *)xmalloc (sizeof ("cexprfn") + 4);
-	  sprintf (e->fname, "cexprfn%d", fnnr);
-	  fprintf (f, "\nstatic tree\ncexprfn%d (tree type, tree *captures)\n",
-		   fnnr);
-	  fprintf (f, "{\n");
-	  e->output_code (f, true);
-	  fprintf (f, "}\n");
-	  fnnr++;
-	}
-    }
-  else if (op->type == operand::OP_CAPTURE)
-    {
-      capture *c = static_cast <capture *>(op);
-      if (c->what)
-	outline_c_exprs (f, c->what);
-    }
-  else if (op->type == operand::OP_EXPR)
-    {
-      expr *e = static_cast <expr *>(op);
-      for (unsigned i = 0; i < e->ops.length (); ++i)
-	outline_c_exprs (f, e->ops[i]);
-    }
-}
-
-static void
 write_header (FILE *f, const char *head)
 {
   fprintf (f, "/* Generated automatically by the program `genmatch' from\n");
@@ -3000,10 +2952,6 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   if (verbose)
     dt.print (stderr);
-
-  /* Outline complex C expressions to helper functions.  */
-  for (unsigned i = 0; i < out_simplifiers.length (); ++i)
-    outline_c_exprs (stdout, out_simplifiers[i]->result);
 
   if (gimple)
     dt.gen_gimple (stdout);

@@ -1,5 +1,12 @@
 2014-09-24  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (c_expr::output_code): Remove and inline into ...
+	(c_expr::gen_transform): ... here.
+	(outline_c_exprs): Remove.
+	(main): Do not call outline_c_exprs.
+
+2014-09-24  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (struct id_base): Move nargs member here.
 	(check_operator): Remove.
 	(check_no_user_id): Likewise.
