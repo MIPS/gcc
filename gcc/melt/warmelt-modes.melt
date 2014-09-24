@@ -2567,6 +2567,8 @@ melt_forwarded_copy (melt_ptr_t p)
    (add2sbuf_indentnl outbuf 2)
    (add2sbuf_strconst outbuf "dst->meltmap_aux = src->meltmap_aux;")
    (add2sbuf_indentnl outbuf 2)
+   (add2sbuf_strconst outbuf "dst->meltmap_hash = src->meltmap_hash;")
+   (add2sbuf_indentnl outbuf 2)
    (add2sbuf_strconst outbuf "if (siz > 0 && src->entab) {")
    (add2sbuf_indentnl outbuf 3)
    (add2sbuf_strconst outbuf "dst->entab = ggc_alloc_vec_")
@@ -3589,6 +3591,7 @@ melt_scanning (melt_ptr_t p)
 	   	      :ctypg_mapnvalfun	   ?(some_string_value ?mapnvalfun)
 		      :ctypg_mapauxdatafun ?(some_string_value ?mapauxdatafun)
 		      :ctypg_mapauxputfun  ?(some_string_value ?mapauxputfun)
+		      :ctypg_maphashfun    ?(some_string_value ?maphashfun)
 		      )
 	    (add2sbuf_indentnl outbuf 0)
 	    (add2sbuf_strconst outbuf "/***map support for GTY ctype ")
@@ -3894,6 +3897,25 @@ melt_scanning (melt_ptr_t p)
 	      )
 	     (:else
 	      (add2out outbuf ##{/*no map auxiliary data put function for $CTYPNAM*/}#)
+	     ))
+	    (add2sbuf_indentnl outbuf 0)
+;;;
+;;; generate the map hash function
+	    (cond 
+	     ((is_string maphashfun)
+	      (add2out 
+	       outbuf
+	       ##{ /* map hash access for $CTYPNAM */
+	       static inline unsigned $MAPHASHFUN (melt_ptr_t map_p)
+	       {
+	         if (melt_magic_discr (map_p) == $MAPMAGIC)
+		   return ((struct $MAPSTRUCT*)map_p)->meltmap_hash;
+		 return 0;
+	       }
+	       }#)
+	      )
+	     (:else
+	      (add2out outbuf ##{/*no map hash function for $CTYPNAM*/}#)
 	     ))
 	    (add2sbuf_indentnl outbuf 0)
 	      

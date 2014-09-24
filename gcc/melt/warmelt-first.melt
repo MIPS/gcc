@@ -399,6 +399,7 @@ runtime!}# )
 	   ctypg_mapauxdatafun		;name of map auxiliary data retrieval function
 	   ctypg_mapauxputfun		;name of map auxiliary data put function
 
+	   ctypg_maphashfun 		;name of hash function
 	   )
   :doc #{The $CLASS_CTYPE_GTY is a subclass of $CLASS_CTYPE and
 describes C types which are GTY-ed, that is handled by the Ggc [the
@@ -2784,6 +2785,7 @@ list.}#
   :ctypg_mapnvalfun    '"melt_nthval_maptrees"	
   :ctypg_mapauxdatafun     '"melt_auxdata_maptrees"
   :ctypg_mapauxputfun     '"melt_auxput_maptrees"
+  :ctypg_maphashfun      '"melt_hash_maptrees"
   )
 (install_ctype_descr ctype_tree "GCC tree pointer")
 
@@ -2823,7 +2825,8 @@ list.}#
   :ctypg_mapnattfun    	 '"melt_nthattr_mapgimples"
   :ctypg_mapnvalfun    	 '"melt_nthval_mapgimples"
   :ctypg_mapauxdatafun   '"melt_auxdata_mapgimples"
-  :ctypg_mapauxputfun    '"melt_auxput_mapgimples"	
+  :ctypg_mapauxputfun    '"melt_auxput_mapgimples"
+  :ctypg_maphashfun      '"melt_hash_mapgimples"	
   )
 (install_ctype_descr ctype_gimple "GCC gimple pointer")
 
@@ -2865,7 +2868,8 @@ Keyword is :gimple_seq. Notice that @code{gimple_seq} is a typedef for @code{gim
   :ctypg_mapnattfun    '"melt_nthattr_mapgimpleseqs"
   :ctypg_mapnvalfun    '"melt_nthval_mapgimpleseqs"
   :ctypg_mapauxdatafun   '"melt_auxdata_mapgimpleseqs"
-  :ctypg_mapauxputfun    '"melt_auxput_mapgimpleseqs"	
+  :ctypg_mapauxputfun    '"melt_auxput_mapgimpleseqs"
+  :ctypg_maphashfun      '"melt_hash_mapgimples"	
   )
 (install_ctype_descr ctype_gimple_seq "GCC gimple_seq pointer")
 
@@ -2907,7 +2911,8 @@ Keyword is :basic_block.}#
   :ctypg_mapnattfun    	   '"melt_nthattr_mapbasicblocks"
   :ctypg_mapnvalfun    	   '"melt_nthval_mapbasicblocks"
   :ctypg_mapauxdatafun     '"melt_auxdata_mapbasicblocks"
-  :ctypg_mapauxputfun      '"melt_auxput_mapbasicblocks"	
+  :ctypg_mapauxputfun      '"melt_auxput_mapbasicblocks"
+  :ctypg_maphashfun        '"melt_hash_mapbasicblocks"	
   )
 (install_ctype_descr ctype_basic_block "GCC basic_block")
 
@@ -2947,8 +2952,9 @@ Keyword is :edge.}#
   :ctypg_mapsizefun    	 '"melt_size_mapedges"
   :ctypg_mapnattfun    	 '"melt_nthattr_mapedges"
   :ctypg_mapnvalfun    	 '"melt_nthval_mapedges"
-  :ctypg_mapauxdatafun     '"melt_auxdata_mapedges"
-  :ctypg_mapauxputfun     '"melt_auxput_mapedges"	
+  :ctypg_mapauxdatafun   '"melt_auxdata_mapedges"
+  :ctypg_mapauxputfun    '"melt_auxput_mapedges"
+  :ctypg_maphashfun      '"melt_hash_mapedges"
   )
 (install_ctype_descr ctype_edge "GCC edge")
 
@@ -2990,6 +2996,7 @@ Keyword is :loop.}#
   :ctypg_mapnvalfun    	   '"melt_nthval_maploops"		
   :ctypg_mapauxdatafun     '"melt_auxdata_maploops"
   :ctypg_mapauxputfun      '"melt_auxput_maploops"
+  :ctypg_maphashfun        '"melt_hash_maploops"
   )
 (install_ctype_descr ctype_loop "GCC loop")
 
@@ -3016,20 +3023,21 @@ Keyword is :rtx.}#
   :ctypg_mapstruct '"meltmaprtxs_st"
   ;; :ctypg_boxdiscr  discr_rtx
   :ctypg_mapdiscr  discr_map_rtxs
-  :ctypg_mapunimemb    '"u_maprtxs"
-  :ctypg_boxfun        '"meltgc_new_rtx"
-  :ctypg_unboxfun      '"melt_rtx_content"
-  :ctypg_updateboxfun  '"meltgc_rtx_updatebox"
-  :ctypg_newmapfun     '"meltgc_new_maprtxs"
-  :ctypg_mapgetfun     '"melt_get_maprtxs"
-  :ctypg_mapputfun     '"melt_put_maprtxs"
-  :ctypg_mapremovefun  '"melt_remove_maprtxs"
-  :ctypg_mapcountfun   '"melt_count_maprtxs"
-  :ctypg_mapsizefun    '"melt_size_maprtxs"
-  :ctypg_mapnattfun    '"melt_nthattr_maprtxs"
-  :ctypg_mapnvalfun    '"melt_nthval_maprtxs"	
-  :ctypg_mapauxdatafun     '"melt_auxdata_maprtxs"
+  :ctypg_mapunimemb       '"u_maprtxs"
+  :ctypg_boxfun           '"meltgc_new_rtx"
+  :ctypg_unboxfun         '"melt_rtx_content"
+  :ctypg_updateboxfun     '"meltgc_rtx_updatebox"
+  :ctypg_newmapfun        '"meltgc_new_maprtxs"
+  :ctypg_mapgetfun        '"melt_get_maprtxs"
+  :ctypg_mapputfun        '"melt_put_maprtxs"
+  :ctypg_mapremovefun     '"melt_remove_maprtxs"
+  :ctypg_mapcountfun      '"melt_count_maprtxs"
+  :ctypg_mapsizefun       '"melt_size_maprtxs"
+  :ctypg_mapnattfun       '"melt_nthattr_maprtxs"
+  :ctypg_mapnvalfun       '"melt_nthval_maprtxs"	
+  :ctypg_mapauxdatafun    '"melt_auxdata_maprtxs"
   :ctypg_mapauxputfun     '"melt_auxput_maprtxs"
+  :ctypg_maphashfun       '"melt_hash_maprtxs"
   )
 (install_ctype_descr ctype_rtx "GCC rtx")
 
@@ -3069,7 +3077,8 @@ Keyword is :bitmap.}#
   :ctypg_mapnattfun    	   '"melt_nthattr_mapbitmaps"
   :ctypg_mapnvalfun    	   '"melt_nthval_mapbitmaps"
   :ctypg_mapauxdatafun     '"melt_auxdata_mapbitmaps"
-  :ctypg_mapauxputfun      '"melt_auxput_mapbitmaps"	
+  :ctypg_mapauxputfun      '"melt_auxput_mapbitmaps"
+  :ctypg_maphashfun        '"melt_hash_mapbitmaps"	
   )
 (install_ctype_descr ctype_bitmap "GCC bitmap")
 
@@ -3110,6 +3119,7 @@ Keyword is :rtvec.}#
   :ctypg_mapnvalfun    	   '"melt_nthval_maprtvecs"
   :ctypg_mapauxdatafun     '"melt_auxdata_maprtvecs"
   :ctypg_mapauxputfun      '"melt_auxput_maprtvecs"
+  :ctypg_maphashfun        '"melt_hash_maprtvecs"
   )
 (install_ctype_descr ctype_rtvec "GCC rtvec")
 

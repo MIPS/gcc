@@ -2148,6 +2148,14 @@ melt_auxdata_mapobjects (melt_ptr_t map_p)
   return NULL;
 }
 
+static inline unsigned
+melt_hash_mapobjects (melt_ptr_t map_p)
+{
+  if (melt_magic_discr(map_p) == MELTOBMAG_MAPOBJECTS)
+    return ((struct meltmapobjects_st *)map_p)->meltmap_hash;
+  return 0;
+}
+
 static inline void
 melt_auxput_mapobjects (melt_ptr_t map_p, melt_ptr_t val_p)
 {
@@ -2221,6 +2229,14 @@ melt_nthval_mapstrings (struct meltmapstrings_st *mapstring_p, int ix)
   if ((const void *) at == (const void *) HTAB_DELETED_ENTRY)
     return 0;
   return mapstring_p->entab[ix].e_va;
+}
+
+static inline unsigned
+melt_hash_mapstrings (melt_ptr_t map_p)
+{
+  if (melt_magic_discr(map_p) == MELTOBMAG_MAPSTRINGS)
+    return ((struct meltmapstrings_st *)map_p)->meltmap_hash;
+  return 0;
 }
 
 /* auxiliary data for mapstrings */

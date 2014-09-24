@@ -4468,6 +4468,7 @@ meltgc_raw_new_mappointers (meltobject_ptr_t discr_p, unsigned len)
                              primlen * sizeof (struct entrypointermelt_st));
   map_newmapv->discr = object_discrv;
   map_newmapv->meltmap_aux = NULL;
+  map_newmapv->meltmap_hash = melt_nonzerohash();
   map_newmapv->count = 0;
   map_newmapv->lenix = lenix;
   if (len > 0)

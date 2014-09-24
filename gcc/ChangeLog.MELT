@@ -1,9 +1,24 @@
 
 2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (melt_hash_mapobjects, melt_hash_mapstrings): New
+	functions.
+	* melt-runtime.cc (meltgc_raw_new_mappointers): Fill meltmap_hash.
+	* melt/warmelt-first.melt (class_ctype_gty): Add ctypg_maphashfun
+	field.
+	(ctype_tree, ctype_gimple, ctype_gimple_seq, ctype_edge)
+	(ctype_loop, ctype_rtx, ctype_bitmap): Fill it.
+
+	* melt/warmelt-base.melt (valdesc_mapobjects, valdesc_mapstrings):
+	Fill the meltmap_hash field.
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun)
+	(generate_runtypesupport_mapfun): Fill the hash and generate the
+	hash function.
+
+2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 	* melt-runtime.cc (struct meltmappointers_st): Add meltmap_hash
 	field.
-
 
 2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{adding a meltmap_hash field in maps, to ease debugging; very
