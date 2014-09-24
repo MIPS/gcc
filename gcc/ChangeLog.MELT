@@ -1,5 +1,24 @@
 
 2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{adding a meltmap_hash field in maps, to ease debugging; very
+	unstable, would need an edit of meltmappointers_st just after
+	upgrade-warmelt.....}}
+
+	* melt-runtime.h (struct meltmappointers_st): Should add
+	meltmap_hash...
+
+	* melt/warmelt-base.melt (valdesc_mapobjects, valdesc_mapstrings):
+	Add meltmap_hash field.
+
+	* melt/warmelt-normal.melt (normexp_let): More debug.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc)
+	(compilobj_dataroutine): More debug.
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Emit
+	meltmap_hash.
+
+2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-genobj.melt (compile2obj_hook)
 	(compilobj_dataroutine): More debug.

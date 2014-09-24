@@ -4412,6 +4412,7 @@ struct meltmappointers_st
   meltobject_ptr_t discr;
   unsigned count;
   unsigned char lenix;
+  /// should add meltmap_hash;
   melt_ptr_t meltmap_aux;
   struct entrypointermelt_st *entab;
   /* the following field is usually the value of entab (for

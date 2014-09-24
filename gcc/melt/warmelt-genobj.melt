@@ -1709,8 +1709,10 @@
 	      (list_to_multiple
 	       idata discr_multiple
 	       (lambda (curdat)
+		 (debug "compile2obj_initproc:lambdabody" " curdat=" curdat)
 		 (assert_msg "check curdat" (is_a curdat class_nrep_bound_data) curdat)
 		 (let ( (curobd (compile_obj curdat gcx)) )
+		   (debug "compile2obj_initproc:lambdabody" " curobd=" curobd)
 		   curobd))))
 	     (toplis (unsafe_get_field :ninit_topl ipro)) 
 	     )
@@ -5980,7 +5982,7 @@
 	 (chobj (mapobject_get compicache ndrou))
 	 )
     ;; dataroutine compiled only in initial routines
-    (debug "compilobj_dataroutine inirout=" inirout)
+    (debug "compilobj_dataroutine" " inirout=" inirout)
     (shortbacktrace_dbg "compilobj_dataroutine" 10)
     (assert_msg "check inirout" (is_a inirout class_any_start_routineobj) inirout)
     (when chobj
@@ -5995,7 +5997,7 @@
 	   (inibody (get_field :obrout_body inirout))
 	   (locvar (get_free_objlocptr gcx '_valrout_))
 	   )
-      (debug "compilobj_dataroutine npro=" npro "\n.. ndrou=" ndrou)
+      (debug "compilobj_dataroutine" " npro=" npro "\n.. ndrou=" ndrou)
       (if (null nloc)
 	  (if (is_a npro class_nrep)
 	      (setq nloc (unsafe_get_field :nrep_loc npro))))

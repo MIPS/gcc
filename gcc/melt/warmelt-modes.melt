@@ -2196,6 +2196,8 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (add2sbuf_indentnl outbuf 3)
    (add2sbuf_strconst outbuf "unsigned char lenix;")
    (add2sbuf_indentnl outbuf 3)
+   (add2sbuf_strconst outbuf "unsigned meltmap_hash;")
+   (add2sbuf_indentnl outbuf 3)
    (add2sbuf_strconst outbuf "melt_ptr_t meltmap_aux;")
    (add2sbuf_indentnl outbuf 3)
    (add2sbuf_strconst outbuf "struct ")

@@ -3970,7 +3970,7 @@ source location.}#
 	    (list_append bindlist macbind)
 	    (debug "normexp_let:macro" " updated bindlist=" bindlist)
 	    (put_env newenv macbind)
-	    (debug "normexp_let:macro" " updated newenv=" newenv "\n.. mainsideflag=" mainsideflag)
+	    (debug "normexp_let:macro" " updated newenv=" debug_more newenv "\n.. mainsideflag=" mainsideflag)
 	    (when mainsideflag
 	      (list_append (get_field :nrclop_constlist maoldproc) mandatarout)
 	      (debug "normexp_let:macro" " updated constlist in maoldproc=" maoldproc)
@@ -5622,6 +5622,7 @@ source location.}#
 			  :nrpro_variadic () ; filled below
 			  )))
 	 (ndatarout (instance class_nrep_dataroutine
+			      :nrep_loc sloc
 			      :ndata_name csym
 			      :ndata_discrx (normal_predef discr_routine ncx sloc "discr_routine")
 			      :ndrou_proc nproc
