@@ -1,3 +1,33 @@
+2014-09-24  David Malcolm  <dmalcolm@redhat.com>
+
+	* cgraph.h (cgraphbuild_c_finalize): Delete prototype of empty
+	function.
+	(ipa_c_finalize): Likewise.
+	(predict_c_finalize): Likewise.
+	(symtab_c_finalize): Likewise.
+	(varpool_c_finalize): Likewise.
+
+	* cgraph.c (cgraph_c_finalize): Add leading comment.  Put return
+	type on line before function name.
+	* cgraphunit.c (cgraphunit_c_finalize): Likewise.
+	* dwarf2out.c (dwarf2out_c_finalize): Likewise.
+	* gcse.c (gcse_c_finalize): Likewise.
+	* ipa-cp.c (ipa_cp_c_finalize): Likewise.
+	* ipa-reference.c (ipa_reference_c_finalize): Likewise.
+
+	* params.c (params_c_finalize): Update leading comment to match
+	format of the others mentioned above.
+
+	* cgraphbuild.c (cgraphbuild_c_finalize): Delete empty function.
+	* ipa.c (ipa_c_finalize): Likewise.
+	* predict.c (predict_c_finalize): Likewise.
+	* symtab.c (symtab_c_finalize): Likewise.
+	* varpool.c (varpool_c_finalize): Likewise.
+
+	* toplev.c (toplev::finalize): Remove calls to empty functions
+	cgraphbuild_c_finalize, ipa_c_finalize, predict_c_finalize,
+	symtab_c_finalize, varpool_c_finalize.
+
 2014-09-23  David Malcolm  <dmalcolm@redhat.com>
 
 	* passes.c (execute_ipa_summary_passes): Fix whitespace when
