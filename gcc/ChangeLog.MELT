@@ -1,10 +1,16 @@
 
 2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+	* melt-runtime.cc (struct meltmappointers_st): Add meltmap_hash
+	field.
+
+
+2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{adding a meltmap_hash field in maps, to ease debugging; very
 	unstable, would need an edit of meltmappointers_st just after
 	upgrade-warmelt.....}}
 
-	* melt-runtime.h (struct meltmappointers_st): Should add
+	* melt-runtime.cc (struct meltmappointers_st): Should add
 	meltmap_hash...
 
 	* melt/warmelt-base.melt (valdesc_mapobjects, valdesc_mapstrings):
