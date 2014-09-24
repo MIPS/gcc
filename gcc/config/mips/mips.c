@@ -19715,7 +19715,7 @@ mips_expand_vselect_vconcat (rtx target, rtx op0, rtx op1,
   rtx x;
 
   v2mode = GET_MODE_2XWIDER_MODE (GET_MODE (op0));
-  x = gen_rtx_VEC_CONCAT (v2mode, op0, op1);
+  x = gen_rtx_VEC_CONCAT (v2mode, op1, op0);
   return mips_expand_vselect (target, x, perm, nelt);
 }
 
@@ -20156,7 +20156,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 
     dest = gen_reg_rtx (imode);
 
-    if (high_p)
+    if (BYTES_BIG_ENDIAN != high_p)
       init = nelt >> 1;
     else
       init = 0;
