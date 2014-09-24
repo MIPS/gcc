@@ -1,5 +1,8 @@
 
 2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (ctype_gimple_seq): Typo on its hashfun.
 
 2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>

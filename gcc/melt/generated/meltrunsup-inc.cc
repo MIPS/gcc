@@ -503,11 +503,12 @@ melt_forwarded_copy (melt_ptr_t p)
             int siz = melt_primtab[src->lenix];
             size_t sz = 0;
             dst =
-                /* Don't need a cleared allocation.  */
+                /* copychunk mapobject on't need a cleared allocation.  */
                 ggc_alloc_meltmapobjects_st ();
             dst->discr = src->discr;
             dst->count = src->count;
             dst->lenix = src->lenix;
+            dst->meltmap_hash = src->meltmap_hash;
             dst->meltmap_aux = src->meltmap_aux;
             sz = sizeof(*dst);
             if (siz > 0 && src->entab)
@@ -544,13 +545,14 @@ melt_forwarded_copy (melt_ptr_t p)
             int siz = melt_primtab[src->lenix];
             size_t sz = 0;
             dst =
-                /* Don't need a cleared allocation.  */
+                /* copychunk mapstring on't need a cleared allocation.  */
                 ggc_alloc_meltmapstrings_st ();
             sz = sizeof (*dst);
             dst->discr = src->discr;
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     /* Don't need a cleared allocation.  */
@@ -892,6 +894,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entrybasicblockmelt_st (siz);
@@ -931,6 +934,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entrybitmapmelt_st (siz);
@@ -970,6 +974,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entryedgemelt_st (siz);
@@ -1009,6 +1014,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entrygimplemelt_st (siz);
@@ -1048,6 +1054,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entrygimpleseqmelt_st (siz);
@@ -1087,6 +1094,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entryloopmelt_st (siz);
@@ -1126,6 +1134,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entryrtvecmelt_st (siz);
@@ -1165,6 +1174,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entryrtxmelt_st (siz);
@@ -1204,6 +1214,7 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->count = src->count;
             dst->lenix = src->lenix;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = src->meltmap_hash;
             if (siz > 0 && src->entab)
                 {
                     dst->entab = ggc_alloc_vec_entrytreemelt_st (siz);
@@ -2720,6 +2731,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             dst = (struct meltmapobjects_st*)
                   meltgc_new_mapobjects ((meltobject_ptr_t)newdiscrv, newlen);
             resv = (melt_ptr_t) dst;
+            dst->meltmap_hash = melt_nonzerohash ();
             dst->meltmap_aux = src->meltmap_aux;
             for (unsigned srcix = 0;
                     srcix < srclen;
@@ -2756,6 +2768,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             dst = (struct meltmapstrings_st*) meltgc_new_mapstrings ((meltobject_ptr_t)newdiscrv, newlen);
             resv = (melt_ptr_t) dst;
             dst->meltmap_aux = src->meltmap_aux;
+            dst->meltmap_hash = melt_nonzerohash ();
             for (unsigned srcix = 0;
                     srcix < srclen;
                     srcix++)
