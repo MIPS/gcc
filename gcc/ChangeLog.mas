@@ -1,3 +1,19 @@
+2014-09-24  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (id_base): Derive from typed_noop_remove.
+	(struct user_id): New id_base derivative.
+	(struct simplify): Add vector of fors.
+	(lower_commutative): Adjust.
+	(lower_opt_convert): Likewise.
+	(replace_id): Work with user_id / id_base pairs.
+	(lower_for): New function, split out from ...
+	(parse_for): ... here.  Maintain a stack of active fors,
+	record substitutes in user_id.
+	(<everywhere>): Adjust for simplify constructor change and
+	maintaining of the stack of active fors.
+	* match-bitwise.pd: Enable truth_valued_p for comparison
+	codes using for.
+
 2014-09-23  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (struct e_operation): Remove.

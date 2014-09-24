@@ -153,7 +153,7 @@ END_BUILTINS
 /* Hashtable of known pattern operators.  This is pre-seeded from
    all known tree codes and all known builtin function ids.  */
 
-struct id_base : typed_free_remove<id_base>
+struct id_base : typed_noop_remove<id_base>
 {
   enum id_kind { CODE, FN, PREDICATE, USER_DEFINED } kind;
 
@@ -218,6 +218,14 @@ struct predicate_id : public id_base
   predicate_id (const char *id_)
     : id_base (id_base::PREDICATE, id_), matchers (vNULL), nargs(-1) {}
   vec<simplify *> matchers;
+  int nargs;
+};
+
+struct user_id : public id_base
+{
+  user_id (const char *id_)
+    : id_base (id_base::USER_DEFINED, id_), substitutes (vNULL), nargs(-1) {}
+  vec<id_base *> substitutes;
   int nargs;
 };
 
@@ -439,16 +447,17 @@ struct if_or_with {
 
 struct simplify {
   simplify (operand *match_, source_location match_location_,
-	    struct operand *result_, source_location result_location_, vec<if_or_with> ifexpr_vec_ = vNULL)
+	    struct operand *result_, source_location result_location_, vec<if_or_with> ifexpr_vec_, vec<vec<user_id *> > for_vec_)
       : match (match_), match_location (match_location_),
       result (result_), result_location (result_location_),
-      ifexpr_vec (ifexpr_vec_) {}
+      ifexpr_vec (ifexpr_vec_), for_vec (for_vec_) {}
 
   operand *match; 
   source_location match_location;
   struct operand *result;
   source_location result_location;
   vec<if_or_with> ifexpr_vec;
+  vec<vec<user_id *> > for_vec;
 };
 
 struct dt_node
@@ -686,7 +695,8 @@ lower_commutative (simplify *s, vec<simplify *>& simplifiers)
   for (unsigned i = 0; i < matchers.length (); ++i)
     {
       simplify *ns = new simplify (matchers[i], s->match_location,
-				   s->result, s->result_location, s->ifexpr_vec);
+				   s->result, s->result_location, s->ifexpr_vec,
+				   s->for_vec);
       simplifiers.safe_push (ns);
     }
 }
@@ -814,7 +824,8 @@ lower_opt_convert (simplify *s, vec<simplify *>& simplifiers)
   for (unsigned i = 0; i < matchers.length (); ++i)
     {
       simplify *ns = new simplify (matchers[i], s->match_location,
-				   s->result, s->result_location, s->ifexpr_vec);
+				   s->result, s->result_location, s->ifexpr_vec,
+				   s->for_vec);
       simplifiers.safe_push (ns);
     }
 }
@@ -837,46 +848,103 @@ check_operator (id_base *op, unsigned n_ops, const cpp_token *token = 0)
   else
     fatal ("%s expects %u operands, got %u operands", opr->id, opr->get_required_nargs (), n_ops);
 }
-        
+
+/* In AST operand O replace operator ID with operator WITH.  */
+
 operand *
-replace_id (operand *o, const char *user_id, const char *oper)
+replace_id (operand *o, user_id *id, id_base *with)
 {
-  if (o->type == operand::OP_CAPTURE)
+  if (capture *c = dyn_cast<capture *> (o))
     {
-      capture *c = static_cast<capture *> (o);
       if (!c->what)
 	return c;
-      capture *nc = new capture (c->where, replace_id (c->what, user_id, oper));
-      return nc;
+      return new capture (c->where, replace_id (c->what, id, with));
     }
 
+  /* For c_expr we simply record a string replacement table which is
+     applied at code-generation time.  */
   if (c_expr *ce = dyn_cast<c_expr *> (o))
     {
-      id_base *idb = get_operator (oper);
       vec<c_expr::id_tab> ids = ce->ids.copy ();
-      ids.safe_push (c_expr::id_tab (user_id, idb->id));
+      ids.safe_push (c_expr::id_tab (id->id, with->id));
       return new c_expr (ce->r, ce->code, ce->nr_stmts, ids);
     }
 
-  if (o->type != operand::OP_EXPR)
+  expr *e = dyn_cast<expr *> (o);
+  if (!e)
     return o;
 
-  expr *e = static_cast<expr *> (o);
   expr *ne;
-
-  if (e->operation->kind == id_base::USER_DEFINED
-      && strcmp (e->operation->id, user_id) == 0)
+  if (e->operation == id)
     {
-      ne = new expr (get_operator (oper), e->is_commutative);
+      ne = new expr (with, e->is_commutative);
       check_operator (ne->operation, e->ops.length ());
     }
   else
     ne = new expr (e->operation, e->is_commutative);
 
   for (unsigned i = 0; i < e->ops.length (); ++i)
-    ne->append_op (replace_id (e->ops[i], user_id, oper));
+    ne->append_op (replace_id (e->ops[i], id, with));
 
   return ne;
+}
+
+/* Lower recorded fors for SIN and output to SIMPLIFIERS.  */
+
+void
+lower_for (simplify *sin, vec<simplify *>& simplifiers)
+{
+  vec<vec<user_id *> >& for_vec = sin->for_vec;
+  unsigned worklist_start = 0;
+  auto_vec<simplify *> worklist;
+  worklist.safe_push (sin);
+
+  /* Lower each recorded for separately, operating on the
+     set of simplifiers created by the previous one.
+     Lower inner-to-outer so inner for substitutes can refer
+     to operators replaced by outer fors.  */
+  for (int fi = for_vec.length () - 1; fi >= 0; --fi)
+    {
+      vec<user_id *>& ids = for_vec[fi];
+      unsigned n_ids = ids.length ();
+      unsigned max_n_opers = 0;
+      for (unsigned i = 0; i < n_ids; ++i)
+	if (ids[i]->substitutes.length () > max_n_opers)
+	  max_n_opers = ids[i]->substitutes.length ();
+
+      unsigned worklist_end = worklist.length ();
+      for (unsigned si = worklist_start; si < worklist_end; ++si)
+	{
+	  simplify *s = worklist[si];
+	  for (unsigned j = 0; j < max_n_opers; ++j)
+	    {
+	      operand *match_op = s->match;
+	      operand *result_op = s->result;
+	      vec<if_or_with> ifexpr_vec = s->ifexpr_vec.copy ();
+
+	      for (unsigned i = 0; i < n_ids; ++i)
+		{
+		  user_id *id = ids[i];
+		  id_base *oper = id->substitutes[j % id->substitutes.length ()];
+		  match_op = replace_id (match_op, id, oper);
+		  if (result_op)
+		    result_op = replace_id (result_op, id, oper);
+		  for (unsigned k = 0; k < s->ifexpr_vec.length (); ++k)
+		    ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr,
+						      id, oper);
+		}
+	      simplify *ns = new simplify (match_op, s->match_location,
+					   result_op, s->result_location,
+					   ifexpr_vec, vNULL);
+	      worklist.safe_push (ns);
+	    }
+	}
+      worklist_start = worklist_end;
+    }
+
+  /* Copy out the result from the last for lowering.  */
+  for (unsigned i = worklist_start; i < worklist.length (); ++i)
+    simplifiers.safe_push (worklist[i]);
 }
 
 void
@@ -2530,7 +2598,7 @@ parse_op (cpp_reader *r)
 static void
 parse_simplify (cpp_reader *r, source_location match_location,
 		vec<simplify *>& simplifiers, predicate_id *matcher,
-		vec<if_or_with>& active_ifs)
+		vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
 {
   const cpp_token *loc = peek (r);
   struct operand *match = parse_op (r);
@@ -2553,8 +2621,8 @@ parse_simplify (cpp_reader *r, source_location match_location,
       if (matcher->nargs == -1)
 	matcher->nargs = 0;
       simplifiers.safe_push
-	(new simplify (match, match_location, NULL,
-		       token->src_loc, active_ifs.copy ()));
+	(new simplify (match, match_location, NULL, token->src_loc,
+		       active_ifs.copy (), active_fors.copy ()));
       return;
     }
 
@@ -2583,7 +2651,8 @@ parse_simplify (cpp_reader *r, source_location match_location,
 		    matcher->nargs = 0;
 		  simplifiers.safe_push
 		      (new simplify (match, match_location, NULL,
-				     paren_loc, active_ifs.copy ()));
+				     paren_loc, active_ifs.copy (),
+				     active_fors.copy ()));
 		}
 	    }
 	  else if (peek_ident (r, "with"))
@@ -2610,7 +2679,8 @@ parse_simplify (cpp_reader *r, source_location match_location,
 		}
 	      simplifiers.safe_push
 		  (new simplify (match, match_location, op,
-				 token->src_loc, active_ifs.copy ()));
+				 token->src_loc, active_ifs.copy (),
+				 active_fors.copy ()));
 	      eat_token (r, CPP_CLOSE_PAREN);
 	      /* A "default" result closes the enclosing scope.  */
 	      if (active_ifs.length () > active_ifs_len)
@@ -2640,7 +2710,8 @@ parse_simplify (cpp_reader *r, source_location match_location,
 	    fatal_at (token, "expected match operand expression");
 	  simplifiers.safe_push
 	      (new simplify (match, match_location, parse_op (r),
-			     token->src_loc, active_ifs.copy ()));
+			     token->src_loc, active_ifs.copy (),
+			     active_fors.copy ()));
 	  /* A "default" result closes the enclosing scope.  */
 	  if (active_ifs.length () > active_ifs_len)
 	    {
@@ -2654,14 +2725,14 @@ parse_simplify (cpp_reader *r, source_location match_location,
     }
 }
 
-void parse_pattern (cpp_reader *, vec<simplify *>&, vec<if_or_with>&);
+void parse_pattern (cpp_reader *, vec<simplify *>&,
+		    vec<if_or_with>&, vec<vec<user_id *> >&);
 
 void
 parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
-	   vec<if_or_with>& active_ifs)
+	   vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
 {
-  vec<id_base *> user_ids = vNULL;
-  vec< vec<const char *> > opers_vec = vNULL;
+  vec<user_id *> user_ids = vNULL;
   const cpp_token *token;
   unsigned min_n_opers = 0, max_n_opers = 0;
 
@@ -2673,7 +2744,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 
       /* Insert the user defined operators into the operator hash.  */
       const char *id = get_ident (r);
-      id_base *op = new id_base (id_base::USER_DEFINED, id);
+      user_id *op = new user_id (id);
       id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
       if (*slot)
 	fatal_at (token, "operator already defined");
@@ -2681,8 +2752,6 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
       user_ids.safe_push (op);
 
       eat_token (r, CPP_OPEN_PAREN);
-
-      vec<const char *> opers = vNULL;
 
       while ((token = peek_ident (r)) != 0)
 	{
@@ -2693,74 +2762,50 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 	  if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2)
 	    fatal_at (token, "conditional operators cannot be used inside for");
 	  
-	  opers.safe_push (oper);
+	  op->substitutes.safe_push (idb);
 	}
       token = expect (r, CPP_CLOSE_PAREN);
-      if (opers.length () == 0)
-	fatal_at (token, "A user-defined operator must have at least one substitution");
-      if (opers_vec.length () == 0)
+
+      unsigned nsubstitutes = op->substitutes.length ();
+      if (nsubstitutes == 0)
+	fatal_at (token, "A user-defined operator must have at least "
+		  "one substitution");
+      if (max_n_opers == 0)
 	{
-	  min_n_opers = opers.length ();
-	  max_n_opers = opers.length ();
+	  min_n_opers = nsubstitutes;
+	  max_n_opers = nsubstitutes;
 	}
       else
 	{
-	  if (opers.length () % min_n_opers != 0
-	      && min_n_opers % opers.length () != 0)
+	  if (nsubstitutes % min_n_opers != 0
+	      && min_n_opers % nsubstitutes != 0)
 	    fatal_at (token, "All user-defined identifiers must have a "
 		      "multiple number of operator substitutions of the "
 		      "smallest number of substitutions");
-	  if (opers.length () < min_n_opers)
-	    min_n_opers = opers.length ();
-	  else if (opers.length () > max_n_opers)
-	    max_n_opers = opers.length ();
+	  if (nsubstitutes < min_n_opers)
+	    min_n_opers = nsubstitutes;
+	  else if (nsubstitutes > max_n_opers)
+	    max_n_opers = nsubstitutes;
 	}
-
-      opers_vec.safe_push (opers);
     }
 
-  if (user_ids.length () == 0)
+  unsigned n_ids = user_ids.length ();
+  if (n_ids == 0)
     fatal_at (token, "for requires at least one user-defined identifier");
 
-  vec<simplify *> for_simplifiers = vNULL;
+  token = peek (r);
+  if (token->type == CPP_CLOSE_PAREN)
+    fatal_at (token, "no pattern defined in for");
+
+  active_fors.safe_push (user_ids);
   while (1)
     {
       token = peek (r);
       if (token->type == CPP_CLOSE_PAREN)
  	break;
-      parse_pattern (r, for_simplifiers, active_ifs);
+      parse_pattern (r, simplifiers, active_ifs, active_fors);
     }
-
-  if (for_simplifiers.length () == 0)
-    fatal_at (token, "no pattern defined in for");
-
-  unsigned n_ids = user_ids.length ();
-
-  for (unsigned ix = 0; ix < for_simplifiers.length (); ++ix) 
-    {
-      simplify *s = for_simplifiers[ix];
-
-      for (unsigned j = 0; j < max_n_opers; ++j)
-	{
-	  operand *match_op = s->match;
-	  operand *result_op = s->result;
-	  vec<if_or_with> ifexpr_vec = s->ifexpr_vec.copy ();
-
-	  for (unsigned i = 0; i < n_ids; ++i)
-	    {
-	      const char *op = user_ids[i]->id;
-	      const char *oper = opers_vec[i][j % opers_vec[i].length ()];
-	      match_op = replace_id (match_op, op, oper);
-	      result_op = replace_id (result_op, op, oper);
-
-	      for (unsigned k = 0; k < s->ifexpr_vec.length (); ++k)
-		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, op, oper);
-	    }
-	  simplify *ns = new simplify (match_op, s->match_location,
-				       result_op, s->result_location, ifexpr_vec);
-	  simplifiers.safe_push (ns);
-	}
-    }
+  active_fors.pop ();
 
   /* Remove user-defined operators from the hash again.  */
   for (unsigned i = 0; i < user_ids.length (); ++i)
@@ -2769,7 +2814,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 
 void
 parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers,
-	  vec<if_or_with>& active_ifs)
+	  vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
 {
   operand *ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
 
@@ -2784,7 +2829,7 @@ parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers,
       if (token->type == CPP_CLOSE_PAREN)
 	break;
     
-      parse_pattern (r, simplifiers, active_ifs);
+      parse_pattern (r, simplifiers, active_ifs, active_fors);
     }
   active_ifs.pop ();
 }
@@ -2811,14 +2856,15 @@ round_alloc_size (size_t s)
 
 void
 parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers,
-	       vec<if_or_with>& active_ifs)
+	       vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
 {
   /* All clauses start with '('.  */
   eat_token (r, CPP_OPEN_PAREN);
   const cpp_token *token = peek (r);
   const char *id = get_ident (r);
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (r, token->src_loc, simplifiers, NULL, active_ifs);
+    parse_simplify (r, token->src_loc, simplifiers, NULL,
+		    active_ifs, active_fors);
   else if (strcmp (id, "match") == 0)
     {
       const char *name = get_ident (r);
@@ -2830,20 +2876,24 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers,
 	;
       else
 	fatal_at (token, "cannot add a match to a non-predicate ID");
-      parse_simplify (r, token->src_loc, p->matchers, p, active_ifs);
+      parse_simplify (r, token->src_loc, p->matchers, p,
+		      active_ifs, active_fors);
     }
   else if (strcmp (id, "for") == 0)
-    parse_for (r, token->src_loc, simplifiers, active_ifs);
+    parse_for (r, token->src_loc, simplifiers, active_ifs, active_fors);
   else if (strcmp (id, "if") == 0)
-    parse_if (r, token->src_loc, simplifiers, active_ifs);
+    parse_if (r, token->src_loc, simplifiers, active_ifs, active_fors);
   else if (strcmp (id, "define_predicates") == 0)
     {
-      if (active_ifs.length () > 0)
-	fatal_at (token, "define_predicates inside if is not supported");
+      if (active_ifs.length () > 0
+	  || active_fors.length () > 0)
+	fatal_at (token, "define_predicates inside if or for is not supported");
       parse_predicates (r, token->src_loc);
     }
   else
-    fatal_at (token, "expected 'simplify' or 'for' or 'if'");
+    fatal_at (token, "expected %s'simplify', 'match', 'for' or 'if'",
+	      active_ifs.length () == 0 && active_fors.length () == 0
+	      ? "'define_predicates', " : "");
 
   eat_token (r, CPP_CLOSE_PAREN);
 }
@@ -2851,16 +2901,20 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers,
 static vec<simplify *>
 lower (vec<simplify *> simplifiers)
 {
-  for (unsigned i = 0; i < simplifiers.length (); ++i)
-    check_no_user_id (simplifiers[i]);
-
   vec<simplify *> out_simplifiers0 = vNULL;
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     lower_opt_convert (simplifiers[i], out_simplifiers0);
 
-  vec<simplify *> out_simplifiers = vNULL;
+  vec<simplify *> out_simplifiers1 = vNULL;
   for (unsigned i = 0; i < out_simplifiers0.length (); ++i)
-    lower_commutative (out_simplifiers0[i], out_simplifiers);
+    lower_commutative (out_simplifiers0[i], out_simplifiers1);
+
+  vec<simplify *> out_simplifiers = vNULL;
+  for (unsigned i = 0; i < out_simplifiers1.length (); ++i)
+    lower_for (out_simplifiers1[i], out_simplifiers);
+
+  for (unsigned i = 0; i < out_simplifiers.length (); ++i)
+    check_no_user_id (out_simplifiers[i]);
 
   return out_simplifiers;
 }
@@ -2929,12 +2983,13 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   vec<simplify *> simplifiers = vNULL;
   auto_vec<if_or_with> active_ifs;
+  auto_vec<vec<user_id *> > active_fors;
 
   const cpp_token *token = next (r);
   while (token->type != CPP_EOF)
     {
       _cpp_backup_tokens (r, 1);
-      parse_pattern (r, simplifiers, active_ifs);
+      parse_pattern (r, simplifiers, active_ifs, active_fors);
       token = next (r);
     }
 
