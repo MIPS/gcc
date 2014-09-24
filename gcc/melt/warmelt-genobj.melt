@@ -1294,7 +1294,7 @@
        ;; associate the hook with its routine in the compiler cache
        (mapobject_put compicache nhook hookrout)
        (debug "compile2obj_hook " nhookname " updated compicache=" compicache
-	      "\n.. for nhook=" nhook)
+	      "\n.. for nhook=" nhook "\n.. hookrout=" hookrout)
        (shortbacktrace_dbg "compile2obj_hook updated compicache" 15)
        ;;
        ;; associate each closedvalue with its retrieval in the compicache
@@ -1310,6 +1310,9 @@
 	       )
 	  (debug "compile2obj_hook " nhookname " ofetchcdata=" ofetchcdata "\n.. for nclosv=" nclosv)
 	  (mapobject_put compicache nclosv ofetchcdata)
+	  (debug "compile2obj_hook" " updated compicache=" compicache
+		 "\n.. for nclosv=" nclosv
+		 "\n.. with ofetchcdata=" ofetchcdata)
 	  )
 	)
        (debug "compile2obj_hook " nhookname " again updated compicache=" compicache
@@ -6021,8 +6024,9 @@
 			 )) 
 	      )
 	  (debug "compilobj_dataroutine oirout=" oirout "\n .. oinipro=" oinipro
-		 "\n.. npro=" npro "\n.. compicache=" compicache)
-	  (assert_msg "check oinipro" (is_object oinipro) oinipro npro compicache)
+		 "\n.. npro=" npro "\n.. compicache=" compicache
+		 "\n.. ndrou=" debug_less ndrou)
+	  (assert_msg "check oinipro" (is_object oinipro) oinipro npro compicache ndrou)
 	  (mapobject_put compicache ndrou oirout)
 	  (debug "compilobj_dataroutine updated compicache=" compicache 
 		 "\n.. ndrou=" ndrou "\n.. oirout=" oirout)
