@@ -2847,29 +2847,29 @@ Keyword is :gimple_seq. Notice that @code{gimple_seq} is a typedef for @code{gim
   :ctype_autoboxdiscr discr_gimple_seq
   :ctype_autoconstboxdiscr discr_constant_gimple_seq
 ;; GTY ctype
-  :ctypg_boxedmagic '"MELTOBMAG_GIMPLESEQ"
-  :ctypg_mapmagic '"MELTOBMAG_MAPGIMPLESEQS"
-  :ctypg_boxedstruct '"meltgimpleseq_st"
-  :ctypg_boxedunimemb '"u_gimpleseq"
-  :ctypg_entrystruct '"entrygimpleseqmelt_st"
-  :ctypg_mapstruct '"meltmapgimpleseqs_st"
+  :ctypg_boxedmagic       '"MELTOBMAG_GIMPLESEQ"
+  :ctypg_mapmagic        '"MELTOBMAG_MAPGIMPLESEQS"
+  :ctypg_boxedstruct     '"meltgimpleseq_st"
+  :ctypg_boxedunimemb    '"u_gimpleseq"
+  :ctypg_entrystruct     '"entrygimpleseqmelt_st"
+  :ctypg_mapstruct       '"meltmapgimpleseqs_st"
   ;; :ctypg_boxdiscr  discr_gimple_seq
-  :ctypg_mapdiscr  discr_map_gimple_seqs
-  :ctypg_mapunimemb    '"u_mapgimpleseqs"	
-  :ctypg_boxfun        '"meltgc_new_gimpleseq"
-  :ctypg_unboxfun      '"melt_gimpleseq_content"
-  :ctypg_updateboxfun  '"meltgc_gimpleseq_updatebox"
-  :ctypg_newmapfun     '"meltgc_new_mapgimpleseqs"
-  :ctypg_mapgetfun     '"melt_get_mapgimpleseqs"
-  :ctypg_mapputfun     '"melt_put_mapgimpleseqs"
-  :ctypg_mapremovefun  '"melt_remove_mapgimpleseqs"
-  :ctypg_mapcountfun   '"melt_count_mapgimpleseqs"
-  :ctypg_mapsizefun    '"melt_size_mapgimpleseqs"
-  :ctypg_mapnattfun    '"melt_nthattr_mapgimpleseqs"
-  :ctypg_mapnvalfun    '"melt_nthval_mapgimpleseqs"
+  :ctypg_mapdiscr        discr_map_gimple_seqs
+  :ctypg_mapunimemb    	 '"u_mapgimpleseqs"	
+  :ctypg_boxfun        	 '"meltgc_new_gimpleseq"
+  :ctypg_unboxfun      	 '"melt_gimpleseq_content"
+  :ctypg_updateboxfun  	 '"meltgc_gimpleseq_updatebox"
+  :ctypg_newmapfun     	 '"meltgc_new_mapgimpleseqs"
+  :ctypg_mapgetfun     	 '"melt_get_mapgimpleseqs"
+  :ctypg_mapputfun     	 '"melt_put_mapgimpleseqs"
+  :ctypg_mapremovefun  	 '"melt_remove_mapgimpleseqs"
+  :ctypg_mapcountfun   	 '"melt_count_mapgimpleseqs"
+  :ctypg_mapsizefun    	 '"melt_size_mapgimpleseqs"
+  :ctypg_mapnattfun    	 '"melt_nthattr_mapgimpleseqs"
+  :ctypg_mapnvalfun    	 '"melt_nthval_mapgimpleseqs"
   :ctypg_mapauxdatafun   '"melt_auxdata_mapgimpleseqs"
   :ctypg_mapauxputfun    '"melt_auxput_mapgimpleseqs"
-  :ctypg_maphashfun      '"melt_hash_mapgimples"	
+  :ctypg_maphashfun      '"melt_hash_mapgimpleseqs"	
   )
 (install_ctype_descr ctype_gimple_seq "GCC gimple_seq pointer")
 
