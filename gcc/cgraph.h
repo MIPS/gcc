@@ -1958,25 +1958,16 @@ void tree_function_versioning (tree, tree, vec<ipa_replace_map *, va_gc> *,
 /* In cgraphbuild.c  */
 int compute_call_stmt_bb_frequency (tree, basic_block bb);
 void record_references_in_initializer (tree, bool);
-void cgraphbuild_c_finalize (void);
 
 /* In ipa.c  */
 void cgraph_build_static_cdtor (char which, tree body, int priority);
 void ipa_discover_readonly_nonaddressable_vars (void);
-void ipa_c_finalize (void);
 
 /* In ipa-cp.c  */
 void ipa_cp_c_finalize (void);
 
-/* In predict.c  */
-void predict_c_finalize (void);
-
-/* In symtab.c  */
-void symtab_c_finalize (void);
-
 /* In varpool.c  */
 tree ctor_for_folding (tree);
-void varpool_c_finalize (void);
 
 /* Return true when the symbol is real symbol, i.e. it is not inline clone
    or abstract function kept for debug info purposes only.  */

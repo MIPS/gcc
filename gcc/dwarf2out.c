@@ -24566,7 +24566,11 @@ dwarf2out_finish (const char *filename)
     output_indirect_strings ();
 }
 
-void dwarf2out_c_finalize (void)
+/* Reset all state within dwarf2out.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+dwarf2out_c_finalize (void)
 {
   last_var_location_insn = NULL;
   cached_next_real_insn = NULL;

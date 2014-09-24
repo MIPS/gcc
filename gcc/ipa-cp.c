@@ -3829,6 +3829,9 @@ make_pass_ipa_cp (gcc::context *ctxt)
   return new pass_ipa_cp (ctxt);
 }
 
+/* Reset all state within ipa-cp.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
 void
 ipa_cp_c_finalize (void)
 {

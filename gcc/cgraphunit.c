@@ -2288,7 +2288,11 @@ symbol_table::finalize_compilation_unit (void)
   timevar_pop (TV_CGRAPH);
 }
 
-void cgraphunit_c_finalize (void)
+/* Reset all state within cgraphunit.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+cgraphunit_c_finalize (void)
 {
   gcc_assert (cgraph_new_nodes.length () == 0);
   cgraph_new_nodes.truncate (0);

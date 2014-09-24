@@ -1755,10 +1755,6 @@ symtab_node::semantically_equivalent_p (symtab_node *target)
   return bb == ba;
 }
 
-void symtab_c_finalize (void)
-{
-}
-
 /* Classify symbol symtab node for partitioning.  */
 
 enum symbol_partitioning_class

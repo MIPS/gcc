@@ -84,7 +84,8 @@ finish_params (void)
   params_finished = true;
 }
 
-/* Reset all state in params.c.  */
+/* Reset all state within params.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
 
 void
 params_c_finalize (void)

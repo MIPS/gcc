@@ -1090,10 +1090,6 @@ make_pass_ipa_cdtor_merge (gcc::context *ctxt)
   return new pass_ipa_cdtor_merge (ctxt);
 }
 
-void ipa_c_finalize (void)
-{
-}
-
 /* Invalid pointer representing BOTTOM for single user dataflow.  */
 #define BOTTOM ((cgraph_node *)(size_t) 2)
 

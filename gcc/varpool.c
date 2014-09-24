@@ -781,7 +781,3 @@ varpool_node::call_for_node_and_aliases (bool (*callback) (varpool_node *,
     }
   return false;
 }
-
-void varpool_c_finalize (void)
-{
-}

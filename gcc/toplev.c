@@ -2066,15 +2066,10 @@ toplev::finalize (void)
   this_target_rtl->target_specific_initialized = false;
 
   cgraph_c_finalize ();
-  cgraphbuild_c_finalize ();
   cgraphunit_c_finalize ();
   dwarf2out_c_finalize ();
   gcse_c_finalize ();
-  ipa_c_finalize ();
   ipa_cp_c_finalize ();
   ipa_reference_c_finalize ();
   params_c_finalize ();
-  predict_c_finalize ();
-  symtab_c_finalize ();
-  varpool_c_finalize ();
 }
