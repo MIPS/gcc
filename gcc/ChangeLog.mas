@@ -1,5 +1,16 @@
 2014-09-24  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (struct id_base): Move nargs member here.
+	(check_operator): Remove.
+	(check_no_user_id): Likewise.
+	(parse_operation): Fix error locations, handle convert0/2
+	properly.
+	(parse_expr): Error on non-matching arity.
+	(parse_for): Compute arity of user-ids and complain for
+	inconsistent substitutions.
+
+2014-09-24  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (id_base): Derive from typed_noop_remove.
 	(struct user_id): New id_base derivative.
 	(struct simplify): Add vector of fors.

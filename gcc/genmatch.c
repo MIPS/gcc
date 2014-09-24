@@ -157,9 +157,10 @@ struct id_base : typed_noop_remove<id_base>
 {
   enum id_kind { CODE, FN, PREDICATE, USER_DEFINED } kind;
 
-  id_base (id_kind, const char *);
+  id_base (id_kind, const char *, int = -1);
 
   hashval_t hashval;
+  int nargs;
   const char *id;
 
   /* hash_table support.  */
@@ -185,10 +186,11 @@ id_base::equal (const value_type *op1,
 
 static hash_table<id_base> *operators;
 
-id_base::id_base (id_kind kind_, const char *id_)
+id_base::id_base (id_kind kind_, const char *id_, int nargs_)
 {
   kind = kind_;
   id = id_;
+  nargs = nargs_;
   hashval = htab_hash_string (id);
 }
 
@@ -196,11 +198,8 @@ struct operator_id : public id_base
 {
   operator_id (enum tree_code code_, const char *id_, unsigned nargs_,
 	       const char *tcc_)
-      : id_base (id_base::CODE, id_),
-      code (code_), nargs (nargs_), tcc (tcc_) {}
-  unsigned get_required_nargs () const { return nargs; }
+      : id_base (id_base::CODE, id_, nargs_), code (code_), tcc (tcc_) {}
   enum tree_code code;
-  unsigned nargs;
   const char *tcc;
 };
 
@@ -216,17 +215,15 @@ struct simplify;
 struct predicate_id : public id_base
 {
   predicate_id (const char *id_)
-    : id_base (id_base::PREDICATE, id_), matchers (vNULL), nargs(-1) {}
+    : id_base (id_base::PREDICATE, id_), matchers (vNULL) {}
   vec<simplify *> matchers;
-  int nargs;
 };
 
 struct user_id : public id_base
 {
   user_id (const char *id_)
-    : id_base (id_base::USER_DEFINED, id_), substitutes (vNULL), nargs(-1) {}
+    : id_base (id_base::USER_DEFINED, id_), substitutes (vNULL) {}
   vec<id_base *> substitutes;
-  int nargs;
 };
 
 template<>
@@ -830,35 +827,26 @@ lower_opt_convert (simplify *s, vec<simplify *>& simplifiers)
     }
 }
 
-void
-check_operator (id_base *op, unsigned n_ops, const cpp_token *token = 0)
-{
-  if (!op)
-    return;
-
-  if (op->kind != id_base::CODE)
-    return;
-
-  operator_id *opr = static_cast<operator_id *> (op);
-  if (opr->get_required_nargs () == n_ops)
-    return;
-
-  if (token)
-    fatal_at (token, "%s expects %u operands, got %u operands", opr->id, opr->get_required_nargs (), n_ops);
-  else
-    fatal ("%s expects %u operands, got %u operands", opr->id, opr->get_required_nargs (), n_ops);
-}
-
 /* In AST operand O replace operator ID with operator WITH.  */
 
 operand *
 replace_id (operand *o, user_id *id, id_base *with)
 {
+  /* Deep-copy captures and expressions, replacing operations as
+     needed.  */
   if (capture *c = dyn_cast<capture *> (o))
     {
       if (!c->what)
 	return c;
       return new capture (c->where, replace_id (c->what, id, with));
+    }
+  else if (expr *e = dyn_cast<expr *> (o))
+    {
+      expr *ne = new expr (e->operation == id ? with : e->operation,
+			   e->is_commutative);
+      for (unsigned i = 0; i < e->ops.length (); ++i)
+	ne->append_op (replace_id (e->ops[i], id, with));
+      return ne;
     }
 
   /* For c_expr we simply record a string replacement table which is
@@ -870,23 +858,7 @@ replace_id (operand *o, user_id *id, id_base *with)
       return new c_expr (ce->r, ce->code, ce->nr_stmts, ids);
     }
 
-  expr *e = dyn_cast<expr *> (o);
-  if (!e)
-    return o;
-
-  expr *ne;
-  if (e->operation == id)
-    {
-      ne = new expr (with, e->is_commutative);
-      check_operator (ne->operation, e->ops.length ());
-    }
-  else
-    ne = new expr (e->operation, e->is_commutative);
-
-  for (unsigned i = 0; i < e->ops.length (); ++i)
-    ne->append_op (replace_id (e->ops[i], id, with));
-
-  return ne;
+  return o;
 }
 
 /* Lower recorded fors for SIN and output to SIMPLIFIERS.  */
@@ -945,40 +917,6 @@ lower_for (simplify *sin, vec<simplify *>& simplifiers)
   /* Copy out the result from the last for lowering.  */
   for (unsigned i = worklist_start; i < worklist.length (); ++i)
     simplifiers.safe_push (worklist[i]);
-}
-
-void
-check_no_user_id (operand *o)
-{
-  if (o->type == operand::OP_CAPTURE)
-    {
-      capture *c = static_cast<capture *> (o);
-      if (c->what && c->what->type == operand::OP_EXPR)
-	{
-	  o = c->what;
-	  goto check_expr; 
-	}
-      return; 
-    }
-
-  if (o->type != operand::OP_EXPR)
-    return;
-
-check_expr:
-  expr *e = static_cast<expr *> (o);
-  if (e->operation->kind == id_base::USER_DEFINED)
-    fatal ("%s is not defined in for", e->operation->id);
-
-  for (unsigned i = 0; i < e->ops.length (); ++i)
-    check_no_user_id (e->ops[i]);
-}
-
-void
-check_no_user_id (simplify *s)
-{
-  check_no_user_id (s->match);
-  if (s->result)
-    check_no_user_id (s->result);
 }
 
 bool
@@ -2395,30 +2333,36 @@ get_number (cpp_reader *r)
 
 /* Parsing.  */
 
+/* Parse the operator ID, special-casing convert?, convert1? and
+   convert2?  */
+
 static id_base *
 parse_operation (cpp_reader *r)
 {
+  const cpp_token *id_tok = peek (r);
   const char *id = get_ident (r);
   const cpp_token *token = peek (r);
+  if (strcmp (id, "convert0") == 0)
+    fatal_at (id_tok, "use 'convert?' here");
   if (token->type == CPP_QUERY
       && !(token->flags & PREV_WHITE))
     {
       if (strcmp (id, "convert") == 0)
 	id = "convert0";
-      else if (strcmp  (id, "convert0") == 0)
-	;
       else if (strcmp  (id, "convert1") == 0)
 	;
+      else if (strcmp  (id, "convert2") == 0)
+	;
       else
-	fatal_at (token, "non-convert operator conditionalized");
+	fatal_at (id_tok, "non-convert operator conditionalized");
       eat_token (r, CPP_QUERY);
     }
-  else if (strcmp  (id, "convert0") == 0
-	   || strcmp  (id, "convert1") == 0)
-    fatal_at (token, "expected '?' after conditional operator");
+  else if (strcmp  (id, "convert1") == 0
+	   || strcmp  (id, "convert2") == 0)
+    fatal_at (id_tok, "expected '?' after conditional operator");
   id_base *op = get_operator (id);
   if (!op)
-    fatal_at (token, "unknown operator %s", id);
+    fatal_at (id_tok, "unknown operator %s", id);
   return op;
 }
 
@@ -2474,7 +2418,10 @@ parse_expr (cpp_reader *r)
       const cpp_token *token = peek (r);
       if (token->type == CPP_CLOSE_PAREN)
 	{
-	  check_operator (e->operation, e->ops.length (), token);
+	  if (e->operation->nargs != -1
+	      && e->operation->nargs != (int) e->ops.length ())
+	    fatal_at (token, "'%s' expects %u operands, not %u",
+		      e->operation->id, e->operation->nargs, e->ops.length ());
 	  if (is_commutative)
 	    {
 	      if (e->ops.length () == 2)
@@ -2753,17 +2700,27 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 
       eat_token (r, CPP_OPEN_PAREN);
 
+      int arity = -1;
       while ((token = peek_ident (r)) != 0)
 	{
 	  const char *oper = get_ident (r);
 	  id_base *idb = get_operator (oper);
 	  if (idb == NULL)
-	    fatal_at (token, "no such operator %s", oper);
+	    fatal_at (token, "no such operator '%s'", oper);
 	  if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2)
 	    fatal_at (token, "conditional operators cannot be used inside for");
-	  
+
+	  if (arity == -1)
+	    arity = idb->nargs;
+	  else if (idb->nargs == -1)
+	    ;
+	  else if (idb->nargs != arity)
+	    fatal_at (token, "operator '%s' with arity %d does not match "
+		      "others with arity %d", oper, idb->nargs, arity);
+
 	  op->substitutes.safe_push (idb);
 	}
+      op->nargs = arity;
       token = expect (r, CPP_CLOSE_PAREN);
 
       unsigned nsubstitutes = op->substitutes.length ();
@@ -2912,9 +2869,6 @@ lower (vec<simplify *> simplifiers)
   vec<simplify *> out_simplifiers = vNULL;
   for (unsigned i = 0; i < out_simplifiers1.length (); ++i)
     lower_for (out_simplifiers1[i], out_simplifiers);
-
-  for (unsigned i = 0; i < out_simplifiers.length (); ++i)
-    check_no_user_id (out_simplifiers[i]);
 
   return out_simplifiers;
 }
