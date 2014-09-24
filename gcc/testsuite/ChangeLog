@@ -1,3 +1,43 @@
+2014-09-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/swaps-p8-17.c: New test.
+
+2014-09-24  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/shrink_wrap_symbol_ref_1.c: New testcase.
+
+2014-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61405
+	PR c/53874
+	* c-c++-common/pr53874.c: New test.
+	* c-c++-common/pr61405.c: New test.
+
+2014-09-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/simd/vmul_lane_const_lane_1.c: New test.
+
+2014-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63316
+	* c-c++-common/asan/pr63316.c: New test.
+
+2014-09-24  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/63266
+	* gcc.dg/optimize-bswapsi-1.c (swap32_d): New bswap pass test.
+
+2014-09-24  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* gcc.target/arm/pr63210.c: New test.
+
+2014-09-23  Andi Kleen  <ak@linux.intel.com>
+
+	* gcc.dg/noreorder.c: New test.
+	* gcc.dg/noreorder2.c: New test.
+	* gcc.dg/noreorder3.c: New test.
+	* gcc.dg/noreorder4.c: New test.
+
 2014-09-23  Alan Lawrence  <alan.lawrence@arm.com>
 
 	* gcc.dg/combine_ashiftrt_1.c: New test.

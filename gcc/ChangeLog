@@ -30,6 +30,243 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+
+2014-09-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (insn_is_swappable_p): Don't provide
+	special handling for stores whose SET_SRC is an UNSPEC (such as
+	UNSPEC_STVE).
+
+2014-09-24  Jiong Wang  <jiong.wang@arm.com>
+
+	* shrink-wrap.c (move_insn_for_shrink_wrap): Add further check when
+	!REG_P (src) to release more instruction sink opportunities.
+
+2014-09-24  Wilco Dijkstra  <wilco.dijkstra@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_register_move_cost): Add register
+	move costs for 128-bit types.
+
+2014-09-24  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.c (ipa_edge_duplication_hook): Update controlled_use_count
+	when duplicating a PASS_THROUGH jump function when creating a
+	speculative edge.
+
+2014-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61405
+	PR c/53874
+	* asan.c (maybe_instrument_call): Add default case.
+	* ipa-pure-const.c (special_builtin_state): Likewise.
+	* predict.c (expr_expected_value_1): Likewise.
+	* lto-streamer-out.c (write_symbol): Initialize variable.
+
+2014-09-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/arm_neon.h (vmuld_lane_f64): Use macro for getting
+	the lane.
+	(vmuld_laneq_f64): Likewise.
+	(vmuls_lane_f32): Likewise.
+	(vmuls_laneq_f32): Likewise.
+
+2014-09-24  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR bootstrap/63235
+	* varpool.c (varpool_node::add): Pass decl attributes
+	to lookup_attribute.
+
+2014-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63316
+	* asan.c (asan_expand_check_ifn): Fix up align >= 8 optimization.
+
+2014-09-24  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/63266
+	* tree-ssa-math-opts.c (struct symbolic_number): Add comment about
+	marker for unknown byte value.
+	(MARKER_MASK): New macro.
+	(MARKER_BYTE_UNKNOWN): New macro.
+	(HEAD_MARKER): New macro.
+	(do_shift_rotate): Mark bytes with unknown values due to sign
+	extension when doing an arithmetic right shift. Replace hardcoded
+	mask for marker by new MARKER_MASK macro.
+	(find_bswap_or_nop_1): Likewise and adjust ORing of two symbolic
+	numbers accordingly.
+
+2014-09-24  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/sse.md
+	(define_insn
+	"<sse2_avx_avx512f>_fix_notrunc<sf2simodelower><mode><mask_name>"):
+	Add masking.
+	(define_insn "fix_truncv8sfv8si2<mask_name>"): Ditto.
+	(define_insn "fix_truncv4sfv4si2<mask_name>"): Ditto.
+
+2014-09-24  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/sse.md
+	(define_c_enum "unspec"): Add UNSPEC_PSHUFHW, UNSPEC_PSHUFLW.
+	(define_insn "<mask_codefor>avx512bw_pshuflwv32hi<mask_name>"): New.
+	(define_expand "avx512vl_pshuflwv3_mask"): Ditto.
+	(define_insn "avx2_pshuflw_1<mask_name>"): Add masking.
+	(define_expand "avx512vl_pshuflw_mask"): New.
+	(define_insn "sse2_pshuflw_1<mask_name>"): Add masking.
+	(define_insn "<mask_codefor>avx512bw_pshufhwv32hi<mask_name>"): New.
+	(define_expand "avx512vl_pshufhwv3_mask"): Ditto.
+	(define_insn "avx2_pshufhw_1<mask_name>"): Add masking.
+	(define_expand "avx512vl_pshufhw_mask"): New.
+	(define_insn "sse2_pshufhw_1<mask_name>"): Add masking.
+
+2014-09-24  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c
+	(ix86_expand_args_builtin): Handle CODE_FOR_sse2_shufpd,
+	CODE_FOR_sse2_sse2_shufpd_mask, CODE_FOR_sse2_avx512dq_shuf_f64x2_mask,
+	CODE_FOR_sse2_avx512dq_shuf_i64x2_mask,
+	CODE_FOR_sse2_avx512vl_shuf_i32x4_mask and
+	CODE_FOR_sse2_avx512vl_shuf_f32x4_mask.
+	* config/i386/sse.md
+	(define_expand "avx512dq_shuf_<shuffletype>64x2_mask"): New.
+	(define_insn
+	"<mask_codefor>avx512dq_shuf_<shuffletype>64x2_1<mask_name>"): Ditto.
+	(define_expand "avx512vl_shuf_<shuffletype>32x4_mask"): Ditto.
+	(define_insn
+	"<mask_codefor>avx512vl_shuf_<shuffletype>32x4_1<mask_name>"): Ditto.
+	(define_expand "avx512vl_pshufdv3_mask"): Ditto.
+	(define_insn "avx2_pshufd_1<mask_name>"): Add masking.
+	(define_expand "avx512vl_pshufd_mask"): New.
+	(define_insn "sse2_pshufd_1<mask_name>"): Add masking.
+
+2014-09-24  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c
+	(CODE_FOR_avx2_extracti128): Rename to ...
+	(CODE_FOR_avx_vextractf128v4di): this.
+	(CODE_FOR_avx2_inserti128): Rename to ...
+	(CODE_FOR_avx_vinsertf128v4di): this.
+	(ix86_expand_args_builtin): Handle CODE_FOR_avx_vinsertf128v4di,
+	CODE_FOR_avx_vextractf128v4di.
+	(ix86_expand_args_builtin): Handle CODE_FOR_avx512dq_vinsertf32x8_mask,
+	CODE_FOR_avx512dq_vinserti32x8_mask, CODE_FOR_avx512vl_vinsertv4df,
+	CODE_FOR_avx512vl_vinsertv4di, CODE_FOR_avx512vl_vinsertv8sf,
+	CODE_FOR_avx512vl_vinsertv8si.
+	* config/i386/sse.md
+	(define_expand
+	"<extract_type>_vinsert<shuffletype><extract_suf>_mask"): Use
+	AVX512_VEC mode iterator.
+	(define_insn
+	"<mask_codefor><extract_type>_vinsert<shuffletype><extract_suf>_1<mask_name>"):
+	Ditto.
+	(define_expand
+	"<extract_type_2>_vinsert<shuffletype><extract_suf_2>_mask"): Use
+	AVX512_VEC_2 mode iterator.
+	(define_insn "vec_set_lo_<mode><mask_name>"): New.
+	(define_insn "vec_set_hi_<mode><mask_name>"): Ditto.
+	(define_expand "avx512vl_vinsert<mode>"): Ditto.
+	(define_insn "avx2_vec_set_lo_v4di"): Delete.
+	(define_insn "avx2_vec_set_hi_v4di"): Ditto.
+	(define_insn "vec_set_lo_<mode><mask_name>"): Add masking.
+	(define_insn "vec_set_hi_<mode><mask_name>"): Ditto.
+	(define_insn "vec_set_lo_<mode><mask_name>"): Ditto.
+	(define_insn "vec_set_hi_<mode><mask_name>"): Ditto.
+	(define_expand "avx2_extracti128"): Delete.
+	(define_expand "avx2_inserti128"): Ditto.
+
+2014-09-24  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/sse.md
+	(define_insn "avx2_<code>v16qiv16hi2<mask_name>"): Add masking.
+	(define_insn "avx512bw_<code>v32qiv32hi2<mask_name>"): New.
+	(define_insn "sse4_1_<code>v8qiv8hi2<mask_name>"): Add masking.
+	(define_insn "avx2_<code>v8qiv8si2<mask_name>"): Ditto.
+	(define_insn "sse4_1_<code>v4qiv4si2<mask_name>"): Ditto.
+	(define_insn "avx2_<code>v8hiv8si2<mask_name>"): Ditto.
+	(define_insn "sse4_1_<code>v4hiv4si2<mask_name>"): Ditto.
+	(define_insn "avx2_<code>v4qiv4di2<mask_name>"): Ditto.
+	(define_insn "sse4_1_<code>v2qiv2di2<mask_name>"): Ditto.
+	(define_insn "avx2_<code>v4hiv4di2<mask_name>"): Ditto.
+	(define_insn "sse4_1_<code>v2hiv2di2<mask_name>"): Ditto.
+	(define_insn "avx2_<code>v4siv4di2<mask_name>"): Ditto.
+	(define_insn "sse4_1_<code>v2siv2di2<mask_name>"): Ditto.
+
+2014-09-24  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	PR rtl-optimization/63210
+	* ira-color.c (assign_hard_reg): Ignore conflict cost if the
+	HARD_REGNO is not available for CONFLICT_A.
+
+2014-09-23  Andi Kleen  <ak@linux.intel.com>
+
+	* cgraph.h (symtab_node): Add no_reorder attribute.
+	(symbol_table::output_asm_statements): Remove.
+	* cgraphclones.c (cgraph_node::create_clone): Copy no_reorder.
+	(cgraph_node::create_version_clone): Dito.
+	(symbol_table::output_asm_statements): Remove.
+	* trans-mem.c (ipa_tm_create_version_alias): Dito.
+	* cgraphunit.c (varpool_node::finalize_decl): Check no_reorder.
+	(output_in_order): Add no_reorder flag. Only handle no_reorder
+	nodes when set.
+	(symbol_table::compile): Add separate pass for no_reorder nodes.
+	(process_common_attributes): Set no_reorder flag in symtab node.
+	Add node argument.
+	(process_function_and_variable_attributes): Pass symtab nodes to
+	process_common_attributes.
+	* doc/extend.texi (no_reorder): Document no_reorder attribute.
+	* lto-cgraph.c (lto_output_node): Serialize no_reorder.
+	(lto_output_varpool_node): Dito.
+	(input_overwrite_node): Dito.
+	(input_varpool_node): Dito.
+	* varpool.c (varpool_node::add): Set no_reorder attribute.
+	(symbol_table::remove_unreferenced_decls): Handle no_reorder.
+	(symbol_table::output_variables): Dito.
+	* symtab.c (symtab_node::dump_base): Print no_reorder.
+
+2014-09-23  Jiong Wang  <jiong.wang@arm.com>
+
+	* shrink-wrap.c (try_shrink_wrapping): Check PIC_OFFSET_TABLE_REGNUM not
+	be INVALID_REGNUM.
+
+2014-09-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* configure: Regenerate.
+
 2014-09-23  Alan Lawrence  <alan.lawrence@arm.com>
 
 	* combine.c (simplify_shift_const_1): Allow commuting (ashiftrt (xor))
