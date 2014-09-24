@@ -6,6 +6,7 @@
  ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
     -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tletmacro-0.melt \
      /dev/null -o /dev/null
+## perhaps also: -fmelt-debugging=all -fmelt-out-descr-comment
 
 or in a MELT module
 

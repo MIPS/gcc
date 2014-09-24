@@ -1,4 +1,8 @@
 
+2014-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/tletmacro-0.melt: Improve comment.
+
 2014-09-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-genobj.melt (compilobj_dataroutine): More debug.
