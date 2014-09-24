@@ -1,5 +1,14 @@
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
+	* dummy-frontend.c: Update copyright year.  Follow standard for
+	initial includes by removing redundant include of "ansidecl.h".
+	* internal-api.c: Follow standard for initial includes by removing
+	redundant include of "ansidecl.h".
+	* jit-builtins.c: Likewise.
+	* libgccjit.c: Likewise.
+
+2014-09-24  David Malcolm  <dmalcolm@redhat.com>
+
 	* ChangeLog.jit: Add copyright footer.
 	* Make-lang.in: Update copyright.
 	* config-lang.in: Update copyright.
