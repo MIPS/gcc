@@ -1,3 +1,19 @@
+2014-09-24  David Malcolm  <dmalcolm@redhat.com>
+
+	* ChangeLog.jit: Add copyright footer.
+	* Make-lang.in: Update copyright.
+	* config-lang.in: Update copyright.
+	* docs/examples/install-hello-world.c: Add copyright header.
+	* docs/examples/tut01-square.c: Likewise.
+	* docs/examples/tut02-sum-of-squares.c: Likewise.
+	* docs/examples/tut03-toyvm/toyvm.c: Likewise.
+	* internal-api.c: Likewise.
+	* internal-api.h: Likewise.
+	* libgccjit++.h: Likewise.
+	* libgccjit.c: Likewise.
+	* libgccjit.h: Likewise.
+	* libgccjit.map: Likewise.
+
 2014-09-23  David Malcolm  <dmalcolm@redhat.com>
 
 	* TODO.rst (API): Shift operators are done.
@@ -3062,3 +3078,9 @@
 	* libgccjit.h: New.
 	* libgccjit.map: New.
 	* notes.txt: New.
+
+Copyright (C) 2013-2014 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
