@@ -95,11 +95,19 @@ dump::~dump ()
 void
 dump::write (const char *fmt, ...)
 {
-  char buf[4096];
   va_list ap;
+  char *buf = NULL;
+
   va_start (ap, fmt);
-  vsnprintf (buf, sizeof (buf), fmt, ap);
+  vasprintf (&buf, fmt, ap);
   va_end (ap);
+
+  if (!buf)
+    {
+      m_ctxt.add_error (NULL, "malloc failure writing to dumpfile %s",
+			m_filename);
+      return;
+    }
 
   fwrite (buf, strlen (buf), 1, m_file);
 
@@ -114,6 +122,8 @@ dump::write (const char *fmt, ...)
       else
 	m_column++;
     }
+
+  free (buf);
 }
 
 recording::location *
@@ -680,8 +690,14 @@ recording::context::add_error (location *loc, const char *fmt, ...)
 void
 recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
 {
-  char buf[1024];
-  vsnprintf (buf, sizeof (buf) - 1, fmt, ap);
+  char *malloced_msg;
+  const char *errmsg;
+
+  vasprintf (&malloced_msg, fmt, ap);
+  if (malloced_msg)
+    errmsg = malloced_msg;
+  else
+    errmsg = "out of memory generating error message";
 
   const char *ctxt_progname =
     get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
@@ -692,19 +708,21 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
     fprintf (stderr, "%s: %s: error: %s\n",
 	     ctxt_progname,
 	     loc->get_debug_string (),
-	     buf);
+	     errmsg);
   else
     fprintf (stderr, "%s: error: %s\n",
 	     ctxt_progname,
-	     buf);
+	     errmsg);
 
   if (!m_error_count)
     {
-      strncpy (m_first_error_str, buf, sizeof(m_first_error_str));
+      strncpy (m_first_error_str, errmsg, sizeof(m_first_error_str));
       m_first_error_str[sizeof(m_first_error_str) - 1] = '\0';
     }
 
   m_error_count++;
+
+  free (malloced_msg);
 }
 
 const char *
@@ -797,15 +815,23 @@ recording::string::~string ()
 recording::string *
 recording::string::from_printf (context *ctxt, const char *fmt, ...)
 {
-  char buf[4096];
   va_list ap;
+  char *buf = NULL;
+  recording::string *result;
+
   va_start (ap, fmt);
-
-  vsnprintf (buf, sizeof (buf), fmt, ap);
-
+  vasprintf (&buf, fmt, ap);
   va_end (ap);
 
-  return ctxt->new_string (buf);
+  if (!buf)
+    {
+      ctxt->add_error (NULL, "malloc failure");
+      return NULL;
+    }
+
+  result = ctxt->new_string (buf);
+  free (buf);
+  return result;
 }
 
 recording::string *

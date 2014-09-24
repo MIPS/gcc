@@ -1,5 +1,20 @@
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::dump::write): Eliminate fixed-size
+	buffer "buf" by replacing call to vsnprintf with one to vasprintf
+	and a free, emitting an error on the dump's context if a malloc
+	failure occurs.
+	(gcc::jit::recording::context::add_error_va): Likewise, using
+	a precanned message if the malloc inside vasprinf fails.  Split
+	local "buf" into "malloced_msg" and "errmsg" to ensure that we
+	free the message iff we're using one malloc-ed by vasprintf.
+	(gcc::jit::recording::string::from_printf): Eliminate fixed-size
+	buffer "buf" by replacing call to vsnprintf with one to vasprintf
+	and a free, emitting an error on the relevant context if a malloc
+	failure occurs.
+
+2014-09-24  David Malcolm  <dmalcolm@redhat.com>
+
 	* dummy-frontend.c: Update copyright year.  Follow standard for
 	initial includes by removing redundant include of "ansidecl.h".
 	* internal-api.c: Follow standard for initial includes by removing
