@@ -1,3 +1,10 @@
+2014-09-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (make_tempdir_path_template): New.
+	(gcc::jit::playback::context::compile): Call
+	make_tempdir_path_template to make m_path_template, rather than
+	hardcoding "/tmp/" within "/tmp/libgccjit-XXXXXX".
+
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* docs/internals/index.rst ("Overview of code structure"): Add

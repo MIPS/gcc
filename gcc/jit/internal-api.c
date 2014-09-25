@@ -4826,6 +4826,44 @@ block (function *func,
   m_label_expr = NULL;
 }
 
+/* Construct a tempdir path template suitable for use by mkdtemp
+   e.g. "/tmp/libgccjit-XXXXXX", but respecting the rules in
+   libiberty's choose_tempdir rather than hardcoding "/tmp/".
+
+   The memory is allocated using malloc and must be freed.
+   Aborts the process if allocation fails. */
+
+static char *
+make_tempdir_path_template ()
+{
+  const char *tmpdir_buf;
+  size_t tmpdir_len;
+  const char *file_template_buf;
+  size_t file_template_len;
+  char *result;
+
+  /* The result of choose_tmpdir is a cached buffer within libiberty, so
+     we must *not* free it.  */
+  tmpdir_buf = choose_tmpdir ();
+
+  /* choose_tmpdir aborts on malloc failure.  */
+  gcc_assert (tmpdir_buf);
+
+  tmpdir_len = strlen (tmpdir_buf);
+  /* tmpdir_buf should now have a dir separator as the final byte.  */
+  gcc_assert (tmpdir_len > 0);
+  gcc_assert (tmpdir_buf[tmpdir_len - 1] == DIR_SEPARATOR);
+
+  file_template_buf = "libgccjit-XXXXXX";
+  file_template_len = strlen (file_template_buf);
+
+  result = XNEWVEC (char, tmpdir_len + file_template_len + 1);
+  strcpy (result, tmpdir_buf);
+  strcpy (result + tmpdir_len, file_template_buf);
+
+  return result;
+}
+
 /* Compile a playback::context:
 
    - Use the context's options to cconstruct command-line options, and
@@ -4845,7 +4883,7 @@ compile ()
   const char *fake_args[20];
   unsigned int num_args;
 
-  m_path_template = xstrdup ("/tmp/libgccjit-XXXXXX");
+  m_path_template = make_tempdir_path_template ();
   if (!m_path_template)
     return NULL;
 
