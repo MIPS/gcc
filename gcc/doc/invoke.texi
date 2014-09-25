@@ -4912,6 +4912,14 @@ struct s @{ int f, g, h; @};
 struct s x = @{ .f = 3, .g = 4 @};
 @end smallexample
 
+In C++ this option does not warn either about the empty @{ @}
+initializer, for example:
+
+@smallexample
+struct s @{ int f, g, h; @};
+s x = @{ @};
+@end smallexample
+
 This warning is included in @option{-Wextra}.  To get other @option{-Wextra}
 warnings without this one, use @option{-Wextra -Wno-missing-field-initializers}.
 
@@ -5581,6 +5589,20 @@ be a legitimate way of obtaining infinities and NaNs.
 This option enables floating-point type to integer conversion checking.
 We check that the result of the conversion does not overflow.
 This option does not work well with @code{FE_INVALID} exceptions enabled.
+
+@item -fsanitize=nonnull-attribute
+@opindex fsanitize=nonnull-attribute
+
+This option enables instrumentation of calls, checking whether null values
+are not passed to arguments marked as requiring a non-null value by the
+@code{nonnull} function attribute.
+
+@item -fsanitize=returns-nonnull-attribute
+@opindex fsanitize=returns-nonnull-attribute
+
+This option enables instrumentation of return statements in functions
+marked with @code{returns_nonnull} function attribute, to detect returning
+of null values from such functions.
 
 @end table
 
@@ -8996,6 +9018,12 @@ partitioning is intended for internal testing only.
 The value @code{one} specifies that exactly one partition should be
 used while the value @code{none} bypasses partitioning and executes
 the link-time optimization step directly from the WPA phase.
+
+@item -flto-odr-type-merging
+@opindex flto-odr-type-merging
+Enable streaming of mangled types names of C++ types and their unification
+at linktime.  This increases size of LTO object files, but enable
+diagnostics about One Definition Rule violations.
 
 @item -flto-compression-level=@var{n}
 This option specifies the level of compression used for intermediate

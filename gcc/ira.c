@@ -1078,7 +1078,7 @@ setup_allocno_and_important_classes (void)
    containing a given class.  If allocatable hard register set of a
    given class is not a subset of any corresponding set of a class
    from CLASSES, we use the cheapest (with load/store point of view)
-   class from CLASSES whose set intersects with given class set */
+   class from CLASSES whose set intersects with given class set.  */
 static void
 setup_class_translate_array (enum reg_class *class_translate,
 			     int classes_num, enum reg_class *classes)
@@ -1674,32 +1674,38 @@ ira_init_once (void)
 
 /* Free ira_max_register_move_cost, ira_may_move_in_cost and
    ira_may_move_out_cost for each mode.  */
-static void
-free_register_move_costs (void)
+void
+target_ira_int::free_register_move_costs (void)
 {
   int mode, i;
 
   /* Reset move_cost and friends, making sure we only free shared
      table entries once.  */
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
-    if (ira_register_move_cost[mode])
+    if (x_ira_register_move_cost[mode])
       {
 	for (i = 0;
-	     i < mode && (ira_register_move_cost[i]
-			  != ira_register_move_cost[mode]);
+	     i < mode && (x_ira_register_move_cost[i]
+			  != x_ira_register_move_cost[mode]);
 	     i++)
 	  ;
 	if (i == mode)
 	  {
-	    free (ira_register_move_cost[mode]);
-	    free (ira_may_move_in_cost[mode]);
-	    free (ira_may_move_out_cost[mode]);
+	    free (x_ira_register_move_cost[mode]);
+	    free (x_ira_may_move_in_cost[mode]);
+	    free (x_ira_may_move_out_cost[mode]);
 	  }
       }
-  memset (ira_register_move_cost, 0, sizeof ira_register_move_cost);
-  memset (ira_may_move_in_cost, 0, sizeof ira_may_move_in_cost);
-  memset (ira_may_move_out_cost, 0, sizeof ira_may_move_out_cost);
+  memset (x_ira_register_move_cost, 0, sizeof x_ira_register_move_cost);
+  memset (x_ira_may_move_in_cost, 0, sizeof x_ira_may_move_in_cost);
+  memset (x_ira_may_move_out_cost, 0, sizeof x_ira_may_move_out_cost);
   last_mode_for_init_move_cost = -1;
+}
+
+target_ira_int::~target_ira_int ()
+{
+  free_ira_costs ();
+  free_register_move_costs ();
 }
 
 /* This is called every time when register related information is
@@ -1707,7 +1713,7 @@ free_register_move_costs (void)
 void
 ira_init (void)
 {
-  free_register_move_costs ();
+  this_target_ira_int->free_register_move_costs ();
   setup_reg_mode_hard_regset ();
   setup_alloc_regs (flag_omit_frame_pointer != 0);
   setup_class_subset_and_memory_move_costs ();
@@ -1717,15 +1723,6 @@ ira_init (void)
   clarify_prohibited_class_mode_regs ();
   setup_hard_regno_aclass ();
   ira_init_costs ();
-}
-
-/* Function called once at the end of compiler work.  */
-void
-ira_finish_once (void)
-{
-  ira_finish_costs_once ();
-  free_register_move_costs ();
-  lra_finish_once ();
 }
 
 
@@ -1777,7 +1774,7 @@ void
 ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts)
 {
   /* MAP nalt * nop -> start of constraints for given operand and
-     alternative */
+     alternative.  */
   static vec<const char *> insn_constraints;
   int nop, nalt;
   bool curr_swapped;
@@ -2731,7 +2728,7 @@ print_redundant_copies (void)
   FOR_EACH_ALLOCNO (a, ai)
     {
       if (ALLOCNO_CAP_MEMBER (a) != NULL)
-	/* It is a cap. */
+	/* It is a cap.  */
 	continue;
       hard_regno = ALLOCNO_HARD_REGNO (a);
       if (hard_regno >= 0)
@@ -3466,7 +3463,7 @@ update_equiv_regs (void)
 	    note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
 
 	  /* Don't bother considering a REG_EQUAL note containing an EXPR_LIST
-	     since it represents a function call */
+	     since it represents a function call.  */
 	  if (note && GET_CODE (XEXP (note, 0)) == EXPR_LIST)
 	    note = NULL_RTX;
 
@@ -4140,7 +4137,7 @@ build_insn_chain (void)
 		       to a multiword reg.  Here, we only model the
 		       subreg case that is not wrapped in ZERO_EXTRACT
 		       precisely so we do not need to look at the
-		       fabricated use. */
+		       fabricated use.  */
 		    if (DF_REF_FLAGS_IS_SET (use, DF_REF_READ_WRITE)
 			&& !DF_REF_FLAGS_IS_SET (use, DF_REF_ZERO_EXTRACT)
 			&& DF_REF_FLAGS_IS_SET (use, DF_REF_SUBREG))
@@ -5263,14 +5260,16 @@ ira (FILE *f)
 #ifdef ENABLE_IRA_CHECKING
       print_redundant_copies ();
 #endif
-
-      ira_spilled_reg_stack_slots_num = 0;
-      ira_spilled_reg_stack_slots
-	= ((struct ira_spilled_reg_stack_slot *)
-	   ira_allocate (max_regno
-			 * sizeof (struct ira_spilled_reg_stack_slot)));
-      memset (ira_spilled_reg_stack_slots, 0,
-	      max_regno * sizeof (struct ira_spilled_reg_stack_slot));
+      if (! ira_use_lra_p)
+	{
+	  ira_spilled_reg_stack_slots_num = 0;
+	  ira_spilled_reg_stack_slots
+	    = ((struct ira_spilled_reg_stack_slot *)
+	       ira_allocate (max_regno
+			     * sizeof (struct ira_spilled_reg_stack_slot)));
+	  memset (ira_spilled_reg_stack_slots, 0,
+		  max_regno * sizeof (struct ira_spilled_reg_stack_slot));
+	}
     }
   allocate_initial_values ();
 
@@ -5306,9 +5305,6 @@ do_reload (void)
       FOR_ALL_BB_FN (bb, cfun)
 	bb->loop_father = NULL;
       current_loops = NULL;
-      
-      if (ira_conflicts_p)
-	ira_free (ira_spilled_reg_stack_slots);
 
       ira_destroy ();
 

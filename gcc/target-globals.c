@@ -124,6 +124,8 @@ target_globals::~target_globals ()
   /* default_target_globals points to static data so shouldn't be freed.  */
   if (this != &default_target_globals)
     {
+      ira_int->~target_ira_int ();
+      hard_regs->finalize ();
       XDELETE (flag_state);
       XDELETE (regs);
       XDELETE (recog);

@@ -132,7 +132,7 @@ static inline int recog_memoized (rtx_insn *insn);
 #endif
 extern void add_clobbers (rtx, int);
 extern int added_clobbers_hard_reg_p (int);
-extern void insn_extract (rtx);
+extern void insn_extract (rtx_insn *);
 extern void extract_insn (rtx_insn *);
 extern void extract_constrain_insn_cached (rtx_insn *);
 extern void extract_insn_cached (rtx_insn *);
@@ -402,7 +402,7 @@ extern struct target_recog *this_target_recog;
 #define this_target_recog (&default_target_recog)
 #endif
 
-alternative_mask get_enabled_alternatives (rtx);
+alternative_mask get_enabled_alternatives (rtx_insn *);
 
 void recog_init ();
 #endif
