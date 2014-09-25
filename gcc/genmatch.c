@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "bconfig.h"
 #include <new>
+#include <map>
+#include <utility>
+#include <string>
 #include "system.h"
 #include "coretypes.h"
 #include <cpplib.h>
@@ -422,10 +425,10 @@ struct c_expr : public operand
 
 struct capture : public operand
 {
-  capture (const char *where_, operand *what_)
+  capture (unsigned where_, operand *what_)
       : operand (OP_CAPTURE), where (where_), what (what_) {}
-  /* Identifier for the value.  */
-  const char *where;
+  /* Identifier index for the value.  */
+  unsigned where;
   /* The captured value.  */
   operand *what;
   virtual void gen_transform (FILE *f, const char *, bool, int, const char *, dt_operand ** = 0);
@@ -484,7 +487,7 @@ struct simplify
   simplify (operand *match_, source_location match_location_,
 	    struct operand *result_, source_location result_location_,
 	    vec<if_or_with> ifexpr_vec_, vec<vec<user_id *> > for_vec_,
-	    unsigned capture_max_)
+	    int capture_max_)
       : match (match_), match_location (match_location_),
       result (result_), result_location (result_location_),
       ifexpr_vec (ifexpr_vec_), for_vec (for_vec_),
@@ -505,7 +508,7 @@ struct simplify
      in the lowering phase.  */
   vec<vec<user_id *> > for_vec;
   /* The maximum capture index seen.  */
-  unsigned capture_max;
+  int capture_max;
 };
 
 /* Debugging routines for dumping the AST.  */
@@ -515,7 +518,7 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 {
   if (capture *c = dyn_cast<capture *> (o))
     {
-      fprintf (f, "@%s", c->where);
+      fprintf (f, "@%u", c->where);
       if (c->what && flattened == false) 
 	{
 	  putc (':', f);
@@ -1122,7 +1125,7 @@ decision_tree::insert_operand (dt_node *p, operand *o, dt_operand **indexes, uns
 
   if (capture *c = dyn_cast<capture *> (o))
     {
-      unsigned capt_index = atoi (c->where);
+      unsigned capt_index = c->where;
 
       if (indexes[capt_index] == 0)
 	{
@@ -1141,7 +1144,7 @@ decision_tree::insert_operand (dt_node *p, operand *o, dt_operand **indexes, uns
 
 	  if (!c->what)
 	    {
-	      unsigned cc_index = atoi (c->where);
+	      unsigned cc_index = c->where;
 	      dt_operand *match_op = indexes[cc_index];
 
 	      dt_operand temp (dt_node::DT_TRUE, 0, 0);
@@ -1224,7 +1227,7 @@ decision_tree::print_node (dt_node *p, FILE *f, unsigned indent)
 	{
 	  dt_simplify *s = static_cast<dt_simplify *> (p);
 	  fprintf (f, "simplify_%u { ", s->pattern_no); 
-	  for (unsigned i = 0; i <= s->s->capture_max; ++i)
+	  for (int i = 0; i <= s->s->capture_max; ++i)
 	    fprintf (f, "%p, ", (void *) s->indexes[i]);
 	  fprintf (f, " } "); 
 	}
@@ -1446,16 +1449,15 @@ capture::gen_transform (FILE *f, const char *dest, bool gimple, int depth, const
 {
   if (what && is_a<expr *> (what))
     {
-      int index = atoi (where);
-      if (indexes[index] == 0)
+      if (indexes[where] == 0)
 	{
 	  char buf[20];
-	  sprintf (buf, "captures[%s]", where);
+	  sprintf (buf, "captures[%u]", where);
 	  what->gen_transform (f, buf, gimple, depth, in_type, NULL);
 	}
     }
 	   
-  fprintf (f, "%s = captures[%s];\n", dest, where); 
+  fprintf (f, "%s = captures[%u];\n", dest, where); 
 }
 
 char *
@@ -1940,10 +1942,11 @@ dt_simplify::gen (FILE *f, bool gimple)
 {
   fprintf (f, "{\n");
   output_line_directive (f, s->result_location);
-  fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n",
-	   s->capture_max + 1);
+  if (s->capture_max >= 0)
+    fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n",
+	     s->capture_max + 1);
 
-  for (unsigned i = 0; i <= s->capture_max; ++i)
+  for (int i = 0; i <= s->capture_max; ++i)
     if (indexes[i])
       {
 	char opname[20];
@@ -2280,7 +2283,9 @@ private:
   cpp_reader *r;
   vec<if_or_with> active_ifs;
   vec<vec<user_id *> > active_fors;
-  unsigned capture_max;
+
+  int capture_max;
+  std::map<std::string, unsigned> *capture_ids;
 
 public:
   vec<simplify *> simplifiers;
@@ -2448,12 +2453,20 @@ struct operand *
 parser::parse_capture (operand *op)
 {
   eat_token (CPP_ATSIGN);
-  /* ???  Ideally we'd accept any identifier or number here
-     and dynamically assign an index to them.  */
-  const char *id = get_number ();
-  if ((unsigned) atoi (id) > capture_max)
-    capture_max = atoi (id);
-  return new capture (id, op);
+  const cpp_token *token = peek ();
+  const char *id;
+  if (token->type == CPP_NUMBER)
+    id = get_number ();
+  else if (token->type == CPP_NAME)
+    id = get_ident ();
+  else
+    fatal_at (token, "expected number or identifier");
+  std::pair<std::map<std::string, unsigned>::iterator, bool> res
+    = capture_ids->insert
+        (std::pair<std::string, unsigned>(id, capture_max + 1));
+  if (res.second)
+    capture_max++;
+  return new capture ((*res.first).second, op);
 }
 
 /* Parse an expression
@@ -2633,7 +2646,9 @@ parser::parse_simplify (source_location match_location,
 			vec<simplify *>& simplifiers, predicate_id *matcher)
 {
   /* Reset the maximum capture number seen.  */
-  capture_max = 0;
+  std::map<std::string, unsigned> cids;
+  capture_max = -1;
+  capture_ids = &cids;
 
   const cpp_token *loc = peek ();
   struct operand *match = parse_op ();
