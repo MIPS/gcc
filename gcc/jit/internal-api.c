@@ -4992,18 +4992,46 @@ compile ()
      We could reuse parts of gcc/gcc.c to do this.
      For now, just use the /usr/bin/gcc on the system...
    */
-  /* FIXME: totally faking it for now, not even using pex */
   {
     auto_timevar assemble_timevar (TV_ASSEMBLE);
+    const char *errmsg;
+    const char *argv[6];
+    int exit_status = 0;
+    int err = 0;
 
-    char cmd[1024];
-    snprintf (cmd, 1024, "gcc -shared %s -o %s",
-              m_path_s_file, m_path_so_file);
-    if (0)
-      printf ("cmd: %s\n", cmd);
-    int ret = system (cmd);
-    if (ret)
-      return NULL;
+    argv[0] = "gcc";
+    argv[1] = "-shared";
+    /* The input: assembler.  */
+    argv[2] = m_path_s_file;
+    /* The output: shared library.  */
+    argv[3] = "-o";
+    argv[4] = m_path_so_file;
+    /* pex argv arrays are NULL-terminated.  */
+    argv[5] = NULL;
+
+    errmsg = pex_one (PEX_SEARCH, /* int flags, */
+		      "gcc", /* const char *executable */
+		      const_cast<char * const *> (argv),
+		      ctxt_progname, /* const char *pname */
+		      NULL, /* const char *outname */
+		      NULL, /* const char *errname */
+		      &exit_status, /* int *status */
+		      &err); /* int *err*/
+    if (errmsg)
+      {
+	add_error (NULL, "error invoking gcc harness: %s", errmsg);
+	return NULL;
+      }
+
+    /* pex_one can return a NULL errmsg when the executable wasn't
+       found (or doesn't exist), so trap these cases also.  */
+    if (exit_status || err)
+      {
+	add_error (NULL,
+		   "error invoking gcc harness: exit_status: %i err: %i",
+		   exit_status, err);
+	return NULL;
+      }
   }
 
   // TODO: split out assembles vs linker

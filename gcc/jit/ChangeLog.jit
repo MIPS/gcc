@@ -1,5 +1,11 @@
 2014-09-25  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::playback::context::compile): Use
+	pex_one rather than system when invoking "gcc" to go from a .s
+	file to a .so file.
+
+2014-09-25  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (make_tempdir_path_template): New.
 	(gcc::jit::playback::context::compile): Call
 	make_tempdir_path_template to make m_path_template, rather than
