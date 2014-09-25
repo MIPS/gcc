@@ -1,5 +1,10 @@
 2014-09-25  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c: Keep track of the maximum capture index used
+	and get rid of the static constant dt_simplify::capture_max.
+
+2014-09-25  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c: Put all AST parsing into a class parser
 	simplifying state management.  Keep a vector of user
 	predicates in order of definition.

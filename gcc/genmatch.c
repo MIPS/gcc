@@ -483,10 +483,12 @@ struct simplify
 {
   simplify (operand *match_, source_location match_location_,
 	    struct operand *result_, source_location result_location_,
-	    vec<if_or_with> ifexpr_vec_, vec<vec<user_id *> > for_vec_)
+	    vec<if_or_with> ifexpr_vec_, vec<vec<user_id *> > for_vec_,
+	    unsigned capture_max_)
       : match (match_), match_location (match_location_),
       result (result_), result_location (result_location_),
-      ifexpr_vec (ifexpr_vec_), for_vec (for_vec_) {}
+      ifexpr_vec (ifexpr_vec_), for_vec (for_vec_),
+      capture_max (capture_max_) {}
 
   /* The expression that is matched against the GENERIC or GIMPLE IL.  */
   operand *match; 
@@ -502,6 +504,8 @@ struct simplify
   /* Collected 'for' expression operators that have to be replaced
      in the lowering phase.  */
   vec<vec<user_id *> > for_vec;
+  /* The maximum capture index seen.  */
+  unsigned capture_max;
 };
 
 /* Debugging routines for dumping the AST.  */
@@ -650,7 +654,7 @@ lower_commutative (simplify *s, vec<simplify *>& simplifiers)
     {
       simplify *ns = new simplify (matchers[i], s->match_location,
 				   s->result, s->result_location, s->ifexpr_vec,
-				   s->for_vec);
+				   s->for_vec, s->capture_max);
       simplifiers.safe_push (ns);
     }
 }
@@ -780,7 +784,7 @@ lower_opt_convert (simplify *s, vec<simplify *>& simplifiers)
     {
       simplify *ns = new simplify (matchers[i], s->match_location,
 				   s->result, s->result_location, s->ifexpr_vec,
-				   s->for_vec);
+				   s->for_vec, s->capture_max);
       simplifiers.safe_push (ns);
     }
 }
@@ -865,7 +869,7 @@ lower_for (simplify *sin, vec<simplify *>& simplifiers)
 		}
 	      simplify *ns = new simplify (match_op, s->match_location,
 					   result_op, s->result_location,
-					   ifexpr_vec, vNULL);
+					   ifexpr_vec, vNULL, s->capture_max);
 	      worklist.safe_push (ns);
 	    }
 	}
@@ -951,17 +955,13 @@ struct dt_operand : public dt_node
 
 struct dt_simplify : public dt_node
 {
-  static const unsigned capture_max = 6;
   simplify *s; 
   unsigned pattern_no;
-  dt_operand *indexes[capture_max]; 
+  dt_operand **indexes;
   
   dt_simplify (simplify *s_, unsigned pattern_no_, dt_operand **indexes_)
-	: dt_node (DT_SIMPLIFY), s (s_), pattern_no (pattern_no_)
-  {
-    for (unsigned i = 0; i < capture_max; ++i)
-      indexes[i] = indexes_[i];
-  }
+	: dt_node (DT_SIMPLIFY), s (s_), pattern_no (pattern_no_),
+	  indexes (indexes_)  {}
 
   void gen (FILE *f, bool);
   virtual void gen_gimple (FILE *f) { gen (f, true); }
@@ -1190,14 +1190,10 @@ at_assert_elm:
 void
 decision_tree::insert (struct simplify *s, unsigned pattern_no)
 {
-  dt_operand *indexes[dt_simplify::capture_max];
-
   if (s->match->type != operand::OP_EXPR)
     return; 
 
-  for (unsigned j = 0; j < dt_simplify::capture_max; ++j)
-    indexes[j] = 0; 
-
+  dt_operand **indexes = XCNEWVEC (dt_operand *, s->capture_max + 1);
   dt_node *p = decision_tree::insert_operand (root, s->match, indexes);
   p->append_simplify (s, pattern_no, indexes);
 }
@@ -1228,7 +1224,7 @@ decision_tree::print_node (dt_node *p, FILE *f, unsigned indent)
 	{
 	  dt_simplify *s = static_cast<dt_simplify *> (p);
 	  fprintf (f, "simplify_%u { ", s->pattern_no); 
-	  for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
+	  for (unsigned i = 0; i <= s->s->capture_max; ++i)
 	    fprintf (f, "%p, ", (void *) s->indexes[i]);
 	  fprintf (f, " } "); 
 	}
@@ -1945,9 +1941,9 @@ dt_simplify::gen (FILE *f, bool gimple)
   fprintf (f, "{\n");
   output_line_directive (f, s->result_location);
   fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n",
-	   dt_simplify::capture_max);
+	   s->capture_max + 1);
 
-  for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
+  for (unsigned i = 0; i <= s->capture_max; ++i)
     if (indexes[i])
       {
 	char opname[20];
@@ -2284,6 +2280,7 @@ private:
   cpp_reader *r;
   vec<if_or_with> active_ifs;
   vec<vec<user_id *> > active_fors;
+  unsigned capture_max;
 
 public:
   vec<simplify *> simplifiers;
@@ -2451,7 +2448,12 @@ struct operand *
 parser::parse_capture (operand *op)
 {
   eat_token (CPP_ATSIGN);
-  return new capture (get_number (), op);
+  /* ???  Ideally we'd accept any identifier or number here
+     and dynamically assign an index to them.  */
+  const char *id = get_number ();
+  if ((unsigned) atoi (id) > capture_max)
+    capture_max = atoi (id);
+  return new capture (id, op);
 }
 
 /* Parse an expression
@@ -2630,6 +2632,9 @@ void
 parser::parse_simplify (source_location match_location,
 			vec<simplify *>& simplifiers, predicate_id *matcher)
 {
+  /* Reset the maximum capture number seen.  */
+  capture_max = 0;
+
   const cpp_token *loc = peek ();
   struct operand *match = parse_op ();
   if (match->type == operand::OP_CAPTURE && !matcher)
@@ -2652,7 +2657,8 @@ parser::parse_simplify (source_location match_location,
 	matcher->nargs = 0;
       simplifiers.safe_push
 	(new simplify (match, match_location, NULL, token->src_loc,
-		       active_ifs.copy (), active_fors.copy ()));
+		       active_ifs.copy (), active_fors.copy (),
+		       capture_max));
       return;
     }
 
@@ -2682,7 +2688,7 @@ parser::parse_simplify (source_location match_location,
 		  simplifiers.safe_push
 		      (new simplify (match, match_location, NULL,
 				     paren_loc, active_ifs.copy (),
-				     active_fors.copy ()));
+				     active_fors.copy (), capture_max));
 		}
 	    }
 	  else if (peek_ident ("with"))
@@ -2711,7 +2717,7 @@ parser::parse_simplify (source_location match_location,
 	      simplifiers.safe_push
 		  (new simplify (match, match_location, op,
 				 token->src_loc, active_ifs.copy (),
-				 active_fors.copy ()));
+				 active_fors.copy (), capture_max));
 	      eat_token (CPP_CLOSE_PAREN);
 	      /* A "default" result closes the enclosing scope.  */
 	      if (active_ifs.length () > active_ifs_len)
@@ -2742,7 +2748,7 @@ parser::parse_simplify (source_location match_location,
 	  simplifiers.safe_push
 	      (new simplify (match, match_location, parse_op (),
 			     token->src_loc, active_ifs.copy (),
-			     active_fors.copy ()));
+			     active_fors.copy (), capture_max));
 	  /* A "default" result closes the enclosing scope.  */
 	  if (active_ifs.length () > active_ifs_len)
 	    {
