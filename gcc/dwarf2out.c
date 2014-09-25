@@ -17707,7 +17707,7 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
 	     missing, fall through to add them.
 
 	     ?? Add more checks here.  */
-	  if (! DECL_ABSTRACT (node_or_origin)
+	  if (! DECL_ABSTRACT_P (node_or_origin)
 	      && !get_AT (parm_die, DW_AT_location)
 	      && !get_AT (parm_die, DW_AT_const_value))
 	    /* We are missing  location info, and are about to add it.  */
@@ -21169,7 +21169,7 @@ dwarf2out_decl (tree decl)
 	 or not at all.  */
       if (DECL_INITIAL (decl) == NULL_TREE
 	  && ! DECL_ABSTRACT_P (decl))
-	return;
+	return NULL;
 
       /* If we're a nested function, initially use a parent of NULL; if we're
 	 a plain function, this will be fixed up in decls_for_scope.  If
