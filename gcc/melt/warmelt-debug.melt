@@ -1002,7 +1002,8 @@ $TORANK}#
       (progn
 	(add2out_strconst out " |")
 	(add2out_string out (unsafe_get_field :named_name dis))
-	(add2out_strconst out "{")))
+	(add2out_strconst out "{h")))
+    (add2out_longhex out (mapobject_hash self))
     (add2out_strconst out "/")
     (add2out_longdec out (mapobject_count self))
     (if (and
@@ -1094,6 +1095,7 @@ $TORANK}#
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 )
     (add2out sbuf " *mapstr|" (get_field :named_name dis) "<(")
+    (add2sbuf_longhex sbuf (mapstring_hash self))
     (add2sbuf_strconst sbuf "/")
     (add2sbuf_longdec sbuf mapcount)
     (if (and

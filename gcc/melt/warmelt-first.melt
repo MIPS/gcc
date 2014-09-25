@@ -1574,6 +1574,11 @@ an integer $I if $I is greater than $N.}#
   :doc #{Safely access the auxiliary data of object-map $MAP.}#
   #{melt_auxput_mapobjects ((melt_ptr_t) ($MAP), (melt_ptr_t) ($VAL))}#)
 
+;; primitive accessing the auxiliary data for a map of objects
+(defprimitive mapobject_hash (map) :long
+  :doc #{Safely access the hash of object-map $MAP.}#
+  #{melt_hash_mapobjects ((melt_ptr_t) ($MAP))}#)
+
 ;;; iterator inside a map of object
 (defciterator foreach_in_mapobject
   (:value objmap)
@@ -1644,6 +1649,11 @@ discriminant $SDICR from it.}#
 (defprimitive mapstring_aux (map) :value
   :doc #{Safely retrieve auxiliary data from string-map $MAP.}#
   #{melt_auxdata_mapstrings ((melt_ptr_t)$MAP)}#)
+
+;; primitive accessing the hash of a mapstring
+(defprimitive mapstring_hash (map) :long
+  :doc #{Safely retrieve hash from string-map $MAP.}#
+  #{melt_hash_mapstrings ((melt_ptr_t)$MAP)}#)
 
 ;; primitive putting the auxiliary data of a mapstring
 (defprimitive mapstring_auxput (map val) :void
@@ -4167,6 +4177,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  mapobject_auxput
  mapobject_count
  mapobject_get
+ mapobject_hash
  mapobject_nth_attr
  mapobject_nth_val
  mapobject_put
@@ -4174,6 +4185,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  mapobject_size
  mapstring_aux
  mapstring_auxput
+ mapstring_hash
  mapstring_getstr
  mapstring_nth_attrstr
  mapstring_nth_val
