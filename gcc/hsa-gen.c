@@ -156,7 +156,7 @@ hsa_init_data_for_cfun ()
 			 sizeof (struct hsa_op_address), sym_init_len);
 
   memset (&hsa_cfun, 0, sizeof (hsa_cfun));
-  hsa_cfun.prologue.label_ref.kind = BRIG_OPERAND_LABEL_REF;
+  hsa_cfun.prologue.label_ref.kind = BRIG_KIND_OPERAND_CODE_REF;
   hsa_cfun.local_symbols
     = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
   hsa_cfun.reg_count = 0;
@@ -524,7 +524,7 @@ hsa_alloc_immed_op (tree tree_val)
 		       && !POINTER_TYPE_P (TREE_TYPE (tree_val)));
 
   memset (imm, 0 , sizeof (hsa_op_immed));
-  imm->kind = BRIG_OPERAND_IMMED;
+  imm->kind = BRIG_KIND_OPERAND_DATA;
   imm->type = hsa_type_for_scalar_tree_type (TREE_TYPE (tree_val), true);
   imm->value = tree_val;
 
@@ -540,7 +540,7 @@ hsa_alloc_reg_op (void)
 
   hreg = (hsa_op_reg *) pool_alloc (hsa_allocp_operand_reg);
   memset (hreg, 0, sizeof (hsa_op_reg));
-  hreg->kind = BRIG_OPERAND_REG;
+  hreg->kind = BRIG_KIND_OPERAND_REG;
   /* TODO: Try removing later on.  I suppose this is not necessary but I'd
      rather avoid surprises.  */
   hreg->uses = vNULL;
@@ -559,7 +559,7 @@ hsa_alloc_addr_op (hsa_symbol *sym, hsa_op_reg *reg, HOST_WIDE_INT offset)
 
   addr = (hsa_op_address *) pool_alloc (hsa_allocp_operand_address);
   memset (addr, 0, sizeof (hsa_op_address));
-  addr->kind = BRIG_OPERAND_ADDRESS;
+  addr->kind = BRIG_KIND_OPERAND_ADDRESS;
   addr->symbol = sym;
   addr->reg = reg;
   addr->imm_offset = offset;
@@ -1652,10 +1652,12 @@ specialop:
 	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
 
 	meminsn->opcode = BRIG_OPCODE_LD;
+	/* Should check what the memory scope is */
+	meminsn->memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
 	meminsn->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
 	meminsn->operands[0] = dest;
 	meminsn->operands[1] = addr;
-	meminsn->semantic = BRIG_SEMANTIC_ACQUIRE;
+	meminsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
 
 	set_reg_def (dest, meminsn);
 	if (addr->reg)
@@ -1677,6 +1679,8 @@ specialop:
 	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
 
 	atominsn->opcode = BRIG_OPCODE_ATOMIC;
+	/* Should check what the memory scope is */
+	atominsn->memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
 	atominsn->type = bittype_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
 	atominsn->operands[0] = dest;
 	atominsn->operands[1] = addr;
@@ -1686,7 +1690,7 @@ specialop:
 	atominsn->operands[3]
 	  = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 2),
 					    hbb, ssa_map, atominsn);
-	atominsn->semantic = BRIG_SEMANTIC_ACQUIRE_RELEASE;
+	atominsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
 	atominsn->atomicop = BRIG_ATOMIC_CAS;
 
 	set_reg_def (dest, atominsn);
@@ -1812,7 +1816,7 @@ hsa_init_new_bb (basic_block bb)
   bb->aux = hbb;
   hbb->bb = bb;
   hbb->index = hsa_cfun.hbb_count++;
-  hbb->label_ref.kind = BRIG_OPERAND_LABEL_REF;
+  hbb->label_ref.kind = BRIG_KIND_OPERAND_CODE_REF;
   return hbb;
 }
 

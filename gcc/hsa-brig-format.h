@@ -1,9 +1,6 @@
 /* HSAIL and BRIG related macros and definitions.
    Copyright (C) 2013 Free Software Foundation, Inc.
 
-   FIXME: This is basically all copied from the HSA Programmers Reference Guide,
-   so it's HSA foundation code, can we publish it under GPL?
-
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify
@@ -26,75 +23,34 @@
 #include "config.h"
 #include "system.h"
 
-typedef uint32_t BrigDirectiveOffset32_t;
+typedef uint32_t BrigDataOffset32_t;
 typedef uint32_t BrigCodeOffset32_t;
 typedef uint32_t BrigOperandOffset32_t;
-typedef uint32_t BrigStringOffset32_t;
 
-typedef uint16_t BrigDirectiveKinds16_t;
-enum BrigDirectiveKinds {
-  BRIG_DIRECTIVE_ARG_SCOPE_END = 0,
-  BRIG_DIRECTIVE_ARG_SCOPE_START = 1,
-  BRIG_DIRECTIVE_BLOCK_END = 2,
-  BRIG_DIRECTIVE_BLOCK_NUMERIC = 3,
-  BRIG_DIRECTIVE_BLOCK_START = 4,
-  BRIG_DIRECTIVE_BLOCK_STRING = 5,
-  BRIG_DIRECTIVE_COMMENT = 6,
-  BRIG_DIRECTIVE_CONTROL = 7,
-  BRIG_DIRECTIVE_EXTENSION = 8,
-  BRIG_DIRECTIVE_FBARRIER = 9,
-  BRIG_DIRECTIVE_FILE = 10,
-  BRIG_DIRECTIVE_FUNCTION = 11,
-  BRIG_DIRECTIVE_IMAGE = 12,
-  BRIG_DIRECTIVE_IMAGE_INIT = 13,
-  BRIG_DIRECTIVE_KERNEL = 14,
-  BRIG_DIRECTIVE_LABEL = 15,
-  BRIG_DIRECTIVE_LABEL_INIT = 16,
-  BRIG_DIRECTIVE_LABEL_TARGETS = 17,
-  BRIG_DIRECTIVE_LOC = 18,
-  BRIG_DIRECTIVE_PRAGMA = 19,
-  BRIG_DIRECTIVE_SAMPLER = 20,
-  BRIG_DIRECTIVE_SAMPLER_INIT = 21,
-  BRIG_DIRECTIVE_SCOPE = 22,
-  BRIG_DIRECTIVE_SIGNATURE = 23,
-  BRIG_DIRECTIVE_VARIABLE = 24,
-  BRIG_DIRECTIVE_VARIABLE_INIT = 25,
-  BRIG_DIRECTIVE_VERSION = 26
+typedef BrigDataOffset32_t BrigDataOffsetString32_t;
+typedef BrigDataOffset32_t BrigDataOffsetCodeList32_t;
+typedef BrigDataOffset32_t BrigDataOffsetOperandList32_t;
+
+typedef uint8_t BrigAlignment8_t;
+enum BrigAlignment {
+  BRIG_ALIGNMENT_NONE = 0,
+  BRIG_ALIGNMENT_1 = 1,
+  BRIG_ALIGNMENT_2 = 2,
+  BRIG_ALIGNMENT_4 = 3,
+  BRIG_ALIGNMENT_8 = 4,
+  BRIG_ALIGNMENT_16 = 5,
+  BRIG_ALIGNMENT_32 = 6,
+  BRIG_ALIGNMENT_64 = 7,
+  BRIG_ALIGNMENT_128 = 8,
+  BRIG_ALIGNMENT_256 = 9
 };
 
-typedef uint16_t BrigInstKinds16_t;
-enum BrigInstKinds {
-  BRIG_INST_NONE = 0,
-  BRIG_INST_BASIC = 1,
-  BRIG_INST_ATOMIC = 2,
-  BRIG_INST_ATOMIC_IMAGE = 3,
-  BRIG_INST_BAR = 4,
-  BRIG_INST_BR = 5,
-  BRIG_INST_CMP = 6,
-  BRIG_INST_CVT = 7,
-  BRIG_INST_FBAR = 8,
-  BRIG_INST_IMAGE = 9,
-  BRIG_INST_MEM = 10,
-  BRIG_INST_ADDR = 11,
-  BRIG_INST_MOD = 12,
-  BRIG_INST_SEG = 13,
-  BRIG_INST_SOURCE_TYPE = 14
-};
-
-typedef uint16_t BrigOperandKinds16_t;
-enum BrigOperandKinds {
-  BRIG_OPERAND_IMMED = 0,
-  BRIG_OPERAND_WAVESIZE = 1,
-  BRIG_OPERAND_REG = 2,
-  BRIG_OPERAND_REG_VECTOR = 3,
-  BRIG_OPERAND_ADDRESS = 4,
-  BRIG_OPERAND_LABEL_REF = 5,
-  BRIG_OPERAND_ARGUMENT_REF = 6,
-  BRIG_OPERAND_ARGUMENT_LIST = 7,
-  BRIG_OPERAND_FUNCTION_REF = 8,
-  BRIG_OPERAND_FUNCTION_LIST = 9,
-  BRIG_OPERAND_SIGNATURE_REF = 10,
-  BRIG_OPERAND_FBARRIER_REF = 11
+typedef uint8_t BrigAllocation8_t;
+enum BrigAllocation {
+  BRIG_ALLOCATION_NONE = 0,
+  BRIG_ALLOCATION_PROGRAM = 1,
+  BRIG_ALLOCATION_AGENT = 2,
+  BRIG_ALLOCATION_AUTOMATIC = 3
 };
 
 typedef uint16_t BrigAluModifier16_t;
@@ -105,17 +61,81 @@ enum BrigAluModifierMask {
 
 typedef uint8_t BrigAtomicOperation8_t;
 enum BrigAtomicOperation {
-  BRIG_ATOMIC_AND = 0,
-  BRIG_ATOMIC_OR = 1,
-  BRIG_ATOMIC_XOR = 2,
-  BRIG_ATOMIC_CAS = 3,
-  BRIG_ATOMIC_EXCH = 4,
-  BRIG_ATOMIC_ADD = 5,
-  BRIG_ATOMIC_INC = 6,
-  BRIG_ATOMIC_DEC = 7,
-  BRIG_ATOMIC_MIN = 8,
-  BRIG_ATOMIC_MAX = 9,
-  BRIG_ATOMIC_SUB = 10
+  BRIG_ATOMIC_ADD = 0,
+  BRIG_ATOMIC_AND = 1,
+  BRIG_ATOMIC_CAS = 2,
+  BRIG_ATOMIC_EXCH = 3,
+  BRIG_ATOMIC_LD = 4,
+  BRIG_ATOMIC_MAX = 5,
+  BRIG_ATOMIC_MIN = 6,
+  BRIG_ATOMIC_OR = 7,
+  BRIG_ATOMIC_ST = 8,
+  BRIG_ATOMIC_SUB = 9,
+  BRIG_ATOMIC_WRAPDEC = 10,
+  BRIG_ATOMIC_WRAPINC = 11,
+  BRIG_ATOMIC_XOR = 12,
+  BRIG_ATOMIC_WAIT_EQ = 13,
+  BRIG_ATOMIC_WAIT_NE = 14,
+  BRIG_ATOMIC_WAIT_LT = 15,
+  BRIG_ATOMIC_WAIT_GTE = 16,
+  BRIG_ATOMIC_WAITTIMEOUT_EQ = 17,
+  BRIG_ATOMIC_WAITTIMEOUT_NE = 18,
+  BRIG_ATOMIC_WAITTIMEOUT_LT = 19,
+  BRIG_ATOMIC_WAITTIMEOUT_GTE = 20
+};
+
+typedef uint16_t BrigKinds16_t;
+enum BrigKind {
+  BRIG_KIND_NONE = 0x0000,
+  BRIG_KIND_DIRECTIVE_BEGIN = 0x1000,
+  BRIG_KIND_DIRECTIVE_ARG_BLOCK_END = 0x1000,
+  BRIG_KIND_DIRECTIVE_ARG_BLOCK_START = 0x1001,
+  BRIG_KIND_DIRECTIVE_COMMENT = 0x1002,
+  BRIG_KIND_DIRECTIVE_CONTROL = 0x1003,
+  BRIG_KIND_DIRECTIVE_EXTENSION = 0x1004,
+  BRIG_KIND_DIRECTIVE_FBARRIER = 0x1005,
+  BRIG_KIND_DIRECTIVE_FUNCTION = 0x1006,
+  BRIG_KIND_DIRECTIVE_INDIRECT_FUNCTION = 0x1007,
+  BRIG_KIND_DIRECTIVE_KERNEL = 0x1008,
+  BRIG_KIND_DIRECTIVE_LABEL = 0x1009,
+  BRIG_KIND_DIRECTIVE_LOC = 0x100a,
+  BRIG_KIND_DIRECTIVE_PRAGMA = 0x100b,
+  BRIG_KIND_DIRECTIVE_SIGNATURE = 0x100c,
+  BRIG_KIND_DIRECTIVE_VARIABLE = 0x100d,
+  BRIG_KIND_DIRECTIVE_VERSION = 0x100e,
+  BRIG_KIND_DIRECTIVE_END = 0x100f,
+  BRIG_KIND_INST_BEGIN = 0x2000,
+  BRIG_KIND_INST_ADDR = 0x2000,
+  BRIG_KIND_INST_ATOMIC = 0x2001,
+  BRIG_KIND_INST_BASIC = 0x2002,
+  BRIG_KIND_INST_BR = 0x2003,
+  BRIG_KIND_INST_CMP = 0x2004,
+  BRIG_KIND_INST_CVT = 0x2005,
+  BRIG_KIND_INST_IMAGE = 0x2006,
+  BRIG_KIND_INST_LANE = 0x2007,
+  BRIG_KIND_INST_MEM = 0x2008,
+  BRIG_KIND_INST_MEM_FENCE = 0x2009,
+  BRIG_KIND_INST_MOD = 0x200a,
+  BRIG_KIND_INST_QUERY_IMAGE = 0x200b,
+  BRIG_KIND_INST_QUERY_SAMPLER = 0x200c,
+  BRIG_KIND_INST_QUEUE = 0x200d,
+  BRIG_KIND_INST_SEG = 0x200e,
+  BRIG_KIND_INST_SEG_CVT = 0x200f,
+  BRIG_KIND_INST_SIGNAL = 0x2010,
+  BRIG_KIND_INST_SOURCE_TYPE = 0x2011,
+  BRIG_KIND_INST_END = 0x2012,
+  BRIG_KIND_OPERAND_BEGIN = 0x3000,
+  BRIG_KIND_OPERAND_ADDRESS = 0x3000,
+  BRIG_KIND_OPERAND_DATA = 0x3001,
+  BRIG_KIND_OPERAND_CODE_LIST = 0x3002,
+  BRIG_KIND_OPERAND_CODE_REF = 0x3003,
+  BRIG_KIND_OPERAND_IMAGE_PROPERTIES = 0x3004,
+  BRIG_KIND_OPERAND_OPERAND_LIST = 0x3005,
+  BRIG_KIND_OPERAND_REG = 0x3006,
+  BRIG_KIND_OPERAND_SAMPLER_PROPERTIES = 0x3007,
+  BRIG_KIND_OPERAND_STRING = 0x3008,
+  BRIG_KIND_OPERAND_WAVESIZE = 0x3009,
+  BRIG_KIND_OPERAND_END = 0x300a
 };
 
 typedef uint8_t BrigCompareOperation8_t;
@@ -167,28 +187,51 @@ enum BrigControlDirective {
 
 typedef uint8_t BrigExecutableModifier8_t;
 enum BrigExecuteableModifierMask {
-  BRIG_EXECUTABLE_LINKAGE = 3,
-  BRIG_EXECUTABLE_DECLARATION = 4
+  BRIG_EXECUTABLE_DEFINITION = 1
 };
 
-typedef uint8_t BrigImageFormat8_t;
-enum BrigImageFormat {
-  BRIG_FORMAT_SNORM_INT8 = 0,
-  BRIG_FORMAT_SNORM_INT16 = 1,
-  BRIG_FORMAT_UNORM_INT8 = 2,
-  BRIG_FORMAT_UNORM_INT16 = 3,
-  BRIG_FORMAT_UNORM_SHORT_565 = 4,
-  BRIG_FORMAT_UNORM_SHORT_555 = 5,
-  BRIG_FORMAT_UNORM_SHORT_101010 = 6,
-  BRIG_FORMAT_SIGNED_INT8 = 7,
-  BRIG_FORMAT_SIGNED_INT16 = 8,
-  BRIG_FORMAT_SIGNED_INT32 = 9,
-  BRIG_FORMAT_UNSIGNED_INT8 = 10,
-  BRIG_FORMAT_UNSIGNED_INT16 = 11,
-  BRIG_FORMAT_UNSIGNED_INT32 = 12,
-  BRIG_FORMAT_HALF_FLOAT = 13,
-  BRIG_FORMAT_FLOAT = 14,
-  BRIG_FORMAT_UNORM_INT24 = 15
+typedef uint8_t BrigImageChannelOrder8_t;
+enum BrigImageChannelOrder {
+  BRIG_CHANNEL_ORDER_A = 0,
+  BRIG_CHANNEL_ORDER_R = 1,
+  BRIG_CHANNEL_ORDER_RX = 2,
+  BRIG_CHANNEL_ORDER_RG = 3,
+  BRIG_CHANNEL_ORDER_RGX = 4,
+  BRIG_CHANNEL_ORDER_RA = 5,
+  BRIG_CHANNEL_ORDER_RGB = 6,
+  BRIG_CHANNEL_ORDER_RGBX = 7,
+  BRIG_CHANNEL_ORDER_RGBA = 8,
+  BRIG_CHANNEL_ORDER_BGRA = 9,
+  BRIG_CHANNEL_ORDER_ARGB = 10,
+  BRIG_CHANNEL_ORDER_ABGR = 11,
+  BRIG_CHANNEL_ORDER_SRGB = 12,
+  BRIG_CHANNEL_ORDER_SRGBX = 13,
+  BRIG_CHANNEL_ORDER_SRGBA = 14,
+  BRIG_CHANNEL_ORDER_SBGRA = 15,
+  BRIG_CHANNEL_ORDER_INTENSITY = 16,
+  BRIG_CHANNEL_ORDER_LUMINANCE = 17,
+  BRIG_CHANNEL_ORDER_DEPTH = 18,
+  BRIG_CHANNEL_ORDER_DEPTH_STENCIL = 19
+};
+
+typedef uint8_t BrigImageChannelType8_t;
+enum BrigImageChannelType {
+  BRIG_CHANNEL_TYPE_SNORM_INT8 = 0,
+  BRIG_CHANNEL_TYPE_SNORM_INT16 = 1,
+  BRIG_CHANNEL_TYPE_UNORM_INT8 = 2,
+  BRIG_CHANNEL_TYPE_UNORM_INT16 = 3,
+  BRIG_CHANNEL_TYPE_UNORM_INT24 = 4,
+  BRIG_CHANNEL_TYPE_UNORM_SHORT_555 = 5,
+  BRIG_CHANNEL_TYPE_UNORM_SHORT_565 = 6,
+  BRIG_CHANNEL_TYPE_UNORM_SHORT_101010 = 7,
+  BRIG_CHANNEL_TYPE_SIGNED_INT8 = 8,
+  BRIG_CHANNEL_TYPE_SIGNED_INT16 = 9,
+  BRIG_CHANNEL_TYPE_SIGNED_INT32 = 10,
+  BRIG_CHANNEL_TYPE_UNSIGNED_INT8 = 11,
+  BRIG_CHANNEL_TYPE_UNSIGNED_INT16 = 12,
+  BRIG_CHANNEL_TYPE_UNSIGNED_INT32 = 13,
+  BRIG_CHANNEL_TYPE_HALF_FLOAT = 14,
+  BRIG_CHANNEL_TYPE_FLOAT = 15
 };
 
 typedef uint8_t BrigImageGeometry8_t;
@@ -197,36 +240,29 @@ enum BrigImageGeometry {
   BRIG_GEOMETRY_2D = 1,
   BRIG_GEOMETRY_3D = 2,
   BRIG_GEOMETRY_1DA = 3,
-  BRIG_GEOMETRY_1DB = 4,
-  BRIG_GEOMETRY_2DA = 5
+  BRIG_GEOMETRY_2DA = 4,
+  BRIG_GEOMETRY_1DB = 5,
+  BRIG_GEOMETRY_2DDEPTH = 6,
+  BRIG_GEOMETRY_2DADEPTH = 7
 };
 
-typedef uint8_t BrigImageOrder8_t;
-enum BrigImageOrder {
-  BRIG_ORDER_R = 0,
-  BRIG_ORDER_A = 1,
-  BRIG_ORDER_RX = 2,
-  BRIG_ORDER_RG = 3,
-  BRIG_ORDER_RGX = 4,
-  BRIG_ORDER_RA = 5,
-  BRIG_ORDER_RGB = 6,
-  BRIG_ORDER_RGBA = 7,
-  BRIG_ORDER_RGBX = 8,
-  BRIG_ORDER_BGRA = 9,
-  BRIG_ORDER_ARGB = 10,
-  BRIG_ORDER_INTENSITY = 11,
-  BRIG_ORDER_LUMINANCE = 12,
-  BRIG_ORDER_SRGB = 13,
-  BRIG_ORDER_SRGBX = 14,
-  BRIG_ORDER_SRGBA = 15,
-  BRIG_ORDER_SBGRA = 16
+typedef uint8_t BrigImageQuery8_t;
+enum BrigImageQuery {
+  BRIG_IMAGE_QUERY_WIDTH = 0,
+  BRIG_IMAGE_QUERY_HEIGHT = 1,
+  BRIG_IMAGE_QUERY_DEPTH = 2,
+  BRIG_IMAGE_QUERY_ARRAY = 3,
+  BRIG_IMAGE_QUERY_CHANNELORDER = 4,
+  BRIG_IMAGE_QUERY_CHANNELTYPE = 5
 };
 
 typedef uint8_t BrigLinkage8_t;
 enum BrigLinkage {
   BRIG_LINKAGE_NONE = 0,
-  BRIG_LINKAGE_STATIC = 1,
-  BRIG_LINKAGE_EXTERN = 2
+  BRIG_LINKAGE_PROGRAM = 1,
+  BRIG_LINKAGE_MODULE = 2,
+  BRIG_LINKAGE_FUNCTION = 3,
+  BRIG_LINKAGE_ARG = 4
 };
 
 typedef uint8_t BrigMachineModel8_t;
@@ -235,34 +271,28 @@ enum BrigMachineModel {
   BRIG_MACHINE_LARGE = 1
 };
 
-typedef uint8_t BrigMemoryFence8_t;
-enum BrigMemoryFence {
-  BRIG_FENCE_NONE = 0,
-  BRIG_FENCE_GROUP = 1,
-  BRIG_FENCE_GLOBAL = 2,
-  BRIG_FENCE_BOTH = 3,
-  BRIG_FENCE_PARTIAL = 4,
-  BRIG_FENCE_PARTIAL_BOTH = 5
-};
-
-/* This is most certainly a bug in the specificaton but the verifier uses this
-   flawed typedef too and so we need to as well.  */
-typedef uint16_t BrigMemoryModifier8_t;
+typedef uint8_t BrigMemoryModifier8_t;
 enum BrigMemoryModifierMask {
-  BRIG_MEMORY_SEMANTIC = 15,
-  BRIG_MEMORY_ALIGNED = 16
+  BRIG_MEMORY_CONST = 1
 };
 
-typedef uint8_t BrigMemorySemantic8_t;
-enum BrigMemorySemantic {
-  BRIG_SEMANTIC_NONE = 0,
-  BRIG_SEMANTIC_REGULAR = 1,
-  BRIG_SEMANTIC_ACQUIRE = 2,
-  BRIG_SEMANTIC_RELEASE = 3,
-  BRIG_SEMANTIC_ACQUIRE_RELEASE = 4,
-  BRIG_SEMANTIC_PARTIAL_ACQUIRE = 5,
-  BRIG_SEMANTIC_PARTIAL_RELEASE = 6,
-  BRIG_SEMANTIC_PARTIAL_ACQUIRE_RELEASE = 7
+typedef uint8_t BrigMemoryOrder8_t;
+enum BrigMemoryOrder {
+  BRIG_MEMORY_ORDER_NONE = 0,
+  BRIG_MEMORY_ORDER_RELAXED = 1,
+  BRIG_MEMORY_ORDER_SC_ACQUIRE = 2,
+  BRIG_MEMORY_ORDER_SC_RELEASE = 3,
+  BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE = 4
+};
+
+typedef uint8_t BrigMemoryScope8_t;
+enum BrigMemoryScope {
+  BRIG_MEMORY_SCOPE_NONE = 0,
+  BRIG_MEMORY_SCOPE_WORKITEM = 1,
+  BRIG_MEMORY_SCOPE_WAVEFRONT = 2,
+  BRIG_MEMORY_SCOPE_WORKGROUP = 3,
+  BRIG_MEMORY_SCOPE_COMPONENT = 4,
+  BRIG_MEMORY_SCOPE_SYSTEM = 5
 };
 
 typedef uint16_t BrigOpcode16_t;
@@ -310,97 +340,104 @@ enum BrigOpcode {
   BRIG_OPCODE_COMBINE = 40,
   BRIG_OPCODE_EXPAND = 41,
   BRIG_OPCODE_LDA = 42,
-  BRIG_OPCODE_LDC = 43,
-  BRIG_OPCODE_MOV = 44,
-  BRIG_OPCODE_SHUFFLE = 45,
-  BRIG_OPCODE_UNPACKHI = 46,
-  BRIG_OPCODE_UNPACKLO = 47,
-  BRIG_OPCODE_PACK = 48,
-  BRIG_OPCODE_UNPACK = 49,
-  BRIG_OPCODE_CMOV = 50,
-  BRIG_OPCODE_CLASS = 51,
-  BRIG_OPCODE_NCOS = 52,
-  BRIG_OPCODE_NEXP2 = 53,
-  BRIG_OPCODE_NFMA = 54,
-  BRIG_OPCODE_NLOG2 = 55,
-  BRIG_OPCODE_NRCP = 56,
-  BRIG_OPCODE_NRSQRT = 57,
-  BRIG_OPCODE_NSIN = 58,
-  BRIG_OPCODE_NSQRT = 59,
-  BRIG_OPCODE_BITALIGN = 60,
-  BRIG_OPCODE_BYTEALIGN = 61,
-  BRIG_OPCODE_PACKCVT = 62,
-  BRIG_OPCODE_UNPACKCVT = 63,
-  BRIG_OPCODE_LERP = 64,
-  BRIG_OPCODE_SAD = 65,
-  BRIG_OPCODE_SADHI = 66,
-  BRIG_OPCODE_SEGMENTP = 67,
-  BRIG_OPCODE_FTOS = 68,
-  BRIG_OPCODE_STOF = 69,
-  BRIG_OPCODE_CMP = 70,
-  BRIG_OPCODE_CVT = 71,
-  BRIG_OPCODE_LD = 72,
-  BRIG_OPCODE_ST = 73,
-  BRIG_OPCODE_ATOMIC = 74,
-  BRIG_OPCODE_ATOMICNORET = 75,
-  BRIG_OPCODE_RDIMAGE = 76,
-  BRIG_OPCODE_LDIMAGE = 77,
-  BRIG_OPCODE_STIMAGE = 78,
-  BRIG_OPCODE_ATOMICIMAGE = 79,
-  BRIG_OPCODE_ATOMICIMAGENORET = 80,
-  BRIG_OPCODE_QUERYIMAGEARRAY = 81,
-  BRIG_OPCODE_QUERYIMAGEDEPTH = 82,
-  BRIG_OPCODE_QUERYIMAGEFORMAT = 83,
-  BRIG_OPCODE_QUERYIMAGEHEIGHT = 84,
-  BRIG_OPCODE_QUERYIMAGEORDER = 85,
-  BRIG_OPCODE_QUERYIMAGEWIDTH = 86,
-  BRIG_OPCODE_QUERYSAMPLERCOORD = 87,
-  BRIG_OPCODE_QUERYSAMPLERFILTER = 88,
-  BRIG_OPCODE_CBR = 89,
-  BRIG_OPCODE_BRN = 90,
-  BRIG_OPCODE_BARRIER = 91,
-  BRIG_OPCODE_ARRIVEFBAR = 92,
-  BRIG_OPCODE_INITFBAR = 93,
-  BRIG_OPCODE_JOINFBAR = 94,
-  BRIG_OPCODE_LEAVEFBAR = 95,
-  BRIG_OPCODE_RELEASEFBAR = 96,
-  BRIG_OPCODE_WAITFBAR = 97,
-  BRIG_OPCODE_LDF = 98,
-  BRIG_OPCODE_SYNC = 99,
-  BRIG_OPCODE_COUNTLANE = 100,
-  BRIG_OPCODE_COUNTUPLANE = 101,
-  BRIG_OPCODE_MASKLANE = 102,
-  BRIG_OPCODE_SENDLANE = 103,
-  BRIG_OPCODE_RECEIVELANE = 104,
-  BRIG_OPCODE_CALL = 105,
-  BRIG_OPCODE_RET = 106,
-  BRIG_OPCODE_SYSCALL = 107,
-  BRIG_OPCODE_ALLOCA = 108,
-  BRIG_OPCODE_CLEARDETECTEXCEPT = 109,
-  BRIG_OPCODE_CLOCK = 110,
-  BRIG_OPCODE_CUID = 111,
-  BRIG_OPCODE_CURRENTWORKGROUPSIZE = 112,
-  BRIG_OPCODE_DEBUGTRAP = 113,
-  BRIG_OPCODE_DIM = 114,
-  BRIG_OPCODE_DISPATCHID = 115,
-  BRIG_OPCODE_DISPATCHPTR = 116,
-  BRIG_OPCODE_GETDETECTEXCEPT = 117,
-  BRIG_OPCODE_GRIDGROUPS = 118,
-  BRIG_OPCODE_GRIDSIZE = 119,
-  BRIG_OPCODE_LANEID = 120,
-  BRIG_OPCODE_MAXCUID = 121,
-  BRIG_OPCODE_MAXWAVEID = 122,
-  BRIG_OPCODE_NULLPTR = 123,
-  BRIG_OPCODE_QID = 124,
-  BRIG_OPCODE_QPTR = 125,
-  BRIG_OPCODE_SETDETECTEXCEPT = 126,
-  BRIG_OPCODE_WAVEID = 127,
-  BRIG_OPCODE_WORKGROUPID = 128,
-  BRIG_OPCODE_WORKGROUPSIZE = 129,
-  BRIG_OPCODE_WORKITEMABSID = 130,
-  BRIG_OPCODE_WORKITEMFLATABSID = 131,
-  BRIG_OPCODE_WORKITEMFLATID = 132,
-  BRIG_OPCODE_WORKITEMID = 133
+  BRIG_OPCODE_MOV = 43,
+  BRIG_OPCODE_SHUFFLE = 44,
+  BRIG_OPCODE_UNPACKHI = 45,
+  BRIG_OPCODE_UNPACKLO = 46,
+  BRIG_OPCODE_PACK = 47,
+  BRIG_OPCODE_UNPACK = 48,
+  BRIG_OPCODE_CMOV = 49,
+  BRIG_OPCODE_CLASS = 50,
+  BRIG_OPCODE_NCOS = 51,
+  BRIG_OPCODE_NEXP2 = 52,
+  BRIG_OPCODE_NFMA = 53,
+  BRIG_OPCODE_NLOG2 = 54,
+  BRIG_OPCODE_NRCP = 55,
+  BRIG_OPCODE_NRSQRT = 56,
+  BRIG_OPCODE_NSIN = 57,
+  BRIG_OPCODE_NSQRT = 58,
+  BRIG_OPCODE_BITALIGN = 59,
+  BRIG_OPCODE_BYTEALIGN = 60,
+  BRIG_OPCODE_PACKCVT = 61,
+  BRIG_OPCODE_UNPACKCVT = 62,
+  BRIG_OPCODE_LERP = 63,
+  BRIG_OPCODE_SAD = 64,
+  BRIG_OPCODE_SADHI = 65,
+  BRIG_OPCODE_SEGMENTP = 66,
+  BRIG_OPCODE_FTOS = 67,
+  BRIG_OPCODE_STOF = 68,
+  BRIG_OPCODE_CMP = 69,
+  BRIG_OPCODE_CVT = 70,
+  BRIG_OPCODE_LD = 71,
+  BRIG_OPCODE_ST = 72,
+  BRIG_OPCODE_ATOMIC = 73,
+  BRIG_OPCODE_ATOMICNORET = 74,
+  BRIG_OPCODE_SIGNAL = 75,
+  BRIG_OPCODE_SIGNALNORET = 76,
+  BRIG_OPCODE_MEMFENCE = 77,
+  BRIG_OPCODE_RDIMAGE = 78,
+  BRIG_OPCODE_LDIMAGE = 79,
+  BRIG_OPCODE_STIMAGE = 80,
+  BRIG_OPCODE_QUERYIMAGE = 81,
+  BRIG_OPCODE_QUERYSAMPLER = 82,
+  BRIG_OPCODE_CBR = 83,
+  BRIG_OPCODE_BR = 84,
+  BRIG_OPCODE_SBR = 85,
+  BRIG_OPCODE_BARRIER = 86,
+  BRIG_OPCODE_WAVEBARRIER = 87,
+  BRIG_OPCODE_ARRIVEFBAR = 88,
+  BRIG_OPCODE_INITFBAR = 89,
+  BRIG_OPCODE_JOINFBAR = 90,
+  BRIG_OPCODE_LEAVEFBAR = 91,
+  BRIG_OPCODE_RELEASEFBAR = 92,
+  BRIG_OPCODE_WAITFBAR = 93,
+  BRIG_OPCODE_LDF = 94,
+  BRIG_OPCODE_ACTIVELANECOUNT = 95,
+  BRIG_OPCODE_ACTIVELANEID = 96,
+  BRIG_OPCODE_ACTIVELANEMASK = 97,
+  BRIG_OPCODE_ACTIVELANESHUFFLE = 98,
+  BRIG_OPCODE_CALL = 99,
+  BRIG_OPCODE_SCALL = 100,
+  BRIG_OPCODE_ICALL = 101,
+  BRIG_OPCODE_LDI = 102,
+  BRIG_OPCODE_RET = 103,
+  BRIG_OPCODE_ALLOCA = 104,
+  BRIG_OPCODE_CURRENTWORKGROUPSIZE = 105,
+  BRIG_OPCODE_DIM = 106,
+  BRIG_OPCODE_GRIDGROUPS = 107,
+  BRIG_OPCODE_GRIDSIZE = 108,
+  BRIG_OPCODE_PACKETCOMPLETIONSIG = 109,
+  BRIG_OPCODE_PACKETID = 110,
+  BRIG_OPCODE_WORKGROUPID = 111,
+  BRIG_OPCODE_WORKGROUPSIZE = 112,
+  BRIG_OPCODE_WORKITEMABSID = 113,
+  BRIG_OPCODE_WORKITEMFLATABSID = 114,
+  BRIG_OPCODE_WORKITEMFLATID = 115,
+  BRIG_OPCODE_WORKITEMID = 116,
+  BRIG_OPCODE_CLEARDETECTEXCEPT = 117,
+  BRIG_OPCODE_GETDETECTEXCEPT = 118,
+  BRIG_OPCODE_SETDETECTEXCEPT = 119,
+  BRIG_OPCODE_ADDQUEUEWRITEINDEX = 120,
+  BRIG_OPCODE_AGENTCOUNT = 121,
+  BRIG_OPCODE_AGENTID = 122,
+  BRIG_OPCODE_CASQUEUEWRITEINDEX = 123,
+  BRIG_OPCODE_LDK = 124,
+  BRIG_OPCODE_LDQUEUEREADINDEX = 125,
+  BRIG_OPCODE_LDQUEUEWRITEINDEX = 126,
+  BRIG_OPCODE_QUEUEID = 127,
+  BRIG_OPCODE_QUEUEPTR = 128,
+  BRIG_OPCODE_STQUEUEREADINDEX = 129,
+  BRIG_OPCODE_STQUEUEWRITEINDEX = 130,
+  BRIG_OPCODE_CLOCK = 131,
+  BRIG_OPCODE_CUID = 132,
+  BRIG_OPCODE_DEBUGTRAP = 133,
+  BRIG_OPCODE_GROUPBASEPTR = 134,
+  BRIG_OPCODE_KERNARGBASEPTR = 135,
+  BRIG_OPCODE_LANEID = 136,
+  BRIG_OPCODE_MAXCUID = 137,
+  BRIG_OPCODE_MAXWAVEID = 138,
+  BRIG_OPCODE_NULLPTR = 139,
+  BRIG_OPCODE_WAVEID = 140
 };
 
 typedef uint8_t BrigPack8_t;
@@ -426,6 +463,14 @@ enum BrigProfile {
   BRIG_PROFILE_FULL = 1
 };
 
+typedef uint16_t BrigRegisterKind16_t;
+enum BrigRegisterKind {
+  BRIG_REGISTER_CONTROL = 0,
+  BRIG_REGISTER_SINGLE = 1,
+  BRIG_REGISTER_DOUBLE = 2,
+  BRIG_REGISTER_QUAD = 3
+};
+
 typedef uint8_t BrigRound8_t;
 enum BrigRound {
   BRIG_ROUND_NONE = 0,
@@ -440,33 +485,63 @@ enum BrigRound {
   BRIG_ROUND_INTEGER_NEAR_EVEN_SAT = 9,
   BRIG_ROUND_INTEGER_ZERO_SAT = 10,
   BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT = 11,
-  BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT = 12
+  BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT = 12,
+  BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN = 13,
+  BRIG_ROUND_INTEGER_SIGNALLING_ZERO = 14,
+  BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY = 15,
+  BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY = 16,
+  BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN_SAT = 17,
+  BRIG_ROUND_INTEGER_SIGNALLING_ZERO_SAT = 18,
+  BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY_SAT = 19,
+  BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY_SAT = 20
 };
 
-typedef uint8_t BrigSamplerBoundaryMode8_t;
-enum BrigSamplerBoundaryMode {
-  BRIG_BOUNDARY_CLAMP = 0,
-  BRIG_BOUNDARY_WRAP = 1,
-  BRIG_BOUNDARY_MIRROR = 2,
-  BRIG_BOUNDARY_MIRRORONCE = 3,
-  BRIG_BOUNDARY_BORDER = 4
+typedef uint8_t BrigSamplerAddressing8_t;
+enum BrigSamplerAddressing {
+  BRIG_ADDRESSING_UNDEFINED = 0,
+  BRIG_ADDRESSING_CLAMP_TO_EDGE = 1,
+  BRIG_ADDRESSING_CLAMP_TO_BORDER = 2,
+  BRIG_ADDRESSING_REPEAT = 3,
+  BRIG_ADDRESSING_MIRRORED_REPEAT = 4
 };
 
-enum BrigSamplerCoord {
-  BRIG_COORD_NORMALIZED = 0,
-  BRIG_COORD_UNNORMALIZED = 1
+typedef uint8_t BrigSamplerCoordNormalization8_t;
+enum BrigSamplerCoordNormalization {
+  BRIG_COORD_UNNORMALIZED = 0,
+  BRIG_COORD_NORMALIZED = 1
 };
 
+typedef uint8_t BrigSamplerFilter8_t;
 enum BrigSamplerFilter {
   BRIG_FILTER_NEAREST = 0,
   BRIG_FILTER_LINEAR = 1
 };
 
-typedef uint8_t BrigSamplerModifier8_t;
-enum BrigSamplerModifierMask {
-  BRIG_SAMPLER_FILTER = 63,
-  BRIG_SAMPLER_COORD = 64,
-  BRIG_SAMPLER_COORD_UNNORMALIZED = 64
+typedef uint8_t BrigSamplerQuery8_t;
+enum BrigSamplerQuery {
+  BRIG_SAMPLER_QUERY_ADDRESSING = 0,
+  BRIG_SAMPLER_QUERY_COORD = 1,
+  BRIG_SAMPLER_QUERY_FILTER = 2
+};
+
+typedef uint32_t BrigSectionIndex32_t;
+enum BrigSectionIndex {
+  BRIG_SECTION_INDEX_DATA = 0,
+  BRIG_SECTION_INDEX_CODE = 1,
+  BRIG_SECTION_INDEX_OPERAND = 2,
+  BRIG_SECTION_INDEX_BEGIN_IMPLEMENTATION_DEFINED = 3
+};
+
+struct BrigSectionHeader {
+  uint32_t byteCount;
+  uint32_t headerByteCount;
+  uint32_t nameLength;
+  uint8_t name[1];
+};
+
+typedef uint8_t BrigSegCvtModifier8_t;
+enum BrigSegCvtModifierMask {
+  BRIG_SEG_CVT_NONULL = 1
 };
 
 typedef uint8_t BrigSegment8_t;
@@ -480,15 +555,6 @@ enum BrigSegment {
   BRIG_SEGMENT_PRIVATE = 6,
   BRIG_SEGMENT_SPILL = 7,
   BRIG_SEGMENT_ARG = 8
-};
-
-typedef uint8_t BrigSymbolModifier8_t;
-enum BrigSymbolModifierMask {
-  BRIG_SYMBOL_LINKAGE = 3,
-  BRIG_SYMBOL_DECLARATION = 4,
-  BRIG_SYMBOL_CONST = 8,
-  BRIG_SYMBOL_ARRAY = 16,
-  BRIG_SYMBOL_FLEX_ARRAY = 32
 };
 
 enum {
@@ -523,8 +589,10 @@ enum BrigType {
   BRIG_TYPE_B128 = 17,
   BRIG_TYPE_SAMP = 18,
   BRIG_TYPE_ROIMG = 19,
-  BRIG_TYPE_RWIMG = 20,
-  BRIG_TYPE_FBAR = 21,
+  BRIG_TYPE_WOIMG = 20,
+  BRIG_TYPE_RWIMG = 21,
+  BRIG_TYPE_SIG32 = 22,
+  BRIG_TYPE_SIG64 = 23,
   BRIG_TYPE_U8X4 = BRIG_TYPE_U8 | BRIG_TYPE_PACK_32,
   BRIG_TYPE_U8X8 = BRIG_TYPE_U8 | BRIG_TYPE_PACK_64,
   BRIG_TYPE_U8X16 = BRIG_TYPE_U8 | BRIG_TYPE_PACK_128,
@@ -551,15 +619,26 @@ enum BrigType {
   BRIG_TYPE_F64X2 = BRIG_TYPE_F64 | BRIG_TYPE_PACK_128
 };
 
+struct BrigUInt64 {
+  uint32_t lo;
+  uint32_t hi;
+};
+
+typedef uint8_t BrigVariableModifier8_t;
+enum BrigVariableModifierMask {
+  BRIG_SYMBOL_DECLARATION = 0,
+  BRIG_SYMBOL_DEFINITION = 1,
+  BRIG_SYMBOL_CONST = 2,
+  BRIG_SYMBOL_ARRAY = 4,
+  BRIG_SYMBOL_FLEX_ARRAY = 8
+};
+
+typedef uint32_t BrigVersion32_t;
 enum BrigVersion {
-  /* This is what spec says:
-  BRIG_VERSION_MAJOR = 0,
-  BRIG_VERSION_MINOR = 0
-  And this is actually expected by libHSAIL: */
   BRIG_VERSION_HSAIL_MAJOR = 0,
-  BRIG_VERSION_HSAIL_MINOR = 96,
+  BRIG_VERSION_HSAIL_MINOR = 99,
   BRIG_VERSION_BRIG_MAJOR = 0,
-  BRIG_VERSION_BRIG_MINOR = 1
+  BRIG_VERSION_BRIG_MINOR = 99
 };
 
 typedef uint8_t BrigWidth8_t;
@@ -579,7 +658,7 @@ enum BrigWidth {
   BRIG_WIDTH_2048 = 12,
   BRIG_WIDTH_4096 = 13,
   BRIG_WIDTH_8192 = 14,
-  BRIG_WIDTH_16364 = 15,
+  BRIG_WIDTH_16384 = 15,
   BRIG_WIDTH_32768 = 16,
   BRIG_WIDTH_65536 = 17,
   BRIG_WIDTH_131072 = 18,
@@ -601,293 +680,140 @@ enum BrigWidth {
   BRIG_WIDTH_ALL = 34
 };
 
-struct BrigSectionHeader {
-  uint32_t size;
-};
-
-struct BrigString {
+struct BrigData {
   uint32_t byteCount;
   uint8_t bytes[1];
 };
 
-struct BrigBlockEnd {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
+struct BrigBase {
+  uint16_t byteCount;
+  BrigKinds16_t kind;
 };
 
-struct BrigBlockNumeric {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigType16_t type;
-  uint16_t reserved;
-  uint32_t elementCount;
-  BrigStringOffset32_t data;
-};
-
-struct BrigBlockStart {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
-};
-
-struct BrigBlockString {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigStringOffset32_t string;
-};
-
-struct BrigDirectiveBase {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-};
-
-struct BrigDirectiveCallableBase {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
-  uint16_t inArgCount;
-  uint16_t outArgCount;
-};
-
-struct BrigDirectiveArgScope {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
+struct BrigDirectiveArgBlock {
+  BrigBase base;
 };
 
 struct BrigDirectiveComment {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
+  BrigBase base;
+  BrigDataOffsetString32_t name;
 };
 
 struct BrigDirectiveControl {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
+  BrigBase base;
   BrigControlDirective16_t control;
-  BrigType16_t type;
   uint16_t reserved;
-  uint16_t valueCount;
-  BrigOperandOffset32_t values[1];
+  BrigDataOffsetOperandList32_t operands;
 };
 
 struct BrigDirectiveExecutable {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
-  uint16_t inArgCount;
+  BrigBase base;
+  BrigDataOffsetString32_t name;
   uint16_t outArgCount;
-  BrigDirectiveOffset32_t firstInArg;
-  BrigDirectiveOffset32_t firstScopedDirective;
-  BrigDirectiveOffset32_t nextTopLevelDirective;
-  uint32_t instCount;
+  uint16_t inArgCount;
+  BrigCodeOffset32_t firstInArg;
+  BrigCodeOffset32_t firstCodeBlockEntry;
+  BrigCodeOffset32_t nextModuleEntry;
+  uint32_t codeBlockEntryCount;
   BrigExecutableModifier8_t modifier;
-  uint8_t reserved[3];
+  BrigLinkage8_t linkage;
+  uint16_t reserved;
 };
 
 struct BrigDirectiveExtension {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
+  BrigBase base;
+  BrigDataOffsetString32_t name;
 };
 
 struct BrigDirectiveFbarrier {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
-};
-
-struct BrigDirectiveFile {
-   uint16_t size;
-   BrigDirectiveKinds16_t kind;
-   BrigCodeOffset32_t code;
-   uint32_t fileid;
-   BrigStringOffset32_t filename;
-};
-
-struct BrigDirectiveImageInit {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  uint32_t width;
-  uint32_t height;
-  uint32_t depth;
-  uint32_t array;
-  BrigImageOrder8_t order;
-  BrigImageFormat8_t format;
+  BrigBase base;
+  BrigDataOffsetString32_t name;
+  BrigExecutableModifier8_t modifier;
+  BrigLinkage8_t linkage;
   uint16_t reserved;
 };
 
 struct BrigDirectiveLabel {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
-};
-
-struct BrigDirectiveLabelList {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigDirectiveOffset32_t label;
-  uint16_t labelCount;
-  uint16_t reserved;
-  BrigDirectiveOffset32_t labels[1];
+  BrigBase base;
+  BrigDataOffsetString32_t name;
 };
 
 struct BrigDirectiveLoc {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  uint32_t fileid;
+  BrigBase base;
+  BrigDataOffsetString32_t filename;
   uint32_t line;
   uint32_t column;
 };
 
+struct BrigDirectiveNone {
+  BrigBase base;
+};
+
 struct BrigDirectivePragma {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
+  BrigBase base;
+  BrigDataOffsetOperandList32_t operands;
 };
 
-struct BrigDirectiveSamplerInit {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigSamplerModifier8_t modifier;
-  BrigSamplerBoundaryMode8_t boundaryU;
-  BrigSamplerBoundaryMode8_t boundaryV;
-  BrigSamplerBoundaryMode8_t boundaryW;
-};
-
-struct BrigDirectiveSignature {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
-  uint16_t inArgCount;
-  uint16_t outArgCount;
-  struct {
-    BrigType16_t type;
-    uint8_t align;
-    BrigSymbolModifier8_t modifier;
-    uint32_t dimLo;
-    uint32_t dimHi;
-  } args[1];
-};
-
-struct BrigDirectiveSymbol {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t name;
-  BrigDirectiveOffset32_t init;
+struct BrigDirectiveVariable {
+  BrigBase base;
+  BrigDataOffsetString32_t name;
+  BrigOperandOffset32_t init;
   BrigType16_t type;
   BrigSegment8_t segment;
-  uint8_t align;
-  uint32_t dimLo;
-  uint32_t dimHi;
-  BrigSymbolModifier8_t modifier;
-  uint8_t reserved[3];
-};
-
-struct BrigDirectiveVariableInit {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  BrigStringOffset32_t data;
-  uint32_t elementCount;
-  BrigType16_t type;
-  uint16_t reserved;
+  BrigAlignment8_t align;
+  BrigUInt64 dim;
+  BrigVariableModifier8_t modifier;
+  BrigLinkage8_t linkage;
+  BrigAllocation8_t allocation;
+  uint8_t reserved;
 };
 
 struct BrigDirectiveVersion {
-  uint16_t size;
-  BrigDirectiveKinds16_t kind;
-  BrigCodeOffset32_t code;
-  /* Spec says:
-  uint16_t major;
-  uint16_t minor;
-     but libHSAIL actually wants: */
-  uint32_t hsailMajor;
-  uint32_t hsailMinor;
-  uint32_t brigMajor;
-  uint32_t brigMinor;
-  /* This is the same as the spec: */
+  BrigBase base;
+  BrigVersion32_t hsailMajor;
+  BrigVersion32_t hsailMinor;
+  BrigVersion32_t brigMajor;
+  BrigVersion32_t brigMinor;
   BrigProfile8_t profile;
   BrigMachineModel8_t machineModel;
   uint16_t reserved;
 };
 
-struct BrigInstAtomic {
-  uint16_t size;
-  BrigInstKinds16_t kind;
+struct BrigInstBase {
+  BrigBase base;
   BrigOpcode16_t opcode;
   BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
+  BrigDataOffsetOperandList32_t operands;
+};
+
+struct BrigInstAddr {
+  BrigInstBase base;
   BrigSegment8_t segment;
-  BrigMemorySemantic8_t memorySemantic;
-  BrigAtomicOperation8_t atomicOperation;
-  int8_t reserved;
+  uint8_t reserved[3];
 };
 
-struct BrigInstAtomicImage {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
-  BrigType16_t imageType;
-  BrigType16_t coordType;
-  BrigImageGeometry8_t geometry;
+struct BrigInstAtomic {
+  BrigInstBase base;
+  BrigSegment8_t segment;
+  BrigMemoryOrder8_t memoryOrder;
+  BrigMemoryScope8_t memoryScope;
   BrigAtomicOperation8_t atomicOperation;
-  uint16_t reserved;
-};
-
-struct BrigInstBar {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
-  BrigMemoryFence8_t memoryFence;
-  BrigWidth8_t width;
-  uint16_t reserved;
+  uint8_t equivClass;
+  uint8_t reserved[3];
 };
 
 struct BrigInstBasic {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
+  BrigInstBase base;
 };
 
-struct BrigInstMod {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
-  BrigAluModifier16_t modifier;
-  BrigPack8_t pack;
-  uint8_t reserved;
+struct BrigInstBr {
+  BrigInstBase base;
+  BrigWidth8_t width;
+  uint8_t reserved[3];
 };
 
 struct BrigInstCmp {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
+  BrigInstBase base;
   BrigType16_t sourceType;
   BrigAluModifier16_t modifier;
   BrigCompareOperation8_t compare;
@@ -896,210 +822,163 @@ struct BrigInstCmp {
 };
 
 struct BrigInstCvt {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
+  BrigInstBase base;
   BrigType16_t sourceType;
   BrigAluModifier16_t modifier;
 };
 
 struct BrigInstImage {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
+  BrigInstBase base;
   BrigType16_t imageType;
   BrigType16_t coordType;
   BrigImageGeometry8_t geometry;
-  uint8_t reserved[3];
+  uint8_t equivClass;
+  uint16_t reserved;
+};
+
+struct BrigInstLane {
+  BrigInstBase base;
+  BrigType16_t sourceType;
+  BrigWidth8_t width;
+  uint8_t reserved;
 };
 
 struct BrigInstMem {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
+  BrigInstBase base;
   BrigSegment8_t segment;
-  BrigMemoryModifier8_t modifier;
+  BrigAlignment8_t align;
   uint8_t equivClass;
   BrigWidth8_t width;
-};
-
-struct BrigInstAddr {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
-  BrigSegment8_t segment;
+  BrigMemoryModifier8_t modifier;
   uint8_t reserved[3];
 };
 
-struct BrigInstSourceType {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
-  BrigType16_t sourceType;
+struct BrigInstMemFence {
+  BrigInstBase base;
+  BrigMemoryOrder8_t memoryOrder;
+  BrigMemoryScope8_t globalSegmentMemoryScope;
+  BrigMemoryScope8_t groupSegmentMemoryScope;
+  BrigMemoryScope8_t imageSegmentMemoryScope;
+};
+
+struct BrigInstMod {
+  BrigInstBase base;
+  BrigAluModifier16_t modifier;
+  BrigPack8_t pack;
+  uint8_t reserved;
+};
+
+struct BrigInstQueryImage {
+  BrigInstBase base;
+  BrigType16_t imageType;
+  BrigImageGeometry8_t geometry;
+  BrigImageQuery8_t query;
+};
+
+struct BrigInstQuerySampler {
+  BrigInstBase base;
+  BrigSamplerQuery8_t query;
+  uint8_t reserved[3];
+};
+
+struct BrigInstQueue {
+  BrigInstBase base;
+  BrigSegment8_t segment;
+  BrigMemoryOrder8_t memoryOrder;
   uint16_t reserved;
 };
 
 struct BrigInstSeg {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
+  BrigInstBase base;
+  BrigSegment8_t segment;
+  uint8_t reserved[3];
+};
+
+struct BrigInstSegCvt {
+  BrigInstBase base;
   BrigType16_t sourceType;
   BrigSegment8_t segment;
-  uint8_t reserved;
+  BrigSegCvtModifier8_t modifier;
 };
 
-struct BrigInstFbar {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
-  BrigMemoryFence8_t memoryFence;
-  BrigWidth8_t width;
+struct BrigInstSignal {
+  BrigInstBase base;
+  BrigType16_t signalType;
+  BrigMemoryOrder8_t memoryOrder;
+  BrigAtomicOperation8_t signalOperation;
+};
+
+struct BrigInstSourceType {
+  BrigInstBase base;
+  BrigType16_t sourceType;
   uint16_t reserved;
-};
-
-struct BrigInstBr {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-  BrigOpcode16_t opcode;
-  BrigType16_t type;
-  BrigOperandOffset32_t operands[5];
-  BrigAluModifier16_t modifier;
-  BrigWidth8_t width;
-  uint8_t reserved;
-};
-
-struct BrigInstNone {
-  uint16_t size;
-  BrigInstKinds16_t kind;
-};
-
-struct BrigOperandBase {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-};
-
-struct BrigOperand {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
 };
 
 struct BrigOperandAddress {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigDirectiveOffset32_t symbol;
-  BrigStringOffset32_t reg;
-  uint32_t offsetLo;
-  uint32_t offsetHi;
-  BrigType16_t type;
-  uint16_t reserved;
+  BrigBase base;
+  BrigCodeOffset32_t symbol;
+  BrigOperandOffset32_t reg;
+  BrigUInt64 offset;
 };
 
-struct BrigOperandList {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  uint16_t elementCount;
-  uint16_t reserved;
-  BrigDirectiveOffset32_t elements[1];
+struct BrigOperandCodeList {
+  BrigBase base;
+  BrigDataOffsetCodeList32_t elements;
 };
 
-struct BrigOperandArgumentList {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  uint16_t elementCount;
-  uint16_t reserved;
-  BrigDirectiveOffset32_t elements[1];
+struct BrigOperandCodeRef {
+  BrigBase base;
+  BrigCodeOffset32_t ref;
 };
 
-
-struct BrigOperandFunctionList {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  uint16_t elementCount;
-  uint16_t reserved;
-  BrigDirectiveOffset32_t elements[1];
+struct BrigOperandData {
+  BrigBase base;
+  BrigDataOffset32_t data;
 };
 
-struct BrigOperandRef {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigDirectiveOffset32_t ref;
+struct BrigOperandImageProperties {
+  BrigBase base;
+  uint64_t width;
+  uint64_t height;
+  uint64_t depth;
+  uint64_t array;
+  BrigImageGeometry8_t geometry;
+  BrigImageChannelOrder8_t channelOrder;
+  BrigImageChannelType8_t channelType;
+  uint8_t reserved;
 };
 
-struct BrigOperandLabelRef {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigDirectiveOffset32_t ref;
-};
-
-struct BrigOperandArgumentRef {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigDirectiveOffset32_t ref;
-};
-
-struct BrigOperandFunctionRef {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigDirectiveOffset32_t ref;
-};
-
-struct BrigOperandSignatureRef {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigDirectiveOffset32_t ref;
-};
-
-struct BrigOperandFbarrierRef {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigDirectiveOffset32_t ref;
-};
-
-struct BrigOperandImmed {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigType16_t type;
-  uint16_t byteCount;
-  uint8_t bytes[1];
+struct BrigOperandOperandList {
+  BrigBase base;
+  BrigDataOffsetOperandList32_t elements;
 };
 
 struct BrigOperandReg {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigStringOffset32_t reg;
-  BrigType16_t type;
-  uint16_t reserved;
+  BrigBase base;
+  BrigRegisterKind16_t regKind;
+  uint16_t regNum;
 };
 
-struct BrigOperandRegVector {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigType16_t type;
-  uint16_t regCount;
-  BrigStringOffset32_t regs[1];
+struct BrigOperandSamplerProperties {
+  BrigBase base;
+  BrigSamplerCoordNormalization8_t coord;
+  BrigSamplerFilter8_t filter;
+  BrigSamplerAddressing8_t addressing;
+  uint8_t reserved;
+};
+
+struct BrigOperandString {
+  BrigBase base;
+  BrigDataOffsetString32_t string;
 };
 
 struct BrigOperandWavesize {
-  uint16_t size;
-  BrigOperandKinds16_t kind;
-  BrigType16_t type;
-  uint16_t reserved;
+  BrigBase base;
 };
 
-
+struct BrigModule {
+  uint32_t sectionCount;
+  BrigSectionHeader* section[1];
+};
 
 #endif /* HSA_BRIG_FORMAT_H */

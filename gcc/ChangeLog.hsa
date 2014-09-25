@@ -1,3 +1,71 @@
+2014-09-26  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+ 	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h: Update to HSA 1.0p.
+	* hsa-brig.c: Remove strtab, directives	and debug sections.
+	(hsa_brig_section): New fields section_name and header_byte_count.
+	(hsa_brig_section::init): New parameter name, store it, calculate
+	header size from it.
+	(hsa_brig_section::output): Removed parameter section_name. Output
+	section in the new format.
+	(brig_emit_string): Emit strings to the data section.
+	(c_reg_names, s_reg_names, d_reg_names, q_reg_names): Removed.
+	(c_regs, s_regs, d_regs, q_regs): Likewise.
+	(brig_init): Handle bytecount and kind info as part of base.  Change
+	enumeration names.  Emit BrigDirectiveVersion in code section.
+	(brig_release_data): Remove brig_string, brig_debug and
+	brig_directive. Add brig_data.
+	(get_alignment): New function.
+	(emit_symbol_directive): Renamed to emit_directive_variable.  Handle
+	bytecount and kind info as part of base.  Change enumeration
+	names. Emit strings in data section.  Emit BrigDirectiveVariable in
+	code section.
+	(emit_function_directives): Likewise.  Increment brig_insn_count.
+	(emit_bb_label_directive): Likewise.
+	(enqueue_op): Remove reg name handling.  Change BrigOperandRef to
+	BrigOperandCodeRef.  Handle immediate operand size using
+	BrigOperandData.
+	(emit_immediate_operand): Change enumeration names.  Emit immediate
+	operand in data section.
+	(emit_register_name): Removed.
+	(emit_register_operand): Remove register name handling.  Handle
+	register number and register kind.
+	(emit_address_operand): Handle bytecount and kind info as part of
+	base.  Change enumeration names.
+	(emit_label_operand): Likewise.
+	(emit_memory_insn): Handle bytecount and kind info as part of base.
+	Change enumeration names.  Add insn alignment.
+	(emit_atomic_insn): Likewise.  Add memoryorder and memoryscope.
+	(emit_addr_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_cvt_insn): Likewise.
+	(emit_basic_insn): Likewise.
+	(perhaps_emit_branch): Likewise.
+	(hsa_brig_emit_function): Use HSA 1.0p ield names.
+	(hsa_output_brig): Remove brig_directive, brig_string and brig_debug
+	sections. Add brig_data section.
+	* hsa-dump.c (hsa_type_name): Update to HSAIL 1.0p.
+	(hsa_opcode_name): Likewise.
+	(hsa_memsem_name): Likewise.
+	(hsa_memscope_name): New function.
+	(hsa_atomicop_name): Update to HSAIL 1.0p.
+	(dump_hsa_insn): Likewise.
+	* hsa-gen.c (hsa_init_data_for_cfun): Change BRIG_OPERAND_LABEL_REF to
+	BRIG_KIND_OPERAND_CODE_REF.
+	(hsa_alloc_immed_op): Change BRIG_OPERAND_IMMED to
+	BRIG_KIND_OPERAND_DATA.
+	(hsa_alloc_reg_op): Change BRIG_OPERAND_REG to BRIG_KIND_OPERAND_REG.
+	(hsa_alloc_addr_op): Change BRIG_OPERAND_ADDRESS to
+	BRIG_KIND_OPERAND_ADDRESS.
+	(gen_hsa_insns_for_call): Add memoryscope to meminsn. Change
+	semantic to memoryorder.
+	(hsa_init_new_bb): Change BRIG_OPERAND_LABEL_REF to
+	BRIG_KIND_OPERAND_CODE_REF.
+	* README.hsa: Add a brief comment about further incompatibilities with
+        the given instructions.
+
 2014-09-26  Martin Jambor  <mjambor@suse.cz>
 
 	* gimple.c (gimple_build_omp_for): Allocate prev_first_iter.

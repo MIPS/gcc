@@ -6,8 +6,10 @@ recent one.
 
 In particular, in this revision it is impossible to directly use the
 simulator any more, only the OKRA interface is supported (but you can
-still use the simulator through it).  The rest still works, provided
-your OKRA and LIBHSAIL tools support and work with HSAIL 0.95.
+still use the simulator through it).  Even the rest of the
+instructions are not quite up to date.  You need to use LIBHSAIL
+supporting HSAIL 1.0p and only extract different sections from the
+object files.
 
 ===========================================================================
 

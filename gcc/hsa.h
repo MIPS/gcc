@@ -27,11 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "basic-block.h"
 
-#define HSA_C_REGISTER_COUNT 8
-#define HSA_S_REGISTER_COUNT 128
-#define HSA_D_REGISTER_COUNT 64
-#define HSA_Q_REGISTER_COUNT 32
-
 struct hsa_insn_basic;
 typedef hsa_insn_basic *hsa_insn_basic_p;
 
@@ -78,7 +73,7 @@ struct hsa_op_base
   unsigned offset;
 
   /* The type of a particular operand.  */
-  BrigOperandKinds16_t kind;
+  BrigKinds16_t kind;
 };
 
 /* An immediate HSA operand.  */
@@ -87,6 +82,11 @@ struct hsa_op_immed : public hsa_op_base
 {
   /* Type of the. */
   BrigType16_t type;
+
+  /* Offset to which the associated immediate operand structure will be written.
+     Zero if not yet scheduled for writing */
+  unsigned offset;
+
   /* Value as represented by middle end.  */
   tree value;
 };
@@ -98,7 +98,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_OPERAND_IMMED;
+  return p->kind == BRIG_KIND_OPERAND_DATA;
 }
 
 /* HSA register operand.  */
@@ -131,6 +131,7 @@ struct hsa_op_reg : public hsa_op_base
      class). */
   char hard_num;
 };
+
 typedef struct hsa_op_reg *hsa_op_reg_p;
 
 /* Report whether or not P is a register operand.  */
@@ -140,7 +141,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_reg *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_OPERAND_REG;
+  return p->kind == BRIG_KIND_OPERAND_REG;
 }
 
 /* An address HSA operand.  */
@@ -164,7 +165,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_address *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_OPERAND_ADDRESS;
+  return p->kind == BRIG_KIND_OPERAND_ADDRESS;
 }
 
 /* A reference-to-label HSA operand.  In reality this is a reference to a start
@@ -183,7 +184,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_label *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_OPERAND_LABEL_REF;
+  return p->kind == BRIG_KIND_OPERAND_CODE_REF;
 }
 
 #define HSA_OPERANDS_PER_INSN 5
@@ -254,7 +255,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_br *>::test (hsa_insn_basic *p)
 {
-  return p->opcode == BRIG_OPCODE_BRN
+  return p->opcode == BRIG_OPCODE_BR
     || p->opcode == BRIG_OPCODE_CBR;
 }
 
@@ -291,7 +292,10 @@ struct hsa_insn_mem : public hsa_insn_basic
   uint8_t equiv_class;
 
   /* Things like aquire/release/aligned.  */
-  enum BrigMemorySemantic semantic;
+  enum BrigMemoryOrder memoryorder;
+
+  /* Scope of the atomic opeeration. */
+  enum BrigMemoryScope memoryscope;
 
   /* TODO:  Add width modifier, perhaps also other things.  */
 };

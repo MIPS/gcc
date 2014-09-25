@@ -78,10 +78,14 @@ hsa_type_name (BrigType16_t type)
       return "samp";
     case BRIG_TYPE_ROIMG:
       return "roimg";
+    case BRIG_TYPE_WOIMG:
+      return "woimg";
     case BRIG_TYPE_RWIMG:
       return "rwimg";
-    case BRIG_TYPE_FBAR:
-      return "fbar";
+    case BRIG_TYPE_SIG32:
+      return "sig32";
+    case BRIG_TYPE_SIG64:
+      return "sig64";
     case BRIG_TYPE_U8X4:
       return "u8x4";
     case BRIG_TYPE_U8X8:
@@ -228,8 +232,6 @@ hsa_opcode_name (BrigOpcode16_t opcode)
       return "expand";
     case BRIG_OPCODE_LDA:
       return "lda";
-    case BRIG_OPCODE_LDC:
-      return "ldc";
     case BRIG_OPCODE_MOV:
       return "mov";
     case BRIG_OPCODE_SHUFFLE:
@@ -294,38 +296,32 @@ hsa_opcode_name (BrigOpcode16_t opcode)
       return "atomic";
     case BRIG_OPCODE_ATOMICNORET:
       return "atomicnoret";
+    case BRIG_OPCODE_SIGNAL:
+      return "signal";
+    case BRIG_OPCODE_SIGNALNORET:
+      return "signalnoret";
+    case BRIG_OPCODE_MEMFENCE:
+      return "memfence";
     case BRIG_OPCODE_RDIMAGE:
       return "rdimage";
     case BRIG_OPCODE_LDIMAGE:
       return "ldimage";
     case BRIG_OPCODE_STIMAGE:
       return "stimage";
-    case BRIG_OPCODE_ATOMICIMAGE:
-      return "atomicimage";
-    case BRIG_OPCODE_ATOMICIMAGENORET:
-      return "atomicimagenoret";
-    case BRIG_OPCODE_QUERYIMAGEARRAY:
-      return "queryimagearray";
-    case BRIG_OPCODE_QUERYIMAGEDEPTH:
-      return "queryimagedepth";
-    case BRIG_OPCODE_QUERYIMAGEFORMAT:
-      return "queryimageformat";
-    case BRIG_OPCODE_QUERYIMAGEHEIGHT:
-      return "queryimageheight";
-    case BRIG_OPCODE_QUERYIMAGEORDER:
-      return "queryimageorder";
-    case BRIG_OPCODE_QUERYIMAGEWIDTH:
-      return "queryimagewidth";
-    case BRIG_OPCODE_QUERYSAMPLERCOORD:
-      return "querysamplercoord";
-    case BRIG_OPCODE_QUERYSAMPLERFILTER:
-      return "querysamplerfilter";
+    case BRIG_OPCODE_QUERYIMAGE:
+      return "queryimage";
+    case BRIG_OPCODE_QUERYSAMPLER:
+      return "querysampler";
     case BRIG_OPCODE_CBR:
       return "cbr";
-    case BRIG_OPCODE_BRN:
-      return "brn";
+    case BRIG_OPCODE_BR:
+      return "br";
+    case BRIG_OPCODE_SBR:
+      return "sbr";
     case BRIG_OPCODE_BARRIER:
       return "barrier";
+    case BRIG_OPCODE_WAVEBARRIER:
+      return "wavebarrier";
     case BRIG_OPCODE_ARRIVEFBAR:
       return "arrivefbar";
     case BRIG_OPCODE_INITFBAR:
@@ -340,64 +336,38 @@ hsa_opcode_name (BrigOpcode16_t opcode)
       return "waitfbar";
     case BRIG_OPCODE_LDF:
       return "ldf";
-    case BRIG_OPCODE_SYNC:
-      return "sync";
-    case BRIG_OPCODE_COUNTLANE:
-      return "countlane";
-    case BRIG_OPCODE_COUNTUPLANE:
-      return "countuplane";
-    case BRIG_OPCODE_MASKLANE:
-      return "masklane";
-    case BRIG_OPCODE_SENDLANE:
-      return "sendlane";
-    case BRIG_OPCODE_RECEIVELANE:
-      return "receivelane";
+    case BRIG_OPCODE_ACTIVELANECOUNT:
+      return "activelanecount";
+    case BRIG_OPCODE_ACTIVELANEID:
+      return "activelaneid";
+    case BRIG_OPCODE_ACTIVELANEMASK:
+      return "activelanemask";
+    case BRIG_OPCODE_ACTIVELANESHUFFLE:
+      return "activelaneshuffle";
     case BRIG_OPCODE_CALL:
       return "call";
+    case BRIG_OPCODE_SCALL:
+      return "scall";
+    case BRIG_OPCODE_ICALL:
+      return "icall";
+    case BRIG_OPCODE_LDI:
+      return "ldi";
     case BRIG_OPCODE_RET:
       return "ret";
-    case BRIG_OPCODE_SYSCALL:
-      return "syscall";
     case BRIG_OPCODE_ALLOCA:
       return "alloca";
-    case BRIG_OPCODE_CLEARDETECTEXCEPT:
-      return "cleardetectexcept";
-    case BRIG_OPCODE_CLOCK:
-      return "clock";
-    case BRIG_OPCODE_CUID:
-      return "cuid";
     case BRIG_OPCODE_CURRENTWORKGROUPSIZE:
       return "currentworkgroupsize";
-    case BRIG_OPCODE_DEBUGTRAP:
-      return "debugtrap";
     case BRIG_OPCODE_DIM:
       return "dim";
-    case BRIG_OPCODE_DISPATCHID:
-      return "dispatchid";
-    case BRIG_OPCODE_DISPATCHPTR:
-      return "dispatchptr";
-    case BRIG_OPCODE_GETDETECTEXCEPT:
-      return "getdetectexcept";
     case BRIG_OPCODE_GRIDGROUPS:
       return "gridgroups";
     case BRIG_OPCODE_GRIDSIZE:
       return "gridsize";
-    case BRIG_OPCODE_LANEID:
-      return "laneid";
-    case BRIG_OPCODE_MAXCUID:
-      return "maxcuid";
-    case BRIG_OPCODE_MAXWAVEID:
-      return "maxwaveid";
-    case BRIG_OPCODE_NULLPTR:
-      return "nullptr";
-    case BRIG_OPCODE_QID:
-      return "qid";
-    case BRIG_OPCODE_QPTR:
-      return "qptr";
-    case BRIG_OPCODE_SETDETECTEXCEPT:
-      return "setdetectexcept";
-    case BRIG_OPCODE_WAVEID:
-      return "waveid";
+    case BRIG_OPCODE_PACKETCOMPLETIONSIG:
+      return "packetcompletionsig";
+    case BRIG_OPCODE_PACKETID:
+      return "packetid";
     case BRIG_OPCODE_WORKGROUPID:
       return "workgroupid";
     case BRIG_OPCODE_WORKGROUPSIZE:
@@ -410,6 +380,54 @@ hsa_opcode_name (BrigOpcode16_t opcode)
       return "workitemflatid";
     case BRIG_OPCODE_WORKITEMID:
       return "workitemid";
+    case BRIG_OPCODE_CLEARDETECTEXCEPT:
+      return "cleardetectexcept";
+    case BRIG_OPCODE_GETDETECTEXCEPT:
+      return "getdetectexcept";
+    case BRIG_OPCODE_SETDETECTEXCEPT:
+      return "setdetectexcept";
+    case BRIG_OPCODE_ADDQUEUEWRITEINDEX:
+      return "addqueuewriteindex";
+    case BRIG_OPCODE_AGENTCOUNT:
+      return "agentcount";
+    case BRIG_OPCODE_AGENTID:
+      return "agentid";
+    case BRIG_OPCODE_CASQUEUEWRITEINDEX:
+      return "casqueuewriteindex";
+    case BRIG_OPCODE_LDK:
+      return "ldk";
+    case BRIG_OPCODE_LDQUEUEREADINDEX:
+      return "ldqueuereadindex";
+    case BRIG_OPCODE_LDQUEUEWRITEINDEX:
+      return "ldqueuewriteindex";
+    case BRIG_OPCODE_QUEUEID:
+      return "queueid";
+    case BRIG_OPCODE_QUEUEPTR:
+      return "queueptr";
+    case BRIG_OPCODE_STQUEUEREADINDEX:
+      return "stqueuereadindex";
+    case BRIG_OPCODE_STQUEUEWRITEINDEX:
+      return "stqueuewriteindex";
+    case BRIG_OPCODE_CLOCK:
+      return "clock";
+    case BRIG_OPCODE_CUID:
+      return "cuid";
+    case BRIG_OPCODE_DEBUGTRAP:
+      return "debugtrap";
+    case BRIG_OPCODE_GROUPBASEPTR:
+      return "groupbaseptr";
+    case BRIG_OPCODE_KERNARGBASEPTR:
+      return "kernargbaseptr";
+    case BRIG_OPCODE_LANEID:
+      return "laneid";
+    case BRIG_OPCODE_MAXCUID:
+      return "maxcuid";
+    case BRIG_OPCODE_MAXWAVEID:
+      return "maxwaveid";
+    case BRIG_OPCODE_NULLPTR:
+      return "nullptr";
+    case BRIG_OPCODE_WAVEID:
+      return "waveid";
     default:
       return "UNKNOWN_OPCODE";
     }
@@ -513,61 +531,101 @@ hsa_cmpop_name (BrigCompareOperation8_t cmpop)
     }
 }
 
-/* Return textual name for memory semantics.  */
+/* Return textual name for memory order.  */
 
 static const char *
-hsa_memsem_name (enum BrigMemorySemantic sem)
+hsa_memsem_name (enum BrigMemoryOrder mo)
 {
-  switch (sem)
+  switch (mo)
     {
-    case BRIG_SEMANTIC_NONE:
-    case BRIG_SEMANTIC_REGULAR:
+    case BRIG_MEMORY_ORDER_NONE:
       return "";
-    case BRIG_SEMANTIC_ACQUIRE:
-      return "acq";
-    case BRIG_SEMANTIC_RELEASE:
-      return "rel";
-    case BRIG_SEMANTIC_ACQUIRE_RELEASE:
-      return "ar";
-    case BRIG_SEMANTIC_PARTIAL_ACQUIRE:
-      return "part_acq";
-    case BRIG_SEMANTIC_PARTIAL_RELEASE:
-      return "part_rel";
-    case BRIG_SEMANTIC_PARTIAL_ACQUIRE_RELEASE:
-      return "part_ar";
+    case BRIG_MEMORY_ORDER_RELAXED:
+      return "rlx";
+    case BRIG_MEMORY_ORDER_SC_ACQUIRE:
+      return "scacq";
+    case BRIG_MEMORY_ORDER_SC_RELEASE:
+      return "screl";
+    case BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE:
+      return "scar";
     default:
-      return "UNKNOWN_SEMANTIC";
+      return "UNKNOWN_MEMORY_ORDER";
     }
-
 }
+
+/* Return textual name for memory scope. */
+
+static const char *
+hsa_memscope_name (enum BrigMemoryScope scope)
+{
+  switch (scope)
+    {
+    case BRIG_MEMORY_SCOPE_NONE:
+      return "";
+    case BRIG_MEMORY_SCOPE_WORKITEM:
+      return "wi";
+    case BRIG_MEMORY_SCOPE_WAVEFRONT:
+      return "wv";
+    case BRIG_MEMORY_SCOPE_WORKGROUP:
+      return "wg";
+    case BRIG_MEMORY_SCOPE_COMPONENT:
+      return "cmp";
+    case BRIG_MEMORY_SCOPE_SYSTEM:
+      return "sys";
+    default:
+      return "UNKNOWN_SCOPE";
+    }
+}
+
+/* Return textual name for atomic operation. */
 
 static const char *
 hsa_atomicop_name (enum BrigAtomicOperation op)
 {
   switch (op)
     {
+    case BRIG_ATOMIC_ADD:
+      return "add";
     case BRIG_ATOMIC_AND:
       return "and";
-    case BRIG_ATOMIC_OR:
-      return "or";
-    case BRIG_ATOMIC_XOR:
-      return "xor";
     case BRIG_ATOMIC_CAS:
       return "cas";
     case BRIG_ATOMIC_EXCH:
       return "exch";
-    case BRIG_ATOMIC_ADD:
-      return "add";
-    case BRIG_ATOMIC_INC:
-      return "inc";
-    case BRIG_ATOMIC_DEC:
-      return "dec";
-    case BRIG_ATOMIC_MIN:
-      return "min";
+    case BRIG_ATOMIC_LD:
+      return "ld";
     case BRIG_ATOMIC_MAX:
       return "max";
+    case BRIG_ATOMIC_MIN:
+      return "min";
+    case BRIG_ATOMIC_OR:
+      return "or";
+    case BRIG_ATOMIC_ST:
+      return "st";
     case BRIG_ATOMIC_SUB:
       return "sub";
+    case BRIG_ATOMIC_WRAPDEC:
+      return "wrapdec";
+    case BRIG_ATOMIC_WRAPINC:
+      return "wrapinc";
+    case BRIG_ATOMIC_XOR:
+      return "xor";
+    case BRIG_ATOMIC_WAIT_EQ:
+      return "wait_eq";
+    case BRIG_ATOMIC_WAIT_NE:
+      return "wait_ne";
+    case BRIG_ATOMIC_WAIT_LT:
+      return "wait_lt";
+    case BRIG_ATOMIC_WAIT_GTE:
+      return "wait_gte";
+    case BRIG_ATOMIC_WAITTIMEOUT_EQ:
+      return "waittimeout_eq";
+    case BRIG_ATOMIC_WAITTIMEOUT_NE:
+      return "waittimeout_ne";
+    case BRIG_ATOMIC_WAITTIMEOUT_LT:
+      return "waittimeout_lt";
+    case BRIG_ATOMIC_WAITTIMEOUT_GTE:
+      return "waittimeout_gte";
     default:
       return "UNKNOWN_ATOMIC_OP";
     }
@@ -673,9 +731,10 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
       fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
       if (addr->symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
-      if (mem->semantic != BRIG_SEMANTIC_NONE
-	  && mem->semantic != BRIG_SEMANTIC_REGULAR)
-	fprintf (f, "_%s", hsa_memsem_name (mem->semantic));
+      if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
+	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
+      if (mem->memoryscope != BRIG_MEMORY_SCOPE_NONE)
+	fprintf (f, "_%s", hsa_memscope_name (mem->memoryscope));
       fprintf (f, "_%s ", hsa_type_name (mem->type));
 
       dump_hsa_imm_or_reg (f, mem->operands[0]);
@@ -698,9 +757,10 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       if (addr->symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
-      if (mem->semantic != BRIG_SEMANTIC_NONE
-	  && mem->semantic != BRIG_SEMANTIC_REGULAR)
-	fprintf (f, "_%s", hsa_memsem_name (mem->semantic));
+      if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
+	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
+      if (mem->memoryscope != BRIG_MEMORY_SCOPE_NONE)
+	fprintf (f, "_%s", hsa_memscope_name (mem->memoryscope));
       if (mem->equiv_class != 0)
 	fprintf (f, "_equiv(%i)", mem->equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->type));
