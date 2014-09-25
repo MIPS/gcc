@@ -1,5 +1,13 @@
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/internals/index.rst ("Overview of code structure"): Add
+	more descriptive text, including various fragments of
+	internal-api.h as appropriate.
+	* internal-api.h: Add marker comments for use by "literalinclude"
+	directives in docs/internals/index.rst.
+
+2014-09-24  David Malcolm  <dmalcolm@redhat.com>
+
 	* dummy-frontend.c (my_walker): Rename to...
 	(my_ggc_walker): ...this.
 	(my_root_tab): Rename to...

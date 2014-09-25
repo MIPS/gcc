@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 
 const int NUM_GCC_JIT_TYPES = GCC_JIT_TYPE_FILE_PTR + 1;
 
+/* Summary.  */
+
 /* In order to allow jit objects to be usable outside of a compile
    whilst working with the existing structure of GCC's code the
    C API is implemented in terms of a gcc::jit::recording::context,
@@ -97,6 +99,9 @@ class result;
 class dump;
 
 namespace recording {
+
+  /* Recording types.  */
+
   /* Indentation indicates inheritance: */
   class context;
   class builtins_manager; // declared within jit-builtins.h
@@ -118,9 +123,13 @@ namespace recording {
 	class global;
         class param;
     class statement;
+
+  /* End of recording types. */
 }
 
 namespace playback {
+  /* Playback types.  */
+
   /* Indentation indicates inheritance: */
   class context;
   class wrapper;
@@ -135,6 +144,8 @@ namespace playback {
     class source_file;
     class source_line;
     class location;
+
+  /* End of playback types. */
 }
 
 typedef playback::context replayer;
