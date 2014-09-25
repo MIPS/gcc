@@ -408,12 +408,13 @@ struct c_expr : public operand
   };
 
   c_expr (cpp_reader *r_, vec<cpp_token> code_, unsigned nr_stmts_,
-	  vec<id_tab> ids_ = vNULL)
-    : operand (OP_C_EXPR), r (r_), code (code_),
+	  vec<id_tab> ids_, std::map<std::string, unsigned> *capture_ids_)
+    : operand (OP_C_EXPR), r (r_), code (code_), capture_ids (capture_ids_),
       nr_stmts (nr_stmts_), ids (ids_) {}
   /* cpplib tokens and state to transform this back to source.  */
   cpp_reader *r;
   vec<cpp_token> code;
+  std::map<std::string, unsigned> *capture_ids;
   /* The number of statements parsed (well, the number of ';'s).  */
   unsigned nr_stmts;
   /* The identifier replacement vector.  */
@@ -487,11 +488,11 @@ struct simplify
   simplify (operand *match_, source_location match_location_,
 	    struct operand *result_, source_location result_location_,
 	    vec<if_or_with> ifexpr_vec_, vec<vec<user_id *> > for_vec_,
-	    int capture_max_)
+	    std::map<std::string, unsigned> *capture_ids_)
       : match (match_), match_location (match_location_),
       result (result_), result_location (result_location_),
       ifexpr_vec (ifexpr_vec_), for_vec (for_vec_),
-      capture_max (capture_max_) {}
+      capture_ids (capture_ids_), capture_max (capture_ids_->size ()) {}
 
   /* The expression that is matched against the GENERIC or GIMPLE IL.  */
   operand *match; 
@@ -507,7 +508,8 @@ struct simplify
   /* Collected 'for' expression operators that have to be replaced
      in the lowering phase.  */
   vec<vec<user_id *> > for_vec;
-  /* The maximum capture index seen.  */
+  /* A map of capture identifiers to indexes.  */
+  std::map<std::string, unsigned> *capture_ids;
   int capture_max;
 };
 
@@ -657,7 +659,7 @@ lower_commutative (simplify *s, vec<simplify *>& simplifiers)
     {
       simplify *ns = new simplify (matchers[i], s->match_location,
 				   s->result, s->result_location, s->ifexpr_vec,
-				   s->for_vec, s->capture_max);
+				   s->for_vec, s->capture_ids);
       simplifiers.safe_push (ns);
     }
 }
@@ -787,7 +789,7 @@ lower_opt_convert (simplify *s, vec<simplify *>& simplifiers)
     {
       simplify *ns = new simplify (matchers[i], s->match_location,
 				   s->result, s->result_location, s->ifexpr_vec,
-				   s->for_vec, s->capture_max);
+				   s->for_vec, s->capture_ids);
       simplifiers.safe_push (ns);
     }
 }
@@ -820,7 +822,7 @@ replace_id (operand *o, user_id *id, id_base *with)
     {
       vec<c_expr::id_tab> ids = ce->ids.copy ();
       ids.safe_push (c_expr::id_tab (id->id, with->id));
-      return new c_expr (ce->r, ce->code, ce->nr_stmts, ids);
+      return new c_expr (ce->r, ce->code, ce->nr_stmts, ids, ce->capture_ids);
     }
 
   return o;
@@ -872,7 +874,7 @@ lower_for (simplify *sin, vec<simplify *>& simplifiers)
 		}
 	      simplify *ns = new simplify (match_op, s->match_location,
 					   result_op, s->result_location,
-					   ifexpr_vec, vNULL, s->capture_max);
+					   ifexpr_vec, vNULL, s->capture_ids);
 	      worklist.safe_push (ns);
 	    }
 	}
@@ -1399,12 +1401,18 @@ c_expr::gen_transform (FILE *f, const char *dest,
       if (token->type == CPP_ATSIGN)
 	{
 	  const cpp_token *n = &code[i+1];
-	  if (n->type == CPP_NUMBER
+	  if ((n->type == CPP_NUMBER
+	       || n->type == CPP_NAME)
 	      && !(n->flags & PREV_WHITE))
 	    {
 	      if (token->flags & PREV_WHITE)
 		fputc (' ', f);
-	      fprintf (f, "captures[%s]", n->val.str.text);
+	      const char *id;
+	      if (n->type == CPP_NUMBER)
+		id = (const char *)n->val.str.text;
+	      else
+		id = (const char *)CPP_HASHNODE (n->val.node.node)->ident.str;
+	      fprintf (f, "captures[%u]", (*capture_ids)[id]);
 	      ++i;
 	      continue;
 	    }
@@ -2284,7 +2292,6 @@ private:
   vec<if_or_with> active_ifs;
   vec<vec<user_id *> > active_fors;
 
-  int capture_max;
   std::map<std::string, unsigned> *capture_ids;
 
 public:
@@ -2461,11 +2468,9 @@ parser::parse_capture (operand *op)
     id = get_ident ();
   else
     fatal_at (token, "expected number or identifier");
+  unsigned next_id = capture_ids->size ();
   std::pair<std::map<std::string, unsigned>::iterator, bool> res
-    = capture_ids->insert
-        (std::pair<std::string, unsigned>(id, capture_max + 1));
-  if (res.second)
-    capture_max++;
+    = capture_ids->insert (std::pair<std::string, unsigned>(id, next_id));
   return new capture ((*res.first).second, op);
 }
 
@@ -2571,7 +2576,7 @@ parser::parse_c_expr (cpp_ttype start)
       code.safe_push (*token);
     }
   while (1);
-  return new c_expr (r, code, nr_stmts);
+  return new c_expr (r, code, nr_stmts, vNULL, capture_ids);
 }
 
 /* Parse an operand which is either an expression, a predicate or
@@ -2645,10 +2650,8 @@ void
 parser::parse_simplify (source_location match_location,
 			vec<simplify *>& simplifiers, predicate_id *matcher)
 {
-  /* Reset the maximum capture number seen.  */
-  std::map<std::string, unsigned> cids;
-  capture_max = -1;
-  capture_ids = &cids;
+  /* Reset the capture map.  */
+  capture_ids = new std::map<std::string, unsigned>;
 
   const cpp_token *loc = peek ();
   struct operand *match = parse_op ();
@@ -2673,7 +2676,7 @@ parser::parse_simplify (source_location match_location,
       simplifiers.safe_push
 	(new simplify (match, match_location, NULL, token->src_loc,
 		       active_ifs.copy (), active_fors.copy (),
-		       capture_max));
+		       capture_ids));
       return;
     }
 
@@ -2703,7 +2706,7 @@ parser::parse_simplify (source_location match_location,
 		  simplifiers.safe_push
 		      (new simplify (match, match_location, NULL,
 				     paren_loc, active_ifs.copy (),
-				     active_fors.copy (), capture_max));
+				     active_fors.copy (), capture_ids));
 		}
 	    }
 	  else if (peek_ident ("with"))
@@ -2732,7 +2735,7 @@ parser::parse_simplify (source_location match_location,
 	      simplifiers.safe_push
 		  (new simplify (match, match_location, op,
 				 token->src_loc, active_ifs.copy (),
-				 active_fors.copy (), capture_max));
+				 active_fors.copy (), capture_ids));
 	      eat_token (CPP_CLOSE_PAREN);
 	      /* A "default" result closes the enclosing scope.  */
 	      if (active_ifs.length () > active_ifs_len)
@@ -2763,7 +2766,7 @@ parser::parse_simplify (source_location match_location,
 	  simplifiers.safe_push
 	      (new simplify (match, match_location, parse_op (),
 			     token->src_loc, active_ifs.copy (),
-			     active_fors.copy (), capture_max));
+			     active_fors.copy (), capture_ids));
 	  /* A "default" result closes the enclosing scope.  */
 	  if (active_ifs.length () > active_ifs_len)
 	    {

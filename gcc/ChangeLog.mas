@@ -1,5 +1,11 @@
 2014-09-25  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (struct c_expr): Also record capture identifier
+	to index map.
+	(c_expr::gen_transform): Use it.
+
+2014-09-25  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c: Include <map>, <utility> and <string>.
 	Allow identifiers for captures, assign capture indexes
 	dynamically.
