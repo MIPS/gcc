@@ -1,3 +1,7 @@
+2014-09-25  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c: TLC.
+
 2014-09-24  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (c_expr::output_code): Remove and inline into ...
