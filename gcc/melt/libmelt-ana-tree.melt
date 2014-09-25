@@ -353,6 +353,26 @@ treerr
   }#
 )
 
+(defcmatcher tree_function_decl_full
+  (:tree tr)
+  ;; output
+  (:tree tname targs ttype tresult tctxt :long builtincode)
+  treefunfull ;state symbol
+  :doc #{$TREE_FUNCTION_DECL_FULL match a function declaration $TR extracting all the information}#
+  ;; test
+  #{ /* tree_function_decl_full $TREEFUNFULL ? */ (($TR) && TREE_CODE($TR) == FUNCTION_DECL) }#
+  ;; fill expansion
+  #{ /* tree_function_decl_full $TREEFUNFULL ! */
+  $TNAME = DECL_NAME ($TR);
+  $TARGS = DECL_ARGUMENTS ($TR);
+  $TTYPE = TREE_TYPE ($TR);
+  $TRESULT = DECL_RESULT ($TR);
+  $TCTXT = DECL_CONTEXT ($TR);
+  $BUILTINCODE = DECL_FUNCTION_CODE ($TR);
+  }#)
+
+;;
+
 (defcmatcher tree_function_decl_named_of_type 
   (:tree tr) 				;matched
   ;; output 
@@ -3200,6 +3220,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_fixed_point_type
  tree_float_type_node 
  tree_function_decl 
+ tree_function_decl_full 
  tree_function_decl_named
  tree_function_decl_named_of_type
  tree_function_decl_of_name
