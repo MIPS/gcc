@@ -121,6 +121,9 @@ struct omp_region
 
   /* True if this is a combined parallel+workshare region.  */
   bool is_combined_parallel;
+
+  /* True if this region is or is a part of kernelized parallel block. */
+  bool kernelize;
 };
 
 /* Context structure.  Used to store information about each parallel
@@ -8507,15 +8510,131 @@ expand_omp_target (struct omp_region *region)
     }
 }
 
+/* Analyze a PARALLEL region and decide whether it should be turned into an HSA
+   kernel, i.e. whether it should just contain the body of the loop and work
+   sharing should be decided by kernel attributes and HSA run time.  */
+
+static void
+analyze_kernelizability (struct omp_region *parallel)
+{
+  gcc_checking_assert (parallel->type == GIMPLE_OMP_PARALLEL);
+  struct omp_region *inner = parallel->inner;
+  if (!inner)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because it contains no nested constructs\n");
+      return;
+    }
+  if (inner->next)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because it contains multiple OMP constructs\n");
+      return;
+    }
+  if (inner->type != GIMPLE_OMP_FOR)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because it contains a non-looping construct\n");
+      return;
+    }
+  struct omp_region *in2 = inner->inner;
+  while (in2 && (in2->type == GIMPLE_OMP_ATOMIC_LOAD
+		   || in2->type == GIMPLE_OMP_ATOMIC_STORE))
+    in2 = inner->next;
+  if (in2)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because the inner construct has nested constructs\n");
+      return;
+    }
+  if (!inner->cont)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because it is not clear where its loop ends\n");
+      return;
+    }
+  gcc_assert (inner->exit);
+  gimple for_stmt = last_stmt (inner->entry);
+  if (gimple_omp_for_combined_p (for_stmt))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because it is gimple_omp_for_combined_p\n");
+      return;
+    }
+  struct omp_for_data fd;
+  extract_omp_for_data (for_stmt, &fd, NULL);
+  if (fd.collapse > 1)
+    {
+      dump_printf_loc (MSG_NOTE,
+		       gimple_location (last_stmt (parallel->entry)),
+		       "Will not turn parallel construct into kernel "
+		       "because it uses collapse clause\n");
+      return;
+    }
+  if (fd.sched_kind != OMP_CLAUSE_SCHEDULE_STATIC
+      && fd.sched_kind != OMP_CLAUSE_SCHEDULE_AUTO)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because we cannot handle the selected scheduling\n");
+      return;
+    }
+  if (fd.have_ordered)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because it has ordered clause\n");
+      return;
+    }
+  if (gimple_omp_for_kind (fd.for_stmt) == GF_OMP_FOR_KIND_DISTRIBUTE)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE,
+			 gimple_location (last_stmt (parallel->entry)),
+			 "Will not turn parallel construct into kernel "
+			 "because it contains distribute construct\n");
+      return;
+    }
+
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS,
+		     gimple_location (last_stmt (parallel->entry)),
+		     "Parallel construct will be turned into an HSA kernel\n");
+  parallel->kernelize = true;
+  inner->kernelize = true;
+}
 
 /* Expand the parallel region tree rooted at REGION.  Expansion
    proceeds in depth-first order.  Innermost regions are expanded
    first.  This way, parallel regions that require a new function to
    be created (e.g., GIMPLE_OMP_PARALLEL) can be expanded without having any
-   internal dependencies in their body.  */
+   internal dependencies in their body.  WITHIN_PARALLEL must be true if
+   REGION is located within a parallel construct.  */
 
 static void
-expand_omp (struct omp_region *region)
+expand_omp (struct omp_region *region, bool within_parallel)
 {
   while (region)
     {
@@ -8525,14 +8644,25 @@ expand_omp (struct omp_region *region)
       /* First, determine whether this is a combined parallel+workshare
        	 region.  */
       if (region->type == GIMPLE_OMP_PARALLEL)
-	determine_parallel_type (region);
+	{
+	  determine_parallel_type (region);
+	  if (!within_parallel)
+	    analyze_kernelizability (region);
+	  else if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE,
+			     gimple_location (last_stmt (region->entry)),
+			     "Will not turn parallel construct into kernel "
+			     "because it is located within another parallel "
+			     "construct\n");
+	}
 
       if (region->type == GIMPLE_OMP_FOR
 	  && gimple_omp_for_combined_p (last_stmt (region->entry)))
 	inner_stmt = last_stmt (region->inner->entry);
 
       if (region->inner)
-	expand_omp (region->inner);
+	expand_omp (region->inner,
+		    within_parallel || (region->type == GIMPLE_OMP_PARALLEL));
 
       saved_location = input_location;
       if (gimple_has_location (last_stmt (region->entry)))
@@ -8688,7 +8818,7 @@ omp_expand_local (basic_block head)
     }
 
   remove_exit_barriers (root_omp_region);
-  expand_omp (root_omp_region);
+  expand_omp (root_omp_region, false);
 
   free_omp_regions ();
 }
@@ -8723,7 +8853,7 @@ execute_expand_omp (void)
 
   remove_exit_barriers (root_omp_region);
 
-  expand_omp (root_omp_region);
+  expand_omp (root_omp_region, false);
 
   cleanup_tree_cfg ();
 
