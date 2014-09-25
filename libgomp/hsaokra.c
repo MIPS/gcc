@@ -100,11 +100,13 @@ typedef struct __hsa_kernel_desc_
   okra_context_t *context;
 } __hsa_kernel_desc;
 
-void * __hsa_launch_kernel (__hsa_kernel_desc *, __hsa_launch_attrs *attrs,
-			    __hsa_kernelarg *args);
+typedef okra_range_t __hsa_launch_range;
+
+void * __hsa_launch_kernel (__hsa_kernel_desc *, __hsa_launch_range *,
+			    __hsa_kernelarg *);
 
 void *
-__hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
+__hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_range *range_p,
 		     __hsa_kernelarg *args)
 {
   okra_status_t status;
@@ -166,9 +168,21 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
   range.dimension = 1;
   range.global_size[0] = 256;
   range.group_size[0] = 16;
+  if (!range_p)
+    {
+      range.dimension = 1;
+      range.global_size[0] = 256;
+      range.group_size[0] = 16;
+      range_p = &range;
+    }
   if (debug > 0)
-    fprintf (stderr, "HSA: launching kernel %s\n", _kd->name);
-  status = _okra_execute_kernel (context, kernel, &range);
+    {
+      fprintf (stderr, "HSA: launching kernel %s\n", _kd->name);
+      fprintf (stderr, "dim: %u, s0: %u, g0: %u, r: %u\n", range_p->dimension,
+	       range_p->global_size[0], range_p->group_size[0],
+	       range_p->reserved);
+    }
+  status = _okra_execute_kernel (context, kernel, range_p);
   if (status != OKRA_SUCCESS)
     {
       fprintf (stderr, "Failed to launch kernel\n");

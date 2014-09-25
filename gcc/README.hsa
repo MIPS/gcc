@@ -1,3 +1,16 @@
+Please note that in this particular revision, this README file is
+outdated, a new version reacting to all incompatible changes will be
+committed at the end of a batch.  I suggest you only use this revision
+if you really have a reason to do it, otherwise check out a more
+recent one.
+
+In particular, in this revision it is impossible to directly use the
+simulator any more, only the OKRA interface is supported (but you can
+still use the simulator through it).  The rest still works, provided
+your OKRA and LIBHSAIL tools support and work with HSAIL 0.95.
+
+===========================================================================
+
 For playing with the HSA branch there are two viable approaches:
 1) Use the HSA simulator directly (via a shared library)
 2) Use the OKRA wrapper, which comes in two flavors itself,

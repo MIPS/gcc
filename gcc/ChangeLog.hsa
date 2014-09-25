@@ -1,3 +1,14 @@
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_dim_array_type, hsa_range_dimnum_decl)
+	(hsa_range_grid_decl, hsa_range_group_decl)
+	(hsa_launch_range_type): New variables.
+	(init_hsa_functions): Also build the type of range structure.
+	(insert_store_range_dim): New function.
+	(wrap_hsa): Rename decl to desc.  Also build and pass range
+	information.
+	* README.hsa: Marked as obsolete.
+
 2014-08-05  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (hsa_deinit_data_for_cfun): Clear aux of all basic

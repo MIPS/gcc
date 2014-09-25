@@ -1971,6 +1971,11 @@ generate_hsa (void)
 
 static GTY(()) tree hsa_launch_fn;
 static GTY(()) tree hsa_kernel_desc_type;
+static GTY(()) tree hsa_dim_array_type;
+static GTY(()) tree hsa_range_dimnum_decl;
+static GTY(()) tree hsa_range_grid_decl;
+static GTY(()) tree hsa_range_group_decl;
+static GTY(()) tree hsa_launch_range_type;
 
 static void
 init_hsa_functions (void)
@@ -2010,18 +2015,67 @@ init_hsa_functions (void)
   finish_builtin_struct (hsa_kernel_desc_type, "__hsa_kernel_desc",
 			 fields, NULL_TREE);
 
-  /* __hsa_launch_kernel (__hsa_kernel_desc * kd, void* attr, uint64_t *args) */
+
+  tree dim_arr_index_type;
+  dim_arr_index_type = build_index_type (build_int_cst (integer_type_node, 2));
+  hsa_dim_array_type = build_array_type (uint32_type_node, dim_arr_index_type);
+
+  hsa_launch_range_type = make_node (RECORD_TYPE);
+  fields = NULL_TREE;
+  hsa_range_dimnum_decl = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+				      get_identifier ("dimension"),
+				      uint32_type_node);
+  DECL_CHAIN (hsa_range_dimnum_decl) = NULL_TREE;
+
+  hsa_range_grid_decl = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+				    get_identifier ("global_size"),
+				    hsa_dim_array_type);
+  DECL_CHAIN (hsa_range_grid_decl) = hsa_range_dimnum_decl;
+  hsa_range_group_decl = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+				     get_identifier ("group_size"),
+				     hsa_dim_array_type);
+  DECL_CHAIN (hsa_range_group_decl) = hsa_range_grid_decl;
+  tree reserved = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			      get_identifier ("reserved"), uint32_type_node);
+  DECL_CHAIN (reserved) = hsa_range_group_decl;
+
+  /* This is in fact okra_range_s, but let's call everything HSA, at least for
+     now.  */
+  finish_builtin_struct (hsa_launch_range_type, "__hsa_launch_range",
+			 reserved, NULL_TREE);
+
+  /* __hsa_launch_kernel (__hsa_kernel_desc * kd, __hsa_launch_range* range,
+     uint64_t *args) */
 
   launch_fn_type
     = build_function_type_list (void_type_node,
 				build_pointer_type (hsa_kernel_desc_type),
-				ptr_type_node,
+				build_pointer_type (hsa_launch_range_type),
 				build_pointer_type (uint64_type_node),
 				NULL_TREE);
 
   hsa_launch_fn
     = build_fn_decl ("__hsa_launch_kernel",
 		     launch_fn_type);
+}
+
+/* Insert before the current statement in GSI a store of VALUE to INDEX of
+   array (of type hsa_dim_array_type) FLD_DECL of RANGE_VAR. */
+
+static void
+insert_store_range_dim (gimple_stmt_iterator *gsi, tree range_var,
+			tree fld_decl, int index, int value)
+{
+  tree ref = build4 (ARRAY_REF, uint32_type_node,
+		     build3 (COMPONENT_REF, hsa_dim_array_type,
+			     range_var, fld_decl, NULL_TREE),
+		     build_int_cst (integer_type_node, index),
+		     NULL_TREE, NULL_TREE);
+  gsi_insert_before (gsi,
+		     gimple_build_assign (ref,
+					  build_int_cst (uint32_type_node,
+							 value)),
+		     GSI_SAME_STMT);
 }
 
 static unsigned int
@@ -2047,39 +2101,60 @@ wrap_hsa (void)
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
 
 	    int slen = IDENTIFIER_LENGTH (DECL_ASSEMBLER_NAME (fndecl));
-	    if (asprintf (&tmpname, "&%s", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl))) < 0)
+	    if (asprintf (&tmpname, "&%s",
+			  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl))) < 0)
 	      gcc_unreachable ();
 	    sanitize_hsa_name (tmpname + 1);
 
 	    str = build_string_literal (slen + 2, tmpname);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
-	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, size_int (gimple_call_num_args (gsi_stmt (gsi))));
+	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+				    size_int (gimple_call_num_args
+					      (gsi_stmt (gsi))));
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, null_pointer_node);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, null_pointer_node);
 
-	    tree initval = build_constructor (hsa_kernel_desc_type, v);
+	    tree desc_initval = build_constructor (hsa_kernel_desc_type, v);
 
 	    /* Create a new VAR_DECL of type descriptor.  */
 	    char tmp_name[32];
 	    static unsigned int var_id;
 	    ASM_GENERATE_INTERNAL_LABEL (tmp_name, "__hsa_kd", var_id++);
-	    tree decl = build_decl (gimple_location (gsi_stmt (gsi)),
-				    VAR_DECL, get_identifier (tmp_name),
-				    hsa_kernel_desc_type);
-	    TREE_STATIC (decl) = 1;
-	    TREE_PUBLIC (decl) = 0;
-	    DECL_ARTIFICIAL (decl) = 1;
-	    DECL_IGNORED_P (decl) = 1;
-	    DECL_EXTERNAL (decl) = 0;
+	    tree desc = build_decl (gimple_location (gsi_stmt (gsi)),
+					 VAR_DECL, get_identifier (tmp_name),
+					 hsa_kernel_desc_type);
+	    TREE_STATIC (desc) = 1;
+	    TREE_PUBLIC (desc) = 0;
+	    DECL_ARTIFICIAL (desc) = 1;
+	    DECL_IGNORED_P (desc) = 1;
+	    DECL_EXTERNAL (desc) = 0;
 
-	    TREE_CONSTANT (initval) = 1;
-	    TREE_STATIC (initval) = 1;
-	    DECL_INITIAL (decl) = initval;
-	    varpool_node::finalize_decl (decl);
+	    TREE_CONSTANT (desc_initval) = 1;
+	    TREE_STATIC (desc_initval) = 1;
+	    DECL_INITIAL (desc) = desc_initval;
+	    varpool_node::finalize_decl (desc);
+	    desc = build_fold_addr_expr (desc);
 
-	    decl = build_fold_addr_expr (decl);
-	    tree args = create_tmp_var (build_array_type_nelts (uint64_type_node,
-								gimple_call_num_args (gsi_stmt (gsi))),
+	    /* We fill in range dynamically because later on we'd like to
+	       decide about the values at run time.  */
+	    tree range = create_tmp_var (hsa_launch_range_type, "__hsa_range");
+	    tree dimref = build3 (COMPONENT_REF, uint32_type_node,
+				  range, hsa_range_dimnum_decl, NULL_TREE);
+	    tree u32one = build_int_cst (uint32_type_node, 1);
+	    gsi_insert_before (&gsi,
+			       gimple_build_assign (dimref, u32one),
+			       GSI_SAME_STMT);
+	    insert_store_range_dim (&gsi, range, hsa_range_grid_decl, 0, 256);
+	    insert_store_range_dim (&gsi, range, hsa_range_grid_decl, 1, 1);
+	    insert_store_range_dim (&gsi, range, hsa_range_grid_decl, 2, 1);
+	    insert_store_range_dim (&gsi, range, hsa_range_group_decl, 0, 16);
+	    insert_store_range_dim (&gsi, range, hsa_range_group_decl, 1, 1);
+	    insert_store_range_dim (&gsi, range, hsa_range_group_decl, 2, 1);
+	    range = build_fold_addr_expr (range);
+
+	    tree args = create_tmp_var
+	      (build_array_type_nelts (uint64_type_node,
+				       gimple_call_num_args (gsi_stmt (gsi))),
 					NULL);
 
 	    for (unsigned i = 0; i < gimple_call_num_args (gsi_stmt (gsi)); i++)
@@ -2103,7 +2178,7 @@ wrap_hsa (void)
 
 	    /* XXX doesn't handle calls with lhs, doesn't remove EH
 	       edges.  */
-	    launch = gimple_build_call (hsa_launch_fn, 3, decl, null_pointer_node, args);
+	    launch = gimple_build_call (hsa_launch_fn, 3, desc, range, args);
 	    gsi_insert_before (&gsi, launch, GSI_SAME_STMT);
 	    unlink_stmt_vdef (gsi_stmt (gsi));
 	    gsi_remove (&gsi, true);
