@@ -1,3 +1,11 @@
+2014-09-25  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/reduction-1.c: Remove erroneous "#pragma acc
+	end parallel"s.
+	* c-c++-common/goacc/reduction-2.c: Likewise.
+	* c-c++-common/goacc/reduction-3.c: Likewise.
+	* c-c++-common/goacc/reduction-4.c: Likewise.
+
 2014-09-23  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/acc_on_device-1.c: New file.

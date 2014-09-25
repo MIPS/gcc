@@ -15,14 +15,12 @@ main(void)
 #pragma acc loop reduction (+:result)
   for (i = 0; i < n; i++)
     result += array[i];
-#pragma acc end parallel
 
   /* '*' reductions.  */
 #pragma acc parallel vector_length (vl)
 #pragma acc loop reduction (*:result)
   for (i = 0; i < n; i++)
     result *= array[i];
-#pragma acc end parallel
 
 //   result = 0;
 //   vresult = 0;
@@ -32,49 +30,42 @@ main(void)
 // #pragma acc loop reduction (+:result)
 //   for (i = 0; i < n; i++)
 //       result = result > array[i] ? result : array[i];
-// #pragma acc end parallel
 //
 //   /* 'min' reductions.  */
 // #pragma acc parallel vector_length (vl)
 // #pragma acc loop reduction (+:result)
 //   for (i = 0; i < n; i++)
 //       result = result < array[i] ? result : array[i];
-// #pragma acc end parallel
 
   /* '&' reductions.  */
 #pragma acc parallel vector_length (vl)
 #pragma acc loop reduction (&:result)
   for (i = 0; i < n; i++)
     result &= array[i];
-#pragma acc end parallel
 
   /* '|' reductions.  */
 #pragma acc parallel vector_length (vl)
 #pragma acc loop reduction (|:result)
   for (i = 0; i < n; i++)
     result |= array[i];
-#pragma acc end parallel
 
   /* '^' reductions.  */
 #pragma acc parallel vector_length (vl)
 #pragma acc loop reduction (^:result)
   for (i = 0; i < n; i++)
     result ^= array[i];
-#pragma acc end parallel
 
   /* '&&' reductions.  */
 #pragma acc parallel vector_length (vl)
 #pragma acc loop reduction (&&:lresult)
   for (i = 0; i < n; i++)
     lresult = lresult && (result > array[i]);
-#pragma acc end parallel
 
   /* '||' reductions.  */
 #pragma acc parallel vector_length (vl)
 #pragma acc loop reduction (||:lresult)
   for (i = 0; i < n; i++)
     lresult = lresult || (result > array[i]);
-#pragma acc end parallel
 
   return 0;
 }
