@@ -2210,17 +2210,6 @@ decision_tree::gen_generic (FILE *f)
     }
 }
 
-/* Write a prototype for the function defined by the predicate P.  */
-
-void
-write_predicate_prototype (FILE *f, predicate_id *p, bool gimple)
-{
-  fprintf (f, "bool %s%s (tree t%s%s);\n",
-	   gimple ? "gimple_" : "tree_", p->id,
-	   p->nargs > 0 ? ", tree *res_ops" : "",
-	   gimple ? ", tree (*valueize)(tree) = NULL" : "");
-}
-
 /* Output code to implement the predicate P from the decision tree DT.  */
 
 void
@@ -2262,12 +2251,51 @@ write_header (FILE *f, const char *head)
 
 
 
+/* AST parsing.  */
+
+class parser
+{
+public:
+  parser (cpp_reader *);
+
+private:
+  const cpp_token *next ();
+  const cpp_token *peek ();
+  const cpp_token *peek_ident (const char * = NULL);
+  const cpp_token *expect (enum cpp_ttype);
+  void eat_token (enum cpp_ttype);
+  const char *get_string ();
+  const char *get_ident ();
+  void eat_ident (const char *);
+  const char *get_number ();
+
+  id_base *parse_operation ();
+  operand *parse_capture (operand *);
+  operand *parse_expr ();
+  c_expr *parse_c_expr (cpp_ttype);
+  operand *parse_op ();
+
+  void parse_pattern ();
+  void parse_simplify (source_location, vec<simplify *>&, predicate_id *);
+  void parse_for (source_location);
+  void parse_if (source_location);
+  void parse_predicates (source_location);
+
+  cpp_reader *r;
+  vec<if_or_with> active_ifs;
+  vec<vec<user_id *> > active_fors;
+
+public:
+  vec<simplify *> simplifiers;
+  vec<predicate_id *> user_predicates;
+};
+
 /* Lexing helpers.  */
 
 /* Read the next non-whitespace token from R.  */
 
-static const cpp_token *
-next (cpp_reader *r)
+const cpp_token *
+parser::next ()
 {
   const cpp_token *token;
   do
@@ -2281,8 +2309,8 @@ next (cpp_reader *r)
 
 /* Peek at the next non-whitespace token from R.  */
 
-static const cpp_token *
-peek (cpp_reader *r)
+const cpp_token *
+parser::peek ()
 {
   const cpp_token *token;
   unsigned i = 0;
@@ -2303,10 +2331,10 @@ peek (cpp_reader *r)
 /* Peek at the next identifier token (or return NULL if the next
    token is not an identifier or equal to ID if supplied).  */
 
-static const cpp_token *
-peek_ident (cpp_reader *r, const char *id = 0)
+const cpp_token *
+parser::peek_ident (const char *id)
 {
-  const cpp_token *token = peek (r);
+  const cpp_token *token = peek ();
   if (token->type != CPP_NAME)
     return 0;
 
@@ -2322,10 +2350,10 @@ peek_ident (cpp_reader *r, const char *id = 0)
 
 /* Read the next token from R and assert it is of type TK.  */
 
-static const cpp_token *
-expect (cpp_reader *r, enum cpp_ttype tk)
+const cpp_token *
+parser::expect (enum cpp_ttype tk)
 {
-  const cpp_token *token = next (r);
+  const cpp_token *token = next ();
   if (token->type != tk)
     fatal_at (token, "expected %s, got %s",
 	      cpp_type2name (tk, 0), cpp_type2name (token->type, 0));
@@ -2335,19 +2363,19 @@ expect (cpp_reader *r, enum cpp_ttype tk)
 
 /* Consume the next token from R and assert it is of type TK.  */
 
-static void
-eat_token (cpp_reader *r, enum cpp_ttype tk)
+void
+parser::eat_token (enum cpp_ttype tk)
 {
-  expect (r, tk);
+  expect (tk);
 }
 
 /* Read the next token from R and assert it is of type CPP_STRING and
    return its value.  */
 
 const char *
-get_string (cpp_reader *r)
+parser::get_string ()
 {
-  const cpp_token *token = expect (r, CPP_STRING);
+  const cpp_token *token = expect (CPP_STRING);
   return (const char *)token->val.str.text;
 }
 
@@ -2355,19 +2383,19 @@ get_string (cpp_reader *r)
    return its value.  */
 
 const char *
-get_ident (cpp_reader *r)
+parser::get_ident ()
 {
-  const cpp_token *token = expect (r, CPP_NAME);
+  const cpp_token *token = expect (CPP_NAME);
   return (const char *)CPP_HASHNODE (token->val.node.node)->ident.str;
 }
 
 /* Eat an identifier token with value S from R.  */
 
-static void
-eat_ident (cpp_reader *r, const char *s)
+void
+parser::eat_ident (const char *s)
 {
-  const cpp_token *token = peek (r);
-  const char *t = get_ident (r);
+  const cpp_token *token = peek ();
+  const char *t = get_ident ();
   if (strcmp (s, t) != 0) 
     fatal_at (token, "expected '%s' got '%s'\n", s, t);
 }
@@ -2376,26 +2404,22 @@ eat_ident (cpp_reader *r, const char *s)
    return its value.  */
 
 const char *
-get_number (cpp_reader *r)
+parser::get_number ()
 {
-  const cpp_token *token = expect (r, CPP_NUMBER);
+  const cpp_token *token = expect (CPP_NUMBER);
   return (const char *)token->val.str.text;
 }
 
 
-/* AST parsing routines.  */
-
-static struct operand * parse_op (cpp_reader *r);
-
 /* Parse the operator ID, special-casing convert?, convert1? and
    convert2?  */
 
-static id_base *
-parse_operation (cpp_reader *r)
+id_base *
+parser::parse_operation ()
 {
-  const cpp_token *id_tok = peek (r);
-  const char *id = get_ident (r);
-  const cpp_token *token = peek (r);
+  const cpp_token *id_tok = peek ();
+  const char *id = get_ident ();
+  const cpp_token *token = peek ();
   if (strcmp (id, "convert0") == 0)
     fatal_at (id_tok, "use 'convert?' here");
   if (token->type == CPP_QUERY
@@ -2409,7 +2433,7 @@ parse_operation (cpp_reader *r)
 	;
       else
 	fatal_at (id_tok, "non-convert operator conditionalized");
-      eat_token (r, CPP_QUERY);
+      eat_token (CPP_QUERY);
     }
   else if (strcmp  (id, "convert1") == 0
 	   || strcmp  (id, "convert2") == 0)
@@ -2423,21 +2447,21 @@ parse_operation (cpp_reader *r)
 /* Parse a capture.
      capture = '@'<number>  */
 
-static struct operand *
-parse_capture (cpp_reader *r, operand *op)
+struct operand *
+parser::parse_capture (operand *op)
 {
-  eat_token (r, CPP_ATSIGN);
-  return new capture (get_number (r), op);
+  eat_token (CPP_ATSIGN);
+  return new capture (get_number (), op);
 }
 
 /* Parse an expression
      expr = '(' <operation>[capture][flag][type] <operand>... ')'  */
 
-static struct operand *
-parse_expr (cpp_reader *r)
+struct operand *
+parser::parse_expr ()
 {
-  expr *e = new expr (parse_operation (r));
-  const cpp_token *token = peek (r);
+  expr *e = new expr (parse_operation ());
+  const cpp_token *token = peek ();
   operand *op;
   bool is_commutative = false;
   const char *expr_type = NULL;
@@ -2445,19 +2469,19 @@ parse_expr (cpp_reader *r)
   if (token->type == CPP_COLON
       && !(token->flags & PREV_WHITE))
     {
-      eat_token (r, CPP_COLON);
-      token = peek (r);
+      eat_token (CPP_COLON);
+      token = peek ();
       if (token->type == CPP_NAME
 	  && !(token->flags & PREV_WHITE))
 	{
-	  const char *s = get_ident (r);
+	  const char *s = get_ident ();
 	  if (s[0] == 'c' && !s[1])
 	    is_commutative = true;
 	  else if (s[1] != '\0')
 	    expr_type = s;
 	  else
 	    fatal_at (token, "flag %s not recognized", s);
-	  token = peek (r);
+	  token = peek ();
 	}
       else
 	fatal_at (token, "expected flag or type specifying identifier");
@@ -2465,12 +2489,12 @@ parse_expr (cpp_reader *r)
 
   if (token->type == CPP_ATSIGN
       && !(token->flags & PREV_WHITE))
-    op = parse_capture (r, e);
+    op = parse_capture (e);
   else
     op = e;
   do
     {
-      const cpp_token *token = peek (r);
+      const cpp_token *token = peek ();
       if (token->type == CPP_CLOSE_PAREN)
 	{
 	  if (e->operation->nargs != -1
@@ -2488,7 +2512,7 @@ parse_expr (cpp_reader *r)
 	  e->expr_type = expr_type;
 	  return op;
 	}
-      e->append_op (parse_op (r));
+      e->append_op (parse_op ());
     }
   while (1);
 }
@@ -2497,15 +2521,15 @@ parse_expr (cpp_reader *r)
    for later processing.
      c_expr = ('{'|'(') <pp token>... ('}'|')')  */
 
-static c_expr *
-parse_c_expr (cpp_reader *r, cpp_ttype start)
+c_expr *
+parser::parse_c_expr (cpp_ttype start)
 {
   const cpp_token *token;
   cpp_ttype end;
   unsigned opencnt;
   vec<cpp_token> code = vNULL;
   unsigned nr_stmts = 0;
-  eat_token (r, start);
+  eat_token (start);
   if (start == CPP_OPEN_PAREN)
     end = CPP_CLOSE_PAREN;
   else if (start == CPP_OPEN_BRACE)
@@ -2515,7 +2539,7 @@ parse_c_expr (cpp_reader *r, cpp_ttype start)
   opencnt = 1;
   do
     {
-      token = next (r);
+      token = next ();
 
       /* Count brace pairs to find the end of the expr to match.  */
       if (token->type == start)
@@ -2539,27 +2563,27 @@ parse_c_expr (cpp_reader *r, cpp_ttype start)
    a standalone capture.
      op = predicate | expr | c_expr | capture  */
 
-static struct operand *
-parse_op (cpp_reader *r)
+struct operand *
+parser::parse_op ()
 {
-  const cpp_token *token = peek (r);
+  const cpp_token *token = peek ();
   struct operand *op = NULL;
   if (token->type == CPP_OPEN_PAREN)
     {
-      eat_token (r, CPP_OPEN_PAREN);
-      op = parse_expr (r);
-      eat_token (r, CPP_CLOSE_PAREN);
+      eat_token (CPP_OPEN_PAREN);
+      op = parse_expr ();
+      eat_token (CPP_CLOSE_PAREN);
     }
   else if (token->type == CPP_OPEN_BRACE)
     {
-      op = parse_c_expr (r, CPP_OPEN_BRACE);
+      op = parse_c_expr (CPP_OPEN_BRACE);
     }
   else
     {
       /* Remaining ops are either empty or predicates  */
       if (token->type == CPP_NAME)
 	{
-	  const char *id = get_ident (r);
+	  const char *id = get_ident ();
 	  id_base *opr = get_operator (id);
 	  if (!opr)
 	    fatal_at (token, "expected predicate name");
@@ -2575,7 +2599,7 @@ parse_op (cpp_reader *r)
 	    op = new predicate (p);
 	  else
 	    fatal_at (token, "using an unsupported operator as predicate");
-	  token = peek (r);
+	  token = peek ();
 	  if (token->flags & PREV_WHITE)
 	    return op;
 	}
@@ -2586,7 +2610,7 @@ parse_op (cpp_reader *r)
       if (token->type == CPP_COLON)
 	fatal_at (token, "not implemented: predicate on leaf operand");
       if (token->type == CPP_ATSIGN)
-	op = parse_capture (r, op);
+	op = parse_capture (op);
     }
 
   return op;
@@ -2602,20 +2626,19 @@ parse_op (cpp_reader *r)
      <with> = '(' 'with' '{' <c-expr> '}' <result-op> ')'
    and fill SIMPLIFIERS with the results.  */
 
-static void
-parse_simplify (cpp_reader *r, source_location match_location,
-		vec<simplify *>& simplifiers, predicate_id *matcher,
-		vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
+void
+parser::parse_simplify (source_location match_location,
+			vec<simplify *>& simplifiers, predicate_id *matcher)
 {
-  const cpp_token *loc = peek (r);
-  struct operand *match = parse_op (r);
+  const cpp_token *loc = peek ();
+  struct operand *match = parse_op ();
   if (match->type == operand::OP_CAPTURE && !matcher)
     fatal_at (loc, "outermost expression cannot be captured");
   if (match->type == operand::OP_EXPR
       && is_a <predicate_id *> (as_a <expr *> (match)->operation))
     fatal_at (loc, "outermost expression cannot be a predicate");
 
-  const cpp_token *token = peek (r);
+  const cpp_token *token = peek ();
 
   /* If this if is immediately closed then it is part of a predicate
      definition.  Push it.  */
@@ -2639,16 +2662,16 @@ parse_simplify (cpp_reader *r, source_location match_location,
       if (token->type == CPP_OPEN_PAREN)
 	{
 	  source_location paren_loc = token->src_loc;
-	  eat_token (r, CPP_OPEN_PAREN);
-	  if (peek_ident (r, "if"))
+	  eat_token (CPP_OPEN_PAREN);
+	  if (peek_ident ("if"))
 	    {
-	      eat_ident (r, "if");
-	      active_ifs.safe_push (if_or_with (parse_c_expr (r, CPP_OPEN_PAREN),
+	      eat_ident ("if");
+	      active_ifs.safe_push (if_or_with (parse_c_expr (CPP_OPEN_PAREN),
 						token->src_loc, false));
 	      /* If this if is immediately closed then it contains a
 	         manual matcher or is part of a predicate definition.
 		 Push it.  */
-	      if (peek (r)->type == CPP_CLOSE_PAREN)
+	      if (peek ()->type == CPP_CLOSE_PAREN)
 		{
 		  if (!matcher)
 		    fatal_at (token, "manual transform not implemented");
@@ -2662,17 +2685,17 @@ parse_simplify (cpp_reader *r, source_location match_location,
 				     active_fors.copy ()));
 		}
 	    }
-	  else if (peek_ident (r, "with"))
+	  else if (peek_ident ("with"))
 	    {
-	      eat_ident (r, "with");
+	      eat_ident ("with");
 	      /* Parse (with c-expr expr) as (if-with (true) expr).  */
-	      c_expr *e = parse_c_expr (r, CPP_OPEN_BRACE);
+	      c_expr *e = parse_c_expr (CPP_OPEN_BRACE);
 	      e->nr_stmts = 0;
 	      active_ifs.safe_push (if_or_with (e, token->src_loc, true));
 	    }
 	  else
 	    {
-	      operand *op = parse_expr (r);
+	      operand *op = parse_expr ();
 	      if (matcher)
 		{
 		  expr *e = dyn_cast <expr *> (op);
@@ -2689,11 +2712,11 @@ parse_simplify (cpp_reader *r, source_location match_location,
 		  (new simplify (match, match_location, op,
 				 token->src_loc, active_ifs.copy (),
 				 active_fors.copy ()));
-	      eat_token (r, CPP_CLOSE_PAREN);
+	      eat_token (CPP_CLOSE_PAREN);
 	      /* A "default" result closes the enclosing scope.  */
 	      if (active_ifs.length () > active_ifs_len)
 		{
-		  eat_token (r, CPP_CLOSE_PAREN);
+		  eat_token (CPP_CLOSE_PAREN);
 		  active_ifs.pop ();
 		}
 	      else
@@ -2705,9 +2728,9 @@ parse_simplify (cpp_reader *r, source_location match_location,
 	  /* Close a scope if requested.  */
 	  if (active_ifs.length () > active_ifs_len)
 	    {
-	      eat_token (r, CPP_CLOSE_PAREN);
+	      eat_token (CPP_CLOSE_PAREN);
 	      active_ifs.pop ();
-	      token = peek (r);
+	      token = peek ();
 	    }
 	  else
 	    return;
@@ -2717,34 +2740,30 @@ parse_simplify (cpp_reader *r, source_location match_location,
 	  if (matcher)
 	    fatal_at (token, "expected match operand expression");
 	  simplifiers.safe_push
-	      (new simplify (match, match_location, parse_op (r),
+	      (new simplify (match, match_location, parse_op (),
 			     token->src_loc, active_ifs.copy (),
 			     active_fors.copy ()));
 	  /* A "default" result closes the enclosing scope.  */
 	  if (active_ifs.length () > active_ifs_len)
 	    {
-	      eat_token (r, CPP_CLOSE_PAREN);
+	      eat_token (CPP_CLOSE_PAREN);
 	      active_ifs.pop ();
 	    }
 	  else
 	    return;
 	}
-      token = peek (r);
+      token = peek ();
     }
 }
 
 /* Parsing of the outer control structures.  */
-
-void parse_pattern (cpp_reader *, vec<simplify *>&,
-		    vec<if_or_with>&, vec<vec<user_id *> >&);
 
 /* Parse a for expression
      for = '(' 'for' <subst>... <pattern> ')'
      subst = <ident> '(' <ident>... ')'  */
 
 void
-parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
-	   vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
+parser::parse_for (source_location)
 {
   vec<user_id *> user_ids = vNULL;
   const cpp_token *token;
@@ -2752,12 +2771,12 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 
   while (1)
     {
-      token = peek_ident (r);
+      token = peek_ident ();
       if (token == 0)
 	break;
 
       /* Insert the user defined operators into the operator hash.  */
-      const char *id = get_ident (r);
+      const char *id = get_ident ();
       user_id *op = new user_id (id);
       id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
       if (*slot)
@@ -2765,12 +2784,12 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
       *slot = op;
       user_ids.safe_push (op);
 
-      eat_token (r, CPP_OPEN_PAREN);
+      eat_token (CPP_OPEN_PAREN);
 
       int arity = -1;
-      while ((token = peek_ident (r)) != 0)
+      while ((token = peek_ident ()) != 0)
 	{
-	  const char *oper = get_ident (r);
+	  const char *oper = get_ident ();
 	  id_base *idb = get_operator (oper);
 	  if (idb == NULL)
 	    fatal_at (token, "no such operator '%s'", oper);
@@ -2788,7 +2807,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
 	  op->substitutes.safe_push (idb);
 	}
       op->nargs = arity;
-      token = expect (r, CPP_CLOSE_PAREN);
+      token = expect (CPP_CLOSE_PAREN);
 
       unsigned nsubstitutes = op->substitutes.length ();
       if (nsubstitutes == 0)
@@ -2817,17 +2836,17 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
   if (n_ids == 0)
     fatal_at (token, "for requires at least one user-defined identifier");
 
-  token = peek (r);
+  token = peek ();
   if (token->type == CPP_CLOSE_PAREN)
     fatal_at (token, "no pattern defined in for");
 
   active_fors.safe_push (user_ids);
   while (1)
     {
-      token = peek (r);
+      token = peek ();
       if (token->type == CPP_CLOSE_PAREN)
  	break;
-      parse_pattern (r, simplifiers, active_ifs, active_fors);
+      parse_pattern ();
     }
   active_fors.pop ();
 
@@ -2840,23 +2859,22 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers,
      if = '(' 'if' '(' <c-expr> ')' <pattern> ')'  */
 
 void
-parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers,
-	  vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
+parser::parse_if (source_location loc)
 {
-  operand *ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
+  operand *ifexpr = parse_c_expr (CPP_OPEN_PAREN);
 
-  const cpp_token *token = peek (r);
+  const cpp_token *token = peek ();
   if (token->type == CPP_CLOSE_PAREN)
     fatal_at (token, "no pattern defined in if");
 
   active_ifs.safe_push (if_or_with (ifexpr, loc, false));
   while (1)
     {
-      const cpp_token *token = peek (r);
+      const cpp_token *token = peek ();
       if (token->type == CPP_CLOSE_PAREN)
 	break;
     
-      parse_pattern (r, simplifiers, active_ifs, active_fors);
+      parse_pattern ();
     }
   active_ifs.pop ();
 }
@@ -2864,66 +2882,86 @@ parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers,
 /* Parse a list of predefined predicate identifiers.
      preds = '(' 'define_predicates' <ident>... ')'  */
 
-static void
-parse_predicates (cpp_reader *r, source_location)
+void
+parser::parse_predicates (source_location)
 {
   do
     {
-      const cpp_token *token = peek (r);
+      const cpp_token *token = peek ();
       if (token->type != CPP_NAME)
 	break;
 
-      add_predicate (get_ident (r));
+      add_predicate (get_ident ());
     }
   while (1);
 }
 
-/* Main entry for the parser.  Parse outer control structures.
+/* Parse outer control structures.
      pattern = <preds>|<for>|<if>|<simplify>|<match>  */
 
 void
-parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers,
-	       vec<if_or_with>& active_ifs, vec<vec<user_id *> >& active_fors)
+parser::parse_pattern ()
 {
   /* All clauses start with '('.  */
-  eat_token (r, CPP_OPEN_PAREN);
-  const cpp_token *token = peek (r);
-  const char *id = get_ident (r);
+  eat_token (CPP_OPEN_PAREN);
+  const cpp_token *token = peek ();
+  const char *id = get_ident ();
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (r, token->src_loc, simplifiers, NULL,
-		    active_ifs, active_fors);
+    parse_simplify (token->src_loc, simplifiers, NULL);
   else if (strcmp (id, "match") == 0)
     {
-      const char *name = get_ident (r);
+      const char *name = get_ident ();
       id_base *id = get_operator (name);
       predicate_id *p;
       if (!id)
-	p = add_predicate (name);
+	{
+	  p = add_predicate (name);
+	  user_predicates.safe_push (p);
+	}
       else if ((p = dyn_cast <predicate_id *> (id)))
 	;
       else
 	fatal_at (token, "cannot add a match to a non-predicate ID");
-      parse_simplify (r, token->src_loc, p->matchers, p,
-		      active_ifs, active_fors);
+      parse_simplify (token->src_loc, p->matchers, p);
     }
   else if (strcmp (id, "for") == 0)
-    parse_for (r, token->src_loc, simplifiers, active_ifs, active_fors);
+    parse_for (token->src_loc);
   else if (strcmp (id, "if") == 0)
-    parse_if (r, token->src_loc, simplifiers, active_ifs, active_fors);
+    parse_if (token->src_loc);
   else if (strcmp (id, "define_predicates") == 0)
     {
       if (active_ifs.length () > 0
 	  || active_fors.length () > 0)
 	fatal_at (token, "define_predicates inside if or for is not supported");
-      parse_predicates (r, token->src_loc);
+      parse_predicates (token->src_loc);
     }
   else
     fatal_at (token, "expected %s'simplify', 'match', 'for' or 'if'",
 	      active_ifs.length () == 0 && active_fors.length () == 0
 	      ? "'define_predicates', " : "");
 
-  eat_token (r, CPP_CLOSE_PAREN);
+  eat_token (CPP_CLOSE_PAREN);
 }
+
+/* Main entry of the parser.  Repeatedly parse outer control structures.  */
+
+parser::parser (cpp_reader *r_)
+{
+  r = r_;
+  active_ifs = vNULL;
+  active_fors = vNULL;
+  simplifiers = vNULL;
+  user_predicates = vNULL;
+
+  const cpp_token *token = next ();
+  while (token->type != CPP_EOF)
+    {
+      _cpp_backup_tokens (r, 1);
+      parse_pattern ();
+      token = next ();
+    }
+}
+
 
 static size_t
 round_alloc_size (size_t s)
@@ -2997,17 +3035,8 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 #include "builtins.def"
 #undef DEF_BUILTIN
 
-  vec<simplify *> simplifiers = vNULL;
-  auto_vec<if_or_with> active_ifs;
-  auto_vec<vec<user_id *> > active_fors;
-
-  const cpp_token *token = next (r);
-  while (token->type != CPP_EOF)
-    {
-      _cpp_backup_tokens (r, 1);
-      parse_pattern (r, simplifiers, active_ifs, active_fors);
-      token = next (r);
-    }
+  /* Parse ahead!  */
+  parser p (r);
 
   if (gimple)
     write_header (stdout, "gimple-match-head.c");
@@ -3016,49 +3045,35 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   /* Go over all predicates defined with patterns and perform
      lowering and code generation.  */
-  for (hash_table<id_base>::iterator iter = operators->begin ();
-       iter != operators->end (); ++iter)
+  for (unsigned i = 0; i < p.user_predicates.length (); ++i)
     {
-      id_base *id = *iter;
-      if (predicate_id *p = dyn_cast <predicate_id *> (id))
-	if (p->matchers.exists ())
-	  /* ???  Write prototypes to some header?  */
-	  write_predicate_prototype (stdout, p, gimple);
-    }
-  for (hash_table<id_base>::iterator iter = operators->begin ();
-       iter != operators->end (); ++iter)
-    {
-      id_base *id = *iter;
-      if (predicate_id *p = dyn_cast <predicate_id *> (id))
-	if (p->matchers.exists ())
-	  {
-	    lower (p->matchers);
+      predicate_id *pred = p.user_predicates[i];
+      lower (pred->matchers);
 
-	    if (verbose)
-	      for (unsigned i = 0; i < p->matchers.length (); ++i)
-		print_matches (p->matchers[i]);
+      if (verbose)
+	for (unsigned i = 0; i < pred->matchers.length (); ++i)
+	  print_matches (pred->matchers[i]);
 
-	    decision_tree dt;
-	    for (unsigned i = 0; i < p->matchers.length (); ++i)
-	      dt.insert (p->matchers[i], i);
+      decision_tree dt;
+      for (unsigned i = 0; i < pred->matchers.length (); ++i)
+	dt.insert (pred->matchers[i], i);
 
-	    if (verbose)
-	      dt.print (stderr);
+      if (verbose)
+	dt.print (stderr);
 
-	    write_predicate (stdout, p, dt, gimple);
-	  }
+      write_predicate (stdout, pred, dt, gimple);
     }
 
   /* Lower the main simplifiers and generate code for them.  */
-  lower (simplifiers);
+  lower (p.simplifiers);
 
   if (verbose)
-    for (unsigned i = 0; i < simplifiers.length (); ++i)
-      print_matches (simplifiers[i]);
+    for (unsigned i = 0; i < p.simplifiers.length (); ++i)
+      print_matches (p.simplifiers[i]);
 
   decision_tree dt;
-  for (unsigned i = 0; i < simplifiers.length (); ++i)
-    dt.insert (simplifiers[i], i);
+  for (unsigned i = 0; i < p.simplifiers.length (); ++i)
+    dt.insert (p.simplifiers[i], i);
 
   if (verbose)
     dt.print (stderr);

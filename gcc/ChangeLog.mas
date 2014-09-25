@@ -1,5 +1,11 @@
 2014-09-25  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c: Put all AST parsing into a class parser
+	simplifying state management.  Keep a vector of user
+	predicates in order of definition.
+
+2014-09-25  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c: TLC.
 
 2014-09-24  Richard Biener  <rguenther@suse.de>
