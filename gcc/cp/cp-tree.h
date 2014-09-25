@@ -22,10 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_CP_TREE_H
 
 #include "ggc.h"
-#include "function.h"
 #include "hashtab.h"
 #include "vec.h"
 #include "hash-map.h"
+#include "input.h"
+#include "fe-interface.h"
 
 /* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
@@ -1169,7 +1170,7 @@ struct GTY(()) language_function {
 
 /* The current C++-specific per-function global variables.  */
 
-#define cp_function_chain (cfun->language)
+#define cp_function_chain (function_language (cfun))
 
 /* In a constructor destructor, the point at which all derived class
    destroying/construction has been done.  I.e., just before a

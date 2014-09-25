@@ -56,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "sese.h"
 #include "tree-ssa-propagate.h"
-#include "cp/cp-tree.h"
 
 #ifdef HAVE_isl
 #include "graphite-poly.h"

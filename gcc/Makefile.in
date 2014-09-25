@@ -1209,6 +1209,7 @@ OBJS = \
 	explow.o \
 	expmed.o \
 	expr.o \
+	fe-interface.o \
 	final.o \
 	fixed-value.o \
 	fold-const.o \

@@ -54,6 +54,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "tm.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
 #include "diagnostic.h"

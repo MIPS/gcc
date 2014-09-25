@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks-def.h"
 #include "timevar.h"
 #include "tm.h"
-#include "function.h"
 #include "ggc.h"
 #include "toplev.h"
 #include "target.h"

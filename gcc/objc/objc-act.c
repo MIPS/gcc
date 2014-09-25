@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "objc-act.h"
 #include "objc-map.h"
 #include "input.h"
-#include "function.h"
 #include "toplev.h"
 #include "debug.h"
 #include "c-family/c-target.h"

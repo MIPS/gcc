@@ -32,7 +32,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "parse.h"
-#include "function.h"
 #include "ggc.h"
 #include "tree-iterator.h"
 #include "cgraph.h"

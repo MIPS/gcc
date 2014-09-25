@@ -23,6 +23,7 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tm.h"
 #include "cp-tree.h"
 #include "diagnostic-core.h"
 #include "tree-iterator.h"
@@ -115,9 +116,9 @@ cilk_install_body_with_frame_cleanup (tree fndecl, tree orig_body, void *wd)
 {
   tree frame = make_cilk_frame (fndecl);
   tree dtor = create_cilk_function_exit (frame, false, false);
-  add_local_decl (cfun, frame);
+  function_add_local_decl (cfun, frame);
 
-  cfun->language = ggc_cleared_alloc<language_function> ();
+  function_set_language (cfun, ggc_cleared_alloc<language_function> ());
   
   location_t loc = EXPR_LOCATION (orig_body);
   tree list = alloc_stmt_list ();

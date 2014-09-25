@@ -14246,7 +14246,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       RETURN (error_mark_node);
 
     case CILK_SPAWN_STMT:
-      cfun->calls_cilk_spawn = 1;
+      function_set_calls_cilk_spawn (cfun, 1);
       RETURN (build_cilk_spawn (EXPR_LOCATION (t), RECUR (CILK_SPAWN_FN (t))));
 
     case CILK_SYNC_STMT:
@@ -20229,11 +20229,12 @@ instantiate_decl (tree d, int defer_ok,
 	  /* Set the current input_location to the end of the function
 	     so that finish_function knows where we are.  */
 	  input_location
-	    = DECL_STRUCT_FUNCTION (code_pattern)->function_end_locus;
+	    = function_get_end_locus (DECL_STRUCT_FUNCTION (code_pattern));
 
 	  /* Remember if we saw an infinite loop in the template.  */
 	  current_function_infinite_loop
-	    = DECL_STRUCT_FUNCTION (code_pattern)->language->infinite_loop;
+	    = function_language (DECL_STRUCT_FUNCTION (code_pattern))
+							      ->infinite_loop;
 	}
 
       /* We don't need the local specializations any more.  */

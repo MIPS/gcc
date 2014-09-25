@@ -37,13 +37,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "flags.h"
 #include "langhooks.h"
 #include "java-tree.h"
-
-/* FIXME: All these headers are necessary for sync_compare_and_swap.
-   Front ends should never have to look at that.  */
-#include "rtl.h"
-#include "insn-codes.h"
-#include "expr.h"
-#include "optabs.h"
+#include "fe-interface.h"
 
 static tree max_builtin (tree, tree);
 static tree min_builtin (tree, tree);

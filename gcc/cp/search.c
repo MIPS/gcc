@@ -538,7 +538,7 @@ at_function_scope_p (void)
      this function (as opposed to having set current_function_decl
      for access checking or some such).  */
   return (cs && TREE_CODE (cs) == FUNCTION_DECL
-	  && cfun && cfun->decl == current_function_decl);
+	  && cfun && function_decl (cfun) == current_function_decl);
 }
 
 /* Returns true if the innermost active scope is a class scope.  */

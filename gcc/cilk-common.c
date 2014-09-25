@@ -39,6 +39,17 @@ along with GCC; see the file COPYING3.  If not see
    all the these fielsd are given in cilk.h.  */
 tree cilk_trees[(int) CILK_TI_MAX];
 
+/* Returns true if Cilk Plus is enabled and if F->cilk_frame_decl is not
+   NULL_TREE.  */
+
+bool
+fn_contains_cilk_spawn_p (function *f)
+{
+  return (flag_cilkplus 
+	  && (f->calls_cilk_spawn || f->cilk_frame_decl != NULL_TREE));
+}
+
+
 /* Returns the value in structure FRAME pointed by the FIELD_NUMBER
    (e.g. X.y).  
    FIELD_NUMBER is an index to the structure FRAME_PTR.  For details
