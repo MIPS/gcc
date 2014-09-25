@@ -5,7 +5,7 @@
 #include "okra.h"
 
 typedef okra_status_t (*okra_get_context_func_t)(okra_context_t**);
-typedef okra_status_t (*okra_kernel_create_func_t)( okra_context_t* ,const char *, const char *,okra_kernel_t **);
+typedef okra_status_t (*okra_kernel_create_from_binary_func_t)(okra_context_t *, const char *, size_t , const char *, okra_kernel_t **);
 typedef okra_status_t (*okra_push_pointer_func_t)(okra_kernel_t* , void* );
 typedef okra_status_t (*okra_execute_kernel_func_t)(okra_context_t*, okra_kernel_t* , okra_range_t* );
 typedef okra_status_t (*okra_clear_args_func_t)(okra_kernel_t* );
@@ -13,31 +13,10 @@ typedef okra_status_t (*okra_dispose_kernel_func_t)(okra_kernel_t*);
 
 static void *okralib;
 static okra_get_context_func_t     _okra_get_context;
-static okra_kernel_create_func_t   _okra_kernel_create;
+static okra_kernel_create_from_binary_func_t   _okra_kernel_create_from_binary;
 static okra_push_pointer_func_t    _okra_push_pointer;
 static okra_execute_kernel_func_t  _okra_execute_kernel;
 static okra_clear_args_func_t      _okra_clear_args;
-
-static char *buildStringFromSourceFile (const char* fname)
-{
-  FILE *fp;
-  long filesize = 0;
-  char *str;
-  fp=fopen (fname, "r");
-  if (!fp)
-    {
-      fprintf (stderr, "Unable to open the HSAIL string file %s\n", fname);
-      return NULL;
-    }
-  fseek (fp, 0, SEEK_END);
-  filesize = ftell (fp);
-  rewind (fp);
-  str = (char *) malloc (filesize + 1);
-  fread (str, filesize, 1, fp) ;
-  str[filesize] = (char) 0;
-  fclose (fp);
-  return str;
-}
 
 /* Returns false on error.  */
 static bool
@@ -53,13 +32,13 @@ loadokra (void)
       return false;
     }
    _okra_get_context         = (okra_get_context_func_t) dlsym(okralib, "okra_get_context");
-   _okra_kernel_create       = (okra_kernel_create_func_t) dlsym(okralib, "okra_create_kernel");
+   _okra_kernel_create_from_binary = (okra_kernel_create_from_binary_func_t)dlsym(okralib, "okra_create_kernel_from_binary");
    _okra_push_pointer        = (okra_push_pointer_func_t) dlsym(okralib, "okra_push_pointer");
    _okra_execute_kernel      = (okra_execute_kernel_func_t) dlsym(okralib, "okra_execute_kernel");
    _okra_clear_args          = (okra_clear_args_func_t) dlsym(okralib, "okra_clear_args");
 
    if (!_okra_get_context
-       || !_okra_kernel_create
+       || !_okra_kernel_create_from_binary
        || !_okra_push_pointer
        || !_okra_execute_kernel
        || !_okra_clear_args)
@@ -144,13 +123,14 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_range *range_p,
     }
   else
     {
-      char* hsailStr = NULL;
+      size_t size = 1;
+      const char* pfile;
       const char* fileName = _kd->filename;
       if (_kd->filename[0] == 0)
-	fileName = "hsakernel.hsail";
-      hsailStr= buildStringFromSourceFile(fileName);
-      status = _okra_kernel_create(context, hsailStr, _kd->name, &kernel);
-      free(hsailStr);
+	fileName = "hsakernel.o";
+      pfile = (const char *) fopen (fileName, "rb");
+      status = _okra_kernel_create_from_binary(context, pfile, size, _kd->name, &kernel);
+      fclose((FILE *)pfile);
       if (status != OKRA_SUCCESS)
 	{
 	  fprintf (stderr, "Unable to create Kernel\n");
