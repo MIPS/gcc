@@ -92,6 +92,11 @@ dump::~dump ()
     fclose (m_file);
 }
 
+/* Write the given message to the dump, using printf-formatting
+   conventions, updating the line/column within the dump.
+
+   Emit an error on the context if a failure occurs.  */
+
 void
 dump::write (const char *fmt, ...)
 {
@@ -126,6 +131,9 @@ dump::write (const char *fmt, ...)
   free (buf);
 }
 
+/* Construct a gcc::jit::recording::location instance for the current
+   location within the dump.  */
+
 recording::location *
 dump::make_location () const
 {
@@ -136,6 +144,9 @@ dump::make_location () const
  Recording.
  **********************************************************************/
 
+/* Get the playback::location for the given recording::location,
+   handling a NULL input with a NULL output.  */
+
 playback::location *
 recording::playback_location (replayer *r, recording::location *loc)
 {
@@ -144,6 +155,9 @@ recording::playback_location (replayer *r, recording::location *loc)
   else
     return NULL;
 }
+
+/* Get a const char * for the given recording::string
+   handling a NULL input with a NULL output.  */
 
 const char *
 recording::playback_string (recording::string *str)
@@ -154,6 +168,9 @@ recording::playback_string (recording::string *str)
     return NULL;
 }
 
+/* Get the playback::block for the given recording::block,
+   handling a NULL input with a NULL output.  */
+
 playback::block *
 recording::playback_block (recording::block *b)
 {
@@ -163,7 +180,10 @@ recording::playback_block (recording::block *b)
     return NULL;
 }
 
-/* gcc::jit::recording::context:: */
+/* Methods of cc::jit::recording::context.  */
+
+/* The constructor for gcc::jit::recording::context, used by
+   gcc_jit_context_acquire and gcc_jit_context_new_child_context.  */
 
 recording::context::context (context *parent_ctxt)
   : m_parent_ctxt (parent_ctxt),
@@ -200,6 +220,9 @@ recording::context::context (context *parent_ctxt)
   memset (m_basic_types, 0, sizeof (m_basic_types));
 }
 
+/* The destructor for gcc::jit::recording::context, implicitly used by
+   gcc_jit_context_release.  */
+
 recording::context::~context ()
 {
   int i;
@@ -213,6 +236,10 @@ recording::context::~context ()
     delete m_builtins_manager;
 }
 
+/* Add the given mememto to the list of those tracked by this
+   gcc::jit::recording::context, so that e.g. it can be deleted
+   when this context is released.  */
+
 void
 recording::context::record (memento *m)
 {
@@ -220,6 +247,8 @@ recording::context::record (memento *m)
 
   m_mementos.safe_push (m);
 }
+
+/* Replay this context (and any parents) into the given replayer.  */
 
 void
 recording::context::replay_into (replayer *r)
@@ -293,6 +322,11 @@ recording::context::disassociate_from_playback ()
     }
 }
 
+/* Create a recording::string instance and add it to this context's list
+   of mementos.
+
+   This creates a fresh copy of the given 0-terminated buffer.  */
+
 recording::string *
 recording::context::new_string (const char *text)
 {
@@ -303,6 +337,12 @@ recording::context::new_string (const char *text)
   record (result);
   return result;
 }
+
+/* Create a recording::location instance and add it to this context's
+   list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_location.  */
 
 recording::location *
 recording::context::new_location (const char *filename,
@@ -317,14 +357,23 @@ recording::context::new_location (const char *filename,
   return result;
 }
 
+/* If we haven't seen this enum value yet, create a recording::type
+   instance and add it to this context's list of mementos.
+
+   If we have seen it before, reuse our cached value, so that repeated
+   calls on the context give the same object.
+
+   If we have a parent context, the cache is within the ultimate
+   ancestor context.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_get_type.  */
+
 recording::type *
 recording::context::get_type (enum gcc_jit_types kind)
 {
-  /* Cache and reuse the types, so that repeated calls on the context
-     give the same object.  */
   if (!m_basic_types[kind])
     {
-      /* For basic types, use them from the parent ctxt.  */
       if (m_parent_ctxt)
 	m_basic_types[kind] = m_parent_ctxt->get_type (kind);
       else
@@ -337,6 +386,13 @@ recording::context::get_type (enum gcc_jit_types kind)
 
   return m_basic_types[kind];
 }
+
+/* Get a recording::type instance for the given size and signedness.
+   This is implemented in terms of recording::context::get_type
+   above.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_get_int_type.  */
 
 recording::type *
 recording::context::get_int_type (int num_bytes, int is_signed)
@@ -375,6 +431,12 @@ recording::context::get_int_type (int num_bytes, int is_signed)
   gcc_unreachable ();
 }
 
+/* Create a recording::type instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_array_type.  */
+
 recording::type *
 recording::context::new_array_type (recording::location *loc,
 				    recording::type *element_type,
@@ -395,6 +457,12 @@ recording::context::new_array_type (recording::location *loc,
   return result;
 }
 
+/* Create a recording::field instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_field.  */
+
 recording::field *
 recording::context::new_field (recording::location *loc,
 			       recording::type *type,
@@ -406,6 +474,12 @@ recording::context::new_field (recording::location *loc,
   return result;
 }
 
+/* Create a recording::struct_ instance and add it to this context's
+   list of mementos and list of compound types.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_struct_type.  */
+
 recording::struct_ *
 recording::context::new_struct_type (recording::location *loc,
 				     const char *name)
@@ -416,6 +490,12 @@ recording::context::new_struct_type (recording::location *loc,
   return result;
 }
 
+/* Create a recording::union_ instance and add it to this context's
+   list of mementos and list of compound types.
+
+   Implements the first post-error-checking part of
+   gcc_jit_context_new_union_type.  */
+
 recording::union_ *
 recording::context::new_union_type (recording::location *loc,
 				    const char *name)
@@ -425,6 +505,12 @@ recording::context::new_union_type (recording::location *loc,
   m_compound_types.safe_push (result);
   return result;
 }
+
+/* Create a recording::type instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_function_ptr_type.  */
 
 recording::type *
 recording::context::new_function_ptr_type (recording::location *, /* unused loc */
@@ -445,6 +531,12 @@ recording::context::new_function_ptr_type (recording::location *, /* unused loc 
   return fn_type->get_pointer ();
 }
 
+/* Create a recording::param instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_param.  */
+
 recording::param *
 recording::context::new_param (recording::location *loc,
 			       recording::type *type,
@@ -454,6 +546,12 @@ recording::context::new_param (recording::location *loc,
   record (result);
   return result;
 }
+
+/* Create a recording::function instance and add it to this context's list
+   of mementos and list of functions.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_function.  */
 
 recording::function *
 recording::context::new_function (recording::location *loc,
@@ -477,6 +575,12 @@ recording::context::new_function (recording::location *loc,
   return result;
 }
 
+/* Get a recording::function instance, which is lazily-created and added
+   to the context's lists of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_get_builtin_function.  */
+
 recording::function *
 recording::context::get_builtin_function (const char *name)
 {
@@ -484,6 +588,12 @@ recording::context::get_builtin_function (const char *name)
     m_builtins_manager = new builtins_manager (this);
   return m_builtins_manager->get_builtin_function (name);
 }
+
+/* Create a recording::global instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_global.  */
 
 recording::lvalue *
 recording::context::new_global (recording::location *loc,
@@ -496,6 +606,12 @@ recording::context::new_global (recording::location *loc,
   return result;
 }
 
+/* Create a recording::memento_of_new_rvalue_from_int instance and add
+   it to this context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_rvalue_from_int.  */
+
 recording::rvalue *
 recording::context::new_rvalue_from_int (recording::type *type,
 					 int value)
@@ -505,6 +621,12 @@ recording::context::new_rvalue_from_int (recording::type *type,
   record (result);
   return result;
 }
+
+/* Create a recording::memento_of_new_rvalue_from_double instance and
+   add it to this context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_rvalue_from_double.  */
 
 recording::rvalue *
 recording::context::new_rvalue_from_double (recording::type *type,
@@ -516,6 +638,12 @@ recording::context::new_rvalue_from_double (recording::type *type,
   return result;
 }
 
+/* Create a recording::memento_of_new_rvalue_from_ptr instance and add
+   it to this context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_rvalue_from_ptr.  */
+
 recording::rvalue *
 recording::context::new_rvalue_from_ptr (recording::type *type,
 					 void *value)
@@ -526,6 +654,12 @@ recording::context::new_rvalue_from_ptr (recording::type *type,
   return result;
 }
 
+/* Create a recording::memento_of_new_string_literal instance and add it
+   to this context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_string_literal.  */
+
 recording::rvalue *
 recording::context::new_string_literal (const char *value)
 {
@@ -534,6 +668,12 @@ recording::context::new_string_literal (const char *value)
   record (result);
   return result;
 }
+
+/* Create a recording::unary_op instance and add it to this context's
+   list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_unary_op.  */
 
 recording::rvalue *
 recording::context::new_unary_op (recording::location *loc,
@@ -546,6 +686,12 @@ recording::context::new_unary_op (recording::location *loc,
   record (result);
   return result;
 }
+
+/* Create a recording::binary_op instance and add it to this context's
+   list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_binary_op.  */
 
 recording::rvalue *
 recording::context::new_binary_op (recording::location *loc,
@@ -560,6 +706,12 @@ recording::context::new_binary_op (recording::location *loc,
   return result;
 }
 
+/* Create a recording::comparison instance and add it to this context's
+   list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_comparison.  */
+
 recording::rvalue *
 recording::context::new_comparison (recording::location *loc,
 				    enum gcc_jit_comparison op,
@@ -571,6 +723,12 @@ recording::context::new_comparison (recording::location *loc,
   return result;
 }
 
+/* Create a recording::cast instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_cast.  */
+
 recording::rvalue *
 recording::context::new_cast (recording::location *loc,
 			      recording::rvalue *expr,
@@ -581,6 +739,12 @@ recording::context::new_cast (recording::location *loc,
   return result;
 }
 
+/* Create a recording::call instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_call.  */
+
 recording::rvalue *
 recording::context::new_call (recording::location *loc,
 			      function *func,
@@ -590,6 +754,12 @@ recording::context::new_call (recording::location *loc,
   record (result);
   return result;
 }
+
+/* Create a recording::call_through_ptr instance and add it to this
+   context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_call_through_ptr.  */
 
 recording::rvalue *
 recording::context::new_call_through_ptr (recording::location *loc,
@@ -602,6 +772,12 @@ recording::context::new_call_through_ptr (recording::location *loc,
   return result;
 }
 
+/* Create a recording::array_access instance and add it to this context's list
+   of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_new_array_access.  */
+
 recording::lvalue *
 recording::context::new_array_access (recording::location *loc,
 				      recording::rvalue *ptr,
@@ -611,6 +787,12 @@ recording::context::new_array_access (recording::location *loc,
   record (result);
   return result;
 }
+
+/* Set the given string option for this context, or add an error if
+   it's not recognized.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_set_str_option.  */
 
 void
 recording::context::set_str_option (enum gcc_jit_str_option opt,
@@ -625,6 +807,12 @@ recording::context::set_str_option (enum gcc_jit_str_option opt,
   m_str_options[opt] = value;
 }
 
+/* Set the given integer option for this context, or add an error if
+   it's not recognized.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_set_int_option.  */
+
 void
 recording::context::set_int_option (enum gcc_jit_int_option opt,
 				    int value)
@@ -637,6 +825,12 @@ recording::context::set_int_option (enum gcc_jit_int_option opt,
     }
   m_int_options[opt] = value;
 }
+
+/* Set the given boolean option for this context, or add an error if
+   it's not recognized.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_set_bool_option.  */
 
 void
 recording::context::set_bool_option (enum gcc_jit_bool_option opt,
@@ -651,7 +845,16 @@ recording::context::set_bool_option (enum gcc_jit_bool_option opt,
   m_bool_options[opt] = value ? true : false;
 }
 
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+/* This mutex guards gcc::jit::recording::context::compile, so that only
+   one thread can be accessing the bulk of GCC's state at once.  */
+
+static pthread_mutex_t jit_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* Validate this context, and if it passes, compile it within a
+   mutex.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_compile.  */
 
 result *
 recording::context::compile ()
@@ -662,7 +865,7 @@ recording::context::compile ()
     return NULL;
 
   /* Acquire the big GCC mutex. */
-  pthread_mutex_lock (&mutex);
+  pthread_mutex_lock (&jit_mutex);
   gcc_assert (NULL == ::gcc::jit::active_playback_ctxt);
 
   /* Set up a playback context.  */
@@ -673,10 +876,13 @@ recording::context::compile ()
 
   /* Release the big GCC mutex. */
   ::gcc::jit::active_playback_ctxt = NULL;
-  pthread_mutex_unlock (&mutex);
+  pthread_mutex_unlock (&jit_mutex);
 
   return result_obj;
 }
+
+/* Format the given error using printf's conventions, print
+   it to stderr, and add it to the context.  */
 
 void
 recording::context::add_error (location *loc, const char *fmt, ...)
@@ -686,6 +892,9 @@ recording::context::add_error (location *loc, const char *fmt, ...)
   add_error_va (loc, fmt, ap);
   va_end (ap);
 }
+
+/* Format the given error using printf's conventions, print
+   it to stderr, and add it to the context.  */
 
 void
 recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
@@ -725,6 +934,12 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
   free (malloced_msg);
 }
 
+/* Get the message for the first error that occurred on this context, or
+   NULL if no errors have occurred on it.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_get_first_error.  */
+
 const char *
 recording::context::get_first_error () const
 {
@@ -734,6 +949,12 @@ recording::context::get_first_error () const
     return NULL;
 }
 
+/* Lazily generate and record a recording::type representing an opaque
+   struct named "FILE".
+
+   For use if client code tries to dereference the result of
+   get_type (GCC_JIT_TYPE_FILE_PTR).  */
+
 recording::type *
 recording::context::get_opaque_FILE_type ()
 {
@@ -741,6 +962,13 @@ recording::context::get_opaque_FILE_type ()
     m_FILE_type = new_struct_type (NULL, "FILE");
   return m_FILE_type;
 }
+
+/* Dump a C-like representation of the given context to the given path.
+   If UPDATE_LOCATIONS is true, update the locations within the
+   context's mementos to point to the dumpfile.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_dump_to_file.  */
 
 void
 recording::context::dump_to_file (const char *path, bool update_locations)
@@ -770,6 +998,10 @@ recording::context::dump_to_file (const char *path, bool update_locations)
     }
 }
 
+/* This is a pre-compilation check for the context (and any parents).
+
+   Detect errors within the context, adding errors if any are found.  */
+
 void
 recording::context::validate ()
 {
@@ -782,7 +1014,15 @@ recording::context::validate ()
     fn->validate ();
 }
 
-/* gcc::jit::recording::memento:: */
+/* The implementation of class gcc::jit::recording::memento.  */
+
+/* Get a (const char *) debug description of the given memento, by
+   calling the pure-virtual make_debug_string hook, caching the
+   result.
+
+   It is intended that this should only be called in debugging and
+   error-handling paths, so this doesn't need to be particularly
+   optimized.  */
 
 const char *
 recording::memento::get_debug_string ()
@@ -792,13 +1032,20 @@ recording::memento::get_debug_string ()
   return m_debug_string->c_str ();
 }
 
+/* Default implementation of recording::memento::write_to_dump, writing
+   an indented form of the memento's debug string to the dump.  */
+
 void
 recording::memento::write_to_dump (dump &d)
 {
   d.write("  %s\n", get_debug_string ());
 }
 
-/* gcc::jit::recording::string:: */
+/* The implementation of class gcc::jit::recording::string.  */
+
+/* Constructor for gcc::jit::recording::string::string, allocating a
+   copy of the given text using new char[].  */
+
 recording::string::string (context *ctxt, const char *text)
   : memento (ctxt)
 {
@@ -807,10 +1054,19 @@ recording::string::string (context *ctxt, const char *text)
   strcpy (m_buffer, text);
 }
 
+/* Destructor for gcc::jit::recording::string::string.  */
+
 recording::string::~string ()
 {
   delete[] m_buffer;
 }
+
+/* Function for making gcc::jit::recording::string instances on a
+   context via printf-style formatting.
+
+   It is intended that this should only be called in debugging and
+   error-handling paths, so this doesn't need to be particularly
+   optimized, hence the double-copy of the string is acceptable.  */
 
 recording::string *
 recording::string::from_printf (context *ctxt, const char *fmt, ...)
@@ -833,6 +1089,9 @@ recording::string::from_printf (context *ctxt, const char *fmt, ...)
   free (buf);
   return result;
 }
+
+/* Implementation of recording::memento::make_debug_string for strings,
+   wrapping the given string in quotes and escaping as necessary.  */
 
 recording::string *
 recording::string::make_debug_string ()
@@ -870,7 +1129,13 @@ recording::string::make_debug_string ()
   return result;
 }
 
-/* gcc::jit::recording::location:: */
+/* The implementation of class gcc::jit::recording::location.  */
+
+/* Implementation of recording::memento::replay_into for locations.
+
+   Create a new playback::location and store it into the
+   recording::location's m_playback_obj field.  */
+
 void
 recording::location::replay_into (replayer *r)
 {
@@ -880,6 +1145,11 @@ recording::location::replay_into (replayer *r)
 				    m_column);
 }
 
+/* Implementation of recording::memento::make_debug_string for locations,
+   turning them into the usual form:
+     FILENAME:LINE:COLUMN
+   like we do when emitting diagnostics.  */
+
 recording::string *
 recording::location::make_debug_string ()
 {
@@ -888,7 +1158,17 @@ recording::location::make_debug_string ()
 			      m_filename->c_str (), m_line, m_column);
 }
 
-/* gcc::jit::recording::type:: */
+/* The implementation of class gcc::jit::recording::type.  */
+
+/* Given a type T, get the type T*.
+
+   If this doesn't already exist, generate a new memento_of_get_pointer
+   instance and add it to this type's context's list of mementos.
+
+   Otherwise, use the cached type.
+
+   Implements the post-error-checking part of
+   gcc_jit_type_get_pointer.  */
 
 recording::type *
 recording::type::get_pointer ()
@@ -901,6 +1181,11 @@ recording::type::get_pointer ()
   return m_pointer_to_this_type;
 }
 
+/* Given a type T, get the type const T.
+
+   Implements the post-error-checking part of
+   gcc_jit_type_get_const.  */
+
 recording::type *
 recording::type::get_const ()
 {
@@ -909,6 +1194,11 @@ recording::type::get_const ()
   return result;
 }
 
+/* Given a type T, get the type volatile T.
+
+   Implements the post-error-checking part of
+   gcc_jit_type_get_volatile.  */
+
 recording::type *
 recording::type::get_volatile ()
 {
@@ -916,6 +1206,9 @@ recording::type::get_volatile ()
   m_ctxt->record (result);
   return result;
 }
+
+/* Implementation of pure virtual hook recording::type::dereference for
+   recording::memento_of_get_type.  */
 
 recording::type *
 recording::memento_of_get_type::dereference ()
@@ -960,6 +1253,9 @@ recording::memento_of_get_type::dereference ()
       return m_ctxt->get_opaque_FILE_type ();
     }
 }
+
+/* Implementation of pure virtual hook recording::type::is_int for
+   recording::memento_of_get_type.  */
 
 bool
 recording::memento_of_get_type::is_int () const
@@ -1006,6 +1302,9 @@ recording::memento_of_get_type::is_int () const
     }
 }
 
+/* Implementation of pure virtual hook recording::type::is_float for
+   recording::memento_of_get_type.  */
+
 bool
 recording::memento_of_get_type::is_float () const
 {
@@ -1050,6 +1349,9 @@ recording::memento_of_get_type::is_float () const
       return false;
     }
 }
+
+/* Implementation of pure virtual hook recording::type::is_bool for
+   recording::memento_of_get_type.  */
 
 bool
 recording::memento_of_get_type::is_bool () const
@@ -1096,13 +1398,19 @@ recording::memento_of_get_type::is_bool () const
     }
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_get_type.  */
+
 void
 recording::memento_of_get_type::replay_into (replayer *r)
 {
   set_playback_obj (r->get_type (m_kind));
 }
 
-/* gcc::jit::recording::memento_of_get_type:: */
+/* The implementation of class gcc::jit::recording::memento_of_get_type.  */
+
+/* Descriptive strings for each of enum gcc_jit_types.  */
+
 static const char * const get_type_strings[] = {
   "void",    /* GCC_JIT_TYPE_VOID */
   "void *",  /* GCC_JIT_TYPE_VOID_PTR */
@@ -1137,13 +1445,23 @@ static const char * const get_type_strings[] = {
 
 };
 
+/* Implementation of recording::memento::make_debug_string for
+   results of get_type, using a simple table of type names.  */
+
 recording::string *
 recording::memento_of_get_type::make_debug_string ()
 {
   return m_ctxt->new_string (get_type_strings[m_kind]);
 }
 
-/* gcc::jit::recording::memento_of_get_pointer:: */
+/* The implementation of class gcc::jit::recording::memento_of_get_pointer.  */
+
+/* Override of default implementation of
+   recording::type::accepts_writes_from for get_pointer.
+
+   Require a pointer type, and allowing writes to
+   (const T *) from a (T*), but not the other way around.  */
+
 bool
 recording::memento_of_get_pointer::accepts_writes_from (type *rtype)
 {
@@ -1157,11 +1475,18 @@ recording::memento_of_get_pointer::accepts_writes_from (type *rtype)
     ->accepts_writes_from (rtype_points_to);
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_get_pointer.  */
+
 void
 recording::memento_of_get_pointer::replay_into (replayer *)
 {
   set_playback_obj (m_other_type->playback_type ()->get_pointer ());
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   results of get_pointer, adding " *" to the underlying type,
+   with special-casing to handle function pointer types.  */
 
 recording::string *
 recording::memento_of_get_pointer::make_debug_string ()
@@ -1176,13 +1501,19 @@ recording::memento_of_get_pointer::make_debug_string ()
 			      "%s *", m_other_type->get_debug_string ());
 }
 
-/* gcc::jit::recording::memento_of_get_const:: */
+/* The implementation of class gcc::jit::recording::memento_of_get_const.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_get_const.  */
 
 void
 recording::memento_of_get_const::replay_into (replayer *)
 {
   set_playback_obj (m_other_type->playback_type ()->get_const ());
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   results of get_const, prepending "const ".  */
 
 recording::string *
 recording::memento_of_get_const::make_debug_string ()
@@ -1191,13 +1522,19 @@ recording::memento_of_get_const::make_debug_string ()
 			      "const %s", m_other_type->get_debug_string ());
 }
 
-/* gcc::jit::recording::memento_of_get_volatile:: */
+/* The implementation of class gcc::jit::recording::memento_of_get_volatile.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_get_volatile.  */
 
 void
 recording::memento_of_get_volatile::replay_into (replayer *)
 {
   set_playback_obj (m_other_type->playback_type ()->get_volatile ());
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   results of get_volatile, prepending "volatile ".  */
 
 recording::string *
 recording::memento_of_get_volatile::make_debug_string ()
@@ -1206,13 +1543,19 @@ recording::memento_of_get_volatile::make_debug_string ()
 			      "volatile %s", m_other_type->get_debug_string ());
 }
 
-/* gcc::jit::recording::array_type */
+/* The implementation of class gcc::jit::recording::array_type */
+
+/* Implementation of pure virtual hook recording::type::dereference for
+   recording::array_type.  */
 
 recording::type *
 recording::array_type::dereference ()
 {
   return m_element_type;
 }
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::array_type.  */
 
 void
 recording::array_type::replay_into (replayer *r)
@@ -1221,6 +1564,9 @@ recording::array_type::replay_into (replayer *r)
 				       m_element_type->playback_type (),
 				       m_num_elements));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   results of new_array_type.  */
 
 recording::string *
 recording::array_type::make_debug_string ()
@@ -1231,7 +1577,10 @@ recording::array_type::make_debug_string ()
 			      m_num_elements);
 }
 
-/* gcc::jit::recording::function_type */
+/* The implementation of class gcc::jit::recording::function_type */
+
+/* Constructor for gcc::jit::recording::function_type.  */
+
 recording::function_type::function_type (context *ctxt,
 					 type *return_type,
 					 int num_params,
@@ -1246,11 +1595,17 @@ recording::function_type::function_type (context *ctxt,
     m_param_types.safe_push (param_types[i]);
 }
 
+/* Implementation of pure virtual hook recording::type::dereference for
+   recording::function_type.  */
+
 recording::type *
 recording::function_type::dereference ()
 {
   return NULL;
 }
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::function_type.  */
 
 void
 recording::function_type::replay_into (replayer *r)
@@ -1268,17 +1623,30 @@ recording::function_type::replay_into (replayer *r)
 					  m_is_variadic));
 }
 
+/* Special-casing for make_debug_string for get_pointer results for
+   handling (one level) of pointers to functions.  */
+
 recording::string *
 recording::function_type::make_debug_string_with_ptr ()
 {
   return make_debug_string_with ("(*) ");
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   results of new_function_type.  */
+
 recording::string *
 recording::function_type::make_debug_string ()
 {
   return make_debug_string_with ("");
 }
+
+/* Build a debug string representation of the form:
+
+     RESULT_TYPE INSERT (PARAM_TYPES)
+
+   for use when handling 0 and 1 level of indirection to this
+   function type.  */
 
 recording::string *
 recording::function_type::make_debug_string_with (const char *insert)
@@ -1332,7 +1700,11 @@ recording::function_type::make_debug_string_with (const char *insert)
   return result;
 }
 
-/* gcc::jit::recording::field:: */
+/* The implementation of class gcc::jit::recording::field.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::field.  */
+
 void
 recording::field::replay_into (replayer *r)
 {
@@ -1340,6 +1712,12 @@ recording::field::replay_into (replayer *r)
 				  m_type->playback_type (),
 				  playback_string (m_name)));
 }
+
+/* Override the default implementation of
+   recording::memento::write_to_dump.  Dump each field
+   by dumping a line of the form:
+      TYPE NAME;
+   so that we can build up a struct/union field-byfield.  */
 
 void
 recording::field::write_to_dump (dump &d)
@@ -1349,13 +1727,19 @@ recording::field::write_to_dump (dump &d)
 	   m_name->c_str ());
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   results of new_field.  */
+
 recording::string *
 recording::field::make_debug_string ()
 {
   return m_name;
 }
 
-/* gcc::jit::recording::compound_type */
+/* The implementation of class gcc::jit::recording::compound_type */
+
+/* The constructor for gcc::jit::recording::compound_type.  */
+
 recording::compound_type::compound_type (context *ctxt,
 					 location *loc,
 					 string *name)
@@ -1365,6 +1749,12 @@ recording::compound_type::compound_type (context *ctxt,
   m_fields (NULL)
 {
 }
+
+/* Set the fields of a compound type.
+
+   Implements the post-error-checking part of
+   gcc_jit_struct_set_fields, and is also used by
+   gcc_jit_context_new_union_type.  */
 
 void
 recording::compound_type::set_fields (location *loc,
@@ -1378,19 +1768,28 @@ recording::compound_type::set_fields (location *loc,
   m_ctxt->record (m_fields);
 }
 
+/* Implementation of pure virtual hook recording::type::dereference for
+   recording::compound_type.  */
+
 recording::type *
 recording::compound_type::dereference ()
 {
   return NULL; /* not a pointer */
 }
 
-/* gcc::jit::recording::struct_:: */
+/* The implementation of class gcc::jit::recording::struct_.  */
+
+/* The constructor for gcc::jit::recording::struct_.  */
+
 recording::struct_::struct_ (context *ctxt,
 			     location *loc,
 			     string *name)
 : compound_type (ctxt, loc, name)
 {
 }
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::struct_.  */
 
 void
 recording::struct_::replay_into (replayer *r)
@@ -1401,6 +1800,9 @@ recording::struct_::replay_into (replayer *r)
 			  true /* is_struct */));
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   structs.  */
+
 recording::string *
 recording::struct_::make_debug_string ()
 {
@@ -1408,13 +1810,19 @@ recording::struct_::make_debug_string ()
 			      "struct %s", get_name ()->c_str ());
 }
 
-/* gcc::jit::recording::union_:: */
+/* The implementation of class gcc::jit::recording::union_.  */
+
+/* The constructor for gcc::jit::recording::union_.  */
+
 recording::union_::union_ (context *ctxt,
 			   location *loc,
 			   string *name)
 : compound_type (ctxt, loc, name)
 {
 }
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::union_.  */
 
 void
 recording::union_::replay_into (replayer *r)
@@ -1425,6 +1833,9 @@ recording::union_::replay_into (replayer *r)
 			  false /* is_struct */));
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   unions.  */
+
 recording::string *
 recording::union_::make_debug_string ()
 {
@@ -1432,7 +1843,10 @@ recording::union_::make_debug_string ()
 			      "union %s", get_name ()->c_str ());
 }
 
-/* gcc::jit::recording::fields:: */
+/* The implementation of class gcc::jit::recording::fields.  */
+
+/* The constructor for gcc::jit::recording::fields.  */
+
 recording::fields::fields (compound_type *struct_or_union,
 			   int num_fields,
 			   field **fields)
@@ -1448,6 +1862,9 @@ recording::fields::fields (compound_type *struct_or_union,
     }
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::fields.  */
+
 void
 recording::fields::replay_into (replayer *)
 {
@@ -1457,6 +1874,19 @@ recording::fields::replay_into (replayer *)
     playback_fields.safe_push (m_fields[i]->playback_field ());
   m_struct_or_union->playback_compound_type ()->set_fields (playback_fields);
 }
+
+/* Override the default implementation of
+   recording::memento::write_to_dump by writing a union/struct
+   declaration of this form:
+
+      struct/union NAME {
+        TYPE_1 NAME_1;
+        TYPE_2 NAME_2;
+	....
+        TYPE_N NAME_N;
+      };
+
+    to the dump.  */
 
 void
 recording::fields::write_to_dump (dump &d)
@@ -1470,6 +1900,9 @@ recording::fields::write_to_dump (dump &d)
   d.write ("};\n");
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   field tables.  */
+
 recording::string *
 recording::fields::make_debug_string ()
 {
@@ -1477,7 +1910,13 @@ recording::fields::make_debug_string ()
 			      "fields");
 }
 
-/* gcc::jit::recording::rvalue:: */
+/* The implementation of class gcc::jit::recording::rvalue.  */
+
+/* Create a recording::access_field_rvalue instance and add it to
+   the rvalue's context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_rvalue_access_field.  */
 
 recording::rvalue *
 recording::rvalue::access_field (recording::location *loc,
@@ -1489,6 +1928,12 @@ recording::rvalue::access_field (recording::location *loc,
   return result;
 }
 
+/* Create a recording::dereference_field_rvalue instance and add it to
+   the rvalue's context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_rvalue_dereference_field.  */
+
 recording::lvalue *
 recording::rvalue::dereference_field (recording::location *loc,
 				      field *field)
@@ -1499,6 +1944,12 @@ recording::rvalue::dereference_field (recording::location *loc,
   return result;
 }
 
+/* Create a recording::dereference_rvalue instance and add it to the
+   rvalue's context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_rvalue_dereference.  */
+
 recording::lvalue *
 recording::rvalue::dereference (recording::location *loc)
 {
@@ -1508,7 +1959,13 @@ recording::rvalue::dereference (recording::location *loc)
   return result;
 }
 
-/* gcc::jit::recording::lvalue:: */
+/* The implementation of class gcc::jit::recording::lvalue.  */
+
+/* Create a recording::new_access_field_of_lvalue instance and add it to
+   the lvalue's context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_lvalue_access_field.  */
 
 recording::lvalue *
 recording::lvalue::access_field (recording::location *loc,
@@ -1520,6 +1977,12 @@ recording::lvalue::access_field (recording::location *loc,
   return result;
 }
 
+/* Create a recording::get_address_of_lvalue instance and add it to
+   the lvalue's context's list of mementos.
+
+   Implements the post-error-checking part of
+   gcc_jit_lvalue_get_address.  */
+
 recording::rvalue *
 recording::lvalue::get_address (recording::location *loc)
 {
@@ -1529,7 +1992,11 @@ recording::lvalue::get_address (recording::location *loc)
   return result;
 }
 
-/* gcc::jit::recording::param:: */
+/* The implementation of class gcc::jit::recording::param.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::param.  */
+
 void
 recording::param::replay_into (replayer *r)
 {
@@ -1539,7 +2006,9 @@ recording::param::replay_into (replayer *r)
 }
 
 
-/* gcc::jit::recording::function:: */
+/* The implementation of class gcc::jit::recording::function.  */
+
+/* gcc::jit::recording::function's constructor.  */
 
 recording::function::function (context *ctxt,
 			       recording::location *loc,
@@ -1565,6 +2034,9 @@ recording::function::function (context *ctxt,
     m_params.safe_push (params[i]);
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::function.  */
+
 void
 recording::function::replay_into (replayer *r)
 {
@@ -1585,16 +2057,30 @@ recording::function::replay_into (replayer *r)
 				     m_builtin_id));
 }
 
+/* Create a recording::local instance and add it to
+   the functions's context's list of mementos, and to the function's
+   list of locals.
+
+   Implements the post-error-checking part of
+   gcc_jit_function_new_local.  */
+
 recording::lvalue *
 recording::function::new_local (recording::location *loc,
-		     type *type,
-		     const char *name)
+				type *type,
+				const char *name)
 {
   local *result = new local (this, loc, type, new_string (name));
   m_ctxt->record (result);
   m_locals.safe_push (result);
   return result;
 }
+
+/* Create a recording::block instance and add it to
+   the functions's context's list of mementos, and to the function's
+   list of blocks.
+
+   Implements the post-error-checking part of
+   gcc_jit_function_new_block.  */
 
 recording::block*
 recording::function::new_block (const char *name)
@@ -1607,6 +2093,12 @@ recording::function::new_block (const char *name)
   m_blocks.safe_push (result);
   return result;
 }
+
+/* Override the default implementation of
+   recording::memento::write_to_dump by dumping a C-like
+   representation of the function; either like a prototype
+   for GCC_JIT_FUNCTION_IMPORTED, or like a full definition for
+   all other kinds of function.  */
 
 void
 recording::function::write_to_dump (dump &d)
@@ -1671,6 +2163,9 @@ recording::function::write_to_dump (dump &d)
       d.write ("}\n\n");
     }
 }
+
+/* Pre-compilation validation of a function, for those things we can't
+   check until the context is (supposedly) fully-populated.  */
 
 void
 recording::function::validate ()
@@ -1743,6 +2238,9 @@ recording::function::validate ()
     }
 }
 
+/* Implements the post-error-checking part of
+   gcc_jit_function_dump_to_dot.  */
+
 void
 recording::function::dump_to_dot (const char *path)
 {
@@ -1779,13 +2277,23 @@ recording::function::dump_to_dot (const char *path)
   fclose (fp);
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   functions.  */
+
 recording::string *
 recording::function::make_debug_string ()
 {
   return m_name;
 }
 
-/* gcc::jit::recording::block:: */
+/* The implementation of class gcc::jit::recording::block.  */
+
+/* Create a recording::eval instance and add it to
+   the block's context's list of mementos, and to the block's
+   list of statements.
+
+   Implements the post-error-checking part of
+   gcc_jit_block_add_eval.  */
 
 void
 recording::block::add_eval (recording::location *loc,
@@ -1796,6 +2304,13 @@ recording::block::add_eval (recording::location *loc,
   m_statements.safe_push (result);
 }
 
+/* Create a recording::assignment instance and add it to
+   the block's context's list of mementos, and to the block's
+   list of statements.
+
+   Implements the post-error-checking part of
+   gcc_jit_block_add_assignment.  */
+
 void
 recording::block::add_assignment (recording::location *loc,
 				  recording::lvalue *lvalue,
@@ -1805,6 +2320,13 @@ recording::block::add_assignment (recording::location *loc,
   m_ctxt->record (result);
   m_statements.safe_push (result);
 }
+
+/* Create a recording::assignment_op instance and add it to
+   the block's context's list of mementos, and to the block's
+   list of statements.
+
+   Implements the post-error-checking part of
+   gcc_jit_block_add_assignment_op.  */
 
 void
 recording::block::add_assignment_op (recording::location *loc,
@@ -1817,6 +2339,13 @@ recording::block::add_assignment_op (recording::location *loc,
   m_statements.safe_push (result);
 }
 
+/* Create a recording::comment instance and add it to
+   the block's context's list of mementos, and to the block's
+   list of statements.
+
+   Implements the post-error-checking part of
+   gcc_jit_block_add_comment.  */
+
 void
 recording::block::add_comment (recording::location *loc,
 			       const char *text)
@@ -1825,6 +2354,13 @@ recording::block::add_comment (recording::location *loc,
   m_ctxt->record (result);
   m_statements.safe_push (result);
 }
+
+/* Create a recording::end_with_conditional instance and add it to
+   the block's context's list of mementos, and to the block's
+   list of statements.
+
+   Implements the post-error-checking part of
+   gcc_jit_block_end_with_conditional.  */
 
 void
 recording::block::end_with_conditional (recording::location *loc,
@@ -1838,6 +2374,13 @@ recording::block::end_with_conditional (recording::location *loc,
   m_has_been_terminated = true;
 }
 
+/* Create a recording::end_with_jump instance and add it to
+   the block's context's list of mementos, and to the block's
+   list of statements.
+
+   Implements the post-error-checking part of
+   gcc_jit_block_end_with_jump.  */
+
 void
 recording::block::end_with_jump (recording::location *loc,
 				 recording::block *target)
@@ -1847,6 +2390,14 @@ recording::block::end_with_jump (recording::location *loc,
   m_statements.safe_push (result);
   m_has_been_terminated = true;
 }
+
+/* Create a recording::end_with_return instance and add it to
+   the block's context's list of mementos, and to the block's
+   list of statements.
+
+   Implements the post-error-checking parts of
+   gcc_jit_block_end_with_return and
+   gcc_jit_block_end_with_void_return.  */
 
 void
 recording::block::end_with_return (recording::location *loc,
@@ -1861,6 +2412,17 @@ recording::block::end_with_return (recording::location *loc,
   m_has_been_terminated = true;
 }
 
+/* Override the default implementation of
+   recording::memento::write_to_dump for blocks by writing
+   an unindented block name as a label, followed by the indented
+   statements:
+
+    BLOCK_NAME:
+      STATEMENT_1;
+      STATEMENT_2;
+      ...
+      STATEMENT_N;  */
+
 void
 recording::block::write_to_dump (dump &d)
 {
@@ -1871,6 +2433,8 @@ recording::block::write_to_dump (dump &d)
   FOR_EACH_VEC_ELT (m_statements, i, s)
     s->write_to_dump (d);
 }
+
+/* Validate a block by ensuring that it has been terminated.  */
 
 bool
 recording::block::validate ()
@@ -1889,6 +2453,9 @@ recording::block::validate ()
   return true;
 }
 
+/* Get the source-location of a block by using that of the first
+   statement within it, if any.  */
+
 recording::location *
 recording::block::get_loc () const
 {
@@ -1899,6 +2466,8 @@ recording::block::get_loc () const
     return NULL;
 }
 
+/* Get the first statement within a block, if any.  */
+
 recording::statement *
 recording::block::get_first_statement () const
 {
@@ -1907,6 +2476,8 @@ recording::block::get_first_statement () const
   else
     return NULL;
 }
+
+/* Get the last statement within a block, if any.  */
 
 recording::statement *
 recording::block::get_last_statement () const
@@ -1917,14 +2488,28 @@ recording::block::get_last_statement () const
     return NULL;
 }
 
+/* Assuming that this block has been terminated, get the number of
+   successor blocks, which will be 0, 1 or 2, for return, unconditional
+   jump, and conditional jump respectively.
+   NEXT1 and NEXT2 must be non-NULL.  The first successor block (if any)
+   is written to NEXT1, and the second (if any) to NEXT2.
+
+   Used when validating functions, and when dumping dot representations
+   of them.  */
+
 int
 recording::block::get_successor_blocks (block **next1, block **next2) const
 {
   gcc_assert (m_has_been_terminated);
+  gcc_assert (next1);
+  gcc_assert (next2);
   statement *last_statement = get_last_statement ();
   gcc_assert (last_statement);
   return last_statement->get_successor_blocks (next1, next2);
 }
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::block.  */
 
 void
 recording::block::replay_into (replayer *)
@@ -1932,6 +2517,9 @@ recording::block::replay_into (replayer *)
   set_playback_obj (m_func->playback_function ()
 		      ->new_block (playback_string (m_name)));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   blocks.  */
 
 recording::string *
 recording::block::make_debug_string ()
@@ -1943,6 +2531,9 @@ recording::block::make_debug_string ()
 				"<UNNAMED BLOCK %p>",
 				(void *)this);
 }
+
+/* Dump a block in graphviz form into PP, capturing the block name (if
+   any) and the statements.  */
 
 void
 recording::block::dump_to_dot (pretty_printer *pp)
@@ -1974,6 +2565,8 @@ recording::block::dump_to_dot (pretty_printer *pp)
   pp_flush (pp);
 }
 
+/* Dump the out-edges of the block in graphviz form into PP.  */
+
 void
 recording::block::dump_edges_to_dot (pretty_printer *pp)
 {
@@ -1985,7 +2578,11 @@ recording::block::dump_edges_to_dot (pretty_printer *pp)
 	       m_index, next[i]->m_index);
 }
 
-/* gcc::jit::recording::global:: */
+/* The implementation of class gcc::jit::recording::global.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::global.  */
+
 void
 recording::global::replay_into (replayer *r)
 {
@@ -1994,13 +2591,23 @@ recording::global::replay_into (replayer *r)
 				   playback_string (m_name)));
 }
 
-/* gcc::jit::recording::memento_of_new_rvalue_from_int:: */
+/* The implementation of class gcc::jit::recording::memento_of_new_rvalue_from_int.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_new_rvalue_from_int.  */
+
 void
 recording::memento_of_new_rvalue_from_int::replay_into (replayer *r)
 {
   set_playback_obj (r->new_rvalue_from_int (m_type->playback_type (),
 					    m_value));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   rvalue_from_int, rendering it as
+     (TYPE)LITERAL
+   e.g.
+     "(int)42".  */
 
 recording::string *
 recording::memento_of_new_rvalue_from_int::make_debug_string ()
@@ -2011,13 +2618,23 @@ recording::memento_of_new_rvalue_from_int::make_debug_string ()
 			      m_value);
 }
 
-/* gcc::jit::recording::memento_of_new_rvalue_from_double:: */
+/* The implementation of class gcc::jit::recording::memento_of_new_rvalue_from_double.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_new_rvalue_from_double.  */
+
 void
 recording::memento_of_new_rvalue_from_double::replay_into (replayer *r)
 {
   set_playback_obj (r->new_rvalue_from_double (m_type->playback_type (),
 					       m_value));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   rvalue_from_double, rendering it as
+     (TYPE)LITERAL
+   e.g.
+     "(float)42.0".  */
 
 recording::string *
 recording::memento_of_new_rvalue_from_double::make_debug_string ()
@@ -2028,13 +2645,26 @@ recording::memento_of_new_rvalue_from_double::make_debug_string ()
 			      m_value);
 }
 
-/* gcc::jit::recording::memento_of_new_rvalue_from_ptr:: */
+/* The implementation of class gcc::jit::recording::memento_of_new_rvalue_from_ptr.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_new_rvalue_from_ptr.  */
+
 void
 recording::memento_of_new_rvalue_from_ptr::replay_into (replayer *r)
 {
   set_playback_obj (r->new_rvalue_from_ptr (m_type->playback_type (),
 					    m_value));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   rvalue_from_ptr, rendering it as
+     (TYPE)HEX
+   e.g.
+     "(int *)0xdeadbeef"
+
+   Zero is rendered as NULL e.g.
+     "(int *)NULL".  */
 
 recording::string *
 recording::memento_of_new_rvalue_from_ptr::make_debug_string ()
@@ -2049,12 +2679,19 @@ recording::memento_of_new_rvalue_from_ptr::make_debug_string ()
 				m_type->get_debug_string ());
 }
 
-/* gcc::jit::recording::memento_of_new_string_literal:: */
+/* The implementation of class gcc::jit::recording::memento_of_new_string_literal.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::memento_of_new_string_literal.  */
+
 void
 recording::memento_of_new_string_literal::replay_into (replayer *r)
 {
   set_playback_obj (r->new_string_literal (m_value->c_str ()));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   string literals.  */
 
 recording::string *
 recording::memento_of_new_string_literal::make_debug_string ()
@@ -2063,7 +2700,11 @@ recording::memento_of_new_string_literal::make_debug_string ()
 			      m_value->get_debug_string ());
 }
 
-/* gcc::jit::recording::unary_op:: */
+/* The implementation of class gcc::jit::recording::unary_op.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::unary_op.  */
+
 void
 recording::unary_op::replay_into (replayer *r)
 {
@@ -2072,6 +2713,9 @@ recording::unary_op::replay_into (replayer *r)
 				     get_type ()->playback_type (),
 				     m_a->playback_rvalue ()));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   unary ops.  */
 
 static const char * const unary_op_strings[] = {
   "-", /* GCC_JIT_UNARY_OP_MINUS */
@@ -2088,7 +2732,11 @@ recording::unary_op::make_debug_string ()
 			      m_a->get_debug_string ());
 }
 
-/* gcc::jit::recording::binary_op:: */
+/* The implementation of class gcc::jit::recording::binary_op.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::binary_op.  */
+
 void
 recording::binary_op::replay_into (replayer *r)
 {
@@ -2098,6 +2746,9 @@ recording::binary_op::replay_into (replayer *r)
 				      m_a->playback_rvalue (),
 				      m_b->playback_rvalue ()));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   binary ops.  */
 
 static const char * const binary_op_strings[] = {
   "+", /* GCC_JIT_BINARY_OP_PLUS */
@@ -2124,7 +2775,11 @@ recording::binary_op::make_debug_string ()
 			      m_b->get_debug_string ());
 }
 
-/* gcc::jit::recording::comparison:: */
+/* The implementation of class gcc::jit::recording::comparison.  */
+
+/* Implementation of recording::memento::make_debug_string for
+   comparisons.  */
+
 static const char * const comparison_strings[] =
 {
   "==", /* GCC_JIT_COMPARISON_EQ */
@@ -2145,6 +2800,9 @@ recording::comparison::make_debug_string ()
 			      m_b->get_debug_string ());
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::comparison.  */
+
 void
 recording::comparison::replay_into (replayer *r)
 {
@@ -2154,6 +2812,9 @@ recording::comparison::replay_into (replayer *r)
 				       m_b->playback_rvalue ()));
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::cast.  */
+
 void
 recording::cast::replay_into (replayer *r)
 {
@@ -2161,6 +2822,9 @@ recording::cast::replay_into (replayer *r)
 				 m_rvalue->playback_rvalue (),
 				 get_type ()->playback_type ()));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   casts.  */
 
 recording::string *
 recording::cast::make_debug_string ()
@@ -2170,6 +2834,10 @@ recording::cast::make_debug_string ()
 			      get_type ()->get_debug_string (),
 			      m_rvalue->get_debug_string ());
 }
+
+/* The implementation of class gcc::jit::recording::call.  */
+
+/* The constructor for gcc::jit::recording::call.  */
 
 recording::call::call (recording::context *ctxt,
 		       recording::location *loc,
@@ -2184,6 +2852,9 @@ recording::call::call (recording::context *ctxt,
     m_args.safe_push (args[i]);
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::call.  */
+
 void
 recording::call::replay_into (replayer *r)
 {
@@ -2196,6 +2867,9 @@ recording::call::replay_into (replayer *r)
 				 m_func->playback_function (),
 				 playback_args));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   function calls.  */
 
 recording::string *
 recording::call::make_debug_string ()
@@ -2236,6 +2910,10 @@ recording::call::make_debug_string ()
   return result;
 }
 
+/* The implementation of class gcc::jit::recording::call_through_ptr.  */
+
+/* The constructor for recording::call_through_ptr. */
+
 recording::call_through_ptr::call_through_ptr (recording::context *ctxt,
 					       recording::location *loc,
 					       recording::rvalue *fn_ptr,
@@ -2251,6 +2929,9 @@ recording::call_through_ptr::call_through_ptr (recording::context *ctxt,
     m_args.safe_push (args[i]);
 }
 
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::call_through_ptr.  */
+
 void
 recording::call_through_ptr::replay_into (replayer *r)
 {
@@ -2263,6 +2944,9 @@ recording::call_through_ptr::replay_into (replayer *r)
 					     m_fn_ptr->playback_rvalue (),
 					     playback_args));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   calls through function ptrs.  */
 
 recording::string *
 recording::call_through_ptr::make_debug_string ()
@@ -2303,6 +2987,11 @@ recording::call_through_ptr::make_debug_string ()
   return result;
 }
 
+/* The implementation of class gcc::jit::recording::array_access.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::array_access.  */
+
 void
 recording::array_access::replay_into (replayer *r)
 {
@@ -2312,6 +3001,9 @@ recording::array_access::replay_into (replayer *r)
 			 m_index->playback_rvalue ()));
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   array accesses.  */
+
 recording::string *
 recording::array_access::make_debug_string ()
 {
@@ -2320,6 +3012,11 @@ recording::array_access::make_debug_string ()
 			      m_ptr->get_debug_string (),
 			      m_index->get_debug_string ());
 }
+
+/* The implementation of class gcc::jit::recording::access_field_of_lvalue.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::access_field_of_lvalue.  */
 
 void
 recording::access_field_of_lvalue::replay_into (replayer *r)
@@ -2331,6 +3028,9 @@ recording::access_field_of_lvalue::replay_into (replayer *r)
 
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   accessing a field of an lvalue.  */
+
 recording::string *
 recording::access_field_of_lvalue::make_debug_string ()
 {
@@ -2339,6 +3039,11 @@ recording::access_field_of_lvalue::make_debug_string ()
 			      m_lvalue->get_debug_string (),
 			      m_field->get_debug_string ());
 }
+
+/* The implementation of class gcc::jit::recording::access_field_rvalue.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::access_field_rvalue.  */
 
 void
 recording::access_field_rvalue::replay_into (replayer *r)
@@ -2349,6 +3054,9 @@ recording::access_field_rvalue::replay_into (replayer *r)
 		      m_field->playback_field ()));
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   accessing a field of an rvalue.  */
+
 recording::string *
 recording::access_field_rvalue::make_debug_string ()
 {
@@ -2357,6 +3065,12 @@ recording::access_field_rvalue::make_debug_string ()
 			      m_rvalue->get_debug_string (),
 			      m_field->get_debug_string ());
 }
+
+/* The implementation of class
+   gcc::jit::recording::dereference_field_rvalue.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::dereference_field_rvalue.  */
 
 void
 recording::dereference_field_rvalue::replay_into (replayer *r)
@@ -2367,6 +3081,9 @@ recording::dereference_field_rvalue::replay_into (replayer *r)
 			 m_field->playback_field ()));
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   dereferencing a field of an rvalue.  */
+
 recording::string *
 recording::dereference_field_rvalue::make_debug_string ()
 {
@@ -2376,6 +3093,11 @@ recording::dereference_field_rvalue::make_debug_string ()
 			      m_field->get_debug_string ());
 }
 
+/* The implementation of class gcc::jit::recording::dereference_rvalue.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::dereference_rvalue.  */
+
 void
 recording::dereference_rvalue::replay_into (replayer *r)
 {
@@ -2383,6 +3105,9 @@ recording::dereference_rvalue::replay_into (replayer *r)
     m_rvalue->playback_rvalue ()->
       dereference (playback_location (r, m_loc)));
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   dereferencing an rvalue.  */
 
 recording::string *
 recording::dereference_rvalue::make_debug_string ()
@@ -2392,6 +3117,11 @@ recording::dereference_rvalue::make_debug_string ()
 			      m_rvalue->get_debug_string ());
 }
 
+/* The implementation of class gcc::jit::recording::get_address_of_lvalue.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::get_address_of_lvalue.  */
+
 void
 recording::get_address_of_lvalue::replay_into (replayer *r)
 {
@@ -2400,6 +3130,9 @@ recording::get_address_of_lvalue::replay_into (replayer *r)
       get_address (playback_location (r, m_loc)));
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   getting the address of an lvalue.  */
+
 recording::string *
 recording::get_address_of_lvalue::make_debug_string ()
 {
@@ -2407,6 +3140,11 @@ recording::get_address_of_lvalue::make_debug_string ()
 			      "&%s",
 			      m_lvalue->get_debug_string ());
 }
+
+/* The implementation of class gcc::jit::recording::local.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::local.  */
 
 void
 recording::local::replay_into (replayer *r)
@@ -2418,6 +3156,12 @@ recording::local::replay_into (replayer *r)
 		   playback_string (m_name)));
 }
 
+/* Override the default implementation of
+   recording::memento::write_to_dump for locals by writing
+      TYPE NAME;
+   for use at the top of the function body as if it were a
+   declaration.  */
+
 void
 recording::local::write_to_dump (dump &d)
 {
@@ -2428,7 +3172,12 @@ recording::local::write_to_dump (dump &d)
 	  get_debug_string ());
 }
 
-// gcc::jit::recording::statement
+/* The implementation of class gcc::jit::recording::statement.  */
+
+/* We poison the default implementation of
+   gcc::jit::recording::statement::get_successor_blocks
+   since this vfunc must only ever be called on terminator
+   statements.  */
 
 int
 recording::statement::get_successor_blocks (block **/*out_next1*/,
@@ -2440,6 +3189,11 @@ recording::statement::get_successor_blocks (block **/*out_next1*/,
   return 0;
 }
 
+/* Extend the default implementation of
+   recording::memento::write_to_dump for statements by (if requested)
+   updating the location of the statement to the current location in
+   the dumpfile.  */
+
 void
 recording::statement::write_to_dump (dump &d)
 {
@@ -2447,6 +3201,11 @@ recording::statement::write_to_dump (dump &d)
   if (d.update_locations ())
     m_loc = d.make_location ();
 }
+
+/* The implementation of class gcc::jit::recording::eval.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::eval.  */
 
 void
 recording::eval::replay_into (replayer *r)
@@ -2456,6 +3215,9 @@ recording::eval::replay_into (replayer *r)
 		m_rvalue->playback_rvalue ());
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   an eval statement.  */
+
 recording::string *
 recording::eval::make_debug_string ()
 {
@@ -2463,6 +3225,11 @@ recording::eval::make_debug_string ()
 			      "(void)%s;",
 			      m_rvalue->get_debug_string ());
 }
+
+/* The implementation of class gcc::jit::recording::assignment.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::assignment.  */
 
 void
 recording::assignment::replay_into (replayer *r)
@@ -2473,6 +3240,9 @@ recording::assignment::replay_into (replayer *r)
 		      m_rvalue->playback_rvalue ());
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   an assignment statement.  */
+
 recording::string *
 recording::assignment::make_debug_string ()
 {
@@ -2481,6 +3251,11 @@ recording::assignment::make_debug_string ()
 			      m_lvalue->get_debug_string (),
 			      m_rvalue->get_debug_string ());
 }
+
+/* The implementation of class gcc::jit::recording::assignment_op.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::assignment_op.  */
 
 void
 recording::assignment_op::replay_into (replayer *r)
@@ -2501,6 +3276,9 @@ recording::assignment_op::replay_into (replayer *r)
 		      binary_op);
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   an assignment_op statement.  */
+
 recording::string *
 recording::assignment_op::make_debug_string ()
 {
@@ -2511,6 +3289,11 @@ recording::assignment_op::make_debug_string ()
 			      m_rvalue->get_debug_string ());
 }
 
+/* The implementation of class gcc::jit::recording::comment.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::comment.  */
+
 void
 recording::comment::replay_into (replayer *r)
 {
@@ -2519,6 +3302,9 @@ recording::comment::replay_into (replayer *r)
 		   m_text->c_str ());
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   a comment "statement".  */
+
 recording::string *
 recording::comment::make_debug_string ()
 {
@@ -2526,6 +3312,11 @@ recording::comment::make_debug_string ()
 			      "/* %s */",
 			      m_text->c_str ());
 }
+
+/* The implementation of class gcc::jit::recording::conditional.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::conditional.  */
 
 void
 recording::conditional::replay_into (replayer *r)
@@ -2537,6 +3328,11 @@ recording::conditional::replay_into (replayer *r)
 		       playback_block (m_on_false));
 }
 
+/* Override the poisoned default implementation of
+   gcc::jit::recording::statement::get_successor_blocks
+
+   A conditional jump has 2 successor blocks.  */
+
 int
 recording::conditional::get_successor_blocks (block **out_next1,
 					      block **out_next2) const
@@ -2545,6 +3341,9 @@ recording::conditional::get_successor_blocks (block **out_next1,
   *out_next2 = m_on_false;
   return 2;
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   a conditional jump statement.  */
 
 recording::string *
 recording::conditional::make_debug_string ()
@@ -2562,6 +3361,11 @@ recording::conditional::make_debug_string ()
 				m_on_true->get_debug_string ());
 }
 
+/* The implementation of class gcc::jit::recording::jump.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::jump.  */
+
 void
 recording::jump::replay_into (replayer *r)
 {
@@ -2569,6 +3373,11 @@ recording::jump::replay_into (replayer *r)
     ->add_jump (playback_location (r),
 		m_target->playback_block ());
 }
+
+/* Override the poisoned default implementation of
+   gcc::jit::recording::statement::get_successor_blocks
+
+   An unconditional jump has 1 successor block.  */
 
 int
 recording::jump::get_successor_blocks (block **out_next1,
@@ -2578,6 +3387,9 @@ recording::jump::get_successor_blocks (block **out_next1,
   return 1;
 }
 
+/* Implementation of recording::memento::make_debug_string for
+   a unconditional jump statement.  */
+
 recording::string *
 recording::jump::make_debug_string ()
 {
@@ -2585,6 +3397,11 @@ recording::jump::make_debug_string ()
 			      "goto %s;",
 			      m_target->get_debug_string ());
 }
+
+/* The implementation of class gcc::jit::recording::return_.  */
+
+/* Implementation of pure virtual hook recording::memento::replay_into
+   for recording::return_.  */
 
 void
 recording::return_::replay_into (replayer *r)
@@ -2594,12 +3411,20 @@ recording::return_::replay_into (replayer *r)
 		  m_rvalue ? m_rvalue->playback_rvalue () : NULL);
 }
 
+/* Override the poisoned default implementation of
+   gcc::jit::recording::statement::get_successor_blocks
+
+   A return statement has no successor block.  */
+
 int
 recording::return_::get_successor_blocks (block **/*out_next1*/,
 					  block **/*out_next2*/) const
 {
   return 0;
 }
+
+/* Implementation of recording::memento::make_debug_string for
+   a return statement (covers both those with and without rvalues).  */
 
 recording::string *
 recording::return_::make_debug_string ()
@@ -2617,6 +3442,8 @@ recording::return_::make_debug_string ()
  Playback.
  **********************************************************************/
 
+/* The constructor for gcc::jit::playback::context.  */
+
 playback::context::context (recording::context *ctxt)
   : m_recording_ctxt (ctxt),
     m_char_array_type_node (NULL),
@@ -2626,6 +3453,8 @@ playback::context::context (recording::context *ctxt)
   m_source_files.create (0);
   m_cached_locations.create (0);
 }
+
+/* The destructor for gcc::jit::playback::context.  */
 
 playback::context::~context ()
 {
@@ -2651,6 +3480,12 @@ playback::context::~context ()
   m_functions.release ();
 }
 
+/* A playback::context can reference GC-managed pointers.  Mark them
+   ("by hand", rather than by gengtype).
+
+   This is called on the active playback context (if any) by the
+   my_ggc_walker hook in the jit_root_table in dummy-frontend.c.  */
+
 void
 playback::context::
 gt_ggc_mx ()
@@ -2663,6 +3498,8 @@ gt_ggc_mx ()
 	func->gt_ggc_mx ();
     }
 }
+
+/* Given an enum gcc_jit_types value, get a "tree" type.  */
 
 static tree
 get_tree_node_for_type (enum gcc_jit_types type_)
@@ -2729,6 +3566,9 @@ get_tree_node_for_type (enum gcc_jit_types type_)
   return NULL;
 }
 
+/* Construct a playback::type instance (wrapping a tree) for the given
+   enum value.  */
+
 playback::type *
 playback::context::
 get_type (enum gcc_jit_types type_)
@@ -2743,6 +3583,9 @@ get_type (enum gcc_jit_types type_)
 
   return new type (type_node);
 }
+
+/* Construct a playback::type instance (wrapping a tree) for the given
+   array type.  */
 
 playback::type *
 playback::context::
@@ -2762,6 +3605,8 @@ new_array_type (playback::location *loc,
   return new type (t);
 }
 
+/* Construct a playback::field instance (wrapping a tree).  */
+
 playback::field *
 playback::context::
 new_field (location *loc,
@@ -2780,6 +3625,8 @@ new_field (location *loc,
 
   return new field (decl);
 }
+
+/* Construct a playback::compound_type instance (wrapping a tree).  */
 
 playback::compound_type *
 playback::context::
@@ -2820,6 +3667,9 @@ playback::compound_type::set_fields (const vec<playback::field *> &fields)
   layout_type (t);
 }
 
+/* Construct a playback::type instance (wrapping a tree) for a function
+   type.  */
+
 playback::type *
 playback::context::
 new_function_type (type *return_type,
@@ -2849,6 +3699,8 @@ new_function_type (type *return_type,
   return new type (fn_type);
 }
 
+/* Construct a playback::param instance (wrapping a tree).  */
+
 playback::param *
 playback::context::
 new_param (location *loc,
@@ -2864,6 +3716,8 @@ new_param (location *loc,
 
   return new param (this, inner);
 }
+
+/* Construct a playback::function instance.  */
 
 playback::function *
 playback::context::
@@ -2952,6 +3806,8 @@ new_function (location *loc,
   return func;
 }
 
+/* Construct a playback::lvalue instance (wrapping a tree).  */
+
 playback::lvalue *
 playback::context::
 new_global (location *loc,
@@ -2973,6 +3829,8 @@ new_global (location *loc,
   return new lvalue (this, inner);
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree).  */
+
 playback::rvalue *
 playback::context::
 new_rvalue_from_int (type *type,
@@ -2993,6 +3851,8 @@ new_rvalue_from_int (type *type,
       return new rvalue (this, inner);
     }
 }
+
+/* Construct a playback::rvalue instance (wrapping a tree).  */
 
 playback::rvalue *
 playback::context::
@@ -3022,6 +3882,8 @@ new_rvalue_from_double (type *type,
   return new rvalue (this, inner);
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree).  */
+
 playback::rvalue *
 playback::context::
 new_rvalue_from_ptr (type *type,
@@ -3032,6 +3894,8 @@ new_rvalue_from_ptr (type *type,
   tree inner = build_int_cstu (inner_type, (unsigned HOST_WIDE_INT)value);
   return new rvalue (this, inner);
 }
+
+/* Construct a playback::rvalue instance (wrapping a tree).  */
 
 playback::rvalue *
 playback::context::
@@ -3048,6 +3912,8 @@ new_string_literal (const char *value)
 
   return new rvalue (this, t_addr);
 }
+
+/* Coerce a tree expression into a boolean tree expression.  */
 
 tree
 playback::context::
@@ -3066,6 +3932,9 @@ as_truth_value (tree expr, location *loc)
 
   return expr;
 }
+
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   unary op.  */
 
 playback::rvalue *
 playback::context::
@@ -3113,6 +3982,9 @@ new_unary_op (location *loc,
 
   return new rvalue (this, inner_result);
 }
+
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   binary op.  */
 
 playback::rvalue *
 playback::context::
@@ -3205,6 +4077,9 @@ new_binary_op (location *loc,
   return new rvalue (this, inner_expr);
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   comparison.  */
+
 playback::rvalue *
 playback::context::
 new_comparison (location *loc,
@@ -3252,6 +4127,9 @@ new_comparison (location *loc,
   return new rvalue (this, inner_expr);
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   function call.  */
+
 playback::rvalue *
 playback::context::
 build_call (location *loc,
@@ -3285,6 +4163,9 @@ build_call (location *loc,
    */
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   call to a specific function.  */
+
 playback::rvalue *
 playback::context::
 new_call (location *loc,
@@ -3304,6 +4185,9 @@ new_call (location *loc,
   return build_call (loc, fn, args);
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   call through a function pointer.  */
+
 playback::rvalue *
 playback::context::
 new_call_through_ptr (location *loc,
@@ -3315,6 +4199,8 @@ new_call_through_ptr (location *loc,
 
   return build_call (loc, t_fn_ptr, args);
 }
+
+/* Construct a tree for a cast.  */
 
 tree
 playback::context::build_cast (playback::location *loc,
@@ -3372,6 +4258,9 @@ playback::context::build_cast (playback::location *loc,
     }
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   cast.  */
+
 playback::rvalue *
 playback::context::
 new_cast (playback::location *loc,
@@ -3384,6 +4273,9 @@ new_cast (playback::location *loc,
     set_tree_location (t_cast, loc);
   return new rvalue (this, t_cast);
 }
+
+/* Construct a playback::lvalue instance (wrapping a tree) for an
+   array access.  */
 
 playback::lvalue *
 playback::context::
@@ -3434,6 +4326,8 @@ new_array_access (location *loc,
     }
 }
 
+/* Construct a tree for a field access.  */
+
 tree
 playback::context::
 new_field_access (location *loc,
@@ -3457,6 +4351,8 @@ new_field_access (location *loc,
   return ref;
 }
 
+/* Construct a tree for a dereference.  */
+
 tree
 playback::context::
 new_dereference (tree ptr,
@@ -3471,6 +4367,9 @@ new_dereference (tree ptr,
   return datum;
 }
 
+/* Construct a playback::lvalue instance (wrapping a tree) for a
+   field access.  */
+
 playback::lvalue *
 playback::lvalue::
 access_field (location *loc,
@@ -3483,6 +4382,9 @@ access_field (location *loc,
   return new lvalue (get_context (), ref);
 }
 
+/* Construct a playback::rvalue instance (wrapping a tree) for a
+   field access.  */
+
 playback::rvalue *
 playback::rvalue::
 access_field (location *loc,
@@ -3494,6 +4396,9 @@ access_field (location *loc,
     return NULL;
   return new rvalue (get_context (), ref);
 }
+
+/* Construct a playback::lvalue instance (wrapping a tree) for a
+   dereferenced field access.  */
 
 playback::lvalue *
 playback::rvalue::
@@ -3510,6 +4415,9 @@ dereference_field (location *loc,
   return new lvalue (get_context (), ref);
 }
 
+/* Construct a playback::lvalue instance (wrapping a tree) for a
+   dereference.  */
+
 playback::lvalue *
 playback::rvalue::
 dereference (location *loc)
@@ -3518,6 +4426,9 @@ dereference (location *loc)
   tree datum = get_context ()->new_dereference (ptr, loc);
   return new lvalue (get_context (), datum);
 }
+
+/* Construct a playback::rvalue instance (wrapping a tree) for an
+   address-lookup.  */
 
 playback::rvalue *
 playback::lvalue::
@@ -3532,12 +4443,17 @@ get_address (location *loc)
   return new rvalue (get_context (), ptr);
 }
 
+/* gcc::jit::playback::wrapper subclasses are GC-managed:
+   allocate them using ggc_internal_cleared_alloc.  */
+
 void *
 playback::wrapper::
 operator new (size_t sz)
 {
   return ggc_internal_cleared_alloc (sz MEM_STAT_INFO);
 }
+
+/* Constructor for gcc:jit::playback::function.  */
 
 playback::function::
 function (context *ctxt,
@@ -3564,6 +4480,8 @@ function (context *ctxt,
     }
 }
 
+/* Hand-written GC-marking hook for playback functions.  */
+
 void
 playback::function::
 gt_ggc_mx ()
@@ -3574,12 +4492,16 @@ gt_ggc_mx ()
   gt_ggc_m_9tree_node (m_inner_block);
 }
 
+/* Get the return type of a playback function, in tree form.  */
+
 tree
 playback::function::
 get_return_type_as_tree () const
 {
   return TREE_TYPE (TREE_TYPE(m_inner_fndecl));
 }
+
+/* Construct a new local within this playback::function.  */
 
 playback::lvalue *
 playback::function::
@@ -3603,6 +4525,8 @@ new_local (location *loc,
   return new lvalue (m_ctxt, inner);
 }
 
+/* Construct a new block within this playback::function.  */
+
 playback::block *
 playback::function::
 new_block (const char *name)
@@ -3613,6 +4537,10 @@ new_block (const char *name)
   m_blocks.safe_push (result);
   return result;
 }
+
+/* Build a statement list for the function as a whole out of the
+   lists of statements for the individual blocks, building labels
+   for each block.  */
 
 void
 playback::function::
@@ -3635,6 +4563,12 @@ build_stmt_list ()
 	tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
     }
 }
+
+/* Finish compiling the given function, potentially running the
+   garbage-collector.
+   The function will have a statement list by now.
+   Amongst other things, this gimplifies the statement list,
+   and calls cgraph_node::finalize_function on the function.  */
 
 void
 playback::function::
@@ -3692,6 +4626,8 @@ postprocess ()
     }
 }
 
+/* Add an eval of the rvalue to the function's statement list.  */
+
 void
 playback::block::
 add_eval (location *loc,
@@ -3704,6 +4640,8 @@ add_eval (location *loc,
 
   add_stmt (rvalue->as_tree ());
 }
+
+/* Add an assignment to the function's statement list.  */
 
 void
 playback::block::
@@ -3733,6 +4671,9 @@ add_assignment (location *loc,
   add_stmt (stmt);
 }
 
+/* Add a comment to the function's statement list.
+   For now this is done by adding a dummy label.  */
+
 void
 playback::block::
 add_comment (location *loc,
@@ -3759,6 +4700,8 @@ add_comment (location *loc,
     set_tree_location (label_expr, loc);
   add_stmt (label_expr);
 }
+
+/* Add a conditional jump statement to the function's statement list.  */
 
 void
 playback::block::
@@ -3791,6 +4734,8 @@ add_conditional (location *loc,
     set_tree_location (stmt, loc);
   add_stmt (stmt);
 }
+
+/* Add an unconditional jump statement to the function's statement list.  */
 
 void
 playback::block::
@@ -3829,6 +4774,8 @@ c_finish_goto_label (location_t loc, tree label)
 
 }
 
+/* Add a return statement to the function's statement list.  */
+
 void
 playback::block::
 add_return (location *loc,
@@ -3857,6 +4804,8 @@ add_return (location *loc,
   add_stmt (return_stmt);
 }
 
+/* Constructor for gcc::jit::playback::block.  */
+
 playback::block::
 block (function *func,
        const char *name)
@@ -3876,6 +4825,15 @@ block (function *func,
   DECL_CONTEXT (m_label_decl) = func->as_fndecl ();
   m_label_expr = NULL;
 }
+
+/* Compile a playback::context:
+
+   - Use the context's options to cconstruct command-line options, and
+     call into the rest of GCC (toplev::main).
+   - Assuming it succeeds, we have a .s file; we want a .so file.
+     Invoke another gcc to convert the .s file to a .so file.
+   - dlopen the .so file
+   - Wrap the result up as a playback::result and return it.  */
 
 result *
 playback::context::
@@ -4034,6 +4992,12 @@ compile ()
   return result_obj;
 }
 
+/* Top-level hook for playing back a recording context.
+
+   This plays back m_recording_ctxt, and, if no errors
+   occurred builds statement lists for and then postprocesses
+   every function in the result.  */
+
 void
 playback::context::
 replay ()
@@ -4085,6 +5049,8 @@ replay ()
     }
 }
 
+/* Dump the generated .s file to stderr.  */
+
 void
 playback::context::
 dump_generated_code ()
@@ -4101,6 +5067,9 @@ dump_generated_code ()
   fclose (f_in);
 }
 
+/* qsort comparator for comparing pairs of playback::source_line *,
+   ordering them by line number.  */
+
 static int
 line_comparator (const void *lhs, const void *rhs)
 {
@@ -4111,6 +5080,9 @@ line_comparator (const void *lhs, const void *rhs)
   return line_lhs->get_line_num () - line_rhs->get_line_num ();
 }
 
+/* qsort comparator for comparing pairs of playback::location *,
+   ordering them by column number.  */
+
 static int
 location_comparator (const void *lhs, const void *rhs)
 {
@@ -4120,6 +5092,14 @@ location_comparator (const void *lhs, const void *rhs)
     *static_cast<const playback::location * const *> (rhs);
   return loc_lhs->get_column_num () - loc_rhs->get_column_num ();
 }
+
+/* Our API allows locations to be created in arbitrary orders, but the
+   linemap API requires locations to be created in ascending order
+   as if we were tokenizing files.
+
+   This hook sorts all of the the locations that have been created, and
+   calls into the linemap API, creating linemap entries in sorted order
+   for our locations.  */
 
 void
 playback::context::
@@ -4205,6 +5185,8 @@ handle_locations ()
     }
 }
 
+/* We handle errors on a playback::context by adding them to the
+   corresponding recording::context.  */
 
 void
 playback::context::
@@ -4217,6 +5199,9 @@ add_error (location *loc, const char *fmt, ...)
   va_end (ap);
 }
 
+/* We handle errors on a playback::context by adding them to the
+   corresponding recording::context.  */
+
 void
 playback::context::
 add_error_va (location *loc, const char *fmt, va_list ap)
@@ -4225,16 +5210,28 @@ add_error_va (location *loc, const char *fmt, va_list ap)
 				  fmt, ap);
 }
 
+/* Constructor for gcc::jit::playback::result.  */
+
 result::
 result(void *dso_handle)
   : m_dso_handle(dso_handle)
 {
 }
 
+/* gcc::jit::playback::result's destructor.
+
+   Called implicitly by gcc_jit_result_release.  */
+
 result::~result()
 {
   dlclose (m_dso_handle);
 }
+
+/* Attempt to locate the given function by name within the
+   playback::result, using dlsym.
+
+   Implements the post-error-checking part of
+   gcc_jit_result_get_code.  */
 
 void *
 result::
@@ -4257,6 +5254,9 @@ get_code (const char *funcname)
 
 /* Dealing with the linemap API.  */
 
+/* Construct a playback::location for a recording::location, if it
+   doesn't exist already.  */
+
 playback::location *
 playback::context::
 new_location (recording::location *rloc,
@@ -4273,6 +5273,11 @@ new_location (recording::location *rloc,
   return loc;
 }
 
+/* Deferred setting of the location for a given tree, by adding the
+   (tree, playback::location) pair to a list of deferred associations.
+   We will actually set the location on the tree later on once
+   the source_location for the playback::location exists.  */
+
 void
 playback::context::
 set_tree_location (tree t, location *loc)
@@ -4281,6 +5286,9 @@ set_tree_location (tree t, location *loc)
   m_cached_locations.safe_push (std::make_pair (t, loc));
 }
 
+
+/* Construct a playback::source_file for the given source
+   filename, if it doesn't exist already.  */
 
 playback::source_file *
 playback::context::
@@ -4303,11 +5311,16 @@ get_source_file (const char *filename)
   return file;
 }
 
+/* Constructor for gcc::jit::playback::source_file.  */
+
 playback::source_file::source_file (tree filename) :
   m_source_lines (),
   m_filename (filename)
 {
 }
+
+/* Construct a playback::source_line for the given line
+   within this source file, if one doesn't exist already.  */
 
 playback::source_line *
 playback::source_file::
@@ -4329,12 +5342,18 @@ get_source_line (int line_num)
   return line;
 }
 
+/* Constructor for gcc::jit::playback::source_line.  */
+
 playback::source_line::source_line (source_file *file, int line_num) :
   m_locations (),
   m_source_file (file),
   m_line_num (line_num)
 {
 }
+
+/* Construct a playback::location for the given column
+   within this line of a specific source file, if one doesn't exist
+   already.  */
 
 playback::location *
 playback::source_line::
@@ -4354,6 +5373,8 @@ get_location (recording::location *rloc, int column_num)
   return loc;
 }
 
+/* Constructor for gcc::jit::playback::location.  */
+
 playback::location::location (recording::location *loc,
 			      source_line *line,
 			      int column_num) :
@@ -4363,6 +5384,9 @@ playback::location::location (recording::location *loc,
   m_column_num(column_num)
 {
 }
+
+/* The active gcc::jit::playback::context instance.  This is a singleton,
+   guarded by jit_mutex.  */
 
 playback::context *active_playback_ctxt;
 

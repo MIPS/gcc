@@ -97,40 +97,44 @@ class result;
 class dump;
 
 namespace recording {
+  /* Indentation indicates inheritance: */
   class context;
   class builtins_manager; // declared within jit-builtins.h
   class memento;
-  class string;
-  class location;
-  class type;
-  class function_type;
-  class field;
-  class compound_type;
-  class struct_;
-  class union_;
-  class fields;
-  class function;
-  class block;
-  class rvalue;
-  class lvalue;
-  class local;
-  class param;
-  class statement;
+    class string;
+    class location;
+    class type;
+      class function_type;
+      class compound_type;
+        class struct_;
+	class union_;
+    class field;
+    class fields;
+    class function;
+    class block;
+    class rvalue;
+      class lvalue;
+        class local;
+	class global;
+        class param;
+    class statement;
 }
 
 namespace playback {
+  /* Indentation indicates inheritance: */
   class context;
-  class location;
-  class type;
-  class field;
-  class compound_type;
-  class function;
-  class block;
-  class rvalue;
-  class lvalue;
-  class param;
-  class source_file;
-  class source_line;
+  class wrapper;
+    class type;
+      class compound_type;
+    class field;
+    class function;
+    class block;
+    class rvalue;
+      class lvalue;
+        class param;
+    class source_file;
+    class source_line;
+    class location;
 }
 
 typedef playback::context replayer;
@@ -397,12 +401,19 @@ public:
 
   void set_playback_obj (void *obj) { m_playback_obj = obj; }
 
+
+  /* Get the context that owns this object.
+
+     Implements the post-error-checking part of
+     gcc_jit_object_get_context.  */
   context *get_context () { return m_ctxt; }
 
   memento *
   as_object () { return this; }
 
-  /* Debugging hook, for use in generating error messages etc.  */
+  /* Debugging hook, for use in generating error messages etc.
+     Implements the post-error-checking part of
+     gcc_jit_object_get_debug_string.  */
   const char *
   get_debug_string ();
 
@@ -904,6 +915,10 @@ public:
     gcc_assert (type_);
   }
 
+  /* Get the recording::type of this rvalue.
+
+     Implements the post-error-checking part of
+     gcc_jit_rvalue_get_type.  */
   type * get_type () const { return m_type; }
 
   playback::rvalue *
@@ -1015,7 +1030,12 @@ public:
   type *get_return_type () const { return m_return_type; }
   string * get_name () const { return m_name; }
   vec<param *> get_params () const { return m_params; }
+
+  /* Get the given param by index.
+     Implements the post-error-checking part of
+     gcc_jit_function_get_param.  */
   param *get_param (int i) const { return m_params[i]; }
+
   bool is_variadic () const { return m_is_variadic; }
 
   void write_to_dump (dump &d);
@@ -1053,6 +1073,9 @@ public:
   {
   }
 
+  /* Get the recording::function containing this block.
+     Implements the post-error-checking part of
+     gcc_jit_block_get_function.  */
   function *get_function () { return m_func; }
 
   bool has_been_terminated () { return m_has_been_terminated; }

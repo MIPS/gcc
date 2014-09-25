@@ -1,5 +1,24 @@
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
+	* dummy-frontend.c (my_walker): Rename to...
+	(my_ggc_walker): ...this.
+	(my_root_tab): Rename to...
+	(jit_root_tab): ...this.
+	(jit_langhook_init): Update for renaming of "my_root_tab" to
+	"jit_root_tab".
+	* internal-api.c: Add descriptive API comments to functions
+	throughout.
+	(mutex): Rename to...
+	(jit_mutex): ...this.
+	(gcc::jit::recording::context::compile): Update for renaming of
+	"mutex" to "jit_mutex".
+	* internal-api.h: Add descriptive API comments to functions
+	throughout.  Add indentation to forward declarations of classes
+	to indicate inheritance.
+	* jit-builtins.c: Likewise.
+
+2014-09-24  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::dump::write): Eliminate fixed-size
 	buffer "buf" by replacing call to vsnprintf with one to vasprintf
 	and a free, emitting an error on the dump's context if a malloc

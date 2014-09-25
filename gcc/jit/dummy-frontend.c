@@ -79,7 +79,12 @@ struct GTY(()) language_function
   int dummy;
 };
 
-void my_walker (void *)
+/* GC-marking callback for use from jit_root_tab.
+
+   If there's an active playback context, call its marking method
+   so that it can mark any pointers it references.  */
+
+static void my_ggc_walker (void *)
 {
   if (gcc::jit::active_playback_ctxt)
     gcc::jit::active_playback_ctxt->gt_ggc_mx ();
@@ -87,10 +92,10 @@ void my_walker (void *)
 
 const char *dummy;
 
-struct ggc_root_tab my_root_tab[] =
+struct ggc_root_tab jit_root_tab[] =
   {
     {
-      &dummy, 1, 0, my_walker, NULL
+      &dummy, 1, 0, my_ggc_walker, NULL
     },
     LAST_GGC_ROOT_TAB
   };
@@ -106,7 +111,7 @@ jit_langhook_init (void)
   static bool registered_root_tab = false;
   if (!registered_root_tab)
     {
-      ggc_register_root_tab (my_root_tab);
+      ggc_register_root_tab (jit_root_tab);
       registered_root_tab = true;
     }
 

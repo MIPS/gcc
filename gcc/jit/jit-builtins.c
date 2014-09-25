@@ -61,6 +61,8 @@ static const struct builtin_data builtin_data[] =
 };
 #undef DEF_BUILTIN
 
+/* Helper function for find_builtin_by_name.  */
+
 static bool
 matches_builtin (const char *in_name,
 		 const struct builtin_data& bd)
@@ -94,6 +96,10 @@ matches_builtin (const char *in_name,
   return false;
 }
 
+/* Locate the built-in function that matches name IN_NAME,
+   writing the result to OUT_ID and returning true if found,
+   or returning false if not found.  */
+
 static bool
 find_builtin_by_name (const char *in_name,
 		      enum built_in_function *out_id)
@@ -123,12 +129,18 @@ find_builtin_by_name (const char *in_name,
 
 // class builtins_manager
 
+/* Constructor for gcc::jit::recording::builtins_manager.  */
+
 builtins_manager::builtins_manager (context *ctxt)
   : m_ctxt (ctxt)
 {
   memset (m_types, 0, sizeof (m_types));
   memset (m_builtin_functions, 0, sizeof (m_builtin_functions));
 }
+
+/* Locate a builtin function by name.
+   Create a recording::function of the appropriate type, reusing them
+   if they've already been seen.  */
 
 function *
 builtins_manager::get_builtin_function (const char *name)
@@ -153,6 +165,8 @@ builtins_manager::get_builtin_function (const char *name)
 
   return m_builtin_functions[builtin_id];
 }
+
+/* Create the recording::function for a given builtin function, by ID.  */
 
 function *
 builtins_manager::make_builtin_function (enum built_in_function builtin_id)
@@ -191,6 +205,9 @@ builtins_manager::make_builtin_function (enum built_in_function builtin_id)
   return result;
 }
 
+/* Get the recording::type for a given type of builtin function,
+   by ID, creating it if it doesn't already exist.  */
+
 type *
 builtins_manager::get_type (enum jit_builtin_type type_id)
 {
@@ -198,6 +215,8 @@ builtins_manager::get_type (enum jit_builtin_type type_id)
     m_types[type_id] = make_type (type_id);
   return m_types[type_id];
 }
+
+/* Create the recording::type for a given type of builtin function.  */
 
 type *
 builtins_manager::make_type (enum jit_builtin_type type_id)
@@ -275,6 +294,11 @@ builtins_manager::make_type (enum jit_builtin_type type_id)
     }
 }
 
+/* Create the recording::type for a given primitive type within the
+   builtin system.
+
+   Only some types are currently supported.  */
+
 type*
 builtins_manager::make_primitive_type (enum jit_builtin_type type_id)
 {
@@ -343,6 +367,8 @@ builtins_manager::make_primitive_type (enum jit_builtin_type type_id)
     }
 }
 
+/* Create the recording::function_type for a given function type
+   signature.  */
 
 function_type *
 builtins_manager::make_fn_type (enum jit_builtin_type,
@@ -381,6 +407,8 @@ builtins_manager::make_fn_type (enum jit_builtin_type,
   delete[] param_types;
   return result;
 }
+
+/* Handler for DEF_POINTER_TYPE within builtins_manager::make_type.  */
 
 type *
 builtins_manager::make_ptr_type (enum jit_builtin_type,
