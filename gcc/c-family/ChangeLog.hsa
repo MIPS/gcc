@@ -1,3 +1,9 @@
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* c-common.c (c_common_attribute_table): Add hsakernel attribute.
+	(handle_hsa_attribute): Make function used and noinline, warn about
+	hsakernel on functions with fixed number of arguments.
+
 2013-05-28  Martin Jambor  <mjambor@suse.cz>
 
 	* c-common.c (c_common_attribute_table): Add hsa attribute.

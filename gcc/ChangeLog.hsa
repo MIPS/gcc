@@ -1,5 +1,11 @@
 2014-09-26  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (insert_store_range_dim): Make value parameter a tree.
+	(wrap_hsa): Handle hsakernel functions.
+	(namespace): Likewise.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (hsa_dim_array_type, hsa_range_dimnum_decl)
 	(hsa_range_grid_decl, hsa_range_group_decl)
 	(hsa_launch_range_type): New variables.
