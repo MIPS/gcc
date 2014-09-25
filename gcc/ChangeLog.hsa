@@ -1,5 +1,24 @@
 2014-09-26  Martin Jambor  <mjambor@suse.cz>
 
+	* gimple.c (gimple_build_omp_for): Allocate prev_first_iter.
+	* gimple.h (gimple_statement_omp_for): New field orig_first_iter.
+	(gimple_omp_for_set_orig_first_iter): New function.
+	* gimplify.c (gimplify_omp_for): Use it.
+	* omp-low.c (omp_region): New fields req_group_size and orig_first_iter.
+	(adjust_for_condition): New function.
+	(get_omp_for_step_from_incr): Likewise.
+	(extract_omp_for_data): Moved some functionality to the above two new
+	functions.
+	(create_omp_child_function): Do not append hsa attributes to child_fn.
+	(expand_parallel_call): Handle kernelized parallel regions.
+	(expand_omp_for_static_nochunk): Kernelize marked loops.
+	(expand_omp_for): Copy prev_first_iter of to-be-kernelized omp for
+	statements to the region structure, mark requested group size.  Always
+	expand these loops with expand_omp_for_static_nochunk.
+	* tree-sra.c (ipa_sra_preliminary_function_checks): Test TREE_USED.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
         * omp-low.c (struct omp_region): New flag kernelize.
 	(analyze_kernelizability): New function.
         (expand_omp): Call it.  New parameter within_parallel, update all

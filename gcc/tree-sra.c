@@ -4933,7 +4933,7 @@ has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 static bool
 ipa_sra_preliminary_function_checks (struct cgraph_node *node)
 {
-  if (!node->can_be_local_p ())
+  if (TREE_USED (node->decl) || !node->can_be_local_p ())
     {
       if (dump_file)
 	fprintf (dump_file, "Function not local to this compilation unit.\n");
