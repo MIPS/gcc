@@ -1122,7 +1122,7 @@ treerr
   $TRCHAIN = NULL_TREE;
   $TRVAL = NULL_TREE;
   $TRPURP = NULL_TREE;
-  /*  /* foreach_chain_value_purpose_in_tree_list $EACHVALPU ended */
+  /* foreach_chain_value_purpose_in_tree_list $EACHVALPU ended */
   }#
   )
 
