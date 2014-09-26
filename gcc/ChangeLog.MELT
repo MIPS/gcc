@@ -1,4 +1,10 @@
 
+
+2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/libmelt-ana-tree.melt
+	(foreach_chain_value_purpose_in_tree_list): New citerator.
+
 2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (tree_method_type): Also extract
 	trbasety & trargty.

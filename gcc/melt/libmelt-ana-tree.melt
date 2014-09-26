@@ -1094,6 +1094,38 @@ treerr
   }#
 )
 
+;;; iterate inside TREE_LIST
+(defciterator foreach_chain_value_purpose_in_tree_list
+  (:tree tr)
+  eachvalpu
+  (:tree trchain trval trpurp)
+  :doc #{FOREACH_CHAIN_VALUE_PURPOSE_IN_TREE_LIST iterates in a
+  @code{TREE_LIST} tree $TR binding $TRVAL and $TRPURP to each value
+  and purpose and $TRCHAIN to the current element.}#
+  ;; before
+  #{ /* foreach_chain_value_purpose_in_tree_list $EACHVALPU start */
+  $TRCHAIN = NULL_TREE;
+  $TRVAL = NULL_TREE;
+  $TRPURP = NULL_TREE;
+  for ($TRCHAIN = $TR;
+       $TRCHAIN && TREE_CODE($TRCHAIN) == TREE_LIST;
+       $TRCHAIN = TREE_CHAIN($TRCHAIN)) {
+    $TRVAL = TREE_VALUE ($TRCHAIN);
+    $TRPURP = TREE_PURPOSE ($TRCHAIN);
+     /* foreach_chain_value_purpose_in_tree_list $EACHVALPU started */
+   }#
+   ;; after
+   #{  /* foreach_chain_value_purpose_in_tree_list $EACHVALPU end */
+     $TRVAL = NULL_TREE;
+     $TRPURP = NULL_TREE;
+   };
+  $TRCHAIN = NULL_TREE;
+  $TRVAL = NULL_TREE;
+  $TRPURP = NULL_TREE;
+  /*  /* foreach_chain_value_purpose_in_tree_list $EACHVALPU ended */
+  }#
+  )
+
 ;;; pattern tree_vec matches any tree vector node
 (defcmatcher tree_vec
   (:tree tr)
@@ -3134,6 +3166,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  build_string_tree
  check_c_frontend
  foreach_argument_in_function_tree
+ foreach_chain_value_purpose_in_tree_list 
  foreach_element_in_tree_constructor
  foreach_maptree
  inform_at_tree
