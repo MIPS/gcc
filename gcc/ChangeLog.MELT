@@ -2,6 +2,11 @@
 
 2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (make_jsonobject): Accept mixints &
+	mixbigints.
+
+2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt
 	(foreach_chain_value_purpose_in_tree_list): Typo in emitted comment.
 

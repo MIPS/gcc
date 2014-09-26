@@ -3816,6 +3816,8 @@ given object map $MAPO}#
 	  (cond ( (is_a v class_named) (setq curval v))
 		( (is_string v) (setq curval (json_canonical_name v)))
 		( (is_integerbox v) (setq curval v))
+		( (is_mixbigint v) (setq curval v))
+		( (is_mixint v) (setq curval v))
 		( (is_jsonobject v) (setq curval v))
 		( (is_multiple v) (if nametup 
 				      (setq valtup v) 
