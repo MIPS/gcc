@@ -102,6 +102,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-long-names.c */
+#define create_code create_code_long_names
+#define verify_code verify_code_long_names
+#include "test-long-names.c"
+#undef create_code
+#undef verify_code
+
 /* test-quadratic.c */
 #define create_code create_code_quadratic
 #define verify_code verify_code_quadratic
