@@ -1491,26 +1491,36 @@ treerr
    :tree size
    )
   treeinty				;statesym
-  :doc #{$TREE_INTEGER_TYPE match an integer type tree $TR extracting its $TYPE and big minimal $MINBIG and maximal $MAXBIG values and tree size $SIZE}#
+  :doc #{$TREE_INTEGER_TYPE match an integer type tree $TR extracting its $TYPE and big minimal $MINBIG and maximal $MAXBIG values and tree size $SIZE. If minimal and maximal values are small enough, we use plain boxed integer values.}#
   ;; test expander
-   #{ /* tree_integer_type $treeinty ?*/ (($tr) && TREE_CODE($tr) == INTEGER_TYPE) }#
+   #{ /* tree_integer_type $TREEINTY ?*/ (($tr) && TREE_CODE($tr) == INTEGER_TYPE) }#
   ;; fill expander
-   #{ /* tree_integer_type $treeinty !*/
-      mpz_t $treeinty#_minz;
-      mpz_t $treeinty#_maxz;
+   #{ /* tree_integer_type $TREEINTY !*/
+      mpz_t $TREEINTY#_minz;
+      mpz_t $TREEINTY#_maxz;
 
-      $type = TYPE_NAME($tr);
-      $size = TYPE_SIZE($tr);
+      $TYPE = TYPE_NAME($tr);
+      $SIZE = TYPE_SIZE($tr);
 
-      mpz_init ($treeinty#_minz);
-      mpz_init ($treeinty#_maxz);
-      get_type_static_bounds($tr, $treeinty#_minz, $treeinty#_maxz);
-      $minbig = meltgc_new_mixbigint_mpz((meltobject_ptr_t) MELT_PREDEF (DISCR_MIXED_BIGINT), 
+      mpz_init ($TREEINTY#_minz);
+      mpz_init ($TREEINTY#_maxz);
+      get_type_static_bounds($TR, $TREEINTY#_minz, $TREEINTY#_maxz);
+      if (mpz_cmp_si ($TREEINTY#_minz, -(LONG_MAX/2))>=0
+		     && mpz_cmp_si($TREEINTY#_minz, (LONG_MAX/2))<=0)
+        $MINBIG = meltgc_new_int ((meltobject_ptr_t)MELT_PREDEF(DISCR_CONSTANT_INTEGER),
+				  mpz_get_si($TREEINTY#_minz));
+      else
+        $MINBIG = meltgc_new_mixbigint_mpz((meltobject_ptr_t) MELT_PREDEF (DISCR_MIXED_BIGINT), 
 					 NULL, 
-					 $treeinty#_minz);
-      $maxbig =  meltgc_new_mixbigint_mpz((meltobject_ptr_t) MELT_PREDEF (DISCR_MIXED_BIGINT), 
+					 $TREEINTY#_minz);
+      if (mpz_cmp_si($TREEINTY#_maxz, -(LONG_MAX/2))>=0
+		     && mpz_cmp_si($TREEINTY#_maxz, (LONG_MAX/2))<=0)
+      $MAXBIG = meltgc_new_int ((meltobject_ptr_t)MELT_PREDEF(DISCR_CONSTANT_INTEGER),
+				mpz_get_si($TREEINTY#_maxz));
+      else
+        $MAXBIG = meltgc_new_mixbigint_mpz((meltobject_ptr_t) MELT_PREDEF (DISCR_MIXED_BIGINT), 
 					 NULL, 
-					 $treeinty#_maxz);
+					 $TREEINTY#_maxz);
       mpz_clear ($treeinty#_minz);
       mpz_clear ($treeinty#_maxz);
     }#)

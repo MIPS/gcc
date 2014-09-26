@@ -2278,7 +2278,7 @@ meltgc_new_mixbigint_mpz (meltobject_ptr_t discr_p,
   if (!mp)
     goto end;
   numb = 8*sizeof(mix_newbig->tabig[0]);
-  blen = (mpz_sizeinbase (mp, 2) + numb-1) / numb;
+  blen = (mpz_sizeinbase (mp, 2) + numb) / numb + 1;
   newbig = (melt_ptr_t) meltgc_allocate (sizeof (struct meltmixbigint_st),
                                          blen*sizeof(mix_newbig->tabig[0]));
   mix_newbig->discr = object_discrv;

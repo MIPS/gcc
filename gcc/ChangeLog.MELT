@@ -2,6 +2,15 @@
 
 2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_new_mixbigint_mpz): Allocate one more
+	byte.
+
+	* melt/libmelt-ana-tree.melt (tree_integer_type): If min & max
+	values are less than LONG_MAX/2 in absolute value, give them as
+	boxed integers.
+
+2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (make_jsonobject): Accept mixints &
 	mixbigints.
 
