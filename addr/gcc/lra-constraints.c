@@ -4122,9 +4122,7 @@ lra_constraints (bool first_p)
 	  new_insns_num = 0;
 	}
       if (new_insns_num > MAX_RELOAD_INSNS_NUMBER)
-	internal_error
-	  ("Max. number of generated reload insns per insn is achieved (%d)\n",
-	   MAX_RELOAD_INSNS_NUMBER);
+	fatal_insn ("Too many reloads", curr_insn);
       new_insns_num++;
       if (DEBUG_INSN_P (curr_insn))
 	{

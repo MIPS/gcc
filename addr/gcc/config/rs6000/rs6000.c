@@ -2604,13 +2604,19 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_vector_align[V1TImode] = 128;
     }
 
-  /* DFmode, see if we want to use the VSX unit.  */
+  /* DFmode, see if we want to use the VSX unit.  Memory is handled
+     differently, so don't set rs6000_vector_mem.  */
   if (TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
     {
       rs6000_vector_unit[DFmode] = VECTOR_VSX;
-      rs6000_vector_mem[DFmode]
-	= (TARGET_UPPER_REGS_DF ? VECTOR_VSX : VECTOR_NONE);
-      rs6000_vector_align[DFmode] = align64;
+      rs6000_vector_align[DFmode] = 64;
+    }
+
+  /* SFmode, see if we want to use the VSX unit.  */
+  if (TARGET_P8_VECTOR && TARGET_VSX_SCALAR_FLOAT)
+    {
+      rs6000_vector_unit[SFmode] = VECTOR_VSX;
+      rs6000_vector_align[SFmode] = 32;
     }
 
   /* Allow TImode in VSX register and set the VSX memory macros.  */
@@ -6136,6 +6142,113 @@ quad_load_store_p (rtx op0, rtx op1)
     }
 
   return ret;
+}
+
+/* Return true if the move insn is valid.  In particular don't allow D-form
+   instructions to load to the altivec registers.  This is intended to make
+   sure post-reload passes don't generate impossible instructions.  */
+
+bool
+valid_move_insn_p (rtx dest, rtx src)
+{
+  rtx op_mem = NULL_RTX;
+  rtx op_reg = NULL_RTX;
+
+  if (GET_CODE (dest) == SUBREG)
+    dest = SUBREG_REG (dest);
+
+  if (GET_CODE (src) == SUBREG)
+    src = SUBREG_REG (src);
+
+  if (MEM_P (dest))
+    {
+      if (!REG_P (src))
+	return false;
+
+      op_mem = dest;
+      op_reg = src;
+    }
+
+  else if (REG_P (dest))
+    {
+      if (MEM_P (src))
+	{
+	  op_mem = src;
+	  op_reg = dest;
+	}
+      else
+	return true;
+    }
+
+  else
+    return false;
+
+  if (op_mem != NULL_RTX && op_reg != NULL_RTX
+      && REGNO (op_reg) < FIRST_PSEUDO_REGISTER)
+    {
+      enum machine_mode mode = GET_MODE (op_mem);
+      int regno = REGNO (op_reg);
+      rtx addr = XEXP (op_mem, 0);
+      addr_mask_type mask;
+      enum rtx_code rcode;
+
+      if (INT_REGNO_P (regno))
+	mask = reg_addr[mode].addr_mask[RELOAD_REG_GPR];
+
+      else if (FP_REGNO_P (regno))
+	mask = reg_addr[mode].addr_mask[RELOAD_REG_FPR];
+
+      else if (ALTIVEC_REGNO_P (regno))
+	mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
+
+      else
+	return false;
+
+      if ((mask & RELOAD_REG_VALID) == 0)
+	return false;
+
+      rcode = GET_CODE (addr);
+      if (rcode == PRE_INC || rcode == PRE_DEC)
+	{
+	  if ((mask & RELOAD_REG_PRE_INCDEC) == 0)
+	    return false;
+
+	  addr = XEXP (addr, 0);
+	  rcode = GET_CODE (addr);
+	}
+      else if (rcode == PRE_MODIFY)
+	{
+	  if ((mask & RELOAD_REG_PRE_MODIFY) == 0)
+	    return false;
+
+	  addr = XEXP (addr, 0);
+	  rcode = GET_CODE (addr);
+	}
+
+      if (REG_P (addr) || rcode == SUBREG)
+	return true;
+
+      else if (rcode == PLUS)
+	{
+	  rtx op0 = XEXP (addr, 0);
+	  rtx op1 = XEXP (addr, 1);
+
+	  if (!REG_P (op0))
+	    return false;
+
+	  return (mask & ((REG_P (op1))
+			  ? RELOAD_REG_INDEXED
+			  : RELOAD_REG_OFFSET)) != 0;
+	}
+
+      else if (rcode == LO_SUM)
+	return (mask & RELOAD_REG_OFFSET) != 0;
+
+      else
+	return false;
+    }
+
+  return true;
 }
 
 /* Given an address, return a constant offset term if one exists.  */

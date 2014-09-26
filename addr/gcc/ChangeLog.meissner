@@ -1,3 +1,35 @@
+2014-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* lra-constraints.c (lra_constraints): Use fatal_insn to show the
+	insn being reloaded.
+
+	* config/rs6000/predicates.md (memory_fp_constant): New insn to
+	insure floating point constants are pushed to the constant pool
+	before register allocation.
+
+	* config/rs6000/rs6000-protos.h (valid_move_insn_p): New
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Do not
+	set rs6000_vector_mem even if double values are allowed in Altivec
+	registers.  Set vector unit to VSX for floats if floats are
+	allowed in Altivec registers.
+	(valid_move_insn_p): Validate loads and stores to make sure that
+	Altivec d-form instructions are not generated.
+
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat, SD/SFmodes): Call
+	valid_move_insn_p to make sure the move is valid.
+	(mov<mode>_softfloat, SD/SFmodes): Likewise.
+	(mov<mode>_hardfloat32, DD/DFmodes): Likewise.
+	(mov<mode>_softfloat32, DD/DFmodes): Likewise.
+	(mov<mode>_hardfloat64, DD/DFmodes): Likewise.
+	(SF/DF define_split): New define split to ensure that FP constants
+	are pushed to the constant pull before register allocation.
+	Previously, using -ffast-math would prevent moving the constant
+	to memory earlier.
+	(SF/DF move peephole2): Call valid_move_insn_p to ensure when
+	collapsing FP moves, that an impossible move is not generated.
+
 2014-09-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 215485.
