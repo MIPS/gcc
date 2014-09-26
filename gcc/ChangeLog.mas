@@ -1,5 +1,16 @@
 2014-09-26  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (dt_node::gen_kids): Handle conversions in
+	generic expressions properly.
+	* match-bitwise.pd ((type) X & CST -> (type) (X & ((type-x) CST))):
+	Disable on GENERIC as it conflicts with a transform in fold-const.c.
+
+	cp/
+	* typeck.c (enum_cast_to_int): Use CONVERT_EXPR_P to check
+	for conversions.
+
+2014-09-26  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (struct dt_node): Merge gen_gimple and gen_generic
 	into gen, merge gen_gimple_kids and gen_generic_kids into
 	gen_kids.

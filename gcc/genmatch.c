@@ -1719,8 +1719,10 @@ dt_node::gen_kids (FILE *f, bool gimple)
     {
       expr *e = as_a <expr *>(generic_exprs[i]->op);
       id_base *op = e->operation;
-      /* ??? CONVERT */
-      fprintf (f, "case %s:\n", op->id);
+      if (*op == CONVERT_EXPR || *op == NOP_EXPR)
+	fprintf (f, "CASE_CONVERT:\n");
+      else
+	fprintf (f, "case %s:\n", op->id);
       fprintf (f, "{\n");
       generic_exprs[i]->gen (f, gimple);
       fprintf (f, "break;\n"
