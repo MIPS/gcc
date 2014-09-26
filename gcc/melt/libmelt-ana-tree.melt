@@ -472,14 +472,18 @@ treerr
 ;; pattern (tree_method_type <return type>) match a tree method type.
 (defcmatcher tree_method_type
   (:tree tr)
-  (:tree trtyp)
+  (:tree trtyp trbasety trargty)
   tmethoty
-  :doc #{$TREE_METHOD_TYPE match a method type tree $TR extracting the result type tree $TRTYP}#
+  :doc #{$TREE_METHOD_TYPE match a method type tree $TR extracting the
+  result type tree $TRTYP, the basetype $TRBASETY, the arguments
+  $TRARGTY.}#
   ;; test expansion
   #{ /*  tree_method_type $TMETHOTY ? */ (($tr) && TREE_CODE($tr) == METHOD_TYPE) }#
   ;; fill expansion
   #{ /*  tree_method_type $TMETHOTY ! */
-      $TRTYP = TREE_TYPE($tr);
+  $TRTYP = TREE_TYPE($tr);
+  $TRBASETY = TYPE_METHOD_BASETYPE($TR);
+  $TRARGTY = TYPE_ARG_TYPES($TR);
   }#)
 
 ;; pattern (tree_lang_type)
