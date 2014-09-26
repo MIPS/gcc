@@ -1,3 +1,20 @@
+2014-09-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.h (gcc::jit::recording::context): Convert field
+	"m_first_error_str" from a fixed-size buffer to a pointer, and add
+	a field "m_owns_first_error_str" to determine if we're responsible
+	for freeing it.
+	* internal-api.c (gcc::jit::recording::context::context): Update
+	initializations in ctor for above change.
+	(gcc::jit::recording::context::~context): Free m_first_error_str
+	if we own it.
+	(gcc::jit::recording::context::add_error_va): When capturing the
+	first error message on a context, rather than copying "errmsg" to
+	a fixed-size buffer and truncating if oversize, simply store the
+	pointer to the error message, and flag whether we need to free it.
+	(gcc::jit::recording::context::get_first_error): Update for change
+	of "m_first_error_str" from an internal buffer to a pointer.
+
 2014-09-25  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::playback::context::compile): Use

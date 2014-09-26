@@ -378,7 +378,9 @@ private:
   context *m_parent_ctxt;
 
   int m_error_count;
-  char m_first_error_str[1024];
+
+  char *m_first_error_str;
+  bool m_owns_first_error_str;
 
   const char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];
   int m_int_options[GCC_JIT_NUM_INT_OPTIONS];

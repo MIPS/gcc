@@ -188,14 +188,14 @@ recording::playback_block (recording::block *b)
 recording::context::context (context *parent_ctxt)
   : m_parent_ctxt (parent_ctxt),
     m_error_count (0),
+    m_first_error_str (NULL),
+    m_owns_first_error_str (false),
     m_mementos (),
     m_compound_types (),
     m_functions (),
     m_FILE_type (NULL),
     m_builtins_manager(NULL)
 {
-  m_first_error_str[0] = '\0';
-
   if (parent_ctxt)
     {
       /* Inherit options from parent.
@@ -234,6 +234,9 @@ recording::context::~context ()
 
   if (m_builtins_manager)
     delete m_builtins_manager;
+
+  if (m_owns_first_error_str)
+    free (m_first_error_str);
 }
 
 /* Add the given mememto to the list of those tracked by this
@@ -901,12 +904,19 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
 {
   char *malloced_msg;
   const char *errmsg;
+  bool has_ownership;
 
   vasprintf (&malloced_msg, fmt, ap);
   if (malloced_msg)
-    errmsg = malloced_msg;
+    {
+      errmsg = malloced_msg;
+      has_ownership = true;
+    }
   else
-    errmsg = "out of memory generating error message";
+    {
+      errmsg = "out of memory generating error message";
+      has_ownership = false;
+    }
 
   const char *ctxt_progname =
     get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
@@ -925,13 +935,14 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
 
   if (!m_error_count)
     {
-      strncpy (m_first_error_str, errmsg, sizeof(m_first_error_str));
-      m_first_error_str[sizeof(m_first_error_str) - 1] = '\0';
+      m_first_error_str = const_cast <char *> (errmsg);
+      m_owns_first_error_str = has_ownership;
     }
+  else
+    if (has_ownership)
+      free (malloced_msg);
 
   m_error_count++;
-
-  free (malloced_msg);
 }
 
 /* Get the message for the first error that occurred on this context, or
@@ -943,10 +954,7 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
 const char *
 recording::context::get_first_error () const
 {
-  if (m_error_count)
-    return m_first_error_str;
-  else
-    return NULL;
+  return m_first_error_str;
 }
 
 /* Lazily generate and record a recording::type representing an opaque
