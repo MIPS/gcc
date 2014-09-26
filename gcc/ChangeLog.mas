@@ -1,3 +1,10 @@
+2014-09-26  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (struct dt_node): Merge gen_gimple and gen_generic
+	into gen, merge gen_gimple_kids and gen_generic_kids into
+	gen_kids.
+	(struct dt_operand): Likewise.
+
 2014-09-25  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (struct c_expr): Also record capture identifier
