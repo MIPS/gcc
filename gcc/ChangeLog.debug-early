@@ -1,5 +1,13 @@
 2014-09-26  Aldy Hernandez  <aldyh@redhat.com>
 
+	* dwarf2out.c (gen_subprogram_die): Use old die if it was dumped
+	early.
+	Rearrange some comments.
+	(gen_variable_die): Move initialization of origin_die closer to
+	use.
+
+2014-09-26  Aldy Hernandez  <aldyh@redhat.com>
+
 	* dwarf2out.c (dwarf2out_early_global_decl): Do not set cfun.
 	(gen_variable_die): Set origin_die before we exit early.
 

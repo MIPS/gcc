@@ -18308,14 +18308,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  && !get_AT (old_die, DW_AT_inline))
 	{
 	  /* Detect and ignore this case, where we are trying to output
-	     something we have already output.
-
-	     If we have no location information, this must be a
-	     partially generated DIE from early dwarf generation.
-	     Fall through and generate it.  */
+	     something we have already output.  */
 	  if (get_AT (old_die, DW_AT_low_pc)
 	      || get_AT (old_die, DW_AT_ranges))
 	  return;
+
+	  /* If we have no location information, this must be a
+	     partially generated DIE from early dwarf generation.
+	     Fall through and generate it.  */
 	}
 
       /* If the definition comes from the same place as the declaration,
@@ -18325,11 +18325,12 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	 instances of inlines, since the spec requires the out-of-line copy
 	 to have the same parent.  For local class methods, this doesn't
 	 apply; we just use the old DIE.  */
-      if ((is_cu_die (old_die->die_parent) || context_die == NULL)
-	  && (DECL_ARTIFICIAL (decl)
-	      || (get_AT_file (old_die, DW_AT_decl_file) == file_index
-		  && (get_AT_unsigned (old_die, DW_AT_decl_line)
-		      == (unsigned) s.line))))
+      if (old_die->dumped_early
+	  || ((is_cu_die (old_die->die_parent) || context_die == NULL)
+	      && (DECL_ARTIFICIAL (decl)
+		  || (get_AT_file (old_die, DW_AT_decl_file) == file_index
+		      && (get_AT_unsigned (old_die, DW_AT_decl_line)
+			  == (unsigned) s.line)))))
 	{
 	  subr_die = old_die;
 
@@ -18926,7 +18927,6 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   tree ultimate_origin;
   dw_die_ref var_die;
   dw_die_ref old_die = decl ? lookup_decl_die (decl) : NULL;
-  dw_die_ref origin_die;
   bool declaration = (DECL_EXTERNAL (decl_or_origin)
 		      || class_or_namespace_scope_p (context_die));
   bool specialization_p = false;
@@ -19050,6 +19050,8 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   if (old_die && !declaration && !local_scope_p (context_die))
     return;
 
+  dw_die_ref origin_die = NULL;
+
   /* If a DIE was dumped early, it still needs location info.  Skip to
      the part where we fill the location bits.  */
   if (old_die && old_die->dumped_early)
@@ -19057,7 +19059,6 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
       gcc_assert (old_die->die_parent == context_die);
       var_die = old_die;
       old_die = NULL;
-      origin_die = NULL;
       goto gen_variable_die_location;
     }
 
@@ -19069,7 +19070,6 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   else
     var_die = new_die (DW_TAG_variable, context_die, decl);
 
-  origin_die = NULL;
   if (origin != NULL)
     origin_die = add_abstract_origin_attribute (var_die, origin);
 
