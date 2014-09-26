@@ -19057,6 +19057,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
       gcc_assert (old_die->die_parent == context_die);
       var_die = old_die;
       old_die = NULL;
+      origin_die = NULL;
       goto gen_variable_die_location;
     }
 
@@ -20879,40 +20880,26 @@ dwarf2out_early_global_decl (tree decl)
   bool save = symtab->global_info_ready;
   symtab->global_info_ready = true;
 
-  bool fndecl_was_null = false;
   /* We don't handle TYPE_DECLs.  If required, they'll be reached via
      other DECLs and they can point to template types or other things
      that dwarf2out can't handle when done via dwarf2out_decl.  */
   if (TREE_CODE (decl) != TYPE_DECL
       && TREE_CODE (decl) != PARM_DECL)
     {
+      tree save_fndecl = current_function_decl;
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
-	  /* A missing cfun means the symbol is unused and was removed
-	     from the callgraph.  */
+	  /* A missing cfun means the symbol is unused.  */
 	  if (!DECL_STRUCT_FUNCTION (decl))
 	    goto early_decl_exit;
 
-	  if (current_function_decl)
-	    push_cfun (DECL_STRUCT_FUNCTION (decl));
-	  else
-	    {
-	      set_cfun (DECL_STRUCT_FUNCTION (decl));
-	      fndecl_was_null = true;
-	    }
 	  current_function_decl = decl;
 	}
       dw_die_ref die = dwarf2out_decl (decl);
       if (die)
 	die->dumped_early = true;
       if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  if (fndecl_was_null)
-	    set_cfun (NULL);
-	  else
-	    pop_cfun ();
-	  current_function_decl = NULL;
-	}
+	current_function_decl = save_fndecl;
     }
  early_decl_exit:
   symtab->global_info_ready = save;
