@@ -1520,6 +1520,9 @@ current function and gives its declaration in $CFUNDECL}#
   (					;local formals
    :tree tlocdecl :long ix
   )
+  :doc #{$EACH_LOCAL_DECL_CFUN iterates on every local declaration
+  $TLOCDECK of index $IX in the current cfun using
+  @code{FOR_EACH_LOCAL_DECL}.}#
   ;;before expansion
   #{ /* start each_local_decl_cfun $EACHLOCALCFUN */ const int $EACHLOCALCFUN#_line = __LINE__;
    $TLOCDECL = (tree) NULL;

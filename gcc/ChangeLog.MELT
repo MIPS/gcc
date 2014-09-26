@@ -2,6 +2,11 @@
 
 2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-base.melt (each_local_decl_cfun): Add a :doc
+	string.
+
+2014-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt
 	(foreach_chain_value_purpose_in_tree_list): New citerator.
 
