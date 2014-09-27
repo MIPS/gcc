@@ -1,3 +1,101 @@
+2014-09-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	DR 1339
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* include/bits/stl_uninitialized.h (uninitialized_fill_n): Return
+	an iterator.
+	(__uninitialized_fill_n_a, __uninitialized_default_n_a): Likewise.
+	* include/bits/stl_vector.h (vector::_M_fill_initialize,
+	vector::_M_default_initialize): Use returned iterator.
+	* include/bits/vector.tcc (vector::_M_fill_assign,
+	vector::_M_fill_insert, vector::_M_default_append): Likewise.
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill_n/
+	16505.cc: Adjust return type.
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill_n/
+	dr1339.cc: New.
+
+2014-09-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/vector.tcc (vector::_M_fill_assign): Use _M_swap_data.
+
+2014-09-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/27_io/basic_ios/conv/bool_neg.cc: New.
+	* testsuite/27_io/basic_ios/conv/bool.cc: New.
+	* testsuite/27_io/basic_ios/conv/voidptr.cc: New.
+
+	* testsuite/27_io/basic_ios/conv/bool_neg.cc: Add dg-do compile.
+
+2014-09-25  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/63199
+	* include/bits/regex.h (basic_regex::basic_regex, basic_regex::assign,
+	basic_regex::imbue, basic_regex::getloc, basic_regex::swap): Add
+	_M_loc for basic_regex.
+	* include/bits/regex_automaton.h: Add _M_traits for _NFA.
+	* include/bits/regex_compiler.h (_Compiler::_M_get_nfa, __compile_nfa):
+	Make _Compiler::_M_nfa heap allocated.
+	* include/bits/regex_compiler.tcc (_Compiler::_Compiler): Make
+	_Compiler::_M_nfa heap allocated.
+	* include/bits/regex_executor.h (_Executor::_M_is_word):
+	Fix accessing _M_traits.
+	* include/bits/regex_executor.tcc (_Executor::_M_dfs):
+	Fix accessing _M_traits.
+	* testsuite/28_regex/algorithms/regex_match/ecma/wchar_t/63199.cc:
+	New testcase.
+
+2014-09-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Make GLIBCXX_3.4 patterns stricter so the
+	new GLIBCXX_3.4.21 symbols don't match them.
+
+	PR libstdc++/56193
+	* config/abi/pre/gnu.ver: Add new exports.
+	* include/bits/basic_ios.h (basic_ios::operator bool): Define.
+	* src/c++98/ios_locale.cc (basic_ios::operator void*): Instantiate.
+
+2014-09-24  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/29988
+	* include/bits/stl_tree.h (_Rb_tree_reuse_or_alloc_node<>): New.
+	(_Rb_tree_alloc_node<>): New.
+	(_Rb_tree<>::operator=(_Rb_tree<>&&)): New.
+	(_Rb_tree<>::_M_assign_unique): New.
+	(_Rb_tree<>::_M_assign_equal): New.
+	(_Rb_tree<>): Adapt to reuse allocated nodes as much as possible.
+	* include/bits/stl_map.h
+	(std::map<>::operator=(std::map<>&&)): Default implementation.
+	(std::map<>::operator=(initializer_list<>)): Adapt to use
+	_Rb_tree::_M_assign_unique.
+	* include/bits/stl_multimap.h
+	(std::multimap<>::operator=(std::multimap<>&&)): Default implementation.
+	(std::multimap<>::operator=(initializer_list<>)): Adapt to use
+	_Rb_tree::_M_assign_equal.
+	* include/bits/stl_set.h
+	(std::set<>::operator=(std::set<>&&)): Default implementation.
+	(std::set<>::operator=(initializer_list<>)): Adapt to use
+	_Rb_tree::_M_assign_unique.
+	* include/bits/stl_multiset.h
+	(std::multiset<>::operator=(std::multiset<>&&)): Default implementation.
+	(std::multiset<>::operator=(initializer_list<>)): Adapt to use
+	_Rb_tree::_M_assign_equal.
+	* testsuite/23_containers/map/allocator/copy_assign.cc (test03): New.
+	* testsuite/23_containers/map/allocator/init-list.cc: New.
+	* testsuite/23_containers/map/allocator/move_assign.cc (test03): New.
+	* testsuite/23_containers/multimap/allocator/copy_assign.cc
+	(test03): New.
+	* testsuite/23_containers/multimap/allocator/init-list.cc: New.
+	* testsuite/23_containers/multimap/allocator/move_assign.cc
+	(test03): New.
+	* testsuite/23_containers/multiset/allocator/copy_assign.cc
+	(test03): New.
+	* testsuite/23_containers/multiset/allocator/init-list.cc: New.
+	* testsuite/23_containers/multiset/allocator/move_assign.cc
+	(test03): New.
+	* testsuite/23_containers/set/allocator/copy_assign.cc (test03): New.
+	* testsuite/23_containers/set/allocator/init-list.cc: New.
+	* testsuite/23_containers/set/allocator/move_assign.cc (test03): New.
+
 2014-09-24  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/63353
