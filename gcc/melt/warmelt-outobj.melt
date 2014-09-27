@@ -2384,8 +2384,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf "#undef MELTFRAM_NBVARPTR")
 	(add2sbuf_indentnl implbuf 0)
+	(add2out implbuf "} /* end melt_start_this_module fromline " (this_line) " */")
 	(add2sbuf_indentnl implbuf 0)
-	(add2out implbuf "} /* end fromline " (this_line) " */")
 	(add2sbuf_indentnl implbuf 0)
 	;; output the implementation of each chunk
 	(foreach_in_multiple
