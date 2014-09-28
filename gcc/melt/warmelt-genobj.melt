@@ -614,8 +614,14 @@
 
 
  ;;; routines
+(defclass class_protoroutineobj
+  :super class_named
+  :fields (oprout_loc 			;source location
+	   oprout_filenum		;boxed C file number
+	   ))
+	   
  (defclass class_routineobj
-   :super class_named
+   :super class_protoroutineobj
    :fields (obrout_proc			;the associated procedure
 	    obrout_body			;the body (a list)
 	    obrout_nbval			;the boxed number of value pointers
@@ -633,10 +639,8 @@
  (defclass class_procroutineobj
    :super class_routineobj
    :fields (oprout_getargs		;the get arguments tuple of instructions
-	    oprout_loc			;the source location
 	    oprout_funam			;function name
 	    oprout_restnam		;the name used for variadic arguments, or else null
-	    oprout_filenum		;boxed C file number
 	    ))
 
 
@@ -770,6 +774,7 @@
   class_objtouch
   class_objvalue
   class_procroutineobj
+  class_protoroutineobj
   class_routineobj
   )					;end export_class
 

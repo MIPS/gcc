@@ -1,4 +1,16 @@
 
+2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-build-script.tpl (meltbuild_do_an_extra): Typo in emitted
+	if condition.
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-genobj.melt (class_protoroutineobj): New class with
+	fields oprout_loc & oprout_filenum moved from...
+	(class_routineobj): Moved fields into class_protoroutineobj.
+
+
 2014-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine):

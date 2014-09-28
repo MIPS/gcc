@@ -764,7 +764,7 @@ function meltbuild_do_an_extra () {
        -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-final-translator.stamp \
        -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-final-library.stamp \
        -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-sources/$xtrabase.melt \
-  	 ; then
+  	] ; then
       meltbuild_info [+(.(fromline))+] emit extra C++ code for $xtrabase
       meltbuild_emit [+(.(fromline))+] \
   	  translatefile \
