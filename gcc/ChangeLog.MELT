@@ -1,6 +1,15 @@
 
 2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compile2obj_initproc): Make a
+	listrestrout and return its secondarily, which is currently
+	useless.
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit a
+	#warning when a module does not claim GPL compatibility.
+
+2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 
 2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>

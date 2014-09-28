@@ -1562,6 +1562,7 @@
 	 (modinienv (get_field :mocx_initialenv modctx))
 	 (modnam  (get_field :mocx_modulename modctx))
 	 (rawmodnam (clone_with_discriminant modnam discr_verbatim_string))
+	 (listrestrout (make_list discr_list))
 	 (oinitrout
 	  (let ( (oi
 		  (instance class_initial_module_routineobj
@@ -1813,10 +1814,10 @@
 	   ;;
 	   ;; append the compiled toplevel
 	   (append_commentconst oinibody "before toplevel body")
-	   (list_every 
+	   (each_component_in_list
 	    objtoplis
-	    (lambda (curobjt)
-	      (list_append oinibody curobjt)))
+	    curobjt
+	    (list_append oinibody curobjt))
 	   (append_commentconst oinibody "after toplevel body")
 	   ;; we compute the boxloc again
 	   (append_commentconst oinibody "compute boxloc again")
@@ -1859,8 +1860,9 @@
 	   (list_append oinibody osetretinit))
 ;;; ending
 	 (append_commentconst oinibody "end the initproc")
-	 (debug "compile2obj_initproc final oinibody=" oinibody " gcx=" gcx " oinitrout=" oinitrout)
-	 (return oinitrout)
+	 (debug "compile2obj_initproc" " final oinibody=" oinibody " gcx=" gcx " oinitrout=" oinitrout
+		"\n.. listrestrout=" listrestrout)
+	 (return oinitrout listrestrout)
 	 ))))
 
 

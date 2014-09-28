@@ -2138,6 +2138,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  ( (null omodgpl)
 	    (add2out declbuf "// this MELT module " omodnam " does not claim GPL compatibility.")
 	    (add2sbuf_indentnl declbuf 0)
+	    (add2out declbuf "#warning this MELT module " omodnam " does not claim GPL compatibility.")
+	    (add2sbuf_indentnl declbuf 0)
 	    (warning_at ()
 			"MELT module $1 does not claim GPL compatibility using MODULE_IS_GPL_COMPATIBLE macro" omodnam)
 	    (inform_at ()
