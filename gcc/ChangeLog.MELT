@@ -1,6 +1,12 @@
 
 2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): The
+	iniproctransl argument can be a closure returning secondarily a
+	tuple or list of quasiroutines...
+
+2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 
 2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>

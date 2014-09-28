@@ -2102,6 +2102,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (defun outpucod_initialmoduleroutine (pini declbuf implbuf :long depth)
   (debug "outpucod_initialmoduleroutine start pini=" pini
 	 "\n of discrim=" (discrim pini))
+  (shortbacktrace_dbg "outpucod_initialmoduleroutine" 15)
   (assert_msg "check pini" (is_a pini class_initial_module_routineobj) pini)
   (let ( 
 	(idatup (unsafe_get_field :oirout_data pini)) 
@@ -2347,7 +2348,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (add2sbuf_cident declbuf omodnam)
 	 (add2sbuf_strconst declbuf "__initialmeltchunk_")
 	 (add2sbuf_longdec declbuf chunkix)
-	 (add2sbuf_strconst declbuf " (meltinitial_frame_t*, char*);")
+	 (add2sbuf_strconst declbuf " (meltinitial_frame_t*, char*); //declare")
+	 (add2sbuf_indentnl declbuf 0)
 	 (add2sbuf_indentnl implbuf 1)
 	 (add2sbuf_strconst implbuf "meltmod__")
 	 (add2sbuf_cident implbuf omodnam)
@@ -6419,9 +6421,9 @@ if (1) return;
   ;; NORMALISTHANDLER is null or a closure to post-process the
   ;; normalized list
   ;;
-  ;; INIPROCTRANSL is the translator of the initial routine
+  ;; INIPROCTRANSL is the translator of the initial routine, it may return secondarily a list or tuple of protoroutines.
   ;;
-;;;;;;;;;;;;;;;;
+  ;; ----------
   (debug "translate_macroexpanded_list modnamstr=" modnamstr "\n* modctx=" modctx
 	 "\n* inienv=" inienv
 	 "\n* iniproctransl=" iniproctransl)
@@ -6507,9 +6509,9 @@ if (1) return;
        (shortbacktrace_dbg "translate_macroexpanded_list" 14)
        ;;
        (assert_msg "check prolist" (is_list prolist) prolist)
-       (foreach_pair_component_in_list
-	(prolist)
-	(curpair pro)
+       (each_component_in_list
+	prolist
+	pro
 	(setq count (+i count 1))
 	(debug "translate_macroexpanded_list pro=" pro 
 	       "\n.. compicache=" compicache
@@ -6537,7 +6539,7 @@ if (1) return;
 	     ))
 	 ( :else
 	   (assert_msg "translate_macroexpanded_list unexpected procedure" () pro))
-	 ))				;end foreach_pair_component_in_list
+	 ))			   ;end foreach_pair_component_in_list
        ;;
        (when (melt_error_counter)
 	 (if (is_closure errorhdlr) 
@@ -6552,9 +6554,9 @@ if (1) return;
        ;; compile the initial procedure
        (assert_msg "check objlist" (is_list objlist) objlist)
        (debug "translate_macroexpanded_list checking elements of objlist=" objlist)
-       (foreach_pair_component_in_list
-	(objlist)
-	(pairel obel)
+       (each_component_in_list
+	objlist
+	obel
 	(assert_msg "check obel is object" (is_object obel) obel)
 	)
        ;;
@@ -6589,432 +6591,507 @@ if (1) return;
 	 (debug "translate_macroexpanded_list inipro= " inipro
 		"\n before calling iniproctransl=" iniproctransl
 		"\n.. objlist=" objlist)
-	 (foreach_pair_component_in_list
-	  (objlist)
-	  (pairel obel)
+	 (each_component_in_list
+	  objlist
+	  obel
 	  (assert_msg "check obel is object" (is_object obel) obel)
 	  )
-	 (let ( (iniobj
-		 (iniproctransl inipro modctx inidata compicache procurmodenvlist)) 
+	 ;;
+	 (multicall
+	  (iniobj inirest)
+	  (iniproctransl inipro modctx inidata compicache procurmodenvlist)
+	  (debug "translate_macroexpanded_list iniobj=" iniobj
+		 "\n.. inirest=" inirest
+		 "\n objlist=" objlist)
+	  ;;
+	  ;;
+	  (let ( 
+		(mstartcom (get_field :mocx_startcomment modctx))
+		(mheadertup (list_to_multiple (get_field :mocx_cheaderlist modctx) discr_multiple))
+		(mimplemtup (list_to_multiple (get_field :mocx_cimplementlist modctx) discr_multiple))
+		(modvarlist (get_field :mocx_varlist modctx))
+		(:long nbheaders (multiple_length mheadertup))
+		(:long nbimplems (multiple_length mimplemtup))
+		(modhookdict (get_field :mocx_hookdict modctx))
+		(:long nbmodhooks (mapstring_count modhookdict))
+		(:long leninirest
+		       (cond ( (null inirest)
+			       0)
+			     ( (is_list inirest)
+			       (list_length inirest))
+			     ( (is_multiple inirest)
+			       (multiple_length inirest))
+			     (:else
+			      (assert_msg "translate_macroexpanded_list invalid inirest" () inirest)
+			      -1)))
+		(hookswithmodvarlist (make_list discr_list)) ; hack to generate hook with :var
 		)
-	   (debug "translate_macroexpanded_list iniobj=" iniobj
-		  "\n objlist=" objlist)
-;;;
-;;;;;;;;;
-	   (let ( 
-		 (mstartcom (get_field :mocx_startcomment modctx))
-		 (mheadertup (list_to_multiple (get_field :mocx_cheaderlist modctx) discr_multiple))
-		 (mimplemtup (list_to_multiple (get_field :mocx_cimplementlist modctx) discr_multiple))
-		 (modvarlist (get_field :mocx_varlist modctx))
-		 (:long nbheaders (multiple_length mheadertup))
-		 (:long nbimplems (multiple_length mimplemtup))
-		 (modhookdict (get_field :mocx_hookdict modctx))
-		 (:long nbmodhooks (mapstring_count modhookdict))
-		 (hookswithmodvarlist (make_list discr_list)) ; hack to generate hook with :var
-		 )
-	     (debug "translate_macroexpanded_list mstartcom=" mstartcom
-		    "\n .. mheadertup=" mheadertup
-		    "\n .. mimplemtup=" mimplemtup)
-	     (add2out declbuf "/**** MELT GENERATED DECLARATIONS for ")
-	     (add2sbuf_ccomstring declbuf (make_string_nakedbasename discr_string modnamstr))
-	     (add2out declbuf " ** DO NOT EDIT ; see gcc-melt.org ****/")
-	     (add2sbuf_indentnl declbuf 0)
-	     ;;
-	     (add2out implbuf "/**** MELT GENERATED IMPLEMENTATIONS for ")
-	     (add2sbuf_ccomstring implbuf (make_string_nakedbasename discr_string modnamstr))
-	     (add2out implbuf " ** DO NOT EDIT ; see gcc-melt.org ****/")
-	     (add2sbuf_indentnl declbuf 0)
-	     (add2sbuf_indentnl implbuf 0)
-	     (when (is_string mstartcom)
-	       (add2out declbuf "/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
-	       (add2sbuf_ccomstring declbuf mstartcom)
-	       (add2sbuf_indentnl declbuf 0)
-	       (add2out declbuf "----------------------------------------------------------------****/\n\n")
-	       (add2sbuf_indentnl declbuf 0))
-	     ;;
-	     (if modinienv
-		 (progn
-		   ;; plain module
-		   (add2out declbuf "/** ordinary MELT module " modnamstr "**/")
-		   (add2sbuf_indentnl declbuf 0)
-		   (add2out declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 1 /*usualmodule*/\n")
-		   )
-	       (progn
-		 ;; lack of initial environment happens only in translateinit
-		 ;; mode for warmelt-first.melt
-		 (add2out declbuf "/** first MELT module " modnamstr "**/")
-		 (add2sbuf_indentnl declbuf 0)
-		 (add2out declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 0 /*firstmodule*/\n")
-		 (code_chunk 
-		  check_warmelt_first_bootstrapping_chunk #{ 
-		  /* translate_macroexpanded_list $CHECK_WARMELT_FIRST_BOOTSTRAPPING_CHUNK */ 
-		  melt_checkmsg ("bootstrapping first file",
-				 melt_flag_bootstrapping 
-				 && melt_string_str((melt_ptr_t) $MODNAMSTR)
-				 && strstr(melt_string_str((melt_ptr_t) $MODNAMSTR), "first")) ;
-		  }#)
-		 ))
-	     (add2sbuf_indentnl declbuf 0)
-	     (add2sbuf_indentnl declbuf 0)
-	     (add2sbuf_indentnl declbuf 0)
-	     (add2out declbuf "class " (initial_classy_frame_name iniobj) "; // forward declaration fromline " (this_line))
-	     (add2sbuf_indentnl declbuf 0)
-	     (add2out declbuf "typedef " (initial_classy_frame_name iniobj) " Melt_InitialFrame;")
-	     (add2sbuf_indentnl declbuf 0)
-	     ;;
-	     ;;
-	     ;; module variables
-	     (let ( (modvartup (list_to_multiple modvarlist discr_multiple))
-		    (:long nbmodvars (multiple_length modvartup))
-		    (modnamcident (let ( (sbuf (make_strbuf discr_strbuf)) )
-				    (add2sbuf_cident sbuf (get_field :mocx_modulename modctx))
-				    (strbuf2string discr_verbatim_string sbuf)))
-		    )
-	       (if nbmodvars
-		   (progn
-		     (debug "translate_macroexpanded_list modvartup=" modvartup)
-		     (add2out declbuf "/*** " nbmodvars " MELT module variables declarations ****/\n")
-		     (add2out implbuf "/*** " nbmodvars " MELT module variables implementations ****/\n")
-		     (add2out declbuf "MELT_EXTERN void melt_forwarding_module_data (void);\n")
-		     (add2out declbuf "MELT_EXTERN void melt_marking_module_data (void);\n")
-		     ;; declare & define the static pointers and flags
-		     (let ( (:long nbvarslots (*i 16 (+i (/iraw (+i nbmodvars 1) 16) 1)))
-			    (:long nbflags (+i (/iraw nbmodvars 16) 1))
-			    )
-		       (add2out declbuf 
-				"\n"
-				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_ptr_tab[" 
-				nbvarslots "];\n")
-		       (add2out declbuf 
-				"MELT_EXTERN bool MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_flags[" 
-				nbflags "];\n\n")
-		       (add2out implbuf "melt_ptr_t melt_" modnamcident "_module_var_ptr_tab[" nbvarslots "];\n")
-		       (add2out implbuf "bool melt_" modnamcident "_module_var_flags["  nbflags "];\n")
-		       )
-		     ;; emit the fetch & put; useful for outpucod_objfetchmodvar & outpucod_objputmodvar
-		     (add2out declbuf 
-			      "static inline melt_ptr_t\n"
-			      "melt_module_var_fetch (int ix)\n"
-			      "{return (ix > 0  &&  ix <= " nbmodvars ")?melt_" modnamcident "_module_var_ptr_tab[ix]:NULL;}\n\n")
-		     (add2out declbuf 
-			      "static inline void\n" 
-			      "melt_module_var_put (int ix, melt_ptr_t val)\n"
-			      "{\n"
-			      "  if (ix > 0  &&  ix <= " nbmodvars ") {\n"
-			      "    melt_" modnamcident "_module_var_ptr_tab[ix]= val;\n"
-			      "    melt_" modnamcident "_module_var_flags[ix/16] = true;\n  }\n}\n\n")
-		     ;; emit the forwarding routine
-		     (add2out implbuf "\n/**** forwarding MELT module variables ****/\n")
-		     (add2out implbuf "void melt_forwarding_module_data (void) {\n")
-		     (add2out implbuf "  int i, j;\n")
-		     (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
-		     (add2out implbuf "  for (i=0; i<=" (/iraw (+i nbmodvars 1) 16) "; i++) {\n")
-		     (add2out implbuf "    if (melt_" modnamcident "_module_var_flags[i]) {\n")
-		     (add2out implbuf "      melt_" modnamcident "_module_var_flags[i] = false;\n")
-		     (add2out implbuf "      for (j=0; j<16; j++)\n")
-		     (add2out implbuf "        MELT_FORWARDED (melt_" modnamcident "_module_var_ptr_tab[i*16+j]);\n")
-		     (add2out implbuf "    };\n")
-		     (add2out implbuf "  }\n")
-		     (add2out implbuf "} /* end melt_fowarding_module_data */\n\n")
-		     ;; emit the marking routine
-		     (add2out implbuf "\n/**** marking MELT module variables ****/\n")
-		     (add2out implbuf "void melt_marking_module_data (void) {\n")
-		     (add2out implbuf "  int i;\n")
-		     (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
-		     (add2out implbuf "  for (i=1; i <= " nbmodvars "; i++)\n")
-		     (add2out implbuf "    " (get_field :ctype_marker ctype_value) "(melt_" modnamcident "_module_var_ptr_tab[i]);\n")
-		     (add2out implbuf "} /* end melt_marking_module_data */\n\n")
-		     ;;
-		     ;; should emit the enum for the indexes
-		     (add2out declbuf "/* MELT module variables indexes */\n"
-			      "enum {\n"
-			      " meltmodatix_none,\n")
-		     (foreach_in_multiple
-		      (modvartup)
-		      (curmodvarbind :long mvix)
-		      (debug "translate_macroexpanded_list curmodvarbind=" curmodvarbind " mvix#" mvix)
-		      (assert_msg "check curmodvarbind" (is_a curmodvarbind class_normal_module_variable_binding) curmodvarbind)
-		      (add2out declbuf " ")
-		      (out_enumix_modvarbind declbuf curmodvarbind)
-		      (add2out declbuf " = " (+i mvix 1) ",\n")
-		      )
-		     (add2out declbuf " meltmodatix_last\n")
-		     (add2out declbuf "}; /* end MELT module variables indexes */\n")
-		     )
-		 (progn
-		   (add2out declbuf "/**** no MELT module variables ****/\n")
-		   ))
-	       )
-	     ;;
-	     ;;
-	     ;;;; called hook declarations
-	     (if nbmodhooks
-		 (let ( (sortuphook (sorted_named_dict_tuple modhookdict))
-		       )
-		   (debug "translate_macroexpanded_list sortuphook=" sortuphook "\n modhookdict=" modhookdict)
-		   (add2out declbuf "\n/*** " nbmodhooks " MELT called hook declarations ***/\n")
-		   (foreach_in_multiple
-		    (sortuphook)
-		    (curhkdesc :long hkix)
-		    (debug "translate_macroexpanded_list curhkdesc=" curhkdesc "\n .. hkix#" hkix)
-		    (assert_msg "check curhkdesc" (is_a curhkdesc class_hook_descriptor) curhkdesc)
-		    (let ( (hkname (get_field :named_name curhkdesc))
-			   (hkins (get_field :hookdesc_in_formals curhkdesc))
-			   (hkouts (get_field :hookdesc_out_formals curhkdesc))
-			   (hkctype (get_field :hookdesc_ctype curhkdesc))
-			   (hkctypename (get_field :ctype_cname hkctype))
-			   )
-		    (add2out declbuf "\n/*declare MELT called hook #" hkix " " hkname " **/\n")
-		    (add2out declbuf "MELT_EXTERN " hkctypename " melthook_" hkname " (melt_ptr_t melthookdatap")
-		    (foreach_in_multiple
-		     (hkins)
-		     (curinsb :long inix)
-		     (add2out declbuf ", " (get_field :ctype_cname (get_field :fbind_type curinsb))
-			      " meltinp" inix "_" (symbol_cname (get_field :binder curinsb)))
-		     )
-		    (foreach_in_multiple
-		     (hkouts)
-		     (curoutsb :long outix)
-		     (add2out declbuf ", " (get_field :ctype_cname (get_field :fbind_type curoutsb))
-			      "* meltoutp" outix "_" (symbol_cname (get_field :binder curoutsb)))     
-		     )
-		    (add2out declbuf ");\n")
-		   ))
-		   (add2out declbuf
-			    "\n/*** end of " nbmodhooks " MELT called hook declarations ***/\n\n")
-		   )
-	       (progn
-		 (add2out declbuf "/**** no MELT called hook declarations ***/\n")
-		 ))
-	     ;;
-	     ;;
-	     ;;;; headers
-	     (if nbheaders
-		 (progn
-		   (add2out declbuf "/*** " nbheaders " extra MELT c-headers ***/\n")
-		   (foreach_in_multiple
-		    (mheadertup)
-		    (curheader :long hdix)
-		    (debug  "translate_macroexpanded_list curheader=" curheader " hdix#" hdix)
-		    (assert_msg "check curheader" (is_a curheader class_source_cheader) curheader)
-		    (let ( 
-			  (hloc (get_field :loca_location curheader))
-			  (hstr (get_field :sc_codestring curheader))
-			  )
-		      (add2sbuf_indentnl declbuf 0)
-		      (add2sbuf_indentnl declbuf 0)
-		      (add2out declbuf "/** MELT extra c-header " (+i hdix 1) " : h" (obj_hash curheader) " **/\n")
-		      (output_raw_location hloc declbuf 0 "xtracheader")
-		      (add2sbuf_string declbuf hstr)
-		      (add2sbuf_indentnl declbuf 0)
-		      (add2sbuf_indentnl declbuf 0)
-		      )
-		    )
-		    (add2out declbuf "/*** end of " nbheaders " extra MELT c-headers ***/\n")
-		    )
-	       (add2out declbuf "/*** no extra MELT c-headers ***/\n"))
-	     ;;
-	     ;;
-	     (if nbimplems
-		 (progn
-		   (add2out implbuf "/*** " nbimplems " extra MELT implementations ***/\n")
-		   (foreach_in_multiple
-		    (mimplemtup)
-		    (curimplem :long imix)
-		    (assert_msg "check curimplem" (is_a curimplem class_source_cimplement) curimplem)
-		    (let ( 
-			  (iloc (get_field :loca_location curimplem))
-			  (istr (get_field :sc_codestring curimplem))
-			  )
-		      (add2sbuf_indentnl implbuf 0)
-		      (add2sbuf_indentnl implbuf 0)
-		      (add2out implbuf "/** MELT extra c-implementation " (+i imix 1) " : **/\n")
-		      (output_raw_location iloc implbuf 0 "xtracimplem")
-		      (add2sbuf_string implbuf istr)
-		      (add2sbuf_indentnl implbuf 0)		    
-		      ))
-		   (add2out implbuf "/*** end of " nbimplems " extra MELT c-implementations ***/\n")
-		   )
-	       (add2out implbuf "/*** no extra MELT implementations ***/\n"))
-;;;;
-	     ;;
-	     (debug "translate_macroexpanded_list objlist=" objlist)
-	     (foreach_pair_component_in_list
-	      (objlist)
-	      (pairel obel)
-	      (debug "translate_macroexpanded_list obel=" obel)
-	      (assert_msg "check obel" (is_object obel) obel)
-	      ;; hack to generate hook routine with module variable
-	      (when  (is_a obel class_hookroutineobj)
-		(debug "translate_macroexpanded_list obel is hookroutineobj " obel)
-		(let ( (hkproc (get_field :obrout_proc obel))
-		       (hkdata (get_field :nrhook_datahook hkproc))
-		       )
-		  (debug "translate_macroexpanded_list hkproc=" hkproc "\n.. hkdata=" hkdata)
-		(when (get_field :ndhook_modvarbind hkdata)
-		  (list_append hookswithmodvarlist obel)
-		  (debug "translate_macroexpanded_list hookwithmodvar obel=" obel)
-		)))
-	      ;;
-	      ;; we do want to generate several C files...
-	      (let ( (:long filnum
-			    (if (is_a obel class_procroutineobj)
-				(get_int (get_field :oprout_filenum obel))))
-		     (secfil 
-		      (if filnum (nth_secundary_file modctx modnamstr declbuf filnum)))
-		     (outimplbuf 
-		      (if secfil (get_field :secfil_implbuf secfil) implbuf))
-		     )
-		(output_c_code obel declbuf outimplbuf 0)))
-;;;
-	     (debug "translate_macroexpanded_list final modnamstr=" modnamstr " iniobj=" iniobj) 
-	     (add2sbuf_indentnl implbuf 0)
-	     (add2sbuf_indentnl implbuf 0)
-;;;;; emit the syntax generator
-	     (let ( (gendevtup (list_to_multiple  gendevlist discr_multiple))
-		    (:long nbgendev (multiple_length gendevtup))
-		    )
-	       (debug "translate_macroexpanded_list before emit_syntax_testing_routine gendevtup=" gendevtup
-		      " gendevlist=" gendevlist)
-	       (if nbgendev
-		   (emit_syntax_testing_routine gendevtup modctx implbuf)
-		 (add2sbuf_strconst implbuf "/*no syntax testing generated*/")
-		 ))
-	     ;;
-	     (add2sbuf_indentnl implbuf 0)
-;;;; emit the initial routine
-	     (output_c_code iniobj declbuf implbuf 0)
-	     (output_exported_offsets modctx declbuf implbuf)
-	     (debug "translate_macroexpanded_list hookswithmodvarlist=" hookswithmodvarlist)
-	     (let ( (tuphookswithmodvar (list_to_multiple hookswithmodvarlist discr_multiple))
-		    )
-	       (debug "translate_macroexpanded_list tuphookswithmodvar=" tuphookswithmodvar)
-	       (if (multiple_length tuphookswithmodvar)
-		   (output_hooks_with_modvar tuphookswithmodvar modctx declbuf implbuf)))
-	     )
-	   ;; output warnings if the buffer are half the limit
-	   (if (>i (strbuf_usedlength declbuf) (/iraw (get_int !buffer_limit_cont) 2))
-	       (warningmsg_strv "very large declaration string buffer for module " modnamstr))
-	   (if (>i (strbuf_usedlength implbuf) (/iraw (get_int !buffer_limit_cont) 2))
-	       (warningmsg_strv "very large implementation string buffer module for " modnamstr))
-	   ;;
-	   (code_chunk outputcfile
-		       #{ /* translate_macroexpanded_list $OUTPUTCFILE: */
-		       melt_output_cfile_decl_impl
-		       ((melt_ptr_t)($MODNAMSTR),
-			(melt_ptr_t)($DECLBUF),
-			(melt_ptr_t)($IMPLBUF)) ;
-		       }#)
-	   ;;(informsg_strv "warmelt generated module C file" modnamstr)
-	   (let ( (secfiles (get_field :mocx_filetuple modctx)) 
-		  (:long nbsecfiles 0)
-		  (:long lgsecfiles (multiple_length secfiles))
-		  (:long hisecfilerk 0)
+	    (debug "translate_macroexpanded_list mstartcom=" mstartcom
+		   "\n .. mheadertup=" mheadertup
+		   "\n .. mimplemtup=" mimplemtup
+		   "\n .. leninirest=" leninirest)
+	    (add2out declbuf "/**** MELT GENERATED DECLARATIONS for ")
+	    (add2sbuf_ccomstring declbuf (make_string_nakedbasename discr_string modnamstr))
+	    (add2out declbuf " ** DO NOT EDIT ; see gcc-melt.org ****/")
+	    (add2sbuf_indentnl declbuf 0)
+	    ;;
+	    (add2out implbuf "/**** MELT GENERATED IMPLEMENTATIONS for ")
+	    (add2sbuf_ccomstring implbuf (make_string_nakedbasename discr_string modnamstr))
+	    (add2out implbuf " ** DO NOT EDIT ; see gcc-melt.org ****/")
+	    (add2sbuf_indentnl declbuf 0)
+	    (add2sbuf_indentnl implbuf 0)
+	    (when (is_string mstartcom)
+	      (add2out declbuf "/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+	      (add2sbuf_ccomstring declbuf mstartcom)
+	      (add2sbuf_indentnl declbuf 0)
+	      (add2out declbuf "----------------------------------------------------------------****/\n\n")
+	      (add2sbuf_indentnl declbuf 0))
+	    ;;
+	    (if modinienv
+		(progn
+		  ;; plain module
+		  (add2out declbuf "/** ordinary MELT module " modnamstr "**/")
+		  (add2sbuf_indentnl declbuf 0)
+		  (add2out declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 1 /*usualmodule*/\n")
 		  )
-	     (debug "translate_macroexpanded_list secfiles=" secfiles)
-	     (foreach_in_multiple
-	      (secfiles)
-	      (curfil :long filix)
-	      (if curfil
-		  (progn
-		    (assert_msg "check curfil" 
-				(is_a curfil class_secondary_cc_file) curfil)
-		    (assert_msg "check curfil index" 
-				(==i (get_int curfil) filix) curfil filix)
-		    (setq hisecfilerk filix)
-		    (increment nbsecfiles 1)
-		    ;;(setq nbsecfiles (+i nbsecfiles 1))
-		    (let ( (secfilpath (get_field :secfil_path curfil))
-			   (secdeclbuf (get_field :secfil_declbuf curfil))
-			   (secimplbuf (get_field :secfil_implbuf curfil))
-			   )
-		      ;; output warnings if the buffer are half the limit
-		      (if (>i (strbuf_usedlength secdeclbuf) (/iraw (get_int !buffer_limit_cont) 2))
-			  (warningmsg_strv "very large declaration string buffer for secondary file " secfilpath))
-		      (if (>i (strbuf_usedlength secimplbuf) (/iraw (get_int !buffer_limit_cont) 2))
-			  (warningmsg_strv "very large implementation string buffer for secondary file " secfilpath))
-		      ;;
-		      (code_chunk 
-		       secfilout 
-		       #{ /* translate_macroexpanded_list $SECFILOUT: */
-		       melt_output_cfile_decl_impl_secondary 
-		       ((melt_ptr_t)($SECFILPATH),
-			(melt_ptr_t)($SECDECLBUF),
-			(melt_ptr_t)($SECIMPLBUF),
-			$FILIX)		;
-		       }#)
-		      ;;(informsg_strv "warmelt generated secondary C file" secfilpath)
-		      ))
+	      (progn
+		;; lack of initial environment happens only in translateinit
+		;; mode for warmelt-first.melt
+		(add2out declbuf "/** first MELT module " modnamstr "**/")
+		(add2sbuf_indentnl declbuf 0)
+		(add2out declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 0 /*firstmodule*/\n")
+		(code_chunk 
+		 check_warmelt_first_bootstrapping_chunk #{ 
+		 /* translate_macroexpanded_list $CHECK_WARMELT_FIRST_BOOTSTRAPPING_CHUNK */ 
+		 melt_checkmsg ("bootstrapping first file",
+				melt_flag_bootstrapping 
+				&& melt_string_str((melt_ptr_t) $MODNAMSTR)
+				&& strstr(melt_string_str((melt_ptr_t) $MODNAMSTR), "first")) ;
+		 }#)
 		))
-	     ;;
-	     ;; output the descriptive C file 
-	     (debug "translate_macroexpanded_list before output descrfil modctx=" modctx)
-	     (output_melt_descriptor modnamstr secfiles modctx)
-	     ;; remove the old extra files
-	     (foreach_long_upto 
-	      ((+i hisecfilerk 1) (+i hisecfilerk 25))
-	      (:long delfilix)
-	      (if (>i delfilix 0)
-		  (let ( (delfilnam (generated_cc_filename discr_string modnamstr () delfilix))
-			 (baksbuf (make_strbuf discr_strbuf))
-			 )
-		    (add2out baksbuf delfilnam "~")
-		    (let ( (bakfilnam (strbuf2string discr_string baksbuf))
+	    (add2sbuf_indentnl declbuf 0)
+	    (add2sbuf_indentnl declbuf 0)
+	    (add2sbuf_indentnl declbuf 0)
+	    (add2out declbuf "class " (initial_classy_frame_name iniobj) "; // forward declaration fromline " (this_line))
+	    (add2sbuf_indentnl declbuf 0)
+	    (add2out declbuf "typedef " (initial_classy_frame_name iniobj) " Melt_InitialFrame;")
+	    (add2sbuf_indentnl declbuf 0)
+	    ;;
+	    ;;
+	    ;; module variables
+	    (let ( (modvartup (list_to_multiple modvarlist discr_multiple))
+		   (:long nbmodvars (multiple_length modvartup))
+		   (modnamcident (let ( (sbuf (make_strbuf discr_strbuf)) )
+				   (add2sbuf_cident sbuf (get_field :mocx_modulename modctx))
+				   (strbuf2string discr_verbatim_string sbuf)))
+		   )
+	      (if nbmodvars
+		  (progn
+		    (debug "translate_macroexpanded_list modvartup=" modvartup)
+		    (add2out declbuf "/*** " nbmodvars " MELT module variables declarations ****/\n")
+		    (add2out implbuf "/*** " nbmodvars " MELT module variables implementations ****/\n")
+		    (add2out declbuf "MELT_EXTERN void melt_forwarding_module_data (void);\n")
+		    (add2out declbuf "MELT_EXTERN void melt_marking_module_data (void);\n")
+		    ;; declare & define the static pointers and flags
+		    (let ( (:long nbvarslots (*i 16 (+i (/iraw (+i nbmodvars 1) 16) 1)))
+			   (:long nbflags (+i (/iraw nbmodvars 16) 1))
 			   )
-		      (code_chunk 
-		       backupchk
-		       #{ /*translate_macroexpanded_list $BACKUPCHK*/ {
-		       const char* $BACKUPCHK#_delfilnamstr =
-		       melt_string_str ((melt_ptr_t) $DELFILNAM) ;
-		       const char* $BACKUPCHK#_bakfilnamstr = 
-		       melt_string_str ((melt_ptr_t) $BAKFILNAM) ;
-		       if ($BACKUPCHK#_delfilnamstr && $BACKUPCHK#_bakfilnamstr
-						    && !access ($BACKUPCHK#_delfilnamstr, F_OK)) {
-		       if (!rename ($BACKUPCHK#_delfilnamstr, $BACKUPCHK#_bakfilnamstr)) 
-		       inform (UNKNOWN_LOCATION, "MELT backing up previous generated file %s as %s", 
-						 $BACKUPCHK#_delfilnamstr, $BACKUPCHK#_bakfilnamstr) ;
-		       }
-		       $BACKUPCHK#_delfilnamstr = NULL ;
-		       $BACKUPCHK#_bakfilnamstr = NULL ;
-		       } /*end translate_macroexpanded_list $BACKUPCHK*/ }#)
-		      ))))
+		      (add2out declbuf 
+			       "\n"
+			       "MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_ptr_tab[" 
+			       nbvarslots "];\n")
+		      (add2out declbuf 
+			       "MELT_EXTERN bool MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_flags[" 
+			       nbflags "];\n\n")
+		      (add2out implbuf "melt_ptr_t melt_" modnamcident "_module_var_ptr_tab[" nbvarslots "];\n")
+		      (add2out implbuf "bool melt_" modnamcident "_module_var_flags["  nbflags "];\n")
+		      )
+		    ;; emit the fetch & put; useful for outpucod_objfetchmodvar & outpucod_objputmodvar
+		    (add2out declbuf 
+			     "static inline melt_ptr_t\n"
+			     "melt_module_var_fetch (int ix)\n"
+			     "{return (ix > 0  &&  ix <= " nbmodvars ")?melt_" modnamcident "_module_var_ptr_tab[ix]:NULL;}\n\n")
+		    (add2out declbuf 
+			     "static inline void\n" 
+			     "melt_module_var_put (int ix, melt_ptr_t val)\n"
+			     "{\n"
+			     "  if (ix > 0  &&  ix <= " nbmodvars ") {\n"
+			     "    melt_" modnamcident "_module_var_ptr_tab[ix]= val;\n"
+			     "    melt_" modnamcident "_module_var_flags[ix/16] = true;\n  }\n}\n\n")
+		    ;; emit the forwarding routine
+		    (add2out implbuf "\n/**** forwarding MELT module variables ****/\n")
+		    (add2out implbuf "void melt_forwarding_module_data (void) {\n")
+		    (add2out implbuf "  int i, j;\n")
+		    (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
+		    (add2out implbuf "  for (i=0; i<=" (/iraw (+i nbmodvars 1) 16) "; i++) {\n")
+		    (add2out implbuf "    if (melt_" modnamcident "_module_var_flags[i]) {\n")
+		    (add2out implbuf "      melt_" modnamcident "_module_var_flags[i] = false;\n")
+		    (add2out implbuf "      for (j=0; j<16; j++)\n")
+		    (add2out implbuf "        MELT_FORWARDED (melt_" modnamcident "_module_var_ptr_tab[i*16+j]);\n")
+		    (add2out implbuf "    };\n")
+		    (add2out implbuf "  }\n")
+		    (add2out implbuf "} /* end melt_fowarding_module_data */\n\n")
+		    ;; emit the marking routine
+		    (add2out implbuf "\n/**** marking MELT module variables ****/\n")
+		    (add2out implbuf "void melt_marking_module_data (void) {\n")
+		    (add2out implbuf "  int i;\n")
+		    (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
+		    (add2out implbuf "  for (i=1; i <= " nbmodvars "; i++)\n")
+		    (add2out implbuf "    " (get_field :ctype_marker ctype_value) "(melt_" modnamcident "_module_var_ptr_tab[i]);\n")
+		    (add2out implbuf "} /* end melt_marking_module_data */\n\n")
+		    ;;
+		    ;; should emit the enum for the indexes
+		    (add2out declbuf "/* MELT module variables indexes */\n"
+			     "enum {\n"
+			     " meltmodatix_none,\n")
+		    (foreach_in_multiple
+		     (modvartup)
+		     (curmodvarbind :long mvix)
+		     (debug "translate_macroexpanded_list curmodvarbind=" curmodvarbind " mvix#" mvix)
+		     (assert_msg "check curmodvarbind" (is_a curmodvarbind class_normal_module_variable_binding) curmodvarbind)
+		     (add2out declbuf " ")
+		     (out_enumix_modvarbind declbuf curmodvarbind)
+		     (add2out declbuf " = " (+i mvix 1) ",\n")
+		     )
+		    (add2out declbuf " meltmodatix_last\n")
+		    (add2out declbuf "}; /* end MELT module variables indexes */\n")
+		    )
+		(progn
+		  (add2out declbuf "/**** no MELT module variables ****/\n")
+		  ))
+	      )
+	    ;;
+	    ;;
+	    ;; called hook declarations
+	    (if nbmodhooks
+		(let ( (sortuphook (sorted_named_dict_tuple modhookdict))
+		       )
+		  (debug "translate_macroexpanded_list sortuphook=" sortuphook "\n modhookdict=" modhookdict)
+		  (add2out declbuf "\n/*** " nbmodhooks " MELT called hook declarations ***/\n")
+		  (foreach_in_multiple
+		   (sortuphook)
+		   (curhkdesc :long hkix)
+		   (debug "translate_macroexpanded_list curhkdesc=" curhkdesc "\n .. hkix#" hkix)
+		   (assert_msg "check curhkdesc" (is_a curhkdesc class_hook_descriptor) curhkdesc)
+		   (let ( (hkname (get_field :named_name curhkdesc))
+			  (hkins (get_field :hookdesc_in_formals curhkdesc))
+			  (hkouts (get_field :hookdesc_out_formals curhkdesc))
+			  (hkctype (get_field :hookdesc_ctype curhkdesc))
+			  (hkctypename (get_field :ctype_cname hkctype))
+			  )
+		     (add2out declbuf "\n/*declare MELT called hook #" hkix " " hkname " **/\n")
+		     (add2out declbuf "MELT_EXTERN " hkctypename " melthook_" hkname " (melt_ptr_t melthookdatap")
+		     (foreach_in_multiple
+		      (hkins)
+		      (curinsb :long inix)
+		      (add2out declbuf ", " (get_field :ctype_cname (get_field :fbind_type curinsb))
+			       " meltinp" inix "_" (symbol_cname (get_field :binder curinsb)))
+		      )
+		     (foreach_in_multiple
+		      (hkouts)
+		      (curoutsb :long outix)
+		      (add2out declbuf ", " (get_field :ctype_cname (get_field :fbind_type curoutsb))
+			       "* meltoutp" outix "_" (symbol_cname (get_field :binder curoutsb)))     
+		      )
+		     (add2out declbuf ");\n")
+		     ))
+		  (add2out declbuf
+			   "\n/*** end of " nbmodhooks " MELT called hook declarations ***/\n\n")
+		  )
+	      (progn
+		(add2out declbuf "/**** no MELT called hook declarations ***/\n")
+		))
+	    ;;
+	    ;;
+	    ;; headers
+	    (if nbheaders
+		(progn
+		  (add2out declbuf "/*** " nbheaders " extra MELT c-headers ***/\n")
+		  (foreach_in_multiple
+		   (mheadertup)
+		   (curheader :long hdix)
+		   (debug  "translate_macroexpanded_list curheader=" curheader " hdix#" hdix)
+		   (assert_msg "check curheader" (is_a curheader class_source_cheader) curheader)
+		   (let ( 
+			 (hloc (get_field :loca_location curheader))
+			 (hstr (get_field :sc_codestring curheader))
+			 )
+		     (add2sbuf_indentnl declbuf 0)
+		     (add2sbuf_indentnl declbuf 0)
+		     (add2out declbuf "/** MELT extra c-header " (+i hdix 1) " : h" (obj_hash curheader) " **/\n")
+		     (output_raw_location hloc declbuf 0 "xtracheader")
+		     (add2sbuf_string declbuf hstr)
+		     (add2sbuf_indentnl declbuf 0)
+		     (add2sbuf_indentnl declbuf 0)
+		     )
+		   )
+		  (add2out declbuf "/*** end of " nbheaders " extra MELT c-headers ***/\n")
+		  )
+	      (add2out declbuf "/*** no extra MELT c-headers ***/\n"))
+	    ;;
+	    ;;
+	    (if nbimplems
+		(progn
+		  (add2out implbuf "/*** " nbimplems " extra MELT implementations ***/\n")
+		  (foreach_in_multiple
+		   (mimplemtup)
+		   (curimplem :long imix)
+		   (assert_msg "check curimplem" (is_a curimplem class_source_cimplement) curimplem)
+		   (let ( 
+			 (iloc (get_field :loca_location curimplem))
+			 (istr (get_field :sc_codestring curimplem))
+			 )
+		     (add2sbuf_indentnl implbuf 0)
+		     (add2sbuf_indentnl implbuf 0)
+		     (add2out implbuf "/** MELT extra c-implementation " (+i imix 1) " : **/\n")
+		     (output_raw_location iloc implbuf 0 "xtracimplem")
+		     (add2sbuf_string implbuf istr)
+		     (add2sbuf_indentnl implbuf 0)		    
+		     ))
+		  (add2out implbuf "/*** end of " nbimplems " extra MELT c-implementations ***/\n")
+		  )
+	      (add2out implbuf "/*** no extra MELT implementations ***/\n"))
+;;;;
+	    ;;
+	    (debug "translate_macroexpanded_list objlist=" objlist)
+	    (each_component_in_list
+	     objlist
+	     obel
+	     (debug "translate_macroexpanded_list obel=" obel)
+	     (assert_msg "check obel" (is_object obel) obel)
+	     ;; hack to generate hook routine with module variable
+	     (when  (is_a obel class_hookroutineobj)
+	       (debug "translate_macroexpanded_list obel is hookroutineobj " obel)
+	       (let ( (hkproc (get_field :obrout_proc obel))
+		      (hkdata (get_field :nrhook_datahook hkproc))
+		      )
+		 (debug "translate_macroexpanded_list hkproc=" hkproc "\n.. hkdata=" hkdata)
+		 (when (get_field :ndhook_modvarbind hkdata)
+		   (list_append hookswithmodvarlist obel)
+		   (debug "translate_macroexpanded_list hookwithmodvar obel=" obel)
+		   )))
 	     ;;
-	     (debug "translate_macroexpanded_list before endmodnamchk modctx=" modctx)
-	     (code_chunk 
-	      endmodnam
-	      #{ /* translate_macroexpanded_list $ENDMODNAM */
-  #if HAVE_CLOCK && defined (CLOCKS_PER_SEC)
-	      $ENDCLOCK = (long) clock () ;
-	      if (melt_flag_bootstrapping)
-	        inform (UNKNOWN_LOCATION, 
-		      "MELT generated C++ code of module %s with %ld secondary files in %ld CPU millisec [#%ld].", 
-		      melt_string_str ((melt_ptr_t) $MODNAMSTR), $NBSECFILES,
-		      ($ENDCLOCK - $STARTCLOCK) / (CLOCKS_PER_SEC/1000), melt_dbgcounter) ;
-	      else
-	        inform (UNKNOWN_LOCATION, 
-		      "MELT generated C++ code of module %s with %ld secondary files in %ld CPU millisec.", 
-		      melt_string_str ((melt_ptr_t) $MODNAMSTR), $NBSECFILES,
-		      ($ENDCLOCK - $STARTCLOCK) / (CLOCKS_PER_SEC/1000)) ;
-  #else /* no clock */
-	        inform (UNKNOWN_LOCATION, 
-		      "MELT generated C++ code of module %s with %ld secondary files", 
-		      melt_string_str ((melt_ptr_t) $MODNAMSTR), $NBSECFILES) ;
-  #endif /* HAVE_CLOCK && CLOCKS_PER_SEC */
-	      /* end translate_macroexpanded_list $ENDMODNAM */ }#)
-	     (debug "translate_macroexpanded_list ending modctx=" modctx)
-	     (shortbacktrace_dbg "translate_macroexpanded_list ended" 25)
-	     (when (melt_error_counter)
-	       (if (is_closure errorhdlr) 
-		   (errorhdlr '"MELT translation failed after C code emission"))
-	       (code_chunk errorednormal_warnchk 
-			   #{ /* translate_macroexpanded_list $ERROREDNORMAL_WARNCHK */
-			   warning (0, "MELT translation of %s got after emission %ld MELT errors",
-				       melt_string_str((melt_ptr_t) $MODNAMSTR), melt_error_counter) ;
-			   }#)
-	       (return))
-	     )))))))
+	     ;; we do want to generate several C files...
+	     (let ( (:long filnum
+			   (if (is_a obel class_protoroutineobj)
+			       (get_int (get_field :oprout_filenum obel))))
+		    (secfil 
+		     (if filnum (nth_secundary_file modctx modnamstr declbuf filnum)))
+		    (outimplbuf 
+		     (if secfil (get_field :secfil_implbuf secfil) implbuf))
+		    )
+	       (output_c_code obel declbuf outimplbuf 0)))
+	    ;;
+	    (debug "translate_macroexpanded_list final modnamstr=" modnamstr " iniobj=" iniobj) 
+	    (add2sbuf_indentnl implbuf 0)
+	    (add2sbuf_indentnl implbuf 0)
+	    ;; emit the syntax generator
+	    (let ( (gendevtup (list_to_multiple  gendevlist discr_multiple))
+		   (:long nbgendev (multiple_length gendevtup))
+		   )
+	      (debug "translate_macroexpanded_list before emit_syntax_testing_routine gendevtup=" gendevtup
+		     " gendevlist=" gendevlist)
+	      (if nbgendev
+		  (emit_syntax_testing_routine gendevtup modctx implbuf)
+		(add2sbuf_strconst implbuf "/*no syntax testing generated*/")
+		))
+	    ;;
+	    (add2sbuf_indentnl implbuf 0)
+	    ;;
+	    ;; emit the initial routine
+	    (output_c_code iniobj declbuf implbuf 0)
+	    (output_exported_offsets modctx declbuf implbuf)
+	    (debug "translate_macroexpanded_list hookswithmodvarlist=" hookswithmodvarlist)
+	    (let ( (tuphookswithmodvar (list_to_multiple hookswithmodvarlist discr_multiple))
+		   )
+	      (debug "translate_macroexpanded_list tuphookswithmodvar=" tuphookswithmodvar)
+	      (if (multiple_length tuphookswithmodvar)
+		  (output_hooks_with_modvar tuphookswithmodvar modctx declbuf implbuf)))
+	    ;;
+	    ;; emit the rest routines
+	    (when leninirest	      
+	      (add2sbuf_indentnl declbuf 0)
+	      (add2sbuf_indentnl declbuf 0)
+	      (add2out declbuf "/*** emit " leninirest " rest routines from line " (this_line) "**/")
+	      (add2sbuf_indentnl declbuf 0)
+	      (cond
+	       ( (is_list inirest)
+		 (let ( (:long restrix 0)
+			)
+		   (each_component_in_list
+		    inirest
+		    curestrout
+		    (debug "translate_macroexpanded_list" " list-restrix#" restrix " curestrout=" curestrout)
+		    (assert_msg "check curestrout" (is_a curestrout class_protoroutineobj) curestrout)
+		    (let ( (:long filnum
+				  (get_int (get_field :oprout_filenum curestrout)))
+			   (secfil 
+			    (if filnum (nth_secundary_file modctx modnamstr declbuf filnum)))
+			   (outimplbuf 
+			    (if secfil (get_field :secfil_implbuf secfil) implbuf))
+			   )
+		      (add2sbuf_indentnl declbuf 0)
+		      (add2sbuf_indentnl outimplbuf 0)
+		      (add2out outimplbuf "/* rest initial protoroutine #" restrix " */")
+		      (add2sbuf_indentnl outimplbuf 0)		      
+		      (output_c_code curestrout declbuf outimplbuf 0)
+		      )
+		    (setq restrix (+ restrix 1))
+		    (void)
+		    )
+		   )
+		 )
+	       ( (is_multiple inirest)
+		 (foreach_in_multiple
+		  (inirest)
+		  (curestrout :long restrix)
+		  (debug "translate_macroexpanded_list" " tuple-restrix#" restrix " curestrout=" curestrout)
+		  (assert_msg "check curestrout" (is_a curestrout class_protoroutineobj) curestrout)
+		  (let ( (:long filnum
+				(get_int (get_field :oprout_filenum curestrout)))
+			 (secfil 
+			  (if filnum (nth_secundary_file modctx modnamstr declbuf filnum)))
+			 (outimplbuf 
+			  (if secfil (get_field :secfil_implbuf secfil) implbuf))
+			 )
+		    (add2sbuf_indentnl declbuf 0)
+		    (add2sbuf_indentnl outimplbuf 0)
+		    (add2out outimplbuf "/* rest initial protoroutine #" restrix " */")
+		    (add2sbuf_indentnl outimplbuf 0)		      
+		    (output_c_code curestrout declbuf outimplbuf 0))
+		  )
+		 )
+	       (:else
+		(assert_msg "translate_macroexpanded_list unexpected inirest" () inirest)
+		(error_at () "unexpected inirest $1 in translate_macroexpanded_list" inirest)
+		)
+	       )	
+	      )
+	    )
+	  ;; output warnings if the buffer are half the limit
+	  (if (>i (strbuf_usedlength declbuf) (/iraw (get_int !buffer_limit_cont) 2))
+	      (warningmsg_strv "very large declaration string buffer for module " modnamstr))
+	  (if (>i (strbuf_usedlength implbuf) (/iraw (get_int !buffer_limit_cont) 2))
+	      (warningmsg_strv "very large implementation string buffer module for " modnamstr))
+	  ;;
+	  (code_chunk outputcfile
+		      #{ /* translate_macroexpanded_list $OUTPUTCFILE: */
+		      melt_output_cfile_decl_impl
+		      ((melt_ptr_t)($MODNAMSTR),
+		       (melt_ptr_t)($DECLBUF),
+		       (melt_ptr_t)($IMPLBUF)) ;
+		      }#)
+	  ;;(informsg_strv "warmelt generated module C file" modnamstr)
+	  (let ( (secfiles (get_field :mocx_filetuple modctx)) 
+		 (:long nbsecfiles 0)
+		 (:long lgsecfiles (multiple_length secfiles))
+		 (:long hisecfilerk 0)
+		 )
+	    (debug "translate_macroexpanded_list secfiles=" secfiles)
+	    (foreach_in_multiple
+	     (secfiles)
+	     (curfil :long filix)
+	     (if curfil
+		 (progn
+		   (assert_msg "check curfil" 
+			       (is_a curfil class_secondary_cc_file) curfil)
+		   (assert_msg "check curfil index" 
+			       (==i (get_int curfil) filix) curfil filix)
+		   (setq hisecfilerk filix)
+		   (increment nbsecfiles 1)
+		   ;;(setq nbsecfiles (+i nbsecfiles 1))
+		   (let ( (secfilpath (get_field :secfil_path curfil))
+			  (secdeclbuf (get_field :secfil_declbuf curfil))
+			  (secimplbuf (get_field :secfil_implbuf curfil))
+			  )
+		     ;; output warnings if the buffer are half the limit
+		     (if (>i (strbuf_usedlength secdeclbuf) (/iraw (get_int !buffer_limit_cont) 2))
+			 (warningmsg_strv "very large declaration string buffer for secondary file " secfilpath))
+		     (if (>i (strbuf_usedlength secimplbuf) (/iraw (get_int !buffer_limit_cont) 2))
+			 (warningmsg_strv "very large implementation string buffer for secondary file " secfilpath))
+		     ;;
+		     (code_chunk 
+		      secfilout 
+		      #{ /* translate_macroexpanded_list $SECFILOUT: */
+		      melt_output_cfile_decl_impl_secondary 
+		      ((melt_ptr_t)($SECFILPATH),
+		       (melt_ptr_t)($SECDECLBUF),
+		       (melt_ptr_t)($SECIMPLBUF),
+		       $FILIX)		;
+		      }#)
+		     ;;(informsg_strv "warmelt generated secondary C file" secfilpath)
+		     ))
+	       ))
+	    ;;
+	    ;; output the descriptive C file 
+	    (debug "translate_macroexpanded_list before output descrfil modctx=" modctx)
+	    (output_melt_descriptor modnamstr secfiles modctx)
+	    ;; remove the old extra files
+	    (foreach_long_upto 
+	     ((+i hisecfilerk 1) (+i hisecfilerk 25))
+	     (:long delfilix)
+	     (if (>i delfilix 0)
+		 (let ( (delfilnam (generated_cc_filename discr_string modnamstr () delfilix))
+			(baksbuf (make_strbuf discr_strbuf))
+			)
+		   (add2out baksbuf delfilnam "~")
+		   (let ( (bakfilnam (strbuf2string discr_string baksbuf))
+			  )
+		     (code_chunk 
+		      backupchk
+		      #{ /*translate_macroexpanded_list $BACKUPCHK*/ {
+		      const char* $BACKUPCHK#_delfilnamstr =
+		      melt_string_str ((melt_ptr_t) $DELFILNAM) ;
+		      const char* $BACKUPCHK#_bakfilnamstr = 
+		      melt_string_str ((melt_ptr_t) $BAKFILNAM) ;
+		      if ($BACKUPCHK#_delfilnamstr && $BACKUPCHK#_bakfilnamstr
+						   && !access ($BACKUPCHK#_delfilnamstr, F_OK)) {
+		      if (!rename ($BACKUPCHK#_delfilnamstr, $BACKUPCHK#_bakfilnamstr)) 
+		      inform (UNKNOWN_LOCATION, "MELT backing up previous generated file %s as %s", 
+						$BACKUPCHK#_delfilnamstr, $BACKUPCHK#_bakfilnamstr) ;
+		      }
+		      $BACKUPCHK#_delfilnamstr = NULL ;
+		      $BACKUPCHK#_bakfilnamstr = NULL ;
+		      } /*end translate_macroexpanded_list $BACKUPCHK*/ }#)
+		     ))))
+	    ;;
+	    (debug "translate_macroexpanded_list before endmodnamchk modctx=" modctx)
+	    (code_chunk 
+	     endmodnam
+	     #{ /* translate_macroexpanded_list $ENDMODNAM */
+	     #if HAVE_CLOCK && defined (CLOCKS_PER_SEC)
+	     $ENDCLOCK = (long) clock () ;
+	     if (melt_flag_bootstrapping)
+	     inform (UNKNOWN_LOCATION, 
+		     "MELT generated C++ code of module %s with %ld secondary files in %ld CPU millisec [#%ld].", 
+		     melt_string_str ((melt_ptr_t) $MODNAMSTR), $NBSECFILES,
+		     ($ENDCLOCK - $STARTCLOCK) / (CLOCKS_PER_SEC/1000), melt_dbgcounter) ;
+	     else
+	     inform (UNKNOWN_LOCATION, 
+		     "MELT generated C++ code of module %s with %ld secondary files in %ld CPU millisec.", 
+		     melt_string_str ((melt_ptr_t) $MODNAMSTR), $NBSECFILES,
+		     ($ENDCLOCK - $STARTCLOCK) / (CLOCKS_PER_SEC/1000)) ;
+	     #else /* no clock */
+	     inform (UNKNOWN_LOCATION, 
+		     "MELT generated C++ code of module %s with %ld secondary files", 
+		     melt_string_str ((melt_ptr_t) $MODNAMSTR), $NBSECFILES) ;
+	     #endif /* HAVE_CLOCK && CLOCKS_PER_SEC */
+	     /* end translate_macroexpanded_list $ENDMODNAM */ }#)
+	    (debug "translate_macroexpanded_list ending modctx=" modctx)
+	    (shortbacktrace_dbg "translate_macroexpanded_list ended" 25)
+	    (when (melt_error_counter)
+	      (if (is_closure errorhdlr) 
+		  (errorhdlr '"MELT translation failed after C code emission"))
+	      (code_chunk errorednormal_warnchk 
+			  #{ /* translate_macroexpanded_list $ERROREDNORMAL_WARNCHK */
+			  warning (0, "MELT translation of %s got after emission %ld MELT errors",
+				      melt_string_str((melt_ptr_t) $MODNAMSTR), melt_error_counter) ;
+			  }#)
+	      (return))
+	    ))
+	 )))))
   
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;; utility to handle compilation errors as fatal ones
