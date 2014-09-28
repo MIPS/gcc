@@ -1,6 +1,10 @@
 
 2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate.
+
+2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-build-script.tpl (meltbuild_do_an_extra): Typo in emitted
 	if condition.
 

@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601; // forward declaration fromline 6660
-typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142; // forward declaration fromline 6660
+typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 5 MELT called hook declarations ***/
@@ -122,7 +122,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -9382,7 +9382,7 @@ const char melt_module_is_gpl_compatible[]= "warmelt-moremacro: GPLv3+";
 /* the frame for initial routine */
 /** start of frame for melt_start_this_module of CLASS_INITIAL_MODULE_ROUTINEOBJ from 1555**/
 
-/*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601// fromline 1568
+/*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142// fromline 1568
     : public Melt_CallFrameWithValues<130>
 {
 public: /* fromline 1572*/
@@ -9397,24 +9397,24 @@ public: /* fromline 1572*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601(meltclosure_ptr_t clos) //the closure constructor fromline 1630
+    Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<130> (
 #if ENABLE_CHECKING /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1638*/
-            sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601), clos) {};
-    Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601() //the constructor fromline 1642
+            sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142), clos) {};
+    Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142() //the constructor fromline 1642
         : Melt_CallFrameWithValues<130> (
 #if ENABLE_CHECKING /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1650*/
-            sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601)) {};
+            sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142)) {};
 #if ENABLE_CHECKING /*fromline 1654*/
-    Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601(const char*fil, int lin) //the constructor fromline 1656
-        : Melt_CallFrameWithValues<130> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601)) {};
+    Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142(const char*fil, int lin) //the constructor fromline 1656
+        : Melt_CallFrameWithValues<130> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142)) {};
 #endif /* ENABLE_CHECKING fromline 1666*/
 
-}; // end  class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h812811601
+}; // end  class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142
 
 
 /** end of frame for melt_start_this_module fromline 1697**/
@@ -10957,8 +10957,8 @@ meltlabend_rout:
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
+} /* end melt_start_this_module fromline 2387 */
 
-} /* end fromline 2388 */
 
 void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
@@ -12057,14 +12057,14 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t* meltf
         /*^cond*/
         /*cond*/ if (
             /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
-            /* check quasi.cur.mod.env.ref 590361564 */
+            /* check quasi.cur.mod.env.ref 879634211 */
             (/*_._CONTENV___V2*/ meltfptr[1])
         ) /*then*/
             {
                 /*^cond.then*/
                 /*_.OR___V124*/ meltfptr[123] =
                     /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
-                    /* check quasi.cur.mod.env.ref 590361564 */
+                    /* check quasi.cur.mod.env.ref 879634211 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                     ;;
             }
@@ -12108,7 +12108,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t* meltf
         {
             /*hookcall*/ melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_MACRO_EXPORTER))), /*_._VALDATA___V64*/ meltfptr[63], /*_._VALCLO___V39*/ meltfptr[38],
                     /*quasi.cur.mod.env.ref norm.exp.val : EACH_COMPONENT_IN_LIST*/
-                    /* check quasi.cur.mod.env.ref 240932652 */
+                    /* check quasi.cur.mod.env.ref 997439562 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                                                       ) ;
         }
@@ -12149,7 +12149,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t* meltf
         {
             /*hookcall*/ melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_MACRO_EXPORTER))), /*_._VALDATA___V78*/ meltfptr[77], /*_._VALCLO___V71*/ meltfptr[70],
                     /*quasi.cur.mod.env.ref norm.exp.val : GCCIF*/
-                    /* check quasi.cur.mod.env.ref 83083729 */
+                    /* check quasi.cur.mod.env.ref 531232648 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                                                       ) ;
         }
@@ -12192,7 +12192,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t* meltf
         {
             /*hookcall*/ melthook_HOOK_PATMACRO_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_PATMACRO_EXPORTER))), /*_._VALDATA___V90*/ meltfptr[89], /*_._VALCLO___V81*/ meltfptr[80], /*_._VALCLO___V85*/ meltfptr[84],
                     /*quasi.cur.mod.env.ref norm.exp.pat : CONTAINER*/
-                    /* check quasi.cur.mod.env.ref 862319426 */
+                    /* check quasi.cur.mod.env.ref 28470227 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                                                          ) ;
         }
@@ -12233,7 +12233,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t* meltf
         {
             /*hookcall*/ melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_MACRO_EXPORTER))), /*_._VALDATA___V114*/ meltfptr[113], /*_._VALCLO___V111*/ meltfptr[110],
                     /*quasi.cur.mod.env.ref norm.exp.val : QUOTE*/
-                    /* check quasi.cur.mod.env.ref 875351292 */
+                    /* check quasi.cur.mod.env.ref 578048019 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                                                       ) ;
         }
@@ -12274,7 +12274,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t* meltf
         {
             /*hookcall*/ melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_MACRO_EXPORTER))), /*_._VALDATA___V120*/ meltfptr[119], /*_._VALCLO___V119*/ meltfptr[118],
                     /*quasi.cur.mod.env.ref norm.exp.val : BACKQUOTE*/
-                    /* check quasi.cur.mod.env.ref 162811724 */
+                    /* check quasi.cur.mod.env.ref 602190509 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                                                       ) ;
         }
@@ -12315,7 +12315,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t* meltf
         {
             /*hookcall*/ melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_MACRO_EXPORTER))), /*_._VALDATA___V93*/ meltfptr[92], /*_._VALCLO___V123*/ meltfptr[122],
                     /*quasi.cur.mod.env.ref norm.exp.val : COMMA*/
-                    /* check quasi.cur.mod.env.ref 311211115 */
+                    /* check quasi.cur.mod.env.ref 971654367 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                                                       ) ;
         }

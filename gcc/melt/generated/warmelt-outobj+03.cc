@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f3[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h662344738; // forward declaration fromline 6660
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h662344738 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h206452414; // forward declaration fromline 6660
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h206452414 Melt_InitialFrame;
 /*** 1 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
@@ -835,7 +835,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h662344738 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h206452414 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1423,7 +1423,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 2, "OBROUT_PROC");
+                    melt_object_get_field(slot,obj, 4, "OBROUT_PROC");
                     /*_.NHOOKPROC__V13*/ meltfptr[3] = slot;
                 };
                 ;
@@ -1445,7 +1445,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 7, "OBROUT_RETVAL");
+                    melt_object_get_field(slot,obj, 9, "OBROUT_RETVAL");
                     /*_.ORETVAL__V14*/ meltfptr[13] = slot;
                 };
                 ;
@@ -1511,7 +1511,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 10, "OHOOKROUT_DATARG");
+                    melt_object_get_field(slot,obj, 12, "OHOOKROUT_DATARG");
                     /*_.OHKDATARG__V17*/ meltfptr[16] = slot;
                 };
                 ;
@@ -1555,7 +1555,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 11, "OHOOKROUT_INARGS");
+                    melt_object_get_field(slot,obj, 13, "OHOOKROUT_INARGS");
                     /*_.OHKINARGS__V19*/ meltfptr[18] = slot;
                 };
                 ;
@@ -1577,7 +1577,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 12, "OHOOKROUT_OUTARGS");
+                    melt_object_get_field(slot,obj, 14, "OHOOKROUT_OUTARGS");
                     /*_.OHKOUTARGS__V20*/ meltfptr[19] = slot;
                 };
                 ;
@@ -2772,7 +2772,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 2, "OBROUT_PROC");
+                    melt_object_get_field(slot,obj, 4, "OBROUT_PROC");
                     /*_.NHOOKPROC__V12*/ meltfptr[6] = slot;
                 };
                 ;
@@ -2816,7 +2816,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 3, "OBROUT_BODY");
+                    melt_object_get_field(slot,obj, 5, "OBROUT_BODY");
                     /*_.OBODY__V14*/ meltfptr[13] = slot;
                 };
                 ;
@@ -2838,7 +2838,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 4, "OBROUT_NBVAL");
+                    melt_object_get_field(slot,obj, 6, "OBROUT_NBVAL");
                     /*_.NBVAL__V15*/ meltfptr[14] = slot;
                 };
                 ;
@@ -2860,7 +2860,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 5, "OBROUT_NBLONG");
+                    melt_object_get_field(slot,obj, 7, "OBROUT_NBLONG");
                     /*_.NBLONGS__V16*/ meltfptr[15] = slot;
                 };
                 ;
@@ -2882,7 +2882,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 6, "OBROUT_OTHERS");
+                    melt_object_get_field(slot,obj, 8, "OBROUT_OTHERS");
                     /*_.OTHERVARS__V17*/ meltfptr[16] = slot;
                 };
                 ;
@@ -2904,7 +2904,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 7, "OBROUT_RETVAL");
+                    melt_object_get_field(slot,obj, 9, "OBROUT_RETVAL");
                     /*_.ORETVAL__V18*/ meltfptr[17] = slot;
                 };
                 ;
@@ -2970,7 +2970,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 10, "OHOOKROUT_DATARG");
+                    melt_object_get_field(slot,obj, 12, "OHOOKROUT_DATARG");
                     /*_.OHKDATARG__V21*/ meltfptr[20] = slot;
                 };
                 ;
@@ -3014,7 +3014,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 11, "OHOOKROUT_INARGS");
+                    melt_object_get_field(slot,obj, 13, "OHOOKROUT_INARGS");
                     /*_.OHKINARGS__V23*/ meltfptr[22] = slot;
                 };
                 ;
@@ -3036,7 +3036,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 12, "OHOOKROUT_OUTARGS");
+                    melt_object_get_field(slot,obj, 14, "OHOOKROUT_OUTARGS");
                     /*_.OHKOUTARGS__V24*/ meltfptr[23] = slot;
                 };
                 ;
@@ -3058,7 +3058,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PHOOK__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 13, "OHOOKROUT_EPILOG");
+                    melt_object_get_field(slot,obj, 15, "OHOOKROUT_EPILOG");
                     /*_.OHKEPILOG__V25*/ meltfptr[24] = slot;
                 };
                 ;
@@ -5287,7 +5287,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PINI__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 10, "OIROUT_DATA");
+                    melt_object_get_field(slot,obj, 12, "OIROUT_DATA");
                     /*_.ODATUP__V12*/ meltfptr[6] = slot;
                 };
                 ;
@@ -5309,7 +5309,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PINI__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 12, "OIROUT_FILL");
+                    melt_object_get_field(slot,obj, 14, "OIROUT_FILL");
                     /*_.ORFILL__V13*/ meltfptr[12] = slot;
                 };
                 ;
@@ -5331,7 +5331,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PINI__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 11, "OIROUT_PROLOG");
+                    melt_object_get_field(slot,obj, 13, "OIROUT_PROLOG");
                     /*_.OPROLOG__V14*/ meltfptr[13] = slot;
                 };
                 ;
@@ -5346,7 +5346,7 @@ meltlab_endgetargs:
         {
             melt_ptr_t slot=NULL, obj=NULL;
             obj = (melt_ptr_t)(/*_.PINI__V2*/ meltfptr[1]) /*=obj*/;
-            melt_object_get_field(slot,obj, 13, "OIROUT_MODCTX");
+            melt_object_get_field(slot,obj, 15, "OIROUT_MODCTX");
             /*_.OMODU__V15*/ meltfptr[14] = slot;
         };
         ;
@@ -5405,7 +5405,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PINI__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 3, "OBROUT_BODY");
+                    melt_object_get_field(slot,obj, 5, "OBROUT_BODY");
                     /*_.OBODY__V21*/ meltfptr[18] = slot;
                 };
                 ;
@@ -5427,7 +5427,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PINI__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 4, "OBROUT_NBVAL");
+                    melt_object_get_field(slot,obj, 6, "OBROUT_NBVAL");
                     /*_.ONBVAL__V22*/ meltfptr[21] = slot;
                 };
                 ;
@@ -5461,7 +5461,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.PINI__V2*/ meltfptr[1]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 7, "OBROUT_RETVAL");
+                    melt_object_get_field(slot,obj, 9, "OBROUT_RETVAL");
                     /*_.ORETVAL__V23*/ meltfptr[22] = slot;
                 };
                 ;
