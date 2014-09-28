@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h228661810; // forward declaration fromline 6660
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h228661810; // forward declaration fromline 6675
 typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h228661810 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -354,14 +354,22 @@ MELT_EXTERN const char meltmodule_WARMELTmiDEBUG__melt_have_debug_disabled[];
 
 
 
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_0 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_1 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_2 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_3 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_4 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_5 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_7 (meltinitial_frame_t*, char*);
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_0 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_1 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_2 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_3 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_4 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_5 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiDEBUG__initialmeltchunk_7 (meltinitial_frame_t*, char*); //declare
+
 
 
 /**** warmelt-debug+01.cc implementations ****/

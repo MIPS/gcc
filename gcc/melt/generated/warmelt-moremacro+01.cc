@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142; // forward declaration fromline 6660
+class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142; // forward declaration fromline 6675
 typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h449506142 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -135,9 +135,12 @@ MELT_EXTERN const char meltmodule_WARMELTmiMOREMACRO__melt_have_debug_disabled[]
 
 
 
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t*, char*);
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMOREMACRO__initialmeltchunk_2 (meltinitial_frame_t*, char*);
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMOREMACRO__initialmeltchunk_1 (meltinitial_frame_t*, char*); //declare
+
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMOREMACRO__initialmeltchunk_2 (meltinitial_frame_t*, char*); //declare
+
 
 
 /**** warmelt-moremacro+01.cc implementations ****/
