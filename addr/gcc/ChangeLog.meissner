@@ -1,3 +1,8 @@
+2014-09-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 215685.
+	* REVISION: Update subversion id.
+
 2014-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* lra-constraints.c (lra_constraints): Use fatal_insn to show the
