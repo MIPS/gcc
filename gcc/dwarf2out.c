@@ -18441,9 +18441,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
       equate_decl_number_to_die (decl, subr_die);
     }
-  else if (!DECL_EXTERNAL (decl)
-	   && (!DECL_STRUCT_FUNCTION (decl)
-	       || DECL_STRUCT_FUNCTION (decl)->gimple_df))
+  else if (!DECL_EXTERNAL (decl))
     {
       HOST_WIDE_INT cfa_fb_offset;
 
@@ -18452,7 +18450,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       if (!old_die || !get_AT (old_die, DW_AT_inline))
 	equate_decl_number_to_die (decl, subr_die);
 
-      gcc_checking_assert (fun);
+      if (!fun->fde)
+	goto no_fde_continue;
+
       if (!flag_reorder_blocks_and_partition)
 	{
 	  dw_fde_ref fde = fun->fde;
@@ -18608,11 +18608,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       if (fun->static_chain_decl)
 	add_AT_location_description (subr_die, DW_AT_static_link,
 		 loc_list_from_tree (fun->static_chain_decl, 2));
-    }
-  else if (!DECL_EXTERNAL (decl))
-    {
-      if (!old_die || !get_AT (old_die, DW_AT_inline))
-	equate_decl_number_to_die (decl, subr_die);
+    no_fde_continue:
+      ;
     }
 
   /* Generate child dies for template paramaters.  */

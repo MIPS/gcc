@@ -1,3 +1,9 @@
+2014-09-29  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2out.c (gen_subprogram_die): Do not check
+	DECL_STRUCT_FUNCTION, thus leaving the check as mainline.  Test
+	for fun>-fde instead of fun->gimple_df.
+
 2014-09-26  Aldy Hernandez  <aldyh@redhat.com>
 
 	* dwarf2out.c (gen_subprogram_die): Use old die if it was dumped
