@@ -30,6 +30,11 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+2014-09-28  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_function_epilogue): Only update
+	last_address when a nonnote insn is found.
+
 2014-09-26  Jan Hubicka  <hubicka@ucw.cz>	
 	
 	PR ipa/60665
