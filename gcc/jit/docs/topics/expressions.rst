@@ -364,6 +364,29 @@ Function calls
    Given a function and the given table of argument rvalues, construct a
    call to the function, with the result as an rvalue.
 
+   .. note::
+
+      :c:func:`gcc_jit_context_new_call` merely builds a
+      :c:type:`gcc_jit_rvalue` i.e. an expression that can be evaluated,
+      perhaps as part of a more complicated expression.
+      The call *won't* happen unless you add a statement to a function
+      that evaluates the expression.
+
+      For example, if you want to call a function and discard the result
+      (or to call a function with ``void`` return type), use
+      :c:func:`gcc_jit_block_add_eval`:
+
+      .. code-block:: c
+
+         /* Add "(void)printf (arg0, arg1);".  */
+         gcc_jit_block_add_eval (
+           block, NULL,
+           gcc_jit_context_new_call (
+             ctxt,
+             NULL,
+             printf_func,
+             2, args));
+
 Type-coercion
 *************
 

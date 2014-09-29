@@ -29,12 +29,6 @@ API
 
     gcc_jit_function_as_rvalue ()
 
-* clarify gcc_jit_function_add_eval()::
-
-    (void)expression;
-
-  and, indeed, clarify all of the other operations.
-
 * expressing branch probabilies (like __builtin_expect)::
 
     extern gcc_jit_rvalue *
@@ -99,7 +93,8 @@ Future milestones
 
 * Detect and issue warnings/errors about uses of uninitialized variables
 
-* Warn about unused objects in a context (e.g. rvalues/lvalues)?
+* Warn about unused objects in a context (e.g. rvalues/lvalues)?  (e.g.
+  for gcc_jit_context_new_call vs gcc_jit_block_add_eval)
 
 Nice to have
 ============

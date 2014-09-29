@@ -18,7 +18,7 @@
 .. default-domain:: c
 
 Creating and using functions
-================================
+============================
 
 Params
 ------
@@ -224,7 +224,16 @@ Statements
      lvalue *= rvalue;
      lvalue /= rvalue;
 
-   etc.
+   etc.  For example:
+
+   .. code-block:: c
+
+     /* "i++" */
+     gcc_jit_block_add_assignment_op (
+       loop_body, NULL,
+       i,
+       GCC_JIT_BINARY_OP_PLUS,
+       gcc_jit_context_one (ctxt, int_type));
 
 .. function:: void\
               gcc_jit_block_add_comment (gcc_jit_block *block,\
