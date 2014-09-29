@@ -19,6 +19,7 @@
 #ifdef OCTEON_TARGET
 #include "cvmx.h"
 #include "cvmx-interrupt.h"
+#include <unistd.h>
 #endif
 
 #define STR1(X) #X
@@ -34,7 +35,7 @@ typedef struct func
 
 extern func_t functions[];
 
-static unsigned n_functions;
+static int n_functions;
 static void **sorted_functions;
 
 /* Find the index of function START in backtrace.  Start at index IDX.  */
@@ -65,7 +66,7 @@ static void
 check_backtrace (void)
 {
   void *buffer[10];
-  unsigned len, i;
+  int len, i;
   int f_idx = -1; 
 
   len = backtrace (buffer, 10);
@@ -83,7 +84,7 @@ check_backtrace (void)
      misattributed.  Look for the actual frame sequence.  */
   for (i = 0; i < len; i++)
     {
-      unsigned j;
+      int j;
       int idx;
 
       f_idx = find_function (functions[0].addr, buffer, len, i);
