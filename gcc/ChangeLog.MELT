@@ -1,6 +1,15 @@
 
 2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{in current tletmacro-0, the add2out is incorrectly considered as
+	a routine constant.  So compare with an equivalent test binding a
+	lambda instead of a macro}}
+	* melt/warmelt-genobj.melt (compile2obj_initproc): More debug.
+
+	* melt/warmelt-normal.melt (normexp_symbol): More debug.
+
+2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{tletmacro-0 compiles ok but crash at runtime}}
 	* melt/warmelt-normal.melt (normexp_let): For macro letbinding
 	don't restore the :nctx_proclist field, e.g. partly revert to svn

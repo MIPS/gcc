@@ -1649,6 +1649,7 @@
 	(assert_msg "check oinisym" (is_a oinisym class_nrep_simple) oinisym)
 	(mapobject_put locmap curdefbind oinidefloc)
 	))
+     (debug "compile2obj_initproc" " importvalues=" importvalues)
      ;; create a commentedblock to compute the new environemnt box in boxloc if it is null 
      (let (
 	   ;; cond to test boxloc & call the hook_fresh_environment_reference_maker if it if null

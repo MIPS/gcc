@@ -1840,9 +1840,9 @@ source location.}#
   (multicall
    (bind procs gotenv)
    (find_enclosing_env env recv)
-   (debug "normexp_symbol after find_enclosing_env bind=" debug_less bind 
-	  "\n.. procs=" debug_less procs "\n.. gotenv=" debug_less gotenv
-	  "\n.. env=" debug_less env "\n.. recv=" recv)
+   (debug "normexp_symbol after find_enclosing_env bind=" debug_more bind 
+	  "\n.. procs=" debug_less procs "\n.. gotenv=" debug_more gotenv
+	  "\n.. env=" debug_more env "\n.. recv=" recv)
    (assert_msg "normexp_symbol check recv" (is_a recv class_symbol) recv)
    (let ( (modctx  (unsafe_get_field :nctx_modulcontext ncx))
 	  (valbindmap (unsafe_get_field :nctx_valbindmap ncx))
