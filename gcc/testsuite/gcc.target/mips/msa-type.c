@@ -158,48 +158,48 @@
 /* { dg-final { scan-assembler "test15_v8u16.*:.*ceq.h.*nor.v.*test15_v8u16" } } */
 /* { dg-final { scan-assembler "test15_v4u32.*:.*ceq.w.*nor.v.*test15_v4u32" } } */
 /* { dg-final { scan-assembler "test15_v2u64.*:.*ceq.d.*nor.v.*test15_v2u64" } } */
-/* { dg-final { scan-assembler "test15_v4f32.*:.*fsne.w.*test15_v4f32" } } */
-/* { dg-final { scan-assembler "test15_v2f64.*:.*fsne.d.*test15_v2f64" } } */
-/* { dg-final { scan-assembler "test16_v16i8.*:.*ld.b\t\\\$w1.*clt_s.b.*test16_v16i8" } } */
-/* { dg-final { scan-assembler "test16_v8i16.*:.*ld.h\t\\\$w1.*clt_s.h.*test16_v8i16" } } */
-/* { dg-final { scan-assembler "test16_v4i32.*:.*ld.w\t\\\$w1.*clt_s.w.*test16_v4i32" } } */
-/* { dg-final { scan-assembler "test16_v2i64.*:.*ld.d\t\\\$w1.*clt_s.d.*test16_v2i64" } } */
-/* { dg-final { scan-assembler "test16_v16u8.*:.*ld.b\t\\\$w1.*clt_u.b.*test16_v16u8" } } */
-/* { dg-final { scan-assembler "test16_v8u16.*:.*ld.h\t\\\$w1.*clt_u.h.*test16_v8u16" } } */
-/* { dg-final { scan-assembler "test16_v4u32.*:.*ld.w\t\\\$w1.*clt_u.w.*test16_v4u32" } } */
-/* { dg-final { scan-assembler "test16_v2u64.*:.*ld.d\t\\\$w1.*clt_u.d.*test16_v2u64" } } */
-/* { dg-final { scan-assembler "test16_v4f32.*:.*ld.w\t\\\$w1.*fslt.w.*test16_v4f32" } } */
-/* { dg-final { scan-assembler "test16_v2f64.*:.*ld.d\t\\\$w1.*fslt.d.*test16_v2f64" } } */
-/* { dg-final { scan-assembler "test17_v16i8.*:.*ld.b\t\\\$w1.*cle_s.b.*test17_v16i8" } } */
-/* { dg-final { scan-assembler "test17_v8i16.*:.*ld.h\t\\\$w1.*cle_s.h.*test17_v8i16" } } */
-/* { dg-final { scan-assembler "test17_v4i32.*:.*ld.w\t\\\$w1.*cle_s.w.*test17_v4i32" } } */
-/* { dg-final { scan-assembler "test17_v2i64.*:.*ld.d\t\\\$w1.*cle_s.d.*test17_v2i64" } } */
-/* { dg-final { scan-assembler "test17_v16u8.*:.*ld.b\t\\\$w1.*cle_u.b.*test17_v16u8" } } */
-/* { dg-final { scan-assembler "test17_v8u16.*:.*ld.h\t\\\$w1.*cle_u.h.*test17_v8u16" } } */
-/* { dg-final { scan-assembler "test17_v4u32.*:.*ld.w\t\\\$w1.*cle_u.w.*test17_v4u32" } } */
-/* { dg-final { scan-assembler "test17_v2u64.*:.*ld.d\t\\\$w1.*cle_u.d.*test17_v2u64" } } */
-/* { dg-final { scan-assembler "test17_v4f32.*:.*ld.w\t\\\$w1.*fsle.w.*test17_v4f32" } } */
-/* { dg-final { scan-assembler "test17_v2f64.*:.*ld.d\t\\\$w1.*fsle.d.*test17_v2f64" } } */
-/* { dg-final { scan-assembler "test18_v16i8.*:.*ld.b\t\\\$w0.*clt_s.b.*test18_v16i8" } } */
-/* { dg-final { scan-assembler "test18_v8i16.*:.*ld.h\t\\\$w0.*clt_s.h.*test18_v8i16" } } */
-/* { dg-final { scan-assembler "test18_v4i32.*:.*ld.w\t\\\$w0.*clt_s.w.*test18_v4i32" } } */
-/* { dg-final { scan-assembler "test18_v2i64.*:.*ld.d\t\\\$w0.*clt_s.d.*test18_v2i64" } } */
-/* { dg-final { scan-assembler "test18_v16u8.*:.*ld.b\t\\\$w0.*clt_u.b.*test18_v16u8" } } */
-/* { dg-final { scan-assembler "test18_v8u16.*:.*ld.h\t\\\$w0.*clt_u.h.*test18_v8u16" } } */
-/* { dg-final { scan-assembler "test18_v4u32.*:.*ld.w\t\\\$w0.*clt_u.w.*test18_v4u32" } } */
-/* { dg-final { scan-assembler "test18_v2u64.*:.*ld.d\t\\\$w0.*clt_u.d.*test18_v2u64" } } */
-/* { dg-final { scan-assembler "test18_v4f32.*:.*ld.w\t\\\$w0.*fslt.w.*test18_v4f32" } } */
-/* { dg-final { scan-assembler "test18_v2f64.*:.*ld.d\t\\\$w0.*fslt.d.*test18_v2f64" } } */
-/* { dg-final { scan-assembler "test19_v16i8.*:.*ld.b\t\\\$w0.*cle_s.b.*test19_v16i8" } } */
-/* { dg-final { scan-assembler "test19_v8i16.*:.*ld.h\t\\\$w0.*cle_s.h.*test19_v8i16" } } */
-/* { dg-final { scan-assembler "test19_v4i32.*:.*ld.w\t\\\$w0.*cle_s.w.*test19_v4i32" } } */
-/* { dg-final { scan-assembler "test19_v2i64.*:.*ld.d\t\\\$w0.*cle_s.d.*test19_v2i64" } } */
-/* { dg-final { scan-assembler "test19_v16u8.*:.*ld.b\t\\\$w0.*cle_u.b.*test19_v16u8" } } */
-/* { dg-final { scan-assembler "test19_v8u16.*:.*ld.h\t\\\$w0.*cle_u.h.*test19_v8u16" } } */
-/* { dg-final { scan-assembler "test19_v4u32.*:.*ld.w\t\\\$w0.*cle_u.w.*test19_v4u32" } } */
-/* { dg-final { scan-assembler "test19_v2u64.*:.*ld.d\t\\\$w0.*cle_u.d.*test19_v2u64" } } */
-/* { dg-final { scan-assembler "test19_v4f32.*:.*ld.w\t\\\$w0.*fsle.w.*test19_v4f32" } } */
-/* { dg-final { scan-assembler "test19_v2f64.*:.*ld.d\t\\\$w0.*fsle.d.*test19_v2f64" } } */
+/* { dg-final { scan-assembler "test15_v4f32.*:.*fcne.w.*test15_v4f32" } } */
+/* { dg-final { scan-assembler "test15_v2f64.*:.*fcne.d.*test15_v2f64" } } */
+/* { dg-final { scan-assembler "test16_v16i8.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_s.b.*test16_v16i8" } } */
+/* { dg-final { scan-assembler "test16_v8i16.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_s.h.*test16_v8i16" } } */
+/* { dg-final { scan-assembler "test16_v4i32.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_s.w.*test16_v4i32" } } */
+/* { dg-final { scan-assembler "test16_v2i64.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_s.d.*test16_v2i64" } } */
+/* { dg-final { scan-assembler "test16_v16u8.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_u.b.*test16_v16u8" } } */
+/* { dg-final { scan-assembler "test16_v8u16.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_u.h.*test16_v8u16" } } */
+/* { dg-final { scan-assembler "test16_v4u32.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_u.w.*test16_v4u32" } } */
+/* { dg-final { scan-assembler "test16_v2u64.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*clt_u.d.*test16_v2u64" } } */
+/* { dg-final { scan-assembler "test16_v4f32.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*fslt.w.*test16_v4f32" } } */
+/* { dg-final { scan-assembler "test16_v2f64.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*fslt.d.*test16_v2f64" } } */
+/* { dg-final { scan-assembler "test17_v16i8.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_s.b.*test17_v16i8" } } */
+/* { dg-final { scan-assembler "test17_v8i16.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_s.h.*test17_v8i16" } } */
+/* { dg-final { scan-assembler "test17_v4i32.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_s.w.*test17_v4i32" } } */
+/* { dg-final { scan-assembler "test17_v2i64.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_s.d.*test17_v2i64" } } */
+/* { dg-final { scan-assembler "test17_v16u8.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_u.b.*test17_v16u8" } } */
+/* { dg-final { scan-assembler "test17_v8u16.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_u.h.*test17_v8u16" } } */
+/* { dg-final { scan-assembler "test17_v4u32.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_u.w.*test17_v4u32" } } */
+/* { dg-final { scan-assembler "test17_v2u64.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*cle_u.d.*test17_v2u64" } } */
+/* { dg-final { scan-assembler "test17_v4f32.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*fsle.w.*test17_v4f32" } } */
+/* { dg-final { scan-assembler "test17_v2f64.*:.*insert.\(w|d\)\t\\\$w0\\\[0\\\],\\\$4.*fsle.d.*test17_v2f64" } } */
+/* { dg-final { scan-assembler "test18_v16i8.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_s.b.*test18_v16i8" } } */
+/* { dg-final { scan-assembler "test18_v8i16.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_s.h.*test18_v8i16" } } */
+/* { dg-final { scan-assembler "test18_v4i32.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_s.w.*test18_v4i32" } } */
+/* { dg-final { scan-assembler "test18_v2i64.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_s.d.*test18_v2i64" } } */
+/* { dg-final { scan-assembler "test18_v16u8.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_u.b.*test18_v16u8" } } */
+/* { dg-final { scan-assembler "test18_v8u16.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_u.h.*test18_v8u16" } } */
+/* { dg-final { scan-assembler "test18_v4u32.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_u.w.*test18_v4u32" } } */
+/* { dg-final { scan-assembler "test18_v2u64.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*clt_u.d.*test18_v2u64" } } */
+/* { dg-final { scan-assembler "test18_v4f32.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*fslt.w.*test18_v4f32" } } */
+/* { dg-final { scan-assembler "test18_v2f64.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*fslt.d.*test18_v2f64" } } */
+/* { dg-final { scan-assembler "test19_v16i8.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_s.b.*test19_v16i8" } } */
+/* { dg-final { scan-assembler "test19_v8i16.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_s.h.*test19_v8i16" } } */
+/* { dg-final { scan-assembler "test19_v4i32.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_s.w.*test19_v4i32" } } */
+/* { dg-final { scan-assembler "test19_v2i64.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_s.d.*test19_v2i64" } } */
+/* { dg-final { scan-assembler "test19_v16u8.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_u.b.*test19_v16u8" } } */
+/* { dg-final { scan-assembler "test19_v8u16.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_u.h.*test19_v8u16" } } */
+/* { dg-final { scan-assembler "test19_v4u32.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_u.w.*test19_v4u32" } } */
+/* { dg-final { scan-assembler "test19_v2u64.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*cle_u.d.*test19_v2u64" } } */
+/* { dg-final { scan-assembler "test19_v4f32.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*fsle.w.*test19_v4f32" } } */
+/* { dg-final { scan-assembler "test19_v2f64.*:.*insert.\(w|d\)\t\\\$w1\\\[0\\\],\\\$4.*fsle.d.*test19_v2f64" } } */
 /* { dg-final { scan-assembler "test20_v16i8.*:.*addvi.b.*test20_v16i8" } } */
 /* { dg-final { scan-assembler "test20_v8i16.*:.*addvi.h.*test20_v8i16" } } */
 /* { dg-final { scan-assembler "test20_v4i32.*:.*addvi.w.*test20_v4i32" } } */
@@ -216,14 +216,14 @@
 /* { dg-final { scan-assembler "test21_v8u16.*:.*subvi.h.*test21_v8u16" } } */
 /* { dg-final { scan-assembler "test21_v4u32.*:.*subvi.w.*test21_v4u32" } } */
 /* { dg-final { scan-assembler "test21_v2u64.*:.*subvi.d.*test21_v2u64" } } */
-/* { dg-final { scan-assembler "test22_v16i8.*:.*ldi.b\t\\\$w\\d+,37.*mulv.b.*test22_v16i8" } } */
-/* { dg-final { scan-assembler "test22_v8i16.*:.*ldi.h\t\\\$w\\d+,37.*mulv.h.*test22_v8i16" } } */
-/* { dg-final { scan-assembler "test22_v4i32.*:.*ldi.w\t\\\$w\\d+,37.*mulv.w.*test22_v4i32" } } */
-/* { dg-final { scan-assembler "test22_v2i64.*:.*ldi.d\t\\\$w\\d+,37.*mulv.d.*test22_v2i64" } } */
-/* { dg-final { scan-assembler "test22_v16u8.*:.*ldi.b\t\\\$w\\d+,37.*mulv.b.*test22_v16u8" } } */
-/* { dg-final { scan-assembler "test22_v8u16.*:.*ldi.h\t\\\$w\\d+,37.*mulv.h.*test22_v8u16" } } */
-/* { dg-final { scan-assembler "test22_v4u32.*:.*ldi.w\t\\\$w\\d+,37.*mulv.w.*test22_v4u32" } } */
-/* { dg-final { scan-assembler "test22_v2u64.*:.*ldi.d\t\\\$w\\d+,37.*mulv.d.*test22_v2u64" } } */
+/* { dg-final { scan-assembler "test22_v16i8.*:.*(ldi.b.*37.*mulv.b|slli.b.*(add|sub)v.b).*test22_v16i8" } } */
+/* { dg-final { scan-assembler "test22_v8i16.*:.*(ldi.h.*37.*mulv.h|slli.h.*(add|sub)v.h).*test22_v8i16" } } */
+/* { dg-final { scan-assembler "test22_v4i32.*:.*(ldi.w.*37.*mulv.w|slli.w.*(add|sub)v.w).*test22_v4i32" } } */
+/* { dg-final { scan-assembler "test22_v2i64.*:.*(ldi.d.*37.*mulv.d|slli.d.*(add|sub)v.d).*test22_v2i64" } } */
+/* { dg-final { scan-assembler "test22_v16u8.*:.*(ldi.b.*37.*mulv.b|slli.b.*(add|sub)v.b).*test22_v16u8" } } */
+/* { dg-final { scan-assembler "test22_v8u16.*:.*(ldi.h.*37.*mulv.h|slli.h.*(add|sub)v.h).*test22_v8u16" } } */
+/* { dg-final { scan-assembler "test22_v4u32.*:.*(ldi.w.*37.*mulv.w|slli.w.*(add|sub)v.w).*test22_v4u32" } } */
+/* { dg-final { scan-assembler "test22_v2u64.*:.*(ldi.d.*37.*mulv.d|slli.d.*(add|sub)v.d).*test22_v2u64" } } */
 /* { dg-final { scan-assembler "test23_v16i8.*:.*ldi.b\t\\\$w\\d+,37.*div_s.b.*test23_v16i8" } } */
 /* { dg-final { scan-assembler "test23_v8i16.*:.*ldi.h\t\\\$w\\d+,37.*div_s.h.*test23_v8i16" } } */
 /* { dg-final { scan-assembler "test23_v4i32.*:.*ldi.w\t\\\$w\\d+,37.*div_s.w.*test23_v4i32" } } */
@@ -407,19 +407,21 @@
 /* { dg-final { scan-assembler "test52_builtin_v2i64.*:.*copy_s.w\t\\\$\\d+,\\\$w\\d+\\\[2\\\].*test52_builtin_v2i64" { target {! mips64 } } } } */
 /* { dg-final { scan-assembler "test52_v16i8.*:.*copy_s.b.*test52_v16i8" } } */
 /* { dg-final { scan-assembler "test52_v8i16.*:.*copy_s.h.*test52_v8i16" } } */
-/* { dg-final { scan-assembler "test52_v4i32.*:.*copy_s.w.*test52_v4i32" } } */
+/* { dg-final { scan-assembler "test52_v4i32.*:.*copy_\(s|u\).w.*test52_v4i32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test52_v4i32.*:.*copy_s.w.*test52_v4i32" { target mips64 } } } */
 /* { dg-final { scan-assembler "test52_v2i64.*:.*copy_s.d.*test52_v2i64" { target mips64 } } } */
 /* { dg-final { scan-assembler "test52_v2i64.*:.*copy_s.w\t\\\$\\d+,\\\$w\\d+\\\[2\\\].*test52_v2i64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test53_builtin_v16i8.*:.*copy_u.b.*test53_builtin_v16i8" } } */
-/* { dg-final { scan-assembler "test53_builtin_v8i16.*:.*copy_u.h.*test53_builtin_v8i16" } } */
-/* { dg-final { scan-assembler "test53_builtin_v4i32.*:.*copy_u.w.*test53_builtin_v4i32" } } */
-/* { dg-final { scan-assembler "test53_builtin_v2i64.*:.*copy_u.d.*test53_builtin_v2i64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test53_builtin_v16i8.*:.*\(copy_u.b|copy_s.b.*andi.*0x\(00\)?ff\).*test53_builtin_v16i8" } } */
+/* { dg-final { scan-assembler "test53_builtin_v8i16.*:.*\(copy_u.h|copy_s.h.*andi.*0xffff\).*test53_builtin_v8i16" } } */
+/* { dg-final { scan-assembler "test53_builtin_v4i32.*:.*\(copy_u.w|copy_s.w\).*test53_builtin_v4i32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test53_builtin_v4i32.*:.*\(copy_u.w|copy_s.w.*and\).*test53_builtin_v4i32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test53_builtin_v2i64.*:.*\(copy_u.d|copy_s.d\).*test53_builtin_v2i64" { target mips64 } } } */
 /* { dg-final { scan-assembler "test53_builtin_v2i64.*:.*copy_u.w\t\\\$\\d+,\\\$w\\d+\\\[2\\\].*test53_builtin_v2i64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test53_v16i8.*:.*copy_u.b.*test53_v16i8" } } */
-/* { dg-final { scan-assembler "test53_v8i16.*:.*copy_u.h.*test53_v8i16" } } */
-/* { dg-final { scan-assembler "test53_v4i32.*:.*copy_u.w.*test53_v4i32" } } */
-/* { dg-final { scan-assembler "test53_v2i64.*:.*copy_u.d.*test53_v2i64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test53_v2i64.*:.*copy_u.w\t\\\$\\d+,\\\$w\\d+\\\[2\\\].*test53_v2i64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test53_v16u8.*:.*\(copy_u.b|copy_s.b.*andi.*0x\(00\)?ff\).*test53_v16u8" } } */
+/* { dg-final { scan-assembler "test53_v8u16.*:.*\(copy_u.h|copy_s.h.*andi.*0xffff\).*test53_v8u16" } } */
+/* { dg-final { scan-assembler "test53_v4u32.*:.*\(copy_u.w|copy_s.w\).*test53_v4u32" } } */
+/* { dg-final { scan-assembler "test53_v2u64.*:.*\(copy_u.d|copy_s.d\).*test53_v2u64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test53_v2u64.*:.*\(copy_u|copy_s\).w\t\\\$\\d+,\\\$w\\d+\\\[2\\\].*test53_v2u64" { target {! mips64 } } } } */
 /* { dg-final { scan-assembler "test54_builtin_v16i8.*:.*st.b.*test54_builtin_v16i8" } } */
 /* { dg-final { scan-assembler "test54_builtin_v8i16.*:.*st.h.*test54_builtin_v8i16" } } */
 /* { dg-final { scan-assembler "test54_builtin_v4i32.*:.*st.w.*test54_builtin_v4i32" } } */
