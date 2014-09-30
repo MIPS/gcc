@@ -1615,6 +1615,17 @@ lra_update_insn_regno_info (rtx_insn *insn)
   if ((code = GET_CODE (PATTERN (insn))) == CLOBBER || code == USE)
     add_regs_to_insn_regno_info (data, XEXP (PATTERN (insn), 0), uid,
 				 code == USE ? OP_IN : OP_OUT, false);
+  if (CALL_P (insn))
+    {
+      /* Take into account arguments via memory which could be implicit
+	 uses of pseudo regs.  */
+      for (rtx link = CALL_INSN_FUNCTION_USAGE (insn); link != NULL_RTX;
+	   link = XEXP (link, 1))
+	if (GET_CODE (XEXP (link, 0)) == USE
+	    && MEM_P (XEXP (XEXP (link, 0), 0)))
+	  add_regs_to_insn_regno_info (data, XEXP (XEXP (link, 0), 0), uid,
+				       OP_IN, false);
+    }
   if (NONDEBUG_INSN_P (insn))
     setup_insn_reg_info (data, freq);
 }
