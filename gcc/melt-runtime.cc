@@ -3749,6 +3749,7 @@ meltgc_new_mapobjects (meltobject_ptr_t discr_p, unsigned len)
                              maplen * sizeof (struct entryobjectsmelt_st));
   mapobject_newmapv->discr = object_discrv;
   mapobject_newmapv->meltmap_aux = NULL;
+  mapobject_newmapv->meltmap_hash = melt_nonzerohash ();
   if (len > 0)
     {
       mapobject_newmapv->entab = mapobject_newmapv->map_space;
@@ -4081,6 +4082,7 @@ meltgc_new_mapstrings (meltobject_ptr_t discr_p, unsigned len)
             meltgc_allocate (sizeof (struct meltmapstrings_st), 0);
   mapstring_newmapv->discr = object_discrv;
   mapstring_newmapv->meltmap_aux = NULL;
+  mapstring_newmapv->meltmap_hash = melt_nonzerohash ();
   mapstring_newmapv->count = 0;
   if (len > 0)
     {

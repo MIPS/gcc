@@ -485,9 +485,10 @@ MELTDOCSRC= meltplugin.texi meltpluginapi.texi
 MELTDOCPDF= $(patsubst %.texi,%.pdf,$(MELTDOCSRC))
 MELTDOCINFO= $(patsubst %.texi,%.info,$(MELTDOCSRC))
 MELTDOCHTML= $(patsubst %.texi,%.html,$(MELTDOCSRC))
+MELTTEXI2HTML_FLAGS= -split chapter
 
 %.html: %.texi
-	$(TEXI2HTML) $(TEXI2HTML_FLAGS) $< -o $@
+	$(TEXI2HTML) $(MELTTEXI2HTML_FLAGS) $(TEXI2HTML_FLAGS) $< -o $@
 
 %.pdf: %.texi
 	$(TEXI2PDF) $(TEXI2PDF_FLAGS) $< -o $@

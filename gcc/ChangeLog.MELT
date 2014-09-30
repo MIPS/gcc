@@ -1,6 +1,15 @@
 
 2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_new_mapobjects, meltgc_new_mapstrings):
+	Initialize the hash.
+
+	* melt/wamelt-genobj.melt (compile2obj_initproc): More debug.
+
+	* testsuite/melt/tletmacro-0.melt: simplified.
+
+2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tletmacro-0.melt: simplified.
 
 	* melt/wamelt-macro.melt: More debug.

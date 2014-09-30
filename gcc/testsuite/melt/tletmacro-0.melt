@@ -17,7 +17,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 (module_is_gpl_compatible "public domain")
 
 (let ( 
-      (the_stdout (get_field :sysdata_stdout initial_system_data))
+      (the_stdout (unsafe_get_field :sysdata_stdout initial_system_data))
       (:macro mac 
               (sexp env mexpander modctx)
 #|

@@ -1,4 +1,8 @@
 
+2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile (MELTTEXI2HTML_FLAGS): New variable.
+	Use it for meltpluginapi.html.
+
 2014-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* make-melt-plugin-source-tar.sh: Also copy

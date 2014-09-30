@@ -1710,6 +1710,7 @@
        ;; we compute the boxloc at first
        (list_append oiniprolog otestcomputboxloc)
        ;; the tuple to compile the body
+       (debug "compile2obj_initproc" " idata=" idata)
        (let (
 	     (odatatup 
 	      (list_to_multiple
