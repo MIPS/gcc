@@ -345,7 +345,6 @@ extern void mips_expand_atomic_qihi (union mips_gen_fn_ptrs,
 
 extern void mips_expand_vector_init (rtx, rtx);
 extern bool mips_expand_vec_perm_const (rtx op[4]);
-extern bool vec_par_const_operand (rtx, enum machine_mode, int, int);
 extern void mips_expand_vec_unpack (rtx op[2], bool, bool);
 extern void mips_expand_vec_reduc (rtx, rtx, rtx (*)(rtx, rtx, rtx));
 extern void mips_expand_vec_minmax (rtx, rtx, rtx,
