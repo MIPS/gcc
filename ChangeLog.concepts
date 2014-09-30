@@ -1,4 +1,13 @@
-2014-09-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2014-09-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Explicitly disallow function concepts with deduced return types.
+	* gcc/cp/constraint.cc (check_function_concept): Remove check
+	for deduced return type.
+	* gcc/cp/decl.c (check_concept_fn): Explicitly check for
+	deduced return type.
+	* gcc/testsuite/g++.dg/concepts/fn-concept2.C: New.
+
+2014-09-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Check requirements on function concept definitions.
 	* gcc/cp/decl.c (finish_function): Check properties of a function

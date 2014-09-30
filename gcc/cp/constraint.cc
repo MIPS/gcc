@@ -280,11 +280,6 @@ check_function_concept (tree fn)
 {
   location_t loc = DECL_SOURCE_LOCATION (fn);
 
-  // If fn was declared with auto, make sure the result type is bool.
-  if (FNDECL_USED_AUTO (fn) && TREE_TYPE (fn) != boolean_type_node) 
-    error_at (loc, "deduced type of concept definition %qD is %qT and not %qT", 
-              fn, TREE_TYPE (fn), boolean_type_node);
-
   // Check that the function is comprised of only a single
   // return statement.
   tree body = DECL_SAVED_TREE (fn);

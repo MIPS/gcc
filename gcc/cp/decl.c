@@ -7525,9 +7525,13 @@ check_concept_fn (tree fn)
   if (DECL_ARGUMENTS (fn))
     error ("concept %q#D declared with function parameters", fn);
 
-  // The result type must be convertible to bool.
-  if (!same_type_p (TREE_TYPE (TREE_TYPE (fn)), boolean_type_node))
-    error ("concept %q#D result must be bool", fn);
+  // The declared return type of the concept shall be bool, and
+  // it shall not be deduced from it definition.
+  tree type = TREE_TYPE (TREE_TYPE (fn));
+  if (is_auto (type))
+    error ("concept %q#D declared with a deduced return type", fn);
+  else if (type != boolean_type_node)
+    error ("concept %q#D with return type %qT", fn, type);
 }
 
 /* Helper function.  Replace the temporary this parameter injected
