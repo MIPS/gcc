@@ -6924,7 +6924,8 @@ applications of @code{/i} primitives.}#
 
 ;;; the LET expander itself
 (defun mexpand_let (sexpr env mexpander modctx)
-  (debug "mexpand_let" " start sexpr=" sexpr " env=" debug_less env)
+  (debug "mexpand_let" " start sexpr=" sexpr " env=" debug_less env
+	 "\n.. modctx=" modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
@@ -7021,7 +7022,7 @@ applications of @code{/i} primitives.}#
 		 (letrec ( (mexpanser
 			    (lambda (sexprm envm mexpanderm modctxm)
 			      (debug "mexpand_let:mexpanser sexprm=" sexprm
-				     "\n.. envm=" debug_less envm
+				     "\n.. envm=" debug_more envm
 				     "\n.. modctxm=" debug_less modctxm
 				     "\n.. mexpanderm=" debug_less mexpanderm
 				     "\n.. macbind=" macbind)
@@ -7053,7 +7054,7 @@ applications of @code{/i} primitives.}#
 		   (debug "mexpand_let:macro" " loc=" loc " update macbind=" macbind)
 		   (put_env newenv macbind)
 		   (list_append letbindlist cursbind)
-		   (debug "mexpand_let:macro" " letbind-updated newenv=" newenv
+		   (debug "mexpand_let:macro" " letbind-updated newenv=" debug_more newenv
 			  "\n.. for cursbind=" cursbind
 			  "\n.. macbind=" macbind)
 		   )
@@ -7062,7 +7063,7 @@ applications of @code{/i} primitives.}#
 	      (assert_msg "impossible cursbind" () cursbind curbindsrc)))
        )
      )					; end each_component_in_list
-    (debug "mexpand_let" " loc=" loc " final newenv=" newenv
+    (debug "mexpand_let" " loc=" loc " final newenv=" debug_more newenv
 	   "\n.. restpair=" restpair)
     (let ( (bodytup (pairlist_to_multiple 
 		     restpair discr_multiple 
@@ -7076,7 +7077,7 @@ applications of @code{/i} primitives.}#
 		      :slet_bindings bindtup
 		      :slet_body bodytup))
 	   )
-      (debug "mexpand_let" " loc=" loc " result letr=" letr)
+      (debug "mexpand_let" " loc=" loc " result letr=" letr "\n.. modctx=" modctx)
       (return letr)
       )))
 ;;;

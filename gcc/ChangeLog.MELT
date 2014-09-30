@@ -1,4 +1,12 @@
 
+2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/tletmacro-0.melt: simplified.
+
+	* melt/wamelt-macro.melt: More debug.
+	* melt/warmelt-normal.melt: More debug.
+	* melt/warmelt-outobj.melt: More debug.
+
 2014-09-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-genobj.melt (compile2obj_initproc): Make a

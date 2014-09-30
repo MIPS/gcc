@@ -3908,8 +3908,8 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	 
 ;;;;;; normalize a LET
 (defun normexp_let (recv env ncx psloc)
-  (debug "normexp_let" " recv=" recv "\n.. env=" debug_less env)
-  (debug "normexp_let" " ncx=" debug_less ncx)
+  (debug "normexp_let" " recv=" recv "\n.. env=" debug_more env)
+  (debug "normexp_let" " ncx=" debug_more ncx)
   (assert_msg "check let recv" (is_a recv class_source_let))
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)

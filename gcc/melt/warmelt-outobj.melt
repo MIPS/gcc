@@ -7903,7 +7903,7 @@ if (1) return;
 	   (setq ix (+i ix 1)))	     ;end of foreach_pair_component_in_list litvalist
 	  (debug "melt_translate_run_macroexpansions_list tuplitval=" tuplitval)
 	  (debug "melt_translate_run_macroexpansions_list before melt_run_extension basename=" basename
-		 "\n* env=" env
+		 "\n* env=" debug_more env
 		 "\n* tuplitval=" tuplitval)
 	  (let ( (result (melt_run_extension basename env tuplitval))
 		 )
