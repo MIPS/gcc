@@ -1373,6 +1373,7 @@
    (assert_msg "check pro" (is_a pro class_nrep_routproc) pro)
    (assert_msg "check compicache" (is_mapobject compicache) compicache)
    (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+   (shortbacktrace_dbg "compile2obj_procedure" 14)
    (let ( (namsbuf (make_strbuf discr_strbuf)) 
 	  (routfunam ())
 	  (restnam ())

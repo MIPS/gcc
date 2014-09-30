@@ -3939,10 +3939,9 @@ source location.}#
 				 :slam_body mbody
 				 :slam_origmacro sb
 				 ))
-	      (oldproclist (list_clone (get_field :nctx_proclist ncx) discr_list))
 	      )
 	 (debug "normexp_let:macro" " before normalize_lambda sloc=" sloc "; slambda=" slambda
-		"\n.. old ncx=" ncx "\n.. oldproclist=" oldproclist)
+		"\n.. old ncx=" ncx)
 	 (multicall 
 	  (manproc macsym maclocc maconstrout maclovtup masloc maoldproc mandatarout :long mainsideflag)
 	  (normalize_lambda slambda env newenv ncx psloc)
@@ -3975,8 +3974,6 @@ source location.}#
 	      (list_append (get_field :nrclop_constlist maoldproc) mandatarout)
 	      (debug "normexp_let:macro" " updated constlist in maoldproc=" maoldproc)
 	      )
-	    (put_fields ncx :nctx_proclist oldproclist)
-	    (debug "normexp_let:macro" " restored ncx=" ncx)
 	    ))))
       ;; handle the normal source let binding case
       (  (is_a sb class_source_let_binding)
@@ -5629,7 +5626,7 @@ source location.}#
 			      ))
 	 )
     (debug "normalize_lambda" " sloc=" sloc " made nproc=" nproc "\n.. ndatarout=" ndatarout)
-    (shortbacktrace_dbg "normalize_lambda" 10)
+    (shortbacktrace_dbg "normalize_lambda" 12)
     (add_nctx_data ncx ndatarout)
     ;; update the context for the new proc & a fresh symbol cache map
     (unsafe_put_fields ncx 

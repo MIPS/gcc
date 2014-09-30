@@ -1,6 +1,15 @@
 
 2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{tletmacro-0 compiles ok but crash at runtime}}
+	* melt/warmelt-normal.melt (normexp_let): For macro letbinding
+	don't restore the :nctx_proclist field, e.g. partly revert to svn
+	rev.215500.
+
+	* melt/warmelt-genobj.melt (compile2obj_procedure): More debug.
+
+2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (meltgc_new_mapobjects, meltgc_new_mapstrings):
 	Initialize the hash.
 
