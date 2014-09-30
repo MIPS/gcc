@@ -826,6 +826,16 @@
  [(set_attr "type"      "arith")
   (set_attr "mode"      "SI")])
 
+(define_insn "msa_dlsa"
+ [(set (match_operand:DI 0 "register_operand" "=d")
+       (plus:DI (mult:DI (match_operand:DI 1 "register_operand" "d")
+			 (match_operand:SI 2 "const_immlsa_operand" ""))
+		(match_operand:DI 3 "register_operand" "d")))]
+ "ISA_HAS_LSA && TARGET_64BIT"
+ "dlsa\t%0,%1,%3,%y2"
+ [(set_attr "type"      "arith")
+  (set_attr "mode"      "DI")])
+
 (define_insn "msa_vshf<mode>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
 	(unspec:MSA [(match_operand:<VIMODE> 1 "register_operand" "0")
