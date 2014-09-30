@@ -573,6 +573,10 @@ compile_file (void)
   /* Run the actual compilation process.  */
   if (!in_lto_p)
     {
+      /* Mark all DIEs generated as dumped early.  */
+      if (flag_dump_early_debug_stats)
+	dwarf2out_mark_early_dies ();
+
       timevar_start (TV_PHASE_OPT_GEN);
       symtab->finalize_compilation_unit ();
       timevar_stop (TV_PHASE_OPT_GEN);
@@ -596,6 +600,9 @@ compile_file (void)
   FOR_EACH_DEFINED_SYMBOL (node)
     debug_hooks->late_global_decl (node->decl);
   timevar_stop (TV_PHASE_DBGINFO);
+
+  if (!in_lto_p && flag_dump_early_debug_stats)
+    dwarf2out_dump_early_debug_stats ();
 
   timevar_start (TV_PHASE_LATE_ASM);
 

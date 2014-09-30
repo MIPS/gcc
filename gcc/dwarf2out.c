@@ -5358,9 +5358,9 @@ print_die (dw_die_ref die, FILE *outfile)
   unsigned ix;
 
   print_spaces (outfile);
-  fprintf (outfile, "DIE %4ld: %s (%p)\n",
+  fprintf (outfile, "DIE %4ld: %s (%p)%s\n",
 	   die->die_offset, dwarf_tag_name (die->die_tag),
-	   (void*) die);
+	   (void*) die, die->dumped_early ? " (DUMPED EARLY)" : "");
   print_spaces (outfile);
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
   fprintf (outfile, " offset: %ld", die->die_offset);
@@ -5528,6 +5528,71 @@ debug_dwarf (void)
   print_die (comp_unit_die (), stderr);
 }
 
+/* Callback for htab_traverse_noresize.  Set the dumped_early bit for
+   a given DIE.  */
+
+static int
+mark_early_dies_helper (void **slot, void *info ATTRIBUTE_UNUSED)
+{
+  dw_die_ref ref = (dw_die_ref) *slot;
+
+  /* Unilaterally enabling this bit can potentially change the
+     behavior of dwarf2out_decl for DECLs that were discovered through
+     recursion of dwarf2out_decl(), and may not have the dumped_early
+     bit set.  Since this is only used for debugging the behavior of
+     dwarf2out, we should be ok-- but it's something to keep in
+     mind.  */
+  ref->dumped_early = true;
+  return 1;
+}
+
+/* Set the dumped_early bit for all DIEs.  */
+
+void
+dwarf2out_mark_early_dies (void)
+{
+  if (decl_die_table)
+    htab_traverse_noresize (decl_die_table, mark_early_dies_helper, NULL);
+}
+
+/* Dump the DIE table if available.  */
+
+void
+dwarf2out_dump_early_debug_stats (void)
+{
+  if (decl_die_table)
+    debug_dwarf ();
+}
+
+/* Sanity checks on DW_AT_inline DIEs.  */
+
+static void
+check_die_inline (dw_die_ref die)
+{
+  /* A debugging information entry that is a member of an abstract
+     instance tree [that has DW_AT_inline] should not contain any
+     attributes which describe aspects of the subroutine which vary
+     between distinct inlined expansions or distinct out-of-line
+     expansions.  */
+  unsigned ix;
+  dw_attr_ref a;
+  bool inline_found = false;
+  FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
+    if (a->dw_attr == DW_AT_inline)
+      inline_found = true;
+  if (inline_found)
+    {
+      /* Catch the most common mistakes.  */
+      FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
+	gcc_assert (a->dw_attr != DW_AT_low_pc
+		    && a->dw_attr != DW_AT_high_pc
+		    && a->dw_attr != DW_AT_location
+		    && a->dw_attr != DW_AT_frame_base
+		    && a->dw_attr != DW_AT_GNU_all_call_sites);
+    }
+
+}
+
 /* Perform some sanity checks on DIEs after they have been generated
    earlier in the compilation process.  */
 
@@ -5536,7 +5601,10 @@ check_die (dw_die_ref die, unsigned level)
 {
   static unsigned long mark = 1;
   dw_die_ref c, p;
-  /* Check that all our childs have their parent set to us.  */
+
+  check_die_inline (die);
+
+  /* Check that all of our children have their parent set to us.  */
   c = die->die_child;
   if (c) do {
       c = c->die_sib;
@@ -17721,7 +17789,12 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
     }
 
   bool reusing_die;
-  if (parm_die)
+  if (parm_die
+      /* Make sure the function to which this parameter belongs to is
+	 not an abstract instance.  If it is, we can't reuse anything.
+	 We must create a new DW_TAG_formal_parameter with a
+	 corresponding DW_AT_abstract_origin.  */
+      && !get_AT (context_die, DW_AT_abstract_origin))
     reusing_die = true;
   else
     {
@@ -17739,7 +17812,7 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
       if (reusing_die)
 	goto add_location;
 
-      if (origin != NULL && node != origin)
+      if (origin != NULL)
 	add_abstract_origin_attribute (parm_die, origin);
       else if (emit_name_p)
 	add_name_and_src_coords_attributes (parm_die, node);
@@ -18278,7 +18351,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       && debug_info_level > DINFO_LEVEL_TERSE)
     old_die = force_decl_die (decl);
 
-  if (origin != NULL && origin != decl)
+  if (origin != NULL && (origin != decl || old_die))
     {
       gcc_assert (!declaration || local_scope_p (context_die));
 

@@ -190,10 +190,11 @@ extern bool dwarf2out_do_frame (void);
 extern bool dwarf2out_do_cfi_asm (void);
 extern void dwarf2out_switch_text_section (void);
 
+extern void dwarf2out_mark_early_dies (void);
+extern void dwarf2out_dump_early_debug_stats (void);
+
 const char *remap_debug_filename (const char *);
 void add_debug_prefix_map (const char *);
-
-extern void dwarf2out_early_decl (tree);
 
 /* For -fdump-go-spec.  */
 

@@ -1,3 +1,22 @@
+2014-09-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	* common.opt (fdump-early-debug-stats): New.
+	* debug.h (dwarf2out_mark_early_dies): New prototype.
+	(dwarf2out_dump_early_debug_stats): New prototype.
+	* toplev.c (compile_file): Dump early debug stats if requested.
+	* dwarf2out.c (check_die): Check that DIEs containing a
+	DW_AT_inline doe not contain any invalid modifiers.
+	(gen_formal_parameter_die): Do not reuse parameters that belong to
+	an abstract instance.
+	Do not care that an abstract origin is itself.
+	(gen_subprogram_die): Handle old_die's better.
+	(print_die): Print dumped_early bit.
+	(mark_early_dies_helper): New.
+	(dwarf2out_mark_early_dies): New.
+	(dwarf2out_dump_early_debug_stats): New.
+	(check_die_inline): New.
+	(check_die): Call check_die_inline.
+
 2014-09-29  Aldy Hernandez  <aldyh@redhat.com>
 
 	* dwarf2out.c (gen_subprogram_die): Do not check
