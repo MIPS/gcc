@@ -269,6 +269,35 @@ deduce_concept_introduction (tree expr)
     gcc_unreachable ();
 }
 
+
+// -------------------------------------------------------------------------- //
+// Declarations
+
+// Check that FN satisfies the structural requirements of a
+// function concept definition.
+tree 
+check_function_concept (tree fn)
+{
+  location_t loc = DECL_SOURCE_LOCATION (fn);
+
+  // If fn was declared with auto, make sure the result type is bool.
+  if (FNDECL_USED_AUTO (fn) && TREE_TYPE (fn) != boolean_type_node) 
+    error_at (loc, "deduced type of concept definition %qD is %qT and not %qT", 
+              fn, TREE_TYPE (fn), boolean_type_node);
+
+  // Check that the function is comprised of only a single
+  // return statement.
+  tree body = DECL_SAVED_TREE (fn);
+  if (TREE_CODE (body) == BIND_EXPR)
+    body = BIND_EXPR_BODY (body);
+  if (TREE_CODE (body) != RETURN_EXPR)
+    error_at (loc, "function concept definition %qD has multiple statements", 
+              fn);
+  
+  return NULL_TREE;
+}
+
+
 // -------------------------------------------------------------------------- //
 // Normalization
 //
@@ -425,9 +454,10 @@ normalize_misc (tree t)
     case CONSTRUCTOR:
       return t;
 
-    case STATEMENT_LIST:
-      return normalize_stmt_list (t);
-    
+    // This should have been caught as an error.
+    case STATEMENT_LIST: 
+      return NULL_TREE;
+
     default:
       gcc_unreachable ();
     }
@@ -630,28 +660,6 @@ normalize_requires (tree t)
   return t;
 }
 
-// Reduction rules for the statement list STMTS.
-//
-// Recursively reduce each statement in the list, concatenating each
-// reduced result into a conjunction of requirements. 
-//
-// A constexpr function may include statements other than a return
-// statement. The primary purpose of these rules is to filter those
-// non-return statements from the constraints language.
-tree
-normalize_stmt_list (tree stmts)
-{
-  tree lhs = NULL_TREE;
-  tree_stmt_iterator i = tsi_start (stmts);
-  while (!tsi_end_p (i))
-    {
-      if (tree rhs = normalize_node (tsi_stmt (i)))
-        lhs = conjoin_constraints (lhs, rhs);
-      tsi_next (&i);
-    }
-  return lhs;
-}
-
 // Normalize a cast expression.
 tree
 normalize_cast (tree t) 
@@ -686,6 +694,7 @@ normalize_constraints (tree reqs)
   ++processing_template_decl;
   tree expr = normalize_node (reqs);
   --processing_template_decl;
+
   return expr;
 }
 

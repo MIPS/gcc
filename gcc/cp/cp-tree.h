@@ -6444,6 +6444,7 @@ extern tree build_concept_check                 (tree, tree, tree = NULL_TREE);
 extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
 extern bool deduce_constrained_parameter        (tree, tree&, tree&);
 extern tree resolve_constraint_check            (tree);
+extern tree check_function_concept              (tree);
 
 extern tree finish_concept_introduction         (tree, tree);
 extern tree finish_template_constraints         (tree);

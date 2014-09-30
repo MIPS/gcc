@@ -1,3 +1,15 @@
+2014-09-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Check requirements on function concept definitions.
+	* gcc/cp/decl.c (finish_function): Check properties of a function
+	concept definition.
+	* gcc/cp/constraint.cc (check_function_concept): New. Check
+	for deduced return type and multiple statements.
+	(normalize_misc): Don't normalize multiple statements.
+	(normalize_stmt_list): Removed.
+	* gcc/cp/cp-tree.h (check_function_concept): New.
+	* gcc/testsuite/g++.dg/concepts/fn-concept1.C: New.
+
 2014-09-04  Braden Obrzut  <admin@maniacsvault.net>
 
 	Implement concept introductions.
@@ -27,7 +39,7 @@
 	* gcc/testsuite/g++.dg/concepts/introduction4.C: New.
 	* gcc/testsuite/g++.dg/concepts/introduction5.C: New.
 
- 2014-09-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2014-09-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fixing normalization in the presence of constructor calls.
 	* gcc/cp/constraint.cc (normalize_misc): Handle constructor
