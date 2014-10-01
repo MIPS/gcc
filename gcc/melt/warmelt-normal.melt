@@ -1856,9 +1856,9 @@ source location.}#
        (error_at psloc "unknown name $1; symbol is not bound"
 		   symbname)
        (shortbacktrace_dbg "normexp_symbol null bind" 15)
-       (debug "normexp_symbol bad name recv=" recv "\n.. env=" env)
-       (debug "normexp_symbol bad name envprev=" (get_field :env_prev env))
-       (debug "normexp_symbol bad name envprev2=" (get_field :env_prev (get_field :env_prev env)))
+       (debug "normexp_symbol bad name recv=" recv "\n.. env=" debug_more env)
+       (debug "normexp_symbol bad name envprev=" debug_more (get_field :env_prev env))
+       (debug "normexp_symbol bad name envprev2=" debug_more (get_field :env_prev (get_field :env_prev env)))
        (debug "normexp_symbol bad name envprev3=" (get_field :env_prev  (get_field :env_prev (get_field :env_prev env))))
        (if (melt_is_bootstrapping)
 	   (assert_msg "@$@normexp_symbol is failing while bootstrapping" () recv env))
@@ -3923,64 +3923,9 @@ source location.}#
     (foreach_in_multiple
      (sbindings)
      (sb :long sbix)
-     (debug "normexp_let" " sloc=" sloc "sbix#" sbix "; sb=" sb
+     (debug "normexp_let" " sloc=" sloc "; sbix#" sbix ";\n sb=" sb
 	    ";\n ncx=" debug_less ncx)
      (cond
-      ;; handle the local :macro binding case, this is happening after macro expansion
-      ((is_a sb class_source_macro_let_binding)
-       (debug "normexp_let" " bad macrobinding sb=" sb)
-       (let ( (macsymb (get_field :sletb_binder sb))
-	      (mloc (or (get_field :loca_location sb) sloc))
-	      (mformals (get_field :sletm_macro_formals sb))
-	      (mbody (get_field :sletm_macro_body sb))
-	      (newmacenv (fresh_env newenv))
-	      (slambda (instance class_source_lambda_for_macro
-				 :loca_location mloc
-				 :slam_argbind mformals
-				 :slam_body mbody
-				 :slam_origmacro sb
-				 ))
-	      )
-	 (debug "normexp_let:macro" " before normalize_lambda sloc=" sloc "; slambda=" slambda
-		"\n.. old ncx=" ncx
-		"\n.. env=" debug_more env
-		"\n.. newenv=" debug_more newenv
-		"\n.. newmacenv=" debug_more newmacenv)
-	 (multicall 
-	  (manproc macsym maclocc maconstrout maclovtup masloc maoldproc mandatarout :long mainsideflag)
-	  (normalize_lambda slambda  newenv newmacenv ncx psloc)
-	  (debug "normexp_let:macro" " after normalize_lambda manproc=" manproc "\n.. macsym=" macsym 
-		 "\n.. maclocc=" maclocc "\n.. maconstrout=" maconstrout "\n.. maclovtup=" maclovtup
-		 "\n.. masloc=" masloc "\n.. maoldproc=" maoldproc "\n.. mandatarout=" mandatarout
-		 "\n.. mainsideflag=" mainsideflag
-		 "\n.. newenv=" debug_more newenv
-		 "\n.. newmacenv=" debug_more newmacenv
-		 "\n.. ncx=" ncx)
-	  (let (
-		(maloc (or masloc mloc))
-		(maclambda (instance class_nrep_macrolambda
-				     :nrep_loc maloc
-				     :nlambda_proc manproc
-				     :nlambda_constrout maconstrout
-				     :nlambda_closedv maclovtup))
-		(macbind (instance class_normal_let_binding
-				   :letbind_loc maloc
-				   :binder macsym
-				   :letbind_type ctype_value
-				   :letbind_expr maclambda))
-		)
-	    (debug "normexp_let:macro" " maclambda=" maclambda)
-	    (put_fields maclocc :nocc_bind macbind)
-	    (debug "normexp_let:macro" " updated maclocc=" maclocc)
-	    (list_append bindlist macbind)
-	    (debug "normexp_let:macro" " updated bindlist=" bindlist)
-	    (put_env newenv macbind)
-	    (debug "normexp_let:macro" " updated newenv=" debug_more newenv "\n.. mainsideflag=" mainsideflag)
-	    (when mainsideflag
-	      (list_append (get_field :nrclop_constlist maoldproc) mandatarout)
-	      (debug "normexp_let:macro" " updated constlist in maoldproc=" maoldproc)
-	      )
-	    ))))
       ;; handle the normal source let binding case
       (  (is_a sb class_source_let_binding)
 	 (let ( (sbloc (unsafe_get_field :loca_location sb))
@@ -3996,7 +3941,7 @@ source location.}#
 	    (inform_strv sbloc "this LET binding hides another one in enclosing scope - "
 			 (get_field :named_name  sbinder))
 	    )
-;;; normalize the binding's expression
+	   ;; normalize the binding's expression
 	   (multicall
 	    (nbdexpr nbindings)
 	    (normal_exp sbexpr newenv ncx sbloc)
@@ -4045,7 +3990,7 @@ source location.}#
 		      )
 		    )
 		(progn
-;;; otherwise, eg a plain constant, a complex if...
+		  ;; otherwise, eg a plain constant, a complex if...
 		  (list_append2list bindlist  nbindings)
 		  (let ( (newpbnd 
 			  (instance class_normal_let_binding
@@ -4058,19 +4003,78 @@ source location.}#
 		    ))
 		))))
 	 )
+      ;; handle the local :macro binding case, this is happening after macro expansion
+      ((is_a sb class_source_macro_let_binding)
+       (debug "normexp_let" " sloc=" sloc ";\n.. macrobinding sb=" sb)
+       (let ( (macsymb (get_field :sletb_binder sb))
+	      (mloc (or (get_field :loca_location sb) sloc))
+	      (mformals (get_field :sletm_macro_formals sb))
+	      (mbody (get_field :sletm_macro_body sb))
+	      (newmacenv (fresh_env newenv))
+	      (slambda (instance class_source_lambda_for_macro
+				 :loca_location mloc
+				 :slam_argbind mformals
+				 :slam_body mbody
+				 :slam_origmacro sb
+				 ))
+	      )
+	 (debug "normexp_let:macro" " before normalize_lambda sloc=" sloc "; slambda=" slambda
+		"\n.. old ncx=" ncx
+		"\n.. env=" debug_more env
+		"\n.. newenv=" debug_more newenv
+		"\n.. newmacenv=" debug_more newmacenv)
+	 (multicall 
+	  (manproc macsym maclocc maconstrout maclovtup masloc maoldproc mandatarout :long mainsideflag)
+	  (normalize_lambda slambda  newenv newmacenv ncx psloc)
+	  (debug "normexp_let:macro" " after normalize_lambda manproc=" manproc "\n.. macsym=" macsym 
+		 "\n.. maclocc=" maclocc "\n.. maconstrout=" maconstrout "\n.. maclovtup=" maclovtup
+		 "\n.. masloc=" masloc "\n.. maoldproc=" maoldproc "\n.. mandatarout=" mandatarout
+		 "\n.. mainsideflag=" mainsideflag
+		 "\n.. newenv=" debug_more newenv
+		 "\n.. newmacenv=" debug_more newmacenv
+		 "\n.. ncx=" ncx)
+	  (let (
+		(maloc (or masloc mloc))
+		(maclambda (instance class_nrep_macrolambda
+				     :nrep_loc maloc
+				     :nlambda_proc manproc
+				     :nlambda_constrout maconstrout
+				     :nlambda_closedv maclovtup))
+		(macbind (instance class_normal_let_binding
+				   :letbind_loc maloc
+				   :binder macsymb
+				   :letbind_type ctype_value
+				   :letbind_expr maclambda))
+		)
+	    (debug "normexp_let:macro" " maclambda=" maclambda)
+	    (put_fields maclocc :nocc_bind macbind)
+	    (debug "normexp_let:macro" " updated maclocc=" maclocc)
+	    (list_append bindlist macbind)
+	    (debug "normexp_let:macro" " updated bindlist=" bindlist)
+	    (put_env newenv macbind)
+	    (debug "normexp_let:macro" " updated newenv=" debug_more newenv "\n.. mainsideflag=" mainsideflag)
+	    (when mainsideflag
+	      (list_append (get_field :nrclop_constlist maoldproc) mandatarout)
+	      (debug "normexp_let:macro" " updated constlist in maoldproc=" maoldproc)
+	      )
+	    ))))
+      ;;
+      ;; impossible binding
       (:else
        (error_at sloc "impossible LET binding #$1" sbix)
        (assert_msg "impossible let binding" () sb sbix)
        (return))
       )
      )
-;;;
+    ;; end of loop on source bindings
+    ;;
     (debug "normexp_let" " before normabody sloc=" sloc "; bindlist=" bindlist
-	   "\n.. sbody=" sbody)
+	   "\n.. sbody=" sbody
+	   "\n.. newenv=" debug_more newenv)
     (shortbacktrace_dbg "normexp_let before-normalizing-sbody" 15)
-    (debug "normexp_let" " before normabody sloc=" sloc "; ncx=" debug_less ncx
-	   "\n.. newenv=" newenv)
-;;; end of loop on source bindings
+    (debug "normexp_let" " before normabody sloc=" sloc "\n.. ncx=" debug_less ncx
+	   "\n.. newenv=" debug_more newenv
+	   "\n.. env=" env)
     (multicall
      (nbody nbodbindings)
      (normalize_tuple sbody newenv ncx sloc)
@@ -4085,7 +4089,7 @@ source location.}#
       (bindlist)
       (curpair cbnd) 
       (assert_msg "normexp_let check cbnd" (is_a cbnd class_normal_let_binding) cbnd))
-;;; remove every locally bound symbol from the symbol cache map
+     ;; remove every locally bound symbol from the symbol cache map
      (let ( (sycmap (unsafe_get_field :nctx_symbcachemap ncx)) )
        (foreach_pair_component_in_list 
 	(bindlist)
@@ -4094,7 +4098,7 @@ source location.}#
 	)
        (debug "normexp_let shrinked updated sycmap=" sycmap)
        )
-;;;; make the result
+     ;; make the result
      (let (
 	   (nlastbody (multiple_nth nbody -1))
 	   ;; the type of a let with empty body is void
@@ -5712,6 +5716,9 @@ source location.}#
        (debug "normalize_lambda" " sloc=" sloc " insideflag=" insideflag
 	      "\n.. constrout=" constrout)
        (shortbacktrace_dbg "normalize_lambda returning" 8)
+       (debug "normalize_lambda" " final ncx=" ncx
+	      "\n final env=" env
+	      "\n final newenv=" newenv)
        (debug "normalize_lambda" " return nproc=" nproc
 	      "\n.. csym=" csym 
 	      "\n.. clocc=" clocc 
@@ -5721,7 +5728,6 @@ source location.}#
 	      "\n.. oldproc=" oldproc
 	      "\n.. ndatarout=" ndatarout
 	      "\n.. insideflag=" insideflag "\n")
-       (debug "normalize_lambda" " final ncx=" ncx)
        (return nproc csym clocc constrout clovtup sloc oldproc ndatarout insideflag)
        ))))
 

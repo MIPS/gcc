@@ -1,6 +1,15 @@
 
 2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tletmacro-2.melt: New file.
+	* testsuite/melt/tletmacro-0.melt: More.
+	* melt/warmelt-normal.melt (normexp_symbol): More debug.
+	(normexp_let): Bind the good symbol -macsymb not macsym- for
+	:macro binding.
+
+
+2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{current tletmacro-0 runs correctly}}
 	* melt/warmelt-normal.melt (normexp_let): For :macro binding, call
 	normalize_lambda in the newenv with its own newmacenv ...
