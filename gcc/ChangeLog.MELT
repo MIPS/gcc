@@ -1,6 +1,11 @@
 
 2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* Makefile.in (melt.encap): Add dependency on generated
+	_libmelt-treecode.melt.
+
+2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 
 2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
