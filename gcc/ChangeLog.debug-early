@@ -1,3 +1,11 @@
+2014-10-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp/decl2.c (emit_debug_for_namespace): Emit early debug
+	information for all DECLs instead of just the statics.
+	Include debug.h.
+	* passes.c (rest_of_decl_compilation): Add reminder that we could
+	emit early debug information here.
+
 2014-09-30  Aldy Hernandez  <aldyh@redhat.com>
 
 	* common.opt (fdump-early-debug-stats): New.

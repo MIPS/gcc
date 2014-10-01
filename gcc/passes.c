@@ -268,6 +268,12 @@ rest_of_decl_compilation (tree decl,
   else if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl)
 	   && TREE_STATIC (decl))
     varpool_node::get_create (decl);
+
+  /* ?? Theoretically, we should be able to to call
+     debug_hooks->early_global_decl() here just as we do for
+     rest_of_type_compilation below.  This would require changing how
+     we're currently calling early_global_decl() in all the
+     front-ends.  Something to look into later.  */
 }
 
 /* Called after finishing a record, union or enumeral type.  */

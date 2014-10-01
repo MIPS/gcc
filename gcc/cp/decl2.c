@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
 #include "asan.h"
+#include "debug.h"
 
 extern cpp_reader *parse_in;
 
@@ -4298,7 +4299,13 @@ emit_debug_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
   int len = statics->length ();
 
   check_global_declarations (vec, len);
-  emit_debug_global_declarations (vec, len, EMIT_DEBUG_EARLY);
+
+  for (tree t = level->names; t; t = TREE_CHAIN(t))
+    if (TREE_CODE (t) != TYPE_DECL
+	&& TREE_CODE (t) != PARM_DECL
+	&& !DECL_IS_BUILTIN (t))
+      debug_hooks->early_global_decl (t);
+
   return 0;
 }
 
