@@ -1,4 +1,11 @@
 
+2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{current tletmacro-0 runs correctly}}
+	* melt/warmelt-normal.melt (normexp_let): For :macro binding, call
+	normalize_lambda in the newenv with its own newmacenv ...
+	(normexp_defun_defmacro): More debug.
+
 2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{in current tletmacro-0, the add2out is incorrectly considered as

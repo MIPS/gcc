@@ -3933,6 +3933,7 @@ source location.}#
 	      (mloc (or (get_field :loca_location sb) sloc))
 	      (mformals (get_field :sletm_macro_formals sb))
 	      (mbody (get_field :sletm_macro_body sb))
+	      (newmacenv (fresh_env newenv))
 	      (slambda (instance class_source_lambda_for_macro
 				 :loca_location mloc
 				 :slam_argbind mformals
@@ -3941,14 +3942,19 @@ source location.}#
 				 ))
 	      )
 	 (debug "normexp_let:macro" " before normalize_lambda sloc=" sloc "; slambda=" slambda
-		"\n.. old ncx=" ncx)
+		"\n.. old ncx=" ncx
+		"\n.. env=" debug_more env
+		"\n.. newenv=" debug_more newenv
+		"\n.. newmacenv=" debug_more newmacenv)
 	 (multicall 
 	  (manproc macsym maclocc maconstrout maclovtup masloc maoldproc mandatarout :long mainsideflag)
-	  (normalize_lambda slambda env newenv ncx psloc)
+	  (normalize_lambda slambda  newenv newmacenv ncx psloc)
 	  (debug "normexp_let:macro" " after normalize_lambda manproc=" manproc "\n.. macsym=" macsym 
 		 "\n.. maclocc=" maclocc "\n.. maconstrout=" maconstrout "\n.. maclovtup=" maclovtup
 		 "\n.. masloc=" masloc "\n.. maoldproc=" maoldproc "\n.. mandatarout=" mandatarout
 		 "\n.. mainsideflag=" mainsideflag
+		 "\n.. newenv=" debug_more newenv
+		 "\n.. newmacenv=" debug_more newmacenv
 		 "\n.. ncx=" ncx)
 	  (let (
 		(maloc (or masloc mloc))
@@ -5171,7 +5177,8 @@ source location.}#
     (if (is_a sformals discr_variadic_formal_sequence)
 	(put_fields nproc :nrpro_variadic snam))
     (unsafe_put_fields newenv :env_proc nproc)
-    (debug "normexp_defun_defmacro updated :env_proc of of newenv" newenv)
+    (debug "normexp_defun_defmacro updated :env_proc of of newenv" debug_more newenv)
+    (shortbacktrace_dbg "normexp_defun_defmacro update-envproc" 10)
     ;; add nproc into ncx
     (let ( (ncplis (get_field :nctx_proclist ncx)) 
 	   )
@@ -5483,7 +5490,7 @@ source location.}#
 		:nrclop_argbindtuple sinformals
 		:nrhook_outb soutformals)
     (put_fields newenv :env_proc nproc)
-    (debug "normexp_defhook newenv=" newenv)
+    (debug "normexp_defhook updated newenv=" newenv)
     ;;
     (multicall
      (nbody nbindings)
@@ -5641,6 +5648,7 @@ source location.}#
      (put_env newenv fbi))
     (if (is_a sformalargs discr_variadic_formal_sequence)
 	(put_fields nproc :nrpro_variadic csym))
+    (debug "normalize_lambda"  " sloc=" sloc " before updating newenv=" newenv)
     (put_fields newenv :env_proc nproc)
     (debug "normalize_lambda"  " sloc=" sloc " updated newenv=" debug_more newenv)
     (shortbacktrace_dbg "normalize_lambda" 15)
@@ -5733,7 +5741,8 @@ source location.}#
      (debug "normexp_lambda after normalize_lambda nproc=" nproc "\n.. csym=" csym 
 	    "\n.. clocc=" clocc "\n.. constrout=" constrout "\n.. clovtup=" clovtup
 	    "\n.. sloc=" sloc "\n.. oldproc=" oldproc "\n.. ndatarout=" ndatarout
-	    "\n.. insideflag=" insideflag)
+	    "\n.. insideflag=" insideflag
+	    "\n.. newenv=" debug_more newenv)
      (let (
 	   (nlambda (instance class_nrep_lambda 
 			      :nrep_loc sloc
@@ -6270,11 +6279,12 @@ source location.}#
      ;;bad (normalize_lambda cexpr newenv newenv ncx psloc)
      (normalize_lambda cexpr env newenv ncx psloc)
      (debug "normletrec_lambda after normalize_lambda csym=" csym
-	    " clocc=" clocc
-	    " constrout=" constrout
-	    " clovtup=" clovtup
-	    " oldproc=" oldproc
-	    " ndatarout=" ndatarout)
+	    "\n.. clocc=" clocc
+	    "\n.. constrout=" constrout
+	    "\n.. clovtup=" clovtup
+	    "\n.. oldproc=" oldproc
+	    "\n.. ndatarout=" ndatarout
+	    "\n.. newenv=" newenv)
      (if insideflag
 	 (list_append (get_field :nrclop_constlist oldproc) ndatarout))
      (put_fields cbind 
