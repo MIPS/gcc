@@ -23,6 +23,12 @@
 
 #define GLIBC_DYNAMIC_LINKER "/lib/ld-linux-aarch64%{mbig-endian:_be}%{mabi=ilp32:_ilp32}.so.1"
 
+#undef  ASAN_CC1_SPEC
+#define ASAN_CC1_SPEC "%{%:sanitize(address):-funwind-tables}"
+
+#undef  CC1_SPEC
+#define CC1_SPEC GNU_USER_TARGET_CC1_SPEC ASAN_CC1_SPEC
+
 #define CPP_SPEC "%{pthread:-D_REENTRANT}"
 
 #define LINUX_TARGET_LINK_SPEC  "%{h*}		\
@@ -36,6 +42,14 @@
    -maarch64linux%{mabi=ilp32:32}%{mbig-endian:b}"
 
 #define LINK_SPEC LINUX_TARGET_LINK_SPEC
+
+#define GNU_USER_TARGET_MATHFILE_SPEC \
+  "%{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC   \
+  GNU_USER_TARGET_MATHFILE_SPEC " " \
+  GNU_USER_TARGET_ENDFILE_SPEC
 
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\

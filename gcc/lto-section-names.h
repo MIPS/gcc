@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#ifndef GCC_LTO_SECTION_NAMES_H
+#define GCC_LTO_SECTION_NAMES_H
+
 /* The string that is the prefix on the section names we make for lto.
    For decls the DECL_ASSEMBLER_NAME is appended to make the section
    name for the functions and static_initializers.  For other types of
@@ -34,3 +37,5 @@ extern const char  *section_name_prefix;
 
 #define OFFLOAD_VAR_TABLE_SECTION_NAME "__gnu_offload_vars"
 #define OFFLOAD_FUNC_TABLE_SECTION_NAME "__gnu_offload_funcs"
+
+#endif /* GCC_LTO_SECTION_NAMES_H */

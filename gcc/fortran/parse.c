@@ -3324,7 +3324,7 @@ declSt:
       break;
     }
 
-  /* If match_deferred_characteristics failed, then there is an error. */
+  /* If match_deferred_characteristics failed, then there is an error.  */
   if (bad_characteristic)
     {
       ts = &gfc_current_block ()->result->ts;
@@ -5256,7 +5256,7 @@ add_global_program (void)
 }
 
 
-/* Resolve all the program units. */
+/* Resolve all the program units.  */
 static void
 resolve_all_program_units (gfc_namespace *gfc_global_ns_list)
 {

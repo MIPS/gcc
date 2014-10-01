@@ -137,9 +137,6 @@ static void aarch64_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_override_options_after_change (void);
 static bool aarch64_vector_mode_supported_p (enum machine_mode);
 static unsigned bit_count (unsigned HOST_WIDE_INT);
-static bool aarch64_const_vec_all_same_int_p (rtx,
-					      HOST_WIDE_INT, HOST_WIDE_INT);
-
 static bool aarch64_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 						 const unsigned char *sel);
 static int aarch64_address_cost (rtx, enum machine_mode, addr_space_t, bool);
@@ -218,10 +215,27 @@ static const struct cpu_regmove_cost generic_regmove_cost =
   NAMED_PARAM (GP2GP, 1),
   NAMED_PARAM (GP2FP, 2),
   NAMED_PARAM (FP2GP, 2),
-  /* We currently do not provide direct support for TFmode Q->Q move.
-     Therefore we need to raise the cost above 2 in order to have
-     reload handle the situation.  */
-  NAMED_PARAM (FP2FP, 4)
+  NAMED_PARAM (FP2FP, 2)
+};
+
+static const struct cpu_regmove_cost cortexa57_regmove_cost =
+{
+  NAMED_PARAM (GP2GP, 1),
+  /* Avoid the use of slow int<->fp moves for spilling by setting
+     their cost higher than memmov_cost.  */
+  NAMED_PARAM (GP2FP, 5),
+  NAMED_PARAM (FP2GP, 5),
+  NAMED_PARAM (FP2FP, 2)
+};
+
+static const struct cpu_regmove_cost cortexa53_regmove_cost =
+{
+  NAMED_PARAM (GP2GP, 1),
+  /* Avoid the use of slow int<->fp moves for spilling by setting
+     their cost higher than memmov_cost.  */
+  NAMED_PARAM (GP2FP, 5),
+  NAMED_PARAM (FP2GP, 5),
+  NAMED_PARAM (FP2FP, 2)
 };
 
 /* Generic costs for vector insn classes.  */
@@ -281,7 +295,7 @@ static const struct tune_params cortexa53_tunings =
 {
   &cortexa53_extra_costs,
   &generic_addrcost_table,
-  &generic_regmove_cost,
+  &cortexa53_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 2)
@@ -291,7 +305,7 @@ static const struct tune_params cortexa57_tunings =
 {
   &cortexa57_extra_costs,
   &cortexa57_addrcost_table,
-  &generic_regmove_cost,
+  &cortexa57_regmove_cost,
   &cortexa57_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 3)
@@ -2326,6 +2340,26 @@ aarch64_expand_prologue (void)
     }
 }
 
+/* Return TRUE if we can use a simple_return insn.
+
+   This function checks whether the callee saved stack is empty, which
+   means no restore actions are need. The pro_and_epilogue will use
+   this to check whether shrink-wrapping opt is feasible.  */
+
+bool
+aarch64_use_return_insn_p (void)
+{
+  if (!reload_completed)
+    return false;
+
+  if (crtl->profile)
+    return false;
+
+  aarch64_layout_frame ();
+
+  return cfun->machine->frame.frame_size == 0;
+}
+
 /* Generate the epilogue instructions for returning from a function.  */
 void
 aarch64_expand_epilogue (bool for_sibcall)
@@ -3576,6 +3610,36 @@ aarch64_get_condition_code (rtx x)
     }
 }
 
+bool
+aarch64_const_vec_all_same_in_range_p (rtx x,
+				  HOST_WIDE_INT minval,
+				  HOST_WIDE_INT maxval)
+{
+  HOST_WIDE_INT firstval;
+  int count, i;
+
+  if (GET_CODE (x) != CONST_VECTOR
+      || GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_INT)
+    return false;
+
+  firstval = INTVAL (CONST_VECTOR_ELT (x, 0));
+  if (firstval < minval || firstval > maxval)
+    return false;
+
+  count = CONST_VECTOR_NUNITS (x);
+  for (i = 1; i < count; i++)
+    if (INTVAL (CONST_VECTOR_ELT (x, i)) != firstval)
+      return false;
+
+  return true;
+}
+
+bool
+aarch64_const_vec_all_same_int_p (rtx x, HOST_WIDE_INT val)
+{
+  return aarch64_const_vec_all_same_in_range_p (x, val, val);
+}
+
 static unsigned
 bit_count (unsigned HOST_WIDE_INT value)
 {
@@ -3827,9 +3891,10 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	case CONST_VECTOR:
 	  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_VECTOR_INT)
 	    {
-	      gcc_assert (aarch64_const_vec_all_same_int_p (x,
-							    HOST_WIDE_INT_MIN,
-							    HOST_WIDE_INT_MAX));
+	      gcc_assert (
+		  aarch64_const_vec_all_same_in_range_p (x,
+							 HOST_WIDE_INT_MIN,
+							 HOST_WIDE_INT_MAX));
 	      asm_fprintf (f, "%wd", INTVAL (CONST_VECTOR_ELT (x, 0)));
 	    }
 	  else if (aarch64_simd_imm_zero_p (x, GET_MODE (x)))
@@ -5904,6 +5969,13 @@ aarch64_register_move_cost (enum machine_mode mode,
   const struct cpu_regmove_cost *regmove_cost
     = aarch64_tune_params->regmove_cost;
 
+  /* Caller save and pointer regs are equivalent to GENERAL_REGS.  */
+  if (to == CALLER_SAVE_REGS || to == POINTER_REGS)
+    to = GENERAL_REGS;
+
+  if (from == CALLER_SAVE_REGS || from == POINTER_REGS)
+    from = GENERAL_REGS;
+
   /* Moving between GPR and stack cost is the same as GP2GP.  */
   if ((from == GENERAL_REGS && to == STACK_REG)
       || (to == GENERAL_REGS && from == STACK_REG))
@@ -5914,20 +5986,33 @@ aarch64_register_move_cost (enum machine_mode mode,
     return aarch64_register_move_cost (mode, from, GENERAL_REGS)
             + aarch64_register_move_cost (mode, GENERAL_REGS, to);
 
+  if (GET_MODE_SIZE (mode) == 16)
+    {
+      /* 128-bit operations on general registers require 2 instructions.  */
+      if (from == GENERAL_REGS && to == GENERAL_REGS)
+	return regmove_cost->GP2GP * 2;
+      else if (from == GENERAL_REGS)
+	return regmove_cost->GP2FP * 2;
+      else if (to == GENERAL_REGS)
+	return regmove_cost->FP2GP * 2;
+
+      /* When AdvSIMD instructions are disabled it is not possible to move
+	 a 128-bit value directly between Q registers.  This is handled in
+	 secondary reload.  A general register is used as a scratch to move
+	 the upper DI value and the lower DI value is moved directly,
+	 hence the cost is the sum of three moves. */
+      if (! TARGET_SIMD)
+	return regmove_cost->GP2FP + regmove_cost->FP2GP + regmove_cost->FP2FP;
+
+      return regmove_cost->FP2FP;
+    }
+
   if (from == GENERAL_REGS && to == GENERAL_REGS)
     return regmove_cost->GP2GP;
   else if (from == GENERAL_REGS)
     return regmove_cost->GP2FP;
   else if (to == GENERAL_REGS)
     return regmove_cost->FP2GP;
-
-  /* When AdvSIMD instructions are disabled it is not possible to move
-     a 128-bit value directly between Q registers.  This is handled in
-     secondary reload.  A general register is used as a scratch to move
-     the upper DI value and the lower DI value is moved directly,
-     hence the cost is the sum of three moves. */
-  if (! TARGET_SIMD && GET_MODE_SIZE (mode) == 128)
-    return regmove_cost->GP2FP + regmove_cost->FP2GP + regmove_cost->FP2FP;
 
   return regmove_cost->FP2FP;
 }
@@ -7732,39 +7817,15 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
 #undef CHECK
 }
 
-static bool
-aarch64_const_vec_all_same_int_p (rtx x,
-				  HOST_WIDE_INT minval,
-				  HOST_WIDE_INT maxval)
-{
-  HOST_WIDE_INT firstval;
-  int count, i;
-
-  if (GET_CODE (x) != CONST_VECTOR
-      || GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_INT)
-    return false;
-
-  firstval = INTVAL (CONST_VECTOR_ELT (x, 0));
-  if (firstval < minval || firstval > maxval)
-    return false;
-
-  count = CONST_VECTOR_NUNITS (x);
-  for (i = 1; i < count; i++)
-    if (INTVAL (CONST_VECTOR_ELT (x, i)) != firstval)
-      return false;
-
-  return true;
-}
-
 /* Check of immediate shift constants are within range.  */
 bool
 aarch64_simd_shift_imm_p (rtx x, enum machine_mode mode, bool left)
 {
   int bit_width = GET_MODE_UNIT_SIZE (mode) * BITS_PER_UNIT;
   if (left)
-    return aarch64_const_vec_all_same_int_p (x, 0, bit_width - 1);
+    return aarch64_const_vec_all_same_in_range_p (x, 0, bit_width - 1);
   else
-    return aarch64_const_vec_all_same_int_p (x, 1, bit_width);
+    return aarch64_const_vec_all_same_in_range_p (x, 1, bit_width);
 }
 
 /* Return true if X is a uniform vector where all elements
@@ -7927,24 +7988,6 @@ aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
     error ("lane out of range");
 }
 
-void
-aarch64_simd_const_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
-{
-  gcc_assert (CONST_INT_P (operand));
-  HOST_WIDE_INT lane = INTVAL (operand);
-
-  if (lane < low || lane >= high)
-    error ("constant out of range");
-}
-
-/* Emit code to reinterpret one AdvSIMD type as another,
-   without altering bits.  */
-void
-aarch64_simd_reinterpret (rtx dest, rtx src)
-{
-  emit_move_insn (dest, gen_lowpart (GET_MODE (dest), src));
-}
-
 /* Emit code to place a AdvSIMD pair result in memory locations (with equal
    registers).  */
 void
@@ -8005,7 +8048,7 @@ aarch64_simd_disambiguate_copy (rtx *operands, rtx *dest,
 /* Compute and return the length of aarch64_simd_mov<mode>, where <mode> is
    one of VSTRUCT modes: OI, CI or XI.  */
 int
-aarch64_simd_attr_length_move (rtx insn)
+aarch64_simd_attr_length_move (rtx_insn *insn)
 {
   enum machine_mode mode;
 
@@ -9734,6 +9777,14 @@ aarch64_expand_movmem (rtx *operands)
   return true;
 }
 
+/* Implement the TARGET_ASAN_SHADOW_OFFSET hook.  */
+
+static unsigned HOST_WIDE_INT
+aarch64_asan_shadow_offset (void)
+{
+  return (HOST_WIDE_INT_1 << 36);
+}
+
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST aarch64_address_cost
 
@@ -9979,6 +10030,9 @@ aarch64_expand_movmem (rtx *operands)
 
 #undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
 #define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
+
+#undef TARGET_ASAN_SHADOW_OFFSET
+#define TARGET_ASAN_SHADOW_OFFSET aarch64_asan_shadow_offset
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

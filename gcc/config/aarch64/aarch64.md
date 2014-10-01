@@ -360,6 +360,19 @@
   [(set_attr "type" "branch")]
 )
 
+(define_expand "return"
+  [(simple_return)]
+  "aarch64_use_return_insn_p ()"
+  ""
+)
+
+(define_insn "simple_return"
+  [(simple_return)]
+  ""
+  "ret"
+  [(set_attr "type" "branch")]
+)
+
 (define_insn "eh_return"
   [(unspec_volatile [(match_operand:DI 0 "register_operand" "r")]
     UNSPECV_EH_RETURN)]
@@ -628,7 +641,8 @@
 
 (define_insn "*sibcall_value_insn"
   [(set (match_operand 0 "" "")
-	(call (mem:DI (match_operand 1 "aarch64_call_insn_operand" "Ucs, Usf"))
+	(call (mem:DI
+		(match_operand:DI 1 "aarch64_call_insn_operand" "Ucs, Usf"))
 	      (match_operand 2 "" "")))
    (return)
    (use (match_operand 3 "" ""))]
@@ -1237,7 +1251,7 @@
   add\\t%x0, %x1, %x2
   sub\\t%x0, %x1, #%n2
   add\\t%d0, %d1, %d2"
-  [(set_attr "type" "alu_imm,alu_sreg,alu_imm,alu_sreg")
+  [(set_attr "type" "alu_imm,alu_sreg,alu_imm,neon_add")
    (set_attr "simd" "*,*,*,yes")]
 )
 
@@ -4026,7 +4040,7 @@
 })
 
 (define_insn "stack_protect_test_<mode>"
-  [(set (match_operand:PTR 0 "register_operand")
+  [(set (match_operand:PTR 0 "register_operand" "=r")
 	(unspec:PTR [(match_operand:PTR 1 "memory_operand" "m")
 		     (match_operand:PTR 2 "memory_operand" "m")]
 	 UNSPEC_SP_TEST))

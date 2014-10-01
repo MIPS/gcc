@@ -3805,12 +3805,12 @@ resolve_omp_atomic (gfc_code *code)
 }
 
 
-struct omp_context
+struct fortran_omp_context
 {
   gfc_code *code;
   hash_set<gfc_symbol *> *sharing_clauses;
   hash_set<gfc_symbol *> *private_iterators;
-  struct omp_context *previous;
+  struct fortran_omp_context *previous;
   bool is_openmp;
 } *omp_current_ctx;
 static gfc_code *omp_current_do_code;
@@ -3847,7 +3847,7 @@ gfc_resolve_omp_do_blocks (gfc_code *code, gfc_namespace *ns)
 void
 gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
 {
-  struct omp_context ctx;
+  struct fortran_omp_context ctx;
   gfc_omp_clauses *omp_clauses = code->ext.omp_clauses;
   gfc_omp_namelist *n;
   int list;
@@ -3918,7 +3918,7 @@ gfc_omp_save_and_clear_state (struct gfc_omp_saved_state *state)
 void
 gfc_omp_restore_state (struct gfc_omp_saved_state *state)
 {
-  omp_current_ctx = (struct omp_context *) state->ptrs[0];
+  omp_current_ctx = (struct fortran_omp_context *) state->ptrs[0];
   omp_current_do_code = (gfc_code *) state->ptrs[1];
   omp_current_do_collapse = state->ints[0];
 }
@@ -4310,7 +4310,7 @@ resolve_oacc_nested_loops (gfc_code *code, gfc_code* do_code, int collapse,
 static void
 resolve_oacc_params_in_parallel (gfc_code *code, const char *clause)
 {
-  omp_context *c;
+  fortran_omp_context *c;
 
   if (oacc_is_parallel (code))
     gfc_error ("!$ACC LOOP %s in PARALLEL region doesn't allow "
@@ -4329,7 +4329,7 @@ resolve_oacc_params_in_parallel (gfc_code *code, const char *clause)
 static void
 resolve_oacc_loop_blocks (gfc_code *code)
 {
-  omp_context *c;
+  fortran_omp_context *c;
 
   if (!oacc_is_loop (code))
     return;
@@ -4447,7 +4447,7 @@ resolve_oacc_loop_blocks (gfc_code *code)
 void
 gfc_resolve_oacc_blocks (gfc_code *code, gfc_namespace *ns)
 {
-  omp_context ctx;
+  fortran_omp_context ctx;
 
   resolve_oacc_loop_blocks (code);
 

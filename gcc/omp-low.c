@@ -10284,6 +10284,9 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  continue;
 	      }
 
+	    unsigned int talign = TYPE_ALIGN_UNIT (TREE_TYPE (ovar));
+	    if (DECL_P (ovar) && DECL_ALIGN_UNIT (ovar) > talign)
+	      talign = DECL_ALIGN_UNIT (ovar);
 	    if (nc)
 	      {
 		tree var = lookup_decl_in_outer_ctx (ovar, ctx);
@@ -10301,6 +10304,7 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		      = create_tmp_var (TREE_TYPE (TREE_TYPE (x)), NULL);
 		    mark_addressable (avar);
 		    gimplify_assign (avar, build_fold_addr_expr (var), &ilist);
+		    talign = DECL_ALIGN_UNIT (avar);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
 		  }
@@ -10354,9 +10358,6 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      default:
 		gcc_unreachable ();
 	      }
-	    unsigned int talign = TYPE_ALIGN_UNIT (TREE_TYPE (ovar));
-	    if (DECL_P (ovar) && DECL_ALIGN_UNIT (ovar) > talign)
-	      talign = DECL_ALIGN_UNIT (ovar);
 	    talign = ceil_log2 (talign);
 	    tkind |= talign << 8;
 	    CONSTRUCTOR_APPEND_ELT (vkind, purpose,
@@ -11839,6 +11840,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  continue;
 	      }
 
+	    unsigned int talign = TYPE_ALIGN_UNIT (TREE_TYPE (ovar));
+	    if (DECL_P (ovar) && DECL_ALIGN_UNIT (ovar) > talign)
+	      talign = DECL_ALIGN_UNIT (ovar);
 	    if (nc)
 	      {
 		tree var = lookup_decl_in_outer_ctx (ovar, ctx);
@@ -11856,6 +11860,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		      = create_tmp_var (TREE_TYPE (TREE_TYPE (x)), NULL);
 		    mark_addressable (avar);
 		    gimplify_assign (avar, build_fold_addr_expr (var), &ilist);
+		    talign = DECL_ALIGN_UNIT (avar);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
 		  }
@@ -11914,9 +11919,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		gcc_unreachable ();
 	      }
 	    gcc_assert (tkind < (HOST_WIDE_INT_C (1U) << talign_shift));
-	    unsigned HOST_WIDE_INT talign = TYPE_ALIGN_UNIT (TREE_TYPE (ovar));
-	    if (DECL_P (ovar) && DECL_ALIGN_UNIT (ovar) > talign)
-	      talign = DECL_ALIGN_UNIT (ovar);
 	    talign = ceil_log2 (talign);
 	    tkind |= talign << talign_shift;
 	    gcc_assert (tkind <= tree_to_uhwi (TYPE_MAX_VALUE (tkind_type)));
@@ -13480,9 +13482,22 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
   if (tp != orig_tp)
     {
       repl = build_fold_addr_expr (repl);
-      gimple stmt
-	= gimple_build_assign (make_ssa_name (TREE_TYPE (repl), NULL), repl);
-      repl = gimple_assign_lhs (stmt);
+      gimple stmt;
+      if (is_gimple_debug (info->stmt))
+	{
+	  tree vexpr = make_node (DEBUG_EXPR_DECL);
+	  stmt = gimple_build_debug_source_bind (vexpr, repl, NULL);
+	  DECL_ARTIFICIAL (vexpr) = 1;
+	  TREE_TYPE (vexpr) = TREE_TYPE (repl);
+	  DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (repl));
+	  repl = vexpr;
+	}
+      else
+	{
+	  stmt = gimple_build_assign (make_ssa_name (TREE_TYPE (repl),
+						     NULL), repl);
+	  repl = gimple_assign_lhs (stmt);
+	}
       gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
       *orig_tp = repl;
@@ -13663,6 +13678,7 @@ simd_clone_adjust (struct cgraph_node *node)
      iteration increment and the condition/branch.  */
   basic_block orig_exit = EDGE_PRED (EXIT_BLOCK_PTR_FOR_FN (cfun), 0)->src;
   basic_block incr_bb = create_empty_bb (orig_exit);
+  add_bb_to_loop (incr_bb, body_bb->loop_father);
   /* The succ of orig_exit was EXIT_BLOCK_PTR_FOR_FN (cfun), with an empty
      flag.  Set it now to be a FALLTHRU_EDGE.  */
   gcc_assert (EDGE_COUNT (orig_exit->succs) == 1);
@@ -13687,7 +13703,6 @@ simd_clone_adjust (struct cgraph_node *node)
   loop->safelen = node->simdclone->simdlen;
   loop->force_vectorize = true;
   loop->header = body_bb;
-  add_bb_to_loop (incr_bb, loop);
 
   /* Branch around the body if the mask applies.  */
   if (node->simdclone->inbranch)
@@ -13728,7 +13743,7 @@ simd_clone_adjust (struct cgraph_node *node)
   gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
   e = split_block (incr_bb, gsi_stmt (gsi));
   basic_block latch_bb = e->dest;
-  basic_block new_exit_bb = e->dest;
+  basic_block new_exit_bb;
   new_exit_bb = split_block (latch_bb, NULL)->dest;
   loop->latch = latch_bb;
 
