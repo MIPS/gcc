@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h400735669; // forward declaration fromline 6675
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h400735669 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123; // forward declaration fromline 6677
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -895,7 +895,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h400735669 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -3765,7 +3765,7 @@ meltlab_endgetargs:
                             /*^apply.arg*/
                             argtab[3].meltbp_cstring =  "normexp_symbol after find_enclosing_env bind=";
                             /*^apply.arg*/
-                            argtab[4].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_LESS*/ meltfrout->tabval[6]);
+                            argtab[4].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_MORE*/ meltfrout->tabval[1]);
                             /*^apply.arg*/
                             argtab[5].meltbp_aptr = (melt_ptr_t*) &/*_.BIND__V15*/ meltfptr[5];
                             /*^apply.arg*/
@@ -3777,13 +3777,13 @@ meltlab_endgetargs:
                             /*^apply.arg*/
                             argtab[9].meltbp_cstring =  "\n.. gotenv=";
                             /*^apply.arg*/
-                            argtab[10].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_LESS*/ meltfrout->tabval[6]);
+                            argtab[10].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_MORE*/ meltfrout->tabval[1]);
                             /*^apply.arg*/
                             argtab[11].meltbp_aptr = (melt_ptr_t*) &/*_.GOTENV__V17*/ meltfptr[16];
                             /*^apply.arg*/
                             argtab[12].meltbp_cstring =  "\n.. env=";
                             /*^apply.arg*/
-                            argtab[13].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_LESS*/ meltfrout->tabval[6]);
+                            argtab[13].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_MORE*/ meltfrout->tabval[1]);
                             /*^apply.arg*/
                             argtab[14].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
                             /*^apply.arg*/
@@ -4079,7 +4079,7 @@ meltlab_endgetargs:
                                     MELT_LOCATION("warmelt-normal.melt:1859:/ apply");
                                     /*apply*/
                                     {
-                                        union meltparam_un argtab[7];
+                                        union meltparam_un argtab[8];
                                         memset(&argtab, 0, sizeof(argtab));
                                         /*^apply.arg*/
                                         argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L11*/ meltfnum[10];
@@ -4094,8 +4094,10 @@ meltlab_endgetargs:
                                         /*^apply.arg*/
                                         argtab[5].meltbp_cstring =  "\n.. env=";
                                         /*^apply.arg*/
-                                        argtab[6].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
-                                        /*_.MELT_DEBUG_FUN__V31*/ meltfptr[30] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                                        argtab[6].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_MORE*/ meltfrout->tabval[1]);
+                                        /*^apply.arg*/
+                                        argtab[7].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
+                                        /*_.MELT_DEBUG_FUN__V31*/ meltfptr[30] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                     }
                                     ;
                                     /*_._IF___V30*/ meltfptr[29] = /*_.MELT_DEBUG_FUN__V31*/ meltfptr[30];;
@@ -4220,7 +4222,7 @@ meltlab_endgetargs:
                                     MELT_LOCATION("warmelt-normal.melt:1860:/ apply");
                                     /*apply*/
                                     {
-                                        union meltparam_un argtab[5];
+                                        union meltparam_un argtab[6];
                                         memset(&argtab, 0, sizeof(argtab));
                                         /*^apply.arg*/
                                         argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L13*/ meltfnum[9];
@@ -4231,8 +4233,10 @@ meltlab_endgetargs:
                                         /*^apply.arg*/
                                         argtab[3].meltbp_cstring =  "normexp_symbol bad name envprev=";
                                         /*^apply.arg*/
-                                        argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.ENV_PREV__V33*/ meltfptr[29];
-                                        /*_.MELT_DEBUG_FUN__V34*/ meltfptr[33] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                                        argtab[4].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_MORE*/ meltfrout->tabval[1]);
+                                        /*^apply.arg*/
+                                        argtab[5].meltbp_aptr = (melt_ptr_t*) &/*_.ENV_PREV__V33*/ meltfptr[29];
+                                        /*_.MELT_DEBUG_FUN__V34*/ meltfptr[33] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                     }
                                     ;
                                     /*_._IF___V32*/ meltfptr[30] = /*_.MELT_DEBUG_FUN__V34*/ meltfptr[33];;
@@ -4381,7 +4385,7 @@ meltlab_endgetargs:
                                     MELT_LOCATION("warmelt-normal.melt:1861:/ apply");
                                     /*apply*/
                                     {
-                                        union meltparam_un argtab[5];
+                                        union meltparam_un argtab[6];
                                         memset(&argtab, 0, sizeof(argtab));
                                         /*^apply.arg*/
                                         argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L15*/ meltfnum[10];
@@ -4392,8 +4396,10 @@ meltlab_endgetargs:
                                         /*^apply.arg*/
                                         argtab[3].meltbp_cstring =  "normexp_symbol bad name envprev2=";
                                         /*^apply.arg*/
-                                        argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.ENV_PREV__V37*/ meltfptr[30];
-                                        /*_.MELT_DEBUG_FUN__V38*/ meltfptr[37] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                                        argtab[4].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_MORE*/ meltfrout->tabval[1]);
+                                        /*^apply.arg*/
+                                        argtab[5].meltbp_aptr = (melt_ptr_t*) &/*_.ENV_PREV__V37*/ meltfptr[30];
+                                        /*_.MELT_DEBUG_FUN__V38*/ meltfptr[37] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                     }
                                     ;
                                     /*_._IF___V35*/ meltfptr[29] = /*_.MELT_DEBUG_FUN__V38*/ meltfptr[37];;
@@ -16579,7 +16585,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_1;
             meltlab_count_1++;
-            debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/a3a157b. *CLASS_OBJLABELINSTR/3daca9c8. %ld", meltlab_count_1);
+            debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/397a7266. *CLASS_OBJLABELINSTR/1565ab42. %ld", meltlab_count_1);
 #endif
 
             ;
@@ -16661,7 +16667,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_2;
             meltlab_count_2++;
-            debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/1984b2ea. *CLASS_OBJLABELINSTR/d089df7. %ld", meltlab_count_2);
+            debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/14d13dcd. *CLASS_OBJLABELINSTR/2f40d396. %ld", meltlab_count_2);
 #endif
 
             ;
@@ -16935,7 +16941,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_3;
             meltlab_count_3++;
-            debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_MATCHER/13ae43ff. *CLASS_OBJLABELINSTR/4d8712. %ld", meltlab_count_3);
+            debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_MATCHER/24720ba5. *CLASS_OBJLABELINSTR/2bb5cf26. %ld", meltlab_count_3);
 #endif
 
             ;
@@ -16990,7 +16996,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_4;
             meltlab_count_4++;
-            debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_INSTANCE/10a0a973. *CLASS_OBJLABELINSTR/26fbd2d8. %ld", meltlab_count_4);
+            debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_INSTANCE/3b0a3292. *CLASS_OBJLABELINSTR/15f6840a. %ld", meltlab_count_4);
 #endif
 
             ;
@@ -17073,7 +17079,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_5;
             meltlab_count_5++;
-            debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_SUCCESS/3ce1490b. *CLASS_OBJLABELINSTR/34ebe709. %ld", meltlab_count_5);
+            debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_SUCCESS/4e5180d. *CLASS_OBJLABELINSTR/10f8e260. %ld", meltlab_count_5);
 #endif
 
             ;
@@ -17340,7 +17346,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_6;
             meltlab_count_6++;
-            debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/5a955b7. *CLASS_OBJLABELINSTR/119f1ef1. %ld", meltlab_count_6);
+            debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/173620ee. *CLASS_OBJLABELINSTR/378db1c6. %ld", meltlab_count_6);
 #endif
 
             ;
@@ -17447,7 +17453,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_7;
             meltlab_count_7++;
-            debugeprintf("objlabel_7 mtch1__end_h565101808 *CLASS_OBJLABELINSTR/21aec4f0. %ld", meltlab_count_7);
+            debugeprintf("objlabel_7 mtch1__end_h372970438 *CLASS_OBJLABELINSTR/163b13c6. %ld", meltlab_count_7);
 #endif
 
             ;
