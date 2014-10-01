@@ -407,15 +407,7 @@ symtab_node::unregister (void)
   if (!is_a <varpool_node *> (this) || !DECL_HARD_REGISTER (decl))
     symtab->unlink_from_assembler_name_hash (this, false);
   if (in_init_priority_hash)
-    {
-      symbol_priority_map in;
-      void **slot;
-      in.symbol = this;
-
-      slot = htab_find_slot (symtab->init_priority_hash, &in, NO_INSERT);
-      if (slot)
-	htab_clear_slot (symtab->init_priority_hash, slot);
-    }
+    symtab->init_priority_hash->remove (this);
 }
 
 
@@ -839,6 +831,8 @@ symtab_node::dump_base (FILE *f)
     fprintf (f, " forced_by_abi");
   if (externally_visible)
     fprintf (f, " externally_visible");
+  if (no_reorder)
+    fprintf (f, " no_reorder");
   if (resolution != LDPR_UNKNOWN)
     fprintf (f, " %s",
  	     ld_plugin_symbol_resolution_names[(int)resolution]);
@@ -1455,14 +1449,10 @@ symtab_node::set_section (const char *section)
 priority_type
 symtab_node::get_init_priority ()
 {
-  symbol_priority_map *h;
-  symbol_priority_map in;
-
   if (!this->in_init_priority_hash)
     return DEFAULT_INIT_PRIORITY;
-  in.symbol = this;
-  h = (symbol_priority_map *) htab_find (symtab->init_priority_hash,
-						&in);
+
+  symbol_priority_map *h = symtab->init_priority_hash->get (this);
   return h ? h->init : DEFAULT_INIT_PRIORITY;
 }
 
@@ -1481,33 +1471,10 @@ enum availability symtab_node::get_availability (void)
 priority_type
 cgraph_node::get_fini_priority ()
 {
-  symbol_priority_map *h;
-  symbol_priority_map in;
-
   if (!this->in_init_priority_hash)
     return DEFAULT_INIT_PRIORITY;
-  in.symbol = this;
-  h = (symbol_priority_map *) htab_find (symtab->init_priority_hash,
-						&in);
+  symbol_priority_map *h = symtab->init_priority_hash->get (this);
   return h ? h->fini : DEFAULT_INIT_PRIORITY;
-}
-
-/* Return true if the from tree in both priority maps are equal.  */
-
-int
-symbol_priority_map_eq (const void *va, const void *vb)
-{
-  const symbol_priority_map *const a = (const symbol_priority_map *) va,
-    *const b = (const symbol_priority_map *) vb;
-  return (a->symbol == b->symbol);
-}
-
-/* Hash a from symbol in a symbol_priority_map.  */
-
-unsigned int
-symbol_priority_map_hash (const void *item)
-{
-  return htab_hash_pointer (((const symbol_priority_map *)item)->symbol);
 }
 
 /* Return the initialization and finalization priority information for
@@ -1517,23 +1484,14 @@ symbol_priority_map_hash (const void *item)
 symbol_priority_map *
 symtab_node::priority_info (void)
 {
-  symbol_priority_map in;
-  symbol_priority_map *h;
-  void **loc;
-
-  in.symbol = this;
   if (!symtab->init_priority_hash)
-    symtab->init_priority_hash = htab_create_ggc (512,
-						  symbol_priority_map_hash,
-						  symbol_priority_map_eq, 0);
+    symtab->init_priority_hash = hash_map<symtab_node *, symbol_priority_map>::create_ggc (13);
 
-  loc = htab_find_slot (symtab->init_priority_hash, &in, INSERT);
-  h = (symbol_priority_map *) *loc;
-  if (!h)
+  bool existed;
+  symbol_priority_map *h
+    = &symtab->init_priority_hash->get_or_insert (this, &existed);
+  if (!existed)
     {
-      h = ggc_cleared_alloc<symbol_priority_map> ();
-      *loc = h;
-      h->symbol = this;
       h->init = DEFAULT_INIT_PRIORITY;
       h->fini = DEFAULT_INIT_PRIORITY;
       in_init_priority_hash = true;
@@ -1808,7 +1766,7 @@ symtab_node::get_partitioning_class (void)
      This include external delcarations.   */
   cgraph_node *cnode = dyn_cast <cgraph_node *> (this);
 
-  if (DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT_P (decl))
     return SYMBOL_EXTERNAL;
 
   if (cnode && cnode->global.inlined_to)
@@ -1855,9 +1813,9 @@ bool
 symtab_node::nonzero_address ()
 {
   /* Weakrefs may be NULL when their target is not defined.  */
-  if (this->alias && this->weakref)
+  if (alias && weakref)
     {
-      if (this->analyzed)
+      if (analyzed)
 	{
 	  symtab_node *target = ultimate_alias_target ();
 
@@ -1872,7 +1830,7 @@ symtab_node::nonzero_address ()
 	     could be useful to eliminate the NULL pointer checks in LTO
 	     programs.  */
 	  if (target->definition && !DECL_EXTERNAL (target->decl))
-	    return true;
+	      return true;
 	  if (target->resolution != LDPR_UNKNOWN
 	      && target->resolution != LDPR_UNDEF
 	      && flag_delete_null_pointer_checks)
@@ -1891,22 +1849,28 @@ symtab_node::nonzero_address ()
      Those are handled by later check for definition.
 
      When parsing, beware the cases when WEAK attribute is added later.  */
-  if (!DECL_WEAK (this->decl)
-      && flag_delete_null_pointer_checks
-      && symtab->state > PARSING)
-    return true;
+  if (!DECL_WEAK (decl)
+      && flag_delete_null_pointer_checks)
+    {
+      refuse_visibility_changes = true;
+      return true;
+    }
 
   /* If target is defined and not extern, we know it will be output and thus
      it will bind to non-NULL.
      Play safe for flag_delete_null_pointer_checks where weak definition maye
      be re-defined by NULL.  */
-  if (this->definition && !DECL_EXTERNAL (this->decl)
-      && (flag_delete_null_pointer_checks || !DECL_WEAK (this->decl)))
-    return true;
+  if (definition && !DECL_EXTERNAL (decl)
+      && (flag_delete_null_pointer_checks || !DECL_WEAK (decl)))
+    {
+      if (!DECL_WEAK (decl))
+        refuse_visibility_changes = true;
+      return true;
+    }
 
   /* As the last resort, check the resolution info.  */
-  if (this->resolution != LDPR_UNKNOWN
-      && this->resolution != LDPR_UNDEF
+  if (resolution != LDPR_UNKNOWN
+      && resolution != LDPR_UNDEF
       && flag_delete_null_pointer_checks)
     return true;
   return false;

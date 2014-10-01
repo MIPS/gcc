@@ -153,6 +153,9 @@ enum cpp_ttype
   TTYPE_TABLE
   N_TTYPES,
 
+  /* A token type for keywords, as opposed to ordinary identifiers.  */
+  CPP_KEYWORD,
+
   /* Positions in the table.  */
   CPP_LAST_EQ        = CPP_LSHIFT,
   CPP_FIRST_DIGRAPH  = CPP_HASH,
@@ -457,8 +460,8 @@ struct cpp_options
   const char *input_charset;
 
   /* The minimum permitted level of normalization before a warning
-     is generated.  */
-  enum cpp_normalize_level warn_normalize;
+     is generated.  See enum cpp_normalize_level.  */
+  int warn_normalize;
 
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
@@ -939,7 +942,9 @@ enum {
   CPP_W_INVALID_PCH,
   CPP_W_WARNING_DIRECTIVE,
   CPP_W_LITERAL_SUFFIX,
-  CPP_W_DATE_TIME
+  CPP_W_DATE_TIME,
+  CPP_W_PEDANTIC,
+  CPP_W_C90_C99_COMPAT
 };
 
 /* Output a diagnostic of some kind.  */

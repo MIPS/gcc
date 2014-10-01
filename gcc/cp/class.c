@@ -1441,7 +1441,8 @@ check_abi_tags (tree t, tree subob)
 void
 inherit_targ_abi_tags (tree t)
 {
-  if (CLASSTYPE_TEMPLATE_INFO (t) == NULL_TREE)
+  if (!CLASS_TYPE_P (t)
+      || CLASSTYPE_TEMPLATE_INFO (t) == NULL_TREE)
     return;
 
   mark_type_abi_tags (t, true);
@@ -2820,7 +2821,8 @@ warn_hidden (tree t)
       for (fn = fns; fn; fn = OVL_NEXT (fn))
 	{
 	  fndecl = OVL_CURRENT (fn);
-	  if (DECL_VINDEX (fndecl))
+	  if (TREE_CODE (fndecl) == FUNCTION_DECL
+	      && DECL_VINDEX (fndecl))
 	    {
 	      tree *prev = &base_fndecls;
 
@@ -3528,9 +3530,11 @@ check_field_decls (tree t, tree *access_decls,
 	CLASSTYPE_NON_AGGREGATE (t) = 1;
 
       /* If at least one non-static data member is non-literal, the whole
-         class becomes non-literal.  Note: if the type is incomplete we
-	 will complain later on.  */
-      if (COMPLETE_TYPE_P (type) && !literal_type_p (type))
+         class becomes non-literal.  Per Core/1453, volatile non-static
+	 data members and base classes are also not allowed.
+	 Note: if the type is incomplete we will complain later on.  */
+      if (COMPLETE_TYPE_P (type)
+	  && (!literal_type_p (type) || CP_TYPE_VOLATILE_P (type))) 
         CLASSTYPE_LITERAL_P (t) = false;
 
       /* A standard-layout class is a class that:
@@ -4578,7 +4582,7 @@ clone_function_decl (tree fn, int update_method_vec_p)
     }
 
   /* Note that this is an abstract function that is never emitted.  */
-  DECL_ABSTRACT (fn) = 1;
+  DECL_ABSTRACT_P (fn) = true;
 }
 
 /* DECL is an in charge constructor, which is being defined. This will
@@ -5431,6 +5435,9 @@ explain_non_literal_class (tree t)
 	      if (CLASS_TYPE_P (ftype))
 		explain_non_literal_class (ftype);
 	    }
+	  if (CP_TYPE_VOLATILE_P (ftype))
+	    inform (0, "  non-static data member %q+D has "
+		    "volatile type", field);
 	}
     }
 }
@@ -5454,9 +5461,6 @@ check_bases_and_members (tree t)
   bool saved_complex_asn_ref;
   bool saved_nontrivial_dtor;
   tree fn;
-
-  /* Pick up any abi_tags from our template arguments before checking.  */
-  inherit_targ_abi_tags (t);
 
   /* By default, we use const reference arguments and generate default
      constructors.  */
@@ -6503,7 +6507,8 @@ finish_struct_1 (tree t)
   /* This warning does not make sense for Java classes, since they
      cannot have destructors.  */
   if (!TYPE_FOR_JAVA (t) && warn_nonvdtor
-      && TYPE_POLYMORPHIC_P (t) && accessible_nvdtor_p (t))
+      && TYPE_POLYMORPHIC_P (t) && accessible_nvdtor_p (t)
+      && !CLASSTYPE_FINAL (t))
     warning (OPT_Wnon_virtual_dtor,
 	     "%q#T has virtual functions and accessible"
 	     " non-virtual destructor", t);

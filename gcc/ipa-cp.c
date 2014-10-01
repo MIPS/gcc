@@ -573,7 +573,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
 /* Arrays representing a topological ordering of call graph nodes and a stack
    of noes used during constant propagation.  */
 
-struct topo_info
+struct ipa_topo_info
 {
   struct cgraph_node **order;
   struct cgraph_node **stack;
@@ -583,7 +583,7 @@ struct topo_info
 /* Allocate the arrays in TOPO and topologically sort the nodes into order.  */
 
 static void
-build_toporder_info (struct topo_info *topo)
+build_toporder_info (struct ipa_topo_info *topo)
 {
   topo->order = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
   topo->stack = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
@@ -596,7 +596,7 @@ build_toporder_info (struct topo_info *topo)
    TOPO.  */
 
 static void
-free_toporder_info (struct topo_info *topo)
+free_toporder_info (struct ipa_topo_info *topo)
 {
   ipa_free_postorder_info ();
   free (topo->order);
@@ -606,7 +606,7 @@ free_toporder_info (struct topo_info *topo)
 /* Add NODE to the stack in TOPO, unless it is already there.  */
 
 static inline void
-push_node_to_stack (struct topo_info *topo, struct cgraph_node *node)
+push_node_to_stack (struct ipa_topo_info *topo, struct cgraph_node *node)
 {
   struct ipa_node_params *info = IPA_NODE_REF (node);
   if (info->node_enqueued)
@@ -619,7 +619,7 @@ push_node_to_stack (struct topo_info *topo, struct cgraph_node *node)
    is empty.  */
 
 static struct cgraph_node *
-pop_node_from_stack (struct topo_info *topo)
+pop_node_from_stack (struct ipa_topo_info *topo)
 {
   if (topo->stack_top)
     {
@@ -1618,14 +1618,11 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 
   if (TREE_CODE (t) != TREE_BINFO)
     {
-      ipa_polymorphic_call_context context;
+      ipa_polymorphic_call_context context (t, ie->indirect_info->otr_type,
+					    anc_offset);
       vec <cgraph_node *>targets;
       bool final;
 
-      if (!get_polymorphic_call_info_from_invariant
-	     (&context, t, ie->indirect_info->otr_type,
-	      anc_offset))
-	return NULL_TREE;
       targets = possible_polymorphic_call_targets
 		 (ie->indirect_info->otr_type,
 		  ie->indirect_info->otr_token,
@@ -2201,7 +2198,7 @@ add_all_node_vals_to_toposort (struct cgraph_node *node)
    connected components.  */
 
 static void
-propagate_constants_topo (struct topo_info *topo)
+propagate_constants_topo (struct ipa_topo_info *topo)
 {
   int i;
 
@@ -2300,7 +2297,7 @@ propagate_effects (void)
    interprocedurally.  */
 
 static void
-ipcp_propagate_stage (struct topo_info *topo)
+ipcp_propagate_stage (struct ipa_topo_info *topo)
 {
   struct cgraph_node *node;
 
@@ -3048,6 +3045,11 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 		intersect_with_agg_replacements (cs->caller, src_idx,
 						 &inter, 0);
 	    }
+	  else
+	    {
+	      inter.release ();
+	      return vNULL;
+	    }
 	}
       else
 	{
@@ -3062,6 +3064,11 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 		inter = copy_plats_to_inter (src_plats, 0);
 	      else
 		intersect_with_plats (src_plats, &inter, 0);
+	    }
+	  else
+	    {
+	      inter.release ();
+	      return vNULL;
 	    }
 	}
     }
@@ -3146,7 +3153,8 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 					  vec<cgraph_edge *> callers)
 {
   struct ipa_node_params *dest_info = IPA_NODE_REF (node);
-  struct ipa_agg_replacement_value *res = NULL;
+  struct ipa_agg_replacement_value *res;
+  struct ipa_agg_replacement_value **tail = &res;
   struct cgraph_edge *cs;
   int i, j, count = ipa_get_param_count (dest_info);
 
@@ -3190,14 +3198,15 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 	  v->offset = item->offset;
 	  v->value = item->value;
 	  v->by_ref = plats->aggs_by_ref;
-	  v->next = res;
-	  res = v;
+	  *tail = v;
+	  tail = &v->next;
 	}
 
     next_param:
       if (inter.exists ())
 	inter.release ();
     }
+  *tail = NULL;
   return res;
 }
 
@@ -3206,7 +3215,8 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 static struct ipa_agg_replacement_value *
 known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
 {
-  struct ipa_agg_replacement_value *res = NULL;
+  struct ipa_agg_replacement_value *res;
+  struct ipa_agg_replacement_value **tail = &res;
   struct ipa_agg_jump_function *aggjf;
   struct ipa_agg_jf_item *item;
   int i, j;
@@ -3220,9 +3230,10 @@ known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
 	v->offset = item->offset;
 	v->value = item->value;
 	v->by_ref = aggjf->by_ref;
-	v->next = res;
-	res = v;
+	*tail = v;
+	tail = &v->next;
       }
+  *tail = NULL;
   return res;
 }
 
@@ -3647,7 +3658,7 @@ identify_dead_nodes (struct cgraph_node *node)
    TOPO and make specialized clones if deemed beneficial.  */
 
 static void
-ipcp_decision_stage (struct topo_info *topo)
+ipcp_decision_stage (struct ipa_topo_info *topo)
 {
   int i;
 
@@ -3682,7 +3693,7 @@ ipcp_driver (void)
 {
   struct cgraph_2edge_hook_list *edge_duplication_hook_holder;
   struct cgraph_edge_hook_list *edge_removal_hook_holder;
-  struct topo_info topo;
+  struct ipa_topo_info topo;
 
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();

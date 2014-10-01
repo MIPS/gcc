@@ -338,6 +338,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
 #if __cplusplus > 201103L
+
+#define __cpp_lib_quoted_string_io 201304
+
   /**
    * @brief Manipulator for quoted strings.
    * @param __string String to quote.
