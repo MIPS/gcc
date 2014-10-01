@@ -1,6 +1,13 @@
 
 2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.3pre3.
+
+	* melt/warmelt-macro.melt (lambda_arg_bindings): Accept an
+	argmode. Maybe extend it to also accept a :macro argmode?
+
+2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tletmacro-2.melt: New file.
 	* testsuite/melt/tletmacro-0.melt: More.
 	* melt/warmelt-normal.melt (normexp_symbol): More debug.

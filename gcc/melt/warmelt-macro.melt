@@ -2668,13 +2668,13 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 
 ;;; expand an s-expression into a tuple of formal bindings
 ;;; the formalsexp is the sexpr of formals 
-;;; the [optional] checkargs should be set to non-null to check arguments type
-;;; usually checkargs is just missing
-(defun lambda_arg_bindings (formalsexp checkargs)
+;;; the [optional] argmode should be set :checkargs to check arguments type
+;;; usually argmode is just missing
+;;; TODO: perhaps consider a :macro argmode also??
+(defun lambda_arg_bindings (formalsexp argmode)
   ;; special case for null arglist
-  (if (null formalsexp)
-      (progn
-	(return (make_multiple discr_multiple 0))))
+  (when (null formalsexp)
+	(return (make_multiple discr_formal_sequence 0)))
   (assert_msg "check formalsexp" (is_a formalsexp class_sexpr) formalsexp)
   (let ( (:long argrk 0)
 	 (argtype ctype_value)
@@ -2733,7 +2733,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			  (instance class_formal_binding 
 				    :binder curarg
 				    :fbind_type argtype)) )
-		    (if checkargs
+		    (if (== argmode :checkargs)
 			(if (or (not (is_a argtype class_ctype))
 				(not (is_string (unsafe_get_field :ctype_parstring argtype))))
 			    (error_at argloc "invalid argument type $1 in formal arglist $2"_
@@ -3596,7 +3596,7 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 	    (cond ( (null curpairhead) 
 		    (make_multiple discr_multiple 0) )
 		  ( (is_a curpairhead class_sexpr)
-		    (lambda_arg_bindings (pair_head curpair) sexpr))
+		    (lambda_arg_bindings (pair_head curpair) :checkarg))
 		  (:else
 		   (debug "mexpand_defun strange arglist curpairhead" curpairhead)
 		   (error_at loc "missing or invalid arglist for DEFUN $1"_ symbname)
@@ -3726,7 +3726,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	    (cond ( (null curpairhead) 
 		    (make_multiple discr_multiple 0) )
 		  ( (is_a curpairhead class_sexpr)
-		    (lambda_arg_bindings (pair_head curpair) sexpr))
+		    (lambda_arg_bindings (pair_head curpair) :checkarg))
 		  (:else
 		   (debug "mexpand_defmacro strange arglist curpairhead" curpairhead)
 		   (error_at loc "missing or invalid arglist for DEFMACRO $1"_ symbname)
@@ -3984,7 +3984,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 		 )
 	    (debug "mexpand_defhook insexp=" insexp)
 	    (cond ( (is_a insexp class_sexpr)
-		    (lambda_arg_bindings insexp :true))
+		    (lambda_arg_bindings insexp :checkarg))
 		  ( (null insexp)
 		    (make_multiple discr_multiple 0))
 		  (:else
@@ -4004,7 +4004,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 		 )
 	    (debug "mexpand_defhook outsexp=" outsexp)
 	    (cond ( (is_a outsexp class_sexpr)
-		    (lambda_arg_bindings outsexp :true))
+		    (lambda_arg_bindings outsexp :checkarg))
 		  ( (null outsexp)
 		    (make_multiple discr_multiple 0))
 		  (:else
@@ -4169,7 +4169,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 	     (fcont (unsafe_get_field :sexp_contents curelem))
 	     (funame (pair_head (list_first fcont)))
 	     (cursubpair (pair_tail (list_first fcont)))
-	     (formaltup (lambda_arg_bindings cursubpair :true))
+	     (formaltup (lambda_arg_bindings cursubpair :checkarg))
 	     (defdoc ())
 	     (fbind (instance class_function_binding
 			      :binder funame
@@ -4810,7 +4810,7 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 			      ;; curfkw is non-null so we ask the
 			      ;; arguments to be checked by
 			      ;; lambda_arg_bindings
-			      (setq formals (lambda_arg_bindings curexp curfkw))
+			      (setq formals (lambda_arg_bindings curexp :checkarg))
 			      (let ( (firstf (multiple_nth formals 0)) )
 				(cond
 				 ( (null firstf)
@@ -6847,7 +6847,7 @@ applications of @code{/i} primitives.}#
     ;; special case for :macro i.e. quasi_ctype_macro
     ;; syntax of the macro binding (:macro <name> <formals> <body>...)
     (if (== ctyp quasi_ctype_macro)
-	(let ( (macformals (lambda_arg_bindings curarg :true))
+	(let ( (macformals (lambda_arg_bindings curarg :checkarg))
 	       (varname (unsafe_get_field :named_name var))
 	       (macbody ())
 	       (newenv (fresh_env env))
@@ -7281,7 +7281,7 @@ applications of @code{/i} primitives.}#
     ;; parse the formal arguments
     (if (and (notnull formals) (is_not_a formals class_sexpr))
 	(error_plain loc "missing formal argument list in (LAMBDA (arglist...) body...)"_))
-    (let ( (argtup (lambda_arg_bindings formals sexpr)) )
+    (let ( (argtup (lambda_arg_bindings formals :checkarg)) )
       (setq curpair (pair_tail curpair))
       (foreach_in_multiple 
        (argtup)
@@ -7371,7 +7371,7 @@ applications of @code{/i} primitives.}#
 	((or (null casefirst)
 	     (is_a casefirst class_sexpr))
 	 (debug "mexpand_variadic casefirst=" casefirst)
-	 (let ( (args (lambda_arg_bindings casefirst :true))
+	 (let ( (args (lambda_arg_bindings casefirst :checkarg))
 		(newenv (fresh_env env))
 		)
 	   (debug "mexpand_variadic args" args)
@@ -7457,7 +7457,7 @@ remain.}#)
 	 (newenv (fresh_env env))
 	 )
     ;; parse the formal results
-    (let ( (restup (lambda_arg_bindings (pair_head curpair) sexpr)) 
+    (let ( (restup (lambda_arg_bindings (pair_head curpair) :checkarg)) 
 	   )
       (if (is_a restup discr_variadic_formal_sequence)
 	  (progn
