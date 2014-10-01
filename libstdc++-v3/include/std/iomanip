@@ -42,7 +42,7 @@
 #if __cplusplus >= 201103L
 #include <locale>
 #if __cplusplus > 201103L
-#include <bits/quoted.h>
+#include <bits/quoted_string.h>
 #endif
 #endif
 

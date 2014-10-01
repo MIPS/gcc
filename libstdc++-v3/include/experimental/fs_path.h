@@ -156,7 +156,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
     template<typename _Source,
-	     typename _Require = _Path<_Source>>  
+	     typename _Require = _Path<_Source>>
       path(_Source const& __source)
       : _M_pathname(_S_convert(_S_range_begin(__source),
 			       _S_range_end(__source)))
