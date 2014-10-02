@@ -2600,6 +2600,14 @@ pointer type node.}#
  ()
  #{ /* tree_const_ptr_type_node : */ const_ptr_type_node }#)
 
+;;; "va_list"
+(defcmatcher tree_va_list_type_node (:tree tr) ()
+ nodetr
+ :doc #{$TREE_VA_LIST_TYPE_NODE matches or gives the constant va_list node.}#
+ #{ /* tree_va_list_type_node $NODETR ? */ $TR == va_list_type_node }#
+ ()
+ #{ /* tree_va_list_type_node : */ va_list_type_node }#)
+
 ;;; "true"
 (defcmatcher tree_boolean_true_node (:tree tr) ()
  nodetr
@@ -3351,6 +3359,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_unsigned_type_node
  tree_useless_type_conversion_p 
  tree_va_arg_expr
+ tree_va_list_type_node
  tree_var_decl
  tree_var_decl_named
  tree_var_decl_of_name
