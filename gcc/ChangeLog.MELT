@@ -1,5 +1,7 @@
 
 2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tletmacro-3 still fails}}
 	* melt/warmelt-macro.melt (melt_delayed_macro_expander)
 	(mexpand_let): More debug.

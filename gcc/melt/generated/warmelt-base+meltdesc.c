@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 215764] MELT_1\
+const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 215802] MELT_1\
 .1.3pre3"
 
 	     #ifdef __cplusplus
@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1.3pre3/warmelt-base";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="980205e84923fd315d1c1241dd119c64";
+const char melt_prepromd5meltrun[]="91e39ca6c2d9056baf5363370288a44d";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="70befe2cbb9ab43984949ac0207187ee";
+const char melt_primaryhexmd5[]="c19dccf39bf46e694065975049d10cba";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-base+01.cc #1 */ "7df641cfa790927c4a256fe2f2d01acd",
- /*sechexmd5checksum meltbuild-sources/warmelt-base+02.cc #2 */ "11c5ec6ec5ed0c0a07dbd50515d43794",
+ /*sechexmd5checksum meltbuild-sources/warmelt-base+01.cc #1 */ "7ef4a17956a4ad086da6377a0e47ef88",
+ /*sechexmd5checksum meltbuild-sources/warmelt-base+02.cc #2 */ "009d401f21c9907ce497341e7b4ff5b8",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="f9f6da44432e9e60f0de527d2c616d60" ;
+const char melt_cumulated_hexmd5[]="10bfd62c19f81dac042c9475d48eaa9e" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiBASE_mds__F9F6DA44432E9E60F0DE527D2C616D60 1
+#define meltmod_WARMELTmiBASE_mds__10BFD62C19F81DAC042C9475D48EAA9E 1
 #include "warmelt-base+melttime.h"
 	 
 

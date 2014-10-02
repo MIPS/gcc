@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123; // forward declaration fromline 6677
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123; // forward declaration fromline 6680
 typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
