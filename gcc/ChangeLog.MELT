@@ -1,5 +1,14 @@
 
 2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tletmacro-3 fails and has an infinite recursion; the macro
+	expander does not seems to be updated in place in its binder...}}
+	* testsuite/melt/tletmacro-2.melt: Improved...
+	* testsuite/melt/tletmacro-3.melt: Improved...
+
+	* melt/warmelt-macro.melt (mexpand_let): Remove test in mexpanser
+	lambda....
+
+2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tletmacro-3.melt: New file.
 	* testsuite/melt/tletmacro-3-loaded.melt: New file.

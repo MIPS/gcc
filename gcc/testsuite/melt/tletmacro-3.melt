@@ -31,7 +31,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     )
 		(debug "macro loadedmac" " arg1=" arg1 " sline=" sline
 		       "\n.. res=" res)
-		res))
+		(return res)))
       )
   (debug "before loading tletmacro-3-loaded")
   (load "tletmacro-3-loaded.melt")

@@ -20,19 +20,17 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
       (the_stdout (unsafe_get_field :sysdata_stdout initial_system_data))
       (:macro mac 
               (sexp env mexpander modctx)
-      #|
               (debug "macro mac" " sexp=" sexp
 		     "\n.. env=" env
 		     "\n.. mexpander=" mexpander
 		     "\n.. modctx=" modctx)
               (let ( (len (list_length (get_field :sexp_contents sexp))
-                     )
-                (debug "mac len=" len)
-                (return (constant_box len))
-                )
-      |#
-	      '23
-              )
+			  )
+		     )
+		(debug "mac len=" len)
+		(return (constant_box len))
+		)
+	      )
       (v (mac a b))
       (w (mac))
       )
@@ -40,7 +38,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
          ;; "\n.. w=" w
          )
   (debug "tletmacro-2" " the_stdout=" the_stdout)
-  (add2out the_stdout "ending tletmacro-2" "v=" v "\n")
+  (add2out the_stdout "ending tletmacro-2" "; v=" v "\n")
   (debug "tletmacro-2" " done output v=" v " to the_stdout=" the_stdout
 	 "\n.. mac=" mac
 	 )

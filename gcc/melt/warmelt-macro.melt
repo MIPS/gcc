@@ -4940,6 +4940,7 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	(setq filnam (mexpander filnam env mexpander modctx)))
     (if (is_a filnam class_named)
 	(setq filnam (unsafe_get_field :named_name filnam)))
+    (debug "mexpand_load" " loc=" loc "; filnam=" filnam)
     (cond 
      ( (is_string filnam)
        (inform_strv loc "MELT loading file " filnam)
@@ -7016,8 +7017,9 @@ applications of @code{/i} primitives.}#
 					 :smacinst_env newenv))
 		     )
 		 (list_append maclist sinstmac)
-		 (debug "mexpand_let:macro" 
-			" defmaclet=" defmaclet
+		 (debug "mexpand_let:macro"
+			" loc=" loc
+			"\n.. defmaclet=" defmaclet
 			"\n.. updated maclist=" maclist
 			"\n.. sinstmac=" sinstmac)
 		 (letrec ( (mexpanser
@@ -7036,11 +7038,16 @@ applications of @code{/i} primitives.}#
 			      (let ( (mclos (get_field :mbind_expanser macbind))
 				     (locm (get_field :loca_location sexprm))
 				     )
-				(debug "mexpand_let:mexpanser mclos=" mclos)
-				(when (== mclos mexpanser)
-				  (error_at locm "failed to macro-expand LET :macro $1" macsymb)
-				  (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
-				  (return))
+				(debug "mexpand_let:mexpanser"
+				       " loc=" loc " locm=" locm
+				       "\n.. mclos=" mclos
+				       "\n.. mexpanser=" mexpanser
+				       "\n.. sexprm=" sexprm)
+				;; @@@ NOT SURE
+				;; (when (== mclos mexpanser)
+				;;  (error_at locm "failed to macro-expand LET :macro $1" macsymb)
+				;;  (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
+				;;  (return))
 				(multicall 
 				 (expmac othermac)
 				 (mclos sexprm envm mexpanderm modctxm)
