@@ -1,5 +1,11 @@
 2014-10-02  Aldy Hernandez  <aldyh@redhat.com>
 
+	* dwarf2out.c (gen_formal_parameter_die): Simplify check for
+	abstract instance.
+	(gen_subprogram_die): Same.
+
+2014-10-02  Aldy Hernandez  <aldyh@redhat.com>
+
 	* dwarf2out.c (output_die): Revert change to output parent DIE and
 	early flag to make comparing with mainline easier.
 

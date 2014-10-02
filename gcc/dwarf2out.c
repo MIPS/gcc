@@ -17786,13 +17786,11 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
 	}
     }
 
+  /* If we have a previously generated DIE, use it, unless this is an
+     abstract instance (origin != NULL), in which case we need a new
+     DIE with a corresponding DW_AT_abstract_origin.  */
   bool reusing_die;
-  if (parm_die
-      /* Make sure the function to which this parameter belongs to is
-	 not an abstract instance.  If it is, we can't reuse anything.
-	 We must create a new DW_TAG_formal_parameter with a
-	 corresponding DW_AT_abstract_origin.  */
-      && !get_AT (context_die, DW_AT_abstract_origin))
+  if (parm_die && origin == NULL)
     reusing_die = true;
   else
     {
@@ -18349,7 +18347,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       && debug_info_level > DINFO_LEVEL_TERSE)
     old_die = force_decl_die (decl);
 
-  if (origin != NULL && (origin != decl || old_die))
+  if (origin != NULL)
     {
       gcc_assert (!declaration || local_scope_p (context_die));
 
