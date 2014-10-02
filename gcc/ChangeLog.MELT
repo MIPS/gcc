@@ -1,4 +1,11 @@
 
+2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/tletmacro-3.melt: New file.
+	* testsuite/melt/tletmacro-3-loaded.melt: New file.
+
+	* melt/warmelt-macro.melt (mexpand_load): More debug.
+
 2014-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* Makefile.in (melt.encap): Add dependency on generated

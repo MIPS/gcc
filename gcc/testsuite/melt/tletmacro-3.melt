@@ -1,0 +1,39 @@
+;; file tletmacro-3.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tletmacro-3.melt
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tletmacro-3-loaded.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tletmacro-3.melt \
+     /dev/null -o /dev/null
+## perhaps also: -fmelt-debugging=all -fmelt-out-descr-comment
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tletmacro-3.melt \
+     -c -x c /dev/null -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+
+(let (
+      (the_stdout (unsafe_get_field :sysdata_stdout initial_system_data))
+      (:macro loadedmac (sexp env mexpander modctx)
+	      (debug "macro loadedmac" " sexp=" sexp)
+	      (let ( (arg1 (list_nth (usafe_get_field :sexp_contents sexp) 1))
+		     (sloc (unsafe_get_field :loca_location sexp))
+		     (sline (get_int sloc))
+		     (res (instance class_source_apply
+				    :loca_location sloc
+				    :sapp_fun 'add2out
+				    :sargop_args (tuple 'the_stdout "loadedmac@" sline ":" arg1)))
+		     )
+		(debug "macro loadedmac" " arg1=" arg1 " sline=" sline
+		       "\n.. res=" res)
+		res))
+      )
+  (debug "before loading tletmacro-3-loaded")
+  (load "tletmacro-3-loaded.melt")
+  (debug "after loading tletmacro-3-loaded")  
+  )

@@ -1,0 +1,6 @@
+;; file tletmacro-3-loaded.melt in -*- Lisp -*- 
+;; see file tletmacro-3.melt which loads this file
+(loadedmac aa)
+(loadedmac bb)
+(loadedmac cc)
+;; eof tletmacro-3-loaded.melt
