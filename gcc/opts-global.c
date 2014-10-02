@@ -25,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "flags.h"
 #include "tree.h" /* Required by langhooks.h.  */
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"

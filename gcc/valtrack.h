@@ -25,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "df.h"
 #include "rtl.h"
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 #include "hash-table.h"
 

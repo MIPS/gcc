@@ -25,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "target.h"
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 #include "timevar.h"	/* for TV_ALIAS_STMT_WALK */
 #include "langhooks.h"

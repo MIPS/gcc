@@ -29,6 +29,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"	/* FIXME: To dump INSN_VAR_LOCATION_DECL.  */
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 #include "dumpfile.h"	/* for the TDF_* flags */
 #include "pretty-print.h"

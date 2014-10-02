@@ -24,6 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 /* For state_t.  */
 #include "insn-attr.h"
 #include "regset.h"
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 /* For reg_note.  */
 #include "rtl.h"

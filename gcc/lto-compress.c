@@ -28,6 +28,9 @@ along with GCC; see the file COPYING3.  If not see
 #include <zlib.h>
 #include "coretypes.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"

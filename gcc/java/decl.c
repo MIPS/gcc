@@ -41,6 +41,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
+#include "predict.h"
+#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"

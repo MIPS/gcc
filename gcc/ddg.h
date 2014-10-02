@@ -24,6 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 /* For sbitmap.  */
 #include "sbitmap.h"
 /* For basic_block.  */
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 #include "df.h"
 

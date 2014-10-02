@@ -54,6 +54,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "alloc-pool.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 #include "df.h"
 #include "cfgloop.h" /* FIXME: For struct loop.  */

@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "is-a.h"
 #include "plugin-api.h"
+#include "predict.h"
+#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"

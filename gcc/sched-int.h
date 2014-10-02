@@ -26,6 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef INSN_SCHEDULING
 
 #include "df.h"
+#include "predict.h"
+#include "vec.h"
+#include "function.h"
 #include "basic-block.h"
 
 /* Identificator of a scheduler pass.  */
