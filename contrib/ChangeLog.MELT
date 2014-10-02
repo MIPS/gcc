@@ -1,4 +1,9 @@
 
+2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile (install-melt-doc): Install the
+	subdirectories with files meltplugin.html/*.html &
+	meltpluginapi.html/*html ...
+
 2014-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile (MELTTEXI2HTML_FLAGS): New variable.
 	Use it for meltpluginapi.html.

@@ -574,7 +574,11 @@ install-melt-doc: doc doc-info doc-pdf doc-html
 	$(INSTALL_DATA) *.info *.info-*[0-9] $(DESTDIR)$(MELTGCC_DOC_INFO_DIR)
 	@echo installing MELT doc html directory $(MELTGCC_DOC_HTML_DIR)
 	$(mkinstalldirs) $(DESTDIR)$(MELTGCC_DOC_HTML_DIR)
-	$(INSTALL_DATA) *.html $(DESTDIR)$(MELTGCC_DOC_HTML_DIR)
+	if [ -f meltplugin.html ]; then $(INSTALL_DATA) meltplugin.html $(DESTDIR)$(MELTGCC_DOC_HTML_DIR) ; fi
+	$(INSTALL_DATA) meltplugin.html/*html $(DESTDIR)$(MELTGCC_DOC_HTML_DIR)
+	if [ -f meltpluginapi.html ]; then $(INSTALL_DATA) meltpluginapi.html $(DESTDIR)$(MELTGCC_DOC_HTML_DIR) ; fi
+	$(INSTALL_DATA) meltpluginapi.html/*html $(DESTDIR)$(MELTGCC_DOC_HTML_DIR)
+
 	@echo installing MELT doc pdf directory $(MELTGCC_DOC_PDF_DIR)
 	$(mkinstalldirs) $(DESTDIR)$(MELTGCC_DOC_PDF_DIR)
 	$(INSTALL_DATA) *.pdf $(DESTDIR)$(MELTGCC_DOC_PDF_DIR)
