@@ -3584,8 +3584,8 @@ mark_label_nuses (rtx x)
   const char *fmt;
 
   code = GET_CODE (x);
-  if (code == LABEL_REF && LABEL_P (XEXP (x, 0)))
-    LABEL_NUSES (XEXP (x, 0))++;
+  if (code == LABEL_REF && LABEL_P (LABEL_REF_LABEL (x)))
+    LABEL_NUSES (LABEL_REF_LABEL (x))++;
 
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -3614,7 +3614,6 @@ try_split (rtx pat, rtx uncast_trial, int last)
   rtx_insn *trial = as_a <rtx_insn *> (uncast_trial);
   rtx_insn *before = PREV_INSN (trial);
   rtx_insn *after = NEXT_INSN (trial);
-  int has_barrier = 0;
   rtx note;
   rtx_insn *seq, *tem;
   int probability;
@@ -3634,14 +3633,6 @@ try_split (rtx pat, rtx uncast_trial, int last)
   seq = safe_as_a <rtx_insn *> (split_insns (pat, trial));
 
   split_branch_probability = -1;
-
-  /* If we are splitting a JUMP_INSN, it might be followed by a BARRIER.
-     We may need to handle this specially.  */
-  if (after && BARRIER_P (after))
-    {
-      has_barrier = 1;
-      after = NEXT_INSN (after);
-    }
 
   if (!seq)
     return trial;
@@ -3798,8 +3789,6 @@ try_split (rtx pat, rtx uncast_trial, int last)
   tem = emit_insn_after_setloc (seq, trial, INSN_LOCATION (trial));
 
   delete_insn (trial);
-  if (has_barrier)
-    emit_barrier_after (tem);
 
   /* Recursively call try_split for each new insn created; by the
      time control returns here that insn will be fully split, so
@@ -3807,7 +3796,7 @@ try_split (rtx pat, rtx uncast_trial, int last)
      We can't use next_active_insn here since AFTER may be a note.
      Ignore deleted insns, which can be occur if not optimizing.  */
   for (tem = NEXT_INSN (before); tem != after; tem = NEXT_INSN (tem))
-    if (! INSN_DELETED_P (tem) && INSN_P (tem))
+    if (! tem->deleted () && INSN_P (tem))
       tem = try_split (PATTERN (tem), tem, 1);
 
   /* Return either the first or the last insn, depending on which was
@@ -3984,7 +3973,7 @@ add_insn_after_nobb (rtx_insn *insn, rtx_insn *after)
 {
   rtx_insn *next = NEXT_INSN (after);
 
-  gcc_assert (!optimize || !INSN_DELETED_P (after));
+  gcc_assert (!optimize || !after->deleted ());
 
   link_insn_into_chain (insn, after, next);
 
@@ -4013,7 +4002,7 @@ add_insn_before_nobb (rtx_insn *insn, rtx_insn *before)
 {
   rtx_insn *prev = PREV_INSN (before);
 
-  gcc_assert (!optimize || !INSN_DELETED_P (before));
+  gcc_assert (!optimize || !before->deleted ());
 
   link_insn_into_chain (insn, prev, before);
 

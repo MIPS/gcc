@@ -1,3 +1,8 @@
+2014-10-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* MAINTAINERS: Update jit entry to match formatting change on
+	trunk: "Put all email addresses between '<' and '>'."
+
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* ChangeLog.jit: Add copyright footer.

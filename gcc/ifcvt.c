@@ -443,7 +443,7 @@ cond_exec_get_condition (rtx_insn *jump)
   /* If this branches to JUMP_LABEL when the condition is false,
      reverse the condition.  */
   if (GET_CODE (XEXP (test_if, 2)) == LABEL_REF
-      && XEXP (XEXP (test_if, 2), 0) == JUMP_LABEL (jump))
+      && LABEL_REF_LABEL (XEXP (test_if, 2)) == JUMP_LABEL (jump))
     {
       enum rtx_code rev = reversed_comparison_code (cond, jump);
       if (rev == UNKNOWN)
@@ -847,7 +847,7 @@ noce_emit_store_flag (struct noce_if_info *if_info, rtx x, int reversep,
       rtx set = pc_set (if_info->jump);
       cond = XEXP (SET_SRC (set), 0);
       if (GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-	  && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (if_info->jump))
+	  && LABEL_REF_LABEL (XEXP (SET_SRC (set), 2)) == JUMP_LABEL (if_info->jump))
 	reversep = !reversep;
       if (if_info->then_else_reversed)
 	reversep = !reversep;
@@ -1777,7 +1777,7 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
   cond = XEXP (SET_SRC (set), 0);
   reverse
     = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-      && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (if_info->jump);
+      && LABEL_REF_LABEL (XEXP (SET_SRC (set), 2)) == JUMP_LABEL (if_info->jump);
   if (if_info->then_else_reversed)
     reverse = !reverse;
 
@@ -2351,7 +2351,7 @@ noce_get_condition (rtx_insn *jump, rtx_insn **earliest, bool then_else_reversed
   /* If this branches to JUMP_LABEL when the condition is false,
      reverse the condition.  */
   reverse = (GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-	     && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump));
+	     && LABEL_REF_LABEL (XEXP (SET_SRC (set), 2)) == JUMP_LABEL (jump));
 
   /* We may have to reverse because the caller's if block is not canonical,
      i.e. the THEN block isn't the fallthrough block for the TEST block
@@ -4357,6 +4357,9 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
   old_dest = JUMP_LABEL (jump);
   if (other_bb != new_dest)
     {
+      if (!any_condjump_p (jump))
+	goto cancel;
+
       if (JUMP_P (BB_END (dest_edge->src)))
 	new_dest_label = JUMP_LABEL (BB_END (dest_edge->src));
       else if (new_dest == EXIT_BLOCK_PTR_FOR_FN (cfun))

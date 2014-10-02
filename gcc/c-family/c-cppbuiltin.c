@@ -270,21 +270,14 @@ builtin_define_float_constants (const char *name_prefix,
       sprintf (buf, "0x1p%d", 1 - fmt->p);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
-  /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
-     positive floating-point number, b**(emin-p).  Zero for formats that
-     don't support denormals.  */
+  /* For C++ std::numeric_limits<T>::denorm_min and C11 *_TRUE_MIN.
+     The minimum denormalized positive floating-point number, b**(emin-p).
+     The minimum normalized positive floating-point number for formats
+     that don't support denormals.  */
   sprintf (name, "__%s_DENORM_MIN__", name_prefix);
-  if (fmt->has_denorm)
-    {
-      sprintf (buf, "0x1p%d", fmt->emin - fmt->p);
-      builtin_define_with_hex_fp_value (name, type, decimal_dig,
-					buf, fp_suffix, fp_cast);
-    }
-  else
-    {
-      sprintf (buf, "0.0%s", fp_suffix);
-      builtin_define_with_value (name, buf, 0);
-    }
+  sprintf (buf, "0x1p%d", fmt->emin - (fmt->has_denorm ? fmt->p : 1));
+  builtin_define_with_hex_fp_value (name, type, decimal_dig,
+				    buf, fp_suffix, fp_cast);
 
   sprintf (name, "__%s_HAS_DENORM__", name_prefix);
   builtin_define_with_value (name, fmt->has_denorm ? "1" : "0", 0);
@@ -794,18 +787,66 @@ c_cpp_builtins (cpp_reader *pfile)
   /* For stddef.h.  They require macros defined in c-common.c.  */
   c_stddef_cpp_builtins ();
 
+  /* Set include test macros for all C/C++ (not for just C++11 etc.)
+     the builtins __has_include__ and __has_include_next__ are defined
+     in libcpp.  */
+  cpp_define (pfile, "__has_include(STR)=__has_include__(STR)");
+  cpp_define (pfile, "__has_include_next(STR)=__has_include_next__(STR)");
+
   if (c_dialect_cxx ())
     {
       if (flag_weak && SUPPORTS_ONE_ONLY)
 	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");
+
       if (warn_deprecated)
 	cpp_define (pfile, "__DEPRECATED");
+
       if (flag_rtti)
 	cpp_define (pfile, "__GXX_RTTI");
+
       if (cxx_dialect >= cxx11)
         cpp_define (pfile, "__GXX_EXPERIMENTAL_CXX0X__");
+
+      /* Binary literals have been allowed in g++ before C++11
+	 and were standardized for C++14.  */
+      if (!pedantic || cxx_dialect > cxx11)
+	cpp_define (pfile, "__cpp_binary_literals=201304");
+      if (cxx_dialect >= cxx11)
+	{
+	  /* Set feature test macros for C++11  */
+	  cpp_define (pfile, "__cpp_unicode_characters=200704");
+	  cpp_define (pfile, "__cpp_raw_strings=200710");
+	  cpp_define (pfile, "__cpp_unicode_literals=200710");
+	  cpp_define (pfile, "__cpp_user_defined_literals=200809");
+	  cpp_define (pfile, "__cpp_lambdas=200907");
+	  cpp_define (pfile, "__cpp_constexpr=200704");
+	  cpp_define (pfile, "__cpp_static_assert=200410");
+	  cpp_define (pfile, "__cpp_decltype=200707");
+	  cpp_define (pfile, "__cpp_attributes=200809");
+	  cpp_define (pfile, "__cpp_rvalue_reference=200610");
+	  cpp_define (pfile, "__cpp_variadic_templates=200704");
+	  cpp_define (pfile, "__cpp_alias_templates=200704");
+	}
+      if (cxx_dialect > cxx11)
+	{
+	  /* Set feature test macros for C++14  */
+	  cpp_define (pfile, "__cpp_return_type_deduction=201304");
+	  cpp_define (pfile, "__cpp_init_captures=201304");
+	  cpp_define (pfile, "__cpp_generic_lambdas=201304");
+	  //cpp_undef (pfile, "__cpp_constexpr");
+	  //cpp_define (pfile, "__cpp_constexpr=201304");
+	  cpp_define (pfile, "__cpp_decltype_auto=201304");
+	  //cpp_define (pfile, "__cpp_aggregate_nsdmi=201304");
+	  cpp_define (pfile, "__cpp_variable_templates=201304");
+	  cpp_define (pfile, "__cpp_digit_separators=201309");
+	  cpp_define (pfile, "__cpp_attribute_deprecated=201309");
+	  //cpp_define (pfile, "__cpp_sized_deallocation=201309");
+	  /* We'll have to see where runtime arrays wind up.
+	     Let's put it in C++14 for now.  */
+	  cpp_define (pfile, "__cpp_runtime_arrays=201304");
+	}
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */
@@ -956,6 +997,59 @@ c_cpp_builtins (cpp_reader *pfile)
 	  sprintf (macro_name, "__LIBGCC_%s_MANT_DIG__", name);
 	  builtin_define_with_int_value (macro_name,
 					 REAL_MODE_FORMAT (mode)->p);
+	  if (!targetm.scalar_mode_supported_p (mode)
+	      || !targetm.libgcc_floating_mode_supported_p (mode))
+	    continue;
+	  macro_name = (char *) alloca (strlen (name)
+					+ sizeof ("__LIBGCC_HAS__MODE__"));
+	  sprintf (macro_name, "__LIBGCC_HAS_%s_MODE__", name);
+	  cpp_define (pfile, macro_name);
+	  macro_name = (char *) alloca (strlen (name)
+					+ sizeof ("__LIBGCC__FUNC_EXT__"));
+	  sprintf (macro_name, "__LIBGCC_%s_FUNC_EXT__", name);
+	  const char *suffix;
+	  if (mode == TYPE_MODE (double_type_node))
+	    suffix = "";
+	  else if (mode == TYPE_MODE (float_type_node))
+	    suffix = "f";
+	  else if (mode == TYPE_MODE (long_double_type_node))
+	    suffix = "l";
+	  /* ??? The following assumes the built-in functions (defined
+	     in target-specific code) match the suffixes used for
+	     constants.  Because in fact such functions are not
+	     defined for the 'w' suffix, 'l' is used there
+	     instead.  */
+	  else if (mode == targetm.c.mode_for_suffix ('q'))
+	    suffix = "q";
+	  else if (mode == targetm.c.mode_for_suffix ('w'))
+	    suffix = "l";
+	  else
+	    gcc_unreachable ();
+	  builtin_define_with_value (macro_name, suffix, 0);
+	  bool excess_precision = false;
+	  if (TARGET_FLT_EVAL_METHOD != 0
+	      && mode != TYPE_MODE (long_double_type_node)
+	      && (mode == TYPE_MODE (float_type_node)
+		  || mode == TYPE_MODE (double_type_node)))
+	    switch (TARGET_FLT_EVAL_METHOD)
+	      {
+	      case -1:
+	      case 2:
+		excess_precision = true;
+		break;
+
+	      case 1:
+		excess_precision = mode == TYPE_MODE (float_type_node);
+		break;
+
+	      default:
+		gcc_unreachable ();
+	      }
+	  macro_name = (char *) alloca (strlen (name)
+					+ sizeof ("__LIBGCC__EXCESS_"
+						  "PRECISION__"));
+	  sprintf (macro_name, "__LIBGCC_%s_EXCESS_PRECISION__", name);
+	  builtin_define_with_int_value (macro_name, excess_precision);
 	}
 
       /* For libgcc crtstuff.c and libgcc2.c.  */

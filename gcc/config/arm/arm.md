@@ -3449,7 +3449,7 @@
 	 [(match_operand:SI 1 "s_register_operand" "r")
 	  (match_operand:SI 2 "s_register_operand" "r")]))
    (clobber (reg:CC CC_REGNUM))]
-  "TARGET_32BIT && optimize_function_for_size_p (cfun)"
+  "TARGET_32BIT && optimize_function_for_size_p (cfun) && !arm_restrict_it"
   "*
   operands[3] = gen_rtx_fmt_ee (minmax_code (operands[3]), SImode,
 				operands[1], operands[2]);
@@ -9328,10 +9328,16 @@
     enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[5]),
 					     operands[3], operands[4]);
     enum rtx_code rc = GET_CODE (operands[5]);
-
     operands[6] = gen_rtx_REG (mode, CC_REGNUM);
     gcc_assert (!(mode == CCFPmode || mode == CCFPEmode));
-    rc = reverse_condition (rc);
+    if (REGNO (operands[2]) != REGNO (operands[0]))
+      rc = reverse_condition (rc);
+    else 
+      {
+	rtx tmp = operands[1];
+	operands[1] = operands[2];
+	operands[2] = tmp;
+      }
 
     operands[6] = gen_rtx_fmt_ee (rc, VOIDmode, operands[6], const0_rtx);
   }

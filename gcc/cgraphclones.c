@@ -177,7 +177,7 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
 			       bool skip_return)
 {
   tree new_type = NULL;
-  tree args, new_args = NULL, t;
+  tree args, new_args = NULL;
   tree new_reversed;
   int i = 0;
 
@@ -217,22 +217,6 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
 
   if (skip_return)
     TREE_TYPE (new_type) = void_type_node;
-
-  /* This is a new type, not a copy of an old type.  Need to reassociate
-     variants.  We can handle everything except the main variant lazily.  */
-  t = TYPE_MAIN_VARIANT (orig_type);
-  if (t != orig_type)
-    {
-      t = build_function_type_skip_args (t, args_to_skip, skip_return);
-      TYPE_MAIN_VARIANT (new_type) = t;
-      TYPE_NEXT_VARIANT (new_type) = TYPE_NEXT_VARIANT (t);
-      TYPE_NEXT_VARIANT (t) = new_type;
-    }
-  else
-    {
-      TYPE_MAIN_VARIANT (new_type) = new_type;
-      TYPE_NEXT_VARIANT (new_type) = NULL;
-    }
 
   return new_type;
 }
@@ -334,6 +318,22 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
 						node->clone.args_to_skip,
 						false);
     }
+
+  tree *link = &DECL_ARGUMENTS (new_decl);
+  int i = 0;
+  for (tree pd = DECL_ARGUMENTS (thunk->decl); pd; pd = DECL_CHAIN (pd), i++)
+    {
+      if (!node->clone.args_to_skip
+	  || !bitmap_bit_p (node->clone.args_to_skip, i))
+	{
+	  tree nd = copy_node (pd);
+	  DECL_CONTEXT (nd) = new_decl;
+	  *link = nd;
+	  link = &DECL_CHAIN (nd);
+	}
+    }
+  *link = NULL_TREE;
+
   gcc_checking_assert (!DECL_STRUCT_FUNCTION (new_decl));
   gcc_checking_assert (!DECL_INITIAL (new_decl));
   gcc_checking_assert (!DECL_RESULT (new_decl));
@@ -355,8 +355,11 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
 						  CGRAPH_FREQ_BASE);
   e->call_stmt_cannot_inline_p = true;
   symtab->call_edge_duplication_hooks (thunk->callees, e);
-  if (!new_thunk->expand_thunk (false, false))
-    new_thunk->analyzed = true;
+  if (new_thunk->expand_thunk (false, false))
+    {
+      new_thunk->thunk.thunk_p = false;
+      new_thunk->analyze ();
+    }
 
   symtab->call_cgraph_duplication_hooks (thunk, new_thunk);
   return new_thunk;
@@ -418,6 +421,7 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
   new_node->definition = definition;
   new_node->local = local;
   new_node->externally_visible = false;
+  new_node->no_reorder = no_reorder;
   new_node->local.local = true;
   new_node->global = global;
   new_node->global.inlined_to = new_inlined_to;
@@ -857,6 +861,7 @@ cgraph_node::create_version_clone (tree new_decl,
    new_version->definition = definition;
    new_version->local = local;
    new_version->externally_visible = false;
+   new_version->no_reorder = no_reorder;
    new_version->local.local = new_version->definition;
    new_version->global = global;
    new_version->rtl = rtl;

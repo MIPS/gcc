@@ -1127,7 +1127,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	  error ("switch quantity not an integer");
 	  cond = error_mark_node;
 	}
-      orig_type = TREE_TYPE (cond);
+      /* We want unlowered type here to handle enum bit-fields.  */
+      orig_type = unlowered_expr_type (cond);
       if (cond != error_mark_node)
 	{
 	  /* Warn if the condition has boolean value.  */
@@ -1685,17 +1686,17 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
   if (object == error_mark_node)
     return error_mark_node;
 
-  /* DR 613: Can use non-static data members without an associated
+  /* DR 613/850: Can use non-static data members without an associated
      object in sizeof/decltype/alignof.  */
   if (is_dummy_object (object) && cp_unevaluated_operand == 0
       && (!processing_template_decl || !current_class_ref))
     {
       if (current_function_decl
 	  && DECL_STATIC_FUNCTION_P (current_function_decl))
-	error ("invalid use of member %q+D in static member function", decl);
+	error ("invalid use of member %qD in static member function", decl);
       else
-	error ("invalid use of non-static data member %q+D", decl);
-      error ("from this location");
+	error ("invalid use of non-static data member %qD", decl);
+      inform (DECL_SOURCE_LOCATION (decl), "declared here");
 
       return error_mark_node;
     }
@@ -4290,6 +4291,10 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		length);
       return error_mark_node;
     }
+  if (low_bound)
+    low_bound = mark_rvalue_use (low_bound);
+  if (length)
+    length = mark_rvalue_use (length);
   if (low_bound
       && TREE_CODE (low_bound) == INTEGER_CST
       && TYPE_PRECISION (TREE_TYPE (low_bound))
@@ -5668,7 +5673,9 @@ finish_omp_clauses (tree clauses)
 	      else
 		{
 		  t = OMP_CLAUSE_DECL (c);
-		  if (!cp_omp_mappable_type (TREE_TYPE (t)))
+		  if (TREE_CODE (t) != TREE_LIST
+		      && !type_dependent_expression_p (t)
+		      && !cp_omp_mappable_type (TREE_TYPE (t)))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -5708,6 +5715,7 @@ finish_omp_clauses (tree clauses)
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))
@@ -7347,10 +7355,6 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_IS_CLASS:
       return (NON_UNION_CLASS_TYPE_P (type1));
 
-    case CPTK_IS_CONVERTIBLE_TO:
-      /* TODO  */
-      return false;
-
     case CPTK_IS_EMPTY:
       return (NON_UNION_CLASS_TYPE_P (type1) && CLASSTYPE_EMPTY_P (type1));
 
@@ -7375,6 +7379,15 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_IS_TRIVIAL:
       return (trivial_type_p (type1));
 
+    case CPTK_IS_TRIVIALLY_ASSIGNABLE:
+      return is_trivially_xible (MODIFY_EXPR, type1, type2);
+
+    case CPTK_IS_TRIVIALLY_CONSTRUCTIBLE:
+      return is_trivially_xible (INIT_EXPR, type1, type2);
+
+    case CPTK_IS_TRIVIALLY_COPYABLE:
+      return (trivially_copyable_p (type1));
+
     case CPTK_IS_UNION:
       return (type_code1 == UNION_TYPE);
 
@@ -7385,19 +7398,26 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
 }
 
 /* If TYPE is an array of unknown bound, or (possibly cv-qualified)
-   void, or a complete type, returns it, otherwise NULL_TREE.  */
+   void, or a complete type, returns true, otherwise false.  */
 
-static tree
+static bool
 check_trait_type (tree type)
 {
+  if (type == NULL_TREE)
+    return true;
+
+  if (TREE_CODE (type) == TREE_LIST)
+    return (check_trait_type (TREE_VALUE (type))
+	    && check_trait_type (TREE_CHAIN (type)));
+
   if (TREE_CODE (type) == ARRAY_TYPE && !TYPE_DOMAIN (type)
       && COMPLETE_TYPE_P (TREE_TYPE (type)))
-    return type;
+    return true;
 
   if (VOID_TYPE_P (type))
-    return type;
+    return true;
 
-  return complete_type_or_else (strip_array_types (type), NULL_TREE);
+  return !!complete_type_or_else (strip_array_types (type), NULL_TREE);
 }
 
 /* Process a trait expression.  */
@@ -7405,37 +7425,8 @@ check_trait_type (tree type)
 tree
 finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 {
-  gcc_assert (kind == CPTK_HAS_NOTHROW_ASSIGN
-	      || kind == CPTK_HAS_NOTHROW_CONSTRUCTOR
-	      || kind == CPTK_HAS_NOTHROW_COPY
-	      || kind == CPTK_HAS_TRIVIAL_ASSIGN
-	      || kind == CPTK_HAS_TRIVIAL_CONSTRUCTOR
-	      || kind == CPTK_HAS_TRIVIAL_COPY
-	      || kind == CPTK_HAS_TRIVIAL_DESTRUCTOR
-	      || kind == CPTK_HAS_VIRTUAL_DESTRUCTOR	      
-	      || kind == CPTK_IS_ABSTRACT
-	      || kind == CPTK_IS_BASE_OF
-	      || kind == CPTK_IS_CLASS
-	      || kind == CPTK_IS_CONVERTIBLE_TO
-	      || kind == CPTK_IS_EMPTY
-	      || kind == CPTK_IS_ENUM
-	      || kind == CPTK_IS_FINAL
-	      || kind == CPTK_IS_LITERAL_TYPE
-	      || kind == CPTK_IS_POD
-	      || kind == CPTK_IS_POLYMORPHIC
-	      || kind == CPTK_IS_STD_LAYOUT
-	      || kind == CPTK_IS_TRIVIAL
-	      || kind == CPTK_IS_UNION);
-
-  if (kind == CPTK_IS_CONVERTIBLE_TO)
-    {
-      sorry ("__is_convertible_to");
-      return error_mark_node;
-    }
-
   if (type1 == error_mark_node
-      || ((kind == CPTK_IS_BASE_OF || kind == CPTK_IS_CONVERTIBLE_TO)
-	  && type2 == error_mark_node))
+      || type2 == error_mark_node)
     return error_mark_node;
 
   if (processing_template_decl)
@@ -7466,7 +7457,15 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_IS_POLYMORPHIC:
     case CPTK_IS_STD_LAYOUT:
     case CPTK_IS_TRIVIAL:
+    case CPTK_IS_TRIVIALLY_COPYABLE:
       if (!check_trait_type (type1))
+	return error_mark_node;
+      break;
+
+    case CPTK_IS_TRIVIALLY_ASSIGNABLE:
+    case CPTK_IS_TRIVIALLY_CONSTRUCTIBLE:
+      if (!check_trait_type (type1)
+	  || !check_trait_type (type2))
 	return error_mark_node;
       break;
 
@@ -7483,7 +7482,6 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_IS_UNION:
       break;
     
-    case CPTK_IS_CONVERTIBLE_TO:
     default:
       gcc_unreachable ();
     }

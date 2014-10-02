@@ -2487,6 +2487,10 @@ static cp_declarator * cp_parser_make_indirect_declarator
   (enum tree_code, tree, cp_cv_quals, cp_declarator *, tree);
 static bool cp_parser_compound_literal_p
   (cp_parser *);
+static bool cp_parser_array_designator_p
+  (cp_parser *);
+static bool cp_parser_skip_to_closing_square_bracket
+  (cp_parser *);
 
 /* Returns nonzero if we are parsing tentatively.  */
 
@@ -4130,7 +4134,6 @@ complain_flags (bool decltype_p)
      __is_abstract ( type-id )
      __is_base_of ( type-id , type-id )
      __is_class ( type-id )
-     __is_convertible_to ( type-id , type-id )     
      __is_empty ( type-id )
      __is_enum ( type-id )
      __is_final ( type-id )
@@ -4172,7 +4175,7 @@ cp_parser_primary_expression (cp_parser *parser,
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
-  switch (token->type)
+  switch ((int) token->type)
     {
       /* literal:
 	   integer-literal
@@ -4479,7 +4482,6 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_IS_ABSTRACT:
 	case RID_IS_BASE_OF:
 	case RID_IS_CLASS:
-	case RID_IS_CONVERTIBLE_TO:
 	case RID_IS_EMPTY:
 	case RID_IS_ENUM:
 	case RID_IS_FINAL:
@@ -4488,6 +4490,9 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_IS_POLYMORPHIC:
 	case RID_IS_STD_LAYOUT:
 	case RID_IS_TRIVIAL:
+	case RID_IS_TRIVIALLY_ASSIGNABLE:
+	case RID_IS_TRIVIALLY_CONSTRUCTIBLE:
+	case RID_IS_TRIVIALLY_COPYABLE:
 	case RID_IS_UNION:
 	  return cp_parser_trait_expr (parser, token->keyword);
 
@@ -4858,7 +4863,7 @@ cp_parser_unqualified_id (cp_parser* parser,
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
 
-  switch (token->type)
+  switch ((int) token->type)
     {
     case CPP_NAME:
       {
@@ -6226,6 +6231,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 				    /*disallow_virtual=*/false,
 				    koenig_p,
 				    complain);
+
+	    protected_set_expr_location (postfix_expression, token->location);
 
 	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
 	    idk = CP_ID_KIND_NONE;
@@ -8659,7 +8666,7 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
   cp_trait_kind kind;
   tree type1, type2 = NULL_TREE;
   bool binary = false;
-  cp_decl_specifier_seq decl_specs;
+  bool variadic = false;
 
   switch (keyword)
     {
@@ -8697,10 +8704,6 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
     case RID_IS_CLASS:
       kind = CPTK_IS_CLASS;
       break;
-    case RID_IS_CONVERTIBLE_TO:
-      kind = CPTK_IS_CONVERTIBLE_TO;
-      binary = true;
-      break;
     case RID_IS_EMPTY:
       kind = CPTK_IS_EMPTY;
       break;
@@ -8724,6 +8727,17 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
       break;
     case RID_IS_TRIVIAL:
       kind = CPTK_IS_TRIVIAL;
+      break;
+    case RID_IS_TRIVIALLY_ASSIGNABLE:
+      kind = CPTK_IS_TRIVIALLY_ASSIGNABLE;
+      binary = true;
+      break;
+    case RID_IS_TRIVIALLY_CONSTRUCTIBLE:
+      kind = CPTK_IS_TRIVIALLY_CONSTRUCTIBLE;
+      variadic = true;
+      break;
+    case RID_IS_TRIVIALLY_COPYABLE:
+      kind = CPTK_IS_TRIVIALLY_COPYABLE;
       break;
     case RID_IS_UNION:
       kind = CPTK_IS_UNION;
@@ -8751,14 +8765,6 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
   if (type1 == error_mark_node)
     return error_mark_node;
 
-  /* Build a trivial decl-specifier-seq.  */
-  clear_decl_specs (&decl_specs);
-  decl_specs.type = type1;
-
-  /* Call grokdeclarator to figure out what type this is.  */
-  type1 = grokdeclarator (NULL, &decl_specs, TYPENAME,
-			  /*initialized=*/0, /*attrlist=*/NULL);
-
   if (binary)
     {
       cp_parser_require (parser, CPP_COMMA, RT_COMMA);
@@ -8767,14 +8773,22 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 
       if (type2 == error_mark_node)
 	return error_mark_node;
-
-      /* Build a trivial decl-specifier-seq.  */
-      clear_decl_specs (&decl_specs);
-      decl_specs.type = type2;
-
-      /* Call grokdeclarator to figure out what type this is.  */
-      type2 = grokdeclarator (NULL, &decl_specs, TYPENAME,
-			      /*initialized=*/0, /*attrlist=*/NULL);
+    }
+  else if (variadic)
+    {
+      while (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  tree elt = cp_parser_type_id (parser);
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+	      elt = make_pack_expansion (elt);
+	    }
+	  if (elt == error_mark_node)
+	    return error_mark_node;
+	  type2 = tree_cons (NULL_TREE, elt, type2);
+	}
     }
 
   cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
@@ -9220,7 +9234,7 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
       /* Default arguments shall not be specified in the
 	 parameter-declaration-clause of a lambda-declarator.  */
       for (tree t = param_list; t; t = TREE_CHAIN (t))
-	if (TREE_PURPOSE (t))
+	if (TREE_PURPOSE (t) && cxx_dialect < cxx14)
 	  pedwarn (DECL_SOURCE_LOCATION (TREE_VALUE (t)), OPT_Wpedantic,
 		   "default argument specified for lambda parameter");
 
@@ -19155,6 +19169,69 @@ cp_parser_braced_list (cp_parser* parser, bool* non_constant_p)
   return initializer;
 }
 
+/* Consume tokens up to, and including, the next non-nested closing `]'.
+   Returns true iff we found a closing `]'.  */
+
+static bool
+cp_parser_skip_to_closing_square_bracket (cp_parser *parser)
+{
+  unsigned square_depth = 0;
+
+  while (true)
+    {
+      cp_token * token = cp_lexer_peek_token (parser->lexer);
+
+      switch (token->type)
+	{
+	case CPP_EOF:
+	case CPP_PRAGMA_EOL:
+	  /* If we've run out of tokens, then there is no closing `]'.  */
+	  return false;
+
+        case CPP_OPEN_SQUARE:
+          ++square_depth;
+          break;
+
+        case CPP_CLOSE_SQUARE:
+	  if (!square_depth--)
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+	      return true;
+	    }
+	  break;
+
+	default:
+	  break;
+	}
+
+      /* Consume the token.  */
+      cp_lexer_consume_token (parser->lexer);
+    }
+}
+
+/* Return true if we are looking at an array-designator, false otherwise.  */
+
+static bool
+cp_parser_array_designator_p (cp_parser *parser)
+{
+  /* Consume the `['.  */
+  cp_lexer_consume_token (parser->lexer);
+
+  cp_lexer_save_tokens (parser->lexer);
+
+  /* Skip tokens until the next token is a closing square bracket.
+     If we find the closing `]', and the next token is a `=', then
+     we are looking at an array designator.  */
+  bool array_designator_p
+    = (cp_parser_skip_to_closing_square_bracket (parser)
+       && cp_lexer_next_token_is (parser->lexer, CPP_EQ));
+  
+  /* Roll back the tokens we skipped.  */
+  cp_lexer_rollback_tokens (parser->lexer);
+
+  return array_designator_p;
+}
+
 /* Parse an initializer-list.
 
    initializer-list:
@@ -19233,10 +19310,20 @@ cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
 	  bool non_const = false;
 
 	  cp_parser_parse_tentatively (parser);
-	  cp_lexer_consume_token (parser->lexer);
-	  designator = cp_parser_constant_expression (parser, true, &non_const);
-	  cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
-	  cp_parser_require (parser, CPP_EQ, RT_EQ);
+
+	  if (!cp_parser_array_designator_p (parser))
+	    {
+	      cp_parser_simulate_error (parser);
+	      designator = NULL_TREE;
+	    }
+	  else
+	    {
+	      designator = cp_parser_constant_expression (parser, true,
+							  &non_const);
+	      cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
+	      cp_parser_require (parser, CPP_EQ, RT_EQ);
+	    }
+
 	  if (!cp_parser_parse_definitely (parser))
 	    designator = NULL_TREE;
 	  else if (non_const)

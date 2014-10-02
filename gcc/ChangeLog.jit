@@ -1,3 +1,7 @@
+2014-10-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* configure: Regenerate, after merger from trunk.
+
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* ChangeLog.jit: Add copyright footer.

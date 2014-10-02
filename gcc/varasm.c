@@ -888,7 +888,7 @@ decode_reg_name_and_count (const char *asmspec, int *pnregs)
       if (asmspec[0] != 0 && i < 0)
 	{
 	  i = atoi (asmspec);
-	  if (i < FIRST_PSEUDO_REGISTER && i >= 0)
+	  if (i < FIRST_PSEUDO_REGISTER && i >= 0 && reg_names[i][0])
 	    return i;
 	  else
 	    return -2;
@@ -925,7 +925,8 @@ decode_reg_name_and_count (const char *asmspec, int *pnregs)
 
 	for (i = 0; i < (int) ARRAY_SIZE (table); i++)
 	  if (table[i].name[0]
-	      && ! strcmp (asmspec, table[i].name))
+	      && ! strcmp (asmspec, table[i].name)
+	      && reg_names[table[i].number][0])
 	    return table[i].number;
       }
 #endif /* ADDITIONAL_REGISTER_NAMES */
@@ -2922,7 +2923,8 @@ const_hash_1 (const tree exp)
 	    break;
 
 	  case LABEL_REF:
-	    hi = value.offset + CODE_LABEL_NUMBER (XEXP (value.base, 0)) * 13;
+	    hi = (value.offset
+		  + CODE_LABEL_NUMBER (LABEL_REF_LABEL (value.base)) * 13);
 	    break;
 
 	  default:
@@ -3112,8 +3114,8 @@ compare_constant (const tree t1, const tree t2)
 	    break;
 
 	  case LABEL_REF:
-	    ret = (CODE_LABEL_NUMBER (XEXP (value1.base, 0))
-	           == CODE_LABEL_NUMBER (XEXP (value2.base, 0)));
+	    ret = (CODE_LABEL_NUMBER (LABEL_REF_LABEL (value1.base))
+	           == CODE_LABEL_NUMBER (LABEL_REF_LABEL (value2.base)));
 	    break;
 
 	  default:
@@ -3547,7 +3549,7 @@ const_rtx_hash_1 (const_rtx x)
       break;
 
     case LABEL_REF:
-      h = h * 251 + CODE_LABEL_NUMBER (XEXP (x, 0));
+      h = h * 251 + CODE_LABEL_NUMBER (LABEL_REF_LABEL (x));
       break;
 
     case UNSPEC:
@@ -3822,7 +3824,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
      CODE_LABEL into a NOTE.  */
   /* ??? This seems completely and utterly wrong.  Certainly it's
      not true for NOTE_INSN_DELETED_LABEL, but I disbelieve proper
-     functioning even with INSN_DELETED_P and friends.  */
+     functioning even with rtx_insn::deleted and friends.  */
 
   tmp = x;
   switch (GET_CODE (tmp))
@@ -3835,8 +3837,8 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
       /* FALLTHRU  */
 
     case LABEL_REF:
-      tmp = XEXP (tmp, 0);
-      gcc_assert (!INSN_DELETED_P (tmp));
+      tmp = LABEL_REF_LABEL (tmp);
+      gcc_assert (!as_a<rtx_insn *> (tmp)->deleted ());
       gcc_assert (!NOTE_P (tmp)
 		  || NOTE_KIND (tmp) != NOTE_INSN_DELETED);
       break;
@@ -5229,6 +5231,12 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 static void
 mark_weak (tree decl)
 {
+  if (DECL_WEAK (decl))
+    return;
+
+  struct symtab_node *n = symtab_node::get (decl);
+  if (n && n->refuse_visibility_changes)
+    error ("%+D declared weak after being used", decl);
   DECL_WEAK (decl) = 1;
 
   if (DECL_RTL_SET_P (decl)
@@ -6062,6 +6070,7 @@ default_section_type_flags (tree decl, const char *name, int reloc)
   if (strcmp (name, ".bss") == 0
       || strncmp (name, ".bss.", 5) == 0
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
+      || strcmp (name, ".persistent.bss") == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
       || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)

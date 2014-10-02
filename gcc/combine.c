@@ -1238,7 +1238,7 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
 	    continue;
 
 	  while (last_combined_insn
-		 && INSN_DELETED_P (last_combined_insn))
+		 && last_combined_insn->deleted ())
 	    last_combined_insn = PREV_INSN (last_combined_insn);
 	  if (last_combined_insn == NULL_RTX
 	      || BARRIER_P (last_combined_insn)
@@ -1950,11 +1950,7 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
     for (i = XVECLEN (PATTERN (i3), 0) - 1; i >= 0; i--)
       if (GET_CODE (XVECEXP (PATTERN (i3), 0, i)) == CLOBBER)
 	{
-	  /* Don't substitute for a register intended as a clobberable
-	     operand.  */
 	  rtx reg = XEXP (XVECEXP (PATTERN (i3), 0, i), 0);
-	  if (rtx_equal_p (reg, dest))
-	    return 0;
 
 	  /* If the clobber represents an earlyclobber operand, we must not
 	     substitute an expression containing the clobbered register.
@@ -4963,6 +4959,11 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
    || (REG_P (X) && REG_P (Y)	\
        && REGNO (X) == REGNO (Y) && GET_MODE (X) == GET_MODE (Y)))
 
+  /* Do not substitute into clobbers of regs -- this will never result in
+     valid RTL.  */
+  if (GET_CODE (x) == CLOBBER && REG_P (XEXP (x, 0)))
+    return x;
+
   if (! in_dest && COMBINE_RTX_EQUAL_P (x, from))
     {
       n_occurrences++;
@@ -5121,15 +5122,13 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		      )
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 
-#ifdef CANNOT_CHANGE_MODE_CLASS
 		  if (code == SUBREG
 		      && REG_P (to)
 		      && REGNO (to) < FIRST_PSEUDO_REGISTER
-		      && REG_CANNOT_CHANGE_MODE_P (REGNO (to),
-						   GET_MODE (to),
-						   GET_MODE (x)))
+		      && simplify_subreg_regno (REGNO (to), GET_MODE (to),
+						SUBREG_BYTE (x),
+						GET_MODE (x)) < 0)
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
-#endif
 
 		  new_rtx = (unique_copy && n_occurrences ? copy_rtx (to) : to);
 		  n_occurrences++;
@@ -10257,8 +10256,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 
 	  if (CONST_INT_P (XEXP (varop, 1))
 	      /* We can't do this if we have (ashiftrt (xor))  and the
-		 constant has its sign bit set in shift_mode.  */
+		 constant has its sign bit set in shift_mode with shift_mode
+		 wider than result_mode.  */
 	      && !(code == ASHIFTRT && GET_CODE (varop) == XOR
+		   && result_mode != shift_mode
 		   && 0 > trunc_int_for_mode (INTVAL (XEXP (varop, 1)),
 					      shift_mode))
 	      && (new_rtx = simplify_const_binary_operation
@@ -10275,10 +10276,12 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 
 	  /* If we can't do that, try to simplify the shift in each arm of the
 	     logical expression, make a new logical expression, and apply
-	     the inverse distributive law.  This also can't be done
-	     for some (ashiftrt (xor)).  */
+	     the inverse distributive law.  This also can't be done for
+	     (ashiftrt (xor)) where we've widened the shift and the constant
+	     changes the sign bit.  */
 	  if (CONST_INT_P (XEXP (varop, 1))
 	     && !(code == ASHIFTRT && GET_CODE (varop) == XOR
+		  && result_mode != shift_mode
 		  && 0 > trunc_int_for_mode (INTVAL (XEXP (varop, 1)),
 					     shift_mode)))
 	    {
@@ -13403,14 +13406,14 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 	  if (reg_mentioned_p (XEXP (note, 0), PATTERN (i3))
 	      || ((tem_note = find_reg_note (i3, REG_EQUAL, NULL_RTX))
 		  && GET_CODE (XEXP (tem_note, 0)) == LABEL_REF
-		  && XEXP (XEXP (tem_note, 0), 0) == XEXP (note, 0)))
+		  && LABEL_REF_LABEL (XEXP (tem_note, 0)) == XEXP (note, 0)))
 	    place = i3;
 
 	  if (i2
 	      && (reg_mentioned_p (XEXP (note, 0), PATTERN (i2))
 		  || ((tem_note = find_reg_note (i2, REG_EQUAL, NULL_RTX))
 		      && GET_CODE (XEXP (tem_note, 0)) == LABEL_REF
-		      && XEXP (XEXP (tem_note, 0), 0) == XEXP (note, 0))))
+		      && LABEL_REF_LABEL (XEXP (tem_note, 0)) == XEXP (note, 0))))
 	    {
 	      if (place)
 		place2 = i2;

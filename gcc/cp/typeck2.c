@@ -1359,7 +1359,8 @@ process_init_constructor_record (tree type, tree init,
 	  next = massage_init_elt (TREE_TYPE (field), next, complain);
 
 	  /* Warn when some struct elements are implicitly initialized.  */
-	  if (complain & tf_warning)
+	  if ((complain & tf_warning)
+	      && !EMPTY_CONSTRUCTOR_P (init))
 	    warning (OPT_Wmissing_field_initializers,
 		     "missing initializer for member %qD", field);
 	}
@@ -1382,7 +1383,8 @@ process_init_constructor_record (tree type, tree init,
 
 	  /* Warn when some struct elements are implicitly initialized
 	     to zero.  */
-	  if (complain & tf_warning)
+	  if ((complain & tf_warning)
+	      && !EMPTY_CONSTRUCTOR_P (init))
 	    warning (OPT_Wmissing_field_initializers,
 		     "missing initializer for member %qD", field);
 
@@ -1637,8 +1639,13 @@ build_x_arrow (location_t loc, tree expr, tsubst_flags_t complain)
 	  if (expr == error_mark_node)
 	    return error_mark_node;
 
+	  /* This provides a better instantiation backtrace in case of
+	     error.  */
 	  if (fn && DECL_USE_TEMPLATE (fn))
-	    push_tinst_level (fn);
+	    push_tinst_level_loc (fn, 
+				  (current_instantiation () != actual_inst)
+				  ? DECL_SOURCE_LOCATION (fn)
+				  : input_location);
 	  fn = NULL;
 
 	  if (vec_member (TREE_TYPE (expr), types_memoized))

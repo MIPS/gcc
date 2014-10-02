@@ -2345,6 +2345,8 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
 	  case BUILT_IN_FILE:
 	  case BUILT_IN_LINE:
 	    SET_EXPR_LOCATION (*tp, input_location);
+	  default:
+	    break;
 	  }
     }
   return t;
@@ -2977,7 +2979,7 @@ member_p (const_tree decl)
 tree
 build_dummy_object (tree type)
 {
-  tree decl = build1 (NOP_EXPR, build_pointer_type (type), void_node);
+  tree decl = build1 (CONVERT_EXPR, build_pointer_type (type), void_node);
   return cp_build_indirect_ref (decl, RO_NULL, tf_warning_or_error);
 }
 
@@ -3026,7 +3028,7 @@ is_dummy_object (const_tree ob)
 {
   if (INDIRECT_REF_P (ob))
     ob = TREE_OPERAND (ob, 0);
-  return (TREE_CODE (ob) == NOP_EXPR
+  return (TREE_CODE (ob) == CONVERT_EXPR
 	  && TREE_OPERAND (ob, 0) == void_node);
 }
 
