@@ -21,6 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_EXPR_H
 
 /* For inhibit_defer_pop */
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 /* For XEXP, GEN_INT, rtx_code */
 #include "rtl.h"
@@ -30,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
    ssize_int, TREE_CODE, TYPE_SIZE, int_size_in_bytes,    */
 #include "tree-core.h"
 /* For GET_MODE_BITSIZE, word_mode */
-#include "machmode.h"
 
 /* This is the 4th arg to `expand_expr'.
    EXPAND_STACK_PARM means we are possibly expanding a call param onto

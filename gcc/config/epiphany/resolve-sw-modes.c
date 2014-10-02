@@ -28,7 +28,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "sbitmap.h"
 #include "predict.h"
-#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "df.h"
@@ -37,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "emit-rtl.h"
 #include "recog.h"
-#include "function.h"
 #include "insn-attr-common.h"
 #include "tree-pass.h"
 

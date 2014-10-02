@@ -44,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "diagnostic.h"
 #include "tree-iterator.h"
-#include "hashtab.h"
 #include "opts.h"
 #include "is-a.h"
 #include "plugin-api.h"

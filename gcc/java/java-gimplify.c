@@ -28,6 +28,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-tree.h"
 #include "dumpfile.h"
 #include "predict.h"
+#include "tm.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"

@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "c-common.h"
 #include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"

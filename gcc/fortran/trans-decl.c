@@ -46,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "debug.h"
-#include "hash-set.h"
 #include "constructor.h"
 #include "trans.h"
 #include "trans-types.h"

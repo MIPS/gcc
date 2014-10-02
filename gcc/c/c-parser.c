@@ -46,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "trans-mem.h"
 #include "langhooks.h"
-#include "input.h"
 #include "cpplib.h"
 #include "timevar.h"
 #include "c-family/c-pragma.h"

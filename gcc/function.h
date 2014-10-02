@@ -20,13 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
 
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "tm.h"			/* For CUMULATIVE_ARGS.  */
-#include "hard-reg-set.h"	/* For HARD_REG_SET in struct rtl_data. */
-#include "input.h"		/* For location_t.  */
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.

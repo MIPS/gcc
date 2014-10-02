@@ -34,6 +34,12 @@ License along with libiberty; see the file COPYING3.  If not see
 #ifdef DEBUG_ET
 #include "predict.h"
 #include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "basic-block.h" /* To access index in record_path_before_1.  */
 #endif
