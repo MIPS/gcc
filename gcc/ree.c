@@ -239,6 +239,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 
 /* This structure represents a candidate for elimination.  */

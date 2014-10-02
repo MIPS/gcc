@@ -56,6 +56,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "flags.h"
 #include "target.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "basic-block.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 #include "wide-int.h"
 

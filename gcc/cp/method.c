@@ -35,6 +35,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "diagnostic.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "basic-block.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 
 /* Various flags to control the mangling process.  */

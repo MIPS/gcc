@@ -39,7 +39,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "output.h" /* for switch_to_section and get_section */
 #include "parse.h"
 #include "ggc.h"
-#include "cgraph.h"
 #include "tree-iterator.h"
 #include "target.h"
 

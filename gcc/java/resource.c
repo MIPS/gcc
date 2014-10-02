@@ -34,6 +34,12 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "ggc.h"
 #include "tree-iterator.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "basic-block.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 
 /* A list of all the resources files.  */

@@ -39,8 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "debug.h"
 #include "diagnostic.h" /* For errorcount/warningcount */
-#include "dumpfile.h"
-#include "cgraph.h"
+#include "basic-block.h"
 #include "cpp.h"
 #include "trans.h"
 #include "trans-types.h"

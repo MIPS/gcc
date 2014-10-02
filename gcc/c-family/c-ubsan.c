@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "alloc-pool.h"
-#include "cgraph.h"
+#include "basic-block.h"
 #include "output.h"
 #include "toplev.h"
 #include "ubsan.h"

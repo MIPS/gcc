@@ -26,6 +26,14 @@ which a front end may need.  */
 #include "coretypes.h"
 #include "tree.h"
 #include "function.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 
 /* From funciton.[ch].  */

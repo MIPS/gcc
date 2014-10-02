@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "prefix.h"
 #include "c-family/c-target.h"
 #include "c-family/c-target-def.h"
-#include "cgraph.h"
 #include "../../libcpp/internal.h"
 
 /* Pragmas.  */

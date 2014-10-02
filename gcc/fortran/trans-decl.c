@@ -37,6 +37,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"	/* For announce_function.  */
 #include "target.h"
 #include "flags.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "basic-block.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "debug.h"
 #include "hash-set.h"

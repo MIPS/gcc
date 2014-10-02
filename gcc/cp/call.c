@@ -40,6 +40,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-objc.h"
 #include "timevar.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "basic-block.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 #include "wide-int.h"
 

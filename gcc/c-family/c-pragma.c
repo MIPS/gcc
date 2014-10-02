@@ -31,11 +31,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-common.h"
 #include "tm_p.h"		/* For REGISTER_TARGET_PRAGMAS (why is
 				   this not a target hook?).  */
-#include "vec.h"
 #include "target.h"
 #include "diagnostic.h"
 #include "opts.h"
 #include "plugin.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "basic-block.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 
 #define GCC_BAD(gmsgid) \

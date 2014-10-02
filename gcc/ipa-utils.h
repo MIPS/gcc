@@ -20,6 +20,14 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_IPA_UTILS_H
 #define GCC_IPA_UTILS_H
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 
 struct ipa_dfs_info {

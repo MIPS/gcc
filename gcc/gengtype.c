@@ -1824,7 +1824,8 @@ open_base_files (void)
       "hashtab.h", "splay-tree.h", "obstack.h", "bitmap.h", "input.h",
       "tree.h", "rtl.h", "wide-int.h", "function.h", "insn-config.h", "expr.h",
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
-      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
+      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", 
+      "hash-map.h", "ipa-ref.h", 
       "hash-table.h", "vec.h", "ggc.h", "basic-block.h",
       "tree-ssa-alias.h", "internal-fn.h", "gimple-fold.h", "tree-eh.h",
       "gimple-expr.h", "is-a.h",
@@ -1835,7 +1836,7 @@ open_base_files (void)
       "tree-ssa.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "except.h", "output.h",  "cfgloop.h",
       "target.h", "ipa-prop.h", "lto-streamer.h", "target-globals.h",
-      "ipa-inline.h", "dwarf2out.h", NULL
+      "cgraph.h", "ipa-inline.h", "dwarf2out.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;

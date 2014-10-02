@@ -21,14 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
 
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "basic-block.h"
-#include "function.h"
-#include "ipa-ref.h"
-#include "dumpfile.h"
 
 /* Symbol table consists of functions and variables.
    TODO: add labels and CONST_DECLs.  */

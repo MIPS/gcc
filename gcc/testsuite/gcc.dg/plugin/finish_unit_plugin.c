@@ -23,6 +23,14 @@
 #include "tree.h"
 #include "tree-pass.h"
 #include "intl.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 #include "cgraph.h"
 
 int plugin_is_GPL_compatible;
