@@ -1,3 +1,10 @@
+2014-10-02  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #12472
+	* shrink-wrap.c (move_insn_for_shrink_wrap): Special
+	case LO_SUM as it an object but can be treated as
+	a binary operation.
+
 2014-09-12  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
 
 	Bug #12190

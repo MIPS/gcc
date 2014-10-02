@@ -198,7 +198,7 @@ move_insn_for_shrink_wrap (basic_block bb, rtx_insn *insn,
 	      reg_num++;
 	      src_inner = x;
 	    }
-	  else if (!CONSTANT_P (x) && OBJECT_P (x))
+	  else if (!CONSTANT_P (x) && OBJECT_P (x) && GET_CODE (x) != LO_SUM)
 	    nonconstobj_num++;
 	}
 
