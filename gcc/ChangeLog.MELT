@@ -1,5 +1,18 @@
 
 2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tletmacro-3 still fails}}
+	* melt/warmelt-macro.melt (melt_delayed_macro_expander)
+	(mexpand_let): More debug.
+	* melt/warmelt-debug.melt (melt_debug_fun): Emit once in a while
+	-every 512 time- the clock & cputime.
+
+	* melt/warmelt-outobj.melt (give_normalized_macroexpanded_list):
+	Avoid prepending several times the instance of
+	class_source_update_current_module_environment_reference...
+
+	* testsuite/melt/tletmacro-3.melt: Improved...
+
+2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tletmacro-3 fails and has an infinite recursion; the macro
 	expander does not seems to be updated in place in its binder...}}
 	* testsuite/melt/tletmacro-2.melt: Improved...

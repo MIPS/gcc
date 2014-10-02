@@ -207,7 +207,7 @@ See $MELT_NEED_DBGLIM.}#
 	     )
 	(code_chunk
 	 getdbgcounter 
-	 #{/* melt_debug_fun $GETDBGCOUNTER*/ $dbgcounter = melt_dbgcounter ;
+	 #{/* melt_debug_fun $GETDBGCOUNTER*/ $DBGCOUNTER = melt_dbgcounter ;
 	 }#)
 	;; if we don't have a dumpfile, use stderr; this may also
 	;; happens when the dumpf exists, but its dump_file is null.
@@ -246,6 +246,26 @@ See $MELT_NEED_DBGLIM.}#
 	       (:long laststroutlen outlen)
 	       (:long initoutlen outlen)
 	       )
+	   (when (%iraw dbgcounter 512)
+	     (code_chunk
+	      gettime_chk
+	      #{ /* melt_debug_fun $GETTIME_CHK start */
+	      char $GETTIME_CHK#timbuf[32];
+	      static char $GETTIME_CHK#buf[64];
+	      time_t $GETTIME_CHK#now = 0;
+	      time (& $GETTIME_CHK#now);
+	      strftime ($GETTIME_CHK#timbuf, sizeof($GETTIME_CHK#timbuf),
+			"%T", localtime(& $GETTIME_CHK#now));
+	      snprintf ($GETTIME_CHK#buf, sizeof($GETTIME_CHK#buf),
+			"%s, %.3f cpu", clock() * 1.0e-6);
+	      $(progn
+		 (add2out out "\n!!!@~.@~. " (expr_chunk
+				    timestr_chk :cstring
+				    #{ /*melt_debug_fun $TIMESTR_CHK*/
+				    $GETTIME_CHK#buf }#))
+		 (void))
+	      /* melt_debug_fun $GETTIME_CHK end */
+	      }#))
 	   (add2out out "!!!!****####" dbgcounter "#^"  (-i framdepth 1) ":")
 	   (if filename
 	       (add2out out filename ":" lineno ":"))

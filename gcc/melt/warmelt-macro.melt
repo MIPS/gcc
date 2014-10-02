@@ -3647,9 +3647,11 @@ $EXPORT_VALUES to be visible outside its module.}#)
 ;; this magic function should expand and compile all the macro definitions of maclist
 
 (defun melt_delayed_macro_expander (mbind maclist env mexpander modctx)
-  (debug "melt_delayed_macro_expander mbind=" mbind "\n.. maclist=" maclist 
-	 "\n.. modctx=" debug_less modctx
-	 "\n.. env=" env)
+  (debug "melt_delayed_macro_expander mbind=" mbind "\n.. maclist=" maclist
+	 "\n.. env=" env
+	 "\n.. mexpander=" mexpander
+	 "\n.. old-mocx_macrolist=" (get_field :mocx_macrolist modctx) 
+	 "\n.. modctx=" debug_less modctx)
   (shortbacktrace_dbg "melt_delayed_macro_expander" 12)
   (assert_msg "check maclist" (is_list maclist) maclist)
   (block_signals 
@@ -6991,6 +6993,8 @@ applications of @code{/i} primitives.}#
 		 )
 	       )
 	     ( (is_a cursbind class_source_macro_let_binding)
+	       (debug "mexpand_let:macro" " loc=" loc "; cursbind=" cursbind)
+	       (shortbacktrace_dbg "mexpand_let:macro" 15)
 	       (assert_msg "check maclist" (is_list maclist) maclist modctx)
 	       (let ( 
 		     (macsymb (get_field :sletb_binder cursbind))
@@ -7019,6 +7023,7 @@ applications of @code{/i} primitives.}#
 		 (list_append maclist sinstmac)
 		 (debug "mexpand_let:macro"
 			" loc=" loc
+			"\n.. macbind=" macbind
 			"\n.. defmaclet=" defmaclet
 			"\n.. updated maclist=" maclist
 			"\n.. sinstmac=" sinstmac)

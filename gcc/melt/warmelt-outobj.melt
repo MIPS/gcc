@@ -6200,8 +6200,11 @@ if (1) return;
 	)
       )
     (debug "give_normalized_macroexpanded_list ucmeb1=" ucmeb1 " modinienv=" modinienv)
-    (if modinienv 
-	(list_prepend xlist ucmeb1))
+    (if modinienv
+	;; we dont want to prepend twice the
+	;; class_source_update_current_module_environment_reference
+	(if (is_not_a (list_first xlist) class_source_update_current_module_environment_reference)
+	    (list_prepend xlist ucmeb1)))
     (debug "give_normalized_macroexpanded_list xlist=" xlist "\n.. iniproc=" iniproc
 	   "\n.. inienv=" inienv)
     (assert_msg "check xlist" (is_list xlist) xlist)

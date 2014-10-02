@@ -21,6 +21,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
       (the_stdout (unsafe_get_field :sysdata_stdout initial_system_data))
       (:macro loadedmac (sexp env mexpander modctx)
 	      (debug "macro loadedmac" " sexp=" sexp)
+	      (shortbacktrace_dbg "macro loadedmac" 20)
 	      (let ( (arg1 (list_nth (usafe_get_field :sexp_contents sexp) 1))
 		     (sloc (unsafe_get_field :loca_location sexp))
 		     (sline (get_int sloc))
