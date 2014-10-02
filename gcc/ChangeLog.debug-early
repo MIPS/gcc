@@ -1,3 +1,8 @@
+2014-10-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2out.c (output_die): Revert change to output parent DIE and
+	early flag to make comparing with mainline easier.
+
 2014-10-01  Aldy Hernandez  <aldyh@redhat.com>
 
 	* cp/decl2.c (emit_debug_for_namespace): Emit early debug

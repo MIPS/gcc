@@ -8780,11 +8780,9 @@ output_die (dw_die_ref die)
   if (! die->comdat_type_p && die->die_id.die_symbol)
     output_die_symbol (die);
 
-  dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (%#lx) %s (parent DIE=%#lx) early=%d)",
+  dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (%#lx) %s)",
 			       (unsigned long)die->die_offset,
-			       dwarf_tag_name (die->die_tag),
-			       die->die_parent ? die->die_parent->die_offset : 0,
-			       die->dumped_early);
+			       dwarf_tag_name (die->die_tag));
 
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
     {
