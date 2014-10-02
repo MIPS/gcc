@@ -733,6 +733,9 @@ enum cgraph_inline_failed_type_t
 
 struct cgraph_edge;
 
+class ipa_opt_pass_d;
+typedef ipa_opt_pass_d *ipa_opt_pass;
+
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 

@@ -161,10 +161,6 @@ typedef struct temp_slot *temp_slot_p;
 struct call_site_record_d;
 struct dw_fde_node;
 
-class ipa_opt_pass_d;
-typedef ipa_opt_pass_d *ipa_opt_pass;
-
-
 struct GTY(()) varasm_status {
   /* If we're using a per-function constant pool, this is it.  */
   struct rtx_constant_pool *pool;
