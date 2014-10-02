@@ -310,6 +310,11 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) \
 			  $(shell expr $(range) + $(write_entries_to_file_split) - 1), $(1))" \
 	     | tr ' ' '\012' >> $(2)))
 
+# The jit documentation looks better if built with sphinx, but can be
+# built with texinfo if sphinx is not available.
+# configure sets "doc_build_sys" to "sphinx" or "texinfo" accordingly
+doc_build_sys=@doc_build_sys@
+
 # --------
 # UNSORTED
 # --------
