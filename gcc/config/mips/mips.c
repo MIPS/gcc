@@ -3619,7 +3619,8 @@ mips_legitimize_move (enum machine_mode mode, rtx dest, rtx src)
 {
   if (!register_operand (dest, mode) && !register_operand (src, mode))
     {
-      if (!const_0_operand (src, mode) || MSA_SUPPORTED_MODE_P (mode))
+      if (TARGET_MIPS16 || !const_0_operand (src, mode)
+	  || MSA_SUPPORTED_MODE_P (mode))
       {
 	mips_emit_move (dest, force_reg (mode, src));
 	return true;
