@@ -257,7 +257,7 @@ See $MELT_NEED_DBGLIM.}#
 	      strftime ($GETTIME_CHK#timbuf, sizeof($GETTIME_CHK#timbuf),
 			"%T", localtime(& $GETTIME_CHK#now));
 	      snprintf ($GETTIME_CHK#buf, sizeof($GETTIME_CHK#buf),
-			"%s, %.3f cpu", clock() * 1.0e-6);
+			"%s, %.3f cpu", $GETTIME_CHK#timbuf, clock() * 1.0e-6);
 	      $(progn
 		 (add2out out "\n!!!@~.@~. " (expr_chunk
 				    timestr_chk :cstring

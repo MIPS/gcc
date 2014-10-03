@@ -1,4 +1,8 @@
 
+2014-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-debug.melt (melt_debug_fun): Wrong snprintf
+	arguments, corrected for showing the current time every 512
+	messages.
 2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/libmelt-ana-tree.melt (tree_va_list_type_node): New.
