@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123; // forward declaration fromline 6680
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123; // forward declaration fromline 6689
 typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h267396123 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -14553,7 +14553,7 @@ meltlab_endgetargs:
 
 #if MELT_HAVE_DEBUG
             if (melt_need_debug (0))
-                melt_dbgshortbacktrace(( "normexp_update_current_module_environment_reference"), (15));
+                melt_dbgshortbacktrace(( "normexp_update_current_module_environment_reference"), (20));
 #endif
             ;
         }
