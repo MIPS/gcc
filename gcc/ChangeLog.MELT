@@ -1,5 +1,10 @@
 
 2014-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (hook_macro_installer): More debug.
+	* melt/warmelt-normal.melt (normexp_update_current_module_environment_reference): More debug.
+	* melt/warmelt-outobj.melt (melt_translate_run_macroexpansions_list): More debug.
+
+2014-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-debug.melt (melt_debug_fun): Wrong snprintf
 	arguments, corrected for showing the current time every 512
 	messages.

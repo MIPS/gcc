@@ -3845,8 +3845,8 @@ is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
   :void
   :predef HOOK_MACRO_INSTALLER
   :doc #{The internal $HOOK_MACRO_INSTALLER is installing macro, during a translation}#
-  (debug "hook_macro_installer mbind=" mbind " mexpclos=" mexpclos)
-  (shortbacktrace_dbg "hook_macro_installer" 10)
+  (debug "hook_macro_installer" " mbind=" mbind " mexpclos=" mexpclos)
+  (shortbacktrace_dbg "hook_macro_installer" 16)
   (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
   (assert_msg "check mexpclos" (is_closure mexpclos) mexpclos mbind)
   (put_fields mbind :mbind_expanser mexpclos)

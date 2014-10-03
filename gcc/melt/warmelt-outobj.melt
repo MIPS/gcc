@@ -6171,7 +6171,7 @@ if (1) return;
 			  :sucme_comment '"at very start"
 			  ))
 	)
-    (debug "give_normalized_macroexpanded_list ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc)
+    (debug "give_normalized_macroexpanded_list" " ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc)
     (code_chunk startmodnam
 		#{ /* give_normalized_macroexpanded_list $STARTMODNAM */
 	#if HAVE_CLOCK
@@ -6213,10 +6213,12 @@ if (1) return;
     (foreach_pair_component_in_list
      (xlist)
      (curpair sexp)
-     (debug "give_normalized_macroexpanded_list sexp=" sexp "\n.. inienv=" inienv)
+     (debug "give_normalized_macroexpanded_list" " sexp=" sexp "\n.. inienv=" inienv)
      (let (
 	   (psloc (if (is_a sexp class_located) (unsafe_get_field :loca_location sexp)))
 	   )
+       (debug "give_normalized_macroexpanded_list" " psloc=" psloc " sexp=" sexp)
+       (shortbacktrace_dbg "give_normalized_macroexpanded_list-loop" 15)
        (multicall 
 	(nexp nbind)
 	(normal_exp sexp inienv ncx psloc) ;;; inienv is probably wrong here	    
@@ -7756,18 +7758,19 @@ if (1) return;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun melt_translate_run_macroexpansions_list (lismexp env parmodctx)
-  :doc #{The utility $MELT_TRANSLATE_RUN_MACROEXPANSIONS_LIST
+  :doc #{The utility function $MELT_TRANSLATE_RUN_MACROEXPANSIONS_LIST
   translates and runs a list of macroexpansions. It is used for
-  expansion of $DEFMACRO-ed macronames.}#
-  (debug "melt_translate_run_macroexpansions_list start lismexp=" lismexp 
-	 "\n.. env=" env "\n.. parmodctx=" parmodctx)
-  (shortbacktrace_dbg "melt_translate_run_macroexpansions_list" 12)
+  expansion of $DEFMACRO-ed macronames, or @code{:macro} $LET bindings.}#
+  (debug "melt_translate_run_macroexpansions_list" " start lismexp=" lismexp 
+	 "\n.. env=" env "\n.. parmodctx=" parmodctx
+	 "\n")
+  (shortbacktrace_dbg "melt_translate_run_macroexpansions_list" 20)
   (assert_msg "check env" (is_a env class_environment) env)
   (when (null lismexp)
-    (debug "melt_translate_run_macroexpansions_list null lismexp=" lismexp)
+    (debug "melt_translate_run_macroexpansions_list" " null lismexp=" lismexp)
     (return ()))
   (when (not (is_list lismexp))
-    (debug "melt_translate_run_macroexpansions_list bad lismexp=" lismexp)
+    (debug "melt_translate_run_macroexpansions_list" " bad lismexp=" lismexp)
     (assert_msg "invalid lismexp" () lismexp)
     (return ()))
   (let ( (:long num 0)
@@ -7779,7 +7782,7 @@ if (1) return;
 	 (modnam (get_field :mocx_modulename parmodctx))
 	 (macroenv (get_field :mocx_macroenv parmodctx))
 	 )
-    (debug "melt_translate_run_macroexpansions_list env=" env 
+    (debug "melt_translate_run_macroexpansions_list" " env=" env 
 	   "\n.. macroenv=" macroenv)
     (code_chunk numchk #{/* melt_translate_run_macroexpansions_list $NUMCHK */ 
          char basbuf_$NUMCHK[64] ;

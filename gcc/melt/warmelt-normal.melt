@@ -5254,6 +5254,7 @@ source location.}#
   (assert_msg "check recv" (is_a recv class_source_macro_installation) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+  (shortbacktrace_dbg "normexp_macro_installation" 16)
   (let ( (loc (or (unsafe_get_field :loca_location recv) psloc))
 	 (sdefmacro (unsafe_get_field :smacinst_defmacro recv))
 	 (modctx (get_field :nctx_modulcontext ncx))
@@ -5261,13 +5262,12 @@ source location.}#
 	 (modname (get_field :mocx_modulename modctx))
 	 (srcenv (get_field :smacinst_env recv))
 	 )
-    (debug "normexp_macro_installation loc=" debug_less loc "; sdefmacro=" sdefmacro
+    (debug "normexp_macro_installation" " loc=" debug_less loc "; sdefmacro=" sdefmacro
 	   "\n.. macroenv=" debug_more macroenv
 	   "\n.. srcenv=" debug_more srcenv)
     (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
     (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
     (assert_msg "check srcenv" (is_a srcenv class_environment) srcenv)
-    (shortbacktrace_dbg "normexp_macro_installation" 10)
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
     (debug "normexp_macro_installation" " before normalizing loc=" loc "; sdefmacro=" sdefmacro)
     (let (
@@ -5275,7 +5275,7 @@ source location.}#
 	  (mbind (get_field :smacro_binding sdefmacro))
 	  (msymb (get_field :binder mbind))
 	  )
-      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos
+      (debug "normexp_macro_installation" " loc=" debug_less loc "; nclos=" nclos
 	     "\n.. mbind=" mbind "\n.. macroenv=" macroenv
 	     "\n")
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx recv)
@@ -5285,7 +5285,7 @@ source location.}#
 	    (nlitsym (clone_symbol msymb))
 	    (nclosym (clone_symbol msymb))
 	    (nlitbind (let ( (nli (register_literal_value mbind modctx)) )
-			(debug "normexp_macro_installation nlitbind=" nli)
+			(debug "normexp_macro_installation" " nlitbind=" nli)
 			nli))
 	    (clobind (instance class_normal_let_binding
 			       :letbind_loc loc
@@ -5301,7 +5301,7 @@ source location.}#
 					   :nlitval_regval nlitbind
 					   :nlitval_symbol nlitsym))
 			    )
-		       (debug "normexp_macro_installation nlitval=" nlv)
+		       (debug "normexp_macro_installation" " nlitval=" nlv)
 		       nlv))
 	    (nhcall  (let ( (nhc (instance class_nrep_hook_call
 					   :nrep_loc loc
@@ -5313,7 +5313,7 @@ source location.}#
 					   :nhook_outs (tuple)
 					   :nhook_descr (hook_data hook_macro_installer)
 					   )) )
-		       (debug "normexp_macro_installation nhcall=" nhc)
+		       (debug "normexp_macro_installation" " nhcall=" nhc "\n.. loc=" loc)
 		       nhc))
 	    (csym (clone_symbol (get_field :binder mbind)))
 	    (cbind (instance class_normal_let_binding
@@ -5327,9 +5327,9 @@ source location.}#
 			      :nocc_symb csym
 			      :nocc_bind cbind))
 	    )
-	(debug "normexp_macro_installation nlitval=" nlitval)
-	(debug "normexp_macro_installation csym=" csym " nhcall=" nhcall)
-	(debug "normexp_macro_installation final closocc=" closocc "\n.. symocc=" symocc 
+	(debug "normexp_macro_installation" " nlitval=" nlitval "\n.. loc=" loc)
+	(debug "normexp_macro_installation" " csym=" csym " nhcall=" nhcall)
+	(debug "normexp_macro_installation" " final closocc=" closocc "\n.. symocc=" symocc 
 	       "\n.. cbind=" cbind "\n.. clobind=" clobind)
 	(return (tuple closocc symocc) (list clobind cbind))
 	))))
@@ -8825,7 +8825,7 @@ source location.}#
 	      (is_a recv class_source_update_current_module_environment_reference) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
-  (shortbacktrace_dbg "normexp_update_current_module_environment_reference" 15)
+  (shortbacktrace_dbg "normexp_update_current_module_environment_reference" 20)
   (let ( 
 	(sloc (unsafe_get_field :loca_location recv))
 	(scomm (unsafe_get_field :sucme_comment recv))
