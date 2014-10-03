@@ -1,3 +1,9 @@
+2014-10-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic.c (diagnostic_finish): Free the memory for
+	context->classify_diagnostic and context->printer, running the
+	destructor for the latter.
+
 2014-10-02  David Malcolm  <dmalcolm@redhat.com>
 
 	* configure: Regenerate, after merger from trunk.
