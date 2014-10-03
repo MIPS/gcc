@@ -1,5 +1,11 @@
 
 2014-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-debug.melt (melt_debug_fun): Wrong periodic test,
+	also emit a newline once every 512 times with the cpu & current
+	time.
+	* melt/warmelt-outobj.melt (give_normalized_macroexpanded_list):
+	More debug.
+2014-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (hook_macro_installer): More debug.
 	* melt/warmelt-normal.melt (normexp_update_current_module_environment_reference): More debug.
 	* melt/warmelt-outobj.melt (melt_translate_run_macroexpansions_list): More debug.

@@ -6174,16 +6174,16 @@ if (1) return;
     (debug "give_normalized_macroexpanded_list" " ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc)
     (code_chunk startmodnam
 		#{ /* give_normalized_macroexpanded_list $STARTMODNAM */
-	#if HAVE_CLOCK
+		#if HAVE_CLOCK
 		$STARTCLOCK = (long) clock () ;
-	#endif /*HAVE_CLOCK */
-	#if MELT_HAVE_DEBUG
-	     if (melt_dbgcounter > 0)
+		#endif /*HAVE_CLOCK */
+		#if MELT_HAVE_DEBUG
+		if (melt_dbgcounter > 0)
 		inform  (UNKNOWN_LOCATION, 
 			 "MELT [#%ld] generating C++ code of module %s", 
 			 melt_dbgcounter, melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
-	     else
-	#endif/* MELT_HAVE_DEBUG */
+		else
+		#endif/* MELT_HAVE_DEBUG */
 		inform  (UNKNOWN_LOCATION, 
 			 "MELT generating C++ code of module %s", 
 			 melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
@@ -6199,12 +6199,19 @@ if (1) return;
 	(put_fields modctx :mocx_startcomment scomm)
 	)
       )
-    (debug "give_normalized_macroexpanded_list ucmeb1=" ucmeb1 " modinienv=" modinienv)
+    (debug "give_normalized_macroexpanded_list"
+	   " ucmeb1=" ucmeb1 " modinienv=" modinienv)
     (if modinienv
 	;; we dont want to prepend twice the
 	;; class_source_update_current_module_environment_reference
-	(if (is_not_a (list_first xlist) class_source_update_current_module_environment_reference)
-	    (list_prepend xlist ucmeb1)))
+	(let ( (firstx (list_first xlist))
+	       )
+	  (debug "give_normalized_macroexpanded_list" " firstx=" firstx)
+	  (when (is_not_a firstx  class_source_update_current_module_environment_reference)
+	    (debug "give_normalized_macroexpanded_list" " xlist=" xlist " prepending ucmeb1=" ucmeb1)
+	    (list_prepend xlist ucmeb1)
+	    (debug "give_normalized_macroexpanded_list" " updated xlist=" xlist)
+	    )))
     (debug "give_normalized_macroexpanded_list xlist=" xlist "\n.. iniproc=" iniproc
 	   "\n.. inienv=" inienv)
     (assert_msg "check xlist" (is_list xlist) xlist)

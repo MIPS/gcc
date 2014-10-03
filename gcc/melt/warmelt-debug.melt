@@ -246,7 +246,7 @@ See $MELT_NEED_DBGLIM.}#
 	       (:long laststroutlen outlen)
 	       (:long initoutlen outlen)
 	       )
-	   (when (%iraw dbgcounter 512)
+	   (when (not (%iraw dbgcounter 512))
 	     (code_chunk
 	      gettime_chk
 	      #{ /* melt_debug_fun $GETTIME_CHK start */
@@ -262,7 +262,8 @@ See $MELT_NEED_DBGLIM.}#
 		 (add2out out "\n!!!@~.@~. " (expr_chunk
 				    timestr_chk :cstring
 				    #{ /*melt_debug_fun $TIMESTR_CHK*/
-				    $GETTIME_CHK#buf }#))
+				    $GETTIME_CHK#buf }#)
+			  "\n")
 		 (void))
 	      /* melt_debug_fun $GETTIME_CHK end */
 	      }#))
