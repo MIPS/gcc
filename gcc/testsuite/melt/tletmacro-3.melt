@@ -22,13 +22,13 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
       (:macro loadedmac (sexp env mexpander modctx)
 	      (debug "macro loadedmac" " sexp=" sexp)
 	      (shortbacktrace_dbg "macro loadedmac" 20)
-	      (let ( (arg1 (list_nth (usafe_get_field :sexp_contents sexp) 1))
+	      (let ( (arg1 (list_nth_element (unsafe_get_field :sexp_contents sexp) 1))
 		     (sloc (unsafe_get_field :loca_location sexp))
 		     (sline (get_int sloc))
 		     (res (instance class_source_apply
 				    :loca_location sloc
 				    :sapp_fun 'add2out
-				    :sargop_args (tuple 'the_stdout "loadedmac@" sline ":" arg1)))
+				    :sargop_args (tuple 'the_stdout '"loadedmac@" (constant_box sline) '":" arg1)))
 		     )
 		(debug "macro loadedmac" " arg1=" arg1 " sline=" sline
 		       "\n.. res=" res)

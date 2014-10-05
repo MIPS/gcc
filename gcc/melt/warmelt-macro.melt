@@ -1720,6 +1720,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 ;;; expand an s-expression known to be an application
 (defun expand_apply (sexpr env mexpander modctx)
+  (debug "expand_apply" " sexpr=" sexpr " env=" debug_less env)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
@@ -1740,10 +1741,9 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 ;;; expand an s-expression known to be a message send
 (defun expand_msend  (opnam sexpr env mexpander modctx)
-  (debug "expand_msend sexpr=" sexpr)
+  (debug "expand_msend sexpr=" sexpr "\n.. env=" debug_less env)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
-  (if (null mexpander) (setq mexpander macroexpand_1))
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check opnam" (is_a opnam class_symbol) opnam)
   (assert_msg "check modctx" (is_object modctx) modctx)
@@ -1997,7 +1997,8 @@ $SPAC_OUTARGS are the output sub-patterns.}#
   environment $ENV using the macroexpander $MEXPAND in module context
   $MODCTX. Return the expanded form, subclass of $CLASS_SOURCE, and
   perhaps other expansions.}#
-  (if (null mexpander) (setq mexpander macroexpand_1))
+  (debug "macroexpand_1 sexpr=" sexpr "\n.. env=" debug_less env)
+  (shortbacktrace_dbg "macroexpand_1" 15)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
@@ -2945,7 +2946,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 (defun melt_invoke_translator_runner_macroexpansions (lismexp env modctx)
   (debug "melt_invoke_translator_runner_macroexpansions lismexp=" lismexp "\n.. env=" env 
 	 "\n.. modctx=" modctx)
-  (shortbacktrace_dbg "melt_invoke_translator_runner_macroexpansions" 12)
+  (shortbacktrace_dbg "melt_invoke_translator_runner_macroexpansions" 32)
   (let ( (clos melt_transrunmacro_clos)
 	 )
     (debug "melt_invoke_translator_runner_macroexpansions melt_transrunmacro_clos=" clos "\n... env=" debug_less env "\n... modctx=" debug_less modctx)
@@ -3701,7 +3702,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		    :fubind_defun ()	;to be filled later
 		    ))
 	 )
-    (debug "mexpand_defmacro loc=" debug_less loc "; modmacroenv=" modmacroenv "\n.. newenv=" newenv)
+    (debug "mexpand_defmacro loc=" debug_less loc "; modmacroenv=" modmacroenv "\n.. newenv=" newenv
+	   "\n.. mbind=" mbind)
     (when (is_not_a symb class_symbol)
       (debug "mexpand_defmacro bad symb=" symb " in sexpr=" sexpr)
       (error_at loc "missing symbol for DEFMACRO"_)
@@ -3786,7 +3788,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	(list_append maclist sinstmacro)
 	(debug "mexpand_defmacro loc=" loc "; updated maclist=" maclist)
 	(put_fields fbind :fubind_defun sdefmacro)
-	(debug "mexpand_defmacro loc=" loc "; updated fbind=" fbind)
+	(debug "mexpand_defmacro loc=" loc "; updated fbind=" fbind
+	       "\n.. mbind=" mbind)
 	;; we should put a :mbind_expanser closure into mbind
 	(put_fields mbind 
 		    :mbind_expanser 
@@ -7034,7 +7037,7 @@ applications of @code{/i} primitives.}#
 				     "\n.. modctxm=" debug_less modctxm
 				     "\n.. mexpanderm=" debug_less mexpanderm
 				     "\n.. macbind=" macbind)
-			      (shortbacktrace_dbg "mexpand_let:mexpanser" 15)
+			      (shortbacktrace_dbg "mexpand_let:mexpanser" 25)
 			      (debug "mexpand_let:mexpanser before melt_delayed_macro_expander"
 				     " maclist=" maclist "\n.. macbind=" macbind)
 			      (melt_delayed_macro_expander macbind maclist envm mexpanderm modctx)
@@ -7062,7 +7065,7 @@ applications of @code{/i} primitives.}#
 				)
 			      ))
 			   )
-		   (debug "mexpand_let:macro" " loc=" loc " mexpanser=" mexpanser)
+		   (debug "mexpand_let:macro" " loc=" loc " mexpanser=" mexpanser "\n.. macbind=" macbind)
 		   (put_fields macbind :mbind_expanser mexpanser)
 		   (debug "mexpand_let:macro" " loc=" loc " update macbind=" macbind)
 		   (put_env newenv macbind)
@@ -7070,6 +7073,7 @@ applications of @code{/i} primitives.}#
 		   (debug "mexpand_let:macro" " letbind-updated newenv=" debug_more newenv
 			  "\n.. for cursbind=" cursbind
 			  "\n.. macbind=" macbind)
+		   (shortbacktrace_dbg "mexpand_let:macro-endletrec-mexpanser" 32)
 		   )
 		 ))
 	     (:else

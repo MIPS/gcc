@@ -1422,7 +1422,7 @@ routine procedures.}#
 ;;; normalize a tuple - returning a tuple & a bindinglist
 (defun normalize_tuple (tup env ncx psloc)
   (debug "normalize_tuple start tup=" tup " psloc=" psloc)
-  (shortbacktrace_dbg "normalize_tuple" 12)
+  (shortbacktrace_dbg "normalize_tuple" 16)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (if (null tup) 
@@ -1834,7 +1834,7 @@ source location.}#
 	 "\n.. ncx=" ncx
 	 "\n.. psloc=" psloc 
 	 )
-  (shortbacktrace_dbg "normexp_symbol" 25)
+  (shortbacktrace_dbg "normexp_symbol" 32)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (assert_msg "check recv" (is_a recv class_symbol) recv)
   (multicall
@@ -3151,7 +3151,7 @@ source location.}#
 ;;; normalize an application
 (defun normexp_apply (recv env ncx psloc)
   (debug "normexp_apply" " recv=" recv "\n.. env=" env "\n.. ncx=" ncx "\n.. psloc=" psloc)
-  (shortbacktrace_dbg "normexp_apply" 15)
+  (shortbacktrace_dbg "normexp_apply" 18)
   (assert_msg "check apply recv" (is_a recv class_source_apply) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)

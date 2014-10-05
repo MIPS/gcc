@@ -1,4 +1,14 @@
 
+2014-10-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (expand_apply, expand_msend)
+	(macroexpand_1, melt_invoke_translator_runner_macroexpansions)
+	(mexpand_defmacro): More debug.
+
+	* melt/warmelt-normal.melt (normalize_tuple, normexp_symbol): More
+	debug.
+
+	* testsuite/melt/tletmacro-3.melt: Improved, since it was wrong...
+
 2014-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
