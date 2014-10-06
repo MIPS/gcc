@@ -1373,7 +1373,7 @@ bool empty_body_p (gimple_seq);
 gimple_seq gimple_seq_copy (gimple_seq);
 bool gimple_call_same_target_p (const_gimple, const_gimple);
 int gimple_call_flags (const_gimple);
-int gimple_call_arg_flags (const_gimple, unsigned);
+int gimple_call_arg_flags (const_gimple_call, unsigned);
 int gimple_call_return_flags (const_gimple_call);
 bool gimple_assign_copy_p (gimple);
 bool gimple_assign_ssa_name_copy_p (gimple);

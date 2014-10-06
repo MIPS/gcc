@@ -1,5 +1,18 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_arg_flags
+
+	* gimple.h (gimple_call_arg_flags): Require a const_gimple_call
+	rather than a const_gimple.
+
+	* gimple.c (gimple_call_fnspec): Likewise.
+	(gimple_call_arg_flags): Likewise.
+
+	* tree-inline.c (remap_gimple_stmt): Use a dyn_cast rather than a
+	is_gimple_call and repeated checked casts.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_set_tail and gimple_call_tail_p
 
 	* gimple.h (gimple_call_set_tail): Require a gimple_call.

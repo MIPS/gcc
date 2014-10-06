@@ -1367,7 +1367,7 @@ gimple_call_flags (const_gimple stmt)
 /* Return the "fn spec" string for call STMT.  */
 
 static const_tree
-gimple_call_fnspec (const_gimple stmt)
+gimple_call_fnspec (const_gimple_call stmt)
 {
   tree type, attr;
 
@@ -1388,7 +1388,7 @@ gimple_call_fnspec (const_gimple stmt)
 /* Detects argument flags for argument number ARG on call STMT.  */
 
 int
-gimple_call_arg_flags (const_gimple stmt, unsigned arg)
+gimple_call_arg_flags (const_gimple_call stmt, unsigned arg)
 {
   const_tree attr = gimple_call_fnspec (stmt);
 

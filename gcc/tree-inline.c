@@ -1548,9 +1548,9 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       copy = gimple_copy (stmt);
 
       /* Clear flags that need revisiting.  */
-      if (is_gimple_call (copy)
-	  && gimple_call_tail_p (as_a <gimple_call> (copy)))
-	gimple_call_set_tail (as_a <gimple_call> (copy), false);
+      if (gimple_call call_stmt = dyn_cast <gimple_call> (copy))
+	if (gimple_call_tail_p (call_stmt))
+	  gimple_call_set_tail (call_stmt, false);
 
       /* Remap the region numbers for __builtin_eh_{pointer,filter},
 	 RESX and EH_DISPATCH.  */
