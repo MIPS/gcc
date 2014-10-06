@@ -1,4 +1,15 @@
 
+2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tletmacro-3 is successful}}
+	* melt/warmelt-macro.melt: expand_pairlist_as_tuple should be used
+	much more systematically to expand a list of operands.
+	(mexpand_load, pairlist_to_progn, mexpand_and, mexpand_or)
+	(mexpand_let, mexpand_letrec, mexpand_lambda, mexpand_variadic)
+	(mexpand_multicall, pairlist_to_return, mexpand_forever)
+	(mexpand_exit, mexpand_export_values, mexpand_export_class): Use
+	expand_pairlist_as_tuple.
+	* testsuite/melt/tletmacro-3.melt: Improved, missing quote!
+
 2014-10-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt
 	(melt_invoke_translator_runner_macroexpansions): Don't invoke any

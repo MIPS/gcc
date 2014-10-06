@@ -4943,7 +4943,7 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check modctx" (is_object modctx) modctx)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
-  (shortbacktrace_dbg "mexpand_load" 15)
+  (shortbacktrace_dbg "mexpand_load" 25)
   (let ( (cont (unsafe_get_field :sexp_contents sexpr))
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont)))
@@ -4964,6 +4964,8 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	 (let ( (explist (macroexpand_toplevel_list curead env mexpander modctx)) 
 		(exptuple (list_to_multiple explist discr_multiple))
 		)
+	   (debug "mexpand_load" " explist=" explist)	   
+	   (shortbacktrace_dbg "mexpand_load" 10)
 	   (debug "mexpand_load" " return exptuple=" exptuple)
 	   (return exptuple)
 	   )
@@ -5561,10 +5563,7 @@ without any checks. Using $PUT_FIELDS is prefered.}#)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check_pair" (is_pair pair) pair)
   (assert_msg "check modctx" (is_object modctx) modctx)
-  (let ( (bodytup (pairlist_to_multiple 
-		   pair 
-		   discr_multiple
-		   (lambda (e) (mexpander e env mexpander modctx)))) 
+  (let ( (bodytup (expand_pairlist_as_tuple pair env mexpander modctx))
 	 (sprogn
 	  (instance class_source_progn
 		    :loca_location loc
@@ -6007,12 +6006,7 @@ MELT module.  Syntax is (CPPIF <symbol> <then> [<else>]).}#)
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
 	(curpair (pair_tail (list_first cont)))
-	(cxtup (pairlist_to_multiple 
-		curpair
-		discr_multiple
-		(lambda (c) 
-		  (mexpander c env mexpander modctx)
-		  )))
+	(cxtup (expand_pairlist_as_tuple curpair env mexpander modctx))
 	(:long nbcomp (multiple_length cxtup))
 	)
     (debug "mexpand_and cxtup" cxtup)
@@ -6155,12 +6149,7 @@ MELT module.  Syntax is (CPPIF <symbol> <then> [<else>]).}#)
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
-	(cxtup (pairlist_to_multiple 
-		(pair_tail (list_first cont))
-		discr_multiple
-		(lambda (c) 
-		  (mexpander c env mexpander modctx)
-		  )))
+	(cxtup (expand_pairlist_as_tuple (pair_tail (list_first cont)) env mexpander modctx))
 	(:long nbcomp (multiple_length cxtup))
 	)
     (if (<i nbcomp 1)
@@ -7092,11 +7081,7 @@ applications of @code{/i} primitives.}#
      )					; end each_component_in_list
     (debug "mexpand_let" " loc=" loc " final newenv=" debug_more newenv
 	   "\n.. restpair=" restpair)
-    (let ( (bodytup (pairlist_to_multiple 
-		     restpair discr_multiple 
-		     (lambda (bex)
-		       (debug "mexpand_let" " lambda-bex bex=" bex)
-		       (mexpander bex newenv mexpander modctx))))
+    (let ( (bodytup (expand_pairlist_as_tuple restpair newenv mexpander modctx))
 	   (bindtup (list_to_multiple letbindlist discr_multiple))
 	   (letr 
 	    (instance class_source_let
@@ -7226,7 +7211,7 @@ applications of @code{/i} primitives.}#
 		 (debug "mexpand_letrec second loop curvar" curvar)
 		 (if (mapobject_get envmap curvar)
 		     (error_at loc "repeated variable $1 in LETREC binding"
-				 (get_field :named_name curvar)))
+			       (get_field :named_name curvar)))
 ;;; make the binding
 		 (let ( (curbind (instance class_letrec_binding
 					   :binder curvar
@@ -7269,12 +7254,10 @@ applications of @code{/i} primitives.}#
 	  (error_plain loc "missing letbinding-s in LETREC"_))
       )
     (debug "mexpand_letrec srcbindtup" srcbindtup)
-    (setq bodytup (pairlist_to_multiple 
-		   restpair discr_multiple 
-		   (lambda (e) (mexpander e newenv mexpander modctx))))
+    (setq bodytup (expand_pairlist_as_tuple restpair newenv mexpander modctx))
     (if (<=i (multiple_length bodytup) 0)
-	(error_plain loc "emptyy body in LETREC"))
-	     (let ( (letr
+	(error_plain loc "empty body in LETREC"))
+    (let ( (letr
 	    (instance class_source_letrec
 		      :loca_location loc
 		      :slet_bindings srcbindtup
@@ -7315,9 +7298,7 @@ applications of @code{/i} primitives.}#
        (lb :long ix) 
        (assert_msg "check lb" (is_a lb class_formal_binding) lb)
        (put_env newenv lb))
-      (let ( (bodytup (pairlist_to_multiple
-		       curpair discr_multiple 
-		       (lambda (e) (mexpander e newenv mexpander modctx)))) 
+      (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
 	     (lambr 
 	      (instance class_source_lambda
 			:loca_location loc
@@ -7384,10 +7365,7 @@ applications of @code{/i} primitives.}#
 	 ;; expand the body
 	 (debug "mexpand_variadic caserest=" caserest
 		"; curcaseloc=" curcaseloc "; loc=" loc)
-	 (let (  (bodytup (pairlist_to_multiple 
-			   caserest 
-			   discr_multiple
-			   (lambda (e) (mexpander e env mexpander modctx)))) 
+	 (let ( (bodytup (expand_pairlist_as_tuple caserest env mexpander modctx))
 		 )
 	   (debug "mexpand_variadic else bodytup before hookfun " bodytup)
 	   (debug "mexpand_variadic hookfun before" hookfun)
@@ -7417,9 +7395,7 @@ applications of @code{/i} primitives.}#
 	      (mapobject_put varbindmap fbisymb fbi)
 	      (put_env newenv fbi)
 	      ))
-	   (let ( (bodytup (pairlist_to_multiple
-			    caserest discr_multiple 
-			    (lambda (e) (mexpander e newenv mexpander modctx))))
+	   (let ( (bodytup (expand_pairlist_as_tuple caserest newenv mexpander modctx))
 		  (sifvariadic (instance class_source_ifvariadic
 					 :loca_location (or curcaseloc loc)
 					 :sifvariadic_argbind args
@@ -7508,9 +7484,7 @@ remain.}#)
 	  (multiple_every restup 
 			  (lambda (lb) (put_env newenv lb)
 			    ))
-	  (let ( (bodytup (pairlist_to_multiple 
-			   curpair discr_multiple 
-			   (lambda (e) (mexpander e newenv mexpander modctx)))) 
+	  (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
 		 (mulcr
 		  (instance class_source_multicall
 			    :loca_location loc
@@ -7921,11 +7895,8 @@ remain.}#)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
-  (let ( (bodytup
-	  (pairlist_to_multiple 
-	   pair 
-	   discr_multiple
-	   (lambda (e) (mexpander e env mexpander modctx)))) )
+  (let ( (bodytup (expand_pairlist_as_tuple pair env mexpander modctx))
+	 )
     (instance class_source_return
 	      :loca_location loc
 	      :sargop_args bodytup
@@ -8003,10 +7974,7 @@ remain.}#)
 			     :binder xlabnam
 			     :labind_loc loc)) )
       (put_env newenv labind)
-      (let ( (bodytup (pairlist_to_multiple
-		       curpair
-		       discr_multiple
-		       (lambda (e) (mexpander e newenv mexpander modctx)))) 
+      (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
 	     (forr
 	      (instance class_source_forever
 			:loca_location loc
@@ -8047,10 +8015,7 @@ remain.}#)
 	    (error_at loc "bad label in EXIT $1"_
 			(unsafe_get_field :named_name xlabnam))
 	    (return ()))
-      (let ( (bodytup (pairlist_to_multiple
-		       curpair
-		       discr_multiple
-		       (lambda (e) (mexpander e newenv mexpander modctx)))) 
+      (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
 	     (exr
 	      (instance class_source_exit
 			:loca_location loc
@@ -8485,20 +8450,16 @@ remain.}#)
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
 	(curpair (pair_tail (list_first cont)))
-	(symbtup (pairlist_to_multiple 
-		  curpair discr_multiple
-		  (lambda (s)
-		    (let ( (sym  (mexpander s env mexpander modctx)) 
-			   )
-		      (when (is_not_a sym class_symbol)
-			    (debug "mexpand_export_values bad sym=" sym)
-			    (error_plain loc "(EXPORT_VALUES <sym>...) expecting symbol"_))
-		      sym
-		      ))))
+	(symbtup (expand_pairlist_as_tuple curpair env mexpander modctx))
 	(res (instance class_source_export_values
 		       :loca_location loc
 		       :sexport_names symbtup))
 	)
+    (foreach_in_multiple
+     (symbtup)
+     (cursymb :long six)
+     (if (is_not_a cursymb class_symbol)
+       (error_at loc "(EXPORT_VALUES <symbol> ...) with non-symbol argument of rank $1" six)))
     (debug "mexpand_export_values result res" res)
     (return res)
     ))
@@ -8642,18 +8603,16 @@ is used to define patmacros.}#)
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
 	(curpair (pair_tail (list_first cont)))
-	(symbtup (pairlist_to_multiple 
-		  curpair discr_multiple
-		  (lambda (s)
-		    (let ( (sym  (mexpander s env mexpander modctx)) )
-		      (if (is_not_a sym class_symbol)
-			  (error_plain loc "(EXPORT_CLASS <sym>...) expecting symbol"_))
-		      sym
-		      ))))
+	(symbtup (expand_pairlist_as_tuple curpair env mexpander modctx))
 	(res (instance class_source_export_class
 		       :loca_location loc
 		       :sexport_names symbtup))
 	)
+    (foreach_in_multiple
+     (symbtup)
+     (cursymb :long six)
+     (if (is_not_a cursymb class_symbol)
+       (error_at loc "(EXPORT_CLASS <symbol> ...) with non-symbol argument of rank $1" six)))
     (debug "mexpand_export_class result res" res)
     (return res)
     ))
