@@ -1,5 +1,8 @@
 
 2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.3pre4.
+
+2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tletmacro-3 is successful}}
 	* melt/warmelt-macro.melt: expand_pairlist_as_tuple should be used
 	much more systematically to expand a list of operands.
