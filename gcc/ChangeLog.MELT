@@ -1,5 +1,10 @@
 
 2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt: Successfully loading once
+	_libmelt-treecode.melt, invoking mexpand_gcc_tree_code_define, to
+	make instances of class_gcc_tree_code.
+
+2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>

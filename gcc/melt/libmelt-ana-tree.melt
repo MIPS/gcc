@@ -88,15 +88,18 @@
 	(return resultx)
 ))))
 
-#|
-(let ( (:macro gcc_tree_code mexpand_gcc_tree_code_define
-	       (sexp env mexpander modctx)*
+
+(let ( (:macro gcc_tree_code  (sexp env mexpander modctx)	      
 	       (debug "gcc_tree_code macro" " sexp=" sexp)
 	       (mexpand_gcc_tree_code_define sexp env mexpander modctx)
 	       )
        )
-  (load "_libmelt-treecode.melt"))
-|#
+  (debug "before loading libmelt-treecode")
+  (load "_libmelt-treecode.melt")
+  (debug "after loading libmelt-treecode")
+  (void)
+  )
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
