@@ -36,7 +36,7 @@ Running the test suite
 .. code-block:: console
 
   [build] $ cd gcc
-  [gcc] $ make check-parallel-jit RUNTESTFLAGS="-v -v -v"
+  [gcc] $ make check-jit RUNTESTFLAGS="-v -v -v"
 
 A summary of the tests can then be seen in:
 
@@ -62,7 +62,7 @@ You can compile and run individual tests by passing "jit.exp=TESTNAME" to RUNTES
 
 .. code-block:: console
 
-   [gcc] $ make check-parallel-jit RUNTESTFLAGS="-v -v -v jit.exp=test-factorial.c"
+   [gcc] $ make check-jit RUNTESTFLAGS="-v -v -v jit.exp=test-factorial.c"
 
 and once a test has been compiled, you can debug it directly:
 

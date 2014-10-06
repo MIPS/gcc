@@ -236,6 +236,8 @@ jit.man:
 
 jit.srcman:
 
+lang_checks += check-jit
+
 #
 # Install hooks:
 jit.install-common: installdirs
