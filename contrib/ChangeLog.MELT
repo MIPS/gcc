@@ -1,4 +1,8 @@
 
+2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile (_libmelt-treecode.melt): Improve
+	generation.
+
 2014-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile (install-melt-doc): Install the
 	subdirectories with files meltplugin.html/*.html &

@@ -1,5 +1,11 @@
 
 2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* Makefile.in (_libmelt-treecode.melt): Generate it correctly.
+
+	* melt/libmelt-ana-tree.melt (mexpand_gcc_tree_code_define):
+	Improve it.
+
+2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt: Successfully loading once
 	_libmelt-treecode.melt, invoking mexpand_gcc_tree_code_define, to
 	make instances of class_gcc_tree_code.

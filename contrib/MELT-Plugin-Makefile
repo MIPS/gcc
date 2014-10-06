@@ -475,6 +475,8 @@ _warmelt-predef.melt: make-warmelt-predef.awk melt-predef.list
 _libmelt-treecode.melt: emit-libmelt-treecode.inc $(MELTGCC_PLUGIN_DIR)/include/tree.def
 	date '+;; DO NOT EDIT: file _libmelt-treecode.melt generated at %D' > $@-tmp
 	echo ';; .... using emit-libmelt-treecode.inc' >> $@-tmp
+	echo ";; .... with 	$(GCCMELT_CXX) -c -I $(MELTGCC_PLUGIN_DIR)/include  -E -x c++ $< " >> $@-tmp
+	echo ";;;___________________________________" >> $@-tmp
 	$(GCCMELT_CXX) -c -I $(MELTGCC_PLUGIN_DIR)/include  -E -x c++ $< | grep -v '^#' | cat -s >> $@-tmp
 	mv $@-tmp $@
 

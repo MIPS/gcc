@@ -37,7 +37,8 @@
 ;;;;;; (gcc_tree_code ERROR_MARK "error_mark" tcc_exceptional 0)
 ;;; corresponding to a line like
 ;;;;;;; DEFTREECODE (ERROR_MARK, "error_mark", tcc_exceptional, 0)
-;;; from file tree.def
+;;; from file tree.def. We load that _libmelt-treecode.melt file
+;;; several times.
 
 (defclass class_gcc_tree_code
   :super class_named
@@ -53,7 +54,7 @@
   (let (
 	(sloc (get_field :loca_location sexp))
 	(sexcont (get_field :sexp_contents sexp))
-	(xargs (expand_restlist_as_tuple sexcont))
+	(xargs (expand_restlist_as_tuple sexcont env mexpander modctx))
 	(namecod (multiple_nth xargs 0))
 	(strcod (multiple_nth xargs 1))
 	(typcod (multiple_nth xargs 2))
@@ -89,7 +90,9 @@
 ))))
 
 
-(let ( (:macro gcc_tree_code  (sexp env mexpander modctx)	      
+;;; first load of generated _libmelt-treecode.melt to define public instances
+;;; of class_gcc_tree_code
+(let ( (:macro gcc_tree_code (sexp env mexpander modctx)	      
 	       (debug "gcc_tree_code macro" " sexp=" sexp)
 	       (mexpand_gcc_tree_code_define sexp env mexpander modctx)
 	       )
