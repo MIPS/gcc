@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 
 int gfc_matching_ptr_assignment = 0;

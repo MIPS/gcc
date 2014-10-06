@@ -32,7 +32,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 				   MODIFY_JNI_METHOD_CALL and
 				   PARM_BOUNDARY.  */
 				   
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "flags.h"

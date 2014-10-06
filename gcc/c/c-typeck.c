@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
 #include "varasm.h"
@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "bitmap.h"
 #include "predict.h"
-#include "function.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-inline.h"
@@ -12606,7 +12605,7 @@ cilk_install_body_with_frame_cleanup (tree fndecl, tree body, void *w)
   tree list = alloc_stmt_list ();
   tree frame = make_cilk_frame (fndecl);
   tree dtor = create_cilk_function_exit (frame, false, true);
-  add_local_decl (cfun, frame);
+  cfun->add_local_decl (frame);
   
   DECL_SAVED_TREE (fndecl) = list;
   tree frame_ptr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (frame)), 

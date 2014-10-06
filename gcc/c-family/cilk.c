@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "calls.h"
 #include "langhooks.h"
@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -116,7 +115,7 @@ cilk_set_spawn_marker (location_t loc, tree fcall)
     }
   else
     {
-      cfun->calls_cilk_spawn = true;
+      cfun->set_calls_cilk_spawn (true);
       return true;
     }
 }
@@ -160,7 +159,7 @@ pop_cfun_to (tree outer)
   pop_cfun ();
   current_function_decl = outer;
   gcc_assert (cfun == DECL_STRUCT_FUNCTION (current_function_decl));
-  gcc_assert (cfun->decl == current_function_decl);
+  gcc_assert (cfun->decl () == current_function_decl);
 }
 
 /* This function does whatever is necessary to make the compiler emit a newly 
@@ -170,13 +169,13 @@ static void
 call_graph_add_fn (tree fndecl)
 {
   const tree outer = current_function_decl;
-  struct function *f = DECL_STRUCT_FUNCTION (fndecl);
+  fe_function_ptr f (DECL_STRUCT_FUNCTION (fndecl));
   gcc_assert (TREE_CODE (fndecl) == FUNCTION_DECL);
 
-  f->is_cilk_function = 1;
-  f->curr_properties = cfun->curr_properties;
+  f->set_is_cilk_function (1);
+  f->set_curr_properties (cfun->curr_properties ());
   gcc_assert (cfun == DECL_STRUCT_FUNCTION (outer)); 
-  gcc_assert (cfun->decl == outer);
+  gcc_assert (cfun->decl () == outer);
 
   push_cfun (f);
   cgraph_node::create (fndecl);
@@ -749,8 +748,8 @@ gimplify_cilk_spawn (tree *spawn_p)
   tree setjmp_cond_expr = NULL_TREE;
   tree setjmp_expr, spawn_expr, setjmp_value = NULL_TREE;
 
-  cfun->calls_cilk_spawn = 1;
-  cfun->is_cilk_function = 1;
+  cfun->set_calls_cilk_spawn (1);
+  cfun->set_is_cilk_function (1);
 
   /* Remove CLEANUP_POINT_EXPR and EXPR_STMT from *spawn_p.  */
   while (TREE_CODE (expr) == CLEANUP_POINT_EXPR
@@ -777,7 +776,7 @@ gimplify_cilk_spawn (tree *spawn_p)
   TREE_USED (function) = 1;
   rest_of_decl_compilation (function, 0, 0);
 
-  call1 = cilk_call_setjmp (cfun->cilk_frame_decl);
+  call1 = cilk_call_setjmp (cfun->cilk_frame_decl ());
 
   if (arg_array == NULL || *arg_array == NULL_TREE)
     call2 = build_call_expr (function, 0);
@@ -785,8 +784,8 @@ gimplify_cilk_spawn (tree *spawn_p)
     call2 = build_call_expr_loc_array (EXPR_LOCATION (*spawn_p), function, 
 					 total_args, arg_array);
   *spawn_p = alloc_stmt_list ();
-  tree f_ptr_type = build_pointer_type (TREE_TYPE (cfun->cilk_frame_decl));
-  tree frame_ptr = build1 (ADDR_EXPR, f_ptr_type, cfun->cilk_frame_decl);
+  tree f_ptr_type = build_pointer_type (TREE_TYPE (cfun->cilk_frame_decl ()));
+  tree frame_ptr = build1 (ADDR_EXPR, f_ptr_type, cfun->cilk_frame_decl ());
   tree save_fp = build_call_expr (cilk_save_fp_fndecl, 1, frame_ptr);
   append_to_statement_list (save_fp, spawn_p);		  
   setjmp_value = create_tmp_var (TREE_TYPE (call1), NULL);
@@ -808,17 +807,17 @@ gimplify_cilk_spawn (tree *spawn_p)
 tree
 make_cilk_frame (tree fn)
 {
-  struct function *f = DECL_STRUCT_FUNCTION (fn);
+  fe_function_ptr f = DECL_STRUCT_FUNCTION (fn);
   tree decl;
 
-  if (f->cilk_frame_decl)
-    return f->cilk_frame_decl;
+  if (f->cilk_frame_decl ())
+    return f->cilk_frame_decl ();
 
   decl = build_decl (EXPR_LOCATION (fn), VAR_DECL, NULL_TREE, 
 		     cilk_frame_type_decl);
   DECL_CONTEXT (decl) = fn;
   DECL_SEEN_IN_BIND_EXPR_P (decl) = 1;
-  f->cilk_frame_decl = decl;
+  f->set_cilk_frame_decl (decl);
   return decl;
 }
 
@@ -1237,19 +1236,19 @@ insert_cilk_frame (tree fndecl)
   tree addr, body, enter, out, orig_body;
   location_t loc = EXPR_LOCATION (fndecl);
 
-  if (!cfun || cfun->decl != fndecl)
+  if (!cfun || cfun->decl () != fndecl)
     push_cfun (DECL_STRUCT_FUNCTION (fndecl)); 
 
-  tree decl = cfun->cilk_frame_decl;
+  tree decl = cfun->cilk_frame_decl ();
   if (!decl)
     {
       tree *saved_tree = &DECL_SAVED_TREE (fndecl);
       decl = make_cilk_frame (fndecl);
-      add_local_decl (cfun, decl);
+      cfun->add_local_decl (decl);
 
       addr = build1 (ADDR_EXPR, cilk_frame_ptr_type_decl, decl);
       enter = build_call_expr (cilk_enter_fndecl, 1, addr);
-      out = create_cilk_function_exit (cfun->cilk_frame_decl, false, true);
+      out = create_cilk_function_exit (cfun->cilk_frame_decl (), false, true);
 
       /* The new body will be:
 	 __cilkrts_enter_frame_1 (&sf);

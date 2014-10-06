@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "attribs.h"
@@ -10764,7 +10764,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	DECL_PENDING_INLINE_INFO (r) = 0;
 	DECL_PENDING_INLINE_P (r) = 0;
 	DECL_SAVED_TREE (r) = NULL_TREE;
-	DECL_STRUCT_FUNCTION (r) = NULL;
+	SET_DECL_STRUCT_FUNCTION (r, NULL);
 	TREE_USED (r) = 0;
 	/* We'll re-clone as appropriate in instantiate_template.  */
 	DECL_CLONED_FUNCTION (r) = NULL_TREE;
@@ -14246,7 +14246,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       RETURN (error_mark_node);
 
     case CILK_SPAWN_STMT:
-      function_set_calls_cilk_spawn (cfun, 1);
+      cfun->set_calls_cilk_spawn (1);
       RETURN (build_cilk_spawn (EXPR_LOCATION (t), RECUR (CILK_SPAWN_FN (t))));
 
     case CILK_SYNC_STMT:
@@ -20229,12 +20229,11 @@ instantiate_decl (tree d, int defer_ok,
 	  /* Set the current input_location to the end of the function
 	     so that finish_function knows where we are.  */
 	  input_location
-	    = function_get_end_locus (DECL_STRUCT_FUNCTION (code_pattern));
+	    = DECL_STRUCT_FUNCTION (code_pattern)->function_end_locus ();
 
 	  /* Remember if we saw an infinite loop in the template.  */
 	  current_function_infinite_loop
-	    = function_language (DECL_STRUCT_FUNCTION (code_pattern))
-							      ->infinite_loop;
+	    = DECL_STRUCT_FUNCTION (code_pattern)->language()->infinite_loop;
 	}
 
       /* We don't need the local specializations any more.  */

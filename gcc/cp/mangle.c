@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "tm_p.h"
@@ -59,7 +59,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -1227,7 +1226,7 @@ write_unqualified_name (tree decl)
 	      type = TREE_TYPE (fn_type);
 	    }
 	  else if (FNDECL_USED_AUTO (decl))
-	    type = (DECL_STRUCT_FUNCTION (decl)->language
+	    type = (DECL_STRUCT_FUNCTION (decl)->language ()
 		    ->x_auto_return_pattern);
 	  else
 	    type = DECL_CONV_FN_TYPE (decl);

@@ -21,7 +21,7 @@
 #include "coretypes.h"
 #include "cpplib.h"
 #include "../libcpp/internal.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "c-common.h"		/* For flags.  */
 #include "c-pragma.h"		/* For parse_in.  */
 

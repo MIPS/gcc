@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "splay-tree.h"
 #include "c-common.h"
 #include "flags.h"

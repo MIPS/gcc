@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h"
 #include "flags.h"
 #include "constructor.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 
 /* Macros to access allocate memory for gfc_data_variable,

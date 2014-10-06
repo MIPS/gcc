@@ -24,7 +24,7 @@
 // include it here before tree.h includes it later.
 #include <gmp.h>
 
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -40,7 +40,6 @@
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -1976,7 +1975,7 @@ Gcc_backend::return_statement(Bfunction* bfunction,
       tree stmt_list = NULL_TREE;
       tree rettype = TREE_TYPE(result);
 
-      if (DECL_STRUCT_FUNCTION(fntree) == NULL)
+      if (!DECL_STRUCT_FUNCTION(fntree))
 	push_struct_function(fntree);
       else
 	push_cfun(DECL_STRUCT_FUNCTION(fntree));
@@ -2077,7 +2076,7 @@ Gcc_backend::switch_statement(
   gcc_assert(cases.size() == statements.size());
 
   tree decl = function->get_tree();
-  if (DECL_STRUCT_FUNCTION(decl) == NULL)
+  if (!DECL_STRUCT_FUNCTION(decl))
     push_struct_function(decl);
   else
     push_cfun(DECL_STRUCT_FUNCTION(decl));
@@ -2480,7 +2479,7 @@ Gcc_backend::temporary_variable(Bfunction* function, Bblock* bblock,
   // We can only use create_tmp_var if the type is not addressable.
   if (!TREE_ADDRESSABLE(type_tree))
     {
-      if (DECL_STRUCT_FUNCTION(decl) == NULL)
+      if (!DECL_STRUCT_FUNCTION(decl))
       	push_struct_function(decl);
       else
       	push_cfun(DECL_STRUCT_FUNCTION(decl));
@@ -2733,7 +2732,7 @@ Gcc_backend::label(Bfunction* function, const std::string& name,
   if (name.empty())
     {
       tree func_tree = function->get_tree();
-      if (DECL_STRUCT_FUNCTION(func_tree) == NULL)
+      if (!DECL_STRUCT_FUNCTION(func_tree))
 	push_struct_function(func_tree);
       else
 	push_cfun(DECL_STRUCT_FUNCTION(func_tree));
@@ -2856,7 +2855,7 @@ Gcc_backend::function_defer_statement(Bfunction* function, Bexpression* undefer,
       || fntree == error_mark_node)
     return this->error_statement();
 
-  if (DECL_STRUCT_FUNCTION(fntree) == NULL)
+  if (!DECL_STRUCT_FUNCTION(fntree))
     push_struct_function(fntree);
   else
     push_cfun(DECL_STRUCT_FUNCTION(fntree));

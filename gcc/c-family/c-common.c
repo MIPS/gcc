@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-common.h"
 #include "tm.h"
 #include "intl.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -48,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -11547,14 +11546,14 @@ record_locally_defined_typedef (tree decl)
   struct c_language_function *l;
 
   if (!warn_unused_local_typedefs
-      || cfun == NULL
+      || !cfun 
       /* if this is not a locally defined typedef then we are not
 	 interested.  */
       || !is_typedef_decl (decl)
       || !decl_function_context (decl))
     return;
 
-  l = (struct c_language_function *) cfun->language;
+  l = (struct c_language_function *) cfun->language ();
   vec_safe_push (l->local_typedefs, decl);
 }
 
@@ -11584,10 +11583,10 @@ maybe_warn_unused_local_typedefs (void)
   static int unused_local_typedefs_warn_count;
   struct c_language_function *l;
 
-  if (cfun == NULL)
+  if (!cfun)
     return;
 
-  if ((l = (struct c_language_function *) cfun->language) == NULL)
+  if ((l = (struct c_language_function *) cfun->language ()) == NULL)
     return;
 
   if (warn_unused_local_typedefs

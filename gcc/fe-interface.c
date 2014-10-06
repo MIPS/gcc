@@ -42,59 +42,11 @@ which a front end may need.  */
 #include "dumpfile.h"
 #include "cgraph.h"
 
-/* From funciton.[ch].  */
+#define FE_INTERFACE_C
+#include "fe-interface.h"
+
+/* From function.[ch].  */
 /* ----------------------------------------------------------------------- */
-
-/* Return the language dependent pointer from satruct function.  */
-struct language_function *
-function_language (struct function * f)
-{
-  return f->language;
-}
-
-/* Set the language dependent pointer from satruct function.  */
-void
-function_set_language (struct function *f, struct language_function *lang)
-{
-  f->language = lang;
-}
-
-
-/* Set the calls_cilk_spawn field.  */
-void
-function_set_calls_cilk_spawn (struct function *f, unsigned int val)
-{
-  f->calls_cilk_spawn = val;
-}
-
-/* Get the end locus field.  */
-extern location_t 
-function_get_end_locus (struct function *f)
-{
-  return f->function_end_locus;
-}
-
-/* Get the returns_struct field.  */
-bool
-function_returns_struct (struct function *f)
-{
-  return (f->returns_struct);
-}
-
-/* Get the function decl.  */
-tree
-function_decl (struct function *f)
-{
-  return f->decl;
-}
-
-/* add_Local_decl() is a static inline function in function.h. Change the name
-    of the interface routine, and call it. */
-void
-function_add_local_decl (struct function *fun, tree d)
-{
-  add_local_decl (fun, d);
-}
 
 /* Call pass_by_reference with a NULL first parameter.  */
 bool 
@@ -102,6 +54,142 @@ pass_by_reference (enum machine_mode m, tree t, bool b)
 {
   /* ada uses thisroutine with a NULL CUMULTIVE_ARG argument.  */
   return pass_by_reference (NULL, m, t , b);
+}
+
+
+struct function *
+fe_function::func ()
+{
+  return reinterpret_cast<struct function *>(this);
+}
+
+/* Return the language dependent pointer from struct function.  */
+struct language_function *
+fe_function::language ()
+{
+  return func()->language;
+}
+
+/* Set the language dependent pointer from satruct function.  */
+void
+fe_function::set_language (struct language_function *lang)
+{
+  func ()->language = lang;
+}
+
+
+/* Set the calls_cilk_spawn field.  */
+void
+fe_function::set_calls_cilk_spawn (unsigned int val)
+{
+  func ()->calls_cilk_spawn = val;
+}
+
+/* Get the end locus field.  */
+extern location_t 
+fe_function::function_end_locus ()
+{
+  return func ()->function_end_locus;
+}
+
+/* Get the returns_struct field.  */
+unsigned int
+fe_function::returns_struct ()
+{
+  return (func ()->returns_struct);
+}
+
+void
+fe_function::set_returns_struct (unsigned int b)
+{
+  func ()->returns_struct = b;
+}
+
+unsigned int
+fe_function::returns_pcc_struct ()
+{
+  return (func ()->returns_pcc_struct);
+}
+
+void
+fe_function::set_returns_pcc_struct (unsigned int b)
+{
+  func ()->returns_pcc_struct = b;
+}
+
+/* Get the function decl.  */
+tree
+fe_function::decl ()
+{
+  return func ()->decl;
+}
+
+/* add_Local_decl() is a static inline function in function.h. Change the name
+    of the interface routine, and call it. */
+void
+fe_function::add_local_decl (tree d)
+{
+  ::add_local_decl (func (), d);
+}
+
+tree
+fe_function::cilk_frame_decl ()
+{
+  return func ()->cilk_frame_decl;
+}
+
+void 
+fe_function::set_cilk_frame_decl (tree d)
+{
+  func ()->cilk_frame_decl = d;
+}
+
+void
+fe_function::set_function_end_locus (location_t loc)
+{
+  func ()->function_end_locus = loc;
+}
+
+void
+fe_function::set_function_start_locus (location_t loc)
+{
+  func ()->function_start_locus = loc;
+}
+
+void
+fe_function::set_is_cilk_function (unsigned int b)
+{
+  func ()->is_cilk_function = b;
+}
+
+unsigned
+fe_function::curr_properties ()
+{
+  return func ()->curr_properties;
+}
+
+void
+fe_function::set_curr_properties (unsigned i)
+{
+  func ()->curr_properties = i;
+}
+
+vec<tree, va_gc> *
+fe_function::local_decls ()
+{
+  return func ()->local_decls;
+}
+
+unsigned int 
+fe_function::cannot_be_copied_set ()
+{
+  return func ()->cannot_be_copied_set;
+}
+
+const char *
+fe_function::cannot_be_copied_reason ()
+{
+  return func ()->cannot_be_copied_reason;
 }
 
 
@@ -116,3 +204,17 @@ cgraph_add_to_same_comdat_group (tree statfn, tree callop)
   cgraph_node::get_create (statfn)->add_to_same_comdat_group
     (cgraph_node::get_create (callop));
 }
+
+
+
+
+/* ----------------------------------------------------------------------- */
+
+/* cfun is defined as (cfun + 0) to prevent assignment.  circumnavigate this
+   so we can take its address...  DO it last so we dont accidentally 
+   trip over it in this file. */
+
+#undef cfun
+fe_function_ptr *current_function = reinterpret_cast<fe_function_ptr *>(&cfun);
+
+

@@ -31,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "tree.h"
+#include "tree-fe.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "stor-layout.h"

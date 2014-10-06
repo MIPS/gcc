@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "cpplib.h"
-#include "tree.h"
+#include "tree-fe.h"
 #include "target.h"
 #include "incpath.h"
 #include "c-family/c-common.h"

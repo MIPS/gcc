@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -59,7 +59,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -2036,7 +2035,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  if (TREE_CODE (newdecl) == FUNCTION_DECL)
 	    {
 	      DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
-	      DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
+	      SET_DECL_STRUCT_FUNCTION (newdecl,
+					DECL_STRUCT_FUNCTION (olddecl));
 	    }
 	}
 
@@ -2526,7 +2526,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
      Be sure to however do not free DECL_STRUCT_FUNCTION becuase this
      structure is shared in between newdecl and oldecl.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
-    DECL_STRUCT_FUNCTION (newdecl) = NULL;
+    SET_DECL_STRUCT_FUNCTION (newdecl, NULL);
   if (TREE_CODE (newdecl) == FUNCTION_DECL
       || TREE_CODE (newdecl) == VAR_DECL)
     {
@@ -6478,7 +6478,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	       but [cd]tors are never actually compiled directly.  We need
 	       to put statics on the list so we can deal with the label
 	       address extension.  FIXME.  */
-	    add_local_decl (cfun, decl);
+	    cfun->add_local_decl (decl);
 	}
 
       /* Convert the initializer to the type of DECL, if we have not
@@ -13452,7 +13452,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   /* Initialize the language data structures.  Whenever we start
      a new function, we destroy temporaries in the usual way.  */
-  cfun->language = ggc_cleared_alloc<language_function> ();
+  cfun->set_language (ggc_cleared_alloc<language_function> ());
   current_stmt_tree ()->stmts_are_full_exprs_p = 1;
   current_binding_level = bl;
 
@@ -14044,7 +14044,7 @@ finish_function (int flags)
   DECL_SAVED_TREE (fndecl) = pop_stmt_list (DECL_SAVED_TREE (fndecl));
 
   if (fn_contains_cilk_spawn_p (cfun) && !processing_template_decl)
-    cfun->cilk_frame_decl = insert_cilk_frame (fndecl);
+    cfun->set_cilk_frame_decl (insert_cilk_frame (fndecl));
 
   finish_fname_decls ();
 
@@ -14169,7 +14169,7 @@ finish_function (int flags)
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
-  cfun->function_end_locus = input_location;
+  cfun->set_function_end_locus (input_location);
 
   /* Complain about parameters that are only set, but never otherwise used.  */
   if (warn_unused_but_set_parameter
@@ -14646,7 +14646,7 @@ fndecl_declared_return_type (tree fn)
     {
       struct language_function *f = NULL;
       if (DECL_STRUCT_FUNCTION (fn))
-	f = DECL_STRUCT_FUNCTION (fn)->language;
+	f = DECL_STRUCT_FUNCTION (fn)->language ();
       if (f == NULL)
 	f = DECL_SAVED_FUNCTION_DATA (fn);
       return f->x_auto_return_pattern;

@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "cp-tree.h"
 #include "intl.h"
 #include "flags.h"
@@ -538,7 +538,7 @@ at_function_scope_p (void)
      this function (as opposed to having set current_function_decl
      for access checking or some such).  */
   return (cs && TREE_CODE (cs) == FUNCTION_DECL
-	  && cfun && function_decl (cfun) == current_function_decl);
+	  && cfun && cfun->decl () == current_function_decl);
 }
 
 /* Returns true if the innermost active scope is a class scope.  */

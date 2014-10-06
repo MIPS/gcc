@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "input.h"

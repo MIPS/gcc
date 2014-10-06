@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "cp-tree.h"
@@ -8657,7 +8657,7 @@ check_return_expr (tree retval, bool *no_warning)
       if (retval == error_mark_node)
 	return retval;
       /* We can't initialize a register from a AGGR_INIT_EXPR.  */
-      else if (! function_returns_struct (cfun)
+      else if (! cfun->returns_struct ()
 	       && TREE_CODE (retval) == TARGET_EXPR
 	       && TREE_CODE (TREE_OPERAND (retval, 1)) == AGGR_INIT_EXPR)
 	retval = build2 (COMPOUND_EXPR, TREE_TYPE (retval), retval,

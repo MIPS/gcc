@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "gfortran.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -2561,7 +2560,7 @@ build_entry_thunks (gfc_namespace * ns, bool global)
 
       /* Store the end of the function, so that we get good line number
 	 info for the epilogue.  */
-      cfun->function_end_locus = input_location;
+      cfun->set_function_end_locus (input_location);
 
       /* We're leaving the context of this function, so zap cfun.
 	 It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
@@ -4819,7 +4818,7 @@ generate_coarray_init (gfc_namespace * ns __attribute((unused)))
                 DECL_INITIAL (fndecl));
   dump_function (TDI_original, fndecl);
 
-  cfun->function_end_locus = input_location;
+  cfun->set_function_end_locus (input_location);
   set_cfun (NULL);
 
   if (decl_function_context (fndecl))
@@ -5894,7 +5893,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
-  cfun->function_end_locus = input_location;
+  cfun->set_function_end_locus (input_location);
 
   /* We're leaving the context of this function, so zap cfun.
      It's still in DECL_STRUCT_FUNCTION, and we'll restore it in

@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "cp-tree.h"
 #include "params.h"
@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -577,8 +576,9 @@ maybe_clone_body (tree fn)
 	     to use an alias for the complete variant.  */
 	  if (idx == 1 && need_alias)
 	    {
-	      if (DECL_STRUCT_FUNCTION (fn)->cannot_be_copied_set)
-		sorry (DECL_STRUCT_FUNCTION (fn)->cannot_be_copied_reason, fn);
+	      if (DECL_STRUCT_FUNCTION (fn)->cannot_be_copied_set ())
+		sorry (DECL_STRUCT_FUNCTION (fn)->cannot_be_copied_reason (),
+		       fn);
 	      else
 		sorry ("making multiple clones of %qD", fn);
 	    }

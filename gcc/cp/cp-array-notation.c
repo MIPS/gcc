@@ -53,7 +53,7 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "tm.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"

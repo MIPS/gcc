@@ -29,7 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "intl.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "print-tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -57,7 +57,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -67,6 +66,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ada-spec.h"
 #include "cilk.h"
 #include "builtins.h"
+#include "fe-interface.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -1239,7 +1239,7 @@ pop_scope (void)
 		{
 		  DECL_RESULT (extp) = NULL_TREE;
 		  DECL_SAVED_TREE (extp) = NULL_TREE;
-		  DECL_STRUCT_FUNCTION (extp) = NULL;
+		  SET_DECL_STRUCT_FUNCTION (extp, NULL);
 		}
 	      if (b->locus != UNKNOWN_LOCATION)
 		DECL_SOURCE_LOCATION (extp) = b->locus;
@@ -2470,7 +2470,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  tree t;
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
-	  DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
+	  SET_DECL_STRUCT_FUNCTION (newdecl, DECL_STRUCT_FUNCTION (olddecl));
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
 	  DECL_ARGUMENTS (newdecl) = copy_list (DECL_ARGUMENTS (olddecl));
 	  for (t = DECL_ARGUMENTS (newdecl); t ; t = DECL_CHAIN (t))
@@ -2584,7 +2584,7 @@ duplicate_decls (tree newdecl, tree olddecl)
      Be sure to however do not free DECL_STRUCT_FUNCTION because this
      structure is shared in between NEWDECL and OLDECL.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
-    DECL_STRUCT_FUNCTION (newdecl) = NULL;
+    SET_DECL_STRUCT_FUNCTION (newdecl, NULL);
   if (TREE_CODE (newdecl) == FUNCTION_DECL
       || TREE_CODE (newdecl) == VAR_DECL)
     {
@@ -8485,7 +8485,7 @@ store_parm_decls (void)
   allocate_struct_function (fndecl, false);
 
   if (warn_unused_local_typedefs)
-    cfun->language = ggc_cleared_alloc<language_function> ();
+    cfun->set_language (ggc_cleared_alloc<language_function> ());
 
   /* Begin the statement tree for this function.  */
   DECL_SAVED_TREE (fndecl) = push_stmt_list ();
@@ -8594,7 +8594,7 @@ finish_function (void)
      i.e. it is a spawning function, then add the appropriate Cilk plus
      functions inside.  */
   if (fn_contains_cilk_spawn_p (cfun))
-    cfun->cilk_frame_decl = insert_cilk_frame (fndecl);
+    cfun->set_cilk_frame_decl (insert_cilk_frame (fndecl));
 
   finish_fname_decls ();
 
@@ -8644,7 +8644,7 @@ finish_function (void)
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
-  cfun->function_end_locus = input_location;
+  cfun->set_function_end_locus(input_location);
 
   /* Finalize the ELF visibility for the function.  */
   c_determine_visibility (fndecl);
@@ -8687,10 +8687,10 @@ finish_function (void)
   if (!decl_function_context (fndecl))
     undef_nested_function = false;
 
-  if (cfun->language != NULL)
+  if (cfun->language () != NULL)
     {
-      ggc_free (cfun->language);
-      cfun->language = NULL;
+      ggc_free (cfun->language ());
+      cfun->set_language (NULL);
     }
 
   /* We're leaving the context of this function, so zap cfun.
@@ -8805,11 +8805,11 @@ check_for_loop_decls (location_t loc, bool turn_off_iso_c99_error)
 void
 c_push_function_context (void)
 {
-  struct language_function *p = cfun->language;
+  struct language_function *p = cfun->language ();
   /* cfun->language might have been already allocated by the use of
      -Wunused-local-typedefs.  In that case, just re-use it.  */
   if (p == NULL)
-    cfun->language = p = ggc_cleared_alloc<language_function> ();
+    cfun->set_language (p = ggc_cleared_alloc<language_function> ());
 
   p->base.x_stmt_tree = c_stmt_tree;
   c_stmt_tree.x_cur_stmt_list = vec_safe_copy (c_stmt_tree.x_cur_stmt_list);
@@ -8833,15 +8833,15 @@ c_pop_function_context (void)
   struct language_function *p;
 
   pop_function_context ();
-  p = cfun->language;
+  p = cfun->language ();
 
   /* When -Wunused-local-typedefs is in effect, cfun->languages is
      used to store data throughout the life time of the current cfun,
      So don't deallocate it.  */
   if (!warn_unused_local_typedefs)
-    cfun->language = NULL;
+    cfun->set_language (NULL);
 
-  if (DECL_STRUCT_FUNCTION (current_function_decl) == 0
+  if (!DECL_STRUCT_FUNCTION (current_function_decl)
       && DECL_SAVED_TREE (current_function_decl) == NULL_TREE)
     {
       /* Stop pointing to the local nodes about to be freed.  */

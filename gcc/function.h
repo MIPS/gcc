@@ -832,4 +832,26 @@ extern void push_function_context (void);
 extern void pop_function_context (void);
 extern gimple_seq gimplify_parameters (void);
 
+/* Get the number of the next statement uid to be allocated.  */
+static inline unsigned int
+gimple_stmt_max_uid (struct function *fn)
+{
+  return fn->last_stmt_uid;
+}
+
+/* Set the number of the next statement uid to be allocated.  */
+static inline void
+set_gimple_stmt_max_uid (struct function *fn, unsigned int maxid)
+{
+  fn->last_stmt_uid = maxid;
+}
+
+/* Set the number of the next statement uid to be allocated.  */
+static inline unsigned int
+inc_gimple_stmt_max_uid (struct function *fn)
+{
+  return fn->last_stmt_uid++;
+}
+
+
 #endif  /* GCC_FUNCTION_H */

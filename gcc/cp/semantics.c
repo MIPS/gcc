@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stmt.h"
 #include "varasm.h"
 #include "stor-layout.h"
@@ -45,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin-api.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -412,7 +411,7 @@ stmt_tree
 current_stmt_tree (void)
 {
   return (cfun
-	  ? &cfun->language->base.x_stmt_tree
+	  ? &(cfun->language ())->base.x_stmt_tree
 	  : &scope_chain->x_stmt_tree);
 }
 
@@ -10848,9 +10847,9 @@ apply_deduced_return_type (tree fco, tree return_type)
 	complete_type_or_else (TREE_TYPE (result), NULL_TREE);
       bool aggr = aggregate_value_p (result, fco);
 #ifdef PCC_STATIC_STRUCT_RETURN
-      cfun->returns_pcc_struct = aggr;
+      cfun->set_returns_pcc_struct (aggr);
 #endif
-      cfun->returns_struct = aggr;
+      cfun->set_returns_struct (aggr);
     }
 
 }

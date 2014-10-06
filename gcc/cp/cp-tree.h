@@ -1170,7 +1170,7 @@ struct GTY(()) language_function {
 
 /* The current C++-specific per-function global variables.  */
 
-#define cp_function_chain (function_language (cfun))
+#define cp_function_chain  (cfun->language ())
 
 /* In a constructor destructor, the point at which all derived class
    destroying/construction has been done.  I.e., just before a

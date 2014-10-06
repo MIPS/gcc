@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_C_PRETTY_PRINTER
 #define GCC_C_PRETTY_PRINTER
 
-#include "tree.h"
+#include "fe-interface.h"
 #include "c-family/c-common.h"
 #include "pretty-print.h"
 

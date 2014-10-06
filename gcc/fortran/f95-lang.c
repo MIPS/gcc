@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -39,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "debug.h"
 #include "diagnostic.h" /* For errorcount/warningcount */
-#include "function.h"
 #include "cpp.h"
 #include "trans.h"
 #include "trans-types.h"

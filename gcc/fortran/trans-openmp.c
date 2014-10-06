@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "gimple-expr.h"
 #include "gimplify.h"	/* For create_tmp_var_raw.  */
 #include "stringpool.h"

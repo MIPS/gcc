@@ -54,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "cfgloop.h"
 #include "ubsan.h"
-#include "c-family/c-common.h"
 #include "rtl.h"
 #include "expr.h"
 #include "tree-ssanames.h"

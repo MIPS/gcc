@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CP_PARSER_H
 #define GCC_CP_PARSER_H
 
-#include "tree.h"
+#include "fe-interface.h"
 #include "cp/cp-tree.h"
 #include "c-family/c-pragma.h"
 

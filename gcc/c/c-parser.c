@@ -39,7 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"			/* For rtl.h: needs enum reg_class.  */
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "stor-layout.h"
@@ -60,7 +60,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -1947,8 +1946,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	  || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	c_finish_omp_declare_simd (parser, current_function_decl, NULL_TREE,
 				   omp_declare_simd_clauses);
-      DECL_STRUCT_FUNCTION (current_function_decl)->function_start_locus
-	= c_parser_peek_token (parser)->location;
+      DECL_STRUCT_FUNCTION (current_function_decl)
+	    ->set_function_start_locus (c_parser_peek_token (parser)->location);
       fnbody = c_parser_compound_statement (parser);
       if (flag_cilkplus && contains_array_notation_expr (fnbody))
 	fnbody = expand_array_notation_exprs (fnbody);
@@ -13483,10 +13482,10 @@ c_parser_omp_declare_reduction (c_parser *parser, enum pragma_context context)
 
       pop_stmt_list (stmt);
       pop_scope ();
-      if (cfun->language != NULL)
+      if (cfun->language () != NULL)
 	{
-	  ggc_free (cfun->language);
-	  cfun->language = NULL;
+	  ggc_free (cfun->language ());
+	  cfun->set_language (NULL);
 	}
       set_cfun (NULL);
       current_function_decl = NULL_TREE;

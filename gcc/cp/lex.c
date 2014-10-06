@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "input.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "cp-tree.h"
 #include "cpplib.h"

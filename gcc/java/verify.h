@@ -27,7 +27,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define GCC_VERIFY_H
 
 #include "jcf.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "java-tree.h"
 
 typedef JCF vfy_constants;

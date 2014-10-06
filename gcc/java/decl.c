@@ -27,7 +27,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -44,7 +44,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -1896,7 +1895,7 @@ finish_method (tree fndecl)
     set_cfun (DECL_STRUCT_FUNCTION (fndecl));
   else
     allocate_struct_function (fndecl, false);
-  cfun->function_end_locus = DECL_FUNCTION_LAST_LINE (fndecl);
+  cfun->set_function_end_locus (DECL_FUNCTION_LAST_LINE (fndecl));
 
   /* Defer inlining and expansion to the cgraph optimizers.  */
   cgraph_node::finalize_function (fndecl, false);

@@ -30,7 +30,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "ggc.h"

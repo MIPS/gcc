@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "timevar.h"
 #include "cpplib.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "print-tree.h"
 #include "stringpool.h"
 #include "attribs.h"
@@ -39,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "plugin-api.h"
 #include "predict.h"
-#include "function.h"
 #include "basic-block.h"
 #include "ipa-ref.h"
 #include "dumpfile.h"
@@ -5865,7 +5864,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    saved_in_statement = parser->in_statement;
 	    parser->in_statement |= IN_CILK_SPAWN;
 	  }
-	cfun->calls_cilk_spawn = 1;
+	cfun->set_calls_cilk_spawn (1);
 	postfix_expression = 
 	  cp_parser_postfix_expression (parser, false, false, 
 					false, false, &idk);
@@ -5873,14 +5872,14 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  {
 	    error_at (token->location, "-fcilkplus must be enabled to use"
 		      " %<_Cilk_spawn%>");
-	    cfun->calls_cilk_spawn = 0;
+	    cfun->set_calls_cilk_spawn (0);
 	  }
 	else if (saved_in_statement & IN_CILK_SPAWN)
 	  {
 	    error_at (token->location, "consecutive %<_Cilk_spawn%> keywords "
 		      "are not permitted");
 	    postfix_expression = error_mark_node;
-	    cfun->calls_cilk_spawn = 0; 
+	    cfun->set_calls_cilk_spawn (0); 
 	  }
 	else
 	  {
@@ -16853,8 +16852,8 @@ cp_parser_init_declarator (cp_parser* parser,
 	  if (decl != error_mark_node && DECL_STRUCT_FUNCTION (decl))
 	    {
 	      /* This is where the prologue starts...  */
-	      DECL_STRUCT_FUNCTION (decl)->function_start_locus
-		= func_brace_location;
+	      DECL_STRUCT_FUNCTION (decl)
+			      ->set_function_start_locus (func_brace_location);
 	    }
 
 	  return decl;

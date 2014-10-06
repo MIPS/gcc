@@ -33,7 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 			   LONG_TYPE_SIZE, LONG_LONG_TYPE_SIZE,
 			   FLOAT_TYPE_SIZE, DOUBLE_TYPE_SIZE and
 			   LONG_DOUBLE_TYPE_SIZE.  */
-#include "tree.h"
+#include "fe-interface.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "langhooks.h"	/* For iso-c-bindings.def.  */

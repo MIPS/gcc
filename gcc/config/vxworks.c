@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "output.h"
 #include "tm.h"
-#include "tree.h"
+#include "tree-fe.h"
 #include "stringpool.h"
 
 /* Like default_named_section_asm_out_constructor, except that even

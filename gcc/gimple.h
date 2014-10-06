@@ -1282,27 +1282,6 @@ typedef struct gimple_temp_hash_elt
   tree temp;  /* Value */
 } elt_t;
 
-/* Get the number of the next statement uid to be allocated.  */
-static inline unsigned int
-gimple_stmt_max_uid (struct function *fn)
-{
-  return fn->last_stmt_uid;
-}
-
-/* Set the number of the next statement uid to be allocated.  */
-static inline void
-set_gimple_stmt_max_uid (struct function *fn, unsigned int maxid)
-{
-  fn->last_stmt_uid = maxid;
-}
-
-/* Set the number of the next statement uid to be allocated.  */
-static inline unsigned int
-inc_gimple_stmt_max_uid (struct function *fn)
-{
-  return fn->last_stmt_uid++;
-}
-
 /* Return the first node in GIMPLE sequence S.  */
 
 static inline gimple_seq_node

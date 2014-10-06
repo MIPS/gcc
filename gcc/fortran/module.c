@@ -73,7 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h" /* FIXME */
 #include "constructor.h"
 #include "cpp.h"
-#include "tree.h"
+#include "fe-interface.h"
 #include "stringpool.h"
 #include "scanner.h"
 #include <zlib.h>
