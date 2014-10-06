@@ -1281,15 +1281,17 @@ public:
   tree outer_type;
   tree speculative_outer_type;
   /* True if outer object may be in construction or destruction.  */
-  bool maybe_in_construction;
+  unsigned maybe_in_construction : 1;
   /* True if outer object may be of derived type.  */
-  bool maybe_derived_type;
+  unsigned maybe_derived_type : 1;
   /* True if speculative outer object may be of derived type.  We always
      speculate that construction does not happen.  */
-  bool speculative_maybe_derived_type;
+  unsigned speculative_maybe_derived_type : 1;
   /* True if the context is invalid and all calls should be redirected
      to BUILTIN_UNREACHABLE.  */
-  bool invalid;
+  unsigned invalid : 1;
+  /* True if the outer type is dynamic.  */
+  unsigned dynamic : 1;
 
   /* Build empty "I know nothing" context.  */
   ipa_polymorphic_call_context ();
@@ -1329,12 +1331,9 @@ public:
 
   /* Adjust all offsets in contexts by given number of bits.  */
   void offset_by (HOST_WIDE_INT);
-  /* Take non-speculative info, merge it with speculative and clear speculatoin.
-     Used when we no longer manage to keep track of actual outer type, but we
-     think it is still there. 
-     If OTR_TYPE is set, the transformation can be done more effectively assuming
-     that context is going to be used only that way.  */
-  void make_speculative (tree otr_type = NULL);
+  /* Use when we can not track dynamic type change.  This speculatively assume
+     type change is not happening.  */
+  void possible_dynamic_type_change (bool, tree otr_type = NULL);
   /* Assume that both THIS and a given context is valid and strenghten THIS
      if possible.  Return true if any strenghtening was made.
      If actual type the context is being used in is known, OTR_TYPE should be
@@ -1358,6 +1357,7 @@ private:
   bool set_by_invariant (tree, tree, HOST_WIDE_INT);
   void clear_outer_type (tree otr_type = NULL);
   bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree);
+  void make_speculative (tree otr_type = NULL);
 };
 
 /* Structure containing additional information about an indirect call.  */
@@ -1393,6 +1393,9 @@ struct GTY(()) cgraph_indirect_call_info
   /* When the previous bit is set, this one determines whether the destination
      is loaded from a parameter passed by reference. */
   unsigned by_ref : 1;
+  /* For polymorphic calls this specify whether the virtual table pointer
+     may have changed in between function entry and the call.  */
+  unsigned vptr_changed : 1;
 };
 
 struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgraph_edge {
@@ -1512,6 +1515,9 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgrap
      Optimizers may later redirect direct call to clone, so 1) and 3)
      do not need to necesarily agree with destination.  */
   unsigned int speculative : 1;
+  /* Set to true when caller is a constructor or destructor of polymorphic
+     type.  */
+  unsigned in_polymorphic_cdtor : 1;
 
 private:
   /* Remove the edge from the list of the callers of the callee.  */
@@ -2668,6 +2674,7 @@ ipa_polymorphic_call_context::clear_outer_type (tree otr_type)
   offset = 0;
   maybe_derived_type = true;
   maybe_in_construction = true;
+  dynamic = true;
 }
 
 /* Adjust all offsets in contexts by OFF bits.  */

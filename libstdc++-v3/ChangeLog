@@ -1,3 +1,39 @@
+2014-10-06  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/59987
+	* doc/xml/manual/status_cxx2011.xml: Remove hexfloat from notes.
+	* doc/html/manual/status.html: Regenerate.
+	* include/bits/ios_base.h (hexfloat): New function.
+	(defaultfloat): New function.
+	* src/c++98/locale_facets.cc (__num_base::_S_format_float): Support
+	hexadecimal floating point format.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/hexfloat.cc:
+	New file.
+
+2014-10-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/Makefile.am: Add new header.
+	* include/Makefile.in: Regenerate.
+	* include/experimental/tuple: New
+	* doc/xml/manual/status_cxx2014.xml: Update.
+	* doc/html/manual/status.html: Regenerate.
+	* testsuite/experimental/feat-lib-fund.cc: Test for new header.
+	* testsuite/experimental/tuple/apply.cc: New.
+
+2014-10-05  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/63456
+	* include/bits/hashtable.h (_M_uses_single_bucket(__bucket_type*)): Test
+	the parameter.
+	* testsuite/23_containers/unordered_set/63456.cc: New.
+
+2014-10-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/63449
+	* doc/xml/manual/containers.xml: Remove outdated section.
+	* doc/html/*: Regenerate.
+
 2014-10-02  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/c_global/ctgmath: Include <complex>.

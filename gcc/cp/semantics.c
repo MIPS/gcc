@@ -7537,7 +7537,9 @@ tree
 ensure_literal_type_for_constexpr_object (tree decl)
 {
   tree type = TREE_TYPE (decl);
-  if (VAR_P (decl) && DECL_DECLARED_CONSTEXPR_P (decl)
+  if (VAR_P (decl)
+      && (DECL_DECLARED_CONSTEXPR_P (decl)
+	  || var_in_constexpr_fn (decl))
       && !processing_template_decl)
     {
       tree stype = strip_array_types (type);
@@ -7546,8 +7548,12 @@ ensure_literal_type_for_constexpr_object (tree decl)
 	   when we try to initialize the variable.  */;
       else if (!literal_type_p (type))
 	{
-	  error ("the type %qT of constexpr variable %qD is not literal",
-		 type, decl);
+	  if (DECL_DECLARED_CONSTEXPR_P (decl))
+	    error ("the type %qT of constexpr variable %qD is not literal",
+		   type, decl);
+	  else
+	    error ("variable %qD of non-literal type %qT in %<constexpr%> "
+		   "function", decl, type);
 	  explain_non_literal_class (type);
 	  return NULL;
 	}
@@ -7827,6 +7833,25 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
   return true;
 }
 
+/* Subroutine of check_constexpr_ctor_body and massage_constexpr_body.
+   In C++11 mode checks that the TYPE_DECLs in the BIND_EXPR_VARS of a 
+   BIND_EXPR conform to 7.1.5/3/4 on typedef and alias declarations.  */
+
+static bool
+check_constexpr_bind_expr_vars (tree t)
+{
+  gcc_assert (TREE_CODE (t) == BIND_EXPR);
+
+  if (cxx_dialect >= cxx14)
+    return true;
+
+  for (tree var = BIND_EXPR_VARS (t); var; var = DECL_CHAIN (var))
+    if (TREE_CODE (var) == TYPE_DECL
+	&& DECL_IMPLICIT_TYPEDEF_P (var))
+      return false;
+  return true;
+}
+
 /* Make sure that there are no statements after LAST in the constructor
    body represented by LIST.  */
 
@@ -7844,7 +7869,7 @@ check_constexpr_ctor_body (tree last, tree list)
 	    break;
 	  if (TREE_CODE (t) == BIND_EXPR)
 	    {
-	      if (BIND_EXPR_VARS (t))
+	      if (!check_constexpr_bind_expr_vars (t))
 		{
 		  ok = false;
 		  break;
@@ -7854,8 +7879,6 @@ check_constexpr_ctor_body (tree last, tree list)
 	      else
 		continue;
 	    }
-	  /* We currently allow typedefs and static_assert.
-	     FIXME allow them in the standard, too.  */
 	  if (TREE_CODE (t) != STATIC_ASSERT)
 	    {
 	      ok = false;
@@ -7958,6 +7981,8 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
 	     "a function-try-block");
       return error_mark_node;
     }
+  else if (TREE_CODE (body) == BIND_EXPR)
+    ok = build_data_member_initialization (BIND_EXPR_BODY (body), &vec);
   else if (EXPR_P (body))
     ok = build_data_member_initialization (body, &vec);
   else
@@ -8018,6 +8043,8 @@ constexpr_fn_retval (tree body)
     case DECL_EXPR:
       if (TREE_CODE (DECL_EXPR_DECL (body)) == USING_DECL)
 	return NULL_TREE;
+      if (cxx_dialect >= cxx14)
+	return NULL_TREE;
       return error_mark_node;
 
     case CLEANUP_POINT_EXPR:
@@ -8047,7 +8074,8 @@ massage_constexpr_body (tree fun, tree body)
         body = EH_SPEC_STMTS (body);
       if (TREE_CODE (body) == MUST_NOT_THROW_EXPR)
 	body = TREE_OPERAND (body, 0);
-      if (TREE_CODE (body) == BIND_EXPR)
+      if (TREE_CODE (body) == BIND_EXPR
+	  && check_constexpr_bind_expr_vars (body))
 	body = BIND_EXPR_BODY (body);
       body = constexpr_fn_retval (body);
     }
@@ -9596,6 +9624,14 @@ cxx_eval_trinary_expression (const constexpr_call *call, tree t,
   return val;
 }
 
+bool
+var_in_constexpr_fn (tree t)
+{
+  tree ctx = DECL_CONTEXT (t);
+  return (cxx_dialect >= cxx14 && ctx && TREE_CODE (ctx) == FUNCTION_DECL
+	  && DECL_DECLARED_CONSTEXPR_P (ctx));
+}
+
 /* Attempt to reduce the expression T to a constant value.
    On failure, issue diagnostic and return error_mark_node.  */
 /* FIXME unify with c_fully_fold */
@@ -9635,6 +9671,11 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
       if (TREE_CODE (r) == TARGET_EXPR
 	  && TREE_CODE (TARGET_EXPR_INITIAL (r)) == CONSTRUCTOR)
 	r = TARGET_EXPR_INITIAL (r);
+      if (DECL_P (r) && var_in_constexpr_fn (r)
+	  && DECL_INITIAL (r))
+	r = cxx_eval_constant_expression (call, DECL_INITIAL (r),
+					  allow_non_constant, false,
+					  non_constant_p, overflow_p);
       if (DECL_P (r))
 	{
 	  if (!allow_non_constant)
@@ -10320,6 +10361,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 
     case VAR_DECL:
       if (want_rval && !decl_constant_var_p (t)
+	  && !var_in_constexpr_fn (t)
 	  && !dependent_type_p (TREE_TYPE (t)))
         {
           if (flags & tf_error)
