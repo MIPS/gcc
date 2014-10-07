@@ -2163,7 +2163,8 @@ private:
   operand *parse_op ();
 
   void parse_pattern ();
-  void parse_simplify (source_location, vec<simplify *>&, predicate_id *);
+  void parse_simplify (source_location, vec<simplify *>&, predicate_id *,
+		       expr *);
   void parse_for (source_location);
   void parse_if (source_location);
   void parse_predicates (source_location);
@@ -2528,7 +2529,8 @@ parser::parse_op ()
 
 void
 parser::parse_simplify (source_location match_location,
-			vec<simplify *>& simplifiers, predicate_id *matcher)
+			vec<simplify *>& simplifiers, predicate_id *matcher,
+			expr *result)
 {
   /* Reset the capture map.  */
   capture_ids = new std::map<std::string, unsigned>;
@@ -2549,12 +2551,8 @@ parser::parse_simplify (source_location match_location,
     {
       if (!matcher)
 	fatal_at (token, "expected transform expression");
-      else if (matcher->nargs > 0)
-	fatal_at (token, "expected match operand expression");
-      if (matcher->nargs == -1)
-	matcher->nargs = 0;
       simplifiers.safe_push
-	(new simplify (match, match_location, NULL, token->src_loc,
+	(new simplify (match, match_location, result, token->src_loc,
 		       active_ifs.copy (), active_fors.copy (),
 		       capture_ids));
       return;
@@ -2579,12 +2577,8 @@ parser::parse_simplify (source_location match_location,
 		{
 		  if (!matcher)
 		    fatal_at (token, "manual transform not implemented");
-		  else if (matcher->nargs > 0)
-		    fatal_at (token, "expected match operand expression");
-		  if (matcher->nargs == -1)
-		    matcher->nargs = 0;
 		  simplifiers.safe_push
-		      (new simplify (match, match_location, NULL,
+		      (new simplify (match, match_location, result,
 				     paren_loc, active_ifs.copy (),
 				     active_fors.copy (), capture_ids));
 		}
@@ -2599,19 +2593,9 @@ parser::parse_simplify (source_location match_location,
 	    }
 	  else
 	    {
-	      operand *op = parse_expr ();
-	      if (matcher)
-		{
-		  expr *e = dyn_cast <expr *> (op);
-		  if (!e)
-		    fatal_at (token, "match operand expression cannot "
-			      "be captured");
-		  if (matcher->nargs == -1)
-		    matcher->nargs = e->ops.length ();
-		  if (matcher->nargs == 0
-		      || (unsigned) matcher->nargs != e->ops.length ())
-		    fatal_at (token, "match arity doesn't match");
-		}
+	      operand *op = result;
+	      if (!matcher)
+		op = parse_expr ();
 	      simplifiers.safe_push
 		  (new simplify (match, match_location, op,
 				 token->src_loc, active_ifs.copy (),
@@ -2644,7 +2628,8 @@ parser::parse_simplify (source_location match_location,
 	  if (matcher)
 	    fatal_at (token, "expected match operand expression");
 	  simplifiers.safe_push
-	      (new simplify (match, match_location, parse_op (),
+	      (new simplify (match, match_location,
+			     matcher ? result : parse_op (),
 			     token->src_loc, active_ifs.copy (),
 			     active_fors.copy (), capture_ids));
 	  /* A "default" result closes the enclosing scope.  */
@@ -2811,9 +2796,15 @@ parser::parse_pattern ()
   const cpp_token *token = peek ();
   const char *id = get_ident ();
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (token->src_loc, simplifiers, NULL);
+    parse_simplify (token->src_loc, simplifiers, NULL, NULL);
   else if (strcmp (id, "match") == 0)
     {
+      bool with_args = false;
+      if (peek ()->type == CPP_OPEN_PAREN)
+	{
+	  eat_token (CPP_OPEN_PAREN);
+	  with_args = true;
+	}
       const char *name = get_ident ();
       id_base *id = get_operator (name);
       predicate_id *p;
@@ -2826,7 +2817,21 @@ parser::parse_pattern ()
 	;
       else
 	fatal_at (token, "cannot add a match to a non-predicate ID");
-      parse_simplify (token->src_loc, p->matchers, p);
+      /* Parse (match <id> <arg>... (match-expr)) here.  */
+      expr *e = NULL;
+      if (with_args)
+	{
+	  e = new expr (p);
+	  while (peek ()->type == CPP_ATSIGN)
+	    e->append_op (parse_capture (NULL));
+	  eat_token (CPP_CLOSE_PAREN);
+	}
+      if (p->nargs != -1
+	  && ((e && e->ops.length () != (unsigned)p->nargs)
+	      || (!e && p->nargs != 0)))
+	fatal_at (token, "non-matching number of match operands");
+      p->nargs = e ? e->ops.length () : 0;
+      parse_simplify (token->src_loc, p->matchers, p, e);
     }
   else if (strcmp (id, "for") == 0)
     parse_for (token->src_loc);

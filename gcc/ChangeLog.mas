@@ -1,3 +1,10 @@
+2014-10-07  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parser::parse_pattern): Change match parsing
+	to expect the matching template first, not as result.
+	(parser::parse_simplify): Likewise.
+	* match-bitwise.pd: Adjust.
+
 2014-09-26  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (dt_node::gen_kids): Handle conversions in
