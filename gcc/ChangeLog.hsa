@@ -1,5 +1,10 @@
 2014-10-07  Martin Jambor  <mjambor@suse.cz>
 
+	* README.hsa: Added known tested revisions of required git
+	checkouts.
+
+2014-10-07  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (emit_memory_insn): Emit BRIG_WIDTH_NONE for stores.
 
 2014-09-26  Martin Jambor  <mjambor@suse.cz>

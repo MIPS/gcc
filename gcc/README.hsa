@@ -42,7 +42,8 @@ have not tested anything else):
    $ cd $HOME/testhsa
    $ git clone 'https://github.com/HSAFoundation/HSA-Drivers-Linux-AMD'
 
-   Make sure the path to the shared object is in your
+   The steps below were tested with revision aeb6ebe from September 8
+   2014.  Make sure the path to the shared object is in your
    LD_LIBRARY_PATH. If you use bash, in the example above you would
    issue:
 
@@ -55,11 +56,17 @@ have not tested anything else):
    $ git clone 'https://github.com/HSAFoundation/HSA-Runtime-AMD'
    $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/testhsa/HSA-Runtime-AMD/lib/x86_64
 
+   These and the steps below were tested with revision 48e1f4c from
+   September 22 2014.
+
 4. OKRA (Offloadable Kernel Runtime API) interface.  Get it from
    github and put into your LD_LIBRARY_PATH as well:
 
    $ git clone 'https://github.com/HSAFoundation/Okra-Interface-to-HSA-Device'
    $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/testhsa/Okra-Interface-to-HSA-Device/okra/dist/bin
+
+   These and the steps below were tested with revision 4c4dc65 from
+   August 14 2014.
 
    You can now also try the sample check shipped with OKRA to test
    whether your setup works.  Go into directory
