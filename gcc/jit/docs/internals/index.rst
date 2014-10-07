@@ -152,7 +152,6 @@ Overview of code structure
 
 Here is a high-level summary from ``jit-common.h``:
 
-   .. literalinclude:: ../../jit-common.h
-    :start-after: /* Summary.  */
-    :end-before: namespace gcc {
-    :language: c++
+.. include:: ../../jit-common.h
+  :start-after: This comment is included by the docs.
+  :end-before: End of comment for inclusion in the docs.  */

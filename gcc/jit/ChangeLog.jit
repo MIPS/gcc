@@ -1,5 +1,15 @@
 2014-10-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/internals/index.rst (Overview of code structure): Directly
+	include the comment from jit-common.h as rst, rather than as a
+	quoted C++ comment.
+	* jit-common.h: Convert the summary format to valid reStructured
+	text for inclusion by docs/internals/index.rst.
+	* notes.txt: Clarify where libgccjit.c, jit-recording.c and
+	jit-playback.c fit into the high-level diagram.
+
+2014-10-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* Make-lang.in (jit_OBJS): Drop jit/internal-api.o.
 	Add jit/jit-recording.o and jit/jit-playback.o.
 

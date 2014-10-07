@@ -36,9 +36,9 @@ along with GCC; see the file COPYING3.  If not see
 
 const int NUM_GCC_JIT_TYPES = GCC_JIT_TYPE_FILE_PTR + 1;
 
-/* Summary.  */
+/* This comment is included by the docs.
 
-/* In order to allow jit objects to be usable outside of a compile
+   In order to allow jit objects to be usable outside of a compile
    whilst working with the existing structure of GCC's code the
    C API is implemented in terms of a gcc::jit::recording::context,
    which records the calls made to it.
@@ -79,15 +79,17 @@ const int NUM_GCC_JIT_TYPES = GCC_JIT_TYPE_FILE_PTR + 1;
 
    During a playback, we associate objects from the recording with
    their counterparts during this playback.  For simplicity, we store this
-   within the recording objects, as "void *m_playback_obj", casting it to
+   within the recording objects, as ``void *m_playback_obj``, casting it to
    the appropriate playback object subclass.  For these casts to make
    sense, the two class hierarchies need to have the same structure.
 
-   Note that the playback objects that "m_playback_obj" points to are
+   Note that the playback objects that ``m_playback_obj`` points to are
    GC-allocated, but the recording objects don't own references:
    these associations only exist within a part of the code where
    the GC doesn't collect, and are set back to NULL before the GC can
-   run.  */
+   run.
+
+   End of comment for inclusion in the docs.  */
 
 namespace gcc {
 
