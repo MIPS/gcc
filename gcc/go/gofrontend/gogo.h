@@ -1349,6 +1349,18 @@ class Variable
   is_parameter() const
   { return this->is_parameter_; }
 
+  // Return whether this is a closure (static chain) parameter.
+  bool
+  is_closure() const
+  { return this->is_closure_; }
+
+  // Change this parameter to be a closure.
+  void
+  set_is_closure()
+  {
+    this->is_closure_ = true;
+  }
+
   // Return whether this is the receiver parameter of a method.
   bool
   is_receiver() const
@@ -1570,6 +1582,8 @@ class Variable
   bool is_global_ : 1;
   // Whether this is a function parameter.
   bool is_parameter_ : 1;
+  // Whether this is a closure parameter.
+  bool is_closure_ : 1;
   // Whether this is the receiver parameter of a method.
   bool is_receiver_ : 1;
   // Whether this is the varargs parameter of a function.

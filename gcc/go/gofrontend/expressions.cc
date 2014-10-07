@@ -6309,6 +6309,7 @@ Bound_method_expression::create_thunk(Gogo* gogo, const Method* method,
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
+  cvar->set_is_closure();
   Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
@@ -9246,19 +9247,11 @@ Call_expression::do_get_backend(Translate_context* context)
       fn_args[0] = first_arg->get_backend(context);
     }
 
-  if (!has_closure_arg)
-    go_assert(closure == NULL);
+  Bexpression* bclosure = NULL;
+  if (has_closure_arg)
+    bclosure = closure->get_backend(context);
   else
-    {
-      // Pass the closure argument by calling the function function
-      // __go_set_closure.  In the order_evaluations pass we have
-      // ensured that if any parameters contain call expressions, they
-      // will have been moved out to temporary variables.
-      go_assert(closure != NULL);
-      Expression* set_closure =
-          Runtime::make_call(Runtime::SET_CLOSURE, location, 1, closure);
-      fn = Expression::make_compound(set_closure, fn, location);
-    }
+    go_assert(closure == NULL);
 
   Bexpression* bfn = fn->get_backend(context);
 
@@ -9274,7 +9267,8 @@ Call_expression::do_get_backend(Translate_context* context)
       bfn = gogo->backend()->convert_expression(bft, bfn, location);
     }
 
-  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args, location);
+  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args,
+						       bclosure, location);
 
   if (this->results_ != NULL)
     {
@@ -11038,6 +11032,7 @@ Interface_field_reference_expression::create_thunk(Gogo* gogo,
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
+  cvar->set_is_closure();
   Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
