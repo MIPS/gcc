@@ -18,17 +18,66 @@
 Internals
 =========
 
-Using a working copy without installing
----------------------------------------
+Using a working copy without installing every time
+--------------------------------------------------
 When directly working on the library you can avoid needing to install to
-test changes.
+test every change.
+
+You need to do a ``make install`` of the ``gcc`` subdirectory to install
+the driver binary (the top-level ``gcc`` binary).  This is used internally
+by the library for converting from .s assembler files to .so shared
+libraries.  Specifically, it looks for an executable on the ``$PATH`` with
+a name expanded by the ``configure`` script from
+``${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}``,
+such as ``x86_64-unknown-linux-gnu-gcc-5.0.0``.
+
+For example, if you configured with a prefix of ``$PREFIX`` like this:
+
+.. code-block:: bash
+
+  mkdir build
+  mkdir install
+  PREFIX=$(pwd)/install
+  cd build
+  ../src/configure \
+     --enable-host-shared \
+     --enable-languages=jit \
+     --disable-bootstrap \
+     --enable-checking=release \
+     --prefix=$PREFIX
+
+then you can install (once) to ensure that ``$PREFIX/bin/`` is populated:
+
+.. code-block:: console
+
+  [build]$ ll ../install/bin/*gcc*
+  -rwxr-xr-x. 3 david david 2733458 Oct  6 14:25 ../install/bin/gcc
+  -rwxr-xr-x. 2 david david  136921 Oct  6 14:25 ../install/bin/gcc-ar
+  -rwxr-xr-x. 2 david david  136857 Oct  6 14:25 ../install/bin/gcc-nm
+  -rwxr-xr-x. 2 david david  136869 Oct  6 14:25 ../install/bin/gcc-ranlib
+  -rwxr-xr-x. 3 david david 2733458 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc
+  -rwxr-xr-x. 3 david david 2733458 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-5.0.0
+  -rwxr-xr-x. 2 david david  136921 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-ar
+  -rwxr-xr-x. 2 david david  136857 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-nm
+  -rwxr-xr-x. 2 david david  136869 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-ranlib
+
+Note the presence above of ``../install/bin/x86_64-unknown-linux-gnu-gcc``.
 
 When building code using the API you need to ensure that ``-I`` points to
 the directory containing ``libgccjit.h`` and ``-L`` points to the
 directory containing the built library.
 
-You'll need to manually set ``LD_LIBRARY_PATH`` to the directory containing
-``libgccjit.so`` when running binaries (or debugging them).
+When running binaries (or debugging them), you'll need to manually set
+``LD_LIBRARY_PATH`` to the directory containing ``libgccjit.so``, and
+``PATH`` needs to contain the path to the installed binaries.
+
+and then you can run from a built (but not installed) copy:
+
+.. code-block:: console
+
+  [gcc]$ PATH=../../install/bin:$PATH LD_LIBRARY_PATH=. ./testsuite/jit/test-factorial.exe
+
+without needing to reinstall everything for every tweak to the library.
 
 Running the test suite
 ----------------------
@@ -68,7 +117,10 @@ and once a test has been compiled, you can debug it directly:
 
 .. code-block:: console
 
-   [gcc] $ LD_LIBRARY_PATH=. gdb testsuite/jit/test-factorial.exe
+   [gcc] $ PATH=../../install/bin:$PATH \
+           LD_LIBRARY_PATH=. \
+             gdb --args \
+               testsuite/jit/test-factorial.exe
 
 
 Overview of code structure

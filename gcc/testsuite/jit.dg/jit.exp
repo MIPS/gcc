@@ -92,11 +92,25 @@ proc jit-dg-test { prog do_what extra_tool_flags } {
     #
     unsetenv GCC_EXEC_PREFIX
 
+    # libgccjit uses the driver to convert .s files to .so libraries
+    # via its *installed* name, the expansion of:
+    #   ${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}
+    # e.g. "x86_64-unknown-linux-gnu-gcc-5.0.0"
+    # looking for it on PATH.  Hence we need to prepend the installation
+    # bindir to PATH when running the tests
+    global env
+    global bindir
+    set old_path $env(PATH)
+    setenv "PATH" $bindir:$env(PATH)
+
     # dejagnu.exp's host_execute has code to scrape out test results
     # from the DejaGnu C API and bring back into the tcl world, so we
     # use that to invoke the built code:
     set result [host_execute $output_file]
     verbose "result: $result"
+
+    # Restore PATH
+    setenv "PATH" $old_path
 
     restore_ld_library_path_env_vars
 }

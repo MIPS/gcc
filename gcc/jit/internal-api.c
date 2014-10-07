@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "gimplify.h"
+#include "gcc-driver-name.h"
 
 #include <pthread.h>
 
@@ -4998,7 +4999,9 @@ compile ()
   /* Gross hacks follow:
      We have a .s file; we want a .so file.
      We could reuse parts of gcc/gcc.c to do this.
-     For now, just use the /usr/bin/gcc on the system...
+     For now, just use the driver binary from the install, as
+     named in gcc-driver-name.h
+     e.g. "x86_64-unknown-linux-gnu-gcc-5.0.0".
    */
   {
     auto_timevar assemble_timevar (TV_ASSEMBLE);
@@ -5006,8 +5009,9 @@ compile ()
     const char *argv[6];
     int exit_status = 0;
     int err = 0;
+    const char *gcc_driver_name = GCC_DRIVER_NAME;
 
-    argv[0] = "gcc";
+    argv[0] = gcc_driver_name;
     argv[1] = "-shared";
     /* The input: assembler.  */
     argv[2] = m_path_s_file;
@@ -5018,7 +5022,7 @@ compile ()
     argv[5] = NULL;
 
     errmsg = pex_one (PEX_SEARCH, /* int flags, */
-		      "gcc", /* const char *executable */
+		      gcc_driver_name,
 		      const_cast<char * const *> (argv),
 		      ctxt_progname, /* const char *pname */
 		      NULL, /* const char *outname */

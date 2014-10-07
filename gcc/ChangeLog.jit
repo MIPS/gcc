@@ -1,3 +1,11 @@
+2014-10-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (site.exp): When constructing site.exp, add a line
+	to set "bindir".
+	* configure.ac: Generate a gcc-driver-name.h file containing
+	GCC_DRIVER_NAME for the benefit of jit/internal-api.c.
+	* configure: Regenerate.
+
 2014-10-03  David Malcolm  <dmalcolm@redhat.com>
 
 	* diagnostic.c (diagnostic_finish): Free the memory for

@@ -1,3 +1,10 @@
+2014-10-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/jit.exp (jit-dg-test): Prepend the installed bindir to
+	the PATH before invoking built binaries using the library, so that
+	the library can find the driver.  Restore the PATH immediately
+	afterwards.
+
 2014-09-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* ChangeLog.jit: Add copyright footer.

@@ -189,17 +189,6 @@ specify the compilation and linkage flags:
       -o jit-hello-world \
       $(pkg-config libgccjit --cflags --libs)
 
-and ensure that `LD_LIBRARY_PATH` is set appropriate when running the
-built program, so that it can locate and dynamically link against
-`libgccjit.so`:
-
-.. code-block:: console
-
-  # Run the built program:
-  $ export LD_LIBRARY_PATH=$PREFIX/lib
-  $ ./jit-hello-world
-  hello world
-
 This is equivalent to handcoding the include and library paths with `-I`
 and `-L` and specifying `-lgccjit` (i.e. linkage against libgccjit):
 
@@ -211,5 +200,28 @@ and `-L` and specifying `-lgccjit` (i.e. linkage against libgccjit):
       -lgccjit \
       -I$PREFIX/include -L$PREFIX/lib
 
-  $ LD_LIBRARY_PATH=$PREFIX/lib ./jit-hello-world
+When running the built test program against a locally-built tree, two
+environment variables need to be set up:
+
+* `LD_LIBRARY_PATH` needs to be set up appropriately so that the dynamic
+  linker can locate the `libgccjit.so`
+
+* `PATH` needs to include the `bin` subdirectory below the installation
+  prefix, so that the library can locate a driver binary.  This is used
+  internally by the library for converting from .s assembler files to
+  .so shared libraries.
+
+  ..
+     Specifically, it looks for a name expanded from
+     ``${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}`` on the
+     ``$PATH``, such as ``x86_64-unknown-linux-gnu-gcc-5.0.0``).
+
+For example, if you configured with a prefix of ``$PREFIX`` like above,
+you need an invocation like this:
+
+.. code-block:: console
+
+  $ LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH \
+    PATH=$PREFIX/bin:$PATH \
+    ./jit-hello-world
   hello world

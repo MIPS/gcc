@@ -3504,6 +3504,7 @@ site.exp: ./config.status Makefile
 	@echo "# add them to the last section" >> ./site.tmp
 	@echo "set rootme \"`${PWD_COMMAND}`\"" >> ./site.tmp
 	@echo "set srcdir \"`cd ${srcdir}; ${PWD_COMMAND}`\"" >> ./site.tmp
+	@echo "set bindir \"`cd ${bindir}; ${PWD_COMMAND}`\"" >> ./site.tmp
 	@echo "set host_triplet $(host)" >> ./site.tmp
 	@echo "set build_triplet $(build)" >> ./site.tmp
 	@echo "set target_triplet $(target)" >> ./site.tmp
