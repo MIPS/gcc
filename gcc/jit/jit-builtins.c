@@ -24,8 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "target.h"
 
-#include "internal-api.h"
+#include "jit-common.h"
 #include "jit-builtins.h"
+#include "jit-recording.h"
 
 namespace gcc {
 

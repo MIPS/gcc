@@ -1,5 +1,36 @@
 2014-10-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* Make-lang.in (jit_OBJS): Drop jit/internal-api.o.
+	Add jit/jit-recording.o and jit/jit-playback.o.
+
+	* internal-api.c: Delete, moving content to new files jit-recording.c
+	and jit-playback.c.
+	* internal-api.h: Delete, moving content to new files
+	jit-common.h, jit-playback.h, jit-recording.h.
+	* jit-common.h: New file, containing the forward decls of classes
+	formerly in internal-api.h.
+	* jit-recording.c: New file, containing the gcc::jit::recording
+	code formerly in internal-api.c, and gcc::jit::dump.
+	* jit-recording.h: New file, containing the gcc::jit::recording
+	prototypes formerly in internal-api.h.
+	* jit-playback.c: New file, containing the gcc::jit::playback
+	code formerly in internal-api.c.
+	* jit-playback.h: New file, containing the gcc::jit::playback
+	prototypes formerly in internal-api.h.
+
+	* dummy-frontend.c: Don't include "internal-api.h".  Add includes
+	of jit-common.h and jit-playback.h.
+	* jit-builtins.h: Replace include of internal-api.h with
+	jit-common.h.
+	* jit-builtins.c: Replace include of internal-api.h with
+	jit-common.h.  Add include of jit-recording.h.
+	* libgccjit.c: Likewise.
+
+	* docs/internals/index.rst (Overview of code structure): Update
+	to reflect the above changes.
+
+2014-10-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/internals/index.rst
 	(Using a working copy without installing): Rename to...
 	(Using a working copy without installing every time): ...this, and

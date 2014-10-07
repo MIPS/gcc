@@ -56,7 +56,11 @@ jit: $(LIBGCCJIT_FILENAME) $(LIBGCCJIT_SYMLINK) $(LIBGCCJIT_LINKER_NAME_SYMLINK)
 # Tell GNU make to ignore these if they exist.
 .PHONY: jit
 
-jit_OBJS = attribs.o jit/dummy-frontend.o jit/libgccjit.o jit/internal-api.o \
+jit_OBJS = attribs.o \
+	jit/dummy-frontend.o \
+	jit/libgccjit.o \
+	jit/jit-recording.o \
+	jit/jit-playback.o \
 	jit/jit-builtins.o
 
 # Use strict warnings for this front end.

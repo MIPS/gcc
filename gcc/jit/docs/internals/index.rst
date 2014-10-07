@@ -128,21 +128,21 @@ Overview of code structure
 
 * ``libgccjit.c`` implements the API entrypoints.  It performs error
   checking, then calls into classes of the gcc::jit::recording namespace
-  within internal-api.c and internal-api.h.
+  within ``jit-recording.c`` and ``jit-recording.h``.
 
-* The gcc::jit::recording classes (within ``internal-api.c`` and
-  ``internal-api.h``) record the API calls that are made:
+* The gcc::jit::recording classes (within ``jit-recording.c`` and
+  ``jit-recording.h``) record the API calls that are made:
 
-   .. literalinclude:: ../../internal-api.h
+   .. literalinclude:: ../../jit-common.h
     :start-after: /* Recording types.  */
     :end-before: /* End of recording types. */
     :language: c++
 
-* When the context is compiled, the gcc::jit::playback classes (also
-  within ``internal-api.c`` and ``internal-api.h``) replay the API calls
+* When the context is compiled, the gcc::jit::playback classes (within
+  ``jit-playback.c`` and ``jit-playback.h``) replay the API calls
   within langhook:parse_file:
 
-   .. literalinclude:: ../../internal-api.h
+   .. literalinclude:: ../../jit-common.h
     :start-after: /* Playback types.  */
     :end-before: /* End of playback types. */
     :language: c++
@@ -150,9 +150,9 @@ Overview of code structure
    .. literalinclude:: ../../notes.txt
     :lines: 1-
 
-Here is a high-level summary from ``internal-api.h``:
+Here is a high-level summary from ``jit-common.h``:
 
-   .. literalinclude:: ../../internal-api.h
+   .. literalinclude:: ../../jit-common.h
     :start-after: /* Summary.  */
     :end-before: namespace gcc {
     :language: c++

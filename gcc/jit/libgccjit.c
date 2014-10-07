@@ -24,7 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 
 #include "libgccjit.h"
-#include "internal-api.h"
+#include "jit-common.h"
+#include "jit-recording.h"
 
 #define IS_ASCII_ALPHA(CHAR) \
   (					\

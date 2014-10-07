@@ -35,7 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "gimple-pretty-print.h"
-#include "internal-api.h"
+#include "jit-common.h"
+#include "jit-playback.h"
 
 #include <mpfr.h>
 

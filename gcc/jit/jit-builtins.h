@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef JIT_BUILTINS_H
 #define JIT_BUILTINS_H
 
-#include "internal-api.h"
+#include "jit-common.h"
 
 namespace gcc {
 
