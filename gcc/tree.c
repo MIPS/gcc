@@ -2831,16 +2831,6 @@ bit_position (const_tree field)
   return bit_from_pos (DECL_FIELD_OFFSET (field),
 		       DECL_FIELD_BIT_OFFSET (field));
 }
-
-/* Likewise, but return as an integer.  It must be representable in
-   that way (since it could be a signed value, we don't have the
-   option of returning -1 like int_size_in_byte can.  */
-
-HOST_WIDE_INT
-int_bit_position (const_tree field)
-{
-  return tree_to_shwi (bit_position (field));
-}
 
 /* Return the byte position of FIELD, in bytes from the start of the record.
    This is a tree of type sizetype.  */
@@ -5018,7 +5008,7 @@ need_assembler_name_p (tree decl)
     return false;
 
   /* Abstract decls do not need an assembler name.  */
-  if (DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT_P (decl))
     return false;
 
   /* For VAR_DECLs, only static, public and external symbols need an
@@ -6195,19 +6185,27 @@ set_type_quals (tree type, int type_quals)
   TYPE_ADDR_SPACE (type) = DECODE_QUAL_ADDR_SPACE (type_quals);
 }
 
-/* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
+/* Returns true iff unqualified CAND and BASE are equivalent.  */
 
 bool
-check_qualified_type (const_tree cand, const_tree base, int type_quals)
+check_base_type (const_tree cand, const_tree base)
 {
-  return (TYPE_QUALS (cand) == type_quals
-	  && TYPE_NAME (cand) == TYPE_NAME (base)
+  return (TYPE_NAME (cand) == TYPE_NAME (base)
 	  /* Apparently this is needed for Objective-C.  */
 	  && TYPE_CONTEXT (cand) == TYPE_CONTEXT (base)
 	  /* Check alignment.  */
 	  && TYPE_ALIGN (cand) == TYPE_ALIGN (base)
 	  && attribute_list_equal (TYPE_ATTRIBUTES (cand),
 				   TYPE_ATTRIBUTES (base)));
+}
+
+/* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
+
+bool
+check_qualified_type (const_tree cand, const_tree base, int type_quals)
+{
+  return (TYPE_QUALS (cand) == type_quals
+	  && check_base_type (cand, base));
 }
 
 /* Returns true iff CAND is equivalent to BASE with ALIGN.  */

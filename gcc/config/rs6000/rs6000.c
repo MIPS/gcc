@@ -13898,8 +13898,8 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case ALTIVEC_BUILTIN_MASK_FOR_LOAD:
     case ALTIVEC_BUILTIN_MASK_FOR_STORE:
       {
-	int icode = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr
-		     : (int) CODE_FOR_altivec_lvsl);
+	int icode = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr_direct
+		     : (int) CODE_FOR_altivec_lvsl_direct);
 	enum machine_mode tmode = insn_data[icode].operand[0].mode;
 	enum machine_mode mode = insn_data[icode].operand[1].mode;
 	tree arg;
@@ -13927,7 +13927,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	    || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	  target = gen_reg_rtx (tmode);
 
-	/*pat = gen_altivec_lvsr (target, op);*/
 	pat = GEN_FCN (icode) (target, op);
 	if (!pat)
 	  return 0;
@@ -33793,9 +33792,10 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
     return 0;
 
   /* Loads and stores seen here are not permuting, but we can still
-     fix them up by converting them to permuting ones.  Exception:
-     UNSPEC_LVX and UNSPEC_STVX, which have a PARALLEL body instead
-     of a SET.  */
+     fix them up by converting them to permuting ones.  Exceptions:
+     UNSPEC_LVE, UNSPEC_LVX, and UNSPEC_STVX, which have a PARALLEL
+     body instead of a SET; and UNSPEC_STVE, which has an UNSPEC
+     for the SET source.  */
   rtx body = PATTERN (insn);
   int i = INSN_UID (insn);
 
@@ -33812,7 +33812,7 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 
   if (insn_entry[i].is_store)
     {
-      if (GET_CODE (body) == SET)
+      if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) != UNSPEC)
 	{
 	  *special = SH_NOSWAP_ST;
 	  return 1;
