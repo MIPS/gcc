@@ -1,5 +1,9 @@
 2014-10-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2014-10-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/internals/index.rst (Overview of code structure): Directly
 	include the comment from jit-common.h as rst, rather than as a
 	quoted C++ comment.
