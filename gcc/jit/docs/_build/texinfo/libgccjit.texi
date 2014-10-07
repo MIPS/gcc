@@ -19,7 +19,7 @@
 
 @copying
 @quotation
-libgccjit 5.0.0 (experimental 20140909), September 23, 2014
+libgccjit 5.0.0 (experimental 20141006), October 07, 2014
 
 David Malcolm
 
@@ -202,7 +202,7 @@ Source Locations
 
 Internals
 
-* Using a working copy without installing:: 
+* Using a working copy without installing every time:: 
 * Running the test suite:: 
 * Overview of code structure:: 
 
@@ -475,6 +475,25 @@ a call to @cite{printf} and use it to write a message to stdout.
 @quotation
 
 @example
+/* Smoketest example for libgccjit.so
+   Copyright (C) 2014 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+GCC is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #include <libgccjit.h>
 
 #include <stdlib.h>
@@ -616,19 +635,6 @@ $ gcc \
 
 @noindent
 
-and ensure that @cite{LD_LIBRARY_PATH} is set appropriate when running the
-built program, so that it can locate and dynamically link against
-@cite{libgccjit.so}:
-
-@example
-# Run the built program:
-$ export LD_LIBRARY_PATH=$PREFIX/lib
-$ ./jit-hello-world
-hello world
-@end example
-
-@noindent
-
 This is equivalent to handcoding the include and library paths with @cite{-I}
 and @cite{-L} and specifying @cite{-lgccjit} (i.e. linkage against libgccjit):
 
@@ -638,8 +644,38 @@ $ gcc \
     -o jit-hello-world \
     -lgccjit \
     -I$PREFIX/include -L$PREFIX/lib
+@end example
 
-$ LD_LIBRARY_PATH=$PREFIX/lib ./jit-hello-world
+@noindent
+
+When running the built test program against a locally-built tree, two
+environment variables need to be set up:
+
+
+@itemize *
+
+@item 
+@cite{LD_LIBRARY_PATH} needs to be set up appropriately so that the dynamic
+linker can locate the @cite{libgccjit.so}
+
+@item 
+@cite{PATH} needs to include the @cite{bin} subdirectory below the installation
+prefix, so that the library can locate a driver binary.  This is used
+internally by the library for converting from .s assembler files to
+.so shared libraries.
+
+@c Specifically, it looks for a name expanded from
+@c ``${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}`` on the
+@c ``$PATH``, such as ``x86_64-unknown-linux-gnu-gcc-5.0.0``).
+@end itemize
+
+For example, if you configured with a prefix of @code{$PREFIX} like above,
+you need an invocation like this:
+
+@example
+$ LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH \
+  PATH=$PREFIX/bin:$PATH \
+  ./jit-hello-world
 hello world
 @end example
 
@@ -1043,6 +1079,25 @@ Here's what the above looks like as a complete program:
 @quotation
 
 @example
+/* Usage example for libgccjit.so
+   Copyright (C) 2014 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+GCC is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #include <libgccjit.h>
 
 #include <stdlib.h>
@@ -1622,6 +1677,25 @@ install it with @cite{yum install python-xdot}):
 @quotation
 
 @example
+/* Usage example for libgccjit.so
+   Copyright (C) 2014 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+GCC is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #include <libgccjit.h>
 
 #include <stdlib.h>
@@ -5207,6 +5281,22 @@ C equivalent
 
 @cite{x || y}
 
+@item
+
+@pxref{91,,GCC_JIT_BINARY_OP_LSHIFT}
+
+@tab
+
+@cite{x << y}
+
+@item
+
+@pxref{92,,GCC_JIT_BINARY_OP_RSHIFT}
+
+@tab
+
+@cite{x >> y}
+
 @end multitable
 
 
@@ -5224,7 +5314,7 @@ Addition of arithmetic values; analogous to:
 
 in C.
 
-For pointer addition, use @pxref{91,,gcc_jit_context_new_array_access()}.
+For pointer addition, use @pxref{93,,gcc_jit_context_new_array_access()}.
 @end deffn
 
 
@@ -5365,8 +5455,38 @@ Logical OR; analogous to:
 in C.
 @end deffn
 
+@geindex GCC_JIT_BINARY_OP_LSHIFT (C macro)
+@anchor{topics/expressions GCC_JIT_BINARY_OP_LSHIFT}@anchor{91}
+@deffn {C Macro} GCC_JIT_BINARY_OP_LSHIFT
+
+Left shift; analogous to:
+
+@example
+(EXPR_A) << (EXPR_B)
+@end example
+
+@noindent
+
+in C.
+@end deffn
+
+@geindex GCC_JIT_BINARY_OP_RSHIFT (C macro)
+@anchor{topics/expressions GCC_JIT_BINARY_OP_RSHIFT}@anchor{92}
+@deffn {C Macro} GCC_JIT_BINARY_OP_RSHIFT
+
+Right shift; analogous to:
+
+@example
+(EXPR_A) >> (EXPR_B)
+@end example
+
+@noindent
+
+in C.
+@end deffn
+
 @node Comparisons,Function calls,Binary Operations,Rvalues
-@anchor{topics/expressions comparisons}@anchor{92}
+@anchor{topics/expressions comparisons}@anchor{94}
 @subsubsection Comparisons
 
 
@@ -5378,7 +5498,7 @@ Build a boolean rvalue out of the comparison of two other rvalues.
 @end deffn
 
 @geindex gcc_jit_comparison (C type)
-@anchor{topics/expressions gcc_jit_comparison}@anchor{93}
+@anchor{topics/expressions gcc_jit_comparison}@anchor{95}
 @deffn {C Type} enum gcc_jit_comparison
 @end deffn
 
@@ -5444,25 +5564,52 @@ C equivalent
 
 
 @node Function calls,Type-coercion,Comparisons,Rvalues
-@anchor{topics/expressions function-calls}@anchor{94}
+@anchor{topics/expressions function-calls}@anchor{96}
 @subsubsection Function calls
 
 
 @geindex gcc_jit_context_new_call (C function)
-@anchor{topics/expressions gcc_jit_context_new_call}@anchor{95}
+@anchor{topics/expressions gcc_jit_context_new_call}@anchor{97}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_context_new_call (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_function@w{ }*func, int@w{ }numargs, gcc_jit_rvalue@w{ }**args)
 
 Given a function and the given table of argument rvalues, construct a
 call to the function, with the result as an rvalue.
+
+@cartouche
+@quotation Note 
+@pxref{97,,gcc_jit_context_new_call()} merely builds a
+@pxref{18,,gcc_jit_rvalue} i.e. an expression that can be evaluated,
+perhaps as part of a more complicated expression.
+The call @emph{won't} happen unless you add a statement to a function
+that evaluates the expression.
+
+For example, if you want to call a function and discard the result
+(or to call a function with @code{void} return type), use
+@pxref{98,,gcc_jit_block_add_eval()}:
+
+@example
+/* Add "(void)printf (arg0, arg1);".  */
+gcc_jit_block_add_eval (
+  block, NULL,
+  gcc_jit_context_new_call (
+    ctxt,
+    NULL,
+    printf_func,
+    2, args));
+@end example
+
+@noindent
+@end quotation
+@end cartouche
 @end deffn
 
 @node Type-coercion,,Function calls,Rvalues
-@anchor{topics/expressions type-coercion}@anchor{96}
+@anchor{topics/expressions type-coercion}@anchor{99}
 @subsubsection Type-coercion
 
 
 @geindex gcc_jit_context_new_cast (C function)
-@anchor{topics/expressions gcc_jit_context_new_cast}@anchor{97}
+@anchor{topics/expressions gcc_jit_context_new_cast}@anchor{9a}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_context_new_cast (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*rvalue, gcc_jit_type@w{ }*type)
 
 Given an rvalue of T, construct another rvalue of another type.
@@ -5484,7 +5631,7 @@ int <-> bool
 @end deffn
 
 @node Lvalues,Working with pointers structs and unions,Rvalues,Expressions
-@anchor{topics/expressions lvalues}@anchor{98}
+@anchor{topics/expressions lvalues}@anchor{9b}
 @subsection Lvalues
 
 
@@ -5498,21 +5645,21 @@ a storage area (such as a variable).  It is also usable as an rvalue,
 where the rvalue is computed by reading from the storage area.
 
 @geindex gcc_jit_lvalue_as_object (C function)
-@anchor{topics/expressions gcc_jit_lvalue_as_object}@anchor{99}
+@anchor{topics/expressions gcc_jit_lvalue_as_object}@anchor{9c}
 @deffn {C Function} gcc_jit_object *           gcc_jit_lvalue_as_object (gcc_jit_lvalue@w{ }*lvalue)
 
 Upcast an lvalue to be an object.
 @end deffn
 
 @geindex gcc_jit_lvalue_as_rvalue (C function)
-@anchor{topics/expressions gcc_jit_lvalue_as_rvalue}@anchor{9a}
+@anchor{topics/expressions gcc_jit_lvalue_as_rvalue}@anchor{9d}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue@w{ }*lvalue)
 
 Upcast an lvalue to be an rvalue.
 @end deffn
 
 @geindex gcc_jit_lvalue_get_address (C function)
-@anchor{topics/expressions gcc_jit_lvalue_get_address}@anchor{9b}
+@anchor{topics/expressions gcc_jit_lvalue_get_address}@anchor{9e}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_lvalue_get_address (gcc_jit_lvalue@w{ }*lvalue, gcc_jit_location@w{ }*loc)
 
 Take the address of an lvalue; analogous to:
@@ -5532,24 +5679,24 @@ in C.
 @end menu
 
 @node Global variables,,,Lvalues
-@anchor{topics/expressions global-variables}@anchor{9c}
+@anchor{topics/expressions global-variables}@anchor{9f}
 @subsubsection Global variables
 
 
 @geindex gcc_jit_context_new_global (C function)
-@anchor{topics/expressions gcc_jit_context_new_global}@anchor{9d}
+@anchor{topics/expressions gcc_jit_context_new_global}@anchor{a0}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_context_new_global (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_type@w{ }*type, const char@w{ }*name)
 
 Add a new global variable of the given type and name to the context.
 @end deffn
 
 @node Working with pointers structs and unions,,Lvalues,Expressions
-@anchor{topics/expressions working-with-pointers-structs-and-unions}@anchor{9e}
+@anchor{topics/expressions working-with-pointers-structs-and-unions}@anchor{a1}
 @subsection Working with pointers, structs and unions
 
 
 @geindex gcc_jit_rvalue_dereference (C function)
-@anchor{topics/expressions gcc_jit_rvalue_dereference}@anchor{9f}
+@anchor{topics/expressions gcc_jit_rvalue_dereference}@anchor{a2}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_rvalue_dereference (gcc_jit_rvalue@w{ }*rvalue, gcc_jit_location@w{ }*loc)
 
 Given an rvalue of pointer type @code{T *}, dereferencing the pointer,
@@ -5567,7 +5714,7 @@ in C.
 Field access is provided separately for both lvalues and rvalues.
 
 @geindex gcc_jit_lvalue_access_field (C function)
-@anchor{topics/expressions gcc_jit_lvalue_access_field}@anchor{a0}
+@anchor{topics/expressions gcc_jit_lvalue_access_field}@anchor{a3}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_lvalue_access_field (gcc_jit_lvalue@w{ }*struct_, gcc_jit_location@w{ }*loc, gcc_jit_field@w{ }*field)
 
 Given an lvalue of struct or union type, access the given field,
@@ -5583,7 +5730,7 @@ in C.
 @end deffn
 
 @geindex gcc_jit_rvalue_access_field (C function)
-@anchor{topics/expressions gcc_jit_rvalue_access_field}@anchor{a1}
+@anchor{topics/expressions gcc_jit_rvalue_access_field}@anchor{a4}
 @deffn {C Function} gcc_jit_rvalue *           gcc_jit_rvalue_access_field (gcc_jit_rvalue@w{ }*struct_, gcc_jit_location@w{ }*loc, gcc_jit_field@w{ }*field)
 
 Given an rvalue of struct or union type, access the given field
@@ -5599,7 +5746,7 @@ in C.
 @end deffn
 
 @geindex gcc_jit_rvalue_dereference_field (C function)
-@anchor{topics/expressions gcc_jit_rvalue_dereference_field}@anchor{a2}
+@anchor{topics/expressions gcc_jit_rvalue_dereference_field}@anchor{a5}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_rvalue_dereference_field (gcc_jit_rvalue@w{ }*ptr, gcc_jit_location@w{ }*loc, gcc_jit_field@w{ }*field)
 
 Given an rvalue of pointer type @code{T *} where T is of struct or union
@@ -5615,7 +5762,7 @@ in C, itself equivalent to @code{(*EXPR).FIELD}.
 @end deffn
 
 @geindex gcc_jit_context_new_array_access (C function)
-@anchor{topics/expressions gcc_jit_context_new_array_access}@anchor{91}
+@anchor{topics/expressions gcc_jit_context_new_array_access}@anchor{93}
 @deffn {C Function} gcc_jit_lvalue *           gcc_jit_context_new_array_access (gcc_jit_context@w{ }*ctxt, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*ptr, gcc_jit_rvalue@w{ }*index)
 
 Given an rvalue of pointer type @code{T *}, get at the element @cite{T} at
@@ -5650,7 +5797,7 @@ in C (or, indeed, to @code{PTR + INDEX}).
 @c <http://www.gnu.org/licenses/>.
 
 @node Creating and using functions,Source Locations,Expressions,Topic Reference
-@anchor{topics/functions doc}@anchor{a3}@anchor{topics/functions creating-and-using-functions}@anchor{a4}
+@anchor{topics/functions doc}@anchor{a6}@anchor{topics/functions creating-and-using-functions}@anchor{a7}
 @section Creating and using functions
 
 
@@ -5663,7 +5810,7 @@ in C (or, indeed, to @code{PTR + INDEX}).
 @end menu
 
 @node Params,Functions,,Creating and using functions
-@anchor{topics/functions params}@anchor{a5}
+@anchor{topics/functions params}@anchor{a8}
 @subsection Params
 
 
@@ -5686,28 +5833,28 @@ Parameters are lvalues, and thus are also rvalues (and objects), so the
 following upcasts are available:
 
 @geindex gcc_jit_param_as_lvalue (C function)
-@anchor{topics/functions gcc_jit_param_as_lvalue}@anchor{a6}
+@anchor{topics/functions gcc_jit_param_as_lvalue}@anchor{a9}
 @deffn {C Function} gcc_jit_lvalue *            gcc_jit_param_as_lvalue (gcc_jit_param@w{ }*param)
 
 Upcasting from param to lvalue.
 @end deffn
 
 @geindex gcc_jit_param_as_rvalue (C function)
-@anchor{topics/functions gcc_jit_param_as_rvalue}@anchor{a7}
+@anchor{topics/functions gcc_jit_param_as_rvalue}@anchor{aa}
 @deffn {C Function} gcc_jit_rvalue *            gcc_jit_param_as_rvalue (gcc_jit_param@w{ }*param)
 
 Upcasting from param to rvalue.
 @end deffn
 
 @geindex gcc_jit_param_as_object (C function)
-@anchor{topics/functions gcc_jit_param_as_object}@anchor{a8}
+@anchor{topics/functions gcc_jit_param_as_object}@anchor{ab}
 @deffn {C Function} gcc_jit_object *            gcc_jit_param_as_object (gcc_jit_param@w{ }*param)
 
 Upcasting from param to object.
 @end deffn
 
 @node Functions,Blocks,Params,Creating and using functions
-@anchor{topics/functions functions}@anchor{a9}
+@anchor{topics/functions functions}@anchor{ac}
 @subsection Functions
 
 
@@ -5726,7 +5873,7 @@ creating ourselves, or one that we're referencing.
 Create a gcc_jit_function with the given name and parameters.
 
 @geindex gcc_jit_function_kind (C type)
-@anchor{topics/functions gcc_jit_function_kind}@anchor{aa}
+@anchor{topics/functions gcc_jit_function_kind}@anchor{ad}
 @deffn {C Type} enum gcc_jit_function_kind
 @end deffn
 
@@ -5736,7 +5883,7 @@ values:
 @quotation
 
 @geindex GCC_JIT_FUNCTION_EXPORTED (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_EXPORTED}@anchor{ab}
+@anchor{topics/functions GCC_JIT_FUNCTION_EXPORTED}@anchor{ae}
 @deffn {C Macro} GCC_JIT_FUNCTION_EXPORTED
 
 Function is defined by the client code and visible
@@ -5744,7 +5891,7 @@ by name outside of the JIT.
 @end deffn
 
 @geindex GCC_JIT_FUNCTION_INTERNAL (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_INTERNAL}@anchor{ac}
+@anchor{topics/functions GCC_JIT_FUNCTION_INTERNAL}@anchor{af}
 @deffn {C Macro} GCC_JIT_FUNCTION_INTERNAL
 
 Function is defined by the client code, but is invisible
@@ -5752,7 +5899,7 @@ outside of the JIT.  Analogous to a "static" function.
 @end deffn
 
 @geindex GCC_JIT_FUNCTION_IMPORTED (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_IMPORTED}@anchor{ad}
+@anchor{topics/functions GCC_JIT_FUNCTION_IMPORTED}@anchor{b0}
 @deffn {C Macro} GCC_JIT_FUNCTION_IMPORTED
 
 Function is not defined by the client code; we're merely
@@ -5761,7 +5908,7 @@ header file.
 @end deffn
 
 @geindex GCC_JIT_FUNCTION_ALWAYS_INLINE (C macro)
-@anchor{topics/functions GCC_JIT_FUNCTION_ALWAYS_INLINE}@anchor{ae}
+@anchor{topics/functions GCC_JIT_FUNCTION_ALWAYS_INLINE}@anchor{b1}
 @deffn {C Macro} GCC_JIT_FUNCTION_ALWAYS_INLINE
 
 Function is only ever inlined into other functions, and is
@@ -5778,19 +5925,19 @@ same as GCC_JIT_FUNCTION_INTERNAL.
 @end deffn
 
 @geindex gcc_jit_context_get_builtin_function (C function)
-@anchor{topics/functions gcc_jit_context_get_builtin_function}@anchor{af}
+@anchor{topics/functions gcc_jit_context_get_builtin_function}@anchor{b2}
 @deffn {C Function} gcc_jit_function *gcc_jit_context_get_builtin_function (gcc_jit_context@w{ }*ctxt, const char@w{ }*name)
 @end deffn
 
 @geindex gcc_jit_function_as_object (C function)
-@anchor{topics/functions gcc_jit_function_as_object}@anchor{b0}
+@anchor{topics/functions gcc_jit_function_as_object}@anchor{b3}
 @deffn {C Function} gcc_jit_object *           gcc_jit_function_as_object (gcc_jit_function@w{ }*func)
 
 Upcasting from function to object.
 @end deffn
 
 @geindex gcc_jit_function_get_param (C function)
-@anchor{topics/functions gcc_jit_function_get_param}@anchor{b1}
+@anchor{topics/functions gcc_jit_function_get_param}@anchor{b4}
 @deffn {C Function} gcc_jit_param *            gcc_jit_function_get_param (gcc_jit_function@w{ }*func, int@w{ }index)
 
 Get the param of the given index (0-based).
@@ -5812,7 +5959,7 @@ name.
 @end deffn
 
 @node Blocks,Statements,Functions,Creating and using functions
-@anchor{topics/functions blocks}@anchor{b2}
+@anchor{topics/functions blocks}@anchor{b5}
 @subsection Blocks
 
 
@@ -5835,7 +5982,7 @@ one function.
 @end deffn
 
 @geindex gcc_jit_function_new_block (C function)
-@anchor{topics/functions gcc_jit_function_new_block}@anchor{b3}
+@anchor{topics/functions gcc_jit_function_new_block}@anchor{b6}
 @deffn {C Function} gcc_jit_block *            gcc_jit_function_new_block (gcc_jit_function@w{ }*func, const char@w{ }*name)
 
 Create a basic block of the given name.  The name may be NULL, but
@@ -5845,26 +5992,26 @@ messages.
 @end deffn
 
 @geindex gcc_jit_block_as_object (C function)
-@anchor{topics/functions gcc_jit_block_as_object}@anchor{b4}
+@anchor{topics/functions gcc_jit_block_as_object}@anchor{b7}
 @deffn {C Function} gcc_jit_object *            gcc_jit_block_as_object (gcc_jit_block@w{ }*block)
 
 Upcast from block to object.
 @end deffn
 
 @geindex gcc_jit_block_get_function (C function)
-@anchor{topics/functions gcc_jit_block_get_function}@anchor{b5}
+@anchor{topics/functions gcc_jit_block_get_function}@anchor{b8}
 @deffn {C Function} gcc_jit_function *            gcc_jit_block_get_function (gcc_jit_block@w{ }*block)
 
 Which function is this block within?
 @end deffn
 
 @node Statements,,Blocks,Creating and using functions
-@anchor{topics/functions statements}@anchor{b6}
+@anchor{topics/functions statements}@anchor{b9}
 @subsection Statements
 
 
 @geindex gcc_jit_block_add_eval (C function)
-@anchor{topics/functions gcc_jit_block_add_eval}@anchor{b7}
+@anchor{topics/functions gcc_jit_block_add_eval}@anchor{98}
 @deffn {C Function} void           gcc_jit_block_add_eval (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*rvalue)
 
 Add evaluation of an rvalue, discarding the result
@@ -5912,7 +6059,18 @@ lvalue /= rvalue;
 
 @noindent
 
-etc.
+etc.  For example:
+
+@example
+/* "i++" */
+gcc_jit_block_add_assignment_op (
+  loop_body, NULL,
+  i,
+  GCC_JIT_BINARY_OP_PLUS,
+  gcc_jit_context_one (ctxt, int_type));
+@end example
+
+@noindent
 @end deffn
 
 @geindex gcc_jit_block_add_comment (C function)
@@ -5949,7 +6107,7 @@ block, boolval, on_true, and on_false must be non-NULL.
 @end deffn
 
 @geindex gcc_jit_block_end_with_jump (C function)
-@anchor{topics/functions gcc_jit_block_end_with_jump}@anchor{b8}
+@anchor{topics/functions gcc_jit_block_end_with_jump}@anchor{ba}
 @deffn {C Function} void           gcc_jit_block_end_with_jump (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc, gcc_jit_block@w{ }*target)
 
 Terminate a block by adding a jump to the given target block.
@@ -5964,7 +6122,7 @@ goto target;
 @end deffn
 
 @geindex gcc_jit_block_end_with_return (C function)
-@anchor{topics/functions gcc_jit_block_end_with_return}@anchor{b9}
+@anchor{topics/functions gcc_jit_block_end_with_return}@anchor{bb}
 @deffn {C Function} void           gcc_jit_block_end_with_return (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc, gcc_jit_rvalue@w{ }*rvalue)
 
 Terminate a block by adding evaluation of an rvalue, returning the value.
@@ -5979,7 +6137,7 @@ return expression;
 @end deffn
 
 @geindex gcc_jit_block_end_with_void_return (C function)
-@anchor{topics/functions gcc_jit_block_end_with_void_return}@anchor{ba}
+@anchor{topics/functions gcc_jit_block_end_with_void_return}@anchor{bc}
 @deffn {C Function} void           gcc_jit_block_end_with_void_return (gcc_jit_block@w{ }*block, gcc_jit_location@w{ }*loc)
 
 Terminate a block by adding a valueless return, for use within a function
@@ -6012,7 +6170,7 @@ return;
 @c <http://www.gnu.org/licenses/>.
 
 @node Source Locations,Compilation results,Creating and using functions,Topic Reference
-@anchor{topics/locations source-locations}@anchor{bb}@anchor{topics/locations doc}@anchor{bc}
+@anchor{topics/locations source-locations}@anchor{bd}@anchor{topics/locations doc}@anchor{be}
 @section Source Locations
 
 
@@ -6058,7 +6216,7 @@ location.
 @end menu
 
 @node Faking it,,,Source Locations
-@anchor{topics/locations faking-it}@anchor{bd}
+@anchor{topics/locations faking-it}@anchor{bf}
 @subsection Faking it
 
 
@@ -6096,7 +6254,7 @@ file, giving you @emph{something} you can step through in the debugger.
 @c <http://www.gnu.org/licenses/>.
 
 @node Compilation results,,Source Locations,Topic Reference
-@anchor{topics/results compilation-results}@anchor{be}@anchor{topics/results doc}@anchor{bf}
+@anchor{topics/results compilation-results}@anchor{c0}@anchor{topics/results doc}@anchor{c1}
 @section Compilation results
 
 
@@ -6125,7 +6283,7 @@ correct type before it can be called.
 @end deffn
 
 @geindex gcc_jit_result_release (C function)
-@anchor{topics/results gcc_jit_result_release}@anchor{c0}
+@anchor{topics/results gcc_jit_result_release}@anchor{c2}
 @deffn {C Function} void           gcc_jit_result_release (gcc_jit_result@w{ }*result)
 
 Once we're done with the code, this unloads the built .so file.
@@ -6151,40 +6309,95 @@ valid to use the result.
 @c <http://www.gnu.org/licenses/>.
 
 @node Internals,Indices and tables,Topic Reference,Top
-@anchor{internals/index internals}@anchor{c1}@anchor{internals/index doc}@anchor{c2}
+@anchor{internals/index internals}@anchor{c3}@anchor{internals/index doc}@anchor{c4}
 @chapter Internals
 
 
 @menu
-* Using a working copy without installing:: 
+* Using a working copy without installing every time:: 
 * Running the test suite:: 
 * Overview of code structure:: 
 
 @end menu
 
-@node Using a working copy without installing,Running the test suite,,Internals
-@anchor{internals/index using-a-working-copy-without-installing}@anchor{c3}
-@section Using a working copy without installing
+@node Using a working copy without installing every time,Running the test suite,,Internals
+@anchor{internals/index using-a-working-copy-without-installing-every-time}@anchor{c5}
+@section Using a working copy without installing every time
 
 
 When directly working on the library you can avoid needing to install to
-test changes.
+test every change.
+
+You need to do a @code{make install} of the @code{gcc} subdirectory to install
+the driver binary (the top-level @code{gcc} binary).  This is used internally
+by the library for converting from .s assembler files to .so shared
+libraries.  Specifically, it looks for an executable on the @code{$PATH} with
+a name expanded by the @code{configure} script from
+@code{$@{target_noncanonical@}-gcc-$@{gcc_BASEVER@}$@{exeext@}},
+such as @code{x86_64-unknown-linux-gnu-gcc-5.0.0}.
+
+For example, if you configured with a prefix of @code{$PREFIX} like this:
+
+@example
+mkdir build
+mkdir install
+PREFIX=$(pwd)/install
+cd build
+../src/configure \
+   --enable-host-shared \
+   --enable-languages=jit \
+   --disable-bootstrap \
+   --enable-checking=release \
+   --prefix=$PREFIX
+@end example
+
+@noindent
+
+then you can install (once) to ensure that @code{$PREFIX/bin/} is populated:
+
+@example
+[build]$ ll ../install/bin/*gcc*
+-rwxr-xr-x. 3 david david 2733458 Oct  6 14:25 ../install/bin/gcc
+-rwxr-xr-x. 2 david david  136921 Oct  6 14:25 ../install/bin/gcc-ar
+-rwxr-xr-x. 2 david david  136857 Oct  6 14:25 ../install/bin/gcc-nm
+-rwxr-xr-x. 2 david david  136869 Oct  6 14:25 ../install/bin/gcc-ranlib
+-rwxr-xr-x. 3 david david 2733458 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc
+-rwxr-xr-x. 3 david david 2733458 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-5.0.0
+-rwxr-xr-x. 2 david david  136921 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-ar
+-rwxr-xr-x. 2 david david  136857 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-nm
+-rwxr-xr-x. 2 david david  136869 Oct  6 14:25 ../install/bin/x86_64-unknown-linux-gnu-gcc-ranlib
+@end example
+
+@noindent
+
+Note the presence above of @code{../install/bin/x86_64-unknown-linux-gnu-gcc}.
 
 When building code using the API you need to ensure that @code{-I} points to
 the directory containing @code{libgccjit.h} and @code{-L} points to the
 directory containing the built library.
 
-You'll need to manually set @code{LD_LIBRARY_PATH} to the directory containing
-@code{libgccjit.so} when running binaries (or debugging them).
+When running binaries (or debugging them), you'll need to manually set
+@code{LD_LIBRARY_PATH} to the directory containing @code{libgccjit.so}, and
+@code{PATH} needs to contain the path to the installed binaries.
 
-@node Running the test suite,Overview of code structure,Using a working copy without installing,Internals
-@anchor{internals/index running-the-test-suite}@anchor{c4}
+and then you can run from a built (but not installed) copy:
+
+@example
+[gcc]$ PATH=../../install/bin:$PATH LD_LIBRARY_PATH=. ./testsuite/jit/test-factorial.exe
+@end example
+
+@noindent
+
+without needing to reinstall everything for every tweak to the library.
+
+@node Running the test suite,Overview of code structure,Using a working copy without installing every time,Internals
+@anchor{internals/index running-the-test-suite}@anchor{c6}
 @section Running the test suite
 
 
 @example
 [build] $ cd gcc
-[gcc] $ make check-parallel-jit RUNTESTFLAGS="-v -v -v"
+[gcc] $ make check-jit RUNTESTFLAGS="-v -v -v"
 @end example
 
 @noindent
@@ -6218,7 +6431,7 @@ which can be run independently.
 You can compile and run individual tests by passing "jit.exp=TESTNAME" to RUNTESTFLAGS e.g.:
 
 @example
-[gcc] $ make check-parallel-jit RUNTESTFLAGS="-v -v -v jit.exp=test-factorial.c"
+[gcc] $ make check-jit RUNTESTFLAGS="-v -v -v jit.exp=test-factorial.c"
 @end example
 
 @noindent
@@ -6226,17 +6439,91 @@ You can compile and run individual tests by passing "jit.exp=TESTNAME" to RUNTES
 and once a test has been compiled, you can debug it directly:
 
 @example
-[gcc] $ LD_LIBRARY_PATH=. gdb testsuite/jit/test-factorial.exe
+[gcc] $ PATH=../../install/bin:$PATH \
+        LD_LIBRARY_PATH=. \
+          gdb --args \
+            testsuite/jit/test-factorial.exe
 @end example
 
 @noindent
 
 @node Overview of code structure,,Running the test suite,Internals
-@anchor{internals/index overview-of-code-structure}@anchor{c5}
+@anchor{internals/index overview-of-code-structure}@anchor{c7}
 @section Overview of code structure
 
 
+
+@itemize *
+
+@item 
+@code{libgccjit.c} implements the API entrypoints.  It performs error
+checking, then calls into classes of the gcc::jit::recording namespace
+within @code{jit-recording.c} and @code{jit-recording.h}.
+
+@item 
+The gcc::jit::recording classes (within @code{jit-recording.c} and
+@code{jit-recording.h}) record the API calls that are made:
+
 @quotation
+
+@example
+
+  /* Indentation indicates inheritance: */
+  class context;
+  class builtins_manager; // declared within jit-builtins.h
+  class memento;
+    class string;
+    class location;
+    class type;
+      class function_type;
+      class compound_type;
+        class struct_;
+	class union_;
+    class field;
+    class fields;
+    class function;
+    class block;
+    class rvalue;
+      class lvalue;
+        class local;
+	class global;
+        class param;
+    class statement;
+
+
+@end example
+
+@noindent
+@end quotation
+
+@item 
+When the context is compiled, the gcc::jit::playback classes (within
+@code{jit-playback.c} and @code{jit-playback.h}) replay the API calls
+within langhook:parse_file:
+
+@quotation
+
+@example
+
+  /* Indentation indicates inheritance: */
+  class context;
+  class wrapper;
+    class type;
+      class compound_type;
+    class field;
+    class function;
+    class block;
+    class rvalue;
+      class lvalue;
+        class param;
+    class source_file;
+    class source_line;
+    class location;
+
+
+@end example
+
+@noindent
 
 @example
 Client Code   . Generated .            libgccjit.so
@@ -6246,8 +6533,13 @@ Client Code   . Generated .            libgccjit.so
    │          .           .          .               .
     ──────────────────────────>      .               .
               .           .    │     .               .
-
-              .       (record API calls)             .
+              .           .    V     .               .
+              .           .    ──> libgccjit.c       .
+              .           .        │ (error-checking).
+              .           .        │                 .
+              .           .        ──> jit-recording.c
+              .           .              (record API calls)
+              .           .    <───────              .
               .           .    │     .               .
    <───────────────────────────      .               .
    │          .           .          .               .
@@ -6268,8 +6560,8 @@ Client Code   . Generated .            libgccjit.so
               .           .          .    │          .
 ..........................................│..................VVVVVVVVVVVVV...
               .           .          .    │          .       No GC in here
-              .           .          .    │          .
-              .           .          .  (playback of API calls)
+              .           .          .    │ jit-playback.c
+              .           .          .    │   (playback of API calls)
               .           .          .    ───────────────> creation of functions,
               .           .          .               .     types, expression trees
               .           .          .    <──────────────── etc
@@ -6323,6 +6615,72 @@ etc
 
 @noindent
 @end quotation
+@end itemize
+
+Here is a high-level summary from @code{jit-common.h}:
+
+@quotation
+
+In order to allow jit objects to be usable outside of a compile
+whilst working with the existing structure of GCC's code the
+C API is implemented in terms of a gcc::jit::recording::context,
+which records the calls made to it.
+
+When a gcc_jit_context is compiled, the recording context creates a
+playback context.  The playback context invokes the bulk of the GCC
+code, and within the "frontend" parsing hook, plays back the recorded
+API calls, creating GCC tree objects.
+
+So there are two parallel families of classes: those relating to
+recording, and those relating to playback:
+
+
+@itemize *
+
+@item 
+Visibility: recording objects are exposed back to client code,
+whereas playback objects are internal to the library.
+
+@item 
+Lifetime: recording objects have a lifetime equal to that of the
+recording context that created them, whereas playback objects only
+exist within the frontend hook.
+
+@item 
+Memory allocation: recording objects are allocated by the recording
+context, and automatically freed by it when the context is released,
+whereas playback objects are allocated within the GC heap, and
+garbage-collected; they can own GC-references.
+
+@item 
+Integration with rest of GCC: recording objects are unrelated to the
+rest of GCC, whereas playback objects are wrappers around "tree"
+instances.  Hence you can't ask a recording rvalue or lvalue what its
+type is, whereas you can for a playback rvalue of lvalue (since it
+can work with the underlying GCC tree nodes).
+
+@item 
+Instancing: There can be multiple recording contexts "alive" at once
+(albeit it only one compiling at once), whereas there can only be one
+playback context alive at one time (since it interacts with the GC).
+@end itemize
+
+Ultimately if GCC could support multiple GC heaps and contexts, and
+finer-grained initialization, then this recording vs playback
+distinction could be eliminated.
+
+During a playback, we associate objects from the recording with
+their counterparts during this playback.  For simplicity, we store this
+within the recording objects, as @code{void *m_playback_obj}, casting it to
+the appropriate playback object subclass.  For these casts to make
+sense, the two class hierarchies need to have the same structure.
+
+Note that the playback objects that @code{m_playback_obj} points to are
+GC-allocated, but the recording objects don't own references:
+these associations only exist within a part of the code where
+the GC doesn't collect, and are set back to NULL before the GC can
+run.
+@end quotation
 
 This document describes libgccjit@footnote{http://gcc.gnu.org/wiki/JIT}, an API
 for embedding GCC inside programs and libraries.
@@ -6332,7 +6690,7 @@ the APIs are not yet set in stone, and they shouldn't be used in
 production yet.
 
 @node Indices and tables,Index,Internals,Top
-@anchor{index indices-and-tables}@anchor{c6}
+@anchor{index indices-and-tables}@anchor{c8}
 @unnumbered Indices and tables
 
 
