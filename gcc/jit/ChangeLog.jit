@@ -59,6 +59,30 @@
 	as created by the configure script, so that we are using one for
 	the correct target.
 
+2014-10-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* Make-lang.in (jit.info): Implement.
+	(jit.install-info): Implement.
+	(jit.dvi): Implement.
+	(jit.pdf): Implement in terms of new target "jit.texinfo.pdf".
+	(jit.install-pdf): Likewise for new target
+	"jit.texinfo.install-pdf".
+	(jit.install-html): Implement in terms of
+	"jit.$(doc_build_sys).install-html" to redirect to new targets
+	"jit.sphinx.install-html" or "jit.texinfo.install-html".
+	(jit.html): Implement in terms of "jit.$(doc_build_sys).html" to
+	redirect to new targets "jit.sphinx.html" or "jit.texinfo.html".
+	(JIT_TEXI_FILES): New variable.
+	(jit.texinfo.html): New target.
+	(jit.texinfo.install-html): New target.
+	(jit.texinfo.pdf): New target.
+	(jit.texinfo.install-pdf): New target.
+	(SPHINX_BUILD_DIR): New variable.
+	(jit.sphinx.html): New target.
+	(jit_htmldir): New variable.
+	(jit.sphinx.install-html): New target.
+	(jit.sphinx.pdf): New target.
+
 2014-09-26  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.h (gcc::jit::recording::context): Convert field
