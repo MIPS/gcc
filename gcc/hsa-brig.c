@@ -925,8 +925,7 @@ emit_memory_insn (hsa_insn_mem *mem)
   repr.modifier = 0 ;
   repr.equivClass = mem->equiv_class;
   repr.align = BRIG_ALIGNMENT_1;
-  if (mem->opcode == BRIG_OPCODE_LD
-      || mem->opcode == BRIG_OPCODE_ST)
+  if (mem->opcode == BRIG_OPCODE_LD)
     repr.width = BRIG_WIDTH_1;
   else
     repr.width = BRIG_WIDTH_NONE;
