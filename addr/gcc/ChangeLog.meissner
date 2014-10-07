@@ -1,3 +1,40 @@
+2014-10-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (RELOAD_REG_AND_M16): New address mask
+	for Altivec style loads.
+	(rs6000_debug_print_mode): Add support for RELOAD_REG_AND_M16.
+	(rs6000_setup_reg_addr_masks): Set RELOAD_REG_AND_M16 for Altivec
+	registers and memory operations.
+	(rs6000_init_hard_regno_mode_ok): Always set the reload functions
+	for DF/DD/SF/SD modes.  Don't test for 64/32-bit within a section
+	that has already been tested for 64/32-bit.
+	(rs6000_option_override_internal): Require -mvsx if
+	-mupper-regs-df, and -mpower8-vector if -mupper-regs-sf.
+	(rs6000_legitimize_reload_address): For SF/DF modes allowed in
+	Altivec registers, turn off using offset addressings in the middle
+	of reload.
+	(rs6000_secondary_reload_toc_costs): New helper function for
+	calculating how expensive a TOC load is.
+	(rs6000_secondary_reload_memory): New secondary reload helper
+	function to determine what kind of reloading we need to do for
+	loads/stores of types with reload helper functions.
+	(rs6000_secondary_reload): Rework code so that we have an explicit
+	done flags, instead of using many cascaded ifs.  Move reload of
+	vector/floating point memory operations to the function
+	rs6000_secondary_reload_memory.  Update debug tracing.
+	(rs6000_secondary_reload_inner): Rework code to use address masks
+	to determine what type of addressing is allowed.
+	(rs6000_preferred_reload_class): Rework code, move constant
+	processing higher.  If -mupper-regs-{df,sf}, always prefer
+	FLOAT_REGS.
+	(rs6000_secondary_reload_class): If -mupper-regs-{df,sf} and
+	reloading an Altivec register or a constant, ask to use a
+	FLOAT_REGS temporary.  Move FLOAT_REGS handling after VSX_REGS.
+
+	* config/rs6000/rs6000.md (UNSPEC_TOC_NOSPLIT): New support called
+	from rs6000_secondary_reload_inner to create a single INSN for a
+	TOC reference that is later split into HIGH/LO_SUM.
+
 2014-09-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 215685.
