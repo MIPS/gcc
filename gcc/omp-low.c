@@ -4425,10 +4425,10 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	  else
 	    {
 	  /* The atomic add at the end of the sum creates unnecessary
-	     write contention on accelerators.  To work around that,
-	     create an array or vector_length and assign an element to
-	     each thread.  Later, in lower_omp_for (for openacc), the
-	     values of array will be combined.  */
+	     write contention on accelerators.  To work around this,
+	     create an array to store the partial reductions. Later, in
+	     lower_omp_for (for openacc), the values of array will be
+	     combined.  */
 
 	  tree t = NULL_TREE, array, nthreads;
 	  tree type = get_base_type (var);
@@ -10017,11 +10017,20 @@ process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
   gimple stmt;
 
   /* A collapse clause may have inserted a new bind block.  */
-  stmt = gimple_seq_first (*body);
-  if (stmt && gimple_code (stmt) == GIMPLE_BIND)
+  gsi = gsi_start (*body);
+  while (!gsi_end_p (gsi))
     {
-      inner = gimple_bind_body (gimple_seq_first (*body));
-      body = &inner;
+      stmt = gsi_stmt (gsi);
+      if (gimple_code (stmt) == GIMPLE_BIND)
+	{
+	  inner = gimple_bind_body (stmt);
+	  body = &inner;
+	  gsi = gsi_start (*body);
+	}
+      else if (gimple_code (stmt) == GIMPLE_OMP_FOR)
+	break;
+      else
+	gsi_next (&gsi);
     }
 
   for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))

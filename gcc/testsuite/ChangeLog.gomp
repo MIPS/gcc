@@ -1,3 +1,7 @@
+2014-10-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gcc.dg/goacc/collapse.c: New test.
+
 2014-09-25  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/reduction-1.c: Remove erroneous "#pragma acc
