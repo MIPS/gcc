@@ -1,3 +1,8 @@
+2014-10-09  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c/collapse-4.c: New file, moved from
+	gcc/testsuite/gcc.dg/goacc/collapse.c.
+
 2014-09-23  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp.map (OACC_2.0): Add acc_on_device, acc_on_device_.

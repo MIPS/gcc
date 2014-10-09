@@ -1,3 +1,8 @@
+2014-10-09  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.dg/goacc/collapse.c: Move file to
+	libgomp/testsuite/libgomp.oacc-c/collapse-4.c.
+
 2014-10-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gcc.dg/goacc/collapse.c: New test.

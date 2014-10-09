@@ -1,3 +1,7 @@
+2014-10-09  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (process_reduction_data): Initialize variable inner.
+
 2014-10-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (lower_reduction_clauses): Clarify comment.

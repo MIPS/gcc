@@ -10013,7 +10013,7 @@ process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
   gcc_assert (is_gimple_omp_oacc_specifically (ctx->stmt));
 
   gimple_stmt_iterator gsi;
-  gimple_seq inner;
+  gimple_seq inner = NULL;
   gimple stmt;
 
   /* A collapse clause may have inserted a new bind block.  */

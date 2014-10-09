@@ -1,3 +1,4 @@
+/* TODO: change to a run test once libgomp supports all data clauses.  */
 /* { dg-do compile } */
 /* { dg-options "-O2 -std=c99" } */
 
