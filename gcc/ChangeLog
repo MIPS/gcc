@@ -30,6 +30,69 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+2014-10-08  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52941
+	* config/sh/sync.md (atomic_exchangesi_hard, atomic_exchange<mode>_hard,
+	atomic_fetch_<fetchop_name>si_hard,
+	atomic_fetch_<fetchop_name><mode>_hard, atomic_fetch_nandsi_hard,
+	atomic_fetch_nand<mode>_hard, atomic_<fetchop_name>_fetchsi_hard,
+	atomic_<fetchop_name>_fetch<mode>_hard, atomic_nand_fetchsi_hard,
+	atomic_nand_fetch<mode>_hard): Add missing set of T_REG.
+
+2014-10-08  Rong Xu  <xur@google.com>
+
+	* gcov-tool.c (profile_overlap): New driver function
+	to compute profile overlap. 
+	(print_overlap_usage_message): New.
+	(overlap_usage): New.
+	(do_overlap): New.
+	(print_usage): Add calls to overlap function.
+	(main): Ditto.
+	* doc/gcov-tool.texi: Add documentation.
+
+2014-10-08  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mti-linux.h (DRIVER_SELF_SPECS): Change
+	LINUX64_DRIVER_SELF_SPECS to LINUX_DRIVER_SELF_SPECS
+
+2014-10-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-polymorphic-call.c (extr_type_from_vtbl_store): Do better
+	pattern matching of MEM_REF.
+	(check_stmt_for_type_change): Update.
+
+2014-10-08  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/linux64.h: Remove.
+	* config/mips/gnu-user64.h: Remove.
+	* gcc.config (mips*-*-*): Remove references to linux64.h and
+	gnu-user64.h
+	* config/mips/gnu-user.h (GNU_USER_TARGET_LINK_SPEC): Replace
+	with modified version from gnu-user64.h.
+	(LINUX_DRIVER_SELF_SPECS): Update parts from gnu-user64.h.
+	(LOCAL_LABEL_PREFIX): Copy from gnu-user64.h.
+	* config/mips/linux.h (GNU_USER_LINK_EMULATION32): Copy from
+	linux64.h.
+	(GNU_USER_LINK_EMULATION64): Ditto.
+	(GNU_USER_LINK_EMULATIONN32): Ditto.
+	(GLIBC_DYNAMIC_LINKER32): Ditto.
+	(GLIBC_DYNAMIC_LINKER64): Ditto.
+	(GLIBC_DYNAMIC_LINKERN32): Ditto.
+	(UCLIBC_DYNAMIC_LINKER32): Ditto.
+	(UCLIBC_DYNAMIC_LINKER64): Ditto.
+	(UCLIBC_DYNAMIC_LINKERN32): Ditto.
+	(BIONIC_DYNAMIC_LINKERN32): Ditto.
+	(GNU_USER_DYNAMIC_LINKERN32): Ditto.
+	(GLIBC_DYNAMIC_LINKER): Delete.
+	(UCLIBC_DYNAMIC_LINKER): Delete.
+
+2014-10-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	* cfgexpand.c (expand_debug_expr) <TARGET_MEM_REF>:
+	Get address space from operand 0 (BASE).
+
 2014-10-07  Iain Sandoe  <iain@codesourcery.com>
 
 	PR target/61387
