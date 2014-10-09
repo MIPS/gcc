@@ -29,7 +29,7 @@ Boston, MA 02110-1301, USA.  */
 #define DRIVER_SELF_SPECS	\
   BASE_DRIVER_SELF_SPECS,		\
   OCTEON_COMMON_DRIVER_SELF_SPECS, \
-  LINUX64_DRIVER_SELF_SPECS
+  LINUX_DRIVER_SELF_SPECS
 
 /* A standard GNU/Linux mapping.  On most targets, it is included in
    CC1_SPEC itself by config/linux.h, but mips.h overrides CC1_SPEC
