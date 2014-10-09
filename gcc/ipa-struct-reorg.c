@@ -38,6 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "data-streamer.h"
 #include "tree-streamer.h"
+#include "sbitmap.h"
+#include "gimplify.h"
+#include "attribs.h"
+#include "stor-layout.h"
+#include "stringpool.h"
 
 /* Structure types that appear in symtab_node: 
 
@@ -51,25 +56,117 @@ along with GCC; see the file COPYING3.  If not see
 
 struct struct_symbols_d {
   tree struct_decl;
+
+  bool analized;
   vec<symtab_node *> symbols; 
+
+  /* Number of fields in the structure.  */
+  int num_fields;
+
+  /* An array of the structure fields, indexed by field ID.  */
+  struct field_entry *fields;
+
+  /* A data structure representing a reorganization decision.  */
+  struct field_cluster *struct_clustering;
+
+  /* New types to replace the original structure type.  */
+  vec<tree> new_types;
 };
 
 typedef struct struct_symbols_d * struct_symbols;
 
-/* Symbols with structure types that are candidate for ftansformation.
+/* Symbols with structure types that are candidate for transformation.
    Based on their visibility, determined 
    during WPA, we decide if structure type can be trunsformed or not.  */
 
 static vec<struct_symbols> struct_symbols_vec;
+
+/* Given a type TYPE, this function returns the name of the type.  */
+
+static const char *
+get_type_name (tree type)
+{
+  if (! TYPE_NAME (type))
+    return NULL;
+
+  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+    return IDENTIFIER_POINTER (TYPE_NAME (type));
+  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+	   && DECL_NAME (TYPE_NAME (type)))
+    return IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+  else
+    return NULL;
+}
+
+/* This function prints the SHIFT number of spaces to the DUMP_FILE.  */
+
+static inline void
+print_shift (unsigned HOST_WIDE_INT shift)
+{
+  unsigned HOST_WIDE_INT sh = shift;
+
+  while (sh--)
+    fprintf (dump_file, " ");
+}
+
+/* Print structure TYPE, its name, if it exists, and body.
+   INDENT defines the level of indentation (similar
+   to the option -i of indent command). SHIFT parameter
+   defines a number of spaces by which a structure will
+   be shifted right.  */
+
+static void
+dump_struct_type (tree type, unsigned HOST_WIDE_INT indent,
+		   unsigned HOST_WIDE_INT shift)
+{
+  const char *struct_name;
+  tree field;
+
+  if (!type || !dump_file)
+    return;
+
+  if (TREE_CODE (type) != RECORD_TYPE)
+    {
+      print_generic_expr (dump_file, type, 0);
+      return;
+    }
+
+  print_shift (shift);
+  struct_name = get_type_name (type);
+  fprintf (dump_file, "struct ");
+  if (struct_name)
+    fprintf (dump_file, "%s\n",struct_name);
+  print_shift (shift);
+  fprintf (dump_file, "{\n");
+
+  for (field = TYPE_FIELDS (type); field;
+       field = TREE_CHAIN (field))
+    {
+      unsigned HOST_WIDE_INT s = indent;
+      tree f_type = TREE_TYPE (field);
+
+      print_shift (shift);
+      while (s--)
+	fprintf (dump_file, " ");
+      dump_struct_type (f_type, indent, shift + indent);
+      fprintf(dump_file, " ");
+      print_generic_expr (dump_file, field, 0);
+      fprintf(dump_file, ";\n");
+    }
+  print_shift (shift);
+  fprintf (dump_file, "}\n");
+}
 
 /* Function to print out struct_symbols_vec.  */
 
 static void
 print_struct_symbol_vec ()
 {
-  unsigned int i, j;
+  unsigned int i, j, k;
   symtab_node *sbl;
-  struct_symbols symbols;
+  struct_symbols symbols, str;
+  tree new_type;
+
   if (!dump_file) 
     return;
 
@@ -78,25 +175,36 @@ print_struct_symbol_vec ()
 
   FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
     {
-      if (!symbols->symbols.exists ())
+      str = struct_symbols_vec[i];
+      fprintf (dump_file, "\nThe structure type is\n");
+      dump_struct_type (str->struct_decl, 2, 0);
+      fprintf (dump_file, "\n ");
+      
+      if (symbols->symbols.exists ())
+	fprintf (dump_file, "\nSymbols are:\n");
+
+      FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
 	{
-	  fprintf (dump_file, "\nThere is no symbols for type");
-	  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
+	  fprintf (dump_file, "%s  ", sbl->name ());
+	  fprintf (dump_file, "with resolution %s  ",
+		   ld_plugin_symbol_resolution_names[(int)sbl->resolution]);
+	  fprintf (dump_file, "\n");
 	}
-      else
+
+      fprintf (dump_file, "\nNumber of fields: %d\n", str->num_fields);  
+      for (int i = 0; i < str->num_fields; i++)
 	{
-	  fprintf (dump_file, "\nSymbols for type ");
-	  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
-	  fprintf (dump_file, " are:\n ");
-
-	  FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
-	    {
-	      fprintf (dump_file, "%s  ", sbl->name ());
-	      fprintf (dump_file, "with resolution %s  ",
-		       ld_plugin_symbol_resolution_names[(int)sbl->resolution]);
-	      fprintf (dump_file, "\n");
-
-	    }
+	  print_generic_expr (dump_file, 
+			      str->fields[i].decl, 0);
+	  fprintf (dump_file, "\n");
+	}
+      if (symbols->new_types.exists ())
+	  fprintf (dump_file, "\nNew types generated by this optimization are:\n");
+	
+      FOR_EACH_VEC_ELT (symbols->new_types, k, new_type)
+	{
+	  dump_struct_type (new_type, 2, 0);
+	  fprintf (dump_file, "\n");
 	}
     }
 }
@@ -129,8 +237,9 @@ is_in_struct_symbols_vec (tree type)
    struct_symbols_vec, if it's not already there.  */
 
 static void
-add_symbol_to_struct_symbols_vec (unsigned int i, symtab_node *symbol)
+add_symbol_to_struct_symbols_vec (int i, symtab_node *symbol)
 {
+  gcc_assert ((i != -1));
   struct_symbols symbols = struct_symbols_vec[i];
   if (symbols->symbols.exists ())
     {
@@ -205,10 +314,23 @@ type_is_candidate (tree type, tree *type_p)
 static unsigned int 
 add_struct_to_struct_symbols_vec (tree type)
 {
-  gcc_assert (is_in_struct_symbols_vec (type) == -1);
-  struct_symbols symbs = XNEW (struct struct_symbols_d);
+  int i;
+  struct_symbols symbs;
+
+  type = TYPE_MAIN_VARIANT (type);
+  i = is_in_struct_symbols_vec (type);
+
+  if (i != -1)
+    return i;
+
+  symbs = XNEW (struct struct_symbols_d);
   symbs->struct_decl = type;
   symbs->symbols.create (0);
+  symbs->new_types.create (0);
+  symbs->num_fields = 0;
+  symbs->struct_clustering = 0;
+  symbs->fields = 0;
+  symbs->analized = false;
   if (!struct_symbols_vec.exists ())
     struct_symbols_vec.create (0);
   struct_symbols_vec.safe_push (symbs);
@@ -221,27 +343,6 @@ remove_type_from_struct_symbols_vec (struct_symbols symbols)
   if (symbols->symbols.exists ())
     symbols->symbols.release ();
   free (symbols);
-}
-
-/* Vector of structures to be transformed.  */
-typedef struct data_structure structure;
-vec<structure, va_heap, vl_ptr> *structures;
-
-/* Given a type TYPE, this function returns the name of the type.  */
-
-static const char *
-get_type_name (tree type)
-{
-  if (! TYPE_NAME (type))
-    return NULL;
-
-  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-    return IDENTIFIER_POINTER (TYPE_NAME (type));
-  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-	   && DECL_NAME (TYPE_NAME (type)))
-    return IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
-  else
-    return NULL;
 }
 
 /* This function returns true if two fields FIELD1 and FIELD2 are 
@@ -381,26 +482,6 @@ is_equal_types (tree type1, tree type2)
   return false;
 }
 
-/* This function looks for d_str, represented by TYPE, in the structures
-   vector. If found, it returns an index of found structure. Otherwise
-   it returns a length of the structures vector.  */
-
-static unsigned
-find_structure (tree type)
-{
-  d_str str;
-  unsigned i;
-
-  type = TYPE_MAIN_VARIANT (type);
-
-  FOR_EACH_VEC_ELT ((*structures), i, str)
-    if (is_equal_types (str->decl, type))
-      return i;
-
-  return structures->length ();
-}
-
-
 /* Given a structure declaration STRUCT_DECL, and number of fields
    in the structure NUM_FIELDS, this function creates and returns
    corresponding field_entry's.  */
@@ -425,50 +506,17 @@ get_fields (tree struct_decl, int num_fields)
       }
 
   return list;
-}
+} 
 
 
 /* This function adds a structure TYPE to the vector of structures,
    if it's not already there.  */
 
 static void
-add_structure (tree type)
+analyze_structure (struct_symbols str)
 {
-  structure node;
-  unsigned i;
-  int num_fields;
-
-  type = TYPE_MAIN_VARIANT (type);
-
-  i = find_structure (type);
-
-  if (i != structures->length ()) {
-    if (dump_file)
-      {
-	fprintf (dump_file, "\nType \"");
-	print_generic_expr (dump_file, type, 0);
-	fprintf (dump_file, "\" already in structures.");
-      }
-    return;
-  }
-
-  num_fields = fields_length (type);
-  node.decl = type;
-  node.num_fields = num_fields;
-  node.fields = get_fields (type, num_fields);
-  node.struct_clustering = NULL;
-  node.accs = 0; //htab_create (32, acc_hash, acc_eq, NULL);
-  node.new_types = 0; // node.new_types.create (num_fields);
-  node.count = 0;
-
-  structures->safe_push (node);
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nAdding data structure \"");
-      print_generic_expr (dump_file, type, 0);
-      fprintf (dump_file, "\" to data_struct_list.");
-    }
+  str->num_fields = fields_length (str->struct_decl);
+  str->fields = get_fields (str->struct_decl, str->num_fields);
 }
 
 /* This function returns type of VAR.  */
@@ -507,7 +555,7 @@ var_is_candidate (tree var, tree *type_p)
 /* Add a symbol SYMBOL to the vector of symbols corresponding 
    to the type TYPE in struct_symbols_vec.  */
 
-static void 
+/* static void
 add_symbol (tree type, symtab_node *symbol)
 {
 
@@ -519,7 +567,7 @@ add_symbol (tree type, symtab_node *symbol)
     i = add_struct_to_struct_symbols_vec (type);
     add_symbol_to_struct_symbols_vec (i, symbol);
   }
-}
+  } */
 
 /* This function looks for structure types instantiated in the program.
    The candidate types are added to the structures vector.  */
@@ -551,8 +599,9 @@ build_data_structure (void)
 	  fprintf (dump_file,  " is candidate. Adding to list of candidates...\n");
 
 	}
-	add_structure (type);
-	add_symbol (type, current_var);
+	add_symbol_to_struct_symbols_vec (
+					  add_struct_to_struct_symbols_vec (type), 
+					  current_var);
       } else {
 	if (dump_file) {
 	  fprintf (dump_file, " Type ");
@@ -597,8 +646,10 @@ build_data_structure (void)
 	      print_generic_expr (dump_file, type, 0);
 	      fprintf (dump_file,  " is candidate. Adding to list of candidates...\n");	      
 	    }
-	    add_structure (type);
-	    add_symbol (type, c_node);
+	    add_symbol_to_struct_symbols_vec (
+					  add_struct_to_struct_symbols_vec (type), 
+					  c_node);
+
 	  } else {
 	    if (dump_file) {
 	      fprintf (dump_file, " Type ");
@@ -625,7 +676,7 @@ build_data_structure (void)
 		  print_generic_expr (dump_file, type, 0);
 		  fprintf (dump_file,  " is candidate. Adding to list of candidates...\n");
 		}
-		add_structure (type);
+		add_struct_to_struct_symbols_vec (type);
 	      } else {
 		if (dump_file) {
 		  fprintf (dump_file, " Type ");
@@ -686,8 +737,11 @@ build_data_structure (void)
 		      print_generic_expr (dump_file, type, 0);
 		      fprintf (dump_file,  " is candidate. Adding to list of candidates...\n");
 		    }
-		  add_structure (type);
-		  add_symbol (type, cs->callee);
+		  add_symbol_to_struct_symbols_vec (
+					  add_struct_to_struct_symbols_vec (type), 
+					  cs->callee);
+		  // add_structure (type);
+		  // add_symbol (type, cs->callee);
 		} else {
 		  if (dump_file)
 		    {
@@ -709,12 +763,255 @@ build_data_structure (void)
 
 static void
 collect_structures (void)
-{
-  vec_alloc (structures, 32);
-  
+{  
   /* Build data structures hashtable of all data structures
      in the program.  */
   build_data_structure ();
+}
+/* This function generates cluster substructure that contains FIELDS.
+   The cluster added to the set of clusters of the structure STR.  */
+
+static void
+gen_cluster (sbitmap fields, struct_symbols str)
+{
+  struct field_cluster *crr_cluster = XCNEW (struct field_cluster);
+
+  crr_cluster->sibling = str->struct_clustering;
+  str->struct_clustering = crr_cluster;
+  crr_cluster->fields_in_cluster = fields;
+}
+
+/* This function peels a field with the index I from the structure DS.  */
+
+static void
+peel_field (int i, struct_symbols ds)
+{
+  struct field_cluster *crr_cluster = XCNEW (struct field_cluster);
+
+  crr_cluster->sibling = ds->struct_clustering;
+  ds->struct_clustering = crr_cluster;
+  crr_cluster->fields_in_cluster =
+    sbitmap_alloc ((unsigned int) ds->num_fields);
+  bitmap_clear (crr_cluster->fields_in_cluster);
+  bitmap_set_bit (crr_cluster->fields_in_cluster, i);
+}
+
+/* For now we unconditionally peel structure into separate fields. 
+   In future we intend to add profile info and/or static heuristics 
+   to differentiate peeling process. */
+
+static void
+peel_fields (struct_symbols str)
+{
+  sbitmap fields_left = sbitmap_alloc (str->num_fields);
+  int i;
+
+  bitmap_ones (fields_left);
+
+  str->struct_clustering = NULL;
+
+  for (i = 0; i < str->num_fields; i++)
+    {
+      bitmap_clear_bit (fields_left, i);
+      peel_field (i, str);
+    }
+
+  i = bitmap_first_set_bit (fields_left);
+  if (i != -1)
+    gen_cluster (fields_left, str);
+  else
+    sbitmap_free (fields_left);
+}
+
+/* This function decomposes original structure into substructures,
+   i.e.clusters.  */
+
+static void
+peel_structs (void)
+{
+  unsigned int i;
+  struct_symbols str;
+
+  if (!struct_symbols_vec.exists ()) 
+    return;
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+    peel_fields (struct_symbols_vec[i]);
+}
+
+/* This function updates field_mapping of FIELDS in CLUSTER with NEW_TYPE.  */
+
+static inline void
+update_fields_mapping (struct field_cluster *cluster, tree new_type,
+		       struct field_entry * fields, int num_fields)
+{
+  int i;
+
+  for (i = 0; i < num_fields; i++)
+    if (bitmap_bit_p (cluster->fields_in_cluster, i))
+	fields[i].field_mapping = new_type;
+}
+
+/* This functions builds structure with FIELDS,
+   NAME and attributes similar to ORIG_STRUCT.
+   It returns the newly created structure.  */
+
+static tree
+build_basic_struct (tree fields, tree name, tree orig_struct)
+{
+  tree attributes = NULL_TREE;
+  tree ref = 0;
+  tree x;
+
+  if (TYPE_ATTRIBUTES (orig_struct))
+    attributes = unshare_expr (TYPE_ATTRIBUTES (orig_struct));
+  ref = make_node (RECORD_TYPE);
+  TYPE_SIZE (ref) = 0;
+  decl_attributes (&ref, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+  TYPE_PACKED (ref) = TYPE_PACKED (orig_struct);
+  for (x = fields; x; x = TREE_CHAIN (x))
+    {
+      DECL_CONTEXT (x) = ref;
+      DECL_PACKED (x) |= TYPE_PACKED (ref);
+    }
+  TYPE_FIELDS (ref) = fields;
+  layout_type (ref);
+  TYPE_NAME (ref) = name;
+
+  return ref;
+}
+
+/* This function copies FIELDS from CLUSTER into TREE_CHAIN as part
+   of preparation for new structure building. NUM_FIELDS is a total
+   number of fields in the structure. The function returns newly
+   generated fields.  */
+
+static tree
+create_fields (struct field_cluster * cluster,
+	       struct field_entry * fields, int num_fields)
+{
+  int i;
+  tree new_types = NULL_TREE;
+  tree last = NULL_TREE;
+
+  for (i = 0; i < num_fields; i++)
+    if (bitmap_bit_p (cluster->fields_in_cluster, i))
+      {
+	tree new_decl = NULL_TREE;
+		
+	new_decl = copy_node (fields[i].decl);
+	
+	if (!new_types)
+	  new_types = new_decl;
+	else
+	  TREE_CHAIN (last) = new_decl;
+	last = new_decl;
+      }
+
+  TREE_CHAIN (last) = NULL_TREE;
+
+  return new_types;
+
+}
+
+/* This function creates a cluster name. The name is based on
+   the original structure name, if it is present. It has a form:
+
+   <original_struct_name>_sub.<CLUST_NUM>
+
+   The original structure name is taken from the type of DECL.
+   If an original structure name is not present, it's generated to be:
+
+   struct.<STR_NUM>
+
+   The function returns identifier of the new cluster name.  */
+
+static inline tree
+gen_cluster_name (tree decl, int clust_num, int str_num)
+{
+  const char * orig_name = get_type_name (decl);
+  char * tmp_name = NULL;
+  char * prefix;
+  char * new_name;
+  size_t len;
+
+  if (!orig_name)
+    ASM_FORMAT_PRIVATE_NAME(tmp_name, "struct", str_num);
+
+  len = strlen (tmp_name ? tmp_name : orig_name) + strlen ("_sub");
+  prefix = XALLOCAVEC (char, len + 1);
+  memcpy (prefix, tmp_name ? tmp_name : orig_name,
+	  strlen (tmp_name ? tmp_name : orig_name));
+  strcpy (prefix + strlen (tmp_name ? tmp_name : orig_name), "_sub");
+
+  ASM_FORMAT_PRIVATE_NAME (new_name, prefix, clust_num);
+  return get_identifier (new_name);
+}
+
+/* This function creates new structure types to replace original type,
+   indicated by STR->decl. The names of the new structure types are
+   derived from the original structure type. If the original structure
+   type has no name, we assume that its name is 'struct.<STR_NUM>'.  */
+
+static void
+create_new_type (struct_symbols str, int *str_num)
+{
+  int cluster_num = 0;
+
+  struct field_cluster *cluster = str->struct_clustering;
+  while (cluster)
+    {
+      tree  name;
+      tree fields;
+      tree new_type;
+      cluster_num++;
+      
+      name = gen_cluster_name (str->struct_decl, cluster_num,
+				     *str_num);      
+      fields = create_fields (cluster, str->fields,
+			      str->num_fields);
+      new_type = build_basic_struct (fields, name, str->struct_decl);
+      update_fields_mapping (cluster, new_type,
+			     str->fields, str->num_fields);
+      (str->new_types).safe_push (new_type);
+      cluster = cluster->sibling;
+    }
+  (*str_num)++;
+}
+
+/* This function creates new types to replace old structure types.  */
+
+static void
+create_new_types (void)
+{
+  struct_symbols str;
+  unsigned int i;
+  int str_num = 0;
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+    create_new_type (str, &str_num);
+}
+
+static void
+analyze_structs (void)
+{
+  unsigned int i;
+  struct_symbols str;
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+    analyze_structure (struct_symbols_vec[i]);
+}
+
+
+static void
+generate_new_types (void)
+{
+  if (!struct_symbols_vec. exists ()) 
+    return;
+
+  analyze_structs ();
+  peel_structs ();
+  create_new_types ();
 }
 
 static unsigned int
@@ -747,10 +1044,6 @@ propagate (void)
 	  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
 	}
       
-      /* Only local types might not have symbols, but they are not included 
-	 in struct_symbols_vec.  */
-      gcc_assert (symbols->symbols.exists ());
-
       escape = false;
       FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
 	{
@@ -790,7 +1083,8 @@ propagate (void)
   if (dump_file)
     fprintf (dump_file, "\nnumber of types is %d", struct_symbols_vec.length ());
 
-  print_struct_symbol_vec ();  
+  generate_new_types ();
+  print_struct_symbol_vec ();
 
   return 0;
 }
@@ -961,6 +1255,15 @@ struct_reorg_write_summary (void)
   
 } 
 
+/* */
+
+void
+struct_reorg_var_transform (varpool_node *vnode)
+{
+  if (dump_file)
+    fprintf (dump_file, "\nStruct_reorg is transforming %s variable.", vnode->name ());      
+}
+
 /* Analyze each function in the cgraph. */
 
 static void
@@ -1009,7 +1312,7 @@ public:
 		      NULL, /* stmt_fixup */
 		      0, /* function_transform_todo_flags_start */
 		      NULL, /* function_transform */
-		      NULL) /* variable_transform */
+		      struct_reorg_var_transform) /* variable_transform */
   {}
 
   /* opt_pass methods: */
