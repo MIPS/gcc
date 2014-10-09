@@ -1,7 +1,7 @@
 /* Test SECCAT_DATA_REL. */
 
 /* { dg-do compile { target *-octeon-* } } */
-/* { dg-options "-fPIC" { target *linux* } } */
+/* { dg-options "-fPIC" { target *-*-linux* } } */
 /* { dg-final { scan-assembler ".globl\tp\n\t.section\t.cvmx_shared," } } */
 /* { dg-final { scan-assembler-not "\t.section\t.data.rel" } } */
 
