@@ -4456,9 +4456,11 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
        local scope.  */
     return true;
 
-  if (TREE_CODE (decl) == TYPE_DECL
-      && TREE_TYPE (decl)
-      && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+  if ((TREE_CODE (decl) == TYPE_DECL
+       && TREE_TYPE (decl)
+       && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+      || (TREE_CODE (decl) == FUNCTION_DECL
+	  && LAMBDA_FUNCTION_P (decl)))
     /* A lambda doesn't have an explicit declaration; don't complain
        about the parms of the enclosing class.  */
     return true;
@@ -7823,9 +7825,18 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 
       if (OVERLOAD_TYPE_P (t)
 	  && !DECL_ALIAS_TEMPLATE_P (gen_tmpl))
-	if (tree attributes
-	    = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (template_type)))
-	  TYPE_ATTRIBUTES (t) = attributes;
+	{
+	  if (tree attributes
+	      = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (template_type)))
+	    {
+	      if (!TREE_CHAIN (attributes))
+		TYPE_ATTRIBUTES (t) = attributes;
+	      else
+		TYPE_ATTRIBUTES (t)
+		  = build_tree_list (TREE_PURPOSE (attributes),
+				     TREE_VALUE (attributes));
+	    }
+	}
 
       /* Let's consider the explicit specialization of a member
          of a class template specialization that is implicitly instantiated,
@@ -7949,6 +7960,8 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       /* Possibly limit visibility based on template args.  */
       TREE_PUBLIC (type_decl) = 1;
       determine_visibility (type_decl);
+
+      inherit_targ_abi_tags (t);
 
       return t;
     }
@@ -8334,37 +8347,37 @@ static GTY(()) struct tinst_level *last_error_tinst_level;
 /* We're starting to instantiate D; record the template instantiation context
    for diagnostics and to restore it later.  */
 
-int
+bool
 push_tinst_level (tree d)
+{
+  return push_tinst_level_loc (d, input_location);
+}
+
+/* We're starting to instantiate D; record the template instantiation context
+   at LOC for diagnostics and to restore it later.  */
+
+bool
+push_tinst_level_loc (tree d, location_t loc)
 {
   struct tinst_level *new_level;
 
   if (tinst_depth >= max_tinst_depth)
     {
-      last_error_tinst_level = current_tinst_level;
-      if (TREE_CODE (d) == TREE_LIST)
-	error ("template instantiation depth exceeds maximum of %d (use "
-	       "-ftemplate-depth= to increase the maximum) substituting %qS",
-	       max_tinst_depth, d);
-      else
-	error ("template instantiation depth exceeds maximum of %d (use "
-	       "-ftemplate-depth= to increase the maximum) instantiating %qD",
-	       max_tinst_depth, d);
-
-      print_instantiation_context ();
-
-      return 0;
+      fatal_error ("template instantiation depth exceeds maximum of %d"
+                   " (use -ftemplate-depth= to increase the maximum)",
+                   max_tinst_depth);
+      return false;
     }
 
   /* If the current instantiation caused problems, don't let it instantiate
      anything else.  Do allow deduction substitution and decls usable in
      constant expressions.  */
   if (limit_bad_template_recursion (d))
-    return 0;
+    return false;
 
   new_level = ggc_alloc<tinst_level> ();
   new_level->decl = d;
-  new_level->locus = input_location;
+  new_level->locus = loc;
   new_level->errors = errorcount+sorrycount;
   new_level->in_system_header_p = in_system_header_at (input_location);
   new_level->next = current_tinst_level;
@@ -8374,7 +8387,7 @@ push_tinst_level (tree d)
   if (GATHER_STATISTICS && (tinst_depth > depth_reached))
     depth_reached = tinst_depth;
 
-  return 1;
+  return true;
 }
 
 /* We're done instantiating this template; return to the instantiation
@@ -14078,13 +14091,27 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case OMP_TEAMS:
-    case OMP_TARGET_DATA:
-    case OMP_TARGET:
       tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
 				args, complain, in_decl);
       stmt = push_stmt_list ();
       RECUR (OMP_BODY (t));
       stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      OMP_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
+    case OMP_TARGET_DATA:
+    case OMP_TARGET:
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
+				args, complain, in_decl);
+      keep_next_level (true);
+      stmt = begin_omp_structured_block ();
+
+      RECUR (OMP_BODY (t));
+      stmt = finish_omp_structured_block (stmt);
 
       t = copy_node (t);
       OMP_BODY (t) = stmt;
@@ -14742,11 +14769,13 @@ tsubst_copy_and_build (tree t,
       op1 = TREE_OPERAND (t, 0);
       ++cp_unevaluated_operand;
       ++c_inhibit_evaluation_warnings;
+      ++cp_noexcept_operand;
       op1 = tsubst_copy_and_build (op1, args, complain, in_decl,
 				   /*function_p=*/false,
 				   /*integral_constant_expression_p=*/false);
       --cp_unevaluated_operand;
       --c_inhibit_evaluation_warnings;
+      --cp_noexcept_operand;
       RETURN (finish_noexcept_expr (op1, complain));
 
     case MODOP_EXPR:
@@ -15460,7 +15489,9 @@ tsubst_copy_and_build (tree t,
 			     complain, in_decl);
 
 	tree type2 = TRAIT_EXPR_TYPE2 (t);
-	if (type2)
+	if (type2 && TREE_CODE (type2) == TREE_LIST)
+	  type2 = RECUR (type2);
+	else if (type2)
 	  type2 = tsubst (type2, args, complain, in_decl);
 	
 	RETURN (finish_trait_expr (TRAIT_EXPR_KIND (t), type1, type2));
@@ -20264,10 +20295,10 @@ instantiate_pending_templates (int retries)
     {
       tree decl = pending_templates->tinst->decl;
 
-      error ("template instantiation depth exceeds maximum of %d"
-	     " instantiating %q+D, possibly from virtual table generation"
-	     " (use -ftemplate-depth= to increase the maximum)",
-	     max_tinst_depth, decl);
+      fatal_error ("template instantiation depth exceeds maximum of %d"
+                   " instantiating %q+D, possibly from virtual table generation"
+                   " (use -ftemplate-depth= to increase the maximum)",
+                   max_tinst_depth, decl);
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	/* Pretend that we defined it.  */
 	DECL_INITIAL (decl) = error_mark_node;
@@ -20600,7 +20631,7 @@ get_mostly_instantiated_function_type (tree decl)
 
 /* Return truthvalue if we're processing a template different from
    the last one involved in diagnostics.  */
-int
+bool
 problematic_instantiation_changed (void)
 {
   return current_tinst_level != last_error_tinst_level;

@@ -820,14 +820,6 @@ extern unsigned char rs6000_recip_bits[];
    words.  */
 #define LONG_DOUBLE_TYPE_SIZE rs6000_long_double_type_size
 
-/* Define this to set long double type size to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#ifdef __LONG_DOUBLE_128__
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
-#else
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
-#endif
-
 /* Work around rs6000_long_double_type_size dependency in ada/targtyps.c.  */
 #define WIDEST_HARDWARE_FP_SIZE 64
 
@@ -1186,9 +1178,11 @@ enum data_align { align_abi, align_opt, align_both };
    && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
    && FP_REGNO_P (REGNO)						\
    ? V2DFmode								\
-   : ((MODE) == TFmode && FP_REGNO_P (REGNO))				\
+   : TARGET_E500_DOUBLE && ((MODE) == VOIDmode || (MODE) == DFmode)	\
    ? DFmode								\
-   : ((MODE) == TDmode && FP_REGNO_P (REGNO))				\
+   : !TARGET_E500_DOUBLE && (MODE) == TFmode && FP_REGNO_P (REGNO)	\
+   ? DFmode								\
+   : !TARGET_E500_DOUBLE && (MODE) == TDmode && FP_REGNO_P (REGNO)	\
    ? DImode								\
    : choose_hard_reg_mode ((REGNO), (NREGS), false))
 

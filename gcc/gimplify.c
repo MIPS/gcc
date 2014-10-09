@@ -2317,14 +2317,14 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	}
       case BUILT_IN_LINE:
 	{
-	  expanded_location loc = expand_location (EXPR_LOCATION (*expr_p));
-	  *expr_p = build_int_cst (TREE_TYPE (*expr_p), loc.line);
+	  *expr_p = build_int_cst (TREE_TYPE (*expr_p),
+				   LOCATION_LINE (EXPR_LOCATION (*expr_p)));
 	  return GS_OK;
 	}
       case BUILT_IN_FILE:
 	{
-	  expanded_location loc = expand_location (EXPR_LOCATION (*expr_p));
-	  *expr_p = build_string_literal (strlen (loc.file) + 1, loc.file);
+	  const char *locfile = LOCATION_FILE (EXPR_LOCATION (*expr_p));
+	  *expr_p = build_string_literal (strlen (locfile) + 1, locfile);
 	  return GS_OK;
 	}
       case BUILT_IN_FUNCTION:
@@ -4020,12 +4020,6 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		TREE_OPERAND (*expr_p, 1) = build_vector_from_ctor (type, elts);
 		break;
 	      }
-
-	    /* Don't reduce an initializer constant even if we can't
-	       make a VECTOR_CST.  It won't do anything for us, and it'll
-	       prevent us from representing it as a single constant.  */
-	    if (initializer_constant_valid_p (ctor, type))
-	      break;
 
 	    TREE_CONSTANT (ctor) = 0;
 	  }

@@ -3860,6 +3860,9 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 	    is as follows:
 	    if LOOP=i_loop:	&in		(relative to i_loop)
 	    if LOOP=j_loop: 	&in+i*2B	(relative to j_loop)
+   BYTE_OFFSET: Optional, defaulted to NULL.  If supplied, it is added to the
+	    initial address.  Unlike OFFSET, which is number of elements to
+	    be added, BYTE_OFFSET is measured in bytes.
 
    Output:
    1. Return an SSA_NAME whose value is the address of the memory location of
@@ -3873,7 +3876,8 @@ tree
 vect_create_addr_base_for_vector_ref (gimple stmt,
 				      gimple_seq *new_stmt_list,
 				      tree offset,
-				      struct loop *loop)
+				      struct loop *loop,
+				      tree byte_offset)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -3925,6 +3929,12 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 			    fold_convert (sizetype, offset), step);
       base_offset = fold_build2 (PLUS_EXPR, sizetype,
 				 base_offset, offset);
+    }
+  if (byte_offset)
+    {
+      byte_offset = fold_convert (sizetype, byte_offset);
+      base_offset = fold_build2 (PLUS_EXPR, sizetype,
+				 base_offset, byte_offset);
     }
 
   /* base + base_offset */
@@ -3983,6 +3993,10 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
    5. BSI: location where the new stmts are to be placed if there is no loop
    6. ONLY_INIT: indicate if ap is to be updated in the loop, or remain
         pointing to the initial address.
+   7. BYTE_OFFSET (optional, defaults to NULL): a byte offset to be added
+	to the initial address accessed by the data-ref in STMT.  This is
+	similar to OFFSET, but OFFSET is counted in elements, while BYTE_OFFSET
+	in bytes.
 
    Output:
    1. Declare a new ptr to vector_type, and have it point to the base of the
@@ -3996,6 +4010,8 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
          initial_address = &a[init];
       if OFFSET is supplied:
          initial_address = &a[init + OFFSET];
+      if BYTE_OFFSET is supplied:
+	 initial_address = &a[init] + BYTE_OFFSET;
 
       Return the initial_address in INITIAL_ADDRESS.
 
@@ -4013,7 +4029,7 @@ tree
 vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
 			  tree offset, tree *initial_address,
 			  gimple_stmt_iterator *gsi, gimple *ptr_incr,
-			  bool only_init, bool *inv_p)
+			  bool only_init, bool *inv_p, tree byte_offset)
 {
   const char *base_name;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -4156,10 +4172,10 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   /* (2) Calculate the initial address of the aggregate-pointer, and set
      the aggregate-pointer to point to it before the loop.  */
 
-  /* Create: (&(base[init_val+offset]) in the loop preheader.  */
+  /* Create: (&(base[init_val+offset]+byte_offset) in the loop preheader.  */
 
   new_temp = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list,
-                                                   offset, loop);
+						   offset, loop, byte_offset);
   if (new_stmt_list)
     {
       if (pe)
@@ -5169,7 +5185,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
 	  /* Create interleaving stmt (low part of):
 	     low = VEC_PERM_EXPR <first_vect, second_vect2, {k, 3 + k, 6 + k,
 							     ...}>  */
-	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_suffle3_low");
+	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle3_low");
 	  perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
 						    first_vect, second_vect,
 						    perm3_mask_low);
@@ -5180,7 +5196,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
 							      ...}>  */
 	  first_vect = data_ref;
 	  second_vect = dr_chain[2];
-	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_suffle3_high");
+	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle3_high");
 	  perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
 						    first_vect, second_vect,
 						    perm3_mask_high);
@@ -5522,7 +5538,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 
       for (k = 0; k < 3; k++)
 	{
-	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_suffle3");
+	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle3");
 	  perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
 						    dr_chain[k], dr_chain[k],
 						    perm3_mask);
