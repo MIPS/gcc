@@ -1969,6 +1969,10 @@
    [(V4SF "v4si")
     (V2DF "v2di")])
 
+(define_mode_attr FQ
+   [(V4SF "V8HI")
+    (V2DF "V4SI")])
+
 (define_mode_attr FINTCNV
   [(V4SF "I2S")
    (V2DF "I2D")])
@@ -2003,7 +2007,7 @@
 
 (define_insn "msa_ffql_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:FMSA [(match_operand:<FINT> 1 "register_operand" "f")]
+	(unspec:FMSA [(match_operand:<FQ> 1 "register_operand" "f")]
 		     UNSPEC_MSA_FFQL))]
   "ISA_HAS_MSA"
   "ffql.<msafmt>\t%w0,%w1"
@@ -2014,7 +2018,7 @@
 
 (define_insn "msa_ffqr_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:FMSA [(match_operand:<FINT> 1 "register_operand" "f")]
+	(unspec:FMSA [(match_operand:<FQ> 1 "register_operand" "f")]
 		     UNSPEC_MSA_FFQR))]
   "ISA_HAS_MSA"
   "ffqr.<msafmt>\t%w0,%w1"
@@ -2185,7 +2189,7 @@
 	(unspec:<FINT> [(match_operand:FMSA 1 "register_operand" "f")]
 		       UNSPEC_MSA_FTINT_S))]
   "ISA_HAS_MSA"
-  "ftint_s.<>msafmt>\t%w0,%w1"
+  "ftint_s.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV_2>")
    (set_attr "mode"	"<UNITMODE>")
@@ -3076,7 +3080,7 @@
 
 (define_insn "msa_fexupr_w"
   [(set (match_operand:V4SF 0 "register_operand" "=f")
-       (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "f")]
+       (unspec:V4SF [(match_operand:V8HI 1 "register_operand" "f")]
 		    UNSPEC_MSA_FEXUPR))]
   "ISA_HAS_MSA"
   "fexupr.w\t%w0,%w1"

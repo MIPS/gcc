@@ -14732,12 +14732,12 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #define CODE_FOR_msa_fdiv_d CODE_FOR_divv2df3
 #define CODE_FOR_msa_fmax_w CODE_FOR_smaxv4sf3
 #define CODE_FOR_msa_fmax_d CODE_FOR_smaxv2df3
-#define CODE_FOR_msa_fmax_a_w CODE_FOR_smaxv4sf3
-#define CODE_FOR_msa_fmax_a_d CODE_FOR_smaxv2sf3
+#define CODE_FOR_msa_fmax_a_w CODE_FOR_umaxv4sf3
+#define CODE_FOR_msa_fmax_a_d CODE_FOR_umaxv2df3
 #define CODE_FOR_msa_fmin_w CODE_FOR_sminv4sf3
 #define CODE_FOR_msa_fmin_d CODE_FOR_sminv2df3
-#define CODE_FOR_msa_fmin_a_w CODE_FOR_sminv4sf3
-#define CODE_FOR_msa_fmin_a_d CODE_FOR_sminv2df3
+#define CODE_FOR_msa_fmin_a_w CODE_FOR_uminv4sf3
+#define CODE_FOR_msa_fmin_a_d CODE_FOR_uminv2df3
 #define CODE_FOR_msa_fsqrt_w CODE_FOR_sqrtv4sf2
 #define CODE_FOR_msa_fsqrt_d CODE_FOR_sqrtv2df2
 #define CODE_FOR_msa_max_s_b CODE_FOR_smaxv16qi3
