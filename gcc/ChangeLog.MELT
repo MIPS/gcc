@@ -1,6 +1,14 @@
 
 
 2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{t-treecode does not work yet}}
+	* testsuite/melt/t-treecode.melt: Improved, but does not work.
+
+	* melt/warmelt-macro.melt (check_c_expansion): Accepts a message
+	argument.
+	(mexpand_defciterator, mexpand_defcmatcher): Gives a reason.
+
+2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{t-treecode does not work yet: recursion overflow}}
 	* melt/warmelt-macro.melt (macroexpand_toplevel_list): Better :doc
 	string.

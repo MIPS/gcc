@@ -2909,26 +2909,30 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 
 ;; utility to check that a C expansion has good symbols; every symbol
 ;; should be in the substitution map
-(defun check_c_expansion (etuple loc substmap)
-  (debug "check_c_expansion etuple" etuple)
-  (debug "check_c_expansion loc" loc)
+(defun check_c_expansion (etuple loc substmap :cstring msg)
+  (debug "check_c_expansion" " etuple=" etuple " loc=" loc " substmap=" substmap " msg=" msg)
+  (shortbacktrace_dbg "check_c_expansion" 15)
   (foreach_in_multiple
    (etuple)
    (ecomp :long ix)
+   (debug "check_c_expansion" " ecomp=" ecomp " #ix=" ix)
    (cond 
     ( (null ecomp)
-      (error_at loc "null component in C expansion"))
+      (error_at loc "null component in C expansion")
+      (void)
+      )
     ( (is_a ecomp class_keyword)
-      (debug "check_c_expansion keyword ecomp" ecomp)
-      (error_at loc "unexpected keyword $1 in C expansion"
-		  (unsafe_get_field :named_name ecomp))
+      (debug "check_c_expansion" " keyword ecomp" ecomp)
+      (error_at loc "unexpected keyword $1 in C expansion, $2"
+		  (unsafe_get_field :named_name ecomp) msg)
       )
     ( (is_a ecomp class_symbol)
       (if (null (mapobject_get substmap ecomp))
 	  (progn
-	    (debug "check_c_expansion ecomp" ecomp)
-	    (error_at loc "unexpected symbol $1 in C expansion"
-			(unsafe_get_field :named_name ecomp))))
+	    (debug "check_c_expansion" " ecomp" ecomp)
+	    (error_at loc "unexpected symbol $1 in C expansion, $2"
+		      (unsafe_get_field :named_name ecomp) msg)
+	    ))
       ()
       )
     ( (is_string ecomp)
@@ -3234,8 +3238,8 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
        (assert_msg "check local curlbind" (is_a curlbind class_any_binding) curlbind)
        (mapobject_put substmap (get_field :binder curlbind) curlbind))
 ;;; check the expansions
-      (check_c_expansion expbef loc substmap)
-      (check_c_expansion expaft loc substmap)
+      (check_c_expansion expbef loc substmap "DEFCITERATOR before")
+      (check_c_expansion expaft loc substmap "DEFCITERATOR after")
       ;; fill the citerator binding
       (unsafe_put_fields citbind :cbind_citerdef srcit)
       (put_env env citbind)
@@ -3428,9 +3432,9 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
        (assert_msg "check output curbind" (is_a curobind class_formal_binding) curobind)
        (mapobject_put substmap (get_field :binder curobind) curobind))
       ;; check the expansions
-      (check_c_expansion exptest loc substmap)
-      (check_c_expansion expfill loc substmap)
-      (check_c_expansion expoper loc substmap)
+      (check_c_expansion exptest loc substmap "DEFCMATCHER test")
+      (check_c_expansion expfill loc substmap "DEFCMATCHER fill")
+      (check_c_expansion expoper loc substmap "DEFCMATCHER operation")
       (debug "mexpand_defcmatcher sdefcmatch" sdefcmatch)
       (put_env env cmbind)
       (debug "mexpand_defcmatcher registering device sdefcmatch=" sdefcmatch " cmatch=" cmatch)

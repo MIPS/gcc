@@ -17,9 +17,6 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 (module_is_gpl_compatible "public domain, will go into GPLv3 code")
 
 
-(at_macro_expansion
- (defvar exportlist)
- (setq exportlist (make_list discr_list)))
 
 (let (
       (:macro  gcc_tree_code (sexp env mexpander modctx)	      
@@ -57,19 +54,24 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				     (:tree tr)
 				     ()
 				     ,statesymb
-				     :doc #{Generated exceptional cmatcher $(,treesymb).}#
+				     :doc #{Generated exceptional cmatcher.}#
 				     ;; match-expander
 				     #{ /* $(,treesymb) ? */
 				     $TR && TREE_CODE($TR) == $(,namecod) }#
-				     ))					       
+				     ))
+				 (xexport `(export_values ,treesymb))
 				 )
-			     (list_append exportlist treesymb)
 			     (put_fields xcmatcher :loca_location sloc)
+			     (put_fields xexport :loca_location sloc)
+			     (debug "gcc_tree_code:macro2" " xcmatcher=" debug_more xcmatcher
+				    "\n.. xexport=" xexport)
 			     (let (
-				   (xres (macroexpand_1 xcmatcher env mexpander modctx))
+				   (rmatch (macroexpand_1 xcmatcher env mexpander modctx))
+				   (rexport (macroexpand_1 xexport env mexpander modctx))
 				   )
-			       (debug "gcc_tree_code:macro2" " xres=" xres)
-			       (return xres)
+			       (debug "gcc_tree_code:macro2" " rmatch=" rmatch
+				      "\n.. rexport=" rexport)
+			       (return rmatch (tuple rexport))
 			   )))
 			 ( :else
 			   (inform_at sloc "MELT should define $1 for tree code of type $2 arity $3"
