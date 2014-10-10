@@ -1,3 +1,20 @@
+2014-10-09  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-protos.h (tune_params): Add
+	macro_fusion_pair field.
+	* config/aarch64/aarch64.c (aarch64_thunderx_macro_fusion_pair):
+	Add new prototype.
+	(generic_tunings): Update for the new field.
+	(cortexa53_tunings): Likewise.
+	(thunderx_tunings): Likewise.
+	(cortexa57_tunings): Likewise.
+	(aarch64_macro_fusion_p): Check
+	aarch64_tune_params->macro_fusion_pair.
+	(aarch64_macro_fusion_pair): Rename to ...
+	(aarch64_thunderx_macro_fusion_pair): This.
+	(aarch64_macro_fusion_pair): New function
+	which checks aarch64_tune_params->macro_fusion_pair.
+
 2014-08-17  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.target/aarch64/ccmp-1.c: Rename to ..

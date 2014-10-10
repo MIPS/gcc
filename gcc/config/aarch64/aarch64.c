@@ -140,6 +140,7 @@ static unsigned bit_count (unsigned HOST_WIDE_INT);
 static bool aarch64_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 						 const unsigned char *sel);
 static int aarch64_address_cost (rtx, enum machine_mode, addr_space_t, bool);
+static bool aarch64_thunderx_macro_fusion_pair (rtx_insn *codegen, rtx_insn *);
 
 /* The processor for which instructions should be scheduled.  */
 enum aarch64_processor aarch64_tune = cortexa53;
@@ -161,7 +162,7 @@ unsigned long aarch64_tune_flags = 0;
 #define NAMED_PARAM(NAME, VAL) (VAL)
 #endif
 
-const struct cpu_cost_table thunderx_extra_costs=
+const struct cpu_cost_table thunderx_extra_costs =
 {
   /* ALU */
   {
@@ -414,7 +415,8 @@ static const struct tune_params generic_tunings =
   &generic_prefetch_costs,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (align, 8)
+  NAMED_PARAM (align, 8),
+  NAMED_PARAM (macro_fusion_pair, NULL)
 };
 
 static const struct tune_params cortexa53_tunings =
@@ -426,7 +428,8 @@ static const struct tune_params cortexa53_tunings =
   &generic_prefetch_costs,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (align, 8)
+  NAMED_PARAM (align, 8),
+  NAMED_PARAM (macro_fusion_pair, NULL)
 };
 
 
@@ -443,9 +446,13 @@ static const struct tune_params thunderx_tunings =
   &thunderx_prefetch_costs,
   NAMED_PARAM (memmov_cost, 3),
   NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (align, 8)
+  NAMED_PARAM (align, 8),
+  NAMED_PARAM (macro_fusion_pair, aarch64_thunderx_macro_fusion_pair)
 };
 
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
 static const struct tune_params cortexa57_tunings =
 {
   &cortexa57_extra_costs,
@@ -455,7 +462,8 @@ static const struct tune_params cortexa57_tunings =
   &generic_prefetch_costs,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 3),
-  NAMED_PARAM (align, 8)
+  NAMED_PARAM (align, 8),
+  NAMED_PARAM (macro_fusion_pair, NULL)
 };
 
 /* A processor implementing AArch64.  */
@@ -6242,15 +6250,21 @@ aarch64_sched_issue_rate (void)
 static bool
 aarch64_macro_fusion_p (void)
 {
-  return aarch64_tune == thunderx;
+  return aarch64_tune_params->macro_fusion_pair != NULL;
 }
 
 /* Return is the pair of instructions are macro fusion pairs. */
 static bool
-aarch64_macro_fusion_pair (rtx_insn *condgen, rtx_insn *)
+aarch64_macro_fusion_pair (rtx_insn *condgen, rtx_insn *condjmp)
 {
-  if (aarch64_tune != thunderx)
-    return false;
+  gcc_assert (aarch64_tune_params->macro_fusion_pair);
+  aarch64_tune_params->macro_fusion_pair (condgen, condjmp);
+}
+
+static bool
+aarch64_thunderx_macro_fusion_pair (rtx_insn *condgen, rtx_insn *)
+{
+  gcc_assert (aarch64_tune == thunderx);
 
   /* This misses some of them due to easy shift
      is not checked. */
