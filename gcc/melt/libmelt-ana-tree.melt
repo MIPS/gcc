@@ -3397,6 +3397,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 		     (nargcod (multiple_nth xargs 3))
 		     (nbargs (multiple_length xargs))
 		     (namev (get_field :named_name namecod))
+		     (treenamev (string4out discr_string "tree_" namev))
+		     (treesymb (create_symbolstr treenamev))
 		     )
 		 (when (!=i 4 nbargs)
 		   (error_at sloc "GCC_TREE_CODE need four arguments, got $1" xargs)
@@ -3405,14 +3407,18 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 			" namecod=" namecod
 			" strcod=" strcod
 			" typcod=" typcod
-			" nargcod=" nargcod)
+			" nargcod=" nargcod
+			" treesymb=" treesymb)
 		 (assert_msg "check namev" (is_string namev) namev namecod sexp)
+		 (unless (find_env env treesymb)
+		   (inform_at sloc "MELT should define " treenamev)
+		   )
 		 (return ()) ;;  temporarily
 		 )
 	       )
       )
   (debug "before loading2 libmelt-treecode")
-  (load "_libmelt-treecode.melt")
+  (skip_nil (load "_libmelt-treecode.melt"))
   (debug "after loading2 libmelt-treecode")
   )
 

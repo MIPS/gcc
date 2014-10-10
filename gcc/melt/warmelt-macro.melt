@@ -4980,6 +4980,38 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
  :doc #{The $LOAD macro is for reading expressions from another
  file. Syntax is (LOAD <file-name>).}#)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun mexpand_skip_nil (sexpr env mexpander modctx)
+  (debug "mexpand_skip_nil" " start sexpr=" sexpr "\n.. env=" env)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check modctx" (is_object modctx) modctx)
+  (assert_msg "check mexpander" (is_closure mexpander) mexpander)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (reslist (make_list discr_list))
+	 (explist (expand_restlist_as_tuple cont env mexpander modctx))
+	 )
+    (each_component_in_list
+     explist
+     curcomp
+     (debug "mexpand_skip_nil" " curcomp=" curcomp)
+     (if curcomp (list_append reslist curcomp))
+     )
+    (let (
+	  (restup (list_to_multiple reslist discr_multiple))
+	  )
+      (debug "mexpand_skip_nil" " restup=" restup)
+      (return restup)
+      )
+    )
+  )
+(install_initial_macro 'skip_nil mexpand_skip_nil)
+(export_macro skip_nil mexpand_skip_nil
+	      :doc #{The $SKIP_NIL macro is macro-expanding its arguments, and skipping those who are macro-expanded to nil.}#
+	      )
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; parse a field pattern
 (defun parse_field_pattern (fkeyw cla flpsexp env pctx psloc)

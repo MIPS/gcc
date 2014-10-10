@@ -1,5 +1,11 @@
 
 2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (skip_nil): New macro, expanded by
+	(mexpand_skip_nil): New function to expand skip_nil.
+
+	* melt/libmelt-ana-tree.melt: Use skip_nil in second load.
+
+2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt: Adding second load of
 	_libmelt-treecode.melt generated file.
 
