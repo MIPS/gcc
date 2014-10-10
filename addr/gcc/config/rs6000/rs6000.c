@@ -1900,6 +1900,54 @@ rs6000_debug_vector_unit (enum rs6000_vector v)
   return ret;
 }
 
+/* Inner function printing just the address mask for a particular reload
+   register class.  */
+DEBUG_FUNCTION char *
+rs6000_debug_addr_mask (addr_mask_type mask, bool keep_spaces)
+{
+  static char ret[8];
+  char *p = ret;
+
+  if ((mask & RELOAD_REG_VALID) != 0)
+    *p++ = 'v';
+  else if (keep_spaces)
+    *p++ = ' ';
+
+  if ((mask & RELOAD_REG_MULTIPLE) != 0)
+    *p++ = 'm';
+  else if (keep_spaces)
+    *p++ = ' ';
+
+  if ((mask & RELOAD_REG_INDEXED) != 0)
+    *p++ = 'i';
+  else if (keep_spaces)
+    *p++ = ' ';
+
+  if ((mask & RELOAD_REG_OFFSET) != 0)
+    *p++ = 'o';
+  else if (keep_spaces)
+    *p++ = ' ';
+
+  if ((mask & RELOAD_REG_PRE_INCDEC) != 0)
+    *p++ = '+';
+  else if (keep_spaces)
+    *p++ = ' ';
+
+  if ((mask & RELOAD_REG_PRE_MODIFY) != 0)
+    *p++ = '+';
+  else if (keep_spaces)
+    *p++ = ' ';
+
+  if ((mask & RELOAD_REG_AND_M16) != 0)
+    *p++ = '&';
+  else if (keep_spaces)
+    *p++ = ' ';
+
+  *p = '\0';
+
+  return ret;
+}
+
 /* Print the address masks in a human readble fashion.  */
 DEBUG_FUNCTION void
 rs6000_debug_print_mode (ssize_t m)
@@ -1908,19 +1956,8 @@ rs6000_debug_print_mode (ssize_t m)
 
   fprintf (stderr, "Mode: %-5s", GET_MODE_NAME (m));
   for (rc = 0; rc < N_RELOAD_REG; rc++)
-    {
-      addr_mask_type mask = reg_addr[m].addr_mask[rc];
-      fprintf (stderr,
-	       "  %s: %c%c%c%c%c%c%c",
-	       reload_reg_map[rc].name,
-	       (mask & RELOAD_REG_VALID)      != 0 ? 'v' : ' ',
-	       (mask & RELOAD_REG_MULTIPLE)   != 0 ? 'm' : ' ',
-	       (mask & RELOAD_REG_INDEXED)    != 0 ? 'i' : ' ',
-	       (mask & RELOAD_REG_OFFSET)     != 0 ? 'o' : ' ',
-	       (mask & RELOAD_REG_PRE_INCDEC) != 0 ? '+' : ' ',
-	       (mask & RELOAD_REG_PRE_MODIFY) != 0 ? '+' : ' ',
-	       (mask & RELOAD_REG_AND_M16)    != 0 ? '&' : ' ');
-    }
+    fprintf (stderr, " %s: %s", reload_reg_map[rc].name,
+	     rs6000_debug_addr_mask (reg_addr[m].addr_mask[rc], true));
 
   if (rs6000_vector_unit[m] != VECTOR_NONE
       || rs6000_vector_mem[m] != VECTOR_NONE
@@ -6161,8 +6198,10 @@ quad_load_store_p (rtx op0, rtx op1)
 bool
 valid_move_insn_p (rtx dest, rtx src)
 {
-  rtx op_mem = NULL_RTX;
-  rtx op_reg = NULL_RTX;
+  rtx op_mem	= NULL_RTX;
+  rtx op_reg	= NULL_RTX;
+  bool ret	= true;
+  bool done_p	= false;
 
   if (GET_CODE (dest) == SUBREG)
     dest = SUBREG_REG (dest);
@@ -6187,13 +6226,19 @@ valid_move_insn_p (rtx dest, rtx src)
 	  op_reg = dest;
 	}
       else
-	return true;
+	{
+	  ret = true;
+	  done_p = true;
+	}
     }
 
   else
-    return false;
+    {
+      ret = false;
+      done_p = true;
+    }
 
-  if (op_mem != NULL_RTX && op_reg != NULL_RTX
+  if (!done_p && op_mem != NULL_RTX && op_reg != NULL_RTX
       && REGNO (op_reg) < FIRST_PSEUDO_REGISTER)
     {
       enum machine_mode mode = GET_MODE (op_mem);
@@ -6212,53 +6257,97 @@ valid_move_insn_p (rtx dest, rtx src)
 	mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
 
       else
-	return false;
+	{
+	  ret = false;
+	  done_p = true;
+	}
 
       if ((mask & RELOAD_REG_VALID) == 0)
-	return false;
-
-      rcode = GET_CODE (addr);
-      if (rcode == PRE_INC || rcode == PRE_DEC)
 	{
-	  if ((mask & RELOAD_REG_PRE_INCDEC) == 0)
-	    return false;
+	  ret = false;
+	  done_p = true;
+	}
 
-	  addr = XEXP (addr, 0);
+      if (!done_p)
+	{
 	  rcode = GET_CODE (addr);
+	  if (rcode == PRE_INC || rcode == PRE_DEC)
+	    {
+	      if ((mask & RELOAD_REG_PRE_INCDEC) == 0)
+		{
+		  ret = false;
+		  done_p = true;
+		}
+	      else
+		{
+		  addr = XEXP (addr, 0);
+		  rcode = GET_CODE (addr);
+		}
+	    }
+	  else if (rcode == PRE_MODIFY)
+	    {
+	      if ((mask & RELOAD_REG_PRE_MODIFY) == 0)
+		{
+		  ret = false;
+		  done_p = true;
+		}
+	      else
+		{
+		  addr = XEXP (addr, 0);
+		  rcode = GET_CODE (addr);
+		}
+	    }
 	}
-      else if (rcode == PRE_MODIFY)
+
+      if (!done_p)
 	{
-	  if ((mask & RELOAD_REG_PRE_MODIFY) == 0)
-	    return false;
+	  if (REG_P (addr) || rcode == SUBREG)
+	    {
+	      ret = true;
+	      done_p = true;
+	    }
 
-	  addr = XEXP (addr, 0);
-	  rcode = GET_CODE (addr);
+	  else if (rcode == PLUS)
+	    {
+	      rtx op0 = XEXP (addr, 0);
+	      rtx op1 = XEXP (addr, 1);
+
+	      if (!REG_P (op0))
+		{
+		  ret = false;
+		  done_p = true;
+		}
+
+	      else
+		{
+		  ret = (mask & ((REG_P (op1))
+				 ? RELOAD_REG_INDEXED
+				 : RELOAD_REG_OFFSET)) != 0;
+		  done_p = true;
+		}
+	    }
+
+	  else if (rcode == LO_SUM)
+	    {
+	      ret = (mask & RELOAD_REG_OFFSET) != 0;
+	      done_p = true;
+	    }
+
+	  else
+	    {
+	      ret = false;
+	      done_p = true;
+	    }
 	}
-
-      if (REG_P (addr) || rcode == SUBREG)
-	return true;
-
-      else if (rcode == PLUS)
-	{
-	  rtx op0 = XEXP (addr, 0);
-	  rtx op1 = XEXP (addr, 1);
-
-	  if (!REG_P (op0))
-	    return false;
-
-	  return (mask & ((REG_P (op1))
-			  ? RELOAD_REG_INDEXED
-			  : RELOAD_REG_OFFSET)) != 0;
-	}
-
-      else if (rcode == LO_SUM)
-	return (mask & RELOAD_REG_OFFSET) != 0;
-
-      else
-	return false;
     }
 
-  return true;
+  if (TARGET_DEBUG_ADDR && !ret)
+    {
+      fprintf (stderr, "\nvalid_move_insn_p returned false\n");
+      debug_rtx (gen_rtx_SET (VOIDmode, dest, src));
+    }
+
+  return ret;
 }
 
 /* Given an address, return a constant offset term if one exists.  */
@@ -16555,7 +16644,27 @@ rs6000_secondary_reload_memory (rtx addr,
 		 & ~RELOAD_REG_AND_M16);
 
   else
-    return -1;
+    {
+      if (TARGET_DEBUG_ADDR)
+	fprintf (stderr,
+		 "rs6000_secondary_reload_memory: mode = %s, class = %s, "
+		 "class is not GPR, FPR, VMX\n",
+		 GET_MODE_NAME (mode), reg_class_names[rclass]);
+
+      return -1;
+    }
+
+  /* If the register isn't valid in this register class, just return now.  */
+  if ((addr_mask & RELOAD_REG_VALID) == 0)
+    {
+      if (TARGET_DEBUG_ADDR)
+	fprintf (stderr,
+		 "rs6000_secondary_reload_memory: mode = %s, class = %s, "
+		 "not valid in class\n",
+		 GET_MODE_NAME (mode), reg_class_names[rclass]);
+
+      return -1;
+    }
 
   switch (GET_CODE (addr))
     {
@@ -16719,22 +16828,24 @@ rs6000_secondary_reload_memory (rtx addr,
 	}
     }
 
-  if (TARGET_DEBUG_ADDR && extra_cost != 0)
+  if (TARGET_DEBUG_ADDR /* && extra_cost != 0 */)
     {
       if (extra_cost < 0)
 	fprintf (stderr,
 		 "rs6000_secondary_reload_memory error: mode = %s, "
-		 "class = %s, %s\n",
+		 "class = %s, addr_mask = '%s', %s\n",
 		 GET_MODE_NAME (mode),
 		 reg_class_names[rclass],
+		 rs6000_debug_addr_mask (addr_mask, false),
 		 (fail_msg != NULL) ? fail_msg : "<bad address>");
 
       else
 	fprintf (stderr,
-		 "rs6000_secondary_reload_memory: mode = %s, class = %s,"
-		 " extra cost = %d, %s\n",
+		 "rs6000_secondary_reload_memory: mode = %s, class = %s, "
+		 "addr_mask = '%s', extra cost = %d, %s\n",
 		 GET_MODE_NAME (mode),
 		 reg_class_names[rclass],
+		 rs6000_debug_addr_mask (addr_mask, false),
 		 extra_cost,
 		 (type) ? type : "<none>");
 
@@ -17545,7 +17656,7 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
       /* If this is a scalar floating point value, prefer the traditional
 	 floating point registers so that we can use D-form (register+offset)
 	 addressing.  */
-      if (reg_addr[mode].scalar_in_vmx_p)
+      if (GET_MODE_SIZE (mode) < 16)
 	return FLOAT_REGS;
 
       /* Prefer the Altivec registers if Altivec is handling the vector
@@ -17705,8 +17816,10 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
       && (GET_MODE_SIZE (mode) == 16
 	  || reg_addr[mode].scalar_in_vmx_p))
     {
+#if 0
       if (rclass != FLOAT_REGS && reg_addr[mode].scalar_in_vmx_p)
 	return FLOAT_REGS;
+#endif
 
       return NO_REGS;
     }

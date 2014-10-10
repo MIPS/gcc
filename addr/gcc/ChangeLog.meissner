@@ -1,3 +1,21 @@
+2014-10-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_addr_mask): New function to
+	break out printing the valid modes for an address mask.
+	(rs6000_debug_print_mode): Call rs6000_debug_addr_mask.
+	(valid_move_insn_p): If the move was not valid, and -mdebug=addr
+	was on, trace the attempted move.
+	(rs6000_secondary_reload_memory): Improve tracing if
+	-mdebug=addr.  Print other failure returns.  Print the valid
+	address modes.
+	(rs6000_preferred_reload_class): Prefer FLOAT_REGS for all 4/8
+	byte objects.
+	(rs6000_secondary_reload_class): Comment out asking for a
+	FLOAT_REGS temporary for now.
+
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat, FLOAT32 case): Add
+	spaces so dest/src constraints line up.
+
 2014-10-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (RELOAD_REG_AND_M16): New address mask
