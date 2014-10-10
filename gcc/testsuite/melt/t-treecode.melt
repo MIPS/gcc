@@ -1,0 +1,59 @@
+;; file t-treecode.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/t-treecode.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=t-treecode.melt \
+     /dev/null -o /dev/null
+## perhaps also: -fmelt-debugging=all -fmelt-out-descr-comment
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=t-treecode.melt \
+     -c -x c /dev/null -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+
+
+(let (
+      (:macro  gcc_tree_code (sexp env mexpander modctx)	      
+	       (debug "gcc_tree_code:macro2" " sexp=" sexp)
+	       (let (
+		     (sloc (get_field :loca_location sexp))
+		     (sexcont (get_field :sexp_contents sexp))
+		     (xargs (expand_restlist_as_tuple sexcont env mexpander modctx))
+		     (namecod (multiple_nth xargs 0))
+		     (strcod (multiple_nth xargs 1))
+		     (typcod (multiple_nth xargs 2))
+		     (nargcod (multiple_nth xargs 3))
+		     (nbargs (multiple_length xargs))
+		     (namev (get_field :named_name namecod))
+		     (treenamev (string4out discr_string "tree_" namev))
+		     (treesymb (create_symbolstr treenamev))
+		     )
+		 (when (!=i 4 nbargs)
+		   (error_at sloc "GCC_TREE_CODE need four arguments, got $1" xargs)
+		   (return))
+		 (debug "gcc_tree_code:macro2"
+			" namecod=" namecod
+			" strcod=" strcod
+			" typcod=" typcod
+			" nargcod=" nargcod
+			"\n.. treesymb=" treesymb
+			"\n.. bind:" (find_env env treesymb))
+		 (assert_msg "check namev" (is_string namev) namev namecod sexp)
+		 (unless (find_env env treesymb)
+		   (inform_at sloc "MELT should define " treenamev)
+		   )
+		 (return ()) ;;  temporarily
+		 )
+	       )
+      )
+  (debug "before loading2 libmelt-treecode")
+  (skip_nil (load "_libmelt-treecode.melt"))
+  (debug "after loading2 libmelt-treecode")
+  )
+
+;; eof t-treecode.melt

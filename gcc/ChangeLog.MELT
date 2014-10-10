@@ -1,4 +1,11 @@
 
+
+2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (macroexpand_toplevel_list): Ignore
+	S-expression expanded to nil.
+
+	* testsuite/melt/t-treecode.melt: New file.
+
 2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 

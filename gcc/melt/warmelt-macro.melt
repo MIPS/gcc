@@ -2584,6 +2584,12 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 ;; expressions... In particular, this allows a (load "filename")
 ;; macro.
 (defun macroexpand_toplevel_list (slist env mexpander modctx)
+  
+  :doc #{The $MACRO_EXPAND_TOPLEVEL_LIST is macro-expanding a list
+  $SLIST of top-level S-expressions, in environment $ENV, using the
+  macro-expanded $MEXPANDER, in module context $MODCTX. Any such
+  top-level S-expressions macroexpanded to nil is silently skipped,
+  like $SKIP_NIL does.}#
   (debug "macroexpand_toplevel_list slist=" slist 
 	 "\n* mexpander=" mexpander
 	 "\n* modctx=" modctx)
@@ -2618,12 +2624,14 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
        (multicall
 	(mex mxtra)
 	(mexpander sexp env mexpander modctx)
-	(debug "macroexpand_toplevel_list sexploc=" debug_less sexploc "; mex=" mex "\n.. mxtra=" mxtra)
+	(debug "macroexpand_toplevel_list sexploc=" debug_less sexploc
+	       "; mex=" mex "\n.. mxtra=" mxtra)
+	;; process the primary result
 	(cond
 	 ( (null mex)
-	   (if sexploc 
-	       (warning_plain sexploc
-			      "null expansion for toplevel MELT s-expression"))
+	   ;; if an S-expression at top level is expanded to nil, that
+	   ;; nil is *not* considered.
+	   (void)
 	   )
 	 ( (is_multiple mex)
 	   (foreach_in_multiple
@@ -2635,7 +2643,13 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	   (list_append2list reslist mex))
 	 (:else (list_append reslist mex)
 		))
+	;; handle the secondary result
 	(cond
+	 ( (null mex)
+	   ;; special case, if the primary result of top-level
+	   ;; expansion is nil, any secondary result is ignored.
+	   (void)
+	   )
 	 ( (null mxtra)
 	   (void))
 	 ( (is_multiple mxtra)
