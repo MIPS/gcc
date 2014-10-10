@@ -239,8 +239,7 @@ timerproc(void* dummy __attribute__ ((unused)))
 			runtime_unlock(&timers);
 			if(raceenabled)
 				runtime_raceacquire(t);
-			__go_set_closure(fv);
-			f(now, arg);
+			__builtin_call_with_static_chain(f(now, arg), fv);
 
 			// clear f and arg to avoid leak while sleeping for next timer
 			f = nil;

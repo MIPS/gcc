@@ -41,7 +41,7 @@ reflect.makeFuncStub:
 	movq	%rsp, %rbp
 .LCFI1:
 
-	subq	$0xc0, %rsp		# Space for struct on stack.
+	subq	$0xd0, %rsp		# Space for struct on stack.
 
 	movq	%rax, 0x0(%rsp)
 	movq	%rdi, 0x8(%rsp)
@@ -61,6 +61,8 @@ reflect.makeFuncStub:
 	movdqa	%xmm6, 0xa0(%rsp)
 	movdqa	%xmm7, 0xb0(%rsp)
 
+	movq	%r10, 0xc0(%rsp)	# Save static chain around call.
+
 	/* For MakeFunc functions that call recover.  */
 	movq	8(%rbp), %rdi
 #ifdef __PIC__
@@ -69,14 +71,7 @@ reflect.makeFuncStub:
 	call	__go_makefunc_can_recover
 #endif
 
-	# Get function type.
-#ifdef __PIC__
-	call	__go_get_closure@PLT
-#else
-	call	__go_get_closure
-#endif
-	movq	%rax, %rsi
-
+	movq	0xc0(%rsp), %rsi	# Recover static chain.
 	movq	%rsp, %rdi
 
 #ifdef __PIC__

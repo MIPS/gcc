@@ -38,7 +38,8 @@ reflect.makeFuncStub:
 	movl	%esp, %ebp
 .LCFI1:
 	pushl	%ebx		/* In case this is PIC.  */
-	subl	$36, %esp	/* Enough for args and to align stack.  */
+	pushl	%ecx		/* Save static chain.  */
+	subl	$32, %esp	/* Enough for args and to align stack.  */
 .LCFI2:
 
 #ifdef __PIC__
@@ -47,7 +48,7 @@ reflect.makeFuncStub:
 #endif
 
 	leal	8(%ebp), %eax	/* Set esp field in struct.  */
-	movl	%eax, -24(%ebp)
+	movl	%eax, -32(%ebp)
 
 	/* For MakeFunc functions that call recover.  */
 	movl	4(%ebp), %eax
@@ -58,15 +59,10 @@ reflect.makeFuncStub:
 	call	__go_makefunc_can_recover
 #endif
 
-#ifdef __PIC__
-	call	__go_get_closure@PLT
-#else
-	call	__go_get_closure
-#endif
-
+	movl	-8(%ebp), %eax	/* Recover static chain.  */
 	movl	%eax, 4(%esp)
 
-	leal	-24(%ebp), %eax
+	leal	-32(%ebp), %eax
 	movl	%eax, (%esp)
 
 #ifdef __PIC__
@@ -84,21 +80,21 @@ reflect.makeFuncStub:
 
 	/* Set return registers.  */
 
-	movl	-20(%ebp), %eax
+	movl	-28(%ebp), %eax
 
 	cmpb	$0, -7(%ebp)
 	je	2f
 
-	fldl	-16(%ebp)
+	fldl	-24(%ebp)
 
 #ifdef __SSE2__
 	/* In case we are compiling with -msseregparm.  This won't work
 	   correctly if only SSE1 is supported, but that seems unlikely.  */
-	movsd	-16(%ebp), %xmm0
+	movsd	-24(%ebp), %xmm0
 #endif
 
 2:
-	movb	-8(%ebp), %dl
+	movb	-16(%ebp), %dl
 
 	addl	$36, %esp
 	popl	%ebx
