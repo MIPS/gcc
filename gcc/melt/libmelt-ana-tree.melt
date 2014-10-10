@@ -59,8 +59,9 @@
 	(strcod (multiple_nth xargs 1))
 	(typcod (multiple_nth xargs 2))
 	(nargcod (multiple_nth xargs 3))
+	(nbargs (multiple_length xargs))
 	)
-    (when (!=i 4 (multiple_length xargs))
+    (when (!=i 4 nbargs)
       (error_at sloc "GCC_TREE_CODE need four arguments, got $1" xargs)
       (return))
     ;;
@@ -93,13 +94,13 @@
 ;;; first load of generated _libmelt-treecode.melt to define public instances
 ;;; of class_gcc_tree_code
 (let ( (:macro gcc_tree_code (sexp env mexpander modctx)	      
-	       (debug "gcc_tree_code macro" " sexp=" sexp)
+	       (debug "gcc_tree_code:macro1" " sexp=" sexp)
 	       (mexpand_gcc_tree_code_define sexp env mexpander modctx)
 	       )
        )
-  (debug "before loading libmelt-treecode")
+  (debug "before loading1 libmelt-treecode")
   (load "_libmelt-treecode.melt")
-  (debug "after loading libmelt-treecode")
+  (debug "after loading1 libmelt-treecode")
   (void)
   )
 
@@ -3382,7 +3383,38 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  warning_at_tree_decl_with_number
 )
 
-
+;;; second and last load of _libmelt-treecode.melt
+(let (
+      (:macro  gcc_tree_code (sexp env mexpander modctx)	      
+	       (debug "gcc_tree_code:macro2" " sexp=" sexp)
+	       (let (
+		     (sloc (get_field :loca_location sexp))
+		     (sexcont (get_field :sexp_contents sexp))
+		     (xargs (expand_restlist_as_tuple sexcont env mexpander modctx))
+		     (namecod (multiple_nth xargs 0))
+		     (strcod (multiple_nth xargs 1))
+		     (typcod (multiple_nth xargs 2))
+		     (nargcod (multiple_nth xargs 3))
+		     (nbargs (multiple_length xargs))
+		     (namev (get_field :named_name namecod))
+		     )
+		 (when (!=i 4 nbargs)
+		   (error_at sloc "GCC_TREE_CODE need four arguments, got $1" xargs)
+		   (return))
+		 (debug "gcc_tree_code:macro2"
+			" namecod=" namecod
+			" strcod=" strcod
+			" typcod=" typcod
+			" nargcod=" nargcod)
+		 (assert_msg "check namev" (is_string namev) namev namecod sexp)
+		 (return ()) ;;  temporarily
+		 )
+	       )
+      )
+  (debug "before loading2 libmelt-treecode")
+  (load "_libmelt-treecode.melt")
+  (debug "after loading2 libmelt-treecode")
+  )
 
 ;; keep this code chunk at the end of libmelt-ana-tree.melt
 (when (inside_c_frontend)
