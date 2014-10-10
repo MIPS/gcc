@@ -1,6 +1,13 @@
 
 
 2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{t-treecode does not work yet: recursion overflow}}
+	* melt/warmelt-macro.melt (macroexpand_toplevel_list): Better :doc
+	string.
+
+	* testsuite/melt/t-treecode.melt: Improved, but does not work.
+
+2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (macroexpand_toplevel_list): Ignore
 	S-expression expanded to nil.
 

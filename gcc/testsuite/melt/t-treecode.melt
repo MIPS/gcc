@@ -14,8 +14,12 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
     -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=t-treecode.melt \
      -c -x c /dev/null -o /dev/null
 |#
-(module_is_gpl_compatible "public domain")
+(module_is_gpl_compatible "public domain, will go into GPLv3 code")
 
+
+(at_macro_expansion
+ (defvar exportlist)
+ (setq exportlist (make_list discr_list)))
 
 (let (
       (:macro  gcc_tree_code (sexp env mexpander modctx)	      
@@ -32,6 +36,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     (namev (get_field :named_name namecod))
 		     (treenamev (string4out discr_string "tree_" namev))
 		     (treesymb (create_symbolstr treenamev))
+		     (statesymb (create_symbolstr (string4out discr_string "treestate_" namev)))
 		     )
 		 (when (!=i 4 nbargs)
 		   (error_at sloc "GCC_TREE_CODE need four arguments, got $1" xargs)
@@ -45,7 +50,31 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 			"\n.. bind:" (find_env env treesymb))
 		 (assert_msg "check namev" (is_string namev) namev namecod sexp)
 		 (unless (find_env env treesymb)
-		   (inform_at sloc "MELT should define " treenamev)
+		   (cond ( (== typcod 'tcc_exceptional)
+			   (let (
+				 (xcmatcher
+				  `(defcmatcher ,treesymb
+				     (:tree tr)
+				     ()
+				     ,statesymb
+				     :doc #{Generated exceptional cmatcher $(,treesymb).}#
+				     ;; match-expander
+				     #{ /* $(,treesymb) ? */
+				     $TR && TREE_CODE($TR) == $(,namecod) }#
+				     ))					       
+				 )
+			     (list_append exportlist treesymb)
+			     (put_fields xcmatcher :loca_location sloc)
+			     (let (
+				   (xres (macroexpand_1 xcmatcher env mexpander modctx))
+				   )
+			       (debug "gcc_tree_code:macro2" " xres=" xres)
+			       (return xres)
+			   )))
+			 ( :else
+			   (inform_at sloc "MELT should define $1 for tree code of type $2 arity $3"
+				      treesymb typcod nargcod)
+			   ))
 		   )
 		 (return ()) ;;  temporarily
 		 )

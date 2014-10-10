@@ -1996,7 +1996,8 @@ $SPAC_OUTARGS are the output sub-patterns.}#
   :doc #{Function to macro-expand a single s-expr $SEXPR in
   environment $ENV using the macroexpander $MEXPAND in module context
   $MODCTX. Return the expanded form, subclass of $CLASS_SOURCE, and
-  perhaps other expansions.}#
+  perhaps other such source expansions in a list or tuple secondary
+  result.}#
   (debug "macroexpand_1 sexpr=" sexpr "\n.. env=" debug_less env)
   (shortbacktrace_dbg "macroexpand_1" 15)
   (assert_msg "check env" (is_a env class_environment) env)
