@@ -427,6 +427,9 @@ func (v Value) CallSlice(in []Value) []Value {
 
 var callGC bool // for testing; see TestCallMethodJump
 
+// Indirect Go func value (dummy) to obtain actual
+// code address. (A Go func value is a pointer to a C
+// function pointer. http://golang.org/s/go11func.)
 var makeFuncStubFn = makeFuncStub
 var makeFuncStubCode = **(**uintptr)(unsafe.Pointer(&makeFuncStubFn))
 

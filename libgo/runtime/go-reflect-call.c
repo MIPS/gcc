@@ -202,11 +202,7 @@ go_set_results (const struct __go_func_type *func, unsigned char *call_result,
 
    If IS_METHOD is true this is a call to a method expression.  The
    first argument is the receiver.  It is described in FUNC_TYPE, but
-   regardless of FUNC_TYPE, it is passed as a pointer.
-
-   If neither IS_INTERFACE nor IS_METHOD is true then we are calling a
-   function indirectly, and we must pass a closure pointer via
-   __go_set_closure.  The pointer to pass is simply FUNC_VAL.  */
+   regardless of FUNC_TYPE, it is passed as a pointer.  */
 
 void
 reflect_call (const struct __go_func_type *func_type, FuncVal *func_val,
@@ -221,9 +217,7 @@ reflect_call (const struct __go_func_type *func_type, FuncVal *func_val,
 
   call_result = (unsigned char *) malloc (go_results_size (func_type));
 
-  if (!is_interface && !is_method)
-    __go_set_closure (func_val);
-  ffi_call (&cif, func_val->fn, call_result, params);
+  ffi_call_go (&cif, func_val->fn, call_result, params, func_val);
 
   /* Some day we may need to free result values if RESULTS is
      NULL.  */
