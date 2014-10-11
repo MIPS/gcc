@@ -6633,7 +6633,6 @@ aarch64_override_options (void)
   aarch64_tune = selected_tune->core;
   aarch64_tune_params = selected_tune->tune;
 
-<<<<<<< HEAD
   /* If not opzimizing for size, set the default
      alignment to what the target wants */
   if (!optimize_size)
