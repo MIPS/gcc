@@ -30,6 +30,241 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+2014-10-11  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.h (TARGET_SH4A_ARCH): Remove macro.
+	* config/sh/sh.h: Replace uses of TARGET_SH4A_ARCH with TARGET_SH4A.
+	* config/sh/sh.c: Likewise.
+	* config/sh/sh-mem.cc: Likewise.
+	* config/sh/sh.md: Likewise.
+	* config/sh/predicates.md: Likewise.
+	* config/sh/sync.md: Likewise.
+
+2014-10-11  Martin Liska  <mliska@suse.cz>
+
+	PR/63376
+	* cgraphunit.c (symbol_table::process_new_functions): Missing call
+	for call_cgraph_insertion_hooks added.
+
+2014-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/63495
+	* stor-layout.c (min_align_of_type): Don't decrease alignment
+	through BIGGEST_FIELD_ALIGNMENT or ADJUST_FIELD_ALIGN if
+	TYPE_USER_ALIGN is set.
+
+2014-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/63483
+	* alias.c (true_dependence_1): Do not exit early for MEM_READONLY_P
+	references when alignment ANDs are involved.
+	(write_dependence_p): Ditto.
+	(may_alias_p): Ditto.
+
+2014-10-10  Marek Polacek  <polacek@redhat.com>
+
+	* asan.c (pass_sanopt::execute): Handle IFN_UBSAN_OBJECT_SIZE.
+	* doc/invoke.texi: Document -fsanitize=object-size.
+	* flag-types.h (enum sanitize_code): Add SANITIZE_OBJECT_SIZE and
+	or it into SANITIZE_UNDEFINED.
+	* gimple-fold.c (gimple_fold_call): Optimize IFN_UBSAN_OBJECT_SIZE.
+	* internal-fn.c (expand_UBSAN_OBJECT_SIZE): New function.
+	* internal-fn.def (UBSAN_OBJECT_SIZE): Define.
+	* opts.c (common_handle_option): Handle -fsanitize=object-size.
+	* ubsan.c: Include tree-object-size.h.
+	(ubsan_type_descriptor): Call tree_to_uhwi instead of tree_to_shwi. 
+	(ubsan_expand_bounds_ifn): Use false instead of 0.
+	(ubsan_expand_objsize_ifn): New function.
+	(instrument_object_size): New function.
+	(pass_ubsan::execute): Add object size instrumentation.
+	* ubsan.h (ubsan_expand_objsize_ifn): Declare.
+
+2014-10-10  Richard Henderson  <rth@redhat.com>
+
+	PR target/63404
+	* shrink-wrap.c (move_insn_for_shrink_wrap): Don't use single_set.
+	Restrict the set of expressions we're willing to move.
+
+2014-10-10  Jeff Law  <law@redhat.com>
+
+	* ira.c (struct equivalence): Promote INIT_INSNs field to
+	an rtx_insn_list.  Add comments.
+	(no_equiv): Promote LIST to an rtx_insn_list.  Update
+	testing for and creating the special marker.  Use methods
+	to extract the insn and next pointers.  Promote INSN to an
+	rtx_insn.
+	(update_equiv_regs): Update test for special marker in the
+	INIT_INSNs list.
+
+2014-10-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* configure.ac: Add --enable-fix-cortex-a53-835769 option.
+	* configure: Regenerate.
+	* config/aarch64/aarch64.c (aarch64_override_options): Handle
+	TARGET_FIX_ERR_A53_835769_DEFAULT.
+	* config/aarch64/aarch64.opt (mfix-cortex-a53-835769): Set Init
+	value to 2.
+	* doc/install.texi (aarch64*-*-*): Document 
+	new --enable-fix-cortex-a53-835769 option.
+
+2014-10-10  Kyrylo Tkachov<kyrylo.tkachov@arm.com>
+            Ramana Radhakrishnan<ramana.radhakrishnan@arm.com>
+
+	* config/aarch64/aarch64.h (FINAL_PRESCAN_INSN): Define.
+	(ADJUST_INSN_LENGTH): Define.
+	* config/aarch64/aarch64.opt (mfix-cortex-a53-835769): New option.
+	* config/aarch64/aarch64.c (is_mem_p): New function.
+	(is_memory_op): Likewise.
+	(aarch64_prev_real_insn): Likewise.
+	(is_madd_op): Likewise.
+	(dep_between_memop_and_curr): Likewise.
+	(aarch64_madd_needs_nop): Likewise.
+	(aarch64_final_prescan_insn): Likewise.
+	* doc/invoke.texi (AArch64 Options): Document -mfix-cortex-a53-835769
+	and -mno-fix-cortex-a53-835769 options.
+
+2014-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63464
+	* tree-switch-conversion.c (struct case_bit_test): Remove
+	hi and lo fields, add wide_int mask field.
+	(emit_case_bit_tests): Add MAXVAL argument, rewrite uses of
+	hi/lo fields into wide_int mask operations, optimize by pretending
+	minval to be 0 if maxval is small enough.
+	(process_switch): Adjust caller.
+
+2014-10-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63379
+	* tree-vect-slp.c (vect_get_constant_vectors): Do not compute
+	a neutral operand for min/max when it is not a reduction chain.
+
+2014-10-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63476
+	* tree-ssa-pre.c (struct bb_bitmap_sets): Add vop_on_exit member.
+	(BB_LIVE_VOP_ON_EXIT): New define.
+	(create_expression_by_pieces): Assign VUSEs to stmts.
+	(compute_avail): Track BB_LIVE_VOP_ON_EXIT.
+	(pass_pre::execute): Assert virtual SSA form is up-to-date
+	after insertion.
+
+2014-10-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lra-assigns.c (assign_by_spills): Error out on spill failure.
+
+2014-10-09  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* pa-polymorphic-call.c (check_stmt_for_type_change): Move
+	assertion.
+
+2014-10-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63380
+	* tree-ssa-tail-merge.c (stmt_local_def): Exclude stmts that
+	may trap.
+
+2014-10-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/avr/avr.opt (mmcu=): Change to have a string value.
+	(mn-flash=, mskip-bug, march=, mrmw): New options.
+	(HeaderInclude): New.
+	(mmcu=): Remove Var / Init clauses.
+	* config/avr/avr.h (DRIVER_SELF_SPECS): Translate -mmcu into a
+	-specs option.
+	(SYMBOL_FLAG_IO, SYMBOL_FLAG_ADDRESS): Define.
+	(ASM_OUTPUT_ALIGNED_BSS): Use avr_asm_asm_output_aligned_bss.
+	(SYMBOL_FLAG_IO_LOW): Define.
+	(avr_device_to_as, avr_device_to_ld): Don't declare.
+	(avr_device_to_data_start, avr_device_to_startfiles): Likewise.
+	(avr_device_to_devicelib, avr_device_to_sp8): Likewise.
+	(EXTRA_SPEC_FUNCTIONS): Don't define.
+	(ASM_SPEC): Translate -arch= option to -mmcu= option.
+	(LINK_SPEC): Translate -arch= option to -m= option.
+	Don't use device_to_ld / device_to_data_start.
+	(STARTFILE_SPEC): Now empty.
+	(ASM_SPEC): Add -%{mrelax: --mlink-relax}.
+	* config/avr/gen-avr-mmcu-specs.c: New file.
+	* config/avr/t-avr (gen-avr-mmcu-specs$(build_exeext)): New rule.
+	(s-device-specs): Likewise.
+	(GCC_PASSES): Add s-device-specs.
+	(install-driver): Depend on install-device-specs.
+	(install-device-specs): New rule.
+	* config/avr/avr.c (avr_option_override): Look up mcu arch by
+	avr_arch_index and provide fallback initialization for avr_n_flash.
+	(varasm.h): #include.
+	(avr_print_operand) <i>: Allow SYMBOL_REF with SYMBOL_FLAG_IO;
+	(avr_handle_addr_attribute, avr_eval_addr_attrib): New functions.
+	(avr_attribute_table): Add "io", "address" and "io_low".
+	(avr_asm_output_aligned_decl_common): Change type of decl to tree.
+	Add special handling for symbols with "io" and/or "address" attributes.
+	(avr_asm_asm_output_aligned_bss): New function.
+	(avr_encode_section_info): Set SYMBOL_FLAG_IO and SYMBOL_FLAG_ADDRESS
+	as appropriate.  Handle io_low attribute.
+	(avr_out_sbxx_branch): Handle symbolic io addresses.
+	(avr_xload_libgcc_p, avr_nonconst_pointer_addrspace): Use
+	avr_n_flash instead of avr_current_device->n_flash.
+	(avr_pgm_check_var_decl, avr_insert_attributes): Likewise.
+	(avr_emit_movmemhi): Likewise.
+	* config/avr/avr-c.c (avr_cpu_cpp_builtins): Likewise.
+	Use TARGET_RMW instead of avr_current_device->dev_attributes.
+	Don't define avr_current_device->macro (that's the specfile's job).
+	Use TARGET_SKIP_BUG instead of avr_current_device->errata_skip.
+	* config/avr/avr.c (avr_2word_insn_p): Likewise.
+	* config/avr/avr.md (*cpse.ne): Likewise.
+	(mov<mode>): Use avr_eval_addr_attrib.
+	(cbi): Change constraint for low_io_address_operand operand to "i".
+	(sbi, sbix_branch, sbix_branch_bit7, insv.io, insv.not.io): Likewise.
+	* config/avr/predicates.md (io_address_operand):
+	Allow SYMBOL_REF with SYMBOL_FLAG_IO.
+	(low_io_address_operand): Allow SYMBOL_REF with SYMBOL_FLAG_IO_LOW.
+	* config/avr/avr-protos.h (avr_asm_output_aligned_decl_common):
+	Update prototype.
+	(avr_eval_addr_attrib, avr_asm_asm_output_aligned_bss): Prototype.
+	* config/avr/genmultilib.awk: Use -march=.
+	Remove Multilib matches processing.
+	* config/avr/t-multilib, config/avr/avr-tables.opt: Regenerate.
+	* config/avr/avr-arch.h: Add double include guard.
+	(avr_mcu_t) <library_name>: Update comment.
+	* config/avr/driver-avr.c (avr_device_to_as): Delete.
+	(avr_device_to_ld, avr_device_to_data_start): Likewise.
+	(avr_device_to_startfiles, avr_device_to_devicelib): Likewise.
+	(avr_device_to_sp8): Likewise.
+	* config/avr/genopt.sh:  Instead avr_mcu, emit an Enum for avr_arch.
+
+	* doc/extend.texi (io, address): Document new AVR variable attributes.
+	(io_low): Likewise.
+
+2014-10-09  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Document -fsanitize=bool and -fsanitize=enum.
+
+2014-10-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61969
+	* tree-nrv.c (pass_nrv::execute): Properly test for automatic
+	variables.
+
+2014-10-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63445
+	* tree-vrp.c (simplify_cond_using_ranges): Only warn about
+	overflow for non-equality compares.
+
+2014-10-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/57003
+	* regcprop.c (copyprop_hardreg_forward_1): If ksvd.ignore_set_reg,
+	also check CALL_INSN_FUNCTION_USAGE for clobbers again after
+	killing regs_invalidated_by_call.
+
+2014-10-08  Teresa Johnson  <tejohnson@google.com>
+
+	PR bootstrap/63432.
+	* tree-ssa-threadupdate.c (estimated_freqs_path): New function.
+	(ssa_fix_duplicate_block_edges): Invoke it.
+	(mark_threaded_blocks): Make two passes to avoid ordering dependences.
+
 2014-10-08  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	PR target/52941
