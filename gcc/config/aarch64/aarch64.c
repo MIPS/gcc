@@ -342,8 +342,8 @@ __extension__
 static const struct cpu_regmove_cost thunderx_regmove_cost =
 {
   NAMED_PARAM (GP2GP, 1),
-  NAMED_PARAM (GP2FP, 2),
-  NAMED_PARAM (FP2GP, 2),
+  NAMED_PARAM (GP2FP, 1),
+  NAMED_PARAM (FP2GP, 3),
   NAMED_PARAM (FP2FP, 2)
 };
 
