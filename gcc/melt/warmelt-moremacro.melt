@@ -435,4 +435,89 @@ $COMMA It is often noted with a prefix comma-character
 @code{,}....}# )
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; utility function, e.g. to substitute *some* symbols in macrostrings.
+(defun substitute_sexpr (sexpr symbrepf insidef)
+  :doc #{The $SUBSTITUTE_SEXPR is substituting some symbols inside the
+  given $SEXPR. Each symbol inside $SEXPR is passed to the $SYMBREPF
+  function which can return a list or a tuple to be replaced by
+  @i{several} -or none- elements. When a component of $SEXPR is itself
+  an s-expression, the function $INSIDEF decides -by returning
+  non-nil- if the substitution goes inside recursively.}#
+  (debug "substitute_sexpr" " sexpr=" sexpr)
+  (when (is_not_a sexpr class_sexpr)
+    (debug "substitute_sexpr" " not an S-expr:" sexpr)
+    (return sexpr))
+  (let ( (clist (make_list discr_list))
+	 (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc (unsafe_get_field :loca_location sexpr))
+	 (newsexpr (if (is_a sexpr class_sexpr_macrostring)
+		       (instance class_sexpr_macrostring
+				 :loca_location loc
+				 :sexp_contents clist)
+		     (instance class_sexpr
+			       :loca_location loc
+			       :sexp_contents clist)))
+	 )
+    (each_component_in_list
+     cont
+     curcont
+     (debug "substitute_sexpr" " curcont=" curcont)
+     (cond
+      ( (is_a curcont class_keyword)
+	(list_append clist curcont))
+      ( (is_a curcont class_symbol)
+	(let ( (repsymb (if (is_closure symbrepf)
+			    (symbrepf curcont)
+			  curcont))
+	       )
+	  (cond
+	   ( (is_multiple repsymb)
+	     (foreach_in_multiple
+	      (repsymb)
+	      (currep :long rix)
+	      (list_append clist currep)
+	      )
+	     (void)
+	     )
+	   ( (is_list repsymb)
+	     (each_component_in_list
+	      repsymb
+	      curlrep
+	      (list_append clist curlrep))
+	     (void))
+	   (:else
+	    (list_append clist repsymb))))
+	)
+      ( (is_a curcont class_sexpr)
+	(let (
+	      (insidev (if (is_closure insidef) (insidef curcont)))
+	      (replcont (if insidev (substitute_sexpr curcont symbrepf insidef) curcont))
+	      )
+	  (cond
+	   ( (is_multiple replcont)
+	     (foreach_in_multiple
+	      (insidev)
+	      (curins :long insix)
+	      (list_append clist curins)))
+	   ( (is_list replcont)
+	     (each_component_in_list
+	      replcont
+	      subcont
+	      (list_append clist subcont)))
+	   (:else
+	    (list_append clist replcont)))
+	  )
+	)
+      (:else
+       (list_append clist curcont)
+       )
+      )
+     )
+    ;;
+    (debug "substitute_sexpr" " result newsexpr=" newsexpr)
+    (return newsexpr)
+    )
+  )
+(export_values substitute_sexpr)
 ;; eof warmelt-moremacro.melt

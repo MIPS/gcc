@@ -6502,6 +6502,8 @@ if (1) return;
      ;;
      ;;
      (when (melt_error_counter)
+       (debug "translate_macroexpanded_list" " errorcount=" (melt_error_counter))
+       (shortbacktrace_dbg "translate_macroexpanded_list" 12)
        (if (is_closure errorhdlr) 
 	   (errorhdlr '"MELT translation failed after normalization"))
        (code_chunk errorednormal_warnchk 
@@ -7150,27 +7152,32 @@ if (1) return;
 	(modnakedname (make_string_nakedbasename discr_string modnamstr))
 	(macroenv (fresh_env inienv (tuple 'macro-environment modnamstr)))
 	(basenv (fresh_env inienv (tuple 'base-environment modnamstr)))
-	(modctx (instance class_module_context
-			  :mocx_modulename  modnakedname
-			  :mocx_expfieldict (make_mapstring discr_map_strings 390)
-			  :mocx_expclassdict (make_mapstring discr_map_strings 140)
-			  :mocx_initialenv inienv
-			  :mocx_macroenv macroenv
-			  :mocx_funcount (make_integerbox discr_integer 0)
-			  :mocx_filetuple ()
-			  :mocx_cheaderlist (make_list discr_list)
-			  :mocx_cimplementlist (make_list discr_list)
-			  ;; :mocx_cflags (make_list discr_list)
-			  ;; :mocx_linkflags (make_list discr_list)
-			  :mocx_packagepclist (make_list discr_list)
-			  :mocx_gendevlist (make_list discr_list)
-			  :mocx_errorhandler (lambda (v) (fatal_compile_error modnamstr v))
-			  :mocx_varcount (make_integerbox discr_integer 0)
-			  :mocx_varlist (make_list discr_list)
-			  :mocx_hookdict (make_mapstring discr_map_strings 31)
-			  :mocx_macrolist (make_list discr_list)
-			  :mocx_isgplcompatible ()
-			  ))
+	(modctx
+	 (instance class_module_context
+		   :mocx_modulename  modnakedname
+		   :mocx_expfieldict (make_mapstring discr_map_strings 390)
+		   :mocx_expclassdict (make_mapstring discr_map_strings 140)
+		   :mocx_initialenv inienv
+		   :mocx_macroenv macroenv
+		   :mocx_funcount (make_integerbox discr_integer 0)
+		   :mocx_filetuple ()
+		   :mocx_cheaderlist (make_list discr_list)
+		   :mocx_cimplementlist (make_list discr_list)
+		   ;; :mocx_cflags (make_list discr_list)
+		   ;; :mocx_linkflags (make_list discr_list)
+		   :mocx_packagepclist (make_list discr_list)
+		   :mocx_gendevlist (make_list discr_list)
+		   :mocx_errorhandler
+		   (lambda (v)
+		     (debug "compile_list_sexpr:errorhandler v=" v "\n.. modnamstr=" modnamstr)
+		     (shortbacktrace_dbg "compile_list_sexpr:errorhandler" 15)
+		     (fatal_compile_error modnamstr v))
+		   :mocx_varcount (make_integerbox discr_integer 0)
+		   :mocx_varlist (make_list discr_list)
+		   :mocx_hookdict (make_mapstring discr_map_strings 31)
+		   :mocx_macrolist (make_list discr_list)
+		   :mocx_isgplcompatible ()
+		   ))
 	(ncx (create_normcontext modctx)) 
 	)
     (debug "compile_list_sexpr modctx=" modctx 

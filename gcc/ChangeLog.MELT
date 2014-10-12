@@ -1,5 +1,11 @@
 
 
+2014-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-moremacro.melt (substitute_sexpr): New function.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): More
+	debug.
+
 2014-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{t-treecode does not work yet}}
 	* testsuite/melt/t-treecode.melt: Improved, but does not work.
