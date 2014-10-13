@@ -109,73 +109,73 @@
   (TR2_REG	130)
 
   (XD0_REG	136)
+])
 
+(define_c_enum "unspec" [
   ;; These are used with unspec.
-  (UNSPEC_COMPACT_ARGS	0)
-  (UNSPEC_MOVA		1)
-  (UNSPEC_CASESI	2)
-  (UNSPEC_DATALABEL	3)
-  (UNSPEC_BBR		4)
-  (UNSPEC_SFUNC		5)
-  (UNSPEC_PIC		6)
-  (UNSPEC_GOT		7)
-  (UNSPEC_GOTOFF	8)
-  (UNSPEC_PLT		9)
-  (UNSPEC_CALLER	10)
-  (UNSPEC_GOTPLT	11)
-  (UNSPEC_ICACHE	12)
-  (UNSPEC_INIT_TRAMP	13)
-  (UNSPEC_FCOSA		14)
-  (UNSPEC_FSRRA		15)
-  (UNSPEC_FSINA		16)
-  (UNSPEC_NSB		17)
-  (UNSPEC_ALLOCO	18)
-  (UNSPEC_TLSGD		20)
-  (UNSPEC_TLSLDM	21)
-  (UNSPEC_TLSIE		22)
-  (UNSPEC_DTPOFF	23)
-  (UNSPEC_GOTTPOFF	24)
-  (UNSPEC_TPOFF		25)
-  (UNSPEC_RA		26)
-  (UNSPEC_DIV_INV_M0	30)
-  (UNSPEC_DIV_INV_M1	31)
-  (UNSPEC_DIV_INV_M2	32)
-  (UNSPEC_DIV_INV_M3	33)
-  (UNSPEC_DIV_INV20	34)
-  (UNSPEC_DIV_INV_TABLE	37)
-  (UNSPEC_ASHIFTRT	35)
-  (UNSPEC_THUNK		36)
-  (UNSPEC_CHKADD	38)
-  (UNSPEC_SP_SET	40)
-  (UNSPEC_SP_TEST	41)
-  (UNSPEC_MOVUA		42)
-
+  UNSPEC_COMPACT_ARGS
+  UNSPEC_MOVA
+  UNSPEC_CASESI
+  UNSPEC_DATALABEL
+  UNSPEC_BBR
+  UNSPEC_SFUNC
+  UNSPEC_PIC
+  UNSPEC_GOT
+  UNSPEC_GOTOFF
+  UNSPEC_PLT
+  UNSPEC_CALLER
+  UNSPEC_GOTPLT
+  UNSPEC_ICACHE
+  UNSPEC_INIT_TRAMP
+  UNSPEC_FCOSA
+  UNSPEC_FSRRA
+  UNSPEC_FSINA
+  UNSPEC_NSB
+  UNSPEC_ALLOCO
+  UNSPEC_TLSGD
+  UNSPEC_TLSLDM
+  UNSPEC_TLSIE
+  UNSPEC_DTPOFF
+  UNSPEC_GOTTPOFF
+  UNSPEC_TPOFF
+  UNSPEC_RA
+  UNSPEC_DIV_INV_M0
+  UNSPEC_DIV_INV_M1
+  UNSPEC_DIV_INV_M2
+  UNSPEC_DIV_INV_M3
+  UNSPEC_DIV_INV20
+  UNSPEC_DIV_INV_TABLE
+  UNSPEC_ASHIFTRT
+  UNSPEC_THUNK
+  UNSPEC_CHKADD
+  UNSPEC_SP_SET
+  UNSPEC_SP_TEST
+  UNSPEC_MOVUA
   ;; (unspec [VAL SHIFT] UNSPEC_EXTRACT_S16) computes (short) (VAL >> SHIFT).
   ;; UNSPEC_EXTRACT_U16 is the unsigned equivalent.
-  (UNSPEC_EXTRACT_S16	43)
-  (UNSPEC_EXTRACT_U16	44)
-
+  UNSPEC_EXTRACT_S16
+  UNSPEC_EXTRACT_U16
   ;; (unspec [TARGET ANCHOR] UNSPEC_SYMOFF) == TARGET - ANCHOR.
-  (UNSPEC_SYMOFF	45)
-
+  UNSPEC_SYMOFF
   ;; (unspec [OFFSET ANCHOR] UNSPEC_PCREL_SYMOFF) == OFFSET - (ANCHOR - .).
-  (UNSPEC_PCREL_SYMOFF	46)
-
+  UNSPEC_PCREL_SYMOFF
   ;; Misc builtins
-  (UNSPEC_BUILTIN_STRLEN 47)
+  UNSPEC_BUILTIN_STRLEN
+])
 
+(define_c_enum "unspecv" [
   ;; These are used with unspec_volatile.
-  (UNSPECV_BLOCKAGE	0)
-  (UNSPECV_ALIGN	1)
-  (UNSPECV_CONST2	2)
-  (UNSPECV_CONST4	4)
-  (UNSPECV_CONST8	6)
-  (UNSPECV_WINDOW_END	10)
-  (UNSPECV_CONST_END	11)
-  (UNSPECV_EH_RETURN	12)
-  (UNSPECV_GBR		13)
-  (UNSPECV_SP_SWITCH_B  14)
-  (UNSPECV_SP_SWITCH_E  15)
+  UNSPECV_BLOCKAGE
+  UNSPECV_ALIGN
+  UNSPECV_CONST2
+  UNSPECV_CONST4
+  UNSPECV_CONST8
+  UNSPECV_WINDOW_END
+  UNSPECV_CONST_END
+  UNSPECV_EH_RETURN
+  UNSPECV_GBR
+  UNSPECV_SP_SWITCH_B
+  UNSPECV_SP_SWITCH_E
 ])
 
 ;; -------------------------------------------------------------------------
@@ -6938,7 +6938,7 @@ label:
       emit_insn (gen_ic_invalidate_line_compact (operands[0], operands[1]));
       DONE;
     }
-  else if (TARGET_SH4A_ARCH || TARGET_SH4_300)
+  else if (TARGET_SH4A || TARGET_SH4_300)
     {
       emit_insn (gen_ic_invalidate_line_sh4a (operands[0]));
       DONE;
@@ -6971,7 +6971,7 @@ label:
 (define_insn "ic_invalidate_line_sh4a"
   [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")]
 		    UNSPEC_ICACHE)]
-  "TARGET_SH4A_ARCH || TARGET_SH4_300"
+  "TARGET_SH4A || TARGET_SH4_300"
 {
   return       "ocbwb	@%0"	"\n"
 	 "	synco"		"\n"
@@ -13487,7 +13487,7 @@ label:
   [(set (match_operand:SI 0 "register_operand" "=z")
 	(unspec:SI [(match_operand:BLK 1 "unaligned_load_operand" "Sua>")]
 		   UNSPEC_MOVUA))]
-  "TARGET_SH4A_ARCH"
+  "TARGET_SH4A"
   "movua.l	%1,%0"
   [(set_attr "type" "movua")])
 
@@ -13500,7 +13500,7 @@ label:
 	(sign_extract:SI (mem:SI (match_operand:SI 1 "register_operand" ""))
 			 (const_int 32) (const_int 0)))
    (set (match_dup 1) (plus:SI (match_dup 1) (const_int 4)))]
-  "TARGET_SH4A_ARCH && REGNO (operands[0]) != REGNO (operands[1])"
+  "TARGET_SH4A && REGNO (operands[0]) != REGNO (operands[1])"
   [(set (match_operand:SI 0 "register_operand" "")
 	(sign_extract:SI (mem:SI (post_inc:SI
 				  (match_operand:SI 1 "register_operand" "")))
@@ -13512,7 +13512,7 @@ label:
 	(sign_extract:SI (match_operand:QI 1 "unaligned_load_operand" "")
 			 (match_operand 2 "const_int_operand" "")
 			 (match_operand 3 "const_int_operand" "")))]
-  "TARGET_SH4A_ARCH || TARGET_SH2A"
+  "TARGET_SH4A || TARGET_SH2A"
 {
   if (TARGET_SH2A && TARGET_BITOPS
       && (satisfies_constraint_Sbw (operands[1])
@@ -13525,7 +13525,7 @@ label:
 	emit_insn (gen_movsi (operands[0], gen_rtx_REG (SImode, T_REG)));
       DONE;
    }
-  if (TARGET_SH4A_ARCH
+  if (TARGET_SH4A
       && INTVAL (operands[2]) == 32
       && INTVAL (operands[3]) == 0
       && MEM_P (operands[1]) && MEM_ALIGN (operands[1]) < 32)
@@ -13544,7 +13544,7 @@ label:
 	(zero_extract:SI (match_operand:QI 1 "unaligned_load_operand" "")
 			 (match_operand 2 "const_int_operand" "")
 			 (match_operand 3 "const_int_operand" "")))]
-  "TARGET_SH4A_ARCH || TARGET_SH2A"
+  "TARGET_SH4A || TARGET_SH2A"
 {
   if (TARGET_SH2A && TARGET_BITOPS
       && (satisfies_constraint_Sbw (operands[1])
@@ -13557,7 +13557,7 @@ label:
 	emit_insn (gen_movsi (operands[0], gen_rtx_REG (SImode, T_REG)));
       DONE;
     }
-  if (TARGET_SH4A_ARCH
+  if (TARGET_SH4A
       && INTVAL (operands[2]) == 32
       && INTVAL (operands[3]) == 0
       && MEM_P (operands[1]) && MEM_ALIGN (operands[1]) < 32)
