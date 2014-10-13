@@ -285,6 +285,14 @@ check_function_concept (tree fn)
   tree body = DECL_SAVED_TREE (fn);
   if (TREE_CODE (body) == BIND_EXPR)
     body = BIND_EXPR_BODY (body);
+  
+  // Sometimes a funciton call results the creation of clean up
+  // points. Allow these to be preserved in the body of the 
+  // constraint, as we might actually need them for some constexpr
+  // evaluations.
+  if (TREE_CODE (body) == CLEANUP_POINT_EXPR)
+    body = TREE_OPERAND(body, 0);
+    
   if (TREE_CODE (body) != RETURN_EXPR)
     error_at (loc, "function concept definition %qD has multiple statements", 
               fn);
@@ -316,9 +324,9 @@ tree normalize_expr_req (tree);
 tree normalize_type_req (tree);
 tree normalize_nested_req (tree);
 tree normalize_var (tree);
+tree normalize_cleanup_point (tree);
 tree normalize_template_id (tree);
 tree normalize_stmt_list (tree);
-tree normalize_cast (tree);
 tree normalize_atom (tree);
 
 // Reduce the requirement T into a logical formula written in terms of
@@ -383,11 +391,11 @@ normalize_expr (tree t)
     case TEMPLATE_ID_EXPR: 
       return normalize_template_id (t);
 
-    case CAST_EXPR:
-      return normalize_cast (t);
-    
     case BIND_EXPR:        
       return normalize_node (BIND_EXPR_BODY (t));
+
+    case CLEANUP_POINT_EXPR:
+      return normalize_cleanup_point (t);
 
     // Do not recurse.
     case TAG_DEFN:         
@@ -655,12 +663,11 @@ normalize_requires (tree t)
   return t;
 }
 
-// Normalize a cast expression.
+// Normalize a cleanup point by normalizing the underlying
+// expression.
 tree
-normalize_cast (tree t) 
-{
-  // return normalize_node (TREE_VALUE (TREE_OPERAND (t, 0)));
-  return normalize_atom (t);
+normalize_cleanup_point (tree t) {
+  return normalize_node (TREE_OPERAND (t, 0));
 }
 
 // Normalize an atomic expression by performing some basic checks.

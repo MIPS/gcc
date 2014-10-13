@@ -1,3 +1,18 @@
+2014-10-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix regression related to concept introductions.
+	* gcc/cp/constraint.cc (cp_parser_template_declaration_after_exp):
+	Pop deferred access checks afer parsing the introduction.
+
+2014-10-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix bug related to cleanup expressions in concept definitions.
+	* gcc/cp/constraint.cc (check_function_concept): See through
+	cleanup handlers when checking the body of a function.
+	(normalize_cast): Removed. Handled in a default case.
+	(normalize_cleanup_point): New. Normalize the expression without
+	the cleanup handler.
+
 2014-09-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Explicitly disallow function concepts with deduced return types.

@@ -24409,19 +24409,21 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 	    = current_template_reqs;
 	}
     }
-  else if(flag_concepts)
+  else if (flag_concepts)
     {
       need_lang_pop = false;
       checks = NULL;
       saved_template_reqs = release (current_template_reqs);
-      push_deferring_access_checks (dk_deferred);
 
       // Scope may be changed by a nested-name-specifier.
       tree saved_scope = parser->scope;
       tree saved_qualifying_scope = parser->qualifying_scope;
       tree saved_object_scope = parser->object_scope;
 
+      push_deferring_access_checks (dk_deferred);
       parameter_list = cp_parser_template_introduction (parser);
+      pop_deferring_access_checks ();
+    
       if (parameter_list == error_mark_node)
         {
 	  // Restore template requirements before returning.
