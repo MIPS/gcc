@@ -1,3 +1,78 @@
+2014-10-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r215880
+	2014-10-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* g++.dg/ext/altivec-2.C: Compile with -Wno-deprecated to avoid
+	failing with the new warning message.
+	* gcc.dg/vmx/3c-01a.c: Likewise.
+	* gcc.dg/vmx/ops-long-1.c: Likewise.
+	* gcc.dg/vmx/ops.c: Likewise.
+	* gcc.target/powerpc/altivec-20.c: Likewise.
+	* gcc.target/powerpc/altivec-6.c: Likewise.
+	* gcc.target/powerpc/altivec-vec-merge.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-8.c: Likewise.
+	* gcc.target/powerpc/warn-lvsl-lvsr.c: New test.
+
+	Backport from mainline r215882
+	2014-10-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/lvsl-lvsr.c: New test.
+
+	Backport from mainline r216017
+	2014-10-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.dg/vmx/3c-01a.c: Add default options from vmx.exp.
+	* gcc.dg/vmx/ops.c: Likewise.
+	* gcc.dg/vmx/ops-long-1.c: Likewise.
+
+2014-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/59488
+	* gfortran.dg/gomp/pr59488-1.f90: New test.
+	* gfortran.dg/gomp/pr59488-2.f90: New test.
+
+2014-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63342
+	* gcc.dg/pr63342.c: New test.
+
+	PR target/63428
+	* gcc.dg/torture/vshuf-4.inc: Move test 122 from EXPTESTS
+	to test 24 in TESTS.
+
+2014-10-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-11-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_fenv_exceptions): New function.
+
+2014-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/63282
+	* gcc.c-torture/compile/pr63282.c: New test.
+
+2014-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/compat/struct-layout-1_generate.c: Add -Wno-abi
+	to default options.
+
+2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r215559
+	2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63335
+	* gcc.target/powerpc/pr63335.c: New test.
+
+2014-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63341
+	* gcc.dg/vect/pr63341-1.c: New test.
+	* gcc.dg/vect/pr63341-2.c: New test.
+
 2014-09-18  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/torture/float128-exact-underflow.c: New test.
