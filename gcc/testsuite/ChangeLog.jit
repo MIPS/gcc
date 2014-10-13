@@ -1,3 +1,24 @@
+2014-10-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h [MAKE_DEJAGNU_H_THREADSAFE] (note): Redefine
+	"note" from dejagnu.h to new function dejagnu_note so that we can
+	make "note" be threadsafe.
+	(set_options): Don't enable GCC_JIT_BOOL_OPTION_DUMP_SUMMARY,
+	since it can generate large amounts of output that could overwhelm
+	expect's buffer.
+	* jit.dg/test-dot-product.c (verify_code): Use "note" rather than
+	"printf", to give DejaGnu more chances to parse this log data,
+	rather than overflowing its buffer.
+	* jit.dg/test-factorial.c (verify_code): Likewise.
+	* jit.dg/test-fibonacci.c (verify_code): Likewise.
+	* jit.dg/test-fuzzer.c (main): Likewise.
+	* jit.dg/test-nested-loops.c (verify_code): Likewise.
+	* jit.dg/test-sum-of-squares.c (verify_code): Likewise.
+	* jit.dg/test-threads.c (note): New function, adding thread-safety
+	on top of "dejagnu_note", the latter being the implementation
+	found in dejagnu.h.
+	(run_threaded_test): Use "note" rather than "printf".
+
 2014-10-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/jit.exp (jit-dg-test): Prepend the installed bindir to

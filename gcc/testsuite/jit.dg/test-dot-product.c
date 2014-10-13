@@ -123,7 +123,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   CHECK_NON_NULL (my_dot_product);
   double test_array[] = {1., 2., 3., 4., 5., 6., 7., 8., 9., 10.};
   double val = my_dot_product (10, test_array, test_array);
-  printf("my_dot_product returned: %f\n", val);
+  note ("my_dot_product returned: %f", val);
   CHECK_VALUE (val, 385.0);
 }
 

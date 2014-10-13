@@ -97,7 +97,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
     (my_factorial_fn_type)gcc_jit_result_get_code (result, "my_factorial");
   CHECK_NON_NULL (my_factorial);
   int val = my_factorial (10);
-  printf("my_factorial returned: %d\n", val);
+  note ("my_factorial returned: %d", val);
   CHECK_VALUE (val, 3628800);
 }
 

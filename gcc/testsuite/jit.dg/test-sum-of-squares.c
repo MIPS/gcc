@@ -121,6 +121,6 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
     (loop_test_fn_type)gcc_jit_result_get_code (result, "loop_test");
   CHECK_NON_NULL (loop_test);
   int val = loop_test (10);
-  printf("loop_test returned: %d\n", val);
+  note ("loop_test returned: %d", val);
   CHECK_VALUE (val, 285);
 }

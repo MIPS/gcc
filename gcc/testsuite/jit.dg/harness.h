@@ -22,6 +22,7 @@
 #ifdef MAKE_DEJAGNU_H_THREADSAFE
 #define pass dejagnu_pass
 #define fail dejagnu_fail
+#define note dejagnu_note
 #endif
 
 #include <dejagnu.h>
@@ -29,6 +30,7 @@
 #ifdef MAKE_DEJAGNU_H_THREADSAFE
 #undef pass
 #undef fail
+#undef note
 #endif
 
 static char test[1024];
@@ -165,7 +167,7 @@ static void set_options (gcc_jit_context *ctxt, const char *argv0)
   gcc_jit_context_set_bool_option (
     ctxt,
     GCC_JIT_BOOL_OPTION_DUMP_SUMMARY,
-    1);
+    0);
 }
 
 #ifndef TEST_ESCHEWS_TEST_JIT

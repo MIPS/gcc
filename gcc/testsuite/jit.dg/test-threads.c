@@ -18,13 +18,14 @@ static pthread_mutex_t dg_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* By defining MAKE_DEJAGNU_H_THREADSAFE before we include harness.h,
    harness.h injects macros before including <dejagnu.h> so that the
-   pass/fail functions become "dejagnu_pass"/"dejagnu_fail".  */
+   pass/fail functions become "dejagnu_pass"/"dejagnu_fail" etc.  */
 
 void dejagnu_pass (const char* fmt, ...);
 void dejagnu_fail (const char* fmt, ...);
+void dejagnu_note (const char* fmt, ...);
 
-/* We now provide our own implementations of "pass"/"fail", which call
-   the underlying dejagnu implementations, but with a mutex.  */
+/* We now provide our own implementations of "pass"/"fail"/"note", which
+   call the underlying dejagnu implementations, but with a mutex.  */
 
 inline void
 pass (const char* fmt, ...)
@@ -53,6 +54,21 @@ fail (const char* fmt, ...)
 
   pthread_mutex_lock (&dg_mutex);
   dejagnu_fail (buffer);
+  pthread_mutex_unlock (&dg_mutex);
+}
+
+inline void
+note (const char* fmt, ...)
+{
+  va_list ap;
+  char buffer[512];
+
+  va_start (ap, fmt);
+  vsnprintf (buffer, sizeof (buffer), fmt, ap);
+  va_end (ap);
+
+  pthread_mutex_lock (&dg_mutex);
+  dejagnu_note (buffer);
   pthread_mutex_unlock (&dg_mutex);
 }
 
@@ -174,8 +190,8 @@ run_threaded_test (void *data)
       gcc_jit_context *ctxt;
       gcc_jit_result *result;
 
-      printf ("run_threaded_test: %s iteration: %d\n",
-	      thread->m_testcase->m_name, i);
+      note ("run_threaded_test: %s iteration: %d",
+	    thread->m_testcase->m_name, i);
 
       ctxt = gcc_jit_context_acquire ();
 

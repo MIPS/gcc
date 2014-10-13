@@ -131,6 +131,6 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
     (my_fibonacci_fn_type)gcc_jit_result_get_code (result, "my_fibonacci");
   CHECK_NON_NULL (my_fibonacci);
   int val = my_fibonacci (10);
-  printf("my_fibonacci returned: %d\n", val);
+  note ("my_fibonacci returned: %d", val);
   CHECK_VALUE (val, 55);
 }

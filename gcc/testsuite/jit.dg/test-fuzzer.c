@@ -454,8 +454,8 @@ main (int argc, char **argv)
 	}
     }
   pass ("%s: survived running all tests", extract_progname (argv[0]));
-  printf ("%s: num completed compilations: %d\n", extract_progname (argv[0]),
-	  num_completed_compilations);
+  note ("%s: num completed compilations: %d", extract_progname (argv[0]),
+	num_completed_compilations);
   totals ();
 
   return 0;

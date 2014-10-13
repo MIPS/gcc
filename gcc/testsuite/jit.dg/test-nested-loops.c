@@ -174,6 +174,6 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   double test_a[] = {1., 2., 3., 4., 5., 6., 7., 8., 9., 10.};
   double test_b[] = {5., 6., 7., 8., 9., 10., 1., 2., 3., 4.};
   double val = test_nested_loops (10, test_a, test_b);
-  printf("test_nested_loops returned: %f\n", val);
+  note ("test_nested_loops returned: %f", val);
   CHECK_VALUE (val, 3025.0);
 }
