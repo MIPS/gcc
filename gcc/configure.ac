@@ -5680,7 +5680,7 @@ if test x"${LINKER_HASH_STYLE}" != x; then
 fi
 
 # Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
-# of jit/internal-api.c.
+# of jit/jit-playback.c.
 cat > gcc-driver-name.h <<EOF
 #define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
 EOF
