@@ -1,5 +1,10 @@
 2014-10-12  Andrew Pinski  <apinski@cavium.com>
 
+	* config/aarch64/aarch64.c (aarch64_macro_fusion_pair):
+	Fix return.
+
+2014-10-12  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #12577
 	* config/aarch64/aarch64.c (thunderx_regmove_cost):
 	Fix up GP2FP and FP2GP cost to the correct value.

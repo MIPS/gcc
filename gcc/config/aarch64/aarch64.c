@@ -6258,7 +6258,7 @@ static bool
 aarch64_macro_fusion_pair (rtx_insn *condgen, rtx_insn *condjmp)
 {
   gcc_assert (aarch64_tune_params->macro_fusion_pair);
-  aarch64_tune_params->macro_fusion_pair (condgen, condjmp);
+  return aarch64_tune_params->macro_fusion_pair (condgen, condjmp);
 }
 
 static bool
