@@ -1,5 +1,11 @@
 2014-10-13  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/jit.exp (fixed_host_execute): New function, taken from
+	"host_execute" in DejaGnu's dejagnu.exp, with one line removed.
+	(jit-dg-test): Use fixed_host_execute, rathern than host_execute.
+
+2014-10-13  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/harness.h [MAKE_DEJAGNU_H_THREADSAFE] (note): Redefine
 	"note" from dejagnu.h to new function dejagnu_note so that we can
 	make "note" be threadsafe.
