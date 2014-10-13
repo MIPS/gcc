@@ -88,7 +88,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tm_p.h"
 #include "flags.h"
 #include "tree.h"
 #include "basic-block.h"
@@ -116,6 +115,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "gimple-pretty-print.h"
 #include "builtins.h"
+#include "tm_p.h"
 
 /* FIXME: RTL headers have to be included here for optabs.  */
 #include "rtl.h"		/* Because optabs.h wants enum rtx_code.  */
