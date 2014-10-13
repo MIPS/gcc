@@ -1,3 +1,36 @@
+2014-10-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63415
+	* pt.c (value_dependent_expression_p) [CONSTRUCTOR]: Check the type.
+	(iterative_hash_template_arg): Likewise.
+
+	PR c++/63437
+	* cp-tree.h (REF_PARENTHESIZED_P): Also allow INDIRECT_REF.
+	* semantics.c (force_paren_expr): And set it.
+	* typeck.c (check_return_expr): And handle it.
+
+2014-10-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63405
+	* pt.c (tsubst_pack_expansion): Limit simple expansion to type packs.
+
+2014-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/63249
+	* semantics.c (handle_omp_array_sections_1): Call mark_rvalue_use
+	on low_bound and length.
+
+2014-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/62219
+	* pt.c (check_default_tmpl_args): Check LAMBDA_FUNCTION_P.
+
+2014-09-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61465
+	* call.c (convert_like_real) [ck_identity]: Call mark_rvalue_use
+	after pulling out an element from a CONSTRUCTOR.
+
 2014-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/63248

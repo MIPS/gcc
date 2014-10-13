@@ -1601,6 +1601,7 @@ iterative_hash_template_arg (tree arg, hashval_t val)
     case CONSTRUCTOR:
       {
 	tree field, value;
+	iterative_hash_template_arg (TREE_TYPE (arg), val);
 	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (arg), i, field, value)
 	  {
 	    val = iterative_hash_template_arg (field, val);
@@ -4430,9 +4431,11 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
        local scope.  */
     return true;
 
-  if (TREE_CODE (decl) == TYPE_DECL
-      && TREE_TYPE (decl)
-      && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+  if ((TREE_CODE (decl) == TYPE_DECL
+       && TREE_TYPE (decl)
+       && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+      || (TREE_CODE (decl) == FUNCTION_DECL
+	  && LAMBDA_FUNCTION_P (decl)))
     /* A lambda doesn't have an explicit declaration; don't complain
        about the parms of the enclosing class.  */
     return true;
@@ -9819,7 +9822,13 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   /* If the expansion is just T..., return the matching argument pack.  */
   if (!unsubstituted_packs
       && TREE_PURPOSE (packs) == pattern)
-    return ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+    {
+      tree args = ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+      if (TREE_CODE (t) == TYPE_PACK_EXPANSION
+	  || pack_expansion_args_count (args))
+	return args;
+      /* Otherwise use the normal path so we get convert_from_reference.  */
+    }
 
   /* We cannot expand this expansion expression, because we don't have
      all of the argument packs we need.  */
@@ -20787,6 +20796,8 @@ value_dependent_expression_p (tree expression)
       {
 	unsigned ix;
 	tree val;
+	if (dependent_type_p (TREE_TYPE (expression)))
+	  return true;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (expression), ix, val)
 	  if (value_dependent_expression_p (val))
 	    return true;
