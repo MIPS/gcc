@@ -341,10 +341,10 @@ __extension__
 #endif
 static const struct cpu_regmove_cost thunderx_regmove_cost =
 {
-  NAMED_PARAM (GP2GP, 1),
-  NAMED_PARAM (GP2FP, 1),
-  NAMED_PARAM (FP2GP, 3),
-  NAMED_PARAM (FP2FP, 2)
+  NAMED_PARAM (GP2GP, 2),
+  NAMED_PARAM (GP2FP, 2),
+  NAMED_PARAM (FP2GP, 6),
+  NAMED_PARAM (FP2FP, 4)
 };
 
 /* Generic costs for vector insn classes.  */
@@ -444,7 +444,7 @@ static const struct tune_params thunderx_tunings =
   &thunderx_regmove_cost,
   &generic_vector_cost,
   &thunderx_prefetch_costs,
-  NAMED_PARAM (memmov_cost, 3),
+  NAMED_PARAM (memmov_cost, 6),
   NAMED_PARAM (issue_rate, 2),
   NAMED_PARAM (align, 8),
   NAMED_PARAM (macro_fusion_pair, aarch64_thunderx_macro_fusion_pair)
