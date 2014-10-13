@@ -2890,8 +2890,16 @@ struct equivalence
      e.g. by reload.  */
   rtx replacement;
   rtx *src_p;
-  /* The list of each instruction which initializes this register.  */
-  rtx init_insns;
+
+  /* The list of each instruction which initializes this register.
+
+     NULL indicates we know nothing about this register's equivalence
+     properties.
+
+     An INSN_LIST with a NULL insn indicates this pseudo is already
+     known to not have a valid equivalence.  */
+  rtx_insn_list *init_insns;
+
   /* Loop depth is used to recognize equivalences which appear
      to be present within the same loop (or in an inner loop).  */
   int loop_depth;
@@ -3242,15 +3250,15 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
 	  void *data ATTRIBUTE_UNUSED)
 {
   int regno;
-  rtx list;
+  rtx_insn_list *list;
 
   if (!REG_P (reg))
     return;
   regno = REGNO (reg);
   list = reg_equiv[regno].init_insns;
-  if (list == const0_rtx)
+  if (list && list->insn () == NULL)
     return;
-  reg_equiv[regno].init_insns = const0_rtx;
+  reg_equiv[regno].init_insns = gen_rtx_INSN_LIST (VOIDmode, NULL_RTX, NULL);
   reg_equiv[regno].replacement = NULL_RTX;
   /* This doesn't matter for equivalences made for argument registers, we
      should keep their initialization insns.  */
@@ -3258,9 +3266,9 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
     return;
   ira_reg_equiv[regno].defined_p = false;
   ira_reg_equiv[regno].init_insns = NULL;
-  for (; list; list =  XEXP (list, 1))
+  for (; list; list = list->next ())
     {
-      rtx insn = XEXP (list, 0);
+      rtx_insn *insn = list->insn ();
       remove_note (insn, find_reg_note (insn, REG_EQUIV, NULL_RTX));
     }
 }
@@ -3437,7 +3445,8 @@ update_equiv_regs (void)
 
 	  if (!REG_P (dest)
 	      || (regno = REGNO (dest)) < FIRST_PSEUDO_REGISTER
-	      || reg_equiv[regno].init_insns == const0_rtx
+	      || (reg_equiv[regno].init_insns
+		  && reg_equiv[regno].init_insns->insn () == NULL)
 	      || (targetm.class_likely_spilled_p (reg_preferred_class (regno))
 		  && MEM_P (src) && ! reg_equiv[regno].is_arg_equivalence))
 	    {
@@ -3608,8 +3617,8 @@ update_equiv_regs (void)
 	  && (regno = REGNO (src)) >= FIRST_PSEUDO_REGISTER
 	  && REG_BASIC_BLOCK (regno) >= NUM_FIXED_BLOCKS
 	  && DF_REG_DEF_COUNT (regno) == 1
-	  && reg_equiv[regno].init_insns != 0
-	  && reg_equiv[regno].init_insns != const0_rtx
+	  && reg_equiv[regno].init_insns != NULL
+	  && reg_equiv[regno].init_insns->insn () != NULL
 	  && ! find_reg_note (XEXP (reg_equiv[regno].init_insns, 0),
 			      REG_EQUIV, NULL_RTX)
 	  && ! contains_replace_regs (XEXP (dest, 0))
@@ -3728,7 +3737,7 @@ update_equiv_regs (void)
 		      delete_insn (equiv_insn);
 
 		      reg_equiv[regno].init_insns
-			= XEXP (reg_equiv[regno].init_insns, 1);
+			= reg_equiv[regno].init_insns->next ();
 
 		      ira_reg_equiv[regno].init_insns = NULL;
 		      bitmap_set_bit (cleared_regs, regno);
@@ -4887,7 +4896,7 @@ split_live_ranges_for_shrink_wrap (void)
   FOR_BB_INSNS (first, insn)
     {
       rtx dest = interesting_dest_for_shprep (insn, call_dom);
-      if (!dest)
+      if (!dest || dest == pic_offset_table_rtx)
 	continue;
 
       rtx newreg = NULL_RTX;
@@ -5038,6 +5047,9 @@ ira (FILE *f)
   int rebuild_p;
   bool saved_flag_caller_saves = flag_caller_saves;
   enum ira_region saved_flag_ira_region = flag_ira_region;
+
+  /* Perform target specific PIC register initialization.  */
+  targetm.init_pic_reg ();
 
   ira_conflicts_p = optimize > 0;
 
@@ -5290,9 +5302,17 @@ do_reload (void)
 {
   basic_block bb;
   bool need_dce;
+  unsigned pic_offset_table_regno = INVALID_REGNUM;
 
   if (flag_ira_verbose < 10)
     ira_dump_file = dump_file;
+
+  /* If pic_offset_table_rtx is a pseudo register, then keep it so
+     after reload to avoid possible wrong usages of hard reg assigned
+     to it.  */
+  if (pic_offset_table_rtx
+      && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)
+    pic_offset_table_regno = REGNO (pic_offset_table_rtx);
 
   timevar_push (TV_RELOAD);
   if (ira_use_lra_p)
@@ -5397,6 +5417,9 @@ do_reload (void)
                 "frame pointer required, but reserved");
       inform (DECL_SOURCE_LOCATION (decl), "for %qD", decl);
     }
+
+  if (pic_offset_table_regno != INVALID_REGNUM)
+    pic_offset_table_rtx = gen_rtx_REG (Pmode, pic_offset_table_regno);
 
   timevar_pop (TV_IRA);
 }

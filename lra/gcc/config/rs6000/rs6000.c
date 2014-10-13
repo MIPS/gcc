@@ -1174,7 +1174,7 @@ rtl_opt_pass *make_pass_analyze_swaps (gcc::context*);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
-struct GTY(()) toc_hash_struct
+struct GTY((for_user)) toc_hash_struct
 {
   /* `key' will satisfy CONSTANT_P; in fact, it will satisfy
      ASM_OUTPUT_SPECIAL_POOL_ENTRY_P.  */
@@ -1183,18 +1183,30 @@ struct GTY(()) toc_hash_struct
   int labelno;
 };
 
-static GTY ((param_is (struct toc_hash_struct))) htab_t toc_hash_table;
+struct toc_hasher : ggc_hasher<toc_hash_struct *>
+{
+  static hashval_t hash (toc_hash_struct *);
+  static bool equal (toc_hash_struct *, toc_hash_struct *);
+};
+
+static GTY (()) hash_table<toc_hasher> *toc_hash_table;
 
 /* Hash table to keep track of the argument types for builtin functions.  */
 
-struct GTY(()) builtin_hash_struct
+struct GTY((for_user)) builtin_hash_struct
 {
   tree type;
   enum machine_mode mode[4];	/* return value + 3 arguments.  */
   unsigned char uns_p[4];	/* and whether the types are unsigned.  */
 };
 
-static GTY ((param_is (struct builtin_hash_struct))) htab_t builtin_hash_table;
+struct builtin_hasher : ggc_hasher<builtin_hash_struct *>
+{
+  static hashval_t hash (builtin_hash_struct *);
+  static bool equal (builtin_hash_struct *, builtin_hash_struct *);
+};
+
+static GTY (()) hash_table<builtin_hasher> *builtin_hash_table;
 
 
 /* Default register names.  */
@@ -13898,8 +13910,8 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case ALTIVEC_BUILTIN_MASK_FOR_LOAD:
     case ALTIVEC_BUILTIN_MASK_FOR_STORE:
       {
-	int icode = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr
-		     : (int) CODE_FOR_altivec_lvsl);
+	int icode = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr_direct
+		     : (int) CODE_FOR_altivec_lvsl_direct);
 	enum machine_mode tmode = insn_data[icode].operand[0].mode;
 	enum machine_mode mode = insn_data[icode].operand[1].mode;
 	tree arg;
@@ -13927,7 +13939,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	    || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	  target = gen_reg_rtx (tmode);
 
-	/*pat = gen_altivec_lvsr (target, op);*/
 	pat = GEN_FCN (icode) (target, op);
 	if (!pat)
 	  return 0;
@@ -15114,13 +15125,11 @@ htm_init_builtins (void)
 
 /* Hash function for builtin functions with up to 3 arguments and a return
    type.  */
-static unsigned
-builtin_hash_function (const void *hash_entry)
+hashval_t
+builtin_hasher::hash (builtin_hash_struct *bh)
 {
   unsigned ret = 0;
   int i;
-  const struct builtin_hash_struct *bh =
-    (const struct builtin_hash_struct *) hash_entry;
 
   for (i = 0; i < 4; i++)
     {
@@ -15132,12 +15141,9 @@ builtin_hash_function (const void *hash_entry)
 }
 
 /* Compare builtin hash entries H1 and H2 for equivalence.  */
-static int
-builtin_hash_eq (const void *h1, const void *h2)
+bool
+builtin_hasher::equal (builtin_hash_struct *p1, builtin_hash_struct *p2)
 {
-  const struct builtin_hash_struct *p1 = (const struct builtin_hash_struct *) h1;
-  const struct builtin_hash_struct *p2 = (const struct builtin_hash_struct *) h2;
-
   return ((p1->mode[0] == p2->mode[0])
 	  && (p1->mode[1] == p2->mode[1])
 	  && (p1->mode[2] == p2->mode[2])
@@ -15158,7 +15164,6 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 {
   struct builtin_hash_struct h;
   struct builtin_hash_struct *h2;
-  void **found;
   int num_args = 3;
   int i;
   tree ret_type = NULL_TREE;
@@ -15166,8 +15171,7 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 
   /* Create builtin_hash_table.  */
   if (builtin_hash_table == NULL)
-    builtin_hash_table = htab_create_ggc (1500, builtin_hash_function,
-					  builtin_hash_eq, NULL);
+    builtin_hash_table = hash_table<builtin_hasher>::create_ggc (1500);
 
   h.type = NULL_TREE;
   h.mode[0] = mode_ret;
@@ -15323,18 +15327,18 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 		     GET_MODE_NAME (m));
     }
 
-  found = htab_find_slot (builtin_hash_table, &h, INSERT);
+  builtin_hash_struct **found = builtin_hash_table->find_slot (&h, INSERT);
   if (*found == NULL)
     {
       h2 = ggc_alloc<builtin_hash_struct> ();
       *h2 = h;
-      *found = (void *)h2;
+      *found = h2;
 
       h2->type = build_function_type_list (ret_type, arg_type[0], arg_type[1],
 					   arg_type[2], NULL_TREE);
     }
 
-  return ((struct builtin_hash_struct *)(*found))->type;
+  return (*found)->type;
 }
 
 static void
@@ -25562,24 +25566,21 @@ rs6000_hash_constant (rtx k)
   return result;
 }
 
-static unsigned
-toc_hash_function (const void *hash_entry)
+hashval_t
+toc_hasher::hash (toc_hash_struct *thc)
 {
-  const struct toc_hash_struct *thc =
-    (const struct toc_hash_struct *) hash_entry;
   return rs6000_hash_constant (thc->key) ^ thc->key_mode;
 }
 
 /* Compare H1 and H2 for equivalence.  */
 
-static int
-toc_hash_eq (const void *h1, const void *h2)
+bool
+toc_hasher::equal (toc_hash_struct *h1, toc_hash_struct *h2)
 {
-  rtx r1 = ((const struct toc_hash_struct *) h1)->key;
-  rtx r2 = ((const struct toc_hash_struct *) h2)->key;
+  rtx r1 = h1->key;
+  rtx r2 = h2->key;
 
-  if (((const struct toc_hash_struct *) h1)->key_mode
-      != ((const struct toc_hash_struct *) h2)->key_mode)
+  if (h1->key_mode != h2->key_mode)
     return 0;
 
   return rtx_equal_p (r1, r2);
@@ -25666,20 +25667,18 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
   if (TARGET_TOC && GET_CODE (x) != LABEL_REF)
     {
       struct toc_hash_struct *h;
-      void * * found;
 
       /* Create toc_hash_table.  This can't be done at TARGET_OPTION_OVERRIDE
 	 time because GGC is not initialized at that point.  */
       if (toc_hash_table == NULL)
-	toc_hash_table = htab_create_ggc (1021, toc_hash_function,
-					  toc_hash_eq, NULL);
+	toc_hash_table = hash_table<toc_hasher>::create_ggc (1021);
 
       h = ggc_alloc<toc_hash_struct> ();
       h->key = x;
       h->key_mode = mode;
       h->labelno = labelno;
 
-      found = htab_find_slot (toc_hash_table, h, INSERT);
+      toc_hash_struct **found = toc_hash_table->find_slot (h, INSERT);
       if (*found == NULL)
 	*found = h;
       else  /* This is indeed a duplicate.
@@ -25689,8 +25688,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
 	  fprintf (file, "%d,", labelno);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
-	  fprintf (file, "%d\n", ((*(const struct toc_hash_struct **)
-					      found)->labelno));
+	  fprintf (file, "%d\n", ((*found)->labelno));
 
 #ifdef HAVE_AS_TLS
 	  if (TARGET_XCOFF && GET_CODE (x) == SYMBOL_REF
@@ -25701,8 +25699,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LCM");
 	      fprintf (file, "%d,", labelno);
 	      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LCM");
-	      fprintf (file, "%d\n", ((*(const struct toc_hash_struct **)
-			       			      found)->labelno));
+	      fprintf (file, "%d\n", ((*found)->labelno));
 	    }
 #endif
 	  return;
@@ -31582,17 +31579,40 @@ rs6000_init_dwarf_reg_sizes_extra (tree address)
     }
 }
 
-/* Map internal gcc register numbers to DWARF2 register numbers.  */
+/* Map internal gcc register numbers to debug format register numbers.
+   FORMAT specifies the type of debug register number to use:
+     0 -- debug information, except for frame-related sections
+     1 -- DWARF .debug_frame section
+     2 -- DWARF .eh_frame section  */
 
 unsigned int
-rs6000_dbx_register_number (unsigned int regno)
+rs6000_dbx_register_number (unsigned int regno, unsigned int format)
 {
-  if (regno <= 63 || write_symbols != DWARF2_DEBUG)
+  /* We never use the GCC internal number for SPE high registers.
+     Those are mapped to the 1200..1231 range for all debug formats.  */
+  if (SPE_HIGH_REGNO_P (regno))
+    return regno - FIRST_SPE_HIGH_REGNO + 1200;
+
+  /* Except for the above, we use the internal number for non-DWARF
+     debug information, and also for .eh_frame.  */
+  if ((format == 0 && write_symbols != DWARF2_DEBUG) || format == 2)
+    return regno;
+
+  /* On some platforms, we use the standard DWARF register
+     numbering for .debug_info and .debug_frame.  */
+#ifdef RS6000_USE_DWARF_NUMBERING
+  if (regno <= 63)
     return regno;
   if (regno == LR_REGNO)
     return 108;
   if (regno == CTR_REGNO)
     return 109;
+  /* Special handling for CR for .debug_frame: rs6000_emit_prologue has
+     translated any combination of CR2, CR3, CR4 saves to a save of CR2.
+     The actual code emitted saves the whole of CR, so we map CR2_REGNO
+     to the DWARF reg for CR.  */
+  if (format == 1 && regno == CR2_REGNO)
+    return 64;
   if (CR_REGNO_P (regno))
     return regno - CR0_REGNO + 86;
   if (regno == CA_REGNO)
@@ -31607,8 +31627,7 @@ rs6000_dbx_register_number (unsigned int regno)
     return 99;
   if (regno == SPEFSCR_REGNO)
     return 612;
-  if (SPE_HIGH_REGNO_P (regno))
-    return regno - FIRST_SPE_HIGH_REGNO + 1200;
+#endif
   return regno;
 }
 
@@ -33431,6 +33450,53 @@ emit_fusion_gpr_load (rtx target, rtx mem)
    call to vec_vsx_{ld,st}.)  We can handle these as well, but rather
    than deleting a swap, we convert the load/store into a permuting
    load/store (which effectively removes the swap).  */
+
+/* Notes on Permutes
+
+   We do not currently handle computations that contain permutes.  There
+   is a general transformation that can be performed correctly, but it
+   may introduce more expensive code than it replaces.  To handle these
+   would require a cost model to determine when to perform the optimization.
+   This commentary records how this could be done if desired.
+
+   The most general permute is something like this (example for V16QI):
+
+   (vec_select:V16QI (vec_concat:V32QI (op1:V16QI) (op2:V16QI))
+                     (parallel [(const_int a0) (const_int a1)
+                                 ...
+                                (const_int a14) (const_int a15)]))
+
+   where a0,...,a15 are in [0,31] and select elements from op1 and op2
+   to produce in the result.
+
+   Regardless of mode, we can convert the PARALLEL to a mask of 16
+   byte-element selectors.  Let's call this M, with M[i] representing
+   the ith byte-element selector value.  Then if we swap doublewords
+   throughout the computation, we can get correct behavior by replacing
+   M with M' as follows:
+
+            { M[i+8]+8 : i < 8, M[i+8] in [0,7] U [16,23]
+    M'[i] = { M[i+8]-8 : i < 8, M[i+8] in [8,15] U [24,31]
+            { M[i-8]+8 : i >= 8, M[i-8] in [0,7] U [16,23]
+            { M[i-8]-8 : i >= 8, M[i-8] in [8,15] U [24,31]
+
+   This seems promising at first, since we are just replacing one mask
+   with another.  But certain masks are preferable to others.  If M
+   is a mask that matches a vmrghh pattern, for example, M' certainly
+   will not.  Instead of a single vmrghh, we would generate a load of
+   M' and a vperm.  So we would need to know how many xxswapd's we can
+   remove as a result of this transformation to determine if it's
+   profitable; and preferably the logic would need to be aware of all
+   the special preferable masks.
+
+   Another form of permute is an UNSPEC_VPERM, in which the mask is
+   already in a register.  In some cases, this mask may be a constant
+   that we can discover with ud-chains, in which case the above
+   transformation is ok.  However, the common usage here is for the
+   mask to be produced by an UNSPEC_LVSL, in which case the mask 
+   cannot be known at compile time.  In such a case we would have to
+   generate several instructions to compute M' as above at run time,
+   and a cost model is needed again.  */
 
 /* This is based on the union-find logic in web.c.  web_entry_base is
    defined in df.h.  */
