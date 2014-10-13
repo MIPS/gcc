@@ -2946,7 +2946,66 @@ get_kind:
 match
 gfc_match_implicit_none (void)
 {
-  return (gfc_match_eos () == MATCH_YES) ? MATCH_YES : MATCH_NO;
+  char c;
+  match m;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  bool type = false;
+  bool external = false;
+  locus cur_loc = gfc_current_locus;
+
+  if (gfc_current_ns->seen_implicit_none
+      || gfc_current_ns->has_implicit_none_export)
+    {
+      gfc_error ("Duplicate IMPLICIT NONE statement at %C");
+      return MATCH_ERROR;
+    }
+
+  gfc_gobble_whitespace ();
+  c = gfc_peek_ascii_char ();
+  if (c == '(')
+    {
+      (void) gfc_next_ascii_char ();
+      if (!gfc_notify_std (GFC_STD_F2015, "IMPORT NONE with spec list at %C"))
+	return MATCH_ERROR;
+
+      gfc_gobble_whitespace ();
+      if (gfc_peek_ascii_char () == ')')
+	{
+	  (void) gfc_next_ascii_char ();
+	  type = true;
+	}
+      else
+	for(;;)
+	  {
+	    m = gfc_match (" %n", name);
+	    if (m != MATCH_YES)
+	      return MATCH_ERROR;
+
+	    if (strcmp (name, "type") == 0)
+	      type = true;
+	    else if (strcmp (name, "external") == 0)
+	      external = true;
+	    else
+	      return MATCH_ERROR;
+
+	    gfc_gobble_whitespace ();
+	    c = gfc_next_ascii_char ();
+	    if (c == ',')
+	      continue;
+	    if (c == ')')
+	      break;
+	    return MATCH_ERROR;
+	  }
+    }
+  else
+    type = true;
+
+  if (gfc_match_eos () != MATCH_YES)
+    return MATCH_ERROR;
+
+  gfc_set_implicit_none (type, external, &cur_loc);
+
+  return MATCH_YES;
 }
 
 
@@ -3062,6 +3121,13 @@ gfc_match_implicit (void)
   char c;
   match m;
 
+  if (gfc_current_ns->seen_implicit_none)
+    {
+      gfc_error ("IMPLICIT statement at %C following an IMPLICIT NONE (type) "
+		 "statement");
+      return MATCH_ERROR;
+    }
+
   gfc_clear_ts (&ts);
 
   /* We don't allow empty implicit statements.  */
@@ -3090,8 +3156,8 @@ gfc_match_implicit (void)
 	{
 	  /* We may have <TYPE> (<RANGE>).  */
 	  gfc_gobble_whitespace ();
-	  c = gfc_next_ascii_char ();
-	  if ((c == '\n') || (c == ','))
+          c = gfc_peek_ascii_char ();
+	  if (c == ',' || c == '\n' || c == ';' || c == '!')
 	    {
 	      /* Check for CHARACTER with no length parameter.  */
 	      if (ts.type == BT_CHARACTER && !ts.u.cl)
@@ -3105,6 +3171,10 @@ gfc_match_implicit (void)
 	      /* Record the Successful match.  */
 	      if (!gfc_merge_new_implicit (&ts))
 		return MATCH_ERROR;
+	      if (c == ',')
+		c = gfc_next_ascii_char ();
+	      else if (gfc_match_eos () == MATCH_ERROR)
+		goto error;
 	      continue;
 	    }
 
@@ -3140,7 +3210,7 @@ gfc_match_implicit (void)
 
       gfc_gobble_whitespace ();
       c = gfc_next_ascii_char ();
-      if ((c != '\n') && (c != ','))
+      if (c != ',' && gfc_match_eos () != MATCH_YES)
 	goto syntax;
 
       if (!gfc_merge_new_implicit (&ts))

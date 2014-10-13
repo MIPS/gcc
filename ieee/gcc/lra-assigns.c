@@ -879,11 +879,13 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap, bool first_p)
 	}
       /* Spill pseudos.	 */
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
-	if ((int) spill_regno >= lra_constraint_new_regno_start
-	    && ! bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
-	    && ! bitmap_bit_p (&lra_split_regs, spill_regno)
-	    && ! bitmap_bit_p (&lra_subreg_reload_pseudos, spill_regno)
-	    && ! bitmap_bit_p (&lra_optional_reload_pseudos, spill_regno))
+	if ((pic_offset_table_rtx != NULL
+	     && spill_regno == REGNO (pic_offset_table_rtx))
+	    || ((int) spill_regno >= lra_constraint_new_regno_start
+		&& ! bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
+		&& ! bitmap_bit_p (&lra_split_regs, spill_regno)
+		&& ! bitmap_bit_p (&lra_subreg_reload_pseudos, spill_regno)
+		&& ! bitmap_bit_p (&lra_optional_reload_pseudos, spill_regno)))
 	  goto fail;
       insn_pseudos_num = 0;
       if (lra_dump_file != NULL)
@@ -1053,9 +1055,15 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap
       return;
     }
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
-    if (reg_renumber[i] >= 0 && lra_reg_info[i].nrefs > 0)
+    if ((pic_offset_table_rtx == NULL_RTX
+	 || i != (int) REGNO (pic_offset_table_rtx))
+	&& reg_renumber[i] >= 0 && lra_reg_info[i].nrefs > 0)
       sorted_pseudos[n++] = i;
   qsort (sorted_pseudos, n, sizeof (int), pseudo_compare_func);
+  if (pic_offset_table_rtx != NULL_RTX
+      && (regno = REGNO (pic_offset_table_rtx)) >= FIRST_PSEUDO_REGISTER
+      && reg_renumber[regno] >= 0 && lra_reg_info[regno].nrefs > 0)
+    sorted_pseudos[n++] = regno;
   for (i = n - 1; i >= 0; i--)
     {
       regno = sorted_pseudos[i];
@@ -1286,9 +1294,9 @@ assign_by_spills (void)
 	break;
       if (iter > 0)
 	{
-	  /* We did not assign hard regs to reload pseudos after two
-	     iteration.  It means something is wrong with asm insn
-	     constraints.  Report it.  */
+	  /* We did not assign hard regs to reload pseudos after two iterations.
+	     Either it's an asm and something is wrong with the constraints, or
+	     we have run out of spill registers; error out in either case.  */
 	  bool asm_p = false;
 	  bitmap_head failed_reload_insns;
 
@@ -1299,7 +1307,7 @@ assign_by_spills (void)
 	      bitmap_ior_into (&failed_reload_insns,
 			       &lra_reg_info[regno].insn_bitmap);
 	      /* Assign an arbitrary hard register of regno class to
-		 avoid further trouble with the asm insns.  */
+		 avoid further trouble with this insn.  */
 	      bitmap_clear_bit (&all_spilled_pseudos, regno);
 	      assign_hard_regno
 		(ira_class_hard_regs[regno_allocno_class_array[regno]][0],
@@ -1331,8 +1339,12 @@ assign_by_spills (void)
 		      lra_set_insn_deleted (insn);
 		    }
 		}
+	      else if (!asm_p)
+		{
+		  error ("unable to find a register to spill");
+		  fatal_insn ("this is the insn:", insn);
+		}
 	    }
-	  lra_assert (asm_p);
 	  break;
 	}
       /* This is a very rare event.  We can not assign a hard register
