@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Generic tree predicates we inherit.  */
 (define_predicates
-   integral_op_p
    integer_onep integer_zerop integer_all_onesp
    real_zerop real_onep
    CONSTANT_CLASS_P)
@@ -132,8 +131,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* fold_negate_exprs convert - (~A) to A + 1.  */
 (simplify
-  (negate (bit_not integral_op_p@0))
-  (plus @0 { build_int_cst (TREE_TYPE (@0), 1); } ))
+  (negate (bit_not @0))
+  (if (INTEGRAL_TYPE_P (type))
+   (plus @0 { build_int_cst (TREE_TYPE (@0), 1); } )))
 
 /* One ternary pattern.  */
 

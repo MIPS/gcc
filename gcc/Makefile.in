@@ -1032,7 +1032,7 @@ BUILD_LIBS = $(BUILD_LIBIBERTY)
 
 BUILD_RTL = build/rtl.o build/read-rtl.o build/ggc-none.o \
 	    build/vec.o build/min-insn-modes.o build/gensupport.o \
-	    build/print-rtl.o build/hash-table.o
+	    build/print-rtl.o
 BUILD_MD = build/read-md.o
 BUILD_ERRORS = build/errors.o
 

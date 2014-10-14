@@ -1,5 +1,13 @@
 2014-10-14  Richard Biener  <rguenther@suse.de>
 
+	* Makefile.in (BUILD_RTL): Revert not needed change.
+	* match.pd (integral_op_p): Remove predicate and use.
+	* generic-match-head.c: Include gimple-match.h and remove
+	all code.
+	* gimple-match-head.c (integral_op_p): Remove.
+
+2014-10-14  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (dt_operand::gen_gimple_expr): Check for an
 	invariant operand before valueizing it.
 

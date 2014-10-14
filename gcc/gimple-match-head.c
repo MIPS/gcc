@@ -43,8 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "gimple-match.h"
 
-#define integral_op_p(node) INTEGRAL_TYPE_P(TREE_TYPE(node))
-
 
 /* Forward declarations of the private auto-generated matchers.
    They expect valueized operands in canonical order and do not

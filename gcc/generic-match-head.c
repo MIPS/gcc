@@ -41,37 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
 #include "dumpfile.h"
-
-#define INTEGER_CST_P(node) (TREE_CODE(node) == INTEGER_CST)
-#define integral_op_p(node) INTEGRAL_TYPE_P(TREE_TYPE(node))
-#define REAL_CST_P(node) (TREE_CODE(node) == REAL_CST)
+#include "gimple-match.h"
 
 
-/* Helper to transparently allow tree codes and builtin function codes
-   exist in one storage entity.  */
-class code_helper
-{
-public:
-  code_helper () {}
-  code_helper (tree_code code) : rep ((int) code) {}
-  code_helper (built_in_function fn) : rep (-(int) fn) {}
-  operator tree_code () const { return (tree_code) rep; }
-  operator built_in_function () const { return (built_in_function) -rep; }
-  bool is_tree_code () const { return rep > 0; }
-  bool is_fn_code () const { return rep < 0; }
-private:
-  int rep;
-};
-
-
-/* Return whether T is a constant that we'll dispatch to fold to
-   evaluate fully constant expressions.  */
-
-static inline bool
-constant_for_folding (tree t)
-{
-  return (CONSTANT_CLASS_P (t)
-	  /* The following is only interesting to string builtins.  */
-	  || (TREE_CODE (t) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST));
-}
