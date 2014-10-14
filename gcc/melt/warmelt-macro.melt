@@ -1867,7 +1867,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
     (if  (is_pair spair)
 	(let ( (varexp (pair_head spair)) )
 	  (setq spair (pair_tail spair))
-	  (setq varformals (lambda_arg_bindings varexp ()))
+	  (setq varformals (lambda_arg_bindings varexp () env mexpander modctx))
 	  )
       (progn
 	(error_at sloc "missing varformals in citeration $1"_
@@ -2687,7 +2687,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 ;;; the [optional] argmode should be set :checkargs to check arguments type
 ;;; usually argmode is just missing
 ;;; TODO: perhaps consider a :macro argmode also??
-(defun lambda_arg_bindings (formalsexp argmode)
+(defun lambda_arg_bindings (formalsexp argmode env mexpander modctx)
   ;; special case for null arglist
   (when (null formalsexp)
 	(return (make_multiple discr_formal_sequence 0)))
@@ -2786,7 +2786,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	       (setq ix (+i ix 1))
 	       (setq bndpair (pair_tail bndpair))
 	       )
-      (debug "lambda_arg_bindings result bndtup" bndtup ())
+      (debug "lambda_arg_bindings result bndtup" bndtup)
       (return bndtup)
       )))
 
@@ -3006,7 +3006,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	(error_at loc "missing symbol for (DEFPRIMITIVE symb args type  [:doc documentation] expansion...)"_))
     (setq curpair (pair_tail curpair))
     ;; parse the formal arguments and check that they are not variadic
-    (let ( (btup (lambda_arg_bindings (pair_head curpair) ()))
+    (let ( (btup (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
 	   )
       (when (is_a btup discr_variadic_formal_sequence)
 	    (error_at 
@@ -3139,7 +3139,7 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
       )
     (setq curpair (pair_tail curpair))
     ;; parse the formal start arguments
-    (setq bstartup (lambda_arg_bindings (pair_head curpair) ()))
+    (setq bstartup (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
     (setq curpair (pair_tail curpair))
     (setq statsymb (pair_head curpair))
     (when (is_not_a statsymb class_symbol)
@@ -3152,7 +3152,7 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
 	  (return))
     ;; parse the formal local arguments
     (setq curpair (pair_tail curpair))
-    (setq blocvtup  (lambda_arg_bindings (pair_head curpair) ()))
+    (setq blocvtup  (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
     (when (is_a blocvtup  discr_variadic_formal_sequence)
       (error_at loc
 		"(DEFCITERATOR $1 startformals state localformals...) cannot have variadic local formals" symbname)
@@ -3296,7 +3296,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       (return))
     (setq curpair (pair_tail curpair))
     ;; parse the match & in formals 
-    (let ( (matinformals (lambda_arg_bindings (pair_head curpair) ()))
+    (let ( (matinformals (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
 	   (:long nbmatinformals (multiple_length matinformals)) 
 	   )
       (when (<i nbmatinformals 1)
@@ -3320,7 +3320,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       )
     ;; parse the out formals
     (setq curpair (pair_tail curpair))
-    (setq outformals (lambda_arg_bindings (pair_head curpair) ()))
+    (setq outformals (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
     (debug "mexpand_defcmatcher outformals" outformals)
     (when (not (is_multiple outformals))
       (error_at loc "bad outs for (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
@@ -3482,7 +3482,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       (return))
     (setq curpair (pair_tail curpair))
     ;; parse the match & in formals 
-    (let ( (matinformals (lambda_arg_bindings (pair_head curpair) ()))
+    (let ( (matinformals (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
 	   (:long nbmatinformals (multiple_length matinformals)) 
 	   )
       (when (<i nbmatinformals 1)
@@ -3504,7 +3504,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       )
     ;; parse the out formals
     (setq curpair (pair_tail curpair))
-    (setq outformals (lambda_arg_bindings (pair_head curpair) ()))
+    (setq outformals (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
     (when (not (is_multiple outformals))
       (error_at loc "bad outs for (DEFUNMATCHER $1 <ins> <outs>[:doc docum]  <matchfun> <applyfun> [<data>])"_ symbname)
       (return))
@@ -3626,7 +3626,7 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 	    (cond ( (null curpairhead) 
 		    (make_multiple discr_multiple 0) )
 		  ( (is_a curpairhead class_sexpr)
-		    (lambda_arg_bindings (pair_head curpair) :checkarg))
+		    (lambda_arg_bindings (pair_head curpair) :checkarg env mexpander modctx))
 		  (:else
 		   (debug "mexpand_defun strange arglist curpairhead" curpairhead)
 		   (error_at loc "missing or invalid arglist for DEFUN $1"_ symbname)
@@ -3759,7 +3759,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	    (cond ( (null curpairhead) 
 		    (make_multiple discr_multiple 0) )
 		  ( (is_a curpairhead class_sexpr)
-		    (lambda_arg_bindings (pair_head curpair) :checkarg))
+		    (lambda_arg_bindings (pair_head curpair) :checkarg env mexpander modctx))
 		  (:else
 		   (debug "mexpand_defmacro strange arglist curpairhead" curpairhead)
 		   (error_at loc "missing or invalid arglist for DEFMACRO $1"_ symbname)
@@ -4018,7 +4018,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 		 )
 	    (debug "mexpand_defhook insexp=" insexp)
 	    (cond ( (is_a insexp class_sexpr)
-		    (lambda_arg_bindings insexp :checkarg))
+		    (lambda_arg_bindings insexp :checkarg env mexpander modctx))
 		  ( (null insexp)
 		    (make_multiple discr_multiple 0))
 		  (:else
@@ -4038,7 +4038,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 		 )
 	    (debug "mexpand_defhook outsexp=" outsexp)
 	    (cond ( (is_a outsexp class_sexpr)
-		    (lambda_arg_bindings outsexp :checkarg))
+		    (lambda_arg_bindings outsexp :checkarg env mexpander modctx))
 		  ( (null outsexp)
 		    (make_multiple discr_multiple 0))
 		  (:else
@@ -4203,7 +4203,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 	     (fcont (unsafe_get_field :sexp_contents curelem))
 	     (funame (pair_head (list_first fcont)))
 	     (cursubpair (pair_tail (list_first fcont)))
-	     (formaltup (lambda_arg_bindings cursubpair :checkarg))
+	     (formaltup (lambda_arg_bindings cursubpair :checkarg env mexpander modctx))
 	     (defdoc ())
 	     (fbind (instance class_function_binding
 			      :binder funame
@@ -4844,7 +4844,7 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 			      ;; curfkw is non-null so we ask the
 			      ;; arguments to be checked by
 			      ;; lambda_arg_bindings
-			      (setq formals (lambda_arg_bindings curexp :checkarg))
+			      (setq formals (lambda_arg_bindings curexp :checkarg env mexpander modctx))
 			      (let ( (firstf (multiple_nth formals 0)) )
 				(cond
 				 ( (null firstf)
@@ -6904,7 +6904,7 @@ applications of @code{/i} primitives.}#
     ;; special case for :macro i.e. quasi_ctype_macro
     ;; syntax of the macro binding (:macro <name> <formals> <body>...)
     (if (== ctyp quasi_ctype_macro)
-	(let ( (macformals (lambda_arg_bindings curarg :checkarg))
+	(let ( (macformals (lambda_arg_bindings curarg :checkarg env mexpander modctx))
 	       (varname (unsafe_get_field :named_name var))
 	       (macbody ())
 	       (newenv (fresh_env env))
@@ -7342,7 +7342,7 @@ applications of @code{/i} primitives.}#
     ;; parse the formal arguments
     (if (and (notnull formals) (is_not_a formals class_sexpr))
 	(error_plain loc "missing formal argument list in (LAMBDA (arglist...) body...)"_))
-    (let ( (argtup (lambda_arg_bindings formals :checkarg)) )
+    (let ( (argtup (lambda_arg_bindings formals :checkarg env mexpander modctx)) )
       (setq curpair (pair_tail curpair))
       (foreach_in_multiple 
        (argtup)
@@ -7427,7 +7427,7 @@ applications of @code{/i} primitives.}#
 	((or (null casefirst)
 	     (is_a casefirst class_sexpr))
 	 (debug "mexpand_variadic casefirst=" casefirst)
-	 (let ( (args (lambda_arg_bindings casefirst :checkarg))
+	 (let ( (args (lambda_arg_bindings casefirst :checkarg env mexpander modctx))
 		(newenv (fresh_env env))
 		)
 	   (debug "mexpand_variadic args" args)
@@ -7511,7 +7511,7 @@ remain.}#)
 	 (newenv (fresh_env env))
 	 )
     ;; parse the formal results
-    (let ( (restup (lambda_arg_bindings (pair_head curpair) :checkarg)) 
+    (let ( (restup (lambda_arg_bindings (pair_head curpair) :checkarg env mexpander modctx)) 
 	   )
       (if (is_a restup discr_variadic_formal_sequence)
 	  (progn

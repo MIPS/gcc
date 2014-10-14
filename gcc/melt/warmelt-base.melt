@@ -1526,8 +1526,8 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
     (:else
      (let ( (vcty (variadic_ctype 0))
 	    )
-       (error_at () "ADD2LIST for unsupported ctype "
-		 (get_field :named_name vcty))
+       (errormsg_strv "ADD2LIST for unsupported ctype "
+		      (get_field :named_name vcty))
        (assert_msg "invalid variadic argument to ADD2LIST" () vcty)
        ))))
   (return lis)
