@@ -442,8 +442,10 @@ $COMMA It is often noted with a prefix comma-character
   given $SEXPR. Each symbol inside $SEXPR is passed to the $SYMBREPF
   function which can return a list or a tuple to be replaced by
   @i{several} -or none- elements. When a component of $SEXPR is itself
-  an s-expression, the function $INSIDEF decides -by returning
-  non-nil- if the substitution goes inside recursively.}#
+  an s-expression, the function $INSIDEF, if given, decides -by
+  returning non-nil- if the substitution goes inside recursively. By
+  default the substitution does not recurse inside inner
+  sub-s-expressions.}#
   (debug "substitute_sexpr" " sexpr=" sexpr)
   (when (is_not_a sexpr class_sexpr)
     (debug "substitute_sexpr" " not an S-expr:" sexpr)

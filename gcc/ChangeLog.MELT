@@ -1,5 +1,11 @@
 
 
+2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-moremacro.melt (substitute_sexpr): Better :doc
+	string.
+	* testsuite/melt/t-treecode.melt: Working.
+
 2014-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-moremacro.melt (substitute_sexpr): New function.
 
