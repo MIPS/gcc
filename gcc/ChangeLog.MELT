@@ -1,10 +1,13 @@
 
 
 2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
-	* testsuite/melt/t-treecode.melt: Removed file, since moved into...
+	* melt/generated/*: Regenerate.
 
+2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/t-treecode.melt: Removed file, since moved into...
 	* melt/libmelt-ana-tree.melt: Add final loading of
 	_libmelt-treecode.melt generated file.
+
 2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-moremacro.melt (substitute_sexpr): Better :doc

@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMACRO_h963731484; // forward declaration fromline 6689
-typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h963731484 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiMACRO_h906015861; // forward declaration fromline 6691
+typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h906015861 Melt_InitialFrame;
 /*** 6 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
@@ -931,7 +931,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h963731484 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h906015861 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -24986,7 +24986,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-macro.melt:2000:/ cppif.then");
+        MELT_LOCATION("warmelt-macro.melt:2001:/ cppif.then");
         /*^block*/
         /*anyblock*/
         {
@@ -25013,7 +25013,7 @@ meltlab_endgetargs:
                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                 ;;
-            MELT_LOCATION("warmelt-macro.melt:2000:/ cond");
+            MELT_LOCATION("warmelt-macro.melt:2001:/ cond");
             /*cond*/
             if (/*_#MELT_NEED_DBG__L1*/ meltfnum[0]) /*then*/
                 {
@@ -25033,7 +25033,7 @@ meltlab_endgetargs:
 
                         MELT_CHECK_SIGNAL();
                         ;
-                        MELT_LOCATION("warmelt-macro.melt:2000:/ apply");
+                        MELT_LOCATION("warmelt-macro.melt:2001:/ apply");
                         /*apply*/
                         {
                             union meltparam_un argtab[8];
@@ -25043,7 +25043,7 @@ meltlab_endgetargs:
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
-                            argtab[2].meltbp_long = 2000;
+                            argtab[2].meltbp_long = 2001;
                             /*^apply.arg*/
                             argtab[3].meltbp_cstring =  "macroexpand_1 sexpr=";
                             /*^apply.arg*/
@@ -25062,7 +25062,7 @@ meltlab_endgetargs:
                         meltfptr[5] = /*_.MELT_DEBUG_FUN__V7*/ meltfptr[6];;
                         /*epilog*/
 
-                        MELT_LOCATION("warmelt-macro.melt:2000:/ clear");
+                        MELT_LOCATION("warmelt-macro.melt:2001:/ clear");
                         /*clear*/ /*_#MELT_CALLCOUNT__L2*/
                         meltfnum[1] = 0 ;
                         /*^clear*/
@@ -25079,7 +25079,7 @@ meltlab_endgetargs:
             ;
 
             {
-                MELT_LOCATION("warmelt-macro.melt:2000:/ locexp");
+                MELT_LOCATION("warmelt-macro.melt:2001:/ locexp");
                 /*void*/
                 (void)0;
             }
@@ -25116,7 +25116,7 @@ meltlab_endgetargs:
         ;
 
         {
-            MELT_LOCATION("warmelt-macro.melt:2001:/ locexp");
+            MELT_LOCATION("warmelt-macro.melt:2002:/ locexp");
 
 #if MELT_HAVE_DEBUG
             if (melt_need_debug (0))
@@ -25124,82 +25124,6 @@ meltlab_endgetargs:
 #endif
             ;
         }
-        ;
-
-#if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-macro.melt:2002:/ cppif.then");
-        /*^block*/
-        /*anyblock*/
-        {
-
-
-            MELT_CHECK_SIGNAL();
-            ;
-            /*_#IS_A__L3*/
-            meltfnum[1] =
-                melt_is_instance_of((melt_ptr_t)(/*_.ENV__V3*/ meltfptr[2]), (melt_ptr_t)((/*!CLASS_ENVIRONMENT*/ meltfrout->tabval[2])));;
-            MELT_LOCATION("warmelt-macro.melt:2002:/ cond");
-            /*cond*/
-            if (/*_#IS_A__L3*/ meltfnum[1]) /*then*/
-                {
-                    /*^cond.then*/
-                    /*_._IFELSE___V9*/ meltfptr[5] = (/*nil*/NULL);;
-                }
-            else
-                {
-                    MELT_LOCATION("warmelt-macro.melt:2002:/ cond.else");
-
-                    /*^block*/
-                    /*anyblock*/
-                    {
-
-
-                        MELT_CHECK_SIGNAL();
-                        ;
-                        /*^apply*/
-                        /*apply*/
-                        {
-                            union meltparam_un argtab[4];
-                            memset(&argtab, 0, sizeof(argtab));
-                            /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check env";
-                            /*^apply.arg*/
-                            argtab[1].meltbp_cstring =  "warmelt-macro.melt";
-                            /*^apply.arg*/
-                            argtab[2].meltbp_long = 2002;
-                            /*^apply.arg*/
-                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
-                            /*_.MELT_ASSERT_FAILURE_FUN__V10*/
-                            meltfptr[9] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
-                        }
-                        ;
-                        /*_._IFELSE___V9*/
-                        meltfptr[5] = /*_.MELT_ASSERT_FAILURE_FUN__V10*/ meltfptr[9];;
-                        /*epilog*/
-
-                        MELT_LOCATION("warmelt-macro.melt:2002:/ clear");
-                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V10*/
-                        meltfptr[9] = 0 ;
-                    }
-                    ;
-                }
-            ;
-            /*_.IFCPP___V8*/
-            meltfptr[6] = /*_._IFELSE___V9*/ meltfptr[5];;
-            /*epilog*/
-
-            MELT_LOCATION("warmelt-macro.melt:2002:/ clear");
-            /*clear*/ /*_#IS_A__L3*/
-            meltfnum[1] = 0 ;
-            /*^clear*/
-            /*clear*/ /*_._IFELSE___V9*/
-            meltfptr[5] = 0 ;
-        }
-
-#else /*MELT_HAVE_DEBUG*/
-        /*^cppif.else*/
-        /*_.IFCPP___V8*/ meltfptr[6] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
         ;
 
 #if MELT_HAVE_DEBUG
@@ -25211,15 +25135,15 @@ meltlab_endgetargs:
 
             MELT_CHECK_SIGNAL();
             ;
-            /*_#IS_CLOSURE__L4*/
-            meltfnum[0] =
-                (melt_magic_discr((melt_ptr_t)(/*_.MEXPANDER__V4*/ meltfptr[3])) == MELTOBMAG_CLOSURE);;
+            /*_#IS_A__L3*/
+            meltfnum[1] =
+                melt_is_instance_of((melt_ptr_t)(/*_.ENV__V3*/ meltfptr[2]), (melt_ptr_t)((/*!CLASS_ENVIRONMENT*/ meltfrout->tabval[2])));;
             MELT_LOCATION("warmelt-macro.melt:2003:/ cond");
             /*cond*/
-            if (/*_#IS_CLOSURE__L4*/ meltfnum[0]) /*then*/
+            if (/*_#IS_A__L3*/ meltfnum[1]) /*then*/
                 {
                     /*^cond.then*/
-                    /*_._IFELSE___V12*/ meltfptr[5] = (/*nil*/NULL);;
+                    /*_._IFELSE___V9*/ meltfptr[5] = (/*nil*/NULL);;
                 }
             else
                 {
@@ -25238,43 +25162,43 @@ meltlab_endgetargs:
                             union meltparam_un argtab[4];
                             memset(&argtab, 0, sizeof(argtab));
                             /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check mexpander";
+                            argtab[0].meltbp_cstring =  "check env";
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
                             argtab[2].meltbp_long = 2003;
                             /*^apply.arg*/
-                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V4*/ meltfptr[3];
-                            /*_.MELT_ASSERT_FAILURE_FUN__V13*/
-                            meltfptr[12] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
+                            /*_.MELT_ASSERT_FAILURE_FUN__V10*/
+                            meltfptr[9] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                         }
                         ;
-                        /*_._IFELSE___V12*/
-                        meltfptr[5] = /*_.MELT_ASSERT_FAILURE_FUN__V13*/ meltfptr[12];;
+                        /*_._IFELSE___V9*/
+                        meltfptr[5] = /*_.MELT_ASSERT_FAILURE_FUN__V10*/ meltfptr[9];;
                         /*epilog*/
 
                         MELT_LOCATION("warmelt-macro.melt:2003:/ clear");
-                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V13*/
-                        meltfptr[12] = 0 ;
+                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V10*/
+                        meltfptr[9] = 0 ;
                     }
                     ;
                 }
             ;
-            /*_.IFCPP___V11*/
-            meltfptr[9] = /*_._IFELSE___V12*/ meltfptr[5];;
+            /*_.IFCPP___V8*/
+            meltfptr[6] = /*_._IFELSE___V9*/ meltfptr[5];;
             /*epilog*/
 
             MELT_LOCATION("warmelt-macro.melt:2003:/ clear");
-            /*clear*/ /*_#IS_CLOSURE__L4*/
-            meltfnum[0] = 0 ;
+            /*clear*/ /*_#IS_A__L3*/
+            meltfnum[1] = 0 ;
             /*^clear*/
-            /*clear*/ /*_._IFELSE___V12*/
+            /*clear*/ /*_._IFELSE___V9*/
             meltfptr[5] = 0 ;
         }
 
 #else /*MELT_HAVE_DEBUG*/
         /*^cppif.else*/
-        /*_.IFCPP___V11*/ meltfptr[9] = (/*nil*/NULL);
+        /*_.IFCPP___V8*/ meltfptr[6] = (/*nil*/NULL);
 #endif /*MELT_HAVE_DEBUG*/
         ;
 
@@ -25287,15 +25211,15 @@ meltlab_endgetargs:
 
             MELT_CHECK_SIGNAL();
             ;
-            /*_#IS_OBJECT__L5*/
-            meltfnum[1] =
-                (melt_magic_discr((melt_ptr_t)(/*_.MODCTX__V5*/ meltfptr[4])) == MELTOBMAG_OBJECT);;
+            /*_#IS_CLOSURE__L4*/
+            meltfnum[0] =
+                (melt_magic_discr((melt_ptr_t)(/*_.MEXPANDER__V4*/ meltfptr[3])) == MELTOBMAG_CLOSURE);;
             MELT_LOCATION("warmelt-macro.melt:2004:/ cond");
             /*cond*/
-            if (/*_#IS_OBJECT__L5*/ meltfnum[1]) /*then*/
+            if (/*_#IS_CLOSURE__L4*/ meltfnum[0]) /*then*/
                 {
                     /*^cond.then*/
-                    /*_._IFELSE___V15*/ meltfptr[5] = (/*nil*/NULL);;
+                    /*_._IFELSE___V12*/ meltfptr[5] = (/*nil*/NULL);;
                 }
             else
                 {
@@ -25314,11 +25238,87 @@ meltlab_endgetargs:
                             union meltparam_un argtab[4];
                             memset(&argtab, 0, sizeof(argtab));
                             /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check modctx";
+                            argtab[0].meltbp_cstring =  "check mexpander";
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
                             argtab[2].meltbp_long = 2004;
+                            /*^apply.arg*/
+                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V4*/ meltfptr[3];
+                            /*_.MELT_ASSERT_FAILURE_FUN__V13*/
+                            meltfptr[12] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                        }
+                        ;
+                        /*_._IFELSE___V12*/
+                        meltfptr[5] = /*_.MELT_ASSERT_FAILURE_FUN__V13*/ meltfptr[12];;
+                        /*epilog*/
+
+                        MELT_LOCATION("warmelt-macro.melt:2004:/ clear");
+                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V13*/
+                        meltfptr[12] = 0 ;
+                    }
+                    ;
+                }
+            ;
+            /*_.IFCPP___V11*/
+            meltfptr[9] = /*_._IFELSE___V12*/ meltfptr[5];;
+            /*epilog*/
+
+            MELT_LOCATION("warmelt-macro.melt:2004:/ clear");
+            /*clear*/ /*_#IS_CLOSURE__L4*/
+            meltfnum[0] = 0 ;
+            /*^clear*/
+            /*clear*/ /*_._IFELSE___V12*/
+            meltfptr[5] = 0 ;
+        }
+
+#else /*MELT_HAVE_DEBUG*/
+        /*^cppif.else*/
+        /*_.IFCPP___V11*/ meltfptr[9] = (/*nil*/NULL);
+#endif /*MELT_HAVE_DEBUG*/
+        ;
+
+#if MELT_HAVE_DEBUG
+        MELT_LOCATION("warmelt-macro.melt:2005:/ cppif.then");
+        /*^block*/
+        /*anyblock*/
+        {
+
+
+            MELT_CHECK_SIGNAL();
+            ;
+            /*_#IS_OBJECT__L5*/
+            meltfnum[1] =
+                (melt_magic_discr((melt_ptr_t)(/*_.MODCTX__V5*/ meltfptr[4])) == MELTOBMAG_OBJECT);;
+            MELT_LOCATION("warmelt-macro.melt:2005:/ cond");
+            /*cond*/
+            if (/*_#IS_OBJECT__L5*/ meltfnum[1]) /*then*/
+                {
+                    /*^cond.then*/
+                    /*_._IFELSE___V15*/ meltfptr[5] = (/*nil*/NULL);;
+                }
+            else
+                {
+                    MELT_LOCATION("warmelt-macro.melt:2005:/ cond.else");
+
+                    /*^block*/
+                    /*anyblock*/
+                    {
+
+
+                        MELT_CHECK_SIGNAL();
+                        ;
+                        /*^apply*/
+                        /*apply*/
+                        {
+                            union meltparam_un argtab[4];
+                            memset(&argtab, 0, sizeof(argtab));
+                            /*^apply.arg*/
+                            argtab[0].meltbp_cstring =  "check modctx";
+                            /*^apply.arg*/
+                            argtab[1].meltbp_cstring =  "warmelt-macro.melt";
+                            /*^apply.arg*/
+                            argtab[2].meltbp_long = 2005;
                             /*^apply.arg*/
                             argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MODCTX__V5*/ meltfptr[4];
                             /*_.MELT_ASSERT_FAILURE_FUN__V16*/
@@ -25329,7 +25329,7 @@ meltlab_endgetargs:
                         meltfptr[5] = /*_.MELT_ASSERT_FAILURE_FUN__V16*/ meltfptr[15];;
                         /*epilog*/
 
-                        MELT_LOCATION("warmelt-macro.melt:2004:/ clear");
+                        MELT_LOCATION("warmelt-macro.melt:2005:/ clear");
                         /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V16*/
                         meltfptr[15] = 0 ;
                     }
@@ -25340,7 +25340,7 @@ meltlab_endgetargs:
             meltfptr[12] = /*_._IFELSE___V15*/ meltfptr[5];;
             /*epilog*/
 
-            MELT_LOCATION("warmelt-macro.melt:2004:/ clear");
+            MELT_LOCATION("warmelt-macro.melt:2005:/ clear");
             /*clear*/ /*_#IS_OBJECT__L5*/
             meltfnum[1] = 0 ;
             /*^clear*/
@@ -25360,7 +25360,7 @@ meltlab_endgetargs:
         /*_#IS_A__L6*/
         meltfnum[0] =
             melt_is_instance_of((melt_ptr_t)(/*_.SEXPR__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_SEXPR*/ meltfrout->tabval[4])));;
-        MELT_LOCATION("warmelt-macro.melt:2005:/ cond");
+        MELT_LOCATION("warmelt-macro.melt:2006:/ cond");
         /*cond*/
         if (/*_#IS_A__L6*/ meltfnum[0]) /*then*/
             {
@@ -25369,7 +25369,7 @@ meltlab_endgetargs:
                 /*anyblock*/
                 {
 
-                    MELT_LOCATION("warmelt-macro.melt:2006:/ quasiblock");
+                    MELT_LOCATION("warmelt-macro.melt:2007:/ quasiblock");
 
 
                     /*^getslot*/
@@ -25381,7 +25381,7 @@ meltlab_endgetargs:
                         meltfptr[18] = slot;
                     };
                     ;
-                    MELT_LOCATION("warmelt-macro.melt:2007:/ getslot");
+                    MELT_LOCATION("warmelt-macro.melt:2008:/ getslot");
                     {
                         melt_ptr_t slot=NULL, obj=NULL;
                         obj = (melt_ptr_t)(/*_.SEXPR__V2*/ meltfptr[1]) /*=obj*/;
@@ -25399,7 +25399,7 @@ meltlab_endgetargs:
                         (melt_pair_head((melt_ptr_t)(/*_.LIST_FIRST__V21*/ meltfptr[20])));;
 
 #if MELT_HAVE_DEBUG
-                    MELT_LOCATION("warmelt-macro.melt:2009:/ cppif.then");
+                    MELT_LOCATION("warmelt-macro.melt:2010:/ cppif.then");
                     /*^block*/
                     /*anyblock*/
                     {
@@ -25426,7 +25426,7 @@ meltlab_endgetargs:
                             0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                             ;;
-                        MELT_LOCATION("warmelt-macro.melt:2009:/ cond");
+                        MELT_LOCATION("warmelt-macro.melt:2010:/ cond");
                         /*cond*/
                         if (/*_#MELT_NEED_DBG__L7*/ meltfnum[1]) /*then*/
                             {
@@ -25446,7 +25446,7 @@ meltlab_endgetargs:
 
                                     MELT_CHECK_SIGNAL();
                                     ;
-                                    MELT_LOCATION("warmelt-macro.melt:2009:/ apply");
+                                    MELT_LOCATION("warmelt-macro.melt:2010:/ apply");
                                     /*apply*/
                                     {
                                         union meltparam_un argtab[7];
@@ -25456,7 +25456,7 @@ meltlab_endgetargs:
                                         /*^apply.arg*/
                                         argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                         /*^apply.arg*/
-                                        argtab[2].meltbp_long = 2009;
+                                        argtab[2].meltbp_long = 2010;
                                         /*^apply.arg*/
                                         argtab[3].meltbp_cstring =  "macroexpand_1 sexpr=";
                                         /*^apply.arg*/
@@ -25473,7 +25473,7 @@ meltlab_endgetargs:
                                     meltfptr[22] = /*_.MELT_DEBUG_FUN__V24*/ meltfptr[23];;
                                     /*epilog*/
 
-                                    MELT_LOCATION("warmelt-macro.melt:2009:/ clear");
+                                    MELT_LOCATION("warmelt-macro.melt:2010:/ clear");
                                     /*clear*/ /*_#MELT_CALLCOUNT__L8*/
                                     meltfnum[7] = 0 ;
                                     /*^clear*/
@@ -25490,7 +25490,7 @@ meltlab_endgetargs:
                         ;
 
                         {
-                            MELT_LOCATION("warmelt-macro.melt:2009:/ locexp");
+                            MELT_LOCATION("warmelt-macro.melt:2010:/ locexp");
                             /*void*/
                             (void)0;
                         }
@@ -25531,7 +25531,7 @@ meltlab_endgetargs:
                     /*_#MELT_CALL_DEEPER_THAN__L9*/
                     meltfnum[7] =
                         /*melt_call_deeper_than*/ Melt_CallProtoFrame::top_call_deeper_than((int) 64) ;;
-                    MELT_LOCATION("warmelt-macro.melt:2010:/ cond");
+                    MELT_LOCATION("warmelt-macro.melt:2011:/ cond");
                     /*cond*/
                     if (/*_#MELT_CALL_DEEPER_THAN__L9*/ meltfnum[7]) /*then*/
                         {
@@ -25542,7 +25542,7 @@ meltlab_endgetargs:
 
 
                                 {
-                                    MELT_LOCATION("warmelt-macro.melt:2011:/ locexp");
+                                    MELT_LOCATION("warmelt-macro.melt:2012:/ locexp");
                                     melt_warning_str(0, (melt_ptr_t)(/*_.SLOC__V20*/ meltfptr[19]), ( "MELT quite deep macro expansion"), (melt_ptr_t)0);
                                 }
                                 ;
@@ -25557,7 +25557,7 @@ meltlab_endgetargs:
                     /*_#IS_A__L10*/
                     meltfnum[1] =
                         melt_is_instance_of((melt_ptr_t)(/*_.SOPER__V22*/ meltfptr[21]), (melt_ptr_t)((/*!CLASS_KEYWORD*/ meltfrout->tabval[5])));;
-                    MELT_LOCATION("warmelt-macro.melt:2014:/ cond");
+                    MELT_LOCATION("warmelt-macro.melt:2015:/ cond");
                     /*cond*/
                     if (/*_#IS_A__L10*/ meltfnum[1]) /*then*/
                         {
@@ -25566,7 +25566,7 @@ meltlab_endgetargs:
                             /*anyblock*/
                             {
 
-                                MELT_LOCATION("warmelt-macro.melt:2015:/ quasiblock");
+                                MELT_LOCATION("warmelt-macro.melt:2016:/ quasiblock");
 
 
 
@@ -25589,7 +25589,7 @@ meltlab_endgetargs:
                                 ;
 
 #if MELT_HAVE_DEBUG
-                                MELT_LOCATION("warmelt-macro.melt:2016:/ cppif.then");
+                                MELT_LOCATION("warmelt-macro.melt:2017:/ cppif.then");
                                 /*^block*/
                                 /*anyblock*/
                                 {
@@ -25616,7 +25616,7 @@ meltlab_endgetargs:
                                         0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                         ;;
-                                    MELT_LOCATION("warmelt-macro.melt:2016:/ cond");
+                                    MELT_LOCATION("warmelt-macro.melt:2017:/ cond");
                                     /*cond*/
                                     if (/*_#MELT_NEED_DBG__L11*/ meltfnum[10]) /*then*/
                                         {
@@ -25636,7 +25636,7 @@ meltlab_endgetargs:
 
                                                 MELT_CHECK_SIGNAL();
                                                 ;
-                                                MELT_LOCATION("warmelt-macro.melt:2016:/ apply");
+                                                MELT_LOCATION("warmelt-macro.melt:2017:/ apply");
                                                 /*apply*/
                                                 {
                                                     union meltparam_un argtab[5];
@@ -25646,7 +25646,7 @@ meltlab_endgetargs:
                                                     /*^apply.arg*/
                                                     argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                     /*^apply.arg*/
-                                                    argtab[2].meltbp_long = 2016;
+                                                    argtab[2].meltbp_long = 2017;
                                                     /*^apply.arg*/
                                                     argtab[3].meltbp_cstring =  "macroexpand_1 result for keywordfun resk";
                                                     /*^apply.arg*/
@@ -25659,7 +25659,7 @@ meltlab_endgetargs:
                                                 meltfptr[27] = /*_.MELT_DEBUG_FUN__V29*/ meltfptr[28];;
                                                 /*epilog*/
 
-                                                MELT_LOCATION("warmelt-macro.melt:2016:/ clear");
+                                                MELT_LOCATION("warmelt-macro.melt:2017:/ clear");
                                                 /*clear*/ /*_#MELT_CALLCOUNT__L12*/
                                                 meltfnum[11] = 0 ;
                                                 /*^clear*/
@@ -25676,7 +25676,7 @@ meltlab_endgetargs:
                                     ;
 
                                     {
-                                        MELT_LOCATION("warmelt-macro.melt:2016:/ locexp");
+                                        MELT_LOCATION("warmelt-macro.melt:2017:/ locexp");
                                         /*void*/
                                         (void)0;
                                     }
@@ -25714,12 +25714,12 @@ meltlab_endgetargs:
 
                                 MELT_CHECK_SIGNAL();
                                 ;
-                                MELT_LOCATION("warmelt-macro.melt:2017:/ quasiblock");
+                                MELT_LOCATION("warmelt-macro.melt:2018:/ quasiblock");
 
 
                                 /*_._RETVAL___V1*/
                                 meltfptr[0] = /*_.RESK__V27*/ meltfptr[26];;
-                                MELT_LOCATION("warmelt-macro.melt:2017:/ putxtraresult");
+                                MELT_LOCATION("warmelt-macro.melt:2018:/ putxtraresult");
                                 if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                 if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                 if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -25731,7 +25731,7 @@ meltlab_endgetargs:
                                 /*_.LET___V26*/
                                 meltfptr[22] = /*_.RETURN___V30*/ meltfptr[28];;
 
-                                MELT_LOCATION("warmelt-macro.melt:2015:/ clear");
+                                MELT_LOCATION("warmelt-macro.melt:2016:/ clear");
                                 /*clear*/ /*_.RESK__V27*/
                                 meltfptr[26] = 0 ;
                                 /*^clear*/
@@ -25741,7 +25741,7 @@ meltlab_endgetargs:
                                 meltfptr[23] = /*_.LET___V26*/ meltfptr[22];;
                                 /*epilog*/
 
-                                MELT_LOCATION("warmelt-macro.melt:2014:/ clear");
+                                MELT_LOCATION("warmelt-macro.melt:2015:/ clear");
                                 /*clear*/ /*_.LET___V26*/
                                 meltfptr[22] = 0 ;
                             }
@@ -25760,7 +25760,7 @@ meltlab_endgetargs:
                                 /*_#IS_A__L13*/
                                 meltfnum[11] =
                                     melt_is_instance_of((melt_ptr_t)(/*_.SOPER__V22*/ meltfptr[21]), (melt_ptr_t)((/*!CLASS_SYMBOL*/ meltfrout->tabval[7])));;
-                                MELT_LOCATION("warmelt-macro.melt:2019:/ cond");
+                                MELT_LOCATION("warmelt-macro.melt:2020:/ cond");
                                 /*cond*/
                                 if (/*_#IS_A__L13*/ meltfnum[11]) /*then*/
                                     {
@@ -25769,7 +25769,7 @@ meltlab_endgetargs:
                                         /*anyblock*/
                                         {
 
-                                            MELT_LOCATION("warmelt-macro.melt:2020:/ quasiblock");
+                                            MELT_LOCATION("warmelt-macro.melt:2021:/ quasiblock");
 
 
 
@@ -25786,7 +25786,7 @@ meltlab_endgetargs:
                                                 meltfptr[28] =  melt_apply ((meltclosure_ptr_t)((/*!FIND_ENV*/ meltfrout->tabval[8])), (melt_ptr_t)(/*_.ENV__V3*/ meltfptr[2]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                             }
                                             ;
-                                            MELT_LOCATION("warmelt-macro.melt:2021:/ cond");
+                                            MELT_LOCATION("warmelt-macro.melt:2022:/ cond");
                                             /*cond*/
                                             if (
                                                 /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SOPER__V22*/ meltfptr[21]),
@@ -25812,7 +25812,7 @@ meltlab_endgetargs:
                                             ;
 
 #if MELT_HAVE_DEBUG
-                                            MELT_LOCATION("warmelt-macro.melt:2023:/ cppif.then");
+                                            MELT_LOCATION("warmelt-macro.melt:2024:/ cppif.then");
                                             /*^block*/
                                             /*anyblock*/
                                             {
@@ -25839,7 +25839,7 @@ meltlab_endgetargs:
                                                     0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                     ;;
-                                                MELT_LOCATION("warmelt-macro.melt:2023:/ cond");
+                                                MELT_LOCATION("warmelt-macro.melt:2024:/ cond");
                                                 /*cond*/
                                                 if (/*_#MELT_NEED_DBG__L14*/ meltfnum[10]) /*then*/
                                                     {
@@ -25859,7 +25859,7 @@ meltlab_endgetargs:
 
                                                             MELT_CHECK_SIGNAL();
                                                             ;
-                                                            MELT_LOCATION("warmelt-macro.melt:2023:/ apply");
+                                                            MELT_LOCATION("warmelt-macro.melt:2024:/ apply");
                                                             /*apply*/
                                                             {
                                                                 union meltparam_un argtab[10];
@@ -25869,7 +25869,7 @@ meltlab_endgetargs:
                                                                 /*^apply.arg*/
                                                                 argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                 /*^apply.arg*/
-                                                                argtab[2].meltbp_long = 2023;
+                                                                argtab[2].meltbp_long = 2024;
                                                                 /*^apply.arg*/
                                                                 argtab[3].meltbp_cstring =  "macroexpand_1 opbind=";
                                                                 /*^apply.arg*/
@@ -25892,7 +25892,7 @@ meltlab_endgetargs:
                                                             meltfptr[34] = /*_.MELT_DEBUG_FUN__V36*/ meltfptr[35];;
                                                             /*epilog*/
 
-                                                            MELT_LOCATION("warmelt-macro.melt:2023:/ clear");
+                                                            MELT_LOCATION("warmelt-macro.melt:2024:/ clear");
                                                             /*clear*/ /*_#MELT_CALLCOUNT__L15*/
                                                             meltfnum[14] = 0 ;
                                                             /*^clear*/
@@ -25909,7 +25909,7 @@ meltlab_endgetargs:
                                                 ;
 
                                                 {
-                                                    MELT_LOCATION("warmelt-macro.melt:2023:/ locexp");
+                                                    MELT_LOCATION("warmelt-macro.melt:2024:/ locexp");
                                                     /*void*/
                                                     (void)0;
                                                 }
@@ -25950,7 +25950,7 @@ meltlab_endgetargs:
                                             /*_#IS_A__L16*/
                                             meltfnum[14] =
                                                 melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_MACRO_BINDING*/ meltfrout->tabval[10])));;
-                                            MELT_LOCATION("warmelt-macro.melt:2025:/ cond");
+                                            MELT_LOCATION("warmelt-macro.melt:2026:/ cond");
                                             /*cond*/
                                             if (/*_#IS_A__L16*/ meltfnum[14]) /*then*/
                                                 {
@@ -25959,7 +25959,7 @@ meltlab_endgetargs:
                                                     /*anyblock*/
                                                     {
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2026:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2027:/ quasiblock");
 
 
                                                         /*^getslot*/
@@ -25973,7 +25973,7 @@ meltlab_endgetargs:
                                                         ;
 
                                                         {
-                                                            MELT_LOCATION("warmelt-macro.melt:2028:/ locexp");
+                                                            MELT_LOCATION("warmelt-macro.melt:2029:/ locexp");
 
 #if MELT_HAVE_DEBUG
                                                             if (melt_need_debug (0))
@@ -25988,7 +25988,7 @@ meltlab_endgetargs:
                                                         /*_#NULL__L17*/
                                                         meltfnum[10] =
                                                             (/*null*/(/*_.MEXP__V39*/ meltfptr[38]) == NULL);;
-                                                        MELT_LOCATION("warmelt-macro.melt:2029:/ cond");
+                                                        MELT_LOCATION("warmelt-macro.melt:2030:/ cond");
                                                         /*cond*/
                                                         if (/*_#NULL__L17*/ meltfnum[10]) /*then*/
                                                             {
@@ -26000,7 +26000,7 @@ meltlab_endgetargs:
 
                                                                     MELT_CHECK_SIGNAL();
                                                                     ;
-                                                                    MELT_LOCATION("warmelt-macro.melt:2030:/ apply");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2031:/ apply");
                                                                     /*apply*/
                                                                     {
                                                                         union meltparam_un argtab[2];
@@ -26016,12 +26016,12 @@ meltlab_endgetargs:
 
                                                                     MELT_CHECK_SIGNAL();
                                                                     ;
-                                                                    MELT_LOCATION("warmelt-macro.melt:2031:/ quasiblock");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2032:/ quasiblock");
 
 
                                                                     /*_._RETVAL___V1*/
                                                                     meltfptr[0] = (/*nil*/NULL);;
-                                                                    MELT_LOCATION("warmelt-macro.melt:2031:/ putxtraresult");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2032:/ putxtraresult");
                                                                     if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                     if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                     if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -26030,7 +26030,7 @@ meltlab_endgetargs:
                                                                     ;
                                                                     /*finalret*/
                                                                     goto meltlabend_rout ;
-                                                                    MELT_LOCATION("warmelt-macro.melt:2029:/ quasiblock");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2030:/ quasiblock");
 
 
                                                                     /*_.PROGN___V43*/
@@ -26040,7 +26040,7 @@ meltlab_endgetargs:
                                                                     meltfptr[39] = /*_.PROGN___V43*/ meltfptr[42];;
                                                                     /*epilog*/
 
-                                                                    MELT_LOCATION("warmelt-macro.melt:2029:/ clear");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2030:/ clear");
                                                                     /*clear*/ /*_.ERROR_AT__V41*/
                                                                     meltfptr[40] = 0 ;
                                                                     /*^clear*/
@@ -26060,7 +26060,7 @@ meltlab_endgetargs:
                                                         ;
 
 #if MELT_HAVE_DEBUG
-                                                        MELT_LOCATION("warmelt-macro.melt:2032:/ cppif.then");
+                                                        MELT_LOCATION("warmelt-macro.melt:2033:/ cppif.then");
                                                         /*^block*/
                                                         /*anyblock*/
                                                         {
@@ -26087,7 +26087,7 @@ meltlab_endgetargs:
                                                                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                 ;;
-                                                            MELT_LOCATION("warmelt-macro.melt:2032:/ cond");
+                                                            MELT_LOCATION("warmelt-macro.melt:2033:/ cond");
                                                             /*cond*/
                                                             if (/*_#MELT_NEED_DBG__L18*/ meltfnum[17]) /*then*/
                                                                 {
@@ -26107,7 +26107,7 @@ meltlab_endgetargs:
 
                                                                         MELT_CHECK_SIGNAL();
                                                                         ;
-                                                                        MELT_LOCATION("warmelt-macro.melt:2032:/ apply");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2033:/ apply");
                                                                         /*apply*/
                                                                         {
                                                                             union meltparam_un argtab[10];
@@ -26117,7 +26117,7 @@ meltlab_endgetargs:
                                                                             /*^apply.arg*/
                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                             /*^apply.arg*/
-                                                                            argtab[2].meltbp_long = 2032;
+                                                                            argtab[2].meltbp_long = 2033;
                                                                             /*^apply.arg*/
                                                                             argtab[3].meltbp_cstring =  "macroexpand_1 mexp=";
                                                                             /*^apply.arg*/
@@ -26140,7 +26140,7 @@ meltlab_endgetargs:
                                                                         meltfptr[40] = /*_.MELT_DEBUG_FUN__V45*/ meltfptr[41];;
                                                                         /*epilog*/
 
-                                                                        MELT_LOCATION("warmelt-macro.melt:2032:/ clear");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2033:/ clear");
                                                                         /*clear*/ /*_#MELT_CALLCOUNT__L19*/
                                                                         meltfnum[18] = 0 ;
                                                                         /*^clear*/
@@ -26157,7 +26157,7 @@ meltlab_endgetargs:
                                                             ;
 
                                                             {
-                                                                MELT_LOCATION("warmelt-macro.melt:2032:/ locexp");
+                                                                MELT_LOCATION("warmelt-macro.melt:2033:/ locexp");
                                                                 /*void*/
                                                                 (void)0;
                                                             }
@@ -26194,7 +26194,7 @@ meltlab_endgetargs:
                                                         ;
 
 #if MELT_HAVE_DEBUG
-                                                        MELT_LOCATION("warmelt-macro.melt:2033:/ cppif.then");
+                                                        MELT_LOCATION("warmelt-macro.melt:2034:/ cppif.then");
                                                         /*^block*/
                                                         /*anyblock*/
                                                         {
@@ -26205,7 +26205,7 @@ meltlab_endgetargs:
                                                             /*_#IS_CLOSURE__L20*/
                                                             meltfnum[18] =
                                                                 (melt_magic_discr((melt_ptr_t)(/*_.MEXP__V39*/ meltfptr[38])) == MELTOBMAG_CLOSURE);;
-                                                            MELT_LOCATION("warmelt-macro.melt:2033:/ cond");
+                                                            MELT_LOCATION("warmelt-macro.melt:2034:/ cond");
                                                             /*cond*/
                                                             if (/*_#IS_CLOSURE__L20*/ meltfnum[18]) /*then*/
                                                                 {
@@ -26214,7 +26214,7 @@ meltlab_endgetargs:
                                                                 }
                                                             else
                                                                 {
-                                                                    MELT_LOCATION("warmelt-macro.melt:2033:/ cond.else");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2034:/ cond.else");
 
                                                                     /*^block*/
                                                                     /*anyblock*/
@@ -26233,7 +26233,7 @@ meltlab_endgetargs:
                                                                             /*^apply.arg*/
                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                             /*^apply.arg*/
-                                                                            argtab[2].meltbp_long = 2033;
+                                                                            argtab[2].meltbp_long = 2034;
                                                                             /*^apply.arg*/
                                                                             argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MEXP__V39*/ meltfptr[38];
                                                                             /*_.MELT_ASSERT_FAILURE_FUN__V48*/
@@ -26244,7 +26244,7 @@ meltlab_endgetargs:
                                                                         meltfptr[41] = /*_.MELT_ASSERT_FAILURE_FUN__V48*/ meltfptr[40];;
                                                                         /*epilog*/
 
-                                                                        MELT_LOCATION("warmelt-macro.melt:2033:/ clear");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2034:/ clear");
                                                                         /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V48*/
                                                                         meltfptr[40] = 0 ;
                                                                     }
@@ -26255,7 +26255,7 @@ meltlab_endgetargs:
                                                             meltfptr[42] = /*_._IFELSE___V47*/ meltfptr[41];;
                                                             /*epilog*/
 
-                                                            MELT_LOCATION("warmelt-macro.melt:2033:/ clear");
+                                                            MELT_LOCATION("warmelt-macro.melt:2034:/ clear");
                                                             /*clear*/ /*_#IS_CLOSURE__L20*/
                                                             meltfnum[18] = 0 ;
                                                             /*^clear*/
@@ -26271,7 +26271,7 @@ meltlab_endgetargs:
 
                                                         MELT_CHECK_SIGNAL();
                                                         ;
-                                                        MELT_LOCATION("warmelt-macro.melt:2034:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2035:/ quasiblock");
 
 
                                                         /*^multiapply*/
@@ -26298,7 +26298,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-                                                        MELT_LOCATION("warmelt-macro.melt:2037:/ cppif.then");
+                                                        MELT_LOCATION("warmelt-macro.melt:2038:/ cppif.then");
                                                         /*^block*/
                                                         /*anyblock*/
                                                         {
@@ -26325,7 +26325,7 @@ meltlab_endgetargs:
                                                                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                 ;;
-                                                            MELT_LOCATION("warmelt-macro.melt:2037:/ cond");
+                                                            MELT_LOCATION("warmelt-macro.melt:2038:/ cond");
                                                             /*cond*/
                                                             if (/*_#MELT_NEED_DBG__L21*/ meltfnum[17]) /*then*/
                                                                 {
@@ -26345,7 +26345,7 @@ meltlab_endgetargs:
 
                                                                         MELT_CHECK_SIGNAL();
                                                                         ;
-                                                                        MELT_LOCATION("warmelt-macro.melt:2037:/ apply");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2038:/ apply");
                                                                         /*apply*/
                                                                         {
                                                                             union meltparam_un argtab[7];
@@ -26355,7 +26355,7 @@ meltlab_endgetargs:
                                                                             /*^apply.arg*/
                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                             /*^apply.arg*/
-                                                                            argtab[2].meltbp_long = 2037;
+                                                                            argtab[2].meltbp_long = 2038;
                                                                             /*^apply.arg*/
                                                                             argtab[3].meltbp_cstring =  "macroexpand_1 result for macro resm=";
                                                                             /*^apply.arg*/
@@ -26372,7 +26372,7 @@ meltlab_endgetargs:
                                                                         meltfptr[51] = /*_.MELT_DEBUG_FUN__V53*/ meltfptr[52];;
                                                                         /*epilog*/
 
-                                                                        MELT_LOCATION("warmelt-macro.melt:2037:/ clear");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2038:/ clear");
                                                                         /*clear*/ /*_#MELT_CALLCOUNT__L22*/
                                                                         meltfnum[18] = 0 ;
                                                                         /*^clear*/
@@ -26389,7 +26389,7 @@ meltlab_endgetargs:
                                                             ;
 
                                                             {
-                                                                MELT_LOCATION("warmelt-macro.melt:2037:/ locexp");
+                                                                MELT_LOCATION("warmelt-macro.melt:2038:/ locexp");
                                                                 /*void*/
                                                                 (void)0;
                                                             }
@@ -26426,7 +26426,7 @@ meltlab_endgetargs:
                                                         ;
 
 #if MELT_HAVE_DEBUG
-                                                        MELT_LOCATION("warmelt-macro.melt:2038:/ cppif.then");
+                                                        MELT_LOCATION("warmelt-macro.melt:2039:/ cppif.then");
                                                         /*^block*/
                                                         /*anyblock*/
                                                         {
@@ -26437,7 +26437,7 @@ meltlab_endgetargs:
                                                             /*_#NULL__L23*/
                                                             meltfnum[18] =
                                                                 (/*null*/(/*_.RESM__V50*/ meltfptr[41]) == NULL);;
-                                                            MELT_LOCATION("warmelt-macro.melt:2039:/ cond");
+                                                            MELT_LOCATION("warmelt-macro.melt:2040:/ cond");
                                                             /*cond*/
                                                             if (/*_#NULL__L23*/ meltfnum[18]) /*then*/
                                                                 {
@@ -26448,7 +26448,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-                                                                        MELT_LOCATION("warmelt-macro.melt:2040:/ cppif.then");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2041:/ cppif.then");
                                                                         /*^block*/
                                                                         /*anyblock*/
                                                                         {
@@ -26475,7 +26475,7 @@ meltlab_endgetargs:
                                                                                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                 ;;
-                                                                            MELT_LOCATION("warmelt-macro.melt:2040:/ cond");
+                                                                            MELT_LOCATION("warmelt-macro.melt:2041:/ cond");
                                                                             /*cond*/
                                                                             if (/*_#MELT_NEED_DBG__L24*/ meltfnum[17]) /*then*/
                                                                                 {
@@ -26495,7 +26495,7 @@ meltlab_endgetargs:
 
                                                                                         MELT_CHECK_SIGNAL();
                                                                                         ;
-                                                                                        MELT_LOCATION("warmelt-macro.melt:2040:/ apply");
+                                                                                        MELT_LOCATION("warmelt-macro.melt:2041:/ apply");
                                                                                         /*apply*/
                                                                                         {
                                                                                             union meltparam_un argtab[5];
@@ -26505,7 +26505,7 @@ meltlab_endgetargs:
                                                                                             /*^apply.arg*/
                                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                             /*^apply.arg*/
-                                                                                            argtab[2].meltbp_long = 2040;
+                                                                                            argtab[2].meltbp_long = 2041;
                                                                                             /*^apply.arg*/
                                                                                             argtab[3].meltbp_cstring =  "macroexpand_1 null result for macro sexpr=";
                                                                                             /*^apply.arg*/
@@ -26518,7 +26518,7 @@ meltlab_endgetargs:
                                                                                         meltfptr[52] = /*_.MELT_DEBUG_FUN__V55*/ meltfptr[51];;
                                                                                         /*epilog*/
 
-                                                                                        MELT_LOCATION("warmelt-macro.melt:2040:/ clear");
+                                                                                        MELT_LOCATION("warmelt-macro.melt:2041:/ clear");
                                                                                         /*clear*/ /*_#MELT_CALLCOUNT__L25*/
                                                                                         meltfnum[24] = 0 ;
                                                                                         /*^clear*/
@@ -26535,7 +26535,7 @@ meltlab_endgetargs:
                                                                             ;
 
                                                                             {
-                                                                                MELT_LOCATION("warmelt-macro.melt:2040:/ locexp");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2041:/ locexp");
                                                                                 /*void*/
                                                                                 (void)0;
                                                                             }
@@ -26577,7 +26577,7 @@ meltlab_endgetargs:
                                                             ;
                                                             /*epilog*/
 
-                                                            MELT_LOCATION("warmelt-macro.melt:2038:/ clear");
+                                                            MELT_LOCATION("warmelt-macro.melt:2039:/ clear");
                                                             /*clear*/ /*_#NULL__L23*/
                                                             meltfnum[18] = 0 ;
                                                         }
@@ -26590,12 +26590,12 @@ meltlab_endgetargs:
 
                                                         MELT_CHECK_SIGNAL();
                                                         ;
-                                                        MELT_LOCATION("warmelt-macro.melt:2041:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2042:/ quasiblock");
 
 
                                                         /*_._RETVAL___V1*/
                                                         meltfptr[0] = /*_.RESM__V50*/ meltfptr[41];;
-                                                        MELT_LOCATION("warmelt-macro.melt:2041:/ putxtraresult");
+                                                        MELT_LOCATION("warmelt-macro.melt:2042:/ putxtraresult");
                                                         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) (/*_.OTHERM__V51*/ meltfptr[50]);
@@ -26610,7 +26610,7 @@ meltlab_endgetargs:
                                                         /*_.MULTI___V49*/
                                                         meltfptr[40] = /*_.RETURN___V56*/ meltfptr[51];;
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2034:/ clear");
+                                                        MELT_LOCATION("warmelt-macro.melt:2035:/ clear");
                                                         /*clear*/ /*_.RETURN___V56*/
                                                         meltfptr[51] = 0 ;
 
@@ -26620,7 +26620,7 @@ meltlab_endgetargs:
                                                         /*_.LET___V38*/
                                                         meltfptr[34] = /*_.MULTI___V49*/ meltfptr[40];;
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2026:/ clear");
+                                                        MELT_LOCATION("warmelt-macro.melt:2027:/ clear");
                                                         /*clear*/ /*_.MEXP__V39*/
                                                         meltfptr[38] = 0 ;
                                                         /*^clear*/
@@ -26639,7 +26639,7 @@ meltlab_endgetargs:
                                                         meltfptr[35] = /*_.LET___V38*/ meltfptr[34];;
                                                         /*epilog*/
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2025:/ clear");
+                                                        MELT_LOCATION("warmelt-macro.melt:2026:/ clear");
                                                         /*clear*/ /*_.LET___V38*/
                                                         meltfptr[34] = 0 ;
                                                     }
@@ -26658,7 +26658,7 @@ meltlab_endgetargs:
                                                         /*_#IS_A__L26*/
                                                         meltfnum[24] =
                                                             melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_SELECTOR_BINDING*/ meltfrout->tabval[12])));;
-                                                        MELT_LOCATION("warmelt-macro.melt:2043:/ cond");
+                                                        MELT_LOCATION("warmelt-macro.melt:2044:/ cond");
                                                         /*cond*/
                                                         if (/*_#IS_A__L26*/ meltfnum[24]) /*then*/
                                                             {
@@ -26667,7 +26667,7 @@ meltlab_endgetargs:
                                                                 /*anyblock*/
                                                                 {
 
-                                                                    MELT_LOCATION("warmelt-macro.melt:2044:/ quasiblock");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2045:/ quasiblock");
 
 
 
@@ -26692,7 +26692,7 @@ meltlab_endgetargs:
                                                                     ;
 
 #if MELT_HAVE_DEBUG
-                                                                    MELT_LOCATION("warmelt-macro.melt:2045:/ cppif.then");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2046:/ cppif.then");
                                                                     /*^block*/
                                                                     /*anyblock*/
                                                                     {
@@ -26719,7 +26719,7 @@ meltlab_endgetargs:
                                                                             0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                             ;;
-                                                                        MELT_LOCATION("warmelt-macro.melt:2045:/ cond");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2046:/ cond");
                                                                         /*cond*/
                                                                         if (/*_#MELT_NEED_DBG__L27*/ meltfnum[17]) /*then*/
                                                                             {
@@ -26739,7 +26739,7 @@ meltlab_endgetargs:
 
                                                                                     MELT_CHECK_SIGNAL();
                                                                                     ;
-                                                                                    MELT_LOCATION("warmelt-macro.melt:2045:/ apply");
+                                                                                    MELT_LOCATION("warmelt-macro.melt:2046:/ apply");
                                                                                     /*apply*/
                                                                                     {
                                                                                         union meltparam_un argtab[5];
@@ -26749,7 +26749,7 @@ meltlab_endgetargs:
                                                                                         /*^apply.arg*/
                                                                                         argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                         /*^apply.arg*/
-                                                                                        argtab[2].meltbp_long = 2045;
+                                                                                        argtab[2].meltbp_long = 2046;
                                                                                         /*^apply.arg*/
                                                                                         argtab[3].meltbp_cstring =  "macroexpand_1 result for send ress";
                                                                                         /*^apply.arg*/
@@ -26762,7 +26762,7 @@ meltlab_endgetargs:
                                                                                     meltfptr[50] = /*_.MELT_DEBUG_FUN__V61*/ meltfptr[38];;
                                                                                     /*epilog*/
 
-                                                                                    MELT_LOCATION("warmelt-macro.melt:2045:/ clear");
+                                                                                    MELT_LOCATION("warmelt-macro.melt:2046:/ clear");
                                                                                     /*clear*/ /*_#MELT_CALLCOUNT__L28*/
                                                                                     meltfnum[18] = 0 ;
                                                                                     /*^clear*/
@@ -26779,7 +26779,7 @@ meltlab_endgetargs:
                                                                         ;
 
                                                                         {
-                                                                            MELT_LOCATION("warmelt-macro.melt:2045:/ locexp");
+                                                                            MELT_LOCATION("warmelt-macro.melt:2046:/ locexp");
                                                                             /*void*/
                                                                             (void)0;
                                                                         }
@@ -26817,12 +26817,12 @@ meltlab_endgetargs:
 
                                                                     MELT_CHECK_SIGNAL();
                                                                     ;
-                                                                    MELT_LOCATION("warmelt-macro.melt:2046:/ quasiblock");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2047:/ quasiblock");
 
 
                                                                     /*_._RETVAL___V1*/
                                                                     meltfptr[0] = /*_.RESS__V59*/ meltfptr[41];;
-                                                                    MELT_LOCATION("warmelt-macro.melt:2046:/ putxtraresult");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2047:/ putxtraresult");
                                                                     if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                     if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                     if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -26834,7 +26834,7 @@ meltlab_endgetargs:
                                                                     /*_.LET___V58*/
                                                                     meltfptr[51] = /*_.RETURN___V62*/ meltfptr[39];;
 
-                                                                    MELT_LOCATION("warmelt-macro.melt:2044:/ clear");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2045:/ clear");
                                                                     /*clear*/ /*_.RESS__V59*/
                                                                     meltfptr[41] = 0 ;
                                                                     /*^clear*/
@@ -26844,7 +26844,7 @@ meltlab_endgetargs:
                                                                     meltfptr[52] = /*_.LET___V58*/ meltfptr[51];;
                                                                     /*epilog*/
 
-                                                                    MELT_LOCATION("warmelt-macro.melt:2043:/ clear");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2044:/ clear");
                                                                     /*clear*/ /*_.LET___V58*/
                                                                     meltfptr[51] = 0 ;
                                                                 }
@@ -26863,7 +26863,7 @@ meltlab_endgetargs:
                                                                     /*_#IS_A__L29*/
                                                                     meltfnum[10] =
                                                                         melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_PRIMITIVE_BINDING*/ meltfrout->tabval[14])));;
-                                                                    MELT_LOCATION("warmelt-macro.melt:2048:/ cond");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2049:/ cond");
                                                                     /*cond*/
                                                                     if (/*_#IS_A__L29*/ meltfnum[10]) /*then*/
                                                                         {
@@ -26872,7 +26872,7 @@ meltlab_endgetargs:
                                                                             /*anyblock*/
                                                                             {
 
-                                                                                MELT_LOCATION("warmelt-macro.melt:2049:/ quasiblock");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2050:/ quasiblock");
 
 
                                                                                 /*^getslot*/
@@ -26906,7 +26906,7 @@ meltlab_endgetargs:
                                                                                 ;
 
 #if MELT_HAVE_DEBUG
-                                                                                MELT_LOCATION("warmelt-macro.melt:2051:/ cppif.then");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2052:/ cppif.then");
                                                                                 /*^block*/
                                                                                 /*anyblock*/
                                                                                 {
@@ -26933,7 +26933,7 @@ meltlab_endgetargs:
                                                                                         0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                         ;;
-                                                                                    MELT_LOCATION("warmelt-macro.melt:2051:/ cond");
+                                                                                    MELT_LOCATION("warmelt-macro.melt:2052:/ cond");
                                                                                     /*cond*/
                                                                                     if (/*_#MELT_NEED_DBG__L30*/ meltfnum[18]) /*then*/
                                                                                         {
@@ -26953,7 +26953,7 @@ meltlab_endgetargs:
 
                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                 ;
-                                                                                                MELT_LOCATION("warmelt-macro.melt:2051:/ apply");
+                                                                                                MELT_LOCATION("warmelt-macro.melt:2052:/ apply");
                                                                                                 /*apply*/
                                                                                                 {
                                                                                                     union meltparam_un argtab[5];
@@ -26963,7 +26963,7 @@ meltlab_endgetargs:
                                                                                                     /*^apply.arg*/
                                                                                                     argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                     /*^apply.arg*/
-                                                                                                    argtab[2].meltbp_long = 2051;
+                                                                                                    argtab[2].meltbp_long = 2052;
                                                                                                     /*^apply.arg*/
                                                                                                     argtab[3].meltbp_cstring =  "macroexpand_1 result for primitive resp";
                                                                                                     /*^apply.arg*/
@@ -26976,7 +26976,7 @@ meltlab_endgetargs:
                                                                                                 meltfptr[50] = /*_.MELT_DEBUG_FUN__V68*/ meltfptr[41];;
                                                                                                 /*epilog*/
 
-                                                                                                MELT_LOCATION("warmelt-macro.melt:2051:/ clear");
+                                                                                                MELT_LOCATION("warmelt-macro.melt:2052:/ clear");
                                                                                                 /*clear*/ /*_#MELT_CALLCOUNT__L31*/
                                                                                                 meltfnum[17] = 0 ;
                                                                                                 /*^clear*/
@@ -26993,7 +26993,7 @@ meltlab_endgetargs:
                                                                                     ;
 
                                                                                     {
-                                                                                        MELT_LOCATION("warmelt-macro.melt:2051:/ locexp");
+                                                                                        MELT_LOCATION("warmelt-macro.melt:2052:/ locexp");
                                                                                         /*void*/
                                                                                         (void)0;
                                                                                     }
@@ -27031,12 +27031,12 @@ meltlab_endgetargs:
 
                                                                                 MELT_CHECK_SIGNAL();
                                                                                 ;
-                                                                                MELT_LOCATION("warmelt-macro.melt:2052:/ quasiblock");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2053:/ quasiblock");
 
 
                                                                                 /*_._RETVAL___V1*/
                                                                                 meltfptr[0] = /*_.RESP__V66*/ meltfptr[38];;
-                                                                                MELT_LOCATION("warmelt-macro.melt:2052:/ putxtraresult");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2053:/ putxtraresult");
                                                                                 if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                 if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                 if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -27048,7 +27048,7 @@ meltlab_endgetargs:
                                                                                 /*_.LET___V64*/
                                                                                 meltfptr[40] = /*_.RETURN___V69*/ meltfptr[39];;
 
-                                                                                MELT_LOCATION("warmelt-macro.melt:2049:/ clear");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2050:/ clear");
                                                                                 /*clear*/ /*_.PBIND_PRIMITIVE__V65*/
                                                                                 meltfptr[34] = 0 ;
                                                                                 /*^clear*/
@@ -27061,7 +27061,7 @@ meltlab_endgetargs:
                                                                                 meltfptr[42] = /*_.LET___V64*/ meltfptr[40];;
                                                                                 /*epilog*/
 
-                                                                                MELT_LOCATION("warmelt-macro.melt:2048:/ clear");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2049:/ clear");
                                                                                 /*clear*/ /*_.LET___V64*/
                                                                                 meltfptr[40] = 0 ;
                                                                             }
@@ -27080,7 +27080,7 @@ meltlab_endgetargs:
                                                                                 /*_#IS_A__L32*/
                                                                                 meltfnum[17] =
                                                                                     melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_CITERATOR_BINDING*/ meltfrout->tabval[16])));;
-                                                                                MELT_LOCATION("warmelt-macro.melt:2054:/ cond");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2055:/ cond");
                                                                                 /*cond*/
                                                                                 if (/*_#IS_A__L32*/ meltfnum[17]) /*then*/
                                                                                     {
@@ -27089,7 +27089,7 @@ meltlab_endgetargs:
                                                                                         /*anyblock*/
                                                                                         {
 
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2055:/ quasiblock");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2056:/ quasiblock");
 
 
                                                                                             /*^getslot*/
@@ -27104,7 +27104,7 @@ meltlab_endgetargs:
 
                                                                                             MELT_CHECK_SIGNAL();
                                                                                             ;
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2056:/ apply");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2057:/ apply");
                                                                                             /*apply*/
                                                                                             {
                                                                                                 union meltparam_un argtab[4];
@@ -27123,7 +27123,7 @@ meltlab_endgetargs:
                                                                                             ;
 
 #if MELT_HAVE_DEBUG
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2058:/ cppif.then");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2059:/ cppif.then");
                                                                                             /*^block*/
                                                                                             /*anyblock*/
                                                                                             {
@@ -27150,7 +27150,7 @@ meltlab_endgetargs:
                                                                                                     0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                     ;;
-                                                                                                MELT_LOCATION("warmelt-macro.melt:2058:/ cond");
+                                                                                                MELT_LOCATION("warmelt-macro.melt:2059:/ cond");
                                                                                                 /*cond*/
                                                                                                 if (/*_#MELT_NEED_DBG__L33*/ meltfnum[18]) /*then*/
                                                                                                     {
@@ -27170,7 +27170,7 @@ meltlab_endgetargs:
 
                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                             ;
-                                                                                                            MELT_LOCATION("warmelt-macro.melt:2058:/ apply");
+                                                                                                            MELT_LOCATION("warmelt-macro.melt:2059:/ apply");
                                                                                                             /*apply*/
                                                                                                             {
                                                                                                                 union meltparam_un argtab[5];
@@ -27180,7 +27180,7 @@ meltlab_endgetargs:
                                                                                                                 /*^apply.arg*/
                                                                                                                 argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                 /*^apply.arg*/
-                                                                                                                argtab[2].meltbp_long = 2058;
+                                                                                                                argtab[2].meltbp_long = 2059;
                                                                                                                 /*^apply.arg*/
                                                                                                                 argtab[3].meltbp_cstring =  "macroexpand_1 result for citerator resc=";
                                                                                                                 /*^apply.arg*/
@@ -27193,7 +27193,7 @@ meltlab_endgetargs:
                                                                                                             meltfptr[38] = /*_.MELT_DEBUG_FUN__V75*/ meltfptr[39];;
                                                                                                             /*epilog*/
 
-                                                                                                            MELT_LOCATION("warmelt-macro.melt:2058:/ clear");
+                                                                                                            MELT_LOCATION("warmelt-macro.melt:2059:/ clear");
                                                                                                             /*clear*/ /*_#MELT_CALLCOUNT__L34*/
                                                                                                             meltfnum[33] = 0 ;
                                                                                                             /*^clear*/
@@ -27210,7 +27210,7 @@ meltlab_endgetargs:
                                                                                                 ;
 
                                                                                                 {
-                                                                                                    MELT_LOCATION("warmelt-macro.melt:2058:/ locexp");
+                                                                                                    MELT_LOCATION("warmelt-macro.melt:2059:/ locexp");
                                                                                                     /*void*/
                                                                                                     (void)0;
                                                                                                 }
@@ -27248,12 +27248,12 @@ meltlab_endgetargs:
 
                                                                                             MELT_CHECK_SIGNAL();
                                                                                             ;
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2059:/ quasiblock");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2060:/ quasiblock");
 
 
                                                                                             /*_._RETVAL___V1*/
                                                                                             meltfptr[0] = /*_.RESC__V73*/ meltfptr[34];;
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2059:/ putxtraresult");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2060:/ putxtraresult");
                                                                                             if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                             if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                             if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -27265,7 +27265,7 @@ meltlab_endgetargs:
                                                                                             /*_.LET___V71*/
                                                                                             meltfptr[41] = /*_.RETURN___V76*/ meltfptr[40];;
 
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2055:/ clear");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2056:/ clear");
                                                                                             /*clear*/ /*_.CITER__V72*/
                                                                                             meltfptr[50] = 0 ;
                                                                                             /*^clear*/
@@ -27278,7 +27278,7 @@ meltlab_endgetargs:
                                                                                             meltfptr[51] = /*_.LET___V71*/ meltfptr[41];;
                                                                                             /*epilog*/
 
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2054:/ clear");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2055:/ clear");
                                                                                             /*clear*/ /*_.LET___V71*/
                                                                                             meltfptr[41] = 0 ;
                                                                                         }
@@ -27297,7 +27297,7 @@ meltlab_endgetargs:
                                                                                             /*_#IS_A__L35*/
                                                                                             meltfnum[33] =
                                                                                                 melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_HOOK_BINDING*/ meltfrout->tabval[18])));;
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2061:/ cond");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2062:/ cond");
                                                                                             /*cond*/
                                                                                             if (/*_#IS_A__L35*/ meltfnum[33]) /*then*/
                                                                                                 {
@@ -27306,7 +27306,7 @@ meltlab_endgetargs:
                                                                                                     /*anyblock*/
                                                                                                     {
 
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2062:/ quasiblock");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2063:/ quasiblock");
 
 
                                                                                                         /*^getslot*/
@@ -27321,7 +27321,7 @@ meltlab_endgetargs:
 
                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                         ;
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2063:/ apply");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2064:/ apply");
                                                                                                         /*apply*/
                                                                                                         {
                                                                                                             union meltparam_un argtab[4];
@@ -27340,7 +27340,7 @@ meltlab_endgetargs:
                                                                                                         ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2065:/ cppif.then");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2066:/ cppif.then");
                                                                                                         /*^block*/
                                                                                                         /*anyblock*/
                                                                                                         {
@@ -27367,7 +27367,7 @@ meltlab_endgetargs:
                                                                                                                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                 ;;
-                                                                                                            MELT_LOCATION("warmelt-macro.melt:2065:/ cond");
+                                                                                                            MELT_LOCATION("warmelt-macro.melt:2066:/ cond");
                                                                                                             /*cond*/
                                                                                                             if (/*_#MELT_NEED_DBG__L36*/ meltfnum[18]) /*then*/
                                                                                                                 {
@@ -27387,7 +27387,7 @@ meltlab_endgetargs:
 
                                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                                         ;
-                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2065:/ apply");
+                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2066:/ apply");
                                                                                                                         /*apply*/
                                                                                                                         {
                                                                                                                             union meltparam_un argtab[5];
@@ -27397,7 +27397,7 @@ meltlab_endgetargs:
                                                                                                                             /*^apply.arg*/
                                                                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                             /*^apply.arg*/
-                                                                                                                            argtab[2].meltbp_long = 2065;
+                                                                                                                            argtab[2].meltbp_long = 2066;
                                                                                                                             /*^apply.arg*/
                                                                                                                             argtab[3].meltbp_cstring =  "macroexpand_1 result for hook resc=";
                                                                                                                             /*^apply.arg*/
@@ -27410,7 +27410,7 @@ meltlab_endgetargs:
                                                                                                                         meltfptr[40] = /*_.MELT_DEBUG_FUN__V82*/ meltfptr[41];;
                                                                                                                         /*epilog*/
 
-                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2065:/ clear");
+                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2066:/ clear");
                                                                                                                         /*clear*/ /*_#MELT_CALLCOUNT__L37*/
                                                                                                                         meltfnum[36] = 0 ;
                                                                                                                         /*^clear*/
@@ -27427,7 +27427,7 @@ meltlab_endgetargs:
                                                                                                             ;
 
                                                                                                             {
-                                                                                                                MELT_LOCATION("warmelt-macro.melt:2065:/ locexp");
+                                                                                                                MELT_LOCATION("warmelt-macro.melt:2066:/ locexp");
                                                                                                                 /*void*/
                                                                                                                 (void)0;
                                                                                                             }
@@ -27465,12 +27465,12 @@ meltlab_endgetargs:
 
                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                         ;
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2066:/ quasiblock");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2067:/ quasiblock");
 
 
                                                                                                         /*_._RETVAL___V1*/
                                                                                                         meltfptr[0] = /*_.RESC__V80*/ meltfptr[34];;
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2066:/ putxtraresult");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2067:/ putxtraresult");
                                                                                                         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -27482,7 +27482,7 @@ meltlab_endgetargs:
                                                                                                         /*_.LET___V78*/
                                                                                                         meltfptr[38] = /*_.RETURN___V83*/ meltfptr[41];;
 
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2062:/ clear");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2063:/ clear");
                                                                                                         /*clear*/ /*_.HOOKDEF__V79*/
                                                                                                         meltfptr[50] = 0 ;
                                                                                                         /*^clear*/
@@ -27495,7 +27495,7 @@ meltlab_endgetargs:
                                                                                                         meltfptr[39] = /*_.LET___V78*/ meltfptr[38];;
                                                                                                         /*epilog*/
 
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2061:/ clear");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2062:/ clear");
                                                                                                         /*clear*/ /*_.LET___V78*/
                                                                                                         meltfptr[38] = 0 ;
                                                                                                     }
@@ -27514,7 +27514,7 @@ meltlab_endgetargs:
                                                                                                         /*_#IS_A__L38*/
                                                                                                         meltfnum[36] =
                                                                                                             melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_CMATCHER_BINDING*/ meltfrout->tabval[20])));;
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2068:/ cond");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2069:/ cond");
                                                                                                         /*cond*/
                                                                                                         if (/*_#IS_A__L38*/ meltfnum[36]) /*then*/
                                                                                                             {
@@ -27523,7 +27523,7 @@ meltlab_endgetargs:
                                                                                                                 /*anyblock*/
                                                                                                                 {
 
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2069:/ quasiblock");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2070:/ quasiblock");
 
 
                                                                                                                     /*^getslot*/
@@ -27538,7 +27538,7 @@ meltlab_endgetargs:
 
                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                     ;
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2070:/ apply");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2071:/ apply");
                                                                                                                     /*apply*/
                                                                                                                     {
                                                                                                                         union meltparam_un argtab[4];
@@ -27557,7 +27557,7 @@ meltlab_endgetargs:
                                                                                                                     ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2072:/ cppif.then");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2073:/ cppif.then");
                                                                                                                     /*^block*/
                                                                                                                     /*anyblock*/
                                                                                                                     {
@@ -27584,7 +27584,7 @@ meltlab_endgetargs:
                                                                                                                             0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                             ;;
-                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2072:/ cond");
+                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2073:/ cond");
                                                                                                                         /*cond*/
                                                                                                                         if (/*_#MELT_NEED_DBG__L39*/ meltfnum[18]) /*then*/
                                                                                                                             {
@@ -27604,7 +27604,7 @@ meltlab_endgetargs:
 
                                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                                     ;
-                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2072:/ apply");
+                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2073:/ apply");
                                                                                                                                     /*apply*/
                                                                                                                                     {
                                                                                                                                         union meltparam_un argtab[5];
@@ -27614,7 +27614,7 @@ meltlab_endgetargs:
                                                                                                                                         /*^apply.arg*/
                                                                                                                                         argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                         /*^apply.arg*/
-                                                                                                                                        argtab[2].meltbp_long = 2072;
+                                                                                                                                        argtab[2].meltbp_long = 2073;
                                                                                                                                         /*^apply.arg*/
                                                                                                                                         argtab[3].meltbp_cstring =  "macroexpand_1 result for cmatcher resc";
                                                                                                                                         /*^apply.arg*/
@@ -27627,7 +27627,7 @@ meltlab_endgetargs:
                                                                                                                                     meltfptr[38] = /*_.MELT_DEBUG_FUN__V89*/ meltfptr[88];;
                                                                                                                                     /*epilog*/
 
-                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2072:/ clear");
+                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2073:/ clear");
                                                                                                                                     /*clear*/ /*_#MELT_CALLCOUNT__L40*/
                                                                                                                                     meltfnum[39] = 0 ;
                                                                                                                                     /*^clear*/
@@ -27644,7 +27644,7 @@ meltlab_endgetargs:
                                                                                                                         ;
 
                                                                                                                         {
-                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2072:/ locexp");
+                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2073:/ locexp");
                                                                                                                             /*void*/
                                                                                                                             (void)0;
                                                                                                                         }
@@ -27682,12 +27682,12 @@ meltlab_endgetargs:
 
                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                     ;
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2073:/ quasiblock");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2074:/ quasiblock");
 
 
                                                                                                                     /*_._RETVAL___V1*/
                                                                                                                     meltfptr[0] = /*_.RESC__V87*/ meltfptr[41];;
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2073:/ putxtraresult");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2074:/ putxtraresult");
                                                                                                                     if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                     if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                     if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -27699,7 +27699,7 @@ meltlab_endgetargs:
                                                                                                                     /*_.LET___V85*/
                                                                                                                     meltfptr[50] = /*_.RETURN___V90*/ meltfptr[88];;
 
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2069:/ clear");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2070:/ clear");
                                                                                                                     /*clear*/ /*_.CMATCH__V86*/
                                                                                                                     meltfptr[34] = 0 ;
                                                                                                                     /*^clear*/
@@ -27712,7 +27712,7 @@ meltlab_endgetargs:
                                                                                                                     meltfptr[40] = /*_.LET___V85*/ meltfptr[50];;
                                                                                                                     /*epilog*/
 
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2068:/ clear");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2069:/ clear");
                                                                                                                     /*clear*/ /*_.LET___V85*/
                                                                                                                     meltfptr[50] = 0 ;
                                                                                                                 }
@@ -27731,7 +27731,7 @@ meltlab_endgetargs:
                                                                                                                     /*_#IS_A__L41*/
                                                                                                                     meltfnum[39] =
                                                                                                                         melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_FUNMATCHER_BINDING*/ meltfrout->tabval[22])));;
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2075:/ cond");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2076:/ cond");
                                                                                                                     /*cond*/
                                                                                                                     if (/*_#IS_A__L41*/ meltfnum[39]) /*then*/
                                                                                                                         {
@@ -27740,7 +27740,7 @@ meltlab_endgetargs:
                                                                                                                             /*anyblock*/
                                                                                                                             {
 
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2076:/ quasiblock");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2077:/ quasiblock");
 
 
                                                                                                                                 /*^getslot*/
@@ -27755,7 +27755,7 @@ meltlab_endgetargs:
 
                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                 ;
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2077:/ apply");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2078:/ apply");
                                                                                                                                 /*apply*/
                                                                                                                                 {
                                                                                                                                     union meltparam_un argtab[5];
@@ -27776,7 +27776,7 @@ meltlab_endgetargs:
                                                                                                                                 ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2079:/ cppif.then");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2080:/ cppif.then");
                                                                                                                                 /*^block*/
                                                                                                                                 /*anyblock*/
                                                                                                                                 {
@@ -27803,7 +27803,7 @@ meltlab_endgetargs:
                                                                                                                                         0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                         ;;
-                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2079:/ cond");
+                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2080:/ cond");
                                                                                                                                     /*cond*/
                                                                                                                                     if (/*_#MELT_NEED_DBG__L42*/ meltfnum[18]) /*then*/
                                                                                                                                         {
@@ -27823,7 +27823,7 @@ meltlab_endgetargs:
 
                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                 ;
-                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2079:/ apply");
+                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2080:/ apply");
                                                                                                                                                 /*apply*/
                                                                                                                                                 {
                                                                                                                                                     union meltparam_un argtab[5];
@@ -27833,7 +27833,7 @@ meltlab_endgetargs:
                                                                                                                                                     /*^apply.arg*/
                                                                                                                                                     argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                     /*^apply.arg*/
-                                                                                                                                                    argtab[2].meltbp_long = 2079;
+                                                                                                                                                    argtab[2].meltbp_long = 2080;
                                                                                                                                                     /*^apply.arg*/
                                                                                                                                                     argtab[3].meltbp_cstring =  "macroexpand_1 result for funmatcher resf";
                                                                                                                                                     /*^apply.arg*/
@@ -27846,7 +27846,7 @@ meltlab_endgetargs:
                                                                                                                                                 meltfptr[50] = /*_.MELT_DEBUG_FUN__V96*/ meltfptr[95];;
                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2079:/ clear");
+                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2080:/ clear");
                                                                                                                                                 /*clear*/ /*_#MELT_CALLCOUNT__L43*/
                                                                                                                                                 meltfnum[42] = 0 ;
                                                                                                                                                 /*^clear*/
@@ -27863,7 +27863,7 @@ meltlab_endgetargs:
                                                                                                                                     ;
 
                                                                                                                                     {
-                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2079:/ locexp");
+                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2080:/ locexp");
                                                                                                                                         /*void*/
                                                                                                                                         (void)0;
                                                                                                                                     }
@@ -27901,12 +27901,12 @@ meltlab_endgetargs:
 
                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                 ;
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2080:/ quasiblock");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2081:/ quasiblock");
 
 
                                                                                                                                 /*_._RETVAL___V1*/
                                                                                                                                 meltfptr[0] = /*_.RESF__V94*/ meltfptr[88];;
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2080:/ putxtraresult");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2081:/ putxtraresult");
                                                                                                                                 if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                 if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                 if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -27918,7 +27918,7 @@ meltlab_endgetargs:
                                                                                                                                 /*_.LET___V92*/
                                                                                                                                 meltfptr[34] = /*_.RETURN___V97*/ meltfptr[95];;
 
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2076:/ clear");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2077:/ clear");
                                                                                                                                 /*clear*/ /*_.FMATCH__V93*/
                                                                                                                                 meltfptr[41] = 0 ;
                                                                                                                                 /*^clear*/
@@ -27931,7 +27931,7 @@ meltlab_endgetargs:
                                                                                                                                 meltfptr[38] = /*_.LET___V92*/ meltfptr[34];;
                                                                                                                                 /*epilog*/
 
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2075:/ clear");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2076:/ clear");
                                                                                                                                 /*clear*/ /*_.LET___V92*/
                                                                                                                                 meltfptr[34] = 0 ;
                                                                                                                             }
@@ -27950,7 +27950,7 @@ meltlab_endgetargs:
                                                                                                                                 /*_#IS_A__L44*/
                                                                                                                                 meltfnum[42] =
                                                                                                                                     melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_FIELD_BINDING*/ meltfrout->tabval[24])));;
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2082:/ cond");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2083:/ cond");
                                                                                                                                 /*cond*/
                                                                                                                                 if (/*_#IS_A__L44*/ meltfnum[42]) /*then*/
                                                                                                                                     {
@@ -27959,7 +27959,7 @@ meltlab_endgetargs:
                                                                                                                                         /*anyblock*/
                                                                                                                                         {
 
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2083:/ quasiblock");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2084:/ quasiblock");
 
 
                                                                                                                                             /*^getslot*/
@@ -27974,7 +27974,7 @@ meltlab_endgetargs:
 
                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                             ;
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2084:/ apply");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2085:/ apply");
                                                                                                                                             /*apply*/
                                                                                                                                             {
                                                                                                                                                 union meltparam_un argtab[4];
@@ -27993,7 +27993,7 @@ meltlab_endgetargs:
                                                                                                                                             ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2086:/ cppif.then");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2087:/ cppif.then");
                                                                                                                                             /*^block*/
                                                                                                                                             /*anyblock*/
                                                                                                                                             {
@@ -28020,7 +28020,7 @@ meltlab_endgetargs:
                                                                                                                                                     0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                     ;;
-                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2086:/ cond");
+                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2087:/ cond");
                                                                                                                                                 /*cond*/
                                                                                                                                                 if (/*_#MELT_NEED_DBG__L45*/ meltfnum[18]) /*then*/
                                                                                                                                                     {
@@ -28040,7 +28040,7 @@ meltlab_endgetargs:
 
                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                             ;
-                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2086:/ apply");
+                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2087:/ apply");
                                                                                                                                                             /*apply*/
                                                                                                                                                             {
                                                                                                                                                                 union meltparam_un argtab[5];
@@ -28050,7 +28050,7 @@ meltlab_endgetargs:
                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                 argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                 /*^apply.arg*/
-                                                                                                                                                                argtab[2].meltbp_long = 2086;
+                                                                                                                                                                argtab[2].meltbp_long = 2087;
                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                 argtab[3].meltbp_cstring =  "macroexpand_1 result for field resf";
                                                                                                                                                                 /*^apply.arg*/
@@ -28063,7 +28063,7 @@ meltlab_endgetargs:
                                                                                                                                                             meltfptr[34] = /*_.MELT_DEBUG_FUN__V103*/ meltfptr[102];;
                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2086:/ clear");
+                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2087:/ clear");
                                                                                                                                                             /*clear*/ /*_#MELT_CALLCOUNT__L46*/
                                                                                                                                                             meltfnum[45] = 0 ;
                                                                                                                                                             /*^clear*/
@@ -28080,7 +28080,7 @@ meltlab_endgetargs:
                                                                                                                                                 ;
 
                                                                                                                                                 {
-                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2086:/ locexp");
+                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2087:/ locexp");
                                                                                                                                                     /*void*/
                                                                                                                                                     (void)0;
                                                                                                                                                 }
@@ -28118,12 +28118,12 @@ meltlab_endgetargs:
 
                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                             ;
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2087:/ quasiblock");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2088:/ quasiblock");
 
 
                                                                                                                                             /*_._RETVAL___V1*/
                                                                                                                                             meltfptr[0] = /*_.RESF__V101*/ meltfptr[95];;
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2087:/ putxtraresult");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2088:/ putxtraresult");
                                                                                                                                             if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                             if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                             if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28135,7 +28135,7 @@ meltlab_endgetargs:
                                                                                                                                             /*_.LET___V99*/
                                                                                                                                             meltfptr[41] = /*_.RETURN___V104*/ meltfptr[102];;
 
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2083:/ clear");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2084:/ clear");
                                                                                                                                             /*clear*/ /*_.FIELD__V100*/
                                                                                                                                             meltfptr[88] = 0 ;
                                                                                                                                             /*^clear*/
@@ -28148,7 +28148,7 @@ meltlab_endgetargs:
                                                                                                                                             meltfptr[50] = /*_.LET___V99*/ meltfptr[41];;
                                                                                                                                             /*epilog*/
 
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2082:/ clear");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2083:/ clear");
                                                                                                                                             /*clear*/ /*_.LET___V99*/
                                                                                                                                             meltfptr[41] = 0 ;
                                                                                                                                         }
@@ -28167,7 +28167,7 @@ meltlab_endgetargs:
                                                                                                                                             /*_#IS_A__L47*/
                                                                                                                                             meltfnum[45] =
                                                                                                                                                 melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_FORMAL_BINDING*/ meltfrout->tabval[26])));;
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2090:/ cond");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2091:/ cond");
                                                                                                                                             /*cond*/
                                                                                                                                             if (/*_#IS_A__L47*/ meltfnum[45]) /*then*/
                                                                                                                                                 {
@@ -28179,7 +28179,7 @@ meltlab_endgetargs:
 
                                                                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                                                                         ;
-                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2091:/ apply");
+                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2092:/ apply");
                                                                                                                                                         /*apply*/
                                                                                                                                                         {
                                                                                                                                                             union meltparam_un argtab[3];
@@ -28202,7 +28202,7 @@ meltlab_endgetargs:
 
                                                                                                                                                         /*_._RETVAL___V1*/
                                                                                                                                                         meltfptr[0] = /*_.EXPAND_APPLY__V106*/ meltfptr[88];;
-                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2091:/ putxtraresult");
+                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2092:/ putxtraresult");
                                                                                                                                                         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28215,7 +28215,7 @@ meltlab_endgetargs:
                                                                                                                                                         meltfptr[34] = /*_.RETURN___V107*/ meltfptr[95];;
                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2090:/ clear");
+                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2091:/ clear");
                                                                                                                                                         /*clear*/ /*_.EXPAND_APPLY__V106*/
                                                                                                                                                         meltfptr[88] = 0 ;
                                                                                                                                                         /*^clear*/
@@ -28237,7 +28237,7 @@ meltlab_endgetargs:
                                                                                                                                                         /*_#IS_A__L48*/
                                                                                                                                                         meltfnum[18] =
                                                                                                                                                             melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_LET_BINDING*/ meltfrout->tabval[28])));;
-                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2092:/ cond");
+                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2093:/ cond");
                                                                                                                                                         /*cond*/
                                                                                                                                                         if (/*_#IS_A__L48*/ meltfnum[18]) /*then*/
                                                                                                                                                             {
@@ -28249,7 +28249,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                                                                     ;
-                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2093:/ apply");
+                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2094:/ apply");
                                                                                                                                                                     /*apply*/
                                                                                                                                                                     {
                                                                                                                                                                         union meltparam_un argtab[3];
@@ -28272,7 +28272,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                     /*_._RETVAL___V1*/
                                                                                                                                                                     meltfptr[0] = /*_.EXPAND_APPLY__V109*/ meltfptr[41];;
-                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2093:/ putxtraresult");
+                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2094:/ putxtraresult");
                                                                                                                                                                     if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                     if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                     if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28285,7 +28285,7 @@ meltlab_endgetargs:
                                                                                                                                                                     meltfptr[102] = /*_.RETURN___V110*/ meltfptr[88];;
                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2092:/ clear");
+                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2093:/ clear");
                                                                                                                                                                     /*clear*/ /*_.EXPAND_APPLY__V109*/
                                                                                                                                                                     meltfptr[41] = 0 ;
                                                                                                                                                                     /*^clear*/
@@ -28307,7 +28307,7 @@ meltlab_endgetargs:
                                                                                                                                                                     /*_#IS_A__L49*/
                                                                                                                                                                     meltfnum[48] =
                                                                                                                                                                         melt_is_instance_of((melt_ptr_t)(/*_.OPBIND__V33*/ meltfptr[28]), (melt_ptr_t)((/*!CLASS_VALUE_BINDING*/ meltfrout->tabval[29])));;
-                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2095:/ cond");
+                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2096:/ cond");
                                                                                                                                                                     /*cond*/
                                                                                                                                                                     if (/*_#IS_A__L49*/ meltfnum[48]) /*then*/
                                                                                                                                                                         {
@@ -28316,7 +28316,7 @@ meltlab_endgetargs:
                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                             {
 
-                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2096:/ quasiblock");
+                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2097:/ quasiblock");
 
 
                                                                                                                                                                                 /*^getslot*/
@@ -28334,7 +28334,7 @@ meltlab_endgetargs:
                                                                                                                                                                                 /*_#IS_CLOSURE__L50*/
                                                                                                                                                                                 meltfnum[49] =
                                                                                                                                                                                     (melt_magic_discr((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88])) == MELTOBMAG_CLOSURE);;
-                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2099:/ cond");
+                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2100:/ cond");
                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                 if (/*_#IS_CLOSURE__L50*/ meltfnum[49]) /*then*/
                                                                                                                                                                                     {
@@ -28346,7 +28346,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                             ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2100:/ apply");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2101:/ apply");
                                                                                                                                                                                             /*apply*/
                                                                                                                                                                                             {
                                                                                                                                                                                                 union meltparam_un argtab[3];
@@ -28369,7 +28369,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                             /*_._RETVAL___V1*/
                                                                                                                                                                                             meltfptr[0] = /*_.EXPAND_APPLY__V115*/ meltfptr[114];;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2100:/ putxtraresult");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2101:/ putxtraresult");
                                                                                                                                                                                             if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                             if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                             if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28382,7 +28382,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             meltfptr[113] = /*_.RETURN___V116*/ meltfptr[115];;
                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2099:/ clear");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2100:/ clear");
                                                                                                                                                                                             /*clear*/ /*_.EXPAND_APPLY__V115*/
                                                                                                                                                                                             meltfptr[114] = 0 ;
                                                                                                                                                                                             /*^clear*/
@@ -28404,7 +28404,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             /*_#IS_A__L51*/
                                                                                                                                                                                             meltfnum[50] =
                                                                                                                                                                                                 melt_is_instance_of((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_PRIMITIVE*/ meltfrout->tabval[30])));;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2102:/ cond");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2103:/ cond");
                                                                                                                                                                                             /*cond*/
                                                                                                                                                                                             if (/*_#IS_A__L51*/ meltfnum[50]) /*then*/
                                                                                                                                                                                                 {
@@ -28416,7 +28416,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                                                                                                                         ;
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2103:/ apply");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2104:/ apply");
                                                                                                                                                                                                         /*apply*/
                                                                                                                                                                                                         {
                                                                                                                                                                                                             union meltparam_un argtab[4];
@@ -28441,7 +28441,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                         /*_._RETVAL___V1*/
                                                                                                                                                                                                         meltfptr[0] = /*_.EXPAND_PRIMITIVE__V118*/ meltfptr[115];;
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2103:/ putxtraresult");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2104:/ putxtraresult");
                                                                                                                                                                                                         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28454,7 +28454,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                         meltfptr[114] = /*_.RETURN___V119*/ meltfptr[118];;
                                                                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2102:/ clear");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2103:/ clear");
                                                                                                                                                                                                         /*clear*/ /*_.EXPAND_PRIMITIVE__V118*/
                                                                                                                                                                                                         meltfptr[115] = 0 ;
                                                                                                                                                                                                         /*^clear*/
@@ -28476,7 +28476,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                         /*_#IS_HOOK__L52*/
                                                                                                                                                                                                         meltfnum[51] =
                                                                                                                                                                                                             (melt_magic_discr((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88])) == MELTOBMAG_HOOK);;
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2105:/ cond");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2106:/ cond");
                                                                                                                                                                                                         /*cond*/
                                                                                                                                                                                                         if (/*_#IS_HOOK__L52*/ meltfnum[51]) /*then*/
                                                                                                                                                                                                             {
@@ -28488,7 +28488,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                     ;
-                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2106:/ apply");
+                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2107:/ apply");
                                                                                                                                                                                                                     /*apply*/
                                                                                                                                                                                                                     {
                                                                                                                                                                                                                         union meltparam_un argtab[4];
@@ -28513,7 +28513,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                     /*_._RETVAL___V1*/
                                                                                                                                                                                                                     meltfptr[0] = /*_.EXPAND_HOOK__V121*/ meltfptr[118];;
-                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2106:/ putxtraresult");
+                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2107:/ putxtraresult");
                                                                                                                                                                                                                     if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                                     if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                                     if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28526,7 +28526,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                     meltfptr[115] = /*_.RETURN___V122*/ meltfptr[121];;
                                                                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2105:/ clear");
+                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2106:/ clear");
                                                                                                                                                                                                                     /*clear*/ /*_.EXPAND_HOOK__V121*/
                                                                                                                                                                                                                     meltfptr[118] = 0 ;
                                                                                                                                                                                                                     /*^clear*/
@@ -28548,7 +28548,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                     /*_#IS_A__L53*/
                                                                                                                                                                                                                     meltfnum[52] =
                                                                                                                                                                                                                         melt_is_instance_of((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_SELECTOR*/ meltfrout->tabval[31])));;
-                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2108:/ cond");
+                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2109:/ cond");
                                                                                                                                                                                                                     /*cond*/
                                                                                                                                                                                                                     if (/*_#IS_A__L53*/ meltfnum[52]) /*then*/
                                                                                                                                                                                                                         {
@@ -28557,13 +28557,13 @@ meltlab_endgetargs:
                                                                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                                                                             {
 
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2109:/ quasiblock");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2110:/ quasiblock");
 
 
 
                                                                                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                 ;
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2110:/ apply");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2111:/ apply");
                                                                                                                                                                                                                                 /*apply*/
                                                                                                                                                                                                                                 {
                                                                                                                                                                                                                                     union meltparam_un argtab[4];
@@ -28582,7 +28582,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                 ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2111:/ cppif.then");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2112:/ cppif.then");
                                                                                                                                                                                                                                 /*^block*/
                                                                                                                                                                                                                                 /*anyblock*/
                                                                                                                                                                                                                                 {
@@ -28609,7 +28609,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                         0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                                                         ;;
-                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2111:/ cond");
+                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2112:/ cond");
                                                                                                                                                                                                                                     /*cond*/
                                                                                                                                                                                                                                     if (/*_#MELT_NEED_DBG__L54*/ meltfnum[53]) /*then*/
                                                                                                                                                                                                                                         {
@@ -28629,7 +28629,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                 ;
-                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2111:/ apply");
+                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2112:/ apply");
                                                                                                                                                                                                                                                 /*apply*/
                                                                                                                                                                                                                                                 {
                                                                                                                                                                                                                                                     union meltparam_un argtab[5];
@@ -28639,7 +28639,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                     /*^apply.arg*/
                                                                                                                                                                                                                                                     argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                                                     /*^apply.arg*/
-                                                                                                                                                                                                                                                    argtab[2].meltbp_long = 2111;
+                                                                                                                                                                                                                                                    argtab[2].meltbp_long = 2112;
                                                                                                                                                                                                                                                     /*^apply.arg*/
                                                                                                                                                                                                                                                     argtab[3].meltbp_cstring =  "macroexpand_1 result for send ress";
                                                                                                                                                                                                                                                     /*^apply.arg*/
@@ -28652,7 +28652,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                 meltfptr[125] = /*_.MELT_DEBUG_FUN__V127*/ meltfptr[126];;
                                                                                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2111:/ clear");
+                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2112:/ clear");
                                                                                                                                                                                                                                                 /*clear*/ /*_#MELT_CALLCOUNT__L55*/
                                                                                                                                                                                                                                                 meltfnum[54] = 0 ;
                                                                                                                                                                                                                                                 /*^clear*/
@@ -28669,7 +28669,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                     ;
 
                                                                                                                                                                                                                                     {
-                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2111:/ locexp");
+                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2112:/ locexp");
                                                                                                                                                                                                                                         /*void*/
                                                                                                                                                                                                                                         (void)0;
                                                                                                                                                                                                                                     }
@@ -28707,12 +28707,12 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                 ;
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2112:/ quasiblock");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2113:/ quasiblock");
 
 
                                                                                                                                                                                                                                 /*_._RETVAL___V1*/
                                                                                                                                                                                                                                 meltfptr[0] = /*_.RESS__V125*/ meltfptr[124];;
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2112:/ putxtraresult");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2113:/ putxtraresult");
                                                                                                                                                                                                                                 if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                                                 if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                                                 if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28724,7 +28724,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                 /*_.LET___V124*/
                                                                                                                                                                                                                                 meltfptr[121] = /*_.RETURN___V128*/ meltfptr[126];;
 
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2109:/ clear");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2110:/ clear");
                                                                                                                                                                                                                                 /*clear*/ /*_.RESS__V125*/
                                                                                                                                                                                                                                 meltfptr[124] = 0 ;
                                                                                                                                                                                                                                 /*^clear*/
@@ -28734,7 +28734,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                 meltfptr[118] = /*_.LET___V124*/ meltfptr[121];;
                                                                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2108:/ clear");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2109:/ clear");
                                                                                                                                                                                                                                 /*clear*/ /*_.LET___V124*/
                                                                                                                                                                                                                                 meltfptr[121] = 0 ;
                                                                                                                                                                                                                             }
@@ -28753,7 +28753,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                 /*_#IS_A__L56*/
                                                                                                                                                                                                                                 meltfnum[54] =
                                                                                                                                                                                                                                     melt_is_instance_of((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_CITERATOR*/ meltfrout->tabval[32])));;
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2115:/ cond");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2116:/ cond");
                                                                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                                                                 if (/*_#IS_A__L56*/ meltfnum[54]) /*then*/
                                                                                                                                                                                                                                     {
@@ -28762,13 +28762,13 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                         /*anyblock*/
                                                                                                                                                                                                                                         {
 
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2116:/ quasiblock");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2117:/ quasiblock");
 
 
 
                                                                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                             ;
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2117:/ apply");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2118:/ apply");
                                                                                                                                                                                                                                             /*apply*/
                                                                                                                                                                                                                                             {
                                                                                                                                                                                                                                                 union meltparam_un argtab[4];
@@ -28787,7 +28787,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                             ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2118:/ cppif.then");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2119:/ cppif.then");
                                                                                                                                                                                                                                             /*^block*/
                                                                                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                                                                                             {
@@ -28814,7 +28814,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                     0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                                                                     ;;
-                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2118:/ cond");
+                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2119:/ cond");
                                                                                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                                                                                 if (/*_#MELT_NEED_DBG__L57*/ meltfnum[53]) /*then*/
                                                                                                                                                                                                                                                     {
@@ -28834,7 +28834,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                             ;
-                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2118:/ apply");
+                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2119:/ apply");
                                                                                                                                                                                                                                                             /*apply*/
                                                                                                                                                                                                                                                             {
                                                                                                                                                                                                                                                                 union meltparam_un argtab[5];
@@ -28844,7 +28844,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                                                                 argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                                                                 /*^apply.arg*/
-                                                                                                                                                                                                                                                                argtab[2].meltbp_long = 2118;
+                                                                                                                                                                                                                                                                argtab[2].meltbp_long = 2119;
                                                                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                                                                 argtab[3].meltbp_cstring =  "macroexpand_1 result for send resc";
                                                                                                                                                                                                                                                                 /*^apply.arg*/
@@ -28857,7 +28857,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                             meltfptr[121] = /*_.MELT_DEBUG_FUN__V133*/ meltfptr[132];;
                                                                                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2118:/ clear");
+                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2119:/ clear");
                                                                                                                                                                                                                                                             /*clear*/ /*_#MELT_CALLCOUNT__L58*/
                                                                                                                                                                                                                                                             meltfnum[57] = 0 ;
                                                                                                                                                                                                                                                             /*^clear*/
@@ -28874,7 +28874,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                 ;
 
                                                                                                                                                                                                                                                 {
-                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2118:/ locexp");
+                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2119:/ locexp");
                                                                                                                                                                                                                                                     /*void*/
                                                                                                                                                                                                                                                     (void)0;
                                                                                                                                                                                                                                                 }
@@ -28912,12 +28912,12 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                             ;
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2119:/ quasiblock");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2120:/ quasiblock");
 
 
                                                                                                                                                                                                                                             /*_._RETVAL___V1*/
                                                                                                                                                                                                                                             meltfptr[0] = /*_.RESC__V131*/ meltfptr[126];;
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2119:/ putxtraresult");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2120:/ putxtraresult");
                                                                                                                                                                                                                                             if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                                                             if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                                                             if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -28929,7 +28929,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                             /*_.LET___V130*/
                                                                                                                                                                                                                                             meltfptr[124] = /*_.RETURN___V134*/ meltfptr[132];;
 
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2116:/ clear");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2117:/ clear");
                                                                                                                                                                                                                                             /*clear*/ /*_.RESC__V131*/
                                                                                                                                                                                                                                             meltfptr[126] = 0 ;
                                                                                                                                                                                                                                             /*^clear*/
@@ -28939,7 +28939,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                             meltfptr[125] = /*_.LET___V130*/ meltfptr[124];;
                                                                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2115:/ clear");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2116:/ clear");
                                                                                                                                                                                                                                             /*clear*/ /*_.LET___V130*/
                                                                                                                                                                                                                                             meltfptr[124] = 0 ;
                                                                                                                                                                                                                                         }
@@ -28958,7 +28958,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                             /*_#IS_A__L59*/
                                                                                                                                                                                                                                             meltfnum[57] =
                                                                                                                                                                                                                                                 melt_is_instance_of((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_CMATCHER*/ meltfrout->tabval[33])));;
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2120:/ cond");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2121:/ cond");
                                                                                                                                                                                                                                             /*cond*/
                                                                                                                                                                                                                                             if (/*_#IS_A__L59*/ meltfnum[57]) /*then*/
                                                                                                                                                                                                                                                 {
@@ -28967,13 +28967,13 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                     /*anyblock*/
                                                                                                                                                                                                                                                     {
 
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2121:/ quasiblock");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2122:/ quasiblock");
 
 
 
                                                                                                                                                                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                         ;
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2122:/ apply");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2123:/ apply");
                                                                                                                                                                                                                                                         /*apply*/
                                                                                                                                                                                                                                                         {
                                                                                                                                                                                                                                                             union meltparam_un argtab[4];
@@ -28992,7 +28992,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                         ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2123:/ cppif.then");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2124:/ cppif.then");
                                                                                                                                                                                                                                                         /*^block*/
                                                                                                                                                                                                                                                         /*anyblock*/
                                                                                                                                                                                                                                                         {
@@ -29019,7 +29019,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                                                                                 ;;
-                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2123:/ cond");
+                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2124:/ cond");
                                                                                                                                                                                                                                                             /*cond*/
                                                                                                                                                                                                                                                             if (/*_#MELT_NEED_DBG__L60*/ meltfnum[53]) /*then*/
                                                                                                                                                                                                                                                                 {
@@ -29039,7 +29039,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                                         ;
-                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2123:/ apply");
+                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2124:/ apply");
                                                                                                                                                                                                                                                                         /*apply*/
                                                                                                                                                                                                                                                                         {
                                                                                                                                                                                                                                                                             union meltparam_un argtab[5];
@@ -29049,7 +29049,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                             /*^apply.arg*/
                                                                                                                                                                                                                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                                                                             /*^apply.arg*/
-                                                                                                                                                                                                                                                                            argtab[2].meltbp_long = 2123;
+                                                                                                                                                                                                                                                                            argtab[2].meltbp_long = 2124;
                                                                                                                                                                                                                                                                             /*^apply.arg*/
                                                                                                                                                                                                                                                                             argtab[3].meltbp_cstring =  "macroexpand_1 result for cmatch resc";
                                                                                                                                                                                                                                                                             /*^apply.arg*/
@@ -29062,7 +29062,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                         meltfptr[124] = /*_.MELT_DEBUG_FUN__V139*/ meltfptr[138];;
                                                                                                                                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2123:/ clear");
+                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2124:/ clear");
                                                                                                                                                                                                                                                                         /*clear*/ /*_#MELT_CALLCOUNT__L61*/
                                                                                                                                                                                                                                                                         meltfnum[60] = 0 ;
                                                                                                                                                                                                                                                                         /*^clear*/
@@ -29079,7 +29079,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                             ;
 
                                                                                                                                                                                                                                                             {
-                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2123:/ locexp");
+                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2124:/ locexp");
                                                                                                                                                                                                                                                                 /*void*/
                                                                                                                                                                                                                                                                 (void)0;
                                                                                                                                                                                                                                                             }
@@ -29117,12 +29117,12 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                         ;
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2124:/ quasiblock");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2125:/ quasiblock");
 
 
                                                                                                                                                                                                                                                         /*_._RETVAL___V1*/
                                                                                                                                                                                                                                                         meltfptr[0] = /*_.RESC__V137*/ meltfptr[132];;
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2124:/ putxtraresult");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2125:/ putxtraresult");
                                                                                                                                                                                                                                                         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                                                                         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                                                                         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -29134,7 +29134,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                         /*_.LET___V136*/
                                                                                                                                                                                                                                                         meltfptr[126] = /*_.RETURN___V140*/ meltfptr[138];;
 
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2121:/ clear");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2122:/ clear");
                                                                                                                                                                                                                                                         /*clear*/ /*_.RESC__V137*/
                                                                                                                                                                                                                                                         meltfptr[132] = 0 ;
                                                                                                                                                                                                                                                         /*^clear*/
@@ -29144,7 +29144,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                         meltfptr[121] = /*_.LET___V136*/ meltfptr[126];;
                                                                                                                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2120:/ clear");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2121:/ clear");
                                                                                                                                                                                                                                                         /*clear*/ /*_.LET___V136*/
                                                                                                                                                                                                                                                         meltfptr[126] = 0 ;
                                                                                                                                                                                                                                                     }
@@ -29163,7 +29163,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                         /*_#IS_A__L62*/
                                                                                                                                                                                                                                                         meltfnum[60] =
                                                                                                                                                                                                                                                             melt_is_instance_of((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_FUNMATCHER*/ meltfrout->tabval[34])));;
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2125:/ cond");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2126:/ cond");
                                                                                                                                                                                                                                                         /*cond*/
                                                                                                                                                                                                                                                         if (/*_#IS_A__L62*/ meltfnum[60]) /*then*/
                                                                                                                                                                                                                                                             {
@@ -29172,7 +29172,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                 /*anyblock*/
                                                                                                                                                                                                                                                                 {
 
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2126:/ quasiblock");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2127:/ quasiblock");
 
 
 
@@ -29199,7 +29199,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                     ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2127:/ cppif.then");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2128:/ cppif.then");
                                                                                                                                                                                                                                                                     /*^block*/
                                                                                                                                                                                                                                                                     /*anyblock*/
                                                                                                                                                                                                                                                                     {
@@ -29226,7 +29226,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                             0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                                                                                             ;;
-                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2127:/ cond");
+                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2128:/ cond");
                                                                                                                                                                                                                                                                         /*cond*/
                                                                                                                                                                                                                                                                         if (/*_#MELT_NEED_DBG__L63*/ meltfnum[53]) /*then*/
                                                                                                                                                                                                                                                                             {
@@ -29246,7 +29246,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                                                     ;
-                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2127:/ apply");
+                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2128:/ apply");
                                                                                                                                                                                                                                                                                     /*apply*/
                                                                                                                                                                                                                                                                                     {
                                                                                                                                                                                                                                                                                         union meltparam_un argtab[5];
@@ -29256,7 +29256,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                         /*^apply.arg*/
                                                                                                                                                                                                                                                                                         argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                                                                                         /*^apply.arg*/
-                                                                                                                                                                                                                                                                                        argtab[2].meltbp_long = 2127;
+                                                                                                                                                                                                                                                                                        argtab[2].meltbp_long = 2128;
                                                                                                                                                                                                                                                                                         /*^apply.arg*/
                                                                                                                                                                                                                                                                                         argtab[3].meltbp_cstring =  "macroexpand_1 result for funmatch resf";
                                                                                                                                                                                                                                                                                         /*^apply.arg*/
@@ -29269,7 +29269,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                     meltfptr[126] = /*_.MELT_DEBUG_FUN__V145*/ meltfptr[144];;
                                                                                                                                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2127:/ clear");
+                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2128:/ clear");
                                                                                                                                                                                                                                                                                     /*clear*/ /*_#MELT_CALLCOUNT__L64*/
                                                                                                                                                                                                                                                                                     meltfnum[63] = 0 ;
                                                                                                                                                                                                                                                                                     /*^clear*/
@@ -29286,7 +29286,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                         ;
 
                                                                                                                                                                                                                                                                         {
-                                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2127:/ locexp");
+                                                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2128:/ locexp");
                                                                                                                                                                                                                                                                             /*void*/
                                                                                                                                                                                                                                                                             (void)0;
                                                                                                                                                                                                                                                                         }
@@ -29324,12 +29324,12 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                                     ;
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2128:/ quasiblock");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2129:/ quasiblock");
 
 
                                                                                                                                                                                                                                                                     /*_._RETVAL___V1*/
                                                                                                                                                                                                                                                                     meltfptr[0] = /*_.RESF__V143*/ meltfptr[138];;
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2128:/ putxtraresult");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2129:/ putxtraresult");
                                                                                                                                                                                                                                                                     if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                                                                                     if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                                                                                     if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -29341,7 +29341,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                     /*_.LET___V142*/
                                                                                                                                                                                                                                                                     meltfptr[132] = /*_.RETURN___V146*/ meltfptr[144];;
 
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2126:/ clear");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2127:/ clear");
                                                                                                                                                                                                                                                                     /*clear*/ /*_.RESF__V143*/
                                                                                                                                                                                                                                                                     meltfptr[138] = 0 ;
                                                                                                                                                                                                                                                                     /*^clear*/
@@ -29351,7 +29351,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                     meltfptr[124] = /*_.LET___V142*/ meltfptr[132];;
                                                                                                                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2125:/ clear");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2126:/ clear");
                                                                                                                                                                                                                                                                     /*clear*/ /*_.LET___V142*/
                                                                                                                                                                                                                                                                     meltfptr[132] = 0 ;
                                                                                                                                                                                                                                                                 }
@@ -29370,7 +29370,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                     /*_#IS_A__L65*/
                                                                                                                                                                                                                                                                     meltfnum[63] =
                                                                                                                                                                                                                                                                         melt_is_instance_of((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_FIELD*/ meltfrout->tabval[35])));;
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2129:/ cond");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2130:/ cond");
                                                                                                                                                                                                                                                                     /*cond*/
                                                                                                                                                                                                                                                                     if (/*_#IS_A__L65*/ meltfnum[63]) /*then*/
                                                                                                                                                                                                                                                                         {
@@ -29379,7 +29379,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                                                                                                                             {
 
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2130:/ quasiblock");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2131:/ quasiblock");
 
 
 
@@ -29404,7 +29404,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                 ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2131:/ cppif.then");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2132:/ cppif.then");
                                                                                                                                                                                                                                                                                 /*^block*/
                                                                                                                                                                                                                                                                                 /*anyblock*/
                                                                                                                                                                                                                                                                                 {
@@ -29431,7 +29431,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                         0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                                                                                                         ;;
-                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2131:/ cond");
+                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2132:/ cond");
                                                                                                                                                                                                                                                                                     /*cond*/
                                                                                                                                                                                                                                                                                     if (/*_#MELT_NEED_DBG__L66*/ meltfnum[53]) /*then*/
                                                                                                                                                                                                                                                                                         {
@@ -29451,7 +29451,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                                                                 ;
-                                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2131:/ apply");
+                                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2132:/ apply");
                                                                                                                                                                                                                                                                                                 /*apply*/
                                                                                                                                                                                                                                                                                                 {
                                                                                                                                                                                                                                                                                                     union meltparam_un argtab[5];
@@ -29461,7 +29461,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                                     /*^apply.arg*/
                                                                                                                                                                                                                                                                                                     argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                                                                                                     /*^apply.arg*/
-                                                                                                                                                                                                                                                                                                    argtab[2].meltbp_long = 2131;
+                                                                                                                                                                                                                                                                                                    argtab[2].meltbp_long = 2132;
                                                                                                                                                                                                                                                                                                     /*^apply.arg*/
                                                                                                                                                                                                                                                                                                     argtab[3].meltbp_cstring =  "macroexpand_1 result for field resf";
                                                                                                                                                                                                                                                                                                     /*^apply.arg*/
@@ -29474,7 +29474,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                                 meltfptr[132] = /*_.MELT_DEBUG_FUN__V151*/ meltfptr[150];;
                                                                                                                                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2131:/ clear");
+                                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2132:/ clear");
                                                                                                                                                                                                                                                                                                 /*clear*/ /*_#MELT_CALLCOUNT__L67*/
                                                                                                                                                                                                                                                                                                 meltfnum[66] = 0 ;
                                                                                                                                                                                                                                                                                                 /*^clear*/
@@ -29491,7 +29491,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                     ;
 
                                                                                                                                                                                                                                                                                     {
-                                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2131:/ locexp");
+                                                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2132:/ locexp");
                                                                                                                                                                                                                                                                                         /*void*/
                                                                                                                                                                                                                                                                                         (void)0;
                                                                                                                                                                                                                                                                                     }
@@ -29529,12 +29529,12 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                                                 ;
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2132:/ quasiblock");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2133:/ quasiblock");
 
 
                                                                                                                                                                                                                                                                                 /*_._RETVAL___V1*/
                                                                                                                                                                                                                                                                                 meltfptr[0] = /*_.RESF__V149*/ meltfptr[144];;
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2132:/ putxtraresult");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2133:/ putxtraresult");
                                                                                                                                                                                                                                                                                 if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                                                                                                 if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                                                                                                 if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -29546,7 +29546,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                 /*_.LET___V148*/
                                                                                                                                                                                                                                                                                 meltfptr[138] = /*_.RETURN___V152*/ meltfptr[150];;
 
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2130:/ clear");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2131:/ clear");
                                                                                                                                                                                                                                                                                 /*clear*/ /*_.RESF__V149*/
                                                                                                                                                                                                                                                                                 meltfptr[144] = 0 ;
                                                                                                                                                                                                                                                                                 /*^clear*/
@@ -29556,7 +29556,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                 meltfptr[126] = /*_.LET___V148*/ meltfptr[138];;
                                                                                                                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2129:/ clear");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2130:/ clear");
                                                                                                                                                                                                                                                                                 /*clear*/ /*_.LET___V148*/
                                                                                                                                                                                                                                                                                 meltfptr[138] = 0 ;
                                                                                                                                                                                                                                                                             }
@@ -29569,7 +29569,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                                                                                                                             {
 
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2135:/ getslot");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2136:/ getslot");
                                                                                                                                                                                                                                                                                 {
                                                                                                                                                                                                                                                                                     melt_ptr_t slot=NULL, obj=NULL;
                                                                                                                                                                                                                                                                                     obj = (melt_ptr_t)(/*_.SOPER__V22*/ meltfptr[21]) /*=obj*/;
@@ -29581,7 +29581,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                                                 ;
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2134:/ apply");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2135:/ apply");
                                                                                                                                                                                                                                                                                 /*apply*/
                                                                                                                                                                                                                                                                                 {
                                                                                                                                                                                                                                                                                     union meltparam_un argtab[2];
@@ -29597,7 +29597,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                 /*_.DISCRIM__V155*/
                                                                                                                                                                                                                                                                                 meltfptr[150] =
                                                                                                                                                                                                                                                                                     ((melt_ptr_t) (melt_discr((melt_ptr_t)(/*_.VAL__V113*/ meltfptr[88]))));;
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2137:/ getslot");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2138:/ getslot");
                                                                                                                                                                                                                                                                                 {
                                                                                                                                                                                                                                                                                     melt_ptr_t slot=NULL, obj=NULL;
                                                                                                                                                                                                                                                                                     obj = (melt_ptr_t)(/*_.DISCRIM__V155*/ meltfptr[150]) /*=obj*/;
@@ -29608,19 +29608,19 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                 ;
 
                                                                                                                                                                                                                                                                                 {
-                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2136:/ locexp");
+                                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2137:/ locexp");
                                                                                                                                                                                                                                                                                     melt_inform_str((melt_ptr_t)(/*_.SLOC__V20*/ meltfptr[19]), ( "macroexpand_1 bad symbol value discr"), (melt_ptr_t)(/*_.NAMED_NAME__V156*/ meltfptr[138]));
                                                                                                                                                                                                                                                                                 }
                                                                                                                                                                                                                                                                                 ;
 
                                                                                                                                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                                                                                                                                 ;
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2138:/ quasiblock");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2139:/ quasiblock");
 
 
                                                                                                                                                                                                                                                                                 /*_._RETVAL___V1*/
                                                                                                                                                                                                                                                                                 meltfptr[0] = (/*nil*/NULL);;
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2138:/ putxtraresult");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2139:/ putxtraresult");
                                                                                                                                                                                                                                                                                 if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                                                                                                                 if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                                                                                                                 if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -29629,7 +29629,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                 ;
                                                                                                                                                                                                                                                                                 /*finalret*/
                                                                                                                                                                                                                                                                                 goto meltlabend_rout ;
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2133:/ quasiblock");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2134:/ quasiblock");
 
 
                                                                                                                                                                                                                                                                                 /*_.PROGN___V158*/
@@ -29639,7 +29639,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                                 meltfptr[126] = /*_.PROGN___V158*/ meltfptr[157];;
                                                                                                                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2129:/ clear");
+                                                                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2130:/ clear");
                                                                                                                                                                                                                                                                                 /*clear*/ /*_.NAMED_NAME__V153*/
                                                                                                                                                                                                                                                                                 meltfptr[132] = 0 ;
                                                                                                                                                                                                                                                                                 /*^clear*/
@@ -29665,7 +29665,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                                     meltfptr[124] = /*_._IFELSE___V147*/ meltfptr[126];;
                                                                                                                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2125:/ clear");
+                                                                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2126:/ clear");
                                                                                                                                                                                                                                                                     /*clear*/ /*_#IS_A__L65*/
                                                                                                                                                                                                                                                                     meltfnum[63] = 0 ;
                                                                                                                                                                                                                                                                     /*^clear*/
@@ -29679,7 +29679,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                                         meltfptr[121] = /*_._IFELSE___V141*/ meltfptr[124];;
                                                                                                                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2120:/ clear");
+                                                                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2121:/ clear");
                                                                                                                                                                                                                                                         /*clear*/ /*_#IS_A__L62*/
                                                                                                                                                                                                                                                         meltfnum[60] = 0 ;
                                                                                                                                                                                                                                                         /*^clear*/
@@ -29693,7 +29693,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                             meltfptr[125] = /*_._IFELSE___V135*/ meltfptr[121];;
                                                                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2115:/ clear");
+                                                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2116:/ clear");
                                                                                                                                                                                                                                             /*clear*/ /*_#IS_A__L59*/
                                                                                                                                                                                                                                             meltfnum[57] = 0 ;
                                                                                                                                                                                                                                             /*^clear*/
@@ -29707,7 +29707,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                                 meltfptr[118] = /*_._IFELSE___V129*/ meltfptr[125];;
                                                                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2108:/ clear");
+                                                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2109:/ clear");
                                                                                                                                                                                                                                 /*clear*/ /*_#IS_A__L56*/
                                                                                                                                                                                                                                 meltfnum[54] = 0 ;
                                                                                                                                                                                                                                 /*^clear*/
@@ -29721,7 +29721,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                     meltfptr[115] = /*_._IFELSE___V123*/ meltfptr[118];;
                                                                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2105:/ clear");
+                                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2106:/ clear");
                                                                                                                                                                                                                     /*clear*/ /*_#IS_A__L53*/
                                                                                                                                                                                                                     meltfnum[52] = 0 ;
                                                                                                                                                                                                                     /*^clear*/
@@ -29735,7 +29735,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                         meltfptr[114] = /*_._IFELSE___V120*/ meltfptr[115];;
                                                                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2102:/ clear");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2103:/ clear");
                                                                                                                                                                                                         /*clear*/ /*_#IS_HOOK__L52*/
                                                                                                                                                                                                         meltfnum[51] = 0 ;
                                                                                                                                                                                                         /*^clear*/
@@ -29749,7 +29749,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             meltfptr[113] = /*_._IFELSE___V117*/ meltfptr[114];;
                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2099:/ clear");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2100:/ clear");
                                                                                                                                                                                             /*clear*/ /*_#IS_A__L51*/
                                                                                                                                                                                             meltfnum[50] = 0 ;
                                                                                                                                                                                             /*^clear*/
@@ -29762,7 +29762,7 @@ meltlab_endgetargs:
                                                                                                                                                                                 /*_.LET___V112*/
                                                                                                                                                                                 meltfptr[41] = /*_._IFELSE___V114*/ meltfptr[113];;
 
-                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2096:/ clear");
+                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2097:/ clear");
                                                                                                                                                                                 /*clear*/ /*_.VAL__V113*/
                                                                                                                                                                                 meltfptr[88] = 0 ;
                                                                                                                                                                                 /*^clear*/
@@ -29775,7 +29775,7 @@ meltlab_endgetargs:
                                                                                                                                                                                 meltfptr[95] = /*_.LET___V112*/ meltfptr[41];;
                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2095:/ clear");
+                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2096:/ clear");
                                                                                                                                                                                 /*clear*/ /*_.LET___V112*/
                                                                                                                                                                                 meltfptr[41] = 0 ;
                                                                                                                                                                             }
@@ -29797,7 +29797,7 @@ meltlab_endgetargs:
                                                                                                                                                                                 /*_#NULL__L68*/
                                                                                                                                                                                 meltfnum[66] =
                                                                                                                                                                                     (/*null*/(/*_.OPBIND__V33*/ meltfptr[28]) == NULL);;
-                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2141:/ cond");
+                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2142:/ cond");
                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                 if (/*_#NULL__L68*/ meltfnum[66]) /*then*/
                                                                                                                                                                                     {
@@ -29817,7 +29817,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             meltfnum[53] = /*_#NOT__L71*/ meltfnum[60];;
                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2141:/ clear");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2142:/ clear");
                                                                                                                                                                                             /*clear*/ /*_#MELT_IS_BOOTSTRAPPING__L70*/
                                                                                                                                                                                             meltfnum[63] = 0 ;
                                                                                                                                                                                             /*^clear*/
@@ -29832,7 +29832,7 @@ meltlab_endgetargs:
                                                                                                                                                                                         /*_#_IF___L69*/ meltfnum[53] = 0;;
                                                                                                                                                                                     }
                                                                                                                                                                                 ;
-                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2141:/ cond");
+                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2142:/ cond");
                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                 if (/*_#_IF___L69*/ meltfnum[53]) /*then*/
                                                                                                                                                                                     {
@@ -29843,7 +29843,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2145:/ cppif.then");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2146:/ cppif.then");
                                                                                                                                                                                             /*^block*/
                                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                                             {
@@ -29870,7 +29870,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                     0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                     ;;
-                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2145:/ cond");
+                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2146:/ cond");
                                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                                 if (/*_#MELT_NEED_DBG__L72*/ meltfnum[57]) /*then*/
                                                                                                                                                                                                     {
@@ -29890,7 +29890,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                                             ;
-                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2145:/ apply");
+                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2146:/ apply");
                                                                                                                                                                                                             /*apply*/
                                                                                                                                                                                                             {
                                                                                                                                                                                                                 union meltparam_un argtab[12];
@@ -29900,7 +29900,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                 argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                 /*^apply.arg*/
-                                                                                                                                                                                                                argtab[2].meltbp_long = 2145;
+                                                                                                                                                                                                                argtab[2].meltbp_long = 2146;
                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                 argtab[3].meltbp_cstring =  "macroexpand_1 null opbind for soper=";
                                                                                                                                                                                                                 /*^apply.arg*/
@@ -29927,7 +29927,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                             meltfptr[144] = /*_.MELT_DEBUG_FUN__V161*/ meltfptr[150];;
                                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2145:/ clear");
+                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2146:/ clear");
                                                                                                                                                                                                             /*clear*/ /*_#MELT_CALLCOUNT__L73*/
                                                                                                                                                                                                             meltfnum[54] = 0 ;
                                                                                                                                                                                                             /*^clear*/
@@ -29944,7 +29944,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                 ;
 
                                                                                                                                                                                                 {
-                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2145:/ locexp");
+                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2146:/ locexp");
                                                                                                                                                                                                     /*void*/
                                                                                                                                                                                                     (void)0;
                                                                                                                                                                                                 }
@@ -29981,7 +29981,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             ;
 
                                                                                                                                                                                             {
-                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2149:/ locexp");
+                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2150:/ locexp");
 
 #if MELT_HAVE_DEBUG
                                                                                                                                                                                                 if (melt_need_debug (0))
@@ -29990,7 +29990,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                 ;
                                                                                                                                                                                             }
                                                                                                                                                                                             ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2150:/ quasiblock");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2151:/ quasiblock");
 
 
                                                                                                                                                                                             /*^quasiblock*/
@@ -30036,7 +30036,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                             ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2155:/ quasiblock");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2156:/ quasiblock");
 
 
                                                                                                                                                                                             /*^rawallocobj*/
@@ -30072,7 +30072,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             meltfptr[126] = /*_.INST__V166*/ meltfptr[124];;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2161:/ cppif.then");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2162:/ cppif.then");
                                                                                                                                                                                             /*^block*/
                                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                                             {
@@ -30099,7 +30099,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                     0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                     ;;
-                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2161:/ cond");
+                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2162:/ cond");
                                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                                 if (/*_#MELT_NEED_DBG__L74*/ meltfnum[52]) /*then*/
                                                                                                                                                                                                     {
@@ -30119,7 +30119,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                                             ;
-                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2161:/ apply");
+                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2162:/ apply");
                                                                                                                                                                                                             /*apply*/
                                                                                                                                                                                                             {
                                                                                                                                                                                                                 union meltparam_un argtab[10];
@@ -30129,7 +30129,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                 argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                 /*^apply.arg*/
-                                                                                                                                                                                                                argtab[2].meltbp_long = 2161;
+                                                                                                                                                                                                                argtab[2].meltbp_long = 2162;
                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                 argtab[3].meltbp_cstring =  "macroexpand_1 return lazymac";
                                                                                                                                                                                                                 /*^apply.arg*/
@@ -30152,7 +30152,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                             meltfptr[121] = /*_.MELT_DEBUG_FUN__V168*/ meltfptr[125];;
                                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2161:/ clear");
+                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2162:/ clear");
                                                                                                                                                                                                             /*clear*/ /*_#MELT_CALLCOUNT__L75*/
                                                                                                                                                                                                             meltfnum[51] = 0 ;
                                                                                                                                                                                                             /*^clear*/
@@ -30169,7 +30169,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                 ;
 
                                                                                                                                                                                                 {
-                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2161:/ locexp");
+                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2162:/ locexp");
                                                                                                                                                                                                     /*void*/
                                                                                                                                                                                                     (void)0;
                                                                                                                                                                                                 }
@@ -30206,7 +30206,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             ;
 
                                                                                                                                                                                             {
-                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2164:/ locexp");
+                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2165:/ locexp");
 
 #if MELT_HAVE_DEBUG
                                                                                                                                                                                                 if (melt_need_debug (0))
@@ -30218,12 +30218,12 @@ meltlab_endgetargs:
 
                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                             ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2165:/ quasiblock");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2166:/ quasiblock");
 
 
                                                                                                                                                                                             /*_._RETVAL___V1*/
                                                                                                                                                                                             meltfptr[0] = /*_.LAZYMAC__V165*/ meltfptr[126];;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2165:/ putxtraresult");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2166:/ putxtraresult");
                                                                                                                                                                                             if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                             if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                             if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -30235,7 +30235,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             /*_.LET___V162*/
                                                                                                                                                                                             meltfptr[138] = /*_.RETURN___V169*/ meltfptr[118];;
 
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2150:/ clear");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2151:/ clear");
                                                                                                                                                                                             /*clear*/ /*_.MACTHUNK__V163*/
                                                                                                                                                                                             meltfptr[156] = 0 ;
                                                                                                                                                                                             /*^clear*/
@@ -30244,7 +30244,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             /*^clear*/
                                                                                                                                                                                             /*clear*/ /*_.RETURN___V169*/
                                                                                                                                                                                             meltfptr[118] = 0 ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2141:/ quasiblock");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2142:/ quasiblock");
 
 
                                                                                                                                                                                             /*_.PROGN___V170*/
@@ -30254,7 +30254,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             meltfptr[132] = /*_.PROGN___V170*/ meltfptr[115];;
                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2141:/ clear");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2142:/ clear");
                                                                                                                                                                                             /*clear*/ /*_.LET___V162*/
                                                                                                                                                                                             meltfptr[138] = 0 ;
                                                                                                                                                                                             /*^clear*/
@@ -30279,7 +30279,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             /*_#MELT_IS_BOOTSTRAPPING__L76*/
                                                                                                                                                                                             meltfnum[50] =
                                                                                                                                                                                                 (melt_flag_bootstrapping);;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2168:/ cond");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2169:/ cond");
                                                                                                                                                                                             /*cond*/
                                                                                                                                                                                             if (/*_#MELT_IS_BOOTSTRAPPING__L76*/ meltfnum[50]) /*then*/
                                                                                                                                                                                                 {
@@ -30295,7 +30295,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                         meltfnum[49] = /*_#NULL__L78*/ meltfnum[63];;
                                                                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2168:/ clear");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2169:/ clear");
                                                                                                                                                                                                         /*clear*/ /*_#NULL__L78*/
                                                                                                                                                                                                         meltfnum[63] = 0 ;
                                                                                                                                                                                                     }
@@ -30307,7 +30307,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                     /*_#_IF___L77*/ meltfnum[49] = 0;;
                                                                                                                                                                                                 }
                                                                                                                                                                                             ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2168:/ cond");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2169:/ cond");
                                                                                                                                                                                             /*cond*/
                                                                                                                                                                                             if (/*_#_IF___L77*/ meltfnum[49]) /*then*/
                                                                                                                                                                                                 {
@@ -30316,7 +30316,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                     /*anyblock*/
                                                                                                                                                                                                     {
 
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2174:/ cond");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2175:/ cond");
                                                                                                                                                                                                         /*cond*/
                                                                                                                                                                                                         if (
                                                                                                                                                                                                             /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SOPER__V22*/ meltfptr[21]),
@@ -30342,21 +30342,21 @@ meltlab_endgetargs:
                                                                                                                                                                                                         ;
 
                                                                                                                                                                                                         {
-                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2171:/ locexp");
+                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2172:/ locexp");
                                                                                                                                                                                                             melt_warning_str(0, (melt_ptr_t)(/*_.SLOC__V20*/ meltfptr[19]), ( "forward referenced operator handled as application when bootstrapping\
  MELT"), (melt_ptr_t)(/*_.NAMED_NAME__V171*/ meltfptr[114]));
                                                                                                                                                                                                         }
                                                                                                                                                                                                         ;
                                                                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2168:/ clear");
+                                                                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2169:/ clear");
                                                                                                                                                                                                         /*clear*/ /*_.NAMED_NAME__V171*/
                                                                                                                                                                                                         meltfptr[114] = 0 ;
                                                                                                                                                                                                     }
                                                                                                                                                                                                     ;
                                                                                                                                                                                                 } /*noelse*/
                                                                                                                                                                                             ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2177:/ quasiblock");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2178:/ quasiblock");
 
 
 
@@ -30379,7 +30379,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             ;
 
 #if MELT_HAVE_DEBUG
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2178:/ cppif.then");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2179:/ cppif.then");
                                                                                                                                                                                             /*^block*/
                                                                                                                                                                                             /*anyblock*/
                                                                                                                                                                                             {
@@ -30406,7 +30406,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                     0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                                                                                                                                                     ;;
-                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2178:/ cond");
+                                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2179:/ cond");
                                                                                                                                                                                                 /*cond*/
                                                                                                                                                                                                 if (/*_#MELT_NEED_DBG__L79*/ meltfnum[60]) /*then*/
                                                                                                                                                                                                     {
@@ -30426,7 +30426,7 @@ meltlab_endgetargs:
 
                                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                                             ;
-                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2178:/ apply");
+                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2179:/ apply");
                                                                                                                                                                                                             /*apply*/
                                                                                                                                                                                                             {
                                                                                                                                                                                                                 union meltparam_un argtab[5];
@@ -30436,7 +30436,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                 argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                                                                                                                                                                 /*^apply.arg*/
-                                                                                                                                                                                                                argtab[2].meltbp_long = 2178;
+                                                                                                                                                                                                                argtab[2].meltbp_long = 2179;
                                                                                                                                                                                                                 /*^apply.arg*/
                                                                                                                                                                                                                 argtab[3].meltbp_cstring =  "macroexpand_1 result for apply resa";
                                                                                                                                                                                                                 /*^apply.arg*/
@@ -30449,7 +30449,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                             meltfptr[41] = /*_.MELT_DEBUG_FUN__V175*/ meltfptr[150];;
                                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2178:/ clear");
+                                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2179:/ clear");
                                                                                                                                                                                                             /*clear*/ /*_#MELT_CALLCOUNT__L80*/
                                                                                                                                                                                                             meltfnum[54] = 0 ;
                                                                                                                                                                                                             /*^clear*/
@@ -30466,7 +30466,7 @@ meltlab_endgetargs:
                                                                                                                                                                                                 ;
 
                                                                                                                                                                                                 {
-                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2178:/ locexp");
+                                                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2179:/ locexp");
                                                                                                                                                                                                     /*void*/
                                                                                                                                                                                                     (void)0;
                                                                                                                                                                                                 }
@@ -30504,12 +30504,12 @@ meltlab_endgetargs:
 
                                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                                             ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2179:/ quasiblock");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2180:/ quasiblock");
 
 
                                                                                                                                                                                             /*_._RETVAL___V1*/
                                                                                                                                                                                             meltfptr[0] = /*_.RESA__V173*/ meltfptr[113];;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2179:/ putxtraresult");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2180:/ putxtraresult");
                                                                                                                                                                                             if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                                                                                                                                                             if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                                                                                                                                                             if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -30521,13 +30521,13 @@ meltlab_endgetargs:
                                                                                                                                                                                             /*_.LET___V172*/
                                                                                                                                                                                             meltfptr[88] = /*_.RETURN___V176*/ meltfptr[144];;
 
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2177:/ clear");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2178:/ clear");
                                                                                                                                                                                             /*clear*/ /*_.RESA__V173*/
                                                                                                                                                                                             meltfptr[113] = 0 ;
                                                                                                                                                                                             /*^clear*/
                                                                                                                                                                                             /*clear*/ /*_.RETURN___V176*/
                                                                                                                                                                                             meltfptr[144] = 0 ;
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2167:/ quasiblock");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2168:/ quasiblock");
 
 
                                                                                                                                                                                             /*_.PROGN___V177*/
@@ -30537,7 +30537,7 @@ meltlab_endgetargs:
                                                                                                                                                                                             meltfptr[132] = /*_.PROGN___V177*/ meltfptr[125];;
                                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2141:/ clear");
+                                                                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2142:/ clear");
                                                                                                                                                                                             /*clear*/ /*_#MELT_IS_BOOTSTRAPPING__L76*/
                                                                                                                                                                                             meltfnum[50] = 0 ;
                                                                                                                                                                                             /*^clear*/
@@ -30557,7 +30557,7 @@ meltlab_endgetargs:
                                                                                                                                                                                 meltfptr[95] = /*_._IFELSE___V159*/ meltfptr[132];;
                                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2095:/ clear");
+                                                                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2096:/ clear");
                                                                                                                                                                                 /*clear*/ /*_#NULL__L68*/
                                                                                                                                                                                 meltfnum[66] = 0 ;
                                                                                                                                                                                 /*^clear*/
@@ -30574,7 +30574,7 @@ meltlab_endgetargs:
                                                                                                                                                                     meltfptr[102] = /*_._IFELSE___V111*/ meltfptr[95];;
                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2092:/ clear");
+                                                                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2093:/ clear");
                                                                                                                                                                     /*clear*/ /*_#IS_A__L49*/
                                                                                                                                                                     meltfnum[48] = 0 ;
                                                                                                                                                                     /*^clear*/
@@ -30588,7 +30588,7 @@ meltlab_endgetargs:
                                                                                                                                                         meltfptr[34] = /*_._IFELSE___V108*/ meltfptr[102];;
                                                                                                                                                         /*epilog*/
 
-                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2090:/ clear");
+                                                                                                                                                        MELT_LOCATION("warmelt-macro.melt:2091:/ clear");
                                                                                                                                                         /*clear*/ /*_#IS_A__L48*/
                                                                                                                                                         meltfnum[18] = 0 ;
                                                                                                                                                         /*^clear*/
@@ -30602,7 +30602,7 @@ meltlab_endgetargs:
                                                                                                                                             meltfptr[50] = /*_._IFELSE___V105*/ meltfptr[34];;
                                                                                                                                             /*epilog*/
 
-                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2082:/ clear");
+                                                                                                                                            MELT_LOCATION("warmelt-macro.melt:2083:/ clear");
                                                                                                                                             /*clear*/ /*_#IS_A__L47*/
                                                                                                                                             meltfnum[45] = 0 ;
                                                                                                                                             /*^clear*/
@@ -30616,7 +30616,7 @@ meltlab_endgetargs:
                                                                                                                                 meltfptr[38] = /*_._IFELSE___V98*/ meltfptr[50];;
                                                                                                                                 /*epilog*/
 
-                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2075:/ clear");
+                                                                                                                                MELT_LOCATION("warmelt-macro.melt:2076:/ clear");
                                                                                                                                 /*clear*/ /*_#IS_A__L44*/
                                                                                                                                 meltfnum[42] = 0 ;
                                                                                                                                 /*^clear*/
@@ -30630,7 +30630,7 @@ meltlab_endgetargs:
                                                                                                                     meltfptr[40] = /*_._IFELSE___V91*/ meltfptr[38];;
                                                                                                                     /*epilog*/
 
-                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2068:/ clear");
+                                                                                                                    MELT_LOCATION("warmelt-macro.melt:2069:/ clear");
                                                                                                                     /*clear*/ /*_#IS_A__L41*/
                                                                                                                     meltfnum[39] = 0 ;
                                                                                                                     /*^clear*/
@@ -30644,7 +30644,7 @@ meltlab_endgetargs:
                                                                                                         meltfptr[39] = /*_._IFELSE___V84*/ meltfptr[40];;
                                                                                                         /*epilog*/
 
-                                                                                                        MELT_LOCATION("warmelt-macro.melt:2061:/ clear");
+                                                                                                        MELT_LOCATION("warmelt-macro.melt:2062:/ clear");
                                                                                                         /*clear*/ /*_#IS_A__L38*/
                                                                                                         meltfnum[36] = 0 ;
                                                                                                         /*^clear*/
@@ -30658,7 +30658,7 @@ meltlab_endgetargs:
                                                                                             meltfptr[51] = /*_._IFELSE___V77*/ meltfptr[39];;
                                                                                             /*epilog*/
 
-                                                                                            MELT_LOCATION("warmelt-macro.melt:2054:/ clear");
+                                                                                            MELT_LOCATION("warmelt-macro.melt:2055:/ clear");
                                                                                             /*clear*/ /*_#IS_A__L35*/
                                                                                             meltfnum[33] = 0 ;
                                                                                             /*^clear*/
@@ -30672,7 +30672,7 @@ meltlab_endgetargs:
                                                                                 meltfptr[42] = /*_._IFELSE___V70*/ meltfptr[51];;
                                                                                 /*epilog*/
 
-                                                                                MELT_LOCATION("warmelt-macro.melt:2048:/ clear");
+                                                                                MELT_LOCATION("warmelt-macro.melt:2049:/ clear");
                                                                                 /*clear*/ /*_#IS_A__L32*/
                                                                                 meltfnum[17] = 0 ;
                                                                                 /*^clear*/
@@ -30686,7 +30686,7 @@ meltlab_endgetargs:
                                                                     meltfptr[52] = /*_._IFELSE___V63*/ meltfptr[42];;
                                                                     /*epilog*/
 
-                                                                    MELT_LOCATION("warmelt-macro.melt:2043:/ clear");
+                                                                    MELT_LOCATION("warmelt-macro.melt:2044:/ clear");
                                                                     /*clear*/ /*_#IS_A__L29*/
                                                                     meltfnum[10] = 0 ;
                                                                     /*^clear*/
@@ -30700,7 +30700,7 @@ meltlab_endgetargs:
                                                         meltfptr[35] = /*_._IFELSE___V57*/ meltfptr[52];;
                                                         /*epilog*/
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2025:/ clear");
+                                                        MELT_LOCATION("warmelt-macro.melt:2026:/ clear");
                                                         /*clear*/ /*_#IS_A__L26*/
                                                         meltfnum[24] = 0 ;
                                                         /*^clear*/
@@ -30713,7 +30713,7 @@ meltlab_endgetargs:
                                             /*_.LET___V32*/
                                             meltfptr[26] = /*_._IFELSE___V37*/ meltfptr[35];;
 
-                                            MELT_LOCATION("warmelt-macro.melt:2020:/ clear");
+                                            MELT_LOCATION("warmelt-macro.melt:2021:/ clear");
                                             /*clear*/ /*_.OPBIND__V33*/
                                             meltfptr[28] = 0 ;
                                             /*^clear*/
@@ -30729,7 +30729,7 @@ meltlab_endgetargs:
                                             meltfptr[27] = /*_.LET___V32*/ meltfptr[26];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-macro.melt:2019:/ clear");
+                                            MELT_LOCATION("warmelt-macro.melt:2020:/ clear");
                                             /*clear*/ /*_.LET___V32*/
                                             meltfptr[26] = 0 ;
                                         }
@@ -30752,7 +30752,7 @@ meltlab_endgetargs:
                                             /*_#eqeqI__L82*/
                                             meltfnum[51] =
                                                 ((/*_#LIST_LENGTH__L81*/ meltfnum[57]) == (0));;
-                                            MELT_LOCATION("warmelt-macro.melt:2183:/ cond");
+                                            MELT_LOCATION("warmelt-macro.melt:2184:/ cond");
                                             /*cond*/
                                             if (/*_#eqeqI__L82*/ meltfnum[51]) /*then*/
                                                 {
@@ -30763,7 +30763,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-                                                        MELT_LOCATION("warmelt-macro.melt:2184:/ cppif.then");
+                                                        MELT_LOCATION("warmelt-macro.melt:2185:/ cppif.then");
                                                         /*^block*/
                                                         /*anyblock*/
                                                         {
@@ -30790,7 +30790,7 @@ meltlab_endgetargs:
                                                                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                 ;;
-                                                            MELT_LOCATION("warmelt-macro.melt:2184:/ cond");
+                                                            MELT_LOCATION("warmelt-macro.melt:2185:/ cond");
                                                             /*cond*/
                                                             if (/*_#MELT_NEED_DBG__L83*/ meltfnum[52]) /*then*/
                                                                 {
@@ -30810,7 +30810,7 @@ meltlab_endgetargs:
 
                                                                         MELT_CHECK_SIGNAL();
                                                                         ;
-                                                                        MELT_LOCATION("warmelt-macro.melt:2184:/ apply");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2185:/ apply");
                                                                         /*apply*/
                                                                         {
                                                                             union meltparam_un argtab[4];
@@ -30820,7 +30820,7 @@ meltlab_endgetargs:
                                                                             /*^apply.arg*/
                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                             /*^apply.arg*/
-                                                                            argtab[2].meltbp_long = 2184;
+                                                                            argtab[2].meltbp_long = 2185;
                                                                             /*^apply.arg*/
                                                                             argtab[3].meltbp_cstring =  "macroexpand_1 result for null";
                                                                             /*_.MELT_DEBUG_FUN__V180*/
@@ -30831,7 +30831,7 @@ meltlab_endgetargs:
                                                                         meltfptr[156] = /*_.MELT_DEBUG_FUN__V180*/ meltfptr[126];;
                                                                         /*epilog*/
 
-                                                                        MELT_LOCATION("warmelt-macro.melt:2184:/ clear");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2185:/ clear");
                                                                         /*clear*/ /*_#MELT_CALLCOUNT__L84*/
                                                                         meltfnum[63] = 0 ;
                                                                         /*^clear*/
@@ -30848,7 +30848,7 @@ meltlab_endgetargs:
                                                             ;
 
                                                             {
-                                                                MELT_LOCATION("warmelt-macro.melt:2184:/ locexp");
+                                                                MELT_LOCATION("warmelt-macro.melt:2185:/ locexp");
                                                                 /*void*/
                                                                 (void)0;
                                                             }
@@ -30886,12 +30886,12 @@ meltlab_endgetargs:
 
                                                         MELT_CHECK_SIGNAL();
                                                         ;
-                                                        MELT_LOCATION("warmelt-macro.melt:2185:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2186:/ quasiblock");
 
 
                                                         /*_._RETVAL___V1*/
                                                         meltfptr[0] = (/*nil*/NULL);;
-                                                        MELT_LOCATION("warmelt-macro.melt:2185:/ putxtraresult");
+                                                        MELT_LOCATION("warmelt-macro.melt:2186:/ putxtraresult");
                                                         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -30900,7 +30900,7 @@ meltlab_endgetargs:
                                                         ;
                                                         /*finalret*/
                                                         goto meltlabend_rout ;
-                                                        MELT_LOCATION("warmelt-macro.melt:2183:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2184:/ quasiblock");
 
 
                                                         /*_.PROGN___V182*/
@@ -30910,7 +30910,7 @@ meltlab_endgetargs:
                                                         meltfptr[121] = /*_.PROGN___V182*/ meltfptr[138];;
                                                         /*epilog*/
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2183:/ clear");
+                                                        MELT_LOCATION("warmelt-macro.melt:2184:/ clear");
                                                         /*clear*/ /*_.RETURN___V181*/
                                                         meltfptr[118] = 0 ;
                                                         /*^clear*/
@@ -30926,7 +30926,7 @@ meltlab_endgetargs:
                                                     /*anyblock*/
                                                     {
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2187:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2188:/ quasiblock");
 
 
 
@@ -30949,7 +30949,7 @@ meltlab_endgetargs:
                                                         ;
 
 #if MELT_HAVE_DEBUG
-                                                        MELT_LOCATION("warmelt-macro.melt:2188:/ cppif.then");
+                                                        MELT_LOCATION("warmelt-macro.melt:2189:/ cppif.then");
                                                         /*^block*/
                                                         /*anyblock*/
                                                         {
@@ -30976,7 +30976,7 @@ meltlab_endgetargs:
                                                                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                                                                 ;;
-                                                            MELT_LOCATION("warmelt-macro.melt:2188:/ cond");
+                                                            MELT_LOCATION("warmelt-macro.melt:2189:/ cond");
                                                             /*cond*/
                                                             if (/*_#MELT_NEED_DBG__L85*/ meltfnum[54]) /*then*/
                                                                 {
@@ -30996,7 +30996,7 @@ meltlab_endgetargs:
 
                                                                         MELT_CHECK_SIGNAL();
                                                                         ;
-                                                                        MELT_LOCATION("warmelt-macro.melt:2188:/ apply");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2189:/ apply");
                                                                         /*apply*/
                                                                         {
                                                                             union meltparam_un argtab[5];
@@ -31006,7 +31006,7 @@ meltlab_endgetargs:
                                                                             /*^apply.arg*/
                                                                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                                                             /*^apply.arg*/
-                                                                            argtab[2].meltbp_long = 2188;
+                                                                            argtab[2].meltbp_long = 2189;
                                                                             /*^apply.arg*/
                                                                             argtab[3].meltbp_cstring =  "macroexpand_1 result complex apply resca";
                                                                             /*^apply.arg*/
@@ -31019,7 +31019,7 @@ meltlab_endgetargs:
                                                                         meltfptr[150] = /*_.MELT_DEBUG_FUN__V186*/ meltfptr[41];;
                                                                         /*epilog*/
 
-                                                                        MELT_LOCATION("warmelt-macro.melt:2188:/ clear");
+                                                                        MELT_LOCATION("warmelt-macro.melt:2189:/ clear");
                                                                         /*clear*/ /*_#MELT_CALLCOUNT__L86*/
                                                                         meltfnum[60] = 0 ;
                                                                         /*^clear*/
@@ -31036,7 +31036,7 @@ meltlab_endgetargs:
                                                             ;
 
                                                             {
-                                                                MELT_LOCATION("warmelt-macro.melt:2188:/ locexp");
+                                                                MELT_LOCATION("warmelt-macro.melt:2189:/ locexp");
                                                                 /*void*/
                                                                 (void)0;
                                                             }
@@ -31074,12 +31074,12 @@ meltlab_endgetargs:
 
                                                         MELT_CHECK_SIGNAL();
                                                         ;
-                                                        MELT_LOCATION("warmelt-macro.melt:2189:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2190:/ quasiblock");
 
 
                                                         /*_._RETVAL___V1*/
                                                         meltfptr[0] = /*_.RESCA__V184*/ meltfptr[114];;
-                                                        MELT_LOCATION("warmelt-macro.melt:2189:/ putxtraresult");
+                                                        MELT_LOCATION("warmelt-macro.melt:2190:/ putxtraresult");
                                                         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                                                         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                                                         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -31091,13 +31091,13 @@ meltlab_endgetargs:
                                                         /*_.LET___V183*/
                                                         meltfptr[115] = /*_.RETURN___V187*/ meltfptr[113];;
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2187:/ clear");
+                                                        MELT_LOCATION("warmelt-macro.melt:2188:/ clear");
                                                         /*clear*/ /*_.RESCA__V184*/
                                                         meltfptr[114] = 0 ;
                                                         /*^clear*/
                                                         /*clear*/ /*_.RETURN___V187*/
                                                         meltfptr[113] = 0 ;
-                                                        MELT_LOCATION("warmelt-macro.melt:2186:/ quasiblock");
+                                                        MELT_LOCATION("warmelt-macro.melt:2187:/ quasiblock");
 
 
                                                         /*_.PROGN___V188*/
@@ -31107,7 +31107,7 @@ meltlab_endgetargs:
                                                         meltfptr[121] = /*_.PROGN___V188*/ meltfptr[144];;
                                                         /*epilog*/
 
-                                                        MELT_LOCATION("warmelt-macro.melt:2183:/ clear");
+                                                        MELT_LOCATION("warmelt-macro.melt:2184:/ clear");
                                                         /*clear*/ /*_.LET___V183*/
                                                         meltfptr[115] = 0 ;
                                                         /*^clear*/
@@ -31121,7 +31121,7 @@ meltlab_endgetargs:
                                             meltfptr[27] = /*_._IFELSE___V178*/ meltfptr[121];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-macro.melt:2019:/ clear");
+                                            MELT_LOCATION("warmelt-macro.melt:2020:/ clear");
                                             /*clear*/ /*_#LIST_LENGTH__L81*/
                                             meltfnum[57] = 0 ;
                                             /*^clear*/
@@ -31138,7 +31138,7 @@ meltlab_endgetargs:
                                 meltfptr[23] = /*_._IFELSE___V31*/ meltfptr[27];;
                                 /*epilog*/
 
-                                MELT_LOCATION("warmelt-macro.melt:2014:/ clear");
+                                MELT_LOCATION("warmelt-macro.melt:2015:/ clear");
                                 /*clear*/ /*_#IS_A__L13*/
                                 meltfnum[11] = 0 ;
                                 /*^clear*/
@@ -31151,7 +31151,7 @@ meltlab_endgetargs:
                     /*_.LET___V18*/
                     meltfptr[5] = /*_._IFELSE___V25*/ meltfptr[23];;
 
-                    MELT_LOCATION("warmelt-macro.melt:2006:/ clear");
+                    MELT_LOCATION("warmelt-macro.melt:2007:/ clear");
                     /*clear*/ /*_.SCONT__V19*/
                     meltfptr[18] = 0 ;
                     /*^clear*/
@@ -31176,7 +31176,7 @@ meltlab_endgetargs:
                     meltfptr[15] = /*_.LET___V18*/ meltfptr[5];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-macro.melt:2005:/ clear");
+                    MELT_LOCATION("warmelt-macro.melt:2006:/ clear");
                     /*clear*/ /*_.LET___V18*/
                     meltfptr[5] = 0 ;
                 }
@@ -31191,7 +31191,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-                    MELT_LOCATION("warmelt-macro.melt:2193:/ cppif.then");
+                    MELT_LOCATION("warmelt-macro.melt:2194:/ cppif.then");
                     /*^block*/
                     /*anyblock*/
                     {
@@ -31218,7 +31218,7 @@ meltlab_endgetargs:
                             0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                             ;;
-                        MELT_LOCATION("warmelt-macro.melt:2193:/ cond");
+                        MELT_LOCATION("warmelt-macro.melt:2194:/ cond");
                         /*cond*/
                         if (/*_#MELT_NEED_DBG__L87*/ meltfnum[50]) /*then*/
                             {
@@ -31238,7 +31238,7 @@ meltlab_endgetargs:
 
                                     MELT_CHECK_SIGNAL();
                                     ;
-                                    MELT_LOCATION("warmelt-macro.melt:2193:/ apply");
+                                    MELT_LOCATION("warmelt-macro.melt:2194:/ apply");
                                     /*apply*/
                                     {
                                         union meltparam_un argtab[5];
@@ -31248,7 +31248,7 @@ meltlab_endgetargs:
                                         /*^apply.arg*/
                                         argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                                         /*^apply.arg*/
-                                        argtab[2].meltbp_long = 2193;
+                                        argtab[2].meltbp_long = 2194;
                                         /*^apply.arg*/
                                         argtab[3].meltbp_cstring =  "macroexpand_1 non-sexpr result sexpr=";
                                         /*^apply.arg*/
@@ -31261,7 +31261,7 @@ meltlab_endgetargs:
                                     meltfptr[88] = /*_.MELT_DEBUG_FUN__V190*/ meltfptr[125];;
                                     /*epilog*/
 
-                                    MELT_LOCATION("warmelt-macro.melt:2193:/ clear");
+                                    MELT_LOCATION("warmelt-macro.melt:2194:/ clear");
                                     /*clear*/ /*_#MELT_CALLCOUNT__L88*/
                                     meltfnum[49] = 0 ;
                                     /*^clear*/
@@ -31278,7 +31278,7 @@ meltlab_endgetargs:
                         ;
 
                         {
-                            MELT_LOCATION("warmelt-macro.melt:2193:/ locexp");
+                            MELT_LOCATION("warmelt-macro.melt:2194:/ locexp");
                             /*void*/
                             (void)0;
                         }
@@ -31316,12 +31316,12 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    MELT_LOCATION("warmelt-macro.melt:2194:/ quasiblock");
+                    MELT_LOCATION("warmelt-macro.melt:2195:/ quasiblock");
 
 
                     /*_._RETVAL___V1*/
                     meltfptr[0] = /*_.SEXPR__V2*/ meltfptr[1];;
-                    MELT_LOCATION("warmelt-macro.melt:2194:/ putxtraresult");
+                    MELT_LOCATION("warmelt-macro.melt:2195:/ putxtraresult");
                     if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
                     if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
                     if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
@@ -31330,7 +31330,7 @@ meltlab_endgetargs:
                     ;
                     /*finalret*/
                     goto meltlabend_rout ;
-                    MELT_LOCATION("warmelt-macro.melt:2192:/ quasiblock");
+                    MELT_LOCATION("warmelt-macro.melt:2193:/ quasiblock");
 
 
                     /*_.PROGN___V192*/
@@ -31340,7 +31340,7 @@ meltlab_endgetargs:
                     meltfptr[15] = /*_.PROGN___V192*/ meltfptr[95];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-macro.melt:2005:/ clear");
+                    MELT_LOCATION("warmelt-macro.melt:2006:/ clear");
                     /*clear*/ /*_.RETURN___V191*/
                     meltfptr[132] = 0 ;
                     /*^clear*/
@@ -31499,13 +31499,13 @@ meltrout_28_WARMELTmiMACRO_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 meltlab_endgetargs:
     ;
     /*body*/
-    MELT_LOCATION("warmelt-macro.melt:2150:/ block");
+    MELT_LOCATION("warmelt-macro.melt:2151:/ block");
     /*anyblock*/
     {
 
 
 #if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-macro.melt:2151:/ cppif.then");
+        MELT_LOCATION("warmelt-macro.melt:2152:/ cppif.then");
         /*^block*/
         /*anyblock*/
         {
@@ -31532,7 +31532,7 @@ meltlab_endgetargs:
                 0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
                 ;;
-            MELT_LOCATION("warmelt-macro.melt:2151:/ cond");
+            MELT_LOCATION("warmelt-macro.melt:2152:/ cond");
             /*cond*/
             if (/*_#MELT_NEED_DBG__L1*/ meltfnum[0]) /*then*/
                 {
@@ -31552,7 +31552,7 @@ meltlab_endgetargs:
 
                         MELT_CHECK_SIGNAL();
                         ;
-                        MELT_LOCATION("warmelt-macro.melt:2151:/ apply");
+                        MELT_LOCATION("warmelt-macro.melt:2152:/ apply");
                         /*apply*/
                         {
                             union meltparam_un argtab[5];
@@ -31562,7 +31562,7 @@ meltlab_endgetargs:
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
-                            argtab[2].meltbp_long = 2151;
+                            argtab[2].meltbp_long = 2152;
                             /*^apply.arg*/
                             argtab[3].meltbp_cstring =  "macroexpand_1 macthunk sloc=";
                             /*^apply.arg*/
@@ -31575,7 +31575,7 @@ meltlab_endgetargs:
                         meltfptr[1] = /*_.MELT_DEBUG_FUN__V3*/ meltfptr[2];;
                         /*epilog*/
 
-                        MELT_LOCATION("warmelt-macro.melt:2151:/ clear");
+                        MELT_LOCATION("warmelt-macro.melt:2152:/ clear");
                         /*clear*/ /*_#MELT_CALLCOUNT__L2*/
                         meltfnum[1] = 0 ;
                         /*^clear*/
@@ -31592,7 +31592,7 @@ meltlab_endgetargs:
             ;
 
             {
-                MELT_LOCATION("warmelt-macro.melt:2151:/ locexp");
+                MELT_LOCATION("warmelt-macro.melt:2152:/ locexp");
                 /*void*/
                 (void)0;
             }
@@ -31629,7 +31629,7 @@ meltlab_endgetargs:
         ;
 
         {
-            MELT_LOCATION("warmelt-macro.melt:2152:/ locexp");
+            MELT_LOCATION("warmelt-macro.melt:2153:/ locexp");
 
 #if MELT_HAVE_DEBUG
             if (melt_need_debug (0))
@@ -31641,7 +31641,7 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-macro.melt:2153:/ apply");
+        MELT_LOCATION("warmelt-macro.melt:2154:/ apply");
         /*apply*/
         {
             union meltparam_un argtab[3];
@@ -31659,14 +31659,14 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-macro.melt:2150:/ quasiblock");
+        MELT_LOCATION("warmelt-macro.melt:2151:/ quasiblock");
 
 
         /*_._RETVAL___V1*/
         meltfptr[0] = /*_.MEXPANDER__V4*/ meltfptr[2];;
 
         {
-            MELT_LOCATION("warmelt-macro.melt:2150:/ locexp");
+            MELT_LOCATION("warmelt-macro.melt:2151:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -31790,7 +31790,7 @@ meltrout_29_WARMELTmiMACRO_EXPAND_PRIMITIVE(meltclosure_ptr_t meltclosp_, melt_p
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-macro.melt:2198:/ getarg");
+    MELT_LOCATION("warmelt-macro.melt:2199:/ getarg");
     /*_.SPRIM__V2*/
     meltfptr[1] = (melt_ptr_t) meltfirstargp_;
 
@@ -31836,7 +31836,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-macro.melt:2199:/ cppif.then");
+        MELT_LOCATION("warmelt-macro.melt:2200:/ cppif.then");
         /*^block*/
         /*anyblock*/
         {
@@ -31847,88 +31847,12 @@ meltlab_endgetargs:
             /*_#IS_A__L1*/
             meltfnum[0] =
                 melt_is_instance_of((melt_ptr_t)(/*_.SPRIM__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_PRIMITIVE*/ meltfrout->tabval[0])));;
-            MELT_LOCATION("warmelt-macro.melt:2199:/ cond");
+            MELT_LOCATION("warmelt-macro.melt:2200:/ cond");
             /*cond*/
             if (/*_#IS_A__L1*/ meltfnum[0]) /*then*/
                 {
                     /*^cond.then*/
                     /*_._IFELSE___V8*/ meltfptr[7] = (/*nil*/NULL);;
-                }
-            else
-                {
-                    MELT_LOCATION("warmelt-macro.melt:2199:/ cond.else");
-
-                    /*^block*/
-                    /*anyblock*/
-                    {
-
-
-                        MELT_CHECK_SIGNAL();
-                        ;
-                        /*^apply*/
-                        /*apply*/
-                        {
-                            union meltparam_un argtab[4];
-                            memset(&argtab, 0, sizeof(argtab));
-                            /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check sprim";
-                            /*^apply.arg*/
-                            argtab[1].meltbp_cstring =  "warmelt-macro.melt";
-                            /*^apply.arg*/
-                            argtab[2].meltbp_long = 2199;
-                            /*^apply.arg*/
-                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.SPRIM__V2*/ meltfptr[1];
-                            /*_.MELT_ASSERT_FAILURE_FUN__V9*/
-                            meltfptr[8] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
-                        }
-                        ;
-                        /*_._IFELSE___V8*/
-                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V9*/ meltfptr[8];;
-                        /*epilog*/
-
-                        MELT_LOCATION("warmelt-macro.melt:2199:/ clear");
-                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V9*/
-                        meltfptr[8] = 0 ;
-                    }
-                    ;
-                }
-            ;
-            /*_.IFCPP___V7*/
-            meltfptr[6] = /*_._IFELSE___V8*/ meltfptr[7];;
-            /*epilog*/
-
-            MELT_LOCATION("warmelt-macro.melt:2199:/ clear");
-            /*clear*/ /*_#IS_A__L1*/
-            meltfnum[0] = 0 ;
-            /*^clear*/
-            /*clear*/ /*_._IFELSE___V8*/
-            meltfptr[7] = 0 ;
-        }
-
-#else /*MELT_HAVE_DEBUG*/
-        /*^cppif.else*/
-        /*_.IFCPP___V7*/ meltfptr[6] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
-        ;
-
-#if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-macro.melt:2200:/ cppif.then");
-        /*^block*/
-        /*anyblock*/
-        {
-
-
-            MELT_CHECK_SIGNAL();
-            ;
-            /*_#IS_A__L2*/
-            meltfnum[0] =
-                melt_is_instance_of((melt_ptr_t)(/*_.SEXPR__V3*/ meltfptr[2]), (melt_ptr_t)((/*!CLASS_SEXPR*/ meltfrout->tabval[2])));;
-            MELT_LOCATION("warmelt-macro.melt:2200:/ cond");
-            /*cond*/
-            if (/*_#IS_A__L2*/ meltfnum[0]) /*then*/
-                {
-                    /*^cond.then*/
-                    /*_._IFELSE___V11*/ meltfptr[7] = (/*nil*/NULL);;
                 }
             else
                 {
@@ -31947,43 +31871,43 @@ meltlab_endgetargs:
                             union meltparam_un argtab[4];
                             memset(&argtab, 0, sizeof(argtab));
                             /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check sexpr";
+                            argtab[0].meltbp_cstring =  "check sprim";
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
                             argtab[2].meltbp_long = 2200;
                             /*^apply.arg*/
-                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.SEXPR__V3*/ meltfptr[2];
-                            /*_.MELT_ASSERT_FAILURE_FUN__V12*/
-                            meltfptr[11] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.SPRIM__V2*/ meltfptr[1];
+                            /*_.MELT_ASSERT_FAILURE_FUN__V9*/
+                            meltfptr[8] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                         }
                         ;
-                        /*_._IFELSE___V11*/
-                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V12*/ meltfptr[11];;
+                        /*_._IFELSE___V8*/
+                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V9*/ meltfptr[8];;
                         /*epilog*/
 
                         MELT_LOCATION("warmelt-macro.melt:2200:/ clear");
-                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V12*/
-                        meltfptr[11] = 0 ;
+                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V9*/
+                        meltfptr[8] = 0 ;
                     }
                     ;
                 }
             ;
-            /*_.IFCPP___V10*/
-            meltfptr[8] = /*_._IFELSE___V11*/ meltfptr[7];;
+            /*_.IFCPP___V7*/
+            meltfptr[6] = /*_._IFELSE___V8*/ meltfptr[7];;
             /*epilog*/
 
             MELT_LOCATION("warmelt-macro.melt:2200:/ clear");
-            /*clear*/ /*_#IS_A__L2*/
+            /*clear*/ /*_#IS_A__L1*/
             meltfnum[0] = 0 ;
             /*^clear*/
-            /*clear*/ /*_._IFELSE___V11*/
+            /*clear*/ /*_._IFELSE___V8*/
             meltfptr[7] = 0 ;
         }
 
 #else /*MELT_HAVE_DEBUG*/
         /*^cppif.else*/
-        /*_.IFCPP___V10*/ meltfptr[8] = (/*nil*/NULL);
+        /*_.IFCPP___V7*/ meltfptr[6] = (/*nil*/NULL);
 #endif /*MELT_HAVE_DEBUG*/
         ;
 
@@ -31996,15 +31920,15 @@ meltlab_endgetargs:
 
             MELT_CHECK_SIGNAL();
             ;
-            /*_#IS_A__L3*/
+            /*_#IS_A__L2*/
             meltfnum[0] =
-                melt_is_instance_of((melt_ptr_t)(/*_.ENV__V4*/ meltfptr[3]), (melt_ptr_t)((/*!CLASS_ENVIRONMENT*/ meltfrout->tabval[3])));;
+                melt_is_instance_of((melt_ptr_t)(/*_.SEXPR__V3*/ meltfptr[2]), (melt_ptr_t)((/*!CLASS_SEXPR*/ meltfrout->tabval[2])));;
             MELT_LOCATION("warmelt-macro.melt:2201:/ cond");
             /*cond*/
-            if (/*_#IS_A__L3*/ meltfnum[0]) /*then*/
+            if (/*_#IS_A__L2*/ meltfnum[0]) /*then*/
                 {
                     /*^cond.then*/
-                    /*_._IFELSE___V14*/ meltfptr[7] = (/*nil*/NULL);;
+                    /*_._IFELSE___V11*/ meltfptr[7] = (/*nil*/NULL);;
                 }
             else
                 {
@@ -32023,43 +31947,43 @@ meltlab_endgetargs:
                             union meltparam_un argtab[4];
                             memset(&argtab, 0, sizeof(argtab));
                             /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check env";
+                            argtab[0].meltbp_cstring =  "check sexpr";
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
                             argtab[2].meltbp_long = 2201;
                             /*^apply.arg*/
-                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V4*/ meltfptr[3];
-                            /*_.MELT_ASSERT_FAILURE_FUN__V15*/
-                            meltfptr[14] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.SEXPR__V3*/ meltfptr[2];
+                            /*_.MELT_ASSERT_FAILURE_FUN__V12*/
+                            meltfptr[11] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                         }
                         ;
-                        /*_._IFELSE___V14*/
-                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V15*/ meltfptr[14];;
+                        /*_._IFELSE___V11*/
+                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V12*/ meltfptr[11];;
                         /*epilog*/
 
                         MELT_LOCATION("warmelt-macro.melt:2201:/ clear");
-                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V15*/
-                        meltfptr[14] = 0 ;
+                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V12*/
+                        meltfptr[11] = 0 ;
                     }
                     ;
                 }
             ;
-            /*_.IFCPP___V13*/
-            meltfptr[11] = /*_._IFELSE___V14*/ meltfptr[7];;
+            /*_.IFCPP___V10*/
+            meltfptr[8] = /*_._IFELSE___V11*/ meltfptr[7];;
             /*epilog*/
 
             MELT_LOCATION("warmelt-macro.melt:2201:/ clear");
-            /*clear*/ /*_#IS_A__L3*/
+            /*clear*/ /*_#IS_A__L2*/
             meltfnum[0] = 0 ;
             /*^clear*/
-            /*clear*/ /*_._IFELSE___V14*/
+            /*clear*/ /*_._IFELSE___V11*/
             meltfptr[7] = 0 ;
         }
 
 #else /*MELT_HAVE_DEBUG*/
         /*^cppif.else*/
-        /*_.IFCPP___V13*/ meltfptr[11] = (/*nil*/NULL);
+        /*_.IFCPP___V10*/ meltfptr[8] = (/*nil*/NULL);
 #endif /*MELT_HAVE_DEBUG*/
         ;
 
@@ -32072,15 +31996,15 @@ meltlab_endgetargs:
 
             MELT_CHECK_SIGNAL();
             ;
-            /*_#IS_CLOSURE__L4*/
+            /*_#IS_A__L3*/
             meltfnum[0] =
-                (melt_magic_discr((melt_ptr_t)(/*_.MEXPANDER__V5*/ meltfptr[4])) == MELTOBMAG_CLOSURE);;
+                melt_is_instance_of((melt_ptr_t)(/*_.ENV__V4*/ meltfptr[3]), (melt_ptr_t)((/*!CLASS_ENVIRONMENT*/ meltfrout->tabval[3])));;
             MELT_LOCATION("warmelt-macro.melt:2202:/ cond");
             /*cond*/
-            if (/*_#IS_CLOSURE__L4*/ meltfnum[0]) /*then*/
+            if (/*_#IS_A__L3*/ meltfnum[0]) /*then*/
                 {
                     /*^cond.then*/
-                    /*_._IFELSE___V17*/ meltfptr[7] = (/*nil*/NULL);;
+                    /*_._IFELSE___V14*/ meltfptr[7] = (/*nil*/NULL);;
                 }
             else
                 {
@@ -32099,43 +32023,43 @@ meltlab_endgetargs:
                             union meltparam_un argtab[4];
                             memset(&argtab, 0, sizeof(argtab));
                             /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check mexpander";
+                            argtab[0].meltbp_cstring =  "check env";
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
                             argtab[2].meltbp_long = 2202;
                             /*^apply.arg*/
-                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V5*/ meltfptr[4];
-                            /*_.MELT_ASSERT_FAILURE_FUN__V18*/
-                            meltfptr[17] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V4*/ meltfptr[3];
+                            /*_.MELT_ASSERT_FAILURE_FUN__V15*/
+                            meltfptr[14] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                         }
                         ;
-                        /*_._IFELSE___V17*/
-                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V18*/ meltfptr[17];;
+                        /*_._IFELSE___V14*/
+                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V15*/ meltfptr[14];;
                         /*epilog*/
 
                         MELT_LOCATION("warmelt-macro.melt:2202:/ clear");
-                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V18*/
-                        meltfptr[17] = 0 ;
+                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V15*/
+                        meltfptr[14] = 0 ;
                     }
                     ;
                 }
             ;
-            /*_.IFCPP___V16*/
-            meltfptr[14] = /*_._IFELSE___V17*/ meltfptr[7];;
+            /*_.IFCPP___V13*/
+            meltfptr[11] = /*_._IFELSE___V14*/ meltfptr[7];;
             /*epilog*/
 
             MELT_LOCATION("warmelt-macro.melt:2202:/ clear");
-            /*clear*/ /*_#IS_CLOSURE__L4*/
+            /*clear*/ /*_#IS_A__L3*/
             meltfnum[0] = 0 ;
             /*^clear*/
-            /*clear*/ /*_._IFELSE___V17*/
+            /*clear*/ /*_._IFELSE___V14*/
             meltfptr[7] = 0 ;
         }
 
 #else /*MELT_HAVE_DEBUG*/
         /*^cppif.else*/
-        /*_.IFCPP___V16*/ meltfptr[14] = (/*nil*/NULL);
+        /*_.IFCPP___V13*/ meltfptr[11] = (/*nil*/NULL);
 #endif /*MELT_HAVE_DEBUG*/
         ;
 
@@ -32148,15 +32072,15 @@ meltlab_endgetargs:
 
             MELT_CHECK_SIGNAL();
             ;
-            /*_#IS_OBJECT__L5*/
+            /*_#IS_CLOSURE__L4*/
             meltfnum[0] =
-                (melt_magic_discr((melt_ptr_t)(/*_.MODCTX__V6*/ meltfptr[5])) == MELTOBMAG_OBJECT);;
+                (melt_magic_discr((melt_ptr_t)(/*_.MEXPANDER__V5*/ meltfptr[4])) == MELTOBMAG_CLOSURE);;
             MELT_LOCATION("warmelt-macro.melt:2203:/ cond");
             /*cond*/
-            if (/*_#IS_OBJECT__L5*/ meltfnum[0]) /*then*/
+            if (/*_#IS_CLOSURE__L4*/ meltfnum[0]) /*then*/
                 {
                     /*^cond.then*/
-                    /*_._IFELSE___V20*/ meltfptr[7] = (/*nil*/NULL);;
+                    /*_._IFELSE___V17*/ meltfptr[7] = (/*nil*/NULL);;
                 }
             else
                 {
@@ -32175,11 +32099,87 @@ meltlab_endgetargs:
                             union meltparam_un argtab[4];
                             memset(&argtab, 0, sizeof(argtab));
                             /*^apply.arg*/
-                            argtab[0].meltbp_cstring =  "check modctx";
+                            argtab[0].meltbp_cstring =  "check mexpander";
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-macro.melt";
                             /*^apply.arg*/
                             argtab[2].meltbp_long = 2203;
+                            /*^apply.arg*/
+                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V5*/ meltfptr[4];
+                            /*_.MELT_ASSERT_FAILURE_FUN__V18*/
+                            meltfptr[17] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                        }
+                        ;
+                        /*_._IFELSE___V17*/
+                        meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V18*/ meltfptr[17];;
+                        /*epilog*/
+
+                        MELT_LOCATION("warmelt-macro.melt:2203:/ clear");
+                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V18*/
+                        meltfptr[17] = 0 ;
+                    }
+                    ;
+                }
+            ;
+            /*_.IFCPP___V16*/
+            meltfptr[14] = /*_._IFELSE___V17*/ meltfptr[7];;
+            /*epilog*/
+
+            MELT_LOCATION("warmelt-macro.melt:2203:/ clear");
+            /*clear*/ /*_#IS_CLOSURE__L4*/
+            meltfnum[0] = 0 ;
+            /*^clear*/
+            /*clear*/ /*_._IFELSE___V17*/
+            meltfptr[7] = 0 ;
+        }
+
+#else /*MELT_HAVE_DEBUG*/
+        /*^cppif.else*/
+        /*_.IFCPP___V16*/ meltfptr[14] = (/*nil*/NULL);
+#endif /*MELT_HAVE_DEBUG*/
+        ;
+
+#if MELT_HAVE_DEBUG
+        MELT_LOCATION("warmelt-macro.melt:2204:/ cppif.then");
+        /*^block*/
+        /*anyblock*/
+        {
+
+
+            MELT_CHECK_SIGNAL();
+            ;
+            /*_#IS_OBJECT__L5*/
+            meltfnum[0] =
+                (melt_magic_discr((melt_ptr_t)(/*_.MODCTX__V6*/ meltfptr[5])) == MELTOBMAG_OBJECT);;
+            MELT_LOCATION("warmelt-macro.melt:2204:/ cond");
+            /*cond*/
+            if (/*_#IS_OBJECT__L5*/ meltfnum[0]) /*then*/
+                {
+                    /*^cond.then*/
+                    /*_._IFELSE___V20*/ meltfptr[7] = (/*nil*/NULL);;
+                }
+            else
+                {
+                    MELT_LOCATION("warmelt-macro.melt:2204:/ cond.else");
+
+                    /*^block*/
+                    /*anyblock*/
+                    {
+
+
+                        MELT_CHECK_SIGNAL();
+                        ;
+                        /*^apply*/
+                        /*apply*/
+                        {
+                            union meltparam_un argtab[4];
+                            memset(&argtab, 0, sizeof(argtab));
+                            /*^apply.arg*/
+                            argtab[0].meltbp_cstring =  "check modctx";
+                            /*^apply.arg*/
+                            argtab[1].meltbp_cstring =  "warmelt-macro.melt";
+                            /*^apply.arg*/
+                            argtab[2].meltbp_long = 2204;
                             /*^apply.arg*/
                             argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MODCTX__V6*/ meltfptr[5];
                             /*_.MELT_ASSERT_FAILURE_FUN__V21*/
@@ -32190,7 +32190,7 @@ meltlab_endgetargs:
                         meltfptr[7] = /*_.MELT_ASSERT_FAILURE_FUN__V21*/ meltfptr[20];;
                         /*epilog*/
 
-                        MELT_LOCATION("warmelt-macro.melt:2203:/ clear");
+                        MELT_LOCATION("warmelt-macro.melt:2204:/ clear");
                         /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V21*/
                         meltfptr[20] = 0 ;
                     }
@@ -32201,7 +32201,7 @@ meltlab_endgetargs:
             meltfptr[17] = /*_._IFELSE___V20*/ meltfptr[7];;
             /*epilog*/
 
-            MELT_LOCATION("warmelt-macro.melt:2203:/ clear");
+            MELT_LOCATION("warmelt-macro.melt:2204:/ clear");
             /*clear*/ /*_#IS_OBJECT__L5*/
             meltfnum[0] = 0 ;
             /*^clear*/
@@ -32214,7 +32214,7 @@ meltlab_endgetargs:
         /*_.IFCPP___V19*/ meltfptr[17] = (/*nil*/NULL);
 #endif /*MELT_HAVE_DEBUG*/
         ;
-        MELT_LOCATION("warmelt-macro.melt:2204:/ quasiblock");
+        MELT_LOCATION("warmelt-macro.melt:2205:/ quasiblock");
 
 
         /*^getslot*/
@@ -32226,7 +32226,7 @@ meltlab_endgetargs:
             meltfptr[7] = slot;
         };
         ;
-        MELT_LOCATION("warmelt-macro.melt:2205:/ getslot");
+        MELT_LOCATION("warmelt-macro.melt:2206:/ getslot");
         {
             melt_ptr_t slot=NULL, obj=NULL;
             obj = (melt_ptr_t)(/*_.SEXPR__V3*/ meltfptr[2]) /*=obj*/;
@@ -32245,7 +32245,7 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-macro.melt:2207:/ apply");
+        MELT_LOCATION("warmelt-macro.melt:2208:/ apply");
         /*apply*/
         {
             union meltparam_un argtab[3];
@@ -32263,7 +32263,7 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-macro.melt:2209:/ quasiblock");
+        MELT_LOCATION("warmelt-macro.melt:2210:/ quasiblock");
 
 
         /*^rawallocobj*/
@@ -32301,7 +32301,7 @@ meltlab_endgetargs:
         /*_.LET___V22*/
         meltfptr[20] = /*_.INST___V28*/ meltfptr[27];;
 
-        MELT_LOCATION("warmelt-macro.melt:2204:/ clear");
+        MELT_LOCATION("warmelt-macro.melt:2205:/ clear");
         /*clear*/ /*_.SCONT__V23*/
         meltfptr[7] = 0 ;
         /*^clear*/
@@ -32322,14 +32322,14 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-macro.melt:2198:/ quasiblock");
+        MELT_LOCATION("warmelt-macro.melt:2199:/ quasiblock");
 
 
         /*_._RETVAL___V1*/
         meltfptr[0] = /*_.LET___V22*/ meltfptr[20];;
 
         {
-            MELT_LOCATION("warmelt-macro.melt:2198:/ locexp");
+            MELT_LOCATION("warmelt-macro.melt:2199:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
