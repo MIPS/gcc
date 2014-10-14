@@ -3136,6 +3136,14 @@ fail:
   return changed;
 }
 
+/* Valueziation callback that ends up not following SSA edges.  */
+
+tree
+no_follow_ssa_edges (tree)
+{
+  return NULL_TREE;
+}
+
 /* Fold the statement pointed to by GSI.  In some cases, this function may
    replace the whole statement with a new one.  Returns true iff folding
    makes any changes.
@@ -3146,7 +3154,7 @@ fail:
 bool
 fold_stmt (gimple_stmt_iterator *gsi)
 {
-  return fold_stmt_1 (gsi, false, NULL);
+  return fold_stmt_1 (gsi, false, no_follow_ssa_edges);
 }
 
 bool
@@ -3167,7 +3175,7 @@ bool
 fold_stmt_inplace (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  bool changed = fold_stmt_1 (gsi, true, NULL);
+  bool changed = fold_stmt_1 (gsi, true, no_follow_ssa_edges);
   gcc_assert (gsi_stmt (*gsi) == stmt);
   return changed;
 }
@@ -4527,12 +4535,19 @@ gimple_fold_stmt_to_constant_2 (gimple stmt, tree (*valueize) (tree))
     }
 }
 
+/* ???  The SSA propagators do not correctly deal with following SSA use-def
+   edges if there are intermediate VARYING defs.  For this reason
+   there are two valueization hooks here, one for the legacy code
+   in gimple_fold_stmt_to_constant_2 and one for gimple_simplify
+   which is defaulted to no_follow_ssa_edges.  */
+
 tree
-gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
+gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree),
+				tree (*gvalueize) (tree))
 {
   code_helper rcode;
   tree ops[3] = {};
-  if (gimple_simplify (stmt, &rcode, ops, NULL, valueize)
+  if (gimple_simplify (stmt, &rcode, ops, NULL, gvalueize)
       && rcode.is_tree_code ()
       && (TREE_CODE_LENGTH ((tree_code) rcode) == 0
 	  || ((tree_code) rcode) == ADDR_EXPR)

@@ -593,9 +593,9 @@ gimple_simplify (gimple stmt,
 		tree op0 = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
 		if (valueize && TREE_CODE (op0) == SSA_NAME)
 		  {
-		    op0 = valueize (op0);
-		    if (!op0)
-		      return false;
+		    tree tem = valueize (op0);
+		    if (tem)
+		      op0 = tem;
 		  }
 		*rcode = code;
 		ops[0] = op0;
@@ -607,9 +607,9 @@ gimple_simplify (gimple stmt,
 		tree op0 = TREE_OPERAND (rhs1, 0);
 		if (valueize && TREE_CODE (op0) == SSA_NAME)
 		  {
-		    op0 = valueize (op0);
-		    if (!op0)
-		      return false;
+		    tree tem = valueize (op0);
+		    if (tem)
+		      op0 = tem;
 		  }
 		*rcode = code;
 		ops[0] = op0;
@@ -634,9 +634,9 @@ gimple_simplify (gimple stmt,
 	      tree rhs1 = gimple_assign_rhs1 (stmt);
 	      if (valueize && TREE_CODE (rhs1) == SSA_NAME)
 		{
-		  rhs1 = valueize (rhs1);
-		  if (!rhs1)
-		    return false;
+		  tree tem = valueize (rhs1);
+		  if (tem)
+		    rhs1 = tem;
 		}
 	      *rcode = code;
 	      ops[0] = rhs1;
@@ -647,16 +647,16 @@ gimple_simplify (gimple stmt,
 	      tree rhs1 = gimple_assign_rhs1 (stmt);
 	      if (valueize && TREE_CODE (rhs1) == SSA_NAME)
 		{
-		  rhs1 = valueize (rhs1);
-		  if (!rhs1)
-		    return false;
+		  tree tem = valueize (rhs1);
+		  if (tem)
+		    rhs1 = tem;
 		}
 	      tree rhs2 = gimple_assign_rhs2 (stmt);
 	      if (valueize && TREE_CODE (rhs2) == SSA_NAME)
 		{
-		  rhs2 = valueize (rhs2);
-		  if (!rhs2)
-		    return false;
+		  tree tem = valueize (rhs2);
+		  if (tem)
+		    rhs2 = tem;
 		}
 	      *rcode = code;
 	      ops[0] = rhs1;
@@ -668,23 +668,23 @@ gimple_simplify (gimple stmt,
 	      tree rhs1 = gimple_assign_rhs1 (stmt);
 	      if (valueize && TREE_CODE (rhs1) == SSA_NAME)
 		{
-		  rhs1 = valueize (rhs1);
-		  if (!rhs1)
-		    return false;
+		  tree tem = valueize (rhs1);
+		  if (tem)
+		    rhs1 = tem;
 		}
 	      tree rhs2 = gimple_assign_rhs2 (stmt);
 	      if (valueize && TREE_CODE (rhs2) == SSA_NAME)
 		{
-		  rhs2 = valueize (rhs2);
-		  if (!rhs2)
-		    return false;
+		  tree tem = valueize (rhs2);
+		  if (tem)
+		    rhs2 = tem;
 		}
 	      tree rhs3 = gimple_assign_rhs3 (stmt);
 	      if (valueize && TREE_CODE (rhs3) == SSA_NAME)
 		{
-		  rhs3 = valueize (rhs3);
-		  if (!rhs3)
-		    return false;
+		  tree tem = valueize (rhs3);
+		  if (tem)
+		    rhs3 = tem;
 		}
 	      *rcode = code;
 	      ops[0] = rhs1;
@@ -706,9 +706,12 @@ gimple_simplify (gimple stmt,
 	  /* ???  Internal function support missing.  */
 	  if (!fn)
 	    return false;
-	  if (TREE_CODE (fn) == SSA_NAME
-	      && valueize)
-	    fn = valueize (fn);
+	  if (valueize && TREE_CODE (fn) == SSA_NAME)
+	    {
+	      tree tem = valueize (fn);
+	      if (tem)
+		fn = tem;
+	    }
 	  if (!fn
 	      || TREE_CODE (fn) != ADDR_EXPR
 	      || TREE_CODE (TREE_OPERAND (fn, 0)) != FUNCTION_DECL
@@ -727,9 +730,9 @@ gimple_simplify (gimple stmt,
 		tree arg1 = gimple_call_arg (stmt, 0);
 		if (valueize && TREE_CODE (arg1) == SSA_NAME)
 		  {
-		    arg1 = valueize (arg1);
-		    if (!arg1)
-		      return false;
+		    tree tem = valueize (arg1);
+		    if (tem)
+		      arg1 = tem;
 		  }
 		*rcode = DECL_FUNCTION_CODE (decl);
 		ops[0] = arg1;
@@ -740,16 +743,16 @@ gimple_simplify (gimple stmt,
 		tree arg1 = gimple_call_arg (stmt, 0);
 		if (valueize && TREE_CODE (arg1) == SSA_NAME)
 		  {
-		    arg1 = valueize (arg1);
-		    if (!arg1)
-		      return false;
+		    tree tem = valueize (arg1);
+		    if (tem)
+		      arg1 = tem;
 		  }
 		tree arg2 = gimple_call_arg (stmt, 1);
 		if (valueize && TREE_CODE (arg2) == SSA_NAME)
 		  {
-		    arg2 = valueize (arg2);
-		    if (!arg2)
-		      return false;
+		    tree tem = valueize (arg2);
+		    if (tem)
+		      arg2 = tem;
 		  }
 		*rcode = DECL_FUNCTION_CODE (decl);
 		ops[0] = arg1;
@@ -761,23 +764,23 @@ gimple_simplify (gimple stmt,
 		tree arg1 = gimple_call_arg (stmt, 0);
 		if (valueize && TREE_CODE (arg1) == SSA_NAME)
 		  {
-		    arg1 = valueize (arg1);
-		    if (!arg1)
-		      return false;
+		    tree tem = valueize (arg1);
+		    if (tem)
+		      arg1 = tem;
 		  }
 		tree arg2 = gimple_call_arg (stmt, 1);
 		if (valueize && TREE_CODE (arg2) == SSA_NAME)
 		  {
-		    arg2 = valueize (arg2);
-		    if (!arg2)
-		      return false;
+		    tree tem = valueize (arg2);
+		    if (tem)
+		      arg2 = tem;
 		  }
 		tree arg3 = gimple_call_arg (stmt, 2);
 		if (valueize && TREE_CODE (arg3) == SSA_NAME)
 		  {
-		    arg3 = valueize (arg3);
-		    if (!arg3)
-		      return false;
+		    tree tem = valueize (arg3);
+		    if (tem)
+		      arg3 = tem;
 		  }
 		*rcode = DECL_FUNCTION_CODE (decl);
 		ops[0] = arg1;
@@ -796,16 +799,16 @@ gimple_simplify (gimple stmt,
 	tree lhs = gimple_cond_lhs (stmt);
 	if (valueize && TREE_CODE (lhs) == SSA_NAME)
 	  {
-	    lhs = valueize (lhs);
-	    if (!lhs)
-	      return false;
+	    tree tem = valueize (lhs);
+	    if (tem)
+	      lhs = tem;
 	  }
 	tree rhs = gimple_cond_rhs (stmt);
 	if (valueize && TREE_CODE (rhs) == SSA_NAME)
 	  {
-	    rhs = valueize (rhs);
-	    if (!rhs)
-	      return false;
+	    tree tem = valueize (rhs);
+	    if (tem)
+	      rhs = tem;
 	  }
 	*rcode = gimple_cond_code (stmt);
 	ops[0] = lhs;

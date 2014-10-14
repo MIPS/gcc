@@ -1,5 +1,19 @@
 2014-10-14  Richard Biener  <rguenther@suse.de>
 
+	* gimple-fold.h (no_follow_ssa_edges): Declare.
+	(gimple_fold_stmt_to_constant_1): Add separate valueize hook for
+	gimple_simplify, defaulted to no_follow_ssa_edges.
+	* gimple-fold.c (fold_stmt): Make old API never follow SSA edges
+	when simplifying.
+	(no_follow_ssa_edges): New function.
+	(gimple_fold_stmt_to_constant_1): Adjust.
+	* tree-cfg.c (no_follow_ssa_edges): Remove.
+	(replace_uses_by): Use plain fold_stmt again.
+	* gimple-match-head.c (gimple_simplify): When simplifying
+	a statement do not stop when valueizing its operands yields NULL.
+
+2014-10-14  Richard Biener  <rguenther@suse.de>
+
 	* Makefile.in (BUILD_RTL): Revert not needed change.
 	* match.pd (integral_op_p): Remove predicate and use.
 	* generic-match-head.c: Include gimple-match.h and remove
