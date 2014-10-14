@@ -1566,8 +1566,8 @@ dt_operand::gen_gimple_expr (FILE *f)
 	      fprintf (f, "tree %s = TREE_OPERAND (gimple_assign_rhs1 (def_stmt), %i);\n",
 		       child_opname, i);
 	      fprintf (f, "if ((TREE_CODE (%s) == SSA_NAME\n"
-		       "&& (%s = do_valueize (valueize, %s)))\n"
 		       "|| is_gimple_min_invariant (%s))\n"
+		       "&& (%s = do_valueize (valueize, %s)))\n"
 		       "{\n", child_opname, child_opname, child_opname,
 		       child_opname);
 	      continue;
