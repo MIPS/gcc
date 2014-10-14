@@ -6811,6 +6811,9 @@ aarch64_classify_symbol (rtx x,
 
   if (GET_CODE (x) == SYMBOL_REF)
     {
+      /* Large coding model forces every symbol to memory and
+	 then uses relative loads to read the constant from the text
+	 section.  */
       if (aarch64_cmodel == AARCH64_CMODEL_LARGE)
 	  return SYMBOL_FORCE_TO_MEM;
 
@@ -6820,12 +6823,26 @@ aarch64_classify_symbol (rtx x,
       switch (aarch64_cmodel)
 	{
 	case AARCH64_CMODEL_TINY:
-	  if (SYMBOL_REF_WEAK (x))
+	  /* Tiny uses relative relocations which
+	     might not be able to resolve the abosulute value of 0.
+	     But ignore decls which are in a comdat group set as
+	     those will be resolved not to zero.  */
+	  if (SYMBOL_REF_WEAK (x)
+	      && !(SYMBOL_REF_DECL (x)
+		   && DECL_COMDAT_GROUP (SYMBOL_REF_DECL (x))))
 	    return SYMBOL_FORCE_TO_MEM;
 	  return SYMBOL_TINY_ABSOLUTE;
 
 	case AARCH64_CMODEL_SMALL:
-	  if (SYMBOL_REF_WEAK (x))
+	  /* Small uses relative relocations which
+	     might not be able to resolve the abosulute value of 0.
+	     But ignore decls which are in a comdat group set as
+	     those will be resolved not to zero.
+	     Note small uses adrp which is a relative with respect of
+	     the page.  */
+	  if (SYMBOL_REF_WEAK (x)
+	      && !(SYMBOL_REF_DECL (x)
+		   && DECL_COMDAT_GROUP (SYMBOL_REF_DECL (x))))
 	    return SYMBOL_FORCE_TO_MEM;
 	  return SYMBOL_SMALL_ABSOLUTE;
 

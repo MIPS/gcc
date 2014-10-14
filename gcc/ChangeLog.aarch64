@@ -1,3 +1,10 @@
+2014-10-13  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.c (aarch64_classify_symbol):
+	Add extra comments on what is going on with the coding models.
+	Tighten the check for weak symbols not to include ones
+	which are in a comdat group.
+
 2014-10-12  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #12577
