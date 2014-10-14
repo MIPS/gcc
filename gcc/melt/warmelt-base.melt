@@ -1497,6 +1497,42 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
   (return out)
   )
 
+
+;;;;;;;;;;;;;;;;
+;; variadic function to add to some list
+(defun add2list (lis :rest)
+  :doc #{Variadic function to add to a list
+  $LIS. Convert :cstring, :tree, :gimple, :edge, :long to boxed
+  values. Append any value arguments. Returns the updated $LIS.}#
+  (if (not (is_list lis))
+      (return ()))
+  (forever 
+   argloop
+   (variadic 
+    ( ()
+      (exit argloop))
+    ( (:value v)
+      (list_append lis v))
+    ( (:long l)
+      (list_append lis (constant_box l)))
+    ( (:cstring s)
+      (list_append lis (constant_box s)))
+    ( (:tree tr)
+      (list_append lis (constant_box tr)))
+    ( (:gimple g)
+      (list_append lis (constant_box g)))
+    ( (:edge e)
+      (list_append lis (constant_box e)))
+    (:else
+     (let ( (vcty (variadic_ctype 0))
+	    )
+       (error_at () "ADD2LIST for unsupported ctype "
+		 (get_field :named_name vcty))
+       (assert_msg "invalid variadic argument to ADD2LIST" () vcty)
+       ))))
+  (return lis)
+  )
+
 ;;;;;;;;;;;;;;;;
 (defun string4out (dis :rest)
   :doc #{Variadic function to make a string for output, 
@@ -4124,6 +4160,7 @@ given object map $MAPO}#
  /ivi
  %ivi
 
+ add2list
  add2out
  add2out_ccomconst
  add2out_ccomstrbuf

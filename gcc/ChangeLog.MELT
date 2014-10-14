@@ -1,6 +1,9 @@
 
 
 2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (add2list): New variadic function.
+
+2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
