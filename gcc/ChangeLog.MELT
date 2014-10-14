@@ -1,6 +1,9 @@
 
 
 2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{unstable!}}
 	* melt/warmelt-base.melt (add2list): Don't use error_at but
 	errormsg_strv....
