@@ -1,5 +1,10 @@
 2014-10-15  Richard Biener  <rguenther@suse.de>
 
+	* fold-const.h (negate_expr_p): Revert exporting this.
+	* fold-const.c (negate_expr_p): Likewise.
+
+2014-10-15  Richard Biener  <rguenther@suse.de>
+
 	* gimple-match-head.c: Remove trailing whitespace.
 	* genmatch.c: Likewise.
 

@@ -98,6 +98,7 @@ enum comparison_code {
 };
 
 static bool negate_mathfn_p (enum built_in_function);
+static bool negate_expr_p (tree);
 static tree negate_expr (tree);
 static tree split_tree (tree, enum tree_code, tree *, tree *, tree *, int);
 static tree associate_trees (location_t, tree, tree, enum tree_code, tree);
@@ -372,7 +373,7 @@ may_negate_without_overflow_p (const_tree t)
 /* Determine whether an expression T can be cheaply negated using
    the function negate_expr without introducing undefined overflow.  */
 
-bool
+static bool
 negate_expr_p (tree t)
 {
   tree type;
