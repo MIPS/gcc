@@ -1,5 +1,10 @@
 2014-10-15  Richard Biener  <rguenther@suse.de>
 
+	* gimple-match-head.c: Remove trailing whitespace.
+	* genmatch.c: Likewise.
+
+2014-10-15  Richard Biener  <rguenther@suse.de>
+
 	Merge from trunk r214675 through r216234.
 
 	* hash-table.h: Do not include ggc.h on the host but just declare
