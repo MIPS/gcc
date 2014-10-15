@@ -1,3 +1,10 @@
+2014-10-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (valid_move_insn_p): Rework so that it
+	works better during reload.
+	(rs6000_secondary_reload): Allow subreg's of memory before reload
+	finishes.
+
 2014-10-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 216165.

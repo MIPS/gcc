@@ -6208,12 +6208,15 @@ quad_load_store_p (rtx op0, rtx op1)
    sure post-reload passes don't generate impossible instructions.  */
 
 bool
-valid_move_insn_p (rtx dest, rtx src)
+valid_move_insn_p (rtx dest_orig, rtx src_orig)
 {
-  rtx op_mem	= NULL_RTX;
-  rtx op_reg	= NULL_RTX;
-  bool ret	= true;
-  bool done_p	= false;
+  rtx dest		 = dest_orig;
+  rtx src		 = src_orig;
+  rtx op_mem		 = NULL_RTX;
+  rtx op_reg		 = NULL_RTX;
+  bool ret		 = true;
+  bool done_p		 = false;
+  enum machine_mode mode = GET_MODE (dest);
 
   if (GET_CODE (dest) == SUBREG)
     dest = SUBREG_REG (dest);
@@ -6253,7 +6256,6 @@ valid_move_insn_p (rtx dest, rtx src)
   if (!done_p && op_mem != NULL_RTX && op_reg != NULL_RTX
       && REGNO (op_reg) < FIRST_PSEUDO_REGISTER)
     {
-      enum machine_mode mode = GET_MODE (op_mem);
       int regno = REGNO (op_reg);
       rtx addr = XEXP (op_mem, 0);
       addr_mask_type mask;
@@ -6314,49 +6316,33 @@ valid_move_insn_p (rtx dest, rtx src)
       if (!done_p)
 	{
 	  if (REG_P (addr) || rcode == SUBREG)
-	    {
-	      ret = true;
-	      done_p = true;
-	    }
+	    ret = legitimate_indirect_address_p (addr, reload_completed);
 
 	  else if (rcode == PLUS)
 	    {
-	      rtx op0 = XEXP (addr, 0);
-	      rtx op1 = XEXP (addr, 1);
+	      if ((mask & RELOAD_REG_INDEXED) != 0
+		  && legitimate_indexed_address_p (addr, reload_completed))
+		ret = true;
 
-	      if (!REG_P (op0))
-		{
-		  ret = false;
-		  done_p = true;
-		}
-
-	      else
-		{
-		  ret = (mask & ((REG_P (op1))
-				 ? RELOAD_REG_INDEXED
-				 : RELOAD_REG_OFFSET)) != 0;
-		  done_p = true;
-		}
+	      else if ((mask & RELOAD_REG_OFFSET) != 0
+		       && rs6000_legitimate_offset_address_p (mode, addr,
+							      reload_completed,
+							      true))
+		ret = true;
 	    }
 
 	  else if (rcode == LO_SUM)
-	    {
-	      ret = (mask & RELOAD_REG_OFFSET) != 0;
-	      done_p = true;
-	    }
+	    ret = (mask & RELOAD_REG_OFFSET) != 0;
 
 	  else
-	    {
-	      ret = false;
-	      done_p = true;
-	    }
+	    ret = false;
 	}
     }
 
   if (TARGET_DEBUG_ADDR && !ret)
     {
-      fprintf (stderr, "\nvalid_move_insn_p returned false\n");
-      debug_rtx (gen_rtx_SET (VOIDmode, dest, src));
+      fputs ("\nvalid_move_insn_p returned false\n", stderr);
+      debug_rtx (gen_rtx_SET (VOIDmode, dest_orig, src_orig));
     }
 
   return ret;
@@ -17067,6 +17053,11 @@ rs6000_secondary_reload (bool in_p,
   bool default_p = false;
   bool done_p = false;
 
+  /* Allow subreg of memory before/during reload.  */
+  bool memory_p = (MEM_P (x)
+		   || (!reload_completed && GET_CODE (x) == SUBREG
+		       && MEM_P (SUBREG_REG (x))));
+
   sri->icode = CODE_FOR_nothing;
   sri->extra_cost = 0;
   icode = ((in_p)
@@ -17103,7 +17094,7 @@ rs6000_secondary_reload (bool in_p,
   if (!done_p && reg_addr[mode].scalar_in_vmx_p)
     {
       if ((rclass == VSX_REGS || rclass == ALTIVEC_REGS)
-	  && (MEM_P (x)
+	  && (memory_p
 	      || (GET_CODE (x) == CONST_DOUBLE && x != CONST0_RTX (mode))))
 	{
 	  ret = FLOAT_REGS;
@@ -17120,7 +17111,7 @@ rs6000_secondary_reload (bool in_p,
     }
 
   /* Handle reload of load/stores if we have reload helper functions.  */
-  if (!done_p && icode != CODE_FOR_nothing && MEM_P (x))
+  if (!done_p && icode != CODE_FOR_nothing && memory_p)
     {
       int extra_cost = rs6000_secondary_reload_memory (XEXP (x, 0), rclass,
 						       mode);
@@ -17140,7 +17131,7 @@ rs6000_secondary_reload (bool in_p,
   /* Handle unaligned loads and stores of integer registers.  */
   if (!done_p && TARGET_POWERPC64
       && reg_class_to_reg_type[(int)rclass] == GPR_REG_TYPE
-      && MEM_P (x)
+      && memory_p
       && GET_MODE_SIZE (GET_MODE (x)) >= UNITS_PER_WORD)
     {
       rtx addr = XEXP (x, 0);
@@ -17181,7 +17172,7 @@ rs6000_secondary_reload (bool in_p,
 
   if (!done_p && !TARGET_POWERPC64
       && reg_class_to_reg_type[(int)rclass] == GPR_REG_TYPE
-      && MEM_P (x)
+      && memory_p
       && GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD)
     {
       rtx addr = XEXP (x, 0);
