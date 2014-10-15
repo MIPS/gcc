@@ -2630,7 +2630,11 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 		      gsi_insert_before (gsi, new_stmt, GSI_NEW_STMT);
 		    }
 		  else
-		    gsi_replace (gsi, new_stmt, true);
+		    {
+		      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+		      gimple_set_vdef (new_stmt, gimple_vdef (stmt));
+		      gsi_replace (gsi, new_stmt, false);
+		    }
 		  return true;
 		}
 	    }
@@ -5295,4 +5299,21 @@ rewrite_to_defined_overflow (gimple stmt)
   gimple_seq_add_stmt (&stmts, cvt);
 
   return stmts;
+}
+
+/* Return OP converted to TYPE by emitting a conversion statement on SEQ
+   if required using location LOC.  Note that OP will be returned
+   unmodified if GIMPLE does not require an explicit conversion between
+   its type and TYPE.  */
+
+tree
+gimple_convert (gimple_seq *seq, location_t loc, tree type, tree op)
+{
+  if (useless_type_conversion_p (type, TREE_TYPE (op)))
+    return op;
+  op = fold_convert_loc (loc, type, op);
+  gimple_seq stmts = NULL;
+  op = force_gimple_operand (op, &stmts, true, NULL_TREE);
+  gimple_seq_add_seq_without_update (seq, stmts);
+  return op;
 }

@@ -2819,12 +2819,15 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	    if (nary->opcode == POINTER_PLUS_EXPR)
 	      {
 		if (i == 0)
-		  genop[i] = fold_convert (nary->type, genop[i]);
+		  genop[i] = gimple_convert (&forced_stmts,
+					     nary->type, genop[i]);
 		else if (i == 1)
-		  genop[i] = convert_to_ptrofftype (genop[i]);
+		  genop[i] = gimple_convert (&forced_stmts,
+					     sizetype, genop[i]);
 	      }
 	    else
-	      genop[i] = fold_convert (TREE_TYPE (nary->op[i]), genop[i]);
+	      genop[i] = gimple_convert (&forced_stmts,
+					 TREE_TYPE (nary->op[i]), genop[i]);
 	  }
 	if (nary->opcode == CONSTRUCTOR)
 	  {
@@ -2866,8 +2869,10 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
      statements.
      We have to call unshare_expr because force_gimple_operand may
      modify the tree we pass to it.  */
-  folded = force_gimple_operand (unshare_expr (folded), &forced_stmts,
+  gimple_seq tem = NULL;
+  folded = force_gimple_operand (unshare_expr (folded), &tem,
 				 false, NULL);
+  gimple_seq_add_seq_without_update (&forced_stmts, tem);
 
   /* If we have any intermediate expressions to the value sets, add them
      to the value sets and chain them in the instruction stream.  */
@@ -2892,6 +2897,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	    }
 
 	  gimple_set_vuse (stmt, BB_LIVE_VOP_ON_EXIT (block));
+	  gimple_set_modified (stmt, true);
 	}
       gimple_seq_add_seq (stmts, forced_stmts);
     }
@@ -2899,6 +2905,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
   name = make_temp_ssa_name (exprtype, NULL, "pretmp");
   newstmt = gimple_build_assign (name, folded);
   gimple_set_vuse (newstmt, BB_LIVE_VOP_ON_EXIT (block));
+  gimple_set_modified (newstmt, true);
   gimple_set_plf (newstmt, NECESSARY, false);
 
   gimple_seq_add_stmt (stmts, newstmt);
