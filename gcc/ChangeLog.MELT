@@ -1,6 +1,15 @@
 
 
 2014-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (lambda_arg_bindings): Handle when
+	macro-expansion is of class_formal_binding.
+
+	* melt/warmelt-normal.melt (check_ctype_nargs): Use
+	foreach_in_multiple instead of multiple_every. Add more debug.
+
+	* melt/warmelt-normatch.melt (scanpat_anypattern): Improve debug.
+
+2014-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (lambda_arg_bindings): Formal arguments
 	list are now macro-expanded using expand_pairlist_as_list.
 

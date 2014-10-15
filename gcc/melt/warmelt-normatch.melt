@@ -90,7 +90,7 @@ scanning variables.}#
 ;;;;;;;;;;;;;;;;
 ;;; catch-all for scanning any receiver (by failing)
 (defun scanpat_anyrecv (recv psloc ctyp pcn)
-  (debug "scanpat_anypattern recv" recv)
+  (debug "scanpat_anypattern recv=" recv)
   (assert_msg "check pcn" (is_a pcn class_pattern_context))
   (let ( (myclass (discrim recv))
 	 (myclassname (get_field :named_name myclass)) )

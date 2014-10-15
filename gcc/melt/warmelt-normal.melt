@@ -1580,15 +1580,17 @@ routine procedures.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; utility to check that every normalized argument has a passable ctype
 (defun check_ctype_nargs (nargs env sloc)
-  (multiple_every 
-   nargs
-   (lambda (cnarg :long ix) 
-     (let ( (ctyp (get_ctype cnarg env)) )
-       (assert_msg "check_ctype_nargs ctyp" (is_a ctyp class_ctype) ctyp)
-       (if (not (is_string (unsafe_get_field :ctype_parstring ctyp)))
-	   (error_at sloc "argument has invalid type $1"_ (unsafe_get_field :named_name ctyp))
-	 ))
-     )))
+  (foreach_in_multiple 
+   (nargs)
+   (cnarg :long ix) 
+   (let ( (ctyp (get_ctype cnarg env)) )
+     (assert_msg "check_ctype_nargs ctyp" (is_a ctyp class_ctype) ctyp)
+     (when (not (is_string (unsafe_get_field :ctype_parstring ctyp)))
+       (debug "check_ctype_nargs" " ix#" ix " cnarg=" cnarg
+	      "\n.. ctyp=" ctyp)
+       (error_at sloc "argument has invalid type $1"_ (unsafe_get_field :named_name ctyp))
+       ))
+   ))
 
 
 (defselector normalize_binding class_selector
