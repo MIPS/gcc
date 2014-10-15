@@ -132,7 +132,7 @@ AC_SUBST(CFLAGS)
 # In order to override CFLAGS_FOR_TARGET, all of our special flags go
 # in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
 # in both places for now and restore CFLAGS at the end of config.
-save_CFLAGS="$CFLAGS"
+libatomic_save_CFLAGS="$CFLAGS"
 
 # Find other programs we need.
 AC_CHECK_TOOL(AR, ar)
@@ -175,7 +175,7 @@ AC_DEFINE_UNQUOTED(IFUNC_RESOLVER_ARGS, $IFUNC_RESOLVER_ARGS,
 
 # Disable fallbacks to __sync routines from libgcc.  Otherwise we'll
 # make silly decisions about what the cpu can do.
-CFLAGS="$save_CFLAGS -fno-sync-libcalls $XCFLAGS"
+CFLAGS="$libatomic_save_CFLAGS -fno-sync-libcalls $XCFLAGS"
 
 # Check header files.
 AC_STDC_HEADERS
@@ -207,7 +207,7 @@ LIBAT_WORDSIZE
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
 # In case the pthread.h system header is not found, this test will fail.
 case " $config_path " in
- *" posix "*)
+ *" posix "* | *" darwin "*)
   XPCFLAGS=""
   CFLAGS="$CFLAGS -pthread"
   AC_LINK_IFELSE(
@@ -216,7 +216,7 @@ case " $config_path " in
       void *g(void *d) { return NULL; }],
      [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
     [XPCFLAGS=" -pthread"],
-    [CFLAGS="$save_CFLAGS $XCFLAGS" LIBS="-lpthread $LIBS"
+    [CFLAGS="$libatomic_save_CFLAGS $XCFLAGS" LIBS="-lpthread $LIBS"
      AC_LINK_IFELSE(
       [AC_LANG_PROGRAM(
        [#include <pthread.h>
@@ -224,7 +224,7 @@ case " $config_path " in
        [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
       [],
       [AC_MSG_ERROR([Pthreads are required to build libatomic])])])
-  CFLAGS="$save_CFLAGS $XPCFLAGS"
+  CFLAGS="$libatomic_save_CFLAGS $XPCFLAGS"
   ;;
 esac
 
@@ -240,7 +240,7 @@ fi
 LIBAT_ENABLE_SYMVERS
 
 # Cleanup and exit.
-CFLAGS="$save_CFLAGS"
+CFLAGS="$libatomic_save_CFLAGS"
 AC_CACHE_SAVE
 
 # Add -Wall -Werror if we are using GCC.

@@ -4324,7 +4324,7 @@ fi
 # In order to override CFLAGS_FOR_TARGET, all of our special flags go
 # in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
 # in both places for now and restore CFLAGS at the end of config.
-save_CFLAGS="$CFLAGS"
+libatomic_save_CFLAGS="$CFLAGS"
 
 # Find other programs we need.
 if test -n "$ac_tool_prefix"; then
@@ -11599,7 +11599,7 @@ _ACEOF
 
 # Disable fallbacks to __sync routines from libgcc.  Otherwise we'll
 # make silly decisions about what the cpu can do.
-CFLAGS="$save_CFLAGS -fno-sync-libcalls $XCFLAGS"
+CFLAGS="$libatomic_save_CFLAGS -fno-sync-libcalls $XCFLAGS"
 
 # Check header files.
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ANSI C header files" >&5
@@ -14607,7 +14607,7 @@ _ACEOF
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
 # In case the pthread.h system header is not found, this test will fail.
 case " $config_path " in
- *" posix "*)
+ *" posix "* | *" darwin "*)
   XPCFLAGS=""
   CFLAGS="$CFLAGS -pthread"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -14625,7 +14625,7 @@ _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
   XPCFLAGS=" -pthread"
 else
-  CFLAGS="$save_CFLAGS $XCFLAGS" LIBS="-lpthread $LIBS"
+  CFLAGS="$libatomic_save_CFLAGS $XCFLAGS" LIBS="-lpthread $LIBS"
      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <pthread.h>
@@ -14648,7 +14648,7 @@ rm -f core conftest.err conftest.$ac_objext \
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-  CFLAGS="$save_CFLAGS $XPCFLAGS"
+  CFLAGS="$libatomic_save_CFLAGS $XPCFLAGS"
   ;;
 esac
 
@@ -15218,7 +15218,7 @@ $as_echo "$as_me: versioning on shared library symbols is $enable_symvers" >&6;}
 
 
 # Cleanup and exit.
-CFLAGS="$save_CFLAGS"
+CFLAGS="$libatomic_save_CFLAGS"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure

@@ -30,6 +30,20 @@
 # on ${target_cpu}.  For example to allow proper use of multilibs.
 configure_tgt_pre_target_cpu_XCFLAGS="${XCFLAGS}"
 
+case "${target}" in
+  *-*-darwin*)
+    if test -z "$with_arch_32"; then
+      # Unless otherwise directed, assume we're on at least i686.
+      DEFAULT_X86_CPU=i686
+    else
+      DEFAULT_X86_CPU="${with_arch_32}"
+    fi
+    ;;
+  *)
+    DEFAULT_X86_CPU=i486
+    ;;
+esac
+
 case "${target_cpu}" in
   alpha*)
 	# fenv.c needs this option to generate inexact exceptions.
@@ -87,9 +101,10 @@ case "${target_cpu}" in
 	    ;;
 	  *)
 	    if test -z "$with_arch"; then
-	      XCFLAGS="${XCFLAGS} -march=i486 -mtune=${target_cpu}"
-	      XCFLAGS="${XCFLAGS} -fomit-frame-pointer"
+	        XCFLAGS="${XCFLAGS} -march=${DEFAULT_X86_CPU} -mtune=${target_cpu}"
 	    fi
+	    XCFLAGS="${XCFLAGS} -fomit-frame-pointer"
+	    ;;
 	esac
 	ARCH=x86
 	# ??? Detect when -march=i686 is already enabled.
@@ -98,7 +113,9 @@ case "${target_cpu}" in
   x86_64)
 	case " ${CC} ${CFLAGS} " in
 	  *" -m32 "*)
-	    XCFLAGS="${XCFLAGS} -march=i486 -mtune=generic"
+	    if test -z "$with_arch_32"; then
+	        XCFLAGS="${XCFLAGS} -march=${DEFAULT_X86_CPU} -mtune=generic"
+	    fi
 	    XCFLAGS="${XCFLAGS} -fomit-frame-pointer"
 	    ;;
 	  *)
@@ -137,9 +154,15 @@ case "${target}" in
   *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu \
   | *-*-netbsd* | *-*-freebsd* | *-*-openbsd* | *-*-dragonfly* \
   | *-*-solaris2* | *-*-sysv4* | *-*-irix6* | *-*-osf* | *-*-hpux11* \
-  | *-*-darwin* | *-*-aix* | *-*-cygwin*)
+  | *-*-aix* | *-*-cygwin*)
 	# POSIX system.  The OS is supported.
 	config_path="${config_path} posix"
+	;;
+
+  *-*-darwin*)
+	# Darwin system.  The OS is supported, and we have some local
+	# changes to improve performance.
+	config_path="${config_path} darwin"
 	;;
 
   *-*-mingw*)
