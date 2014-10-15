@@ -3190,6 +3190,8 @@ source location.}#
      (multicall
       (nargs nbindargs)
       (normalize_tuple sargs env ncx sloc)
+      (debug "normexp_apply" " nargs=" nargs "\n.. nbindargs=" nbindargs
+	     "\n.. sargs=" sargs "\n.. sloc=" sloc)
       (assert_msg "check nbindargs" (is_list_or_null nbindargs) nbindargs)
       ;; if given the first argument should be a value
       (let ( (nargfirst (multiple_nth nargs 0)) 
@@ -3198,14 +3200,17 @@ source location.}#
 	(if nargfirst 
 	    (let ( (nargfirstctype (get_ctype nargfirst env)) 
 		   )
-	      (debug "normexp_apply nargfirstctype" nargfirstctype)
+	      (debug "normexp_apply nargfirstctype=" nargfirstctype)
 	      (if (!= nargfirstctype ctype_value)
 		  (error_at sloc
 			    "first argument of function application should be a value not a $1" (get_field :named_name nargfirstctype))
 		))
 	  ))
       ;;
+      (debug "normexp_apply" " before check_ctype_nargs, nargs=" nargs
+	     "\n.. env=" debug_less env "\n.. sloc=" sloc)
       (check_ctype_nargs nargs env sloc)
+      (debug "normexp_apply" " after check_ctype_nargs sloc=" sloc)
       (setq nbindargs (list_append2list nbindargs nbindfun))
       ;; add a void binding to check interrupts
       (let ( (cintsym (clone_symbol sfusymb))

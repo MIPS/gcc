@@ -1,4 +1,6 @@
 
+2014-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normexp_apply): More debug.
 
 2014-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (lambda_arg_bindings): Handle when
