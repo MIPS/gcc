@@ -17088,27 +17088,27 @@ rs6000_secondary_reload (bool in_p,
 	}
     }
 
+  /* Make sure 0.0 is not reloaded or forced into memory.  */
+  if (x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
+    {
+      ret = NO_REGS;
+      default_p = false;
+      done_p = true;
+    }
+
   /* If this is a scalar floating point value and we want to load it into the
      traditional Altivec registers, do it via a move via a traditional floating
      point register.  Also make sure that non-zero constants use a FPR.  */
-  if (!done_p && reg_addr[mode].scalar_in_vmx_p)
+#if 0
+  if (!done_p && reg_addr[mode].scalar_in_vmx_p
+      && (rclass == VSX_REGS || rclass == ALTIVEC_REGS)
+      && (memory_p || (GET_CODE (x) == CONST_DOUBLE)))
     {
-      if ((rclass == VSX_REGS || rclass == ALTIVEC_REGS)
-	  && (memory_p
-	      || (GET_CODE (x) == CONST_DOUBLE && x != CONST0_RTX (mode))))
-	{
-	  ret = FLOAT_REGS;
-	  default_p = false;
-	  done_p = true;
-	}
-
-      else if (x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
-	{
-	  ret = NO_REGS;
-	  default_p = false;
-	  done_p = true;
-	}
+      ret = FLOAT_REGS;
+      default_p = false;
+      done_p = true;
     }
+#endif
 
   /* Handle reload of load/stores if we have reload helper functions.  */
   if (!done_p && icode != CODE_FOR_nothing && memory_p)
@@ -17278,6 +17278,9 @@ rs6000_secondary_reload_trace (int line, rtx reg, rtx mem, rtx scratch,
   debug_rtx (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber)));
 }
 
+static void rs6000_secondary_reload_fail (int, rtx, rtx, rtx, bool)
+  ATTRIBUTE_NORETURN;
+
 static void
 rs6000_secondary_reload_fail (int line, rtx reg, rtx mem, rtx scratch,
 			      bool store_p)
@@ -17307,12 +17310,11 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   rtx op_reg, op0, op1;
   rtx and_op;
   rtx cc_clobber;
-  rtx insn;
   rtvec rv;
 
   if (regno < 0 || regno >= FIRST_PSEUDO_REGISTER || !MEM_P (mem)
       || !base_reg_operand (scratch, GET_MODE (scratch)))
-    gcc_unreachable ();
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
   if (IN_RANGE (regno, FIRST_GPR_REGNO, LAST_GPR_REGNO))
     addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_GPR];
@@ -17324,7 +17326,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
     addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
 
   else
-    gcc_unreachable ();
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
   // Make sure the mode is valid in this registers.
   if ((addr_mask & RELOAD_REG_VALID) == 0)
@@ -17469,10 +17471,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
-      insn = ((TARGET_POWERPC64)
-	      ? gen_toc_nosplitdi (scratch, addr)
-	      : gen_toc_nosplitsi (scratch, addr));
-      emit_insn (insn);
+      emit_insn (gen_rtx_SET (VOIDmode, scratch,
+			      create_TOC_reference (addr, scratch)));
       new_addr = scratch;
       break;
 

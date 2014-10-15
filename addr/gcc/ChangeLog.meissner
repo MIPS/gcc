@@ -4,6 +4,15 @@
 	works better during reload.
 	(rs6000_secondary_reload): Allow subreg's of memory before reload
 	finishes.
+	(rs6000_secondary_reload_inner): Use create_TOC_reference to
+	create TOC references for addresses.
+	(rs6000_secondary_reload_fail): Add ATTRIBUTE_NORETURN.
+
+	* config/rs6000/rs6000.md (UNSPEC_TOC_NOSPLIT): Delete, no longer
+	used.
+	(toc_nosplit<mode>): Likewise.
+	(mov<mode>_hardfloat64, FMOVE64 case): Add spaces so dest/src
+	constraints line up.
 
 2014-10-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
