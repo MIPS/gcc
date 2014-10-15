@@ -88,7 +88,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
   struct cgraph_node *node;
   symtab_node *snode;
 
-  if (DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT_P (decl))
     return false;
 
   /* We are concerned only about static/external vars and functions.  */
@@ -1443,7 +1443,7 @@ gimple_fold_builtin_strcpy (gimple_stmt_iterator *gsi,
   if (!fn)
     return false;
 
-  tree len = get_maxval_strlen (src, 1);
+  tree len = get_maxval_strlen (src, 0);
   if (!len)
     return false;
 
@@ -1480,7 +1480,7 @@ gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi,
     return false;
 
   /* Now, we must be passed a constant src ptr parameter.  */
-  tree slen = get_maxval_strlen (src, 1);
+  tree slen = get_maxval_strlen (src, 0);
   if (!slen || TREE_CODE (slen) != INTEGER_CST)
     return false;
 
@@ -2414,6 +2414,7 @@ gimple_fold_builtin_strlen (gimple_stmt_iterator *gsi)
   tree len = get_maxval_strlen (gimple_call_arg (stmt, 0), 0);
   if (!len)
     return false;
+  len = force_gimple_operand_gsi (gsi, len, true, NULL, true, GSI_SAME_STMT);
   replace_call_with_value (gsi, len);
   return true;
 }
@@ -2565,8 +2566,8 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	{
           if (dump_file && virtual_method_call_p (callee)
 	      && !possible_polymorphic_call_target_p
-		    (callee, cgraph_node::get (gimple_call_addr_fndecl
-					       (OBJ_TYPE_REF_EXPR (callee)))))
+		    (callee, stmt, cgraph_node::get (gimple_call_addr_fndecl
+						     (OBJ_TYPE_REF_EXPR (callee)))))
 	    {
 	      fprintf (dump_file,
 		       "Type inheritance inconsistent devirtualization of ");
@@ -2663,6 +2664,19 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 					gimple_call_arg (stmt, 0),
 					gimple_call_arg (stmt, 1),
 					gimple_call_arg (stmt, 2));
+	  break;
+	case IFN_UBSAN_OBJECT_SIZE:
+	  if (integer_all_onesp (gimple_call_arg (stmt, 2))
+	      || (TREE_CODE (gimple_call_arg (stmt, 1)) == INTEGER_CST
+		  && TREE_CODE (gimple_call_arg (stmt, 2)) == INTEGER_CST
+		  && tree_int_cst_le (gimple_call_arg (stmt, 1),
+				      gimple_call_arg (stmt, 2))))
+	    {
+	      gsi_replace (gsi, gimple_build_nop (), true);
+	      unlink_stmt_vdef (stmt);
+	      release_defs (stmt);
+	      return true;
+	    }
 	  break;
 	case IFN_UBSAN_CHECK_ADD:
 	  subcode = PLUS_EXPR;

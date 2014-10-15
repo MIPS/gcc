@@ -514,13 +514,13 @@ target_canonicalize_comparison (enum rtx_code *code, rtx *op0, rtx *op1,
    reg_stat vector is made larger if the splitter creates a new
    register.  */
 
-static rtx
+static rtx_insn *
 combine_split_insns (rtx pattern, rtx insn)
 {
-  rtx ret;
+  rtx_insn *ret;
   unsigned int nregs;
 
-  ret = split_insns (pattern, insn);
+  ret = safe_as_a <rtx_insn *> (split_insns (pattern, insn));
   nregs = max_reg_num ();
   if (nregs > reg_stat.length ())
     reg_stat.safe_grow_cleared (nregs);
@@ -1238,7 +1238,7 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
 	    continue;
 
 	  while (last_combined_insn
-		 && INSN_DELETED_P (last_combined_insn))
+		 && last_combined_insn->deleted ())
 	    last_combined_insn = PREV_INSN (last_combined_insn);
 	  if (last_combined_insn == NULL_RTX
 	      || BARRIER_P (last_combined_insn)
@@ -1950,11 +1950,7 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
     for (i = XVECLEN (PATTERN (i3), 0) - 1; i >= 0; i--)
       if (GET_CODE (XVECEXP (PATTERN (i3), 0, i)) == CLOBBER)
 	{
-	  /* Don't substitute for a register intended as a clobberable
-	     operand.  */
 	  rtx reg = XEXP (XVECEXP (PATTERN (i3), 0, i), 0);
-	  if (rtx_equal_p (reg, dest))
-	    return 0;
 
 	  /* If the clobber represents an earlyclobber operand, we must not
 	     substitute an expression containing the clobbered register.
@@ -2294,8 +2290,9 @@ likely_spilled_retval_1 (rtx x, const_rtx set, void *data)
 static int
 likely_spilled_retval_p (rtx_insn *insn)
 {
-  rtx use = BB_END (this_basic_block);
-  rtx reg, p;
+  rtx_insn *use = BB_END (this_basic_block);
+  rtx reg;
+  rtx_insn *p;
   unsigned regno, nregs;
   /* We assume here that no machine mode needs more than
      32 hard registers when the value overlaps with a register
@@ -2771,10 +2768,9 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	     never appear in the insn stream so giving it the same INSN_UID
 	     as I2 will not cause a problem.  */
 
-	  i1 = as_a <rtx_insn *> (
-		 gen_rtx_INSN (VOIDmode, NULL_RTX, i2, BLOCK_FOR_INSN (i2),
-			       XVECEXP (PATTERN (i2), 0, 1), INSN_LOCATION (i2),
-			       -1, NULL_RTX));
+	  i1 = gen_rtx_INSN (VOIDmode, NULL, i2, BLOCK_FOR_INSN (i2),
+			     XVECEXP (PATTERN (i2), 0, 1), INSN_LOCATION (i2),
+			     -1, NULL_RTX);
 	  INSN_UID (i1) = INSN_UID (i2);
 
 	  SUBST (PATTERN (i2), XVECEXP (PATTERN (i2), 0, 0));
@@ -3333,13 +3329,14 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
   if (i1 && insn_code_number < 0 && GET_CODE (newpat) == SET
       && asm_noperands (newpat) < 0)
     {
-      rtx parallel, m_split, *split;
+      rtx parallel, *split;
+      rtx_insn *m_split_insn;
 
       /* See if the MD file can split NEWPAT.  If it can't, see if letting it
 	 use I2DEST as a scratch register will help.  In the latter case,
 	 convert I2DEST to the mode of the source of NEWPAT if we can.  */
 
-      m_split = combine_split_insns (newpat, i3);
+      m_split_insn = combine_split_insns (newpat, i3);
 
       /* We can only use I2DEST as a scratch reg if it doesn't overlap any
 	 inputs of NEWPAT.  */
@@ -3348,7 +3345,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	 possible to try that as a scratch reg.  This would require adding
 	 more code to make it work though.  */
 
-      if (m_split == 0 && ! reg_overlap_mentioned_p (i2dest, newpat))
+      if (m_split_insn == 0 && ! reg_overlap_mentioned_p (i2dest, newpat))
 	{
 	  enum machine_mode new_mode = GET_MODE (SET_DEST (newpat));
 
@@ -3358,11 +3355,11 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 				       gen_rtvec (2, newpat,
 						  gen_rtx_CLOBBER (VOIDmode,
 								   i2dest)));
-	  m_split = combine_split_insns (parallel, i3);
+	  m_split_insn = combine_split_insns (parallel, i3);
 
 	  /* If that didn't work, try changing the mode of I2DEST if
 	     we can.  */
-	  if (m_split == 0
+	  if (m_split_insn == 0
 	      && new_mode != GET_MODE (i2dest)
 	      && new_mode != VOIDmode
 	      && can_change_dest_mode (i2dest, added_sets_2, new_mode))
@@ -3383,9 +3380,9 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 			   gen_rtvec (2, newpat,
 				      gen_rtx_CLOBBER (VOIDmode,
 						       ni2dest))));
-	      m_split = combine_split_insns (parallel, i3);
+	      m_split_insn = combine_split_insns (parallel, i3);
 
-	      if (m_split == 0
+	      if (m_split_insn == 0
 		  && REGNO (i2dest) >= FIRST_PSEUDO_REGISTER)
 		{
 		  struct undo *buf;
@@ -3398,34 +3395,34 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 		}
 	    }
 
-	  i2scratch = m_split != 0;
+	  i2scratch = m_split_insn != 0;
 	}
 
       /* If recog_for_combine has discarded clobbers, try to use them
 	 again for the split.  */
-      if (m_split == 0 && newpat_vec_with_clobbers)
+      if (m_split_insn == 0 && newpat_vec_with_clobbers)
 	{
 	  parallel = gen_rtx_PARALLEL (VOIDmode, newpat_vec_with_clobbers);
-	  m_split = combine_split_insns (parallel, i3);
+	  m_split_insn = combine_split_insns (parallel, i3);
 	}
 
-      if (m_split && NEXT_INSN (m_split) == NULL_RTX)
+      if (m_split_insn && NEXT_INSN (m_split_insn) == NULL_RTX)
 	{
-	  m_split = PATTERN (m_split);
-	  insn_code_number = recog_for_combine (&m_split, i3, &new_i3_notes);
+	  rtx m_split_pat = PATTERN (m_split_insn);
+	  insn_code_number = recog_for_combine (&m_split_pat, i3, &new_i3_notes);
 	  if (insn_code_number >= 0)
-	    newpat = m_split;
+	    newpat = m_split_pat;
 	}
-      else if (m_split && NEXT_INSN (NEXT_INSN (m_split)) == NULL_RTX
+      else if (m_split_insn && NEXT_INSN (NEXT_INSN (m_split_insn)) == NULL_RTX
 	       && (next_nonnote_nondebug_insn (i2) == i3
-		   || ! use_crosses_set_p (PATTERN (m_split), DF_INSN_LUID (i2))))
+		   || ! use_crosses_set_p (PATTERN (m_split_insn), DF_INSN_LUID (i2))))
 	{
 	  rtx i2set, i3set;
-	  rtx newi3pat = PATTERN (NEXT_INSN (m_split));
-	  newi2pat = PATTERN (m_split);
+	  rtx newi3pat = PATTERN (NEXT_INSN (m_split_insn));
+	  newi2pat = PATTERN (m_split_insn);
 
-	  i3set = single_set (NEXT_INSN (m_split));
-	  i2set = single_set (m_split);
+	  i3set = single_set (NEXT_INSN (m_split_insn));
+	  i2set = single_set (m_split_insn);
 
 	  i2_code_number = recog_for_combine (&newi2pat, i2, &new_i2_notes);
 
@@ -4534,9 +4531,9 @@ find_split_point (rtx *loc, rtx_insn *insn, bool set_src)
 					    MEM_ADDR_SPACE (x)))
 	{
 	  rtx reg = regno_reg_rtx[FIRST_PSEUDO_REGISTER];
-	  rtx seq = combine_split_insns (gen_rtx_SET (VOIDmode, reg,
-						      XEXP (x, 0)),
-					 subst_insn);
+	  rtx_insn *seq = combine_split_insns (gen_rtx_SET (VOIDmode, reg,
+							    XEXP (x, 0)),
+					       subst_insn);
 
 	  /* This should have produced two insns, each of which sets our
 	     placeholder.  If the source of the second is a valid address,
@@ -4962,6 +4959,11 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
    || (REG_P (X) && REG_P (Y)	\
        && REGNO (X) == REGNO (Y) && GET_MODE (X) == GET_MODE (Y)))
 
+  /* Do not substitute into clobbers of regs -- this will never result in
+     valid RTL.  */
+  if (GET_CODE (x) == CLOBBER && REG_P (XEXP (x, 0)))
+    return x;
+
   if (! in_dest && COMBINE_RTX_EQUAL_P (x, from))
     {
       n_occurrences++;
@@ -5120,15 +5122,13 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		      )
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 
-#ifdef CANNOT_CHANGE_MODE_CLASS
 		  if (code == SUBREG
 		      && REG_P (to)
 		      && REGNO (to) < FIRST_PSEUDO_REGISTER
-		      && REG_CANNOT_CHANGE_MODE_P (REGNO (to),
-						   GET_MODE (to),
-						   GET_MODE (x)))
+		      && simplify_subreg_regno (REGNO (to), GET_MODE (to),
+						SUBREG_BYTE (x),
+						GET_MODE (x)) < 0)
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
-#endif
 
 		  new_rtx = (unique_copy && n_occurrences ? copy_rtx (to) : to);
 		  n_occurrences++;
@@ -10256,8 +10256,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 
 	  if (CONST_INT_P (XEXP (varop, 1))
 	      /* We can't do this if we have (ashiftrt (xor))  and the
-		 constant has its sign bit set in shift_mode.  */
+		 constant has its sign bit set in shift_mode with shift_mode
+		 wider than result_mode.  */
 	      && !(code == ASHIFTRT && GET_CODE (varop) == XOR
+		   && result_mode != shift_mode
 		   && 0 > trunc_int_for_mode (INTVAL (XEXP (varop, 1)),
 					      shift_mode))
 	      && (new_rtx = simplify_const_binary_operation
@@ -10274,10 +10276,12 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 
 	  /* If we can't do that, try to simplify the shift in each arm of the
 	     logical expression, make a new logical expression, and apply
-	     the inverse distributive law.  This also can't be done
-	     for some (ashiftrt (xor)).  */
+	     the inverse distributive law.  This also can't be done for
+	     (ashiftrt (xor)) where we've widened the shift and the constant
+	     changes the sign bit.  */
 	  if (CONST_INT_P (XEXP (varop, 1))
 	     && !(code == ASHIFTRT && GET_CODE (varop) == XOR
+		  && result_mode != shift_mode
 		  && 0 > trunc_int_for_mode (INTVAL (XEXP (varop, 1)),
 					     shift_mode)))
 	    {
@@ -13402,14 +13406,14 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 	  if (reg_mentioned_p (XEXP (note, 0), PATTERN (i3))
 	      || ((tem_note = find_reg_note (i3, REG_EQUAL, NULL_RTX))
 		  && GET_CODE (XEXP (tem_note, 0)) == LABEL_REF
-		  && XEXP (XEXP (tem_note, 0), 0) == XEXP (note, 0)))
+		  && LABEL_REF_LABEL (XEXP (tem_note, 0)) == XEXP (note, 0)))
 	    place = i3;
 
 	  if (i2
 	      && (reg_mentioned_p (XEXP (note, 0), PATTERN (i2))
 		  || ((tem_note = find_reg_note (i2, REG_EQUAL, NULL_RTX))
 		      && GET_CODE (XEXP (tem_note, 0)) == LABEL_REF
-		      && XEXP (XEXP (tem_note, 0), 0) == XEXP (note, 0))))
+		      && LABEL_REF_LABEL (XEXP (tem_note, 0)) == XEXP (note, 0))))
 	    {
 	      if (place)
 		place2 = i2;

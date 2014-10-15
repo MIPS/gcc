@@ -5114,7 +5114,7 @@ check_host_association (gfc_expr *e)
   	    {
 	      /* Original was function so point to the new symbol, since
 		 the actual argument list is already attached to the
-		 expression. */
+		 expression.  */
 	      e->value.function.esym = NULL;
 	      e->symtree = st;
 	    }
@@ -10017,7 +10017,7 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	    break;
 
 	  /* Remove a GFC_ISYM_CAF_GET inserted for a coindexed variable on
-	     the LHS. */
+	     the LHS.  */
 	  if (code->expr1->expr_type == EXPR_FUNCTION
 	      && code->expr1->value.function.isym
 	      && code->expr1->value.function.isym->id == GFC_ISYM_CAF_GET)
@@ -10780,6 +10780,7 @@ apply_default_init_local (gfc_symbol *sym)
      result variable, which are also nonstatic.  */
   if (sym->attr.save || sym->ns->save_all
       || (gfc_option.flag_max_stack_var_size == 0 && !sym->attr.result
+	  && !sym->ns->proc_name->attr.recursive
 	  && (!sym->attr.dimension || !is_non_constant_shape_array (sym))))
     {
       /* Don't clobber an existing initializer!  */
@@ -11195,30 +11196,6 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 		}
 	     }
 	}
-
-      /* PUBLIC interfaces may expose PRIVATE procedures that take types
-	 PRIVATE to the containing module.  */
-      for (iface = sym->generic; iface; iface = iface->next)
-	{
-	  for (arg = gfc_sym_get_dummy_args (iface->sym); arg; arg = arg->next)
-	    {
-	      if (arg->sym
-		  && arg->sym->ts.type == BT_DERIVED
-		  && !arg->sym->ts.u.derived->attr.use_assoc
-		  && !gfc_check_symbol_access (arg->sym->ts.u.derived)
-		  && !gfc_notify_std (GFC_STD_F2003, "Procedure '%s' in "
-				      "PUBLIC interface '%s' at %L takes "
-				      "dummy arguments of '%s' which is "
-				      "PRIVATE", iface->sym->name, 
-				      sym->name, &iface->sym->declared_at, 
-				      gfc_typename(&arg->sym->ts)))
-		{
-		  /* Stop this message from recurring.  */
-		  arg->sym->ts.u.derived->attr.access = ACCESS_PUBLIC;
-		  return false;
-		}
-	     }
-	}
     }
 
   if (sym->attr.function && sym->value && sym->attr.proc != PROC_ST_FUNCTION
@@ -11289,11 +11266,11 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	}
 
       /* Appendix B.2 of the standard.  Contained functions give an
-	 error anyway.  Fixed-form is likely to be F77/legacy. Deferred
-	 character length is an F2003 feature.  */
-      if (!sym->attr.contained
-	    && gfc_current_form != FORM_FIXED
-	    && !sym->ts.deferred)
+	 error anyway.  Deferred character length is an F2003 feature.
+	 Don't warn on intrinsic conversion functions, which start
+	 with two underscores.  */
+      if (!sym->attr.contained && !sym->ts.deferred
+	  && (sym->name[0] != '_' || sym->name[1] != '_'))
 	gfc_notify_std (GFC_STD_F95_OBS,
 			"CHARACTER(*) function '%s' at %L",
 			sym->name, &sym->declared_at);
@@ -12313,7 +12290,7 @@ resolve_fl_derived0 (gfc_symbol *sym)
 
   super_type = gfc_get_derived_super_type (sym);
 
-  /* F2008, C432. */
+  /* F2008, C432.  */
   if (super_type && sym->attr.coarray_comp && !super_type->attr.coarray_comp)
     {
       gfc_error ("As extending type '%s' at %L has a coarray component, "
@@ -13123,7 +13100,7 @@ resolve_symbol (gfc_symbol *sym)
       as = sym->as;
     }
 
-  /* F2008, C530. */
+  /* F2008, C530.  */
   if (sym->attr.contiguous
       && (!class_attr.dimension
 	  || (as->type != AS_ASSUMED_SHAPE && as->type != AS_ASSUMED_RANK

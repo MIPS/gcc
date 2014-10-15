@@ -202,7 +202,7 @@ enum c_typespec_keyword {
   cts_char,
   cts_int,
   cts_float,
-  cts_int128,
+  cts_int_n,
   cts_double,
   cts_dfloat32,
   cts_dfloat64,
@@ -269,6 +269,8 @@ struct c_declspecs {
      specifier, in bytes, or -1 if no such specifiers with nonzero
      alignment.  */
   int align_log;
+  /* For the __intN declspec, this stores the index into the int_n_* arrays.  */
+  int int_n_idx;
   /* The storage class specifier, or csc_none if none.  */
   enum c_storage_class storage_class;
   /* Any type specifier keyword used such as "int", not reflecting
@@ -618,7 +620,7 @@ extern void process_init_element (location_t, struct c_expr, bool,
 extern tree build_compound_literal (location_t, tree, tree, bool);
 extern void check_compound_literal_type (location_t, struct c_type_name *);
 extern tree c_start_case (location_t, location_t, tree, bool);
-extern void c_finish_case (tree);
+extern void c_finish_case (tree, tree);
 extern tree build_asm_expr (location_t, tree, tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
 extern int c_types_compatible_p (tree, tree);

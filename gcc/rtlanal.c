@@ -128,29 +128,58 @@ generic_subrtx_iterator <T>::add_subrtxes_to_queue (array_type &array,
 						    value_type *base,
 						    size_t end, rtx_type x)
 {
-  const char *format = GET_RTX_FORMAT (GET_CODE (x));
+  enum rtx_code code = GET_CODE (x);
+  const char *format = GET_RTX_FORMAT (code);
   size_t orig_end = end;
-  for (int i = 0; format[i]; ++i)
-    if (format[i] == 'e')
-      {
-	value_type subx = T::get_value (x->u.fld[i].rt_rtx);
-	if (__builtin_expect (end < LOCAL_ELEMS, true))
-	  base[end++] = subx;
-	else
-	  base = add_single_to_queue (array, base, end++, subx);
-      }
-    else if (format[i] == 'E')
-      {
-	int length = GET_NUM_ELEM (x->u.fld[i].rt_rtvec);
-	rtx *vec = x->u.fld[i].rt_rtvec->elem;
-	if (__builtin_expect (end + length <= LOCAL_ELEMS, true))
-	  for (int j = 0; j < length; j++)
-	    base[end++] = T::get_value (vec[j]);
-	else
-	  for (int j = 0; j < length; j++)
-	    base = add_single_to_queue (array, base, end++,
-					T::get_value (vec[j]));
-      }
+  if (__builtin_expect (INSN_P (x), false))
+    {
+      /* Put the pattern at the top of the queue, since that's what
+	 we're likely to want most.  It also allows for the SEQUENCE
+	 code below.  */
+      for (int i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; --i)
+	if (format[i] == 'e')
+	  {
+	    value_type subx = T::get_value (x->u.fld[i].rt_rtx);
+	    if (__builtin_expect (end < LOCAL_ELEMS, true))
+	      base[end++] = subx;
+	    else
+	      base = add_single_to_queue (array, base, end++, subx);
+	  }
+    }
+  else
+    for (int i = 0; format[i]; ++i)
+      if (format[i] == 'e')
+	{
+	  value_type subx = T::get_value (x->u.fld[i].rt_rtx);
+	  if (__builtin_expect (end < LOCAL_ELEMS, true))
+	    base[end++] = subx;
+	  else
+	    base = add_single_to_queue (array, base, end++, subx);
+	}
+      else if (format[i] == 'E')
+	{
+	  unsigned int length = GET_NUM_ELEM (x->u.fld[i].rt_rtvec);
+	  rtx *vec = x->u.fld[i].rt_rtvec->elem;
+	  if (__builtin_expect (end + length <= LOCAL_ELEMS, true))
+	    for (unsigned int j = 0; j < length; j++)
+	      base[end++] = T::get_value (vec[j]);
+	  else
+	    for (unsigned int j = 0; j < length; j++)
+	      base = add_single_to_queue (array, base, end++,
+					  T::get_value (vec[j]));
+	  if (code == SEQUENCE && end == length)
+	    /* If the subrtxes of the sequence fill the entire array then
+	       we know that no other parts of a containing insn are queued.
+	       The caller is therefore iterating over the sequence as a
+	       PATTERN (...), so we also want the patterns of the
+	       subinstructions.  */
+	    for (unsigned int j = 0; j < length; j++)
+	      {
+		typename T::rtx_type x = T::get_rtx (base[j]);
+		if (INSN_P (x))
+		  base[j] = T::get_value (PATTERN (x));
+	      }
+	}
   return end - orig_end;
 }
 
@@ -785,7 +814,7 @@ reg_mentioned_p (const_rtx reg, const_rtx in)
     return 1;
 
   if (GET_CODE (in) == LABEL_REF)
-    return reg == XEXP (in, 0);
+    return reg == LABEL_REF_LABEL (in);
 
   code = GET_CODE (in);
 
@@ -835,9 +864,9 @@ reg_mentioned_p (const_rtx reg, const_rtx in)
    no CODE_LABEL insn.  */
 
 int
-no_labels_between_p (const_rtx beg, const_rtx end)
+no_labels_between_p (const rtx_insn *beg, const rtx_insn *end)
 {
-  rtx p;
+  rtx_insn *p;
   if (beg == end)
     return 0;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
@@ -850,7 +879,8 @@ no_labels_between_p (const_rtx beg, const_rtx end)
    FROM_INSN and TO_INSN (exclusive of those two).  */
 
 int
-reg_used_between_p (const_rtx reg, const_rtx from_insn, const_rtx to_insn)
+reg_used_between_p (const_rtx reg, const rtx_insn *from_insn,
+		    const rtx_insn *to_insn)
 {
   rtx_insn *insn;
 
@@ -946,7 +976,8 @@ reg_referenced_p (const_rtx x, const_rtx body)
    FROM_INSN and TO_INSN (exclusive of those two).  */
 
 int
-reg_set_between_p (const_rtx reg, const_rtx from_insn, const_rtx to_insn)
+reg_set_between_p (const_rtx reg, const rtx_insn *from_insn,
+		   const rtx_insn *to_insn)
 {
   const rtx_insn *insn;
 
@@ -984,7 +1015,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
    X contains a MEM; this routine does use memory aliasing.  */
 
 int
-modified_between_p (const_rtx x, const_rtx start, const_rtx end)
+modified_between_p (const_rtx x, const rtx_insn *start, const rtx_insn *end)
 {
   const enum rtx_code code = GET_CODE (x);
   const char *fmt;
@@ -1180,7 +1211,7 @@ record_hard_reg_uses (rtx *px, void *data)
    will not be used, which we ignore.  */
 
 rtx
-single_set_2 (const_rtx insn, const_rtx pat)
+single_set_2 (const rtx_insn *insn, const_rtx pat)
 {
   rtx set = NULL;
   int set_verified = 1;
@@ -1361,52 +1392,6 @@ noop_move_p (const_rtx insn)
 }
 
 
-/* Return the last thing that X was assigned from before *PINSN.  If VALID_TO
-   is not NULL_RTX then verify that the object is not modified up to VALID_TO.
-   If the object was modified, if we hit a partial assignment to X, or hit a
-   CODE_LABEL first, return X.  If we found an assignment, update *PINSN to
-   point to it.  ALLOW_HWREG is set to 1 if hardware registers are allowed to
-   be the src.  */
-
-rtx
-find_last_value (rtx x, rtx *pinsn, rtx valid_to, int allow_hwreg)
-{
-  rtx p;
-
-  for (p = PREV_INSN (*pinsn); p && !LABEL_P (p);
-       p = PREV_INSN (p))
-    if (INSN_P (p))
-      {
-	rtx set = single_set (p);
-	rtx note = find_reg_note (p, REG_EQUAL, NULL_RTX);
-
-	if (set && rtx_equal_p (x, SET_DEST (set)))
-	  {
-	    rtx src = SET_SRC (set);
-
-	    if (note && GET_CODE (XEXP (note, 0)) != EXPR_LIST)
-	      src = XEXP (note, 0);
-
-	    if ((valid_to == NULL_RTX
-		 || ! modified_between_p (src, PREV_INSN (p), valid_to))
-		/* Reject hard registers because we don't usually want
-		   to use them; we'd rather use a pseudo.  */
-		&& (! (REG_P (src)
-		      && REGNO (src) < FIRST_PSEUDO_REGISTER) || allow_hwreg))
-	      {
-		*pinsn = p;
-		return src;
-	      }
-	  }
-
-	/* If set in non-simple way, we don't have a value.  */
-	if (reg_set_p (x, p))
-	  break;
-      }
-
-  return x;
-}
-
 /* Return nonzero if register in range [REGNO, ENDREGNO)
    appears either explicitly or implicitly in X
    other than being stored into.
@@ -1961,7 +1946,7 @@ find_reg_equal_equiv_note (const_rtx insn)
    return null.  */
 
 rtx
-find_constant_src (const_rtx insn)
+find_constant_src (const rtx_insn *insn)
 {
   rtx note, set, x;
 
@@ -2229,6 +2214,35 @@ remove_node_from_expr_list (const_rtx node, rtx_expr_list **listp)
   while (temp)
     {
       if (node == temp->element ())
+	{
+	  /* Splice the node out of the list.  */
+	  if (prev)
+	    XEXP (prev, 1) = temp->next ();
+	  else
+	    *listp = temp->next ();
+
+	  return;
+	}
+
+      prev = temp;
+      temp = temp->next ();
+    }
+}
+
+/* Search LISTP (an INSN_LIST) for an entry whose first operand is NODE and
+   remove that entry from the list if it is found.
+
+   A simple equality test is used to determine if NODE matches.  */
+
+void
+remove_node_from_insn_list (const rtx_insn *node, rtx_insn_list **listp)
+{
+  rtx_insn_list *temp = *listp;
+  rtx prev = NULL;
+
+  while (temp)
+    {
+      if (node == temp->insn ())
 	{
 	  /* Splice the node out of the list.  */
 	  if (prev)
@@ -2861,7 +2875,9 @@ rtx_referenced_p (const_rtx x, const_rtx body)
     if (const_rtx y = *iter)
       {
 	/* Check if a label_ref Y refers to label X.  */
-	if (GET_CODE (y) == LABEL_REF && LABEL_P (y) && XEXP (y, 0) == x)
+	if (GET_CODE (y) == LABEL_REF
+	    && LABEL_P (x)
+	    && LABEL_REF_LABEL (y) == x)
 	  return true;
 
 	if (rtx_equal_p (x, y))
@@ -2879,7 +2895,7 @@ rtx_referenced_p (const_rtx x, const_rtx body)
    *LABELP and the jump table to *TABLEP.  LABELP and TABLEP may be NULL.  */
 
 bool
-tablejump_p (const_rtx insn, rtx *labelp, rtx_jump_table_data **tablep)
+tablejump_p (const rtx_insn *insn, rtx *labelp, rtx_jump_table_data **tablep)
 {
   rtx label, table;
 
@@ -2888,7 +2904,7 @@ tablejump_p (const_rtx insn, rtx *labelp, rtx_jump_table_data **tablep)
 
   label = JUMP_LABEL (insn);
   if (label != NULL_RTX && !ANY_RETURN_P (label)
-      && (table = NEXT_INSN (label)) != NULL_RTX
+      && (table = NEXT_INSN (as_a <rtx_insn *> (label))) != NULL_RTX
       && JUMP_TABLE_DATA_P (table))
     {
       if (labelp)
@@ -3423,7 +3439,20 @@ subreg_lsb (const_rtx x)
    xmode  - The mode of xregno.
    offset - The byte offset.
    ymode  - The mode of a top level SUBREG (or what may become one).
-   info   - Pointer to structure to fill in.  */
+   info   - Pointer to structure to fill in.
+
+   Rather than considering one particular inner register (and thus one
+   particular "outer" register) in isolation, this function really uses
+   XREGNO as a model for a sequence of isomorphic hard registers.  Thus the
+   function does not check whether adding INFO->offset to XREGNO gives
+   a valid hard register; even if INFO->offset + XREGNO is out of range,
+   there might be another register of the same type that is in range.
+   Likewise it doesn't check whether HARD_REGNO_MODE_OK accepts the new
+   register, since that can depend on things like whether the final
+   register number is even or odd.  Callers that want to check whether
+   this particular subreg can be replaced by a simple (reg ...) should
+   use simplify_subreg_regno.  */
+
 void
 subreg_get_info (unsigned int xregno, enum machine_mode xmode,
 		 unsigned int offset, enum machine_mode ymode,
@@ -3743,10 +3772,11 @@ parms_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
    to the outer function is passed down as a parameter).
    Do not skip BOUNDARY.  */
 rtx_insn *
-find_first_parameter_load (rtx call_insn, rtx boundary)
+find_first_parameter_load (rtx_insn *call_insn, rtx_insn *boundary)
 {
   struct parms_set_data parm;
-  rtx p, before, first_set;
+  rtx p;
+  rtx_insn *before, *first_set;
 
   /* Since different machines initialize their parameter registers
      in different orders, assume nothing.  Collect the set of all
@@ -3804,14 +3834,14 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	    break;
 	}
     }
-  return safe_as_a <rtx_insn *> (first_set);
+  return first_set;
 }
 
 /* Return true if we should avoid inserting code between INSN and preceding
    call instruction.  */
 
 bool
-keep_with_call_p (const_rtx insn)
+keep_with_call_p (const rtx_insn *insn)
 {
   rtx set;
 
@@ -3835,7 +3865,8 @@ keep_with_call_p (const_rtx insn)
 	  /* This CONST_CAST is okay because next_nonnote_insn just
 	     returns its argument and we assign it to a const_rtx
 	     variable.  */
-	  const rtx_insn *i2 = next_nonnote_insn (CONST_CAST_RTX (insn));
+	  const rtx_insn *i2
+	    = next_nonnote_insn (const_cast<rtx_insn *> (insn));
 	  if (i2 && keep_with_call_p (i2))
 	    return true;
 	}
@@ -3849,7 +3880,7 @@ keep_with_call_p (const_rtx insn)
    not apply to the fallthru case of a conditional jump.  */
 
 bool
-label_is_jump_target_p (const_rtx label, const_rtx jump_insn)
+label_is_jump_target_p (const_rtx label, const rtx_insn *jump_insn)
 {
   rtx tmp = JUMP_LABEL (jump_insn);
   rtx_jump_table_data *table;
@@ -5332,7 +5363,7 @@ get_condition (rtx_insn *jump, rtx_insn **earliest, int allow_cc_mode,
      the condition.  */
   reverse
     = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-      && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump);
+      && LABEL_REF_LABEL (XEXP (SET_SRC (set), 2)) == JUMP_LABEL (jump);
 
   return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX,
 				 allow_cc_mode, valid_at_insn_p);
@@ -6084,7 +6115,7 @@ tls_referenced_p (const_rtx x)
     return false;
 
   subrtx_iterator::array_type array;
-  FOR_EACH_SUBRTX (iter, array, x, NONCONST)
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
     if (GET_CODE (*iter) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (*iter) != 0)
       return true;
   return false;

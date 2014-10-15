@@ -1303,7 +1303,7 @@ cris_initial_frame_pointer_offset (void)
       push_topmost_sequence ();
       got_really_used
 	= reg_used_between_p (pic_offset_table_rtx, get_insns (),
-			      NULL_RTX);
+			      NULL);
       pop_topmost_sequence ();
     }
 
@@ -1922,7 +1922,7 @@ cris_normal_notice_update_cc (rtx exp, rtx insn)
     check-cc-attribute methods.  */
 
 void
-cris_notice_update_cc (rtx exp, rtx insn)
+cris_notice_update_cc (rtx exp, rtx_insn *insn)
 {
   enum attr_cc attrval = get_attr_cc (insn);
 
@@ -2015,7 +2015,7 @@ cris_simple_epilogue (void)
     {
       push_topmost_sequence ();
       got_really_used
-	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL);
       pop_topmost_sequence ();
     }
 
@@ -2410,7 +2410,7 @@ cris_side_effect_mode_ok (enum rtx_code code, rtx *ops,
 bool
 cris_cc0_user_requires_cmp (rtx insn)
 {
-  rtx cc0_user = NULL;
+  rtx_insn *cc0_user = NULL;
   rtx body;
   rtx set;
 
@@ -3081,7 +3081,7 @@ cris_expand_prologue (void)
 	 it's still used.  */
       push_topmost_sequence ();
       got_really_used
-	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL);
       pop_topmost_sequence ();
     }
 
@@ -3364,7 +3364,7 @@ cris_expand_epilogue (void)
 	 it's still used.  */
       push_topmost_sequence ();
       got_really_used
-	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL);
       pop_topmost_sequence ();
     }
 

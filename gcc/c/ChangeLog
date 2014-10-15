@@ -1,3 +1,85 @@
+2014-10-14  DJ Delorie  <dj@redhat.com>
+
+	* c-parser.c (c_parse_init): Add RID entries for each __intN.
+	(c_token_starts_typename): Check all __intN, not just __int128.
+	(c_token_starts_declspecs): Likewise.
+	(c_parser_declspecs): Likewise.
+	(c_parser_attribute_any_word): Likewise.
+	(c_parser_objc_selector): Likewise.
+	* c-tree.h (c_typespec_keyword): cts_int128 -> cts_int_n.
+	(struct c_declspecs): Add int_n_idx field to record *which* __intN
+	is specified.
+	* c-decl.c (declspecs_add_type): Check for all __intN, not just
+	__int128.
+	(finish_declspecs): Likewise.
+
+2014-10-13  Anthony Brandon  <anthony.brandon@gmail.com>
+
+        * c-parser.c (c_parser_all_labels): New function to replace
+	the duplicate code.
+        (c_parser_statement): Call the new function.
+
+2014-10-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/63480
+	* c-typeck.c (pop_init_level): Don't warn about initializing
+	with { }.
+
+2014-10-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/59717
+	* c-decl.c (header_for_builtin_fn): New function.
+	(implicitly_declare): Suggest which header to include.
+
+2014-10-07  Marek Polacek  <polacek@redhat.com>
+
+	* c-convert.c (convert): Use error_operand_p.
+	* c-typeck.c (require_complete_type): Likewise.
+	(really_atomic_lvalue): Likewise.
+	(digest_init): Likewise.
+	(handle_omp_array_sections_1): Likewise.
+
+2014-10-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/63453
+	* c-decl.c (pop_scope): Don't warn about "inline function declared
+	but never defined" for functions marked with gnu_inline attribute.
+
+2014-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/63249
+	* c-parser.c (c_parser_omp_variable_list): Call mark_exp_read
+	on low_bound and length.
+
+2014-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61405
+	PR c/53874
+	* c-parser.c: Don't define CPP_KEYWORD.
+	(c_parser_switch_statement): Pass original type to c_finish_case.
+	* c-tree.h (c_finish_case): Update declaration.
+	* c-typeck.c (c_finish_case): Add TYPE parameter.  Pass it
+	conditionally to c_do_switch_warnings.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/62024
+	* c-parser.c (c_parser_static_assert_declaration_no_semi): Strip no-op
+	conversions.
+
+2014-09-02  Jakub Jelinek  <jakub@redhat.com>
+	    Balaji V. Iyer  <balaji.v.iyer@intel.com>
+	    Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	* c-parser.c (c_parser_cilk_for): New function.
+	(c_parser_cilk_grainsize): Likewise.
+	(c_get_temp_regvar): Likewise.
+	(c_parser_statement_after_labels): Added RID_CILK_FOR case.
+	(c_parser_pragma): Added PRAGMA_CILK_GRAINSIZE case.
+	(c_parser_omp_for_loop): Added CILK_FOR and CILK_SIMD checks.
+	* c-typeck.c (c_finish_omp_clauses): Added OMP_CLAUSE__CILK_FOR_COUNT_
+	case.
+
 2014-08-27  Chen Gang  <gang.chen.5i5j@gmail.com>
 
 	* c-aux-info.c (gen_type): Resize 'buff' from 10 to 23 bytes,

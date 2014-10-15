@@ -103,30 +103,34 @@ struct cgraph_2node_hook_list {
   struct cgraph_2node_hook_list *next;
 };
 
+/* Hash descriptor for cgraph_function_version_info.  */
+
+struct function_version_hasher : ggc_hasher<cgraph_function_version_info *>
+{
+  static hashval_t hash (cgraph_function_version_info *);
+  static bool equal (cgraph_function_version_info *,
+		     cgraph_function_version_info *);
+};
+
 /* Map a cgraph_node to cgraph_function_version_info using this htab.
    The cgraph_function_version_info has a THIS_NODE field that is the
    corresponding cgraph_node..  */
 
-static GTY((param_is (cgraph_function_version_info))) htab_t
-  cgraph_fnver_htab = NULL;
+static GTY(()) hash_table<function_version_hasher> *cgraph_fnver_htab = NULL;
 
 /* Hash function for cgraph_fnver_htab.  */
-static hashval_t
-cgraph_fnver_htab_hash (const void *ptr)
+hashval_t
+function_version_hasher::hash (cgraph_function_version_info *ptr)
 {
-  int uid = ((const cgraph_function_version_info *)ptr)->this_node->uid;
+  int uid = ptr->this_node->uid;
   return (hashval_t)(uid);
 }
 
 /* eq function for cgraph_fnver_htab.  */
-static int
-cgraph_fnver_htab_eq (const void *p1, const void *p2)
+bool
+function_version_hasher::equal (cgraph_function_version_info *n1,
+			       	cgraph_function_version_info *n2)
 {
-  const cgraph_function_version_info *n1
-    = (const cgraph_function_version_info *)p1;
-  const cgraph_function_version_info *n2
-    = (const cgraph_function_version_info *)p2;
-
   return n1->this_node->uid == n2->this_node->uid;
 }
 
@@ -138,17 +142,13 @@ static GTY(()) struct cgraph_function_version_info *
 cgraph_function_version_info *
 cgraph_node::function_version (void)
 {
-  cgraph_function_version_info *ret;
   cgraph_function_version_info key;
   key.this_node = this;
 
   if (cgraph_fnver_htab == NULL)
     return NULL;
 
-  ret = (cgraph_function_version_info *)
-    htab_find (cgraph_fnver_htab, &key);
-
-  return ret;
+  return cgraph_fnver_htab->find (&key);
 }
 
 /* Insert a new cgraph_function_version_info node into cgraph_fnver_htab
@@ -156,19 +156,15 @@ cgraph_node::function_version (void)
 cgraph_function_version_info *
 cgraph_node::insert_new_function_version (void)
 {
-  void **slot;
-  
   version_info_node = NULL;
   version_info_node = ggc_cleared_alloc<cgraph_function_version_info> ();
   version_info_node->this_node = this;
 
   if (cgraph_fnver_htab == NULL)
-    cgraph_fnver_htab = htab_create_ggc (2, cgraph_fnver_htab_hash,
-				         cgraph_fnver_htab_eq, NULL);
+    cgraph_fnver_htab = hash_table<function_version_hasher>::create_ggc (2);
 
-  slot = htab_find_slot (cgraph_fnver_htab, version_info_node, INSERT);
-  gcc_assert (slot != NULL);
-  *slot = version_info_node;
+  *cgraph_fnver_htab->find_slot (version_info_node, INSERT)
+    = version_info_node;
   return version_info_node;
 }
 
@@ -195,7 +191,7 @@ cgraph_node::delete_function_version (tree decl)
     decl_v->next->prev = decl_v->prev;
 
   if (cgraph_fnver_htab != NULL)
-    htab_remove_elt (cgraph_fnver_htab, decl_v);
+    cgraph_fnver_htab->remove_elt (decl_v);
 
   decl_node->remove ();
 }
@@ -596,18 +592,18 @@ cgraph_node::get_for_asmname (tree asmname)
 
 /* Returns a hash value for X (which really is a cgraph_edge).  */
 
-static hashval_t
-edge_hash (const void *x)
+hashval_t
+cgraph_edge_hasher::hash (cgraph_edge *e)
 {
-  return htab_hash_pointer (((const cgraph_edge *) x)->call_stmt);
+  return htab_hash_pointer (e->call_stmt);
 }
 
 /* Return nonzero if the call_stmt of of cgraph_edge X is stmt *Y.  */
 
-static int
-edge_eq (const void *x, const void *y)
+inline bool
+cgraph_edge_hasher::equal (cgraph_edge *x, gimple y)
 {
-  return ((const cgraph_edge *) x)->call_stmt == y;
+  return x->call_stmt == y;
 }
 
 /* Add call graph edge E to call site hash of its caller.  */
@@ -615,12 +611,10 @@ edge_eq (const void *x, const void *y)
 static inline void
 cgraph_update_edge_in_call_site_hash (cgraph_edge *e)
 {
-  void **slot;
-  slot = htab_find_slot_with_hash (e->caller->call_site_hash,
-				   e->call_stmt,
-				   htab_hash_pointer (e->call_stmt),
-				   INSERT);
-  *slot = e;
+  gimple call = e->call_stmt;
+  *e->caller->call_site_hash->find_slot_with_hash (call,
+						   htab_hash_pointer (call),
+						   INSERT) = e;
 }
 
 /* Add call graph edge E to call site hash of its caller.  */
@@ -628,15 +622,13 @@ cgraph_update_edge_in_call_site_hash (cgraph_edge *e)
 static inline void
 cgraph_add_edge_to_call_site_hash (cgraph_edge *e)
 {
-  void **slot;
   /* There are two speculative edges for every statement (one direct,
      one indirect); always hash the direct one.  */
   if (e->speculative && e->indirect_unknown_callee)
     return;
-  slot = htab_find_slot_with_hash (e->caller->call_site_hash,
-				   e->call_stmt,
-				   htab_hash_pointer (e->call_stmt),
-				   INSERT);
+  cgraph_edge **slot = e->caller->call_site_hash->find_slot_with_hash
+				   (e->call_stmt,
+				    htab_hash_pointer (e->call_stmt), INSERT);
   if (*slot)
     {
       gcc_assert (((cgraph_edge *)*slot)->speculative);
@@ -658,9 +650,8 @@ cgraph_node::get_edge (gimple call_stmt)
   int n = 0;
 
   if (call_site_hash)
-    return (cgraph_edge *)
-      htab_find_with_hash (call_site_hash, call_stmt,
-      	                   htab_hash_pointer (call_stmt));
+    return call_site_hash->find_with_hash (call_stmt,
+					   htab_hash_pointer (call_stmt));
 
   /* This loop may turn out to be performance problem.  In such case adding
      hashtables into call nodes with very many edges is probably best
@@ -684,7 +675,7 @@ cgraph_node::get_edge (gimple call_stmt)
 
   if (n > 100)
     {
-      call_site_hash = htab_create_ggc (120, edge_hash, edge_eq, NULL);
+      call_site_hash = hash_table<cgraph_edge_hasher>::create_ggc (120);
       for (e2 = callees; e2; e2 = e2->next_callee)
 	cgraph_add_edge_to_call_site_hash (e2);
       for (e2 = indirect_calls; e2; e2 = e2->next_callee)
@@ -722,9 +713,8 @@ cgraph_edge::set_call_stmt (gimple new_stmt, bool update_speculative)
   if (caller->call_site_hash
       && (!speculative || !indirect_unknown_callee))
     {
-      htab_remove_elt_with_hash (caller->call_site_hash,
-				 call_stmt,
-				 htab_hash_pointer (call_stmt));
+      caller->call_site_hash->remove_elt_with_hash
+	(call_stmt, htab_hash_pointer (call_stmt));
     }
 
   cgraph_edge *e = this;
@@ -819,6 +809,12 @@ symbol_table::create_edge (cgraph_node *caller, cgraph_node *callee,
   edge->indirect_inlining_edge = 0;
   edge->speculative = false;
   edge->indirect_unknown_callee = indir_unknown_callee;
+  if (flag_devirtualize && call_stmt && DECL_STRUCT_FUNCTION (caller->decl))
+    edge->in_polymorphic_cdtor
+      = decl_maybe_in_construction_p (NULL, NULL, call_stmt,
+				      caller->decl);
+  else
+    edge->in_polymorphic_cdtor = caller->thunk.thunk_p;
   if (call_stmt && caller->call_site_hash)
     cgraph_add_edge_to_call_site_hash (edge);
 
@@ -877,6 +873,7 @@ cgraph_node::create_indirect_edge (gimple call_stmt, int ecf_flags,
 
   edge->indirect_info = cgraph_allocate_init_indirect_info ();
   edge->indirect_info->ecf_flags = ecf_flags;
+  edge->indirect_info->vptr_changed = true;
 
   /* Record polymorphic call info.  */
   if (compute_indirect_info
@@ -884,31 +881,16 @@ cgraph_node::create_indirect_edge (gimple call_stmt, int ecf_flags,
       && (target = gimple_call_fn (call_stmt))
       && virtual_method_call_p (target))
     {
-      tree otr_type;
-      HOST_WIDE_INT otr_token;
-      ipa_polymorphic_call_context context;
-
-      get_polymorphic_call_info (decl,
-				 target,
-				 &otr_type, &otr_token,
-				 &context, call_stmt);
+      ipa_polymorphic_call_context context (decl, target, call_stmt);
 
       /* Only record types can have virtual calls.  */
-      gcc_assert (TREE_CODE (otr_type) == RECORD_TYPE);
       edge->indirect_info->polymorphic = true;
       edge->indirect_info->param_index = -1;
-      edge->indirect_info->otr_token = otr_token;
-      edge->indirect_info->otr_type = otr_type;
-      edge->indirect_info->outer_type = context.outer_type;
-      edge->indirect_info->speculative_outer_type
-	 = context.speculative_outer_type;
-      edge->indirect_info->offset = context.offset;
-      edge->indirect_info->speculative_offset = context.speculative_offset;
-      edge->indirect_info->maybe_in_construction
-	 = context.maybe_in_construction;
-      edge->indirect_info->maybe_derived_type = context.maybe_derived_type;
-      edge->indirect_info->speculative_maybe_derived_type
-	 = context.speculative_maybe_derived_type;
+      edge->indirect_info->otr_token
+	 = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (target));
+      edge->indirect_info->otr_type = obj_type_ref_class (target);
+      gcc_assert (TREE_CODE (edge->indirect_info->otr_type) == RECORD_TYPE);
+      edge->indirect_info->context = context;
     }
 
   edge->next_callee = indirect_calls;
@@ -950,9 +932,8 @@ cgraph_edge::remove_caller (void)
 	caller->callees = next_callee;
     }
   if (caller->call_site_hash)
-    htab_remove_elt_with_hash (caller->call_site_hash,
-			       call_stmt,
-			       htab_hash_pointer (call_stmt));
+    caller->call_site_hash->remove_elt_with_hash (call_stmt,
+						  htab_hash_pointer (call_stmt));
 }
 
 /* Put the edge onto the free list.  */
@@ -1048,6 +1029,7 @@ cgraph_edge::make_speculative (cgraph_node *n2, gcov_type direct_count,
   else
     e2->can_throw_external = can_throw_external;
   e2->lto_stmt_uid = lto_stmt_uid;
+  e2->in_polymorphic_cdtor = in_polymorphic_cdtor;
   count -= e2->count;
   frequency -= e2->frequency;
   symtab->call_edge_duplication_hooks (this, e2);
@@ -1571,7 +1553,7 @@ cgraph_node::remove_callees (void)
   callees = NULL;
   if (call_site_hash)
     {
-      htab_delete (call_site_hash);
+      call_site_hash->empty ();
       call_site_hash = NULL;
     }
 }
@@ -1640,16 +1622,19 @@ release_function_body (tree decl)
 /* Release memory used to represent body of function.
    Use this only for functions that are released before being translated to
    target code (i.e. RTL).  Functions that are compiled to RTL and beyond
-   are free'd in final.c via free_after_compilation().  */
+   are free'd in final.c via free_after_compilation().
+   KEEP_ARGUMENTS are useful only if you want to rebuild body as thunk.  */
 
 void
-cgraph_node::release_body (void)
+cgraph_node::release_body (bool keep_arguments)
 {
   ipa_transforms_to_apply.release ();
   if (!used_as_abstract_origin && symtab->state != PARSING)
     {
       DECL_RESULT (decl) = NULL;
-      DECL_ARGUMENTS (decl) = NULL;
+
+      if (!keep_arguments)
+	DECL_ARGUMENTS (decl) = NULL;
     }
   /* If the node is abstract and needed, then do not clear DECL_INITIAL
      of its associated function function declaration because it's
@@ -1747,7 +1732,7 @@ cgraph_node::remove (void)
   decl = NULL;
   if (call_site_hash)
     {
-      htab_delete (call_site_hash);
+      call_site_hash->empty ();
       call_site_hash = NULL;
     }
 
@@ -1857,6 +1842,26 @@ cgraph_inline_failed_type (cgraph_inline_failed_t reason)
 const char * const cgraph_availability_names[] =
   {"unset", "not_available", "overwritable", "available", "local"};
 
+/* Output flags of edge E.  */
+
+static void
+dump_edge_flags (FILE *f, struct cgraph_edge *edge)
+{
+  if (edge->speculative)
+    fprintf (f, "(speculative) ");
+  if (!edge->inline_failed)
+    fprintf (f, "(inlined) ");
+  if (edge->indirect_inlining_edge)
+    fprintf (f, "(indirect_inlining) ");
+  if (edge->count)
+    fprintf (f, "(%"PRId64"x) ",
+	     (int64_t)edge->count);
+  if (edge->frequency)
+    fprintf (f, "(%.2f per call) ",
+	     edge->frequency / (double)CGRAPH_FREQ_BASE);
+  if (edge->can_throw_external)
+    fprintf (f, "(can throw external) ");
+}
 
 /* Dump call graph node to file F.  */
 
@@ -1864,7 +1869,6 @@ void
 cgraph_node::dump (FILE *f)
 {
   cgraph_edge *edge;
-  int indirect_calls_count = 0;
 
   dump_base (f);
 
@@ -1943,20 +1947,7 @@ cgraph_node::dump (FILE *f)
     {
       fprintf (f, "%s/%i ", edge->caller->asm_name (),
 	       edge->caller->order);
-      if (count)
-	fprintf (f, "(%"PRId64"x) ",
-		 (int64_t)count);
-      if (frequency)
-	fprintf (f, "(%.2f per call) ",
-		 frequency / (double)CGRAPH_FREQ_BASE);
-      if (edge->speculative)
-	fprintf (f, "(speculative) ");
-      if (!edge->inline_failed)
-	fprintf (f, "(inlined) ");
-      if (edge->indirect_inlining_edge)
-	fprintf (f, "(indirect_inlining) ");
-      if (edge->can_throw_external)
-	fprintf (f, "(can throw external) ");
+      dump_edge_flags (f, edge);
     }
 
   fprintf (f, "\n  Calls: ");
@@ -1964,28 +1955,36 @@ cgraph_node::dump (FILE *f)
     {
       fprintf (f, "%s/%i ", edge->callee->asm_name (),
 	       edge->callee->order);
-      if (edge->speculative)
-	fprintf (f, "(speculative) ");
-      if (!edge->inline_failed)
-	fprintf (f, "(inlined) ");
-      if (edge->indirect_inlining_edge)
-	fprintf (f, "(indirect_inlining) ");
-      if (edge->count)
-	fprintf (f, "(%"PRId64"x) ",
-		 (int64_t)count);
-      if (edge->frequency)
-	fprintf (f, "(%.2f per call) ",
-		 frequency / (double)CGRAPH_FREQ_BASE);
-      if (edge->can_throw_external)
-	fprintf (f, "(can throw external) ");
+      dump_edge_flags (f, edge);
     }
   fprintf (f, "\n");
 
   for (edge = indirect_calls; edge; edge = edge->next_callee)
-    indirect_calls_count++;
-  if (indirect_calls_count)
-    fprintf (f, "  Has %i outgoing edges for indirect calls.\n",
-	     indirect_calls_count);
+    {
+      if (edge->indirect_info->polymorphic)
+	{
+          fprintf (f, "   Polymorphic indirect call of type ");
+	  print_generic_expr (f, edge->indirect_info->otr_type, TDF_SLIM);
+	  fprintf (f, " token:%i", (int) edge->indirect_info->otr_token);
+	}
+      else
+        fprintf (f, "   Indirect call");
+      dump_edge_flags (f, edge);
+      if (edge->indirect_info->param_index != -1)
+	{
+	  fprintf (f, " of param:%i", edge->indirect_info->param_index);
+	  if (edge->indirect_info->agg_contents)
+	   fprintf (f, " loaded from %s %s at offset %i",
+		    edge->indirect_info->member_ptr ? "member ptr" : "aggregate",
+		    edge->indirect_info->by_ref ? "passed by reference":"",
+		    (int)edge->indirect_info->offset);
+	  if (edge->indirect_info->vptr_changed)
+	    fprintf (f, " (vptr maybe changed)");
+	}
+      fprintf (f, "\n");
+      if (edge->indirect_info->polymorphic)
+	edge->indirect_info->context.dump (f);
+    }
 }
 
 /* Dump call graph node NODE to stderr.  */
@@ -2980,6 +2979,23 @@ cgraph_node::get_body (void)
   timevar_pop (TV_IPA_LTO_GIMPLE_IN);
 
   return true;
+}
+
+/* Return the DECL_STRUCT_FUNCTION of the function.  */
+
+struct function *
+cgraph_node::get_fun (void)
+{
+  cgraph_node *node = this;
+  struct function *fun = DECL_STRUCT_FUNCTION (node->decl);
+
+  while (!fun && node->clone_of)
+    {
+      node = node->clone_of;
+      fun = DECL_STRUCT_FUNCTION (node->decl);
+    }
+
+  return fun;
 }
 
 /* Verify if the type of the argument matches that of the function

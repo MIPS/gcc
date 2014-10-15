@@ -920,7 +920,8 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
 /* This routine will replace a store with a SET to a specified register.  */
 
 static void
-replace_store_insn (rtx reg, rtx del, basic_block bb, struct st_expr *smexpr)
+replace_store_insn (rtx reg, rtx_insn *del, basic_block bb,
+		    struct st_expr *smexpr)
 {
   rtx_insn *insn;
   rtx mem, note, set, ptr;
@@ -984,16 +985,16 @@ replace_store_insn (rtx reg, rtx del, basic_block bb, struct st_expr *smexpr)
 static void
 delete_store (struct st_expr * expr, basic_block bb)
 {
-  rtx reg, i, del;
+  rtx reg;
 
   if (expr->reaching_reg == NULL_RTX)
     expr->reaching_reg = gen_reg_rtx_and_attrs (expr->pattern);
 
   reg = expr->reaching_reg;
 
-  for (i = expr->avail_stores; i; i = XEXP (i, 1))
+  for (rtx_insn_list *i = expr->avail_stores; i; i = i->next ())
     {
-      del = XEXP (i, 0);
+      rtx_insn *del = i->insn ();
       if (BLOCK_FOR_INSN (del) == bb)
 	{
 	  /* We know there is only one since we deleted redundant
@@ -1011,7 +1012,8 @@ build_store_vectors (void)
 {
   basic_block bb;
   int *regs_set_in_block;
-  rtx insn, st;
+  rtx_insn *insn;
+  rtx_insn_list *st;
   struct st_expr * ptr;
   unsigned int max_gcse_regno = max_reg_num ();
 
@@ -1027,9 +1029,9 @@ build_store_vectors (void)
 
   for (ptr = first_st_expr (); ptr != NULL; ptr = next_st_expr (ptr))
     {
-      for (st = ptr->avail_stores; st != NULL; st = XEXP (st, 1))
+      for (st = ptr->avail_stores; st != NULL; st = st->next ())
 	{
-	  insn = XEXP (st, 0);
+	  insn = st->insn ();
 	  bb = BLOCK_FOR_INSN (insn);
 
 	  /* If we've already seen an available expression in this block,
@@ -1041,15 +1043,15 @@ build_store_vectors (void)
 	      rtx r = gen_reg_rtx_and_attrs (ptr->pattern);
 	      if (dump_file)
 		fprintf (dump_file, "Removing redundant store:\n");
-	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
+	      replace_store_insn (r, st->insn (), bb, ptr);
 	      continue;
 	    }
 	  bitmap_set_bit (st_avloc[bb->index], ptr->index);
 	}
 
-      for (st = ptr->antic_stores; st != NULL; st = XEXP (st, 1))
+      for (st = ptr->antic_stores; st != NULL; st = st->next ())
 	{
-	  insn = XEXP (st, 0);
+	  insn = st->insn ();
 	  bb = BLOCK_FOR_INSN (insn);
 	  bitmap_set_bit (st_antloc[bb->index], ptr->index);
 	}

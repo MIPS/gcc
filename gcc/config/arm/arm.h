@@ -296,6 +296,9 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 /* FPU supports VFPv3 instructions.  */
 #define TARGET_VFP3 (TARGET_VFP && arm_fpu_desc->rev >= 3)
 
+/* FPU supports FPv5 instructions.  */
+#define TARGET_VFP5 (TARGET_VFP && arm_fpu_desc->rev >= 5)
+
 /* FPU only supports VFP single-precision instructions.  */
 #define TARGET_VFP_SINGLE (TARGET_VFP && arm_fpu_desc->regs == VFP_REG_SINGLE)
 
@@ -439,9 +442,6 @@ extern int arm_fpu_attr;
 #ifndef TARGET_DEFAULT_FLOAT_ABI
 #define TARGET_DEFAULT_FLOAT_ABI ARM_FLOAT_ABI_SOFT
 #endif
-
-#define LARGEST_EXPONENT_IS_NORMAL(bits) \
-    ((bits) == 16 && arm_fp16_format == ARM_FP16_FORMAT_ALTERNATIVE)
 
 #ifndef ARM_DEFAULT_ABI
 #define ARM_DEFAULT_ABI ARM_ABI_APCS

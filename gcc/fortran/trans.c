@@ -1085,7 +1085,7 @@ gfc_add_finalizer_call (stmtblock_t *block, gfc_expr *expr2)
     }
 
   /* If we have a class array, we need go back to the class
-     container. */
+     container.  */
   expr = gfc_copy_expr (expr2);
 
   if (expr->ref && expr->ref->next && !expr->ref->next->next
@@ -1963,7 +1963,7 @@ gfc_generate_module_code (gfc_namespace * ns)
   entry = gfc_find_module (ns->proc_name->name);
   if (entry->namespace_decl)
     /* Buggy sourcecode, using a module before defining it?  */
-    htab_empty (entry->decls);
+    entry->decls->empty ();
   entry->namespace_decl = ns->proc_name->backend_decl;
 
   gfc_generate_module_vars (ns);

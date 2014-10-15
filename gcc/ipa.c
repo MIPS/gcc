@@ -198,7 +198,11 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 
 	  if (dump_enabled_p ())
             {
-	      location_t locus = gimple_location (edge->call_stmt);
+	      location_t locus;
+	      if (edge->call_stmt)
+		locus = gimple_location (edge->call_stmt);
+	      else
+		locus = UNKNOWN_LOCATION;
 	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
                                "devirtualizing call in %s/%i to %s/%i\n",
                                edge->caller->name (), edge->caller->order,
@@ -538,6 +542,11 @@ symbol_table::remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		fprintf (file, " %s", vnode->name ());
 	      changed = true;
 	    }
+	  /* Keep body if it may be useful for constant folding.  */
+	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node)
+	    vnode->remove_initializer ();
+	  else
+	    DECL_INITIAL (vnode->decl) = init;
 	  vnode->body_removed = true;
 	  vnode->definition = false;
 	  vnode->analyzed = false;
@@ -545,11 +554,6 @@ symbol_table::remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 
 	  vnode->remove_from_same_comdat_group ();
 
-	  /* Keep body if it may be useful for constant folding.  */
-	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node)
-	    vnode->remove_initializer ();
-	  else
-	    DECL_INITIAL (vnode->decl) = init;
 	  vnode->remove_all_references ();
 	}
       else

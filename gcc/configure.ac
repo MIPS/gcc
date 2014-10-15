@@ -1924,6 +1924,22 @@ elif test "x$TARGET_SYSTEM_ROOT" != x; then
         SYSTEM_HEADER_DIR=$build_system_header_dir 
 fi
 
+if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
+  if test "x$with_headers" != x; then
+    target_header_dir=$with_headers
+  elif test "x$with_sysroot" = x; then
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
+  elif test "x$with_build_sysroot" != "x"; then
+    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
+  elif test "x$with_sysroot" = xyes; then
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
+  else
+    target_header_dir="${with_sysroot}${native_system_header_dir}"
+  fi
+else
+  target_header_dir=${native_system_header_dir}
+fi
+
 # If this is a cross-compiler that does not
 # have its own set of headers then define
 # inhibit_libc
@@ -1935,7 +1951,7 @@ fi
 : ${inhibit_libc=false}
 if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
        test x$with_newlib = xyes ; } &&
-     { test "x$with_headers" = x || test "x$with_headers" = xno ; } ; then
+     { test "x$with_headers" = xno || test ! -f "$target_header_dir/stdio.h"; } ; then
        inhibit_libc=true
 fi
 AC_SUBST(inhibit_libc)
@@ -3510,6 +3526,29 @@ case "$target" in
         done
       fi
     fi
+    # Enable default workaround for AArch64 Cortex-A53 erratum 835769.
+    AC_ARG_ENABLE(fix-cortex-a53-835769,
+    [
+AS_HELP_STRING([--enable-fix-cortex-a53-835769],
+        [enable workaround for AArch64 Cortex-A53 erratum 835769 by default])
+AS_HELP_STRING([--disable-fix-cortex-a53-835769],
+        [disable workaround for AArch64 Cortex-A53 erratum 835769 by default])
+    ],
+      [
+        case $enableval in
+          yes)
+            tm_defines="${tm_defines} TARGET_FIX_ERR_A53_835769_DEFAULT=1"
+            ;;
+          no)
+            ;;
+          *)
+            AC_MSG_ERROR(['$enableval' is an invalid value for --enable-fix-cortex-a53-835769.\
+  Valid choices are 'yes' and 'no'.])
+            ;;
+
+        esac
+      ],
+    [])
     ;;
 
   # All TARGET_ABI_OSF targets.
@@ -4441,22 +4480,6 @@ if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "NONE"; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
 [Define to PREFIX/include if cpp should also search that directory.])
-fi
-
-if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
-  if test "x$with_headers" != x; then
-    target_header_dir=$with_headers
-  elif test "x$with_sysroot" = x; then
-    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
-  elif test "x$with_build_sysroot" != "x"; then
-    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
-  elif test "x$with_sysroot" = xyes; then
-    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
-  else
-    target_header_dir="${with_sysroot}${native_system_header_dir}"
-  fi
-else
-  target_header_dir=${native_system_header_dir}
 fi
 
 # Determine the version of glibc, if any, used on the target.

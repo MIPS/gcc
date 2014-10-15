@@ -91,7 +91,6 @@ enum rid
 
   /* C */
   RID_INT,     RID_CHAR,   RID_FLOAT,    RID_DOUBLE, RID_VOID,
-  RID_INT128,
   RID_ENUM,    RID_STRUCT, RID_UNION,    RID_IF,     RID_ELSE,
   RID_WHILE,   RID_DO,     RID_FOR,      RID_SWITCH, RID_CASE,
   RID_DEFAULT, RID_BREAK,  RID_CONTINUE, RID_RETURN, RID_GOTO,
@@ -138,18 +137,20 @@ enum rid
   RID_HAS_TRIVIAL_CONSTRUCTOR, RID_HAS_TRIVIAL_COPY,
   RID_HAS_TRIVIAL_DESTRUCTOR,  RID_HAS_VIRTUAL_DESTRUCTOR,
   RID_IS_ABSTRACT,             RID_IS_BASE_OF,
-  RID_IS_CLASS,                RID_IS_CONVERTIBLE_TO,
+  RID_IS_CLASS,
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
   RID_IS_STD_LAYOUT,           RID_IS_TRIVIAL,
+  RID_IS_TRIVIALLY_ASSIGNABLE, RID_IS_TRIVIALLY_CONSTRUCTIBLE,
+  RID_IS_TRIVIALLY_COPYABLE,
   RID_IS_UNION,                RID_UNDERLYING_TYPE,
 
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
 
   /* Cilk Plus keywords.  */
-  RID_CILK_SPAWN, RID_CILK_SYNC,
+  RID_CILK_SPAWN, RID_CILK_SYNC, RID_CILK_FOR,
   
   /* Objective-C ("AT" reserved words - they are only keywords when
      they follow '@')  */
@@ -187,6 +188,23 @@ enum rid
 
   RID_FIRST_ADDR_SPACE = RID_ADDR_SPACE_0,
   RID_LAST_ADDR_SPACE = RID_ADDR_SPACE_15,
+
+  /* __intN keywords.  The _N_M here doesn't correspond to the intN
+     in the keyword; use the bitsize in int_n_t_data_t[M] for that.
+     For example, if int_n_t_data_t[0].bitsize is 13, then RID_INT_N_0
+     is for __int13.  */
+
+  /* Note that the range to use is RID_FIRST_INT_N through
+     RID_FIRST_INT_N + NUM_INT_N_ENTS - 1 and c-parser.c has a list of
+     all RID_INT_N_* in a case statement.  */
+
+  RID_INT_N_0,
+  RID_INT_N_1,
+  RID_INT_N_2,
+  RID_INT_N_3,
+
+  RID_FIRST_INT_N = RID_INT_N_0,
+  RID_LAST_INT_N = RID_INT_N_3,
 
   RID_MAX,
 
@@ -326,9 +344,6 @@ struct c_common_resword
 };
 
 /* Extra cpp_ttype values for C++.  */
-
-/* A token type for keywords, as opposed to ordinary identifiers.  */
-#define CPP_KEYWORD ((enum cpp_ttype) (N_TTYPES + 1))
 
 /* A token type for template-ids.  If a template-id is processed while
    parsing tentatively, it is replaced with a CPP_TEMPLATE_ID token;
@@ -1395,4 +1410,5 @@ extern tree create_cilk_function_exit (tree, bool, bool);
 extern tree cilk_install_body_pedigree_operations (tree);
 extern void cilk_outline (tree, tree *, void *);
 extern bool contains_cilk_spawn_stmt (tree);
+extern tree cilk_for_number_of_iterations (tree);
 #endif /* ! GCC_C_COMMON_H */

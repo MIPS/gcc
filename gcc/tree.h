@@ -2062,7 +2062,7 @@ extern void protected_set_expr_location (tree, location_t);
    information, we mustn't try to generate any address information for nodes
    marked as "abstract instances" because we don't actually generate
    any code or allocate any data space for such instances.  */
-#define DECL_ABSTRACT(NODE) \
+#define DECL_ABSTRACT_P(NODE) \
   (DECL_COMMON_CHECK (NODE)->decl_common.abstract_flag)
 
 /* Language-specific decl information.  */
@@ -2344,7 +2344,11 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
-   as DECL_NAME.  It is an IDENTIFIER_NODE.  */
+   as DECL_NAME.  It is an IDENTIFIER_NODE.
+
+   ASSEMBLER_NAME of TYPE_DECLS may store global name of type used for
+   One Definition Rule based type merging at LTO.  It is computed only for
+   LTO compilation and C++.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
 /* Return true if NODE is a NODE that can contain a DECL_ASSEMBLER_NAME.
@@ -3422,8 +3426,6 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define long_unsigned_type_node		integer_types[itk_unsigned_long]
 #define long_long_integer_type_node	integer_types[itk_long_long]
 #define long_long_unsigned_type_node	integer_types[itk_unsigned_long_long]
-#define int128_integer_type_node	integer_types[itk_int128]
-#define int128_unsigned_type_node	integer_types[itk_unsigned_int128]
 
 /* True if NODE is an erroneous expression.  */
 
@@ -3825,6 +3827,10 @@ extern tree merge_dllimport_decl_attributes (tree, tree);
 extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
 #endif
 
+/* Returns true iff unqualified CAND and BASE are equivalent.  */
+
+extern bool check_base_type (const_tree cand, const_tree base);
+
 /* Check whether CAND is suitable to be returned from get_qualified_type
    (BASE, TYPE_QUALS).  */
 
@@ -3873,7 +3879,6 @@ extern tree size_in_bytes (const_tree);
 extern HOST_WIDE_INT int_size_in_bytes (const_tree);
 extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
 extern tree bit_position (const_tree);
-extern HOST_WIDE_INT int_bit_position (const_tree);
 extern tree byte_position (const_tree);
 extern HOST_WIDE_INT int_byte_position (const_tree);
 
@@ -3942,6 +3947,11 @@ extern int integer_zerop (const_tree);
 /* integer_onep (tree x) is nonzero if X is an integer constant of value 1.  */
 
 extern int integer_onep (const_tree);
+
+/* integer_onep (tree x) is nonzero if X is an integer constant of value 1, or
+   a vector or complex where each part is 1.  */
+
+extern int integer_each_onep (const_tree);
 
 /* integer_all_onesp (tree x) is nonzero if X is an integer constant
    all of whose significant bits are 1.  */
@@ -4788,4 +4798,25 @@ extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
    EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 extern tree array_ref_low_bound (tree);
 
+
+struct GTY(()) int_n_trees_t {
+  /* These parts are initialized at runtime */
+  tree signed_type;
+  tree unsigned_type;
+};
+
+/* This is also in machmode.h */
+extern bool int_n_enabled_p[NUM_INT_N_ENTS];
+extern GTY(()) struct int_n_trees_t int_n_trees[NUM_INT_N_ENTS];
+
+/* Like bit_position, but return as an integer.  It must be representable in
+   that way (since it could be a signed value, we don't have the
+   option of returning -1 like int_size_in_byte can.  */
+
+inline HOST_WIDE_INT
+int_bit_position (const_tree field)
+{ 
+  return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
+	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
+}
 #endif  /* GCC_TREE_H  */

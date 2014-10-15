@@ -1,3 +1,12 @@
+2014-10-15  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r214675 through r216234.
+
+	* hash-table.h: Do not include ggc.h on the host but just declare
+	a few ggc allocation templates.
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Set
+	VUSE on built call stmts.
+
 2014-10-14  Richard Biener  <rguenther@suse.de>
 
 	* gimple-fold.h (no_follow_ssa_edges): Declare.

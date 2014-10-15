@@ -258,10 +258,7 @@ Gogo::pkgpath_for_symbol(const std::string& pkgpath)
       char c = s[i];
       if ((c >= 'a' && c <= 'z')
 	  || (c >= 'A' && c <= 'Z')
-	  || (c >= '0' && c <= '9')
-	  || c == '_'
-	  || c == '.'
-	  || c == '$')
+	  || (c >= '0' && c <= '9'))
 	;
       else
 	s[i] = '_';
@@ -655,9 +652,13 @@ Gogo::backend_zero_value()
 
   Btype* barray_type = this->backend()->array_type(bbtype_type, blength);
 
-  return this->backend()->implicit_variable(this->zero_value_->name(),
-					    barray_type, NULL, true, true,
-					    this->zero_value_align_);
+  std::string zname = this->zero_value_->name();
+  Bvariable* zvar =
+    this->backend()->implicit_variable(zname, barray_type, false,
+				       true, true, this->zero_value_align_);
+  this->backend()->implicit_variable_set_init(zvar, zname, barray_type,
+					      false, true, true, NULL);
+  return zvar;
 }
 
 // Add statements to INIT_STMTS which run the initialization
@@ -6837,8 +6838,10 @@ Named_object::get_backend(Gogo* gogo, std::vector<Bexpression*>& const_decls,
           {
             named_type->
                 type_descriptor_pointer(gogo, Linemap::predeclared_location());
+	    named_type->gc_symbol_pointer(gogo);
             Type* pn = Type::make_pointer_type(named_type);
             pn->type_descriptor_pointer(gogo, Linemap::predeclared_location());
+	    pn->gc_symbol_pointer(gogo);
           }
       }
       break;

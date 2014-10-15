@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_FUNCTION_H
 
 #include "hashtab.h"
+#include "hash-set.h"
 #include "vec.h"
 #include "machmode.h"
 #include "tm.h"			/* For CUMULATIVE_ARGS.  */
@@ -135,7 +136,7 @@ struct GTY(()) expr_status {
   rtx x_apply_args_value;
 
   /* List of labels that must never be deleted.  */
-  rtx_expr_list *x_forced_labels;
+  rtx_insn_list *x_forced_labels;
 };
 
 typedef struct call_site_record_d *call_site_record;
@@ -264,19 +265,19 @@ struct GTY(()) rtl_data {
      Used for detecting stack clobbers.  */
   tree stack_protect_guard;
 
-  /* List (chain of EXPR_LIST) of labels heading the current handlers for
+  /* List (chain of INSN_LIST) of labels heading the current handlers for
      nonlocal gotos.  */
-  rtx_expr_list *x_nonlocal_goto_handler_labels;
+  rtx_insn_list *x_nonlocal_goto_handler_labels;
 
   /* Label that will go on function epilogue.
      Jumping to this label serves as a "return" instruction
      on machines which require execution of the epilogue on all returns.  */
-  rtx x_return_label;
+  rtx_code_label *x_return_label;
 
   /* Label that will go on the end of function epilogue.
      Jumping to this label serves as a "naked return" instruction
      on machines which require execution of the epilogue on all returns.  */
-  rtx x_naked_return_label;
+  rtx_code_label *x_naked_return_label;
 
   /* List (chain of EXPR_LISTs) of all stack slots in this function.
      Made for the sake of unshare_all_rtl.  */
@@ -564,7 +565,7 @@ struct GTY(()) function {
   struct language_function * language;
 
   /* Used types hash table.  */
-  htab_t GTY ((param_is (union tree_node))) used_types_hash;
+  hash_set<tree> *GTY (()) used_types_hash;
 
   /* Dwarf2 Frame Description Entry, containing the Call Frame Instructions
      used for unwinding.  Only set when either dwarf2 unwinding or dwarf2
@@ -702,9 +703,15 @@ extern int virtuals_instantiated;
 /* Nonzero if at least one trampoline has been created.  */
 extern int trampolines_created;
 
-struct GTY(()) types_used_by_vars_entry {
+struct GTY((for_user)) types_used_by_vars_entry {
   tree type;
   tree var_decl;
+};
+
+struct used_type_hasher : ggc_hasher<types_used_by_vars_entry *>
+{
+  static hashval_t hash (types_used_by_vars_entry *);
+  static bool equal (types_used_by_vars_entry *, types_used_by_vars_entry *);
 };
 
 /* Hash table making the relationship between a global variable
@@ -712,11 +719,8 @@ struct GTY(()) types_used_by_vars_entry {
    entry is a referenced type, and the value is the DECL of the global
    variable. types_use_by_vars_do_hash and types_used_by_vars_eq below are
    the hash and equality functions to use for this hash table.  */
-extern GTY((param_is (struct types_used_by_vars_entry))) htab_t
-  types_used_by_vars_hash;
+extern GTY(()) hash_table<used_type_hasher> *types_used_by_vars_hash;
 
-hashval_t types_used_by_vars_do_hash (const void*);
-int types_used_by_vars_eq (const void *, const void *);
 void types_used_by_var_decl_insert (tree type, tree var_decl);
 
 /* During parsing of a global variable, this vector contains the types

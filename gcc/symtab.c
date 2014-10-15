@@ -83,15 +83,6 @@ symbol_table::decl_assembler_name_hash (const_tree asmname)
 }
 
 
-/* Returns a hash code for P.  */
-
-hashval_t
-symbol_table::hash_node_by_assembler_name (const void *p)
-{
-  const symtab_node *n = (const symtab_node *) p;
-  return (hashval_t) decl_assembler_name_hash (DECL_ASSEMBLER_NAME (n->decl));
-}
-
 /* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
 
 bool
@@ -150,14 +141,6 @@ symbol_table::decl_assembler_name_equal (tree decl, const_tree asmname)
 
 /* Returns nonzero if P1 and P2 are equal.  */
 
-int
-symbol_table::eq_assembler_name (const void *p1, const void *p2)
-{
-  const symtab_node *n1 = (const symtab_node *) p1;
-  const_tree name = (const_tree)p2;
-  return (decl_assembler_name_equal (n1->decl, name));
-}
-
 /* Insert NODE to assembler name hash.  */
 
 void
@@ -170,19 +153,18 @@ symbol_table::insert_to_assembler_name_hash (symtab_node *node,
 		       && !node->next_sharing_asm_name);
   if (assembler_name_hash)
     {
-      void **aslot;
+      symtab_node **aslot;
       cgraph_node *cnode;
       tree decl = node->decl;
 
       tree name = DECL_ASSEMBLER_NAME (node->decl);
 
-      aslot = htab_find_slot_with_hash (assembler_name_hash, name,
-					decl_assembler_name_hash (name),
-					INSERT);
+      hashval_t hash = decl_assembler_name_hash (name);
+      aslot = assembler_name_hash->find_slot_with_hash (name, hash, INSERT);
       gcc_assert (*aslot != node);
       node->next_sharing_asm_name = (symtab_node *)*aslot;
       if (*aslot != NULL)
-	((symtab_node *)*aslot)->previous_sharing_asm_name = node;
+	(*aslot)->previous_sharing_asm_name = node;
       *aslot = node;
 
       /* Update also possible inline clones sharing a decl.  */
@@ -217,13 +199,13 @@ symbol_table::unlink_from_assembler_name_hash (symtab_node *node,
       else
 	{
 	  tree name = DECL_ASSEMBLER_NAME (node->decl);
-          void **slot;
-	  slot = htab_find_slot_with_hash (assembler_name_hash, name,
-					   decl_assembler_name_hash (name),
-					   NO_INSERT);
+          symtab_node **slot;
+	  hashval_t hash = decl_assembler_name_hash (name);
+	  slot = assembler_name_hash->find_slot_with_hash (name, hash,
+							   NO_INSERT);
 	  gcc_assert (*slot == node);
 	  if (!node->next_sharing_asm_name)
-	    htab_clear_slot (assembler_name_hash, slot);
+	    assembler_name_hash->clear_slot (slot);
 	  else
 	    *slot = node->next_sharing_asm_name;
 	}
@@ -256,9 +238,7 @@ symbol_table::symtab_initialize_asm_name_hash (void)
   symtab_node *node;
   if (!assembler_name_hash)
     {
-      assembler_name_hash =
-	htab_create_ggc (10, hash_node_by_assembler_name, eq_assembler_name,
-			 NULL);
+      assembler_name_hash = hash_table<asmname_hasher>::create_ggc (10);
       FOR_EACH_SYMBOL (node)
 	insert_to_assembler_name_hash (node, false);
     }
@@ -322,20 +302,17 @@ resolution_used_from_other_file_p (enum ld_plugin_symbol_resolution resolution)
 
 /* Hash sections by their names.  */
 
-static hashval_t
-hash_section_hash_entry (const void *p)
+hashval_t
+section_name_hasher::hash (section_hash_entry *n)
 {
-  const section_hash_entry *n = (const section_hash_entry *) p;
   return htab_hash_string (n->name);
 }
 
 /* Return true if section P1 name equals to P2.  */
 
-static int
-eq_sections (const void *p1, const void *p2)
+bool
+section_name_hasher::equal (section_hash_entry *n1, const char *name)
 {
-  const section_hash_entry *n1 = (const section_hash_entry *) p1;
-  const char *name = (const char *)p2;
   return n1->name == name || !strcmp (n1->name, name);
 }
 
@@ -407,15 +384,7 @@ symtab_node::unregister (void)
   if (!is_a <varpool_node *> (this) || !DECL_HARD_REGISTER (decl))
     symtab->unlink_from_assembler_name_hash (this, false);
   if (in_init_priority_hash)
-    {
-      symbol_priority_map in;
-      void **slot;
-      in.symbol = this;
-
-      slot = htab_find_slot (symtab->init_priority_hash, &in, NO_INSERT);
-      if (slot)
-	htab_clear_slot (symtab->init_priority_hash, slot);
-    }
+    symtab->init_priority_hash->remove (this);
 }
 
 
@@ -839,6 +808,8 @@ symtab_node::dump_base (FILE *f)
     fprintf (f, " forced_by_abi");
   if (externally_visible)
     fprintf (f, " externally_visible");
+  if (no_reorder)
+    fprintf (f, " no_reorder");
   if (resolution != LDPR_UNKNOWN)
     fprintf (f, " %s",
  	     ld_plugin_symbol_resolution_names[(int)resolution]);
@@ -942,16 +913,16 @@ symtab_node *
 symtab_node::get_for_asmname (const_tree asmname)
 {
   symtab_node *node;
-  void **slot;
 
   symtab->symtab_initialize_asm_name_hash ();
-  slot = htab_find_slot_with_hash (symtab->assembler_name_hash, asmname,
-				   symtab->decl_assembler_name_hash (asmname),
-				   NO_INSERT);
+  hashval_t hash = symtab->decl_assembler_name_hash (asmname);
+  symtab_node **slot
+    = symtab->assembler_name_hash->find_slot_with_hash (asmname, hash,
+							NO_INSERT);
 
   if (slot)
     {
-      node = (symtab_node *) *slot;
+      node = *slot;
       return node;
     }
   return NULL;
@@ -1388,7 +1359,7 @@ void
 symtab_node::set_section_for_node (const char *section)
 {
   const char *current = get_section ();
-  void **slot;
+  section_hash_entry **slot;
 
   if (current == section
       || (current && section
@@ -1400,11 +1371,11 @@ symtab_node::set_section_for_node (const char *section)
       x_section->ref_count--;
       if (!x_section->ref_count)
 	{
-	  slot = htab_find_slot_with_hash (symtab->section_hash, x_section->name,
-					   htab_hash_string (x_section->name),
-					   INSERT);
+	  hashval_t hash = htab_hash_string (x_section->name);
+	  slot = symtab->section_hash->find_slot_with_hash (x_section->name,
+							    hash, INSERT);
 	  ggc_free (x_section);
-	  htab_clear_slot (symtab->section_hash, slot);
+	  symtab->section_hash->clear_slot (slot);
 	}
       x_section = NULL;
     }
@@ -1414,11 +1385,10 @@ symtab_node::set_section_for_node (const char *section)
       return;
     }
   if (!symtab->section_hash)
-    symtab->section_hash = htab_create_ggc (10, hash_section_hash_entry,
-				    eq_sections, NULL);
-  slot = htab_find_slot_with_hash (symtab->section_hash, section,
-				   htab_hash_string (section),
-				   INSERT);
+    symtab->section_hash = hash_table<section_name_hasher>::create_ggc (10);
+  slot = symtab->section_hash->find_slot_with_hash (section,
+						    htab_hash_string (section),
+						    INSERT);
   if (*slot)
     x_section = (section_hash_entry *)*slot;
   else
@@ -1455,14 +1425,10 @@ symtab_node::set_section (const char *section)
 priority_type
 symtab_node::get_init_priority ()
 {
-  symbol_priority_map *h;
-  symbol_priority_map in;
-
   if (!this->in_init_priority_hash)
     return DEFAULT_INIT_PRIORITY;
-  in.symbol = this;
-  h = (symbol_priority_map *) htab_find (symtab->init_priority_hash,
-						&in);
+
+  symbol_priority_map *h = symtab->init_priority_hash->get (this);
   return h ? h->init : DEFAULT_INIT_PRIORITY;
 }
 
@@ -1481,33 +1447,10 @@ enum availability symtab_node::get_availability (void)
 priority_type
 cgraph_node::get_fini_priority ()
 {
-  symbol_priority_map *h;
-  symbol_priority_map in;
-
   if (!this->in_init_priority_hash)
     return DEFAULT_INIT_PRIORITY;
-  in.symbol = this;
-  h = (symbol_priority_map *) htab_find (symtab->init_priority_hash,
-						&in);
+  symbol_priority_map *h = symtab->init_priority_hash->get (this);
   return h ? h->fini : DEFAULT_INIT_PRIORITY;
-}
-
-/* Return true if the from tree in both priority maps are equal.  */
-
-int
-symbol_priority_map_eq (const void *va, const void *vb)
-{
-  const symbol_priority_map *const a = (const symbol_priority_map *) va,
-    *const b = (const symbol_priority_map *) vb;
-  return (a->symbol == b->symbol);
-}
-
-/* Hash a from symbol in a symbol_priority_map.  */
-
-unsigned int
-symbol_priority_map_hash (const void *item)
-{
-  return htab_hash_pointer (((const symbol_priority_map *)item)->symbol);
 }
 
 /* Return the initialization and finalization priority information for
@@ -1517,23 +1460,14 @@ symbol_priority_map_hash (const void *item)
 symbol_priority_map *
 symtab_node::priority_info (void)
 {
-  symbol_priority_map in;
-  symbol_priority_map *h;
-  void **loc;
-
-  in.symbol = this;
   if (!symtab->init_priority_hash)
-    symtab->init_priority_hash = htab_create_ggc (512,
-						  symbol_priority_map_hash,
-						  symbol_priority_map_eq, 0);
+    symtab->init_priority_hash = hash_map<symtab_node *, symbol_priority_map>::create_ggc (13);
 
-  loc = htab_find_slot (symtab->init_priority_hash, &in, INSERT);
-  h = (symbol_priority_map *) *loc;
-  if (!h)
+  bool existed;
+  symbol_priority_map *h
+    = &symtab->init_priority_hash->get_or_insert (this, &existed);
+  if (!existed)
     {
-      h = ggc_cleared_alloc<symbol_priority_map> ();
-      *loc = h;
-      h->symbol = this;
       h->init = DEFAULT_INIT_PRIORITY;
       h->fini = DEFAULT_INIT_PRIORITY;
       in_init_priority_hash = true;
@@ -1808,7 +1742,7 @@ symtab_node::get_partitioning_class (void)
      This include external delcarations.   */
   cgraph_node *cnode = dyn_cast <cgraph_node *> (this);
 
-  if (DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT_P (decl))
     return SYMBOL_EXTERNAL;
 
   if (cnode && cnode->global.inlined_to)
@@ -1855,9 +1789,9 @@ bool
 symtab_node::nonzero_address ()
 {
   /* Weakrefs may be NULL when their target is not defined.  */
-  if (this->alias && this->weakref)
+  if (alias && weakref)
     {
-      if (this->analyzed)
+      if (analyzed)
 	{
 	  symtab_node *target = ultimate_alias_target ();
 
@@ -1872,7 +1806,7 @@ symtab_node::nonzero_address ()
 	     could be useful to eliminate the NULL pointer checks in LTO
 	     programs.  */
 	  if (target->definition && !DECL_EXTERNAL (target->decl))
-	    return true;
+	      return true;
 	  if (target->resolution != LDPR_UNKNOWN
 	      && target->resolution != LDPR_UNDEF
 	      && flag_delete_null_pointer_checks)
@@ -1891,22 +1825,28 @@ symtab_node::nonzero_address ()
      Those are handled by later check for definition.
 
      When parsing, beware the cases when WEAK attribute is added later.  */
-  if (!DECL_WEAK (this->decl)
-      && flag_delete_null_pointer_checks
-      && symtab->state > PARSING)
-    return true;
+  if (!DECL_WEAK (decl)
+      && flag_delete_null_pointer_checks)
+    {
+      refuse_visibility_changes = true;
+      return true;
+    }
 
   /* If target is defined and not extern, we know it will be output and thus
      it will bind to non-NULL.
      Play safe for flag_delete_null_pointer_checks where weak definition maye
      be re-defined by NULL.  */
-  if (this->definition && !DECL_EXTERNAL (this->decl)
-      && (flag_delete_null_pointer_checks || !DECL_WEAK (this->decl)))
-    return true;
+  if (definition && !DECL_EXTERNAL (decl)
+      && (flag_delete_null_pointer_checks || !DECL_WEAK (decl)))
+    {
+      if (!DECL_WEAK (decl))
+        refuse_visibility_changes = true;
+      return true;
+    }
 
   /* As the last resort, check the resolution info.  */
-  if (this->resolution != LDPR_UNKNOWN
-      && this->resolution != LDPR_UNDEF
+  if (resolution != LDPR_UNKNOWN
+      && resolution != LDPR_UNDEF
       && flag_delete_null_pointer_checks)
     return true;
   return false;

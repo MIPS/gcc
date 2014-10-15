@@ -694,16 +694,6 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define LONG_DOUBLE_TYPE_SIZE \
   (TARGET_LONG_DOUBLE_64 ? 64 : (TARGET_LONG_DOUBLE_128 ? 128 : 80))
 
-/* Define this to set long double type size to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#ifdef __LONG_DOUBLE_64__
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
-#elif defined (__LONG_DOUBLE_128__)
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
-#else
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
-#endif
-
 #define WIDEST_HARDWARE_FP_SIZE 80
 
 #if defined (TARGET_BI_ARCH) || TARGET_64BIT_DEFAULT
@@ -1243,12 +1233,14 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #define REAL_PIC_OFFSET_TABLE_REGNUM  BX_REG
 
-#define PIC_OFFSET_TABLE_REGNUM				\
-  ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC	\
-                     || TARGET_PECOFF))		\
-   || !flag_pic ? INVALID_REGNUM			\
-   : reload_completed ? REGNO (pic_offset_table_rtx)	\
-   : REAL_PIC_OFFSET_TABLE_REGNUM)
+#define PIC_OFFSET_TABLE_REGNUM						\
+  ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC			\
+                     || TARGET_PECOFF))					\
+   || !flag_pic								\
+   ? INVALID_REGNUM							\
+   : pic_offset_table_rtx						\
+     ? INVALID_REGNUM							\
+     : REAL_PIC_OFFSET_TABLE_REGNUM)
 
 #define GOT_SYMBOL_NAME "_GLOBAL_OFFSET_TABLE_"
 

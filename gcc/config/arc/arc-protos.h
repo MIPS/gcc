@@ -78,9 +78,9 @@ struct secondary_reload_info;
 extern int arc_register_move_cost (enum machine_mode, enum reg_class,
 				   enum reg_class);
 extern rtx disi_highpart (rtx);
-extern int arc_adjust_insn_length (rtx, int, bool);
+extern int arc_adjust_insn_length (rtx_insn *, int, bool);
 extern int arc_corereg_hazard (rtx, rtx);
-extern int arc_hazard (rtx, rtx);
+extern int arc_hazard (rtx_insn *, rtx_insn *);
 extern int arc_write_ext_corereg (rtx);
 extern rtx gen_acc1 (void);
 extern rtx gen_acc2 (void);
@@ -88,7 +88,8 @@ extern rtx gen_mlo (void);
 extern rtx gen_mhi (void);
 extern bool arc_branch_size_unknown_p (void);
 struct arc_ccfsm;
-extern void arc_ccfsm_record_condition (rtx, bool, rtx, struct arc_ccfsm *);
+extern void arc_ccfsm_record_condition (rtx, bool, rtx_insn *,
+					struct arc_ccfsm *);
 extern void arc_expand_prologue (void);
 extern void arc_expand_epilogue (int);
 extern void arc_init_expanders (void);
@@ -103,12 +104,13 @@ extern rtx arc_split_move (rtx *);
 extern int arc_verify_short (rtx_insn *insn, int unalign, int);
 extern const char *arc_short_long (rtx_insn *insn, const char *, const char *);
 extern rtx arc_regno_use_in (unsigned int, rtx);
-extern int arc_attr_type (rtx);
+extern int arc_attr_type (rtx_insn *);
 extern bool arc_scheduling_not_expected (void);
-extern bool arc_sets_cc_p (rtx insn);
+extern bool arc_sets_cc_p (rtx_insn *insn);
 extern int arc_label_align (rtx label);
 extern bool arc_need_delay (rtx_insn *insn);
-extern bool arc_text_label (rtx);
+extern bool arc_text_label (rtx_insn *insn);
+
 extern int arc_decl_pretend_args (tree decl);
 extern bool arc_short_comparison_p (rtx, int);
 extern bool arc_epilogue_uses (int regno);

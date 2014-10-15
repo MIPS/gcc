@@ -275,14 +275,15 @@ static void initiate_bundle_state_table (void);
 static void finish_bundle_state_table (void);
 static int try_issue_nops (struct bundle_state *, int);
 static int try_issue_insn (struct bundle_state *, rtx);
-static void issue_nops_and_insn (struct bundle_state *, int, rtx, int, int);
+static void issue_nops_and_insn (struct bundle_state *, int, rtx_insn *,
+				 int, int);
 static int get_max_pos (state_t);
 static int get_template (state_t, int);
 
-static rtx get_next_important_insn (rtx, rtx);
-static bool important_for_bundling_p (rtx);
-static bool unknown_for_bundling_p (rtx);
-static void bundling (FILE *, int, rtx, rtx);
+static rtx_insn *get_next_important_insn (rtx_insn *, rtx_insn *);
+static bool important_for_bundling_p (rtx_insn *);
+static bool unknown_for_bundling_p (rtx_insn *);
+static void bundling (FILE *, int, rtx_insn *, rtx_insn *);
 
 static void ia64_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				  HOST_WIDE_INT, tree);
@@ -318,6 +319,7 @@ static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 static bool ia64_vector_mode_supported_p (enum machine_mode mode);
+static bool ia64_libgcc_floating_mode_supported_p (enum machine_mode mode);
 static bool ia64_legitimate_constant_p (enum machine_mode, rtx);
 static bool ia64_legitimate_address_p (enum machine_mode, rtx, bool);
 static bool ia64_cannot_force_const_mem (enum machine_mode, rtx);
@@ -596,6 +598,10 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_SCALAR_MODE_SUPPORTED_P ia64_scalar_mode_supported_p
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ia64_vector_mode_supported_p
+
+#undef TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
+#define TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P \
+  ia64_libgcc_floating_mode_supported_p
 
 /* ia64 architecture manual 4.4.7: ... reads, writes, and flushes may occur
    in an order different from the specified program order.  */
@@ -6049,11 +6055,11 @@ ia64_init_machine_status (void)
   return ggc_cleared_alloc<machine_function> ();
 }
 
-static enum attr_itanium_class ia64_safe_itanium_class (rtx);
-static enum attr_type ia64_safe_type (rtx);
+static enum attr_itanium_class ia64_safe_itanium_class (rtx_insn *);
+static enum attr_type ia64_safe_type (rtx_insn *);
 
 static enum attr_itanium_class
-ia64_safe_itanium_class (rtx insn)
+ia64_safe_itanium_class (rtx_insn *insn)
 {
   if (recog_memoized (insn) >= 0)
     return get_attr_itanium_class (insn);
@@ -6064,7 +6070,7 @@ ia64_safe_itanium_class (rtx insn)
 }
 
 static enum attr_type
-ia64_safe_type (rtx insn)
+ia64_safe_type (rtx_insn *insn)
 {
   if (recog_memoized (insn) >= 0)
     return get_attr_type (insn);
@@ -6190,8 +6196,8 @@ static void update_set_flags (rtx, struct reg_flags *);
 static int set_src_needs_barrier (rtx, struct reg_flags, int);
 static int rtx_needs_barrier (rtx, struct reg_flags, int);
 static void init_insn_group_barriers (void);
-static int group_barrier_needed (rtx);
-static int safe_group_barrier_needed (rtx);
+static int group_barrier_needed (rtx_insn *);
+static int safe_group_barrier_needed (rtx_insn *);
 static int in_safe_group_barrier;
 
 /* Update *RWS for REGNO, which is being written by the current instruction,
@@ -6819,7 +6825,7 @@ init_insn_group_barriers (void)
    include the effects of INSN as a side-effect.  */
 
 static int
-group_barrier_needed (rtx insn)
+group_barrier_needed (rtx_insn *insn)
 {
   rtx pat;
   int need_barrier = 0;
@@ -6928,7 +6934,7 @@ group_barrier_needed (rtx insn)
 /* Like group_barrier_needed, but do not clobber the current state.  */
 
 static int
-safe_group_barrier_needed (rtx insn)
+safe_group_barrier_needed (rtx_insn *insn)
 {
   int saved_first_instruction;
   int t;
@@ -7087,7 +7093,7 @@ static rtx_insn *dfa_stop_insn;
 
 /* The following variable value is the last issued insn.  */
 
-static rtx last_scheduled_insn;
+static rtx_insn *last_scheduled_insn;
 
 /* The following variable value is pointer to a DFA state used as
    temporary variable.  */
@@ -7122,7 +7128,7 @@ static char mem_ops_in_group[4];
 /* Number of current processor cycle (from scheduler's point of view).  */
 static int current_cycle;
 
-static rtx ia64_single_set (rtx);
+static rtx ia64_single_set (rtx_insn *);
 static void ia64_emit_insn_before (rtx, rtx);
 
 /* Map a bundle number to its pseudo-op.  */
@@ -7145,7 +7151,7 @@ ia64_issue_rate (void)
 /* Helper function - like single_set, but look inside COND_EXEC.  */
 
 static rtx
-ia64_single_set (rtx insn)
+ia64_single_set (rtx_insn *insn)
 {
   rtx x = PATTERN (insn), ret;
   if (GET_CODE (x) == COND_EXEC)
@@ -7294,7 +7300,7 @@ ia64_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 		 int max_ready ATTRIBUTE_UNUSED)
 {
 #ifdef ENABLE_CHECKING
-  rtx insn;
+  rtx_insn *insn;
 
   if (!sel_sched_p () && reload_completed)
     for (insn = NEXT_INSN (current_sched_info->prev_head);
@@ -7302,7 +7308,7 @@ ia64_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 	 insn = NEXT_INSN (insn))
       gcc_assert (!SCHED_GROUP_P (insn));
 #endif
-  last_scheduled_insn = NULL_RTX;
+  last_scheduled_insn = NULL;
   init_insn_group_barriers ();
 
   current_cycle = 0;
@@ -7330,7 +7336,7 @@ ia64_sched_finish_global (FILE *dump ATTRIBUTE_UNUSED,
 /* Return TRUE if INSN is a load (either normal or speculative, but not a
    speculation check), FALSE otherwise.  */
 static bool
-is_load_p (rtx insn)
+is_load_p (rtx_insn *insn)
 {
   enum attr_itanium_class insn_class = ia64_safe_itanium_class (insn);
 
@@ -7344,7 +7350,7 @@ is_load_p (rtx insn)
    Itanium 2 Reference Manual for Software Development and Optimization,
    6.7.3.1).  */
 static void
-record_memory_reference (rtx insn)
+record_memory_reference (rtx_insn *insn)
 {
   enum attr_itanium_class insn_class = ia64_safe_itanium_class (insn);
 
@@ -7567,7 +7573,7 @@ static rtx_insn *dfa_pre_cycle_insn;
 /* Returns 1 when a meaningful insn was scheduled between the last group
    barrier and LAST.  */
 static int
-scheduled_good_insn (rtx last)
+scheduled_good_insn (rtx_insn *last)
 {
   if (last && recog_memoized (last) >= 0)
     return 1;
@@ -7669,7 +7675,7 @@ ia64_h_i_d_extended (void)
 struct _ia64_sched_context
 {
   state_t prev_cycle_state;
-  rtx last_scheduled_insn;
+  rtx_insn *last_scheduled_insn;
   struct reg_write_state rws_sum[NUM_REGS];
   struct reg_write_state rws_insn[NUM_REGS];
   int first_instruction;
@@ -7697,7 +7703,7 @@ ia64_init_sched_context (void *_sc, bool clean_p)
   if (clean_p)
     {
       state_reset (sc->prev_cycle_state);
-      sc->last_scheduled_insn = NULL_RTX;
+      sc->last_scheduled_insn = NULL;
       memset (sc->rws_sum, 0, sizeof (rws_sum));
       memset (sc->rws_insn, 0, sizeof (rws_insn));
       sc->first_instruction = 1;
@@ -7962,7 +7968,7 @@ ia64_set_sched_flags (spec_info_t spec_info)
 /* If INSN is an appropriate load return its mode.
    Return -1 otherwise.  */
 static int
-get_mode_no_for_insn (rtx insn)
+get_mode_no_for_insn (rtx_insn *insn)
 {
   rtx reg, mem, mode_rtx;
   int mode_no;
@@ -8458,7 +8464,7 @@ struct bundle_state
   /* Unique bundle state number to identify them in the debugging
      output  */
   int unique_num;
-  rtx insn;     /* corresponding insn, NULL for the 1st and the last state  */
+  rtx_insn *insn; /* corresponding insn, NULL for the 1st and the last state  */
   /* number nops before and after the insn  */
   short before_nops_num, after_nops_num;
   int insn_num; /* insn number (0 - for initial state, 1 - for the 1st
@@ -8700,7 +8706,8 @@ try_issue_insn (struct bundle_state *curr_state, rtx insn)
 
 static void
 issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
-		     rtx insn, int try_bundle_end_p, int only_bundle_end_p)
+		     rtx_insn *insn, int try_bundle_end_p,
+		     int only_bundle_end_p)
 {
   struct bundle_state *curr_state;
 
@@ -8903,7 +8910,7 @@ get_template (state_t state, int pos)
 /* True when INSN is important for bundling.  */
 
 static bool
-important_for_bundling_p (rtx insn)
+important_for_bundling_p (rtx_insn *insn)
 {
   return (INSN_P (insn)
 	  && ia64_safe_itanium_class (insn) != ITANIUM_CLASS_IGNORE
@@ -8914,19 +8921,19 @@ important_for_bundling_p (rtx insn)
 /* The following function returns an insn important for insn bundling
    followed by INSN and before TAIL.  */
 
-static rtx
-get_next_important_insn (rtx insn, rtx tail)
+static rtx_insn *
+get_next_important_insn (rtx_insn *insn, rtx_insn *tail)
 {
   for (; insn && insn != tail; insn = NEXT_INSN (insn))
     if (important_for_bundling_p (insn))
       return insn;
-  return NULL_RTX;
+  return NULL;
 }
 
 /* True when INSN is unknown, but important, for bundling.  */
 
 static bool
-unknown_for_bundling_p (rtx insn)
+unknown_for_bundling_p (rtx_insn *insn)
 {
   return (INSN_P (insn)
 	  && ia64_safe_itanium_class (insn) == ITANIUM_CLASS_UNKNOWN
@@ -8937,7 +8944,7 @@ unknown_for_bundling_p (rtx insn)
 /* Add a bundle selector TEMPLATE0 before INSN.  */
 
 static void
-ia64_add_bundle_selector_before (int template0, rtx insn)
+ia64_add_bundle_selector_before (int template0, rtx_insn *insn)
 {
   rtx b = gen_bundle_selector (GEN_INT (template0));
 
@@ -9017,15 +9024,14 @@ ia64_add_bundle_selector_before (int template0, rtx insn)
    EBB.  */
 
 static void
-bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
+bundling (FILE *dump, int verbose, rtx_insn *prev_head_insn, rtx_insn *tail)
 {
   struct bundle_state *curr_state, *next_state, *best_state;
-  rtx insn, next_insn;
+  rtx_insn *insn, *next_insn;
   int insn_num;
   int i, bundle_end_p, only_bundle_end_p, asm_p;
   int pos = 0, max_pos, template0, template1;
-  rtx b;
-  rtx nop;
+  rtx_insn *b;
   enum attr_type type;
 
   insn_num = 0;
@@ -9237,8 +9243,8 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	/* Emit nops after the current insn.  */
 	for (i = 0; i < curr_state->after_nops_num; i++)
 	  {
-	    nop = gen_nop ();
-	    emit_insn_after (nop, insn);
+	    rtx nop_pat = gen_nop ();
+	    rtx_insn *nop = emit_insn_after (nop_pat, insn);
 	    pos--;
 	    gcc_assert (pos >= 0);
 	    if (pos % 3 == 0)
@@ -9281,9 +9287,9 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
       /* Emit nops after the current insn.  */
       for (i = 0; i < curr_state->before_nops_num; i++)
 	{
-	  nop = gen_nop ();
-	  ia64_emit_insn_before (nop, insn);
-	  nop = PREV_INSN (insn);
+	  rtx nop_pat = gen_nop ();
+	  ia64_emit_insn_before (nop_pat, insn);
+	  rtx_insn *nop = PREV_INSN (insn);
 	  insn = nop;
 	  pos--;
 	  gcc_assert (pos >= 0);
@@ -9317,7 +9323,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  start_bundle = true;
 	else
 	  {
-	    rtx next_insn;
+	    rtx_insn *next_insn;
 
 	    for (next_insn = NEXT_INSN (insn);
 		 next_insn && next_insn != tail;
@@ -9515,7 +9521,7 @@ ia64_dfa_pre_cycle_insn (void)
    ld) produces address for CONSUMER (of type st or stf). */
 
 int
-ia64_st_address_bypass_p (rtx producer, rtx consumer)
+ia64_st_address_bypass_p (rtx_insn *producer, rtx_insn *consumer)
 {
   rtx dest, reg, mem;
 
@@ -9539,7 +9545,7 @@ ia64_st_address_bypass_p (rtx producer, rtx consumer)
    ld) produces address for CONSUMER (of type ld or fld). */
 
 int
-ia64_ld_address_bypass_p (rtx producer, rtx consumer)
+ia64_ld_address_bypass_p (rtx_insn *producer, rtx_insn *consumer)
 {
   rtx dest, src, reg, mem;
 
@@ -10938,6 +10944,36 @@ ia64_vector_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* Implement TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P.  */
+
+static bool
+ia64_libgcc_floating_mode_supported_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case SFmode:
+    case DFmode:
+      return true;
+
+    case XFmode:
+#ifdef IA64_NO_LIBGCC_XFMODE
+      return false;
+#else
+      return true;
+#endif
+
+    case TFmode:
+#ifdef IA64_NO_LIBGCC_TFMODE
+      return false;
+#else
+      return true;
+#endif
+
+    default:
+      return false;
+    }
+}
+
 /* Implement the FUNCTION_PROFILER macro.  */
 
 void
@@ -11211,10 +11247,10 @@ expand_vselect (rtx target, rtx op0, const unsigned char *perm, unsigned nelt)
   x = gen_rtx_VEC_SELECT (GET_MODE (target), op0, x);
   x = gen_rtx_SET (VOIDmode, target, x);
 
-  x = emit_insn (x);
-  if (recog_memoized (x) < 0)
+  rtx_insn *insn = emit_insn (x);
+  if (recog_memoized (insn) < 0)
     {
-      remove_insn (x);
+      remove_insn (insn);
       return false;
     }
   return true;

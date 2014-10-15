@@ -109,73 +109,73 @@
   (TR2_REG	130)
 
   (XD0_REG	136)
+])
 
+(define_c_enum "unspec" [
   ;; These are used with unspec.
-  (UNSPEC_COMPACT_ARGS	0)
-  (UNSPEC_MOVA		1)
-  (UNSPEC_CASESI	2)
-  (UNSPEC_DATALABEL	3)
-  (UNSPEC_BBR		4)
-  (UNSPEC_SFUNC		5)
-  (UNSPEC_PIC		6)
-  (UNSPEC_GOT		7)
-  (UNSPEC_GOTOFF	8)
-  (UNSPEC_PLT		9)
-  (UNSPEC_CALLER	10)
-  (UNSPEC_GOTPLT	11)
-  (UNSPEC_ICACHE	12)
-  (UNSPEC_INIT_TRAMP	13)
-  (UNSPEC_FCOSA		14)
-  (UNSPEC_FSRRA		15)
-  (UNSPEC_FSINA		16)
-  (UNSPEC_NSB		17)
-  (UNSPEC_ALLOCO	18)
-  (UNSPEC_TLSGD		20)
-  (UNSPEC_TLSLDM	21)
-  (UNSPEC_TLSIE		22)
-  (UNSPEC_DTPOFF	23)
-  (UNSPEC_GOTTPOFF	24)
-  (UNSPEC_TPOFF		25)
-  (UNSPEC_RA		26)
-  (UNSPEC_DIV_INV_M0	30)
-  (UNSPEC_DIV_INV_M1	31)
-  (UNSPEC_DIV_INV_M2	32)
-  (UNSPEC_DIV_INV_M3	33)
-  (UNSPEC_DIV_INV20	34)
-  (UNSPEC_DIV_INV_TABLE	37)
-  (UNSPEC_ASHIFTRT	35)
-  (UNSPEC_THUNK		36)
-  (UNSPEC_CHKADD	38)
-  (UNSPEC_SP_SET	40)
-  (UNSPEC_SP_TEST	41)
-  (UNSPEC_MOVUA		42)
-
+  UNSPEC_COMPACT_ARGS
+  UNSPEC_MOVA
+  UNSPEC_CASESI
+  UNSPEC_DATALABEL
+  UNSPEC_BBR
+  UNSPEC_SFUNC
+  UNSPEC_PIC
+  UNSPEC_GOT
+  UNSPEC_GOTOFF
+  UNSPEC_PLT
+  UNSPEC_CALLER
+  UNSPEC_GOTPLT
+  UNSPEC_ICACHE
+  UNSPEC_INIT_TRAMP
+  UNSPEC_FCOSA
+  UNSPEC_FSRRA
+  UNSPEC_FSINA
+  UNSPEC_NSB
+  UNSPEC_ALLOCO
+  UNSPEC_TLSGD
+  UNSPEC_TLSLDM
+  UNSPEC_TLSIE
+  UNSPEC_DTPOFF
+  UNSPEC_GOTTPOFF
+  UNSPEC_TPOFF
+  UNSPEC_RA
+  UNSPEC_DIV_INV_M0
+  UNSPEC_DIV_INV_M1
+  UNSPEC_DIV_INV_M2
+  UNSPEC_DIV_INV_M3
+  UNSPEC_DIV_INV20
+  UNSPEC_DIV_INV_TABLE
+  UNSPEC_ASHIFTRT
+  UNSPEC_THUNK
+  UNSPEC_CHKADD
+  UNSPEC_SP_SET
+  UNSPEC_SP_TEST
+  UNSPEC_MOVUA
   ;; (unspec [VAL SHIFT] UNSPEC_EXTRACT_S16) computes (short) (VAL >> SHIFT).
   ;; UNSPEC_EXTRACT_U16 is the unsigned equivalent.
-  (UNSPEC_EXTRACT_S16	43)
-  (UNSPEC_EXTRACT_U16	44)
-
+  UNSPEC_EXTRACT_S16
+  UNSPEC_EXTRACT_U16
   ;; (unspec [TARGET ANCHOR] UNSPEC_SYMOFF) == TARGET - ANCHOR.
-  (UNSPEC_SYMOFF	45)
-
+  UNSPEC_SYMOFF
   ;; (unspec [OFFSET ANCHOR] UNSPEC_PCREL_SYMOFF) == OFFSET - (ANCHOR - .).
-  (UNSPEC_PCREL_SYMOFF	46)
-
+  UNSPEC_PCREL_SYMOFF
   ;; Misc builtins
-  (UNSPEC_BUILTIN_STRLEN 47)
+  UNSPEC_BUILTIN_STRLEN
+])
 
+(define_c_enum "unspecv" [
   ;; These are used with unspec_volatile.
-  (UNSPECV_BLOCKAGE	0)
-  (UNSPECV_ALIGN	1)
-  (UNSPECV_CONST2	2)
-  (UNSPECV_CONST4	4)
-  (UNSPECV_CONST8	6)
-  (UNSPECV_WINDOW_END	10)
-  (UNSPECV_CONST_END	11)
-  (UNSPECV_EH_RETURN	12)
-  (UNSPECV_GBR		13)
-  (UNSPECV_SP_SWITCH_B  14)
-  (UNSPECV_SP_SWITCH_E  15)
+  UNSPECV_BLOCKAGE
+  UNSPECV_ALIGN
+  UNSPECV_CONST2
+  UNSPECV_CONST4
+  UNSPECV_CONST8
+  UNSPECV_WINDOW_END
+  UNSPECV_CONST_END
+  UNSPECV_EH_RETURN
+  UNSPECV_GBR
+  UNSPECV_SP_SWITCH_B
+  UNSPECV_SP_SWITCH_E
 ])
 
 ;; -------------------------------------------------------------------------
@@ -869,9 +869,9 @@
 
 (define_insn "*cmp_div0s_0"
   [(set (reg:SI T_REG)
-	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand")
+	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand" "%r")
 			    (const_int 31))
-	       (ge:SI (match_operand:SI 1 "arith_reg_operand")
+	       (ge:SI (match_operand:SI 1 "arith_reg_operand" "r")
 		      (const_int 0))))]
   "TARGET_SH1"
   "div0s	%0,%1"
@@ -1566,7 +1566,8 @@
   [(set (match_dup 0) (match_dup 3))
    (set (match_dup 4) (match_dup 5))]
 {
-  rtx set1, set2, insn2;
+  rtx set1, set2;
+  rtx_insn *insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -3335,7 +3336,8 @@ label:
 	(reg:SI MACL_REG))]
   "TARGET_SH1"
 {
-  rtx insn, macl;
+  rtx_insn *insn;
+  rtx macl;
 
   macl = gen_rtx_REG (SImode, MACL_REG);
   start_sequence ();
@@ -3364,7 +3366,8 @@ label:
 	(reg:SI MACL_REG))]
   "TARGET_SH1"
 {
-  rtx insn, macl;
+  rtx_insn *insn;
+  rtx macl;
 
   macl = gen_rtx_REG (SImode, MACL_REG);
   start_sequence ();
@@ -3612,7 +3615,8 @@ label:
 	(reg:SI MACH_REG))]
   "TARGET_SH2"
 {
-  rtx insn, mach;
+  rtx_insn *insn;
+  rtx mach;
 
   mach = gen_rtx_REG (SImode, MACH_REG);
   start_sequence ();
@@ -3658,7 +3662,8 @@ label:
 	(reg:SI MACH_REG))]
   "TARGET_SH2"
 {
-  rtx insn, mach;
+  rtx_insn *insn;
+  rtx mach;
 
   mach = gen_rtx_REG (SImode, MACH_REG);
   start_sequence ();
@@ -6933,7 +6938,7 @@ label:
       emit_insn (gen_ic_invalidate_line_compact (operands[0], operands[1]));
       DONE;
     }
-  else if (TARGET_SH4A_ARCH || TARGET_SH4_300)
+  else if (TARGET_SH4A || TARGET_SH4_300)
     {
       emit_insn (gen_ic_invalidate_line_sh4a (operands[0]));
       DONE;
@@ -6966,7 +6971,7 @@ label:
 (define_insn "ic_invalidate_line_sh4a"
   [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")]
 		    UNSPEC_ICACHE)]
-  "TARGET_SH4A_ARCH || TARGET_SH4_300"
+  "TARGET_SH4A || TARGET_SH4_300"
 {
   return       "ocbwb	@%0"	"\n"
 	 "	synco"		"\n"
@@ -7704,10 +7709,10 @@ label:
 ;; use that will prevent scheduling of other stack accesses beyond this
 ;; instruction.
 (define_split
-  [(set (match_operand:DF 0 "register_operand" "")
-	(match_operand:DF 1 "register_operand" ""))
-   (use (match_operand:PSI 2 "fpscr_operand" ""))
-   (clobber (match_scratch:SI 3 "=X"))]
+  [(set (match_operand:DF 0 "register_operand")
+	(match_operand:DF 1 "register_operand"))
+   (use (match_operand:PSI 2 "fpscr_operand"))
+   (clobber (match_scratch:SI 3))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE) && reload_completed
    && (true_regnum (operands[0]) < 16) != (true_regnum (operands[1]) < 16)"
   [(const_int 0)]
@@ -9996,7 +10001,8 @@ label:
   sh_expand_epilogue (true);
   if (TARGET_SHCOMPACT)
     {
-      rtx insn, set;
+      rtx_insn *insn;
+      rtx set;
 
       /* If epilogue clobbers r0, preserve it in macl.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -10878,7 +10884,7 @@ label:
    (clobber (match_scratch:SI 3 "=X,1"))]
   "TARGET_SH1"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -10912,7 +10918,7 @@ label:
    (clobber (match_operand:SI 4 "" "=X,1"))]
   "TARGET_SH2 && reload_completed && flag_pic"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
   switch (GET_MODE (diff_vec))
@@ -10950,7 +10956,7 @@ label:
 		    UNSPEC_CASESI)))]
   "TARGET_SHMEDIA"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -10977,7 +10983,7 @@ label:
 		      (label_ref:DI (match_operand 3 "" ""))] UNSPEC_CASESI)))]
   "TARGET_SHMEDIA"
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[3]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[3])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -12786,16 +12792,9 @@ label:
 })
 
 (define_expand "negsf2"
-  [(set (match_operand:SF 0 "fp_arith_reg_operand" "")
-	(neg:SF (match_operand:SF 1 "fp_arith_reg_operand" "")))]
-  "TARGET_SH2E || TARGET_SHMEDIA_FPU"
-{
-  if (TARGET_SH2E)
-    {
-      expand_sf_unop (&gen_negsf2_i, operands);
-      DONE;
-    }
-})
+  [(set (match_operand:SF 0 "fp_arith_reg_operand")
+	(neg:SF (match_operand:SF 1 "fp_arith_reg_operand")))]
+  "TARGET_SH2E || TARGET_SHMEDIA_FPU")
 
 (define_insn "*negsf2_media"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -12804,14 +12803,12 @@ label:
   "fneg.s	%1, %0"
   [(set_attr "type" "fmove_media")])
 
-(define_insn "negsf2_i"
+(define_insn "*negsf2_i"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
-	(neg:SF (match_operand:SF 1 "fp_arith_reg_operand" "0")))
-   (use (match_operand:PSI 2 "fpscr_operand" "c"))]
+	(neg:SF (match_operand:SF 1 "fp_arith_reg_operand" "0")))]
   "TARGET_SH2E"
   "fneg	%0"
-  [(set_attr "type" "fmove")
-   (set_attr "fp_mode" "single")])
+  [(set_attr "type" "fmove")])
 
 (define_expand "sqrtsf2"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "")
@@ -12910,16 +12907,9 @@ label:
    (set_attr "fp_mode" "single")])
 
 (define_expand "abssf2"
-  [(set (match_operand:SF 0 "fp_arith_reg_operand" "")
-	(abs:SF (match_operand:SF 1 "fp_arith_reg_operand" "")))]
-  "TARGET_SH2E || TARGET_SHMEDIA_FPU"
-{
-  if (TARGET_SH2E)
-    {
-      expand_sf_unop (&gen_abssf2_i, operands);
-      DONE;
-    }
-})
+  [(set (match_operand:SF 0 "fp_arith_reg_operand")
+	(abs:SF (match_operand:SF 1 "fp_arith_reg_operand")))]
+  "TARGET_SH2E || TARGET_SHMEDIA_FPU")
 
 (define_insn "*abssf2_media"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -12928,14 +12918,12 @@ label:
   "fabs.s	%1, %0"
   [(set_attr "type" "fmove_media")])
 
-(define_insn "abssf2_i"
+(define_insn "*abssf2_i"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
-	(abs:SF (match_operand:SF 1 "fp_arith_reg_operand" "0")))
-   (use (match_operand:PSI 2 "fpscr_operand" "c"))]
+	(abs:SF (match_operand:SF 1 "fp_arith_reg_operand" "0")))]
   "TARGET_SH2E"
   "fabs	%0"
-  [(set_attr "type" "fmove")
-   (set_attr "fp_mode" "single")])
+  [(set_attr "type" "fmove")])
 
 (define_expand "adddf3"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "")
@@ -13241,14 +13229,7 @@ label:
 (define_expand "negdf2"
   [(set (match_operand:DF 0 "fp_arith_reg_operand")
 	(neg:DF (match_operand:DF 1 "fp_arith_reg_operand")))]
-  "(TARGET_SH4 || TARGET_SH2A_DOUBLE) || TARGET_SHMEDIA_FPU"
-{
-  if (TARGET_SH4 || TARGET_SH2A_DOUBLE)
-    {
-      expand_df_unop (&gen_negdf2_i, operands);
-      DONE;
-    }
-})
+  "(TARGET_SH4 || TARGET_SH2A_DOUBLE) || TARGET_SHMEDIA_FPU")
 
 (define_insn "*negdf2_media"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -13257,14 +13238,12 @@ label:
   "fneg.d	%1, %0"
   [(set_attr "type" "fmove_media")])
 
-(define_insn "negdf2_i"
+(define_insn "*negdf2_i"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
-	(neg:DF (match_operand:DF 1 "fp_arith_reg_operand" "0")))
-   (use (match_operand:PSI 2 "fpscr_operand" "c"))]
+	(neg:DF (match_operand:DF 1 "fp_arith_reg_operand" "0")))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE)"
   "fneg	%0"
-  [(set_attr "type" "fmove")
-   (set_attr "fp_mode" "double")])
+  [(set_attr "type" "fmove")])
 
 (define_expand "sqrtdf2"
   [(set (match_operand:DF 0 "fp_arith_reg_operand")
@@ -13297,14 +13276,7 @@ label:
 (define_expand "absdf2"
   [(set (match_operand:DF 0 "fp_arith_reg_operand")
 	(abs:DF (match_operand:DF 1 "fp_arith_reg_operand")))]
-  "(TARGET_SH4 || TARGET_SH2A_DOUBLE) || TARGET_SHMEDIA_FPU"
-{
-  if (TARGET_SH4 || TARGET_SH2A_DOUBLE)
-    {
-      expand_df_unop (&gen_absdf2_i, operands);
-      DONE;
-    }
-})
+  "(TARGET_SH4 || TARGET_SH2A_DOUBLE) || TARGET_SHMEDIA_FPU")
 
 (define_insn "*absdf2_media"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -13313,14 +13285,12 @@ label:
   "fabs.d	%1, %0"
   [(set_attr "type" "fmove_media")])
 
-(define_insn "absdf2_i"
+(define_insn "*absdf2_i"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
-	(abs:DF (match_operand:DF 1 "fp_arith_reg_operand" "0")))
-   (use (match_operand:PSI 2 "fpscr_operand" "c"))]
+	(abs:DF (match_operand:DF 1 "fp_arith_reg_operand" "0")))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE)"
   "fabs	%0"
-  [(set_attr "type" "fmove")
-   (set_attr "fp_mode" "double")])
+  [(set_attr "type" "fmove")])
 
 (define_expand "extendsfdf2"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "")
@@ -13481,7 +13451,7 @@ label:
   [(set (match_operand:SI 0 "register_operand" "=z")
 	(unspec:SI [(match_operand:BLK 1 "unaligned_load_operand" "Sua>")]
 		   UNSPEC_MOVUA))]
-  "TARGET_SH4A_ARCH"
+  "TARGET_SH4A"
   "movua.l	%1,%0"
   [(set_attr "type" "movua")])
 
@@ -13494,7 +13464,7 @@ label:
 	(sign_extract:SI (mem:SI (match_operand:SI 1 "register_operand" ""))
 			 (const_int 32) (const_int 0)))
    (set (match_dup 1) (plus:SI (match_dup 1) (const_int 4)))]
-  "TARGET_SH4A_ARCH && REGNO (operands[0]) != REGNO (operands[1])"
+  "TARGET_SH4A && REGNO (operands[0]) != REGNO (operands[1])"
   [(set (match_operand:SI 0 "register_operand" "")
 	(sign_extract:SI (mem:SI (post_inc:SI
 				  (match_operand:SI 1 "register_operand" "")))
@@ -13506,7 +13476,7 @@ label:
 	(sign_extract:SI (match_operand:QI 1 "unaligned_load_operand" "")
 			 (match_operand 2 "const_int_operand" "")
 			 (match_operand 3 "const_int_operand" "")))]
-  "TARGET_SH4A_ARCH || TARGET_SH2A"
+  "TARGET_SH4A || TARGET_SH2A"
 {
   if (TARGET_SH2A && TARGET_BITOPS
       && (satisfies_constraint_Sbw (operands[1])
@@ -13519,7 +13489,7 @@ label:
 	emit_insn (gen_movsi (operands[0], gen_rtx_REG (SImode, T_REG)));
       DONE;
    }
-  if (TARGET_SH4A_ARCH
+  if (TARGET_SH4A
       && INTVAL (operands[2]) == 32
       && INTVAL (operands[3]) == 0
       && MEM_P (operands[1]) && MEM_ALIGN (operands[1]) < 32)
@@ -13538,7 +13508,7 @@ label:
 	(zero_extract:SI (match_operand:QI 1 "unaligned_load_operand" "")
 			 (match_operand 2 "const_int_operand" "")
 			 (match_operand 3 "const_int_operand" "")))]
-  "TARGET_SH4A_ARCH || TARGET_SH2A"
+  "TARGET_SH4A || TARGET_SH2A"
 {
   if (TARGET_SH2A && TARGET_BITOPS
       && (satisfies_constraint_Sbw (operands[1])
@@ -13551,7 +13521,7 @@ label:
 	emit_insn (gen_movsi (operands[0], gen_rtx_REG (SImode, T_REG)));
       DONE;
     }
-  if (TARGET_SH4A_ARCH
+  if (TARGET_SH4A
       && INTVAL (operands[2]) == 32
       && INTVAL (operands[3]) == 0
       && MEM_P (operands[1]) && MEM_ALIGN (operands[1]) < 32)

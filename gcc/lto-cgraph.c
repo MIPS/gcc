@@ -284,6 +284,7 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   bp_pack_value (&bp, edge->speculative, 1);
   bp_pack_value (&bp, edge->call_stmt_cannot_inline_p, 1);
   bp_pack_value (&bp, edge->can_throw_external, 1);
+  bp_pack_value (&bp, edge->in_polymorphic_cdtor, 1);
   if (edge->indirect_unknown_callee)
     {
       int flags = edge->indirect_info->ecf_flags;
@@ -508,6 +509,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, node->local.local, 1);
   bp_pack_value (&bp, node->externally_visible, 1);
+  bp_pack_value (&bp, node->no_reorder, 1);
   bp_pack_value (&bp, node->definition, 1);
   bp_pack_value (&bp, node->local.versionable, 1);
   bp_pack_value (&bp, node->local.can_change_signature, 1);
@@ -581,6 +583,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
   lto_output_var_decl_index (ob->decl_state, ob->main_stream, node->decl);
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, node->externally_visible, 1);
+  bp_pack_value (&bp, node->no_reorder, 1);
   bp_pack_value (&bp, node->force_output, 1);
   bp_pack_value (&bp, node->forced_by_abi, 1);
   bp_pack_value (&bp, node->unique_name, 1);
@@ -1041,6 +1044,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
 
   node->local.local = bp_unpack_value (bp, 1);
   node->externally_visible = bp_unpack_value (bp, 1);
+  node->no_reorder = bp_unpack_value (bp, 1);
   node->definition = bp_unpack_value (bp, 1);
   node->local.versionable = bp_unpack_value (bp, 1);
   node->local.can_change_signature = bp_unpack_value (bp, 1);
@@ -1246,6 +1250,7 @@ input_varpool_node (struct lto_file_decl_data *file_data,
 
   bp = streamer_read_bitpack (ib);
   node->externally_visible = bp_unpack_value (&bp, 1);
+  node->no_reorder = bp_unpack_value (&bp, 1);
   node->force_output = bp_unpack_value (&bp, 1);
   node->forced_by_abi = bp_unpack_value (&bp, 1);
   node->unique_name = bp_unpack_value (&bp, 1);
@@ -1362,6 +1367,7 @@ input_edge (struct lto_input_block *ib, vec<symtab_node *> nodes,
   edge->inline_failed = inline_failed;
   edge->call_stmt_cannot_inline_p = bp_unpack_value (&bp, 1);
   edge->can_throw_external = bp_unpack_value (&bp, 1);
+  edge->in_polymorphic_cdtor = bp_unpack_value (&bp, 1);
   if (indirect)
     {
       if (bp_unpack_value (&bp, 1))

@@ -1486,10 +1486,7 @@ precompute_arguments (int num_actuals, struct arg_data *args)
 	      args[i].initial_value
 		= gen_lowpart_SUBREG (mode, args[i].value);
 	      SUBREG_PROMOTED_VAR_P (args[i].initial_value) = 1;
-	      if (promoted_for_signed_and_unsigned_p (args[i].tree_value, mode))
-		SUBREG_PROMOTED_SET (args[i].initial_value, SRP_SIGNED_AND_UNSIGNED);
-	      else
-		SUBREG_PROMOTED_SET (args[i].initial_value, args[i].unsignedp);
+	      SUBREG_PROMOTED_SET (args[i].initial_value, args[i].unsignedp);
 	    }
 	}
     }
@@ -2380,7 +2377,14 @@ expand_call (tree exp, rtx target, int ignore)
       {
 	struct_value_size = int_size_in_bytes (rettype);
 
-	if (target && MEM_P (target) && CALL_EXPR_RETURN_SLOT_OPT (exp))
+	/* Even if it is semantically safe to use the target as the return
+	   slot, it may be not sufficiently aligned for the return type.  */
+	if (CALL_EXPR_RETURN_SLOT_OPT (exp)
+	    && target
+	    && MEM_P (target)
+	    && !(MEM_ALIGN (target) < TYPE_ALIGN (rettype)
+		 && SLOW_UNALIGNED_ACCESS (TYPE_MODE (rettype),
+					   MEM_ALIGN (target))))
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {

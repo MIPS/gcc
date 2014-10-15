@@ -81,6 +81,7 @@
 #include "builtins.h"
 #include "context.h"
 #include "tree-pass.h"
+#include "real.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -142,8 +143,6 @@ typedef struct rs6000_stack {
    This is added to the cfun structure.  */
 typedef struct GTY(()) machine_function
 {
-  /* Some local-dynamic symbol.  */
-  const char *some_ld_name;
   /* Whether the instruction chain has been scanned already.  */
   int insn_chain_scanned_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
@@ -1077,15 +1076,15 @@ static bool rs6000_debug_rtx_costs (rtx, int, int, int, int *, bool);
 static int rs6000_debug_address_cost (rtx, enum machine_mode, addr_space_t,
 				      bool);
 static int rs6000_debug_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
-static bool is_microcoded_insn (rtx);
-static bool is_nonpipeline_insn (rtx);
-static bool is_cracked_insn (rtx);
+static bool is_microcoded_insn (rtx_insn *);
+static bool is_nonpipeline_insn (rtx_insn *);
+static bool is_cracked_insn (rtx_insn *);
 static bool is_load_insn (rtx, rtx *);
 static bool is_store_insn (rtx, rtx *);
-static bool set_to_load_agen (rtx,rtx);
-static bool insn_terminates_group_p (rtx , enum group_termination);
-static bool insn_must_be_first_in_group (rtx);
-static bool insn_must_be_last_in_group (rtx);
+static bool set_to_load_agen (rtx_insn *,rtx_insn *);
+static bool insn_terminates_group_p (rtx_insn *, enum group_termination);
+static bool insn_must_be_first_in_group (rtx_insn *);
+static bool insn_must_be_last_in_group (rtx_insn *);
 static void altivec_init_builtins (void);
 static tree builtin_function_type (enum machine_mode, enum machine_mode,
 				   enum machine_mode, enum machine_mode,
@@ -1103,7 +1102,6 @@ static void is_altivec_return_reg (rtx, void *);
 int easy_vector_constant (rtx, enum machine_mode);
 static rtx rs6000_debug_legitimize_address (rtx, rtx, enum machine_mode);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
-static int rs6000_get_some_local_dynamic_name_1 (rtx *, void *);
 static rtx rs6000_darwin64_record_arg (CUMULATIVE_ARGS *, const_tree,
 				       bool, bool);
 #if TARGET_MACHO
@@ -1176,7 +1174,7 @@ rtl_opt_pass *make_pass_analyze_swaps (gcc::context*);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
-struct GTY(()) toc_hash_struct
+struct GTY((for_user)) toc_hash_struct
 {
   /* `key' will satisfy CONSTANT_P; in fact, it will satisfy
      ASM_OUTPUT_SPECIAL_POOL_ENTRY_P.  */
@@ -1185,18 +1183,30 @@ struct GTY(()) toc_hash_struct
   int labelno;
 };
 
-static GTY ((param_is (struct toc_hash_struct))) htab_t toc_hash_table;
+struct toc_hasher : ggc_hasher<toc_hash_struct *>
+{
+  static hashval_t hash (toc_hash_struct *);
+  static bool equal (toc_hash_struct *, toc_hash_struct *);
+};
+
+static GTY (()) hash_table<toc_hasher> *toc_hash_table;
 
 /* Hash table to keep track of the argument types for builtin functions.  */
 
-struct GTY(()) builtin_hash_struct
+struct GTY((for_user)) builtin_hash_struct
 {
   tree type;
   enum machine_mode mode[4];	/* return value + 3 arguments.  */
   unsigned char uns_p[4];	/* and whether the types are unsigned.  */
 };
 
-static GTY ((param_is (struct builtin_hash_struct))) htab_t builtin_hash_table;
+struct builtin_hasher : ggc_hasher<builtin_hash_struct *>
+{
+  static hashval_t hash (builtin_hash_struct *);
+  static bool equal (builtin_hash_struct *, builtin_hash_struct *);
+};
+
+static GTY (()) hash_table<builtin_hasher> *builtin_hash_table;
 
 
 /* Default register names.  */
@@ -1782,7 +1792,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return GET_MODE_CLASS (mode) == MODE_CC;
 
   if (CA_REGNO_P (regno))
-    return mode == BImode;
+    return mode == Pmode || mode == SImode;
 
   /* AltiVec only in AldyVec registers.  */
   if (ALTIVEC_REGNO_P (regno))
@@ -2477,7 +2487,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   rs6000_regno_regclass[LR_REGNO] = LINK_REGS;
   rs6000_regno_regclass[CTR_REGNO] = CTR_REGS;
-  rs6000_regno_regclass[CA_REGNO] = CA_REGS;
+  rs6000_regno_regclass[CA_REGNO] = NO_REGS;
   rs6000_regno_regclass[VRSAVE_REGNO] = VRSAVE_REGS;
   rs6000_regno_regclass[VSCR_REGNO] = VRSAVE_REGS;
   rs6000_regno_regclass[SPE_ACC_REGNO] = SPE_ACC_REGS;
@@ -4136,7 +4146,7 @@ rs6000_loop_align (rtx label)
 
 /* Implement TARGET_LOOP_ALIGN_MAX_SKIP. */
 static int
-rs6000_loop_align_max_skip (rtx label)
+rs6000_loop_align_max_skip (rtx_insn *label)
 {
   return (1 << rs6000_loop_align (label)) - 1;
 }
@@ -5941,7 +5951,7 @@ rs6000_special_adjust_field_align_p (tree field, unsigned int computed)
 	      warned = true;
 	      inform (input_location,
 		      "the layout of aggregates containing vectors with"
-		      " %d-byte alignment has changed in GCC 4.10",
+		      " %d-byte alignment has changed in GCC 5",
 		      computed / BITS_PER_UNIT);
 	    }
 	}
@@ -9309,7 +9319,7 @@ rs6000_function_arg_boundary (enum machine_mode mode, const_tree type)
 	      warned = true;
 	      inform (input_location,
 		      "the ABI of passing aggregates with %d-byte alignment"
-		      " has changed in GCC 4.10",
+		      " has changed in GCC 5",
 		      (int) TYPE_ALIGN (type) / BITS_PER_UNIT);
 	    }
 	}
@@ -10430,7 +10440,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		  warned = true;
 		  inform (input_location,
 			  "the ABI of passing homogeneous float aggregates"
-			  " has changed in GCC 4.10");
+			  " has changed in GCC 5");
 		}
 	    }
 
@@ -13900,8 +13910,8 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case ALTIVEC_BUILTIN_MASK_FOR_LOAD:
     case ALTIVEC_BUILTIN_MASK_FOR_STORE:
       {
-	int icode = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr
-		     : (int) CODE_FOR_altivec_lvsl);
+	int icode = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr_direct
+		     : (int) CODE_FOR_altivec_lvsl_direct);
 	enum machine_mode tmode = insn_data[icode].operand[0].mode;
 	enum machine_mode mode = insn_data[icode].operand[1].mode;
 	tree arg;
@@ -13929,7 +13939,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	    || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	  target = gen_reg_rtx (tmode);
 
-	/*pat = gen_altivec_lvsr (target, op);*/
 	pat = GEN_FCN (icode) (target, op);
 	if (!pat)
 	  return 0;
@@ -15116,13 +15125,11 @@ htm_init_builtins (void)
 
 /* Hash function for builtin functions with up to 3 arguments and a return
    type.  */
-static unsigned
-builtin_hash_function (const void *hash_entry)
+hashval_t
+builtin_hasher::hash (builtin_hash_struct *bh)
 {
   unsigned ret = 0;
   int i;
-  const struct builtin_hash_struct *bh =
-    (const struct builtin_hash_struct *) hash_entry;
 
   for (i = 0; i < 4; i++)
     {
@@ -15134,12 +15141,9 @@ builtin_hash_function (const void *hash_entry)
 }
 
 /* Compare builtin hash entries H1 and H2 for equivalence.  */
-static int
-builtin_hash_eq (const void *h1, const void *h2)
+bool
+builtin_hasher::equal (builtin_hash_struct *p1, builtin_hash_struct *p2)
 {
-  const struct builtin_hash_struct *p1 = (const struct builtin_hash_struct *) h1;
-  const struct builtin_hash_struct *p2 = (const struct builtin_hash_struct *) h2;
-
   return ((p1->mode[0] == p2->mode[0])
 	  && (p1->mode[1] == p2->mode[1])
 	  && (p1->mode[2] == p2->mode[2])
@@ -15160,7 +15164,6 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 {
   struct builtin_hash_struct h;
   struct builtin_hash_struct *h2;
-  void **found;
   int num_args = 3;
   int i;
   tree ret_type = NULL_TREE;
@@ -15168,8 +15171,7 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 
   /* Create builtin_hash_table.  */
   if (builtin_hash_table == NULL)
-    builtin_hash_table = htab_create_ggc (1500, builtin_hash_function,
-					  builtin_hash_eq, NULL);
+    builtin_hash_table = hash_table<builtin_hasher>::create_ggc (1500);
 
   h.type = NULL_TREE;
   h.mode[0] = mode_ret;
@@ -15325,18 +15327,18 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 		     GET_MODE_NAME (m));
     }
 
-  found = htab_find_slot (builtin_hash_table, &h, INSERT);
+  builtin_hash_struct **found = builtin_hash_table->find_slot (&h, INSERT);
   if (*found == NULL)
     {
       h2 = ggc_alloc<builtin_hash_struct> ();
       *h2 = h;
-      *found = (void *)h2;
+      *found = h2;
 
       h2->type = build_function_type_list (ret_type, arg_type[0], arg_type[1],
 					   arg_type[2], NULL_TREE);
     }
 
-  return ((struct builtin_hash_struct *)(*found))->type;
+  return (*found)->type;
 }
 
 static void
@@ -17937,46 +17939,6 @@ extract_ME (rtx op)
   return i;
 }
 
-/* Locate some local-dynamic symbol still in use by this function
-   so that we can print its name in some tls_ld pattern.  */
-
-static const char *
-rs6000_get_some_local_dynamic_name (void)
-{
-  rtx_insn *insn;
-
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
-
-  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
-	&& for_each_rtx (&PATTERN (insn),
-			 rs6000_get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
-
-  gcc_unreachable ();
-}
-
-/* Helper function for rs6000_get_some_local_dynamic_name.  */
-
-static int
-rs6000_get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *px;
-
-  if (GET_CODE (x) == SYMBOL_REF)
-    {
-      const char *str = XSTR (x, 0);
-      if (SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
-	{
-	  cfun->machine->some_ld_name = str;
-	  return 1;
-	}
-    }
-
-  return 0;
-}
-
 /* Write out a function code label.  */
 
 void
@@ -18652,7 +18614,11 @@ print_operand (FILE *file, rtx x, int code)
       return;
 
     case '&':
-      assemble_name (file, rs6000_get_some_local_dynamic_name ());
+      if (const char *name = get_some_local_dynamic_name ())
+	assemble_name (file, name);
+      else
+	output_operand_lossage ("'%%&' used without any "
+				"local dynamic TLS references");
       return;
 
     default:
@@ -20857,7 +20823,7 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
      are none.  (This check is expensive, but seldom executed.) */
   if (WORLD_SAVE_P (info_ptr))
     {
-      rtx insn;
+      rtx_insn *insn;
       for (insn = get_last_insn_anywhere (); insn; insn = PREV_INSN (insn))
 	if (CALL_P (insn) && SIBLING_CALL_P (insn))
 	  {
@@ -22050,7 +22016,7 @@ get_TOC_alias_set (void)
 static int
 uses_TOC (void)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
@@ -25600,24 +25566,21 @@ rs6000_hash_constant (rtx k)
   return result;
 }
 
-static unsigned
-toc_hash_function (const void *hash_entry)
+hashval_t
+toc_hasher::hash (toc_hash_struct *thc)
 {
-  const struct toc_hash_struct *thc =
-    (const struct toc_hash_struct *) hash_entry;
   return rs6000_hash_constant (thc->key) ^ thc->key_mode;
 }
 
 /* Compare H1 and H2 for equivalence.  */
 
-static int
-toc_hash_eq (const void *h1, const void *h2)
+bool
+toc_hasher::equal (toc_hash_struct *h1, toc_hash_struct *h2)
 {
-  rtx r1 = ((const struct toc_hash_struct *) h1)->key;
-  rtx r2 = ((const struct toc_hash_struct *) h2)->key;
+  rtx r1 = h1->key;
+  rtx r2 = h2->key;
 
-  if (((const struct toc_hash_struct *) h1)->key_mode
-      != ((const struct toc_hash_struct *) h2)->key_mode)
+  if (h1->key_mode != h2->key_mode)
     return 0;
 
   return rtx_equal_p (r1, r2);
@@ -25704,20 +25667,18 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
   if (TARGET_TOC && GET_CODE (x) != LABEL_REF)
     {
       struct toc_hash_struct *h;
-      void * * found;
 
       /* Create toc_hash_table.  This can't be done at TARGET_OPTION_OVERRIDE
 	 time because GGC is not initialized at that point.  */
       if (toc_hash_table == NULL)
-	toc_hash_table = htab_create_ggc (1021, toc_hash_function,
-					  toc_hash_eq, NULL);
+	toc_hash_table = hash_table<toc_hasher>::create_ggc (1021);
 
       h = ggc_alloc<toc_hash_struct> ();
       h->key = x;
       h->key_mode = mode;
       h->labelno = labelno;
 
-      found = htab_find_slot (toc_hash_table, h, INSERT);
+      toc_hash_struct **found = toc_hash_table->find_slot (h, INSERT);
       if (*found == NULL)
 	*found = h;
       else  /* This is indeed a duplicate.
@@ -25727,8 +25688,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
 	  fprintf (file, "%d,", labelno);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
-	  fprintf (file, "%d\n", ((*(const struct toc_hash_struct **)
-					      found)->labelno));
+	  fprintf (file, "%d\n", ((*found)->labelno));
 
 #ifdef HAVE_AS_TLS
 	  if (TARGET_XCOFF && GET_CODE (x) == SYMBOL_REF
@@ -25739,8 +25699,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LCM");
 	      fprintf (file, "%d,", labelno);
 	      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LCM");
-	      fprintf (file, "%d\n", ((*(const struct toc_hash_struct **)
-			       			      found)->labelno));
+	      fprintf (file, "%d\n", ((*found)->labelno));
 	    }
 #endif
 	  return;
@@ -26444,6 +26403,7 @@ rs6000_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
                 case TYPE_CR_LOGICAL:
                 case TYPE_DELAYED_CR:
 		  return cost + 2;
+                case TYPE_EXTS:
                 case TYPE_MUL:
 		  if (get_attr_dot (dep_insn) == DOT_YES)
 		    return cost + 2;
@@ -26680,7 +26640,7 @@ rs6000_debug_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn,
    Return false otherwise.  */
 
 static bool
-is_microcoded_insn (rtx insn)
+is_microcoded_insn (rtx_insn *insn)
 {
   if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
@@ -26711,7 +26671,7 @@ is_microcoded_insn (rtx insn)
    by the processor (and therefore occupies 2 issue slots).  */
 
 static bool
-is_cracked_insn (rtx insn)
+is_cracked_insn (rtx_insn *insn)
 {
   if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
@@ -26736,6 +26696,8 @@ is_cracked_insn (rtx insn)
 	      && get_attr_update (insn) == UPDATE_YES)
 	  || type == TYPE_DELAYED_CR
 	  || type == TYPE_COMPARE
+	  || (type == TYPE_EXTS
+	      && get_attr_dot (insn) == DOT_YES)
 	  || (type == TYPE_SHIFT
 	      && get_attr_dot (insn) == DOT_YES
 	      && get_attr_var_shift (insn) == VAR_SHIFT_NO)
@@ -26754,7 +26716,7 @@ is_cracked_insn (rtx insn)
    the branch slot.  */
 
 static bool
-is_branch_slot_insn (rtx insn)
+is_branch_slot_insn (rtx_insn *insn)
 {
   if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
@@ -26775,7 +26737,7 @@ is_branch_slot_insn (rtx insn)
 /* The function returns true if out_inst sets a value that is
    used in the address generation computation of in_insn */
 static bool
-set_to_load_agen (rtx out_insn, rtx in_insn)
+set_to_load_agen (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   rtx out_set, in_set;
 
@@ -26942,7 +26904,7 @@ rs6000_adjust_priority (rtx_insn *insn ATTRIBUTE_UNUSED, int priority)
 
 /* Return true if the instruction is nonpipelined on the Cell. */
 static bool
-is_nonpipeline_insn (rtx insn)
+is_nonpipeline_insn (rtx_insn *insn)
 {
   enum attr_type type;
   if (!insn || !NONDEBUG_INSN_P (insn)
@@ -27495,7 +27457,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx_insn **ready,
    the first insn in the group it belongs to).  */
 
 static bool
-insn_terminates_group_p (rtx insn, enum group_termination which_group)
+insn_terminates_group_p (rtx_insn *insn, enum group_termination which_group)
 {
   bool first, last;
 
@@ -27518,7 +27480,7 @@ insn_terminates_group_p (rtx insn, enum group_termination which_group)
 
 
 static bool
-insn_must_be_first_in_group (rtx insn)
+insn_must_be_first_in_group (rtx_insn *insn)
 {
   enum attr_type type;
 
@@ -27624,6 +27586,7 @@ insn_must_be_first_in_group (rtx insn)
           return true;
         case TYPE_MUL:
         case TYPE_SHIFT:
+        case TYPE_EXTS:
           if (get_attr_dot (insn) == DOT_YES)
             return true;
           else
@@ -27665,6 +27628,7 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_MTJMPR:
           return true;
         case TYPE_SHIFT:
+        case TYPE_EXTS:
         case TYPE_MUL:
           if (get_attr_dot (insn) == DOT_YES)
             return true;
@@ -27694,7 +27658,7 @@ insn_must_be_first_in_group (rtx insn)
 }
 
 static bool
-insn_must_be_last_in_group (rtx insn)
+insn_must_be_last_in_group (rtx_insn *insn)
 {
   enum attr_type type;
 
@@ -27856,7 +27820,7 @@ is_costly_group (rtx *group_insns, rtx next_insn)
 
 static int
 force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
-		 rtx next_insn, bool *group_end, int can_issue_more,
+		 rtx_insn *next_insn, bool *group_end, int can_issue_more,
 		 int *group_count)
 {
   rtx nop;
@@ -28962,7 +28926,7 @@ get_prev_label (tree function_name)
    CALL_DEST is the routine we are calling.  */
 
 char *
-output_call (rtx insn, rtx *operands, int dest_operand_number,
+output_call (rtx_insn *insn, rtx *operands, int dest_operand_number,
 	     int cookie_operand_number)
 {
   static char buf[256];
@@ -30144,6 +30108,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	}
       break;
 
+    case NE:
     case EQ:
     case GTU:
     case LTU:
@@ -31245,6 +31210,23 @@ rs6000_expand_interleave (rtx target, rtx op0, rtx op1, bool highp)
   rs6000_do_expand_vec_perm (target, op0, op1, vmode, nelt, perm);
 }
 
+/* Scale a V2DF vector SRC by two to the SCALE and place in TGT.  */
+void
+rs6000_scale_v2df (rtx tgt, rtx src, int scale)
+{
+  HOST_WIDE_INT hwi_scale (scale);
+  REAL_VALUE_TYPE r_pow;
+  rtvec v = rtvec_alloc (2);
+  rtx elt;
+  rtx scale_vec = gen_reg_rtx (V2DFmode);
+  (void)real_powi (&r_pow, DFmode, &dconst2, hwi_scale);
+  elt = CONST_DOUBLE_FROM_REAL_VALUE (r_pow, DFmode);
+  RTVEC_ELT (v, 0) = elt;
+  RTVEC_ELT (v, 1) = elt;
+  rs6000_expand_vector_init (scale_vec, gen_rtx_PARALLEL (V2DFmode, v));
+  emit_insn (gen_mulv2df3 (tgt, src, scale_vec));
+}
+
 /* Return an RTX representing where to find the function value of a
    function returning MODE.  */
 static rtx
@@ -31597,17 +31579,40 @@ rs6000_init_dwarf_reg_sizes_extra (tree address)
     }
 }
 
-/* Map internal gcc register numbers to DWARF2 register numbers.  */
+/* Map internal gcc register numbers to debug format register numbers.
+   FORMAT specifies the type of debug register number to use:
+     0 -- debug information, except for frame-related sections
+     1 -- DWARF .debug_frame section
+     2 -- DWARF .eh_frame section  */
 
 unsigned int
-rs6000_dbx_register_number (unsigned int regno)
+rs6000_dbx_register_number (unsigned int regno, unsigned int format)
 {
-  if (regno <= 63 || write_symbols != DWARF2_DEBUG)
+  /* We never use the GCC internal number for SPE high registers.
+     Those are mapped to the 1200..1231 range for all debug formats.  */
+  if (SPE_HIGH_REGNO_P (regno))
+    return regno - FIRST_SPE_HIGH_REGNO + 1200;
+
+  /* Except for the above, we use the internal number for non-DWARF
+     debug information, and also for .eh_frame.  */
+  if ((format == 0 && write_symbols != DWARF2_DEBUG) || format == 2)
+    return regno;
+
+  /* On some platforms, we use the standard DWARF register
+     numbering for .debug_info and .debug_frame.  */
+#ifdef RS6000_USE_DWARF_NUMBERING
+  if (regno <= 63)
     return regno;
   if (regno == LR_REGNO)
     return 108;
   if (regno == CTR_REGNO)
     return 109;
+  /* Special handling for CR for .debug_frame: rs6000_emit_prologue has
+     translated any combination of CR2, CR3, CR4 saves to a save of CR2.
+     The actual code emitted saves the whole of CR, so we map CR2_REGNO
+     to the DWARF reg for CR.  */
+  if (format == 1 && regno == CR2_REGNO)
+    return 64;
   if (CR_REGNO_P (regno))
     return regno - CR0_REGNO + 86;
   if (regno == CA_REGNO)
@@ -31622,8 +31627,7 @@ rs6000_dbx_register_number (unsigned int regno)
     return 99;
   if (regno == SPEFSCR_REGNO)
     return 612;
-  if (SPE_HIGH_REGNO_P (regno))
-    return regno - FIRST_SPE_HIGH_REGNO + 1200;
+#endif
   return regno;
 }
 
@@ -33060,25 +33064,14 @@ rs6000_split_logical (rtx operands[3],
 
 /* Return true if the peephole2 can combine a load involving a combination of
    an addis instruction and a load with an offset that can be fused together on
-   a power8.
-
-   The operands are:
-	operands[0]	register set with addis
-	operands[1]	value set via addis
-	operands[2]	target register being loaded
-	operands[3]	D-form memory reference using operands[0].
-
-   In addition, we are passed a boolean that is true if this is a peephole2,
-   and we can use see if the addis_reg is dead after the insn and can be
-   replaced by the target register.  */
+   a power8.  */
 
 bool
-fusion_gpr_load_p (rtx *operands, bool peep2_p)
+fusion_gpr_load_p (rtx addis_reg,	/* register set via addis.  */
+		   rtx addis_value,	/* addis value.  */
+		   rtx target,		/* target register that is loaded.  */
+		   rtx mem)		/* bottom part of the memory addr. */
 {
-  rtx addis_reg = operands[0];
-  rtx addis_value = operands[1];
-  rtx target = operands[2];
-  rtx mem = operands[3];
   rtx addr;
   rtx base_reg;
 
@@ -33092,9 +33085,6 @@ fusion_gpr_load_p (rtx *operands, bool peep2_p)
   if (!fusion_gpr_addis (addis_value, GET_MODE (addis_value)))
     return false;
 
-  if (!fusion_gpr_mem_load (mem, GET_MODE (mem)))
-    return false;
-
   /* Allow sign/zero extension.  */
   if (GET_CODE (mem) == ZERO_EXTEND
       || (GET_CODE (mem) == SIGN_EXTEND && TARGET_P8_FUSION_SIGN))
@@ -33103,22 +33093,22 @@ fusion_gpr_load_p (rtx *operands, bool peep2_p)
   if (!MEM_P (mem))
     return false;
 
+  if (!fusion_gpr_mem_load (mem, GET_MODE (mem)))
+    return false;
+
   addr = XEXP (mem, 0);			/* either PLUS or LO_SUM.  */
   if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
     return false;
 
   /* Validate that the register used to load the high value is either the
-     register being loaded, or we can safely replace its use in a peephole2.
+     register being loaded, or we can safely replace its use.
 
-     If this is a peephole2, we assume that there are 2 instructions in the
-     peephole (addis and load), so we want to check if the target register was
-     not used in the memory address and the register to hold the addis result
-     is dead after the peephole.  */
+     This function is only called from the peephole2 pass and we assume that
+     there are 2 instructions in the peephole (addis and load), so we want to
+     check if the target register was not used in the memory address and the
+     register to hold the addis result is dead after the peephole.  */
   if (REGNO (addis_reg) != REGNO (target))
     {
-      if (!peep2_p)
-	return false;
-
       if (reg_mentioned_p (target, mem))
 	return false;
 
@@ -33159,9 +33149,6 @@ expand_fusion_gpr_load (rtx *operands)
   enum machine_mode extend_mode = target_mode;
   enum machine_mode ptr_mode = Pmode;
   enum rtx_code extend = UNKNOWN;
-  rtx addis_reg = ((ptr_mode == target_mode)
-		   ? target
-		   : simplify_subreg (ptr_mode, target, target_mode, 0));
 
   if (GET_CODE (orig_mem) == ZERO_EXTEND
       || (TARGET_P8_FUSION_SIGN && GET_CODE (orig_mem) == SIGN_EXTEND))
@@ -33178,13 +33165,14 @@ expand_fusion_gpr_load (rtx *operands)
   gcc_assert (plus_or_lo_sum == PLUS || plus_or_lo_sum == LO_SUM);
 
   offset = XEXP (orig_addr, 1);
-  new_addr = gen_rtx_fmt_ee (plus_or_lo_sum, ptr_mode, addis_reg, offset);
-  new_mem = change_address (orig_mem, target_mode, new_addr);
+  new_addr = gen_rtx_fmt_ee (plus_or_lo_sum, ptr_mode, addis_value, offset);
+  new_mem = replace_equiv_address_nv (orig_mem, new_addr, false);
 
   if (extend != UNKNOWN)
     new_mem = gen_rtx_fmt_e (ZERO_EXTEND, extend_mode, new_mem);
 
-  emit_insn (gen_rtx_SET (VOIDmode, addis_reg, addis_value));
+  new_mem = gen_rtx_UNSPEC (extend_mode, gen_rtvec (1, new_mem),
+			    UNSPEC_FUSION_GPR);
   emit_insn (gen_rtx_SET (VOIDmode, target, new_mem));
 
   if (extend == SIGN_EXTEND)
@@ -33203,55 +33191,40 @@ expand_fusion_gpr_load (rtx *operands)
 }
 
 /* Return a string to fuse an addis instruction with a gpr load to the same
-   register that we loaded up the addis instruction.  The code is complicated,
-   so we call output_asm_insn directly, and just return "".
+   register that we loaded up the addis instruction.  The address that is used
+   is the logical address that was formed during peephole2:
+	(lo_sum (high) (low-part))
 
-   The operands are:
-	operands[0]	register set with addis (must be same reg as target).
-	operands[1]	value set via addis
-	operands[2]	target register being loaded
-	operands[3]	D-form memory reference using operands[0].  */
+   The code is complicated, so we call output_asm_insn directly, and just
+   return "".  */
 
 const char *
-emit_fusion_gpr_load (rtx *operands)
+emit_fusion_gpr_load (rtx target, rtx mem)
 {
-  rtx addis_reg = operands[0];
-  rtx addis_value = operands[1];
-  rtx target = operands[2];
-  rtx mem = operands[3];
+  rtx addis_value;
   rtx fuse_ops[10];
   rtx addr;
   rtx load_offset;
   const char *addis_str = NULL;
   const char *load_str = NULL;
-  const char *extend_insn = NULL;
   const char *mode_name = NULL;
   char insn_template[80];
   enum machine_mode mode;
   const char *comment_str = ASM_COMMENT_START;
-  bool sign_p = false;
 
-  gcc_assert (REG_P (addis_reg) && REG_P (target));
-  gcc_assert (REGNO (addis_reg) == REGNO (target));
+  if (GET_CODE (mem) == ZERO_EXTEND)
+    mem = XEXP (mem, 0);
+
+  gcc_assert (REG_P (target) && MEM_P (mem));
 
   if (*comment_str == ' ')
     comment_str++;
 
-  /* Allow sign/zero extension.  */
-  if (GET_CODE (mem) == ZERO_EXTEND)
-    mem = XEXP (mem, 0);
-
-  else if (GET_CODE (mem) == SIGN_EXTEND && TARGET_P8_FUSION_SIGN)
-    {
-      sign_p = true;
-      mem = XEXP (mem, 0);
-    }
-
-  gcc_assert (MEM_P (mem));
   addr = XEXP (mem, 0);
   if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
     gcc_unreachable ();
 
+  addis_value = XEXP (addr, 0);
   load_offset = XEXP (addr, 1);
 
   /* Now emit the load instruction to the same register.  */
@@ -33261,29 +33234,22 @@ emit_fusion_gpr_load (rtx *operands)
     case QImode:
       mode_name = "char";
       load_str = "lbz";
-      extend_insn = "extsb %0,%0";
       break;
 
     case HImode:
       mode_name = "short";
       load_str = "lhz";
-      extend_insn = "extsh %0,%0";
       break;
 
     case SImode:
       mode_name = "int";
       load_str = "lwz";
-      extend_insn = "extsw %0,%0";
       break;
 
     case DImode:
-      if (TARGET_POWERPC64)
-	{
-	  mode_name = "long";
-	  load_str = "ld";
-	}
-      else
-	gcc_unreachable ();
+      gcc_assert (TARGET_POWERPC64);
+      mode_name = "long";
+      load_str = "ld";
       break;
 
     default:
@@ -33427,14 +33393,6 @@ emit_fusion_gpr_load (rtx *operands)
   else
     fatal_insn ("Unable to generate load offset for fusion", load_offset);
 
-  /* Handle sign extension.  The peephole2 pass generates this as a separate
-     insn, but we handle it just in case it got reattached.  */
-  if (sign_p)
-    {
-      gcc_assert (extend_insn != NULL);
-      output_asm_insn (extend_insn, fuse_ops);
-    }
-
   return "";
 }
 
@@ -33493,6 +33451,53 @@ emit_fusion_gpr_load (rtx *operands)
    than deleting a swap, we convert the load/store into a permuting
    load/store (which effectively removes the swap).  */
 
+/* Notes on Permutes
+
+   We do not currently handle computations that contain permutes.  There
+   is a general transformation that can be performed correctly, but it
+   may introduce more expensive code than it replaces.  To handle these
+   would require a cost model to determine when to perform the optimization.
+   This commentary records how this could be done if desired.
+
+   The most general permute is something like this (example for V16QI):
+
+   (vec_select:V16QI (vec_concat:V32QI (op1:V16QI) (op2:V16QI))
+                     (parallel [(const_int a0) (const_int a1)
+                                 ...
+                                (const_int a14) (const_int a15)]))
+
+   where a0,...,a15 are in [0,31] and select elements from op1 and op2
+   to produce in the result.
+
+   Regardless of mode, we can convert the PARALLEL to a mask of 16
+   byte-element selectors.  Let's call this M, with M[i] representing
+   the ith byte-element selector value.  Then if we swap doublewords
+   throughout the computation, we can get correct behavior by replacing
+   M with M' as follows:
+
+            { M[i+8]+8 : i < 8, M[i+8] in [0,7] U [16,23]
+    M'[i] = { M[i+8]-8 : i < 8, M[i+8] in [8,15] U [24,31]
+            { M[i-8]+8 : i >= 8, M[i-8] in [0,7] U [16,23]
+            { M[i-8]-8 : i >= 8, M[i-8] in [8,15] U [24,31]
+
+   This seems promising at first, since we are just replacing one mask
+   with another.  But certain masks are preferable to others.  If M
+   is a mask that matches a vmrghh pattern, for example, M' certainly
+   will not.  Instead of a single vmrghh, we would generate a load of
+   M' and a vperm.  So we would need to know how many xxswapd's we can
+   remove as a result of this transformation to determine if it's
+   profitable; and preferably the logic would need to be aware of all
+   the special preferable masks.
+
+   Another form of permute is an UNSPEC_VPERM, in which the mask is
+   already in a register.  In some cases, this mask may be a constant
+   that we can discover with ud-chains, in which case the above
+   transformation is ok.  However, the common usage here is for the
+   mask to be produced by an UNSPEC_LVSL, in which case the mask 
+   cannot be known at compile time.  In such a case we would have to
+   generate several instructions to compute M' as above at run time,
+   and a cost model is needed again.  */
+
 /* This is based on the union-find logic in web.c.  web_entry_base is
    defined in df.h.  */
 class swap_web_entry : public web_entry_base
@@ -33539,7 +33544,9 @@ enum special_handling_values {
   SH_CONST_VECTOR,
   SH_SUBREG,
   SH_NOSWAP_LD,
-  SH_NOSWAP_ST
+  SH_NOSWAP_ST,
+  SH_EXTRACT,
+  SH_SPLAT
 };
 
 /* Union INSN with all insns containing definitions that reach USE.
@@ -33681,6 +33688,7 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 {
   enum rtx_code code = GET_CODE (op);
   int i, j;
+  rtx parallel;
 
   switch (code)
     {
@@ -33691,7 +33699,6 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
       return 1;
 
     case VEC_CONCAT:
-    case VEC_SELECT:
     case ASM_INPUT:
     case ASM_OPERANDS:
       return 0;
@@ -33709,6 +33716,28 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	 handling.  */
       if (GET_CODE (XEXP (op, 0)) == CONST_INT)
 	return 1;
+      else if (GET_CODE (XEXP (op, 0)) == REG
+	       && GET_MODE_INNER (GET_MODE (op)) == GET_MODE (XEXP (op, 0)))
+	/* This catches V2DF and V2DI splat, at a minimum.  */
+	return 1;
+      else if (GET_CODE (XEXP (op, 0)) == VEC_SELECT)
+	/* If the duplicated item is from a select, defer to the select
+	   processing to see if we can change the lane for the splat.  */
+	return rtx_is_swappable_p (XEXP (op, 0), special);
+      else
+	return 0;
+
+    case VEC_SELECT:
+      /* A vec_extract operation is ok if we change the lane.  */
+      if (GET_CODE (XEXP (op, 0)) == REG
+	  && GET_MODE_INNER (GET_MODE (XEXP (op, 0))) == GET_MODE (op)
+	  && GET_CODE ((parallel = XEXP (op, 1))) == PARALLEL
+	  && XVECLEN (parallel, 0) == 1
+	  && GET_CODE (XVECEXP (parallel, 0, 0)) == CONST_INT)
+	{
+	  *special = SH_EXTRACT;
+	  return 1;
+	}
       else
 	return 0;
 
@@ -33728,44 +33757,57 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	   vector splat are element-order sensitive.  A few of these
 	   cases might be workable with special handling if required.  */
 	int val = XINT (op, 1);
-	if (val == UNSPEC_VMRGH_DIRECT
-	    || val == UNSPEC_VMRGL_DIRECT
-	    || val == UNSPEC_VPACK_SIGN_SIGN_SAT
-	    || val == UNSPEC_VPACK_SIGN_UNS_SAT
-	    || val == UNSPEC_VPACK_UNS_UNS_MOD
-	    || val == UNSPEC_VPACK_UNS_UNS_MOD_DIRECT
-	    || val == UNSPEC_VPACK_UNS_UNS_SAT
-	    || val == UNSPEC_VPERM
-	    || val == UNSPEC_VPERM_UNS
-	    || val == UNSPEC_VPERMHI
-	    || val == UNSPEC_VPERMSI
-	    || val == UNSPEC_VPKPX
-	    || val == UNSPEC_VSLDOI
-	    || val == UNSPEC_VSLO
-	    || val == UNSPEC_VSPLT_DIRECT
-	    || val == UNSPEC_VSRO
-	    || val == UNSPEC_VSUM2SWS
-	    || val == UNSPEC_VSUM4S
-	    || val == UNSPEC_VSUM4UBS
-	    || val == UNSPEC_VSUMSWS
-	    || val == UNSPEC_VSUMSWS_DIRECT
-	    || val == UNSPEC_VSX_CONCAT
-	    || val == UNSPEC_VSX_CVSPDP
-	    || val == UNSPEC_VSX_CVSPDPN
-	    || val == UNSPEC_VSX_SET
-	    || val == UNSPEC_VSX_SLDWI
-	    || val == UNSPEC_VSX_XXSPLTW
-	    || val == UNSPEC_VUNPACK_HI_SIGN
-	    || val == UNSPEC_VUNPACK_HI_SIGN_DIRECT
-	    || val == UNSPEC_VUNPACK_LO_SIGN
-	    || val == UNSPEC_VUNPACK_LO_SIGN_DIRECT
-	    || val == UNSPEC_VUPKHPX
-	    || val == UNSPEC_VUPKHS_V4SF
-	    || val == UNSPEC_VUPKHU_V4SF
-	    || val == UNSPEC_VUPKLPX
-	    || val == UNSPEC_VUPKLS_V4SF
-	    || val == UNSPEC_VUPKHU_V4SF)
-	  return 0;
+	switch (val)
+	  {
+	  default:
+	    break;
+	  case UNSPEC_VMRGH_DIRECT:
+	  case UNSPEC_VMRGL_DIRECT:
+	  case UNSPEC_VPACK_SIGN_SIGN_SAT:
+	  case UNSPEC_VPACK_SIGN_UNS_SAT:
+	  case UNSPEC_VPACK_UNS_UNS_MOD:
+	  case UNSPEC_VPACK_UNS_UNS_MOD_DIRECT:
+	  case UNSPEC_VPACK_UNS_UNS_SAT:
+	  case UNSPEC_VPERM:
+	  case UNSPEC_VPERM_UNS:
+	  case UNSPEC_VPERMHI:
+	  case UNSPEC_VPERMSI:
+	  case UNSPEC_VPKPX:
+	  case UNSPEC_VSLDOI:
+	  case UNSPEC_VSLO:
+	  case UNSPEC_VSRO:
+	  case UNSPEC_VSUM2SWS:
+	  case UNSPEC_VSUM4S:
+	  case UNSPEC_VSUM4UBS:
+	  case UNSPEC_VSUMSWS:
+	  case UNSPEC_VSUMSWS_DIRECT:
+	  case UNSPEC_VSX_CONCAT:
+	  case UNSPEC_VSX_SET:
+	  case UNSPEC_VSX_SLDWI:
+	  case UNSPEC_VUNPACK_HI_SIGN:
+	  case UNSPEC_VUNPACK_HI_SIGN_DIRECT:
+	  case UNSPEC_VUNPACK_LO_SIGN:
+	  case UNSPEC_VUNPACK_LO_SIGN_DIRECT:
+	  case UNSPEC_VUPKHPX:
+	  case UNSPEC_VUPKHS_V4SF:
+	  case UNSPEC_VUPKHU_V4SF:
+	  case UNSPEC_VUPKLPX:
+	  case UNSPEC_VUPKLS_V4SF:
+	  case UNSPEC_VUPKLU_V4SF:
+	  /* The following could be handled as an idiom with XXSPLTW.
+	     These place a scalar in BE element zero, but the XXSPLTW
+	     will currently expect it in BE element 2 in a swapped
+	     region.  When one of these feeds an XXSPLTW with no other
+	     defs/uses either way, we can avoid the lane change for
+	     XXSPLTW and things will be correct.  TBD.  */
+	  case UNSPEC_VSX_CVDPSPN:
+	  case UNSPEC_VSX_CVSPDP:
+	  case UNSPEC_VSX_CVSPDPN:
+	    return 0;
+	  case UNSPEC_VSPLT_DIRECT:
+	    *special = SH_SPLAT;
+	    return 1;
+	  }
       }
 
     default:
@@ -33817,9 +33859,10 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
     return 0;
 
   /* Loads and stores seen here are not permuting, but we can still
-     fix them up by converting them to permuting ones.  Exception:
-     UNSPEC_LVX and UNSPEC_STVX, which have a PARALLEL body instead
-     of a SET.  */
+     fix them up by converting them to permuting ones.  Exceptions:
+     UNSPEC_LVE, UNSPEC_LVX, and UNSPEC_STVX, which have a PARALLEL
+     body instead of a SET; and UNSPEC_STVE, which has an UNSPEC
+     for the SET source.  */
   rtx body = PATTERN (insn);
   int i = INSN_UID (insn);
 
@@ -33836,7 +33879,7 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 
   if (insn_entry[i].is_store)
     {
-      if (GET_CODE (body) == SET)
+      if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) != UNSPEC)
 	{
 	  *special = SH_NOSWAP_ST;
 	  return 1;
@@ -34092,6 +34135,45 @@ permute_store (rtx_insn *insn)
 	     INSN_UID (insn));
 }
 
+/* Given OP that contains a vector extract operation, adjust the index
+   of the extracted lane to account for the doubleword swap.  */
+static void
+adjust_extract (rtx_insn *insn)
+{
+  rtx src = SET_SRC (PATTERN (insn));
+  /* The vec_select may be wrapped in a vec_duplicate for a splat, so
+     account for that.  */
+  rtx sel = GET_CODE (src) == VEC_DUPLICATE ? XEXP (src, 0) : src;
+  rtx par = XEXP (sel, 1);
+  int half_elts = GET_MODE_NUNITS (GET_MODE (XEXP (sel, 0))) >> 1;
+  int lane = INTVAL (XVECEXP (par, 0, 0));
+  lane = lane >= half_elts ? lane - half_elts : lane + half_elts;
+  XVECEXP (par, 0, 0) = GEN_INT (lane);
+  INSN_CODE (insn) = -1; /* Force re-recognition.  */
+  df_insn_rescan (insn);
+
+  if (dump_file)
+    fprintf (dump_file, "Changing lane for extract %d\n", INSN_UID (insn));
+}
+
+/* Given OP that contains a vector direct-splat operation, adjust the index
+   of the source lane to account for the doubleword swap.  */
+static void
+adjust_splat (rtx_insn *insn)
+{
+  rtx body = PATTERN (insn);
+  rtx unspec = XEXP (body, 1);
+  int half_elts = GET_MODE_NUNITS (GET_MODE (unspec)) >> 1;
+  int lane = INTVAL (XVECEXP (unspec, 0, 1));
+  lane = lane >= half_elts ? lane - half_elts : lane + half_elts;
+  XVECEXP (unspec, 0, 1) = GEN_INT (lane);
+  INSN_CODE (insn) = -1; /* Force re-recognition.  */
+  df_insn_rescan (insn);
+
+  if (dump_file)
+    fprintf (dump_file, "Changing lane for splat %d\n", INSN_UID (insn));
+}
+
 /* The insn described by INSN_ENTRY[I] can be swapped, but only
    with special handling.  Take care of that here.  */
 static void
@@ -34102,6 +34184,8 @@ handle_special_swappables (swap_web_entry *insn_entry, unsigned i)
 
   switch (insn_entry[i].special_handling)
     {
+    default:
+      gcc_unreachable ();
     case SH_CONST_VECTOR:
       {
 	/* A CONST_VECTOR will only show up somewhere in the RHS of a SET.  */
@@ -34128,6 +34212,14 @@ handle_special_swappables (swap_web_entry *insn_entry, unsigned i)
       /* Convert a non-permuting store to a permuting one.  */
       permute_store (insn);
       break;
+    case SH_EXTRACT:
+      /* Change the lane on an extract operation.  */
+      adjust_extract (insn);
+      break;
+    case SH_SPLAT:
+      /* Change the lane on a direct-splat operation.  */
+      adjust_splat (insn);
+      break;
     }
 }
 
@@ -34152,7 +34244,7 @@ replace_swap_with_copy (swap_web_entry *insn_entry, unsigned i)
 
   df_insn_delete (insn);
   remove_insn (insn);
-  INSN_DELETED_P (insn) = 1;
+  insn->set_deleted ();
 }
 
 /* Dump the swap table to DUMP_FILE.  */
@@ -34196,6 +34288,10 @@ dump_swap_insn_table (swap_web_entry *insn_entry)
 	      fputs ("special:load ", dump_file);
 	    else if (insn_entry[i].special_handling == SH_NOSWAP_ST)
 	      fputs ("special:store ", dump_file);
+	    else if (insn_entry[i].special_handling == SH_EXTRACT)
+	      fputs ("special:extract ", dump_file);
+	    else if (insn_entry[i].special_handling == SH_SPLAT)
+	      fputs ("special:splat ", dump_file);
 	  }
 	if (insn_entry[i].web_not_optimizable)
 	  fputs ("unoptimizable ", dump_file);

@@ -1202,28 +1202,20 @@ static int mips_register_move_cost (enum machine_mode, reg_class_t,
 				    reg_class_t);
 static unsigned int mips_function_arg_boundary (enum machine_mode, const_tree);
 
+struct mips16_flip_traits : default_hashmap_traits
+{
+  static hashval_t hash (const char *s) { return htab_hash_string (s); }
+  static bool
+  equal_keys (const char *a, const char *b)
+  {
+    return !strcmp (a, b);
+  }
+};
+
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
-struct GTY (())  mflip_mips16_entry {
-  const char *name;
-  bool mips16_p;
-};
-static GTY ((param_is (struct mflip_mips16_entry))) htab_t mflip_mips16_htab;
-
-/* Hash table callbacks for mflip_mips16_htab.  */
-
-static hashval_t
-mflip_mips16_htab_hash (const void *entry)
-{
-  return htab_hash_string (((const struct mflip_mips16_entry *) entry)->name);
-}
-
-static int
-mflip_mips16_htab_eq (const void *entry, const void *name)
-{
-  return strcmp (((const struct mflip_mips16_entry *) entry)->name,
-		 (const char *) name) == 0;
-}
+static GTY (()) hash_map<const char *, bool, mips16_flip_traits> *
+  mflip_mips16_htab;
 
 /* True if -mflip-mips16 should next add an attribute for the default MIPS16
    mode, false if it should next add an attribute for the opposite mode.  */
@@ -1236,10 +1228,7 @@ static GTY(()) bool mips16_flipper;
 static bool
 mflip_mips16_use_mips16_p (tree decl)
 {
-  struct mflip_mips16_entry *entry;
   const char *name;
-  hashval_t hash;
-  void **slot;
   bool base_is_mips16 = (mips_base_compression_flags & MASK_MIPS16) != 0;
 
   /* Use the opposite of the command-line setting for anonymous decls.  */
@@ -1247,22 +1236,19 @@ mflip_mips16_use_mips16_p (tree decl)
     return !base_is_mips16;
 
   if (!mflip_mips16_htab)
-    mflip_mips16_htab = htab_create_ggc (37, mflip_mips16_htab_hash,
-					 mflip_mips16_htab_eq, NULL);
+    mflip_mips16_htab
+      = hash_map<const char *, bool, mips16_flip_traits>::create_ggc (37);
 
   name = IDENTIFIER_POINTER (DECL_NAME (decl));
-  hash = htab_hash_string (name);
-  slot = htab_find_slot_with_hash (mflip_mips16_htab, name, hash, INSERT);
-  entry = (struct mflip_mips16_entry *) *slot;
-  if (!entry)
+
+  bool existed;
+  bool *slot = &mflip_mips16_htab->get_or_insert (name, &existed);
+  if (!existed)
     {
       mips16_flipper = !mips16_flipper;
-      entry = ggc_alloc<mflip_mips16_entry> ();
-      entry->name = name;
-      entry->mips16_p = mips16_flipper ? !base_is_mips16 : base_is_mips16;
-      *slot = entry;
+      *slot = mips16_flipper ? !base_is_mips16 : base_is_mips16;
     }
-  return entry->mips16_p;
+  return *slot;
 }
 
 /* Predicates to test for presence of "near" and "far"/"long_call"
@@ -2678,7 +2664,7 @@ mips_split_const_insns (rtx x)
    BASE_INSN_LENGTH is the length of one instruction.  */
 
 int
-mips_load_store_insns (rtx mem, rtx insn)
+mips_load_store_insns (rtx mem, rtx_insn *insn)
 {
   enum machine_mode mode;
   bool might_split_p;
@@ -2932,7 +2918,6 @@ mips16_gp_pseudo_reg (void)
 {
   if (cfun->machine->mips16_gp_pseudo_rtx == NULL_RTX)
     {
-      rtx insn;
       rtx_insn *scan;
 
       cfun->machine->mips16_gp_pseudo_rtx = gen_reg_rtx (Pmode);
@@ -2943,8 +2928,8 @@ mips16_gp_pseudo_reg (void)
       while (NEXT_INSN (scan) && !INSN_P (NEXT_INSN (scan)))
 	scan = NEXT_INSN (scan);
 
-      insn = gen_load_const_gp (cfun->machine->mips16_gp_pseudo_rtx);
-      insn = emit_insn_after (insn, scan);
+      rtx set = gen_load_const_gp (cfun->machine->mips16_gp_pseudo_rtx);
+      rtx_insn *insn = emit_insn_after (set, scan);
       INSN_LOCATION (insn) = 0;
 
       pop_topmost_sequence ();
@@ -6392,34 +6377,29 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
     }
 }
 
+struct local_alias_traits : default_hashmap_traits
+{
+  static hashval_t hash (rtx);
+  static bool equal_keys (rtx, rtx);
+};
+
 /* Each locally-defined hard-float MIPS16 function has a local symbol
    associated with it.  This hash table maps the function symbol (FUNC)
    to the local symbol (LOCAL). */
-struct GTY(()) mips16_local_alias {
-  rtx func;
-  rtx local;
-};
-static GTY ((param_is (struct mips16_local_alias))) htab_t mips16_local_aliases;
+static GTY (()) hash_map<rtx, rtx, local_alias_traits> *mips16_local_aliases;
 
 /* Hash table callbacks for mips16_local_aliases.  */
 
-static hashval_t
-mips16_local_aliases_hash (const void *entry)
+hashval_t
+local_alias_traits::hash (rtx func)
 {
-  const struct mips16_local_alias *alias;
-
-  alias = (const struct mips16_local_alias *) entry;
-  return htab_hash_string (XSTR (alias->func, 0));
+  return htab_hash_string (XSTR (func, 0));
 }
 
-static int
-mips16_local_aliases_eq (const void *entry1, const void *entry2)
+bool
+local_alias_traits::equal_keys (rtx func1, rtx func2)
 {
-  const struct mips16_local_alias *alias1, *alias2;
-
-  alias1 = (const struct mips16_local_alias *) entry1;
-  alias2 = (const struct mips16_local_alias *) entry2;
-  return rtx_equal_p (alias1->func, alias2->func);
+  return rtx_equal_p (func1, func2);
 }
 
 /* FUNC is the symbol for a locally-defined hard-float MIPS16 function.
@@ -6428,21 +6408,17 @@ mips16_local_aliases_eq (const void *entry1, const void *entry2)
 static rtx
 mips16_local_alias (rtx func)
 {
-  struct mips16_local_alias *alias, tmp_alias;
-  void **slot;
-
   /* Create the hash table if this is the first call.  */
   if (mips16_local_aliases == NULL)
-    mips16_local_aliases = htab_create_ggc (37, mips16_local_aliases_hash,
-					    mips16_local_aliases_eq, NULL);
+    mips16_local_aliases
+      = hash_map<rtx, rtx, local_alias_traits>::create_ggc (37);
 
   /* Look up the function symbol, creating a new entry if need be.  */
-  tmp_alias.func = func;
-  slot = htab_find_slot (mips16_local_aliases, &tmp_alias, INSERT);
+  bool existed;
+  rtx *slot = &mips16_local_aliases->get_or_insert (func, &existed);
   gcc_assert (slot != NULL);
 
-  alias = (struct mips16_local_alias *) *slot;
-  if (alias == NULL)
+  if (!existed)
     {
       const char *func_name, *local_name;
       rtx local;
@@ -6456,12 +6432,9 @@ mips16_local_alias (rtx func)
       SYMBOL_REF_FLAGS (local) = SYMBOL_REF_FLAGS (func) | SYMBOL_FLAG_LOCAL;
 
       /* Create a new structure to represent the mapping.  */
-      alias = ggc_alloc<struct mips16_local_alias> ();
-      alias->func = func;
-      alias->local = local;
-      *slot = alias;
+      *slot = local;
     }
-  return alias->local;
+  return *slot;
 }
 
 /* A chained list of functions for which mips16_build_call_stub has already
@@ -7455,7 +7428,7 @@ mips_expand_synci_loop (rtx begin, rtx end)
   length = mips_force_binary (Pmode, MINUS, end, begin);
 
   /* Loop back to here.  */
-  label = gen_label_rtx ();
+    label = gen_label_rtx ();
   emit_label (label);
 
   emit_insn (gen_synci (begin));
@@ -8108,7 +8081,7 @@ mips_print_operand_punctuation (FILE *file, int ch)
       /* If the delay slot instruction is short, then use the
 	 compact version.  */
       if (final_sequence == 0
-	  || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2)
+	  || get_attr_length (final_sequence->insn (1)) == 2)
 	putc ('s', file);
       break;
 
@@ -11079,7 +11052,6 @@ mips_expand_prologue (void)
   const struct mips_frame_info *frame;
   HOST_WIDE_INT size;
   unsigned int nargs;
-  rtx insn;
 
   if (cfun->machine->global_pointer != INVALID_REGNUM)
     {
@@ -11133,8 +11105,8 @@ mips_expand_prologue (void)
 
 	  /* Build the save instruction.  */
 	  mask = frame->mask;
-	  insn = mips16e_build_save_restore (false, &mask, &offset,
-					     nargs, step1);
+	  rtx insn = mips16e_build_save_restore (false, &mask, &offset,
+						 nargs, step1);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
  	  size -= step1;
@@ -11174,8 +11146,8 @@ mips_expand_prologue (void)
 		}
 
 	      /* Allocate the first part of the frame.  */
-	      insn = gen_add3_insn (stack_pointer_rtx, stack_pointer_rtx,
-				    GEN_INT (-step1));
+	      rtx insn = gen_add3_insn (stack_pointer_rtx, stack_pointer_rtx,
+					GEN_INT (-step1));
 	      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	      mips_frame_barrier ();
 	      size -= step1;
@@ -11235,9 +11207,9 @@ mips_expand_prologue (void)
 	    }
 	  else
 	    {
-	      insn = gen_add3_insn (stack_pointer_rtx,
-				    stack_pointer_rtx,
-				    GEN_INT (-step1));
+	      rtx insn = gen_add3_insn (stack_pointer_rtx,
+					stack_pointer_rtx,
+					GEN_INT (-step1));
 	      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	      mips_frame_barrier ();
 	      size -= step1;
@@ -11291,13 +11263,13 @@ mips_expand_prologue (void)
       offset = frame->hard_frame_pointer_offset;
       if (offset == 0)
 	{
-	  insn = mips_emit_move (hard_frame_pointer_rtx, stack_pointer_rtx);
+	  rtx insn = mips_emit_move (hard_frame_pointer_rtx, stack_pointer_rtx);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
       else if (SMALL_OPERAND (offset))
 	{
-	  insn = gen_add3_insn (hard_frame_pointer_rtx,
-				stack_pointer_rtx, GEN_INT (offset));
+	  rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
+				    stack_pointer_rtx, GEN_INT (offset));
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	}
       else
@@ -11338,6 +11310,7 @@ mips_expand_prologue (void)
   /* We need to search back to the last use of K0 or K1.  */
   if (cfun->machine->interrupt_handler_p)
     {
+      rtx_insn *insn;
       for (insn = get_last_insn (); insn != NULL_RTX; insn = PREV_INSN (insn))
 	if (INSN_P (insn)
 	    && for_each_rtx (&PATTERN (insn), mips_kernel_reg_p, NULL))
@@ -12144,8 +12117,9 @@ mips_secondary_reload_class (enum reg_class rclass,
 
   if (reg_class_subset_p (rclass, FP_REGS))
     {
-      if (MEM_P (x)
-	  && (GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8))
+      if (regno < 0
+	  || (MEM_P (x)
+	      && (GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)))
 	/* In this case we can use lwc1, swc1, ldc1 or sdc1.  We'll use
 	   pairs of lwc1s and swc1s if ldc1 and sdc1 are not supported.  */
 	return NO_REGS;
@@ -12465,7 +12439,7 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
 				const char *branch_if_false)
 {
   unsigned int length;
-  rtx taken, not_taken;
+  rtx taken;
 
   gcc_assert (LABEL_P (operands[0]));
 
@@ -12480,7 +12454,7 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   /* Generate a reversed branch around a direct jump.  This fallback does
      not use branch-likely instructions.  */
   mips_branch_likely = false;
-  not_taken = gen_label_rtx ();
+  rtx_code_label *not_taken = gen_label_rtx ();
   taken = operands[0];
 
   /* Generate the reversed branch to NOT_TAKEN.  */
@@ -12496,9 +12470,9 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
 	 delay slot if is not annulled.  */
       if (!INSN_ANNULLED_BRANCH_P (insn))
 	{
-	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
+	  final_scan_insn (final_sequence->insn (1),
 			   asm_out_file, optimize, 1, NULL);
-	  INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
+	  final_sequence->insn (1)->set_deleted ();
 	}
       else
 	output_asm_insn ("nop", 0);
@@ -12521,9 +12495,9 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
 	 Use INSN's delay slot if is annulled.  */
       if (INSN_ANNULLED_BRANCH_P (insn))
 	{
-	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
+	  final_scan_insn (final_sequence->insn (1),
 			   asm_out_file, optimize, 1, NULL);
-	  INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
+	  final_sequence->insn (1)->set_deleted ();
 	}
       else
 	output_asm_insn ("nop", 0);
@@ -12683,7 +12657,7 @@ mips_get_sync_operand (rtx *operands, int index, rtx default_value)
    sequence for it.  */
 
 static void
-mips_process_sync_loop (rtx insn, rtx *operands)
+mips_process_sync_loop (rtx_insn *insn, rtx *operands)
 {
   rtx at, mem, oldval, newval, inclusive_mask, exclusive_mask;
   rtx required_oldval, insn1_op2, tmp1, tmp2, tmp3, cmp;
@@ -12865,7 +12839,7 @@ mips_process_sync_loop (rtx insn, rtx *operands)
    the operands given by OPERANDS.  */
 
 const char *
-mips_output_sync_loop (rtx insn, rtx *operands)
+mips_output_sync_loop (rtx_insn *insn, rtx *operands)
 {
   mips_process_sync_loop (insn, operands);
 
@@ -12892,7 +12866,7 @@ mips_output_sync_loop (rtx insn, rtx *operands)
    which has the operands given by OPERANDS.  */
 
 unsigned int
-mips_sync_loop_insns (rtx insn, rtx *operands)
+mips_sync_loop_insns (rtx_insn *insn, rtx *operands)
 {
   mips_process_sync_loop (insn, operands);
   return mips_multi_num_insns;
@@ -13033,7 +13007,7 @@ mips_output_division (const char *division, rtx *operands)
    madd.s a, dst, b, c  */
 
 bool
-mips_fmadd_bypass (rtx out_insn, rtx in_insn)
+mips_fmadd_bypass (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   int dst_reg, src_reg;
   
@@ -13056,7 +13030,7 @@ mips_fmadd_bypass (rtx out_insn, rtx in_insn)
    instruction and if OUT_INSN assigns to the accumulator operand.  */
 
 bool
-mips_linked_madd_p (rtx out_insn, rtx in_insn)
+mips_linked_madd_p (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   enum attr_accum_in accum_in;
   int accum_in_opnum;
@@ -13085,7 +13059,7 @@ mips_linked_madd_p (rtx out_insn, rtx in_insn)
    for that case.  */
 
 bool
-mips_store_data_bypass_p (rtx out_insn, rtx in_insn)
+mips_store_data_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   if (GET_CODE (PATTERN (in_insn)) == UNSPEC_VOLATILE)
     return false;
@@ -13365,13 +13339,13 @@ mips_maybe_swap_ready (rtx_insn **ready, int pos1, int pos2, int limit)
 
 /* Used by TUNE_MACC_CHAINS to record the last scheduled instruction
    that may clobber hi or lo.  */
-static rtx mips_macc_chains_last_hilo;
+static rtx_insn *mips_macc_chains_last_hilo;
 
 /* A TUNE_MACC_CHAINS helper function.  Record that instruction INSN has
    been scheduled, updating mips_macc_chains_last_hilo appropriately.  */
 
 static void
-mips_macc_chains_record (rtx insn)
+mips_macc_chains_record (rtx_insn *insn)
 {
   if (get_attr_may_clobber_hilo (insn))
     mips_macc_chains_last_hilo = insn;
@@ -13404,7 +13378,7 @@ mips_macc_chains_reorder (rtx_insn **ready, int nready)
 }
 
 /* The last instruction to be scheduled.  */
-static rtx vr4130_last_insn;
+static rtx_insn *vr4130_last_insn;
 
 /* A note_stores callback used by vr4130_true_reg_dependence_p.  DATA
    points to an rtx that is initially an instruction.  Nullify the rtx
@@ -13442,7 +13416,7 @@ vr4130_true_reg_dependence_p (rtx insn)
    alignment than (INSN1, INSN2).  See 4130.md for more details.  */
 
 static bool
-vr4130_swap_insns_p (rtx insn1, rtx insn2)
+vr4130_swap_insns_p (rtx_insn *insn1, rtx_insn *insn2)
 {
   sd_iterator_def sd_it;
   dep_t dep;
@@ -13511,7 +13485,7 @@ static enum attr_type mips_last_74k_agen_insn = TYPE_UNKNOWN;
    resets to TYPE_UNKNOWN state.  */
 
 static void
-mips_74k_agen_init (rtx insn)
+mips_74k_agen_init (rtx_insn *insn)
 {
   if (!insn || CALL_P (insn) || JUMP_P (insn))
     mips_last_74k_agen_insn = TYPE_UNKNOWN;
@@ -13585,7 +13559,7 @@ mips_sched_init (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 {
   mips_macc_chains_last_hilo = 0;
   vr4130_last_insn = 0;
-  mips_74k_agen_init (NULL_RTX);
+  mips_74k_agen_init (NULL);
 
   /* When scheduling for Loongson2, branch instructions go to ALU1,
      therefore basic block is most likely to start with round-robin counter
@@ -13638,7 +13612,7 @@ mips_sched_reorder2 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 /* Update round-robin counters for ALU1/2 and FALU1/2.  */
 
 static void
-mips_ls2_variable_issue (rtx insn)
+mips_ls2_variable_issue (rtx_insn *insn)
 {
   if (mips_ls2.alu1_turn_p)
     {
@@ -16084,7 +16058,7 @@ mips_record_lo_sum (rtx *loc, void *data)
    LO_SUMs in the current function.  */
 
 static bool
-mips_orphaned_high_part_p (mips_offset_table *htab, rtx insn)
+mips_orphaned_high_part_p (mips_offset_table *htab, rtx_insn *insn)
 {
   enum mips_symbol_type type;
   rtx x, set;
@@ -16436,7 +16410,8 @@ mips16_split_long_branches (void)
 	    && get_attr_length (insn) > 4
 	    && (any_condjump_p (insn) || any_uncondjump_p (insn)))
 	  {
-	    rtx old_label, new_label, temp, saved_temp;
+	    rtx old_label, temp, saved_temp;
+	    rtx_code_label *new_label;
 	    rtx target;
 	    rtx_insn *jump, *jump_sequence;
 
@@ -16465,7 +16440,7 @@ mips16_split_long_branches (void)
 
 	    if (simplejump_p (insn))
 	      /* We're going to replace INSN with a longer form.  */
-	      new_label = NULL_RTX;
+	      new_label = NULL;
 	    else
 	      {
 		/* Create a branch-around label for the original
@@ -17567,7 +17542,7 @@ mips_at_reg_p (rtx *x, void *data ATTRIBUTE_UNUSED)
    INSN has NOPERANDS operands, stored in OPVEC.  */
 
 static bool
-mips_need_noat_wrapper_p (rtx insn, rtx *opvec, int noperands)
+mips_need_noat_wrapper_p (rtx_insn *insn, rtx *opvec, int noperands)
 {
   int i;
 
@@ -18186,6 +18161,7 @@ mips_expand_vselect (rtx target, rtx op0,
 		     const unsigned char *perm, unsigned nelt)
 {
   rtx rperm[MAX_VECT_LEN], x;
+  rtx_insn *insn;
   unsigned i;
 
   for (i = 0; i < nelt; ++i)
@@ -18195,10 +18171,10 @@ mips_expand_vselect (rtx target, rtx op0,
   x = gen_rtx_VEC_SELECT (GET_MODE (target), op0, x);
   x = gen_rtx_SET (VOIDmode, target, x);
 
-  x = emit_insn (x);
-  if (recog_memoized (x) < 0)
+  insn = emit_insn (x);
+  if (recog_memoized (insn) < 0)
     {
-      remove_insn (x);
+      remove_insn (insn);
       return false;
     }
   return true;

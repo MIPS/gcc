@@ -316,7 +316,7 @@ canonicalize_change_group (rtx insn, rtx x)
    Otherwise the changes will take effect immediately.  */
 
 int
-insn_invalid_p (rtx insn, bool in_group)
+insn_invalid_p (rtx_insn *insn, bool in_group)
 {
   rtx pat = PATTERN (insn);
   int num_clobbers = 0;
@@ -424,7 +424,7 @@ verify_changes (int num)
 	}
       else if (DEBUG_INSN_P (object))
 	continue;
-      else if (insn_invalid_p (object, true))
+      else if (insn_invalid_p (as_a <rtx_insn *> (object), true))
 	{
 	  rtx pat = PATTERN (object);
 
@@ -1143,7 +1143,9 @@ scratch_operand (rtx op, enum machine_mode mode)
 
   return (GET_CODE (op) == SCRATCH
 	  || (REG_P (op)
-	      && (lra_in_progress || REGNO (op) < FIRST_PSEUDO_REGISTER)));
+	      && (lra_in_progress
+		  || (REGNO (op) < FIRST_PSEUDO_REGISTER
+		      && REGNO_REG_CLASS (REGNO (op)) != NO_REGS))));
 }
 
 /* Return 1 if OP is a valid immediate operand for mode MODE.
@@ -2058,7 +2060,7 @@ mode_dependent_address_p (rtx addr, addr_space_t addrspace)
    depend on things like the values of operands.  */
 
 alternative_mask
-get_enabled_alternatives (rtx insn)
+get_enabled_alternatives (rtx_insn *insn)
 {
   /* Quick exit for asms and for targets that don't use the "enabled"
      attribute.  */
@@ -2100,7 +2102,7 @@ get_enabled_alternatives (rtx insn)
    valid information.  This is used primary by gen_attr infrastructure that
    often does extract insn again and again.  */
 void
-extract_insn_cached (rtx insn)
+extract_insn_cached (rtx_insn *insn)
 {
   if (recog_data.insn == insn && INSN_CODE (insn) >= 0)
     return;
@@ -2111,7 +2113,7 @@ extract_insn_cached (rtx insn)
 /* Do cached extract_insn, constrain_operands and complain about failures.
    Used by insn_attrtab.  */
 void
-extract_constrain_insn_cached (rtx insn)
+extract_constrain_insn_cached (rtx_insn *insn)
 {
   extract_insn_cached (insn);
   if (which_alternative == -1
@@ -2132,7 +2134,7 @@ constrain_operands_cached (int strict)
 /* Analyze INSN and fill in recog_data.  */
 
 void
-extract_insn (rtx insn)
+extract_insn (rtx_insn *insn)
 {
   int i;
   int icode;
@@ -3160,17 +3162,20 @@ peep2_reinit_state (regset live)
    replacing them with ATTEMPT.  Returns the last insn emitted, or NULL
    if the replacement is rejected.  */
 
-static rtx
-peep2_attempt (basic_block bb, rtx insn, int match_len, rtx attempt)
+static rtx_insn *
+peep2_attempt (basic_block bb, rtx uncast_insn, int match_len, rtx_insn *attempt)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
   int i;
-  rtx last, eh_note, as_note, before_try, x;
-  rtx old_insn, new_insn;
+  rtx_insn *last, *before_try, *x;
+  rtx eh_note, as_note;
+  rtx_insn *old_insn;
+  rtx_insn *new_insn;
   bool was_call = false;
 
   /* If we are splitting an RTX_FRAME_RELATED_P insn, do not allow it to
      match more than one insn, or to be split into more than one insn.  */
-  old_insn = peep2_insn_data[peep2_current].insn;
+  old_insn = as_a <rtx_insn *> (peep2_insn_data[peep2_current].insn);
   if (RTX_FRAME_RELATED_P (old_insn))
     {
       bool any_note = false;
@@ -3258,7 +3263,7 @@ peep2_attempt (basic_block bb, rtx insn, int match_len, rtx attempt)
       rtx note;
 
       j = peep2_buf_position (peep2_current + i);
-      old_insn = peep2_insn_data[j].insn;
+      old_insn = as_a <rtx_insn *> (peep2_insn_data[j].insn);
       if (!CALL_P (old_insn))
 	continue;
       was_call = true;
@@ -3297,7 +3302,7 @@ peep2_attempt (basic_block bb, rtx insn, int match_len, rtx attempt)
       while (++i <= match_len)
 	{
 	  j = peep2_buf_position (peep2_current + i);
-	  old_insn = peep2_insn_data[j].insn;
+	  old_insn = as_a <rtx_insn *> (peep2_insn_data[j].insn);
 	  gcc_assert (!CALL_P (old_insn));
 	}
       break;
@@ -3309,7 +3314,7 @@ peep2_attempt (basic_block bb, rtx insn, int match_len, rtx attempt)
   for (i = match_len; i >= 0; --i)
     {
       int j = peep2_buf_position (peep2_current + i);
-      old_insn = peep2_insn_data[j].insn;
+      old_insn = as_a <rtx_insn *> (peep2_insn_data[j].insn);
 
       as_note = find_reg_note (old_insn, REG_ARGS_SIZE, NULL);
       if (as_note)
@@ -3320,9 +3325,10 @@ peep2_attempt (basic_block bb, rtx insn, int match_len, rtx attempt)
   eh_note = find_reg_note (peep2_insn_data[i].insn, REG_EH_REGION, NULL_RTX);
 
   /* Replace the old sequence with the new.  */
+  rtx_insn *peepinsn = as_a <rtx_insn *> (peep2_insn_data[i].insn);
   last = emit_insn_after_setloc (attempt,
 				 peep2_insn_data[i].insn,
-				 INSN_LOCATION (peep2_insn_data[i].insn));
+				 INSN_LOCATION (peepinsn));
   before_try = PREV_INSN (insn);
   delete_insn_chain (insn, peep2_insn_data[i].insn, false);
 
@@ -3393,7 +3399,8 @@ peep2_attempt (basic_block bb, rtx insn, int match_len, rtx attempt)
    matched, and which now need to be replaced in the buffer.  */
 
 static void
-peep2_update_life (basic_block bb, int match_len, rtx last, rtx prev)
+peep2_update_life (basic_block bb, int match_len, rtx_insn *last,
+		   rtx_insn *prev)
 {
   int i = peep2_buf_position (peep2_current + match_len + 1);
   rtx_insn *x;
@@ -3405,7 +3412,7 @@ peep2_update_life (basic_block bb, int match_len, rtx last, rtx prev)
   gcc_assert (peep2_current_count >= match_len + 1);
   peep2_current_count -= match_len + 1;
 
-  x = as_a <rtx_insn *> (last);
+  x = last;
   do
     {
       if (INSN_P (x))
@@ -3470,7 +3477,7 @@ peep2_fill_buffer (basic_block bb, rtx insn, regset live)
 static void
 peephole2_optimize (void)
 {
-  rtx insn;
+  rtx_insn *insn;
   bitmap live;
   int i;
   basic_block bb;
@@ -3503,7 +3510,8 @@ peephole2_optimize (void)
       insn = BB_HEAD (bb);
       for (;;)
 	{
-	  rtx attempt, head;
+	  rtx_insn *attempt;
+	  rtx head;
 	  int match_len;
 
 	  if (!past_end && !NONDEBUG_INSN_P (insn))
@@ -3530,10 +3538,11 @@ peephole2_optimize (void)
 
 	  /* Match the peephole.  */
 	  head = peep2_insn_data[peep2_current].insn;
-	  attempt = peephole2_insns (PATTERN (head), head, &match_len);
+	  attempt = safe_as_a <rtx_insn *> (
+		      peephole2_insns (PATTERN (head), head, &match_len));
 	  if (attempt != NULL)
 	    {
-	      rtx last = peep2_attempt (bb, head, match_len, attempt);
+	      rtx_insn *last = peep2_attempt (bb, head, match_len, attempt);
 	      if (last)
 		{
 		  peep2_update_life (bb, match_len, last, PREV_INSN (attempt));
@@ -3565,7 +3574,7 @@ peephole2_optimize (void)
    must be either a single_set or a PARALLEL with SETs inside.  */
 
 int
-store_data_bypass_p (rtx out_insn, rtx in_insn)
+store_data_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   rtx out_set, in_set;
   rtx out_pat, in_pat;
@@ -3658,7 +3667,7 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
    of insn categorization may be any JUMP or CALL insn.  */
 
 int
-if_test_bypass_p (rtx out_insn, rtx in_insn)
+if_test_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   rtx out_set, in_set;
 

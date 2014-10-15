@@ -100,6 +100,7 @@ typedef unsigned gcov_type_unsigned __attribute__ ((mode (QI)));
 #define gcov_read_unsigned __gcov_read_unsigned
 #define gcov_read_counter __gcov_read_counter
 #define gcov_read_summary __gcov_read_summary
+#define gcov_sort_n_vals __gcov_sort_n_vals
 
 #else /* IN_GCOV_TOOL */
 /* About the host.  */
@@ -128,6 +129,7 @@ typedef unsigned gcov_position_t;
 #define L_gcov_merge_delta 1
 #define L_gcov_merge_ior 1
 #define L_gcov_merge_time_profile 1
+#define L_gcov_merge_icall_topn 1
 
 extern gcov_type gcov_read_counter_mem ();
 extern unsigned gcov_get_merge_weight ();
@@ -212,9 +214,20 @@ struct gcov_root
   struct gcov_info *list;
   unsigned dumped : 1;	/* counts have been dumped.  */
   unsigned run_counted : 1;  /* run has been accounted for.  */
+  struct gcov_root *next;
+  struct gcov_root *prev;
 };
 
 extern struct gcov_root __gcov_root ATTRIBUTE_HIDDEN;
+
+struct gcov_master
+{
+  gcov_unsigned_t version;
+  struct gcov_root *root;
+};
+  
+/* Exactly one of these will be active in the process.  */
+extern struct gcov_master __gcov_master;
 
 /* Dump a set of gcov objects.  */
 extern void __gcov_dump_one (struct gcov_root *) ATTRIBUTE_HIDDEN;
@@ -225,11 +238,14 @@ extern void __gcov_init (struct gcov_info *) ATTRIBUTE_HIDDEN;
 /* Called before fork, to avoid double counting.  */
 extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
 
-/* Function to reset all counters to 0.  */
+/* Function to reset all counters to 0.  Both externally visible (and
+   overridable) and internal version.  */
 extern void __gcov_reset (void);
+extern void __gcov_reset_int (void) ATTRIBUTE_HIDDEN;
 
-/* Function to enable early write of profile information so far.  */
+/* User function to enable early write of profile information so far.  */
 extern void __gcov_dump (void);
+extern void __gcov_dump_int (void) ATTRIBUTE_HIDDEN;
 
 /* The merge function that just sums the counters.  */
 extern void __gcov_merge_add (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
@@ -247,6 +263,9 @@ extern void __gcov_merge_delta (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 /* The merge function that just ors the counters together.  */
 extern void __gcov_merge_ior (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
+/* The merge function is used for topn indirect call counters.  */
+extern void __gcov_merge_icall_topn (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
+
 /* The profiler functions.  */
 extern void __gcov_interval_profiler (gcov_type *, gcov_type, int, unsigned);
 extern void __gcov_pow2_profiler (gcov_type *, gcov_type);
@@ -257,6 +276,8 @@ extern void __gcov_indirect_call_profiler_v2 (gcov_type, void *);
 extern void __gcov_time_profiler (gcov_type *);
 extern void __gcov_average_profiler (gcov_type *, gcov_type);
 extern void __gcov_ior_profiler (gcov_type *, gcov_type);
+extern void __gcov_indirect_call_topn_profiler (gcov_type, void *);
+extern void gcov_sort_n_vals (gcov_type *, int);
 
 #ifndef inhibit_libc
 /* The wrappers around some library functions..  */

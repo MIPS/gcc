@@ -22,8 +22,7 @@ along with GCC; see the file COPYING3.  If not see
    that the compiler can keep track of where this file is included.  This
    is e.g. used to avoid including this file in front-end specific files.  */
 #ifndef GCC_EXCEPT_H
-#  define GCC_EXCEPT_H
-#endif
+#define GCC_EXCEPT_H
 
 #include "hash-map.h"
 #include "hashtab.h"
@@ -204,7 +203,7 @@ struct GTY(()) eh_status
 
   /* At the gimple level, a mapping from gimple statement to landing pad
      or must-not-throw region.  See record_stmt_eh_region.  */
-  htab_t GTY((param_is (struct throw_stmt_node))) throw_stmt_table;
+  hash_map<gimple, int> *GTY(()) throw_stmt_table;
 
   /* All of the runtime type data used by the function.  These objects
      are emitted to the lang-specific-data-area for the function.  */
@@ -291,8 +290,8 @@ struct GTY(()) throw_stmt_node {
   int lp_nr;
 };
 
-extern struct htab *get_eh_throw_stmt_table (struct function *);
-extern void set_eh_throw_stmt_table (struct function *, struct htab *);
+extern hash_map<gimple, int> *get_eh_throw_stmt_table (struct function *);
+extern void set_eh_throw_stmt_table (function *, hash_map<gimple, int> *);
 
 enum eh_personality_kind {
   eh_personality_none,
@@ -333,3 +332,5 @@ ehr_next (eh_region r, eh_region start)
   for ((R) = (FN)->eh->region_tree; (R) != NULL; (R) = ehr_next (R, NULL))
 
 #define FOR_ALL_EH_REGION(R) FOR_ALL_EH_REGION_FN (R, cfun)
+
+#endif

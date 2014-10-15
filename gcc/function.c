@@ -108,7 +108,7 @@ static GTY((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
   htab_t epilogue_insn_hash;
 
 
-htab_t types_used_by_vars_hash = NULL;
+hash_table<used_type_hasher> *types_used_by_vars_hash = NULL;
 vec<tree, va_gc> *types_used_by_cur_var_decl;
 
 /* Forward declarations.  */
@@ -122,7 +122,7 @@ static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
 /* We always define `record_insns' even if it's not used so that we
    can always export `prologue_epilogue_contains'.  */
-static void record_insns (rtx, rtx, htab_t *) ATTRIBUTE_UNUSED;
+static void record_insns (rtx_insn *, rtx, htab_t *) ATTRIBUTE_UNUSED;
 static bool contains (const_rtx, htab_t);
 static void prepare_function_start (void);
 static void do_clobber_return_reg (rtx, void *);
@@ -540,17 +540,23 @@ struct GTY(()) temp_slot {
   HOST_WIDE_INT full_size;
 };
 
-/* A table of addresses that represent a stack slot.  The table is a mapping
-   from address RTXen to a temp slot.  */
-static GTY((param_is(struct temp_slot_address_entry))) htab_t temp_slot_address_table;
-static size_t n_temp_slots_in_use;
-
-/* Entry for the above hash table.  */
-struct GTY(()) temp_slot_address_entry {
+/* Entry for the below hash table.  */
+struct GTY((for_user)) temp_slot_address_entry {
   hashval_t hash;
   rtx address;
   struct temp_slot *temp_slot;
 };
+
+struct temp_address_hasher : ggc_hasher<temp_slot_address_entry *>
+{
+  static hashval_t hash (temp_slot_address_entry *);
+  static bool equal (temp_slot_address_entry *, temp_slot_address_entry *);
+};
+
+/* A table of addresses that represent a stack slot.  The table is a mapping
+   from address RTXen to a temp slot.  */
+static GTY(()) hash_table<temp_address_hasher> *temp_slot_address_table;
+static size_t n_temp_slots_in_use;
 
 /* Removes temporary slot TEMP from LIST.  */
 
@@ -634,21 +640,17 @@ temp_slot_address_compute_hash (struct temp_slot_address_entry *t)
 }
 
 /* Return the hash value for an address -> temp slot mapping.  */
-static hashval_t
-temp_slot_address_hash (const void *p)
+hashval_t
+temp_address_hasher::hash (temp_slot_address_entry *t)
 {
-  const struct temp_slot_address_entry *t;
-  t = (const struct temp_slot_address_entry *) p;
   return t->hash;
 }
 
 /* Compare two address -> temp slot mapping entries.  */
-static int
-temp_slot_address_eq (const void *p1, const void *p2)
+bool
+temp_address_hasher::equal (temp_slot_address_entry *t1,
+			    temp_slot_address_entry *t2)
 {
-  const struct temp_slot_address_entry *t1, *t2;
-  t1 = (const struct temp_slot_address_entry *) p1;
-  t2 = (const struct temp_slot_address_entry *) p2;
   return exp_equiv_p (t1->address, t2->address, 0, true);
 }
 
@@ -656,24 +658,21 @@ temp_slot_address_eq (const void *p1, const void *p2)
 static void
 insert_temp_slot_address (rtx address, struct temp_slot *temp_slot)
 {
-  void **slot;
   struct temp_slot_address_entry *t = ggc_alloc<temp_slot_address_entry> ();
   t->address = address;
   t->temp_slot = temp_slot;
   t->hash = temp_slot_address_compute_hash (t);
-  slot = htab_find_slot_with_hash (temp_slot_address_table, t, t->hash, INSERT);
-  *slot = t;
+  *temp_slot_address_table->find_slot_with_hash (t, t->hash, INSERT) = t;
 }
 
 /* Remove an address -> temp slot mapping entry if the temp slot is
    not in use anymore.  Callback for remove_unused_temp_slot_addresses.  */
-static int
-remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
+int
+remove_unused_temp_slot_addresses_1 (temp_slot_address_entry **slot, void *)
 {
-  const struct temp_slot_address_entry *t;
-  t = (const struct temp_slot_address_entry *) *slot;
+  const struct temp_slot_address_entry *t = *slot;
   if (! t->temp_slot->in_use)
-    htab_clear_slot (temp_slot_address_table, slot);
+    temp_slot_address_table->clear_slot (slot);
   return 1;
 }
 
@@ -683,11 +682,10 @@ remove_unused_temp_slot_addresses (void)
 {
   /* Use quicker clearing if there aren't any active temp slots.  */
   if (n_temp_slots_in_use)
-    htab_traverse (temp_slot_address_table,
-		   remove_unused_temp_slot_addresses_1,
-		   NULL);
+    temp_slot_address_table->traverse
+      <void *, remove_unused_temp_slot_addresses_1> (NULL);
   else
-    htab_empty (temp_slot_address_table);
+    temp_slot_address_table->empty ();
 }
 
 /* Find the temp slot corresponding to the object at address X.  */
@@ -703,8 +701,7 @@ find_temp_slot_from_address (rtx x)
   tmp.address = x;
   tmp.temp_slot = NULL;
   tmp.hash = temp_slot_address_compute_hash (&tmp);
-  t = (struct temp_slot_address_entry *)
-    htab_find_with_hash (temp_slot_address_table, &tmp, tmp.hash);
+  t = temp_slot_address_table->find_with_hash (&tmp, tmp.hash);
   if (t)
     return t->temp_slot;
 
@@ -1195,12 +1192,9 @@ init_temp_slots (void)
 
   /* Set up the table to map addresses to temp slots.  */
   if (! temp_slot_address_table)
-    temp_slot_address_table = htab_create_ggc (32,
-					       temp_slot_address_hash,
-					       temp_slot_address_eq,
-					       NULL);
+    temp_slot_address_table = hash_table<temp_address_hasher>::create_ggc (32);
   else
-    htab_empty (temp_slot_address_table);
+    temp_slot_address_table->empty ();
 }
 
 /* Functions and data structures to keep track of the values hard regs
@@ -1933,7 +1927,7 @@ instantiate_virtual_regs (void)
 	else
 	  instantiate_virtual_regs_in_insn (insn);
 
-	if (INSN_DELETED_P (insn))
+	if (insn->deleted ())
 	  continue;
 
 	instantiate_virtual_regs_in_rtx (&REG_NOTES (insn));
@@ -3019,7 +3013,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  && insn_operand_matches (icode, 1, op1))
 	{
 	  enum rtx_code code = unsignedp ? ZERO_EXTEND : SIGN_EXTEND;
-	  rtx insn, insns, t = op1;
+	  rtx_insn *insn, *insns;
+	  rtx t = op1;
 	  HARD_REG_SET hardregs;
 
 	  start_sequence ();
@@ -3038,9 +3033,9 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	    }
 	  else
 	    t = op1;
-	  insn = gen_extend_insn (op0, t, promoted_nominal_mode,
-				  data->passed_mode, unsignedp);
-	  emit_insn (insn);
+	  rtx pat = gen_extend_insn (op0, t, promoted_nominal_mode,
+				     data->passed_mode, unsignedp);
+	  emit_insn (pat);
 	  insns = get_insns ();
 
 	  moved = true;
@@ -3457,6 +3452,11 @@ assign_parms (tree fndecl)
     assign_parms_unsplit_complex (&all, fnargs);
 
   fnargs.release ();
+
+  /* Initialize pic_offset_table_rtx with a pseudo register
+     if required.  */
+  if (targetm.use_pseudo_pic_reg ())
+    pic_offset_table_rtx = gen_reg_rtx (Pmode);
 
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
@@ -4554,6 +4554,9 @@ allocate_struct_function (tree fndecl, bool abstract_p)
          but is this worth the hassle?  */
       cfun->can_throw_non_call_exceptions = flag_non_call_exceptions;
       cfun->can_delete_dead_exceptions = flag_delete_dead_exceptions;
+
+      if (!profile_flag && !flag_instrument_function_entry_exit)
+	DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fndecl) = 1;
     }
 }
 
@@ -4660,7 +4663,7 @@ void
 stack_protect_epilogue (void)
 {
   tree guard_decl = targetm.stack_protect_guard ();
-  rtx label = gen_label_rtx ();
+  rtx_code_label *label = gen_label_rtx ();
   rtx x, y, tmp;
 
   x = expand_normal (crtl->stack_protect_guard);
@@ -4982,9 +4985,9 @@ do_warn_unused_parameter (tree fn)
 /* Set the location of the insn chain starting at INSN to LOC.  */
 
 static void
-set_insn_locations (rtx insn, int loc)
+set_insn_locations (rtx_insn *insn, int loc)
 {
-  while (insn != NULL_RTX)
+  while (insn != NULL)
     {
       if (INSN_P (insn))
 	INSN_LOCATION (insn) = loc;
@@ -5284,9 +5287,9 @@ get_arg_pointer_save_area (void)
    for the first time.  */
 
 static void
-record_insns (rtx insns, rtx end, htab_t *hashp)
+record_insns (rtx_insn *insns, rtx end, htab_t *hashp)
 {
-  rtx tmp;
+  rtx_insn *tmp;
   htab_t hash = *hashp;
 
   if (hash == NULL)
@@ -5424,7 +5427,7 @@ set_return_jump_label (rtx returnjump)
 #if defined (HAVE_return) || defined (HAVE_simple_return)
 /* Return true if there are any active insns between HEAD and TAIL.  */
 bool
-active_insn_between (rtx head, rtx tail)
+active_insn_between (rtx_insn *head, rtx_insn *tail)
 {
   while (tail)
     {
@@ -5459,7 +5462,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 
   FOR_EACH_VEC_ELT (src_bbs, i, bb)
     {
-      rtx jump = BB_END (bb);
+      rtx_insn *jump = BB_END (bb);
 
       if (!JUMP_P (jump) || JUMP_LABEL (jump) != label)
 	continue;
@@ -5615,9 +5618,8 @@ thread_prologue_and_epilogue_insns (void)
   bitmap_head bb_flags;
 #endif
   rtx_insn *returnjump;
-  rtx seq ATTRIBUTE_UNUSED;
   rtx_insn *epilogue_end ATTRIBUTE_UNUSED;
-  rtx prologue_seq ATTRIBUTE_UNUSED, split_prologue_seq ATTRIBUTE_UNUSED;
+  rtx_insn *prologue_seq ATTRIBUTE_UNUSED, *split_prologue_seq ATTRIBUTE_UNUSED;
   edge e, entry_edge, orig_entry_edge, exit_fallthru_edge;
   edge_iterator ei;
 
@@ -5626,7 +5628,6 @@ thread_prologue_and_epilogue_insns (void)
   rtl_profile_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   inserted = false;
-  seq = NULL_RTX;
   epilogue_end = NULL;
   returnjump = NULL;
 
@@ -5637,7 +5638,7 @@ thread_prologue_and_epilogue_insns (void)
   entry_edge = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   orig_entry_edge = entry_edge;
 
-  split_prologue_seq = NULL_RTX;
+  split_prologue_seq = NULL;
   if (flag_split_stack
       && (lookup_attribute ("no_split_stack", DECL_ATTRIBUTES (cfun->decl))
 	  == NULL))
@@ -5657,12 +5658,12 @@ thread_prologue_and_epilogue_insns (void)
 #endif
     }
 
-  prologue_seq = NULL_RTX;
+  prologue_seq = NULL;
 #ifdef HAVE_prologue
   if (HAVE_prologue)
     {
       start_sequence ();
-      seq = gen_prologue ();
+      rtx_insn *seq = safe_as_a <rtx_insn *> (gen_prologue ());
       emit_insn (seq);
 
       /* Insert an explicit USE for the frame pointer
@@ -5799,7 +5800,7 @@ thread_prologue_and_epilogue_insns (void)
     {
       start_sequence ();
       epilogue_end = emit_note (NOTE_INSN_EPILOGUE_BEG);
-      seq = gen_epilogue ();
+      rtx_insn *seq = as_a <rtx_insn *> (gen_epilogue ());
       if (seq)
 	emit_jump_insn (seq);
 
@@ -5900,7 +5901,7 @@ epilogue_done:
 	  start_sequence ();
 	  emit_note (NOTE_INSN_EPILOGUE_BEG);
 	  emit_insn (ep_seq);
-	  seq = get_insns ();
+	  rtx_insn *seq = get_insns ();
 	  end_sequence ();
 
 	  /* Retain a map of the epilogue insns.  Used in life analysis to
@@ -6094,14 +6095,10 @@ used_types_insert_helper (tree type, struct function *func)
 {
   if (type != NULL && func != NULL)
     {
-      void **slot;
-
       if (func->used_types_hash == NULL)
-	func->used_types_hash = htab_create_ggc (37, htab_hash_pointer,
-						 htab_eq_pointer, NULL);
-      slot = htab_find_slot (func->used_types_hash, type, INSERT);
-      if (*slot == NULL)
-	*slot = type;
+	func->used_types_hash = hash_set<tree>::create_ggc (37);
+
+      func->used_types_hash->add (type);
     }
 }
 
@@ -6147,24 +6144,17 @@ hash_types_used_by_vars_entry (const struct types_used_by_vars_entry *entry)
 /* Hash function of the types_used_by_vars_entry hash table.  */
 
 hashval_t
-types_used_by_vars_do_hash (const void *x)
+used_type_hasher::hash (types_used_by_vars_entry *entry)
 {
-  const struct types_used_by_vars_entry *entry =
-    (const struct types_used_by_vars_entry *) x;
-
   return hash_types_used_by_vars_entry (entry);
 }
 
 /*Equality function of the types_used_by_vars_entry hash table.  */
 
-int
-types_used_by_vars_eq (const void *x1, const void *x2)
+bool
+used_type_hasher::equal (types_used_by_vars_entry *e1,
+			 types_used_by_vars_entry *e2)
 {
-  const struct types_used_by_vars_entry *e1 =
-    (const struct types_used_by_vars_entry *) x1;
-  const struct types_used_by_vars_entry *e2 =
-    (const struct types_used_by_vars_entry *)x2;
-
   return (e1->var_decl == e2->var_decl && e1->type == e2->type);
 }
 
@@ -6175,16 +6165,15 @@ types_used_by_var_decl_insert (tree type, tree var_decl)
 {
   if (type != NULL && var_decl != NULL)
     {
-      void **slot;
+      types_used_by_vars_entry **slot;
       struct types_used_by_vars_entry e;
       e.var_decl = var_decl;
       e.type = type;
       if (types_used_by_vars_hash == NULL)
-	types_used_by_vars_hash =
-	  htab_create_ggc (37, types_used_by_vars_do_hash,
-			   types_used_by_vars_eq, NULL);
-      slot = htab_find_slot_with_hash (types_used_by_vars_hash, &e,
-				       hash_types_used_by_vars_entry (&e), INSERT);
+	types_used_by_vars_hash
+	  = hash_table<used_type_hasher>::create_ggc (37);
+
+      slot = types_used_by_vars_hash->find_slot (&e, INSERT);
       if (*slot == NULL)
 	{
 	  struct types_used_by_vars_entry *entry;

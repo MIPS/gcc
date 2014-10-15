@@ -636,6 +636,12 @@ default_options_optimization (struct gcc_options *opts,
 			   default_param_value (PARAM_MIN_CROSSJUMP_INSNS),
 			   opts->x_param_values, opts_set->x_param_values);
 
+  /* Restrict the amount of work combine does at -Og while retaining
+     most of its useful transforms.  */
+  if (opts->x_optimize_debug)
+    maybe_set_param_value (PARAM_MAX_COMBINE_INSNS, 2,
+			   opts->x_param_values, opts_set->x_param_values);
+
   /* Allow default optimizations to be specified on a per-machine basis.  */
   maybe_default_options (opts, opts_set,
 			 targetm_common.option_optimization_table,
@@ -947,6 +953,7 @@ print_filtered_help (unsigned int include_flags,
   const char *help;
   bool found = false;
   bool displayed = false;
+  char new_help[128];
 
   if (include_flags == CL_PARAMS)
     {
@@ -965,6 +972,15 @@ print_filtered_help (unsigned int include_flags,
 	  /* Get the translation.  */
 	  help = _(help);
 
+	  if (!opts->x_quiet_flag)
+	    {
+	      snprintf (new_help, sizeof (new_help),
+			_("default %d minimum %d maximum %d"),
+			compiler_params[i].default_value,
+			compiler_params[i].min_value,
+			compiler_params[i].max_value);
+	      help = new_help;
+	    }
 	  wrap_help (help, param, strlen (param), columns);
 	}
       putchar ('\n');
@@ -979,7 +995,6 @@ print_filtered_help (unsigned int include_flags,
 
   for (i = 0; i < cl_options_count; i++)
     {
-      char new_help[128];
       const struct cl_option *option = cl_options + i;
       unsigned int len;
       const char *opt;
@@ -1493,6 +1508,13 @@ common_handle_option (struct gcc_options *opts,
 		sizeof "float-cast-overflow" - 1 },
 	      { "bounds", SANITIZE_BOUNDS, sizeof "bounds" - 1 },
 	      { "alignment", SANITIZE_ALIGNMENT, sizeof "alignment" - 1 },
+	      { "nonnull-attribute", SANITIZE_NONNULL_ATTRIBUTE,
+		sizeof "nonnull-attribute" - 1 },
+	      { "returns-nonnull-attribute",
+		SANITIZE_RETURNS_NONNULL_ATTRIBUTE,
+		sizeof "returns-nonnull-attribute" - 1 },
+	      { "object-size", SANITIZE_OBJECT_SIZE,
+		sizeof "object-size" - 1 },
 	      { NULL, 0, 0 }
 	    };
 	    const char *comma;
@@ -1536,7 +1558,8 @@ common_handle_option (struct gcc_options *opts,
 
 	/* When instrumenting the pointers, we don't want to remove
 	   the null pointer checks.  */
-	if (flag_sanitize & SANITIZE_NULL)
+	if (flag_sanitize & (SANITIZE_NULL | SANITIZE_NONNULL_ATTRIBUTE
+			     | SANITIZE_RETURNS_NONNULL_ATTRIBUTE))
 	  opts->x_flag_delete_null_pointer_checks = 0;
 
 	/* Kernel ASan implies normal ASan but does not yet support

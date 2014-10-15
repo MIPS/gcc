@@ -1758,7 +1758,7 @@ unquote_string (const char *s)
       if (p[1] == '\\')
 	p++;
       else if (p[1] == 'U')
-	p += 9; /* That is a "\U????????". */
+	p += 9; /* That is a "\U????????".  */
       else
 	gfc_internal_error ("unquote_string(): got bad string");
     }
@@ -6000,7 +6000,7 @@ gfc_dump_module (const char *name, int dump_flag)
      module file, even if it was already there.  */
   if (!dump_flag)
     {
-      unlink (filename);
+      remove (filename);
       return;
     }
 
@@ -6040,13 +6040,16 @@ gfc_dump_module (const char *name, int dump_flag)
       || crc_old != crc)
     {
       /* Module file have changed, replace the old one.  */
+      if (remove (filename) && errno != ENOENT)
+	gfc_fatal_error ("Can't delete module file '%s': %s", filename,
+			 xstrerror (errno));
       if (rename (filename_tmp, filename))
 	gfc_fatal_error ("Can't rename module file '%s' to '%s': %s",
 			 filename_tmp, filename, xstrerror (errno));
     }
   else
     {
-      if (unlink (filename_tmp))
+      if (remove (filename_tmp))
 	gfc_fatal_error ("Can't delete temporary module file '%s': %s",
 			 filename_tmp, xstrerror (errno));
     }
@@ -6326,7 +6329,7 @@ import_iso_c_binding_module (void)
 		break;
 #include "iso-c-binding.def"
 	      default:
-		; /* Not GFC_STD_* versioned. */
+		; /* Not GFC_STD_* versioned.  */
 	    }
 
 	  switch (i)
@@ -6888,7 +6891,7 @@ gfc_use_module (gfc_use_list *module)
 }
 
 
-/* Remove duplicated intrinsic operators from the rename list. */
+/* Remove duplicated intrinsic operators from the rename list.  */
 
 static void
 rename_list_remove_duplicate (gfc_use_rename *list)

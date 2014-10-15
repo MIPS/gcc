@@ -212,7 +212,7 @@ static int compute_split_row (sbitmap, int, int, int, ddg_node_ptr);
 static int sms_order_nodes (ddg_ptr, int, int *, int *);
 static void set_node_sched_params (ddg_ptr);
 static partial_schedule_ptr sms_schedule_by_order (ddg_ptr, int, int, int *);
-static void permute_partial_schedule (partial_schedule_ptr, rtx);
+static void permute_partial_schedule (partial_schedule_ptr, rtx_insn *);
 static void generate_prolog_epilog (partial_schedule_ptr, struct loop *,
                                     rtx, rtx);
 static int calculate_stage_count (partial_schedule_ptr, int);
@@ -876,7 +876,7 @@ reset_sched_times (partial_schedule_ptr ps, int amount)
    row ii-1, and position them right before LAST.  This schedules
    the insns of the loop kernel.  */
 static void
-permute_partial_schedule (partial_schedule_ptr ps, rtx last)
+permute_partial_schedule (partial_schedule_ptr ps, rtx_insn *last)
 {
   int ii = ps->ii;
   int row;
@@ -1539,7 +1539,8 @@ sms_schedule (void)
   FOR_EACH_LOOP (loop, 0)
     {
       rtx_insn *head, *tail;
-      rtx count_reg, count_init;
+      rtx count_reg;
+      rtx_insn *count_init;
       int mii, rec_mii, stage_count, min_cycle;
       int64_t loop_count = 0;
       bool opt_sc_p;
@@ -1589,7 +1590,7 @@ sms_schedule (void)
 
       /* In case of th loop have doloop register it gets special
 	 handling.  */
-      count_init = NULL_RTX;
+      count_init = NULL;
       if ((count_reg = doloop_register_get (head, tail)))
 	{
 	  basic_block pre_header;

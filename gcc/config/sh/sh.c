@@ -184,14 +184,14 @@ static bool shmedia_space_reserved_for_target_registers;
 
 static void split_branches (rtx_insn *);
 static int branch_dest (rtx);
-static void print_slot (rtx);
+static void print_slot (rtx_sequence *);
 static rtx_code_label *add_constant (rtx, enum machine_mode, rtx);
 static void dump_table (rtx_insn *, rtx_insn *);
 static bool broken_move (rtx_insn *);
 static bool mova_p (rtx_insn *);
 static rtx_insn *find_barrier (int, rtx_insn *, rtx_insn *);
-static bool noncall_uses_reg (rtx, rtx, rtx *);
-static rtx gen_block_redirect (rtx, int, int);
+static bool noncall_uses_reg (rtx, rtx_insn *, rtx *);
+static rtx_insn *gen_block_redirect (rtx_insn *, int, int);
 static void sh_reorg (void);
 static void sh_option_override (void);
 static void output_stack_adjust (int, rtx, int, HARD_REG_SET *, bool);
@@ -324,7 +324,7 @@ static void sh_conditional_register_usage (void);
 static bool sh_legitimate_constant_p (enum machine_mode, rtx);
 static int mov_insn_size (enum machine_mode, bool);
 static int mov_insn_alignment_mask (enum machine_mode, bool);
-static bool sequence_insn_p (rtx);
+static bool sequence_insn_p (rtx_insn *);
 static void sh_canonicalize_comparison (int *, rtx *, rtx *, bool);
 static void sh_canonicalize_comparison (enum rtx_code&, rtx&, rtx&,
 					enum machine_mode, bool);
@@ -818,7 +818,7 @@ sh_option_override (void)
       assembler_dialect = 1;
       sh_cpu = PROCESSOR_SH4;
     }
-  if (TARGET_SH4A_ARCH)
+  if (TARGET_SH4A)
     {
       assembler_dialect = 1;
       sh_cpu = PROCESSOR_SH4A;
@@ -1205,8 +1205,8 @@ sh_print_operand (FILE *stream, rtx x, int code)
 
     case '.':
       if (final_sequence
-	  && ! INSN_ANNULLED_BRANCH_P (XVECEXP (final_sequence, 0, 0))
-	  && get_attr_length (XVECEXP (final_sequence, 0, 1)))
+	  && ! INSN_ANNULLED_BRANCH_P (final_sequence->insn (0))
+	  && get_attr_length (final_sequence->insn (1)))
 	fprintf (stream, ASSEMBLER_DIALECT ? "/s" : ".s");
       break;
     case ',':
@@ -2641,18 +2641,18 @@ output_movedouble (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
    another instruction, but couldn't because the other instruction expanded
    into a sequence where putting the slot insn at the end wouldn't work.  */
 static void
-print_slot (rtx insn)
+print_slot (rtx_sequence *seq)
 {
-  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 1, NULL);
+  final_scan_insn (seq->insn (1), asm_out_file, optimize, 1, NULL);
 
-  INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
+  seq->insn (1)->set_deleted ();
 }
 
 const char *
 output_far_jump (rtx_insn *insn, rtx op)
 {
   struct { rtx lab, reg, op; } this_jmp;
-  rtx braf_base_lab = NULL_RTX;
+  rtx_code_label *braf_base_lab = NULL;
   const char *jump;
   int far;
   int offset = branch_dest (insn) - INSN_ADDRESSES (INSN_UID (insn));
@@ -2754,7 +2754,7 @@ static int lf = 100;
 
 /* Output code for ordinary branches.  */
 const char *
-output_branch (int logic, rtx insn, rtx *operands)
+output_branch (int logic, rtx_insn *insn, rtx *operands)
 {
   switch (get_attr_length (insn))
     {
@@ -2777,8 +2777,8 @@ output_branch (int logic, rtx insn, rtx *operands)
 	     place for it is after the label.  final will do that by default.  */
 
 	  if (final_sequence
-	      && ! INSN_ANNULLED_BRANCH_P (XVECEXP (final_sequence, 0, 0))
-	      && get_attr_length (XVECEXP (final_sequence, 0, 1)))
+	      && ! INSN_ANNULLED_BRANCH_P (final_sequence->insn (0))
+	      && get_attr_length (final_sequence->insn (1)))
 	    {
 	      asm_fprintf (asm_out_file, "\tb%s%ss\t%LLF%d\n", logic ? "f" : "t",
 	                   ASSEMBLER_DIALECT ? "/" : ".", label);
@@ -2856,11 +2856,12 @@ output_branchy_insn (enum rtx_code code, const char *templ,
       if (GET_CODE (src) == IF_THEN_ELSE && GET_CODE (XEXP (src, 0)) != code)
 	{
 	  /* Following branch not taken */
-	  operands[9] = gen_label_rtx ();
-	  emit_label_after (operands[9], next_insn);
-	  INSN_ADDRESSES_NEW (operands[9],
+	  rtx_code_label *lab = gen_label_rtx ();
+	  emit_label_after (lab, next_insn);
+	  INSN_ADDRESSES_NEW (lab,
 			      INSN_ADDRESSES (INSN_UID (next_insn))
 			      + get_attr_length (next_insn));
+	  operands[9] = lab;
 	  return templ;
 	}
       else
@@ -2877,11 +2878,12 @@ output_branchy_insn (enum rtx_code code, const char *templ,
 	    }
 	}
     }
-  operands[9] = gen_label_rtx ();
-  emit_label_after (operands[9], insn);
-  INSN_ADDRESSES_NEW (operands[9],
+  rtx_code_label *lab = gen_label_rtx ();
+  emit_label_after (lab, insn);
+  INSN_ADDRESSES_NEW (lab,
 		      INSN_ADDRESSES (INSN_UID (insn))
 		      + get_attr_length (insn));
+  operands[9] = lab;
   return templ;
 }
 
@@ -4737,7 +4739,7 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
     }
   if (TARGET_FMOVD && TARGET_ALIGN_DOUBLE && have_df)
     {
-      rtx align_insn = NULL_RTX;
+      rtx_insn *align_insn = NULL;
 
       scan = emit_label_after (gen_label_rtx (), scan);
       scan = emit_insn_after (gen_align_log (GEN_INT (3)), scan);
@@ -4766,7 +4768,7 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 					align_insn);
 		    }
 		  delete_insn (align_insn);
-		  align_insn = NULL_RTX;
+		  align_insn = NULL;
 		  continue;
 		}
 	      else
@@ -4941,8 +4943,8 @@ fixup_mova (rtx_insn *mova)
     }
   else
     {
-      rtx worker = mova;
-      rtx lab = gen_label_rtx ();
+      rtx_insn *worker = mova;
+      rtx_code_label *lab = gen_label_rtx ();
       rtx wpat, wpat0, wpat1, wsrc, target, base, diff;
 
       do
@@ -5041,7 +5043,7 @@ find_barrier (int num_mova, rtx_insn *mova, rtx_insn *from)
   int si_limit;
   int hi_limit;
   rtx_insn *orig = from;
-  rtx last_got = NULL_RTX;
+  rtx_insn *last_got = NULL;
   rtx_insn *last_symoff = NULL;
 
   /* For HImode: range is 510, add 4 because pc counts from address of
@@ -5139,9 +5141,9 @@ find_barrier (int num_mova, rtx_insn *mova, rtx_insn *from)
 	     instructions.  (plus add r0,r12).
 	     Remember if we see one without the other.  */
 	  if (GET_CODE (src) == UNSPEC && PIC_ADDR_P (XVECEXP (src, 0, 0)))
-	    last_got = last_got ? NULL_RTX : from;
+	    last_got = last_got ? NULL : from;
 	  else if (PIC_ADDR_P (src))
-	    last_got = last_got ? NULL_RTX : from;
+	    last_got = last_got ? NULL : from;
 
 	  /* We must explicitly check the mode, because sometimes the
 	     front end will generate code to load unsigned constants into
@@ -5366,7 +5368,7 @@ find_barrier (int num_mova, rtx_insn *mova, rtx_insn *from)
    register is not used anywhere else in this instruction - except as the
    destination of a set, return this register; else, return 0.  */
 rtx
-sfunc_uses_reg (rtx insn)
+sfunc_uses_reg (rtx_insn *insn)
 {
   int i;
   rtx pattern, part, reg_part, reg;
@@ -5403,7 +5405,7 @@ sfunc_uses_reg (rtx insn)
    setting it while calling it.  Set *SET to a SET rtx if the register
    is set by INSN.  */
 static bool
-noncall_uses_reg (rtx reg, rtx insn, rtx *set)
+noncall_uses_reg (rtx reg, rtx_insn *insn, rtx *set)
 {
   rtx pattern, reg2;
 
@@ -5562,15 +5564,15 @@ regs_used (rtx x, int is_dest)
    pass 1.  Pass 2 if a definite blocking insn is needed.
    -1 is used internally to avoid deep recursion.
    If a blocking instruction is made or recognized, return it.  */
-static rtx
-gen_block_redirect (rtx jump, int addr, int need_block)
+static rtx_insn *
+gen_block_redirect (rtx_insn *jump, int addr, int need_block)
 {
   int dead = 0;
-  rtx prev = prev_nonnote_insn (jump);
+  rtx_insn *prev = prev_nonnote_insn (jump);
   rtx dest;
 
   /* First, check if we already have an instruction that satisfies our need.  */
-  if (prev && NONJUMP_INSN_P (prev) && ! INSN_DELETED_P (prev))
+  if (prev && NONJUMP_INSN_P (prev) && ! prev->deleted ())
     {
       if (INSN_CODE (prev) == CODE_FOR_indirect_jump_scratch)
 	return prev;
@@ -5599,7 +5601,7 @@ gen_block_redirect (rtx jump, int addr, int need_block)
       && (INSN_ADDRESSES (INSN_UID (dest)) - addr + (unsigned) 4092
 	  > 4092 + 4098))
     {
-      rtx scan;
+      rtx_insn *scan;
       /* Don't look for the stack pointer as a scratch register,
 	 it would cause trouble if an interrupt occurred.  */
       unsigned attempt = 0x7fff, used;
@@ -5613,7 +5615,7 @@ gen_block_redirect (rtx jump, int addr, int need_block)
 	{
 	  enum rtx_code code;
 
-	  if (INSN_DELETED_P (scan))
+	  if (scan->deleted ())
 	    continue;
 	  code = GET_CODE (scan);
 	  if (code == CODE_LABEL || code == JUMP_INSN)
@@ -5627,12 +5629,12 @@ gen_block_redirect (rtx jump, int addr, int need_block)
 	      break;
 	    }
 	}
-      for (used = dead = 0, scan = JUMP_LABEL (jump);
+      for (used = dead = 0, scan = JUMP_LABEL_AS_INSN (jump);
 	   (scan = NEXT_INSN (scan)); )
 	{
 	  enum rtx_code code;
 
-	  if (INSN_DELETED_P (scan))
+	  if (scan->deleted ())
 	    continue;
 	  code = GET_CODE (scan);
 	  if (INSN_P (scan))
@@ -5649,7 +5651,7 @@ gen_block_redirect (rtx jump, int addr, int need_block)
 	      if (code == JUMP_INSN)
 		{
 		  if (jump_left-- && simplejump_p (scan))
-		    scan = JUMP_LABEL (scan);
+		    scan = JUMP_LABEL_AS_INSN (scan);
 		  else
 		    break;
 		}
@@ -5666,7 +5668,7 @@ gen_block_redirect (rtx jump, int addr, int need_block)
 
   else if (optimize && need_block >= 0)
     {
-      rtx next = next_active_insn (next_active_insn (dest));
+      rtx_insn *next = next_active_insn (next_active_insn (dest));
       if (next && JUMP_P (next)
 	  && GET_CODE (PATTERN (next)) == SET
 	  && recog_memoized (next) == CODE_FOR_jump_compact)
@@ -5690,9 +5692,9 @@ gen_block_redirect (rtx jump, int addr, int need_block)
 	 it should try to schedule instructions from the target of the
 	 branch; simplejump_p fails for indirect jumps even if they have
 	 a JUMP_LABEL.  */
-      rtx insn = emit_insn_before (gen_indirect_jump_scratch
-				   (reg, GEN_INT (unspec_bbr_uid++)),
-				   jump);
+      rtx_insn *insn = emit_insn_before (gen_indirect_jump_scratch
+					 (reg, GEN_INT (unspec_bbr_uid++)),
+					 jump);
       /* ??? We would like this to have the scope of the jump, but that
 	 scope will change when a delay slot insn of an inner scope is added.
 	 Hence, after delay slot scheduling, we'll have to expect
@@ -5718,12 +5720,12 @@ struct far_branch
 {
   /* A label (to be placed) in front of the jump
      that jumps to our ultimate destination.  */
-  rtx near_label;
+  rtx_insn *near_label;
   /* Where we are going to insert it if we cannot move the jump any farther,
      or the jump itself if we have picked up an existing jump.  */
-  rtx insert_place;
+  rtx_insn *insert_place;
   /* The ultimate destination.  */
-  rtx far_label;
+  rtx_insn *far_label;
   struct far_branch *prev;
   /* If the branch has already been created, its address;
      else the address of its first prospective user.  */
@@ -5735,9 +5737,9 @@ enum mdep_reorg_phase_e mdep_reorg_phase;
 static void
 gen_far_branch (struct far_branch *bp)
 {
-  rtx insn = bp->insert_place;
-  rtx jump;
-  rtx label = gen_label_rtx ();
+  rtx_insn *insn = bp->insert_place;
+  rtx_insn *jump;
+  rtx_code_label *label = gen_label_rtx ();
   int ok;
 
   emit_label_after (label, insn);
@@ -5786,13 +5788,14 @@ gen_far_branch (struct far_branch *bp)
 
 /* Fix up ADDR_DIFF_VECs.  */
 void
-fixup_addr_diff_vecs (rtx first)
+fixup_addr_diff_vecs (rtx_insn *first)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
-      rtx vec_lab, pat, prev, prevpat, x, braf_label;
+      rtx vec_lab, pat, prevpat, x, braf_label;
+      rtx_insn *prev;
 
       if (! JUMP_TABLE_DATA_P (insn)
 	  || GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
@@ -5801,7 +5804,7 @@ fixup_addr_diff_vecs (rtx first)
       vec_lab = XEXP (XEXP (pat, 0), 0);
 
       /* Search the matching casesi_jump_2.  */
-      for (prev = vec_lab; ; prev = PREV_INSN (prev))
+      for (prev = as_a <rtx_insn *> (vec_lab); ; prev = PREV_INSN (prev))
 	{
 	  if (!JUMP_P (prev))
 	    continue;
@@ -5834,7 +5837,7 @@ fixup_addr_diff_vecs (rtx first)
 /* BARRIER_OR_LABEL is either a BARRIER or a CODE_LABEL immediately following
    a barrier.  Return the base 2 logarithm of the desired alignment.  */
 int
-barrier_align (rtx barrier_or_label)
+barrier_align (rtx_insn *barrier_or_label)
 {
   rtx next, pat;
 
@@ -5899,7 +5902,7 @@ barrier_align (rtx barrier_or_label)
 
       /* Skip to the insn before the JUMP_INSN before the barrier under
 	 investigation.  */
-      rtx prev = prev_real_insn (prev_active_insn (barrier_or_label));
+      rtx_insn *prev = prev_real_insn (prev_active_insn (barrier_or_label));
 
       for (slot = 2, credit = (1 << (CACHE_LOG - 2)) + 2;
 	   credit >= 0 && prev && NONJUMP_INSN_P (prev);
@@ -5909,9 +5912,9 @@ barrier_align (rtx barrier_or_label)
 	  if (GET_CODE (PATTERN (prev)) == USE
 	      || GET_CODE (PATTERN (prev)) == CLOBBER)
 	    continue;
-	  if (GET_CODE (PATTERN (prev)) == SEQUENCE)
+	  if (rtx_sequence *prev_seq = dyn_cast <rtx_sequence *> (PATTERN (prev)))
 	    {
-	      prev = XVECEXP (PATTERN (prev), 0, 1);
+	      prev = prev_seq->insn (1);
 	      if (INSN_UID (prev) == INSN_UID (next))
 		{
 	  	  /* Delay slot was filled with insn at jump target.  */
@@ -5927,7 +5930,7 @@ barrier_align (rtx barrier_or_label)
 	}
       if (prev && jump_to_label_p (prev))
 	{
-	  rtx x;
+	  rtx_insn *x;
 	  if (jump_to_next
 	      || next_real_insn (JUMP_LABEL (prev)) == next
 	      /* If relax_delay_slots() decides NEXT was redundant
@@ -5962,9 +5965,9 @@ barrier_align (rtx barrier_or_label)
    Applying loop alignment to small constant or switch tables is a waste
    of space, so we suppress this too.  */
 int
-sh_loop_align (rtx label)
+sh_loop_align (rtx_insn *label)
 {
-  rtx next = label;
+  rtx_insn *next = label;
 
   if (! optimize || optimize_size)
     return 0;
@@ -6032,7 +6035,8 @@ sh_reorg (void)
 
       for (insn = first; insn; insn = NEXT_INSN (insn))
 	{
-	  rtx pattern, reg, set, dies, label;
+	  rtx pattern, reg, set, dies;
+	  rtx_code_label *label;
 	  rtx_insn *link, *scan;
 	  int rescan = 0, foundinsn = 0;
 
@@ -6247,7 +6251,7 @@ sh_reorg (void)
 		   || (prev_nonnote_insn (insn)
 		       == XEXP (MOVA_LABELREF (mova), 0))))
 	{
-	  rtx scan;
+	  rtx_insn *scan;
 	  int total;
 
 	  num_mova--;
@@ -6277,7 +6281,8 @@ sh_reorg (void)
 	  /* Scan ahead looking for a barrier to stick the constant table
 	     behind.  */
 	  rtx_insn *barrier = find_barrier (num_mova, mova, insn);
-	  rtx last_float_move = NULL_RTX, last_float = 0, *last_float_addr = NULL;
+	  rtx_insn *last_float_move = NULL;
+	  rtx last_float = 0, *last_float_addr = NULL;
 	  int need_aligned_label = 0;
 
 	  if (num_mova && ! mova_p (mova))
@@ -6448,7 +6453,7 @@ sh_reorg (void)
 int
 get_dest_uid (rtx label, int max_uid)
 {
-  rtx dest = next_real_insn (label);
+  rtx_insn *dest = next_real_insn (label);
   int dest_uid;
   if (! dest)
     /* This can happen for an undefined label.  */
@@ -6490,7 +6495,7 @@ split_branches (rtx_insn *first)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (! INSN_P (insn))
       continue;
-    else if (INSN_DELETED_P (insn))
+    else if (insn->deleted ())
       {
 	/* Shorten_branches would split this instruction again,
 	   so transform it into a note.  */
@@ -6501,14 +6506,14 @@ split_branches (rtx_insn *first)
 	enum attr_type type = get_attr_type (insn);
 	if (type == TYPE_CBRANCH)
 	  {
-	    rtx next, beyond;
+	    rtx_insn *next, *beyond;
 
 	    if (get_attr_length (insn) > 4)
 	      {
 		rtx src = SET_SRC (PATTERN (insn));
 		rtx olabel = XEXP (XEXP (src, 1), 0);
 		int addr = INSN_ADDRESSES (INSN_UID (insn));
-		rtx label = 0;
+		rtx_insn *label = 0;
 		int dest_uid = get_dest_uid (olabel, max_uid);
 		struct far_branch *bp = uid_branch[dest_uid];
 
@@ -6529,8 +6534,9 @@ split_branches (rtx_insn *first)
 		    uid_branch[dest_uid] = bp;
 		    bp->prev = far_branch_list;
 		    far_branch_list = bp;
-		    bp->far_label
-		      = XEXP (XEXP (SET_SRC (PATTERN (insn)), 1), 0);
+		    bp->far_label = as_a <rtx_insn *> (
+				      XEXP (XEXP (SET_SRC (PATTERN (insn)), 1),
+					    0));
 		    LABEL_NUSES (bp->far_label)++;
 		  }
 		else
@@ -6538,7 +6544,7 @@ split_branches (rtx_insn *first)
 		    label = bp->near_label;
 		    if (! label && bp->address - addr >= CONDJUMP_MIN)
 		      {
-			rtx block = bp->insert_place;
+			rtx_insn *block = bp->insert_place;
 
 			if (GET_CODE (PATTERN (block)) == RETURN)
 			  block = PREV_INSN (block);
@@ -6611,13 +6617,14 @@ split_branches (rtx_insn *first)
 	else if (type == TYPE_JUMP || type == TYPE_RETURN)
 	  {
 	    int addr = INSN_ADDRESSES (INSN_UID (insn));
-	    rtx far_label = 0;
+	    rtx_insn *far_label = 0;
 	    int dest_uid = 0;
 	    struct far_branch *bp;
 
 	    if (type == TYPE_JUMP)
 	      {
-		far_label = XEXP (SET_SRC (PATTERN (insn)), 0);
+		far_label = as_a <rtx_insn *> (
+			      XEXP (SET_SRC (PATTERN (insn)), 0));
 		dest_uid = get_dest_uid (far_label, max_uid);
 		if (! dest_uid)
 		  {
@@ -9907,7 +9914,7 @@ branch_dest (rtx branch)
    We assume REG is a reload reg, and therefore does
    not live past labels.  It may live past calls or jumps though.  */
 bool
-reg_unused_after (rtx reg, rtx insn)
+reg_unused_after (rtx reg, rtx_insn *insn)
 {
   enum rtx_code code;
   rtx set;
@@ -9947,12 +9954,13 @@ reg_unused_after (rtx reg, rtx insn)
 	 we must return 0.  */
       else if (code == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	{
+	  rtx_sequence *seq = as_a <rtx_sequence *> (PATTERN (insn));
 	  int i;
 	  int retval = 0;
 
-	  for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
+	  for (i = 0; i < seq->len (); i++)
 	    {
-	      rtx this_insn = XVECEXP (PATTERN (insn), 0, i);
+	      rtx_insn *this_insn = seq->insn (i);
 	      rtx set = single_set (this_insn);
 
 	      if (CALL_P (this_insn))
@@ -10147,7 +10155,7 @@ fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 #endif
 
 static bool
-sequence_insn_p (rtx insn)
+sequence_insn_p (rtx_insn *insn)
 {
   rtx_insn *prev, *next;
 
@@ -10668,7 +10676,8 @@ sh_delegitimize_address (rtx orig_x)
 static rtx
 mark_constant_pool_use (rtx x)
 {
-  rtx insn, lab, pattern;
+  rtx_insn *insn, *lab;
+  rtx pattern;
 
   if (x == NULL_RTX)
     return x;
@@ -10685,8 +10694,8 @@ mark_constant_pool_use (rtx x)
 
   /* Get the first label in the list of labels for the same constant
      and delete another labels in the list.  */
-  lab = x;
-  for (insn = PREV_INSN (x); insn; insn = PREV_INSN (insn))
+  lab = as_a <rtx_insn *> (x);
+  for (insn = PREV_INSN (lab); insn; insn = PREV_INSN (insn))
     {
       if (!LABEL_P (insn)
 	  || LABEL_REFS (insn) != NEXT_INSN (insn))
@@ -10694,11 +10703,11 @@ mark_constant_pool_use (rtx x)
       lab = insn;
     }
 
-  for (insn = LABEL_REFS (lab); insn; insn = LABEL_REFS (insn))
-    INSN_DELETED_P (insn) = 1;
+  for (rtx insn = LABEL_REFS (lab); insn; insn = LABEL_REFS (insn))
+    as_a<rtx_insn *> (insn)->set_deleted ();
 
   /* Mark constants in a window.  */
-  for (insn = NEXT_INSN (x); insn; insn = NEXT_INSN (insn))
+  for (insn = NEXT_INSN (as_a <rtx_insn *> (x)); insn; insn = NEXT_INSN (insn))
     {
       if (!NONJUMP_INSN_P (insn))
 	continue;
@@ -10732,7 +10741,7 @@ mark_constant_pool_use (rtx x)
    of an unconditional jump BRANCH2.  We only want to do this if the
    resulting branch will have a short displacement.  */
 bool
-sh_can_redirect_branch (rtx branch1, rtx branch2)
+sh_can_redirect_branch (rtx_insn *branch1, rtx_insn *branch2)
 {
   if (flag_expensive_optimizations && simplejump_p (branch2))
     {
@@ -11588,7 +11597,7 @@ sh_trampoline_init (rtx tramp_mem, tree fndecl, rtx cxt)
   if (TARGET_HARD_SH4 || TARGET_SH5)
     {
       if (!TARGET_INLINE_IC_INVALIDATE
-	  || (!(TARGET_SH4A_ARCH || TARGET_SH4_300) && TARGET_USERMODE))
+	  || (!(TARGET_SH4A || TARGET_SH4_300) && TARGET_USERMODE))
 	emit_library_call (function_symbol (NULL, "__ic_invalidate",
 					    FUNCTION_ORDINARY),
 			   LCT_NORMAL, VOIDmode, 1, tramp, SImode);
@@ -12702,7 +12711,7 @@ extract_sfunc_addr (rtx insn)
    INSN is the use_sfunc_addr instruction, and REG is the register it
    guards.  */
 bool
-check_use_sfunc_addr (rtx insn, rtx reg)
+check_use_sfunc_addr (rtx_insn *insn, rtx reg)
 {
   /* Search for the sfunc.  It should really come right after INSN.  */
   while ((insn = NEXT_INSN (insn)))
@@ -12712,8 +12721,8 @@ check_use_sfunc_addr (rtx insn, rtx reg)
       if (! INSN_P (insn))
 	continue;
 
-      if (GET_CODE (PATTERN (insn)) == SEQUENCE)
-	insn = XVECEXP (PATTERN (insn), 0, 0);
+      if (rtx_sequence *seq = dyn_cast<rtx_sequence *> (PATTERN (insn)))
+	insn = seq->insn (0);
       if (GET_CODE (PATTERN (insn)) != PARALLEL
 	  || get_attr_type (insn) != TYPE_SFUNC)
 	continue;
@@ -13412,11 +13421,10 @@ base_reg_disp::disp (void) const
 }
 
 /* Find the base register and calculate the displacement for a given
-   address rtx 'x'.
-   This is done by walking the insn list backwards and following SET insns
-   that set the value of the specified reg 'x'.  */
+   address rtx 'x'.  */
 static base_reg_disp
-sh_find_base_reg_disp (rtx insn, rtx x, disp_t disp = 0, rtx base_reg = NULL)
+sh_find_base_reg_disp (rtx_insn* insn, rtx x, disp_t disp = 0,
+		       rtx base_reg = NULL)
 {
   if (REG_P (x))
     {
@@ -13430,31 +13438,37 @@ sh_find_base_reg_disp (rtx insn, rtx x, disp_t disp = 0, rtx base_reg = NULL)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	return base_reg_disp (base_reg != NULL ? base_reg : x, disp);
 
-      /* Try to find the previous insn that sets the reg.  */
-      for (rtx i = prev_nonnote_insn (insn); i != NULL;
-	   i = prev_nonnote_insn (i))
+      /* Find the def of the reg and trace it.  If there are more than one
+	 defs and they are not the same, assume it's not safe to proceed.  */
+      rtx_insn* last_i = NULL;
+      rtx last_set = NULL;
+      for (df_ref d = DF_REG_DEF_CHAIN (REGNO (x)); d != NULL;
+	   d = DF_REF_NEXT_REG (d))
 	{
-	  if (REGNO_REG_SET_P (regs_invalidated_by_call_regset, GBR_REG)
-	      && CALL_P (i))
-	    break;
+	  rtx set = const_cast<rtx> (set_of (x, DF_REF_INSN (d)));
 
-	  if (!NONJUMP_INSN_P (i))
-	    continue;
-
-	  rtx p = PATTERN (i);
-	  if (p != NULL && GET_CODE (p) == SET && REG_P (XEXP (p, 0))
-	      && REGNO (XEXP (p, 0)) == REGNO (x))
+	  /* Accept multiple defs, as long as they are equal.  */
+	  if (last_set == NULL || rtx_equal_p (last_set, set))
 	    {
-	      /* If the recursion can't find out any more details about the
-		 source of the set, then this reg becomes our new base reg.  */
-	      return sh_find_base_reg_disp (i, XEXP (p, 1), disp, XEXP (p, 0));
+	      last_i = DF_REF_INSN (d);
+	      last_set = set;
+	    }
+	  else
+	    {
+	      last_i = NULL;
+	      last_set = NULL;
+	      break;
 	    }
 	}
 
-    /* When here, no previous insn was found that sets the reg.
-       The input reg is already the base reg.  */
-    return base_reg_disp (x, disp);
-  }
+      if (last_set != NULL && last_i != NULL)
+	return sh_find_base_reg_disp (last_i, XEXP (last_set, 1), disp,
+				      XEXP (last_set, 0));
+
+      /* When here, no previous insn was found that sets the reg.
+	 The input reg is already the base reg.  */
+      return base_reg_disp (x, disp);
+    }
 
   else if (GET_CODE (x) == PLUS)
     {
@@ -13484,19 +13498,47 @@ sh_find_base_reg_disp (rtx insn, rtx x, disp_t disp = 0, rtx base_reg = NULL)
    based memory address and return the corresponding new memory address.
    Return NULL_RTX if not found.  */
 rtx
-sh_find_equiv_gbr_addr (rtx insn, rtx mem)
+sh_find_equiv_gbr_addr (rtx_insn* insn, rtx mem)
 {
-  if (!MEM_P (mem))
+  if (!MEM_P (mem) || gbr_address_mem (mem, GET_MODE (mem)))
     return NULL_RTX;
 
   /* Leave post/pre inc/dec or any other side effect addresses alone.  */
   if (side_effects_p (XEXP (mem, 0)))
     return NULL_RTX;
 
+  /* When not optimizing there might be no dataflow available.  */
+  if (df == NULL)
+    return NULL_RTX;
+
   base_reg_disp gbr_disp = sh_find_base_reg_disp (insn, XEXP (mem, 0));
 
   if (gbr_disp.is_reg () && REGNO (gbr_disp.reg ()) == GBR_REG)
     {
+      /* If GBR is marked as call clobbered we bail out if we see a call.
+	 FIXME: Actually should check if this mem refers to the gbr value
+	 before or after the call.  If there is a store_gbr preceeding this
+	 mem, it's safe to use GBR for this mem.
+
+	 If GBR is not marked as call clobbered, but there is some other
+	 def than a call, it's probably a load_gbr upon which we also
+	 bail out to be on the safe side.
+	 FIXME: Should check if we have a use-after-def case, such as
+	 the call case above.  */
+      for (df_ref d = DF_REG_DEF_CHAIN (GBR_REG); d != NULL;
+	   d = DF_REF_NEXT_REG (d))
+	{
+	  if (CALL_P (DF_REF_INSN (d)))
+	    {
+	      if (REGNO_REG_SET_P (regs_invalidated_by_call_regset, GBR_REG))
+		return NULL_RTX;
+	      else
+		continue;
+	    }
+	  else
+	    return NULL_RTX;
+	}
+
       rtx disp = GEN_INT (gbr_disp.disp ());
       if (gbr_displacement (disp, GET_MODE (mem)))
 	return gen_rtx_PLUS (SImode, gen_rtx_REG (SImode, GBR_REG), disp);

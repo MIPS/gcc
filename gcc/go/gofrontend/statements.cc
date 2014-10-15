@@ -2178,7 +2178,11 @@ Thunk_statement::simplify_statement(Gogo* gogo, Named_object* function,
       for (Expression_list::const_iterator p = ce->args()->begin();
 	   p != ce->args()->end();
 	   ++p)
-	vals->push_back(*p);
+	{
+	  if ((*p)->is_constant())
+	    continue;
+	  vals->push_back(*p);
+	}
     }
 
   // Build the struct.
@@ -2281,6 +2285,9 @@ Thunk_statement::build_struct(Function_type* fntype)
 	   p != args->end();
 	   ++p, ++i)
 	{
+	  if ((*p)->is_constant())
+	    continue;
+
 	  char buf[50];
 	  this->thunk_field_param(i, buf, sizeof buf);
 	  fields->push_back(Struct_field(Typed_identifier(buf, (*p)->type(),
@@ -2418,21 +2425,36 @@ Thunk_statement::build_thunk(Gogo* gogo, const std::string& thunk_name)
     ++p;
   bool is_recover_call = ce->is_recover_call();
   Expression* recover_arg = NULL;
-  for (; p != fields->end(); ++p, ++next_index)
+
+  const Expression_list* args = ce->args();
+  if (args != NULL)
     {
-      Expression* thunk_param = Expression::make_var_reference(named_parameter,
-							       location);
-      thunk_param = Expression::make_unary(OPERATOR_MULT, thunk_param,
-					   location);
-      Expression* param = Expression::make_field_reference(thunk_param,
-							   next_index,
-							   location);
-      if (!is_recover_call)
-	call_params->push_back(param);
-      else
+      for (Expression_list::const_iterator arg = args->begin();
+	   arg != args->end();
+	   ++arg)
 	{
-	  go_assert(call_params->empty());
-	  recover_arg = param;
+	  Expression* param;
+	  if ((*arg)->is_constant())
+	    param = *arg;
+	  else
+	    {
+	      Expression* thunk_param =
+		Expression::make_var_reference(named_parameter, location);
+	      thunk_param =
+		Expression::make_unary(OPERATOR_MULT, thunk_param, location);
+	      param = Expression::make_field_reference(thunk_param,
+						       next_index,
+						       location);
+	      ++next_index;
+	    }
+
+	  if (!is_recover_call)
+	    call_params->push_back(param);
+	  else
+	    {
+	      go_assert(call_params->empty());
+	      recover_arg = param;
+	    }
 	}
     }
 
@@ -5283,8 +5305,12 @@ Statement::make_for_statement(Block* init, Expression* cond, Block* post,
 int
 For_range_statement::do_traverse(Traverse* traverse)
 {
-  if (this->traverse_expression(traverse, &this->index_var_) == TRAVERSE_EXIT)
-    return TRAVERSE_EXIT;
+  if (this->index_var_ != NULL)
+    {
+      if (this->traverse_expression(traverse, &this->index_var_)
+	  == TRAVERSE_EXIT)
+	return TRAVERSE_EXIT;
+    }
   if (this->value_var_ != NULL)
     {
       if (this->traverse_expression(traverse, &this->value_var_)
@@ -5412,25 +5438,27 @@ For_range_statement::do_lower(Gogo* gogo, Named_object*, Block* enclosing,
   if (iter_init != NULL)
     body->add_statement(Statement::make_block_statement(iter_init, loc));
 
-  Statement* assign;
-  Expression* index_ref = Expression::make_temporary_reference(index_temp, loc);
-  if (this->value_var_ == NULL)
+  if (this->index_var_ != NULL)
     {
-      assign = Statement::make_assignment(this->index_var_, index_ref, loc);
-    }
-  else
-    {
-      Expression_list* lhs = new Expression_list();
-      lhs->push_back(this->index_var_);
-      lhs->push_back(this->value_var_);
+      Statement* assign;
+      Expression* index_ref =
+	Expression::make_temporary_reference(index_temp, loc);
+      if (this->value_var_ == NULL)
+	assign = Statement::make_assignment(this->index_var_, index_ref, loc);
+      else
+	{
+	  Expression_list* lhs = new Expression_list();
+	  lhs->push_back(this->index_var_);
+	  lhs->push_back(this->value_var_);
 
-      Expression_list* rhs = new Expression_list();
-      rhs->push_back(index_ref);
-      rhs->push_back(Expression::make_temporary_reference(value_temp, loc));
+	  Expression_list* rhs = new Expression_list();
+	  rhs->push_back(index_ref);
+	  rhs->push_back(Expression::make_temporary_reference(value_temp, loc));
 
-      assign = Statement::make_tuple_assignment(lhs, rhs, loc);
+	  assign = Statement::make_tuple_assignment(lhs, rhs, loc);
+	}
+      body->add_statement(assign);
     }
-  body->add_statement(assign);
 
   body->add_statement(Statement::make_block_statement(this->statements_, loc));
 

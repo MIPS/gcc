@@ -42,7 +42,7 @@ enum symtab_type
 /* Section names are stored as reference counted strings in GGC safe hashtable
    (to make them survive through PCH).  */
 
-struct GTY(()) section_hash_entry_d
+struct GTY((for_user)) section_hash_entry_d
 {
   int ref_count;
   char *name;  /* As long as this datastructure stays in GGC, we can not put
@@ -51,6 +51,14 @@ struct GTY(()) section_hash_entry_d
 };
 
 typedef struct section_hash_entry_d section_hash_entry;
+
+struct section_name_hasher : ggc_hasher<section_hash_entry *>
+{
+  typedef const char *compare_type;
+
+  static hashval_t hash (section_hash_entry *);
+  static bool equal (section_hash_entry *, const char *);
+};
 
 enum availability
 {
@@ -346,6 +354,10 @@ public:
     return decl->decl_with_vis.symtab_node;
   }
 
+  /* Try to find a symtab node for declaration DECL and if it does not
+     exist or if it corresponds to an inline clone, create a new one.  */
+  static inline symtab_node * get_create (tree node);
+
   /* Return the cgraph node that has ASMNAME for its DECL_ASSEMBLER_NAME.
      Return NULL if there's no such node.  */
   static symtab_node *get_for_asmname (const_tree asmname);
@@ -394,12 +406,16 @@ public:
   unsigned analyzed : 1;
   /* Set for write-only variables.  */
   unsigned writeonly : 1;
-
+  /* Visibility of symbol was used for further optimization; do not
+     permit further changes.  */
+  unsigned refuse_visibility_changes : 1;
 
   /*** Visibility and linkage flags.  ***/
 
   /* Set when function is visible by other units.  */
   unsigned externally_visible : 1;
+  /* Don't reorder to other symbols having this set.  */
+  unsigned no_reorder : 1;
   /* The symbol will be assumed to be used in an invisible way (like
      by an toplevel asm statement).  */
   unsigned force_output : 1;
@@ -696,7 +712,7 @@ struct GTY(()) cgraph_simd_clone {
 };
 
 /* Function Multiversioning info.  */
-struct GTY(()) cgraph_function_version_info {
+struct GTY((for_user)) cgraph_function_version_info {
   /* The cgraph_node for which the function version info is stored.  */
   cgraph_node *this_node;
   /* Chains all the semantically identical function versions.  The
@@ -734,6 +750,14 @@ enum cgraph_inline_failed_type_t
 };
 
 struct cgraph_edge;
+
+struct cgraph_edge_hasher : ggc_hasher<cgraph_edge *>
+{
+  typedef gimple compare_type;
+
+  static hashval_t hash (cgraph_edge *);
+  static bool equal (cgraph_edge *, gimple);
+};
 
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
@@ -909,7 +933,10 @@ public:
      Use this only for functions that are released before being translated to
      target code (i.e. RTL).  Functions that are compiled to RTL and beyond
      are free'd in final.c via free_after_compilation().  */
-  void release_body (void);
+  void release_body (bool keep_arguments = false);
+
+  /* Return the DECL_STRUCT_FUNCTION of the function.  */
+  struct function *get_fun (void);
 
   /* cgraph_node is no longer nested function; update cgraph accordingly.  */
   void unnest (void);
@@ -1164,7 +1191,7 @@ public:
   cgraph_node *clone_of;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
-  htab_t GTY((param_is (cgraph_edge))) call_site_hash;
+  hash_table<cgraph_edge_hasher> *GTY(()) call_site_hash;
   /* Declaration node used to be clone of. */
   tree former_clone_of;
 
@@ -1259,19 +1286,112 @@ struct varpool_node_set_iterator
   unsigned index;
 };
 
+/* Context of polymorphic call. It represent information about the type of
+   instance that may reach the call.  This is used by ipa-devirt walkers of the
+   type inheritance graph.  */
+
+class GTY(()) ipa_polymorphic_call_context {
+public:
+  /* The called object appears in an object of type OUTER_TYPE
+     at offset OFFSET.  When information is not 100% reliable, we
+     use SPECULATIVE_OUTER_TYPE and SPECULATIVE_OFFSET. */
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT speculative_offset;
+  tree outer_type;
+  tree speculative_outer_type;
+  /* True if outer object may be in construction or destruction.  */
+  unsigned maybe_in_construction : 1;
+  /* True if outer object may be of derived type.  */
+  unsigned maybe_derived_type : 1;
+  /* True if speculative outer object may be of derived type.  We always
+     speculate that construction does not happen.  */
+  unsigned speculative_maybe_derived_type : 1;
+  /* True if the context is invalid and all calls should be redirected
+     to BUILTIN_UNREACHABLE.  */
+  unsigned invalid : 1;
+  /* True if the outer type is dynamic.  */
+  unsigned dynamic : 1;
+
+  /* Build empty "I know nothing" context.  */
+  ipa_polymorphic_call_context ();
+  /* Build polymorphic call context for indirect call E.  */
+  ipa_polymorphic_call_context (cgraph_edge *e);
+  /* Build polymorphic call context for IP invariant CST.
+     If specified, OTR_TYPE specify the type of polymorphic call
+     that takes CST+OFFSET as a prameter.  */
+  ipa_polymorphic_call_context (tree cst, tree otr_type = NULL,
+				HOST_WIDE_INT offset = 0);
+  /* Build context for pointer REF contained in FNDECL at statement STMT.
+     if INSTANCE is non-NULL, return pointer to the object described by
+     the context.  */
+  ipa_polymorphic_call_context (tree fndecl, tree ref, gimple stmt,
+				tree *instance = NULL);
+
+  /* Look for vtable stores or constructor calls to work out dynamic type
+     of memory location.  */
+  bool get_dynamic_type (tree, tree, tree, gimple);
+
+  /* Make context non-speculative.  */
+  void clear_speculation ();
+
+  /* Walk container types and modify context to point to actual class
+     containing OTR_TYPE (if non-NULL) as base class.
+     Return true if resulting context is valid.
+
+     When CONSIDER_PLACEMENT_NEW is false, reject contexts that may be made
+     valid only via alocation of new polymorphic type inside by means
+     of placement new.
+
+     When CONSIDER_BASES is false, only look for actual fields, not base types
+     of TYPE.  */
+  bool restrict_to_inner_class (tree otr_type,
+				bool consider_placement_new = true,
+				bool consider_bases = true);
+
+  /* Adjust all offsets in contexts by given number of bits.  */
+  void offset_by (HOST_WIDE_INT);
+  /* Use when we can not track dynamic type change.  This speculatively assume
+     type change is not happening.  */
+  void possible_dynamic_type_change (bool, tree otr_type = NULL);
+  /* Assume that both THIS and a given context is valid and strenghten THIS
+     if possible.  Return true if any strenghtening was made.
+     If actual type the context is being used in is known, OTR_TYPE should be
+     set accordingly. This improves quality of combined result.  */
+  bool combine_with (ipa_polymorphic_call_context, tree otr_type = NULL);
+
+  /* Return TRUE if context is fully useless.  */
+  bool useless_p () const;
+
+  /* Dump human readable context to F.  */
+  void dump (FILE *f) const;
+  void DEBUG_FUNCTION debug () const;
+
+  /* LTO streaming.  */
+  void stream_out (struct output_block *) const;
+  void stream_in (struct lto_input_block *, struct data_in *data_in);
+
+private:
+  bool combine_speculation_with (tree, HOST_WIDE_INT, bool, tree);
+  void set_by_decl (tree, HOST_WIDE_INT);
+  bool set_by_invariant (tree, tree, HOST_WIDE_INT);
+  void clear_outer_type (tree otr_type = NULL);
+  bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree);
+  void make_speculative (tree otr_type = NULL);
+};
+
 /* Structure containing additional information about an indirect call.  */
 
 struct GTY(()) cgraph_indirect_call_info
 {
-  /* When polymorphic is set, this field contains offset where the object which
-     was actually used in the polymorphic resides within a larger structure.
-     If agg_contents is set, the field contains the offset within the aggregate
-     from which the address to call was loaded.  */
-  HOST_WIDE_INT offset, speculative_offset;
+  /* When agg_content is set, an offset where the call pointer is located
+     within the aggregate.  */
+  HOST_WIDE_INT offset;
+  /* Context of the polymorphic call; use only when POLYMORPHIC flag is set.  */
+  ipa_polymorphic_call_context context;
   /* OBJ_TYPE_REF_TOKEN of a polymorphic call (if polymorphic is set).  */
   HOST_WIDE_INT otr_token;
   /* Type of the object from OBJ_TYPE_REF_OBJECT. */
-  tree otr_type, outer_type, speculative_outer_type;
+  tree otr_type;
   /* Index of the parameter that is called.  */
   int param_index;
   /* ECF flags determined from the caller.  */
@@ -1292,12 +1412,13 @@ struct GTY(()) cgraph_indirect_call_info
   /* When the previous bit is set, this one determines whether the destination
      is loaded from a parameter passed by reference. */
   unsigned by_ref : 1;
-  unsigned int maybe_in_construction : 1;
-  unsigned int maybe_derived_type : 1;
-  unsigned int speculative_maybe_derived_type : 1;
+  /* For polymorphic calls this specify whether the virtual table pointer
+     may have changed in between function entry and the call.  */
+  unsigned vptr_changed : 1;
 };
 
-struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgraph_edge {
+struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
+	    for_user)) cgraph_edge {
   friend class cgraph_node;
 
   /* Remove the edge in the cgraph.  */
@@ -1414,6 +1535,9 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgrap
      Optimizers may later redirect direct call to clone, so 1) and 3)
      do not need to necesarily agree with destination.  */
   unsigned int speculative : 1;
+  /* Set to true when caller is a constructor or destructor of polymorphic
+     type.  */
+  unsigned in_polymorphic_cdtor : 1;
 
 private:
   /* Remove the edge from the list of the callers of the callee.  */
@@ -1604,7 +1728,6 @@ struct cgraph_2node_hook_list;
 
 /* Map from a symbol to initialization/finalization priorities.  */
 struct GTY(()) symbol_priority_map {
-  symtab_node *symbol;
   priority_type init;
   priority_type fini;
 };
@@ -1625,6 +1748,20 @@ enum symtab_state
   EXPANSION,
   /* All cgraph expansion is done.  */
   FINISHED
+};
+
+struct asmname_hasher
+{
+  typedef symtab_node *value_type;
+  typedef const_tree compare_type;
+  typedef int store_values_directly;
+
+  static hashval_t hash (symtab_node *n);
+  static bool equal (symtab_node *n, const_tree t);
+  static void ggc_mx (symtab_node *n);
+  static void pch_nx (symtab_node *&);
+  static void pch_nx (symtab_node *&, gt_pointer_operator, void *);
+  static void remove (symtab_node *) {}
 };
 
 class GTY((tag ("SYMTAB"))) symbol_table
@@ -1701,9 +1838,6 @@ public:
 
   /* Output all variables enqueued to be assembled.  */
   bool output_variables (void);
-
-  /* Output all asm statements we have stored up to be output.  */
-  void output_asm_statements (void);
 
   /* Weakrefs may be associated to external decls and thus not output
      at expansion time.  Emit all necessary aliases.  */
@@ -1866,13 +2000,13 @@ public:
   bool cpp_implicit_aliases_done;
 
   /* Hash table used to hold sectoons.  */
-  htab_t GTY((param_is (section_hash_entry))) section_hash;
+  hash_table<section_name_hasher> *GTY(()) section_hash;
 
   /* Hash table used to convert assembler names into nodes.  */
-  htab_t GTY((param_is (symtab_node))) assembler_name_hash;
+  hash_table<asmname_hasher> *assembler_name_hash;
 
   /* Hash table used to hold init priorities.  */
-  htab_t GTY ((param_is (symbol_priority_map))) init_priority_hash;
+  hash_map<symtab_node *, symbol_priority_map> *init_priority_hash;
 
   FILE* GTY ((skip)) dump_file;
 
@@ -1902,11 +2036,7 @@ private:
   /* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
   static bool decl_assembler_name_equal (tree decl, const_tree asmname);
 
-  /* Returns a hash code for P.  */
-  static hashval_t hash_node_by_assembler_name (const void *p);
-
-  /* Returns nonzero if P1 and P2 are equal.  */
-  static int eq_assembler_name (const void *p1, const void *p2);
+  friend struct asmname_hasher;
 
   /* List of hooks triggered when an edge is removed.  */
   cgraph_edge_hook_list * GTY((skip)) m_first_edge_removal_hook;
@@ -1927,6 +2057,41 @@ private:
 extern GTY(()) symbol_table *symtab;
 
 extern vec<cgraph_node *> cgraph_new_nodes;
+
+inline hashval_t
+asmname_hasher::hash (symtab_node *n)
+{
+  return symbol_table::decl_assembler_name_hash
+    (DECL_ASSEMBLER_NAME (n->decl));
+}
+
+inline bool
+asmname_hasher::equal (symtab_node *n, const_tree t)
+{
+  return symbol_table::decl_assembler_name_equal (n->decl, t);
+}
+
+extern void gt_ggc_mx (symtab_node *&);
+
+inline void
+asmname_hasher::ggc_mx (symtab_node *n)
+{
+  gt_ggc_mx (n);
+}
+
+extern void gt_pch_nx (symtab_node *&);
+
+inline void
+asmname_hasher::pch_nx (symtab_node *&n)
+{
+  gt_pch_nx (n);
+}
+
+inline void
+asmname_hasher::pch_nx (symtab_node *&n, gt_pointer_operator op, void *cookie)
+{
+  op (&n, cookie);
+}
 
 /* In cgraph.c  */
 void release_function_body (tree);
@@ -1971,7 +2136,7 @@ symtab_node::real_symbol_p (void)
 {
   cgraph_node *cnode;
 
-  if (DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT_P (decl))
     return false;
   if (!is_a <cgraph_node *> (this))
     return true;
@@ -2382,7 +2547,7 @@ tree add_new_static_var (tree type);
    Each constant in memory thus far output is recorded
    in `const_desc_table'.  */
 
-struct GTY(()) constant_descriptor_tree {
+struct GTY((for_user)) constant_descriptor_tree {
   /* A MEM for the constant.  */
   rtx rtl;
 
@@ -2441,8 +2606,14 @@ varpool_node::all_refs_explicit_p ()
 	  && !force_output);
 }
 
+struct tree_descriptor_hasher : ggc_hasher<constant_descriptor_tree *>
+{
+  static hashval_t hash (constant_descriptor_tree *);
+  static bool equal (constant_descriptor_tree *, constant_descriptor_tree *);
+};
+
 /* Constant pool accessor function.  */
-htab_t constant_pool_htab (void);
+hash_table<tree_descriptor_hasher> *constant_pool_htab (void);
 
 /* Return node that alias is aliasing.  */
 
@@ -2520,4 +2691,73 @@ cgraph_node::mark_force_output (void)
   gcc_checking_assert (!global.inlined_to);
 }
 
+inline symtab_node * symtab_node::get_create (tree node)
+{
+  if (TREE_CODE (node) == VAR_DECL)
+    return varpool_node::get_create (node);
+  else
+    return cgraph_node::get_create (node);
+}
+
+/* Build polymorphic call context for indirect call E.  */
+
+inline
+ipa_polymorphic_call_context::ipa_polymorphic_call_context (cgraph_edge *e)
+{
+  gcc_checking_assert (e->indirect_info->polymorphic);
+  *this = e->indirect_info->context;
+}
+
+/* Build empty "I know nothing" context.  */
+
+inline
+ipa_polymorphic_call_context::ipa_polymorphic_call_context ()
+{
+  clear_speculation ();
+  clear_outer_type ();
+  invalid = false;
+}
+
+/* Make context non-speculative.  */
+
+inline void
+ipa_polymorphic_call_context::clear_speculation ()
+{
+  speculative_outer_type = NULL;
+  speculative_offset = 0;
+  speculative_maybe_derived_type = false;
+}
+
+/* Produce context specifying all derrived types of OTR_TYPE.
+   If OTR_TYPE is NULL or type of the OBJ_TYPE_REF, the context is set
+   to dummy "I know nothing" setting.  */
+
+inline void
+ipa_polymorphic_call_context::clear_outer_type (tree otr_type)
+{
+  outer_type = otr_type ? TYPE_MAIN_VARIANT (otr_type) : NULL;
+  offset = 0;
+  maybe_derived_type = true;
+  maybe_in_construction = true;
+  dynamic = true;
+}
+
+/* Adjust all offsets in contexts by OFF bits.  */
+
+inline void
+ipa_polymorphic_call_context::offset_by (HOST_WIDE_INT off)
+{
+  if (outer_type)
+    offset += off;
+  if (speculative_outer_type)
+    speculative_offset += off;
+}
+
+/* Return TRUE if context is fully useless.  */
+
+inline bool
+ipa_polymorphic_call_context::useless_p () const
+{
+  return (!outer_type && !speculative_outer_type);
+}
 #endif  /* GCC_CGRAPH_H  */

@@ -1227,7 +1227,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 		  sparseset_set_bit (allocnos_processed, num);
 
 		  if (allocno_saved_at_call[num] != last_call_num)
-		    /* Here we are mimicking caller-save.c behaviour
+		    /* Here we are mimicking caller-save.c behavior
 		       which does not save hard register at a call if
 		       it was saved on previous call in the same basic
 		       block and the hard register was not mentioned
@@ -1323,7 +1323,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
       curr_point++;
 
     }
-  /* Propagate register pressure to upper loop tree nodes: */
+  /* Propagate register pressure to upper loop tree nodes.  */
   if (loop_tree_node != ira_loop_tree_root)
     for (i = 0; i < ira_pressure_classes_num; i++)
       {

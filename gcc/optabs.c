@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "rtl.h"
 #include "tree.h"
+#include "tree-hasher.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -73,20 +74,17 @@ void debug_optab_libfuncs (void);
 
 /* Used for libfunc_hash.  */
 
-static hashval_t
-hash_libfunc (const void *p)
+hashval_t
+libfunc_hasher::hash (libfunc_entry *e)
 {
-  const struct libfunc_entry *const e = (const struct libfunc_entry *) p;
   return ((e->mode1 + e->mode2 * NUM_MACHINE_MODES) ^ e->op);
 }
 
 /* Used for libfunc_hash.  */
 
-static int
-eq_libfunc (const void *p, const void *q)
+bool
+libfunc_hasher::equal (libfunc_entry *e1, libfunc_entry *e2)
 {
-  const struct libfunc_entry *const e1 = (const struct libfunc_entry *) p;
-  const struct libfunc_entry *const e2 = (const struct libfunc_entry *) q;
   return e1->op == e2->op && e1->mode1 == e2->mode1 && e1->mode2 == e2->mode2;
 }
 
@@ -109,8 +107,7 @@ convert_optab_libfunc (convert_optab optab, enum machine_mode mode1,
   e.op = optab;
   e.mode1 = mode1;
   e.mode2 = mode2;
-  slot = (struct libfunc_entry **)
-    htab_find_slot (libfunc_hash, &e, NO_INSERT);
+  slot = libfunc_hash->find_slot (&e, NO_INSERT);
   if (!slot)
     {
       const struct convert_optab_libcall_d *d
@@ -120,8 +117,7 @@ convert_optab_libfunc (convert_optab optab, enum machine_mode mode1,
 	return NULL;
 
       d->libcall_gen (optab, d->libcall_basename, mode1, mode2);
-      slot = (struct libfunc_entry **)
-	htab_find_slot (libfunc_hash, &e, NO_INSERT);
+      slot = libfunc_hash->find_slot (&e, NO_INSERT);
       if (!slot)
 	return NULL;
     }
@@ -146,8 +142,7 @@ optab_libfunc (optab optab, enum machine_mode mode)
   e.op = optab;
   e.mode1 = mode;
   e.mode2 = VOIDmode;
-  slot = (struct libfunc_entry **)
-    htab_find_slot (libfunc_hash, &e, NO_INSERT);
+  slot = libfunc_hash->find_slot (&e, NO_INSERT);
   if (!slot)
     {
       const struct optab_libcall_d *d
@@ -157,8 +152,7 @@ optab_libfunc (optab optab, enum machine_mode mode)
 	return NULL;
 
       d->libcall_gen (optab, d->libcall_basename, d->libcall_suffix, mode);
-      slot = (struct libfunc_entry **)
-	htab_find_slot (libfunc_hash, &e, NO_INSERT);
+      slot = libfunc_hash->find_slot (&e, NO_INSERT);
       if (!slot)
 	return NULL;
     }
@@ -177,9 +171,10 @@ optab_libfunc (optab optab, enum machine_mode mode)
    try again, ensuring that TARGET is not one of the operands.  */
 
 static int
-add_equal_note (rtx insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
+add_equal_note (rtx_insn *insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
 {
-  rtx last_insn, set;
+  rtx_insn *last_insn;
+  rtx set;
   rtx note;
 
   gcc_assert (insns && INSN_P (insns) && NEXT_INSN (insns));
@@ -1033,7 +1028,6 @@ expand_doubleword_shift (enum machine_mode op1_mode, optab binoptab,
 			 unsigned HOST_WIDE_INT shift_mask)
 {
   rtx superword_op1, tmp, cmp1, cmp2;
-  rtx subword_label, done_label;
   enum rtx_code cmp_code;
 
   /* See if word-mode shifts by BITS_PER_WORD...BITS_PER_WORD * 2 - 1 will
@@ -1118,8 +1112,8 @@ expand_doubleword_shift (enum machine_mode op1_mode, optab binoptab,
 #endif
 
   /* As a last resort, use branches to select the correct alternative.  */
-  subword_label = gen_label_rtx ();
-  done_label = gen_label_rtx ();
+  rtx_code_label *subword_label = gen_label_rtx ();
+  rtx_code_label *done_label = gen_label_rtx ();
 
   NO_DEFER_POP;
   do_compare_rtx_and_jump (cmp1, cmp2, cmp_code, false, op1_mode,
@@ -1505,8 +1499,9 @@ expand_binop_directly (enum machine_mode mode, optab binoptab,
       /* If PAT is composed of more than one insn, try to add an appropriate
 	 REG_EQUAL note to it.  If we can't because TEMP conflicts with an
 	 operand, call expand_binop again, this time without a target.  */
-      if (INSN_P (pat) && NEXT_INSN (pat) != NULL_RTX
-	  && ! add_equal_note (pat, ops[0].value, optab_to_code (binoptab),
+      if (INSN_P (pat) && NEXT_INSN (as_a <rtx_insn *> (pat)) != NULL_RTX
+	  && ! add_equal_note (as_a <rtx_insn *> (pat), ops[0].value,
+			       optab_to_code (binoptab),
 			       ops[1].value, ops[2].value))
 	{
 	  delete_insns_since (last);
@@ -3028,8 +3023,9 @@ expand_unop_direct (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
       pat = maybe_gen_insn (icode, 2, ops);
       if (pat)
 	{
-	  if (INSN_P (pat) && NEXT_INSN (pat) != NULL_RTX
-	      && ! add_equal_note (pat, ops[0].value, optab_to_code (unoptab),
+	  if (INSN_P (pat) && NEXT_INSN (as_a <rtx_insn *> (pat)) != NULL_RTX
+	      && ! add_equal_note (as_a <rtx_insn *> (pat), ops[0].value,
+				   optab_to_code (unoptab),
 				   ops[1].value, NULL_RTX))
 	    {
 	      delete_insns_since (last);
@@ -3829,8 +3825,10 @@ maybe_emit_unop_insn (enum insn_code icode, rtx target, rtx op0,
   if (!pat)
     return false;
 
-  if (INSN_P (pat) && NEXT_INSN (pat) != NULL_RTX && code != UNKNOWN)
-    add_equal_note (pat, ops[0].value, code, ops[1].value, NULL_RTX);
+  if (INSN_P (pat) && NEXT_INSN (as_a <rtx_insn *> (pat)) != NULL_RTX
+      && code != UNKNOWN)
+    add_equal_note (as_a <rtx_insn *> (pat), ops[0].value, code, ops[1].value,
+		    NULL_RTX);
 
   emit_insn (pat);
 
@@ -5200,7 +5198,7 @@ expand_float (rtx to, rtx from, int unsignedp)
       rtx value;
       convert_optab tab = unsignedp ? ufloat_optab : sfloat_optab;
 
-      if (GET_MODE_SIZE (GET_MODE (from)) < GET_MODE_SIZE (SImode))
+      if (GET_MODE_PRECISION (GET_MODE (from)) < GET_MODE_PRECISION (SImode))
 	from = convert_to_mode (SImode, from, unsignedp);
 
       libfunc = convert_optab_libfunc (tab, GET_MODE (to), GET_MODE (from));
@@ -5378,7 +5376,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
      that the mode of TO is at least as wide as SImode, since those are the
      only library calls we know about.  */
 
-  if (GET_MODE_SIZE (GET_MODE (to)) < GET_MODE_SIZE (SImode))
+  if (GET_MODE_PRECISION (GET_MODE (to)) < GET_MODE_PRECISION (SImode))
     {
       target = gen_reg_rtx (SImode);
 
@@ -6096,22 +6094,25 @@ gen_satfractuns_conv_libfunc (convert_optab tab,
   gen_interclass_conv_libfunc (tab, opname, tmode, fmode);
 }
 
-/* A table of previously-created libfuncs, hashed by name.  */
-static GTY ((param_is (union tree_node))) htab_t libfunc_decls;
-
 /* Hashtable callbacks for libfunc_decls.  */
 
-static hashval_t
-libfunc_decl_hash (const void *entry)
+struct libfunc_decl_hasher : ggc_hasher<tree>
 {
-  return IDENTIFIER_HASH_VALUE (DECL_NAME ((const_tree) entry));
-}
+  static hashval_t
+  hash (tree entry)
+  {
+    return IDENTIFIER_HASH_VALUE (DECL_NAME (entry));
+  }
 
-static int
-libfunc_decl_eq (const void *entry1, const void *entry2)
-{
-  return DECL_NAME ((const_tree) entry1) == (const_tree) entry2;
-}
+  static bool
+  equal (tree decl, tree name)
+  {
+    return DECL_NAME (decl) == name;
+  }
+};
+
+/* A table of previously-created libfuncs, hashed by name.  */
+static GTY (()) hash_table<libfunc_decl_hasher> *libfunc_decls;
 
 /* Build a decl for a libfunc named NAME. */
 
@@ -6139,18 +6140,16 @@ rtx
 init_one_libfunc (const char *name)
 {
   tree id, decl;
-  void **slot;
   hashval_t hash;
 
   if (libfunc_decls == NULL)
-    libfunc_decls = htab_create_ggc (37, libfunc_decl_hash,
-				     libfunc_decl_eq, NULL);
+    libfunc_decls = hash_table<libfunc_decl_hasher>::create_ggc (37);
 
   /* See if we have already created a libfunc decl for this function.  */
   id = get_identifier (name);
   hash = IDENTIFIER_HASH_VALUE (id);
-  slot = htab_find_slot_with_hash (libfunc_decls, id, hash, INSERT);
-  decl = (tree) *slot;
+  tree *slot = libfunc_decls->find_slot_with_hash (id, hash, INSERT);
+  decl = *slot;
   if (decl == NULL)
     {
       /* Create a new decl, so that it can be passed to
@@ -6167,12 +6166,11 @@ rtx
 set_user_assembler_libfunc (const char *name, const char *asmspec)
 {
   tree id, decl;
-  void **slot;
   hashval_t hash;
 
   id = get_identifier (name);
   hash = IDENTIFIER_HASH_VALUE (id);
-  slot = htab_find_slot_with_hash (libfunc_decls, id, hash, NO_INSERT);
+  tree *slot = libfunc_decls->find_slot_with_hash (id, hash, NO_INSERT);
   gcc_assert (slot);
   decl = (tree) *slot;
   set_user_assembler_name (decl, asmspec);
@@ -6196,7 +6194,7 @@ set_optab_libfunc (optab op, enum machine_mode mode, const char *name)
     val = init_one_libfunc (name);
   else
     val = 0;
-  slot = (struct libfunc_entry **) htab_find_slot (libfunc_hash, &e, INSERT);
+  slot = libfunc_hash->find_slot (&e, INSERT);
   if (*slot == NULL)
     *slot = ggc_alloc<libfunc_entry> ();
   (*slot)->op = op;
@@ -6224,7 +6222,7 @@ set_conv_libfunc (convert_optab optab, enum machine_mode tmode,
     val = init_one_libfunc (name);
   else
     val = 0;
-  slot = (struct libfunc_entry **) htab_find_slot (libfunc_hash, &e, INSERT);
+  slot = libfunc_hash->find_slot (&e, INSERT);
   if (*slot == NULL)
     *slot = ggc_alloc<libfunc_entry> ();
   (*slot)->op = optab;
@@ -6240,9 +6238,9 @@ void
 init_optabs (void)
 {
   if (libfunc_hash)
-    htab_empty (libfunc_hash);
+    libfunc_hash->empty ();
   else
-    libfunc_hash = htab_create_ggc (10, hash_libfunc, eq_libfunc, NULL);
+    libfunc_hash = hash_table<libfunc_hasher>::create_ggc (10);
 
   /* Fill in the optabs with the insns we support.  */
   init_all_optabs (this_fn_optabs);

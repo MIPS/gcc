@@ -44,7 +44,7 @@ static void compute_outgoing_frequencies (basic_block);
    block.  */
 
 bool
-inside_basic_block_p (const_rtx insn)
+inside_basic_block_p (const rtx_insn *insn)
 {
   switch (GET_CODE (insn))
     {
@@ -73,7 +73,7 @@ inside_basic_block_p (const_rtx insn)
    the basic block.  */
 
 bool
-control_flow_insn_p (const_rtx insn)
+control_flow_insn_p (const rtx_insn *insn)
 {
   switch (GET_CODE (insn))
     {
@@ -277,15 +277,15 @@ make_edges (basic_block min, basic_block max, int update_p)
 		  && GET_CODE (SET_SRC (tmp)) == IF_THEN_ELSE
 		  && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF)
 		make_label_edge (edge_cache, bb,
-				 XEXP (XEXP (SET_SRC (tmp), 2), 0), 0);
+				 LABEL_REF_LABEL (XEXP (SET_SRC (tmp), 2)), 0);
 	    }
 
 	  /* If this is a computed jump, then mark it as reaching
 	     everything on the forced_labels list.  */
 	  else if (computed_jump_p (insn))
 	    {
-	      for (rtx_expr_list *x = forced_labels; x; x = x->next ())
-		make_label_edge (edge_cache, bb, x->element (), EDGE_ABNORMAL);
+	      for (rtx_insn_list *x = forced_labels; x; x = x->next ())
+		make_label_edge (edge_cache, bb, x->insn (), EDGE_ABNORMAL);
 	    }
 
 	  /* Returns create an exit out.  */
@@ -337,10 +337,10 @@ make_edges (basic_block min, basic_block max, int update_p)
 		     taken, then only calls to those functions or to other
 		     nested functions that use them could possibly do
 		     nonlocal gotos.  */
-		  for (rtx_expr_list *x = nonlocal_goto_handler_labels;
+		  for (rtx_insn_list *x = nonlocal_goto_handler_labels;
 		       x;
 		       x = x->next ())
-		    make_label_edge (edge_cache, bb, x->element (),
+		    make_label_edge (edge_cache, bb, x->insn (),
 				     EDGE_ABNORMAL | EDGE_ABNORMAL_CALL);
 		}
 
@@ -415,7 +415,7 @@ purge_dead_tablejump_edges (basic_block bb, rtx_jump_table_data *table)
        && SET_DEST (tmp) == pc_rtx
        && GET_CODE (SET_SRC (tmp)) == IF_THEN_ELSE
        && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF)
-    mark_tablejump_edge (XEXP (XEXP (SET_SRC (tmp), 2), 0));
+    mark_tablejump_edge (LABEL_REF_LABEL (XEXP (SET_SRC (tmp), 2)));
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {

@@ -735,7 +735,7 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
       return false;
 
     case LABEL_REF:
-      return XEXP (x, 0) == XEXP (y, 0);
+      return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
@@ -3000,7 +3000,7 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, int inc_amount)
 	      || GET_CODE (value) == POST_MODIFY);
   rtx_insn *last;
   rtx inc;
-  rtx add_insn;
+  rtx_insn *add_insn;
   int code;
   rtx real_in = in == value ? incloc : in;
   rtx result;
@@ -3798,6 +3798,35 @@ contains_reg_p (rtx x, bool hard_reg_p, bool spilled_p)
   return false;
 }
 
+/* Return true if X contains a symbol reg.  */
+static bool
+contains_symbol_ref_p (rtx x)
+{
+  int i, j;
+  const char *fmt;
+  enum rtx_code code;
+
+  code = GET_CODE (x);
+  if (code == SYMBOL_REF)
+    return true;
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if (contains_symbol_ref_p (XEXP (x, i)))
+	    return true;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    if (contains_symbol_ref_p (XVECEXP (x, i, j)))
+	      return true;
+	}
+    }
+  return false;
+}
+
 /* Process all regs in location *LOC and change them on equivalent
    substitution.  Return true if any change was done.  */
 static bool
@@ -3897,11 +3926,11 @@ multi_block_pseudo_p (int regno)
 
 /* Return true if LIST contains a deleted insn.  */
 static bool
-contains_deleted_insn_p (rtx list)
+contains_deleted_insn_p (rtx_insn_list *list)
 {
-  for (; list != NULL_RTX; list = XEXP (list, 1))
-    if (NOTE_P (XEXP (list, 0))
-	&& NOTE_KIND (XEXP (list, 0)) == NOTE_INSN_DELETED)
+  for (; list != NULL_RTX; list = list->next ())
+    if (NOTE_P (list->insn ())
+	&& NOTE_KIND (list->insn ()) == NOTE_INSN_DELETED)
       return true;
   return false;
 }
@@ -3939,7 +3968,7 @@ dead_pseudo_p (rtx x, rtx insn)
 /* Return true if INSN contains a dying pseudo in INSN right hand
    side.  */
 static bool
-insn_rhs_dead_pseudo_p (rtx insn)
+insn_rhs_dead_pseudo_p (rtx_insn *insn)
 {
   rtx set = single_set (insn);
 
@@ -3952,14 +3981,12 @@ insn_rhs_dead_pseudo_p (rtx insn)
 static bool
 init_insn_rhs_dead_pseudo_p (int regno)
 {
-  rtx insns = ira_reg_equiv[regno].init_insns;
+  rtx_insn_list *insns = ira_reg_equiv[regno].init_insns;
 
   if (insns == NULL)
     return false;
-  if (INSN_P (insns))
-    return insn_rhs_dead_pseudo_p (insns);
-  for (; insns != NULL_RTX; insns = XEXP (insns, 1))
-    if (insn_rhs_dead_pseudo_p (XEXP (insns, 0)))
+  for (; insns != NULL_RTX; insns = insns->next ())
+    if (insn_rhs_dead_pseudo_p (insns->insn ()))
       return true;
   return false;
 }
@@ -3970,14 +3997,15 @@ init_insn_rhs_dead_pseudo_p (int regno)
 static bool
 reverse_equiv_p (int regno)
 {
-  rtx insns, set;
+  rtx_insn_list *insns = ira_reg_equiv[regno].init_insns;
+  rtx set;
 
-  if ((insns = ira_reg_equiv[regno].init_insns) == NULL_RTX)
+  if (insns == NULL)
     return false;
-  if (! INSN_P (XEXP (insns, 0))
-      || XEXP (insns, 1) != NULL_RTX)
+  if (! INSN_P (insns->insn ())
+      || insns->next () != NULL)
     return false;
-  if ((set = single_set (XEXP (insns, 0))) == NULL_RTX)
+  if ((set = single_set (insns->insn ())) == NULL_RTX)
     return false;
   return REG_P (SET_SRC (set)) && (int) REGNO (SET_SRC (set)) == regno;
 }
@@ -3988,10 +4016,10 @@ static bool
 contains_reloaded_insn_p (int regno)
 {
   rtx set;
-  rtx list = ira_reg_equiv[regno].init_insns;
+  rtx_insn_list *list = ira_reg_equiv[regno].init_insns;
 
-  for (; list != NULL_RTX; list = XEXP (list, 1))
-    if ((set = single_set (XEXP (list, 0))) == NULL_RTX
+  for (; list != NULL; list = list->next ())
+    if ((set = single_set (list->insn ())) == NULL_RTX
 	|| ! REG_P (SET_DEST (set))
 	|| (int) REGNO (SET_DEST (set)) != regno)
       return true;
@@ -4021,7 +4049,11 @@ lra_constraints (bool first_p)
       ("Maximum number of LRA constraint passes is achieved (%d)\n",
        LRA_MAX_CONSTRAINT_ITERATION_NUMBER);
   changed_p = false;
-  lra_risky_transformations_p = false;
+  if (pic_offset_table_rtx
+      && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)
+    lra_risky_transformations_p = true;
+  else
+    lra_risky_transformations_p = false;
   new_insn_uid_start = get_max_uid ();
   new_regno_start = first_p ? lra_constraint_new_regno_start : max_reg_num ();
   /* Mark used hard regs for target stack size calulations.  */
@@ -4089,7 +4121,12 @@ lra_constraints (bool first_p)
 		   paradoxical subregs.  */
 		|| (MEM_P (x)
 		    && (GET_MODE_SIZE (lra_reg_info[i].biggest_mode)
-			> GET_MODE_SIZE (GET_MODE (x)))))
+			> GET_MODE_SIZE (GET_MODE (x))))
+		|| (pic_offset_table_rtx
+		    && ((CONST_POOL_OK_P (PSEUDO_REGNO_MODE (i), x)
+			 && (targetm.preferred_reload_class
+			     (x, lra_get_allocno_class (i)) == NO_REGS))
+			|| contains_symbol_ref_p (x))))
 	      ira_reg_equiv[i].defined_p = false;
 	    if (contains_reg_p (x, false, true))
 	      ira_reg_equiv[i].profitable_p = false;
@@ -4391,7 +4428,7 @@ substitute_pseudo_within_insn (rtx_insn *insn, int old_regno, rtx new_reg)
 }
 
 /* Return first non-debug insn in list USAGE_INSNS.  */
-static rtx
+static rtx_insn *
 skip_usage_debug_insns (rtx usage_insns)
 {
   rtx insn;
@@ -4401,7 +4438,7 @@ skip_usage_debug_insns (rtx usage_insns)
        insn != NULL_RTX && GET_CODE (insn) == INSN_LIST;
        insn = XEXP (insn, 1))
     ;
-  return insn;
+  return safe_as_a <rtx_insn *> (insn);
 }
 
 /* Return true if we need secondary memory moves for insn in
@@ -4414,7 +4451,8 @@ check_secondary_memory_needed_p (enum reg_class inher_cl ATTRIBUTE_UNUSED,
 #ifndef SECONDARY_MEMORY_NEEDED
   return false;
 #else
-  rtx insn, set, dest;
+  rtx_insn *insn;
+  rtx set, dest;
   enum reg_class cl;
 
   if (inher_cl == ALL_REGS
@@ -4509,7 +4547,7 @@ inherit_reload_reg (bool def_p, int original_regno,
 	 transformation will be unprofitable.  */
       if (lra_dump_file != NULL)
 	{
-	  rtx insn = skip_usage_debug_insns (next_usage_insns);
+	  rtx_insn *insn = skip_usage_debug_insns (next_usage_insns);
 	  rtx set = single_set (insn);
 
 	  lra_assert (set != NULL_RTX);
@@ -4544,7 +4582,7 @@ inherit_reload_reg (bool def_p, int original_regno,
 		   "    Rejecting inheritance %d->%d "
 		   "as it results in 2 or more insns:\n",
 		   original_regno, REGNO (new_reg));
-	  dump_rtl_slim (lra_dump_file, new_insns, NULL_RTX, -1, 0);
+	  dump_rtl_slim (lra_dump_file, new_insns, NULL, -1, 0);
 	  fprintf (lra_dump_file,
 		   "	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
 	}
@@ -4809,7 +4847,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	    (lra_dump_file,
 	     "	  Rejecting split %d->%d resulting in > 2 %s save insns:\n",
 	     original_regno, REGNO (new_reg), call_save_p ? "call" : "");
-	  dump_rtl_slim (lra_dump_file, save, NULL_RTX, -1, 0);
+	  dump_rtl_slim (lra_dump_file, save, NULL, -1, 0);
 	  fprintf (lra_dump_file,
 		   "	))))))))))))))))))))))))))))))))))))))))))))))))\n");
 	}
@@ -4825,7 +4863,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 		   "	Rejecting split %d->%d "
 		   "resulting in > 2 %s restore insns:\n",
 		   original_regno, REGNO (new_reg), call_save_p ? "call" : "");
-	  dump_rtl_slim (lra_dump_file, restore, NULL_RTX, -1, 0);
+	  dump_rtl_slim (lra_dump_file, restore, NULL, -1, 0);
 	  fprintf (lra_dump_file,
 		   "	))))))))))))))))))))))))))))))))))))))))))))))))\n");
 	}
@@ -5348,16 +5386,21 @@ inherit_in_ebb (rtx_insn *head, rtx_insn *tail)
 		  if (GET_CODE (pat) == PARALLEL)
 		    pat = XVECEXP (pat, 0, 0);
 		  dest = SET_DEST (pat);
-		  start_sequence ();
-		  emit_move_insn (cheap, copy_rtx (dest));
-		  restore = get_insns ();
-		  end_sequence ();
-		  lra_process_new_insns (curr_insn, NULL, restore,
-					 "Inserting call parameter restore");
-		  /* We don't need to save/restore of the pseudo from
-		     this call.	 */
-		  usage_insns[regno].calls_num = calls_num;
-		  bitmap_set_bit (&check_only_regs, regno);
+		  /* For multiple return values dest is PARALLEL.
+		     Currently we handle only single return value case.  */
+		  if (REG_P (dest))
+		    {
+		      start_sequence ();
+		      emit_move_insn (cheap, copy_rtx (dest));
+		      restore = get_insns ();
+		      end_sequence ();
+		      lra_process_new_insns (curr_insn, NULL, restore,
+					     "Inserting call parameter restore");
+		      /* We don't need to save/restore of the pseudo from
+			 this call.	 */
+		      usage_insns[regno].calls_num = calls_num;
+		      bitmap_set_bit (&check_only_regs, regno);
+		    }
 		}
 	    }
 	  to_inherit_num = 0;

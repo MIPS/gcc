@@ -159,17 +159,17 @@ delete_insn (rtx uncast_insn)
 	    }
 	}
 
-      remove_node_from_expr_list (insn, &nonlocal_goto_handler_labels);
+      remove_node_from_insn_list (insn, &nonlocal_goto_handler_labels);
     }
 
   if (really_delete)
     {
       /* If this insn has already been deleted, something is very wrong.  */
-      gcc_assert (!INSN_DELETED_P (insn));
+      gcc_assert (!insn->deleted ());
       if (INSN_P (insn))
 	df_insn_delete (insn);
       remove_insn (insn);
-      INSN_DELETED_P (insn) = 1;
+      insn->set_deleted ();
     }
 
   /* If deleting a jump, decrement the use count of the label.  Deleting
@@ -254,7 +254,7 @@ delete_insn_chain (rtx start, rtx finish, bool clear_bb)
       else
 	delete_insn (current);
 
-      if (clear_bb && !INSN_DELETED_P (current))
+      if (clear_bb && !current->deleted ())
 	set_block_for_insn (current, NULL);
 
       if (current == start)
@@ -696,8 +696,8 @@ first_insn_after_basic_block_note (basic_block block)
   return NEXT_INSN (insn);
 }
 
-/* Creates a new basic block just after basic block B by splitting
-   everything after specified instruction I.  */
+/* Creates a new basic block just after basic block BB by splitting
+   everything after specified instruction INSNP.  */
 
 static basic_block
 rtl_split_block (basic_block bb, void *insnp)
@@ -1202,7 +1202,7 @@ patch_jump_insn (rtx_insn *insn, rtx_insn *old_label, basic_block new_bb)
 	  && SET_DEST (tmp) == pc_rtx
 	  && GET_CODE (SET_SRC (tmp)) == IF_THEN_ELSE
 	  && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF
-	  && XEXP (XEXP (SET_SRC (tmp), 2), 0) == old_label)
+	  && LABEL_REF_LABEL (XEXP (SET_SRC (tmp), 2)) == old_label)
 	{
 	  XEXP (SET_SRC (tmp), 2) = gen_rtx_LABEL_REF (Pmode,
 						       new_label);
@@ -1603,6 +1603,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
 
   if (EDGE_COUNT (e->src->succs) >= 2 || abnormal_edge_flags || asm_goto_edge)
     {
+      rtx_insn *new_head;
       gcov_type count = e->count;
       int probability = e->probability;
       /* Create the new structures.  */
@@ -1612,12 +1613,12 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
 	 forward from the last instruction of the old block.  */
       rtx_jump_table_data *table;
       if (tablejump_p (BB_END (e->src), NULL, &table))
-	note = table;
+	new_head = table;
       else
-	note = BB_END (e->src);
-      note = NEXT_INSN (note);
+	new_head = BB_END (e->src);
+      new_head = NEXT_INSN (new_head);
 
-      jump_block = create_basic_block (note, NULL, e->src);
+      jump_block = create_basic_block (new_head, NULL, e->src);
       jump_block->count = count;
       jump_block->frequency = EDGE_FREQUENCY (e);
 
@@ -3277,7 +3278,7 @@ fixup_abnormal_edges (void)
 		      if (GET_CODE (PATTERN (insn)) != USE)
 			{
 			  /* We're not deleting it, we're moving it.  */
-			  INSN_DELETED_P (insn) = 0;
+			  insn->set_undeleted ();
 			  SET_PREV_INSN (insn) = NULL_RTX;
 			  SET_NEXT_INSN (insn) = NULL_RTX;
 
@@ -4216,7 +4217,7 @@ cfg_layout_duplicate_bb (basic_block bb)
 void
 cfg_layout_initialize (unsigned int flags)
 {
-  rtx_expr_list *x;
+  rtx_insn_list *x;
   basic_block bb;
 
   /* Once bb partitioning is complete, cfg layout mode should not be
@@ -4237,7 +4238,7 @@ cfg_layout_initialize (unsigned int flags)
   /* Make sure that the targets of non local gotos are marked.  */
   for (x = nonlocal_goto_handler_labels; x; x = x->next ())
     {
-      bb = BLOCK_FOR_INSN (x->element ());
+      bb = BLOCK_FOR_INSN (x->insn ());
       bb->flags |= BB_NON_LOCAL_GOTO_TARGET;
     }
 
@@ -4927,7 +4928,7 @@ rtl_lv_add_condition_to_bb (basic_block first_head ,
   seq = get_insns ();
   end_sequence ();
 
-  /* Add the new cond , in the new head.  */
+  /* Add the new cond, in the new head.  */
   emit_insn_after (seq, BB_END (cond_bb));
 }
 
