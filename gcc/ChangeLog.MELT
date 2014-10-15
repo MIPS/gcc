@@ -1,5 +1,9 @@
 
 
+2014-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (lambda_arg_bindings): Formal arguments
+	list are now macro-expanded using expand_pairlist_as_list.
+
 2014-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
