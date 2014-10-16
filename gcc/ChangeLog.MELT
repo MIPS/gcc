@@ -1,5 +1,8 @@
 
 2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (lambda_arg_bindings): More debug.
+
+2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{temporily use t-treecode.melt}}
 	* testsuite/melt/t-treecode.melt: Reinstalled and copied
 	temporarily code fro libmelt-ana-tree.melt

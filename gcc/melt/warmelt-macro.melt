@@ -2688,6 +2688,8 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 ;;; usually argmode is just missing
 ;;; TODO: perhaps consider a :macro argmode also??
 (defun lambda_arg_bindings (formalsexp argmode env mexpander modctx)
+  (debug "lambda_arg_bindings" " start formalsexp=" formalsexp
+	 "\n.. argmode=" argmode " env=" debug_less env)
   ;; special case for null arglist
   (when (null formalsexp)
     (return (make_multiple discr_formal_sequence 0)))
@@ -2696,17 +2698,29 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	 (argtype ctype_value)
 	 (rawarglist (unsafe_get_field :sexp_contents formalsexp))
 	 (argloc (unsafe_get_field :loca_location formalsexp))
-	 (arglist (expand_pairlist_as_list (list_first rawarglist) env mexpander modctx))
+	 (arglist
+	  (progn
+	    (debug "lambda_arg_bindings" " argloc=" argloc "; rawarglist=" rawarglist)
+	    (let
+		( (al
+		   (expand_pairlist_as_list (list_first rawarglist) env mexpander modctx))
+		  )
+	      (debug "lambda_arg_bindings" " argloc=" argloc "; arglist=" al)
+	      al
+	      )))
 	 (argmap (make_mapobject discr_map_objects (+i 4 (list_length arglist))))
 	 (bndlist (make_list discr_list)) 
 	 (curpair (list_first arglist))
 	 (tupdis discr_formal_sequence)
 	 )
+    (debug "lambda_arg_bindings" " argloc=" argloc "; arglist=" arglist)
     ;; first loop on arg
     (forever argloop
 	     (if (null curpair) (exit argloop))
 	     (assert_msg "check curpair" (is_pair curpair) curpair)
 	     (let ( (curarg (pair_head curpair)) )
+	       (debug "lambda_arg_bindings" " argloc=" argloc
+		      "; curarg=" curarg)
 	       (cond
 		( (== curarg :rest)
 		  (setq curpair (pair_tail curpair))
@@ -2725,6 +2739,8 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		  (let ( (cty (unsafe_get_field :symb_data curarg)) 
 			 (curargname (unsafe_get_field :named_name curarg))
 			 )
+		    (debug "lambda_arg_bindings" " argloc=" argloc
+			   " keyword curarg=" curarg)
 		    (cond 
 		     ( (is_not_a cty class_ctype)
 		       (error_at argloc "non-ctype keyword $1 in formal arglist"_
@@ -2803,7 +2819,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	       (setq ix (+i ix 1))
 	       (setq bndpair (pair_tail bndpair))
 	       )
-      (debug "lambda_arg_bindings result bndtup" bndtup)
+      (debug "lambda_arg_bindings" " argloc=" argloc "; result bndtup" bndtup)
       (return bndtup)
       )))
 
@@ -2989,7 +3005,10 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
       (error_at () "MELT has invalid macro translating running macroexpansions function - corruption")
       (return))
     (when (>i (melt_error_counter) 0)
-      (error_at () "MELT won't translate running macroexpansions since got errors")
+      (error_at () "MELT won't translate running macroexpansions since got $1 errors" (melt_error_counter))
+      (if (>i (melt_error_counter) 15)
+	  (fatal_error_at () "MELT got too many $1 errors in macroexpansions" (melt_error_counter))
+	  )
       (return))
     (debug "melt_invoke_translator_runner_macroexpansions melt_transrunmacro_clos=" clos
 	   "\n... env=" debug_less env "\n... modctx=" debug_less modctx)
