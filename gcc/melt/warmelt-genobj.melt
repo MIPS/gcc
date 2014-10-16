@@ -2231,7 +2231,7 @@
    (shortbacktrace_dbg "get_free_objlocptr" 7)
    (let ( (orout (unsafe_get_field :gncx_objrout gcx))
 	  (freeli (unsafe_get_field :gncx_freeptrlist gcx)) 
-	  (pfree (list_popfirst freeli))
+	  (pfree (list_pop_first freeli))
 	  (:long off -1)
 	  )
      (if (not (is_a orout class_routineobj))
@@ -2281,7 +2281,7 @@
    ;(shortbacktrace_dbg "get_free_objloclong start" 12)
    (let ( (orout (unsafe_get_field :gncx_objrout gcx))
 	  (freeli (unsafe_get_field :gncx_freelonglist gcx)) 
-	  (pfree (list_popfirst freeli))
+	  (pfree (list_pop_first freeli))
 	  (:long off -1)
 	  )
      (assert_msg "check orout" (is_a orout class_routineobj) orout)
@@ -2343,7 +2343,7 @@
 		  (progn
 		    (setq freeli (make_list discr_list))
 		    (mapobject_put freemap ctyp freeli)))
-	      (let ( (pfree (list_popfirst freeli)) )
+	      (let ( (pfree (list_pop_first freeli)) )
 		(if (is_a pfree  class_objlocv)
 		    (progn 
 		      (debug  "get_free_objloctyped pfree=" pfree)

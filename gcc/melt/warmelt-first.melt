@@ -1852,7 +1852,7 @@ make a $CURAT string.}#
   :doc #{Safely prepend to list value $LI an element $EL thru a new pair.}#
   #{meltgc_prepend_list((melt_ptr_t)($li), (melt_ptr_t)($el))}#)
 ;; pop first from list
-(defprimitive list_popfirst (li) :value
+(defprimitive list_pop_first (li) :value
   :doc #{Pop the first element from a list $LI and give it, or else null.}#
   #{(meltgc_popfirst_list((melt_ptr_t)($li)))}#)
 ;; make list
@@ -4164,7 +4164,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  list_last
  list_last_element
  list_length
- list_popfirst
+ list_pop_first
  list_prepend
  make_bucketlong
  make_integerbox
@@ -4219,6 +4219,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  the_null_cstring
  )
 
+(export_synonym list_popfirst list_pop_first)
 
 ;; export the discriminants and instances and selectors defined above
 (export_values				;alphabetical order

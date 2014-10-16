@@ -1,5 +1,5 @@
-;; file t-treecode.melt -*- lisp -*-
-;; this sample code is in the public domain, but will become GPLv3 
+;; file t-treecode.melt -*- lisp -*- this sample code is GPLv3, it
+;; will go into libmelt-ana-tree.melt as soon as it works.
 #| run in buildir/gcc
  ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/t-treecode.melt
 
@@ -14,7 +14,28 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
     -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=t-treecode.melt \
      -c -x c /dev/null -o /dev/null
 |#
-(module_is_gpl_compatible "public domain, soon GPLv3")
+(comment "***
+    Copyright  2014  Free Software Foundation, Inc.
+    Contributed by Basile Starynkevitch <basile@starynkevitch.net>
+
+    This file is part of GCC.
+
+    GCC is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3, or (at your option)
+    any later version.
+
+    GCC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with GCC; see the file COPYING3.  If not see
+    <http://www.gnu.org/licenses/>.
+***")
+
+(module_is_gpl_compatible "GPLv3")
 
 
 (let (      

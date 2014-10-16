@@ -1,0 +1,80 @@
+;; file t-macrocmat.melt -*- lisp -*-
+
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/t-macrocmat.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args  \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=t-macrocmat.melt \
+     /dev/null -o /dev/null
+## perhaps also: -fmelt-debugging=all -fmelt-out-descr-comment
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@warmelt.quicklybuilt -fplugin-arg-melt-arg=t-macrocmat.melt \
+     -c -x c /dev/null -o /dev/null
+|#
+;; file in the public domain
+;; probably related to the meta-bug in t-treecode.melt
+(module_is_gpl_compatible "public domain")
+
+(let (
+      (:macro dmacpat (sexp env mexpander modctx)	      
+	      (debug "dmacpat" " sexp=" sexp)
+	      (let (
+		    (sloc (get_field :loca_location sexp))
+		    (sexcont (get_field :sexp_contents sexp))
+		    (xargs (expand_pairlist_as_list
+			    sexcont env mexpander modctx))
+		    (nsymb (clone_symbol 'cmatp))
+		    (ix 0)
+		    )
+		(debug "dmacpat" " xargs=" xargs "; nsymb=" nsymb)
+		(each_component_in_list
+		 xargs
+		 curarg
+		 (debug "dmacpat" " ix#" ix " curarg=" curarg)
+		 (when (is_not_a curarg class_symbol)
+		   (error_at sloc "non-symbol for DMACPAT #$1" ix)
+		   (return))
+		 (setq ix (+ ix 1))
+		 )
+		(unless ix
+		  (error_at sloc "missing argument to DMACPAT")
+		  (return))
+		(let ( (firstsymb (list_pop_first xargs))
+		       (restupsymb (list_to_multiple xargs discr_multiple))
+		       (lnrest (multiple_length restupsymb))
+		       (:long factln (let ( (f 1) )
+				       (foreach_long_upto
+					(i)
+					(1 lnrest)
+					(setq f (*i f i)))
+				       f))
+		       (lfill (make_list discr_list))
+		       (cdiv 1)
+		       )
+		  (debug "dmacpat" " firstsymb=" firstsymb " lnrest#" lnrest
+			 " factln=" factln
+			 "; restupsymb=" restupsymb)
+		  (foreach_in_multiple
+		   (restupsymb)
+		   (cursymb :long six)
+		   (debug "dmacpat" " six#" six "; cursymb=" cursymb)
+		   (let ( (n 'n)
+			  (nsix (+ six 1))
+			  )
+		     (list_add lfill ##{$CURSYMB = $N / $NSIX}# ";\n")
+		     )
+		   )
+		  (debug "dmacpac" " restupsymb=" restupsymb
+			 "\n.. lfill=" lfill)
+		  ;; incomplete
+		  )
+		)
+	      )
+      )
+  (debug "before dmacpat pp x y")
+  (dmacpat pp x y)
+  (debug "after dmacpat pp x y")
+  )
+	       

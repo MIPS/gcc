@@ -390,7 +390,7 @@ scanning variables.}#
 	   (pmapor (get_field :pctn_mapor pcn))
 	   (orvarmap (make_mapobject discr_map_objects
 				     (+i 3 (/i (*i incrpvarmap 5) 4))))
-	   (oldvarhdler (list_popfirst varhdlerlist))
+	   (oldvarhdler (list_pop_first varhdlerlist))
 	   )
       (assert_msg "check pmapor" (is_mapobject pmapor))
       (assert_msg "check oldvarhdler" (== oldvarhdler ownvarhandler))
@@ -4110,7 +4110,7 @@ the flags of the $STEP with an extra context $CTX.}#
 	      ))
 	)
        (debug "translpat_orpat newvarmap" newvarmap)
-       (let ( (oldvarhdler (list_popfirst mhandlers)) 
+       (let ( (oldvarhdler (list_pop_first mhandlers)) 
 	      )
 	 (assert_msg "check oldvarhdler" (== oldvarhdler varhandler))
 	 ))
@@ -6571,7 +6571,7 @@ normalized expression.}#
     (debug "matchalt_normalize_match_context initial datamap" datamap)
     (forever 
      matchdatanormalizeloop
-     (let ( (freshmdata (list_popfirst mdataqueue)) 
+     (let ( (freshmdata (list_pop_first mdataqueue)) 
 	    (ndata (mapobject_get datamap freshmdata))
 	    )
        (debug "matchalt_normalize_match_context freshmdata start loop" freshmdata)
@@ -6587,7 +6587,7 @@ normalized expression.}#
        (forever
 	matchstepnormalizeloop
 	(debug "matchalt_handle_normalized_mdata +matchstepnormalizeloop mstepqueue=" mstepqueue)
-	(let ( (freshmstep (list_popfirst mstepqueue)) 
+	(let ( (freshmstep (list_pop_first mstepqueue)) 
 	       (freshlab (mapobject_get stepmap freshmstep))
 	       )
 	  (debug "matchalt_normalize_match_context freshmstep=" freshmstep "\n freshlab=" freshlab)

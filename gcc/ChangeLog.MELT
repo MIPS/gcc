@@ -1,5 +1,17 @@
 
 2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (list_popfirst): Renamed as...
+	(list_pop_first): New name.
+	* melt/warmelt-moremacro.melt (mexpand_gccif): Use list_pop_first
+	instead of list_popfirst.
+	* melt/warmelt-normatch.melt: Use list_pop_first
+	instead of list_popfirst.
+	* melt/warmelt-outobj.melt: Ditto.
+	* melt/warmelt-genobj.melt: Ditto.
+	* melt/warmelt-hooks.melt: Ditto.
+	* testsuite/melt/t-macrocmat.melt: New incomplete test.
+
+2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (lambda_arg_bindings): More debug.
 
 2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>

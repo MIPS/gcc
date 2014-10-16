@@ -6192,7 +6192,7 @@ if (1) return;
     ;; practically useful to make the copyright comment appear really
     ;; early in generated declaration buffer.
     (when (is_a firstx class_source_comment)
-      (list_popfirst xlist)
+      (list_pop_first xlist)
       (let ( (sloc (unsafe_get_field :loca_location firstx))
 	     (scomm (unsafe_get_field :scomm_str firstx)) 
 	     )
