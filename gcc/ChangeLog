@@ -1,3 +1,349 @@
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63554
+	* builtins.c (fold_builtin_4): Do not call fold_builtin_strncat_chk.
+	(fold_builtin_strncat_chk): Move ...
+	* gimple-fold.c (gimple_fold_builtin_strncat_chk): ... here.
+	(gimple_fold_builtin): Call gimple_fold_builtin_strncat_chk.
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/59401
+	* config/sh/sh.h (CALL_REALLY_USED_REGISTERS): Expand macro and set
+	GBR to 0.
+
+2014-10-16  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (ix86_expand_mul_widen_hilo): Handle V32HI, V16SI,
+	V64QI modes.
+
+2014-10-16  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_set): Handle V8DF, V8DI, V16SF,
+	V16SI, V32HI, V64QI modes.
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/53513
+	* config/sh/sh-protos.h (emit_sf_insn, emit_df_insn, expand_sf_unop,
+	expand_sf_binop, expand_df_unop, expand_df_binop): Remove.
+
+	* config/sh/sh.c (sh_emit_set_t_insn): Adjust generated insn pattern
+	to match fp insn patterns.
+	(calc_live_regs): Add FPSCR_MODES_REG and FPSCR_STAT_REG to the ignore
+	list.
+	(emit_sf_insn, emit_df_insn, expand_sf_unop, expand_sf_binop,
+	expand_df_unop, expand_df_binop): Remove.
+	(sh_conditional_register_usage): Mark FPSCR_MODES_REG and
+	FPSCR_STAT_REG as not call clobbered.
+	(sh_emit_mode_set): Emit fpscr store-modify-load sequence instead of
+	invoking fpscr_set_from_mem.
+
+	* config/sh/sh.h (MAX_REGISTER_NAME_LENGTH): Increase to 6.
+	(SH_REGISTER_NAMES_INITIALIZER): Add names for FPSCR_MODES_REG and
+	FPSCR_STAT_REG.
+	(REGISTER_NAMES): Adjust.
+	(SPECIAL_REGISTER_P): Add FPSCR_MODES_REG and FPSCR_STAT_REG.
+	(FIRST_PSEUDO_REGISTER): Increase to 156.
+	(DWARF_FRAME_REGISTERS): Define as 153 to keep the original value.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Add FPSCR_MODES_REG and
+	FPSCR_STAT_REG.
+	(REG_CLASS_CONTENTS): Adjust ALL_REGS bit mask to include
+	FPSCR_MODES_REG and FPSCR_STAT_REG.
+	(REG_ALLOC_ORDER): Add FPSCR_MODES_REG and FPSCR_STAT_REG.
+
+	* config/sh/sh.md (FPSCR_MODES_REG, FPSCR_STAT_REG, FPSCR_PR,
+	FPSCR_SZ): Add new constants.
+	(UNSPECV_FPSCR_MODES, UNSPECV_FPSCR_STAT): Add new unspecv constants.
+
+	(movpsi): Use TARGET_FPU_ANY condition, invoke gen_fpu_switch.
+	(fpu_switch): Add use and set of FPSCR_STAT_REG and FPSCR_MODES_REG.
+	Use TARGET_FPU_ANY condition.
+	(fpu_switch peephole2): Remove.
+	(fpu_switch split): Use simple_mem_operand to capture the mem and
+	adjust split implementation.
+	(extend_psi_si, truncate_si_psi): New insns.
+	(toggle_sz, toggle_pr): Use FPSCR_SZ, FPSCR_PR constants.  Add
+	set of FPSCR_MODES_REG.
+
+	(push_e, push_4, pop_e, pop_4, movdf_i4, reload_indf__frn, movsf_ie,
+	reload_insf__frn, force_mode_for_call, calli, calli_tbr_rel,
+	calli_pcrel, call_pcrel, call_compact, call_compact_rettramp,
+	call_valuei, call_valuei_tbr_rel, call_valuei_pcrel, call_value_pcrel,
+	call_value_compact, call_value_compact_rettramp, call,
+	call_pop_compact, call_pop_compact_rettramp, call_value, sibcalli,
+	sibcalli_pcrel, sibcalli_thunk, sibcall_pcrel, sibcall_compact,
+	sibcall, sibcall_valuei, sibcall_valuei_pcrel, sibcall_value_pcrel,
+	sibcall_value_compact, sibcall_value, call_value_pop_compact,
+	call_value_pop_compact_rettramp, various unnamed splits):
+	Replace use of FPSCR_REG with use of FPSCR_MODES_REG.  Adjust gen_*
+	function uses.
+
+	(floatsisf2_i4, *floatsisf2_ie): Merge into floatsisf2_i4.
+	(fix_truncsfsi2_i4, *fixsfsi): Merge into fix_truncsfsi2_i4.
+	(cmpgtsf_t, cmpgtsf_t_i4): Merge into cmpgtsf_t.
+	(cmpeqsf_t, cmpeqsf_t_i4): Merge into cmpeqsf_t.
+	(ieee_ccmpeqsf_t, *ieee_ccmpeqsf_t_4): Merge into ieee_ccmpeqsf_t.
+
+	(udivsi3_i4, divsi3_i4, addsf3_i, subsf3_i, mulsf3_i, fmasf4_i,
+	*fmasf4, divsf3_i, floatsisf2_i4, fix_truncsfsi2_i4, cmpgtsf_t,
+	cmpeqsf_t, ieee_ccmpeqsf_t, sqrtsf2_i, rsqrtsf2, fsca, adddf3_i,
+	subdf3_i, muldf3_i, divdf3_i, floatsidf2_i, fix_truncdfsi2_i,
+	cmpgtdf_t, cmpeqdf_t, *ieee_ccmpeqdf_t, sqrtdf2_i, extendsfdf2_i4,
+	truncdfsf2_i4): Replace use of FPSCR_REG with clobber of FPSCR_STAT_REG
+	and use of FPSCR_MODES_REG.  Adjust gen_* function uses.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	* Makefile.in: New object files included.
+	* cgraph.c (cgraph_node::dump): New cgraph_node flag icf_merged
+	is printed.
+	(verify_edge_corresponds_to_fndecl): More sensitive verification
+	of nodes that are merged by IPA ICF.
+	* cgraph.h (cgraph_node::num_references): New function.
+	* cgraphunit.c (cgraph_node::expand_thunk): White space fixed.
+	* common.opt: New options ipa-icf, ipa-icf-functions and
+	ipa-icf-variables introduced.
+	* doc/invoke.texi: Documentation of new options introduced.
+	* ipa-icf-gimple.c: New file.
+	* ipa-icf-gimple.h: New file.
+	* ipa-icf.c: New file.
+	* ipa-icf.h: New file.
+	* lto-cgraph.c (lto_output_node): Streaming of icf_merged flag added.
+	(input_overwrite_node): Likewise.
+	* lto-section-in.c: New icf section added.
+	* lto-streamer.h (enum lto_section_type): Likewise.
+	* opts.c (common_handle_option): New option added.
+	* passes.def: New pass included.
+	* timevar.def: Time variable for IPA ICF added.
+	* tree-pass.h: New IPA ICF pass entry point added.
+
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63168
+	* tree-cfg.c (gimple_can_merge_blocks_p): Only protect
+	latches if after merging they are no longer simple.
+	* cfghooks.c (merge_blocks): Handle merging a latch block
+	into another block.
+
+2014-10-16  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/sse.md
+	(define_expand "floatuns<sseintvecmodelower><mode>2"): Extend to
+	support AVX-512VL instructions.
+
+2014-10-16  DJ Delorie  <dj@redhat.com>
+
+	* tree-core.h: Fix comment to not assume pointers are multiples of
+	bytes.
+
+2014-10-15  Tom Tromey  <tromey@redhat.com>
+
+	* timevar.h (class auto_timevar): New class.
+
+2014-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR go/59432
+	* config/i386/sync.md (atomic_compare_and_swap<dwi>_doubleword):
+	Remove the second alternative.
+	(regprefix): Remove mode attribute.
+	(atomic_compare_and_swap<mode>): Do not fixup operand 2.
+	* config/i386/predicates.md (cmpxchg8b_pic_memory_operand): Remove.
+
+	Revert:
+	2013-11-05  Ian Lance Taylor  <iant@google.com>
+
+	* config/i386/sync.md (atomic_compare_and_swap<dwi>_doubleword):
+	If possible, add .cfi directives to record change to bx.
+	* config/i386/i386.c (ix86_emit_cfi): New function.
+	* config/i386/i386-protos.h (ix86_emit_cfi): Declare.
+
+2014-10-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/62026
+	* cgraphclones.c (duplicate_thunk_for_node): Get body to have args
+	to duplicate.
+	* lto-streamer-out.c (lto_output): Handle correctly thunks that was born
+	at WPA time.
+
+2014-10-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/63448
+	* lra-int.h (LRA_MAX_CONSTRAINT_ITERATION_NUMBER): Remove.
+	(LRA_MAX_ASSIGNMENT_ITERATION_NUMBER): New.
+	(LRA_MAX_INHERITANCE_PASSES): Use it.
+	(lra_constraint_iter_after_spill): Remove.
+	(lra_assignment_iter): New.
+	(lra_assignment_iter_after_spill): New.
+	* lra-assigns.c (lra_assignment_iter): New.
+	(lra_assignment_iter_after_spill): New.
+	(former_reload_pseudo_spill_p): New.
+	(spill_for): Set up former_reload_pseudo_spill_p.
+	(setup_live_pseudos_and_spill_after_risky): Ditto.
+	(assign_by_spills): Ditto.
+	(lra_assign): Increment lra_assignment_iter.  Print the iteration
+	number.  Reset former_reload_pseudo_spill_p.  Check
+	lra_assignment_iter_after_spill.
+	* lra.c (lra): Remove lra_constraint_iter_after_spill.  Initialize
+	lra_assignment_iter and lra_assignment_iter_after_spill.
+	* lra-constraints.c (lra_constraint_iter_after_spill): Remove.
+	(lra_constraints): Remove code with
+	lra_assignment_iter_after_spill.
+
+2014-10-15  Teresa Johnson  <tejohnson@google.com>
+
+	PR bootstrap/63432
+	* tree-ssa-threadupdate.c (recompute_probabilities): Better
+	overflow checking.
+
+2014-10-15  Renlin Li <renlin.li@arm.com>
+
+	* config/aarch64/aarch64.h (TARGET_CPU_CPP_BUILTINS): Define
+	__ARM_BIG_ENDIAN, __ARM_SIZEOF_MINIMAL_ENUM. Add __ARM_64BIT_STATE,
+	__ARM_ARCH_ISA_A64, __ARM_FEATURE_CLZ, __ARM_FEATURE_IDIV,
+	__ARM_FEATURE_UNALIGNED, __ARM_PCS_AAPCS64, __ARM_SIZEOF_WCHAR_T.
+
+2014-10-15  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (gimple_fold_call): Properly keep virtual
+	SSA form up-to-date when devirtualizing a call to
+	__builtin_unreachable and avoid fixing up EH info here.
+
+2014-10-15  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/sse.md (define_mode_iterator VI_AVX2): Extend
+	to support AVX-512BW.
+	(define_mode_iterator VI124_AVX2_48_AVX512F): Remove.
+	(define_expand "<plusminus_insn><mode>3"): Remove masking support.
+	(define_insn "*<plusminus_insn><mode>3"): Ditto.
+	(define_expand "<plusminus_insn><VI48_AVX512VL:mode>3_mask"): New.
+	(define_expand "<plusminus_insn><VI12_AVX512VL:mode>3_mask"): Ditto.
+	(define_insn "*<plusminus_insn><VI48_AVX512VL:mode>3_mask"): Ditto.
+	(define_insn "*<plusminus_insn><VI12_AVX512VL:mode>3_mask"): Ditto.
+	(define_expand "<sse2_avx2>_andnot<mode>3"): Remove masking support.
+	(define_insn "*andnot<mode>3"): Ditto.
+	(define_expand "<sse2_avx2>_andnot<VI48_AVX512VL:mode>3_mask"): New.
+	(define_expand "<sse2_avx2>_andnot<VI12_AVX512VL:mode>3_mask"): Ditto.
+	(define_insn "*andnot<VI48_AVX512VL:mode>3<mask_name>"): Ditto.
+	(define_insn "*andnot<VI12_AVX512VL:mode>3<mask_name>"): Ditto.
+	(define_insn "*abs<mode>2"): Remove masking support.
+	(define_insn "abs<VI48_AVX512VL:mode>2_mask"): New.
+	(define_insn "abs<VI12_AVX512VL:mode>2_mask"): Ditto.
+	(define_expand "abs<mode>2"): Use VI_AVX2 mode iterator.
+
+2014-10-15  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/predicates.md (define_predicate "constm1_operand"): New.
+	* config/i386/sse.md
+	(define_c_enum "unspec"): Add UNSPEC_CVTINT2MASK.
+	(define_insn "<avx512>_cvt<ssemodesuffix>2mask<VI12_AVX512VL:mode>"): New.
+	(define_insn "<avx512>_cvt<ssemodesuffix>2mask<VI48_AVX512VL:mode>"): Ditto.
+	(define_expand "<avx512>_cvtmask2<ssemodesuffix><VI12_AVX512VL:mode>"): Ditto.
+	(define_insn "*<avx512>_cvtmask2<ssemodesuffix><VI12_AVX512VL:mode>"): Ditto.
+	(define_expand "<avx512>_cvtmask2<ssemodesuffix><VI48_AVX512VL:mode>"): Ditto.
+	(define_insn "*<avx512>_cvtmask2<ssemodesuffix><VI48_AVX512VL:mode>"): Ditto.
+
+2014-10-15  Renlin Li <renlin.li@arm.com>
+
+	* config/aarch64/aarch64.h (ARM_DEFAULT_PCS, arm_pcs_variant): Delete.
+
+2014-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssa-reassoc.c (optimize_range_tests_diff): Perform
+	MINUS_EXPR in unsigned type to avoid undefined behavior.
+
+2014-10-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* stor-layout.c (self_referential_size): Do not promote arguments.
+
+2014-10-15  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Update to reflect that GNU11 is the default
+	mode for C.
+	* c-common.h (c_language_kind): Update comment.
+
+2014-10-15  Richard Biener  <rguenther@suse.de>
+
+	* hash-table.c: Include bconfig.h if building for the host.
+	* hash-table.h: Do not include ggc.h on the host but just declare
+	a few ggc allocation templates.
+
+2014-10-15  Joern Rennecke  <joern.rennecke@embecosm.com>
+	    Jeff Law  <law@redhat.com>
+
+	* caller-save.c (replace_reg_with_saved_mem): If saved_mode covers
+	multiple hard registers, use smaller mode derived from MODE.
+
+2014-10-15  Andreas Schwab  <schwab@suse.de>
+
+	* explow.c (convert_memory_address_addr_space_1): Mark in_const
+	as ATTRIBUTE_UNUSED.
+
+2014-10-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* loop-unroll.c: (decide_unrolling_and_peeling): Rename to
+	(decide_unrolling): ... this one.
+	(peel_loops_completely): Remove.
+	(decide_peel_simple): Remove.
+	(decide_peel_once_rolling): Remove.
+	(decide_peel_completely): Remove.
+	(peel_loop_simple): Remove.
+	(peel_loop_completely): Remove.
+	(unroll_and_peel_loops): Rename to ...
+	(unroll_loops): ... this one; handle only unrolling.
+	* cfgloop.h (lpt_dec): Remove LPT_PEEL_COMPLETELY and
+	LPT_PEEL_SIMPLE.
+	(UAP_PEEL): Remove.
+	(unroll_and_peel_loops): Remove.
+	(unroll_loops): New.
+	* passes.def: Replace
+	pass_rtl_unroll_and_peel_loops by pass_rtl_unroll_loops.
+	* loop-init.c (gate_rtl_unroll_and_peel_loops,
+	rtl_unroll_and_peel_loops): Rename to ...
+	(gate_rtl_unroll_loops, rtl_unroll_loops): ... these; update.
+	(pass_rtl_unroll_and_peel_loops): Rename to ...
+	(pass_rtl_unroll_loops): ... this one.
+	* tree-pass.h (make_pass_rtl_unroll_and_peel_loops): Remove.
+	(make_pass_rtl_unroll_loops): New.
+	* tree-ssa-loop-ivcanon.c: (estimated_peeled_sequence_size, try_peel_loop): New.
+	(canonicalize_loop_induction_variables): Update.
+
 2014-10-14  Max Filippov  <jcmvbkbc@gmail.com>
 
 	* config/xtensa/xtensa.h (TARGET_HARD_FLOAT_POSTINC): new macro.

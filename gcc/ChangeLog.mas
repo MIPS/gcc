@@ -1,5 +1,9 @@
 2014-10-16  Richard Biener  <rguenther@suse.de>
 
+	Merge from trunk r216235 through r216315.
+
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
 	* tree-ssa-forwprop.c (fwprop_ssa_val): Adjust comment.
 
 2014-10-15  Richard Biener  <rguenther@suse.de>
