@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h883927996; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h883927996 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h434722831; // forward declaration fromline 6691
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h434722831 Melt_InitialFrame;
 /*** 1 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
@@ -832,7 +832,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h883927996 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h434722831 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -18893,7 +18893,7 @@ meltlab_endgetargs:
                 /*anyblock*/
                 {
 
-                    /*_.LIST_POPFIRST__V38*/ meltfptr[36] =
+                    /*_.LIST_POP_FIRST__V38*/ meltfptr[36] =
                         (meltgc_popfirst_list((melt_ptr_t)(/*_.XLIST__V2*/ meltfptr[1])));;
                     MELT_LOCATION("warmelt-outobj.melt:6196:/ quasiblock");
 
@@ -18956,7 +18956,7 @@ meltlab_endgetargs:
                     /*epilog*/
 
                     /*^clear*/
-                    /*clear*/ /*_.LIST_POPFIRST__V38*/ meltfptr[36] = 0 ;
+                    /*clear*/ /*_.LIST_POP_FIRST__V38*/ meltfptr[36] = 0 ;
                 }
                 ;
             } /*noelse*/

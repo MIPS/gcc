@@ -1,5 +1,7 @@
 
 2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (list_popfirst): Renamed as...
 	(list_pop_first): New name.
 	* melt/warmelt-moremacro.melt (mexpand_gccif): Use list_pop_first

@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiBASE_h160517109; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h160517109 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiBASE_h590576709; // forward declaration fromline 6691
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h590576709 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -60,7 +60,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 /*** 2 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : h294979320 **/
+/** MELT extra c-header 1 : h514918979 **/
 
 
 /* C++ standard headers for multiple_sort */
@@ -70,7 +70,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 
 
 
-/** MELT extra c-header 2 : h571820264 **/
+/** MELT extra c-header 2 : h833198737 **/
 
 
 /* A compare structure used in multiple_sort for std::stable_sort;
@@ -381,7 +381,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h160517109 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h590576709 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -3757,7 +3757,7 @@ meltlabloop_ARGLOOP_6:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /3b1b71c7 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V30*/ meltfptr[29]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /10dc4ea2 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V30*/ meltfptr[29]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V30*/ meltfptr[29]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V31*/ meltfptr[30]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
@@ -3770,7 +3770,7 @@ meltlabloop_ARGLOOP_6:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /2c571975 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /1bef173c checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V32*/ meltfptr[31]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
@@ -4003,7 +4003,7 @@ meltlabloop_ARGLOOP_6:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /11b7b56b checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[29]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /3ec5500e checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[29]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[29]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V42*/ meltfptr[31]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
@@ -4016,7 +4016,7 @@ meltlabloop_ARGLOOP_6:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /2abcbad2 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /3fd974ad checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V43*/ meltfptr[42]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
