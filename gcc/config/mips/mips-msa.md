@@ -554,8 +554,8 @@
   if ((GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
        && REG_P (operands[3]))
     {
-      unsigned int offset =  GET_MODE_SIZE (<EXCEPT>mode)
-			     - GET_MODE_SIZE (<UNITMODE>mode);
+      unsigned int offset = GET_MODE_SIZE (<EXCEPT>mode)
+			    - GET_MODE_SIZE (<UNITMODE>mode);
       operands[3] = gen_rtx_SUBREG (<UNITMODE>mode, operands[3],
 				    BYTES_BIG_ENDIAN ? offset : 0);
     }

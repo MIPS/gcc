@@ -19989,7 +19989,7 @@ mips_expand_vec_perm_const (rtx operands[4])
 /* Implement TARGET_SCHED_REASSOCIATION_WIDTH.  */
 
 static int
-mips_sched_reassociation_width (unsigned int opc, 
+mips_sched_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
 			       enum machine_mode mode)
 {
   if (MSA_SUPPORTED_MODE_P (mode))
