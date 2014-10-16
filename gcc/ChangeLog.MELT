@@ -1,4 +1,12 @@
 
+2014-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{temporily use t-treecode.melt}}
+	* testsuite/melt/t-treecode.melt: Reinstalled and copied
+	temporarily code fro libmelt-ana-tree.melt
+
+	* melt/libmelt-ana-tree.melt: Moved temporarily code to
+	t-treecode.melt to facilitate debugging.
+
 2014-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normexp_apply): More debug.
 
