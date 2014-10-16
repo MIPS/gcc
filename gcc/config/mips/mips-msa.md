@@ -22,8 +22,6 @@
 ;;
 
 (define_c_enum "unspec" [
-  UNSPEC_MSA_ADDVI
-  UNSPEC_MSA_ANDI_B
   UNSPEC_MSA_ASUB_S
   UNSPEC_MSA_ASUB_U
   UNSPEC_MSA_AVE_S
@@ -52,8 +50,6 @@
   UNSPEC_MSA_BZ
   UNSPEC_MSA_CFCMSA
   UNSPEC_MSA_CMPI
-  UNSPEC_MSA_COPY_S
-  UNSPEC_MSA_COPY_U
   UNSPEC_MSA_CTCMSA
   UNSPEC_MSA_DOTP_S
   UNSPEC_MSA_DOTP_U
@@ -98,8 +94,6 @@
   UNSPEC_MSA_HADD_U
   UNSPEC_MSA_HSUB_S
   UNSPEC_MSA_HSUB_U
-  UNSPEC_MSA_INSERT
-  UNSPEC_MSA_INSVE
   UNSPEC_MSA_MADD_Q
   UNSPEC_MSA_MADDR_Q
   UNSPEC_MSA_MAX_A
@@ -167,7 +161,7 @@
 (define_mode_iterator IMSA     [V2DI V4SI V8HI V16QI])
 
 ;; mode that can combine a copy+insert into insve.
-(define_mode_iterator INSVE    [V2DI V4SI V8HI V16QI])
+(define_mode_iterator INSVE    [V2DI V4SI])
 
 ;; mode that can be combine copy+insert with subreg info insve.
 (define_mode_iterator INSVE_2  [V8HI V16QI])
@@ -279,6 +273,16 @@
    (V4SI "0_to_3")
    (V8HI "uimm3")
    (V16QI "uimm4")])
+
+;; To represent bitmask needed for vec_merge
+;; using "const_<bitmask>_operand".
+(define_mode_attr bitmask
+  [(V2DF "exp_2")
+   (V4SF "exp_4")
+   (V2DI "exp_2")
+   (V4SI "exp_4")
+   (V8HI "exp_8")
+   (V16QI "exp_16")])
 
 ;; This attribute is used to form the MODE of an input operand
 ;; when some builtins (insert snd fill) take an input operand other than
@@ -466,12 +470,12 @@
 
 (define_expand "vec_set<mode>"
   [(match_operand:IMSA 0 "register_operand")
-   (match_operand:<UNITMODE> 1 "register_operand")
+   (match_operand:<UNITMODE> 1 "reg_or_0_operand")
    (match_operand 2 "const_<indeximm>_operand")]
   "ISA_HAS_MSA"
 {
-  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[0], operands[2],
-					   operands[1]));
+  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[1],
+			   operands[0], GEN_INT(1 << INTVAL (operands[2]))));
   DONE;
 })
 
@@ -481,8 +485,8 @@
    (match_operand 2 "const_<indeximm>_operand")]
   "ISA_HAS_MSA"
 {
-  emit_insn (gen_msa_insve_<msafmt_f>_s (operands[0], operands[0], operands[2],
-					 operands[1]));
+  emit_insn (gen_msa_insve_<msafmt_f>_s (operands[0], operands[0],
+			GEN_INT(1 << INTVAL (operands[2])), operands[1]));
   DONE;
 })
 
@@ -531,23 +535,22 @@
 ;; Note used directly by builtins but via the following define_expand.
 (define_insn "msa_insert_<msafmt>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
-		      (match_operand 2 "const_<indeximm>_operand" "")
-		      (match_operand:<UNITMODE> 3 "reg_or_0_operand" "dJ")]
-		     UNSPEC_MSA_INSERT))]
+	(vec_merge:IMSA (vec_duplicate:IMSA
+		            (match_operand:<UNITMODE> 1 "reg_or_0_operand" "dJ"))
+			(match_operand:IMSA 2 "register_operand" "0")
+			(match_operand 3 "const_<bitmask>_operand" "")))]
   "ISA_HAS_MSA"
-  "insert.<msafmt>\t%w0[%2],%z3"
+  "insert.<msafmt>\t%w0[%K3],%z1"
   [(set_attr "type"     "mtc")
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ;; Expand builtin catoring for HImode and QImode which take SImode.
 (define_expand "msa_insert_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
-		      (match_operand 2 "const_<indeximm>_operand")
-		      (match_operand:<EXCEPT> 3 "reg_or_0_operand")]
-		     UNSPEC_MSA_INSERT))]
+  [(match_operand:IMSA 0 "register_operand")
+   (match_operand:IMSA 1 "register_operand")
+   (match_operand 2 "const_<indeximm>_operand")
+   (match_operand:<EXCEPT> 3 "reg_or_0_operand")]
   "ISA_HAS_MSA"
 {
   gcc_assert (GET_MODE_SIZE (<UNITMODE>mode) <= GET_MODE_SIZE (<EXCEPT>mode));
@@ -559,48 +562,62 @@
       operands[3] = gen_rtx_SUBREG (<UNITMODE>mode, operands[3],
 				    BYTES_BIG_ENDIAN ? offset : 0);
     }
-  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[1],
-					   operands[2], operands[3]));
+  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[3],
+		   operands[1], GEN_INT(1 << INTVAL (operands[2]))));
   DONE;
 })
 
-(define_insn "msa_insert_<msafmt_f>"
-  [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:FMSA [(match_operand:FMSA 1 "register_operand" "0")
-		      (match_operand 2 "const_<indeximm>_operand" "")
-		      (match_operand:<UNITMODE> 3 "register_operand" "d")]
-		     UNSPEC_MSA_INSERT))]
+(define_expand "msa_insert_<msafmt_f>"
+  [(match_operand:FMSA 0 "register_operand")
+   (match_operand:FMSA 1 "register_operand")
+   (match_operand 2 "const_<indeximm>_operand")
+   (match_operand:<UNITMODE> 3 "reg_or_0_operand")]
   "ISA_HAS_MSA"
-  "insert.<msafmt>\t%w0[%2],%z3"
+{
+  emit_insn (gen_msa_insert_<msafmt_f>_insn (operands[0], operands[3],
+		   operands[1], GEN_INT(1 << INTVAL (operands[2]))));
+  DONE;
+})
+
+(define_insn "msa_insert_<msafmt_f>_insn"
+  [(set (match_operand:FMSA 0 "register_operand" "=f")
+	(vec_merge:FMSA (vec_duplicate:FMSA
+		            (match_operand:<UNITMODE> 1 "register_operand" "d"))
+			(match_operand:FMSA 2 "register_operand" "0")
+			(match_operand 3 "const_<bitmask>_operand" "")))]
+  "ISA_HAS_MSA"
+  "insert.<msafmt>\t%w0[%K3],%z1"
   [(set_attr "type"     "mtc")
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_split
   [(set (match_operand:SPLIT 0 "register_operand")
-	(unspec:SPLIT [(match_operand:SPLIT 1 "register_operand")
-		       (match_operand 2 "const_0_or_1_operand")
-		       (match_operand:<UNITMODE> 3 "<SPLIT:predicate>_operand")]
-		      UNSPEC_MSA_INSERT))]
+	(vec_merge:SPLIT 
+		(vec_duplicate:SPLIT
+		    (match_operand:<UNITMODE> 1 "<SPLIT:predicate>_operand"))
+		(match_operand:SPLIT 2 "register_operand")
+		(match_operand 3 "const_<bitmask>_operand")))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
 {
-  mips_split_msa_insert_d (operands[0], operands[1], operands[2], operands[3]);
+  mips_split_msa_insert_d (operands[0], operands[2], operands[3], operands[1]);
   DONE;
 })
 
 ;; Used by combine to convert a copy_s + insert into an insve
 (define_insn "msa_insve_s_insn_<msafmt>"
   [(set (match_operand:INSVE 0 "register_operand" "=f")
-	(unspec:INSVE [(match_operand:INSVE 1 "register_operand" "0")
-		       (match_operand 2 "const_<indeximm>_operand" "")
-		       (unspec:<RES>
-			 [(match_operand:INSVE 3 "register_operand" "f")
-			  (match_operand 4 "const_0_operand" "")
-			 ] UNSPEC_MSA_COPY_S)
-		      ] UNSPEC_MSA_INSERT))]
+        (vec_merge:INSVE 
+	    (vec_duplicate:INSVE 
+		(sign_extend:<UNITMODE>
+		    (vec_select:<UNITMODE> 
+			 (match_operand:INSVE 3 "register_operand" "f")
+			 (parallel [(match_operand 4 "const_0_operand" "")]))))
+	    (match_operand:INSVE 1 "register_operand" "0")
+	    (match_operand 2 "const_<bitmask>_operand" "")))]
    "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%2],%w3[0]"
+   "insve.<msafmt>\t%w0[%K2],%w3[0]"
    [(set_attr "type"     "arith")
     (set_attr "mode"     "TI")
     (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -608,15 +625,16 @@
 ;; Used by combine to convert a copy_u + insert into an insve
 (define_insn "msa_insve_u_insn_<msafmt>"
   [(set (match_operand:INSVE 0 "register_operand" "=f")
-	(unspec:INSVE [(match_operand:INSVE 1 "register_operand" "0")
-		       (match_operand 2 "const_<indeximm>_operand" "")
-		       (unspec:<RES>
-			 [(match_operand:INSVE 3 "register_operand" "f")
-			  (match_operand 4 "const_0_operand" "")
-			 ] UNSPEC_MSA_COPY_U)
-		      ] UNSPEC_MSA_INSERT))]
+        (vec_merge:INSVE 
+	    (vec_duplicate:INSVE 
+		(zero_extend:<UNITMODE>
+		    (vec_select:<UNITMODE> 
+			 (match_operand:INSVE 3 "register_operand" "f")
+			 (parallel [(match_operand 4 "const_0_operand" "")]))))
+	    (match_operand:INSVE 1 "register_operand" "0")
+	    (match_operand 2 "const_<bitmask>_operand" "")))]
    "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%2],%w3[0]"
+   "insve.<msafmt>\t%w0[%K2],%w3[0]"
    [(set_attr "type"     "arith")
     (set_attr "mode"     "TI")
     (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -624,16 +642,17 @@
 ;; Used by combine to convert a copy_s + insert with subreg into an insve
 (define_insn "*msa_insve_sext_insn_<msafmt>"
   [(set (match_operand:INSVE_2 0 "register_operand" "=f")
-    (unspec:INSVE_2 [(match_operand:INSVE_2 1 "register_operand" "0")
-		     (match_operand 2 "const_<indeximm>_operand" "")
-		     (subreg:<UNITMODE>
-			(unspec:<RES>
-			  [(match_operand:INSVE_2 3 "register_operand" "f")
-			   (match_operand 4 "const_0_operand" "")
-			  ] UNSPEC_MSA_COPY_S) 0)
-		    ] UNSPEC_MSA_INSERT))]
+        (vec_merge:INSVE_2 
+	    (vec_duplicate:INSVE_2 
+		(subreg:<UNITMODE> 
+		  (sign_extend:<RES>
+		    (vec_select:<UNITMODE> 
+			 (match_operand:INSVE_2 3 "register_operand" "f")
+			 (parallel [(match_operand 4 "const_0_operand" "")]))) 0))
+	    (match_operand:INSVE_2 1 "register_operand" "0")
+	    (match_operand 2 "const_<bitmask>_operand" "")))]
    "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%2],%w3[0]"
+   "insve.<msafmt>\t%w0[%K2],%w3[0]"
    [(set_attr "type"     "arith")
     (set_attr "mode"     "TI")
     (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -641,28 +660,44 @@
 ;; Used by combine to convert a copy_u + insert with subreg into an insve
 (define_insn "*msa_insve_zext_insn_<msafmt>"
   [(set (match_operand:INSVE_2 0 "register_operand" "=f")
-    (unspec:INSVE_2 [(match_operand:INSVE_2 1 "register_operand" "0")
-		     (match_operand 2 "const_<indeximm>_operand" "")
-		     (subreg:<UNITMODE>
-		       (unspec:<RES>
-			 [(match_operand:INSVE_2 3 "register_operand" "f")
-			  (match_operand 4 "const_0_operand" "")
-			 ] UNSPEC_MSA_COPY_U) 0)
-		 ] UNSPEC_MSA_INSERT))]
+        (vec_merge:INSVE_2 
+	    (vec_duplicate:INSVE_2 
+		(subreg:<UNITMODE>
+		  (zero_extend:<RES>
+		    (vec_select:<RES> 
+			 (match_operand:INSVE_2 3 "register_operand" "f")
+			 (parallel [(match_operand 4 "const_0_operand" "")]))) 0))
+	    (match_operand:INSVE_2 1 "register_operand" "0")
+	    (match_operand 2 "const_<bitmask>_operand" "")))]
    "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%2],%w3[%4]"
+   "insve.<msafmt>\t%w0[%K2],%w3[0]"
    [(set_attr "type"     "arith")
     (set_attr "mode"     "TI")
     (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-(define_insn "msa_insve_<msafmt_f>"
-  [(set (match_operand:MSA 0 "register_operand" "=f")
-	(unspec:MSA [(match_operand:MSA 1 "register_operand" "0")
-		     (match_operand 2 "const_<indeximm>_operand" "")
-		     (match_operand:MSA 3 "register_operand" "f")]
-		    UNSPEC_MSA_INSVE))]
+(define_expand "msa_insve_<msafmt_f>"
+  [(set (match_operand:MSA 0 "register_operand")
+        (vec_merge:MSA (vec_duplicate:MSA 
+			     (vec_select:<UNITMODE> 
+				 (match_operand:MSA 3 "register_operand")
+				 (const_int 0)))
+			 (match_operand:MSA 1 "register_operand")
+			 (match_operand 2 "const_<indeximm>_operand")))]
   "ISA_HAS_MSA"
-  "insve.<msafmt>\t%w0[%2],%w3[0]"
+  {
+    operands[2] = GEN_INT ((1 << INTVAL (operands[2])));
+  })
+
+(define_insn "msa_insve_<msafmt_f>_insn"
+  [(set (match_operand:MSA 0 "register_operand" "=f")
+        (vec_merge:MSA (vec_duplicate:MSA 
+			     (vec_select:<UNITMODE> 
+				 (match_operand:MSA 3 "register_operand" "f")
+				 (const_int 0)))
+			 (match_operand:MSA 1 "register_operand" "0")
+			 (match_operand 2 "const_<bitmask>_operand" "")))]
+  "ISA_HAS_MSA"
+  "insve.<msafmt>\t%w0[%K2],%w3[0]"
   [(set_attr "type"     "arith")
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -670,12 +705,12 @@
 ;; operand 3 is a scalar
 (define_insn "msa_insve_<msafmt>_f_s"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:FMSA [(match_operand:FMSA 1 "register_operand" "0")
-		      (match_operand 2 "const_<indeximm>_operand" "")
-		      (match_operand:<UNITMODE> 3 "register_operand" "f")]
-		     UNSPEC_MSA_INSVE))]
+        (vec_merge:FMSA (vec_duplicate:FMSA 
+			    (match_operand:<UNITMODE> 3 "register_operand" "f"))
+			 (match_operand:FMSA 1 "register_operand" "0")
+			 (match_operand 2 "const_<bitmask>_operand" "")))]
   "ISA_HAS_MSA"
-  "insve.<msafmt>\t%w0[%2],%w3[0]"
+  "insve.<msafmt>\t%w0[%K2],%w3[0]"
   [(set_attr "type"     "arith")
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -683,9 +718,10 @@
 ;; Note that copy_s.d and copy_s.d_f will be split later if !TARGET_64BIT.
 (define_insn "msa_copy_s_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
-	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
-		       (match_operand 2 "const_<indeximm>_operand" "")]
-		      UNSPEC_MSA_COPY_S))]
+	(sign_extend:<RES> 
+	    (vec_select:<UNITMODE> 
+		(match_operand:MSA 1 "register_operand" "f")
+	        (parallel [(match_operand 2 "const_<indeximm>_operand" "")]))))]
   "ISA_HAS_MSA"
   "copy_s.<msafmt>\t%0,%w1[%2]"
   [(set_attr "type"     "mfc")
@@ -694,9 +730,10 @@
 
 (define_split
   [(set (match_operand:<UNITMODE> 0 "register_operand")
-	(unspec:<UNITMODE> [(match_operand:SPLIT 1 "register_operand")
-			    (match_operand 2 "const_0_or_1_operand")]
-			   UNSPEC_MSA_COPY_S))]
+	(sign_extend:<UNITMODE> 
+	    (vec_select:<UNITMODE>
+		(match_operand:SPLIT 1 "register_operand")
+		(parallel [(match_operand 2 "const_0_or_1_operand")]))))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
 {
@@ -707,9 +744,10 @@
 ;; Note that copy_u.d and copy_u.d_f will be split later if !TARGET_64BIT.
 (define_insn "msa_copy_u_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
-	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
-		       (match_operand 2 "const_<indeximm>_operand" "")]
-		      UNSPEC_MSA_COPY_U))]
+	(zero_extend:<RES> 
+	    (vec_select:<UNITMODE>
+		(match_operand:MSA 1 "register_operand" "f")
+		(parallel [(match_operand 2 "const_<indeximm>_operand" "")]))))]
   "ISA_HAS_MSA"
   "copy_u.<msafmt>\t%0,%w1[%2]"
   [(set_attr "type"     "mfc")
@@ -718,9 +756,10 @@
 
 (define_split
   [(set (match_operand:<UNITMODE> 0 "register_operand")
-	(unspec:<UNITMODE> [(match_operand:SPLIT 1 "register_operand")
-			    (match_operand 2 "const_0_or_1_operand")]
-			   UNSPEC_MSA_COPY_U))]
+	(zero_extend:<UNITMODE>
+	    (vec_select:<UNITMODE> 
+		(match_operand:SPLIT 1 "register_operand")
+		(parallel [(match_operand 2 "const_0_or_1_operand")]))))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
 {
@@ -1389,9 +1428,9 @@
 
 (define_insn "msa_addvi_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand 2 "const_uimm5_operand" "")]
-		     UNSPEC_MSA_ADDVI))]
+	(plus:IMSA (match_operand:IMSA 1 "register_operand" "f")
+		   (vec_duplicate:IMSA 
+			(match_operand 2 "const_uimm5_operand" ""))))]
   "ISA_HAS_MSA"
   "addvi.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
@@ -1400,9 +1439,9 @@
 
 (define_insn "msa_andi_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
-	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "f")
-		       (match_operand 2 "const_uimm8_operand" "")]
-		      UNSPEC_MSA_ANDI_B))]
+	(and:V16QI (match_operand:V16QI 1 "register_operand" "f")
+		   (vec_duplicate:V16QI 
+			(match_operand:QI 2 "const_uimm8_operand" ""))))]
   "ISA_HAS_MSA"
   "andi.b\t%w0,%w1,%2"
   [(set_attr "type"	"arith")

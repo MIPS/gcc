@@ -4907,6 +4907,7 @@ mips_split_msa_copy_d (rtx dest, rtx src, rtx index,
 void
 mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
 {
+  int i;
   gcc_assert (GET_MODE (dest) == GET_MODE (src1));
   gcc_assert ((GET_MODE (dest) == V2DImode
 	       && (GET_MODE (src2) == DImode || src2 == const0_rtx))
@@ -4918,10 +4919,13 @@ mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
   rtx high = mips_subword (src2, true);
   rtx new_dest = simplify_gen_subreg (V4SImode, dest, GET_MODE (dest), 0);
   rtx new_src1 = simplify_gen_subreg (V4SImode, src1, GET_MODE (src1), 0);
+  i = exact_log2 (INTVAL (index));
+  gcc_assert (i != -1);
+
   emit_insn (gen_msa_insert_w (new_dest, new_src1,
-			       GEN_INT (INTVAL (index) * 2), low));
+			       GEN_INT (i * 2), low));
   emit_insn (gen_msa_insert_w (new_dest, new_dest,
-			       GEN_INT (INTVAL (index) * 2 + 1), high));
+			       GEN_INT (i * 2 + 1), high));
 }
 
 /* Split fill.d.  */
@@ -8837,6 +8841,26 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	      gcc_assert (val <= 255);
 	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
 	    }
+	}
+      else
+	output_operand_lossage ("invalid use of '%%%c'", letter);
+      break;
+
+    case 'K':
+      if (CONST_INT_P (op))
+	{
+	  int val = INTVAL (op);
+	  int i;
+	  for (i = 0; i < 16; i++)
+	    {
+	      if ((val & (1 << i)) == val)
+		{
+		  fprintf (file, "%d", i);
+		  break;
+		}
+	    }
+	  if (i == 16)
+	    output_operand_lossage ("invalid use of '%%%c' - Mask inappropriate", letter);
 	}
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
