@@ -3592,8 +3592,7 @@ simplify_mult (gimple_stmt_iterator *gsi)
 
 static vec<tree> lattice;
 
-/* Primitive "lattice" function for gimple_simplify to discard
-   matches on names whose definition contains abnormal SSA names.  */
+/* Primitive "lattice" function for gimple_simplify.  */
 
 static tree
 fwprop_ssa_val (tree name)

@@ -1,3 +1,7 @@
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (fwprop_ssa_val): Adjust comment.
+
 2014-10-15  Richard Biener  <rguenther@suse.de>
 
 	* fold-const.h (negate_expr_p): Revert exporting this.
