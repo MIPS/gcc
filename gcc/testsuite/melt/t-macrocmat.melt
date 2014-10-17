@@ -74,8 +74,8 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					  '#{/*xtest $FIRSTSYMB*/ $N % $FACTLN == 0}#
 					  (lambda (symb)
 					    (cond ( (== symb 'factln) factln)
-						  ( (== symb (firstsymb) firstsymb)
-						    (:else symb))))))
+						  ( (== symb 'firstsymb) firstsymb)
+						    (:else symb)))))
 				     )
 				 (debug "dmacpac" " xtest=" xt "\n.. lfill=" lfill)
 				 xt))
@@ -84,8 +84,8 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					  '#{/*fill $FIRSTSYMB*/ $LFILL}#
 					  (lambda (symb) 
 					    (cond( (== symb 'lfill) lfill)
-						 ( (== symb (firstsymb) firstsymb)
-						   (:else symb))))))
+						 ( (== symb 'firstsymb) firstsymb)
+						   (:else symb)))))
 				     )
 				 (debug "dmacpac" " xfill=" xf)
 				 xf))

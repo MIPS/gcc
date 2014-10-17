@@ -1,5 +1,8 @@
 
 2014-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/t-macrocmat.melt: Typos corrected but still does
+	not work.
+2014-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* testsuite/melt/t-macrocmat.melt: Improve test which does not
 	work.
 
