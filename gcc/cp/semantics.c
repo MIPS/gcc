@@ -5515,6 +5515,44 @@ finish_omp_clauses (tree clauses)
 	    }
 	  break;
 
+	case OMP_CLAUSE_ASYNC:
+	  t = OMP_CLAUSE_ASYNC_EXPR (c);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!type_dependent_expression_p (t)
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%<async%> expression must be integral");
+	      remove = true;
+	    }
+	  else
+	    {
+	      t = mark_rvalue_use (t);
+	      if (!processing_template_decl)
+		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	      OMP_CLAUSE_ASYNC_EXPR (c) = t;
+	    }
+	  break;
+
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	  t = OMP_CLAUSE_VECTOR_LENGTH_EXPR (c);
+	  t = maybe_convert_cond (t);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	  OMP_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
+	  break;
+
+	case OMP_CLAUSE_WAIT:
+	  t = OMP_CLAUSE_WAIT_EXPR (c);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	  OMP_CLAUSE_WAIT_EXPR (c) = t;
+	  break;
+
 	case OMP_CLAUSE_THREAD_LIMIT:
 	  t = OMP_CLAUSE_THREAD_LIMIT_EXPR (c);
 	  if (t == error_mark_node)
@@ -6030,6 +6068,60 @@ tree
 finish_omp_structured_block (tree block)
 {
   return do_poplevel (block);
+}
+
+/* Generate OACC_DATA, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_DATA.  */
+
+tree
+finish_oacc_data (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = finish_omp_structured_block (block);
+
+  stmt = make_node (OACC_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_DATA_CLAUSES (stmt) = clauses;
+  OACC_DATA_BODY (stmt) = block;
+
+  return add_stmt (stmt);
+}
+
+/* Generate OACC_KERNELS, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_KERNELS.  */
+
+tree
+finish_oacc_kernels (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = finish_omp_structured_block (block);
+
+  stmt = make_node (OACC_KERNELS);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_KERNELS_CLAUSES (stmt) = clauses;
+  OACC_KERNELS_BODY (stmt) = block;
+
+  return add_stmt (stmt);
+}
+
+/* Generate OACC_PARALLEL, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_PARALLEL.  */
+
+tree
+finish_oacc_parallel (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = finish_omp_structured_block (block);
+
+  stmt = make_node (OACC_PARALLEL);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_PARALLEL_CLAUSES (stmt) = clauses;
+  OACC_PARALLEL_BODY (stmt) = block;
+
+  return add_stmt (stmt);
 }
 
 /* Similarly, except force the retention of the BLOCK.  */

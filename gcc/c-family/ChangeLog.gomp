@@ -1,3 +1,12 @@
+2014-10-15  James Norris  <jnorris@codesourcery.com>
+
+	* c-common.h (c_finish_oacc_wait): New prototype.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OACC_CACHE,
+	PRAGMA_OACC_WAIT.
+	(enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_ASYNC,
+	PRAGMA_OMP_CLAUSE_WAIT.
+	* c-omp.c (c_finish_oacc_wait): New function.
+
 2014-06-06  Thomas Schwinge  <thomas@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>
 

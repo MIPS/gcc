@@ -1,3 +1,7 @@
+2014-10-15  James Norris  <jnorris@codesourcery.com>
+
+	* types.def (BT_FN_VOID_INT_PTR_INT): New type.
+
 2014-09-23  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* f95-lang.c (DEF_GOACC_BUILTIN_COMPILER): New macro.
