@@ -172,6 +172,18 @@ set tests [lsort [concat $tests [find $srcdir/../jit/docs/examples *.c]]]
 
 verbose "tests: $tests"
 
+# libgloss has found the driver (as "xgcc" or "gcc) and stored
+# its full path as GCC_UNDER_TEST.
+proc get_path_of_driver {} {
+    global GCC_UNDER_TEST
+
+    verbose "GCC_UNDER_TEST: $GCC_UNDER_TEST"
+    set binary [lindex $GCC_UNDER_TEST 0]
+    verbose "binary: $binary"
+
+    return [file dirname $binary]
+}
+
 proc jit-dg-test { prog do_what extra_tool_flags } {
     verbose "within jit-dg-test..."
     verbose "  prog: $prog"
@@ -206,31 +218,41 @@ proc jit-dg-test { prog do_what extra_tool_flags } {
     set ld_library_path "$base_dir/../../"
     set_ld_library_path_env_vars
 
-    # If running with just a "make" and not a "make install", then I was
-    # running into
-    #   "fatal error: -fuse-linker-plugin, but liblto_plugin.so not found"
-    # emitted by the inner gcc invoked to convert the .s into .so
-    # This appears to be due to not installing the built compiler;
-    # libto_plugin is a .la at build time, with the .so becoming installed
-    # at install time; the "set_ld_library_path_env_vars" function from
-    # target-libpath.exp that I'm using to set LD_LIBRARY_PATH to find
-    # the library under test, libgccjit.so, was setting GCC_EXEC_PREFIX to
-    # the builddir, thus picking up the built-but-not-installed toolchain.
-    # Hacking in an "unsetenv GCC_EXEC_PREFIX" here fixes the issue,
-    # allowing quick running of testsuite without needing a full install.
-    #
-    unsetenv GCC_EXEC_PREFIX
-
     # libgccjit uses the driver to convert .s files to .so libraries
-    # via its *installed* name, the expansion of:
+    # via its *installed* name, FULL_DRIVER_NAME
     #   ${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}
     # e.g. "x86_64-unknown-linux-gnu-gcc-5.0.0"
-    # looking for it on PATH.  Hence we need to prepend the installation
-    # bindir to PATH when running the tests
+    # looking for it on PATH.  Hence we need to prepend the location of
+    # that executable to PATH when running the tests
+    set dir_containing_driver [get_path_of_driver ]
+    verbose "dir_containing_driver: $dir_containing_driver"
     global env
-    global bindir
     set old_path $env(PATH)
-    setenv "PATH" $bindir:$env(PATH)
+    setenv "PATH" $dir_containing_driver:$old_path
+    verbose -log "PATH=[getenv PATH]"
+
+    # We have:
+    #   test-executables
+    #     linked to -> libgccjit.so
+    #                    -> invokes driver:
+    #                         -> invokes the assembler
+    #                         -> invokes the linker
+    # We want to be able to run this from the builddir without installing
+    # but the linker needs to be able to locate various libraries, or we
+    # get:
+    #   ld: cannot find crtbeginS.o: No such file or directory
+    #   ld: cannot find -lgcc
+    #   ld: cannot find -lgcc_s
+    # These can be found in the "gcc" subdir of the build.
+    # Hence to be able to run the testsuite without installing, we need
+    # to set or prepend the "gcc" subdir of the build to LIBRARY_PATH:
+    if { [info exists env(LIBRARY_PATH) ] } {
+	set old_library_path $env(LIBRARY_PATH)
+	setenv "LIBRARY_PATH" $dir_containing_driver:$old_library_path
+    } else {
+	setenv "LIBRARY_PATH" $dir_containing_driver
+    }
+    verbose -log "LIBRARY_PATH=[getenv LIBRARY_PATH]"
 
     # dejagnu.exp's host_execute has code to scrape out test results
     # from the DejaGnu C API and bring back into the tcl world, so we
@@ -244,6 +266,13 @@ proc jit-dg-test { prog do_what extra_tool_flags } {
 
     # Restore PATH
     setenv "PATH" $old_path
+
+    # Restore LIBRARY_PATH
+    if { [info exists old_library_path] } {
+	setenv "LIBRARY_PATH" $old_library_path
+    } else {
+	unsetenv "LIBRARY_PATH"
+    }
 
     restore_ld_library_path_env_vars
 }

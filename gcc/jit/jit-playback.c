@@ -1631,7 +1631,7 @@ compile ()
   {
     auto_timevar assemble_timevar (TV_ASSEMBLE);
     const char *errmsg;
-    const char *argv[6];
+    const char *argv[7];
     int exit_status = 0;
     int err = 0;
     const char *gcc_driver_name = GCC_DRIVER_NAME;
@@ -1643,8 +1643,18 @@ compile ()
     /* The output: shared library.  */
     argv[3] = "-o";
     argv[4] = m_path_so_file;
+
+    /* Don't use the linker plugin.
+       If running with just a "make" and not a "make install", then we'd
+       run into
+          "fatal error: -fuse-linker-plugin, but liblto_plugin.so not found"
+       libto_plugin is a .la at build time, with it becoming installed with
+       ".so" suffix: i.e. it doesn't exist with a .so suffix until install
+       time.  */
+    argv[5] = "-fno-use-linker-plugin";
+
     /* pex argv arrays are NULL-terminated.  */
-    argv[5] = NULL;
+    argv[6] = NULL;
 
     errmsg = pex_one (PEX_SEARCH, /* int flags, */
 		      gcc_driver_name,
@@ -1656,7 +1666,7 @@ compile ()
 		      &err); /* int *err*/
     if (errmsg)
       {
-	add_error (NULL, "error invoking gcc harness: %s", errmsg);
+	add_error (NULL, "error invoking gcc driver: %s", errmsg);
 	return NULL;
       }
 
@@ -1665,8 +1675,14 @@ compile ()
     if (exit_status || err)
       {
 	add_error (NULL,
-		   "error invoking gcc harness: exit_status: %i err: %i",
+		   "error invoking gcc driver: exit_status: %i err: %i",
 		   exit_status, err);
+	add_error (NULL,
+		   "whilst attempting to run a driver named: %s",
+		   gcc_driver_name);
+	add_error (NULL,
+		   "PATH was: %s",
+		   getenv ("PATH"));
 	return NULL;
       }
   }
