@@ -495,7 +495,7 @@ struct simplify
       : match (match_), match_location (match_location_),
       result (result_), result_location (result_location_),
       ifexpr_vec (ifexpr_vec_), for_vec (for_vec_),
-      capture_ids (capture_ids_), capture_max (capture_ids_->size ()) {}
+      capture_ids (capture_ids_), capture_max (capture_ids_->size () - 1) {}
 
   /* The expression that is matched against the GENERIC or GIMPLE IL.  */
   operand *match;
