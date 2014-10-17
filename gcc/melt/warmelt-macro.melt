@@ -1576,7 +1576,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 ;;expand all of a pairlist as a list
 (defun expand_pairlist_as_list (pair env mexpander modctx)
-  :doc #{$EXPAND_RESTLIST_AS_TUPLE macro-expands a pair-list as a list.}#
+  :doc #{$EXPAND_PAIRLIST_AS_TUPLE macro-expands a pair-list as a list.}#
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)

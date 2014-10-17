@@ -23,12 +23,11 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 	      (let (
 		    (sloc (get_field :loca_location sexp))
 		    (sexcont (get_field :sexp_contents sexp))
-		    (xargs (expand_pairlist_as_list
-			    sexcont env mexpander modctx))
-		    (nsymb (clone_symbol 'cmatp))
+		    (xargs (expand_restlist_as_list sexcont mexpander modctx))
 		    (ix 0)
 		    )
-		(debug "dmacpat" " xargs=" xargs "; nsymb=" nsymb)
+		(debug "dmacpat" " xargs=" xargs "; sloc=" sloc)
+		(assert_msg "check xargs" (is_list xargs) xargs)
 		(each_component_in_list
 		 xargs
 		 curarg
@@ -37,19 +36,22 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		   (error_at sloc "non-symbol for DMACPAT #$1" ix)
 		   (return))
 		 (setq ix (+ ix 1))
+		 (void)
 		 )
-		(unless ix
-		  (error_at sloc "missing argument to DMACPAT")
+		(debug "dmacpat" " final ix=" ix)
+		(when (<=i ix 0)
+		  (error_at sloc "missing argument to DMACPAT #$1" ix)
 		  (return))
 		(let ( (firstsymb (list_pop_first xargs))
 		       (restupsymb (list_to_multiple xargs discr_multiple))
 		       (lnrest (multiple_length restupsymb))
 		       (:long factln (let ( (f 1) )
 				       (foreach_long_upto
-					(i)
 					(1 lnrest)
+					(:long i)
 					(setq f (*i f i)))
 				       f))
+		       (valfactln (constant_box factln))
 		       (lfill (make_list discr_list))
 		       (cdiv 1)
 		       )
@@ -63,7 +65,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		   (let ( (n 'n)
 			  (nsix (+ six 1))
 			  )
-		     (list_add lfill ##{$CURSYMB = $N / $NSIX}# ";\n")
+		     (add2list lfill ##{$CURSYMB = $N / $NSIX}# ";\n")
 		     )
 		   )
 		  (debug "dmacpac" " restupsymb=" restupsymb
@@ -71,9 +73,10 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		  (let (
 			(xtest (let (
 				     (xt (substitute_sexpr
-					  '#{/*xtest $FIRSTSYMB*/ $N % $FACTLN == 0}#
+					  '#{/*xtest $FIRSTSYMB*/ $N % $VALFACTLN == 0}#
 					  (lambda (symb)
-					    (cond ( (== symb 'factln) factln)
+					    (debug "dmacpac:subst-xtest" " symb=" symb)
+					    (cond ( (== symb 'valfactln) valfactln)
 						  ( (== symb 'firstsymb) firstsymb)
 						    (:else symb)))))
 				     )
@@ -83,6 +86,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				     (xf (substitute_sexpr
 					  '#{/*fill $FIRSTSYMB*/ $LFILL}#
 					  (lambda (symb) 
+					    (debug "dmacpac:subst-xfill" " symb=" symb)
 					    (cond( (== symb 'lfill) lfill)
 						 ( (== symb 'firstsymb) firstsymb)
 						   (:else symb)))))
@@ -115,10 +119,10 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		)
 	      )
       )
-  (debug "before dmacpat pp x y")
+  (debug "before dmacpat" " pp x y")
   (dmacpat pp x y)
-  (debug "after dmacpat pp x y before qq")
+  (debug "after dmacpat" " pp x y before qq")
   (dmacpat qq u v w)
-  (debug "after dmacpat qq u v w")
+  (debug "after dmacpat" " qq u v w")
   )
 ;; eof t-macrocmat.melt
