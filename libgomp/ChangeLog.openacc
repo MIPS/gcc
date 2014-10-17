@@ -1,3 +1,9 @@
+2014-10-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* libgomp.texi: Better distinguish OpenACC and OpenMP "Runtime
+	Library Routines", and "Environment Variables".
+
 2018-05-04  Tom de Vries  <tom@codesourcery.com>
 
 	PR libgomp/85649
