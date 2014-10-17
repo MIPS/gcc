@@ -211,12 +211,7 @@ self_referential_size (tree size)
       param_type = TREE_TYPE (ref);
       param_decl
 	= build_decl (input_location, PARM_DECL, param_name, param_type);
-      if (targetm.calls.promote_prototypes (NULL_TREE)
-	  && INTEGRAL_TYPE_P (param_type)
-	  && TYPE_PRECISION (param_type) < TYPE_PRECISION (integer_type_node))
-	DECL_ARG_TYPE (param_decl) = integer_type_node;
-      else
-	DECL_ARG_TYPE (param_decl) = param_type;
+      DECL_ARG_TYPE (param_decl) = param_type;
       DECL_ARTIFICIAL (param_decl) = 1;
       TREE_READONLY (param_decl) = 1;
 
@@ -2324,17 +2319,19 @@ min_align_of_type (tree type)
 {
   unsigned int align = TYPE_ALIGN (type);
   align = MIN (align, BIGGEST_ALIGNMENT);
+  if (!TYPE_USER_ALIGN (type))
+    {
 #ifdef BIGGEST_FIELD_ALIGNMENT
-  align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
+      align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
 #endif
-  unsigned int field_align = align;
+      unsigned int field_align = align;
 #ifdef ADJUST_FIELD_ALIGN
-  tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE,
-			   type);
-  field_align = ADJUST_FIELD_ALIGN (field, field_align);
-  ggc_free (field);
+      tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE, type);
+      field_align = ADJUST_FIELD_ALIGN (field, field_align);
+      ggc_free (field);
 #endif
-  align = MIN (align, field_align);
+      align = MIN (align, field_align);
+    }
   return align / BITS_PER_UNIT;
 }
 
