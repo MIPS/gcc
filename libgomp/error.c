@@ -35,7 +35,7 @@
 #include <stdlib.h>
 
 
-static void
+void
 gomp_verror (const char *fmt, va_list list)
 {
   fputs ("\nlibgomp: ", stderr);
@@ -54,13 +54,40 @@ gomp_error (const char *fmt, ...)
 }
 
 void
+gomp_vfatal (const char *fmt, va_list list)
+{
+  gomp_verror (fmt, list);
+  exit (EXIT_FAILURE);
+}
+
+void
 gomp_fatal (const char *fmt, ...)
 {
   va_list list;
 
   va_start (list, fmt);
-  gomp_verror (fmt, list);
+  gomp_vfatal (fmt, list);
   va_end (list);
 
-  exit (EXIT_FAILURE);
+  /* Unreachable.  */
+  abort ();
 }
+
+void
+gomp_vnotify (const char *msg, va_list list)
+{
+  struct gomp_task_icv *icv = gomp_icv (false);
+  if (icv->acc_notify_var)
+    vfprintf (stderr, msg, list);
+}
+
+void
+gomp_notify(const char *msg, ...)
+{
+  va_list list;
+  
+  va_start (list, msg);
+  gomp_vnotify (msg, list);
+  va_end (list);
+}
+

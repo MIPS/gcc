@@ -1,3 +1,121 @@
+2014-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* Makefile.am (AM_CPPFLAGS): Search in ../include also.
+	(libgomp_plugin_nvptx_version_info, libgomp_plugin_nvptx_la_SOURCES)
+	(libgomp_plugin_nvptx_la_CPPFLAGS, libgomp_plugin_nvptx_la_LDFLAGS)
+	(libgomp_plugin_nvptx_la_LIBADD)
+	(libgomp_plugin_nvptx_la_LIBTOOLFLAGS): Set variables if
+	PLUGIN_NVPTX is defined.
+	(toolexeclib_LTLIBRARIES): Add nonshm-host
+	and (conditionally) nvidia plugins.
+	(libgomp_plugin_nonshm_host_version_info)
+	(libgomp_plugin_nonshm_host_la_SOURCES)
+	(libgomp_plugin_nonshm_host_la_CPPFLAGS)
+	(libgomp_plugin_nonshm_host_la_LDFLAGS)
+	(libgomp_plugin_nonshm_host_la_LIBTOOLFLAGS): Set variables.
+	(libgomp_la_SOURCES): Add oacc-parallel.c, splay-tree.c,
+	oacc-host.c, oacc-init.c, oacc-mem.c, oacc-async.c, oacc-plugin.c,
+	oacc-cuda.c, libgomp-plugin.c.
+	(nodist_libsubinclude_HEADERS): Add openacc.h,
+	../include/gomp-constants.h.
+	* Makefile.in: Regenerate.
+	* config.h.in: Regenerate.
+	* configure.ac: Add TODOs for OpenACC in various places.
+	(CUDA_DRIVER_CPPFLAGS, CUDA_DRIVER_LDFLAGS): Initialize.
+	(--with-cuda-driver, --with-cuda-driver-include)
+	(--with-cuda-driver-lib, --enable-offload-targets): Implement new
+	options.
+	(PLUGIN_NVPTX, PLUGIN_NVPTX_CPPFLAGS, PLUGIN_NVPTX_LDFLAGS)
+	(PLUGIN_NVPTX_LIBS): Initialize variables.
+	* configure: Regenerate.
+	* env.c (target.h): Include.
+	(goacc_device_num, goacc_device_type): New globals.
+	(goacc_parse_device_num, goacc_parse_device_type): New functions.
+	(initialize_env): Parse GCC_ACC_NOTIFY, ACC_DEVICE_TYPE,
+	ACC_DEVICE_NUM environment variables.
+	* error.c (gomp_verror, gomp_vfatal, gomp_vnotify, gomp_notify):
+	New functions.
+	(gomp_fatal): Make global.
+	* libgomp.h (stdarg.h): Include.
+	(struct gomp_memory_mapping): Forward declaration.
+	(struct gomp_task_icv): Add acc_notify_var member.
+	(goacc_device_num, goacc_device_type): Add extern declarations.
+	(gomp_vnotify, gomp_notify, gomp_verror, gomp_vfatal): Add
+	prototypes.
+	(gomp_init_targets_once): Add prototype.
+	* libgomp.map (OACC_2.0): New symbol version. Add public acc_*
+	interface functions.
+	(PLUGIN_1.0): New symbol version. Add gomp plugin interface
+	functions.
+	* libgomp_g.h (GOACC_kernels, GOACC_parallel): Update prototypes.
+	(GOACC_wait): Add prototype.
+	* target.c (limits.h, stdbool.h, stdlib.h): Don't include.
+	(oacc-plugin.h, gomp-constants.h, stdio.h, assert.h): Include.
+	(splay_tree_node, splay_tree, splay_tree_key, target_mem_desc)
+	(splay_tree_key_s, enum target_type, gomp_device_descr): Don't
+	declare here.
+	(splay-tree.h): Include.
+	(target.h): Include.
+	(splay_compare): Change linkage to hidden not static.
+	(gomp_init_targets_once): New function.
+	(gomp_get_num_devices): Use above.
+	(dump_mappings): New function (for debugging).
+	(get_kind): New function.
+	(gomp_map_vars): Add gomp_memory_mapping (mm), is_openacc
+	parameters. Change KINDS to void *. Use lock from memory map
+	not device. Use macros from gomp-constants.h instead of
+	hard-coded values. Support OpenACC-specific mappings.
+	(gomp_copy_from_async): New function.
+	(gomp_unmap_vars): Add DO_COPYFROM argument. Only copy memory
+	back from device if it is true. Use lock from memory map not
+	device.
+	(gomp_update): Add mm, is_openacc args. Use lock from
+	memory map not device. Use macros from gomp-constants.h not
+	hard-coded values.
+	(gomp_register_image_for_device): Add forward
+	declaration.
+	(GOMP_offload_register): Change TARGET_DATA type to
+	void **. Check realloc result.
+	(gomp_init_device): Change linkage to hidden not static. Tweak mem
+	map location.
+	(gomp_fini_device): New function.
+	(GOMP_target): Adjust lazy initialization, check target
+	capabilities for OpenMP 4.0 support. Add locking around splay tree
+	lookup. Add new arg to gomp_unmap_vars call.
+	(GOMP_target_data): Tweak lazy initialization. Add new args to
+	gomp_map_vars, gomp_unmap_vars calls.
+	(GOMP_target_update): Tweak lazy initialization. Add new args to
+	gomp_update call.
+	(gomp_load_plugin_for_device): Initialize device_fini and
+	OpenACC-specific plugin hooks.
+	(gomp_register_images_for_device): Rename to...
+	(gomp_register_image_for_device): This, and register a single
+	device only, and only if it has not already had images registered.
+	(gomp_find_available_plugins): Rearrange to fix plugin loading and
+	initialization for OpenACC. Prefer a device with
+	TARGET_CAP_OPENMP_400 for OpenMP.
+	* target.h: New file.
+	* splay-tree.h: Move bulk of implementation to...
+	* splay-tree.c: New file.
+	* libgomp-plugin.c: New file.
+	* libgomp-plugin.h: New file.
+	* oacc-async.c: New file.
+	* oacc-cuda.c: New file.
+	* oacc-host.c: New file.
+	* oacc-init.c: New file.
+	* oacc-mem.c: New file.
+	* oacc-parallel.c: New file.
+	* oacc-plugin.c: New file.
+	* plugin-nvptx.c: New file.
+	* oacc-int.h: New file.
+	* openacc.f90: New file.
+	* openacc.h: New file.
+	* openacc_lib.h: New file.
+
 2014-10-09  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c/collapse-4.c: New file, moved from

@@ -14,12 +14,34 @@ libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 
 vpath % $(strip $(search_path))
 
-AM_CPPFLAGS = $(addprefix -I, $(search_path))
+AM_CPPFLAGS = $(addprefix -I, $(search_path)) \
+	$(addprefix -I, $(search_path)/../include)
 AM_CFLAGS = $(XCFLAGS)
 AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
 
 toolexeclib_LTLIBRARIES = libgomp.la
 nodist_toolexeclib_HEADERS = libgomp.spec
+
+if PLUGIN_NVPTX
+# Nvidia PTX OpenACC plugin.
+libgomp_plugin_nvptx_version_info = -version-info $(libtool_VERSION)
+toolexeclib_LTLIBRARIES += libgomp-plugin-nvptx.la
+libgomp_plugin_nvptx_la_SOURCES = plugin-nvptx.c
+libgomp_plugin_nvptx_la_CPPFLAGS = $(AM_CPPFLAGS) $(PLUGIN_NVPTX_CPPFLAGS)
+libgomp_plugin_nvptx_la_LDFLAGS = $(libgomp_plugin_nvptx_version_info) \
+	$(lt_host_flags)
+libgomp_plugin_nvptx_la_LDFLAGS += $(PLUGIN_NVPTX_LDFLAGS)
+libgomp_plugin_nvptx_la_LIBADD = $(PLUGIN_NVPTX_LIBS)
+libgomp_plugin_nvptx_la_LIBTOOLFLAGS = --tag=disable-static
+endif
+
+libgomp_plugin_host_nonshm_version_info = -version-info $(libtool_VERSION)
+toolexeclib_LTLIBRARIES += libgomp-plugin-host_nonshm.la
+libgomp_plugin_host_nonshm_la_SOURCES = oacc-host.c
+libgomp_plugin_host_nonshm_la_CPPFLAGS = $(AM_CPPFLAGS) -DHOST_NONSHM_PLUGIN
+libgomp_plugin_host_nonshm_la_LDFLAGS = \
+	$(libgomp_plugin_host_nonshm_version_info) $(lt_host_flags)
+libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS = --tag=disable-static
 
 if LIBGOMP_BUILD_VERSIONED_SHLIB
 # -Wc is only a libtool option.
@@ -60,10 +82,16 @@ libgomp_la_LINK = $(LINK) $(libgomp_la_LDFLAGS)
 libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 	iter_ull.c loop.c loop_ull.c ordered.c parallel.c sections.c single.c \
 	task.c team.c work.c lock.c mutex.c proc.c sem.c bar.c ptrlock.c \
-	time.c fortran.c affinity.c target.c oacc-parallel.c
+	time.c fortran.c affinity.c target.c oacc-parallel.c splay-tree.c \
+	oacc-host.c oacc-init.c oacc-mem.c oacc-async.c \
+	oacc-plugin.c oacc-cuda.c libgomp-plugin.c
+
+if USE_FORTRAN
+libgomp_la_SOURCES += openacc.f90
+endif
 
 nodist_noinst_HEADERS = libgomp_f.h
-nodist_libsubinclude_HEADERS = omp.h openacc.h
+nodist_libsubinclude_HEADERS = omp.h openacc.h ../include/gomp-constants.h
 if USE_FORTRAN
 nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod \
 	openacc_lib.h openacc.f90 openacc.mod openacc_kinds.mod

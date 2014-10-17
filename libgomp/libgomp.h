@@ -40,6 +40,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #ifdef HAVE_ATTRIBUTE_VISIBILITY
 # pragma GCC visibility push(hidden)
@@ -220,6 +221,7 @@ struct gomp_team_state
 };
 
 struct target_mem_desc;
+struct gomp_memory_mapping;
 
 /* These are the OpenMP 4.0 Internal Control Variables described in
    section 2.3.1.  Those described as having one copy per task are
@@ -236,6 +238,7 @@ struct gomp_task_icv
   bool dyn_var;
   bool nest_var;
   char bind_var;
+  int acc_notify_var;
   /* Internal ICV.  */
   struct target_mem_desc *target_data;
 };
@@ -253,6 +256,9 @@ extern char *gomp_bind_var_list;
 extern unsigned long gomp_bind_var_list_len;
 extern void **gomp_places_list;
 extern unsigned long gomp_places_list_len;
+
+extern int goacc_device_num;
+extern char* goacc_device_type;
 
 enum gomp_task_kind
 {
@@ -532,8 +538,12 @@ extern void *gomp_realloc (void *, size_t);
 
 /* error.c */
 
+extern void gomp_vnotify (const char *, va_list);
+extern void gomp_notify(const char *msg, ...);
+extern void gomp_verror (const char *, va_list);
 extern void gomp_error (const char *, ...)
 	__attribute__((format (printf, 1, 2)));
+extern void gomp_vfatal (const char *, va_list);
 extern void gomp_fatal (const char *, ...)
 	__attribute__((noreturn, format (printf, 1, 2)));
 
@@ -606,6 +616,7 @@ extern void gomp_free_thread (void *);
 
 /* target.c */
 
+extern void gomp_init_targets_once (void);
 extern int gomp_get_num_devices (void);
 
 /* work.c */

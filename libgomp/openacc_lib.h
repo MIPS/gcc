@@ -1,8 +1,9 @@
-!  OpenACC Runtime Library Definitions.                   -*- mode: fortran -*-
+!  OpenACC Runtime Library Definitions.			-*- mode: fortran -*-
 
-!  Copyright (C) 2013-2014 Free Software Foundation, Inc.
+!  Copyright (C) 2014 Free Software Foundation, Inc.
 
-!  Contributed by Thomas Schwinge <thomas@codesourcery.com>.
+!  Contributed by Tobias Burnus <burnus@net-b.de>
+!              and Mentor Embedded.
 
 !  This file is part of the GNU OpenMP Library (libgomp).
 
@@ -25,19 +26,353 @@
 !  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 !  <http://www.gnu.org/licenses/>.
 
-      integer openacc_version
-      parameter (openacc_version = 201306)
+! NOTE: Due to the use of dimension (..), the code only works when compiled
+! with -std=f2008ts/gnu/legacy but not with other standard settings.
+! Alternatively, the user can use the module version, which permits
+! compilation with -std=f95.
 
-      integer acc_device_kind
-      parameter (acc_device_kind = 4)
-      integer (acc_device_kind) acc_device_none
-      parameter (acc_device_none = 0)
-      integer (acc_device_kind) acc_device_default
-      parameter (acc_device_default = 1)
-      integer (acc_device_kind) acc_device_host
-      parameter (acc_device_host = 2)
-      integer (acc_device_kind) acc_device_not_host
-      parameter (acc_device_not_host = 3)
+      integer, parameter :: acc_device_kind = 4
 
-      external acc_on_device
-      logical (4) acc_on_device
+      integer (acc_device_kind), parameter :: acc_device_none = 0
+      integer (acc_device_kind), parameter :: acc_device_default = 1
+      integer (acc_device_kind), parameter :: acc_device_host = 2
+      integer (acc_device_kind), parameter :: acc_device_host_nonshm = 3
+      integer (acc_device_kind), parameter :: acc_device_not_host = 4
+      integer (acc_device_kind), parameter :: acc_device_nvidia = 5
+
+      integer, parameter :: acc_handle_kind = 4
+
+      integer (acc_handle_kind), parameter :: acc_async_noval = -1
+      integer (acc_handle_kind), parameter :: acc_async_sync = -2
+
+      integer, parameter :: openacc_version = 201306
+
+      interface acc_get_num_devices
+        function acc_get_num_devices_h (d)
+          import acc_device_kind
+          integer acc_get_num_devices_h
+          integer (acc_device_kind) d
+        end function
+      end interface
+
+      interface acc_set_device_type
+        subroutine acc_set_device_type_h (d)
+          import acc_device_kind
+          integer (acc_device_kind) d
+        end subroutine
+      end interface
+
+      interface acc_get_device_type
+        function acc_get_device_type_h ()
+          import acc_device_kind
+          integer (acc_device_kind) acc_get_device_type_h
+        end function
+      end interface
+
+      interface acc_set_device_num
+        subroutine acc_set_device_num_h (n, d)
+          import acc_device_kind
+          integer n
+          integer (acc_device_kind) d
+        end subroutine
+      end interface
+
+      interface acc_get_device_num
+        function acc_get_device_num_h (d)
+          import acc_device_kind
+          integer acc_get_device_num_h
+          integer (acc_device_kind) d
+        end function
+      end interface
+
+      interface acc_async_test
+        function acc_async_test_h (a)
+          logical acc_async_test_h
+          integer a
+        end function
+      end interface
+
+      interface acc_async_test_all
+        function acc_async_test_all_h ()
+          logical acc_async_test_all_h
+        end function
+      end interface
+
+      interface acc_wait
+        subroutine acc_wait_h (a)
+          integer a
+        end subroutine
+      end interface
+
+      interface acc_wait_async
+        subroutine acc_wait_async_h (a1, a2)
+          integer a1, a2
+        end subroutine
+      end interface
+
+      interface acc_wait_all
+        subroutine acc_wait_all_h ()
+        end subroutine
+      end interface
+
+      interface acc_wait_all_async
+        subroutine acc_wait_all_async_h (a)
+          integer a
+        end subroutine
+      end interface
+
+      interface acc_init
+        subroutine acc_init_h (devicetype)
+          import acc_device_kind
+          integer (acc_device_kind) devicetype
+        end subroutine
+      end interface
+
+      interface acc_shutdown
+        subroutine acc_shutdown_h (devicetype)
+          import acc_device_kind
+          integer (acc_device_kind) devicetype
+        end subroutine
+      end interface
+
+      interface acc_on_device
+        function acc_on_device_h (devicetype)
+          import acc_device_kind
+          logical acc_on_device_h
+          integer (acc_device_kind) devicetype
+        end function
+      end interface
+
+      ! acc_malloc: Only available in C/C++
+      ! acc_free: Only available in C/C++
+
+      interface acc_copyin
+        subroutine acc_copyin_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_copyin_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_copyin_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
+      end interface
+
+      interface acc_present_or_copyin
+        subroutine acc_present_or_copyin_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_present_or_copyin_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_present_or_copyin_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
+      end interface
+
+      interface acc_pcopyin
+        subroutine acc_pcopyin_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_pcopyin_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_pcopyin_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
+      end interface
+
+      interface acc_create
+        subroutine acc_create_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_create_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_create_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
+      end interface
+
+      interface acc_present_or_create
+        subroutine acc_present_or_create_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_present_or_create_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_present_or_create_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
+      end interface
+
+      interface acc_pcreate
+        subroutine acc_pcreate_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_pcreate_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_pcreate_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
+      end interface
+
+      interface acc_copyout
+        subroutine acc_copyout_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_copyout_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_copyout_array_h (a)
+          type (*), dimension (..), contiguous :: a
+        end subroutine
+      end interface
+
+      interface acc_delete
+        subroutine acc_delete_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_delete_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_delete_array_h (a)
+          type (*), dimension (..), contiguous :: a
+        end subroutine
+      end interface
+
+      interface acc_update_device
+        subroutine acc_update_device_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_update_device_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_update_device_array_h (a)
+          type (*), dimension (..), contiguous :: a
+        end subroutine
+      end interface
+
+      interface acc_update_self
+        subroutine acc_update_self_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_update_self_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_update_self_array_h (a)
+          type (*), dimension (..), contiguous :: a
+        end subroutine
+      end interface
+
+      ! acc_map_data: Only available in C/C++
+      ! acc_unmap_data: Only available in C/C++
+      ! acc_deviceptr: Only available in C/C++
+      ! acc_ostptr: Only available in C/C++
+
+      interface acc_is_present
+        function acc_is_present_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          logical acc_is_present_32_h
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end function
+
+        function acc_is_present_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          logical acc_is_present_64_h
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end function
+
+        function acc_is_present_array_h (a)
+          logical acc_is_present_array_h
+          type (*), dimension (..), contiguous :: a
+        end function
+      end interface
+
+      ! acc_memcpy_to_device: Only available in C/C++
+      ! acc_memcpy_from_device: Only available in C/C++

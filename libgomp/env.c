@@ -27,6 +27,7 @@
 
 #include "libgomp.h"
 #include "libgomp_f.h"
+#include "target.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -76,6 +77,9 @@ char *gomp_bind_var_list;
 unsigned long gomp_bind_var_list_len;
 void **gomp_places_list;
 unsigned long gomp_places_list_len;
+
+int goacc_device_num;
+char* goacc_device_type;
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -1013,6 +1017,37 @@ parse_affinity (bool ignore)
 
 
 static void
+goacc_parse_device_num (void)
+{
+  const char *env = getenv ("ACC_DEVICE_NUM");
+  int default_num = -1;
+  
+  if (env && *env != '\0')
+    {
+      char *end;
+      default_num = strtol (env, &end, 0);
+      
+      if (*end || default_num < 0)
+        default_num = 0;
+    }
+  else
+    default_num = 0;
+  
+  goacc_device_num = default_num;
+}
+
+static void
+goacc_parse_device_type (void)
+{
+  const char *env = getenv ("ACC_DEVICE_TYPE");
+  
+  if (env && *env != '\0')
+    goacc_device_type = strdup (env);
+  else
+    goacc_device_type = NULL;
+}
+
+static void
 handle_omp_display_env (unsigned long stacksize, int wait_policy)
 {
   const char *env;
@@ -1181,6 +1216,7 @@ initialize_env (void)
       gomp_global_icv.thread_limit_var
 	= thread_limit_var > INT_MAX ? UINT_MAX : thread_limit_var;
     }
+  parse_int ("GCC_ACC_NOTIFY", &gomp_global_icv.acc_notify_var, true);
 #ifndef HAVE_SYNC_BUILTINS
   gomp_mutex_init (&gomp_managed_threads_lock);
 #endif
@@ -1271,6 +1307,13 @@ initialize_env (void)
     }
 
   handle_omp_display_env (stacksize, wait_policy);
+  
+  /* Look for OpenACC-specific environment variables.  */
+  goacc_parse_device_num ();
+  goacc_parse_device_type ();
+
+  /* Initialize OpenACC-specific internal state.  */
+  ACC_runtime_initialize ();
 }
 
 

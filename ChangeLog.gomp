@@ -1,3 +1,7 @@
+2014-10-17  Julian Brown  <julian@codesourcery.com>
+
+	* gomp-constants.h: New file.
+
 2014-09-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* Makefile.tpl (accel_target_alias, accel_target_vendor)

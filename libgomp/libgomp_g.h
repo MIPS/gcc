@@ -221,9 +221,10 @@ extern void GOACC_data_start (int, const void *,
 extern void GOACC_data_end (void);
 extern void GOACC_kernels (int, void (*) (void *), const void *,
 			   size_t, void **, size_t *, unsigned short *,
-			   int, int, int);
+			   int, int, int, int, int, ...);
 extern void GOACC_parallel (int, void (*) (void *), const void *,
 			    size_t, void **, size_t *, unsigned short *,
-			    int, int, int);
+			    int, int, int, int, int, ...);
+extern void GOACC_wait (int, int, ...);
 
 #endif /* LIBGOMP_G_H */

@@ -1,0 +1,178 @@
+/* Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Contributed by Jakub Jelinek <jakub@redhat.com>.
+
+   This file is part of the GNU OpenMP Library (libgomp).
+
+   Libgomp is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+
+   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
+   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+   more details.
+
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+   <http://www.gnu.org/licenses/>.  */
+
+/* This file handles the maintainence of threads in response to team
+   creation and termination.  */
+
+#ifndef _TARGET_H
+#define _TARGET_H 1
+
+#include <stdarg.h>
+#include "splay-tree.h"
+#include "gomp-constants.h"
+
+struct target_mem_desc {
+  /* Reference count.  */
+  uintptr_t refcount;
+  /* All the splay nodes allocated together.  */
+  splay_tree_node array;
+  /* Start of the target region.  */
+  uintptr_t tgt_start;
+  /* End of the targer region.  */
+  uintptr_t tgt_end;
+  /* Handle to free.  */
+  void *to_free;
+  /* Previous target_mem_desc.  */
+  struct target_mem_desc *prev;
+  /* Number of items in following list.  */
+  size_t list_count;
+
+  /* Corresponding target device descriptor.  */
+  struct gomp_device_descr *device_descr;
+  
+  /* Memory mapping info for the thread that created this descriptor.  */
+  struct gomp_memory_mapping *mem_map;
+
+  /* List of splay keys to remove (or decrease refcount)
+     at the end of region.  */
+  splay_tree_key list[];
+};
+
+/* Keep in sync with openacc.h:acc_device_t.  */
+
+enum target_type {
+  TARGET_TYPE_HOST = GOMP_TARGET_HOST,
+  TARGET_TYPE_HOST_NONSHM = GOMP_TARGET_HOST_NONSHM,
+  TARGET_TYPE_NVIDIA_PTX = GOMP_TARGET_NVIDIA_PTX,
+  TARGET_TYPE_INTEL_MIC = GOMP_TARGET_INTEL_MIC,
+};
+
+#define TARGET_CAP_SHARED_MEM	1
+#define TARGET_CAP_NATIVE_EXEC	2
+#define TARGET_CAP_OPENMP_400	4
+#define TARGET_CAP_OPENACC_200	8
+
+/* Information about mapped memory regions (per device/context).  */
+
+struct gomp_memory_mapping
+{
+  /* Splay tree containing information about mapped memory regions.  */
+  struct splay_tree_s splay_tree;
+
+  /* Mutex for operating with the splay tree and other shared structures.  */
+  gomp_mutex_t lock;
+  
+  /* True when tables have been added to this memory map.  */
+  bool is_initialized;
+};
+
+#include "oacc-int.h"
+
+static inline enum acc_device_t
+acc_device_type (enum target_type type)
+{
+  return (enum acc_device_t) type;
+}
+
+struct mapping_table {
+  uintptr_t host_start;
+  uintptr_t host_end;
+  uintptr_t tgt_start;
+  uintptr_t tgt_end;
+};
+
+/* This structure describes accelerator device.
+   It contains name of the corresponding libgomp plugin, function handlers for
+   interaction with the device, ID-number of the device, and information about
+   mapped memory.  */
+struct gomp_device_descr
+{
+  /* The name of the device.  */
+  const char *name;
+
+  /* Capabilities of device (supports OpenACC, OpenMP).  */
+  unsigned int capabilities;
+
+  /* This is the ID number of device.  It could be specified in DEVICE-clause of
+     TARGET construct.  */
+  int id;
+
+  /* This is the TYPE of device.  */
+  enum target_type type;
+
+  /* Set to true when device is initialized.  */
+  bool is_initialized;
+  
+  /* True when offload regions have been registered with this device.  */
+  bool offload_regions_registered;
+
+  /* Plugin file handler.  */
+  void *plugin_handle;
+
+  /* Function handlers.  */
+  const char *(*get_name_func) (void);
+  unsigned int (*get_caps_func) (void);
+  int (*get_type_func) (void);
+  int (*get_num_devices_func) (void);
+  void (*offload_register_func) (void *, void *);
+  int (*device_init_func) (void);
+  int (*device_fini_func) (void);
+  int (*device_get_table_func) (struct mapping_table **);
+  void *(*device_alloc_func) (size_t);
+  void (*device_free_func) (void *);
+  void *(*device_dev2host_func) (void *, const void *, size_t);
+  void *(*device_host2dev_func) (void *, const void *, size_t);
+  void (*device_run_func) (void *, void *);
+
+  /* OpenACC-specific functions.  */
+  ACC_dispatch_t openacc;
+  
+  /* Memory-mapping info (only for OpenMP -- mappings are stored per-thread
+     for OpenACC. It's not clear if that's a useful distinction).  */
+  struct gomp_memory_mapping mem_map;
+};
+
+extern struct target_mem_desc *
+gomp_map_vars (struct gomp_device_descr *devicep,
+	       struct gomp_memory_mapping *mm, size_t mapnum,
+	       void **hostaddrs, void **devaddrs, size_t *sizes,
+	       void *kinds, bool is_openacc, bool is_target);
+
+extern void
+gomp_copy_from_async (struct target_mem_desc *tgt);
+
+extern void
+gomp_unmap_vars (struct target_mem_desc *tgt, bool);
+
+extern attribute_hidden void
+gomp_init_device (struct gomp_device_descr *devicep);
+
+extern attribute_hidden void
+gomp_init_tables (const struct gomp_device_descr *devicep,
+		  struct gomp_memory_mapping *mm);
+
+extern attribute_hidden void
+gomp_fini_device (struct gomp_device_descr *devicep);
+
+#endif /* _TARGET_H */
