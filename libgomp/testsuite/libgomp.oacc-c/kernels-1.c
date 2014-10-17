@@ -1,10 +1,10 @@
 /* { dg-do run } */
 
-extern void abort ();
+#include <stdlib.h>
 
 int i;
 
-int main(void)
+int main (void)
 {
   int j, v;
 
@@ -83,8 +83,15 @@ int main(void)
       abort ();
     v = 1;
   }
-  if (v != 1 || i != -1 || j != -2)
+  if (v != 1)
     abort ();
+#if ACC_MEM_SHARED
+  if (i != 2 || j != 1)
+    abort ();
+#else
+  if (i != -1 || j != -2)
+    abort ();
+#endif
 
   i = -1;
   j = -2;
@@ -127,8 +134,15 @@ int main(void)
       abort ();
     v = 1;
   }
-  if (v != 1 || i != -1 || j != -2)
+  if (v != 1)
     abort ();
+#if ACC_MEM_SHARED
+  if (i != 2 || j != 1)
+    abort ();
+#else
+  if (i != -1 || j != -2)
+    abort ();
+#endif
 
 #if 0
   i = -1;

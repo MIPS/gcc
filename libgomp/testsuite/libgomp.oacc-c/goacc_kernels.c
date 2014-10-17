@@ -1,4 +1,5 @@
 /* { dg-do run } */
+/* { dg-skip-if "" { *-*-* } { "*" } { "-DACC_DEVICE_TYPE_host=1" } } */
 
 #include "libgomp_g.h"
 
@@ -19,7 +20,7 @@ int main(void)
   i = -1;
   GOACC_kernels (0, f, (const void *) 0,
 		 0, (void *) 0, (void *) 0, (void *) 0,
-		 1, 1, 1);
+		 1, 1, 1, -2, -1);
   if (i != 42)
     abort ();
 

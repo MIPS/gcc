@@ -17,7 +17,8 @@ if [info exists lang_include_flags] then {
 dg-init
 
 # Turn on OpenACC.
-lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
+# XXX (TEMPORARY): Remove the -flto once that's properly integrated.
+lappend ALWAYS_CFLAGS "additional_flags=-fopenacc -flto"
 
 set blddir [lookfor_file [get_multilibs] libgomp]
 
@@ -61,8 +62,38 @@ if { $lang_test_file_found } {
 	set libstdcxx_includes ""
     }
 
-    # Main loop.
-    dg-runtest $tests "" $libstdcxx_includes
+    # Todo: get list of accelerators from configure options --enable-accelerator.
+    set accels { "nvidia" "host_nonshm" }
+
+    # Run on host (or fallback) accelerator.
+    lappend accels "host"
+
+    # Test OpenACC with available accelerators.
+    foreach accel $accels {
+	set tagopt "-DACC_DEVICE_TYPE_$accel=1"
+
+	# Todo: Determine shared memory or not using run-time test.
+	switch $accel {
+	    host {
+		set acc_mem_shared 1
+	    }
+	    host_nonshm {
+		set acc_mem_shared 0
+	    }
+	    nvidia {
+		set acc_mem_shared 0
+	    }
+	    default {
+		set acc_mem_shared 0
+	    }
+	}
+	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
+
+	# Todo: Verify that this works for both local and remote testing.
+	setenv ACC_DEVICE_TYPE $accel
+
+	dg-runtest $tests "$tagopt" $libstdcxx_includes
+    }
 }
 
 # All done.

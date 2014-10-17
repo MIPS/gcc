@@ -21,7 +21,8 @@ set quadmath_library_path "../libquadmath/.libs"
 dg-init
 
 # Turn on OpenACC.
-lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
+# XXX (TEMPORARY): Remove the -flto once that's properly integrated.
+lappend ALWAYS_CFLAGS "additional_flags=-fopenacc -flto"
 
 if { $blddir != "" } {
     set lang_source_re {^.*\.[fF](|90|95|03|08)$}
@@ -65,10 +66,41 @@ if { $lang_test_file_found } {
     append ld_library_path [gcc-set-multilib-library-path $GCC_UNDER_TEST]
     set_ld_library_path_env_vars
 
-    # For Fortran we're doing torture testing, as Fortran has far more tests
-    # with arrays etc. that testing just -O0 or -O2 is insufficient, that is
-    # typically not the case for C/C++.
-    gfortran-dg-runtest $tests "" ""
+    # Todo: get list of accelerators from configure options --enable-accelerator.
+    set accels { "nvidia" "host_nonshm" }
+
+    # Run on host (or fallback) accelerator.
+    lappend accels "host"
+
+    # Test OpenACC with available accelerators.
+    foreach accel $accels {
+	set tagopt "-DACC_DEVICE_TYPE_$accel=1"
+
+	# Todo: Determine shared memory or not using run-time test.
+	switch $accel {
+	    host {
+		set acc_mem_shared 1
+	    }
+	    host_nonshm {
+		set acc_mem_shared 0
+	    }
+	    nvidia {
+		set acc_mem_shared 0
+	    }
+	    default {
+		set acc_mem_shared 0
+	    }
+	}
+	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
+
+	# Todo: Verify that this works for both local and remote testing.
+	setenv ACC_DEVICE_TYPE $accel
+
+	# For Fortran we're doing torture testing, as Fortran has far more tests
+	# with arrays etc. that testing just -O0 or -O2 is insufficient, that is
+	# typically not the case for C/C++.
+	gfortran-dg-runtest $tests "$tagopt" ""
+    }
 }
 
 # All done.

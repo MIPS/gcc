@@ -1,3 +1,23 @@
+2014-10-17  James Norris  <jnorris@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/Makefile.in: Regenerated.
+	* testsuite/lib/libgomp.exp
+	(check_effective_target_openacc_nvidia_accel_present)
+	(check_effective_target_openacc_nvidia_accel_selected): New
+	functions.
+	* testsuite/libgomp.oacc-fortran/fortran.exp: New exp file.
+	* testsuite/libgomp.oacc-fortran/*.f: New tests.
+	* testsuite/libgomp.oacc-fortran/*.f90: Likewise.
+	* testsuite/libgomp.oacc-c/c.exp: New exp file.
+	* testsuite/libgomp.oacc-c/subr.ptx: New file.
+	* testsuite/libgomp.oacc-c/subr.cu: New file.
+	* testsuite/libgomp.oacc-c/timer.h: New file.
+	* testsuite/libgomp.oacc-c/*.c: New tests.
+	* testsuite/libgomp.oacc-c++/c++.exp: New exp file.
+
 2014-10-17  Nathan Sidwell  <nathan@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>

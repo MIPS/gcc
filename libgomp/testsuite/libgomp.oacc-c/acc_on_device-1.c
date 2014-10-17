@@ -1,7 +1,6 @@
 /* Disable the acc_on_device builtin; we want to test the libgomp library
    function.  */
-/* TODO: Remove -DACC_DEVICE_TYPE_host once that is set by the test harness.  */
-/* { dg-additional-options "-fno-builtin-acc_on_device -DACC_DEVICE_TYPE_host" } */
+/* { dg-additional-options "-fno-builtin-acc_on_device" } */
 
 #include <stdlib.h>
 #include <openacc.h>
@@ -16,7 +15,11 @@ main (int argc, char *argv[])
       abort ();
     if (!acc_on_device (acc_device_host))
       abort ();
+    if (acc_on_device (acc_device_host_nonshm))
+      abort ();
     if (acc_on_device (acc_device_not_host))
+      abort ();
+    if (acc_on_device (acc_device_nvidia))
       abort ();
   }
 
@@ -29,7 +32,11 @@ main (int argc, char *argv[])
       abort ();
     if (!acc_on_device (acc_device_host))
       abort ();
+    if (acc_on_device (acc_device_host_nonshm))
+      abort ();
     if (acc_on_device (acc_device_not_host))
+      abort ();
+    if (acc_on_device (acc_device_nvidia))
       abort ();
   }
 
@@ -44,8 +51,22 @@ main (int argc, char *argv[])
       abort ();
     if (acc_on_device (acc_device_host))
       abort ();
+#if ACC_DEVICE_TYPE_host_nonshm
+    if (!acc_on_device (acc_device_host_nonshm))
+      abort ();
+#else
+    if (acc_on_device (acc_device_host_nonshm))
+      abort ();
+#endif
     if (!acc_on_device (acc_device_not_host))
       abort ();
+#if ACC_DEVICE_TYPE_nvidia
+    if (!acc_on_device (acc_device_nvidia))
+      abort ();
+#else
+    if (acc_on_device (acc_device_nvidia))
+      abort ();
+#endif
   }
 
 #endif

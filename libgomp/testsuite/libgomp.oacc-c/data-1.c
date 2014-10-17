@@ -1,19 +1,30 @@
 /* { dg-do run } */
 
-extern void abort ();
+#include <stdlib.h>
+#include <openacc.h>
 
 int i;
+
+int
+is_mapped (void *p, size_t n)
+{
+#if ACC_MEM_SHARED
+  return 1;
+#else
+  return acc_is_present (p, n);
+#endif
+}
 
 int main(void)
 {
   int j;
 
-#if 0
   i = -1;
   j = -2;
 #pragma acc data copyin (i, j)
   {
-    // TODO: check that variables have been mapped.
+    if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
+      abort ();
     if (i != -1 || j != -2)
       abort ();
     i = 2;
@@ -28,53 +39,30 @@ int main(void)
   j = -2;
 #pragma acc data copyout (i, j)
   {
-    // TODO: check that variables have been mapped.
+    if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
+      abort ();
     if (i != -1 || j != -2)
       abort ();
     i = 2;
     j = 1;
     if (i != 2 || j != 1)
       abort ();
-  }
-  if (i != -1 || j != -2)
-    abort ();
 
-  i = -1;
-  j = -2;
-#pragma acc data copy (i, j)
-  {
-    // TODO: check that variables have been mapped.
-    if (i != -1 || j != -2)
-      abort ();
-    i = 2;
-    j = 1;
-    if (i != 2 || j != 1)
-      abort ();
+#pragma acc parallel present (i, j)
+    {
+      i = 4;
+      j = 2;
+    }
   }
-  if (i != -1 || j != -2)
+  if (i != 4 || j != 2)
     abort ();
 
   i = -1;
   j = -2;
 #pragma acc data create (i, j)
   {
-    // TODO: check that variables have been mapped.
-    if (i != -1 || j != -2)
+    if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
       abort ();
-    i = 2;
-    j = 1;
-    if (i != 2 || j != 1)
-      abort ();
-  }
-  if (i != -1 || j != -2)
-    abort ();
-#endif
-
-  i = -1;
-  j = -2;
-#pragma acc data present_or_copyin (i, j)
-  {
-    // TODO: check that variables have been mapped.
     if (i != -1 || j != -2)
       abort ();
     i = 2;
@@ -85,12 +73,12 @@ int main(void)
   if (i != 2 || j != 1)
     abort ();
 
-#if 0
   i = -1;
   j = -2;
-#pragma acc data present_or_copyout (i, j)
+#pragma acc data present_or_copyin (i, j)
   {
-    // TODO: check that variables have been mapped.
+    if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
+      abort ();
     if (i != -1 || j != -2)
       abort ();
     i = 2;
@@ -98,15 +86,37 @@ int main(void)
     if (i != 2 || j != 1)
       abort ();
   }
-  if (i != -1 || j != -2)
+  if (i != 2 || j != 1)
     abort ();
-#endif
+
+  i = -1;
+  j = -2;
+#pragma acc data present_or_copyout (i, j)
+  {
+    if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
+      abort ();
+    if (i != -1 || j != -2)
+      abort ();
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+
+#pragma acc parallel present (i, j)
+    {
+      i = 4;
+      j = 2;
+    }
+  }
+  if (i != 4 || j != 2)
+    abort ();
 
   i = -1;
   j = -2;
 #pragma acc data present_or_copy (i, j)
   {
-    // TODO: check that variables have been mapped.
+    if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
+      abort ();
     if (i != -1 || j != -2)
       abort ();
     i = 2;
@@ -114,47 +124,56 @@ int main(void)
     if (i != 2 || j != 1)
       abort ();
   }
+#if ACC_MEM_SHARED
+  if (i != 2 || j != 1)
+    abort ();
+#else
   if (i != -1 || j != -2)
     abort ();
+#endif
 
-#if 0
   i = -1;
   j = -2;
 #pragma acc data present_or_create (i, j)
   {
-    // TODO: check that variables have been mapped.
+    if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
+      abort ();
     i = 2;
     j = 1;
     if (i != 2 || j != 1)
       abort ();
   }
-  if (i != -1 || j != -2)
-    abort ();
-#endif
 
-#if 0
+  if (i != 2 || j != 1)
+    abort ();
+
   i = -1;
   j = -2;
-#pragma acc data present (i, j)
+#pragma acc data copyin (i, j)
   {
-    // TODO: check that variables have been mapped.
-    if (i != -1 || j != -2)
-      abort ();
-    i = 2;
-    j = 1;
-    if (i != 2 || j != 1)
-      abort ();
+#pragma acc data present (i, j)
+    {
+      if (!is_mapped (&i, sizeof (i)) || !is_mapped (&j, sizeof (j)))
+        abort ();
+      if (i != -1 || j != -2)
+        abort ();
+      i = 2;
+      j = 1;
+      if (i != 2 || j != 1)
+        abort ();
+    }
   }
-  if (i != -1 || j != -2)
+  if (i != 2 || j != 1)
     abort ();
-#endif
 
-#if 0
   i = -1;
   j = -2;
 #pragma acc data
   {
-    // TODO: check that variables have been mapped.
+#if !ACC_MEM_SHARED
+    if (is_mapped (&i, sizeof (i)) || is_mapped (&j, sizeof (j)))
+      abort ();
+#endif
     if (i != -1 || j != -2)
       abort ();
     i = 2;
@@ -162,9 +181,8 @@ int main(void)
     if (i != 2 || j != 1)
       abort ();
   }
-  if (i != -1 || j != -2)
+  if (i != 2 || j != 1)
     abort ();
-#endif
 
   return 0;
 }
