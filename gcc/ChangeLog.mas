@@ -1,5 +1,9 @@
 2014-10-17  Richard Biener  <rguenther@suse.de>
 
+	Merge from trunk r216316 through r216394.
+
+2014-10-17  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (simplify::simplify): Fix off-by-one error.
 
 2014-10-16  Richard Biener  <rguenther@suse.de>

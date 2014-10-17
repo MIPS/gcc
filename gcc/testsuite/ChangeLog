@@ -1,3 +1,53 @@
+2014-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63464
+	* gcc.dg/torture/pr63464.c: New test.
+	* gcc.dg/tree-ssa/reassoc-37.c: New test.
+	* gcc.dg/tree-ssa/reassoc-38.c: New test.
+
+	PR tree-optimization/63302
+	* gcc.c-torture/execute/pr63302.c: New test.
+
+2014-10-17  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/61605
+	* gcc.target/i386/fuse-caller-save.c: Update addition check.  Add movl
+	absence check.
+
+2014-10-17  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR middle-end/61848
+	* g++.dg/torture/pr61848.C: New testcase.
+	* gcc.c-torture/compile/pr61848.c: New testcase.
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* gcc.target/sh/cmpstr.c: Fix excess failures caused by switch to GNU11.
+	* gcc.target/sh/strlen.c: Likewise.
+	* gcc.target/sh/pr51244-13.c: Likewise.
+	* gcc.target/sh/cmpstrn.c: Likewise.
+	* gcc.target/sh/hiconst.c: Likewise.
+	* gcc.target/sh/pr43417.c: Likewise.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/guality/pr43077-1.c: IPA ICF disabled
+	to match defined expectations.
+
+2014-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* g++.dg/plugin/pragma_plugin.c: Adjust include files.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/ipa/ipa-icf-4.C: Correct number of equivalences set.
+	* g++.dg/ipa/ipa-icf-5.C: Likewise
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/63260
+	* gcc.target/sh/pr63260.c: Fix typo __builtin_fabs vs. __builtin_abs.
+
 2014-10-16  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/63554

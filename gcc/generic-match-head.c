@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "flags.h"
+#include "tm.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"

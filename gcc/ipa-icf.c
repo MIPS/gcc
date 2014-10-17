@@ -630,6 +630,11 @@ sem_function::merge (sem_item *alias_item)
       cgraph_node::create_alias (alias_func->decl, decl);
       alias->resolve_alias (original);
 
+      /* Workaround for PR63566 that forces equal calling convention
+	 to be used.  */
+      alias->local.local = false;
+      original->local.local = false;
+
       if (dump_file)
 	fprintf (dump_file, "Callgraph alias has been created.\n\n");
     }
@@ -2093,7 +2098,7 @@ sem_item_optimizer::process_cong_reduction (void)
 
   if (dump_file)
     fprintf (dump_file, "Worklist has been filled with: %lu\n",
-	     worklist.size ());
+	     (unsigned long) worklist.size ());
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Congruence class reduction\n");
@@ -2113,7 +2118,7 @@ sem_item_optimizer::dump_cong_classes (void)
 
   fprintf (dump_file,
 	   "Congruence classes: %u (unique hash values: %lu), with total: %u items\n",
-	   m_classes_count, m_classes.elements(), m_items.length ());
+	   m_classes_count, (unsigned long) m_classes.elements(), m_items.length ());
 
   /* Histogram calculation.  */
   unsigned int max_index = 0;

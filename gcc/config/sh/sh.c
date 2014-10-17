@@ -38,9 +38,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "optabs.h"
 #include "reload.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "diagnostic-core.h"
@@ -9875,19 +9880,6 @@ fp_one_operand (rtx op)
   return REAL_VALUES_EQUAL (r, dconst1);
 }
 
-/* In general mode switching is used.  If we are
-   compiling without -mfmovd, movsf_ie isn't taken into account for
-   mode switching.  We could check in machine_dependent_reorg for
-   cases where we know we are in single precision mode, but there is
-   interface to find that out during reload, so we must avoid
-   choosing an fldi alternative during reload and thus failing to
-   allocate a scratch register for the constant loading.  */
-bool
-fldi_ok (void)
-{
-  return true;
-}
-
 /* Return the TLS type for TLS symbols.  */
 enum tls_model
 tls_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -13106,8 +13098,7 @@ sh_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
       if (REGCLASS_HAS_FP_REG (rclass)
 	  && ! TARGET_SHMEDIA
 	  && immediate_operand ((x), mode)
-	  && ! ((fp_zero_operand (x) || fp_one_operand (x))
-		&& mode == SFmode && fldi_ok ()))
+	  && ! ((fp_zero_operand (x) || fp_one_operand (x)) && mode == SFmode))
 	switch (mode)
 	  {
 	  case SFmode:
