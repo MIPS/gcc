@@ -1,6 +1,12 @@
 
 2014-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
-	* testsuite/melt/t-macrocmat.melt: Imroved but still does not
+	* melt/warmelt-macro.melt (mexpand_defcmatcher): More debug.
+	* melt/warmelt-normal.melt (normexp_defcmatcher): More debug.
+	* testsuite/melt/t-macrocmat.melt: Improved but still does not
+	work.
+
+2014-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/t-macrocmat.melt: Improved but still does not
 	work.
 
 2014-10-17  Basile Starynkevitch  <basile@starynkevitch.net>

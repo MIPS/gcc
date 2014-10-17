@@ -23,7 +23,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 	      (let (
 		    (sloc (get_field :loca_location sexp))
 		    (sexcont (get_field :sexp_contents sexp))
-		    (xargs (expand_restlist_as_list sexcont mexpander modctx))
+		    (xargs (expand_restlist_as_list sexcont env mexpander modctx))
 		    (ix 0)
 		    )
 		(debug "dmacpat" " xargs=" xargs "; sloc=" sloc)
@@ -111,7 +111,9 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 			  (rdefcm (macroexpand_1 xdefcm  env mexpander modctx))
 			  (rexport (macroexpand_1 xexport env mexpander modctx))
 			  )
-		      (debug "dmacpac" " rdefcm=" rdefcm "\n.. rexport=" rexport)
+		      (debug "dmacpac" " rdefcm=" rdefcm
+			     "\n.. rexport=" rexport
+			     "\n.. env=" env)
 		      (return rdefcm (tuple rexport))
 		      )
 		    )

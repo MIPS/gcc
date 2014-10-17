@@ -7536,10 +7536,10 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;; normalize a DEFCMATCHER
 (defun normexp_defcmatcher (recv env ncx psloc)
+  (debug "normexp_defcmatcher recv=" recv "; env=" debug_more env)
   (assert_msg "check defcmatcher recv" (is_a recv class_source_defcmatcher) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
-  (debug "normexp_defcmatcher recv" recv)
   (let ( (sloc   (unsafe_get_field :loca_location recv))
 	 (sname  (unsafe_get_field :sdef_name recv))
 	 (sformals (unsafe_get_field :sformal_args recv))
@@ -7548,7 +7548,7 @@ source location.}#
 		     (assert_msg "check cmatcher" (is_a cm class_cmatcher) cm)
 		     cm))
 	 (cmbind (let ( (b (find_env env sname)) )
-		   (debug "normexp_defcmatcher cmbind" b)
+		   (debug "normexp_defcmatcher cmbind=" b "; sname=" sname)
 		   (assert_msg "check cmbind" (is_a b class_cmatcher_binding) b)
 		   b))
 	 (slotup (make_multiple discr_multiple (object_length cmatcher)))
