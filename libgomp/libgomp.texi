@@ -31,10 +31,12 @@ texts being (a) (see below), and with the Back-Cover Texts being (b)
 @ifinfo
 @dircategory GNU Libraries
 @direntry
-* libgomp: (libgomp).                    GNU OpenMP runtime library
+* libgomp: (libgomp).                    GNU OpenACC and OpenMP runtime library
 @end direntry
 
-This manual documents the GNU implementation of the OpenMP API for 
+This manual documents the GNU implementation of the OpenACC API for 
+offloading of code to accelerator devices in C/C++ and Fortran and
+the GNU implementation of the OpenMP API for 
 multi-platform shared-memory parallel programming in C/C++ and Fortran.
 
 Published by the Free Software Foundation
@@ -48,7 +50,7 @@ Boston, MA 02110-1301 USA
 @setchapternewpage odd
 
 @titlepage
-@title The GNU OpenMP Implementation
+@title The GNU OpenACC and OpenMP Implementation
 @page
 @vskip 0pt plus 1filll
 @comment For the @value{version-GCC} Version*
@@ -69,7 +71,10 @@ Boston, MA 02110-1301, USA@*
 @top Introduction
 @cindex Introduction
 
-This manual documents the usage of libgomp, the GNU implementation of the 
+This manual documents the usage of libgomp, the GNU implementation of the
+@uref{http://www.openacc.org/, OpenACC} Application Programming Interface (API)
+for offloading of code to accelerator devices in C/C++ and Fortran, and
+the GNU implementation of the 
 @uref{http://www.openmp.org, OpenMP} Application Programming Interface (API)
 for multi-platform shared-memory parallel programming in C/C++ and Fortran.
 
@@ -81,21 +86,617 @@ for multi-platform shared-memory parallel programming in C/C++ and Fortran.
 @comment  better formatting.
 @comment
 @menu
-* Enabling OpenMP::            How to enable OpenMP for your applications.
-* Runtime Library Routines::   The OpenMP runtime application programming 
-                               interface.
-* Environment Variables::      Influencing runtime behavior with environment 
-                               variables.
-* The libgomp ABI::            Notes on the external ABI presented by libgomp.
-* Reporting Bugs::             How to report bugs in GNU OpenMP.
-* Copying::                    GNU general public license says
-                               how you can copy and share libgomp.
-* GNU Free Documentation License::
-                               How you can copy and share this manual.
-* Funding::                    How to help assure continued work for free 
-                               software.
-* Library Index::              Index of this documentation.
+* Enabling OpenACC::                 How to enable OpenACC for your
+                                     applications.
+* OpenACC Runtime Library Routines:: The OpenACC runtime application
+                                      programming interface.
+* OpenACC Environment Variables::    Influencing OpenACC runtime behavior with
+                                     environment variables.
+* OpenACC Library Interoperability:: OpenACC library interoperability with the
+                                     NVIDIA CUBLAS library.
+* Enabling OpenMP::                  How to enable OpenMP for your
+                                     applications.
+* OpenMP Runtime Library Routines: Runtime Library Routines.
+                                     The OpenMP runtime application programming
+                                     interface.
+* OpenMP Environment Variables: Environment Variables.
+                                     Influencing OpenMP runtime behavior with
+                                     environment variables.
+* The libgomp ABI::                  Notes on the external libgomp ABI.
+* Reporting Bugs::                   How to report bugs.
+* Copying::                          GNU general public license says how you
+                                     can copy and share libgomp.
+* GNU Free Documentation License::   How you can copy and share this manual.
+* Funding::                          How to help assure continued work for free
+                                     software.
+* Library Index::                    Index of this documentation.
 @end menu
+
+
+
+@c ---------------------------------------------------------------------
+@c Enabling OpenACC
+@c ---------------------------------------------------------------------
+
+@node Enabling OpenACC
+@chapter Enabling OpenACC
+
+To activate the OpenACC extensions for C/C++ and Fortran, the compile-time 
+flag @command{-fopenacc} must be specified.  This enables OpenACC, and
+arranges for automatic linking of the OpenACC runtime library 
+(@ref{Runtime Library Routines}).
+
+A complete description of all OpenACC directives accepted may be found in 
+the @uref{http://www.openacc.org/, OpenMP Application Programming
+Interface} manual, version 2.0.
+
+
+@c ---------------------------------------------------------------------
+@c OpenACC Runtime Library Routines
+@c ---------------------------------------------------------------------
+
+@node OpenACC Runtime Library Routines
+@chapter OpenACC Runtime Library Routines
+
+The runtime routines described here are defined by section 3 of the OpenACC
+specifications in version 2.0.
+They have C linkage, and do not throw exceptions.
+Generally, they are available only for the host, with the exception of
+@code{acc_on_device}, which is available for both the host and the
+acceleration device.
+
+@menu
+* acc_get_num_devices::         Get number of devices for the given device type
+* acc_set_device_type::
+* acc_get_device_type::
+* acc_set_device_num::
+* acc_get_device_num::
+* acc_init::
+* acc_shutdown::
+* acc_on_device::               Whether executing on a particular device
+* acc_malloc::
+* acc_free::
+* acc_copyin::
+* acc_present_or_copyin::
+* acc_create::
+* acc_present_or_create::
+* acc_copyout::
+* acc_delete::
+* acc_update_device::
+* acc_update_self::
+* acc_map_data::
+* acc_unmap_data::
+* acc_deviceptr::
+* acc_hostptr::
+* acc_is_present::
+* acc_memcpy_to_device::
+* acc_memcpy_from_device::
+@end menu
+
+API routines for target platforms.
+
+@menu
+* acc_get_current_cuda_device::
+* acc_get_current_cuda_context::
+* acc_get_cuda_stream::
+* acc_set_cuda_stream::
+@end menu
+
+
+
+@node acc_get_num_devices
+@section @code{acc_get_num_devices} -- Get number of devices for given device type
+@table @asis
+item @emph{Description}
+This routine returns a value, between 0 and @emph{n}, indicating the
+number of devices available for the given device type. It determines
+the number of devices in a @emph{passive} manner. In other words, it
+does not alter the state within the runtime environment aside from
+possibly initializing an uninitialized device. This aspect allows
+the routine to be called without concern for altering the interaction
+with an attached accelerator device.
+
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.1.
+@end table
+
+
+
+@node acc_set_device_type
+@section @code{acc_set_device_type}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.2.
+@end table
+
+
+
+@node acc_get_device_type
+@section @code{acc_get_device_type}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.3.
+@end table
+
+
+
+@node acc_set_device_num
+@section @code{acc_set_device_num}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.4.
+@end table
+
+
+
+@node acc_get_device_num
+@section @code{acc_get_device_num}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.5.
+@end table
+
+
+
+@node acc_init
+@section @code{acc_init}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.12.
+@end table
+
+
+
+@node acc_shutdown
+@section @code{acc_shutdown}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.13.
+@end table
+
+
+
+@node acc_on_device
+@section @code{acc_on_device} -- Whether executing on a particular device
+@table @asis
+@item @emph{Description}:
+This routine tells the program whether it is executing on a particular
+device.  Based on the argument passed, GCC tries to evaluate this to a
+constant at compile time, but library functions are also provided, for
+both the host and the acceleration device.
+
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.14.
+@end table
+
+
+
+@node acc_malloc
+@section @code{acc_malloc}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.15.
+@end table
+
+
+
+@node acc_free
+@section @code{acc_free}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.16.
+@end table
+
+
+
+@node acc_copyin
+@section @code{acc_copyin}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.17.
+@end table
+
+
+
+@node acc_present_or_copyin
+@section @code{acc_present_or_copyin}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.18.
+@end table
+
+
+
+@node acc_create
+@section @code{acc_create}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.19.
+@end table
+
+
+
+@node acc_present_or_create
+@section @code{acc_present_or_create}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.20.
+@end table
+
+
+
+@node acc_copyout
+@section @code{acc_copyout}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.21.
+@end table
+
+
+
+@node acc_delete
+@section @code{acc_delete}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.22.
+@end table
+
+
+
+@node acc_update_device
+@section @code{acc_update_device}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.23.
+@end table
+
+
+
+@node acc_update_self
+@section @code{acc_update_self}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.24.
+@end table
+
+
+
+@node acc_map_data
+@section @code{acc_map_data}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.25.
+@end table
+
+
+
+@node acc_unmap_data
+@section @code{acc_unmap_data}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.26.
+@end table
+
+
+
+@node acc_deviceptr
+@section @code{acc_deviceptr}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.27.
+@end table
+
+
+
+@node acc_hostptr
+@section @code{acc_hostptr}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.28.
+@end table
+
+
+
+@node acc_is_present
+@section @code{acc_is_present}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.29.
+@end table
+
+
+
+@node acc_memcpy_to_device
+@section @code{acc_memcpy_to_device}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.30.
+@end table
+
+
+
+@node acc_memcpy_from_device
+@section @code{acc_memcpy_from_device}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+3.2.31.
+@end table
+
+
+
+@node acc_get_current_cuda_device
+@section @code{acc_get_current_cuda_device}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+A.2.1.1.
+@end table
+
+
+
+@node acc_get_current_cuda_context
+@section @code{acc_get_current_cuda_context}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+A.2.1.2.
+@end table
+
+
+
+@node acc_get_cuda_stream
+@section @code{acc_get_cuda_stream}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+A.2.1.3.
+@end table
+
+
+
+@node acc_set_cuda_stream
+@section @code{acc_set_cuda_stream}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+A.2.1.4.
+@end table
+
+
+
+@c ---------------------------------------------------------------------
+@c OpenACC Environment Variables
+@c ---------------------------------------------------------------------
+
+@node OpenACC Environment Variables
+@chapter OpenACC Environment Variables
+
+The variables @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM}
+are defined by section 4 of the OpenACC specification in version 2.0.
+The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
+
+@menu
+* ACC_DEVICE_TYPE::
+* ACC_DEVICE_NUM::
+* GCC_ACC_NOTIFY::
+@end menu
+
+
+
+@node ACC_DEVICE_TYPE
+@section @code{ACC_DEVICE_TYPE}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+4.1.
+@end table
+
+
+
+@node ACC_DEVICE_NUM
+@section @code{ACC_DEVICE_NUM}
+@table @asis
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+4.2.
+@end table
+
+
+
+@node GCC_ACC_NOTIFY
+@section @code{GCC_ACC_NOTIFY}
+@table @asis
+@item @emph{Description}:
+Print debug information pertaining to the accelerator.
+@end table
+
+
+@c ---------------------------------------------------------------------
+@c OpenACC Library Interoperability
+@c ---------------------------------------------------------------------
+
+@node OpenACC Library Interoperability
+@chapter OpenACC Library Interoperability
+
+@section Introduction
+
+As the OpenACC library is built using the CUDA Driver API, the question has
+arisen on what impact does using the OpenACC library have on a program that
+uses the Runtime library, or a library based on the Runtime library, e.g.,
+CUBLAS@footnote{Seee section 2.26, "Interactions with the CUDA Driver API" in
+"CUDA Runtime API", Version 5.5, July 2013 and section 2.27, "VDPAU
+Interoperability", in "CUDA Driver API", TRM-06703-001, Version 5.5,
+July 2013, for additional information on library interoperability.}.
+This chapter will describe the use cases and what changes are
+required in order to use both the OpenACC library and the CUBLAS and Runtime
+libraries within a program.
+
+@section First invocation: NVIDIA CUBLAS library API
+
+In this first use case (see below), a function in the CUBLAS library is called
+prior to any of the functions in the OpenACC library. More specifically, the
+function @code{cublasCreate()}.
+
+When invoked, the function will initialize the library and allocate the
+hardware resources on the host and the device on behalf of the caller. Once
+the initialization and allocation has completed, a handle is returned to the
+caller. The OpenACC library also requires initialization and allocation of
+hardware resources. Since the CUBLAS library has already allocated the
+hardware resources for the device, all that is left to do is to initialize
+the OpenACC library and acquire the hardware resources on the host.
+
+Prior to calling the OpenACC function that will initialize the library and
+allocate the host hardware resources, one needs to acquire the device number
+that was allocated during the call to @code{cublasCreate()}. The invoking of the
+runtime library function @code{cudaGetDevice()} will accomplish this. Once
+acquired, the device number is passed along with the device type as
+parameters to the OpenACC library function @code{acc_set_device_num()}.
+
+Once the call to @code{acc_set_device_num()} has completed, the OpenACC
+library will be using the  context that was created during the call to
+@code{cublasCreate()}. In other words, both libraries will be sharing the
+same context.
+
+@verbatim
+    /* Create the handle */
+    s = cublasCreate(&h);
+    if (s != CUBLAS_STATUS_SUCCESS)
+    {
+        fprintf(stderr, "cublasCreate failed %d\n", s);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Get the device number */
+    e = cudaGetDevice(&dev);
+    if (e != cudaSuccess)
+    {
+        fprintf(stderr, "cudaGetDevice failed %d\n", e);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Initialize OpenACC library and use device 'dev' */
+    acc_set_device_num(dev, acc_device_nvidia);
+
+@end verbatim
+@center Use Case 1 
+
+@section First invocation: OpenACC library API
+
+In this second use case (see below), a function in the OpenACC library is
+called prior to any of the functions in the CUBLAS library. More specificially,
+the function acc_set_device_num().
+
+In the use case presented here, the function @code{acc_set_device_num()}
+is used to both initialize the OpenACC library and allocate the hardware
+resources on the host and the device. In the call to the function, the
+call parameters specify which device to use, i.e., 'dev', and what device
+type to use, i.e., @code{acc_device_nvidia}. It should be noted that this
+is but one method to initialize the OpenACC library and allocate the
+appropriate hardware resources. Other methods are available through the
+use of environment variables and these will be discussed in the next section.
+
+Once the call to @code{acc_set_device_num()} has completed, other OpenACC
+functions can be called as seen with multiple calls being made to
+@code{acc_copyin()}. In addition, calls can be made to functions in the
+CUBLAS library. In the use case a call to @code{cublasCreate()} is made
+subsequent to the calls to @code{acc_copyin()}.
+As seen in the previous use case, a call to @code{cublasCreate()} will
+initialize the CUBLAS library and allocate the hardware resources on the
+host and the device.  However, since the device has already been allocated,
+@code{cublasCreate()} will only initialize the CUBLAS library and allocate
+the appropriate hardware resources on the host. The context that was created
+as part of the OpenACC initialization will be shared with the CUBLAS library,
+similarly to the first use case.
+
+@verbatim
+    dev = 0;
+
+    acc_set_device_num(dev, acc_device_nvidia);
+
+    /* Copy the first set to the device */
+    d_X = acc_copyin(&h_X[0], N * sizeof (float));
+    if (d_X == NULL)
+    { 
+        fprintf(stderr, "copyin error h_X\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Copy the second set to the device */
+    d_Y = acc_copyin(&h_Y1[0], N * sizeof (float));
+    if (d_Y == NULL)
+    { 
+        fprintf(stderr, "copyin error h_Y1\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Create the handle */
+    s = cublasCreate(&h);
+    if (s != CUBLAS_STATUS_SUCCESS)
+    {
+        fprintf(stderr, "cublasCreate failed %d\n", s);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Perform saxpy using CUBLAS library function */
+    s = cublasSaxpy(h, N, &alpha, d_X, 1, d_Y, 1);
+    if (s != CUBLAS_STATUS_SUCCESS)
+    {
+        fprintf(stderr, "cublasSaxpy failed %d\n", s);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Copy the results from the device */
+    acc_memcpy_from_device(&h_Y1[0], d_Y, N * sizeof (float));
+
+}
+@end verbatim
+@center Use Case 2
+
+@section OpenACC library and environment variables
+
+There are two environment variables associated with the OpenACC library that
+may be used to control the device type and device number.
+Namely, @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM}. In the second
+use case, the device type and device number were specified using
+@code{acc_set_device_num()}. However, @env{ACC_DEVICE_TYPE} and 
+@env{ACC_DEVICE_NUM} could have been defined and the call to
+@code{acc_set_device_num()} would be not be required. At the time of the
+call to @code{acc_copyin()}, these two environment variables would be
+sampled and their values used.
+
+The use of the environment variables is only relevant when an OpenACC function
+is called prior to a call to @code{cudaCreate()}. If @code{cudaCreate()}
+is called prior to a call to an OpenACC function, then a call to
+@code{acc_set_device_num()}, must be done@footnote{More complete information
+about @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM} can be found in
+sections 4.1 and 4.2 of the “The OpenACC
+Application Programming Interface”, Version 2.0, June, 2013.}.
+
 
 
 @c ---------------------------------------------------------------------
@@ -120,11 +721,11 @@ version 4.0.
 
 
 @c ---------------------------------------------------------------------
-@c Runtime Library Routines
+@c OpenMP Runtime Library Routines
 @c ---------------------------------------------------------------------
 
 @node Runtime Library Routines
-@chapter Runtime Library Routines
+@chapter OpenMP Runtime Library Routines
 
 The runtime routines described here are defined by Section 3 of the OpenMP
 specification in version 4.0.  The routines are structured in following
@@ -1281,11 +1882,11 @@ guaranteed not to change during the execution of the program.
 
 
 @c ---------------------------------------------------------------------
-@c Environment Variables
+@c OpenMP Environment Variables
 @c ---------------------------------------------------------------------
 
 @node Environment Variables
-@chapter Environment Variables
+@chapter OpenMP Environment Variables
 
 The environment variables which beginning with @env{OMP_} are defined by
 section 4 of the OpenMP specification in version 4.0, while those
@@ -1701,6 +2302,7 @@ presented by libgomp.  Only maintainers should need them.
 * Implementing ORDERED construct::
 * Implementing SECTIONS construct::
 * Implementing SINGLE construct::
+* Implementing OpenACC's PARALLEL construct::
 @end menu
 
 
@@ -2065,15 +2667,24 @@ becomes
 
 
 
+@node Implementing OpenACC's PARALLEL construct
+@section Implementing OpenACC's PARALLEL construct
+
+@smallexample
+  void GOACC_parallel ()
+@end smallexample
+
+
+
 @c ---------------------------------------------------------------------
-@c 
+@c Reporting Bugs
 @c ---------------------------------------------------------------------
 
 @node Reporting Bugs
 @chapter Reporting Bugs
 
-Bugs in the GNU OpenMP implementation should be reported via 
-@uref{http://gcc.gnu.org/bugzilla/, Bugzilla}.  For all cases, please add 
+Bugs in the GNU OpenACC or OpenMP implementation should be reported via
+@uref{http://gcc.gnu.org/bugzilla/, Bugzilla}.  For OpenMP cases, please add
 "openmp" to the keywords field in the bug report.
 
 
