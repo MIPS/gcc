@@ -68,13 +68,57 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		   )
 		  (debug "dmacpac" " restupsymb=" restupsymb
 			 "\n.. lfill=" lfill)
-		  ;; incomplete
+		  (let (
+			(xtest (let (
+				     (xt (substitute_sexpr
+					  '#{/*xtest $FIRSTSYMB*/ $N % $FACTLN == 0}#
+					  (lambda (symb)
+					    (cond ( (== symb 'factln) factln)
+						  ( (== symb (firstsymb) firstsymb)
+						    (:else symb))))))
+				     )
+				 (debug "dmacpac" " xtest=" xt "\n.. lfill=" lfill)
+				 xt))
+			(xfill (let (
+				     (xf (substitute_sexpr
+					  '#{/*fill $FIRSTSYMB*/ $LFILL}#
+					  (lambda (symb) 
+					    (cond( (== symb 'lfill) lfill)
+						 ( (== symb (firstsymb) firstsymb)
+						   (:else symb))))))
+				     )
+				 (debug "dmacpac" " xfill=" xf)
+				 xf))
+			(xdefcm `(defcmatcher ,firstsymb
+				   (:long n)
+				   (,restupsymb)
+				   dmacstate
+				   ;; test
+				   ,xtest
+				   ;; fill
+				   ,xfill
+				   ))
+			(xexport `(export_values ,firstsymb))
+			)
+		    (put_fields xdefcm :loca_location sloc)
+		    (put_fields xexport :loca_location sloc)
+		    (debug "dmacpac" " xdefcm=" xdefcm "\n.. xexport=" xexport)
+		    (let (
+			  (rdefcm (macroexpand_1 xdefcm  env mexpander modctx))
+			  (rexport (macroexpand_1 xexport env mexpander modctx))
+			  )
+		      (debug "dmacpac" " rdefcm=" rdefcm "\n.. rexport=" rexport)
+		      (return rdefcm (tuple rexport))
+		      )
+		    )
 		  )
 		)
 	      )
       )
   (debug "before dmacpat pp x y")
   (dmacpat pp x y)
-  (debug "after dmacpat pp x y")
+  (debug "after dmacpat pp x y before qq")
+  (dmacpat qq u v w)
+  (debug "after dmacpat qq u v w")
   )
-	       
+;; eof t-macrocmat.melt
