@@ -10749,12 +10749,7 @@ extern __inline __m512d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_add_pd (__m512d __A, __m512d __B)
 {
-  return (__m512d) __builtin_ia32_addpd512_mask ((__v8df) __A,
-						 (__v8df) __B,
-						 (__v8df)
-						 _mm512_undefined_pd (),
-						 (__mmask8) -1,
-						 _MM_FROUND_CUR_DIRECTION);
+  return (__m512d) ((__v8df)__A + (__v8df)__B);
 }
 
 extern __inline __m512d
@@ -10784,12 +10779,7 @@ extern __inline __m512
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_add_ps (__m512 __A, __m512 __B)
 {
-  return (__m512) __builtin_ia32_addps512_mask ((__v16sf) __A,
-						(__v16sf) __B,
-						(__v16sf)
-						_mm512_undefined_ps (),
-						(__mmask16) -1,
-						_MM_FROUND_CUR_DIRECTION);
+  return (__m512) ((__v16sf)__A + (__v16sf)__B);
 }
 
 extern __inline __m512
@@ -10819,12 +10809,7 @@ extern __inline __m512d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_sub_pd (__m512d __A, __m512d __B)
 {
-  return (__m512d) __builtin_ia32_subpd512_mask ((__v8df) __A,
-						 (__v8df) __B,
-						 (__v8df)
-						 _mm512_undefined_pd (),
-						 (__mmask8) -1,
-						 _MM_FROUND_CUR_DIRECTION);
+  return (__m512d) ((__v8df)__A - (__v8df)__B);
 }
 
 extern __inline __m512d
@@ -10854,12 +10839,7 @@ extern __inline __m512
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_sub_ps (__m512 __A, __m512 __B)
 {
-  return (__m512) __builtin_ia32_subps512_mask ((__v16sf) __A,
-						(__v16sf) __B,
-						(__v16sf)
-						_mm512_undefined_ps (),
-						(__mmask16) -1,
-						_MM_FROUND_CUR_DIRECTION);
+  return (__m512) ((__v16sf)__A - (__v16sf)__B);
 }
 
 extern __inline __m512
@@ -10889,12 +10869,7 @@ extern __inline __m512d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_mul_pd (__m512d __A, __m512d __B)
 {
-  return (__m512d) __builtin_ia32_mulpd512_mask ((__v8df) __A,
-						 (__v8df) __B,
-						 (__v8df)
-						 _mm512_undefined_pd (),
-						 (__mmask8) -1,
-						 _MM_FROUND_CUR_DIRECTION);
+  return (__m512d) ((__v8df)__A * (__v8df)__B);
 }
 
 extern __inline __m512d
@@ -10924,12 +10899,7 @@ extern __inline __m512
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_mul_ps (__m512 __A, __m512 __B)
 {
-  return (__m512) __builtin_ia32_mulps512_mask ((__v16sf) __A,
-						(__v16sf) __B,
-						(__v16sf)
-						_mm512_undefined_ps (),
-						(__mmask16) -1,
-						_MM_FROUND_CUR_DIRECTION);
+  return (__m512) ((__v16sf)__A * (__v16sf)__B);
 }
 
 extern __inline __m512
@@ -10959,12 +10929,7 @@ extern __inline __m512d
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_div_pd (__m512d __M, __m512d __V)
 {
-  return (__m512d) __builtin_ia32_divpd512_mask ((__v8df) __M,
-						 (__v8df) __V,
-						 (__v8df)
-						 _mm512_undefined_pd (),
-						 (__mmask8) -1,
-						 _MM_FROUND_CUR_DIRECTION);
+  return (__m512d) ((__v8df)__M / (__v8df)__V);
 }
 
 extern __inline __m512d
@@ -10994,12 +10959,7 @@ extern __inline __m512
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_div_ps (__m512 __A, __m512 __B)
 {
-  return (__m512) __builtin_ia32_divps512_mask ((__v16sf) __A,
-						(__v16sf) __B,
-						(__v16sf)
-						_mm512_undefined_ps (),
-						(__mmask16) -1,
-						_MM_FROUND_CUR_DIRECTION);
+  return (__m512) ((__v16sf)__A / (__v16sf)__B);
 }
 
 extern __inline __m512
