@@ -1,3 +1,8 @@
+2014-10-17  Andrew Pinski  <apinski@cavium.com>
+
+	* opts.c (default_options_table): Disable -fipa-icf until it
+	is fixed fully.
+
 2014-10-13  Andrew Pinski  <apinski@cavium.com>
 
 	* gimple-fold.c: Move include of tm_p.h later.

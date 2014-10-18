@@ -497,7 +497,9 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_CHEAP },
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_foptimize_strlen, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
+#if 0
     { OPT_LEVELS_2_PLUS, OPT_fipa_icf, NULL, 1 },
+#endif
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fmerge_bitfields, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fmerge_const_bfstores, NULL, 1 },
