@@ -1518,8 +1518,8 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	 "\n.. modctx=" modctx
 	 "\n.. sloc=" sloc)
   (shortbacktrace_dbg "install_global_definition_binding" 10)
-  (assert_msg "check bind" (is_a class_any_binding bind) bind)
-  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check bind" (is_a bind class_any_binding) bind)
+  (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
   (let ( (basenv (get_field :mocx_basenv modctx))
 	 (symb (get_field :binder bind))
@@ -1538,7 +1538,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 			     (setq curenv (get_field :env_prev curenv)))))
 	     )
 	   )
-    (if (find_env symb basenv)
+    (if (find_env basenv symb)
 	(if (not (melt_is_bootstrapping))
 	    (warning_at sloc "MELT global redefinition of $1" symb)))
     (put_env bind basenv)
@@ -3695,6 +3695,7 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 	(error_plain loc "missing symbol for DEFUN"_))
     (warn_if_redefined symb env loc)
     (put_env env fbind)
+    ;; @@might become (install_global_definition_binding fbind env modctx loc)
     (setq curpair (pair_tail curpair))
     ;; parse the formal arguments
     (let ( (curpairhead (pair_head curpair)) 
