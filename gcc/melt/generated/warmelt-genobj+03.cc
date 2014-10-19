@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f3[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h602145284; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h602145284 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h536026562; // forward declaration fromline 6691
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h536026562 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -1015,7 +1015,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h602145284 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h536026562 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -26222,7 +26222,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.MODCTX__V20*/ meltfptr[19]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 18, "MOCX_HOOKDICT");
+                    melt_object_get_field(slot,obj, 19, "MOCX_HOOKDICT");
                     /*_.MHOOKDICT__V21*/ meltfptr[20] = slot;
                 };
                 ;

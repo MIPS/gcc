@@ -1,5 +1,8 @@
 
 2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (class_any_module_context): add
 	mocx_basenv field.
 	* melt/warmelt-macro.melt (install_global_definition): New
