@@ -1508,15 +1508,41 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 ;;;;;;;;;;;;;;;;;;;; first pass, macro expansion
 
 ;;; common function to install a global definition binding
-(defun install_global_definition (bind env modctx)
-  (debug "install_global_definition" " bind=" bind
+(defun install_global_definition_binding (bind env modctx sloc)
+  :doc #{For global definitions like $DEFINSTANCE, $DEFMACRO,
+  $DEFCMATCHER, etc. install the binding $BIND with an anvironment
+  $END in the base environment of module context $MODCTX at location
+  $LOC.}#
+  (debug "install_global_definition_binding" " bind=" bind
 	 "\n.. env=" env
-	 "\n.. modctx=" modctx)
+	 "\n.. modctx=" modctx
+	 "\n.. sloc=" sloc)
+  (shortbacktrace_dbg "install_global_definition_binding" 10)
   (assert_msg "check bind" (is_a class_any_binding bind) bind)
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
-  (assert_msg "@$@unimplemented install_global_definition" ())
-  )
+  (let ( (basenv (get_field :mocx_basenv modctx))
+	 (symb (get_field :binder bind))
+	 )
+    (assert_msg "check basenv" (is_a basenv class_environment) basenv modctx)
+    (cppif MELT_HAVE_DEBUG
+	   (let ( (curenv env)
+		  )
+	     (forever checkenvloop
+		      (cond ( (null curenv)
+			      (assert_msg "badly nested env" curenv env basenv))
+			    ( (== curenv basenv)
+			      (exit checkenvloop))
+			    (:else
+			     (assert_msg "check curenv" (is_a curenv class_environment))
+			     (setq curenv (get_field :env_prev curenv)))))
+	     )
+	   )
+    (if (find_env symb basenv)
+	(if (not (melt_is_bootstrapping))
+	    (warning_at sloc "MELT global redefinition of $1" symb)))
+    (put_env bind basenv)
+  ))
 
 ;;; expanser
 (defun expand_restlist_as_list (arglist env mexpander modctx)
@@ -9072,6 +9098,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  hook_macro_installer
  install_initial_macro
  install_initial_patmacro
+ install_global_definition_binding
  is_recursively_constructible
  lambda_arg_bindings
  macroexpand_1

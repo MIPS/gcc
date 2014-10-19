@@ -1,5 +1,9 @@
 
 2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (install_global_definition): Renamed as...
+	(install_global_definition_binding): Completed function.
+
+2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
