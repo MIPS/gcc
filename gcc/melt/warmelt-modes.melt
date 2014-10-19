@@ -1790,6 +1790,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		   :mocx_expclassdict (make_mapstring discr_map_strings 131)
 		   :mocx_initialenv curenv
 		   :mocx_macroenv macroenv
+		   :mocx_basenv curenv
 		   :mocx_funcount (make_integerbox discr_integer 0)
 		   :mocx_filetuple ()
 		   :mocx_cheaderlist (make_list discr_list)

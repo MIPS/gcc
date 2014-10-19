@@ -123,8 +123,10 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
       )
   (debug "before dmacpat" " pp x y")
   (dmacpat pp x y)
-  (debug "after dmacpat" " pp x y before qq")
-  (dmacpat qq u v w)
-  (debug "after dmacpat" " qq u v w")
+  (debug "after dmacpat" " pp x y"
+	 ;" before qq"
+	 )
+  ;(dmacpat qq u v w)
+  ;(debug "after dmacpat" " qq u v w")
   )
 ;; eof t-macrocmat.melt

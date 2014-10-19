@@ -1507,7 +1507,18 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;; first pass, macro expansion
 
+;;; common function to install a global definition binding
+(defun install_global_definition (bind env modctx)
+  (debug "install_global_definition" " bind=" bind
+	 "\n.. env=" env
+	 "\n.. modctx=" modctx)
+  (assert_msg "check bind" (is_a class_any_binding bind) bind)
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+  (assert_msg "@$@unimplemented install_global_definition" ())
+  )
 
+;;; expanser
 (defun expand_restlist_as_list (arglist env mexpander modctx)
   :doc #{Expand all but the first in an argument list $ARGLIST in
   environment $ENV using expander $MEXPANDER as a list of macro
@@ -3744,7 +3755,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 ;;;(DEFMACRO macroname formals [:doc documentation] body...)
 (defun mexpand_defmacro (sexpr env mexpander modctx)
   (debug "mexpand_defmacro sexpr=" sexpr "\n.. modctx=" modctx
-	 "\n.. env=" env "\n")
+	 "\n.. env=" debug_more env "\n")
   (shortbacktrace_dbg "mexpand_defmacro" 15)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)

@@ -878,8 +878,9 @@ subclasses are produced by macro expanders.}# )
   :fields (mocx_modulename		;the module name
 	   mocx_expfieldict		;dict of exported fields
 	   mocx_expclassdict		;dict of exported classes
-	   mocx_initialenv		;the initial environment
+	   mocx_initialenv		;the initial parent environment
 	   mocx_macroenv		;the macro environment
+	   mocx_basenv 			;the current global base environment
 	   mocx_funcount		;a boxed counter for defined functions
 	   mocx_filetuple		;vector for different generated files
 	   mocx_cflags			;cflags of generated module

@@ -1,4 +1,16 @@
 
+2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (class_any_module_context): add
+	mocx_basenv field.
+	* melt/warmelt-macro.melt (install_global_definition): New
+	incomplete function..
+	* melt/warmelt-normal.melt (normexp_defcmatcher): More debug.
+	* melt/warmelt-modes.melt (makedoc_docmd): Set mocx_basenv field.
+	* melt/warmelt-outobj.melt (compile_list_sexpr)
+	(compile_first_bootstrap_list_sexpr)
+	(melt_translate_run_macroexpansions_list): Likewise.
+	* testsuite/melt/t-macrocmat.melt: Improved.
+
 2014-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (mexpand_defcmatcher): More debug.
 	* melt/warmelt-normal.melt (normexp_defcmatcher): More debug.

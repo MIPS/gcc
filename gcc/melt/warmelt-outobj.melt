@@ -7158,6 +7158,7 @@ if (1) return;
 		   :mocx_expfieldict (make_mapstring discr_map_strings 390)
 		   :mocx_expclassdict (make_mapstring discr_map_strings 140)
 		   :mocx_initialenv inienv
+		   :mocx_basenv basenv
 		   :mocx_macroenv macroenv
 		   :mocx_funcount (make_integerbox discr_integer 0)
 		   :mocx_filetuple ()
@@ -7238,6 +7239,7 @@ if (1) return;
 			  :mocx_expfieldict (make_mapstring discr_map_strings 490)
 			  :mocx_expclassdict (make_mapstring discr_map_strings 240)
 			  :mocx_initialenv ()
+			  :mocx_basenv initial_environment
 			  :mocx_macroenv macroenv
 			  :mocx_funcount (make_integerbox discr_integer 0)
 			  :mocx_filetuple ()
@@ -7555,6 +7557,7 @@ if (1) return;
 		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		     :mocx_expclassdict (make_mapstring discr_map_strings 19)
 		     :mocx_initialenv env
+		     :mocx_basenv env
 		     :mocx_macroenv macroenv
 		     :mocx_funcount (make_integerbox discr_integer 0)
 		     :mocx_filetuple ()
@@ -7856,6 +7859,7 @@ if (1) return;
 		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		     :mocx_expclassdict (make_mapstring discr_map_strings 19)
 		     :mocx_initialenv env
+		     :mocx_basenv env
 		     :mocx_macroenv macrofreshenv
 		     :mocx_funcount (make_integerbox discr_integer 0)
 		     :mocx_filetuple ()

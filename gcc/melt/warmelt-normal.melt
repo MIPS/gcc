@@ -7536,7 +7536,7 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;; normalize a DEFCMATCHER
 (defun normexp_defcmatcher (recv env ncx psloc)
-  (debug "normexp_defcmatcher recv=" recv "; env=" debug_more env)
+  (debug "normexp_defcmatcher recv=" recv "\n.. env=" debug_more env)
   (assert_msg "check defcmatcher recv" (is_a recv class_source_defcmatcher) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -7619,51 +7619,48 @@ source location.}#
 			nstatcmadata)
       )
 ;;; fill the cmatch_exptest of insdata
-    (if (is_multiple testcma)
-	(progn
-	  (fill_normal_expansion testcma testtup ncx sloc)
-	  (let ( (ntesttupdata  (instance class_nrep_datatuple
-					  :nrep_loc sloc
-					  :ndata_name sname
-					  :ndata_discrx (normal_predef discr_multiple ncx sloc "discr_multiple")
-					  :ntup_comp testtup))
-		 )
-	    (add_nctx_data ncx ntesttupdata)
-	    (multiple_put_nth slotup (get_int cmatch_exptest) ntesttupdata)
-	    )
-	  ))
+    (when (is_multiple testcma)
+      (fill_normal_expansion testcma testtup ncx sloc)
+      (let ( (ntesttupdata  (instance class_nrep_datatuple
+				      :nrep_loc sloc
+				      :ndata_name sname
+				      :ndata_discrx (normal_predef discr_multiple ncx sloc "discr_multiple")
+				      :ntup_comp testtup))
+	     )
+	(add_nctx_data ncx ntesttupdata)
+	(multiple_put_nth slotup (get_int cmatch_exptest) ntesttupdata)
+	)
+      )
 ;;; fill the cmatch_expfill of insdata
-    (if (is_multiple fillcma)
-	(progn
-	  (fill_normal_expansion fillcma filltup ncx sloc)
-	  (let ( (nfilltupdata  (instance class_nrep_datatuple
-					  :nrep_loc sloc
-					  :ndata_name sname
-					  :ndata_discrx (normal_predef discr_multiple ncx sloc "discr_multiple")
-					  :ntup_comp filltup))
-		 )
-	    (add_nctx_data ncx nfilltupdata)
-	    (multiple_put_nth slotup (get_int cmatch_expfill) nfilltupdata)
-	    )
-	  ))
+    (when (is_multiple fillcma)
+      (fill_normal_expansion fillcma filltup ncx sloc)
+      (let ( (nfilltupdata  (instance class_nrep_datatuple
+				      :nrep_loc sloc
+				      :ndata_name sname
+				      :ndata_discrx (normal_predef discr_multiple ncx sloc "discr_multiple")
+				      :ntup_comp filltup))
+	     )
+	(add_nctx_data ncx nfilltupdata)
+	(multiple_put_nth slotup (get_int cmatch_expfill) nfilltupdata)
+	)
+      )
 ;;; fill the cmatch_expoper of insdata
-    (if (is_multiple opercma)
-	(progn
-	  (fill_normal_expansion opercma opertup ncx sloc)
-	  (let ( (nopertupdata  (instance class_nrep_datatuple
-					  :nrep_loc sloc
-					  :ndata_name sname
-					  :ndata_discrx (normal_predef discr_multiple ncx sloc "discr_multiple")
-					  :ntup_comp opertup))
-		 )
-	    (add_nctx_data ncx nopertupdata)
-	    (multiple_put_nth slotup (get_int cmatch_expoper) nopertupdata)
-	    )
-	  ))
+    (when (is_multiple opercma)
+      (fill_normal_expansion opercma opertup ncx sloc)
+      (let ( (nopertupdata  (instance class_nrep_datatuple
+				      :nrep_loc sloc
+				      :ndata_name sname
+				      :ndata_discrx (normal_predef discr_multiple ncx sloc "discr_multiple")
+				      :ntup_comp opertup))
+	     )
+	(add_nctx_data ncx nopertupdata)
+	(multiple_put_nth slotup (get_int cmatch_expoper) nopertupdata)
+	)
+      )
 ;;; put the data in the binding
     (put_fields cmbind :fixbind_data insdata)
     ;; return the data
-    (debug "normexp_defcmatcher return insdata" insdata)
+    (debug "normexp_defcmatcher return insdata=" insdata)
     (return insdata ())
     )
   )
