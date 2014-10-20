@@ -80,7 +80,9 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				   '#{Generated tcc_exceptional $TREESYMB cmatcher.}#
 				   (lambda (symb)
 				     (debug "gcc_tree_code:macro2-lambdasubstdoc symb=" symb)
-				     (if (== symb 'treesymb) treesymb symb))))
+				     (if (== symb 'treesymb)
+					 (get_field :named_name treesymb)
+				       symb))))
 				 )
 			      (debug "gcc_tree_code:macro2 xcmatchdoc=" d)
 			      d))
@@ -135,6 +137,10 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     (or (== typcod 'tcc_constant)
 			 (== typcod 'tcc_declaration)
 			 )
+		     (if (>i (get_int nargcod) 0)
+			 (error_at sloc "GCC_TREE_CODE $1 of tcc_constant or tcc_declaration type with non-zero arity $2"
+				   treesymb nargcod
+				   ))
 		     (let
 			 (
 			  (xcmatchdoc
@@ -145,7 +151,9 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				  '#{Generated simple $TYPCOD $TREESYMB cmatcher.}#
 				  (lambda (symb)
 				    (debug "gcc_tree_code:macro2-lambdasubsttypcod symb=" symb)
-				    (if (== symb 'typcod) typcod symb))))
+				    (if (== symb 'typcod)
+					(get_field :named_name typcod)
+				      symb))))
 				)
 			     (debug "gcc_tree_code:macro2 xcmatchdoc=" d)
 			     d))
@@ -297,7 +305,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 			  (xcmatcher
 			   `(defcmatcher ,treesymb
 			      (:tree tr)
-			      (,tupopervar)
+			      (:tree ,tupopervar)
 			      ,statesymb
 			      :doc ,xcmatchdoc
 			      ;; match-expander
@@ -327,8 +335,9 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		      )
 		    )
 		   )
+		 (error_at sloc "unexpected GCC_TREE_CODE for $1" namev)
+		 (return ()) ;;  temporarily, happens for non-handled cases
 		 )
-	       (return ()) ;;  temporarily, happens for non-handled cases
 	       )
       )
   (debug "before loading2 libmelt-treecode")

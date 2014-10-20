@@ -1,8 +1,11 @@
 
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/t-treecode.melt: Improved, but still don't work.
+
+2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{test t-macrocmat.melt is passing!!}}
 	* testsuite/melt/t-macrocmat.melt: Improved to work!
-	
+
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (flatten_for_c_code_expansion): Also
 	accepts boxed integer.
