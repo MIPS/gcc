@@ -1,3 +1,15 @@
+2014-10-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.dg/goacc/sb-1.c: Move file...
+	* c-c++-common/goacc/sb-1.c: ... here.
+	* gcc.dg/goacc/sb-2.c: Move file...
+	* c-c++-common/goacc/sb-2.c: ... here.
+	* gcc.dg/goacc/sb-3.c: Move file...
+	* c-c++-common/goacc/sb-3.c: ... here.
+
+	* g++.dg/goacc-gomp/goacc-gomp.exp: New file.
+	* g++.dg/goacc/goacc.exp: Likewise.
+
 2014-10-09  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gcc.dg/goacc/collapse.c: Move file to
