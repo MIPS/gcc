@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 216447] MELT_1\
+const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 216455] MELT_1\
 .1.3pre4"
 
 	     #ifdef __cplusplus
@@ -39,7 +39,7 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1.3pre4/warmelt-normatch";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="316e05801e28bb79257b98a86d0231f6";
+const char melt_prepromd5meltrun[]="c6eeefc05e1448c30576efb52dc85c3e";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="e50551e93cf1ae0f1bf7d2b470eda91b";
 
