@@ -1,5 +1,15 @@
 
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{doc is generated again}}
+	* melt/warmelt-macro.melt (install_global_definition_binding):
+	Simplified an assertion for readability.
+	(mexpand_defselector): Don't check the selector classname if it is
+	the CLASS_SELECTOR symbol.
+
+	* melt/warmelt-modes.melt (makedoc_docmd): Improved to have a
+	basenv, etc...
+
+2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>

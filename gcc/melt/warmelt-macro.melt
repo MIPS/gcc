@@ -1530,7 +1530,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		  )
 	     (forever checkenvloop
 		      (cond ( (null curenv)
-			      (assert_msg "badly nested env" curenv env basenv))
+			      (assert_msg "badly nested env" () env basenv))
 			    ( (== curenv basenv)
 			      (exit checkenvloop))
 			    (:else
@@ -4898,7 +4898,7 @@ etc.}#)
 	  ))
 	;;
 	(debug "mexpand_defselector cla" cla)
-	(when (not (subclass_or_eq cla class_selector))
+	(when (and (!= claname 'class_selector) (not (subclass_or_eq cla class_selector)))
 	  (debug "mexpand_defselector class_selector=" class_selector)
 	  (error_at loc "invalid class $1 in (DEFSELECTOR $2 <class>); expecting CLASS_SELECTOR or its subclass"_
 		    (unsafe_get_field :named_name claname) symbname)

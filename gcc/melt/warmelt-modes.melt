@@ -38,7 +38,8 @@
 
 
 (defun install_melt_mode (mode :cstring modename)
-  :doc #{$INSTALL_MELT_MODE installs a new MELT mode, ie an instance of $CLASS_MELT_MODE. If $MODE has no :named_name use $MODENAME.}#
+  :doc #{$INSTALL_MELT_MODE installs a new MELT mode, ie an instance of $CLASS_MELT_MODE.
+If $MODE has no :named_name use $MODENAME.}#
   (debug "install_melt_mode mode=" mode "\n.. modename=" modename)
   (assert_msg "check mode" (is_a mode class_melt_mode) mode)
   (let ( (cmdict (get_field :sysdata_mode_dict initial_system_data))
@@ -1782,6 +1783,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		  (add2out sbuf "meltmakedoc_")
 		  (add2out_cident sbuf (make_string_nakedbasename discr_string outarg))
 		  (strbuf2string discr_string sbuf)))
+	(basenv (fresh_env curenv (tuple 'base-doc outarg)))
 	(macroenv (fresh_env curenv (tuple 'macro-doc outarg)))
 	(mdinfo 
 	 (instance class_makedoc_module_context
@@ -1790,7 +1792,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		   :mocx_expclassdict (make_mapstring discr_map_strings 131)
 		   :mocx_initialenv curenv
 		   :mocx_macroenv macroenv
-		   :mocx_basenv curenv
+		   :mocx_basenv basenv
 		   :mocx_funcount (make_integerbox discr_integer 0)
 		   :mocx_filetuple ()
 		   :mocx_cheaderlist (make_list discr_list)
@@ -1839,13 +1841,12 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        curargfile
        (debug "make_list curargfile=" curargfile)
        (let ( (curead (read_file curargfile))
-	      (newenv (fresh_env curenv (tuple 'env-doc modnam curargfile)))
 	      )
 	 (debug "makedoc_docmd curead=" curead "\n..curargfile=" curargfile)
 	 (assert_msg "check curead" (is_list_or_null curead) curead)
 	 (inform_at () "mode makedoc read $1 s-expressions from file $2" (list_length curead) curargfile)
 	 (list_append2list rlist curead)
-	 (let ( (curxlist (macroexpand_toplevel_list curead newenv macroexpand_1 mdinfo))
+	 (let ( (curxlist (macroexpand_toplevel_list curead basenv macroexpand_1 mdinfo))
 		(:long curxlistlen (list_length curxlist))
 		)
 	   (inform_at () "mode makedoc macro-expanded $1 expressions from file $2" curxlistlen curargfile)
