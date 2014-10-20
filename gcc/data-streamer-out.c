@@ -171,6 +171,13 @@ streamer_write_uhwi (struct output_block *ob, unsigned HOST_WIDE_INT work)
   streamer_write_uhwi_stream (ob->main_stream, work);
 }
 
+/* Write an unsigned HOST_WIDEST_FAST_INT value WORK to OB->main_stream.  */
+
+void
+streamer_write_uhwfi (struct output_block *ob, unsigned HOST_WIDEST_FAST_INT work)
+{
+  streamer_write_uhwfi_stream (ob->main_stream, work);
+}
 
 /* Write a HOST_WIDE_INT value WORK to OB->main_stream.  */
 
@@ -188,11 +195,11 @@ streamer_write_gcov_count (struct output_block *ob, gcov_type work)
   streamer_write_gcov_count_stream (ob->main_stream, work);
 }
 
-/* Write an unsigned HOST_WIDE_INT value WORK to OBS.  */
+/* Write an unsigned type T value WORK to OBS.  */
 
+template<typename T>
 void
-streamer_write_uhwi_stream (struct lto_output_stream *obs,
-                            unsigned HOST_WIDE_INT work)
+streamer_write_uhwi_stream (struct lto_output_stream *obs, T work)
 {
   if (obs->left_in_block == 0)
     lto_append_block (obs);
@@ -237,6 +244,19 @@ streamer_write_uhwi_stream (struct lto_output_stream *obs,
   obs->total_size += size;
 }
 
+void
+streamer_write_uhwi_stream (struct lto_output_stream *obs,
+			    unsigned HOST_WIDE_INT work)
+{
+  streamer_write_uhwi_stream<unsigned HOST_WIDE_INT> (obs, work);
+}
+
+void
+streamer_write_uhwfi_stream (struct lto_output_stream *obs,
+			    unsigned HOST_WIDEST_FAST_INT work)
+{
+  streamer_write_uhwi_stream<unsigned HOST_WIDEST_FAST_INT> (obs, work);
+}
 
 /* Write a HOST_WIDE_INT value WORK to OBS.  */
 

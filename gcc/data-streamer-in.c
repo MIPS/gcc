@@ -122,13 +122,14 @@ bp_unpack_string (struct data_in *data_in, struct bitpack_d *bp)
 }
 
 
-/* Read an unsigned HOST_WIDE_INT number from IB.  */
+/* Read an unsigned type T number from IB.  */
 
-unsigned HOST_WIDE_INT
+template<typename T> T
 streamer_read_uhwi (struct lto_input_block *ib)
 {
-  unsigned HOST_WIDE_INT result;
+  T result;
   int shift;
+  /* unsigned HOST_WIDE_INT byte; */
   unsigned HOST_WIDE_INT byte;
   unsigned int p = ib->p;
   unsigned int len = ib->len;
@@ -156,6 +157,21 @@ streamer_read_uhwi (struct lto_input_block *ib)
   return result;
 }
 
+/* Read an unsigned HOST_WIDE_INT number from IB.  */
+
+unsigned HOST_WIDE_INT
+streamer_read_uhwi (struct lto_input_block *ib)
+{
+  return streamer_read_uhwi<unsigned HOST_WIDE_INT> (ib);
+}
+
+/* Read an unsigned HOST_WIDE_INT number from IB.  */
+
+unsigned HOST_WIDEST_FAST_INT
+streamer_read_uhwfi (struct lto_input_block *ib)
+{
+  return streamer_read_uhwi<unsigned HOST_WIDEST_FAST_INT> (ib);
+}
 
 /* Read a HOST_WIDE_INT number from IB.  */
 

@@ -53,6 +53,7 @@ HOST_WIDE_INT bp_unpack_var_len_int (struct bitpack_d *);
 /* In data-streamer-out.c  */
 void streamer_write_zero (struct output_block *);
 void streamer_write_uhwi (struct output_block *, unsigned HOST_WIDE_INT);
+void streamer_write_uhwfi (struct output_block *, unsigned HOST_WIDEST_FAST_INT);
 void streamer_write_hwi (struct output_block *, HOST_WIDE_INT);
 void streamer_write_gcov_count (struct output_block *, gcov_type);
 void streamer_write_string (struct output_block *, struct lto_output_stream *,
@@ -68,6 +69,8 @@ void bp_pack_string (struct output_block *, struct bitpack_d *,
 		     const char *, bool);
 void streamer_write_uhwi_stream (struct lto_output_stream *,
 				 unsigned HOST_WIDE_INT);
+void streamer_write_uhwfi_stream (struct lto_output_stream *,
+				 unsigned HOST_WIDEST_FAST_INT);
 void streamer_write_hwi_stream (struct lto_output_stream *, HOST_WIDE_INT);
 void streamer_write_gcov_count_stream (struct lto_output_stream *, gcov_type);
 
@@ -81,6 +84,7 @@ const char *bp_unpack_indexed_string (struct data_in *, struct bitpack_d *,
 				      unsigned int *);
 const char *bp_unpack_string (struct data_in *, struct bitpack_d *);
 unsigned HOST_WIDE_INT streamer_read_uhwi (struct lto_input_block *);
+unsigned HOST_WIDEST_FAST_INT streamer_read_uhwfi (struct lto_input_block *);
 HOST_WIDE_INT streamer_read_hwi (struct lto_input_block *);
 gcov_type streamer_read_gcov_count (struct lto_input_block *);
 
