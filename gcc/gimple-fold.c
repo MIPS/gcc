@@ -64,7 +64,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-eh.h"
 #include "gimple-match.h"
 
-
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
    We can get declarations that are not possible to reference for various
@@ -5538,7 +5537,6 @@ rewrite_to_defined_overflow (gimple stmt)
 }
 
 
-
 /* Build the expression CODE OP0 of type TYPE with location LOC,
    simplifying it first if possible using VALUEIZE if not NULL.
    OP0 is expected to be valueized already.  Returns the built
@@ -5596,7 +5594,6 @@ gimple_build (gimple_seq *seq, location_t loc,
     }
   return res;
 }
-
 
 /* Build the expression (CODE OP0 OP1 OP2) of type TYPE with location LOC,
    simplifying it first if possible using VALUEIZE if not NULL.
@@ -5725,3 +5722,16 @@ gimple_build (gimple_seq *seq, location_t loc,
   return res;
 }
 
+/* Build the conversion (TYPE) OP with a result of type TYPE
+   with location LOC if such conversion is neccesary in GIMPLE,
+   simplifying it first.
+   Returns the built expression value and appends
+   statements possibly defining it to SEQ.  */
+
+tree
+gimple_convert (gimple_seq *seq, location_t loc, tree type, tree op)
+{
+  if (useless_type_conversion_p (type, TREE_TYPE (op)))
+    return op;
+  return gimple_build (seq, loc, NOP_EXPR, type, op);
+}

@@ -1,3 +1,8 @@
+2014-10-20  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (gimple_convert): Move out-of-line from ...
+	* gimple-fold.h (gimple_convert): ... here.
+
 2014-10-17  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r216316 through r216394.
