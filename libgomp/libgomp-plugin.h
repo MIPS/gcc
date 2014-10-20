@@ -31,27 +31,27 @@
 
 /* alloc.c */
 
-extern void *gomp_plugin_malloc (size_t) __attribute__((malloc));
-extern void *gomp_plugin_malloc_cleared (size_t) __attribute__((malloc));
-extern void *gomp_plugin_realloc (void *, size_t);
+extern void *GOMP_PLUGIN_malloc (size_t) __attribute__((malloc));
+extern void *GOMP_PLUGIN_malloc_cleared (size_t) __attribute__((malloc));
+extern void *GOMP_PLUGIN_realloc (void *, size_t);
 
 /* error.c */
 
-extern void gomp_plugin_notify(const char *msg, ...);
-extern void gomp_plugin_error (const char *, ...)
+extern void GOMP_PLUGIN_notify(const char *msg, ...);
+extern void GOMP_PLUGIN_error (const char *, ...)
 	__attribute__((format (printf, 1, 2)));
-extern void gomp_plugin_fatal (const char *, ...)
+extern void GOMP_PLUGIN_fatal (const char *, ...)
 	__attribute__((noreturn, format (printf, 1, 2)));
 
 /* mutex.c */
 
-extern void gomp_plugin_mutex_init (gomp_mutex_t *mutex);
-extern void gomp_plugin_mutex_destroy (gomp_mutex_t *mutex);
-extern void gomp_plugin_mutex_lock (gomp_mutex_t *mutex);
-extern void gomp_plugin_mutex_unlock (gomp_mutex_t *mutex);
+extern void GOMP_PLUGIN_mutex_init (gomp_mutex_t *mutex);
+extern void GOMP_PLUGIN_mutex_destroy (gomp_mutex_t *mutex);
+extern void GOMP_PLUGIN_mutex_lock (gomp_mutex_t *mutex);
+extern void GOMP_PLUGIN_mutex_unlock (gomp_mutex_t *mutex);
 
 /* target.c */
 
-extern void gomp_plugin_async_unmap_vars (void *ptr);
+extern void GOMP_PLUGIN_async_unmap_vars (void *ptr);
 
 #endif

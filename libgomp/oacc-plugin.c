@@ -37,7 +37,7 @@ ACC_plugin_register (struct gomp_device_descr *device)
 
 
 void
-gomp_plugin_async_unmap_vars (void *ptr)
+GOMP_PLUGIN_async_unmap_vars (void *ptr)
 {
   struct target_mem_desc *tgt = ptr;
   

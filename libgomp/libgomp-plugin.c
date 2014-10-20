@@ -31,25 +31,25 @@
 #include "target.h"
 
 void *
-gomp_plugin_malloc (size_t size)
+GOMP_PLUGIN_malloc (size_t size)
 {
   return gomp_malloc (size);
 }
 
 void *
-gomp_plugin_malloc_cleared (size_t size)
+GOMP_PLUGIN_malloc_cleared (size_t size)
 {
   return gomp_malloc_cleared (size);
 }
 
 void *
-gomp_plugin_realloc (void *ptr, size_t size)
+GOMP_PLUGIN_realloc (void *ptr, size_t size)
 {
   return gomp_realloc (ptr, size);
 }
 
 void
-gomp_plugin_error (const char *msg, ...)
+GOMP_PLUGIN_error (const char *msg, ...)
 {
   va_list ap;
   
@@ -59,7 +59,7 @@ gomp_plugin_error (const char *msg, ...)
 }
 
 void
-gomp_plugin_notify (const char *msg, ...)
+GOMP_PLUGIN_notify (const char *msg, ...)
 {
   va_list ap;
   
@@ -69,7 +69,7 @@ gomp_plugin_notify (const char *msg, ...)
 }
 
 void
-gomp_plugin_fatal (const char *msg, ...)
+GOMP_PLUGIN_fatal (const char *msg, ...)
 {
   va_list ap;
   
@@ -82,25 +82,25 @@ gomp_plugin_fatal (const char *msg, ...)
 }
 
 void
-gomp_plugin_mutex_init (gomp_mutex_t *mutex)
+GOMP_PLUGIN_mutex_init (gomp_mutex_t *mutex)
 {
   gomp_mutex_init (mutex);
 }
 
 void
-gomp_plugin_mutex_destroy (gomp_mutex_t *mutex)
+GOMP_PLUGIN_mutex_destroy (gomp_mutex_t *mutex)
 {
   gomp_mutex_destroy (mutex);
 }
 
 void
-gomp_plugin_mutex_lock (gomp_mutex_t *mutex)
+GOMP_PLUGIN_mutex_lock (gomp_mutex_t *mutex)
 {
   gomp_mutex_lock (mutex);
 }
 
 void
-gomp_plugin_mutex_unlock (gomp_mutex_t *mutex)
+GOMP_PLUGIN_mutex_unlock (gomp_mutex_t *mutex)
 {
   gomp_mutex_unlock (mutex);
 }

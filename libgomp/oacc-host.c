@@ -46,7 +46,7 @@
 
 #ifdef HOST_NONSHM_PLUGIN
 #define STATIC
-#define GOMP(X) gomp_plugin_##X
+#define GOMP(X) GOMP_PLUGIN_##X
 #define SELF "host_nonshm plugin: "
 #else
 #define STATIC static

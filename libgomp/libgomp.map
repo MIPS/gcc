@@ -326,15 +326,15 @@ GOACC_2.0 {
 # FIXME: Hygiene/grouping/naming?
 PLUGIN_1.0 {
   global:
-	gomp_plugin_malloc;
-	gomp_plugin_malloc_cleared;
-	gomp_plugin_realloc;
-	gomp_plugin_error;
-	gomp_plugin_notify;
-	gomp_plugin_fatal;
-	gomp_plugin_mutex_init;
-	gomp_plugin_mutex_destroy;
-	gomp_plugin_mutex_lock;
-	gomp_plugin_mutex_unlock;
-	gomp_plugin_async_unmap_vars;
+	GOMP_PLUGIN_malloc;
+	GOMP_PLUGIN_malloc_cleared;
+	GOMP_PLUGIN_realloc;
+	GOMP_PLUGIN_error;
+	GOMP_PLUGIN_notify;
+	GOMP_PLUGIN_fatal;
+	GOMP_PLUGIN_mutex_init;
+	GOMP_PLUGIN_mutex_destroy;
+	GOMP_PLUGIN_mutex_lock;
+	GOMP_PLUGIN_mutex_unlock;
+	GOMP_PLUGIN_async_unmap_vars;
 };
