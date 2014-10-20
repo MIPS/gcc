@@ -333,9 +333,7 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 search_path = $(addprefix $(top_srcdir)/config/, $(config_path)) $(top_srcdir)
 fincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/finclude
 libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
-AM_CPPFLAGS = $(addprefix -I, $(search_path)) \
-	$(addprefix -I, $(search_path)/../include)
-
+AM_CPPFLAGS = $(addprefix -I, $(search_path)) -I$(top_srcdir)/../include
 AM_CFLAGS = $(XCFLAGS)
 AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
 toolexeclib_LTLIBRARIES = libgomp.la $(am__append_1) \

@@ -1,5 +1,11 @@
 2014-10-20  Julian Brown  <julian@codesourcery.com>
 
+	* Makefile.am (AM_CPPFLAGS): Fix search path for locating
+	gomp-constants.h.
+	* Makefile.in: Regenerate.
+
+2014-10-20  Julian Brown  <julian@codesourcery.com>
+
 	* libgomp-plugin.c (gomp_plugin_*): Rename to...
 	(GOMP_PLUGIN_*): This.
 	* libgomp-plugin.h: Likewise.

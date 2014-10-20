@@ -14,8 +14,7 @@ libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 
 vpath % $(strip $(search_path))
 
-AM_CPPFLAGS = $(addprefix -I, $(search_path)) \
-	$(addprefix -I, $(search_path)/../include)
+AM_CPPFLAGS = $(addprefix -I, $(search_path)) -I$(top_srcdir)/../include
 AM_CFLAGS = $(XCFLAGS)
 AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
 
