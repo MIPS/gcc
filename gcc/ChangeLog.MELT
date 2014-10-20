@@ -1,5 +1,8 @@
 
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{unstable, doc is not generated}}
 	* melt/warmelt-macro.melt (mexpand_defprimitive)
 	(mexpand_defciterator, mexpand_defcmatcher, mexpand_defunmatcher)
