@@ -1067,6 +1067,8 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
       DLSYM_OPT (openacc.get_device_num, openacc_get_device_num);
       DLSYM_OPT (openacc.set_device_num, openacc_set_device_num);
       DLSYM_OPT (openacc.avail, openacc_avail);
+      DLSYM_OPT (openacc.register_async_cleanup,
+		 openacc_register_async_cleanup);
       DLSYM_OPT (openacc.async_test, openacc_async_test);
       DLSYM_OPT (openacc.async_test_all, openacc_async_test_all);
       DLSYM_OPT (openacc.async_wait, openacc_async_wait);

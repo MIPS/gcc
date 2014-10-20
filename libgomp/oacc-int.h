@@ -64,6 +64,9 @@ typedef struct ACC_dispatch_t
   void (*exec_func) (void (*) (void *), size_t, void **, void **, size_t *,
 		     unsigned short *, int, int, int, int, void *);
 
+  /* async cleanup callback registration */
+  void (*register_async_cleanup_func) (void *);
+
   /* asynchronous routines  */
   int (*async_test_func) (int);
   int (*async_test_all_func) (void);

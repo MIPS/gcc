@@ -1,5 +1,28 @@
 2014-10-20  Julian Brown  <julian@codesourcery.com>
 
+	* oacc-host.c (openacc_register_async_cleanup): New.
+	(host_dispatch): Initialise register_async_cleanup_func entry.
+	* oacc-int.h (struct ACC_dispatch_t): Add
+	register_async_cleanup_func hook.
+	* oacc-parallel.c (GOACC_parallel): Call
+	register_async_cleanup_func hook after queuing asynchronous
+	copy-back.
+	* plugin-nvptx.c (enum PTX_event_type): Add PTX_EVT_ASYNC_CLEANUP.
+	(struct PTX_event): Remove tgt field.
+	(event_gc): Don't do async cleanup in PTX_EVT_KNL, do it in
+	PTX_EVT_ASYNC_CLEANUP instead.
+	(event_add): Remove tgt argument. Support PTX_EVT_ASYNC_CLEANUP
+	events.
+	(PTX_exec, PTX_host2dev, PTX_dev2host, PTX_wait_async)
+	(PTX_wait_all_async): Update calls to event_add.
+	(openacc_register_async_cleanup): New.
+	(PTX_async_test): Call event_gc on success path.
+	(PTX_async_test_all): Likewise.
+	* target.c (gomp_load_plugin_for_device): Initialise
+	register_async_cleanup hook.
+
+2014-10-20  Julian Brown  <julian@codesourcery.com>
+
 	* Makefile.am (AM_CPPFLAGS): Fix search path for locating
 	gomp-constants.h.
 	* Makefile.in: Regenerate.

@@ -213,7 +213,10 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
   if (async < acc_async_noval)
     gomp_unmap_vars (tgt, true);
   else
-    gomp_copy_from_async (tgt);
+    {
+      gomp_copy_from_async (tgt);
+      ACC_dev->openacc.register_async_cleanup_func (tgt);
+    }
 
   ACC_dev->openacc.async_set_async_func (acc_async_sync);
 }

@@ -294,6 +294,16 @@ openacc_parallel (void (*fn) (void *), size_t mapnum __attribute__((unused)),
 }
 
 STATIC void
+openacc_register_async_cleanup (void *targ_mem_desc)
+{
+#ifdef HOST_NONSHM_PLUGIN
+  /* "Asynchronous" launches are executed synchronously on the (non-SHM) host,
+     so there's no point in delaying host-side cleanup -- just do it now.  */
+  GOMP_PLUGIN_async_unmap_vars (targ_mem_desc);
+#endif
+}
+
+STATIC void
 openacc_async_set_async (int async __attribute__((unused)))
 {
 #ifdef DEBUG
@@ -396,6 +406,8 @@ static struct gomp_device_descr host_dispatch =
       .avail_func = openacc_avail,
 
       .exec_func = openacc_parallel,
+
+      .register_async_cleanup_func = openacc_register_async_cleanup,
 
       .async_set_async_func = openacc_async_set_async,
       .async_test_func = openacc_async_test,

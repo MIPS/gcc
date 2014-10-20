@@ -317,7 +317,8 @@ enum PTX_event_type
 {
   PTX_EVT_MEM,
   PTX_EVT_KNL,
-  PTX_EVT_SYNC
+  PTX_EVT_SYNC,
+  PTX_EVT_ASYNC_CLEANUP
 };
 
 struct PTX_event
@@ -325,7 +326,6 @@ struct PTX_event
   CUevent *evt;
   int type;
   void *addr;
-  void *tgt;
   int ord;
   SLIST_ENTRY(PTX_event) next;
 };
@@ -946,6 +946,10 @@ event_gc (bool memmap_lockable)
 	      break;
 	    
 	    case PTX_EVT_KNL:
+              map_pop (ptx_event->addr);
+	      break;
+
+	    case PTX_EVT_ASYNC_CLEANUP:
               {
 	        /* The function GOMP_PLUGIN_async_unmap_vars needs to claim the
 		   memory-map splay tree lock for the current device, so we
@@ -955,9 +959,7 @@ event_gc (bool memmap_lockable)
 	        if (!memmap_lockable)
 		  goto next_event;
 
-        	map_pop (ptx_event->addr);
-		if (ptx_event->tgt)
-		  GOMP_PLUGIN_async_unmap_vars (ptx_event->tgt);
+		GOMP_PLUGIN_async_unmap_vars (ptx_event->addr);
               }
 	      break;
 	    }
@@ -978,17 +980,17 @@ event_gc (bool memmap_lockable)
 }
 
 static void
-event_add (enum PTX_event_type type, CUevent *e, void *h, void *tgt)
+event_add (enum PTX_event_type type, CUevent *e, void *h)
 {
   struct PTX_event *ptx_event;
 
-  assert (type == PTX_EVT_MEM || type == PTX_EVT_KNL || type == PTX_EVT_SYNC);
+  assert (type == PTX_EVT_MEM || type == PTX_EVT_KNL || type == PTX_EVT_SYNC
+	  || type == PTX_EVT_ASYNC_CLEANUP);
 
   ptx_event = GOMP_PLUGIN_malloc (sizeof (struct PTX_event));
   ptx_event->type = type;
   ptx_event->evt = e;
   ptx_event->addr = h;
-  ptx_event->tgt = tgt;
   ptx_event->ord = PTX_dev->ord;
 
   GOMP_PLUGIN_mutex_lock (&PTX_event_lock);
@@ -1092,7 +1094,7 @@ PTX_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
       if (r != CUDA_SUCCESS)
         GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuErrorMsg (r));
 
-      event_add (PTX_EVT_KNL, e, (void *)dev_str, targ_mem_desc);
+      event_add (PTX_EVT_KNL, e, (void *)dev_str);
     }
 #else
   r = cuCtxSynchronize ();
@@ -1194,7 +1196,7 @@ PTX_host2dev (void *d, const void *h, size_t s)
       if (r != CUDA_SUCCESS)
         GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuErrorMsg (r));
 
-      event_add (PTX_EVT_MEM, e, (void *)h, NULL);
+      event_add (PTX_EVT_MEM, e, (void *)h);
     }
   else
 #endif
@@ -1257,7 +1259,7 @@ PTX_dev2host (void *h, const void *d, size_t s)
       if (r != CUDA_SUCCESS)
         GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuErrorMsg (r));
 
-      event_add (PTX_EVT_MEM, e, (void *)h, NULL);
+      event_add (PTX_EVT_MEM, e, (void *)h);
     }
   else
 #endif
@@ -1289,7 +1291,15 @@ PTX_async_test (int async)
 
   r = cuStreamQuery (s->stream);
   if (r == CUDA_SUCCESS)
-    return 1;
+    {
+      /* The oacc-parallel.c:goacc_wait function calls this hook to determine
+	 whether all work has completed on this stream, and if so omits the call
+	 to the wait hook.  If that happens, event_gc might not get called
+	 (which prevents variables from getting unmapped and their associated
+	 device storage freed), so call it here.  */
+      event_gc (true);
+      return 1;
+    }
   else if (r == CUDA_ERROR_NOT_READY)
     return 0;
 
@@ -1317,6 +1327,8 @@ PTX_async_test_all (void)
     }
 
   GOMP_PLUGIN_mutex_unlock (&PTX_dev->stream_lock);
+
+  event_gc (true);
 
   return 1;
 }
@@ -1370,7 +1382,7 @@ PTX_wait_async (int async1, int async2)
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuErrorMsg (r));
 
-  event_add (PTX_EVT_SYNC, e, NULL, NULL);
+  event_add (PTX_EVT_SYNC, e, NULL);
 
   r = cuStreamWaitEvent (s2->stream, *e, 0);
   if (r != CUDA_SUCCESS)
@@ -1448,7 +1460,7 @@ PTX_wait_all_async (int async)
       if (r != CUDA_SUCCESS)
 	GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuErrorMsg (r));
 
-      event_add (PTX_EVT_SYNC, e, NULL, NULL);
+      event_add (PTX_EVT_SYNC, e, NULL);
 
       r = cuStreamWaitEvent (waiting_stream->stream, *e, 0);
       if (r != CUDA_SUCCESS)
@@ -1769,6 +1781,30 @@ openacc_avail (void)
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
 #endif
   return PTX_avail ();
+}
+
+void
+openacc_register_async_cleanup (void *targ_mem_desc)
+{
+  CUevent *e;
+  CUresult r;
+
+#ifdef DEBUG
+  fprintf (stderr, "libgomp plugin: %s:%s (%p)\n", __FILE__, __FUNCTION__,
+          targ_mem_desc);
+#endif
+
+  e = (CUevent *) GOMP_PLUGIN_malloc (sizeof (CUevent));
+
+  r = cuEventCreate (e, CU_EVENT_DISABLE_TIMING);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuEventCreate error: %s", cuErrorMsg (r));
+
+  r = cuEventRecord (*e, current_stream->stream);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuErrorMsg (r));
+
+  event_add (PTX_EVT_ASYNC_CLEANUP, e, targ_mem_desc);
 }
 
 int
