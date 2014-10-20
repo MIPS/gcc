@@ -1,3 +1,8 @@
+2014-10-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_parser_omp_clause_name): Consider CPP_KEYWORD
+	typed tokens as clauses for delete.
+
 2014-10-15  James Norris  <jnorris@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
 	    Ilmir Usmanov  <i.usmanov@samsung.com>

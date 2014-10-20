@@ -27321,7 +27321,9 @@ cp_parser_omp_clause_name (cp_parser *parser)
     result = PRAGMA_OMP_CLAUSE_PRIVATE;
   else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
     result = PRAGMA_OMP_CLAUSE_FOR;
-  else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+  /* The lexer classifies "delete" as a keyword.  */
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
+	   || cp_lexer_next_token_is (parser->lexer, CPP_KEYWORD))
     {
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
       const char *p = IDENTIFIER_POINTER (id);
