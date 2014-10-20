@@ -1,3 +1,10 @@
+2014-10-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (pkgconfigdir): Drop this.
+	(installdirs): Likewise.
+	* configure.ac (gcc_version): Don't AC_SUBST this.
+	* configure: Regenerate.
+
 2014-10-17  David Malcolm  <dmalcolm@redhat.com>
 
 	* Makefile.in (FULL_DRIVER_NAME): New variable, adapted from the

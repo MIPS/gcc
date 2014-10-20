@@ -825,7 +825,6 @@ build_os
 build_vendor
 build_cpu
 build
-gcc_version
 target_alias
 host_alias
 build_alias
@@ -3041,7 +3040,6 @@ ac_config_headers="$ac_config_headers auto-host.h:config.in"
 
 
 gcc_version=`cat $srcdir/BASE-VER`
-
 
 # Determine the host, build, and target systems
 ac_aux_dir=
@@ -18093,7 +18091,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18096 "configure"
+#line 18094 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18199,7 +18197,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18202 "configure"
+#line 18200 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

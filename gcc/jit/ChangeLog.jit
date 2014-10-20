@@ -1,3 +1,10 @@
+2014-10-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* Make-lang.in (jit.install-common): Drop installation of
+	libgccjit.pc.
+	* config-lang.in (outputs): Drop jit/libgccjit.pc.
+	* libgccjit.pc.in: Delete.
+
 2014-10-17  David Malcolm  <dmalcolm@redhat.com>
 
 	* Make-lang.in (jit): Add $(FULL_DRIVER_NAME) as a dependency, so
