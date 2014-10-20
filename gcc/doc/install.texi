@@ -491,6 +491,11 @@ Necessary for running @command{texi2dvi} and @command{texi2pdf}, which
 are used when running @command{make dvi} or @command{make pdf} to create
 DVI or PDF files, respectively.
 
+@item Sphinx (any working version)
+
+Necessary to regenerate @file{jit/docs/_build/texinfo} from the .rst
+files in the directories below @file{jit/docs}.
+
 @item SVN (any version)
 @itemx SSH (any version)
 

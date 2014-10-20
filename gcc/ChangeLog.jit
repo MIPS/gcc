@@ -1,5 +1,10 @@
 2014-10-20  David Malcolm  <dmalcolm@redhat.com>
 
+	* doc/install.texi (Tools/packages necessary for modifying GCC):
+	Add Sphinx.
+
+2014-10-20  David Malcolm  <dmalcolm@redhat.com>
+
 	* Makefile.in (pkgconfigdir): Drop this.
 	(installdirs): Likewise.
 	* configure.ac (gcc_version): Don't AC_SUBST this.
