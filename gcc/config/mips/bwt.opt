@@ -1,0 +1,57 @@
+; Copyright (C) 2014 BluWireless Technologies Ltd
+; Options for the MIPS port of the compiler
+;
+; Copyright (C) 2005, 2007, 2008, 2010, 2011 Free Software Foundation, Inc.
+;
+; This file is part of GCC.
+;
+; GCC is free software; you can redistribute it and/or modify it under
+; the terms of the GNU General Public License as published by the Free
+; Software Foundation; either version 3, or (at your option) any later
+; version.
+;
+; GCC is distributed in the hope that it will be useful, but WITHOUT
+; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+; License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
+
+HeaderInclude
+config/mips/bwt-opts.h
+
+mbwt=
+Target RejectNegative Joined Var(bwt_option) 
+-mbwt=design      Generate code for the given design
+
+mno-bwt-intrinsics
+Target Report RejectNegative Var(TARGET_BWT_INTRINSICS, 0) Init(1)
+Do not use BWT intrinsics 
+
+mno-bwt-emit-use
+Target Report RejectNegative Var(TARGET_BWT_EMIT_USE, 0) Init(1)
+Do not add emit_use when large constants are split
+
+mno-bwt-popfix
+Target Report RejectNegative Var(TARGET_BWT_POPFIX, 0) Init(1)
+Do not apply pop workaround, default is to apply workaround
+
+; The code model option names for -mbwt-intrinsics
+
+Enum
+Name(imodel) Type(enum bwt_intrinsics_model)
+The intrinsics model option names for -mbwt_intrinsics:
+
+EnumValue
+Enum(imodel) String(current) Value(BWT_INTRINSICS_CURRENT)
+
+EnumValue
+Enum(imodel) String(i2) Value(BWT_INTRINSICS_I2)
+
+mbwt-intrinsics=
+Target RejectNegative Joined Enum(imodel) Var(bwt_model_var) Init(BWT_INTRINSICS_CURRENT)
+Specify the intrinsics model; current (default); i2 (volatile insn,-mno-bwt-emit-use)
+
+

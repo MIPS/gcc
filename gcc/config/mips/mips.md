@@ -1074,6 +1074,10 @@
 (include "7000.md")
 (include "9000.md")
 (include "10000.md")
+;; BWT
+(include "bwt.md")
+(include "bwt_i2.md")
+;; 
 (include "loongson2ef.md")
 (include "loongson3a.md")
 (include "octeon.md")

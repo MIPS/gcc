@@ -420,3 +420,6 @@ Optimize frame header
 
 noasmopt
 Driver
+
+; ToLower Enum(mips_arch_opt_value)
+

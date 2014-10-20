@@ -1,3 +1,4 @@
+#!/bin/sh -x
 # GCC target-specific configuration file.
 # Copyright (C) 1997-2013 Free Software Foundation, Inc.
 
@@ -2010,6 +2011,20 @@ mipsisa64sb1-*-elf* | mipsisa64sb1el-*-elf*)
 mips-*-elf* | mipsel-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h"
 	tmake_file="mips/t-elf"
+      case ${target} in
+          mips-bwt-elf)
+          extra_headers="bwt_intrinsics.h"
+          tmake_file="${tmake_file} mips/t-bwt"
+            tm_defines="${tm_defines} TARGET_ENDIAN_DEFAULT=0" # little
+            tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33"     # mips32r2
+            tm_defines="${tm_defines} MIPS_ABI_DEFAULT=0"      # ABI_32
+            tm_defines="${tm_defines} BWT=1"      # ABI_32
+            tm_file="${tm_file} mips/bwt-elf.h"
+            tm_p_file="${tm_p_file} mips/udimacros.h"
+          extra_options="${extra_options} mips/bwt.opt"
+          extra_objs="bwt.o"
+          ;;
+      esac
 	;;
 mips64-*-elf* | mips64el-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h"

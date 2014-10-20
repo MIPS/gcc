@@ -183,10 +183,23 @@ enum mips_address_type {
 };
 
 /* Macros to create an enumeration identifier for a function prototype.  */
+#if defined(BWT)
+#define MIPS_FTYPE_NAME0(A) MIPS_##A##_FTYPE
+#endif
 #define MIPS_FTYPE_NAME1(A, B) MIPS_##A##_FTYPE_##B
 #define MIPS_FTYPE_NAME2(A, B, C) MIPS_##A##_FTYPE_##B##_##C
 #define MIPS_FTYPE_NAME3(A, B, C, D) MIPS_##A##_FTYPE_##B##_##C##_##D
 #define MIPS_FTYPE_NAME4(A, B, C, D, E) MIPS_##A##_FTYPE_##B##_##C##_##D##_##E
+#if defined(BWT)
+#define MIPS_FTYPE_NAME5(A, B, C, D, E, F) \
+            MIPS_##A##_FTYPE_##B##_##C##_##D##_##E##_##F
+#define MIPS_FTYPE_NAME6(A, B, C, D, E, F, G) \
+            MIPS_##A##_FTYPE_##B##_##C##_##D##_##E##_##F##_##G
+#define MIPS_FTYPE_NAME7(A, B, C, D, E, F, G, H) \
+            MIPS_##A##_FTYPE_##B##_##C##_##D##_##E##_##F##_##G##_##H
+#define MIPS_FTYPE_NAME8(A, B, C, D, E, F, G, H, I) \
+            MIPS_##A##_FTYPE_##B##_##C##_##D##_##E##_##F##_##G##_##H##_##I
+#endif
 
 /* Classifies the prototype of a built-in function.  */
 enum mips_function_type {
@@ -3343,6 +3356,10 @@ mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
 	}
       else
 	x = force_reg (mode, x);
+#if defined(BWT)
+      if (TARGET_BWT_EMIT_USE && bwt_model_var != BWT_INTRINSICS_I2) 
+        emit_use(x) ;
+#endif
       x = gen_rtx_fmt_ee (codes[i].code, mode, x, GEN_INT (codes[i].value));
     }
 
@@ -3625,6 +3642,9 @@ m16_nsimm8_8 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 static int
 mips16_constant_cost (int code, HOST_WIDE_INT x)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   switch (code)
     {
     case ASHIFT:
@@ -3746,6 +3766,9 @@ mips_binary_cost (rtx x, int single_cost, int double_cost, bool speed)
 {
   int cost;
 
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   if (GET_MODE_SIZE (GET_MODE (x)) == UNITS_PER_WORD * 2)
     cost = double_cost;
   else
@@ -3825,6 +3848,9 @@ mips_zero_extend_cost (enum machine_mode mode, rtx op)
 static int
 mips_set_reg_reg_piece_cost (enum machine_mode mode, unsigned int units)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   return COSTS_N_INSNS ((GET_MODE_SIZE (mode) + units - 1) / units);
 }
 
@@ -3833,6 +3859,9 @@ mips_set_reg_reg_piece_cost (enum machine_mode mode, unsigned int units)
 static int
 mips_set_reg_reg_cost (enum machine_mode mode)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   switch (GET_MODE_CLASS (mode))
     {
     case MODE_CC:
@@ -3860,6 +3889,10 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
   bool float_mode_p = FLOAT_MODE_P (mode);
   int cost;
   rtx addr;
+#if 0
+      fprintf(stderr,"%s code %d outer %d, opno %d *total %d speed %d\n", 
+            __FUNCTION__, code, outer_code, opno, *total, speed);
+#endif
 
   /* The cost of a COMPARE is hard to define for MIPS.  COMPAREs don't
      appear in the instruction stream, and the cost of a comparison is
@@ -4282,6 +4315,9 @@ mips_address_cost (rtx addr, enum machine_mode mode,
 		   addr_space_t as ATTRIBUTE_UNUSED,
 		   bool speed ATTRIBUTE_UNUSED)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   return mips_address_insns (addr, mode, false);
 }
 
@@ -8336,6 +8372,9 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'M'	Print high-order register in a double-word register operand.
    'z'	Print $0 if OP is zero, otherwise print OP normally.
    'b'	Print the address of a memory operand, without offset.  */
+#if defined(BWT)
+ /* 'r' Print the register number literally */
+#endif
 
 static void
 mips_print_operand (FILE *file, rtx op, int letter)
@@ -8440,6 +8479,13 @@ mips_print_operand (FILE *file, rtx op, int letter)
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
       break;
+
+#if defined(BWT)
+    case 'r':
+        if (code == REG) 
+            fprintf (file, "%d", REGNO(op));
+    break ;
+#endif
 
     default:
       switch (code)
@@ -10185,10 +10231,11 @@ static bool
 mips_cfun_use_frame_header_p (void)
 {
   rtx insn;
+#if      !defined(BWT)
   struct mips_frame_info *frame;
 
   frame = &cfun->machine->frame;
-
+#endif
   for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
     {
       if (insn != NULL_RTX && INSN_P (insn)
@@ -12276,6 +12323,9 @@ static int
 mips_move_to_gpr_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 		       reg_class_t from)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   switch (from)
     {
     case GENERAL_REGS:
@@ -12296,9 +12346,13 @@ mips_move_to_gpr_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 
     case COP0_REGS:
     case COP2_REGS:
-    case COP3_REGS:
+    case COP3_REGS: {
+#if 0
+      fprintf(stderr,"MOVE-TO COST is 5...\n");
+#endif
       /* This choice of value is historical.  */
       return 5;
+}
 
     default:
       return 0;
@@ -12312,6 +12366,9 @@ mips_move_to_gpr_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 static int
 mips_move_from_gpr_cost (enum machine_mode mode, reg_class_t to)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   switch (to)
     {
     case GENERAL_REGS:
@@ -12333,9 +12390,13 @@ mips_move_from_gpr_cost (enum machine_mode mode, reg_class_t to)
 
     case COP0_REGS:
     case COP2_REGS:
-    case COP3_REGS:
+    case COP3_REGS: {
+#if 0
+      fprintf(stderr,"READ FROM COST is 5...\n");
+#endif
       /* This choice of value is historical.  */
       return 5;
+}
 
     default:
       return 0;
@@ -12353,6 +12414,9 @@ mips_register_move_cost (enum machine_mode mode,
   reg_class_t dregs;
   int cost1, cost2;
 
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   from = mips_canonicalize_move_class (from);
   to = mips_canonicalize_move_class (to);
 
@@ -12391,6 +12455,9 @@ mips_register_move_cost (enum machine_mode mode,
 static int
 mips_memory_move_cost (enum machine_mode mode, reg_class_t rclass, bool in)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   return (mips_cost->memory_latency
 	  + memory_move_secondary_cost (mode, rclass, in));
 } 
@@ -13409,6 +13476,9 @@ static int
 mips_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
 		  rtx dep ATTRIBUTE_UNUSED, int cost)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT
       && TUNE_20KC)
     return cost;
@@ -13889,6 +13959,70 @@ static int
 mips_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 		    rtx *ready, int *nreadyp, int cycle ATTRIBUTE_UNUSED)
 {
+#if 0
+        int nready = *nreadyp;
+        int i;
+        rtx insn ;
+        int recog ;
+        const char *name ;
+
+        printf ("\nsched_reorder: clock %d nready %d\n", clock, nready); 
+        for (i=0; i<nready; i++) { 
+                insn = ready[i] ;
+                recog = recog_memoized(insn) ;
+                name = get_insn_name(recog) ;
+                if (!name)
+                        name = "??" ;
+                printf("insn %d %s", recog, name);
+#if 0
+                if (recog >=0 && recog <=22) {
+                        rtx note ;
+                        note = find_reg_note(insn, REG_DEAD, NULL_RTX) ;
+                        if (note) {
+                                printf("REMOVING REG_DEAD\n");
+                                remove_note(insn, note) ;
+                                note = find_reg_note(insn, REG_DEAD, NULL_RTX) ;
+                                if (note) 
+                                        printf("STILl THERE !\n");
+                        }
+                }
+#endif
+                printf("\n");
+        }
+#if 1
+    for (i = nready - 1; i >= 0; i--) {
+        int recog ;
+        insn = ready[i] ;
+        recog = recog_memoized(insn) ;
+        if (recog == CODE_FOR_bwt_pop_result)
+        {
+            if (GET_CODE (PATTERN (insn)) == SET) {
+                  printf("USING reg %d %d %d\n", 
+                        SET_DEST (PATTERN (insn)),
+                        REG_P(SET_DEST (PATTERN (insn))),
+                        REGNO(SET_DEST (PATTERN (insn))));
+            }
+
+            if (i -1 >= 0) {
+                    insn = ready[i] ;
+                    recog = recog_memoized(insn) ;
+
+                      name = get_insn_name(recog) ;
+                         if (!name)
+                                    name = "??" ;
+                      printf("** prior insn %d %s", recog, name);
+            }      
+#if 0
+          ready[i] = ready[nready - 1];
+          ready[nready - 1] = insn;
+          break ;
+#endif
+        }
+    }
+
+#endif
+#endif
+
   mips_sched_reorder_1 (file, verbose, ready, nreadyp, cycle);
   return mips_issue_rate ();
 }
@@ -14045,6 +14179,9 @@ AVAIL_NON_MIPS16 (dsp_64, TARGET_64BIT && TARGET_DSP)
 AVAIL_NON_MIPS16 (dspr2_32, !TARGET_64BIT && TARGET_DSPR2)
 AVAIL_NON_MIPS16 (loongson, TARGET_LOONGSON_VECTORS)
 AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
+#if defined(BWT)
+AVAIL_NON_MIPS16 (bwt, (TARGET_BWT_INTRINSICS && !TARGET_MIPS16)) 
+#endif
 
 /* Construct a mips_builtin_description from the given arguments.
 
@@ -14200,6 +14337,23 @@ AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
 #define CODE_FOR_loongson_psubsb CODE_FOR_sssubv8qi3
 #define CODE_FOR_loongson_psubush CODE_FOR_ussubv4hi3
 #define CODE_FOR_loongson_psubusb CODE_FOR_ussubv8qi3
+
+#if defined(BWT)
+/* Define a BWT MIPS_BUILTIN_DIRECT function __builtin_bwt_<FN_NAME>
+   for instruction CODE_FOR_bwt_<INSN>.  FUNCTION_TYPE is a
+   builtin_description field.  */
+
+#define BWT_BUILTIN(INSN, FUNCTION_TYPE, BUILTIN_TYPE)      \
+  { CODE_FOR_bwt_ ## INSN, MIPS_FP_COND_f,            \
+    "__builtin_bwt_" # INSN, BUILTIN_TYPE,              \
+    FUNCTION_TYPE, mips_builtin_avail_bwt }
+
+#define BWT_I2_BUILTIN(INSN, FUNCTION_TYPE, BUILTIN_TYPE)      \
+  { CODE_FOR_bwt_i2_ ## INSN, MIPS_FP_COND_f,            \
+    "__builtin_bwt_i2_" # INSN, BUILTIN_TYPE,              \
+    FUNCTION_TYPE, mips_builtin_avail_bwt }
+
+#endif /* BWT */
 
 static const struct mips_builtin_description mips_builtins[] = {
   DIRECT_BUILTIN (get_fcsr, MIPS_USI_FTYPE_VOID, hard_float),
@@ -14487,7 +14641,155 @@ static const struct mips_builtin_description mips_builtins[] = {
   LOONGSON_BUILTIN_SUFFIX (punpcklwd, s, MIPS_V2SI_FTYPE_V2SI_V2SI),
 
   /* Sundry other built-in functions.  */
-  DIRECT_NO_TARGET_BUILTIN (cache, MIPS_VOID_FTYPE_SI_CVPOINTER, cache)
+  DIRECT_NO_TARGET_BUILTIN (cache, MIPS_VOID_FTYPE_SI_CVPOINTER, cache),
+
+#if defined(BWT)
+
+  BWT_BUILTIN(write_reg_i, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(write_reg_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(write_reg_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(write_reg_i, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(write_reg_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(write_reg_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_BUILTIN(read_reg_i, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(read_reg_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(read_reg_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(read_reg_i, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(read_reg_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(read_reg_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+
+  BWT_BUILTIN(vn_io_z, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(vn_io_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(vn_io_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(vn_io_z, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(vn_io_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(vn_io_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+
+  BWT_BUILTIN(mc_addr_z, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(mc_addr_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(mc_addr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(mc_addr_z, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(mc_addr_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(mc_addr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_BUILTIN(transfer_inst, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(transfer_inst, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_BUILTIN(load_mc_z, MIPS_VOID_FTYPE_SI_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(load_mc_gpr, MIPS_VOID_FTYPE_SI_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(load_mc, MIPS_VOID_FTYPE_SI_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+
+  BWT_I2_BUILTIN(load_mc_z, MIPS_VOID_FTYPE_SI_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(load_mc_gpr, MIPS_VOID_FTYPE_SI_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(load_mc, MIPS_VOID_FTYPE_SI_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+
+  BWT_BUILTIN(select_c, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(select_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(select_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(select_c, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(select_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(select_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+
+  BWT_BUILTIN(semset_c, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(semset_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(semset_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(semset_c, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(semset_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(semset_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI, \
+                                    MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_BUILTIN(port_io_s, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI,\
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(port_io_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(port_io_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(port_io_s, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI,\
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(port_io_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(port_io_var, MIPS_VOID_FTYPE_SI_SI_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_BUILTIN(mc_main_z, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(mc_main_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_BUILTIN(mc_main, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(mc_main_z, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(mc_main_gpr, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+  BWT_I2_BUILTIN(mc_main, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_BUILTIN(pop_result, MIPS_SI_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT),
+  BWT_BUILTIN(drop_result, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(pop_result, MIPS_SI_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT),
+  BWT_I2_BUILTIN(drop_result, MIPS_VOID_FTYPE_SI_SI_SI_SI, \
+                              MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_BUILTIN(fft, MIPS_VOID_FTYPE_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+
+  BWT_I2_BUILTIN(fft, MIPS_VOID_FTYPE_SI_SI, MIPS_BUILTIN_DIRECT_NO_TARGET),
+#endif
 };
 
 /* Index I is the function declaration for mips_builtins[I], or null if the
@@ -14558,6 +14860,10 @@ mips_build_cvpointer_type (void)
 
 /* MIPS_FTYPE_ATYPESN takes N MIPS_FTYPES-like type codes and lists
    their associated MIPS_ATYPEs.  */
+#if defined(BWT)
+#define MIPS_FTYPE_ATYPES0(A) \
+  MIPS_ATYPE_##A
+#endif
 #define MIPS_FTYPE_ATYPES1(A, B) \
   MIPS_ATYPE_##A, MIPS_ATYPE_##B
 
@@ -14570,6 +14876,25 @@ mips_build_cvpointer_type (void)
 #define MIPS_FTYPE_ATYPES4(A, B, C, D, E) \
   MIPS_ATYPE_##A, MIPS_ATYPE_##B, MIPS_ATYPE_##C, MIPS_ATYPE_##D, \
   MIPS_ATYPE_##E
+
+#if defined(BWT)
+#define MIPS_FTYPE_ATYPES5(A, B, C, D, E, F) \
+  MIPS_ATYPE_##A, MIPS_ATYPE_##B, MIPS_ATYPE_##C, MIPS_ATYPE_##D, \
+  MIPS_ATYPE_##E, MIPS_ATYPE_##F
+
+#define MIPS_FTYPE_ATYPES6(A, B, C, D, E, F, G) \
+  MIPS_ATYPE_##A, MIPS_ATYPE_##B, MIPS_ATYPE_##C, MIPS_ATYPE_##D, \
+  MIPS_ATYPE_##E, MIPS_ATYPE_##F, MIPS_ATYPE_##G
+
+#define MIPS_FTYPE_ATYPES7(A, B, C, D, E, F, G, H) \
+  MIPS_ATYPE_##A, MIPS_ATYPE_##B, MIPS_ATYPE_##C, MIPS_ATYPE_##D, \
+  MIPS_ATYPE_##E, MIPS_ATYPE_##F, MIPS_ATYPE_##G, MIPS_ATYPE_##H
+
+#define MIPS_FTYPE_ATYPES8(A, B, C, D, E, F, G, H, I)             \
+  MIPS_ATYPE_##A, MIPS_ATYPE_##B, MIPS_ATYPE_##C, MIPS_ATYPE_##D, \
+  MIPS_ATYPE_##E, MIPS_ATYPE_##F, MIPS_ATYPE_##G, MIPS_ATYPE_##H, \
+  MIPS_ATYPE_##I
+#endif
 
 /* Return the function type associated with function prototype TYPE.  */
 
@@ -14702,9 +15027,9 @@ mips_expand_builtin_direct (enum insn_code icode, rtx target, tree exp,
 
   /* Map any target to operand 0.  */
   opno = 0;
-  if (has_target_p)
+  if (has_target_p) {
     create_output_operand (&ops[opno++], target, TYPE_MODE (TREE_TYPE (exp)));
-
+  }
   /* Map the arguments to the other operands.  */
   gcc_assert (opno + call_expr_nargs (exp)
 	      == insn_data[icode].n_generator_args);
@@ -16000,6 +16325,9 @@ mips_seq_time (struct mips_sim *state, rtx seq)
 static unsigned int
 mips_mult_zero_zero_cost (struct mips_sim *state, bool setting)
 {
+#if 0
+      fprintf(stderr,"%s\n", __FUNCTION__);
+#endif
   mips_tuning_info.fast_mult_zero_zero_p = setting;
   start_sequence ();
 

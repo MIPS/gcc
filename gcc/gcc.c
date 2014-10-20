@@ -1427,7 +1427,6 @@ init_spec (void)
   struct spec_list *next = (struct spec_list *) 0;
   struct spec_list *sl   = (struct spec_list *) 0;
   int i;
-
   if (specs)
     return;			/* Already initialized.  */
 
@@ -7468,9 +7467,50 @@ static int n_mdswitches;
 /* Check whether a particular argument was used.  The first time we
    canonicalize the switches to keep only the ones we care about.  */
 
+#if defined(BWT) /* moved from original below */
+
+struct mswitchstr
+{
+    const char *str;
+    const char *replace;
+    int len;
+    int rep_len;
+};
+
+static struct mswitchstr *mswitches;
+static int n_mswitches;
+
+static int check_mswitchstr(const char *str, int len, char **replace, int *replace_len) {
+                  // We search for the generic switch and replace it
+                  // with the specific switch that was passed on the command line
+      int i, rc ;
+      rc = 0 ;
+      for(i=0; !rc && i < n_mswitches ; i++) 
+            if (mswitches[i].len == len && strncmp(mswitches[i].str,str,len) == 0) {
+                  char *s ;
+                        // re-use 'len', 'i', 'str'.. we leave after this next op..
+                  len = mswitches[i].rep_len ;
+                  str = mswitches[i].replace ;
+                  s = (char *)xmalloc(len+1) ; // small one-off; never free'd
+                  for(i=0; i < len; i++) {
+                        char c ;
+                        c = *str++ ;
+                        s[i] = (c == '=') ? '-' : c ;
+                  }
+                  s[i] = '\0' ;
+                  *replace = s ;
+                  *replace_len = len ;
+                  rc = 1 ;
+            }
+      return(rc) ;
+}
+
+#endif // BWT
+
 static int
 used_arg (const char *p, int len)
 {
+#if !defined(BWT) /* original */
   struct mswitchstr
   {
     const char *str;
@@ -7481,6 +7521,7 @@ used_arg (const char *p, int len)
 
   static struct mswitchstr *mswitches;
   static int n_mswitches;
+#endif // !BWT
   int i, j;
 
   if (!mswitches)
@@ -7513,7 +7554,6 @@ used_arg (const char *p, int len)
 	      q++;
 	    }
 	  matches[i].len = q - matches[i].str;
-
 	  matches[i].replace = ++q;
 	  while (*q != ';' && *q != '\0')
 	    {
@@ -7533,11 +7573,11 @@ used_arg (const char *p, int len)
 	 block of code.  */
       mswitches
 	= XNEWVEC (struct mswitchstr, n_mdswitches + (n_switches ? n_switches : 1));
-      for (i = 0; i < n_switches; i++)
+      for (i = 0; i < n_switches; i++) {
 	if ((switches[i].live_cond & SWITCH_IGNORE) == 0)
 	  {
 	    int xlen = strlen (switches[i].part1);
-	    for (j = 0; j < cnt; j++)
+	    for (j = 0; j < cnt; j++) {
 	      if (xlen == matches[j].len
 		  && ! strncmp (switches[i].part1, matches[j].str, xlen))
 		{
@@ -7549,6 +7589,45 @@ used_arg (const char *p, int len)
 		  break;
 		}
 	  }
+
+#if defined(BWT)
+             /* try match the switch generically against a default multilib_options
+               ending with a '='
+             */
+            {            
+                const char *r;
+                const char *q;
+                int found = 0 ;
+
+              for (q = multilib_options; !found && *q != '\0'; q++) {
+                  while (*q == ' ')
+                  q++;
+
+                  r = q;
+                  while (*q != ' ' && *q != '/' && *q != '\0')
+                      q++      ;
+                  if (*q != '/') {
+                        int len = q - r ;
+                        
+                        if (len < 1 || (len > 1 && r[len-1] != '=')) {
+                              continue ;
+                        }
+                        if (strncmp(switches[i].part1, r, q-r) == 0) {
+                                mswitches[n_mswitches].str = r ;
+                                mswitches[n_mswitches].len = q-r ;
+                                mswitches[n_mswitches].replace = switches[i].part1 ;
+                                mswitches[n_mswitches].rep_len = xlen ;
+                                n_mswitches++;
+                                found = 1 ;
+                        }
+                  }
+               }
+                 if (found)
+                   break ;
+              }
+#endif // BWT
+           }
+         }
 
       /* Add MULTILIB_DEFAULTS switches too, as long as they were not present
 	 on the command line nor any options mutually incompatible with
@@ -7602,10 +7681,11 @@ used_arg (const char *p, int len)
 	}
     }
 
-  for (i = 0; i < n_mswitches; i++)
-    if (len == mswitches[i].len && ! strncmp (p, mswitches[i].str, len))
+  for (i = 0; i < n_mswitches; i++) {
+    if (len == mswitches[i].len && ! strncmp (p, mswitches[i].str, len)) {
       return 1;
-
+    }
+  }
   return 0;
 }
 
@@ -7643,14 +7723,18 @@ set_multilib_dir (void)
   const char *start, *end;
   int not_arg;
   int ok, ndfltok, first;
-
+#if defined(BWT)
+  this_arg = (char *)0 ;
+#endif
   n_mdswitches = 0;
   start = multilib_defaults;
+
   while (*start == ' ' || *start == '\t')
     start++;
   while (*start != '\0')
     {
       n_mdswitches++;
+
       while (*start != ' ' && *start != '\t' && *start != '\0')
 	start++;
       while (*start == ' ' || *start == '\t')
@@ -7678,7 +7762,6 @@ set_multilib_dir (void)
 	  obstack_1grow (&multilib_obstack, 0);
 	  mdswitches[i].str = XOBFINISH (&multilib_obstack, const char *);
 	  mdswitches[i++].len = end - start;
-
 	  if (*end == '\0')
 	    break;
 	}
@@ -7751,6 +7834,9 @@ set_multilib_dir (void)
 
   while (*p != '\0')
     {
+#if defined(BWT)
+      int this_arg_len = 0 ; 
+#endif
       /* Ignore newlines.  */
       if (*p == '\n')
 	{
@@ -7811,6 +7897,9 @@ set_multilib_dir (void)
 	     argument.  If this argument is a default, we need not
 	     consider that more specific library.  */
 	  ok = used_arg (this_arg, p - this_arg);
+#if defined(BWT)
+          this_arg_len = p - this_arg ;
+#endif
 	  if (not_arg)
 	    ok = ! ok;
 
@@ -7823,12 +7912,21 @@ set_multilib_dir (void)
 	  if (*p == ' ')
 	    ++p;
 	}
-
       if (ok && first)
 	{
-	  if (this_path_len != 1
-	      || this_path[0] != '.')
-	    {
+#if defined(BWT)
+        if (this_path_len == 1 && this_path[0] == '.') {
+          int len ;
+            char *switch_path ;      
+            if (check_mswitchstr(this_arg, this_arg_len, &switch_path, &len)) {
+            this_path_len = len ;
+            this_path = switch_path ;
+            }
+        }
+#endif
+        if (this_path_len != 1 || 
+              this_path[0] != '.') 
+        {
 	      char *new_multilib_dir = XNEWVEC (char, this_path_len + 1);
 	      char *q;
 

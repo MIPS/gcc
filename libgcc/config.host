@@ -784,6 +784,11 @@ mipsisa64sb1-*-elf* | mipsisa64sb1el-*-elf*)
 mips-*-elf* | mipsel-*-elf*)
 	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff mips/t-mips16"
 	extra_parts="$extra_parts crti.o crtn.o"
+      case ${host} in
+            mips-bwt-elf)
+                  extra_parts=""
+            ;;
+      esac
 	;;
 mips64-*-elf* | mips64el-*-elf*)
 	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff mips/t-mips16"

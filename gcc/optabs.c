@@ -8206,6 +8206,10 @@ maybe_gen_insn (enum insn_code icode, unsigned int nops,
 
   switch (nops)
     {
+#if defined(BWT)
+    case 0:
+      return GEN_FCN (icode) (NULL);
+#endif
     case 1:
       return GEN_FCN (icode) (ops[0].value);
     case 2:

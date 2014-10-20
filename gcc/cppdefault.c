@@ -75,7 +75,7 @@ const struct default_include cpp_include_defaults[]
 #ifdef SYSROOT_HEADERS_SUFFIX_SPEC
       1
 #else
-      0
+      0 
 #endif
     },
 #endif
@@ -85,6 +85,9 @@ const struct default_include cpp_include_defaults[]
 #endif
 #ifdef TOOL_INCLUDE_DIR
     /* Another place the target system's headers might be.  */
+#if defined(BWT)
+    { TOOL_INCLUDE_DIR, "BINUTILS", 0, 1, 0, 1 },
+#endif
     { TOOL_INCLUDE_DIR, "BINUTILS", 0, 1, 0, 0 },
 #endif
 #ifdef NATIVE_SYSTEM_HEADER_DIR
