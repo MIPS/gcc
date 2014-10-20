@@ -1,5 +1,11 @@
 2014-10-20  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (main): Change -gimple and -generic to
+	--gimple and --generic.
+	* Makefile.in (s-match): Adjust.
+
+2014-10-20  Richard Biener  <rguenther@suse.de>
+
 	* gimple-fold.c (gimple_convert): Move out-of-line from ...
 	* gimple-fold.h (gimple_convert): ... here.
 

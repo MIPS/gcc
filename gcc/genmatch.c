@@ -1950,10 +1950,10 @@ dt_simplify::gen (FILE *f, bool gimple)
 	      char dest[32];
 	      snprintf (dest, 32, "  res_ops[%d]", j);
 	      const char *optype
-		  = get_operand_type (e->operation,
-				      "type", e->expr_type,
-				      j == 0
-				      ? NULL : "TREE_TYPE (res_ops[0])");
+		= get_operand_type (e->operation,
+				    "type", e->expr_type,
+				    j == 0
+				    ? NULL : "TREE_TYPE (res_ops[0])");
 	      e->ops[j]->gen_transform (f, dest, true, 1, optype, indexes);
 	    }
 
@@ -2918,7 +2918,7 @@ round_alloc_size (size_t s)
    and outputs GIMPLE or GENERIC IL matching and simplification routines.  */
 
 int
-main(int argc, char **argv)
+main (int argc, char **argv)
 {
   cpp_reader *r;
 
@@ -2932,15 +2932,16 @@ main(int argc, char **argv)
   char *input = argv[argc-1];
   for (int i = 1; i < argc - 1; ++i)
     {
-      if (strcmp (argv[i], "-gimple") == 0)
+      if (strcmp (argv[i], "--gimple") == 0)
 	gimple = true;
-      else if (strcmp (argv[i], "-generic") == 0)
+      else if (strcmp (argv[i], "--generic") == 0)
 	gimple = false;
       else if (strcmp (argv[i], "-v") == 0)
 	verbose = true;
       else
 	{
-	  fprintf (stderr, "Usage: genmatch [-gimple] [-generic] [-v] input\n");
+	  fprintf (stderr, "Usage: genmatch "
+		   "[--gimple] [--generic] [-v] input\n");
 	  return 1;
 	}
     }
@@ -3035,4 +3036,3 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   return 0;
 }
-
