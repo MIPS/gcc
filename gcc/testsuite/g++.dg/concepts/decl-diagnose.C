@@ -4,12 +4,12 @@ typedef concept int CINT; // { dg-error "'concept' cannot appear in a typedef de
 
 void f(concept int); // { dg-error "a parameter cannot be declared 'concept'" }
 
-concept int f2(); // { dg-error "result must be bool" }
+concept int f2(); // { dg-error "return type" }
 concept bool f3();
 
 struct X
 {
-  concept int f4(); // { dg-error "result must be bool|declared with function parameters" }
+  concept int f4(); // { dg-error "return type|function parameters" }
   concept bool f5(); // { dg-error "declared with function parameters" }
   static concept bool f6(); // { dg-error "a concept cannot be a static member function" }
   static concept bool x; // { dg-error "declared 'concept'" }

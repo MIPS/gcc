@@ -326,7 +326,6 @@ tree normalize_nested_req (tree);
 tree normalize_var (tree);
 tree normalize_cleanup_point (tree);
 tree normalize_template_id (tree);
-tree normalize_stmt_list (tree);
 tree normalize_atom (tree);
 
 // Reduce the requirement T into a logical formula written in terms of
@@ -559,13 +558,13 @@ normalize_call (tree t)
   tree fn = TREE_VALUE (check);
   tree args = TREE_PURPOSE (check);
 
-  // Reduce the body of the function into the constriants language.
+  // Normalize the body of the function into the constriants language.
   tree body = normalize_constraints (DECL_SAVED_TREE (fn));
   if (!body)
     return error_mark_node;
 
   // Instantiate the reduced results using the deduced args.
-  tree result = tsubst_constraint_expr (body, args, false);
+  tree result = tsubst_constraint_expr (body, args, true);
   if (result == error_mark_node)
     return error_mark_node;
 

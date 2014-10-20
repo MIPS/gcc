@@ -24422,12 +24422,10 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 
       push_deferring_access_checks (dk_deferred);
       parameter_list = cp_parser_template_introduction (parser);
-      pop_deferring_access_checks ();
-    
       if (parameter_list == error_mark_node)
         {
-	  // Restore template requirements before returning.
 	  current_template_reqs = saved_template_reqs;
+          pop_deferring_access_checks ();
 	  return;
         }
 

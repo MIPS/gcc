@@ -21646,6 +21646,16 @@ type_dependent_expression_p (tree expression)
 	return dependent_type_p (type);
     }
 
+  // A requires expression has type bool, but is always treated as if
+  // it were a dependent expression.
+  //
+  // FIXME: This could be improved. Perhaps the type of the requires
+  // expression depends on the satisfaction of its constraints. That
+  // is, its type is bool only if its substitution into its normalized
+  // constraints succeeds.
+  if (TREE_CODE (expression) == REQUIRES_EXPR)
+    return true;
+
   if (TREE_CODE (expression) == SCOPE_REF)
     {
       tree scope = TREE_OPERAND (expression, 0);
