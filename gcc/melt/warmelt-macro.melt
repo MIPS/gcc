@@ -2927,6 +2927,8 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
    ( (is_string comp)
      (list_append flatlist (make_string discr_verbatim_string comp))
      )
+   ( (is_integerbox comp)
+     (list_append flatlist (string4out discr_verbatim_string (get_int comp))))
    ( (is_list comp)
      (foreach_pair_component_in_list
       (comp)

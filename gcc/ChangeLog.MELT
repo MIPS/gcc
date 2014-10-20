@@ -1,5 +1,9 @@
 
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (flatten_for_c_code_expansion): Also
+	accepts boxed integer.
+
+2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
