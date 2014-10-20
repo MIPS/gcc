@@ -1,0 +1,13 @@
+# 2 multilibs:
+#  ./		-march=armv7-a -mthumb -mfloat-abi=softfp -mfpu=vfpv3-d16
+#  arm/		-march=armv7-a -marm -mfloat-abi=softfp -mfpu=vfpv3-d16
+
+MULTILIB_OPTIONS = marm
+
+MULTILIB_DIRNAMES = arm
+
+MULTILIB_OSDIRNAMES = marm=!arm
+		        
+MULTILIB_MATCHES =
+
+MULTILIB_ALIASES =
