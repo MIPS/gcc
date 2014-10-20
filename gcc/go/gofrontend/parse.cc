@@ -245,7 +245,7 @@ Parse::type()
 	   || token->is_op(OPERATOR_CHANOP))
     return this->channel_type();
   else if (token->is_keyword(KEYWORD_INTERFACE))
-    return this->interface_type();
+    return this->interface_type(true);
   else if (token->is_keyword(KEYWORD_FUNC))
     {
       Location location = token->location();
@@ -1179,7 +1179,7 @@ Parse::block()
 // MethodSpecList     = MethodSpec { ";" MethodSpec } [ ";" ] .
 
 Type*
-Parse::interface_type()
+Parse::interface_type(bool record)
 {
   go_assert(this->peek_token()->is_keyword(KEYWORD_INTERFACE));
   Location location = this->location();
@@ -1227,7 +1227,8 @@ Parse::interface_type()
     }
 
   Interface_type* ret = Type::make_interface_type(methods, location);
-  this->gogo_->record_interface_type(ret);
+  if (record)
+    this->gogo_->record_interface_type(ret);
   return ret;
 }
 
@@ -1252,6 +1253,8 @@ Parse::method_spec(Typed_identifier_list* methods)
   if (this->advance_token()->is_op(OPERATOR_LPAREN))
     {
       // This is a MethodName.
+      if (name == "_")
+	error_at(this->location(), "methods must have a unique non-blank name");
       name = this->gogo_->pack_hidden_name(name, is_exported);
       Type* type = this->signature(NULL, location);
       if (type == NULL)
@@ -1526,7 +1529,13 @@ Parse::type_spec(void*)
     }
 
   Type* type;
-  if (!this->peek_token()->is_op(OPERATOR_SEMICOLON))
+  if (name == "_" && this->peek_token()->is_keyword(KEYWORD_INTERFACE))
+    {
+      // We call Parse::interface_type explicity here because we do not want
+      // to record an interface with a blank type name.
+      type = this->interface_type(false);
+    }
+  else if (!this->peek_token()->is_op(OPERATOR_SEMICOLON))
     type = this->type();
   else
     {
@@ -2079,6 +2088,9 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
   Typed_identifier_list til;
   til.push_back(Typed_identifier(name, NULL, location));
 
+  std::set<std::string> uniq_idents;
+  uniq_idents.insert(name);
+
   // We've seen one identifier.  If we see a comma now, this could be
   // "a, *p = 1, 2".
   if (this->peek_token()->is_op(OPERATOR_COMMA))
@@ -2093,6 +2105,7 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	  std::string id = token->identifier();
 	  bool is_id_exported = token->is_identifier_exported();
 	  Location id_location = token->location();
+	  std::pair<std::set<std::string>::iterator, bool> ins;
 
 	  token = this->advance_token();
 	  if (!token->is_op(OPERATOR_COMMA))
@@ -2100,6 +2113,10 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	      if (token->is_op(OPERATOR_COLONEQ))
 		{
 		  id = this->gogo_->pack_hidden_name(id, is_id_exported);
+		  ins = uniq_idents.insert(id);
+		  if (!ins.second && !Gogo::is_sink_name(id))
+		    error_at(id_location, "multiple assignments to %s",
+			     Gogo::message_name(id).c_str());
 		  til.push_back(Typed_identifier(id, NULL, location));
 		}
 	      else
@@ -2110,6 +2127,10 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	    }
 
 	  id = this->gogo_->pack_hidden_name(id, is_id_exported);
+	  ins = uniq_idents.insert(id);
+	  if (!ins.second && !Gogo::is_sink_name(id))
+	    error_at(id_location, "multiple assignments to %s",
+		     Gogo::message_name(id).c_str());
 	  til.push_back(Typed_identifier(id, NULL, location));
 	}
 

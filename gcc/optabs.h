@@ -538,6 +538,7 @@ extern void gen_satfractuns_conv_libfunc (convert_optab, const char *,
 					  enum machine_mode,
 					  enum machine_mode);
 extern void init_tree_optimization_optabs (tree);
+extern bool lshift_cheap_p (bool);
 
 extern rtx emit_cstore (rtx target, enum insn_code icode, enum rtx_code code,
 			enum machine_mode mode, enum machine_mode compare_mode,
