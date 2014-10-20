@@ -1,3 +1,15 @@
+2014-10-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (FULL_DRIVER_NAME): New variable, adapted from the
+	install-driver target.  New target, a symlink within the builddir,
+	linked to "xgcc", for use when running the JIT library from the
+	builddir.
+	(MOSTLYCLEANFILES): Add FULL_DRIVER_NAME.
+	(install-driver): Use $(FULL_DRIVER_NAME) rather than spelling it
+	out.
+	(site.exp): Don't set "bindir", as this is no longer needed when
+	running the jit testsuite.
+
 2014-10-13  David Malcolm  <dmalcolm@redhat.com>
 
 	* configure.ac: Update a reference to jit/internal-api.c to

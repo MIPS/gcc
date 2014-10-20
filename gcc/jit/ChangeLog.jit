@@ -1,3 +1,15 @@
+2014-10-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* Make-lang.in (jit): Add $(FULL_DRIVER_NAME) as a dependency, so
+	that the symlink is created for testing.
+
+	* jit-playback.c (gcc::jit::playback::context::compile): Add
+	"-fno-use-linker-plugin" when invoking the driver.  Update error
+	messages to talk about the "gcc driver" rather than the
+	"gcc harness".  To ease troubleshooting, add error messages giving
+	the driver name and PATH to the error-handling code that fires
+	when the driver can't be found.
+
 2014-10-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* docs/_build/texinfo/libgccjit.texi: Regenerate.

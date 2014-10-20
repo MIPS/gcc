@@ -1,3 +1,16 @@
+2014-10-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/jit.exp (get_path_of_driver): New procedure.
+	(jit-dg-test): Don't unsetenv GCC_EXEC_PREFIX, since jit-playback.c
+	now adds -fno-use-linker-plugin to the driver cmdline sidestepping
+	the builddir/installdir libtto_plugin naming issue.
+	When setting up PATH so that the JIT library can invoke the driver
+	by installation name, don't use the installation "bindir".
+	Instead, simply use the location of xgcc as detected
+	get_path_of_driver.  In addition, set up LIBRARY_PATH so that the
+	linker run from inside the JIT library can locate libgcc etc when
+	building the .so, pointing it at the same directory.
+
 2014-10-13  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/jit.exp (fixed_host_execute): New function, taken from
