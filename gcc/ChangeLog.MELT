@@ -1,10 +1,19 @@
 
 2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
-	(install_global_definition_binding): Improved function.
+	{{unstable, doc is not generated}}
+	* melt/warmelt-macro.melt (mexpand_defprimitive)
+	(mexpand_defciterator, mexpand_defcmatcher, mexpand_defunmatcher)
+	(mexpand_defselector, mexpand_definstance, mexpand_defclass): Use
+	install_global_definition_binding.
+
+2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (install_global_definition_binding):
+	Improved function.
 	(mexpand_defun): Use it.
 
 2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
-	(install_global_definition_binding): Improved function.
+	* melt/warmelt-macro.melt (install_global_definition_binding):
+	Improved function.
 
 2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (install_global_definition): Renamed as...
