@@ -1,3 +1,20 @@
+2014-10-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_R): Move reload support to
+	rs6000.md.
+	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+
+	* config/rs6000/rs6000.md (RELOAD): Move secondary reload of
+	vector types from vector.md to rs6000.md.  Add in support for
+	scalar floating point.  Rename mode iterator VEC_R -> RELOAD.
+	Rewrite reload define_expands to be define_insn_and_split.  Wrap
+	the reloaded load/store with an UNSPEC_RELOAD.
+	(reload_<RELOAD:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+
 2014-10-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (valid_move_insn_p): Rework so that it
