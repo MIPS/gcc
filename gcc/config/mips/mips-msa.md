@@ -2351,7 +2351,53 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
-(define_insn "msa_ilvev_<msafmt>"
+(define_expand "msa_ilvev_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(vec_select:IMSA (vec_concat:<DMSA>
+				(match_operand:IMSA 1 "register_operand" "f")
+				(match_operand:IMSA 2 "register_operand" "f"))
+			 (match_dup 3)))]
+  "ISA_HAS_MSA"
+{
+  operands[3] = gen_vec_par_const_operand (<MODE>mode, 0 /* init */, 2 /* stride */);
+})
+
+(define_expand "msa_ilvl_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(vec_select:IMSA (vec_concat:<DMSA>
+				(match_operand:IMSA 1 "register_operand" "f")
+				(match_operand:IMSA 2 "register_operand" "f"))
+			 (match_dup 3)))]
+  "ISA_HAS_MSA"
+{
+  operands[3] = gen_vec_par_const_operand (<MODE>mode, 
+		  GET_MODE_NUNITS (<MODE>mode) / 2 /* init */, 1/* stride */);
+})
+
+(define_expand "msa_ilvod_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(vec_select:IMSA (vec_concat:<DMSA>
+				(match_operand:IMSA 1 "register_operand" "f")
+				(match_operand:IMSA 2 "register_operand" "f"))
+			 (match_dup 3)))]
+  "ISA_HAS_MSA"
+{
+  operands[3] = gen_vec_par_const_operand (<MODE>mode, 1 /* init */, 2 /* stride */);
+})
+
+(define_expand "msa_ilvr_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(vec_select:IMSA (vec_concat:<DMSA>
+				(match_operand:IMSA 1 "register_operand" "f")
+				(match_operand:IMSA 2 "register_operand" "f"))
+			 (match_dup 3)))]
+  "ISA_HAS_MSA"
+{
+  operands[3] = gen_vec_par_const_operand (<MODE>mode, 0 /* init */, 1 /* stride */);
+})
+
+
+(define_insn "msa_ilvev_<msafmt>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(vec_select:IMSA (vec_concat:<DMSA>
 				(match_operand:IMSA 1 "register_operand" "f")
@@ -2363,7 +2409,7 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-(define_insn "msa_ilvl_<msafmt>"
+(define_insn "msa_ilvl_<msafmt>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(vec_select:IMSA (vec_concat:<DMSA>
 				(match_operand:IMSA 1 "register_operand" "f")
@@ -2375,7 +2421,7 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-(define_insn "msa_ilvod_<msafmt>"
+(define_insn "msa_ilvod_<msafmt>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(vec_select:IMSA (vec_concat:<DMSA>
 				(match_operand:IMSA 1 "register_operand" "f")
@@ -2387,7 +2433,7 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-(define_insn "msa_ilvr_<msafmt>"
+(define_insn "msa_ilvr_<msafmt>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(vec_select:IMSA (vec_concat:<DMSA>
 				(match_operand:IMSA 1 "register_operand" "f")

@@ -20061,6 +20061,22 @@ mips_vectorize_vec_perm_const_ok (enum machine_mode vmode,
   return ret;
 }
 
+rtx
+gen_vec_par_const_operand (enum machine_mode mode, int init, int stride)
+{
+  rtx par;
+  int nelt = GET_MODE_NUNITS (mode);
+  int i;
+  par = gen_rtx_PARALLEL (mode, rtvec_alloc (nelt));
+  for (i = 0; i < (nelt >> 1); i++)
+    {
+      XVECEXP (par, 0, (2 * i)) = GEN_INT (init + i * stride);
+      XVECEXP (par, 0, (2 * i + 1)) = GEN_INT (init + nelt + i * stride);
+    }
+
+  return par;
+}
+
 bool
 vec_par_const_operand (rtx op, enum machine_mode mode, int init, int stride)
 {
@@ -20125,14 +20141,11 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
   enum machine_mode imode = GET_MODE (operands[1]);
   rtx (*unpack) (rtx, rtx, rtx);
   rtx (*cmpFunc) (rtx, rtx, rtx);
-  rtx tmp, dest, zero, par;
-  int i, init, nelt;
-
-  nelt = GET_MODE_NUNITS (imode);
+  rtx tmp, dest, zero;
 
   if (ISA_HAS_MSA)
   {
-    rtx (*unpack) (rtx, rtx, rtx, rtx);
+//    rtx (*unpack) (rtx, rtx, rtx);
     switch (imode)
       {
       case V4SImode:
@@ -20181,19 +20194,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 
     dest = gen_reg_rtx (imode);
 
-    if (BYTES_BIG_ENDIAN != high_p)
-      init = nelt >> 1;
-    else
-      init = 0;
-
-    par = gen_rtx_PARALLEL (imode, rtvec_alloc (nelt));
-    for (i = 0; i < (nelt >> 1); i++)
-      {
-        XVECEXP (par, 0, (2 * i)) = GEN_INT (init + i);
-        XVECEXP (par, 0, (2 * i + 1)) = GEN_INT (init + nelt + i);
-      }
-
-    emit_insn (unpack (dest, tmp, operands[1], par));
+    emit_insn (unpack (dest, tmp, operands[1]));
     emit_move_insn (operands[0], gen_lowpart (GET_MODE (operands[0]), dest));
     return;
   }
