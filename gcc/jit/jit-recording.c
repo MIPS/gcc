@@ -47,13 +47,25 @@ dump::dump (recording::context &ctxt,
   m_line (0),
   m_column (0)
 {
-  m_file  = fopen (filename, "w");
+  m_file = fopen (filename, "w");
+  if (!m_file)
+    ctxt.add_error (NULL,
+		    "error opening dump file %s for writing: %s",
+		    filename,
+		    xstrerror (errno));
 }
 
 dump::~dump ()
 {
   if (m_file)
-    fclose (m_file);
+    {
+      int err = fclose (m_file);
+      if (err)
+	m_ctxt.add_error (NULL,
+			  "error closing dump file %s: %s",
+			  m_filename,
+			  xstrerror (errno));
+    }
 }
 
 /* Write the given message to the dump, using printf-formatting
@@ -67,6 +79,11 @@ dump::write (const char *fmt, ...)
   va_list ap;
   char *buf = NULL;
 
+  /* If there was an error opening the file, we've already reported it.
+     Don't attempt further work.  */
+  if (!m_file)
+    return;
+
   va_start (ap, fmt);
   vasprintf (&buf, fmt, ap);
   va_end (ap);
@@ -78,7 +95,9 @@ dump::write (const char *fmt, ...)
       return;
     }
 
-  fwrite (buf, strlen (buf), 1, m_file);
+  if (fwrite (buf, strlen (buf), 1, m_file) != 1)
+    m_ctxt.add_error (NULL, "error writing to dump file %s",
+		      m_filename);
 
   /* Update line/column: */
   for (const char *ptr = buf; *ptr; ptr++)

@@ -1,5 +1,14 @@
 2014-10-20  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit-recording.c (gcc::jit::dump::dump): Handle fopen failures
+	by emitting an error on the context.
+	(gcc::jit::dump::~dump): Likewise for fclose failures.
+	(gcc::jit::dump::write): Don't attempt further work if the fopen
+	failed.  Handle fwrite failures by emitting an error on the
+	context.
+
+2014-10-20  David Malcolm  <dmalcolm@redhat.com>
+
 	* Make-lang.in (jit.install-common): Drop installation of
 	libgccjit.pc.
 	* config-lang.in (outputs): Drop jit/libgccjit.pc.
