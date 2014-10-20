@@ -1541,7 +1541,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
     (if (find_env basenv symb)
 	(if (not (melt_is_bootstrapping))
 	    (warning_at sloc "MELT global redefinition of $1" symb)))
-    (put_env bind basenv)
+    (put_env basenv bind)
   ))
 
 ;;; expanser
@@ -3694,8 +3694,8 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
     (if (is_not_a symb class_symbol)
 	(error_plain loc "missing symbol for DEFUN"_))
     (warn_if_redefined symb env loc)
-    (put_env env fbind)
-    ;; @@might become (install_global_definition_binding fbind env modctx loc)
+    ;;@@was (put_env env fbind)
+    (install_global_definition_binding fbind env modctx loc)
     (setq curpair (pair_tail curpair))
     ;; parse the formal arguments
     (let ( (curpairhead (pair_head curpair)) 

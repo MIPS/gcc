@@ -1,4 +1,8 @@
 
+2014-10-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	(install_global_definition_binding): Improved function.
+	(mexpand_defun): Use it.
+
 2014-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	(install_global_definition_binding): Improved function.
 
