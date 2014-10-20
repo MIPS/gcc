@@ -76,8 +76,10 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					  '#{/*xtest $FIRSTSYMB*/ $N % $VALFACTLN == 0}#
 					  (lambda (symb)
 					    (debug "dmacpac:subst-xtest" " symb=" symb)
-					    (cond ( (== symb 'valfactln) valfactln)
-						  ( (== symb 'firstsymb) firstsymb)
+					    (cond ( (== symb 'valfactln)
+						    valfactln)
+						  ( (== symb 'firstsymb)
+						    (get_field :named_name firstsymb))
 						    (:else symb)))))
 				     )
 				 (debug "dmacpac" " xtest=" xt "\n.. lfill=" lfill)
@@ -87,15 +89,17 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					  '#{/*fill $FIRSTSYMB*/ $LFILL}#
 					  (lambda (symb) 
 					    (debug "dmacpac:subst-xfill" " symb=" symb)
-					    (cond( (== symb 'lfill) lfill)
-						 ( (== symb 'firstsymb) firstsymb)
+					    (cond( (== symb 'lfill)
+						   lfill)
+						 ( (== symb 'firstsymb)
+						   (get_field :named_name firstsymb))
 						   (:else symb)))))
 				     )
 				 (debug "dmacpac" " xfill=" xf)
 				 xf))
 			(xdefcm `(defcmatcher ,firstsymb
 				   (:long n)
-				   (,restupsymb)
+				   (:long ,restupsymb)
 				   dmacstate
 				   ;; test
 				   ,xtest
@@ -124,9 +128,9 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
   (debug "before dmacpat" " pp x y")
   (dmacpat pp x y)
   (debug "after dmacpat" " pp x y"
-	 ;" before qq"
+	 " before qq"
 	 )
-  ;(dmacpat qq u v w)
-  ;(debug "after dmacpat" " qq u v w")
+  (dmacpat qq u v w)
+  (debug "after dmacpat" " qq u v w")
   )
 ;; eof t-macrocmat.melt
