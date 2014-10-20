@@ -1,3 +1,10 @@
+2014-10-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Remove switch stmt which
+	declared OMP_CLAUSE_MAP_FORCE_DEALLOC as unimplemented.
+	(gimplify_expr): Remove OACC_WAIT, since it handled directly by the
+	front ends.
+
 2014-10-15  James Norris  <jnorris@codesourcery.com>
 
 	* builtin-types.def (BT_FN_VOID_INT_PTR_INT): New type.

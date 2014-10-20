@@ -6052,17 +6052,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  goto do_add;
 
 	case OMP_CLAUSE_MAP:
-	  switch (OMP_CLAUSE_MAP_KIND (c))
-	    {
-	    case OMP_CLAUSE_MAP_FORCE_DEALLOC:
-	      input_location = OMP_CLAUSE_LOCATION (c);
-	      /* TODO.  */
-	      sorry ("data clause not yet implemented");
-	      remove = true;
-	      break;
-	    default:
-	      break;
-	    }
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (error_operand_p (decl))
 	    {
@@ -8307,7 +8296,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OACC_DECLARE:
 	case OACC_ENTER_DATA:
 	case OACC_EXIT_DATA:
-	case OACC_WAIT:
 	case OACC_CACHE:
 	  sorry ("directive not yet implemented");
 	  ret = GS_ALL_DONE;
