@@ -1,3 +1,8 @@
+2014-10-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_update): Don't create a new stmt
+	if the pragma is bogus.
+
 2014-07-14  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_all_clauses): Handle

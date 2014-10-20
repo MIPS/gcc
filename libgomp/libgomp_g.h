@@ -225,6 +225,10 @@ extern void GOACC_kernels (int, void (*) (void *), const void *,
 extern void GOACC_parallel (int, void (*) (void *), const void *,
 			    size_t, void **, size_t *, unsigned short *,
 			    int, int, int, int, int, ...);
+extern void GOACC_update (int device, const void *openmp_target, size_t mapnum,
+			  void **hostaddrs, size_t *sizes,
+			  unsigned short *kinds, int async,
+			  int num_waits, ...);
 extern void GOACC_wait (int, int, ...);
 
 #endif /* LIBGOMP_G_H */

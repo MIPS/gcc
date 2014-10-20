@@ -1,3 +1,7 @@
+2014-10-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* (GOACC_update): Declare.
+
 2014-10-20  Julian Brown  <julian@codesourcery.com>
 
 	* oacc-host.c (openacc_register_async_cleanup): New.

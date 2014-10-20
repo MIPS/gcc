@@ -11903,6 +11903,9 @@ c_parser_oacc_update (c_parser *parser)
       return;
     }
 
+  if (parser->error)
+    return;
+
   tree stmt = make_node (OACC_UPDATE);
   TREE_TYPE (stmt) = void_type_node;
   OACC_UPDATE_CLAUSES (stmt) = clauses;
