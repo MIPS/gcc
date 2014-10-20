@@ -3171,15 +3171,15 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	    ))))))
 (install_initial_macro 'defprimitive mexpand_defprimitive)
 (export_macro defprimitive mexpand_defprimitive
-	      :doc #{The $DEFPRIMITIVE macro defines new primitive
-operations by their C expansion. Syntax is ($DEFPRIMITIVE @var{name}
-@var{formals} @var{type} [:doc @var{documentation}] @var{expansion})
-which defines a primitive of given @var{name} with formal arguments
-@var{formals}, result c-type @var{type}, optional @var{documentation},
-and given @var{expansion}. A macro is expanded into a C instruction if
-its c-type is @code{:void}, otherwise into a C expression.  Primitives
-have to be exported with $EXPORT_VALUES to be visible in other
-modules.  See also the classes $CLASS_PRIMITIVE, and
+	      :doc #{The $DEFPRIMITIVE macro defines a module-global
+new primitive operation by their C expansion. Syntax is ($DEFPRIMITIVE
+@var{name} @var{formals} @var{type} [:doc @var{documentation}]
+@var{expansion}) which defines a primitive of given @var{name} with
+formal arguments @var{formals}, result c-type @var{type}, optional
+@var{documentation}, and given @var{expansion}. A macro is expanded
+into a C instruction if its c-type is @code{:void}, otherwise into a C
+expression.  Primitives have to be exported with $EXPORT_VALUES to be
+visible in other modules.  See also the classes $CLASS_PRIMITIVE, and
 $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
 
 
@@ -3325,10 +3325,10 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
       )))
 (install_initial_macro 'defciterator mexpand_defciterator)
 (export_macro defciterator mexpand_defciterator
-	      :doc #{The $DEFCITERATOR macro defines a c-iterator
-which itself implements iterative @code{for}-like loops. Syntax
-is ($DEFCITERATOR @var{name} @var{start-formals} @var{state-symbol}
-@var{variable-formals} [:doc @var{documentation}]
+	      :doc #{The $DEFCITERATOR macro defines a module-global
+c-iterator which itself implements iterative @code{for}-like
+loops. Syntax is ($DEFCITERATOR @var{name} @var{start-formals}
+@var{state-symbol} @var{variable-formals} [:doc @var{documentation}]
 @var{before-expansion} @var{after-expansion}). To be visible outside
 the module, the c-iterator should be exported using
 $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
@@ -3524,10 +3524,11 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
   )
 (install_initial_macro 'defcmatcher mexpand_defcmatcher)
 (export_macro defcmatcher mexpand_defcmatcher
- :doc #{The $DEFCMATCHER macro defines pattern-matching operator by
- their C expansion. Syntax is (DEFCMATCHER symbol match&ins-formals
- out-formals state-symbol [:doc documentation] test-expansion
- fill-expansion [operator-expansion]).}# )
+ :doc #{The $DEFCMATCHER macro defines a module-global
+ pattern-matching operator by their C expansion. Syntax
+ is (DEFCMATCHER symbol match&ins-formals out-formals state-symbol
+ [:doc documentation] test-expansion fill-expansion
+ [operator-expansion]).}# )
 
 
 
@@ -3670,9 +3671,10 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
     
 (install_initial_macro 'defunmatcher mexpand_defunmatcher)
 (export_macro defunmatcher mexpand_defunmatcher
-:doc #{The $DEFUNMATCHER syntax defines a matcher thru a MELT
-function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
-[:doc docum] <match-function> [<apply-function> [<data>]])}#)
+:doc #{The $DEFUNMATCHER syntax defines a module-global matcher thru a
+MELT function. Syntax is (DEFUNMATCHER <symbol> <in-formals>
+<out-formals> [:doc docum] <match-function> [<apply-function>
+[<data>]])}#)
 
 
 ;;;;;;;;;;;;;;;;;; the defun expander
@@ -3744,13 +3746,14 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 	))))
 (install_initial_macro 'defun mexpand_defun)
 (export_macro defun mexpand_defun
-	      :doc #{The $DEFUN macro defines a function. Syntax
-is ($DEFUN @var{funame} @var{formals} [:doc @var{documentation}]
-@var{body}...). The first formal argument, if any, is required to be
-of ctype @code{:value}. The expressions in the @var{body} are evaluated
-in sequence. The value of the last is returned. See also $RETURN and
-$LAMBDA macros. A function defined by $DEFUN has to be exported with 
-$EXPORT_VALUES to be visible outside its module.}#)
+	      :doc #{The $DEFUN macro defines a module-global
+function. Syntax is ($DEFUN @var{funame} @var{formals} [:doc
+@var{documentation}] @var{body}...). The first formal argument, if
+any, is required to be of ctype @code{:value}. The expressions in the
+@var{body} are evaluated in sequence. The value of the last is
+returned. See also $RETURN and $LAMBDA macros. A function defined by
+$DEFUN has to be exported with $EXPORT_VALUES to be visible outside
+its module.}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3943,11 +3946,11 @@ $EXPORT_VALUES to be visible outside its module.}#)
 
 (install_initial_macro 'defmacro mexpand_defmacro)
 (export_macro defmacro mexpand_defmacro
-	      :doc #{The $DEFMACRO macro defines a macro. Syntax
-is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
-@var{body}...). At most four @var{formals} are permitted of ctype
-@code{:value}, for the @var{s-expression} invoking the macro, the
-@var{environment} at macro-expansion time, the current
+	      :doc #{The $DEFMACRO macro defines a module-global
+macro. Syntax is ($DEFMACRO @var{funame} @var{formals} [:doc
+@var{documentation}] @var{body}...). At most four @var{formals} are
+permitted of ctype @code{:value}, for the @var{s-expression} invoking
+the macro, the @var{environment} at macro-expansion time, the current
 @var{macro-expander} closure and at last the @var{module context}.}#)
 
 
@@ -4027,7 +4030,8 @@ is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
 	(error_at loc "missing symbol for DEFVAR"_)
 	(return))
     (warn_if_redefined symb env loc)
-    (put_env env vbind)
+    ;;@@was (put_env env vbind)
+    (install_global_definition_binding vbind env modctx loc)
     (setq curpair (pair_tail curpair))
       ;; handle the optional :doc documentationvalue
     (when (== (pair_head curpair) ':doc)
@@ -4052,7 +4056,7 @@ is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
     )))
 (install_initial_macro 'defvar mexpand_defvar)
 (export_macro defvar mexpand_defvar
-	      :doc #{The $DEFVAR macro defines a module variable,
+	      :doc #{The $DEFVAR macro defines a module-global variable,
 initialized to the nil value. Syntax 
 is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 
@@ -4170,7 +4174,8 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
       (setq curpair (pair_tail curpair))
       )
     ;; update the env & newenv
-    (put_env env hbind)
+    ;;@@was (put_env env hbind)
+    (install_global_definition_binding hbind env modctx loc)
     (foreach_in_multiple
      (intup)
      (inbnd :long inix)
@@ -4202,7 +4207,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
       )))
 (install_initial_macro 'defhook mexpand_defhook)
 (export_macro defhook mexpand_defhook
- :doc #{The $DEFHOOK macro defines hooks, that is arbitrary C/C++
+ :doc #{The $DEFHOOK macro defines a module-global hook, that is arbitrary C/C++
  routines coded in MELT.. Syntax is @code{(DEFHOOK @var{hook-name}
  @var{input-formals} @var{output-formals} @var{ctype} [:var
  @var{hook-var}] [:predef @var{hook-predef}] [:doc
@@ -4344,8 +4349,8 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 
 (install_initial_macro 'define mexpand_define)
 (export_macro define mexpand_define
-	      :doc #{The $DEFINE macro defines a named non-recursive
-value.  Syntax (like in Scheme) is 
+	      :doc #{The $DEFINE macro defines a module-global named
+non-recursive value.  Syntax (like in Scheme) is
 ($DEFINE @var{name} [:doc @var{documentation}] @var{expr} ...) to define a value, and
 ($DEFINE (@var{funame} @var{formals}...) [:doc @var{documentation}]  @var{expr} ...) 
 to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visible outside its module.}#)
@@ -4604,12 +4609,13 @@ to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visi
 		 )))))
 (install_initial_macro 'defclass mexpand_defclass)
 (export_macro defclass mexpand_defclass
-	      :doc #{The $DEFCLASS macro defines a class. Syntax
-is (DEFCLASS symbol [:doc documentation] :super super-class :fields
-fields-list). Conventionally, the class name (i.e. the symbol) should
-preferably start with CLASS_. The fields' names should preferably be
-globally unique, and usually share a common prefix. See also
-$CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
+	      :doc #{The $DEFCLASS macro defines a module-global
+class. Syntax is (DEFCLASS symbol [:doc documentation] :super
+super-class :fields fields-list). Conventionally, the class
+name (i.e. the symbol) should preferably start with CLASS_. The
+fields' names should preferably be globally unique, and usually share
+a common prefix. See also $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD
+etc.}#)
 
 
 
@@ -4818,10 +4824,10 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 	  )))))
 (install_initial_macro 'definstance mexpand_definstance)
 (export_macro definstance mexpand_definstance
- :doc #{The $DEFINSTANCE syntax defines a static instance bound by a
- symbol. Syntax is (DEFINSTANCE <symbol> <class> [:doc documentation]
- @{:<field> <value>@}*). The symbol is bound to the newly made
- instance.}#)
+ :doc #{The $DEFINSTANCE syntax defines a module-global static
+ instance bound by a symbol. Syntax is (DEFINSTANCE <symbol> <class>
+ [:doc documentation] @{:<field> <value>@}*). The symbol is bound to
+ the newly made instance.}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -4965,9 +4971,9 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 	  )))))
 (install_initial_macro 'defselector mexpand_defselector)
 (export_macro defselector mexpand_defselector
- :doc #{The $DEFSELECTOR syntax defines a selector for sending
-messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
-<documentation>] [:formals ( <formals>...)]).}#)
+ :doc #{The $DEFSELECTOR syntax defines a module-global selector for
+sending messages. Syntax is (DEFSELECTOR <symbol> <selector-class>
+[:doc <documentation>] [:formals ( <formals>...)]).}#)
 
 
 
@@ -5083,7 +5089,7 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 (install_initial_macro 'load mexpand_load)
 (export_macro load mexpand_load
  :doc #{The $LOAD macro is for reading expressions from another
- file. Syntax is (LOAD <file-name>).}#)
+ file. Syntax is (LOAD <file-name>). See also $SKIP_NIL.}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -5114,8 +5120,10 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
   )
 (install_initial_macro 'skip_nil mexpand_skip_nil)
 (export_macro skip_nil mexpand_skip_nil
-	      :doc #{The $SKIP_NIL macro is macro-expanding its arguments, and skipping those who are macro-expanded to nil.}#
-	      )
+	      :doc #{The $SKIP_NIL macro is macro-expanding its
+	      arguments, and skipping those which are macro-expanded
+	      to nil. It might be useful with $LOAD to avoid useless
+	      expressions from the loaded file.}# )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; parse a field pattern
