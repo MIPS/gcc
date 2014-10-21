@@ -1,3 +1,19 @@
+2014-10-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Don't treat
+	constants as easy if -ffast-math and -mupper-regs-{df,sf}.
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): If
+	scalars are allowed in Altivec registers, and the value must be
+	passed in both GPRs and FPRs, create an invalid address that will
+	be flaged to be reloaded as reg+reg to deal with cprop_hardregno
+	eliminating moves from an Altivec register to a FPR register, and
+	doing the store from the Altivec register instead of a FPR
+	register.
+	(rs6000_secondary_memory_needed_rtx): Likewise.
+
+	* config/rs6000/rs6000.md (UNSPEC_RELOAD): New UNSPEC constant.
+
 2014-10-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_R): Move reload support to

@@ -493,6 +493,12 @@
 	      && !flag_unsafe_math_optimizations))
         return 0;
 
+      /* If DFmode is allowed in Altivec registers and we are using reload
+	 instead of IRA, force constants to memory.  Otherwise, reload cse will
+	 sometimes generate reg+offset stores from the Altivec registers.  */
+      if (TARGET_UPPER_REGS_DF && !rs6000_lra_flag)
+	return 0;
+
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
 
@@ -511,6 +517,12 @@
 	 to regenerate the division.  */
       if (!reload_in_progress && !reload_completed
           && !flag_unsafe_math_optimizations)
+	return 0;
+
+      /* If SFmode is allowed in Altivec registers and we are using reload
+	 instead of IRA, force constants to memory.  Otherwise, reload cse will
+	 sometimes generate reg+offset stores from the Altivec registers.  */
+      if (TARGET_UPPER_REGS_SF && !rs6000_lra_flag)
 	return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
