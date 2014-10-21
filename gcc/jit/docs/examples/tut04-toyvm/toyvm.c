@@ -793,7 +793,7 @@ test_script (const char *scripts_dir, const char *script_name, int input,
   free (script_path);
 }
 
-#define PATH_TO_SCRIPTS  ("/jit/docs/examples/tut03-toyvm/")
+#define PATH_TO_SCRIPTS  ("/jit/docs/examples/tut04-toyvm/")
 
 static void
 test_suite (void)
