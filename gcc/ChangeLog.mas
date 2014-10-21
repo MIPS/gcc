@@ -1,3 +1,10 @@
+2014-10-21  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (replace_stmt_with_simplification): New helper
+	split out from ...
+	(fold_stmt_1): ... here.  Discard the simplified sequence if
+	replacement failed.
+
 2014-10-20  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (main): Change -gimple and -generic to

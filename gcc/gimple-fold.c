@@ -2794,6 +2794,121 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
   return changed;
 }
 
+
+/* Worker for fold_stmt_1 dispatch to pattern based folding with
+   gimple_simplify.
+
+   Replaces *GSI with the simplification result in RCODE and OPS
+   and the associated statements in *SEQ.  Does the replacement
+   according to INPLACE and returns true if the operation succeeded.  */
+
+static bool
+replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
+				  code_helper rcode, tree *ops,
+				  gimple_seq *seq, bool inplace)
+{
+  gimple stmt = gsi_stmt (*gsi);
+
+  /* Play safe and do not allow abnormals to be mentioned in
+     newly created statements.  See also maybe_push_res_to_seq.  */
+  if ((TREE_CODE (ops[0]) == SSA_NAME
+       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
+      || (ops[1]
+	  && TREE_CODE (ops[1]) == SSA_NAME
+	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
+      || (ops[2]
+	  && TREE_CODE (ops[2]) == SSA_NAME
+	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
+    return false;
+
+  if (gimple_code (stmt) == GIMPLE_COND)
+    {
+      gcc_assert (rcode.is_tree_code ());
+      if (TREE_CODE_CLASS ((enum tree_code)rcode) == tcc_comparison
+	  /* GIMPLE_CONDs condition may not throw.  */
+	  && (!flag_exceptions
+	      || !cfun->can_throw_non_call_exceptions
+	      || !operation_could_trap_p (rcode,
+					  FLOAT_TYPE_P (TREE_TYPE (ops[0])),
+					  false, NULL_TREE)))
+	gimple_cond_set_condition (stmt, rcode, ops[0], ops[1]);
+      else if (rcode == SSA_NAME)
+	gimple_cond_set_condition (stmt, NE_EXPR, ops[0],
+				   build_zero_cst (TREE_TYPE (ops[0])));
+      else if (rcode == INTEGER_CST)
+	{
+	  if (integer_zerop (ops[0]))
+	    gimple_cond_make_false (stmt);
+	  else
+	    gimple_cond_make_true (stmt);
+	}
+      else if (!inplace)
+	{
+	  tree res = maybe_push_res_to_seq (rcode, boolean_type_node,
+					    ops, seq);
+	  if (!res)
+	    return false;
+	  gimple_cond_set_condition (stmt, NE_EXPR, res,
+				     build_zero_cst (TREE_TYPE (res)));
+	}
+      else
+	return false;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "gimple_simplified to ");
+	  if (!gimple_seq_empty_p (*seq))
+	    print_gimple_seq (dump_file, *seq, 0, TDF_SLIM);
+	  print_gimple_stmt (dump_file, gsi_stmt (*gsi),
+			     0, TDF_SLIM);
+	}
+      gsi_insert_seq_before (gsi, *seq, GSI_SAME_STMT);
+      return true;
+    }
+  else if (is_gimple_assign (stmt)
+	   && rcode.is_tree_code ())
+    {
+      if (!inplace
+	  || gimple_num_ops (stmt) <= get_gimple_rhs_num_ops (rcode))
+	{
+	  maybe_build_generic_op (rcode,
+				  TREE_TYPE (gimple_assign_lhs (stmt)),
+				  &ops[0], ops[1], ops[2]);
+	  gimple_assign_set_rhs_with_ops_1 (gsi, rcode,
+					    ops[0], ops[1], ops[2]);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "gimple_simplified to ");
+	      if (!gimple_seq_empty_p (*seq))
+		print_gimple_seq (dump_file, *seq, 0, TDF_SLIM);
+	      print_gimple_stmt (dump_file, gsi_stmt (*gsi),
+				 0, TDF_SLIM);
+	    }
+	  gsi_insert_seq_before (gsi, *seq, GSI_SAME_STMT);
+	  return true;
+	}
+    }
+  else if (!inplace)
+    {
+      if (gimple_has_lhs (stmt))
+	{
+	  tree lhs = gimple_get_lhs (stmt);
+	  maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
+				 ops, seq, lhs);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "gimple_simplified to ");
+	      print_gimple_seq (dump_file, *seq, 0, TDF_SLIM);
+	    }
+	  gsi_replace_with_seq_vops (gsi, *seq);
+	  return true;
+	}
+      else
+	gcc_unreachable ();
+    }
+
+  return false;
+}
+
 /* Canonicalize MEM_REFs invariant address operand after propagation.  */
 
 static bool
@@ -2959,9 +3074,6 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
     }
 
   /* Dispatch to pattern-based folding.  */
-  /* ???  Change "inplace" semantics to allow replacing a stmt if
-     no further stmts need to be inserted (basically disallow
-     creating of new SSA names).  */
   if (!inplace
       || is_gimple_assign (stmt)
       || gimple_code (stmt) == GIMPLE_COND)
@@ -2971,108 +3083,10 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
       tree ops[3] = {};
       if (gimple_simplify (stmt, &rcode, ops, inplace ? NULL : &seq, valueize))
 	{
-	  if (gimple_code (stmt) == GIMPLE_COND)
-	    {
-	      gcc_assert (rcode.is_tree_code ());
-	      if (TREE_CODE_CLASS ((enum tree_code)rcode) == tcc_comparison
-		  /* GIMPLE_CONDs condition may not throw.  */
-		  /* ???  Not sure how we want to deal with combining
-		     from possibly throwing statements.  Trivial
-		     simplifications may lead to DCEing an internal
-		     throw.  But we probably still want to simplify
-		     things to a constant for example?  Similar to
-		     abnormals we could discard the simplification
-		     result if we ever push a could-throw stmt to
-		     the sequence.  */
-		  && (!flag_exceptions
-		      || !cfun->can_throw_non_call_exceptions
-		      || !operation_could_trap_p (rcode, FLOAT_TYPE_P (TREE_TYPE (ops[0])), false, NULL_TREE)))
-		gimple_cond_set_condition (stmt, rcode, ops[0], ops[1]);
-	      else if (rcode == SSA_NAME)
-		gimple_cond_set_condition (stmt, NE_EXPR, ops[0],
-					   build_zero_cst (TREE_TYPE (ops[0])));
-	      else if (rcode == INTEGER_CST)
-		{
-		  if (integer_zerop (ops[0]))
-		    gimple_cond_make_false (stmt);
-		  else
-		    gimple_cond_make_true (stmt);
-		}
-	      else if (!inplace)
-		{
-		  tree res = maybe_push_res_to_seq (rcode, boolean_type_node,
-						    ops, &seq);
-		  if (!res)
-		    goto fail;
-		  gimple_cond_set_condition (stmt, NE_EXPR, res,
-					     build_zero_cst (TREE_TYPE (res)));
-		}
-	      else
-		goto fail;
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "gimple_simplified to ");
-		  if (!gimple_seq_empty_p (seq))
-		    print_gimple_seq (dump_file, seq, 0, TDF_SLIM);
-		  print_gimple_stmt (dump_file, gsi_stmt (*gsi),
-				     0, TDF_SLIM);
-		}
-	      gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
-	      changed = true;
-fail:
-	      ;
-	    }
-	  else if (is_gimple_assign (stmt)
-		   && rcode.is_tree_code ())
-	    {
-	      if ((!inplace
-		   || gimple_num_ops (stmt) <= get_gimple_rhs_num_ops (rcode))
-		  /* Play safe and do not allow abnormals to be mentioned in
-		     newly created statements.  */
-		  && !((TREE_CODE (ops[0]) == SSA_NAME
-			&& SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
-		       || (ops[1]
-			   && TREE_CODE (ops[1]) == SSA_NAME
-			   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
-		       || (ops[2]
-			   && TREE_CODE (ops[2]) == SSA_NAME
-			   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2]))))
-		{
-		  maybe_build_generic_op (rcode,
-					  TREE_TYPE (gimple_assign_lhs (stmt)),
-					  &ops[0], ops[1], ops[2]);
-		  gimple_assign_set_rhs_with_ops_1 (gsi, rcode,
-						    ops[0], ops[1], ops[2]);
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    {
-		      fprintf (dump_file, "gimple_simplified to ");
-		      if (!gimple_seq_empty_p (seq))
-			print_gimple_seq (dump_file, seq, 0, TDF_SLIM);
-		      print_gimple_stmt (dump_file, gsi_stmt (*gsi),
-					 0, TDF_SLIM);
-		    }
-		  gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
-		  changed = true;
-		}
-	    }
-	  else if (!inplace)
-	    {
-	      if (gimple_has_lhs (stmt))
-		{
-		  tree lhs = gimple_get_lhs (stmt);
-		  maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
-					 ops, &seq, lhs);
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    {
-		      fprintf (dump_file, "gimple_simplified to ");
-		      print_gimple_seq (dump_file, seq, 0, TDF_SLIM);
-		    }
-		  gsi_replace_with_seq_vops (gsi, seq);
-		  changed = true;
-		}
-	      else
-		gcc_unreachable ();
-	    }
+	  if (replace_stmt_with_simplification (gsi, rcode, ops, &seq, inplace))
+	    changed = true;
+	  else
+	    gimple_seq_discard (seq);
 	}
     }
 
