@@ -55,6 +55,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "regs.h"
 #include "expr.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
@@ -183,6 +189,7 @@ instrument_values (histogram_values values)
 	  break;
 
  	case HIST_TYPE_INDIR_CALL:
+ 	case HIST_TYPE_INDIR_CALL_TOPN:
  	  gimple_gen_ic_profiler (hist, t, 0);
   	  break;
 

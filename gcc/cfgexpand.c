@@ -31,11 +31,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "expr.h"
 #include "langhooks.h"
 #include "bitmap.h"
-#include "hash-set.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
@@ -3983,11 +3987,7 @@ expand_debug_expr (tree exp)
       if (!op0)
 	return NULL;
 
-      if (POINTER_TYPE_P (TREE_TYPE (exp)))
-	as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
-      else
-	as = ADDR_SPACE_GENERIC;
-
+      as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
       op0 = convert_debug_memory_address (targetm.addr_space.address_mode (as),
 					  op0, as);
       if (op0 == NULL_RTX)

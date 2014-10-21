@@ -37,6 +37,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "optabs.h"
 #include "libfuncs.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "regs.h"
 #include "diagnostic-core.h"
@@ -2377,7 +2383,14 @@ expand_call (tree exp, rtx target, int ignore)
       {
 	struct_value_size = int_size_in_bytes (rettype);
 
-	if (target && MEM_P (target) && CALL_EXPR_RETURN_SLOT_OPT (exp))
+	/* Even if it is semantically safe to use the target as the return
+	   slot, it may be not sufficiently aligned for the return type.  */
+	if (CALL_EXPR_RETURN_SLOT_OPT (exp)
+	    && target
+	    && MEM_P (target)
+	    && !(MEM_ALIGN (target) < TYPE_ALIGN (rettype)
+		 && SLOW_UNALIGNED_ACCESS (TYPE_MODE (rettype),
+					   MEM_ALIGN (target))))
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {

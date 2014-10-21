@@ -227,6 +227,7 @@ Implementation Defined Pragmas
 * Pragma Precondition::
 * Pragma Predicate::
 * Pragma Preelaborable_Initialization::
+* Pragma Prefix_Exception_Messages::
 * Pragma Pre_Class::
 * Pragma Priority_Specific_Dispatching::
 * Pragma Profile::
@@ -329,6 +330,7 @@ Implementation Defined Aspects
 * Aspect Simple_Storage_Pool_Type::
 * Aspect SPARK_Mode::
 * Aspect Suppress_Debug_Info::
+* Aspect Suppress_Initialization::
 * Aspect Test_Case::
 * Aspect Thread_Local_Storage::
 * Aspect Universal_Aliasing::
@@ -660,6 +662,7 @@ The GNAT Library
 * Interfaces.VxWorks.IO (i-vxwoio.ads)::
 * System.Address_Image (s-addima.ads)::
 * System.Assertions (s-assert.ads)::
+* System.Atomic_Counters (s-atocou.ads)::
 * System.Memory (s-memory.ads)::
 * System.Multiprocessors (s-multip.ads)::
 * System.Multiprocessors.Dispatching_Domains (s-mudido.ads)::
@@ -1096,6 +1099,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Precondition::
 * Pragma Predicate::
 * Pragma Preelaborable_Initialization::
+* Pragma Prefix_Exception_Messages::
 * Pragma Pre_Class::
 * Pragma Priority_Specific_Dispatching::
 * Pragma Profile::
@@ -4748,11 +4752,9 @@ pragma No_Run_Time;
 
 @noindent
 This is an obsolete configuration pragma that historically was used to
-setup what is now called the "zero footprint" library. It causes any
-library units outside this basic library to be ignored. The use of
-this pragma has been superseded by the general configurable run-time
-capability of @code{GNAT} where the compiler takes into account whatever
-units happen to be accessible in the library.
+set up a runtime library with no object code. It is now used only for
+internal testing. The pragma has been superseded by the reconfigurable
+runtime capability of @code{GNAT}.
 
 @node Pragma No_Strict_Aliasing
 @unnumberedsec Pragma No_Strict_Aliasing
@@ -5694,6 +5696,34 @@ This pragma is standard in Ada 2005, but is available in all earlier
 versions of Ada as an implementation-defined pragma.
 See Ada 2012 Reference Manual for details.
 
+@node Pragma Prefix_Exception_Messages
+@unnumberedsec Pragma Prefix_Exception_Messages
+@cindex Prefix_Exception_Messages
+@cindex exception
+@cindex Exception_Message
+@findex Exceptions
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Prefix_Exception_Messages;
+@end smallexample
+
+@noindent
+This is an implementation-defined configuration pragma that affects the
+behavior of raise statements with a message given as a static string
+constant (typically a string literal). In such cases, the string will
+be automatically prefixed by the name of the enclosing entity (giving
+the package and subprogram containing the raise statement). This helps
+to identify where messages are coming from, and this mode is automatic
+for the run-time library.
+
+The pragma has no effect if the message is computed with an expression other
+than a static string constant, since the assumption in this case is that
+the program computes exactly the string it wants. If you still want the
+prefixing in this case, you can always call
+@code{GNAT.Source_Info.Enclosing_Entity} and prepend the string manually.
+
 @node Pragma Pre_Class
 @unnumberedsec Pragma Pre_Class
 @cindex Pre_Class
@@ -6201,7 +6231,7 @@ any other use of implementation pragmas:
 
 @smallexample @c ada
 pragma Restriction_Warnings (No_Implementation_Pragmas);
-pragma Warnings (Off, "violation of*No_Implementation_Pragmas*");
+7 (Off, "violation of*No_Implementation_Pragmas*");
 pragma Ada_95;
 pragma Style_Checks ("2bfhkM160");
 pragma Warnings (On, "violation of*No_Implementation_Pragmas*");
@@ -7000,13 +7030,16 @@ with this pragma and others compiled in normal mode without it.
 Syntax:
 
 @smallexample @c ada
-pragma Suppress_Initialization ([Entity =>] subtype_Name);
+pragma Suppress_Initialization ([Entity =>] variable_or_subtype_Name);
 @end smallexample
 
 @noindent
-Here subtype_Name is the name introduced by a type declaration
-or subtype declaration.
-This pragma suppresses any implicit or explicit initialization
+Here variable_or_subtype_Name is the name introduced by a type declaration
+or subtype declaration or the name of a variable introduced by an
+object declaration.
+
+In the case of a type or subtype
+this pragma suppresses any implicit or explicit initialization
 for all variables of the given type or subtype,
 including initialization resulting from the use of pragmas
 Normalize_Scalars or Initialize_Scalars.
@@ -7025,6 +7058,10 @@ for discriminated types, and tags for tagged types. In these cases,
 you will have to use some non-portable mechanism (e.g. address
 overlays or unchecked conversion) to achieve required initialization
 of these fields before accessing any object of the corresponding type.
+
+For the variable case, implicit initialization for the named variable
+is suppressed, just as though its subtype had been given in a pragma
+Suppress_Initialization, as described above.
 
 @node Pragma Task_Name
 @unnumberedsec Pragma Task_Name
@@ -7800,6 +7837,9 @@ pragma Warnings (static_string_EXPRESSION [,REASON]);
 pragma Warnings (On | Off, static_string_EXPRESSION [,REASON]);
 
 REASON ::= Reason => STRING_LITERAL @{& STRING_LITERAL@}
+
+Note: in Ada 83 mode, a string literal may be used in place of
+a static string expression (which does not exist in Ada 83).
 @end smallexample
 
 @noindent
@@ -7827,7 +7867,9 @@ it occurs till the end of the extended scope of the variable (similar to
 the scope of @code{Suppress}). This form cannot be used as a configuration
 pragma.
 
-The form with a single static_string_EXPRESSION argument (and possible
+In the case where the first argument is other than @code{ON} or
+@code{OFF},
+the third form with a single static_string_EXPRESSION argument (and possible
 reason) provides more precise
 control over which warnings are active. The string is a list of letters
 specifying which warnings are to be activated and which deactivated. The
@@ -8043,8 +8085,8 @@ pragma Shared (R);
 
 @noindent
 In the documentation below, such cases are simply marked
-as being equivalent to the corresponding pragma or attribute definition
-clause.
+as being boolean aspects equivalent to the corresponding pragma
+or attribute definition clause.
 
 @menu
 * Aspect Abstract_State::
@@ -8085,6 +8127,7 @@ clause.
 * Aspect Simple_Storage_Pool_Type::
 * Aspect SPARK_Mode::
 * Aspect Suppress_Debug_Info::
+* Aspect Suppress_Initialization::
 * Aspect Test_Case::
 * Aspect Thread_Local_Storage::
 * Aspect Universal_Aliasing::
@@ -8124,13 +8167,13 @@ Equivalent to @code{pragma Annotate (ID, ID @{, ARG@}, Entity => Name);}
 @unnumberedsec Aspect Async_Readers
 @findex Async_Readers
 @noindent
-This aspect is equivalent to pragma @code{Async_Readers}.
+This boolean aspect is equivalent to pragma @code{Async_Readers}.
 
 @node Aspect Async_Writers
 @unnumberedsec Aspect Async_Writers
 @findex Async_Writers
 @noindent
-This aspect is equivalent to pragma @code{Async_Writers}.
+This boolean aspect is equivalent to pragma @code{Async_Writers}.
 
 @node Aspect Contract_Cases
 @unnumberedsec Aspect Contract_Cases
@@ -8255,7 +8298,7 @@ This aspect is equivalent to pragma @code{Effective_Writes}.
 @unnumberedsec Aspect Favor_Top_Level
 @findex Favor_Top_Level
 @noindent
-This aspect is equivalent to pragma @code{Favor_Top_Level}.
+This boolean aspect is equivalent to pragma @code{Favor_Top_Level}.
 
 @node Aspect Global
 @unnumberedsec Aspect Global
@@ -8279,7 +8322,7 @@ This aspect is equivalent to pragma @code{Initializes}.
 @unnumberedsec Aspect Inline_Always
 @findex Inline_Always
 @noindent
-This aspect is equivalent to pragma @code{Inline_Always}.
+This boolean aspect is equivalent to pragma @code{Inline_Always}.
 
 @node Aspect Invariant
 @unnumberedsec Aspect Invariant
@@ -8336,7 +8379,7 @@ This aspect is equivalent to an @code{Linker_Section} pragma.
 @unnumberedsec Aspect Lock_Free
 @findex Lock_Free
 @noindent
-This aspect is equivalent to pragma @code{Lock_Free}.
+This boolean aspect is equivalent to pragma @code{Lock_Free}.
 
 @node Aspect No_Elaboration_Code_All
 @unnumberedsec Aspect No_Elaboration_Code_All
@@ -8370,7 +8413,7 @@ This aspect is equivalent to pragma @code{Part_Of}.
 @unnumberedsec Aspect Persistent_BSS
 @findex Persistent_BSS
 @noindent
-This aspect is equivalent to pragma @code{Persistent_BSS}.
+This boolean aspect is equivalent to pragma @code{Persistent_BSS}.
 
 @node Aspect Predicate
 @unnumberedsec Aspect Predicate
@@ -8387,7 +8430,7 @@ expression. It is also separately controllable using pragma
 @unnumberedsec Aspect Pure_Function
 @findex Pure_Function
 @noindent
-This aspect is equivalent to pragma @code{Pure_Function}.
+This boolean aspect is equivalent to pragma @code{Pure_Function}.
 
 @node Aspect Refined_Depends
 @unnumberedsec Aspect Refined_Depends
@@ -8430,8 +8473,8 @@ attribute definition clause.
 @unnumberedsec Aspect Shared
 @findex Shared
 @noindent
-This aspect is equivalent to pragma @code{Shared}, and is thus a synonym
-for aspect @code{Atomic}.
+This booleanaspect is equivalent to pragma @code{Shared},
+and is thus a synonym for aspect @code{Atomic}.
 
 @node Aspect Simple_Storage_Pool
 @unnumberedsec Aspect Simple_Storage_Pool
@@ -8444,7 +8487,7 @@ attribute definition clause.
 @unnumberedsec Aspect Simple_Storage_Pool_Type
 @findex Simple_Storage_Pool_Type
 @noindent
-This aspect is equivalent to pragma @code{Simple_Storage_Pool_Type}.
+This boolean aspect is equivalent to pragma @code{Simple_Storage_Pool_Type}.
 
 @node Aspect SPARK_Mode
 @unnumberedsec Aspect SPARK_Mode
@@ -8458,7 +8501,13 @@ of a subprogram or package.
 @unnumberedsec Aspect Suppress_Debug_Info
 @findex Suppress_Debug_Info
 @noindent
-This aspect is equivalent to pragma @code{Suppress_Debug_Info}.
+This boolean aspect is equivalent to pragma @code{Suppress_Debug_Info}.
+
+@node Aspect Suppress_Initialization
+@unnumberedsec Aspect Suppress_Initialization
+@findex Suppress_Initialization
+@noindent
+This boolean aspect is equivalent to pragma @code{Suppress_Initialization}.
 
 @node Aspect Test_Case
 @unnumberedsec Aspect Test_Case
@@ -8470,13 +8519,13 @@ This aspect is equivalent to pragma @code{Test_Case}.
 @unnumberedsec Aspect Thread_Local_Storage
 @findex Thread_Local_Storage
 @noindent
-This aspect is equivalent to pragma @code{Thread_Local_Storage}.
+This boolean aspect is equivalent to pragma @code{Thread_Local_Storage}.
 
 @node Aspect Universal_Aliasing
 @unnumberedsec Aspect Universal_Aliasing
 @findex Universal_Aliasing
 @noindent
-This aspect is equivalent to pragma @code{Universal_Aliasing}.
+This boolean aspect is equivalent to pragma @code{Universal_Aliasing}.
 
 @node Aspect Universal_Data
 @unnumberedsec Aspect Universal_Data
@@ -8488,19 +8537,21 @@ This aspect is equivalent to pragma @code{Universal_Data}.
 @unnumberedsec Aspect Unmodified
 @findex Unmodified
 @noindent
-This aspect is equivalent to pragma @code{Unmodified}.
+This boolean aspect is equivalent to pragma @code{Unmodified}.
 
 @node Aspect Unreferenced
 @unnumberedsec Aspect Unreferenced
 @findex Unreferenced
 @noindent
-This aspect is equivalent to pragma @code{Unreferenced}.
+This boolean aspect is equivalent to pragma @code{Unreferenced}. Note that
+in the case of formal parameters, it is not permitted to have aspects for
+a formal parameter, so in this case the pragma form must be used.
 
 @node Aspect Unreferenced_Objects
 @unnumberedsec Aspect Unreferenced_Objects
 @findex Unreferenced_Objects
 @noindent
-This aspect is equivalent to pragma @code{Unreferenced_Objects}.
+This boolean aspect is equivalent to pragma @code{Unreferenced_Objects}.
 
 @node Aspect Value_Size
 @unnumberedsec Aspect Value_Size
@@ -19044,6 +19095,7 @@ of GNAT, and will generate a warning message.
 * Interfaces.VxWorks.IO (i-vxwoio.ads)::
 * System.Address_Image (s-addima.ads)::
 * System.Assertions (s-assert.ads)::
+* System.Atomic_Counters (s-atocou.ads)::
 * System.Memory (s-memory.ads)::
 * System.Multiprocessors (s-multip.ads)::
 * System.Multiprocessors.Dispatching_Domains (s-mudido.ads)::
@@ -20554,6 +20606,18 @@ string which identifies an address.
 This package provides the declaration of the exception raised
 by an run-time assertion failure, as well as the routine that
 is used internally to raise this assertion.
+
+@node System.Atomic_Counters (s-atocou.ads)
+@section @code{System.Atomic_Counters} (@file{s-atocou.ads})
+@cindex @code{System.Atomic_Counters} (@file{s-atocou.ads})
+
+@noindent
+This package provides the declaration of an atomic counter type,
+together with efficient routines (using hardware
+synchronization primitives) for incrementing, decrementing,
+and testing of these counters. This package is implemented
+on most targets, including all Alpha, ia64, PowerPC, SPARC V9,
+x86, and x86_64 platforms.
 
 @node System.Memory (s-memory.ads)
 @section @code{System.Memory} (@file{s-memory.ads})

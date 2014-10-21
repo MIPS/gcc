@@ -31,6 +31,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -1674,8 +1680,12 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
 	return false;
     }
 
-  /* Protect the loop latches.  */
-  if (current_loops && b->loop_father->latch == b)
+  /* Protect simple loop latches.  We only want to avoid merging
+     the latch with the loop header in this case.  */
+  if (current_loops
+      && b->loop_father->latch == b
+      && loops_state_satisfies_p (LOOPS_HAVE_SIMPLE_LATCHES)
+      && b->loop_father->header == a)
     return false;
 
   /* It must be possible to eliminate all phi nodes in B.  If ssa form
@@ -6980,11 +6990,12 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
       if (loops_for_fn (saved_cfun)->exits)
 	FOR_EACH_EDGE (e, ei, bb->succs)
 	  {
-	    void **slot = htab_find_slot_with_hash
-		(loops_for_fn (saved_cfun)->exits, e,
-		 htab_hash_pointer (e), NO_INSERT);
+	    struct loops *l = loops_for_fn (saved_cfun);
+	    loop_exit **slot
+	      = l->exits->find_slot_with_hash (e, htab_hash_pointer (e),
+					       NO_INSERT);
 	    if (slot)
-	      htab_clear_slot (loops_for_fn (saved_cfun)->exits, slot);
+	      l->exits->clear_slot (slot);
 	  }
     }
 
