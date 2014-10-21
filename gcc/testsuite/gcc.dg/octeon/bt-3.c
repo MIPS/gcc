@@ -10,14 +10,6 @@ extern func_t functions[];
 
 int i = 1;
 
-int
-main ()
-{
-  testbt_setup ();
-  foo (i);
-  return 0;
-}
-
 __attribute__ ((noinline)) int
 foo (int j)
 {
@@ -36,8 +28,17 @@ bar (int i)
     check_backtrace ();
   return 1;
 }
+int
+main ()
+{
+  testbt_setup ();
+  foo (i);
+  return 0;
+}
+
 
 func_t functions[] = { F (bar), F (bar), F (foo), F (main), FEND };
+
 #else
 int main () { return 0; }
 #endif /* __UCLIBC__ */

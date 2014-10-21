@@ -19,7 +19,9 @@ typedef struct flow_record
   uint16_t dstsd;
 }
 FlowRecord, *Flow;
-fw_flow_dump (Flow flow)
+int decode_sd (int);
+void f(int, int);
+void fw_flow_dump (Flow flow)
 {
   f ((int) flow->key2.prts, decode_sd (flow->dstsd));
 }

@@ -4,9 +4,10 @@
 /* XFAIL: bug 2851, been failing since at least SDK 2.0.  */
 /* { dg-final { scan-assembler-not "sll" { xfail *-*-* } } } */
 
-unsigned f ();
+unsigned f (void);
+void h(void);
 
-g ()
+void g (void)
 {
   unsigned y = f ();
   if (y != 680)

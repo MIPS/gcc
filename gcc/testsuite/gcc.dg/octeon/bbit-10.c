@@ -17,8 +17,9 @@ typedef struct bitfield_s {
 } bitfield_t;
  
 bitfield_t bar;
+void bar2(bitfield_t *);
  
-main()
+int main(void)
 {
   bar2(&bar);
   if (bar.a != 0x1)

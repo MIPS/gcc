@@ -4,7 +4,8 @@
 /* { dg-final { scan-assembler-not "sll\t" } } */
 /* { dg-final { scan-assembler-not "andi\t" } } */
 
-g (long long i)
+void foo(void);
+void g (long long i)
 {
   if (i % 2)
     foo ();

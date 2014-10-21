@@ -5,7 +5,8 @@
 /* __builtin_block_prob takes an integer, a percentage value multiplied by
    100.  */
 
-f (void *p)
+void g(void);
+void f (void *p)
 {
   if (p == 0)
     {

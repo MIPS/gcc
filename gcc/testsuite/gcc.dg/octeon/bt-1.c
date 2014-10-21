@@ -13,7 +13,7 @@ void f ()
   i = 1;
 }
 
-main ()
+int main ()
 {
   f ();
   return 0;

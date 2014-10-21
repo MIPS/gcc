@@ -4,7 +4,8 @@
 /* { dg-options "-O2" } */
 /* { dg-final { scan-assembler-not "bbit\[01\]\t" } } */
 
-f (long long i)
+void g(void);
+void f (long long i)
 {
   if (i < 0)
     g ();

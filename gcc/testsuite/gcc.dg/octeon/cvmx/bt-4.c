@@ -14,7 +14,7 @@ func_t functions[] = { F(memcpy), F (f), F(main), FEND };
 
 int *i = 0, *j = 0, n = 100;
 
-int (*p) (void) = f;
+void (*p) (void) = f;
 void f (void)
 {
   memcpy (i, j, n);

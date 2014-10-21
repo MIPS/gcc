@@ -10,8 +10,10 @@ test_bit(unsigned long long nr, const unsigned long long *addr)
 {
   return 1UL & (addr[nr >> 6] >> (nr & 63ULL));
 }
+
+void g(void);
  
-f ()
+void f (void)
 {
   if (!test_bit(0, &r))
     g ();

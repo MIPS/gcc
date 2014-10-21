@@ -10,7 +10,7 @@ CVMX_SHARED long i[10] = {1};
 CVMX_SHARED long *p = &i[1];
 CVMX_SHARED long j;
 
-main()
+int main()
 {
   i[1] = 0x12345678;
 

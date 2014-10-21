@@ -26,7 +26,7 @@ CVMX_SHARED static struct {
 
 CVMX_SHARED CACHE_LINE_ALIGN cvmx_spinlock_t  port_lock[10];
 
-main()
+int main()
 {
   state.lock = port_lock[2];
   return state.lock.value; 

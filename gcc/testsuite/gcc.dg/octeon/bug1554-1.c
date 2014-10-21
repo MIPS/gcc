@@ -3,7 +3,8 @@
 
 typedef signed short int16;
 typedef signed int int32;
-l110 (int16 l111[4], int16 l79[4])
+void use(int);
+void l110 (int16 l111[4], int16 l79[4])
 {
   int16 l40, l112, l113, l114[4][4], l115, l116;
   int16 l117, l118, l119, l120, l121;

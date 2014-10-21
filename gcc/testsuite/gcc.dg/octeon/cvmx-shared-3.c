@@ -29,7 +29,7 @@ CVMX_SHARED struct {
  int y;
 } abc = {.y = 20};
 
-main()
+int main()
 {
   CVMX_SHARED const long b = 10;
   long CVMX_SHARED x[10] = {1};

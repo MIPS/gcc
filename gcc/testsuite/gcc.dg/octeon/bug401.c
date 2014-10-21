@@ -2,4 +2,4 @@
 
 int a __attribute__ ((visibility ("hidden"))); 
 int *p = &a; 
-main () {}
+int main (void) {return 0;}

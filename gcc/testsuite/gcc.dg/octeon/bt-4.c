@@ -11,14 +11,6 @@ extern func_t functions[];
 int i = 1;
 
 int
-main ()
-{
-  testbt_setup ();
-  foo (i);
-  return 0;
-}
-
-int
 foo (int j)
 {
   return bar (j);
@@ -32,6 +24,14 @@ bar (int i)
   else
     check_backtrace ();
   return 1;
+}
+
+int
+main ()
+{
+  testbt_setup ();
+  foo (i);
+  return 0;
 }
 
 func_t functions[] = { F (bar), F (bar), F (main), FEND };

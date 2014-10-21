@@ -4,7 +4,8 @@
 /* { dg-final { scan-assembler-not "andi\t" } } */
 
 int z;
-f (int i)
+void foo(void);
+void f (int i)
 {
   if (i & 1)
     foo ();

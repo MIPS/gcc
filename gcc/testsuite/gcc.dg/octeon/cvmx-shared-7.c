@@ -9,4 +9,4 @@
 
 CVMX_SHARED int a = 0;
 CVMX_SHARED const long b = 0;
-CVMX_SHARED static const d = 0;
+CVMX_SHARED static const int d = 0;
