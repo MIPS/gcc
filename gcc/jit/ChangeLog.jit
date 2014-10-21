@@ -1,3 +1,26 @@
+2014-10-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/intro/install.rst ("Installation via packages"): Drop
+	this section.
+	("Installation from source"): Drop this section, moving parts
+	of it to https://gcc.gnu.org/wiki/JIT and some others to
+	docs/internals/index.rst.
+	("Hello world"): This section becomes the only remaining part
+	of this file.  Eliminate references to pkg-config.
+
+	* docs/internals/index.rst
+	("Using a working copy without installing every time"): Rewrite
+	as...
+	("Working on the JIT library"): ...new section, aimed at
+	contributors (and myself) working from a build directory,
+	eliminating references to installation.  Add description
+	of pertinent configuration options.
+	("Running the test suite"): Add setting of LIBRARY_PATH to
+	description of how to run a built binary outside of the test
+	suite.
+	("Environment variables"): New section, describing pertinent
+	environment variables.
+
 2014-10-20  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit-recording.c (gcc::jit::dump::dump): Handle fopen failures

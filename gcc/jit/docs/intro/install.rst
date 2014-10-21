@@ -17,153 +17,25 @@
 
 .. default-domain:: c
 
-Getting Started
----------------
+Getting Started: "Hello world"
+==============================
 
-Installation via packages
-=========================
-
-It's easiest to use pre-built packages of the library.
-
-Fedora and RHEL
-***************
-RPM packages of libgccjit (and its Python 2 and 3 bindings) are
-available for Fedora and RHEL, for i386 and x86_64.
-
-These currently should be treated as experimental.
-
-See https://copr.fedoraproject.org/coprs/dmalcolm/libgccjit/
-for information on subscribing to the appropriate repository for
-your system.  Having done this,
-
-.. code-block:: bash
-
-  sudo yum install libgccjit-devel
-
-should give you both the JIT library (`libgccjit`) and the header files
-needed to develop against it (`libgccjit-devel`):
-
-.. code-block:: console
-
-  $ rpm -qlv libgccjit
-  lrwxrwxrwx    1 root    root       18 Aug 12 07:56 /usr/lib64/libgccjit.so.0 -> libgccjit.so.0.0.1
-  -rwxr-xr-x    1 root    root 14463448 Aug 12 07:57 /usr/lib64/libgccjit.so.0.0.1
-
-  $ rpm -qlv libgccjit-devel
-  -rwxr-xr-x    1 root    root    37654 Aug 12 07:56 /usr/include/libgccjit++.h
-  -rwxr-xr-x    1 root    root    28967 Aug 12 07:56 /usr/include/libgccjit.h
-  lrwxrwxrwx    1 root    root       14 Aug 12 07:56 /usr/lib64/libgccjit.so -> libgccjit.so.0
-
-
-Other distributions
-*******************
-
-Prebuilt packages for other distributions would be most welcome; please
-contact the `jit mailing list`_.
-
-
-Installation from source
-========================
-If pre-built packages are not available, you can built the library from
-source.  Doing so currently requires about 4.2G of drive space (for
-the combination of the source tree, the build directory, and the
-installation path).
-
-The code can currently be seen within the git branch "dmalcolm/jit" here:
-  http://gcc.gnu.org/git/?p=gcc.git;a=shortlog;h=refs/heads/dmalcolm/jit
-
-The following will check out a copy of the appropriate branch, to the
-"jit/src" subdirectory:
-
-.. code-block:: bash
-
-  mkdir jit
-  cd jit
-  git clone \
-      -b dmalcolm/jit \
-       git://gcc.gnu.org/git/gcc.git \
-       src
-
-The source tree currently occupies about 2.8G of disk space.
-
-To build it (within the "jit/build" subdirectory, installing to
-"jit/install"):
-
-.. code-block:: bash
-
-  mkdir build
-  mkdir install
-  PREFIX=$(pwd)/install
-  cd build
-  ../src/configure \
-     --enable-host-shared \
-     --enable-languages=jit \
-     --disable-bootstrap \
-     --enable-checking=release \
-     --prefix=$PREFIX
-  nice make -j4 # altering the "4" to however many cores you have
-
-On my 4-core laptop this takes 17 minutes and 1.1G of disk space
-(it's much faster with many cores and a corresponding -j setting).
-
-This should build a libgccjit.so within jit/build/gcc:
-
-.. code-block:: console
-
- [build] $ file gcc/libgccjit.so*
- gcc/libgccjit.so:       symbolic link to `libgccjit.so.0'
- gcc/libgccjit.so.0:     symbolic link to `libgccjit.so.0.0.1'
- gcc/libgccjit.so.0.0.1: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, not stripped
-
-Note that this is a branch of GCC, so if it fails to build, you might want
-to consult the `general GCC FAQ <https://gcc.gnu.org/wiki/FAQ>`_  for some
-common issues, before checking on the `jit mailing list`_.
-
-.. _jit mailing list: https://gcc.gnu.org/ml/jit/
-
-You should then be able to install it (to the `--prefix` specified
-earlier) via:
-
-.. code-block:: bash
-
-  make install
-
-On my laptop this uses a further 0.4G of disk space.
-
-You should be able to see the header files within the `include`
-subdirectory of the installation prefix:
-
-.. code-block:: console
-
-  $ find $PREFIX/include
-  /home/david/gcc-jit/install/include
-  /home/david/gcc-jit/install/include/libgccjit.h
-  /home/david/gcc-jit/install/include/libgccjit++.h
-
-and the library within the `lib` subdirectory:
-
-.. code-block:: console
-
-  $ find $PREFIX/lib/libgccjit.*
-  /home/david/gcc-jit/install/lib/libgccjit.so
-  /home/david/gcc-jit/install/lib/libgccjit.so.0
-  /home/david/gcc-jit/install/lib/libgccjit.so.0.0.1
-
-
-"Hello world"
-=============
-
-Let's look at how to build and run programs that use the library.
+Before we look at the details of the API, let's look at building and
+running programs that use the library.
 
 Here's a toy "hello world" program that uses the library to synthesize
-a call to `printf` and use it to write a message to stdout.
+a call to `printf` and uses it to write a message to stdout.
+
+Don't worry about the content of the program for now; we'll cover
+the details in later parts of this tutorial.
 
    .. literalinclude:: ../examples/install-hello-world.c
     :language: c
 
-Copy it to `jit-hello-world.c`.
+Copy the above to `jit-hello-world.c`.
 
-To build it with prebuilt packages, use:
+Assuming you have the jit library installed, build the test program
+using:
 
 .. code-block:: console
 
@@ -172,56 +44,9 @@ To build it with prebuilt packages, use:
       -o jit-hello-world \
       -lgccjit
 
-  # Run the built program:
+You should then be able to run the built program:
+
+.. code-block:: console
+
   $ ./jit-hello-world
-  hello world
-
-
-If building against an locally-built install (to `$PREFIX`), you can use
-`pkg-config <http://www.freedesktop.org/wiki/Software/pkg-config/>`_ to
-specify the compilation and linkage flags:
-
-.. code-block:: console
-
-  $ export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
-  $ gcc \
-      jit-hello-world.c \
-      -o jit-hello-world \
-      $(pkg-config libgccjit --cflags --libs)
-
-This is equivalent to handcoding the include and library paths with `-I`
-and `-L` and specifying `-lgccjit` (i.e. linkage against libgccjit):
-
-.. code-block:: console
-
-  $ gcc \
-      jit-hello-world.c \
-      -o jit-hello-world \
-      -lgccjit \
-      -I$PREFIX/include -L$PREFIX/lib
-
-When running the built test program against a locally-built tree, two
-environment variables need to be set up:
-
-* `LD_LIBRARY_PATH` needs to be set up appropriately so that the dynamic
-  linker can locate the `libgccjit.so`
-
-* `PATH` needs to include the `bin` subdirectory below the installation
-  prefix, so that the library can locate a driver binary.  This is used
-  internally by the library for converting from .s assembler files to
-  .so shared libraries.
-
-  ..
-     Specifically, it looks for a name expanded from
-     ``${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}`` on the
-     ``$PATH``, such as ``x86_64-unknown-linux-gnu-gcc-5.0.0``).
-
-For example, if you configured with a prefix of ``$PREFIX`` like above,
-you need an invocation like this:
-
-.. code-block:: console
-
-  $ LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH \
-    PATH=$PREFIX/bin:$PATH \
-    ./jit-hello-world
   hello world
