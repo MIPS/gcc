@@ -12068,6 +12068,26 @@ sh_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
   return true;
 }
 
+/* Specify the modes required to caller save a given hard regno.
+   choose_hard_reg_mode chooses mode based on HARD_REGNO_MODE_OK
+   and returns ?Imode for float regs when sh_hard_regno_mode_ok
+   permits integer modes on them.  That makes LRA's split process
+   unhappy.  See PR55212.
+ */
+enum machine_mode
+sh_hard_regno_caller_save_mode (unsigned int regno, unsigned int nregs,
+				enum machine_mode mode)
+{
+  if (FP_REGISTER_P (regno)
+      && (mode == SFmode
+	  || mode == DFmode
+	  || mode == SCmode
+	  || mode == DCmode))
+    return mode;
+
+  return choose_hard_reg_mode (regno, nregs, false);
+}
+
 /* Return the class of registers for which a mode change from FROM to TO
    is invalid.  */
 bool
