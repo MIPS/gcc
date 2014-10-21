@@ -954,10 +954,19 @@ package body Sem_Ch12 is
       --  In Ada 2005, indicates partial parameterization of a formal
       --  package. As usual an other association must be last in the list.
 
-      function Build_Wrapper
+      function Build_Function_Wrapper
         (Formal : Entity_Id;
          Actual : Entity_Id := Empty) return Node_Id;
-      --  In GNATProve mode, create a wrapper function for actuals that are
+      --  In GNATprove mode, create a wrapper function for actuals that are
+      --  functions with any number of formal parameters, in order to propagate
+      --  their contract to the renaming declarations generated for them.
+      --  If the actual is absent, the formal has a default, and the name of
+      --  the function is that of the formal.
+
+      function Build_Operator_Wrapper
+        (Formal : Entity_Id;
+         Actual : Entity_Id := Empty) return Node_Id;
+      --  In GNATprove mode, create a wrapper function for actuals that are
       --  operators, in order to propagate their contract to the renaming
       --  declarations generated for them. If the actual is absent, this is
       --  a formal with a default, and the name of the operator is that of the
@@ -1010,11 +1019,119 @@ package body Sem_Ch12 is
       --  anonymous types, the presence a formal equality will introduce an
       --  implicit declaration for the corresponding inequality.
 
-      -------------------
-      -- Build_Wrapper --
-      -------------------
+      ----------------------------
+      -- Build_Function_Wrapper --
+      ----------------------------
 
-      function Build_Wrapper
+      function Build_Function_Wrapper
+        (Formal : Entity_Id;
+         Actual : Entity_Id := Empty) return Node_Id
+      is
+         Loc       : constant Source_Ptr := Sloc (I_Node);
+         Actuals   : List_Id;
+         Decl      : Node_Id;
+         Func_Name : Node_Id;
+         Func      : Entity_Id;
+         Parm_Type : Node_Id;
+         Profile   : List_Id := New_List;
+         Spec      : Node_Id;
+         Act_F     : Entity_Id;
+         Form_F    : Entity_Id;
+         New_F     : Entity_Id;
+
+      begin
+         --  If there is no actual, the formal has a default and is retrieved
+         --  by name. Otherwise the wrapper encloses a call to the actual.
+
+         if No (Actual) then
+            Func_Name := Make_Identifier (Loc, Chars (Formal));
+         else
+            Func_Name := New_Occurrence_Of (Entity (Actual), Loc);
+         end if;
+
+         Func := Make_Defining_Identifier (Loc, Chars (Formal));
+         Set_Ekind (Func, E_Function);
+         Set_Is_Generic_Actual_Subprogram (Func);
+
+         Actuals := New_List;
+         Profile := New_List;
+
+         if Present (Actual) then
+            Act_F := First_Formal (Entity (Actual));
+         else
+            Act_F := Empty;
+         end if;
+
+         Form_F := First_Formal (Formal);
+         while Present (Form_F) loop
+
+            --  Create new formal for profile of wrapper, and add a reference
+            --  to it in the list of actuals for the enclosing call. The name
+            --  must be that of the formal in the formal subprogram, because
+            --  calls to it in the generic body may use named associations.
+
+            New_F := Make_Defining_Identifier (Loc, Chars (Form_F));
+
+            if No (Actual) then
+
+               --  If formal has a class-wide type rewrite as the corresponding
+               --  attribute, because the class-wide type is not retrievable by
+               --  visbility.
+
+               if Is_Class_Wide_Type (Etype (Form_F)) then
+                  Parm_Type :=
+                    Make_Attribute_Reference (Loc,
+                      Attribute_Name => Name_Class,
+                      Prefix         =>
+                        Make_Identifier (Loc, Chars (Etype (Etype (Form_F)))));
+
+               else
+                  Parm_Type :=
+                    Make_Identifier (Loc, Chars (Etype (Etype (Form_F))));
+               end if;
+
+            --  If actual is present, use the type of its own formal
+
+            else
+               Parm_Type := New_Occurrence_Of (Etype (Act_F), Loc);
+            end if;
+
+            Append_To (Profile,
+              Make_Parameter_Specification (Loc,
+                Defining_Identifier => New_F,
+                Parameter_Type      => Parm_Type));
+
+            Append_To (Actuals, New_Occurrence_Of (New_F, Loc));
+            Next_Formal (Form_F);
+
+            if Present (Act_F) then
+               Next_Formal (Act_F);
+            end if;
+         end loop;
+
+         Spec :=
+           Make_Function_Specification (Loc,
+             Defining_Unit_Name       => Func,
+             Parameter_Specifications => Profile,
+             Result_Definition        =>
+               Make_Identifier (Loc, Chars (Etype (Formal))));
+
+         Decl :=
+           Make_Expression_Function (Loc,
+             Specification => Spec,
+             Expression    =>
+               Make_Function_Call (Loc,
+                 Name                   => Func_Name,
+                 Parameter_Associations => Actuals));
+
+         return Decl;
+      end Build_Function_Wrapper;
+
+      ----------------------------
+      -- Build_Operator_Wrapper --
+      ----------------------------
+
+      function Build_Operator_Wrapper
         (Formal : Entity_Id;
          Actual : Entity_Id := Empty) return Node_Id
       is
@@ -1029,8 +1146,7 @@ package body Sem_Ch12 is
          Func    : Entity_Id;
          Op_Name : Name_Id;
          Spec    : Node_Id;
-
-         L, R   : Node_Id;
+         L, R    : Node_Id;
 
       begin
          if No (Actual) then
@@ -1089,52 +1205,52 @@ package body Sem_Ch12 is
 
          elsif Is_Binary then
             if Op_Name = Name_Op_And then
-               Expr := Make_Op_And (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_And      (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Or then
-               Expr := Make_Op_Or (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Or       (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Xor then
-               Expr := Make_Op_Xor (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Xor      (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Eq then
-               Expr := Make_Op_Eq (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Eq       (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Ne then
-               Expr := Make_Op_Ne (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Ne       (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Le then
-               Expr := Make_Op_Le (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Le       (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Gt then
-               Expr := Make_Op_Gt (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Gt       (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Ge then
-               Expr := Make_Op_Ge (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Ge       (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Lt then
-               Expr := Make_Op_Lt (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Lt       (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Add then
-               Expr := Make_Op_Add (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Add      (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Subtract then
                Expr := Make_Op_Subtract (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Concat then
-               Expr := Make_Op_Concat (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Concat   (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Multiply then
                Expr := Make_Op_Multiply (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Divide then
-               Expr := Make_Op_Divide (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Divide   (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Mod then
-               Expr := Make_Op_Mod (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Mod      (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Rem then
-               Expr := Make_Op_Rem (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Rem      (Loc, Left_Opnd => L, Right_Opnd => R);
             elsif Op_Name = Name_Op_Expon then
-               Expr := Make_Op_Expon (Loc, Left_Opnd => L, Right_Opnd => R);
+               Expr := Make_Op_Expon    (Loc, Left_Opnd => L, Right_Opnd => R);
             end if;
 
          --  Unary operators
 
          else
             if Op_Name = Name_Op_Add then
-               Expr := Make_Op_Plus (Loc, Right_Opnd => L);
+               Expr := Make_Op_Plus  (Loc, Right_Opnd => L);
             elsif Op_Name = Name_Op_Subtract then
                Expr := Make_Op_Minus (Loc, Right_Opnd => L);
             elsif Op_Name = Name_Op_Abs then
-               Expr := Make_Op_Abs (Loc, Right_Opnd => L);
+               Expr := Make_Op_Abs   (Loc, Right_Opnd => L);
             elsif Op_Name = Name_Op_Not then
-               Expr := Make_Op_Not (Loc, Right_Opnd => L);
+               Expr := Make_Op_Not   (Loc, Right_Opnd => L);
             end if;
          end if;
 
@@ -1151,7 +1267,7 @@ package body Sem_Ch12 is
              Expression    => Expr);
 
          return Decl;
-      end Build_Wrapper;
+      end Build_Operator_Wrapper;
 
       ----------------------------------------
       -- Check_Overloaded_Formal_Subprogram --
@@ -1670,9 +1786,8 @@ package body Sem_Ch12 is
 
                   else
                      if GNATprove_Mode
-                       and then
-                         Present
-                           (Get_First_Parent_With_Ext_Axioms_For_Entity
+                        and then Present
+                           (Containing_Package_With_Ext_Axioms
                               (Defining_Entity (Analyzed_Formal)))
                        and then Ekind (Defining_Entity (Analyzed_Formal)) =
                                                                     E_Function
@@ -1694,13 +1809,13 @@ package body Sem_Ch12 is
 
                               Append_To
                                 (Assoc,
-                                 Build_Wrapper
+                                 Build_Operator_Wrapper
                                    (Defining_Entity (Analyzed_Formal), Match));
 
                            else
                               Append_To (Assoc,
-                                         Instantiate_Formal_Subprogram
-                                           (Formal, Match, Analyzed_Formal));
+                                 Build_Function_Wrapper
+                                   (Defining_Entity (Analyzed_Formal), Match));
                            end if;
 
                         --  Ditto if formal is an operator with a default.
@@ -1710,15 +1825,15 @@ package body Sem_Ch12 is
                                                     N_Defining_Operator_Symbol
                         then
                            Append_To (Assoc,
-                             Build_Wrapper
+                             Build_Operator_Wrapper
                                (Defining_Entity (Analyzed_Formal)));
 
                         --  Otherwise create renaming declaration.
 
                         else
                            Append_To (Assoc,
-                             Instantiate_Formal_Subprogram
-                               (Formal, Match, Analyzed_Formal));
+                             Build_Function_Wrapper
+                               (Defining_Entity (Analyzed_Formal)));
                         end if;
 
                      else
@@ -2355,11 +2470,8 @@ package body Sem_Ch12 is
          Set_Ekind (Id, K);
          Set_Etype (Id, T);
 
-         if (Is_Array_Type (T)
-              and then not Is_Constrained (T))
-           or else
-            (Ekind (T) = E_Record_Type
-              and then Has_Discriminants (T))
+         if (Is_Array_Type (T) and then not Is_Constrained (T))
+           or else (Ekind (T) = E_Record_Type and then Has_Discriminants (T))
          then
             declare
                Non_Freezing_Ref : constant Node_Id :=
@@ -3543,9 +3655,7 @@ package body Sem_Ch12 is
          else
             E := First_Entity (Gen_Unit);
             while Present (E) loop
-               if Is_Subprogram (E)
-                 and then Is_Inlined (E)
-               then
+               if Is_Subprogram (E) and then Is_Inlined (E) then
                   return True;
                end if;
 
@@ -3928,17 +4038,17 @@ package body Sem_Ch12 is
 
             Needs_Body :=
               (Unit_Requires_Body (Gen_Unit)
-                  or else Enclosing_Body_Present
-                  or else Present (Corresponding_Body (Gen_Decl)))
-                and then (Is_In_Main_Unit (N) or else Might_Inline_Subp)
-                and then not Is_Actual_Pack
-                and then not Inline_Now
-                and then (Operating_Mode = Generate_Code
+                or else Enclosing_Body_Present
+                or else Present (Corresponding_Body (Gen_Decl)))
+               and then (Is_In_Main_Unit (N) or else Might_Inline_Subp)
+               and then not Is_Actual_Pack
+               and then not Inline_Now
+               and then (Operating_Mode = Generate_Code
 
-                           --  Need comment for this check ???
+                          --  Need comment for this check ???
 
-                           or else (Operating_Mode = Check_Semantics
-                                     and then (ASIS_Mode or GNATprove_Mode)));
+                          or else (Operating_Mode = Check_Semantics
+                                    and then (ASIS_Mode or GNATprove_Mode)));
 
             --  If front_end_inlining is enabled, do not instantiate body if
             --  within a generic context.
@@ -4344,14 +4454,13 @@ package body Sem_Ch12 is
 
                exit when Scope_Stack.Last - Num_Scopes + 1 = Scope_Stack.First
                  or else Scope_Stack.Table
-                           (Scope_Stack.Last - Num_Scopes).Entity
-                             = Scope (S);
+                           (Scope_Stack.Last - Num_Scopes).Entity = Scope (S);
             end loop;
 
             exit when Is_Generic_Instance (S)
               and then (In_Package_Body (S)
-                          or else Ekind (S) = E_Procedure
-                          or else Ekind (S) = E_Function);
+                         or else Ekind (S) = E_Procedure
+                         or else Ekind (S) = E_Function);
             S := Scope (S);
          end loop;
 
@@ -4390,8 +4499,7 @@ package body Sem_Ch12 is
          loop
             if Is_Generic_Instance (S)
               and then (In_Package_Body (S)
-                          or else Ekind (S) = E_Procedure
-                            or else Ekind (S) = E_Function)
+                         or else Ekind_In (S, E_Procedure, E_Function))
             then
                --  We still have to remove the entities of the enclosing
                --  instance from direct visibility.
@@ -4451,6 +4559,7 @@ package body Sem_Ch12 is
 
             S := Scope (S);
          end loop;
+
          pragma Assert (Num_Inner < Num_Scopes);
 
          Push_Scope (Standard_Standard);
@@ -4560,8 +4669,7 @@ package body Sem_Ch12 is
                Set_Is_Generic_Instance (Inst, True);
 
                if In_Package_Body (Inst)
-                 or else Ekind (S) = E_Procedure
-                 or else Ekind (S) = E_Function
+                 or else Ekind_In (S, E_Procedure, E_Function)
                then
                   E := First_Entity (Instances (J));
                   while Present (E) loop
@@ -4934,9 +5042,8 @@ package body Sem_Ch12 is
          --  If renaming, get original unit
 
          if Present (Renamed_Object (Gen_Unit))
-           and then (Ekind (Renamed_Object (Gen_Unit)) = E_Generic_Procedure
-                       or else
-                     Ekind (Renamed_Object (Gen_Unit)) = E_Generic_Function)
+           and then Ekind_In (Renamed_Object (Gen_Unit), E_Generic_Procedure,
+                                                         E_Generic_Function)
          then
             Gen_Unit := Renamed_Object (Gen_Unit);
             Set_Is_Instantiated (Gen_Unit);
@@ -5890,9 +5997,7 @@ package body Sem_Ch12 is
          --  If the formal package is declared with a box, or if the formal
          --  parameter is defaulted, it is visible in the body.
 
-         elsif Is_Formal_Box
-           or else Is_Visible_Formal (E)
-         then
+         elsif Is_Formal_Box or else Is_Visible_Formal (E) then
             Set_Is_Hidden (E, False);
          end if;
 
@@ -6176,7 +6281,7 @@ package body Sem_Ch12 is
                if Is_Child_Unit (E)
                  and then not Comes_From_Source (Entity (Prefix (Gen_Id)))
                  and then (not In_Instance
-                             or else Nkind (Parent (Parent (Gen_Id))) =
+                            or else Nkind (Parent (Parent (Gen_Id))) =
                                                          N_Compilation_Unit)
                then
                   Error_Msg_N
@@ -6558,7 +6663,7 @@ package body Sem_Ch12 is
 
          if Ekind (Scop) = E_Generic_Package
            or else (Is_Subprogram (Scop)
-                      and then Nkind (Unit_Declaration_Node (Scop)) =
+                     and then Nkind (Unit_Declaration_Node (Scop)) =
                                         N_Generic_Subprogram_Declaration)
          then
             Elmt := First_Elmt (Inner_Instances (Inner));
@@ -9554,10 +9659,13 @@ package body Sem_Ch12 is
 
       Loc := Sloc (Defining_Unit_Name (New_Spec));
 
-      --  Create new entity for the actual (New_Copy_Tree does not)
+      --  Create new entity for the actual (New_Copy_Tree does not), and
+      --  indicate that it is an actual.
 
       Set_Defining_Unit_Name
         (New_Spec, Make_Defining_Identifier (Loc, Chars (Formal_Sub)));
+      Set_Ekind (Defining_Unit_Name (New_Spec), Ekind (Analyzed_S));
+      Set_Is_Generic_Actual_Subprogram (Defining_Unit_Name (New_Spec));
 
       --  Create new entities for the each of the formals in the specification
       --  of the renaming declaration built for the actual.
@@ -9920,15 +10028,13 @@ package body Sem_Ch12 is
             --  access type.
 
             if Ada_Version < Ada_2005
-              or else
-                Ekind (Base_Type (Ftyp)) /=
-                  E_Anonymous_Access_Type
-              or else
-                Ekind (Base_Type (Etype (Actual))) /=
-                  E_Anonymous_Access_Type
+              or else Ekind (Base_Type (Ftyp))           /=
+                                                  E_Anonymous_Access_Type
+              or else Ekind (Base_Type (Etype (Actual))) /=
+                                                  E_Anonymous_Access_Type
             then
-               Error_Msg_NE ("type of actual does not match type of&",
-                             Actual, Gen_Obj);
+               Error_Msg_NE
+                 ("type of actual does not match type of&", Actual, Gen_Obj);
             end if;
          end if;
 
@@ -9937,19 +10043,16 @@ package body Sem_Ch12 is
          --  Check for instantiation of atomic/volatile actual for
          --  non-atomic/volatile formal (RM C.6 (12)).
 
-         if Is_Atomic_Object (Actual)
-           and then not Is_Atomic (Orig_Ftyp)
-         then
+         if Is_Atomic_Object (Actual) and then not Is_Atomic (Orig_Ftyp) then
             Error_Msg_N
-              ("cannot instantiate non-atomic formal object " &
-               "with atomic actual", Actual);
+              ("cannot instantiate non-atomic formal object "
+               & "with atomic actual", Actual);
 
-         elsif Is_Volatile_Object (Actual)
-           and then not Is_Volatile (Orig_Ftyp)
+         elsif Is_Volatile_Object (Actual) and then not Is_Volatile (Orig_Ftyp)
          then
             Error_Msg_N
-              ("cannot instantiate non-volatile formal object " &
-               "with volatile actual", Actual);
+              ("cannot instantiate non-volatile formal object "
+               & "with volatile actual", Actual);
          end if;
 
       --  Formal in-parameter
@@ -11146,9 +11249,10 @@ package body Sem_Ch12 is
 
          if Subtypes_Match
            (Component_Type (A_Gen_T), Component_Type (Act_T))
-             or else Subtypes_Match
-               (Find_Actual_Type (Component_Type (A_Gen_T), A_Gen_T),
-               Component_Type (Act_T))
+             or else
+               Subtypes_Match
+                 (Find_Actual_Type (Component_Type (A_Gen_T), A_Gen_T),
+                  Component_Type (Act_T))
          then
             null;
          else
@@ -11403,12 +11507,10 @@ package body Sem_Ch12 is
 
             elsif Is_Constrained (Act_T) then
                if Ekind (Ancestor) = E_Access_Type
-                 or else
-                   (not Is_Constrained (A_Gen_T)
-                     and then Is_Composite_Type (A_Gen_T))
+                 or else (not Is_Constrained (A_Gen_T)
+                           and then Is_Composite_Type (A_Gen_T))
                then
-                  Error_Msg_N
-                    ("actual subtype must be unconstrained", Actual);
+                  Error_Msg_N ("actual subtype must be unconstrained", Actual);
                   Abandon_Instantiation (Actual);
                end if;
 
@@ -11847,14 +11949,11 @@ package body Sem_Ch12 is
                 Actual, Gen_T);
 
          elsif Is_Limited_Type (Act_T) /= Is_Limited_Type (A_Gen_T)
-           or else
-             Is_Task_Interface (A_Gen_T) /= Is_Task_Interface (Act_T)
-           or else
-             Is_Protected_Interface (A_Gen_T) /=
-               Is_Protected_Interface (Act_T)
-           or else
-             Is_Synchronized_Interface (A_Gen_T) /=
-               Is_Synchronized_Interface (Act_T)
+           or else Is_Task_Interface (A_Gen_T) /= Is_Task_Interface (Act_T)
+           or else Is_Protected_Interface (A_Gen_T) /=
+                   Is_Protected_Interface (Act_T)
+           or else Is_Synchronized_Interface (A_Gen_T) /=
+                   Is_Synchronized_Interface (Act_T)
          then
             Error_Msg_NE
               ("actual for interface& does not match (RM 12.5.5(4))",
@@ -11930,15 +12029,13 @@ package body Sem_Ch12 is
 
          if Is_Unchecked_Union (Base_Type (Act_T)) then
             if not Has_Discriminants (A_Gen_T)
-                     or else
-                   (Is_Derived_Type (A_Gen_T)
-                     and then
-                    Is_Unchecked_Union (A_Gen_T))
+              or else (Is_Derived_Type (A_Gen_T)
+                        and then Is_Unchecked_Union (A_Gen_T))
             then
                null;
             else
-               Error_Msg_N ("unchecked union cannot be the actual for a" &
-                 " discriminated formal type", Act_T);
+               Error_Msg_N ("unchecked union cannot be the actual for a "
+                            & "discriminated formal type", Act_T);
 
             end if;
          end if;
@@ -11957,8 +12054,7 @@ package body Sem_Ch12 is
 
          if Ekind (Act_T) = E_Incomplete_Type
            or else (Is_Class_Wide_Type (Act_T)
-                      and then
-                         Ekind (Root_Type (Act_T)) = E_Incomplete_Type)
+                     and then Ekind (Root_Type (Act_T)) = E_Incomplete_Type)
          then
             --  If the formal is an incomplete type, the actual can be
             --  incomplete as well.
@@ -12341,7 +12437,7 @@ package body Sem_Ch12 is
       if not In_Same_Source_Unit (N, Spec)
         or else Nkind (Unit (Comp_Unit)) = N_Package_Declaration
         or else (Nkind (Unit (Comp_Unit)) = N_Package_Body
-                   and then not Is_In_Main_Unit (Spec))
+                  and then not Is_In_Main_Unit (Spec))
       then
          --  Find body of parent of spec, and analyze it. A special case arises
          --  when the parent is an instantiation, that is to say when we are
@@ -13511,7 +13607,7 @@ package body Sem_Ch12 is
             elsif Nkind (N) = N_Op_Concat
               and then Is_Generic_Type (Etype (N2))
               and then (Base_Type (Etype (Right_Opnd (N2))) = Etype (N2)
-                         or else
+                          or else
                         Base_Type (Etype (Left_Opnd (N2)))  = Etype (N2))
               and then Is_Intrinsic_Subprogram (E)
             then
@@ -13804,9 +13900,7 @@ package body Sem_Ch12 is
             end if;
 
          elsif D in List_Range then
-            if D = Union_Id (No_List)
-              or else Is_Empty_List (List_Id (D))
-            then
+            if D = Union_Id (No_List) or else Is_Empty_List (List_Id (D)) then
                null;
 
             else
@@ -14058,10 +14152,7 @@ package body Sem_Ch12 is
                      end if;
                   end if;
 
-                  if No (N2)
-                    or else No (Typ)
-                    or else not Is_Global (Typ)
-                  then
+                  if No (N2) or else No (Typ) or else not Is_Global (Typ) then
                      Set_Associated_Node (N, Empty);
 
                      --  If the aggregate is an actual in a call, it has been
@@ -14327,9 +14418,7 @@ package body Sem_Ch12 is
       OK      : Boolean;
 
    begin
-      if No (T)
-        or else T = Any_Id
-      then
+      if No (T) or else T = Any_Id then
          return;
       end if;
 

@@ -300,7 +300,7 @@
                          (V2SI "P") (V4SI  "q")
                          (V2SF "P") (V4SF  "q")
                          (DI   "P") (V2DI  "q")
-                         (SF   "")  (DF    "P")])
+                         (SF   "P") (DF    "P")])
 
 ;; Wider modes with the same number of elements.
 (define_mode_attr V_widen [(V8QI "V8HI") (V4HI "V4SI") (V2SI "V2DI")])

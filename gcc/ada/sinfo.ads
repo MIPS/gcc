@@ -1093,7 +1093,7 @@ package Sinfo is
    --  Do_Storage_Check (Flag17-Sem)
    --    This flag is set in an N_Allocator node to indicate that a storage
    --    check is required for the allocation, or in an N_Subprogram_Body node
-   --    to indicate that a stack check is required in the subprogram prolog.
+   --    to indicate that a stack check is required in the subprogram prologue.
    --    The N_Allocator case is handled by the routine that expands the call
    --    to the runtime routine. The N_Subprogram_Body case is handled by the
    --    backend, and all the semantics does is set the flag.
@@ -4245,6 +4245,11 @@ package Sinfo is
       --  case of multiply/divide/rem/mod operations, Gigi will only see fixed
       --  point operands if the Treat_Fixed_As_Integer flag is set and will
       --  thus treat these nodes in identical manner, ignoring small values.
+
+      --  Note on equality/inequality tests for records. In the expanded tree,
+      --  record comparisons are always expanded to be a series of component
+      --  comparisons, so the back end will never see an equality or inequality
+      --  operation with operands of a record type.
 
       --  Note on overflow handling: When the overflow checking mode is set to
       --  MINIMIZED or ELIMINATED, nodes for signed arithmetic operations may

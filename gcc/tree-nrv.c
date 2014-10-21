@@ -22,6 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
@@ -216,8 +222,7 @@ pass_nrv::execute (function *fun)
 		 same type and alignment as the function's result.  */
 	      if (TREE_CODE (found) != VAR_DECL
 		  || TREE_THIS_VOLATILE (found)
-		  || DECL_CONTEXT (found) != current_function_decl
-		  || TREE_STATIC (found)
+		  || !auto_var_in_fn_p (found, current_function_decl)
 		  || TREE_ADDRESSABLE (found)
 		  || DECL_ALIGN (found) > DECL_ALIGN (result)
 		  || !useless_type_conversion_p (result_type,
