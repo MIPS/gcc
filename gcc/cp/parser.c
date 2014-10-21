@@ -27317,13 +27317,13 @@ cp_parser_omp_clause_name (cp_parser *parser)
     result = PRAGMA_OMP_CLAUSE_IF;
   else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DEFAULT))
     result = PRAGMA_OMP_CLAUSE_DEFAULT;
+  else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DELETE))
+    result = PRAGMA_OMP_CLAUSE_DELETE;
   else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_PRIVATE))
     result = PRAGMA_OMP_CLAUSE_PRIVATE;
   else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
     result = PRAGMA_OMP_CLAUSE_FOR;
-  /* The lexer classifies "delete" as a keyword.  */
-  else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
-	   || cp_lexer_next_token_is (parser->lexer, CPP_KEYWORD))
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
       const char *p = IDENTIFIER_POINTER (id);
@@ -27351,9 +27351,7 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_CREATE;
 	  break;
 	case 'd':
-	  if (!strcmp ("delete", p))
-	    result = PRAGMA_OMP_CLAUSE_DELETE;
-	  else if (!strcmp ("depend", p))
+	  if (!strcmp ("depend", p))
 	    result = PRAGMA_OMP_CLAUSE_DEPEND;
 	  else if (!strcmp ("device", p))
 	    result = PRAGMA_OMP_CLAUSE_DEVICE;
