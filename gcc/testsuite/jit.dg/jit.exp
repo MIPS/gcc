@@ -281,6 +281,11 @@ proc jit-dg-test { prog do_what extra_tool_flags } {
 # so that the JIT-built code can call into functions from the main program.
 set DEFAULT_CFLAGS "-I$srcdir/../jit -lgccjit -g -Wall -Werror -Wl,--export-dynamic"
 
+# <dejagnu.h> assumes -fgnu89-inline
+# See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=63613
+# and http://lists.gnu.org/archive/html/dejagnu/2014-10/msg00011.html
+append DEFAULT_CFLAGS " -fgnu89-inline"
+
 # Main loop.  This will invoke jig-dg-test on each test-*.c file.
 dg-runtest $tests "" $DEFAULT_CFLAGS
 

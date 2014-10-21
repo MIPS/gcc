@@ -1,3 +1,8 @@
+2014-10-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/jit.exp (DEFAULT_CFLAGS): Add -fgnu89-inline since
+	dejagnu.h assumes this.
+
 2014-10-17  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/jit.exp (get_path_of_driver): New procedure.

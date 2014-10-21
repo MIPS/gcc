@@ -1,3 +1,23 @@
+2014-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* class.c: Adjust include files.
+	* resource.c: Likewise.
+
+2014-10-15  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	PR target/63536	
+	* lang.c (java_print_error_function): Add check on NULL function
+	context.
+
+2014-10-12  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* class.c, decl.c, except.c, expr.c, java-tree.h, lang.c: Use
+	hash_table instead of hashtab.
+
+2014-10-07  Marek Polacek  <polacek@redhat.com>
+
+	* jvgenmain.c (main): Provide declarations for JvRunMain{,Name}.
+
 2014-07-08  Mark Wielaard  <mjw@redhat.com>
 
 	* builtins.c (putVolatile_builtin): Use build_qualified_type

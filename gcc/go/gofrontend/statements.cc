@@ -409,13 +409,7 @@ Temporary_statement::do_check_types(Gogo*)
   if (this->type_ != NULL && this->init_ != NULL)
     {
       std::string reason;
-      bool ok;
-      if (this->are_hidden_fields_ok_)
-	ok = Type::are_assignable_hidden_ok(this->type_, this->init_->type(),
-					    &reason);
-      else
-	ok = Type::are_assignable(this->type_, this->init_->type(), &reason);
-      if (!ok)
+      if (!Type::are_assignable(this->type_, this->init_->type(), &reason))
 	{
 	  if (reason.empty())
 	    error_at(this->location(), "incompatible types in assignment");
@@ -511,14 +505,8 @@ class Assignment_statement : public Statement
   Assignment_statement(Expression* lhs, Expression* rhs,
 		       Location location)
     : Statement(STATEMENT_ASSIGNMENT, location),
-      lhs_(lhs), rhs_(rhs), are_hidden_fields_ok_(false)
+      lhs_(lhs), rhs_(rhs)
   { }
-
-  // Note that it is OK for this assignment statement to set hidden
-  // fields.
-  void
-  set_hidden_fields_are_ok()
-  { this->are_hidden_fields_ok_ = true; }
 
  protected:
   int
@@ -544,9 +532,6 @@ class Assignment_statement : public Statement
   Expression* lhs_;
   // Right hand side--the rvalue.
   Expression* rhs_;
-  // True if this statement may set hidden fields in the assignment
-  // statement.  This is used for generated method stubs.
-  bool are_hidden_fields_ok_;
 };
 
 // Traversal.
@@ -607,12 +592,7 @@ Assignment_statement::do_check_types(Gogo*)
     }
 
   std::string reason;
-  bool ok;
-  if (this->are_hidden_fields_ok_)
-    ok = Type::are_assignable_hidden_ok(lhs_type, rhs_type, &reason);
-  else
-    ok = Type::are_assignable(lhs_type, rhs_type, &reason);
-  if (!ok)
+  if (!Type::are_assignable(lhs_type, rhs_type, &reason))
     {
       if (reason.empty())
 	error_at(this->location(), "incompatible types in assignment");
@@ -905,14 +885,8 @@ class Tuple_assignment_statement : public Statement
   Tuple_assignment_statement(Expression_list* lhs, Expression_list* rhs,
 			     Location location)
     : Statement(STATEMENT_TUPLE_ASSIGNMENT, location),
-      lhs_(lhs), rhs_(rhs), are_hidden_fields_ok_(false)
+      lhs_(lhs), rhs_(rhs)
   { }
-
-  // Note that it is OK for this assignment statement to set hidden
-  // fields.
-  void
-  set_hidden_fields_are_ok()
-  { this->are_hidden_fields_ok_ = true; }
 
  protected:
   int
@@ -937,9 +911,6 @@ class Tuple_assignment_statement : public Statement
   Expression_list* lhs_;
   // Right hand side--a list of rvalues.
   Expression_list* rhs_;
-  // True if this statement may set hidden fields in the assignment
-  // statement.  This is used for generated method stubs.
-  bool are_hidden_fields_ok_;
 };
 
 // Traversal.
@@ -998,8 +969,6 @@ Tuple_assignment_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
 
       Temporary_statement* temp = Statement::make_temporary((*plhs)->type(),
 							    *prhs, loc);
-      if (this->are_hidden_fields_ok_)
-	temp->set_hidden_fields_are_ok();
       b->add_statement(temp);
       temps.push_back(temp);
 
@@ -1022,13 +991,7 @@ Tuple_assignment_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
 	continue;
 
       Expression* ref = Expression::make_temporary_reference(*ptemp, loc);
-      Statement* s = Statement::make_assignment(*plhs, ref, loc);
-      if (this->are_hidden_fields_ok_)
-	{
-	  Assignment_statement* as = static_cast<Assignment_statement*>(s);
-	  as->set_hidden_fields_are_ok();
-	}
-      b->add_statement(s);
+      b->add_statement(Statement::make_assignment(*plhs, ref, loc));
       ++ptemp;
     }
   go_assert(ptemp == temps.end() || saw_errors());
@@ -1878,7 +1841,7 @@ Inc_dec_statement::do_lower(Gogo*, Named_object*, Block*, Statement_inserter*)
 
   mpz_t oval;
   mpz_init_set_ui(oval, 1UL);
-  Expression* oexpr = Expression::make_integer(&oval, NULL, loc);
+  Expression* oexpr = Expression::make_integer(&oval, this->expr_->type(), loc);
   mpz_clear(oval);
 
   Operator op = this->is_inc_ ? OPERATOR_PLUSEQ : OPERATOR_MINUSEQ;
@@ -2376,6 +2339,8 @@ Thunk_statement::build_thunk(Gogo* gogo, const std::string& thunk_name)
 						  location);
       s->determine_types();
       gogo->add_statement(s);
+
+      function->func_value()->set_calls_defer_retaddr();
     }
 
   // Get a reference to the parameter.
@@ -2734,12 +2699,7 @@ Return_statement::do_lower(Gogo*, Named_object* function, Block* enclosing,
       e->determine_type(&type_context);
 
       std::string reason;
-      bool ok;
-      if (this->are_hidden_fields_ok_)
-	ok = Type::are_assignable_hidden_ok(rvtype, e->type(), &reason);
-      else
-	ok = Type::are_assignable(rvtype, e->type(), &reason);
-      if (ok)
+      if (Type::are_assignable(rvtype, e->type(), &reason))
 	{
 	  Expression* ve = Expression::make_var_reference(rv, e->location());
 	  lhs->push_back(ve);
@@ -2761,28 +2721,13 @@ Return_statement::do_lower(Gogo*, Named_object* function, Block* enclosing,
     ;
   else if (lhs->size() == 1)
     {
-      Statement* s = Statement::make_assignment(lhs->front(), rhs->front(),
-						loc);
-      if (this->are_hidden_fields_ok_)
-	{
-	  Assignment_statement* as = static_cast<Assignment_statement*>(s);
-	  as->set_hidden_fields_are_ok();
-	}
-      b->add_statement(s);
+      b->add_statement(Statement::make_assignment(lhs->front(), rhs->front(),
+						  loc));
       delete lhs;
       delete rhs;
     }
   else
-    {
-      Statement* s = Statement::make_tuple_assignment(lhs, rhs, loc);
-      if (this->are_hidden_fields_ok_)
-	{
-	  Tuple_assignment_statement* tas =
-	    static_cast<Tuple_assignment_statement*>(s);
-	  tas->set_hidden_fields_are_ok();
-	}
-      b->add_statement(s);
-    }
+    b->add_statement(Statement::make_tuple_assignment(lhs, rhs, loc));
 
   b->add_statement(this);
 
@@ -5305,8 +5250,12 @@ Statement::make_for_statement(Block* init, Expression* cond, Block* post,
 int
 For_range_statement::do_traverse(Traverse* traverse)
 {
-  if (this->traverse_expression(traverse, &this->index_var_) == TRAVERSE_EXIT)
-    return TRAVERSE_EXIT;
+  if (this->index_var_ != NULL)
+    {
+      if (this->traverse_expression(traverse, &this->index_var_)
+	  == TRAVERSE_EXIT)
+	return TRAVERSE_EXIT;
+    }
   if (this->value_var_ != NULL)
     {
       if (this->traverse_expression(traverse, &this->value_var_)
@@ -5434,25 +5383,27 @@ For_range_statement::do_lower(Gogo* gogo, Named_object*, Block* enclosing,
   if (iter_init != NULL)
     body->add_statement(Statement::make_block_statement(iter_init, loc));
 
-  Statement* assign;
-  Expression* index_ref = Expression::make_temporary_reference(index_temp, loc);
-  if (this->value_var_ == NULL)
+  if (this->index_var_ != NULL)
     {
-      assign = Statement::make_assignment(this->index_var_, index_ref, loc);
-    }
-  else
-    {
-      Expression_list* lhs = new Expression_list();
-      lhs->push_back(this->index_var_);
-      lhs->push_back(this->value_var_);
+      Statement* assign;
+      Expression* index_ref =
+	Expression::make_temporary_reference(index_temp, loc);
+      if (this->value_var_ == NULL)
+	assign = Statement::make_assignment(this->index_var_, index_ref, loc);
+      else
+	{
+	  Expression_list* lhs = new Expression_list();
+	  lhs->push_back(this->index_var_);
+	  lhs->push_back(this->value_var_);
 
-      Expression_list* rhs = new Expression_list();
-      rhs->push_back(index_ref);
-      rhs->push_back(Expression::make_temporary_reference(value_temp, loc));
+	  Expression_list* rhs = new Expression_list();
+	  rhs->push_back(index_ref);
+	  rhs->push_back(Expression::make_temporary_reference(value_temp, loc));
 
-      assign = Statement::make_tuple_assignment(lhs, rhs, loc);
+	  assign = Statement::make_tuple_assignment(lhs, rhs, loc);
+	}
+      body->add_statement(assign);
     }
-  body->add_statement(assign);
 
   body->add_statement(Statement::make_block_statement(this->statements_, loc));
 

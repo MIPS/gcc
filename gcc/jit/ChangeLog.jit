@@ -1,5 +1,9 @@
 2014-10-21  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit-recording.c: Include tm.h.  Don't include function.h.
+
+2014-10-21  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/_build/texinfo/libgccjit.texi: Regenerate.
 
 2014-10-21  David Malcolm  <dmalcolm@redhat.com>

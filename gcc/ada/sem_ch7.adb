@@ -1383,8 +1383,15 @@ package body Sem_Ch7 is
                Inherit_Default_Init_Cond_Procedure (E);
             end if;
 
+            --  If invariants are present, build the invariant procedure for a
+            --  private type, but not any of its subtypes.
+
             if Has_Invariants (E) then
-               Build_Invariant_Procedure (E, N);
+               if Ekind (E) = E_Private_Subtype then
+                  null;
+               else
+                  Build_Invariant_Procedure (E, N);
+               end if;
             end if;
          end if;
 
@@ -2808,7 +2815,7 @@ package body Sem_Ch7 is
 
       --  Body required if subprogram
 
-      elsif Is_Subprogram (P) or else Is_Generic_Subprogram (P) then
+      elsif Is_Subprogram_Or_Generic_Subprogram (P) then
          return True;
 
       --  Treat a block as requiring a body
@@ -2937,7 +2944,7 @@ package body Sem_Ch7 is
 
       --  Body required if subprogram
 
-      elsif Is_Subprogram (P) or else Is_Generic_Subprogram (P) then
+      elsif Is_Subprogram_Or_Generic_Subprogram (P) then
          Error_Msg_N ("info: & requires body (subprogram case)?Y?", P);
 
       --  Body required if generic parent has Elaborate_Body

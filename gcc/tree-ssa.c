@@ -28,6 +28,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "langhooks.h"
 #include "basic-block.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -49,7 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-inline.h"
 #include "hash-map.h"
-#include "hashtab.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "cfgloop.h"
@@ -1055,24 +1060,6 @@ err:
   internal_error ("verify_ssa failed");
 }
 
-/* Return true if the DECL_UID in both trees are equal.  */
-
-static int
-uid_ssaname_map_eq (const void *va, const void *vb)
-{
-  const_tree a = (const_tree) va;
-  const_tree b = (const_tree) vb;
-  return (a->ssa_name.var->decl_minimal.uid == b->ssa_name.var->decl_minimal.uid);
-}
-
-/* Hash a tree in a uid_decl_map.  */
-
-static unsigned int
-uid_ssaname_map_hash (const void *item)
-{
-  return ((const_tree)item)->ssa_name.var->decl_minimal.uid;
-}
-
 
 /* Initialize global DFA and SSA structures.  */
 
@@ -1080,8 +1067,7 @@ void
 init_tree_ssa (struct function *fn)
 {
   fn->gimple_df = ggc_cleared_alloc<gimple_df> ();
-  fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash,
-				                 uid_ssaname_map_eq, NULL);
+  fn->gimple_df->default_defs = hash_table<ssa_name_hasher>::create_ggc (20);
   pt_solution_reset (&fn->gimple_df->escaped);
   init_ssanames (fn, 0);
 }
@@ -1153,7 +1139,7 @@ delete_tree_ssa (void)
   if (ssa_operands_active (cfun))
     fini_ssa_operands (cfun);
 
-  htab_delete (cfun->gimple_df->default_defs);
+  cfun->gimple_df->default_defs->empty ();
   cfun->gimple_df->default_defs = NULL;
   pt_solution_reset (&cfun->gimple_df->escaped);
   if (cfun->gimple_df->decls_to_pointers != NULL)

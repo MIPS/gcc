@@ -840,6 +840,19 @@ proc check_effective_target_fpic { } {
     return 0
 }
 
+# Return 1 if -shared is supported, as in no warnings or errors
+# emitted, 0 otherwise.
+
+proc check_effective_target_shared { } {
+    # Note that M68K has a multilib that supports -fpic but not
+    # -fPIC, so we need to check both.  We test with a program that
+    # requires GOT references.
+    return [check_no_compiler_messages shared executable {
+	extern int foo (void); extern int bar;
+	int baz (void) { return foo () + bar; }
+    } "-shared -fpic"]
+}
+
 # Return 1 if -pie, -fpie and -fPIE are supported, 0 otherwise.
 
 proc check_effective_target_pie { } {
@@ -2391,6 +2404,7 @@ proc check_effective_target_arm_crypto_ok_nocache { } {
 	foreach flags {"" "-mfloat-abi=softfp" "-mfpu=crypto-neon-fp-armv8" "-mfpu=crypto-neon-fp-armv8 -mfloat-abi=softfp"} {
 	    if { [check_no_compiler_messages_nocache arm_crypto_ok object {
 		#include "arm_neon.h"
+		extern uint8x16_t vaeseq_u8 (uint8x16_t, uint8x16_t);
 		uint8x16_t
 		foo (uint8x16_t a, uint8x16_t b)
 		{
@@ -2535,6 +2549,7 @@ proc check_effective_target_arm_neon_fp16_ok_nocache { } {
 	               "-mfpu=neon-fp16 -mfloat-abi=softfp"} {
 	    if { [check_no_compiler_messages_nocache arm_neon_fp_16_ok object {
 		#include "arm_neon.h"
+		extern float16x4_t vcvt_f16_f32 (float32x4_t);
 		float16x4_t
 		foo (float32x4_t arg)
 		{
@@ -2610,6 +2625,7 @@ proc check_effective_target_arm_neonv2_ok_nocache { } {
 	foreach flags {"" "-mfloat-abi=softfp" "-mfpu=neon-vfpv4" "-mfpu=neon-vfpv4 -mfloat-abi=softfp"} {
 	    if { [check_no_compiler_messages_nocache arm_neonv2_ok object {
 		#include "arm_neon.h"
+		extern float32x2_t vfma_f32 (float32x2_t, float32x2_t, float32x2_t);
 		float32x2_t 
 		foo (float32x2_t a, float32x2_t b, float32x2_t c)
                 {
@@ -5284,6 +5300,7 @@ proc check_effective_target_fd_truncate { } {
 	#include <unistd.h>
 	#include <stdio.h>
 	#include <stdlib.h>
+	#include <string.h>
 	int main ()
 	{
 	  FILE *f = fopen ("tst.tmp", "wb");

@@ -1,3 +1,10 @@
+2014-10-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* cgraph.h: Drop now-redundant prototype of ipa_cp_c_finalize,
+	since trunk added this in ipa-prop.h.
+	* ipa-icf.c (ipa_icf_driver): Set optimizer to NULL when
+	done.
+
 2014-10-20  David Malcolm  <dmalcolm@redhat.com>
 
 	* doc/install.texi (Tools/packages necessary for modifying GCC):

@@ -21,9 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tm.h"
 #include "opts.h"
 #include "tree.h"
-#include "function.h"
 #include "pretty-print.h"
 
 #include <pthread.h>

@@ -108,6 +108,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "rtl.h"
 #include "bitmap.h"
+#include "profile.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -121,6 +122,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "ipa-utils.h"
 #include "sreal.h"
+#include "auto-profile.h"
 #include "cilk.h"
 #include "builtins.h"
 
@@ -273,15 +275,8 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
   tree caller_tree = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (e->caller->decl);
   tree callee_tree
     = callee ? DECL_FUNCTION_SPECIFIC_OPTIMIZATION (callee->decl) : NULL;
-  struct function *caller_cfun = DECL_STRUCT_FUNCTION (e->caller->decl);
-  struct function *callee_cfun
-    = callee ? DECL_STRUCT_FUNCTION (callee->decl) : NULL;
-
-  if (!caller_cfun && e->caller->clone_of)
-    caller_cfun = DECL_STRUCT_FUNCTION (e->caller->clone_of->decl);
-
-  if (!callee_cfun && callee && callee->clone_of)
-    callee_cfun = DECL_STRUCT_FUNCTION (callee->clone_of->decl);
+  struct function *caller_fun = e->caller->get_fun ();
+  struct function *callee_fun = callee ? callee->get_fun () : NULL;
 
   gcc_assert (e->inline_failed);
 
@@ -296,7 +291,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
       inlinable = false;
     }
   else if (!inline_summary (callee)->inlinable 
-	   || (caller_cfun && fn_contains_cilk_spawn_p (caller_cfun)))
+	   || (caller_fun && fn_contains_cilk_spawn_p (caller_fun)))
     {
       e->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
       inlinable = false;
@@ -333,8 +328,8 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
      caller cannot.
      FIXME: this is obviously wrong for LTO where STRUCT_FUNCTION is missing.
      Move the flag into cgraph node or mirror it in the inline summary.  */
-  else if (callee_cfun && callee_cfun->can_throw_non_call_exceptions
-	   && !(caller_cfun && caller_cfun->can_throw_non_call_exceptions))
+  else if (callee_fun && callee_fun->can_throw_non_call_exceptions
+	   && !(caller_fun && caller_fun->can_throw_non_call_exceptions))
     {
       e->inline_failed = CIF_NON_CALL_EXCEPTIONS;
       inlinable = false;
@@ -448,6 +443,14 @@ want_early_inline_function_p (struct cgraph_edge *e)
   struct cgraph_node *callee = e->callee->ultimate_alias_target ();
 
   if (DECL_DISREGARD_INLINE_LIMITS (callee->decl))
+    ;
+  /* For AutoFDO, we need to make sure that before profile annotation, all
+     hot paths' IR look exactly the same as profiled binary. As a result,
+     in einliner, we will disregard size limit and inline those callsites
+     that are:
+       * inlined in the profiled binary, and
+       * the cloned callee has enough samples to be considered "hot".  */
+  else if (flag_auto_profile && afdo_callsite_hot_enough_for_early_inline (e))
     ;
   else if (!DECL_DECLARED_INLINE_P (callee->decl)
 	   && !flag_inline_small_functions)
@@ -2366,39 +2369,8 @@ early_inline_small_functions (struct cgraph_node *node)
   return inlined;
 }
 
-/* Do inlining of small functions.  Doing so early helps profiling and other
-   passes to be somewhat more effective and avoids some code duplication in
-   later real inlining pass for testcases with very many function calls.  */
-
-namespace {
-
-const pass_data pass_data_early_inline =
-{
-  GIMPLE_PASS, /* type */
-  "einline", /* name */
-  OPTGROUP_INLINE, /* optinfo_flags */
-  TV_EARLY_INLINING, /* tv_id */
-  PROP_ssa, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_early_inline : public gimple_opt_pass
-{
-public:
-  pass_early_inline (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_early_inline, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual unsigned int execute (function *);
-
-}; // class pass_early_inline
-
 unsigned int
-pass_early_inline::execute (function *fun)
+early_inliner (function *fun)
 {
   struct cgraph_node *node = cgraph_node::get (current_function_decl);
   struct cgraph_edge *edge;
@@ -2497,6 +2469,43 @@ pass_early_inline::execute (function *fun)
   fun->always_inline_functions_inlined = true;
 
   return todo;
+}
+
+/* Do inlining of small functions.  Doing so early helps profiling and other
+   passes to be somewhat more effective and avoids some code duplication in
+   later real inlining pass for testcases with very many function calls.  */
+
+namespace {
+
+const pass_data pass_data_early_inline =
+{
+  GIMPLE_PASS, /* type */
+  "einline", /* name */
+  OPTGROUP_INLINE, /* optinfo_flags */
+  TV_EARLY_INLINING, /* tv_id */
+  PROP_ssa, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_early_inline : public gimple_opt_pass
+{
+public:
+  pass_early_inline (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_inline, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *);
+
+}; // class pass_early_inline
+
+unsigned int
+pass_early_inline::execute (function *fun)
+{
+  return early_inliner (fun);
 }
 
 } // anon namespace
