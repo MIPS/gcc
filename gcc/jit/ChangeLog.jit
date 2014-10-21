@@ -1,5 +1,9 @@
 2014-10-21  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2014-10-21  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/intro/index.rst: Drop install.rst.  Add tutorial04.rst.
 	* docs/intro/install.rst: Rename to...
 	* docs/intro/tutorial01.rst: ...this, renaming old tutorial01.rst to...
