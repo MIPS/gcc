@@ -479,10 +479,6 @@
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
 
     case DFmode:
-      /* The constant 0.f is easy under VSX.  */
-      if (op == CONST0_RTX (DFmode) && VECTOR_UNIT_VSX_P (DFmode))
-	return 1;
-
       /* Force constants to memory before reload to utilize
 	 compress_float_constant.
 	 Avoid this when flag_unsafe_math_optimizations is enabled
@@ -493,12 +489,6 @@
 	      && !flag_unsafe_math_optimizations))
         return 0;
 
-      /* If DFmode is allowed in Altivec registers and we are using reload
-	 instead of IRA, force constants to memory.  Otherwise, reload cse will
-	 sometimes generate reg+offset stores from the Altivec registers.  */
-      if (TARGET_UPPER_REGS_DF && !rs6000_lra_flag)
-	return 0;
-
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
 
@@ -506,10 +496,6 @@
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
 
     case SFmode:
-      /* The constant 0.f is easy.  */
-      if (op == CONST0_RTX (SFmode))
-	return 1;
-
       /* Force constants to memory before reload to utilize
 	 compress_float_constant.
 	 Avoid this when flag_unsafe_math_optimizations is enabled
@@ -517,12 +503,6 @@
 	 to regenerate the division.  */
       if (!reload_in_progress && !reload_completed
           && !flag_unsafe_math_optimizations)
-	return 0;
-
-      /* If SFmode is allowed in Altivec registers and we are using reload
-	 instead of IRA, force constants to memory.  Otherwise, reload cse will
-	 sometimes generate reg+offset stores from the Altivec registers.  */
-      if (TARGET_UPPER_REGS_SF && !rs6000_lra_flag)
 	return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);

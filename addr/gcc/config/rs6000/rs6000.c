@@ -7563,10 +7563,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 				  int opnum, int type,
 				  int ind_levels ATTRIBUTE_UNUSED, int *win)
 {
-  /* If a scalar floating point value can be loaded into the traditional
-     Altivec regsiters, within reload, turn off offset addressing.  */
-  bool reg_offset_p = ((reg_addr[mode].scalar_in_vmx_p)
-		       ? false : reg_offset_addressing_ok_p (mode));
+  bool reg_offset_p = reg_offset_addressing_ok_p (mode);
 
   /* Nasty hack for vsx_splat_V2DF/V2DI load from mem, which takes a
      DFmode/DImode MEM.  */
@@ -16525,7 +16522,7 @@ rs6000_secondary_memory_needed_rtx (enum machine_mode mode)
 	  bool strict_p = (reload_in_progress || reload_completed);
 
 	  if (GET_CODE (addr) == PLUS
-	      && !legitimate_indirect_address_p (addr, strict_p))
+	      && !legitimate_indexed_address_p (addr, strict_p))
 	    {
 	      rtx op0 = XEXP (addr, 0);
 	      rtx op1 = XEXP (addr, 1);
