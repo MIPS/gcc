@@ -7197,11 +7197,10 @@ applications of @code{/i} primitives.}#
 				       "\n.. mclos=" mclos
 				       "\n.. mexpanser=" mexpanser
 				       "\n.. sexprm=" sexprm)
-				;; @@@ NOT SURE
-				;; (when (== mclos mexpanser)
-				;;  (error_at locm "failed to macro-expand LET :macro $1" macsymb)
-				;;  (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
-				;;  (return))
+				(when (== mclos mexpanser)
+				  (error_at locm "failed to macro-expand LET :macro $1" macsymb)
+				  (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
+				  (return))
 				(multicall 
 				 (expmac othermac)
 				 (mclos sexprm envm mexpanderm modctxm)

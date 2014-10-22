@@ -1583,14 +1583,27 @@ routine procedures.}#
   (foreach_in_multiple 
    (nargs)
    (cnarg :long ix) 
-   (let ( (ctyp (get_ctype cnarg env)) )
+   (let ( (ctyp (get_ctype cnarg env))
+	  (ctypname (get_field :named_name ctyp))
+	  )
      (assert_msg "check_ctype_nargs ctyp" (is_a ctyp class_ctype) ctyp)
      (when (not (is_string (unsafe_get_field :ctype_parstring ctyp)))
        (debug "check_ctype_nargs" " ix#" ix " cnarg=" cnarg
 	      "\n.. ctyp=" ctyp)
-       (error_at sloc "argument has invalid type $1"_ (unsafe_get_field :named_name ctyp))
-       ))
-   ))
+       (cond
+	( (is_a cnarg class_nrep_locsymocc)
+	  (error_at sloc "symbol $1 occurrence argument #$2 has invalid type $3"
+		    (get_field :nocc_symb cnarg)
+		    ix
+		    ctypname))
+	( (or (is_string cnarg) (is_integerbox cnarg))
+	  (error_at sloc "literal $1 argument #$2 has invalid type $3"
+		    cnarg ix ctypname)
+	  )
+	(:else
+	 (error_at sloc "argument #$1 has invalid type $2"_ ix ctypname)
+	 )))
+     )))
 
 
 (defselector normalize_binding class_selector
