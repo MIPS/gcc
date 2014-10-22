@@ -1,5 +1,8 @@
 
 2014-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/t-treecode.melt: Improved, but still don't work.
+
+2014-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (mexpand_let): Add check against failure.
 

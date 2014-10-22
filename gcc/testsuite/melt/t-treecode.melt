@@ -84,7 +84,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					 (get_field :named_name treesymb)
 				       symb))))
 				 )
-			      (debug "gcc_tree_code:macro2 xcmatchdoc=" d)
+			      (debug "gcc_tree_code:macro2" " sloc=" sloc " exceptional xcmatchdoc=" d)
 			      d))
 			   (xmatexp
 			    (let
@@ -106,7 +106,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				       symb)))
 				   ))
 				 )
-			      (debug "gcc_tree_code:macro2 xmatexp=" e)
+			      (debug "gcc_tree_code:macro2" " sloc=" sloc " exceptional xmatexp=" e)
 			      e))
 			   (xcmatcher
 			    `(defcmatcher ,treesymb
@@ -121,13 +121,13 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 			   )
 			(put_fields xcmatcher :loca_location sloc)
 			(put_fields xexport :loca_location sloc)
-			(debug "gcc_tree_code:macro2" " xcmatcher=" debug_more xcmatcher
+			(debug "gcc_tree_code:macro2" " sloc=" sloc " exceptional xcmatcher=" debug_more xcmatcher
 			       "\n.. xexport=" xexport)
 			(let (
 			      (rmatch (macroexpand_1 xcmatcher env mexpander modctx))
 			      (rexport (macroexpand_1 xexport env mexpander modctx))
 			      )
-			  (debug "gcc_tree_code:macro2" " rmatch=" rmatch
+			  (debug "gcc_tree_code:macro2" " sloc=" sloc " exceptional rmatch=" rmatch
 				 "\n.. rexport=" rexport)
 			  (return rmatch (tuple rexport))
 			  ))
@@ -155,7 +155,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					(get_field :named_name typcod)
 				      symb))))
 				)
-			     (debug "gcc_tree_code:macro2 xcmatchdoc=" d)
+			     (debug "gcc_tree_code:macro2"" sloc=" sloc "; constdecl xcmatchdoc=" d)
 			     d))
 			  (xmatexp
 			   (let
@@ -177,7 +177,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				      symb)))
 				  ))
 				)
-			     (debug "gcc_tree_code:macro2 xmatexp=" e)
+			     (debug "gcc_tree_code:macro2"" sloc=" sloc "; constdecl xmatexp=" e)
 			     e))
 			  (xcmatcher
 			   `(defcmatcher ,treesymb
@@ -192,19 +192,19 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 			  )
 		       (put_fields xcmatcher :loca_location sloc)
 		       (put_fields xexport :loca_location sloc)
-		       (debug "gcc_tree_code:macro2" " xcmatcher=" debug_more xcmatcher
+		       (debug "gcc_tree_code:macro2" " sloc=" sloc "; constdecl xcmatcher=" debug_more xcmatcher
 			      "\n.. xexport=" xexport)
 		       (let (
 			     (rmatch (macroexpand_1 xcmatcher env mexpander modctx))
 			     (rexport (macroexpand_1 xexport env mexpander modctx))
 			     )
-			 (debug "gcc_tree_code:macro2" " rmatch=" rmatch
+			 (debug "gcc_tree_code:macro2" " sloc=" sloc "; rmatch=" rmatch
 				"\n.. rexport=" rexport)
 			 (return rmatch (tuple rexport))
 			 ))
 		     
 		     )
-		    ;; For tcc_reference, tcc_expression,
+		    ;; For fixed tcc_reference, tcc_expression,
 		    ;; tcc_comparison, tcc_unary, tcc_binary,
 		    ;; tcc_statement.  They use the arity fourth
 		    ;; argument, and we extract sub-tree operands.
@@ -233,7 +233,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				     (:else symb))
 				    )))
 				)
-			     (debug "gcc_tree_code:macro2 xcmatchdoc=" d)
+			     (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed xcmatchdoc=" d)
 			     d))
 			  (xmatexp
 			   (let
@@ -257,7 +257,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 				      symb)))
 				  ))
 				)
-			     (debug "gcc_tree_code:macro2" " fixed xmatexp=" e)
+			     (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed xmatexp=" e)
 			     e))
 			  (xlistfill (make_list discr_list))
 			  (tupopervar
@@ -278,7 +278,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					    ";\n")
 				  )
 				)
-			      (debug "gcc_tree_code:macro2" " fixed tupopervar=" tv
+			      (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed tupopervar=" tv
 				     "\n.. updated xlistfill=" xlistfill)
 			      tv
 			      )))
@@ -298,26 +298,30 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					 (:else symb))
 					)))
 				  )
-			     (debug "gcc_tree_code:macro2" " xmatfill=" e)
+			     (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed xmatfill=" e)
 			     e
 			     )
 			   )
 			  (xcmatcher
-			   `(defcmatcher ,treesymb
-			      (:tree tr)
-			      (:tree ,tupopervar)
-			      ,statesymb
-			      :doc ,xcmatchdoc
-			      ;; match-expander
-			      ,xmatexp
-			      ;; match-filler
-			      ,xmatfill
-			      ))
+			   (let ( (m
+				   `(defcmatcher ,treesymb
+				      (:tree tr)
+				      (:tree ,tupopervar)
+				      ,statesymb
+				      :doc ,xcmatchdoc
+				      ;; match-expander
+				      ,xmatexp
+				      ;; match-filler
+				      ,xmatfill
+				      ))
+				  )
+			     (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed xcmatcher=" m)
+			     m))
 			  (xexport `(export_values ,treesymb))
 			  )
 		       (put_fields xcmatcher :loca_location sloc)
 		       (put_fields xexport :loca_location sloc)
-		       (debug "gcc_tree_code:macro2" " xcmatcher=" debug_more xcmatcher
+		       (debug "gcc_tree_code:macro2" " sloc=" sloc "; " "@fixed xcmatcher=" debug_more xcmatcher
 			      "\n.. xexport=" xexport)
 		       (let (
 			     (rmatch (macroexpand_1 xcmatcher env mexpander modctx))
