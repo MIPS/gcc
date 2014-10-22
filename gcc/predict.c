@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "profile.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
@@ -166,7 +167,7 @@ set_hot_bb_threshold (gcov_type min)
 
 /* Return TRUE if frequency FREQ is considered to be hot.  */
 
-static inline bool
+bool
 maybe_hot_count_p (struct function *fun, gcov_type count)
 {
   if (fun && profile_status_for_fn (fun) != PROFILE_READ)
@@ -2527,6 +2528,7 @@ struct edge_prob_info
 };
 
 #define BLOCK_INFO(B)	((block_info *) (B)->aux)
+#undef EDGE_INFO
 #define EDGE_INFO(E)	((edge_prob_info *) (E)->aux)
 
 /* Helper function for estimate_bb_frequencies.
@@ -2857,7 +2859,7 @@ counts_to_freqs (void)
   /* Don't overwrite the estimated frequencies when the profile for
      the function is missing.  We may drop this function PROFILE_GUESSED
      later in drop_profile ().  */
-  if (!ENTRY_BLOCK_PTR_FOR_FN (cfun)->count)
+  if (!flag_auto_profile && !ENTRY_BLOCK_PTR_FOR_FN (cfun)->count)
     return 0;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL, next_bb)
@@ -3228,7 +3230,8 @@ rebuild_frequencies (void)
     count_max = MAX (bb->count, count_max);
 
   if (profile_status_for_fn (cfun) == PROFILE_GUESSED
-      || (profile_status_for_fn (cfun) == PROFILE_READ && count_max < REG_BR_PROB_BASE/10))
+      || (!flag_auto_profile && profile_status_for_fn (cfun) == PROFILE_READ
+	  && count_max < REG_BR_PROB_BASE/10))
     {
       loop_optimizer_init (0);
       add_noreturn_fake_exit_edges ();

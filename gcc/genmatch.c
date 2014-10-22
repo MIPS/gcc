@@ -3,6 +3,7 @@
 
    Copyright (C) 2014 Free Software Foundation, Inc.
    Contributed by Richard Biener <rguenther@suse.de>
+   and Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 This file is part of GCC.
 

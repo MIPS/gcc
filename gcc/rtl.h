@@ -2912,6 +2912,7 @@ extern rtx_insn *find_first_parameter_load (rtx_insn *, rtx_insn *);
 extern bool keep_with_call_p (const rtx_insn *);
 extern bool label_is_jump_target_p (const_rtx, const rtx_insn *);
 extern int insn_rtx_cost (rtx, bool);
+extern unsigned seq_cost (const rtx_insn *, bool);
 
 /* Given an insn and condition, return a canonical description of
    the test being made.  */
@@ -3372,12 +3373,7 @@ extern void add_insn_before (rtx, rtx, basic_block);
 extern void add_insn_after (rtx, rtx, basic_block);
 extern void remove_insn (rtx);
 extern rtx_insn *emit (rtx);
-extern void delete_insn (rtx);
-extern rtx_insn *entry_of_function (void);
 extern void emit_insn_at_entry (rtx);
-extern void delete_insn_chain (rtx, rtx, bool);
-extern rtx_insn *unlink_insn_chain (rtx_insn *, rtx_insn *);
-extern void delete_insn_and_edges (rtx_insn *);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
 extern rtx gen_frame_mem (enum machine_mode, rtx);
@@ -3442,10 +3438,6 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 			   unsigned int, int);
 extern HOST_WIDE_INT find_args_size_adjust (rtx_insn *);
 extern int fixup_args_size_notes (rtx_insn *, rtx_insn *, int);
-
-/* In cfgrtl.c */
-extern void print_rtl_with_bb (FILE *, const rtx_insn *, int);
-extern rtx_insn *duplicate_insn_chain (rtx_insn *, rtx_insn *);
 
 /* In expmed.c */
 extern void init_expmed (void);
