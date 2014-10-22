@@ -1374,10 +1374,11 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
   else
     {
       if (operation->kind == id_base::CODE)
-	fprintf (f, "  res = fold_build%d (%s, %s",
+	fprintf (f, "  res = fold_build%d_loc (loc, %s, %s",
 		 ops.length(), operation->id, type);
       else
-	fprintf (f, "  res = build_call_expr (builtin_decl_implicit (%s), %d",
+	fprintf (f, "  res = build_call_expr_loc (loc, "
+		 "builtin_decl_implicit (%s), %d",
 		 operation->id, ops.length());
       for (unsigned i = 0; i < ops.length (); ++i)
 	fprintf (f, ", ops%d[%u]", depth, i);
@@ -1933,16 +1934,22 @@ dt_simplify::gen (FILE *f, bool gimple)
   output_line_directive (f, s->result_location, true);
   fprintf (f, ", %%s:%%d\\n\", __FILE__, __LINE__);\n");
 
-  if (!s->result)
+  operand *result = s->result;
+  if (!result)
     {
       /* If there is no result then this is a predicate implementation.  */
       fprintf (f, "return true;\n");
     }
   else if (gimple)
     {
-      if (s->result->type == operand::OP_EXPR)
+      /* For GIMPLE simply drop NON_LVALUE_EXPR (which only appears
+         in outermost position).  */
+      if (result->type == operand::OP_EXPR
+	  && *as_a <expr *> (result)->operation == NON_LVALUE_EXPR)
+	result = as_a <expr *> (result)->ops[0];
+      if (result->type == operand::OP_EXPR)
 	{
-	  expr *e = as_a <expr *> (s->result);
+	  expr *e = as_a <expr *> (result);
 	  bool is_predicate = is_a <predicate_id *> (e->operation);
 	  if (!is_predicate)
 	    fprintf (f, "*res_code = %s;\n", e->operation->id);
@@ -1964,10 +1971,10 @@ dt_simplify::gen (FILE *f, bool gimple)
 	    fprintf (f, "gimple_resimplify%d (seq, res_code, type, "
 		     "res_ops, valueize);\n", e->ops.length ());
 	}
-      else if (s->result->type == operand::OP_CAPTURE
-	       || s->result->type == operand::OP_C_EXPR)
+      else if (result->type == operand::OP_CAPTURE
+	       || result->type == operand::OP_C_EXPR)
 	{
-	  s->result->gen_transform (f, "res_ops[0]", true, 1, "type", indexes);
+	  result->gen_transform (f, "res_ops[0]", true, 1, "type", indexes);
 	  fprintf (f, "*res_code = TREE_CODE (res_ops[0]);\n");
 	}
       else
@@ -1976,9 +1983,9 @@ dt_simplify::gen (FILE *f, bool gimple)
     }
   else /* GENERIC */
     {
-      if (s->result->type == operand::OP_EXPR)
+      if (result->type == operand::OP_EXPR)
 	{
-	  expr *e = as_a <expr *> (s->result);
+	  expr *e = as_a <expr *> (result);
 	  bool is_predicate = is_a <predicate_id *> (e->operation);
 	  for (unsigned j = 0; j < e->ops.length (); ++j)
 	    {
@@ -2001,21 +2008,28 @@ dt_simplify::gen (FILE *f, bool gimple)
 	    fprintf (f, "return true;\n");
 	  else
 	    {
-	      /* Re-fold the toplevel result.  */
-	      if (e->operation->kind == id_base::CODE)
-		fprintf (f, "  return fold_build%d (%s, type",
-			 e->ops.length (), e->operation->id);
+	      /* Re-fold the toplevel result.  Use non_lvalue to
+	         build NON_LVALUE_EXPRs so they get properly
+		 ignored when in GIMPLE form.  */
+	      if (*e->operation == NON_LVALUE_EXPR)
+		fprintf (f, "  return non_lvalue_loc (loc, res_op0);\n");
 	      else
-		fprintf (f, "  return build_call_expr "
-			 "(builtin_decl_implicit (%s), %d",
-			 e->operation->id, e->ops.length());
-	      for (unsigned j = 0; j < e->ops.length (); ++j)
-		fprintf (f, ", res_op%d", j);
-	      fprintf (f, ");\n");
+		{
+		  if (e->operation->kind == id_base::CODE)
+		    fprintf (f, "  return fold_build%d_loc (loc, %s, type",
+			     e->ops.length (), e->operation->id);
+		  else
+		    fprintf (f, "  return build_call_expr_loc "
+			     "(loc, builtin_decl_implicit (%s), %d",
+			     e->operation->id, e->ops.length());
+		  for (unsigned j = 0; j < e->ops.length (); ++j)
+		    fprintf (f, ", res_op%d", j);
+		  fprintf (f, ");\n");
+		}
 	    }
 	}
-      else if (s->result->type == operand::OP_CAPTURE
-	       || s->result->type == operand::OP_C_EXPR)
+      else if (result->type == operand::OP_CAPTURE
+	       || result->type == operand::OP_C_EXPR)
 	{
 	  fprintf (f, "  tree res;\n");
 	  s->result->gen_transform (f, " res", false, 1, "type", indexes);
@@ -2086,7 +2100,7 @@ decision_tree::gen_generic (FILE *f)
   for (unsigned n = 1; n <= 3; ++n)
     {
       fprintf (f, "\ntree\n"
-	       "generic_simplify (enum tree_code code, "
+	       "generic_simplify (location_t loc, enum tree_code code, "
 	       "tree type ATTRIBUTE_UNUSED");
       for (unsigned i = 0; i < n; ++i)
 	fprintf (f, ", tree op%d", i);
