@@ -1,3 +1,8 @@
+2014-10-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (finalize_reduction_data): Don't skip the reduction
+	variable's original value.
+
 2014-10-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Remove switch stmt which

@@ -9869,8 +9869,7 @@ finalize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
      let var = the original reduction variable
      let array = reduction variable array
 
-     var = array[0]
-     for (i = 1; i < nthreads; i++)
+     for (i = 0; i < nthreads; i++)
        var op= array[i]
  */
 
@@ -9878,42 +9877,9 @@ finalize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
   loop_body = create_artificial_label (UNKNOWN_LOCATION);
   loop_exit = create_artificial_label (UNKNOWN_LOCATION);
 
-  /* Initialize the reduction variables to be value of the first array
-     element.  */
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    {
-      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
-	continue;
-
-      tree_code reduction_code = OMP_CLAUSE_REDUCTION_CODE (c);
-
-      /* reduction(-:var) sums up the partial results, so it acts
-	 identically to reduction(+:var).  */
-      if (reduction_code == MINUS_EXPR)
-        reduction_code = PLUS_EXPR;
-
-      /* Set up reduction variable, var.  Becuase it's not gimple register,
-         it needs to be treated as a reference.  */
-      var = OMP_CLAUSE_DECL (c);
-      type = get_base_type (var);
-      tree ptr = lookup_reduction (omp_get_id (OMP_CLAUSE_DECL (c)), ctx);
-
-      /* Extract array[0] into mem.  */
-      tree mem = create_tmp_var (type, NULL);
-      gimplify_assign (mem, build_simple_mem_ref (ptr), stmt_seqp);
-
-      /* Find the original reduction variable.  */
-      tree x = build_outer_var_ref (var, ctx);
-      if (is_reference (var))
-	var = build_simple_mem_ref (var);
-
-      x = lang_hooks.decls.omp_clause_assign_op (c, var, mem);
-      gimplify_and_add (unshare_expr(x), stmt_seqp);
-    }
-
-  /* Create an index variable and set it to one.  */
+  /* Create and initialize an index variable.  */
   tree ix = create_tmp_var (sizetype, NULL);
-  gimplify_assign (ix, fold_build1 (NOP_EXPR, sizetype, integer_one_node),
+  gimplify_assign (ix, fold_build1 (NOP_EXPR, sizetype, integer_zero_node),
 		   stmt_seqp);
 
   /* Insert the loop header label here.  */

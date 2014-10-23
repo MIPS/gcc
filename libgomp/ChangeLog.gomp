@@ -1,3 +1,7 @@
+2014-10-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c/reduction-initial-1.c: New file.
+
 2014-10-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* (GOACC_update): Declare.
