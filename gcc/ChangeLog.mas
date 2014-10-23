@@ -1,3 +1,15 @@
+2014-10-23  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (capture_info): New class.
+	(capture_info::capture_info): New constructor.
+	(capture_info::walk_match): New method.
+	(capture_info::walk_result): New method.
+	(capture_info::walk_c_expr): New method.
+	(dt_simplify::gen): Handle preserving side-effects for
+	GENERIC code generation.
+	(decision_tree::gen_generic): Do not reject operands
+	with TREE_SIDE_EFFECTS.
+
 2014-10-22  Richard Biener  <rguenther@suse.de>
 
 	* generic-match.h: New file.
