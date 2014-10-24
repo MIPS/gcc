@@ -1902,6 +1902,7 @@ capture_info::capture_info (simplify *s)
       return;
     }
 
+  force_no_side_effects = 0;
   info.safe_grow_cleared (s->capture_max + 1);
   e = as_a <expr *> (s->match);
   for (unsigned i = 0; i < e->ops.length (); ++i)
