@@ -628,7 +628,7 @@ ubsan_expand_bounds_ifn (gimple_stmt_iterator *gsi)
 			     NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
-	= flag_sanitize_recover
+	= (flag_sanitize_recover & SANITIZE_BOUNDS)
 	  ? BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS
 	  : BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS_ABORT;
       tree fn = builtin_decl_explicit (bcode);
@@ -734,7 +734,8 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
   else
     {
       enum built_in_function bcode
-	= flag_sanitize_recover
+	= (flag_sanitize_recover & ((check_align ? SANITIZE_ALIGNMENT : 0)
+				    | (check_null ? SANITIZE_NULL : 0)))
 	  ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH
 	  : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_ABORT;
       tree fn = builtin_decl_implicit (bcode);
@@ -885,22 +886,22 @@ ubsan_build_overflow_builtin (tree_code code, location_t loc, tree lhstype,
   switch (code)
     {
     case PLUS_EXPR:
-      fn_code = flag_sanitize_recover
+      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
 		? BUILT_IN_UBSAN_HANDLE_ADD_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_ADD_OVERFLOW_ABORT;
       break;
     case MINUS_EXPR:
-      fn_code = flag_sanitize_recover
+      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
 		? BUILT_IN_UBSAN_HANDLE_SUB_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_SUB_OVERFLOW_ABORT;
       break;
     case MULT_EXPR:
-      fn_code = flag_sanitize_recover
+      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
 		? BUILT_IN_UBSAN_HANDLE_MUL_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_MUL_OVERFLOW_ABORT;
       break;
     case NEGATE_EXPR:
-      fn_code = flag_sanitize_recover
+      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
 		? BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW_ABORT;
       break;
@@ -1076,7 +1077,8 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
 				     ubsan_type_descriptor (type), NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
-	= flag_sanitize_recover
+	= (flag_sanitize_recover & (TREE_CODE (type) == BOOLEAN_TYPE
+				    ? SANITIZE_BOOL : SANITIZE_ENUM))
 	  ? BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE
 	  : BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE_ABORT;
       tree fn = builtin_decl_explicit (bcode);
@@ -1196,7 +1198,7 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
 				     NULL, ubsan_type_descriptor (expr_type),
 				     ubsan_type_descriptor (type), NULL_TREE);
       enum built_in_function bcode
-	= flag_sanitize_recover
+	= (flag_sanitize_recover & SANITIZE_FLOAT_CAST)
 	  ? BUILT_IN_UBSAN_HANDLE_FLOAT_CAST_OVERFLOW
 	  : BUILT_IN_UBSAN_HANDLE_FLOAT_CAST_OVERFLOW_ABORT;
       fn = builtin_decl_explicit (bcode);
