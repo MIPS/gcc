@@ -387,8 +387,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   static unsigned res_name_offset;
   char prefix;
 
-  if (symbol->offset)
-    return symbol->offset;
+  if (symbol->directive_offset)
+    return symbol->directive_offset;
 
   dirvar.base.byteCount = htole16 (sizeof (dirvar));
   dirvar.base.kind = htole16 (BRIG_KIND_DIRECTIVE_VARIABLE);
@@ -432,8 +432,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.modifier = BRIG_SYMBOL_DEFINITION;
   dirvar.reserved = 0;
 
-  symbol->offset = brig_code.add (&dirvar, sizeof (dirvar));
-  return symbol->offset;
+  symbol->directive_offset = brig_code.add (&dirvar, sizeof (dirvar));
+  return symbol->directive_offset;
 }
 
 /* Emit directives describing the function, for example its input and output
@@ -658,11 +658,11 @@ enqueue_op (hsa_op_base *op)
 {
   unsigned ret;
 
-  if (op->offset)
-    return op->offset;
+  if (op->brig_op_offset)
+    return op->brig_op_offset;
 
   ret = op_queue.projected_size;
-  op->offset = op_queue.projected_size;
+  op->brig_op_offset = op_queue.projected_size;
 
   if (!op_queue.first_op)
     op_queue.first_op = op;
@@ -873,7 +873,7 @@ emit_queued_operands (void)
 {
   for (hsa_op_base *op = op_queue.first_op; op; op = op->next)
     {
-      gcc_assert (op->offset == brig_operand.total_size);
+      gcc_assert (op->brig_op_offset == brig_operand.total_size);
       if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (op))
 	emit_immediate_operand (imm);
       else if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op))

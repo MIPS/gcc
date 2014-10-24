@@ -1,3 +1,11 @@
+2014-10-24  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_symbol): Renamed offset to directive_offset.  Updated all
+	users.
+	(hsa_op_base): Renamed offset to brig_op_offset. Updated all
+	users.
+	(hsa_op_immed): Removed unused field offset.
+
 2014-10-07  Martin Jambor  <mjambor@suse.cz>
 
 	* README.hsa: Added known tested revisions of required git

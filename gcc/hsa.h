@@ -48,7 +48,7 @@ struct hsa_symbol
 
   /* Once written, this is the offset of the associated symbol directive.  Zero
      means the symbol has not been written yet.  */
-  unsigned offset;
+  unsigned directive_offset;
 
   /* HSA type of the parameter.  */
   BrigType16_t type;
@@ -70,7 +70,7 @@ struct hsa_op_base
 
   /* Offset to which the associated operand structure will be written.  Zero if
      yet not scheduled for writing.  */
-  unsigned offset;
+  unsigned brig_op_offset;
 
   /* The type of a particular operand.  */
   BrigKinds16_t kind;
@@ -82,10 +82,6 @@ struct hsa_op_immed : public hsa_op_base
 {
   /* Type of the. */
   BrigType16_t type;
-
-  /* Offset to which the associated immediate operand structure will be written.
-     Zero if not yet scheduled for writing */
-  unsigned offset;
 
   /* Value as represented by middle end.  */
   tree value;
