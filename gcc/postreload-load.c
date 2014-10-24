@@ -278,7 +278,7 @@ pass_postreload_load::execute (function*)
 	      move = as_a <rtx_insn *> (gen_move_insn (SET_DEST (set), (*load)->reg));
 	      /* Make sure we can generate a move.  */
 	      extract_insn (move);
-	      if (! constrain_operands (1))
+	      if (! constrain_operands (1, get_preferred_alternatives (insn, bb)))
 		continue;
 
 	      move = emit_insn_before (move, (*load)->reg_kill);
