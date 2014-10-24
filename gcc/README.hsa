@@ -65,8 +65,8 @@ have not tested anything else):
    $ git clone 'https://github.com/HSAFoundation/Okra-Interface-to-HSA-Device'
    $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/testhsa/Okra-Interface-to-HSA-Device/okra/dist/bin
 
-   These and the steps below were tested with revision 4c4dc65 from
-   August 14 2014.
+   These and the steps below were tested with revision d457e8c from
+   October 6 2014.
 
    You can now also try the sample check shipped with OKRA to test
    whether your setup works.  Go into directory
@@ -135,18 +135,20 @@ example, however, it reports success like this:
 
 omp_veccopy.c:15:12: note: Parallel construct will be turned into an HSA kernel
 
-The next step is to extract the HSA ELF sections to a 32-bit file
-called hsakernel.o.  OKRA currently handles 32-bit ELF files only.
-This step is currently necessary but there is ongoing work aimed at
-eliminating it (yes, it means that currently there is no way of
-combining HSA from different compilation units):
-
-  $ objcopy -O elf32-i386 -j hsa_data -j hsa_code -j hsa_operand omp_veccopy.o hsakernel.o
-  
 Now link the program as usual, providing a path to libgomp of the
 installed hsa branch gcc:
 
   $ $HOME/gcc/hsa/inst/bin/gcc omp_veccopy.o -lm -fopenmp -Wl,-rpath,$HOME/gcc/hsa/inst/lib64 -o omp_veccopy
+
+The reason why it is necessary to proceed in two steps rather than do
+both at once is that at this point, HSA run time will expect the HSA
+kernel in object file with the same name as the input file, only with
+the suffix changed to .o, in the current working directory when
+executing the program.  If you use LTO, there is no input file (such
+as when compiling from standard input) or the input file name does not
+have a dot in it, run-time will expect the HSA ELF sections in a file
+called hsakernel.o.  This is a temporary situation and will be fixed,
+of course.
 
 Assuming you have all necessary libraries in your LD_LIBRARY_PATH, you
 can now run the example:

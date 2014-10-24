@@ -129,6 +129,11 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_range *range_p,
       if (_kd->filename[0] == 0)
 	fileName = "hsakernel.o";
       pfile = (const char *) fopen (fileName, "rb");
+      if (!pfile)
+	{
+	  fprintf (stderr, "Unable to open file %s\n", fileName);
+	  return NULL;
+	}
       status = _okra_kernel_create_from_binary(context, pfile, size, _kd->name, &kernel);
       fclose((FILE *)pfile);
       if (status != OKRA_SUCCESS)

@@ -2102,7 +2102,24 @@ wrap_hsa (void)
 	    str = build_string_literal (1, "");
 	    bool kern_p = lookup_attribute ("hsakernel",
 					    DECL_ATTRIBUTES (fndecl));
+	    if (!in_lto_p && main_input_filename)
+	      {
+		char *filename;
+		const char *part = strrchr (main_input_filename, '/');
+		if (!part)
+		  part = main_input_filename;
+		asprintf (&filename, "%s", part);
+		char* extension = strchr (filename, '.');
+		if (extension)
+		  {
+		    strcpy (extension, "\0");
+		    asprintf (&extension, "%s", ".o\0");
+		    strcat (filename, extension);
+		    str = build_string_literal (strlen(filename)+1,filename);
+		  }
+	      }
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
+
 
 	    int slen = IDENTIFIER_LENGTH (DECL_ASSEMBLER_NAME (fndecl));
 	    if (asprintf (&tmpname, "&%s",

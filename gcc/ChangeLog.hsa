@@ -1,5 +1,11 @@
 2014-10-24  Martin Jambor  <mjambor@suse.cz>
 
+	* README.hsa: Removed the part about extracting the HSA ELF sections.
+	* hsa-gen.c (wrap_hsa): Deduce the file name and pass it to libgomp.
+
+
+2014-10-24  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_symbol): Renamed offset to directive_offset.  Updated all
 	users.
 	(hsa_op_base): Renamed offset to brig_op_offset. Updated all
