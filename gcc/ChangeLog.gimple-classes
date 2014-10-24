@@ -1,5 +1,22 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-inline.h (struct copy_body_data): Rename field
+	"gimple_call" to "call_stmt".
+
+	* gimplify.c (gimplify_bind_expr): Rename local "gimple_bind" to
+	"bind_stmt".
+	(gimplify_switch_expr): Rename local "gimple_switch" to
+	"switch_stmt".
+	(gimplify_cond_expr): Rename local "gimple_cond" to "cond_stmt".
+	* tree-eh.c (lower_catch): Rename local "gcatch" to "catch_stmt".
+	* tree-inline.c (copy_bb): Update for renaming of field within
+	struct copy_body_data from "gimple_call" to "call_stmt".
+	(copy_cfg_body): Likewise.
+	(copy_debug_stmt): Likewise.
+	(expand_call_inline): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Convert various gimple to gimple_phi within ssa-iterators.h
 
 	* ssa-iterators.h (FOR_EACH_PHI_OR_STMT_USE): Add checked cast to

@@ -1731,14 +1731,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	  call_stmt = dyn_cast <gimple_call> (stmt);
 	  if (call_stmt
 	      && gimple_call_va_arg_pack_p (call_stmt)
-	      && id->gimple_call)
+	      && id->call_stmt)
 	    {
 	      /* __builtin_va_arg_pack () should be replaced by
 		 all arguments corresponding to ... in the caller.  */
 	      tree p;
 	      gimple_call new_call;
 	      vec<tree> argarray;
-	      size_t nargs = gimple_call_num_args (id->gimple_call);
+	      size_t nargs = gimple_call_num_args (id->call_stmt);
 	      size_t n;
 
 	      for (p = DECL_ARGUMENTS (id->src_fn); p; p = DECL_CHAIN (p))
@@ -1756,8 +1756,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 	      /* Append the arguments passed in '...'  */
 	      memcpy (argarray.address () + gimple_call_num_args (call_stmt),
-		      gimple_call_arg_ptr (id->gimple_call, 0)
-			+ (gimple_call_num_args (id->gimple_call) - nargs),
+		      gimple_call_arg_ptr (id->call_stmt, 0)
+			+ (gimple_call_num_args (id->call_stmt) - nargs),
 		      nargs * sizeof (tree));
 
 	      new_call = gimple_build_call_vec (gimple_call_fn (call_stmt),
@@ -1777,14 +1777,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	      stmt = new_call;
 	    }
 	  else if (is_gimple_call (stmt)
-		   && id->gimple_call
+		   && id->call_stmt
 		   && (decl = gimple_call_fndecl (stmt))
 		   && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 		   && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_ARG_PACK_LEN)
 	    {
 	      /* __builtin_va_arg_pack_len () should be replaced by
 		 the number of anonymous arguments.  */
-	      size_t nargs = gimple_call_num_args (id->gimple_call);
+	      size_t nargs = gimple_call_num_args (id->call_stmt);
 	      tree count, p;
 	      gimple new_stmt;
 
@@ -2579,12 +2579,12 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   basic_block abnormal_goto_dest = NULL;
-  if (id->gimple_call
-      && stmt_can_make_abnormal_goto (id->gimple_call))
+  if (id->call_stmt
+      && stmt_can_make_abnormal_goto (id->call_stmt))
     {
-      gimple_stmt_iterator gsi = gsi_for_stmt (id->gimple_call);
+      gimple_stmt_iterator gsi = gsi_for_stmt (id->call_stmt);
 
-      bb = gimple_bb (id->gimple_call);
+      bb = gimple_bb (id->call_stmt);
       gsi_next (&gsi);
       if (gsi_end_p (gsi))
 	abnormal_goto_dest = get_abnormal_succ_dispatcher (bb);
@@ -2729,7 +2729,7 @@ copy_debug_stmt (gimple_debug stmt, copy_body_data *id)
       t = gimple_debug_source_bind_get_value (stmt);
       if (t != NULL_TREE
 	  && TREE_CODE (t) == PARM_DECL
-	  && id->gimple_call)
+	  && id->call_stmt)
 	{
 	  vec<tree, va_gc> **debug_args = decl_debug_args_lookup (id->src_fn);
 	  unsigned int i;
@@ -4329,7 +4329,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   id->src_fn = fn;
   id->src_node = cg_edge->callee;
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
-  id->gimple_call = stmt;
+  id->call_stmt = stmt;
 
   gcc_assert (!id->src_cfun->after_inlining);
 

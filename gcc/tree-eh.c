@@ -1790,13 +1790,13 @@ lower_catch (struct leh_state *state, gimple_try tp)
        gsi_next (&gsi))
     {
       eh_catch c;
-      gimple_catch gcatch;
+      gimple_catch catch_stmt;
       gimple_seq handler;
 
-      gcatch = as_a <gimple_catch> (gsi_stmt (gsi));
-      c = gen_eh_region_catch (try_region, gimple_catch_types (gcatch));
+      catch_stmt = as_a <gimple_catch> (gsi_stmt (gsi));
+      c = gen_eh_region_catch (try_region, gimple_catch_types (catch_stmt));
 
-      handler = gimple_catch_handler (gcatch);
+      handler = gimple_catch_handler (catch_stmt);
       lower_eh_constructs_1 (&this_state, &handler);
 
       c->label = create_artificial_label (UNKNOWN_LOCATION);

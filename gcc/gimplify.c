@@ -1043,7 +1043,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
   tree bind_expr = *expr_p;
   bool old_save_stack = gimplify_ctxp->save_stack;
   tree t;
-  gimple_bind gimple_bind;
+  gimple_bind bind_stmt;
   gimple_seq body, cleanup;
   gimple_call stack_save;
   location_t start_locus = 0, end_locus = 0;
@@ -1088,16 +1088,16 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 	DECL_GIMPLE_REG_P (t) = 1;
     }
 
-  gimple_bind = gimple_build_bind (BIND_EXPR_VARS (bind_expr), NULL,
+  bind_stmt = gimple_build_bind (BIND_EXPR_VARS (bind_expr), NULL,
                                    BIND_EXPR_BLOCK (bind_expr));
-  gimple_push_bind_expr (gimple_bind);
+  gimple_push_bind_expr (bind_stmt);
 
   gimplify_ctxp->save_stack = false;
 
   /* Gimplify the body into the GIMPLE_BIND tuple's body.  */
   body = NULL;
   gimplify_stmt (&BIND_EXPR_BODY (bind_expr), &body);
-  gimple_bind_set_body (gimple_bind, body);
+  gimple_bind_set_body (bind_stmt, body);
 
   /* Source location wise, the cleanup code (stack_restore and clobbers)
      belongs to the end of the block, so propagate what we have.  The
@@ -1157,19 +1157,19 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
       gimple_seq new_body;
 
       new_body = NULL;
-      gs = gimple_build_try (gimple_bind_body (gimple_bind), cleanup,
+      gs = gimple_build_try (gimple_bind_body (bind_stmt), cleanup,
 	  		     GIMPLE_TRY_FINALLY);
 
       if (stack_save)
 	gimplify_seq_add_stmt (&new_body, stack_save);
       gimplify_seq_add_stmt (&new_body, gs);
-      gimple_bind_set_body (gimple_bind, new_body);
+      gimple_bind_set_body (bind_stmt, new_body);
     }
 
   gimplify_ctxp->save_stack = old_save_stack;
   gimple_pop_bind_expr ();
 
-  gimplify_seq_add_stmt (pre_p, gimple_bind);
+  gimplify_seq_add_stmt (pre_p, bind_stmt);
 
   if (temp)
     {
@@ -1484,7 +1484,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
       vec<tree> labels;
       vec<tree> saved_labels;
       tree default_case = NULL_TREE;
-      gimple_switch gimple_switch;
+      gimple_switch switch_stmt;
 
       /* If someone can be bothered to fill in the labels, they can
 	 be bothered to null out the body too.  */
@@ -1513,9 +1513,9 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 	  gimplify_seq_add_stmt (&switch_body_seq, new_default);
 	}
 
-      gimple_switch = gimple_build_switch (SWITCH_COND (switch_expr),
+      switch_stmt = gimple_build_switch (SWITCH_COND (switch_expr),
 					   default_case, labels);
-      gimplify_seq_add_stmt (pre_p, gimple_switch);
+      gimplify_seq_add_stmt (pre_p, switch_stmt);
       gimplify_seq_add_seq (pre_p, switch_body_seq);
       labels.release ();
     }
@@ -2957,7 +2957,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
   enum gimplify_status ret;
   tree label_true, label_false, label_cont;
   bool have_then_clause_p, have_else_clause_p;
-  gimple_cond gimple_cond;
+  gimple_cond cond_stmt;
   enum tree_code pred_code;
   gimple_seq seq = NULL;
 
@@ -3106,10 +3106,10 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
   gimple_cond_get_ops_from_tree (COND_EXPR_COND (expr), &pred_code, &arm1,
 				 &arm2);
 
-  gimple_cond = gimple_build_cond (pred_code, arm1, arm2, label_true,
+  cond_stmt = gimple_build_cond (pred_code, arm1, arm2, label_true,
                                    label_false);
 
-  gimplify_seq_add_stmt (&seq, gimple_cond);
+  gimplify_seq_add_stmt (&seq, cond_stmt);
   label_cont = NULL_TREE;
   if (!have_then_clause_p)
     {
