@@ -87,130 +87,39 @@ typedef const struct gimple_statement_base *const_gimple;
 typedef gimple gimple_seq;
 struct gimple_stmt_iterator;
 
-/* Typedefs for leaf gimple subclasses (for individual gimple codes).
+/* Forward decls for leaf gimple subclasses (for individual gimple codes).
    Keep this in the same order as the corresponding codes in gimple.def.  */
 
 struct gimple_statement_cond;
-typedef struct gimple_statement_cond *gimple_cond;
-typedef const struct gimple_statement_cond *const_gimple_cond;
-
 struct gimple_statement_debug;
-typedef struct gimple_statement_debug *gimple_debug;
-typedef const struct gimple_statement_debug *const_gimple_debug;
-
 struct gimple_statement_goto;
-typedef struct gimple_statement_goto *gimple_goto;
-typedef const struct gimple_statement_goto *const_gimple_goto;
-
 struct gimple_statement_label;
-typedef struct gimple_statement_label *gimple_label;
-typedef const struct gimple_statement_label *const_gimple_label;
-
 struct gimple_statement_switch;
-typedef struct gimple_statement_switch *gimple_switch;
-typedef const struct gimple_statement_switch *const_gimple_switch;
-
 struct gimple_statement_assign;
-typedef struct gimple_statement_assign *gimple_assign;
-typedef const struct gimple_statement_assign *const_gimple_assign;
-
 struct gimple_statement_asm;
-typedef struct gimple_statement_asm *gimple_asm;
-typedef const struct gimple_statement_asm *const_gimple_asm;
-
 struct gimple_statement_call;
-typedef struct gimple_statement_call *gimple_call;
-typedef const struct gimple_statement_call *const_gimple_call;
-
 struct gimple_statement_transaction;
-typedef struct gimple_statement_transaction *gimple_transaction;
-typedef const struct gimple_statement_transaction *const_gimple_transaction;
-
 struct gimple_statement_return;
-typedef struct gimple_statement_return *gimple_return;
-typedef const struct gimple_statement_return *const_gimple_return;
-
 struct gimple_statement_bind;
-typedef struct gimple_statement_bind *gimple_bind;
-typedef const struct gimple_statement_bind *const_gimple_bind;
-
 struct gimple_statement_catch;
-typedef struct gimple_statement_catch *gimple_catch;
-typedef const struct gimple_statement_catch *const_gimple_catch;
-
 struct gimple_statement_eh_filter;
-typedef struct gimple_statement_eh_filter *gimple_eh_filter;
-typedef const struct gimple_statement_eh_filter *const_gimple_eh_filter;
-
 struct gimple_statement_eh_mnt;
-typedef struct gimple_statement_eh_mnt *gimple_eh_must_not_throw;
-typedef const struct gimple_statement_eh_mnt *const_gimple_eh_must_not_throw;
-
 struct gimple_statement_eh_else;
-typedef struct gimple_statement_eh_else *gimple_eh_else;
-typedef const struct gimple_statement_eh_else *const_gimple_eh_else;
-
 struct gimple_statement_resx;
-typedef struct gimple_statement_resx *gimple_resx;
-typedef const struct gimple_statement_resx *const_gimple_resx;
-
 struct gimple_statement_eh_dispatch;
-typedef struct gimple_statement_eh_dispatch *gimple_eh_dispatch;
-typedef const struct gimple_statement_eh_dispatch *const_gimple_eh_dispatch;
-
 struct gimple_statement_phi;
-typedef struct gimple_statement_phi *gimple_phi;
-typedef const struct gimple_statement_phi *const_gimple_phi;
-
 struct gimple_statement_try;
-typedef struct gimple_statement_try *gimple_try;
-typedef const struct gimple_statement_try *const_gimple_try;
-
 struct gimple_statement_omp_atomic_load;
-typedef struct gimple_statement_omp_atomic_load *gimple_omp_atomic_load;
-typedef const struct gimple_statement_omp_atomic_load *
-  const_gimple_omp_atomic_load;
-
 struct gimple_statement_omp_atomic_store;
-typedef struct gimple_statement_omp_atomic_store *gimple_omp_atomic_store;
-typedef const struct gimple_statement_omp_atomic_store *
-  const_gimple_omp_atomic_store;
-
 struct gimple_statement_omp_continue;
-typedef struct gimple_statement_omp_continue *gimple_omp_continue;
-typedef const struct gimple_statement_omp_continue *const_gimple_omp_continue;
-
 struct gimple_statement_omp_critical;
-typedef struct gimple_statement_omp_critical *gimple_omp_critical;
-typedef const struct gimple_statement_omp_critical *const_gimple_omp_critical;
-
 struct gimple_statement_omp_for;
-typedef struct gimple_statement_omp_for *gimple_omp_for;
-typedef const struct gimple_statement_omp_for *const_gimple_omp_for;
-
 struct gimple_statement_omp_parallel;
-typedef struct gimple_statement_omp_parallel *gimple_omp_parallel;
-typedef const struct gimple_statement_omp_parallel *const_gimple_omp_parallel;
-
 struct gimple_statement_omp_task;
-typedef struct gimple_statement_omp_task *gimple_omp_task;
-typedef const struct gimple_statement_omp_task *const_gimple_omp_task;
-
 struct gimple_statement_omp_sections;
-typedef struct gimple_statement_omp_sections *gimple_omp_sections;
-typedef const struct gimple_statement_omp_sections *const_gimple_omp_sections;
-
 struct gimple_statement_omp_single;
-typedef struct gimple_statement_omp_single *gimple_omp_single;
-typedef const struct gimple_statement_omp_single *const_gimple_omp_single;
-
 struct gimple_statement_omp_target;
-typedef struct gimple_statement_omp_target *gimple_omp_target;
-typedef const struct gimple_statement_omp_target *const_gimple_omp_target;
-
 struct gimple_statement_omp_teams;
-typedef struct gimple_statement_omp_teams *gimple_omp_teams;
-typedef const struct gimple_statement_omp_teams *const_gimple_omp_teams;
 
 union section;
 typedef union section section;

@@ -1,3 +1,66 @@
+2014-10-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* coretypes.h (gimple_cond): Drop this typedef.
+	(const_gimple_cond): Likewise.
+	(gimple_debug): Likewise.
+	(const_gimple_debug): Likewise.
+	(gimple_goto): Likewise.
+	(const_gimple_goto): Likewise.
+	(gimple_label): Likewise.
+	(const_gimple_label): Likewise.
+	(gimple_switch): Likewise.
+	(const_gimple_switch): Likewise.
+	(gimple_assign): Likewise.
+	(const_gimple_assign): Likewise.
+	(gimple_asm): Likewise.
+	(const_gimple_asm): Likewise.
+	(gimple_call): Likewise.
+	(const_gimple_call): Likewise.
+	(gimple_transaction): Likewise.
+	(const_gimple_transaction): Likewise.
+	(gimple_return): Likewise.
+	(const_gimple_return): Likewise.
+	(gimple_bind): Likewise.
+	(const_gimple_bind): Likewise.
+	(gimple_catch): Likewise.
+	(const_gimple_catch): Likewise.
+	(gimple_eh_filter): Likewise.
+	(const_gimple_eh_filter): Likewise.
+	(gimple_eh_must_not_throw;): Likewise.
+	(const_gimple_eh_must_not_throw): Likewise.
+	(gimple_eh_else): Likewise.
+	(const_gimple_eh_else): Likewise.
+	(gimple_resx): Likewise.
+	(const_gimple_resx): Likewise.
+	(gimple_eh_dispatch): Likewise.
+	(const_gimple_eh_dispatch): Likewise.
+	(gimple_phi): Likewise.
+	(const_gimple_phi): Likewise.
+	(gimple_try): Likewise.
+	(const_gimple_try): Likewise.
+	(gimple_omp_atomic_load): Likewise.
+	(const_gimple_omp_atomic_load): Likewise.
+	(gimple_omp_atomic_store): Likewise.
+	(const_gimple_omp_atomic_store): Likewise.
+	(gimple_omp_continue): Likewise.
+	(const_gimple_omp_continue): Likewise.
+	(gimple_omp_critical): Likewise.
+	(const_gimple_omp_critical): Likewise.
+	(gimple_omp_for): Likewise.
+	(const_gimple_omp_for): Likewise.
+	(gimple_omp_parallel): Likewise.
+	(const_gimple_omp_parallel): Likewise.
+	(gimple_omp_task): Likewise.
+	(const_gimple_omp_task): Likewise.
+	(gimple_omp_sections): Likewise.
+	(const_gimple_omp_sections): Likewise.
+	(gimple_omp_single): Likewise.
+	(const_gimple_omp_single): Likewise.
+	(gimple_omp_target): Likewise.
+	(const_gimple_omp_target): Likewise.
+	(gimple_omp_teams): Likewise.
+	(const_gimple_omp_teams): Likewise.
+
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* tree-inline.h (struct copy_body_data): Rename field
