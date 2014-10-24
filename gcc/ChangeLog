@@ -1,3 +1,364 @@
+2014-10-24  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (expr::gen_transform): Use fold_buildN_loc
+	and build_call_expr_loc.
+	(dt_simplify::gen): Drop non_lvalue for GIMPLE, use
+	non_lvalue_loc to build it for GENERIC.
+	(decision_tree::gen_generic): Add location argument to
+	generic_simplify prototype.
+	(capture_info): New class.
+	(capture_info::capture_info): New constructor.
+	(capture_info::walk_match): New method.
+	(capture_info::walk_result): New method.
+	(capture_info::walk_c_expr): New method.
+	(dt_simplify::gen): Handle preserving side-effects for
+	GENERIC code generation.
+	(decision_tree::gen_generic): Do not reject operands
+	with TREE_SIDE_EFFECTS.
+	* generic-match.h: New file.
+	* generic-match-head.c: Include generic-match.h, not gimple-match.h.
+	* match.pd: Add some constant folding patterns from fold-const.c.
+	* fold-const.c: Include generic-match.h.
+	(fold_unary_loc): Dispatch to generic_simplify.
+	(fold_ternary_loc): Likewise.
+	(fold_binary_loc): Likewise.  Remove patterns now implemented
+	by generic_simplify.
+	* gimple-fold.c (replace_stmt_with_simplification): New function.
+	(fold_stmt_1): Add valueize parameter, dispatch to gimple_simplify.
+	(no_follow_ssa_edges): New function.
+	(fold_stmt): New overload with valueization hook.  Use
+	no_follow_ssa_edges for the overload without hook.
+	(fold_stmt_inplace): Likewise.
+	* gimple-fold.h (no_follow_ssa_edges): Declare.
+
+2014-10-24  Felix Yang  <felix.yang@huawei.com>
+	Jiji Jiang  <jiangjiji@huawei.com>
+
+	PR target/63173
+	* config/aarch64/arm_neon.h (__LD2R_FUNC): Remove macro.
+	(__LD3R_FUNC): Ditto.
+	(__LD4R_FUNC): Ditto.
+	(vld2_dup_s8, vld2_dup_s16, vld2_dup_s32, vld2_dup_f32, vld2_dup_f64,
+	 vld2_dup_u8, vld2_dup_u16, vld2_dup_u32, vld2_dup_p8, vld2_dup_p16
+	 vld2_dup_s64, vld2_dup_u64, vld2q_dup_s8, vld2q_dup_p8, 
+	 vld2q_dup_s16, vld2q_dup_p16, vld2q_dup_s32, vld2q_dup_s64, 
+	 vld2q_dup_u8, vld2q_dup_u16, vld2q_dup_u32, vld2q_dup_u64 
+	 vld2q_dup_f32, vld2q_dup_f64): Rewrite using builtin functions.
+	(vld3_dup_s64, vld3_dup_u64, vld3_dup_f64, vld3_dup_s8 
+	 vld3_dup_p8, vld3_dup_s16, vld3_dup_p16, vld3_dup_s32 
+	 vld3_dup_u8, vld3_dup_u16, vld3_dup_u32, vld3_dup_f32
+	 vld3q_dup_s8, vld3q_dup_p8, vld3q_dup_s16, vld3q_dup_p16 
+	 vld3q_dup_s32, vld3q_dup_s64, vld3q_dup_u8, vld3q_dup_u16 
+	 vld3q_dup_u32, vld3q_dup_u64, vld3q_dup_f32, vld3q_dup_f64): Likewise.
+	(vld4_dup_s64, vld4_dup_u64, vld4_dup_f64, vld4_dup_s8 
+	 vld4_dup_p8, vld4_dup_s16, vld4_dup_p16, vld4_dup_s32 
+	 vld4_dup_u8, vld4_dup_u16, vld4_dup_u32, vld4_dup_f32 
+	 vld4q_dup_s8, vld4q_dup_p8, vld4q_dup_s16, vld4q_dup_p16 
+	 vld4q_dup_s32, vld4q_dup_s64, vld4q_dup_u8, vld4q_dup_u16 
+	 vld4q_dup_u32, vld4q_dup_u64, vld4q_dup_f32, vld4q_dup_f64): Likewise.
+	* config/aarch64/aarch64.md (define_c_enum "unspec"): Add
+	UNSPEC_LD2_DUP, UNSPEC_LD3_DUP, UNSPEC_LD4_DUP.
+	* config/aarch64/aarch64-simd-builtins.def (ld2r, ld3r, ld4r): New
+	builtins.
+	* config/aarch64/aarch64-simd.md (aarch64_simd_ld2r<mode>): New pattern.
+	(aarch64_simd_ld3r<mode>): Likewise.
+	(aarch64_simd_ld4r<mode>): Likewise.
+	(aarch64_ld2r<mode>): New expand.
+	(aarch64_ld3r<mode>): Likewise.
+	(aarch64_ld4r<mode>): Likewise.
+
+2014-10-24  Maxim Kuvyrkov  <maxim.kuvyrkov@gmail.com>
+
+        * rtlanal.c (get_base_term): Handle SCRATCH.
+
+2014-10-24  Maxim Kuvyrkov  <maxim.kuvyrkov@gmail.com>
+
+        * haifa-sched.c (sched_init): Disable max_issue when scheduling for
+        register pressure.
+
+2014-10-24  Maxim Kuvyrkov  <maxim.kuvyrkov@gmail.com>
+
+        * haifa-sched.c (cached_first_cycle_multipass_dfa_lookahead,)
+        (cached_issue_rate): Remove.  Use dfa_lookahead and issue_rate instead.
+        (max_issue, choose_ready, sched_init): Update.
+
+2014-10-24  Maxim Kuvyrkov  <maxim.kuvyrkov@gmail.com>
+
+	* sched-int.h (struct _haifa_insn_data:last_rfs_win): New field.
+	* haifa-sched.c (INSN_LAST_RFS_WIN): New access macro.
+	(rfs_result): Set INSN_LAST_RFS_WIN.  Update signature.
+	(rank_for_schedule): Update calls to rfs_result to pass new parameters.
+	(print_rank_for_schedule_stats): Print out elements of ready list that
+	ended up on their respective places due to each of the sorting
+	heuristics.
+	(ready_sort): Update.
+	(debug_ready_list_1): Improve printout for SCHED_PRESSURE_MODEL.
+	(schedule_block): Update.
+
+2014-10-24  Maxim Kuvyrkov  <maxim.kuvyrkov@gmail.com>
+
+	* haifa-sched.c (sched_class_regs_num, call_used_regs_num): New static
+	arrays.  Use sched_class_regs_num instead of ira_class_hard_regs_num.
+	(print_curr_reg_pressure, setup_insn_reg_pressure_info,)
+	(model_update_pressure, model_spill_cost): Use sched_class_regs_num.
+	(model_start_schedule): Update.
+	(sched_pressure_start_bb): New static function.  Calculate
+	sched_class_regs_num.
+	(schedule_block): Use it.
+	(alloc_global_sched_pressure_data): Calculate call_used_regs_num.
+
+2014-10-24  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (BUILD_CPPLIB): When in stage2+ use the
+	host library and make sure to pull in the required libintl
+	and libiconv dependencies.
+
+2014-10-24  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Fix copy-and-pasto.
+
+2014-10-24  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR bootstrap/63632
+	* collect2.c (main): Filter out -fno-lto.
+
+2014-10-24  Martin Liska  <mliska@suse.cz>
+
+	* ipa-icf.c (sem_item_optimizer::parse_nonsingleton_classes): Guard
+	division by zero in dumps.
+	(sem_item_optimizer::merge_classes): Ditto.
+
+2014-10-23  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_can_combine_p): Fix typo in last change.
+
+2014-10-23  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (extract_range_from_assert): Fix typo in comment.
+
+2014-10-23  Ian Lance Taylor  <iant@google.com>
+
+	* config/mep/mep.h (TARGET_HAS_F_SETLKW): Don't define.
+
+2014-10-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63623
+	* var-tracking.c (stack_adjust_offset_pre_post_cb): New function.
+	(stack_adjust_offset_pre_post): Use it through for_each_inc_dec,
+	instead of only handling autoinc in dest if it is a MEM.
+	(vt_stack_adjustments): Fix up formatting.
+
+2014-10-23  DJ Delorie  <dj@redhat.com>
+
+	* config/msp430/msp430.c (msp430_print_operand): 'x' modifier is
+	independend of -mlarge.
+	* config/msp430/constraints.md (Ys): Update comment.
+
+2014-10-23  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	PR target/63534
+	PR target/63618
+	* cse.c (delete_trivially_dead_insns): Consider PIC register is used
+	while it is pseudo.
+	* dse.c (deletable_insn_p): Likewise.
+
+2014-10-23  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c: Fix GNU coding rules and typos.
+	* config/avr/avr.h: Dito.
+	* config/avr/avr-c.c: Dito.
+	* config/avr/avr.md: Dito.
+
+2014-10-23  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/sse.md (define_mode_iterator VI1248_AVX512VL_AVX512BW):
+	New.
+	(define_insn "*abs<mode>2"): Use VI1248_AVX512VL_AVX512BW mode
+	iterator.
+	(define_expand "abs<mode>2"): Ditto.
+
+2014-10-23  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* tree-core.h (tree_var_decl): Extend `function_code' field
+	by one bit, move `regdecl_flag' field to ...
+	(tree_decl_with_vis): Here.
+	* tree.h (DECL_STATIC_CHAIN): Update struct name.
+
+2014-10-23  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (BUILD_CPPLIB): Add.
+	(build/genmatch$(build_exeext)): Use BUILD_CPPLIB, not CPPLIB.
+	Drop LIBIBERTY.
+
+2014-10-23  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Preserve side-effects of
+	X - X when simplifying to 0.
+	* stor-layout.c (finish_bitfield_representative): Strip
+	side-effects of evaluating the difference of two DECL_FIELD_OFFSET.
+
+2014-10-22  Richard Biener  <rguenther@suse.de>
+	    Tobias Burnus <burnus@net-b.de>
+
+	PR lto/63603
+	* gcc.c (LINK_COMMAND_SPEC): Add %{fno-lto}.
+
+2014-10-22  Dehao Chen  <dehao@google.com>
+
+	* auto-profile.c: Change order of header files.
+
+2014-10-22  Guozhi Wei  <carrot@google.com>
+
+	PR tree-optimization/63530
+	tree-vect-data-refs.c (vect_create_addr_base_for_vector_ref): Set
+	pointer alignment according to DR_MISALIGNMENT.
+
+2014-10-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* ipa-icf.c (ipa_icf_driver): Set optimizer to NULL when done.
+
+2014-10-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* cfgbuild.h: New.  Add prototypes for cfgbuild.c.
+	* cfgcleanup.h: New.  Add prototypes for cfgcleanup.c.
+	* cfgloopmanip.h: New.  Add prototypes for cfgloopmanip.c.
+	* dominance.h: New.  Add prototypes for dominance.c.
+	* cfgloop.h: Move some prototypes/enum to cfgloopmanip.h and include it.
+	* cfghooks.h: (struct profile_record) Relocate here.
+	Relocate 2 prototypes from basic-block.h.
+	* basic-block.h: Move prototypes and struct to new header files.
+	Include cfgbuild.h, cfgcleanup.h, and dominance.h.
+	* rtl.h: Move a few prototypes to new header files.
+	* cfgcleanup.c (merge_memattrs): Make static.
+	* genopinit.c (main): Add predict.h to list of includes.
+	* predict.h: Update prototype list to match predict.c.
+	* predict.c (maybe_hot_count_p): Export.
+	(cgraph_edge::maybe_hot_p): Move to cgraph.c.
+	(cgraph_node::optimize_for_size_p): Move to cgraph.h.
+	* cgraph.h (cgraph_node::optimize_for_size_p): Relocate here.
+	* cgraph.c (cgraph_edge::maybe_hot_p): Relocate here.
+	* profile.h: Adjust prototypes.
+	* ifcvt.h: New.  Relocate struct ce_if_block here.
+	* ifcvt.c: Include ifcvt.h.
+	* config/frv/frv.c: Include ifcvt.h.
+	* config/frv/frv-protos.h: Add 'struct' to ce_if_block * parameters.
+
+2014-10-22  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* lra.c (lra): Remove call to recog_init.
+	* config/i386/i386.md (preferred_for_speed): New attribute
+	(*float<SWI48:mode><MODEF:mode>2_sse): Override it instead of
+	"enabled".  Remove check for sched1.
+
+2014-10-22  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* recog.h (recog_data_d): Remove enabled_alternatives.
+	* recog.c (extract_insn): Don't set it.
+	* reload.c (find_reloads): Call get_enabled_alternatives.
+
+2014-10-22  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* recog.h (constrain_operands): Add an alternative_mask parameter.
+	(constrain_operands_cached): Likewise.
+	(get_preferred_alternatives): Declare new form.
+	* recog.c (get_preferred_alternatives): New bb-taking instance.
+	(constrain_operands): Take the set of available alternatives as
+	a parameter.
+	(check_asm_operands, insn_invalid_p, extract_constrain_insn)
+	(extract_constrain_insn_cached): Update calls to constrain_operands.
+	* caller-save.c (reg_save_code): Likewise.
+	* ira.c (setup_prohibited_mode_move_regs): Likewise.
+	* postreload-gcse.c (eliminate_partially_redundant_load): Likewise.
+	* ree.c (combine_reaching_defs): Likewise.
+	* reload.c (can_reload_into): Likewise.
+	* reload1.c (reload, reload_as_needed, inc_for_reload): Likewise.
+	(gen_reload_chain_without_interm_reg_p, emit_input_reload_insns)
+	(emit_insn_if_valid_for_reload): Likewise.
+	* reorg.c (fill_slots_from_thread): Likewise.
+	* config/i386/i386.c (ix86_attr_length_address_default): Likewise.
+	* config/pa/pa.c (pa_can_combine_p): Likewise.
+	* config/rl78/rl78.c (insn_ok_now): Likewise.
+	* config/sh/sh.md (define_peephole2): Likewise.
+	* final.c (final_scan_insn): Update call to constrain_operands_cached.
+
+2014-10-22  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* doc/md.texi: Document "preferred_for_size" and "preferred_for_speed"
+	attributes.
+	* genattr.c (main): Handle "preferred_for_size" and
+	"preferred_for_speed" in the same way as "enabled".
+	* recog.h (bool_attr): New enum.
+	(target_recog): Replace x_enabled_alternatives with x_bool_attr_masks.
+	(get_preferred_alternatives, check_bool_attrs): Declare.
+	* recog.c (have_bool_attr, get_bool_attr, get_bool_attr_mask_uncached)
+	(get_bool_attr_mask, get_preferred_alternatives, check_bool_attrs):
+	New functions.
+	(get_enabled_alternatives): Use get_bool_attr_mask.
+	* ira-costs.c (record_reg_classes): Use get_preferred_alternatives
+	instead of recog_data.enabled_alternatives.
+	* ira.c (ira_setup_alts): Likewise.
+	* postreload.c (reload_cse_simplify_operands): Likewise.
+	* config/i386/i386.c (ix86_legitimate_combined_insn): Likewise.
+	* ira-lives.c (preferred_alternatives): New variable.
+	(process_bb_node_lives): Set it.
+	(check_and_make_def_conflict, make_early_clobber_and_input_conflicts)
+	(single_reg_class, ira_implicitly_set_insn_hard_regs): Use it instead
+	of recog_data.enabled_alternatives.
+	* lra-int.h (lra_insn_recog_data): Replace enabled_alternatives
+	to preferred_alternatives.
+	* lra-constraints.c (process_alt_operands): Update accordingly.
+	* lra.c (lra_set_insn_recog_data): Likewise.
+	(lra_update_insn_recog_data): Assert check_bool_attrs.
+
+2014-10-22  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* recog.h (extract_constrain_insn): Declare.
+	* recog.c (extract_constrain_insn): New function.
+	* lra.c (check_rtl): Use it.
+	* postreload.c (reload_cse_simplify_operands): Likewise.
+	* reg-stack.c (check_asm_stack_operands): Likewise.
+	(subst_asm_stack_regs): Likewise.
+	* regcprop.c (copyprop_hardreg_forward_1): Likewise.
+	* regrename.c (build_def_use): Likewise.
+	* sel-sched.c (get_reg_class): Likewise.
+	* config/arm/arm.c (note_invalid_constants): Likewise.
+	* config/s390/predicates.md (execute_operation): Likewise.
+
+2014-10-22  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	* common.opt (flag_sanitize_recover): New variable.
+	(fsanitize-recover): Remove Var/Init, deprecate.
+	(fsanitize-recover=): New option.
+	* doc/invoke.texi (fsanitize-recover): Update docs.
+	* opts.c (finish_options): Use opts->x_flag_sanitize
+	instead of flag_sanitize.  Prohibit -fsanitize-recover
+	for anything besides UBSan.  Formatting.
+	(common_handle_option): Handle OPT_fsanitize_recover_
+	and OPT_fsanitize_recover.  Use opts->x_flag_sanitize
+	instead of flag_sanitize.
+	* asan.c (pass_sanopt::execute): Fix up formatting.
+	* ubsan.c (ubsan_expand_bounds_ifn, ubsan_expand_null_ifn,
+	ubsan_expand_objsize_ifn, ubsan_build_overflow_builtin,
+	instrument_bool_enum_load, ubsan_instrument_float_cast,
+	instrument_nonnull_arg, instrument_nonnull_return): Check
+	bits in flag_sanitize_recover bitmask instead of
+	flag_sanitize_recover as bool flag.
+
+2014-10-22  Jiong Wang <jiong.wang@arm.com>
+
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Add missing '\'.
+
+2014-10-22  Renlin Li <renlin.li@arm.com>
+
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Define
+	__ARM_FEATURE_IDIV__.
+
+2014-10-22  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (s-match): Adjust dependencies to only catch
+	match.pd.
+
 2014-10-22  Richard Biener  <rguenther@suse.de>
 	Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 

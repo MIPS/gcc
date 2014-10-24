@@ -1,5 +1,11 @@
 2014-10-24  Richard Biener  <rguenther@suse.de>
 
+	Merge from trunk r216543 through r216631.
+
+	Brings back second merge piece.
+
+2014-10-24  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (capture_info::capture_info): Initialize
 	force_no_side_effects.
 

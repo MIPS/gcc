@@ -981,6 +981,15 @@ else
 LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = $(build_libobjdir)/libiberty/libiberty.a
 endif
+# For stage1 and when cross-compiling use the build libcpp which is
+# built with NLS disabled.  For stage2+ use the host library and
+# its dependencies.
+ifeq ($(build_objdir),$(build_libobjdir))
+BUILD_CPPLIB = $(build_libobjdir)/libcpp/libcpp.a
+else
+BUILD_CPPLIB = $(CPPLIB) $(LIBIBERTY) $(LIBINTL) $(LIBICONV)
+build/genmatch$(build_exeext): BUILD_LIBDEPS += $(LIBINTL_DEP) $(LIBICONV_DEP)
+endif
 
 # Dependencies on the intl and portability libraries.
 LIBDEPS= libcommon.a $(CPPLIB) $(LIBIBERTY) $(LIBINTL_DEP) $(LIBICONV_DEP) \
@@ -2237,7 +2246,7 @@ s-tm-texi: build/genhooks$(build_exeext) $(srcdir)/doc/tm.texi.in
 gimple-match.c: s-match gimple-match-head.c ; @true
 generic-match.c: s-match generic-match-head.c ; @true
 
-s-match: build/genmatch$(build_exeext) $(srcdir)/match*.pd
+s-match: build/genmatch$(build_exeext) $(srcdir)/match.pd
 	$(RUN_GEN) build/genmatch$(build_exeext) --gimple $(srcdir)/match.pd \
 	    > tmp-gimple-match.c
 	$(RUN_GEN) build/genmatch$(build_exeext) --generic $(srcdir)/match.pd \
@@ -2520,7 +2529,7 @@ genprog = $(genprogerr) check checksum condmd match
 # These programs need libs over and above what they get from the above list.
 build/genautomata$(build_exeext) : BUILD_LIBS += -lm
 
-build/genmatch$(build_exeext) : $(CPPLIB) $(LIBIBERTY) \
+build/genmatch$(build_exeext) : $(BUILD_CPPLIB) \
   $(BUILD_ERRORS) build/vec.o build/hash-table.o
 
 # These programs are not linked with the MD reader.

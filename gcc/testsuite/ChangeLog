@@ -1,3 +1,123 @@
+2014-10-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/pr63594-1.c: Apply -mno-mmx to all i?86-*-* and x86_64-*-*
+	targets.
+	* gcc.dg/pr63594-2.c: Likewise.
+
+2014-10-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/alpha/980217-1.c (main): Fix implicit int.
+	* gcc.target/alpha/pr19518.c (_mm_setzero_si64): New function.
+
+2014-10-24  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR bootstrap/63632
+	* g++.dg/torture/pr63632.C: New test.
+
+2014-10-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/63619
+	* g++.dg/warn/Wdelete-incomplete-3.C: New.
+	* g++.dg/warn/Wdelete-incomplete-4.C: New.
+
+2014-10-23  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	PR target/63618
+	* gcc.target/i386/pr63618.c: New test.
+
+2014-10-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c/63626
+	* gcc.dg/pr63626.c: New test.
+
+2014-10-23  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/undefined-2.c: New test.
+
+2014-10-10  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/pr63600.c: New.
+
+2014-10-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/ipa/ipa-icf-21.c: Add -msse2 to dg-options.
+
+2014-10-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/ipa/ipa-icf-21.c: Restrict to i?86-*-* x86_64-*-*.
+	* gcc.dg/ipa/ipa-icf-28.c: Require init_priority.
+
+2014-10-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/sparc/20001013-1.c (main): Declare int return.
+	* gcc.target/sparc/mnofpu.c (e1e_rphy): Declare.
+	* gcc.target/sparc/sparc-ret.c (toto): Declare.
+	* gcc.target/sparc/ultrasp6.c (__assert, HSRate): Declare.
+	* gcc.target/sparc/ultrasp8.c (__malloc_lock, __malloc_unlock):
+	Declare.
+
+2014-10-22  Guozhi Wei  <carrot@google.com>
+
+	PR tree-optimization/63530
+	gcc.dg/vect/pr63530.c: New testcase.
+
+2014-10-22  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.target/i386/conversion-2.c: New test.
+
+2014-10-22  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	* c-c++-common/ubsan/align-1.c: Update cmdline options.
+	* c-c++-common/ubsan/align-3.c: Likewise.
+	* c-c++-common/ubsan/bounds-1.c: Likewise.
+	* c-c++-common/ubsan/div-by-zero-7.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-10.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-7.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-8.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-9.c: Likewise.
+	* c-c++-common/ubsan/nonnull-2.c: Likewise.
+	* c-c++-common/ubsan/nonnull-3.c: Likewise.
+	* c-c++-common/ubsan/object-size-3.c: Likewise.
+	* c-c++-common/ubsan/overflow-1.c: Likewise.
+	* c-c++-common/ubsan/overflow-add-1.c: Likewise.
+	* c-c++-common/ubsan/overflow-add-3.c: Likewise.
+	* c-c++-common/ubsan/overflow-mul-1.c: Likewise.
+	* c-c++-common/ubsan/overflow-mul-3.c: Likewise.
+	* c-c++-common/ubsan/overflow-negate-2.c: Likewise.
+	* c-c++-common/ubsan/overflow-sub-1.c: Likewise.
+	* c-c++-common/ubsan/pr59503.c: Likewise.
+	* c-c++-common/ubsan/pr60613-1.c: Likewise.
+	* c-c++-common/ubsan/save-expr-1.c: Likewise.
+	* c-c++-common/ubsan/shift-3.c: Likewise.
+	* c-c++-common/ubsan/shift-6.c: Likewise.
+	* c-c++-common/ubsan/undefined-1.c: Likewise.
+	* c-c++-common/ubsan/vla-2.c: Likewise.
+	* c-c++-common/ubsan/vla-3.c: Likewise.
+	* c-c++-common/ubsan/vla-4.c: Likewise.
+	* g++.dg/ubsan/cxx11-shift-1.C: Likewise.
+	* g++.dg/ubsan/return-2.C: Likewise.
+	* c-c++-common/ubsan/recovery-1.c: New test.
+	* c-c++-common/ubsan/recovery-2.c: New test.
+	* c-c++-common/ubsan/recovery-3.c: New test.
+	* c-c++-common/ubsan/recovery-common.inc: New file.
+
+2014-10-22  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/pic-constantpool1.c: Add explicit declaration.
+	* gcc.target/aarch64/pic-symrefplus.c: Likewise.
+	* gcc.target/aarch64/reload-valid-spoff.c: Likewise.
+	* gcc.target/aarch64/vect.x: Likewise.
+	* gcc.target/aarch64/vect-ld1r.x: Add return type.
+	* gcc.target/aarch64/vect-fmax-fmin.c: Likewise.
+	* gcc.target/aarch64/vect-fp.c: Likewise.
+
+2014-10-22  Jiong Wang  <jiong.wang@arm.com>
+
+	* lib/compat.exp (compat-run): Remove "unresolved".
+	* lib/gcc-defs.exp (${tools}_check_compile): Update code logic for
+	unsupported testcase.
+
 2014-10-22  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/63594
