@@ -344,9 +344,17 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		 )
 	       )
       )
+  ;; for testing, these are not defined in libmelt-ana-tree.melt
+  (gcc_tree_code TREE_BINFO "tree_binfo" tcc_exceptional 0)
+  (gcc_tree_code INDIRECT_REF "indirect_ref" tcc_reference 1)
+  (gcc_tree_code TRUTH_ORIF_EXPR "truth_orif_expr" tcc_expression 2)
+  (gcc_tree_code WIDEN_SUM_EXPR "widen_sum_expr" tcc_binary 2)
+  
+  #|
   (debug "before loading2 libmelt-treecode")
   (skip_nil (load "_libmelt-treecode.melt"))
   (debug "after loading2 libmelt-treecode")
+  |#
   )
 
 ;; eof t-treecode.melt

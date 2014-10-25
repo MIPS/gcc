@@ -1,4 +1,9 @@
 
+2014-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/t-treecode.melt: Simplified to use a few
+	treecodes but still don't work!
+	* melt/warmelt-macro.melt (mexpand_defcmatcher): More debug.
+
 2014-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	* testsuite/melt/t-treecode.melt: Improved, but still don't work.
 

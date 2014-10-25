@@ -3366,7 +3366,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	 (locoper ())			;location of oper
 	 )
     ;; check the symb
-    (debug "mexpand_defcmatcher symb" symb)
+    (debug "mexpand_defcmatcher" " loc=" loc "; symb" symb)
     (when (is_not_a symb class_symbol)
       (error_at
        loc 
@@ -3377,6 +3377,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
     (let ( (matinformals (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
 	   (:long nbmatinformals (multiple_length matinformals)) 
 	   )
+    (debug "mexpand_defcmatcher" " loc=" loc "; matinformals=" matinformals)
       (when (<i nbmatinformals 1)
 	(error_at loc 
 		  "empty ins for (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
@@ -3388,18 +3389,18 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	)
       (setq sformals matinformals)
       (setq matchformal (multiple_nth matinformals 0))
-      (debug "mexpand_defcmatcher matchformal" matchformal)
+      (debug "mexpand_defcmatcher" " loc=" loc"; matchformal=" matchformal)
       (assert_msg "check matchformal" (is_a matchformal class_formal_binding) matchformal)
       (setq informals (make_multiple discr_multiple (-i nbmatinformals 1)))
       (foreach_in_multiple 
        (matinformals)
        (comp :long ix) (if (>i ix 0) (multiple_put_nth informals (-i ix 1) comp)))
-      (debug "mexpand_defcmatcher informals" informals)
+      (debug "mexpand_defcmatcher" " loc=" loc "; informals=" informals)
       )
     ;; parse the out formals
     (setq curpair (pair_tail curpair))
     (setq outformals (lambda_arg_bindings (pair_head curpair) () env mexpander modctx))
-    (debug "mexpand_defcmatcher outformals" outformals)
+    (debug "mexpand_defcmatcher" " loc=" loc "; outformals=" outformals)
     (when (not (is_multiple outformals))
       (error_at loc "bad outs for (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
       (return))
