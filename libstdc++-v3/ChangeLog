@@ -1,3 +1,24 @@
+2014-10-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/18_support/headers/cstdbool/macros.cc: New.
+
+2014-10-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/atomic_base.h: Avoid including <stdbool.h>.
+	* include/std/atomic: When __cplusplus < 201103L skip the rest of
+	the header.
+	* testsuite/29_atomics/headers/atomic/std_c++0x_neg.cc: Adjust.
+
+2014-10-23  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/25_algorithms/make_heap/complexity.cc: Add missing test
+	variable.
+	* testsuite/25_algorithms/sort_heap/complexity.cc: Likewise and use
+	log2. Now require cmath support.
+	* testsuite/25_algorithms/pop_heap/complexity.cc: Likewise and require
+	normal mode.
+	* testsuite/25_algorithms/push_heap/complexity.cc: Likewise.
+
 2014-10-23  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/xml/manual/status_cxx2011.xml: Update status.
