@@ -3928,8 +3928,8 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	 
 ;;;;;; normalize a LET
 (defun normexp_let (recv env ncx psloc)
-  (debug "normexp_let" " recv=" recv "\n.. env=" debug_more env)
-  (debug "normexp_let" " ncx=" debug_more ncx)
+  (debug "normexp_let" " recv=" recv "\n.. env=" debug_more env
+	 "\n.. ncx=" ncx)
   (assert_msg "check let recv" (is_a recv class_source_let))
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -3965,14 +3965,20 @@ source location.}#
 	   (multicall
 	    (nbdexpr nbindings)
 	    (normal_exp sbexpr newenv ncx sbloc)
+	    ;;
+	    (debug "normexp_let" " nbdexpr=" nbdexpr " nbindings=" nbindings)
 	    ;; check that the ctype of the normalized expression
 	    ;; is the same as the let binding's ctype
 	    (let ( (nbctype (get_ctype nbdexpr newenv)) 
 		   )
 	      (assert_msg "check nbctype" (is_a nbctype class_ctype) nbctype)
 	      ;; replace an :auto binding with the appropriate ctype
-	      (if (== sbtyp quasi_ctype_auto)
-		  (setq sbtyp nbctype))
+	      ;; but reject a void ctype
+	      (when (== sbtyp quasi_ctype_auto)
+		(if (== sbtyp ctype_void)
+		    (error_at sbloc "auto LET binding of $1 should not be void"
+			      sbinder))
+		(setq sbtyp nbctype))
 	      ;; check ctype compatibility
 	      (when (!= nbctype sbtyp)
 		(error_at 

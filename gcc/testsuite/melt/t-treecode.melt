@@ -281,10 +281,11 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 					   ";\n")
 				 )
 			       )
+			     )
 			     (debug "gcc_tree_code:macro2" "; sloc=" sloc "; fixed tupopervar=" tv
 				    "\n.. updated xlistfill=" xlistfill)
 			     tv
-			     )))
+			     ))
 			 (xmatfill
 			  (let ( (e (substitute_sexpr
 				     '#{ /* generated fixed $TREESYMB filler ! */
