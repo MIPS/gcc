@@ -1,5 +1,11 @@
 2014-10-27  David Malcolm  <dmalcolm@redhat.com>
 
+	* doc/gimple.texi (Class hierarchy of GIMPLE statements): Update
+	to reflect the new gimple subclasses and the renamings of existing
+	classes.
+
+2014-10-27  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (struct gdebug): Remove out-of-date references to
 	typedefs.
 	(struct ggoto): Likewise.
