@@ -30,6 +30,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tree-object-size.h"
 #include "realmpfr.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -38,13 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "flags.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "input.h"
-#include "function.h"
 #include "insn-config.h"
 #include "expr.h"
 #include "optabs.h"
@@ -52,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "typeclass.h"
-#include "predict.h"
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
@@ -180,7 +181,6 @@ static tree fold_builtin_fabs (location_t, tree, tree);
 static tree fold_builtin_abs (location_t, tree, tree);
 static tree fold_builtin_unordered_cmp (location_t, tree, tree, tree, enum tree_code,
 					enum tree_code);
-static tree fold_builtin_n (location_t, tree, tree *, int, bool);
 static tree fold_builtin_0 (location_t, tree, bool);
 static tree fold_builtin_1 (location_t, tree, tree, bool);
 static tree fold_builtin_2 (location_t, tree, tree, tree, bool);
@@ -10395,7 +10395,7 @@ fold_builtin_4 (location_t loc, tree fndecl,
 
 #define MAX_ARGS_TO_FOLD_BUILTIN 4
 
-static tree
+tree
 fold_builtin_n (location_t loc, tree fndecl, tree *args, int nargs, bool ignore)
 {
   tree ret = NULL_TREE;

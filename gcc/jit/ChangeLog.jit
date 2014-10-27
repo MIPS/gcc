@@ -1,3 +1,11 @@
+2014-10-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* dummy-frontend.c: Drop includes of tree-iterator.h,
+	tree-ssa-alias.h, gimple-expr.h, gimple.h, gimple-pretty-print.h.
+	* jit-playback.c: Drop includes of debug.h, langhooks.h,
+	langhooks-def.h, tree-iterator.h, gimple-expr.h, tree-ssa-alias.h,
+	gimple.h, gimple-pretty-print.h, diagnostic-core.h, dumpfile.h.
+
 2014-10-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit-recording.c: Include tm.h.  Don't include function.h.

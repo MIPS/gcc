@@ -46,6 +46,15 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "reload.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "ggc.h"
 #include "tm_p.h"
@@ -2607,7 +2616,7 @@ msp430_print_operand (FILE * file, rtx op, int letter)
 
     case 'x':
       /* Similarly, but only for PSImodes.  BIC, for example, needs this.  */
-      if (TARGET_LARGE && GET_MODE (op) == PSImode)
+      if (GET_MODE (op) == PSImode)
 	fprintf (file, "X");
       return;
 

@@ -376,6 +376,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "bitmap.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "df.h"
 #include "expr.h"
@@ -386,12 +398,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "ggc.h"
 #include "ira-int.h"
 #include "lra.h"
@@ -1765,7 +1771,9 @@ setup_prohibited_mode_move_regs (void)
 	  if (INSN_CODE (move_insn) < 0)
 	    continue;
 	  extract_insn (move_insn);
-	  if (! constrain_operands (1))
+	  /* We don't know whether the move will be in code that is optimized
+	     for size or speed, so consider all enabled alternatives.  */
+	  if (! constrain_operands (1, get_enabled_alternatives (move_insn)))
 	    continue;
 	  CLEAR_HARD_REG_BIT (ira_prohibited_mode_move_regs[i], j);
 	}
@@ -1788,6 +1796,7 @@ ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts)
   int commutative = -1;
 
   extract_insn (insn);
+  alternative_mask preferred = get_preferred_alternatives (insn);
   CLEAR_HARD_REG_SET (alts);
   insn_constraints.release ();
   insn_constraints.safe_grow_cleared (recog_data.n_operands
@@ -1817,7 +1826,7 @@ ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts)
 	}
       for (nalt = 0; nalt < recog_data.n_alternatives; nalt++)
 	{
-	  if (!TEST_BIT (recog_data.enabled_alternatives, nalt)
+	  if (!TEST_BIT (preferred, nalt)
 	      || TEST_HARD_REG_BIT (alts, nalt))
 	    continue;
 

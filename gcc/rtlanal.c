@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "tree.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
@@ -5794,7 +5796,8 @@ get_base_term (rtx *inner)
     inner = strip_address_mutations (&XEXP (*inner, 0));
   if (REG_P (*inner)
       || MEM_P (*inner)
-      || GET_CODE (*inner) == SUBREG)
+      || GET_CODE (*inner) == SUBREG
+      || GET_CODE (*inner) == SCRATCH)
     return inner;
   return 0;
 }

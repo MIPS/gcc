@@ -35,6 +35,12 @@
 #include "insn-config.h"
 #include "recog.h"
 #include "except.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "expr.h"
 #include "output.h"
@@ -47,6 +53,7 @@
 #include "df.h"
 #include "dbgcnt.h"
 #include "shrink-wrap.h"
+#include "ifcvt.h"
 
 #ifndef HAVE_conditional_move
 #define HAVE_conditional_move 0

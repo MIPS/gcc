@@ -36,22 +36,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "profile.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
 #include "expr.h"
-#include "predict.h"
 #include "coverage.h"
 #include "sreal.h"
 #include "params.h"
@@ -190,39 +193,6 @@ maybe_hot_bb_p (struct function *fun, const_basic_block bb)
   return maybe_hot_frequency_p (fun, bb->frequency);
 }
 
-/* Return true if the call can be hot.  */
-
-bool
-cgraph_edge::maybe_hot_p (void)
-{
-  if (profile_info && flag_branch_probabilities
-      && !maybe_hot_count_p (NULL, count))
-    return false;
-  if (caller->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
-      || (callee
-	  && callee->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED))
-    return false;
-  if (caller->frequency > NODE_FREQUENCY_UNLIKELY_EXECUTED
-      && (callee
-	  && callee->frequency <= NODE_FREQUENCY_EXECUTED_ONCE))
-    return false;
-  if (optimize_size)
-    return false;
-  if (caller->frequency == NODE_FREQUENCY_HOT)
-    return true;
-  if (caller->frequency == NODE_FREQUENCY_EXECUTED_ONCE
-      && frequency < CGRAPH_FREQ_BASE * 3 / 2)
-    return false;
-  if (flag_guess_branch_prob)
-    {
-      if (PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION) == 0
-	  || frequency <= (CGRAPH_FREQ_BASE
-				 / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)))
-        return false;
-    }
-  return true;
-}
-
 /* Return true in case BB can be CPU intensive and should be optimized
    for maximal performance.  */
 
@@ -233,8 +203,6 @@ maybe_hot_edge_p (edge e)
     return maybe_hot_count_p (cfun, e->count);
   return maybe_hot_frequency_p (cfun, EDGE_FREQUENCY (e));
 }
-
-
 
 /* Return true if profile COUNT and FREQUENCY, or function FUN static
    node frequency reflects never being executed.  */
@@ -302,19 +270,6 @@ bool
 probably_never_executed_edge_p (struct function *fun, edge e)
 {
   return probably_never_executed (fun, e->count, EDGE_FREQUENCY (e));
-}
-
-/* Return true if function should be optimized for size.  */
-
-bool
-cgraph_node::optimize_for_size_p (void)
-{
-  if (optimize_size)
-    return true;
-  if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return true;
-  else
-    return false;
 }
 
 /* Return true when current function should always be optimized for size.  */

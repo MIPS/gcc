@@ -27,14 +27,17 @@
 #include "regs.h"
 #include "addresses.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
-#include "reload.h"
+#include "predict.h"
+#include "vec.h"
 #include "hashtab.h"
 #include "hash-set.h"
-#include "vec.h"
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "reload.h"
 #include "recog.h"
 #include "flags.h"
 #include "diagnostic-core.h"
@@ -767,9 +770,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	}
 
       set = single_set (insn);
-      extract_insn (insn);
-      if (! constrain_operands (1))
-	fatal_insn_not_found (insn);
+      extract_constrain_insn (insn);
       preprocess_constraints (insn);
       const operand_alternative *op_alt = which_op_alt ();
       n_ops = recog_data.n_operands;
@@ -870,9 +871,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		}
 	      /* We need to re-extract as validate_change clobbers
 		 recog_data.  */
-	      extract_insn (insn);
-	      if (! constrain_operands (1))
-		fatal_insn_not_found (insn);
+	      extract_constrain_insn (insn);
 	      preprocess_constraints (insn);
 	    }
 
@@ -898,9 +897,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		    }
 		  /* We need to re-extract as validate_change clobbers
 		     recog_data.  */
-		  extract_insn (insn);
-		  if (! constrain_operands (1))
-		    fatal_insn_not_found (insn);
+		  extract_constrain_insn (insn);
 		  preprocess_constraints (insn);
 		}
 	    }

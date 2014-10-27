@@ -20,19 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_BASIC_BLOCK_H
 #define GCC_BASIC_BLOCK_H
 
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "cfgrtl.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "lcm.h"
 
 /* Use gcov_type to hold basic block counters.  Should be at least
    64bit.  Although a counter cannot be negative, we use a signed
@@ -84,38 +71,6 @@ enum cfg_edge_flags {
    control flow transfers.  */
 #define EDGE_COMPLEX \
   (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH | EDGE_PRESERVE)
-
-/* Structure to gather statistic about profile consistency, per pass.
-   An array of this structure, indexed by pass static number, is allocated
-   in passes.c.  The structure is defined here so that different CFG modes
-   can do their book-keeping via CFG hooks.
-
-   For every field[2], field[0] is the count before the pass runs, and
-   field[1] is the post-pass count.  This allows us to monitor the effect
-   of each individual pass on the profile consistency.
-   
-   This structure is not supposed to be used by anything other than passes.c
-   and one CFG hook per CFG mode.  */
-struct profile_record
-{
-  /* The number of basic blocks where sum(freq) of the block's predecessors
-     doesn't match reasonably well with the incoming frequency.  */
-  int num_mismatched_freq_in[2];
-  /* Likewise for a basic block's successors.  */
-  int num_mismatched_freq_out[2];
-  /* The number of basic blocks where sum(count) of the block's predecessors
-     doesn't match reasonably well with the incoming frequency.  */
-  int num_mismatched_count_in[2];
-  /* Likewise for a basic block's successors.  */
-  int num_mismatched_count_out[2];
-  /* A weighted cost of the run-time of the function body.  */
-  gcov_type time[2];
-  /* A weighted cost of the size of the function body.  */
-  int size[2];
-  /* True iff this pass actually was run.  */
-  bool run;
-};
-
 
 struct GTY(()) rtl_bb_info {
   /* The first insn of the block is embedded into bb->il.x.  */
@@ -249,66 +204,6 @@ enum cfg_bb_flags
 #define BB_COPY_PARTITION(dstbb, srcbb) \
   BB_SET_PARTITION (dstbb, BB_PARTITION (srcbb))
 
-/* State of dominance information.  */
-
-enum dom_state
-{
-  DOM_NONE,		/* Not computed at all.  */
-  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
-  DOM_OK		/* Everything is ok.  */
-};
-
-/* What sort of profiling information we have.  */
-enum profile_status_d
-{
-  PROFILE_ABSENT,
-  PROFILE_GUESSED,
-  PROFILE_READ,
-  PROFILE_LAST	/* Last value, used by profile streaming.  */
-};
-
-/* A structure to group all the per-function control flow graph data.
-   The x_* prefixing is necessary because otherwise references to the
-   fields of this struct are interpreted as the defines for backward
-   source compatibility following the definition of this struct.  */
-struct GTY(()) control_flow_graph {
-  /* Block pointers for the exit and entry of a function.
-     These are always the head and tail of the basic block list.  */
-  basic_block x_entry_block_ptr;
-  basic_block x_exit_block_ptr;
-
-  /* Index by basic block number, get basic block struct info.  */
-  vec<basic_block, va_gc> *x_basic_block_info;
-
-  /* Number of basic blocks in this flow graph.  */
-  int x_n_basic_blocks;
-
-  /* Number of edges in this flow graph.  */
-  int x_n_edges;
-
-  /* The first free basic block number.  */
-  int x_last_basic_block;
-
-  /* UIDs for LABEL_DECLs.  */
-  int last_label_uid;
-
-  /* Mapping of labels to their associated blocks.  At present
-     only used for the gimple CFG.  */
-  vec<basic_block, va_gc> *x_label_to_block_map;
-
-  enum profile_status_d x_profile_status;
-
-  /* Whether the dominators and the postdominators are available.  */
-  enum dom_state x_dom_computed[2];
-
-  /* Number of basic blocks in the dominance tree.  */
-  unsigned x_n_bbs_in_dom_tree[2];
-
-  /* Maximal number of entities in the single jumptable.  Used to estimate
-     final flowgraph size.  */
-  int max_jumptable_ents;
-};
-
 /* Defines for accessing the fields of the CFG structure for function FN.  */
 #define ENTRY_BLOCK_PTR_FOR_FN(FN)	     ((FN)->cfg->x_entry_block_ptr)
 #define EXIT_BLOCK_PTR_FOR_FN(FN)	     ((FN)->cfg->x_exit_block_ptr)
@@ -382,31 +277,6 @@ struct GTY(()) control_flow_graph {
 
 /* The two blocks that are always in the cfg.  */
 #define NUM_FIXED_BLOCKS (2)
-
-
-extern edge redirect_edge_succ_nodup (edge, basic_block);
-
-/* Structure to group all of the information to process IF-THEN and
-   IF-THEN-ELSE blocks for the conditional execution support.  This
-   needs to be in a public file in case the IFCVT macros call
-   functions passing the ce_if_block data structure.  */
-
-struct ce_if_block
-{
-  basic_block test_bb;			/* First test block.  */
-  basic_block then_bb;			/* THEN block.  */
-  basic_block else_bb;			/* ELSE block or NULL.  */
-  basic_block join_bb;			/* Join THEN/ELSE blocks.  */
-  basic_block last_test_bb;		/* Last bb to hold && or || tests.  */
-  int num_multiple_test_blocks;		/* # of && and || basic blocks.  */
-  int num_and_and_blocks;		/* # of && blocks.  */
-  int num_or_or_blocks;			/* # of || blocks.  */
-  int num_multiple_test_insns;		/* # of insns in && and || blocks.  */
-  int and_and_p;			/* Complex test is &&.  */
-  int num_then_insns;			/* # of insns in THEN block.  */
-  int num_else_insns;			/* # of insns in ELSE block.  */
-  int pass;				/* Pass number.  */
-};
 
 /* The base value for branch probability notes and edge probabilities.  */
 #define REG_BR_PROB_BASE  10000
@@ -649,97 +519,6 @@ ei_cond (edge_iterator ei, edge *p)
 #define CLEANUP_CFGLAYOUT	32	/* Do cleanup in cfglayout mode.  */
 #define CLEANUP_CFG_CHANGED	64      /* The caller changed the CFG.  */
 
-extern void dump_flow_info (FILE *, int);
-
-/* In predict.c */
-extern bool maybe_hot_count_p (struct function *, gcov_type);
-extern bool maybe_hot_bb_p (struct function *, const_basic_block);
-extern bool maybe_hot_edge_p (edge);
-extern bool probably_never_executed_bb_p (struct function *, const_basic_block);
-extern bool probably_never_executed_edge_p (struct function *, edge);
-extern bool optimize_bb_for_size_p (const_basic_block);
-extern bool optimize_bb_for_speed_p (const_basic_block);
-extern bool optimize_edge_for_size_p (edge);
-extern bool optimize_edge_for_speed_p (edge);
-extern bool optimize_loop_for_size_p (struct loop *);
-extern bool optimize_loop_for_speed_p (struct loop *);
-extern bool optimize_loop_nest_for_size_p (struct loop *);
-extern bool optimize_loop_nest_for_speed_p (struct loop *);
-extern bool gimple_predicted_by_p (const_basic_block, enum br_predictor);
-extern bool rtl_predicted_by_p (const_basic_block, enum br_predictor);
-extern void gimple_predict_edge (edge, enum br_predictor, int);
-extern void rtl_predict_edge (edge, enum br_predictor, int);
-extern void predict_edge_def (edge, enum br_predictor, enum prediction);
-extern void guess_outgoing_edge_probabilities (basic_block);
-extern void remove_predictions_associated_with_edge (edge);
-extern bool edge_probability_reliable_p (const_edge);
-extern bool br_prob_note_reliable_p (const_rtx);
-extern bool predictable_edge_p (edge);
-
-/* In cfgbuild.c.  */
-extern void find_many_sub_basic_blocks (sbitmap);
-extern void rtl_make_eh_edge (sbitmap, basic_block, rtx);
-
-enum replace_direction { dir_none, dir_forward, dir_backward, dir_both };
-
-/* In cfgcleanup.c.  */
-extern bool cleanup_cfg (int);
-extern int flow_find_cross_jump (basic_block, basic_block, rtx_insn **,
-				 rtx_insn **, enum replace_direction*);
-extern int flow_find_head_matching_sequence (basic_block, basic_block,
-					     rtx_insn **, rtx_insn **, int);
-
-extern bool delete_unreachable_blocks (void);
-
-extern bool inside_basic_block_p (const rtx_insn *);
-extern bool control_flow_insn_p (const rtx_insn *);
-extern rtx_insn *get_last_bb_insn (basic_block);
-
-/* In dominance.c */
-
-enum cdi_direction
-{
-  CDI_DOMINATORS = 1,
-  CDI_POST_DOMINATORS = 2
-};
-
-extern enum dom_state dom_info_state (function *, enum cdi_direction);
-extern enum dom_state dom_info_state (enum cdi_direction);
-extern void set_dom_info_availability (enum cdi_direction, enum dom_state);
-extern bool dom_info_available_p (function *, enum cdi_direction);
-extern bool dom_info_available_p (enum cdi_direction);
-extern void calculate_dominance_info (enum cdi_direction);
-extern void free_dominance_info (function *, enum cdi_direction);
-extern void free_dominance_info (enum cdi_direction);
-extern basic_block nearest_common_dominator (enum cdi_direction,
-					     basic_block, basic_block);
-extern basic_block nearest_common_dominator_for_set (enum cdi_direction,
-						     bitmap);
-extern void set_immediate_dominator (enum cdi_direction, basic_block,
-				     basic_block);
-extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);
-extern bool dominated_by_p (enum cdi_direction, const_basic_block, const_basic_block);
-extern vec<basic_block> get_dominated_by (enum cdi_direction, basic_block);
-extern vec<basic_block> get_dominated_by_region (enum cdi_direction,
-							 basic_block *,
-							 unsigned);
-extern vec<basic_block> get_dominated_to_depth (enum cdi_direction,
-							basic_block, int);
-extern vec<basic_block> get_all_dominated_blocks (enum cdi_direction,
-							  basic_block);
-extern void add_to_dominance_info (enum cdi_direction, basic_block);
-extern void delete_from_dominance_info (enum cdi_direction, basic_block);
-basic_block recompute_dominator (enum cdi_direction, basic_block);
-extern void redirect_immediate_dominators (enum cdi_direction, basic_block,
-					   basic_block);
-extern void iterate_fix_dominators (enum cdi_direction,
-				    vec<basic_block> , bool);
-extern void verify_dominators (enum cdi_direction);
-extern basic_block first_dom_son (enum cdi_direction, basic_block);
-extern basic_block next_dom_son (enum cdi_direction, basic_block);
-unsigned bb_dom_dfs_in (enum cdi_direction, basic_block);
-unsigned bb_dom_dfs_out (enum cdi_direction, basic_block);
-
 #include "cfghooks.h"
 
 /* Return true if BB is in a transaction.  */
@@ -793,20 +572,6 @@ find_fallthru_edge (vec<edge, va_gc> *edges)
 
   return e;
 }
-
-/* In cfgloopmanip.c.  */
-extern edge mfb_kj_edge;
-extern bool mfb_keep_just (edge);
-
-/* In cfgexpand.c.  */
-extern void rtl_profile_for_bb (basic_block);
-extern void rtl_profile_for_edge (edge);
-extern void default_rtl_profile (void);
-
-/* In profile.c.  */
-typedef struct gcov_working_set_info gcov_working_set_t;
-extern gcov_working_set_t *find_working_set (unsigned pct_times_10);
-extern void add_working_set (gcov_working_set_t *);
 
 /* Check tha probability is sane.  */
 

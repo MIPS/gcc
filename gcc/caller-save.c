@@ -27,15 +27,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "recog.h"
-#include "basic-block.h"
-#include "df.h"
-#include "reload.h"
+#include "predict.h"
+#include "vec.h"
 #include "hashtab.h"
 #include "hash-set.h"
-#include "vec.h"
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "df.h"
+#include "reload.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
@@ -143,15 +146,17 @@ reg_save_code (int reg, enum machine_mode mode)
   cached_reg_restore_code[reg][mode] = recog_memoized (restinsn);
 
   /* Now extract both insns and see if we can meet their
-     constraints.  */
+     constraints.  We don't know here whether the save and restore will
+     be in size- or speed-tuned code, so just use the set of enabled
+     alternatives.  */
   ok = (cached_reg_save_code[reg][mode] != -1
 	&& cached_reg_restore_code[reg][mode] != -1);
   if (ok)
     {
       extract_insn (saveinsn);
-      ok = constrain_operands (1);
+      ok = constrain_operands (1, get_enabled_alternatives (saveinsn));
       extract_insn (restinsn);
-      ok &= constrain_operands (1);
+      ok &= constrain_operands (1, get_enabled_alternatives (restinsn));
     }
 
   if (! ok)

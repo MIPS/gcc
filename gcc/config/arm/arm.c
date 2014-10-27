@@ -50,6 +50,15 @@
 #include "optabs.h"
 #include "diagnostic-core.h"
 #include "recog.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "basic-block.h"
 #include "cgraph.h"
 #include "ggc.h"
 #include "except.h"
@@ -17027,10 +17036,7 @@ note_invalid_constants (rtx_insn *insn, HOST_WIDE_INT address, int do_pushes)
 {
   int opno;
 
-  extract_insn (insn);
-
-  if (!constrain_operands (1))
-    fatal_insn_not_found (insn);
+  extract_constrain_insn (insn);
 
   if (recog_data.n_alternatives == 0)
     return;

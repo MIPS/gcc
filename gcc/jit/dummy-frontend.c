@@ -30,11 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks-def.h"
 #include "cgraph.h"
 
-#include "tree-iterator.h"
-#include "tree-ssa-alias.h"
-#include "gimple-expr.h"
-#include "gimple.h"
-#include "gimple-pretty-print.h"
 #include "jit-common.h"
 #include "jit-playback.h"
 

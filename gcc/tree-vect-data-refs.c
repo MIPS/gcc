@@ -28,6 +28,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "target.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -3960,8 +3970,12 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
       && TREE_CODE (addr_base) == SSA_NAME)
     {
       duplicate_ssa_name_ptr_info (addr_base, DR_PTR_INFO (dr));
-      if (offset)
+      unsigned int align = TYPE_ALIGN_UNIT (STMT_VINFO_VECTYPE (stmt_info));
+      int misalign = DR_MISALIGNMENT (dr);
+      if (offset || byte_offset || (misalign == -1))
 	mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (addr_base));
+      else
+	set_ptr_info_alignment (SSA_NAME_PTR_INFO (addr_base), align, misalign);
     }
 
   if (dump_enabled_p ())

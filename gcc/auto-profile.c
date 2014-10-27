@@ -18,20 +18,31 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "config.h"
+#include "system.h"
+
 #include <string.h>
 #include <map>
 #include <set>
 
-#include "config.h"
-#include "system.h"
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-pass.h"
 #include "flags.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "gcov-io.h"
-#include "input.h"
 #include "profile.h"
 #include "langhooks.h"
 #include "opts.h"
@@ -56,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "stringpool.h"
 #include "auto-profile.h"
-#include "vec.h"
 
 /* The following routines implements AutoFDO optimization.
 

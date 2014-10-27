@@ -25,16 +25,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "regs.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -6957,6 +6963,12 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
       /* If no debug insns can be present, COUNTS is just an array
 	 which counts how many times each pseudo is used.  */
     }
+  /* Pseudo PIC register should be considered as used due to possible
+     new usages generated.  */
+  if (!reload_completed
+      && pic_offset_table_rtx
+      && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)
+    counts[REGNO (pic_offset_table_rtx)]++;
   /* Go from the last insn to the first and delete insns that only set unused
      registers or copy a register to itself.  As we delete an insn, remove
      usage counts for registers it uses.

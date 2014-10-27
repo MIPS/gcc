@@ -39,6 +39,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "debug.h"
 #include "target.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
 #include "cgraph.h"
 #include "intl.h"
 #include "tree-ssa-alias.h"
@@ -64,6 +68,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "expr.h"
 #include "tree-dfa.h"
+#include "profile.h"
+#include "params.h"
 
 /* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
 #include "tree-pass.h"
@@ -235,6 +241,21 @@ cgraph_node::record_function_versions (tree decl1, tree decl2)
 
   before->next = after;
   after->prev = before;
+}
+
+/* Allocate new callgraph node and insert it into basic data structures.  */
+
+cgraph_node *
+symbol_table::create_empty (void)
+{
+  cgraph_node *node = allocate_cgraph_symbol ();
+
+  node->type = SYMTAB_FUNCTION;
+  node->frequency = NODE_FREQUENCY_NORMAL;
+  node->count_materialization_scale = REG_BR_PROB_BASE;
+  cgraph_count++;
+
+  return node;
 }
 
 /* Register HOOK to be called with DATA on each removed edge.  */
@@ -2308,6 +2329,38 @@ cgraph_edge::cannot_lead_to_return_p (void)
     }
   else
     return callee->cannot_return_p ();
+}
+
+/* Return true if the call can be hot.  */
+
+bool
+cgraph_edge::maybe_hot_p (void)
+{
+  if (profile_info && flag_branch_probabilities
+      && !maybe_hot_count_p (NULL, count))
+    return false;
+  if (caller->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
+      || (callee
+	  && callee->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED))
+    return false;
+  if (caller->frequency > NODE_FREQUENCY_UNLIKELY_EXECUTED
+      && (callee
+	  && callee->frequency <= NODE_FREQUENCY_EXECUTED_ONCE))
+    return false;
+  if (optimize_size) return false;
+  if (caller->frequency == NODE_FREQUENCY_HOT)
+    return true;
+  if (caller->frequency == NODE_FREQUENCY_EXECUTED_ONCE
+      && frequency < CGRAPH_FREQ_BASE * 3 / 2)
+    return false;
+  if (flag_guess_branch_prob)
+    {
+      if (PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION) == 0
+	  || frequency <= (CGRAPH_FREQ_BASE
+				 / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)))
+        return false;
+    }
+  return true;
 }
 
 /* Return true when function can be removed from callgraph
