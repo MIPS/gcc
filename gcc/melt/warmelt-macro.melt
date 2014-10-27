@@ -7185,15 +7185,25 @@ applications of @code{/i} primitives.}#
 				     "\n.. mexpanderm=" debug_less mexpanderm
 				     "\n.. macbind=" macbind)
 			      (shortbacktrace_dbg "mexpand_let:mexpanser" 25)
+			      (when (>i (melt_error_counter) 0)
+				(debug "mexpand_let:mexpanser" " loc=" loc " errored")
+				(error_at loc "MELT will not expand LET :macro $1 with #$2 errors"
+					  macsymb (melt_error_counter))
+				(return ()))
 			      (debug "mexpand_let:mexpanser before melt_delayed_macro_expander"
 				     " maclist=" maclist "\n.. macbind=" macbind)
 			      (melt_delayed_macro_expander macbind maclist envm mexpanderm modctx)
-			      (debug "mexpand_let:mexpanser after melt_delayed_macro_expander"
+			      (debug "mexpand_let:mexpanser" " loc=" loc " after melt_delayed_macro_expander"
 				     " maclist=" maclist "\n.. macbind=" macbind)
+			      (when (>i (melt_error_counter) 0)
+				(debug "mexpand_let:mexpanser" " loc=" loc " delayerrored")
+				(error_at loc "MELT will not expand LET :macro $1 with #$2 errors after delayed expansion"
+					  macsymb (melt_error_counter))
+				(return ()))
 			      (let ( (mclos (get_field :mbind_expanser macbind))
 				     (locm (get_field :loca_location sexprm))
 				     )
-				(debug "mexpand_let:mexpanser"
+				(debug "mexpand_let:mexpanser" " afterdelay"
 				       " loc=" loc " locm=" locm
 				       "\n.. mclos=" mclos
 				       "\n.. mexpanser=" mexpanser
@@ -7202,6 +7212,10 @@ applications of @code{/i} primitives.}#
 				  (error_at locm "failed to macro-expand LET :macro $1" macsymb)
 				  (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
 				  (return))
+				(debug "mexpand_let:mexpanser"
+				       " beforemulticall"
+				       " loc=" loc " locm=" locm
+				       " mclos=" mclos " sexprm=" sexprm)
 				(multicall 
 				 (expmac othermac)
 				 (mclos sexprm envm mexpanderm modctxm)
