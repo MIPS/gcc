@@ -1177,6 +1177,7 @@ static const struct omp_pragma_def oacc_pragmas[] = {
   { "loop", PRAGMA_OACC_LOOP },
   { "parallel", PRAGMA_OACC_PARALLEL },
   { "update", PRAGMA_OACC_UPDATE },
+  { "wait", PRAGMA_OACC_WAIT },
 };
 static const struct omp_pragma_def omp_pragmas[] = {
   { "atomic", PRAGMA_OMP_ATOMIC },

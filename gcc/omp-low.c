@@ -1904,6 +1904,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  /* FALLTHRU */
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -1919,8 +1921,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_ASYNC:
-	case OMP_CLAUSE_WAIT:
 	case OMP_NO_CLAUSE_CACHE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_WORKER:
@@ -2055,11 +2055,13 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  /* FALLTHRU */
+	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
+	case OMP_CLAUSE_WAIT:
 	  break;
 
 	case OMP_CLAUSE_HOST:
@@ -2067,8 +2069,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_ASYNC:
-	case OMP_CLAUSE_WAIT:
 	case OMP_NO_CLAUSE_CACHE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_WORKER:
@@ -5497,7 +5497,7 @@ expand_oacc_offload (struct omp_region *region)
 
   /* Emit a library call to launch CHILD_FN.  */
   tree t1, t2, t3, t4,
-    t_num_gangs, t_num_workers, t_vector_length,
+    t_num_gangs, t_num_workers, t_vector_length, t_async,
     device, cond, c, clauses;
   enum built_in_function start_ix;
   location_t clause_loc;
@@ -5522,6 +5522,9 @@ expand_oacc_offload (struct omp_region *region)
   t_num_gangs = t_num_workers = t_vector_length
     = fold_convert_loc (gimple_location (entry_stmt),
 			integer_type_node, integer_one_node);
+  /* TODO: XXX FIX -2.  */
+  t_async = fold_convert_loc (gimple_location (entry_stmt),
+			integer_type_node, build_int_cst (integer_type_node, -2));
   switch (region->type)
     {
     case GIMPLE_OACC_PARALLEL:
@@ -5542,6 +5545,13 @@ expand_oacc_offload (struct omp_region *region)
 	t_vector_length = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
 					    integer_type_node,
 					    OMP_CLAUSE_VECTOR_LENGTH_EXPR (c));
+      /* FALL THROUGH.  */
+    case GIMPLE_OACC_KERNELS:
+      c = find_omp_clause (clauses, OMP_CLAUSE_ASYNC);
+      if (c)
+	t_async = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+					    integer_type_node,
+					    OMP_CLAUSE_ASYNC_EXPR (c));
       break;
 
     default:
@@ -5643,10 +5653,58 @@ expand_oacc_offload (struct omp_region *region)
   gimple g;
   tree openmp_target = get_offload_symbol_decl ();
   tree fnaddr = build_fold_addr_expr (child_fn);
-  g = gimple_build_call (builtin_decl_explicit (start_ix), 10, device,
-			 fnaddr, build_fold_addr_expr (openmp_target),
-			 t1, t2, t3, t4,
-			 t_num_gangs, t_num_workers, t_vector_length);
+
+  vec<tree> *args;
+  int idx;
+  unsigned int argcnt = 12;
+
+  c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
+  if (c)
+    {
+      for (t = c; t; t = OMP_CLAUSE_CHAIN (t))
+	{
+	  if (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_WAIT)
+	    argcnt++;
+	}
+    }
+
+  vec_alloc (args, argcnt);
+  args->quick_push (device);
+  args->quick_push (fnaddr);
+  args->quick_push (build_fold_addr_expr (openmp_target));
+  args->quick_push (t1);
+  args->quick_push (t2);
+  args->quick_push (t3);
+  args->quick_push (t4);
+  args->quick_push (t_num_gangs);
+  args->quick_push (t_num_workers);
+  args->quick_push (t_vector_length);
+  args->quick_push (t_async);
+  idx = args->length ();
+  args->quick_push (fold_convert_loc (gimple_location (entry_stmt),
+			integer_type_node, integer_minus_one_node));
+  if (c)
+    {
+      int n = 0;
+
+      for (t = c; t; t = OMP_CLAUSE_CHAIN (t))
+	{
+	  if (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_WAIT)
+	    {
+	      args->quick_push (fold_convert (integer_type_node,
+				OMP_CLAUSE_WAIT_EXPR (t)));
+	      n++;
+	    }
+	}
+
+        args->ordered_remove (idx);
+	args->quick_insert (idx, fold_convert_loc (gimple_location (entry_stmt),
+				 integer_type_node,
+				 build_int_cst (integer_type_node, n)));
+    }
+
+  g = gimple_build_call_vec (builtin_decl_explicit (start_ix), *args);
+  args->release ();
   gimple_set_location (g, gimple_location (entry_stmt));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
 }
@@ -9379,17 +9437,80 @@ expand_omp_target (struct omp_region *region)
 
   gimple g;
   tree openmp_target = get_offload_symbol_decl ();
-  if (kind == GF_OMP_TARGET_KIND_REGION)
+  vec<tree> *args;
+  unsigned int argcnt = 6;
+
+  if (kind ==  GF_OMP_TARGET_KIND_REGION)
+    argcnt++;
+  else if (kind == GF_OMP_TARGET_KIND_OACC_DATA
+      || kind == GF_OMP_TARGET_KIND_OACC_UPDATE)
+    argcnt += 2;
+
+  c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
+  if (c)
     {
-      tree fnaddr = build_fold_addr_expr (child_fn);
-      g = gimple_build_call (builtin_decl_explicit (start_ix), 7, device,
-			     fnaddr, build_fold_addr_expr (openmp_target),
-			     t1, t2, t3, t4);
+      for (t = c; t; t = OMP_CLAUSE_CHAIN (t))
+	{
+	  if (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_WAIT)
+	    argcnt++;
+	}
     }
-  else
-    g = gimple_build_call (builtin_decl_explicit (start_ix), 6, device,
-			   build_fold_addr_expr (openmp_target),
-			   t1, t2, t3, t4);
+
+  vec_alloc (args, argcnt);
+  args->quick_push (device);
+
+  if (kind ==  GF_OMP_TARGET_KIND_REGION)
+    args->quick_push (build_fold_addr_expr (child_fn));
+
+  args->quick_push (build_fold_addr_expr (openmp_target));
+  args->quick_push (t1);
+  args->quick_push (t2);
+  args->quick_push (t3);
+  args->quick_push (t4);
+
+  if (kind == GF_OMP_TARGET_KIND_OACC_DATA
+      || kind == GF_OMP_TARGET_KIND_OACC_UPDATE)
+    {
+      int idx;
+
+      c = find_omp_clause (clauses, OMP_CLAUSE_ASYNC);
+      if (c)
+	t1 = fold_convert_loc (OMP_CLAUSE_LOCATION (c), integer_type_node,
+				OMP_CLAUSE_ASYNC_EXPR (c));
+      else /* TODO: XXX FIX -2.  */
+	t1 = fold_convert_loc (gimple_location (entry_stmt),
+		      integer_type_node, build_int_cst (integer_type_node, -2));
+
+      args->quick_push (t1);
+      idx = args->length ();
+      args->quick_push (fold_convert_loc (gimple_location (entry_stmt),
+			integer_type_node, integer_minus_one_node));
+
+      c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
+      if (c)
+	{
+	  int n = 0;
+
+	  for (t = c; t; t = OMP_CLAUSE_CHAIN (t))
+	    {
+	      if (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_WAIT)
+		{
+		  args->quick_push (fold_convert (integer_type_node,
+				OMP_CLAUSE_WAIT_EXPR (t)));
+		  n++;
+		}
+	    }
+
+	    args->ordered_remove (idx);
+	    args->quick_insert (idx,
+				fold_convert_loc (gimple_location (entry_stmt),
+				integer_type_node,
+				build_int_cst (integer_type_node, n)));
+	}
+    }
+
+  g = gimple_build_call_vec (builtin_decl_explicit (start_ix), *args);
+  args->release ();
   gimple_set_location (g, gimple_location (entry_stmt));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
   if (kind != GF_OMP_TARGET_KIND_REGION)

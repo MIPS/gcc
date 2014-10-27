@@ -1,3 +1,8 @@
+2014-10-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc-interface/utils.c (DEF_FUNCTION_TYPE_10): Remove.
+	(DEF_FUNCTION_TYPE_VAR_8, DEF_FUNCTION_TYPE_VAR_12): New macros.
+
 2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gcc-interface/utils.c (DEF_FUNCTION_TYPE_10): Define.

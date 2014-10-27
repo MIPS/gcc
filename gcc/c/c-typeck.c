@@ -12294,6 +12294,8 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
