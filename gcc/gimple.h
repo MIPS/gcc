@@ -777,11 +777,7 @@ struct GTY((tag("GSS_WITH_OPS")))
 
 /* A statement with the invariant that
       stmt->code == GIMPLE_DEBUG
-   i.e. a debug statement.
-
-   This type will normally be accessed via the gdebug *and
-   const gdebug *typedefs (in coretypes.h), *which are pointers to
-   this type.  */
+   i.e. a debug statement.  */
 
 struct GTY((tag("GSS_WITH_OPS")))
   gdebug : public gimple_statement_with_ops
@@ -791,11 +787,7 @@ struct GTY((tag("GSS_WITH_OPS")))
 
 /* A statement with the invariant that
       stmt->code == GIMPLE_GOTO
-   i.e. a goto statement.
-
-   This type will normally be accessed via the ggoto *and
-   const ggoto *typedefs (in coretypes.h), *which are pointers to
-   this type.  */
+   i.e. a goto statement.  */
 
 struct GTY((tag("GSS_WITH_OPS")))
   ggoto : public gimple_statement_with_ops
@@ -805,11 +797,7 @@ struct GTY((tag("GSS_WITH_OPS")))
 
 /* A statement with the invariant that
       stmt->code == GIMPLE_LABEL
-   i.e. a label statement.
-
-   This type will normally be accessed via the glabel *and
-   const glabel *typedefs (in coretypes.h), *which are pointers to
-   this type.  */
+   i.e. a label statement.  */
 
 struct GTY((tag("GSS_WITH_OPS")))
   glabel : public gimple_statement_with_ops
