@@ -418,7 +418,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
       else
-	bitsize = int (GET_MODE_BITSIZE (mode));
+	bitsize = int (GET_MODE_PRECISION (mode));
       *preverse
 	= ((TREE_CODE (exp) == ARRAY_REF
 	    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0))))

@@ -128,7 +128,6 @@ const pass_data pass_data_rl78_devirt =
   RTL_PASS, /* type */
   "devirt", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_MACH_DEP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -168,7 +167,8 @@ make_pass_rl78_devirt (gcc::context *ctxt)
 static unsigned int
 move_elim_pass (void)
 {
-  rtx insn, ninsn, prev = NULL_RTX;
+  rtx_insn *insn, *ninsn;
+  rtx prev = NULL_RTX;
 
   for (insn = get_insns (); insn; insn = ninsn)
     {
@@ -215,7 +215,6 @@ const pass_data pass_data_rl78_move_elim =
   RTL_PASS, /* type */
   "move_elim", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_MACH_DEP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -1137,10 +1136,19 @@ rl78_expand_epilogue (void)
   for (i = 15; i >= 0; i--)
     if (cfun->machine->need_to_push [i])
       {
+	rtx dest = gen_rtx_REG (HImode, i * 2);
+
 	if (TARGET_G10)
 	  {
-	    emit_insn (gen_pop (gen_rtx_REG (HImode, 0)));
-	    emit_move_insn (gen_rtx_REG (HImode, i*2), gen_rtx_REG (HImode, 0));
+	    rtx ax = gen_rtx_REG (HImode, 0);
+
+	    emit_insn (gen_pop (ax));
+	    if (i != 0)
+	      {
+		emit_move_insn (dest, ax);
+		/* Generate a USE of the pop'd register so that DCE will not eliminate the move.  */
+		emit_insn (gen_use (dest));
+	      }
 	  }
 	else
 	  {
@@ -1151,7 +1159,7 @@ rl78_expand_epilogue (void)
 		emit_insn (gen_sel_rb (GEN_INT (need_bank)));
 		rb = need_bank;
 	      }
-	    emit_insn (gen_pop (gen_rtx_REG (HImode, i * 2)));
+	    emit_insn (gen_pop (dest));
 	  }
       }
 
@@ -2147,7 +2155,7 @@ rl78_es_base (rtx addr)
    carefully to ensure that all the constraint information is accurate
    for the newly matched insn.  */
 static bool
-insn_ok_now (rtx insn)
+insn_ok_now (rtx_insn *insn)
 {
   rtx pattern = PATTERN (insn);
   int i;
@@ -2619,7 +2627,7 @@ move_to_de (int opno, rtx before)
 
 /* Devirtualize an insn of the form (SET (op) (unop (op))).  */
 static void
-rl78_alloc_physical_registers_op1 (rtx insn)
+rl78_alloc_physical_registers_op1 (rtx_insn *insn)
 {
   /* op[0] = func op[1] */
 
@@ -2698,7 +2706,7 @@ has_constraint (unsigned int opnum, enum constraint_num constraint)
 
 /* Devirtualize an insn of the form (SET (op) (binop (op) (op))).  */
 static void
-rl78_alloc_physical_registers_op2 (rtx insn)
+rl78_alloc_physical_registers_op2 (rtx_insn *insn)
 {
   rtx prev;
   rtx first;
@@ -2852,7 +2860,7 @@ rl78_alloc_physical_registers_op2 (rtx insn)
 
 /* Devirtualize an insn of the form SET (PC) (MEM/REG).  */
 static void
-rl78_alloc_physical_registers_ro1 (rtx insn)
+rl78_alloc_physical_registers_ro1 (rtx_insn *insn)
 {
   OP (0) = transcode_memory_rtx (OP (0), BC, insn);
 
@@ -2865,7 +2873,7 @@ rl78_alloc_physical_registers_ro1 (rtx insn)
 
 /* Devirtualize a compare insn.  */
 static void
-rl78_alloc_physical_registers_cmp (rtx insn)
+rl78_alloc_physical_registers_cmp (rtx_insn *insn)
 {
   int tmp_id;
   rtx saved_op1;
@@ -2958,7 +2966,7 @@ rl78_alloc_physical_registers_cmp (rtx insn)
 
 /* Like op2, but AX = A * X.  */
 static void
-rl78_alloc_physical_registers_umul (rtx insn)
+rl78_alloc_physical_registers_umul (rtx_insn *insn)
 {
   rtx prev = prev_nonnote_nondebug_insn (insn);
   rtx first;
@@ -3022,7 +3030,7 @@ rl78_alloc_physical_registers_umul (rtx insn)
 }
 
 static void
-rl78_alloc_address_registers_macax (rtx insn)
+rl78_alloc_address_registers_macax (rtx_insn *insn)
 {
   int which, op;
   bool replace_in_op0 = false;
@@ -3087,7 +3095,7 @@ rl78_alloc_physical_registers (void)
      registers.  At this point, we need to assign physical registers
      to the vitual ones, and copy in/out as needed.  */
 
-  rtx insn, curr;
+  rtx_insn *insn, *curr;
   enum attr_valloc valloc_method;
 
   for (insn = get_insns (); insn; insn = curr)
@@ -3386,7 +3394,7 @@ rl78_propogate_register_origins (void)
   int origins[FIRST_PSEUDO_REGISTER];
   int age[FIRST_PSEUDO_REGISTER];
   int i;
-  rtx insn, ninsn = NULL_RTX;
+  rtx_insn *insn, *ninsn = NULL;
   rtx pat;
 
   reset_origins (origins, age);
@@ -3588,17 +3596,18 @@ rl78_propogate_register_origins (void)
 static void
 rl78_remove_unused_sets (void)
 {
-  rtx insn, ninsn = NULL_RTX;
+  rtx_insn *insn, *ninsn = NULL;
   rtx dest;
 
   for (insn = get_insns (); insn; insn = ninsn)
     {
       ninsn = next_nonnote_nondebug_insn (insn);
 
-      if ((insn = single_set (insn)) == NULL_RTX)
+      rtx set = single_set (insn);
+      if (set == NULL)
 	continue;
 
-      dest = SET_DEST (insn);
+      dest = SET_DEST (set);
 
       if (GET_CODE (dest) != REG || REGNO (dest) > 23)
 	continue;

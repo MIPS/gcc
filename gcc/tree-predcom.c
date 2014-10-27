@@ -350,7 +350,7 @@ static bitmap looparound_phis;
 
 /* Cache used by tree_to_aff_combination_expand.  */
 
-static struct pointer_map_t *name_expansions;
+static hash_map<tree, name_expansion *> *name_expansions;
 
 /* Dumps data reference REF to FILE.  */
 
@@ -2580,7 +2580,6 @@ const pass_data pass_data_predcom =
   GIMPLE_PASS, /* type */
   "pcom", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_PREDCOM, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */

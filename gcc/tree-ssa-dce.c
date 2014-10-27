@@ -1510,7 +1510,6 @@ const pass_data pass_data_dce =
   GIMPLE_PASS, /* type */
   "dce", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_DCE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -1548,7 +1547,6 @@ const pass_data pass_data_cd_dce =
   GIMPLE_PASS, /* type */
   "cddce", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_CD_DCE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

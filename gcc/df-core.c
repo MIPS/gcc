@@ -747,7 +747,6 @@ const pass_data pass_data_df_initialize_opt =
   RTL_PASS, /* type */
   "dfinit", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_DF_SCAN, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -788,7 +787,6 @@ const pass_data pass_data_df_initialize_no_opt =
   RTL_PASS, /* type */
   "no-opt dfinit", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_DF_SCAN, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -856,7 +854,6 @@ const pass_data pass_data_df_finish =
   RTL_PASS, /* type */
   "dfinish", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -1946,7 +1943,7 @@ df_set_clean_cfg (void)
 df_ref
 df_bb_regno_first_def_find (basic_block bb, unsigned int regno)
 {
-  rtx insn;
+  rtx_insn *insn;
   df_ref def;
 
   FOR_BB_INSNS (bb, insn)
@@ -1967,7 +1964,7 @@ df_bb_regno_first_def_find (basic_block bb, unsigned int regno)
 df_ref
 df_bb_regno_last_def_find (basic_block bb, unsigned int regno)
 {
-  rtx insn;
+  rtx_insn *insn;
   df_ref def;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -1987,7 +1984,7 @@ df_bb_regno_last_def_find (basic_block bb, unsigned int regno)
    DF is the dataflow object.  */
 
 df_ref
-df_find_def (rtx insn, rtx reg)
+df_find_def (rtx_insn *insn, rtx reg)
 {
   df_ref def;
 
@@ -2006,7 +2003,7 @@ df_find_def (rtx insn, rtx reg)
 /* Return true if REG is defined in INSN, zero otherwise.  */
 
 bool
-df_reg_defined (rtx insn, rtx reg)
+df_reg_defined (rtx_insn *insn, rtx reg)
 {
   return df_find_def (insn, reg) != NULL;
 }
@@ -2016,7 +2013,7 @@ df_reg_defined (rtx insn, rtx reg)
    DF is the dataflow object.  */
 
 df_ref
-df_find_use (rtx insn, rtx reg)
+df_find_use (rtx_insn *insn, rtx reg)
 {
   df_ref use;
 
@@ -2039,7 +2036,7 @@ df_find_use (rtx insn, rtx reg)
 /* Return true if REG is referenced in INSN, zero otherwise.  */
 
 bool
-df_reg_used (rtx insn, rtx reg)
+df_reg_used (rtx_insn *insn, rtx reg)
 {
   return df_find_use (insn, reg) != NULL;
 }
@@ -2265,7 +2262,7 @@ df_dump_bottom (basic_block bb, FILE *file)
 
 /* Dump information about INSN just before or after dumping INSN itself.  */
 static void
-df_dump_insn_problem_data (const_rtx insn, FILE *file, bool top)
+df_dump_insn_problem_data (const rtx_insn *insn, FILE *file, bool top)
 {
   int i;
 
@@ -2293,7 +2290,7 @@ df_dump_insn_problem_data (const_rtx insn, FILE *file, bool top)
 /* Dump information about INSN before dumping INSN itself.  */
 
 void
-df_dump_insn_top (const_rtx insn, FILE *file)
+df_dump_insn_top (const rtx_insn *insn, FILE *file)
 {
   df_dump_insn_problem_data (insn,  file, /*top=*/true);
 }
@@ -2301,7 +2298,7 @@ df_dump_insn_top (const_rtx insn, FILE *file)
 /* Dump information about INSN after dumping INSN itself.  */
 
 void
-df_dump_insn_bottom (const_rtx insn, FILE *file)
+df_dump_insn_bottom (const rtx_insn *insn, FILE *file)
 {
   df_dump_insn_problem_data (insn,  file, /*top=*/false);
 }
@@ -2392,13 +2389,13 @@ df_insn_uid_debug (unsigned int uid,
 
 
 DEBUG_FUNCTION void
-df_insn_debug (rtx insn, bool follow_chain, FILE *file)
+df_insn_debug (rtx_insn *insn, bool follow_chain, FILE *file)
 {
   df_insn_uid_debug (INSN_UID (insn), follow_chain, file);
 }
 
 DEBUG_FUNCTION void
-df_insn_debug_regno (rtx insn, FILE *file)
+df_insn_debug_regno (rtx_insn *insn, FILE *file)
 {
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
 
@@ -2457,7 +2454,7 @@ df_ref_debug (df_ref ref, FILE *file)
 /* Functions for debugging from GDB.  */
 
 DEBUG_FUNCTION void
-debug_df_insn (rtx insn)
+debug_df_insn (rtx_insn *insn)
 {
   df_insn_debug (insn, true, stderr);
   debug_rtx (insn);

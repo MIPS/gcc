@@ -320,8 +320,8 @@
 ; than one on the main cpu execution unit.
 (define_attr "core_cycles" "single,multi"
   (if_then_else (eq_attr "type"
-    "adc_imm, adc_reg, adcs_imm, adcs_reg, adr, alu_ext, alu_imm, alu_reg,\
-    alu_shift_imm, alu_shift_reg, alus_ext, alus_imm, alus_reg,\
+    "adc_imm, adc_reg, adcs_imm, adcs_reg, adr, alu_ext, alu_imm, alu_sreg,\
+    alu_shift_imm, alu_shift_reg, alu_dsp_reg, alus_ext, alus_imm, alus_sreg,\
     alus_shift_imm, alus_shift_reg, bfm, csel, rev, logic_imm, logic_reg,\
     logic_shift_imm, logic_shift_reg, logics_imm, logics_reg,\
     logics_shift_imm, logics_shift_reg, extend, shift_imm, float, fcsel,\
@@ -602,7 +602,7 @@
    (set_attr "arch" "t2,t2,t2,t2,*,*,*,t2,t2,*,*,a,t2,t2,*")
    (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
 		      (const_string "alu_imm")
-		      (const_string "alu_reg")))
+		      (const_string "alu_sreg")))
  ]
 )
 
@@ -620,7 +620,7 @@
    sub%.\\t%0, %1, #%n2
    add%.\\t%0, %1, %2"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*addsi3_compare0_scratch"
@@ -636,7 +636,7 @@
    cmn%?\\t%0, %1"
   [(set_attr "conds" "set")
    (set_attr "predicable" "yes")
-   (set_attr "type" "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*compare_negsi_si"
@@ -651,7 +651,7 @@
    (set_attr "arch" "t2,*")
    (set_attr "length" "2,4")
    (set_attr "predicable_short_it" "yes,no")
-   (set_attr "type" "alus_reg")]
+   (set_attr "type" "alus_sreg")]
 )
 
 ;; This is the canonicalization of addsi3_compare0_for_combiner when the
@@ -669,7 +669,7 @@
    add%.\\t%0, %1, %3
    sub%.\\t%0, %1, #%n3"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_reg")]
+   (set_attr "type" "alus_sreg")]
 )
 
 ;; Convert the sequence
@@ -727,7 +727,7 @@
    sub%.\\t%0, %1, #%n2
    add%.\\t%0, %1, %2"
   [(set_attr "conds" "set")
-   (set_attr "type"  "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type"  "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*addsi3_compare_op2"
@@ -744,7 +744,7 @@
    add%.\\t%0, %1, %2
    sub%.\\t%0, %1, #%n2"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*compare_addsi2_op0"
@@ -765,7 +765,7 @@
    (set_attr "arch" "t2,t2,*,*,*")
    (set_attr "predicable_short_it" "yes,yes,no,no,no")
    (set_attr "length" "2,2,4,4,4")
-   (set_attr "type" "alus_imm,alus_reg,alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*compare_addsi2_op1"
@@ -786,7 +786,7 @@
    (set_attr "arch" "t2,t2,*,*,*")
    (set_attr "predicable_short_it" "yes,yes,no,no,no")
    (set_attr "length" "2,2,4,4,4")
-   (set_attr "type" "alus_imm,alus_reg,alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_imm,alus_imm,alus_sreg")]
  )
 
 (define_insn "*addsi3_carryin_<optab>"
@@ -1201,7 +1201,7 @@
    (set_attr "arch" "t2,t2,t2,t2,*,*,*,*,*")
    (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "yes,yes,yes,yes,no,no,no,no,no")
-   (set_attr "type" "alu_reg,alu_reg,alu_reg,alu_reg,alu_imm,alu_imm,alu_reg,alu_reg,multiple")]
+   (set_attr "type" "alu_sreg,alu_sreg,alu_sreg,alu_sreg,alu_imm,alu_imm,alu_sreg,alu_sreg,multiple")]
 )
 
 (define_peephole2
@@ -1231,7 +1231,7 @@
    sub%.\\t%0, %1, %2
    rsb%.\\t%0, %2, %1"
   [(set_attr "conds" "set")
-   (set_attr "type"  "alus_imm,alus_reg,alus_reg")]
+   (set_attr "type"  "alus_imm,alus_sreg,alus_sreg")]
 )
 
 (define_insn "subsi3_compare"
@@ -1246,7 +1246,7 @@
    sub%.\\t%0, %1, %2
    rsb%.\\t%0, %2, %1"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_imm,alus_reg,alus_reg")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_sreg")]
 )
 
 (define_expand "subsf3"
@@ -4366,7 +4366,7 @@
    (set_attr "predicable_short_it" "yes,no")
    (set_attr "arch" "t2,*")
    (set_attr "length" "4")
-   (set_attr "type" "alu_reg")]
+   (set_attr "type" "alu_sreg")]
 )
 
 (define_expand "negsf2"
@@ -5828,7 +5828,7 @@
   return \"add\\t%0, %|pc\";
   "
   [(set_attr "length" "2")
-   (set_attr "type" "alu_reg")]
+   (set_attr "type" "alu_sreg")]
 )
 
 (define_insn "pic_add_dot_plus_eight"
@@ -5844,7 +5844,7 @@
     return \"add%?\\t%0, %|pc, %1\";
   "
   [(set_attr "predicable" "yes")
-   (set_attr "type" "alu_reg")]
+   (set_attr "type" "alu_sreg")]
 )
 
 (define_insn "tls_load_dot_plus_eight"
@@ -6286,7 +6286,7 @@
 ;; Pattern to recognize insn generated default case above
 (define_insn "*movhi_insn_arch4"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,m,r")
-	(match_operand:HI 1 "general_operand"      "rI,K,r,mi"))]
+	(match_operand:HI 1 "general_operand"      "rIk,K,r,mi"))]
   "TARGET_ARM
    && arm_arch4
    && (register_operand (operands[0], HImode)
@@ -6310,7 +6310,7 @@
 
 (define_insn "*movhi_bytes"
   [(set (match_operand:HI 0 "s_register_operand" "=r,r,r")
-	(match_operand:HI 1 "arm_rhs_operand"  "I,r,K"))]
+	(match_operand:HI 1 "arm_rhs_operand"  "I,rk,K"))]
   "TARGET_ARM"
   "@
    mov%?\\t%0, %1\\t%@ movhi
@@ -6425,7 +6425,7 @@
 
 (define_insn "*arm_movqi_insn"
   [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r,r,l,r,l,Uu,r,m")
-	(match_operand:QI 1 "general_operand" "r,r,I,Py,K,Uu,l,m,r"))]
+	(match_operand:QI 1 "general_operand" "rk,rk,I,Py,K,Uu,l,Uh,r"))]
   "TARGET_32BIT
    && (   register_operand (operands[0], QImode)
        || register_operand (operands[1], QImode))"
@@ -6716,6 +6716,20 @@
 })
 
 
+(define_expand "setmemsi"
+  [(match_operand:BLK 0 "general_operand" "")
+   (match_operand:SI 1 "const_int_operand" "")
+   (match_operand:SI 2 "const_int_operand" "")
+   (match_operand:SI 3 "const_int_operand" "")]
+  "TARGET_32BIT"
+{
+  if (arm_gen_setmem (operands))
+    DONE;
+
+  FAIL;
+})
+
+
 ;; Move a block of memory if it is word aligned and MORE than 2 words long.
 ;; We could let this apply for blocks of less than this, but it clobbers so
 ;; many registers that there is then probably a better way.
@@ -6857,7 +6871,7 @@
    (set_attr "length" "2,2,4,4,4")
    (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "yes,yes,yes,no,no")
-   (set_attr "type" "alus_imm,alus_reg,alus_reg,alus_imm,alus_imm")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_sreg,alus_imm,alus_imm")]
 )
 
 (define_insn "*cmpsi_shiftsi"
@@ -7411,7 +7425,7 @@
     return \"\";
   }"
   [(set_attr "conds" "use")
-   (set_attr "type" "f_sel<vfp_type>")]
+   (set_attr "type" "fcsel")]
 )
 
 (define_insn_and_split "*movsicc_insn"
@@ -9314,10 +9328,16 @@
     enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[5]),
 					     operands[3], operands[4]);
     enum rtx_code rc = GET_CODE (operands[5]);
-
     operands[6] = gen_rtx_REG (mode, CC_REGNUM);
     gcc_assert (!(mode == CCFPmode || mode == CCFPEmode));
-    rc = reverse_condition (rc);
+    if (REGNO (operands[2]) != REGNO (operands[0]))
+      rc = reverse_condition (rc);
+    else 
+      {
+	rtx tmp = operands[1];
+	operands[1] = operands[2];
+	operands[2] = tmp;
+      }
 
     operands[6] = gen_rtx_fmt_ee (rc, VOIDmode, operands[6], const0_rtx);
   }
@@ -9430,10 +9450,10 @@
    (set_attr_alternative "type"
                          [(if_then_else (match_operand 3 "const_int_operand" "")
                                         (const_string "alu_imm" )
-                                        (const_string "alu_reg"))
+                                        (const_string "alu_sreg"))
                           (const_string "alu_imm")
-                          (const_string "alu_reg")
-                          (const_string "alu_reg")])]
+                          (const_string "alu_sreg")
+                          (const_string "alu_sreg")])]
 )
 
 (define_insn "*ifcompare_move_plus"
@@ -9470,7 +9490,7 @@
    sub%D4\\t%0, %2, #%n3\;mov%d4\\t%0, %1"
   [(set_attr "conds" "use")
    (set_attr "length" "4,4,8,8")
-   (set_attr "type" "alu_reg,alu_imm,multiple,multiple")]
+   (set_attr "type" "alu_sreg,alu_imm,multiple,multiple")]
 )
 
 (define_insn "*ifcompare_arith_arith"
@@ -10514,7 +10534,7 @@
     int num_regs = XVECLEN (operands[0], 0);
     char pattern[100];
     rtx op_list[2];
-    strcpy (pattern, \"fldmfdd\\t\");
+    strcpy (pattern, \"vldm\\t\");
     strcat (pattern, reg_names[REGNO (SET_DEST (XVECEXP (operands[0], 0, 0)))]);
     strcat (pattern, \"!, {\");
     op_list[0] = XEXP (XVECEXP (operands[0], 0, 1), 0);
@@ -10662,6 +10682,7 @@
   "TARGET_32BIT && arm_arch5"
   "clz%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "clz")])
 
 (define_insn "rbitsi2"
@@ -10670,6 +10691,7 @@
   "TARGET_32BIT && arm_arch_thumb2"
   "rbit%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "clz")])
 
 (define_expand "ctzsi2"
@@ -10829,6 +10851,8 @@
    rev%?\t%0, %1"
   [(set_attr "arch" "t1,t2,32")
    (set_attr "length" "2,2,4")
+   (set_attr "predicable" "no,yes,yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "rev")]
 )
 

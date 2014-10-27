@@ -245,6 +245,10 @@ fix_loop_structure (bitmap changed_bbs)
 	}
 
       /* Remove the loop.  */
+      if (loop->header)
+	loop->former_header = loop->header;
+      else
+	gcc_assert (loop->former_header != NULL);
       loop->header = NULL;
       flow_loop_tree_node_remove (loop);
     }
@@ -272,6 +276,33 @@ fix_loop_structure (bitmap changed_bbs)
   FOR_EACH_VEC_ELT (*get_loops (cfun), i, loop)
     if (loop && loop->header == NULL)
       {
+	if (dump_file
+	    && ((unsigned) loop->former_header->index
+		< basic_block_info_for_fn (cfun)->length ()))
+	  {
+	    basic_block former_header
+	      = BASIC_BLOCK_FOR_FN (cfun, loop->former_header->index);
+	    /* If the old header still exists we want to check if the
+	       original loop is re-discovered or the old header is now
+	       part of a newly discovered loop.
+	       In both cases we should have avoided removing the loop.  */
+	    if (former_header == loop->former_header)
+	      {
+		if (former_header->loop_father->header == former_header)
+		  fprintf (dump_file, "fix_loop_structure: rediscovered "
+			   "removed loop %d as loop %d with old header %d\n",
+			   loop->num, former_header->loop_father->num,
+			   former_header->index);
+		else if ((unsigned) former_header->loop_father->num
+			 >= old_nloops)
+		  fprintf (dump_file, "fix_loop_structure: header %d of "
+			   "removed loop %d is part of the newly "
+			   "discovered loop %d with header %d\n",
+			   former_header->index, loop->num,
+			   former_header->loop_father->num,
+			   former_header->loop_father->header->index);
+	      }
+	  }
 	(*get_loops (cfun))[i] = NULL;
 	flow_loop_free (loop);
       }
@@ -300,7 +331,6 @@ const pass_data pass_data_loop2 =
   RTL_PASS, /* type */
   "loop2", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  false, /* has_execute */
   TV_LOOP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -376,7 +406,6 @@ const pass_data pass_data_rtl_loop_init =
   RTL_PASS, /* type */
   "loop2_init", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_LOOP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -415,7 +444,6 @@ const pass_data pass_data_rtl_loop_done =
   RTL_PASS, /* type */
   "loop2_done", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_LOOP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -472,7 +500,6 @@ const pass_data pass_data_rtl_move_loop_invariants =
   RTL_PASS, /* type */
   "loop2_invariant", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_LOOP_MOVE_INVARIANTS, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -515,7 +542,6 @@ const pass_data pass_data_rtl_unroll_and_peel_loops =
   RTL_PASS, /* type */
   "loop2_unroll", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_LOOP_UNROLL, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -578,7 +604,6 @@ const pass_data pass_data_rtl_doloop =
   RTL_PASS, /* type */
   "loop2_doloop", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_LOOP_DOLOOP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

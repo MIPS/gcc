@@ -595,7 +595,6 @@ const pass_data pass_data_slp_vectorize =
   GIMPLE_PASS, /* type */
   "slp", /* name */
   OPTGROUP_LOOP | OPTGROUP_VEC, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SLP_VECTORIZATION, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -705,7 +704,7 @@ increase_alignment (void)
           DECL_USER_ALIGN (decl) = 1;
 	  if (TREE_STATIC (decl))
 	    {
-	      tree target = symtab_alias_ultimate_target (symtab_get_node (decl))->decl;
+	      tree target = symtab_node::get (decl)->ultimate_alias_target ()->decl;
               DECL_ALIGN (target) = TYPE_ALIGN (vectype);
               DECL_USER_ALIGN (target) = 1;
 	    }
@@ -725,7 +724,6 @@ const pass_data pass_data_ipa_increase_alignment =
   SIMPLE_IPA_PASS, /* type */
   "increase_alignment", /* name */
   OPTGROUP_LOOP | OPTGROUP_VEC, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_OPT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

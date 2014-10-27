@@ -1175,9 +1175,16 @@ lex_identifier_intern (cpp_reader *pfile, const uchar *base)
 	 replacement list of a variadic macro.  */
       if (result == pfile->spec_nodes.n__VA_ARGS__
 	  && !pfile->state.va_args_ok)
-	cpp_error (pfile, CPP_DL_PEDWARN,
-		   "__VA_ARGS__ can only appear in the expansion"
-		   " of a C99 variadic macro");
+	{
+	  if (CPP_OPTION (pfile, cplusplus))
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C++11 variadic macro");
+	  else
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C99 variadic macro");
+	}
 
       /* For -Wc++-compat, warn about use of C++ named operators.  */
       if (result->flags & NODE_WARN_OPERATOR)
@@ -1255,9 +1262,16 @@ lex_identifier (cpp_reader *pfile, const uchar *base, bool starts_ucn,
 	 replacement list of a variadic macro.  */
       if (result == pfile->spec_nodes.n__VA_ARGS__
 	  && !pfile->state.va_args_ok)
-	cpp_error (pfile, CPP_DL_PEDWARN,
-		   "__VA_ARGS__ can only appear in the expansion"
-		   " of a C99 variadic macro");
+	{
+	  if (CPP_OPTION (pfile, cplusplus))
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C++11 variadic macro");
+	  else
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "__VA_ARGS__ can only appear in the expansion"
+		       " of a C99 variadic macro");
+	}
 
       /* For -Wc++-compat, warn about use of C++ named operators.  */
       if (result->flags & NODE_WARN_OPERATOR)
@@ -1646,7 +1660,7 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
       if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
-	  if (CPP_OPTION (pfile, warn_literal_suffix))
+	  if (CPP_OPTION (pfile, warn_literal_suffix) && !pfile->state.skipping)
 	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
 				   token->src_loc, 0,
 				   "invalid suffix on literal; C++11 requires "
@@ -1775,7 +1789,7 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
       if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
-	  if (CPP_OPTION (pfile, warn_literal_suffix))
+	  if (CPP_OPTION (pfile, warn_literal_suffix) && !pfile->state.skipping)
 	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
 				   token->src_loc, 0,
 				   "invalid suffix on literal; C++11 requires "
@@ -2308,13 +2322,16 @@ _cpp_lex_direct (cpp_reader *pfile)
 	  if (_cpp_skip_block_comment (pfile))
 	    cpp_error (pfile, CPP_DL_ERROR, "unterminated comment");
 	}
-      else if (c == '/' && (CPP_OPTION (pfile, cplusplus_comments)
-			    || cpp_in_system_header (pfile)))
+      else if (c == '/' && ! CPP_OPTION (pfile, traditional))
 	{
-	  /* Warn about comments only if pedantically GNUC89, and not
+	  /* Don't warn for system headers.  */
+	  if (cpp_in_system_header (pfile))
+	    ;
+	  /* Warn about comments if pedantically GNUC89, and not
 	     in system headers.  */
-	  if (CPP_OPTION (pfile, lang) == CLK_GNUC89 && CPP_PEDANTIC (pfile)
-	      && ! buffer->warned_cplusplus_comments)
+	  else if (CPP_OPTION (pfile, lang) == CLK_GNUC89
+		   && CPP_PEDANTIC (pfile)
+		   && ! buffer->warned_cplusplus_comments)
 	    {
 	      cpp_error (pfile, CPP_DL_PEDWARN,
 			 "C++ style comments are not allowed in ISO C90");
@@ -2322,7 +2339,42 @@ _cpp_lex_direct (cpp_reader *pfile)
 			 "(this will be reported only once per input file)");
 	      buffer->warned_cplusplus_comments = 1;
 	    }
-
+	  /* Or if specifically desired via -Wc90-c99-compat.  */
+	  else if (CPP_OPTION (pfile, cpp_warn_c90_c99_compat) > 0
+		   && ! CPP_OPTION (pfile, cplusplus)
+		   && ! buffer->warned_cplusplus_comments)
+	    {
+	      cpp_error (pfile, CPP_DL_WARNING,
+			 "C++ style comments are incompatible with C90");
+	      cpp_error (pfile, CPP_DL_WARNING,
+			 "(this will be reported only once per input file)");
+	      buffer->warned_cplusplus_comments = 1;
+	    }
+	  /* In C89/C94, C++ style comments are forbidden.  */
+	  else if ((CPP_OPTION (pfile, lang) == CLK_STDC89
+		    || CPP_OPTION (pfile, lang) == CLK_STDC94))
+	    {
+	      /* But don't be confused about valid code such as
+	         - // immediately followed by *,
+		 - // in a preprocessing directive,
+		 - // in an #if 0 block.  */
+	      if (buffer->cur[1] == '*'
+		  || pfile->state.in_directive
+		  || pfile->state.skipping)
+		{
+		  result->type = CPP_DIV;
+		  break;
+		}
+	      else if (! buffer->warned_cplusplus_comments)
+		{
+		  cpp_error (pfile, CPP_DL_ERROR,
+			     "C++ style comments are not allowed in ISO C90");
+		  cpp_error (pfile, CPP_DL_ERROR,
+			     "(this will be reported only once per input "
+			     "file)");
+		  buffer->warned_cplusplus_comments = 1;
+		}
+	    }
 	  if (skip_line_comment (pfile) && CPP_OPTION (pfile, warn_comments))
 	    cpp_warning (pfile, CPP_W_COMMENTS, "multi-line comment");
 	}

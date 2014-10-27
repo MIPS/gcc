@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ansidecl.h"
 #include "system.h"
 #include "coretypes.h"
+#include "gfortran.h"
 #include "tree.h"
 #include "flags.h"
 #include "langhooks.h"
@@ -38,10 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "target.h"
 #include "debug.h"
-#include "diagnostic.h"
+#include "diagnostic.h" /* For errorcount/warningcount */
 #include "dumpfile.h"
 #include "cgraph.h"
-#include "gfortran.h"
 #include "cpp.h"
 #include "trans.h"
 #include "trans-types.h"
@@ -342,7 +342,7 @@ getdecls (void)
   return current_binding_level->names;
 }
 
-/* Enter a new binding level. */
+/* Enter a new binding level.  */
 
 void
 pushlevel (void)
@@ -410,7 +410,7 @@ poplevel (int keep, int functionbody)
   current_binding_level = current_binding_level->level_chain;
 
   if (functionbody)
-    /* This is the top level block of a function. */
+    /* This is the top level block of a function.  */
     DECL_INITIAL (current_function_decl) = block_node;
   else if (current_binding_level == global_binding_level)
     /* When using gfc_start_block/gfc_finish_block from middle-end hooks,

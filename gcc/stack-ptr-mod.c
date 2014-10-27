@@ -59,7 +59,6 @@ const pass_data pass_data_stack_ptr_mod =
   RTL_PASS, /* type */
   "*stack_ptr_mod", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -84,7 +83,7 @@ unsigned int
 pass_stack_ptr_mod::execute (function *fun)
 {
   basic_block bb;
-  rtx insn;
+  rtx_insn *insn;
 
   /* Assume that the stack pointer is unchanging if alloca hasn't
      been used.  */

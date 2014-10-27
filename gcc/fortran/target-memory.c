@@ -185,7 +185,7 @@ encode_integer (int kind, mpz_t integer, unsigned char *buffer,
 		size_t buffer_size)
 {
   return native_encode_expr (gfc_conv_mpz_to_tree (integer, kind),
-			     buffer, buffer_size, false);
+			     buffer, buffer_size);
 }
 
 
@@ -193,7 +193,7 @@ static int
 encode_float (int kind, mpfr_t real, unsigned char *buffer, size_t buffer_size)
 {
   return native_encode_expr (gfc_conv_mpfr_to_tree (real, kind, 0), buffer,
-			     buffer_size, false);
+			     buffer_size);
 }
 
 
@@ -214,7 +214,7 @@ encode_logical (int kind, int logical, unsigned char *buffer, size_t buffer_size
 {
   return native_encode_expr (build_int_cst (gfc_get_logical_type (kind),
 					    logical),
-			     buffer, buffer_size, false);
+			     buffer, buffer_size);
 }
 
 
@@ -230,7 +230,7 @@ gfc_encode_character (int kind, int length, const gfc_char_t *string,
 
   for (i = 0; i < length; i++)
     native_encode_expr (build_int_cst (type, string[i]), &buffer[i*elsize],
-			elsize, false);
+			elsize);
 
   return length;
 }

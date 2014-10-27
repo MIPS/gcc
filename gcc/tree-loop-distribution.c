@@ -228,7 +228,7 @@ DEBUG_FUNCTION void
 dot_rdg (struct graph *rdg)
 {
   /* When debugging, you may want to enable the following code.  */
-#if 1
+#ifdef HAVE_POPEN
   FILE *file = popen ("dot -Tx11", "w");
   if (!file)
     return;
@@ -764,7 +764,7 @@ const_with_all_bytes_same (tree val)
   if (CHAR_BIT != 8 || BITS_PER_UNIT != 8)
     return -1;
 
-  len = native_encode_expr (val, buf, sizeof (buf), false);
+  len = native_encode_expr (val, buf, sizeof (buf));
   if (len == 0)
     return -1;
   for (i = 1; i < len; i++)
@@ -1676,7 +1676,6 @@ const pass_data pass_data_loop_distribution =
   GIMPLE_PASS, /* type */
   "ldist", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_LOOP_DISTRIBUTION, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

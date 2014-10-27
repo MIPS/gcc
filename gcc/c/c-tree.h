@@ -66,6 +66,9 @@ along with GCC; see the file COPYING3.  If not see
 /* For a FUNCTION_DECL, nonzero if it was an implicit declaration.  */
 #define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2 (EXP)
 
+/* For a PARM_DECL, nonzero if it was declared as an array.  */
+#define C_ARRAY_PARAMETER(NODE) DECL_LANG_FLAG_0 (NODE)
+
 /* For FUNCTION_DECLs, evaluates true if the decl is built-in but has
    been declared.  */
 #define C_DECL_DECLARED_BUILTIN(EXP)		\
@@ -615,7 +618,7 @@ extern void process_init_element (location_t, struct c_expr, bool,
 extern tree build_compound_literal (location_t, tree, tree, bool);
 extern void check_compound_literal_type (location_t, struct c_type_name *);
 extern tree c_start_case (location_t, location_t, tree, bool);
-extern void c_finish_case (tree);
+extern void c_finish_case (tree, tree);
 extern tree build_asm_expr (location_t, tree, tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
 extern int c_types_compatible_p (tree, tree);
@@ -673,7 +676,9 @@ extern tree c_omp_reduction_lookup (tree, tree);
 extern tree c_check_omp_declare_reduction_r (tree *, int *, void *);
 
 /* In c-errors.c */
-extern void pedwarn_c90 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);
-extern void pedwarn_c99 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);
+extern void pedwarn_c90 (location_t, int opt, const char *, ...)
+    ATTRIBUTE_GCC_DIAG(3,4);
+extern bool pedwarn_c99 (location_t, int opt, const char *, ...)
+    ATTRIBUTE_GCC_DIAG(3,4);
 
 #endif /* ! GCC_C_TREE_H */

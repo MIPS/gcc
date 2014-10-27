@@ -61,7 +61,7 @@ initialize_uninitialized_regs (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn;
+      rtx_insn *insn;
       bitmap lr = DF_LR_IN (bb);
       bitmap ur = DF_LIVE_IN (bb);
       bitmap_clear (already_genned);
@@ -94,7 +94,7 @@ initialize_uninitialized_regs (void)
 	      if (bitmap_bit_p (lr, regno)
 		  && (!bitmap_bit_p (ur, regno)))
 		{
-		  rtx move_insn;
+		  rtx_insn *move_insn;
 		  rtx reg = DF_REF_REAL_REG (use);
 
 		  bitmap_set_bit (already_genned, regno);
@@ -131,7 +131,6 @@ const pass_data pass_data_initialize_regs =
   RTL_PASS, /* type */
   "init-regs", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

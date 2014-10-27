@@ -43,13 +43,13 @@ insert_uses (void)
   static const int num_modes[] = NUM_MODES_FOR_MODE_SWITCHING;
 #define N_ENTITIES ARRAY_SIZE (num_modes)
   int e;
-  void (*target_insert_mode_switch_use) (rtx insn, int, int)
+  void (*target_insert_mode_switch_use) (rtx_insn *insn, int, int)
     = TARGET_INSERT_MODE_SWITCH_USE;
 
   for (e = N_ENTITIES - 1; e >= 0; e--)
     {
       int no_mode = num_modes[e];
-      rtx insn;
+      rtx_insn *insn;
       int mode;
 
       if (!OPTIMIZE_MODE_SWITCHING (e))
@@ -78,7 +78,6 @@ const pass_data pass_data_mode_switch_use =
   RTL_PASS, /* type */
   "mode_switch_use", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

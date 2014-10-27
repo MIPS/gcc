@@ -112,7 +112,7 @@ init_ic_make_global_vars (void)
   if (targetm.have_tls)
     set_decl_tls_model (ic_void_ptr_var, decl_default_tls_model (ic_void_ptr_var));
 
-  varpool_finalize_decl (ic_void_ptr_var);
+  varpool_node::finalize_decl (ic_void_ptr_var);
 
   gcov_type_ptr = build_pointer_type (get_gcov_type ());
   /* Workaround for binutils bug 14342.  Once it is fixed, remove lto path.  */
@@ -142,7 +142,7 @@ init_ic_make_global_vars (void)
   if (targetm.have_tls)
     set_decl_tls_model (ic_gcov_type_ptr_var, decl_default_tls_model (ic_gcov_type_ptr_var));
 
-  varpool_finalize_decl (ic_gcov_type_ptr_var);
+  varpool_node::finalize_decl (ic_gcov_type_ptr_var);
 }
 
 /* Create the type and function decls for the interface with gcov.  */
@@ -427,12 +427,12 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 void
 gimple_gen_ic_func_profiler (void)
 {
-  struct cgraph_node * c_node = cgraph_get_node (current_function_decl);
+  struct cgraph_node * c_node = cgraph_node::get (current_function_decl);
   gimple_stmt_iterator gsi;
   gimple stmt1, stmt2;
   tree tree_uid, cur_func, void0;
 
-  if (cgraph_only_called_directly_p (c_node))
+  if (c_node->only_called_directly_p ())
     return;
 
   gimple_init_edge_profiler ();
@@ -451,7 +451,7 @@ gimple_gen_ic_func_profiler (void)
 				       true, NULL_TREE,
 				       true, GSI_SAME_STMT);
   tree_uid = build_int_cst
-	      (gcov_type_node, cgraph_get_node (current_function_decl)->profile_id);
+	      (gcov_type_node, cgraph_node::get (current_function_decl)->profile_id);
   /* Workaround for binutils bug 14342.  Once it is fixed, remove lto path.  */
   if (flag_lto)
     {
@@ -565,7 +565,7 @@ tree_profiling (void)
 
   /* This is a small-ipa pass that gets called only once, from
      cgraphunit.c:ipa_passes().  */
-  gcc_assert (cgraph_state == CGRAPH_STATE_IPA_SSA);
+  gcc_assert (symtab->state == IPA_SSA);
 
   init_node_map (true);
 
@@ -576,6 +576,13 @@ tree_profiling (void)
 
       /* Don't profile functions produced for builtin stuff.  */
       if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
+	continue;
+
+      /* Do not instrument extern inline functions when testing coverage.
+	 While this is not perfectly consistent (early inlined extern inlines
+	 will get acocunted), testsuite expects that.  */
+      if (DECL_EXTERNAL (node->decl)
+	  && flag_test_coverage)
 	continue;
 
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
@@ -615,8 +622,8 @@ tree_profiling (void)
       if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
 	continue;
 
-      cgraph_set_const_flag (node, false, false);
-      cgraph_set_pure_flag (node, false, false);
+      node->set_const_flag (false, false);
+      node->set_pure_flag (false, false);
     }
 
   /* Update call statements and rebuild the cgraph.  */
@@ -650,7 +657,7 @@ tree_profiling (void)
       cleanup_tree_cfg ();
       update_ssa (TODO_update_ssa);
 
-      rebuild_cgraph_edges ();
+      cgraph_edge::rebuild_edges ();
 
       pop_cfun ();
     }
@@ -668,7 +675,6 @@ const pass_data pass_data_ipa_tree_profile =
   SIMPLE_IPA_PASS, /* type */
   "profile", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_PROFILE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

@@ -74,8 +74,8 @@ extern char arm_arch_name[];
 	builtin_define_with_int_value (				\
 	  "__ARM_SIZEOF_MINIMAL_ENUM",				\
 	  flag_short_enums ? 1 : 4);				\
-	builtin_define_with_int_value (				\
-	  "__ARM_SIZEOF_WCHAR_T", WCHAR_TYPE_SIZE);		\
+	builtin_define_type_sizeof ("__ARM_SIZEOF_WCHAR_T",	\
+				    wchar_type_node);		\
 	if (TARGET_ARM_ARCH_PROFILE)				\
 	  builtin_define_with_int_value (			\
 	    "__ARM_ARCH_PROFILE", TARGET_ARM_ARCH_PROFILE);	\
@@ -104,8 +104,6 @@ extern char arm_arch_name[];
 	    builtin_define ("__ARM_BIG_ENDIAN");	\
 	    if (TARGET_THUMB)				\
 	      builtin_define ("__THUMBEB__");		\
-	    if (TARGET_LITTLE_WORDS)			\
-	      builtin_define ("__ARMWEL__");		\
 	  }						\
         else						\
 	  {						\
@@ -442,9 +440,6 @@ extern int arm_fpu_attr;
 #define TARGET_DEFAULT_FLOAT_ABI ARM_FLOAT_ABI_SOFT
 #endif
 
-#define LARGEST_EXPONENT_IS_NORMAL(bits) \
-    ((bits) == 16 && arm_fp16_format == ARM_FP16_FORMAT_ALTERNATIVE)
-
 #ifndef ARM_DEFAULT_ABI
 #define ARM_DEFAULT_ABI ARM_ABI_APCS
 #endif
@@ -643,9 +638,8 @@ extern int arm_arch_crc;
 #define BYTES_BIG_ENDIAN  (TARGET_BIG_END != 0)
 
 /* Define this if most significant word of a multiword number is the lowest
-   numbered.
-   This is always false, even when in big-endian mode.  */
-#define WORDS_BIG_ENDIAN  (BYTES_BIG_ENDIAN && ! TARGET_LITTLE_WORDS)
+   numbered.  */
+#define WORDS_BIG_ENDIAN  (BYTES_BIG_ENDIAN)
 
 #define UNITS_PER_WORD	4
 

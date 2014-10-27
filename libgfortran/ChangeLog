@@ -1,3 +1,117 @@
+2014-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_co_broadcast): New prototype.
+	* caf/single.c (_gfortran_caf_co_broadcast): New.
+
+2014-09-18  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/62768
+	* io/inquire.c (inquire_via_unit): Use gfc_unit.filename also when
+	HAVE_TTYNAME{_R} is not defined.
+
+2014-09-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/62768
+	* io/io.h (gfc_unit): Store C string for the filename.
+	* io/close.c (st_close): Use gfc_unit.filename.
+	* io/inquire.c (inquire_via_unit): Likewise.
+	* io/open.c (new_unit): Likewise.
+	(already_open): Likewise, unlink file before freeing filename.
+	* io/unit.c (init_units): Likewise.
+	(close_unit_1): Likewise.
+	(filename_from_unit): Likewise.
+	* io/unix.c (compare_file_filename): Likewise.
+	(find_file0): Likewise.
+	(delete_file): Likewise.
+
+2014-09-10  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* io/transfer.c (read_block_form): Fix pad status check (found by
+	Thomas Schwinge with -Wlogical-not-parentheses).
+
+2014-08-31  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Update prototype.
+	* caf/single.c (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Handle may_require_tmp.
+
+2014-08-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR libgfortran/62188
+	* m4/bessel.m4: Avoid indexing off the end of an array.
+	* generated/bessel_r10.c: Regenerated.
+	* generated/bessel_r16.c: Ditto.
+	* generated/bessel_r4.c: Ditto.
+	* generated/bessel_r8.c: Ditto.
+
+2014-08-14  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (caf_register_t): Update for critical.
+	(_gfortran_caf_critical, _gfortran_caf_end_critical): Remove.
+	(_gfortran_caf_lock, _gfortran_caf_unlock): Add.
+	* caf/single.c (_gfortran_caf_register): Handle locking
+	variables.
+	(_gfortran_caf_sendget): Re-name args for consistency.
+	(_gfortran_caf_lock, _gfortran_caf_unlock): Add.
+
+2014-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/memory.c (xmallocarray): Avoid division for the common case.
+
+2014-07-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/61632
+	* io/format.c (format_error): Avoid invalid string pointer by
+	using the fortran string length values to generate error string.
+	(parse_format): Allocate the null terminator for the format
+	string.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_atomic_define,
+	_gfortran_caf_atomic_ref, _gfortran_caf_atomic_op,
+	_gfortran_caf_atomic_cas): New prototypes.
+	* caf/single.c (_gfortran_caf_atomic_define,
+	_gfortran_caf_atomic_ref, _gfortran_caf_atomic_op,
+	_gfortran_caf_atomic_cas): New functions.
+
+2014-07-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* config/fpu-*.h (get_fpu_rounding_mode, set_fpu_rounding_mode,
+	support_fpu_rounding_mode): Clean up, mark unreachable code as such.
+
+2014-07-09  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* libgfortran.h (support_fpu_underflow_control,
+	get_fpu_underflow_mode, set_fpu_underflow_mode): New prototypes.
+	* config/fpu-*.h (support_fpu_underflow_control,
+	get_fpu_underflow_mode, set_fpu_underflow_mode):
+	New functions.
+	* ieee/ieee_arithmetic.F90: Support underflow control.
+
+2014-07-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/fpu-sysv.h (get_fpu_rounding_mode): Use FP_RN, FP_RP,
+	FP_RM, FP_RZ unconditionally.
+	(set_fpu_rounding_mode): Likewise.
+
+2014-07-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* libgfortran.h: Assume __GNUC__.
+
+2014-07-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* runtime/stop.c: Use C11 _Noreturn.
+	* libgfortran.h: Use C11 _Noreturn in prototypes.
+	Move REALPART, IMAGPART and COMPLEX_ASSIGN macros...
+	* intrinsics/c99_functions.c: ... here.
+
+2014-07-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* config/fpu-387.h, config/fpu-aix.h, config/fpu-sysv.h,
+	config/fpu-glibc.h: Use static assertions.
+
 2014-07-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* configure, config.h.in: Regenerate.

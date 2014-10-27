@@ -55,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
    This is basically a generic equivalent to the C++ front-end's
    Named Return Value optimization.  */
 
-struct nrv_data
+struct nrv_data_t
 {
   /* This is the temporary (a VAR_DECL) which appears in all of
      this function's RETURN_EXPR statements.  */
@@ -84,7 +84,7 @@ static tree
 finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nrv_data *dp = (struct nrv_data *) wi->info;
+  struct nrv_data_t *dp = (struct nrv_data_t *) wi->info;
 
   /* No need to walk into types.  */
   if (TYPE_P (*tp))
@@ -120,7 +120,6 @@ const pass_data pass_data_nrv =
   GIMPLE_PASS, /* type */
   "nrv", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_NRV, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -151,7 +150,7 @@ pass_nrv::execute (function *fun)
   tree found = NULL;
   basic_block bb;
   gimple_stmt_iterator gsi;
-  struct nrv_data data;
+  struct nrv_data_t data;
 
   /* If this function does not return an aggregate type in memory, then
      there is nothing to do.  */
@@ -354,7 +353,6 @@ const pass_data pass_data_return_slot =
   GIMPLE_PASS, /* type */
   "retslot", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
