@@ -85,7 +85,7 @@ hoist_edge_and_branch_if_true (gimple_stmt_iterator *gsip,
 			       bool update_dominators)
 {
   tree tmp;
-  gimple_cond cond_stmt;
+  gcond *cond_stmt;
   edge e_false;
   basic_block new_bb, split_bb = gsi_bb (*gsip);
   bool dominated_e_true = false;
@@ -299,7 +299,7 @@ case_bit_test_cmp (const void *p1, const void *p2)
     node targets.  */
 
 static void
-emit_case_bit_tests (gimple_switch swtch, tree index_expr,
+emit_case_bit_tests (gswitch *swtch, tree index_expr,
 		     tree minval, tree range, tree maxval)
 {
   struct case_bit_test test[MAX_CASE_BIT_TESTS];
@@ -318,7 +318,7 @@ emit_case_bit_tests (gimple_switch swtch, tree index_expr,
   unsigned int branch_num = gimple_switch_num_labels (swtch);
 
   gimple_stmt_iterator gsi;
-  gimple_assign shift_stmt;
+  gassign *shift_stmt;
 
   tree idx, tmp, csui;
   tree word_type_node = lang_hooks.types.type_for_mode (word_mode, 1);
@@ -635,7 +635,7 @@ struct switch_conv_info
 /* Collect information about GIMPLE_SWITCH statement SWTCH into INFO.  */
 
 static void
-collect_switch_conv_info (gimple_switch swtch, struct switch_conv_info *info)
+collect_switch_conv_info (gswitch *swtch, struct switch_conv_info *info)
 {
   unsigned int branch_num = gimple_switch_num_labels (swtch);
   tree min_case, max_case;
@@ -773,12 +773,12 @@ check_all_empty_except_final (struct switch_conv_info *info)
 static bool
 check_final_bb (struct switch_conv_info *info)
 {
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
 
   info->phi_count = 0;
   for (gsi = gsi_start_phis (info->final_bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       unsigned int i;
 
       info->phi_count++;
@@ -854,7 +854,7 @@ free_temp_arrays (struct switch_conv_info *info)
 static void
 gather_default_values (tree default_case, struct switch_conv_info *info)
 {
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
   basic_block bb = label_to_block (CASE_LABEL (default_case));
   edge e;
   int i = 0;
@@ -868,7 +868,7 @@ gather_default_values (tree default_case, struct switch_conv_info *info)
 
   for (gsi = gsi_start_phis (info->final_bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       tree val = PHI_ARG_DEF_FROM_EDGE (phi, e);
       gcc_assert (val);
       info->default_values[i++] = val;
@@ -880,7 +880,7 @@ gather_default_values (tree default_case, struct switch_conv_info *info)
    order of phi nodes.  SWTCH is the switch statement being converted.  */
 
 static void
-build_constructors (gimple_switch swtch, struct switch_conv_info *info)
+build_constructors (gswitch *swtch, struct switch_conv_info *info)
 {
   unsigned i, branch_num = gimple_switch_num_labels (swtch);
   tree pos = info->range_min;
@@ -891,7 +891,7 @@ build_constructors (gimple_switch swtch, struct switch_conv_info *info)
       basic_block bb = label_to_block (CASE_LABEL (cs));
       edge e;
       tree high;
-      gimple_phi_iterator gsi;
+      gphi_iterator gsi;
       int j;
 
       if (bb == info->final_bb)
@@ -926,7 +926,7 @@ build_constructors (gimple_switch swtch, struct switch_conv_info *info)
       for (gsi = gsi_start_phis (info->final_bb);
 	   !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 	  tree val = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	  tree low = CASE_LOW (cs);
 	  pos = CASE_LOW (cs);
@@ -974,7 +974,7 @@ constructor_contains_same_values_p (vec<constructor_elt, va_gc> *vec)
    all the constants.  */
 
 static tree
-array_value_type (gimple_switch swtch, tree type, int num,
+array_value_type (gswitch *swtch, tree type, int num,
 		  struct switch_conv_info *info)
 {
   unsigned int i, len = vec_safe_length (info->constructors[num]);
@@ -1051,8 +1051,8 @@ array_value_type (gimple_switch swtch, tree type, int num,
    new array.  */
 
 static void
-build_one_array (gimple_switch swtch, int num, tree arr_index_type,
-		 gimple_phi phi, tree tidx, struct switch_conv_info *info)
+build_one_array (gswitch *swtch, int num, tree arr_index_type,
+		 gphi *phi, tree tidx, struct switch_conv_info *info)
 {
   tree name, cst;
   gimple load;
@@ -1117,13 +1117,13 @@ build_one_array (gimple_switch swtch, int num, tree arr_index_type,
    them.  */
 
 static void
-build_arrays (gimple_switch swtch, struct switch_conv_info *info)
+build_arrays (gswitch *swtch, struct switch_conv_info *info)
 {
   tree arr_index_type;
   tree tidx, sub, utype;
   gimple stmt;
   gimple_stmt_iterator gsi;
-  gimple_phi_iterator gpi;
+  gphi_iterator gpi;
   int i;
   location_t loc = gimple_location (swtch);
 
@@ -1157,11 +1157,11 @@ build_arrays (gimple_switch swtch, struct switch_conv_info *info)
 /* Generates and appropriately inserts loads of default values at the position
    given by BSI.  Returns the last inserted statement.  */
 
-static gimple_assign
+static gassign *
 gen_def_assigns (gimple_stmt_iterator *gsi, struct switch_conv_info *info)
 {
   int i;
-  gimple_assign assign = NULL;
+  gassign *assign = NULL;
 
   for (i = 0; i < info->phi_count; i++)
     {
@@ -1205,13 +1205,13 @@ static void
 fix_phi_nodes (edge e1f, edge e2f, basic_block bbf,
 	       struct switch_conv_info *info)
 {
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
   int i;
 
   for (gsi = gsi_start_phis (bbf), i = 0;
        !gsi_end_p (gsi); gsi_next (&gsi), i++)
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       add_phi_arg (phi, info->target_inbound_names[i], e1f, UNKNOWN_LOCATION);
       add_phi_arg (phi, info->target_outbound_names[i], e2f, UNKNOWN_LOCATION);
     }
@@ -1239,18 +1239,18 @@ fix_phi_nodes (edge e1f, edge e2f, basic_block bbf,
 */
 
 static void
-gen_inbound_check (gimple_switch swtch, struct switch_conv_info *info)
+gen_inbound_check (gswitch *swtch, struct switch_conv_info *info)
 {
   tree label_decl1 = create_artificial_label (UNKNOWN_LOCATION);
   tree label_decl2 = create_artificial_label (UNKNOWN_LOCATION);
   tree label_decl3 = create_artificial_label (UNKNOWN_LOCATION);
-  gimple_label label1, label2, label3;
+  glabel *label1, *label2, *label3;
   tree utype, tidx;
   tree bound;
 
-  gimple_cond cond_stmt;
+  gcond *cond_stmt;
 
-  gimple_assign last_assign;
+  gassign *last_assign;
   gimple_stmt_iterator gsi;
   basic_block bb0, bb1, bb2, bbf, bbd;
   edge e01, e02, e21, e1d, e1f, e2f;
@@ -1359,7 +1359,7 @@ gen_inbound_check (gimple_switch swtch, struct switch_conv_info *info)
    conversion failed.  */
 
 static const char *
-process_switch (gimple_switch swtch)
+process_switch (gswitch *swtch)
 {
   struct switch_conv_info info;
 
@@ -1493,7 +1493,7 @@ pass_convert_switch::execute (function *fun)
 	    putc ('\n', dump_file);
 	  }
 
-	failure_reason = process_switch (as_a <gimple_switch> (stmt));
+	failure_reason = process_switch (as_a <gswitch *> (stmt));
 	if (! failure_reason)
 	  {
 	    if (dump_file)

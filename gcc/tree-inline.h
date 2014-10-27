@@ -127,7 +127,7 @@ struct copy_body_data
   bitmap blocks_to_copy;
 
   /* Debug statements that need processing.  */
-  vec<gimple_debug> debug_stmts;
+  vec<gdebug *> debug_stmts;
 
   /* A map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined, where

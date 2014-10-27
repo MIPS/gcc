@@ -406,7 +406,7 @@ gen_emutls_addr (tree decl, struct lower_emutls_data *d)
     {
       varpool_node *cvar;
       tree cdecl;
-      gimple_call x;
+      gcall *x;
 
       cvar = data->control_var;
       cdecl = cvar->decl;
@@ -556,7 +556,7 @@ lower_emutls_stmt (gimple stmt, struct lower_emutls_data *d)
 /* Lower the I'th operand of PHI.  */
 
 static void
-lower_emutls_phi_arg (gimple_phi phi, unsigned int i,
+lower_emutls_phi_arg (gphi *phi, unsigned int i,
 		      struct lower_emutls_data *d)
 {
   struct walk_stmt_info wi;
@@ -639,7 +639,7 @@ lower_emutls_function_body (struct cgraph_node *node)
 	      clear_access_vars ();
 	      d.seq = NULL;
 
-	      for (gimple_phi_iterator gsi = gsi_start_phis (d.bb);
+	      for (gphi_iterator gsi = gsi_start_phis (d.bb);
 		   !gsi_end_p (gsi);
 		   gsi_next (&gsi))
 		lower_emutls_phi_arg (gsi.phi (), i, &d);

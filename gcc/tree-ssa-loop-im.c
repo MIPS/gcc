@@ -622,7 +622,7 @@ mem_ref_in_stmt (gimple stmt)
    else return false.  */
 
 static bool
-extract_true_false_args_from_phi (basic_block dom, gimple_phi phi,
+extract_true_false_args_from_phi (basic_block dom, gphi *phi,
 				  tree *true_arg_p, tree *false_arg_p)
 {
   basic_block bb = gimple_bb (phi);
@@ -705,7 +705,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
     level = superloop_at_depth (loop, 1);
   lim_data->max_loop = level;
 
-  if (gimple_phi phi = dyn_cast <gimple_phi> (stmt))
+  if (gphi *phi = dyn_cast <gphi *> (stmt))
     {
       use_operand_p use_p;
       unsigned min_cost = UINT_MAX;
@@ -875,12 +875,12 @@ nonpure_call_p (gimple stmt)
 static gimple
 rewrite_reciprocal (gimple_stmt_iterator *bsi)
 {
-  gimple_assign stmt, stmt1, stmt2;
+  gassign *stmt, *stmt1, *stmt2;
   tree name, lhs, type;
   tree real_one;
   gimple_stmt_iterator gsi;
 
-  stmt = as_a <gimple_assign> (gsi_stmt (*bsi));
+  stmt = as_a <gassign *> (gsi_stmt (*bsi));
   lhs = gimple_assign_lhs (stmt);
   type = TREE_TYPE (lhs);
 
@@ -910,22 +910,22 @@ rewrite_reciprocal (gimple_stmt_iterator *bsi)
 static gimple
 rewrite_bittest (gimple_stmt_iterator *bsi)
 {
-  gimple_assign stmt;
+  gassign *stmt;
   gimple stmt1;
-  gimple_assign stmt2;
+  gassign *stmt2;
   gimple use_stmt;
-  gimple_cond cond_stmt;
+  gcond *cond_stmt;
   tree lhs, name, t, a, b;
   use_operand_p use;
 
-  stmt = as_a <gimple_assign> (gsi_stmt (*bsi));
+  stmt = as_a <gassign *> (gsi_stmt (*bsi));
   lhs = gimple_assign_lhs (stmt);
 
   /* Verify that the single use of lhs is a comparison against zero.  */
   if (TREE_CODE (lhs) != SSA_NAME
       || !single_imm_use (lhs, &use, &use_stmt))
     return stmt;
-  cond_stmt = dyn_cast <gimple_cond> (use_stmt);
+  cond_stmt = dyn_cast <gcond *> (use_stmt);
   if (!cond_stmt)
     return stmt;
   if (gimple_cond_lhs (cond_stmt) != lhs
@@ -1171,10 +1171,10 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
   if (!loop_outer (bb->loop_father))
     return;
 
-  for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi); )
+  for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi); )
     {
-      gimple_assign new_stmt;
-      gimple_phi stmt = bsi.phi ();
+      gassign *new_stmt;
+      gphi *stmt = bsi.phi ();
 
       lim_data = get_lim_data (stmt);
       if (lim_data == NULL)
@@ -1270,11 +1270,11 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
 	{
 	  /* The new VUSE is the one from the virtual PHI in the loop
 	     header or the one already present.  */
-	  gimple_phi_iterator gsi2;
+	  gphi_iterator gsi2;
 	  for (gsi2 = gsi_start_phis (e->dest);
 	       !gsi_end_p (gsi2); gsi_next (&gsi2))
 	    {
-	      gimple_phi phi = gsi2.phi ();
+	      gphi *phi = gsi2.phi ();
 	      if (virtual_operand_p (gimple_phi_result (phi)))
 		{
 		  gimple_set_vuse (stmt, PHI_ARG_DEF_FROM_EDGE (phi, e));
@@ -1881,10 +1881,10 @@ execute_sm_if_changed (edge ex, tree mem, tree tmp_var, tree flag)
   }
 
   if (!loop_has_only_one_exit)
-    for (gimple_phi_iterator gpi = gsi_start_phis (old_dest);
+    for (gphi_iterator gpi = gsi_start_phis (old_dest);
 	 !gsi_end_p (gpi); gsi_next (&gpi))
       {
-	gimple_phi phi = gpi.phi ();
+	gphi *phi = gpi.phi ();
 	unsigned i;
 
 	for (i = 0; i < gimple_phi_num_args (phi); i++)
@@ -1946,7 +1946,7 @@ execute_sm (struct loop *loop, vec<edge> exits, mem_ref_p ref)
 {
   tree tmp_var, store_flag = NULL_TREE;
   unsigned i;
-  gimple_assign load;
+  gassign *load;
   struct fmt_data fmt_data;
   edge ex;
   struct lim_aux_data *lim_data;
@@ -2003,7 +2003,7 @@ execute_sm (struct loop *loop, vec<edge> exits, mem_ref_p ref)
   FOR_EACH_VEC_ELT (exits, i, ex)
     if (!multi_threaded_model_p)
       {
-	gimple_assign store;
+	gassign *store;
 	store = gimple_build_assign (unshare_expr (ref->mem.ref), tmp_var);
 	gsi_insert_on_edge (ex, store);
       }

@@ -1119,7 +1119,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
    vn_reference_op_s's.  */
 
 static void
-copy_reference_ops_from_call (gimple_call call,
+copy_reference_ops_from_call (gcall *call,
 			      vec<vn_reference_op_s> *result)
 {
   vn_reference_op_s temp;
@@ -1443,7 +1443,7 @@ valueize_shared_reference_ops_from_ref (tree ref, bool *valueized_anything)
    this function.  */
 
 static vec<vn_reference_op_s> 
-valueize_shared_reference_ops_from_call (gimple_call call)
+valueize_shared_reference_ops_from_call (gcall *call)
 {
   if (!call)
     return vNULL;
@@ -1617,7 +1617,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	}
       if (valueized_anything)
 	{
-	  bool res = call_may_clobber_ref_p_1 (as_a <gimple_call> (def_stmt),
+	  bool res = call_may_clobber_ref_p_1 (as_a <gcall *> (def_stmt),
 					       ref);
 	  for (unsigned i = 0; i < gimple_call_num_args (def_stmt); ++i)
 	    gimple_call_set_arg (def_stmt, i, oldargs[i]);
@@ -2144,7 +2144,7 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
    *VNRESULT if found.  Populates *VR for the hashtable lookup.  */
 
 void
-vn_reference_lookup_call (gimple_call call, vn_reference_t *vnresult,
+vn_reference_lookup_call (gcall *call, vn_reference_t *vnresult,
 			  vn_reference_t vr)
 {
   if (vnresult)
@@ -2847,7 +2847,7 @@ visit_nary_op (tree lhs, gimple stmt)
    of the LHS has changed as a result.  */
 
 static bool
-visit_reference_op_call (tree lhs, gimple_call stmt)
+visit_reference_op_call (tree lhs, gcall *stmt)
 {
   bool changed = false;
   struct vn_reference_s vr1;
@@ -3299,7 +3299,7 @@ simplify_binary_expression (gimple stmt)
    simplified. */
 
 static tree
-simplify_unary_expression (gimple_assign stmt)
+simplify_unary_expression (gassign *stmt)
 {
   tree result = NULL_TREE;
   tree orig_op0, op0 = gimple_assign_rhs1 (stmt);
@@ -3363,7 +3363,7 @@ simplify_unary_expression (gimple_assign stmt)
 /* Try to simplify RHS using equivalences and constant folding.  */
 
 static tree
-try_to_simplify (gimple_assign stmt)
+try_to_simplify (gassign *stmt)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   tree tem;
@@ -3451,7 +3451,7 @@ visit_use (tree use)
 	      changed = visit_copy (lhs, rhs1);
 	      goto done;
 	    }
-	  simplified = try_to_simplify (as_a <gimple_assign> (stmt));
+	  simplified = try_to_simplify (as_a <gassign *> (stmt));
 	  if (simplified)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3581,7 +3581,7 @@ visit_use (tree use)
 	  else
 	    changed = defs_to_varying (stmt);
 	}
-      else if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
+      else if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	{
 	  tree lhs = gimple_call_lhs (stmt);
 	  if (lhs && TREE_CODE (lhs) == SSA_NAME)
@@ -3934,7 +3934,7 @@ start_over:
   if (!gimple_nop_p (defstmt))
     {
       /* Push a new iterator.  */
-      if (gimple_phi phi = dyn_cast <gimple_phi> (defstmt))
+      if (gphi *phi = dyn_cast <gphi *> (defstmt))
 	usep = op_iter_init_phiuse (&iter, phi, SSA_OP_ALL_USES);
       else
 	usep = op_iter_init_use (&iter, defstmt, SSA_OP_ALL_USES);
@@ -4257,7 +4257,7 @@ cond_dom_walker::before_dom_children (basic_block bb)
 	break;
       }
     case GIMPLE_SWITCH:
-      val = gimple_switch_index (as_a <gimple_switch> (stmt));
+      val = gimple_switch_index (as_a <gswitch *> (stmt));
       break;
     case GIMPLE_GOTO:
       val = gimple_goto_dest (stmt);

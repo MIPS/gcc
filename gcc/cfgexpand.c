@@ -1995,9 +1995,9 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_label lab_stmt;
+      glabel *lab_stmt;
 
-      lab_stmt = dyn_cast <gimple_label> (gsi_stmt (gsi));
+      lab_stmt = dyn_cast <glabel *> (gsi_stmt (gsi));
       if (!lab_stmt)
 	break;
 
@@ -2071,7 +2071,7 @@ maybe_cleanup_end_of_block (edge e, rtx_insn *last)
    block and created a new one.  */
 
 static basic_block
-expand_gimple_cond (basic_block bb, gimple_cond stmt)
+expand_gimple_cond (basic_block bb, gcond *stmt)
 {
   basic_block new_bb, dest;
   edge new_edge;
@@ -2242,7 +2242,7 @@ mark_transaction_restart_calls (gimple stmt)
    statement STMT.  */
 
 static void
-expand_call_stmt (gimple_call stmt)
+expand_call_stmt (gcall *stmt)
 {
   tree exp, decl, lhs;
   bool builtin_p;
@@ -2928,7 +2928,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
 
 static void
-expand_asm_stmt (gimple_asm stmt)
+expand_asm_stmt (gasm *stmt)
 {
   int noutputs;
   tree outputs, tail, t;
@@ -3204,23 +3204,23 @@ expand_gimple_stmt_1 (gimple stmt)
 	expand_computed_goto (op0);
       break;
     case GIMPLE_LABEL:
-      expand_label (gimple_label_label (as_a <gimple_label> (stmt)));
+      expand_label (gimple_label_label (as_a <glabel *> (stmt)));
       break;
     case GIMPLE_NOP:
     case GIMPLE_PREDICT:
       break;
     case GIMPLE_SWITCH:
-      expand_case (as_a <gimple_switch> (stmt));
+      expand_case (as_a <gswitch *> (stmt));
       break;
     case GIMPLE_ASM:
-      expand_asm_stmt (as_a <gimple_asm> (stmt));
+      expand_asm_stmt (as_a <gasm *> (stmt));
       break;
     case GIMPLE_CALL:
-      expand_call_stmt (as_a <gimple_call> (stmt));
+      expand_call_stmt (as_a <gcall *> (stmt));
       break;
 
     case GIMPLE_RETURN:
-      op0 = gimple_return_retval (as_a <gimple_return> (stmt));
+      op0 = gimple_return_retval (as_a <greturn *> (stmt));
 
       if (op0 && op0 != error_mark_node)
 	{
@@ -3251,7 +3251,7 @@ expand_gimple_stmt_1 (gimple stmt)
 
     case GIMPLE_ASSIGN:
       {
-	gimple_assign assign_stmt = as_a <gimple_assign> (stmt);
+	gassign *assign_stmt = as_a <gassign *> (stmt);
 	tree lhs = gimple_assign_lhs (assign_stmt);
 
 	/* Tree expand used to fiddle with |= and &= of two bitfield
@@ -3409,7 +3409,7 @@ expand_gimple_stmt (gimple stmt)
    tailcall) and the normal result happens via a sqrt instruction.  */
 
 static basic_block
-expand_gimple_tailcall (basic_block bb, gimple_call stmt, bool *can_fallthru)
+expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
 {
   rtx_insn *last2, *last;
   edge e;
@@ -4917,7 +4917,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   if (!gsi_end_p (gsi)
       && gimple_code (gsi_stmt (gsi)) == GIMPLE_RETURN)
     {
-      gimple_return ret_stmt = as_a <gimple_return> (gsi_stmt (gsi));
+      greturn *ret_stmt = as_a <greturn *> (gsi_stmt (gsi));
 
       gcc_assert (single_succ_p (bb));
       gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun));
@@ -5074,7 +5074,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	 fixup the CFG accordingly.  */
       if (gimple_code (stmt) == GIMPLE_COND)
 	{
-	  new_bb = expand_gimple_cond (bb, as_a <gimple_cond> (stmt));
+	  new_bb = expand_gimple_cond (bb, as_a <gcond *> (stmt));
 	  if (new_bb)
 	    return new_bb;
 	}
@@ -5174,7 +5174,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	}
       else
 	{
-	  gimple_call call_stmt = dyn_cast <gimple_call> (stmt);
+	  gcall *call_stmt = dyn_cast <gcall *> (stmt);
 	  if (call_stmt
 	      && gimple_call_tail_p (call_stmt)
 	      && disable_tail_calls)

@@ -174,7 +174,7 @@ check_target_format (tree arg)
 #define MAX_BASE_INT_BIT_SIZE 32
 
 static bool
-check_pow (gimple_call pow_call)
+check_pow (gcall *pow_call)
 {
   tree base, expn;
   enum tree_code bc, ec;
@@ -248,7 +248,7 @@ check_pow (gimple_call pow_call)
    Returns true if the function call is a candidate.  */
 
 static bool
-check_builtin_call (gimple_call bcall)
+check_builtin_call (gcall *bcall)
 {
   tree arg;
 
@@ -261,7 +261,7 @@ check_builtin_call (gimple_call bcall)
    is a candidate.  */
 
 static bool
-is_call_dce_candidate (gimple_call call)
+is_call_dce_candidate (gcall *call)
 {
   tree fn;
   enum built_in_function fnc;
@@ -332,9 +332,9 @@ gen_one_condition (tree arg, int lbub,
 {
   tree lbub_real_cst, lbub_cst, float_type;
   tree temp, tempn, tempc, tempcn;
-  gimple_assign stmt1;
-  gimple_assign stmt2;
-  gimple_cond stmt3;
+  gassign *stmt1;
+  gassign *stmt2;
+  gcond *stmt3;
 
   float_type = TREE_TYPE (arg);
   lbub_cst = build_int_cst (integer_type_node, lbub);
@@ -539,7 +539,7 @@ gen_conditions_for_pow_int_base (tree base, tree expn,
    and *NCONDS is the number of logical conditions.  */
 
 static void
-gen_conditions_for_pow (gimple_call pow_call, vec<gimple> conds,
+gen_conditions_for_pow (gcall *pow_call, vec<gimple> conds,
                         unsigned *nconds)
 {
   tree base, expn;
@@ -675,10 +675,10 @@ get_no_error_domain (enum built_in_function fnc)
    condition are separated by NULL tree in the vector.  */
 
 static void
-gen_shrink_wrap_conditions (gimple_call bi_call, vec<gimple> conds,
+gen_shrink_wrap_conditions (gcall *bi_call, vec<gimple> conds,
                             unsigned int *nconds)
 {
-  gimple_call call;
+  gcall *call;
   tree fn;
   enum built_in_function fnc;
 
@@ -716,7 +716,7 @@ gen_shrink_wrap_conditions (gimple_call bi_call, vec<gimple> conds,
    transformation actually happens.  */
 
 static bool
-shrink_wrap_one_built_in_call (gimple_call bi_call)
+shrink_wrap_one_built_in_call (gcall *bi_call)
 {
   gimple_stmt_iterator bi_call_bsi;
   basic_block bi_call_bb, join_tgt_bb, guard_bb, guard_bb0;
@@ -851,7 +851,7 @@ shrink_wrap_one_built_in_call (gimple_call bi_call)
    wrapping transformation.  */
 
 static bool
-shrink_wrap_conditional_dead_built_in_calls (vec<gimple_call> calls)
+shrink_wrap_conditional_dead_built_in_calls (vec<gcall *> calls)
 {
   bool changed = false;
   unsigned i = 0;
@@ -862,7 +862,7 @@ shrink_wrap_conditional_dead_built_in_calls (vec<gimple_call> calls)
 
   for (; i < n ; i++)
     {
-      gimple_call bi_call = calls[i];
+      gcall *bi_call = calls[i];
       changed |= shrink_wrap_one_built_in_call (bi_call);
     }
 
@@ -911,13 +911,13 @@ pass_call_cdce::execute (function *fun)
   basic_block bb;
   gimple_stmt_iterator i;
   bool something_changed = false;
-  auto_vec<gimple_call> cond_dead_built_in_calls;
+  auto_vec<gcall *> cond_dead_built_in_calls;
   FOR_EACH_BB_FN (bb, fun)
     {
       /* Collect dead call candidates.  */
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
         {
-	  gimple_call stmt = dyn_cast <gimple_call> (gsi_stmt (i));
+	  gcall *stmt = dyn_cast <gcall *> (gsi_stmt (i));
           if (stmt && is_call_dce_candidate (stmt))
             {
               if (dump_file && (dump_flags & TDF_DETAILS))

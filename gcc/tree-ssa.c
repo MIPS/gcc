@@ -149,8 +149,8 @@ redirect_edge_var_map_destroy (void)
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  gimple_phi_iterator gsi;
-  gimple_phi phi;
+  gphi_iterator gsi;
+  gphi *phi;
 
   redirect_edge_var_map_clear (e);
 
@@ -182,10 +182,10 @@ ssa_redirect_edge (edge e, basic_block dest)
 void
 flush_pending_stmts (edge e)
 {
-  gimple_phi phi;
+  gphi *phi;
   edge_var_map *vm;
   int i;
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
 
   vec<edge_var_map> *v = redirect_edge_var_map_vector (e);
   if (!v)
@@ -358,7 +358,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
      we'll have to drop debug information.  */
   if (gimple_code (def_stmt) == GIMPLE_PHI)
     {
-      value = degenerate_phi_result (as_a <gimple_phi> (def_stmt));
+      value = degenerate_phi_result (as_a <gphi *> (def_stmt));
       if (value && walk_tree (&value, find_released_ssa_name, NULL, NULL))
 	value = NULL;
       /* error_mark_node is what fixup_noreturn_call changes PHI arguments
@@ -436,7 +436,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
 	;
       else
 	{
-	  gimple_debug def_temp;
+	  gdebug *def_temp;
 	  tree vexpr = make_node (DEBUG_EXPR_DECL);
 
 	  def_temp = gimple_build_debug_bind (vexpr,
@@ -830,7 +830,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
       definition of SSA_NAME.  */
 
 static bool
-verify_phi_args (gimple_phi phi, basic_block bb, basic_block *definition_block)
+verify_phi_args (gphi *phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
@@ -975,9 +975,9 @@ verify_ssa (bool check_modified_stmt, bool check_ssa_operands)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 	  if (verify_phi_args (phi, bb, definition_block))
 	    goto err;
 
@@ -1453,7 +1453,7 @@ execute_update_addresses_taken (void)
 
 	  else if (code == GIMPLE_ASM)
 	    {
-	      gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	      gasm *asm_stmt = as_a <gasm *> (stmt);
 	      for (i = 0; i < gimple_asm_noutputs (asm_stmt); ++i)
 		{
 		  tree link = gimple_asm_output_op (asm_stmt, i);
@@ -1480,11 +1480,11 @@ execute_update_addresses_taken (void)
 	    }
 	}
 
-      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+      for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
 	  size_t i;
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
 	    {
@@ -1585,7 +1585,7 @@ execute_update_addresses_taken (void)
 
 	    else if (gimple_code (stmt) == GIMPLE_ASM)
 	      {
-		gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+		gasm *asm_stmt = as_a <gasm *> (stmt);
 		unsigned i;
 		for (i = 0; i < gimple_asm_noutputs (asm_stmt); ++i)
 		  {

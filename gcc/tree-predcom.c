@@ -1112,15 +1112,15 @@ valid_initializer_p (struct data_reference *ref,
    iteration), returns the phi node.  Otherwise, NULL_TREE is returned.  ROOT
    is the root of the current chain.  */
 
-static gimple_phi
+static gphi *
 find_looparound_phi (struct loop *loop, dref ref, dref root)
 {
   tree name, init, init_ref;
-  gimple_phi phi = NULL;
+  gphi *phi = NULL;
   gimple init_stmt;
   edge latch = loop_latch_edge (loop);
   struct data_reference init_dr;
-  gimple_phi_iterator psi;
+  gphi_iterator psi;
 
   if (is_gimple_assign (ref->stmt))
     {
@@ -1174,7 +1174,7 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
 /* Adds a reference for the looparound copy of REF in PHI to CHAIN.  */
 
 static void
-insert_looparound_copy (chain_p chain, dref ref, gimple_phi phi)
+insert_looparound_copy (chain_p chain, dref ref, gphi *phi)
 {
   dref nw = XCNEW (struct dref_d), aref;
   unsigned i;
@@ -1205,7 +1205,7 @@ add_looparound_copies (struct loop *loop, chain_p chain)
 {
   unsigned i;
   dref ref, root = get_chain_root (chain);
-  gimple_phi phi;
+  gphi *phi;
 
   FOR_EACH_VEC_ELT (chain->refs, i, ref)
     {
@@ -1293,7 +1293,7 @@ static void
 replace_ref_with (gimple stmt, tree new_tree, bool set, bool in_lhs)
 {
   tree val;
-  gimple_assign new_stmt;
+  gassign *new_stmt;
   gimple_stmt_iterator bsi, psi;
 
   if (gimple_code (stmt) == GIMPLE_PHI)
@@ -1457,7 +1457,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
   dref root = get_chain_root (chain);
   bool reuse_first = !chain->has_max_use_after;
   tree ref, init, var, next;
-  gimple_phi phi;
+  gphi *phi;
   gimple_seq stmts;
   edge entry = loop_preheader_edge (loop), latch = loop_latch_edge (loop);
 
@@ -1531,7 +1531,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
   unsigned i;
   tree ref = DR_REF (root->ref), init, var, next;
   gimple_seq stmts;
-  gimple_phi phi;
+  gphi *phi;
   edge entry = loop_preheader_edge (loop), latch = loop_latch_edge (loop);
 
   /* Find the initializer for the variable, and check that it cannot
@@ -1562,7 +1562,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     }
   else
     {
-      gimple_assign init_stmt = gimple_build_assign (var, init);
+      gassign *init_stmt = gimple_build_assign (var, init);
       gsi_insert_on_edge_immediate (entry, init_stmt);
     }
 }
@@ -1888,10 +1888,10 @@ static void
 eliminate_temp_copies (struct loop *loop, bitmap tmp_vars)
 {
   edge e;
-  gimple_phi phi;
+  gphi *phi;
   gimple stmt;
   tree name, use, var;
-  gimple_phi_iterator psi;
+  gphi_iterator psi;
 
   e = loop_latch_edge (loop);
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
@@ -2129,7 +2129,7 @@ static gimple
 reassociate_to_the_same_stmt (tree name1, tree name2)
 {
   gimple stmt1, stmt2, root1, root2, s1, s2;
-  gimple_assign new_stmt, tmp_stmt;
+  gassign *new_stmt, *tmp_stmt;
   tree new_name, tmp_name, var, r1, r2;
   unsigned dist1, dist2;
   enum tree_code code;

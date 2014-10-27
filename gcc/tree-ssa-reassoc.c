@@ -1318,7 +1318,7 @@ build_and_add_sum (tree type, tree op1, tree op2, enum tree_code opcode)
   gimple op1def = NULL, op2def = NULL;
   gimple_stmt_iterator gsi;
   tree op;
-  gimple_assign sum;
+  gassign *sum;
 
   /* Create the addition statement.  */
   op = make_ssa_name (type, NULL);
@@ -2493,7 +2493,7 @@ suitable_cond_bb (basic_block bb, basic_block test_bb, basic_block *other_bb,
   edge_iterator ei, ei2;
   edge e, e2;
   gimple stmt;
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
   bool other_edge_seen = false;
   bool is_cond;
 
@@ -2555,7 +2555,7 @@ suitable_cond_bb (basic_block bb, basic_block test_bb, basic_block *other_bb,
   e2 = find_edge (test_bb, *other_bb);
   for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       /* If both BB and TEST_BB end with GIMPLE_COND, all PHI arguments
 	 corresponding to BB and TEST_BB predecessor must be the same.  */
       if (!operand_equal_p (gimple_phi_arg_def (phi, e->dest_idx),
@@ -2706,7 +2706,7 @@ update_ops (tree var, enum tree_code code, vec<operand_entry_t> ops,
     {
       gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
       var = make_ssa_name (TREE_TYPE (var), NULL);
-      gimple_assign g =
+      gassign *g =
 	gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt),
 				      var, rhs[2], rhs[3]);
       gimple_set_uid (g, gimple_uid (stmt));
@@ -3006,7 +3006,7 @@ maybe_optimize_range_tests (gimple stmt)
 		      tree new_lhs = make_ssa_name (TREE_TYPE (lhs), NULL);
 		      enum tree_code rhs_code
 			= gimple_assign_rhs_code (cast_stmt);
-		      gimple_assign g;
+		      gassign *g;
 		      if (is_gimple_min_invariant (new_op))
 			{
 			  new_op = fold_convert (TREE_TYPE (lhs), new_op);
@@ -3040,7 +3040,7 @@ maybe_optimize_range_tests (gimple stmt)
 	      && bbinfo[idx].op == NULL_TREE
 	      && ops[bbinfo[idx].first_idx]->op != NULL_TREE)
 	    {
-	      gimple_cond cond_stmt = as_a <gimple_cond> (last_stmt (bb));
+	      gcond *cond_stmt = as_a <gcond *> (last_stmt (bb));
 	      if (integer_zerop (ops[bbinfo[idx].first_idx]->op))
 		gimple_cond_make_false (cond_stmt);
 	      else if (integer_onep (ops[bbinfo[idx].first_idx]->op))
@@ -3068,7 +3068,7 @@ static bool
 is_phi_for_stmt (gimple stmt, tree operand)
 {
   gimple def_stmt;
-  gimple_phi def_phi;
+  gphi *def_phi;
   tree lhs;
   use_operand_p arg_p;
   ssa_op_iter i;
@@ -3079,7 +3079,7 @@ is_phi_for_stmt (gimple stmt, tree operand)
   lhs = gimple_assign_lhs (stmt);
 
   def_stmt = SSA_NAME_DEF_STMT (operand);
-  def_phi = dyn_cast <gimple_phi> (def_stmt);
+  def_phi = dyn_cast <gphi *> (def_stmt);
   if (!def_phi)
     return false;
 
@@ -3396,7 +3396,7 @@ get_reassociation_width (int ops_num, enum tree_code opc,
    parallel.  */
 
 static void
-rewrite_expr_tree_parallel (gimple_assign stmt, int width,
+rewrite_expr_tree_parallel (gassign *stmt, int width,
 			    vec<operand_entry_t> ops)
 {
   enum tree_code opcode = gimple_assign_rhs_code (stmt);
@@ -4537,7 +4537,7 @@ reassociate_bb (basic_block bb)
 
 		  if (width > 1
 		      && ops.length () > 3)
-		    rewrite_expr_tree_parallel (as_a <gimple_assign> (stmt),
+		    rewrite_expr_tree_parallel (as_a <gassign *> (stmt),
 						width, ops);
 		  else
                     {

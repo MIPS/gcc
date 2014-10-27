@@ -1037,7 +1037,7 @@ get_iv (struct ivopts_data *data, tree var)
    not define a simple affine biv with nonzero step.  */
 
 static tree
-determine_biv_step (gimple_phi phi)
+determine_biv_step (gphi *phi)
 {
   struct loop *loop = gimple_bb (phi)->loop_father;
   tree name = PHI_RESULT (phi);
@@ -1057,11 +1057,11 @@ determine_biv_step (gimple_phi phi)
 static bool
 find_bivs (struct ivopts_data *data)
 {
-  gimple_phi phi;
+  gphi *phi;
   tree step, type, base;
   bool found = false;
   struct loop *loop = data->current_loop;
-  gimple_phi_iterator psi;
+  gphi_iterator psi;
 
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
@@ -1102,13 +1102,13 @@ find_bivs (struct ivopts_data *data)
 static void
 mark_bivs (struct ivopts_data *data)
 {
-  gimple_phi phi;
+  gphi *phi;
   gimple def;
   tree var;
   struct iv *iv, *incr_iv;
   struct loop *loop = data->current_loop;
   basic_block incr_bb;
-  gimple_phi_iterator psi;
+  gphi_iterator psi;
 
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
@@ -1379,7 +1379,7 @@ extract_cond_operands (struct ivopts_data *data, gimple stmt,
 
   if (gimple_code (stmt) == GIMPLE_COND)
     {
-      gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+      gcond *cond_stmt = as_a <gcond *> (stmt);
       op0 = gimple_cond_lhs_ptr (cond_stmt);
       op1 = gimple_cond_rhs_ptr (cond_stmt);
     }
@@ -1996,8 +1996,8 @@ find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
 static void
 find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 {
-  gimple_phi phi;
-  gimple_phi_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
   tree def;
 
   for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); gsi_next (&psi))
@@ -5187,8 +5187,8 @@ static void
 determine_set_costs (struct ivopts_data *data)
 {
   unsigned j, n;
-  gimple_phi phi;
-  gimple_phi_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
   tree op;
   struct loop *loop = data->current_loop;
   bitmap_iterator bi;
@@ -6229,7 +6229,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 {
   tree comp;
   tree op, tgt;
-  gimple_assign ass;
+  gassign *ass;
   gimple_stmt_iterator bsi;
 
   /* An important special case -- if we are asked to express value of
@@ -6481,7 +6481,7 @@ rewrite_use_compare (struct ivopts_data *data,
 		loop_preheader_edge (data->current_loop),
 		stmts);
 
-      gimple_cond cond_stmt = as_a <gimple_cond> (use->stmt);
+      gcond *cond_stmt = as_a <gcond *> (use->stmt);
       gimple_cond_set_lhs (cond_stmt, var);
       gimple_cond_set_code (cond_stmt, compare);
       gimple_cond_set_rhs (cond_stmt, op);
@@ -6647,7 +6647,7 @@ remove_unused_ivs (struct ivopts_data *data)
 		    DECL_MODE (vexpr) = DECL_MODE (SSA_NAME_VAR (def));
 		  else
 		    DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (vexpr));
-		  gimple_debug def_temp =
+		  gdebug *def_temp =
 		    gimple_build_debug_bind (vexpr, comp, NULL);
 		  gimple_stmt_iterator gsi;
 

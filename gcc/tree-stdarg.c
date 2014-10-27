@@ -538,13 +538,13 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      for (gimple_phi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+      for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
 	   gsi_next (&i))
 	{
 	  tree lhs;
 	  use_operand_p uop;
 	  ssa_op_iter soi;
-	  gimple_phi phi = i.phi ();
+	  gphi *phi = i.phi ();
 
 	  lhs = PHI_RESULT (phi);
 	  if (virtual_operand_p (lhs)
@@ -848,10 +848,10 @@ pass_stdarg::execute (function *fun)
 	  use_operand_p uop;
 	  ssa_op_iter soi;
 
-	  for (gimple_phi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+	  for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
 	       gsi_next (&i))
 	    {
-	      gimple_phi phi = i.phi ();
+	      gphi *phi = i.phi ();
 	      lhs = PHI_RESULT (phi);
 
 	      if (virtual_operand_p (lhs))

@@ -44,14 +44,14 @@ along with GCC; see the file COPYING3.  If not see
 /* Read a PHI function for basic block BB in function FN.  DATA_IN is
    the file being read.  IB is the input block to use for reading.  */
 
-static gimple_phi
+static gphi *
 input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
 	   struct function *fn)
 {
   unsigned HOST_WIDE_INT ix;
   tree phi_result;
   int i, len;
-  gimple_phi result;
+  gphi *result;
 
   ix = streamer_read_uhwi (ib);
   phi_result = (*SSANAMES (fn))[ix];
@@ -123,25 +123,25 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   switch (code)
     {
     case GIMPLE_RESX:
-      gimple_resx_set_region (as_a <gimple_resx> (stmt),
+      gimple_resx_set_region (as_a <gresx *> (stmt),
 			      streamer_read_hwi (ib));
       break;
 
     case GIMPLE_EH_MUST_NOT_THROW:
       gimple_eh_must_not_throw_set_fndecl (
-	as_a <gimple_eh_must_not_throw> (stmt),
+	as_a <geh_mnt *> (stmt),
 	stream_read_tree (ib, data_in));
       break;
 
     case GIMPLE_EH_DISPATCH:
-      gimple_eh_dispatch_set_region (as_a <gimple_eh_dispatch> (stmt),
+      gimple_eh_dispatch_set_region (as_a <geh_dispatch *> (stmt),
 				     streamer_read_hwi (ib));
       break;
 
     case GIMPLE_ASM:
       {
 	/* FIXME lto.  Move most of this into a new gimple_asm_set_string().  */
-	gimple_statement_asm *asm_stmt = as_a <gimple_statement_asm *> (stmt);
+	gasm *asm_stmt = as_a <gasm *> (stmt);
 	tree str;
 	asm_stmt->ni = streamer_read_uhwi (ib);
 	asm_stmt->no = streamer_read_uhwi (ib);
@@ -189,7 +189,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 		  == TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*opp, 0), 0))))
 	    *opp = TREE_OPERAND (TREE_OPERAND (*opp, 0), 0);
 	}
-      if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
+      if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	{
 	  if (gimple_call_internal_p (call_stmt))
 	    gimple_call_set_internal_fn
@@ -204,7 +204,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case GIMPLE_TRANSACTION:
-      gimple_transaction_set_label (as_a <gimple_transaction> (stmt),
+      gimple_transaction_set_label (as_a <gtransaction *> (stmt),
 				    stream_read_tree (ib, data_in));
       break;
 
@@ -223,7 +223,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     }
   else if (code == GIMPLE_ASM)
     {
-      gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+      gasm *asm_stmt = as_a <gasm *> (stmt);
       unsigned i;
 
       for (i = 0; i < gimple_asm_noutputs (asm_stmt); i++)
@@ -236,7 +236,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 
   /* Reset alias information.  */
   if (code == GIMPLE_CALL)
-    gimple_call_reset_alias_info (as_a <gimple_call> (stmt));
+    gimple_call_reset_alias_info (as_a <gcall *> (stmt));
 
   /* Mark the statement modified so its operand vectors can be filled in.  */
   gimple_set_modified (stmt, true);

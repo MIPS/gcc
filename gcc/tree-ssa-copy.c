@@ -331,7 +331,7 @@ copy_prop_visit_stmt (gimple stmt, edge *taken_edge_p, tree *result_p)
    set it to be the value of the LHS of PHI.  */
 
 static enum ssa_prop_result
-copy_prop_visit_phi_node (gimple_phi phi)
+copy_prop_visit_phi_node (gphi *phi)
 {
   enum ssa_prop_result retval;
   unsigned i;
@@ -477,10 +477,10 @@ init_copy_prop (void)
 	      set_copy_of_val (def, def);
 	}
 
-      for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+      for (gphi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
 	   gsi_next (&si))
 	{
-          gimple_phi phi = si.phi ();
+          gphi *phi = si.phi ();
           tree def;
 
 	  def = gimple_phi_result (phi);

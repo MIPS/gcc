@@ -158,8 +158,8 @@ same_phi_args_p (basic_block bb1, basic_block bb2, basic_block dest)
 {
   edge e1 = find_edge (bb1, dest);
   edge e2 = find_edge (bb2, dest);
-  gimple_phi_iterator gsi;
-  gimple_phi phi;
+  gphi_iterator gsi;
+  gphi *phi;
 
   for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
@@ -202,7 +202,7 @@ get_name_for_bit_test (tree candidate)
    Returns true if the pattern matched, false otherwise.  */
 
 static bool
-recognize_single_bit_test (gimple_cond cond, tree *name, tree *bit, bool inv)
+recognize_single_bit_test (gcond *cond, tree *name, tree *bit, bool inv)
 {
   gimple stmt;
 
@@ -311,7 +311,7 @@ recognize_single_bit_test (gimple_cond cond, tree *name, tree *bit, bool inv)
    Returns true if the pattern matched, false otherwise.  */
 
 static bool
-recognize_bits_test (gimple_cond cond, tree *name, tree *bits, bool inv)
+recognize_bits_test (gcond *cond, tree *name, tree *bits, bool inv)
 {
   gimple stmt;
 
@@ -343,20 +343,20 @@ ifcombine_ifandif (basic_block inner_cond_bb, bool inner_inv,
 {
   gimple_stmt_iterator gsi;
   gimple inner_stmt, outer_stmt;
-  gimple_cond inner_cond, outer_cond;
+  gcond *inner_cond, *outer_cond;
   tree name1, name2, bit1, bit2, bits1, bits2;
 
   inner_stmt = last_stmt (inner_cond_bb);
   if (!inner_stmt
       || gimple_code (inner_stmt) != GIMPLE_COND)
     return false;
-  inner_cond = as_a <gimple_cond> (inner_stmt);
+  inner_cond = as_a <gcond *> (inner_stmt);
 
   outer_stmt = last_stmt (outer_cond_bb);
   if (!outer_stmt
       || gimple_code (outer_stmt) != GIMPLE_COND)
     return false;
-  outer_cond = as_a <gimple_cond> (outer_stmt);
+  outer_cond = as_a <gcond *> (outer_stmt);
 
   /* See if we test a single bit of the same name in both tests.  In
      that case remove the outer test, merging both else edges,

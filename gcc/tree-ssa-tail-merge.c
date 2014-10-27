@@ -505,12 +505,12 @@ same_succ_hash (const_same_succ e)
   EXECUTE_IF_SET_IN_BITMAP (e->succs, 0, s, bs)
     {
       int n = find_edge (bb, BASIC_BLOCK_FOR_FN (cfun, s))->dest_idx;
-      for (gimple_phi_iterator gsi =
+      for (gphi_iterator gsi =
 	     gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s));
 	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 	  tree lhs = gimple_phi_result (phi);
 	  tree val = gimple_phi_arg_def (phi, n);
 
@@ -858,10 +858,10 @@ release_last_vdef (basic_block bb)
       return;
     }
 
-  for (gimple_phi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+  for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
        gsi_next (&i))
     {
-      gimple_phi phi = i.phi ();
+      gphi *phi = i.phi ();
       tree res = gimple_phi_result (phi);
 
       if (!virtual_operand_p (res))
@@ -1286,11 +1286,11 @@ static bool
 same_phi_alternatives_1 (basic_block dest, edge e1, edge e2)
 {
   int n1 = e1->dest_idx, n2 = e2->dest_idx;
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
 
   for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       tree lhs = gimple_phi_result (phi);
       tree val1 = gimple_phi_arg_def (phi, n1);
       tree val2 = gimple_phi_arg_def (phi, n2);
@@ -1467,11 +1467,11 @@ find_clusters (void)
 
 /* Returns the vop phi of BB, if any.  */
 
-static gimple_phi
+static gphi *
 vop_phi (basic_block bb)
 {
-  gimple_phi stmt;
-  gimple_phi_iterator gsi;
+  gphi *stmt;
+  gphi_iterator gsi;
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gsi.phi ();
@@ -1491,7 +1491,7 @@ replace_block_by (basic_block bb1, basic_block bb2)
   edge e1, e2;
   edge_iterator ei;
   unsigned int i;
-  gimple_phi bb2_phi;
+  gphi *bb2_phi;
 
   bb2_phi = vop_phi (bb2);
 

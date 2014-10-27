@@ -118,7 +118,7 @@ static bitmap names_to_release;
 /* vec of vec of PHIs to rewrite in a basic block.  Element I corresponds
    the to basic block with index I.  Allocated once per compilation, *not*
    released between different functions.  */
-static vec< vec<gimple_phi> > phis_to_rewrite;
+static vec< vec<gphi *> > phis_to_rewrite;
 
 /* The bitmap of non-NULL elements of PHIS_TO_REWRITE.  */
 static bitmap blocks_with_phis_to_rewrite;
@@ -950,9 +950,9 @@ find_def_blocks_for (tree var)
 /* Marks phi node PHI in basic block BB for rewrite.  */
 
 static void
-mark_phi_for_rewrite (basic_block bb, gimple_phi phi)
+mark_phi_for_rewrite (basic_block bb, gphi *phi)
 {
-  vec<gimple_phi> phis;
+  vec<gphi *> phis;
   unsigned n, idx = bb->index;
 
   if (rewrite_uses_p (phi))
@@ -991,7 +991,7 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 {
   unsigned bb_index;
   edge e;
-  gimple_phi phi;
+  gphi *phi;
   basic_block bb;
   bitmap_iterator bi;
   struct def_blocks_d *def_map = find_def_blocks_for (var);
@@ -1395,8 +1395,8 @@ rewrite_add_phi_arguments (basic_block bb)
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      gimple_phi phi;
-      gimple_phi_iterator gsi;
+      gphi *phi;
+      gphi_iterator gsi;
 
       for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
@@ -1443,7 +1443,7 @@ rewrite_dom_walker::before_dom_children (basic_block bb)
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
-  for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+  for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
        gsi_next (&gsi))
     {
       tree result = gimple_phi_result (gsi_stmt (gsi));
@@ -1991,8 +1991,8 @@ rewrite_update_phi_arguments (basic_block bb)
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      gimple_phi phi;
-      vec<gimple_phi> phis;
+      gphi *phi;
+      vec<gphi *> phis;
 
       if (!bitmap_bit_p (blocks_with_phis_to_rewrite, e->dest->index))
 	continue;
@@ -2045,7 +2045,7 @@ rewrite_update_phi_arguments (basic_block bb)
 	      else
 		{
 		  gimple stmt = SSA_NAME_DEF_STMT (reaching_def);
-		  gimple_phi other_phi = dyn_cast <gimple_phi> (stmt);
+		  gphi *other_phi = dyn_cast <gphi *> (stmt);
 
 		  /* Single element PHI nodes  behave like copies, so get the
 		     location from the phi argument.  */
@@ -2104,11 +2104,11 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
      register it as a new definition for its corresponding name.  Also
      register definitions for names whose underlying symbols are
      marked for renaming.  */
-  for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+  for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
        gsi_next (&gsi))
     {
       tree lhs, lhs_sym;
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
 
       if (!register_defs_p (phi))
 	continue;
@@ -2454,7 +2454,7 @@ mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
   mark_block_for_update (bb);
 
   if (gimple_code (stmt) == GIMPLE_PHI)
-    mark_phi_for_rewrite (def_bb, as_a <gimple_phi> (stmt));
+    mark_phi_for_rewrite (def_bb, as_a <gphi *> (stmt));
   else
     {
       set_rewrite_uses (stmt, true);
@@ -2503,10 +2503,10 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
   /* Process PHI nodes marking interesting those that define or use
      the symbols that we are interested in.  */
-  for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+  for (gphi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
        gsi_next (&si))
     {
-      gimple_phi phi = si.phi ();
+      gphi *phi = si.phi ();
       tree lhs_sym, lhs = gimple_phi_result (phi);
 
       if (TREE_CODE (lhs) == SSA_NAME
@@ -2603,7 +2603,7 @@ prepare_use_sites_for (tree name, bool insert_phi_p)
       if (gimple_code (stmt) == GIMPLE_PHI)
 	{
 	  int ix = PHI_ARG_INDEX_FROM_USE (use_p);
-	  edge e = gimple_phi_arg_edge (as_a <gimple_phi> (stmt), ix);
+	  edge e = gimple_phi_arg_edge (as_a <gphi *> (stmt), ix);
 	  mark_use_interesting (name, stmt, e->src, insert_phi_p);
 	}
       else
@@ -2815,7 +2815,7 @@ delete_update_ssa (void)
   if (blocks_with_phis_to_rewrite)
     EXECUTE_IF_SET_IN_BITMAP (blocks_with_phis_to_rewrite, 0, i, bi)
       {
-	vec<gimple_phi> phis = phis_to_rewrite[i];
+	vec<gphi *> phis = phis_to_rewrite[i];
 	phis.release ();
 	phis_to_rewrite[i].create (0);
       }
@@ -2910,7 +2910,7 @@ mark_virtual_operand_for_renaming (tree name)
    removed.  */
 
 void
-mark_virtual_phi_result_for_renaming (gimple_phi phi)
+mark_virtual_phi_result_for_renaming (gphi *phi)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

@@ -755,7 +755,7 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
     case GIMPLE_TRANSACTION:
       {
-	gimple_transaction trans_stmt = as_a <gimple_transaction> (stmt);
+	gtransaction *trans_stmt = as_a <gtransaction *> (stmt);
 	unsigned char inner_flags = DIAG_TM_SAFE;
 
 	if (gimple_transaction_subcode (trans_stmt) & GTMA_IS_RELAXED)
@@ -1600,7 +1600,7 @@ static void
 lower_transaction (gimple_stmt_iterator *gsi, struct walk_stmt_info *wi)
 {
   gimple g;
-  gimple_transaction stmt = as_a <gimple_transaction> (gsi_stmt (*gsi));
+  gtransaction *stmt = as_a <gtransaction *> (gsi_stmt (*gsi));
   unsigned int *outer_state = (unsigned int *) wi->info;
   unsigned int this_state = 0;
   struct walk_stmt_info this_wi;
@@ -1798,16 +1798,16 @@ struct tm_region
 {
 public:
 
-  /* The field "transaction_stmt" is initially a gimple_transaction,
-     but eventually gets lowered to a gimple_call (to BUILT_IN_TM_START).
+  /* The field "transaction_stmt" is initially a gtransaction *,
+     but eventually gets lowered to a gcall *(to BUILT_IN_TM_START).
 
-     Helper method to get it as a gimple_transaction, with code-checking
+     Helper method to get it as a gtransaction *, with code-checking
      in a checked-build.  */
 
-  gimple_transaction
+  gtransaction *
   get_transaction_stmt () const
   {
-    return as_a <gimple_transaction> (transaction_stmt);
+    return as_a <gtransaction *> (transaction_stmt);
   }
 
 public:
@@ -1824,7 +1824,7 @@ public:
   /* The GIMPLE_TRANSACTION statement beginning this transaction.
      After TM_MARK, this gets replaced by a call to
      BUILT_IN_TM_START.
-     Hence this will be either a gimple_transaction or a gimple_call.  */
+     Hence this will be either a gtransaction *or a gcall *.  */
   gimple transaction_stmt;
 
   /* After TM_MARK expands the GIMPLE_TRANSACTION into a call to
@@ -1868,7 +1868,7 @@ static bitmap_obstack tm_obstack;
 
 static struct tm_region *
 tm_region_init_0 (struct tm_region *outer, basic_block bb,
-		  gimple_transaction stmt)
+		  gtransaction *stmt)
 {
   struct tm_region *region;
 
@@ -1984,7 +1984,7 @@ tm_region_init (struct tm_region *region)
       g = last_stmt (bb);
       old_region = region;
       if (g)
-	if (gimple_transaction trans_stmt = dyn_cast <gimple_transaction> (g))
+	if (gtransaction *trans_stmt = dyn_cast <gtransaction *> (g))
 	  region = tm_region_init_0 (region, bb, trans_stmt);
 
       /* Process subsequent blocks.  */
@@ -2094,7 +2094,7 @@ transaction_subcode_ior (struct tm_region *region, unsigned flags)
 {
   if (region && region->transaction_stmt)
     {
-      gimple_transaction transaction_stmt = region->get_transaction_stmt ();
+      gtransaction *transaction_stmt = region->get_transaction_stmt ();
       flags |= gimple_transaction_subcode (transaction_stmt);
       gimple_transaction_set_subcode (transaction_stmt, flags);
     }
@@ -2106,12 +2106,12 @@ transaction_subcode_ior (struct tm_region *region, unsigned flags)
 
    LOC is the location to use for the new statement(s).  */
 
-static gimple_call
+static gcall *
 build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
 {
   enum built_in_function code = END_BUILTINS;
   tree t, type = TREE_TYPE (rhs), decl;
-  gimple_call gcall;
+  gcall *gcall;
 
   if (type == float_type_node)
     code = BUILT_IN_TM_LOAD_FLOAT;
@@ -2178,12 +2178,12 @@ build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
 
 /* Similarly for storing TYPE in a transactional context.  */
 
-static gimple_call
+static gcall *
 build_tm_store (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
 {
   enum built_in_function code = END_BUILTINS;
   tree t, fn, type = TREE_TYPE (rhs), simple_type;
-  gimple_call gcall;
+  gcall *gcall;
 
   if (type == float_type_node)
     code = BUILT_IN_TM_STORE_FLOAT;
@@ -2350,7 +2350,7 @@ static bool
 expand_call_tm (struct tm_region *region,
 		gimple_stmt_iterator *gsi)
 {
-  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   tree lhs = gimple_call_lhs (stmt);
   tree fn_decl;
   struct cgraph_node *node;
@@ -2437,7 +2437,7 @@ expand_call_tm (struct tm_region *region,
       tree tmp = create_tmp_reg (TREE_TYPE (lhs), NULL);
       location_t loc = gimple_location (stmt);
       edge fallthru_edge = NULL;
-      gimple_assign assign_stmt;
+      gassign *assign_stmt;
 
       /* Remember if the call was going to throw.  */
       if (stmt_can_throw_internal (stmt))
@@ -2740,7 +2740,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
     if (subcode & GTMA_IS_OUTER)
       region->original_transaction_was_outer = true;
     tree t = build_int_cst (tm_state_type, flags);
-    gimple_call call = gimple_build_call (tm_start, 1, t);
+    gcall *call = gimple_build_call (tm_start, 1, t);
     gimple_call_set_lhs (call, tm_state);
     gimple_set_location (call, gimple_location (region->transaction_stmt));
 
@@ -2926,7 +2926,7 @@ generate_tm_state (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
   // again as we process blocks.
   if (region->exit_blocks)
     {
-      gimple_transaction transaction_stmt = region->get_transaction_stmt ();
+      gtransaction *transaction_stmt = region->get_transaction_stmt ();
       unsigned int subcode = gimple_transaction_subcode (transaction_stmt);
 
       if (subcode & GTMA_DOES_GO_IRREVOCABLE)
@@ -3111,13 +3111,13 @@ expand_block_edges (struct tm_region *const region, basic_block bb)
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi = next_gsi)
     {
       gimple stmt = gsi_stmt (gsi);
-      gimple_call call_stmt;
+      gcall *call_stmt;
 
       next_gsi = gsi;
       gsi_next (&next_gsi);
 
       // ??? Shouldn't we split for any non-pure, non-irrevocable function?
-      call_stmt = dyn_cast <gimple_call> (stmt);
+      call_stmt = dyn_cast <gcall *> (stmt);
       if ((!call_stmt)
 	  || (gimple_call_flags (call_stmt) & ECF_TM_BUILTIN) == 0)
 	continue;
@@ -3782,7 +3782,7 @@ dump_tm_memopt_transform (gimple stmt)
 
 static void
 tm_memopt_transform_stmt (unsigned int offset,
-			  gimple_call stmt,
+			  gcall *stmt,
 			  gimple_stmt_iterator *gsi)
 {
   tree fn = gimple_call_fn (stmt);
@@ -3818,7 +3818,7 @@ tm_memopt_transform_blocks (vec<basic_block> blocks)
 
 	  if (is_tm_simple_load (stmt))
 	    {
-	      gimple_call call_stmt = as_a <gimple_call> (stmt);
+	      gcall *call_stmt = as_a <gcall *> (stmt);
 	      loc = tm_memopt_value_number (stmt, NO_INSERT);
 	      if (store_avail && bitmap_bit_p (store_avail, loc))
 		tm_memopt_transform_stmt (TRANSFORM_RAW, call_stmt, &gsi);
@@ -3834,7 +3834,7 @@ tm_memopt_transform_blocks (vec<basic_block> blocks)
 	    }
 	  else if (is_tm_simple_store (stmt))
 	    {
-	      gimple_call call_stmt = as_a <gimple_call> (stmt);
+	      gcall *call_stmt = as_a <gcall *> (stmt);
 	      loc = tm_memopt_value_number (stmt, NO_INSERT);
 	      if (store_avail && bitmap_bit_p (store_avail, loc))
 		tm_memopt_transform_stmt (TRANSFORM_WAW, call_stmt, &gsi);
@@ -4971,7 +4971,7 @@ ipa_tm_insert_irr_call (struct cgraph_node *node, struct tm_region *region,
 			basic_block bb)
 {
   gimple_stmt_iterator gsi;
-  gimple_call g;
+  gcall *g;
 
   transaction_subcode_ior (region, GTMA_MAY_ENTER_IRREVOCABLE);
 
@@ -4994,11 +4994,11 @@ ipa_tm_insert_irr_call (struct cgraph_node *node, struct tm_region *region,
 static bool
 ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
 			       struct tm_region *region,
-			       gimple_stmt_iterator *gsi, gimple_call stmt)
+			       gimple_stmt_iterator *gsi, gcall *stmt)
 {
   tree gettm_fn, ret, old_fn, callfn;
-  gimple_call g;
-  gimple_assign g2;
+  gcall *g;
+  gassign *g2;
   bool safe;
 
   old_fn = gimple_call_fn (stmt);
@@ -5094,7 +5094,7 @@ ipa_tm_transform_calls_redirect (struct cgraph_node *node,
 				 gimple_stmt_iterator *gsi,
 				 bool *need_ssa_rename_p)
 {
-  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   struct cgraph_node *new_node;
   struct cgraph_edge *e = node->get_edge (stmt);
   tree fndecl = gimple_call_fndecl (stmt);

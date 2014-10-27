@@ -2784,7 +2784,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
   gimple_stmt_iterator gsi;
   tree exprtype = type ? type : get_expr_type (expr);
   pre_expr nameexpr;
-  gimple_assign newstmt;
+  gassign *newstmt;
 
   switch (expr->kind)
     {
@@ -2964,7 +2964,7 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   edge_iterator ei;
   tree type = get_expr_type (expr);
   tree temp;
-  gimple_phi phi;
+  gphi *phi;
 
   /* Make sure we aren't creating an induction variable.  */
   if (bb_loop_depth (block) > 0 && EDGE_COUNT (block->preds) == 2)
@@ -3313,7 +3313,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 
 	      tree temp = make_temp_ssa_name (get_expr_type (expr),
 					      NULL, "pretmp");
-	      gimple_assign assign =
+	      gassign *assign =
 		gimple_build_assign (temp,
 				     edoubleprime->kind == CONSTANT ?
 				       PRE_EXPR_CONSTANT (edoubleprime) :
@@ -3630,7 +3630,7 @@ compute_avail (void)
 	}
 
       /* Generate values for PHI nodes.  */
-      for (gimple_phi_iterator gsi = gsi_start_phis (block); !gsi_end_p (gsi);
+      for (gphi_iterator gsi = gsi_start_phis (block); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
 	  tree result = gimple_phi_result (gsi.phi ());
@@ -3717,7 +3717,7 @@ compute_avail (void)
 		if (gimple_call_internal_p (stmt))
 		  continue;
 
-		vn_reference_lookup_call (as_a <gimple_call> (stmt), &ref, &ref1);
+		vn_reference_lookup_call (as_a <gcall *> (stmt), &ref, &ref1);
 		if (!ref)
 		  continue;
 
@@ -3913,7 +3913,7 @@ eliminate_insert (gimple_stmt_iterator *gsi, tree val)
     return NULL_TREE;
 
   tree res = make_temp_ssa_name (TREE_TYPE (val), NULL, "pretmp");
-  gimple_assign tem =
+  gassign *tem =
     gimple_build_assign (res,
 			 fold_build1 (TREE_CODE (expr),
 				      TREE_TYPE (expr), leader));
@@ -3957,9 +3957,9 @@ eliminate_dom_walker::before_dom_children (basic_block b)
      tailmerging.  Eventually we can reduce its reliance on SCCVN now
      that we fully copy/constant-propagate (most) things.  */
 
-  for (gimple_phi_iterator gsi = gsi_start_phis (b); !gsi_end_p (gsi);)
+  for (gphi_iterator gsi = gsi_start_phis (b); !gsi_end_p (gsi);)
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       tree res = PHI_RESULT (phi);
 
       if (virtual_operand_p (res))
@@ -4298,7 +4298,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 
       /* Visit indirect calls and turn them into direct calls if
 	 possible using the devirtualization machinery.  */
-      if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
+      if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	{
 	  tree fn = gimple_call_fn (call_stmt);
 	  if (fn
@@ -4369,11 +4369,11 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	      fold_stmt (&gsi);
 	      stmt = gsi_stmt (gsi);
 	      if ((gimple_code (stmt) == GIMPLE_COND
-		   && (gimple_cond_true_p (as_a <gimple_cond> (stmt))
-		       || gimple_cond_false_p (as_a <gimple_cond> (stmt))))
+		   && (gimple_cond_true_p (as_a <gcond *> (stmt))
+		       || gimple_cond_false_p (as_a <gcond *> (stmt))))
 		  || (gimple_code (stmt) == GIMPLE_SWITCH
 		      && TREE_CODE (gimple_switch_index (
-				      as_a <gimple_switch> (stmt)))
+				      as_a <gswitch *> (stmt)))
 		         == INTEGER_CST))
 		el_todo |= TODO_cleanup_cfg;
 	    }
@@ -4412,11 +4412,11 @@ eliminate_dom_walker::before_dom_children (basic_block b)
   edge e;
   FOR_EACH_EDGE (e, ei, b->succs)
     {
-      for (gimple_phi_iterator gsi = gsi_start_phis (e->dest);
+      for (gphi_iterator gsi = gsi_start_phis (e->dest);
 	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 	  use_operand_p use_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, e);
 	  tree arg = USE_FROM_PTR (use_p);
 	  if (TREE_CODE (arg) != SSA_NAME

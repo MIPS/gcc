@@ -181,7 +181,7 @@ sese_build_liveouts_bb (sese region, bitmap liveouts, basic_block bb)
   use_operand_p use_p;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    for (gimple_phi_iterator bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi);
+    for (gphi_iterator bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi);
 	 gsi_next (&bsi))
       sese_build_liveouts_use (region, liveouts, bb,
 			       PHI_ARG_DEF_FROM_EDGE (bsi.phi (), e));
@@ -308,7 +308,7 @@ free_sese (sese region)
 static void
 sese_add_exit_phis_edge (basic_block exit, tree use, edge false_e, edge true_e)
 {
-  gimple_phi phi = create_phi_node (NULL_TREE, exit);
+  gphi *phi = create_phi_node (NULL_TREE, exit);
   create_new_def_for (use, phi, gimple_phi_result_ptr (phi));
   add_phi_arg (phi, use, false_e, UNKNOWN_LOCATION);
   add_phi_arg (phi, use, true_e, UNKNOWN_LOCATION);
@@ -727,7 +727,7 @@ set_ifsese_condition (ifsese if_region, tree condition)
   basic_block bb = entry->dest;
   gimple last = last_stmt (bb);
   gimple_stmt_iterator gsi = gsi_last_bb (bb);
-  gimple_cond cond_stmt;
+  gcond *cond_stmt;
 
   gcc_assert (gimple_code (last) == GIMPLE_COND);
 

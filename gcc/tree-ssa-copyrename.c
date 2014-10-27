@@ -373,12 +373,12 @@ pass_rename_ssa_copies::execute (function *fun)
   FOR_EACH_BB_FN (bb, fun)
     {
       /* Treat PHI nodes as copies between the result and each argument.  */
-      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+      for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
         {
           size_t i;
 	  tree res;
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 	  res = gimple_phi_result (phi);
 
 	  /* Do not process virtual SSA_NAMES.  */

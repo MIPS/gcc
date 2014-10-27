@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Output PHI function PHI to the main stream in OB.  */
 
 static void
-output_phi (struct output_block *ob, gimple_phi phi)
+output_phi (struct output_block *ob, gphi *phi)
 {
   unsigned i, len = gimple_phi_num_args (phi);
 
@@ -82,7 +82,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   if (is_gimple_assign (stmt))
     bp_pack_value (&bp,
 		   gimple_assign_nontemporal_move_p (
-		     as_a <gimple_assign> (stmt)),
+		     as_a <gassign *> (stmt)),
 		   1);
   bp_pack_value (&bp, gimple_has_volatile_ops (stmt), 1);
   hist = gimple_histogram_value (cfun, stmt);
@@ -100,25 +100,25 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_RESX:
-      streamer_write_hwi (ob, gimple_resx_region (as_a <gimple_resx> (stmt)));
+      streamer_write_hwi (ob, gimple_resx_region (as_a <gresx *> (stmt)));
       break;
 
     case GIMPLE_EH_MUST_NOT_THROW:
       stream_write_tree (ob,
 			 gimple_eh_must_not_throw_fndecl (
-			   as_a <gimple_eh_must_not_throw> (stmt)),
+			   as_a <geh_mnt *> (stmt)),
 			 true);
       break;
 
     case GIMPLE_EH_DISPATCH:
       streamer_write_hwi (ob,
 			  gimple_eh_dispatch_region (
-			    as_a <gimple_eh_dispatch> (stmt)));
+			    as_a <geh_dispatch *> (stmt)));
       break;
 
     case GIMPLE_ASM:
       {
-	gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	gasm *asm_stmt = as_a <gasm *> (stmt);
 	streamer_write_uhwi (ob, gimple_asm_ninputs (asm_stmt));
 	streamer_write_uhwi (ob, gimple_asm_noutputs (asm_stmt));
 	streamer_write_uhwi (ob, gimple_asm_nclobbers (asm_stmt));
@@ -186,7 +186,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
 
     case GIMPLE_TRANSACTION:
       {
-	gimple_transaction trans_stmt = as_a <gimple_transaction> (stmt);
+	gtransaction *trans_stmt = as_a <gtransaction *> (stmt);
 	gcc_assert (gimple_transaction_body (trans_stmt) == NULL);
 	stream_write_tree (ob, gimple_transaction_label (trans_stmt), true);
       }
@@ -241,11 +241,11 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 
       streamer_write_record_start (ob, LTO_null);
 
-      for (gimple_phi_iterator psi = gsi_start_phis (bb);
+      for (gphi_iterator psi = gsi_start_phis (bb);
 	   !gsi_end_p (psi);
 	   gsi_next (&psi))
 	{
-	  gimple_phi phi = psi.phi ();
+	  gphi *phi = psi.phi ();
 
 	  /* Only emit PHIs for gimple registers.  PHI nodes for .MEM
 	     will be filled in on reading when the SSA form is

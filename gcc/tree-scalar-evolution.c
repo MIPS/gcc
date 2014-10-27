@@ -867,10 +867,10 @@ add_to_evolution (unsigned loop_nb, tree chrec_before, enum tree_code code,
    guards the exit edge.  If the expression is too difficult to
    analyze, then give up.  */
 
-gimple_cond
+gcond *
 get_loop_exit_condition (const struct loop *loop)
 {
-  gimple_cond res = NULL;
+  gcond *res = NULL;
   edge exit_edge = single_exit (loop);
 
   if (dump_file && (dump_flags & TDF_SCEV))
@@ -881,7 +881,7 @@ get_loop_exit_condition (const struct loop *loop)
       gimple stmt;
 
       stmt = last_stmt (exit_edge->src);
-      if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
+      if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
 	res = cond_stmt;
     }
 
@@ -904,7 +904,7 @@ typedef enum t_bool {
 } t_bool;
 
 
-static t_bool follow_ssa_edge (struct loop *loop, gimple, gimple_phi,
+static t_bool follow_ssa_edge (struct loop *loop, gimple, gphi *,
 			       tree *, int);
 
 /* Follow the ssa edge into the binary expression RHS0 CODE RHS1.
@@ -913,7 +913,7 @@ static t_bool follow_ssa_edge (struct loop *loop, gimple, gimple_phi,
 static t_bool
 follow_ssa_edge_binary (struct loop *loop, gimple at_stmt,
 			tree type, tree rhs0, enum tree_code code, tree rhs1,
-			gimple_phi halting_phi, tree *evolution_of_loop,
+			gphi *halting_phi, tree *evolution_of_loop,
 			int limit)
 {
   t_bool res = t_false;
@@ -1049,7 +1049,7 @@ follow_ssa_edge_binary (struct loop *loop, gimple at_stmt,
 
 static t_bool
 follow_ssa_edge_expr (struct loop *loop, gimple at_stmt, tree expr,
-		      gimple_phi halting_phi, tree *evolution_of_loop,
+		      gphi *halting_phi, tree *evolution_of_loop,
 		      int limit)
 {
   enum tree_code code = TREE_CODE (expr);
@@ -1140,7 +1140,7 @@ follow_ssa_edge_expr (struct loop *loop, gimple at_stmt, tree expr,
 
 static t_bool
 follow_ssa_edge_in_rhs (struct loop *loop, gimple stmt,
-			gimple_phi halting_phi, tree *evolution_of_loop,
+			gphi *halting_phi, tree *evolution_of_loop,
 			int limit)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
@@ -1181,7 +1181,7 @@ follow_ssa_edge_in_rhs (struct loop *loop, gimple stmt,
 /* Checks whether the I-th argument of a PHI comes from a backedge.  */
 
 static bool
-backedge_phi_arg_p (gimple_phi phi, int i)
+backedge_phi_arg_p (gphi *phi, int i)
 {
   const_edge e = gimple_phi_arg_edge (phi, i);
 
@@ -1201,8 +1201,8 @@ backedge_phi_arg_p (gimple_phi phi, int i)
 static inline t_bool
 follow_ssa_edge_in_condition_phi_branch (int i,
 					 struct loop *loop,
-					 gimple_phi condition_phi,
-					 gimple_phi halting_phi,
+					 gphi *condition_phi,
+					 gphi *halting_phi,
 					 tree *evolution_of_branch,
 					 tree init_cond, int limit)
 {
@@ -1236,8 +1236,8 @@ follow_ssa_edge_in_condition_phi_branch (int i,
 
 static t_bool
 follow_ssa_edge_in_condition_phi (struct loop *loop,
-				  gimple_phi condition_phi,
-				  gimple_phi halting_phi,
+				  gphi *condition_phi,
+				  gphi *halting_phi,
 				  tree *evolution_of_loop, int limit)
 {
   int i, n;
@@ -1283,8 +1283,8 @@ follow_ssa_edge_in_condition_phi (struct loop *loop,
 
 static t_bool
 follow_ssa_edge_inner_loop_phi (struct loop *outer_loop,
-				gimple_phi loop_phi_node,
-				gimple_phi halting_phi,
+				gphi *loop_phi_node,
+				gphi *halting_phi,
 				tree *evolution_of_loop, int limit)
 {
   struct loop *loop = loop_containing_stmt (loop_phi_node);
@@ -1329,7 +1329,7 @@ follow_ssa_edge_inner_loop_phi (struct loop *outer_loop,
    path that is analyzed on the return walk.  */
 
 static t_bool
-follow_ssa_edge (struct loop *loop, gimple def, gimple_phi halting_phi,
+follow_ssa_edge (struct loop *loop, gimple def, gphi *halting_phi,
 		 tree *evolution_of_loop, int limit)
 {
   struct loop *def_loop;
@@ -1352,7 +1352,7 @@ follow_ssa_edge (struct loop *loop, gimple def, gimple_phi halting_phi,
 	   information and set the approximation to the main
 	   variable.  */
 	return follow_ssa_edge_in_condition_phi
-	  (loop, as_a <gimple_phi> (def), halting_phi, evolution_of_loop,
+	  (loop, as_a <gphi *> (def), halting_phi, evolution_of_loop,
 	   limit);
 
       /* When the analyzed phi is the halting_phi, the
@@ -1370,7 +1370,7 @@ follow_ssa_edge (struct loop *loop, gimple def, gimple_phi halting_phi,
       /* Inner loop.  */
       if (flow_loop_nested_p (loop, def_loop))
 	return follow_ssa_edge_inner_loop_phi
-	  (loop, as_a <gimple_phi> (def), halting_phi, evolution_of_loop,
+	  (loop, as_a <gphi *> (def), halting_phi, evolution_of_loop,
 	   limit + 1);
 
       /* Outer loop.  */
@@ -1452,7 +1452,7 @@ simplify_peeled_chrec (struct loop *loop, tree arg, tree init_cond)
    function from LOOP_PHI_NODE to LOOP_PHI_NODE in the loop.  */
 
 static tree
-analyze_evolution_in_loop (gimple_phi loop_phi_node,
+analyze_evolution_in_loop (gphi *loop_phi_node,
 			   tree init_cond)
 {
   int i, n = gimple_phi_num_args (loop_phi_node);
@@ -1547,7 +1547,7 @@ analyze_evolution_in_loop (gimple_phi loop_phi_node,
    loop, and leaves this task to the on-demand tree reconstructor.  */
 
 static tree
-analyze_initial_condition (gimple_phi loop_phi_node)
+analyze_initial_condition (gphi *loop_phi_node)
 {
   int i, n;
   tree init_cond = chrec_not_analyzed_yet;
@@ -1596,7 +1596,7 @@ analyze_initial_condition (gimple_phi loop_phi_node)
   if (TREE_CODE (init_cond) == SSA_NAME)
     {
       gimple def = SSA_NAME_DEF_STMT (init_cond);
-      if (gimple_phi phi = dyn_cast <gimple_phi> (def))
+      if (gphi *phi = dyn_cast <gphi *> (def))
 	{
 	  tree res = degenerate_phi_result (phi);
 	  if (res != NULL_TREE
@@ -1620,7 +1620,7 @@ analyze_initial_condition (gimple_phi loop_phi_node)
 /* Analyze the scalar evolution for LOOP_PHI_NODE.  */
 
 static tree
-interpret_loop_phi (struct loop *loop, gimple_phi loop_phi_node)
+interpret_loop_phi (struct loop *loop, gphi *loop_phi_node)
 {
   tree res;
   struct loop *phi_loop = loop_containing_stmt (loop_phi_node);
@@ -1669,7 +1669,7 @@ interpret_loop_phi (struct loop *loop, gimple_phi loop_phi_node)
    analyzed.  */
 
 static tree
-interpret_condition_phi (struct loop *loop, gimple_phi condition_phi)
+interpret_condition_phi (struct loop *loop, gphi *condition_phi)
 {
   int i, n = gimple_phi_num_args (condition_phi);
   tree res = chrec_not_analyzed_yet;
@@ -1997,9 +1997,9 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
 
     case GIMPLE_PHI:
       if (loop_phi_node_p (def))
-	res = interpret_loop_phi (loop, as_a <gimple_phi> (def));
+	res = interpret_loop_phi (loop, as_a <gphi *> (def));
       else
-	res = interpret_condition_phi (loop, as_a <gimple_phi> (def));
+	res = interpret_condition_phi (loop, as_a <gphi *> (def));
       break;
 
     default:
@@ -2246,8 +2246,8 @@ loop_closed_phi_def (tree var)
 {
   struct loop *loop;
   edge exit;
-  gimple_phi phi;
-  gimple_phi_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
 
   if (var == NULL_TREE
       || TREE_CODE (var) != SSA_NAME)
@@ -3346,12 +3346,12 @@ scev_const_prop (void)
 {
   basic_block bb;
   tree name, type, ev;
-  gimple_phi phi;
-  gimple_assign ass;
+  gphi *phi;
+  gassign *ass;
   struct loop *loop, *ex_loop;
   bitmap ssa_names_to_remove = NULL;
   unsigned i;
-  gimple_phi_iterator psi;
+  gphi_iterator psi;
 
   if (number_of_loops (cfun) <= 1)
     return 0;
@@ -3400,7 +3400,7 @@ scev_const_prop (void)
 	{
 	  gimple_stmt_iterator psi;
 	  name = ssa_name (i);
-	  phi = as_a <gimple_phi> (SSA_NAME_DEF_STMT (name));
+	  phi = as_a <gphi *> (SSA_NAME_DEF_STMT (name));
 
 	  gcc_assert (gimple_code (phi) == GIMPLE_PHI);
 	  psi = gsi_for_stmt (phi);

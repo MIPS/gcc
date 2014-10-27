@@ -1477,7 +1477,7 @@ refs_output_dependent_p (tree store1, tree store2)
    otherwise return false.  */
 
 static bool
-ref_maybe_used_by_call_p_1 (gimple_call call, ao_ref *ref)
+ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref)
 {
   tree base, callee;
   unsigned i;
@@ -1790,7 +1790,7 @@ process_args:
 }
 
 static bool
-ref_maybe_used_by_call_p (gimple_call call, ao_ref *ref)
+ref_maybe_used_by_call_p (gcall *call, ao_ref *ref)
 {
   bool res;
   res = ref_maybe_used_by_call_p_1 (call, ref);
@@ -1825,8 +1825,8 @@ ref_maybe_used_by_stmt_p (gimple stmt, ao_ref *ref)
       return refs_may_alias_p (rhs, ref);
     }
   else if (is_gimple_call (stmt))
-    return ref_maybe_used_by_call_p (as_a <gimple_call> (stmt), ref);
-  else if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
+    return ref_maybe_used_by_call_p (as_a <gcall *> (stmt), ref);
+  else if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
     {
       tree retval = gimple_return_retval (return_stmt);
       if (retval
@@ -1861,7 +1861,7 @@ ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p_1 (gimple_call call, ao_ref *ref)
+call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
 {
   tree base;
   tree callee;
@@ -2134,7 +2134,7 @@ call_may_clobber_ref_p_1 (gimple_call call, ao_ref *ref)
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p (gimple_call call, tree ref)
+call_may_clobber_ref_p (gcall *call, tree ref)
 {
   bool res;
   ao_ref r;
@@ -2166,7 +2166,7 @@ stmt_may_clobber_ref_p_1 (gimple stmt, ao_ref *ref)
 	    return true;
 	}
 
-      return call_may_clobber_ref_p_1 (as_a <gimple_call> (stmt), ref);
+      return call_may_clobber_ref_p_1 (as_a <gcall *> (stmt), ref);
     }
   else if (gimple_assign_single_p (stmt))
     {

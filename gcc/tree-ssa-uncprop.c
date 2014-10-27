@@ -174,7 +174,7 @@ associate_equivalences_with_edges (void)
 	 target block creates an equivalence.  */
       else if (gimple_code (stmt) == GIMPLE_SWITCH)
 	{
-	  gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
+	  gswitch *switch_stmt = as_a <gswitch *> (stmt);
 	  tree cond = gimple_switch_index (switch_stmt);
 
 	  if (TREE_CODE (cond) == SSA_NAME

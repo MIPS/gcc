@@ -1810,7 +1810,7 @@ set_switch_stmt_execution_predicate (struct ipa_node_params *info,
   lastg = last_stmt (bb);
   if (!lastg || gimple_code (lastg) != GIMPLE_SWITCH)
     return;
-  gimple_switch last = as_a <gimple_switch> (lastg);
+  gswitch *last = as_a <gswitch *> (lastg);
   op = gimple_switch_index (last);
   if (!unmodified_parm_or_parm_agg_item (info, last, op, &index, &aggpos))
     return;
@@ -2260,7 +2260,7 @@ phi_result_unknown_predicate (struct ipa_node_params *info,
    NONCONSTANT_NAMES, if possible.  */
 
 static void
-predicate_for_phi_result (struct inline_summary *summary, gimple_phi phi,
+predicate_for_phi_result (struct inline_summary *summary, gphi *phi,
 			  struct predicate *p,
 			  vec<predicate_t> nonconstant_names)
 {
@@ -2523,7 +2523,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	  struct predicate phi_predicate;
 	  bool first_phi = true;
 
-	  for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
+	  for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
 	       gsi_next (&bsi))
 	    {
 	      if (first_phi

@@ -341,7 +341,7 @@ remove_prop_source_from_use (tree name)
   return cfg_changed;
 }
 
-/* Return the rhs of a gimple_assign STMT in a form of a single tree,
+/* Return the rhs of a gassign *STMT in a form of a single tree,
    converted to type TYPE.
 
    This should disappear, but is needed so we can combine expressions and use
@@ -503,7 +503,7 @@ forward_propagate_into_comparison (gimple_stmt_iterator *gsi)
    This must be kept in sync with forward_propagate_into_cond.  */
 
 static int
-forward_propagate_into_gimple_cond (gimple_cond stmt)
+forward_propagate_into_gimple_cond (gcond *stmt)
 {
   tree tmp;
   enum tree_code code = gimple_cond_code (stmt);
@@ -1286,7 +1286,7 @@ simplify_not_neg_expr (gimple_stmt_iterator *gsi_p)
    have values outside the range of the new type.  */
 
 static void
-simplify_gimple_switch_label_vec (gimple_switch stmt, tree index_type)
+simplify_gimple_switch_label_vec (gswitch *stmt, tree index_type)
 {
   unsigned int branch_num = gimple_switch_num_labels (stmt);
   auto_vec<tree> labels (branch_num);
@@ -1356,7 +1356,7 @@ simplify_gimple_switch_label_vec (gimple_switch stmt, tree index_type)
    the condition which we may be able to optimize better.  */
 
 static bool
-simplify_gimple_switch (gimple_switch stmt)
+simplify_gimple_switch (gswitch *stmt)
 {
   /* The optimization that we really care about is removing unnecessary
      casts.  That will let us do much better in propagating the inferred
@@ -1959,7 +1959,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
       && INTEGRAL_TYPE_P (TREE_TYPE (def1_arg1))
       && int_fits_type_p (arg2, TREE_TYPE (def1_arg1)))
     {
-      gimple_assign newop;
+      gassign *newop;
       tree tem = make_ssa_name (TREE_TYPE (def1_arg1), NULL);
       newop =
         gimple_build_assign_with_ops (code, tem, def1_arg1,
@@ -1982,7 +1982,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
       && types_compatible_p (TREE_TYPE (def1_arg1), TREE_TYPE (def2_arg1))
       && hoist_conversion_for_bitop_p (TREE_TYPE (arg1), TREE_TYPE (def1_arg1)))
     {
-      gimple_assign newop;
+      gassign *newop;
       tree tem = make_ssa_name (TREE_TYPE (def1_arg1), NULL);
       newop = gimple_build_assign_with_ops (code, tem, def1_arg1, def2_arg1);
       gimple_set_location (newop, gimple_location (stmt));
@@ -2024,7 +2024,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
 	}
       else
 	{
-	  gimple_assign newop;
+	  gassign *newop;
 	  tree tem;
 	  tem = make_ssa_name (TREE_TYPE (arg2), NULL);
 	  newop = gimple_build_assign_with_ops (code, tem, a, c);
@@ -2048,7 +2048,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
       tree cst = fold_build2 (BIT_AND_EXPR, TREE_TYPE (arg2),
 			      arg2, def1_arg2);
       tree tem;
-      gimple_assign newop;
+      gassign *newop;
       if (integer_zerop (cst))
 	{
 	  gimple_assign_set_rhs1 (stmt, def1_arg1);
@@ -2256,7 +2256,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
   tree lhs;
   int i;
   bool swapped_p = false;
-  gimple_assign g;
+  gassign *g;
 
   arg[0] = gimple_assign_rhs1 (stmt);
   arg[1] = gimple_assign_rhs2 (stmt);
@@ -3830,14 +3830,14 @@ pass_forwprop::execute (function *fun)
 	      }
 
 	    case GIMPLE_SWITCH:
-	      changed = simplify_gimple_switch (as_a <gimple_switch> (stmt));
+	      changed = simplify_gimple_switch (as_a <gswitch *> (stmt));
 	      break;
 
 	    case GIMPLE_COND:
 	      {
 		int did_something;
 		did_something =
-		  forward_propagate_into_gimple_cond (as_a <gimple_cond> (stmt));
+		  forward_propagate_into_gimple_cond (as_a <gcond *> (stmt));
 		if (did_something == 2)
 		  cfg_changed = true;
 		changed = did_something != 0;

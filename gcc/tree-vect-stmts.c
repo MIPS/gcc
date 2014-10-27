@@ -1707,7 +1707,7 @@ vect_finish_stmt_generation (gimple stmt, gimple vec_stmt,
    of the function, or NULL_TREE if the function cannot be vectorized.  */
 
 tree
-vectorizable_function (gimple_call call, tree vectype_out, tree vectype_in)
+vectorizable_function (gcall *call, tree vectype_out, tree vectype_in)
 {
   tree fndecl = gimple_call_fndecl (call);
 
@@ -2187,7 +2187,7 @@ static bool
 vectorizable_call (gimple gs, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		   slp_tree slp_node)
 {
-  gimple_call stmt;
+  gcall *stmt;
   tree vec_dest;
   tree scalar_dest;
   tree op, type;
@@ -2216,7 +2216,7 @@ vectorizable_call (gimple gs, gimple_stmt_iterator *gsi, gimple *vec_stmt,
     return false;
 
   /* Is GS a vectorizable call?   */
-  stmt = dyn_cast <gimple_call> (gs);
+  stmt = dyn_cast <gcall *> (gs);
   if (!stmt)
     return false;
 
@@ -2985,7 +2985,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		      gcc_assert (!new_bb);
 		    }
 		  tree phi_res = copy_ssa_name (op, NULL);
-		  gimple_phi new_phi = create_phi_node (phi_res, loop->header);
+		  gphi *new_phi = create_phi_node (phi_res, loop->header);
 		  set_vinfo_for_stmt (new_phi,
 				      new_stmt_vec_info (new_phi, loop_vinfo,
 							 NULL));
@@ -5604,7 +5604,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   tree offset = NULL_TREE;
   tree byte_offset = NULL_TREE;
   tree realignment_token = NULL_TREE;
-  gimple_phi phi = NULL;
+  gphi *phi = NULL;
   vec<tree> dr_chain = vNULL;
   bool grouped_load = false;
   bool load_lanes_p = false;
@@ -6263,7 +6263,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 				    &at_loop);
       if (alignment_support_scheme == dr_explicit_realign_optimized)
 	{
-	  phi = as_a <gimple_phi> (SSA_NAME_DEF_STMT (msq));
+	  phi = as_a <gphi *> (SSA_NAME_DEF_STMT (msq));
 	  byte_offset = size_binop (MINUS_EXPR, TYPE_SIZE_UNIT (vectype),
 				    size_one_node);
 	}
@@ -6794,7 +6794,7 @@ vectorizable_condition (gimple stmt, gimple_stmt_iterator *gsi,
   /* Handle cond expr.  */
   for (j = 0; j < ncopies; j++)
     {
-      gimple_assign new_stmt = NULL;
+      gassign *new_stmt = NULL;
       if (j == 0)
 	{
           if (slp_node)

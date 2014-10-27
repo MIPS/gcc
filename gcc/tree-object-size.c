@@ -59,8 +59,8 @@ static const unsigned HOST_WIDE_INT unknown[4] = { -1, -1, 0, 0 };
 static tree compute_object_offset (const_tree, const_tree);
 static unsigned HOST_WIDE_INT addr_object_size (struct object_size_info *,
 						const_tree, int);
-static unsigned HOST_WIDE_INT alloc_object_size (const_gimple_call, int);
-static tree pass_through_call (const_gimple_call);
+static unsigned HOST_WIDE_INT alloc_object_size (const gcall *, int);
+static tree pass_through_call (const gcall *);
 static void collect_object_sizes_for (struct object_size_info *, tree);
 static void expr_object_size (struct object_size_info *, tree, tree);
 static bool merge_object_sizes (struct object_size_info *, tree, tree,
@@ -392,7 +392,7 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
    unknown[object_size_type].  */
 
 static unsigned HOST_WIDE_INT
-alloc_object_size (const_gimple_call call, int object_size_type)
+alloc_object_size (const gcall *call, int object_size_type)
 {
   tree callee, bytes = NULL_TREE;
   tree alloc_size;
@@ -455,7 +455,7 @@ alloc_object_size (const_gimple_call call, int object_size_type)
    Otherwise return NULL.  */
 
 static tree
-pass_through_call (const_gimple_call call)
+pass_through_call (const gcall *call)
 {
   tree callee = gimple_call_fndecl (call);
 
@@ -669,7 +669,7 @@ expr_object_size (struct object_size_info *osi, tree ptr, tree value)
 /* Compute object_sizes for PTR, defined to the result of a call.  */
 
 static void
-call_object_size (struct object_size_info *osi, tree ptr, gimple_call call)
+call_object_size (struct object_size_info *osi, tree ptr, gcall *call)
 {
   int object_size_type = osi->object_size_type;
   unsigned int varno = SSA_NAME_VERSION (ptr);
@@ -966,7 +966,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
 
     case GIMPLE_CALL:
       {
-	gimple_call call_stmt = as_a <gimple_call> (stmt);
+	gcall *call_stmt = as_a <gcall *> (stmt);
         tree arg = pass_through_call (call_stmt);
         if (arg)
           {
@@ -1103,7 +1103,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 
     case GIMPLE_CALL:
       {
-	gimple_call call_stmt = as_a <gimple_call> (stmt);
+	gcall *call_stmt = as_a <gcall *> (stmt);
         tree arg = pass_through_call (call_stmt);
         if (arg)
           {
@@ -1252,7 +1252,7 @@ pass_object_sizes::execute (function *fun)
 	    continue;
 
 	  init_object_sizes ();
-	  result = fold_call_stmt (as_a <gimple_call> (call), false);
+	  result = fold_call_stmt (as_a <gcall *> (call), false);
 	  if (!result)
 	    {
 	      if (gimple_call_num_args (call) == 2

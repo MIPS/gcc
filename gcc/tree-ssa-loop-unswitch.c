@@ -139,7 +139,7 @@ static tree
 tree_may_unswitch_on (basic_block bb, struct loop *loop)
 {
   gimple last, def;
-  gimple_cond stmt;
+  gcond *stmt;
   tree cond, use;
   basic_block def_bb;
   ssa_op_iter iter;
@@ -148,7 +148,7 @@ tree_may_unswitch_on (basic_block bb, struct loop *loop)
   last = last_stmt (bb);
   if (!last || gimple_code (last) != GIMPLE_COND)
     return NULL_TREE;
-  stmt = as_a <gimple_cond> (last);
+  stmt = as_a <gcond *> (last);
 
   /* To keep the things simple, we do not directly remove the conditions,
      but just replace tests with 0 != 0 resp. 1 != 0.  Prevent the infinite
@@ -250,14 +250,14 @@ tree_unswitch_single_loop (struct loop *loop, int num)
       if (integer_nonzerop (cond))
 	{
 	  /* Remove false path.  */
-	  gimple_cond_set_condition_from_tree (as_a <gimple_cond> (stmt),
+	  gimple_cond_set_condition_from_tree (as_a <gcond *> (stmt),
 					       boolean_true_node);
 	  changed = true;
 	}
       else if (integer_zerop (cond))
 	{
 	  /* Remove true path.  */
-	  gimple_cond_set_condition_from_tree (as_a <gimple_cond> (stmt),
+	  gimple_cond_set_condition_from_tree (as_a <gcond *> (stmt),
 					       boolean_false_node);
 	  changed = true;
 	}
@@ -320,7 +320,7 @@ tree_unswitch_single_loop (struct loop *loop, int num)
 	      if (stmt
 		  && gimple_code (stmt) == GIMPLE_COND)
 		{
-		  gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+		  gcond *cond_stmt = as_a <gcond *> (stmt);
 		  if (gimple_cond_true_p (cond_stmt))
 		    flags = EDGE_FALSE_VALUE;
 		  else if (gimple_cond_false_p (cond_stmt))

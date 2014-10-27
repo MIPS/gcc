@@ -324,7 +324,7 @@ simulate_stmt (gimple stmt)
 
   if (gimple_code (stmt) == GIMPLE_PHI)
     {
-      val = ssa_prop_visit_phi (as_a <gimple_phi> (stmt));
+      val = ssa_prop_visit_phi (as_a <gphi *> (stmt));
       output_name = gimple_phi_result (stmt);
     }
   else
@@ -739,7 +739,7 @@ bool
 update_gimple_call (gimple_stmt_iterator *si_p, tree fn, int nargs, ...)
 {
   va_list ap;
-  gimple_call new_stmt, stmt = as_a <gimple_call> (gsi_stmt (*si_p));
+  gcall *new_stmt, *stmt = as_a <gcall *> (gsi_stmt (*si_p));
 
   gcc_assert (is_gimple_call (stmt));
   va_start (ap, nargs);
@@ -773,7 +773,7 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
       unsigned i;
       unsigned nargs = call_expr_nargs (expr);
       vec<tree> args = vNULL;
-      gimple_call new_stmt;
+      gcall *new_stmt;
 
       if (nargs > 0)
         {
@@ -966,7 +966,7 @@ replace_uses_in (gimple stmt, ssa_prop_get_value_fn get_value)
    values from PROP_VALUE.  */
 
 static bool
-replace_phi_args_in (gimple_phi phi, ssa_prop_get_value_fn get_value)
+replace_phi_args_in (gphi *phi, ssa_prop_get_value_fn get_value)
 {
   size_t i;
   bool replaced = false;
@@ -1055,11 +1055,11 @@ void
 substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 {
   /* Propagate known values into PHI nodes.  */
-  for (gimple_phi_iterator i = gsi_start_phis (bb);
+  for (gphi_iterator i = gsi_start_phis (bb);
        !gsi_end_p (i);
        gsi_next (&i))
     {
-      gimple_phi phi = i.phi ();
+      gphi *phi = i.phi ();
       tree res = gimple_phi_result (phi);
       if (virtual_operand_p (res))
 	continue;
@@ -1316,7 +1316,7 @@ may_propagate_copy_into_stmt (gimple dest, tree orig)
 
   if (gimple_assign_single_p (dest))
     return may_propagate_copy (gimple_assign_rhs1 (dest), orig);
-  else if (gimple_switch dest_swtch = dyn_cast <gimple_switch> (dest))
+  else if (gswitch *dest_swtch = dyn_cast <gswitch *> (dest))
     return may_propagate_copy (gimple_switch_index (dest_swtch), orig);
 
   /* In other cases, the expression is not materialized, so there
@@ -1445,7 +1445,7 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
       propagate_tree_value (&expr, val);
       gimple_assign_set_rhs_from_tree (gsi, expr);
     }
-  else if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
+  else if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
     {
       tree lhs = NULL_TREE;
       tree rhs = build_zero_cst (TREE_TYPE (val));
@@ -1463,7 +1463,7 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
       res = update_call_from_tree (gsi, expr);
       gcc_assert (res);
     }
-  else if (gimple_switch swtch_stmt = dyn_cast <gimple_switch> (stmt))
+  else if (gswitch *swtch_stmt = dyn_cast <gswitch *> (stmt))
     propagate_tree_value (gimple_switch_index_ptr (swtch_stmt), val);
   else
     gcc_unreachable ();

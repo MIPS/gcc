@@ -1119,7 +1119,7 @@ vect_recog_pow_pattern (vec<gimple> *stmts, tree *type_in,
       *type_in = get_vectype_for_scalar_type (TREE_TYPE (base));
       if (*type_in)
 	{
-	  gimple_call stmt = gimple_build_call (newfn, 1, base);
+	  gcall *stmt = gimple_build_call (newfn, 1, base);
 	  if (vectorizable_function (stmt, *type_in, *type_in)
 	      != NULL_TREE)
 	    {

@@ -465,7 +465,7 @@ special_builtin_state (enum pure_const_state_e *state, bool *looping,
    the entire call expression.  */
 
 static void
-check_call (funct_state local, gimple_call call, bool ipa)
+check_call (funct_state local, gcall *call, bool ipa)
 {
   int flags = gimple_call_flags (call);
   tree callee_t = gimple_call_fndecl (call);
@@ -686,10 +686,10 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
   switch (gimple_code (stmt))
     {
     case GIMPLE_CALL:
-      check_call (local, as_a <gimple_call> (stmt), ipa);
+      check_call (local, as_a <gcall *> (stmt), ipa);
       break;
     case GIMPLE_LABEL:
-      if (DECL_NONLOCAL (gimple_label_label (as_a <gimple_label> (stmt))))
+      if (DECL_NONLOCAL (gimple_label_label (as_a <glabel *> (stmt))))
 	/* Target of long jump. */
 	{
           if (dump_file)
@@ -698,14 +698,14 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
 	}
       break;
     case GIMPLE_ASM:
-      if (gimple_asm_clobbers_memory_p (as_a <gimple_asm> (stmt)))
+      if (gimple_asm_clobbers_memory_p (as_a <gasm *> (stmt)))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "    memory asm clobber is not const/pure\n");
 	  /* Abandon all hope, ye who enter here. */
 	  local->pure_const_state = IPA_NEITHER;
 	}
-      if (gimple_asm_volatile_p (as_a <gimple_asm> (stmt)))
+      if (gimple_asm_volatile_p (as_a <gasm *> (stmt)))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "    volatile is not const/pure\n");

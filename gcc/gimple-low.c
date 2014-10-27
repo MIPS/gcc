@@ -60,7 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 struct return_statements_t
 {
   tree label;
-  gimple_return stmt;
+  greturn *stmt;
 };
 typedef struct return_statements_t return_statements_t;
 
@@ -289,7 +289,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
 
     case GIMPLE_EH_ELSE:
       {
-	gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	geh_else *eh_else_stmt = as_a <geh_else *> (stmt);
 	lower_sequence (gimple_eh_else_n_body_ptr (eh_else_stmt), data);
 	lower_sequence (gimple_eh_else_e_body_ptr (eh_else_stmt), data);
       }
@@ -365,7 +365,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
 
     case GIMPLE_TRANSACTION:
       lower_sequence (gimple_transaction_body_ptr (
-			as_a <gimple_transaction> (stmt)),
+			as_a <gtransaction *> (stmt)),
 		      data);
       break;
 
@@ -383,7 +383,7 @@ static void
 lower_gimple_bind (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
   tree old_block = data->block;
-  gimple_bind stmt = as_a <gimple_bind> (gsi_stmt (*gsi));
+  gbind *stmt = as_a <gbind *> (gsi_stmt (*gsi));
   tree new_block = gimple_bind_block (stmt);
 
   if (new_block)
@@ -457,7 +457,7 @@ lower_try_catch (gimple_stmt_iterator *gsi, struct lower_data *data)
 	{
 	  data->cannot_fallthru = false;
 	  lower_sequence (gimple_catch_handler_ptr (
-                            as_a <gimple_catch> (gsi_stmt (i))),
+                            as_a <gcatch *> (gsi_stmt (i))),
 			  data);
 	  if (!data->cannot_fallthru)
 	    cannot_fallthru = false;
@@ -499,7 +499,7 @@ lower_try_catch (gimple_stmt_iterator *gsi, struct lower_data *data)
    This is a subroutine of gimple_stmt_may_fallthru.  */
 
 static bool
-gimple_try_catch_may_fallthru (gimple_try stmt)
+gimple_try_catch_may_fallthru (gtry *stmt)
 {
   gimple_stmt_iterator i;
 
@@ -521,7 +521,7 @@ gimple_try_catch_may_fallthru (gimple_try stmt)
       for (; !gsi_end_p (i); gsi_next (&i))
 	{
 	  if (gimple_seq_may_fallthru (gimple_catch_handler (
-					 as_a <gimple_catch> (gsi_stmt (i)))))
+					 as_a <gcatch *> (gsi_stmt (i)))))
 	    return true;
 	}
       return false;
@@ -581,11 +581,11 @@ gimple_stmt_may_fallthru (gimple stmt)
 
     case GIMPLE_BIND:
       return gimple_seq_may_fallthru (
-	       gimple_bind_body (as_a <gimple_bind> (stmt)));
+	       gimple_bind_body (as_a <gbind *> (stmt)));
 
     case GIMPLE_TRY:
       if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
-        return gimple_try_catch_may_fallthru (as_a <gimple_try> (stmt));
+        return gimple_try_catch_may_fallthru (as_a <gtry *> (stmt));
 
       /* It must be a GIMPLE_TRY_FINALLY.  */
 
@@ -601,7 +601,7 @@ gimple_stmt_may_fallthru (gimple stmt)
 
     case GIMPLE_EH_ELSE:
       {
-	gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	geh_else *eh_else_stmt = as_a <geh_else *> (stmt);
 	return (gimple_seq_may_fallthru (gimple_eh_else_n_body (eh_else_stmt))
 		|| gimple_seq_may_fallthru (gimple_eh_else_e_body (
 					      eh_else_stmt)));
@@ -631,7 +631,7 @@ gimple_seq_may_fallthru (gimple_seq seq)
 static void
 lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
-  gimple_return stmt = as_a <gimple_return> (gsi_stmt (*gsi));
+  greturn *stmt = as_a <greturn *> (gsi_stmt (*gsi));
   gimple t;
   int i;
   return_statements_t tmp_rs;

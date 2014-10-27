@@ -4388,7 +4388,7 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
 	clobbers_memory = true;
     }
   else if (stmt_code == GIMPLE_ASM
-	   && (gimple_asm_volatile_p (as_a <gimple_asm> (stmt))
+	   && (gimple_asm_volatile_p (as_a <gasm *> (stmt))
 	       || gimple_vuse (stmt)))
     clobbers_memory = true;
 

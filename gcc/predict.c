@@ -1104,7 +1104,7 @@ get_base_value (tree t)
    Otherwise return false and set LOOP_INVAIANT to NULL.  */
 
 static bool
-is_comparison_with_loop_invariant_p (gimple_cond stmt, struct loop *loop,
+is_comparison_with_loop_invariant_p (gcond *stmt, struct loop *loop,
 				     tree *loop_invariant,
 				     enum tree_code *compare_code,
 				     tree *loop_step,
@@ -1269,7 +1269,7 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
   stmt = last_stmt (bb);
   if (!stmt || gimple_code (stmt) != GIMPLE_COND)
     return;
-  if (!is_comparison_with_loop_invariant_p (as_a <gimple_cond> (stmt),
+  if (!is_comparison_with_loop_invariant_p (as_a <gcond *> (stmt),
 					    loop, &compare_var,
 					    &compare_code,
 					    &compare_step_var,
@@ -1444,15 +1444,15 @@ predict_extra_loop_exits (edge exit_edge)
   unsigned i;
   bool check_value_one;
   gimple lhs_def_stmt;
-  gimple_phi phi_stmt;
+  gphi *phi_stmt;
   tree cmp_rhs, cmp_lhs;
   gimple last;
-  gimple_cond cmp_stmt;
+  gcond *cmp_stmt;
 
   last = last_stmt (exit_edge->src);
   if (!last)
     return;
-  cmp_stmt = dyn_cast <gimple_cond> (last);
+  cmp_stmt = dyn_cast <gcond *> (last);
   if (!cmp_stmt)
     return;
 
@@ -1475,7 +1475,7 @@ predict_extra_loop_exits (edge exit_edge)
   if (!lhs_def_stmt)
     return;
 
-  phi_stmt = dyn_cast <gimple_phi> (lhs_def_stmt);
+  phi_stmt = dyn_cast <gphi *> (lhs_def_stmt);
   if (!phi_stmt)
     return;
 
@@ -1522,7 +1522,7 @@ predict_loops (void)
       tree loop_bound_step = NULL;
       tree loop_bound_var = NULL;
       tree loop_iv_base = NULL;
-      gimple_cond stmt = NULL;
+      gcond *stmt = NULL;
 
       exits = get_loop_exit_edges (loop);
       n_exits = exits.length ();
@@ -1589,12 +1589,12 @@ predict_loops (void)
 	if (nb_iter->stmt
 	    && gimple_code (nb_iter->stmt) == GIMPLE_COND)
 	  {
-	    stmt = as_a <gimple_cond> (nb_iter->stmt);
+	    stmt = as_a <gcond *> (nb_iter->stmt);
 	    break;
 	  }
       if (!stmt && last_stmt (loop->header)
 	  && gimple_code (last_stmt (loop->header)) == GIMPLE_COND)
-	stmt = as_a <gimple_cond> (last_stmt (loop->header));
+	stmt = as_a <gcond *> (last_stmt (loop->header));
       if (stmt)
 	is_comparison_with_loop_invariant_p (stmt, loop,
 					     &loop_bound_var,
@@ -2152,10 +2152,10 @@ return_prediction (tree val, enum prediction *prediction)
 static void
 apply_return_prediction (void)
 {
-  gimple_return return_stmt = NULL;
+  greturn *return_stmt = NULL;
   tree return_val;
   edge e;
-  gimple_phi phi;
+  gphi *phi;
   int phi_num_args, i;
   enum br_predictor pred;
   enum prediction direction;
@@ -2167,7 +2167,7 @@ apply_return_prediction (void)
       if (last
 	  && gimple_code (last) == GIMPLE_RETURN)
 	{
-	  return_stmt = as_a <gimple_return> (last);
+	  return_stmt = as_a <greturn *> (last);
 	  break;
 	}
     }
@@ -2180,7 +2180,7 @@ apply_return_prediction (void)
       || !SSA_NAME_DEF_STMT (return_val)
       || gimple_code (SSA_NAME_DEF_STMT (return_val)) != GIMPLE_PHI)
     return;
-  phi = as_a <gimple_phi> (SSA_NAME_DEF_STMT (return_val));
+  phi = as_a <gphi *> (SSA_NAME_DEF_STMT (return_val));
   phi_num_args = gimple_phi_num_args (phi);
   pred = return_prediction (PHI_ARG_DEF (phi, 0), &direction);
 
@@ -2285,8 +2285,8 @@ tree_estimate_probability_bb (basic_block bb)
 	  gimple_stmt_iterator gi;
 	  for (gi = gsi_start_bb (e->dest); !gsi_end_p (gi); gsi_next (&gi))
 	    {
-	      gimple_label label_stmt =
-		dyn_cast <gimple_label> (gsi_stmt (gi));
+	      glabel *label_stmt =
+		dyn_cast <glabel *> (gsi_stmt (gi));
 	      tree decl;
 
 	      if (!label_stmt)

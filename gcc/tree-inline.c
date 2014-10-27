@@ -792,7 +792,7 @@ remap_gimple_seq (gimple_seq body, copy_body_data *id)
    block using the mapping information in ID.  */
 
 static gimple
-copy_gimple_bind (gimple_bind stmt, copy_body_data *id)
+copy_gimple_bind (gbind *stmt, copy_body_data *id)
 {
   gimple new_bind;
   tree new_block, new_vars;
@@ -1302,7 +1302,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
      statement.  */
   if (gimple_code (stmt) == GIMPLE_RETURN && id->transform_return_to_modify)
     {
-      tree retval = gimple_return_retval (as_a <gimple_return> (stmt));
+      tree retval = gimple_return_retval (as_a <greturn *> (stmt));
 
       /* If we're returning something, just turn that into an
 	 assignment into the equivalent of the original RESULT_DECL.
@@ -1334,12 +1334,12 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_BIND:
-	  copy = copy_gimple_bind (as_a <gimple_bind> (stmt), id);
+	  copy = copy_gimple_bind (as_a <gbind *> (stmt), id);
 	  break;
 
 	case GIMPLE_CATCH:
 	  {
-	    gimple_catch catch_stmt = as_a <gimple_catch> (stmt);
+	    gcatch *catch_stmt = as_a <gcatch *> (stmt);
 	    s1 = remap_gimple_seq (gimple_catch_handler (catch_stmt), id);
 	    copy = gimple_build_catch (gimple_catch_types (catch_stmt), s1);
 	  }
@@ -1363,8 +1363,8 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	case GIMPLE_OMP_PARALLEL:
 	  {
-	    gimple_omp_parallel omp_par_stmt =
-	      as_a <gimple_omp_parallel> (stmt);
+	    gomp_parallel *omp_par_stmt =
+	      as_a <gomp_parallel *> (stmt);
 	    s1 = remap_gimple_seq (gimple_omp_body (omp_par_stmt), id);
 	    copy = gimple_build_omp_parallel
 	             (s1,
@@ -1460,14 +1460,14 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  copy =
 	    gimple_build_omp_critical (s1,
 				       gimple_omp_critical_name (
-				         as_a <gimple_omp_critical> (stmt)));
+				         as_a <gomp_critical *> (stmt)));
 	  break;
 
 	case GIMPLE_TRANSACTION:
 	  {
-	    gimple_transaction old_trans_stmt =
-	      as_a <gimple_transaction> (stmt);
-	    gimple_transaction new_trans_stmt;
+	    gtransaction *old_trans_stmt =
+	      as_a <gtransaction *> (stmt);
+	    gtransaction *new_trans_stmt;
 	    s1 = remap_gimple_seq (gimple_transaction_body (old_trans_stmt),
 				   id);
 	    copy = new_trans_stmt =
@@ -1528,7 +1528,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
       if (gimple_debug_bind_p (stmt))
 	{
-	  gimple_debug copy =
+	  gdebug *copy =
 	    gimple_build_debug_bind (gimple_debug_bind_get_var (stmt),
 				     gimple_debug_bind_get_value (stmt),
 				     stmt);
@@ -1537,7 +1537,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	}
       if (gimple_debug_source_bind_p (stmt))
 	{
-	  gimple_debug copy = gimple_build_debug_source_bind
+	  gdebug *copy = gimple_build_debug_source_bind
 		   (gimple_debug_source_bind_get_var (stmt),
 		    gimple_debug_source_bind_get_value (stmt), stmt);
 	  id->debug_stmts.safe_push (copy);
@@ -1548,7 +1548,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       copy = gimple_copy (stmt);
 
       /* Clear flags that need revisiting.  */
-      if (gimple_call call_stmt = dyn_cast <gimple_call> (copy))
+      if (gcall *call_stmt = dyn_cast <gcall *> (copy))
 	if (gimple_call_tail_p (call_stmt))
 	  gimple_call_set_tail (call_stmt, false);
 
@@ -1584,13 +1584,13 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 		 keep it valid over inlining by setting DECL_PT_UID.  */
 	      if (!id->src_cfun->gimple_df
 		  || !id->src_cfun->gimple_df->ipa_pta)
-		gimple_call_reset_alias_info (as_a <gimple_call> (copy));
+		gimple_call_reset_alias_info (as_a <gcall *> (copy));
 	    }
 	    break;
 
 	  case GIMPLE_RESX:
 	    {
-	      gimple_resx resx_stmt = as_a <gimple_resx> (copy);
+	      gresx *resx_stmt = as_a <gresx *> (copy);
 	      int r = gimple_resx_region (resx_stmt);
 	      r = remap_eh_region_nr (r, id);
 	      gimple_resx_set_region (resx_stmt, r);
@@ -1599,7 +1599,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	  case GIMPLE_EH_DISPATCH:
 	    {
-	      gimple_eh_dispatch eh_dispatch = as_a <gimple_eh_dispatch> (copy);
+	      geh_dispatch *eh_dispatch = as_a <geh_dispatch *> (copy);
 	      int r = gimple_eh_dispatch_region (eh_dispatch);
 	      r = remap_eh_region_nr (r, id);
 	      gimple_eh_dispatch_set_region (eh_dispatch, r);
@@ -1725,10 +1725,10 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
       do
 	{
 	  tree fn;
-	  gimple_call call_stmt;
+	  gcall *call_stmt;
 
 	  stmt = gsi_stmt (copy_gsi);
-	  call_stmt = dyn_cast <gimple_call> (stmt);
+	  call_stmt = dyn_cast <gcall *> (stmt);
 	  if (call_stmt
 	      && gimple_call_va_arg_pack_p (call_stmt)
 	      && id->call_stmt)
@@ -1736,7 +1736,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	      /* __builtin_va_arg_pack () should be replaced by
 		 all arguments corresponding to ... in the caller.  */
 	      tree p;
-	      gimple_call new_call;
+	      gcall *new_call;
 	      vec<tree> argarray;
 	      size_t nargs = gimple_call_num_args (id->call_stmt);
 	      size_t n;
@@ -1813,7 +1813,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
 	     callgraph edges and update or duplicate them.  */
-	  if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
+	  if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	    {
 	      struct cgraph_edge *edge;
 
@@ -1938,7 +1938,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		    }
 		}
 
-	      notice_special_calls (as_a <gimple_call> (stmt));
+	      notice_special_calls (as_a <gcall *> (stmt));
 	    }
 
 	  maybe_duplicate_eh_stmt_fn (cfun, stmt, id->src_cfun, orig_stmt,
@@ -1993,8 +1993,8 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
     if (!e->dest->aux
 	|| ((basic_block)e->dest->aux)->index == ENTRY_BLOCK)
       {
-	gimple_phi phi;
-	gimple_phi_iterator si;
+	gphi *phi;
+	gphi_iterator si;
 
 	if (!nonlocal_goto)
 	  gcc_assert (e->flags & EDGE_EH);
@@ -2114,7 +2114,7 @@ copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb,
 	}
 
       if (gimple_code (copy_stmt) == GIMPLE_EH_DISPATCH)
-	make_eh_dispatch_edges (as_a <gimple_eh_dispatch> (copy_stmt));
+	make_eh_dispatch_edges (as_a <geh_dispatch *> (copy_stmt));
       else if (can_throw)
 	make_eh_edges (copy_stmt);
 
@@ -2160,15 +2160,15 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 {
   basic_block const new_bb = (basic_block) bb->aux;
   edge_iterator ei;
-  gimple_phi phi;
-  gimple_phi_iterator si;
+  gphi *phi;
+  gphi_iterator si;
   edge new_edge;
   bool inserted = false;
 
   for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
       tree res, new_res;
-      gimple_phi new_phi;
+      gphi *new_phi;
 
       phi = si.phi ();
       res = PHI_RESULT (phi);
@@ -2342,7 +2342,7 @@ maybe_move_debug_stmts_to_successors (copy_body_data *id, basic_block new_bb)
       while (is_gimple_debug (gsi_stmt (ssi)))
 	{
 	  gimple stmt = gsi_stmt (ssi);
-	  gimple_debug new_stmt;
+	  gdebug *new_stmt;
 	  tree var;
 	  tree value;
 
@@ -2670,7 +2670,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
    this arises, we drop the VALUE expression altogether.  */
 
 static void
-copy_debug_stmt (gimple_debug stmt, copy_body_data *id)
+copy_debug_stmt (gdebug *stmt, copy_body_data *id)
 {
   tree t, *n;
   struct walk_stmt_info wi;
@@ -2762,7 +2762,7 @@ static void
 copy_debug_stmts (copy_body_data *id)
 {
   size_t i;
-  gimple_debug stmt;
+  gdebug *stmt;
 
   if (!id->debug_stmts.exists ())
     return;
@@ -3418,7 +3418,7 @@ inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	 VLA objects as those can't cause unbounded growth (they're always
 	 wrapped inside stack_save/stack_restore regions.  */
       if (gimple_alloca_call_p (stmt)
-	  && !gimple_call_alloca_for_var_p (as_a <gimple_call> (stmt))
+	  && !gimple_call_alloca_for_var_p (as_a <gcall *> (stmt))
 	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
 	  inline_forbidden_reason
@@ -3883,7 +3883,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
     case GIMPLE_SWITCH:
       {
-	gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
+	gswitch *switch_stmt = as_a <gswitch *> (stmt);
 	/* Take into account cost of the switch + guess 2 conditional jumps for
 	   each case label.
 
@@ -3968,7 +3968,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
     case GIMPLE_ASM:
       {
 	int count =
-	  asm_str_count (gimple_asm_string (as_a <gimple_asm> (stmt)));
+	  asm_str_count (gimple_asm_string (as_a <gasm *> (stmt)));
 	/* 1000 means infinity. This avoids overflows later
 	   with very long asm statements.  */
 	if (count > 1000)
@@ -3989,7 +3989,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
     case GIMPLE_BIND:
       return estimate_num_insns_seq (
-	       gimple_bind_body (as_a <gimple_bind> (stmt)),
+	       gimple_bind_body (as_a <gbind *> (stmt)),
 	       weights);
 
     case GIMPLE_EH_FILTER:
@@ -3997,7 +3997,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
     case GIMPLE_CATCH:
       return estimate_num_insns_seq (gimple_catch_handler (
-				       as_a <gimple_catch> (stmt)),
+				       as_a <gcatch *> (stmt)),
 				     weights);
 
     case GIMPLE_TRY:
@@ -4038,7 +4038,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
     case GIMPLE_TRANSACTION:
       return (weights->tm_cost
 	      + estimate_num_insns_seq (gimple_transaction_body (
-					  as_a <gimple_transaction> (stmt)),
+					  as_a <gtransaction *> (stmt)),
 					weights));
 
     default:
@@ -4174,7 +4174,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   gimple_stmt_iterator gsi, stmt_gsi;
   bool successfully_inlined = FALSE;
   bool purge_dead_abnormal_edges;
-  gimple_call call_stmt;
+  gcall *call_stmt;
 
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
@@ -4183,7 +4183,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   input_location = gimple_location (stmt);
 
   /* From here on, we're only interested in CALL_EXPRs.  */
-  call_stmt = dyn_cast <gimple_call> (stmt);
+  call_stmt = dyn_cast <gcall *> (stmt);
   if (!call_stmt)
     goto egress;
 
@@ -4841,7 +4841,7 @@ mark_local_labels_stmt (gimple_stmt_iterator *gsip,
 		        struct walk_stmt_info *wi)
 {
   copy_body_data *id = (copy_body_data *) wi->info;
-  gimple_label stmt = dyn_cast <gimple_label> (gsi_stmt (*gsip));
+  glabel *stmt = dyn_cast <glabel *> (gsi_stmt (*gsip));
 
   if (stmt)
     {
@@ -4917,7 +4917,7 @@ replace_locals_stmt (gimple_stmt_iterator *gsip,
   copy_body_data *id = (copy_body_data *) wi->info;
   gimple gs = gsi_stmt (*gsip);
 
-  if (gimple_bind stmt = dyn_cast <gimple_bind> (gs))
+  if (gbind *stmt = dyn_cast <gbind *> (gs))
     {
       tree block = gimple_bind_block (stmt);
 

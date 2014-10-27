@@ -865,10 +865,10 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	 There must be a conflict recorded between the result of the PHI and
 	 any variables that are live.  Otherwise the out-of-ssa translation
 	 may create incorrect code.  */
-      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+      for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 	  tree result = PHI_RESULT (phi);
 	  if (live_track_live_p (live, result))
 	    live_track_process_def (live, result, graph);
@@ -934,11 +934,11 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
     {
       tree arg;
 
-      for (gimple_phi_iterator gpi = gsi_start_phis (bb);
+      for (gphi_iterator gpi = gsi_start_phis (bb);
 	   !gsi_end_p (gpi);
 	   gsi_next (&gpi))
 	{
-	  gimple_phi phi = gpi.phi ();
+	  gphi *phi = gpi.phi ();
 	  size_t i;
 	  int ver;
 	  tree res;
@@ -1010,7 +1010,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
 	    case GIMPLE_ASM:
 	      {
-		gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+		gasm *asm_stmt = as_a <gasm *> (stmt);
 		unsigned long noutputs, i;
 		unsigned long ninputs;
 		tree *outputs, link;
@@ -1192,11 +1192,11 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
-	    gimple_phi_iterator gsi;
+	    gphi_iterator gsi;
 	    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 		 gsi_next (&gsi))
 	      {
-		gimple_phi phi = gsi.phi ();
+		gphi *phi = gsi.phi ();
 		tree res = PHI_RESULT (phi);
 	        tree arg = PHI_ARG_DEF (phi, e->dest_idx);
 		int v1 = SSA_NAME_VERSION (res);

@@ -180,7 +180,7 @@ pass_nrv::execute (function *fun)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree ret_val;
 
-	  if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
+	  if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
 	    {
 	      /* In a function with an aggregate return value, the
 		 gimplifier has changed all non-empty RETURN_EXPRs to
@@ -315,7 +315,7 @@ make_pass_nrv (gcc::context *ctxt)
    DEST is available if it is not clobbered or used by the call.  */
 
 static bool
-dest_safe_for_nrv_p (gimple_call call)
+dest_safe_for_nrv_p (gcall *call)
 {
   tree dest = gimple_call_lhs (call);
 
@@ -382,10 +382,10 @@ pass_return_slot::execute (function *fun)
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple_call stmt;
+	  gcall *stmt;
 	  bool slot_opt_p;
 
-	  stmt = dyn_cast <gimple_call> (gsi_stmt (gsi));
+	  stmt = dyn_cast <gcall *> (gsi_stmt (gsi));
 	  if (stmt
 	      && gimple_call_lhs (stmt)
 	      && !gimple_call_return_slot_opt_p (stmt)

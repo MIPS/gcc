@@ -337,7 +337,7 @@ pass_build_cgraph_edges::execute (function *fun)
 	  if (is_gimple_debug (stmt))
 	    continue;
 
-	  if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
+	  if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	    {
 	      int freq = compute_call_stmt_bb_frequency (current_function_decl,
 							 bb);
@@ -352,8 +352,8 @@ pass_build_cgraph_edges::execute (function *fun)
 					    bb->count, freq);
 	    }
 	  node->record_stmt_references (stmt);
-	  if (gimple_omp_parallel omp_par_stmt =
-	      dyn_cast <gimple_omp_parallel> (stmt))
+	  if (gomp_parallel *omp_par_stmt =
+	      dyn_cast <gomp_parallel *> (stmt))
 	    {
 	      tree fn = gimple_omp_parallel_child_fn (omp_par_stmt);
 	      node->create_reference (cgraph_node::get_create (fn),
@@ -433,7 +433,7 @@ cgraph_edge::rebuild_edges (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree decl;
 
-	  if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
+	  if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	    {
 	      int freq = compute_call_stmt_bb_frequency (current_function_decl,
 							 bb);

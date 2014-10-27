@@ -139,11 +139,11 @@ phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
    BB with the virtual operands from USE_STMT.  */
 
 static tree
-phiprop_insert_phi (basic_block bb, gimple_phi phi, gimple use_stmt,
+phiprop_insert_phi (basic_block bb, gphi *phi, gimple use_stmt,
 		    struct phiprop_d *phivn, size_t n)
 {
   tree res;
-  gimple_phi new_phi;
+  gphi *new_phi;
   edge_iterator ei;
   edge e;
 
@@ -166,7 +166,7 @@ phiprop_insert_phi (basic_block bb, gimple_phi phi, gimple use_stmt,
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       tree old_arg, new_var;
-      gimple_assign tmp;
+      gassign *tmp;
       source_location locus;
 
       old_arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
@@ -247,7 +247,7 @@ phiprop_insert_phi (basic_block bb, gimple_phi phi, gimple use_stmt,
    with aliasing issues as we are moving memory reads.  */
 
 static bool
-propagate_with_phi (basic_block bb, gimple_phi phi, struct phiprop_d *phivn,
+propagate_with_phi (basic_block bb, gphi *phi, struct phiprop_d *phivn,
 		    size_t n)
 {
   tree ptr = PHI_RESULT (phi);
@@ -409,7 +409,7 @@ pass_phiprop::execute (function *fun)
   struct phiprop_d *phivn;
   bool did_something = false;
   basic_block bb;
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
   unsigned i;
   size_t n;
 

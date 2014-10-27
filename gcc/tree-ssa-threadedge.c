@@ -202,14 +202,14 @@ record_temporary_equivalence (tree x, tree y, vec<tree> *stack)
 static bool
 record_temporary_equivalences_from_phis (edge e, vec<tree> *stack)
 {
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
 
   /* Each PHI creates a temporary equivalence, record them.
      These are context sensitive equivalences and will be removed
      later.  */
   for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = gimple_phi_result (phi);
 
@@ -346,7 +346,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 	 can not thread through this block.  This is overly
 	 conservative in some ways.  */
       if (gimple_code (stmt) == GIMPLE_ASM
-	  && gimple_asm_volatile_p (as_a <gimple_asm> (stmt)))
+	  && gimple_asm_volatile_p (as_a <gasm *> (stmt)))
 	return NULL;
 
       /* If duplicating this block is going to cause too much code
@@ -464,7 +464,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 	  /* Try to fold/lookup the new expression.  Inserting the
 	     expression into the hash table is unlikely to help.  */
           if (is_gimple_call (stmt))
-            cached_lhs = fold_call_stmt (as_a <gimple_call> (stmt), false);
+            cached_lhs = fold_call_stmt (as_a <gcall *> (stmt), false);
 	  else
             cached_lhs = fold_assignment_stmt (stmt);
 
@@ -522,7 +522,7 @@ dummy_simplify (gimple stmt1 ATTRIBUTE_UNUSED, gimple stmt2 ATTRIBUTE_UNUSED)
 static tree
 simplify_control_stmt_condition (edge e,
 				 gimple stmt,
-				 gimple_cond dummy_cond,
+				 gcond *dummy_cond,
 				 tree (*simplify) (gimple, gimple),
 				 bool handle_dominating_asserts)
 {
@@ -619,7 +619,7 @@ simplify_control_stmt_condition (edge e,
     }
 
   if (code == GIMPLE_SWITCH)
-    cond = gimple_switch_index (as_a <gimple_switch> (stmt));
+    cond = gimple_switch_index (as_a <gswitch *> (stmt));
   else if (code == GIMPLE_GOTO)
     cond = gimple_goto_dest (stmt);
   else
@@ -803,7 +803,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
    try and simplify the condition at the end of TAKEN_EDGE->dest.  */
 static bool
 thread_around_empty_blocks (edge taken_edge,
-			    gimple_cond dummy_cond,
+			    gcond *dummy_cond,
 			    bool handle_dominating_asserts,
 			    tree (*simplify) (gimple, gimple),
 			    bitmap visited,
@@ -951,7 +951,7 @@ thread_around_empty_blocks (edge taken_edge,
 
 static int
 thread_through_normal_block (edge e,
-			     gimple_cond dummy_cond,
+			     gcond *dummy_cond,
 			     bool handle_dominating_asserts,
 			     vec<tree> *stack,
 			     tree (*simplify) (gimple, gimple),
@@ -1079,7 +1079,7 @@ thread_through_normal_block (edge e,
    SIMPLIFY is a pass-specific function used to simplify statements.  */
 
 void
-thread_across_edge (gimple_cond dummy_cond,
+thread_across_edge (gcond *dummy_cond,
 		    edge e,
 		    bool handle_dominating_asserts,
 		    vec<tree> *stack,

@@ -169,7 +169,7 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
     {
     case GIMPLE_COND:
       {
-	gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	gcond *cond_stmt = as_a <gcond *> (stmt);
 	gimplify_expr (gimple_cond_lhs_ptr (cond_stmt), &pre, NULL,
 		       is_gimple_val, fb_rvalue);
 	gimplify_expr (gimple_cond_rhs_ptr (cond_stmt), &pre, NULL,
@@ -177,17 +177,17 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       }
       break;
     case GIMPLE_SWITCH:
-      gimplify_expr (gimple_switch_index_ptr (as_a <gimple_switch> (stmt)),
+      gimplify_expr (gimple_switch_index_ptr (as_a <gswitch *> (stmt)),
 		     &pre, NULL, is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_OMP_ATOMIC_LOAD:
       gimplify_expr (gimple_omp_atomic_load_rhs_ptr (
-		       as_a <gimple_omp_atomic_load> (stmt)),
+		       as_a <gomp_atomic_load *> (stmt)),
 		     &pre, NULL, is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_ASM:
       {
-	gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	gasm *asm_stmt = as_a <gasm *> (stmt);
 	size_t i, noutputs = gimple_asm_noutputs (asm_stmt);
 	const char *constraint, **oconstraints;
 	bool allows_mem, allows_reg, is_inout;

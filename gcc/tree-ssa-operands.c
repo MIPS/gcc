@@ -634,7 +634,7 @@ get_tmr_operands (struct function *fn, gimple stmt, tree expr, int flags)
    escape, add them to the VDEF/VUSE lists for it.  */
 
 static void
-maybe_add_call_vops (struct function *fn, gimple_call stmt)
+maybe_add_call_vops (struct function *fn, gcall *stmt)
 {
   int call_flags = gimple_call_flags (stmt);
 
@@ -655,7 +655,7 @@ maybe_add_call_vops (struct function *fn, gimple_call stmt)
 /* Scan operands in the ASM_EXPR stmt referred to in INFO.  */
 
 static void
-get_asm_stmt_operands (struct function *fn, gimple_asm stmt)
+get_asm_stmt_operands (struct function *fn, gasm *stmt)
 {
   size_t i, noutputs;
   const char **oconstraints;
@@ -909,7 +909,7 @@ parse_ssa_operands (struct function *fn, gimple stmt)
   switch (code)
     {
     case GIMPLE_ASM:
-      get_asm_stmt_operands (fn, as_a <gimple_asm> (stmt));
+      get_asm_stmt_operands (fn, as_a <gasm *> (stmt));
       break;
 
     case GIMPLE_TRANSACTION:
@@ -930,7 +930,7 @@ parse_ssa_operands (struct function *fn, gimple stmt)
 
     case GIMPLE_CALL:
       /* Add call-clobbered operands, if needed.  */
-      maybe_add_call_vops (fn, as_a <gimple_call> (stmt));
+      maybe_add_call_vops (fn, as_a <gcall *> (stmt));
       /* FALLTHRU */
 
     case GIMPLE_ASSIGN:

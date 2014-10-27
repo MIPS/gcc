@@ -829,11 +829,11 @@ ccp_initialize (void)
      except for phi nodes for virtual operands when we do not do store ccp.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_phi_iterator i;
+      gphi_iterator i;
 
       for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
         {
-          gimple_phi phi = i.phi ();
+          gphi *phi = i.phi ();
 
 	  if (virtual_operand_p (gimple_phi_result (phi)))
             prop_set_simulate_again (phi, false);
@@ -1018,7 +1018,7 @@ ccp_lattice_meet (ccp_prop_value_t *val1, ccp_prop_value_t *val2)
    of the PHI node that are incoming via executable edges.  */
 
 static enum ssa_prop_result
-ccp_visit_phi_node (gimple_phi phi)
+ccp_visit_phi_node (gphi *phi)
 {
   unsigned i;
   ccp_prop_value_t *old_val, new_val;
@@ -1143,7 +1143,7 @@ ccp_fold (gimple stmt)
     case GIMPLE_SWITCH:
       {
 	/* Return the constant switch index.  */
-        return valueize_op (gimple_switch_index (as_a <gimple_switch> (stmt)));
+        return valueize_op (gimple_switch_index (as_a <gswitch *> (stmt)));
       }
 
     case GIMPLE_ASSIGN:
@@ -1692,7 +1692,7 @@ evaluate_stmt (gimple stmt)
             simplified = gimple_assign_rhs1 (stmt);
         }
       else if (code == GIMPLE_SWITCH)
-        simplified = gimple_switch_index (as_a <gimple_switch> (stmt));
+        simplified = gimple_switch_index (as_a <gswitch *> (stmt));
       else
 	/* These cannot satisfy is_gimple_min_invariant without folding.  */
 	gcc_assert (code == GIMPLE_CALL || code == GIMPLE_COND);
@@ -1904,7 +1904,7 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
 				     gimple_htab **visited)
 {
   gimple stmt;
-  gimple_assign clobber_stmt;
+  gassign *clobber_stmt;
   tree clobber;
   imm_use_iterator iter;
   gimple_stmt_iterator i;
@@ -2061,7 +2061,7 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
     {
     case GIMPLE_COND:
       {
-	gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	gcond *cond_stmt = as_a <gcond *> (stmt);
 	ccp_prop_value_t val;
 	/* Statement evaluation will handle type mismatches in constants
 	   more gracefully than the final propagation.  This allows us to
@@ -2565,7 +2565,7 @@ optimize_unreachable (gimple_stmt_iterator i)
       if (is_gimple_debug (stmt))
        continue;
 
-      if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
+      if (glabel *label_stmt = dyn_cast <glabel *> (stmt))
 	{
 	  /* Verify we do not need to preserve the label.  */
 	  if (FORCED_LABEL (gimple_label_label (label_stmt)))
@@ -2589,7 +2589,7 @@ optimize_unreachable (gimple_stmt_iterator i)
 	continue;
 
       stmt = gsi_stmt (gsi);
-      if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
+      if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
 	{
 	  if (e->flags & EDGE_TRUE_VALUE)
 	    gimple_cond_make_false (cond_stmt);

@@ -505,7 +505,7 @@ vect_build_slp_tree_1 (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
             vectorization_factor = *max_nunits;
         }
 
-      if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
+      if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	{
 	  rhs_code = CALL_EXPR;
 	  if (gimple_call_internal_p (call_stmt)

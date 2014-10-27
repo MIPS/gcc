@@ -192,12 +192,12 @@ struct reduction_info
   enum tree_code reduction_code;/* code for the reduction operation.  */
   unsigned reduc_version;	/* SSA_NAME_VERSION of original reduc_phi
 				   result.  */
-  gimple_phi keep_res;		/* The PHI_RESULT of this phi is the resulting value
+  gphi *keep_res;		/* The PHI_RESULT of this phi is the resulting value
 				   of the reduction variable when existing the loop. */
   tree initial_value;		/* The initial value of the reduction var before entering the loop.  */
   tree field;			/*  the name of the field in the parloop data structure intended for reduction.  */
   tree init;			/* reduction initialization value.  */
-  gimple_phi new_phi;		/* (helper field) Newly created phi node whose result
+  gphi *new_phi;		/* (helper field) Newly created phi node whose result
 				   will be passed to the atomic operation.  Represents
 				   the local result each thread computed for the reduction
 				   operation.  */
@@ -490,7 +490,7 @@ take_address_of (tree obj, tree type, edge entry,
 {
   int uid;
   tree *var_p, name, addr;
-  gimple_assign stmt;
+  gassign *stmt;
   gimple_seq stmts;
 
   /* Since the address of OBJ is invariant, the trees may be shared.
@@ -1027,7 +1027,7 @@ create_phi_for_local_result (reduction_info **slot, struct loop *loop)
 {
   struct reduction_info *const reduc = *slot;
   edge e;
-  gimple_phi new_phi;
+  gphi *new_phi;
   basic_block store_bb;
   tree local_res;
   source_location locus;
@@ -1498,22 +1498,22 @@ transform_to_exit_first_loop (struct loop *loop,
   bool ok;
   edge exit = single_dom_exit (loop), hpred;
   tree control, control_name, res, t;
-  gimple_phi phi, nphi;
-  gimple_assign stmt;
-  gimple_cond cond_stmt, cond_nit;
+  gphi *phi, *nphi;
+  gassign *stmt;
+  gcond *cond_stmt, *cond_nit;
   tree nit_1;
 
   split_block_after_labels (loop->header);
   orig_header = single_succ (loop->header);
   hpred = single_succ_edge (loop->header);
 
-  cond_stmt = as_a <gimple_cond> (last_stmt (exit->src));
+  cond_stmt = as_a <gcond *> (last_stmt (exit->src));
   control = gimple_cond_lhs (cond_stmt);
   gcc_assert (gimple_cond_rhs (cond_stmt) == nit);
 
   /* Make sure that we have phi nodes on exit for all loop header phis
      (create_parallel_loop requires that).  */
-  for (gimple_phi_iterator gsi = gsi_start_phis (loop->header);
+  for (gphi_iterator gsi = gsi_start_phis (loop->header);
        !gsi_end_p (gsi);
        gsi_next (&gsi))
     {
@@ -1548,7 +1548,7 @@ transform_to_exit_first_loop (struct loop *loop,
      out of the loop is the control variable.  */
   exit = single_dom_exit (loop);
   control_name = NULL_TREE;
-  for (gimple_phi_iterator gsi = gsi_start_phis (ex_bb);
+  for (gphi_iterator gsi = gsi_start_phis (ex_bb);
        !gsi_end_p (gsi); )
     {
       phi = gsi.phi ();
@@ -1587,7 +1587,7 @@ transform_to_exit_first_loop (struct loop *loop,
   /* Initialize the control variable to number of iterations
      according to the rhs of the exit condition.  */
   gimple_stmt_iterator gsi = gsi_after_labels (ex_bb);
-  cond_nit = as_a <gimple_cond> (last_stmt (exit->src));
+  cond_nit = as_a <gcond *> (last_stmt (exit->src));
   nit_1 =  gimple_cond_rhs (cond_nit);
   nit_1 = force_gimple_operand_gsi (&gsi,
 				  fold_convert (TREE_TYPE (control_name), nit_1),
@@ -1609,12 +1609,12 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gimple_stmt_iterator gsi;
   basic_block bb, paral_bb, for_bb, ex_bb;
   tree t, param;
-  gimple_omp_parallel omp_par_stmt;
+  gomp_parallel *omp_par_stmt;
   gimple omp_return_stmt1, omp_return_stmt2;
   gimple phi;
-  gimple_cond cond_stmt;
-  gimple_omp_for for_stmt;
-  gimple_omp_continue omp_cont_stmt;
+  gcond *cond_stmt;
+  gomp_for *for_stmt;
+  gomp_continue *omp_cont_stmt;
   tree cvar, cvar_init, initvar, cvar_next, cvar_base, type;
   edge exit, nexit, guard, end, e;
 
@@ -1634,7 +1634,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   /* Initialize NEW_DATA.  */
   if (data)
     {
-      gimple_assign assign_stmt;
+      gassign *assign_stmt;
 
       gsi = gsi_after_labels (bb);
 
@@ -1656,7 +1656,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 
   /* Extract data for GIMPLE_OMP_FOR.  */
   gcc_assert (loop->header == single_dom_exit (loop)->src);
-  cond_stmt = as_a <gimple_cond> (last_stmt (loop->header));
+  cond_stmt = as_a <gcond *> (last_stmt (loop->header));
 
   cvar = gimple_cond_lhs (cond_stmt);
   cvar_base = SSA_NAME_VAR (cvar);
@@ -1680,15 +1680,15 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   guard = make_edge (for_bb, ex_bb, 0);
   single_succ_edge (loop->latch)->flags = 0;
   end = make_edge (loop->latch, ex_bb, EDGE_FALLTHRU);
-  for (gimple_phi_iterator gpi = gsi_start_phis (ex_bb);
+  for (gphi_iterator gpi = gsi_start_phis (ex_bb);
        !gsi_end_p (gpi); gsi_next (&gpi))
     {
       source_location locus;
       tree def;
-      gimple_phi phi = gpi.phi ();
-      gimple_phi stmt;
+      gphi *phi = gpi.phi ();
+      gphi *stmt;
 
-      stmt = as_a <gimple_phi> (
+      stmt = as_a <gphi *> (
 	       SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit)));
 
       def = PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop));
@@ -1926,7 +1926,7 @@ loop_has_vector_phi_nodes (struct loop *loop ATTRIBUTE_UNUSED)
 {
   unsigned i;
   basic_block *bbs = get_loop_body_in_dom_order (loop);
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
   bool res = true;
 
   for (i = 0; i < loop->num_nodes; i++)
@@ -1945,7 +1945,7 @@ loop_has_vector_phi_nodes (struct loop *loop ATTRIBUTE_UNUSED)
 
 static void
 build_new_reduction (reduction_info_table_type *reduction_list,
-		     gimple reduc_stmt, gimple_phi phi)
+		     gimple reduc_stmt, gphi *phi)
 {
   reduction_info **slot;
   struct reduction_info *new_reduction;
@@ -1985,14 +1985,14 @@ set_reduc_phi_uids (reduction_info **slot, void *data ATTRIBUTE_UNUSED)
 static void
 gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list)
 {
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
   loop_vec_info simple_loop_info;
 
   simple_loop_info = vect_analyze_loop_form (loop);
 
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       affine_iv iv;
       tree res = PHI_RESULT (phi);
       bool double_reduc;
@@ -2048,7 +2048,7 @@ try_create_reduction_list (loop_p loop,
 			   reduction_info_table_type *reduction_list)
 {
   edge exit = single_dom_exit (loop);
-  gimple_phi_iterator gsi;
+  gphi_iterator gsi;
 
   gcc_assert (exit);
 
@@ -2057,7 +2057,7 @@ try_create_reduction_list (loop_p loop,
 
   for (gsi = gsi_start_phis (exit->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       struct reduction_info *red;
       imm_use_iterator imm_iter;
       use_operand_p use_p;
@@ -2115,7 +2115,7 @@ try_create_reduction_list (loop_p loop,
      iteration space can be distributed efficiently.  */
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi phi = gsi.phi ();
+      gphi *phi = gsi.phi ();
       tree def = PHI_RESULT (phi);
       affine_iv iv;
 

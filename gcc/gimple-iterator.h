@@ -36,11 +36,11 @@ struct gimple_stmt_iterator
 };
 
 /* Iterator over GIMPLE_PHI statements.  */
-struct gimple_phi_iterator : public gimple_stmt_iterator
+struct gphi_iterator : public gimple_stmt_iterator
 {
-  gimple_phi phi () const
+  gphi *phi () const
   {
-    return as_a <gimple_phi> (ptr);
+    return as_a <gphi *> (ptr);
   }
 };
  
@@ -88,7 +88,7 @@ extern basic_block gsi_insert_on_edge_immediate (edge, gimple);
 extern basic_block gsi_insert_seq_on_edge_immediate (edge, gimple_seq);
 extern void gsi_commit_edge_inserts (void);
 extern void gsi_commit_one_edge_insert (edge, basic_block *);
-extern gimple_phi_iterator gsi_start_phis (basic_block);
+extern gphi_iterator gsi_start_phis (basic_block);
 
 /* Return a new iterator pointing to GIMPLE_SEQ's first statement.  */
 

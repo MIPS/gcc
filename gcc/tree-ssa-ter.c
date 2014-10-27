@@ -428,7 +428,7 @@ ter_is_replaceable_p (gimple stmt)
       block1 = LOCATION_BLOCK (locus1);
       locus1 = LOCATION_LOCUS (locus1);
 
-      if (gimple_phi phi = dyn_cast <gimple_phi> (use_stmt))
+      if (gphi *phi = dyn_cast <gphi *> (use_stmt))
 	locus2 = gimple_phi_arg_location (phi,
 					  PHI_ARG_INDEX_FROM_USE (use_p));
       else

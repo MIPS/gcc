@@ -547,7 +547,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
    assumed that the operands have been previously folded.  */
 
 static bool
-fold_gimple_cond (gimple_cond stmt)
+fold_gimple_cond (gcond *stmt)
 {
   tree result = fold_binary_loc (gimple_location (stmt),
 			     gimple_cond_code (stmt),
@@ -1970,7 +1970,7 @@ static bool
 gimple_fold_builtin_snprintf_chk (gimple_stmt_iterator *gsi,
 				  enum built_in_function fcode)
 {
-  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   tree dest, size, len, fn, fmt, flag;
   const char *fmt_str;
 
@@ -2050,7 +2050,7 @@ static bool
 gimple_fold_builtin_sprintf_chk (gimple_stmt_iterator *gsi,
 				 enum built_in_function fcode)
 {
-  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   tree dest, size, len, fn, fmt, flag;
   const char *fmt_str;
   unsigned nargs = gimple_call_num_args (stmt);
@@ -2273,7 +2273,7 @@ gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi)
 static bool
 gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi)
 {
-  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   tree dest = gimple_call_arg (stmt, 0);
   tree destsize = gimple_call_arg (stmt, 1);
   tree fmt = gimple_call_arg (stmt, 2);
@@ -2423,7 +2423,7 @@ gimple_fold_builtin_strlen (gimple_stmt_iterator *gsi)
 static bool
 gimple_fold_builtin (gimple_stmt_iterator *gsi)
 {
-  gimple_call stmt = as_a <gimple_call >(gsi_stmt (*gsi));
+  gcall *stmt = as_a <gcall *>(gsi_stmt (*gsi));
   tree callee = gimple_call_fndecl (stmt);
 
   /* Give up for always_inline inline builtins until they are
@@ -2538,7 +2538,7 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
 static bool
 gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 {
-  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   tree callee;
   bool changed = false;
   unsigned i;
@@ -2855,7 +2855,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
       }
     case GIMPLE_ASM:
       {
-	gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	gasm *asm_stmt = as_a <gasm *> (stmt);
 	for (i = 0; i < gimple_asm_noutputs (asm_stmt); ++i)
 	  {
 	    tree link = gimple_asm_output_op (asm_stmt, i);
@@ -2926,7 +2926,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
       }
 
     case GIMPLE_COND:
-      changed |= fold_gimple_cond (as_a <gimple_cond> (stmt));
+      changed |= fold_gimple_cond (as_a <gcond *> (stmt));
       break;
 
     case GIMPLE_CALL:
@@ -2936,7 +2936,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
     case GIMPLE_ASM:
       /* Fold *& in asm operands.  */
       {
-	gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	gasm *asm_stmt = as_a <gasm *> (stmt);
 	size_t noutputs;
 	const char **oconstraints;
 	const char *constraint;
@@ -4331,7 +4331,7 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
     case GIMPLE_CALL:
       {
 	tree fn;
-	gimple_call call_stmt = as_a <gimple_call> (stmt);
+	gcall *call_stmt = as_a <gcall *> (stmt);
 
 	if (gimple_call_internal_p (stmt))
 	  {

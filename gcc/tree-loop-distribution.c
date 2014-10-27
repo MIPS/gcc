@@ -394,7 +394,7 @@ stmts_from_loop (struct loop *loop, vec<gimple> *stmts)
     {
       basic_block bb = bbs[i];
 
-      for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
+      for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
 	   gsi_next (&bsi))
 	if (!virtual_operand_p (gimple_phi_result (bsi.phi ())))
 	  stmts->safe_push (bsi.phi ());
@@ -638,10 +638,10 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
       {
 	basic_block bb = bbs[i];
 
-	for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
+	for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
 	     gsi_next (&bsi))
 	  {
-	    gimple_phi phi = bsi.phi ();
+	    gphi *phi = bsi.phi ();
 	    if (!virtual_operand_p (gimple_phi_result (phi))
 		&& !bitmap_bit_p (partition->stmts, gimple_uid (phi)))
 	      reset_debug_uses (phi);
@@ -661,9 +661,9 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
     {
       basic_block bb = bbs[i];
 
-      for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);)
+      for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);)
 	{
-	  gimple_phi phi = bsi.phi ();
+	  gphi *phi = bsi.phi ();
 	  if (!virtual_operand_p (gimple_phi_result (phi))
 	      && !bitmap_bit_p (partition->stmts, gimple_uid (phi)))
 	    remove_phi_node (&bsi, true);
@@ -680,14 +680,14 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 	    {
 	      /* Choose an arbitrary path through the empty CFG part
 		 that this unnecessary control stmt controls.  */
-	      if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
+	      if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
 		{
 		  gimple_cond_make_false (cond_stmt);
 		  update_stmt (stmt);
 		}
 	      else if (gimple_code (stmt) == GIMPLE_SWITCH)
 		{
-		  gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
+		  gswitch *switch_stmt = as_a <gswitch *> (stmt);
 		  gimple_switch_set_index
 		      (switch_stmt, CASE_LOW (gimple_switch_label (switch_stmt, 1)));
 		  update_stmt (stmt);
@@ -902,10 +902,10 @@ destroy_loop (struct loop *loop)
 	 Make sure we replace all uses of virtual defs that will remain
 	 outside of the loop with the bare symbol as delete_basic_block
 	 will release them.  */
-      for (gimple_phi_iterator gsi = gsi_start_phis (bbs[i]); !gsi_end_p (gsi);
+      for (gphi_iterator gsi = gsi_start_phis (bbs[i]); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple_phi phi = gsi.phi ();
+	  gphi *phi = gsi.phi ();
 	  if (virtual_operand_p (gimple_phi_result (phi)))
 	    mark_virtual_phi_result_for_renaming (phi);
 	}
@@ -1743,11 +1743,11 @@ pass_loop_distribution::execute (function *fun)
       bbs = get_loop_body_in_dom_order (loop);
       for (i = 0; i < loop->num_nodes; ++i)
 	{
-	  for (gimple_phi_iterator gsi = gsi_start_phis (bbs[i]);
+	  for (gphi_iterator gsi = gsi_start_phis (bbs[i]);
 	       !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
-	      gimple_phi phi = gsi.phi ();
+	      gphi *phi = gsi.phi ();
 	      if (virtual_operand_p (gimple_phi_result (phi)))
 		continue;
 	      /* Distribute stmts which have defs that are used outside of

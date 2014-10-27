@@ -251,7 +251,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	      ok = false;
 	      goto done;
 	    }
-	  if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
+	  if (glabel *label_stmt = dyn_cast <glabel *> (stmt))
 	    if (test_nonssa_use (stmt, gimple_label_label (label_stmt),
 				 NULL_TREE, non_ssa_vars))
 	      {
@@ -259,7 +259,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 		goto done;
 	      }
 	}
-      for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
+      for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
 	   gsi_next (&bsi))
 	{
 	  if (walk_stmt_load_store_addr_ops
@@ -274,11 +274,11 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	{
 	  if (e->dest != return_bb)
 	    continue;
-	  for (gimple_phi_iterator bsi = gsi_start_phis (return_bb);
+	  for (gphi_iterator bsi = gsi_start_phis (return_bb);
 	       !gsi_end_p (bsi);
 	       gsi_next (&bsi))
 	    {
-	      gimple_phi stmt = bsi.phi ();
+	      gphi *stmt = bsi.phi ();
 	      tree op = gimple_phi_arg_def (stmt, e->dest_idx);
 
 	      if (virtual_operand_p (gimple_phi_result (stmt)))
@@ -301,8 +301,8 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
       {
         gimple_stmt_iterator bsi;
         for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-	  if (gimple_label label_stmt =
-	        dyn_cast <gimple_label> (gsi_stmt (bsi)))
+	  if (glabel *label_stmt =
+	        dyn_cast <glabel *> (gsi_stmt (bsi)))
 	    {
 	      if (test_nonssa_use (label_stmt,
 				   gimple_label_label (label_stmt),
@@ -354,9 +354,9 @@ check_forbidden_calls (gimple stmt)
       basic_block use_bb, forbidden_bb;
       enum tree_code code;
       edge true_edge, false_edge;
-      gimple_cond use_stmt;
+      gcond *use_stmt;
 
-      use_stmt = dyn_cast <gimple_cond> (USE_STMT (use_p));
+      use_stmt = dyn_cast <gcond *> (USE_STMT (use_p));
       if (!use_stmt)
 	continue;
 
@@ -414,7 +414,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   unsigned int call_overhead;
   edge e;
   edge_iterator ei;
-  gimple_phi_iterator bsi;
+  gphi_iterator bsi;
   unsigned int i;
   int incoming_freq = 0;
   tree retval;
@@ -471,7 +471,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
      incoming from header are the same.  */
   for (bsi = gsi_start_phis (current->entry_bb); !gsi_end_p (bsi); gsi_next (&bsi))
     {
-      gimple_phi stmt = bsi.phi ();
+      gphi *stmt = bsi.phi ();
       tree val = NULL;
 
       if (virtual_operand_p (gimple_phi_result (stmt)))
@@ -623,7 +623,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
      for the return value.  If there are other PHIs, give up.  */
   if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
-      gimple_phi_iterator psi;
+      gphi_iterator psi;
 
       for (psi = gsi_start_phis (return_bb); !gsi_end_p (psi); gsi_next (&psi))
 	if (!virtual_operand_p (gimple_phi_result (psi.phi ()))
@@ -712,7 +712,7 @@ find_return_bb (void)
 		   || is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
 	       && retval == gimple_assign_lhs (stmt))
 	;
-      else if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
+      else if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
 	{
 	  found_return = true;
 	  retval = gimple_return_retval (return_stmt);
@@ -733,7 +733,7 @@ find_retval (basic_block return_bb)
 {
   gimple_stmt_iterator bsi;
   for (bsi = gsi_start_bb (return_bb); !gsi_end_p (bsi); gsi_next (&bsi))
-    if (gimple_return return_stmt = dyn_cast <gimple_return> (gsi_stmt (bsi)))
+    if (greturn *return_stmt = dyn_cast <greturn *> (gsi_stmt (bsi)))
       return gimple_return_retval (return_stmt);
     else if (gimple_code (gsi_stmt (bsi)) == GIMPLE_ASSIGN
 	     && !gimple_clobber_p (gsi_stmt (bsi)))
@@ -873,10 +873,10 @@ visit_bb (basic_block bb, basic_block return_bb,
 						   mark_nonssa_use,
 						   mark_nonssa_use);
     }
-  for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
+  for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
        gsi_next (&bsi))
     {
-      gimple_phi stmt = bsi.phi ();
+      gphi *stmt = bsi.phi ();
       unsigned int i;
 
       if (virtual_operand_p (gimple_phi_result (stmt)))
@@ -898,11 +898,11 @@ visit_bb (basic_block bb, basic_block return_bb,
   FOR_EACH_EDGE (e, ei, bb->succs)
     if (e->dest == return_bb)
       {
-	for (gimple_phi_iterator bsi = gsi_start_phis (return_bb);
+	for (gphi_iterator bsi = gsi_start_phis (return_bb);
 	     !gsi_end_p (bsi);
 	     gsi_next (&bsi))
 	  {
-	    gimple_phi stmt = bsi.phi ();
+	    gphi *stmt = bsi.phi ();
 	    tree op = gimple_phi_arg_def (stmt, e->dest_idx);
 
 	    if (virtual_operand_p (gimple_phi_result (stmt)))
@@ -1126,7 +1126,7 @@ split_function (struct split_point *split_point)
   cgraph_node *node, *cur_node = cgraph_node::get (current_function_decl);
   basic_block return_bb = find_return_bb ();
   basic_block call_bb;
-  gimple_call call;
+  gcall *call;
   edge e;
   edge_iterator ei;
   tree retval = NULL, real_retval = NULL;
@@ -1228,10 +1228,10 @@ split_function (struct split_point *split_point)
   if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       bool phi_p = false;
-      for (gimple_phi_iterator gsi = gsi_start_phis (return_bb);
+      for (gphi_iterator gsi = gsi_start_phis (return_bb);
 	   !gsi_end_p (gsi);)
 	{
-	  gimple_phi stmt = gsi.phi ();
+	  gphi *stmt = gsi.phi ();
 	  if (!virtual_operand_p (gimple_phi_result (stmt)))
 	    {
 	      gsi_next (&gsi);
@@ -1425,7 +1425,7 @@ split_function (struct split_point *split_point)
 
 	  if (real_retval && split_point->split_part_set_retval)
 	    {
-	      gimple_phi_iterator psi;
+	      gphi_iterator psi;
 
 	      /* See if we need new SSA_NAME for the result.
 		 When DECL_BY_REFERENCE is true, retval is actually pointer to
@@ -1453,8 +1453,8 @@ split_function (struct split_point *split_point)
 		      gimple_stmt_iterator bsi;
 		      for (bsi = gsi_start_bb (return_bb); !gsi_end_p (bsi);
 			   gsi_next (&bsi))
-			if (gimple_return return_stmt =
-			      dyn_cast <gimple_return> (gsi_stmt (bsi)))
+			if (greturn *return_stmt =
+			      dyn_cast <greturn *> (gsi_stmt (bsi)))
 			  {
 			    gimple_return_set_retval (return_stmt, retval);
 			    break;
@@ -1500,7 +1500,7 @@ split_function (struct split_point *split_point)
 	 */
       else
 	{
-	  gimple_return ret;
+	  greturn *ret;
 	  if (split_point->split_part_set_retval
 	      && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	    {
