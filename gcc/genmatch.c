@@ -2453,6 +2453,7 @@ private:
 public:
   vec<simplify *> simplifiers;
   vec<predicate_id *> user_predicates;
+  bool parsing_match_operand;
 };
 
 /* Lexing helpers.  */
@@ -2598,6 +2599,10 @@ parser::parse_operation ()
 	;
       else
 	fatal_at (id_tok, "non-convert operator conditionalized");
+
+      if (!parsing_match_operand)
+	fatal_at (id_tok, "conditional convert can only be used in "
+		  "match expression");
       eat_token (CPP_QUERY);
     }
   else if (strcmp  (id, "convert1") == 0
@@ -2617,7 +2622,7 @@ parser::parse_capture (operand *op)
 {
   eat_token (CPP_ATSIGN);
   const cpp_token *token = peek ();
-  const char *id;
+  const char *id = NULL;
   if (token->type == CPP_NUMBER)
     id = get_number ();
   else if (token->type == CPP_NAME)
@@ -2652,11 +2657,21 @@ parser::parse_expr ()
 	{
 	  const char *s = get_ident ();
 	  if (s[0] == 'c' && !s[1])
-	    is_commutative = true;
+	    {
+	      if (!parsing_match_operand)
+		fatal_at (token,
+			  "flag 'c' can only be used in match expression");
+	      is_commutative = true;
+	    }
 	  else if (s[1] != '\0')
-	    expr_type = s;
+	    {
+	      if (parsing_match_operand)
+		fatal_at (token, "type can only be used in result expression");
+	      expr_type = s;
+	    }
 	  else
 	    fatal_at (token, "flag %s not recognized", s);
+
 	  token = peek ();
 	}
       else
@@ -2811,7 +2826,9 @@ parser::parse_simplify (source_location match_location,
   capture_ids = new std::map<std::string, unsigned>;
 
   const cpp_token *loc = peek ();
+  parsing_match_operand = true;
   struct operand *match = parse_op ();
+  parsing_match_operand = false;
   if (match->type == operand::OP_CAPTURE && !matcher)
     fatal_at (loc, "outermost expression cannot be captured");
   if (match->type == operand::OP_EXPR
@@ -3143,6 +3160,7 @@ parser::parser (cpp_reader *r_)
   active_fors = vNULL;
   simplifiers = vNULL;
   user_predicates = vNULL;
+  parsing_match_operand = false;
 
   const cpp_token *token = next ();
   while (token->type != CPP_EOF)

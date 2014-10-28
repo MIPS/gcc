@@ -1,3 +1,13 @@
+2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser): Add new member parsing_match_operand.
+	(parser::parse_operation): Check for conditional convert in result
+	operand.
+	(parser::parse_expr): Check for commutative operator in result operand.
+	Check for :type in match operand.
+	(parser::parse_simplify): Set/unset parsing_match_operand.
+	(parser::parser): Initialize parsing_match_operand.
+
 2014-10-28  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (parser::parse_for): Properly check for already
