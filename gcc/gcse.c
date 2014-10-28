@@ -148,8 +148,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgcleanup.h"
+#include "basic-block.h"
 #include "expr.h"
 #include "except.h"
 #include "ggc.h"
@@ -4286,6 +4298,15 @@ rtl_opt_pass *
 make_pass_rtl_hoist (gcc::context *ctxt)
 {
   return new pass_rtl_hoist (ctxt);
+}
+
+/* Reset all state within gcse.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+gcse_c_finalize (void)
+{
+  test_insn = NULL;
 }
 
 #include "gt-gcse.h"

@@ -25,7 +25,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "regs.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgbuild.h"
+#include "basic-block.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
@@ -37,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "ggc.h"
 #include "tree.h"
-#include "vec.h"
 #include "langhooks.h"
 #include "rtlhooks-def.h"
 #include "emit-rtl.h"
@@ -994,9 +1003,7 @@ get_reg_class (rtx_insn *insn)
 {
   int i, n_ops;
 
-  extract_insn (insn);
-  if (! constrain_operands (1))
-    fatal_insn_not_found (insn);
+  extract_constrain_insn (insn);
   preprocess_constraints (insn);
   n_ops = recog_data.n_operands;
 

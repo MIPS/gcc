@@ -28,6 +28,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tm_p.h"
 #include "flags.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "regs.h"
 #include "addresses.h"
@@ -118,7 +127,7 @@ struct cost_classes
   /* Container of the cost classes.  */
   enum reg_class classes[N_REG_CLASSES];
   /* Map reg class -> index of the reg class in the previous array.
-     -1 if it is not a cost classe.  */
+     -1 if it is not a cost class.  */
   int index[N_REG_CLASSES];
   /* Map hard regno index of first class in array CLASSES containing
      the hard regno, -1 otherwise.  */
@@ -277,7 +286,7 @@ setup_regno_cost_classes_by_aclass (int regno, enum reg_class aclass)
    decrease number of cost classes for the pseudo, if hard registers
    of some important classes can not hold a value of MODE.  So the
    pseudo can not get hard register of some important classes and cost
-   calculation for such important classes is only waisting CPU
+   calculation for such important classes is only wasting CPU
    time.  */
 static void
 setup_regno_cost_classes_by_mode (int regno, enum machine_mode mode)
@@ -314,7 +323,7 @@ setup_regno_cost_classes_by_mode (int regno, enum machine_mode mode)
   regno_cost_classes[regno] = classes_ptr;
 }
 
-/* Finilize info about the cost classes for each pseudo.  */
+/* Finalize info about the cost classes for each pseudo.  */
 static void
 finish_regno_cost_classes (void)
 {
@@ -416,6 +425,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 
   /* Process each alternative, each time minimizing an operand's cost
      with the cost for each operand in that alternative.  */
+  alternative_mask preferred = get_preferred_alternatives (insn);
   for (alt = 0; alt < n_alts; alt++)
     {
       enum reg_class classes[MAX_RECOG_OPERANDS];
@@ -424,7 +434,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
       int alt_fail = 0;
       int alt_cost = 0, op_cost_add;
 
-      if (!TEST_BIT (recog_data.enabled_alternatives, alt))
+      if (!TEST_BIT (preferred, alt))
 	{
 	  for (i = 0; i < recog_data.n_operands; i++)
 	    constraints[i] = skip_alternative (constraints[i]);
@@ -1238,7 +1248,7 @@ record_operand_costs (rtx_insn *insn, enum reg_class *pref)
      then we may want to adjust the cost of that register class to -1.
 
      Avoid the adjustment if the source does not die to avoid
-     stressing of register allocator by preferrencing two colliding
+     stressing of register allocator by preferencing two colliding
      registers into single class.
 
      Also avoid the adjustment if a copy between hard registers of the

@@ -60,11 +60,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "output.h"
 #include "except.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "rtl-error.h"
 #include "toplev.h" /* exact_log2, floor_log2 */
 #include "reload.h"
 #include "intl.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "target.h"
 #include "targhooks.h"
@@ -2929,7 +2938,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    print_rtx_head = "";
 	  }
 
-	if (! constrain_operands_cached (1))
+	if (! constrain_operands_cached (insn, 1))
 	  fatal_insn_not_found (insn);
 
 	/* Some target machines need to prescan each insn before

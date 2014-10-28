@@ -120,8 +120,17 @@
 #include "output.h"
 #include "addresses.h"
 #include "target.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "expr.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "except.h"
 #include "optabs.h"
@@ -1680,14 +1689,14 @@ process_alt_operands (int only_alternative)
      together, the second alternatives go together, etc.
 
      First loop over alternatives.  */
-  alternative_mask enabled = curr_id->enabled_alternatives;
+  alternative_mask preferred = curr_id->preferred_alternatives;
   if (only_alternative >= 0)
-    enabled &= ALTERNATIVE_BIT (only_alternative);
+    preferred &= ALTERNATIVE_BIT (only_alternative);
 
   for (nalt = 0; nalt < n_alternatives; nalt++)
     {
       /* Loop over operands for one constraint alternative.  */
-      if (!TEST_BIT (enabled, nalt))
+      if (!TEST_BIT (preferred, nalt))
 	continue;
 
       overall = losers = reject = reload_nregs = reload_sum = 0;
@@ -3895,10 +3904,6 @@ loc_equivalence_callback (rtx loc, const_rtx, void *data)
 /* The current iteration number of this LRA pass.  */
 int lra_constraint_iter;
 
-/* The current iteration number of this LRA pass after the last spill
-   pass.  */
-int lra_constraint_iter_after_spill;
-
 /* True if we substituted equiv which needs checking register
    allocation correctness because the equivalent value contains
    allocatable hard registers or when we restore multi-register
@@ -4043,11 +4048,6 @@ lra_constraints (bool first_p)
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "\n********** Local #%d: **********\n\n",
 	     lra_constraint_iter);
-  lra_constraint_iter_after_spill++;
-  if (lra_constraint_iter_after_spill > LRA_MAX_CONSTRAINT_ITERATION_NUMBER)
-    internal_error
-      ("Maximum number of LRA constraint passes is achieved (%d)\n",
-       LRA_MAX_CONSTRAINT_ITERATION_NUMBER);
   changed_p = false;
   if (pic_offset_table_rtx
       && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)

@@ -27,10 +27,19 @@
 #include "regs.h"
 #include "addresses.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "reload.h"
 #include "output.h"
-#include "function.h"
 #include "recog.h"
 #include "flags.h"
 #include "obstack.h"
@@ -1564,9 +1573,7 @@ build_def_use (basic_block bb)
 	     to be marked unrenamable or even cause us to abort the entire
 	     basic block.  */
 
-	  extract_insn (insn);
-	  if (! constrain_operands (1))
-	    fatal_insn_not_found (insn);
+	  extract_constrain_insn (insn);
 	  preprocess_constraints (insn);
 	  const operand_alternative *op_alt = which_op_alt ();
 	  n_ops = recog_data.n_operands;

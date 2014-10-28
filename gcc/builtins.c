@@ -30,6 +30,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tree-object-size.h"
 #include "realmpfr.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -38,9 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "flags.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "except.h"
-#include "function.h"
 #include "insn-config.h"
 #include "expr.h"
 #include "optabs.h"
@@ -48,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "typeclass.h"
-#include "predict.h"
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
@@ -176,7 +181,6 @@ static tree fold_builtin_fabs (location_t, tree, tree);
 static tree fold_builtin_abs (location_t, tree, tree);
 static tree fold_builtin_unordered_cmp (location_t, tree, tree, tree, enum tree_code,
 					enum tree_code);
-static tree fold_builtin_n (location_t, tree, tree *, int, bool);
 static tree fold_builtin_0 (location_t, tree, bool);
 static tree fold_builtin_1 (location_t, tree, tree, bool);
 static tree fold_builtin_2 (location_t, tree, tree, tree, bool);
@@ -198,7 +202,6 @@ static void maybe_emit_chk_warning (tree, enum built_in_function);
 static void maybe_emit_sprintf_chk_warning (tree, enum built_in_function);
 static void maybe_emit_free_warning (tree);
 static tree fold_builtin_object_size (tree, tree);
-static tree fold_builtin_strncat_chk (location_t, tree, tree, tree, tree, tree);
 static tree fold_builtin_printf (location_t, tree, tree, tree, bool, enum built_in_function);
 static tree fold_builtin_fprintf (location_t, tree, tree, tree, tree, bool,
 				  enum built_in_function);
@@ -10366,9 +10369,6 @@ fold_builtin_4 (location_t loc, tree fndecl,
 
   switch (fcode)
     {
-    case BUILT_IN_STRNCAT_CHK:
-      return fold_builtin_strncat_chk (loc, fndecl, arg0, arg1, arg2, arg3);
-
     case BUILT_IN_FPRINTF_CHK:
     case BUILT_IN_VFPRINTF_CHK:
       if (!validate_arg (arg1, INTEGER_TYPE)
@@ -10395,7 +10395,7 @@ fold_builtin_4 (location_t loc, tree fndecl,
 
 #define MAX_ARGS_TO_FOLD_BUILTIN 4
 
-static tree
+tree
 fold_builtin_n (location_t loc, tree fndecl, tree *args, int nargs, bool ignore)
 {
   tree ret = NULL_TREE;
@@ -11582,58 +11582,6 @@ fold_builtin_object_size (tree ptr, tree ost)
     }
 
   return NULL_TREE;
-}
-
-/* Fold a call to the __strncat_chk builtin with arguments DEST, SRC,
-   LEN, and SIZE.  */
-
-static tree
-fold_builtin_strncat_chk (location_t loc, tree fndecl,
-			  tree dest, tree src, tree len, tree size)
-{
-  tree fn;
-  const char *p;
-
-  if (!validate_arg (dest, POINTER_TYPE)
-      || !validate_arg (src, POINTER_TYPE)
-      || !validate_arg (size, INTEGER_TYPE)
-      || !validate_arg (size, INTEGER_TYPE))
-    return NULL_TREE;
-
-  p = c_getstr (src);
-  /* If the SRC parameter is "" or if LEN is 0, return DEST.  */
-  if (p && *p == '\0')
-    return omit_one_operand_loc (loc, TREE_TYPE (TREE_TYPE (fndecl)), dest, len);
-  else if (integer_zerop (len))
-    return omit_one_operand_loc (loc, TREE_TYPE (TREE_TYPE (fndecl)), dest, src);
-
-  if (! tree_fits_uhwi_p (size))
-    return NULL_TREE;
-
-  if (! integer_all_onesp (size))
-    {
-      tree src_len = c_strlen (src, 1);
-      if (src_len
-	  && tree_fits_uhwi_p (src_len)
-	  && tree_fits_uhwi_p (len)
-	  && ! tree_int_cst_lt (len, src_len))
-	{
-	  /* If LEN >= strlen (SRC), optimize into __strcat_chk.  */
-	  fn = builtin_decl_explicit (BUILT_IN_STRCAT_CHK);
-	  if (!fn)
-	    return NULL_TREE;
-
-	  return build_call_expr_loc (loc, fn, 3, dest, src, size);
-	}
-      return NULL_TREE;
-    }
-
-  /* If __builtin_strncat_chk is used, assume strncat is available.  */
-  fn = builtin_decl_explicit (BUILT_IN_STRNCAT);
-  if (!fn)
-    return NULL_TREE;
-
-  return build_call_expr_loc (loc, fn, 3, dest, src, len);
 }
 
 /* Builtins with folding operations that operate on "..." arguments

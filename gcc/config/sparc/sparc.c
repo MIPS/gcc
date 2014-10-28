@@ -38,6 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "except.h"
 #include "expr.h"
@@ -51,7 +56,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "common/common-target.h"
 #include "hash-table.h"
-#include "vec.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -1244,6 +1256,7 @@ sparc_option_override (void)
     { TARGET_CPU_hypersparc, PROCESSOR_HYPERSPARC },
     { TARGET_CPU_leon, PROCESSOR_LEON },
     { TARGET_CPU_leon3, PROCESSOR_LEON3 },
+    { TARGET_CPU_leon3v7, PROCESSOR_LEON3V7 },
     { TARGET_CPU_sparclite, PROCESSOR_F930 },
     { TARGET_CPU_sparclite86x, PROCESSOR_SPARCLITE86X },
     { TARGET_CPU_sparclet, PROCESSOR_TSC701 },
@@ -1272,6 +1285,7 @@ sparc_option_override (void)
     { "hypersparc",	MASK_ISA, MASK_V8|MASK_FPU },
     { "leon",		MASK_ISA, MASK_V8|MASK_LEON|MASK_FPU },
     { "leon3",		MASK_ISA, MASK_V8|MASK_LEON3|MASK_FPU },
+    { "leon3v7",	MASK_ISA, MASK_LEON3|MASK_FPU },
     { "sparclite",	MASK_ISA, MASK_SPARCLITE },
     /* The Fujitsu MB86930 is the original sparclite chip, with no FPU.  */
     { "f930",		MASK_ISA|MASK_FPU, MASK_SPARCLITE },
@@ -1524,6 +1538,7 @@ sparc_option_override (void)
       sparc_costs = &leon_costs;
       break;
     case PROCESSOR_LEON3:
+    case PROCESSOR_LEON3V7:
       sparc_costs = &leon3_costs;
       break;
     case PROCESSOR_SPARCLET:

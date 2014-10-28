@@ -35,6 +35,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tm_p.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "except.h"
 #include "expr.h"
@@ -43,6 +49,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "reload.h"
 #include "ggc.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "target.h"
 
@@ -500,13 +509,15 @@ optab_for_tree_code (enum tree_code code, const_tree type,
       return fma_optab;
 
     case REDUC_MAX_EXPR:
-      return TYPE_UNSIGNED (type) ? reduc_umax_optab : reduc_smax_optab;
+      return TYPE_UNSIGNED (type)
+	     ? reduc_umax_scal_optab : reduc_smax_scal_optab;
 
     case REDUC_MIN_EXPR:
-      return TYPE_UNSIGNED (type) ? reduc_umin_optab : reduc_smin_optab;
+      return TYPE_UNSIGNED (type)
+	     ? reduc_umin_scal_optab : reduc_smin_scal_optab;
 
     case REDUC_PLUS_EXPR:
-      return TYPE_UNSIGNED (type) ? reduc_uplus_optab : reduc_splus_optab;
+      return reduc_plus_scal_optab;
 
     case VEC_LSHIFT_EXPR:
       return vec_shl_optab;
@@ -602,7 +613,26 @@ optab_for_tree_code (enum tree_code code, const_tree type,
       return unknown_optab;
     }
 }
-
+
+/* Given optab UNOPTAB that reduces a vector to a scalar, find instead the old
+   optab that produces a vector with the reduction result in one element,
+   for a tree with type TYPE.  */
+
+optab
+scalar_reduc_to_vector (optab unoptab, const_tree type)
+{
+  switch (unoptab)
+    {
+    case reduc_plus_scal_optab:
+      return TYPE_UNSIGNED (type) ? reduc_uplus_optab : reduc_splus_optab;
+
+    case reduc_smin_scal_optab: return reduc_smin_optab;
+    case reduc_umin_scal_optab: return reduc_umin_optab;
+    case reduc_smax_scal_optab: return reduc_smax_optab;
+    case reduc_umax_scal_optab: return reduc_umax_optab;
+    default: return unknown_optab;
+    }
+}
 
 /* Expand vector widening operations.
 
@@ -8622,6 +8652,33 @@ get_best_mem_extraction_insn (extraction_insn *insn,
   struct_bits -= struct_bits % BITS_PER_UNIT;
   return get_best_extraction_insn (insn, pattern, ET_unaligned_mem,
 				   struct_bits, field_mode);
+}
+
+/* Determine whether "1 << x" is relatively cheap in word_mode.  */
+
+bool
+lshift_cheap_p (bool speed_p)
+{
+  /* FIXME: This should be made target dependent via this "this_target"
+     mechanism, similar to e.g. can_copy_init_p in gcse.c.  */
+  static bool init[2] = { false, false };
+  static bool cheap[2] = { true, true };
+
+  /* If the targer has no lshift in word_mode, the operation will most
+     probably not be cheap.  ??? Does GCC even work for such targets?  */
+  if (optab_handler (ashl_optab, word_mode) == CODE_FOR_nothing)
+    return false;
+
+  if (!init[speed_p])
+    {
+      rtx reg = gen_raw_REG (word_mode, 10000);
+      int cost = set_src_cost (gen_rtx_ASHIFT (word_mode, const1_rtx, reg),
+			       speed_p);
+      cheap[speed_p] = cost < COSTS_N_INSNS (3);
+      init[speed_p] = true;
+    }
+
+  return cheap[speed_p];
 }
 
 #include "gt-optabs.h"

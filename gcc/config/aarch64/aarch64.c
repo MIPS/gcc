@@ -31,6 +31,15 @@
 #include "calls.h"
 #include "varasm.h"
 #include "regs.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "hard-reg-set.h"
 #include "output.h"
@@ -41,14 +50,17 @@
 #include "target-def.h"
 #include "targhooks.h"
 #include "ggc.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "tm_p.h"
 #include "recog.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
 #include "hash-table.h"
-#include "vec.h"
-#include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -61,9 +73,10 @@
 #include "dwarf2.h"
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
-#include "config/arm/aarch-cost-tables.h"
+#include "aarch64-cost-tables.h"
 #include "dumpfile.h"
 #include "builtins.h"
+#include "rtl-iter.h"
 
 /* Defined for convenience.  */
 #define POINTER_BYTES (POINTER_SIZE / BITS_PER_UNIT)
@@ -238,6 +251,14 @@ static const struct cpu_regmove_cost cortexa53_regmove_cost =
   NAMED_PARAM (FP2FP, 2)
 };
 
+static const struct cpu_regmove_cost thunderx_regmove_cost =
+{
+  NAMED_PARAM (GP2GP, 2),
+  NAMED_PARAM (GP2FP, 2),
+  NAMED_PARAM (FP2GP, 6),
+  NAMED_PARAM (FP2FP, 4)
+};
+
 /* Generic costs for vector insn classes.  */
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
 __extension__
@@ -309,6 +330,16 @@ static const struct tune_params cortexa57_tunings =
   &cortexa57_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 3)
+};
+
+static const struct tune_params thunderx_tunings =
+{
+  &thunderx_extra_costs,
+  &generic_addrcost_table,
+  &thunderx_regmove_cost,
+  &generic_vector_cost,
+  NAMED_PARAM (memmov_cost, 6),
+  NAMED_PARAM (issue_rate, 2)
 };
 
 /* A processor implementing AArch64.  */
@@ -4167,6 +4198,47 @@ aarch64_regno_regclass (unsigned regno)
   return NO_REGS;
 }
 
+static rtx
+aarch64_legitimize_address (rtx x, rtx /* orig_x  */, enum machine_mode mode)
+{
+  /* Try to split X+CONST into Y=X+(CONST & ~mask), Y+(CONST&mask),
+     where mask is selected by alignment and size of the offset.
+     We try to pick as large a range for the offset as possible to
+     maximize the chance of a CSE.  However, for aligned addresses
+     we limit the range to 4k so that structures with different sized
+     elements are likely to use the same base.  */
+
+  if (GET_CODE (x) == PLUS && CONST_INT_P (XEXP (x, 1)))
+    {
+      HOST_WIDE_INT offset = INTVAL (XEXP (x, 1));
+      HOST_WIDE_INT base_offset;
+
+      /* Does it look like we'll need a load/store-pair operation?  */
+      if (GET_MODE_SIZE (mode) > 16
+	  || mode == TImode)
+	base_offset = ((offset + 64 * GET_MODE_SIZE (mode))
+		       & ~((128 * GET_MODE_SIZE (mode)) - 1));
+      /* For offsets aren't a multiple of the access size, the limit is
+	 -256...255.  */
+      else if (offset & (GET_MODE_SIZE (mode) - 1))
+	base_offset = (offset + 0x100) & ~0x1ff;
+      else
+	base_offset = offset & ~0xfff;
+
+      if (base_offset == 0)
+	return x;
+
+      offset -= base_offset;
+      rtx base_reg = gen_reg_rtx (Pmode);
+      rtx val = force_operand (plus_constant (Pmode, XEXP (x, 0), base_offset),
+			   NULL_RTX);
+      emit_move_insn (base_reg, val);
+      x = plus_constant (Pmode, base_reg, offset);
+    }
+
+  return x;
+}
+
 /* Try a machine-dependent way of reloading an illegitimate address
    operand.  If we find one, push the reload and return the new rtx.  */
 
@@ -7595,17 +7667,19 @@ aarch64_mangle_type (const_tree type)
   return NULL;
 }
 
-static int
-is_mem_p (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  return MEM_P (*x);
-}
+
+/* Return true if the rtx_insn contains a MEM RTX somewhere
+   in it.  */
 
 static bool
-is_memory_op (rtx_insn *mem_insn)
+has_memory_op (rtx_insn *mem_insn)
 {
-   rtx pattern = PATTERN (mem_insn);
-   return for_each_rtx (&pattern, is_mem_p, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (mem_insn), ALL)
+    if (MEM_P (*iter))
+      return true;
+
+  return false;
 }
 
 /* Find the first rtx_insn before insn that will generate an assembly
@@ -7655,14 +7729,13 @@ dep_between_memop_and_curr (rtx memop)
   rtx load_reg;
   int opno;
 
-  if (!memop)
-    return false;
+  gcc_assert (GET_CODE (memop) == SET);
 
   if (!REG_P (SET_DEST (memop)))
     return false;
 
   load_reg = SET_DEST (memop);
-  for (opno = 0; opno < recog_data.n_operands; opno++)
+  for (opno = 1; opno < recog_data.n_operands; opno++)
     {
       rtx operand = recog_data.operand[opno];
       if (REG_P (operand)
@@ -7672,6 +7745,12 @@ dep_between_memop_and_curr (rtx memop)
     }
   return false;
 }
+
+
+/* When working around the Cortex-A53 erratum 835769,
+   given rtx_insn INSN, return true if it is a 64-bit multiply-accumulate
+   instruction and has a preceding memory instruction such that a NOP
+   should be inserted between them.  */
 
 bool
 aarch64_madd_needs_nop (rtx_insn* insn)
@@ -7691,23 +7770,25 @@ aarch64_madd_needs_nop (rtx_insn* insn)
     return false;
 
   prev = aarch64_prev_real_insn (insn);
-  if (!prev)
+  if (!prev || !has_memory_op (prev))
     return false;
 
   body = single_set (prev);
 
   /* If the previous insn is a memory op and there is no dependency between
-     it and the madd, emit a nop between them.  If we know the previous insn is
-     a memory op but body is NULL, emit the nop to be safe, it's probably a
-     load/store pair insn.  */
-  if (is_memory_op (prev)
-      && GET_MODE (recog_data.operand[0]) == DImode
-      && (!dep_between_memop_and_curr (body)))
+     it and the DImode madd, emit a NOP between them.  If body is NULL then we
+     have a complex memory operation, probably a load/store pair.
+     Be conservative for now and emit a NOP.  */
+  if (GET_MODE (recog_data.operand[0]) == DImode
+      && (!body || !dep_between_memop_and_curr (body)))
     return true;
 
   return false;
 
 }
+
+
+/* Implement FINAL_PRESCAN_INSN.  */
 
 void
 aarch64_final_prescan_insn (rtx_insn *insn)
@@ -10164,6 +10245,9 @@ aarch64_asan_shadow_offset (void)
 
 #undef TARGET_ASAN_SHADOW_OFFSET
 #define TARGET_ASAN_SHADOW_OFFSET aarch64_asan_shadow_offset
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS aarch64_legitimize_address
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

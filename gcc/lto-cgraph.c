@@ -26,6 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "stringpool.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -35,12 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "flags.h"
 #include "params.h"
-#include "input.h"
-#include "hashtab.h"
-#include "hash-set.h"
 #include "langhooks.h"
 #include "bitmap.h"
-#include "function.h"
 #include "diagnostic-core.h"
 #include "except.h"
 #include "timevar.h"
@@ -540,6 +544,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->only_called_at_exit, 1);
   bp_pack_value (&bp, node->tm_clone, 1);
   bp_pack_value (&bp, node->calls_comdat_local, 1);
+  bp_pack_value (&bp, node->icf_merged, 1);
   bp_pack_value (&bp, node->thunk.thunk_p && !boundary_p, 1);
   bp_pack_enum (&bp, ld_plugin_symbol_resolution,
 	        LDPR_NUM_KNOWN, node->resolution);
@@ -1080,6 +1085,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->only_called_at_exit = bp_unpack_value (bp, 1);
   node->tm_clone = bp_unpack_value (bp, 1);
   node->calls_comdat_local = bp_unpack_value (bp, 1);
+  node->icf_merged = bp_unpack_value (bp, 1);
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
   node->resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);

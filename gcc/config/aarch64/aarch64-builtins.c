@@ -36,6 +36,20 @@
 #include "hash-table.h"
 #include "vec.h"
 #include "ggc.h"
+#include "predict.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -201,6 +215,11 @@ aarch64_types_load1_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_const_pointer_map_mode };
 #define TYPES_LOAD1 (aarch64_types_load1_qualifiers)
 #define TYPES_LOADSTRUCT (aarch64_types_load1_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_loadstruct_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_none, qualifier_const_pointer_map_mode,
+      qualifier_none, qualifier_none };
+#define TYPES_LOADSTRUCT_LANE (aarch64_types_loadstruct_lane_qualifiers)
 
 static enum aarch64_type_qualifiers
 aarch64_types_bsl_p_qualifiers[SIMD_MAX_BUILTIN_ARGS]
@@ -1197,19 +1216,6 @@ aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
   tree fndecl;
   gimple new_stmt = NULL;
 
-  /* The operations folded below are reduction operations.  These are
-     defined to leave their result in the 0'th element (from the perspective
-     of GCC).  The architectural instruction we are folding will leave the
-     result in the 0'th element (from the perspective of the architecture).
-     For big-endian systems, these perspectives are not aligned.
-
-     It is therefore wrong to perform this fold on big-endian.  There
-     are some tricks we could play with shuffling, but the mid-end is
-     inconsistent in the way it treats reduction operations, so we will
-     end up in difficulty.  Until we fix the ambiguity - just bail out.  */
-  if (BYTES_BIG_ENDIAN)
-    return false;
-
   if (call)
     {
       fndecl = gimple_call_fndecl (stmt);
@@ -1221,23 +1227,28 @@ aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 			? gimple_call_arg_ptr (stmt, 0)
 			: &error_mark_node);
 
+	  /* We use gimple's REDUC_(PLUS|MIN|MAX)_EXPRs for float, signed int
+	     and unsigned int; it will distinguish according to the types of
+	     the arguments to the __builtin.  */
 	  switch (fcode)
 	    {
-	      BUILTIN_VALL (UNOP, reduc_splus_, 10)
-		new_stmt = gimple_build_assign_with_ops (
+	      BUILTIN_VALL (UNOP, reduc_plus_scal_, 10)
+	        new_stmt = gimple_build_assign_with_ops (
 						REDUC_PLUS_EXPR,
 						gimple_call_lhs (stmt),
 						args[0],
 						NULL_TREE);
 		break;
-	      BUILTIN_VDQIF (UNOP, reduc_smax_, 10)
+	      BUILTIN_VDQIF (UNOP, reduc_smax_scal_, 10)
+	      BUILTIN_VDQ_BHSI (UNOPU, reduc_umax_scal_, 10)
 		new_stmt = gimple_build_assign_with_ops (
 						REDUC_MAX_EXPR,
 						gimple_call_lhs (stmt),
 						args[0],
 						NULL_TREE);
 		break;
-	      BUILTIN_VDQIF (UNOP, reduc_smin_, 10)
+	      BUILTIN_VDQIF (UNOP, reduc_smin_scal_, 10)
+	      BUILTIN_VDQ_BHSI (UNOPU, reduc_umin_scal_, 10)
 		new_stmt = gimple_build_assign_with_ops (
 						REDUC_MIN_EXPR,
 						gimple_call_lhs (stmt),

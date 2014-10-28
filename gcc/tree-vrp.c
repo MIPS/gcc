@@ -26,6 +26,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "calls.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -1718,7 +1729,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 
       /* Make sure to not set TREE_OVERFLOW on the final type
 	 conversion.  We are willingly interpreting large positive
-	 unsigned values as negative singed values here.  */
+	 unsigned values as negative signed values here.  */
       min = force_fit_type (TREE_TYPE (var), wi::to_widest (min), 0, false);
       max = force_fit_type (TREE_TYPE (var), wi::to_widest (max), 0, false);
 

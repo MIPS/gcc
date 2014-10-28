@@ -28,6 +28,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "flags.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "recog.h"
@@ -1224,7 +1233,7 @@ ira_create_pref (ira_allocno_t a, int hard_regno, int freq)
   return pref;
 }
 
-/* Attach a pref PREF to the cooresponding allocno.  */
+/* Attach a pref PREF to the corresponding allocno.  */
 static void
 add_allocno_pref_to_list (ira_pref_t pref)
 {

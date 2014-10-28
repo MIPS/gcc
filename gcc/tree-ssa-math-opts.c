@@ -90,6 +90,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -1919,7 +1929,8 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	    if (!TYPE_UNSIGNED (n->type) && type_size > old_type_size
 		&& HEAD_MARKER (n->n, old_type_size))
 	      for (i = 0; i < type_size - old_type_size; i++)
-		n->n |= MARKER_BYTE_UNKNOWN << (type_size - 1 - i);
+		n->n |= MARKER_BYTE_UNKNOWN
+			<< ((type_size - 1 - i) * BITS_PER_MARKER);
 
 	    if (type_size < 64 / BITS_PER_MARKER)
 	      {

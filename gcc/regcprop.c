@@ -27,9 +27,17 @@
 #include "regs.h"
 #include "addresses.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "reload.h"
-#include "function.h"
 #include "recog.h"
 #include "flags.h"
 #include "diagnostic-core.h"
@@ -762,9 +770,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	}
 
       set = single_set (insn);
-      extract_insn (insn);
-      if (! constrain_operands (1))
-	fatal_insn_not_found (insn);
+      extract_constrain_insn (insn);
       preprocess_constraints (insn);
       const operand_alternative *op_alt = which_op_alt ();
       n_ops = recog_data.n_operands;
@@ -865,9 +871,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		}
 	      /* We need to re-extract as validate_change clobbers
 		 recog_data.  */
-	      extract_insn (insn);
-	      if (! constrain_operands (1))
-		fatal_insn_not_found (insn);
+	      extract_constrain_insn (insn);
 	      preprocess_constraints (insn);
 	    }
 
@@ -893,9 +897,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		    }
 		  /* We need to re-extract as validate_change clobbers
 		     recog_data.  */
-		  extract_insn (insn);
-		  if (! constrain_operands (1))
-		    fatal_insn_not_found (insn);
+		  extract_constrain_insn (insn);
 		  preprocess_constraints (insn);
 		}
 	    }
@@ -1000,6 +1002,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	  unsigned int set_nregs = 0;
 	  unsigned int regno;
 	  rtx exp;
+	  HARD_REG_SET regs_invalidated_by_this_call;
 
 	  for (exp = CALL_INSN_FUNCTION_USAGE (insn); exp; exp = XEXP (exp, 1))
 	    {
@@ -1018,8 +1021,11 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		}
 	    }
 
+	  get_call_reg_set_usage (insn,
+				  &regs_invalidated_by_this_call,
+				  regs_invalidated_by_call);
 	  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-	    if ((TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
+	    if ((TEST_HARD_REG_BIT (regs_invalidated_by_this_call, regno)
 		 || HARD_REGNO_CALL_PART_CLOBBERED (regno, vd->e[regno].mode))
 		&& (regno < set_regno || regno >= set_regno + set_nregs))
 	      kill_value_regno (regno, 1, vd);
@@ -1042,12 +1048,21 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	    }
 	}
 
-      /* Notice stores.  */
-      note_stores (PATTERN (insn), kill_set_value, &ksvd);
+      bool copy_p = (set
+		     && REG_P (SET_DEST (set))
+		     && REG_P (SET_SRC (set)));
+      bool noop_p = (copy_p
+		     && rtx_equal_p (SET_DEST (set), SET_SRC (set)));
 
-      /* Notice copies.  */
-      if (set && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set)))
-	copy_value (SET_DEST (set), SET_SRC (set), vd);
+      if (!noop_p)
+	{
+	  /* Notice stores.  */
+	  note_stores (PATTERN (insn), kill_set_value, &ksvd);
+
+	  /* Notice copies.  */
+	  if (copy_p)
+	    copy_value (SET_DEST (set), SET_SRC (set), vd);
+	}
 
       if (insn == BB_END (bb))
 	break;

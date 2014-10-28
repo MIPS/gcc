@@ -587,11 +587,7 @@ Gogo::zero_value(Type *type)
       // We will change the type later, when we know the size.
       Type* byte_type = this->lookup_global("byte")->type_value();
 
-      mpz_t val;
-      mpz_init_set_ui(val, 0);
-      Expression* zero = Expression::make_integer(&val, NULL, bloc);
-      mpz_clear(val);
-
+      Expression* zero = Expression::make_integer_ul(0, NULL, bloc);
       Type* array_type = Type::make_array_type(byte_type, zero);
 
       Variable* var = new Variable(array_type, NULL, true, false, false, bloc);
@@ -738,11 +734,8 @@ Gogo::register_gc_vars(const std::vector<Named_object*>& var_gc,
                                                           "__size", uint_type);
 
   Location builtin_loc = Linemap::predeclared_location();
-  size_t count = var_gc.size();
-  mpz_t lenval;
-  mpz_init_set_ui(lenval, count);
-  Expression* length = Expression::make_integer(&lenval, NULL, builtin_loc);
-  mpz_clear(lenval);
+  Expression* length = Expression::make_integer_ul(var_gc.size(), NULL,
+						   builtin_loc);
 
   Array_type* root_array_type = Type::make_array_type(root_type, length);
   Type* ptdt = Type::make_type_descriptor_ptr_type();
@@ -783,10 +776,7 @@ Gogo::register_gc_vars(const std::vector<Named_object*>& var_gc,
   Expression* nil = Expression::make_nil(builtin_loc);
   null_init->push_back(nil);
 
-  mpz_t zval;
-  mpz_init_set_ui(zval, 0UL);
-  Expression* zero = Expression::make_integer(&zval, NULL, builtin_loc);
-  mpz_clear(zval);
+  Expression *zero = Expression::make_integer_ul(0, NULL, builtin_loc);
   null_init->push_back(zero);
 
   Expression* null_root_ctor =
@@ -953,13 +943,14 @@ Find_var::expression(Expression** pexpr)
 	}
     }
 
-  // We traverse the code of any function we see.  Note that this
-  // means that we will traverse the code of a function whose address
-  // is taken even if it is not called.
+  // We traverse the code of any function or bound method we see.  Note that
+  // this means that we will traverse the code of a function or bound method
+  // whose address is taken even if it is not called.
   Func_expression* fe = e->func_expression();
-  if (fe != NULL)
+  Bound_method_expression* bme = e->bound_method_expression();
+  if (fe != NULL || bme != NULL)
     {
-      const Named_object* f = fe->named_object();
+      const Named_object* f = fe != NULL ? fe->named_object() : bme->function();
       if (f->is_function() && f->package() == NULL)
 	{
 	  std::pair<Seen_objects::iterator, bool> ins =
@@ -4028,10 +4019,7 @@ Build_recover_thunks::can_recover_arg(Location location)
   Expression* fn = Expression::make_func_reference(builtin_return_address,
 						   NULL, location);
 
-  mpz_t zval;
-  mpz_init_set_ui(zval, 0UL);
-  Expression* zexpr = Expression::make_integer(&zval, NULL, location);
-  mpz_clear(zval);
+  Expression* zexpr = Expression::make_integer_ul(0, NULL, location);
   Expression_list *args = new Expression_list();
   args->push_back(zexpr);
 
@@ -4066,10 +4054,8 @@ Expression*
 Gogo::runtime_error(int code, Location location)
 {
   Type* int32_type = Type::lookup_integer_type("int32");
-  mpz_t val;
-  mpz_init_set_ui(val, code);
-  Expression* code_expr = Expression::make_integer(&val, int32_type, location);
-  mpz_clear(val);
+  Expression* code_expr = Expression::make_integer_ul(code, int32_type,
+						      location);
   return Runtime::make_call(Runtime::RUNTIME_ERROR, location, 1, code_expr);
 }
 
@@ -4195,21 +4181,18 @@ Build_method_tables::type(Type* type)
 Expression*
 Gogo::allocate_memory(Type* type, Location location)
 {
-  Btype* btype = type->get_backend(this);
-  size_t size = this->backend()->type_size(btype);
-  mpz_t size_val;
-  mpz_init_set_ui(size_val, size);
-  Type* uintptr = Type::lookup_integer_type("uintptr");
-  Expression* size_expr =
-    Expression::make_integer(&size_val, uintptr, location);
+  Expression* td = Expression::make_type_descriptor(type, location);
+  Expression* size =
+    Expression::make_type_info(type, Expression::TYPE_INFO_SIZE);
 
-  // If the package imports unsafe, then it may play games with
-  // pointers that look like integers.
+  // If this package imports unsafe, then it may play games with
+  // pointers that look like integers.  We should be able to determine
+  // whether or not to use new pointers in libgo/go-new.c.  FIXME.
   bool use_new_pointers = this->imported_unsafe_ || type->has_pointer();
   return Runtime::make_call((use_new_pointers
 			     ? Runtime::NEW
 			     : Runtime::NEW_NOPOINTERS),
-                            location, 1, size_expr);
+			    location, 2, td, size);
 }
 
 // Traversal class used to check for return statements.
@@ -4944,6 +4927,14 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no)
       // recovered, we can't inline it, because that will mess up
       // our return address comparison.
       bool is_inlinable = !(this->calls_recover_ || this->is_recover_thunk_);
+
+      // If a function calls __go_set_defer_retaddr, then mark it as
+      // uninlinable.  This prevents the GCC backend from splitting
+      // the function; splitting the function is a bad idea because we
+      // want the return address label to be in the same function as
+      // the call.
+      if (this->calls_defer_retaddr_)
+	is_inlinable = false;
 
       // If this is a thunk created to call a function which calls
       // the predeclared recover function, we need to disable

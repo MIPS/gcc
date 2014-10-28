@@ -68,6 +68,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "hash-map.h"
@@ -2842,26 +2852,6 @@ get_use_iv_cost (struct ivopts_data *data, struct iv_use *use,
       return NULL;
 
   return NULL;
-}
-
-/* Returns estimate on cost of computing SEQ.  */
-
-static unsigned
-seq_cost (rtx_insn *seq, bool speed)
-{
-  unsigned cost = 0;
-  rtx set;
-
-  for (; seq; seq = NEXT_INSN (seq))
-    {
-      set = single_set (seq);
-      if (set)
-	cost += set_src_cost (SET_SRC (set), speed);
-      else
-	cost++;
-    }
-
-  return cost;
 }
 
 /* Produce DECL_RTL for object obj so it looks like it is stored in memory.  */

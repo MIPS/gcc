@@ -27,10 +27,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "recog.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "df.h"
 #include "reload.h"
-#include "function.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
@@ -138,15 +146,17 @@ reg_save_code (int reg, enum machine_mode mode)
   cached_reg_restore_code[reg][mode] = recog_memoized (restinsn);
 
   /* Now extract both insns and see if we can meet their
-     constraints.  */
+     constraints.  We don't know here whether the save and restore will
+     be in size- or speed-tuned code, so just use the set of enabled
+     alternatives.  */
   ok = (cached_reg_save_code[reg][mode] != -1
 	&& cached_reg_restore_code[reg][mode] != -1);
   if (ok)
     {
       extract_insn (saveinsn);
-      ok = constrain_operands (1);
+      ok = constrain_operands (1, get_enabled_alternatives (saveinsn));
       extract_insn (restinsn);
-      ok &= constrain_operands (1);
+      ok &= constrain_operands (1, get_enabled_alternatives (restinsn));
     }
 
   if (! ok)
@@ -1158,9 +1168,12 @@ replace_reg_with_saved_mem (rtx *loc,
 	  }
 	else
 	  {
-	    gcc_assert (save_mode[regno] != VOIDmode);
-	    XVECEXP (mem, 0, i) = gen_rtx_REG (save_mode [regno],
-					       regno + i);
+	    enum machine_mode smode = save_mode[regno];
+	    gcc_assert (smode != VOIDmode);
+	    if (hard_regno_nregs [regno][smode] > 1)
+	      smode = mode_for_size (GET_MODE_SIZE (mode) / nregs,
+				     GET_MODE_CLASS (mode), 0);
+	    XVECEXP (mem, 0, i) = gen_rtx_REG (smode, regno + i);
 	  }
     }
 

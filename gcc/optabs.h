@@ -162,6 +162,11 @@ enum optab_subtype
    vector shifts and rotates */
 extern optab optab_for_tree_code (enum tree_code, const_tree, enum optab_subtype);
 
+/* Given an optab that reduces a vector to a scalar, find instead the old
+   optab that produces a vector with the reduction result in one element,
+   for a tree with the specified type.  */
+extern optab scalar_reduc_to_vector (optab, const_tree type);
+
 /* The various uses that a comparison can have; used by can_compare_p:
    jumps, conditional moves, store flag operations.  */
 enum can_compare_purpose
@@ -538,5 +543,6 @@ extern void gen_satfractuns_conv_libfunc (convert_optab, const char *,
 					  enum machine_mode,
 					  enum machine_mode);
 extern void init_tree_optimization_optabs (tree);
+extern bool lshift_cheap_p (bool);
 
 #endif /* GCC_OPTABS_H */

@@ -29,9 +29,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "flags.h"
-#include "function.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -1686,8 +1696,12 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
 	return false;
     }
 
-  /* Protect the loop latches.  */
-  if (current_loops && b->loop_father->latch == b)
+  /* Protect simple loop latches.  We only want to avoid merging
+     the latch with the loop header in this case.  */
+  if (current_loops
+      && b->loop_father->latch == b
+      && loops_state_satisfies_p (LOOPS_HAVE_SIMPLE_LATCHES)
+      && b->loop_father->header == a)
     return false;
 
   /* It must be possible to eliminate all phi nodes in B.  If ssa form
@@ -3555,12 +3569,21 @@ verify_gimple_assign_unary (gassign *stmt)
 
         return false;
       }
-
-    case VEC_UNPACK_HI_EXPR:
-    case VEC_UNPACK_LO_EXPR:
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
+      if (!VECTOR_TYPE_P (rhs1_type)
+	  || !useless_type_conversion_p (lhs_type, TREE_TYPE (rhs1_type)))
+        {
+	  error ("reduction should convert from vector to element type");
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  return true;
+	}
+      return false;
+
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_LO_EXPR:
     case VEC_UNPACK_FLOAT_HI_EXPR:
     case VEC_UNPACK_FLOAT_LO_EXPR:
       /* FIXME.  */

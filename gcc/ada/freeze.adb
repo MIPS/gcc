@@ -112,6 +112,11 @@ package body Freeze is
    --  to deferred constants without completion. We report this at the freeze
    --  point of the function, to provide a better error message.
 
+   --  In most cases the expression itself is frozen by the time the function
+   --  itself is frozen, because the formals will be frozen by then. However,
+   --  Attribute references to outer types are freeze points for those types;
+   --  this routine generates the required freeze nodes for them.
+
    procedure Check_Strict_Alignment (E : Entity_Id);
    --  E is a base type. If E is tagged or has a component that is aliased
    --  or tagged or contains something this is aliased or tagged, set
@@ -1272,6 +1277,14 @@ package body Freeze is
          then
             Error_Msg_NE
               ("premature use of& in call or instance", N, Entity (Nod));
+
+         elsif Nkind (Nod) = N_Attribute_Reference then
+            Analyze (Prefix (Nod));
+            if Is_Entity_Name (Prefix (Nod))
+              and then Is_Type (Entity (Prefix (Nod)))
+            then
+               Freeze_Before (N, Entity (Prefix (Nod)));
+            end if;
          end if;
 
          return OK;
@@ -2370,6 +2383,24 @@ package body Freeze is
                         Set_Has_Non_Standard_Rep (Base_Type (Arr), True);
                         Set_Is_Bit_Packed_Array  (Base_Type (Arr), True);
                         Set_Is_Packed            (Base_Type (Arr), True);
+
+                        --  Make sure that we have the necessary routines to
+                        --  implement the packing, and complain now if not.
+
+                        declare
+                           CS : constant Int   := UI_To_Int (Csiz);
+                           RE : constant RE_Id := Get_Id (CS);
+
+                        begin
+                           if RE /= RE_Null
+                             and then not RTE_Available (RE)
+                           then
+                              Error_Msg_CRT
+                                ("packing of " & UI_Image (Csiz)
+                                 & "-bit components",
+                                 First_Subtype (Etype (Arr)));
+                           end if;
+                        end;
                      end if;
                   end;
                end if;
@@ -4467,6 +4498,11 @@ package body Freeze is
                      Error_Msg_NE
                        ("\} may need a cpp_constructor",
                        Object_Definition (Parent (E)), Etype (E));
+
+                  elsif Present (Expression (Parent (E))) then
+                     Error_Msg_N --  CODEFIX
+                       ("\maybe a class-wide type was meant",
+                         Object_Definition (Parent (E)));
                   end if;
                end if;
 
@@ -5006,7 +5042,8 @@ package body Freeze is
          --  that later when the full type is frozen).
 
          elsif Ekind_In (E, E_Record_Type, E_Record_Subtype)
-           and then not Is_Generic_Unit (Scope (E))
+           and then not (Present (Scope (E))
+                          and then Is_Generic_Unit (Scope (E)))
          then
             Freeze_Record_Type (E);
 
@@ -5958,17 +5995,57 @@ package body Freeze is
       --  may reference entities that have to be frozen before the body and
       --  obviously cannot be frozen inside the body.
 
-      function In_Exp_Body (N : Node_Id) return Boolean;
+      function Find_Aggregate_Component_Desig_Type return Entity_Id;
+      --  If the expression is an array aggregate, the type of the component
+      --  expressions is also frozen. If the component type is an access type
+      --  and the expressions include allocators, the designed type is frozen
+      --  as well.
+
+      function In_Expanded_Body (N : Node_Id) return Boolean;
       --  Given an N_Handled_Sequence_Of_Statements node N, determines whether
       --  it is the handled statement sequence of an expander-generated
       --  subprogram (init proc, stream subprogram, or renaming as body).
       --  If so, this is not a freezing context.
 
-      -----------------
-      -- In_Exp_Body --
-      -----------------
+      -----------------------------------------
+      -- Find_Aggregate_Component_Desig_Type --
+      -----------------------------------------
 
-      function In_Exp_Body (N : Node_Id) return Boolean is
+      function Find_Aggregate_Component_Desig_Type return Entity_Id is
+         Assoc : Node_Id;
+         Exp   : Node_Id;
+
+      begin
+         if Present (Expressions (N)) then
+            Exp := First (Expressions (N));
+            while Present (Exp) loop
+               if Nkind (Exp) = N_Allocator then
+                  return Designated_Type (Component_Type (Etype (N)));
+               end if;
+
+               Next (Exp);
+            end loop;
+         end if;
+
+         if Present (Component_Associations (N)) then
+            Assoc := First  (Component_Associations (N));
+            while Present (Assoc) loop
+               if Nkind (Expression (Assoc)) = N_Allocator then
+                  return Designated_Type (Component_Type (Etype (N)));
+               end if;
+
+               Next (Assoc);
+            end loop;
+         end if;
+
+         return Empty;
+      end Find_Aggregate_Component_Desig_Type;
+
+      ----------------------
+      -- In_Expanded_Body --
+      ----------------------
+
+      function In_Expanded_Body (N : Node_Id) return Boolean is
          P  : Node_Id;
          Id : Entity_Id;
 
@@ -5985,7 +6062,8 @@ package body Freeze is
          else
             Id := Defining_Unit_Name (Specification (P));
 
-            --  Following complex conditional could use comments ???
+            --  The following are expander-created bodies, or bodies that
+            --  are not freeze points.
 
             if Nkind (Id) = N_Defining_Identifier
               and then (Is_Init_Proc (Id)
@@ -6002,7 +6080,7 @@ package body Freeze is
                return False;
             end if;
          end if;
-      end In_Exp_Body;
+      end In_Expanded_Body;
 
    --  Start of processing for Freeze_Expression
 
@@ -6104,7 +6182,10 @@ package body Freeze is
             if Is_Array_Type (Etype (N))
               and then Is_Access_Type (Component_Type (Etype (N)))
             then
-               Desig_Typ := Designated_Type (Component_Type (Etype (N)));
+
+               --  Check whether aggregate includes allocators.
+
+               Desig_Typ := Find_Aggregate_Component_Desig_Type;
             end if;
 
          when N_Selected_Component |
@@ -6252,7 +6333,7 @@ package body Freeze is
                --  outside this body, not inside it, and we skip past the
                --  subprogram body that we are inside.
 
-               if In_Exp_Body (Parent_P) then
+               if In_Expanded_Body (Parent_P) then
                   declare
                      Subp : constant Node_Id := Parent (Parent_P);
                      Spec : Entity_Id;
@@ -6296,7 +6377,7 @@ package body Freeze is
                      --  of F (2) would place Hidden's freeze node (1) in the
                      --  wrong place. Avoid explicit freezing and let the usual
                      --  scenarios do the job - for example, reaching the end
-                     --  of the private declarations.
+                     --  of the private declarations, or a call to F.
 
                      if Nkind (Original_Node (Subp)) =
                                                 N_Expression_Function

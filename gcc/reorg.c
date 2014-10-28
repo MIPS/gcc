@@ -108,10 +108,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "expr.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "hard-reg-set.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "regs.h"
 #include "recog.h"
@@ -2764,7 +2772,8 @@ fill_slots_from_thread (rtx_insn *insn, rtx condition, rtx thread_or_return,
 				   insn);
 
 	  if (recog_memoized (ninsn) < 0
-	      || (extract_insn (ninsn), ! constrain_operands (1)))
+	      || (extract_insn (ninsn),
+		  !constrain_operands (1, get_preferred_alternatives (ninsn))))
 	    {
 	      delete_related_insns (ninsn);
 	      return 0;

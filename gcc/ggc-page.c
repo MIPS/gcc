@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "cfgloop.h"
 #include "plugin.h"
+#include "basic-block.h"
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -1697,7 +1698,12 @@ compute_inverse (unsigned order)
 void
 init_ggc (void)
 {
+  static bool init_p = false;
   unsigned order;
+
+  if (init_p)
+    return;
+  init_p = true;
 
   G.pagesize = getpagesize ();
   G.lg_pagesize = exact_log2 (G.pagesize);

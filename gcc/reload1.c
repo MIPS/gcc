@@ -30,11 +30,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "ggc.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "input.h"
 #include "function.h"
 #include "expr.h"
 #include "optabs.h"
 #include "regs.h"
 #include "addresses.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfgbuild.h"
 #include "basic-block.h"
 #include "df.h"
 #include "reload.h"
@@ -1257,7 +1266,7 @@ reload (rtx_insn *first, int global)
 	if (asm_noperands (PATTERN (insn)) >= 0)
 	  {
 	    extract_insn (insn);
-	    if (!constrain_operands (1))
+	    if (!constrain_operands (1, get_enabled_alternatives (insn)))
 	      {
 		error_for_asm (insn,
 			       "%<asm%> operand has impossible constraints");
@@ -4709,7 +4718,9 @@ reload_as_needed (int live_known)
 		  if (p != insn && INSN_P (p)
 		      && GET_CODE (PATTERN (p)) != USE
 		      && (recog_memoized (p) < 0
-			  || (extract_insn (p), ! constrain_operands (1))))
+			  || (extract_insn (p),
+			      !(constrain_operands (1,
+				  get_enabled_alternatives (p))))))
 		    {
 		      error_for_asm (insn,
 				     "%<asm%> operand requires "
@@ -4792,7 +4803,8 @@ reload_as_needed (int live_known)
 			      if (n)
 				{
 				  extract_insn (p);
-				  n = constrain_operands (1);
+				  n = constrain_operands (1,
+				    get_enabled_alternatives (p));
 				}
 
 			      /* If the constraints were not met, then
@@ -5719,7 +5731,7 @@ gen_reload_chain_without_interm_reg_p (int r1, int r2)
 	  /* We want constrain operands to treat this insn strictly in
 	     its validity determination, i.e., the way it would after
 	     reload has completed.  */
-	  result = constrain_operands (1);
+	  result = constrain_operands (1, get_enabled_alternatives (insn));
 	}
 
       delete_insns_since (last);
@@ -7389,7 +7401,7 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 	     autoincrement addressing mode, then the resulting insn
 	     is ill-formed and we must reject this optimization.  */
 	  extract_insn (temp);
-	  if (constrain_operands (1)
+	  if (constrain_operands (1, get_enabled_alternatives (temp))
 #ifdef AUTO_INC_DEC
 	      && ! find_reg_note (temp, REG_INC, reloadreg)
 #endif
@@ -8576,7 +8588,7 @@ emit_insn_if_valid_for_reload (rtx pat)
       /* We want constrain operands to treat this insn strictly in its
 	 validity determination, i.e., the way it would after reload has
 	 completed.  */
-      if (constrain_operands (1))
+      if (constrain_operands (1, get_enabled_alternatives (insn)))
 	return insn;
     }
 
@@ -9213,7 +9225,7 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
       if (code >= 0)
 	{
 	  extract_insn (add_insn);
-	  if (constrain_operands (1))
+	  if (constrain_operands (1, get_enabled_alternatives (add_insn)))
 	    {
 	      /* If this is a pre-increment and we have incremented the value
 		 where it lives, copy the incremented value to RELOADREG to

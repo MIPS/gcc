@@ -29,7 +29,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "coverage.h"
@@ -714,8 +723,10 @@ public:
 bool
 pass_ipa_tree_profile::gate (function *)
 {
-  /* When profile instrumentation, use or test coverage shall be performed.  */
-  return (!in_lto_p
+  /* When profile instrumentation, use or test coverage shall be performed.
+     But for AutoFDO, this there is no instrumentation, thus this pass is
+     diabled.  */
+  return (!in_lto_p && !flag_auto_profile
 	  && (flag_branch_probabilities || flag_test_coverage
 	      || profile_arc_flag));
 }
