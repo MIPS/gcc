@@ -1,5 +1,9 @@
 
 2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (mexpand_let): Should handle computed
+	list of source bindings case, incomplete...
+
+2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (mexpand_let): Handle computed tuple of
 	source bindings case...
 

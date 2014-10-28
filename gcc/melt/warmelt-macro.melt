@@ -7334,9 +7334,11 @@ applications of @code{/i} primitives.}#
 	(recsexprtup ())
 	)
     (cond
+;;;;;;;
      ( (null bindexpr)
        ;; we are accepting the degenerate case (letrec () ....)
        (void))
+;;;;;;;
      ( (is_multiple bindexpr)
        ;; tuple from some previous macro-expansion
        (foreach_in_multiple
@@ -7380,11 +7382,71 @@ applications of @code{/i} primitives.}#
 	  )
 	)
        )
+;;;;;;;
      ( (is_list bindexpr)
        ;; list from some previous macro-expansion
-       (error_at loc "unimplemented LETREC list-computed bindings")
-       (assert_msg "@$@unimplemented LETREC list-computed bindings" ())
+       (let ( (:long lix -1)
+	      )
+	 ;; first checking loop
+	 (setq lix 0)
+	 (each_component_in_list
+	  bindexpr
+	  cursrcbindelem
+	  (when (is_not_a cursrcbindelem class_source_letrec_binding)
+	    (error_at loc "bad list for LETREC binding, invalid #$1" lix))
+	  (setq lix (+i lix 1))
+	  (void)
+	  )
+	 (setq nbind (list_length bindexpr))
+	 (setq bindtup (make_multiple discr_multiple nbind))
+	 (setq srcbindtup (make_multiple discr_multiple nbind))
+	 (setq vartup (make_multiple discr_multiple nbind))
+	 (setq exprtup (make_multiple discr_multiple nbind))
+	 ;; second handling loop
+	  #|
+	 (setq lix 0)
+	 (each_component_in_list
+	  bindexpr
+	  cursrcbindelem
+	  (debug "mexpand_letrec:listcomp" " cursrcbindelem=" cursrcbindelem)
+	  (assert_msg "check cursrcbindelem" (is_a cursrcbindelem class_source_letrec_binding))
+	  (let (
+		(cursbindsloc (or (get_field :loca_location cursrcbindelem) loc))
+		(cursbindtype (get_field :sletb_type cursrcbindelem))
+		(cursbindsymb (get_field :sletb_binder cursrcbindelem))
+		(cursbindexp (get_field :sletb_expr cursrcbindelem))
+		)
+	    (if (!= cursbindtype ctype_value)
+		(error_at cursbindsloc "invalid type of LETREC list-computed binding $1 at #$2" cursbindsymb lix))
+	    (multiple_put_nth srcbindtup lix cursrcbindelem)
+	    (multiple_put_nth vartup lix cursbindsymb)
+	    (multiple_put_nth exprtup lix cursbindexp)
+	    (let ( (curbind (instance class_letrec_binding
+				      :binder cursbindsymb
+				      :letbind_type ctype_value
+				      :letbind_expr () ;filled later
+				      )) 
+		   )
+	      (put_env newenv curbind)
+	      (multiple_put_nth bindtup lix curbind)
+	      (unless (is_recursively_constructible cursbindexp)
+		(error_at cursbindsloc "non recursively constructible LETREC list-computed binding $1 at #$2" cursbindsymb lix))
+	      (put_fields curbind :letbind_expr cursbindexp)
+	      )
+	    )
+	  (setq lix (+i lix 1))
+	  (void)
+	  )
+	 |#
+	 ;;;;
+	 (error_at loc "unimplemented LETREC list-computed bindings")
+	 (assert_msg "@$@unimplemented LETREC list-computed bindings" ())
+	 ;;;;
+	 (void)
+	 )
        )
+;;;;;;;
+;;; usual case
      ( (is_a bindexpr class_sexpr)
        (let ( (resbindcont (unsafe_get_field :sexp_contents bindexpr))
 	      (recbindtup 
