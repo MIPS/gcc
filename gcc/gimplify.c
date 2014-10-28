@@ -5201,9 +5201,9 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
 
   for (iter = gsi_start (body_sequence); !gsi_end_p (iter); )
     {
-      gimple wce = gsi_stmt (iter);
+      gwce *wce = dyn_cast <gwce *> (gsi_stmt (iter));
 
-      if (gimple_code (wce) == GIMPLE_WITH_CLEANUP_EXPR)
+      if (wce)
 	{
 	  if (gsi_one_before_end_p (iter))
 	    {
@@ -5259,7 +5259,7 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
 static void
 gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq *pre_p)
 {
-  gimple wce;
+  gwce *wce;
   gimple_seq cleanup_stmts = NULL;
 
   /* Errors can result in improperly nested cleanups.  Which results in

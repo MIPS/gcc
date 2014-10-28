@@ -1365,7 +1365,8 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_WITH_CLEANUP_EXPR:
-	  s1 = remap_gimple_seq (gimple_wce_cleanup (stmt), id);
+	  s1 = remap_gimple_seq (gimple_wce_cleanup (as_a <gwce *> (stmt)),
+				 id);
 	  copy = gimple_build_wce (s1);
 	  break;
 

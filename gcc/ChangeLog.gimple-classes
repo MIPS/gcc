@@ -1,5 +1,37 @@
 2014-10-28  David Malcolm  <dmalcolm@redhat.com>
 
+	* doc/gimple.texi (Class hierarchy of GIMPLE statements): Update
+	for renaming of gimple_statement_wce to gwce.
+	* gimple-walk.c (walk_gimple_stmt): Add checked cast to gwce *
+	within case GIMPLE_WITH_CLEANUP_EXPR.
+	* gimple.c (gimple_build_wce): Strengthen return type and local
+	"p" from gimple to gwce *.
+	(gimple_copy): Add checked casts to gwce * within case
+	GIMPLE_WITH_CLEANUP_EXPR.
+	* gimple.h (struct gimple_statement_wce): Rename to...
+	(struct gwce): ...this.
+	(is_a_helper <gimple_statement_wce *>::test): Rename to...
+	(is_a_helper <gwce *>::test): ...this.
+	(gimple_build_wce): Strengthen return type from gimple to gwce *.
+	(gimple_wce_cleanup_ptr): Strengthen param from gimple to gwce *.
+	(gimple_wce_cleanup): Likewise.
+	(gimple_wce_set_cleanup): Likewise.
+	(gimple_wce_cleanup_eh_only): Strengthen param from const_gimple
+	to const gwce *.
+	(gimple_wce_set_cleanup_eh_only): Strengthen param from gimple to
+	gwce *.
+	* gimplify.c (gimplify_cleanup_point_expr): Replace check against
+	GIMPLE_WITH_CLEANUP_EXPR with a dyn_cast <gwce *>, strengthening
+	local "wce" from gimple to gwce *.
+	(gimple_push_cleanup): Strengthen local "wce" from gimple to
+	gwce *.
+	* gsstruct.def (GSS_WCE): Update for renaming of
+	gimple_statement_wce to gwce.
+	* tree-inline.c (remap_gimple_stmt): Add checked cast to gwce *
+	within case GIMPLE_WITH_CLEANUP_EXPR.
+
+2014-10-28  David Malcolm  <dmalcolm@redhat.com>
+
 	* auto-profile.c (autofdo::function_instance::find_icall_target_map):
 	Strengthen param "stmt" from gimple to gcall *.
 	(autofdo::autofdo_source_profile::update_inlined_ind_target):

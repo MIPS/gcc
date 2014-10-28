@@ -459,7 +459,7 @@ enum gimple_try_flags
 /* GIMPLE_WITH_CLEANUP_EXPR */
 
 struct GTY((tag("GSS_WCE")))
-  gimple_statement_wce : public gimple_statement_base
+  gwce : public gimple_statement_base
 {
   /* [ WORD 1-6 ] : base class */
 
@@ -1094,7 +1094,7 @@ is_a_helper <gtry *>::test (gimple gs)
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_wce *>::test (gimple gs)
+is_a_helper <gwce *>::test (gimple gs)
 {
   return gs->code == GIMPLE_WITH_CLEANUP_EXPR;
 }
@@ -1319,7 +1319,7 @@ geh_mnt *gimple_build_eh_must_not_throw (tree);
 geh_else *gimple_build_eh_else (gimple_seq, gimple_seq);
 gtry *gimple_build_try (gimple_seq, gimple_seq,
 					enum gimple_try_flags);
-gimple gimple_build_wce (gimple_seq);
+gwce *gimple_build_wce (gimple_seq);
 gresx *gimple_build_resx (int);
 gswitch *gimple_build_switch_nlabels (unsigned, tree, tree);
 gswitch *gimple_build_switch (tree, tree, vec<tree> );
@@ -3776,12 +3776,12 @@ gimple_try_set_cleanup (gtry *try_stmt, gimple_seq cleanup)
 }
 
 
-/* Return a pointer to the cleanup sequence for cleanup statement GS.  */
+/* Return a pointer to the cleanup sequence for cleanup statement
+   WCE_STMT.  */
 
 static inline gimple_seq *
-gimple_wce_cleanup_ptr (gimple gs)
+gimple_wce_cleanup_ptr (gwce *wce_stmt)
 {
-  gimple_statement_wce *wce_stmt = as_a <gimple_statement_wce *> (gs);
   return &wce_stmt->cleanup;
 }
 
@@ -3789,18 +3789,17 @@ gimple_wce_cleanup_ptr (gimple gs)
 /* Return the cleanup sequence for cleanup statement GS.  */
 
 static inline gimple_seq
-gimple_wce_cleanup (gimple gs)
+gimple_wce_cleanup (gwce *gs)
 {
   return *gimple_wce_cleanup_ptr (gs);
 }
 
 
-/* Set CLEANUP to be the cleanup sequence for GS.  */
+/* Set CLEANUP to be the cleanup sequence for WCE_STMT.  */
 
 static inline void
-gimple_wce_set_cleanup (gimple gs, gimple_seq cleanup)
+gimple_wce_set_cleanup (gwce *wce_stmt, gimple_seq cleanup)
 {
-  gimple_statement_wce *wce_stmt = as_a <gimple_statement_wce *> (gs);
   wce_stmt->cleanup = cleanup;
 }
 
@@ -3808,9 +3807,8 @@ gimple_wce_set_cleanup (gimple gs, gimple_seq cleanup)
 /* Return the CLEANUP_EH_ONLY flag for a WCE tuple.  */
 
 static inline bool
-gimple_wce_cleanup_eh_only (const_gimple gs)
+gimple_wce_cleanup_eh_only (const gwce *gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
   return gs->subcode != 0;
 }
 
@@ -3818,9 +3816,8 @@ gimple_wce_cleanup_eh_only (const_gimple gs)
 /* Set the CLEANUP_EH_ONLY flag for a WCE tuple.  */
 
 static inline void
-gimple_wce_set_cleanup_eh_only (gimple gs, bool eh_only_p)
+gimple_wce_set_cleanup_eh_only (gwce *gs, bool eh_only_p)
 {
-  GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
   gs->subcode = (unsigned int) eh_only_p;
 }
 

@@ -708,10 +708,10 @@ gimple_build_try (gimple_seq eval, gimple_seq cleanup,
 
    CLEANUP is the cleanup expression.  */
 
-gimple
+gwce *
 gimple_build_wce (gimple_seq cleanup)
 {
-  gimple p = gimple_alloc (GIMPLE_WITH_CLEANUP_EXPR, 0);
+  gwce *p = as_a <gwce *> (gimple_alloc (GIMPLE_WITH_CLEANUP_EXPR, 0));
   if (cleanup)
     gimple_wce_set_cleanup (p, cleanup);
 
@@ -1818,8 +1818,8 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_WITH_CLEANUP_EXPR:
-	  new_seq = gimple_seq_copy (gimple_wce_cleanup (stmt));
-	  gimple_wce_set_cleanup (copy, new_seq);
+	  new_seq = gimple_seq_copy (gimple_wce_cleanup (as_a <gwce *> (stmt)));
+	  gimple_wce_set_cleanup (as_a <gwce *> (copy), new_seq);
 	  break;
 
 	default:

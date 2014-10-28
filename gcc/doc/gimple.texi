@@ -414,7 +414,7 @@ kinds, along with their relationships to @code{GSS_} values (layouts) and
      + gtry
      |        layout: GSS_TRY, code: GIMPLE_TRY
      |
-     + gimple_statement_wce
+     + gwce
      |        layout: GSS_WCE, code: GIMPLE_WITH_CLEANUP_EXPR
      |
      + gomp_continue

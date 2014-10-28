@@ -635,8 +635,9 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       break;
 
     case GIMPLE_WITH_CLEANUP_EXPR:
-      ret = walk_gimple_seq_mod (gimple_wce_cleanup_ptr (stmt), callback_stmt,
-			     callback_op, wi);
+      ret = walk_gimple_seq_mod (gimple_wce_cleanup_ptr (as_a <gwce *> (stmt)),
+				 callback_stmt,
+				 callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
