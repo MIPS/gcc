@@ -1470,6 +1470,8 @@ routine procedures.}#
 				      :nocc_symb clonsym
 				      :nocc_bind clonbind))
 		   )
+	      (when (!= (get_ctype norcomp env) ctype_value)
+		  (error_at psloc "incompatible type of module variable $1 - needs a value" nvbinder))
 	      (list_append nbinds clonbind)
 	      (setq norcomp clonocc)
 	      )))

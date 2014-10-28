@@ -2995,20 +2995,20 @@
 	      (when (not (is_object obnx))
 		    (debug "compilobj_nrep_let current normbinding faulty nexp=" nexp " obnx=" obnx)
 		    (assert_msg "compilobj_nrep_let check obnx" (is_object obnx) obnx nexp)))
-	  (if obva
-	      ;; non void cty
-	      (progn
-		(mapobject_put locmap nlbnd obva)
-		(debug "compilobj_nrep_let obnx=" obnx 
-		       "\n nlbnd=" nlbnd 
-		       "\n obva=" obva)
-		(let ( (obpd (put_objdest obnx obva)) 
-		       (obmy (or obpd obnx))
-		       )
-		  (debug "compilobj_nrep_let current obpd=" obpd " obmy=" obmy)
-		  (list_append obodl obmy)
-		  ))
-	    (progn
+	  (cond
+	   ( obva
+	     ;; non void cty
+	     (mapobject_put locmap nlbnd obva)
+	     (debug "compilobj_nrep_let obnx=" obnx 
+		    "\n nlbnd=" nlbnd 
+		    "\n obva=" obva)
+	     (let ( (obpd (put_objdest obnx obva)) 
+		    (obmy (or obpd obnx))
+		    )
+	       (debug "compilobj_nrep_let current obpd=" obpd " obmy=" obmy)
+	       (list_append obodl obmy)
+	       ))
+	    (:else
 	      ;; obva is nil when cty is void type 
 	      (debug "compilobj_nrep_let append obnx=" obnx)
 	      (list_append obodl obnx)

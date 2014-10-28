@@ -1,5 +1,11 @@
 
 2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (normalize_tuple): Add some type check.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_let): Improved.
+
+2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (mexpand_let): Should handle computed
 	list of source bindings case, incomplete...
 
