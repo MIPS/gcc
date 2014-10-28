@@ -2942,10 +2942,10 @@ parser::parse_for (source_location)
 
       /* Insert the user defined operators into the operator hash.  */
       const char *id = get_ident ();
+      if (get_operator (id) != NULL)
+	fatal_at (token, "operator already defined");
       user_id *op = new user_id (id);
       id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
-      if (*slot)
-	fatal_at (token, "operator already defined");
       *slot = op;
       user_ids.safe_push (op);
       user_id_tokens.safe_push (token);

@@ -1,3 +1,8 @@
+2014-10-28  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parser::parse_for): Properly check for already
+	defined operators.
+
 2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (error_cb): Adjust for printing warnings.
