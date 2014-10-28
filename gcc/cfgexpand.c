@@ -3208,7 +3208,7 @@ expand_gimple_stmt_1 (gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_GOTO:
-      op0 = gimple_goto_dest (stmt);
+      op0 = gimple_goto_dest (as_a <ggoto *> (stmt));
       if (TREE_CODE (op0) == LABEL_DECL)
 	expand_goto (op0);
       else

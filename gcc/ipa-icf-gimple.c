@@ -622,7 +622,8 @@ func_checker::compare_bb (sem_bb *bb1, sem_bb *bb2)
 	    return return_different_stmts (s1, s2, "GIMPLE_RETURN");
 	  break;
 	case GIMPLE_GOTO:
-	  if (!compare_gimple_goto (s1, s2))
+	  if (!compare_gimple_goto (as_a <ggoto *> (s1),
+				    as_a <ggoto *> (s2)))
 	    return return_different_stmts (s1, s2, "GIMPLE_GOTO");
 	  break;
 	case GIMPLE_ASM:
@@ -828,11 +829,11 @@ func_checker::compare_gimple_return (const greturn *g1, const greturn *g2)
     return compare_operand (t1, t2);
 }
 
-/* Verifies for given GIMPLEs S1 and S2 that
+/* Verifies for given GIMPLE_GOTO stmts S1 and S2 that
    goto statements are semantically equivalent.  */
 
 bool
-func_checker::compare_gimple_goto (gimple g1, gimple g2)
+func_checker::compare_gimple_goto (const ggoto *g1, const ggoto *g2)
 {
   tree dest1, dest2;
 

@@ -3196,9 +3196,8 @@ gimple_label_set_label (glabel *gs, tree label)
 /* Return the destination of the unconditional jump GS.  */
 
 static inline tree
-gimple_goto_dest (const_gimple gs)
+gimple_goto_dest (const ggoto *gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_GOTO);
   return gimple_op (gs, 0);
 }
 

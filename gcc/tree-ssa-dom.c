@@ -362,11 +362,11 @@ initialize_hash_element (gimple stmt, tree lhs,
       expr->kind = EXPR_SINGLE;
       expr->ops.single.rhs = gimple_switch_index (swtch_stmt);
     }
-  else if (code == GIMPLE_GOTO)
+  else if (ggoto *goto_stmt = dyn_cast <ggoto *> (stmt))
     {
-      expr->type = TREE_TYPE (gimple_goto_dest (stmt));
+      expr->type = TREE_TYPE (gimple_goto_dest (goto_stmt));
       expr->kind = EXPR_SINGLE;
-      expr->ops.single.rhs = gimple_goto_dest (stmt);
+      expr->ops.single.rhs = gimple_goto_dest (goto_stmt);
     }
   else if (code == GIMPLE_PHI)
     {
@@ -2367,8 +2367,8 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
       /* We only need to consider cases that can yield a gimple operand.  */
       if (gimple_assign_single_p (stmt))
         rhs = gimple_assign_rhs1 (stmt);
-      else if (gimple_code (stmt) == GIMPLE_GOTO)
-        rhs = gimple_goto_dest (stmt);
+      else if (ggoto *goto_stmt = dyn_cast <ggoto *> (stmt))
+        rhs = gimple_goto_dest (goto_stmt);
       else if (gswitch *swtch_stmt = dyn_cast <gswitch *> (stmt))
         /* This should never be an ADDR_EXPR.  */
         rhs = gimple_switch_index (swtch_stmt);
@@ -2848,7 +2848,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
               else if (gimple_code (use_stmt) == GIMPLE_SWITCH)
 		val = gimple_switch_index (as_a <gswitch *> (use_stmt));
 	      else
-		val = gimple_goto_dest  (use_stmt);
+		val = gimple_goto_dest  (as_a <ggoto *> (use_stmt));
 
 	      if (val && is_gimple_min_invariant (val))
 		{

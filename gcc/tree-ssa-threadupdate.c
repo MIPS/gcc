@@ -2307,7 +2307,7 @@ bb_ends_with_multiway_branch (basic_block bb ATTRIBUTE_UNUSED)
   if (stmt && gimple_code (stmt) == GIMPLE_SWITCH)
     return true;
   if (stmt && gimple_code (stmt) == GIMPLE_GOTO
-      && TREE_CODE (gimple_goto_dest (stmt)) == SSA_NAME)
+      && TREE_CODE (gimple_goto_dest (as_a <ggoto *> (stmt))) == SSA_NAME)
     return true;
   return false;
 }

@@ -399,8 +399,10 @@ make_pass_build_cfg (gcc::context *ctxt)
 bool
 computed_goto_p (gimple t)
 {
-  return (gimple_code (t) == GIMPLE_GOTO
-	  && TREE_CODE (gimple_goto_dest (t)) != LABEL_DECL);
+  ggoto *goto_stmt = dyn_cast <ggoto *> (t);
+  if (!goto_stmt)
+    return false;
+  return TREE_CODE (gimple_goto_dest (goto_stmt)) != LABEL_DECL;
 }
 
 /* Returns true for edge E where e->src ends with a GIMPLE_COND and
@@ -732,7 +734,7 @@ handle_abnormal_edges (basic_block *dispatcher_bbs,
 		continue;
 
 	      gsi = gsi_last_bb (bb);
-	      gimple last = gsi_stmt (gsi);
+	      ggoto *last = as_a <ggoto *>  (gsi_stmt (gsi));
 
 	      gcc_assert (computed_goto_p (last));
 
@@ -1246,7 +1248,7 @@ make_goto_expr_edges (basic_block bb)
   /* A simple GOTO creates normal edges.  */
   if (simple_goto_p (goto_t))
     {
-      tree dest = gimple_goto_dest (goto_t);
+      tree dest = gimple_goto_dest (as_a <ggoto *> (goto_t));
       basic_block label_bb = label_to_block (dest);
       edge e = make_edge (bb, label_bb, EDGE_FALLTHRU);
       e->goto_locus = gimple_location (goto_t);
@@ -2470,8 +2472,10 @@ is_ctrl_altering_stmt (gimple t)
 bool
 simple_goto_p (gimple t)
 {
-  return (gimple_code (t) == GIMPLE_GOTO
-	  && TREE_CODE (gimple_goto_dest (t)) == LABEL_DECL);
+  ggoto *goto_stmt = dyn_cast <ggoto *> (t);
+  if (!goto_stmt)
+    return false;
+  return TREE_CODE (gimple_goto_dest (goto_stmt)) == LABEL_DECL;
 }
 
 

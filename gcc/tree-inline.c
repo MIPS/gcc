@@ -3502,7 +3502,7 @@ inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_GOTO:
-      t = gimple_goto_dest (stmt);
+      t = gimple_goto_dest (as_a <ggoto *> (stmt));
 
       /* We will not inline a function which uses computed goto.  The
 	 addresses of its local labels, which may be tucked into

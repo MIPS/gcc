@@ -4271,7 +4271,7 @@ cond_dom_walker::before_dom_children (basic_block bb)
       val = gimple_switch_index (as_a <gswitch *> (stmt));
       break;
     case GIMPLE_GOTO:
-      val = gimple_goto_dest (stmt);
+      val = gimple_goto_dest (as_a <ggoto *> (stmt));
       break;
     default:
       gcc_unreachable ();

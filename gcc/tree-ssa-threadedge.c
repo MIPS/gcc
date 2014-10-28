@@ -628,7 +628,7 @@ simplify_control_stmt_condition (edge e,
   if (code == GIMPLE_SWITCH)
     cond = gimple_switch_index (as_a <gswitch *> (stmt));
   else if (code == GIMPLE_GOTO)
-    cond = gimple_goto_dest (stmt);
+    cond = gimple_goto_dest (as_a <ggoto *> (stmt));
   else
     gcc_unreachable ();
 

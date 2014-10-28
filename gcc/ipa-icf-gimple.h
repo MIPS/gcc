@@ -181,9 +181,9 @@ public:
      return statements are semantically equivalent.  */
   bool compare_gimple_return (const greturn *s1, const greturn *s2);
 
-  /* Verifies for given GIMPLEs S1 and S2 that
+  /* Verifies for given GIMPLE_GOTO stmts S1 and S2 that
      goto statements are semantically equivalent.  */
-  bool compare_gimple_goto (gimple s1, gimple s2);
+  bool compare_gimple_goto (const ggoto *s1, const ggoto *s2);
 
   /* Verifies for given GIMPLE_RESX stmts S1 and S2 that
      resx statements are semantically equivalent.  */

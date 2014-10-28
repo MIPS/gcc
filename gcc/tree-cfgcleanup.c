@@ -198,6 +198,7 @@ cleanup_control_flow_bb (basic_block bb)
   gimple_stmt_iterator gsi;
   bool retval = false;
   gimple stmt;
+  ggoto *goto_stmt;
 
   /* If the last statement of the block could throw and now cannot,
      we need to prune cfg.  */
@@ -215,9 +216,9 @@ cleanup_control_flow_bb (basic_block bb)
   if (gimple_code (stmt) == GIMPLE_COND
       || gimple_code (stmt) == GIMPLE_SWITCH)
     retval |= cleanup_control_expr_graph (bb, gsi);
-  else if (gimple_code (stmt) == GIMPLE_GOTO
-	   && TREE_CODE (gimple_goto_dest (stmt)) == ADDR_EXPR
-	   && (TREE_CODE (TREE_OPERAND (gimple_goto_dest (stmt), 0))
+  else if ((goto_stmt = dyn_cast <ggoto *> (stmt))
+	   && TREE_CODE (gimple_goto_dest (goto_stmt)) == ADDR_EXPR
+	   && (TREE_CODE (TREE_OPERAND (gimple_goto_dest (goto_stmt), 0))
 	       == LABEL_DECL))
     {
       /* If we had a computed goto which has a compile-time determinable
@@ -230,7 +231,7 @@ cleanup_control_flow_bb (basic_block bb)
       /* First look at all the outgoing edges.  Delete any outgoing
 	 edges which do not go to the right block.  For the one
 	 edge which goes to the right block, fix up its flags.  */
-      label = TREE_OPERAND (gimple_goto_dest (stmt), 0);
+      label = TREE_OPERAND (gimple_goto_dest (goto_stmt), 0);
       target_block = label_to_block (label);
       for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{

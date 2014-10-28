@@ -1311,7 +1311,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     {
     case GIMPLE_GOTO:
       /* Don't walk non-local gotos for now.  */
-      if (TREE_CODE (gimple_goto_dest (stmt)) != LABEL_DECL)
+      if (TREE_CODE (gimple_goto_dest (as_a <ggoto *> (stmt))) != LABEL_DECL)
 	{
 	  wi->val_only = true;
 	  wi->is_lhs = false;
@@ -2081,7 +2081,7 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       return NULL_TREE;
     }
 
-  label = gimple_goto_dest (stmt);
+  label = gimple_goto_dest (as_a <ggoto *> (stmt));
   if (TREE_CODE (label) != LABEL_DECL)
     {
       *handled_ops_p = false;

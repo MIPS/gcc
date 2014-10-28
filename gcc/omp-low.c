@@ -10959,7 +10959,7 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
     case GIMPLE_GOTO:
       {
-	tree lab = gimple_goto_dest (stmt);
+	tree lab = gimple_goto_dest (as_a <ggoto *> (stmt));
 	if (TREE_CODE (lab) != LABEL_DECL)
 	  break;
 

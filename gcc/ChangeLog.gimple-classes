@@ -1,5 +1,47 @@
 2014-10-28  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_goto_dest): Strengthen param from const_gimple to
+	const ggoto *.
+	* cfgexpand.c (expand_gimple_stmt_1): Add checked cast to ggoto *
+	within case GIMPLE_GOTO.
+	* gimple-walk.c (walk_stmt_load_store_addr_ops): Add checked cast
+	to ggoto *.
+	* ipa-icf-gimple.c (ipa_icf_gimple::func_checker::compare_bb): Add
+	checked casts to ggoto * within case GIMPLE_GOTO.
+	(ipa_icf_gimple::func_checker::compare_gimple_goto): Strengthen
+	both params from gimple to const ggoto *.
+	* ipa-icf-gimple.h (ipa_icf_gimple::func_checker::compare_gimple_goto):
+	Likewise.
+	* omp-low.c (diagnose_sb_2): Add checked cast to ggoto * within
+	case GIMPLE_GOTO.
+	* tree-cfg.c (computed_goto_p): Replace check for GIMPLE_GOTO with
+	a dyn_cast <ggoto *>, introducing new local "goto_stmt".
+	(handle_abnormal_edges): Strengthen local "last" from gimple to
+	ggoto *.
+	(make_goto_expr_edges): Add checked cast to ggoto * within region
+	where we know it's a simple goto.
+	(simple_goto_p): Replace check for GIMPLE_GOTO with a
+	dyn_cast <ggoto *>, introducing new local "goto_stmt".
+	* tree-cfgcleanup.c (cleanup_control_flow_bb): Likewise, using
+	new "goto_stmt" in place of "stmt".
+	* tree-eh.c (replace_goto_queue_cond_clause): Likewise, using
+	new "goto_stmt" in place of gimple_seq_first_stmt (new_seq).
+	(maybe_record_in_goto_queue): Add checked cast to ggoto * within
+	case GIMPLE_GOTO.
+	* tree-inline.c (inline_forbidden_p_stmt): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt): Likewise.
+	(convert_nl_goto_reference): Add checked cast to ggoto *.
+	* tree-ssa-dom.c (initialize_hash_element): Replace check for
+	GIMPLE_GOTO with a dyn_cast <ggoto *>, introducing new local
+	"goto_stmt".
+	(optimize_stmt): Likewise.
+	(propagate_rhs_into_lhs): Add checked cast to ggoto *.
+	* tree-ssa-sccvn.c (cond_dom_walker::before_dom_children): Likewise.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Likewise.
+	* tree-ssa-threadupdate.c (bb_ends_with_multiway_branch): Likewise.
+
+2014-10-28  David Malcolm  <dmalcolm@redhat.com>
+
 	* doc/gimple.texi (Class hierarchy of GIMPLE statements): Update
 	for renaming of gimple_statement_wce to gwce.
 	* gimple-walk.c (walk_gimple_stmt): Add checked cast to gwce *

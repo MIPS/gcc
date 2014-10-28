@@ -483,12 +483,12 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
   if (!new_seq)
     return;
 
-  if (gimple_seq_singleton_p (new_seq)
-      && gimple_code (gimple_seq_first_stmt (new_seq)) == GIMPLE_GOTO)
-    {
-      *tp = gimple_goto_dest (gimple_seq_first_stmt (new_seq));
-      return;
-    }
+  if (gimple_seq_singleton_p (new_seq))
+    if (ggoto *goto_stmt = dyn_cast <ggoto *> (gimple_seq_first_stmt (new_seq)))
+      {
+	*tp = gimple_goto_dest (goto_stmt);
+	return;
+      }
 
   label = create_artificial_label (loc);
   /* Set the new label for the GIMPLE_COND */
@@ -695,7 +695,8 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
       break;
     case GIMPLE_GOTO:
       new_stmt.g = stmt;
-      record_in_goto_queue_label (tf, new_stmt, gimple_goto_dest (stmt),
+      record_in_goto_queue_label (tf, new_stmt,
+				  gimple_goto_dest (as_a <ggoto *> (stmt)),
 				  gimple_location (stmt));
       break;
 
