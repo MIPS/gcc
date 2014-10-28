@@ -7554,10 +7554,7 @@ use_toc_relative_ref (rtx sym)
    On Darwin, we use this to generate code for floating point constants.
    A movsf_low is generated so we wind up with 2 instructions rather than 3.
    The Darwin code is inside #if TARGET_MACHO because only then are the
-   machopic_* functions defined.
-
-   UNSPEC_RELOAD might be generated in rs6000_secondary_memory_needed_rtx to
-   create an invalid address, which we need to generate reloads for.  */
+   machopic_* functions defined.  */
 static rtx
 rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 				  int opnum, int type,
@@ -7597,20 +7594,6 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       *win = 1;
       return x;
     }
-
-  /* Fixup (plus (reg) (UNSPEC_RELOAD (const_int))).  */
-  if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 1)) == UNSPEC
-      && XINT (XEXP (x, 1), 1) == UNSPEC_RELOAD)
-    {
-      rtx op1 = XVECEXP (XEXP (x, 1), 0, 0);
-      push_reload (op1, NULL_RTX, &XEXP (x, 1), NULL,
-		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
-		   opnum, (enum reload_type) type);
-      *win = 1;
-      return x;
-    }
-
 
 #if TARGET_MACHO
   if (DEFAULT_ABI == ABI_DARWIN && flag_pic
@@ -16493,46 +16476,7 @@ rs6000_secondary_memory_needed_rtx (enum machine_mode mode)
   rtx ret;
 
   if (mode != SDmode || TARGET_NO_SDMODE_STACK)
-    {
-      ret = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
-
-      /* On a machine with ISA 2.06 (i.e. power7), -mupper-regs-df can generate
-	 moves from an Altivec register to the stack, and then reloaded into a
-	 GPR.  Using reload, this can generate an invalid address due to the
-	 lack of D-form addressing.  This is not a problem on ISA 2.07
-	 (i.e. power8) in 64-bit mode, since it can do direct moves and does
-	 not need to move the value through the stack.  32-bit ISA 2.07 would
-	 still be a problem, because there isn't a direct move instruction that
-	 can be used.  Single precision floating point is problematical because
-	 internally scalars are stored in the double precision format instead
-	 of the single precision format.
-
-	 This is caused if a scalar is in an Altivec register being used as an
-	 argument.  Reload copies the scalar value to a FPR in order to do the
-	 store, but the cprop_hardreg pass eliminates this move to the FPR and
-	 rewrites the store from the Altivec register.  We generate an invalid
-	 address, which is flagged as being invalid.  The function
-	 get_secondary_mem then calls find_reloads to fix up the address.  */
-
-      if (reg_addr[mode].scalar_in_vmx_p && ret && MEM_P (ret)
-	  && (!TARGET_DIRECT_MOVE || GET_MODE_SIZE (mode) != 64
-	      || !TARGET_POWERPC64))
-	{
-	  rtx addr = XEXP (ret, 0);
-	  bool strict_p = (reload_in_progress || reload_completed);
-
-	  if (GET_CODE (addr) == PLUS
-	      && !legitimate_indexed_address_p (addr, strict_p))
-	    {
-	      rtx op0 = XEXP (addr, 0);
-	      rtx op1 = XEXP (addr, 1);
-	      rtvec rv = gen_rtvec (1, op1);
-	      rtx op1_reload = gen_rtx_UNSPEC (Pmode, rv, UNSPEC_RELOAD);
-	      rtx new_addr = gen_rtx_PLUS (Pmode, op0, op1_reload);
-	      ret = replace_equiv_address_nv (ret, new_addr);
-	    }
-	}
-    }
+    ret = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
   else
     {
       rtx mem = cfun->machine->sdmode_stack_slot;
@@ -17848,6 +17792,17 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
   else
     regno = -1;
 
+  /* If we have VSX register moves, prefer moving scalar values between
+     Altivec registers and GPR by going via an FPR (and then via memory)
+     instead of reloading the secondary memory address for Altivec moves.  */
+  if (TARGET_VSX
+      && GET_MODE_SIZE (mode) < 16
+      && (((rclass == GENERAL_REGS || rclass == BASE_REGS)
+           && (regno >= 0 && ALTIVEC_REGNO_P (regno)))
+          || ((rclass == VSX_REGS || rclass == ALTIVEC_REGS)
+              && (regno >= 0 && INT_REGNO_P (regno)))))
+    return FLOAT_REGS;
+
   /* We can place anything into GENERAL_REGS and can put GENERAL_REGS
      into anything.  */
   if (rclass == GENERAL_REGS || rclass == BASE_REGS
@@ -17855,23 +17810,12 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
     return NO_REGS;
 
   /* Constants, memory, and VSX registers can go into VSX registers (both the
-     traditional floating point and the altivec registers).  For scalar
-     variables, use the traditional floating point registers so that we can use
-     offset+register addressing.  */
-  if (TARGET_VSX
-      && (regno == -1 || VSX_REGNO_P (regno))
-      && VSX_REG_CLASS_P (rclass)
-      && (GET_MODE_SIZE (mode) == 16
-	  || reg_addr[mode].scalar_in_vmx_p))
-    {
-#if 0
-      if (rclass != FLOAT_REGS && reg_addr[mode].scalar_in_vmx_p)
-	return FLOAT_REGS;
-#endif
+     traditional floating point and the altivec registers).  */
+  if (rclass == VSX_REGS
+      && (regno == -1 || VSX_REGNO_P (regno)))
+    return NO_REGS;
 
-      return NO_REGS;
-    }
-
+  /* Constants, memory, and FP registers can go into FP registers.  */
   if ((regno == -1 || FP_REGNO_P (regno))
       && (rclass == FLOAT_REGS || rclass == NON_SPECIAL_REGS))
     return (mode != SDmode || lra_in_progress) ? NO_REGS : GENERAL_REGS;

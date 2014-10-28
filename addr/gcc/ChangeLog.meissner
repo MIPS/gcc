@@ -1,3 +1,33 @@
+2014-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md
+	(reload_<RELOAD:mode>_<P:mptrsize>_load): Fix typo.
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_class): Tweak
+	Ulrich's code somewhat.
+
+2014-10-23  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_class): Prefer
+	moving to/from GPR registers from Altivec/VSX registers via a FPR
+	register.
+
+2014-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Delete redundant
+	tests for 0.0.  Delete code that forced constants to memory if
+	-ffast-math and -mupper-regs-{df,sf}.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__UPPER_REGS_DF__ and __UPPER_REGS_SF__ if the appropriate option
+	were used.
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Undo
+	code to turn off reg+offset addressing for scalars that can go in
+	Altivec registers.
+	(rs6000_secondary_memory_needed_rtx): Call correct function for
+	validating reg+reg addresses.
+
 2014-10-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (easy_fp_constant): Don't treat
