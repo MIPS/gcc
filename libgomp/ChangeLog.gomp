@@ -1,5 +1,8 @@
 2014-10-28  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c/c.exp (ld_library_path, ALWAYS_CFLAGS):
+	Don't refer to CUDA installation in /opt/nvidia/cuda-5.5/.
+
 	* oacc-init.c: Don't use <sys/queue.h>'s SLIST_*.
 	* plugin-nvptx.c: Likewise.
 

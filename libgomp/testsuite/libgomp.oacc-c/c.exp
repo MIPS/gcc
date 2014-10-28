@@ -31,7 +31,6 @@ set tests [lsort [find $srcdir/$subdir *.c]]
 
 set ld_library_path $always_ld_library_path
 append ld_library_path [gcc-set-multilib-library-path $GCC_UNDER_TEST]
-append ld_library_path ":/opt/nvidia/cuda-5.5/lib64"
 set_ld_library_path_env_vars
 
 # Todo: get list of accelerators from configure options --enable-accelerator.
@@ -57,11 +56,6 @@ foreach accel $accels {
 	nvidia {
 	    # Copy ptx file (TEMPORARY)
 	    remote_download host $srcdir/libgomp.oacc-c/subr.ptx
-
-	    # Where cuda.h lives
-	    # Todo: get that from configure option --with-cuda-driver.
-	    lappend ALWAYS_CFLAGS "additional_flags=-I/opt/nvidia/cuda-5.5/include"
-	    lappend ALWAYS_CFLAGS "additional_flags=-L/opt/nvidia/cuda-5.5/lib64"
 
 	    # Where timer.h lives
 	    lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}"
