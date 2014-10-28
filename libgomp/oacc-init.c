@@ -31,7 +31,6 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <stdbool.h>
-#include <sys/queue.h>
 #include <stdio.h>
 
 gomp_mutex_t acc_device_lock;
@@ -55,11 +54,11 @@ static __thread int handle_num = -1;
 struct ACC_context {
   struct memmap_t *ACC_memmap;
   void *ACC_handle;
-  SLIST_ENTRY(ACC_context) next;
+
+  struct ACC_context *next;
 };
 
-static SLIST_HEAD(_ACC_contexts, ACC_context) _ACC_contexts;
-static struct _ACC_contexts *ACC_contexts;
+static struct ACC_context *ACC_contexts;
 
 static struct gomp_device_descr const *dispatchers[_ACC_device_hwm] = { 0 };
 
@@ -198,7 +197,7 @@ lazy_open (int ord)
   ACC_handle = ACC_dev->openacc.open_device_func (ord);
   handle_num = ord;
 
-  SLIST_FOREACH(acc_ctx, ACC_contexts, next)
+  for (acc_ctx = ACC_contexts; acc_ctx != NULL; acc_ctx = acc_ctx->next)
     {
       if (acc_ctx->ACC_handle == ACC_handle)
         {
@@ -220,7 +219,8 @@ lazy_open (int ord)
   if (!ACC_memmap->mem_map.is_initialized)
     gomp_init_tables (ACC_dev, &ACC_memmap->mem_map);
 
-  SLIST_INSERT_HEAD(ACC_contexts, acc_ctx, next);
+  acc_ctx->next = ACC_contexts;
+  ACC_contexts = acc_ctx;
 }
 
 /* OpenACC 2.0a (3.2.12, 3.2.13) doesn't specify whether the serialization of
@@ -259,12 +259,10 @@ _acc_shutdown (acc_device_t d)
 
   close_handle ();
 
-  while (SLIST_FIRST(ACC_contexts) != NULL)
+  while (ACC_contexts != NULL)
     {
-      struct ACC_context *c;
-
-      c = SLIST_FIRST(ACC_contexts);
-      SLIST_REMOVE_HEAD(ACC_contexts, next);
+      struct ACC_context *c = ACC_contexts;
+      ACC_contexts = ACC_contexts->next;
       free (c);
     }
 
@@ -467,8 +465,7 @@ ACC_runtime_initialize (void)
 {
   gomp_mutex_init (&acc_device_lock);
 
-  ACC_contexts = &_ACC_contexts;
-  SLIST_INIT (ACC_contexts);
+  ACC_contexts = NULL;
 }
 
 /* Compiler helper functions */

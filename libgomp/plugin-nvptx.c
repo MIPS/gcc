@@ -40,7 +40,6 @@
 #include "libgomp-plugin.h"
 
 #include <cuda.h>
-#include <sys/queue.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -149,10 +148,8 @@ struct PTX_stream
   void *h_prev;
   void *h_tail;
 
-  SLIST_ENTRY(PTX_stream) next;
+  struct PTX_stream *next;
 };
-
-SLIST_HEAD(PTX_streams, PTX_stream);
 
 /* Each thread may select a stream (also specific to a device/context).  */
 static __thread struct PTX_stream *current_stream;
@@ -293,7 +290,7 @@ struct PTX_device
   /* All non-null streams associated with this device (actually context),
      either created implicitly or passed in from the user (via
      acc_set_cuda_stream).  */
-  struct PTX_streams active_streams;
+  struct PTX_stream *active_streams;
   struct {
     struct PTX_stream **arr;
     int size;
@@ -306,12 +303,12 @@ struct PTX_device
   bool concur;
   int  mode;
   bool mkern;
-  SLIST_ENTRY(PTX_device) next;
+
+  struct PTX_device *next;
 };
 
 static __thread struct PTX_device *PTX_dev;
-static SLIST_HEAD(_PTX_devices, PTX_device) _PTX_devices;
-static struct _PTX_devices *PTX_devices;
+static struct PTX_device *PTX_devices;
 
 enum PTX_event_type
 {
@@ -327,12 +324,12 @@ struct PTX_event
   int type;
   void *addr;
   int ord;
-  SLIST_ENTRY(PTX_event) next;
+
+  struct PTX_event *next;
 };
 
 static gomp_mutex_t PTX_event_lock;
-static SLIST_HEAD(_PTX_events, PTX_event) _PTX_events;
-static struct _PTX_events *PTX_events;
+static struct PTX_event *PTX_events;
 
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
@@ -417,7 +414,7 @@ init_streams_for_device (struct PTX_device *ptx_dev, int concurrency)
   map_init (null_stream);
   ptx_dev->null_stream = null_stream;
   
-  SLIST_INIT (&ptx_dev->active_streams);
+  ptx_dev->active_streams = NULL;
   GOMP_PLUGIN_mutex_init (&ptx_dev->stream_lock);
   
   if (concurrency < 1)
@@ -437,13 +434,13 @@ init_streams_for_device (struct PTX_device *ptx_dev, int concurrency)
 static void
 fini_streams_for_device (struct PTX_device *ptx_dev)
 {
-  struct PTX_stream *s;
   free (ptx_dev->async_streams.arr);
   
-  while (!SLIST_EMPTY (&ptx_dev->active_streams))
+  while (ptx_dev->active_streams != NULL)
     {
-      s = SLIST_FIRST (&ptx_dev->active_streams);
-      SLIST_REMOVE_HEAD (&ptx_dev->active_streams, next);
+      struct PTX_stream *s = ptx_dev->active_streams;
+      ptx_dev->active_streams = ptx_dev->active_streams->next;
+
       cuStreamDestroy (s->stream);
       map_fini (s);
       free (s);
@@ -535,7 +532,8 @@ select_stream_for_async (int async, pthread_t thread, bool create,
 	  s->h = NULL;
 	  map_init (s);
 	  
-	  SLIST_INSERT_HEAD (&ptx_dev->active_streams, s, next);
+	  s->next = ptx_dev->active_streams;
+	  ptx_dev->active_streams = s;
 	  ptx_dev->async_streams.arr[async] = s;
 	}
 
@@ -593,11 +591,8 @@ PTX_init (void)
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuInit error: %s", cuErrorMsg (r));
 
-  PTX_devices = &_PTX_devices;
-  PTX_events = &_PTX_events;
-
-  SLIST_INIT(PTX_devices);
-  SLIST_INIT(PTX_events);
+  PTX_devices = NULL;
+  PTX_events = NULL;
 
   GOMP_PLUGIN_mutex_init (&PTX_event_lock);
 
@@ -625,7 +620,9 @@ PTX_open_device (int n)
     {
       struct PTX_device *ptx_device;
 
-      SLIST_FOREACH(ptx_device, PTX_devices, next)
+      for (ptx_device = PTX_devices;
+	   ptx_device != NULL;
+	   ptx_device = ptx_device->next)
         {
           if (ptx_device->ord == n)
             {
@@ -653,7 +650,8 @@ PTX_open_device (int n)
   PTX_dev->dev = dev;
   PTX_dev->ctx_shared = false;
 
-  SLIST_INSERT_HEAD(PTX_devices, PTX_dev, next);
+  PTX_dev->next = PTX_devices;
+  PTX_devices = PTX_dev;
 
   r = cuCtxGetCurrent (&PTX_dev->ctx);
   if (r != CUDA_SUCCESS)
@@ -729,7 +727,15 @@ PTX_close_device (void *h __attribute__((unused)))
 	GOMP_PLUGIN_fatal ("cuCtxDestroy error: %s", cuErrorMsg (r));
     }
 
-  SLIST_REMOVE(PTX_devices, PTX_dev, PTX_device, next);
+  if (PTX_devices == PTX_dev)
+    PTX_devices = PTX_devices->next;
+  else
+    {
+      struct PTX_device* d = PTX_devices;
+      while (d->next != PTX_dev)
+	d = d->next;
+      d->next = d->next->next;
+    }
   free (PTX_dev);
 
   PTX_dev = NULL;
@@ -920,60 +926,67 @@ link_ptx (CUmodule *module, char *ptx_code)
 static void
 event_gc (bool memmap_lockable)
 {
-  struct PTX_event *ptx_event;
+  struct PTX_event *ptx_event = PTX_events;
 
   GOMP_PLUGIN_mutex_lock (&PTX_event_lock);
 
-  for (ptx_event = SLIST_FIRST (PTX_events); ptx_event;)
+  while (ptx_event != NULL)
     {
       CUresult r;
-      struct PTX_event *next = SLIST_NEXT (ptx_event, next);
+      struct PTX_event *e = ptx_event;
 
-      if (ptx_event->ord != PTX_dev->ord)
-        goto next_event;
+      ptx_event = ptx_event->next;
 
-      r = cuEventQuery (*ptx_event->evt);
+      if (e->ord != PTX_dev->ord)
+	continue;
+
+      r = cuEventQuery (*e->evt);
       if (r == CUDA_SUCCESS)
-        {
-          CUevent *te;
+	{
+	  CUevent *te;
 
-          te = ptx_event->evt;
+	  te = e->evt;
 
-	  switch (ptx_event->type)
+	  switch (e->type)
 	    {
 	    case PTX_EVT_MEM:
 	    case PTX_EVT_SYNC:
 	      break;
 	    
 	    case PTX_EVT_KNL:
-              map_pop (ptx_event->addr);
+	      map_pop (e->addr);
 	      break;
 
 	    case PTX_EVT_ASYNC_CLEANUP:
-              {
-	        /* The function GOMP_PLUGIN_async_unmap_vars needs to claim the
+	      {
+		/* The function GOMP_PLUGIN_async_unmap_vars needs to claim the
 		   memory-map splay tree lock for the current device, so we
 		   can't call it when one of our callers has already claimed
 		   the lock.  In that case, just delay the GC for this event
-		   until later.  */
-	        if (!memmap_lockable)
-		  goto next_event;
+		   until later.	 */
+		if (!memmap_lockable)
+		  continue;
 
-		GOMP_PLUGIN_async_unmap_vars (ptx_event->addr);
-              }
+		GOMP_PLUGIN_async_unmap_vars (e->addr);
+	      }
 	      break;
 	    }
 
-          cuEventDestroy (*te);
-          free ((void *)te);
+	  cuEventDestroy (*te);
+	  free ((void *)te);
 
-          SLIST_REMOVE (PTX_events, ptx_event, PTX_event, next);
+	  if (PTX_events == e)
+	    PTX_events = PTX_events->next;
+	  else
+	    {
+	      struct PTX_event *e_ = PTX_events;
+	      while (e_->next != e)
+		e_ = e_->next;
+	      e_->next = e_->next->next;
+	    }
 
-          free (ptx_event);
-        }
-
-    next_event:
-      ptx_event = next;
+	  free (e);
+	}
     }
 
   GOMP_PLUGIN_mutex_unlock (&PTX_event_lock);
@@ -995,7 +1008,8 @@ event_add (enum PTX_event_type type, CUevent *e, void *h)
 
   GOMP_PLUGIN_mutex_lock (&PTX_event_lock);
 
-  SLIST_INSERT_HEAD(PTX_events, ptx_event, next);
+  ptx_event->next = PTX_events;
+  PTX_events = ptx_event;
 
   GOMP_PLUGIN_mutex_unlock (&PTX_event_lock);
 }
@@ -1316,7 +1330,7 @@ PTX_async_test_all (void)
 
   GOMP_PLUGIN_mutex_lock (&PTX_dev->stream_lock);
 
-  SLIST_FOREACH (s, &PTX_dev->active_streams, next)
+  for (s = PTX_dev->active_streams; s != NULL; s = s->next)
     {
       if ((s->multithreaded || pthread_equal (s->host_thread, self))
 	  && cuStreamQuery (s->stream) == CUDA_ERROR_NOT_READY)
@@ -1400,7 +1414,7 @@ PTX_wait_all (void)
 
   /* Wait for active streams initiated by this thread (or by multiple threads)
      to complete.  */
-  SLIST_FOREACH (s, &PTX_dev->active_streams, next)
+  for (s = PTX_dev->active_streams; s != NULL; s = s->next)
     {
       if (s->multithreaded || pthread_equal (s->host_thread, self))
         {
@@ -1443,7 +1457,9 @@ PTX_wait_all_async (int async)
 
   GOMP_PLUGIN_mutex_lock (&PTX_dev->stream_lock);
 
-  SLIST_FOREACH (other_stream, &PTX_dev->active_streams, next)
+  for (other_stream = PTX_dev->active_streams;
+       other_stream != NULL;
+       other_stream = other_stream->next)
     {
       if (!other_stream->multithreaded
 	  && !pthread_equal (other_stream->host_thread, self))
@@ -1524,8 +1540,16 @@ PTX_set_cuda_stream (int async, void *stream)
   
   if (oldstream)
     {
-      SLIST_REMOVE (&PTX_dev->active_streams, oldstream, PTX_stream, next);
-      
+      if (PTX_dev->active_streams == oldstream)
+	PTX_dev->active_streams = PTX_dev->active_streams->next;
+      else
+	{
+	  struct PTX_stream *s = PTX_dev->active_streams;
+	  while (s->next != oldstream)
+	    s = s->next;
+	  s->next = s->next->next;
+	}
+
       cuStreamDestroy (oldstream->stream);
       map_fini (oldstream);
       free (oldstream);
