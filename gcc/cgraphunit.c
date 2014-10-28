@@ -2249,8 +2249,8 @@ compile (void)
   else
     {
       output_asm_statements ();
-      expand_all_functions ();
       execute_all_ipa_var_transforms ();
+      expand_all_functions ();
       varpool_output_variables ();
     }
 
