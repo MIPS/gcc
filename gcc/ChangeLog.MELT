@@ -1,5 +1,9 @@
 
 2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (mexpand_let): Coded for computed
+	list...
+
+2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (mexpand_let): Even more computed
 	list...
 
