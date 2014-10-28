@@ -2292,7 +2292,39 @@ treerr
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; we really should lazily generate the tree_call_expr....
+;;;;;;;;
+(defcmatcher tree_call0_expr 
+  (:tree tr)
+  (:tree trcalledfun trchain)
+  tcal0
+  :doc #{$TREE_CALL0_EXPR match tree of @code{CALL_EXPR} for call-arity 0 extracting their TRCALLEDFUN TRCHAIN}#
+  ;; test
+  #{ /* tree_call0_expr $TCAL0 ? */ (($TR) && TREE_CODE($TR) == CALL_EXPR && call_expr_nargs($TR)==0) }#
+  ;; fill
+  #{  /* tree_call0_expr $TCAL0 ! */
+  $TRCALLEDFUN = CALL_EXPR_FN($TR);
+  $TRCHAIN = CALL_EXPR_STATIC_CHAIN($TR);
+  }#)
+
+;;;;;;;;
+(defcmatcher tree_call1_expr 
+  (:tree tr)
+  (:tree trcalledfun trchain trarg0)
+  tcal1
+  :doc #{$TREE_CALL1_EXPR match tree of @code{CALL_EXPR} for call-arity 1 extracting their TRCALLEDFUN TRCHAIN & TRARG0}#
+  ;; test
+  #{ /* tree_call1_expr $TCAL1 ? */ (($TR) && TREE_CODE($TR) == CALL_EXPR && call_expr_nargs($TR)==1) }#
+  ;; fill
+  #{  /* tree_call1_expr $TCAL1 ! */
+  $TRCALLEDFUN = CALL_EXPR_FN($TR);
+  $TRCHAIN = CALL_EXPR_STATIC_CHAIN($TR);
+  $TRARG0 = CALL_EXPR_ARG ($TR, 0);
+  }#)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Iterator on function argument 
 (defciterator foreach_argument_in_function_tree
@@ -3158,8 +3190,6 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 
 ;; see warmelt-hooks.melt and its hook_register_pragmas
 (register_pragma_processor real_pragma_processor)
-
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
