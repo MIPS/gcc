@@ -1,5 +1,8 @@
 
 2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+
+2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-normal.melt (normalize_tuple): Add some type check.
 
