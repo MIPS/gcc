@@ -127,7 +127,7 @@
 )
 
 (define_insn "bwt_write_reg_gpr"
-  [(unspec [(match_operand:SI 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "") 
             (match_operand:SI 1 "const_int_operand" "") 
             (match_operand:SI 2 "const_int_operand" "") 
        (use (match_operand:SI 3 "register_operand" "r"))
@@ -167,7 +167,9 @@
             int done = 0 ;
             int op3_is_const = CONSTANT_P(operands[3]) ;
 
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (op3_is_const && mips_unsigned_immediate_p(UINTVAL(operands[3]), 12, 0)) {
                   int op2_is_1 = (INTVAL(operands[2]) == 1) ? 1 : 0 ;
                   int op4_is_0 = (INTVAL(operands[4]) == 0) ? 1 : 0 ;
@@ -213,7 +215,7 @@
 )
 
 (define_insn "bwt_read_reg_gpr"
-  [(unspec [(match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "") 
             (match_operand 1 "const_int_operand" "")
             (match_operand 2 "const_int_operand" "")
             (match_operand 3 "const_int_operand" "")
@@ -244,7 +246,9 @@
             int done = 0 ;
             int op4_is_const = CONSTANT_P(operands[4]) ;
 
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (op4_is_const && mips_unsigned_immediate_p(UINTVAL(operands[4]), 7, 0)) {
                   int op3_is_1 = (INTVAL(operands[3]) == 1) ? 1 : 0 ;
                   int op1_is_0 = (INTVAL(operands[1]) == 0) ? 1 : 0 ;
@@ -335,7 +339,7 @@
 
 
 (define_insn "bwt_mc_addr_gpr"
-  [(unspec [ (match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [ (match_operand 0 "const_int_operand" "") 
         (use (match_operand 1 "register_operand" "r")) 
              (match_operand 2 "const_int_operand" "") 
              (match_operand 3 "const_int_operand" "") 
@@ -364,7 +368,9 @@
   ""
        { 
             int done = 0 ;
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (CONSTANT_P(operands[1])) {
                   if (UINTVAL(operands[1]) == 0) {
                         emit_insn(gen_bwt_mc_addr_z(operands[0], const0_rtx, operands[2],
@@ -388,7 +394,7 @@
 )
 
 (define_insn "bwt_vn_io_gpr"
-  [(unspec [(match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "") 
        (use (match_operand 1 "register_operand" "r")) 
             (match_operand 2 "const_int_operand" "") 
             (match_operand 3 "const_int_operand" "") 
@@ -443,7 +449,9 @@
   ""
        { 
             int done = 0 ;
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (CONSTANT_P(operands[1])) {
                   if (UINTVAL(operands[1]) == 0) {
                         emit_insn(gen_bwt_vn_io_z(operands[0], const0_rtx, 
@@ -511,7 +519,7 @@
 )
 
 (define_insn "bwt_load_mc_gpr"
-  [(unspec [(match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "") 
        (use (match_operand 1 "register_operand" "r")) 
             (match_operand 2 "const_int_operand" "") 
                                     ] UNSPEC_BWT_LOAD_MC_GPR)]
@@ -535,7 +543,9 @@
   ""
        { 
             int done = 0 ;
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (CONSTANT_P(operands[1])) {
                   if (UINTVAL(operands[1]) == 0) {
                         emit_insn(gen_bwt_load_mc_z(operands[0], const0_rtx, operands[2]));
@@ -577,7 +587,7 @@
 
 
 (define_insn "bwt_select_gpr"
-  [(unspec [(match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "") 
             (match_operand 1 "const_int_operand" "") 
             (match_operand 2 "const_int_operand" "") 
        (use (match_operand 3 "register_operand" "r")) 
@@ -608,7 +618,9 @@
             int done = 0 ;
             int op3_is_const = CONSTANT_P(operands[3]) ;
 
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (op3_is_const && mips_unsigned_immediate_p(UINTVAL(operands[3]), 8, 0)) {
                   int op2_is_1 = (INTVAL(operands[2]) == 1) ? 1 : 0 ;
                   int op4_is_0 = (INTVAL(operands[4]) == 0) ? 1 : 0 ;
@@ -653,7 +665,7 @@
 )
 
 (define_insn "bwt_semset_gpr"
-  [(unspec [(match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "") 
             (match_operand 1 "const_int_operand" "") 
             (match_operand 2 "const_int_operand" "") 
        (use (match_operand 3 "register_operand" "r")) 
@@ -683,7 +695,9 @@
             int done = 0 ;
             int op3_is_const = CONSTANT_P(operands[3]) ;
 
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (op3_is_const && mips_unsigned_immediate_p(UINTVAL(operands[3]), 8, 0)) {
                   int op2_is_1 = (INTVAL(operands[2]) == 1) ? 1 : 0 ;
                   int op4_is_0 = (INTVAL(operands[4]) == 0) ? 1 : 0 ;
@@ -729,7 +743,7 @@
 )
 
 (define_insn "bwt_port_io_gpr"
-  [(unspec [(match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "") 
             (match_operand 1 "const_int_operand" "") 
             (match_operand 2 "const_int_operand" "") 
             (match_operand 3 "const_int_operand" "") 
@@ -761,7 +775,9 @@
             int done = 0 ;
             int op4_is_const = CONSTANT_P(operands[4]) ;
 
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (op4_is_const && mips_unsigned_immediate_p(UINTVAL(operands[4]), 10, 0)) {
                   int op3_is_1 = (INTVAL(operands[3]) == 1) ? 1 : 0 ;
                   int op2_is_0 = (INTVAL(operands[2]) == 0) ? 1 : 0 ;
@@ -787,7 +803,7 @@
 )
 
 (define_insn "bwt_mc_main_gpr"
-  [(unspec [(match_operand 0 "const_int_operand" "") 
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "") 
             (match_operand 1 "const_int_operand" "") 
             (match_operand 2 "const_int_operand" "") 
        (use (match_operand 3 "register_operand" "r"))
@@ -831,7 +847,9 @@
   ""
        { 
             int done = 0 ;
+#if 0 /* use unspec_volatile */
             emit_insn(gen_blockage());
+#endif
             if (CONSTANT_P(operands[3])) {
                   if (UINTVAL(operands[3]) == 0) {
                         emit_insn(gen_bwt_mc_main_z(operands[0],operands[1],
