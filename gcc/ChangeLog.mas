@@ -1,3 +1,9 @@
+2014-10-28  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r216772 through r216799.
+
+	Brings back next merge piece.
+
 2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (parser): Add new member parsing_match_operand.
