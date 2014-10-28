@@ -44,13 +44,14 @@ static bool
 #if GCC_VERSION >= 4001
 __attribute__((format (printf, 6, 0)))
 #endif
-error_cb (cpp_reader *, int, int, source_location location,
+error_cb (cpp_reader *, int errtype, int, source_location location,
 	  unsigned int, const char *msg, va_list *ap)
 {
   const line_map *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
-  fprintf (stderr, "%s:%d:%d error: ", loc.file, loc.line, loc.column);
+  fprintf (stderr, "%s:%d:%d %s: ", loc.file, loc.line, loc.column,
+	   (errtype == CPP_DL_WARNING) ? "warning" : "error");
   vfprintf (stderr, msg, *ap);
   fprintf (stderr, "\n");
   FILE *f = fopen (loc.file, "r");
@@ -76,7 +77,10 @@ error_cb (cpp_reader *, int, int, source_location location,
 notfound:
       fclose (f);
     }
-  exit (1);
+
+  if (errtype == CPP_DL_FATAL)
+    exit (1);
+  return false;
 }
 
 static void
@@ -88,6 +92,18 @@ fatal_at (const cpp_token *tk, const char *msg, ...)
   va_list ap;
   va_start (ap, msg);
   error_cb (NULL, CPP_DL_FATAL, 0, tk->src_loc, 0, msg, &ap);
+  va_end (ap);
+}
+
+static void
+#if GCC_VERSION >= 4001
+__attribute__((format (printf, 2, 3)))
+#endif
+warning_at (const cpp_token *tk, const char *msg, ...)
+{
+  va_list ap;
+  va_start (ap, msg);
+  error_cb (NULL, CPP_DL_WARNING, 0, tk->src_loc, 0, msg, &ap);
   va_end (ap);
 }
 
@@ -219,8 +235,9 @@ struct predicate_id : public id_base
 struct user_id : public id_base
 {
   user_id (const char *id_)
-    : id_base (id_base::USER, id_), substitutes (vNULL) {}
+    : id_base (id_base::USER, id_), substitutes (vNULL), used (false) {}
   vec<id_base *> substitutes;
+  bool used;
 };
 
 template<>
@@ -321,7 +338,12 @@ get_operator (const char *id)
 
   id_base *op = operators->find_with_hash (&tem, tem.hashval);
   if (op)
-    return op;
+    {
+      /* If this is a user-defined identifier track whether it was used.  */
+      if (user_id *uid = dyn_cast<user_id *> (op))
+	uid->used = true;
+      return op;
+    }
 
   /* Try all-uppercase.  */
   char *id2 = xstrdup (id);
@@ -2907,6 +2929,7 @@ parser::parse_simplify (source_location match_location,
 void
 parser::parse_for (source_location)
 {
+  auto_vec<const cpp_token *> user_id_tokens;
   vec<user_id *> user_ids = vNULL;
   const cpp_token *token;
   unsigned min_n_opers = 0, max_n_opers = 0;
@@ -2925,6 +2948,7 @@ parser::parse_for (source_location)
 	fatal_at (token, "operator already defined");
       *slot = op;
       user_ids.safe_push (op);
+      user_id_tokens.safe_push (token);
 
       eat_token (CPP_OPEN_PAREN);
 
@@ -2994,7 +3018,12 @@ parser::parse_for (source_location)
 
   /* Remove user-defined operators from the hash again.  */
   for (unsigned i = 0; i < user_ids.length (); ++i)
-    operators->remove_elt (user_ids[i]);
+    {
+      if (!user_ids[i]->used)
+	warning_at (user_id_tokens[i],
+		    "operator %s defined but not used", user_ids[i]->id);
+      operators->remove_elt (user_ids[i]);
+    }
 }
 
 /* Parse an outer if expression.

@@ -1,3 +1,11 @@
+2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (error_cb): Adjust for printing warnings.
+	(warning_at): New function.
+	(user_id): Add new member used.
+	(get_operator): Mark user_id as used.
+	(parse_for): Warn for unused operators.
+
 2014-10-28  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r216632 through r216771.
