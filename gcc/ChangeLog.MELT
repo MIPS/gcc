@@ -1,5 +1,8 @@
 
 2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (mexpand_let): More...
+
+2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 
 2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>

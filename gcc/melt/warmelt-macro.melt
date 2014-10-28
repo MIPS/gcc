@@ -7403,13 +7403,13 @@ applications of @code{/i} primitives.}#
 	 (setq vartup (make_multiple discr_multiple nbind))
 	 (setq exprtup (make_multiple discr_multiple nbind))
 	 ;; second handling loop
-	  #|
 	 (setq lix 0)
 	 (each_component_in_list
 	  bindexpr
 	  cursrcbindelem
 	  (debug "mexpand_letrec:listcomp" " cursrcbindelem=" cursrcbindelem)
 	  (assert_msg "check cursrcbindelem" (is_a cursrcbindelem class_source_letrec_binding))
+	  #|
 	  (let (
 		(cursbindsloc (or (get_field :loca_location cursrcbindelem) loc))
 		(cursbindtype (get_field :sletb_type cursrcbindelem))
@@ -7434,10 +7434,10 @@ applications of @code{/i} primitives.}#
 	      (put_fields curbind :letbind_expr cursbindexp)
 	      )
 	    )
+	  |#
 	  (setq lix (+i lix 1))
 	  (void)
 	  )
-	 |#
 	 ;;;;
 	 (error_at loc "unimplemented LETREC list-computed bindings")
 	 (assert_msg "@$@unimplemented LETREC list-computed bindings" ())
