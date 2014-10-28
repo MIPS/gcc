@@ -3656,10 +3656,10 @@ fold_all_stmts (struct function *fun)
 		cfg_changed = true;
 	      /* Cleanup the CFG if we simplified a condition to
 	         true or false.  */
-	      if (gimple_code (stmt) == GIMPLE_COND
-		  && (gimple_cond_true_p (stmt)
-		      || gimple_cond_false_p (stmt)))
-		cfg_changed = true;
+	      if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
+		if (gimple_cond_true_p (cond_stmt)
+		    || gimple_cond_false_p (cond_stmt))
+		  cfg_changed = true;
 	      update_stmt (stmt);
 	    }
 

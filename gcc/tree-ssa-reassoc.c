@@ -4938,7 +4938,7 @@ branch_fixup (void)
       else
 	gcc_unreachable ();
       tree lhs = gimple_assign_lhs (use_stmt);
-      gimple phi = create_phi_node (lhs, merge_bb);
+      gphi *phi = create_phi_node (lhs, merge_bb);
       add_phi_arg (phi, build_one_cst (TREE_TYPE (lhs)), etrue, loc);
       add_phi_arg (phi, othervar, single_succ_edge (then_bb), loc);
       gsi = gsi_for_stmt (use_stmt);

@@ -1,3 +1,63 @@
+2014-10-28  David Malcolm  <dmalcolm@redhat.com>
+
+	* auto-profile.c (autofdo::function_instance::find_icall_target_map):
+	Strengthen param "stmt" from gimple to gcall *.
+	(autofdo::autofdo_source_profile::update_inlined_ind_target):
+	Likewise.
+	(autofdo::afdo_indirect_call): Rename local gimple "stmt" to "gs",
+	reintroducing "stmt" as a gcall * via a dyn_cast once we've
+	established that we have a GIMPLE_CALL.
+	(autofdo::afdo_set_bb_count): Use a gphi_iterator for the phi
+	iteration, renaming it from "gsi" to "gpi", strengthening
+	local "phi" from gimple to gphi *.
+	(autofdo::afdo_propagate_circuit): Rename local gimple "phi_stmt"
+	to "def_stmt".  Reintroduce "phi_stmt" as a gphi * via a dyn_cast
+	once we know we have a GIMPLE_PHI.
+	(autofdo::afdo_vpt_for_early_inline): Strengthen local "stmt" from
+	gimple to gcall *, using a dyn_cast.
+	* gimple-fold.c (replace_stmt_with_simplification): Replace check
+	against GIMPLE_COND with a dyn_cast <gcond *>, introducing local
+	"cond_stmt".  Use "cond_stmt" in place of "stmt" for typesafety.
+	* gimple-iterator.h (gsi_next_nonvirtual_phi): Strengthen param
+	from gimple_stmt_iterator * to gphi_iterator *, and local "phi"
+	from gimple to gphi *.
+	* ipa-icf-gimple.c (ipa_icf_gimple::func_checker::parse_labels):
+	Replace check against GIMPLE_LABEL with a dyn_cast <glabel *>,
+	introducing local "label_stmt".  Use it in place of "stmt" for
+	typesafety.
+	(ipa_icf_gimple::func_checker::compare_bb): Add checked casts
+	to appropriate gimple subclasses when invoking comparison methods
+	within the cases for GIMPLE_SWITCH, GIMPLE_RESX, GIMPLE_LABEL,
+	GIMPLE_RETURN, GIMPLE_ASM.
+	(ipa_icf_gimple::func_checker::compare_gimple_label): Strengthen
+	both params from gimple to const glabel *.
+	(ipa_icf_gimple::func_checker::compare_gimple_switch): Strengthen
+	both params from gimple to const gswitch *.
+	(ipa_icf_gimple::func_checker::compare_gimple_return): Strengthen
+	both params from gimple to const greturn *.
+	(ipa_icf_gimple::func_checker::compare_gimple_resx): Strengthen
+	both params from gimple to const gresx *.
+	(ipa_icf_gimple::func_checker::compare_gimple_asm): Strengthen
+	both params from gimple to const gasm *.
+	* ipa-icf-gimple.h (ipa_icf_gimple::func_checker::compare_gimple_label):
+	Strengthen both params from gimple to const glabel *.
+	(ipa_icf_gimple::func_checker::compare_gimple_switch): Strengthen
+	both params from gimple to const gswitch *.
+	(ipa_icf_gimple::func_checker::compare_gimple_return): Strengthen
+	both params from gimple to const greturn *.
+	(ipa_icf_gimple::func_checker::compare_gimple_resx): Strengthen
+	both params from gimple to const gresx *.
+	(ipa_icf_gimple::func_checker::compare_gimple_asm): Strengthen
+	both params from gimple to const gasm *.
+	* ipa-icf.c (ipa_icf_gimple::sem_function::compare_phi_node):
+	Strengthen locals "si1" and "si2" from gimple_stmt_iterator to
+	gphi_iterator, and locals "phi1" and "phi2" from gimple to gphi *.
+	* tree-ssa-forwprop.c (fold_all_stmts): Replace check against
+	GIMPLE_COND with a dyn_cast <gcond *>, introducing local
+	"cond_stmt".  Use "cond_stmt" in place of "stmt" for typesafety.
+	* tree-ssa-reassoc.c (branch_fixup): Strengthen local "phi" from
+	gimple to gphi *.
+
 2014-10-27  David Malcolm  <dmalcolm@redhat.com>
 
 	* doc/gimple.texi (Class hierarchy of GIMPLE statements): Update

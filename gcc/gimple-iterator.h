@@ -293,14 +293,14 @@ gsi_last_nondebug_bb (basic_block bb)
 /* Iterates I statement iterator to the next non-virtual statement.  */
 
 static inline void
-gsi_next_nonvirtual_phi (gimple_stmt_iterator *i)
+gsi_next_nonvirtual_phi (gphi_iterator *i)
 {
-  gimple phi;
+  gphi *phi;
 
   if (gsi_end_p (*i))
     return;
 
-  phi = gsi_stmt (*i);
+  phi = i->phi ();
   gcc_assert (phi != NULL);
 
   while (virtual_operand_p (gimple_phi_result (phi)))
@@ -310,7 +310,7 @@ gsi_next_nonvirtual_phi (gimple_stmt_iterator *i)
       if (gsi_end_p (*i))
 	return;
 
-      phi = gsi_stmt (*i);
+      phi = i->phi ();
     }
 }
 

@@ -2823,7 +2823,7 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
     return false;
 
-  if (gimple_code (stmt) == GIMPLE_COND)
+  if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
     {
       gcc_assert (rcode.is_tree_code ());
       if (TREE_CODE_CLASS ((enum tree_code)rcode) == tcc_comparison
@@ -2833,16 +2833,16 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	      || !operation_could_trap_p (rcode,
 					  FLOAT_TYPE_P (TREE_TYPE (ops[0])),
 					  false, NULL_TREE)))
-	gimple_cond_set_condition (stmt, rcode, ops[0], ops[1]);
+	gimple_cond_set_condition (cond_stmt, rcode, ops[0], ops[1]);
       else if (rcode == SSA_NAME)
-	gimple_cond_set_condition (stmt, NE_EXPR, ops[0],
+	gimple_cond_set_condition (cond_stmt, NE_EXPR, ops[0],
 				   build_zero_cst (TREE_TYPE (ops[0])));
       else if (rcode == INTEGER_CST)
 	{
 	  if (integer_zerop (ops[0]))
-	    gimple_cond_make_false (stmt);
+	    gimple_cond_make_false (cond_stmt);
 	  else
-	    gimple_cond_make_true (stmt);
+	    gimple_cond_make_true (cond_stmt);
 	}
       else if (!inplace)
 	{
@@ -2850,7 +2850,7 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 					    ops, seq);
 	  if (!res)
 	    return false;
-	  gimple_cond_set_condition (stmt, NE_EXPR, res,
+	  gimple_cond_set_condition (cond_stmt, NE_EXPR, res,
 				     build_zero_cst (TREE_TYPE (res)));
 	}
       else
