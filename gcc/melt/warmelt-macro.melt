@@ -7438,9 +7438,9 @@ applications of @code{/i} primitives.}#
 	  (setq lix (+i lix 1))
 	  (void)
 	  )
-;;;;
+	 ;; possible metabug; if we remove that nil, it won't compile anymore
 	 ()
-;;;;
+	 ;;
 	 (void)
 	 )
        )
