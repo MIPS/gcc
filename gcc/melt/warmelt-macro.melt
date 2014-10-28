@@ -7107,139 +7107,163 @@ applications of @code{/i} primitives.}#
     (debug "mexpand_let" " loc=" loc " cont=" cont "\n.. newenv=" debug_less newenv
 	   "\n..sbindlist=" sbindlist "\n.. maclist=" maclist)
     (assert_msg "check sbindlist" (is_list_or_null sbindlist) sbindlist sexpr)
-    (each_component_in_list
-     sbindlist
-     curbindsrc
-     (debug "mexpand_let" " curbindsrc=" curbindsrc)
-     (let ( (cursbind
-	     (cond
-	      ( (is_a curbindsrc class_source_any_let_binding)
-		;;can happen only if the LET expression comes from some macro
-		curbindsrc)
-	      ( (is_a curbindsrc class_sexpr)
-		(mexpand_letbinding curbindsrc newenv mexpander modctx))
-	      (:else
-	       (error_at loc "inexpected binding $1 in LET" curbindsrc)
-	       ())))
-	    )
-       (debug "mexpand_let" " cursbind=" cursbind
-	      "\n..for curbindsrc=" debug_less curbindsrc)
-       (assert_msg "check cursbind" (is_a cursbind class_source_any_let_binding)
-		   cursbind curbindsrc sexpr)
-       (cond ( (is_a cursbind class_source_let_binding)
-	       (let (
-		     (sx (unsafe_get_field :sletb_expr cursbind))
-		     (letbind (instance class_let_binding
-					:binder (unsafe_get_field :sletb_binder cursbind)
-					:letbind_type (unsafe_get_field :sletb_type cursbind)
-					:letbind_expr sx
-					:letbind_loc (or (get_field :loca_location cursbind) loc)))
-		     )
-		 (debug "mexpand_let" " letbind=" letbind)
-		 (put_env newenv letbind)
-		 (list_append letbindlist cursbind)
-		 (debug "mexpand_let" " letbind-updated newenv=" newenv
-			"\n.. for cursbind=" cursbind)
-		 )
-	       )
-	     ( (is_a cursbind class_source_macro_let_binding)
-	       (debug "mexpand_let:macro" " loc=" loc "; cursbind=" cursbind)
-	       (shortbacktrace_dbg "mexpand_let:macro" 15)
-	       (assert_msg "check maclist" (is_list maclist) maclist modctx)
-	       (let ( 
-		     (macsymb (get_field :sletb_binder cursbind))
-		     (macloc (or (get_field :loca_location cursbind) loc))
-		     (macformals (get_field :sletm_macro_formals cursbind))
-		     (macbody (get_field :sletm_macro_body cursbind))
-		     (macbind (instance class_defined_macro_binding
-					:binder macsymb
-					:mbind_expanser ()
-					:mbind_defmacro cursbind
-					:mbind_data ()
-					))
-		     (defmaclet (instance class_source_defmacro_in_let
-					  :loca_location loc
-					  :sdef_name macsymb
-					  :sdef_doc ()
-					  :sformal_args macformals
-					  :sfun_body macbody
-					  :smacro_binding macbind
-					  :smacro_sourceletbinding cursbind))
-		     (sinstmac (instance class_source_macro_installation
-					 :loca_location loc
-					 :smacinst_defmacro defmaclet
-					 :smacinst_env newenv))
-		     )
-		 (list_append maclist sinstmac)
-		 (debug "mexpand_let:macro"
-			" loc=" loc
-			"\n.. macbind=" macbind
-			"\n.. defmaclet=" defmaclet
-			"\n.. updated maclist=" maclist
-			"\n.. sinstmac=" sinstmac)
-		 (letrec ( (mexpanser
-			    (lambda (sexprm envm mexpanderm modctxm)
-			      (debug "mexpand_let:mexpanser sexprm=" sexprm
-				     "\n.. envm=" debug_more envm
-				     "\n.. modctxm=" debug_less modctxm
-				     "\n.. mexpanderm=" debug_less mexpanderm
-				     "\n.. macbind=" macbind)
-			      (shortbacktrace_dbg "mexpand_let:mexpanser" 25)
-			      (when (>i (melt_error_counter) 0)
-				(debug "mexpand_let:mexpanser" " loc=" loc " errored")
-				(error_at loc "MELT will not expand LET :macro $1 with #$2 errors"
-					  macsymb (melt_error_counter))
-				(return ()))
-			      (debug "mexpand_let:mexpanser before melt_delayed_macro_expander"
-				     " maclist=" maclist "\n.. macbind=" macbind)
-			      (melt_delayed_macro_expander macbind maclist envm mexpanderm modctx)
-			      (debug "mexpand_let:mexpanser" " loc=" loc " after melt_delayed_macro_expander"
-				     " maclist=" maclist "\n.. macbind=" macbind)
-			      (when (>i (melt_error_counter) 0)
-				(debug "mexpand_let:mexpanser" " loc=" loc " delayerrored")
-				(error_at loc "MELT will not expand LET :macro $1 with #$2 errors after delayed expansion"
-					  macsymb (melt_error_counter))
-				(return ()))
-			      (let ( (mclos (get_field :mbind_expanser macbind))
-				     (locm (get_field :loca_location sexprm))
-				     )
-				(debug "mexpand_let:mexpanser" " afterdelay"
-				       " loc=" loc " locm=" locm
-				       "\n.. mclos=" mclos
-				       "\n.. mexpanser=" mexpanser
-				       "\n.. sexprm=" sexprm)
-				(when (== mclos mexpanser)
-				  (error_at locm "failed to macro-expand LET :macro $1" macsymb)
-				  (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
-				  (return))
-				(debug "mexpand_let:mexpanser"
-				       " beforemulticall"
-				       " loc=" loc " locm=" locm
-				       " mclos=" mclos " sexprm=" sexprm)
-				(multicall 
-				 (expmac othermac)
-				 (mclos sexprm envm mexpanderm modctxm)
-				 (debug "mexpand_let:mexpanser expmac=" expmac " othermac=" othermac)
-				 (return expmac othermac)
-				 )
-				)
-			      ))
-			   )
-		   (debug "mexpand_let:macro" " loc=" loc " mexpanser=" mexpanser "\n.. macbind=" macbind)
-		   (put_fields macbind :mbind_expanser mexpanser)
-		   (debug "mexpand_let:macro" " loc=" loc " update macbind=" macbind)
-		   (put_env newenv macbind)
+    (cond
+     ( (== (list_first_element sbindlist) :expand)
+       (let ( (xpbindlist (expand_restlist_as_list sbindlist env mexpander modctx))
+	      )
+	 (debug "mexpand_let:expand" " loc=" loc " xpbindlist=" xpbindlist)
+	 (each_component_in_list
+	  xpbindlist
+	  curxpbind
+	  (debug "mexpand_let:expand" " loc=" loc " curxpbind=" curxpbind)
+	  (cond
+	   ( (is_a curxpbind class_source_let_binding)
+	     (put_env newenv curxpbind)
+	     (list_append letbindlist curxpbind)
+	     )
+	   ( (is_a curxpbind class_source_macro_let_binding)
+	     (error_at loc ":expand LET binding cannot give macro-binding for $1"
+		       (get_field :binder curxpbind))
+	     ))
+	  )
+	 (void)
+	 ))
+     (:else
+      (each_component_in_list
+       sbindlist
+       curbindsrc
+       (debug "mexpand_let" " curbindsrc=" curbindsrc)
+       (let ( (cursbind
+	       (cond
+		( (is_a curbindsrc class_source_any_let_binding)
+		  ;;can happen only if the LET expression comes from some macro
+		  curbindsrc)
+		( (is_a curbindsrc class_sexpr)
+		  (mexpand_letbinding curbindsrc newenv mexpander modctx))
+		(:else
+		 (error_at loc "inexpected binding $1 in LET" curbindsrc)
+		 ())))
+	      )
+	 (debug "mexpand_let" " cursbind=" cursbind
+		"\n..for curbindsrc=" debug_less curbindsrc)
+	 (assert_msg "check cursbind" (is_a cursbind class_source_any_let_binding)
+		     cursbind curbindsrc sexpr)
+	 (cond ( (is_a cursbind class_source_let_binding)
+		 (let (
+		       (sx (unsafe_get_field :sletb_expr cursbind))
+		       (letbind (instance class_let_binding
+					  :binder (unsafe_get_field :sletb_binder cursbind)
+					  :letbind_type (unsafe_get_field :sletb_type cursbind)
+					  :letbind_expr sx
+					  :letbind_loc (or (get_field :loca_location cursbind) loc)))
+		       )
+		   (debug "mexpand_let" " letbind=" letbind)
+		   (put_env newenv letbind)
 		   (list_append letbindlist cursbind)
-		   (debug "mexpand_let:macro" " letbind-updated newenv=" debug_more newenv
-			  "\n.. for cursbind=" cursbind
-			  "\n.. macbind=" macbind)
-		   (shortbacktrace_dbg "mexpand_let:macro-endletrec-mexpanser" 32)
+		   (debug "mexpand_let" " letbind-updated newenv=" newenv
+			  "\n.. for cursbind=" cursbind)
 		   )
-		 ))
-	     (:else
-	      (assert_msg "impossible cursbind" () cursbind curbindsrc)))
-       )
-     )					; end each_component_in_list
+		 )
+	       ( (is_a cursbind class_source_macro_let_binding)
+		 (debug "mexpand_let:macro" " loc=" loc "; cursbind=" cursbind)
+		 (shortbacktrace_dbg "mexpand_let:macro" 15)
+		 (assert_msg "check maclist" (is_list maclist) maclist modctx)
+		 (let ( 
+		       (macsymb (get_field :sletb_binder cursbind))
+		       (macloc (or (get_field :loca_location cursbind) loc))
+		       (macformals (get_field :sletm_macro_formals cursbind))
+		       (macbody (get_field :sletm_macro_body cursbind))
+		       (macbind (instance class_defined_macro_binding
+					  :binder macsymb
+					  :mbind_expanser ()
+					  :mbind_defmacro cursbind
+					  :mbind_data ()
+					  ))
+		       (defmaclet (instance class_source_defmacro_in_let
+					    :loca_location loc
+					    :sdef_name macsymb
+					    :sdef_doc ()
+					    :sformal_args macformals
+					    :sfun_body macbody
+					    :smacro_binding macbind
+					    :smacro_sourceletbinding cursbind))
+		       (sinstmac (instance class_source_macro_installation
+					   :loca_location loc
+					   :smacinst_defmacro defmaclet
+					   :smacinst_env newenv))
+		       )
+		   (list_append maclist sinstmac)
+		   (debug "mexpand_let:macro"
+			  " loc=" loc
+			  "\n.. macbind=" macbind
+			  "\n.. defmaclet=" defmaclet
+			  "\n.. updated maclist=" maclist
+			  "\n.. sinstmac=" sinstmac)
+		   (letrec ( (mexpanser
+			      (lambda (sexprm envm mexpanderm modctxm)
+				(debug "mexpand_let:mexpanser sexprm=" sexprm
+				       "\n.. envm=" debug_more envm
+				       "\n.. modctxm=" debug_less modctxm
+				       "\n.. mexpanderm=" debug_less mexpanderm
+				       "\n.. macbind=" macbind)
+				(shortbacktrace_dbg "mexpand_let:mexpanser" 25)
+				(when (>i (melt_error_counter) 0)
+				  (debug "mexpand_let:mexpanser" " loc=" loc " errored")
+				  (error_at loc "MELT will not expand LET :macro $1 with #$2 errors"
+					    macsymb (melt_error_counter))
+				  (return ()))
+				(debug "mexpand_let:mexpanser before melt_delayed_macro_expander"
+				       " maclist=" maclist "\n.. macbind=" macbind)
+				(melt_delayed_macro_expander macbind maclist envm mexpanderm modctx)
+				(debug "mexpand_let:mexpanser" " loc=" loc " after melt_delayed_macro_expander"
+				       " maclist=" maclist "\n.. macbind=" macbind)
+				(when (>i (melt_error_counter) 0)
+				  (debug "mexpand_let:mexpanser" " loc=" loc " delayerrored")
+				  (error_at loc "MELT will not expand LET :macro $1 with #$2 errors after delayed expansion"
+					    macsymb (melt_error_counter))
+				  (return ()))
+				(let ( (mclos (get_field :mbind_expanser macbind))
+				       (locm (get_field :loca_location sexprm))
+				       )
+				  (debug "mexpand_let:mexpanser" " afterdelay"
+					 " loc=" loc " locm=" locm
+					 "\n.. mclos=" mclos
+					 "\n.. mexpanser=" mexpanser
+					 "\n.. sexprm=" sexprm)
+				  (when (== mclos mexpanser)
+				    (error_at locm "failed to macro-expand LET :macro $1" macsymb)
+				    (warning_at loc "failed to expand LET :macro $1 defined here" macsymb)
+				    (return))
+				  (debug "mexpand_let:mexpanser"
+					 " beforemulticall"
+					 " loc=" loc " locm=" locm
+					 " mclos=" mclos " sexprm=" sexprm)
+				  (multicall 
+				   (expmac othermac)
+				   (mclos sexprm envm mexpanderm modctxm)
+				   (debug "mexpand_let:mexpanser expmac=" expmac " othermac=" othermac)
+				   (return expmac othermac)
+				   )
+				  )
+				))
+			     )
+		     (debug "mexpand_let:macro" " loc=" loc " mexpanser=" mexpanser "\n.. macbind=" macbind)
+		     (put_fields macbind :mbind_expanser mexpanser)
+		     (debug "mexpand_let:macro" " loc=" loc " update macbind=" macbind)
+		     (put_env newenv macbind)
+		     (list_append letbindlist cursbind)
+		     (debug "mexpand_let:macro" " letbind-updated newenv=" debug_more newenv
+			    "\n.. for cursbind=" cursbind
+			    "\n.. macbind=" macbind)
+		     (shortbacktrace_dbg "mexpand_let:macro-endletrec-mexpanser" 32)
+		     )
+		   ))
+	       (:else
+		(assert_msg "impossible cursbind" () cursbind curbindsrc)))
+	 )
+       )				; end each_component_in_list
+      )
+     )
     (debug "mexpand_let" " loc=" loc " final newenv=" debug_more newenv
 	   "\n.. restpair=" restpair)
     (let ( (bodytup (expand_pairlist_as_tuple restpair newenv mexpander modctx))
@@ -7258,15 +7282,19 @@ applications of @code{/i} primitives.}#
 (export_macro
  let mexpand_let
  :doc #{The $LET syntax is for sequential local bindings of
- expressions. Syntax is (LET ( <binding>... ) <body>...). Each binding
- is an optional ctype such as :long or :gimple or :value
- or :auto (which is the default), followed by a local variable name,
- followed by a single expression. With an :auto type annotation, the
- bound variable takes the type provided by the binding expression. The
- body is a non-empty sequence of expressions, evaluated in an
- environment enriched with the local bindings. The MELT LET syntax is
- sequential, like LET* in Scheme so a variable bound in a previous
- binding can appear in the expression of a later binding.}#)
+ expressions. Syntax is @code{(LET ( @var{<binding> ...} ) @var{<body>
+ ...})}. Each binding is an optional ctype such as :long or :gimple
+ or :value or :auto (which is the default), followed by a local
+ variable name, followed by a single expression. With an :auto type
+ annotation, the bound variable takes the type provided by the binding
+ expression. The body is a non-empty sequence of expressions,
+ evaluated in an environment enriched with the local bindings. The
+ MELT LET syntax is sequential, like LET* in Scheme so a variable
+ bound in a previous binding can appear in the expression of a later
+ binding. If the first element of the @var{<binding>} list is exactly
+ @code{:expand} like in @code{(LET (:expand
+ @var{<expanded-binding>...}) @var{<body> ...}).} the
+ @var{<expanded-binding>} is macro-expanded, but then @code{:macro} bindings are not allowed. }#)
 
 
 ;;;;;;;;;;;;;;;; install methods to detect recursively constructible
@@ -7303,117 +7331,168 @@ applications of @code{/i} primitives.}#
 	(vartup ())	;later set to the tuple of variables
 	(exprtup ()) ;later set to the tuple of bound expressions in bindings
 	(bodytup ())
+	(recsexprtup ())
 	)
-    ;; we are accepting the degenerate case (letrec () ....) 
-    (if bindexpr 
-	(if (is_a bindexpr class_sexpr) 
-	    (let ( (recbindtup 
-		    (pairlist_to_multiple 
-		     (list_first (unsafe_get_field :sexp_contents bindexpr))
-		     discr_multiple
-		     (lambda (bx) 
-		       (if (is_not_a bx class_sexpr)
-			   (error_plain loc "sexpr expected in LETREC binding"))
-		       bx)))
-		   (:long nbrecbind (multiple_length recbindtup)) 
-		   (recsexprtup (make_multiple discr_multiple nbrecbind))
+    (cond
+     ( (null bindexpr)
+       ;; we are accepting the degenerate case (letrec () ....)
+       (void))
+     ( (is_multiple bindexpr)
+       ;; tuple from some previous macro-expansion
+       (foreach_in_multiple
+	(bindexpr)
+	(cursrcbindcomp :long bix)
+	(when (is_not_a cursrcbindcomp class_source_letrec_binding)
+	  (error_at loc "bad tuple for LETREC binding, invalid #$1" bix))
+	)
+       (setq nbind (multiple_length bindexpr))
+       (setq bindtup (make_multiple discr_multiple nbind))
+       (setq srcbindtup (make_multiple discr_multiple nbind))
+       (setq vartup (make_multiple discr_multiple nbind))
+       (setq exprtup (make_multiple discr_multiple nbind))
+       (foreach_in_multiple
+	(bindexpr)
+	(cursrcbindcomp :long bix)
+	(assert_msg "check cursrcbindcomp" (is_a cursrcbindcomp class_source_letrec_binding))
+	(let (
+	      (cursbindsloc (or (get_field :loca_location cursrcbindcomp) loc))
+	      (cursbindtype (get_field :sletb_type cursrcbindcomp))
+	      (cursbindsymb (get_field :sletb_binder cursrcbindcomp))
+	      (cursbindexp (get_field :sletb_expr cursrcbindcomp))
+	      )
+	  (if (!= cursbindtype ctype_value)
+	      (error_at cursbindsloc "invalid type of LETREC computed binding $1 at #$2" cursbindsymb bix))
+	  (multiple_put_nth srcbindtup bix cursrcbindcomp)
+	  (multiple_put_nth vartup bix cursbindsymb)
+	  (multiple_put_nth exprtup bix cursbindexp)
+	  (let ( (curbind (instance class_letrec_binding
+				    :binder cursbindsymb
+				    :letbind_type ctype_value
+				    :letbind_expr () ;filled later
+				    )) 
+		 )
+	    (put_env newenv curbind)
+	    (multiple_put_nth bindtup bix curbind)
+	    (unless (is_recursively_constructible cursbindexp)
+	      (error_at cursbindsloc "non recursively constructible LETREC computed binding $1 at #$2" cursbindsymb bix))
+	    (put_fields curbind :letbind_expr cursbindexp)
+	    )
+	  )
+	)
+       )
+     ( (is_list bindexpr)
+       ;; list from some previous macro-expansion
+       (error_at loc "unimplemented LETREC list-computed bindings")
+       (assert_msg "@$@unimplemented LETREC list-computed bindings" ())
+       )
+     ( (is_a bindexpr class_sexpr)
+       (let ( (resbindcont (unsafe_get_field :sexp_contents bindexpr))
+	      (recbindtup 
+	       (pairlist_to_multiple 
+		(list_first resbindcont)
+		discr_multiple
+		(lambda (bx) 
+		  (if (is_not_a bx class_sexpr)
+		      (error_plain loc "sexpr expected in LETREC binding"))
+		  bx)))
+	      (:long nbrecbind (multiple_length recbindtup)) 
+	      )
+	 (setq nbind nbrecbind)
+	 (setq bindtup (make_multiple discr_multiple nbind))
+	 (setq srcbindtup (make_multiple discr_multiple nbind))
+	 (setq vartup (make_multiple discr_multiple nbind))
+	 (setq exprtup (make_multiple discr_multiple nbind))
+	 (setq recsexprtup (make_multiple discr_multiple nbind))
+	 ;; first loop to compute the tuple of variables and s-expressions
+	 (foreach_in_multiple
+	  (recbindtup)
+	  (curbindexpr :long bindix)
+	  (debug "mexpand_letrec firstloop curbindexpr" curbindexpr)
+	  (if (is_not_a curbindexpr class_sexpr)
+	      ;; error message already given
+	      (return))
+	  (let ( (curcont (get_field :sexp_contents curbindexpr))
+		 (curloc (get_field :loca_location curbindexpr))
+		 (curpair (list_first curcont))
+		 (curcomp (pair_head curpair))
+		 (cursymb ())
+		 (cursexpr ())
+		 )
+	    (cond ( (is_a curcomp class_keyword)
+		    (error_at curloc "keyword $1 invalid in LETREC binding" curcomp)
+		    )
+		  ( (is_a curcomp class_symbol)
+		    (setq cursymb curcomp)
+		    )
+		  (:else 
+		   (error_plain curloc "invalid LETREC binding - expecting (<symbol> <constructive-expr>)"))
+		  )
+	    (setq curpair (pair_tail curpair))
+	    (setq curcomp (pair_head curpair))
+	    (if (is_a curcomp class_sexpr)
+		(when (is_a cursymb class_symbol)
+		  (setq cursexpr curcomp)
+		  (multiple_put_nth recsexprtup bindix cursexpr)
+		  (multiple_put_nth vartup bindix cursymb))
+	      ;; else curcomp is not a symbol
+	      (error_at curloc "invalid LETREC binding for $1 - missing constructive expression" cursymb))
+	    (if (pair_tail curpair)
+		(error_at curloc "invalid LETREC binding  for $1 - more than two components" cursymb))
+	    ))
+	 (debug "mexpand_letrec recsexprtup after firstloop" recsexprtup)
+	 (debug "mexpand_letrec vartup after firstloop" vartup)
+	 ;;
+	 ;; second loop to fill the newenv with empty letrec bindings
+	 (let ( (envmap (get_field :env_bind newenv)) ;; to ensure no repeated variable in letrec
+		)
+	   (foreach_in_multiple
+	    (vartup)
+	    (curvar :long varix)
+	    (debug "mexpand_letrec second loop curvar" curvar)
+	    (if (mapobject_get envmap curvar)
+		(error_at loc "repeated variable $1 in LETREC binding"
+			  (get_field :named_name curvar)))
+	    ;; make the binding
+	    (let ( (curbind (instance class_letrec_binding
+				      :binder curvar
+				      :letbind_type ctype_value
+				      :letbind_expr () ;filled later
+				      )) 
 		   )
-	      (setq nbind nbrecbind)
-	      (setq bindtup (make_multiple discr_multiple nbind))
-	      (setq srcbindtup (make_multiple discr_multiple nbind))
-	      (setq vartup (make_multiple discr_multiple nbind))
-	      (setq exprtup (make_multiple discr_multiple nbind))
-	      ;; first loop to compute the tuple of variables and s-expressions
-	      (foreach_in_multiple
-	       (recbindtup)
-	       (curbindexpr :long bindix)
-	       (debug "mexpand_letrec firstloop curbindexpr" curbindexpr)
-	       (if (is_not_a curbindexpr class_sexpr)
-		   ;; error message already given
-		   (return))
-	       (let ( (curcont (get_field :sexp_contents curbindexpr))
-		      (curloc (get_field :loca_location curbindexpr))
-		      (curpair (list_first curcont))
-		      (curcomp (pair_head curpair))
-		      (cursymb ())
-		      (cursexpr ())
-		      )
-		 (cond ( (is_a curcomp class_keyword)
-			 (error_plain curloc "keyword invalid in LETREC binding")
-			 )
-		       ( (is_a curcomp class_symbol)
-			 (setq cursymb curcomp)
-			 )
-		       (:else 
-			(error_plain curloc "invalid LETREC binding - expecting (<symbol> <constructive-expr>)"))
-		       )
-		 (setq curpair (pair_tail curpair))
-		 (setq curcomp (pair_head curpair))
-		 (if (is_a curcomp class_sexpr)
-		     (if (is_a cursymb class_symbol)
-			 (progn
-			   (setq cursexpr curcomp)
-			   (multiple_put_nth recsexprtup bindix cursexpr)
-			   (multiple_put_nth vartup bindix cursymb)))
-		   ;; else curcomp is not a symbol
-		   (error_plain curloc "invalid LETREC binding - missing constructive expression"))
-		 (if (pair_tail curpair)
-		     (error_plain curloc "invalid LETREC binding - more than two components"))
-		 ))
-	      (debug "mexpand_letrec recsexprtup after firstloop" recsexprtup)
-	      (debug "mexpand_letrec vartup after firstloop" vartup)
-;;;
-	      ;; second loop to fill the newenv with empty letrec bindings
-	      (let ( (envmap (get_field :env_bind newenv)) ;; to ensure no repeated variable in letrec
-		     )
-		(foreach_in_multiple
-		 (vartup)
-		 (curvar :long varix)
-		 (debug "mexpand_letrec second loop curvar" curvar)
-		 (if (mapobject_get envmap curvar)
-		     (error_at loc "repeated variable $1 in LETREC binding"
-			       (get_field :named_name curvar)))
-;;; make the binding
-		 (let ( (curbind (instance class_letrec_binding
-					   :binder curvar
-					   :letbind_type ctype_value
-					   :letbind_expr () ;filled later
-					   )) 
-			)
-		   (put_env newenv curbind)
-		   (multiple_put_nth bindtup varix curbind)
-		   )))
-	      (debug "mexpand_letrec bindtup after secondloop" bindtup)
-;;;
-	      ;; third loop to expand the bound expressions which should be recursively constructible
-	      (foreach_in_multiple
-	       (recsexprtup)
-	       (cursexpr :long expix)
-	       (let ( 
-		     (curloc (or (get_field :loca_location cursexpr) loc))
-		     (curexp (mexpander cursexpr newenv mexpander modctx))
-		     (curbind (multiple_nth bindtup expix))
-		     )
-		 (if (null (is_recursively_constructible curexp))
-		     (progn
-		       (error_plain curloc "invalid expression in LETREC binding [not recursively constructible]")
-		       (return)))
-		 (put_fields curbind :letbind_expr curexp)
-		 (multiple_put_nth exprtup expix curexp)
-		 (let ( (sbind
-			 (instance class_source_letrec_binding
-				   :loca_location (or (get_field :loca_location curexp) loc)
-				   :sletb_type ctype_value
-				   :sletb_binder (multiple_nth vartup expix)
-				   :sletb_expr curexp
-				   )
-			 ) )
-		   (multiple_put_nth srcbindtup expix sbind)
-		   )))
-	      (debug "mexpand_letrec exprtup after thirdloop" exprtup)
-	      )		;end let recbindtup when bindexpr is an s-expr
-	  (error_plain loc "missing letbinding-s in LETREC"_))
-      )
+	      (put_env newenv curbind)
+	      (multiple_put_nth bindtup varix curbind)
+	      )))
+	 (debug "mexpand_letrec bindtup after secondloop" bindtup)
+	 ;;
+	 ;; third loop to expand the bound expressions which should be recursively constructible
+	 (foreach_in_multiple
+	  (recsexprtup)
+	  (cursexpr :long expix)
+	  (let ( 
+		(curloc (or (get_field :loca_location cursexpr) loc))
+		(curexp (mexpander cursexpr newenv mexpander modctx))
+		(curbind (multiple_nth bindtup expix))
+		)
+	    (unless (is_recursively_constructible curexp)
+	      (error_plain curloc "invalid expression in LETREC binding [not recursively constructible]")
+	      (return))
+	    (put_fields curbind :letbind_expr curexp)
+	    (multiple_put_nth exprtup expix curexp)
+	    (let ( (sbind
+		    (instance class_source_letrec_binding
+			      :loca_location (or (get_field :loca_location curexp) loc)
+			      :sletb_type ctype_value
+			      :sletb_binder (multiple_nth vartup expix)
+			      :sletb_expr curexp
+			      )
+		    ) )
+	      (multiple_put_nth srcbindtup expix sbind)
+	      )))
+	 (debug "mexpand_letrec exprtup after thirdloop" exprtup)
+	 )		;end let recbindtup when bindexpr is an s-expr
+       )
+     )
+    ;;
     (debug "mexpand_letrec srcbindtup" srcbindtup)
     (setq bodytup (expand_pairlist_as_tuple restpair newenv mexpander modctx))
     (if (<=i (multiple_length bodytup) 0)
@@ -7429,13 +7508,18 @@ applications of @code{/i} primitives.}#
 (install_initial_macro 'letrec mexpand_letrec)
 (export_macro letrec mexpand_letrec
  :doc #{The $LETREC syntax is for mutually @b{recursive} local
- bindings. Syntax is (LETREC ( <binding>... ) <body>...). Each binding is
- an optional ctype such as :long or :gimple or :value (which is the
+ bindings. Syntax is (LETREC ( <binding>... ) <body>...). Each binding
+ is an optional ctype such as :long or :gimple or :value (which is the
  default), followed by a local variable name, followed by a single
  @b{constructive} expression, like $LAMBDA $INSTANCE $TUPLE $LIST. The
  body is a non-empty sequence of sub-expressions evaluated in an
- augmented environment. MELT LETREC is similar to Scheme's LETREC.}#)
+ augmented environment. Note that @i{MELT} @code{LETREC} is similar to
+ @i{Scheme}'s @code{LETREC}.}#)
 
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;; for LAMBDA
 (defun mexpand_lambda (sexpr env mexpander modctx)
   (debug "mexpand_lambda sexpr=" sexpr)
