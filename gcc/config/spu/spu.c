@@ -42,6 +42,14 @@
 #include "input.h"
 #include "function.h"
 #include "output.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
@@ -62,13 +70,14 @@
 #include "gimple.h"
 #include "gimplify.h"
 #include "tm-constrs.h"
-#include "ddg.h"
 #include "sbitmap.h"
-#include "timevar.h"
 #include "df.h"
+#include "ddg.h"
+#include "timevar.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "builtins.h"
+#include "rtl-iter.h"
 
 /* Builtin types, data and prototypes. */
 
@@ -3466,10 +3475,9 @@ exp2_immediate_p (rtx op, enum machine_mode mode, int low, int high)
 
 /* Return true if X is a SYMBOL_REF to an __ea qualified variable.  */
 
-static int
-ea_symbol_ref (rtx *px, void *data ATTRIBUTE_UNUSED)
+static bool
+ea_symbol_ref_p (const_rtx x)
 {
-  rtx x = *px;
   tree decl;
 
   if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == PLUS)
@@ -3496,13 +3504,15 @@ ea_symbol_ref (rtx *px, void *data ATTRIBUTE_UNUSED)
 bool
 spu_legitimate_constant_p (enum machine_mode mode, rtx x)
 {
+  subrtx_iterator::array_type array;
   if (GET_CODE (x) == HIGH)
     x = XEXP (x, 0);
 
   /* Reject any __ea qualified reference.  These can't appear in
      instructions but must be forced to the constant pool.  */
-  if (for_each_rtx (&x, ea_symbol_ref, 0))
-    return 0;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    if (ea_symbol_ref_p (*iter))
+      return 0;
 
   /* V4SI with all identical symbols is valid. */
   if (!flag_pic
@@ -3548,7 +3558,7 @@ spu_legitimate_address_p (enum machine_mode mode,
     case CONST:
       /* Keep __ea references until reload so that spu_expand_mov can see them
 	 in MEMs.  */
-      if (ea_symbol_ref (&x, 0))
+      if (ea_symbol_ref_p (x))
 	return !reload_in_progress && !reload_completed;
       return !TARGET_LARGE_MEM;
 

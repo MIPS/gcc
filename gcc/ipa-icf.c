@@ -55,6 +55,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -868,6 +879,12 @@ sem_function::compare_phi_node (basic_block bb1, basic_block bb2)
 
       phi1 = gsi_stmt (si1);
       phi2 = gsi_stmt (si2);
+
+      tree phi_result1 = gimple_phi_result (phi1);
+      tree phi_result2 = gimple_phi_result (phi2);
+
+      if (!m_checker->compare_operand (phi_result1, phi_result2))
+	return return_false_with_msg ("PHI results are different");
 
       size1 = gimple_phi_num_args (phi1);
       size2 = gimple_phi_num_args (phi2);

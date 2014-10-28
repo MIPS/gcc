@@ -49,6 +49,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "ggc.h"
 #include "target.h"
@@ -58,7 +66,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "cgraph.h"
 #include "hash-table.h"
-#include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -88,6 +95,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "shrink-wrap.h"
 #include "builtins.h"
+#include "rtl-iter.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -16114,19 +16122,14 @@ output_387_binary_op (rtx insn, rtx *operands)
 
 /* Check if a 256bit AVX register is referenced inside of EXP.   */
 
-static int
-ix86_check_avx256_register (rtx *pexp, void *)
+static bool
+ix86_check_avx256_register (const_rtx exp)
 {
-  rtx exp = *pexp;
-
   if (GET_CODE (exp) == SUBREG)
     exp = SUBREG_REG (exp);
 
-  if (REG_P (exp)
-      && VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp)))
-    return 1;
-
-  return 0;
+  return (REG_P (exp)
+	  && VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp)));
 }
 
 /* Return needed mode for entity in optimize_mode_switching pass.  */
@@ -16148,7 +16151,7 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
 	    {
 	      rtx arg = XEXP (XEXP (link, 0), 0);
 
-	      if (ix86_check_avx256_register (&arg, NULL))
+	      if (ix86_check_avx256_register (arg))
 		return AVX_U128_DIRTY;
 	    }
 	}
@@ -16160,8 +16163,10 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
      changes state only when a 256bit register is written to, but we need
      to prevent the compiler from moving optimal insertion point above
      eventual read from 256bit register.  */
-  if (for_each_rtx (&PATTERN (insn), ix86_check_avx256_register, NULL))
-    return AVX_U128_DIRTY;
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
+    if (ix86_check_avx256_register (*iter))
+      return AVX_U128_DIRTY;
 
   return AVX_U128_ANY;
 }
@@ -16245,7 +16250,7 @@ ix86_mode_needed (int entity, rtx_insn *insn)
 static void
 ix86_check_avx256_stores (rtx dest, const_rtx, void *data)
  {
-   if (ix86_check_avx256_register (&dest, NULL))
+   if (ix86_check_avx256_register (dest))
     {
       bool *used = (bool *) data;
       *used = true;
@@ -16310,7 +16315,7 @@ ix86_avx_u128_mode_entry (void)
     {
       rtx incoming = DECL_INCOMING_RTL (arg);
 
-      if (incoming && ix86_check_avx256_register (&incoming, NULL))
+      if (incoming && ix86_check_avx256_register (incoming))
 	return AVX_U128_DIRTY;
     }
 
@@ -16344,7 +16349,7 @@ ix86_avx_u128_mode_exit (void)
 
   /* Exit mode is set to AVX_U128_DIRTY if there are
      256bit modes used in the function return register.  */
-  if (reg && ix86_check_avx256_register (&reg, NULL))
+  if (reg && ix86_check_avx256_register (reg))
     return AVX_U128_DIRTY;
 
   return AVX_U128_CLEAN;
@@ -39690,25 +39695,20 @@ x86_extended_QIreg_mentioned_p (rtx_insn *insn)
   return false;
 }
 
-/* Return nonzero when P points to register encoded via REX prefix.
-   Called via for_each_rtx.  */
-static int
-extended_reg_mentioned_1 (rtx *p, void *)
-{
-   unsigned int regno;
-   if (!REG_P (*p))
-     return 0;
-   regno = REGNO (*p);
-   return REX_INT_REGNO_P (regno) || REX_SSE_REGNO_P (regno);
-}
-
 /* Return true when INSN mentions register that must be encoded using REX
    prefix.  */
 bool
 x86_extended_reg_mentioned_p (rtx insn)
 {
-  return for_each_rtx (INSN_P (insn) ? &PATTERN (insn) : &insn,
-		       extended_reg_mentioned_1, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, INSN_P (insn) ? PATTERN (insn) : insn, NONCONST)
+    {
+      const_rtx x = *iter;
+      if (REG_P (x)
+	  && (REX_INT_REGNO_P (REGNO (x)) || REX_SSE_REGNO_P (REGNO (x))))
+	return true;
+    }
+  return false;
 }
 
 /* If profitable, negate (without causing overflow) integer constant
@@ -46533,53 +46533,44 @@ allocate_next_window (int window_num)
   return dispatch_window_list1;
 }
 
-/* Increment the number of immediate operands of an instruction.  */
-
-static int
-find_constant_1 (rtx *in_rtx, imm_info *imm_values)
-{
-  if (*in_rtx == 0)
-    return 0;
-
-    switch ( GET_CODE (*in_rtx))
-    {
-    case CONST:
-    case SYMBOL_REF:
-    case CONST_INT:
-      (imm_values->imm)++;
-      if (x86_64_immediate_operand (*in_rtx, SImode))
-	(imm_values->imm32)++;
-      else
-	(imm_values->imm64)++;
-      break;
-
-    case CONST_DOUBLE:
-      (imm_values->imm)++;
-      (imm_values->imm64)++;
-      break;
-
-    case CODE_LABEL:
-      if (LABEL_KIND (*in_rtx) == LABEL_NORMAL)
-	{
-	  (imm_values->imm)++;
-	  (imm_values->imm32)++;
-	}
-      break;
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
 /* Compute number of immediate operands of an instruction.  */
 
 static void
 find_constant (rtx in_rtx, imm_info *imm_values)
 {
-  for_each_rtx (INSN_P (in_rtx) ? &PATTERN (in_rtx) : &in_rtx,
-		(rtx_function) find_constant_1, (void *) imm_values);
+  if (INSN_P (in_rtx))
+    in_rtx = PATTERN (in_rtx);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, in_rtx, ALL)
+    if (const_rtx x = *iter)
+      switch (GET_CODE (x))
+	{
+	case CONST:
+	case SYMBOL_REF:
+	case CONST_INT:
+	  (imm_values->imm)++;
+	  if (x86_64_immediate_operand (CONST_CAST_RTX (x), SImode))
+	    (imm_values->imm32)++;
+	  else
+	    (imm_values->imm64)++;
+	  break;
+
+	case CONST_DOUBLE:
+	  (imm_values->imm)++;
+	  (imm_values->imm64)++;
+	  break;
+
+	case CODE_LABEL:
+	  if (LABEL_KIND (x) == LABEL_NORMAL)
+	    {
+	      (imm_values->imm)++;
+	      (imm_values->imm32)++;
+	    }
+	  break;
+
+	default:
+	  break;
+	}
 }
 
 /* Return total size of immediate operands of an instruction along with number
@@ -47421,29 +47412,6 @@ ix86_simd_clone_usable (struct cgraph_node *node)
     }
 }
 
-/* This function gives out the number of memory references.
-   This value determines the unrolling factor for
-   bdver3 and bdver4 architectures. */
-
-static int
-ix86_loop_memcount (rtx *x, unsigned *mem_count)
-{
-  if (*x != NULL_RTX && MEM_P (*x))
-   {
-     enum machine_mode mode;
-     unsigned int n_words;
-
-     mode = GET_MODE (*x);
-     n_words = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
-
-    if (n_words > 4)
-       (*mem_count)+=2;
-    else
-       (*mem_count)+=1;
-   }
-  return 0;
-}
-
 /* This function adjusts the unroll factor based on
    the hardware capabilities. For ex, bdver3 has
    a loop buffer which makes unrolling of smaller
@@ -47462,15 +47430,25 @@ ix86_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
   if (!TARGET_ADJUST_UNROLL)
      return nunroll;
 
-  /* Count the number of memory references within the loop body.  */
+  /* Count the number of memory references within the loop body.
+     This value determines the unrolling factor for bdver3 and bdver4
+     architectures. */
+  subrtx_iterator::array_type array;
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
-    {
-      for (insn = BB_HEAD (bbs[i]); insn != BB_END (bbs[i]); insn = NEXT_INSN (insn))
-        if (NONDEBUG_INSN_P (insn))
-            for_each_rtx_in_insn (&insn, (rtx_function) ix86_loop_memcount,
-				  &mem_count);
-    }
+    FOR_BB_INSNS (bbs[i], insn)
+      if (NONDEBUG_INSN_P (insn))
+	FOR_EACH_SUBRTX (iter, array, insn, NONCONST)
+	  if (const_rtx x = *iter)
+	    if (MEM_P (x))
+	      {
+		enum machine_mode mode = GET_MODE (x);
+		unsigned int n_words = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
+		if (n_words > 4)
+		  mem_count += 2;
+		else
+		  mem_count += 1;
+	      }
   free (bbs);
 
   if (mem_count && mem_count <=32)

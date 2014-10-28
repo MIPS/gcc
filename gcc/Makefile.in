@@ -981,15 +981,6 @@ else
 LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = $(build_libobjdir)/libiberty/libiberty.a
 endif
-# For stage1 and when cross-compiling use the build libcpp which is
-# built with NLS disabled.  For stage2+ use the host library and
-# its dependencies.
-ifeq ($(build_objdir),$(build_libobjdir))
-BUILD_CPPLIB = $(build_libobjdir)/libcpp/libcpp.a
-else
-BUILD_CPPLIB = $(CPPLIB) $(LIBIBERTY) $(LIBINTL) $(LIBICONV)
-build/genmatch$(build_exeext): BUILD_LIBDEPS += $(LIBINTL_DEP) $(LIBICONV_DEP)
-endif
 
 # Dependencies on the intl and portability libraries.
 LIBDEPS= libcommon.a $(CPPLIB) $(LIBIBERTY) $(LIBINTL_DEP) $(LIBICONV_DEP) \
@@ -1682,6 +1673,7 @@ aclocal_deps = \
 	$(srcdir)/../config/codeset.m4 \
 	$(srcdir)/../config/extensions.m4 \
 	$(srcdir)/../config/gettext-sister.m4 \
+	$(srcdir)/../config/gcc-plugin.m4 \
 	$(srcdir)/../config/iconv.m4 \
 	$(srcdir)/../config/lcmessage.m4 \
 	$(srcdir)/../config/lib-ld.m4 \
@@ -2265,7 +2257,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/libfuncs.h $(SYMTAB_H) \
   $(srcdir)/real.h $(srcdir)/function.h $(srcdir)/insn-addr.h $(srcdir)/hwint.h \
   $(srcdir)/fixed-value.h \
-  $(srcdir)/output.h $(srcdir)/cfgloop.h \
+  $(srcdir)/output.h $(srcdir)/cfgloop.h $(srcdir)/cfg.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/ipa-ref.h $(srcdir)/cgraph.h \
   $(srcdir)/reload.h $(srcdir)/caller-save.c $(srcdir)/symtab.c \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
@@ -2528,6 +2520,17 @@ genprog = $(genprogerr) check checksum condmd match
 
 # These programs need libs over and above what they get from the above list.
 build/genautomata$(build_exeext) : BUILD_LIBS += -lm
+
+# For stage1 and when cross-compiling use the build libcpp which is
+# built with NLS disabled.  For stage2+ use the host library and
+# its dependencies.
+ifeq ($(build_objdir),$(build_libobjdir))
+BUILD_CPPLIB = $(build_libobjdir)/libcpp/libcpp.a
+else
+BUILD_CPPLIB = $(CPPLIB) $(LIBIBERTY)
+build/genmatch$(build_exeext): BUILD_LIBDEPS += $(LIBINTL_DEP) $(LIBICONV_DEP)
+build/genmatch$(build_exeext): BUILD_LIBS += $(LIBINTL) $(LIBICONV)
+endif
 
 build/genmatch$(build_exeext) : $(BUILD_CPPLIB) \
   $(BUILD_ERRORS) build/vec.o build/hash-table.o

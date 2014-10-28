@@ -31,6 +31,15 @@
 #include "calls.h"
 #include "varasm.h"
 #include "regs.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "hard-reg-set.h"
 #include "output.h"
@@ -52,7 +61,6 @@
 #include "langhooks.h"
 #include "diagnostic-core.h"
 #include "hash-table.h"
-#include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -68,6 +76,7 @@
 #include "aarch64-cost-tables.h"
 #include "dumpfile.h"
 #include "builtins.h"
+#include "rtl-iter.h"
 
 /* Defined for convenience.  */
 #define POINTER_BYTES (POINTER_SIZE / BITS_PER_UNIT)
@@ -7658,17 +7667,19 @@ aarch64_mangle_type (const_tree type)
   return NULL;
 }
 
-static int
-is_mem_p (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  return MEM_P (*x);
-}
+
+/* Return true if the rtx_insn contains a MEM RTX somewhere
+   in it.  */
 
 static bool
-is_memory_op (rtx_insn *mem_insn)
+has_memory_op (rtx_insn *mem_insn)
 {
-   rtx pattern = PATTERN (mem_insn);
-   return for_each_rtx (&pattern, is_mem_p, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (mem_insn), ALL)
+    if (MEM_P (*iter))
+      return true;
+
+  return false;
 }
 
 /* Find the first rtx_insn before insn that will generate an assembly
@@ -7718,14 +7729,13 @@ dep_between_memop_and_curr (rtx memop)
   rtx load_reg;
   int opno;
 
-  if (!memop)
-    return false;
+  gcc_assert (GET_CODE (memop) == SET);
 
   if (!REG_P (SET_DEST (memop)))
     return false;
 
   load_reg = SET_DEST (memop);
-  for (opno = 0; opno < recog_data.n_operands; opno++)
+  for (opno = 1; opno < recog_data.n_operands; opno++)
     {
       rtx operand = recog_data.operand[opno];
       if (REG_P (operand)
@@ -7735,6 +7745,12 @@ dep_between_memop_and_curr (rtx memop)
     }
   return false;
 }
+
+
+/* When working around the Cortex-A53 erratum 835769,
+   given rtx_insn INSN, return true if it is a 64-bit multiply-accumulate
+   instruction and has a preceding memory instruction such that a NOP
+   should be inserted between them.  */
 
 bool
 aarch64_madd_needs_nop (rtx_insn* insn)
@@ -7754,23 +7770,25 @@ aarch64_madd_needs_nop (rtx_insn* insn)
     return false;
 
   prev = aarch64_prev_real_insn (insn);
-  if (!prev)
+  if (!prev || !has_memory_op (prev))
     return false;
 
   body = single_set (prev);
 
   /* If the previous insn is a memory op and there is no dependency between
-     it and the madd, emit a nop between them.  If we know the previous insn is
-     a memory op but body is NULL, emit the nop to be safe, it's probably a
-     load/store pair insn.  */
-  if (is_memory_op (prev)
-      && GET_MODE (recog_data.operand[0]) == DImode
-      && (!dep_between_memop_and_curr (body)))
+     it and the DImode madd, emit a NOP between them.  If body is NULL then we
+     have a complex memory operation, probably a load/store pair.
+     Be conservative for now and emit a NOP.  */
+  if (GET_MODE (recog_data.operand[0]) == DImode
+      && (!body || !dep_between_memop_and_curr (body)))
     return true;
 
   return false;
 
 }
+
+
+/* Implement FINAL_PRESCAN_INSN.  */
 
 void
 aarch64_final_prescan_insn (rtx_insn *insn)

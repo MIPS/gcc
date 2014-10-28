@@ -3078,11 +3078,10 @@ honor these options.
 @table @gcctabopt
 @item -fmessage-length=@var{n}
 @opindex fmessage-length
-Try to format error messages so that they fit on lines of about @var{n}
-characters.  The default is 72 characters for @command{g++} and 0 for the rest of
-the front ends supported by GCC@.  If @var{n} is zero, then no
-line-wrapping is done; each error message appears on a single
-line.
+Try to format error messages so that they fit on lines of about
+@var{n} characters.  If @var{n} is zero, then no line-wrapping will be
+done; each error message will appear on a single line.  This is the
+default for all front ends.
 
 @item -fdiagnostics-show-location=once
 @opindex fdiagnostics-show-location
@@ -21570,8 +21569,8 @@ the rules of the ABI@.
 Set the instruction set, register set, and instruction scheduling parameters
 for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{v7}, @samp{cypress}, @samp{v8}, @samp{supersparc}, @samp{hypersparc},
-@samp{leon}, @samp{leon3}, @samp{sparclite}, @samp{f930}, @samp{f934},
-@samp{sparclite86x}, @samp{sparclet}, @samp{tsc701}, @samp{v9},
+@samp{leon}, @samp{leon3}, @samp{leon3v7}, @samp{sparclite}, @samp{f930},
+@samp{f934}, @samp{sparclite86x}, @samp{sparclet}, @samp{tsc701}, @samp{v9},
 @samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
 @samp{niagara3} and @samp{niagara4}.
 
@@ -21589,7 +21588,7 @@ implementations.
 
 @table @asis
 @item v7
-cypress
+cypress, leon3v7
 
 @item v8
 supersparc, hypersparc, leon, leon3
@@ -21654,11 +21653,11 @@ option @option{-mcpu=@var{cpu_type}} does.
 The same values for @option{-mcpu=@var{cpu_type}} can be used for
 @option{-mtune=@var{cpu_type}}, but the only useful values are those
 that select a particular CPU implementation.  Those are @samp{cypress},
-@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{leon3}, @samp{f930},
-@samp{f934}, @samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc},
-@samp{ultrasparc3}, @samp{niagara}, @samp{niagara2}, @samp{niagara3} and
-@samp{niagara4}.  With native Solaris and GNU/Linux toolchains, @samp{native}
-can also be used.
+@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{leon3},
+@samp{leon3v7}, @samp{f930}, @samp{f934}, @samp{sparclite86x}, @samp{tsc701},
+@samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
+@samp{niagara3} and @samp{niagara4}.  With native Solaris and GNU/Linux
+toolchains, @samp{native} can also be used.
 
 @item -mv8plus
 @itemx -mno-v8plus

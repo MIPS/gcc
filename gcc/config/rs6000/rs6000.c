@@ -48,6 +48,14 @@
 #include "function.h"
 #include "output.h"
 #include "dbxout.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -61,7 +69,6 @@
 #include "cfgloop.h"
 #include "sched-int.h"
 #include "hash-table.h"
-#include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -1721,7 +1728,7 @@ rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
      SCmode so as to pass the value correctly in a pair of
      registers.  */
   else if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode
-	   && !DECIMAL_FLOAT_MODE_P (mode))
+	   && !DECIMAL_FLOAT_MODE_P (mode) && SPE_SIMD_REGNO_P (regno))
     reg_size = UNITS_PER_FP_WORD;
 
   else

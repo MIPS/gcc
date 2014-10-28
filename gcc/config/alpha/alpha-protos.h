@@ -75,7 +75,7 @@ extern rtx function_value (const_tree, const_tree, enum machine_mode);
 extern void alpha_start_function (FILE *, const char *, tree);
 extern void alpha_end_function (FILE *, const char *, tree);
 
-extern int alpha_find_lo_sum_using_gp (rtx);
+extern bool alpha_find_lo_sum_using_gp (rtx);
 
 #ifdef REAL_VALUE_TYPE
 extern int check_float_value (enum machine_mode, REAL_VALUE_TYPE *, int);
@@ -112,6 +112,6 @@ extern HOST_WIDE_INT alpha_vms_initial_elimination_offset (unsigned int,
 
 extern rtx unicosmk_add_call_info_word (rtx);
 
-extern int some_small_symbolic_operand_int (rtx *, void *);
+extern bool some_small_symbolic_operand_int (rtx);
 extern int tls_symbolic_operand_1 (rtx, int, int);
 extern rtx resolve_reload_operand (rtx);

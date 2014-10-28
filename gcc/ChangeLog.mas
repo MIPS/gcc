@@ -1,3 +1,9 @@
+2014-10-28  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r216632 through r216771.
+
+	Brings back third merge piece.
+
 2014-10-24  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r216543 through r216631.

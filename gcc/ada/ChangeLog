@@ -1,3 +1,36 @@
+2014-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (create_subprog_decl): Adjust condition.
+
+2014-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/misc.c (gnat_init_options_struct): Parameterize errno
+	support here instead of...
+	Do not set flag_delete_dead_exceptions to 1 unconditionally.
+	(gnat_init_gcc_eh): Set flag_delete_dead_exceptions to 1.
+	(gnat_init_gcc_fp): ...here.
+
+2014-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (gnat_to_gnu) <N_Real_Literal>: Minor tweaks.
+
+2014-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (create_var_decl_1): For a variable declared
+	in the unit, set TREE_PUBLIC only if it has static storage duration.
+
+2014-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Apply special treatment
+	of derived packed array types to constrained subtypes only.
+
+2014-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Array_Type>: Remove
+	superfluous computation for the max size.
+	<E_Array_Subtype>: Likewise.  Make sure that the max size calculation
+	does not overflow at compile time.
+
 2014-10-23  Ed Schonberg  <schonberg@adacore.com>
 
 	* sem_eval.adb (Check_Non_Static_Context): Do not set
