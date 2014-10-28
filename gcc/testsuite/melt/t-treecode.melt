@@ -338,6 +338,11 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 			(return rmatch (tuple rexport))
 			))
 		    )
+		   ( (and (== typcod 'tcc_vl_exp)
+			  (== namecod 'call_expr))
+		     ;; CALL_EXPR is handled specially
+		     (inform_at sloc "GCC_TREE_CODE wont handle CALL_EXPR")
+		     (return))
 		   ;; otherwise
 		   ( :else
 		     (debug "gcc_tree_code:macro2 bad namev=" namev)
