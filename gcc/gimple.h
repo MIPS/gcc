@@ -3672,9 +3672,8 @@ gimple_eh_else_set_e_body (geh_else *eh_else_stmt, gimple_seq seq)
    either GIMPLE_TRY_CATCH or GIMPLE_TRY_FINALLY.  */
 
 static inline enum gimple_try_flags
-gimple_try_kind (const_gimple gs)
+gimple_try_kind (const gtry *gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_TRY);
   return (enum gimple_try_flags) (gs->subcode & GIMPLE_TRY_KIND);
 }
 
@@ -3694,7 +3693,7 @@ gimple_try_set_kind (gtry *gs, enum gimple_try_flags kind)
 /* Return the GIMPLE_TRY_CATCH_IS_CLEANUP flag.  */
 
 static inline bool
-gimple_try_catch_is_cleanup (const_gimple gs)
+gimple_try_catch_is_cleanup (const gtry *gs)
 {
   gcc_gimple_checking_assert (gimple_try_kind (gs) == GIMPLE_TRY_CATCH);
   return (gs->subcode & GIMPLE_TRY_CATCH_IS_CLEANUP) != 0;
@@ -3702,12 +3701,11 @@ gimple_try_catch_is_cleanup (const_gimple gs)
 
 
 /* Return a pointer to the sequence of statements used as the
-   body for GIMPLE_TRY GS.  */
+   body for GIMPLE_TRY TRY_STMT.  */
 
 static inline gimple_seq *
-gimple_try_eval_ptr (gimple gs)
+gimple_try_eval_ptr (gtry *try_stmt)
 {
-  gtry *try_stmt = as_a <gtry *> (gs);
   return &try_stmt->eval;
 }
 
@@ -3715,19 +3713,18 @@ gimple_try_eval_ptr (gimple gs)
 /* Return the sequence of statements used as the body for GIMPLE_TRY GS.  */
 
 static inline gimple_seq
-gimple_try_eval (gimple gs)
+gimple_try_eval (gtry *gs)
 {
   return *gimple_try_eval_ptr (gs);
 }
 
 
 /* Return a pointer to the sequence of statements used as the cleanup body for
-   GIMPLE_TRY GS.  */
+   GIMPLE_TRY TRY_STMT.  */
 
 static inline gimple_seq *
-gimple_try_cleanup_ptr (gimple gs)
+gimple_try_cleanup_ptr (gtry *try_stmt)
 {
-  gtry *try_stmt = as_a <gtry *> (gs);
   return &try_stmt->cleanup;
 }
 
@@ -3736,7 +3733,7 @@ gimple_try_cleanup_ptr (gimple gs)
    GIMPLE_TRY GS.  */
 
 static inline gimple_seq
-gimple_try_cleanup (gimple gs)
+gimple_try_cleanup (gtry *gs)
 {
   return *gimple_try_cleanup_ptr (gs);
 }

@@ -10504,8 +10504,11 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       lower_omp (gimple_eh_filter_failure_ptr (stmt), ctx);
       break;
     case GIMPLE_TRY:
-      lower_omp (gimple_try_eval_ptr (stmt), ctx);
-      lower_omp (gimple_try_cleanup_ptr (stmt), ctx);
+      {
+	gtry *try_stmt = as_a <gtry *> (stmt);
+	lower_omp (gimple_try_eval_ptr (try_stmt), ctx);
+	lower_omp (gimple_try_cleanup_ptr (try_stmt), ctx);
+      }
       break;
     case GIMPLE_TRANSACTION:
       lower_omp (gimple_transaction_body_ptr (

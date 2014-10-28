@@ -4680,8 +4680,11 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
 	  break;
 
 	case GIMPLE_TRY:
-	  err |= verify_gimple_in_seq_2 (gimple_try_eval (stmt));
-	  err |= verify_gimple_in_seq_2 (gimple_try_cleanup (stmt));
+	  {
+	    gtry *try_stmt = as_a <gtry *> (stmt);
+	    err |= verify_gimple_in_seq_2 (gimple_try_eval (try_stmt));
+	    err |= verify_gimple_in_seq_2 (gimple_try_cleanup (try_stmt));
+	  }
 	  break;
 
 	case GIMPLE_EH_FILTER:
@@ -8424,8 +8427,11 @@ do_warn_unused_result (gimple_seq seq)
 	  do_warn_unused_result (gimple_bind_body (as_a <gbind *>(g)));
 	  break;
 	case GIMPLE_TRY:
-	  do_warn_unused_result (gimple_try_eval (g));
-	  do_warn_unused_result (gimple_try_cleanup (g));
+	  {
+	    gtry *try_stmt = as_a <gtry *> (g);
+	    do_warn_unused_result (gimple_try_eval (try_stmt));
+	    do_warn_unused_result (gimple_try_cleanup (try_stmt));
+	  }
 	  break;
 	case GIMPLE_CATCH:
 	  do_warn_unused_result (gimple_catch_handler (

@@ -1,5 +1,37 @@
 2014-10-28  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_try_kind): Strengthen param from const_gimple
+	to const gtry *.
+	(gimple_try_catch_is_cleanup): Likewise.
+	(gimple_try_eval_ptr): Strengthen param from gimple gtry *.
+	(gimple_try_eval): Likewise.
+	(gimple_try_cleanup_ptr): Likewise.
+	(gimple_try_cleanup): Likewise.
+	* gimple-low.c (lower_stmt): Introduce new local gtry *try_stmt
+	via a checked cast, using it in place of stmt for typesafety.
+	(lower_try_catch): Strengthen local "stmt" from gimple to gtry *.
+	(gimple_stmt_may_fallthru): Within case GIMPLE_TRY, introduce new
+	local gtry *try_stmt via a checked cast, using it in place of stmt
+	for typesafety.
+	* gimple-walk.c (walk_gimple_stmt): Likewise.
+	* omp-low.c (lower_omp_1): Likewise.
+	* tree-cfg.c (verify_gimple_in_seq_2): Likewise.
+	(do_warn_unused_result): Likewise.
+	* tree-eh.c (collect_finally_tree): Likewise.
+	(replace_goto_queue_1): Likewise.
+	(honor_protect_cleanup_actions): Replace check against GIMPLE_TRY
+	with a dyn_cast <gtry *>, introducing new local "try_stmt", using it
+	in place of "stmt".
+	(optimize_double_finally): Strengthen local "oneh" from gimple to
+	gtry *, via a dyn_cast.
+	(refactor_eh_r): Within case GIMPLE_TRY, introduce new local
+	gtry *try_stmt via a checked cast, using it in place of stmt for
+	typesafety.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	(estimate_num_insns): Likewise.
+
+2014-10-28  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_goto_dest): Strengthen param from const_gimple to
 	const ggoto *.
 	* cfgexpand.c (expand_gimple_stmt_1): Add checked cast to ggoto *

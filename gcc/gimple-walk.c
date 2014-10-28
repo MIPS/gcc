@@ -599,15 +599,20 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       break;
 
     case GIMPLE_TRY:
-      ret = walk_gimple_seq_mod (gimple_try_eval_ptr (stmt), callback_stmt, callback_op,
-	                     wi);
-      if (ret)
-	return wi->callback_result;
+      {
+	gtry *try_stmt = as_a <gtry *> (stmt);
+	ret = walk_gimple_seq_mod (gimple_try_eval_ptr (try_stmt),
+				   callback_stmt, callback_op,
+				   wi);
+	if (ret)
+	  return wi->callback_result;
 
-      ret = walk_gimple_seq_mod (gimple_try_cleanup_ptr (stmt), callback_stmt,
-	                     callback_op, wi);
-      if (ret)
-	return wi->callback_result;
+	ret = walk_gimple_seq_mod (gimple_try_cleanup_ptr (try_stmt),
+				   callback_stmt,
+				   callback_op, wi);
+	if (ret)
+	  return wi->callback_result;
+      }
       break;
 
     case GIMPLE_OMP_FOR:

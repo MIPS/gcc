@@ -271,27 +271,30 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       return;
 
     case GIMPLE_TRY:
-      if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
-	lower_try_catch (gsi, data);
-      else
-	{
-	  /* It must be a GIMPLE_TRY_FINALLY.  */
-	  bool cannot_fallthru;
-	  lower_sequence (gimple_try_eval_ptr (stmt), data);
-	  cannot_fallthru = data->cannot_fallthru;
+      {
+	gtry *try_stmt = as_a <gtry *> (stmt);
+	if (gimple_try_kind (try_stmt) == GIMPLE_TRY_CATCH)
+	  lower_try_catch (gsi, data);
+	else
+	  {
+	    /* It must be a GIMPLE_TRY_FINALLY.  */
+	    bool cannot_fallthru;
+	    lower_sequence (gimple_try_eval_ptr (try_stmt), data);
+	    cannot_fallthru = data->cannot_fallthru;
 
-	  /* The finally clause is always executed after the try clause,
-	     so if it does not fall through, then the try-finally will not
-	     fall through.  Otherwise, if the try clause does not fall
-	     through, then when the finally clause falls through it will
-	     resume execution wherever the try clause was going.  So the
-	     whole try-finally will only fall through if both the try
-	     clause and the finally clause fall through.  */
-	  data->cannot_fallthru = false;
-	  lower_sequence (gimple_try_cleanup_ptr (stmt), data);
-	  data->cannot_fallthru |= cannot_fallthru;
-	  gsi_next (gsi);
-	}
+	    /* The finally clause is always executed after the try clause,
+	       so if it does not fall through, then the try-finally will not
+	       fall through.  Otherwise, if the try clause does not fall
+	       through, then when the finally clause falls through it will
+	       resume execution wherever the try clause was going.  So the
+	       whole try-finally will only fall through if both the try
+	       clause and the finally clause fall through.  */
+	    data->cannot_fallthru = false;
+	    lower_sequence (gimple_try_cleanup_ptr (try_stmt), data);
+	    data->cannot_fallthru |= cannot_fallthru;
+	    gsi_next (gsi);
+	  }
+      }
       return;
 
     case GIMPLE_EH_ELSE:
@@ -444,7 +447,7 @@ static void
 lower_try_catch (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
   bool cannot_fallthru;
-  gimple stmt = gsi_stmt (*gsi);
+  gtry *stmt = as_a <gtry *> (gsi_stmt (*gsi));
   gimple_stmt_iterator i;
 
   /* We don't handle GIMPLE_TRY_FINALLY.  */
@@ -591,20 +594,23 @@ gimple_stmt_may_fallthru (gimple stmt)
 	       gimple_bind_body (as_a <gbind *> (stmt)));
 
     case GIMPLE_TRY:
-      if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
-        return gimple_try_catch_may_fallthru (as_a <gtry *> (stmt));
+      {
+	gtry *try_stmt = as_a <gtry *> (stmt);
+	if (gimple_try_kind (try_stmt) == GIMPLE_TRY_CATCH)
+	  return gimple_try_catch_may_fallthru (try_stmt);
 
-      /* It must be a GIMPLE_TRY_FINALLY.  */
+	/* It must be a GIMPLE_TRY_FINALLY.  */
 
-      /* The finally clause is always executed after the try clause,
-	 so if it does not fall through, then the try-finally will not
-	 fall through.  Otherwise, if the try clause does not fall
-	 through, then when the finally clause falls through it will
-	 resume execution wherever the try clause was going.  So the
-	 whole try-finally will only fall through if both the try
-	 clause and the finally clause fall through.  */
-      return (gimple_seq_may_fallthru (gimple_try_eval (stmt))
-	      && gimple_seq_may_fallthru (gimple_try_cleanup (stmt)));
+	/* The finally clause is always executed after the try clause,
+	   so if it does not fall through, then the try-finally will not
+	   fall through.  Otherwise, if the try clause does not fall
+	   through, then when the finally clause falls through it will
+	   resume execution wherever the try clause was going.  So the
+	   whole try-finally will only fall through if both the try
+	   clause and the finally clause fall through.  */
+	return (gimple_seq_may_fallthru (gimple_try_eval (try_stmt))
+		&& gimple_seq_may_fallthru (gimple_try_cleanup (try_stmt)));
+      }
 
     case GIMPLE_EH_ELSE:
       {

@@ -258,19 +258,22 @@ collect_finally_tree (gimple stmt, gtry *region)
       break;
 
     case GIMPLE_TRY:
-      if (gimple_try_kind (stmt) == GIMPLE_TRY_FINALLY)
-        {
-          temp.g = stmt;
-          record_in_finally_tree (temp, region);
-          collect_finally_tree_1 (gimple_try_eval (stmt),
-				  as_a <gtry *> (stmt));
-	  collect_finally_tree_1 (gimple_try_cleanup (stmt), region);
-        }
-      else if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
-        {
-          collect_finally_tree_1 (gimple_try_eval (stmt), region);
-          collect_finally_tree_1 (gimple_try_cleanup (stmt), region);
-        }
+      {
+	gtry *try_stmt = as_a <gtry *> (stmt);
+	if (gimple_try_kind (try_stmt) == GIMPLE_TRY_FINALLY)
+	  {
+	    temp.g = try_stmt;
+	    record_in_finally_tree (temp, region);
+	    collect_finally_tree_1 (gimple_try_eval (try_stmt),
+				    try_stmt);
+	    collect_finally_tree_1 (gimple_try_cleanup (try_stmt), region);
+	  }
+	else if (gimple_try_kind (try_stmt) == GIMPLE_TRY_CATCH)
+	  {
+	    collect_finally_tree_1 (gimple_try_eval (try_stmt), region);
+	    collect_finally_tree_1 (gimple_try_cleanup (try_stmt), region);
+	  }
+      }
       break;
 
     case GIMPLE_CATCH:
@@ -531,8 +534,11 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
       break;
 
     case GIMPLE_TRY:
-      replace_goto_queue_stmt_list (gimple_try_eval_ptr (stmt), tf);
-      replace_goto_queue_stmt_list (gimple_try_cleanup_ptr (stmt), tf);
+      {
+	gtry *try_stmt = as_a <gtry *> (stmt);
+	replace_goto_queue_stmt_list (gimple_try_eval_ptr (try_stmt), tf);
+	replace_goto_queue_stmt_list (gimple_try_cleanup_ptr (try_stmt), tf);
+      }
       break;
     case GIMPLE_CATCH:
       replace_goto_queue_stmt_list (gimple_catch_handler_ptr (
@@ -1042,13 +1048,14 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
      MUST_NOT_THROW filter.  */
   gsi = gsi_start (finally);
   x = gsi_stmt (gsi);
-  if (gimple_code (x) == GIMPLE_TRY
-      && gimple_try_kind (x) == GIMPLE_TRY_CATCH
-      && gimple_try_catch_is_cleanup (x))
-    {
-      gsi_insert_seq_before (&gsi, gimple_try_eval (x), GSI_SAME_STMT);
-      gsi_remove (&gsi, false);
-    }
+  if (gtry *try_stmt = dyn_cast <gtry *> (x))
+    if (gimple_try_kind (try_stmt) == GIMPLE_TRY_CATCH
+	&& gimple_try_catch_is_cleanup (try_stmt))
+      {
+	gsi_insert_seq_before (&gsi, gimple_try_eval (try_stmt),
+			       GSI_SAME_STMT);
+	gsi_remove (&gsi, false);
+      }
 
   /* Wrap the block with protect_cleanup_actions as the action.  */
   eh_mnt = gimple_build_eh_must_not_throw (protect_cleanup_actions);
@@ -3036,7 +3043,7 @@ same_handler_p (gimple_seq oneh, gimple_seq twoh)
 static void
 optimize_double_finally (gtry *one, gtry *two)
 {
-  gimple oneh;
+  gtry *oneh;
   gimple_stmt_iterator gsi;
   gimple_seq cleanup;
 
@@ -3045,9 +3052,10 @@ optimize_double_finally (gtry *one, gtry *two)
   if (!gsi_one_before_end_p (gsi))
     return;
 
-  oneh = gsi_stmt (gsi);
-  if (gimple_code (oneh) != GIMPLE_TRY
-      || gimple_try_kind (oneh) != GIMPLE_TRY_CATCH)
+  oneh = dyn_cast <gtry *> (gsi_stmt (gsi));
+  if (!oneh)
+    return;
+  if (gimple_try_kind (oneh) != GIMPLE_TRY_CATCH)
     return;
 
   if (same_handler_p (gimple_try_cleanup (oneh), gimple_try_cleanup (two)))
@@ -3091,8 +3099,11 @@ refactor_eh_r (gimple_seq seq)
 	switch (gimple_code (one))
 	  {
 	  case GIMPLE_TRY:
-	    refactor_eh_r (gimple_try_eval (one));
-	    refactor_eh_r (gimple_try_cleanup (one));
+	    {
+	      gtry *try_one = as_a <gtry *> (one);
+	      refactor_eh_r (gimple_try_eval (try_one));
+	      refactor_eh_r (gimple_try_cleanup (try_one));
+	    }
 	    break;
 	  case GIMPLE_CATCH:
 	    refactor_eh_r (gimple_catch_handler (as_a <gcatch *> (one)));

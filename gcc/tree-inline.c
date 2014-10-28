@@ -1359,9 +1359,12 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_TRY:
-	  s1 = remap_gimple_seq (gimple_try_eval (stmt), id);
-	  s2 = remap_gimple_seq (gimple_try_cleanup (stmt), id);
-	  copy = gimple_build_try (s1, s2, gimple_try_kind (stmt));
+	  {
+	    gtry *try_stmt = as_a <gtry *> (stmt);
+	    s1 = remap_gimple_seq (gimple_try_eval (try_stmt), id);
+	    s2 = remap_gimple_seq (gimple_try_cleanup (try_stmt), id);
+	    copy = gimple_build_try (s1, s2, gimple_try_kind (try_stmt));
+	  }
 	  break;
 
 	case GIMPLE_WITH_CLEANUP_EXPR:
@@ -4010,8 +4013,12 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 				     weights);
 
     case GIMPLE_TRY:
-      return (estimate_num_insns_seq (gimple_try_eval (stmt), weights)
-              + estimate_num_insns_seq (gimple_try_cleanup (stmt), weights));
+      {
+	gtry *try_stmt = as_a <gtry *> (stmt);
+	return (estimate_num_insns_seq (gimple_try_eval (try_stmt), weights)
+		+ estimate_num_insns_seq (gimple_try_cleanup (try_stmt),
+					  weights));
+      }
 
     /* OpenMP directives are generally very expensive.  */
 
