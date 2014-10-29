@@ -2516,9 +2516,10 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 		  if (gimple_code (ctx->stmt) == GIMPLE_OMP_SECTIONS)
 		    {
 		      ctx->cancellable = true;
-		      if (find_omp_clause (gimple_omp_sections_clauses
-								(ctx->stmt),
-					   OMP_CLAUSE_NOWAIT))
+		      if (find_omp_clause (
+			    gimple_omp_sections_clauses (
+			      as_a <gomp_sections *> (ctx->stmt)),
+			    OMP_CLAUSE_NOWAIT))
 			warning_at (gimple_location (stmt), 0,
 				    "%<#pragma omp cancel sections%> inside "
 				    "%<nowait%> sections construct");
@@ -2529,9 +2530,10 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 				  && gimple_code (ctx->outer->stmt)
 				     == GIMPLE_OMP_SECTIONS);
 		      ctx->outer->cancellable = true;
-		      if (find_omp_clause (gimple_omp_sections_clauses
-							(ctx->outer->stmt),
-					   OMP_CLAUSE_NOWAIT))
+		      if (find_omp_clause (
+			    gimple_omp_sections_clauses (
+			      as_a <gomp_sections *> (ctx->outer->stmt)),
+			    OMP_CLAUSE_NOWAIT))
 			warning_at (gimple_location (stmt), 0,
 				    "%<#pragma omp cancel sections%> inside "
 				    "%<nowait%> sections construct");

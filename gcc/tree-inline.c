@@ -1455,9 +1455,12 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_SECTIONS:
-	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_sections
-	           (s1, gimple_omp_sections_clauses (stmt));
+	  {
+	    gomp_sections *omp_sections_stmt = as_a <gomp_sections *> (stmt);
+	    s1 = remap_gimple_seq (gimple_omp_body (omp_sections_stmt), id);
+	    copy = gimple_build_omp_sections (
+		     s1, gimple_omp_sections_clauses (omp_sections_stmt));
+	  }
 	  break;
 
 	case GIMPLE_OMP_SINGLE:

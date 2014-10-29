@@ -5105,72 +5105,61 @@ gimple_omp_teams_set_clauses (gomp_teams *omp_teams_stmt, tree clauses)
 }
 
 
-/* Return the clauses associated with OMP_SECTIONS GS.  */
+/* Return the clauses associated with OMP_SECTIONS OMP_SECTIONS_STMT.  */
 
 static inline tree
-gimple_omp_sections_clauses (const_gimple gs)
+gimple_omp_sections_clauses (const gomp_sections *omp_sections_stmt)
 {
-  const gomp_sections *omp_sections_stmt =
-    as_a <const gomp_sections *> (gs);
   return omp_sections_stmt->clauses;
 }
 
 
-/* Return a pointer to the clauses associated with OMP_SECTIONS GS.  */
+/* Return a pointer to the clauses associated with OMP_SECTIONS
+   OMP_SECTIONS_STMT.  */
 
 static inline tree *
-gimple_omp_sections_clauses_ptr (gimple gs)
+gimple_omp_sections_clauses_ptr (gomp_sections *omp_sections_stmt)
 {
-  gomp_sections *omp_sections_stmt =
-    as_a <gomp_sections *> (gs);
   return &omp_sections_stmt->clauses;
 }
 
 
 /* Set CLAUSES to be the set of clauses associated with OMP_SECTIONS
-   GS.  */
+   OMP_SECTIONS_STMT.  */
 
 static inline void
-gimple_omp_sections_set_clauses (gimple gs, tree clauses)
+gimple_omp_sections_set_clauses (gomp_sections *omp_sections_stmt, tree clauses)
 {
-  gomp_sections *omp_sections_stmt =
-    as_a <gomp_sections *> (gs);
   omp_sections_stmt->clauses = clauses;
 }
 
 
 /* Return the control variable associated with the GIMPLE_OMP_SECTIONS
-   in GS.  */
+   in OMP_SECTIONS_STMT.  */
 
 static inline tree
-gimple_omp_sections_control (const_gimple gs)
+gimple_omp_sections_control (const gomp_sections *omp_sections_stmt)
 {
-  const gomp_sections *omp_sections_stmt =
-    as_a <const gomp_sections *> (gs);
   return omp_sections_stmt->control;
 }
 
 
 /* Return a pointer to the clauses associated with the GIMPLE_OMP_SECTIONS
-   GS.  */
+   OMP_SECTIONS_STMT.  */
 
 static inline tree *
-gimple_omp_sections_control_ptr (gimple gs)
+gimple_omp_sections_control_ptr (gomp_sections *omp_sections_stmt)
 {
-  gomp_sections *omp_sections_stmt =
-    as_a <gomp_sections *> (gs);
   return &omp_sections_stmt->control;
 }
 
 
 /* Set CONTROL to be the set of clauses associated with the
-   GIMPLE_OMP_SECTIONS in GS.  */
+   GIMPLE_OMP_SECTIONS in OMP_SECTIONS_STMT.  */
 
 static inline void
-gimple_omp_sections_set_control (gimple gs, tree control)
+gimple_omp_sections_set_control (gomp_sections *omp_sections_stmt, tree control)
 {
-  gomp_sections *omp_sections_stmt =
-    as_a <gomp_sections *> (gs);
   omp_sections_stmt->control = control;
 }
 

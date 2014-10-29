@@ -1797,10 +1797,14 @@ gimple_copy (gimple stmt)
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_SECTIONS:
-	  t = unshare_expr (gimple_omp_sections_clauses (stmt));
-	  gimple_omp_sections_set_clauses (copy, t);
-	  t = unshare_expr (gimple_omp_sections_control (stmt));
-	  gimple_omp_sections_set_control (copy, t);
+	  {
+	    gomp_sections *omp_sections_stmt = as_a <gomp_sections *> (stmt);
+	    gomp_sections *omp_sections_copy = as_a <gomp_sections *> (copy);
+	    t = unshare_expr (gimple_omp_sections_clauses (omp_sections_stmt));
+	    gimple_omp_sections_set_clauses (omp_sections_copy, t);
+	    t = unshare_expr (gimple_omp_sections_control (omp_sections_stmt));
+	    gimple_omp_sections_set_control (omp_sections_copy, t);
+	  }
 	  /* FALLTHRU  */
 
 	case GIMPLE_OMP_SINGLE:

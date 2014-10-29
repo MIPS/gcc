@@ -1,5 +1,29 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_omp_sections_clauses): Strengthen param from
+	const_gimple to const gomp_sections *.
+	(gimple_omp_sections_control): Likewise.
+	(gimple_omp_sections_clauses_ptr): Strengthen param from gimple to
+	gomp_sections *.
+	(gimple_omp_sections_set_clauses): Likewise.
+	(gimple_omp_sections_control_ptr): Likewise.
+	(gimple_omp_sections_set_control): Likewise.
+
+	* gimple-walk.c (walk_gimple_op): Within case GIMPLE_OMP_SECTIONS,
+	introduce local "omp_sections_stmt" via a checked cast and use it
+	in place of "stmt" for typesafety.
+	* gimple.c (gimple_copy): Likewise, introducing locals
+	"omp_sections_stmt" and "omp_sections_copy", using them in place
+	of "stmt" and "copy".
+	* omp-low.c (check_omp_nesting_restrictions): Add checked casts.
+	* tree-inline.c (remap_gimple_stmt): Within case
+	GIMPLE_OMP_SECTIONS, introduce local "omp_sections_stmt" via a
+	checked cast and use it in place of "stmt" for typesafety.
+	* tree-nested.c (convert_nonlocal_reference_stmt): Likewise.
+	(convert_local_reference_stmt): Likewise.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_omp_teams_clauses): Strengthen param from
 	const_gimple to const gomp_teams *.
 	(gimple_omp_teams_clauses_ptr): Strengthen param from gimple to

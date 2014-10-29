@@ -406,16 +406,18 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_SECTIONS:
-      ret = walk_tree (gimple_omp_sections_clauses_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
+      {
+	gomp_sections *omp_sections_stmt = as_a <gomp_sections *> (stmt);
+	ret = walk_tree (gimple_omp_sections_clauses_ptr (omp_sections_stmt), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
 
-      ret = walk_tree (gimple_omp_sections_control_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-
+	ret = walk_tree (gimple_omp_sections_control_ptr (omp_sections_stmt), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_SINGLE:
