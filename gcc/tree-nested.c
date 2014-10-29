@@ -1379,11 +1379,17 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_SINGLE:
-      save_suppress = info->suppress_expansion;
-      convert_nonlocal_omp_clauses (gimple_omp_single_clauses_ptr (stmt), wi);
-      walk_body (convert_nonlocal_reference_stmt, convert_nonlocal_reference_op,
-	         info, gimple_omp_body_ptr (stmt));
-      info->suppress_expansion = save_suppress;
+      {
+	gomp_single *omp_single_stmt = as_a <gomp_single *> (stmt);
+	save_suppress = info->suppress_expansion;
+	convert_nonlocal_omp_clauses (gimple_omp_single_clauses_ptr (
+					omp_single_stmt),
+				      wi);
+	walk_body (convert_nonlocal_reference_stmt,
+		   convert_nonlocal_reference_op,
+		   info, gimple_omp_body_ptr (omp_single_stmt));
+	info->suppress_expansion = save_suppress;
+      }
       break;
 
     case GIMPLE_OMP_TARGET:
@@ -1963,11 +1969,16 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_SINGLE:
-      save_suppress = info->suppress_expansion;
-      convert_local_omp_clauses (gimple_omp_single_clauses_ptr (stmt), wi);
-      walk_body (convert_local_reference_stmt, convert_local_reference_op,
-		 info, gimple_omp_body_ptr (stmt));
-      info->suppress_expansion = save_suppress;
+      {
+	gomp_single *omp_single_stmt = as_a <gomp_single *> (stmt);
+	save_suppress = info->suppress_expansion;
+	convert_local_omp_clauses (gimple_omp_single_clauses_ptr (
+				     omp_single_stmt),
+				   wi);
+	walk_body (convert_local_reference_stmt, convert_local_reference_op,
+		   info, gimple_omp_body_ptr (omp_single_stmt));
+	info->suppress_expansion = save_suppress;
+      }
       break;
 
     case GIMPLE_OMP_TARGET:

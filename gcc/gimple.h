@@ -4928,24 +4928,21 @@ gimple_omp_task_set_arg_align (gomp_task *omp_task_stmt, tree arg_align)
 }
 
 
-/* Return the clauses associated with OMP_SINGLE GS.  */
+/* Return the clauses associated with OMP_SINGLE OMP_SINGLE_STMT.  */
 
 static inline tree
-gimple_omp_single_clauses (const_gimple gs)
+gimple_omp_single_clauses (const gomp_single *omp_single_stmt)
 {
-  const gomp_single *omp_single_stmt =
-    as_a <const gomp_single *> (gs);
   return omp_single_stmt->clauses;
 }
 
 
-/* Return a pointer to the clauses associated with OMP_SINGLE GS.  */
+/* Return a pointer to the clauses associated with OMP_SINGLE
+   OMP_SINGLE_STMT.  */
 
 static inline tree *
-gimple_omp_single_clauses_ptr (gimple gs)
+gimple_omp_single_clauses_ptr (gomp_single *omp_single_stmt)
 {
-  gomp_single *omp_single_stmt =
-    as_a <gomp_single *> (gs);
   return &omp_single_stmt->clauses;
 }
 
