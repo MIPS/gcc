@@ -1,5 +1,31 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* coretypes.h (struct gpredict): Add forward declaration.
+	* doc/gimple.texi (Class hierarchy of GIMPLE statements): Add
+	gpredict.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Within case
+	GIMPLE_PREDICT, add local "predict_stmt" via a checked cast and
+	use it in place of "stmt".
+	* gimple.c (gimple_build_predict): Strengthen return type and
+	local "p" from gimple to gpredict *.
+	* gimple.h (struct gpredict): New subclass of
+	gimple_statement_base, adding invariant that code is
+	GIMPLE_PREDICT.
+	(is_a_helper <gpredict *>::test): New.
+	(gimple_build_predict): Strengthen return type from gimple to
+	gpredict *.
+	(gimple_predict_predictor): Strengthen param from const_gimple to
+	const gpredict *.
+	(gimple_predict_outcome): Likewise.
+	(gimple_predict_set_predictor): Strengthen param from gimple to
+	gpredict *.
+	(gimple_predict_set_outcome): Likewise.
+	* predict.c (tree_bb_level_predictions): Convert check for
+	GIMPLE_PREDICT to a dyn_cast, introducing local "predict_stmt" and
+	using it in place of "stmt" for typesafety.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_eh_filter_types): Strengthen param from
 	const_gimple to const geh_filter *.
 	(gimple_eh_filter_types_ptr): Strengthen param from gimple to

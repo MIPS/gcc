@@ -2248,13 +2248,17 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_PREDICT:
-      pp_string (buffer, "// predicted ");
-      if (gimple_predict_outcome (gs))
-	pp_string (buffer, "likely by ");
-      else
-	pp_string (buffer, "unlikely by ");
-      pp_string (buffer, predictor_name (gimple_predict_predictor (gs)));
-      pp_string (buffer, " predictor.");
+      {
+	gpredict *predict_stmt = as_a <gpredict *> (gs);
+	pp_string (buffer, "// predicted ");
+	if (gimple_predict_outcome (predict_stmt))
+	  pp_string (buffer, "likely by ");
+	else
+	  pp_string (buffer, "unlikely by ");
+	pp_string (buffer,
+		   predictor_name (gimple_predict_predictor (predict_stmt)));
+	pp_string (buffer, " predictor.");
+      }
       break;
 
     case GIMPLE_TRANSACTION:

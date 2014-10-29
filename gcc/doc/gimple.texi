@@ -305,7 +305,8 @@ kinds, along with their relationships to @code{GSS_} values (layouts) and
      |    used for 4 codes: GIMPLE_ERROR_MARK
      |                      GIMPLE_NOP
      |                      GIMPLE_OMP_SECTIONS_SWITCH
-     |                      GIMPLE_PREDICT
+     + gpredict
+     |   code: GIMPLE_PREDICT
      |
      + gimple_statement_with_ops_base
      |   |    (no GSS layout)

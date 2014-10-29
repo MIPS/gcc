@@ -834,6 +834,16 @@ struct GTY((tag("GSS_WITH_MEM_OPS")))
   /* no additional fields; this uses the layout for GSS_WITH_MEM_OPS. */
 };
 
+/* A statement with the invariant that
+      stmt->code == GIMPLE_PREDICT
+   i.e. a hint for branch prediction.  */
+
+struct GTY(())
+  gpredict : public gimple_statement_base
+{
+  /* no additional fields; this uses the layout for GSS_BASE. */
+};
+
 template <>
 template <>
 inline bool
@@ -1056,6 +1066,14 @@ inline bool
 is_a_helper <gphi *>::test (gimple gs)
 {
   return gs->code == GIMPLE_PHI;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <gpredict *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_PREDICT;
 }
 
 template <>
@@ -1348,7 +1366,7 @@ gomp_teams *gimple_build_omp_teams (gimple_seq, tree);
 gomp_atomic_load *gimple_build_omp_atomic_load (tree, tree);
 gomp_atomic_store *gimple_build_omp_atomic_store (tree);
 gtransaction *gimple_build_transaction (gimple_seq, tree);
-gimple gimple_build_predict (enum br_predictor, enum prediction);
+gpredict *gimple_build_predict (enum br_predictor, enum prediction);
 extern void gimple_seq_add_stmt (gimple_seq *, gimple);
 extern void gimple_seq_add_stmt_without_update (gimple_seq *, gimple);
 void gimple_seq_add_seq (gimple_seq *, gimple_seq);
@@ -5438,9 +5456,8 @@ is_gimple_resx (const_gimple gs)
 /* Return the predictor of GIMPLE_PREDICT statement GS.  */
 
 static inline enum br_predictor
-gimple_predict_predictor (gimple gs)
+gimple_predict_predictor (const gpredict *gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
   return (enum br_predictor) (gs->subcode & ~GF_PREDICT_TAKEN);
 }
 
@@ -5448,9 +5465,8 @@ gimple_predict_predictor (gimple gs)
 /* Set the predictor of GIMPLE_PREDICT statement GS to PREDICT.  */
 
 static inline void
-gimple_predict_set_predictor (gimple gs, enum br_predictor predictor)
+gimple_predict_set_predictor (gpredict *gs, enum br_predictor predictor)
 {
-  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
   gs->subcode = (gs->subcode & GF_PREDICT_TAKEN)
 		       | (unsigned) predictor;
 }
@@ -5459,9 +5475,8 @@ gimple_predict_set_predictor (gimple gs, enum br_predictor predictor)
 /* Return the outcome of GIMPLE_PREDICT statement GS.  */
 
 static inline enum prediction
-gimple_predict_outcome (gimple gs)
+gimple_predict_outcome (const gpredict *gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
   return (gs->subcode & GF_PREDICT_TAKEN) ? TAKEN : NOT_TAKEN;
 }
 
@@ -5469,7 +5484,7 @@ gimple_predict_outcome (gimple gs)
 /* Set the outcome of GIMPLE_PREDICT statement GS to OUTCOME.  */
 
 static inline void
-gimple_predict_set_outcome (gimple gs, enum prediction outcome)
+gimple_predict_set_outcome (gpredict *gs, enum prediction outcome)
 {
   GIMPLE_CHECK (gs, GIMPLE_PREDICT);
   if (outcome == TAKEN)

@@ -2204,10 +2204,11 @@ tree_bb_level_predictions (void)
 		predict_paths_leading_to (bb, PRED_COLD_FUNCTION,
 					  NOT_TAKEN);
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_PREDICT)
+	  else if (gpredict *predict_stmt = dyn_cast <gpredict *> (stmt))
 	    {
-	      predict_paths_leading_to (bb, gimple_predict_predictor (stmt),
-					gimple_predict_outcome (stmt));
+	      predict_paths_leading_to (bb,
+					gimple_predict_predictor (predict_stmt),
+					gimple_predict_outcome (predict_stmt));
 	      /* Keep GIMPLE_PREDICT around so early inlining will propagate
 	         hints to callers.  */
 	    }

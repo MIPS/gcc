@@ -120,6 +120,7 @@ struct gomp_sections;
 struct gomp_single;
 struct gomp_target;
 struct gomp_teams;
+struct gpredict;
 
 union section;
 typedef union section section;
