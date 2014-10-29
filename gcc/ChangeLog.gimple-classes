@@ -1,5 +1,81 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_omp_for_kind): Strengthen param from
+	const_gimple to const gomp_for *.
+	(gimple_omp_for_combined_p): Likewise.
+	(gimple_omp_for_combined_into_p): Likewise.
+	(gimple_omp_for_clauses): Likewise.
+	(gimple_omp_for_index): Likewise.
+	(gimple_omp_for_initial): Likewise.
+	(gimple_omp_for_final): Likewise.
+	(gimple_omp_for_incr): Likewise.
+	(gimple_omp_for_pre_body): Likewise.
+	(gimple_omp_for_cond): Likewise.
+	(gimple_omp_for_clauses_ptr): Strengthen param from gimple to
+	gomp_for *.
+	(gimple_omp_for_set_clauses): Likewise.
+	(gimple_omp_for_index_ptr): Likewise.
+	(gimple_omp_for_set_index): Likewise.
+	(gimple_omp_for_initial_ptr): Likewise.
+	(gimple_omp_for_set_initial): Likewise.
+	(gimple_omp_for_final_ptr): Likewise.
+	(gimple_omp_for_set_final): Likewise.
+	(gimple_omp_for_incr_ptr): Likewise.
+	(gimple_omp_for_set_incr): Likewise.
+	(gimple_omp_for_pre_body_ptr): Likewise.
+	(gimple_omp_for_set_pre_body): Likewise.
+	(gimple_omp_for_set_cond): Likewise.
+	(gimple_omp_for_collapse): Strengthen param from gimple to
+	const gomp_for *.
+
+	* gimple-walk.c (walk_gimple_op): Within case GIMPLE_OMP_FOR,
+	introduce local "omp_for_stmt" via a checked cast and use it in
+	place of "stmt" for typesafety.
+	(walk_gimple_stmt): Add checked cast.
+	* gimple.c (gimple_copy): Within case GIMPLE_OMP_FOR, introduce
+	locals "omp_for_stmt" and "omp_for_copy" via checked casts and use
+	them in place of "stmt" and "copy" for typesafety.
+	* omp-low.c (determine_parallel_type): Add a checked cast.
+	(build_outer_var_ref): Likewise.
+	(find_combined_for): Within case GIMPLE_OMP_FOR,
+	introduce local "omp_for_stmt" via a checked cast and use it in
+	place of "stmt" for typesafety.
+	(check_omp_nesting_restrictions): Add checked casts.
+	(check_omp_nesting_restrictions): Likewise.  Within
+	case GIMPLE_OMP_FOR, introduce local "omp_for_stmt" via a checked
+	cast and use it in place of "stmt" for typesafety.
+	(scan_omp_1_stmt): Add checked cast.
+	(lower_rec_simd_input_clauses): Likewise.
+	(lower_rec_input_clauses): Likewise.  Introduce two locals named
+	"omp_for_ctx_stmt" via checked casts and use them in place of
+	"ctx->stmt" for typesafety.
+	(lower_lastprivate_clauses): Add checked cast.
+	(lower_reduction_clauses): Likewise.
+	(expand_omp_for_init_vars): Likewise.
+	(expand_omp_for_generic): Introduce local "omp_for_inner_stmt" via
+	a checked cast and use in place of "inner_stmt" for typesafety.
+	(expand_omp_for_static_nochunk): Add checked cast.
+	(expand_omp_for_static_chunk): Likewise.
+	(expand_omp_for): Introduce local "omp_for_stmt" via a checked
+	cast and use in place of "last_stmt (region->entry)" for
+	typesafety.
+	(expand_omp): Add a checked cast.
+	(diagnose_sb_0): Add checked casts.
+	(diagnose_sb_1): Within	case GIMPLE_OMP_FOR, introduce local
+	"omp_for_stmt" via a checked cast and use it in place of "stmt" for
+	typesafety.
+	(diagnose_sb_2): Likewise.
+	* tree-inline.c (remap_gimple_stmt): Likewise, introducing locals
+	"omp_for_stmt" and "omp_for_copy", using in place of "stmt" and
+	"copy".
+	(estimate_num_insns): Likewise, introducing local "omp_for_stmt"
+	for use in place of "stmt".
+	* tree-nested.c (convert_nonlocal_reference_stmt): Likewise.
+	(convert_local_reference_stmt): Likewise.
+	(convert_gimple_call): Add a checked cast.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_omp_task_clauses): Strengthen param from
 	const_gimple to const gomp_task *.
 	(gimple_omp_task_child_fn): Likewise.

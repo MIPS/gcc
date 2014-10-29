@@ -1731,28 +1731,29 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_OMP_FOR:
-	  new_seq = gimple_seq_copy (gimple_omp_for_pre_body (stmt));
-	  gimple_omp_for_set_pre_body (copy, new_seq);
-	  t = unshare_expr (gimple_omp_for_clauses (stmt));
-	  gimple_omp_for_set_clauses (copy, t);
 	  {
+	    gomp_for *omp_for_stmt = as_a <gomp_for *> (stmt);
 	    gomp_for *omp_for_copy = as_a <gomp_for *> (copy);
+	    new_seq = gimple_seq_copy (gimple_omp_for_pre_body (omp_for_stmt));
+	    gimple_omp_for_set_pre_body (omp_for_copy, new_seq);
+	    t = unshare_expr (gimple_omp_for_clauses (omp_for_stmt));
+	    gimple_omp_for_set_clauses (omp_for_copy, t);
 	    omp_for_copy->iter = ggc_vec_alloc<gimple_omp_for_iter>
-	      ( gimple_omp_for_collapse (stmt));
-          }
-	  for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
-	    {
-	      gimple_omp_for_set_cond (copy, i,
-				       gimple_omp_for_cond (stmt, i));
-	      gimple_omp_for_set_index (copy, i,
-					gimple_omp_for_index (stmt, i));
-	      t = unshare_expr (gimple_omp_for_initial (stmt, i));
-	      gimple_omp_for_set_initial (copy, i, t);
-	      t = unshare_expr (gimple_omp_for_final (stmt, i));
-	      gimple_omp_for_set_final (copy, i, t);
-	      t = unshare_expr (gimple_omp_for_incr (stmt, i));
-	      gimple_omp_for_set_incr (copy, i, t);
-	    }
+	      ( gimple_omp_for_collapse (omp_for_stmt));
+	    for (i = 0; i < gimple_omp_for_collapse (omp_for_stmt); i++)
+	      {
+		gimple_omp_for_set_cond (omp_for_copy, i,
+					 gimple_omp_for_cond (omp_for_stmt, i));
+		gimple_omp_for_set_index (omp_for_copy, i,
+					  gimple_omp_for_index (omp_for_stmt, i));
+		t = unshare_expr (gimple_omp_for_initial (omp_for_stmt, i));
+		gimple_omp_for_set_initial (omp_for_copy, i, t);
+		t = unshare_expr (gimple_omp_for_final (omp_for_stmt, i));
+		gimple_omp_for_set_final (omp_for_copy, i, t);
+		t = unshare_expr (gimple_omp_for_incr (omp_for_stmt, i));
+		gimple_omp_for_set_incr (omp_for_copy, i, t);
+	      }
+	  }
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_PARALLEL:

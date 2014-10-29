@@ -1350,14 +1350,18 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
-      save_suppress = info->suppress_expansion;
-      convert_nonlocal_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
-      walk_gimple_omp_for (as_a <gomp_for *> (stmt),
-			   convert_nonlocal_reference_stmt,
-	  		   convert_nonlocal_reference_op, info);
-      walk_body (convert_nonlocal_reference_stmt,
-	  	 convert_nonlocal_reference_op, info, gimple_omp_body_ptr (stmt));
-      info->suppress_expansion = save_suppress;
+      {
+	gomp_for *omp_for_stmt = as_a <gomp_for *> (stmt);
+	save_suppress = info->suppress_expansion;
+	convert_nonlocal_omp_clauses (gimple_omp_for_clauses_ptr (omp_for_stmt), wi);
+	walk_gimple_omp_for (omp_for_stmt,
+			     convert_nonlocal_reference_stmt,
+			     convert_nonlocal_reference_op, info);
+	walk_body (convert_nonlocal_reference_stmt,
+		   convert_nonlocal_reference_op, info,
+		   gimple_omp_body_ptr (omp_for_stmt));
+	info->suppress_expansion = save_suppress;
+      }
       break;
 
     case GIMPLE_OMP_SECTIONS:
@@ -1919,14 +1923,18 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
-      save_suppress = info->suppress_expansion;
-      convert_local_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
-      walk_gimple_omp_for (as_a <gomp_for *> (stmt),
-			   convert_local_reference_stmt,
-			   convert_local_reference_op, info);
-      walk_body (convert_local_reference_stmt, convert_local_reference_op,
-		 info, gimple_omp_body_ptr (stmt));
-      info->suppress_expansion = save_suppress;
+      {
+	gomp_for *omp_for_stmt = as_a <gomp_for *> (stmt);
+	save_suppress = info->suppress_expansion;
+	convert_local_omp_clauses (gimple_omp_for_clauses_ptr (omp_for_stmt),
+				   wi);
+	walk_gimple_omp_for (omp_for_stmt,
+			     convert_local_reference_stmt,
+			     convert_local_reference_op, info);
+	walk_body (convert_local_reference_stmt, convert_local_reference_op,
+		   info, gimple_omp_body_ptr (omp_for_stmt));
+	info->suppress_expansion = save_suppress;
+      }
       break;
 
     case GIMPLE_OMP_SECTIONS:
@@ -2416,7 +2424,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
     case GIMPLE_OMP_FOR:
       walk_body (convert_gimple_call, NULL, info,
-	  	 gimple_omp_for_pre_body_ptr (stmt));
+		 gimple_omp_for_pre_body_ptr (as_a <gomp_for *> (stmt)));
       /* FALLTHRU */
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SECTION:

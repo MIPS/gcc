@@ -329,29 +329,32 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_FOR:
-      ret = walk_tree (gimple_omp_for_clauses_ptr (stmt), callback_op, wi,
-		       pset);
-      if (ret)
-	return ret;
-      for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
-	{
-	  ret = walk_tree (gimple_omp_for_index_ptr (stmt, i), callback_op,
-			   wi, pset);
-	  if (ret)
-	    return ret;
-	  ret = walk_tree (gimple_omp_for_initial_ptr (stmt, i), callback_op,
-			   wi, pset);
-	  if (ret)
-	    return ret;
-	  ret = walk_tree (gimple_omp_for_final_ptr (stmt, i), callback_op,
-			   wi, pset);
-	  if (ret)
-	    return ret;
-	  ret = walk_tree (gimple_omp_for_incr_ptr (stmt, i), callback_op,
-			   wi, pset);
-	}
-      if (ret)
-	return ret;
+      {
+	gomp_for *omp_for_stmt = as_a <gomp_for *> (stmt);
+	ret = walk_tree (gimple_omp_for_clauses_ptr (omp_for_stmt), callback_op, wi,
+			 pset);
+	if (ret)
+	  return ret;
+	for (i = 0; i < gimple_omp_for_collapse (omp_for_stmt); i++)
+	  {
+	    ret = walk_tree (gimple_omp_for_index_ptr (omp_for_stmt, i),
+			     callback_op, wi, pset);
+	    if (ret)
+	      return ret;
+	    ret = walk_tree (gimple_omp_for_initial_ptr (omp_for_stmt, i),
+			     callback_op, wi, pset);
+	    if (ret)
+	      return ret;
+	    ret = walk_tree (gimple_omp_for_final_ptr (omp_for_stmt, i),
+			     callback_op, wi, pset);
+	    if (ret)
+	      return ret;
+	    ret = walk_tree (gimple_omp_for_incr_ptr (omp_for_stmt, i),
+			     callback_op, wi, pset);
+	  }
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_PARALLEL:
@@ -619,8 +622,9 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       break;
 
     case GIMPLE_OMP_FOR:
-      ret = walk_gimple_seq_mod (gimple_omp_for_pre_body_ptr (stmt), callback_stmt,
-		             callback_op, wi);
+      ret = walk_gimple_seq_mod (gimple_omp_for_pre_body_ptr (
+				   as_a <gomp_for *> (stmt)),
+				 callback_stmt, callback_op, wi);
       if (ret)
 	return wi->callback_result;
 

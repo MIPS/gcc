@@ -1402,25 +1402,34 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_FOR:
-	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  s2 = remap_gimple_seq (gimple_omp_for_pre_body (stmt), id);
-	  copy = gimple_build_omp_for (s1, gimple_omp_for_kind (stmt),
-				       gimple_omp_for_clauses (stmt),
-				       gimple_omp_for_collapse (stmt), s2);
 	  {
+	    gomp_for *omp_for_stmt = as_a <gomp_for *> (stmt);
+	    gomp_for *omp_for_copy;
 	    size_t i;
-	    for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
+	    s1 = remap_gimple_seq (gimple_omp_body (omp_for_stmt), id);
+	    s2 = remap_gimple_seq (gimple_omp_for_pre_body (omp_for_stmt), id);
+	    copy = omp_for_copy =
+	      gimple_build_omp_for (s1, gimple_omp_for_kind (omp_for_stmt),
+				    gimple_omp_for_clauses (omp_for_stmt),
+				    gimple_omp_for_collapse (omp_for_stmt),
+				    s2);
+	    for (i = 0; i < gimple_omp_for_collapse (omp_for_stmt); i++)
 	      {
-		gimple_omp_for_set_index (copy, i,
-					  gimple_omp_for_index (stmt, i));
-		gimple_omp_for_set_initial (copy, i,
-					    gimple_omp_for_initial (stmt, i));
-		gimple_omp_for_set_final (copy, i,
-					  gimple_omp_for_final (stmt, i));
-		gimple_omp_for_set_incr (copy, i,
-					 gimple_omp_for_incr (stmt, i));
-		gimple_omp_for_set_cond (copy, i,
-					 gimple_omp_for_cond (stmt, i));
+		gimple_omp_for_set_index (omp_for_copy, i,
+					  gimple_omp_for_index (omp_for_stmt,
+								i));
+		gimple_omp_for_set_initial (omp_for_copy, i,
+					    gimple_omp_for_initial (
+					      omp_for_stmt, i));
+		gimple_omp_for_set_final (omp_for_copy, i,
+					  gimple_omp_for_final (omp_for_stmt,
+								i));
+		gimple_omp_for_set_incr (omp_for_copy, i,
+					 gimple_omp_for_incr (omp_for_stmt,
+							      i));
+		gimple_omp_for_set_cond (omp_for_copy, i,
+					 gimple_omp_for_cond (omp_for_stmt,
+							      i));
 	      }
 	  }
 	  break;
@@ -4036,9 +4045,14 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return weights->omp_cost;
 
     case GIMPLE_OMP_FOR:
-      return (weights->omp_cost
-              + estimate_num_insns_seq (gimple_omp_body (stmt), weights)
-              + estimate_num_insns_seq (gimple_omp_for_pre_body (stmt), weights));
+      {
+	gomp_for *omp_for_stmt = as_a <gomp_for *> (stmt);
+	return (weights->omp_cost
+		+ estimate_num_insns_seq (gimple_omp_body (omp_for_stmt),
+					  weights)
+		+ estimate_num_insns_seq (gimple_omp_for_pre_body (omp_for_stmt),
+					  weights));
+      }
 
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
