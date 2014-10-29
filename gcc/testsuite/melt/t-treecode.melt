@@ -1,5 +1,6 @@
-;; file t-treecode.melt -*- lisp -*- this sample code is GPLv3, it
-;; will go into libmelt-ana-tree.melt as soon as it works.
+;; file t-treecode.melt -*- lisp -*- this sample code is GPLv3.  it is
+;; obsolete since merged into MELT file libmelt-ana-tree.melt on
+;; 2014-10-29.
 #| run in buildir/gcc
  ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/t-treecode.melt
 

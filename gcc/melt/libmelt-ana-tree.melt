@@ -3418,7 +3418,330 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 
 
 ;;; second and last load of _libmelt-treecode.melt should go here
-;;; see temporarily testsuite/melt/t-treecode.melt
+(let (      
+      (:macro gcc_tree_code (sexp env mexpander modctx)
+	      (debug "gcc_tree_code:macro2" ": sexp=" sexp)
+	      (let (
+		    (sloc (get_field :loca_location sexp))
+		    (sexcont (get_field :sexp_contents sexp))
+		    (xargs (expand_restlist_as_tuple sexcont env mexpander modctx))
+		    (namecod (multiple_nth xargs 0))
+		    (strcod (multiple_nth xargs 1))
+		    (typcod (multiple_nth xargs 2))
+		    (nargcod (multiple_nth xargs 3))
+		    (nbargs (multiple_length xargs))
+		    (namev (get_field :named_name namecod))
+		    (treenamev (string4out discr_string "tree_" namev))
+		    (treesymb (create_symbolstr treenamev))
+		    (statesymb (create_symbolstr (string4out discr_string "treestate_" namev)))
+		    )
+		(when (!=i 4 nbargs)
+		  (error_at sloc "GCC_TREE_CODE need four arguments, got $1" xargs)
+		  (return))
+		(debug "gcc_tree_code:macro2"
+		       "; namecod=" namecod
+		       " strcod=" strcod
+		       " typcod=" typcod
+		       " nargcod=" nargcod
+		       "\n.. treesymb=" treesymb
+		       "\n.. bind:" (find_env env treesymb))
+		(assert_msg "check namev" (is_string namev) namev namecod sexp)
+		(unless (find_env env treesymb)
+		  (debug "gcc_tree_code:macro2" " treesymb=" treesymb)
+		  (cond
+		   ;; tcc_exceptional, no automatic sub-trees
+		   (  (== typcod 'tcc_exceptional)
+		      (debug "gcc_tree_code:macro2" "; exceptional namev=" namev)
+		      (let
+			  (
+			   (xcmatchdoc
+			    (let
+				(
+				 (d
+				  (substitute_sexpr
+				   '#{Generated tcc_exceptional $TREESYMB cmatcher.}#
+				   (lambda (symb)
+				     (debug "gcc_tree_code:macro2-lambdasubstdoc symb=" symb)
+				     (if (== symb 'treesymb)
+					 (get_field :named_name treesymb)
+				       symb))))
+				 )
+			      (debug "gcc_tree_code:macro2" "; sloc=" sloc " exceptional xcmatchdoc=" d)
+			      d))
+			   (xmatexp
+			    (let
+				(
+				 (e
+				  (substitute_sexpr
+				   '#{ /* generated exceptional $TREESYMB tester ? */
+				   $TR && TREE_CODE($TR) == $NAMECOD }#
+				   (lambda (symb)
+				     (debug "gcc_tree_code:macro2-lambdasubstexp symb=" symb)
+				     (cond
+				      ( (== symb 'treesymb)
+					(clone_with_discriminant (get_field :named_name treesymb) discr_verbatim_string)
+					)
+				      ( (== symb 'namecod)
+					(clone_with_discriminant (get_field :named_name namecod) discr_verbatim_string)
+					)
+				      (:else
+				       symb)))
+				   ))
+				 )
+			      (debug "gcc_tree_code:macro2" "; sloc=" sloc " exceptional xmatexp=" e)
+			      e))
+			   (xcmatcher
+			    `(defcmatcher ,treesymb
+			       (:tree tr)
+			       ()
+			       ,statesymb
+			       :doc ,xcmatchdoc
+			       ;; match-expander
+			       ,xmatexp
+			       ))
+			   (xexport `(export_values ,treesymb))
+			   )
+			(put_fields xcmatcher :loca_location sloc)
+			(put_fields xexport :loca_location sloc)
+			(debug "gcc_tree_code:macro2" "; sloc=" sloc " exceptional xcmatcher=" debug_more xcmatcher
+			       "\n.. xexport=" xexport)
+			(let (
+			      (rmatch (macroexpand_1 xcmatcher env mexpander modctx))
+			      (rexport (macroexpand_1 xexport env mexpander modctx))
+			      )
+			  (debug "gcc_tree_code:macro2" "; sloc=" sloc " exceptional rmatch=" rmatch
+				 "\n.. rexport=" rexport)
+			  (return rmatch (tuple rexport))
+			  ))
+		      )
+		   ;; tcc_constant & tcc_declaration, without sub-trees
+		   (
+		    (or (== typcod 'tcc_constant)
+			(== typcod 'tcc_declaration)
+			(== typcod 'tcc_type)
+			)
+		    (debug "gcc_tree_code:macro2" "; simple namev=" namev)
+		    (if (>i (get_int nargcod) 0)
+			(error_at sloc "GCC_TREE_CODE $1 of tcc_constant or tcc_declaration type with non-zero arity $2"
+				  treesymb nargcod
+				  ))
+		    (let
+			(
+			 (xcmatchdoc
+			  (let
+			      (
+			       (d
+				(substitute_sexpr
+				 '#{Generated simple $TYPCOD $TREESYMB cmatcher.}#
+				 (lambda (symb)
+				   (debug "gcc_tree_code:macro2-lambdasubsttypcod symb=" symb)
+				   (if (== symb 'typcod)
+				       (get_field :named_name typcod)
+				     symb))))
+			       )
+			    (debug "gcc_tree_code:macro2" "; sloc=" sloc "; constdecl xcmatchdoc=" d)
+			    d))
+			 (xmatexp
+			  (let
+			      (
+			       (e
+				(substitute_sexpr
+				 '#{ /* generated simple $TREESYMB tester ? */
+				 $TR && TREE_CODE($TR) == $NAMECOD }#
+				 (lambda (symb)
+				   (debug "gcc_tree_code:macro2-lambdasubsttypcod symb=" symb)
+				   (cond
+				    ( (== symb 'treesymb)
+				      (clone_with_discriminant (get_field :named_name treesymb) discr_verbatim_string)
+				      )
+				    ( (== symb 'namecod)
+				      (clone_with_discriminant (get_field :named_name namecod) discr_verbatim_string)
+				      )
+				    (:else
+				     symb)))
+				 ))
+			       )
+			    (debug "gcc_tree_code:macro2" "; sloc=" sloc "; constdecl xmatexp=" e)
+			    e))
+			 (xcmatcher
+			  `(defcmatcher ,treesymb
+			     (:tree tr)
+			     ()
+			     ,statesymb
+			     :doc ,xcmatchdoc
+			     ;; match-expander
+			     ,xmatexp
+			     ))
+			 (xexport `(export_values ,treesymb))
+			 )
+		      (put_fields xcmatcher :loca_location sloc)
+		      (put_fields xexport :loca_location sloc)
+		      (debug "gcc_tree_code:macro2" "; sloc=" sloc "; constdecl xcmatcher=" debug_more xcmatcher
+			     "\n.. xexport=" xexport)
+		      (let (
+			    (rmatch (macroexpand_1 xcmatcher env mexpander modctx))
+			    (rexport (macroexpand_1 xexport env mexpander modctx))
+			    )
+			(debug "gcc_tree_code:macro2" "; sloc=" sloc "; rmatch=" rmatch
+			       "\n.. rexport=" rexport)
+			(return rmatch (tuple rexport))
+			))
+		    )
+		   ;; For fixed tcc_reference, tcc_expression,
+		   ;; tcc_comparison, tcc_unary, tcc_binary,
+		   ;; tcc_statement.  They use the arity fourth
+		   ;; argument, and we extract sub-tree operands.
+		   (
+		    (or (== typcod 'tcc_reference)
+			(== typcod 'tcc_expression)
+			(== typcod 'tcc_unary)
+			(== typcod 'tcc_binary)
+			(== typcod 'tcc_comparison)
+			(== typcod 'tcc_statement)
+			)
+		    (debug "gcc_tree_code:macro2" "; fixed namev=" namev)
+		    (let
+			(
+			 (xcmatchdoc
+			  (let
+			      (
+			       (d
+				(substitute_sexpr
+				 '#{Generated fixed $TYPCOD $TREESYMB cmatcher of arity $NARGCOD.}#
+				 (lambda (symb)
+				   (debug "gcc_tree_code:macro2-lambdasubstfixed symb=" symb)
+				   (cond
+				    ( (== symb 'typcod)
+				      typcod)
+				    ( (== symb 'nargcod)
+				      nargcod)
+				    (:else symb))
+				   )))
+			       )
+			    (debug "gcc_tree_code:macro2" "; sloc=" sloc "; fixed xcmatchdoc=" d)
+			    d))
+			 (xmatexp
+			  (let
+			      (
+			       (e
+				(substitute_sexpr
+				 '#{ /* generated fixed $TREESYMB tester ? */
+				 $TR && TREE_CODE($TR) == $NAMECOD }#
+				 (lambda (symb)
+				   (debug "gcc_tree_code:macro2-lambdasubstfixed symb=" symb)
+				   (cond
+				    ( (== symb 'treesymb)
+				      (clone_with_discriminant (get_field :named_name treesymb) discr_verbatim_string)
+				      )
+				    ( (== symb 'namecod)
+				      (clone_with_discriminant (get_field :named_name namecod) discr_verbatim_string)
+				      )
+				    ( (== symb 'nargcod)
+				      nargcod)
+				    (:else
+				     symb)))
+				 ))
+			       )
+			    (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed xmatexp=" e)
+			    e))
+			 (xlistfill (make_list discr_list))
+			 (tupopervar
+			  (let ( (:long narity (get_int nargcod))
+				 ( tv (make_multiple discr_multiple narity))
+				 )
+			    (foreach_long_upto
+			     (1 narity)
+			     (:long ix)
+			     (let ( (:long previx (-i ix 1))
+				    (opnamstr (string4out discr_string "TROPERAND" previx))
+				    (opnamsymb (create_symbolstr opnamstr))
+				    )
+			       (multiple_put_nth tv previx opnamsymb)
+			       (let ( (tr 'tr)
+				      )
+				 (add2list xlistfill ##{ $OPNAMSYMB = TREE_OPERAND($TR, $PREVIX)}#
+					   ";\n")
+				 )
+			       )
+			     )
+			    (debug "gcc_tree_code:macro2" "; sloc=" sloc "; fixed tupopervar=" tv
+				   "\n.. updated xlistfill=" xlistfill)
+			    tv
+			    ))
+			 (xmatfill
+			  (let ( (e (substitute_sexpr
+				     '#{ /* generated fixed $TREESYMB filler ! */
+				     $XLISTFILL
+				     /* end of generated fixed $TREESYMB filler */}#
+				     (lambda (symb)
+				       (debug "gcc_tree_code:macro2-lambdasubstfixfiller symb=" symb)
+				       (cond
+					( (== symb 'treesymb)
+					  (clone_with_discriminant (get_field :named_name treesymb) discr_verbatim_string)
+					  )
+					( (== symb 'xlistfill)
+					  xlistfill)
+					(:else symb))
+				       )))
+				 )
+			    (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed xmatfill=" e)
+			    e
+			    )
+			  )
+			 (xcmatcher
+			  (let ( (m
+				  `(defcmatcher ,treesymb
+				     (:tree tr)
+				     (:tree ,tupopervar)
+				     ,statesymb
+				     :doc ,xcmatchdoc
+				     ;; match-expander
+				     ,xmatexp
+				     ;; match-filler
+				     ,xmatfill
+				     ))
+				 )
+			    (debug "gcc_tree_code:macro2" " sloc=" sloc "; fixed xcmatcher=" m)
+			    m))
+			 (xexport `(export_values ,treesymb))
+			 )
+		      (put_fields xcmatcher :loca_location sloc)
+		      (put_fields xexport :loca_location sloc)
+		      (debug "gcc_tree_code:macro2" " sloc=" sloc "; " "@fixed xcmatcher=" debug_more xcmatcher
+			     "\n.. xexport=" xexport)
+		      (let (
+			    (rmatch (macroexpand_1 xcmatcher env mexpander modctx))
+			    (rexport (macroexpand_1 xexport env mexpander modctx))
+			    )
+			(debug "gcc_tree_code:macro2" " rmatch=" rmatch
+			       "\n.. rexport=" rexport)
+			(return rmatch (tuple rexport))
+			))
+		    )
+		   ( (and (== typcod 'tcc_vl_exp)
+			  (== namecod 'call_expr))
+		     ;; CALL_EXPR is handled specially
+		     (inform_at sloc "GCC_TREE_CODE wont handle CALL_EXPR")
+		     (return))
+		   ;; otherwise
+		   ( :else
+		     (debug "gcc_tree_code:macro2 bad namev=" namev)
+		     (warning_at sloc "MELT should define $1 for tree code of type $2 arity $3"
+				 treesymb typcod nargcod)
+		     )
+		   )
+		  (error_at sloc "unexpected GCC_TREE_CODE for $1 of $2" namev typcod)
+		  )
+		(return ()) ;;  temporarily, happens for non-handled cases
+		)
+	      )
+      )
+  ;;
+  (debug "before loading2 libmelt-treecode")
+  (skip_nil (load "_libmelt-treecode.melt"))
+  (debug "after loading2 libmelt-treecode")
+  )
+
 
 
 ;; keep this code chunk at the end of libmelt-ana-tree.melt

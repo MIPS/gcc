@@ -1,4 +1,9 @@
 
+2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/t-treecode.melt: Comment the merge into ...
+	* melt/libmelt-ana-tree.melt: Added treecode metaprogramming from
+	t-treecode.melt testsuite.
+
 2014-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	* testsuite/melt/t-treecode.melt: Improved, probably completely...
 
