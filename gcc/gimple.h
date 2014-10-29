@@ -4956,24 +4956,21 @@ gimple_omp_single_set_clauses (gomp_single *omp_single_stmt, tree clauses)
 }
 
 
-/* Return the clauses associated with OMP_TARGET GS.  */
+/* Return the clauses associated with OMP_TARGET OMP_TARGET_STMT.  */
 
 static inline tree
-gimple_omp_target_clauses (const_gimple gs)
+gimple_omp_target_clauses (const gomp_target *omp_target_stmt)
 {
-  const gomp_target *omp_target_stmt =
-    as_a <const gomp_target *> (gs);
   return omp_target_stmt->clauses;
 }
 
 
-/* Return a pointer to the clauses associated with OMP_TARGET GS.  */
+/* Return a pointer to the clauses associated with OMP_TARGET
+   OMP_TARGET_STMT.  */
 
 static inline tree *
-gimple_omp_target_clauses_ptr (gimple gs)
+gimple_omp_target_clauses_ptr (gomp_target *omp_target_stmt)
 {
-  gomp_target *omp_target_stmt =
-    as_a <gomp_target *> (gs);
   return &omp_target_stmt->clauses;
 }
 
@@ -4991,9 +4988,8 @@ gimple_omp_target_set_clauses (gomp_target *omp_target_stmt,
 /* Return the kind of OMP target statemement.  */
 
 static inline int
-gimple_omp_target_kind (const_gimple g)
+gimple_omp_target_kind (const gomp_target *g)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_TARGET);
   return (gimple_omp_subcode (g) & GF_OMP_TARGET_KIND_MASK);
 }
 

@@ -1393,43 +1393,51 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
-	{
-	  save_suppress = info->suppress_expansion;
-	  convert_nonlocal_omp_clauses (gimple_omp_target_clauses_ptr (stmt),
-					wi);
-	  info->suppress_expansion = save_suppress;
-	  walk_body (convert_nonlocal_reference_stmt,
-		     convert_nonlocal_reference_op, info,
-		     gimple_omp_body_ptr (stmt));
-	  break;
-	}
-      save_suppress = info->suppress_expansion;
-      if (convert_nonlocal_omp_clauses (gimple_omp_target_clauses_ptr (stmt),
-					wi))
-	{
-	  tree c, decl;
-	  decl = get_chain_decl (info);
-	  c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_DECL (c) = decl;
-	  OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TO;
-	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
-	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
-	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
-	}
+      {
+	gomp_target *omp_target_stmt = as_a <gomp_target *> (stmt);
+	if (gimple_omp_target_kind (omp_target_stmt)
+	    != GF_OMP_TARGET_KIND_REGION)
+	  {
+	    save_suppress = info->suppress_expansion;
+	    convert_nonlocal_omp_clauses (gimple_omp_target_clauses_ptr (
+					    omp_target_stmt),
+					  wi);
+	    info->suppress_expansion = save_suppress;
+	    walk_body (convert_nonlocal_reference_stmt,
+		       convert_nonlocal_reference_op, info,
+		       gimple_omp_body_ptr (omp_target_stmt));
+	    break;
+	  }
+	save_suppress = info->suppress_expansion;
+	if (convert_nonlocal_omp_clauses (gimple_omp_target_clauses_ptr (
+					    omp_target_stmt),
+					  wi))
+	  {
+	    tree c, decl;
+	    decl = get_chain_decl (info);
+	    c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
+	    OMP_CLAUSE_DECL (c) = decl;
+	    OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TO;
+	    OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
+	    OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (omp_target_stmt);
+	    gimple_omp_target_set_clauses (omp_target_stmt, c);
+	  }
 
-      save_local_var_chain = info->new_local_var_chain;
-      info->new_local_var_chain = NULL;
+	save_local_var_chain = info->new_local_var_chain;
+	info->new_local_var_chain = NULL;
 
-      walk_body (convert_nonlocal_reference_stmt, convert_nonlocal_reference_op,
-		 info, gimple_omp_body_ptr (stmt));
+	walk_body (convert_nonlocal_reference_stmt,
+		   convert_nonlocal_reference_op,
+		   info, gimple_omp_body_ptr (omp_target_stmt));
 
-      if (info->new_local_var_chain)
-	declare_vars (info->new_local_var_chain,
-		      gimple_seq_first_stmt (gimple_omp_body (stmt)),
-		      false);
-      info->new_local_var_chain = save_local_var_chain;
-      info->suppress_expansion = save_suppress;
+	if (info->new_local_var_chain)
+	  declare_vars (info->new_local_var_chain,
+			gimple_seq_first_stmt (gimple_omp_body (
+						 omp_target_stmt)),
+			false);
+	info->new_local_var_chain = save_local_var_chain;
+	info->suppress_expansion = save_suppress;
+      }
       break;
 
     case GIMPLE_OMP_TEAMS:
@@ -1982,39 +1990,50 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
-	{
-	  save_suppress = info->suppress_expansion;
-	  convert_local_omp_clauses (gimple_omp_target_clauses_ptr (stmt), wi);
-	  info->suppress_expansion = save_suppress;
-	  walk_body (convert_local_reference_stmt, convert_local_reference_op,
-		     info, gimple_omp_body_ptr (stmt));
-	  break;
+      {
+	gomp_target *omp_target_stmt = as_a <gomp_target *> (stmt);
+	if (gimple_omp_target_kind (omp_target_stmt)
+	    != GF_OMP_TARGET_KIND_REGION)
+	  {
+	    save_suppress = info->suppress_expansion;
+	    convert_local_omp_clauses (gimple_omp_target_clauses_ptr (
+					 omp_target_stmt),
+				       wi);
+	    info->suppress_expansion = save_suppress;
+	    walk_body (convert_local_reference_stmt, convert_local_reference_op,
+		       info, gimple_omp_body_ptr (omp_target_stmt));
+	    break;
 	}
-      save_suppress = info->suppress_expansion;
-      if (convert_local_omp_clauses (gimple_omp_target_clauses_ptr (stmt), wi))
-	{
-	  tree c;
-	  (void) get_frame_type (info);
-	  c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_DECL (c) = info->frame_decl;
-	  OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TOFROM;
-	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
-	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
-	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
-	}
+	save_suppress = info->suppress_expansion;
+	if (convert_local_omp_clauses (gimple_omp_target_clauses_ptr (
+					 omp_target_stmt),
+				       wi))
+	  {
+	    tree c;
+	    (void) get_frame_type (info);
+	    c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
+	    OMP_CLAUSE_DECL (c) = info->frame_decl;
+	    OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TOFROM;
+	    OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
+	    OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (omp_target_stmt);
+	    gimple_omp_target_set_clauses (omp_target_stmt, c);
+	  }
 
-      save_local_var_chain = info->new_local_var_chain;
-      info->new_local_var_chain = NULL;
+	save_local_var_chain = info->new_local_var_chain;
+	info->new_local_var_chain = NULL;
 
-      walk_body (convert_local_reference_stmt, convert_local_reference_op, info,
-		 gimple_omp_body_ptr (stmt));
+	walk_body (convert_local_reference_stmt, convert_local_reference_op,
+		   info,
+		   gimple_omp_body_ptr (omp_target_stmt));
 
-      if (info->new_local_var_chain)
-	declare_vars (info->new_local_var_chain,
-		      gimple_seq_first_stmt (gimple_omp_body (stmt)), false);
-      info->new_local_var_chain = save_local_var_chain;
-      info->suppress_expansion = save_suppress;
+	if (info->new_local_var_chain)
+	  declare_vars (info->new_local_var_chain,
+			gimple_seq_first_stmt (gimple_omp_body (
+						 omp_target_stmt)),
+			false);
+	info->new_local_var_chain = save_local_var_chain;
+	info->suppress_expansion = save_suppress;
+      }
       break;
 
     case GIMPLE_OMP_TEAMS:
@@ -2320,7 +2339,8 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       }
 
     case GIMPLE_OMP_TARGET:
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
+      if (gimple_omp_target_kind (as_a <gomp_target *> (stmt))
+	  != GF_OMP_TARGET_KIND_REGION)
 	{
 	  *handled_ops_p = false;
 	  return NULL_TREE;
@@ -2419,40 +2439,48 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
-	{
-	  walk_body (convert_gimple_call, NULL, info, gimple_omp_body_ptr (stmt));
-	  break;
-	}
-      save_static_chain_added = info->static_chain_added;
-      info->static_chain_added = 0;
-      walk_body (convert_gimple_call, NULL, info, gimple_omp_body_ptr (stmt));
-      for (i = 0; i < 2; i++)
-	{
-	  tree c, decl;
-	  if ((info->static_chain_added & (1 << i)) == 0)
-	    continue;
-	  decl = i ? get_chain_decl (info) : info->frame_decl;
-	  /* Don't add CHAIN.* or FRAME.* twice.  */
-	  for (c = gimple_omp_target_clauses (stmt);
-	       c;
-	       c = OMP_CLAUSE_CHAIN (c))
-	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		&& OMP_CLAUSE_DECL (c) == decl)
-	      break;
-	  if (c == NULL)
-	    {
-	      c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
-	      OMP_CLAUSE_DECL (c) = decl;
-	      OMP_CLAUSE_MAP_KIND (c)
-		= i ? OMP_CLAUSE_MAP_TO : OMP_CLAUSE_MAP_TOFROM;
-	      OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
-	      OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
-	      gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt),
-					     c);
-	    }
-	}
-      info->static_chain_added |= save_static_chain_added;
+      {
+	gomp_target *omp_target_stmt = as_a <gomp_target *> (stmt);
+	if (gimple_omp_target_kind (omp_target_stmt)
+	    != GF_OMP_TARGET_KIND_REGION)
+	  {
+	    walk_body (convert_gimple_call, NULL, info,
+		       gimple_omp_body_ptr (omp_target_stmt));
+	    break;
+	  }
+	save_static_chain_added = info->static_chain_added;
+	info->static_chain_added = 0;
+	walk_body (convert_gimple_call, NULL, info,
+		   gimple_omp_body_ptr (omp_target_stmt));
+	for (i = 0; i < 2; i++)
+	  {
+	    tree c, decl;
+	    if ((info->static_chain_added & (1 << i)) == 0)
+	      continue;
+	    decl = i ? get_chain_decl (info) : info->frame_decl;
+	    /* Don't add CHAIN.* or FRAME.* twice.  */
+	    for (c = gimple_omp_target_clauses (omp_target_stmt);
+		 c;
+		 c = OMP_CLAUSE_CHAIN (c))
+	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		  && OMP_CLAUSE_DECL (c) == decl)
+		break;
+	    if (c == NULL)
+	      {
+		c = build_omp_clause (gimple_location (omp_target_stmt),
+				      OMP_CLAUSE_MAP);
+		OMP_CLAUSE_DECL (c) = decl;
+		OMP_CLAUSE_MAP_KIND (c)
+		  = i ? OMP_CLAUSE_MAP_TO : OMP_CLAUSE_MAP_TOFROM;
+		OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
+		OMP_CLAUSE_CHAIN (c) =
+		  gimple_omp_target_clauses (omp_target_stmt);
+		gimple_omp_target_set_clauses (omp_target_stmt,
+					       c);
+	      }
+	  }
+	info->static_chain_added |= save_static_chain_added;
+      }
       break;
 
     case GIMPLE_OMP_FOR:

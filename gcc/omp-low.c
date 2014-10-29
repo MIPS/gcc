@@ -1647,7 +1647,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      /* Ignore OMP_CLAUSE_MAP_POINTER kind for arrays in
 		 #pragma omp target data, there is nothing to map for
 		 those.  */
-	      if (gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_DATA
+	      if (gimple_omp_target_kind (as_a <gomp_target *> (ctx->stmt))
+		  == GF_OMP_TARGET_KIND_DATA
 		  && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		break;
 	    }
@@ -1673,7 +1674,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		    install_var_field (decl, true, 7, ctx);
 		  else
 		    install_var_field (decl, true, 3, ctx);
-		  if (gimple_omp_target_kind (ctx->stmt)
+		  if (gimple_omp_target_kind (as_a <gomp_target *> (ctx->stmt))
 		      == GF_OMP_TARGET_KIND_REGION)
 		    install_var_local (decl, ctx);
 		}
@@ -1774,7 +1775,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_MAP:
-	  if (gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_DATA)
+	  if (gimple_omp_target_kind (as_a <gomp_target *> (ctx->stmt))
+	      == GF_OMP_TARGET_KIND_DATA)
 	    break;
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (DECL_P (decl)
@@ -1943,7 +1945,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
       omp_context *octx;
       for (octx = ctx; octx; octx = octx->outer)
 	if (gimple_code (octx->stmt) == GIMPLE_OMP_TARGET
-	    && gimple_omp_target_kind (octx->stmt)
+	    && gimple_omp_target_kind (as_a <gomp_target *> (octx->stmt))
 	       == GF_OMP_TARGET_KIND_REGION)
 	  {
 	    target_p = true;
@@ -2665,7 +2667,8 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
     case GIMPLE_OMP_TEAMS:
       if (ctx == NULL
 	  || gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET
-	  || gimple_omp_target_kind (ctx->stmt) != GF_OMP_TARGET_KIND_REGION)
+	  || (gimple_omp_target_kind (as_a <gomp_target *> (ctx->stmt))
+	      != GF_OMP_TARGET_KIND_REGION))
 	{
 	  error_at (gimple_location (stmt),
 		    "teams construct not closely nested inside of target "
@@ -2676,10 +2679,11 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
     case GIMPLE_OMP_TARGET:
       for (; ctx != NULL; ctx = ctx->outer)
 	if (gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET
-	    && gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_REGION)
+	    && (gimple_omp_target_kind (as_a <gomp_target *> (ctx->stmt))
+		== GF_OMP_TARGET_KIND_REGION))
 	  {
 	    const char *name;
-	    switch (gimple_omp_target_kind (stmt))
+	    switch (gimple_omp_target_kind (as_a <gomp_target *> (stmt)))
 	      {
 	      case GF_OMP_TARGET_KIND_REGION: name = "target"; break;
 	      case GF_OMP_TARGET_KIND_DATA: name = "target data"; break;
@@ -8406,8 +8410,8 @@ expand_omp_target (struct omp_region *region)
       gsi = gsi_last_bb (entry_bb);
       stmt = gsi_stmt (gsi);
       gcc_assert (stmt && gimple_code (stmt) == GIMPLE_OMP_TARGET
-		  && gimple_omp_target_kind (stmt)
-		     == GF_OMP_TARGET_KIND_REGION);
+		  && (gimple_omp_target_kind (as_a <gomp_target *> (stmt))
+		      == GF_OMP_TARGET_KIND_REGION));
       gsi_remove (&gsi, true);
       e = split_block (entry_bb, stmt);
       entry_bb = e->dest;
@@ -8749,7 +8753,8 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	  ;
 	}
       else if (code == GIMPLE_OMP_TARGET
-	       && gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_UPDATE)
+	       && (gimple_omp_target_kind (as_a <gomp_target *> (stmt))
+		   == GF_OMP_TARGET_KIND_UPDATE))
 	new_omp_region (bb, code, parent);
       else
 	{
@@ -11068,7 +11073,8 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
     case GIMPLE_OMP_TARGET:
       cur_region = new_omp_region (bb, code, cur_region);
       fallthru = true;
-      if (gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_UPDATE)
+      if (gimple_omp_target_kind (as_a <gomp_target *> (last))
+	  == GF_OMP_TARGET_KIND_UPDATE)
 	cur_region = cur_region->outer;
       break;
 

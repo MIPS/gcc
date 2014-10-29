@@ -429,8 +429,8 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_TARGET:
-      ret = walk_tree (gimple_omp_target_clauses_ptr (stmt), callback_op, wi,
-		       pset);
+      ret = walk_tree (gimple_omp_target_clauses_ptr (as_a <gomp_target *> (stmt)),
+		       callback_op, wi, pset);
       if (ret)
 	return ret;
       break;

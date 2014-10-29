@@ -1,5 +1,30 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_omp_target_clauses): Strengthen param from
+	const_gimple to const gomp_target *.
+	(gimple_omp_target_kind): Likewise.
+	(gimple_omp_target_clauses_ptr): Strengthen param from gimple to
+	gomp_target *.
+
+	* gimple-walk.c (walk_gimple_op): Add checked cast.
+	* omp-low.c (scan_sharing_clauses): Add checked casts.
+	(create_omp_child_function): Likewise.
+	(check_omp_nesting_restrictions): Likewise.
+	(expand_omp_target): Likewise.
+	(build_omp_regions_1): Likewise.
+	(make_gimple_omp_edges): Likewise.
+	* tree-inline.c (remap_gimple_stmt): Within case
+	GIMPLE_OMP_TARGET, introduce local "omp_target_stmt" via a checked
+	cast and use it in place of "stmt" for typesafety.
+	* tree-nested.c (convert_nonlocal_reference_stmt): Likewise.
+	(convert_local_reference_stmt): Likewise.
+	(convert_tramp_reference_stmt): Add checked cast.
+	(convert_gimple_call): Within case GIMPLE_OMP_TARGET, introduce
+	local "omp_target_stmt" via a checked cast and use it in place of
+	"stmt" for typesafety.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_omp_single_clauses): Strengthen param from
 	const_gimple to const gomp_single *.
 	(gimple_omp_single_clauses_ptr): Strengthen param from gimple to

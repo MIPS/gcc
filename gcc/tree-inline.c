@@ -1473,10 +1473,14 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_TARGET:
-	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_target
-		   (s1, gimple_omp_target_kind (stmt),
-		    gimple_omp_target_clauses (stmt));
+	  {
+	    gomp_target *omp_target_stmt = as_a <gomp_target *> (stmt);
+	    s1 = remap_gimple_seq (gimple_omp_body (omp_target_stmt), id);
+	    copy = gimple_build_omp_target (
+		     s1,
+		     gimple_omp_target_kind (omp_target_stmt),
+		     gimple_omp_target_clauses (omp_target_stmt));
+	  }
 	  break;
 
 	case GIMPLE_OMP_TEAMS:
