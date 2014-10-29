@@ -1,5 +1,8 @@
 
 2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (patexpand_tree_call): More.
+
+2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt: Don't export_macro instance, since it
 	is also export_patmacro-ed.
 

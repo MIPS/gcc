@@ -2324,6 +2324,7 @@ treerr
   $TRARG0 = CALL_EXPR_ARG ($TR, 0);
   }#)
 
+;;;;;;;;;;;;;;;;
 (defun mexpand_tree_call (sexpr env mexpander modctx)
   (debug "mexpand_tree_call" "; sexpr=" sexpr "\n.. env=" env "\n.. modctx=" modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
@@ -2336,6 +2337,9 @@ treerr
     (assert_msg "@$@unimplemented mexpand_tree_call")
     )
   )
+
+
+;;;;;;;
 (defun patexpand_tree_call  (sexpr env pctx)
   (debug "patexpand_tree_call" "; sexpr=" sexpr "\n.. env=" env "\n.. pctx=" pctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
@@ -2344,13 +2348,45 @@ treerr
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
+	(curpair (pair_tail (list_first cont)))
+	(argsp (patternexpand_pairlist_as_tuple curpair env pctx loc))
+	(nbargs (multiple_length argsp))
+	(nbcallargs (-i nbargs 2))
+	(argsymblist (list 'tr_fun 'tr_chain))
 	)
-    (debug "patexpand_tree_call" "; loc=" loc "; cont=" cont)
-    (assert_msg "@$@unimplemented patexpand_tree_call")
+    (debug "patexpand_tree_call" "; loc=" loc "; cont=" cont
+	   "\n.. argsp=" argsp)
+    (when (<i nbargs 2)
+      (error_at loc "(TREE_CALL <called-fun> <chaining> <called-args>...) needs at least two arguments but got only $1" nbargs)
+      (return))
+    (foreach_long_upto
+     (0 (-i nbcallargs 1))
+     (:long cix)
+     (let ( (curargname (string4out discr_string "TR_ARG_" cix))
+	    (curargsymb (create_symbolstr curargname))
+	    )
+       (debug "patexpand_tree_call" "; curargsymb=" curargsymb)
+       (list_append argsymblist curargsymb)
+       )
+     )
+    (debug "patexpand_tree_call" "; loc=" loc
+	   " argssymblist=" argsymblist)
+    (let ( (tupargsymb (list_to_multiple argsymblist discr_multiple))
+	   (cmatname (string4out discr_string "TREE_CALL_" nbcallargs))
+	   (cmatsymb (create_symbolstr cmatname))
+	   )
+      (debug "patexpand_tree_call" "; loc=" loc
+	     " tupargsymb=" tupargsymb
+	     "\n.. cmatsymb=" cmatsymb)
+      (assert_msg "@$@unimplemented patexpand_tree_call")
+      )
     )
   )
 (export_patmacro tree_call patexpand_tree_call mexpand_tree_call
-		 :doc #{The $TREE_CALL is for patterns or expressions for @code{TREE_CALL}.}#)
+		 :doc #{The $TREE_CALL is for patterns or expressions
+		 for @code{TREE_CALL}. Usage is @code{(TREE_CALL
+		 @var{<called-fun>} @var{<chaining>}
+		 @var{<call-arguments> ...})}, where everything is a tree }#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Iterator on function argument 
