@@ -5077,24 +5077,21 @@ gimple_omp_target_set_data_arg (gomp_target *omp_target_stmt,
 }
 
 
-/* Return the clauses associated with OMP_TEAMS GS.  */
+/* Return the clauses associated with OMP_TEAMS OMP_TEAMS_STMT.  */
 
 static inline tree
-gimple_omp_teams_clauses (const_gimple gs)
+gimple_omp_teams_clauses (const gomp_teams *omp_teams_stmt)
 {
-  const gomp_teams *omp_teams_stmt =
-    as_a <const gomp_teams *> (gs);
   return omp_teams_stmt->clauses;
 }
 
 
-/* Return a pointer to the clauses associated with OMP_TEAMS GS.  */
+/* Return a pointer to the clauses associated with OMP_TEAMS
+   OMP_TEAMS_STMT.  */
 
 static inline tree *
-gimple_omp_teams_clauses_ptr (gimple gs)
+gimple_omp_teams_clauses_ptr (gomp_teams *omp_teams_stmt)
 {
-  gomp_teams *omp_teams_stmt =
-    as_a <gomp_teams *> (gs);
   return &omp_teams_stmt->clauses;
 }
 

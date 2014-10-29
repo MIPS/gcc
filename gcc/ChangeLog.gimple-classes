@@ -1,5 +1,19 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_omp_teams_clauses): Strengthen param from
+	const_gimple to const gomp_teams *.
+	(gimple_omp_teams_clauses_ptr): Strengthen param from gimple to
+	gomp_teams *.
+
+	* gimple-walk.c (walk_gimple_op): Add checked cast.
+	* tree-inline.c (remap_gimple_stmt): Within case GIMPLE_OMP_TEAMS,
+	introduce local "omp_teams_stmt" via a checked cast, and use in
+	place of "stmt".
+	* tree-nested.c (convert_nonlocal_reference_stmt): Likewise.
+	(convert_local_reference_stmt): Likewise.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_omp_for_kind): Strengthen param from
 	const_gimple to const gomp_for *.
 	(gimple_omp_for_combined_p): Likewise.

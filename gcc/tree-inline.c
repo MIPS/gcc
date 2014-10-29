@@ -1474,9 +1474,12 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_TEAMS:
-	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_teams
-		   (s1, gimple_omp_teams_clauses (stmt));
+	  {
+	    gomp_teams *omp_teams_stmt = as_a <gomp_teams *> (stmt);
+	    s1 = remap_gimple_seq (gimple_omp_body (omp_teams_stmt), id);
+	    copy = gimple_build_omp_teams
+		     (s1, gimple_omp_teams_clauses (omp_teams_stmt));
+	  }
 	  break;
 
 	case GIMPLE_OMP_CRITICAL:
