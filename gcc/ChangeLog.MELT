@@ -1,5 +1,9 @@
 
 2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt: Add incomplete stub for tree_call
+	patmacro.
+
+2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* testsuite/melt/t-treecode.melt: Comment the merge into ...
 	* melt/libmelt-ana-tree.melt: Added treecode metaprogramming from
 	t-treecode.melt testsuite.

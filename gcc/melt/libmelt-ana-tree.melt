@@ -2324,6 +2324,33 @@ treerr
   $TRARG0 = CALL_EXPR_ARG ($TR, 0);
   }#)
 
+(defun mexpand_tree_call (sexpr env mexpander modctx)
+  (debug "mexpand_tree_call" "; sexpr=" sexpr "\n.. env=" env "\n.. modctx=" modctx)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	)
+    (debug "mexpand_tree_call" "; loc=" loc "; cont=" cont)
+    (assert_msg "@$@unimplemented mexpand_tree_call")
+    )
+  )
+(defun patexpand_tree_call  (sexpr env pctx)
+  (debug "patexpand_tree_call" "; sexpr=" sexpr "\n.. env=" env "\n.. pctx=" pctx)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check pctx" (is_a pctx class_pattern_expansion_context) pctx)
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	)
+    (debug "patexpand_tree_call" "; loc=" loc "; cont=" cont)
+    (assert_msg "@$@unimplemented patexpand_tree_call")
+    )
+  )
+(export_patmacro tree_call patexpand_tree_call mexpand_tree_call
+		 :doc #{The $TREE_CALL is for patterns or expressions for @code{TREE_CALL}.}#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Iterator on function argument 
