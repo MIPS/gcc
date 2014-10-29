@@ -1,5 +1,26 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_omp_parallel_combined_p): Strengthen param from
+	const_gimple to const gomp_parallel *.
+	(gimple_omp_parallel_clauses): Likewise.
+	(gimple_omp_parallel_set_combined_p): Strengthen param from gimple
+	to gomp_parallel *.
+
+	* omp-low.c (get_ws_args_for): Add checked cast.
+	(determine_parallel_type): Likewise.
+	(create_omp_child_function): Likewise.
+	(lower_lastprivate_clauses): Likewise.
+	(expand_omp_taskreg): Likewise.
+	(expand_omp_for_init_vars): Likewise.
+	(expand_omp_for_static_nochunk): Likewise.
+	(expand_omp_for_static_chunk): Likewise.
+	(lower_omp_for): Likewise.
+	(lower_omp_taskreg): Replace check against GIMPLE_OMP_PARALLEL
+	with a dyn_cast, introducing local "par_stmt" and using it in
+	place of "stmt" for typesafety.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_omp_target_clauses): Strengthen param from
 	const_gimple to const gomp_target *.
 	(gimple_omp_target_kind): Likewise.

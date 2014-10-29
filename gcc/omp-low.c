@@ -693,7 +693,8 @@ get_ws_args_for (gimple par_stmt, gimple ws_stmt)
       if (gimple_omp_for_combined_into_p (for_stmt))
 	{
 	  tree innerc
-	    = find_omp_clause (gimple_omp_parallel_clauses (par_stmt),
+	    = find_omp_clause (gimple_omp_parallel_clauses (
+				 as_a <gomp_parallel *> (par_stmt)),
 			       OMP_CLAUSE__LOOPTEMP_);
 	  gcc_assert (innerc);
 	  n1 = OMP_CLAUSE_DECL (innerc);
@@ -767,7 +768,8 @@ determine_parallel_type (struct omp_region *region)
   if (single_succ (par_entry_bb) == ws_entry_bb
       && single_succ (ws_exit_bb) == par_exit_bb
       && workshare_safe_to_combine_p (ws_entry_bb)
-      && (gimple_omp_parallel_combined_p (last_stmt (par_entry_bb))
+      && (gimple_omp_parallel_combined_p (as_a <gomp_parallel *> (
+					    last_stmt (par_entry_bb)))
 	  || (last_and_only_stmt (ws_entry_bb)
 	      && last_and_only_stmt (par_exit_bb))))
     {
@@ -1901,7 +1903,8 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
 
   tree cilk_for_count
     = (flag_cilkplus && gimple_code (ctx->stmt) == GIMPLE_OMP_PARALLEL)
-      ? find_omp_clause (gimple_omp_parallel_clauses (ctx->stmt),
+      ? find_omp_clause (gimple_omp_parallel_clauses (
+			   as_a <gomp_parallel *> (ctx->stmt)),
 			 OMP_CLAUSE__CILK_FOR_COUNT_) : NULL_TREE;
   tree cilk_var_type = NULL_TREE;
 
@@ -3967,7 +3970,8 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
       if (ctx == NULL || !is_parallel_ctx (ctx))
 	return;
 
-      clauses = find_omp_clause (gimple_omp_parallel_clauses (ctx->stmt),
+      clauses = find_omp_clause (gimple_omp_parallel_clauses (
+				   as_a <gomp_parallel *> (ctx->stmt)),
 				 OMP_CLAUSE_LASTPRIVATE);
       if (clauses == NULL)
 	return;
@@ -4072,7 +4076,8 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 	  if (ctx == NULL || !is_parallel_ctx (ctx))
 	    break;
 
-	  c = find_omp_clause (gimple_omp_parallel_clauses (ctx->stmt),
+	  c = find_omp_clause (gimple_omp_parallel_clauses (
+				 as_a <gomp_parallel *> (ctx->stmt)),
 			       OMP_CLAUSE_LASTPRIVATE);
 	  par_clauses = true;
 	}
@@ -4938,7 +4943,8 @@ expand_omp_taskreg (struct omp_region *region)
   bool is_cilk_for
     = (flag_cilkplus
        && gimple_code (entry_stmt) == GIMPLE_OMP_PARALLEL
-       && find_omp_clause (gimple_omp_parallel_clauses (entry_stmt),
+       && find_omp_clause (gimple_omp_parallel_clauses (
+			     as_a <gomp_parallel *> (entry_stmt)),
 			   OMP_CLAUSE__CILK_FOR_COUNT_) != NULL_TREE);
 
   if (is_cilk_for)
@@ -5381,7 +5387,8 @@ expand_omp_for_init_vars (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 	return;
 
       tree clauses = gimple_code (inner_stmt) == GIMPLE_OMP_PARALLEL
-		     ? gimple_omp_parallel_clauses (inner_stmt)
+		     ? gimple_omp_parallel_clauses (
+			 as_a <gomp_parallel *> (inner_stmt))
 		     : gimple_omp_for_clauses (as_a <gomp_for *> (inner_stmt));
       /* First two _looptemp_ clauses are for istart/iend, counts[0]
 	 isn't supposed to be handled, as the inner loop doesn't
@@ -6256,7 +6263,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   if (gimple_omp_for_combined_p (fd->for_stmt))
     {
       tree clauses = gimple_code (inner_stmt) == GIMPLE_OMP_PARALLEL
-		     ? gimple_omp_parallel_clauses (inner_stmt)
+		     ? gimple_omp_parallel_clauses (
+			 as_a <gomp_parallel *> (inner_stmt))
 		     : gimple_omp_for_clauses (as_a <gomp_for *> (inner_stmt));
       tree innerc = find_omp_clause (clauses, OMP_CLAUSE__LOOPTEMP_);
       gcc_assert (innerc);
@@ -6648,7 +6656,8 @@ expand_omp_for_static_chunk (struct omp_region *region,
   if (gimple_omp_for_combined_p (fd->for_stmt))
     {
       tree clauses = gimple_code (inner_stmt) == GIMPLE_OMP_PARALLEL
-		     ? gimple_omp_parallel_clauses (inner_stmt)
+		     ? gimple_omp_parallel_clauses (
+			 as_a <gomp_parallel *> (inner_stmt))
 		     : gimple_omp_for_clauses (as_a <gomp_for *> (inner_stmt));
       tree innerc = find_omp_clause (clauses, OMP_CLAUSE__LOOPTEMP_);
       gcc_assert (innerc);
@@ -9508,7 +9517,8 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       tree clauses = *pc;
       if (parallel_for)
 	outerc
-	  = find_omp_clause (gimple_omp_parallel_clauses (ctx->outer->stmt),
+	  = find_omp_clause (gimple_omp_parallel_clauses (
+			       as_a <gomp_parallel *> (ctx->outer->stmt)),
 			     OMP_CLAUSE__LOOPTEMP_);
       for (i = 0; i < count; i++)
 	{
@@ -9986,19 +9996,19 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     as_a <gbind *> (gimple_seq_first_stmt (gimple_omp_body (stmt)));
   par_body = gimple_bind_body (par_bind);
   child_fn = ctx->cb.dst_fn;
-  if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
-      && !gimple_omp_parallel_combined_p (stmt))
-    {
-      struct walk_stmt_info wi;
-      int ws_num = 0;
+  if (gomp_parallel *par_stmt = dyn_cast <gomp_parallel *> (stmt))
+    if (!gimple_omp_parallel_combined_p (par_stmt))
+      {
+	struct walk_stmt_info wi;
+	int ws_num = 0;
 
-      memset (&wi, 0, sizeof (wi));
-      wi.info = &ws_num;
-      wi.val_only = true;
-      walk_gimple_seq (par_body, check_combined_parallel, NULL, &wi);
-      if (ws_num == 1)
-	gimple_omp_parallel_set_combined_p (stmt, true);
-    }
+	memset (&wi, 0, sizeof (wi));
+	wi.info = &ws_num;
+	wi.val_only = true;
+	walk_gimple_seq (par_body, check_combined_parallel, NULL, &wi);
+	if (ws_num == 1)
+	  gimple_omp_parallel_set_combined_p (par_stmt, true);
+      }
   gimple_seq dep_ilist = NULL;
   gimple_seq dep_olist = NULL;
   if (gimple_code (stmt) == GIMPLE_OMP_TASK

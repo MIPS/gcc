@@ -2097,9 +2097,8 @@ gimple_omp_section_set_last (gimple g)
    GF_OMP_PARALLEL_COMBINED flag set.  */
 
 static inline bool
-gimple_omp_parallel_combined_p (const_gimple g)
+gimple_omp_parallel_combined_p (const gomp_parallel *g)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_PARALLEL);
   return (gimple_omp_subcode (g) & GF_OMP_PARALLEL_COMBINED) != 0;
 }
 
@@ -2108,9 +2107,8 @@ gimple_omp_parallel_combined_p (const_gimple g)
    value of COMBINED_P.  */
 
 static inline void
-gimple_omp_parallel_set_combined_p (gimple g, bool combined_p)
+gimple_omp_parallel_set_combined_p (gomp_parallel *g, bool combined_p)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_PARALLEL);
   if (combined_p)
     g->subcode |= GF_OMP_PARALLEL_COMBINED;
   else
@@ -4573,13 +4571,11 @@ gimple_omp_for_set_pre_body (gomp_for *omp_for_stmt, gimple_seq pre_body)
 }
 
 
-/* Return the clauses associated with OMP_PARALLEL GS.  */
+/* Return the clauses associated with OMP_PARALLEL OMP_PARALLEL_STMT.  */
 
 static inline tree
-gimple_omp_parallel_clauses (const_gimple gs)
+gimple_omp_parallel_clauses (const gomp_parallel *omp_parallel_stmt)
 {
-  const gomp_parallel *omp_parallel_stmt =
-    as_a <const gomp_parallel *> (gs);
   return omp_parallel_stmt->clauses;
 }
 
