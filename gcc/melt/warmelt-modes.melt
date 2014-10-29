@@ -228,11 +228,10 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	  (dbgi (instance class_debug_output_information
 			  :dbgi_out stdout
 			  :dbgi_occmap occmap
-			  :dbgi_maxdepth (make_integerbox 
-					  discr_constant_integer (debug_depth))))
+			  :dbgi_maxdepth (constant_box (+i 3 (debug_depth)))))
 	  )
       (debug "eval_docmd run res=" res "\n newenv=" newenv "\n dbgi=" dbgi)
-      (add2out stdout "\n;;; result of eval mode of " nbexprs " expression[s] is ...\n")
+      (add2out stdout "\n;;; result of eval mode of " nbexprs " expression[s] (depth:" (debug_depth) ") is ...\n")
       (dbg_out res dbgi 0)
       (add2out stdout "\n;;; *** end of evaluated result *** \n ")
       (return :true)

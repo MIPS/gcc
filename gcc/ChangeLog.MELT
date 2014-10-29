@@ -1,5 +1,10 @@
 
 2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (eval_docmd): Slightly improved.
+
+	* melt/libmelt-ana-tree.melt (patexpand_tree_call): More.
+
+2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (patexpand_tree_call): More.
 
 2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
