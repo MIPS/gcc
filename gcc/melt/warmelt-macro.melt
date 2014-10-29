@@ -5043,10 +5043,6 @@ sending messages. Syntax is (DEFSELECTOR <symbol> <selector-class>
 		  :smins_clabind clabind
 		  :smins_fields fastup)
 	))))
-(install_initial_macro 'instance mexpand_instance)
-(export_macro instance mexpand_instance
- :doc #{The $INSTANCE syntax is for making new objects. Syntax
- is (INSTANCE <class> @{:<field> <expression>@}*).}#)
 
 
 
