@@ -2953,8 +2953,8 @@ parser::parse_for (source_location)
 
   while (1)
     {
-      token = peek_ident ();
-      if (token == 0)
+      token = peek ();
+      if (token->type != CPP_NAME)
 	break;
 
       /* Insert the user defined operators into the operator hash.  */

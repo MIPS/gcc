@@ -1,3 +1,8 @@
+2014-10-29  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_for): Make sure to have a valid
+	token to report errors at.
+
 2014-10-29  Richard Biener  <rguenther@suse.de>
 
 	* tree-ssa-sccvn.c (try_to_simplify): Allow
