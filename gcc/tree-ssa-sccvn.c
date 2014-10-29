@@ -3113,7 +3113,7 @@ try_to_simplify (gimple stmt)
      transparently support materializing temporary SSA names
      created by gimple_simplify - or we never value-number
      to them.  */
-  tem = gimple_fold_stmt_to_constant_1 (stmt, vn_valueize);
+  tem = gimple_fold_stmt_to_constant_1 (stmt, vn_valueize, vn_valueize);
   if (tem
       && (TREE_CODE (tem) == SSA_NAME
 	  || is_gimple_min_invariant (tem)))
@@ -3274,6 +3274,7 @@ visit_use (tree use)
 	    {
 	      /* Try constant folding based on our current lattice.  */
 	      tree simplified = gimple_fold_stmt_to_constant_1 (stmt,
+								vn_valueize,
 								vn_valueize);
 	      if (simplified)
 		{
