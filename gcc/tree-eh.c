@@ -283,7 +283,9 @@ collect_finally_tree (gimple stmt, gtry *region)
       break;
 
     case GIMPLE_EH_FILTER:
-      collect_finally_tree_1 (gimple_eh_filter_failure (stmt), region);
+      collect_finally_tree_1 (gimple_eh_filter_failure  (
+				as_a <geh_filter *> (stmt)),
+			      region);
       break;
 
     case GIMPLE_EH_ELSE:
@@ -546,7 +548,9 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
 				    tf);
       break;
     case GIMPLE_EH_FILTER:
-      replace_goto_queue_stmt_list (gimple_eh_filter_failure_ptr (stmt), tf);
+      replace_goto_queue_stmt_list (gimple_eh_filter_failure_ptr (
+				      as_a <geh_filter *> (stmt)),
+				    tf);
       break;
     case GIMPLE_EH_ELSE:
       {
@@ -1849,10 +1853,11 @@ lower_eh_filter (struct leh_state *state, gtry *tp)
 {
   struct leh_state this_state = *state;
   eh_region this_region = NULL;
-  gimple inner, x;
+  geh_filter *inner;
+  gimple x;
   gimple_seq new_seq;
 
-  inner = gimple_seq_first_stmt (gimple_try_cleanup (tp));
+  inner = as_a <geh_filter *> (gimple_seq_first_stmt (gimple_try_cleanup (tp)));
 
   if (flag_exceptions)
     {
@@ -3109,7 +3114,7 @@ refactor_eh_r (gimple_seq seq)
 	    refactor_eh_r (gimple_catch_handler (as_a <gcatch *> (one)));
 	    break;
 	  case GIMPLE_EH_FILTER:
-	    refactor_eh_r (gimple_eh_filter_failure (one));
+	    refactor_eh_r (gimple_eh_filter_failure (as_a <geh_filter *> (one)));
 	    break;
 	  case GIMPLE_EH_ELSE:
 	    {

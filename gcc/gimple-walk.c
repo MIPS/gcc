@@ -293,8 +293,8 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_EH_FILTER:
-      ret = walk_tree (gimple_eh_filter_types_ptr (stmt), callback_op, wi,
-		       pset);
+      ret = walk_tree (gimple_eh_filter_types_ptr (as_a <geh_filter *> (stmt)),
+		       callback_op, wi, pset);
       if (ret)
 	return ret;
       break;
@@ -589,8 +589,9 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       break;
 
     case GIMPLE_EH_FILTER:
-      ret = walk_gimple_seq_mod (gimple_eh_filter_failure_ptr (stmt), callback_stmt,
-		             callback_op, wi);
+      ret = walk_gimple_seq_mod (gimple_eh_filter_failure_ptr (
+				   as_a <geh_filter *> (stmt)),
+				 callback_stmt, callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;

@@ -485,7 +485,9 @@ lower_try_catch (gimple_stmt_iterator *gsi, struct lower_data *data)
 	 so we just ignore EH_FILTER_TYPES and assume that we might
 	 throw an exception which doesn't match.  */
       data->cannot_fallthru = false;
-      lower_sequence (gimple_eh_filter_failure_ptr (gsi_stmt (i)), data);
+      lower_sequence (gimple_eh_filter_failure_ptr (
+			as_a <geh_filter *> (gsi_stmt (i))),
+		      data);
       if (!data->cannot_fallthru)
 	cannot_fallthru = false;
       break;
@@ -546,7 +548,8 @@ gimple_try_catch_may_fallthru (gtry *stmt)
 	 will throw an exception which matches EH_FILTER_TYPES or not,
 	 so we just ignore EH_FILTER_TYPES and assume that we might
 	 throw an exception which doesn't match.  */
-      return gimple_seq_may_fallthru (gimple_eh_filter_failure (gsi_stmt (i)));
+      return gimple_seq_may_fallthru (gimple_eh_filter_failure (
+					as_a <geh_filter *> (gsi_stmt (i))));
 
     default:
       /* This case represents statements to be executed when an

@@ -1,5 +1,31 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (gimple_eh_filter_types): Strengthen param from
+	const_gimple to const geh_filter *.
+	(gimple_eh_filter_types_ptr): Strengthen param from gimple to
+	geh_filter *.
+	(gimple_eh_filter_failure_ptr): Likewise.
+	(gimple_eh_filter_failure): Likewise.
+
+	* gimple-low.c (lower_try_catch): Add a checked cast.
+	(gimple_try_catch_may_fallthru): Likewise.
+	* gimple-walk.c (walk_gimple_op): Likewise.
+	(walk_gimple_stmt): Likewise.
+	* omp-low.c (lower_omp_1): Likewise.
+	* tree-cfg.c (verify_gimple_in_seq_2): Likewise.
+	(do_warn_unused_result): Likewise.
+	* tree-eh.c (collect_finally_tree): Likewise.
+	(replace_goto_queue_1): Likewise.
+	(lower_eh_filter): Strengthen local "inner" from gimple to
+	geh_filter * via a checked cast.
+	(refactor_eh_r): Add a checked cast.
+	* tree-inline.c (remap_gimple_stmt): Within case
+	GIMPLE_EH_FILTER, introduce local "filter_stmt" via a checked cast
+	and use in place of "stmt".
+	(estimate_num_insns): Add checked cast.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_omp_parallel_combined_p): Strengthen param from
 	const_gimple to const gomp_parallel *.
 	(gimple_omp_parallel_clauses): Likewise.

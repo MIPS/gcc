@@ -3535,25 +3535,21 @@ gimple_catch_set_handler (gcatch *catch_stmt, gimple_seq handler)
 }
 
 
-/* Return the types handled by GIMPLE_EH_FILTER statement GS.  */
+/* Return the types handled by GIMPLE_EH_FILTER statement EH_FILTER_STMT.  */
 
 static inline tree
-gimple_eh_filter_types (const_gimple gs)
+gimple_eh_filter_types (const geh_filter *eh_filter_stmt)
 {
-  const geh_filter *eh_filter_stmt =
-    as_a <const geh_filter *> (gs);
   return eh_filter_stmt->types;
 }
 
 
 /* Return a pointer to the types handled by GIMPLE_EH_FILTER statement
-   GS.  */
+   EH_FILTER_STMT.  */
 
 static inline tree *
-gimple_eh_filter_types_ptr (gimple gs)
+gimple_eh_filter_types_ptr (geh_filter *eh_filter_stmt)
 {
-  geh_filter *eh_filter_stmt =
-    as_a <geh_filter *> (gs);
   return &eh_filter_stmt->types;
 }
 
@@ -3562,10 +3558,8 @@ gimple_eh_filter_types_ptr (gimple gs)
    GIMPLE_EH_FILTER statement fails.  */
 
 static inline gimple_seq *
-gimple_eh_filter_failure_ptr (gimple gs)
+gimple_eh_filter_failure_ptr (geh_filter *eh_filter_stmt)
 {
-  geh_filter *eh_filter_stmt =
-    as_a <geh_filter *> (gs);
   return &eh_filter_stmt->failure;
 }
 
@@ -3574,7 +3568,7 @@ gimple_eh_filter_failure_ptr (gimple gs)
    statement fails.  */
 
 static inline gimple_seq
-gimple_eh_filter_failure (gimple gs)
+gimple_eh_filter_failure (geh_filter *gs)
 {
   return *gimple_eh_filter_failure_ptr (gs);
 }

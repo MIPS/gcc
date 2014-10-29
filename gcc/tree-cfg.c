@@ -4688,7 +4688,8 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
 	  break;
 
 	case GIMPLE_EH_FILTER:
-	  err |= verify_gimple_in_seq_2 (gimple_eh_filter_failure (stmt));
+	  err |= verify_gimple_in_seq_2 (gimple_eh_filter_failure (
+					   as_a <geh_filter *> (stmt)));
 	  break;
 
 	case GIMPLE_EH_ELSE:
@@ -8438,7 +8439,8 @@ do_warn_unused_result (gimple_seq seq)
 				   as_a <gcatch *> (g)));
 	  break;
 	case GIMPLE_EH_FILTER:
-	  do_warn_unused_result (gimple_eh_filter_failure (g));
+	  do_warn_unused_result (gimple_eh_filter_failure (
+				   as_a <geh_filter *> (g)));
 	  break;
 
 	case GIMPLE_CALL:
