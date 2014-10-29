@@ -2361,7 +2361,8 @@ treerr
 	   "\n.. argsp=" argsp)
     (when (<i nbargs 2)
       (error_at loc
-		"(TREE_CALL <called-fun> <chaining> <called-args>...) needs at least two arguments but got only $1" nbargs)
+		"(TREE_CALL_EXPR <calledfun> <chain> <callargs>...) needs at least two arguments but got only $1"
+		nbargs)
       (return))
     (let (
 	  (cachelen (multiple_length tree_call_cmatcher_cache_tuple))
@@ -2425,20 +2426,20 @@ treerr
 		      && call_expr_narg ($TR) == $NBCALLARGS
 		      }#
 		      )
-		     (debug "tree_call_expr" "; cmtest=" cmt)
+		     (debug "patexpand_tree_call_expr" "; cmtest=" cmt)
 		     cmt))
 		  (cmfill
 		   (let ( (cmf (make_list discr_list))
-			 (treecallstate 'treecallstate)
-			 (tr 'tr)
-			 (tr_fun 'tr_fun)
-			 (tr_chain 'tr_chain)
-			 )
+			  (treecallstate 'treecallstate)
+			  (tr 'tr)
+			  (tr_fun 'tr_fun)
+			  (tr_chain 'tr_chain)
+			  )
 		     (add2list
 		      cmf
 		      ##{ /* $CMATNAME $TREECALLSTATE generated fill for call_expr ! */
-		      $TR_FUN = CALL_EXPR_FN($TR);
-		      $TR_CHAIN = CALL_EXPR_STATIC_CHAIN($TR);
+		      $TR_FUN = CALL_EXPR_FN($TR)	      ;
+		      $TR_CHAIN = CALL_EXPR_STATIC_CHAIN($TR) ;
 		      }#)
 		     (foreach_in_multiple
 		      (tupargsymb)
@@ -2446,11 +2447,11 @@ treerr
 		      (if (>=i aix 2)
 			  (let ( (nix (-i aix 2))
 				 )
-			  (add2list cmf
-				    ##{ $CURARGSYMB = CALL_EXPR_ARG ($TR, $NIX);
-				    }#)))
+			    (add2list cmf
+				      ##{ $CURARGSYMB = CALL_EXPR_ARG ($TR, $NIX) ;
+				      }#)))
 		      )
-		     (debug "tree_call_expr" "; cmfill=" cmf)
+		     (debug "patexpand_tree_call_expr" "; cmfill=" cmf)
 		     cmf
 		     ))
 		  (newcmat
@@ -2458,17 +2459,33 @@ treerr
 			     :named_name cmatsymb
 			     :amatch_matchbind trbind
 			     :amatch_out tupargbind ;; tuple of formals
-			     :cmatch_state 'treecallstate	;; symbol
+			     :cmatch_state 'treecallstate ;; symbol
 			     :cmatch_exptest (list_to_multiple cmtest discr_multiple)
 			     :cmatch_expfill (list_to_multiple cmfill discr_multiple)
 			     ))
 		  )
-	      (debug "tree_call_expr" "; loc=" loc "\n.. newcmat=" newcmat)
-	      (error_at loc "unimplemented TREE_CALL_EXPR patmacro")
-	      (assert_msg "@$@unimplemented patexpand_tree_call_expr")
+	      (debug "patexpand_tree_call_expr" "; loc=" loc "\n.. newcmat=" newcmat)
+	      (multiple_put_nth  tree_call_cmatcher_cache_tuple nbcallargs newcmat)
+	      (setq cmat newcmat)
+	      (debug "patexpand_tree_call_expr" "; loc=" loc "; nbcallargs=" nbcallargs
+		     "\n.. updated cachetuple=" tree_call_cmatcher_cache_tuple
+		     "\n.. cmat=" cmat)
 	      )
 	    )
 	  )
+	)
+      (debug "patexpand_tree_call_expr" "; loc=" loc "; cmat=" cmat)
+      (assert_msg "check cmat" (is_a class_cmatcher cmat) cmat)
+      (let (
+	    (res
+	     (instance class_source_cmatchexpr
+		       :loca_location loc
+		       :scmatx_cmatcher cmat
+		       :sargop_args argsp)
+	     )
+	    )
+	(debug "patexpand_tree_call_expr" "; loc=" loc "\n.. res=" res)
+	(return res)
 	)
       )
     )
