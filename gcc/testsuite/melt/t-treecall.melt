@@ -1,0 +1,27 @@
+;; file t-treecall.melt -*- lisp -*- 
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/t-treecall.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args \
+    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=t-treecall.melt \
+     /dev/null -o /dev/null
+## perhaps also: -fmelt-debugging=all -fmelt-out-descr-comment
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=t-treecall.melt \
+     -c -x c /dev/null -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(defun testreecall (v)
+  (let ( (tr (unbox :tree v))
+	 )
+    (match tr
+	   (?(tree_call_expr ?tcallfun ?tchain ?targ0)
+	     (debug "found call0 tcallfun=" tcallfun "; tchain=" tchain
+		    "; targ0=" targ0)
+	     (void))
+	   (?_
+	    (void)))))
+;; eof t-treecall.melt

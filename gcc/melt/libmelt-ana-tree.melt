@@ -2414,19 +2414,45 @@ treerr
 					   :fbind_type ctype_tree))))
 		  (cmtest
 		   (let
-		       ( (cm (make_list discr_list))
+		       ( (cmt (make_list discr_list))
 			 (treecallstate 'treecallstate)
 			 (tr 'tr)
 			 )
 		     (add2list
-		      cm
+		      cmt
 		      ##{ /* $CMATNAME $TREECALLSTATE generated test for call_expr ? */
 		      $TR && TREE_CODE($TR) == CALL_EXPR
 		      && call_expr_narg ($TR) == $NBCALLARGS
 		      }#
 		      )
-		     (debug "tree_call_expr" "; cmtest=" cm)
-		     cm))
+		     (debug "tree_call_expr" "; cmtest=" cmt)
+		     cmt))
+		  (cmfill
+		   (let ( (cmf (make_list discr_list))
+			 (treecallstate 'treecallstate)
+			 (tr 'tr)
+			 (tr_fun 'tr_fun)
+			 (tr_chain 'tr_chain)
+			 )
+		     (add2list
+		      cmf
+		      ##{ /* $CMATNAME $TREECALLSTATE generated fill for call_expr ! */
+		      $TR_FUN = CALL_EXPR_FN($TR);
+		      $TR_CHAIN = CALL_EXPR_STATIC_CHAIN($TR);
+		      }#)
+		     (foreach_in_multiple
+		      (tupargsymb)
+		      (curargsymb :long aix)
+		      (if (>=i aix 2)
+			  (let ( (nix (-i aix 2))
+				 )
+			  (add2list cmf
+				    ##{ $CURARGSYMB = CALL_EXPR_ARG ($TR, $NIX);
+				    }#)))
+		      )
+		     (debug "tree_call_expr" "; cmfill=" cmf)
+		     cmf
+		     ))
 		  (newcmat
 		   (instance class_cmatcher
 			     :named_name cmatsymb
@@ -2434,7 +2460,7 @@ treerr
 			     :amatch_out tupargbind ;; tuple of formals
 			     :cmatch_state 'treecallstate	;; symbol
 			     :cmatch_exptest (list_to_multiple cmtest discr_multiple)
-			     :cmatch_expfill ()
+			     :cmatch_expfill (list_to_multiple cmfill discr_multiple)
 			     ))
 		  )
 	      (debug "tree_call_expr" "; loc=" loc "\n.. newcmat=" newcmat)

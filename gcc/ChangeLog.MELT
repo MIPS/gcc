@@ -1,6 +1,16 @@
 
 2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
-	* melt/libmelt-ana-tree.melt (patexpand_tree_call): More...
+	* melt/libmelt-ana-tree.melt (mexpand_tree_call_expr): Compute the
+	fill.
+
+	* testsuite/melt/t-treecall.melt: New file.
+
+2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (mexpand_tree_call): Rename as...
+	(mexpand_tree_call_expr): renamed...
+	(patexpand_tree_call): Rename as ...
+	(patexpand_tree_call_expr): More...
+
 
 2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
