@@ -2325,16 +2325,17 @@ treerr
   }#)
 
 ;;;;;;;;;;;;;;;;
-(defun mexpand_tree_call (sexpr env mexpander modctx)
-  (debug "mexpand_tree_call" "; sexpr=" sexpr "\n.. env=" env "\n.. modctx=" modctx)
+(defun mexpand_tree_call_expr (sexpr env mexpander modctx)
+  (debug "mexpand_tree_call_expr" "; sexpr=" sexpr "\n.. env=" env "\n.. modctx=" modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
 	)
-    (debug "mexpand_tree_call" "; loc=" loc "; cont=" cont)
-    (assert_msg "@$@unimplemented mexpand_tree_call")
+    (debug "mexpand_tree_call_expr" "; loc=" loc "; cont=" cont)
+    (error_at loc "unimplemented TREE_CALL_EXPR macro")
+    (assert_msg "@$@unimplemented mexpand_tree_call_expr")
     )
   )
 
@@ -2343,8 +2344,8 @@ treerr
 (defvar tree_call_cmatcher_cache_tuple)
 (setq tree_call_cmatcher_cache_tuple (make_multiple discr_multiple 32))
 ;;
-(defun patexpand_tree_call  (sexpr env pctx)
-  (debug "patexpand_tree_call" "; sexpr=" sexpr "\n.. env=" env "\n.. pctx=" pctx)
+(defun patexpand_tree_call_expr  (sexpr env pctx)
+  (debug "patexpand_tree_call_expr" "; sexpr=" sexpr "\n.. env=" env "\n.. pctx=" pctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check pctx" (is_a pctx class_pattern_expansion_context) pctx)
@@ -2356,7 +2357,7 @@ treerr
 	(nbargs (multiple_length argsp))
 	(nbcallargs (-i nbargs 2))
 	)
-    (debug "patexpand_tree_call" "; loc=" loc "; cont=" cont
+    (debug "patexpand_tree_call_expr" "; loc=" loc "; cont=" cont
 	   "\n.. argsp=" argsp)
     (when (<i nbargs 2)
       (error_at loc
@@ -2388,20 +2389,58 @@ treerr
 	   (let ( (curargname (string4out discr_string "TR_ARG_" cix))
 		  (curargsymb (create_symbolstr curargname))
 		  )
-	     (debug "patexpand_tree_call" "; curargsymb=" curargsymb)
+	     (debug "patexpand_tree_call_expr" "; curargsymb=" curargsymb)
 	     (list_append argsymblist curargsymb)
 	     )
 	   )
-	  (debug "patexpand_tree_call" "; loc=" loc
+	  (debug "patexpand_tree_call_expr" "; loc=" loc
 		 " argssymblist=" argsymblist)
 	  (let ( (tupargsymb (list_to_multiple argsymblist discr_multiple))
 		 (cmatname (string4out discr_string "TREE_CALL_" nbcallargs))
 		 (cmatsymb (create_symbolstr cmatname))
 		 )
-	    (debug "patexpand_tree_call" "; loc=" loc
+	    (debug "patexpand_tree_call_expr" "; loc=" loc
 		   " tupargsymb=" tupargsymb
 		   "\n.. cmatsymb=" cmatsymb)
-	    (assert_msg "@$@unimplemented patexpand_tree_call")
+	    (let (
+		  (trbind (instance class_formal_binding
+				    :binder 'tr
+				    :fbind_type ctype_tree))
+		  (tupargbind (multiple_map
+			       tupargsymb
+			       (lambda (tsymb)
+				 (instance class_formal_binding
+					   :binder tsymb
+					   :fbind_type ctype_tree))))
+		  (cmtest
+		   (let
+		       ( (cm (make_list discr_list))
+			 (treecallstate 'treecallstate)
+			 (tr 'tr)
+			 )
+		     (add2list
+		      cm
+		      ##{ /* $CMATNAME $TREECALLSTATE generated test for call_expr ? */
+		      $TR && TREE_CODE($TR) == CALL_EXPR
+		      && call_expr_narg ($TR) == $NBCALLARGS
+		      }#
+		      )
+		     (debug "tree_call_expr" "; cmtest=" cm)
+		     cm))
+		  (newcmat
+		   (instance class_cmatcher
+			     :named_name cmatsymb
+			     :amatch_matchbind trbind
+			     :amatch_out tupargbind ;; tuple of formals
+			     :cmatch_state 'treecallstate	;; symbol
+			     :cmatch_exptest (list_to_multiple cmtest discr_multiple)
+			     :cmatch_expfill ()
+			     ))
+		  )
+	      (debug "tree_call_expr" "; loc=" loc "\n.. newcmat=" newcmat)
+	      (error_at loc "unimplemented TREE_CALL_EXPR patmacro")
+	      (assert_msg "@$@unimplemented patexpand_tree_call_expr")
+	      )
 	    )
 	  )
 	)
@@ -2409,9 +2448,9 @@ treerr
     )
   )
 ;;
-(export_patmacro tree_call patexpand_tree_call mexpand_tree_call
-		 :doc #{The $TREE_CALL is for patterns or expressions
-		 for @code{TREE_CALL}. Usage is @code{(TREE_CALL
+(export_patmacro tree_call_expr patexpand_tree_call_expr mexpand_tree_call_expr
+		 :doc #{The $TREE_CALL_EXPR is for patterns or expressions
+		 for treecode @code{CALL_EXPR}. Usage is @code{(TREE_CALL_EXPR
 		 @var{<called-fun>} @var{<chaining>}
 		 @var{<call-arguments> ...})}, where everything is a tree }#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
