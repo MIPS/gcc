@@ -4707,103 +4707,87 @@ gimple_omp_parallel_set_data_arg (gomp_parallel *omp_parallel_stmt,
 }
 
 
-/* Return the clauses associated with OMP_TASK GS.  */
+/* Return the clauses associated with OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree
-gimple_omp_task_clauses (const_gimple gs)
+gimple_omp_task_clauses (const gomp_task *omp_task_stmt)
 {
-  const gomp_task *omp_task_stmt =
-    as_a <const gomp_task *> (gs);
   return omp_task_stmt->clauses;
 }
 
 
-/* Return a pointer to the clauses associated with OMP_TASK GS.  */
+/* Return a pointer to the clauses associated with OMP_TASK
+   OMP_TASK_STMT.  */
 
 static inline tree *
-gimple_omp_task_clauses_ptr (gimple gs)
+gimple_omp_task_clauses_ptr (gomp_task *omp_task_stmt)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   return &omp_task_stmt->clauses;
 }
 
 
 /* Set CLAUSES to be the list of clauses associated with OMP_TASK
-   GS.  */
+   OMP_TASK_STMT.  */
 
 static inline void
-gimple_omp_task_set_clauses (gimple gs, tree clauses)
+gimple_omp_task_set_clauses (gomp_task *omp_task_stmt, tree clauses)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   omp_task_stmt->clauses = clauses;
 }
 
 
-/* Return the child function used to hold the body of OMP_TASK GS.  */
+/* Return the child function used to hold the body of OMP_TASK
+   OMP_TASK_STMT.  */
 
 static inline tree
-gimple_omp_task_child_fn (const_gimple gs)
+gimple_omp_task_child_fn (const gomp_task *omp_task_stmt)
 {
-  const gomp_task *omp_task_stmt =
-    as_a <const gomp_task *> (gs);
   return omp_task_stmt->child_fn;
 }
 
 /* Return a pointer to the child function used to hold the body of
-   OMP_TASK GS.  */
+   OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree *
-gimple_omp_task_child_fn_ptr (gimple gs)
+gimple_omp_task_child_fn_ptr (gomp_task *omp_task_stmt)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   return &omp_task_stmt->child_fn;
 }
 
 
-/* Set CHILD_FN to be the child function for OMP_TASK GS.  */
+/* Set CHILD_FN to be the child function for OMP_TASK OMP_TASK_STMT.  */
 
 static inline void
-gimple_omp_task_set_child_fn (gimple gs, tree child_fn)
+gimple_omp_task_set_child_fn (gomp_task *omp_task_stmt, tree child_fn)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   omp_task_stmt->child_fn = child_fn;
 }
 
 
 /* Return the artificial argument used to send variables and values
-   from the parent to the children threads in OMP_TASK GS.  */
+   from the parent to the children threads in OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree
-gimple_omp_task_data_arg (const_gimple gs)
+gimple_omp_task_data_arg (const gomp_task *omp_task_stmt)
 {
-  const gomp_task *omp_task_stmt =
-    as_a <const gomp_task *> (gs);
   return omp_task_stmt->data_arg;
 }
 
 
-/* Return a pointer to the data argument for OMP_TASK GS.  */
+/* Return a pointer to the data argument for OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree *
-gimple_omp_task_data_arg_ptr (gimple gs)
+gimple_omp_task_data_arg_ptr (gomp_task *omp_task_stmt)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   return &omp_task_stmt->data_arg;
 }
 
 
-/* Set DATA_ARG to be the data argument for OMP_TASK GS.  */
+/* Set DATA_ARG to be the data argument for OMP_TASK OMP_TASK_STMT.  */
 
 static inline void
-gimple_omp_task_set_data_arg (gimple gs, tree data_arg)
+gimple_omp_task_set_data_arg (gomp_task *omp_task_stmt, tree data_arg)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   omp_task_stmt->data_arg = data_arg;
 }
 
@@ -4909,101 +4893,84 @@ gimple_omp_taskreg_set_data_arg (gimple gs, tree data_arg)
 }
 
 
-/* Return the copy function used to hold the body of OMP_TASK GS.  */
+/* Return the copy function used to hold the body of OMP_TASK
+   OMP_TASK_STMT.  */
 
 static inline tree
-gimple_omp_task_copy_fn (const_gimple gs)
+gimple_omp_task_copy_fn (const gomp_task *omp_task_stmt)
 {
-  const gomp_task *omp_task_stmt =
-    as_a <const gomp_task *> (gs);
   return omp_task_stmt->copy_fn;
 }
 
 /* Return a pointer to the copy function used to hold the body of
-   OMP_TASK GS.  */
+   OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree *
-gimple_omp_task_copy_fn_ptr (gimple gs)
+gimple_omp_task_copy_fn_ptr (gomp_task *omp_task_stmt)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   return &omp_task_stmt->copy_fn;
 }
 
 
-/* Set CHILD_FN to be the copy function for OMP_TASK GS.  */
+/* Set CHILD_FN to be the copy function for OMP_TASK OMP_TASK_STMT.  */
 
 static inline void
-gimple_omp_task_set_copy_fn (gimple gs, tree copy_fn)
+gimple_omp_task_set_copy_fn (gomp_task *omp_task_stmt, tree copy_fn)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   omp_task_stmt->copy_fn = copy_fn;
 }
 
 
-/* Return size of the data block in bytes in OMP_TASK GS.  */
+/* Return size of the data block in bytes in OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree
-gimple_omp_task_arg_size (const_gimple gs)
+gimple_omp_task_arg_size (const gomp_task *omp_task_stmt)
 {
-  const gomp_task *omp_task_stmt =
-    as_a <const gomp_task *> (gs);
   return omp_task_stmt->arg_size;
 }
 
 
-/* Return a pointer to the data block size for OMP_TASK GS.  */
+/* Return a pointer to the data block size for OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree *
-gimple_omp_task_arg_size_ptr (gimple gs)
+gimple_omp_task_arg_size_ptr (gomp_task *omp_task_stmt)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   return &omp_task_stmt->arg_size;
 }
 
 
-/* Set ARG_SIZE to be the data block size for OMP_TASK GS.  */
+/* Set ARG_SIZE to be the data block size for OMP_TASK OMP_TASK_STMT.  */
 
 static inline void
-gimple_omp_task_set_arg_size (gimple gs, tree arg_size)
+gimple_omp_task_set_arg_size (gomp_task *omp_task_stmt, tree arg_size)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   omp_task_stmt->arg_size = arg_size;
 }
 
 
-/* Return align of the data block in bytes in OMP_TASK GS.  */
+/* Return align of the data block in bytes in OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree
-gimple_omp_task_arg_align (const_gimple gs)
+gimple_omp_task_arg_align (const gomp_task *omp_task_stmt)
 {
-  const gomp_task *omp_task_stmt =
-    as_a <const gomp_task *> (gs);
   return omp_task_stmt->arg_align;
 }
 
 
-/* Return a pointer to the data block align for OMP_TASK GS.  */
+/* Return a pointer to the data block align for OMP_TASK OMP_TASK_STMT.  */
 
 static inline tree *
-gimple_omp_task_arg_align_ptr (gimple gs)
+gimple_omp_task_arg_align_ptr (gomp_task *omp_task_stmt)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   return &omp_task_stmt->arg_align;
 }
 
 
-/* Set ARG_SIZE to be the data block align for OMP_TASK GS.  */
+/* Set ARG_SIZE to be the data block align for OMP_TASK OMP_TASK_STMT.  */
 
 static inline void
-gimple_omp_task_set_arg_align (gimple gs, tree arg_align)
+gimple_omp_task_set_arg_align (gomp_task *omp_task_stmt, tree arg_align)
 {
-  gomp_task *omp_task_stmt =
-    as_a <gomp_task *> (gs);
   omp_task_stmt->arg_align = arg_align;
 }
 

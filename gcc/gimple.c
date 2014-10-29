@@ -1771,18 +1771,22 @@ gimple_copy (gimple stmt)
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_TASK:
-	  t = unshare_expr (gimple_omp_task_clauses (stmt));
-	  gimple_omp_task_set_clauses (copy, t);
-	  t = unshare_expr (gimple_omp_task_child_fn (stmt));
-	  gimple_omp_task_set_child_fn (copy, t);
-	  t = unshare_expr (gimple_omp_task_data_arg (stmt));
-	  gimple_omp_task_set_data_arg (copy, t);
-	  t = unshare_expr (gimple_omp_task_copy_fn (stmt));
-	  gimple_omp_task_set_copy_fn (copy, t);
-	  t = unshare_expr (gimple_omp_task_arg_size (stmt));
-	  gimple_omp_task_set_arg_size (copy, t);
-	  t = unshare_expr (gimple_omp_task_arg_align (stmt));
-	  gimple_omp_task_set_arg_align (copy, t);
+	  {
+	    gomp_task *omp_task_stmt = as_a <gomp_task *> (stmt);
+	    gomp_task *omp_task_copy = as_a <gomp_task *> (copy);
+	    t = unshare_expr (gimple_omp_task_clauses (omp_task_stmt));
+	    gimple_omp_task_set_clauses (omp_task_copy, t);
+	    t = unshare_expr (gimple_omp_task_child_fn (omp_task_stmt));
+	    gimple_omp_task_set_child_fn (omp_task_copy, t);
+	    t = unshare_expr (gimple_omp_task_data_arg (omp_task_stmt));
+	    gimple_omp_task_set_data_arg (omp_task_copy, t);
+	    t = unshare_expr (gimple_omp_task_copy_fn (omp_task_stmt));
+	    gimple_omp_task_set_copy_fn (omp_task_copy, t);
+	    t = unshare_expr (gimple_omp_task_arg_size (omp_task_stmt));
+	    gimple_omp_task_set_arg_size (omp_task_copy, t);
+	    t = unshare_expr (gimple_omp_task_arg_align (omp_task_stmt));
+	    gimple_omp_task_set_arg_align (omp_task_copy, t);
+	  }
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_CRITICAL:

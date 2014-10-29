@@ -373,30 +373,33 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_TASK:
-      ret = walk_tree (gimple_omp_task_clauses_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_task_child_fn_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_task_data_arg_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_task_copy_fn_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_task_arg_size_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_task_arg_align_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
+      {
+	gomp_task *omp_task = as_a <gomp_task *> (stmt);
+	ret = walk_tree (gimple_omp_task_clauses_ptr (omp_task), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_task_child_fn_ptr (omp_task), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_task_data_arg_ptr (omp_task), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_task_copy_fn_ptr (omp_task), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_task_arg_size_ptr (omp_task), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_task_arg_align_ptr (omp_task), callback_op,
+			 wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_SECTIONS:

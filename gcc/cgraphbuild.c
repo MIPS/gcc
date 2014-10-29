@@ -369,13 +369,13 @@ pass_build_cgraph_edges::execute (function *fun)
 	      node->create_reference (cgraph_node::get_create (fn),
 				      IPA_REF_ADDR, stmt);
 	    }
-	  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
+	  if (gomp_task *omp_task = dyn_cast <gomp_task *> (stmt))
 	    {
-	      tree fn = gimple_omp_task_child_fn (stmt);
+	      tree fn = gimple_omp_task_child_fn (omp_task);
 	      if (fn)
 		node->create_reference (cgraph_node::get_create (fn),
 					IPA_REF_ADDR, stmt);
-	      fn = gimple_omp_task_copy_fn (stmt);
+	      fn = gimple_omp_task_copy_fn (omp_task);
 	      if (fn)
 		node->create_reference (cgraph_node::get_create (fn),
 					IPA_REF_ADDR, stmt);

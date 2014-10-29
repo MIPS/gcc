@@ -1922,7 +1922,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   if (!task_copy)
     ctx->cb.dst_fn = decl;
   else
-    gimple_omp_task_set_copy_fn (ctx->stmt, decl);
+    gimple_omp_task_set_copy_fn (as_a <gomp_task *> (ctx->stmt), decl);
 
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;
@@ -2271,10 +2271,10 @@ finish_taskreg_scan (omp_context *ctx)
 	layout_type (ctx->srecord_type);
       tree t = fold_convert_loc (loc, long_integer_type_node,
 				 TYPE_SIZE_UNIT (ctx->record_type));
-      gimple_omp_task_set_arg_size (ctx->stmt, t);
+      gimple_omp_task_set_arg_size (as_a <gomp_task *> (ctx->stmt), t);
       t = build_int_cst (long_integer_type_node,
 			 TYPE_ALIGN_UNIT (ctx->record_type));
-      gimple_omp_task_set_arg_align (ctx->stmt, t);
+      gimple_omp_task_set_arg_align (as_a <gomp_task *> (ctx->stmt), t);
     }
 }
 
@@ -4803,7 +4803,8 @@ optimize_omp_library_calls (gimple entry_stmt)
   tree num_thr_tree = builtin_decl_explicit (BUILT_IN_OMP_GET_NUM_THREADS);
   tree num_thr_id = DECL_ASSEMBLER_NAME (num_thr_tree);
   bool untied_task = (gimple_code (entry_stmt) == GIMPLE_OMP_TASK
-		      && find_omp_clause (gimple_omp_task_clauses (entry_stmt),
+		      && find_omp_clause (gimple_omp_task_clauses (
+					    as_a <gomp_task *> (entry_stmt)),
 					  OMP_CLAUSE_UNTIED) != NULL);
 
   FOR_EACH_BB_FN (bb, cfun)
@@ -9870,7 +9871,7 @@ create_task_copyfn (gomp_task *task_stmt, omp_context *ctx)
 }
 
 static void
-lower_depend_clauses (gimple stmt, gimple_seq *iseq, gimple_seq *oseq)
+lower_depend_clauses (gomp_task *stmt, gimple_seq *iseq, gimple_seq *oseq)
 {
   tree c, clauses;
   gimple g;
@@ -9969,7 +9970,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     {
       push_gimplify_context ();
       dep_bind = gimple_build_bind (NULL, NULL, make_node (BLOCK));
-      lower_depend_clauses (stmt, &dep_ilist, &dep_olist);
+      lower_depend_clauses (as_a <gomp_task *> (stmt), &dep_ilist, &dep_olist);
     }
 
   if (ctx->srecord_type)

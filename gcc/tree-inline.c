@@ -1387,15 +1387,18 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_TASK:
-	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_task
-	           (s1,
-		    gimple_omp_task_clauses (stmt),
-		    gimple_omp_task_child_fn (stmt),
-		    gimple_omp_task_data_arg (stmt),
-		    gimple_omp_task_copy_fn (stmt),
-		    gimple_omp_task_arg_size (stmt),
-		    gimple_omp_task_arg_align (stmt));
+	  {
+	    gomp_task *omp_task_stmt = as_a <gomp_task *> (stmt);
+	    s1 = remap_gimple_seq (gimple_omp_body (omp_task_stmt), id);
+	    copy = gimple_build_omp_task
+	             (s1,
+		      gimple_omp_task_clauses (omp_task_stmt),
+		      gimple_omp_task_child_fn (omp_task_stmt),
+		      gimple_omp_task_data_arg (omp_task_stmt),
+		      gimple_omp_task_copy_fn (omp_task_stmt),
+		      gimple_omp_task_arg_size (omp_task_stmt),
+		      gimple_omp_task_arg_align (omp_task_stmt));
+	  }
 	  break;
 
 	case GIMPLE_OMP_FOR:

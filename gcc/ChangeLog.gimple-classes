@@ -1,3 +1,44 @@
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* gimple.h (gimple_omp_task_clauses): Strengthen param from
+	const_gimple to const gomp_task *.
+	(gimple_omp_task_child_fn): Likewise.
+	(gimple_omp_task_data_arg): Likewise.
+	(gimple_omp_task_copy_fn): Likewise.
+	(gimple_omp_task_arg_size): Likewise.
+	(gimple_omp_task_arg_align): Likewise.
+	(gimple_omp_task_clauses_ptr): Strengthen param from gimple to
+	gomp_task *.
+	(gimple_omp_task_set_clauses): Likewise.
+	(gimple_omp_task_child_fn_ptr): Likewise.
+	(gimple_omp_task_set_child_fn): Likewise.
+	(gimple_omp_task_data_arg_ptr): Likewise.
+	(gimple_omp_task_set_data_arg): Likewise.
+	(gimple_omp_task_copy_fn_ptr): Likewise.
+	(gimple_omp_task_set_copy_fn): Likewise.
+	(gimple_omp_task_arg_size_ptr): Likewise.
+	(gimple_omp_task_set_arg_size): Likewise.
+	(gimple_omp_task_arg_align_ptr): Likewise.
+	(gimple_omp_task_set_arg_align): Likewise.
+
+	* cgraphbuild.c (pass_build_cgraph_edges::execute): Replace check
+	for GIMPLE_OMP_TASK with a dyn_cast, introducing local "omp_task"
+	and using it in place of "stmt" for typesafety.
+	* gimple-walk.c (walk_gimple_op): Within case GIMPLE_OMP_TASK,
+	introduce local "omp_task" via a checked cast, using it in place
+	of "stmt" for typesafety.
+	* gimple.c (gimple_copy): Likewise, introducing locals
+	"omp_task_stmt" and "omp_task_copy".
+	* omp-low.c (create_omp_child_function): Add a checked cast.
+	(finish_taskreg_scan): Add checked casts.
+	(optimize_omp_library_calls): Add a checked cast.
+	(lower_depend_clauses): Strengthen param "stmt" from gimple to
+	gomp_task *.
+	(lower_omp_taskreg): Add a checked cast.
+	* tree-inline.c (remap_gimple_stmt): Within case GIMPLE_OMP_TASK,
+	introduce local "omp_task_stmt" via a checked cast, using it in
+	place of "stmt" for typesafety.
+
 2014-10-28  David Malcolm  <dmalcolm@redhat.com>
 
 	* gimple.h (gimple_try_kind): Strengthen param from const_gimple
