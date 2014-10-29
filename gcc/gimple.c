@@ -1001,10 +1001,10 @@ gimple_build_omp_ordered (gimple_seq body)
 /* Build a GIMPLE_OMP_RETURN statement.
    WAIT_P is true if this is a non-waiting return.  */
 
-gimple
+gomp_return *
 gimple_build_omp_return (bool wait_p)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_RETURN, 0);
+  gomp_return *p = as_a <gomp_return *> (gimple_alloc (GIMPLE_OMP_RETURN, 0));
   if (wait_p)
     gimple_omp_return_set_nowait (p);
 

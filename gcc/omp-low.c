@@ -4739,8 +4739,9 @@ remove_exit_barrier (struct omp_region *region)
       if (gsi_end_p (gsi))
 	continue;
       stmt = gsi_stmt (gsi);
-      if (gimple_code (stmt) == GIMPLE_OMP_RETURN
-	  && !gimple_omp_return_nowait_p (stmt))
+      gomp_return *omp_return_stmt = dyn_cast <gomp_return *> (stmt);
+      if (omp_return_stmt
+	  && !gimple_omp_return_nowait_p (omp_return_stmt))
 	{
 	  /* OpenMP 3.0 tasks unfortunately prevent this optimization
 	     in many cases.  If there could be tasks queued, the barrier
@@ -4784,7 +4785,7 @@ remove_exit_barrier (struct omp_region *region)
 		}
 	    }
 	  if (!any_addressable_vars)
-	    gimple_omp_return_set_nowait (stmt);
+	    gimple_omp_return_set_nowait (omp_return_stmt);
 	}
     }
 }
@@ -5929,15 +5930,16 @@ expand_omp_for_generic (struct omp_region *region,
 
   /* Add the loop cleanup function.  */
   gsi = gsi_last_bb (exit_bb);
-  if (gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+  gomp_return *omp_return_stmt = as_a <gomp_return *> (gsi_stmt (gsi));
+  if (gimple_omp_return_nowait_p (omp_return_stmt))
     t = builtin_decl_explicit (BUILT_IN_GOMP_LOOP_END_NOWAIT);
-  else if (gimple_omp_return_lhs (gsi_stmt (gsi)))
+  else if (gimple_omp_return_lhs (omp_return_stmt))
     t = builtin_decl_explicit (BUILT_IN_GOMP_LOOP_END_CANCEL);
   else
     t = builtin_decl_explicit (BUILT_IN_GOMP_LOOP_END);
   gcall *call_stmt = gimple_build_call (t, 0);
-  if (gimple_omp_return_lhs (gsi_stmt (gsi)))
-    gimple_call_set_lhs (call_stmt, gimple_omp_return_lhs (gsi_stmt (gsi)));
+  if (gimple_omp_return_lhs (omp_return_stmt))
+    gimple_call_set_lhs (call_stmt, gimple_omp_return_lhs (omp_return_stmt));
   gsi_insert_after (&gsi, call_stmt, GSI_SAME_STMT);
   gsi_remove (&gsi, true);
 
@@ -6336,9 +6338,10 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
-  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+  gomp_return *omp_return_stmt = as_a <gomp_return *> (gsi_stmt (gsi));
+  if (!gimple_omp_return_nowait_p (omp_return_stmt))
     {
-      t = gimple_omp_return_lhs (gsi_stmt (gsi));
+      t = gimple_omp_return_lhs (omp_return_stmt);
       gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
     }
   gsi_remove (&gsi, true);
@@ -6734,9 +6737,10 @@ expand_omp_for_static_chunk (struct omp_region *region,
 
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
-  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+  gomp_return *omp_return_stmt = as_a <gomp_return *> (gsi_stmt (gsi));
+  if (!gimple_omp_return_nowait_p (omp_return_stmt))
     {
-      t = gimple_omp_return_lhs (gsi_stmt (gsi));
+      t = gimple_omp_return_lhs (omp_return_stmt);
       gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
     }
   gsi_remove (&gsi, true);
@@ -7630,15 +7634,16 @@ expand_omp_sections (struct omp_region *region)
 
   /* Cleanup function replaces GIMPLE_OMP_RETURN in EXIT_BB.  */
   si = gsi_last_bb (l2_bb);
-  if (gimple_omp_return_nowait_p (gsi_stmt (si)))
+  gomp_return *omp_return_stmt = as_a <gomp_return *> (gsi_stmt (si));
+  if (gimple_omp_return_nowait_p (omp_return_stmt))
     t = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_END_NOWAIT);
-  else if (gimple_omp_return_lhs (gsi_stmt (si)))
+  else if (gimple_omp_return_lhs (omp_return_stmt))
     t = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_END_CANCEL);
   else
     t = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_END);
   stmt = gimple_build_call (t, 0);
-  if (gimple_omp_return_lhs (gsi_stmt (si)))
-    gimple_call_set_lhs (stmt, gimple_omp_return_lhs (gsi_stmt (si)));
+  if (gimple_omp_return_lhs (omp_return_stmt))
+    gimple_call_set_lhs (stmt, gimple_omp_return_lhs (omp_return_stmt));
   gsi_insert_after (&si, stmt, GSI_SAME_STMT);
   gsi_remove (&si, true);
 
@@ -7664,9 +7669,10 @@ expand_omp_single (struct omp_region *region)
   single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
   si = gsi_last_bb (exit_bb);
-  if (!gimple_omp_return_nowait_p (gsi_stmt (si)))
+  gomp_return *omp_return_stmt = as_a <gomp_return *> (gsi_stmt (si));
+  if (!gimple_omp_return_nowait_p (omp_return_stmt))
     {
-      tree t = gimple_omp_return_lhs (gsi_stmt (si));
+      tree t = gimple_omp_return_lhs (omp_return_stmt);
       gsi_insert_after (&si, build_omp_barrier (t), GSI_SAME_STMT);
     }
   gsi_remove (&si, true);
@@ -8885,8 +8891,8 @@ make_pass_expand_omp (gcc::context *ctxt)
 static void
 maybe_add_implicit_barrier_cancel (omp_context *ctx, gimple_seq *body)
 {
-  gimple omp_return = gimple_seq_last_stmt (*body);
-  gcc_assert (gimple_code (omp_return) == GIMPLE_OMP_RETURN);
+  gomp_return *omp_return =
+    as_a <gomp_return *> (gimple_seq_last_stmt (*body));
   if (gimple_omp_return_nowait_p (omp_return))
     return;
   if (ctx->outer

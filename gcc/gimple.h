@@ -711,8 +711,7 @@ struct GTY((tag("GSS_OMP_ATOMIC_STORE_LAYOUT")))
 };
 
 struct GTY((tag("GSS_OMP_ATOMIC_STORE_LAYOUT")))
-  gimple_statement_omp_return :
-    public gimple_statement_omp_atomic_store_layout
+  gomp_return : public gimple_statement_omp_atomic_store_layout
 {
     /* No extra fields; adds invariant:
          stmt->code == GIMPLE_OMP_RETURN.  */
@@ -966,7 +965,7 @@ is_a_helper <gomp_atomic_store *>::test (gimple gs)
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_omp_return *>::test (gimple gs)
+is_a_helper <gomp_return *>::test (gimple gs)
 {
   return gs->code == GIMPLE_OMP_RETURN;
 }
@@ -1174,7 +1173,7 @@ is_a_helper <const gomp_atomic_store *>::test (const_gimple gs)
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_omp_return *>::test (const_gimple gs)
+is_a_helper <const gomp_return *>::test (const_gimple gs)
 {
   return gs->code == GIMPLE_OMP_RETURN;
 }
@@ -1340,7 +1339,7 @@ gimple gimple_build_omp_master (gimple_seq);
 gimple gimple_build_omp_taskgroup (gimple_seq);
 gomp_continue *gimple_build_omp_continue (tree, tree);
 gimple gimple_build_omp_ordered (gimple_seq);
-gimple gimple_build_omp_return (bool);
+gomp_return *gimple_build_omp_return (bool);
 gomp_sections *gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_sections_switch (void);
 gomp_single *gimple_build_omp_single (gimple_seq, tree);
@@ -2030,9 +2029,8 @@ gimple_omp_set_subcode (gimple s, unsigned int subcode)
 /* Set the nowait flag on OMP_RETURN statement S.  */
 
 static inline void
-gimple_omp_return_set_nowait (gimple s)
+gimple_omp_return_set_nowait (gomp_return *s)
 {
-  GIMPLE_CHECK (s, GIMPLE_OMP_RETURN);
   s->subcode |= GF_OMP_RETURN_NOWAIT;
 }
 
@@ -2041,9 +2039,8 @@ gimple_omp_return_set_nowait (gimple s)
    flag set.  */
 
 static inline bool
-gimple_omp_return_nowait_p (const_gimple g)
+gimple_omp_return_nowait_p (const gomp_return *g)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_RETURN);
   return (gimple_omp_subcode (g) & GF_OMP_RETURN_NOWAIT) != 0;
 }
 
@@ -2051,10 +2048,8 @@ gimple_omp_return_nowait_p (const_gimple g)
 /* Set the LHS of OMP return.  */
 
 static inline void
-gimple_omp_return_set_lhs (gimple g, tree lhs)
+gimple_omp_return_set_lhs (gomp_return *omp_return_stmt, tree lhs)
 {
-  gimple_statement_omp_return *omp_return_stmt =
-    as_a <gimple_statement_omp_return *> (g);
   omp_return_stmt->val = lhs;
 }
 
@@ -2062,10 +2057,8 @@ gimple_omp_return_set_lhs (gimple g, tree lhs)
 /* Get the LHS of OMP return.  */
 
 static inline tree
-gimple_omp_return_lhs (const_gimple g)
+gimple_omp_return_lhs (const gomp_return *omp_return_stmt)
 {
-  const gimple_statement_omp_return *omp_return_stmt =
-    as_a <const gimple_statement_omp_return *> (g);
   return omp_return_stmt->val;
 }
 
@@ -2073,10 +2066,8 @@ gimple_omp_return_lhs (const_gimple g)
 /* Return a pointer to the LHS of OMP return.  */
 
 static inline tree *
-gimple_omp_return_lhs_ptr (gimple g)
+gimple_omp_return_lhs_ptr (gomp_return *omp_return_stmt)
 {
-  gimple_statement_omp_return *omp_return_stmt =
-    as_a <gimple_statement_omp_return *> (g);
   return &omp_return_stmt->val;
 }
 

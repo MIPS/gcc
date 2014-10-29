@@ -1,5 +1,41 @@
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (struct gimple_statement_omp_return): Rename to...
+	(struct gomp_return): ...this.
+	(is_a_helper <gimple_statement_omp_return *>::test): Rename to...
+	(is_a_helper <gomp_return *>::test): ...this.
+	(is_a_helper <const gimple_statement_omp_return *>::test): Rename to...
+	(is_a_helper <const gomp_return *>::test): ...this.
+	(gimple_build_omp_return): Strengthen return type from gimple to
+	gomp_return *.
+	(gimple_omp_return_set_nowait): Likewise for param.
+	(gimple_omp_return_set_lhs): Likewise.
+	(gimple_omp_return_lhs_ptr): Likewise.
+	(gimple_omp_return_nowait_p): Strengthen param from const_gimple
+	to const gomp_return *.
+	(gimple_omp_return_lhs): Likewise.
+
+	* gimple-pretty-print.c (dump_gimple_omp_return): Strengthen param
+	from gimple to gomp_return *.
+	(pp_gimple_stmt_1): Add checked cast.
+	* gimple-walk.c (walk_gimple_op): Likewise.
+	* gimple.c (gimple_build_omp_return): Strengthen return type and
+	local "p" from gimple to gomp_return *.
+	* omp-low.c (remove_exit_barrier): Replace check against
+	GIMPLE_OMP_RETURN with a dyn_cast, introducing local
+	"omp_return_stmt" and using it in place of "stmt".
+	(expand_omp_for_generic): Introduce local "omp_return_stmt" via a
+	checked cast, using it in place of "gsi_stmt (gsi)".
+	(expand_omp_for_static_nochunk): Likewise.
+	(expand_omp_for_static_chunk): Likewise.
+	(expand_omp_sections): Introduce local "omp_return_stmt" via a
+	checked cast, using it in place of "gsi_stmt (si)".
+	(expand_omp_single): Likewise.
+	(maybe_add_implicit_barrier_cancel): Strengthen local "omp_return"
+	from gimple to gomp_return * via a checked cast.
+
+2014-10-29  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_omp_sections_clauses): Strengthen param from
 	const_gimple to const gomp_sections *.
 	(gimple_omp_sections_control): Likewise.

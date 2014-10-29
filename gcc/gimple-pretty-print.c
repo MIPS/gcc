@@ -1502,7 +1502,8 @@ dump_gimple_omp_critical (pretty_printer *buffer, gomp_critical *gs,
 /* Dump a GIMPLE_OMP_RETURN tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_omp_return (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_omp_return (pretty_printer *buffer, gomp_return *gs, int spc,
+			int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2191,7 +2192,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_RETURN:
-      dump_gimple_omp_return (buffer, gs, spc, flags);
+      dump_gimple_omp_return (buffer, as_a <gomp_return *> (gs), spc, flags);
       break;
 
     case GIMPLE_OMP_SECTIONS:

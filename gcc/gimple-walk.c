@@ -474,8 +474,9 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_RETURN:
-      ret = walk_tree (gimple_omp_return_lhs_ptr (stmt), callback_op, wi,
-		       pset);
+      ret = walk_tree (gimple_omp_return_lhs_ptr (
+			 as_a <gomp_return *> (stmt)),
+		       callback_op, wi, pset);
       if (ret)
 	return ret;
       break;
