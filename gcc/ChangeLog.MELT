@@ -1,4 +1,8 @@
 
+2014-10-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-debug.melt (melt_debug_fun): Also show real time
+	with cpu time, periodically.
+
 2014-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (mexpand_tree_call_expr): Completed
 	but not yet tested...

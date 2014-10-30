@@ -257,9 +257,11 @@ See $MELT_NEED_DBGLIM.}#
 	      strftime ($GETTIME_CHK#timbuf, sizeof($GETTIME_CHK#timbuf),
 			"%T", localtime(& $GETTIME_CHK#now));
 	      snprintf ($GETTIME_CHK#buf, sizeof($GETTIME_CHK#buf),
-			"%s, %.3f cpu", $GETTIME_CHK#timbuf, clock() * 1.0e-6);
+			"%s, %.3f cpu, %.3f real sec.",
+			$GETTIME_CHK#timbuf, clock() * 1.0e-6,
+			(double) melt_relative_time_millisec() * 1.0e-3);
 	      $(progn
-		 (add2out out "\n!!!@~.@~. " (expr_chunk
+		 (add2out out "\n!!!!++++++++@~.@~.@~.@~.@~.@~.@~.@~. " (expr_chunk
 				    timestr_chk :cstring
 				    #{ /*melt_debug_fun $TIMESTR_CHK*/
 				    $GETTIME_CHK#buf }#)
