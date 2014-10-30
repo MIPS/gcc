@@ -1,3 +1,8 @@
+2014-10-30  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_op): Check if predicate is used in
+	result operand.
+
 2014-10-29  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (parser::parse_for): Make sure to have a valid

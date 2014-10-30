@@ -2790,6 +2790,8 @@ parser::parse_op ()
 	    op = new predicate (p);
 	  else
 	    fatal_at (token, "using an unsupported operator as predicate");
+	  if (!parsing_match_operand)
+	    fatal_at (token, "predicates are only allowed in match expression");
 	  token = peek ();
 	  if (token->flags & PREV_WHITE)
 	    return op;
