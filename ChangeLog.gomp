@@ -1,3 +1,11 @@
+2014-10-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport trunk r216912:
+
+	* configure.ac (extra_host_libiberty_configure_flags): Add
+	--enable-shared also for libcc1's benefit.
+	* configure: Regenerate.
+
 2014-10-17  Julian Brown  <julian@codesourcery.com>
 
 	* gomp-constants.h: New file.
