@@ -24,16 +24,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "calls.h"
 #include "stringpool.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "hash-map.h"
-#include "hash-set.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "flags.h"
 #include "target.h"
 #include "tree-iterator.h"
 #include "ipa-utils.h"
+#include "alloc-pool.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "tree-inline.h"
 #include "profile.h"
@@ -198,7 +211,11 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 
 	  if (dump_enabled_p ())
             {
-	      location_t locus = gimple_location (edge->call_stmt);
+	      location_t locus;
+	      if (edge->call_stmt)
+		locus = gimple_location (edge->call_stmt);
+	      else
+		locus = UNKNOWN_LOCATION;
 	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
                                "devirtualizing call in %s/%i to %s/%i\n",
                                edge->caller->name (), edge->caller->order,

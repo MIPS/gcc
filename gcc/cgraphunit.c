@@ -167,6 +167,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "output.h"
 #include "rtl.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -191,7 +199,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "fibheap.h"
 #include "intl.h"
-#include "function.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
@@ -331,6 +343,7 @@ symbol_table::process_new_functions (void)
 	  free_dominance_info (CDI_POST_DOMINATORS);
 	  free_dominance_info (CDI_DOMINATORS);
 	  pop_cfun ();
+	  call_cgraph_insertion_hooks (node);
 	  break;
 
 	case EXPANSION:
@@ -879,15 +892,15 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 
 /* Discover all functions and variables that are trivially needed, analyze
    them as well as all functions and variables referred by them  */
+static cgraph_node *first_analyzed;
+static varpool_node *first_analyzed_var;
 
 static void
 analyze_functions (void)
 {
   /* Keep track of already processed nodes when called multiple times for
      intermodule optimization.  */
-  static cgraph_node *first_analyzed;
   cgraph_node *first_handled = first_analyzed;
-  static varpool_node *first_analyzed_var;
   varpool_node *first_handled_var = first_analyzed_var;
   hash_set<void *> reachable_call_targets;
 
@@ -1502,7 +1515,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       if (in_lto_p)
 	get_body ();
       a = DECL_ARGUMENTS (thunk_fndecl);
-      
+
       current_function_decl = thunk_fndecl;
 
       /* Ensure thunks are emitted in their correct sections.  */
@@ -1539,7 +1552,9 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	  else if (!is_gimple_reg_type (restype))
 	    {
 	      restmp = resdecl;
-	      add_local_decl (cfun, restmp);
+
+	      if (TREE_CODE (restmp) == VAR_DECL)
+		add_local_decl (cfun, restmp);
 	      BLOCK_VARS (DECL_INITIAL (current_function_decl)) = restmp;
 	    }
 	  else
@@ -2318,6 +2333,22 @@ symbol_table::finalize_compilation_unit (void)
   compile ();
 
   timevar_pop (TV_CGRAPH);
+}
+
+/* Reset all state within cgraphunit.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+cgraphunit_c_finalize (void)
+{
+  gcc_assert (cgraph_new_nodes.length () == 0);
+  cgraph_new_nodes.truncate (0);
+
+  vtable_entry_type = NULL;
+  queued_nodes = &symtab_terminator;
+
+  first_analyzed = NULL;
+  first_analyzed_var = NULL;
 }
 
 /* Creates a wrapper from cgraph_node to TARGET node. Thunk is used for this

@@ -40,9 +40,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "except.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "intl.h"
 #include "graph.h"
@@ -75,7 +80,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-dump.h"
 #include "df.h"
-#include "predict.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "plugin.h"
 #include "ipa-utils.h"
@@ -84,7 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
-#include "hash-map.h"
 
 using namespace gcc;
 
@@ -1944,6 +1951,7 @@ execute_ipa_summary_passes (ipa_opt_pass_d *ipa_pass)
 	  if (pass->tv_id)
 	    timevar_push (pass->tv_id);
 
+	  current_pass = pass;
 	  ipa_pass->generate_summary ();
 
 	  /* Stop timevar.  */
@@ -2255,6 +2263,7 @@ ipa_write_summaries_2 (opt_pass *pass, struct lto_out_decl_state *state)
 
           pass_init_dump_file (pass);
 
+	  current_pass = pass;
 	  ipa_pass->write_summary ();
 
           pass_fini_dump_file (pass);
@@ -2375,6 +2384,7 @@ ipa_write_optimization_summaries_1 (opt_pass *pass,
 
           pass_init_dump_file (pass);
 
+	  current_pass = pass;
 	  ipa_pass->write_optimization_summary ();
 
           pass_fini_dump_file (pass);
@@ -2455,6 +2465,7 @@ ipa_read_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
+	      current_pass = pass;
 	      ipa_pass->read_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2505,6 +2516,7 @@ ipa_read_optimization_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
+	      current_pass = pass;
 	      ipa_pass->read_optimization_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2584,6 +2596,7 @@ execute_ipa_stmt_fixups (opt_pass *pass,
 	      if (pass->tv_id)
 		timevar_push (pass->tv_id);
 
+	      current_pass = pass;
 	      ipa_pass->stmt_fixup (node, stmts);
 
 	      /* Stop timevar.  */

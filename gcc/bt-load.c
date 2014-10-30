@@ -30,12 +30,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "flags.h"
 #include "insn-attr.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "except.h"
 #include "tm_p.h"
 #include "diagnostic-core.h"
 #include "tree-pass.h"
 #include "recog.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "cfgloop.h"
 #include "rtl-iter.h"
@@ -1141,7 +1153,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
   rtx src;
   rtx btr_rtx;
   rtx_insn *new_insn;
-  enum machine_mode btr_mode;
+  machine_mode btr_mode;
   btr_user user;
   rtx set;
 

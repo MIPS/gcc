@@ -29,7 +29,7 @@
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
 
-/* We can't use enum machine_mode inside a generator file because it
+/* We can't use machine_mode inside a generator file because it
    hasn't been created yet; we shouldn't be using any code that
    needs the real definition though, so this ought to be safe.  */
 #ifdef GENERATOR_FILE
@@ -164,7 +164,10 @@ extern char arm_arch_name[];
 	    builtin_define ("__ARM_EABI__");		\
 	  }						\
 	if (TARGET_IDIV)				\
-	  builtin_define ("__ARM_ARCH_EXT_IDIV__");	\
+         {						\
+            builtin_define ("__ARM_ARCH_EXT_IDIV__");	\
+            builtin_define ("__ARM_FEATURE_IDIV__");	\
+         }						\
     } while (0)
 
 #include "config/arm/arm-opts.h"
@@ -295,6 +298,9 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 
 /* FPU supports VFPv3 instructions.  */
 #define TARGET_VFP3 (TARGET_VFP && arm_fpu_desc->rev >= 3)
+
+/* FPU supports FPv5 instructions.  */
+#define TARGET_VFP5 (TARGET_VFP && arm_fpu_desc->rev >= 5)
 
 /* FPU only supports VFP single-precision instructions.  */
 #define TARGET_VFP_SINGLE (TARGET_VFP && arm_fpu_desc->regs == VFP_REG_SINGLE)
@@ -1504,7 +1510,7 @@ typedef struct GTY(()) arm_stack_offsets
 }
 arm_stack_offsets;
 
-#ifndef GENERATOR_FILE
+#if !defined(GENERATOR_FILE) && !defined(USED_FOR_TARGET)
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
 typedef struct GTY(()) machine_function
@@ -1541,7 +1547,7 @@ typedef struct GTY(()) machine_function
   rtx thumb1_cc_op0;
   rtx thumb1_cc_op1;
   /* Also record the CC mode that is supported.  */
-  enum machine_mode thumb1_cc_mode;
+  machine_mode thumb1_cc_mode;
   /* Set to 1 after arm_reorg has started.  */
   int after_arm_reorg;
 }

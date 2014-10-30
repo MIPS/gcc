@@ -135,8 +135,8 @@ netbsd			Krister Walfridsson	<krister.walfridsson@gmail.com>
 sh-linux-gnu		Kaz Kojima		<kkojima@gcc.gnu.org>
 RTEMS Ports		Joel Sherrill		<joel@oarcorp.com>
 RTEMS Ports		Ralf Corsepius		<ralf.corsepius@rtems.org>
-VMS			Douglas Rupp		<rupp@gnat.com>
-VMS			Tristan Gingold		<gingold@adacore.com>
+VMS			Douglas Rupp		<douglas.b.rupp@gmail.com>
+VMS			Tristan Gingold		<tgingold@free.fr>
 VxWorks ports		Nathan Sidwell		<nathan@codesourcery.com>
 windows, cygwin, mingw	Kai Tietz		<ktietz@redhat.com>
 windows, cygwin, mingw	Dave Korn		<dave.korn.cygwin@gmail.com>
@@ -380,6 +380,7 @@ Doug Evans					<dje@google.com>
 Chris Fairles					<cfairles@gcc.gnu.org>
 Changpeng Fang					<changpeng.fang@amd.com>
 Li Feng						<nemokingdom@gmail.com>
+Max Filippov					<jcmvbkbc@gmail.com>
 Thomas Fitzsimmons				<fitzsim@redhat.com>
 Brian Ford					<ford@vss.fsi.com>
 John Freeman					<jfreeman08@gmail.com>
@@ -407,6 +408,7 @@ Stuart Hastings					<stuart@apple.com>
 Pat Haugen					<pthaugen@us.ibm.com>
 Mark Heffernan					<meheff@google.com>
 George Helffrich				<george@gcc.gnu.org>
+Daniel Hellstrom				<daniel@gaisler.com>
 Fergus Henderson				<fjh@cs.mu.oz.au>
 Stuart Henderson				<shenders@gcc.gnu.org>
 Matthew Hiller					<hiller@redhat.com>
@@ -583,6 +585,7 @@ Chung-Ju Wu					<jasonwucj@gmail.com>
 Le-Chun Wu					<lcwu@google.com>
 Mingjie Xing					<mingjie.xing@gmail.com>
 Canqun Yang					<canqun@nudt.edu.cn>
+Fei Yang					<felix.yang@huawei.com>
 Jeffrey Yasskin					<jyasskin@google.com>
 Joey Ye						<joey.ye@arm.com>
 Greta Yorsh					<greta.yorsh@arm.com>

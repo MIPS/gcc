@@ -58,6 +58,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-objc.h"
 #include "vec.h"
 #include "target.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "plugin.h"
 #include "omp-low.h"
@@ -112,6 +121,16 @@ c_parse_init (void)
       C_SET_RID_CODE (id, c_common_reswords[i].rid);
       C_IS_RESERVED_WORD (id) = 1;
       ridpointers [(int) c_common_reswords[i].rid] = id;
+    }
+
+  for (i = 0; i < NUM_INT_N_ENTS; i++)
+    {
+      /* We always create the symbols but they aren't always supported.  */
+      char name[50];
+      sprintf (name, "__int%d", int_n_data[i].bitsize);
+      id = get_identifier (xstrdup (name));
+      C_SET_RID_CODE (id, RID_FIRST_INT_N + i);
+      C_IS_RESERVED_WORD (id) = 1;
     }
 }
 
@@ -483,7 +502,6 @@ c_token_starts_typename (c_token *token)
 	{
 	case RID_UNSIGNED:
 	case RID_LONG:
-	case RID_INT128:
 	case RID_SHORT:
 	case RID_SIGNED:
 	case RID_COMPLEX:
@@ -511,6 +529,10 @@ c_token_starts_typename (c_token *token)
 	case RID_AUTO_TYPE:
 	  return true;
 	default:
+	  if (token->keyword >= RID_FIRST_INT_N
+	      && token->keyword < RID_FIRST_INT_N + NUM_INT_N_ENTS
+	      && int_n_enabled_p[token->keyword - RID_FIRST_INT_N])
+	    return true;
 	  return false;
 	}
     case CPP_LESS:
@@ -641,7 +663,6 @@ c_token_starts_declspecs (c_token *token)
 	case RID_THREAD:
 	case RID_UNSIGNED:
 	case RID_LONG:
-	case RID_INT128:
 	case RID_SHORT:
 	case RID_SIGNED:
 	case RID_COMPLEX:
@@ -670,6 +691,10 @@ c_token_starts_declspecs (c_token *token)
 	case RID_AUTO_TYPE:
 	  return true;
 	default:
+	  if (token->keyword >= RID_FIRST_INT_N
+	      && token->keyword < RID_FIRST_INT_N + NUM_INT_N_ENTS
+	      && int_n_enabled_p[token->keyword - RID_FIRST_INT_N])
+	    return true;
 	  return false;
 	}
     case CPP_LESS:
@@ -2162,7 +2187,7 @@ c_parser_static_assert_declaration_no_semi (c_parser *parser)
    type-specifier:
      typeof-specifier
      __auto_type
-     __int128
+     __intN
      _Decimal32
      _Decimal64
      _Decimal128
@@ -2316,7 +2341,6 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  /* Fall through.  */
 	case RID_UNSIGNED:
 	case RID_LONG:
-	case RID_INT128:
 	case RID_SHORT:
 	case RID_SIGNED:
 	case RID_COMPLEX:
@@ -2332,6 +2356,10 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	case RID_FRACT:
 	case RID_ACCUM:
 	case RID_SAT:
+	case RID_INT_N_0:
+	case RID_INT_N_1:
+	case RID_INT_N_2:
+	case RID_INT_N_3:
 	  if (!typespec_ok)
 	    goto out;
 	  attrs_ok = true;
@@ -3742,7 +3770,6 @@ c_parser_attribute_any_word (c_parser *parser)
 	case RID_STATIC:
 	case RID_UNSIGNED:
 	case RID_LONG:
-	case RID_INT128:
 	case RID_CONST:
 	case RID_EXTERN:
 	case RID_REGISTER:
@@ -3772,6 +3799,10 @@ c_parser_attribute_any_word (c_parser *parser)
 	case RID_TRANSACTION_CANCEL:
 	case RID_ATOMIC:
 	case RID_AUTO_TYPE:
+	case RID_INT_N_0:
+	case RID_INT_N_1:
+	case RID_INT_N_2:
+	case RID_INT_N_3:
 	  ok = true;
 	  break;
 	default:
@@ -4666,6 +4697,18 @@ c_parser_compound_statement_nostart (c_parser *parser)
   mark_valid_location_for_stdc_pragma (save_valid_for_pragma);
 }
 
+/* Parse all consecutive labels. */
+
+static void
+c_parser_all_labels (c_parser *parser)
+{
+  while (c_parser_next_token_is_keyword (parser, RID_CASE)
+	 || c_parser_next_token_is_keyword (parser, RID_DEFAULT)
+	 || (c_parser_next_token_is (parser, CPP_NAME)
+	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
+    c_parser_label (parser);
+}
+
 /* Parse a label (C90 6.6.1, C99 6.8.1).
 
    label:
@@ -4889,11 +4932,7 @@ c_parser_label (c_parser *parser)
 static void
 c_parser_statement (c_parser *parser)
 {
-  while (c_parser_next_token_is_keyword (parser, RID_CASE)
-	 || c_parser_next_token_is_keyword (parser, RID_DEFAULT)
-	 || (c_parser_next_token_is (parser, CPP_NAME)
-	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
-    c_parser_label (parser);
+  c_parser_all_labels (parser);
   c_parser_statement_after_labels (parser);
 }
 
@@ -5125,11 +5164,7 @@ c_parser_if_body (c_parser *parser, bool *if_p)
 {
   tree block = c_begin_compound_stmt (flag_isoc99);
   location_t body_loc = c_parser_peek_token (parser)->location;
-  while (c_parser_next_token_is_keyword (parser, RID_CASE)
-	 || c_parser_next_token_is_keyword (parser, RID_DEFAULT)
-	 || (c_parser_next_token_is (parser, CPP_NAME)
-	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
-    c_parser_label (parser);
+  c_parser_all_labels (parser);
   *if_p = c_parser_next_token_is_keyword (parser, RID_IF);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     {
@@ -5156,11 +5191,7 @@ c_parser_else_body (c_parser *parser)
 {
   location_t else_loc = c_parser_peek_token (parser)->location;
   tree block = c_begin_compound_stmt (flag_isoc99);
-  while (c_parser_next_token_is_keyword (parser, RID_CASE)
-	 || c_parser_next_token_is_keyword (parser, RID_DEFAULT)
-	 || (c_parser_next_token_is (parser, CPP_NAME)
-	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
-    c_parser_label (parser);
+  c_parser_all_labels (parser);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     {
       location_t loc = c_parser_peek_token (parser)->location;
@@ -9027,7 +9058,6 @@ c_parser_objc_selector (c_parser *parser)
     case RID_ALIGNOF:
     case RID_UNSIGNED:
     case RID_LONG:
-    case RID_INT128:
     case RID_CONST:
     case RID_SHORT:
     case RID_VOLATILE:
@@ -9048,6 +9078,10 @@ c_parser_objc_selector (c_parser *parser)
     case RID_BOOL:
     case RID_ATOMIC:
     case RID_AUTO_TYPE:
+    case RID_INT_N_0:
+    case RID_INT_N_1:
+    case RID_INT_N_2:
+    case RID_INT_N_3:
       c_parser_consume_token (parser);
       return value;
     default:

@@ -39,6 +39,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "hash-map.h"
 #include "hash-table.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -668,7 +679,7 @@ static int
 stmt_cost (gimple gs, bool speed)
 {
   tree lhs, rhs1, rhs2;
-  enum machine_mode lhs_mode;
+  machine_mode lhs_mode;
 
   gcc_assert (is_gimple_assign (gs));
   lhs = gimple_assign_lhs (gs);
@@ -982,7 +993,7 @@ slsr_process_ref (gimple gs)
 {
   tree ref_expr, base, offset, type;
   HOST_WIDE_INT bitsize, bitpos;
-  enum machine_mode mode;
+  machine_mode mode;
   int unsignedp, volatilep;
   slsr_cand_t c;
 
@@ -2805,7 +2816,7 @@ total_savings (int repl_savings, slsr_cand_t c, const widest_int &incr,
    up sometime.  */
 
 static void
-analyze_increments (slsr_cand_t first_dep, enum machine_mode mode, bool speed)
+analyze_increments (slsr_cand_t first_dep, machine_mode mode, bool speed)
 {
   unsigned i;
 
@@ -3549,7 +3560,7 @@ analyze_candidates_and_replace (void)
 	 less expensive to calculate than the replaced statements.  */
       else
 	{
-	  enum machine_mode mode;
+	  machine_mode mode;
 	  bool speed;
 
 	  /* Determine whether we'll be generating pointer arithmetic

@@ -26,9 +26,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "calls.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "except.h"
-#include "hash-set.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -38,6 +48,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -2657,15 +2670,12 @@ tree_could_trap_p (tree expr)
       /* Assume that accesses to weak functions may trap, unless we know
 	 they are certainly defined in current TU or in some other
 	 LTO partition.  */
-      if (DECL_WEAK (expr) && !DECL_COMDAT (expr))
+      if (DECL_WEAK (expr) && !DECL_COMDAT (expr) && DECL_EXTERNAL (expr))
 	{
-	  struct cgraph_node *node;
-	  if (!DECL_EXTERNAL (expr))
-	    return false;
-	  node = cgraph_node::get (expr)->function_symbol ();
-	  if (node && node->in_other_partition)
-	    return false;
-	  return true;
+	  cgraph_node *node = cgraph_node::get (expr);
+	  if (node)
+	    node = node->function_symbol ();
+	  return !(node && node->in_other_partition);
 	}
       return false;
 
@@ -2673,15 +2683,12 @@ tree_could_trap_p (tree expr)
       /* Assume that accesses to weak vars may trap, unless we know
 	 they are certainly defined in current TU or in some other
 	 LTO partition.  */
-      if (DECL_WEAK (expr) && !DECL_COMDAT (expr))
+      if (DECL_WEAK (expr) && !DECL_COMDAT (expr) && DECL_EXTERNAL (expr))
 	{
-	  varpool_node *node;
-	  if (!DECL_EXTERNAL (expr))
-	    return false;
-	  node = varpool_node::get (expr)->ultimate_alias_target ();
-	  if (node && node->in_other_partition)
-	    return false;
-	  return true;
+	  varpool_node *node = varpool_node::get (expr);
+	  if (node)
+	    node = node->ultimate_alias_target ();
+	  return !(node && node->in_other_partition);
 	}
       return false;
 

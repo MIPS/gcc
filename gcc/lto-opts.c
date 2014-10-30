@@ -23,19 +23,31 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
-#include "hashtab.h"
 #include "bitmap.h"
 #include "flags.h"
 #include "opts.h"
 #include "options.h"
 #include "common/common-target.h"
 #include "diagnostic.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "toplev.h"
 
@@ -115,6 +127,24 @@ lto_write_options (void)
       default:
 	gcc_unreachable ();
       }
+  /* The default -fmath-errno, -fsigned-zeros and -ftrapping-math change
+     depending on the language (they can be disabled by the Ada and Java
+     front-ends).  Pass thru conservative standard settings.  */
+  if (!global_options_set.x_flag_errno_math)
+    append_to_collect_gcc_options (&temporary_obstack, &first_p,
+				   global_options.x_flag_errno_math
+				   ? "-fmath-errno"
+				   : "-fno-math-errno");
+  if (!global_options_set.x_flag_signed_zeros)
+    append_to_collect_gcc_options (&temporary_obstack, &first_p,
+				   global_options.x_flag_signed_zeros
+				   ? "-fsigned-zeros"
+				   : "-fno-signed-zeros");
+  if (!global_options_set.x_flag_trapping_math)
+    append_to_collect_gcc_options (&temporary_obstack, &first_p,
+				   global_options.x_flag_trapping_math
+				   ? "-ftrapping-math"
+				   : "-fno-trapping-math");
   /* We need to merge -f[no-]strict-overflow, -f[no-]wrapv and -f[no-]trapv
      conservatively, so stream out their defaults.  */
   if (!global_options_set.x_flag_wrapv

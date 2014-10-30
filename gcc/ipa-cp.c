@@ -107,6 +107,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "gimple-expr.h"
 #include "target.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "vec.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "bitmap.h"
 #include "tree-pass.h"
@@ -1560,7 +1576,8 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   t = NULL;
 
   /* Try to work out value of virtual table pointer value in replacemnets.  */
-  if (!t && agg_reps && !ie->indirect_info->by_ref)
+  if (!t && agg_reps && !ie->indirect_info->by_ref
+      && !ie->indirect_info->vptr_changed)
     {
       while (agg_reps)
 	{
@@ -1578,7 +1595,8 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   /* Try to work out value of virtual table pointer value in known
      aggregate values.  */
   if (!t && known_aggs.length () > (unsigned int) param_index
-      && !ie->indirect_info->by_ref)
+      && !ie->indirect_info->by_ref
+      && !ie->indirect_info->vptr_changed)
     {
        struct ipa_agg_jump_function *agg;
        agg = known_aggs[param_index];
@@ -3824,4 +3842,16 @@ ipa_opt_pass_d *
 make_pass_ipa_cp (gcc::context *ctxt)
 {
   return new pass_ipa_cp (ctxt);
+}
+
+/* Reset all state within ipa-cp.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+ipa_cp_c_finalize (void)
+{
+  max_count = 0;
+  overall_size = 0;
+  max_new_size = 0;
+  values_topo = NULL;
 }

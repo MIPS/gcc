@@ -225,9 +225,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "regs.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "insn-config.h"
-#include "function.h"
 #include "expr.h"
 #include "insn-attr.h"
 #include "recog.h"
@@ -239,6 +248,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 
 /* This structure represents a candidate for elimination.  */
@@ -252,7 +265,7 @@ typedef struct ext_cand
   enum rtx_code code;
 
   /* The destination mode.  */
-  enum machine_mode mode;
+  machine_mode mode;
 
   /* The instruction where it lives.  */
   rtx_insn *insn;
@@ -318,7 +331,7 @@ combine_set_extension (ext_cand *cand, rtx_insn *curr_insn, rtx *orig_set)
 	{
 	  /* Zero-extend the negative constant by masking out the bits outside
 	     the source mode.  */
-	  enum machine_mode src_mode = GET_MODE (SET_DEST (*orig_set));
+	  machine_mode src_mode = GET_MODE (SET_DEST (*orig_set));
 	  rtx new_const_int
 	    = gen_int_mode (INTVAL (orig_src) & GET_MODE_MASK (src_mode),
 			    GET_MODE (new_reg));
@@ -634,7 +647,7 @@ get_sub_rtx (rtx_insn *def_insn)
 static bool
 merge_def_and_ext (ext_cand *cand, rtx_insn *def_insn, ext_state *state)
 {
-  enum machine_mode ext_src_mode;
+  machine_mode ext_src_mode;
   rtx *sub_rtx;
 
   ext_src_mode = GET_MODE (XEXP (SET_SRC (cand->expr), 0));
@@ -743,7 +756,7 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
       if (!SCALAR_INT_MODE_P (GET_MODE (SET_DEST (PATTERN (cand->insn)))))
 	return false;
 
-      enum machine_mode dst_mode = GET_MODE (SET_DEST (PATTERN (cand->insn)));
+      machine_mode dst_mode = GET_MODE (SET_DEST (PATTERN (cand->insn)));
       rtx src_reg = get_extended_src_reg (SET_SRC (PATTERN (cand->insn)));
 
       /* Ensure the number of hard registers of the copy match.  */
@@ -762,7 +775,8 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
 	 This is merely to keep the test for safety and updating the insn
 	 stream simple.  Also ensure that within the block the candidate
 	 follows the defining insn.  */
-      if (BLOCK_FOR_INSN (cand->insn) != BLOCK_FOR_INSN (def_insn)
+      basic_block bb = BLOCK_FOR_INSN (cand->insn);
+      if (bb != BLOCK_FOR_INSN (def_insn)
 	  || DF_INSN_LUID (def_insn) > DF_INSN_LUID (cand->insn))
 	return false;
 
@@ -812,7 +826,7 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
       if (recog_memoized (insn) == -1)
 	return false;
       extract_insn (insn);
-      if (!constrain_operands (1))
+      if (!constrain_operands (1, get_preferred_alternatives (insn, bb)))
 	return false;
     }
 
@@ -821,7 +835,7 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
      mode if possible, or punt.  */
   if (state->modified[INSN_UID (cand->insn)].kind != EXT_MODIFIED_NONE)
     {
-      enum machine_mode mode;
+      machine_mode mode;
       rtx set;
 
       if (state->modified[INSN_UID (cand->insn)].kind
@@ -922,7 +936,7 @@ add_removable_extension (const_rtx expr, rtx_insn *insn,
 			 unsigned *def_map)
 {
   enum rtx_code code;
-  enum machine_mode mode;
+  machine_mode mode;
   unsigned int idx;
   rtx src, dest;
 

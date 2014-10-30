@@ -29,6 +29,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "rtl.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -45,6 +56,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "diagnostic-core.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -55,7 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "flags.h"
-#include "function.h"
 #include "expr.h"
 #include "tree-pass.h"
 #include "except.h"
@@ -68,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-low.h"
 #include "tree-cfgcleanup.h"
 #include "pretty-print.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "tree-nested.h"
 #include "tree-eh.h"
@@ -213,6 +227,7 @@ static int taskreg_nesting_level;
 static int target_nesting_level;
 static struct omp_region *root_omp_region;
 static bitmap task_shared_vars;
+static vec<omp_context *> taskreg_contexts;
 
 static void scan_omp (gimple_seq *, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
@@ -2418,6 +2433,7 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
     }
 
   ctx = new_omp_context (stmt, outer_ctx);
+  taskreg_contexts.safe_push (ctx);
   if (taskreg_nesting_level > 1)
     ctx->is_nested = true;
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
@@ -2437,11 +2453,6 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
     ctx->record_type = ctx->receiver_decl = NULL;
-  else
-    {
-      layout_type (ctx->record_type);
-      fixup_child_record_type (ctx);
-    }
 }
 
 /* Scan an OpenMP task directive.  */
@@ -2452,7 +2463,6 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
   omp_context *ctx;
   tree name, t;
   gimple stmt = gsi_stmt (*gsi);
-  location_t loc = gimple_location (stmt);
 
   /* Ignore task directives with empty bodies.  */
   if (optimize > 0
@@ -2463,6 +2473,7 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
     }
 
   ctx = new_omp_context (stmt, outer_ctx);
+  taskreg_contexts.safe_push (ctx);
   if (taskreg_nesting_level > 1)
     ctx->is_nested = true;
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
@@ -2500,8 +2511,71 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
       t = build_int_cst (long_integer_type_node, 1);
       gimple_omp_task_set_arg_align (stmt, t);
     }
+}
+
+
+/* If any decls have been made addressable during scan_omp,
+   adjust their fields if needed, and layout record types
+   of parallel/task constructs.  */
+
+static void
+finish_taskreg_scan (omp_context *ctx)
+{
+  if (ctx->record_type == NULL_TREE)
+    return;
+
+  /* If any task_shared_vars were needed, verify all
+     OMP_CLAUSE_SHARED clauses on GIMPLE_OMP_{PARALLEL,TASK}
+     statements if use_pointer_for_field hasn't changed
+     because of that.  If it did, update field types now.  */
+  if (task_shared_vars)
+    {
+      tree c;
+
+      for (c = gimple_omp_taskreg_clauses (ctx->stmt);
+	   c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED)
+	  {
+	    tree decl = OMP_CLAUSE_DECL (c);
+
+	    /* Global variables don't need to be copied,
+	       the receiver side will use them directly.  */
+	    if (is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx)))
+	      continue;
+	    if (!bitmap_bit_p (task_shared_vars, DECL_UID (decl))
+		|| !use_pointer_for_field (decl, ctx))
+	      continue;
+	    tree field = lookup_field (decl, ctx);
+	    if (TREE_CODE (TREE_TYPE (field)) == POINTER_TYPE
+		&& TREE_TYPE (TREE_TYPE (field)) == TREE_TYPE (decl))
+	      continue;
+	    TREE_TYPE (field) = build_pointer_type (TREE_TYPE (decl));
+	    TREE_THIS_VOLATILE (field) = 0;
+	    DECL_USER_ALIGN (field) = 0;
+	    DECL_ALIGN (field) = TYPE_ALIGN (TREE_TYPE (field));
+	    if (TYPE_ALIGN (ctx->record_type) < DECL_ALIGN (field))
+	      TYPE_ALIGN (ctx->record_type) = DECL_ALIGN (field);
+	    if (ctx->srecord_type)
+	      {
+		tree sfield = lookup_sfield (decl, ctx);
+		TREE_TYPE (sfield) = TREE_TYPE (field);
+		TREE_THIS_VOLATILE (sfield) = 0;
+		DECL_USER_ALIGN (sfield) = 0;
+		DECL_ALIGN (sfield) = DECL_ALIGN (field);
+		if (TYPE_ALIGN (ctx->srecord_type) < DECL_ALIGN (sfield))
+		  TYPE_ALIGN (ctx->srecord_type) = DECL_ALIGN (sfield);
+	      }
+	  }
+    }
+
+  if (gimple_code (ctx->stmt) == GIMPLE_OMP_PARALLEL)
+    {
+      layout_type (ctx->record_type);
+      fixup_child_record_type (ctx);
+    }
   else
     {
+      location_t loc = gimple_location (ctx->stmt);
       tree *p, vla_fields = NULL_TREE, *q = &vla_fields;
       /* Move VLA fields to the end.  */
       p = &TYPE_FIELDS (ctx->record_type);
@@ -2521,12 +2595,12 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
       fixup_child_record_type (ctx);
       if (ctx->srecord_type)
 	layout_type (ctx->srecord_type);
-      t = fold_convert_loc (loc, long_integer_type_node,
-			TYPE_SIZE_UNIT (ctx->record_type));
-      gimple_omp_task_set_arg_size (stmt, t);
+      tree t = fold_convert_loc (loc, long_integer_type_node,
+				 TYPE_SIZE_UNIT (ctx->record_type));
+      gimple_omp_task_set_arg_size (ctx->stmt, t);
       t = build_int_cst (long_integer_type_node,
 			 TYPE_ALIGN_UNIT (ctx->record_type));
-      gimple_omp_task_set_arg_align (stmt, t);
+      gimple_omp_task_set_arg_align (ctx->stmt, t);
     }
 }
 
@@ -3369,7 +3443,7 @@ omp_clause_aligned_alignment (tree clause)
 
   /* Otherwise return implementation defined alignment.  */
   unsigned int al = 1;
-  enum machine_mode mode, vmode;
+  machine_mode mode, vmode;
   int vs = targetm.vectorize.autovectorize_vector_sizes ();
   if (vs)
     vs = 1 << floor_log2 (vs);
@@ -3420,7 +3494,7 @@ omp_max_vf (void)
       vs = 1 << floor_log2 (vs);
       return vs;
     }
-  enum machine_mode vqimode = targetm.vectorize.preferred_simd_mode (QImode);
+  machine_mode vqimode = targetm.vectorize.preferred_simd_mode (QImode);
   if (GET_MODE_CLASS (vqimode) == MODE_VECTOR_INT)
     return GET_MODE_NUNITS (vqimode);
   return 1;
@@ -8617,7 +8691,7 @@ expand_omp_atomic_store (basic_block load_bb, tree addr,
   location_t loc;
   gimple stmt;
   tree decl, call, type, itype;
-  enum machine_mode imode;
+  machine_mode imode;
   bool exchange;
 
   gsi = gsi_last_bb (load_bb);
@@ -8700,7 +8774,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   location_t loc;
   enum tree_code code;
   bool need_old, need_new;
-  enum machine_mode imode;
+  machine_mode imode;
   bool seq_cst;
 
   /* We expect to find the following sequences:
@@ -12400,6 +12474,8 @@ static unsigned int
 execute_lower_omp (void)
 {
   gimple_seq body;
+  int i;
+  omp_context *ctx;
 
   /* This pass always runs, to provide PROP_gimple_lomp.
      But often, there is nothing to do.  */
@@ -12413,6 +12489,9 @@ execute_lower_omp (void)
   body = gimple_body (current_function_decl);
   scan_omp (&body, NULL);
   gcc_assert (taskreg_nesting_level == 0);
+  FOR_EACH_VEC_ELT (taskreg_contexts, i, ctx)
+    finish_taskreg_scan (ctx);
+  taskreg_contexts.release ();
 
   if (all_contexts->root)
     {

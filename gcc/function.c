@@ -42,16 +42,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "flags.h"
 #include "except.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "expr.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "output.h"
-#include "hashtab.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "target.h"
@@ -60,6 +64,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "tree-pass.h"
 #include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "basic-block.h"
 #include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
@@ -108,14 +119,14 @@ static GTY((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
   htab_t epilogue_insn_hash;
 
 
-htab_t types_used_by_vars_hash = NULL;
+hash_table<used_type_hasher> *types_used_by_vars_hash = NULL;
 vec<tree, va_gc> *types_used_by_cur_var_decl;
 
 /* Forward declarations.  */
 
 static struct temp_slot *find_temp_slot_from_address (rtx);
 static void pad_to_arg_alignment (struct args_size *, int, struct args_size *);
-static void pad_below (struct args_size *, enum machine_mode, tree);
+static void pad_below (struct args_size *, machine_mode, tree);
 static void reorder_blocks_1 (rtx_insn *, tree, vec<tree> *);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
@@ -230,7 +241,7 @@ frame_offset_overflow (HOST_WIDE_INT offset, tree func)
 /* Return stack slot alignment in bits for TYPE and MODE.  */
 
 static unsigned int
-get_stack_local_alignment (tree type, enum machine_mode mode)
+get_stack_local_alignment (tree type, machine_mode mode)
 {
   unsigned int alignment;
 
@@ -334,7 +345,7 @@ add_frame_space (HOST_WIDE_INT start, HOST_WIDE_INT end)
    We do not round to stack_boundary here.  */
 
 rtx
-assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
+assign_stack_local_1 (machine_mode mode, HOST_WIDE_INT size,
 		      int align, int kind)
 {
   rtx x, addr;
@@ -493,7 +504,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
 /* Wrap up assign_stack_local_1 with last parameter as false.  */
 
 rtx
-assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
+assign_stack_local (machine_mode mode, HOST_WIDE_INT size, int align)
 {
   return assign_stack_local_1 (mode, size, align, ASLK_RECORD_PAD);
 }
@@ -540,17 +551,23 @@ struct GTY(()) temp_slot {
   HOST_WIDE_INT full_size;
 };
 
-/* A table of addresses that represent a stack slot.  The table is a mapping
-   from address RTXen to a temp slot.  */
-static GTY((param_is(struct temp_slot_address_entry))) htab_t temp_slot_address_table;
-static size_t n_temp_slots_in_use;
-
-/* Entry for the above hash table.  */
-struct GTY(()) temp_slot_address_entry {
+/* Entry for the below hash table.  */
+struct GTY((for_user)) temp_slot_address_entry {
   hashval_t hash;
   rtx address;
   struct temp_slot *temp_slot;
 };
+
+struct temp_address_hasher : ggc_hasher<temp_slot_address_entry *>
+{
+  static hashval_t hash (temp_slot_address_entry *);
+  static bool equal (temp_slot_address_entry *, temp_slot_address_entry *);
+};
+
+/* A table of addresses that represent a stack slot.  The table is a mapping
+   from address RTXen to a temp slot.  */
+static GTY(()) hash_table<temp_address_hasher> *temp_slot_address_table;
+static size_t n_temp_slots_in_use;
 
 /* Removes temporary slot TEMP from LIST.  */
 
@@ -634,21 +651,17 @@ temp_slot_address_compute_hash (struct temp_slot_address_entry *t)
 }
 
 /* Return the hash value for an address -> temp slot mapping.  */
-static hashval_t
-temp_slot_address_hash (const void *p)
+hashval_t
+temp_address_hasher::hash (temp_slot_address_entry *t)
 {
-  const struct temp_slot_address_entry *t;
-  t = (const struct temp_slot_address_entry *) p;
   return t->hash;
 }
 
 /* Compare two address -> temp slot mapping entries.  */
-static int
-temp_slot_address_eq (const void *p1, const void *p2)
+bool
+temp_address_hasher::equal (temp_slot_address_entry *t1,
+			    temp_slot_address_entry *t2)
 {
-  const struct temp_slot_address_entry *t1, *t2;
-  t1 = (const struct temp_slot_address_entry *) p1;
-  t2 = (const struct temp_slot_address_entry *) p2;
   return exp_equiv_p (t1->address, t2->address, 0, true);
 }
 
@@ -656,24 +669,21 @@ temp_slot_address_eq (const void *p1, const void *p2)
 static void
 insert_temp_slot_address (rtx address, struct temp_slot *temp_slot)
 {
-  void **slot;
   struct temp_slot_address_entry *t = ggc_alloc<temp_slot_address_entry> ();
   t->address = address;
   t->temp_slot = temp_slot;
   t->hash = temp_slot_address_compute_hash (t);
-  slot = htab_find_slot_with_hash (temp_slot_address_table, t, t->hash, INSERT);
-  *slot = t;
+  *temp_slot_address_table->find_slot_with_hash (t, t->hash, INSERT) = t;
 }
 
 /* Remove an address -> temp slot mapping entry if the temp slot is
    not in use anymore.  Callback for remove_unused_temp_slot_addresses.  */
-static int
-remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
+int
+remove_unused_temp_slot_addresses_1 (temp_slot_address_entry **slot, void *)
 {
-  const struct temp_slot_address_entry *t;
-  t = (const struct temp_slot_address_entry *) *slot;
+  const struct temp_slot_address_entry *t = *slot;
   if (! t->temp_slot->in_use)
-    htab_clear_slot (temp_slot_address_table, slot);
+    temp_slot_address_table->clear_slot (slot);
   return 1;
 }
 
@@ -683,11 +693,10 @@ remove_unused_temp_slot_addresses (void)
 {
   /* Use quicker clearing if there aren't any active temp slots.  */
   if (n_temp_slots_in_use)
-    htab_traverse (temp_slot_address_table,
-		   remove_unused_temp_slot_addresses_1,
-		   NULL);
+    temp_slot_address_table->traverse
+      <void *, remove_unused_temp_slot_addresses_1> (NULL);
   else
-    htab_empty (temp_slot_address_table);
+    temp_slot_address_table->empty ();
 }
 
 /* Find the temp slot corresponding to the object at address X.  */
@@ -703,8 +712,7 @@ find_temp_slot_from_address (rtx x)
   tmp.address = x;
   tmp.temp_slot = NULL;
   tmp.hash = temp_slot_address_compute_hash (&tmp);
-  t = (struct temp_slot_address_entry *)
-    htab_find_with_hash (temp_slot_address_table, &tmp, tmp.hash);
+  t = temp_slot_address_table->find_with_hash (&tmp, tmp.hash);
   if (t)
     return t->temp_slot;
 
@@ -746,7 +754,7 @@ find_temp_slot_from_address (rtx x)
    TYPE is the type that will be used for the stack slot.  */
 
 rtx
-assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
+assign_stack_temp_for_type (machine_mode mode, HOST_WIDE_INT size,
 			    tree type)
 {
   unsigned int align;
@@ -907,7 +915,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
    reuse.  First two arguments are same as in preceding function.  */
 
 rtx
-assign_stack_temp (enum machine_mode mode, HOST_WIDE_INT size)
+assign_stack_temp (machine_mode mode, HOST_WIDE_INT size)
 {
   return assign_stack_temp_for_type (mode, size, NULL_TREE);
 }
@@ -926,7 +934,7 @@ assign_temp (tree type_or_decl, int memory_required,
 	     int dont_promote ATTRIBUTE_UNUSED)
 {
   tree type, decl;
-  enum machine_mode mode;
+  machine_mode mode;
 #ifdef PROMOTE_MODE
   int unsignedp;
 #endif
@@ -1195,12 +1203,9 @@ init_temp_slots (void)
 
   /* Set up the table to map addresses to temp slots.  */
   if (! temp_slot_address_table)
-    temp_slot_address_table = htab_create_ggc (32,
-					       temp_slot_address_hash,
-					       temp_slot_address_eq,
-					       NULL);
+    temp_slot_address_table = hash_table<temp_address_hasher>::create_ggc (32);
   else
-    htab_empty (temp_slot_address_table);
+    temp_slot_address_table->empty ();
 }
 
 /* Functions and data structures to keep track of the values hard regs
@@ -1244,7 +1249,7 @@ get_hard_reg_initial_reg (rtx reg)
    initial value of hard register REGNO.  Return an rtx for such a pseudo.  */
 
 rtx
-get_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
+get_hard_reg_initial_val (machine_mode mode, unsigned int regno)
 {
   struct initial_value_struct *ivs;
   rtx rv;
@@ -1281,7 +1286,7 @@ get_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
    the associated pseudo if so, otherwise return NULL.  */
 
 rtx
-has_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
+has_hard_reg_initial_val (machine_mode mode, unsigned int regno)
 {
   struct initial_value_struct *ivs;
   int i;
@@ -2138,7 +2143,7 @@ use_register_for_decl (const_tree decl)
 /* Return true if TYPE should be passed by invisible reference.  */
 
 bool
-pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+pass_by_reference (CUMULATIVE_ARGS *ca, machine_mode mode,
 		   tree type, bool named_arg)
 {
   if (type)
@@ -2169,7 +2174,7 @@ pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode mode,
    copied instead of caller copied.  */
 
 bool
-reference_callee_copied (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+reference_callee_copied (CUMULATIVE_ARGS *ca, machine_mode mode,
 			 tree type, bool named_arg)
 {
   if (type && TREE_ADDRESSABLE (type))
@@ -2204,9 +2209,9 @@ struct assign_parm_data_one
   tree passed_type;
   rtx entry_parm;
   rtx stack_parm;
-  enum machine_mode nominal_mode;
-  enum machine_mode passed_mode;
-  enum machine_mode promoted_mode;
+  machine_mode nominal_mode;
+  machine_mode passed_mode;
+  machine_mode promoted_mode;
   struct locate_and_pad_arg_data locate;
   int partial;
   BOOL_BITFIELD named_arg : 1;
@@ -2344,7 +2349,7 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
 			     struct assign_parm_data_one *data)
 {
   tree nominal_type, passed_type;
-  enum machine_mode nominal_mode, passed_mode, promoted_mode;
+  machine_mode nominal_mode, passed_mode, promoted_mode;
   int unsignedp;
 
   memset (data, 0, sizeof (*data));
@@ -2859,7 +2864,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	 that mode's store operation.  */
       else if (size <= UNITS_PER_WORD)
 	{
-	  enum machine_mode mode
+	  machine_mode mode
 	    = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
 
 	  if (mode != BLKmode
@@ -2940,7 +2945,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 {
   rtx parmreg, validated_mem;
   rtx equiv_stack_parm;
-  enum machine_mode promoted_nominal_mode;
+  machine_mode promoted_nominal_mode;
   int unsignedp = TYPE_UNSIGNED (TREE_TYPE (parm));
   bool did_conversion = false;
   bool need_conversion, moved;
@@ -3181,7 +3186,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       /* Mark complex types separately.  */
       if (GET_CODE (parmreg) == CONCAT)
 	{
-	  enum machine_mode submode
+	  machine_mode submode
 	    = GET_MODE_INNER (GET_MODE (parmreg));
 	  int regnor = REGNO (XEXP (parmreg, 0));
 	  int regnoi = REGNO (XEXP (parmreg, 1));
@@ -3315,7 +3320,7 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all,
 	  && targetm.calls.split_complex_arg (TREE_TYPE (parm)))
 	{
 	  rtx tmp, real, imag;
-	  enum machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
+	  machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
 
 	  real = DECL_RTL (fnargs[i]);
 	  imag = DECL_RTL (fnargs[i + 1]);
@@ -3459,6 +3464,11 @@ assign_parms (tree fndecl)
 
   fnargs.release ();
 
+  /* Initialize pic_offset_table_rtx with a pseudo register
+     if required.  */
+  if (targetm.use_pseudo_pic_reg ())
+    pic_offset_table_rtx = gen_reg_rtx (Pmode);
+
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
   emit_insn (all.first_conversion_insn);
@@ -3469,7 +3479,7 @@ assign_parms (tree fndecl)
       if (DECL_RESULT (fndecl))
 	{
 	  tree type = TREE_TYPE (DECL_RESULT (fndecl));
-	  enum machine_mode mode = TYPE_MODE (type);
+	  machine_mode mode = TYPE_MODE (type);
 
 	  if (mode != BLKmode
 	      && mode != VOIDmode
@@ -3749,7 +3759,7 @@ gimplify_parameters (void)
     INITIAL_OFFSET_PTR.  LOCATE->SIZE is always positive.  */
 
 void
-locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
+locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 		     int reg_parm_stack_space, int partial,
 		     tree fndecl ATTRIBUTE_UNUSED,
 		     struct args_size *initial_offset_ptr,
@@ -3955,7 +3965,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 }
 
 static void
-pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree sizetree)
+pad_below (struct args_size *offset_ptr, machine_mode passed_mode, tree sizetree)
 {
   if (passed_mode != BLKmode)
     {
@@ -6145,24 +6155,17 @@ hash_types_used_by_vars_entry (const struct types_used_by_vars_entry *entry)
 /* Hash function of the types_used_by_vars_entry hash table.  */
 
 hashval_t
-types_used_by_vars_do_hash (const void *x)
+used_type_hasher::hash (types_used_by_vars_entry *entry)
 {
-  const struct types_used_by_vars_entry *entry =
-    (const struct types_used_by_vars_entry *) x;
-
   return hash_types_used_by_vars_entry (entry);
 }
 
 /*Equality function of the types_used_by_vars_entry hash table.  */
 
-int
-types_used_by_vars_eq (const void *x1, const void *x2)
+bool
+used_type_hasher::equal (types_used_by_vars_entry *e1,
+			 types_used_by_vars_entry *e2)
 {
-  const struct types_used_by_vars_entry *e1 =
-    (const struct types_used_by_vars_entry *) x1;
-  const struct types_used_by_vars_entry *e2 =
-    (const struct types_used_by_vars_entry *)x2;
-
   return (e1->var_decl == e2->var_decl && e1->type == e2->type);
 }
 
@@ -6173,16 +6176,15 @@ types_used_by_var_decl_insert (tree type, tree var_decl)
 {
   if (type != NULL && var_decl != NULL)
     {
-      void **slot;
+      types_used_by_vars_entry **slot;
       struct types_used_by_vars_entry e;
       e.var_decl = var_decl;
       e.type = type;
       if (types_used_by_vars_hash == NULL)
-	types_used_by_vars_hash =
-	  htab_create_ggc (37, types_used_by_vars_do_hash,
-			   types_used_by_vars_eq, NULL);
-      slot = htab_find_slot_with_hash (types_used_by_vars_hash, &e,
-				       hash_types_used_by_vars_entry (&e), INSERT);
+	types_used_by_vars_hash
+	  = hash_table<used_type_hasher>::create_ggc (37);
+
+      slot = types_used_by_vars_hash->find_slot (&e, INSERT);
       if (*slot == NULL)
 	{
 	  struct types_used_by_vars_entry *entry;
@@ -6437,6 +6439,15 @@ match_asm_constraints_1 (rtx_insn *insn, rtx *p_sets, int noutputs)
 
   if (changed)
     df_insn_rescan (insn);
+}
+
+/* Add the decl D to the local_decls list of FUN.  */
+
+void
+add_local_decl (struct function *fun, tree d)
+{
+  gcc_assert (TREE_CODE (d) == VAR_DECL);
+  vec_safe_push (fun->local_decls, d);
 }
 
 namespace {

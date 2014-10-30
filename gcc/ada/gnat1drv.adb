@@ -288,10 +288,12 @@ procedure Gnat1drv is
          Validity_Check_In_Out_Params := True;
          Validity_Check_In_Params     := True;
 
-         --  Turn off style check options since we are not interested in any
-         --  front-end warnings when we are getting CodePeer output.
+         --  Turn off style check options and ignore any style check pragmas
+         --  since we are not interested in any front-end warnings when we are
+         --  getting CodePeer output.
 
          Reset_Style_Check_Options;
+         Ignore_Style_Checks_Pragmas := True;
 
          --  Always perform semantics and generate ali files in CodePeer mode,
          --  so that a gnatmake -c -k will proceed further when possible.
@@ -581,6 +583,17 @@ procedure Gnat1drv is
          else
             Inline_Level := 2;
          end if;
+      end if;
+
+      --  Treat -gnatn as equivalent to -gnatN for non-GCC targets
+
+      if Inline_Active and not Front_End_Inlining then
+
+         --  We really should have a tag for this, what if we added a new
+         --  back end some day, it would not be true for this test, but it
+         --  would be non-GCC, so this is a bit troublesome ???
+
+         Front_End_Inlining := VM_Target /= No_VM or else AAMP_On_Target;
       end if;
 
       --  Set back end inlining indication

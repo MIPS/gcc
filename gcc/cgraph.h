@@ -21,14 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
 
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "basic-block.h"
-#include "function.h"
-#include "ipa-ref.h"
-#include "dumpfile.h"
 
 /* Symbol table consists of functions and variables.
    TODO: add labels and CONST_DECLs.  */
@@ -42,7 +34,7 @@ enum symtab_type
 /* Section names are stored as reference counted strings in GGC safe hashtable
    (to make them survive through PCH).  */
 
-struct GTY(()) section_hash_entry_d
+struct GTY((for_user)) section_hash_entry_d
 {
   int ref_count;
   char *name;  /* As long as this datastructure stays in GGC, we can not put
@@ -51,6 +43,14 @@ struct GTY(()) section_hash_entry_d
 };
 
 typedef struct section_hash_entry_d section_hash_entry;
+
+struct section_name_hasher : ggc_hasher<section_hash_entry *>
+{
+  typedef const char *compare_type;
+
+  static hashval_t hash (section_hash_entry *);
+  static bool equal (section_hash_entry *, const char *);
+};
 
 enum availability
 {
@@ -171,6 +171,12 @@ public:
 
   /* Dump referring in list to FILE.  */
   void dump_referring (FILE *);
+
+  /* Get number of references for this node.  */
+  inline unsigned num_references (void)
+  {
+    return ref_list.references ? ref_list.references->length () : 0;
+  }
 
   /* Iterates I-th reference in the list, REF is also set.  */
   ipa_ref *iterate_reference (unsigned i, ipa_ref *&ref);
@@ -709,7 +715,7 @@ struct GTY(()) cgraph_simd_clone {
 };
 
 /* Function Multiversioning info.  */
-struct GTY(()) cgraph_function_version_info {
+struct GTY((for_user)) cgraph_function_version_info {
   /* The cgraph_node for which the function version info is stored.  */
   cgraph_node *this_node;
   /* Chains all the semantically identical function versions.  The
@@ -747,6 +753,14 @@ enum cgraph_inline_failed_type_t
 };
 
 struct cgraph_edge;
+
+struct cgraph_edge_hasher : ggc_hasher<cgraph_edge *>
+{
+  typedef gimple compare_type;
+
+  static hashval_t hash (cgraph_edge *);
+  static bool equal (cgraph_edge *, gimple);
+};
 
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
@@ -923,6 +937,9 @@ public:
      target code (i.e. RTL).  Functions that are compiled to RTL and beyond
      are free'd in final.c via free_after_compilation().  */
   void release_body (bool keep_arguments = false);
+
+  /* Return the DECL_STRUCT_FUNCTION of the function.  */
+  struct function *get_fun (void);
 
   /* cgraph_node is no longer nested function; update cgraph accordingly.  */
   void unnest (void);
@@ -1177,7 +1194,7 @@ public:
   cgraph_node *clone_of;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
-  htab_t GTY((param_is (cgraph_edge))) call_site_hash;
+  hash_table<cgraph_edge_hasher> *GTY(()) call_site_hash;
   /* Declaration node used to be clone of. */
   tree former_clone_of;
 
@@ -1235,6 +1252,8 @@ public:
   /* True if this decl calls a COMDAT-local function.  This is set up in
      compute_inline_parameters and inline_call.  */
   unsigned calls_comdat_local : 1;
+  /* True if node has been created by merge operation in IPA-ICF.  */
+  unsigned icf_merged: 1;
 };
 
 /* A cgraph node set is a collection of cgraph nodes.  A cgraph node
@@ -1286,15 +1305,17 @@ public:
   tree outer_type;
   tree speculative_outer_type;
   /* True if outer object may be in construction or destruction.  */
-  bool maybe_in_construction;
+  unsigned maybe_in_construction : 1;
   /* True if outer object may be of derived type.  */
-  bool maybe_derived_type;
+  unsigned maybe_derived_type : 1;
   /* True if speculative outer object may be of derived type.  We always
      speculate that construction does not happen.  */
-  bool speculative_maybe_derived_type;
+  unsigned speculative_maybe_derived_type : 1;
   /* True if the context is invalid and all calls should be redirected
      to BUILTIN_UNREACHABLE.  */
-  bool invalid;
+  unsigned invalid : 1;
+  /* True if the outer type is dynamic.  */
+  unsigned dynamic : 1;
 
   /* Build empty "I know nothing" context.  */
   ipa_polymorphic_call_context ();
@@ -1319,8 +1340,32 @@ public:
   void clear_speculation ();
 
   /* Walk container types and modify context to point to actual class
-     containing EXPECTED_TYPE as base class.  */
-  bool restrict_to_inner_class (tree expected_type);
+     containing OTR_TYPE (if non-NULL) as base class.
+     Return true if resulting context is valid.
+
+     When CONSIDER_PLACEMENT_NEW is false, reject contexts that may be made
+     valid only via alocation of new polymorphic type inside by means
+     of placement new.
+
+     When CONSIDER_BASES is false, only look for actual fields, not base types
+     of TYPE.  */
+  bool restrict_to_inner_class (tree otr_type,
+				bool consider_placement_new = true,
+				bool consider_bases = true);
+
+  /* Adjust all offsets in contexts by given number of bits.  */
+  void offset_by (HOST_WIDE_INT);
+  /* Use when we can not track dynamic type change.  This speculatively assume
+     type change is not happening.  */
+  void possible_dynamic_type_change (bool, tree otr_type = NULL);
+  /* Assume that both THIS and a given context is valid and strenghten THIS
+     if possible.  Return true if any strenghtening was made.
+     If actual type the context is being used in is known, OTR_TYPE should be
+     set accordingly. This improves quality of combined result.  */
+  bool combine_with (ipa_polymorphic_call_context, tree otr_type = NULL);
+
+  /* Return TRUE if context is fully useless.  */
+  bool useless_p () const;
 
   /* Dump human readable context to F.  */
   void dump (FILE *f) const;
@@ -1331,9 +1376,12 @@ public:
   void stream_in (struct lto_input_block *, struct data_in *data_in);
 
 private:
+  bool combine_speculation_with (tree, HOST_WIDE_INT, bool, tree);
   void set_by_decl (tree, HOST_WIDE_INT);
   bool set_by_invariant (tree, tree, HOST_WIDE_INT);
   void clear_outer_type (tree otr_type = NULL);
+  bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree);
+  void make_speculative (tree otr_type = NULL);
 };
 
 /* Structure containing additional information about an indirect call.  */
@@ -1369,9 +1417,13 @@ struct GTY(()) cgraph_indirect_call_info
   /* When the previous bit is set, this one determines whether the destination
      is loaded from a parameter passed by reference. */
   unsigned by_ref : 1;
+  /* For polymorphic calls this specify whether the virtual table pointer
+     may have changed in between function entry and the call.  */
+  unsigned vptr_changed : 1;
 };
 
-struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgraph_edge {
+struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
+	    for_user)) cgraph_edge {
   friend class cgraph_node;
 
   /* Remove the edge in the cgraph.  */
@@ -1488,6 +1540,9 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgrap
      Optimizers may later redirect direct call to clone, so 1) and 3)
      do not need to necesarily agree with destination.  */
   unsigned int speculative : 1;
+  /* Set to true when caller is a constructor or destructor of polymorphic
+     type.  */
+  unsigned in_polymorphic_cdtor : 1;
 
 private:
   /* Remove the edge from the list of the callers of the callee.  */
@@ -1700,6 +1755,20 @@ enum symtab_state
   FINISHED
 };
 
+struct asmname_hasher
+{
+  typedef symtab_node *value_type;
+  typedef const_tree compare_type;
+  typedef int store_values_directly;
+
+  static hashval_t hash (symtab_node *n);
+  static bool equal (symtab_node *n, const_tree t);
+  static void ggc_mx (symtab_node *n);
+  static void pch_nx (symtab_node *&);
+  static void pch_nx (symtab_node *&, gt_pointer_operator, void *);
+  static void remove (symtab_node *) {}
+};
+
 class GTY((tag ("SYMTAB"))) symbol_table
 {
 public:
@@ -1708,12 +1777,7 @@ public:
   friend class cgraph_edge;
 
   /* Initialize callgraph dump file.  */
-  inline void
-  initialize (void)
-  {
-    if (!dump_file)
-      dump_file = dump_begin (TDI_cgraph, NULL);
-  }
+  void initialize (void);
 
   /* Register a top-level asm statement ASM_STR.  */
   inline asm_node *finalize_toplevel_asm (tree asm_str);
@@ -1936,10 +2000,10 @@ public:
   bool cpp_implicit_aliases_done;
 
   /* Hash table used to hold sectoons.  */
-  htab_t GTY((param_is (section_hash_entry))) section_hash;
+  hash_table<section_name_hasher> *GTY(()) section_hash;
 
   /* Hash table used to convert assembler names into nodes.  */
-  htab_t GTY((param_is (symtab_node))) assembler_name_hash;
+  hash_table<asmname_hasher> *assembler_name_hash;
 
   /* Hash table used to hold init priorities.  */
   hash_map<symtab_node *, symbol_priority_map> *init_priority_hash;
@@ -1972,11 +2036,7 @@ private:
   /* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
   static bool decl_assembler_name_equal (tree decl, const_tree asmname);
 
-  /* Returns a hash code for P.  */
-  static hashval_t hash_node_by_assembler_name (const void *p);
-
-  /* Returns nonzero if P1 and P2 are equal.  */
-  static int eq_assembler_name (const void *p1, const void *p2);
+  friend struct asmname_hasher;
 
   /* List of hooks triggered when an edge is removed.  */
   cgraph_edge_hook_list * GTY((skip)) m_first_edge_removal_hook;
@@ -1998,7 +2058,43 @@ extern GTY(()) symbol_table *symtab;
 
 extern vec<cgraph_node *> cgraph_new_nodes;
 
+inline hashval_t
+asmname_hasher::hash (symtab_node *n)
+{
+  return symbol_table::decl_assembler_name_hash
+    (DECL_ASSEMBLER_NAME (n->decl));
+}
+
+inline bool
+asmname_hasher::equal (symtab_node *n, const_tree t)
+{
+  return symbol_table::decl_assembler_name_equal (n->decl, t);
+}
+
+extern void gt_ggc_mx (symtab_node *&);
+
+inline void
+asmname_hasher::ggc_mx (symtab_node *n)
+{
+  gt_ggc_mx (n);
+}
+
+extern void gt_pch_nx (symtab_node *&);
+
+inline void
+asmname_hasher::pch_nx (symtab_node *&n)
+{
+  gt_pch_nx (n);
+}
+
+inline void
+asmname_hasher::pch_nx (symtab_node *&n, gt_pointer_operator op, void *cookie)
+{
+  op (&n, cookie);
+}
+
 /* In cgraph.c  */
+void cgraph_c_finalize (void);
 void release_function_body (tree);
 cgraph_indirect_call_info *cgraph_allocate_init_indirect_info (void);
 
@@ -2012,6 +2108,8 @@ bool resolution_used_from_other_file_p (enum ld_plugin_symbol_resolution);
 extern bool gimple_check_call_matching_types (gimple, tree, bool);
 
 /* In cgraphunit.c  */
+void cgraphunit_c_finalize (void);
+
 /*  Initialize datastructures so DECL is a function in lowered gimple form.
     IN_SSA is true if the gimple is in SSA.  */
 basic_block init_lowered_empty_function (tree, bool);
@@ -2164,21 +2262,6 @@ symbol_table::unregister (symtab_node *node)
 
   node->next = NULL;
   node->previous = NULL;
-}
-
-/* Allocate new callgraph node and insert it into basic data structures.  */
-
-inline cgraph_node *
-symbol_table::create_empty (void)
-{
-  cgraph_node *node = allocate_cgraph_symbol ();
-
-  node->type = SYMTAB_FUNCTION;
-  node->frequency = NODE_FREQUENCY_NORMAL;
-  node->count_materialization_scale = REG_BR_PROB_BASE;
-  cgraph_count++;
-
-  return node;
 }
 
 /* Release a callgraph NODE with UID and put in to the list of free nodes.  */
@@ -2452,7 +2535,7 @@ tree add_new_static_var (tree type);
    Each constant in memory thus far output is recorded
    in `const_desc_table'.  */
 
-struct GTY(()) constant_descriptor_tree {
+struct GTY((for_user)) constant_descriptor_tree {
   /* A MEM for the constant.  */
   rtx rtl;
 
@@ -2511,8 +2594,14 @@ varpool_node::all_refs_explicit_p ()
 	  && !force_output);
 }
 
+struct tree_descriptor_hasher : ggc_hasher<constant_descriptor_tree *>
+{
+  static hashval_t hash (constant_descriptor_tree *);
+  static bool equal (constant_descriptor_tree *, constant_descriptor_tree *);
+};
+
 /* Constant pool accessor function.  */
-htab_t constant_pool_htab (void);
+hash_table<tree_descriptor_hasher> *constant_pool_htab (void);
 
 /* Return node that alias is aliasing.  */
 
@@ -2590,6 +2679,19 @@ cgraph_node::mark_force_output (void)
   gcc_checking_assert (!global.inlined_to);
 }
 
+/* Return true if function should be optimized for size.  */
+
+inline bool
+cgraph_node::optimize_for_size_p (void)
+{
+  if (optimize_size)
+    return true;
+  if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
+    return true;
+  else
+    return false;
+}
+
 inline symtab_node * symtab_node::get_create (tree node)
 {
   if (TREE_CODE (node) == VAR_DECL)
@@ -2638,5 +2740,25 @@ ipa_polymorphic_call_context::clear_outer_type (tree otr_type)
   offset = 0;
   maybe_derived_type = true;
   maybe_in_construction = true;
+  dynamic = true;
+}
+
+/* Adjust all offsets in contexts by OFF bits.  */
+
+inline void
+ipa_polymorphic_call_context::offset_by (HOST_WIDE_INT off)
+{
+  if (outer_type)
+    offset += off;
+  if (speculative_outer_type)
+    speculative_offset += off;
+}
+
+/* Return TRUE if context is fully useless.  */
+
+inline bool
+ipa_polymorphic_call_context::useless_p () const
+{
+  return (!outer_type && !speculative_outer_type);
 }
 #endif  /* GCC_CGRAPH_H  */

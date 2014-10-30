@@ -378,7 +378,7 @@ package body Exp_Ch3 is
    --  type. The rules for inheritance of stream attributes by type extensions
    --  are enforced by this function. Furthermore, various restrictions prevent
    --  the generation of these operations, as a useful optimization or for
-   --  certification purposes.
+   --  certification purposes and to save unnecessary generated code.
 
    --------------------------
    -- Adjust_Discriminants --
@@ -2371,7 +2371,10 @@ package body Exp_Ch3 is
                   --  such case the initialization of the _parent field was not
                   --  generated.
 
-                  if not Is_Interface (Etype (Rec_Ent)) then
+                  if not Is_Interface (Etype (Rec_Ent))
+                    and then Nkind (First (Stmts)) = N_Procedure_Call_Statement
+                    and then Is_Init_Proc (Name (First (Stmts)))
+                  then
                      Prepend_To (Body_Stmts, Remove_Head (Stmts));
                   end if;
 
@@ -2655,15 +2658,16 @@ package body Exp_Ch3 is
       ---------------------------
 
       function Build_Init_Statements (Comp_List : Node_Id) return List_Id is
-         Checks     : constant List_Id := New_List;
-         Actions    : List_Id   := No_List;
-         Comp_Loc   : Source_Ptr;
-         Counter_Id : Entity_Id := Empty;
-         Decl       : Node_Id;
-         Has_POC    : Boolean;
-         Id         : Entity_Id;
-         Stmts      : List_Id;
-         Typ        : Entity_Id;
+         Checks       : constant List_Id := New_List;
+         Actions      : List_Id          := No_List;
+         Counter_Id   : Entity_Id        := Empty;
+         Comp_Loc     : Source_Ptr;
+         Decl         : Node_Id;
+         Has_POC      : Boolean;
+         Id           : Entity_Id;
+         Parent_Stmts : List_Id;
+         Stmts        : List_Id;
+         Typ          : Entity_Id;
 
          procedure Increment_Counter (Loc : Source_Ptr);
          --  Generate an "increment by one" statement for the current counter
@@ -2727,6 +2731,7 @@ package body Exp_Ch3 is
             return New_List (Make_Null_Statement (Loc));
          end if;
 
+         Parent_Stmts := New_List;
          Stmts := New_List;
 
          --  Loop through visible declarations of task types and protected
@@ -2956,28 +2961,41 @@ package body Exp_Ch3 is
                end if;
 
                if Present (Checks) then
-                  Append_List_To (Stmts, Checks);
+                  if Chars (Id) = Name_uParent then
+                     Append_List_To (Parent_Stmts, Checks);
+                  else
+                     Append_List_To (Stmts, Checks);
+                  end if;
                end if;
 
                if Present (Actions) then
-                  Append_List_To (Stmts, Actions);
+                  if Chars (Id) = Name_uParent then
+                     Append_List_To (Parent_Stmts, Actions);
 
-                  --  Preserve the initialization state in the current counter
+                  else
+                     Append_List_To (Stmts, Actions);
 
-                  if Chars (Id) /= Name_uParent
-                    and then Needs_Finalization (Typ)
-                  then
-                     if No (Counter_Id) then
-                        Make_Counter (Comp_Loc);
+                     --  Preserve initialization state in the current counter
+
+                     if Needs_Finalization (Typ) then
+                        if No (Counter_Id) then
+                           Make_Counter (Comp_Loc);
+                        end if;
+
+                        Increment_Counter (Comp_Loc);
                      end if;
-
-                     Increment_Counter (Comp_Loc);
                   end if;
                end if;
             end if;
 
             Next_Non_Pragma (Decl);
          end loop;
+
+         --  The parent field must be initialized first because variable
+         --  size components of the parent affect the location of all the
+         --  new components.
+
+         Prepend_List_To (Stmts, Parent_Stmts);
 
          --  Set up tasks and protected object support. This needs to be done
          --  before any component with a per-object access discriminant
@@ -3702,10 +3720,12 @@ package body Exp_Ch3 is
             end if;
          end if;
 
+         --  The aspect is type-specific, so retrieve it from the base type
+
          Call :=
            Make_Procedure_Call_Statement (Loc,
              Name                   =>
-               New_Occurrence_Of (Invariant_Procedure (Typ), Loc),
+               New_Occurrence_Of (Invariant_Procedure (Base_Type (Typ)), Loc),
              Parameter_Associations => New_List (Sel_Comp));
 
          if Is_Access_Type (Etype (Comp)) then
@@ -5064,9 +5084,10 @@ package body Exp_Ch3 is
          --  known to be imported (i.e. whose declaration specifies the Import
          --  aspect). Note that for objects with a pragma Import, we generate
          --  initialization here, and then remove it downstream when processing
-         --  the pragma.
+         --  the pragma. It is also suppressed for variables for which a pragma
+         --  Suppress_Initialization has been explicitly given
 
-         if Is_Imported (Def_Id) then
+         if Is_Imported (Def_Id) or else Suppress_Initialization (Def_Id) then
             return;
          end if;
 
@@ -5325,6 +5346,14 @@ package body Exp_Ch3 is
          return;
       end if;
 
+      --  The type of the object cannot be abstract. This is diagnosed at the
+      --  point the object is frozen, which happens after the declaration is
+      --  fully expanded, so simply return now.
+
+      if Is_Abstract_Type (Typ) then
+         return;
+      end if;
+
       --  First we do special processing for objects of a tagged type where
       --  this is the point at which the type is frozen. The creation of the
       --  dispatch table and the initialization procedure have to be deferred
@@ -5337,9 +5366,9 @@ package body Exp_Ch3 is
         and then Static_Dispatch_Tables
         and then Is_Library_Level_Entity (Def_Id)
         and then Is_Library_Level_Tagged_Type (Base_Typ)
-        and then (Ekind (Base_Typ) = E_Record_Type
-                   or else Ekind (Base_Typ) = E_Protected_Type
-                   or else Ekind (Base_Typ) = E_Task_Type)
+        and then Ekind_In (Base_Typ, E_Record_Type,
+                                     E_Protected_Type,
+                                     E_Task_Type)
         and then not Has_Dispatch_Table (Base_Typ)
       then
          declare
@@ -5853,6 +5882,29 @@ package body Exp_Ch3 is
 
                Set_Expression (N, Empty);
                return;
+
+            --  Handle initialization of limited tagged types
+
+            elsif Is_Tagged_Type (Typ)
+              and then Is_Class_Wide_Type (Typ)
+              and then Is_Limited_Record (Typ)
+            then
+               --  Given that the type is limited we cannot perform a copy. If
+               --  Expr_Q is the reference to a variable we mark the variable
+               --  as OK_To_Rename to expand this declaration into a renaming
+               --  declaration (see bellow).
+
+               if Is_Entity_Name (Expr_Q) then
+                  Set_OK_To_Rename (Entity (Expr_Q));
+
+               --  If we cannot convert the expression into a renaming we must
+               --  consider it an internal error because the backend does not
+               --  have support to handle it.
+
+               else
+                  pragma Assert (False);
+                  raise Program_Error;
+               end if;
 
             --  For discrete types, set the Is_Known_Valid flag if the
             --  initializing value is known to be valid. Only do this for
@@ -9964,7 +10016,9 @@ package body Exp_Ch3 is
 
       --  Bodies for Dispatching stream IO routines. We need these only for
       --  non-limited types (in the limited case there is no dispatching).
-      --  We also skip them if dispatching or finalization are not available.
+      --  We also skip them if dispatching or finalization are not available
+      --  or if stream operations are prohibited by restriction No_Streams or
+      --  from use of pragma/aspect No_Tagged_Streams.
 
       if Stream_Operation_OK (Tag_Typ, TSS_Stream_Read)
         and then No (TSS (Tag_Typ, TSS_Stream_Read))
@@ -10265,6 +10319,7 @@ package body Exp_Ch3 is
                 or else Is_Synchronized_Interface (Typ)))
         and then not Restriction_Active (No_Streams)
         and then not Restriction_Active (No_Dispatch)
+        and then No (No_Tagged_Streams_Pragma (Typ))
         and then not No_Run_Time_Mode
         and then RTE_Available (RE_Tag)
         and then No (Type_Without_Stream_Operation (Typ))

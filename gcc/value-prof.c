@@ -27,6 +27,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "expr.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "value-prof.h"
 #include "flags.h"
@@ -56,10 +65,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "dumpfile.h"
 #include "profile.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "data-streamer.h"
 #include "builtins.h"
 #include "tree-nested.h"
-#include "hash-set.h"
+#include "params.h"
 
 /* In this file value profile based optimizations are placed.  Currently the
    following optimizations are implemented (for more detailed descriptions
@@ -138,7 +151,7 @@ static bool gimple_ic_transform (gimple_stmt_iterator *);
 
 /* Allocate histogram value.  */
 
-static histogram_value
+histogram_value
 gimple_alloc_histogram_value (struct function *fun ATTRIBUTE_UNUSED,
 			      enum hist_type type, gimple stmt, tree value)
 {
@@ -359,6 +372,22 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       }
       fprintf (dump_file, ".\n");
       break;
+    case HIST_TYPE_INDIR_CALL_TOPN:
+      fprintf (dump_file, "Indirect call topn ");
+      if (hist->hvalue.counters)
+	{
+           int i;
+
+           fprintf (dump_file, "accu:%"PRId64, hist->hvalue.counters[0]);
+           for (i = 1; i < (GCOV_ICALL_TOPN_VAL << 2); i += 2)
+             {
+               fprintf (dump_file, " target:%"PRId64 " value:%"PRId64,
+                       (int64_t) hist->hvalue.counters[i],
+                       (int64_t) hist->hvalue.counters[i+1]);
+             }
+        }
+      fprintf (dump_file, ".\n");
+      break;
     case HIST_TYPE_MAX:
       gcc_unreachable ();
    }
@@ -432,9 +461,14 @@ stream_in_histogram_value (struct lto_input_block *ib, gimple stmt)
 	  break;
 
 	case HIST_TYPE_IOR:
-  case HIST_TYPE_TIME_PROFILE:
+        case HIST_TYPE_TIME_PROFILE:
 	  ncounters = 1;
 	  break;
+
+        case HIST_TYPE_INDIR_CALL_TOPN:
+          ncounters = (GCOV_ICALL_TOPN_VAL << 2) + 1;
+          break;
+
 	case HIST_TYPE_MAX:
 	  gcc_unreachable ();
 	}
@@ -1320,7 +1354,7 @@ find_func_by_profile_id (int profile_id)
    may ICE. Here we only do very minimal sanity check just to make compiler happy.
    Returns true if TARGET is considered ok for call CALL_STMT.  */
 
-static bool
+bool
 check_ic_target (gimple call_stmt, struct cgraph_node *target)
 {
    location_t locus;
@@ -1920,8 +1954,12 @@ gimple_indirect_call_to_profile (gimple stmt, histogram_values *values)
 
   values->reserve (3);
 
-  values->quick_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_INDIR_CALL,
-						    stmt, callee));
+  values->quick_push (gimple_alloc_histogram_value (
+                        cfun,
+                        PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
+                          HIST_TYPE_INDIR_CALL_TOPN :
+                          HIST_TYPE_INDIR_CALL,
+			stmt, callee));
 
   return;
 }
@@ -2011,9 +2049,9 @@ gimple_find_values_to_profile (histogram_values *values)
  	  hist->n_counters = 3;
 	  break;
 
-  case HIST_TYPE_TIME_PROFILE:
-    hist->n_counters = 1;
-    break;
+        case HIST_TYPE_TIME_PROFILE:
+          hist->n_counters = 1;
+          break;
 
 	case HIST_TYPE_AVERAGE:
 	  hist->n_counters = 2;
@@ -2022,6 +2060,10 @@ gimple_find_values_to_profile (histogram_values *values)
 	case HIST_TYPE_IOR:
 	  hist->n_counters = 1;
 	  break;
+
+        case HIST_TYPE_INDIR_CALL_TOPN:
+          hist->n_counters = GCOV_ICALL_TOPN_NCOUNTS;
+          break;
 
 	default:
 	  gcc_unreachable ();

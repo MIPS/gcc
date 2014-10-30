@@ -343,13 +343,17 @@ build_value_init (tree type, tsubst_flags_t complain)
   if (CLASS_TYPE_P (type)
       && type_build_ctor_call (type))
     {
-      tree ctor = build_aggr_init_expr
-	(type,
+      tree ctor =
 	 build_special_member_call (NULL_TREE, complete_ctor_identifier,
 				    NULL, type, LOOKUP_NORMAL,
-				    complain));
-      if (ctor == error_mark_node
-	  || type_has_user_provided_default_constructor (type))
+				    complain);
+      if (ctor == error_mark_node)
+	return ctor;
+      tree fn = NULL_TREE;
+      if (TREE_CODE (ctor) == CALL_EXPR)
+	fn = get_callee_fndecl (ctor);
+      ctor = build_aggr_init_expr (type, ctor);
+      if (fn && user_provided_p (fn))
 	return ctor;
       else if (TYPE_HAS_COMPLEX_DFLT (type))
 	{
@@ -536,7 +540,12 @@ get_nsdmi (tree member, bool in_ctor)
   tree save_ccp = current_class_ptr;
   tree save_ccr = current_class_ref;
   if (!in_ctor)
-    inject_this_parameter (DECL_CONTEXT (member), TYPE_UNQUALIFIED);
+    {
+      /* Use a PLACEHOLDER_EXPR when we don't have a 'this' parameter to
+	 refer to; constexpr evaluation knows what to do with it.  */
+      current_class_ref = build0 (PLACEHOLDER_EXPR, DECL_CONTEXT (member));
+      current_class_ptr = build_address (current_class_ref);
+    }
   if (DECL_LANG_SPECIFIC (member) && DECL_TEMPLATE_INFO (member))
     {
       /* Do deferred instantiation of the NSDMI.  */
@@ -556,7 +565,7 @@ get_nsdmi (tree member, bool in_ctor)
 	  error ("constructor required before non-static data member "
 		 "for %qD has been parsed", member);
 	  DECL_INITIAL (member) = error_mark_node;
-	  init = NULL_TREE;
+	  init = error_mark_node;
 	}
       /* Strip redundant TARGET_EXPR so we don't need to remap it, and
 	 so the aggregate init code below will see a CONSTRUCTOR.  */
@@ -1719,7 +1728,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
       tree fn = get_callee_fndecl (rval);
       if (fn && DECL_DECLARED_CONSTEXPR_P (fn))
 	{
-	  tree e = maybe_constant_init (rval);
+	  tree e = maybe_constant_init (rval, exp);
 	  if (TREE_CONSTANT (e))
 	    rval = build2 (INIT_EXPR, type, exp, e);
 	}

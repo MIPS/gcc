@@ -1093,7 +1093,7 @@ package Sinfo is
    --  Do_Storage_Check (Flag17-Sem)
    --    This flag is set in an N_Allocator node to indicate that a storage
    --    check is required for the allocation, or in an N_Subprogram_Body node
-   --    to indicate that a stack check is required in the subprogram prolog.
+   --    to indicate that a stack check is required in the subprogram prologue.
    --    The N_Allocator case is handled by the routine that expands the call
    --    to the runtime routine. The N_Subprogram_Body case is handled by the
    --    backend, and all the semantics does is set the flag.
@@ -1122,13 +1122,6 @@ package Sinfo is
    --    This flag is set in the N_With_Clause mode to indicate that the static
    --    elaboration processing has determined that an Elaborate pragma is
    --    desirable for correct elaboration for this unit.
-
-   --  Elaboration_Boolean (Node2-Sem)
-   --    This field is present in function and procedure specification nodes.
-   --    If set, it points to the entity for a Boolean flag that must be tested
-   --    for certain calls to check for access before elaboration. See body of
-   --    Sem_Elab for further details. This field is Empty if no elaboration
-   --    boolean is required.
 
    --  Else_Actions (List3-Sem)
    --    This field is present in if expression nodes. During code
@@ -4246,6 +4239,11 @@ package Sinfo is
       --  point operands if the Treat_Fixed_As_Integer flag is set and will
       --  thus treat these nodes in identical manner, ignoring small values.
 
+      --  Note on equality/inequality tests for records. In the expanded tree,
+      --  record comparisons are always expanded to be a series of component
+      --  comparisons, so the back end will never see an equality or inequality
+      --  operation with operands of a record type.
+
       --  Note on overflow handling: When the overflow checking mode is set to
       --  MINIMIZED or ELIMINATED, nodes for signed arithmetic operations may
       --  be modified to use a larger type for the operands and result. In
@@ -4890,7 +4888,6 @@ package Sinfo is
       --  N_Function_Specification
       --  Sloc points to FUNCTION
       --  Defining_Unit_Name (Node1) (the designator)
-      --  Elaboration_Boolean (Node2-Sem)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Null_Exclusion_Present (Flag11)
       --  Result_Definition (Node4) for result subtype
@@ -4901,7 +4898,6 @@ package Sinfo is
       --  N_Procedure_Specification
       --  Sloc points to PROCEDURE
       --  Defining_Unit_Name (Node1)
-      --  Elaboration_Boolean (Node2-Sem)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Generic_Parent (Node5-Sem)
       --  Null_Present (Flag13) set for null procedure case (Ada 2005 feature)
@@ -8958,9 +8954,6 @@ package Sinfo is
    function Elaborate_Present
      (N : Node_Id) return Boolean;    -- Flag4
 
-   function Elaboration_Boolean
-     (N : Node_Id) return Node_Id;    -- Node2
-
    function Else_Actions
      (N : Node_Id) return List_Id;    -- List3
 
@@ -9979,9 +9972,6 @@ package Sinfo is
 
    procedure Set_Elaborate_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag4
-
-   procedure Set_Elaboration_Boolean
-     (N : Node_Id; Val : Node_Id);            -- Node2
 
    procedure Set_Else_Actions
      (N : Node_Id; Val : List_Id);            -- List3
@@ -11505,14 +11495,14 @@ package Sinfo is
 
      N_Function_Specification =>
        (1 => True,    --  Defining_Unit_Name (Node1)
-        2 => False,   --  Elaboration_Boolean (Node2-Sem)
+        2 => False,   --  unused
         3 => True,    --  Parameter_Specifications (List3)
         4 => True,    --  Result_Definition (Node4)
         5 => False),  --  Generic_Parent (Node5-Sem)
 
      N_Procedure_Specification =>
        (1 => True,    --  Defining_Unit_Name (Node1)
-        2 => False,   --  Elaboration_Boolean (Node2-Sem)
+        2 => False,   --  unused
         3 => True,    --  Parameter_Specifications (List3)
         4 => False,   --  unused
         5 => False),  --  Generic_Parent (Node5-Sem)
@@ -12546,7 +12536,6 @@ package Sinfo is
    pragma Inline (Elaborate_All_Desirable);
    pragma Inline (Elaborate_All_Present);
    pragma Inline (Elaborate_Desirable);
-   pragma Inline (Elaboration_Boolean);
    pragma Inline (Else_Actions);
    pragma Inline (Else_Statements);
    pragma Inline (Elsif_Parts);
@@ -12884,7 +12873,6 @@ package Sinfo is
    pragma Inline (Set_Elaborate_All_Present);
    pragma Inline (Set_Elaborate_Desirable);
    pragma Inline (Set_Elaborate_Present);
-   pragma Inline (Set_Elaboration_Boolean);
    pragma Inline (Set_Else_Actions);
    pragma Inline (Set_Else_Statements);
    pragma Inline (Set_Elsif_Parts);

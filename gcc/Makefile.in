@@ -120,6 +120,10 @@ vpath %.texi $(gcc_docdir)/include
 # UNSORTED
 # --------
 
+# Extra flags to pass to indicate cross compilation, which
+# might be used or tested by Make-lang fragments.
+CROSS=@CROSS@
+
 # Variables that exist for you to override.
 # See below for how to change them for certain systems.
 
@@ -205,6 +209,8 @@ gengtype-lex.o-warn = -Wno-error
 libgcov-util.o-warn = -Wno-error
 libgcov-driver-tool.o-warn = -Wno-error
 libgcov-merge-tool.o-warn = -Wno-error
+gimple-match.o-warn = -Wno-unused-variable -Wno-unused-parameter
+generic-match.o-warn = -Wno-unused-variable -Wno-unused-parameter
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -928,7 +934,7 @@ TREE_SSA_H = tree-ssa.h tree-ssa-operands.h \
 		$(BITMAP_H) sbitmap.h $(BASIC_BLOCK_H) $(GIMPLE_H) \
 		$(HASHTAB_H) $(CGRAPH_H) $(IPA_REFERENCE_H) \
 		tree-ssa-alias.h
-PRETTY_PRINT_H = pretty-print.h $(INPUT_H) $(OBSTACK_H)
+PRETTY_PRINT_H = pretty-print.h $(INPUT_H) $(OBSTACK_H) wide-int-print.h
 TREE_PRETTY_PRINT_H = tree-pretty-print.h $(PRETTY_PRINT_H)
 GIMPLE_PRETTY_PRINT_H = gimple-pretty-print.h $(TREE_PRETTY_PRINT_H)
 DIAGNOSTIC_CORE_H = diagnostic-core.h $(INPUT_H) bversion.h diagnostic.def
@@ -1161,6 +1167,7 @@ OBJS = \
 	alias.o \
 	alloc-pool.o \
 	auto-inc-dec.o \
+	auto-profile.o \
 	bb-reorder.o \
 	bitmap.o \
 	bt-load.o \
@@ -1234,6 +1241,8 @@ OBJS = \
 	gimple-iterator.o \
 	gimple-fold.o \
 	gimple-low.o \
+	gimple-match.o \
+	generic-match.o \
 	gimple-pretty-print.o \
 	gimple-ssa-isolate-paths.o \
 	gimple-ssa-strength-reduction.o \
@@ -1277,6 +1286,8 @@ OBJS = \
 	ipa-profile.o \
 	ipa-prop.o \
 	ipa-pure-const.o \
+	ipa-icf.o \
+	ipa-icf-gimple.o \
 	ipa-reference.o \
 	ipa-ref.o \
 	ipa-utils.o \
@@ -1509,7 +1520,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attr-common.h insn-attrtab.c insn-dfatab.c \
  insn-latencytab.c insn-opinit.c insn-opinit.h insn-preds.c insn-constants.h \
- tm-preds.h tm-constrs.h checksum-options \
+ tm-preds.h tm-constrs.h checksum-options gimple-match.c generic-match.c \
  tree-check.h min-insn-modes.c insn-modes.c insn-modes.h \
  genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-input.list \
  xgcc$(exeext) cpp$(exeext) \
@@ -1674,6 +1685,7 @@ aclocal_deps = \
 	$(srcdir)/../config/codeset.m4 \
 	$(srcdir)/../config/extensions.m4 \
 	$(srcdir)/../config/gettext-sister.m4 \
+	$(srcdir)/../config/gcc-plugin.m4 \
 	$(srcdir)/../config/iconv.m4 \
 	$(srcdir)/../config/lcmessage.m4 \
 	$(srcdir)/../config/lib-ld.m4 \
@@ -2028,7 +2040,7 @@ $(common_out_object_file): $(common_out_file)
 .PRECIOUS: insn-config.h insn-flags.h insn-codes.h insn-constants.h \
   insn-emit.c insn-recog.c insn-extract.c insn-output.c insn-peep.c \
   insn-attr.h insn-attr-common.h insn-attrtab.c insn-dfatab.c \
-  insn-latencytab.c insn-preds.c
+  insn-latencytab.c insn-preds.c gimple-match.c generic-match.c
 
 # Dependencies for the md file.  The first time through, we just assume
 # the md file itself and the generated dependency file (in order to get
@@ -2237,6 +2249,20 @@ s-tm-texi: build/genhooks$(build_exeext) $(srcdir)/doc/tm.texi.in
 	  false; \
 	fi
 
+gimple-match.c: s-match gimple-match-head.c ; @true
+generic-match.c: s-match generic-match-head.c ; @true
+
+s-match: build/genmatch$(build_exeext) $(srcdir)/match.pd
+	$(RUN_GEN) build/genmatch$(build_exeext) --gimple $(srcdir)/match.pd \
+	    > tmp-gimple-match.c
+	$(RUN_GEN) build/genmatch$(build_exeext) --generic $(srcdir)/match.pd \
+	    > tmp-generic-match.c
+	$(SHELL) $(srcdir)/../move-if-change tmp-gimple-match.c \
+	    					gimple-match.c
+	$(SHELL) $(srcdir)/../move-if-change tmp-generic-match.c \
+	    					generic-match.c
+	$(STAMP) s-match
+
 GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -2245,7 +2271,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/libfuncs.h $(SYMTAB_H) \
   $(srcdir)/real.h $(srcdir)/function.h $(srcdir)/insn-addr.h $(srcdir)/hwint.h \
   $(srcdir)/fixed-value.h \
-  $(srcdir)/output.h $(srcdir)/cfgloop.h \
+  $(srcdir)/output.h $(srcdir)/cfgloop.h $(srcdir)/cfg.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/ipa-ref.h $(srcdir)/cgraph.h \
   $(srcdir)/reload.h $(srcdir)/caller-save.c $(srcdir)/symtab.c \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
@@ -2386,6 +2412,8 @@ build/rtl.o: rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H)	\
   $(RTL_H) $(GGC_H) errors.h
 build/vec.o : vec.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(VEC_H)	\
    $(GGC_H) toplev.h $(DIAGNOSTIC_CORE_H)
+build/hash-table.o : hash-table.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h  \
+   $(HASH_TABLE_H) $(GGC_H) toplev.h $(DIAGNOSTIC_CORE_H)
 build/gencondmd.o : build/gencondmd.c $(BCONFIG_H) $(SYSTEM_H)		\
   coretypes.h $(GTM_H) insn-constants.h					\
   $(filter-out insn-flags.h, $(RTL_H) $(TM_P_H) $(FUNCTION_H) $(REGS_H) \
@@ -2481,6 +2509,8 @@ build/genhooks.o : genhooks.c $(TARGET_DEF) $(C_TARGET_DEF)		\
   $(COMMON_TARGET_DEF) $(BCONFIG_H) $(SYSTEM_H) errors.h
 build/genmddump.o : genmddump.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h $(READ_MD_H) gensupport.h
+build/genmatch.o : genmatch.c $(BCONFIG_H) $(SYSTEM_H) \
+  coretypes.h errors.h
 
 # Compile the programs that generate insn-* from the machine description.
 # They are compiled with $(COMPILER_FOR_BUILD), and associated libraries,
@@ -2501,10 +2531,24 @@ genprogerr = $(genprogmd) genrtl modes gtype hooks
 $(genprogerr:%=build/gen%$(build_exeext)): $(BUILD_ERRORS)
 
 # Remaining build programs.
-genprog = $(genprogerr) check checksum condmd
+genprog = $(genprogerr) check checksum condmd match
 
 # These programs need libs over and above what they get from the above list.
 build/genautomata$(build_exeext) : BUILD_LIBS += -lm
+
+# For stage1 and when cross-compiling use the build libcpp which is
+# built with NLS disabled.  For stage2+ use the host library and
+# its dependencies.
+ifeq ($(build_objdir),$(build_libobjdir))
+BUILD_CPPLIB = $(build_libobjdir)/libcpp/libcpp.a
+else
+BUILD_CPPLIB = $(CPPLIB) $(LIBIBERTY)
+build/genmatch$(build_exeext): BUILD_LIBDEPS += $(LIBINTL_DEP) $(LIBICONV_DEP)
+build/genmatch$(build_exeext): BUILD_LIBS += $(LIBINTL) $(LIBICONV)
+endif
+
+build/genmatch$(build_exeext) : $(BUILD_CPPLIB) \
+  $(BUILD_ERRORS) build/vec.o build/hash-table.o
 
 # These programs are not linked with the MD reader.
 build/gengtype$(build_exeext) : build/gengtype-lex.o build/gengtype-parse.o \
@@ -2585,7 +2629,7 @@ gcov-dump$(exeext): $(GCOV_DUMP_OBJS) $(LIBDEPS)
 
 GCOV_TOOL_DEP_FILES = $(srcdir)/../libgcc/libgcov-util.c gcov-io.c $(GCOV_IO_H) \
   $(srcdir)/../libgcc/libgcov-driver.c $(srcdir)/../libgcc/libgcov-driver-system.c \
-  $(srcdir)/../libgcc/libgcov-merge.c \
+  $(srcdir)/../libgcc/libgcov-merge.c $(srcdir)/../libgcc/libgcov.h \
   $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H) version.h intl.h $(DIAGNOSTIC_H)
 libgcov-util.o: $(srcdir)/../libgcc/libgcov-util.c $(GCOV_TOOL_DEP_FILES)
 	+$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -o $@ $<
@@ -2840,7 +2884,8 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 configfiles.texi collect2.texi headerdirs.texi funding.texi	\
 	 gnu.texi gpl_v3.texi fdl.texi contrib.texi languages.texi	\
 	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi	\
-	 loop.texi generic.texi gimple.texi plugins.texi optinfo.texi
+	 loop.texi generic.texi gimple.texi plugins.texi optinfo.texi   \
+	 match-and-simplify.texi
 
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi		\
 	 gcc-common.texi gcc-vers.texi
@@ -3163,7 +3208,7 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   tree-ssa-loop.h tree-ssa-loop-ivopts.h tree-ssa-loop-manip.h \
   tree-ssa-loop-niter.h tree-ssa-ter.h tree-ssa-threadedge.h \
   tree-ssa-threadupdate.h inchash.h wide-int.h signop.h hash-map.h \
-  hash-set.h
+  hash-set.h pass-instances.def
 
 # generate the 'build fragment' b-header-vars
 s-header-vars: Makefile
@@ -3645,10 +3690,9 @@ check_p_subdirs=$(wordlist 1,$(check_p_count),$(wordlist 1, \
 		$(check_p_numbers)))
 
 # For parallelized check-% targets, this decides whether parallelization
-# is desirable (if -jN is used and RUNTESTFLAGS doesn't contain anything
-# but optional --target_board or --extra_opts arguments).  If desirable,
-# recursive make is run with check-parallel-$lang{,1,2,3,4,5} etc. goals,
-# which can be executed in parallel, as they are run in separate directories.
+# is desirable (if -jN is used).  If desirable, recursive make is run with
+# check-parallel-$lang{,1,2,3,4,5} etc. goals, which can be executed in
+# parallel, as they are run in separate directories.
 # check-parallel-$lang{,1,2,3,4,5} etc. goals invoke runtest with
 # GCC_RUNTEST_PARALLELIZE_DIR var in the environment and runtest_file_p
 # dejaGNU procedure is overridden to additionally synchronize through
@@ -3790,6 +3834,7 @@ TAGS: lang.tags
 	  fi;						\
 	done;						\
 	etags -o TAGS.sub c-family/*.h c-family/*.c *.h *.c *.cc \
+	      ../include/*.h \
 	      --language=none --regex="/\(char\|unsigned int\|int\|bool\|void\|HOST_WIDE_INT\|enum [A-Za-z_0-9]+\) [*]?\([A-Za-z_0-9]+\)/\2/" common.opt	\
 	      --language=none --regex="/\(DEF_RTL_EXPR\|DEFTREECODE\|DEFGSCODE\).*(\([A-Za-z_0-9]+\)/\2/" rtl.def tree.def gimple.def \
 	      --language=none --regex="/DEFTIMEVAR (\([A-Za-z_0-9]+\)/\1/" timevar.def \

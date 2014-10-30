@@ -27,6 +27,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "hash-set.h"
 #include "hash-table.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -49,6 +57,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "bitmap.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-ssanames.h"
@@ -2330,14 +2341,14 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	}
       case BUILT_IN_LINE:
 	{
-	  expanded_location loc = expand_location (EXPR_LOCATION (*expr_p));
-	  *expr_p = build_int_cst (TREE_TYPE (*expr_p), loc.line);
+	  *expr_p = build_int_cst (TREE_TYPE (*expr_p),
+				   LOCATION_LINE (EXPR_LOCATION (*expr_p)));
 	  return GS_OK;
 	}
       case BUILT_IN_FILE:
 	{
-	  expanded_location loc = expand_location (EXPR_LOCATION (*expr_p));
-	  *expr_p = build_string_literal (strlen (loc.file) + 1, loc.file);
+	  const char *locfile = LOCATION_FILE (EXPR_LOCATION (*expr_p));
+	  *expr_p = build_string_literal (strlen (locfile) + 1, locfile);
 	  return GS_OK;
 	}
       case BUILT_IN_FUNCTION:

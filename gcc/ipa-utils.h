@@ -20,7 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_IPA_UTILS_H
 #define GCC_IPA_UTILS_H
-#include "cgraph.h"
 
 struct ipa_dfs_info {
   int dfn_number;
@@ -82,6 +81,8 @@ bool contains_polymorphic_type_p (const_tree);
 void register_odr_type (tree);
 bool types_must_be_same_for_odr (tree, tree);
 bool types_odr_comparable (tree, tree);
+cgraph_node *try_speculative_devirtualization (tree, HOST_WIDE_INT,
+					       ipa_polymorphic_call_context);
 
 /* Return vector containing possible targets of polymorphic call E.
    If COMPLETEP is non-NULL, store true if the list is complette. 
