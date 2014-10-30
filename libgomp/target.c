@@ -1064,9 +1064,10 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   DLSYM (device_free);
   DLSYM (device_dev2host);
   DLSYM (device_host2dev);
-  if (device->get_caps_func () & TARGET_CAP_OPENMP_400)
+  device->capabilities = device->get_caps_func ();
+  if (device->capabilities & TARGET_CAP_OPENMP_400)
     DLSYM (device_run);
-  if (device->get_caps_func () & TARGET_CAP_OPENACC_200)
+  if (device->capabilities & TARGET_CAP_OPENACC_200)
     {
       optional_present = optional_total = 0;
       DLSYM_OPT (openacc.exec, openacc_parallel);
@@ -1195,7 +1196,6 @@ gomp_find_available_plugins (void)
 	  devicep->mem_map.is_initialized = false;
 	  devicep->type = devicep->get_type_func ();
 	  devicep->name = devicep->get_name_func ();
-	  devicep->capabilities = devicep->get_caps_func ();
 	  gomp_mutex_init (&devicep->mem_map.lock);
 	  devicep->ord = i;
 	  devicep->target_data = NULL;

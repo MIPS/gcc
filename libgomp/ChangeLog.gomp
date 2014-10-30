@@ -1,5 +1,10 @@
 2014-10-30  Julian Brown  <julian@codesourcery.com>
 
+	* target.c (gomp_load_plugin_for_device): Only call get_caps once.
+	(gomp_find_available_plugins): ...and don't call it again here.
+
+2014-10-30  Julian Brown  <julian@codesourcery.com>
+
 	* env.c (goacc_notify_var): New.
 	(initialize_env): Use above instead of
 	gomp_global_icv.acc_notify_var.
