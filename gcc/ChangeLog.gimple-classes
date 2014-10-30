@@ -1,5 +1,20 @@
 2014-10-30  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple-fold.c (replace_call_with_call_and_fold): Strengthen
+	param "repl" from gimple to gcall *.
+	(gimple_fold_builtin_strcpy): Likewise for local "repl".
+	(gimple_fold_builtin_strncpy): Likewise.
+	(gimple_fold_builtin_strcat): Likewise.
+	(gimple_fold_builtin_strcat): Likewise.
+	(gimple_fold_builtin_strcat_chk): Likewise.
+	(gimple_fold_builtin_strncat_chk): Likewise.
+	(gimple_fold_builtin_fputs): Likewise.
+	(gimple_fold_builtin_memory_chk): Likewise.
+	(gimple_fold_builtin_stxcpy_chk): Likewise.
+	(gimple_fold_builtin_stxncpy_chk): Likewise.
+
+2014-10-30  David Malcolm  <dmalcolm@redhat.com>
+
 	* asan.c (build_shadow_mem_access): Strengthen local "g" from
 	gimple to gassign *.
 	(maybe_create_ssa_name): Likewise.

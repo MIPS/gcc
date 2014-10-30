@@ -738,7 +738,7 @@ replace_call_with_value (gimple_stmt_iterator *gsi, tree val)
    again.  */
 
 static void
-replace_call_with_call_and_fold (gimple_stmt_iterator *gsi, gimple repl)
+replace_call_with_call_and_fold (gimple_stmt_iterator *gsi, gcall *repl)
 {
   gimple stmt = gsi_stmt (*gsi);
   gimple_call_set_lhs (repl, gimple_call_lhs (stmt));
@@ -1459,7 +1459,7 @@ gimple_fold_builtin_strcpy (gimple_stmt_iterator *gsi,
   len = size_binop_loc (loc, PLUS_EXPR, len, build_int_cst (size_type_node, 1));
   len = force_gimple_operand_gsi (gsi, len, true,
 				  NULL_TREE, true, GSI_SAME_STMT);
-  gimple repl = gimple_build_call (fn, 3, dest, src, len);
+  gcall *repl = gimple_build_call (fn, 3, dest, src, len);
   replace_call_with_call_and_fold (gsi, repl);
   return true;
 }
@@ -1508,7 +1508,7 @@ gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi,
   len = fold_convert_loc (loc, size_type_node, len);
   len = force_gimple_operand_gsi (gsi, len, true,
 				  NULL_TREE, true, GSI_SAME_STMT);
-  gimple repl = gimple_build_call (fn, 3, dest, src, len);
+  gcall *repl = gimple_build_call (fn, 3, dest, src, len);
   replace_call_with_call_and_fold (gsi, repl);
   return true;
 }
@@ -1565,7 +1565,7 @@ gimple_fold_builtin_strcat (gimple_stmt_iterator *gsi, tree dst, tree src)
 
   /* Create strlen (dst).  */
   gimple_seq stmts = NULL, stmts2;
-  gimple repl = gimple_build_call (strlen_fn, 1, dst);
+  gcall *repl = gimple_build_call (strlen_fn, 1, dst);
   gimple_set_location (repl, loc);
   if (gimple_in_ssa_p (cfun))
     newdst = make_ssa_name (size_type_node, NULL);
@@ -1589,7 +1589,7 @@ gimple_fold_builtin_strcat (gimple_stmt_iterator *gsi, tree dst, tree src)
   gimple_seq_add_stmt_without_update (&stmts, repl);
   if (gimple_call_lhs (stmt))
     {
-      repl = gimple_build_assign (gimple_call_lhs (stmt), dst);
+      gassign *repl = gimple_build_assign (gimple_call_lhs (stmt), dst);
       gimple_seq_add_stmt_without_update (&stmts, repl);
       gsi_replace_with_seq_vops (gsi, stmts);
       /* gsi now points at the assignment to the lhs, get a
@@ -1638,7 +1638,7 @@ gimple_fold_builtin_strcat_chk (gimple_stmt_iterator *gsi)
   if (!fn)
     return false;
 
-  gimple repl = gimple_build_call (fn, 2, dest, src);
+  gcall *repl = gimple_build_call (fn, 2, dest, src);
   replace_call_with_call_and_fold (gsi, repl);
   return true;
 }
@@ -1682,7 +1682,7 @@ gimple_fold_builtin_strncat_chk (gimple_stmt_iterator *gsi)
 	  if (!fn)
 	    return false;
 
-	  gimple repl = gimple_build_call (fn, 3, dest, src, size);
+	  gcall *repl = gimple_build_call (fn, 3, dest, src, size);
 	  replace_call_with_call_and_fold (gsi, repl);
 	  return true;
 	}
@@ -1694,7 +1694,7 @@ gimple_fold_builtin_strncat_chk (gimple_stmt_iterator *gsi)
   if (!fn)
     return false;
 
-  gimple repl = gimple_build_call (fn, 3, dest, src, len);
+  gcall *repl = gimple_build_call (fn, 3, dest, src, len);
   replace_call_with_call_and_fold (gsi, repl);
   return true;
 }
@@ -1747,7 +1747,7 @@ gimple_fold_builtin_fputs (gimple_stmt_iterator *gsi,
 	    if (!fn_fputc)
 	      return false;
 
-	    gimple repl = gimple_build_call (fn_fputc, 2,
+	    gcall *repl = gimple_build_call (fn_fputc, 2,
 					     build_int_cst
 					     (integer_type_node, p[0]), arg1);
 	    replace_call_with_call_and_fold (gsi, repl);
@@ -1765,7 +1765,7 @@ gimple_fold_builtin_fputs (gimple_stmt_iterator *gsi,
 	if (!fn_fwrite)
 	  return false;
 
-	gimple repl = gimple_build_call (fn_fwrite, 4, arg0,
+	gcall *repl = gimple_build_call (fn_fwrite, 4, arg0,
 					 size_one_node, len, arg1);
 	replace_call_with_call_and_fold (gsi, repl);
 	return true;
@@ -1833,7 +1833,7 @@ gimple_fold_builtin_memory_chk (gimple_stmt_iterator *gsi,
 		  if (!fn)
 		    return false;
 
-		  gimple repl = gimple_build_call (fn, 4, dest, src, len, size);
+		  gcall *repl = gimple_build_call (fn, 4, dest, src, len, size);
 		  replace_call_with_call_and_fold (gsi, repl);
 		  return true;
 		}
@@ -1871,7 +1871,7 @@ gimple_fold_builtin_memory_chk (gimple_stmt_iterator *gsi,
   if (!fn)
     return false;
 
-  gimple repl = gimple_build_call (fn, 3, dest, src, len);
+  gcall *repl = gimple_build_call (fn, 3, dest, src, len);
   replace_call_with_call_and_fold (gsi, repl);
   return true;
 }
@@ -1925,7 +1925,7 @@ gimple_fold_builtin_stxcpy_chk (gimple_stmt_iterator *gsi,
 		  if (!fn)
 		    return false;
 
-		  gimple repl = gimple_build_call (fn, 3, dest, src, size);
+		  gcall *repl = gimple_build_call (fn, 3, dest, src, size);
 		  replace_call_with_call_and_fold (gsi, repl);
 		  return true;
 		}
@@ -1944,7 +1944,7 @@ gimple_fold_builtin_stxcpy_chk (gimple_stmt_iterator *gsi,
 				    build_int_cst (size_type_node, 1));
 	      len = force_gimple_operand_gsi (gsi, len, true, NULL_TREE,
 					      true, GSI_SAME_STMT);
-	      gimple repl = gimple_build_call (fn, 4, dest, src, len, size);
+	      gcall *repl = gimple_build_call (fn, 4, dest, src, len, size);
 	      replace_call_with_call_and_fold (gsi, repl);
 	      return true;
 	    }
@@ -1962,7 +1962,7 @@ gimple_fold_builtin_stxcpy_chk (gimple_stmt_iterator *gsi,
   if (!fn)
     return false;
 
-  gimple repl = gimple_build_call (fn, 2, dest, src);
+  gcall *repl = gimple_build_call (fn, 2, dest, src);
   replace_call_with_call_and_fold (gsi, repl);
   return true;
 }
@@ -1989,7 +1989,7 @@ gimple_fold_builtin_stxncpy_chk (gimple_stmt_iterator *gsi,
        fn = builtin_decl_explicit (BUILT_IN_STRNCPY_CHK);
        if (fn)
 	 {
-	   gimple repl = gimple_build_call (fn, 4, dest, src, len, size);
+	   gcall *repl = gimple_build_call (fn, 4, dest, src, len, size);
 	   replace_call_with_call_and_fold (gsi, repl);
 	   return true;
 	 }
@@ -2022,7 +2022,7 @@ gimple_fold_builtin_stxncpy_chk (gimple_stmt_iterator *gsi,
   if (!fn)
     return false;
 
-  gimple repl = gimple_build_call (fn, 3, dest, src, len);
+  gcall *repl = gimple_build_call (fn, 3, dest, src, len);
   replace_call_with_call_and_fold (gsi, repl);
   return true;
 }
