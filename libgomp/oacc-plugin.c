@@ -28,13 +28,7 @@
 #include "libgomp.h"
 #include "oacc-plugin.h"
 #include "target.h"
-
-void
-ACC_plugin_register (struct gomp_device_descr *device)
-{
-  ACC_register (device);
-}
-
+#include "oacc-int.h"
 
 void
 GOMP_PLUGIN_async_unmap_vars (void *ptr)
@@ -42,4 +36,13 @@ GOMP_PLUGIN_async_unmap_vars (void *ptr)
   struct target_mem_desc *tgt = ptr;
   
   gomp_unmap_vars (tgt, false);
+}
+
+/* Return the target-specific part of the TLS data for the current thread.  */
+
+void *
+GOMP_PLUGIN_acc_thread (void)
+{
+  struct goacc_thread *thr = goacc_thread ();
+  return thr ? thr->target_tls : NULL;
 }

@@ -29,14 +29,15 @@
 #include "config.h"
 #include "libgomp.h"
 #include "target.h"
+#include "oacc-int.h"
 
 void *
 acc_get_current_cuda_device (void)
 {
   void *p = NULL;
 
-  if (ACC_dev && ACC_dev->openacc.cuda.get_current_device_func)
-    p = ACC_dev->openacc.cuda.get_current_device_func ();
+  if (base_dev && base_dev->openacc.cuda.get_current_device_func)
+    p = base_dev->openacc.cuda.get_current_device_func ();
 
   return p;
 }
@@ -46,8 +47,8 @@ acc_get_current_cuda_context (void)
 {
   void *p = NULL;
 
-  if (ACC_dev && ACC_dev->openacc.cuda.get_current_context_func)
-    p = ACC_dev->openacc.cuda.get_current_context_func ();
+  if (base_dev && base_dev->openacc.cuda.get_current_context_func)
+    p = base_dev->openacc.cuda.get_current_context_func ();
 
   return p;
 }
@@ -60,8 +61,8 @@ acc_get_cuda_stream (int async)
   if (async < 0)
     return p;
 
-  if (ACC_dev && ACC_dev->openacc.cuda.get_stream_func)
-    p = ACC_dev->openacc.cuda.get_stream_func (async);
+  if (base_dev && base_dev->openacc.cuda.get_stream_func)
+    p = base_dev->openacc.cuda.get_stream_func (async);
 
   return p;
 }
@@ -73,9 +74,11 @@ acc_set_cuda_stream (int async, void *stream)
 
   if (async < 0 || stream == NULL)
     return 0;
+  
+  ACC_lazy_initialize ();
 
-  if (ACC_dev && ACC_dev->openacc.cuda.set_stream_func)
-    s = ACC_dev->openacc.cuda.set_stream_func (async, stream);
+  if (base_dev && base_dev->openacc.cuda.set_stream_func)
+    s = base_dev->openacc.cuda.set_stream_func (async, stream);
 
   return s;
 }

@@ -47,74 +47,52 @@
 # pragma GCC visibility push(hidden)
 #endif
 
-typedef struct ACC_dispatch_t
+static inline enum acc_device_t
+acc_device_type (enum target_type type)
 {
-  /* open or close a device instance.  */
-  void *(*open_device_func) (int n);
-  int (*close_device_func) (void *h);
+  return (enum acc_device_t) type;
+}
 
-  /* set or get the device number.  */
-  int (*get_device_num_func) (void);
-  void (*set_device_num_func) (int);
+struct goacc_thread
+{
+  /* The device for the current thread.  */
+  struct gomp_device_descr *dev;
+  
+  struct gomp_device_descr *saved_bound_dev;
 
-  /* availability */
-  bool (*avail_func) (void);
+  /* This is a linked list of data mapped by the "acc data" pragma, following
+     strictly push/pop semantics according to lexical scope.  */
+  struct target_mem_desc *mapped_data;
+    
+  /* These structures form a list: this is the next thread in that list.  */
+  struct goacc_thread *next;
+  
+  /* Target-specific data (used by plugin).  */
+  void *target_tls;
+};
 
-  /* execute */
-  void (*exec_func) (void (*) (void *), size_t, void **, void **, size_t *,
-		     unsigned short *, int, int, int, int, void *);
-
-  /* async cleanup callback registration */
-  void (*register_async_cleanup_func) (void *);
-
-  /* asynchronous routines  */
-  int (*async_test_func) (int);
-  int (*async_test_all_func) (void);
-  void (*async_wait_func) (int);
-  void (*async_wait_async_func) (int, int);
-  void (*async_wait_all_func) (void);
-  void (*async_wait_all_async_func) (int);
-  void (*async_set_async_func) (int);
-
-  /* NVIDIA target specific routines  */
-  struct {
-    void *(*get_current_device_func) (void);
-    void *(*get_current_context_func) (void);
-    void *(*get_stream_func) (int);
-    int (*set_stream_func) (int, void *);
-  } cuda;
-} ACC_dispatch_t;
-
-typedef enum ACC_dispatch_f
-  {
-    ACC_unified_mem_f = 1 << 0,
-  }
-ACC_dispatch_f;
+#ifdef HAVE_TLS
+extern __thread struct goacc_thread *goacc_tls_data;
+static inline struct goacc_thread *
+goacc_thread (void)
+{
+  return goacc_tls_data;
+}
+#else
+extern pthread_key_t goacc_tls_key;
+static inline struct goacc_thread *
+goacc_thread (void)
+{
+  return pthread_getspecific (goacc_tls_key);
+}
+#endif
 
 struct gomp_device_descr;
 
 void ACC_register (struct gomp_device_descr const *) __GOACC_NOTHROW;
 
-/* Memory routines.  */
-struct memmap_t *ACC_mem_open (void *, struct memmap_t *, int) __GOACC_NOTHROW;
-bool ACC_mem_close (void *, struct memmap_t *) __GOACC_NOTHROW;
-struct gomp_device_descr *ACC_resolve_device(int) __GOACC_NOTHROW;
-
-/* Current dispatcher */
-extern struct gomp_device_descr const *ACC_dev;
-
-/* Device handle for current thread.  */
-extern __thread void *ACC_handle;
-
-typedef struct memmap_t
-{
-  unsigned live;
-  struct target_mem_desc *tlist;
-  struct gomp_memory_mapping mem_map;
-} memmap_t;
-
-/* Memory mapping */
-extern __thread struct memmap_t *ACC_memmap;
+/* Current dispatcher.  */
+extern struct gomp_device_descr const *base_dev;
 
 void ACC_runtime_initialize (void);
 void ACC_save_and_set_bind (acc_device_t);

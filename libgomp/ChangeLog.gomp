@@ -1,3 +1,138 @@
+2014-10-30  Julian Brown  <julian@codesourcery.com>
+
+	* env.c (oacc-int.h): Include.
+	* libgomp-plugin.h (GOMP_PLUGIN_async_unmap_vars): Don't declare
+	here.
+	* libgomp.map (PLUGIN_1.0): Add GOMP_PLUGIN_acc_thread symbol.
+	* oacc-async.c (oacc-int.h): Include.
+	(acc_async_test, acc_async_test_all, acc_wait, acc_wait_async)
+	(acc_wait_all, acc_wait_all_async): Use base_dev not ACC_dev.
+	* oacc-cuda.c (oacc-int.h): Include.
+	(acc_get_current_cuda_device, acc_get_current_cuda_context)
+	(acc_get_cuda_stream): Use base_dev not ACC_dev.
+	(acc_set_cuda_stream): Call ACC_lazy_initialize, use base_dev not
+	ACC_dev.
+	* oacc-host.c (oacc-plugin.h, oacc-int.h): Include one or the
+	other, depending on HOST_NONSHM_PLUGIN setting.
+	(openacc_create_thread_data, openacc_destroy_thread_data): New.
+	(host_dispatch): Initialize create_thread_data_func,
+	destroy_thread_data_func hooks.
+	* oacc-init.c (oacc-int.h): Include.
+	(acc_device_lock): Make static.
+	(ACC_dev, ACC_handle, handle_num, struct ACC_context, ACC_contexts):
+	Remove.
+	(base_dev, goacc_threads, goacc_thread_lock, goacc_cleanup_key):
+	Add.
+	(goacc_tls_data, goacc_tls_key): Define one or the other, depending
+	on HAVE_TLS setting.
+	(dispatchers): Add comment.
+	(ACC_register): Only register 0th device.
+	(close_handle): Remove.
+	(_acc_init): Add comment. Don't use ACC_dev.
+	(goacc_new_thread, goacc_destroy_thread): New.
+	(lazy_open): Update comment. Remove code relating to contexts and
+	memory maps. Create thread-specific data if necessary.
+	(acc_init): Use base_dev not ACC_dev.
+	(_acc_shutdown): Don't call close_handle. Use base_dev not ACC_dev.
+	Free target-specific TLS data and close devices that are open at
+	the time of shutdown.
+	(lazy_init): Add comment. Use base_dev not ACC_dev.
+	(lazy_init_and_open): Add comment. Use base_dev not ACC_dev.
+	(acc_get_num_devices, acc_get_device_type, acc_get_device_num): Use
+	base_dev not ACC_dev.
+	(acc_set_device_num): Likewise. If switching device number,
+	de-associate previous device number from the current thread, but do
+	not close the device.
+	(acc_on_device): Check type for device for current thread, not
+	ACC_dev.
+	(ACC_runtime_initialize): Initialize goacc_tls_key,
+	goacc_cleanup_key, base_dev, goacc_threads, goacc_thread_lock. Don't
+	initialize ACC_contexts.
+	(saved_bound_dev): Remove.
+	(ACC_save_and_set_bind, ACC_restore_bind): Use goacc_thread.
+	(ACC_lazy_initialize): Use base_dev, goacc_thread instead of
+	ACC_dev, ACC_memmap.
+	* oacc-int.h (struct ACC_dispatch_t): Don't declare here.
+	(struct goacc_thread): New.
+	(goacc_tls_data): Define for HAVE_TLS.
+	(goacc_tls_key): Define for !HAVE_TLS.
+	(goacc_thread): New (versions with and without HAVE_TLS).
+	(ACC_mem_open, ACC_mem_close, ACC_resolve_device, ACC_dev)
+	(ACC_handle, struct memmap_t, ACC_memmap): Remove.
+	(base_dev): Add extern declaration.
+	* oacc-mem.c (oacc-int.h, assert.h): Include.
+	(ACC_memmap, ACC_mem_open, ACC_mem_close): Remove.
+	(lookup_host): Change memmap_t argument to struct
+	gomp_memory_mapping.
+	(lookup_dev): Change memmap_t argument to struct target_mem_desc.
+	Use list_count not refcount for iterating over mapped elements.
+	(acc_malloc): Use base_dev not ACC_dev.
+	(acc_free): Update call to lookup_dev. Use base_dev not ACC_dev.
+	(acc_memcpy_to_device, acc_memcpy_from_device): Use base_dev not
+	ACC_dev.
+	(acc_deviceptr, acc_is_present): Update call to lookup_host.
+	(acc_hostptr): Update call to lookup_dev.
+	(acc_map_data): Look up thread device instead of using ACC_dev,
+	update calls to lookup_host, lookup_dev. Use data environment in
+	device descriptor.
+	(acc_unmap_data): Update call to lookup_host. Remove mapped data
+	from data environment not ACC_memmap.
+	(present_create_copy): Update call to lookup_host. Use data
+	environment instead of list in ACC_memmap.
+	(delete_copyout): Update call to lookup_host. Look up device in
+	current thread info instead of using ACC_dev.
+	(update_dev_host): Look up device in current thread info instead of
+	using ACC_dev.
+	* oacc-parallel.c (oacc-int.h): Include.
+	(struct devgeom, devgeom, dump_devaddrs): Remove.
+	(select_acc_device): Call ACC_lazy_initialize earlier.
+	(GOACC_parallel): Use device for current thread instead of ACC_dev.
+	Use memory map from current device.
+	(GOACC_data_start): Likewise. Use thread info block for mapped data.
+	(GOACC_data_end): Use thread info block for mapped data.
+	(goacc_wait): Use device for current thread instead of ACC_dev.
+	(GOACC_update): Likewise. Formatting fixes.
+	* oacc-plugin.c (ACC_plugin_register): Remove.
+	(oacc-int.h): Include.
+	(GOMP_PLUGIN_acc_thread): New.
+	* oacc-plugin.h (target.h): Don't include.
+	(ACC_plugin_register): Remove.
+	(GOMP_PLUGIN_async_unmap_vars, GOMP_PLUGIN_acc_thread): Add extern
+	declarations.
+	* plugin-nvptx.c (oacc-plugin.h): Include.
+	(current_stream, PTX_dev, PTX_devices): Remove.
+	(struct nvptx_thread): New.
+	(nvptx_thread): New function.
+	(select_stream_for_async): Locate ptx_dev in device-specific TLS
+	data instead of using TLS PTX_dev variable.
+	(PTX_init): Don't initialize PTX_devices.
+	(PTX_open_device): Remove PTX_devices list handling. Tweak context
+	initialization.
+	(PTX_close_device): Remove PTX_devices list handling. Find PTX
+	device info via function argument instead of global TLS variable.
+	(PTX_get_num_devices): Make callable when backend has not been
+	initialized.
+	(event_gc): Find PTX device info, current stream via nvptx_thread.
+	(event_add, PTX_exec, PTX_host2dev, PTX_dev2host)
+	(PTX_async_test_all, PTX_wait_all, PTX_wait_all_async)
+	(PTX_get_current_cuda_device, PTX_get_current_cuda_context)
+	(PTX_get_cuda_stream, PTX_set_cuda_stream, openacc_close_device)
+	(openacc_set_device_num, openacc_register_async_cleanup)
+	(openacc_async_set_async): Likewise.
+	(openacc_create_thread_data, openacc_destroy_thread_data): New.
+	* target.c (oacc-int.h): Include.
+	(gomp_fini_device): Split out memory-map freeing into...
+	(gomp_free_memmap): ...this new function.
+	(gomp_load_plugin_for_device): Initialize
+	openacc.create_thread_data_func, openacc.destroy_thread_data_func
+	hooks.
+	(gomp_find_available_plugins): Initialize one target_device_descr
+	per physical device.
+	* target.h (oacc-int.h): Don't include.
+	(ACC_dispatch_t): Declare here. Add data_environ, ord fields.
+	Update comment for mem_map field.
+	(gomp_free_memmap): Add prototype.
+
 2014-10-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c/c.exp (ld_library_path, ALWAYS_CFLAGS):

@@ -30,43 +30,15 @@
 #include "libgomp_g.h"
 #include "gomp-constants.h"
 #include "target.h"
+#include "oacc-int.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <assert.h>
 #include <alloca.h>
 
-#ifdef FUTURE
-// device geometry per device type
-struct devgeom
-{
-  int gangs;
-  int workers;
-  int vectors;
-};
-  
-
-// XXX: acceptable defaults?
-static __thread struct devgeom devgeom = { 1, 1, 1 };
-#endif
-
-#ifdef LATER
 static void
-dump_devaddrs(void)
-{
-  int i;
-  struct devaddr *dp;
-
-  gomp_notify("++++ num_devaddrs %d\n", num_devaddrs);
-  for (dp = devaddrs, i = 1; dp != 0; dp = dp->next, i++)
-    {
-      gomp_notify("++++ %.02d) %p\n", i, dp->d);
-    }
-}
-#endif
-
-static void
-dump_var(char *s, size_t idx, void *hostaddr, size_t size, unsigned char kind)
+dump_var (char *s, size_t idx, void *hostaddr, size_t size, unsigned char kind)
 {
   gomp_notify(" %2zi: %3s 0x%.2x -", idx, s, kind & 0xff);
 
@@ -108,6 +80,8 @@ dump_var(char *s, size_t idx, void *hostaddr, size_t size, unsigned char kind)
 attribute_hidden void
 select_acc_device (int device_type)
 {
+  ACC_lazy_initialize ();
+
   if (device_type == GOMP_IF_CLAUSE_FALSE)
     return;
 
@@ -121,8 +95,6 @@ select_acc_device (int device_type)
 	 know what they're doing...  */
       acc_set_device_type (device_type);
     }
-
-  ACC_lazy_initialize ();
 }
 
 void goacc_wait (int async, int num_waits, va_list ap);
@@ -136,6 +108,8 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
 {
   bool if_clause_condition_value = device != GOMP_IF_CLAUSE_FALSE;
   va_list ap;
+  struct goacc_thread *thr;
+  struct gomp_device_descr *acc_dev;
   struct target_mem_desc *tgt;
   void **devaddrs;
   unsigned int i;
@@ -155,6 +129,9 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
 
   select_acc_device (device);
 
+  thr = goacc_thread ();
+  acc_dev = thr->dev;
+
   /* Host fallback if "if" clause is false or if the current device is set to
      the host.  */
   if (!if_clause_condition_value)
@@ -164,7 +141,7 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
       ACC_restore_bind ();
       return;
     }
-  else if (acc_device_type (ACC_dev->type) == acc_device_host)
+  else if (acc_device_type (acc_dev->type) == acc_device_host)
     {
       fn (hostaddrs);
       return;
@@ -177,15 +154,15 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
 
   va_end (ap);
 
-  ACC_dev->openacc.async_set_async_func (async);
+  acc_dev->openacc.async_set_async_func (async);
 
-  if (!(ACC_dev->capabilities & TARGET_CAP_NATIVE_EXEC))
+  if (!(acc_dev->capabilities & TARGET_CAP_NATIVE_EXEC))
     {
       k.host_start = (uintptr_t) fn;
       k.host_end = k.host_start + 1;
-      gomp_mutex_lock (&ACC_memmap->mem_map.lock);
-      tgt_fn_key = splay_tree_lookup (&ACC_memmap->mem_map.splay_tree, &k);
-      gomp_mutex_unlock (&ACC_memmap->mem_map.lock);
+      gomp_mutex_lock (&acc_dev->mem_map.lock);
+      tgt_fn_key = splay_tree_lookup (&acc_dev->mem_map.splay_tree, &k);
+      gomp_mutex_unlock (&acc_dev->mem_map.lock);
 
       if (tgt_fn_key == NULL)
 	gomp_fatal ("target function wasn't mapped: perhaps -fopenacc was "
@@ -196,8 +173,8 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
   else
     tgt_fn = (void (*)) fn;
 
-  tgt = gomp_map_vars ((struct gomp_device_descr *) ACC_dev,
-		       &ACC_memmap->mem_map, mapnum, hostaddrs,
+  tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev,
+		       &acc_dev->mem_map, mapnum, hostaddrs,
 		       NULL, sizes, kinds, true, false);
 
   devaddrs = alloca (sizeof (void *) * mapnum);
@@ -205,7 +182,7 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
     devaddrs[i] = (void *) (tgt->list[i]->tgt->tgt_start
 			    + tgt->list[i]->tgt_offset);
 
-  ACC_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs, sizes, kinds,
+  acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs, sizes, kinds,
 			      num_gangs, num_workers, vector_length, async,
 			      tgt);
 
@@ -215,13 +192,11 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
   else
     {
       gomp_copy_from_async (tgt);
-      ACC_dev->openacc.register_async_cleanup_func (tgt);
+      acc_dev->openacc.register_async_cleanup_func (tgt);
     }
 
-  ACC_dev->openacc.async_set_async_func (acc_async_sync);
+  acc_dev->openacc.async_set_async_func (acc_async_sync);
 }
-
-static __thread struct target_mem_desc *mapped_data = NULL;
 
 void
 GOACC_data_start (int device, const void *openmp_target, size_t mapnum,
@@ -235,33 +210,37 @@ GOACC_data_start (int device, const void *openmp_target, size_t mapnum,
 
   select_acc_device (device);
 
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
+
   /* Host fallback or 'do nothing'.  */
-  if ((ACC_dev->capabilities & TARGET_CAP_SHARED_MEM)
+  if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
       || !if_clause_condition_value)
     {
       tgt = gomp_map_vars (NULL, NULL, 0, NULL, NULL, NULL, NULL, true, false);
-      tgt->prev = mapped_data;
-      mapped_data = tgt;
+      tgt->prev = thr->mapped_data;
+      thr->mapped_data = tgt;
 
       return;
     }
 
   gomp_notify ("  %s: prepare mappings\n", __FUNCTION__);
-  tgt = gomp_map_vars ((struct gomp_device_descr *) ACC_dev,
-		       &ACC_memmap->mem_map, mapnum, hostaddrs,
+  tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev,
+		       &acc_dev->mem_map, mapnum, hostaddrs,
 		       NULL, sizes, kinds, true, false);
   gomp_notify ("  %s: mappings prepared\n", __FUNCTION__);
-  tgt->prev = mapped_data;
-  mapped_data = tgt;
+  tgt->prev = thr->mapped_data;
+  thr->mapped_data = tgt;
 }
 
 void
 GOACC_data_end (void)
 {
-  struct target_mem_desc *tgt = mapped_data;
+  struct goacc_thread *thr = goacc_thread ();
+  struct target_mem_desc *tgt = thr->mapped_data;
 
   gomp_notify ("  %s: restore mappings\n", __FUNCTION__);
-  mapped_data = tgt->prev;
+  thr->mapped_data = tgt->prev;
   gomp_unmap_vars (tgt, true);
   gomp_notify ("  %s: mappings restored\n", __FUNCTION__);
 }
@@ -296,6 +275,8 @@ GOACC_kernels (int device, void (*fn) (void *), const void *openmp_target,
 void
 goacc_wait (int async, int num_waits, va_list ap)
 {
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
   int i;
 
   assert (num_waits >= 0);
@@ -322,7 +303,7 @@ goacc_wait (int async, int num_waits, va_list ap)
 
   if (async == acc_async_noval && num_waits == 0)
     {
-      ACC_dev->openacc.async_wait_all_async_func (acc_async_noval);
+      acc_dev->openacc.async_wait_all_async_func (acc_async_noval);
       return;
     }
 
@@ -337,7 +318,7 @@ goacc_wait (int async, int num_waits, va_list ap)
          the queue itself will order work as required, so there's no need to
 	 wait explicitly.  */
       if (qid != async)
-	ACC_dev->openacc.async_wait_async_func (qid, async);
+	acc_dev->openacc.async_wait_async_func (qid, async);
     }
 }
 
@@ -351,7 +332,10 @@ GOACC_update (int device, const void *openmp_target, size_t mapnum,
 
   select_acc_device (device);
 
-  if ((ACC_dev->capabilities & TARGET_CAP_SHARED_MEM)
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
+
+  if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
       || !if_clause_condition_value)
     return;
 
@@ -366,34 +350,34 @@ GOACC_update (int device, const void *openmp_target, size_t mapnum,
       va_end (ap);
     }
 
-  ACC_dev->openacc.async_set_async_func (async);
+  acc_dev->openacc.async_set_async_func (async);
 
   for (i = 0; i < mapnum; ++i)
     {
       unsigned char kind = kinds[i] & 0xff;
 
-      dump_var("UPD", i, hostaddrs[i], sizes[i], kinds[i]);
+      dump_var ("UPD", i, hostaddrs[i], sizes[i], kinds[i]);
 
       switch (kind)
 	{
-	  case GOMP_MAP_POINTER:
-	     break;
+	case GOMP_MAP_POINTER:
+	  break;
 
-	  case GOMP_MAP_FORCE_TO:
-	     acc_update_device (hostaddrs[i], sizes[i]);
-	     break;
+	case GOMP_MAP_FORCE_TO:
+	  acc_update_device (hostaddrs[i], sizes[i]);
+	  break;
 
-	  case GOMP_MAP_FORCE_FROM:
-	     acc_update_self (hostaddrs[i], sizes[i]);
-	     break;
+	case GOMP_MAP_FORCE_FROM:
+	  acc_update_self (hostaddrs[i], sizes[i]);
+	  break;
 
-	  default:
-	     gomp_fatal (">>>> GOACC_update UNHANDLED kind 0x%.2x", kind);
-	     break;
+	default:
+	  gomp_fatal (">>>> GOACC_update UNHANDLED kind 0x%.2x", kind);
+	  break;
 	}
     }
 
-  ACC_dev->openacc.async_set_async_func (acc_async_sync);
+  acc_dev->openacc.async_set_async_func (acc_async_sync);
 }
 
 void

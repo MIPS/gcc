@@ -26,8 +26,7 @@
 #ifndef _OACC_PLUGIN_H
 #define _OACC_PLUGIN_H 1
 
-#include "target.h"
-
-extern void ACC_plugin_register (struct gomp_device_descr *dev);
+extern void GOMP_PLUGIN_async_unmap_vars (void *ptr);
+extern void *GOMP_PLUGIN_acc_thread (void);
 
 #endif

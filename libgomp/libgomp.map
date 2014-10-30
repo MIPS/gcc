@@ -337,4 +337,5 @@ PLUGIN_1.0 {
 	GOMP_PLUGIN_mutex_lock;
 	GOMP_PLUGIN_mutex_unlock;
 	GOMP_PLUGIN_async_unmap_vars;
+	GOMP_PLUGIN_acc_thread;
 };

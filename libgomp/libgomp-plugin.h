@@ -50,8 +50,4 @@ extern void GOMP_PLUGIN_mutex_destroy (gomp_mutex_t *mutex);
 extern void GOMP_PLUGIN_mutex_lock (gomp_mutex_t *mutex);
 extern void GOMP_PLUGIN_mutex_unlock (gomp_mutex_t *mutex);
 
-/* target.c */
-
-extern void GOMP_PLUGIN_async_unmap_vars (void *ptr);
-
 #endif

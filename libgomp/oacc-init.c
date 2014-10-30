@@ -27,44 +27,50 @@
 
 #include "libgomp.h"
 #include "target.h"
+#include "oacc-int.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <stdbool.h>
 #include <stdio.h>
 
-gomp_mutex_t acc_device_lock;
+static gomp_mutex_t acc_device_lock;
+
+/* The dispatch table for the current accelerator device.  This is global, so
+   you can only have one type of device open at any given time in a program. 
+   This is the "base" device in that several devices that use the same
+   dispatch table may be active concurrently: this one (the "zeroth") is used
+   for overall initialisation/shutdown, and other instances -- not necessarily
+   including this one -- may be opened and closed once the base device has
+   been initialized.  */
+struct gomp_device_descr const *base_dev;
+
+#ifdef HAVE_TLS
+__thread struct goacc_thread *goacc_tls_data;
+#else
+pthread_key_t goacc_tls_key;
+#endif
+static pthread_key_t goacc_cleanup_key;
 
 /* Current dispatcher, and how it was initialized */
 static acc_device_t init_key = _ACC_device_hwm;
 
-/* The dispatch table for the current accelerator device.  This is currently
-   global, so you can only have one type of device open at any given time in a
-   program.  */
-struct gomp_device_descr const *ACC_dev;
+static struct goacc_thread *goacc_threads;
+static gomp_mutex_t goacc_thread_lock;
 
-/* Handle for current thread.  */
-__thread  void *ACC_handle;
-static __thread int handle_num = -1;
-
-/* This context structure associates the handle for a physical device with
-   memory-mapping information for that device, and is used to associate new
-   host threads with previously-opened devices.  Note that it's not directly
-   connected with the CUDA "context" concept as used by the NVidia plugin.  */
-struct ACC_context {
-  struct memmap_t *ACC_memmap;
-  void *ACC_handle;
-
-  struct ACC_context *next;
-};
-
-static struct ACC_context *ACC_contexts;
-
+/* An array of dispatchers for device types, indexed by the type.  This array
+   only references "base" devices, and other instances of the same type are
+   found by simply indexing from each such device (which are stored linearly,
+   grouped by device in target.c:devices).  */
 static struct gomp_device_descr const *dispatchers[_ACC_device_hwm] = { 0 };
 
 void
 ACC_register (struct gomp_device_descr const *disp)
 {
+  /* Only register the 0th device here.  */
+  if (disp->ord != 0)
+    return;
+
   gomp_mutex_lock (&acc_device_lock);
 
   assert (acc_device_type (disp->type) != acc_device_none
@@ -74,21 +80,6 @@ ACC_register (struct gomp_device_descr const *disp)
   dispatchers[disp->type] = disp;
 
   gomp_mutex_unlock (&acc_device_lock);
-}
-
-static void
-close_handle (void)
-{
-  if (ACC_memmap)
-    {
-      if (ACC_mem_close (ACC_handle, ACC_memmap))
-        {
-          if (ACC_dev->openacc.close_device_func (ACC_handle) < 0)
-            gomp_fatal ("failed to close device");
-        }
-
-      ACC_memmap = 0;
-    }
 }
 
 static struct gomp_device_descr const *
@@ -148,79 +139,135 @@ resolve_device (acc_device_t d)
   return dispatchers[d];
 }
 
+/* This is called when plugins have been initialized, and serves to call
+   (indirectly) the target's device_init hook.  Calling multiple times without
+   an intervening _acc_shutdown call is an error.  */
+
 static struct gomp_device_descr const *
 _acc_init (acc_device_t d)
 {
   struct gomp_device_descr const *acc_dev;
 
-  if (ACC_dev)
-    gomp_fatal ("device already active");
-
-  init_key = d;  /* We need to remember what we were intialized as, to
-		    check shutdown etc.  */
-
   acc_dev = resolve_device (d);
+
   if (!acc_dev || !acc_dev->openacc.avail_func ())
     gomp_fatal ("device %u not supported", (unsigned)d);
 
-  if (!acc_dev->is_initialized)
-    gomp_init_device ((struct gomp_device_descr *) acc_dev);
+  if (acc_dev->is_initialized)
+    gomp_fatal ("device already active");
+
+  /* We need to remember what we were intialized as, to check shutdown etc.  */
+  init_key = d;  
+
+  gomp_init_device ((struct gomp_device_descr *) acc_dev);
 
   return acc_dev;
 }
 
-/* Open the ORD'th device of the currently-active type (ACC_dev must be
+static struct goacc_thread *
+goacc_new_thread (void)
+{
+  struct goacc_thread *thr = gomp_malloc (sizeof (struct gomp_thread));
+
+#ifdef HAVE_TLS
+  goacc_tls_data = thr;
+#else
+  pthread_setspecific (goacc_tls_key, thr);
+#endif
+
+  pthread_setspecific (goacc_cleanup_key, thr);
+
+  gomp_mutex_lock (&goacc_thread_lock);
+  thr->next = goacc_threads;
+  goacc_threads = thr;
+  gomp_mutex_unlock (&goacc_thread_lock);
+
+  return thr;
+}
+
+static void
+goacc_destroy_thread (void *data)
+{
+  struct goacc_thread *thr = data, *walk, *prev;
+  
+  gomp_mutex_lock (&goacc_thread_lock);
+  
+  if (thr)
+    {
+      if (base_dev && thr->target_tls)
+	{
+	  base_dev->openacc.destroy_thread_data_func (thr->target_tls);
+	  thr->target_tls = NULL;
+	}
+
+      assert (!thr->mapped_data);
+
+      /* Remove from thread list.  */
+      for (prev = NULL, walk = goacc_threads; walk;
+	   prev = walk, walk = walk->next)
+	if (walk == thr)
+	  {
+	    if (prev == NULL)
+	      goacc_threads = walk->next;
+	    else
+	      prev->next = walk->next;
+
+	    free (thr);
+
+	    break;
+	  }
+
+      assert (walk);
+    }
+
+  gomp_mutex_unlock (&goacc_thread_lock);
+}
+
+/* Open the ORD'th device of the currently-active type (base_dev must be
    initialised before calling).  If ORD is < 0, open the default-numbered
    device (set by the ACC_DEVICE_NUM environment variable or a call to
    acc_set_device_num), or leave any currently-opened device as is.  "Opening"
-   consists of  calling the device's open_device_func hook, and either creating
-   a new memory mapping or associating a new thread with an existing such
-   mapping (that matches ACC_handle, i.e. which corresponds to the same
-   physical device).  */
+   consists of calling the device's open_device_func hook, and setting up
+   thread-local data (maybe allocating, then initializing with information
+   pertaining to the newly-opened or previously-opened device).  */
 
 static void
 lazy_open (int ord)
 {
-  struct ACC_context *acc_ctx;
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev;
 
-  if (ACC_memmap)
+  if (thr && thr->dev)
     {
-      assert (ord < 0 || ord == handle_num);
+      assert (ord < 0 || ord == thr->dev->ord);
       return;
     }
 
-  assert (ACC_dev);
+  assert (base_dev);
 
   if (ord < 0)
     ord = goacc_device_num;
 
-  ACC_handle = ACC_dev->openacc.open_device_func (ord);
-  handle_num = ord;
+  if (!thr)
+    thr = goacc_new_thread ();
 
-  for (acc_ctx = ACC_contexts; acc_ctx != NULL; acc_ctx = acc_ctx->next)
-    {
-      if (acc_ctx->ACC_handle == ACC_handle)
-        {
-          ACC_memmap = acc_ctx->ACC_memmap;
-	  ACC_dev->openacc.async_set_async_func (acc_async_sync);
+  acc_dev = thr->dev = (struct gomp_device_descr *) &base_dev[ord];
 
-          return;
-        }
-    }
+  assert (acc_dev->ord == ord);
 
-  ACC_memmap = ACC_mem_open (ACC_handle, NULL, handle_num);
+  thr->saved_bound_dev = NULL;
+  thr->mapped_data = NULL;
 
-  ACC_dev->openacc.async_set_async_func (acc_async_sync);
+  if (!acc_dev->target_data)
+    acc_dev->target_data = acc_dev->openacc.open_device_func (ord);
 
-  acc_ctx = gomp_malloc (sizeof (struct ACC_context));
-  acc_ctx->ACC_handle = ACC_handle;
-  acc_ctx->ACC_memmap = ACC_memmap;
+  thr->target_tls
+    = acc_dev->openacc.create_thread_data_func (acc_dev->target_data);
 
-  if (!ACC_memmap->mem_map.is_initialized)
-    gomp_init_tables (ACC_dev, &ACC_memmap->mem_map);
+  acc_dev->openacc.async_set_async_func (acc_async_sync);
 
-  acc_ctx->next = ACC_contexts;
-  ACC_contexts = acc_ctx;
+  if (!acc_dev->mem_map.is_initialized)
+    gomp_init_tables (acc_dev, &acc_dev->mem_map);
 }
 
 /* OpenACC 2.0a (3.2.12, 3.2.13) doesn't specify whether the serialization of
@@ -229,12 +276,12 @@ lazy_open (int ord)
 void
 acc_init (acc_device_t d)
 {
-  if (!ACC_dev)
+  if (!base_dev)
     gomp_init_targets_once ();
 
   gomp_mutex_lock (&acc_device_lock);
 
-  ACC_dev = _acc_init (d);
+  base_dev = _acc_init (d);
 
   lazy_open (-1);
 
@@ -246,31 +293,52 @@ ialias (acc_init)
 void
 _acc_shutdown (acc_device_t d)
 {
+  struct goacc_thread *walk;
+
   /* We don't check whether d matches the actual device found, because
      OpenACC 2.0 (3.2.12) says the parameters to the init and this
      call must match (for the shutdown call anyway, it's silent on
      others).  */
 
-  if (!ACC_dev)
+  if (!base_dev)
     gomp_fatal ("no device initialized");
-  if (init_key != d)
+  if (d != init_key)
     gomp_fatal ("device %u(%u) is initialized",
-	       (unsigned)init_key, (unsigned)ACC_dev->type);
+		(unsigned) init_key, (unsigned) base_dev->type);
 
-  close_handle ();
+  gomp_mutex_lock (&goacc_thread_lock);
 
-  while (ACC_contexts != NULL)
+  /* Free target-specific TLS data and close all devices.  */
+  for (walk = goacc_threads; walk != NULL; walk = walk->next)
     {
-      struct ACC_context *c = ACC_contexts;
-      ACC_contexts = ACC_contexts->next;
-      free (c);
+      if (walk->target_tls)
+	base_dev->openacc.destroy_thread_data_func (walk->target_tls);
+
+      walk->target_tls = NULL;
+
+      /* This would mean the user is shutting down OpenACC in the middle of an
+         "acc data" pragma.  Likely not intentional.  */
+      if (walk->mapped_data)
+	gomp_fatal ("shutdown in 'acc data' region");
+
+      if (walk->dev)
+	{
+          if (walk->dev->openacc.close_device_func (walk->dev->target_data) < 0)
+	    gomp_fatal ("failed to close device");
+
+	  walk->dev->target_data = NULL;
+
+	  gomp_free_memmap (walk->dev);
+
+	  walk->dev = NULL;
+	}
     }
 
-  gomp_fini_device ((struct gomp_device_descr *) ACC_dev);
+  gomp_mutex_unlock (&goacc_thread_lock);
 
-  ACC_dev = 0;
-  ACC_handle = 0;
-  handle_num = -1;
+  gomp_fini_device ((struct gomp_device_descr *) base_dev);
+
+  base_dev = NULL;
 }
 
 void
@@ -285,32 +353,42 @@ acc_shutdown (acc_device_t d)
 
 ialias (acc_shutdown)
 
+/* This function is called after plugins have been initialized.  It deals with
+   the "base" device, and is used to prepare the runtime for dealing with a
+   number of such devices (as implemented by some particular plugin).  If the
+   argument device type D matches a previous call to the function, return the
+   current base device, else shut the old device down and re-initialize with
+   the new device type.  */
+
 static struct gomp_device_descr const *
 lazy_init (acc_device_t d)
 {
-  if (ACC_dev)
+  if (base_dev)
     {
       /* Re-initializing the same device, do nothing.  */
       if (d == init_key)
-	return ACC_dev;
+	return base_dev;
 
       _acc_shutdown (init_key);
     }
 
-  assert (!ACC_dev);
+  assert (!base_dev);
 
   return _acc_init (d);
 }
 
+/* Ensure that plugins are loaded, initialize and open the (default-numbered)
+   device.  */
+
 static void
 lazy_init_and_open (acc_device_t d)
 {
-  if (!ACC_dev)
+  if (!base_dev)
     gomp_init_targets_once ();
 
   gomp_mutex_lock (&acc_device_lock);
 
-  ACC_dev = lazy_init (d);
+  base_dev = lazy_init (d);
 
   lazy_open (-1);
 
@@ -326,7 +404,7 @@ acc_get_num_devices (acc_device_t d)
   if (d == acc_device_none)
     return 0;
 
-  if (!ACC_dev)
+  if (!base_dev)
     gomp_init_targets_once ();
 
   acc_dev = resolve_device (d);
@@ -356,8 +434,8 @@ acc_get_device_type (void)
   acc_device_t res = acc_device_none;
   const struct gomp_device_descr *dev;
 
-  if (ACC_dev)
-    res = acc_device_type (ACC_dev->type);
+  if (base_dev)
+    res = acc_device_type (base_dev->type);
   else
     {
       gomp_init_targets_once ();
@@ -383,7 +461,7 @@ acc_get_device_num (acc_device_t d)
   if (d >= _ACC_device_hwm)
     gomp_fatal ("device %u out of range", (unsigned)d);
 
-  if (!ACC_dev)
+  if (!base_dev)
     gomp_init_targets_once ();
 
   dev = resolve_device (d);
@@ -407,7 +485,7 @@ acc_set_device_num (int n, acc_device_t d)
   const struct gomp_device_descr *dev;
   int num_devices;
 
-  if (!ACC_dev)
+  if (!base_dev)
     gomp_init_targets_once ();
   
   if ((int) d == 0)
@@ -429,17 +507,22 @@ acc_set_device_num (int n, acc_device_t d)
     }
   else
     {
+      struct goacc_thread *thr = goacc_thread ();
+
       gomp_mutex_lock (&acc_device_lock);
 
-      ACC_dev = lazy_init (d);
+      base_dev = lazy_init (d);
 
-      num_devices = ACC_dev->get_num_devices_func ();
+      num_devices = base_dev->get_num_devices_func ();
 
       if (n >= num_devices)
         gomp_fatal ("device %u out of range", n);
 
-      if (n != handle_num)
-	close_handle ();
+      /* If we're changing the device number, de-associate this thread with
+	 the device (but don't close the device, since it may be in use by
+	 other threads).  */
+      if (thr && thr->dev && n != thr->dev->ord)
+	thr->dev = NULL;
 
       lazy_open (n);
 
@@ -452,7 +535,10 @@ ialias (acc_set_device_num)
 int
 acc_on_device (acc_device_t dev)
 {
-  if (ACC_dev && acc_device_type (ACC_dev->type) == acc_device_host_nonshm)
+  struct goacc_thread *thr = goacc_thread ();
+
+  if (thr && thr->dev
+      && acc_device_type (thr->dev->type) == acc_device_host_nonshm)
     return dev == acc_device_host_nonshm || dev == acc_device_not_host;
     
   /* Just rely on the compiler builtin.  */
@@ -465,27 +551,38 @@ ACC_runtime_initialize (void)
 {
   gomp_mutex_init (&acc_device_lock);
 
-  ACC_contexts = NULL;
+#ifndef HAVE_TLS
+  pthread_key_create (&goacc_tls_key, NULL);
+#endif
+
+  pthread_key_create (&goacc_cleanup_key, goacc_destroy_thread);
+
+  base_dev = NULL;
+
+  goacc_threads = NULL;
+  gomp_mutex_init (&goacc_thread_lock);
 }
 
 /* Compiler helper functions */
 
-static __thread struct gomp_device_descr const *saved_bound_dev;
-
 void
 ACC_save_and_set_bind (acc_device_t d)
 {
-  assert (!saved_bound_dev);
+  struct goacc_thread *thr = goacc_thread ();
 
-  saved_bound_dev = ACC_dev;
-  ACC_dev = dispatchers[d];
+  assert (!thr->saved_bound_dev);
+
+  thr->saved_bound_dev = thr->dev;
+  thr->dev = (struct gomp_device_descr *) dispatchers[d];
 }
 
 void
 ACC_restore_bind (void)
 {
-  ACC_dev = saved_bound_dev;
-  saved_bound_dev = NULL;
+  struct goacc_thread *thr = goacc_thread ();
+
+  thr->dev = thr->saved_bound_dev;
+  thr->saved_bound_dev = NULL;
 }
 
 /* This is called from any OpenACC support function that may need to implicitly
@@ -496,10 +593,12 @@ ACC_restore_bind (void)
 void
 ACC_lazy_initialize (void)
 {
-  if (ACC_dev && ACC_memmap)
+  struct goacc_thread *thr = goacc_thread ();
+
+  if (thr && thr->dev)
     return;
 
-  if (!ACC_dev)
+  if (!base_dev)
     lazy_init_and_open (acc_device_default);
   else
     {

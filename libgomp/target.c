@@ -80,6 +80,7 @@ splay_compare (splay_tree_key x, splay_tree_key y)
 }
 
 #include "target.h"
+#include "oacc-int.h"
 
 attribute_hidden void
 gomp_init_targets_once (void)
@@ -815,20 +816,27 @@ gomp_init_dev_tables (struct gomp_device_descr *devicep)
 }
 
 attribute_hidden void
-gomp_fini_device (struct gomp_device_descr *devicep)
+gomp_free_memmap (struct gomp_device_descr *devicep)
 {
   struct gomp_memory_mapping *mm = &devicep->mem_map;
-
-  if (devicep->is_initialized)
-    devicep->device_fini_func ();
 
   while (mm->splay_tree.root)
     {
       struct target_mem_desc *tgt = mm->splay_tree.root->key.tgt;
+      
+      splay_tree_remove (&mm->splay_tree, &mm->splay_tree.root->key);
       free (tgt->array);
       free (tgt);
-      splay_tree_remove (&mm->splay_tree, &mm->splay_tree.root->key);
     }
+
+  mm->is_initialized = false;
+}
+
+attribute_hidden void
+gomp_fini_device (struct gomp_device_descr *devicep)
+{
+  if (devicep->is_initialized)
+    devicep->device_fini_func ();
 
   devicep->is_initialized = false;
 }
@@ -1076,6 +1084,8 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
       DLSYM_OPT (openacc.async_wait_all, openacc_async_wait_all);
       DLSYM_OPT (openacc.async_wait_all_async, openacc_async_wait_all_async);
       DLSYM_OPT (openacc.async_set_async, openacc_async_set_async);
+      DLSYM_OPT (openacc.create_thread_data, openacc_create_thread_data);
+      DLSYM_OPT (openacc.destroy_thread_data, openacc_destroy_thread_data);
       /* Require all the OpenACC handlers if we have TARGET_CAP_OPENACC_200.  */
       if (optional_present != optional_total)
 	{
@@ -1155,6 +1165,8 @@ gomp_find_available_plugins (void)
   while ((ent = readdir (dir)) != NULL)
     {
       struct gomp_device_descr current_device, *devicep;
+      unsigned int i;
+
       if (!gomp_check_plugin_file_name (ent->d_name))
 	continue;
       if (strlen (plugin_path) + 1 + strlen (ent->d_name) >= PATH_MAX)
@@ -1172,18 +1184,24 @@ gomp_find_available_plugins (void)
 	  goto out;
 	}
 
-      devices[num_devices] = current_device;
-      devicep = &devices[num_devices];
+      for (i = 0; i < current_device.get_num_devices_func (); i++)
+        {
+	  devices[num_devices] = current_device;
+	  devicep = &devices[num_devices];
 
-      devicep->is_initialized = false;
-      devicep->offload_regions_registered = false;
-      devicep->mem_map.splay_tree.root = NULL;
-      devicep->mem_map.is_initialized = false;
-      devicep->type = devicep->get_type_func ();
-      devicep->name = devicep->get_name_func ();
-      devicep->capabilities = devicep->get_caps_func ();
-      gomp_mutex_init (&devicep->mem_map.lock);
-      devicep->id = ++num_devices;
+	  devicep->is_initialized = false;
+	  devicep->offload_regions_registered = false;
+	  devicep->mem_map.splay_tree.root = NULL;
+	  devicep->mem_map.is_initialized = false;
+	  devicep->type = devicep->get_type_func ();
+	  devicep->name = devicep->get_name_func ();
+	  devicep->capabilities = devicep->get_caps_func ();
+	  gomp_mutex_init (&devicep->mem_map.lock);
+	  devicep->ord = i;
+	  devicep->target_data = NULL;
+	  devicep->openacc.data_environ = NULL;
+	  devicep->id = ++num_devices;
+	}
     }
   /* Prefer a device with TARGET_CAP_OPENMP_400 for ICV default-device-var.  */
   if (num_devices > 1)
@@ -1219,7 +1237,7 @@ gomp_find_available_plugins (void)
 	 found all the plugins, so registering with the OpenACC runtime (which
 	 takes a copy of the pointer argument) must be delayed until now.  */
       if (devices[i].capabilities & TARGET_CAP_OPENACC_200)
-	ACC_plugin_register (&devices[i]);
+	ACC_register (&devices[i]);
     }
 
  out:

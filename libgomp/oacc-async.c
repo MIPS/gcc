@@ -29,6 +29,7 @@
 #include "openacc.h"
 #include "libgomp.h"
 #include "target.h"
+#include "oacc-int.h"
 
 int
 acc_async_test (int async)
@@ -36,13 +37,13 @@ acc_async_test (int async)
   if (async < acc_async_sync)
     gomp_fatal ("invalid async argument: %d", async);
 
-  return ACC_dev->openacc.async_test_func (async);
+  return base_dev->openacc.async_test_func (async);
 }
 
 int
 acc_async_test_all (void)
 {
-  return ACC_dev->openacc.async_test_all_func ();
+  return base_dev->openacc.async_test_all_func ();
 }
 
 void
@@ -51,22 +52,19 @@ acc_wait (int async)
   if (async < acc_async_sync)
     gomp_fatal ("invalid async argument: %d", async);
 
-  ACC_dev->openacc.async_wait_func (async);
-  return;
+  base_dev->openacc.async_wait_func (async);
 }
 
 void
 acc_wait_async (int async1, int async2)
 {
-  ACC_dev->openacc.async_wait_async_func (async1, async2);
-  return;
+  base_dev->openacc.async_wait_async_func (async1, async2);
 }
 
 void
 acc_wait_all (void)
 {
-  ACC_dev->openacc.async_wait_all_func ();
-  return;
+  base_dev->openacc.async_wait_all_func ();
 }
 
 void
@@ -75,6 +73,5 @@ acc_wait_all_async (int async)
   if (async < acc_async_sync)
     gomp_fatal ("invalid async argument: %d", async);
 
-  ACC_dev->openacc.async_wait_all_async_func (async);
-  return;
+  base_dev->openacc.async_wait_all_async_func (async);
 }

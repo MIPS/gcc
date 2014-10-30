@@ -35,6 +35,9 @@
 #include "target.h"
 #ifdef HOST_NONSHM_PLUGIN
 #include "libgomp-plugin.h"
+#include "oacc-plugin.h"
+#else
+#include "oacc-int.h"
 #endif
 
 #include <stdint.h>
@@ -365,6 +368,17 @@ openacc_async_wait_all_async (int async __attribute__((unused)))
 #endif
 }
 
+STATIC void *
+openacc_create_thread_data (void *targ_data __attribute__((unused)))
+{
+  return NULL;
+}
+
+STATIC void
+openacc_destroy_thread_data (void *tls_data __attribute__((unused)))
+{
+}
+
 #ifndef HOST_NONSHM_PLUGIN
 static struct gomp_device_descr host_dispatch =
   {
@@ -416,7 +430,10 @@ static struct gomp_device_descr host_dispatch =
       .async_wait_async_func = openacc_async_wait_async,
       .async_wait_all_func = openacc_async_wait_all,
       .async_wait_all_async_func = openacc_async_wait_all_async,
-      
+
+      .create_thread_data_func = openacc_create_thread_data,
+      .destroy_thread_data_func = openacc_destroy_thread_data,
+
       .cuda = {
 	.get_current_device_func = NULL,
 	.get_current_context_func = NULL,

@@ -87,13 +87,53 @@ struct gomp_memory_mapping
   bool is_initialized;
 };
 
-#include "oacc-int.h"
-
-static inline enum acc_device_t
-acc_device_type (enum target_type type)
+typedef struct ACC_dispatch_t
 {
-  return (enum acc_device_t) type;
-}
+  /* This is a linked list of data mapped using the
+     acc_map_data/acc_unmap_data or "acc enter data"/"acc exit data" pragmas
+     (TODO).  Unlike mapped_data in the goacc_thread struct, unmapping can
+     happen out-of-order with respect to mapping.  */
+  struct target_mem_desc *data_environ;
+
+  /* Open or close a device instance.  */
+  void *(*open_device_func) (int n);
+  int (*close_device_func) (void *h);
+
+  /* Set or get the device number.  */
+  int (*get_device_num_func) (void);
+  void (*set_device_num_func) (int);
+
+  /* Availability.  */
+  bool (*avail_func) (void);
+
+  /* Execute.  */
+  void (*exec_func) (void (*) (void *), size_t, void **, void **, size_t *,
+		     unsigned short *, int, int, int, int, void *);
+
+  /* Async cleanup callback registration.  */
+  void (*register_async_cleanup_func) (void *);
+
+  /* Asynchronous routines.  */
+  int (*async_test_func) (int);
+  int (*async_test_all_func) (void);
+  void (*async_wait_func) (int);
+  void (*async_wait_async_func) (int, int);
+  void (*async_wait_all_func) (void);
+  void (*async_wait_all_async_func) (int);
+  void (*async_set_async_func) (int);
+
+  /* Create/destroy TLS data.  */
+  void *(*create_thread_data_func) (void *);
+  void (*destroy_thread_data_func) (void *);
+
+  /* NVIDIA target specific routines.  */
+  struct {
+    void *(*get_current_device_func) (void);
+    void *(*get_current_context_func) (void);
+    void *(*get_stream_func) (int);
+    int (*set_stream_func) (int, void *);
+  } cuda;
+} ACC_dispatch_t;
 
 struct mapping_table {
   uintptr_t host_start;
@@ -117,6 +157,9 @@ struct gomp_device_descr
   /* This is the ID number of device.  It could be specified in DEVICE-clause of
      TARGET construct.  */
   int id;
+
+  /* The number of the device for this particular device type.  */
+  int ord;
 
   /* This is the TYPE of device.  */
   enum target_type type;
@@ -148,9 +191,11 @@ struct gomp_device_descr
   /* OpenACC-specific functions.  */
   ACC_dispatch_t openacc;
   
-  /* Memory-mapping info (only for OpenMP -- mappings are stored per-thread
-     for OpenACC. It's not clear if that's a useful distinction).  */
+  /* Memory-mapping info for this device instance.  */
   struct gomp_memory_mapping mem_map;
+
+  /* Extra information required for a device instance by a given target.  */
+  void *target_data;
 };
 
 extern struct target_mem_desc *
@@ -174,5 +219,8 @@ gomp_init_tables (const struct gomp_device_descr *devicep,
 
 extern attribute_hidden void
 gomp_fini_device (struct gomp_device_descr *devicep);
+
+extern attribute_hidden void
+gomp_free_memmap (struct gomp_device_descr *devicep);
 
 #endif /* _TARGET_H */
