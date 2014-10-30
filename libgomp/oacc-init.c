@@ -248,6 +248,12 @@ lazy_open (int ord)
   if (ord < 0)
     ord = goacc_device_num;
 
+  /* The OpenACC 2.0 spec leaves the runtime's behaviour when an out-of-range
+     device is requested as implementation-defined (4.2 ACC_DEVICE_NUM).
+     We choose to raise an error in such a case.  */
+  if (ord >= base_dev->get_num_devices_func ())
+    gomp_fatal ("device %u does not exist", ord);
+
   if (!thr)
     thr = goacc_new_thread ();
 

@@ -1,5 +1,11 @@
 2014-10-30  Julian Brown  <julian@codesourcery.com>
 
+	* env.c (goacc_parse_device_num): Remove.
+	(initialize_env): Use parse_int instead of goacc_parse_device_num.
+	* oacc-init.c (lazy_open): Add bounds check for device number.
+
+2014-10-30  Julian Brown  <julian@codesourcery.com>
+
 	* env.c (oacc-int.h): Include.
 	* libgomp-plugin.h (GOMP_PLUGIN_async_unmap_vars): Don't declare
 	here.

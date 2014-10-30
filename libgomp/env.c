@@ -1016,27 +1016,6 @@ parse_affinity (bool ignore)
   return false;
 }
 
-
-static void
-goacc_parse_device_num (void)
-{
-  const char *env = getenv ("ACC_DEVICE_NUM");
-  int default_num = -1;
-  
-  if (env && *env != '\0')
-    {
-      char *end;
-      default_num = strtol (env, &end, 0);
-      
-      if (*end || default_num < 0)
-        default_num = 0;
-    }
-  else
-    default_num = 0;
-  
-  goacc_device_num = default_num;
-}
-
 static void
 goacc_parse_device_type (void)
 {
@@ -1310,7 +1289,9 @@ initialize_env (void)
   handle_omp_display_env (stacksize, wait_policy);
   
   /* Look for OpenACC-specific environment variables.  */
-  goacc_parse_device_num ();
+  if (!parse_int ("ACC_DEVICE_NUM", &goacc_device_num, true))
+    goacc_device_num = 0;
+
   goacc_parse_device_type ();
 
   /* Initialize OpenACC-specific internal state.  */
