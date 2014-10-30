@@ -5,56 +5,6 @@
      relevant; it may be removed if it is relevant to all targets.
  -->
 
-      <!-- UUID: ac2e200b-ecb0-4a33-9290-1597160afd06 -->
-      <!-- TARGET: mips* -->
-      <!-- SORT: gcc -->
-      <!-- ISSUE: -->
-      <formalpara>
-        <title>Signaling NaN conversion bug</title>
-        <para>
-          A bug that caused incorrect conversion of a signaling NaN
-	  between double and float types has been fixed.
-        </para>
-      </formalpara>
-
-      <!-- UUID: eb51f352-0420-45ae-85c8-bf67af12c606 -->
-      <!-- TARGET: arm-none-eabi -->
-      <!-- SORT: gcc -->
-      <formalpara components="license">
-        <title>GCC ARMv6-M floating-point infinity subtraction bug fix</title>
-        <para>
-          A bug in GCC has been fixed that caused floating-point magnitude
-          subtraction of infinities in code built for ARMv6-M to produce
-          an infinity rather than a NaN.
-        </para>
-      </formalpara>
-
-      <!-- UUID: 80891596-3010-4310-8642-2259a43a2353 -->
-      <!-- TARGET: arm-rockwell-eabi -->
-      <!-- SORT: gcc -->
-      <!-- ISSUE: -->
-      <formalpara>
-        <title>Multilib alteration</title>
-        <para>
-          The Thumb-2 multilib supplied with &csl_prod; for
-          &csl_target_name; has been corrected to use the ARMv7-A
-          architecture version rather than ARMv7.
-        </para>
-      </formalpara>
-
-      <!-- UUID: 570c236f-74ed-4dac-86b2-f746984bdb6f -->
-      <!-- TARGET: nios2* -->
-      <!-- SORT: gcc -->
-      <!-- ISSUE: -->
-      <formalpara>
-        <title>Branch optimization bug fix</title>
-        <para>
-          A bug has been fixed that caused GCC to unnecessarily
-	  emit long branch sequences instead of more compact PC-relative
-	  branches.
-        </para>
-      </formalpara>
-
       <!-- UUID: db8ce3ae-d910-4cc3-91ac-63948002d9e2 -->
       <!-- TARGET: mips* -->
       <!-- SORT: gcc -->
