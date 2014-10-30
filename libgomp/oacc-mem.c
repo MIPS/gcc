@@ -257,7 +257,7 @@ acc_map_data (void *h, void *d, size_t s)
       if (d != h)
         gomp_fatal ("cannot map data on shared-memory system");
 
-      tgt = gomp_map_vars (NULL, NULL, 0, NULL, NULL, NULL, NULL, true, false);
+      tgt = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, true, false);
     }
   else
     {
@@ -275,9 +275,8 @@ acc_map_data (void *h, void *d, size_t s)
 	gomp_fatal ("device address [%p, +%d] is already mapped", (void *)d,
 		    (int)s);
 
-      tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev,
-			   &acc_dev->mem_map, mapnum, &hostaddrs,
-			   &devaddrs, &sizes, &kinds, true, false);
+      tgt = gomp_map_vars (acc_dev, mapnum, &hostaddrs, &devaddrs, &sizes,
+			   &kinds, true, false);
     }
 
   tgt->prev = acc_dev->openacc.data_environ;
@@ -383,9 +382,8 @@ present_create_copy (unsigned f, void *h, size_t s)
       else
         kinds = GOMP_MAP_ALLOC;
 
-      tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev,
-			   &acc_dev->mem_map, mapnum, &hostaddrs,
-			   NULL, &s, &kinds, true, false);
+      tgt = gomp_map_vars (acc_dev, mapnum, &hostaddrs, NULL, &s, &kinds, true,
+			   false);
 
       gomp_mutex_lock (&acc_dev->mem_map.lock);
 

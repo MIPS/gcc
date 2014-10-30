@@ -1,5 +1,14 @@
 2014-10-30  Julian Brown  <julian@codesourcery.com>
 
+	* target.c (gomp_map_vars): Remove MM argument.
+	(GOMP_target, GOMP_target_data): Update calls to gomp_map_vars.
+	* oacc-mem.c (acc_map_data, present_create_copy): Update calls to
+	gomp_map_vars.
+	* oacc-parallel.c (GOACC_parallel, GOACC_data_start): Likewise.
+	* target.h (gomp_map_vars): Update prototype.
+
+2014-10-30  Julian Brown  <julian@codesourcery.com>
+
 	* oacc-host.c (DEBUG): Remove undefine.
 	* plugin-nvptx.c (DEBUG, DISABLE_ASYNC): Remove comment-out macro
 	definitions.

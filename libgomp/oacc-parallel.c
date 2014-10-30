@@ -173,9 +173,8 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
   else
     tgt_fn = (void (*)) fn;
 
-  tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev,
-		       &acc_dev->mem_map, mapnum, hostaddrs,
-		       NULL, sizes, kinds, true, false);
+  tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
+		       false);
 
   devaddrs = alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
@@ -217,7 +216,7 @@ GOACC_data_start (int device, const void *openmp_target, size_t mapnum,
   if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
       || !if_clause_condition_value)
     {
-      tgt = gomp_map_vars (NULL, NULL, 0, NULL, NULL, NULL, NULL, true, false);
+      tgt = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, true, false);
       tgt->prev = thr->mapped_data;
       thr->mapped_data = tgt;
 
@@ -225,9 +224,8 @@ GOACC_data_start (int device, const void *openmp_target, size_t mapnum,
     }
 
   gomp_notify ("  %s: prepare mappings\n", __FUNCTION__);
-  tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev,
-		       &acc_dev->mem_map, mapnum, hostaddrs,
-		       NULL, sizes, kinds, true, false);
+  tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
+		       false);
   gomp_notify ("  %s: mappings prepared\n", __FUNCTION__);
   tgt->prev = thr->mapped_data;
   thr->mapped_data = tgt;

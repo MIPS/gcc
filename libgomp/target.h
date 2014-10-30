@@ -199,10 +199,9 @@ struct gomp_device_descr
 };
 
 extern struct target_mem_desc *
-gomp_map_vars (struct gomp_device_descr *devicep,
-	       struct gomp_memory_mapping *mm, size_t mapnum,
-	       void **hostaddrs, void **devaddrs, size_t *sizes,
-	       void *kinds, bool is_openacc, bool is_target);
+gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
+	       void **hostaddrs, void **devaddrs, size_t *sizes, void *kinds,
+	       bool is_openacc, bool is_target);
 
 extern void
 gomp_copy_from_async (struct target_mem_desc *tgt);

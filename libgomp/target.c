@@ -134,14 +134,14 @@ get_kind (bool is_openacc, void *kinds, int idx)
 }
 
 attribute_hidden struct target_mem_desc *
-gomp_map_vars (struct gomp_device_descr *devicep,
-	       struct gomp_memory_mapping *mm, size_t mapnum,
-	       void **hostaddrs, void **devaddrs, size_t *sizes,
-	       void *kinds, bool is_openacc, bool is_target)
+gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
+	       void **hostaddrs, void **devaddrs, size_t *sizes, void *kinds,
+	       bool is_openacc, bool is_target)
 {
   size_t i, tgt_align, tgt_size, not_found_cnt = 0;
   const int rshift = is_openacc ? 8 : 3;
   const int typemask = is_openacc ? 0xff : 0x7;
+  struct gomp_memory_mapping *mm = &devicep->mem_map;
   struct splay_tree_key_s cur_node;
   struct target_mem_desc *tgt
     = gomp_malloc (sizeof (*tgt) + sizeof (tgt->list[0]) * mapnum);
@@ -861,8 +861,8 @@ GOMP_target (int device, void (*fn) (void *), const void *openmp_target,
   gomp_mutex_unlock (&mm->lock);
 
   struct target_mem_desc *tgt_vars
-    = gomp_map_vars (devicep, &devicep->mem_map, mapnum, hostaddrs, NULL,
-		     sizes, kinds, false, true);
+    = gomp_map_vars (devicep, mapnum, hostaddrs, NULL, sizes, kinds, false,
+		     true);
   struct gomp_thread old_thr, *thr = gomp_thread ();
   old_thr = *thr;
   memset (thr, '\0', sizeof (*thr));
@@ -901,17 +901,15 @@ GOMP_target_data (int device, const void *openmp_target, size_t mapnum,
 	     new #pragma omp target data, otherwise GOMP_target_end_data
 	     would get out of sync.  */
 	  struct target_mem_desc *tgt
-	    = gomp_map_vars (NULL, NULL, 0, NULL, NULL, NULL, NULL, false,
-			     false);
+	    = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, false, false);
 	  tgt->prev = icv->target_data;
 	  icv->target_data = tgt;
 	}
       return;
     }
 
-  struct target_mem_desc *tgt
-    = gomp_map_vars (devicep, &devicep->mem_map, mapnum, hostaddrs, NULL, sizes,
-		     kinds, false, false);
+  struct target_mem_desc *tgt = gomp_map_vars (devicep, mapnum, hostaddrs, NULL,
+					       sizes, kinds, false, false);
   struct gomp_task_icv *icv = gomp_icv (true);
   tgt->prev = icv->target_data;
   icv->target_data = tgt;
