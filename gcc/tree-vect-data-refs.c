@@ -4057,7 +4057,7 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   tree aggr_ptr_type;
   tree aggr_ptr;
   tree new_temp;
-  gimple vec_stmt;
+  gassign *vec_stmt;
   gimple_seq new_stmt_list = NULL;
   edge pe = NULL;
   basic_block new_bb;
@@ -4591,7 +4591,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
 			  vec<tree> *result_chain)
 {
   tree vect1, vect2, high, low;
-  gimple perm_stmt;
+  gassign *perm_stmt;
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   tree perm_mask_low, perm_mask_high;
   tree data_ref;
@@ -5164,7 +5164,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
   tree data_ref, first_vect, second_vect;
   tree perm_mask_even, perm_mask_odd;
   tree perm3_mask_low, perm3_mask_high;
-  gimple perm_stmt;
+  gassign *perm_stmt;
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   unsigned int i, j, log_length = exact_log2 (length);
   unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype);
@@ -5363,7 +5363,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
   tree vect[3], vect_shift[3], data_ref, first_vect, second_vect;
   tree perm2_mask1, perm2_mask2, perm3_mask;
   tree select_mask, shift1_mask, shift2_mask, shift3_mask, shift4_mask;
-  gimple perm_stmt;
+  gassign *perm_stmt;
 
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   unsigned int i;

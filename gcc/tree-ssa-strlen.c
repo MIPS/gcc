@@ -416,7 +416,9 @@ get_string_length (strinfo si)
 
   if (si->stmt)
     {
-      gimple stmt = si->stmt, lenstmt;
+      gimple stmt = si->stmt;
+      gcall *call_stmt;
+      gassign *assign_stmt;
       tree callee, lhs, fn, tem;
       location_t loc;
       gimple_stmt_iterator gsi;
@@ -440,11 +442,11 @@ get_string_length (strinfo si)
 	  fn = builtin_decl_implicit (BUILT_IN_STRLEN);
 	  gcc_assert (lhs == NULL_TREE);
 	  tem = unshare_expr (gimple_call_arg (stmt, 0));
-	  lenstmt = gimple_build_call (fn, 1, tem);
-	  lhs = make_ssa_name (TREE_TYPE (TREE_TYPE (fn)), lenstmt);
-	  gimple_call_set_lhs (lenstmt, lhs);
-	  gimple_set_vuse (lenstmt, gimple_vuse (stmt));
-	  gsi_insert_before (&gsi, lenstmt, GSI_SAME_STMT);
+	  call_stmt = gimple_build_call (fn, 1, tem);
+	  lhs = make_ssa_name (TREE_TYPE (TREE_TYPE (fn)), call_stmt);
+	  gimple_call_set_lhs (call_stmt, lhs);
+	  gimple_set_vuse (call_stmt, gimple_vuse (stmt));
+	  gsi_insert_before (&gsi, call_stmt, GSI_SAME_STMT);
 	  tem = gimple_call_arg (stmt, 0);
           if (!ptrofftype_p (TREE_TYPE (lhs)))
             {
@@ -452,13 +454,13 @@ get_string_length (strinfo si)
               lhs = force_gimple_operand_gsi (&gsi, lhs, true, NULL_TREE,
                                               true, GSI_SAME_STMT);
             }
-	  lenstmt
+	  assign_stmt
 	    = gimple_build_assign_with_ops
 	        (POINTER_PLUS_EXPR,
 		 make_ssa_name (TREE_TYPE (gimple_call_arg (stmt, 0)), NULL),
 		 tem, lhs);
-	  gsi_insert_before (&gsi, lenstmt, GSI_SAME_STMT);
-	  gimple_call_set_arg (stmt, 0, gimple_assign_lhs (lenstmt));
+	  gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
+	  gimple_call_set_arg (stmt, 0, gimple_assign_lhs (assign_stmt));
 	  lhs = NULL_TREE;
 	  /* FALLTHRU */
 	case BUILT_IN_STRCPY:
@@ -1673,7 +1675,7 @@ handle_builtin_memset (gimple_stmt_iterator *gsi)
   unlink_stmt_vdef (stmt2);
   if (lhs)
     {
-      gimple assign = gimple_build_assign (lhs, ptr);
+      gassign *assign = gimple_build_assign (lhs, ptr);
       gsi_replace (gsi, assign, false);
     }
   else

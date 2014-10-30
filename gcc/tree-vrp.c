@@ -9555,8 +9555,8 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
 	}
     }
 
-  gimple g = gimple_build_assign_with_ops (subcode, gimple_call_lhs (stmt),
-					   op0, op1);
+  gassign *g = gimple_build_assign_with_ops (subcode, gimple_call_lhs (stmt),
+					     op0, op1);
   gsi_replace (gsi, g, false);
   return true;
 }

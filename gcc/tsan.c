@@ -115,7 +115,7 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
   tree base, rhs, expr_ptr, builtin_decl;
   basic_block bb;
   HOST_WIDE_INT size;
-  gimple stmt, g;
+  gimple stmt;
   gimple_seq seq;
   location_t loc;
 
@@ -165,12 +165,13 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
   seq = NULL;
   if (!is_gimple_val (expr_ptr))
     {
-      g = gimple_build_assign (make_ssa_name (TREE_TYPE (expr_ptr), NULL),
-			       expr_ptr);
+      gassign *g = gimple_build_assign (make_ssa_name (TREE_TYPE (expr_ptr), NULL),
+					expr_ptr);
       expr_ptr = gimple_assign_lhs (g);
       gimple_set_location (g, loc);
       gimple_seq_add_stmt_without_update (&seq, g);
     }
+  gcall *g;
   if (rhs == NULL)
     g = gimple_build_call (get_memory_access_decl (is_write, size),
 			   1, expr_ptr);
@@ -443,7 +444,8 @@ static const struct tsan_map_atomic
 static void
 instrument_builtin_call (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi), g;
+  gimple stmt = gsi_stmt (*gsi);
+  gassign *g;
   tree callee = gimple_call_fndecl (stmt), last_arg, args[6], t, lhs;
   enum built_in_function fcode = DECL_FUNCTION_CODE (callee);
   unsigned int i, num = gimple_call_num_args (stmt), j;

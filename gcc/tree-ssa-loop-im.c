@@ -1928,7 +1928,7 @@ sm_set_flag_if_changed::operator () (mem_ref_loc_p loc)
       && gimple_assign_lhs_ptr (loc->stmt) == loc->ref)
     {
       gimple_stmt_iterator gsi = gsi_for_stmt (loc->stmt);
-      gimple stmt = gimple_build_assign (flag, boolean_true_node);
+      gassign *stmt = gimple_build_assign (flag, boolean_true_node);
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
     }
   return false;

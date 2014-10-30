@@ -489,7 +489,7 @@ lower_emutls_1 (tree *ptr, int *walk_subtrees, void *cb_data)
 	     new assignment statement, and substitute yet another SSA_NAME.  */
 	  if (wi->changed)
 	    {
-	      gimple x;
+	      gassign *x;
 
 	      addr = create_tmp_var (TREE_TYPE (t), NULL);
 	      x = gimple_build_assign (addr, t);

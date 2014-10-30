@@ -333,8 +333,8 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
       if (!res)
 	res = make_ssa_name (type, NULL);
       maybe_build_generic_op (rcode, type, &ops[0], ops[1], ops[2]);
-      gimple new_stmt = gimple_build_assign_with_ops (rcode, res,
-						      ops[0], ops[1], ops[2]);
+      gassign *new_stmt = gimple_build_assign_with_ops (rcode, res,
+							ops[0], ops[1], ops[2]);
       gimple_seq_add_stmt_without_update (seq, new_stmt);
       return res;
     }

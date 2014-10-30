@@ -319,7 +319,7 @@ remap_ssa_name (tree name, copy_body_data *id)
 		  || EDGE_COUNT (id->entry_bb->preds) != 1))
 	    {
 	      gimple_stmt_iterator gsi = gsi_last_bb (id->entry_bb);
-	      gimple init_stmt;
+	      gassign *init_stmt;
 	      tree zero = build_zero_cst (TREE_TYPE (new_tree));
 
 	      init_stmt = gimple_build_assign (new_tree, zero);
@@ -1827,7 +1827,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		 the number of anonymous arguments.  */
 	      size_t nargs = gimple_call_num_args (id->call_stmt);
 	      tree count, p;
-	      gimple new_stmt;
+	      gassign *new_stmt;
 
 	      for (p = DECL_ARGUMENTS (id->src_fn); p; p = DECL_CHAIN (p))
 		nargs--;
@@ -2951,7 +2951,7 @@ static gimple
 setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 		     basic_block bb, tree *vars)
 {
-  gimple init_stmt = NULL;
+  gassign *init_stmt = NULL;
   tree var;
   tree rhs = value;
   tree def = (gimple_in_ssa_p (cfun)

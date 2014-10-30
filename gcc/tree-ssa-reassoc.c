@@ -2591,7 +2591,7 @@ optimize_range_tests_to_bit_test (enum tree_code opcode, int first, int length,
 	  gimple_seq_add_seq_without_update (&seq, seq2);
 	  gcc_assert (TREE_CODE (exp) == SSA_NAME);
 	  gimple_set_visited (SSA_NAME_DEF_STMT (exp), true);
-	  gimple g
+	  gassign *g
 	    = gimple_build_assign_with_ops (BIT_IOR_EXPR,
 					    make_ssa_name (optype, NULL),
 					    tem, exp);

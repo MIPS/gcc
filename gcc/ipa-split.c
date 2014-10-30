@@ -1492,7 +1492,7 @@ split_function (struct split_point *split_point)
 		  gsi_insert_after (&gsi, call, GSI_NEW_STMT);
 		  if (!useless_type_conversion_p (TREE_TYPE (retval), restype))
 		    {
-		      gimple cpy;
+		      gassign *cpy;
 		      tree tem = create_tmp_reg (restype, NULL);
 		      tem = make_ssa_name (tem, call);
 		      cpy = gimple_build_assign_with_ops (NOP_EXPR, retval,

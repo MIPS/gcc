@@ -2502,8 +2502,8 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
     {
       tree rhs = gimple_assign_rhs2 (def_stmt);
       tree negrhs = make_ssa_name (TREE_TYPE (rhs), NULL);
-      gimple negate_stmt = gimple_build_assign_with_ops (NEGATE_EXPR, negrhs,
-							 rhs, NULL);
+      gassign *negate_stmt =  gimple_build_assign_with_ops (NEGATE_EXPR, negrhs,
+							    rhs, NULL);
       gimple_stmt_iterator gsi = gsi_for_stmt (def_stmt);
       set_vinfo_for_stmt (negate_stmt, new_stmt_vec_info (negate_stmt, 
 							  loop_info, NULL));
@@ -3271,7 +3271,7 @@ get_initial_def_for_induction (gimple iv_phi)
   tree new_vec, vec_init, vec_step, t;
   tree new_var;
   tree new_name;
-  gimple init_stmt, new_stmt;
+  gassign *init_stmt, *new_stmt;
   gphi *induction_phi;
   tree induc_def, vec_def, vec_dest;
   tree init_expr, step_expr;
@@ -4769,7 +4769,7 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
   stmt_vec_info prev_stmt_info, prev_phi_info;
   bool single_defuse_cycle = false;
   tree reduc_def = NULL_TREE;
-  gimple new_stmt = NULL;
+  gassign *new_stmt = NULL;
   int j;
   tree ops[3];
   bool nested_cycle = false, found_nested_cycle_def = false;

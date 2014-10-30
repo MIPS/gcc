@@ -468,7 +468,8 @@ gen_conditions_for_pow_int_base (tree base, tree expn,
   tree int_type;
   tree temp, tempn;
   tree cst0;
-  gimple stmt1, stmt2;
+  gassign *stmt1;
+  gcond *stmt2;
   int bit_sz, max_exp;
   inp_domain exp_domain;
 

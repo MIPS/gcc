@@ -1151,7 +1151,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 	  && flag_stack_reuse != SR_NONE)
 	{
 	  tree clobber = build_constructor (TREE_TYPE (t), NULL);
-	  gimple clobber_stmt;
+	  gassign *clobber_stmt;
 	  TREE_THIS_VOLATILE (clobber) = 1;
 	  clobber_stmt = gimple_build_assign (t, clobber);
 	  gimple_set_location (clobber_stmt, end_locus);

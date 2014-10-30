@@ -2345,7 +2345,7 @@ static void
 rewrite_cross_bb_scalar_dependence (scop_p scop, tree zero_dim_array,
 				    tree def, gimple use_stmt)
 {
-  gimple name_stmt;
+  gassign *name_stmt;
   tree name;
   ssa_op_iter iter;
   use_operand_p use_p;

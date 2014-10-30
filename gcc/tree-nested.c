@@ -436,7 +436,7 @@ static tree
 init_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 {
   tree t;
-  gimple stmt;
+  gassign *stmt;
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (t, exp);
@@ -467,7 +467,7 @@ static tree
 save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 {
   tree t;
-  gimple stmt;
+  gassign *stmt;
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (exp, t);

@@ -2121,7 +2121,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   char tmp_name[20];
   tree or_tmp_name = NULL_TREE;
   tree and_tmp_name;
-  gimple and_stmt;
+  gassign *and_stmt;
   tree ptrsize_zero;
   tree part_cond_expr;
 
@@ -2140,7 +2140,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       tree addr_base;
       tree addr_tmp_name;
       tree new_or_tmp_name;
-      gimple addr_stmt, or_stmt;
+      gassign *addr_stmt, *or_stmt;
       stmt_vec_info stmt_vinfo = vinfo_for_stmt (ref_stmt);
       tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
       bool negative = tree_int_cst_compare

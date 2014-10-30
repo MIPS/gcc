@@ -261,7 +261,7 @@ static tree
 ifc_temp_var (tree type, tree expr, gimple_stmt_iterator *gsi)
 {
   tree new_name = make_temp_ssa_name (type, NULL, "_ifc_");
-  gimple stmt = gimple_build_assign (new_name, expr);
+  gassign *stmt = gimple_build_assign (new_name, expr);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
   return new_name;
 }
@@ -1523,7 +1523,7 @@ convert_scalar_cond_reduction (gimple reduc, gimple_stmt_iterator *gsi,
 			       tree cond, tree op0, tree op1, bool swap)
 {
   gimple_stmt_iterator stmt_it;
-  gimple new_assign;
+  gassign *new_assign;
   tree rhs;
   tree rhs1 = gimple_assign_rhs1 (reduc);
   tree tmp = make_temp_ssa_name (TREE_TYPE (rhs1), NULL, "_ifc_");
@@ -1575,7 +1575,7 @@ predicate_scalar_phi (gphi *phi, tree cond,
 		      basic_block true_bb,
 		      gimple_stmt_iterator *gsi)
 {
-  gimple new_stmt;
+  gassign *new_stmt;
   basic_block bb;
   tree rhs, res, arg, scev;
 

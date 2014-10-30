@@ -1410,7 +1410,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 					TREE_TYPE (lhs), NULL);
 	  var = get_or_create_ssa_default_def
 		  (DECL_STRUCT_FUNCTION (e->caller->decl), var);
-	  gimple set_stmt = gimple_build_assign (lhs, var);
+	  gassign *set_stmt = gimple_build_assign (lhs, var);
           gsi = gsi_for_stmt (new_stmt);
 	  gsi_insert_before_without_update (&gsi, set_stmt, GSI_SAME_STMT);
 	  update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), set_stmt);

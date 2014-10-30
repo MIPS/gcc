@@ -737,7 +737,8 @@ execute_cse_sincos_1 (tree name)
   gimple_stmt_iterator gsi;
   imm_use_iterator use_iter;
   tree fndecl, res, type;
-  gimple def_stmt, use_stmt, stmt;
+  gimple def_stmt, use_stmt;
+  gcall *call_stmt;
   int seen_cos = 0, seen_sin = 0, seen_cexpi = 0;
   vec<gimple> stmts = vNULL;
   basic_block top_bb = NULL;
@@ -782,9 +783,10 @@ execute_cse_sincos_1 (tree name)
   fndecl = mathfn_built_in (type, BUILT_IN_CEXPI);
   if (!fndecl)
     return false;
-  stmt = gimple_build_call (fndecl, 1, name);
-  res = make_temp_ssa_name (TREE_TYPE (TREE_TYPE (fndecl)), stmt, "sincostmp");
-  gimple_call_set_lhs (stmt, res);
+  call_stmt = gimple_build_call (fndecl, 1, name);
+  res = make_temp_ssa_name (TREE_TYPE (TREE_TYPE (fndecl)), call_stmt,
+			    "sincostmp");
+  gimple_call_set_lhs (call_stmt, res);
 
   def_stmt = SSA_NAME_DEF_STMT (name);
   if (!SSA_NAME_IS_DEFAULT_DEF (name)
@@ -792,12 +794,12 @@ execute_cse_sincos_1 (tree name)
       && gimple_bb (def_stmt) == top_bb)
     {
       gsi = gsi_for_stmt (def_stmt);
-      gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+      gsi_insert_after (&gsi, call_stmt, GSI_SAME_STMT);
     }
   else
     {
       gsi = gsi_after_labels (top_bb);
-      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+      gsi_insert_before (&gsi, call_stmt, GSI_SAME_STMT);
     }
   sincos_stats.inserted++;
 
@@ -826,11 +828,12 @@ execute_cse_sincos_1 (tree name)
 	}
 
 	/* Replace call with a copy.  */
-	stmt = gimple_build_assign (gimple_call_lhs (use_stmt), rhs);
+	gassign *assign_stmt = gimple_build_assign (gimple_call_lhs (use_stmt),
+						    rhs);
 
 	gsi = gsi_for_stmt (use_stmt);
-	gsi_replace (&gsi, stmt, true);
-	if (gimple_purge_dead_eh_edges (gimple_bb (stmt)))
+	gsi_replace (&gsi, assign_stmt, true);
+	if (gimple_purge_dead_eh_edges (gimple_bb (assign_stmt)))
 	  cfg_changed = true;
     }
 
@@ -1115,7 +1118,7 @@ build_and_insert_ref (gimple_stmt_iterator *gsi, location_t loc, tree type,
 		      const char *name, enum tree_code code, tree arg0)
 {
   tree result = make_temp_ssa_name (type, NULL, name);
-  gimple stmt = gimple_build_assign (result, build1 (code, type, arg0));
+  gassign *stmt = gimple_build_assign (result, build1 (code, type, arg0));
   gimple_set_location (stmt, loc);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
   return result;
@@ -2201,7 +2204,7 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
       gimple_stmt_iterator gsi_ins = gsi_for_stmt (src_stmt);
       tree addr_expr, addr_tmp, val_expr, val_tmp;
       tree load_offset_ptr, aligned_load_type;
-      gimple addr_stmt, load_stmt;
+      gassign *load_stmt;
       unsigned align;
 
       align = get_object_alignment (src);
@@ -2222,7 +2225,7 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
 	{
 	  addr_tmp = make_temp_ssa_name (TREE_TYPE (addr_expr), NULL,
 					 "load_src");
-	  addr_stmt = gimple_build_assign (addr_tmp, addr_expr);
+	  gassign *addr_stmt = gimple_build_assign (addr_tmp, addr_expr);
 	  gsi_insert_before (&gsi, addr_stmt, GSI_SAME_STMT);
 	}
 
@@ -2299,7 +2302,7 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
   /* Convert the src expression if necessary.  */
   if (!useless_type_conversion_p (TREE_TYPE (tmp), bswap_type))
     {
-      gimple convert_stmt;
+      gassign *convert_stmt;
       tmp = make_temp_ssa_name (bswap_type, NULL, "bswapsrc");
       convert_stmt = gimple_build_assign_with_ops (NOP_EXPR, tmp, src, NULL);
       gsi_insert_before (&gsi, convert_stmt, GSI_SAME_STMT);
@@ -2312,7 +2315,7 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
   /* Convert the result if necessary.  */
   if (!useless_type_conversion_p (TREE_TYPE (tgt), bswap_type))
     {
-      gimple convert_stmt;
+      gassign *convert_stmt;
       tmp = make_temp_ssa_name (bswap_type, NULL, "bswapdst");
       convert_stmt = gimple_build_assign_with_ops (NOP_EXPR, tgt, tmp, NULL);
       gsi_insert_after (&gsi, convert_stmt, GSI_SAME_STMT);

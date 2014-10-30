@@ -1281,7 +1281,7 @@ tm_log_emit_saves (basic_block entry_block, basic_block bb)
 {
   size_t i;
   gimple_stmt_iterator gsi = gsi_last_bb (bb);
-  gimple stmt;
+  gassign *stmt;
   struct tm_log_entry l, *lp;
 
   for (i = 0; i < tm_log_save_addresses.length (); ++i)
@@ -1318,7 +1318,7 @@ tm_log_emit_restores (basic_block entry_block, basic_block bb)
   int i;
   struct tm_log_entry l, *lp;
   gimple_stmt_iterator gsi;
-  gimple stmt;
+  gassign *stmt;
 
   for (i = tm_log_save_addresses.length () - 1; i >= 0; i--)
     {
@@ -2169,7 +2169,7 @@ build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
     }
   else
     {
-      gimple g;
+      gassign *g;
       tree temp;
 
       temp = create_tmp_reg (t, NULL);
@@ -2247,7 +2247,7 @@ build_tm_store (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
     }
   else if (!useless_type_conversion_p (simple_type, type))
     {
-      gimple g;
+      gassign *g;
       tree temp;
 
       temp = create_tmp_reg (simple_type, NULL);

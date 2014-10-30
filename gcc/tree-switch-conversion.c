@@ -1037,7 +1037,7 @@ build_one_array (gswitch *swtch, int num, tree arr_index_type,
 		 gphi *phi, tree tidx, struct switch_conv_info *info)
 {
   tree name, cst;
-  gimple load;
+  gassign *load;
   gimple_stmt_iterator gsi = gsi_for_stmt (swtch);
   location_t loc = gimple_location (swtch);
 
@@ -1103,7 +1103,7 @@ build_arrays (gswitch *swtch, struct switch_conv_info *info)
 {
   tree arr_index_type;
   tree tidx, sub, utype;
-  gimple stmt;
+  gassign *stmt;
   gimple_stmt_iterator gsi;
   gphi_iterator gpi;
   int i;

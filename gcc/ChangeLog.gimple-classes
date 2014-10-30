@@ -1,3 +1,114 @@
+2014-10-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* asan.c (build_shadow_mem_access): Strengthen local "g" from
+	gimple to gassign *.
+	(maybe_create_ssa_name): Likewise.
+	(maybe_cast_to_ptrmode): Likewise.
+	(instrument_mem_region_access): Likewise.
+	* cgraph.c (cgraph_edge::redirect_call_stmt_to_callee): Likewise
+	for local "set_stmt".
+	* cgraphunit.c (cgraph_node::expand_thunk): Likewise for locals
+	"stmt".
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Likewise for
+	local "new_stmt".
+	(gimple_fold_builtin_memory_op): Likewise for both "new_stmt" and
+	for locals "repl".
+	(gimple_fold_builtin_memset): Likewise for "store".
+	(gimple_fold_builtin_memset): Likewise for "asgn".
+	* gimple-match-head.c (maybe_push_res_to_seq): Likewise for
+	"new_stmt".
+	* gimplify.c (gimplify_bind_expr): Likewise for "clobber_stmt".
+	* graphite-sese-to-poly.c (rewrite_cross_bb_scalar_dependence):
+	Likewise for "name_stmt".
+	* ipa-prop.c (ipa_modify_call_arguments): Likewise. for "tem".
+	* ipa-split.c (split_function): Likewise for "cpy".
+	* predict.c (pass_strip_predict_hints::execute): Likewise for
+	"ass_stmt".
+	* trans-mem.c (tm_log_emit_saves): Likewise for "stmt".
+	(tm_log_emit_restores): Likewise.
+	(build_tm_load): Likewise for "g".
+	(build_tm_store): Likewise.
+	* tree-call-cdce.c (gen_conditions_for_pow_int_base): Likewise for
+	"stmt1".  Strengthen local "stmt2" from gimple to gcond *.
+	* tree-cfg.c (make_blocks): Strengthen local "s" from gimple to
+	gassign *.
+	(handle_abnormal_edges): Likewise for "assignment".
+	* tree-emutls.c (lower_emutls_1): Likewise for "x".
+	* tree-if-conv.c (ifc_temp_var): Likewise for "stmt".
+	(convert_scalar_cond_reduction): Likewise for "new_assign".
+	(predicate_scalar_phi): Likewise for "new_stmt".
+	* tree-inline.c (remap_ssa_name): Likewise for "init_stmt".
+	(copy_bb): Likewise for "new_stmt".
+	(setup_one_parameter): Likewise for "init_stmt".
+	* tree-loop-distribution.c (generate_memset_builtin): Likewise for
+	"cstmt".
+	* tree-nested.c (init_tmp_var): Likewise for "stmt".
+	(save_tmp_var): Likewise.
+	* tree-parloops.c (create_loads_for_reductions): Likewise.
+	(create_final_loads_for_reduction): Likewise.
+	(create_stores_for_reduction): Likewise.
+	(create_loads_and_stores_for_name): Likewise.
+	* tree-ssa-dse.c (dse_optimize_stmt): Likewise for "new_stmt".
+	* tree-ssa-forwprop.c (associate_pointerplus): Likewise for
+	"ostmt".
+	* tree-ssa-loop-im.c (sm_set_flag_if_changed::operator): Likewise
+	for "stmt".
+	* tree-ssa-math-opts.c (execute_cse_sincos_1): Eliminate local
+	"stmt", splitting its users into new local gcall * "call_stmt"
+	and gassign * "assign_stmt".
+	(build_and_insert_ref): Strengthen local "stmt" from gimple to
+	gassign *.
+	(bswap_replace): Likewise for "load_stmt", "addr_stmt",
+	"convert_stmt".
+	* tree-ssa-phiopt.c (neg_replacement): Likewise for "new_stmt".
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Likewise for "stmt".
+	* tree-ssa-reassoc.c (optimize_range_tests_to_bit_test): Likewise
+	for "g".
+	* tree-ssa-strlen.c (get_string_length): ELiminate local
+	"lenstmt", splitting its users into new local gcall * "call_stmt"
+	and gassign * "assign_stmt".
+	(handle_builtin_memset): Strengthen local "assign" from gimple to
+	gassign *.
+	* tree-switch-conversion.c (build_one_array): Likewise for "load".
+	(build_arrays): Likewise for "stmt".
+	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Likewise for
+	"vec_stmt".
+	(vect_permute_store_chain): Likewise for "perm_stmt".
+	(vect_permute_load_chain): Likewise.
+	(vect_shift_permute_load_chain): Likewise.
+	* tree-vect-generic.c (expand_vector_divmod): Likewise for "stmt".
+	(vector_element): Likewise for "asgn".
+	* tree-vect-loop-manip.c (vect_create_cond_for_align_checks):
+	Likewise for "and_stmt".
+	(vect_create_cond_for_align_checks): Likewise for "addr_stmt" and
+	"or_stmt".
+	* tree-vect-loop.c (vect_is_simple_reduction_1): Likewise for
+	"negate_stmt".
+	(get_initial_def_for_induction): Likewise for "init_stmt" and
+	"new_stmt".
+	(vectorizable_reduction): Likewise for "new_stmt".
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Likewise for
+	"pattern_stmt".
+	(vect_recog_sad_pattern): Likewise.
+	(vect_recog_widen_mult_pattern): Likewise for "new_stmt",
+	"pattern_stmt".
+	(vect_recog_widen_sum_pattern): Likewise for "pattern_stmt".
+	(vect_recog_over_widening_pattern): Likewise.
+	(vect_recog_widen_shift_pattern): Likewise.
+	* tree-vect-slp.c (vect_get_constant_vectors): Likewise for
+	"init_stmt".
+	(vect_create_mask_and_perm): Likewise for "perm_stmt".
+	(vect_schedule_slp_instance): Likewise for "new_stmt".
+	* tree-vect-stmts.c (read_vector_array): Likewise.
+	(write_vector_array): Likewise.
+	(vect_init_vector): Likewise for "init_stmt".
+	(vectorizable_call): Likewise.
+	* tree-vrp.c (simplify_internal_call_using_ranges): Likewise for
+	"g".
+	* tsan.c (instrument_expr): Split local gimple "g" into more
+	tightly-scoped locals, two of type gassign *, one of gcall *.
+
 2014-10-29  David Malcolm  <dmalcolm@redhat.com>
 
 	* coretypes.h (struct gpredict): Add forward declaration.

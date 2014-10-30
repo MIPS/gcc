@@ -150,7 +150,7 @@ read_vector_array (gimple stmt, gimple_stmt_iterator *gsi, tree scalar_dest,
 		   tree array, unsigned HOST_WIDE_INT n)
 {
   tree vect_type, vect, vect_name, array_ref;
-  gimple new_stmt;
+  gassign *new_stmt;
 
   gcc_assert (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE);
   vect_type = TREE_TYPE (TREE_TYPE (array));
@@ -176,7 +176,7 @@ write_vector_array (gimple stmt, gimple_stmt_iterator *gsi, tree vect,
 		    tree array, unsigned HOST_WIDE_INT n)
 {
   tree array_ref;
-  gimple new_stmt;
+  gassign *new_stmt;
 
   array_ref = build4 (ARRAY_REF, TREE_TYPE (vect), array,
 		      build_int_cst (size_type_node, n),
@@ -1314,7 +1314,7 @@ tree
 vect_init_vector (gimple stmt, tree val, tree type, gimple_stmt_iterator *gsi)
 {
   tree new_var;
-  gimple init_stmt;
+  gassign *init_stmt;
   tree vec_oprnd;
   tree new_temp;
 
@@ -2465,7 +2465,7 @@ vectorizable_call (gimple gs, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	      tree cst = build_vector (vectype_out, v);
 	      tree new_var
 		= vect_get_new_vect_var (vectype_out, vect_simple_var, "cst_");
-	      gimple init_stmt = gimple_build_assign (new_var, cst);
+	      gassign *init_stmt = gimple_build_assign (new_var, cst);
 	      new_temp = make_ssa_name (new_var, init_stmt);
 	      gimple_assign_set_lhs (init_stmt, new_temp);
 	      vect_init_vector_1 (stmt, init_stmt, NULL);

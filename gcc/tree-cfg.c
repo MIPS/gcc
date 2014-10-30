@@ -527,7 +527,7 @@ make_blocks (gimple_seq seq)
 	    {
 	      tree lhs = gimple_get_lhs (stmt);
 	      tree tmp = create_tmp_var (TREE_TYPE (lhs), NULL);
-	      gimple s = gimple_build_assign (lhs, tmp);
+	      gassign *s = gimple_build_assign (lhs, tmp);
 	      gimple_set_location (s, gimple_location (stmt));
 	      gimple_set_block (s, gimple_block (stmt));
 	      gimple_set_lhs (stmt, tmp);
@@ -739,7 +739,7 @@ handle_abnormal_edges (basic_block *dispatcher_bbs,
 	      gcc_assert (computed_goto_p (last));
 
 	      /* Copy the original computed goto's destination into VAR.  */
-	      gimple assignment
+	      gassign *assignment
 		= gimple_build_assign (var, gimple_goto_dest (last));
 	      gsi_insert_before (&gsi, assignment, GSI_SAME_STMT);
 

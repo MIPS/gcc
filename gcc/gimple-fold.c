@@ -665,7 +665,8 @@ void
 gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 {
   tree lhs;
-  gimple stmt, new_stmt;
+  gimple stmt;
+  gassign *new_stmt;
   gimple_stmt_iterator i;
   gimple_seq stmts = NULL;
 
@@ -865,7 +866,7 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 		    srcmem = NULL_TREE;
 		  if (srcmem)
 		    {
-		      gimple new_stmt;
+		      gassign *new_stmt;
 		      if (is_gimple_reg_type (TREE_TYPE (srcmem)))
 			{
 			  new_stmt = gimple_build_assign (NULL_TREE, srcmem);
@@ -1152,7 +1153,7 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 	    }
 	}
 
-      gimple new_stmt;
+      gassign *new_stmt;
       if (is_gimple_reg_type (TREE_TYPE (srcvar)))
 	{
 	  new_stmt = gimple_build_assign (NULL_TREE, srcvar);
@@ -1189,7 +1190,7 @@ done:
 
   dest = force_gimple_operand_gsi (gsi, dest, false, NULL_TREE, true,
 				   GSI_SAME_STMT);
-  gimple repl = gimple_build_assign (lhs, dest);
+  gassign *repl = gimple_build_assign (lhs, dest);
   gsi_replace (gsi, repl, true);
   return true;
 }
@@ -1260,7 +1261,7 @@ gimple_fold_builtin_memset (gimple_stmt_iterator *gsi, tree c, tree len)
     }
 
   var = fold_build2 (MEM_REF, etype, dest, build_int_cst (ptr_type_node, 0));
-  gimple store = gimple_build_assign (var, build_int_cst_type (etype, cval));
+  gassign *store = gimple_build_assign (var, build_int_cst_type (etype, cval));
   gimple_set_vuse (store, gimple_vuse (stmt));
   tree vdef = gimple_vdef (stmt);
   if (vdef && TREE_CODE (vdef) == SSA_NAME)
@@ -1271,7 +1272,7 @@ gimple_fold_builtin_memset (gimple_stmt_iterator *gsi, tree c, tree len)
   gsi_insert_before (gsi, store, GSI_SAME_STMT);
   if (gimple_call_lhs (stmt))
     {
-      gimple asgn = gimple_build_assign (gimple_call_lhs (stmt), dest);
+      gassign *asgn = gimple_build_assign (gimple_call_lhs (stmt), dest);
       gsi_replace (gsi, asgn, true);
     }
   else

@@ -1301,7 +1301,8 @@ neg_replacement (basic_block cond_bb, basic_block middle_bb,
 		 edge e0 ATTRIBUTE_UNUSED, edge e1,
 		 gimple phi, tree arg0, tree arg1)
 {
-  gimple new_stmt, cond;
+  gassign *new_stmt;
+  gimple cond;
   gimple_stmt_iterator gsi;
   gimple assign;
   edge true_edge, false_edge;

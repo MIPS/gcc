@@ -286,7 +286,7 @@ vect_recog_dot_prod_pattern (vec<gimple> *stmts, tree *type_in,
   tree oprnd00, oprnd01;
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
   tree type, half_type;
-  gimple pattern_stmt;
+  gassign *pattern_stmt;
   tree prod_type;
   loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop;
@@ -672,8 +672,8 @@ vect_recog_sad_pattern (vec<gimple> *stmts, tree *type_in,
 
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
   tree var = vect_recog_temp_ssa_var (sum_type, NULL);
-  gimple pattern_stmt = gimple_build_assign_with_ops
-                          (SAD_EXPR, var, sad_oprnd0, sad_oprnd1, plus_oprnd1);
+  gassign *pattern_stmt = gimple_build_assign_with_ops (
+			    SAD_EXPR, var, sad_oprnd0, sad_oprnd1, plus_oprnd1);
 
   if (dump_enabled_p ())
     {
@@ -856,7 +856,7 @@ vect_recog_widen_mult_pattern (vec<gimple> *stmts,
   gimple def_stmt0, def_stmt1;
   tree oprnd0, oprnd1;
   tree type, half_type0, half_type1;
-  gimple new_stmt = NULL, pattern_stmt = NULL;
+  gassign *new_stmt = NULL, *pattern_stmt = NULL;
   tree vectype, vecitype;
   tree var;
   enum tree_code dummy_code;
@@ -1190,7 +1190,7 @@ vect_recog_widen_sum_pattern (vec<gimple> *stmts, tree *type_in,
   tree oprnd0, oprnd1;
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
   tree type, half_type;
-  gimple pattern_stmt;
+  gassign *pattern_stmt;
   loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop;
   tree var;
@@ -1504,7 +1504,8 @@ vect_recog_over_widening_pattern (vec<gimple> *stmts,
                                   tree *type_in, tree *type_out)
 {
   gimple stmt = stmts->pop ();
-  gimple pattern_stmt = NULL, new_def_stmt, prev_stmt = NULL, use_stmt = NULL;
+  gassign *pattern_stmt = NULL;
+  gimple new_def_stmt, prev_stmt = NULL, use_stmt = NULL;
   tree op0, op1, vectype = NULL_TREE, use_lhs, use_type;
   tree var = NULL_TREE, new_type = NULL_TREE, new_oprnd;
   bool first;
@@ -1699,7 +1700,7 @@ vect_recog_widen_shift_pattern (vec<gimple> *stmts,
   gimple def_stmt0;
   tree oprnd0, oprnd1;
   tree type, half_type0;
-  gimple pattern_stmt;
+  gassign *pattern_stmt;
   tree vectype, vectype_out = NULL_TREE;
   tree var;
   enum tree_code dummy_code;

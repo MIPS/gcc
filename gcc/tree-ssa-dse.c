@@ -266,7 +266,7 @@ dse_optimize_stmt (gimple_stmt_iterator *gsi)
 	      tree lhs = gimple_call_lhs (stmt);
 	      if (lhs)
 		{
-		  gimple new_stmt = gimple_build_assign (lhs, ptr);
+		  gassign *new_stmt = gimple_build_assign (lhs, ptr);
 		  unlink_stmt_vdef (stmt);
 		  if (gsi_replace (gsi, new_stmt, true))
 		    bitmap_set_bit (need_eh_cleanup, gimple_bb (stmt)->index);

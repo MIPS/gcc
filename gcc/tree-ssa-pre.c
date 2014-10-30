@@ -4020,7 +4020,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 
 	  if (!useless_type_conversion_p (TREE_TYPE (res), TREE_TYPE (sprime)))
 	    sprime = fold_convert (TREE_TYPE (res), sprime);
-	  gimple stmt = gimple_build_assign (res, sprime);
+	  gassign *stmt = gimple_build_assign (res, sprime);
 	  /* ???  It cannot yet be necessary (DOM walk).  */
 	  gimple_set_plf (stmt, NECESSARY, gimple_plf (phi, NECESSARY));
 

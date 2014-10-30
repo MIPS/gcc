@@ -3123,7 +3123,7 @@ unsigned int
 pass_strip_predict_hints::execute (function *fun)
 {
   basic_block bb;
-  gimple ass_stmt;
+  gassign *ass_stmt;
   tree var;
 
   FOR_EACH_BB_FN (bb, fun)

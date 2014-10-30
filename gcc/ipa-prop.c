@@ -4300,7 +4300,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gcall *stmt,
 	         a load into a temporary.  */
 	      if (is_gimple_reg_type (TREE_TYPE (expr)))
 		{
-		  gimple tem = gimple_build_assign (NULL_TREE, expr);
+		  gassign *tem = gimple_build_assign (NULL_TREE, expr);
 		  if (gimple_in_ssa_p (cfun))
 		    {
 		      gimple_set_vuse (tem, gimple_vuse (stmt));

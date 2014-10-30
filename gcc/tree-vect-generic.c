@@ -629,7 +629,7 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
 	      && expand_vec_cond_expr_p (type, type))
 	    {
 	      tree zero, cst, cond;
-	      gimple stmt;
+	      gassign *stmt;
 
 	      zero = build_zero_cst (type);
 	      cond = build2 (LT_EXPR, type, op0, zero);
@@ -1136,7 +1136,7 @@ static tree
 vector_element (gimple_stmt_iterator *gsi, tree vect, tree idx, tree *ptmpvec)
 {
   tree vect_type, vect_elt_type;
-  gimple asgn;
+  gassign *asgn;
   tree tmpvec;
   tree arraytype;
   bool need_asgn = true;

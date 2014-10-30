@@ -1523,7 +1523,7 @@ build_shadow_mem_access (gimple_stmt_iterator *gsi, location_t location,
 {
   tree t, uintptr_type = TREE_TYPE (base_addr);
   tree shadow_type = TREE_TYPE (shadow_ptr_type);
-  gimple g;
+  gassign *g;
 
   t = build_int_cst (uintptr_type, ASAN_SHADOW_SHIFT);
   g = gimple_build_assign_with_ops (RSHIFT_EXPR,
@@ -1564,7 +1564,7 @@ maybe_create_ssa_name (location_t loc, tree base, gimple_stmt_iterator *iter,
 {
   if (TREE_CODE (base) == SSA_NAME)
     return base;
-  gimple g
+  gassign *g
     = gimple_build_assign_with_ops (TREE_CODE (base),
 				    make_ssa_name (TREE_TYPE (base), NULL),
 				    base, NULL_TREE);
@@ -1585,7 +1585,7 @@ maybe_cast_to_ptrmode (location_t loc, tree len, gimple_stmt_iterator *iter,
 {
   if (ptrofftype_p (len))
     return len;
-  gimple g
+  gassign *g
     = gimple_build_assign_with_ops (NOP_EXPR,
 				    make_ssa_name (pointer_sized_int_node, NULL),
 				    len, NULL);
@@ -1854,7 +1854,7 @@ instrument_mem_region_access (tree base, tree len,
 static bool
 instrument_strlen_call (gimple_stmt_iterator *iter)
 {
-  gimple g;
+  gassign *g;
   gcall *call = as_a <gcall *> (gsi_stmt (*iter));
   gcc_assert (is_gimple_call (call));
 

@@ -2604,7 +2604,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 		{
 		  tree new_temp
 		    = make_ssa_name (TREE_TYPE (vector_type), NULL);
-		  gimple init_stmt;
+		  gassign *init_stmt;
 		  op = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (vector_type),
 			       op);		  
 		  init_stmt
@@ -2813,7 +2813,7 @@ vect_create_mask_and_perm (gimple stmt, gimple next_scalar_stmt,
                            int ncopies, int vect_stmts_counter)
 {
   tree perm_dest;
-  gimple perm_stmt = NULL;
+  gassign *perm_stmt = NULL;
   stmt_vec_info next_stmt_info;
   int i, stride;
   tree first_vec, second_vec, data_ref;
@@ -3189,7 +3189,8 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance,
 static void
 vect_remove_slp_scalar_calls (slp_tree node)
 {
-  gimple stmt, new_stmt;
+  gimple stmt;
+  gassign *new_stmt;
   gimple_stmt_iterator gsi;
   int i;
   slp_tree child;

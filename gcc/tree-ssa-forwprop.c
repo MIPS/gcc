@@ -2968,7 +2968,7 @@ associate_pointerplus (gimple_stmt_iterator *gsi)
     return false;
 
   tree off = make_ssa_name (TREE_TYPE (off1), NULL);
-  gimple ostmt = gimple_build_assign_with_ops (PLUS_EXPR, off, off1, off2);
+  gassign *ostmt = gimple_build_assign_with_ops (PLUS_EXPR, off, off1, off2);
   gsi_insert_before (gsi, ostmt, GSI_SAME_STMT);
 
   gimple_assign_set_rhs_with_ops (gsi, POINTER_PLUS_EXPR, ptr, off);

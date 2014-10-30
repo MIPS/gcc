@@ -1152,7 +1152,7 @@ int
 create_loads_for_reductions (reduction_info **slot, struct clsn_data *clsn_data)
 {
   struct reduction_info *const red = *slot;
-  gimple stmt;
+  gassign *stmt;
   gimple_stmt_iterator gsi;
   tree type = TREE_TYPE (gimple_assign_lhs (red->reduc_stmt));
   tree load_struct;
@@ -1189,7 +1189,7 @@ create_final_loads_for_reduction (reduction_info_table_type *reduction_list,
 {
   gimple_stmt_iterator gsi;
   tree t;
-  gimple stmt;
+  gassign *stmt;
 
   gsi = gsi_after_labels (ld_st_data->load_bb);
   t = build_fold_addr_expr (ld_st_data->store);
@@ -1213,7 +1213,7 @@ create_stores_for_reduction (reduction_info **slot, struct clsn_data *clsn_data)
 {
   struct reduction_info *const red = *slot;
   tree t;
-  gimple stmt;
+  gassign *stmt;
   gimple_stmt_iterator gsi;
   tree type = TREE_TYPE (gimple_assign_lhs (red->reduc_stmt));
 
@@ -1235,7 +1235,7 @@ create_loads_and_stores_for_name (name_to_copy_elt **slot,
 {
   struct name_to_copy_elt *const elt = *slot;
   tree t;
-  gimple stmt;
+  gassign *stmt;
   gimple_stmt_iterator gsi;
   tree type = TREE_TYPE (elt->new_name);
   tree load_struct;
