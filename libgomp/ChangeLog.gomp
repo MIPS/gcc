@@ -1,5 +1,12 @@
 2014-10-30  Julian Brown  <julian@codesourcery.com>
 
+	* oacc-host.c (DEBUG): Remove undefine.
+	* plugin-nvptx.c (DEBUG, DISABLE_ASYNC): Remove comment-out macro
+	definitions.
+	* target.c (dump_mappings): Remove debugging function.
+
+2014-10-30  Julian Brown  <julian@codesourcery.com>
+
 	* target.c (gomp_load_plugin_for_device): Only call get_caps once.
 	(gomp_find_available_plugins): ...and don't call it again here.
 

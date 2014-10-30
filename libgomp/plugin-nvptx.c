@@ -30,9 +30,6 @@
    is not clear as to what that state might be.  Or how one might
    propagate it from one thread to another.  */
 
-//#define DEBUG
-//#define DISABLE_ASYNC
-
 #include "openacc.h"
 #include "config.h"
 #include "libgomp.h"

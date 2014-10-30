@@ -110,34 +110,6 @@ resolve_device (int device_id)
   return &devices[device_id];
 }
 
-__attribute__((used)) static void
-dump_mappings (FILE *f, splay_tree_node node)
-{
-  int i;
-  
-  splay_tree_key k = &node->key;
-  
-  if (!k)
-    return;
-  
-  fprintf (f, "key %p: host_start %p, host_end %p, tgt_offset %p, refcount %d, "
-	   "copy_from %s\n", k, (void *) k->host_start,
-	   (void *) k->host_end, (void *) k->tgt_offset, (int) k->refcount,
-	   k->copy_from ? "true" : "false");
-  fprintf (f, "tgt->refcount %d, tgt->tgt_start %p, tgt->tgt_end %p, "
-	   "tgt->to_free %p, tgt->prev %p, tgt->list_count %d, "
-	   "tgt->device_descr %p\n", (int) k->tgt->refcount,
-	   (void *) k->tgt->tgt_start, (void *) k->tgt->tgt_end,
-	   k->tgt->to_free, k->tgt->prev, (int) k->tgt->list_count,
-	   k->tgt->device_descr);
-
-  for (i = 0; i < k->tgt->list_count; i++)
-    fprintf (f, "item %d: %p\n", i, k->tgt->list[i]);
-  
-  dump_mappings (f, node->left);
-  dump_mappings (f, node->right);
-}
-
 /* Handle the case where splay_tree_lookup found oldn for newn.
    Helper function of gomp_map_vars.  */
 

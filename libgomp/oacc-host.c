@@ -45,8 +45,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#undef DEBUG
-
 #ifdef HOST_NONSHM_PLUGIN
 #define STATIC
 #define GOMP(X) GOMP_PLUGIN_##X
