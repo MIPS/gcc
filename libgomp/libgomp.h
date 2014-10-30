@@ -238,7 +238,6 @@ struct gomp_task_icv
   bool dyn_var;
   bool nest_var;
   char bind_var;
-  int acc_notify_var;
   /* Internal ICV.  */
   struct target_mem_desc *target_data;
 };
@@ -257,6 +256,7 @@ extern unsigned long gomp_bind_var_list_len;
 extern void **gomp_places_list;
 extern unsigned long gomp_places_list_len;
 
+extern int goacc_notify_var;
 extern int goacc_device_num;
 extern char* goacc_device_type;
 

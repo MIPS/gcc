@@ -79,6 +79,7 @@ unsigned long gomp_bind_var_list_len;
 void **gomp_places_list;
 unsigned long gomp_places_list_len;
 
+int goacc_notify_var;
 int goacc_device_num;
 char* goacc_device_type;
 
@@ -1196,7 +1197,7 @@ initialize_env (void)
       gomp_global_icv.thread_limit_var
 	= thread_limit_var > INT_MAX ? UINT_MAX : thread_limit_var;
     }
-  parse_int ("GCC_ACC_NOTIFY", &gomp_global_icv.acc_notify_var, true);
+  parse_int ("GCC_ACC_NOTIFY", &goacc_notify_var, true);
 #ifndef HAVE_SYNC_BUILTINS
   gomp_mutex_init (&gomp_managed_threads_lock);
 #endif

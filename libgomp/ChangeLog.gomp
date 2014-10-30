@@ -1,5 +1,15 @@
 2014-10-30  Julian Brown  <julian@codesourcery.com>
 
+	* env.c (goacc_notify_var): New.
+	(initialize_env): Use above instead of
+	gomp_global_icv.acc_notify_var.
+	* error.c (gomp_vnotify): Use goacc_notify_var.
+	(gomp_notify): Fix formatting.
+	* libgomp.h (gomp_task_icv): Remove acc_notify_var field.
+	(goacc_notify_var): Add extern declaration.
+
+2014-10-30  Julian Brown  <julian@codesourcery.com>
+
 	* env.c (goacc_parse_device_num): Remove.
 	(initialize_env): Use parse_int instead of goacc_parse_device_num.
 	* oacc-init.c (lazy_open): Add bounds check for device number.

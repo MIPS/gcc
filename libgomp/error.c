@@ -76,13 +76,12 @@ gomp_fatal (const char *fmt, ...)
 void
 gomp_vnotify (const char *msg, va_list list)
 {
-  struct gomp_task_icv *icv = gomp_icv (false);
-  if (icv->acc_notify_var)
+  if (goacc_notify_var)
     vfprintf (stderr, msg, list);
 }
 
 void
-gomp_notify(const char *msg, ...)
+gomp_notify (const char *msg, ...)
 {
   va_list list;
   
