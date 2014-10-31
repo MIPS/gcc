@@ -43,6 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "stringpool.h"
+#include "hashtab.h"
+#include "varasm.h"
 
 /* Structure types that appear in symtab_node: 
 
@@ -80,6 +82,72 @@ typedef struct struct_symbols_d * struct_symbols;
    during WPA, we decide if structure type can be trunsformed or not.  */
 
 static vec<struct_symbols> struct_symbols_vec;
+
+/* New variables created by this optimization.
+   When are doing struct peeling, each variable of
+   the original struct type will be replaced by
+   the set of new variables corresponding to
+   the new structure types.  */
+struct new_var_data {
+  /* VAR_DECL for original variable.  */
+  tree orig_var;
+  /* Vector of new variables.  */
+  vec<tree> new_vars;
+};
+
+typedef struct new_var_data *new_var;
+typedef const struct new_var_data *const_new_var;
+
+/* New global variables.  */
+htab_t new_global_vars = NULL;
+
+/* Hash value for new_var.  */
+
+static hashval_t
+new_var_hash (const void *x)
+{
+  return DECL_UID (((const_new_var)x)->orig_var);
+}
+
+/* This function returns nonzero if orig_var of new_var X 
+   and tree Y have equal UIDs.  */
+
+static int
+new_var_eq (const void *x, const void *y)
+{
+  if (DECL_P ((const_tree)y))
+    return DECL_UID (((const_new_var)x)->orig_var) == DECL_UID ((const_tree)y);
+  else
+    return 0;
+}
+
+/* This function returns new_var node, the orig_var of which is DECL.
+   It looks for new_var's in NEW_VARS_HTAB. If not found,
+   the function returns NULL.  */
+
+static new_var
+is_in_new_vars_htab (tree decl, htab_t new_vars_htab)
+{
+  return (new_var) htab_find_with_hash (new_vars_htab, decl,
+					DECL_UID (decl));
+}
+
+/* This structure is used to represent array of
+   wrappers of structure type. For example, if type1 
+   is structure type, then for type1 ** we generate 
+   two type_wrapper structures with wrap = 0 each one.
+   It's used to unwind the original type up to
+   structure type, replace it with the new structure type
+   and wrap it back in the opposite order.  */
+
+typedef struct type_wrapper
+{
+  /* 0 stand for pointer wrapper, and 1 for array wrapper.  */
+  bool wrap;
+
+  /* Relevant for arrays as domain or index.  */
+  tree domain;
+}type_wrapper_t;
 
 /* Given a type TYPE, this function returns the name of the type.  */
 
@@ -1554,16 +1622,290 @@ struct_reorg_write_opt_summary (void)
 
   streamer_write_char_stream (ob->main_stream, 0);
   produce_asm (ob, NULL);
-  destroy_output_block (ob);  
-} 
+  destroy_output_block (ob);
+}
 
-/* */
+/* This function creates and returns new_var_data node
+   with empty new_vars and orig_var equal to VAR.  */
+
+static new_var
+create_new_var_node (tree var, struct_symbols str)
+{
+  new_var node;
+
+  node = XNEW (struct new_var_data);
+  node->orig_var = var;
+  node->new_vars.create (str->new_types.length ());
+  return node;
+}
+
+/* This function generates and returns new variable name based on
+   ORIG_DECL name, combined with index I.
+   The form of the new name is <orig_name>.<I> .  */
+
+static tree
+gen_var_name (tree orig_decl, unsigned HOST_WIDE_INT i)
+{
+  const char *old_name;
+  char *prefix;
+  char *new_name;
+
+  if (!DECL_NAME (orig_decl)
+      || !IDENTIFIER_POINTER (DECL_NAME (orig_decl)))
+     return NULL;
+
+  /* If the original variable has a name, create an
+     appropriate new name for the new variable.  */
+
+  old_name = IDENTIFIER_POINTER (DECL_NAME (orig_decl));
+  prefix = XALLOCAVEC (char, strlen (old_name) + 1);
+  strcpy (prefix, old_name);
+  ASM_FORMAT_PRIVATE_NAME (new_name, prefix, i);
+  return get_identifier (new_name);
+}
+
+/* This function wraps NEW_STR_TYPE in pointers or arrays wrapper
+   the same way as a structure type is wrapped in DECL.
+   It returns the generated type.  */
+
+static inline tree
+gen_struct_type (tree decl, tree new_str_type)
+{
+  tree type_orig = get_type_of_var (decl);
+  tree new_type = new_str_type;
+  vec<type_wrapper_t> wrapper;
+  type_wrapper_t wr;
+
+  wrapper.create (10); 
+  while (POINTER_TYPE_P (type_orig)
+	 || TREE_CODE (type_orig) == ARRAY_TYPE)
+    {
+      if (POINTER_TYPE_P (type_orig))
+	{
+	  wr.wrap = 0;
+	  wr.domain = NULL_TREE;
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (type_orig) == ARRAY_TYPE);
+	  wr.wrap = 1;
+	  wr.domain = TYPE_DOMAIN (type_orig);
+	}
+      wrapper.safe_push (wr);
+	// VEC_safe_push (type_wrapper_t, heap, wrapper, &wr);
+      type_orig = TREE_TYPE (type_orig);
+    }
+
+  while (!wrapper.is_empty ())
+    {
+      wr = wrapper.last ();
+
+      if (wr.wrap) /* Array.  */
+	new_type = build_array_type (new_type, wr.domain);
+      else /* Pointer.  */
+	new_type = build_pointer_type (new_type);
+
+      wrapper.pop ();
+    }
+
+  wrapper.release ();
+  return new_type;
+}
+
+/* This function copies attributes form ORIG_DECL to NEW_DECL.  */
+
+static inline void
+copy_decl_attributes (tree new_decl, tree orig_decl)
+{
+
+  DECL_ARTIFICIAL (new_decl) = 1;
+  DECL_EXTERNAL (new_decl) = DECL_EXTERNAL (orig_decl);
+  TREE_STATIC (new_decl) = TREE_STATIC (orig_decl);
+  TREE_PUBLIC (new_decl) = TREE_PUBLIC (orig_decl);
+  TREE_USED (new_decl) = TREE_USED (orig_decl);
+  DECL_CONTEXT (new_decl) = DECL_CONTEXT (orig_decl);
+  TREE_THIS_VOLATILE (new_decl) = TREE_THIS_VOLATILE (orig_decl);
+  TREE_ADDRESSABLE (new_decl) = TREE_ADDRESSABLE (orig_decl);
+
+  if (TREE_CODE (orig_decl) == VAR_DECL)
+    {
+      TREE_READONLY (new_decl) = TREE_READONLY (orig_decl);
+      DECL_TLS_MODEL (new_decl) = DECL_TLS_MODEL (orig_decl);
+    }
+}
+
+/* Given an original variable ORIG_DECL of structure type STR,
+   this function generates new variables of the types defined
+   by STR->new_type. Generated types are saved in new_var node NODE.
+   ORIG_DECL should has VAR_DECL tree_code.  */
+
+static void
+create_new_var_1 (tree orig_decl, struct_symbols str, new_var node)
+{
+  unsigned i;
+  tree type;
+
+  FOR_EACH_VEC_ELT (str->new_types, i, type)
+    {
+      tree new_decl = NULL;
+      tree new_name;
+
+      new_name = gen_var_name (orig_decl, i);
+      type = gen_struct_type (orig_decl, type);
+
+      if (is_global_var (orig_decl))
+	new_decl = build_decl (DECL_SOURCE_LOCATION (orig_decl),
+			       VAR_DECL, new_name, type);
+      else
+	{
+	  const char *name = new_name ? IDENTIFIER_POINTER (new_name) : NULL;
+	  new_decl = create_tmp_var (type, name);
+	}
+
+      copy_decl_attributes (new_decl, orig_decl);
+      node->new_vars.safe_push (new_decl);
+    }
+}
+
+/* This function adds NEW_NODE to hashtable of new_var's NEW_VARS_HTAB. */
+
+static void
+add_to_new_vars_htab (new_var new_node, htab_t new_vars_htab)
+{
+  void **slot;
+
+  slot = htab_find_slot_with_hash (new_vars_htab, new_node->orig_var,
+				   DECL_UID (new_node->orig_var),
+				   INSERT);
+  *slot = new_node;
+}
+
+/* This function inserts new variables from new_var into varpool.  */
+
+static void
+update_varpool_with_new_var (new_var node)
+{
+  tree var;
+  unsigned i;
+
+  FOR_EACH_VEC_ELT (node->new_vars, i, var)
+    {
+      notice_global_symbol (var);
+      varpool_add_new_variable (var);
+    }
+}
+
+/* This function creates new variables to
+   substitute the original variable VAR_DECL and adds
+   them to the new_var's hashtable NEW_VARS_HTAB.  */
+
+static void
+create_new_var (tree var_decl, htab_t new_vars_htab)
+{
+  new_var node;
+  struct_symbols str;
+  tree type;
+  int i;
+
+  if (!var_decl || is_in_new_vars_htab (var_decl, new_vars_htab))
+    return;
+
+  if (!var_is_candidate (var_decl, &type))
+    return;
+
+  i = is_in_struct_symbols_vec (type);
+  if (i == -1)
+    return;
+
+  str = struct_symbols_vec[i];
+  node = create_new_var_node (var_decl, str);
+  create_new_var_1 (var_decl, str, node);
+  add_to_new_vars_htab (node, new_vars_htab);
+  update_varpool_with_new_var (node);
+}
+
+/* This function is a callback for traversal on new_var's hashtable.
+   SLOT is a pointer to new_var. This function prints to dump_file
+   an original variable and all new variables from the new_var
+   pointed by *SLOT.  */
+
+static int
+dump_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  new_var n_var = *(new_var *) slot;
+  tree var_type;
+  tree var;
+  unsigned i;
+
+  var_type = get_type_of_var (n_var->orig_var);
+
+  fprintf (dump_file, "\nOrig var: ");
+  print_generic_expr (dump_file, n_var->orig_var, 0);
+  fprintf (dump_file, " of type ");
+  print_generic_expr (dump_file, var_type, 0);
+  fprintf (dump_file, "\n");
+
+  FOR_EACH_VEC_ELT (n_var->new_vars, i, var)
+    {
+      var_type = get_type_of_var (var);
+
+      fprintf (dump_file, "      ");
+      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, " of type ");
+      print_generic_expr (dump_file, var_type, 0);
+      fprintf (dump_file, "\n");
+    }
+  return 1;
+}
+
+/* This function prints new variables from hashtable
+   NEW_VARS_HTAB to dump_file.  */
+
+static void
+dump_new_vars (htab_t new_vars_htab)
+{
+  if (!dump_file)
+    return;
+
+  if (new_vars_htab)
+    htab_traverse (new_vars_htab, dump_new_var, NULL);
+}
+
+/* Implementation of variable_transform function for struct-reorg.  */
 
 void
 struct_reorg_var_transform (varpool_node *vnode)
 {
+  tree var_decl;
+
   if (dump_file)
-    fprintf (dump_file, "\nStruct_reorg is transforming %s variable.", vnode->name ());      
+    fprintf (dump_file, "\nStruct_reorg is transforming %s variable.", vnode->name ());
+
+  if (!new_global_vars)
+    new_global_vars = htab_create (30, new_var_hash, new_var_eq, NULL);
+
+  var_decl = vnode->decl;
+
+  if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
+    return;
+
+  create_new_var (var_decl, new_global_vars);
+  dump_new_vars (new_global_vars);
+  
+  print_struct_symbol_vec ();
+}
+
+/* Implementation of function_transform function for struct-reorg.  */
+
+unsigned int
+struct_reorg_func_transform (struct cgraph_node *node)
+{
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nStruct_reorg is transforming %s function.", node->name ());
+    }
+  print_struct_symbol_vec ();
+  return 0;
 }
 
 /* Analyze each function in the cgraph. */
@@ -1615,7 +1957,7 @@ public:
 		      /* read_optimization_summary */
 		      NULL, /* stmt_fixup */
 		      0, /* function_transform_todo_flags_start */
-		      NULL, /* function_transform */
+		      struct_reorg_func_transform, /* function_transform */
 		      struct_reorg_var_transform) /* variable_transform */
   {}
 
