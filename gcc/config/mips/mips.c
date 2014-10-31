@@ -5074,7 +5074,12 @@ mips_output_move (rtx dest, rtx src)
 
 	  /* Moves to HI are handled by special .md insns.  */
 	  if (REGNO (dest) == LO_REGNUM)
-	    return "mtlo\t%z1";
+	    {
+	      if (ISA_HAS_MULT)
+		return "mtlo\t%z1";
+	      else
+		return "mtlo\t%z1,$ac0";
+	    }
 
 	  if (DSP_ACC_REG_P (REGNO (dest)))
 	    {
@@ -5127,7 +5132,10 @@ mips_output_move (rtx dest, rtx src)
 		 -mfix-vr4130.  */
 	      if (ISA_HAS_MACCHI)
 		return dbl_p ? "dmacc\t%0,%.,%." : "macc\t%0,%.,%.";
-	      return "mflo\t%0";
+	      if (ISA_HAS_MULT)
+		return "mflo\t%0";
+	      else
+		return "mflo\t%0,$ac0";
 	    }
 
 	  if (DSP_ACC_REG_P (REGNO (src)))
@@ -18256,7 +18264,7 @@ mips_mult_zero_zero_cost (struct mips_sim *state, bool setting)
 static void
 mips_set_fast_mult_zero_zero_p (struct mips_sim *state)
 {
-  if (TARGET_MIPS16 || !ISA_HAS_HILO)
+  if (TARGET_MIPS16 || (!ISA_HAS_HILO && !TARGET_DSP))
     /* No MTLO or MTHI available for MIPS16. Also, when there are no HI or LO
        registers then there is no reason to zero them, arbitrarily choose to
        say that "MULT $0,$0" would be faster.  */
@@ -20021,6 +20029,12 @@ mips_option_override (void)
     error ("unsupported combination: -mmicromips -mips32r6 %s, use "
 	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
 
+  if (TARGET_DSPR3)
+    {
+      TARGET_DSP = true;
+      TARGET_DSPR2 = true;
+    }
+
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
      will usually know exactly how big an .eh_frame address is.
@@ -20203,7 +20217,7 @@ mips_conditional_register_usage (void)
     AND_COMPL_HARD_REG_SET (accessible_reg_set,
 			    reg_class_contents[(int) DSP_ACC_REGS]);
 
-  if (!ISA_HAS_HILO)
+  if (!ISA_HAS_HILO && !ISA_HAS_DSP)
     AND_COMPL_HARD_REG_SET (accessible_reg_set,
 			    reg_class_contents[(int) MD_REGS]);
 

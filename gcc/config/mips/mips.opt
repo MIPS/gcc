@@ -123,6 +123,10 @@ mdspr2
 Target Report Var(TARGET_DSPR2)
 Use MIPS-DSP REV 2 instructions.
 
+mdspr3
+Target Report Var(TARGET_DSPR3)
+Use MIPS-DSP Rev 3 instructions.
+
 mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
 
