@@ -1,3 +1,9 @@
+2014-10-31  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/thunderx.md (thunderx_mul): Add
+	smlal and umlal.
+	(thunderx_mul_high): Just use smull or umull.
+
 2014-10-13  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.c (aarch64_classify_symbol):

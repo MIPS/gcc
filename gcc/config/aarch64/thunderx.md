@@ -64,7 +64,7 @@
 
 (define_insn_reservation "thunderx_mul" 4
   (and (eq_attr "tune" "thunderx")
-       (eq_attr "type" "mul,muls,mla,mlas,clz,smull,umull")
+       (eq_attr "type" "mul,muls,mla,mlas,clz,smull,umull,smlal,umlal")
        (not (eq_attr "mode" "TI")))
   "thunderx_pipe1 + thunderx_mult")
 
@@ -73,8 +73,8 @@
 
 (define_insn_reservation "thunderx_mul_high" 5
   (and (eq_attr "tune" "thunderx")
-       (eq_attr "type" "mul,muls,mla,mlas,clz")
-       (not (eq_attr "mode" "TI")))
+       (eq_attr "type" "smull,umull")
+       (eq_attr "mode" "TI"))
   "thunderx_pipe1 + thunderx_mult, thunderx_mult")
 
 (define_insn_reservation "thunderx_div32" 22
