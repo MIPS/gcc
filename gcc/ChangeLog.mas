@@ -1,3 +1,7 @@
+2014-10-31  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_c_expr): Mark user-defined ops as used.
+
 2014-10-31  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk rr216800 through r215940.

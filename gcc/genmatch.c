@@ -2791,6 +2791,11 @@ parser::parse_c_expr (cpp_ttype start)
       if (token->type == CPP_SEMICOLON)
 	nr_stmts++;
 
+      /* If this is possibly a user-defined identifier mark it used.  */
+      if (token->type == CPP_NAME)
+	get_operator ((const char *)CPP_HASHNODE
+		        (token->val.node.node)->ident.str);
+
       /* Record the token.  */
       code.safe_push (*token);
     }
