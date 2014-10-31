@@ -241,14 +241,12 @@ get_prop_dest_stmt (tree name, tree *final_name_p)
    it is set to whether the chain to NAME is a single use chain
    or not.  SINGLE_USE_P is not written to if SINGLE_USE_ONLY is set.  */
 
-static gimple
+static gassign *
 get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
 {
   bool single_use = true;
 
   do {
-    gimple def_stmt = SSA_NAME_DEF_STMT (name);
-
     if (!has_single_use (name))
       {
 	single_use = false;
@@ -257,7 +255,8 @@ get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
       }
 
     /* If name is defined by a PHI node or is the default def, bail out.  */
-    if (!is_gimple_assign (def_stmt))
+    gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (name));
+    if (!def_stmt)
       return NULL;
 
     /* If def_stmt is a simple copy, continue looking.  */
@@ -277,7 +276,7 @@ get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
    propagation source.  Returns true if so, otherwise false.  */
 
 static bool
-can_propagate_from (gimple def_stmt)
+can_propagate_from (gassign *def_stmt)
 {
   gcc_assert (is_gimple_assign (def_stmt));
 
@@ -438,7 +437,7 @@ forward_propagate_into_comparison_1 (gimple stmt,
      simplify comparisons against constants.  */
   if (TREE_CODE (op0) == SSA_NAME)
     {
-      gimple def_stmt = get_prop_source_stmt (op0, false, &single_use0_p);
+      gassign *def_stmt = get_prop_source_stmt (op0, false, &single_use0_p);
       if (def_stmt && can_propagate_from (def_stmt))
 	{
 	  rhs0 = rhs_to_tree (TREE_TYPE (op1), def_stmt);
@@ -452,7 +451,7 @@ forward_propagate_into_comparison_1 (gimple stmt,
   /* If that wasn't successful, try the second operand.  */
   if (TREE_CODE (op1) == SSA_NAME)
     {
-      gimple def_stmt = get_prop_source_stmt (op1, false, &single_use1_p);
+      gassign *def_stmt = get_prop_source_stmt (op1, false, &single_use1_p);
       if (def_stmt && can_propagate_from (def_stmt))
 	{
 	  rhs1 = rhs_to_tree (TREE_TYPE (op0), def_stmt);
@@ -596,7 +595,7 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
     {
       enum tree_code def_code;
       tree name = cond;
-      gimple def_stmt = get_prop_source_stmt (name, true, NULL);
+      gassign *def_stmt = get_prop_source_stmt (name, true, NULL);
       if (!def_stmt || !can_propagate_from (def_stmt))
 	return 0;
 
@@ -1843,7 +1842,6 @@ simplify_bitwise_binary_1 (enum tree_code code, tree type,
 static inline void
 defcodefor_name (tree name, enum tree_code *code, tree *arg1, tree *arg2)
 {
-  gimple def;
   enum tree_code code1;
   tree arg11;
   tree arg21;
@@ -1857,15 +1855,16 @@ defcodefor_name (tree name, enum tree_code *code, tree *arg1, tree *arg2)
 
   if (code1 == SSA_NAME)
     {
-      def = SSA_NAME_DEF_STMT (name);
-      
-      if (def && is_gimple_assign (def)
-	  && can_propagate_from (def))
+      gimple def = SSA_NAME_DEF_STMT (name);
+      gassign *assign = def ? dyn_cast <gassign *> (def) : NULL;
+
+      if (assign
+	  && can_propagate_from (assign))
 	{
-	  code1 = gimple_assign_rhs_code (def);
-	  arg11 = gimple_assign_rhs1 (def);
-          arg21 = gimple_assign_rhs2 (def);
-          arg31 = gimple_assign_rhs2 (def);
+	  code1 = gimple_assign_rhs_code (assign);
+	  arg11 = gimple_assign_rhs1 (assign);
+          arg21 = gimple_assign_rhs2 (assign);
+          arg31 = gimple_assign_rhs2 (assign);
 	}
     }
   else if (grhs_class == GIMPLE_TERNARY_RHS
@@ -2482,7 +2481,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 static bool
 associate_plusminus (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
   tree rhs1 = gimple_assign_rhs1 (stmt);
   tree rhs2 = gimple_assign_rhs2 (stmt);
   enum tree_code code = gimple_assign_rhs_code (stmt);
@@ -2500,8 +2499,8 @@ associate_plusminus (gimple_stmt_iterator *gsi)
       /* A +- (-B) -> A -+ B.  */
       if (TREE_CODE (rhs2) == SSA_NAME)
 	{
-	  gimple def_stmt = SSA_NAME_DEF_STMT (rhs2);
-	  if (is_gimple_assign (def_stmt)
+	  gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs2));
+	  if (def_stmt
 	      && gimple_assign_rhs_code (def_stmt) == NEGATE_EXPR
 	      && can_propagate_from (def_stmt))
 	    {
@@ -2518,8 +2517,8 @@ associate_plusminus (gimple_stmt_iterator *gsi)
       if (TREE_CODE (rhs1) == SSA_NAME
 	  && code == PLUS_EXPR)
 	{
-	  gimple def_stmt = SSA_NAME_DEF_STMT (rhs1);
-	  if (is_gimple_assign (def_stmt)
+	  gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs1));
+	  if (def_stmt
 	      && gimple_assign_rhs_code (def_stmt) == NEGATE_EXPR
 	      && can_propagate_from (def_stmt))
 	    {
@@ -2563,8 +2562,8 @@ associate_plusminus (gimple_stmt_iterator *gsi)
 
   if (TREE_CODE (rhs1) == SSA_NAME)
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (rhs1);
-      if (is_gimple_assign (def_stmt) && can_propagate_from (def_stmt))
+      gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs1));
+      if (def_stmt && can_propagate_from (def_stmt))
 	{
 	  enum tree_code def_code = gimple_assign_rhs_code (def_stmt);
 	  if (def_code == PLUS_EXPR
@@ -2666,16 +2665,19 @@ associate_plusminus (gimple_stmt_iterator *gsi)
 		   && TREE_CODE (rhs2) == SSA_NAME)
 	    {
 	      /* (T)(P + A) - (T)P -> (T)A.  */
-	      gimple def_stmt2 = SSA_NAME_DEF_STMT (rhs2);
-	      if (is_gimple_assign (def_stmt2)
+	      gassign *def_stmt2 =
+		dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs2));
+	      if (def_stmt2
 		  && can_propagate_from (def_stmt2)
 		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt2))
 		  && TREE_CODE (gimple_assign_rhs1 (def_stmt2)) == SSA_NAME)
 		{
 		  /* Now we have (T)X - (T)P.  */
 		  tree p = gimple_assign_rhs1 (def_stmt2);
-		  def_stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_stmt));
-		  if (is_gimple_assign (def_stmt2)
+		  def_stmt2 =
+		    dyn_cast <gassign *> (SSA_NAME_DEF_STMT (
+					    gimple_assign_rhs1 (def_stmt)));
+		  if (def_stmt2
 		      && can_propagate_from (def_stmt2)
 		      && (gimple_assign_rhs_code (def_stmt2) == POINTER_PLUS_EXPR
 			  || gimple_assign_rhs_code (def_stmt2) == PLUS_EXPR)
@@ -2732,8 +2734,8 @@ associate_plusminus (gimple_stmt_iterator *gsi)
 
   if (rhs2 && TREE_CODE (rhs2) == SSA_NAME)
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (rhs2);
-      if (is_gimple_assign (def_stmt) && can_propagate_from (def_stmt))
+      gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs2));
+      if (def_stmt && can_propagate_from (def_stmt))
 	{
 	  enum tree_code def_code = gimple_assign_rhs_code (def_stmt);
 	  if (def_code == PLUS_EXPR
@@ -2946,8 +2948,7 @@ associate_pointerplus_diff (gimple_stmt_iterator *gsi)
 static bool
 associate_pointerplus (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
-  gimple def_stmt;
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
   tree ptr, off1, off2;
 
   if (associate_pointerplus_align (gsi)
@@ -2960,8 +2961,9 @@ associate_pointerplus (gimple_stmt_iterator *gsi)
   if (TREE_CODE (ptr) != SSA_NAME
       || !has_single_use (ptr))
     return false;
-  def_stmt = SSA_NAME_DEF_STMT (ptr);
-  if (!is_gimple_assign (def_stmt)
+
+  gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (ptr));
+  if (!def_stmt
       || gimple_assign_rhs_code (def_stmt) != POINTER_PLUS_EXPR
       || !can_propagate_from (def_stmt))
     return false;
@@ -3247,7 +3249,7 @@ static bool
 simplify_bitfield_ref (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  gimple def_stmt;
+  gassign *def_stmt;
   tree op, op0, op1, op2;
   tree elem_type;
   unsigned idx, n, size;
@@ -3360,7 +3362,7 @@ static int
 simplify_permutation (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  gimple def_stmt;
+  gassign *def_stmt;
   tree op0, op1, op2, op3, arg0, arg1;
   enum tree_code code;
   bool single_use_op0 = false;
@@ -3430,7 +3432,7 @@ simplify_permutation (gimple_stmt_iterator *gsi)
 	    {
 	      enum tree_code code2;
 
-	      gimple def_stmt2 = get_prop_source_stmt (op1, true, NULL);
+	      gassign *def_stmt2 = get_prop_source_stmt (op1, true, NULL);
 	      if (!def_stmt2 || !can_propagate_from (def_stmt2))
 		return 0;
 
@@ -3471,7 +3473,7 @@ static bool
 simplify_vector_constructor (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  gimple def_stmt;
+  gassign *def_stmt;
   tree op, op2, orig, type, elem_type;
   unsigned elem_size, nelts, i;
   enum tree_code code;
@@ -3737,11 +3739,12 @@ pass_forwprop::execute (function *fun)
 	 Note we update GSI within the loop as necessary.  */
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gassign *stmt;
 	  tree lhs, rhs;
 	  enum tree_code code;
 
-	  if (!is_gimple_assign (stmt))
+	  stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+	  if (!stmt)
 	    {
 	      gsi_next (&gsi);
 	      continue;

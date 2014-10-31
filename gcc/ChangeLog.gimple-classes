@@ -1,5 +1,27 @@
 2014-10-31  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-forwprop.c (get_prop_source_stmt): Strengthen return
+	type and local "def_stmt" from gimple to gassign *, using a
+	dyn_cast in place of an is_gimple_assign.
+	(can_propagate_from): Strengthen param from gimple to gassign *.
+	(forward_propagate_into_comparison_1): Likewise for locals named
+	"def_stmt".
+	(forward_propagate_into_cond): Likewise.
+	(simplify_bitwise_binary_1): Introduce local "assign", using it in
+	place of "def" for typesafety.
+	(associate_plusminus): Strengthen local "stmt" from gimple to
+	gassign *.  Likewise for locals "def_stmt", using dyn_casts in
+	place of is_gimple_assign calls.  Likewise for local "def_stmt2".
+	(associate_pointerplus): Likewise.
+	(simplify_bitfield_ref): Strengthen local "def_stmt" from gimple
+	to gassign *.
+	(simplify_permutation): Likewise, also for local "def_stmt2".
+	(simplify_vector_constructor): Likewise.
+	(pass_forwprop::execute): Strengthen local "stmt" from gimple to
+	gassign *, using a dyn_cast in place of an is_gimple_assign.
+
+2014-10-31  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (is_a_helper <const gassign *>::test): New.
 	(gimple_assign_copy_p): Update return type from bool to
 	gassign *, returning GS if the predicate holds.
