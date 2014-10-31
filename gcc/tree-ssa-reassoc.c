@@ -4372,7 +4372,8 @@ attempt_builtin_powi (gimple stmt, vec<operand_entry_t> *ops)
   tree type = TREE_TYPE (gimple_get_lhs (stmt));
   tree powi_fndecl = mathfn_built_in (type, BUILT_IN_POWI);
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-  gimple mul_stmt, pow_stmt;
+  gimple mul_stmt;
+  gcall *pow_stmt;
 
   /* Nothing to do if BUILT_IN_POWI doesn't exist for this type and
      target.  */

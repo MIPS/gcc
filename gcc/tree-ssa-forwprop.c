@@ -1515,7 +1515,8 @@ constant_pointer_difference (tree p1, tree p2)
 static bool
 simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 {
-  gimple stmt1, stmt2 = gsi_stmt (*gsi_p);
+  gimple stmt1;
+  gcall *stmt2 = as_a <gcall *> (gsi_stmt (*gsi_p));
   tree vuse = gimple_vuse (stmt2);
   if (vuse == NULL)
     return false;
@@ -1546,23 +1547,23 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  if (!tree_fits_shwi_p (val2)
 	      || !tree_fits_uhwi_p (len2))
 	    break;
-	  if (is_gimple_call (stmt1))
+	  if (gcall *call_stmt1 = dyn_cast <gcall *> (stmt1))
 	    {
 	      /* If first stmt is a call, it needs to be memcpy
 		 or mempcpy, with string literal as second argument and
 		 constant length.  */
-	      callee1 = gimple_call_fndecl (stmt1);
+	      callee1 = gimple_call_fndecl (call_stmt1);
 	      if (callee1 == NULL_TREE
 		  || DECL_BUILT_IN_CLASS (callee1) != BUILT_IN_NORMAL
-		  || gimple_call_num_args (stmt1) != 3)
+		  || gimple_call_num_args (call_stmt1) != 3)
 		break;
 	      if (DECL_FUNCTION_CODE (callee1) != BUILT_IN_MEMCPY
 		  && DECL_FUNCTION_CODE (callee1) != BUILT_IN_MEMPCPY)
 		break;
-	      ptr1 = gimple_call_arg (stmt1, 0);
-	      src1 = gimple_call_arg (stmt1, 1);
-	      len1 = gimple_call_arg (stmt1, 2);
-	      lhs1 = gimple_call_lhs (stmt1);
+	      ptr1 = gimple_call_arg (call_stmt1, 0);
+	      src1 = gimple_call_arg (call_stmt1, 1);
+	      len1 = gimple_call_arg (call_stmt1, 2);
+	      lhs1 = gimple_call_lhs (call_stmt1);
 	      if (!tree_fits_uhwi_p (len1))
 		break;
 	      str1 = string_constant (src1, &off1);
@@ -1668,12 +1669,14 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  new_str_cst = build_string_literal (src_len, src_buf);
 	  if (callee1)
 	    {
+	      gcall *call_stmt1 = as_a <gcall *> (stmt1);
+
 	      /* If STMT1 is a mem{,p}cpy call, adjust it and remove
 		 memset call.  */
 	      if (lhs1 && DECL_FUNCTION_CODE (callee1) == BUILT_IN_MEMPCPY)
-		gimple_call_set_lhs (stmt1, NULL_TREE);
-	      gimple_call_set_arg (stmt1, 1, new_str_cst);
-	      gimple_call_set_arg (stmt1, 2,
+		gimple_call_set_lhs (call_stmt1, NULL_TREE);
+	      gimple_call_set_arg (call_stmt1, 1, new_str_cst);
+	      gimple_call_set_arg (call_stmt1, 2,
 				   build_int_cst (TREE_TYPE (len1), src_len));
 	      update_stmt (stmt1);
 	      unlink_stmt_vdef (stmt2);

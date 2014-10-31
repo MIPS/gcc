@@ -416,7 +416,7 @@ get_string_length (strinfo si)
 
   if (si->stmt)
     {
-      gimple stmt = si->stmt;
+      gcall *stmt = as_a <gcall *> (si->stmt);
       gcall *call_stmt;
       gassign *assign_stmt;
       tree callee, lhs, fn, tem;

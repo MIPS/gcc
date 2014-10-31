@@ -1,5 +1,19 @@
 2014-10-31  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-forwprop.c (simplify_builtin_call): Strengthen local
+	"stmt2" from gimple to gcall * via a checked cast.  Replace
+	is_gimple_call with a dyn_cast, introducing local "call_stmt1",
+	and using the latter in place of "stmt1" for typesafety.
+	Introduce another local "call_stmt1" for typesafety via a
+	checked cast within the if (callee1) block, which is only
+	reachable if we have a GIMPLE_CALL.
+	* tree-ssa-reassoc.c (attempt_builtin_powi): Strengthen local
+	"pow_stmt" from gimple to gcall *.
+	* tree-ssa-strlen.c (get_string_length): Likewise for local
+	"stmt", via a checked cast.
+
+2014-10-31  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.c (gimple_set_lhs): Add checked casts to gassign * and
 	gcall * as appropriate.
 	* tree-cfg.c (execute_fixup_cfg): Introduce local "call_stmt"
