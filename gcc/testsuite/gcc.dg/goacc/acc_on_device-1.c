@@ -1,5 +1,5 @@
 /* Have to enable optimizations, as otherwise builtins won't be expanded.  */
-/* { dg-additional-options "-O -fdump-rtl-expand -Wno-implicit-function-declaration" } */
+/* { dg-additional-options "-O -fdump-rtl-expand -std=c89 -Wno-implicit-function-declaration" } */
 
 int
 f (void)
