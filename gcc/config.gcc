@@ -1955,6 +1955,8 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 		# Octeon/MontaVista does not support MIPS16 or o32 ABI
 		mips64*-octeon-linux* | mips*-montavista-linux*)
 			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_64"
+			tm_defines="${tm_defines} MIPS_CPU_STRING_DEFAULT=\\\"octeon\\\""
+			target_cpu_default=MASK_SOFT_FLOAT_ABI
 			tm_file="${tm_file} mips/octeon.h mips/octeon-linux.h"
 			tmake_file="${tmake_file} mips/t-linux64"
 			tmake_file="${tmake_file} mips/t-octeon-linux"
