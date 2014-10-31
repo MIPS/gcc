@@ -605,6 +605,10 @@ struct mips_cpu_info {
 #define TARGET_ENDIAN_DEFAULT MASK_BIG_ENDIAN
 #endif
 
+#ifndef MIPS_MICROMIPS_DEFAULT
+#define MIPS_MICROMIPS_DEFAULT 0
+#endif
+
 #ifdef IN_LIBGCC2
 #undef TARGET_64BIT
 /* Make this compile time constant for libgcc2 */
@@ -627,6 +631,17 @@ struct mips_cpu_info {
 #endif /* IN_LIBGCC2 */
 
 #define TARGET_LIBGCC_SDATA_SECTION ".sdata"
+
+#ifndef MULTILIB_MICROMIPS_DEFAULT
+#if MIPS_MICROMIPS_DEFAULT == 1
+#define MULTILIB_MICROMIPS_DEFAULT "mmicromips"
+#else
+#define MULTILIB_MICROMIPS_DEFAULT "mno-micromips"
+#endif
+#endif
+
+#define MIPS_MICROMIPS_SPEC \
+  "%{!mmicromips:%{!mno-micromips: -" MULTILIB_MICROMIPS_DEFAULT "}}"
 
 #ifndef MULTILIB_ENDIAN_DEFAULT
 #if TARGET_ENDIAN_DEFAULT == 0
@@ -682,7 +697,7 @@ struct mips_cpu_info {
 
 #ifndef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \
-    { MULTILIB_ENDIAN_DEFAULT, MULTILIB_ISA_DEFAULT, MULTILIB_ABI_DEFAULT }
+    { MULTILIB_ENDIAN_DEFAULT, MULTILIB_ISA_DEFAULT, MULTILIB_ABI_DEFAULT, MULTILIB_MICROMIPS_DEFAULT }
 #endif
 
 /* We must pass -EL to the linker by default for little endian embedded
@@ -814,6 +829,7 @@ struct mips_cpu_info {
 
 #define DRIVER_SELF_SPECS \
   MIPS_ISA_LEVEL_SPEC,	  \
+  MIPS_MICROMIPS_SPEC,	  \
   BASE_DRIVER_SELF_SPECS
 
 #define GENERATE_DIVIDE_TRAPS (TARGET_DIVIDE_TRAPS \

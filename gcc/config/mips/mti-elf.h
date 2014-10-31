@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
      the right multilib, and also makes the later specs easier		\
      to write.  */							\
   MIPS_ISA_LEVEL_SPEC,							\
+  MIPS_MICROMIPS_SPEC,							\
 									\
   /* Infer the default float setting from -march.  */			\
   MIPS_ARCH_FLOAT_SPEC,							\
