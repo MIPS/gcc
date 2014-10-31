@@ -460,26 +460,28 @@ treerr
   }#
 )
 
-;; pattern (tree_function_type <return type> <argtypes>) match a tree function type.
+;; pattern (tree_function_type <name> <return type> <argtypes>) match a tree function type.
 (defcmatcher tree_function_type
   (:tree tr)
-  (:tree trtyp trargty)
+  (:tree trnam trtyp trargty trctx)
   tfunt
   :doc #{$TREE_FUNCTION_TYPE match a function type tree $TR extracting
-  the result type tree $TRTYP and the list of type of arguments into
-  $TRARGTY}#
+  the name tree $TRNAM, result type tree $TRTYP and the list of type
+  of arguments into $TRARGTY and the context into $TRCTX}#
   ;; test expansion
   #{ /* tree_function_type $tfunt ? */ (($TR) && TREE_CODE($TR) == FUNCTION_TYPE) }#
   ;; fill expansion
   #{ /* tree_function_type $tfunt ! */
+  $TRNAM = TYPE_NAME ($TR);
   $TRTYP = TREE_TYPE($TR);
   $TRARGTY = TYPE_ARG_TYPES($TR);
+  $TRCTX = TYPE_CONTEXT($TR);
   }#)
 
 ;; pattern (tree_method_type <return type>) match a tree method type.
 (defcmatcher tree_method_type
   (:tree tr)
-  (:tree trtyp trbasety trargty)
+  (:tree  trnam trtyp trbasety trargty trctx)
   tmethoty
   :doc #{$TREE_METHOD_TYPE match a method type tree $TR extracting the
   result type tree $TRTYP, the basetype $TRBASETY, the arguments
@@ -488,9 +490,11 @@ treerr
   #{ /*  tree_method_type $TMETHOTY ? */ (($tr) && TREE_CODE($tr) == METHOD_TYPE) }#
   ;; fill expansion
   #{ /*  tree_method_type $TMETHOTY ! */
+  $TRNAM = TYPE_NAME ($TR);
   $TRTYP = TREE_TYPE($tr);
   $TRBASETY = TYPE_METHOD_BASETYPE($TR);
   $TRARGTY = TYPE_ARG_TYPES($TR);
+  $TRCTX = TYPE_CONTEXT($TR);
   }#)
 
 ;; pattern (tree_lang_type)

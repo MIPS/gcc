@@ -1,4 +1,8 @@
 
+2014-10-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (tree_function_type)
+	(tree_method_type): Extract also the name and context.
+
 2014-10-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-debug.melt (melt_debug_fun): Also show real time
 	with cpu time, periodically.
