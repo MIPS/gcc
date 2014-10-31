@@ -31,6 +31,9 @@ load_gcc_lib timeout-dg.exp
 load_gcc_lib torture-options.exp
 load_gcc_lib fortran-modules.exp
 
+# Try to load a test support file, built during libgomp configuration.
+load_file libgomp-test-support.exp
+
 set dg-do-what-default run
 
 #
@@ -143,6 +146,24 @@ proc libgomp_init { args } {
 	lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/../../include"
     }
     lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/.."
+
+    # For build-tree testing, also consider the CUDA paths used for builing.
+    # For installed testing, we assume all that to be provided in the sysroot.
+    if { $blddir != "" } {
+	global cuda_driver_include
+	global cuda_driver_lib
+	if { $cuda_driver_include != "" } {
+	    # Stop gfortran from freaking out:
+	    # Warning: Nonexistent include directory "[...]"
+	    if {[file exists $cuda_driver_include]} {
+		lappend ALWAYS_CFLAGS "additional_flags=-I$cuda_driver_include"
+	    }
+	}
+	if { $cuda_driver_lib != "" } {
+	    lappend ALWAYS_CFLAGS "additional_flags=-L$cuda_driver_lib"
+	    append always_ld_library_path ":$cuda_driver_lib"
+	}
+    }
 
     # We use atomic operations in the testcases to validate results.
     if { ([istarget i?86-*-*] || [istarget x86_64-*-*])

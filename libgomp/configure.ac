@@ -31,6 +31,10 @@ AC_MSG_RESULT($enable_generated_files_in_srcdir)
 AM_CONDITIONAL(GENINSRC, test "$enable_generated_files_in_srcdir" = yes)
 
 # Look for the CUDA driver package.
+CUDA_DRIVER_INCLUDE=
+CUDA_DRIVER_LIB=
+AC_SUBST(CUDA_DRIVER_INCLUDE)
+AC_SUBST(CUDA_DRIVER_LIB)
 CUDA_DRIVER_CPPFLAGS=
 CUDA_DRIVER_LDFLAGS=
 AC_ARG_WITH(cuda-driver,
@@ -45,14 +49,20 @@ AC_ARG_WITH(cuda-driver-lib,
 	[AS_HELP_STRING([--with-cuda-driver-lib=PATH],
 		[specify directory for the installed CUDA driver library])])
 if test "x$with_cuda_driver" != x; then
-  CUDA_DRIVER_CPPFLAGS=-I$with_cuda_driver/include
-  CUDA_DRIVER_LDFLAGS=-L$with_cuda_driver/lib
+  CUDA_DRIVER_INCLUDE=$with_cuda_driver/include
+  CUDA_DRIVER_LIB=$with_cuda_driver/lib
 fi
 if test "x$with_cuda_driver_include" != x; then
-  CUDA_DRIVER_CPPFLAGS=-I$with_cuda_driver_include
+  CUDA_DRIVER_INCLUDE=$with_cuda_driver_include
 fi
 if test "x$with_cuda_driver_lib" != x; then
-  CUDA_DRIVER_LDFLAGS=-L$with_cuda_driver_lib
+  CUDA_DRIVER_LIB=$with_cuda_driver_lib
+fi
+if test "x$CUDA_DRIVER_INCLUDE" != x; then
+  CUDA_DRIVER_CPPFLAGS=-I$CUDA_DRIVER_INCLUDE
+fi
+if test "x$CUDA_DRIVER_LIB" != x; then
+  CUDA_DRIVER_LDFLAGS=-L$CUDA_DRIVER_LIB
 fi
 
 
@@ -431,5 +441,7 @@ AC_SUBST(OMP_NEST_LOCK_25_KIND)
 CFLAGS="$save_CFLAGS"
 
 AC_CONFIG_FILES(omp.h omp_lib.h omp_lib.f90 libgomp_f.h)
-AC_CONFIG_FILES(Makefile testsuite/Makefile libgomp.spec)
+AC_CONFIG_FILES(Makefile testsuite/Makefile)
+AC_CONFIG_FILES(testsuite/libgomp-test-support.exp)
+AC_CONFIG_FILES(libgomp.spec)
 AC_OUTPUT

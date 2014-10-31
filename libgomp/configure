@@ -719,6 +719,8 @@ build_os
 build_vendor
 build_cpu
 build
+CUDA_DRIVER_LIB
+CUDA_DRIVER_INCLUDE
 GENINSRC_FALSE
 GENINSRC_TRUE
 target_alias
@@ -2616,6 +2618,10 @@ fi
 
 
 # Look for the CUDA driver package.
+CUDA_DRIVER_INCLUDE=
+CUDA_DRIVER_LIB=
+
+
 CUDA_DRIVER_CPPFLAGS=
 CUDA_DRIVER_LDFLAGS=
 
@@ -2637,14 +2643,20 @@ if test "${with_cuda_driver_lib+set}" = set; then :
 fi
 
 if test "x$with_cuda_driver" != x; then
-  CUDA_DRIVER_CPPFLAGS=-I$with_cuda_driver/include
-  CUDA_DRIVER_LDFLAGS=-L$with_cuda_driver/lib
+  CUDA_DRIVER_INCLUDE=$with_cuda_driver/include
+  CUDA_DRIVER_LIB=$with_cuda_driver/lib
 fi
 if test "x$with_cuda_driver_include" != x; then
-  CUDA_DRIVER_CPPFLAGS=-I$with_cuda_driver_include
+  CUDA_DRIVER_INCLUDE=$with_cuda_driver_include
 fi
 if test "x$with_cuda_driver_lib" != x; then
-  CUDA_DRIVER_LDFLAGS=-L$with_cuda_driver_lib
+  CUDA_DRIVER_LIB=$with_cuda_driver_lib
+fi
+if test "x$CUDA_DRIVER_INCLUDE" != x; then
+  CUDA_DRIVER_CPPFLAGS=-I$CUDA_DRIVER_INCLUDE
+fi
+if test "x$CUDA_DRIVER_LIB" != x; then
+  CUDA_DRIVER_LDFLAGS=-L$CUDA_DRIVER_LIB
 fi
 
 
@@ -11145,7 +11157,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11148 "configure"
+#line 11160 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11251,7 +11263,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11254 "configure"
+#line 11266 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -16453,7 +16465,11 @@ CFLAGS="$save_CFLAGS"
 
 ac_config_files="$ac_config_files omp.h omp_lib.h omp_lib.f90 libgomp_f.h"
 
-ac_config_files="$ac_config_files Makefile testsuite/Makefile libgomp.spec"
+ac_config_files="$ac_config_files Makefile testsuite/Makefile"
+
+ac_config_files="$ac_config_files testsuite/libgomp-test-support.exp"
+
+ac_config_files="$ac_config_files libgomp.spec"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -17598,6 +17614,7 @@ do
     "libgomp_f.h") CONFIG_FILES="$CONFIG_FILES libgomp_f.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "testsuite/Makefile") CONFIG_FILES="$CONFIG_FILES testsuite/Makefile" ;;
+    "testsuite/libgomp-test-support.exp") CONFIG_FILES="$CONFIG_FILES testsuite/libgomp-test-support.exp" ;;
     "libgomp.spec") CONFIG_FILES="$CONFIG_FILES libgomp.spec" ;;
 
   *) as_fn_error "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

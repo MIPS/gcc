@@ -1,3 +1,16 @@
+2014-10-31  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* configure.ac (CUDA_DRIVER_INCLUDE, CUDA_DRIVER_LIB): New
+	substituted variables.
+	(testsuite/libgomp-test-support.exp): Instantiate file.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+	* testsuite/Makefile.in: Likewise.
+	* testsuite/libgomp-test-support.exp.in: New file.
+	* testsuite/lib/libgomp.exp: Load it.
+	(libgomp_init): For build-tree testing, add the CUDA paths to
+	ALWAYS_CFLAGS and always_ld_library_path.
+
 2014-10-30  Julian Brown  <julian@codesourcery.com>
 
 	* target.c (gomp_map_vars): Remove MM argument.
