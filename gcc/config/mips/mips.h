@@ -732,6 +732,7 @@ struct mips_cpu_info {
      %{march=mips64r6: -mips64r6} \
      %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
 
+
 /* A spec that infers a -mhard-float or -msoft-float setting from an
    -march argument.  Note that soft-float and hard-float code are not
    link-compatible.  */
@@ -1477,7 +1478,7 @@ struct mips_cpu_info {
 #define BIGGEST_ALIGNMENT LONG_DOUBLE_TYPE_SIZE
 
 /* All accesses must be aligned.  */
-#define STRICT_ALIGNMENT (ISA_HAS_LWL_LWR ? 1 : 0)
+#define STRICT_ALIGNMENT 1
 
 /* Define this if you wish to imitate the way many other C compilers
    handle alignment of bitfields and the structures that contain
