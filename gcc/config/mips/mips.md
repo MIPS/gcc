@@ -1026,7 +1026,8 @@
 
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
-		   (eq_attr "branch_likely" "yes"))
+		   (eq_attr "branch_likely" "yes")
+		   (not (match_test "TARGET_MICROMIPS && mips_isa_rev > 5")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (eq_attr "can_delay" "yes")])
@@ -1034,18 +1035,21 @@
 ;; Branches that don't have likely variants do not annul on false.
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
-		   (eq_attr "branch_likely" "no"))
+		   (eq_attr "branch_likely" "no")
+		   (not (match_test "TARGET_MICROMIPS && mips_isa_rev > 5")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
-(define_delay (eq_attr "type" "jump")
+(define_delay (and (eq_attr "type" "jump")
+	      	   (not (match_test "TARGET_MICROMIPS && mips_isa_rev > 5")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
 (define_delay (and (eq_attr "type" "call")
-		   (eq_attr "jal_macro" "no"))
+		   (eq_attr "jal_macro" "no")
+		   (not (match_test "TARGET_MICROMIPS && mips_isa_rev > 5")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -5710,7 +5714,12 @@
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
+  if (TARGET_MICROMIPS && mips_isa_rev > 5)
+    return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%F1%:", "%Z2%0"),
+					 MIPS_BRANCH ("b%W1%:", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
 					 MIPS_BRANCH ("b%F1", "%Z2%0"),
 					 MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
@@ -5726,7 +5735,12 @@
          (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
+  if (TARGET_MICROMIPS && mips_isa_rev > 5)
+    return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%W1%:", "%Z2%0"),
+					 MIPS_BRANCH ("b%F1%:", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
 					 MIPS_BRANCH ("b%W1", "%Z2%0"),
 					 MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
@@ -5763,12 +5777,67 @@
 (define_insn "*branch_equality<mode>"
   [(set (pc)
 	(if_then_else
+	 (match_operator 1 "equality_operator_reg_not_equal"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
+	 (label_ref (match_operand 0 "" ""))
+	 (pc)))]
+  "!TARGET_MIPS16 && mips_isa_rev > 5"
+{
+  /* For a simple BNEZ or BEQZ microMIPS branch.  */
+  if (operands[3] == const0_rtx
+      && get_attr_length (insn) <= 8)
+    return mips_output_conditional_branch (insn, operands,
+					   "%*b%C1z%:\t%2,%0",
+					   "%*b%N1z%:\t%2,%0");
+
+  if (TARGET_MICROMIPS)
+    return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%C1c", "%2,%z3,%0"),
+					 MIPS_BRANCH ("b%N1c", "%2,%z3,%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"),
+					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"));
+}
+  [(set_attr "type" "branch")])
+
+(define_insn "*branch_equality<mode>_inverted"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 1 "equality_operator_reg_not_equal"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
+	 (pc)
+	 (label_ref (match_operand 0 "" ""))))]
+  "!TARGET_MIPS16 && mips_isa_rev > 5"
+{
+  /* For a simple BNEZ or BEQZ microMIPS branch.  */
+  if (operands[3] == const0_rtx
+      && get_attr_length (insn) <= 8)
+    return mips_output_conditional_branch (insn, operands,
+					   "%*b%N0z%:\t%2,%1",
+					   "%*b%C0z%:\t%2,%1");
+
+  if (TARGET_MICROMIPS)
+    return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%N1c", "%2,%z3,%0"),
+					 MIPS_BRANCH ("b%C1c", "%2,%z3,%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"),
+					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"));
+}
+  [(set_attr "type" "branch")])
+(define_insn "*branch_equality<mode>"
+  [(set (pc)
+	(if_then_else
 	 (match_operator 1 "equality_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
 			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
-  "!TARGET_MIPS16"
+  "!TARGET_MIPS16 && mips_isa_rev < 6"
 {
   /* For a simple BNEZ or BEQZ microMIPS branch.  */
   if (TARGET_MICROMIPS
@@ -5778,7 +5847,7 @@
 					   "%*b%C1z%:\t%2,%0",
 					   "%*b%N1z%:\t%2,%0");
 
-  return mips_output_conditional_branch (insn, operands,
+    return mips_output_conditional_branch (insn, operands,
 					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"),
 					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"));
 }
@@ -5792,7 +5861,7 @@
 			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
-  "!TARGET_MIPS16"
+  "!TARGET_MIPS16 && mips_isa_rev < 6"
 {
   /* For a simple BNEZ or BEQZ microMIPS branch.  */
   if (TARGET_MICROMIPS
@@ -5802,7 +5871,7 @@
 					   "%*b%N0z%:\t%2,%1",
 					   "%*b%C0z%:\t%2,%1");
 
-  return mips_output_conditional_branch (insn, operands,
+    return mips_output_conditional_branch (insn, operands,
 					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"),
 					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"));
 }
