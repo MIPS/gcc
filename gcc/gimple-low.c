@@ -738,7 +738,7 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
 static void
 lower_builtin_setjmp (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   location_t loc = gimple_location (stmt);
   tree cont_label = create_artificial_label (loc);
   tree next_label = create_artificial_label (loc);
@@ -823,7 +823,8 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
 static void
 lower_builtin_posix_memalign (gimple_stmt_iterator *gsi)
 {
-  gimple stmt, call = gsi_stmt (*gsi);
+  gassign *assign_stmt1;
+  gcall *call = as_a <gcall *> (gsi_stmt (*gsi));
   tree pptr = gimple_call_arg (call, 0);
   tree align = gimple_call_arg (call, 1);
   tree res = gimple_call_lhs (call);
@@ -833,12 +834,13 @@ lower_builtin_posix_memalign (gimple_stmt_iterator *gsi)
       tree tem = create_tmp_var (ptr_type_node, NULL);
       TREE_ADDRESSABLE (tem) = 1;
       gimple_call_set_arg (call, 0, build_fold_addr_expr (tem));
-      stmt = gimple_build_assign (ptr, tem);
+      assign_stmt1 = gimple_build_assign (ptr, tem);
     }
   else
-    stmt = gimple_build_assign (ptr,
-				fold_build2 (MEM_REF, ptr_type_node, pptr,
-					     build_int_cst (ptr_type_node, 0)));
+    assign_stmt1 =
+      gimple_build_assign (ptr,
+			   fold_build2 (MEM_REF, ptr_type_node, pptr,
+					build_int_cst (ptr_type_node, 0)));
   if (res == NULL_TREE)
     {
       res = create_tmp_reg (integer_type_node, NULL);
@@ -846,19 +848,21 @@ lower_builtin_posix_memalign (gimple_stmt_iterator *gsi)
     }
   tree align_label = create_artificial_label (UNKNOWN_LOCATION);
   tree noalign_label = create_artificial_label (UNKNOWN_LOCATION);
-  gimple cond = gimple_build_cond (EQ_EXPR, res, integer_zero_node,
+  gcond *cond = gimple_build_cond (EQ_EXPR, res, integer_zero_node,
 				   align_label, noalign_label);
   gsi_insert_after (gsi, cond, GSI_NEW_STMT);
   gsi_insert_after (gsi, gimple_build_label (align_label), GSI_NEW_STMT);
-  gsi_insert_after (gsi, stmt, GSI_NEW_STMT);
-  stmt = gimple_build_call (builtin_decl_implicit (BUILT_IN_ASSUME_ALIGNED),
-			    2, ptr, align);
-  gimple_call_set_lhs (stmt, ptr);
-  gsi_insert_after (gsi, stmt, GSI_NEW_STMT);
-  stmt = gimple_build_assign (fold_build2 (MEM_REF, ptr_type_node, pptr,
-					   build_int_cst (ptr_type_node, 0)),
-			      ptr);
-  gsi_insert_after (gsi, stmt, GSI_NEW_STMT);
+  gsi_insert_after (gsi, assign_stmt1, GSI_NEW_STMT);
+  gcall *call_stmt =
+    gimple_build_call (builtin_decl_implicit (BUILT_IN_ASSUME_ALIGNED),
+		       2, ptr, align);
+  gimple_call_set_lhs (call_stmt, ptr);
+  gsi_insert_after (gsi, call_stmt, GSI_NEW_STMT);
+  gassign *assign_stmt2 =
+    gimple_build_assign (fold_build2 (MEM_REF, ptr_type_node, pptr,
+				      build_int_cst (ptr_type_node, 0)),
+			 ptr);
+  gsi_insert_after (gsi, assign_stmt2, GSI_NEW_STMT);
   gsi_insert_after (gsi, gimple_build_label (noalign_label), GSI_NEW_STMT);
 }
 

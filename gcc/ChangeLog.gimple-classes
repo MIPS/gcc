@@ -1,3 +1,12 @@
+2014-10-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* gimple-low.c (lower_builtin_setjmp): Strengthen local "stmt"
+	from gimple to gcall *, via a checked cast.
+	(lower_builtin_posix_memalign): Likewise for local "call".
+	Strengthen local "cond" from gimple to gcond *.
+	Split local gimple "stmt" into new locals "assign_stmt1",
+	"call_stmt", and "assign_stmt2", of appropriate types.
+
 2014-10-30  David Malcolm  <dmalcolm@redhat.com>
 
 	* gimple-fold.c (replace_call_with_call_and_fold): Strengthen
