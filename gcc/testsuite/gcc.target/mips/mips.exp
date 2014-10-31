@@ -1108,9 +1108,7 @@ proc mips-dg-options { args } {
 	# tests that include stdlib.h will fail due to not finding
 	# stubs-o32_hard.h  (r6 compilers only have stubs-o32_hard_2008.h)
 	} elseif { $isa_rev > 5
-		   && ([mips_have_test_option_p options "-mdsp"]
-		       || [mips_have_test_option_p options "-mdspr2"]
-		       || [mips_have_test_option_p options "-mips16"]
+		   && ([mips_have_test_option_p options "-mips16"]
 		       || [mips_have_test_option_p options "-mfp32"]
 		       || [mips_have_test_option_p options "-mfix-r10000"]
 		       || [mips_have_test_option_p options "-mpaired-single"]
@@ -1259,7 +1257,6 @@ proc mips-dg-options { args } {
 	    mips_make_test_option options "-mno-synci"
 	}
         if { $isa_rev > 5 } {
-	    mips_make_test_option options "-mno-dsp"
 	    mips_make_test_option options "-mno-mips16"
 	    if { [mips_have_test_option_p options "-mdsp"] } {
 		mips_make_test_option options "-mfp64"
