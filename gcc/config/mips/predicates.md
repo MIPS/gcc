@@ -526,6 +526,26 @@
 (define_predicate "equality_operator"
   (match_code "eq,ne"))
 
+(define_predicate "equality_operator_reg_not_equal"
+  (match_code "eq,ne")
+{
+   rtx reg1, reg2;
+
+   reg1 = XEXP (op,0);
+   reg2 = XEXP (op,1);
+
+   if (GET_CODE (reg1) == SUBREG)
+     reg1 = SUBREG_REG (reg1);
+
+   if (GET_CODE (reg2) == SUBREG)
+     reg2 = SUBREG_REG (reg2);
+
+   if (REG_P (reg1) && REG_P (reg2))
+     return (REGNO (reg1) != REGNO (reg2));
+   else
+     return true;
+})
+
 (define_predicate "extend_operator"
   (match_code "zero_extend,sign_extend"))
 

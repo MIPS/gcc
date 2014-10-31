@@ -863,6 +863,22 @@ struct mips_cpu_info {
 				 && Pmode == DImode	\
 				 && !TARGET_SYM32)
 
+#define ISA_HAS_DELAYED_BRANCHES (!(TARGET_MICROMIPS && mips_isa_rev >= 6))
+
+#define ISA_HAS_BRANCH_NE_EQ_COMPACT (TARGET_MICROMIPS)
+
+#define ISA_HAS_JUMP_REG_COMPACT     (TARGET_MICROMIPS)
+
+#define ISA_HAS_BRANCH_COMPACT       (mips_isa_rev >= 6)
+
+#define ISA_HAS_BRANCH_COND_COMPACT  (mips_isa_rev >= 6)
+
+#define ISA_HAS_JUMP_COMPACT         (TARGET_MICROMIPS && mips_isa_rev >= 6)
+
+#define ISA_HAS_JUMP_AND_LINK_COMPACT (TARGET_MICROMIPS && mips_isa_rev >= 6)
+
+#define ISA_HAS_BRANCH_FLOAT_COMPACT  (TARGET_MICROMIPS && mips_isa_rev >= 6)
+
 /* ISA has instructions for managing 64-bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
 				 || ISA_MIPS4				\
