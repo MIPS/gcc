@@ -1173,12 +1173,6 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
 	  fputc (')', dumpfile);
 	}
     }
-  if (omp_clauses->non_clause_wait_expr)
-    {
-      fputc ('(', dumpfile);
-      show_expr (omp_clauses->non_clause_wait_expr);
-      fputc (')', dumpfile);
-    }
   if (omp_clauses->sched_kind != OMP_SCHED_NONE)
     {
       const char *type;

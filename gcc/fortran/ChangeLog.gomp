@@ -1,3 +1,22 @@
+2014-10-31  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (struct gfc_omp_clauses): Remove non_clause_wait_expr.
+	* dump-parse-tree.c (show_omp_clauses): Likewise.
+	* openmp.c (gfc_free_omp_clauses): Likewise.
+	(gfc_match_omp_clauses): Update handling of async.
+	(OACC_WAIT_CLAUSE_MASK): New define.
+	(gfc_match_oacc_wait): Make the wait directive comply with OpenACC 2.0.
+	(resolve_omp_clauses): Use resolve_oacc_scalar_in_expr inspect
+	arguments to the wait clause.
+	(resolve_oacc_wait): Remove.
+	(gfc_resolve_oacc_directive): Handle EXEC_OACC_WAIT with
+	resolve_omp_clauses.
+	* trans-openmp.c (gfc_trans_omp_clauses): Update handling of OpenACC
+	wait arguments.
+	(gfc_trans_oacc_executable_directive): Remove EXEC_OACC_WAIT.
+	(gfc_trans_oacc_wait_directive): New function.
+	(gfc_trans_oacc_directive): Use it.
+
 2014-10-15  James Norris  <jnorris@codesourcery.com>
 
 	* types.def (BT_FN_VOID_INT_PTR_INT): New type.

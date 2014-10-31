@@ -1264,7 +1264,6 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *num_gangs_expr;
   struct gfc_expr *num_workers_expr;
   struct gfc_expr *vector_length_expr;
-  struct gfc_expr *non_clause_wait_expr;
   gfc_expr_list *wait_list;
   gfc_expr_list *tile_list;
   unsigned async:1, gang:1, worker:1, vector:1, seq:1, independent:1;

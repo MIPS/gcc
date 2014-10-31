@@ -83,7 +83,6 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
   gfc_free_expr (c->num_gangs_expr);
   gfc_free_expr (c->num_workers_expr);
   gfc_free_expr (c->vector_length_expr);
-  gfc_free_expr (c->non_clause_wait_expr);
   for (i = 0; i < OMP_LIST_NUM; i++)
     gfc_free_omp_namelist (c->lists[i]);
   gfc_free_expr_list (c->wait_list);
@@ -496,10 +495,15 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, unsigned long long mask,
 	if (gfc_match ("async") == MATCH_YES)
 	  {
 	    c->async = true;
-	    if (gfc_match (" ( %e )", &c->async_expr) == MATCH_YES)
-	      needs_space = false;
-	    else
-	      needs_space = true;
+	    needs_space = false;
+	    if (gfc_match (" ( %e )", &c->async_expr) != MATCH_YES)
+	      {
+		c->async_expr = gfc_get_constant_expr (BT_INTEGER,
+						       gfc_default_integer_kind,
+						      &gfc_current_locus);
+		/* TODO XXX: FIX -1 (acc_async_noval).  */
+		mpz_set_si (c->async_expr->value.integer, -1);
+	      }
 	    continue;
 	  }
       if ((mask & OMP_CLAUSE_GANG) && !c->gang)
@@ -1168,6 +1172,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, unsigned long long mask,
 #define OACC_EXIT_DATA_CLAUSES \
   (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_COPYOUT \
    | OMP_CLAUSE_DELETE)
+#define OACC_WAIT_CLAUSES \
+  (OMP_CLAUSE_ASYNC)
 
 
 match
@@ -1328,8 +1334,38 @@ match
 gfc_match_oacc_wait (void)
 {
   gfc_omp_clauses *c = gfc_get_omp_clauses ();
-  gfc_match (" ( %e )", &c->non_clause_wait_expr);
+  gfc_expr_list *wait_list = NULL, *el;
 
+  match_oacc_expr_list (" (", &wait_list, true);
+  gfc_match_omp_clauses (&c, OACC_WAIT_CLAUSES, false, false, true);
+
+  if (gfc_match_omp_eos () != MATCH_YES)
+    {
+      gfc_error ("Unexpected junk in !$ACC WAIT at %C");
+      return MATCH_ERROR;
+    }
+
+  if (wait_list)
+    for (el = wait_list; el; el = el->next)
+      {
+	if (el->expr == NULL)
+	  {
+	    gfc_error ("Invalid argument to $!ACC WAIT at %L",
+		       &wait_list->expr->where);
+	    return MATCH_ERROR;
+	  }
+
+	if (!gfc_resolve_expr (el->expr)
+	    || el->expr->ts.type != BT_INTEGER || el->expr->rank != 0
+	    || el->expr->expr_type != EXPR_CONSTANT)
+	  {
+	    gfc_error ("WAIT clause at %L requires a scalar INTEGER expression",
+		       &el->expr->where);
+
+	    return MATCH_ERROR;
+	  }
+      }
+  c->wait_list = wait_list;
   new_st.op = EXEC_OACC_WAIT;
   new_st.ext.omp_clauses = c;
   return MATCH_YES;
@@ -3343,7 +3379,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
   if (omp_clauses->wait)
     if (omp_clauses->wait_list)
       for (el = omp_clauses->wait_list; el; el = el->next)
-	resolve_oacc_positive_int_expr (el->expr, "WAIT");
+	resolve_oacc_scalar_int_expr (el->expr, "WAIT");
 }
 
 
@@ -4490,16 +4526,6 @@ resolve_oacc_cache (gfc_code *code)
 }
 
 
-static void
-resolve_oacc_wait (gfc_code *code)
-{
-  gfc_expr_list* el;
-
-  for (el = code->ext.omp_clauses->wait_list; el; el = el->next)
-    resolve_oacc_positive_int_expr (el->expr, "WAIT");
-}
-
-
 void
 gfc_resolve_oacc_declare (gfc_namespace *ns)
 {
@@ -4573,6 +4599,7 @@ gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
     case EXEC_OACC_UPDATE:
     case EXEC_OACC_ENTER_DATA:
     case EXEC_OACC_EXIT_DATA:
+    case EXEC_OACC_WAIT:
       resolve_omp_clauses (code, &code->loc, code->ext.omp_clauses, NULL,
 			   true);
       break;
@@ -4583,9 +4610,6 @@ gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
       break;
     case EXEC_OACC_CACHE:
       resolve_oacc_cache (code);
-      break;
-    case EXEC_OACC_WAIT:
-      resolve_oacc_wait (code);
       break;
     default:
       break;

@@ -2555,6 +2555,21 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_INDEPENDENT);
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
+  if (clauses->wait_list)
+    {
+      gfc_expr_list *el;
+      tree list = NULL;
+
+      for (el = clauses->wait_list; el; el = el->next)
+	{
+	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_WAIT);
+	  OMP_CLAUSE_DECL (c) = gfc_convert_expr_to_tree (block, el->expr);
+	  OMP_CLAUSE_CHAIN (c) = list;
+	  list = c;
+	}
+
+      omp_clauses = list;
+    }
   if (clauses->num_gangs_expr)
     {
       tree num_gangs_var = 
@@ -2627,14 +2642,6 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
 	}
     }
-  if (clauses->non_clause_wait_expr)
-    {
-      tree wait_var = 
-	  gfc_convert_expr_to_tree (block, clauses->non_clause_wait_expr);
-      c = build_omp_clause (where.lb->location, OMP_CLAUSE_WAIT);
-      OMP_CLAUSE_WAIT_EXPR (c)= wait_var;
-      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
-    }
 
   return nreverse (omp_clauses);
 }
@@ -2700,7 +2707,7 @@ gfc_trans_oacc_construct (gfc_code *code)
   return gfc_finish_block (&block);
 }
 
-/* update, enter_data, exit_data, wait, cache. */
+/* update, enter_data, exit_data, cache. */
 static tree 
 gfc_trans_oacc_executable_directive (gfc_code *code)
 {
@@ -2735,6 +2742,44 @@ gfc_trans_oacc_executable_directive (gfc_code *code)
   stmt = build1_loc (input_location, construct_code, void_type_node, 
 		     oacc_clauses);
   gfc_add_expr_to_block (&block, stmt);
+  return gfc_finish_block (&block);
+}
+
+static tree
+gfc_trans_oacc_wait_directive (gfc_code *code)
+{
+  stmtblock_t block;
+  tree stmt, t;
+  vec<tree, va_gc> *args;
+  int nparms = 0;
+  gfc_expr_list *el;
+  gfc_omp_clauses *clauses = code->ext.omp_clauses;
+  location_t loc = input_location;
+
+  for (el = clauses->wait_list; el; el = el->next)
+    nparms++;
+
+  vec_alloc (args, nparms + 2);
+  stmt = builtin_decl_explicit (BUILT_IN_GOACC_WAIT);
+
+  gfc_start_block (&block);
+
+  if (clauses->async_expr)
+    t = gfc_convert_expr_to_tree (&block, clauses->async_expr);
+  else
+    t = build_int_cst (integer_type_node, -2);
+
+  args->quick_push (t);
+  args->quick_push (build_int_cst (integer_type_node, nparms));
+
+  for (el = clauses->wait_list; el; el = el->next)
+    args->quick_push (gfc_convert_expr_to_tree (&block, el->expr));
+
+  stmt = build_call_expr_loc_vec (loc, stmt, args);
+  gfc_add_expr_to_block (&block, stmt);
+
+  vec_free (args);
+
   return gfc_finish_block (&block);
 }
 
@@ -4343,11 +4388,12 @@ gfc_trans_oacc_directive (gfc_code *code)
       return gfc_trans_omp_do (code, code->op, NULL, code->ext.omp_clauses,
 			       NULL);
     case EXEC_OACC_UPDATE:
-    case EXEC_OACC_WAIT:
     case EXEC_OACC_CACHE:
     case EXEC_OACC_ENTER_DATA:
     case EXEC_OACC_EXIT_DATA:
       return gfc_trans_oacc_executable_directive (code);
+    case EXEC_OACC_WAIT:
+      return gfc_trans_oacc_wait_directive (code);
     default:
       gcc_unreachable ();
     }
