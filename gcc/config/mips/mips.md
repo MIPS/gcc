@@ -2102,7 +2102,7 @@
   [(set (match_operand:DI 0 "muldiv_target_operand" "=ka")
 	(mult:DI (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		 (any_extend:DI (match_operand:SI 2 "register_operand" "d"))))]
-  "!TARGET_64BIT && (!TARGET_FIX_R4000 || ISA_HAS_DSP) && ISA_HAS_MULT"
+  "!TARGET_64BIT && ((!TARGET_FIX_R4000 && ISA_HAS_MULT) || ISA_HAS_DSP)"
 {
   if (ISA_HAS_DSP_MULT)
     return "mult<u>\t%q0,%1,%2";
@@ -5243,7 +5243,8 @@
 	(unspec:GPR [(match_operand:HILO 1 "hilo_operand" "x")]
 		    UNSPEC_MFHI))]
   ""
-  { return ISA_HAS_MACCHI ? "<GPR:d>macchi\t%0,%.,%." : "mfhi\t%0"; }
+  { return ISA_HAS_MACCHI ? "<GPR:d>macchi\t%0,%.,%." :
+	                       ISA_HAS_MULT ? "mfhi\t%0" : "mfhi\t%0,$ac0"; }
   [(set_attr "type" "mfhi")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -5256,7 +5257,12 @@
 		      (match_operand:GPR 2 "register_operand" "l")]
 		     UNSPEC_MTHI))]
   ""
-  "mthi\t%z1"
+  {
+    if (ISA_HAS_MULT)
+      return "mthi\t%z1";
+    else
+      return "mthi\t%z1, $ac0";
+  }
   [(set_attr "type" "mthi")
    (set_attr "mode" "SI")])
 
