@@ -727,8 +727,8 @@ move_ssa_defining_stmt_for_defs (gimple new_stmt, gimple old_stmt)
    A GIMPLE_CALL STMT is being replaced with GIMPLE_CALL NEW_STMT.  */
 
 static void
-finish_update_gimple_call (gimple_stmt_iterator *si_p, gimple new_stmt,
-			   gimple stmt)
+finish_update_gimple_call (gimple_stmt_iterator *si_p, gcall *new_stmt,
+			   gcall *stmt)
 {
   gimple_call_set_lhs (new_stmt, gimple_call_lhs (stmt));
   move_ssa_defining_stmt_for_defs (new_stmt, stmt);

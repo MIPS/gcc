@@ -645,9 +645,9 @@ split_bb_on_noreturn_calls (basic_block bb)
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
+      gcall *stmt = dyn_cast <gcall *> (gsi_stmt (gsi));
 
-      if (!is_gimple_call (stmt))
+      if (!stmt)
 	continue;
 
       if (gimple_call_noreturn_p (stmt))

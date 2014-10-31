@@ -1229,11 +1229,11 @@ eliminate_unnecessary_stmts (void)
 		something_changed = true;
 	      remove_dead_stmt (&gsi, bb);
 	    }
-	  else if (is_gimple_call (stmt))
+	  else if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	    {
-	      tree name = gimple_call_lhs (stmt);
+	      tree name = gimple_call_lhs (call_stmt);
 
-	      notice_special_calls (as_a <gcall *> (stmt));
+	      notice_special_calls (call_stmt);
 
 	      /* When LHS of var = call (); is dead, simplify it into
 		 call (); saving one operand.  */
@@ -1243,7 +1243,7 @@ eliminate_unnecessary_stmts (void)
 		  /* Avoid doing so for allocation calls which we
 		     did not mark as necessary, it will confuse the
 		     special logic we apply to malloc/free pair removal.  */
-		  && (!(call = gimple_call_fndecl (stmt))
+		  && (!(call = gimple_call_fndecl (call_stmt))
 		      || DECL_BUILT_IN_CLASS (call) != BUILT_IN_NORMAL
 		      || (DECL_FUNCTION_CODE (call) != BUILT_IN_ALIGNED_ALLOC
 			  && DECL_FUNCTION_CODE (call) != BUILT_IN_MALLOC
@@ -1260,7 +1260,7 @@ eliminate_unnecessary_stmts (void)
 		      fprintf (dump_file, "\n");
 		    }
 
-		  gimple_call_set_lhs (stmt, NULL_TREE);
+		  gimple_call_set_lhs (call_stmt, NULL_TREE);
 		  maybe_clean_or_replace_eh_stmt (stmt, stmt);
 		  update_stmt (stmt);
 		  release_ssa_name (name);

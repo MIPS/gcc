@@ -1,5 +1,22 @@
 2014-10-31  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.c (gimple_set_lhs): Add checked casts to gassign * and
+	gcall * as appropriate.
+	* tree-cfg.c (execute_fixup_cfg): Introduce local "call_stmt"
+	via a dyn_cast and use it in place of "stmt" where appropriate
+	* tree-cfgcleanup.c (split_bb_on_noreturn_calls): Strengthen
+	local "stmt" from gimple to gcall *, replacing an is_gimple_call
+	with a dyn_cast.
+	* tree-cfgcleanup.h (fixup_noreturn_call): Strengthen param from
+	gimple to gcall *.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Replace
+	is_gimple_call with a dyn_cast, introducing local "call_stmt" and
+	using it in place of "stmt" for typesafety.
+	* tree-ssa-propagate.c (finish_update_gimple_call): Strengthen
+	params "new_stmt" and "stmt" from gimple to gcall *.
+
+2014-10-31  David Malcolm  <dmalcolm@redhat.com>
+
 	* config/i386/i386.c (add_condition_to_bb): Strengthen local
 	"call_cond_stmt" from gimple to gcall *.
 	* gimple-fold.c (gimple_build): Likewise for local "stmt".

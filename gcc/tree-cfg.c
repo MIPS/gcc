@@ -8555,12 +8555,13 @@ execute_fixup_cfg (void)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
 	  gimple stmt = gsi_stmt (gsi);
-	  tree decl = is_gimple_call (stmt)
-		      ? gimple_call_fndecl (stmt)
+	  gcall *call_stmt = dyn_cast <gcall *> (stmt);
+	  tree decl = call_stmt
+		      ? gimple_call_fndecl (call_stmt)
 		      : NULL;
 	  if (decl)
 	    {
-	      int flags = gimple_call_flags (stmt);
+	      int flags = gimple_call_flags (call_stmt);
 	      if (flags & (ECF_CONST | ECF_PURE | ECF_LOOPING_CONST_OR_PURE))
 		{
 		  if (gimple_purge_dead_abnormal_call_edges (bb))
@@ -8574,7 +8575,7 @@ execute_fixup_cfg (void)
 		}
 
 	      if (flags & ECF_NORETURN
-		  && fixup_noreturn_call (stmt))
+		  && fixup_noreturn_call (call_stmt))
 		todo |= TODO_cleanup_cfg;
 	     }
 
