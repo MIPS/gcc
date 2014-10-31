@@ -101,9 +101,6 @@ struct ggc_root_tab jit_root_tab[] =
 static bool
 jit_langhook_init (void)
 {
-  // eventually this can be a GTY object, and can thus mark
-  // our state without dealing with gengtype...
-  //g->frontend_ = new frontend ();
   static bool registered_root_tab = false;
   if (!registered_root_tab)
     {

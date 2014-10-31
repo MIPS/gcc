@@ -1,3 +1,7 @@
+2014-10-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* dummy-frontend.c (jit_langhook_init): Remove some dead code.
+
 2014-10-27  David Malcolm  <dmalcolm@redhat.com>
 
 	* dummy-frontend.c: Drop includes of tree-iterator.h,
