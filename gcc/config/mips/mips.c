@@ -17520,9 +17520,6 @@ mips_option_override (void)
 
   if (TARGET_DSPR6)
     {
-      if (!TARGET_MICROMIPS || mips_isa_rev <= 5)
-	error ("dspr6 is only supported in micromips r6");
-
       TARGET_DSP = true;
       TARGET_DSPR2 = true;
     }
