@@ -2097,16 +2097,6 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
       return true;
     }
 
-  /* Canonicalize X ^ ~0 to ~X.  */
-  if (code == BIT_XOR_EXPR
-      && integer_all_onesp (arg2))
-    {
-      gimple_assign_set_rhs_with_ops (gsi, BIT_NOT_EXPR, arg1, NULL_TREE);
-      gcc_assert (gsi_stmt (*gsi) == stmt);
-      update_stmt (stmt);
-      return true;
-    }
-
   /* Try simple folding for X op !X, and X op X.  */
   res = simplify_bitwise_binary_1 (code, TREE_TYPE (arg1), arg1, arg2);
   if (res != NULL_TREE)
@@ -3174,69 +3164,6 @@ combine_conversions (gimple_stmt_iterator *gsi)
   return 0;
 }
 
-/* Combine VIEW_CONVERT_EXPRs with their defining statement.  */
-
-static bool
-simplify_vce (gimple_stmt_iterator *gsi)
-{
-  gimple stmt = gsi_stmt (*gsi);
-  tree type = TREE_TYPE (gimple_assign_lhs (stmt));
-
-  /* Drop useless VIEW_CONVERT_EXPRs.  */
-  tree op = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
-  if (useless_type_conversion_p (type, TREE_TYPE (op)))
-    {
-      gimple_assign_set_rhs1 (stmt, op);
-      update_stmt (stmt);
-      return true;
-    }
-
-  if (TREE_CODE (op) != SSA_NAME)
-    return false;
-
-  gimple def_stmt = SSA_NAME_DEF_STMT (op);
-  if (!is_gimple_assign (def_stmt))
-    return false;
-
-  tree def_op = gimple_assign_rhs1 (def_stmt);
-  switch (gimple_assign_rhs_code (def_stmt))
-    {
-    CASE_CONVERT:
-      /* Strip integral conversions that do not change the precision.  */
-      if ((INTEGRAL_TYPE_P (TREE_TYPE (op))
-	   || POINTER_TYPE_P (TREE_TYPE (op)))
-	  && (INTEGRAL_TYPE_P (TREE_TYPE (def_op))
-	      || POINTER_TYPE_P (TREE_TYPE (def_op)))
-	  && (TYPE_PRECISION (TREE_TYPE (op))
-	      == TYPE_PRECISION (TREE_TYPE (def_op))))
-	{
-	  TREE_OPERAND (gimple_assign_rhs1 (stmt), 0) = def_op;
-	  update_stmt (stmt);
-	  return true;
-	}
-      break;
-
-    case VIEW_CONVERT_EXPR:
-      /* Series of VIEW_CONVERT_EXPRs on register operands can
-	 be contracted.  */
-      if (TREE_CODE (TREE_OPERAND (def_op, 0)) == SSA_NAME)
-	{
-	  if (useless_type_conversion_p (type,
-					 TREE_TYPE (TREE_OPERAND (def_op, 0))))
-	    gimple_assign_set_rhs1 (stmt, TREE_OPERAND (def_op, 0));
-	  else
-	    TREE_OPERAND (gimple_assign_rhs1 (stmt), 0)
-		= TREE_OPERAND (def_op, 0);
-	  update_stmt (stmt);
-	  return true;
-	}
-
-    default:;
-    }
-
-  return false;
-}
-
 /* Combine an element access with a shuffle.  Returns true if there were
    any changes made, else it returns false.  */
  
@@ -3617,11 +3544,9 @@ fwprop_ssa_val (tree name)
       if (val)
 	name = val;
     }
-  /* If NAME is not the only use signal we don't want to continue
-     matching into its definition.  */
-  if (TREE_CODE (name) == SSA_NAME
-      && !has_single_use (name))
-    return NULL_TREE;
+  /* We continue matching along SSA use-def edges for SSA names
+     that are not single-use.  Currently there are no patterns
+     that would cause any issues with that.  */
   return name;
 }
 
@@ -3912,8 +3837,6 @@ pass_forwprop::execute (function *fun)
 		      
 		    changed = did_something != 0;
 		  }
-		else if (code == VIEW_CONVERT_EXPR)
-		  changed = simplify_vce (&gsi);
 		else if (code == VEC_PERM_EXPR)
 		  {
 		    int did_something = simplify_permutation (&gsi);

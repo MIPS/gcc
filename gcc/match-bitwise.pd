@@ -64,11 +64,6 @@ along with GCC; see the file COPYING3.  If not see
   (bitop (bitop @0 CONSTANT_CLASS_P@1) CONSTANT_CLASS_P@2)
   (bitop @0 (bitop @1 @2))))
 
-/* Canonicalize X ^ ~0 to ~X.  */
-(simplify
-  (bit_xor @0 integer_all_onesp@1)
-  (bit_not @0))
-
 /* Try simple folding for X op !X, and X op X.
    From tree-ssa-forwprop.c:simplify_bitwise_binary_1.  */
 /* tree-ssa-forwprop.c:truth_valued_ssa_name.  */
@@ -100,11 +95,6 @@ along with GCC; see the file COPYING3.  If not see
   (op truth_valued_p@0 (logical_inverted_value @0))
   { build_one_cst (type); }))
 #if 0
-/* x & x -> x,  x | x -> x  */
-(for bitop (bit_and bit_ior)
- (simplify
-  (bitop @0 @0)
-  @0))
 /* X & ~X -> 0.  */
 (simplify
   (bit_and:c @0 (bit_not @0))
@@ -182,11 +172,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* End of known transform origin.  Note that some bitwise transforms
    are handled in match-constant-folding.pd.  */
-
-/* x & ~0 -> x  */
-(simplify
- (bit_and @0 integer_all_onesp)
-  @0)
 
 /* ~x & ~y -> ~(x | y) */
 (simplify

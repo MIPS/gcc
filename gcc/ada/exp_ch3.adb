@@ -5153,7 +5153,7 @@ package body Exp_Ch3 is
 
          elsif Needs_Simple_Initialization
                  (Typ, Initialize_Scalars
-                         and then not Has_Following_Address_Clause (N))
+                         and then No (Following_Address_Clause (N)))
            and then not Is_Internal (Def_Id)
            and then not Has_Init_Expression (N)
          then
@@ -5834,7 +5834,8 @@ package body Exp_Ch3 is
                          or else Nkind (Expression (Expr)) /= N_Aggregate)
             then
                declare
-                  Full_Typ : constant Entity_Id := Underlying_Type (Typ);
+                  Full_Typ   : constant Entity_Id := Underlying_Type (Typ);
+                  Tag_Assign : Node_Id;
 
                begin
                   --  The re-assignment of the tag has to be done even if the
@@ -5849,14 +5850,26 @@ package body Exp_Ch3 is
                                            Loc));
                   Set_Assignment_OK (New_Ref);
 
-                  Insert_Action_After (Init_After,
+                  Tag_Assign :=
                     Make_Assignment_Statement (Loc,
-                      Name       => New_Ref,
-                      Expression =>
-                        Unchecked_Convert_To (RTE (RE_Tag),
-                          New_Occurrence_Of
-                            (Node (First_Elmt (Access_Disp_Table (Full_Typ))),
-                             Loc))));
+                       Name       => New_Ref,
+                       Expression =>
+                         Unchecked_Convert_To (RTE (RE_Tag),
+                           New_Occurrence_Of
+                             (Node
+                               (First_Elmt (Access_Disp_Table (Full_Typ))),
+                              Loc)));
+
+                  --  Tag initialization cannot be done before object is
+                  --  frozen. If an address clause follows, make sure freeze
+                  --  node exists, and insert it and the tag assignment after
+                  --  the address clause.
+
+                  if Present (Following_Address_Clause (N)) then
+                     Init_After := Following_Address_Clause (N);
+                  end if;
+
+                  Insert_Action_After (Init_After, Tag_Assign);
                end;
 
             --  Handle C++ constructor calls. Note that we do not check that

@@ -42,6 +42,17 @@
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
@@ -240,7 +251,7 @@ static GTY ((if_marked ("pad_type_hash_marked_p"),
 static tree merge_sizes (tree, tree, tree, bool, bool);
 static tree compute_related_constant (tree, tree);
 static tree split_plus (tree, tree *);
-static tree float_type_for_precision (int, enum machine_mode);
+static tree float_type_for_precision (int, machine_mode);
 static tree convert_to_fat_pointer (tree, tree);
 static unsigned int scale_by_factor_of (tree, unsigned int);
 static bool potential_alignment_gap (tree, tree, tree);
@@ -1117,7 +1128,7 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 	 may need to return the thin pointer.  */
       if (TYPE_FAT_POINTER_P (type) && size < POINTER_SIZE * 2)
 	{
-	  enum machine_mode p_mode = mode_for_size (size, MODE_INT, 0);
+	  machine_mode p_mode = mode_for_size (size, MODE_INT, 0);
 	  if (!targetm.valid_pointer_mode (p_mode))
 	    p_mode = ptr_mode;
 	  return
@@ -3211,7 +3222,7 @@ gnat_type_for_size (unsigned precision, int unsignedp)
 /* Likewise for floating-point types.  */
 
 static tree
-float_type_for_precision (int precision, enum machine_mode mode)
+float_type_for_precision (int precision, machine_mode mode)
 {
   tree t;
   char type_name[20];
@@ -3237,7 +3248,7 @@ float_type_for_precision (int precision, enum machine_mode mode)
    an unsigned type; otherwise a signed type is returned.  */
 
 tree
-gnat_type_for_mode (enum machine_mode mode, int unsignedp)
+gnat_type_for_mode (machine_mode mode, int unsignedp)
 {
   if (mode == BLKmode)
     return NULL_TREE;
@@ -3256,7 +3267,7 @@ gnat_type_for_mode (enum machine_mode mode, int unsignedp)
 
   if (VECTOR_MODE_P (mode))
     {
-      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      machine_mode inner_mode = GET_MODE_INNER (mode);
       tree inner_type = gnat_type_for_mode (inner_mode, unsignedp);
       if (inner_type)
 	return build_vector_type_for_mode (inner_type, mode);
@@ -3569,7 +3580,7 @@ build_template (tree template_type, tree array_type, tree expr)
 static bool
 type_for_vector_element_p (tree type)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (!INTEGRAL_TYPE_P (type)
       && !SCALAR_FLOAT_TYPE_P (type)

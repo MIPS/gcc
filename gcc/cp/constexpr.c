@@ -2756,8 +2756,6 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
   hash_map<tree,tree> map;
   ctx.values = &map;
   tree type = initialized_type (t);
-  if (!object && TREE_CODE (t) == TARGET_EXPR)
-    object = TARGET_EXPR_SLOT (t);
   tree r = t;
   if (AGGREGATE_TYPE_P (type) || VECTOR_TYPE_P (type))
     {
@@ -2770,6 +2768,8 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
 	 initialized.  */
       ctx.ctor = build_constructor (type, NULL);
       CONSTRUCTOR_NO_IMPLICIT_ZERO (ctx.ctor) = true;
+      if (!object && TREE_CODE (t) == TARGET_EXPR)
+	object = TARGET_EXPR_SLOT (t);
       ctx.object = object;
       if (object)
 	gcc_assert (same_type_ignoring_top_level_qualifiers_p
@@ -2944,7 +2944,7 @@ enum { ck_ok, ck_bad, ck_unknown };
 static int
 check_automatic_or_tls (tree ref)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   int volatilep = 0, unsignedp = 0;

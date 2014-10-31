@@ -1,3 +1,9 @@
+2014-10-31  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk rr216800 through r215940.
+
+	Brings back next merge piece.
+
 2014-10-30  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (parser::parse_op): Check if predicate is used in

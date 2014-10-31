@@ -61,6 +61,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "diagnostic-core.h"
 #include "dumpfile.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "hash-table.h"
 #include "langhooks-def.h"
@@ -157,7 +161,7 @@ static bool undef_nested_function;
 
 /* Mode used to build pointers (VOIDmode means ptr_mode).  */
 
-enum machine_mode c_default_pointer_mode = VOIDmode;
+machine_mode c_default_pointer_mode = VOIDmode;
 
 /* If non-zero, implicit "omp declare target" attribute is added into the
    attribute lists.  */
@@ -654,7 +658,7 @@ c_build_pointer_type (tree to_type)
 {
   addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
 					      : TYPE_ADDR_SPACE (to_type);
-  enum machine_mode pointer_mode;
+  machine_mode pointer_mode;
 
   if (as != ADDR_SPACE_GENERIC || c_default_pointer_mode == VOIDmode)
     pointer_mode = targetm.addr_space.pointer_mode (as);
