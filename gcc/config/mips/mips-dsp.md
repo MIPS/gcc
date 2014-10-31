@@ -1185,7 +1185,12 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "ISA_HAS_DSP"
-  "%*bposge%1\t%0%/"
+  {
+    if (TARGET_DSPR6)
+      return "%*bposge%1c\t%0%/";
+    else
+      return "%*bposge%1\t%0%/";
+  }
   [(set_attr "type"	"branch")])
 
 (define_expand "mips_madd<u>"

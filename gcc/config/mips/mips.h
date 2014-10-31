@@ -425,6 +425,11 @@ struct mips_cpu_info {
 	      builtin_define ("__mips_dspr2");				\
 	      builtin_define ("__mips_dsp_rev=2");			\
 	    }								\
+	  else if (TARGET_DSPR6)					\
+	    {								\
+	      builtin_define ("__mips_dspr6");				\
+	      builtin_define ("__mips_dsp_rev=6");			\
+	    }								\
 	  else								\
 	    builtin_define ("__mips_dsp_rev=1");			\
 	}								\
@@ -1262,6 +1267,7 @@ struct mips_cpu_info {
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
+%{mdspr6} %{mno-dspr6} \
 %{mmcu} %{mno-mcu} \
 %{meva} %{mno-eva} \
 %{mvirt} %{mno-virt} \
