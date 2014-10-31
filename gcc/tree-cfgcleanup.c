@@ -566,7 +566,7 @@ remove_forwarder_block (basic_block bb)
    and remove LHS.  Return true if something changed.  */
 
 bool
-fixup_noreturn_call (gimple stmt)
+fixup_noreturn_call (gcall *stmt)
 {
   basic_block bb = gimple_bb (stmt);
   bool changed = false;

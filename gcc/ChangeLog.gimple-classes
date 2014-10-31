@@ -1,5 +1,19 @@
 2014-10-31  David Malcolm  <dmalcolm@redhat.com>
 
+	* config/i386/i386.c (add_condition_to_bb): Strengthen local
+	"call_cond_stmt" from gimple to gcall *.
+	* gimple-fold.c (gimple_build): Likewise for local "stmt".
+	* gimple-match-head.c (maybe_push_res_to_seq): Likewise for local
+	"new_stmt".
+	* tree-cfgcleanup.c (fixup_noreturn_call): Likewise for param
+	"stmt".
+	* tree-ssa-math-opts.c (bswap_replace): Likewise for local "call".
+	* tree-ssa-propagate.c (update_call_from_tree): Likewise for local "stmt",
+	adding a checked cast.
+	* ubsan.c (instrument_si_overflow): Likewise for local "g".
+
+2014-10-31  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple-low.c (lower_builtin_setjmp): Strengthen local "stmt"
 	from gimple to gcall *, via a checked cast.
 	(lower_builtin_posix_memalign): Likewise for local "call".

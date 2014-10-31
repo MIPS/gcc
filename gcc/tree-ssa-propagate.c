@@ -773,7 +773,7 @@ update_gimple_call (gimple_stmt_iterator *si_p, tree fn, int nargs, ...)
 bool
 update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 {
-  gimple stmt = gsi_stmt (*si_p);
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*si_p));
 
   if (valid_gimple_call_p (expr))
     {

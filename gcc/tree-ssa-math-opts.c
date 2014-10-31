@@ -2193,7 +2193,7 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
 	       struct symbolic_number *n, bool bswap)
 {
   tree src, tmp, tgt;
-  gimple call;
+  gcall *call;
 
   src = gimple_assign_rhs1 (src_stmt);
   tgt = gimple_assign_lhs (cur_stmt);

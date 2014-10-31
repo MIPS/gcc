@@ -31419,7 +31419,7 @@ add_condition_to_bb (tree function_decl, tree version_decl,
   gimple return_stmt;
   tree convert_expr, result_var;
   gimple convert_stmt;
-  gimple call_cond_stmt;
+  gcall *call_cond_stmt;
   gimple if_else_stmt;
 
   basic_block bb1, bb2, bb3;

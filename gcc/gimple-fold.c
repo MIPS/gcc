@@ -5629,7 +5629,7 @@ gimple_build (gimple_seq *seq, location_t loc,
   if (!res)
     {
       tree decl = builtin_decl_implicit (fn);
-      gimple stmt = gimple_build_call (decl, 1, arg0);
+      gcall *stmt = gimple_build_call (decl, 1, arg0);
       if (!VOID_TYPE_P (type))
 	{
 	  if (gimple_in_ssa_p (cfun))

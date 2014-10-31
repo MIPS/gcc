@@ -1011,7 +1011,7 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
   tree lhs = gimple_assign_lhs (stmt);
   tree lhstype = TREE_TYPE (lhs);
   tree a, b;
-  gimple g;
+  gcall *g;
 
   /* If this is not a signed operation, don't instrument anything here.
      Also punt on bit-fields.  */

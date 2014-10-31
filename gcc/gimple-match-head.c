@@ -360,7 +360,7 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	return NULL_TREE;
       if (!res)
 	res = make_ssa_name (type, NULL);
-      gimple new_stmt = gimple_build_call (decl, nargs, ops[0], ops[1], ops[2]);
+      gcall *new_stmt = gimple_build_call (decl, nargs, ops[0], ops[1], ops[2]);
       gimple_call_set_lhs (new_stmt, res);
       gimple_seq_add_stmt_without_update (seq, new_stmt);
       return res;
