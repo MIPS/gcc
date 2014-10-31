@@ -25,6 +25,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic-core.h"
 #include "rtl.h"
 #include "obstack.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "flags.h"
 #include "hashtab.h"
@@ -32,6 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "expr.h"
 #include "recog.h"
+#include "cfgrtl.h"
 #include "tm_p.h"
 
 /* This file implements some parts of the future enhancement discussed

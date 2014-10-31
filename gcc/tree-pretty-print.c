@@ -29,13 +29,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "hash-set.h"
 #include "gimple-expr.h"
+#include "predict.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "tree-chrec.h"
 #include "dumpfile.h"
 #include "value-prof.h"
-#include "predict.h"
 #include "wide-int-print.h"
 #include "internal-fn.h"
 
@@ -1848,7 +1857,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-    case VEC_LSHIFT_EXPR:
     case VEC_RSHIFT_EXPR:
     case WIDEN_LSHIFT_EXPR:
     case BIT_IOR_EXPR:
@@ -3029,7 +3037,6 @@ op_code_prio (enum tree_code code)
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
-    case VEC_LSHIFT_EXPR:
     case VEC_RSHIFT_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
@@ -3139,9 +3146,6 @@ op_symbol_code (enum tree_code code)
 
     case RROTATE_EXPR:
       return "r>>";
-
-    case VEC_LSHIFT_EXPR:
-      return "v<<";
 
     case VEC_RSHIFT_EXPR:
       return "v>>";

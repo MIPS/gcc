@@ -33,6 +33,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "hashtab.h"
 #include "langhooks.h"
+#include "predict.h"
+#include "vec.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
 #include "intl.h"
@@ -57,14 +66,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "tree-pretty-print.h"
 #include "except.h"
 #include "debug.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "value-prof.h"
 #include "tree-pass.h"
@@ -3631,8 +3640,8 @@ estimate_move_cost (tree type, bool ARG_UNUSED (speed_p))
 
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
-      enum machine_mode inner = TYPE_MODE (TREE_TYPE (type));
-      enum machine_mode simd
+      machine_mode inner = TYPE_MODE (TREE_TYPE (type));
+      machine_mode simd
 	= targetm.vectorize.preferred_simd_mode (inner);
       int simd_mode_size = GET_MODE_SIZE (simd);
       return ((GET_MODE_SIZE (TYPE_MODE (type)) + simd_mode_size - 1)
@@ -3693,7 +3702,6 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-    case VEC_LSHIFT_EXPR:
     case VEC_RSHIFT_EXPR:
 
     case BIT_IOR_EXPR:

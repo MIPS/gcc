@@ -1,3 +1,27 @@
+2014-10-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* c-common.c, c-common.h, c-cppbuiltin.c, c-lex.c: Remove redundant
+	enum from machine_mode.
+
+2014-10-28  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-family/c-common.c: Adjust include files.
+	* c-family/c-gimplify.c: Ditto.
+	* c-family/cilk.c: Ditto.
+	* c-family/c-pragma.c: Ditto.
+	* c-family/c-ubsan.c: Ditto.
+
+2014-10-27  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-gimplify.c: Adjust include files.
+
+2014-10-26  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/53061
+	* c-opts.c (c_common_diagnostics_set_defaults): Renamed from
+	c_common_initialize_diagnostics.
+	* c-common.h: Likewise.
+
 2014-10-24  Marek Polacek  <polacek@redhat.com>
 
 	PR c/56980

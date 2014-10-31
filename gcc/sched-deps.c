@@ -42,6 +42,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "recog.h"
 #include "emit-rtl.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgbuild.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "sched-int.h"
 #include "params.h"
 #include "cselib.h"
@@ -2315,7 +2320,7 @@ maybe_extend_reg_info_p (void)
    CLOBBER, PRE_DEC, POST_DEC, PRE_INC, POST_INC or USE.  */
 
 static void
-sched_analyze_reg (struct deps_desc *deps, int regno, enum machine_mode mode,
+sched_analyze_reg (struct deps_desc *deps, int regno, machine_mode mode,
 		   enum rtx_code ref, rtx_insn *insn)
 {
   /* We could emit new pseudos in renaming.  Extend the reg structures.  */
@@ -2387,80 +2392,6 @@ sched_analyze_reg (struct deps_desc *deps, int regno, enum machine_mode mode,
 				 REG_DEP_ANTI, false);
 	}
     }
-}
-
-static void
-create_mem_store_deps (struct deps_desc *deps, rtx dest, rtx_insn *insn)
-{
-  /* Writing memory.  */
-  rtx t = dest;
-
-  if (sched_deps_info->use_cselib)
-    {
-      enum machine_mode address_mode
-	= targetm.addr_space.address_mode (MEM_ADDR_SPACE (dest));
-
-      t = shallow_copy_rtx (dest);
-      cselib_lookup_from_insn (XEXP (t, 0), address_mode, 1,
-			       GET_MODE (t), insn);
-      XEXP (t, 0) = cselib_subst_to_values_from_insn (XEXP (t, 0), GET_MODE (t),
-						      insn);
-    }
-  t = canon_rtx (t);
-
-  /* Pending lists can't get larger with a readonly context.  */
-  if (!deps->readonly
-      && ((deps->pending_read_list_length + deps->pending_write_list_length)
-           > MAX_PENDING_LIST_LENGTH))
-    {
-      /* Flush all pending reads and writes to prevent the pending lists
-	 from getting any larger.  Insn scheduling runs too slowly when
-	 these lists get long.  When compiling GCC with itself,
-	 this flush occurs 8 times for sparc, and 10 times for m88k using
-	 the default value of 32.  */
-      flush_pending_lists (deps, insn, false, true);
-    }
-  else
-    {
-      rtx_insn_list *pending;
-      rtx_expr_list *pending_mem;
-
-      pending = deps->pending_read_insns;
-      pending_mem = deps->pending_read_mems;
-      while (pending)
-	{
-	  if (anti_dependence (pending_mem->element (), t)
-	      && ! sched_insns_conditions_mutex_p (insn, pending->insn ()))
-	    note_mem_dep (t, pending_mem->element (), pending->insn (),
-			  DEP_ANTI);
-
-	  pending = pending->next ();
-	  pending_mem = pending_mem->next ();
-	}
-
-      pending = deps->pending_write_insns;
-      pending_mem = deps->pending_write_mems;
-      while (pending)
-	{
-	  if (output_dependence (pending_mem->element (), t)
-	      && ! sched_insns_conditions_mutex_p (insn, pending->insn ()))
-	    note_mem_dep (t, pending_mem->element (), 
-			  pending->insn (),
-			  DEP_OUTPUT);
-
-	  pending = pending->next ();
-	  pending_mem = pending_mem->next ();
-	}
-
-      add_dependence_list (insn, deps->last_pending_memory_flush, 1,
-			   REG_DEP_ANTI,true);
-      add_dependence_list (insn, deps->pending_jump_insns, 1,
-			   REG_DEP_CONTROL,true);
-
-      if (!deps->readonly)
-	add_insn_mem_dependence (deps, false, insn, dest);
-    }
-  sched_analyze_2 (deps, XEXP (dest, 0), insn);
 }
 
 /* Analyze a single SET, CLOBBER, PRE_DEC, POST_DEC, PRE_INC or POST_INC
@@ -2536,7 +2467,7 @@ sched_analyze_1 (struct deps_desc *deps, rtx x, rtx_insn *insn)
   if (REG_P (dest))
     {
       int regno = REGNO (dest);
-      enum machine_mode mode = GET_MODE (dest);
+      machine_mode mode = GET_MODE (dest);
 
       sched_analyze_reg (deps, regno, mode, code, insn);
 
@@ -2554,7 +2485,77 @@ sched_analyze_1 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 #endif
     }
   else if (MEM_P (dest))
-    create_mem_store_deps (deps, dest, insn);
+    {
+      /* Writing memory.  */
+      rtx t = dest;
+
+      if (sched_deps_info->use_cselib)
+	{
+	  machine_mode address_mode = get_address_mode (dest);
+
+	  t = shallow_copy_rtx (dest);
+	  cselib_lookup_from_insn (XEXP (t, 0), address_mode, 1,
+				   GET_MODE (t), insn);
+	  XEXP (t, 0)
+	    = cselib_subst_to_values_from_insn (XEXP (t, 0), GET_MODE (t),
+						insn);
+	}
+      t = canon_rtx (t);
+
+      /* Pending lists can't get larger with a readonly context.  */
+      if (!deps->readonly
+          && ((deps->pending_read_list_length + deps->pending_write_list_length)
+              > MAX_PENDING_LIST_LENGTH))
+	{
+	  /* Flush all pending reads and writes to prevent the pending lists
+	     from getting any larger.  Insn scheduling runs too slowly when
+	     these lists get long.  When compiling GCC with itself,
+	     this flush occurs 8 times for sparc, and 10 times for m88k using
+	     the default value of 32.  */
+	  flush_pending_lists (deps, insn, false, true);
+	}
+      else
+	{
+	  rtx_insn_list *pending;
+	  rtx_expr_list *pending_mem;
+
+	  pending = deps->pending_read_insns;
+	  pending_mem = deps->pending_read_mems;
+	  while (pending)
+	    {
+	      if (anti_dependence (pending_mem->element (), t)
+		  && ! sched_insns_conditions_mutex_p (insn, pending->insn ()))
+		note_mem_dep (t, pending_mem->element (), pending->insn (),
+			      DEP_ANTI);
+
+	      pending = pending->next ();
+	      pending_mem = pending_mem->next ();
+	    }
+
+	  pending = deps->pending_write_insns;
+	  pending_mem = deps->pending_write_mems;
+	  while (pending)
+	    {
+	      if (output_dependence (pending_mem->element (), t)
+		  && ! sched_insns_conditions_mutex_p (insn, pending->insn ()))
+		note_mem_dep (t, pending_mem->element (),
+			      pending->insn (),
+			      DEP_OUTPUT);
+
+	      pending = pending->next ();
+	      pending_mem = pending_mem-> next ();
+	    }
+
+	  add_dependence_list (insn, deps->last_pending_memory_flush, 1,
+			       REG_DEP_ANTI, true);
+	  add_dependence_list (insn, deps->pending_jump_insns, 1,
+			       REG_DEP_CONTROL, true);
+
+          if (!deps->readonly)
+            add_insn_mem_dependence (deps, false, insn, dest);
+	}
+      sched_analyze_2 (deps, XEXP (dest, 0), insn);
+    }
 
   if (cslr_p && sched_deps_info->finish_lhs)
     sched_deps_info->finish_lhs ();
@@ -2620,7 +2621,7 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
     case REG:
       {
 	int regno = REGNO (x);
-	enum machine_mode mode = GET_MODE (x);
+	machine_mode mode = GET_MODE (x);
 
 	sched_analyze_reg (deps, regno, mode, USE, insn);
 
@@ -2651,7 +2652,7 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 
 	if (sched_deps_info->use_cselib)
 	  {
-	    enum machine_mode address_mode = get_address_mode (t);
+	    machine_mode address_mode = get_address_mode (t);
 
 	    t = shallow_copy_rtx (t);
 	    cselib_lookup_from_insn (XEXP (t, 0), address_mode, 1,
@@ -2742,16 +2743,6 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
       break;
 
     case PREFETCH:
-      {
-        rtx mem = gen_rtx_MEM (BLKmode, XEXP (x, 0));
-        if (PREFETCH_SCHEDULE_BARRIER_P (x))
-	  reg_pending_barrier = TRUE_BARRIER;
-	set_mem_size (mem, L1_CACHE_LINE_SIZE);
-	/* Even though prefetch is not a write, for scheduling;
-	   we should treat it as a write dependency. */
-        create_mem_store_deps (deps, mem, insn);
-      }
-
       /* Prefetch insn contains addresses only.  So if the prefetch
 	 address has no registers, there will be no dependencies on
 	 the prefetch insn.  This is wrong with result code

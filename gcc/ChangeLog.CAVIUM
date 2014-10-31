@@ -1,3 +1,11 @@
+2014-10-30  Andrew Pinski  <apinski@caviumnetworks.com>
+
+	Revert as it is already in a different way:
+        Bug #2022
+        * sched-deps.c (create_mem_store_deps): New function.
+        (sched_analyze_1): Use create_mem_store_deps.
+        (sched_analyze_2): For prefetches, cause a write memory barrior.
+
 2014-10-17  Andrew Pinski  <apinski@cavium.com>
 
 	* opts.c (default_options_table): Disable -fipa-icf until it

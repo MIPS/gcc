@@ -65,6 +65,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
@@ -90,6 +91,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hashtab.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgloop.h"
 #include "cfgexpand.h"
 
