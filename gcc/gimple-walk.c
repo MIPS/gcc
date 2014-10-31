@@ -709,17 +709,17 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 {
   bool ret = false;
   unsigned i;
-  if (gimple_assign_single_p (stmt))
+  if (gassign *assign = gimple_assign_single_p (stmt))
     {
       tree lhs, rhs, arg;
       if (visit_store)
 	{
-	  arg = gimple_assign_lhs (stmt);
+	  arg = gimple_assign_lhs (assign);
 	  lhs = get_base_loadstore (arg);
 	  if (lhs)
 	    ret |= visit_store (stmt, lhs, arg, data);
 	}
-      arg = gimple_assign_rhs1 (stmt);
+      arg = gimple_assign_rhs1 (assign);
       rhs = arg;
       while (handled_component_p (rhs))
 	rhs = TREE_OPERAND (rhs, 0);
@@ -749,7 +749,7 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 				     TREE_OPERAND (OBJ_TYPE_REF_OBJECT (val),
 						   0), arg, data);
 	    }
-          lhs = gimple_assign_lhs (stmt);
+          lhs = gimple_assign_lhs (assign);
 	  if (TREE_CODE (lhs) == TARGET_MEM_REF
               && TREE_CODE (TMR_BASE (lhs)) == ADDR_EXPR)
 	    ret |= visit_addr (stmt, TREE_OPERAND (TMR_BASE (lhs), 0), lhs, data);

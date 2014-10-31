@@ -1980,7 +1980,7 @@ instrument_builtin_call (gimple_stmt_iterator *iter)
 static bool
 maybe_instrument_assignment (gimple_stmt_iterator *iter)
 {
-  gimple s = gsi_stmt (*iter);
+  gassign *s = as_a <gassign *> (gsi_stmt (*iter));
 
   gcc_assert (gimple_assign_single_p (s));
 

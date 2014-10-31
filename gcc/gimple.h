@@ -1127,6 +1127,14 @@ is_a_helper <const gasm *>::test (const_gimple gs)
 template <>
 template <>
 inline bool
+is_a_helper <const gassign *>::test (const_gimple gs)
+{
+  return gs->code == GIMPLE_ASSIGN;
+}
+
+template <>
+template <>
+inline bool
 is_a_helper <const gbind *>::test (const_gimple gs)
 {
   return gs->code == GIMPLE_BIND;
@@ -1380,8 +1388,8 @@ bool gimple_call_same_target_p (const_gimple, const_gimple);
 int gimple_call_flags (const_gimple);
 int gimple_call_arg_flags (const gcall *, unsigned);
 int gimple_call_return_flags (const gcall *);
-bool gimple_assign_copy_p (gimple);
-bool gimple_assign_ssa_name_copy_p (gimple);
+gassign *gimple_assign_copy_p (gimple);
+gassign *gimple_assign_ssa_name_copy_p (gimple);
 bool gimple_assign_unary_nop_p (gimple);
 void gimple_set_bb (gimple, basic_block);
 void gimple_assign_set_rhs_from_tree (gimple_stmt_iterator *, tree);
@@ -2488,8 +2496,20 @@ gimple_assign_rhs_class (const_gimple gs)
 static inline bool
 gimple_assign_single_p (const_gimple gs)
 {
-  return (is_gimple_assign (gs)
-          && gimple_assign_rhs_class (gs) == GIMPLE_SINGLE_RHS);
+  return gimple_assign_single_p (const_cast <gimple> (gs));
+}
+
+/* As above, but non-const, and return GS as a gassign * if
+   the predicate holds.  */
+
+static inline gassign *
+gimple_assign_single_p (gimple gs)
+{
+  gassign *assign = dyn_cast <gassign *> (gs);
+  if (assign)
+    if (gimple_assign_rhs_class (assign) == GIMPLE_SINGLE_RHS)
+      return assign;
+  return NULL;
 }
 
 /* Return true if GS performs a store to its lhs.  */
@@ -2506,15 +2526,27 @@ gimple_store_p (const_gimple gs)
 static inline bool
 gimple_assign_load_p (const_gimple gs)
 {
+  return gimple_assign_load_p (const_cast <gimple> (gs));
+}
+
+/* As above, but non-const, and return GS as a gassign * if
+   the predicate holds.  */
+
+static inline gassign *
+gimple_assign_load_p (gimple gs)
+{
   tree rhs;
-  if (!gimple_assign_single_p (gs))
-    return false;
-  rhs = gimple_assign_rhs1 (gs);
+  gassign *assign = gimple_assign_single_p (gs);
+  if (!assign)
+    return NULL;
+  rhs = gimple_assign_rhs1 (assign);
   if (TREE_CODE (rhs) == WITH_SIZE_EXPR)
-    return true;
+    return assign;
   rhs = get_base_address (rhs);
-  return (DECL_P (rhs)
-	  || TREE_CODE (rhs) == MEM_REF || TREE_CODE (rhs) == TARGET_MEM_REF);
+  if (DECL_P (rhs)
+      || TREE_CODE (rhs) == MEM_REF || TREE_CODE (rhs) == TARGET_MEM_REF)
+    return assign;
+  return NULL;
 }
 
 
@@ -2523,9 +2555,9 @@ gimple_assign_load_p (const_gimple gs)
 static inline bool
 gimple_assign_cast_p (const_gimple s)
 {
-  if (is_gimple_assign (s))
+  if (const gassign *assign = dyn_cast <const gassign *> (s))
     {
-      enum tree_code sc = gimple_assign_rhs_code (s);
+      enum tree_code sc = gimple_assign_rhs_code (assign);
       return CONVERT_EXPR_CODE_P (sc)
 	     || sc == VIEW_CONVERT_EXPR
 	     || sc == FIX_TRUNC_EXPR;
@@ -2539,8 +2571,11 @@ gimple_assign_cast_p (const_gimple s)
 static inline bool
 gimple_clobber_p (const_gimple s)
 {
-  return gimple_assign_single_p (s)
-         && TREE_CLOBBER_P (gimple_assign_rhs1 (s));
+  gassign *assign = gimple_assign_single_p (const_cast <gimple> (s));
+  if (assign)
+    if (TREE_CLOBBER_P (gimple_assign_rhs1 (assign)))
+      return true;
+  return false;
 }
 
 /* Return true if GS is a GIMPLE_CALL.  */

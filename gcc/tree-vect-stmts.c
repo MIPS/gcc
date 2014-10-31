@@ -403,7 +403,8 @@ exist_non_indexing_operands_for_use_p (tree use, gimple stmt)
      Therefore, all we need to check is if STMT falls into the
      first case, and whether var corresponds to USE.  */
 
-  if (!gimple_assign_copy_p (stmt))
+  gassign *assign = gimple_assign_copy_p (stmt);
+  if (!assign)
     {
       if (is_gimple_call (stmt)
 	  && gimple_call_internal_p (stmt))
@@ -425,9 +426,9 @@ exist_non_indexing_operands_for_use_p (tree use, gimple stmt)
       return false;
     }
 
-  if (TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME)
+  if (TREE_CODE (gimple_assign_lhs (assign)) == SSA_NAME)
     return false;
-  operand = gimple_assign_rhs1 (stmt);
+  operand = gimple_assign_rhs1 (assign);
   if (TREE_CODE (operand) != SSA_NAME)
     return false;
 

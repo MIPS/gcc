@@ -202,11 +202,12 @@ pass_nrv::execute (function *fun)
 		   && gimple_get_lhs (stmt) == result)
 	    {
               tree rhs;
+	      gassign *assign = gimple_assign_copy_p (stmt);
 
-	      if (!gimple_assign_copy_p (stmt))
+	      if (!assign)
 		return 0;
 
-	      rhs = gimple_assign_rhs1 (stmt);
+	      rhs = gimple_assign_rhs1 (assign);
 
 	      /* Now verify that this return statement uses the same value
 		 as any previously encountered return statement.  */
@@ -280,10 +281,11 @@ pass_nrv::execute (function *fun)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
 	  gimple stmt = gsi_stmt (gsi);
+	  gassign *assign;
 	  /* If this is a copy from VAR to RESULT, remove it.  */
-	  if (gimple_assign_copy_p (stmt)
-	      && gimple_assign_lhs (stmt) == result
-	      && gimple_assign_rhs1 (stmt) == found)
+	  if ((assign = gimple_assign_copy_p (stmt))
+	      && gimple_assign_lhs (assign) == result
+	      && gimple_assign_rhs1 (assign) == found)
 	    {
 	      unlink_stmt_vdef (stmt);
 	      gsi_remove (&gsi, true);

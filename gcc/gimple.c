@@ -1464,22 +1464,28 @@ gimple_call_return_flags (const gcall *stmt)
 
 /* Return true if GS is a copy assignment.  */
 
-bool
+gassign *
 gimple_assign_copy_p (gimple gs)
 {
-  return (gimple_assign_single_p (gs)
-	  && is_gimple_val (gimple_op (gs, 1)));
+  gassign *assign = gimple_assign_single_p (gs);
+  if (assign)
+    if (is_gimple_val (gimple_op (gs, 1)))
+      return assign;
+  return NULL;
 }
 
 
 /* Return true if GS is a SSA_NAME copy assignment.  */
 
-bool
+gassign *
 gimple_assign_ssa_name_copy_p (gimple gs)
 {
-  return (gimple_assign_single_p (gs)
-	  && TREE_CODE (gimple_assign_lhs (gs)) == SSA_NAME
-	  && TREE_CODE (gimple_assign_rhs1 (gs)) == SSA_NAME);
+  gassign *assign = gimple_assign_single_p (gs);
+  if (assign)
+    if (TREE_CODE (gimple_assign_lhs (assign)) == SSA_NAME
+	&& TREE_CODE (gimple_assign_rhs1 (assign)) == SSA_NAME)
+      return assign;
+  return NULL;
 }
 
 

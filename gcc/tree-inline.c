@@ -1526,9 +1526,10 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
     }
   else
     {
-      if (gimple_assign_copy_p (stmt)
-	  && gimple_assign_lhs (stmt) == gimple_assign_rhs1 (stmt)
-	  && auto_var_in_fn_p (gimple_assign_lhs (stmt), id->src_fn))
+      gassign *assign = gimple_assign_copy_p (stmt);
+      if (assign
+	  && gimple_assign_lhs (assign) == gimple_assign_rhs1 (assign)
+	  && auto_var_in_fn_p (gimple_assign_lhs (assign), id->src_fn))
 	{
 	  /* Here we handle statements that are not completely rewritten.
 	     First we detect some inlining-induced bogosities for
@@ -1537,7 +1538,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  /* Some assignments VAR = VAR; don't generate any rtl code
 	     and thus don't count as variable modification.  Avoid
 	     keeping bogosities like 0 = 0.  */
-	  tree decl = gimple_assign_lhs (stmt), value;
+	  tree decl = gimple_assign_lhs (assign), value;
 	  tree *n;
 
 	  n = id->decl_map->get (decl);

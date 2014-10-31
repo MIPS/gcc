@@ -737,26 +737,27 @@ ifcvt_can_use_mask_load_store (gimple stmt)
   enum machine_mode mode;
   basic_block bb = gimple_bb (stmt);
   bool is_load;
+  gassign *assign;
 
   if (!(flag_tree_loop_vectorize || bb->loop_father->force_vectorize)
       || bb->loop_father->dont_vectorize
-      || !gimple_assign_single_p (stmt)
+      || !(assign = gimple_assign_single_p (stmt))
       || gimple_has_volatile_ops (stmt))
     return false;
 
   /* Check whether this is a load or store.  */
-  lhs = gimple_assign_lhs (stmt);
-  if (gimple_store_p (stmt))
+  lhs = gimple_assign_lhs (assign);
+  if (gimple_store_p (assign))
     {
-      if (!is_gimple_val (gimple_assign_rhs1 (stmt)))
+      if (!is_gimple_val (gimple_assign_rhs1 (assign)))
 	return false;
       is_load = false;
       ref = lhs;
     }
-  else if (gimple_assign_load_p (stmt))
+  else if (gimple_assign_load_p (assign))
     {
       is_load = true;
-      ref = gimple_assign_rhs1 (stmt);
+      ref = gimple_assign_rhs1 (assign);
     }
   else
     return false;
@@ -1849,7 +1850,7 @@ predicate_mem_writes (loop_p loop)
       basic_block bb = ifc_bbs[i];
       tree cond = bb_predicate (bb);
       bool swap;
-      gimple stmt;
+      gassign *stmt;
 
       if (is_true_predicate (cond))
 	continue;
@@ -1862,7 +1863,7 @@ predicate_mem_writes (loop_p loop)
 	}
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	if (!gimple_assign_single_p (stmt = gsi_stmt (gsi)))
+	if (!(stmt = gimple_assign_single_p (gsi_stmt (gsi))))
 	  continue;
 	else if (gimple_plf (stmt, GF_PLF_2))
 	  {

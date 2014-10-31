@@ -1152,11 +1152,12 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci,
   HOST_WIDE_INT offset, size, max_size;
   tree lhs, rhs, base;
 
-  if (!gimple_assign_single_p (stmt))
+  gassign *assign = gimple_assign_single_p (stmt);
+  if (!assign)
     return NULL_TREE;
 
-  lhs = gimple_assign_lhs (stmt);
-  rhs = gimple_assign_rhs1 (stmt);
+  lhs = gimple_assign_lhs (assign);
+  rhs = gimple_assign_rhs1 (assign);
   if (TREE_CODE (lhs) != COMPONENT_REF
       || !DECL_VIRTUAL_P (TREE_OPERAND (lhs, 1)))
      {

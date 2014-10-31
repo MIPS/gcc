@@ -700,11 +700,12 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct prop_type_change_info *tci)
   HOST_WIDE_INT offset, size, max_size;
   tree lhs, rhs, base, binfo;
 
-  if (!gimple_assign_single_p (stmt))
+  gassign *assign = gimple_assign_single_p (stmt);
+  if (!assign)
     return NULL_TREE;
 
-  lhs = gimple_assign_lhs (stmt);
-  rhs = gimple_assign_rhs1 (stmt);
+  lhs = gimple_assign_lhs (assign);
+  rhs = gimple_assign_rhs1 (assign);
   if (TREE_CODE (lhs) != COMPONENT_REF
       || !DECL_VIRTUAL_P (TREE_OPERAND (lhs, 1)))
     return NULL_TREE;
@@ -1062,7 +1063,8 @@ load_from_unmodified_param (struct func_body_info *fbi,
   int index;
   tree op1;
 
-  if (!gimple_assign_single_p (stmt))
+  gassign *assign = gimple_assign_single_p (stmt);
+  if (!assign)
     return -1;
 
   op1 = gimple_assign_rhs1 (stmt);
@@ -1386,7 +1388,7 @@ compute_complex_assign_jump_func (struct func_body_info *fbi,
     }
 }
 
-/* Extract the base, offset and MEM_REF expression from a statement ASSIGN if
+/* Extract the base, offset and MEM_REF expression from a statement STMT if
    it looks like:
 
    iftmp.1_3 = &obj_2(D)->D.1762;
@@ -1398,12 +1400,13 @@ compute_complex_assign_jump_func (struct func_body_info *fbi,
    RHS stripped off the ADDR_EXPR is stored into *OBJ_P.  */
 
 static tree
-get_ancestor_addr_info (gimple assign, tree *obj_p, HOST_WIDE_INT *offset)
+get_ancestor_addr_info (gimple stmt, tree *obj_p, HOST_WIDE_INT *offset)
 {
   HOST_WIDE_INT size, max_size;
   tree expr, parm, obj;
 
-  if (!gimple_assign_single_p (assign))
+  gassign *assign = gimple_assign_single_p (stmt);
+  if (!assign)
     return NULL_TREE;
   expr = gimple_assign_rhs1 (assign);
 
@@ -1607,8 +1610,8 @@ get_ssa_def_if_simple_copy (tree rhs)
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (rhs);
 
-      if (gimple_assign_single_p (def_stmt))
-	rhs = gimple_assign_rhs1 (def_stmt);
+      if (gassign *assign = gimple_assign_single_p (def_stmt))
+	rhs = gimple_assign_rhs1 (assign);
       else
 	break;
     }
@@ -1778,11 +1781,12 @@ determine_locally_known_aggregate_parts (gcall *call, tree arg,
 
       if (!stmt_may_clobber_ref_p_1 (stmt, &r))
 	continue;
-      if (!gimple_assign_single_p (stmt))
+      gassign *assign = gimple_assign_single_p (stmt);
+      if (!assign)
 	break;
 
-      lhs = gimple_assign_lhs (stmt);
-      rhs = gimple_assign_rhs1 (stmt);
+      lhs = gimple_assign_lhs (assign);
+      rhs = gimple_assign_rhs1 (assign);
       if (!is_gimple_reg_type (TREE_TYPE (rhs))
 	  || TREE_CODE (lhs) == BIT_FIELD_REF
 	  || contains_bitfld_component_ref_p (lhs))
@@ -2036,10 +2040,11 @@ ipa_get_stmt_member_ptr_load_param (gimple stmt, bool use_delta,
 {
   tree rhs, rec, ref_field, ref_offset, fld, ptr_field, delta_field;
 
-  if (!gimple_assign_single_p (stmt))
+  gassign *assign = gimple_assign_single_p (stmt);
+  if (!assign)
     return NULL_TREE;
 
-  rhs = gimple_assign_rhs1 (stmt);
+  rhs = gimple_assign_rhs1 (assign);
   if (TREE_CODE (rhs) == COMPONENT_REF)
     {
       ref_field = TREE_OPERAND (rhs, 1);
@@ -5378,13 +5383,14 @@ ipcp_modif_dom_walker::before_dom_children (basic_block bb)
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       struct ipa_agg_replacement_value *v;
-      gimple stmt = gsi_stmt (gsi);
+      gassign *stmt;
       tree rhs, val, t;
       HOST_WIDE_INT offset, size;
       int index;
       bool by_ref, vce;
 
-      if (!gimple_assign_load_p (stmt))
+      stmt = gimple_assign_load_p (gsi_stmt (gsi));
+      if (!stmt)
 	continue;
       rhs = gimple_assign_rhs1 (stmt);
       if (!is_gimple_reg_type (TREE_TYPE (rhs)))

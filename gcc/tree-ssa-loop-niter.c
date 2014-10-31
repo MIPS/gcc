@@ -2271,8 +2271,8 @@ get_val_for (tree x, tree base)
   /* STMT must be either an assignment of a single SSA name or an
      expression involving an SSA name and a constant.  Try to fold that
      expression using the value for the SSA name.  */
-  if (gimple_assign_ssa_name_copy_p (stmt))
-    return get_val_for (gimple_assign_rhs1 (stmt), base);
+  if (gassign *assign = gimple_assign_ssa_name_copy_p (stmt))
+    return get_val_for (gimple_assign_rhs1 (assign), base);
   else if (gimple_assign_rhs_class (stmt) == GIMPLE_UNARY_RHS
 	   && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
     {

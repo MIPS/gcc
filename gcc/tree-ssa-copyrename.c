@@ -368,10 +368,10 @@ pass_rename_ssa_copies::execute (function *fun)
 	   gsi_next (&gsi))
 	{
 	  stmt = gsi_stmt (gsi);
-	  if (gimple_assign_ssa_name_copy_p (stmt))
+	  if (gassign *assign = gimple_assign_ssa_name_copy_p (stmt))
 	    {
-	      tree lhs = gimple_assign_lhs (stmt);
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	      tree lhs = gimple_assign_lhs (assign);
+	      tree rhs = gimple_assign_rhs1 (assign);
 
 	      copy_rename_partition_coalesce (map, lhs, rhs, debug);
 	    }

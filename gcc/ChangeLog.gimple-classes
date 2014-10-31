@@ -1,5 +1,57 @@
 2014-10-31  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (is_a_helper <const gassign *>::test): New.
+	(gimple_assign_copy_p): Update return type from bool to
+	gassign *, returning GS if the predicate holds.
+	(gimple_assign_ssa_name_copy_p): Likewise.
+	(gimple_assign_single_p): Likewise for new non-const overload.
+	(gimple_assign_load_p): Likewise.
+	(gimple_assign_cast_p): Introduce local "assign" via dyn_cast,
+	using it in place of "s" for typesafety.
+	(gimple_clobber_p): Introduce local "assign" via call to
+	gimple_assign_single_p, using it in place of "s" for typesafety.
+
+	* asan.c (maybe_instrument_assignment): Strengthen local "s" from
+	gimple to gassign * via a checked cast.
+	* gimple-walk.c (walk_stmt_load_store_addr_ops): Introduce local
+	"assign" via call to gimple_assign_single_p, using it in place of
+	"stmt" for typesafety.
+	* gimple.c (gimple_assign_copy_p): Update return type from bool to
+	gassign *, returning GS if the predicate holds.
+	(gimple_assign_ssa_name_copy_p): Likewise.
+	* ipa-polymorphic-call.c (extr_type_from_vtbl_ptr_store):
+	Likewise, replacing local "stmt".
+	* ipa-prop.c (extr_type_from_vtbl_ptr_store): Likewise.
+	(load_from_unmodified_param): Likewise.
+	(get_ancestor_addr_info): Rename gimple param "assign" to "stmt",
+	reintroducing name "assign" as a gassign * via a call to
+	gimple_assign_single_p.
+	(get_ssa_def_if_simple_copy): Introduce local "assign" via call to
+	gimple_assign_single_p, using it in place of "def_stmt" for
+	typesafety.
+	(determine_locally_known_aggregate_parts): Likewise for "stmt".
+	(ipa_get_stmt_member_ptr_load_param): Likewise.
+	(ipcp_modif_dom_walker::before_dom_children): Strengthen local
+	"stmt" from gimple to gassign * via use of gimple_assign_load_p.
+	* tree-if-conv.c (ifcvt_can_use_mask_load_store): Introduce local
+	"assign" via call to gimple_assign_single_p, using it in place of
+	"stmt" for typesafety.
+	(predicate_mem_writes): Strengthen local "stmt" from gimple to
+	gassign * via use of gimple_assign_single_p.
+	* tree-inline.c (remap_gimple_stmt): Introduce local "assign" via
+	call to gimple_assign_copy_p, using it in place of "stmt" for
+	typesafety.
+	* tree-nrv.c (pass_nrv::execute): Likewise.
+	* tree-ssa-ccp.c (insert_clobber_before_stack_restore): Likewise
+	via call to gimple_assign_ssa_name_copy_p.
+	* tree-ssa-copyrename.c (pass_rename_ssa_copies::execute):
+	Likewise.
+	* tree-ssa-loop-niter.c (get_val_for): Likewise.
+	* tree-vect-stmts.c (exist_non_indexing_operands_for_use_p):
+	Likewise via call to gimple_assign_copy_p.
+
+2014-10-31  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-forwprop.c (simplify_builtin_call): Strengthen local
 	"stmt2" from gimple to gcall * via a checked cast.  Replace
 	is_gimple_call with a dyn_cast, introducing local "call_stmt1",
