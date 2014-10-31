@@ -8249,7 +8249,22 @@ mips_print_operand_punctuation (FILE *file, int ch)
     case ':':
       /* When final_sequence is 0, the delay slot will be a nop.  We can
 	 use the compact version for microMIPS.  */
-      if (final_sequence == 0)
+      if (final_sequence == 0
+	  && TARGET_COMPACT_BRANCHES
+	  && ((get_attr_branch_zero_ne_eq_compact (current_output_insn) == BRANCH_ZERO_NE_EQ_COMPACT_YES)
+	      && ISA_HAS_BRANCH_NE_EQ_COMPACT)
+	      || ((get_attr_jump_reg_compact (current_output_insn) == JUMP_REG_COMPACT_YES)
+	          && ISA_HAS_JUMP_REG_COMPACT)
+	      || ((get_attr_branch_compact (current_output_insn) == BRANCH_COMPACT_YES)
+	          && ISA_HAS_BRANCH_COMPACT)
+	      || ((get_attr_branch_cond_compact (current_output_insn) == BRANCH_COND_COMPACT_YES)
+	          && ISA_HAS_BRANCH_COND_COMPACT)
+	      || ((get_attr_jump_compact (current_output_insn) == JUMP_COMPACT_YES)
+	          && ISA_HAS_JUMP_COMPACT)
+	      || ((get_attr_jump_and_link_compact (current_output_insn) == JUMP_AND_LINK_COMPACT_YES)
+	          && ISA_HAS_JUMP_AND_LINK_COMPACT)
+	      || ((get_attr_branch_float_compact (current_output_insn) == BRANCH_FLOAT_COMPACT_YES)
+	          && ISA_HAS_BRANCH_FLOAT_COMPACT))
 	putc ('c', file);
       break;
 
@@ -8258,7 +8273,7 @@ mips_print_operand_punctuation (FILE *file, int ch)
 	 compact version.  */
       if (final_sequence == 0
 	  || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2)
-	putc ('s', file);
+	putc ((TARGET_MICROMIPS && mips_isa_rev > 5) ? 'c' :'s', file);
       break;
 
     default:
@@ -12741,8 +12756,8 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       inverted_p = !inverted_p;
       /* Fall through.  */
     case GTU:
-      branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%0");
-      branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%0");
+      branch[!inverted_p] = MIPS_BRANCH ("bne%:", "%2,%.,%0");
+      branch[inverted_p] = MIPS_BRANCH ("beq%:", "%2,%.,%0");
       break;
 
       /* These cases are always true or always false.  */
@@ -12750,13 +12765,13 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       inverted_p = !inverted_p;
       /* Fall through.  */
     case GEU:
-      branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%0");
-      branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%0");
+      branch[!inverted_p] = MIPS_BRANCH ("beq%:", "%.,%.,%0");
+      branch[inverted_p] = MIPS_BRANCH ("bne%:", "%.,%.,%0");
       break;
 
     default:
-      branch[!inverted_p] = MIPS_BRANCH ("b%C1z", "%2,%0");
-      branch[inverted_p] = MIPS_BRANCH ("b%N1z", "%2,%0");
+      branch[!inverted_p] = MIPS_BRANCH ("b%C1z%:", "%2,%0");
+      branch[inverted_p] = MIPS_BRANCH ("b%N1z%:", "%2,%0");
       break;
     }
   return mips_output_conditional_branch (insn, operands, branch[1], branch[0]);
@@ -12960,11 +12975,20 @@ mips_process_sync_loop (rtx insn, rtx *operands)
 			       at, oldval, inclusive_mask, NULL);
 	  tmp1 = at;
 	}
-      mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
-
+      if (TARGET_MICROMIPS && mips_isa_rev > 5)
+        {
       /* CMP = 0 [delay slot].  */
-      if (cmp)
-        mips_multi_add_insn ("li\t%0,0", cmp, NULL);
+	  if (cmp)
+	    mips_multi_add_insn ("li\t%0,0", cmp, NULL);
+	  mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
+	  mips_multi_add_insn ("nop", NULL);
+        }
+      else
+	{
+	  mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
+	  if (cmp)
+	    mips_multi_add_insn ("li\t%0,0", cmp, NULL);
+	}
     }
 
   /* $TMP1 = OLDVAL & EXCLUSIVE_MASK.  */
@@ -13020,20 +13044,49 @@ mips_process_sync_loop (rtx insn, rtx *operands)
      This will sometimes be a delayed branch; see the write code below
      for details.  */
   mips_multi_add_insn (is_64bit_p ? "scd\t%0,%1" : "sc\t%0,%1", at, mem, NULL);
-  mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
 
-  /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
-  if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
+  if (TARGET_MICROMIPS && mips_isa_rev > 5)
     {
-      mips_multi_copy_insn (tmp3_insn);
-      mips_multi_set_operand (mips_multi_last_index (), 0, newval);
-    }
-  else if (!(required_oldval && cmp))
-    mips_multi_add_insn ("nop", NULL);
+      int output_branch = 0;
 
-  /* CMP = 1 -- either standalone or in a delay slot.  */
-  if (required_oldval && cmp)
-    mips_multi_add_insn ("li\t%0,1", cmp, NULL);
+      /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
+      if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
+	{
+	  mips_multi_copy_insn (tmp3_insn);
+	  mips_multi_set_operand (mips_multi_last_index (), 0, newval);
+
+	  mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+	  mips_multi_add_insn ("nop", NULL);
+	  output_branch = 1;
+	}
+
+       /* CMP = 1 -- either standalone or in a delay slot.  */
+       if (required_oldval && cmp)
+	 mips_multi_add_insn ("li\t%0,1", cmp, NULL);
+
+       if (!output_branch)
+	 {
+	   mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+	   mips_multi_add_insn ("nop", NULL);
+	 }
+    }
+  else
+    {
+      mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+
+      /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
+      if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
+	{
+	  mips_multi_copy_insn (tmp3_insn);
+	  mips_multi_set_operand (mips_multi_last_index (), 0, newval);
+	}
+      else if (!(required_oldval && cmp))
+	  mips_multi_add_insn ("nop", NULL);
+
+       /* CMP = 1 -- either standalone or in a delay slot.  */
+       if (required_oldval && cmp)
+	 mips_multi_add_insn ("li\t%0,1", cmp, NULL);
+    }
 
   /* Output the acquire side of the memory barrier.  */
   if (TARGET_SYNC_AFTER_SC && need_atomic_barrier_p (model, false))
@@ -17125,6 +17178,9 @@ mips_option_override (void)
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
   target_flags &= ~TARGET_COMPRESSION;
+
+  if (!ISA_HAS_DELAYED_BRANCHES)
+    target_flags |= MASK_COMPACT_BRANCHES;
 
   /* -mno-float overrides -mhard-float and -msoft-float.  */
   if (TARGET_NO_FLOAT)

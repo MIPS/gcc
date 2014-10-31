@@ -414,3 +414,7 @@ Lift restrictions on GOT size
 
 noasmopt
 Driver
+
+mcompact-branches
+Target Report Mask(COMPACT_BRANCHES)
+Use compact branch instructions
