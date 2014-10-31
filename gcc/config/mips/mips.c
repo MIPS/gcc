@@ -7974,7 +7974,7 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	  LW/SWL/SWR sequence.  This is often better than the 4 LIs and
 	  4 SBs that we would generate when storing by pieces.  */
   if (align <= BITS_PER_UNIT)
-    return size < 4;
+    return size < 4 || !ISA_HAS_LWL_LWR;
 
   /* If the data is 2-byte aligned, then:
 
@@ -8009,7 +8009,9 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
      (c4) A block move of 8 bytes can use two LW/SW sequences or a single
 	  LD/SD sequence, and in these cases we've traditionally preferred
 	  the memory copy over the more bulky constant moves.  */
-  return size < 8;
+  return (size < 8
+	  || (align < 4 * BITS_PER_UNIT
+	      && !ISA_HAS_LWL_LWR));
 }
 
 /* Emit straight-line code to move LENGTH bytes from SRC to DEST.
@@ -8029,8 +8031,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
      For instance, lh/lh/sh/sh is usually better than lwl/lwr/swl/swr
      and lw/lw/sw/sw is usually better than ldl/ldr/sdl/sdr.
      Otherwise move word-sized chunks.  */
-  if (ISA_HAS_LWL_LWR
-      && MEM_ALIGN (src) == BITS_PER_WORD / 2
+  if (MEM_ALIGN (src) == BITS_PER_WORD / 2
       && MEM_ALIGN (dest) == BITS_PER_WORD / 2)
     bits = BITS_PER_WORD / 2;
   else
@@ -8047,7 +8048,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
     {
       regs[i] = gen_reg_rtx (mode);
-      if (!ISA_HAS_LWL_LWR || MEM_ALIGN (src) >= bits)
+      if (MEM_ALIGN (src) >= bits)
 	mips_emit_move (regs[i], adjust_address (src, mode, offset));
       else
 	{
@@ -8060,7 +8061,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
 
   /* Copy the chunks to the destination.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
-    if (!ISA_HAS_LWL_LWR || MEM_ALIGN (dest) >= bits)
+    if (MEM_ALIGN (dest) >= bits)
       mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
     else
       {
@@ -8152,6 +8153,11 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 bool
 mips_expand_block_move (rtx dest, rtx src, rtx length)
 {
+  if (!ISA_HAS_LWL_LWR
+       && (MEM_ALIGN (src) < BITS_PER_WORD
+	   || MEM_ALIGN (dest) < BITS_PER_WORD))
+    return false;
+
   if (CONST_INT_P (length))
     {
       if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
