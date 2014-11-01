@@ -1,3 +1,65 @@
+2014-10-31  DJ Delorie  <dj@redhat.com>
+
+	* expmed.c (strict_volatile_bitfield_p): Fix off-by-one error.
+
+2014-10-31  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-elf-raw.h (CA53_ERR_835769_SPEC): Define.
+	(LINK_SPEC): Include CA53_ERR_835769_SPEC.
+	* config/aarch64/aarch64-linux.h (CA53_ERR_835769_SPEC): Define.
+	(LINK_SPEC): Include CA53_ERR_835769_SPEC.
+
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63697
+	* tree-vrp.c (simplify_internal_call_using_ranges): For subcode ==
+	MINUS_EXPR, check overflow on vr0.min - vr1.max and vr0.max - vr1.min
+	instead of vr0.min - vr1.min and vr0.max - vr1.max.
+
+2014-10-30  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR63633
+	* config/avr/avr-protos.h (regmask): New inline function.
+	(avr_fix_inputs, avr_emit3_fix_outputs): New protos.
+	* config/avr/avr.c (avr_fix_operands, avr_move_fixed_operands)
+	(avr_fix_inputs, avr_emit3_fix_outputs): New functions.
+	* config/avr/avr-fixed.md (mulqq3_nomul, muluqq3_nomul)
+	(mul<ALL2QA>3, mul<ALL4A>3, <usdiv><ALL1Q>3, <usdiv><ALL2QA>3)
+	(<usdiv><ALL4A>3, round<ALL124QA>3): Fix input operands.
+	* config/avr/avr-dimode.md (add<ALL8>3, sub<ALL8>3)
+	(<ss_addsub><ALL8S>3, <us_addsub><ALL8U>3, cbranch<ALL8>4)
+	(<di_shifts><ALL8>3, <any_extend>mulsidi3): Fix input operands.
+	* config/avr/avr.md (mulqi3_call, mulhi3_call, mulsi3, mulpsi3)
+	(mulu<QIHI>si3, muls<QIHI>si3, mulohisi3, <any_extend>mulhisi3)
+	(usmulhisi3, <any_extend>mulhi3_highpart, mulsqipsi3)
+	(fmul, fmuls, fmulsu): Fix operands.  Turn insn into expander as
+	needed.
+
+2014-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.9.3.
+	* DEV-PHASE: Set to prerelease.
+
+2014-10-30  Release Manager
+
+	* GCC 4.9.2 released.
+
+2014-10-29  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_madd_needs_nop): Restore
+	recog state after aarch64_prev_real_insn call.
+
+2014-10-27  Guozhi Wei  <carrot@google.com>
+
+	PR tree-optimization/63530
+	tree-vect-data-refs.c (vect_create_addr_base_for_vector_ref): Set
+	pointer alignment according to DR_MISALIGNMENT.
+
+2014-10-25  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/63638
+	* asan.c (enum asan_check_flags): Fixed ASAN_CHECK_LAST.
+
 2014-10-22  Jakub Jelinek  <jakub@redhat.com>
 	    Yury Gribov  <y.gribov@samsung.com>
 
@@ -1544,7 +1606,7 @@
 	* omp-low.c (create_omp_child_function): Don't set DECL_NAMELESS
 	on the FUNCTION_DECL.
 
-	* BASE-VER: Set to 4.9.1.
+	* BASE-VER: Set to 4.9.2.
 	* DEV-PHASE: Set to prerelease.
 
 2014-07-16  Release Manager

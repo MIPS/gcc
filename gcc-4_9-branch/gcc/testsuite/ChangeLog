@@ -1,3 +1,39 @@
+2014-10-31  DJ Delorie  <dj@redhat.com>
+
+	* gcc.dg/20141029-1.c: New.
+
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63697
+	* c-c++-common/ubsan/overflow-sub-3.c: New test.
+
+2014-10-30  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR63633
+	* gcc.target/avr/torture/pr63633-ice-mult.c: New test.
+
+2014-10-30  Release Manager
+
+	* GCC 4.9.2 released.
+
+2014-10-29  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/madd_after_asm_1.c: New test.
+
+2014-10-27  Guozhi Wei  <carrot@google.com>
+
+	PR tree-optimization/63530
+	gcc.dg/vect/pr63530.c: New test.
+
+2014-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/entry_queues2.adb: New test.
+
+2014-10-25  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/63638
+    	* c-c++-common/asan/pr63638.c: New test.
+
 2014-10-22  Jakub Jelinek  <jakub@redhat.com>
 	    Yury Gribov  <y.gribov@samsung.com>
 
