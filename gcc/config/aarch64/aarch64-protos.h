@@ -333,5 +333,4 @@ aarch64_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel);
 void aarch64_atomic_assign_expand_fenv (tree *, tree *, tree *);
 
 extern bool aarch64_slow_unaligned_access (enum machine_mode, int);
-extern bool aarch64_move_by_pieces_p (unsigned HOST_WIDE_INT, int);
 #endif /* GCC_AARCH64_PROTOS_H */

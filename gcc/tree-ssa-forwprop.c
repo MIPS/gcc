@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "expr.h"
 #include "cfgloop.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-dom.h"
@@ -1487,7 +1488,7 @@ constant_pointer_difference (tree p1, tree p2)
 	      off = size_binop (PLUS_EXPR, off, gimple_assign_rhs2 (stmt));
 	      p = gimple_assign_rhs1 (stmt);
 	    }
-	  else if (code == ADDR_EXPR || code == NOP_EXPR)
+	  else if (code == ADDR_EXPR || CONVERT_EXPR_CODE_P (code))
 	    p = gimple_assign_rhs1 (stmt);
 	  else
 	    break;

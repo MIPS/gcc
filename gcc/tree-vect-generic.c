@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Need to include rtl.h, expr.h, etc. for optabs.  */
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 
 
@@ -1449,13 +1450,11 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
   if (TREE_CODE (type) != VECTOR_TYPE)
     return;
 
-  if (code == NOP_EXPR
+  if (CONVERT_EXPR_CODE_P (code)
       || code == FLOAT_EXPR
       || code == FIX_TRUNC_EXPR
       || code == VIEW_CONVERT_EXPR)
     return;
-
-  gcc_assert (code != CONVERT_EXPR);
 
   /* The signedness is determined from input argument.  */
   if (code == VEC_UNPACK_FLOAT_HI_EXPR

@@ -1,3 +1,33 @@
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/63659
+	* gcc.c-torture/execute/pr63659.c: New test.
+
+2014-10-31  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	PR target/63534
+	* gcc.target/i386/mcount_pic.c: New.
+
+2014-10-31  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* gcc.target/i386/pr23098.c: Remove xfail.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt42.ad[sb]: New test.
+
+2014-10-31  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/63259
+	* optimize-bswapsi-1.c (swap32_f): New bswap pass test.
+	* optimize-bswaphi-1.c: Drop useless SIType definition and fix typo in
+	following comment.
+
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63697
+	* c-c++-common/ubsan/overflow-sub-3.c: New test.
+
 2014-10-30  Marek Polacek  <polacek@redhat.com>
 
 	* gcc.dg/diag-aka-1.c: New test.
