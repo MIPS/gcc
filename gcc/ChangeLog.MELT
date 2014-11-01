@@ -1,5 +1,9 @@
 
 2014-11-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (multiple_sort): Check that
+	hook_sort_compare_less is a hook...
+
+2014-11-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 
 2014-11-01  Basile Starynkevitch  <basile@starynkevitch.net>

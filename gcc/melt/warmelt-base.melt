@@ -3609,6 +3609,11 @@ typedef struct melthook_st *melthook_ptr_t;
   (if (is_multiple mul)
       (void)
     (return ()))
+  (unless (is_hook hook_sort_compare_less)
+    (assert_msg "multiple_sort check hook_sort_compare_less"
+		(is_hook hook_sort_compare_less) 
+		hook_sort_compare_less multiple_sort mul)
+    (fatal_error_at () "multiple_sort with corrupted hook_sort_compare_less"))
   (if (is_closure cmp)
       (void)
     (return ()))
