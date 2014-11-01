@@ -3622,6 +3622,7 @@ typedef struct melthook_st *melthook_ptr_t;
 		  (((meltobject_ptr_t)($DIS))->meltobj_magic == MELTOBMAG_MULTIPLE) }#)
       (void)
     (return ()))
+  (assert_msg "multiple_sort check mul" (is_multiple mul) mul)
   (let ( (:long tuplen (multiple_length mul))
 	 )
     (let (
@@ -3631,8 +3632,6 @@ typedef struct melthook_st *melthook_ptr_t;
       (code_chunk 
        sortres_chk 
        #{ /* multiple_sort $SORTRES_CHK start */
-       melt_assertmsg ("check that MUL is multiple when starting multiple_sort",
-		       melt_magic_discr ($MUL) == MELTOBMAG_MULTIPLE) ;
        if ($RESLEN >= (long)INT_MAX/2)
          melt_fatal_error("too big sized %ld tuple to sort", $RESLEN) ;
        melt_assertmsg ("check that RESLEN == TUPLEN in multiple_sort", $RESLEN == $TUPLEN) ;

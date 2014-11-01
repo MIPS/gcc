@@ -1,4 +1,7 @@
 
+2014-11-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (multiple_sort): Add assert.
+
 2014-10-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (tree_function_type)
 	(tree_method_type): Extract also the name and context.
