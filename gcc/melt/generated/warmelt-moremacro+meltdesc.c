@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.1.3pre4 [melt-branch_revision_216805]";
+const char melt_versionmeltstr[]="1.1.3pre4 [melt-branch_revision_216835]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-moremacro */
@@ -39,7 +39,7 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1.3pre4/warmelt-moremacro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="f1b4c688fb6fc8623b7356f2fbe38175";
+const char melt_prepromd5meltrun[]="63d9e427d74c725bb67ef1513279c0bd";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="46a5ce681231ca9dcc74c388fa313e67";
 
