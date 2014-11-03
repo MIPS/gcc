@@ -674,10 +674,11 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 
     case SSA_NAME:
       {
-	gimple def_stmt = SSA_NAME_DEF_STMT (op0);
+	gassign *def_stmt;
 	enum tree_code subcode;
 
-	if (gimple_code (def_stmt) != GIMPLE_ASSIGN)
+	def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (op0));
+	if (!def_stmt)
 	  return false;
 
 	var0 = gimple_assign_rhs1 (def_stmt);
@@ -4406,11 +4407,11 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
   if (!gimple_vuse (stmt))
     return clobbers_memory;
 
-  if (stmt_code == GIMPLE_ASSIGN)
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
       tree base;
-      op0 = gimple_assign_lhs (stmt);
-      op1 = gimple_assign_rhs1 (stmt);
+      op0 = gimple_assign_lhs (assign_stmt);
+      op1 = gimple_assign_rhs1 (assign_stmt);
 
       if (DECL_P (op1)
 	  || (REFERENCE_CLASS_P (op1)

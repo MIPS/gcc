@@ -1,5 +1,13 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-data-ref.c (split_constant_offset_1): Replace check against
+	GIMPLE_ASSIGN with a dyn_cast, strengthening local "def_stmt" from
+	gimple to gassign *.
+	(get_references_in_stmt): Likewise, introducing local
+	"assign_stmt" and using it in place of "stmt" for typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-call-cdce.c (check_pow): Replace check against
 	GIMPLE_ASSIGN with a dyn_cast, strengthening local "base_def" from
 	gimple to gassign *.
