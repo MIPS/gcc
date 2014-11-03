@@ -14835,6 +14835,9 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #define CODE_FOR_msa_vshf_w CODE_FOR_msa_vshfv4si
 #define CODE_FOR_msa_vshf_d CODE_FOR_msa_vshfv2di
 
+#define CODE_FOR_msa_ilvod_d CODE_FOR_msa_ilvl_d
+#define CODE_FOR_msa_ilvev_d CODE_FOR_msa_ilvr_d
+
 #define CODE_FOR_msa_ldi_b CODE_FOR_msa_ldiv16qi
 #define CODE_FOR_msa_ldi_h CODE_FOR_msa_ldiv8hi
 #define CODE_FOR_msa_ldi_w CODE_FOR_msa_ldiv4si
@@ -19717,7 +19720,7 @@ mips_expand_vselect (rtx target, rtx op0,
   for (i = 0; i < nelt; ++i)
     rperm[i] = GEN_INT (perm[i]);
 
-  x = gen_rtx_PARALLEL (GET_MODE (target), gen_rtvec_v (nelt, rperm));
+  x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelt, rperm));
   x = gen_rtx_VEC_SELECT (GET_MODE (target), op0, x);
   x = gen_rtx_SET (VOIDmode, target, x);
 
@@ -19740,7 +19743,7 @@ mips_expand_vselect_vconcat (rtx target, rtx op0, rtx op1,
   rtx x;
 
   v2mode = GET_MODE_2XWIDER_MODE (GET_MODE (op0));
-  x = gen_rtx_VEC_CONCAT (v2mode, op1, op0);
+  x = gen_rtx_VEC_CONCAT (v2mode, op0, op1);
   return mips_expand_vselect (target, x, perm, nelt);
 }
 
@@ -20061,78 +20064,6 @@ mips_vectorize_vec_perm_const_ok (enum machine_mode vmode,
   return ret;
 }
 
-rtx
-gen_vec_par_const_operand (enum machine_mode mode, int init, int stride)
-{
-  rtx par;
-  int nelt = GET_MODE_NUNITS (mode);
-  int i;
-  par = gen_rtx_PARALLEL (mode, rtvec_alloc (nelt));
-  for (i = 0; i < (nelt >> 1); i++)
-    {
-      XVECEXP (par, 0, (2 * i)) = GEN_INT (init + i * stride);
-      XVECEXP (par, 0, (2 * i + 1)) = GEN_INT (init + nelt + i * stride);
-    }
-
-  return par;
-}
-
-bool
-vec_par_const_operand (rtx op, enum machine_mode mode, int init, int stride)
-{
-  HOST_WIDE_INT count = XVECLEN (op, 0);
-  int i;
-  int prev_val = -1;
-  int base = GET_MODE_NUNITS (mode);
-
-  /* Const parallel with no elements or less/more elementes
-     than needed for vector.  */
-  if ((count < 1)
-      || (count != base))
-    return false;
-
-  if (!VECTOR_MODE_P (mode))
-    return false;
-
-  for (i = 0; i < count; i++)
-    {
-      rtx elt = XVECEXP (op, 0, i);
-      int val;
-      bool is_wt = false;
-  
-      /* Element is not const_int as needed by vec_select.  */
-      if (!CONST_INT_P (elt))
-	return false;
-  
-      val = INTVAL (elt);
-  
-      /* First element should be INIT as expected by ilv* patterns.  */
-      if (i == 0 && val != init)
-	return false;
-  
-      is_wt = (i % 2 == 0);
-  
-      /* For ilv* pattern, even-indexed elements in output vector are always
-	 from wt, odd-indexed elements from ws.  ws and wt are seperated by COUNT
-	 in concatenated vector.  */
-      if (is_wt != (val < count))
-	return false;
-  
-      /* For every element from ws, prev_element will have corresponding element
-	 from wt - which will be seperated by COUNT in concatenated vector.  */
-      if (!is_wt && (val - prev_val) != count)
-	return false;
-  
-      /* For every element in wt, its value will be multiple of STRIDE away from
-	 INIT.  */
-      if (is_wt && ((val - stride * (i >> 1))) != init)
-	return false;
-  
-      prev_val = val;
-    }
-  return true;
-}
-
 /* Expand an integral vector unpack operation.  */
 
 void
@@ -20145,7 +20076,6 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 
   if (ISA_HAS_MSA)
   {
-//    rtx (*unpack) (rtx, rtx, rtx);
     switch (imode)
       {
       case V4SImode:
