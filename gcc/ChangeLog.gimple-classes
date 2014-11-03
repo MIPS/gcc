@@ -1,5 +1,18 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-ccp.c (get_default_value): Replace is_gimple_assign
+	with a dyn_cast, introducing local "assign_stmt", using it in
+	place of "stmt" for typesafety.
+	(likely_value): Add a checked cast.
+	(evaluate_stmt): Replace checks against GIMPLE_ASSIGN with
+	dyn_cast, introducing locals "assign_stmt", using them in place of
+	"stmt" for typesafety.
+	(ccp_fold_stmt): Add checked cast within case GIMPLE_ASSIGN.
+	(visit_assignment): Add checked casts.
+	(pass_fold_builtins::execute): Add checked cast.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-alias.c (stmt_may_clobber_global_p): Within
 	case GIMPLE_ASSIGN, add a checked cast.
 	(ao_ref_init_from_ptr_and_size): Both the gimple_assign_single_p

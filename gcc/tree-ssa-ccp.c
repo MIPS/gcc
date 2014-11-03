@@ -312,12 +312,13 @@ get_default_value (tree var)
 	    }
 	}
     }
-  else if (is_gimple_assign (stmt))
+  else if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
       tree cst;
-      if (gimple_assign_single_p (stmt)
-	  && DECL_P (gimple_assign_rhs1 (stmt))
-	  && (cst = get_symbol_constant_value (gimple_assign_rhs1 (stmt))))
+      if (gimple_assign_single_p (assign_stmt)
+	  && DECL_P (gimple_assign_rhs1 (assign_stmt))
+	  && (cst =
+	        get_symbol_constant_value (gimple_assign_rhs1 (assign_stmt))))
 	{
 	  val.lattice_val = CONSTANT;
 	  val.value = cst;
@@ -711,7 +712,7 @@ likely_value (gimple stmt)
     return UNDEFINED;
   else if (code == GIMPLE_ASSIGN && has_undefined_operand)
     {
-      switch (gimple_assign_rhs_code (stmt))
+      switch (gimple_assign_rhs_code (as_a <gassign *> (stmt)))
 	{
 	/* Unary operators are handled with all_undefined_operands.  */
 	case PLUS_EXPR:
@@ -1691,14 +1692,14 @@ evaluate_stmt (gimple stmt)
   else if (likelyvalue == VARYING)
     {
       enum gimple_code code = gimple_code (stmt);
-      if (code == GIMPLE_ASSIGN)
+      if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
         {
-          enum tree_code subcode = gimple_assign_rhs_code (stmt);
+          enum tree_code subcode = gimple_assign_rhs_code (assign_stmt);
 
           /* Other cases cannot satisfy is_gimple_min_invariant
              without folding.  */
           if (get_gimple_rhs_class (subcode) == GIMPLE_SINGLE_RHS)
-            simplified = gimple_assign_rhs1 (stmt);
+            simplified = gimple_assign_rhs1 (assign_stmt);
         }
       else if (code == GIMPLE_SWITCH)
         simplified = gimple_switch_index (as_a <gswitch *> (stmt));
@@ -1724,10 +1725,10 @@ evaluate_stmt (gimple stmt)
       val.lattice_val = VARYING;
       val.value = NULL_TREE;
       val.mask = -1;
-      if (code == GIMPLE_ASSIGN)
+      if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
 	{
-	  enum tree_code subcode = gimple_assign_rhs_code (stmt);
-	  tree rhs1 = gimple_assign_rhs1 (stmt);
+	  enum tree_code subcode = gimple_assign_rhs_code (assign_stmt);
+	  tree rhs1 = gimple_assign_rhs1 (assign_stmt);
 	  switch (get_gimple_rhs_class (subcode))
 	    {
 	    case GIMPLE_SINGLE_RHS:
@@ -1748,8 +1749,8 @@ evaluate_stmt (gimple stmt)
 	      if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
 		  || POINTER_TYPE_P (TREE_TYPE (rhs1)))
 		{
-		  tree lhs = gimple_assign_lhs (stmt);
-		  tree rhs2 = gimple_assign_rhs2 (stmt);
+		  tree lhs = gimple_assign_lhs (assign_stmt);
+		  tree rhs2 = gimple_assign_rhs2 (assign_stmt);
 		  val = bit_value_binop (subcode,
 					 TREE_TYPE (lhs), rhs1, rhs2);
 		}
@@ -2172,7 +2173,7 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 
     case GIMPLE_ASSIGN:
       {
-	tree lhs = gimple_assign_lhs (stmt);
+	tree lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
 	tree val;
 
 	/* If we have a load that turned out to be constant replace it
@@ -2215,9 +2216,9 @@ visit_assignment (gimple stmt, tree *output_p)
               || gimple_call_lhs (stmt) != NULL_TREE);
 
   if (gimple_assign_single_p (stmt)
-      && gimple_assign_rhs_code (stmt) == SSA_NAME)
+      && gimple_assign_rhs_code (as_a <gassign *> (stmt)) == SSA_NAME)
     /* For a simple copy operation, we copy the lattice values.  */
-    val = *get_value (gimple_assign_rhs1 (stmt));
+    val = *get_value (gimple_assign_rhs1 (as_a <gassign *> (stmt)));
   else
     /* Evaluate the statement, which could be
        either a GIMPLE_ASSIGN or a GIMPLE_CALL.  */
@@ -2676,7 +2677,7 @@ pass_fold_builtins::execute (function *fun)
 		 unnecessarily keep the SSA_NAMEs live.  */
 	      if (gimple_clobber_p (stmt))
 		{
-		  tree lhs = gimple_assign_lhs (stmt);
+		  tree lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
 		  if (TREE_CODE (lhs) == MEM_REF
 		      && TREE_CODE (TREE_OPERAND (lhs, 0)) == SSA_NAME)
 		    {
