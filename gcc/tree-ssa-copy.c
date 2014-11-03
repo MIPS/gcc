@@ -102,24 +102,25 @@ stmt_may_generate_copy (gimple stmt)
   if (gimple_code (stmt) == GIMPLE_PHI)
     return !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_phi_result (stmt));
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt)
     return false;
 
   /* If the statement has volatile operands, it won't generate a
      useful copy.  */
-  if (gimple_has_volatile_ops (stmt))
+  if (gimple_has_volatile_ops (assign_stmt))
     return false;
 
   /* Statements with loads and/or stores will never generate a useful copy.  */
-  if (gimple_vuse (stmt))
+  if (gimple_vuse (assign_stmt))
     return false;
 
   /* Otherwise, the only statements that generate useful copies are
      assignments whose RHS is just an SSA name that doesn't flow
      through abnormal edges.  */
-  return ((gimple_assign_rhs_code (stmt) == SSA_NAME
-	   && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_assign_rhs1 (stmt)))
-	  || is_gimple_min_invariant (gimple_assign_rhs1 (stmt)));
+  return ((gimple_assign_rhs_code (assign_stmt) == SSA_NAME
+	   && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_assign_rhs1 (assign_stmt)))
+	  || is_gimple_min_invariant (gimple_assign_rhs1 (assign_stmt)));
 }
 
 
@@ -210,7 +211,7 @@ dump_copy_of (FILE *file, tree var)
    value and store the LHS into *RESULT_P.  */
 
 static enum ssa_prop_result
-copy_prop_visit_assignment (gimple stmt, tree *result_p)
+copy_prop_visit_assignment (gassign *stmt, tree *result_p)
 {
   tree lhs, rhs;
 
@@ -297,14 +298,15 @@ copy_prop_visit_stmt (gimple stmt, edge *taken_edge_p, tree *result_p)
       fprintf (dump_file, "\n");
     }
 
-  if (gimple_assign_single_p (stmt)
-      && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
-      && (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
-	  || is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
+  gassign *assign_stmt;
+  if ((assign_stmt = gimple_assign_single_p (stmt))
+      && TREE_CODE (gimple_assign_lhs (assign_stmt)) == SSA_NAME
+      && (TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME
+	  || is_gimple_min_invariant (gimple_assign_rhs1 (assign_stmt))))
     {
       /* If the statement is a copy assignment, evaluate its RHS to
 	 see if the lattice value of its output has changed.  */
-      retval = copy_prop_visit_assignment (stmt, result_p);
+      retval = copy_prop_visit_assignment (assign_stmt, result_p);
     }
   else if (gimple_code (stmt) == GIMPLE_COND)
     {

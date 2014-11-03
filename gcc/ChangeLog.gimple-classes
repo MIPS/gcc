@@ -1,5 +1,16 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-copy.c (stmt_may_generate_copy): Replace check against
+	GIMPLE_ASSIGN with a dyn_cast, introducing local gassign *
+	"assign_stmt", using it in place of "stmt" for typesafety.
+	(copy_prop_visit_assignment): Strengthen param "stmt" from gimple
+	to gassign *.
+	(copy_prop_visit_stmt): Introduce local gassign * "assign_stmt"
+	from resuilt of gimple_assign_single_p, using it in place of
+	"stmt" for typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-coalesce.c (build_ssa_conflict_graph): Replace
 	is_gimple_assign with dyn_cast, introducing local "assign_stmt",
 	using it in place of "stmt" for typesafety.
