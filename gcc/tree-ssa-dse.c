@@ -233,7 +233,8 @@ dse_optimize_stmt (gimple_stmt_iterator *gsi)
   /* Don't return early on *this_2(D) ={v} {CLOBBER}.  */
   if (gimple_has_volatile_ops (stmt)
       && (!gimple_clobber_p (stmt)
-	  || TREE_CODE (gimple_assign_lhs (stmt)) != MEM_REF))
+	  || (TREE_CODE (gimple_assign_lhs (as_a <gassign *> (stmt)))
+	      != MEM_REF)))
     return;
 
   /* We know we have virtual definitions.  We can handle assignments and
@@ -287,18 +288,18 @@ dse_optimize_stmt (gimple_stmt_iterator *gsi)
 	}
     }
 
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
       gimple use_stmt;
 
       /* Self-assignments are zombies.  */
-      if (operand_equal_p (gimple_assign_rhs1 (stmt),
-			   gimple_assign_lhs (stmt), 0))
+      if (operand_equal_p (gimple_assign_rhs1 (assign_stmt),
+			   gimple_assign_lhs (assign_stmt), 0))
 	use_stmt = stmt;
       else
 	{
 	  ao_ref ref;
-	  ao_ref_init (&ref, gimple_assign_lhs (stmt));
+	  ao_ref_init (&ref, gimple_assign_lhs (assign_stmt));
   	  if (!dse_possible_dead_store_p (&ref, stmt, &use_stmt))
 	    return;
 	}

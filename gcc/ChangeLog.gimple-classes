@@ -1,5 +1,11 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-dse.c (dse_optimize_stmt): Add checked cast.  Replace
+	is_gimple_assign with dyn_cast, introducing local gassign *
+	"assign_stmt", using it in place of "stmt" for typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-dom.c (initialize_hash_element): Replace check for
 	GIMPLE_ASSIGN with a dyn_cast, introducing local "assign_stmt",
 	using it in place of "stmt" for typesafety.
