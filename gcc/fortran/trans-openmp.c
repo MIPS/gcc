@@ -1806,12 +1806,6 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	case OMP_LIST_DEVICE_RESIDENT:
 	  clause_code = OMP_CLAUSE_DEVICE_RESIDENT;
 	  goto add_clause;
-	case OMP_LIST_HOST:
-	  clause_code = OMP_CLAUSE_HOST;
-	  goto add_clause;
-	case OMP_LIST_DEVICE:
-	  clause_code = OMP_CLAUSE_OACC_DEVICE;
-	  goto add_clause;
 	case OMP_LIST_CACHE:
 	  clause_code = OMP_NO_CLAUSE_CACHE;
 	  goto add_clause;
@@ -2558,17 +2552,14 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
   if (clauses->wait_list)
     {
       gfc_expr_list *el;
-      tree list = NULL;
 
       for (el = clauses->wait_list; el; el = el->next)
 	{
 	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_WAIT);
 	  OMP_CLAUSE_DECL (c) = gfc_convert_expr_to_tree (block, el->expr);
-	  OMP_CLAUSE_CHAIN (c) = list;
-	  list = c;
+	  OMP_CLAUSE_CHAIN (c) = omp_clauses;
+	  omp_clauses = c;
 	}
-
-      omp_clauses = list;
     }
   if (clauses->num_gangs_expr)
     {
@@ -2725,9 +2716,6 @@ gfc_trans_oacc_executable_directive (gfc_code *code)
 	break;
       case EXEC_OACC_EXIT_DATA:
 	construct_code = OACC_EXIT_DATA;
-	break;
-      case EXEC_OACC_WAIT:
-	construct_code = OACC_WAIT;
 	break;
       case EXEC_OACC_CACHE:
 	construct_code = OACC_CACHE;

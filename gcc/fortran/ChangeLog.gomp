@@ -1,3 +1,17 @@
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (enum OMP_LIST_HOST): Remove.
+	(enum OMP_LIST_DEVICE, OMP_LIST_DEVICE): Remove.
+	* dump-parse-tree.c (show_omp_clauses): Remove OMP_LIST_HOST and
+	OMP_LIST_DEVICE from here also.
+	* openmp.c (OMP_CLAUSE_SELF): New define.
+	(gfc_match_omp_clauses): Update handling of OMP_CLAUSE_HOST and
+	OMP_CLAUSE_DEVICE. Add support for OMP_CLAUSE_SELF.
+	* trans-openmp.c (gfc_trans_omp_clauses): Remove support for
+	OMP_LIST_HOST and OMP_LIST_DEVICE since they are treated as memory
+	maps now.
+	(gfc_trans_oacc_executable_directive): Remove stale EXEC_OACC_WAIT.
+
 2014-10-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.h (struct gfc_omp_clauses): Remove non_clause_wait_expr.

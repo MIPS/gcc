@@ -1335,6 +1335,9 @@ dump_gimple_omp_target (pretty_printer *buffer, gimple gs, int spc, int flags)
     case GF_OMP_TARGET_KIND_OACC_DATA:
       kind = " oacc_data";
       break;
+    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+      kind = " oacc_enter_exit_data";
+      break;
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
       kind = " oacc_update";
       break;

@@ -1,3 +1,11 @@
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/data-1.c: Exercise enter/exit data pragma.
+	* c-c++-common/goacc/update-1.c: Ensure that fortran subarrays err.
+	* gcc/testsuite/c-c++-common/goacc/data-2.c: New test.
+	* gcc/testsuite/c-c++-common/goacc/update-1.c: Check for malformed
+	subarrays.
+
 2014-10-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/asyncwait-1.f95: New test.

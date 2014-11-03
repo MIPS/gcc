@@ -332,7 +332,7 @@ acc_unmap_data (void *h)
 
       gomp_mutex_unlock (&acc_dev->mem_map.lock);
     }
-  
+
   gomp_unmap_vars (t, true);
 }
 
@@ -393,7 +393,7 @@ present_create_copy (unsigned f, void *h, size_t s)
 
       gomp_mutex_unlock (&acc_dev->mem_map.lock);
     }
-  
+
   return d;
 }
 
@@ -501,4 +501,81 @@ void
 acc_update_self (void *h, size_t s)
 {
   update_dev_host (0, h, s);
+}
+
+void
+gomp_acc_insert_pointer (size_t mapnum, void **hostaddrs, size_t *sizes,
+			 void *kinds)
+{
+  struct target_mem_desc *tgt;
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
+
+  gomp_notify ("  %s: prepare mappings\n", __FUNCTION__);
+  tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev, mapnum, hostaddrs,
+		       NULL, sizes, kinds, true, false);
+  gomp_notify ("  %s: mappings prepared\n", __FUNCTION__);
+  tgt->prev = acc_dev->openacc.data_environ;
+  acc_dev->openacc.data_environ = tgt;
+}
+
+void
+gomp_acc_remove_pointer (void *h, bool force_copyfrom, int async, int mapnum)
+{
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
+  splay_tree_key n;
+  struct target_mem_desc *t;
+  int minrefs = (mapnum == 1) ? 2 : 3;
+
+  n = lookup_host (&acc_dev->mem_map, h, 1);
+
+  if (!n)
+    gomp_fatal ("%p is not a mapped block", (void *)h);
+
+  gomp_notify ("  %s: restore mappings\n", __FUNCTION__);
+
+  t = n->tgt;
+
+  struct target_mem_desc *tp;
+
+  gomp_mutex_lock (&acc_dev->mem_map.lock);
+
+  if (t->refcount == minrefs)
+    {
+      /* This is the last reference, so pull the descriptor off the
+	 chain. This avoids gomp_unmap_vars via gomp_unmap_tgt from
+	 freeing the device memory. */
+      t->tgt_end = 0;
+      t->to_free = 0;
+
+      for (tp = NULL, t = acc_dev->openacc.data_environ; t != NULL;
+	   tp = t, t = t->prev)
+	{
+	  if (n->tgt == t)
+	    {
+	      if (tp)
+		tp->prev = t->prev;
+	      else
+		acc_dev->openacc.data_environ = t->prev;
+	      break;
+	    }
+	}
+    }
+
+  if (force_copyfrom)
+    t->list[0]->copy_from = 1;
+
+  gomp_mutex_unlock (&acc_dev->mem_map.lock);
+
+  /* If running synchronously, unmap immediately.  */
+  if (async < acc_async_noval)
+    gomp_unmap_vars (t, true);
+  else
+    {
+      gomp_copy_from_async (t);
+      acc_dev->openacc.register_async_cleanup_func (t);
+    }
+
+  gomp_notify ("  %s: mappings restored\n", __FUNCTION__);
 }

@@ -1,3 +1,22 @@
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* libgomp.map (GOACC_enter_exit_data): Declare as global.
+	* libgomp_g.h (GOACC_enter_exit_data): Declare.
+	(GOACC_update): Declare.
+	(gomp_acc_insert_pointer): Declare.
+	(gomp_acc_remove_pointer): Declare.
+	* oacc-mem.c (gomp_acc_insert_pointer): New function.
+	(gomp_acc_remove_pointer): New function.
+	* oacc-parallel.c (find_pset): New function.
+	(GOACC_enter_exit_data): New function.
+	(GOACC_update): Handle GOMP_MAP_TO_PSET.
+	* testsuite/libgomp.oacc-c/data-2.c: New test.
+	* testsuite/libgomp.oacc-c/data-3.c: New test.
+	* testsuite/libgomp.oacc-fortran/data-1.f90: New test.
+	* testsuite/libgomp.oacc-fortran/data-2.f90: New test.
+	* testsuite/libgomp.oacc-fortran/data-3.f90: New test.
+	* testsuite/libgomp.oacc-fortran/data-4.f90: New test.
+
 2014-10-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/asyncwait-1.f90: New test.

@@ -451,6 +451,7 @@ match_oacc_clause_gang (gfc_omp_clauses *cp)
 #define OMP_CLAUSE_DELETE		(1ULL << 55)
 #define OMP_CLAUSE_AUTO			(1ULL << 56)
 #define OMP_CLAUSE_TILE			(1ULL << 57)
+#define OMP_CLAUSE_SELF			(1ULL << 58)
 
 /* Helper function for OpenACC and OpenMP clauses involving memory
    mapping.  */
@@ -682,17 +683,22 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, unsigned long long mask,
 	     == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_HOST)
-	  && gfc_match_omp_variable_list ("host (",
-					  &c->lists[OMP_LIST_HOST], true)
-	     == MATCH_YES)
+	  && gfc_match ("host ( ") == MATCH_YES
+	  && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
+				       OMP_MAP_FORCE_FROM))
 	continue;
       if ((mask & OMP_CLAUSE_OACC_DEVICE)
-	  && gfc_match_omp_variable_list ("device (",
-					  &c->lists[OMP_LIST_DEVICE], true)
-	     == MATCH_YES)
+	  && gfc_match ("device ( ") == MATCH_YES
+	  && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
+				       OMP_MAP_FORCE_TO))
 	continue;
       if ((mask & OMP_CLAUSE_TILE)
 	  && match_oacc_expr_list ("tile (", &c->tile_list, true) == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_SELF)
+	  && gfc_match ("self ( ") == MATCH_YES
+	  && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
+				       OMP_MAP_FORCE_FROM))
 	continue;
       if ((mask & OMP_CLAUSE_SEQ) && !c->seq
 	  && gfc_match ("seq") == MATCH_YES)
@@ -1164,7 +1170,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, unsigned long long mask,
    | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
    | OMP_CLAUSE_PRESENT_OR_CREATE)
 #define OACC_UPDATE_CLAUSES \
-  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_HOST | OMP_CLAUSE_OACC_DEVICE)
+  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_HOST | OMP_CLAUSE_SELF \
+   | OMP_CLAUSE_OACC_DEVICE | OMP_CLAUSE_WAIT)
 #define OACC_ENTER_DATA_CLAUSES \
   (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_COPYIN    \
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT_OR_COPYIN                          \

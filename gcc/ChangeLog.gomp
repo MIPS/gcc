@@ -1,3 +1,20 @@
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimple.h (enum gf_mask): Add GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Handle it.
+	* gimplify.c (gimplify_scan_omp_clauses): Remove switch stmt which
+	declared OMP_CLAUSE_MAP_FORCE_DEALLOC as unimplemented.
+	(gimplify_omp_target_update): Handle OACC_ENTER_DATA and
+	OACC_EXIT_DATA.
+	(gimplify_expr): Shuffle around OACC_ENTER_DATA, OACC_EXIT_DATA and
+	OACC_WAIT.
+	* oacc-builtins.def (BUILD_INT_GOACC_ENTER_EXIT_DATA): New built-in
+	function.
+	* omp-low.c (expand_omp_target): Handle
+	GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA. Don't use quick_push when
+	there is an unknown number of wait args.
+	(lower_omp_target): Handle GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA.
+
 2014-10-24  James Norris  <jnorris@codesourcery.com>
 
 	* builtin-types.def (BT_FN_VOID_INT_INT_VAR,

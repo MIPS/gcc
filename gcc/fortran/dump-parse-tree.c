@@ -1255,8 +1255,6 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
 	  case OMP_LIST_DEVICEPTR: type = "DEVICEPTR"; break;
 	  case OMP_LIST_USE_DEVICE: type = "USE_DEVICE"; break;
 	  case OMP_LIST_DEVICE_RESIDENT: type = "USE_DEVICE"; break;
-	  case OMP_LIST_HOST: type = "HOST"; break;
-	  case OMP_LIST_DEVICE: type = "DEVICE"; break;
 	  case OMP_LIST_CACHE: type = ""; break;
 	  case OMP_LIST_PRIVATE: type = "PRIVATE"; break;
 	  case OMP_LIST_FIRSTPRIVATE: type = "FIRSTPRIVATE"; break;

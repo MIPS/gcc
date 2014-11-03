@@ -7364,6 +7364,14 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 
   switch (TREE_CODE (expr))
     {
+    case OACC_ENTER_DATA:
+      clauses = OACC_ENTER_DATA_CLAUSES (expr);
+      kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
+      break;
+    case OACC_EXIT_DATA:
+      clauses = OACC_EXIT_DATA_CLAUSES (expr);
+      kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
+      break;
     case OACC_UPDATE:
       clauses = OACC_UPDATE_CLAUSES (expr);
       kind = GF_OMP_TARGET_KIND_OACC_UPDATE;
@@ -8305,8 +8313,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OACC_HOST_DATA:
 	case OACC_DECLARE:
-	case OACC_ENTER_DATA:
-	case OACC_EXIT_DATA:
 	case OACC_CACHE:
 	  sorry ("directive not yet implemented");
 	  ret = GS_ALL_DONE;
@@ -8359,6 +8365,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OACC_UPDATE:
 	case OMP_TARGET_UPDATE:
+	case OACC_ENTER_DATA:
+	case OACC_EXIT_DATA:
 	  gimplify_omp_target_update (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;

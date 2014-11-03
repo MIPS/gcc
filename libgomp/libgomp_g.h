@@ -219,6 +219,10 @@ extern void GOMP_teams (unsigned int, unsigned int);
 extern void GOACC_data_start (int, const void *,
 			      size_t, void **, size_t *, unsigned short *);
 extern void GOACC_data_end (void);
+extern void GOACC_enter_exit_data (int device, const void *openmp_target,
+				   size_t mapnum, void **hostaddrs,
+				   size_t *sizes, unsigned short *kinds,
+				   int async, int num_waits, ...);
 extern void GOACC_kernels (int, void (*) (void *), const void *,
 			   size_t, void **, size_t *, unsigned short *,
 			   int, int, int, int, int, ...);
@@ -230,5 +234,12 @@ extern void GOACC_update (int device, const void *openmp_target, size_t mapnum,
 			  unsigned short *kinds, int async,
 			  int num_waits, ...);
 extern void GOACC_wait (int, int, ...);
+
+/* oacc-mem.c */
+
+extern void gomp_acc_insert_pointer (size_t mapnum, void **hostaddrs,
+				     size_t *sizes, void *kinds);
+extern void gomp_acc_remove_pointer (void *h, bool force_copyfrom, int async,
+				     int mapnum);
 
 #endif /* LIBGOMP_G_H */

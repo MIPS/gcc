@@ -9409,6 +9409,9 @@ expand_omp_target (struct omp_region *region)
     case GF_OMP_TARGET_KIND_OACC_DATA:
       start_ix = BUILT_IN_GOACC_DATA_START;
       break;
+    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+      start_ix = BUILT_IN_GOACC_ENTER_EXIT_DATA;
+      break;
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
       start_ix = BUILT_IN_GOACC_UPDATE;
       break;
@@ -9543,6 +9546,7 @@ expand_omp_target (struct omp_region *region)
   args->quick_push (t4);
 
   if (kind == GF_OMP_TARGET_KIND_OACC_DATA
+      || kind == GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA
       || kind == GF_OMP_TARGET_KIND_OACC_UPDATE)
     {
       int idx;
@@ -9555,9 +9559,9 @@ expand_omp_target (struct omp_region *region)
 	t1 = fold_convert_loc (gimple_location (entry_stmt),
 		      integer_type_node, build_int_cst (integer_type_node, -2));
 
-      args->quick_push (t1);
+      args->safe_push (t1);
       idx = args->length ();
-      args->quick_push (fold_convert_loc (gimple_location (entry_stmt),
+      args->safe_push (fold_convert_loc (gimple_location (entry_stmt),
 			integer_type_node, integer_minus_one_node));
 
       c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
@@ -9569,7 +9573,7 @@ expand_omp_target (struct omp_region *region)
 	    {
 	      if (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_WAIT)
 		{
-		  args->quick_push (fold_convert (integer_type_node,
+		  args->safe_push (fold_convert (integer_type_node,
 				OMP_CLAUSE_WAIT_EXPR (t)));
 		  n++;
 		}
@@ -11844,6 +11848,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case OMP_CLAUSE_MAP_FORCE_DEALLOC:
 	  case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
 	    gcc_assert (kind == GF_OMP_TARGET_KIND_OACC_DATA
+			|| kind == GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA
 			|| kind == GF_OMP_TARGET_KIND_OACC_UPDATE);
 	    break;
 	  default:
@@ -11943,6 +11948,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  talign_shift = 3;
 	  break;
 	case GF_OMP_TARGET_KIND_OACC_DATA:
+	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
 	case GF_OMP_TARGET_KIND_OACC_UPDATE:
 	  tkind_type = short_unsigned_type_node;
 	  talign_shift = 8;
@@ -12149,7 +12155,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	   || kind == GF_OMP_TARGET_KIND_OACC_DATA)
     new_body = tgt_body;
   if (kind != GF_OMP_TARGET_KIND_UPDATE
-      && kind != GF_OMP_TARGET_KIND_OACC_UPDATE)
+      && kind != GF_OMP_TARGET_KIND_OACC_UPDATE
+      && kind != GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA)
     {
       gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
       gimple_omp_set_body (stmt, new_body);

@@ -1,3 +1,13 @@
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_enter_exit_data): New function.
+	(c_parser_pragma): Handle PRAGMA_OACC_ENTER_DATA and
+	PRAGMA_OACC_EXIT_DATA.
+	(OACC_ENTER_DATA_CLAUSE_MASK): New macro.
+	(OACC_EXIT_DATA_CLAUSE_MASK): New macro.
+	(c_parser_oacc_update): Don't create a new stmt if the pragma
+	is bogus.
+
 2014-10-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_update): Don't create a new stmt

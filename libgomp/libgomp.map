@@ -317,6 +317,7 @@ GOACC_2.0 {
   global:
 	GOACC_data_end;
 	GOACC_data_start;
+	GOACC_enter_exit_data;
 	GOACC_kernels;
 	GOACC_parallel;
 	GOACC_update;

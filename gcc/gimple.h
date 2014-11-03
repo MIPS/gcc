@@ -109,6 +109,7 @@ enum gf_mask {
     GF_OMP_TARGET_KIND_UPDATE	= 2,
     GF_OMP_TARGET_KIND_OACC_DATA = 3,
     GF_OMP_TARGET_KIND_OACC_UPDATE = 4,
+    GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA = 5,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier

@@ -1242,6 +1242,7 @@ static vec<tree, va_gc> *c_parser_expr_list (c_parser *, bool, bool,
 static tree c_parser_oacc_loop (location_t, c_parser *, char *);
 static void c_parser_omp_construct (c_parser *);
 static void c_parser_omp_threadprivate (c_parser *);
+static void c_parser_oacc_enter_exit_data (c_parser *, bool);
 static void c_parser_oacc_update (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
 static void c_parser_omp_flush (c_parser *);
@@ -9544,6 +9545,14 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
 
   switch (id)
     {
+    case PRAGMA_OACC_ENTER_DATA:
+      c_parser_oacc_enter_exit_data (parser, true);
+      return false;
+
+    case PRAGMA_OACC_EXIT_DATA:
+      c_parser_oacc_enter_exit_data (parser, false);
+      return false;
+
     case PRAGMA_OACC_UPDATE:
       if (context != pragma_compound)
 	{
@@ -11945,6 +11954,87 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
 }
 
 /* OpenACC 2.0:
+   # pragma acc enter data oacc-enter-data-clause[optseq] new-line
+
+   or
+
+   # pragma acc exit data oacc-exit-data-clause[optseq] new-line
+
+
+   LOC is the location of the #pragma token.
+*/
+
+#define OACC_ENTER_DATA_CLAUSE_MASK					\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_ASYNC)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPYIN)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_CREATE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_WAIT) )
+
+#define OACC_EXIT_DATA_CLAUSE_MASK					\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_ASYNC)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPYOUT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DELETE) 		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_WAIT) )
+
+static void
+c_parser_oacc_enter_exit_data (c_parser *parser, bool enter)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+  tree clauses, stmt;
+
+  c_parser_consume_pragma (parser);
+
+  if (!c_parser_next_token_is (parser, CPP_NAME))
+    {
+      c_parser_error (parser, enter
+		      ? "expected %<data%> in %<#pragma acc enter data%>"
+		      : "expected %<data%> in %<#pragma acc exit data%>");
+      c_parser_skip_to_pragma_eol (parser);
+      return;
+    }
+
+  const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+  if (strcmp (p, "data") != 0)
+    {
+      c_parser_error (parser, "invalid pragma");
+      c_parser_skip_to_pragma_eol (parser);
+      return;
+    }
+
+  c_parser_consume_token (parser);
+
+  if (enter)
+    clauses = c_parser_oacc_all_clauses (parser, OACC_ENTER_DATA_CLAUSE_MASK,
+					 "#pragma acc enter data");
+  else
+    clauses = c_parser_oacc_all_clauses (parser, OACC_EXIT_DATA_CLAUSE_MASK,
+					 "#pragma acc exit data");
+
+  if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
+    {
+      error_at (loc, enter
+		? "%<#pragma acc enter data%> has no data movement clause"
+		: "%<#pragma acc exit data%> has no data movement clause");
+      return;
+    }
+
+  stmt = enter ? make_node (OACC_ENTER_DATA) : make_node (OACC_EXIT_DATA);;
+  TREE_TYPE (stmt) = void_type_node;
+  if (enter)
+    OACC_ENTER_DATA_CLAUSES (stmt) = clauses;
+  else
+    OACC_EXIT_DATA_CLAUSES (stmt) = clauses;
+  SET_EXPR_LOCATION (stmt, loc);
+  add_stmt (stmt);
+}
+
+
+/* OpenACC 2.0:
+
    # pragma acc loop oacc-loop-clause[optseq] new-line
      structured-block
 
