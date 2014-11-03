@@ -2501,6 +2501,181 @@ treerr
 		 @var{<called-fun>} @var{<chaining>}
 		 @var{<call-arguments> ...})}, where everything is a tree }#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;
+(defvar tree_call_more_cmatcher_cache_tuple)
+(setq tree_call_more_cmatcher_cache_tuple (make_multiple discr_multiple 32))
+;;
+(defun patexpand_tree_call_more_expr  (sexpr env pctx)
+  (debug "patexpand_tree_call_more_expr" "; sexpr=" sexpr "\n.. env=" env "\n.. pctx=" pctx)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check pctx" (is_a pctx class_pattern_expansion_context) pctx)
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(curpair (pair_tail (list_first cont)))
+	(argsp (patternexpand_pairlist_as_tuple curpair env pctx loc))
+	(nbargs (multiple_length argsp))
+	(nbcallargs (-i nbargs 2))
+	)
+    (debug "patexpand_tree_call_more_expr" "; loc=" loc "; cont=" cont
+	   "\n.. argsp=" argsp)
+    (when (<i nbargs 2)
+      (error_at loc
+		"(TREE_CALL_MORE_EXPR <calledfun> <chain> <callargs>...) needs at least two arguments but got only $1"
+		nbargs)
+      (return))
+    (let (
+	  (cachelen (multiple_length tree_call_more_cmatcher_cache_tuple))
+	  (cmat (if (<i nbcallargs cachelen)
+		    (multiple_nth tree_call_more_cmatcher_cache_tuple nbcallargs)
+		  ()))
+	  )
+      (unless cmat
+	;; grow the cache if needed
+	(if (>=i nbcallargs cachelen)
+	    (let ( (newcachelen (+i 1 (ori 0xf (+i 5 (*i 3 (/iraw nbcallargs 2))))))
+		   (newtup (make_multiple discr_multiple newcachelen))
+		   )
+	      (foreach_long_upto
+	       (0 (-i cachelen 1))
+	       (:long hix)
+	       (multiple_put_nth newtup hix (multiple_nth tree_call_more_cmatcher_cache_tuple hix)))
+	      (setq tree_call_more_cmatcher_cache_tuple newtup)))
+	(let (
+	      (argsymblist (list 'tr_fun 'tr_chain))
+	      )
+	  (foreach_long_upto
+	   (0 (-i nbcallargs 1))
+	   (:long cix)
+	   (let ( (curargname (string4out discr_string "TR_ARG_" cix))
+		  (curargsymb (create_symbolstr curargname))
+		  )
+	     (debug "patexpand_tree_call_more_expr" "; curargsymb=" curargsymb)
+	     (list_append argsymblist curargsymb)
+	     )
+	   )
+	  (debug "patexpand_tree_call_more_expr" "; loc=" loc
+		 " argssymblist=" argsymblist)
+	  (let ( (tupargsymb (list_to_multiple argsymblist discr_multiple))
+		 (cmatname (string4out discr_string "TREE_CALL_MORE_" nbcallargs))
+		 (cmatsymb (create_symbolstr cmatname))
+		 )
+	    (debug "patexpand_tree_call_more_expr" "; loc=" loc
+		   " tupargsymb=" tupargsymb
+		   "\n.. cmatsymb=" cmatsymb)
+	    (let (
+		  (trbind (instance class_formal_binding
+				    :binder 'tr
+				    :fbind_type ctype_tree))
+		  (tupargbind (multiple_map
+			       tupargsymb
+			       (lambda (tsymb)
+				 (instance class_formal_binding
+					   :binder tsymb
+					   :fbind_type ctype_tree))))
+		  (cmtest
+		   (let
+		       ( (cmt (make_list discr_list))
+			 (treecallstate 'treecallstate)
+			 (tr 'tr)
+			 )
+		     (add2list
+		      cmt
+		      ##{ /* $CMATNAME $TREECALLSTATE generated test for tree_call_more ? */
+		      $TR && TREE_CODE($TR) == CALL_EXPR
+		      && call_expr_narg ($TR) >= $NBCALLARGS
+		      }#
+		      )
+		     (debug "patexpand_tree_call_more_expr" "; cmtest=" cmt)
+		     cmt))
+		  (cmfill
+		   (let ( (cmf (make_list discr_list))
+			  (treecallstate 'treecallstate)
+			  (tr 'tr)
+			  (tr_fun 'tr_fun)
+			  (tr_chain 'tr_chain)
+			  )
+		     (add2list
+		      cmf
+		      ##{ /* $CMATNAME $TREECALLSTATE generated fill for tree_call_more_expr ! */
+		      $TR_FUN = CALL_EXPR_FN($TR)	      ;
+		      $TR_CHAIN = CALL_EXPR_STATIC_CHAIN($TR) ;
+		      }#)
+		     (foreach_in_multiple
+		      (tupargsymb)
+		      (curargsymb :long aix)
+		      (if (>=i aix 2)
+			  (let ( (nix (-i aix 2))
+				 )
+			    (add2list cmf
+				      ##{ $CURARGSYMB = CALL_EXPR_ARG ($TR, $NIX) ;
+				      }#)))
+		      )
+		     (debug "patexpand_tree_call_more_expr" "; cmfill=" cmf)
+		     cmf
+		     ))
+		  (newcmat
+		   (instance class_cmatcher
+			     :named_name cmatsymb
+			     :amatch_matchbind trbind
+			     :amatch_out tupargbind ;; tuple of formals
+			     :cmatch_state 'treecallstate ;; symbol
+			     :cmatch_exptest (list_to_multiple cmtest discr_multiple)
+			     :cmatch_expfill (list_to_multiple cmfill discr_multiple)
+			     ))
+		  )
+	      (debug "patexpand_tree_call_more_expr" "; loc=" loc "\n.. newcmat=" newcmat)
+	      (multiple_put_nth  tree_call_more_cmatcher_cache_tuple nbcallargs newcmat)
+	      (setq cmat newcmat)
+	      (debug "patexpand_tree_call_more_expr" "; loc=" loc "; nbcallargs=" nbcallargs
+		     "\n.. updated cachetuple=" tree_call_more_cmatcher_cache_tuple
+		     "\n.. cmat=" cmat)
+	      )
+	    )
+	  )
+	)
+      (debug "patexpand_tree_call_more_expr" "; loc=" loc "; cmat=" cmat)
+      (assert_msg "check cmat" (is_a class_cmatcher cmat) cmat)
+      (let (
+	    (res
+	     (instance class_source_cmatchexpr
+		       :loca_location loc
+		       :scmatx_cmatcher cmat
+		       :sargop_args argsp)
+	     )
+	    )
+	(debug "patexpand_tree_call_more_expr" "; loc=" loc "\n.. res=" res)
+	(return res)
+	)
+      )
+    )
+  )
+;;
+;;;;;;;;;;;;;;;;
+(defun mexpand_tree_call_more_expr (sexpr env mexpander modctx)
+  (debug "mexpand_tree_call_more_expr" "; sexpr=" sexpr "\n.. env=" env "\n.. modctx=" modctx)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	)
+    (error_at loc "TREE_CALL_MORE_EXPR cannot be used as expression")
+    (return)
+    )
+  )
+
+(export_patmacro tree_call_more_expr patexpand_tree_call_more_expr mexpand_tree_call_more_expr
+		 :doc #{The $TREE_CALL_MORE_EXPR is for patterns or
+		 expressions for treecode @code{CALL_EXPR} with more
+		 arguments than given. Usage is
+		 @code{(TREE_CALL_MORE_EXPR @var{<called-fun>}
+		 @var{<chaining>} @var{<call-arguments> ...})}, where
+		 everything is a tree }. So
+		 @code{?(tree_call_more_expr ?tfun ?tchain ?ta0 ?ta1)}
+		 will match call trees with two or more arguments.}#)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Iterator on function argument 
 (defciterator foreach_argument_in_function_tree
