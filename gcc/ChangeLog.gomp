@@ -1,5 +1,9 @@
 2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* builtins.def (DEF_GOACC_BUILTIN): Revert erroneous checkin.
+
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* oacc-builtins.def (BUILT_IN_GOACC_GET_NUM_THREADS): New built-in
 	function.
 	(BUILT_IN_ACC_GET_DEVICE_TYPE): Likewise.
