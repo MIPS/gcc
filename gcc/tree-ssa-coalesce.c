@@ -850,11 +850,11 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 
 	     This is handled by simply removing the SRC of the copy from the
 	     live list, and processing the stmt normally.  */
-	  if (is_gimple_assign (stmt))
+	  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
 	    {
-	      tree lhs = gimple_assign_lhs (stmt);
-	      tree rhs1 = gimple_assign_rhs1 (stmt);
-	      if (gimple_assign_copy_p (stmt)
+	      tree lhs = gimple_assign_lhs (assign_stmt);
+	      tree rhs1 = gimple_assign_rhs1 (assign_stmt);
+	      if (gimple_assign_copy_p (assign_stmt)
                   && TREE_CODE (lhs) == SSA_NAME
                   && TREE_CODE (rhs1) == SSA_NAME)
 		live_track_clear_var (live, rhs1);
@@ -1003,9 +1003,10 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 	    {
 	    case GIMPLE_ASSIGN:
 	      {
-		tree lhs = gimple_assign_lhs (stmt);
-		tree rhs1 = gimple_assign_rhs1 (stmt);
-		if (gimple_assign_ssa_name_copy_p (stmt)
+		gassign *assign_stmt = as_a <gassign *> (stmt);
+		tree lhs = gimple_assign_lhs (assign_stmt);
+		tree rhs1 = gimple_assign_rhs1 (assign_stmt);
+		if (gimple_assign_ssa_name_copy_p (assign_stmt)
 		    && gimple_can_coalesce_p (lhs, rhs1))
 		  {
 		    v1 = SSA_NAME_VERSION (lhs);
