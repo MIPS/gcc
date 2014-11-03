@@ -195,46 +195,50 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      /* Walk the RHS operands.  If the LHS is of a non-renamable type or
-         is a register variable, we may use a COMPONENT_REF on the RHS.  */
-      if (wi)
-	{
-	  tree lhs = gimple_assign_lhs (stmt);
-	  wi->val_only
-	    = (is_gimple_reg_type (TREE_TYPE (lhs)) && !is_gimple_reg (lhs))
-	      || gimple_assign_rhs_class (stmt) != GIMPLE_SINGLE_RHS;
+      {
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+
+	/* Walk the RHS operands.  If the LHS is of a non-renamable type or
+	   is a register variable, we may use a COMPONENT_REF on the RHS.  */
+	if (wi)
+	  {
+	    tree lhs = gimple_assign_lhs (assign_stmt);
+	    wi->val_only
+	      = (is_gimple_reg_type (TREE_TYPE (lhs)) && !is_gimple_reg (lhs))
+		|| gimple_assign_rhs_class (assign_stmt) != GIMPLE_SINGLE_RHS;
+	  }
+
+	for (i = 1; i < gimple_num_ops (assign_stmt); i++)
+	  {
+	    ret = walk_tree (gimple_op_ptr (assign_stmt, i), callback_op, wi,
+			     pset);
+	    if (ret)
+	      return ret;
+	  }
+
+	/* Walk the LHS.  If the RHS is appropriate for a memory, we
+	   may use a COMPONENT_REF on the LHS.  */
+	if (wi)
+	  {
+	    /* If the RHS is of a non-renamable type or is a register variable,
+	       we may use a COMPONENT_REF on the LHS.  */
+	    tree rhs1 = gimple_assign_rhs1 (assign_stmt);
+	    wi->val_only
+	      = (is_gimple_reg_type (TREE_TYPE (rhs1)) && !is_gimple_reg (rhs1))
+		|| gimple_assign_rhs_class (assign_stmt) != GIMPLE_SINGLE_RHS;
+	    wi->is_lhs = true;
 	}
 
-      for (i = 1; i < gimple_num_ops (stmt); i++)
-	{
-	  ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi,
-			   pset);
-	  if (ret)
-	    return ret;
-	}
+	ret = walk_tree (gimple_op_ptr (assign_stmt, 0), callback_op, wi, pset);
+	if (ret)
+	  return ret;
 
-      /* Walk the LHS.  If the RHS is appropriate for a memory, we
-	 may use a COMPONENT_REF on the LHS.  */
-      if (wi)
-	{
-          /* If the RHS is of a non-renamable type or is a register variable,
-	     we may use a COMPONENT_REF on the LHS.  */
-	  tree rhs1 = gimple_assign_rhs1 (stmt);
-	  wi->val_only
-	    = (is_gimple_reg_type (TREE_TYPE (rhs1)) && !is_gimple_reg (rhs1))
-	      || gimple_assign_rhs_class (stmt) != GIMPLE_SINGLE_RHS;
-	  wi->is_lhs = true;
-	}
-
-      ret = walk_tree (gimple_op_ptr (stmt, 0), callback_op, wi, pset);
-      if (ret)
-	return ret;
-
-      if (wi)
-	{
-	  wi->val_only = true;
-	  wi->is_lhs = false;
-	}
+	if (wi)
+	  {
+	    wi->val_only = true;
+	    wi->is_lhs = false;
+	  }
+      }
       break;
 
     case GIMPLE_CALL:

@@ -1,5 +1,11 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple-walk.c (walk_gimple_op): Within case GIMPLE_ASSIGN,
+	introduce local gassign * "assign_stmt" and use it in place of
+	"stmt" for typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-dse.c (dse_optimize_stmt): Add checked cast.  Replace
 	is_gimple_assign with dyn_cast, introducing local gassign *
 	"assign_stmt", using it in place of "stmt" for typesafety.
