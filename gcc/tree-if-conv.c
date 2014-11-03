@@ -291,10 +291,10 @@ is_predicated (basic_block bb)
 static enum tree_code
 parse_predicate (tree cond, tree *op0, tree *op1)
 {
-  gimple s;
+  gassign *s;
 
   if (TREE_CODE (cond) == SSA_NAME
-      && is_gimple_assign (s = SSA_NAME_DEF_STMT (cond)))
+      && (s = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (cond))))
     {
       if (TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison)
 	{
@@ -786,7 +786,7 @@ ifcvt_can_use_mask_load_store (gimple stmt)
    - LHS is not var decl.  */
 
 static bool
-if_convertible_gimple_assign_stmt_p (gimple stmt,
+if_convertible_gimple_assign_stmt_p (gassign *stmt,
 				     vec<data_reference_p> refs,
 				     bool *any_mask_load_store)
 {
@@ -890,7 +890,8 @@ if_convertible_stmt_p (gimple stmt, vec<data_reference_p> refs,
       return true;
 
     case GIMPLE_ASSIGN:
-      return if_convertible_gimple_assign_stmt_p (stmt, refs,
+      return if_convertible_gimple_assign_stmt_p (as_a <gassign *> (stmt),
+						  refs,
 						  any_mask_load_store);
 
     case GIMPLE_CALL:
@@ -1410,7 +1411,7 @@ find_phi_replacement_condition (basic_block bb, tree *cond,
    REDUC, OP0 and OP1 contain reduction stmt and its operands.  */
 
 static bool
-is_cond_scalar_reduction (gimple phi, gimple *reduc,
+is_cond_scalar_reduction (gimple phi, gassign **reduc,
 			  tree *op0, tree *op1)
 {
   tree lhs, r_op1, r_op2;
@@ -1449,7 +1450,8 @@ is_cond_scalar_reduction (gimple phi, gimple *reduc,
   if (PHI_ARG_DEF_FROM_EDGE (header_phi, latch_e) != PHI_RESULT (phi))
     return false;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt
       || gimple_has_volatile_ops (stmt))
     return false;
 
@@ -1467,11 +1469,11 @@ is_cond_scalar_reduction (gimple phi, gimple *reduc,
   if (!has_single_use (lhs))
     return false;
 
-  reduction_op = gimple_assign_rhs_code (stmt);
+  reduction_op = gimple_assign_rhs_code (assign_stmt);
   if (reduction_op != PLUS_EXPR && reduction_op != MINUS_EXPR)
     return false;
-  r_op1 = gimple_assign_rhs1 (stmt);
-  r_op2 = gimple_assign_rhs2 (stmt);
+  r_op1 = gimple_assign_rhs1 (assign_stmt);
+  r_op2 = gimple_assign_rhs2 (assign_stmt);
 
   /* Make R_OP1 to hold reduction variable.  */
   if (r_op2 == PHI_RESULT (header_phi)
@@ -1497,7 +1499,7 @@ is_cond_scalar_reduction (gimple phi, gimple *reduc,
     }
 
   *op0 = r_op1; *op1 = r_op2;
-  *reduc = stmt;
+  *reduc = assign_stmt;
   return true;
 }
 
@@ -1520,7 +1522,7 @@ is_cond_scalar_reduction (gimple phi, gimple *reduc,
   Returns rhs of resulting PHI assignment.  */
 
 static tree
-convert_scalar_cond_reduction (gimple reduc, gimple_stmt_iterator *gsi,
+convert_scalar_cond_reduction (gassign *reduc, gimple_stmt_iterator *gsi,
 			       tree cond, tree op0, tree op1, bool swap)
 {
   gimple_stmt_iterator stmt_it;
@@ -1601,7 +1603,7 @@ predicate_scalar_phi (gphi *phi, tree cond,
     {
       tree arg_0, arg_1;
       tree op0, op1;
-      gimple reduc;
+      gassign *reduc;
 
       /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
       if (EDGE_PRED (bb, 1)->src == true_bb)

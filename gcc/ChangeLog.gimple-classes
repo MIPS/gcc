@@ -1,5 +1,21 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-if-conv.c (parse_predicate): Replace is_gimple_assign
+	with a dyn_cast, strengthening local "s" from gimple to gassign *.
+	(if_convertible_gimple_assign_stmt_p): Strengthen param "stmt"
+	from gimple to gassign *.
+	(if_convertible_stmt_p): Add a checked cast within
+	case GIMPLE_ASSIGN.
+	(is_cond_scalar_reduction): Strengthen output param "reduc" from
+	gimple * to gassign **.  Replace check against GIMPLE_ASSIGN with
+	a dyn_cast, introducing local gassign * "assign_stmt", using it in
+	place of "stmt" for typesafety.
+	(convert_scalar_cond_reduction): Strengthen param "reduc" from
+	gimple to gassign *.
+	(predicate_scalar_phi): Likewise for local "reduc".
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-data-ref.c (split_constant_offset_1): Replace check against
 	GIMPLE_ASSIGN with a dyn_cast, strengthening local "def_stmt" from
 	gimple to gassign *.
