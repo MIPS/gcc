@@ -240,17 +240,18 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       for (i = num_ops; i > 0; i--)
 	{
 	  tree op = gimple_op (stmt, i - 1);
+	  gassign *assign_stmt;
 	  if (op == NULL_TREE)
 	    continue;
 	  if (i == 1 && (is_gimple_call (stmt) || is_gimple_assign (stmt)))
 	    gimplify_expr (&op, &pre, NULL, is_gimple_lvalue, fb_lvalue);
 	  else if (i == 2
-		   && is_gimple_assign (stmt)
+		   && (assign_stmt = dyn_cast <gassign *> (stmt))
 		   && num_ops == 2
 		   && get_gimple_rhs_class (gimple_expr_code (stmt))
 		      == GIMPLE_SINGLE_RHS)
 	    gimplify_expr (&op, &pre, NULL,
-			   rhs_predicate_for (gimple_assign_lhs (stmt)),
+			   rhs_predicate_for (gimple_assign_lhs (assign_stmt)),
 			   fb_rvalue);
 	  else if (i == 2 && is_gimple_call (stmt))
 	    {
@@ -269,13 +270,14 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       if (lhs && !is_gimple_reg (lhs))
 	{
 	  bool need_temp = false;
+	  gassign *assign_stmt;
 
-	  if (is_gimple_assign (stmt)
+	  if ((assign_stmt = dyn_cast <gassign *> (stmt))
 	      && num_ops == 2
 	      && get_gimple_rhs_class (gimple_expr_code (stmt))
 		 == GIMPLE_SINGLE_RHS)
-	    gimplify_expr (gimple_assign_rhs1_ptr (stmt), &pre, NULL,
-			   rhs_predicate_for (gimple_assign_lhs (stmt)),
+	    gimplify_expr (gimple_assign_rhs1_ptr (assign_stmt), &pre, NULL,
+			   rhs_predicate_for (gimple_assign_lhs (assign_stmt)),
 			   fb_rvalue);
 	  else if (is_gimple_reg (lhs))
 	    {
