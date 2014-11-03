@@ -2672,7 +2672,7 @@ treerr
 		 arguments than given. Usage is
 		 @code{(TREE_CALL_MORE_EXPR @var{<called-fun>}
 		 @var{<chaining>} @var{<call-arguments> ...})}, where
-		 everything is a tree }. So
+		 everything is a tree. So
 		 @code{?(tree_call_more_expr ?tfun ?tchain ?ta0 ?ta1)}
 		 will match call trees with two or more arguments. See also
 		 $FOREACH_ARGUMENT_IN_CALL_EXPR_TREE}#)
