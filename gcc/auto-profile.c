@@ -1262,10 +1262,17 @@ afdo_propagate_circuit (const bb_set &annotated_bb, edge_set *annotated_edge)
     if (!is_bb_annotated (bb, annotated_bb))
       continue;
     def_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
-    while (def_stmt && gimple_code (def_stmt) == GIMPLE_ASSIGN
-           && gimple_assign_single_p (def_stmt)
-           && TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME)
-      def_stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_stmt));
+    while (def_stmt)
+      {
+	gassign *def_assign = dyn_cast <gassign *> (def_stmt);
+	if (!def_assign)
+	  break;
+	if (!gimple_assign_single_p (def_assign))
+	  break;
+	if (TREE_CODE (gimple_assign_rhs1 (def_assign)) != SSA_NAME)
+	  break;
+	def_stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_assign));
+      }
     if (!def_stmt)
       continue;
     gphi *phi_stmt = dyn_cast <gphi *> (def_stmt);

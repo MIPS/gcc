@@ -1,3 +1,13 @@
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* auto-profile.c (afdo_propagate_circuit): Replace a check for
+	GIMPLE_ASSIGN within the while loop with a dyn_cast, introducing
+	a local "def_assign", using it in place of "stmt" for typesafety.
+	This involves replacing the series of while conditions in the head
+	of the while into a list of conditionals within its body that
+	break out of the loop, thus requiring the conditions to be
+	negated.
+
 2014-10-31  David Malcolm  <dmalcolm@redhat.com>
 
 	* tree-ssa-forwprop.c (get_prop_source_stmt): Strengthen return
