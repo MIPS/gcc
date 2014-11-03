@@ -1556,7 +1556,175 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $lhs  = gimple_call_lhs($gc);
    $fndecl = gimple_call_fndecl($gc);
    $nbargs = gimple_call_num_args($gc);
-  }# )
+   }# )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; add pattern matching ?(gimple_call_args ?lhs ?fndecl ?arg0 ?arg1 ... ?argn)
+
+(defvar gimple_call_args_cmatcher_cache_tuple)
+(setq gimple_call_args_cmatcher_cache_tuple (make_multiple discr_multiple 32))
+(defun patexpand_gimple_call_args (sexpr env pctx)
+  (debug "patexpand_gimple_call_args" "; sexpr=" sexpr  "\n.. env=" env "\n.. pctx=" pctx)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check pctx" (is_a pctx class_pattern_expansion_context) pctx)
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(curpair (pair_tail (list_first cont)))
+	(argsp (patternexpand_pairlist_as_tuple curpair env pctx loc))
+	(nbargs (multiple_length argsp))
+	(nbcallargs (-i nbargs 2))
+	)
+    (debug "patexpand_gimple_call_args" "; loc=" loc "; cont=" cont
+	   "\n.. argsp=" argsp)
+    (when (<i nbargs 2)
+      (error_at loc
+		"pattern ?(GIMPLE_CALL_ARGS <lhs> <fun> [<arg0>...]) with too few #$1 arguments"
+		nbargs)
+      (return))
+    (let (
+	  (cachelen (multiple_length gimple_call_args_cmatcher_cache_tuple))
+	  (cmat (if (<i nbcallargs cachelen)
+		    (multiple_nth gimple_call_args_cmatcher_cache_tuple nbcallargs)
+		  ()))
+	  )
+      (if (>=i nbcallargs cachelen)
+	  (let ( (newcachelen (+i 1 (ori 0xf (+i 5 (*i 3 (/iraw nbcallargs 2))))))
+		 (newtup (make_multiple discr_multiple newcachelen))
+		 )
+	    (foreach_long_upto
+	     (0 (-i cachelen 1))
+	     (:long hix)
+	     (multiple_put_nth newtup hix (multiple_nth gimple_call_args_cmatcher_cache_tuple hix)))
+	    (setq gimple_call_args_cmatcher_cache_tuple newtup)))
+      (let (
+	    (argsymblist (list 'tr_lhs 'tr_fun))
+	    )
+	(foreach_long_upto
+	 (0 (-i nbcallargs 1))
+	 (:long cix)
+	 (let ( (curargname (string4out discr_string "TR_ARG_" cix))
+		(curargsymb (create_symbolstr curargname))
+		)
+	   (debug "patexpand_gimple_call_args" "; curargsymb=" curargsymb)
+	   (list_append argsymblist curargsymb)
+	   )
+	 )
+	(debug "patexpand_gimple_call_args" "; loc=" loc
+	       " argssymblist=" argsymblist)
+	(let ( (tupargsymb (list_to_multiple argsymblist discr_multiple))
+	       (cmatname (string4out discr_string "GIMPLE_CALL_ARGS_" nbcallargs))
+	       (cmatsymb (create_symbolstr cmatname))
+	       )
+	  (debug "patexpand_gimple_call_args" "; loc=" loc
+		 " tupargsymb=" tupargsymb
+		 "\n.. cmatsymb=" cmatsymb)
+	  (let (
+		(gibind (instance class_formal_binding
+				  :binder 'gi
+				  :fbind_type ctype_gimple))
+		(tupargbind (multiple_map
+			     tupargsymb
+			     (lambda (tsymb)
+			       (instance class_formal_binding
+					 :binder tsymb
+					 :fbind_type ctype_tree))))
+		(cmtest
+		 (let
+		     ( (cmt (make_list discr_list))
+		       (gimplecallstate 'gimplecallstate)
+		       (gi 'gi)
+		       )
+		   (add2list
+		    cmt
+		    ##{ /* $CMATNAME $GIMPLECALLSTATE generated test for gimple_call_args ? */
+		    ($GI && gimple_code($GI)==GIMPLE_CALL && gimple_call_num_args($GI)== $NBCALLARGS)
+		    }#
+		    )
+		   (debug "patexpand_gimple_call_args" "; loc=" loc "; cmtest=" cmt)
+		   cmt))
+		(cmfill
+		 (let ( (cmf (make_list discr_list))
+			(gimplecallstate 'gimplecallstate)
+			(gi 'gi)
+			(tr_lhs 'tr_lhs)
+			(tr_fun 'tr_fun)
+			)
+		   (add2list
+		    cmf
+		    ##{ /* $CMATNAME $GIMPLECALLSTATE generated fill for gimple_call_args ! */
+		    $TR_LHS = gimple_call_lhs ($GI)    ;
+		    $TR_FUN = gimple_call_fndecl ($GI) ;
+		    }#)
+		   (foreach_in_multiple
+		    (tupargsymb)
+		    (curargsymb :long aix)
+		    (if (>=i aix 2)
+			(let ( (nix (-i aix 2))
+			       )
+			  (add2list cmf
+				    ##{ $CURARGSYMB = gimple_call_args ($GI, $NIX) ;
+				    }#)))
+		    )
+		   (debug "patexpand_gimple_call_args"  "; loc=" loc "; cmfill=" cmf)
+		   cmf
+		   ))
+		(newcmat
+		 (instance class_cmatcher
+			   :named_name cmatsymb
+			   :amatch_matchbind gibind
+			   :amatch_out tupargbind ;; tuple of formals
+			   :cmatch_state 'gimplecallstate ;; symbol
+			   :cmatch_exptest (list_to_multiple cmtest discr_multiple)
+			   :cmatch_expfill (list_to_multiple cmfill discr_multiple)
+			   ))
+		)
+	    (debug "patexpand_gimple_call_args" "; loc=" loc "\n.. newcmat=" newcmat)
+	    (multiple_put_nth  gimple_call_args_cmatcher_cache_tuple nbcallargs newcmat)
+	    (setq cmat newcmat)
+	    (debug "patexpand_gimple_call_args" "; loc=" loc "; nbcallargs=" nbcallargs
+		   "\n.. updated cachetuple=" 
+		   "\n.. cmat=" cmat)
+	    )
+	  )
+	)
+      (debug "patexpand_gimple_call_args" "; loc=" loc "; cmat=" cmat)
+      (assert_msg "check cmat" (is_a class_cmatcher cmat) cmat)
+      (let (
+	    (res
+	     (instance class_source_cmatchexpr
+		       :loca_location loc
+		       :scmatx_cmatcher cmat
+		       :sargop_args argsp)
+	     )
+	    )
+	(debug "patexpand_gimple_call_args" "; loc=" loc "\n.. res=" res)
+	(return res)
+	)
+      )
+    )
+  )
+
+(defun mexpand_gimple_call_args (sexpr env mexpander modctx)
+  (debug "mexpand_gimple_call_args" "; sexpr=" sexpr "\n.. env=" env "\n.. modctx=" modctx)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	)
+    (debug "mexpand_gimple_call_args" "; loc=" loc "; cont=" cont)
+    (error_at loc "unimplemented GIMPLE_CALL_ARGS macro")
+    (assert_msg "@$@unimplemented mexpand_gimple_call_args")
+    )
+  )
+;;
+(export_patmacro gimple_call_args patexpand_gimple_call_args mexpand_gimple_call_args
+		 :doc #{The $TREE_CALL_EXPR is for patterns or expressions
+		 for  @code{GIMPLE_CALL}. Usage is @code{?(GIMPLE_CALL_ARGS
+                  @var{<lhs>} @var{<fndecl>} @var{<args>...})}.}#)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; match a gimple call to a direct function of arity 1 exactly
 (defcmatcher gimple_call_1

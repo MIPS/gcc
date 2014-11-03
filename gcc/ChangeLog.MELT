@@ -1,5 +1,11 @@
 
 2014-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt: Minor chunk reindentation.
+
+	* melt/libmelt-ana-gimple.melt (gimple_call_args): Newpatmacro.
+	(patexpand_gimple_call_args, mexpand_gimple_call_args): Implementation.
+
+2014-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (arity_tree_call_expr)
 	(nth_arg_tree_call_expr): New CALL_EXPR tree related primitives.
 
