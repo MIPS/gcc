@@ -1,5 +1,19 @@
 2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* oacc-builtins.def (BUILT_IN_GOACC_GET_NUM_THREADS): New built-in
+	function.
+	(BUILT_IN_ACC_GET_DEVICE_TYPE): Likewise.
+	* omp-low.c (oacc_max_threads): New function.
+	(lower_reduction_clauses): Use the GOACC thread builtin functions to
+	determine the thread count. Handle multiple reduction variables.
+	(expand_omp_for_static_nochunk): Likewise.
+	(expand_omp_for_static_chunk): Likewise.
+	(finalize_reduction_data): General cleanups.
+	(process_reduction_data): Use acc_get_device_type to determine nthreads
+	at runtime.
+
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gimple.h (enum gf_mask): Add GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA.
 	* gimple-pretty-print.c (dump_gimple_omp_target): Handle it.
 	* gimplify.c (gimplify_scan_omp_clauses): Remove switch stmt which

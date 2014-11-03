@@ -35,6 +35,7 @@
 #include "libgomp.h"
 #include "target.h"
 #include "libgomp-plugin.h"
+#include "oacc-ptx.h"
 #include "oacc-plugin.h"
 
 #include <cuda.h>
@@ -740,79 +741,6 @@ PTX_avail(void)
   return avail;
 }
 
-#define ABORT_PTX				\
-  ".version 3.1\n"				\
-  ".target sm_30\n"				\
-  ".address_size 64\n"				\
-  ".visible .func abort;\n"			\
-  ".visible .func abort\n"			\
-  "{\n"						\
-  "trap;\n"					\
-  "ret;\n"					\
-  "}\n"						\
-  ".visible .func _gfortran_abort;\n"		\
-  ".visible .func _gfortran_abort\n"		\
-  "{\n"						\
-  "trap;\n"					\
-  "ret;\n"					\
-  "}\n" \
-
-/* Generated with:
-
-   $ echo 'int acc_on_device(int d) { return __builtin_acc_on_device(d); } int acc_on_device_h_(int *d) { return acc_on_device(*d); }' | accel-gcc/xgcc -Baccel-gcc -x c - -o - -S -m64 -O3 -fno-builtin-acc_on_device -fno-inline
-*/
-#define ACC_ON_DEVICE_PTX						\
-  "        .version        3.1\n"					\
-  "        .target sm_30\n"						\
-  "        .address_size 64\n"						\
-  ".visible .func (.param.u32 %out_retval)acc_on_device(.param.u32 %in_ar1);\n" \
-  ".visible .func (.param.u32 %out_retval)acc_on_device(.param.u32 %in_ar1)\n" \
-  "{\n"									\
-  "        .reg.u32 %ar1;\n"						\
-  ".reg.u32 %retval;\n"							\
-  "        .reg.u64 %hr10;\n"						\
-  "        .reg.u32 %r24;\n"						\
-  "        .reg.u32 %r25;\n"						\
-  "        .reg.pred %r27;\n"						\
-  "        .reg.u32 %r30;\n"						\
-  "        ld.param.u32 %ar1, [%in_ar1];\n"				\
-  "                mov.u32 %r24, %ar1;\n"				\
-  "                setp.ne.u32 %r27,%r24,4;\n"				\
-  "                set.u32.eq.u32 %r30,%r24,5;\n"			\
-  "                neg.s32 %r25, %r30;\n"				\
-  "        @%r27   bra     $L3;\n"					\
-  "                mov.u32 %r25, 1;\n"					\
-  "$L3:\n"								\
-  "                mov.u32 %retval, %r25;\n"				\
-  "        st.param.u32    [%out_retval], %retval;\n"			\
-  "        ret;\n"							\
-  "        }\n"								\
-  ".visible .func (.param.u32 %out_retval)acc_on_device_h_(.param.u64 %in_ar1);\n" \
-  ".visible .func (.param.u32 %out_retval)acc_on_device_h_(.param.u64 %in_ar1)\n" \
-  "{\n"									\
-  "        .reg.u64 %ar1;\n"						\
-  ".reg.u32 %retval;\n"							\
-  "        .reg.u64 %hr10;\n"						\
-  "        .reg.u64 %r25;\n"						\
-  "        .reg.u32 %r26;\n"						\
-  "        .reg.u32 %r27;\n"						\
-  "        ld.param.u64 %ar1, [%in_ar1];\n"				\
-  "                mov.u64 %r25, %ar1;\n"				\
-  "                ld.u32  %r26, [%r25];\n"				\
-  "        {\n"								\
-  "                .param.u32 %retval_in;\n"				\
-  "        {\n"								\
-  "                .param.u32 %out_arg0;\n"				\
-  "                st.param.u32 [%out_arg0], %r26;\n"			\
-  "                call (%retval_in), acc_on_device, (%out_arg0);\n"	\
-  "        }\n"								\
-  "                ld.param.u32    %r27, [%retval_in];\n"		\
-  "}\n"									\
-  "                mov.u32 %retval, %r27;\n"				\
-  "        st.param.u32    [%out_retval], %retval;\n"			\
-  "        ret;\n"							\
-  "        }"
-
 static void
 link_ptx (CUmodule *module, char *ptx_code)
 {
@@ -871,6 +799,16 @@ link_ptx (CUmodule *module, char *ptx_code)
     {
       GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
       GOMP_PLUGIN_fatal ("cuLinkAddData (acc_on_device) error: %s",
+			 cuErrorMsg (r));
+    }
+
+  char *goacc_internal_ptx = GOACC_INTERNAL_PTX;
+  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, goacc_internal_ptx,
+		     strlen (goacc_internal_ptx) + 1, 0, 0, 0, 0);
+  if (r != CUDA_SUCCESS)
+    {
+      GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
+      GOMP_PLUGIN_fatal ("cuLinkAddData (goacc_internal_ptx) error: %s",
 			 cuErrorMsg (r));
     }
 
@@ -1053,7 +991,7 @@ PTX_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 
   kargs[0] = &dp;
   r = cuLaunchKernel (function,
-			1, 1, 1,
+			num_gangs, 1, 1,
 			nthreads_in_block, 1, 1,
 			0, dev_str->stream, kargs, 0);
   if (r != CUDA_SUCCESS)

@@ -234,6 +234,8 @@ extern void GOACC_update (int device, const void *openmp_target, size_t mapnum,
 			  unsigned short *kinds, int async,
 			  int num_waits, ...);
 extern void GOACC_wait (int, int, ...);
+extern int GOACC_get_num_threads (void);
+extern int GOACC_get_thread_num (void);
 
 /* oacc-mem.c */
 

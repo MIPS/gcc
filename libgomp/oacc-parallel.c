@@ -129,9 +129,6 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
   splay_tree_key tgt_fn_key;
   void (*tgt_fn);
 
-  if (num_gangs != 1)
-    gomp_fatal ("num_gangs (%d) different from one is not yet supported",
-		num_gangs);
   if (num_workers != 1)
     gomp_fatal ("num_workers (%d) different from one is not yet supported",
 		num_workers);
@@ -538,4 +535,16 @@ GOACC_wait (int async, int num_waits, ...)
   goacc_wait (async, num_waits, ap);
 
   va_end (ap);
+}
+
+int
+GOACC_get_num_threads (void)
+{
+  return 1;
+}
+
+int
+GOACC_get_thread_num (void)
+{
+  return 0;
 }

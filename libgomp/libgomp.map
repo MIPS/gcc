@@ -322,6 +322,8 @@ GOACC_2.0 {
 	GOACC_parallel;
 	GOACC_update;
 	GOACC_wait;
+	GOACC_get_thread_num;
+	GOACC_get_num_threads;
 };
 
 # FIXME: Hygiene/grouping/naming?

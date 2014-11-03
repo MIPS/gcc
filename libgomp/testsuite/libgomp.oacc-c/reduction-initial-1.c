@@ -1,6 +1,4 @@
 /* { dg-do run } */
-/* TODO:
-   { dg-xfail-run-if "" { *-*-* } { "-DACC_DEVICE_TYPE_host=1" } { "" } } */
 
 int
 main(void)

@@ -1,4 +1,32 @@
 2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp.map (GOACC_get_thread_num): Declare.
+	(GOACC_get_num_threads): Declare.
+	* libgomp_g.h (GOACC_get_thread_num): Declare.
+	(GOACC_get_num_threads): Declare.
+	* oacc-parallel.c (GOACC_parallel): Handle num_gangs.
+	(GOACC_get_num_threads): New function.
+	(GOACC_get_thread_num): New function.
+	* oacc-ptx.h: New file.
+	* plugin-nvptx.c (ABORT_PTX): Remove macro. Move to oacc-ptx.h.
+	(ACC_ON_DEVICE_PTX): Likewise.
+	(link_ptx): Also link ptx code defined by GOACC_INTERNAL_PTX.
+	(PTX_exec): Handle gangs/CTAs.
+	* testsuite/libgomp.oacc-c/reduction-1.c: New test.
+	* testsuite/libgomp.oacc-c/reduction-2.c: New test.
+	* testsuite/libgomp.oacc-c/reduction-3.c: New test.
+	* testsuite/libgomp.oacc-c/reduction-4.c: New test.
+	* testsuite/libgomp.oacc-c/reduction-5.: New test.
+	* testsuite/libgomp.oacc-c/reduction-initial-1.c: New test.
+	* testsuite/libgomp.oacc-fortran/reduction-1.f90: New test.
+	* testsuite/libgomp.oacc-fortran/reduction-2.f90: New test.
+	* testsuite/libgomp.oacc-fortran/reduction-3.f90: New test.
+	* testsuite/libgomp.oacc-fortran/reduction-4.f90: New test.
+	* testsuite/libgomp.oacc-fortran/reduction-5.f90: New test.
+	* testsuite/libgomp.oacc-fortran/reduction-6.f90: New test.
+
+2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* libgomp.map (GOACC_enter_exit_data): Declare as global.
 	* libgomp_g.h (GOACC_enter_exit_data): Declare.
