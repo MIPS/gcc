@@ -818,7 +818,7 @@ walk_ssa_copies (tree op, hash_set<tree> **global_visited = NULL)
 	{
 	  if (gimple_assign_load_p (SSA_NAME_DEF_STMT (op)))
 	    goto done;
-	  op = gimple_assign_rhs1 (SSA_NAME_DEF_STMT (op));
+	  op = gimple_assign_rhs1 (as_a <gassign *> (SSA_NAME_DEF_STMT (op)));
 	}
       STRIP_NOPS (op);
     }
@@ -1039,11 +1039,12 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
 	*instance = base_pointer;
       return;
     }
+  gassign *def_assign;
   if (TREE_CODE (base_pointer) == SSA_NAME
       && SSA_NAME_DEF_STMT (base_pointer)
-      && gimple_assign_single_p (SSA_NAME_DEF_STMT (base_pointer)))
-    base_type = TREE_TYPE (gimple_assign_rhs1
-			    (SSA_NAME_DEF_STMT (base_pointer)));
+      && (def_assign =
+	    gimple_assign_single_p (SSA_NAME_DEF_STMT (base_pointer))))
+    base_type = TREE_TYPE (gimple_assign_rhs1 (def_assign));
  
   if (POINTER_TYPE_P (base_type))
     combine_speculation_with (TYPE_MAIN_VARIANT (TREE_TYPE (base_type)),
@@ -1094,9 +1095,9 @@ struct type_change_info
 static bool
 noncall_stmt_may_be_vtbl_ptr_store (gimple stmt)
 {
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      tree lhs = gimple_assign_lhs (stmt);
+      tree lhs = gimple_assign_lhs (assign_stmt);
 
       if (gimple_clobber_p (stmt))
 	return false;
@@ -1519,23 +1520,23 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 	  ref = walk_ssa_copies (ref);
 
 	  /* Check if definition looks like vtable lookup.  */
+	  gassign *def_assign;
 	  if (TREE_CODE (ref) == SSA_NAME
 	      && !SSA_NAME_IS_DEFAULT_DEF (ref)
-	      && gimple_assign_load_p (SSA_NAME_DEF_STMT (ref))
-	      && TREE_CODE (gimple_assign_rhs1
-			     (SSA_NAME_DEF_STMT (ref))) == MEM_REF)
+	      && (def_assign = gimple_assign_load_p (SSA_NAME_DEF_STMT (ref)))
+	      && TREE_CODE (gimple_assign_rhs1 (def_assign)) == MEM_REF)
 	    {
 	      ref = get_base_address
-		     (TREE_OPERAND (gimple_assign_rhs1
-				     (SSA_NAME_DEF_STMT (ref)), 0));
+		      (TREE_OPERAND (gimple_assign_rhs1 (def_assign), 0));
 	      ref = walk_ssa_copies (ref);
 	      /* Find base address of the lookup and see if it looks like
 		 vptr load.  */
 	      if (TREE_CODE (ref) == SSA_NAME
 		  && !SSA_NAME_IS_DEFAULT_DEF (ref)
-		  && gimple_assign_load_p (SSA_NAME_DEF_STMT (ref)))
+		  && (def_assign =
+			gimple_assign_load_p (SSA_NAME_DEF_STMT (ref))))
 		{
-		  tree ref_exp = gimple_assign_rhs1 (SSA_NAME_DEF_STMT (ref));
+		  tree ref_exp = gimple_assign_rhs1 (def_assign);
 		  tree base_ref = get_ref_base_and_extent
 				   (ref_exp, &offset2, &size, &max_size);
 

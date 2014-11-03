@@ -1,5 +1,21 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* ipa-polymorphic-call.c (walk_ssa_copies): Add checked cast.
+	(ipa_polymorphic_call_context::ipa_polymorphic_call_context):
+	Introduce local gassign * "def_assign" from result of
+	gimple_assign_single_p, using it in place of
+	SSA_NAME_DEF_STMT (base_pointer) for typesafety.
+	(noncall_stmt_may_be_vtbl_ptr_store): Replace is_gimple_assign
+	with a dyn_cast, introducing local gassign * "assign_stmt", using
+	it in place of "stmt" for typesafety.
+	(ipa_polymorphic_call_context::get_dynamic_type): Introduce local
+	gassign * "def_assign", setting it in two places from the result
+	of gimple_assign_load_p, and using it in place of
+	SSA_NAME_DEF_STMT (ref) for typesafety, noting that "ref" can
+	change.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple-walk.c (walk_gimple_op): Within case GIMPLE_ASSIGN,
 	introduce local gassign * "assign_stmt" and use it in place of
 	"stmt" for typesafety.
