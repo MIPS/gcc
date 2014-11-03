@@ -1,5 +1,16 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Within
+	case GIMPLE_ASSIGN, introduce local "assign_stmt" and use in place
+	of "stmt" for typesafety.
+	(mark_all_reaching_defs_necessary_1): Add a checked cast.
+	(propagate_necessity): Likewise.
+	(remove_dead_stmt): Introduce local gassign * "assign_stmt" from
+	result of gimple_assign_single_p and use it in place of "stmt" for
+	typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-copy.c (stmt_may_generate_copy): Replace check against
 	GIMPLE_ASSIGN with a dyn_cast, introducing local gassign *
 	"assign_stmt", using it in place of "stmt" for typesafety.

@@ -289,9 +289,12 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
       break;
 
     case GIMPLE_ASSIGN:
-      if (TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
-	  && TREE_CLOBBER_P (gimple_assign_rhs1 (stmt)))
-	return;
+      {
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+	if (TREE_CODE (gimple_assign_lhs (assign_stmt)) == SSA_NAME
+	    && TREE_CLOBBER_P (gimple_assign_rhs1 (assign_stmt)))
+	  return;
+      }
       break;
 
     default:
@@ -570,7 +573,7 @@ mark_all_reaching_defs_necessary_1 (ao_ref *ref ATTRIBUTE_UNUSED,
   if (!chain_ovfl
       && gimple_assign_single_p (def_stmt))
     {
-      tree lhs = gimple_assign_lhs (def_stmt);
+      tree lhs = gimple_assign_lhs (as_a <gassign *> (def_stmt));
       if (!ref_may_be_aliased (lhs))
 	return false;
     }
@@ -868,7 +871,7 @@ propagate_necessity (bool aggressive)
 	    {
 	      tree rhs;
 	      /* If this is a load mark things necessary.  */
-	      rhs = gimple_assign_rhs1 (stmt);
+	      rhs = gimple_assign_rhs1 (as_a <gassign *> (stmt));
 	      if (TREE_CODE (rhs) != SSA_NAME
 		  && !is_gimple_min_invariant (rhs)
 		  && TREE_CODE (rhs) != CONSTRUCTOR)
@@ -1125,18 +1128,19 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
 
   /* If this is a store into a variable that is being optimized away,
      add a debug bind stmt if possible.  */
+  gassign *assign_stmt;
   if (MAY_HAVE_DEBUG_STMTS
-      && gimple_assign_single_p (stmt)
-      && is_gimple_val (gimple_assign_rhs1 (stmt)))
+      && (assign_stmt = gimple_assign_single_p (stmt))
+      && is_gimple_val (gimple_assign_rhs1 (assign_stmt)))
     {
-      tree lhs = gimple_assign_lhs (stmt);
+      tree lhs = gimple_assign_lhs (assign_stmt);
       if ((TREE_CODE (lhs) == VAR_DECL || TREE_CODE (lhs) == PARM_DECL)
 	  && !DECL_IGNORED_P (lhs)
 	  && is_gimple_reg_type (TREE_TYPE (lhs))
 	  && !is_global_var (lhs)
 	  && !DECL_HAS_VALUE_EXPR_P (lhs))
 	{
-	  tree rhs = gimple_assign_rhs1 (stmt);
+	  tree rhs = gimple_assign_rhs1 (assign_stmt);
 	  gdebug *note
 	    = gimple_build_debug_bind (lhs, unshare_expr (rhs), stmt);
 	  gsi_insert_after (i, note, GSI_SAME_STMT);
