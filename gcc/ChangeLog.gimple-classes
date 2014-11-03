@@ -1,5 +1,18 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-alias.c (stmt_may_clobber_global_p): Within
+	case GIMPLE_ASSIGN, add a checked cast.
+	(ao_ref_init_from_ptr_and_size): Both the gimple_assign_single_p
+	and is_gimple_assign conditionals require a GIMPLE_ASSIGN, so
+	begin with a dyn_cast <gassign *> and check for NULL,
+	strengthening local "stmt" from gimple to gassign *.
+	(ref_maybe_used_by_stmt_p): Replace is_gimple_assign with a
+	dyn_cast, introducing local "assign_stmt" and using it in place of
+	"stmt" for typesafety.
+	(stmt_may_clobber_ref_p_1): Add a checked cast.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-nested.c (convert_local_reference_stmt): Add a checked
 	cast within case GIMPLE_ASSIGN.
 

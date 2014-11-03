@@ -387,7 +387,7 @@ stmt_may_clobber_global_p (gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      lhs = gimple_assign_lhs (stmt);
+      lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
       return (TREE_CODE (lhs) != SSA_NAME
 	      && ref_may_alias_global_p (lhs));
     case GIMPLE_CALL:
@@ -605,17 +605,19 @@ ao_ref_init_from_ptr_and_size (ao_ref *ref, tree ptr, tree size)
   ref->ref = NULL_TREE;
   if (TREE_CODE (ptr) == SSA_NAME)
     {
-      gimple stmt = SSA_NAME_DEF_STMT (ptr);
-      if (gimple_assign_single_p (stmt)
-	  && gimple_assign_rhs_code (stmt) == ADDR_EXPR)
-	ptr = gimple_assign_rhs1 (stmt);
-      else if (is_gimple_assign (stmt)
-	       && gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
-	       && TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST)
+      gassign *stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (ptr));
+      if (stmt)
 	{
-	  ptr = gimple_assign_rhs1 (stmt);
-	  extra_offset = BITS_PER_UNIT
-			 * int_cst_value (gimple_assign_rhs2 (stmt));
+	  if (gimple_assign_single_p (stmt)
+	      && gimple_assign_rhs_code (stmt) == ADDR_EXPR)
+	    ptr = gimple_assign_rhs1 (stmt);
+	  else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
+		   && TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST)
+	    {
+	      ptr = gimple_assign_rhs1 (stmt);
+	      extra_offset = (BITS_PER_UNIT
+			      * int_cst_value (gimple_assign_rhs2 (stmt)));
+	    }
 	}
     }
 
@@ -1816,18 +1818,18 @@ ref_maybe_used_by_call_p (gcall *call, ao_ref *ref)
 bool
 ref_maybe_used_by_stmt_p (gimple stmt, ao_ref *ref)
 {
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
       tree rhs;
 
       /* All memory assign statements are single.  */
-      if (!gimple_assign_single_p (stmt))
+      if (!gimple_assign_single_p (assign_stmt))
 	return false;
 
-      rhs = gimple_assign_rhs1 (stmt);
+      rhs = gimple_assign_rhs1 (assign_stmt);
       if (is_gimple_reg (rhs)
 	  || is_gimple_min_invariant (rhs)
-	  || gimple_assign_rhs_code (stmt) == CONSTRUCTOR)
+	  || gimple_assign_rhs_code (assign_stmt) == CONSTRUCTOR)
 	return false;
 
       return refs_may_alias_p (rhs, ref);
@@ -2178,7 +2180,7 @@ stmt_may_clobber_ref_p_1 (gimple stmt, ao_ref *ref)
     }
   else if (gimple_assign_single_p (stmt))
     {
-      tree lhs = gimple_assign_lhs (stmt);
+      tree lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
       if (TREE_CODE (lhs) != SSA_NAME)
 	{
 	  ao_ref r;
