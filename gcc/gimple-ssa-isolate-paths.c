@@ -95,15 +95,17 @@ insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
      then simplify the RHS to enable more DCE.   Note that we require the
      statement to be a GIMPLE_ASSIGN which filters out calls on the RHS.  */
   gimple stmt = gsi_stmt (*si_p);
+  gassign *assign_stmt;
   if (walk_stmt_load_store_ops (stmt, (void *)op, NULL, check_loadstore)
-      && is_gimple_assign (stmt)
-      && INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt))))
+      && (assign_stmt = dyn_cast <gassign *> (stmt))
+      && INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_lhs (assign_stmt))))
     {
       /* We just need to turn the RHS into zero converted to the proper
          type.  */
-      tree type = TREE_TYPE (gimple_assign_lhs (stmt));
-      gimple_assign_set_rhs_code (stmt, INTEGER_CST);
-      gimple_assign_set_rhs1 (stmt, fold_convert (type, integer_zero_node));
+      tree type = TREE_TYPE (gimple_assign_lhs (assign_stmt));
+      gimple_assign_set_rhs_code (assign_stmt, INTEGER_CST);
+      gimple_assign_set_rhs1 (assign_stmt,
+			      fold_convert (type, integer_zero_node));
       update_stmt (stmt);
     }
 

@@ -1,5 +1,12 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple-ssa-isolate-paths.c
+	(insert_trap_and_remove_trailing_statements): Replace a call to
+	is_gimple_assign with a dyn_cast, introducing a local
+	"assign_stmt", and using it in place of "stmt" for typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimplify-me.c (gimple_regimplify_operands): Replace a couple of
 	is_gimple_assign calls with dyn_cast, introducing locals
 	"assign_stmt" and using them in place of "stmt" for typesafety.
