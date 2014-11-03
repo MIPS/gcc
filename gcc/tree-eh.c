@@ -2760,7 +2760,7 @@ stmt_could_throw_1_p (gimple stmt)
     {
       if (is_gimple_assign (stmt)
 	  && TREE_CODE_CLASS (code) == tcc_comparison)
-	t = TREE_TYPE (gimple_assign_rhs1 (stmt));
+	t = TREE_TYPE (gimple_assign_rhs1 (as_a <gassign *> (stmt)));
       else if (gimple_code (stmt) == GIMPLE_COND)
 	t = TREE_TYPE (gimple_cond_lhs (stmt));
       else
@@ -2776,7 +2776,9 @@ stmt_could_throw_1_p (gimple stmt)
     }
 
   /* Check if the main expression may trap.  */
-  t = is_gimple_assign (stmt) ? gimple_assign_rhs2 (stmt) : NULL;
+  t = (is_gimple_assign (stmt)
+       ? gimple_assign_rhs2 (as_a <gassign *> (stmt))
+       : NULL);
   ret = operation_could_trap_helper_p (code, fp_operation, honor_trapv,
 				       honor_nans, honor_snans, t,
 				       &handled);
@@ -3514,7 +3516,7 @@ sink_clobbers (basic_block bb)
 	continue;
       if (gimple_code (stmt) == GIMPLE_LABEL)
 	break;
-      lhs = gimple_assign_lhs (stmt);
+      lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
       /* Unfortunately we don't have dominance info updated at this
 	 point, so checking if
 	 dominated_by_p (CDI_DOMINATORS, succbb,

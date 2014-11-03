@@ -1,5 +1,10 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-eh.c (stmt_could_throw_1_p): Add checked casts.
+	(sink_clobbers): Add checked cast.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-if-conv.c (parse_predicate): Replace is_gimple_assign
 	with a dyn_cast, strengthening local "s" from gimple to gassign *.
 	(if_convertible_gimple_assign_stmt_p): Strengthen param "stmt"
