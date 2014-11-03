@@ -589,16 +589,17 @@ gimple_simplify (gimple stmt,
     {
     case GIMPLE_ASSIGN:
       {
-	enum tree_code code = gimple_assign_rhs_code (stmt);
-	tree type = TREE_TYPE (gimple_assign_lhs (stmt));
-	switch (gimple_assign_rhs_class (stmt))
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+	enum tree_code code = gimple_assign_rhs_code (assign_stmt);
+	tree type = TREE_TYPE (gimple_assign_lhs (assign_stmt));
+	switch (gimple_assign_rhs_class (assign_stmt))
 	  {
 	  case GIMPLE_SINGLE_RHS:
 	    if (code == REALPART_EXPR
 		|| code == IMAGPART_EXPR
 		|| code == VIEW_CONVERT_EXPR)
 	      {
-		tree op0 = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
+		tree op0 = TREE_OPERAND (gimple_assign_rhs1 (assign_stmt), 0);
 		if (valueize && TREE_CODE (op0) == SSA_NAME)
 		  {
 		    tree tem = valueize (op0);
@@ -611,7 +612,7 @@ gimple_simplify (gimple stmt,
 	      }
 	    else if (code == BIT_FIELD_REF)
 	      {
-		tree rhs1 = gimple_assign_rhs1 (stmt);
+		tree rhs1 = gimple_assign_rhs1 (assign_stmt);
 		tree op0 = TREE_OPERAND (rhs1, 0);
 		if (valueize && TREE_CODE (op0) == SSA_NAME)
 		  {
@@ -628,7 +629,7 @@ gimple_simplify (gimple stmt,
 	    else if (code == SSA_NAME
 		     && valueize)
 	      {
-		tree op0 = gimple_assign_rhs1 (stmt);
+		tree op0 = gimple_assign_rhs1 (assign_stmt);
 		tree valueized = valueize (op0);
 		if (!valueized || op0 == valueized)
 		  return false;
@@ -639,7 +640,7 @@ gimple_simplify (gimple stmt,
 	    break;
 	  case GIMPLE_UNARY_RHS:
 	    {
-	      tree rhs1 = gimple_assign_rhs1 (stmt);
+	      tree rhs1 = gimple_assign_rhs1 (assign_stmt);
 	      if (valueize && TREE_CODE (rhs1) == SSA_NAME)
 		{
 		  tree tem = valueize (rhs1);
@@ -652,14 +653,14 @@ gimple_simplify (gimple stmt,
 	    }
 	  case GIMPLE_BINARY_RHS:
 	    {
-	      tree rhs1 = gimple_assign_rhs1 (stmt);
+	      tree rhs1 = gimple_assign_rhs1 (assign_stmt);
 	      if (valueize && TREE_CODE (rhs1) == SSA_NAME)
 		{
 		  tree tem = valueize (rhs1);
 		  if (tem)
 		    rhs1 = tem;
 		}
-	      tree rhs2 = gimple_assign_rhs2 (stmt);
+	      tree rhs2 = gimple_assign_rhs2 (assign_stmt);
 	      if (valueize && TREE_CODE (rhs2) == SSA_NAME)
 		{
 		  tree tem = valueize (rhs2);
@@ -673,21 +674,21 @@ gimple_simplify (gimple stmt,
 	    }
 	  case GIMPLE_TERNARY_RHS:
 	    {
-	      tree rhs1 = gimple_assign_rhs1 (stmt);
+	      tree rhs1 = gimple_assign_rhs1 (assign_stmt);
 	      if (valueize && TREE_CODE (rhs1) == SSA_NAME)
 		{
 		  tree tem = valueize (rhs1);
 		  if (tem)
 		    rhs1 = tem;
 		}
-	      tree rhs2 = gimple_assign_rhs2 (stmt);
+	      tree rhs2 = gimple_assign_rhs2 (assign_stmt);
 	      if (valueize && TREE_CODE (rhs2) == SSA_NAME)
 		{
 		  tree tem = valueize (rhs2);
 		  if (tem)
 		    rhs2 = tem;
 		}
-	      tree rhs3 = gimple_assign_rhs3 (stmt);
+	      tree rhs3 = gimple_assign_rhs3 (assign_stmt);
 	      if (valueize && TREE_CODE (rhs3) == SSA_NAME)
 		{
 		  tree tem = valueize (rhs3);

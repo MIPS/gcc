@@ -1,5 +1,11 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple-match-head.c (gimple_simplify): Within
+	case GIMPLE_ASSIGN, introduce local "assign_stmt" via a checked
+	cast and use it in place of "stmt" for typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple-fold.h (rewrite_to_defined_overflow): Strengthen from
 	gimple to gassign *.
 	* gimple-fold.c (rewrite_to_defined_overflow): Likewise.
