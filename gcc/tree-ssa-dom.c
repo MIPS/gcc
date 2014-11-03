@@ -275,7 +275,7 @@ static void record_equality (tree, tree);
 static void record_equivalences_from_phis (basic_block);
 static void record_equivalences_from_incoming_edge (basic_block);
 static void eliminate_redundant_computations (gimple_stmt_iterator *);
-static void record_equivalences_from_stmt (gimple, int);
+static void record_equivalences_from_stmt (gassign *, int);
 static void remove_local_expressions_from_table (void);
 static void restore_vars_to_original_value (void);
 static edge single_incoming_edge_ignoring_loop_edges (basic_block);
@@ -291,37 +291,37 @@ initialize_hash_element (gimple stmt, tree lhs,
   enum gimple_code code = gimple_code (stmt);
   struct hashable_expr *expr = &element->expr;
 
-  if (code == GIMPLE_ASSIGN)
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      enum tree_code subcode = gimple_assign_rhs_code (stmt);
+      enum tree_code subcode = gimple_assign_rhs_code (assign_stmt);
 
       switch (get_gimple_rhs_class (subcode))
         {
         case GIMPLE_SINGLE_RHS:
 	  expr->kind = EXPR_SINGLE;
-	  expr->type = TREE_TYPE (gimple_assign_rhs1 (stmt));
-	  expr->ops.single.rhs = gimple_assign_rhs1 (stmt);
+	  expr->type = TREE_TYPE (gimple_assign_rhs1 (assign_stmt));
+	  expr->ops.single.rhs = gimple_assign_rhs1 (assign_stmt);
 	  break;
         case GIMPLE_UNARY_RHS:
 	  expr->kind = EXPR_UNARY;
-	  expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
+	  expr->type = TREE_TYPE (gimple_assign_lhs (assign_stmt));
 	  expr->ops.unary.op = subcode;
-	  expr->ops.unary.opnd = gimple_assign_rhs1 (stmt);
+	  expr->ops.unary.opnd = gimple_assign_rhs1 (assign_stmt);
 	  break;
         case GIMPLE_BINARY_RHS:
 	  expr->kind = EXPR_BINARY;
-	  expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
+	  expr->type = TREE_TYPE (gimple_assign_lhs (assign_stmt));
 	  expr->ops.binary.op = subcode;
-	  expr->ops.binary.opnd0 = gimple_assign_rhs1 (stmt);
-	  expr->ops.binary.opnd1 = gimple_assign_rhs2 (stmt);
+	  expr->ops.binary.opnd0 = gimple_assign_rhs1 (assign_stmt);
+	  expr->ops.binary.opnd1 = gimple_assign_rhs2 (assign_stmt);
 	  break;
         case GIMPLE_TERNARY_RHS:
 	  expr->kind = EXPR_TERNARY;
-	  expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
+	  expr->type = TREE_TYPE (gimple_assign_lhs (assign_stmt));
 	  expr->ops.ternary.op = subcode;
-	  expr->ops.ternary.opnd0 = gimple_assign_rhs1 (stmt);
-	  expr->ops.ternary.opnd1 = gimple_assign_rhs2 (stmt);
-	  expr->ops.ternary.opnd2 = gimple_assign_rhs3 (stmt);
+	  expr->ops.ternary.opnd0 = gimple_assign_rhs1 (assign_stmt);
+	  expr->ops.ternary.opnd1 = gimple_assign_rhs2 (assign_stmt);
+	  expr->ops.ternary.opnd2 = gimple_assign_rhs3 (assign_stmt);
 	  break;
         default:
           gcc_unreachable ();
@@ -1319,12 +1319,13 @@ record_equivalences_from_incoming_edge (basic_block bb)
 	      && TREE_CODE (rhs) == INTEGER_CST)
 	    {
 	      gimple defstmt = SSA_NAME_DEF_STMT (lhs);
+	      gassign *defassign;
 
 	      if (defstmt
-		  && is_gimple_assign (defstmt)
-		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (defstmt)))
+		  && (defassign = dyn_cast <gassign *> (defstmt))
+		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (defassign)))
 		{
-		  tree old_rhs = gimple_assign_rhs1 (defstmt);
+		  tree old_rhs = gimple_assign_rhs1 (defassign);
 
 		  /* If the conversion widens the original value and
 		     the constant is in the range of the type of OLD_RHS,
@@ -1683,20 +1684,21 @@ simple_iv_increment_p (gimple stmt)
   gimple phi;
   size_t i;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt)
     return false;
 
-  lhs = gimple_assign_lhs (stmt);
+  lhs = gimple_assign_lhs (assign_stmt);
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  code = gimple_assign_rhs_code (stmt);
+  code = gimple_assign_rhs_code (assign_stmt);
   if (code != PLUS_EXPR
       && code != MINUS_EXPR
       && code != POINTER_PLUS_EXPR)
     return false;
 
-  preinc = gimple_assign_rhs1 (stmt);
+  preinc = gimple_assign_rhs1 (assign_stmt);
   if (TREE_CODE (preinc) != SSA_NAME)
     return false;
 
@@ -2080,7 +2082,7 @@ eliminate_redundant_computations (gimple_stmt_iterator* gsi)
   /* Get the type of the expression we are trying to optimize.  */
   if (is_gimple_assign (stmt))
     {
-      expr_type = TREE_TYPE (gimple_assign_lhs (stmt));
+      expr_type = TREE_TYPE (gimple_assign_lhs (as_a <gassign *> (stmt)));
       assigns_var_p = true;
     }
   else if (gimple_code (stmt) == GIMPLE_COND)
@@ -2153,12 +2155,10 @@ eliminate_redundant_computations (gimple_stmt_iterator* gsi)
    lifing is done by eliminate_redundant_computations.  */
 
 static void
-record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
+record_equivalences_from_stmt (gassign *stmt, int may_optimize_p)
 {
   tree lhs;
   enum tree_code lhs_code;
-
-  gcc_assert (is_gimple_assign (stmt));
 
   lhs = gimple_assign_lhs (stmt);
   lhs_code = TREE_CODE (lhs);
@@ -2366,7 +2366,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 
       /* We only need to consider cases that can yield a gimple operand.  */
       if (gimple_assign_single_p (stmt))
-        rhs = gimple_assign_rhs1 (stmt);
+        rhs = gimple_assign_rhs1 (as_a <gassign *> (stmt));
       else if (ggoto *goto_stmt = dyn_cast <ggoto *> (stmt))
         rhs = gimple_goto_dest (goto_stmt);
       else if (gswitch *swtch_stmt = dyn_cast <gswitch *> (stmt))
@@ -2413,11 +2413,12 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
       stmt = gsi_stmt (si);
 
       /* Perform simple redundant store elimination.  */
-      if (gimple_assign_single_p (stmt)
-	  && TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
+      gassign *assign_stmt;
+      if ((assign_stmt = gimple_assign_single_p (stmt))
+	  && TREE_CODE (gimple_assign_lhs (assign_stmt)) != SSA_NAME)
 	{
-	  tree lhs = gimple_assign_lhs (stmt);
-	  tree rhs = gimple_assign_rhs1 (stmt);
+	  tree lhs = gimple_assign_lhs (assign_stmt);
+	  tree rhs = gimple_assign_rhs1 (assign_stmt);
 	  tree cached_lhs;
 	  gassign *new_stmt;
 	  if (TREE_CODE (rhs) == SSA_NAME)
@@ -2456,7 +2457,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 
   /* Record any additional equivalences created by this statement.  */
   if (is_gimple_assign (stmt))
-    record_equivalences_from_stmt (stmt, may_optimize_p);
+    record_equivalences_from_stmt (as_a <gassign *> (stmt), may_optimize_p);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
      where it goes.  If that is the case, then mark the CFG as altered.
@@ -2657,7 +2658,7 @@ get_rhs_or_phi_arg (gimple stmt)
   if (gimple_code (stmt) == GIMPLE_PHI)
     return degenerate_phi_result (as_a <gphi *> (stmt));
   else if (gimple_assign_single_p (stmt))
-    return gimple_assign_rhs1 (stmt);
+    return gimple_assign_rhs1 (as_a <gassign *> (stmt));
   else
     gcc_unreachable ();
 }
@@ -2672,7 +2673,7 @@ get_lhs_or_phi_result (gimple stmt)
   if (gimple_code (stmt) == GIMPLE_PHI)
     return gimple_phi_result (stmt);
   else if (is_gimple_assign (stmt))
-    return gimple_assign_lhs (stmt);
+    return gimple_assign_lhs (as_a <gassign *> (stmt));
   else
     gcc_unreachable ();
 }
@@ -2804,10 +2805,11 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 
 	  /* If we replaced a variable index with a constant, then
 	     we would need to update the invariant flag for ADDR_EXPRs.  */
-          if (gimple_assign_single_p (use_stmt)
-              && TREE_CODE (gimple_assign_rhs1 (use_stmt)) == ADDR_EXPR)
+	  gassign *use_assign;
+          if ((use_assign = gimple_assign_single_p (use_stmt))
+              && TREE_CODE (gimple_assign_rhs1 (use_assign)) == ADDR_EXPR)
 	    recompute_tree_invariant_for_addr_expr
-                (gimple_assign_rhs1 (use_stmt));
+                (gimple_assign_rhs1 (use_assign));
 
 	  /* If we cleaned up EH information from the statement,
 	     mark its containing block as needing EH cleanups.  */
@@ -2820,12 +2822,12 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 
 	  /* Propagation may expose new trivial copy/constant propagation
 	     opportunities.  */
-          if (gimple_assign_single_p (use_stmt)
-              && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME
-              && (TREE_CODE (gimple_assign_rhs1 (use_stmt)) == SSA_NAME
-                  || is_gimple_min_invariant (gimple_assign_rhs1 (use_stmt))))
+          if ((use_assign = gimple_assign_single_p (use_stmt))
+              && TREE_CODE (gimple_assign_lhs (use_assign)) == SSA_NAME
+              && (TREE_CODE (gimple_assign_rhs1 (use_assign)) == SSA_NAME
+                  || is_gimple_min_invariant (gimple_assign_rhs1 (use_assign))))
             {
-	      tree result = get_lhs_or_phi_result (use_stmt);
+	      tree result = get_lhs_or_phi_result (use_assign);
 	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
 	    }
 
