@@ -1,5 +1,12 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-call-cdce.c (check_pow): Replace check against
+	GIMPLE_ASSIGN with a dyn_cast, strengthening local "base_def" from
+	gimple to gassign *.
+	(gen_conditions_for_pow_int_base): Add a checked cast.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-affine.c (aff_combination_expand): Replace is_gimple_assign
 	with a dyn_cast, strengthening local "def" from gimple to
 	gassign *.

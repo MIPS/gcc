@@ -223,13 +223,13 @@ check_pow (gcall *pow_call)
   else if (bc == SSA_NAME)
     {
       tree base_val0, type;
-      gimple base_def;
+      gassign *base_def;
       int bit_sz;
 
       /* Only handles cases where base value is converted
          from integer values.  */
-      base_def = SSA_NAME_DEF_STMT (base);
-      if (gimple_code (base_def) != GIMPLE_ASSIGN)
+      base_def = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (base));
+      if (!base_def)
         return false;
 
       if (gimple_assign_rhs_code (base_def) != FLOAT_EXPR)
@@ -474,7 +474,7 @@ gen_conditions_for_pow_int_base (tree base, tree expn,
   inp_domain exp_domain;
 
   base_def = SSA_NAME_DEF_STMT (base);
-  base_val0 = gimple_assign_rhs1 (base_def);
+  base_val0 = gimple_assign_rhs1 (as_a <gassign *> (base_def));
   int_type = TREE_TYPE (base_val0);
   bit_sz = TYPE_PRECISION (int_type);
   gcc_assert (bit_sz > 0
