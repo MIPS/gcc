@@ -634,7 +634,6 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
   unsigned i;
   aff_tree to_add, current, curre;
   tree e, rhs;
-  gimple def;
   widest_int scale;
   struct name_expansion *exp;
 
@@ -654,8 +653,8 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
 	name = TREE_OPERAND (e, 0);
       if (TREE_CODE (name) != SSA_NAME)
 	continue;
-      def = SSA_NAME_DEF_STMT (name);
-      if (!is_gimple_assign (def) || gimple_assign_lhs (def) != name)
+      gassign *def = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (name));
+      if (!def || gimple_assign_lhs (def) != name)
 	continue;
 
       code = gimple_assign_rhs_code (def);
