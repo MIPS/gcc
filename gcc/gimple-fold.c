@@ -302,7 +302,7 @@ maybe_fold_reference (tree expr, bool is_lhs)
 static tree
 fold_gimple_assign (gimple_stmt_iterator *si)
 {
-  gimple stmt = gsi_stmt (*si);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*si));
   enum tree_code subcode = gimple_assign_rhs_code (stmt);
   location_t loc = gimple_location (stmt);
 
@@ -600,7 +600,7 @@ gsi_replace_with_seq_vops (gimple_stmt_iterator *si_p, gimple_seq stmts)
     {
       gimple new_stmt = gsi_stmt (i);
       if ((gimple_assign_single_p (new_stmt)
-	   && !is_gimple_reg (gimple_assign_lhs (new_stmt)))
+	   && !is_gimple_reg (gimple_assign_lhs (as_a <gassign *> (new_stmt))))
 	  || (is_gimple_call (new_stmt)
 	      && (gimple_call_flags (new_stmt)
 		  & (ECF_NOVOPS | ECF_PURE | ECF_CONST | ECF_NORETURN)) == 0))
@@ -1364,22 +1364,25 @@ get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
   switch (gimple_code (def_stmt))
     {
       case GIMPLE_ASSIGN:
-        /* The RHS of the statement defining VAR must either have a
-           constant length or come from another SSA_NAME with a constant
-           length.  */
-        if (gimple_assign_single_p (def_stmt)
-            || gimple_assign_unary_nop_p (def_stmt))
-          {
-            tree rhs = gimple_assign_rhs1 (def_stmt);
-            return get_maxval_strlen (rhs, length, visited, type);
-          }
-	else if (gimple_assign_rhs_code (def_stmt) == COND_EXPR)
-	  {
-	    tree op2 = gimple_assign_rhs2 (def_stmt);
-	    tree op3 = gimple_assign_rhs3 (def_stmt);
-	    return get_maxval_strlen (op2, length, visited, type)
-		   && get_maxval_strlen (op3, length, visited, type);
-          }
+	{
+	  gassign *def_assign = as_a <gassign *> (def_stmt);
+	  /* The RHS of the statement defining VAR must either have a
+	     constant length or come from another SSA_NAME with a constant
+	     length.  */
+	  if (gimple_assign_single_p (def_assign)
+	      || gimple_assign_unary_nop_p (def_assign))
+	    {
+	      tree rhs = gimple_assign_rhs1 (def_assign);
+	      return get_maxval_strlen (rhs, length, visited, type);
+	    }
+	  else if (gimple_assign_rhs_code (def_assign) == COND_EXPR)
+	    {
+	      tree op2 = gimple_assign_rhs2 (def_assign);
+	      tree op3 = gimple_assign_rhs3 (def_assign);
+	      return get_maxval_strlen (op2, length, visited, type)
+		&& get_maxval_strlen (op3, length, visited, type);
+	    }
+	}
         return false;
 
       case GIMPLE_PHI:
@@ -2874,7 +2877,8 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	  || gimple_num_ops (stmt) <= get_gimple_rhs_num_ops (rcode))
 	{
 	  maybe_build_generic_op (rcode,
-				  TREE_TYPE (gimple_assign_lhs (stmt)),
+				  TREE_TYPE (gimple_assign_lhs (
+					       as_a <gassign *> (stmt))),
 				  &ops[0], ops[1], ops[2]);
 	  gimple_assign_set_rhs_with_ops_1 (gsi, rcode,
 					    ops[0], ops[1], ops[2]);
@@ -3012,18 +3016,21 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      if (gimple_assign_rhs_class (stmt) == GIMPLE_SINGLE_RHS)
-	{
-	  tree *rhs = gimple_assign_rhs1_ptr (stmt);
-	  if ((REFERENCE_CLASS_P (*rhs)
-	       || TREE_CODE (*rhs) == ADDR_EXPR)
-	      && maybe_canonicalize_mem_ref_addr (rhs))
-	    changed = true;
-	  tree *lhs = gimple_assign_lhs_ptr (stmt);
-	  if (REFERENCE_CLASS_P (*lhs)
-	      && maybe_canonicalize_mem_ref_addr (lhs))
-	    changed = true;
-	}
+      {
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+	if (gimple_assign_rhs_class (assign_stmt) == GIMPLE_SINGLE_RHS)
+	  {
+	    tree *rhs = gimple_assign_rhs1_ptr (assign_stmt);
+	    if ((REFERENCE_CLASS_P (*rhs)
+		 || TREE_CODE (*rhs) == ADDR_EXPR)
+		&& maybe_canonicalize_mem_ref_addr (rhs))
+	      changed = true;
+	    tree *lhs = gimple_assign_lhs_ptr (assign_stmt);
+	    if (REFERENCE_CLASS_P (*lhs)
+		&& maybe_canonicalize_mem_ref_addr (lhs))
+	      changed = true;
+	  }
+      }
       break;
     case GIMPLE_CALL:
       {
@@ -3101,20 +3108,22 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
     {
     case GIMPLE_ASSIGN:
       {
+	gassign *assign_stmt = as_a <gassign *> (stmt);
 	unsigned old_num_ops = gimple_num_ops (stmt);
-	enum tree_code subcode = gimple_assign_rhs_code (stmt);
-	tree lhs = gimple_assign_lhs (stmt);
+	enum tree_code subcode = gimple_assign_rhs_code (assign_stmt);
+	tree lhs = gimple_assign_lhs (assign_stmt);
 	tree new_rhs;
 	/* First canonicalize operand order.  This avoids building new
 	   trees if this is the only thing fold would later do.  */
 	if ((commutative_tree_code (subcode)
 	     || commutative_ternary_tree_code (subcode))
-	    && tree_swap_operands_p (gimple_assign_rhs1 (stmt),
-				     gimple_assign_rhs2 (stmt), false))
+	    && tree_swap_operands_p (gimple_assign_rhs1 (assign_stmt),
+				     gimple_assign_rhs2 (assign_stmt), false))
 	  {
-	    tree tem = gimple_assign_rhs1 (stmt);
-	    gimple_assign_set_rhs1 (stmt, gimple_assign_rhs2 (stmt));
-	    gimple_assign_set_rhs2 (stmt, tem);
+	    tree tem = gimple_assign_rhs1 (assign_stmt);
+	    gimple_assign_set_rhs1 (assign_stmt,
+				    gimple_assign_rhs2 (assign_stmt));
+	    gimple_assign_set_rhs2 (assign_stmt, tem);
 	    changed = true;
 	  }
 	new_rhs = fold_gimple_assign (gsi);
@@ -3336,6 +3345,7 @@ same_bool_comparison_p (const_tree expr, enum tree_code code,
 			const_tree op1, const_tree op2)
 {
   gimple s;
+  gassign *assign_s;
 
   /* The obvious case.  */
   if (TREE_CODE (expr) == code
@@ -3352,10 +3362,10 @@ same_bool_comparison_p (const_tree expr, enum tree_code code,
 	return ((code == NE_EXPR && integer_zerop (op2))
 		|| (code == EQ_EXPR && integer_nonzerop (op2)));
       s = SSA_NAME_DEF_STMT (expr);
-      if (is_gimple_assign (s)
-	  && gimple_assign_rhs_code (s) == code
-	  && operand_equal_p (gimple_assign_rhs1 (s), op1, 0)
-	  && operand_equal_p (gimple_assign_rhs2 (s), op2, 0))
+      if ((assign_s = dyn_cast <gassign *> (s))
+	  && gimple_assign_rhs_code (assign_s) == code
+	  && operand_equal_p (gimple_assign_rhs1 (assign_s), op1, 0)
+	  && operand_equal_p (gimple_assign_rhs2 (assign_s), op2, 0))
 	return true;
     }
 
@@ -3365,21 +3375,22 @@ same_bool_comparison_p (const_tree expr, enum tree_code code,
       && TREE_CODE (TREE_TYPE (op1)) == BOOLEAN_TYPE)
     {
       s = SSA_NAME_DEF_STMT (op1);
-      if (is_gimple_assign (s)
-	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison)
+      if ((assign_s = dyn_cast <gassign *> (s))
+	  && (TREE_CODE_CLASS (gimple_assign_rhs_code (assign_s))
+	      == tcc_comparison))
 	{
-	  enum tree_code c = gimple_assign_rhs_code (s);
+	  enum tree_code c = gimple_assign_rhs_code (assign_s);
 	  if ((c == NE_EXPR && integer_zerop (op2))
 	      || (c == EQ_EXPR && integer_nonzerop (op2)))
 	    return same_bool_comparison_p (expr, c,
-					   gimple_assign_rhs1 (s),
-					   gimple_assign_rhs2 (s));
+					   gimple_assign_rhs1 (assign_s),
+					   gimple_assign_rhs2 (assign_s));
 	  if ((c == EQ_EXPR && integer_zerop (op2))
 	      || (c == NE_EXPR && integer_nonzerop (op2)))
 	    return same_bool_comparison_p (expr,
 					   invert_tree_comparison (c, false),
-					   gimple_assign_rhs1 (s),
-					   gimple_assign_rhs2 (s));
+					   gimple_assign_rhs1 (assign_s),
+					   gimple_assign_rhs2 (assign_s));
 	}
     }
   return false;
@@ -3422,7 +3433,7 @@ static tree
 and_var_with_comparison (tree var, bool invert,
 			 enum tree_code code2, tree op2a, tree op2b);
 static tree
-and_var_with_comparison_1 (gimple stmt, 
+and_var_with_comparison_1 (gassign *stmt,
 			   enum tree_code code2, tree op2a, tree op2b);
 static tree
 or_comparisons_1 (enum tree_code code1, tree op1a, tree op1b,
@@ -3431,7 +3442,7 @@ static tree
 or_var_with_comparison (tree var, bool invert,
 			enum tree_code code2, tree op2a, tree op2b);
 static tree
-or_var_with_comparison_1 (gimple stmt, 
+or_var_with_comparison_1 (gassign *stmt,
 			  enum tree_code code2, tree op2a, tree op2b);
 
 /* Helper function for and_comparisons_1:  try to simplify the AND of the
@@ -3444,10 +3455,11 @@ and_var_with_comparison (tree var, bool invert,
 			 enum tree_code code2, tree op2a, tree op2b)
 {
   tree t;
-  gimple stmt = SSA_NAME_DEF_STMT (var);
+  gassign *stmt;
 
   /* We can only deal with variables whose definitions are assignments.  */
-  if (!is_gimple_assign (stmt))
+  stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (var));
+  if (!stmt)
     return NULL_TREE;
   
   /* If we have an inverted comparison, apply DeMorgan's law and rewrite
@@ -3467,7 +3479,7 @@ and_var_with_comparison (tree var, bool invert,
    Return NULL_EXPR if we can't simplify this to a single expression.  */
 
 static tree
-and_var_with_comparison_1 (gimple stmt,
+and_var_with_comparison_1 (gassign *stmt,
 			   enum tree_code code2, tree op2a, tree op2b)
 {
   tree var = gimple_assign_lhs (stmt);
@@ -3515,7 +3527,7 @@ and_var_with_comparison_1 (gimple stmt,
     {
       tree inner1 = gimple_assign_rhs1 (stmt);
       tree inner2 = gimple_assign_rhs2 (stmt);
-      gimple s;
+      gassign *s;
       tree t;
       tree partial = NULL_TREE;
       bool is_and = (innercode == BIT_AND_EXPR);
@@ -3543,7 +3555,7 @@ and_var_with_comparison_1 (gimple stmt,
       /* Next, redistribute/reassociate the AND across the inner tests.
 	 Compute the first partial result, (inner1 AND (op2a code op2b))  */
       if (TREE_CODE (inner1) == SSA_NAME
-	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner1))
+	  && (s = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (inner1)))
 	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
 	  && (t = maybe_fold_and_comparisons (gimple_assign_rhs_code (s),
 					      gimple_assign_rhs1 (s),
@@ -3575,7 +3587,7 @@ and_var_with_comparison_1 (gimple stmt,
       
       /* Compute the second partial result, (inner2 AND (op2a code op2b)) */
       if (TREE_CODE (inner2) == SSA_NAME
-	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner2))
+	  && (s = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (inner2)))
 	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
 	  && (t = maybe_fold_and_comparisons (gimple_assign_rhs_code (s),
 					      gimple_assign_rhs1 (s),
@@ -3907,10 +3919,11 @@ or_var_with_comparison (tree var, bool invert,
 			enum tree_code code2, tree op2a, tree op2b)
 {
   tree t;
-  gimple stmt = SSA_NAME_DEF_STMT (var);
+  gassign *stmt;
 
   /* We can only deal with variables whose definitions are assignments.  */
-  if (!is_gimple_assign (stmt))
+  stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (var));
+  if (!stmt)
     return NULL_TREE;
   
   /* If we have an inverted comparison, apply DeMorgan's law and rewrite
@@ -3930,7 +3943,7 @@ or_var_with_comparison (tree var, bool invert,
    Return NULL_EXPR if we can't simplify this to a single expression.  */
 
 static tree
-or_var_with_comparison_1 (gimple stmt,
+or_var_with_comparison_1 (gassign *stmt,
 			  enum tree_code code2, tree op2a, tree op2b)
 {
   tree var = gimple_assign_lhs (stmt);
@@ -3978,7 +3991,7 @@ or_var_with_comparison_1 (gimple stmt,
     {
       tree inner1 = gimple_assign_rhs1 (stmt);
       tree inner2 = gimple_assign_rhs2 (stmt);
-      gimple s;
+      gassign *s;
       tree t;
       tree partial = NULL_TREE;
       bool is_or = (innercode == BIT_IOR_EXPR);
@@ -4006,7 +4019,7 @@ or_var_with_comparison_1 (gimple stmt,
       /* Next, redistribute/reassociate the OR across the inner tests.
 	 Compute the first partial result, (inner1 OR (op2a code op2b))  */
       if (TREE_CODE (inner1) == SSA_NAME
-	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner1))
+	  && (s = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (inner1)))
 	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
 	  && (t = maybe_fold_or_comparisons (gimple_assign_rhs_code (s),
 					     gimple_assign_rhs1 (s),
@@ -4038,7 +4051,7 @@ or_var_with_comparison_1 (gimple stmt,
       
       /* Compute the second partial result, (inner2 OR (op2a code op2b)) */
       if (TREE_CODE (inner2) == SSA_NAME
-	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner2))
+	  && (s = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (inner2)))
 	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
 	  && (t = maybe_fold_or_comparisons (gimple_assign_rhs_code (s),
 					     gimple_assign_rhs1 (s),
@@ -4379,13 +4392,14 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
     {
     case GIMPLE_ASSIGN:
       {
-        enum tree_code subcode = gimple_assign_rhs_code (stmt);
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+        enum tree_code subcode = gimple_assign_rhs_code (assign_stmt);
 
         switch (get_gimple_rhs_class (subcode))
           {
           case GIMPLE_SINGLE_RHS:
             {
-              tree rhs = gimple_assign_rhs1 (stmt);
+              tree rhs = gimple_assign_rhs1 (assign_stmt);
               enum tree_code_class kind = TREE_CODE_CLASS (subcode);
 
               if (TREE_CODE (rhs) == SSA_NAME)
@@ -4489,7 +4503,7 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
               /* Handle unary operators that can appear in GIMPLE form.
                  Note that we know the single operand must be a constant,
                  so this should almost always return a simplified RHS.  */
-              tree op0 = (*valueize) (gimple_assign_rhs1 (stmt));
+              tree op0 = (*valueize) (gimple_assign_rhs1 (assign_stmt));
 
               return
 		fold_unary_ignore_overflow_loc (loc, subcode,
@@ -4499,12 +4513,12 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
           case GIMPLE_BINARY_RHS:
             {
               /* Handle binary operators that can appear in GIMPLE form.  */
-              tree op0 = (*valueize) (gimple_assign_rhs1 (stmt));
-              tree op1 = (*valueize) (gimple_assign_rhs2 (stmt));
+              tree op0 = (*valueize) (gimple_assign_rhs1 (assign_stmt));
+              tree op1 = (*valueize) (gimple_assign_rhs2 (assign_stmt));
 
 	      /* Translate &x + CST into an invariant form suitable for
 	         further propagation.  */
-	      if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
+	      if (gimple_assign_rhs_code (assign_stmt) == POINTER_PLUS_EXPR
 		  && TREE_CODE (op0) == ADDR_EXPR
 		  && TREE_CODE (op1) == INTEGER_CST)
 		{
@@ -4523,9 +4537,9 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
           case GIMPLE_TERNARY_RHS:
             {
               /* Handle ternary operators that can appear in GIMPLE form.  */
-              tree op0 = (*valueize) (gimple_assign_rhs1 (stmt));
-              tree op1 = (*valueize) (gimple_assign_rhs2 (stmt));
-              tree op2 = (*valueize) (gimple_assign_rhs3 (stmt));
+              tree op0 = (*valueize) (gimple_assign_rhs1 (assign_stmt));
+              tree op1 = (*valueize) (gimple_assign_rhs2 (assign_stmt));
+              tree op2 = (*valueize) (gimple_assign_rhs3 (assign_stmt));
 
 	      /* Fold embedded expressions in ternary codes.  */
 	      if ((subcode == COND_EXPR
@@ -5238,14 +5252,14 @@ gimple_val_nonnegative_real_p (tree val)
 
   def_stmt = SSA_NAME_DEF_STMT (val);
 
-  if (is_gimple_assign (def_stmt))
+  if (gassign *def_assign = dyn_cast <gassign *> (def_stmt))
     {
       tree op0, op1;
 
       /* See fold-const.c:tree_expr_nonnegative_p for additional
 	 cases that could be handled with recursion.  */
 
-      switch (gimple_assign_rhs_code (def_stmt))
+      switch (gimple_assign_rhs_code (def_assign))
 	{
 	case ABS_EXPR:
 	  /* Always true for floating-point operands.  */
@@ -5254,8 +5268,8 @@ gimple_val_nonnegative_real_p (tree val)
 	case MULT_EXPR:
 	  /* True if the two operands are identical (since we are
 	     restricted to floating-point inputs).  */
-	  op0 = gimple_assign_rhs1 (def_stmt);
-	  op1 = gimple_assign_rhs2 (def_stmt);
+	  op0 = gimple_assign_rhs1 (def_assign);
+	  op1 = gimple_assign_rhs2 (def_assign);
 
 	  if (op0 == op1
 	      || operand_equal_p (op0, op1, 0))

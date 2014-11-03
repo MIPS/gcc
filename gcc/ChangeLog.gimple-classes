@@ -1,5 +1,38 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple-fold.c (fold_gimple_assign): Strengthen local "stmt" from
+	gimple to gassign * via a checked cast.
+	(gsi_replace_with_seq_vops): Add a checked cast within region
+	guarded by gimple_assign_single_p.
+	(get_maxval_strlen): Within case GIMPLE_ASSIGN, introduce local
+	gassign * "def_assign" via a checked cast, and use it in place of
+	"def_stmt" for typesafety.
+	(replace_stmt_with_simplification): Add a checked cast.
+	(fold_stmt_1): In two switch statements, within case
+	GIMPLE_ASSIGN, introduce locals gassign * "assign_stmt" via
+	checked casts, and use them in place of "stmt" for typesafety.
+	(same_bool_comparison_p): Replace "is_gimple_assign" with
+	dyn_cast, introducing local "assign_s" and using it in place of
+	"s" for typesafety.
+	(and_var_with_comparison): Strengthen local "stmt" from gimple to
+	gassign * by replacing an is_gimple_assign with a dyn_cast.
+	(and_var_with_comparison_1): Strengthen param "stmt" and local "s"
+	from gimple to gassign *, replacing is_gimple_assign calls with
+	dyn_cast.
+	(or_var_with_comparison): Strengthen local "stmt" from gimple to
+	gassign * by replacing an is_gimple_assign with a dyn_cast.
+	(or_var_with_comparison_1): Strengthen param "stmt" and local "s"
+	from gimple to gassign *, replacing is_gimple_assign calls with
+	dyn_cast.
+	(gimple_fold_stmt_to_constant_1): Within case GIMPLE_ASSIGN,
+	introduce local "assign_stmt" and use in place of "stmt" for
+	typesafety.
+	(gimple_val_nonnegative_real_p): Replace is_gimple_assign with a
+	dyn_cast, introducing local "def_assign" and using it in place of
+	"def_stmt" for typesafety.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple-ssa-isolate-paths.c
 	(insert_trap_and_remove_trailing_statements): Replace a call to
 	is_gimple_assign with a dyn_cast, introducing a local
