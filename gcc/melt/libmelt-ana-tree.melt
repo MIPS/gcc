@@ -2675,7 +2675,7 @@ treerr
 		 everything is a tree. So
 		 @code{?(tree_call_more_expr ?tfun ?tchain ?ta0 ?ta1)}
 		 will match call trees with two or more arguments. See also
-		 $FOREACH_ARGUMENT_IN_CALL_EXPR_TREE}#)
+		 $FOREACH_ARGUMENT_IN_CALL_EXPR_TREE, $ARITY_TREE_CALL_EXPR and $NTH_ARG_TREE_CALL_EXPR}#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; iterator on call arguments
@@ -2683,8 +2683,9 @@ treerr
   (:tree tr_call :long firstix)
   eachtrcall
   (:tree tr_arg :long argix)
-  :doc #{Iterates within a @©ode{CALL_EXPR} tree $TR_CALL from index $FIRSTIX
-  on each argument tree $TR_ARG at index $ARGIX.}#
+  :doc #{Iterates within a @code{CALL_EXPR} tree $TR_CALL from index
+  $FIRSTIX on each argument tree $TR_ARG at index $ARGIX. See also
+  $ARITY_TREE_CALL_EXPR and $NTH_ARG_TREE_CALL_EXPR.}#
   ;; before
   #{ /* foreach_argument_in_call_expr_tree $EACHTRCALL start */
   $TR_ARG = NULL_TREE;
@@ -2705,6 +2706,21 @@ treerr
   } /* end if CALL_EXPR  $EACHTRCALL */
   /* foreach_argument_in_call_expr_tree $EACHTRCALL ended */
   }#)
+
+;;;;
+(defprimitive arity_tree_call_expr (:tree tr_call) :long
+  :doc #{Gives the arity i.e. number of arguments of a
+  @code{CALL_EXPR} tree or else -1. See also $NTH_ARG_TREE_CALL_EXPR
+  and $ARITY_TREE_CALL_EXPR}#
+  #{(($TR_CALL && TREE_CODE($TR_CALL) == CALL_EXPR)
+     ? ((long)call_expr_nargs($TR_CALL)) : -1L)}#)
+
+;;;;
+(defprimitive nth_arg_tree_call_expr (:tree tr_call :long n) :tree
+  :doc #{Gives in a @code{CALL_EXPR} tree $TR_CALL the $N-th call
+  argument (when $N >= 0 and small enough) or else the null tree. See also $ARITY_TREE_CALL_EXPR.}#
+  #{(($TR_CALL && $N >= 0 && TREE_CODE($TR_CALL) == CALL_EXPR && $N<call_expr_nargs($TR_CALL))
+     ? CALL_EXPR_ARG($TR_CALL, $N) : NULL_TREE)}#)
 
 ;; Iterator on function argument 
 (defciterator foreach_argument_in_function_tree
@@ -3599,6 +3615,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 (export_values
  ;;in alphanumerical order
  ==t
+ arity_tree_call_expr
  build_identifier_tree
  build_int_tree
  build_string_tree
@@ -3624,6 +3641,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  maptree_put
  maptree_remove
  maptree_size
+ nth_arg_tree_call_expr
  null_tree
  pop_cfun
  pragma_lex
