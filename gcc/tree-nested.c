@@ -2066,7 +2066,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_ASSIGN:
       if (gimple_clobber_p (stmt))
 	{
-	  tree lhs = gimple_assign_lhs (stmt);
+	  tree lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
 	  if (!use_pointer_in_frame (lhs)
 	      && lookup_field_for_decl (info, lhs, NO_INSERT))
 	    {
