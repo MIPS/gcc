@@ -5503,7 +5503,7 @@ arith_code_with_undefined_signed_overflow (tree_code code)
    a modified form of STMT itself.  */
 
 gimple_seq
-rewrite_to_defined_overflow (gimple stmt)
+rewrite_to_defined_overflow (gassign *stmt)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

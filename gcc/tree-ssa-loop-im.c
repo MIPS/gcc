@@ -1244,6 +1244,7 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
       edge e;
 
       gimple stmt = gsi_stmt (bsi);
+      gassign *assign_stmt;
 
       lim_data = get_lim_data (stmt);
       if (lim_data == NULL)
@@ -1298,15 +1299,16 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
          when the target loop header is executed and the stmt may
 	 invoke undefined integer or pointer overflow rewrite it to
 	 unsigned arithmetic.  */
-      if (is_gimple_assign (stmt)
-	  && INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt)))
-	  && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (gimple_assign_lhs (stmt)))
+      if ((assign_stmt = dyn_cast <gassign *> (stmt))
+	  && INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_lhs (assign_stmt)))
+	  && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (
+				        gimple_assign_lhs (assign_stmt)))
 	  && arith_code_with_undefined_signed_overflow
-	       (gimple_assign_rhs_code (stmt))
+	       (gimple_assign_rhs_code (assign_stmt))
 	  && (!ALWAYS_EXECUTED_IN (bb)
 	      || !(ALWAYS_EXECUTED_IN (bb) == level
 		   || flow_loop_nested_p (ALWAYS_EXECUTED_IN (bb), level))))
-	gsi_insert_seq_on_edge (e, rewrite_to_defined_overflow (stmt));
+	gsi_insert_seq_on_edge (e, rewrite_to_defined_overflow (assign_stmt));
       else
 	gsi_insert_on_edge (e, stmt);
     }

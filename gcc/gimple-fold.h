@@ -45,7 +45,7 @@ extern tree gimple_get_virt_method_for_vtable (HOST_WIDE_INT, tree,
 extern bool gimple_val_nonnegative_real_p (tree);
 extern tree gimple_fold_indirect_ref (tree);
 extern bool arith_code_with_undefined_signed_overflow (tree_code);
-extern gimple_seq rewrite_to_defined_overflow (gimple);
+extern gimple_seq rewrite_to_defined_overflow (gassign *);
 
 /* gimple_build, functionally matching fold_buildN, outputs stmts
    int the provided sequence, matching and simplifying them on-the-fly.

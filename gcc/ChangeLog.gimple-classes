@@ -1,5 +1,16 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple-fold.h (rewrite_to_defined_overflow): Strengthen from
+	gimple to gassign *.
+	* gimple-fold.c (rewrite_to_defined_overflow): Likewise.
+	* tree-scalar-evolution.c (scev_const_prop): Replace
+	is_gimple_assign with a dyn_cast, introducing local "assign_stmt"
+	and using it in place of "stmt" for typesafety.
+	* tree-ssa-loop-im.c
+	(move_computations_dom_walker::before_dom_children): Likewise.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple-fold.c (fold_gimple_assign): Strengthen local "stmt" from
 	gimple to gassign * via a checked cast.
 	(gsi_replace_with_seq_vops): Add a checked cast within region

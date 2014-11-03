@@ -3518,13 +3518,14 @@ scev_const_prop (void)
 		{
 		  gimple stmt = gsi_stmt (gsi2);
 		  gimple_stmt_iterator gsi3 = gsi2;
+		  gassign *assign_stmt;
 		  gsi_next (&gsi2);
 		  gsi_remove (&gsi3, false);
-		  if (is_gimple_assign (stmt)
+		  if ((assign_stmt = dyn_cast <gassign *> (stmt))
 		      && arith_code_with_undefined_signed_overflow
-					(gimple_assign_rhs_code (stmt)))
+					(gimple_assign_rhs_code (assign_stmt)))
 		    gsi_insert_seq_before (&gsi,
-					   rewrite_to_defined_overflow (stmt),
+					   rewrite_to_defined_overflow (assign_stmt),
 					   GSI_SAME_STMT);
 		  else
 		    gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
