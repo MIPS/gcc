@@ -75,8 +75,8 @@ static void collect_object_sizes_for (struct object_size_info *, tree);
 static void expr_object_size (struct object_size_info *, tree, tree);
 static bool merge_object_sizes (struct object_size_info *, tree, tree,
 				unsigned HOST_WIDE_INT);
-static bool plus_stmt_object_size (struct object_size_info *, tree, gimple);
-static bool cond_expr_object_size (struct object_size_info *, tree, gimple);
+static bool plus_stmt_object_size (struct object_size_info *, tree, gassign *);
+static bool cond_expr_object_size (struct object_size_info *, tree, gassign *);
 static void init_offset_limit (void);
 static void check_for_plus_in_loops (struct object_size_info *, tree);
 static void check_for_plus_in_loops_1 (struct object_size_info *, tree,
@@ -786,7 +786,7 @@ merge_object_sizes (struct object_size_info *osi, tree dest, tree orig,
    need reexamination  later.  */
 
 static bool
-plus_stmt_object_size (struct object_size_info *osi, tree var, gimple stmt)
+plus_stmt_object_size (struct object_size_info *osi, tree var, gassign *stmt)
 {
   int object_size_type = osi->object_size_type;
   unsigned int varno = SSA_NAME_VERSION (var);
@@ -858,7 +858,7 @@ plus_stmt_object_size (struct object_size_info *osi, tree var, gimple stmt)
    later.  */
 
 static bool
-cond_expr_object_size (struct object_size_info *osi, tree var, gimple stmt)
+cond_expr_object_size (struct object_size_info *osi, tree var, gassign *stmt)
 {
   tree then_, else_;
   int object_size_type = osi->object_size_type;
@@ -953,15 +953,16 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
     {
     case GIMPLE_ASSIGN:
       {
-	tree rhs = gimple_assign_rhs1 (stmt);
-        if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
-	    || (gimple_assign_rhs_code (stmt) == ADDR_EXPR
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+	tree rhs = gimple_assign_rhs1 (assign_stmt);
+        if (gimple_assign_rhs_code (assign_stmt) == POINTER_PLUS_EXPR
+	    || (gimple_assign_rhs_code (assign_stmt) == ADDR_EXPR
 		&& TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF))
-          reexamine = plus_stmt_object_size (osi, var, stmt);
-	else if (gimple_assign_rhs_code (stmt) == COND_EXPR)
-	  reexamine = cond_expr_object_size (osi, var, stmt);
-        else if (gimple_assign_single_p (stmt)
-                 || gimple_assign_unary_nop_p (stmt))
+          reexamine = plus_stmt_object_size (osi, var, assign_stmt);
+	else if (gimple_assign_rhs_code (assign_stmt) == COND_EXPR)
+	  reexamine = cond_expr_object_size (osi, var, assign_stmt);
+        else if (gimple_assign_single_p (assign_stmt)
+                 || gimple_assign_unary_nop_p (assign_stmt))
           {
             if (TREE_CODE (rhs) == SSA_NAME
                 && POINTER_TYPE_P (TREE_TYPE (rhs)))
@@ -1088,18 +1089,19 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 
     case GIMPLE_ASSIGN:
       {
-        if ((gimple_assign_single_p (stmt)
-             || gimple_assign_unary_nop_p (stmt))
-            && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+        if ((gimple_assign_single_p (assign_stmt)
+             || gimple_assign_unary_nop_p (assign_stmt))
+            && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME)
           {
-            tree rhs = gimple_assign_rhs1 (stmt);
+            tree rhs = gimple_assign_rhs1 (assign_stmt);
 
             check_for_plus_in_loops_1 (osi, rhs, depth);
           }
-        else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+        else if (gimple_assign_rhs_code (assign_stmt) == POINTER_PLUS_EXPR)
           {
-            tree basevar = gimple_assign_rhs1 (stmt);
-            tree cst = gimple_assign_rhs2 (stmt);
+            tree basevar = gimple_assign_rhs1 (assign_stmt);
+            tree cst = gimple_assign_rhs2 (assign_stmt);
 
             gcc_assert (TREE_CODE (cst) == INTEGER_CST);
 
@@ -1155,14 +1157,15 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 static void
 check_for_plus_in_loops (struct object_size_info *osi, tree var)
 {
-  gimple stmt = SSA_NAME_DEF_STMT (var);
+  gassign *stmt;
 
   /* NOTE: In the pre-tuples code, we handled a CALL_EXPR here,
      and looked for a POINTER_PLUS_EXPR in the pass-through
      argument, if any.  In GIMPLE, however, such an expression
      is not a valid call operand.  */
+  stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (var));
 
-  if (is_gimple_assign (stmt)
+  if (stmt
       && gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
     {
       tree basevar = gimple_assign_rhs1 (stmt);

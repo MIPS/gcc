@@ -1,5 +1,17 @@
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-object-size.c (plus_stmt_object_size): Strengthen param
+	"stmt" from gimple to gassign *.
+	(cond_expr_object_size): Likewise.
+	(collect_object_sizes_for): Within case GIMPLE_ASSIGN, introduce
+	local gassign * "assign_stmt" and use in place of "stmt" for
+	typesafety.
+	(check_for_plus_in_loops_1): Likewise.
+	(check_for_plus_in_loops): Replace is_gimple_assign with a
+	dyn_cast, strengthening local "stmt" from gimple to gassign *.
+
+2014-11-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* graphite-sese-to-poly.c (rewrite_cross_bb_scalar_deps): Add
 	checked cast.
 	(is_reduction_operation_p): Strengthen param from gimple to
