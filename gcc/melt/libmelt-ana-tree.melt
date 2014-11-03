@@ -2427,7 +2427,7 @@ treerr
 		      cmt
 		      ##{ /* $CMATNAME $TREECALLSTATE generated test for call_expr ? */
 		      $TR && TREE_CODE($TR) == CALL_EXPR
-		      && call_expr_narg ($TR) == $NBCALLARGS
+		      && call_expr_nargs ($TR) == $NBCALLARGS
 		      }#
 		      )
 		     (debug "patexpand_tree_call_expr" "; cmtest=" cmt)
@@ -2584,7 +2584,7 @@ treerr
 		      cmt
 		      ##{ /* $CMATNAME $TREECALLSTATE generated test for tree_call_more ? */
 		      $TR && TREE_CODE($TR) == CALL_EXPR
-		      && call_expr_narg ($TR) >= $NBCALLARGS
+		      && call_expr_nargs ($TR) >= $NBCALLARGS
 		      }#
 		      )
 		     (debug "patexpand_tree_call_more_expr" "; cmtest=" cmt)
@@ -2674,8 +2674,37 @@ treerr
 		 @var{<chaining>} @var{<call-arguments> ...})}, where
 		 everything is a tree }. So
 		 @code{?(tree_call_more_expr ?tfun ?tchain ?ta0 ?ta1)}
-		 will match call trees with two or more arguments.}#)
+		 will match call trees with two or more arguments. See also
+		 $FOREACH_ARGUMENT_IN_CALL_EXPR_TREE}#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; iterator on call arguments
+(defciterator foreach_argument_in_call_expr_tree
+  (:tree tr_call :long firstix)
+  eachtrcall
+  (:tree tr_arg :long argix)
+  :doc #{Iterates within a @©ode{CALL_EXPR} tree $TR_CALL from index $FIRSTIX
+  on each argument tree $TR_ARG at index $ARGIX.}#
+  ;; before
+  #{ /* foreach_argument_in_call_expr_tree $EACHTRCALL start */
+  $TR_ARG = NULL_TREE;
+  if ($TR_CALL && TREE_CODE($TR_CALL) == CALL_EXPR) {
+    int arity_$EACHTRCALL = call_expr_nargs ($TR_CALL);
+    int startix_$EACHTRCALL = $FIRSTIX;
+    if (startix_$EACHTRCALL < 0)
+      startix_$EACHTRCALL += arity_$EACHTRCALL;
+    for ($ARGIX = startix_$EACHTRCALL;
+	 $ARGIX < arity_$EACHTRCALL;
+	 $ARGIX++) {
+      $TR_ARG = CALL_EXPR_ARG ($TR_CALL, $ARGIX);
+  }#
+  ;; after
+  #{ /* foreach_argument_in_call_expr_tree $EACHTRCALL ending */
+    $TR_ARG = NULL_TREE;
+    } /* end for   $EACHTRCALL */
+  } /* end if CALL_EXPR  $EACHTRCALL */
+  /* foreach_argument_in_call_expr_tree $EACHTRCALL ended */
+  }#)
 
 ;; Iterator on function argument 
 (defciterator foreach_argument_in_function_tree
@@ -3575,6 +3604,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  build_string_tree
  check_c_frontend
  foreach_argument_in_function_tree
+ foreach_argument_in_call_expr_tree
  foreach_chain_value_purpose_in_tree_list 
  foreach_element_in_tree_constructor
  foreach_maptree

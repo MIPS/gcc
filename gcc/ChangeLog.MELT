@@ -1,6 +1,12 @@
 
 2014-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (foreach_argument_in_call_expr_tree):
+	New citerator.
+	(tree_call_more_expr): Mention it.
+
+2014-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_call_more_expr): Nex patmacro.
 	(patexpand_tree_call_more_expr, mexpand_tree_call_more_expr):
 	Implementations.
