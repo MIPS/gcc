@@ -2425,7 +2425,7 @@ rewrite_cross_bb_scalar_deps (scop_p scop, gimple_stmt_iterator *gsi)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      def = gimple_assign_lhs (stmt);
+      def = gimple_assign_lhs (as_a <gassign *> (stmt));
       break;
 
     case GIMPLE_CALL:
@@ -2614,11 +2614,10 @@ split_reduction_stmt (scop_p scop, gimple stmt)
 /* Return true when stmt is a reduction operation.  */
 
 static inline bool
-is_reduction_operation_p (gimple stmt)
+is_reduction_operation_p (gassign *stmt)
 {
   enum tree_code code;
 
-  gcc_assert (is_gimple_assign (stmt));
   code = gimple_assign_rhs_code (stmt);
 
   return flag_associative_math
@@ -2663,19 +2662,23 @@ follow_ssa_with_commutative_ops (tree arg, tree lhs)
       return NULL;
     }
 
-  if (!is_gimple_assign (stmt))
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt)
     return NULL;
 
-  if (gimple_num_ops (stmt) == 2)
-    return follow_ssa_with_commutative_ops (gimple_assign_rhs1 (stmt), lhs);
+  if (gimple_num_ops (assign_stmt) == 2)
+    return follow_ssa_with_commutative_ops (gimple_assign_rhs1 (assign_stmt),
+					    lhs);
 
-  if (is_reduction_operation_p (stmt))
+  if (is_reduction_operation_p (assign_stmt))
     {
       gphi *res =
-	follow_ssa_with_commutative_ops (gimple_assign_rhs1 (stmt), lhs);
+	follow_ssa_with_commutative_ops (gimple_assign_rhs1 (assign_stmt),
+					 lhs);
 
       return res ? res :
-	follow_ssa_with_commutative_ops (gimple_assign_rhs2 (stmt), lhs);
+	follow_ssa_with_commutative_ops (gimple_assign_rhs2 (assign_stmt),
+					 lhs);
     }
 
   return NULL;
@@ -2703,7 +2706,7 @@ detect_commutative_reduction_arg (tree lhs, gimple stmt, tree arg,
    STMT.  Return the phi node of the reduction cycle, or NULL.  */
 
 static gphi *
-detect_commutative_reduction_assign (gimple stmt, vec<gimple> *in,
+detect_commutative_reduction_assign (gassign *stmt, vec<gimple> *in,
 				     vec<gimple> *out)
 {
   tree lhs = gimple_assign_lhs (stmt);
@@ -2853,7 +2856,8 @@ detect_commutative_reduction (scop_p scop, gimple stmt, vec<gimple> *in,
     }
 
   if (gimple_code (stmt) == GIMPLE_ASSIGN)
-    return detect_commutative_reduction_assign (stmt, in, out);
+    return detect_commutative_reduction_assign (as_a <gassign *> (stmt),
+						in, out);
 
   return NULL;
 }
@@ -2863,7 +2867,7 @@ detect_commutative_reduction (scop_p scop, gimple stmt, vec<gimple> *in,
 
 static void
 translate_scalar_reduction_to_array_for_stmt (scop_p scop, tree red,
-					      gimple stmt, gphi *loop_phi)
+					      gassign *stmt, gphi *loop_phi)
 {
   tree res = gimple_phi_result (loop_phi);
   gassign *assign = gimple_build_assign (res, unshare_expr (red));
@@ -2954,7 +2958,7 @@ close_phi_written_to_memory (gphi *close_phi)
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, def)
     if ((stmt = USE_STMT (use_p))
 	&& gimple_code (stmt) == GIMPLE_ASSIGN
-	&& (res = gimple_assign_lhs (stmt)))
+	&& (res = gimple_assign_lhs (as_a <gassign *> (stmt))))
       {
 	switch (TREE_CODE (res))
 	  {
@@ -3016,10 +3020,13 @@ translate_scalar_reduction_to_array (scop_p scop,
 
 	  if (!red)
 	    red = create_zero_dim_array
-	      (gimple_assign_lhs (loop_stmt), "Commutative_Associative_Reduction");
+	      (gimple_assign_lhs (as_a <gassign *> (loop_stmt)),
+	       "Commutative_Associative_Reduction");
 
-	  translate_scalar_reduction_to_array_for_stmt (scop, red, loop_stmt,
-							as_a <gphi *> (in[1]));
+	  translate_scalar_reduction_to_array_for_stmt (
+	    scop, red,
+	    as_a <gassign *> (loop_stmt),
+	    as_a <gphi *> (in[1]));
 	  continue;
 	}
 
