@@ -1,5 +1,13 @@
 
 2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{t-treecall test succeeds.}}
+	* melt/warmelt-normatch.melt (normpat_anymatchpat): Ignore
+	actively unbound matopbind binder...
+
+	* melt/warmelt-genobj.melt (compilmatcher_cmatcher): Accept
+	numbers in cmatcher expansion.
+
+2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{t-treecall test fails}}
 
 	* melt/warmelt-normatch.melt (normpat_anymatchpat): Accept unbound

@@ -7892,7 +7892,8 @@
        ))
     (debug "compilmatcher_cmatcher substmap=" substmap)
     ;; expand
-    (let ( 
+    (let (
+	  (mcxloc (get_field :mcx_loc mcx))
 	  (expander 
 	   (lambda (tup)
 	     (multiple_map
@@ -7902,17 +7903,23 @@
 		 ( (is_a c class_symbol)
 		   (let ( (r (mapobject_get substmap c)) )
 		     (if (null r)
-			 (error_strv (get_field :mcx_loc mcx)
-				     "invalid symbol to expand for cmatcher" (get_field :named_name c)))
+			 (error_at mcx_loc
+				   "invalid symbol $1 to expand for cmatcher" c))
 		     r))
 		 ( (is_object c)
-		   (error_plain (get_field :mcx_loc mcx)
-				"invalid object to expand for cmatcher"))
+		   (error_at mcxloc
+			     "invalid object of $1 to expand for cmatcher"
+			     (get_field :named_name (discrim c))))
+		 ( (is_integerbox c)
+		   (constant_box (get_int c)))
 		 ( (is_string c)
 		   (make_string discr_verbatim_string c))
 		 (:else
-		  (error_plain (get_field :mcx_loc mcx)
-			       "invalid stuff to expand for cmatcher")))))))
+		  (error_at mcxloc
+			    "invalid stuff $1 of $2 to expand for cmatcher"
+			    c
+			    (get_field :named_name (discrim c))
+			    )))))))
 	  (exptest (expander cmexptest))
 	  (expfill (expander cmexpfill))
 	  (mloc (get_field :mcx_loc mcx))

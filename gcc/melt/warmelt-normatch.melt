@@ -1626,7 +1626,7 @@ scanning variables.}#
     (let ( 
 	  (matvar
 	   (let ( (mv (get_field :binder matopbind)) )
-	     (debug "normpat_anymatchpat matvar" mv)
+	     (debug "normpat_anymatchpat matvar=" mv)
 	     ;;; sometimes, the mv is not bound, e.g. for
 	     ;;; tree_call_expr, in file libmelt-ana-tree.melt,
 	     ;;; implementation in patexpand_tree_call_expr
@@ -1639,10 +1639,11 @@ scanning variables.}#
 	     mv
 	     ))
 	  ;; we know that matvar is a symbol so its normalization
-	  ;; returns a single value
-	  (matndata (normal_exp matvar env ncx sloc))
+	  ;; returns a single value, but matvar might be unbound...
+	  (matndata (if (find_env env matvar)
+			(normal_exp matvar env ncx sloc)))
 	  )
-      (debug "normpat_anymatchpat matndata" matndata)
+      (debug "normpat_anymatchpat matndata=" matndata)
       (multicall
        (nins bindins)
        (normalize_tuple inargs env ncx sloc)
@@ -1656,10 +1657,9 @@ scanning variables.}#
 	     (tester ())
 	     )
 	 ;; check compatibility of ctype
-	 (if (!= matchctype (get_field :fbind_type matbind))
-	     (progn
+	 (when (!= matchctype (get_field :fbind_type matbind))
 	       (error_strv sloc "unexpected matched type" (get_field :named_name matchctype))
-	       (inform_strv sloc "expecting type in matcher" (get_field :named_name (get_field :fbind_type matbind)))))
+	       (inform_strv sloc "expecting type in matcher" (get_field :named_name (get_field :fbind_type matbind))))
 	 ;; input args
 	 (debug "normpat_anymatchpat inargs=" inargs "inmatchs=" inmatchs)
 	 (let ( (:long nbinargs  (multiple_length inargs)) )
