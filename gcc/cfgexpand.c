@@ -449,7 +449,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 
       if (gimple_clobber_p (stmt))
 	{
-	  tree lhs = gimple_assign_lhs (stmt);
+	  tree lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
 	  size_t *v;
 	  /* Nested function lowering might introduce LHSs
 	     that are COMPONENT_REFs.  */
@@ -2114,14 +2114,14 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
       && bitmap_bit_p (SA.values, SSA_NAME_VERSION (op0)))
     {
       gimple second = SSA_NAME_DEF_STMT (op0);
-      if (gimple_code (second) == GIMPLE_ASSIGN)
+      if (gassign *second_assign = dyn_cast <gassign *> (second))
 	{
-	  enum tree_code code2 = gimple_assign_rhs_code (second);
+	  enum tree_code code2 = gimple_assign_rhs_code (second_assign);
 	  if (TREE_CODE_CLASS (code2) == tcc_comparison)
 	    {
 	      code = code2;
-	      op0 = gimple_assign_rhs1 (second);
-	      op1 = gimple_assign_rhs2 (second);
+	      op0 = gimple_assign_rhs1 (second_assign);
+	      op1 = gimple_assign_rhs2 (second_assign);
 	    }
 	  /* If jumps are cheap turn some more codes into
 	     jumpy sequences.  */
@@ -2129,18 +2129,18 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
 	    {
 	      if ((code2 == BIT_AND_EXPR
 		   && TYPE_PRECISION (TREE_TYPE (op0)) == 1
-		   && TREE_CODE (gimple_assign_rhs2 (second)) != INTEGER_CST)
+		   && TREE_CODE (gimple_assign_rhs2 (second_assign)) != INTEGER_CST)
 		  || code2 == TRUTH_AND_EXPR)
 		{
 		  code = TRUTH_ANDIF_EXPR;
-		  op0 = gimple_assign_rhs1 (second);
-		  op1 = gimple_assign_rhs2 (second);
+		  op0 = gimple_assign_rhs1 (second_assign);
+		  op1 = gimple_assign_rhs2 (second_assign);
 		}
 	      else if (code2 == BIT_IOR_EXPR || code2 == TRUTH_OR_EXPR)
 		{
 		  code = TRUTH_ORIF_EXPR;
-		  op0 = gimple_assign_rhs1 (second);
-		  op1 = gimple_assign_rhs2 (second);
+		  op0 = gimple_assign_rhs1 (second_assign);
+		  op1 = gimple_assign_rhs2 (second_assign);
 		}
 	    }
 	}
@@ -2290,8 +2290,8 @@ expand_call_stmt (gcall *stmt)
       if (builtin_p
 	  && TREE_CODE (arg) == SSA_NAME
 	  && (def = get_gimple_for_ssa_name (arg))
-	  && gimple_assign_rhs_code (def) == ADDR_EXPR)
-	arg = gimple_assign_rhs1 (def);
+	  && gimple_assign_rhs_code (as_a <gassign *> (def)) == ADDR_EXPR)
+	arg = gimple_assign_rhs1 (as_a <gassign *> (def));
       CALL_EXPR_ARG (exp, i) = arg;
     }
 

@@ -1,5 +1,13 @@
 2014-11-04  David Malcolm  <dmalcolm@redhat.com>
 
+	* cfgexpand.c (add_scope_conflicts_1): Add checked cast.
+	(expand_gimple_cond): Replace check for GIMPLE_ASSIGN with a
+	dyn_cast, introducing local "second_assign", using it in place of
+	"assign" for typesafety.
+	(expand_call_stmt): Add checked casts.
+
+2014-11-04  David Malcolm  <dmalcolm@redhat.com>
+
 	* cfgexpand.c (gimple_assign_rhs_to_tree): Strengthen param from
 	gimple to const gassign *.
 	(expand_debug_expr): Add checked cast.
