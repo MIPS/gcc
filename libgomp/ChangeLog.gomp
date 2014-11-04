@@ -1,3 +1,10 @@
+2014-11-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/routine-1.f90: New test.
+	* testsuite/libgomp.oacc-fortran/routine-2.f90: New test.
+	* testsuite/libgomp.oacc-fortran/routine-3.f90: New test.
+	* testsuite/libgomp.oacc-fortran/routine-4.f90: New test.
+
 2014-11-04  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c/reduction-initial-1.c

@@ -644,6 +644,9 @@ decode_oacc_directive (void)
     case 'l':
       match ("loop", gfc_match_oacc_loop, ST_OACC_LOOP);
       break;
+    case 'r':
+      match ("routine", gfc_match_oacc_routine, ST_OACC_ROUTINE);
+      break;
     case 'u':
       match ("update", gfc_match_oacc_update, ST_OACC_UPDATE);
       break;
@@ -1356,7 +1359,7 @@ next_statement (void)
   case ST_EQUIVALENCE: case ST_NAMELIST: case ST_STATEMENT_FUNCTION: \
   case ST_TYPE: case ST_INTERFACE: case ST_OMP_THREADPRIVATE: \
   case ST_PROCEDURE: case ST_OMP_DECLARE_SIMD: case ST_OMP_DECLARE_REDUCTION: \
-  case ST_OMP_DECLARE_TARGET
+  case ST_OMP_DECLARE_TARGET: case ST_OACC_ROUTINE
 
 /* Block end statements.  Errors associated with interchanging these
    are detected in gfc_match_end().  */
@@ -1902,6 +1905,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_OACC_EXIT_DATA:
       p = "!$ACC EXIT DATA";
+      break;
+    case ST_OACC_ROUTINE:
+      p = "!$ACC ROUTINE";
       break;
     case ST_OMP_ATOMIC:
       p = "!$OMP ATOMIC";

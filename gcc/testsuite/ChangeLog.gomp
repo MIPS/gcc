@@ -1,3 +1,8 @@
+2014-11-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/routine-1.f90: New test.
+	* gfortran.dg/goacc/routine-2.f90: New test.
+
 2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/data-1.c: Exercise enter/exit data pragma.

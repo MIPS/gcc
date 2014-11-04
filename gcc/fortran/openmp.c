@@ -1405,6 +1405,79 @@ gfc_match_oacc_cache (void)
 }
 
 
+match
+gfc_match_oacc_routine (void)
+{
+  locus old_loc;
+  gfc_symbol *sym;
+  match m;
+
+  old_loc = gfc_current_locus;
+
+  m = gfc_match (" (");
+
+  if (gfc_current_ns->proc_name
+      && gfc_current_ns->proc_name->attr.if_source == IFSRC_IFBODY
+      && m == MATCH_YES)
+    {
+      gfc_error ("Only the !$ACC ROUTINE form without "
+		 "list is allowed in interface block at %C");
+      goto cleanup;
+    }
+
+  if (m == MATCH_NO
+      && gfc_current_ns->proc_name
+      && gfc_match_omp_eos () == MATCH_YES)
+    {
+      if (!gfc_add_omp_declare_target (&gfc_current_ns->proc_name->attr,
+				       gfc_current_ns->proc_name->name,
+				       &old_loc))
+	goto cleanup;
+      return MATCH_YES;
+    }
+
+  if (m != MATCH_YES)
+    return m;
+
+  /* Scan for a function name.  */
+  m = gfc_match_symbol (&sym, 0);
+
+  if (m != MATCH_YES)
+    {
+      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C");
+      gfc_current_locus = old_loc;
+      return MATCH_ERROR;
+    }
+
+  if (!sym->attr.external && !sym->attr.function && !sym->attr.subroutine)
+    {
+      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, invalid"
+		 " function name '%s'", sym->name);
+      gfc_current_locus = old_loc;
+      return MATCH_ERROR;
+    }
+
+  if (gfc_match_char (')') != MATCH_YES)
+    {
+      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, expecting"
+		 " ')' after NAME");
+      gfc_current_locus = old_loc;
+      return MATCH_ERROR;
+    }
+
+  if (gfc_match_omp_eos () != MATCH_YES)
+    {
+      gfc_error ("Unexpected junk after !$ACC ROUTINE at %C");
+      goto cleanup;
+    }
+  return MATCH_YES;
+
+cleanup:
+  gfc_current_locus = old_loc;
+  return MATCH_ERROR;
+}
+
+
 #define OMP_PARALLEL_CLAUSES \
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
    | OMP_CLAUSE_COPYIN | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_IF		\
