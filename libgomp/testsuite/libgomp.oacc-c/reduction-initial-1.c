@@ -4,12 +4,7 @@ int
 main(void)
 {
 #define I 5
-/* TODO */
-#ifdef ACC_DEVICE_TYPE_host_nonshm
-# define N 1
-#else
-# define N 11
-#endif
+#define N 11
 #define A 8
 
   int a = A;
