@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGEXPAND_H
 #define GCC_CFGEXPAND_H
 
-extern tree gimple_assign_rhs_to_tree (gimple);
+extern tree gimple_assign_rhs_to_tree (const gassign *);
 extern HOST_WIDE_INT estimated_stack_frame_size (struct cgraph_node *);
 
 #endif /* GCC_CFGEXPAND_H */

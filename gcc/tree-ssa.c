@@ -416,7 +416,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
 	}
 
       if (!no_value)
-	value = gimple_assign_rhs_to_tree (def_stmt);
+	value = gimple_assign_rhs_to_tree (as_a <gassign *> (def_stmt));
     }
 
   if (value)

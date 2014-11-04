@@ -1,5 +1,15 @@
 2014-11-04  David Malcolm  <dmalcolm@redhat.com>
 
+	* cfgexpand.c (gimple_assign_rhs_to_tree): Strengthen param from
+	gimple to const gassign *.
+	(expand_debug_expr): Add checked cast.
+	(expand_gimple_basic_block): Likewise.
+	* cfgexpand.h (gimple_assign_rhs_to_tree): Strengthen param from
+	gimple to const gassign *.
+	* tree-ssa.c (insert_debug_temp_for_var_def): Add checked cast.
+
+2014-11-04  David Malcolm  <dmalcolm@redhat.com>
+
 	* asan.c (asan_expand_check_ifn): Strengthen local "shadow_test"
 	from gimple to gassign *.  Introduce gassign * locals "add_7",
 	"cast", "t_ge_shadow", "and_expr", using them in place of

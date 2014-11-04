@@ -108,7 +108,7 @@ static rtx expand_debug_expr (tree);
    statement STMT.  */
 
 tree
-gimple_assign_rhs_to_tree (gimple stmt)
+gimple_assign_rhs_to_tree (const gassign *stmt)
 {
   tree t;
   enum gimple_rhs_class grhs_class;
@@ -4558,7 +4558,8 @@ expand_debug_expr (tree exp)
 	gimple g = get_gimple_for_ssa_name (exp);
 	if (g)
 	  {
-	    op0 = expand_debug_expr (gimple_assign_rhs_to_tree (g));
+	    op0 = expand_debug_expr (gimple_assign_rhs_to_tree (
+				       as_a <gassign *> (g)));
 	    if (!op0)
 	      return NULL;
 	  }
@@ -5044,7 +5045,8 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		       replace all uses of OP in debug insns with that
 		       temporary.  */
 		    gimple debugstmt;
-		    tree value = gimple_assign_rhs_to_tree (def);
+		    tree value =
+		      gimple_assign_rhs_to_tree (as_a <gassign *> (def));
 		    tree vexpr = make_node (DEBUG_EXPR_DECL);
 		    rtx val;
 		    enum machine_mode mode;
