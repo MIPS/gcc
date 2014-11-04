@@ -1,5 +1,8 @@
 
-2014-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
+2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+
+2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{t-treecall test still fails}}
 	* melt/warmelt-macro.melt (patmacexpand_for_matcher): Exported and documented function.
 	(pattern_weight_tuple): More debug.
