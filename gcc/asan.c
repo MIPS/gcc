@@ -465,7 +465,7 @@ has_mem_ref_been_instrumented (const asan_mem_ref *ref, tree len)
    otherwise.  */
 
 static bool
-get_mem_ref_of_assignment (const gassign *assignment,
+get_mem_ref_of_assignment (gassign *assignment,
 			   asan_mem_ref *ref,
 			   bool *ref_is_store)
 {

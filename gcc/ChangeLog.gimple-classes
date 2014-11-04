@@ -1,3 +1,11 @@
+2014-11-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* asan.c (get_mem_ref_of_assignment): Weaken param "assignment"
+	from const gassign * to gassign *.
+	* gimple.h (gimple_assign_single_p): Eliminate const_gimple variant,
+	since this could call itself, leading to an infinite recursion.
+	(gimple_assign_load_p): Likewise.
+
 2014-11-03  David Malcolm  <dmalcolm@redhat.com>
 
 	* ipa-polymorphic-call.c (walk_ssa_copies): Add checked cast.

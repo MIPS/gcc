@@ -2487,20 +2487,12 @@ gimple_assign_rhs_class (const_gimple gs)
   return get_gimple_rhs_class (gimple_assign_rhs_code (gs));
 }
 
-/* Return true if GS is an assignment with a singleton RHS, i.e.,
-   there is no operator associated with the assignment itself.
-   Unlike gimple_assign_copy_p, this predicate returns true for
+/* Return GS (as a gassign *) if GS is an assignment with a singleton
+   RHS, i.e., there is no operator associated with the assignment itself,
+   Otherwise, return NULL.
+   Unlike gimple_assign_copy_p, this predicate returns non-NULL for
    any RHS operand, including those that perform an operation
    and do not have the semantics of a copy, such as COND_EXPR.  */
-
-static inline bool
-gimple_assign_single_p (const_gimple gs)
-{
-  return gimple_assign_single_p (const_cast <gimple> (gs));
-}
-
-/* As above, but non-const, and return GS as a gassign * if
-   the predicate holds.  */
 
 static inline gassign *
 gimple_assign_single_p (gimple gs)
@@ -2521,16 +2513,8 @@ gimple_store_p (const_gimple gs)
   return lhs && !is_gimple_reg (lhs);
 }
 
-/* Return true if GS is an assignment that loads from its rhs1.  */
-
-static inline bool
-gimple_assign_load_p (const_gimple gs)
-{
-  return gimple_assign_load_p (const_cast <gimple> (gs));
-}
-
-/* As above, but non-const, and return GS as a gassign * if
-   the predicate holds.  */
+/* Return GS (as a gassign *) if GS is an assignment that loads from its rhs1,
+   or NULL otherwise.  */
 
 static inline gassign *
 gimple_assign_load_p (gimple gs)
