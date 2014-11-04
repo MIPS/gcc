@@ -135,19 +135,19 @@
 ;; These are used in vec_merge, hence accept bitmask as const_int.
 (define_predicate "const_exp_2_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 1, 1)")))
+       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 0, 1)")))
 
 (define_predicate "const_exp_4_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 1, 2)")))
+       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 0, 3)")))
 
 (define_predicate "const_exp_8_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 1, 3)")))
+       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 0, 7)")))
 
 (define_predicate "const_exp_16_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 1, 4)")))
+       (match_test "IN_RANGE (exact_log2 (INTVAL (op)), 0, 15)")))
 
 ;; This is used for indexing into vectors, and hence only accepts const_int.
 (define_predicate "const_0_or_1_operand"
