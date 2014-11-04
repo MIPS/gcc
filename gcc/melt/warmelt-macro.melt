@@ -2300,6 +2300,15 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 ;; the primary result is the tuple of argexpr
 ;; the secondary result is the tuple of subpatterns
 (defun patmacexpand_for_matcher (pairs matcher env psloc pctx)
+  :doc #{$PATMACEXPAND_FOR_MATCHER is an utility function to expand a
+  pairlist $PAIRS for a pattern matcher $PATCHER with both input &
+  output arguments in environment $ENV, parent location $PSLOC, and
+  pattern expansion context $PCTX. See also $PATTERN_WEIGHT_TUPLE.}#
+  (debug "patmacexpand_for_matcher" " pairs=" pairs
+	 "\n.. matcher=" matcher
+	 "\n.. env=" env
+	 "\n.. psloc=" psloc
+	 "\n.. pctx=" pctx)
   (assert_msg "check matcher" (is_a matcher class_any_matcher) matcher)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check pctx" (is_a pctx class_pattern_expansion_context) pctx)
@@ -2348,6 +2357,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
   their maximum, their minimum, and their sum, of the pattern weights of
   the $SPATS tuple argument made of instances of
   $CLASS_SOURCE_PATTERN.}#
+  (debug "pattern_weight_tuple" " spats=" spats)
   (assert_msg "check spats" (is_multiple spats) spats)
   (let
       ( (bsum (make_integerbox discr_integer 0))
@@ -9279,6 +9289,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  macroexpand_1
  macroexpand_toplevel_list
  melt_register_translator_runner_macroexpansions
+ patmacexpand_for_matcher
  patternexpand_1
  patternexpand_expr
  patternexpand_pairlist_as_tuple

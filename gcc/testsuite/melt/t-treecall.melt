@@ -14,14 +14,15 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
      -c -x c /dev/null -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
-(defun testreecall (v)
+(defun testreecall (v f)
   (let ( (tr (unbox :tree v))
-	 )
+         )
     (match tr
-	   (?(tree_call_expr ?tcallfun ?tchain ?targ0)
-	     (debug "found call0 tcallfun=" tcallfun "; tchain=" tchain
-		    "; targ0=" targ0)
-	     (void))
-	   (?_
-	    (void)))))
+           (?(tree_call_expr ?tcallfun ?tchain ?targ0 ?targ1)
+             ;(debug "found call0 tcallfun=" tcallfun "; tchain=" tchain
+             ;       "; targ0=" targ0 "; targ1=" targ1)
+	     (f v targ0 targ1)
+             (void))
+           (?_
+            (void)))))
 ;; eof t-treecall.melt

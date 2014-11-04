@@ -90,12 +90,12 @@ scanning variables.}#
 ;;;;;;;;;;;;;;;;
 ;;; catch-all for scanning any receiver (by failing)
 (defun scanpat_anyrecv (recv psloc ctyp pcn)
-  (debug "scanpat_anypattern recv=" recv)
+  (debug "scanpat_anypattern recv=" recv "\n.. psloc=" psloc "\n.. ctyp=" ctyp "\n.. pcn=" pcn)
   (assert_msg "check pcn" (is_a pcn class_pattern_context))
   (let ( (myclass (discrim recv))
 	 (myclassname (get_field :named_name myclass)) )
-    (error_strv psloc 
-		"unimplemented scan_pattern for any " myclassname)
+    (error_at psloc 
+		"unimplemented scan_pattern for any $1" myclassname)
     (assert_msg "catchall scan_pattern unimplemented for any receiver" ())
     ))
 (install_method discr_any_receiver scan_pattern scanpat_anyrecv)

@@ -2479,7 +2479,7 @@ treerr
 	  )
 	)
       (debug "patexpand_tree_call_expr" "; loc=" loc "; cmat=" cmat)
-      (assert_msg "check cmat" (is_a class_cmatcher cmat) cmat)
+      (assert_msg "check cmat" (is_a cmat class_cmatcher) cmat)
       (let (
 	    (res
 	     (instance class_source_cmatchexpr
@@ -2636,7 +2636,7 @@ treerr
 	  )
 	)
       (debug "patexpand_tree_call_more_expr" "; loc=" loc "; cmat=" cmat)
-      (assert_msg "check cmat" (is_a class_cmatcher cmat) cmat)
+      (assert_msg "check cmat" (is_a cmat class_cmatcher) cmat)
       (let (
 	    (res
 	     (instance class_source_cmatchexpr

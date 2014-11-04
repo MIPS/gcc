@@ -1,5 +1,18 @@
 
 2014-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{t-treecall test still fails}}
+	* melt/warmelt-macro.melt (patmacexpand_for_matcher): Exported and documented function.
+	(pattern_weight_tuple): More debug.
+
+	* melt/warmelt-normatch.melt (scanpat_anyrecv): Slightly improved
+	error message and debugging.
+
+	* melt/libmelt-ana-tree.melt (patexpand_tree_call_expr)
+	(patexpand_tree_call_more_expr): Typo on is_a class_cmatcher.
+
+	* testsuite/melt/t-treecall.melt: Simplified, but not working.
+
+2014-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt: Minor chunk reindentation.
 
 	* melt/libmelt-ana-gimple.melt (gimple_call_args): Newpatmacro.
