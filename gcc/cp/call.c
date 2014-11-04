@@ -719,6 +719,7 @@ invalid_copy_with_fn_template_rejection (void)
 // Build a constraint failure reecord, saving information into the
 // template_instantiation field of the rejection. If FN is not a template
 // declaration, the TMPL member is the FN declaration and TARGS is empty.
+
 static struct rejection_reason *
 constraint_failure (tree fn) {
   struct rejection_reason *r = alloc_rejection (rr_constraint_failure);
@@ -1969,7 +1970,7 @@ add_function_candidate (struct z_candidate **candidates,
         {
           reason = constraint_failure (fn);
           viable = false;
-          goto out;          
+          goto out;
         }
     }
   }
@@ -3062,8 +3063,8 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 
   if (fn == error_mark_node)
     {
+      /* Don't repeat unification later if it already resulted in errors.  */
       if (errorcount+sorrycount == errs)
-        /* Don't repeat unification later if it already resulted in errors.  */
 	reason = template_unification_rejection (tmpl, explicit_targs,
 						 targs, args_without_in_chrg,
 						 nargs_without_in_chrg,
@@ -3115,26 +3116,24 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 				   first_arg, arglist, access_path,
 				   conversion_path, flags, complain);
   if (DECL_TI_TEMPLATE (fn) != tmpl)
-    {
-      /* This situation can occur if a member template of a template
-         class is specialized.  Then, instantiate_template might return
-         an instantiation of the specialization, in which case the
-         DECL_TI_TEMPLATE field will point at the original
-         specialization.  For example:
+    /* This situation can occur if a member template of a template
+       class is specialized.  Then, instantiate_template might return
+       an instantiation of the specialization, in which case the
+       DECL_TI_TEMPLATE field will point at the original
+       specialization.  For example:
 
-  	   template <class T> struct S { template <class U> void f(U);
-  				       template <> void f(int) {}; };
-  	   S<double> sd;
-  	   sd.f(3);
+	 template <class T> struct S { template <class U> void f(U);
+				       template <> void f(int) {}; };
+	 S<double> sd;
+	 sd.f(3);
 
-         Here, TMPL will be template <class U> S<double>::f(U).
-         And, instantiate template will give us the specialization
-         template <> S<double>::f(int).  But, the DECL_TI_TEMPLATE field
-         for this will point at template <class T> template <> S<T>::f(int),
-         so that we can find the definition.  For the purposes of
-         overload resolution, however, we want the original TMPL.  */
-      cand->template_decl = build_template_info (tmpl, targs);
-    }
+       Here, TMPL will be template <class U> S<double>::f(U).
+       And, instantiate template will give us the specialization
+       template <> S<double>::f(int).  But, the DECL_TI_TEMPLATE field
+       for this will point at template <class T> template <> S<T>::f(int),
+       so that we can find the definition.  For the purposes of
+       overload resolution, however, we want the original TMPL.  */
+    cand->template_decl = build_template_info (tmpl, targs);
   else
     cand->template_decl = DECL_TEMPLATE_INFO (fn);
   cand->explicit_targs = explicit_targs;
@@ -4100,7 +4099,7 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
 	  if (!any_viable_p && candidates && ! candidates->next
 	      && (TREE_CODE (candidates->fn) == FUNCTION_DECL))
 	    return cp_build_function_call_vec (candidates->fn, args, complain);
-	  
+
           // Otherwise, emit notes for non-viable candidates.
           if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
 	    fn = TREE_OPERAND (fn, 0);
@@ -9004,19 +9003,19 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
   if (cand1->template_decl && cand2->template_decl)
     {
       winner = more_specialized_fn
-        (TI_TEMPLATE (cand1->template_decl),
-         TI_TEMPLATE (cand2->template_decl),
-         /* [temp.func.order]: The presence of unused ellipsis and default
-            arguments has no effect on the partial ordering of function
-            templates.   add_function_candidate() will not have
-            counted the "this" argument for constructors.  */
-         cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
+	(TI_TEMPLATE (cand1->template_decl),
+	 TI_TEMPLATE (cand2->template_decl),
+	 /* [temp.func.order]: The presence of unused ellipsis and default
+	    arguments has no effect on the partial ordering of function
+	    templates.   add_function_candidate() will not have
+	    counted the "this" argument for constructors.  */
+	 cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
       if (winner)
-        return winner;
+	return winner;
     }
 
     // C++ Concepts
-    // or, if not that, F1 is more constrained than F2. 
+    // or, if not that, F1 is more constrained than F2.
     if (flag_concepts)
       {
         winner = more_constrained (cand1->fn, cand2->fn);
@@ -9245,8 +9244,8 @@ tourney (struct z_candidate *candidates, tsubst_flags_t complain)
   return champ;
 }
 
-
 // Returns true if things of type FROM can be implicitly converted to TO.
+
 bool
 can_convert (tree to, tree from, tsubst_flags_t complain)
 {

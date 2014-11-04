@@ -77,7 +77,7 @@ template<Union T> void f17();
 template<Enum T> void f18();
 
 
-int main() { 
+int main() {
   f1<void>(); // { dg-error "cannot call" }
   f2<void>(); // { dg-error "cannot call" }
   f3<void>(); // { dg-error "cannot call" }

@@ -234,7 +234,7 @@ cxx_print_xnode (FILE *file, tree node, int indent)
         if (cinfo->assumptions)
           print_node_brief (file, "assumptions", cinfo->assumptions, indent+4);
         break;
-      }    
+      }
     case ARGUMENT_PACK_SELECT:
       print_node (file, "pack", ARGUMENT_PACK_SELECT_FROM_PACK (node),
 		  indent+4);

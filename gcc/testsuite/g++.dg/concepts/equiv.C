@@ -17,7 +17,7 @@ template<C T> void f4(T x) requires D<T>();
 template<C T> void f5(T x) requires D<T>();
 template<C T> void f6(T x) requires D<T>();
 
-int main() { 
+int main() {
   f1(x);
   f2(x);
   f3(x);

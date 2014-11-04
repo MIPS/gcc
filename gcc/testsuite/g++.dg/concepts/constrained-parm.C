@@ -9,5 +9,5 @@ template<C* T> struct S3 { };         // { dg-error "invalid" }
 template<C const* T> struct S3a { };  // { dg-error "invalid" }
 template<C* const T> struct S3b { };  // { dg-error "invalid" }
 template<C& T> struct S4 { };         // { dg-error "invalid" }
-template<C[3] T> struct S4 { };       // { dg-error "invalid|expected" } 
+template<C[3] T> struct S4 { };       // { dg-error "invalid|expected" }
 template<C(*T)()> struct S5 { };      // { dg-error "invalid" }

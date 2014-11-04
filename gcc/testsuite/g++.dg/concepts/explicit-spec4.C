@@ -29,12 +29,12 @@ template<> void S<X>::f() { called = 2; } // Spec of #2
 template<> void S<X>::g() { called = 3; } // Spec of #2
 template<> void S<Y>::g() { called = 4; } // Spec of #1
 
-int main() { 
+int main() {
   S<double> sd;
   S<int> si;
   S<X> sx;
   S<Y> sy;
-  
+
   sd.f();
   assert(called == 0);
   si.f();

@@ -17,7 +17,7 @@ template struct S<int>; // Instantiate #1
 template struct S<X>; // Instantiate #2
 template struct S<Y>; // Instantiate #2
 
-int main() { 
+int main() {
   S<int> i; i.f1();
   S<X> x; x.f3();
   S<Y> y; y.f2();

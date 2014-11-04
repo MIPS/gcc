@@ -1008,7 +1008,7 @@ decls_match (tree newdecl, tree olddecl)
 	 type for declaration matching.  */
       r2 = fndecl_declared_return_type (olddecl);
 
-      // Normal functions can be constraind. Two functions with the
+      // Normal functions can be constrained. Two functions with the
       // same type and different constraints are different functions.
       tree c1 = get_constraints (newdecl);
       tree c2 = get_constraints (olddecl);
@@ -1085,7 +1085,7 @@ decls_match (tree newdecl, tree olddecl)
     {
       tree oldres = DECL_TEMPLATE_RESULT (olddecl);
       tree newres = DECL_TEMPLATE_RESULT (newdecl);
-      
+
       if (TREE_CODE (newres) != TREE_CODE (oldres))
 	return 0;
 
@@ -1100,7 +1100,7 @@ decls_match (tree newdecl, tree olddecl)
 
       // If the types of the underlying templates match, compare
       // the template constraints. The declarations could differ there.
-      if (types_match) 
+      if (types_match)
         types_match = equivalently_constrained (olddecl, newdecl);
     }
   else
@@ -1128,7 +1128,6 @@ decls_match (tree newdecl, tree olddecl)
 				 TREE_TYPE (olddecl),
 				 COMPARE_REDECLARATION);
     }
-
 
   return types_match;
 }
@@ -1251,7 +1250,7 @@ validate_constexpr_redeclaration (tree old_decl, tree new_decl)
 // (i.e., and template parameters), but different requirements,
 // emit diagnostics and return true. Otherwise, return false.
 static inline bool
-check_concept_refinement (tree olddecl, tree newdecl) 
+check_concept_refinement (tree olddecl, tree newdecl)
 {
   if (!DECL_DECLARED_CONCEPT_P (olddecl) || !DECL_DECLARED_CONCEPT_P (newdecl))
     return false;
@@ -1633,10 +1632,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	     are not ambiguous.  */
 	  else if ((!DECL_FUNCTION_VERSIONED (newdecl)
 		    && !DECL_FUNCTION_VERSIONED (olddecl))
-                   // The functions have the same parameter types
+                   // The functions have the same parameter types.
 		   && compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
-			      TYPE_ARG_TYPES (TREE_TYPE (olddecl)))
-                   // And the same constraints
+				 TYPE_ARG_TYPES (TREE_TYPE (olddecl)))
+                   // And the same constraints.
                    && equivalently_constrained (newdecl, olddecl))
 	    {
 	      error ("ambiguating new declaration of %q#D", newdecl);
@@ -6259,12 +6258,12 @@ value_dependent_init_p (tree init)
   return false;
 }
 
-// Returns true if a DECL is VAR_DECL with the concept specifier. Note
-// that not all variables are decl-lang-specific.
+// Returns true if a DECL is VAR_DECL with the concept specifier.
 static inline bool
-is_concept_var (tree decl) 
+is_concept_var (tree decl)
 {
-  return (VAR_P (decl) 
+  return (VAR_P (decl)
+	  // Not all variables have DECL_LANG_SPECIFIC.
           && DECL_LANG_SPECIFIC (decl)
           && DECL_DECLARED_CONCEPT_P (decl));
 }
@@ -7550,17 +7549,17 @@ declare_simd_adjust_this (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-// Returns the there leading template requirements if they exist.
+// Returns the leading template requirements if they exist.
 static inline tree
-get_leading_constraints () 
+get_leading_constraints ()
 {
-  return current_template_reqs ? 
+  return current_template_reqs ?
     CI_LEADING_REQS (current_template_reqs) : NULL_TREE;
 }
 
 // When defining an out-of-class template, we want to adjust the
 // current template requirements by adding any template requirements
-// declared by the inntermost template parameter list. For example:
+// declared by the innermost template parameter list. For example:
 //
 //    template<typename T>
 //    struct S { template<C U> void f(); };
@@ -7623,7 +7622,7 @@ adjust_fn_constraints (tree ctype)
             // requirements that aren't part of the template
             // constraint.
             tree r2 = CI_LEADING_REQS (current_template_reqs);
-            CI_LEADING_REQS (current_template_reqs) = 
+            CI_LEADING_REQS (current_template_reqs) =
                 conjoin_constraints (r1, r2);
           }
         else
@@ -7691,7 +7690,7 @@ grokfndecl (tree ctype,
   // will be fully completed before calling finish_template_constraints.
   if (flag_concepts)
     adjust_fn_constraints (ctype);
-      
+
   // Check and normalize the template requirements for the declared
   // function. Note that these constraints are multiply associated
   // with both the template-decl and the function-decl.
@@ -8283,7 +8282,7 @@ grokvardecl (tree type,
   // Check that the variable can be safely declared as a concept.
   if (conceptp)
     {
-      if (!processing_template_decl) 
+      if (!processing_template_decl)
         {
           error ("a non-template variable cannot be %<concept%>");
           return NULL_TREE;
@@ -10870,11 +10869,11 @@ grokdeclarator (const cp_declarator *declarator,
 		return error_mark_node;
 	      }
 	    if (sfk == sfk_constructor)
-                if (concept_p)
-                  {
-                    error ("a constructor cannot be %<concept%>");
-                    return error_mark_node;
-                  }
+	      if (concept_p)
+		{
+		  error ("a constructor cannot be %<concept%>");
+		  return error_mark_node;
+		}
 	    if (staticp && concept_p)
 	      error ("a concept cannot be a static member function");
 
@@ -11124,8 +11123,8 @@ grokdeclarator (const cp_declarator *declarator,
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
 			   virtualp, flags, memfn_quals, rqual, raises,
 			   1, friendp,
-			   publicp, 
-                           inlinep | (2 * constexpr_p) | (4 * concept_p), 
+			   publicp,
+                           inlinep | (2 * constexpr_p) | (4 * concept_p),
                            sfk,
                            funcdef_flag,
 			   template_count, in_namespace, attrlist,
@@ -11162,7 +11161,7 @@ grokdeclarator (const cp_declarator *declarator,
     else
       {
 	/* It's a variable.  */
-	
+
 	/* An uninitialized decl with `extern' is a reference.  */
 	decl = grokvardecl (type, dname, unqualified_id,
 			    declspecs,
@@ -12516,15 +12515,14 @@ xref_tag_1 (enum tag_types tag_code, tree name,
     {
       if (template_header_p && MAYBE_CLASS_TYPE_P (t))
         {
-          // It's safe to finish the current template requirements here
-          // since a class doesn't have trailing requirements.
-          if (current_template_reqs)
-            current_template_reqs = 
-                finish_template_constraints (current_template_reqs);
-	  if (!redeclare_class_template (t, 
-                                   current_template_parms, 
-                                   current_template_reqs))
-            return error_mark_node;
+	  // It's safe to finish the current template requirements here
+	  // since a class doesn't have trailing requirements.
+	  if (current_template_reqs)
+	    current_template_reqs =
+		finish_template_constraints (current_template_reqs);
+	  if (!redeclare_class_template (t, current_template_parms,
+					 current_template_reqs))
+	    return error_mark_node;
         }
       else if (!processing_template_decl
 	       && CLASS_TYPE_P (t)
@@ -13981,9 +13979,9 @@ store_parm_decls (tree current_function_parms)
     current_eh_spec_block = begin_eh_spec_block ();
 }
 
-// Bring the parameters of a function declaration back into 
-// scope without entering the function body. The declarator 
-// must be a function declarator. The caller is responsible 
+// Bring the parameters of a function declaration back into
+// scope without entering the function body. The declarator
+// must be a function declarator. The caller is responsible
 // for calling finish_scope.
 void
 push_function_parms (cp_declarator *declarator)

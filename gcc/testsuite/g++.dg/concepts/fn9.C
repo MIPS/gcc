@@ -18,12 +18,12 @@ struct S {
 } s;
 
 struct X { } x;
-struct Y { X x; } y; 
+struct Y { X x; } y;
 
-int main () { 
+int main () {
   auto p1 = &f<X>; // Empty f
   assert(p1(x) == 2);
-  
+
   auto p2 = &f<Y>; // Class f
   assert(p2(y) == 1);
 

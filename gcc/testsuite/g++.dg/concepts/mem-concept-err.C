@@ -29,7 +29,7 @@ template<typename T>
     void f2(Base::E<T> x) { }
   };
 
-int main() { 
+int main() {
   f1('a'); // { dg-error "cannot call" }
   f2(0);   // { dg-error "cannot call" }
 
@@ -37,4 +37,3 @@ int main() {
   s.f1('a'); // { dg-error "matching" }
   s.f2('a'); // { dg-error "matching" }
 }
-

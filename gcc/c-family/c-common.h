@@ -142,7 +142,7 @@ enum rid
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
-  RID_IS_SAME_AS,              RID_IS_STD_LAYOUT,           
+  RID_IS_SAME_AS,              RID_IS_STD_LAYOUT,
   RID_IS_TRIVIAL,              RID_IS_UNION,
   RID_UNDERLYING_TYPE,
 

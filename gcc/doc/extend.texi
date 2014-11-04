@@ -18568,7 +18568,7 @@ The following keywords are reserved for concepts.
 
 @table @code
 @item assumes
-States an expression as an assumption, and if possible, verifies tht the 
+States an expression as an assumption, and if possible, verifies that the
 assumption is valid. For example, @code{assume(n > 0)}.
 
 @item axiom

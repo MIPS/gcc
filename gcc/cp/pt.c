@@ -857,7 +857,7 @@ static tree
 maybe_new_partial_specialization (tree type)
 {
   // An implicit instantiation of an incomplete type implies
-  // the definition of a new class template. 
+  // the definition of a new class template.
   //
   //    template<typename T>
   //      struct S;
@@ -869,15 +869,15 @@ maybe_new_partial_specialization (tree type)
   // is incomplete.
   if (CLASSTYPE_IMPLICIT_INSTANTIATION (type) && !COMPLETE_TYPE_P (type))
     return type;
-  
-  // It can also be the case that is a completed specialization.
+
+  // It can also be the case that TYPE is a completed specialization.
   // Continuing the previous example, suppose we also declare:
   //
   //    template<typename T>
   //      requires Integral<T>
   //        struct S<T*>;
   //
-  // Here, S<T*> refers to the specialization S<T*> defined 
+  // Here, S<T*> refers to the specialization S<T*> defined
   // above. However, we need to differentiate definitions because
   // we intend to define a new partial specialization. In this case,
   // we rely on the fact that the constraints are different for
@@ -894,7 +894,7 @@ maybe_new_partial_specialization (tree type)
           tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
           tree args = CLASSTYPE_TI_ARGS (type);
 
-          // Create a new type node (and corresponding type decl) that 
+          // Create a new type node (and corresponding type decl)
           // for the newly declared specialization.
           tree t = make_class_type (TREE_CODE (type));
           CLASSTYPE_DECLARED_CLASS (t) = CLASSTYPE_DECLARED_CLASS (type);
@@ -1914,7 +1914,7 @@ print_candidates (tree fns)
 }
 
 // Among candidates having the same signature, return the most constrained
-// or NULL_TREE if there is no best candidate. If the signatures of candidates 
+// or NULL_TREE if there is no best candidate. If the signatures of candidates
 // vary (e.g., template specialization vs. member function), then there can
 // be no most constrained.
 static tree
@@ -2108,7 +2108,7 @@ determine_specialization (tree template_id,
 	  /* Function templates cannot be specializations; there are
 	     no partial specializations of functions.  Therefore, if
 	     the type of DECL does not match FN, there is no
-	     match.  
+	     match.
 
              Note that it should never be the case that we have both
              candidates added here, and for regular member functions
@@ -2213,7 +2213,7 @@ determine_specialization (tree template_id,
 
           // Add the candidate.
           candidates = tree_cons (NULL_TREE, fn, candidates);
-        }
+	}
     }
 
   if (templates && TREE_CHAIN (templates))
@@ -2323,7 +2323,7 @@ determine_specialization (tree template_id,
     }
   else
     *targs_out = TREE_PURPOSE (templates);
-  
+
   // Associate the deduced constraints with the declaration.
   if (tree ci = get_constraints (TREE_VALUE (templates)))
     set_constraints (decl, tsubst_constraint_info (ci, *targs_out));
@@ -3954,7 +3954,7 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
 	= is_parameter_pack;
 
       // Build requirements for the parameter.
-      reqs = finish_shorthand_constraint (parm, constr);        
+      reqs = finish_shorthand_constraint (parm, constr);
     }
   else
     {
@@ -3994,12 +3994,12 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
   DECL_ARTIFICIAL (decl) = 1;
   SET_DECL_TEMPLATE_PARM_P (decl);
   pushdecl (decl);
-  
+
   // Build the parameter node linking the parameter declaration, its
   // default argument (if any), and its constraints (if any).
   parm = build_tree_list (defval, parm);
   TEMPLATE_PARM_CONSTRAINTS (parm) = reqs;
-  
+
   return chainon (list, parm);
 }
 
@@ -4239,7 +4239,7 @@ maybe_update_decl_type (tree orig_type, tree scope)
 }
 
 /* Return a TEMPLATE_DECL corresponding to DECL, using the indicated
-   template PARMS and constraints, CONSTR.  If MEMBER_TEMPLATE_P is true, 
+   template PARMS and constraints, CONSTR.  If MEMBER_TEMPLATE_P is true,
    the new  template is a member template. */
 
 tree
@@ -4338,7 +4338,7 @@ process_partial_specialization (tree decl)
   // a new type. We do this by making the DECL's type its own
   // canonical type.
   //
-  // TODO: Do we need to compare the current requirements to make 
+  // TODO: Do we need to compare the current requirements to make
   // sure this isn't a redeclaration?
   if (current_template_reqs)
     TYPE_CANONICAL (type) = type;
@@ -4413,7 +4413,7 @@ process_partial_specialization (tree decl)
   /* [temp.class.spec]
 
      The argument list of the specialization shall not be identical to
-     the implicit argument list of the primary template.  
+     the implicit argument list of the primary template.
 
      Note that concepts allow partial specializations with the same list of
      arguments but different constraints. */
@@ -4566,8 +4566,8 @@ process_partial_specialization (tree decl)
   gcc_assert (!COMPLETE_TYPE_P (type));
 
   // Build the template decl.
-  tree tmpl = build_template_decl (decl, 
-                                   current_template_parms, 
+  tree tmpl = build_template_decl (decl,
+                                   current_template_parms,
                                    current_template_reqs,
                                    DECL_MEMBER_TEMPLATE_P (maintmpl));
   TREE_TYPE (tmpl) = type;
@@ -5129,7 +5129,7 @@ push_template_decl_real (tree decl, bool is_friend)
 	}
       else
 	{
-	  tmpl = build_template_decl (decl, 
+	  tmpl = build_template_decl (decl,
                                       current_template_parms,
                                       current_template_reqs,
                                       member_template_p);
@@ -5473,12 +5473,12 @@ redeclare_class_template (tree type, tree parms, tree cons)
 	TREE_PURPOSE (TREE_VEC_ELT (parms, i)) = tmpl_default;
     }
 
-  // Cannot redeclare a class template with a different set of constraints. 
+  // Cannot redeclare a class template with a different set of constraints.
   if (!equivalent_constraints (get_constraints (tmpl), cons))
     {
       error_at (input_location, "redeclaration %q#D with different "
                                 "constraints", tmpl);
-      inform (DECL_SOURCE_LOCATION (tmpl), 
+      inform (DECL_SOURCE_LOCATION (tmpl),
               "original declaration appeared here");
     }
 
@@ -6699,7 +6699,7 @@ canonicalize_type_argument (tree arg, tsubst_flags_t complain)
 }
 
 // A template declaration can be substituted for a constrained
-// template template parameter only when the argument is more 
+// template template parameter only when the argument is more
 // constrained than the parameter.
 static bool
 is_compatible_template_arg (tree parm, tree arg)
@@ -6946,15 +6946,15 @@ convert_template_argument (tree parm,
               if (val != error_mark_node)
                 if (!is_compatible_template_arg (parm, arg))
                   {
-                      if (in_decl && (complain & tf_error))
+		    if (in_decl && (complain & tf_error))
                       {
                         error ("constraint mismatch at argument %d in "
                                "template parameter list for %qD",
                                i + 1, in_decl);
                         inform (input_location, "  expected %qD but got %qD",
                                 parm, arg);
-                      }                      
-                      val = error_mark_node;
+                      }
+		    val = error_mark_node;
                   }
 	    }
 	}
@@ -7470,7 +7470,7 @@ coerce_template_parms (tree parms,
 // arguments.  If any error occurs, return error_mark_node. Error and
 // warning messages are not issued.
 //
-// Note that no function argument deduction is performed, and default 
+// Note that no function argument deduction is performed, and default
 // arguments are used to fill in unspecified arguments.
 tree
 coerce_template_parms (tree parms, tree args, tree in_decl)
@@ -8061,9 +8061,9 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       // If the the template's constraints are not satisfied, then we
       // cannot form a valid type.
       //
-      // Note that the check is deferred until after the hash-lookup. 
+      // Note that the check is deferred until after the hash-lookup.
       // This prevents redundant checks on specializations.
-      if (!check_template_constraints (gen_tmpl, arglist)) 
+      if (!check_template_constraints (gen_tmpl, arglist))
         {
           // Diagnose constraints here since they are not diagnosed
           // anywhere else.
@@ -10170,14 +10170,14 @@ gen_elem_of_pack_expansion_instantiation (tree pattern,
 }
 
 // Substitute args into the pack expansion T, and rewrite the resulting
-// list as a conjuntion of the specified terms. If the result is an empty
+// list as a conjunction of the specified terms. If the result is an empty
 // expression, return boolean_true_node.
 tree
-tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain, 
+tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain,
                          tree in_decl)
 {
   tree terms = tsubst_pack_expansion (t, args, complain, in_decl);
-  
+
   // If the resulting expression is type- or value-dependent, then
   // return it after setting the result type to bool (so it can be
   // expanded as a conjunction).
@@ -10925,7 +10925,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	DECL_CHAIN (r) = NULL_TREE;
 
         // Build new template info linking to the original template decl.
-        DECL_TEMPLATE_INFO (r) = build_template_info (t, args);	
+	DECL_TEMPLATE_INFO (r) = build_template_info (t, args);
 
 	if (TREE_CODE (decl) == TYPE_DECL
 	    && !TYPE_DECL_ALIAS_P (decl))
@@ -11238,8 +11238,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 
 	    if (DECL_INHERITED_CTOR_BASE (r))
 	      deduce_inheriting_ctor (r);
-	    
-            /* If this is an instantiation of a member template, clone it.
+
+	    /* If this is an instantiation of a member template, clone it.
 	       If it isn't, that'll be handled by
 	       clone_constructors_and_destructors.  */
 	    if (PRIMARY_TEMPLATE_P (gen_tmpl))
@@ -14651,7 +14651,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       // to a conunction of the expanded terms.
       if (TREE_TYPE (t) == boolean_type_node)
         return tsubst_pack_conjunction (t, args, complain, in_decl);
-  
+
       error ("invalid use of pack expansion expression");
       RETURN (error_mark_node);
 
@@ -16012,7 +16012,7 @@ tsubst_copy_and_build (tree t,
 
     case VALIDEXPR_EXPR:
       RETURN (tsubst_validexpr_expr (t, args, in_decl));
-    
+
     case VALIDTYPE_EXPR:
       RETURN (tsubst_validtype_expr (t, args, in_decl));
 
@@ -19335,7 +19335,7 @@ more_specialized_class (tree tmpl, tree pat1, tree pat2)
 
 
   // If still tied at this point, the most specialized is also
-  // the most constrained. 
+  // the most constrained.
   if (!winner)
     return more_constrained (tmpl1, tmpl2);
 
@@ -19461,11 +19461,11 @@ get_class_bindings (tree tmpl, tree tparms, tree spec_args, tree args)
   return deduced_args;
 }
 
-// Compare two function templates T! and T2 by deducing bindings 
-// from one against the other. If both deductions succeed, compare 
+// Compare two function templates T1 and T2 by deducing bindings
+// from one against the other. If both deductions succeed, compare
 // constraints to see which is more constrained.
 static int
-more_specialized_inst (tree t1, tree t2) 
+more_specialized_inst (tree t1, tree t2)
 {
   int fate = 0;
   int count = 0;
@@ -21598,7 +21598,7 @@ type_dependent_expression_p (tree expression)
     return false;
 
   /* An unresolved name is always dependent.  */
-  if (identifier_p (expression) 
+  if (identifier_p (expression)
       || TREE_CODE (expression) == USING_DECL
       || TREE_CODE (expression) == PLACEHOLDER_EXPR
       || TREE_CODE (expression) == INTRODUCED_PARM_DECL)

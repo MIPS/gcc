@@ -12,4 +12,4 @@ int main()
 {
   f1<char>();
   return 0;
-} 
+}

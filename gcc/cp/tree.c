@@ -2064,9 +2064,9 @@ bind_template_template_parm (tree t, tree newargs)
      arguments.  */
   TEMPLATE_TYPE_PARM_INDEX (t2) = copy_node (TEMPLATE_TYPE_PARM_INDEX (t));
   TEMPLATE_PARM_DECL (TEMPLATE_TYPE_PARM_INDEX (t2)) = decl;
-   TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2)
+  TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2)
     = build_template_info (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t), newargs);
-  
+
   TREE_TYPE (decl) = t2;
   TYPE_NAME (t2) = decl;
   TYPE_STUB_DECL (t2) = decl;
@@ -3624,7 +3624,7 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
       WALK_SUBTREE (TREE_OPERAND (*tp, 1));
       *walk_subtrees_p = 0;
       break;
-    
+
     default:
       return NULL_TREE;
     }

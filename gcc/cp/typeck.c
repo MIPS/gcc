@@ -3481,7 +3481,7 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
       //
       // Note that if overload resolution failed with a single candidate
       // this function will be used to explicitly diagnose the failure
-      // for the single call expression. The check is technically 
+      // for the single call expression. The check is technically
       // redundant since we would have failed in add_function_candidate.
       if (flag_concepts)
         if (tree ci = get_constraints (function))
@@ -6652,8 +6652,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	  t1 = intype;
 	  t2 = type;
 	}
-      if ((can_convert_standard (t1, t2, complain) || 
-           can_convert_standard (t2, t1, complain)))
+      if (can_convert_standard (t1, t2, complain)
+	  || can_convert_standard (t2, t1, complain))
 	{
 	  if (!c_cast_p
 	      && check_for_casting_away_constness (intype, type,

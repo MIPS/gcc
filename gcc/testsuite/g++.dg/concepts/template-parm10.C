@@ -11,7 +11,7 @@ template<Q<int> X> void g() { }
 
 template<typename> struct S { };
 
-int main() { 
+int main() {
   f<0>();
   g<S>();
 }

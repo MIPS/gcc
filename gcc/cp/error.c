@@ -1277,9 +1277,9 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 	    }
 	  pp_cxx_end_template_argument_list (pp);
 
-          if (flag_concepts)
-            if (tree ci = get_constraints (t))
-              pp_cxx_requires_clause (pp, CI_LEADING_REQS (ci));
+	  if (flag_concepts)
+	    if (tree ci = get_constraints (t))
+	      pp_cxx_requires_clause (pp, CI_LEADING_REQS (ci));
 
 	  pp_cxx_whitespace (pp);
 	}
@@ -2649,7 +2649,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case EXPR_REQ:
       pp_cxx_expr_requirement (cxx_pp, t);
       break;
-    
+
     case TYPE_REQ:
       pp_cxx_type_requirement (cxx_pp, t);
       break;
@@ -2665,7 +2665,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case VALIDTYPE_EXPR:
       pp_cxx_validtype_expr (cxx_pp, t);
       break;
-    
+
     case CONSTEXPR_EXPR:
       pp_cxx_constexpr_expr (cxx_pp, t);
 
@@ -3000,7 +3000,7 @@ args_to_string (tree p, int verbose)
   int flags = 0;
   if (verbose)
     flags |= TFF_CLASS_KEY_OR_ENUM;
-  
+
   if (p == NULL_TREE)
     return "";
 

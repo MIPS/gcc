@@ -18,8 +18,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-// 
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -44,13 +42,13 @@ along with GCC; see the file COPYING3.  If not see
 
 namespace {
 
-// Helper algorithms 
+// Helper algorithms
 
 // Increment iter distance(first, last) times.
 template<typename I1, typename I2, typename I3>
   I1 next_by_distance (I1 iter, I2 first, I3 last)
   {
-    for ( ; first != last; ++first, ++iter) 
+    for ( ; first != last; ++first, ++iter)
       ;
     return iter;
   }
@@ -112,8 +110,8 @@ term_list::insert (tree t)
   current = std::list<tree>::insert (current, t);
 }
 
-// Remove the current term form the list, repositioning to the term
-// following the removed term. Note that the new position could be past 
+// Remove the current term from the list, repositioning to the term
+// following the removed term. Note that the new position could be past
 // the end of the list.
 //
 // The removed term is returned.
@@ -208,11 +206,11 @@ proof_state::branch (iterator i)
 //  Gamma, P, Q |- Delta
 //  -------------------------
 //  Gamma, P and Q |- Delta
-inline void 
+inline void
 left_and (proof_state &, goal_iterator i, tree t)
 {
   gcc_assert (TREE_CODE (t) == TRUTH_ANDIF_EXPR);
-  
+
   // Insert the operands into the current branch. Note that the
   // final order of insertion is left-to-right.
   term_list &l = i->assumptions;
@@ -287,7 +285,7 @@ inline void
 right_or (proof_state &, goal_iterator i, tree t)
 {
   gcc_assert (TREE_CODE (t) == TRUTH_ANDIF_EXPR);
-  
+
   // Insert the operands into the current branch. Note that the
   // final order of insertion is left-to-right.
   term_list &l = i->conclusions;
@@ -333,7 +331,7 @@ decompose_left_term (proof_state &s, goal_iterator i)
     }
 }
 
-void 
+void
 decompose_left_goal (proof_state &s, goal_iterator i)
 {
   term_list& l = i->assumptions;
@@ -398,7 +396,7 @@ decompose_assumptions (tree t)
   proof_state s;
   term_list &l = s.begin ()->assumptions;
   l.insert (t);
-  
+
   // Decompose the expression into a constraint set, and then
   // extract the terms for the AST.
   decompose_left (s);
@@ -432,7 +430,7 @@ match_terms (tree a, tree c)
   return cp_tree_equal (a, c);
 }
 
-// Returns true if the list of assumptions AS subsume the atomic 
+// Returns true if the list of assumptions AS subsumes the atomic
 // proposition C. This is the case when we can find a proposition in
 // AS that entails the conclusion C.
 bool
@@ -445,7 +443,7 @@ subsumes_atom (tree as, tree c)
 }
 
 // Returns true when both operands of C are subsumed by the assumptions AS.
-inline bool 
+inline bool
 subsumes_and (tree as, tree c)
 {
   tree l = TREE_OPERAND (c, 0);
@@ -473,12 +471,12 @@ subsumes_requires (tree as, tree c)
   return !t;
 }
 
-// Returns true when the list of assumptions AS subsumes the 
+// Returns true when the list of assumptions AS subsumes the
 // concluded proposition C.
 //
 // This is a simple recursive descent on C, matching against
 // propositions in the assumption list AS.
-bool 
+bool
 subsumes_prop (tree as, tree c)
 {
   switch (TREE_CODE (c))
@@ -494,7 +492,7 @@ subsumes_prop (tree as, tree c)
     }
 }
 
-// Returns true the LEFT constraints subsume the RIGHT constraints.
+// Returns true if the LEFT constraints subsume the RIGHT constraints.
 // This is done by checking that the RIGHT requirements follow from
 // each of the LEFT subgoals.
 bool
@@ -516,7 +514,7 @@ subsumes_constraints_nonnull (tree left, tree right)
 } // end namespace
 
 
-// Returns true the LEFT constraints subsume the RIGHT constraints. Note
+// Returns true if the LEFT constraints subsume the RIGHT constraints. Note
 // that subsumption is a reflexive relation (e.g., <=)
 bool
 subsumes (tree left, tree right)

@@ -22,8 +22,8 @@ template<> void g(int) { called = 1; } // Specialization of #1
 template<> void g<X>(X) { called = 2; } // Specialization of #3
 template<> void g(Y) { called = 3; } // Specialization of #2
 
-int main() { 
-  g(0); 
+int main() {
+  g(0);
   assert(called == 1);
   g(x);
   assert(called == 2);

@@ -705,9 +705,9 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      != type_memfn_rqual (TREE_TYPE (fndecl)))
 	    continue;
 
-    // Include constraints in the match.
-    tree c1 = get_constraints (function);
-    tree c2 = get_constraints (fndecl);
+	  // Include constraints in the match.
+	  tree c1 = get_constraints (function);
+	  tree c2 = get_constraints (fndecl);
 
 	  /* While finding a match, same types and params are not enough
 	     if the function is versioned.  Also check version ("target")
@@ -719,7 +719,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      && (!is_template
 		  || comp_template_parms (template_parms,
 					  DECL_TEMPLATE_PARMS (fndecl)))
-              && equivalent_constraints (c1, c2)
+	      && equivalent_constraints (c1, c2)
 	      && (DECL_TEMPLATE_SPECIALIZATION (function)
 		  == DECL_TEMPLATE_SPECIALIZATION (fndecl))
 	      && (!DECL_TEMPLATE_SPECIALIZATION (function)

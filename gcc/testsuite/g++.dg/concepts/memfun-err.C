@@ -23,7 +23,7 @@ template<typename T>
     void g2() requires C<T>(); // { dg-error "candidate" }
   };
 
-template<typename T> 
+template<typename T>
   void S1<T>::g2() requires D<T>() { } // { dg-error "prototype" }
 
 int main() {

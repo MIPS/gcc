@@ -8,6 +8,6 @@ struct X { };
 template<C T> struct S;
 template<> struct S<X> { void f() { } };
 
-int main() { 
+int main() {
   S<X> x; x.f();
 }

@@ -9,10 +9,10 @@ struct A {
 template<>
 template<class X1> void A<int>::f1(int, X1);
 
-// Specialization with template-id 
+// Specialization with template-id
 template<>
 template<> void A<int>::f2<char>(int, char);
 
 // Specialization with deduction
-template<> 
+template<>
 template<> void A<int>::f1(int, char);

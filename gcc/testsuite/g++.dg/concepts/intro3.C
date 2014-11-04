@@ -14,4 +14,4 @@ int main()
   f1<int, short, char>();
   f2<1, 2, 3>();
   return 0;
-} 
+}

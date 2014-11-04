@@ -13,7 +13,6 @@ template<typename T>
     using S1<T>::S1;
   };
 
-int main() { 
+int main() {
   S2<int> s(0); // { dg-error "matching" }
 }
-

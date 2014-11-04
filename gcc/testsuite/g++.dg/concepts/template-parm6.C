@@ -14,7 +14,7 @@ template<typename T>
 
 template<typename T, typename U, typename... Ts>
   struct are_same<T, U, Ts...> {
-    static constexpr bool value = 
+    static constexpr bool value =
       __is_same_as(T, U) && are_same<U, Ts...>::value;
   };
 

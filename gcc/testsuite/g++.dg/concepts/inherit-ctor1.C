@@ -15,7 +15,6 @@ template<typename T>
 
 struct X { };
 
-int main() { 
+int main() {
   S2<X> s;
 }
-

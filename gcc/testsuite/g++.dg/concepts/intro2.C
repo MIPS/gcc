@@ -25,4 +25,3 @@ int main()
 }
 
 C{A} P{B} int S1<A>::f1() { return B + sizeof(A); }
- 

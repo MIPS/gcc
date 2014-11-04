@@ -22,7 +22,6 @@ int (S::*p7)(int) = &S::f; // { dg-error "no matches" }
 template<typename T>
   void g(T x) { }
 
-int main () { 
+int main () {
   g(&f<int>); // { dg-error "no matches" }
 }
-

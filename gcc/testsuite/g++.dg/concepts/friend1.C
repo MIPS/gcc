@@ -28,6 +28,6 @@ int main() {
   S<int> si;
   si == si; // OK
 
-  S<X> sx; 
+  S<X> sx;
   sx == sx; // { dg-error "no match" }
 }

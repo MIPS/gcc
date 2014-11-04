@@ -11,7 +11,7 @@ template<typename T>
 
 
 template<typename U>
-  requires C1<U>() 
+  requires C1<U>()
   void f1(U) { } // { dg-error "invalid constraint" }
 
 template<typename U>
@@ -20,4 +20,3 @@ template<typename U>
 
 template<C3 T>  // { dg-error "not a type" }
   void f(T) { } // { dg-error "declared void" }
-

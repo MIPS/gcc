@@ -2983,7 +2983,7 @@ finish_template_decl (tree parms)
 //
 // We check, in #2, that S<T> refers precisely to the type declared by
 // #1 (i.e., that the constraints match). Note that the following should
-// be an error since there is no specialization of S<T> that is 
+// be an error since there is no specialization of S<T> that is
 // unconstrained, but this is not diagnosed here.
 //
 //    template<typename T>
@@ -2999,13 +2999,13 @@ finish_template_decl (tree parms)
 // pair constrained for for Integral and Floating_point arguments.
 //
 // The general rule is: if a constrained specialization with matching
-// constraints is found return that type. Alos note that if TYPE is not a 
+// constraints is found return that type. Alos note that if TYPE is not a
 // class-type (e.g. a typename type), then no fixup is needed.
 static tree
 fixup_template_type (tree type)
 {
   // Find the template parameter list at the a depth appropriate to
-  // the scope we're trying to enter. 
+  // the scope we're trying to enter.
   tree parms = current_template_parms;
   int depth = template_class_depth (type);
   for (int n = processing_template_decl; n > depth && parms; --n)
@@ -3051,11 +3051,11 @@ finish_template_type (tree name, tree args, int entering_scope)
 				NULL_TREE, NULL_TREE, entering_scope,
 				tf_warning_or_error | tf_user);
 
-  // If entering a scope of a template, correct the lookup to 
+  // If entering a scope of a template, correct the lookup to
   // account for constraints.
-  if (flag_concepts 
-      && entering_scope 
-      && CLASS_TYPE_P (type) 
+  if (flag_concepts
+      && entering_scope
+      && CLASS_TYPE_P (type)
       && CLASSTYPE_IS_TEMPLATE (type))
     type = fixup_template_type (type);
 
@@ -7228,7 +7228,7 @@ is_binary_trait (cp_trait_kind k)
 // types, this returns an rvalue reference to T. For all other types,
 // this simply returns T.
 tree
-xvalue_result_type (tree t) 
+xvalue_result_type (tree t)
 {
   if (TREE_CODE (t) == FUNCTION_TYPE)
     return cp_build_reference_type(t, true);
@@ -7394,7 +7394,7 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 	      || kind == CPTK_IS_TRIVIAL
 	      || kind == CPTK_IS_UNION);
 
-  if (type1 == error_mark_node 
+  if (type1 == error_mark_node
       || (is_binary_trait (kind) && type2 == error_mark_node))
     return error_mark_node;
 

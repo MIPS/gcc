@@ -2122,8 +2122,7 @@ pp_cxx_namespace_alias_definition (cxx_pretty_printer *pp, tree t)
    Concept extensions:
 
    init-declarator:
-      declarator requires-clause(opt) initializer(opt)
-      */
+      declarator requires-clause(opt) initializer(opt)  */
 
 void
 pp_cxx_init_declarator (cxx_pretty_printer *pp, tree t)
@@ -2254,12 +2253,12 @@ pp_cxx_canonical_template_parameter (cxx_pretty_printer *pp, tree parm)
 
 /*
   template-declaration:
-     export(opt) template < template-parameter-list > declaration   
+     export(opt) template < template-parameter-list > declaration
 
   Concept extensions:
 
   template-declaration:
-     export(opt) template < template-parameter-list > 
+     export(opt) template < template-parameter-list >
        requires-clause(opt) declaration */
 
 static void
@@ -2279,7 +2278,7 @@ pp_cxx_template_declaration (cxx_pretty_printer *pp, tree t)
     }
 
   if (flag_concepts)
-    if (tree ci = get_constraints (t)) 
+    if (tree ci = get_constraints (t))
        {
           pp_cxx_requires_clause (pp, CI_LEADING_REQS (ci));
           pp_newline_and_indent (pp, 6);
@@ -2549,12 +2548,12 @@ static void
 pp_cxx_requirement_list (cxx_pretty_printer *pp, tree t)
 {
   int n = 3;
-  while (t) {
-    pp_newline_and_indent (pp, n);
-    pp->expression (TREE_VALUE (t));
-    n = 0;
-    t = TREE_CHAIN (t);
-  }
+  for (; t; t = TREE_CHAIN (t))
+    {
+      pp_newline_and_indent (pp, n);
+      pp->expression (TREE_VALUE (t));
+      n = 0;
+    }
   pp_newline_and_indent (pp, -3);
 }
 
@@ -2626,7 +2625,7 @@ pp_cxx_compound_requirement (cxx_pretty_printer *pp, tree t)
   tree treq = TREE_CHAIN (ereq);
   if (TREE_CODE (TREE_VALUE (treq)) == VALIDTYPE_EXPR)
     treq = TREE_CHAIN (treq);
-  
+
   // Find tree nodes for any additional constraint specifiers.
   tree spec1 = TREE_CHAIN (treq);
   tree spec2 = spec1 ? TREE_CHAIN (spec1) : NULL_TREE;

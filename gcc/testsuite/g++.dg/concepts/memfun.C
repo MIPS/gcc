@@ -34,7 +34,7 @@ template<typename T>
     void g3();
     void g3() requires C<T>();
     void g3() requires C<T>() and D<T>();
-  
+
     template<C U> void h1(U u) { called = 1; }
     template<C U> void h2(U u);
     template<C U> void h3(U u) requires D<U>();
@@ -61,7 +61,7 @@ int main() {
   sy.f3(); assert(called == 2);
 
   si.f2(); assert(called == 2);
-  si.f3(); assert(called == 1);  
+  si.f3(); assert(called == 1);
 
   // Member function template tests
   S1<int> s1i;
@@ -100,13 +100,13 @@ template<typename T>
 template<typename T>
   void S1<T>::g3() requires C<T>() and D<T>() { called = 3; }
 
-template<typename T> 
-  template<C U> 
+template<typename T>
+  template<C U>
     void S1<T>::h2(U u) { called = 2; }
 
-template<typename T> 
-  template<C U> 
+template<typename T>
+  template<C U>
       void S1<T>::h3(U u) requires D<U>() { called = 3; }
 
-template<C T> 
+template<C T>
   void S2<T>::f(T t) requires D<T>() { called = 4; }

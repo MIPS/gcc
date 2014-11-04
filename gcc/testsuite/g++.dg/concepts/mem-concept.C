@@ -17,7 +17,7 @@ template<typename T>
     void f2(Base::E<T> x) { }
   };
 
-int main() { 
+int main() {
   f1(0);
 
   f2(0.0);

@@ -844,19 +844,19 @@ check_constraint_info (tree t)
 // Access the expression describing the template constraints. This may be
 // null if no constraints were introduced in the template parameter list,
 // a requirements clause after the template parameter list, or constraints
-// introduced through a constrained-type-specifier.
+// through a constrained-type-specifier.
 #define CI_LEADING_REQS(NODE) \
   check_constraint_info (check_nonnull(NODE))->leading_reqs
 
-// Access the expression descrbing the trailing constraints. This is non-null
+// Access the expression describing the trailing constraints. This is non-null
 // for any implicit instantiation of a constrained declaration. For a
 // templated declaration it is non-null only when a trailing requires-clause
 // was specified.
 #define CI_TRAILING_REQS(NODE) \
   check_constraint_info (check_nonnull(NODE))->trailing_reqs
 
-// Access the expression describing the associated constraints of a 
-// declaration. This is the conjunction of template and trailing
+// Access the expression describing the associated constraints of a
+// declaration. This is the conjunction of leading and trailing
 // requirements.
 #define CI_ASSOCIATED_REQS(NODE) \
   check_constraint_info (check_nonnull(NODE))->associated_reqs
@@ -865,13 +865,13 @@ check_constraint_info (tree t)
 #define CI_ASSUMPTIONS(NODE) \
   check_constraint_info (check_nonnull(NODE))->assumptions
 
-// Access the logical constraints on the template parameters introduced 
+// Access the logical constraints on the template parameters introduced
 // at a given template parameter list level indicated by NODE.
 #define TEMPLATE_PARMS_CONSTRAINTS(NODE) \
   TREE_TYPE (TREE_LIST_CHECK (NODE))
 
 // Access the logical constraints on the template parameter declaration
-// indicatd by NODE.
+// indicated by NODE.
 #define TEMPLATE_PARM_CONSTRAINTS(NODE) \
   TREE_TYPE (TREE_LIST_CHECK (NODE))
 
@@ -2032,13 +2032,7 @@ struct GTY(()) lang_type {
 /* Flags shared by all forms of DECL_LANG_SPECIFIC.
 
    Some of the flags live here only to make lang_decl_min/fn smaller.  Do
-   not make this struct larger than 32 bits; instead, make sel smaller. 
-
-
-   The concept_p flag can apply to function and variable templates. The 
-   flag implies that the declaration is constexpr, that the declaration
-   cannot be specialized or refined, and that the result type must be
-   convertible to bool. */
+   not make this struct larger than 32 bits; instead, make sel smaller.  */
 
 struct GTY(()) lang_decl_base {
   unsigned selector : 16;   /* Larger than necessary for faster access.  */
@@ -2599,7 +2593,9 @@ struct GTY(()) lang_decl {
 #define DECL_DECLARED_CONSTEXPR_P(DECL) \
   DECL_LANG_FLAG_8 (VAR_OR_FUNCTION_DECL_CHECK (STRIP_TEMPLATE (DECL)))
 
-// True if NODE was declared as 'concept'.
+// True if NODE was declared as 'concept'.  The flag implies that the
+// declaration is constexpr, that the declaration cannot be specialized or
+// refined, and that the result type must be convertible to bool.
 #define DECL_DECLARED_CONCEPT_P(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->u.base.concept_p)
 
@@ -5194,7 +5190,7 @@ variable_template_p (tree t)
 /* True iff T is a variable concept definition. That is, T is
    a variable template declared with the concept specifier. */
 inline bool
-variable_concept_p (tree t) 
+variable_concept_p (tree t)
 {
   if (TREE_CODE (t) != TEMPLATE_DECL)
     return false;
@@ -5773,7 +5769,7 @@ extern tree tsubst_default_argument		(tree, tree, tree,
 extern tree tsubst (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t,
 						 tree, bool, bool);
-extern tree tsubst_expr                         (tree, tree, tsubst_flags_t, 
+extern tree tsubst_expr                         (tree, tree, tsubst_flags_t,
                                                  tree, bool);
 extern tree most_general_template		(tree);
 extern tree get_mostly_instantiated_function_type (tree);

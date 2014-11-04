@@ -61,13 +61,13 @@ void ptr(const C*) { called = 2; }
 void ref(C&) { called = 1; }
 void ref(const C&) { called = 2; }
 
-void 
+void
 fwd_lvalue_ref(Type&& x) {
   using T = decltype(x);
   static_assert(std::is_lvalue_reference<T>::value, "not an lvlaue reference");
 }
 
-void 
+void
 fwd_const_lvalue_ref(Type&& x) {
   using T = decltype(x);
   static_assert(std::is_lvalue_reference<T>::value, "not an lvalue reference");
@@ -118,7 +118,7 @@ int main() {
   s2.h3(0); assert(called == 1);
   s2.h3(s); assert(called == 2);
 
-  s2.g1(s, s); assert(called == 1); 
+  s2.g1(s, s); assert(called == 1);
   s2.g2(s, s); assert(called == 2);
 
   ptr(&s); assert(called == 1);

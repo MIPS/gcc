@@ -29,4 +29,4 @@ int main()
   // Defaults should not transfer
   f6<int>(); // { dg-error "no matching" }
   return 0;
-} 
+}
