@@ -2765,6 +2765,10 @@ package body Prj.Proc is
             Success := not Prj.Tree.No (Loaded_Project);
 
             if Success then
+               if Node_Tree.Incomplete_With then
+                  From_Project_Node_Tree.Incomplete_With := True;
+               end if;
+
                List.Tree := new Project_Tree_Data (Is_Root_Tree => False);
                Prj.Initialize (List.Tree);
                List.Tree.Shared := In_Tree.Shared;
@@ -2928,9 +2932,9 @@ package body Prj.Proc is
             Name : constant Name_Id :=
                      Name_Of (From_Project_Node, From_Project_Node_Tree);
 
-            Name_Node : constant Tree_Private_Part.Project_Name_And_Node :=
-                          Tree_Private_Part.Projects_Htable.Get
-                            (From_Project_Node_Tree.Projects_HT, Name);
+            Display_Name : constant Name_Id :=
+                             Display_Name_Of
+                               (From_Project_Node, From_Project_Node_Tree);
 
          begin
             Project := Processed_Projects.Get (Name);
@@ -2994,7 +2998,8 @@ package body Prj.Proc is
             Processed_Projects.Set (Name, Project);
 
             Project.Name := Name;
-            Project.Display_Name := Name_Node.Display_Name;
+            Project.Display_Name := Display_Name;
+
             Get_Name_String (Name);
 
             --  If name starts with the virtual prefix, flag the project as

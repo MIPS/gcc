@@ -1,3 +1,461 @@
+2014-10-31  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* aspects.adb Add an entry for aspect Ghost in table
+	Canonical_Aspect.
+	* aspects.ads Add an entry for aspect Ghost in tables
+	Aspect_Argument, Aspect_Delay, Aspect_Id, Aspect_Names and
+	Implementation_Defined_Aspect.
+	* einfo.adb: Flags 277 and 278 are now in use.
+	(Is_Checked_Ghost_Entity): New routine.
+	(Is_Ghost_Entity): Removed.
+	(Is_Ghost_Subprogram): Removed.
+	(Is_Ignored_Ghost_Entity): New routine.
+	(Set_Is_Checked_Ghost_Entity): New routine.
+	(Set_Is_Ignored_Ghost_Entity): New routine.
+	(Write_Entity_Flags): Output flags Is_Checked_Ghost_Entity and
+	Is_Ignored_Ghost_Entity.
+	* einfo.ads: Add new flags Is_Checked_Ghost_Entity
+	and Is_Ignored_Ghost_Entity along with usage in nodes.
+	(Is_Checked_Ghost_Entity): New routine and pragma Inline.
+	(Is_Ghost_Entity): Removed along with synthesized flag
+	description and usage in nodes.
+	(Is_Ghost_Subprogram): Removed along with synthesized flag description
+	and usage in nodes.
+	(Is_Ignored_Ghost_Entity): New routine and pragma Inline.
+	(Set_Is_Checked_Ghost_Entity): New routine and pragma Inline.
+	(Set_Is_Ignored_Ghost_Entity): New routine and pragma Inline.
+	* freeze.adb (Freeze_Entity): A Ghost type cannot be effectively
+	volatile.
+	* par-prag.adb Pragma Ghost does not need special handling by
+	the parser.
+	* repinfo.adb (List_Mechanisms): Remove the entry for convention Ghost.
+	* sem_attr.adb (Analyze_Access_Attribute): Remove obsolete check.
+	* sem_ch3.adb (Analyze_Full_Type_Declaration): Mark
+	the type as Ghost when its enclosing context is Ghost.
+	(Analyze_Incomplete_Type_Decl): Mark the type as Ghost when
+	its enclosing context is Ghost.
+	(Analyze_Number_Declaration): Mark the number as Ghost when its
+	enclosing context is Ghost.
+	(Analyze_Object_Declaration): Mark the object as Ghost when its
+	enclosing context is Ghost. Verify the Ghost policy between
+	initial declaration and completion of a deferred constant.
+	(Analyze_Object_Contract): A Ghost variable cannot be effectively
+	volatile, imported or exported.
+	(Build_Derived_Record_Type): Mark a type extension as Ghost when it
+	implements a Ghost interface.
+	(Build_Record_Type): Inherit volatility and "ghostness" from
+	the parent type.
+	(Check_Completion): A Ghost entity declared
+	in a non-Ghost package does not require completion in a body.
+	(Implements_Ghost_Interface): New routine.
+	(Process_Full_View): Inherit "ghostness" from the partial view. Verify
+	the Ghost policy between the partial and full views. Verify the
+	completion of a Ghost type extension.
+	* sem_ch4.adb (Check_Ghost_Subprogram_Call): Removed.
+	* sem_ch5.adb (Analyze_Assignment): Analyze the left hand side first.
+	* sem_ch6.adb (Analyze_Abstract_Subprogram_Declaration): Mark
+	the subprogram as Ghost when its enclosing context is Ghost.
+	(Analyze_Generic_Subprogram_Body): Mark the generic body as Ghost
+	when its enclosing context is Ghost. Verify the Ghost policy
+	between the spec and body.
+	(Analyze_Subprogram_Body_Helper): Mark the body as Ghost when its
+	enclosing context is Ghost. Verify the Ghost policy between the spec
+	and body.
+	(Check_Conformance): A Ghost subprogram profile and a non-Ghost
+	subprogram profile are not subtype conformant.
+	(Convention_Of): Removed.
+	* sem_ch7.adb (Analyze_Package_Body_Helper): Inherit the
+	"ghostness" from the spec. Verify the Ghost policy between
+	the spec and body.
+	(Analyze_Private_Type_Declaration): Mark the type as Ghost when its
+	enclosing context is Ghost.
+	(Requires_Completion_In_Body): New routine.
+	(Unit_Requires_Body): Use Requires_Completion_In_Body.
+	(Unit_Requires_Body_Info): Rename formal parameter P to Pack_Id, update
+	comment on usage and all uses of P in the body. Use
+	Requires_Completion_In_Body.
+	* sem_ch7.ads (Unit_Requires_Body): Rename formal parameter P
+	to Pack_Id, update comment on usage and all uses of P in the body.
+	* sem_ch8.adb (Analyze_Exception_Renaming): Inherit the "ghostness"
+	from the renamed excention.
+	(Analyze_Generic_Renaming): Inherit the "ghostness" from the
+	renamed generic subprogram.
+	(Analyze_Object_Renaming): Inherit the "ghostness" from the renamed
+	object.
+	(Analyze_Package_Renaming): Inherit the "ghostness" from the
+	renamed package.
+	(Analyze_Subprogram_Renaming): Inherit the "ghostness" from the
+	renamed subprogram.
+	* sem_ch11.adb (Analyze_Exception_Declaration): Mark an exception
+	as Ghost when its enclosing context is Ghost.
+	* sem_ch12.adb (Analyze_Generic_Package_Declaration,
+	Analyze_Generic_Subprogram_Declaration): Mark an exception as
+	Ghost when its enclosing context is Ghost.
+	(Preanalyze_Actuals): Remove obsolete check.
+	* sem_ch13.adb (Analyze_Aspect_Specifications): Add processing
+	for aspect Ghost.
+	(Check_Aspect_At_Freeze_Point): Aspects
+	Depends and Global do no need special checking at freeze point.
+	(Insert_After_SPARK_Mode): Update comment on usage.
+	* sem_mech.adb (Set_Mechanisms): Remove the entry for convention Ghost.
+	* sem_prag.adb Add an entry for pragma Ghost in table Sig_Flags.
+	(Analyze_Abstract_State): Update the grammar of the pragma. Add
+	formal parameter Pack_Id along with comment on usage. Mark an
+	abstract state as Ghost when its enclosing context is Ghost. Add
+	processing for option Ghost.
+	(Analyze_Constituent): Verify
+	that a Ghost abstract state is refined by Ghost constituents.
+	(Analyze_Pragma): "Ghost" is now a valid policy. Add checks
+	related to the use and placement of Check_Policy Ghost. Add
+	processing for pragma Ghost.
+	(Check_Ghost_Constituent): New routine.
+	(Is_Valid_Assertion_Kind): "Ghost" is now a valid assertion.
+	(Process_Convention): Remove obsolete check.
+	(Set_Convention_From_Pragma): Remove the processing for convention
+	Ghost.
+	* sem_res.adb (Check_Ghost_Context): New routine.
+	(Resolve_Call): Verify that a reference to a Ghost entity appears in a
+	suitable context. Verify the Ghost polity between point of declaration
+	and point of use.
+	(Resolve_Entity_Name): Verify that a reference to
+	a Ghost entity appears in a suitable context. Verify the Ghost
+	polity between point of declaration and point of use.
+	* sem_util.adb (Check_Ghost_Completion): New routine.
+	(Check_Ghost_Derivation): New routine.
+	(Incomplete_Or_Partial_View): New routine.
+	(Incomplete_Or_Private_View): Removed.
+	(Is_Ghost_Entity): New routine.
+	(Is_Ghost_Statement_Or_Pragma): New routine.
+	(Is_Subject_To_Ghost): New routine.
+	(Policy_In_Effect): New routine.
+	(Set_Is_Ghost_Entity): New routine.
+	(Within_Ghost_Scope): New routine.
+	* sem_util.ads (Check_Ghost_Completion): New routine.
+	(Check_Ghost_Derivation): New routine.
+	(Incomplete_Or_Partial_View): New routine.
+	(Incomplete_Or_Private_View): Removed.
+	(Is_Ghost_Entity): New routine.
+	(Is_Ghost_Statement_Or_Pragma): New routine.
+	(Is_Subject_To_Ghost): New routine.
+	(Policy_In_Effect): New routine.
+	(Set_Is_Ghost_Entity): New routine.
+	(Within_Ghost_Scope): New routine.
+	* snames.adb-tmpl (Get_Convention_Id): Remove the entry for
+	convention Ghost.
+	(Get_Convention_Name): Remove the entry for convention Ghost.
+	* snames.ads-tmpl Remove the convention id for Ghost. Add a
+	pragma id for Ghost.
+
+2014-10-31  Sergey Rybin  <rybin@adacore.com frybin>
+
+	* gnat_ugn.texi: Add description of --RTS option for ASIS tools.
+
+2014-10-31  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/Makefile.in (arm-vxworks): Update target pairs.
+
+2014-10-31  Vincent Celier  <celier@adacore.com>
+
+	* prj-part.adb (Parse_Single_Project): Call Set_Display_Name_Of.
+	* prj-proc.adb (Recursive_Process): Call Display_Name_Of to
+	get the project Display_Name.
+	* prj-tree.adb (Display_Name_Of): New function
+	(Set_Display_Name_Of): New procedure.
+	(Create_Project): Call Set_Display_Name_Of.
+	* prj-tree.ads (Display_Name_Of): New function.
+	(Set_Display_Name_Of): New procedure.
+	(Project_Node_Record): New component Display_Name.
+	(Project_Name_And_Node): Remove component Display_Name.
+	* prj-conf.adb (Parse_Project_And_Apply_Config): Use the full
+	Config_File_Path as the Config_File_Name, not just its simple
+	name.
+
+2014-10-31  Thomas Quinot  <quinot@adacore.com>
+
+	* get_scos.adb: Minor reformatting.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch5.adb (Expand_Formal_Container_Loop): Create block to
+	capture declaration for cursor to prevent spurious errors when
+	several formal iterators that use the same cursoe name appear
+	in the same context.
+
+2014-10-31  Vincent Celier  <celier@adacore.com>
+
+	* prj-proc.adb (Recursive_Process): Make sure that the project
+	display name is never No_Name.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_attr.adb (Analyze_Access_Attribute): Do not emit error
+	message if reference does not come from source, as in the case
+	for the controlling argument of a dispatching call. Error is
+	diagnosed when call is resolved.
+	* sem_ch4.adb (Complete_Object_Operation); Fix incorrect RM
+	reference in error message.
+	* sem_res.adb (Check_Prefixed_Call): ditto.
+
+2014-10-31  Yannick Moy  <moy@adacore.com>
+
+	* sem_prag.adb (Process_Restrictions_Or_Restriction_Warnings): Do not
+	suppress checks when pragma Restrictions (No_Exception) is used in
+	CodePeer or GNATprove mode.
+
+2014-10-31  Yannick Moy  <moy@adacore.com>
+
+	* gnat1drv.adb (Adjust_Global_Switches): Explicitly mark language
+	checks as not suppressed in GNATprove mode.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_elab.adb (Check_Elab_Call): Nothing to check if call is
+	being pre-analyzed.
+	* sem_ch3.adb (Complete_Private_Subtype): If all rep items of full
+	view are those of the base, use rep_item chain of partial view,
+	which may include aspects.
+	* sem_cat.adb (Is_non_Remote_Access_Type): Use underlying type
+	of base type, to handle properly declared subtypes.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Analyze_Generic_Package_Declaration): If there
+	is a default storage pool, add a corresponding aspect to the
+	generic unit, to be used at the point of instantiation.
+	(Analyze_Package_Instantiation): If generic unit has aspect
+	specifications, propagate them to instance. If instance has a
+	Default_Storage_Pool aspect, make sure that it overrides the
+	one that may be inherited from the generic.
+
+2014-10-31  Vincent Celier  <celier@adacore.com>
+
+	* prj-attr.adb: Minor removal of attributes of package Linker
+	that have never been used and never been documented.
+	* projects.texi: Add documentation for attribute Runtime.
+	* prj-nmsc.adb (Check_Configuration): Do not report a warning
+	for unknown compilers when the project is externally built.
+
+2014-10-31  Vasiliy Fofanov  <fofanov@adacore.com>
+
+	* prj-conf.adb (Do_Autoconf): Refactor the code so that empty
+	Normalized_Pathname doesn't inhibit the custom Selected_Target
+	value.
+	* prj-conf.adb (Parse_Project_And_Apply_Config): Make sure that
+	Automatically_Generated is correctly set after the first call
+	to Process_Project_And_Apply_Config and not modified after the
+	second call, if any.
+
+2014-10-31  Yannick Moy  <moy@adacore.com>
+
+	* Makefile.rtl, gnat_rm.texi, impunit.adb: Add mention of new library
+	files.
+	* a-cfinve.adb, a-cfinve.ads: New unit for formal indefinite
+	vectors, suitable for use in client SPARK code, also more
+	efficient than the standard vectors.
+	* a-coboho.adb, a-coboho.ads New unit for bounded holders, that
+	are used to define formal indefinite vectors in terms of formal
+	definite ones.
+	* a-cofove.adb, a-cofove.ads: Simplification of the API of formal
+	definite vectors, similar to the API of the new indefinite ones. A
+	new formal parameter of the generic unit called Bounded allows
+	to define growable vectors that use dynamic allocation.
+
+2014-10-31  Vincent Celier  <celier@adacore.com>
+
+	* prj-conf.adb (Look_For_Project_Paths): New procedure
+	(Parse_Project_And_Apply_Config): Initially, parse the project
+	files ignoring missing withs. If there are missing withs, extend
+	the project path with directories rooted at the compiler roots,
+	including directories rooted at the runtime roots, if there are
+	non default runtimes, in the PATH orser.
+	* prj-env.adb (Initialize_Default_Project_Path): Do not add
+	any directory from the prefix if the target is "-".
+	* prj-part.adb (Parse): Initialize the tables, as Parse may be
+	call several times by gprbuild.
+	* prj.adb (Update_Ignore_Missing_With): New procedure.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_aux.adb (First_Stored_Discriminant,
+	Has_Completely_Hidden_Discriminant): When scanning the list of
+	discriminants to locate possibly hidden (inherited) discriminants,
+	ignore itypes that may appear in the entity list, when an access
+	discriminants is constrained by an access attribute reference.
+
+2014-10-31  Javier Miranda  <miranda@adacore.com>
+
+	* freeze.adb (Freeze_Record_Type): Add missing
+	check to verify that all the primitives of an interface type
+	are abstract or null procedures.
+
+2014-10-31  Vincent Celier  <celier@adacore.com>
+
+	* s-os_lib.adb, s-os_lib.ads: New function Non_Blocking_Spawn that
+	redirects standard output and standard error to two different files.
+
+2014-10-31  Bob Duff  <duff@adacore.com>
+
+	* makeutl.ads: Minor comment fix.
+
+2014-10-31  Arnaud Charlet  <charlet@adacore.com>
+
+	* system-linux-x86_64.ads, system-mingw-x86_64.ads (Word_Size,
+	Memory_Size): Use Standard'Word_Size so that the value can be changed
+	via a target configuration file.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* exp_ch4.adb: Minor tweak.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch12.adb (Analyze_Package_Instantiation): Do not inline with
+	back-end inlining.
+	(Must_Inline_Subp): Delete.
+	* sem_util.ads, sem_util.adb (Must_Inline): Likewise.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* freeze.adb (Freeze_Entity): A default_pool does not apply to
+	internal access types generated for 'access references.
+	* sem_prag (Analyze_Pragma, case Default_Pool): If the name is
+	not null it must designate a variable.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb: Minor reformatting.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Build_Derived_Private_Type): If the derived
+	type has access discriminants, create itype references for their
+	anonymous types, so that they are elaborated before the generated
+	bodies for the primitive operations of the type.
+
+2014-10-31  Tristan Gingold  <gingold@adacore.com>
+
+	* prj-conf.adb (Locate_Runtime): Remove procedure.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Has_Excluded_Declaration): With back-end inlining,
+	only return true for nested packages.
+	(Cannot_Inline): Issue errors/warnings whatever the optimization level
+	for back-end inlining and remove assertion.
+
+2014-10-31  Sergey Rybin  <rybin@adacore.com frybin>
+
+	* table.adb (Tree_Read, Tree_Write): Use parentheses to specify
+	the desired order of '*' and '/' operations to avoid overflow.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* exp_ch6.adb (Do_Inline): Remove unreachable code.
+	(Do_Inline_Always): Likewise.
+
+2014-10-31  Vincent Celier  <celier@adacore.com>
+
+	* prj-nmsc.adb (Check_Stand_Alone_Library): Change error message
+	when library has no Ada interfaces and Library_Standalone is
+	declared.
+
+2014-10-31  Arnaud Charlet  <charlet@adacore.com>
+
+	* sem_ch13.adb (Check_Constant_Address_Clause): Disable checks
+	on address clauses in CodePeer mode.
+
+2014-10-31  Javier Miranda  <miranda@adacore.com>
+
+	* inline.adb (Expand_Inlined_Call): Do not skip
+	inlining of calls to subprogram renamings.
+
+2014-10-31  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_res.adb (Resolve_Entity_Name): Account for
+	the case where the immediate parent of a reference to an entity
+	is a parameter association.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Check_And_Split_Unconstrained_Function): Do not
+	test for the presence of nested subprograms.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* aspects.ads, aspects.adb: Add aspect Default_Storage_Pool.
+	* sem_ch13.adb (Analyze_One_Aspect): Generate pragma for aspect
+	Default_Storage_Pool.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch6.adb: Remove obsolete comment.
+
+2014-10-31  Olivier Hainque  <hainque@adacore.com>
+
+	* g-allein.ads: bind vec_sld for pixels to 8hi vsldoi instead
+	of 4si, as pixels are short.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Resolve_Call): Do not reject a call to a protected
+	operation in the spec of a protected type, when the call appears
+	in a pre/postcondition for another protected operation.
+
+2014-10-31  Tristan Gingold  <gingold@adacore.com>
+
+	* prj-conf.adb: Locate_Runtime: Always search the runtime in
+	project path.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Check_Package_Body_For_Inlining): Adjust previous
+	change to use correct idiom for back-end inlining.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* freeze.adb (Freeze_Record_Type): Do not check component size
+	if its type is generic.
+
+2014-10-31  Bob Duff  <duff@adacore.com>
+
+	* gnat_rm.texi: Fix documentation w.r.t -gnatw.w.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb (Try_Container_Indexing): Use Check_Implicit_Dereference.
+	* sem_util.adb (Check_Implicit_Dereference): a)	Handle generalized
+	indexing as well as function calls.  b)  If the context is a
+	selected component and whe are in an instance, remove entity from
+	selector name to force resolution of the node, so that explicit
+	dereferences can be generated in the instance if they were in
+	the generic unit.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Back_End_Cannot_Inline): Delete.
+	(Add_Inlined_Subprogram): Do not call it.
+
+2014-10-31  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch3.ads (Make_Tag_Assignment): New function, used to
+	re-initialize the tag in a tagged object declaration with
+	initial value.
+	* exp_ch3.adb (Expand_N_Object_Declaration): Use
+	Make_Tag_Assignment to simplify code for a tagged object
+	declaration.
+	* exp_ch13.adb (Expand_Freeze_Entity): Analyze freeze actions
+	for the freeze node of an object.
+	* freeze.adb (Check_Address_Clause): Use Make_Tag_Assignment when
+	needed to extend Freeze_Actions for a tagged object declaration.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat_ugn.texi: Further minor improvement to -flto entry.
+
+2014-10-31  Gary Dismukes  <dismukes@adacore.com>
+
+	* g-dynhta.adb, g-dynhta.ads: Minor typo fixes and reformatting.
+
 2014-10-30  Ed Schonberg  <schonberg@adacore.com>
 
 	* exp_ch3.adb (Expand_N_Object_Declaration): Code cleanup.

@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "recog.h"
@@ -167,37 +168,6 @@ static void do_tablejump (rtx, machine_mode, rtx, rtx, rtx, int);
 static rtx const_vector_from_tree (tree);
 static void write_complex_part (rtx, rtx, bool);
 
-/* This macro is used to determine whether move_by_pieces should be called
-   to perform a structure copy.  */
-#ifndef MOVE_BY_PIECES_P
-#define MOVE_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN, MOVE_MAX_PIECES + 1) \
-   < (unsigned int) MOVE_RATIO (optimize_insn_for_speed_p ()))
-#endif
-
-/* This macro is used to determine whether clear_by_pieces should be
-   called to clear storage.  */
-#ifndef CLEAR_BY_PIECES_P
-#define CLEAR_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
-   < (unsigned int) CLEAR_RATIO (optimize_insn_for_speed_p ()))
-#endif
-
-/* This macro is used to determine whether store_by_pieces should be
-   called to "memset" storage with byte values other than zero.  */
-#ifndef SET_BY_PIECES_P
-#define SET_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
-   < (unsigned int) SET_RATIO (optimize_insn_for_speed_p ()))
-#endif
-
-/* This macro is used to determine whether store_by_pieces should be
-   called to "memcpy" storage when the source is a constant string.  */
-#ifndef STORE_BY_PIECES_P
-#define STORE_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
-   < (unsigned int) MOVE_RATIO (optimize_insn_for_speed_p ()))
-#endif
 
 /* This is run to set up which modes can be used
    directly in memory and to initialize the block move optab.  It is run
@@ -827,22 +797,16 @@ widest_int_mode_for_size (unsigned int size)
   return mode;
 }
 
-/* STORE_MAX_PIECES is the number of bytes at a time that we can
-   store efficiently.  Due to internal GCC limitations, this is
-   MOVE_MAX_PIECES limited by the number of bytes GCC can represent
-   for an immediate constant.  */
-
-#define STORE_MAX_PIECES  MIN (MOVE_MAX_PIECES, 2 * sizeof (HOST_WIDE_INT))
-
 /* Determine whether the LEN bytes can be moved by using several move
    instructions.  Return nonzero if a call to move_by_pieces should
    succeed.  */
 
 int
-can_move_by_pieces (unsigned HOST_WIDE_INT len ATTRIBUTE_UNUSED,
-		    unsigned int align ATTRIBUTE_UNUSED)
+can_move_by_pieces (unsigned HOST_WIDE_INT len,
+		    unsigned int align)
 {
-  return MOVE_BY_PIECES_P (len, align);
+  return targetm.use_by_pieces_infrastructure_p (len, align, MOVE_BY_PIECES,
+						 optimize_insn_for_speed_p ());
 }
 
 /* Generate several move instructions to copy LEN bytes from block FROM to
@@ -1179,7 +1143,7 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
       set_mem_size (y, INTVAL (size));
     }
 
-  if (CONST_INT_P (size) && MOVE_BY_PIECES_P (INTVAL (size), align))
+  if (CONST_INT_P (size) && can_move_by_pieces (INTVAL (size), align))
     move_by_pieces (x, y, INTVAL (size), align, 0);
   else if (emit_block_move_via_movmem (x, y, size, align,
 				       expected_align, expected_size,
@@ -2496,9 +2460,11 @@ can_store_by_pieces (unsigned HOST_WIDE_INT len,
   if (len == 0)
     return 1;
 
-  if (! (memsetp
-	 ? SET_BY_PIECES_P (len, align)
-	 : STORE_BY_PIECES_P (len, align)))
+  if (!targetm.use_by_pieces_infrastructure_p (len, align,
+					       memsetp
+						 ? SET_BY_PIECES
+						 : STORE_BY_PIECES,
+					       optimize_insn_for_speed_p ()))
     return 0;
 
   align = alignment_for_piecewise_move (STORE_MAX_PIECES, align);
@@ -2574,9 +2540,13 @@ store_by_pieces (rtx to, unsigned HOST_WIDE_INT len,
       return to;
     }
 
-  gcc_assert (memsetp
-	      ? SET_BY_PIECES_P (len, align)
-	      : STORE_BY_PIECES_P (len, align));
+  gcc_assert (targetm.use_by_pieces_infrastructure_p
+		(len, align,
+		 memsetp
+		   ? SET_BY_PIECES
+		   : STORE_BY_PIECES,
+		 optimize_insn_for_speed_p ()));
+
   data.constfun = constfun;
   data.constfundata = constfundata;
   data.len = len;
@@ -2813,7 +2783,9 @@ clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
   align = MEM_ALIGN (object);
 
   if (CONST_INT_P (size)
-      && CLEAR_BY_PIECES_P (INTVAL (size), align))
+      && targetm.use_by_pieces_infrastructure_p (INTVAL (size), align,
+						 CLEAR_BY_PIECES,
+						 optimize_insn_for_speed_p ()))
     clear_by_pieces (object, INTVAL (size), align);
   else if (set_storage_via_setmem (object, size, const0_rtx, align,
 				   expected_align, expected_size,
@@ -3657,6 +3629,21 @@ emit_move_insn (rtx x, rtx y)
   return last_insn;
 }
 
+/* Generate the body of an instruction to copy Y into X.
+   It may be a list of insns, if one insn isn't enough.  */
+
+rtx
+gen_move_insn (rtx x, rtx y)
+{
+  rtx_insn *seq;
+
+  start_sequence ();
+  emit_move_insn_1 (x, y);
+  seq = get_insns ();
+  end_sequence ();
+  return seq;
+}
+
 /* If Y is representable exactly in a narrower mode, and the target can
    perform the extension directly from constant or memory, then emit the
    move as an extension.  */
@@ -4222,7 +4209,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	  && CONST_INT_P (size)
 	  && skip == 0
 	  && MEM_ALIGN (xinner) >= align
-	  && (MOVE_BY_PIECES_P ((unsigned) INTVAL (size) - used, align))
+	  && can_move_by_pieces ((unsigned) INTVAL (size) - used, align)
 	  /* Here we avoid the case of a structure whose weak alignment
 	     forces many pushes of a small amount of data,
 	     and such small pushes do rounding that causes trouble.  */
@@ -7843,7 +7830,7 @@ expand_constructor (tree exp, rtx target, enum expand_modifier modifier,
 	    && ! (target != 0 && safe_from_p (target, exp, 1)))
 		  || TREE_ADDRESSABLE (exp)
 		  || (tree_fits_uhwi_p (TYPE_SIZE_UNIT (type))
-		      && (! MOVE_BY_PIECES_P
+		      && (! can_move_by_pieces
 				     (tree_to_uhwi (TYPE_SIZE_UNIT (type)),
 				      TYPE_ALIGN (type)))
 		      && ! mostly_zeros_p (exp))))

@@ -1,3 +1,17 @@
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.def (libcc1): Remove bootstrap=true;.
+	* Makefile.in: Regenerated.
+
+2014-10-31  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* configure.ac: Update comment.
+	* configure: Regenerate.
+
+2014-10-31  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2014-10-30  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* configure.ac (extra_host_libiberty_configure_flags): Add

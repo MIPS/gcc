@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "function.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "flags.h"
@@ -968,6 +969,20 @@ static const struct mips_rtx_cost_data
     /* Octeon II */
   {
     SOFT_FP_COSTS,
+    COSTS_N_INSNS (6),            /* int_mult_si */
+    COSTS_N_INSNS (6),            /* int_mult_di */
+    COSTS_N_INSNS (18),           /* int_div_si */
+    COSTS_N_INSNS (35),           /* int_div_di */
+                     4,		  /* branch_cost */
+                     4		  /* memory_latency */
+  },
+    /* Octeon III */
+  {
+    COSTS_N_INSNS (6),            /* fp_add */
+    COSTS_N_INSNS (6),            /* fp_mult_sf */
+    COSTS_N_INSNS (7),            /* fp_mult_df */
+    COSTS_N_INSNS (25),           /* fp_div_sf */
+    COSTS_N_INSNS (48),           /* fp_div_df */
     COSTS_N_INSNS (6),            /* int_mult_si */
     COSTS_N_INSNS (6),            /* int_mult_di */
     COSTS_N_INSNS (18),           /* int_div_si */
@@ -7172,12 +7187,17 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   return true;
 }
 
-/* Implement MOVE_BY_PIECES_P.  */
+/* Implement TARGET_USE_MOVE_BY_PIECES_INFRASTRUCTURE_P.  */
 
 bool
-mips_move_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
+mips_use_by_pieces_infrastructure_p (unsigned int size,
+				     unsigned int align,
+				     enum by_pieces_operation op,
+				     bool speed_p)
 {
-  if (HAVE_movmemsi)
+  if (op == STORE_BY_PIECES)
+    return mips_store_by_pieces_p (size, align);
+  if (op == MOVE_BY_PIECES && HAVE_movmemsi)
     {
       /* movmemsi is meant to generate code that is at least as good as
 	 move_by_pieces.  However, movmemsi effectively uses a by-pieces
@@ -7194,13 +7214,12 @@ mips_move_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	return size < UNITS_PER_WORD;
       return size <= MIPS_MAX_MOVE_BYTES_STRAIGHT;
     }
-  /* The default value.  If this becomes a target hook, we should
-     call the default definition instead.  */
-  return (move_by_pieces_ninsns (size, align, MOVE_MAX_PIECES + 1)
-	  < (unsigned int) MOVE_RATIO (optimize_insn_for_speed_p ()));
+
+  return default_use_by_pieces_infrastructure_p (size, align, op, speed_p);
 }
 
-/* Implement STORE_BY_PIECES_P.  */
+/* Implement a handler for STORE_BY_PIECES operations
+   for TARGET_USE_MOVE_BY_PIECES_INFRASTRUCTURE_P.  */
 
 bool
 mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
@@ -13172,6 +13191,7 @@ mips_issue_rate (void)
     case PROCESSOR_R9000:
     case PROCESSOR_OCTEON:
     case PROCESSOR_OCTEON2:
+    case PROCESSOR_OCTEON3:
       return 2;
 
     case PROCESSOR_SB1:
@@ -19118,6 +19138,10 @@ mips_lra_p (void)
 
 #undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
 #define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
+
+#undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
+#define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P \
+  mips_use_by_pieces_infrastructure_p
 
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS mips_spill_class

@@ -1,3 +1,470 @@
+2014-11-04  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Fix typo in definition
+	of __ARM_FEATURE_IDIV.
+
+2014-11-04  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c (instrument_object_size): Optimize [x & CST] array accesses.
+
+2014-11-03  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/rx/rx.c (rx_handle_func_attribute): Mark unused argument.
+
+2014-11-04  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	Revert:
+	2014-11-03  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+	* ifcvt.c (noce_emit_cmove, noce_get_alt_condition, noce_get_condition):
+	Allow CC mode if HAVE_cbranchcc4.
+
+2014-11-03  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* godump.c (go_format_type): Rewrite RECORD_TYPE nad UNION_TYPE support
+	with -fdump-go-spec.  Anonymous substructures are now flattened and
+	replaced by their fields (record) or the first named, non-bitfield
+	field (union).
+
+2014-11-04  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* input.c (expand_location_to_spelling_point): Fix typo.
+	(expansion_point_location_if_in_system_header): Fix comment.
+
+2014-11-03  Pitchumani Sivanupandi <pitchumani.s@atmel.com>
+
+	* config/avr/gen-avr-mmcu-specs.c: Remove unnecessary format specifier.
+
+2014-11-03  Richard Biener  <rguenther@suse.de>
+
+	* tree-eh.c (operation_could_trap_helper_p): Handle conversions
+	like ordinary operations.
+	* gimplify.c (gimplify_conversion): Gimplify CONVERT_EXPR
+	as NOP_EXPR.
+
+2014-11-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac (TARGET_GLIBC_MAJOR, TARGET_GLIBC_MINOR): Define
+	macros.
+	* configure, config.h.in: Regenerate.
+	* config/rs6000/linux.h [TARGET_GLIBC_MAJOR > 2 ||
+	(TARGET_GLIBC_MAJOR == 2 && TARGET_GLIBC_MINOR >= 19)]
+	(RS6000_GLIBC_ATOMIC_FENV): New macro.
+	* config/rs6000/linux64.h [TARGET_GLIBC_MAJOR > 2 ||
+	(TARGET_GLIBC_MAJOR == 2 && TARGET_GLIBC_MINOR >= 19)]
+	(RS6000_GLIBC_ATOMIC_FENV): New macro.
+	* config/rs6000/rs6000.c (atomic_hold_decl, atomic_clear_decl)
+	(atomic_update_decl): New static variables.
+	(rs6000_atomic_assign_expand_fenv) [RS6000_GLIBC_ATOMIC_FENV]:
+	Generate calls to __atomic_feholdexcept, __atomic_feclearexcept
+	and __atomic_feupdateenv for soft-float and no-FPRs.
+
+2014-11-03  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add two abs patterns.  Announce tree_expr_nonnegative_p.
+	Also drop bogus FLOAT_EXPR and FIX_TRUNC_EXPR.
+	* fold-const.c (fold_unary_loc): Remove them here.
+	(tree_unary_nonnegative_warnv_p): Use CASE_CONVERT.
+	* gimple-fold.c (fold_gimple_assign): Remove now obsolete
+	GIMPLE_UNARY_RHS case.
+	(gimple_fold_stmt_to_constant_1): Likewise.
+	(replace_stmt_with_simplification): Fix inverted comparison.
+
+2014-11-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/60770
+	* tree-into-ssa.c (rewrite_update_stmt): Return whether the
+	statement should be removed.
+	(maybe_register_def): Likewise. Replace clobbers with default
+	definitions.
+	(rewrite_dom_walker::before_dom_children): Remove statement if
+	rewrite_update_stmt says so.
+	* tree-ssa-live.c: Include tree-ssa.h.
+	(set_var_live_on_entry): Do not mark undefined variables as live.
+	(verify_live_on_entry): Do not check undefined variables.
+	* tree-ssa.h (ssa_undefined_value_p): New parameter for the case
+	of partially undefined variables.
+	* tree-ssa.c (ssa_undefined_value_p): Likewise.
+	(execute_update_addresses_taken): Do not drop clobbers.
+
+2014-11-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/63666
+	* fold-const.c: Include "optabs.h".
+	(fold_ternary_loc) <VEC_PERM_EXPR>: Avoid canonicalizing a
+	can_vec_perm_p permutation to one that is not.
+
+2014-11-03  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* ifcvt.c (noce_try_store_flag_mask): Check rtx cost.
+
+2014-11-03  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips-cpus.def (octeon3): New cpu.
+	* config/mips/mips.c (mips_rtx_cost_data): Add octeon3.
+	(mips_print_operand <case 'T', case 't'>): Fix a bug as the mode
+	of the comparison no longer matches mode of the operands.
+	(mips_issue_rate): Handle PROCESSOR_OCTEON3.
+	* config/mips/mips.h (TARGET_OCTEON):  Add Octeon3.
+	(TARGET_OCTEON2): Likewise.
+	(TUNE_OCTEON): Add Octeon3.
+	* config/mips/mips.md (processor): Add octeon3.
+	* config/mips/octeon.md (octeon_fpu): New automaton and cpu_unit.
+	(octeon_arith): Add octeon3.
+	(octeon_condmove): Remove.
+	(octeon_condmove_o1): New reservation.
+	(octeon_condmove_o2): New reservation.
+	(octeon_condmove_o3_int_on_cc): New reservation.
+	(octeon_load_o2): Add octeon3.
+	(octeon_cop_o2): Likewise.
+	(octeon_store): Likewise.
+	(octeon_brj_o2): Likewise.
+	(octeon_imul3_o2): Likewise.
+	(octeon_imul_o2): Likewise.
+	(octeon_mfhilo_o2): Likewise.
+	(octeon_imadd_o2): Likewise.
+	(octeon_idiv_o2_si): Likewise.
+	(octeon_idiv_o2_di): Likewise.
+	(octeon_fpu): Add to the automaton.
+	(octeon_fpu): New cpu unit.
+	(octeon_condmove_o2): Check for non floating point modes.
+	(octeon_load_o2): Add prefetchx.
+	(octeon_cop_o2): Don't check for octeon3.
+	(octeon3_faddsubcvt): New reservation.
+	(octeon3_fmul): Likewise.
+	(octeon3_fmadd): Likewise.
+	(octeon3_div_sf): Likewise.
+	(octeon3_div_df): Likewise.
+	(octeon3_sqrt_sf): Likewise.
+	(octeon3_sqrt_df): Likewise.
+	(octeon3_rsqrt_sf): Likewise.
+	(octeon3_rsqrt_df): Likewise.
+	(octeon3_fabsnegmov): Likewise.
+	(octeon_fcond): Likewise.
+	(octeon_fcondmov): Likewise.
+	(octeon_fpmtc1): Likewise.
+	(octeon_fpmfc1): Likewise.
+	(octeon_fpload): Likewise.
+	(octeon_fpstore): Likewise.
+	* config/mips/mips-tables.opt: Regenerate.
+	* doc/invoke.texi (-march=@var{arch}): Add octeon3.
+
+2014-11-03  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* ifcvt.c (noce_emit_cmove, noce_get_alt_condition, noce_get_condition):
+	Allow CC mode if HAVE_cbranchcc4.
+
+2014-11-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/arc/arc.c (write_ext_corereg_1): Delete.
+	(arc_write_ext_corereg): Use FOR_EACH_SUBRTX.
+
+2014-11-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/arc/arc.c (arc600_corereg_hazard_1): Delete.
+	(arc600_corereg_hazard): Use FOR_EACH_SUBRTX.
+
+2014-11-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/arc/arc.c (arc_rewrite_small_data_p): Constify argument.
+	(small_data_pattern_1): Delete.
+	(small_data_pattern): Use FOR_EACH_SUBRTX.
+
+2014-11-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/arc/arc.c: Include rtl-iter.h.
+	(arc_rewrite_small_data_1): Delete.
+	(arc_rewrite_small_data): Use FOR_EACH_SUBRTX_PTR.
+
+2014-11-02  Michael Collison  <michael.collison@linaro.org>
+
+	* config/arm/arm.h (CLZ_DEFINED_VALUE_AT_ZERO) : Update
+	to support vector modes.
+	(CTZ_DEFINED_VALUE_AT_ZERO): Ditto.
+
+2014-11-01  Andrew MacLeod  <amacleod@redhat,com>
+
+	* optabs.h: Flatten insn-codes.h to source files.  Move some prototypes
+	and structs to genopinit.c.  Adjust protyoptypes to match optabs.c.
+	* genopinit.c (main): Emit prototypes and structs into insn-opinit.h.
+	* optabs.c: (gen_move_insn): Move to expr.c.
+	* expr.h: Move protypes and enums to optabs.h.
+	* expr.c: (gen_move_insn): Relocate from optabs.c.
+	* genemit.c (main): Include insn-codes.h.
+	* gengtype.c (open_base_files): Include insn-codes.h.
+	* asan.c: Include insn-codes.h.
+	* bb-reorder.c: Ditto.
+	* builtins.c: Ditto.
+	* calls.c: Ditto.
+	* cfgexpand.c: Ditto.
+	* cilk-common.c: Ditto.
+	* combine.c: Ditto.
+	* dojump.c: Ditto.
+	* dse.c: Ditto.
+	* except.c: Ditto.
+	* explow.c: Ditto.
+	* expmed.c: Ditto.
+	* function.c: Ditto.
+	* ifcvt.c: Ditto.
+	* internal-fn.c: Ditto.
+	* loop-unroll.c: Ditto.
+	* lra.c: Ditto.
+	* modulo-sched.c: Ditto.
+	* omp-low.c: Ditto.
+	* postreload.c: Ditto.
+	* ree.c: Ditto.
+	* reload.c: Ditto.
+	* reload1.c: Ditto.
+	* shrink-wrap.c: Ditto.
+	* simplify-rtx.c: Ditto.
+	* stmt.c: Ditto.
+	* target-globals.c: Ditto.
+	* targhooks.c: Ditto.
+	* toplev.c: Ditto.
+	* tree-if-conv.c: Ditto.
+	* tree-ssa-forwprop.c: Ditto.
+	* tree-ssa-loop-prefetch.c: Ditto.
+	* tree-ssa-math-opts.c: Ditto.
+	* tree-ssa-phiopt.c: Ditto.
+	* tree-ssa-reassoc.c: Ditto.
+	* tree-switch-conversion.c: Ditto.
+	* tree-vect-data-refs.c: Ditto.
+	* tree-vect-generic.c: Ditto.
+	* tree-vect-loop.c: Ditto.
+	* tree-vect-patterns.c: Ditto.
+	* tree-vect-slp.c: Ditto.
+	* tree-vect-stmts.c: Ditto.
+	* tree-vrp.c: Ditto.
+	* value-prof.c: Ditto.
+	* config/aarch64/aarch64-builtins.c: Ditto.
+	* config/alpha/alpha.c: Ditto.
+	* config/arm/arm.c: Ditto.
+	* config/cris/cris.c: Ditto.
+	* config/epiphany/epiphany.c: Ditto.
+	* config/frv/frv.c: Ditto.
+	* config/h8300/h8300.c: Ditto.
+	* config/ia64/ia64.c: Ditto.
+	* config/iq2000/iq2000.c: Ditto.
+	* config/m32c/m32c.c: Ditto.
+	* config/mep/mep.c: Ditto.
+	* config/microblaze/microblaze.c: Ditto.
+	* config/mips/mips.c: Ditto.
+	* config/mn10300/mn10300.c: Ditto.
+	* config/moxie/moxie.c: Ditto.
+	* config/msp430/msp430.c: Ditto.
+	* config/nios2/nios2.c: Ditto.
+	* config/pa/pa.c: Ditto.
+	* config/rl78/rl78.c: Ditto.
+	* config/rs6000/rs6000.c: Ditto.
+	* config/rx/rx.c: Ditto.
+	* config/s390/s390.c: Ditto.
+	* config/sh/sh.c: Ditto.
+	* config/sh/sh_treg_combine.cc: Ditto.
+	* config/spu/spu.c: Ditto.
+	* config/stormy16/stormy16.c: Ditto.
+	* config/tilegx/mul-tables.c: Ditto.
+	* config/tilegx/tilegx.c: Ditto.
+	* config/tilepro/mul-tables.c: Ditto.
+	* config/tilepro/tilepro.c: Ditto.
+	* config/vax/vax.c: Ditto.
+
+2014-11-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/tm.texi.in (MOVE_BY_PIECES_P): Remove.
+	(CLEAR_BY_PIECES_P): Likewise.
+	(SET_BY_PIECES_P): Likewise.
+	(STORE_BY_PIECES_P): Likewise.
+	* doc/tm.texi: Regenerate.
+	* system.h: Poison MOVE_BY_PIECES_P, CLEAR_BY_PIECES_P,
+	SET_BY_PIECES_P, STORE_BY_PIECES_P.
+	* expr.c (MOVE_BY_PIECES_P): Remove.
+	(CLEAR_BY_PIECES_P): Likewise.
+	(SET_BY_PIECES_P): Likewise.
+	(STORE_BY_PIECES_P): Likewise.
+	(can_move_by_pieces): Rewrite in terms of
+	targetm.use_by_pieces_infrastructure_p.
+	(emit_block_move_hints): Likewise.
+	(can_store_by_pieces): Likewise.
+	(store_by_pieces): Likewise.
+	(clear_storage_hints): Likewise.
+	(emit_push_insn): Likewise.
+	(expand_constructor): Likewise.
+
+2014-11-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.c
+	(aarch64_use_by_pieces_infrastructre_p): New.
+	(TARGET_USE_BY_PIECES_INFRASTRUCTURE): Likewise.
+	* config/aarch64/aarch64.h (STORE_BY_PIECES_P): Delete.
+
+2014-11-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/mips/mips.h (MOVE_BY_PIECES_P): Remove.
+	(STORE_BY_PIECES_P): Likewise.
+	* config/mips/mips.c (TARGET_USE_BY_PIECES_INFRASTRUCTURE_P): New.
+	(mips_move_by_pieces_p): Rename to...
+	(mips_use_by_pieces_infrastructure_p): ...this, use new hook
+	parameters, use the default hook implementation as a
+	fall-back.
+
+2014-11-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/sh/sh.c (TARGET_USE_BY_PIECES_INFRASTRUCTURE_P): New.
+	(sh_use_by_pieces_infrastructure_p): Likewise.
+	* config/sh/sh.h (MOVE_BY_PIECES_P): Remove.
+	(STORE_BY_PIECES_P): Likewise.
+	(SET_BY_PIECES_P): Likewise.
+
+2014-11-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arc/arc.c (TARGET_USE_BY_PIECES_INFRASTRUCTURE_P): New.
+	(arc_use_by_pieces_infrastructure_p): Likewise.
+	* confir/arc/arc.h (MOVE_BY_PIECES_P): Delete.
+	(CAN_MOVE_BY_PIECES): Likewise.
+
+2014-11-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/s390/s390.c (s390_use_by_pieces_infrastructure_p): New.
+	(TARGET_USE_BY_PIECES_INFRASTRUCTURE_P): Likewise.
+	* config/s390/s390.h (MOVE_BY_PIECES_P): Remove.
+	(CLEAR_BY_PIECES): Likewise.
+	(SET_BY_PIECES): Likewise.
+	(STORE_BY_PIECES): Likewise.
+
+2014-11-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* target.def (use_by_pieces_infrastructure_p): New.
+	* doc/tm.texi.in (MOVE_BY_PIECES_P): Describe that this macro
+	is deprecated.
+	(STORE_BY_PIECES_P): Likewise.
+	(CLEAR_BY_PIECES_P): Likewise.
+	(SET_BY_PIECES_P): Likewise.
+	(TARGET_MOVE_BY_PIECES_PROFITABLE_P): Add hook.
+	* doc/tm.texi: Regenerate.
+	* expr.c (MOVE_BY_PIECES_P): Rewrite in terms of
+	TARGET_USE_BY_PIECES_INFRASTRUCTURE_P.
+	(STORE_BY_PIECES_P): Likewise.
+	(CLEAR_BY_PIECES_P): Likewise.
+	(SET_BY_PIECES_P): Likewise.
+	(STORE_MAX_PIECES): Move to...
+	* defaults.h (STORE_MAX_PIECES): ...here.
+	* targhooks.c (get_move_ratio): New.
+	(default_use_by_pieces_infrastructure_p): Likewise.
+	* targhooks.h (default_use_by_pieces_infrastructure_p): New.
+	* target.h (by_pieces_operation): New.
+
+2014-10-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/63702
+	* config/i386/i386.c (ix86_expand_args_builtin): Remove extra
+	assignment to 'nargs' variable.
+
+2014-10-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/63620
+	* config/i386/i386-protos.h (ix86_use_pseudo_pic_reg): Declare.
+	* config/i386/i386.c (ix86_use_pseudo_pic_reg): Export.
+	* config/i386/i386.md (*pushtf): Allow only CONST_DOUBLEs that won't
+	be reloaded through memory.
+	(*pushxf): Ditto.
+	(*pushdf): Ditto.
+
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/63659
+	* ree.c (update_reg_equal_equiv_notes): New function.
+	(combine_set_extension, transform_ifelse): Use it.
+
+2014-10-31  Jeff Law  <law@redhat.com>
+
+	* doc/contrib.texi: Add contribution notes for Balaji Iyer (Cilk+)
+	and Jonny Grant (collect2).
+
+2014-10-31  Richard Biener  <rguenther@suse.de>
+
+	* builtins.c (fold_builtin_atomic_always_lock_free): Use
+	CONVERT_EXPR_P, CONVERT_EXPR_CODE_P and CASE_CONVERT where
+	approprate.
+	(fold_builtin_expect): Likewise.
+	(integer_valued_real_p): Likewise.
+	* cfgexpand.c (expand_debug_expr): Likewise.
+	* ipa-inline-analysis.c (eliminated_by_inlining_prob): Likewise.
+	(find_foldable_builtin_expect): Likewise.
+	* trans-mem.c (thread_private_new_memory): Likewise.
+	* tree-affine.c (aff_combination_expand): Likewise.
+	* tree-data-ref.c (initialize_matrix_A): Likewise.
+	* tree-inline.c (copy_bb): Likewise.
+	* tree-pretty-print.c (dump_function_name): Likewise.
+	(print_call_name): Likewise.
+	* tree-ssa-forwprop.c (constant_pointer_difference): Likewise.
+	* tree-ssa-math-opts.c (find_bswap_or_nop_1): Likewise.
+	* tree-vect-generic.c (expand_vector_operations_1): Likewise.
+	* tree-vect-patterns.c (vect_handle_widen_op_by_const): Likewise.
+	(vect_recog_widen_mult_pattern): Likewise.
+	(vect_operation_fits_smaller_type): Likewise.
+	* tree-vrp.c (find_assert_locations_1): Likewise.
+	* tree-ssa-dom.c (initialize_hash_element): Canonicalize
+	converts to NOP_EXPR.
+
+2014-10-31  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (expr::gen_transform): Use NOP_EXPRs instead of
+	CONVERT_EXPRs in generated code.
+	(dt_simplify::gen): Likewise.
+
+2014-10-31  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	PR target/63534
+	* config/i386/i386.c (ix86_init_pic_reg): Emit SET_GOT to
+	REAL_PIC_OFFSET_TABLE_REGNUM for mcount profiling.
+	(ix86_save_reg): Save REAL_PIC_OFFSET_TABLE_REGNUM when profiling
+	using mcount in 32bit PIC mode.
+	(ix86_elim_entry_set_got): New.
+	(ix86_expand_prologue): For the mcount profiling emit new SET_GOT
+	in PROLOGUE, delete initial if possible.
+
+2014-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ipa-inline.c (want_inline_small_function_p): Fix typo and formatting.
+	(want_inline_function_to_all_callers_p): Fix formatting and simplify.
+
+2014-10-31  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/63259
+	* tree-ssa-math-opts.c (bswap_replace): Replace expression by a
+	rotation left if it is a 16 bit byte swap.
+	(pass_optimize_bswap::execute): Also consider bswap in LROTATE_EXPR
+	and RROTATE_EXPR statements if it is a byte rotation.
+
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63697
+	* tree-vrp.c (simplify_internal_call_using_ranges): For subcode ==
+	MINUS_EXPR, check overflow on vr0.min - vr1.max and vr0.max - vr1.min
+	instead of vr0.min - vr1.min and vr0.max - vr1.max.
+
+2014-10-31  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	PR ipa/63696
+	* ipa-icf.c (sem_function::~sem_function): Change free to delete to avoid
+	alloc-dealloc mismatch with new, called in ipa_icf::sem_function::init.
+
+2014-10-30  Felix Yang  <felix.yang@huawei.com>
+
+	* config/xtensa/xtensa.h (TARGET_LOOPS): New Macro.
+	* config/xtensa/xtensa.c: Include dumpfile.h and hw-doloop.h.
+	(xtensa_reorg, xtensa_reorg_loops): New.
+	(xtensa_can_use_doloop_p, xtensa_invalid_within_doloop): New.
+	(hwloop_optimize, hwloop_fail, hwloop_pattern_reg): New.
+	(xtensa_emit_loop_end): Emit the zero-overhead loop end label.
+	(xtensa_doloop_hooks): Define.
+	* config/xtensa/xtensa.md (doloop_end, loop_end): New
+	(zero_cost_loop_start): Rewritten.
+	(zero_cost_loop_end): Likewise.
+
+2014-10-30  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config.gcc (mips*-*-linux*): Combine 32 and 64 bit cases.
+
 2014-10-30  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c: Remove <map>, <utility> and <string> includes.

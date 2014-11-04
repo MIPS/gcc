@@ -44,6 +44,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
+#include "insn-codes.h"
+#include "optabs.h"
 #include "expr.h"
 #include "langhooks.h"
 #include "bitmap.h"
@@ -3882,8 +3884,7 @@ expand_debug_expr (tree exp)
 
     adjust_mode:
     case PAREN_EXPR:
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       {
 	inner_mode = GET_MODE (op0);
 
