@@ -1,3 +1,13 @@
+2014-11-04  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (user_id): Add new member is_oper_list.
+	(user_id::user_id): Add new default argument.
+	(parser::parse_operator_list): New function.
+	(parser::parse_for): Allow operator-list.
+	(parser::parse_pattern): Call parser::parse_operator_list.
+	(parser::parse_operation): Reject operator-list.
+	* match-builtin.pd: Define operator lists POWs, CBRTs and SQRTs.
+
 2014-11-04  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r216941 through r217074.

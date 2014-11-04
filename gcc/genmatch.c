@@ -245,10 +245,12 @@ struct predicate_id : public id_base
 
 struct user_id : public id_base
 {
-  user_id (const char *id_)
-    : id_base (id_base::USER, id_), substitutes (vNULL), used (false) {}
+  user_id (const char *id_, bool is_oper_list_ = false)
+    : id_base (id_base::USER, id_), substitutes (vNULL),
+      used (false), is_oper_list (is_oper_list_) {}
   vec<id_base *> substitutes;
   bool used;
+  bool is_oper_list;
 };
 
 template<>
@@ -2497,6 +2499,7 @@ private:
   void parse_for (source_location);
   void parse_if (source_location);
   void parse_predicates (source_location);
+  void parse_operator_list (source_location);
 
   cpp_reader *r;
   vec<if_or_with> active_ifs;
@@ -2665,6 +2668,11 @@ parser::parse_operation ()
   id_base *op = get_operator (id);
   if (!op)
     fatal_at (id_tok, "unknown operator %s", id);
+
+  user_id *p = dyn_cast<user_id *> (op);
+  if (p && p->is_oper_list)
+    fatal_at (id_tok, "operator-list not allowed in expression");
+
   return op;
 }
 
@@ -3050,7 +3058,11 @@ parser::parse_for (source_location)
 	    fatal_at (token, "operator '%s' with arity %d does not match "
 		      "others with arity %d", oper, idb->nargs, arity);
 
-	  op->substitutes.safe_push (idb);
+	  user_id *p = dyn_cast<user_id *> (idb);
+	  if (p && p->is_oper_list)
+	    op->substitutes.safe_splice (p->substitutes);
+	  else 
+	    op->substitutes.safe_push (idb);
 	}
       op->nargs = arity;
       token = expect (CPP_CLOSE_PAREN);
@@ -3104,6 +3116,53 @@ parser::parse_for (source_location)
 		    "operator %s defined but not used", user_ids[i]->id);
       operators->remove_elt (user_ids[i]);
     }
+}
+
+/* Parse an identifier associated with a list of operators.
+     oprs = '(' 'define_operator_list' <ident> <ident>... ')'  */
+
+void
+parser::parse_operator_list (source_location)
+{
+  const cpp_token *token = peek (); 
+  const char *id = get_ident ();
+
+  if (get_operator (id) != 0)
+    fatal_at (token, "operator %s already defined", id);
+
+  user_id *op = new user_id (id, true);
+  int arity = -1;
+  
+  while ((token = peek_ident ()) != 0)
+    {
+      token = peek (); 
+      const char *oper = get_ident ();
+      id_base *idb = get_operator (oper);
+      
+      if (idb == 0)
+	fatal_at (token, "no such operator '%s'", oper);
+
+      if (arity == -1)
+	arity = idb->nargs;
+      else if (idb->nargs == -1)
+	;
+      else if (arity != idb->nargs)
+	fatal_at (token, "operator '%s' with arity %d does not match "
+			 "others with arity %d", oper, idb->nargs, arity);
+
+      /* We allow composition of multiple operator lists.  */
+      if (user_id *p = dyn_cast<user_id *> (idb))
+	op->substitutes.safe_splice (p->substitutes);
+      else
+	op->substitutes.safe_push (idb);
+    }
+
+  if (op->substitutes.length () == 0)
+    fatal_at (token, "operator-list cannot be empty");
+
+  op->nargs = arity;
+  id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
+  *slot = op;
 }
 
 /* Parse an outer if expression.
@@ -3205,6 +3264,13 @@ parser::parse_pattern ()
 	  || active_fors.length () > 0)
 	fatal_at (token, "define_predicates inside if or for is not supported");
       parse_predicates (token->src_loc);
+    }
+  else if (strcmp (id, "define_operator_list") == 0)
+    {
+      if (active_ifs.length () > 0
+	  || active_fors.length () > 0)
+	fatal_at (token, "operator-list inside if or for is not supported");
+      parse_operator_list (token->src_loc);
     }
   else
     fatal_at (token, "expected %s'simplify', 'match', 'for' or 'if'",

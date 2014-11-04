@@ -18,6 +18,10 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 
+(define_operator_list POWs BUILT_IN_POWF BUILT_IN_POW BUILT_IN_POWL)
+(define_operator_list SQRTs BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
+(define_operator_list CBRTs BUILT_IN_CBRTF BUILT_IN_CBRT BUILT_IN_CBRTL)
+
 /* From fold_builtin_cabs.  */
 /* If either part is zero, cabs is fabs of the other.  */
 (for CABS (BUILT_IN_CABSF BUILT_IN_CABS BUILT_IN_CABSL)
@@ -66,32 +70,32 @@ along with GCC; see the file COPYING3.  If not see
   (abs @0)))
 
 /* From fold_builtin_pow.  */
-(for POW (BUILT_IN_POWF BUILT_IN_POW BUILT_IN_POWL)
-     SQRT (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
-     CBRT (BUILT_IN_CBRTF BUILT_IN_CBRT BUILT_IN_CBRTL)
+(for POW (POWs)
+     SQRT (SQRTs)
+     CBRT (CBRTs)
  /* Optimize pow(1.0,y) = 1.0.  */
  (simplify
   (POW real_onep@0 @1)
   @0)
 
-(simplify
- (POW @0 REAL_CST@1)
- (with { REAL_VALUE_TYPE c = TREE_REAL_CST (@1); }
-  /* Optimize pow(x,0.0) = 1.0.  */
-  (if (REAL_VALUES_EQUAL (c, dconst0))
-   { build_real (type, dconst1); })
-  /* Optimize pow(x,1.0) = x.  */
-  (if (REAL_VALUES_EQUAL (c, dconst1))
-   @0)
-  /* Optimize pow(x,-1.0) = 1.0/x.  */
-  (if (REAL_VALUES_EQUAL (c, dconstm1))
-   (rdiv { build_real (type, dconst1); } @0))
-  /* Optimize pow(x,0.5) = sqrt(x).  */
-  (if (flag_unsafe_math_optimizations
-       && REAL_VALUES_EQUAL (c, dconsthalf))
-   (SQRT @0))
-  /* Optimize pow(x,1.0/3.0) = cbrt(x).  */
-  (with
+ (simplify
+  (POW @0 REAL_CST@1)
+  (with { REAL_VALUE_TYPE c = TREE_REAL_CST (@1); }
+   /* Optimize pow(x,0.0) = 1.0.  */
+   (if (REAL_VALUES_EQUAL (c, dconst0))
+    { build_real (type, dconst1); })
+   /* Optimize pow(x,1.0) = x.  */
+   (if (REAL_VALUES_EQUAL (c, dconst1))
+    @0)
+   /* Optimize pow(x,-1.0) = 1.0/x.  */
+   (if (REAL_VALUES_EQUAL (c, dconstm1))
+    (rdiv { build_real (type, dconst1); } @0))
+   /* Optimize pow(x,0.5) = sqrt(x).  */
+   (if (flag_unsafe_math_optimizations
+	&& REAL_VALUES_EQUAL (c, dconsthalf))
+    (SQRT @0))
+   /* Optimize pow(x,1.0/3.0) = cbrt(x).  */
+   (with
     { const REAL_VALUE_TYPE dconstroot
         = real_value_truncate (TYPE_MODE (type), dconst_third ()); }
     (if (flag_unsafe_math_optimizations
