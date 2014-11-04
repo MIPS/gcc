@@ -5521,35 +5521,29 @@ gimple_expr_type (const_gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
 
-  if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
+  /* In general we want to pass out a type that can be substituted
+     for both the RHS and the LHS types if there is a possibly
+     useless conversion involved.  That means returning the
+     original RHS type as far as we can reconstruct it.  */
+  if (const gcall *call_stmt = dyn_cast <const gcall *> (stmt))
     {
-      tree type;
-      /* In general we want to pass out a type that can be substituted
-         for both the RHS and the LHS types if there is a possibly
-	 useless conversion involved.  That means returning the
-	 original RHS type as far as we can reconstruct it.  */
-      if (code == GIMPLE_CALL)
-	{
-	  const gcall *call_stmt = as_a <const gcall *> (stmt);
-	  if (gimple_call_internal_p (call_stmt)
-	      && gimple_call_internal_fn (call_stmt) == IFN_MASK_STORE)
-	    type = TREE_TYPE (gimple_call_arg (call_stmt, 3));
-	  else
-	    type = gimple_call_return_type (call_stmt);
-	}
+      if (gimple_call_internal_p (call_stmt)
+	  && gimple_call_internal_fn (call_stmt) == IFN_MASK_STORE)
+	return TREE_TYPE (gimple_call_arg (call_stmt, 3));
       else
-	switch (gimple_assign_rhs_code (stmt))
-	  {
-	  case POINTER_PLUS_EXPR:
-	    type = TREE_TYPE (gimple_assign_rhs1 (stmt));
-	    break;
+	return gimple_call_return_type (call_stmt);
+    }
+  else if (const gassign *assign_stmt = dyn_cast <const gassign *> (stmt))
+    {
+      switch (gimple_assign_rhs_code (assign_stmt))
+	{
+	case POINTER_PLUS_EXPR:
+	  return TREE_TYPE (gimple_assign_rhs1 (assign_stmt));
 
-	  default:
-	    /* As fallback use the type of the LHS.  */
-	    type = TREE_TYPE (gimple_get_lhs (stmt));
-	    break;
-	  }
-      return type;
+	default:
+	  /* As fallback use the type of the LHS.  */
+	  return TREE_TYPE (gimple_get_lhs (assign_stmt));
+	}
     }
   else if (code == GIMPLE_COND)
     return boolean_type_node;
