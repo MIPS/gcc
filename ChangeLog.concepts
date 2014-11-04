@@ -1,3 +1,7 @@
+2014-11-03  Jason Merrill  <jason@redhat.com>
+
+	* gcc/cp/parser.c (cp_parser_nonclass_name): Fix merge error.
+
 2014-10-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
         Fixing user-reported issues and regressions

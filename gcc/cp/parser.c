@@ -15626,26 +15626,6 @@ cp_parser_nonclass_name (cp_parser* parser)
       return decl;
   }
 
-  if (TREE_CODE (type_decl) == USING_DECL)
-    {
-      if (!DECL_DEPENDENT_P (type_decl))
-	type_decl = strip_using_decl (type_decl);
-      else if (USING_DECL_TYPENAME_P (type_decl))
-	{
-	  /* We have found a type introduced by a using
-	     declaration at class scope that refers to a dependent
-	     type.
-	     
-	     using typename :: [opt] nested-name-specifier unqualified-id ;
-	  */
-	  type_decl = make_typename_type (TREE_TYPE (type_decl),
-					  DECL_NAME (type_decl),
-					  typename_type, tf_error);
-	  if (type_decl != error_mark_node)
-	    type_decl = TYPE_NAME (type_decl);
-	}
-    }
-  
   if (TREE_CODE (type_decl) != TYPE_DECL
       && (objc_is_id (identifier) || objc_is_class_name (identifier)))
     {
