@@ -2357,15 +2357,13 @@ treerr
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
 	(curpair (pair_tail (list_first cont)))
-	(argsp (patternexpand_pairlist_as_tuple curpair env pctx loc))
-	(nbargs (multiple_length argsp))
+	(nbargs (-i (list_length cont) 1))
 	(nbcallargs (-i nbargs 2))
 	)
-    (debug "patexpand_tree_call_expr" "; loc=" loc "; cont=" cont
-	   "\n.. argsp=" argsp)
+    (debug "patexpand_tree_call_expr" "; loc=" loc "; cont=" cont)
     (when (<i nbargs 2)
       (error_at loc
-		"(TREE_CALL_EXPR <calledfun> <chain> <callargs>...) needs at least two arguments but got only $1"
+		"(TREE_CALL_EXPR <calledfun> <chain> [<args>...]) needs at least two arguments but got only $1"
 		nbargs)
       (return))
     (let (
@@ -2426,8 +2424,8 @@ treerr
 		     (add2list
 		      cmt
 		      ##{ /* $CMATNAME $TREECALLSTATE generated test for call_expr ? */
-		      $TR && TREE_CODE($TR) == CALL_EXPR
-		      && call_expr_nargs ($TR) == $NBCALLARGS
+		        $TR && TREE_CODE($TR) == CALL_EXPR
+		        && call_expr_nargs ($TR) == $NBCALLARGS
 		      }#
 		      )
 		     (debug "patexpand_tree_call_expr" "; cmtest=" cmt)
@@ -2480,17 +2478,36 @@ treerr
 	)
       (debug "patexpand_tree_call_expr" "; loc=" loc "; cmat=" cmat)
       (assert_msg "check cmat" (is_a cmat class_cmatcher) cmat)
-      (let (
-	    (res
-	     (instance class_source_cmatchexpr
-		       :loca_location loc
-		       :scmatx_cmatcher cmat
-		       :sargop_args argsp)
-	     )
-	    )
-	(debug "patexpand_tree_call_expr" "; loc=" loc "\n.. res=" res)
-	(return res)
+      (multicall
+       (args pats)
+       (patmacexpand_for_matcher curpair cmat env loc pctx)
+       (debug "patexpand_tree_call_expr" "; loc=" loc " args=" args " pats=" pats)
+       (multicall
+	(subpatw :long imax imin isum)
+	(pattern_weight_tuple pats)
+	(debug "patexpand_tree_call_expr" "; loc=" loc " subpatw=" subpatw
+	       "\n.. imax=" imax " imin=" imin " isum=" isum)
+	(let (
+	      (cmatsymb (get_field :named_name cmat))
+	      (cmabind (instance class_cmatcher_binding
+				 :binder cmatsymb
+				 :cmbind_matcher cmat))
+	      (res
+	       (instance class_source_pattern_c_match
+			 :loca_location loc
+			 :pat_weight (constant_box (+i 1 isum))
+			 :spac_operator cmat
+			 :spac_operbind cmabind
+			 :spac_inargs args
+			 :spac_outargs pats)
+	       )
+	      )
+	  (debug "patexpand_tree_call_expr" "; loc=" loc "\n.. cmabind=" cmabind
+		 "\n.. res=" res)
+	  (return res)
+	  )
 	)
+       )
       )
     )
   )
@@ -2646,6 +2663,8 @@ treerr
 	     )
 	    )
 	(debug "patexpand_tree_call_more_expr" "; loc=" loc "\n.. res=" res)
+	(assert_msg "@$@unimplemented patexpand_tree_call_more_expr" ())
+	;;; should call patmacexpand_for_matcher & pattern_weight_tuple
 	(return res)
 	)
       )

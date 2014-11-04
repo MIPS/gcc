@@ -2429,8 +2429,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	     (pattern_weight_tuple pats)
 	     (let ( (pcomp (instance class_source_pattern_c_match
 				     :loca_location sloc
-				     :pat_weight 
-				     (make_integerbox discr_constant_integer (+i 1 isum))
+				     :pat_weight (constant_box (+i 1 isum))
 				     :spac_operator cmat
 				     :spac_operbind opbind
 				     :spac_inargs args
@@ -2478,11 +2477,12 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	      (multicall
 	       (args pats)
 	       (patmacexpand_for_matcher (pair_tail curpair) opval env sloc pctx)
-	       (debug "patternexpand_expr imported cmatcher args" args)
-	       (debug "patternexpand_expr imported cmatcher pats" pats)
+	       (debug "patternexpand_expr imported cmatcher args=" args " pats=" pats)
 	       (multicall
 		(subpatw :long imax imin isum)
 		(pattern_weight_tuple pats)
+		(debug "patternexpand_expr subpatw=" subpatw
+		       " imax=" imax " imin=" imin " isum=" isum)
 		(let ( (pcomp (instance class_source_pattern_c_match
 					:loca_location sloc
 					:pat_weight 
@@ -2494,8 +2494,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 					))
 		       (aouts (get_field :amatch_out opval))
 		       )
-		  (debug "patternexpand_expr imported cmatcher pats again" pats)
-		  (debug "patternexpand_expr aouts" aouts)
+		  (debug "patternexpand_expr imported cmatcher again pats=" pats " aouts" aouts)
 		  (if (!=i (multiple_length pats) (multiple_length aouts))
 		      (warning_at sloc "incompatible number of formal and actual subpatterns of cmatcher $1"
 				    (get_field :named_name opval)))

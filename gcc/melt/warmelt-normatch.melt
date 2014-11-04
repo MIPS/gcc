@@ -4162,14 +4162,11 @@ the flags of the $STEP with an extra context $CTX.}#
     (assert_msg "check mdatasteps list" (is_list mdatasteps))
     (debug "translpat_patmat soper" soper)
     (assert_msg "check soper" (is_a soper class_any_matcher))
-    (debug "translpat_patmat sins" sins)
-    (debug "translpat_patmat souts" souts)
-    (debug "translpat_patmat sopbind" sopbind)
+    (debug "translpat_patmat sins=" sins "\n.. souts=" souts "\n.. sopbind=" sopbind)
     (multicall
      (nins inbinds)
      (normalize_tuple sins env ncx sloc)
-     (debug "translpat_patmat nins" nins)
-     (debug "translpat_patmat inbinds" inbinds)
+     (debug "translpat_patmat nins=" nins "\n.. inbinds=" inbinds)
      (assert_msg "check inbinds" (is_list_or_null inbinds))
      (if (!=i (multiple_length nins) (multiple_length opin))
 	 (error_strv sloc "bad input arity of matcher in pattern" 

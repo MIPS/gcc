@@ -1,5 +1,15 @@
 
 2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (patternexpand_expr): Improve debugging.
+
+	* melt/warmelt-normatch.melt (translpat_patmat): Improve debugging.
+
+	* melt/libmelt-ana-tree.melt (patexpand_tree_call_expr): Call
+	patmacexpand_for_matcher & pattern_weight_tuple.
+	(patexpand_tree_call_more_expr): Add assertion since incomplete.
+
+2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 
 2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
