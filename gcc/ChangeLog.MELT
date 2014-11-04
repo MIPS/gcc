@@ -1,5 +1,13 @@
 
 2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{t-treecall test fails}}
+
+	* melt/warmelt-normatch.melt (normpat_anymatchpat): Accept unbound
+	matopbind binder.
+
+	* melt/libmelt-ana-tree.melt (patexpand_tree_call_expr): Add a comment.
+
+2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (patternexpand_expr): Improve debugging.
 

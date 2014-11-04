@@ -2489,6 +2489,11 @@ treerr
 	       "\n.. imax=" imax " imin=" imin " isum=" isum)
 	(let (
 	      (cmatsymb (get_field :named_name cmat))
+	      ;;; notice that we are embedding the binding in the
+	      ;;; result, but not putting the binding in the
+	      ;;; environment. See comment about 'mv is not bound' in
+	      ;;; file warmelt-normatch.melt function
+	      ;;; normpat_anymatchpat...
 	      (cmabind (instance class_cmatcher_binding
 				 :binder cmatsymb
 				 :cmbind_matcher cmat))

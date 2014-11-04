@@ -1624,12 +1624,20 @@ scanning variables.}#
     (debug "normpat_anymatchpat inargs=" inargs
 	   " mat=" mat   " matopbind=" matopbind)
     (let ( 
-	  (matvar (let ( (mv (get_field :binder matopbind)) )
-		    (debug "normpat_anymatchpat matvar" mv)
-		    (assert_msg "check matvar's binding"
-				(== (find_env env mv) matopbind))
-		    mv
-		    ))
+	  (matvar
+	   (let ( (mv (get_field :binder matopbind)) )
+	     (debug "normpat_anymatchpat matvar" mv)
+	     ;;; sometimes, the mv is not bound, e.g. for
+	     ;;; tree_call_expr, in file libmelt-ana-tree.melt,
+	     ;;; implementation in patexpand_tree_call_expr
+	     ;;; but if it is bound, it should be to matopbind
+	     (assert_msg "check matvar's binding"
+			 (let ( (mvbind (find_env env mv))
+				)				  
+			   (or (null mvbind) (== mvbind matopbind)))
+			 mv matopbind env)
+	     mv
+	     ))
 	  ;; we know that matvar is a symbol so its normalization
 	  ;; returns a single value
 	  (matndata (normal_exp matvar env ncx sloc))
