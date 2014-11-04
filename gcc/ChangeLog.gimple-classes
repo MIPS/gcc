@@ -1,5 +1,19 @@
 2014-11-04  David Malcolm  <dmalcolm@redhat.com>
 
+	* asan.c (asan_expand_check_ifn): Strengthen local "shadow_test"
+	from gimple to gassign *.  Introduce gassign * locals "add_7",
+	"cast", "t_ge_shadow", "and_expr", using them in place of
+	gimple_seq_last_stmt (seq) for typesafety.
+	* gimple-builder.c (build_assign): Strengthen param "g" from
+	gimple to const gassign * for all overloads.
+	(build_type_cast): Likewise for param "op".
+	* gimple-builder.h (build_assign): Strengthen param from gimple to
+	const gassign * for all overloads.
+	(build_type_cast): Strengthen param 2 from gimple to
+	const gassign *.
+
+2014-11-04  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.h (gimple_expr_type): Split out if clause handling
 	GIMPLE_ASSIGN and GIMPLE_CALL with an inner if GIMPLE_CALL
 	into a pair of if clauses, first for GIMPLE_CALL, then for
