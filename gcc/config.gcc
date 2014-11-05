@@ -236,7 +236,8 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
- score-*				\
+# Currently there are no obsolete targets.
+ nothing				\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -363,7 +364,8 @@ i[34567]86-*-*)
 		       adxintrin.h fxsrintrin.h xsaveintrin.h xsaveoptintrin.h
 		       avx512cdintrin.h avx512erintrin.h avx512pfintrin.h
 		       shaintrin.h clflushoptintrin.h xsavecintrin.h
-		       xsavesintrin.h"
+		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
+		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
@@ -381,7 +383,8 @@ x86_64-*-*)
 		       adxintrin.h fxsrintrin.h xsaveintrin.h xsaveoptintrin.h
 		       avx512cdintrin.h avx512erintrin.h avx512pfintrin.h
 		       shaintrin.h clflushoptintrin.h xsavecintrin.h
-		       xsavesintrin.h"
+		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
+		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h"
 	;;
 ia64-*-*)
 	extra_headers=ia64intrin.h
@@ -431,10 +434,6 @@ powerpc*-*-*)
 	;;
 rs6000*-*-*)
 	extra_options="${extra_options} g.opt fused-madd.opt rs6000/rs6000-tables.opt"
-	;;
-score*-*-*)
-	cpu_type=score
-	extra_options="${extra_options} g.opt"
 	;;
 sparc*-*-*)
 	cpu_type=sparc
@@ -1941,49 +1940,51 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
 mips*-mti-linux*)
-	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h mips/mti-linux.h"
+	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h mips/linux-common.h mips/mti-linux.h"
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} mips/t-mti-linux"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
 	gnu_ld=yes
 	gas=yes
 	;;
-mips64*-*-linux* | mipsisa64*-*-linux*)
-	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h"
+mips*-*-linux*)				# Linux MIPS, either endian.
+	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
-	tmake_file="${tmake_file} mips/t-linux64"
-	tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
 	case ${target} in
+		mipsisa32r2*)
+			tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33"
+			;;
+		mipsisa32*)
+			tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
+			;;
 		mips64el-st-linux-gnu)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
 			tm_file="${tm_file} mips/st.h"
 			tmake_file="${tmake_file} mips/t-st"
+			enable_mips_multilibs="yes"
 			;;
 		mips64octeon*-*-linux*)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
 			tm_defines="${tm_defines} MIPS_CPU_STRING_DEFAULT=\\\"octeon\\\""
 			target_cpu_default=MASK_SOFT_FLOAT_ABI
+			enable_mips_multilibs="yes"
 			;;
 		mipsisa64r2*-*-linux*)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
 			tm_defines="${tm_defines} MIPS_ISA_DEFAULT=65"
+			enable_mips_multilibs="yes"
+			;;
+		mips64*-*-linux* | mipsisa64*-*-linux*)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+			enable_mips_multilibs="yes"
 			;;
 	esac
-	gnu_ld=yes
-	gas=yes
-	;;
-mips*-*-linux*)				# Linux MIPS, either endian.
-	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h"
-	extra_options="${extra_options} linux-android.opt"
 	if test x$enable_targets = xall; then
-		tm_file="${tm_file} mips/gnu-user64.h mips/linux64.h"
+		enable_mips_multilibs="yes"
+	fi
+	if test x$enable_mips_multilibs = xyes; then
 		tmake_file="${tmake_file} mips/t-linux64"
 	fi
-	tm_file="${tm_file} mips/linux-common.h"
-	case ${target} in
-        mipsisa32r2*)
-		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33"
-                ;;
-        mipsisa32*)
-		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
-        esac
 	;;
 mips*-mti-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
@@ -2441,11 +2442,6 @@ s390x-ibm-tpf*)
         thread_file='tpf'
 	extra_options="${extra_options} s390/tpf.opt"
 	;;
-score-*-elf)
-	gas=yes
-	gnu_ld=yes
-        tm_file="dbxelf.h elfos.h score/elf.h score/score.h newlib-stdint.h"
-        ;;
 sh-*-elf* | sh[12346l]*-*-elf* | \
   sh-*-linux* | sh[2346lbe]*-*-linux* | \
   sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
@@ -3188,6 +3184,9 @@ if test x$with_cpu = x ; then
 	  ;;
 	*-leon[3-9]*)
 	  with_cpu=leon3
+	  ;;
+	*-leon[3-9]v7*)
+	  with_cpu=leon3v7
 	  ;;
 	*)
 	  with_cpu="`echo ${target} | sed 's/-.*$//'`"
@@ -3983,7 +3982,7 @@ case "${target}" in
 			case ${val} in
 			"" | sparc | sparcv9 | sparc64 \
 			| v7 | cypress \
-			| v8 | supersparc | hypersparc | leon | leon3 \
+			| v8 | supersparc | hypersparc | leon | leon3 | leon3v7 \
 			| sparclite | f930 | f934 | sparclite86x \
 			| sparclet | tsc701 \
 			| v9 | ultrasparc | ultrasparc3 | niagara | niagara2 \
@@ -4075,7 +4074,7 @@ case ${target} in
 	hppa*-*-*)
 		if test x$gas = xyes
 		then
-			target_cpu_default2="MASK_GAS|MASK_JUMP_IN_DELAY"
+			target_cpu_default2="MASK_GAS"
 		fi
 		;;
 

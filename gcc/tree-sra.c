@@ -79,6 +79,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -102,6 +112,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-prop.h"
 #include "statistics.h"
 #include "params.h"
@@ -1069,6 +1082,11 @@ build_access_from_expr_1 (tree expr, gimple stmt, bool write)
     {
       disqualify_base_of_expr (expr, "V_C_E under a different handled "
 			       "component.");
+      return NULL;
+    }
+  if (TREE_THIS_VOLATILE (expr))
+    {
+      disqualify_base_of_expr (expr, "part of a volatile reference.");
       return NULL;
     }
 

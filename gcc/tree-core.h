@@ -464,6 +464,8 @@ enum tree_index {
   TI_FILEPTR_TYPE,
   TI_POINTER_SIZED_TYPE,
 
+  TI_POINTER_BOUNDS_TYPE,
+
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
   TI_DFLOAT128_TYPE,
@@ -570,8 +572,16 @@ enum integer_type_kind {
   itk_unsigned_long,
   itk_long_long,
   itk_unsigned_long_long,
-  itk_int128,
-  itk_unsigned_int128,
+
+  itk_intN_0,
+  itk_unsigned_intN_0,
+  itk_intN_1,
+  itk_unsigned_intN_1,
+  itk_intN_2,
+  itk_unsigned_intN_2,
+  itk_intN_3,
+  itk_unsigned_intN_3,
+
   itk_none
 };
 
@@ -1171,7 +1181,7 @@ enum omp_clause_map_kind
   OMP_CLAUSE_MAP_TOFROM,
   /* The following kind is an internal only map kind, used for pointer based
      array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
-     which is implicitly POINTER_SIZE / BITS_PER_UNIT, but the bias.  */
+     which is implicitly POINTER_SIZE_UNITS, but the bias.  */
   OMP_CLAUSE_MAP_POINTER,
   /* Also internal, behaves like OMP_CLAUS_MAP_TO, but additionally any
      OMP_CLAUSE_MAP_POINTER records consecutive after it which have addresses
@@ -1496,7 +1506,9 @@ struct GTY(()) tree_decl_with_vis {
  unsigned cxx_destructor : 1;
  /* Belong to FUNCTION_DECL exclusively.  */
  unsigned final : 1;
- /* 15 unused bits. */
+ /* Belong to FUNCTION_DECL exclusively.  */
+ unsigned regdecl_flag : 1;
+ /* 14 unused bits. */
 };
 
 struct GTY(()) tree_var_decl {
@@ -1537,20 +1549,19 @@ struct GTY(()) tree_function_decl {
      DECL_FUNCTION_CODE.  Otherwise unused.
      ???  The bitfield needs to be able to hold all target function
 	  codes as well.  */
-  ENUM_BITFIELD(built_in_function) function_code : 11;
+  ENUM_BITFIELD(built_in_function) function_code : 12;
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
 
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
-  unsigned uninlinable : 1;
 
+  unsigned uninlinable : 1;
   unsigned possibly_inlined : 1;
   unsigned novops_flag : 1;
   unsigned returns_twice_flag : 1;
   unsigned malloc_flag : 1;
   unsigned operator_new_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned regdecl_flag : 1;
   unsigned no_inline_warning_flag : 1;
 
   unsigned no_instrument_function_entry_exit : 1;

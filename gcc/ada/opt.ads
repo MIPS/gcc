@@ -730,6 +730,17 @@ package Opt is
    --  True if a pragma Discard_Names appeared as a configuration pragma for
    --  the current compilation unit.
 
+   GNAT_Encodings : Int;
+   pragma Import (C, GNAT_Encodings, "gnat_encodings");
+   --  Constant controlling the balance between GNAT encodings and standard
+   --  DWARF to emit in the debug information. See jmissing.c and aamissing.c
+   --  for definitions for dotnet/jgnat and GNAAMP back ends. It accepts the
+   --  following values.
+
+   DWARF_GNAT_Encodings_All     : constant Int := 0;
+   DWARF_GNAT_Encodings_GDB     : constant Int := 1;
+   DWARF_GNAT_Encodings_Minimal : constant Int := 2;
+
    Identifier_Character_Set : Character;
    --  GNAT
    --  This variable indicates the character set to be used for identifiers.
@@ -1077,6 +1088,11 @@ package Opt is
    --  GNAT
    --  Set True if pragma No_Strict_Aliasing with no parameters encountered.
 
+   No_Tagged_Streams : Node_Id := Empty;
+   --  GNAT
+   --  If a pragma No_Tagged_Streams is active for the current scope, this
+   --  points to the corresponding pragma.
+
    Normalize_Scalars : Boolean := False;
    --  GNAT, GNATBIND
    --  Set True if a pragma Normalize_Scalars applies to the current unit.
@@ -1187,6 +1203,10 @@ package Opt is
    --  GNAT
    --  Set to True if polling for asynchronous abort is enabled by using
    --  the -gnatP option for GNAT.
+
+   Prefix_Exception_Messages : Boolean := False;
+   --  GNAT
+   --  Set True to prefix exception messages with entity-name:
 
    Preprocessing_Data_File : String_Ptr := null;
    --  GNAT
@@ -1413,6 +1433,16 @@ package Opt is
    --  which writes a target independent information file (see packages
    --  Get_Targ and Set_Targ for full details) using the name given by
    --  this switch. Set to non-null file name by use of the -gnatet switch.
+
+   type Origin_Of_Target is (Unknown, Default, Specified);
+
+   Target_Origin : Origin_Of_Target := Unknown;
+   --  GPRBUILD
+   --  Indicates the origin of attribute Target in project files
+
+   Target_Value : String_Access := null;
+   --  GPRBUILD
+   --  Indicates the value of attribute Target in project files
 
    Task_Dispatching_Policy : Character := ' ';
    --  GNAT, GNATBIND
@@ -1950,6 +1980,9 @@ package Opt is
    --  flag is used to set the initial value for Polling_Required at the start
    --  of analyzing each unit.
 
+   Prefix_Exception_Messages_Config : Boolean;
+   --  The setting of Prefix_Exception_Messages from configuration pragmas
+
    SPARK_Mode_Config : SPARK_Mode_Type := None;
    --  GNAT
    --  The setting of SPARK_Mode from configuration pragmas
@@ -2197,6 +2230,7 @@ private
       Optimize_Alignment_Local       : Boolean;
       Persistent_BSS_Mode            : Boolean;
       Polling_Required               : Boolean;
+      Prefix_Exception_Messages      : Boolean;
       SPARK_Mode                     : SPARK_Mode_Type;
       SPARK_Mode_Pragma              : Node_Id;
       Uneval_Old                     : Character;

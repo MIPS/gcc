@@ -168,6 +168,16 @@ class GTY((user)) hash_map
 	{
 	}
 
+    static void
+      pch_nx_helper (unsigned int, gt_pointer_operator, void *)
+	{
+	}
+
+    static void
+      pch_nx_helper (bool, gt_pointer_operator, void *)
+	{
+	}
+
     template<typename T>
       static void
       pch_nx_helper (T *&x, gt_pointer_operator op, void *cookie)
@@ -253,6 +263,8 @@ public:
 	if (!f ((*iter).m_key, &(*iter).m_value, a))
 	  break;
     }
+
+  size_t elements () const { return m_table.elements (); }
 
 private:
 

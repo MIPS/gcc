@@ -28,6 +28,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "c-family/c-common.h"
 #include "tree-iterator.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -35,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
-#include "hashtab.h"
 #include "flags.h"
 #include "splay-tree.h"
 #include "target.h"
@@ -488,6 +495,10 @@ cp_gimplify_init_expr (tree *expr_p)
 	    TREE_TYPE (from) = void_type_node;
 	}
 
+      if (cxx_dialect >= cxx14 && TREE_CODE (sub) == CONSTRUCTOR)
+	/* Handle aggregate NSDMI.  */
+	replace_placeholders (sub, to);
+
       if (t == sub)
 	break;
       else
@@ -758,20 +769,18 @@ is_invisiref_parm (const_tree t)
 
 /* Return true if the uid in both int tree maps are equal.  */
 
-int
-cxx_int_tree_map_eq (const void *va, const void *vb)
+bool
+cxx_int_tree_map_hasher::equal (cxx_int_tree_map *a, cxx_int_tree_map *b)
 {
-  const struct cxx_int_tree_map *a = (const struct cxx_int_tree_map *) va;
-  const struct cxx_int_tree_map *b = (const struct cxx_int_tree_map *) vb;
   return (a->uid == b->uid);
 }
 
 /* Hash a UID in a cxx_int_tree_map.  */
 
 unsigned int
-cxx_int_tree_map_hash (const void *item)
+cxx_int_tree_map_hasher::hash (cxx_int_tree_map *item)
 {
-  return ((const struct cxx_int_tree_map *)item)->uid;
+  return item->uid;
 }
 
 /* A stable comparison routine for use with splay trees and DECLs.  */
@@ -911,9 +920,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     {
       struct cxx_int_tree_map *h, in;
       in.uid = DECL_UID (stmt);
-      h = (struct cxx_int_tree_map *)
-	  htab_find_with_hash (cp_function_chain->extern_decl_map,
-			       &in, in.uid);
+      h = cp_function_chain->extern_decl_map->find_with_hash (&in, in.uid);
       if (h)
 	{
 	  *stmt_p = h->to;

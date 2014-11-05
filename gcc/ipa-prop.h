@@ -20,9 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef IPA_PROP_H
 #define IPA_PROP_H
 
-#include "vec.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
 
 /* The following definitions and interfaces are used by
    interprocedural analyses or parameters.  */
@@ -432,7 +429,10 @@ ipa_set_param_used (struct ipa_node_params *info, int i, bool val)
 static inline int
 ipa_get_controlled_uses (struct ipa_node_params *info, int i)
 {
-  return info->descriptors[i].controlled_uses;
+  /* FIXME: introducing speuclation causes out of bounds access here.  */
+  if (info->descriptors.length () > (unsigned)i)
+    return info->descriptors[i].controlled_uses;
+  return IPA_UNDESCRIBED_USE;
 }
 
 /* Set the controlled counter of a given parameter.  */
@@ -479,6 +479,7 @@ struct GTY(()) ipa_edge_args
 {
   /* Vector of the callsite's jump function of each parameter.  */
   vec<ipa_jump_func, va_gc> *jump_functions;
+  vec<ipa_polymorphic_call_context, va_gc> *polymorphic_call_contexts;
 };
 
 /* ipa_edge_args access functions.  Please use these to access fields that
@@ -500,6 +501,16 @@ static inline struct ipa_jump_func *
 ipa_get_ith_jump_func (struct ipa_edge_args *args, int i)
 {
   return &(*args->jump_functions)[i];
+}
+
+/* Returns a pointer to the polymorphic call context for the ith argument.
+   NULL if contexts are not computed.  */
+static inline struct ipa_polymorphic_call_context *
+ipa_get_ith_polymorhic_call_context (struct ipa_edge_args *args, int i)
+{
+  if (!args->polymorphic_call_contexts)
+    return NULL;
+  return &(*args->polymorphic_call_contexts)[i];
 }
 
 /* Types of vectors holding the infos.  */
@@ -585,7 +596,8 @@ tree ipa_get_indirect_edge_target (struct cgraph_edge *ie,
 				   vec<tree> ,
 				   vec<tree> ,
 				   vec<ipa_agg_jump_function_p> );
-struct cgraph_edge *ipa_make_edge_direct_to_target (struct cgraph_edge *, tree);
+struct cgraph_edge *ipa_make_edge_direct_to_target (struct cgraph_edge *, tree,
+						    bool speculative = false);
 tree ipa_binfo_from_known_type_jfunc (struct ipa_jump_func *);
 tree ipa_impossible_devirt_target (struct cgraph_edge *, tree);
 
@@ -720,5 +732,8 @@ ipa_parm_adjustment *ipa_get_adjustment_candidate (tree **, bool *,
 /* From tree-sra.c:  */
 tree build_ref_for_offset (location_t, tree, HOST_WIDE_INT, bool, tree,
 			   gimple_stmt_iterator *, bool);
+
+/* In ipa-cp.c  */
+void ipa_cp_c_finalize (void);
 
 #endif /* IPA_PROP_H */

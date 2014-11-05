@@ -855,11 +855,12 @@ include $(iterator)
 # Build libgcov components.
 
 LIBGCOV_MERGE = _gcov_merge_add _gcov_merge_single _gcov_merge_delta	\
-	_gcov_merge_ior _gcov_merge_time_profile
+	_gcov_merge_ior _gcov_merge_time_profile _gcov_merge_icall_topn
 LIBGCOV_PROFILER = _gcov_interval_profiler _gcov_pow2_profiler		\
 	_gcov_one_value_profiler _gcov_indirect_call_profiler		\
  	_gcov_average_profiler _gcov_ior_profiler			\
-	_gcov_indirect_call_profiler_v2 _gcov_time_profiler
+	_gcov_indirect_call_profiler_v2 _gcov_time_profiler		\
+	_gcov_indirect_call_topn_profiler
 LIBGCOV_INTERFACE = _gcov_dump _gcov_flush _gcov_fork			\
 	_gcov_execl _gcov_execlp					\
 	_gcov_execle _gcov_execv _gcov_execvp _gcov_execve _gcov_reset
@@ -921,12 +922,16 @@ ifeq ($(enable_shared),yes)
 
 # Map-file generation.
 ifneq ($(SHLIB_MKMAP),)
-libgcc.map: $(SHLIB_MKMAP) $(SHLIB_MAPFILES) $(libgcc-s-objects)
-	{ $(NM) $(SHLIB_NM_FLAGS) $(libgcc-s-objects); echo %%; \
-	  cat $(SHLIB_MAPFILES) \
+libgcc.map.in: $(SHLIB_MAPFILES)
+	{ cat $(SHLIB_MAPFILES) \
 	    | sed -e '/^[ 	]*#/d' \
 		  -e 's/^%\(if\|else\|elif\|endif\|define\)/#\1/' \
 	    | $(gcc_compile_bare) -E -xassembler-with-cpp -; \
+	} > tmp-$@
+	mv tmp-$@ $@
+libgcc.map: $(SHLIB_MKMAP) libgcc.map.in $(libgcc-s-objects)
+	{ $(NM) $(SHLIB_NM_FLAGS) $(libgcc-s-objects); echo %%; \
+	  cat libgcc.map.in; \
 	} | $(AWK) -f $(SHLIB_MKMAP) $(SHLIB_MKMAP_OPTS) > tmp-$@
 	mv tmp-$@ $@
 libgcc_s$(SHLIB_EXT): libgcc.map

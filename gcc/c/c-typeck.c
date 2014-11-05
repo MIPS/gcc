@@ -40,7 +40,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-iterator.h"
 #include "bitmap.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-inline.h"
@@ -192,7 +199,7 @@ require_complete_type (tree value)
 {
   tree type = TREE_TYPE (value);
 
-  if (value == error_mark_node || type == error_mark_node)
+  if (error_operand_p (value))
     return error_mark_node;
 
   /* First, detect a valid value with a complete type.  */
@@ -814,7 +821,7 @@ c_common_type (tree t1, tree t2)
   if (code1 == FIXED_POINT_TYPE || code2 == FIXED_POINT_TYPE)
     {
       unsigned int unsignedp = 0, satp = 0;
-      enum machine_mode m1, m2;
+      machine_mode m1, m2;
       unsigned int fbit1, ibit1, fbit2, ibit2, max_fbit, max_ibit;
 
       m1 = TYPE_MODE (t1);
@@ -1950,7 +1957,7 @@ default_function_array_read_conversion (location_t loc, struct c_expr exp)
 static bool
 really_atomic_lvalue (tree expr)
 {
-  if (expr == error_mark_node || TREE_TYPE (expr) == error_mark_node)
+  if (error_operand_p (expr))
     return false;
   if (!TYPE_ATOMIC (TREE_TYPE (expr)))
     return false;
@@ -2378,7 +2385,12 @@ build_indirect_ref (location_t loc, tree ptr, ref_operator errstring)
 
 	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
 	    {
-	      error_at (loc, "dereferencing pointer to incomplete type");
+	      if (!C_TYPE_ERROR_REPORTED (TREE_TYPE (ptr)))
+		{
+		  error_at (loc, "dereferencing pointer to incomplete type "
+			    "%qT", t);
+		  C_TYPE_ERROR_REPORTED (TREE_TYPE (ptr)) = 1;
+		}
 	      return error_mark_node;
 	    }
 	  if (VOID_TYPE_P (t) && c_inhibit_evaluation_warnings == 0)
@@ -2478,6 +2490,8 @@ build_array_ref (location_t loc, tree array, tree index)
 
   /* Apply default promotions *after* noticing character types.  */
   index = default_conversion (index);
+  if (index == error_mark_node)
+    return error_mark_node;
 
   gcc_assert (TREE_CODE (TREE_TYPE (index)) == INTEGER_TYPE);
 
@@ -6507,8 +6521,7 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
 
   if (type == error_mark_node
       || !init
-      || init == error_mark_node
-      || TREE_TYPE (init) == error_mark_node)
+      || error_operand_p (init))
     return error_mark_node;
 
   STRIP_TYPE_NOPS (inside_init);
@@ -6692,13 +6705,15 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
 	inside_init = convert (type, inside_init);
 
       if (require_constant
-	  && (code == VECTOR_TYPE || !flag_isoc99)
 	  && TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
 	{
 	  /* As an extension, allow initializing objects with static storage
 	     duration with compound literals (which are then treated just as
 	     the brace enclosed list they contain).  Also allow this for
 	     vectors, as we can only assign them with compound literals.  */
+	  if (flag_isoc99 && code != VECTOR_TYPE)
+	    pedwarn_init (init_loc, OPT_Wpedantic, "initializer element "
+			  "is not constant");
 	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
 	  inside_init = DECL_INITIAL (decl);
 	}
@@ -7452,7 +7467,11 @@ pop_init_level (location_t loc, int implicit,
 	}
     }
 
-  if (vec_safe_length (constructor_elements) != 1)
+  /* Initialization with { } counts as zeroinit.  */
+  if (vec_safe_length (constructor_elements) == 0)
+    constructor_zeroinit = 1;
+  /* If the constructor has more than one element, it can't be { 0 }.  */
+  else if (vec_safe_length (constructor_elements) != 1)
     constructor_zeroinit = 0;
 
   /* Warn when some structs are initialized with direct aggregation.  */
@@ -7479,7 +7498,7 @@ pop_init_level (location_t loc, int implicit,
 	    /* Do not warn if this level of the initializer uses member
 	       designators; it is likely to be deliberate.  */
 	    && !constructor_designated
-	    /* Do not warn about initializing with ` = {0}'.  */
+	    /* Do not warn about initializing with { 0 } or with { }.  */
 	    && !constructor_zeroinit)
 	  {
 	    if (warning_at (input_location, OPT_Wmissing_field_initializers,
@@ -8254,11 +8273,14 @@ output_init_element (location_t loc, tree value, tree origtype,
     value = array_to_pointer_conversion (input_location, value);
 
   if (TREE_CODE (value) == COMPOUND_LITERAL_EXPR
-      && require_constant_value && !flag_isoc99 && pending)
+      && require_constant_value && pending)
     {
       /* As an extension, allow initializing objects with static storage
 	 duration with compound literals (which are then treated just as
 	 the brace enclosed list they contain).  */
+      if (flag_isoc99)
+	pedwarn_init (loc, OPT_Wpedantic, "initializer element is not "
+		      "constant");
       tree decl = COMPOUND_LITERAL_EXPR_DECL (value);
       value = DECL_INITIAL (decl);
     }
@@ -11380,7 +11402,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
   tree ret, low_bound, length, type;
   if (TREE_CODE (t) != TREE_LIST)
     {
-      if (t == error_mark_node || TREE_TYPE (t) == error_mark_node)
+      if (error_operand_p (t))
 	return error_mark_node;
       if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	{

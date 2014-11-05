@@ -2604,6 +2604,7 @@ as_fn_append ac_func_list " __secure_getenv"
 as_fn_append ac_func_list " mkostemp"
 as_fn_append ac_func_list " strnlen"
 as_fn_append ac_func_list " strndup"
+as_fn_append ac_func_list " strtok_r"
 as_fn_append ac_header_list " math.h"
 # Check that the precious variables saved in the cache have kept the same
 # value.
@@ -5777,7 +5778,7 @@ if test "x$GCC" = "xyes"; then
   ## We like to use C11 and C99 routines when available.  This makes
   ## sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
-  AM_CFLAGS="-std=gnu11 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
+  AM_CFLAGS="-std=gnu11 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings -Werror=implicit-function-declaration"
   ## Compile the following tests with the same system header contents
   ## that we'll encounter when compiling our own source files.
   CFLAGS="-std=gnu11 $CFLAGS"
@@ -12349,7 +12350,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12352 "configure"
+#line 12353 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12455,7 +12456,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12458 "configure"
+#line 12459 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -16485,6 +16486,9 @@ $as_echo "#define HAVE_STRNLEN 1" >>confdefs.h
 $as_echo "#define HAVE_STRNDUP 1" >>confdefs.h
 
 
+$as_echo "#define HAVE_STRTOK_R 1" >>confdefs.h
+
+
    # At some point, we should differentiate between architectures
    # like x86, which have long double versions, and alpha/powerpc/etc.,
    # which don't. For the time being, punt.
@@ -16509,6 +16513,8 @@ _ACEOF
 
 fi
 done
+
+
 
 
 

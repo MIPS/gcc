@@ -43,6 +43,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "except.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
@@ -63,6 +67,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h" /* for init_set_costs */
 #include "hosthooks.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "opts.h"
 #include "opts-diagnostic.h"
@@ -79,7 +89,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "auto-profile.h"
+#include "dwarf2out.h"
+#include "bitmap.h"
+#include "ipa-reference.h"
+#include "ipa-prop.h"
+#include "gcse.h"
+#include "insn-codes.h"
 #include "optabs.h"
+#include "tree-chkp.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -97,7 +115,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <new>
 
 static void general_init (const char *);
-static void do_compile (void);
+static void do_compile ();
 static void process_options (void);
 static void backend_init (void);
 static int lang_dependent_init (const char *);
@@ -580,6 +598,9 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
+      if (flag_check_pointer_bounds)
+	chkp_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -662,6 +683,10 @@ compile_file (void)
       ident_str = ACONCAT (("GCC: ", pkg_version, version_string, NULL));
       targetm.asm_out.output_ident (ident_str);
     }
+
+  /* Auto profile finalization. */
+  if (flag_auto_profile)
+    end_auto_profile ();
 
   /* Invoke registered plugin callbacks.  */
   invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
@@ -1157,6 +1182,7 @@ general_init (const char *argv0)
      table.  */
   init_ggc ();
   init_stringpool ();
+  input_location = UNKNOWN_LOCATION;
   line_table = ggc_alloc<line_maps> ();
   linemap_init (line_table, BUILTINS_LOCATION);
   line_table->reallocator = realloc_for_line_map;
@@ -1286,6 +1312,12 @@ process_options (void)
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "and -ftree-loop-linear)");
 #endif
+
+  if (flag_check_pointer_bounds)
+    {
+      if (targetm.chkp_bound_mode () == VOIDmode)
+	error ("-fcheck-pointer-bounds is not supported for this target");
+    }
 
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
@@ -1704,16 +1736,16 @@ lang_dependent_init_target (void)
 /* Perform initializations that are lang-dependent or target-dependent.
    but matters only for late optimizations and RTL generation.  */
 
+static int rtl_initialized;
+
 void
 initialize_rtl (void)
 {
-  static int initialized_once;
-
   /* Initialization done just once per compilation, but delayed
      till code generation.  */
-  if (!initialized_once)
+  if (!rtl_initialized)
     ira_init_once ();
-  initialized_once = true;
+  rtl_initialized = true;
 
   /* Target specific RTL backend initialization.  */
   if (!this_target_rtl->target_specific_initialized)
@@ -1901,21 +1933,32 @@ finalize (bool no_backend)
   lang_hooks.finish ();
 }
 
+static bool
+standard_type_bitsize (int bitsize)
+{
+  /* As a special exception, we always want __int128 enabled if possible.  */
+  if (bitsize == 128)
+    return false;
+  if (bitsize == CHAR_TYPE_SIZE
+      || bitsize == SHORT_TYPE_SIZE
+      || bitsize == INT_TYPE_SIZE
+      || bitsize == LONG_TYPE_SIZE
+      || bitsize == LONG_LONG_TYPE_SIZE)
+    return true;
+  return false;
+}
+
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile (void)
+do_compile ()
 {
-  /* Initialize timing first.  The C front ends read the main file in
-     the post_options hook, and C++ does file timings.  */
-  if (time_report || !quiet_flag  || flag_detailed_statistics)
-    timevar_init ();
-  timevar_start (TV_TOTAL);
-
   process_options ();
 
   /* Don't do any more if an error has already occurred.  */
   if (!seen_error ())
     {
+      int i;
+
       timevar_start (TV_PHASE_SETUP);
 
       /* This must be run always, because it is needed to compute the FP
@@ -1923,6 +1966,16 @@ do_compile (void)
 	 default FP formats.  */
       init_adjust_machine_modes ();
       init_derived_machine_modes ();
+
+      /* This must happen after the backend has a chance to process
+	 command line options, but before the parsers are
+	 initialized.  */
+      for (i = 0; i < NUM_INT_N_ENTS; i ++)
+	if (targetm.scalar_mode_supported_p (int_n_data[i].m)
+	    && ! standard_type_bitsize (int_n_data[i].bitsize))
+	  int_n_enabled_p[i] = true;
+	else
+	  int_n_enabled_p[i] = false;
 
       /* Set up the back-end if requested.  */
       if (!no_backend)
@@ -1956,10 +2009,28 @@ do_compile (void)
 
       timevar_stop (TV_PHASE_FINALIZE);
     }
+}
 
-  /* Stop timing and print the times.  */
+toplev::toplev (bool use_TV_TOTAL)
+  : m_use_TV_TOTAL (use_TV_TOTAL)
+{
+  if (!m_use_TV_TOTAL)
+    start_timevars ();
+}
+
+toplev::~toplev ()
+{
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
+}
+
+void
+toplev::start_timevars ()
+{
+  if (time_report || !quiet_flag  || flag_detailed_statistics)
+    timevar_init ();
+
+  timevar_start (TV_TOTAL);
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
@@ -1969,7 +2040,7 @@ do_compile (void)
    It is not safe to call this function more than once.  */
 
 int
-toplev_main (int argc, char **argv)
+toplev::main (int argc, char **argv)
 {
   /* Parsing and gimplification sometimes need quite large stack.
      Increase stack size limits if possible.  */
@@ -2019,7 +2090,11 @@ toplev_main (int argc, char **argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    do_compile ();
+    {
+      if (m_use_TV_TOTAL)
+	start_timevars ();
+      do_compile ();
+    }
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
@@ -2036,4 +2111,21 @@ toplev_main (int argc, char **argv)
     return (FATAL_EXIT_CODE);
 
   return (SUCCESS_EXIT_CODE);
+}
+
+/* For those that want to, this function aims to clean up enough state that
+   you can call toplev::main again. */
+void
+toplev::finalize (void)
+{
+  rtl_initialized = false;
+  this_target_rtl->target_specific_initialized = false;
+
+  cgraph_c_finalize ();
+  cgraphunit_c_finalize ();
+  dwarf2out_c_finalize ();
+  gcse_c_finalize ();
+  ipa_cp_c_finalize ();
+  ipa_reference_c_finalize ();
+  params_c_finalize ();
 }

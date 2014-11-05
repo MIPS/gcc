@@ -26,8 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "stor-layout.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
-#include "basic-block.h"
+#include "cfgbuild.h"
 #include "dwarf2.h"
 #include "dwarf2out.h"
 #include "dwarf2asm.h"
@@ -244,7 +250,7 @@ expand_builtin_dwarf_sp_column (void)
    which has mode MODE.  Initialize column C as a return address column.  */
 
 static void
-init_return_column_size (enum machine_mode mode, rtx mem, unsigned int c)
+init_return_column_size (machine_mode mode, rtx mem, unsigned int c)
 {
   HOST_WIDE_INT offset = c * GET_MODE_SIZE (mode);
   HOST_WIDE_INT size = GET_MODE_SIZE (Pmode);
@@ -258,7 +264,7 @@ void
 expand_builtin_init_dwarf_reg_sizes (tree address)
 {
   unsigned int i;
-  enum machine_mode mode = TYPE_MODE (char_type_node);
+  machine_mode mode = TYPE_MODE (char_type_node);
   rtx addr = expand_normal (address);
   rtx mem = gen_rtx_MEM (BLKmode, addr);
   bool wrote_return_column = false;
@@ -272,7 +278,7 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
 	{
 	  HOST_WIDE_INT offset = rnum * GET_MODE_SIZE (mode);
 	  HOST_WIDE_INT size;
-	  enum machine_mode save_mode = targetm.dwarf_frame_reg_mode (i);
+	  machine_mode save_mode = targetm.dwarf_frame_reg_mode (i);
 
 	  if (dnum == DWARF_FRAME_RETURN_COLUMN)
 	    {
@@ -2763,7 +2769,7 @@ create_pseudo_cfg (void)
 	  memset (&ti, 0, sizeof (ti));
 	  ti.head = insn;
 	  ti.switch_sections = switch_sections;
-	  ti.id = trace_info.length () - 1;
+	  ti.id = trace_info.length ();
 	  trace_info.safe_push (ti);
 
 	  saw_barrier = false;
@@ -2781,7 +2787,7 @@ create_pseudo_cfg (void)
       dw_trace_info **slot;
 
       if (dump_file)
-	fprintf (dump_file, "Creating trace %u : start at %s %d%s\n", i,
+	fprintf (dump_file, "Creating trace %u : start at %s %d%s\n", tp->id,
 		 rtx_name[(int) GET_CODE (tp->head)], INSN_UID (tp->head),
 		 tp->switch_sections ? " (section switch)" : "");
 

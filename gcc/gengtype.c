@@ -648,6 +648,12 @@ create_user_defined_type (const char *type_name, struct fileloc *pos)
 	  if (is_ptr)
 	    offset_to_star = star - type_id;
 
+	  if (strstr (type_id, "char*"))
+	    {
+	  type_id = strtoken (0, ",>", &next);
+	  continue;
+	    }
+
 	  char *field_name = xstrdup (type_id);
 
 	  type_p arg_type;
@@ -1820,12 +1826,14 @@ open_base_files (void)
   {
     /* The order of files here matters very much.  */
     static const char *const ifiles[] = {
-      "config.h", "system.h", "coretypes.h", "tm.h",
+      "config.h", "system.h", "coretypes.h", "tm.h", "insn-codes.h",
       "hashtab.h", "splay-tree.h", "obstack.h", "bitmap.h", "input.h",
-      "tree.h", "rtl.h", "wide-int.h", "function.h", "insn-config.h", "expr.h",
+      "tree.h", "rtl.h", "wide-int.h", "hashtab.h", "hash-set.h", "vec.h",
+      "machmode.h", "tm.h", "hard-reg-set.h", "input.h", "predict.h",
+      "function.h", "insn-config.h", "expr.h", "alloc-pool.h",
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
-      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
-      "hash-table.h", "vec.h", "ggc.h", "basic-block.h",
+      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", 
+      "hash-table.h", "vec.h", "ggc.h", "dominance.h", "cfg.h", "basic-block.h",
       "tree-ssa-alias.h", "internal-fn.h", "gimple-fold.h", "tree-eh.h",
       "gimple-expr.h", "is-a.h",
       "gimple.h", "gimple-iterator.h", "gimple-ssa.h", "tree-cfg.h",
@@ -1833,8 +1841,8 @@ open_base_files (void)
       "tree-ssa-loop.h", "tree-ssa-loop-ivopts.h", "tree-ssa-loop-manip.h",
       "tree-ssa-loop-niter.h", "tree-into-ssa.h", "tree-dfa.h", 
       "tree-ssa.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "except.h", "output.h",  "cfgloop.h",
-      "target.h", "ipa-prop.h", "lto-streamer.h", "target-globals.h",
+      "except.h", "output.h",  "cfgloop.h", "target.h", "lto-streamer.h",
+      "target-globals.h", "ipa-ref.h", "cgraph.h", "ipa-prop.h", 
       "ipa-inline.h", "dwarf2out.h", NULL
     };
     const char *const *ifp;
@@ -2845,6 +2853,8 @@ walk_type (type_p t, struct walk_type_data *d)
       ;
     else if (strcmp (oo->name, "variable_size") == 0)
       ;
+    else if (strcmp (oo->name, "for_user") == 0)
+      ;
     else
       error_at_line (d->line, "unknown option `%s'\n", oo->name);
 
@@ -3642,7 +3652,6 @@ write_user_func_for_structure_body (type_p s, const char *prefix,
   oprintf (d->of, "}\n");
 }
 
-
 /* Emit the user-callable functions needed to mark all the types used
    by the user structure S.  PREFIX is the prefix to use to
    distinguish ggc and pch markers.  D contains data needed to pass to
@@ -3712,6 +3721,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 
   memset (&d, 0, sizeof (d));
   d.of = get_output_file_for_structure (s, param);
+
+  bool for_user = false;
   for (opt = s->u.s.opt; opt; opt = opt->next)
     if (strcmp (opt->name, "chain_next") == 0
 	&& opt->kind == OPTION_STRING)
@@ -3725,6 +3736,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
     else if (strcmp (opt->name, "mark_hook") == 0
 	     && opt->kind == OPTION_STRING)
       mark_hook_name = opt->info.string;
+    else if (strcmp (opt->name, "for_user") == 0)
+      for_user = true;
   if (chain_prev != NULL && chain_next == NULL)
     error_at_line (&s->u.s.line, "chain_prev without chain_next");
   if (chain_circular != NULL && chain_next != NULL)
@@ -3868,6 +3881,12 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 
   if (orig_s->kind == TYPE_USER_STRUCT)
     write_user_marking_functions (orig_s, wtd, &d);
+
+  if (for_user)
+    {
+      write_user_func_for_structure_body (orig_s, wtd->prefix, &d);
+      write_user_func_for_structure_ptr (d.of, orig_s, wtd);
+    }
 }
 
 
@@ -4244,6 +4263,13 @@ write_local_func_for_structure (const_type_p orig_s, type_p s, type_p *param)
   /* Write user-callable entry points for the PCH walking routines.  */
   if (orig_s->kind == TYPE_USER_STRUCT)
     write_pch_user_walking_functions (s, &d);
+
+  for (options_p o = s->u.s.opt; o; o = o->next)
+    if (strcmp (o->name, "for_user") == 0)
+      {
+	write_pch_user_walking_for_structure_body (s, &d);
+	break;
+      }
 }
 
 /* Write out local marker routines for STRUCTURES and PARAM_STRUCTS.  */
@@ -5624,6 +5650,7 @@ main (int argc, char **argv)
       POS_HERE (do_scalar_typedef ("jword", &pos));
       POS_HERE (do_scalar_typedef ("JCF_u2", &pos));
       POS_HERE (do_scalar_typedef ("void", &pos));
+      POS_HERE (do_scalar_typedef ("machine_mode", &pos));
       POS_HERE (do_typedef ("PTR", 
 			    create_pointer (resolve_typedef ("void", &pos)),
 			    &pos));
@@ -5690,6 +5717,19 @@ main (int argc, char **argv)
      hence enlarge the param_structs list of types.  */
   set_gc_used (variables);
 
+  for (type_p t = structures; t; t = t->next)
+    {
+      bool for_user = false;
+      for (options_p o = t->u.s.opt; o; o = o->next)
+	if (strcmp (o->name, "for_user") == 0)
+	  {
+	    for_user = true;
+	    break;
+	  }
+
+      if (for_user)
+	set_gc_used_type (t, GC_POINTED_TO, NULL);
+    }
  /* The state at this point is read from the state input file or by
     parsing source files and optionally augmented by parsing plugin
     source files.  Write it now.  */

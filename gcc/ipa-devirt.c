@@ -112,10 +112,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "print-tree.h"
 #include "calls.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "hash-set.h"
 #include "target.h"
 #include "hash-table.h"
 #include "inchash.h"
@@ -126,6 +138,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "gimple-expr.h"
 #include "gimple.h"
+#include "alloc-pool.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "diagnostic.h"
 #include "tree-dfa.h"
@@ -134,7 +148,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "stor-layout.h"
 #include "intl.h"
-#include "hash-map.h"
 
 /* Hash based set of pairs of types.  */
 typedef struct
@@ -224,6 +237,9 @@ type_all_derivations_known_p (const_tree t)
     return true;
   if (flag_ltrans)
     return false;
+  /* Non-C++ types may have IDENTIFIER_NODE here, do not crash.  */
+  if (!TYPE_NAME (t) || TREE_CODE (TYPE_NAME (t)) != TYPE_DECL)
+    return true;
   if (type_in_anonymous_namespace_p (t))
     return true;
   return (decl_function_context (TYPE_NAME (t)) != NULL);
@@ -2732,6 +2748,43 @@ decl_warning_cmp (const void *p1, const void *p2)
   if (t1->dyn_count > t2->dyn_count)
    return -1;
   return t2->count - t1->count;
+}
+
+
+/* Try speculatively devirtualize call to OTR_TYPE with OTR_TOKEN with
+   context CTX.  */
+
+struct cgraph_node *
+try_speculative_devirtualization (tree otr_type, HOST_WIDE_INT otr_token,
+				  ipa_polymorphic_call_context ctx)
+{
+  vec <cgraph_node *>targets
+     = possible_polymorphic_call_targets
+	  (otr_type, otr_token, ctx, NULL, NULL, true);
+  unsigned int i;
+  struct cgraph_node *likely_target = NULL;
+
+  for (i = 0; i < targets.length (); i++)
+    if (likely_target_p (targets[i]))
+      {
+	if (likely_target)
+	  return NULL;
+	likely_target = targets[i];
+      }
+  if (!likely_target
+      ||!likely_target->definition
+      || DECL_EXTERNAL (likely_target->decl))
+    return NULL;
+
+  /* Don't use an implicitly-declared destructor (c++/58678).  */
+  struct cgraph_node *non_thunk_target
+    = likely_target->function_symbol ();
+  if (DECL_ARTIFICIAL (non_thunk_target->decl))
+    return NULL;
+  if (likely_target->get_availability () <= AVAIL_INTERPOSABLE
+      && likely_target->can_be_discarded_p ())
+    return NULL;
+  return likely_target;
 }
 
 /* The ipa-devirt pass.

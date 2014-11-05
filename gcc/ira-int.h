@@ -283,6 +283,9 @@ struct ira_allocno
   /* Mode of the allocno which is the mode of the corresponding
      pseudo-register.  */
   ENUM_BITFIELD (machine_mode) mode : 8;
+  /* Widest mode of the allocno which in at least one case could be
+     for paradoxical subregs where wmode > mode.  */
+  ENUM_BITFIELD (machine_mode) wmode : 8;
   /* Register class which should be used for allocation for given
      allocno.  NO_REGS means that we should use memory.  */
   ENUM_BITFIELD (reg_class) aclass : 16;
@@ -315,7 +318,7 @@ struct ira_allocno
      number (0, ...) - 2.  Value -1 is used for allocnos spilled by the
      reload (at this point pseudo-register has only one allocno) which
      did not get stack slot yet.  */
-  short int hard_regno;
+  signed int hard_regno : 16;
   /* Allocnos with the same regno are linked by the following member.
      Allocnos corresponding to inner loops are first in the list (it
      corresponds to depth-first traverse of the loops).  */
@@ -436,6 +439,7 @@ struct ira_allocno
 #define ALLOCNO_BAD_SPILL_P(A) ((A)->bad_spill_p)
 #define ALLOCNO_ASSIGNED_P(A) ((A)->assigned_p)
 #define ALLOCNO_MODE(A) ((A)->mode)
+#define ALLOCNO_WMODE(A) ((A)->wmode)
 #define ALLOCNO_PREFS(A) ((A)->allocno_prefs)
 #define ALLOCNO_COPIES(A) ((A)->allocno_copies)
 #define ALLOCNO_HARD_REG_COSTS(A) ((A)->hard_reg_costs)
@@ -527,7 +531,7 @@ extern ira_object_t *ira_object_id_map;
 /* The size of the previous array.  */
 extern int ira_objects_num;
 
-/* The following structure represents a hard register prefererence of
+/* The following structure represents a hard register preference of
    allocno.  The preference represent move insns or potential move
    insns usually because of two operand insn constraints.  One move
    operand is a hard register.  */
@@ -542,7 +546,7 @@ struct ira_allocno_pref
   int freq;
   /* Given allocno.  */
   ira_allocno_t allocno;
-  /* All prefernces with the same allocno are linked by the following
+  /* All preferences with the same allocno are linked by the following
      member.  */
   ira_pref_t next_pref;
 };
@@ -967,7 +971,7 @@ extern void ira_free_bitmap (bitmap);
 extern void ira_print_disposition (FILE *);
 extern void ira_debug_disposition (void);
 extern void ira_debug_allocno_classes (void);
-extern void ira_init_register_move_cost (enum machine_mode);
+extern void ira_init_register_move_cost (machine_mode);
 extern void ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts);
 extern int ira_get_dup_out_num (int op_num, HARD_REG_SET &alts);
 
@@ -1084,7 +1088,7 @@ ira_equiv_no_lvalue_p (int regno)
 
 /* Initialize register costs for MODE if necessary.  */
 static inline void
-ira_init_register_move_cost_if_necessary (enum machine_mode mode)
+ira_init_register_move_cost_if_necessary (machine_mode mode)
 {
   if (ira_register_move_cost[mode] == NULL)
     ira_init_register_move_cost (mode);
@@ -1390,7 +1394,7 @@ ira_object_conflict_iter_cond (ira_object_conflict_iterator *i,
    starting with HARD_REGNO and containing value of MODE are in set
    HARD_REGSET.  */
 static inline bool
-ira_hard_reg_set_intersection_p (int hard_regno, enum machine_mode mode,
+ira_hard_reg_set_intersection_p (int hard_regno, machine_mode mode,
 				 HARD_REG_SET hard_regset)
 {
   int i;
@@ -1418,7 +1422,7 @@ hard_reg_set_size (HARD_REG_SET set)
    HARD_REGNO and containing value of MODE are fully in set
    HARD_REGSET.  */
 static inline bool
-ira_hard_reg_in_set_p (int hard_regno, enum machine_mode mode,
+ira_hard_reg_in_set_p (int hard_regno, machine_mode mode,
 		       HARD_REG_SET hard_regset)
 {
   int i;
