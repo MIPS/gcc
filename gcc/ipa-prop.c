@@ -669,9 +669,9 @@ stmt_may_be_vtbl_ptr_store (gimple stmt)
     return false;
   if (gimple_clobber_p (stmt))
     return false;
-  else if (is_gimple_assign (stmt))
+  else if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      tree lhs = gimple_assign_lhs (stmt);
+      tree lhs = gimple_assign_lhs (assign_stmt);
 
       if (!AGGREGATE_TYPE_P (TREE_TYPE (lhs)))
 	{
@@ -1067,7 +1067,7 @@ load_from_unmodified_param (struct func_body_info *fbi,
   if (!assign)
     return -1;
 
-  op1 = gimple_assign_rhs1 (stmt);
+  op1 = gimple_assign_rhs1 (assign);
   if (TREE_CODE (op1) != PARM_DECL)
     return -1;
 
@@ -1302,7 +1302,7 @@ static void
 compute_complex_assign_jump_func (struct func_body_info *fbi,
 				  struct ipa_node_params *info,
 				  struct ipa_jump_func *jfunc,
-				  gcall *call, gimple stmt, tree name,
+				  gcall *call, gassign *stmt, tree name,
 				  tree param_type)
 {
   HOST_WIDE_INT offset, size, max_size;
@@ -1966,7 +1966,8 @@ ipa_compute_jump_functions_for_edge (struct func_body_info *fbi,
 	      gimple stmt = SSA_NAME_DEF_STMT (arg);
 	      if (is_gimple_assign (stmt))
 		compute_complex_assign_jump_func (fbi, info, jfunc,
-						  call, stmt, arg, param_type);
+						  call, as_a <gassign *> (stmt),
+						  arg, param_type);
 	      else if (gimple_code (stmt) == GIMPLE_PHI)
 		compute_complex_ancestor_jump_func (fbi, info, jfunc,
 						    call,
@@ -2188,17 +2189,17 @@ ipa_analyze_indirect_call_uses (struct func_body_info *fbi, gcall *call,
 
   int index;
   gimple def = SSA_NAME_DEF_STMT (target);
-  if (gimple_assign_single_p (def)
-      && ipa_load_from_parm_agg_1 (fbi, info->descriptors, def,
-				   gimple_assign_rhs1 (def), &index, &offset,
-				   NULL, &by_ref))
-    {
-      struct cgraph_edge *cs = ipa_note_param_call (fbi->node, index, call);
-      cs->indirect_info->offset = offset;
-      cs->indirect_info->agg_contents = 1;
-      cs->indirect_info->by_ref = by_ref;
-      return;
-    }
+  if (gassign *def_assign = gimple_assign_single_p (def))
+    if (ipa_load_from_parm_agg_1 (fbi, info->descriptors, def_assign,
+				  gimple_assign_rhs1 (def_assign), &index,
+				  &offset, NULL, &by_ref))
+      {
+	struct cgraph_edge *cs = ipa_note_param_call (fbi->node, index, call);
+	cs->indirect_info->offset = offset;
+	cs->indirect_info->agg_contents = 1;
+	cs->indirect_info->by_ref = by_ref;
+	return;
+      }
 
   /* Now we need to try to match the complex pattern of calling a member
      pointer. */
@@ -2261,21 +2262,22 @@ ipa_analyze_indirect_call_uses (struct func_body_info *fbi, gcall *call,
     return;
 
   def = SSA_NAME_DEF_STMT (cond);
-  if (!is_gimple_assign (def)
-      || gimple_assign_rhs_code (def) != BIT_AND_EXPR
-      || !integer_onep (gimple_assign_rhs2 (def)))
+  gassign *def_assign = dyn_cast <gassign *> (def);
+  if (!def_assign
+      || gimple_assign_rhs_code (def_assign) != BIT_AND_EXPR
+      || !integer_onep (gimple_assign_rhs2 (def_assign)))
     return;
 
-  cond = gimple_assign_rhs1 (def);
+  cond = gimple_assign_rhs1 (def_assign);
   if (!ipa_is_ssa_with_stmt_def (cond))
     return;
 
   def = SSA_NAME_DEF_STMT (cond);
-
-  if (is_gimple_assign (def)
-      && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def)))
+  def_assign = dyn_cast <gassign *> (def);
+  if (def_assign
+      && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_assign)))
     {
-      cond = gimple_assign_rhs1 (def);
+      cond = gimple_assign_rhs1 (def_assign);
       if (!ipa_is_ssa_with_stmt_def (cond))
 	return;
       def = SSA_NAME_DEF_STMT (cond);

@@ -1,5 +1,20 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* ipa-prop.c (stmt_may_be_vtbl_ptr_store): Replace
+	is_gimple_assign with dyn_cast, introducing local gassign *
+	"assign_stmt" and using it in place of "stmt" for typesafety.
+	(load_from_unmodified_param): Use "assign" rather than "stmt" for
+	typesafety.
+	(compute_complex_assign_jump_func): Strengthen param "stmt" from
+	gimple to gassign *.
+	(ipa_compute_jump_functions_for_edge): Add checked cast.
+	(ipa_analyze_indirect_call_uses): Capture result of
+	gimple_assign_single_p as new local "def_assign", using it in place
+	of "def" for typesafety.  Similarly, replace is_gimple_assign with
+	a dyn_cast, using it in place of "def".
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* ipa-inline-analysis.c (unmodified_parm): Capture result of
 	gimple_assign_single_p as a new local gassign * "def_assign" and
 	use in place of SSA_NAME_DEF_STMT (op) for typesafety.
