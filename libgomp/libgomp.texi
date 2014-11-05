@@ -122,9 +122,13 @@ for multi-platform shared-memory parallel programming in C/C++ and Fortran.
 @chapter Enabling OpenACC
 
 To activate the OpenACC extensions for C/C++ and Fortran, the compile-time 
-flag @command{-fopenacc} must be specified.  This enables OpenACC, and
+flag @command{-fopenacc} must be specified.  This enables the OpenACC directive
+@code{#pragma acc} in C/C++ and @code{!$accp} directives in free form,
+@code{c$acc}, @code{*$acc} and @code{!$acc} directives in fixed form,
+@code{!$} conditional compilation sentinels in free form and @code{c$},
+@code{*$} and @code{!$} sentinels in fixed form, for Fortran.  The flag also
 arranges for automatic linking of the OpenACC runtime library 
-(@ref{Runtime Library Routines}).
+(@ref{OpenACC Runtime Library Routines}).
 
 A complete description of all OpenACC directives accepted may be found in 
 the @uref{http://www.openacc.org/, OpenMP Application Programming
@@ -171,11 +175,9 @@ acceleration device.
 * acc_is_present::
 * acc_memcpy_to_device::
 * acc_memcpy_from_device::
-@end menu
 
 API routines for target platforms.
 
-@menu
 * acc_get_current_cuda_device::
 * acc_get_current_cuda_context::
 * acc_get_cuda_stream::

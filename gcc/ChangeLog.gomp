@@ -1,5 +1,8 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* invoke.texi: Update for OpenACC.
+	* sourcebuild.texi: Likewise.
+
 	* tree.def (OACC_WAIT): Remove.  Update all users.
 
 	* omp-builtins.def (BUILT_IN_OMP_SET_NUM_THREADS): Remove.

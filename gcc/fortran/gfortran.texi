@@ -474,7 +474,8 @@ The GNU Fortran compiler is able to compile nearly all
 standard-compliant Fortran 95, Fortran 90, and Fortran 77 programs,
 including a number of standard and non-standard extensions, and can be
 used on real-world programs.  In particular, the supported extensions
-include OpenMP, Cray-style pointers, and several Fortran 2003 and Fortran
+include OpenACC, OpenMP, Cray-style pointers, and several Fortran 2003
+and Fortran
 2008 features, including TR 15581.  However, it is still under
 development and has a few remaining rough edges.
 
@@ -531,7 +532,8 @@ The current status of the support is can be found in the
 @ref{Fortran 2003 status}, @ref{Fortran 2008 status} and
 @ref{TS 29113 status} sections of the documentation.
 
-Additionally, the GNU Fortran compilers supports the OpenMP specification
+Additionally, the GNU Fortran compilers supports the OpenACC specification
+(version 2.0, @url{http://www.openacc.org/}), and OpenMP specification
 (version 4.0, @url{http://openmp.org/@/wp/@/openmp-specifications/}).
 
 @node Varying Length Character Strings
@@ -963,7 +965,8 @@ module.
 @cindex statement, @code{ISO_FORTRAN_ENV}
 @code{USE} statement with @code{INTRINSIC} and @code{NON_INTRINSIC}
 attribute; supported intrinsic modules: @code{ISO_FORTRAN_ENV},
-@code{ISO_C_BINDING}, @code{OMP_LIB} and @code{OMP_LIB_KINDS}.
+@code{ISO_C_BINDING}, @code{OMP_LIB} and @code{OMP_LIB_KINDS},
+and @code{OPENACC}.
 
 @item
 Renaming of operators in the @code{USE} statement.
@@ -1358,6 +1361,7 @@ without warning.
 * Hollerith constants support::
 * Cray pointers::
 * CONVERT specifier::
+* OpenACC::
 * OpenMP::
 * Argument list functions::
 @end menu
@@ -1873,6 +1877,32 @@ carries a significant speed overhead.  If speed in this area matters
 to you, it is best if you use this only for data that needs to be
 portable.
 
+@node OpenACC
+@subsection OpenACC
+@cindex OpenACC
+
+OpenACC is an application programming interface (API) that supports
+offloading of code to accelerator devices.  It consists of a set of
+compiler directives, library routines, and environment variables that
+influence run-time behavior.
+
+GNU Fortran strives to be compatible to the
+@uref{http://www.openacc.org/, OpenACC Application Programming
+Interface v2.0}.
+
+To enable the processing of the OpenACC directive @code{!$acc} in
+free-form source code; the @code{c$acc}, @code{*$acc} and @code{!$acc}
+directives in fixed form; the @code{!$} conditional compilation
+sentinels in free form; and the @code{c$}, @code{*$} and @code{!$}
+sentinels in fixed form, @command{gfortran} needs to be invoked with
+the @option{-fopenacc}.  This also arranges for automatic linking of
+the GNU OpenACC runtime library @ref{Top,,libgomp,libgomp,GNU OpenACC
+and OpenMP runtime library}.
+
+The OpenACC Fortran runtime library routines are provided both in a
+form of a Fortran 90 module named @code{openacc} and in a form of a
+Fortran @code{include} file named @file{openacc_lib.h}.
+
 @node OpenMP
 @subsection OpenMP
 @cindex OpenMP
@@ -1894,7 +1924,7 @@ directives in fixed form; the @code{!$} conditional compilation sentinels
 in free form; and the @code{c$}, @code{*$} and @code{!$} sentinels
 in fixed form, @command{gfortran} needs to be invoked with the
 @option{-fopenmp}.  This also arranges for automatic linking of the
-GNU OpenMP runtime library @ref{Top,,libgomp,libgomp,GNU OpenMP
+GNU OpenMP runtime library @ref{Top,,libgomp,libgomp,GNU OpenACC and OpenMP
 runtime library}.
 
 The OpenMP Fortran runtime library routines are provided both in a

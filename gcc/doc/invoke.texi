@@ -1872,8 +1872,8 @@ freestanding and hosted environments.
 @item -fopenacc
 @opindex fopenacc
 @cindex OpenACC accelerator programming
-Enable handling of OpenACC directives @code{#pragma acc} in C.
-When @option{-fopenacc} is specified, the
+Enable handling of OpenACC directives @code{#pragma acc} in C/C++ and
+@code{!$acc} in Fortran.  When @option{-fopenacc} is specified, the
 compiler generates accelerated code according to the OpenACC Application
 Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that

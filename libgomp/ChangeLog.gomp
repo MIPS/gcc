@@ -1,5 +1,7 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.texi: Update for OpenACC.
+
 	* target.h (struct ACC_dispatch_t): Remove avail_func.  Update all
 	users.
 	* oacc-host.c (openacc_avail): Likewise.

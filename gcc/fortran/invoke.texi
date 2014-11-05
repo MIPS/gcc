@@ -305,7 +305,12 @@ functionality.
 @item -fopenacc
 @opindex @code{fopenacc}
 @cindex OpenACC
-Enable the OpenACC extensions.
+Enable the OpenACC extensions.  This includes OpenACC @code{!$acc}
+directives in free form and @code{c$acc}, @code{*$acc} and
+@code{!$acc} directives in fixed form, @code{!$} conditional
+compilation sentinels in free form and @code{c$}, @code{*$} and
+@code{!$} sentinels in fixed form, and when linking arranges for the
+OpenACC runtime library to be linked in.
 
 @item -fopenmp
 @opindex @code{fopenmp}
