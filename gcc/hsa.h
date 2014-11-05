@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "hsa-brig-format.h"
 #include "is-a.h"
+#include "predict.h"
 #include "tree.h"
 #include "vec.h"
 #include "hash-table.h"
