@@ -1,5 +1,5 @@
 ;; -*- Lisp -*-
-;; file xtramelt-ana-gimple.melt
+;; file libmelt-ana-gimple.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
     Copyright 2008 - 2014  Free Software Foundation, Inc.
@@ -8,7 +8,7 @@
                 and Pierre Vittet  <piervit@pvittet.com>
                 and Romain Geissler  <romain.geissler@gmail.com>
 
-    This file xtramelt-ana-gimple.{melt,cc} is part of GCC.
+    This file libmelt-ana-gimple.{melt,cc} is part of GCC.
 
     GCC is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
     <http://www.gnu.org/licenses/>.
 ***")
 
-;; the copyright notice above apply both to xtramelt-ana-gimple.melt and 
-;; to the generated file  xtramelt-ana-gimple*.c
+;; the copyright notice above apply both to libmelt-ana-gimple.melt and 
+;; to the generated file  libmelt-ana-gimple*.c
 
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
@@ -1691,17 +1691,41 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
 	)
       (debug "patexpand_gimple_call_args" "; loc=" loc "; cmat=" cmat)
       (assert_msg "check cmat" (is_a class_cmatcher cmat) cmat)
-      (let (
-	    (res
-	     (instance class_source_cmatchexpr
-		       :loca_location loc
-		       :scmatx_cmatcher cmat
-		       :sargop_args argsp)
-	     )
-	    )
-	(debug "patexpand_gimple_call_args" "; loc=" loc "\n.. res=" res)
-	(return res)
+      (multicall
+       (args pats)
+       (patmacexpand_for_matcher curpair cmat env loc pctx)
+       (debug "patexpand_gimple_call_args" "; loc=" loc " args=" args " pats=" pats)
+       (multicall
+	(subpatw :long imax imin isum)
+	(pattern_weight_tuple pats)
+	(debug "patexpand_gimple_call_args" "; loc=" loc " subpatw=" subpatw
+	       "\n.. imax=" imax " imin=" imin " isum=" isum)
+	(let (
+	      (cmatsymb (get_field :named_name cmat))
+	      ;;; notice that we are embedding the binding in the
+	      ;;; result, but not putting the binding in the
+	      ;;; environment. See comment about 'mv is not bound' in
+	      ;;; file warmelt-normatch.melt function
+	      ;;; normpat_anymatchpat...
+	      (cmabind (instance class_cmatcher_binding
+				 :binder cmatsymb
+				 :cmbind_matcher cmat))
+	      (res
+	       (instance class_source_pattern_c_match
+			 :loca_location loc
+			 :pat_weight (constant_box (+i 1 isum))
+			 :spac_operator cmat
+			 :spac_operbind cmabind
+			 :spac_inargs args
+			 :spac_outargs pats)
+	       )
+	      )
+	  (debug "patexpand_gimple_call_args" "; loc=" loc "\n.. cmabind=" cmabind
+		 "\n.. res=" res)
+	  (return res)
+	  )
 	)
+       )
       )
     )
   )
@@ -3311,4 +3335,4 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  warning_at_gimple_strbuf
  )
 
-;; eof xtramelt-ana-gimple.melt
+;; eof libmelt-ana-gimple.melt
