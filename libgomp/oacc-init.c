@@ -417,7 +417,7 @@ acc_get_num_devices (acc_device_t d)
   if (!acc_dev)
     return 0;
 
-  n = acc_dev->device_init_func ();
+  n = acc_dev->init_device_func ();
   if (n < 0)
     n = 0;
 

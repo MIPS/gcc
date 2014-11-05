@@ -175,15 +175,15 @@ struct gomp_device_descr
   unsigned int (*get_caps_func) (void);
   int (*get_type_func) (void);
   int (*get_num_devices_func) (void);
-  void (*offload_register_func) (void *, void *);
-  int (*device_init_func) (void);
-  int (*device_fini_func) (void);
-  int (*device_get_table_func) (struct mapping_table **);
-  void *(*device_alloc_func) (size_t);
-  void (*device_free_func) (void *);
-  void *(*device_dev2host_func) (void *, const void *, size_t);
-  void *(*device_host2dev_func) (void *, const void *, size_t);
-  void (*device_run_func) (void *, void *);
+  void (*register_image_func) (void *, void *);
+  int (*init_device_func) (void);
+  int (*fini_device_func) (void);
+  int (*get_table_func) (struct mapping_table **);
+  void *(*alloc_func) (size_t);
+  void (*free_func) (void *);
+  void *(*dev2host_func) (void *, const void *, size_t);
+  void *(*host2dev_func) (void *, const void *, size_t);
+  void (*run_func) (void *, void *);
 
   /* OpenACC-specific functions.  */
   ACC_dispatch_t openacc;

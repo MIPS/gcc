@@ -112,7 +112,7 @@ acc_malloc (size_t s)
 
   ACC_lazy_initialize ();
 
-  return base_dev->device_alloc_func (s);
+  return base_dev->alloc_func (s);
 }
 
 /* OpenACC 2.0a (3.2.16) doesn't specify what to do in the event
@@ -139,7 +139,7 @@ acc_free (void *d)
      acc_unmap_data ((void *)(k->host_start + offset));
    }
 
-  base_dev->device_free_func (d);
+  base_dev->free_func (d);
 }
 
 void
@@ -147,7 +147,7 @@ acc_memcpy_to_device (void *d, void *h, size_t s)
 {
   /* No need to call lazy open here, as the device pointer must have
      been obtained from a routine that did that.  */
-  base_dev->device_host2dev_func (d, h, s);
+  base_dev->host2dev_func (d, h, s);
 }
 
 void
@@ -155,7 +155,7 @@ acc_memcpy_from_device (void *h, void *d, size_t s)
 {
   /* No need to call lazy open here, as the device pointer must have
      been obtained from a routine that did that.  */
-  base_dev->device_dev2host_func (h, d, s);
+  base_dev->dev2host_func (h, d, s);
 }
 
 /* Return the device pointer that corresponds to host data H.  Or NULL
@@ -449,11 +449,11 @@ delete_copyout (unsigned f, void *h, size_t s)
         	(void *) n->host_start, (int) host_size, (void *) h, (int) s);
 
   if (f & DC_Copyout)
-    acc_dev->device_dev2host_func (h, d, s);
+    acc_dev->dev2host_func (h, d, s);
   
   acc_unmap_data (h);
 
-  acc_dev->device_free_func (d);
+  acc_dev->free_func (d);
 }
 
 void
@@ -486,9 +486,9 @@ update_dev_host (int is_dev, void *h, size_t s)
   d = (void *) (n->tgt->tgt_start + n->tgt_offset);
 
   if (is_dev)
-    acc_dev->device_host2dev_func (d, h, s);
+    acc_dev->host2dev_func (d, h, s);
   else
-    acc_dev->device_dev2host_func (h, d, s);
+    acc_dev->dev2host_func (h, d, s);
 }
 
 void

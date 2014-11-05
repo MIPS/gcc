@@ -1,3 +1,17 @@
+2014-11-05  Julian Brown  <julian@codesourcery.com>
+
+	* oacc-host.c: Add GOMP_OFFLOAD_ prefix for plugin hooks. Rename
+	device_init to init_device, device_fini to fini_device,
+	offload_register to register_image and remove extraneous "device_"
+	from device_alloc, device_free, device_dev2host, device_host2dev and
+	device_run.
+	(host_dispatch): Use new names for hooks.
+	* oacc-init.c: Use new names for hooks, throughout.
+	* plugin-nvptx.c: Likewise.
+	* target.c: Likewise.
+	(gomp_load_plugin_for_device): Likewise. Look for new hook names.
+	* target.h (gomp_device_descr): Use new hook names.
+
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/update-1-2.c: New file.

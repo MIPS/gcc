@@ -60,7 +60,7 @@ static struct gomp_device_descr host_dispatch;
 #endif
 
 STATIC const char *
-get_name (void)
+GOMP_OFFLOAD_get_name (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
@@ -74,7 +74,7 @@ get_name (void)
 }
 
 STATIC int
-get_type (void)
+GOMP_OFFLOAD_get_type (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
@@ -88,7 +88,7 @@ get_type (void)
 }
 
 STATIC unsigned int
-get_caps (void)
+GOMP_OFFLOAD_get_caps (void)
 {
   unsigned int caps = TARGET_CAP_OPENACC_200 | TARGET_CAP_OPENMP_400
 		      | TARGET_CAP_NATIVE_EXEC;
@@ -105,7 +105,7 @@ get_caps (void)
 }
 
 STATIC int
-get_num_devices (void)
+GOMP_OFFLOAD_get_num_devices (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
@@ -115,7 +115,7 @@ get_num_devices (void)
 }
 
 STATIC void
-offload_register (void *host_table, void *target_data)
+GOMP_OFFLOAD_register_image (void *host_table, void *target_data)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p)\n", __FILE__, __FUNCTION__, host_table,
@@ -124,17 +124,17 @@ offload_register (void *host_table, void *target_data)
 }
 
 STATIC int
-device_init (void)
+GOMP_OFFLOAD_init_device (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
 #endif
 
-  return get_num_devices ();
+  return GOMP_OFFLOAD_get_num_devices ();
 }
 
 STATIC int
-device_fini (void)
+GOMP_OFFLOAD_fini_device (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
@@ -144,7 +144,7 @@ device_fini (void)
 }
 
 STATIC int
-device_get_table (struct mapping_table **table)
+GOMP_OFFLOAD_get_table (struct mapping_table **table)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p)\n", __FILE__, __FUNCTION__, table);
@@ -154,7 +154,7 @@ device_get_table (struct mapping_table **table)
 }
 
 STATIC void *
-openacc_open_device (int n)
+GOMP_OFFLOAD_openacc_open_device (int n)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%u)\n", __FILE__, __FUNCTION__, n);
@@ -164,7 +164,7 @@ openacc_open_device (int n)
 }
 
 STATIC int
-openacc_close_device (void *hnd)
+GOMP_OFFLOAD_openacc_close_device (void *hnd)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p)\n", __FILE__, __FUNCTION__, hnd);
@@ -174,7 +174,7 @@ openacc_close_device (void *hnd)
 }
 
 STATIC int
-openacc_get_device_num (void)
+GOMP_OFFLOAD_openacc_get_device_num (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
@@ -184,7 +184,7 @@ openacc_get_device_num (void)
 }
 
 STATIC void
-openacc_set_device_num (int n)
+GOMP_OFFLOAD_openacc_set_device_num (int n)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%u)\n", __FILE__, __FUNCTION__, n);
@@ -195,7 +195,7 @@ openacc_set_device_num (int n)
 }
 
 STATIC void *
-device_alloc (size_t s)
+GOMP_OFFLOAD_alloc (size_t s)
 {
   void *ptr = GOMP(malloc) (s);
 
@@ -207,7 +207,7 @@ device_alloc (size_t s)
 }
 
 STATIC void
-device_free (void *p)
+GOMP_OFFLOAD_free (void *p)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p)\n", __FILE__, __FUNCTION__, p);
@@ -217,7 +217,7 @@ device_free (void *p)
 }
 
 STATIC void *
-device_host2dev (void *d, const void *h, size_t s)
+GOMP_OFFLOAD_host2dev (void *d, const void *h, size_t s)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p, %zd)\n", __FILE__, __FUNCTION__, d, h,
@@ -232,7 +232,7 @@ device_host2dev (void *d, const void *h, size_t s)
 }
 
 STATIC void *
-device_dev2host (void *h, const void *d, size_t s)
+GOMP_OFFLOAD_dev2host (void *h, const void *d, size_t s)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p, %zd)\n", __FILE__, __FUNCTION__, h, d,
@@ -247,7 +247,7 @@ device_dev2host (void *h, const void *d, size_t s)
 }
 
 STATIC void
-device_run (void *fn_ptr, void *vars)
+GOMP_OFFLOAD_run (void *fn_ptr, void *vars)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p)\n", __FILE__, __FUNCTION__, fn_ptr,
@@ -260,16 +260,17 @@ device_run (void *fn_ptr, void *vars)
 }
 
 STATIC void
-openacc_parallel (void (*fn) (void *), size_t mapnum __attribute__((unused)),
-		  void **hostaddrs __attribute__((unused)),
-		  void **devaddrs __attribute__((unused)),
-		  size_t *sizes __attribute__((unused)),
-		  unsigned short *kinds __attribute__((unused)),
-		  int num_gangs __attribute__((unused)),
-		  int num_workers __attribute__((unused)),
-		  int vector_length __attribute__((unused)),
-		  int async __attribute__((unused)),
-		  void *targ_mem_desc __attribute__((unused)))
+GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *),
+			       size_t mapnum __attribute__((unused)),
+			       void **hostaddrs __attribute__((unused)),
+			       void **devaddrs __attribute__((unused)),
+			       size_t *sizes __attribute__((unused)),
+			       unsigned short *kinds __attribute__((unused)),
+			       int num_gangs __attribute__((unused)),
+			       int num_workers __attribute__((unused)),
+			       int vector_length __attribute__((unused)),
+			       int async __attribute__((unused)),
+			       void *targ_mem_desc __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %zu, %p, %p, %p, %d, %d, %d, %d, %p)\n",
@@ -285,7 +286,7 @@ openacc_parallel (void (*fn) (void *), size_t mapnum __attribute__((unused)),
 }
 
 STATIC void
-openacc_register_async_cleanup (void *targ_mem_desc)
+GOMP_OFFLOAD_openacc_register_async_cleanup (void *targ_mem_desc)
 {
 #ifdef HOST_NONSHM_PLUGIN
   /* "Asynchronous" launches are executed synchronously on the (non-SHM) host,
@@ -295,7 +296,7 @@ openacc_register_async_cleanup (void *targ_mem_desc)
 }
 
 STATIC void
-openacc_async_set_async (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_set_async (int async __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%d)\n", __FILE__, __FUNCTION__, async);
@@ -303,7 +304,7 @@ openacc_async_set_async (int async __attribute__((unused)))
 }
 
 STATIC int
-openacc_async_test (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_test (int async __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%d)\n", __FILE__, __FUNCTION__, async);
@@ -313,7 +314,7 @@ openacc_async_test (int async __attribute__((unused)))
 }
 
 STATIC int
-openacc_async_test_all (void)
+GOMP_OFFLOAD_openacc_async_test_all (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
@@ -323,7 +324,7 @@ openacc_async_test_all (void)
 }
 
 STATIC void
-openacc_async_wait (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_wait (int async __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%d)\n", __FILE__, __FUNCTION__, async);
@@ -331,7 +332,7 @@ openacc_async_wait (int async __attribute__((unused)))
 }
 
 STATIC void
-openacc_async_wait_all (void)
+GOMP_OFFLOAD_openacc_async_wait_all (void)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
@@ -339,8 +340,8 @@ openacc_async_wait_all (void)
 }
 
 STATIC void
-openacc_async_wait_async (int async1 __attribute__((unused)),
-                	  int async2 __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_wait_async (int async1 __attribute__((unused)),
+				       int async2 __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%d, %d)\n", __FILE__, __FUNCTION__, async1,
@@ -349,7 +350,7 @@ openacc_async_wait_async (int async1 __attribute__((unused)),
 }
 
 STATIC void
-openacc_async_wait_all_async (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_wait_all_async (int async __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%d)\n", __FILE__, __FUNCTION__, async);
@@ -357,13 +358,13 @@ openacc_async_wait_all_async (int async __attribute__((unused)))
 }
 
 STATIC void *
-openacc_create_thread_data (void *targ_data __attribute__((unused)))
+GOMP_OFFLOAD_openacc_create_thread_data (void *targ_data __attribute__((unused)))
 {
   return NULL;
 }
 
 STATIC void
-openacc_destroy_thread_data (void *tls_data __attribute__((unused)))
+GOMP_OFFLOAD_openacc_destroy_thread_data (void *tls_data __attribute__((unused)))
 {
 }
 
@@ -380,44 +381,45 @@ static struct gomp_device_descr host_dispatch =
     .is_initialized = false,
     .offload_regions_registered = false,
 
-    .get_name_func = get_name,
-    .get_type_func = get_type,
-    .get_caps_func = get_caps,
+    .get_name_func = GOMP_OFFLOAD_get_name,
+    .get_type_func = GOMP_OFFLOAD_get_type,
+    .get_caps_func = GOMP_OFFLOAD_get_caps,
 
-    .device_init_func = device_init,
-    .device_fini_func = device_fini,
-    .get_num_devices_func = get_num_devices,
-    .offload_register_func = offload_register,
-    .device_get_table_func = device_get_table,
+    .init_device_func = GOMP_OFFLOAD_init_device,
+    .fini_device_func = GOMP_OFFLOAD_fini_device,
+    .get_num_devices_func = GOMP_OFFLOAD_get_num_devices,
+    .register_image_func = GOMP_OFFLOAD_register_image,
+    .get_table_func = GOMP_OFFLOAD_get_table,
 
-    .device_alloc_func = device_alloc,
-    .device_free_func = device_free,
-    .device_host2dev_func = device_host2dev,
-    .device_dev2host_func = device_dev2host,
+    .alloc_func = GOMP_OFFLOAD_alloc,
+    .free_func = GOMP_OFFLOAD_free,
+    .host2dev_func = GOMP_OFFLOAD_host2dev,
+    .dev2host_func = GOMP_OFFLOAD_dev2host,
     
-    .device_run_func = device_run,
+    .run_func = GOMP_OFFLOAD_run,
 
     .openacc = {
-      .open_device_func = openacc_open_device,
-      .close_device_func = openacc_close_device,
+      .open_device_func = GOMP_OFFLOAD_openacc_open_device,
+      .close_device_func = GOMP_OFFLOAD_openacc_close_device,
 
-      .get_device_num_func = openacc_get_device_num,
-      .set_device_num_func = openacc_set_device_num,
+      .get_device_num_func = GOMP_OFFLOAD_openacc_get_device_num,
+      .set_device_num_func = GOMP_OFFLOAD_openacc_set_device_num,
 
-      .exec_func = openacc_parallel,
+      .exec_func = GOMP_OFFLOAD_openacc_parallel,
 
-      .register_async_cleanup_func = openacc_register_async_cleanup,
+      .register_async_cleanup_func
+	= GOMP_OFFLOAD_openacc_register_async_cleanup,
 
-      .async_set_async_func = openacc_async_set_async,
-      .async_test_func = openacc_async_test,
-      .async_test_all_func = openacc_async_test_all,
-      .async_wait_func = openacc_async_wait,
-      .async_wait_async_func = openacc_async_wait_async,
-      .async_wait_all_func = openacc_async_wait_all,
-      .async_wait_all_async_func = openacc_async_wait_all_async,
+      .async_set_async_func = GOMP_OFFLOAD_openacc_async_set_async,
+      .async_test_func = GOMP_OFFLOAD_openacc_async_test,
+      .async_test_all_func = GOMP_OFFLOAD_openacc_async_test_all,
+      .async_wait_func = GOMP_OFFLOAD_openacc_async_wait,
+      .async_wait_async_func = GOMP_OFFLOAD_openacc_async_wait_async,
+      .async_wait_all_func = GOMP_OFFLOAD_openacc_async_wait_all,
+      .async_wait_all_async_func = GOMP_OFFLOAD_openacc_async_wait_all_async,
 
-      .create_thread_data_func = openacc_create_thread_data,
-      .destroy_thread_data_func = openacc_destroy_thread_data,
+      .create_thread_data_func = GOMP_OFFLOAD_openacc_create_thread_data,
+      .destroy_thread_data_func = GOMP_OFFLOAD_openacc_destroy_thread_data,
 
       .cuda = {
 	.get_current_device_func = NULL,

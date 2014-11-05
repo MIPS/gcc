@@ -1482,7 +1482,7 @@ PTX_set_cuda_stream (int async, void *stream)
 
 
 int
-get_type (void)
+GOMP_OFFLOAD_get_type (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1492,19 +1492,19 @@ get_type (void)
 }
 
 unsigned int
-get_caps (void)
+GOMP_OFFLOAD_get_caps (void)
 {
   return TARGET_CAP_OPENACC_200;
 }
 
 const char *
-get_name (void)
+GOMP_OFFLOAD_get_name (void)
 {
   return "nvidia";
 }
 
 int
-get_num_devices (void)
+GOMP_OFFLOAD_get_num_devices (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1517,7 +1517,7 @@ static void **kernel_target_data;
 static void **kernel_host_table;
 
 void
-offload_register (void *host_table, void *target_data)
+GOMP_OFFLOAD_register_image (void *host_table, void *target_data)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p, %p)\n", __FILE__, __FUNCTION__,
@@ -1529,7 +1529,7 @@ offload_register (void *host_table, void *target_data)
 }
 
 int
-device_init (void)
+GOMP_OFFLOAD_init_device (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1539,7 +1539,7 @@ device_init (void)
 }
 
 int
-device_fini (void)
+GOMP_OFFLOAD_fini_device (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1549,7 +1549,7 @@ device_fini (void)
 }
 
 int
-device_get_table (struct mapping_table **tablep)
+GOMP_OFFLOAD_get_table (struct mapping_table **tablep)
 {
   CUmodule module;
   void **fn_table;
@@ -1612,7 +1612,7 @@ device_get_table (struct mapping_table **tablep)
 }
 
 void *
-device_alloc (size_t size)
+GOMP_OFFLOAD_alloc (size_t size)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%zu)\n", __FILE__, __FUNCTION__,
@@ -1623,7 +1623,7 @@ device_alloc (size_t size)
 }
 
 void
-device_free (void *ptr)
+GOMP_OFFLOAD_free (void *ptr)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p)\n", __FILE__, __FUNCTION__, ptr);
@@ -1633,7 +1633,7 @@ device_free (void *ptr)
 }
 
 void *
-device_dev2host (void *dst, const void *src, size_t n)
+GOMP_OFFLOAD_dev2host (void *dst, const void *src, size_t n)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p, %p, %zu)\n", __FILE__,
@@ -1645,7 +1645,7 @@ device_dev2host (void *dst, const void *src, size_t n)
 }
 
 void *
-device_host2dev (void *dst, const void *src, size_t n)
+GOMP_OFFLOAD_host2dev (void *dst, const void *src, size_t n)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p, %p, %zu)\n", __FILE__,
@@ -1658,10 +1658,11 @@ device_host2dev (void *dst, const void *src, size_t n)
 void (*device_run) (void *fn_ptr, void *vars) = NULL;
 
 void
-openacc_parallel (void (*fn) (void *), size_t mapnum, void **hostaddrs,
-		  void **devaddrs, size_t *sizes, unsigned short *kinds,
-		  int num_gangs, int num_workers, int vector_length,
-		  int async, void *targ_mem_desc)
+GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,
+			      void **hostaddrs, void **devaddrs, size_t *sizes,
+			      unsigned short *kinds, int num_gangs,
+			      int num_workers, int vector_length, int async,
+			      void *targ_mem_desc)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p, %zu, %p, %p, %p, %d, %d, %d, "
@@ -1674,7 +1675,7 @@ openacc_parallel (void (*fn) (void *), size_t mapnum, void **hostaddrs,
 }
 
 void *
-openacc_open_device (int n)
+GOMP_OFFLOAD_openacc_open_device (int n)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d)\n", __FILE__, __FUNCTION__, n);
@@ -1683,7 +1684,7 @@ openacc_open_device (int n)
 }
 
 int
-openacc_close_device (void *h)
+GOMP_OFFLOAD_openacc_close_device (void *h)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p)\n", __FILE__, __FUNCTION__, h);
@@ -1692,7 +1693,7 @@ openacc_close_device (void *h)
 }
 
 void
-openacc_set_device_num (int n)
+GOMP_OFFLOAD_openacc_set_device_num (int n)
 {
   struct nvptx_thread *nvthd = nvptx_thread ();
 
@@ -1708,7 +1709,7 @@ openacc_set_device_num (int n)
    (oacc-init.c:acc_get_device_num) handle it.  */
 
 int
-openacc_get_device_num (void)
+GOMP_OFFLOAD_openacc_get_device_num (void)
 {
   struct nvptx_thread *nvthd = nvptx_thread ();
 
@@ -1719,7 +1720,7 @@ openacc_get_device_num (void)
 }
 
 void
-openacc_register_async_cleanup (void *targ_mem_desc)
+GOMP_OFFLOAD_openacc_register_async_cleanup (void *targ_mem_desc)
 {
   CUevent *e;
   CUresult r;
@@ -1744,7 +1745,7 @@ openacc_register_async_cleanup (void *targ_mem_desc)
 }
 
 int
-openacc_async_test (int async)
+GOMP_OFFLOAD_openacc_async_test (int async)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d)\n", __FILE__, __FUNCTION__,
@@ -1754,7 +1755,7 @@ openacc_async_test (int async)
 }
 
 int
-openacc_async_test_all (void)
+GOMP_OFFLOAD_openacc_async_test_all (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1763,7 +1764,7 @@ openacc_async_test_all (void)
 }
 
 void
-openacc_async_wait (int async)
+GOMP_OFFLOAD_openacc_async_wait (int async)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d)\n", __FILE__, __FUNCTION__,
@@ -1773,7 +1774,7 @@ openacc_async_wait (int async)
 }
 
 void
-openacc_async_wait_async (int async1, int async2)
+GOMP_OFFLOAD_openacc_async_wait_async (int async1, int async2)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d, %d)\n", __FILE__, __FUNCTION__,
@@ -1783,7 +1784,7 @@ openacc_async_wait_async (int async1, int async2)
 }
 
 void
-openacc_async_wait_all (void)
+GOMP_OFFLOAD_openacc_async_wait_all (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1792,7 +1793,7 @@ openacc_async_wait_all (void)
 }
 
 void
-openacc_async_wait_all_async (int async)
+GOMP_OFFLOAD_openacc_async_wait_all_async (int async)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d)\n", __FILE__, __FUNCTION__,
@@ -1802,7 +1803,7 @@ openacc_async_wait_all_async (int async)
 }
 
 void
-openacc_async_set_async (int async)
+GOMP_OFFLOAD_openacc_async_set_async (int async)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d)\n", __FILE__, __FUNCTION__,
@@ -1812,7 +1813,7 @@ openacc_async_set_async (int async)
 }
 
 void *
-openacc_create_thread_data (void *targ_data)
+GOMP_OFFLOAD_openacc_create_thread_data (void *targ_data)
 {
   struct PTX_device *ptx_dev = (struct PTX_device *) targ_data;
   struct nvptx_thread *nvthd
@@ -1840,13 +1841,13 @@ openacc_create_thread_data (void *targ_data)
 }
 
 void
-openacc_destroy_thread_data (void *data)
+GOMP_OFFLOAD_openacc_destroy_thread_data (void *data)
 {
   free (data);
 }
 
 void *
-openacc_get_current_cuda_device (void)
+GOMP_OFFLOAD_openacc_get_current_cuda_device (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1855,7 +1856,7 @@ openacc_get_current_cuda_device (void)
 }
 
 void *
-openacc_get_current_cuda_context (void)
+GOMP_OFFLOAD_openacc_get_current_cuda_context (void)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
@@ -1866,7 +1867,7 @@ openacc_get_current_cuda_context (void)
 /* NOTE: This returns a CUstream, not a PTX_stream pointer.  */
 
 void *
-openacc_get_cuda_stream (int async)
+GOMP_OFFLOAD_openacc_get_cuda_stream (int async)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d)\n", __FILE__, __FUNCTION__,
@@ -1878,7 +1879,7 @@ openacc_get_cuda_stream (int async)
 /* NOTE: This takes a CUstream, not a PTX_stream pointer.  */
 
 int
-openacc_set_cuda_stream (int async, void *stream)
+GOMP_OFFLOAD_openacc_set_cuda_stream (int async, void *stream)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%d, %p)\n", __FILE__, __FUNCTION__,
