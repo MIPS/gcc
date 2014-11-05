@@ -1,3 +1,14 @@
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* ipa-split.c (find_return_bb): Eliminate check for GIMPLE_ASSIGN
+	since this is covered by gimple_assign_single_p, using the latter
+	to introduce local gassign * "assign_stmt", using it in place
+	of "stmt" for typesafety.
+	(find_retval): Add a checked cast.
+	(split_function): Replace check for GIMPLE_ASSIGN with a dyn_cast,
+	introducing local "assign_stmt" and using it in place of
+	gsi_stmt (bsi) for typesafety.
+
 2014-11-04  David Malcolm  <dmalcolm@redhat.com>
 
 	* cfgexpand.c (add_scope_conflicts_1): Add checked cast.

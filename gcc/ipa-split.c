@@ -704,6 +704,7 @@ find_return_bb (void)
   gimple_stmt_iterator bsi;
   bool found_return = false;
   tree retval = NULL_TREE;
+  gassign *assign_stmt;
 
   if (!single_pred_p (EXIT_BLOCK_PTR_FOR_FN (cfun)))
     return return_bb;
@@ -716,13 +717,13 @@ find_return_bb (void)
 	  || is_gimple_debug (stmt)
 	  || gimple_clobber_p (stmt))
 	;
-      else if (gimple_code (stmt) == GIMPLE_ASSIGN
-	       && found_return
-	       && gimple_assign_single_p (stmt)
-	       && (auto_var_in_fn_p (gimple_assign_rhs1 (stmt),
+      else if (found_return
+	       && (assign_stmt = gimple_assign_single_p (stmt))
+	       && (auto_var_in_fn_p (gimple_assign_rhs1 (assign_stmt),
 				     current_function_decl)
-		   || is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
-	       && retval == gimple_assign_lhs (stmt))
+		   || is_gimple_min_invariant (
+			gimple_assign_rhs1 (assign_stmt)))
+	       && retval == gimple_assign_lhs (assign_stmt))
 	;
       else if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
 	{
@@ -749,7 +750,7 @@ find_retval (basic_block return_bb)
       return gimple_return_retval (return_stmt);
     else if (gimple_code (gsi_stmt (bsi)) == GIMPLE_ASSIGN
 	     && !gimple_clobber_p (gsi_stmt (bsi)))
-      return gimple_assign_rhs1 (gsi_stmt (bsi));
+      return gimple_assign_rhs1 (as_a <gassign *> (gsi_stmt (bsi)));
   return NULL;
 }
 
@@ -1471,12 +1472,13 @@ split_function (struct split_point *split_point)
 			    gimple_return_set_retval (return_stmt, retval);
 			    break;
 			  }
-			else if (gimple_code (gsi_stmt (bsi)) == GIMPLE_ASSIGN
-				 && !gimple_clobber_p (gsi_stmt (bsi)))
-			  {
-			    gimple_assign_set_rhs1 (gsi_stmt (bsi), retval);
-			    break;
-			  }
+			else if (gassign *assign_stmt =
+				   dyn_cast <gassign *> (gsi_stmt (bsi)))
+			  if (!gimple_clobber_p (assign_stmt))
+			    {
+			      gimple_assign_set_rhs1 (assign_stmt, retval);
+			      break;
+			    }
 		      update_stmt (gsi_stmt (bsi));
 		    }
 		}
