@@ -1163,10 +1163,6 @@ DEFTREECODE (OACC_ENTER_DATA, "oacc_enter_data", tcc_statement, 1)
    Operand 0: OACC_EXIT_DATA_CLAUSES: List of clauses.  */
 DEFTREECODE (OACC_EXIT_DATA, "oacc_exit_data", tcc_statement, 1)
 
-/* OpenACC - #pragma acc wait [clause1 ... clauseN]
-   Operand 0: OACC_WAIT_CLAUSES: List of clauses.  */
-DEFTREECODE (OACC_WAIT, "oacc_wait", tcc_statement, 1)
-
 /* OpenACC - #pragma acc cache [clause1 ... clauseN]
    Operand 0: OACC_CACHE_CLAUSES: List of clauses.  */
 DEFTREECODE (OACC_CACHE, "oacc_cache", tcc_statement, 1)

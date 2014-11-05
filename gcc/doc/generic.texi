@@ -2058,7 +2058,6 @@ edge.  Rethrowing the exception is represented using @code{RESX_EXPR}.
 @tindex OACC_UPDATE
 @tindex OACC_ENTER_DATA
 @tindex OACC_EXIT_DATA
-@tindex OACC_WAIT
 @tindex OACC_CACHE
 @tindex OMP_PARALLEL
 @tindex OMP_FOR
@@ -2114,10 +2113,6 @@ Represents @code{#pragma acc enter data [clause1 @dots{} clauseN]}.
 @item OACC_EXIT_DATA
 
 Represents @code{#pragma acc exit data [clause1 @dots{} clauseN]}.
-
-@item OACC_WAIT
-
-Represents @code{#pragma acc wait [(num @dots{})]}.
 
 @item OACC_CACHE
 

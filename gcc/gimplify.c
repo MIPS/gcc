@@ -4425,7 +4425,6 @@ is_gimple_stmt (tree t)
     case OACC_UPDATE:
     case OACC_ENTER_DATA:
     case OACC_EXIT_DATA:
-    case OACC_WAIT:
     case OACC_CACHE:
     case OMP_PARALLEL:
     case OMP_FOR:
@@ -8755,7 +8754,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != OACC_UPDATE
 		  && code != OACC_ENTER_DATA
 		  && code != OACC_EXIT_DATA
-		  && code != OACC_WAIT
 		  && code != OACC_CACHE
 		  && code != OMP_CRITICAL
 		  && code != OMP_FOR

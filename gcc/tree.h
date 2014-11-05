@@ -1199,9 +1199,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define OACC_UPDATE_CLAUSES(NODE) \
   TREE_OPERAND (OACC_UPDATE_CHECK (NODE), 0)
 
-#define OACC_WAIT_CLAUSES(NODE) \
-  TREE_OPERAND (OACC_WAIT_CHECK (NODE), 0)
-
 #define OACC_CACHE_CLAUSES(NODE) \
   TREE_OPERAND (OACC_CACHE_CHECK (NODE), 0)
 

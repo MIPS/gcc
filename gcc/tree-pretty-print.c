@@ -2546,11 +2546,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_omp_clauses (buffer, OACC_EXIT_DATA_CLAUSES (node), spc, flags);
       break;
 
-    case OACC_WAIT:
-      pp_string (buffer, "#pragma acc wait");
-      dump_omp_clauses (buffer, OACC_WAIT_CLAUSES (node), spc, flags);
-      break;
-
     case OACC_CACHE:
       pp_string (buffer, "#pragma acc cache");
       dump_omp_clauses (buffer, OACC_CACHE_CLAUSES(node), spc, flags);

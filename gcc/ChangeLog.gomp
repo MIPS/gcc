@@ -1,5 +1,7 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* tree.def (OACC_WAIT): Remove.  Update all users.
+
 	* omp-builtins.def (BUILT_IN_OMP_SET_NUM_THREADS): Remove.
 
 2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
