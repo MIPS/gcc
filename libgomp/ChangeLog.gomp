@@ -1,5 +1,10 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/update-1-2.c: New file.
+	* testsuite/libgomp.oacc-fortran/data-4-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-4.f90: In one instance, use
+	the self clause instead of host clause.
+
 	* testsuite/libgomp.oacc-c/cache-1.c: Remove directives that are
 	expected to fail, and rename the file to...
 	* testsuite/libgomp.oacc-c-c++-common/cache-1.c: ... this.

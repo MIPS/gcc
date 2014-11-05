@@ -1,3 +1,5 @@
+! Copy of data-4.f90 with self exchanged with host for !acc update.
+
 ! { dg-do run }
 
 program asyncwait
@@ -24,7 +26,7 @@ program asyncwait
   end do
   !$acc end parallel
 
-  !$acc update host (a(1:N), b(1:N)) async wait
+  !$acc update self (a(1:N), b(1:N)) async wait
   !$acc wait
 
   do i = 1, N
@@ -44,7 +46,7 @@ program asyncwait
   end do
   !$acc end parallel
 
-  !$acc update self (a(1:N), b(1:N)) async (1) wait (1)
+  !$acc update host (a(1:N), b(1:N)) async (1) wait (1)
   !$acc wait (1)
 
   do i = 1, N
@@ -78,7 +80,7 @@ program asyncwait
   end do
   !$acc end parallel
 
-  !$acc update host (a(1:N), b(1:N), c(1:N), d(1:N)) async (1) wait (1)
+  !$acc update self (a(1:N), b(1:N), c(1:N), d(1:N)) async (1) wait (1)
 
   !$acc wait (1)
 
@@ -122,7 +124,7 @@ program asyncwait
   end do
   !$acc end parallel
 
-  !$acc update host (a(1:N), b(1:N), c(1:N), d(1:N), e(1:N)) async (1) wait (1)
+  !$acc update self (a(1:N), b(1:N), c(1:N), d(1:N), e(1:N)) async (1) wait (1)
   !$acc wait (1)
   !$acc exit data delete (N, a(1:N), b(1:N), c(1:N), d(1:N), e(1:N))
 

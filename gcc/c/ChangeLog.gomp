@@ -1,5 +1,11 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-parser.c (c_parser_omp_clause_name) <"host">: Return
+	PRAGMA_OMP_CLAUSE_HOST.
+
+	* c-parser.c (c_parser_oacc_data_clause): Group
+	PRAGMA_OMP_CLAUSE_SELF next to PRAGMA_OMP_CLAUSE_HOST.
+
 	* c-parser.c (c_parser_oacc_cache): Generate OACC_CACHE.
 	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE__CACHE_.
 

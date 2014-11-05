@@ -27,8 +27,9 @@ contains
       !$acc cache (a)
     enddo
     !$acc end parallel loop
-    !$acc update host (a)
     !$acc update device (a)
+    !$acc update host (a)
+    !$acc update self (a)
   end subroutine oacc1
 end module test
 ! { dg-prune-output "ACC cache unimplemented" }

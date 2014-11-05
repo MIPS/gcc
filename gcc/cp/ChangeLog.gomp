@@ -1,5 +1,8 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* parser.c (cp_parser_oacc_data_clause): Group
+	PRAGMA_OMP_CLAUSE_SELF next to PRAGMA_OMP_CLAUSE_HOST.
+
 	* parser.c (cp_parser_oacc_cache): Generate OACC_CACHE.
 	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE__CACHE_.
 

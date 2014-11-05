@@ -1,5 +1,8 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* tree-core.h (enum omp_clause_code): Remove OMP_CLAUSE_HOST and
+	OMP_CLAUSE_OACC_DEVICE.  Update all users.
+
 	* gimplify.c (gimplify_oacc_cache): New function.
 	(gimplify_expr): Use it for OACC_CACHE.
 	(gimplify_scan_omp_clauses, gimplify_adjust_omp_clauses): Handle

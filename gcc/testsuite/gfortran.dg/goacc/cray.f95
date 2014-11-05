@@ -28,8 +28,9 @@ contains
       !$acc cache (pointee) ! TODO: This must fail, as in openacc-1_0-branch
     enddo
     !$acc end parallel loop
-    !$acc update host (pointee) ! { dg-error "Cray pointee" }
     !$acc update device (pointee) ! { dg-error "Cray pointee" }
+    !$acc update host (pointee) ! { dg-error "Cray pointee" }
+    !$acc update self (pointee) ! { dg-error "Cray pointee" }
     !$acc data copy (ptr)
     !$acc end data
     !$acc data deviceptr (ptr) ! { dg-error "Cray pointer" }
@@ -47,8 +48,9 @@ contains
       !$acc cache (ptr) ! TODO: This must fail, as in openacc-1_0-branch
     enddo
     !$acc end parallel loop
-    !$acc update host (ptr)
     !$acc update device (ptr)
+    !$acc update host (ptr)
+    !$acc update self (ptr)
   end subroutine oacc1
 end module test
 ! { dg-prune-output "unimplemented" }

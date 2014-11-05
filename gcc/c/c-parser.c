@@ -9832,7 +9832,7 @@ c_parser_omp_clause_name (c_parser *parser)
 	  break;
 	case 'h':
 	  if (!strcmp ("host", p))
-	    result = PRAGMA_OMP_CLAUSE_SELF;
+	    result = PRAGMA_OMP_CLAUSE_HOST;
 	  break;
 	case 'i':
 	  if (!strcmp ("inbranch", p))
@@ -10187,8 +10187,6 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
   enum omp_clause_map_kind kind;
   switch (c_kind)
     {
-    default:
-      gcc_unreachable ();
     case PRAGMA_OMP_CLAUSE_COPY:
       kind = OMP_CLAUSE_MAP_FORCE_TOFROM;
       break;
@@ -10208,6 +10206,7 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
       kind = OMP_CLAUSE_MAP_FORCE_TO;
       break;
     case PRAGMA_OMP_CLAUSE_HOST:
+    case PRAGMA_OMP_CLAUSE_SELF:
       kind = OMP_CLAUSE_MAP_FORCE_FROM;
       break;
     case PRAGMA_OMP_CLAUSE_PRESENT:
@@ -10225,9 +10224,8 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
     case PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE:
       kind = OMP_CLAUSE_MAP_ALLOC;
       break;
-    case PRAGMA_OMP_CLAUSE_SELF:
-      kind = OMP_CLAUSE_MAP_FORCE_FROM;
-      break;
+    default:
+      gcc_unreachable ();
     }
   tree nl, c;
   nl = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_MAP, list);

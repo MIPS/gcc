@@ -271,8 +271,6 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
   2, /* OMP_CLAUSE__CACHE_  */
-  1, /* OMP_CLAUSE_HOST  */
-  1, /* OMP_CLAUSE_OACC_DEVICE  */
   1, /* OMP_CLAUSE_DEVICE_RESIDENT  */
   1, /* OMP_CLAUSE_USE_DEVICE  */
   1, /* OMP_CLAUSE_GANG  */
@@ -330,8 +328,6 @@ const char * const omp_clause_code_name[] =
   "to",
   "map",
   "_cache_",
-  "host",
-  "device",
   "device_resident",
   "use_device",
   "gang",
@@ -11120,8 +11116,6 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
     case OMP_CLAUSE:
       switch (OMP_CLAUSE_CODE (*tp))
 	{
-	case OMP_CLAUSE_HOST:
-	case OMP_CLAUSE_OACC_DEVICE:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:

@@ -1977,8 +1977,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    install_var_local (decl, ctx);
 	  break;
 
-	case OMP_CLAUSE_HOST:
-	case OMP_CLAUSE_OACC_DEVICE:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:
@@ -2125,8 +2123,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_WAIT:
 	  break;
 
-	case OMP_CLAUSE_HOST:
-	case OMP_CLAUSE_OACC_DEVICE:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:

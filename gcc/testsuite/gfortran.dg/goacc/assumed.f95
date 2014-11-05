@@ -19,8 +19,9 @@ contains
     do i = 1,5
     enddo
     !$acc end parallel loop
-    !$acc update host (a) ! { dg-error "Assumed size" }
     !$acc update device (a) ! { dg-error "Assumed size" }
+    !$acc update host (a) ! { dg-error "Assumed size" }
+    !$acc update self (a) ! { dg-error "Assumed size" }
   end subroutine assumed_size
   subroutine assumed_rank(a)
     implicit none
@@ -39,7 +40,8 @@ contains
     do i = 1,5
     enddo
     !$acc end parallel loop
-    !$acc update host (a) ! { dg-error "Assumed rank" }
     !$acc update device (a) ! { dg-error "Assumed rank" }
+    !$acc update host (a) ! { dg-error "Assumed rank" }
+    !$acc update self (a) ! { dg-error "Assumed rank" }
   end subroutine assumed_rank
 end module test

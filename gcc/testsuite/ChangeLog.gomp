@@ -1,5 +1,12 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/update-1.c: Extend.
+	* gfortran.dg/goacc/assumed.f95: Likewise.
+	* gfortran.dg/goacc/coarray.f95: Likewise.
+	* gfortran.dg/goacc/cray.f95: Likewise.
+	* gfortran.dg/goacc/literal.f95: Likewise.
+	* gfortran.dg/goacc/parameter.f95: Likewise.
+
 	* c-c++-common/goacc/cache-1.c: New file.
 
 	* gfortran.dg/goacc/data-tree.f95: Remove dg-prune-output directive.

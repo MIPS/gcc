@@ -259,8 +259,8 @@ enum omp_clause_code {
   OMP_CLAUSE_TO,
 
   /* OpenACC clauses: {copy, copyin, copyout, create, delete, deviceptr,
-     present, present_or_copy (pcopy), present_or_copyin (pcopyin),
-     present_or_copyout (pcopyout), present_or_create (pcreate)}
+     device, host (self), present, present_or_copy (pcopy), present_or_copyin
+     (pcopyin), present_or_copyout (pcopyout), present_or_create (pcreate)}
      (variable-list).
 
      OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
@@ -269,12 +269,6 @@ enum omp_clause_code {
   /* Internal structure to hold OpenACC cache directive's variable-list.
      #pragma acc cache (variable-list).  */
   OMP_CLAUSE__CACHE_,
-
-  /* OpenACC clause: host (variable_list).  */
-  OMP_CLAUSE_HOST,
-
-  /* OpenACC clause: device (variable_list).  */
-  OMP_CLAUSE_OACC_DEVICE,
 
   /* OpenACC clause: device_resident (variable_list).  */
   OMP_CLAUSE_DEVICE_RESIDENT,

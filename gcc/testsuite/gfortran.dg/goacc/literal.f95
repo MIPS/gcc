@@ -23,7 +23,8 @@ contains
       !$acc cache (10) ! { dg-error "Syntax error" }
     enddo
     !$acc end parallel loop
-    !$acc update host (10) ! { dg-error "Syntax error" }
     !$acc update device (10) ! { dg-error "Syntax error" }
+    !$acc update host (10) ! { dg-error "Syntax error" }
+    !$acc update self (10) ! { dg-error "Syntax error" }
   end subroutine oacc1
 end module test

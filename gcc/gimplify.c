@@ -6288,8 +6288,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    remove = true;
 	  break;
 
-	case OMP_CLAUSE_HOST:
-	case OMP_CLAUSE_OACC_DEVICE:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:
@@ -6692,8 +6690,6 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	case OMP_CLAUSE_VECTOR_LENGTH:
 	  break;
 
-	case OMP_CLAUSE_HOST:
-	case OMP_CLAUSE_OACC_DEVICE:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:

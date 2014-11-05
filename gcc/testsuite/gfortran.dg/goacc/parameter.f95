@@ -24,8 +24,9 @@ contains
       !$acc cache (a) ! TODO: This must fail, as in openacc-1_0-branch
     enddo
     !$acc end parallel loop
-    !$acc update host (a) ! { dg-error "not a variable" }
     !$acc update device (a) ! { dg-error "not a variable" }
+    !$acc update host (a) ! { dg-error "not a variable" }
+    !$acc update self (a) ! { dg-error "not a variable" }
   end subroutine oacc1
 end module test
 ! { dg-prune-output "unimplemented" }
