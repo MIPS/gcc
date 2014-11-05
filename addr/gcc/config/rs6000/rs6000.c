@@ -16611,7 +16611,7 @@ rs6000_secondary_reload_memory (rtx addr,
 				enum machine_mode mode)
 {
   int extra_cost = 0;
-  rtx reg, and_arg, plus_arg;
+  rtx reg, and_arg, plus_arg0, plus_arg1;
   addr_mask_type addr_mask;
   const char *type = NULL;
   const char *fail_msg = NULL;
@@ -16676,10 +16676,10 @@ rs6000_secondary_reload_memory (rtx addr,
 
     case PRE_MODIFY:
       reg = XEXP (addr, 0);
-      plus_arg = XEXP (addr, 1);
+      plus_arg1 = XEXP (addr, 1);
       if (!base_reg_operand (reg, GET_MODE (reg))
-	  || GET_CODE (plus_arg) != PLUS
-	  || !rtx_equal_p (reg, XEXP (plus_arg, 0)))
+	  || GET_CODE (plus_arg1) != PLUS
+	  || !rtx_equal_p (reg, XEXP (plus_arg1, 0)))
 	{
 	  fail_msg = "bad PRE_MODIFY";
 	  extra_cost = -1;
@@ -16735,15 +16735,27 @@ rs6000_secondary_reload_memory (rtx addr,
       /* If this is an indexed address, make sure the register class can handle
 	 indexed addresses for this mode.  */
     case PLUS:
-      reg = XEXP (addr, 0);
-      plus_arg = XEXP (addr, 1);
-      if (!base_reg_operand (reg, GET_MODE (reg)))
+      plus_arg0 = XEXP (addr, 0);
+      plus_arg1 = XEXP (addr, 1);
+
+      /* (plus (plus (reg) (constant)) (constant)) is generated during
+	 push_reload processing, so handle it now.  */
+      if (GET_CODE (plus_arg0) == PLUS && CONST_INT_P (plus_arg1))
+	{
+	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
+	    {
+	      extra_cost = 1;
+	      type = "offset";
+	    }
+	}
+
+      else if (!base_reg_operand (plus_arg0, GET_MODE (plus_arg0)))
 	{
 	  fail_msg = "no base register #2";
 	  extra_cost = -1;
 	}
 
-      if (int_reg_operand (plus_arg, GET_MODE (plus_arg)))
+      else if (int_reg_operand (plus_arg1, GET_MODE (plus_arg1)))
 	{
 	  if ((addr_mask & RELOAD_REG_INDEXED) == 0
 	      || !legitimate_indexed_address_p (addr, false))
@@ -17096,7 +17108,6 @@ rs6000_secondary_reload (bool in_p,
   /* If this is a scalar floating point value and we want to load it into the
      traditional Altivec registers, do it via a move via a traditional floating
      point register.  Also make sure that non-zero constants use a FPR.  */
-#if 0
   if (!done_p && reg_addr[mode].scalar_in_vmx_p
       && (rclass == VSX_REGS || rclass == ALTIVEC_REGS)
       && (memory_p || (GET_CODE (x) == CONST_DOUBLE)))
@@ -17105,7 +17116,6 @@ rs6000_secondary_reload (bool in_p,
       default_p = false;
       done_p = true;
     }
-#endif
 
   /* Handle reload of load/stores if we have reload helper functions.  */
   if (!done_p && icode != CODE_FOR_nothing && memory_p)
