@@ -123,11 +123,7 @@ typedef struct gcc_jit_lvalue gcc_jit_lvalue;
    rvalue); use gcc_jit_param_as_lvalue to convert.  */
 typedef struct gcc_jit_param gcc_jit_param;
 
-/*
-   Acquire a JIT-compilation context.
-
-   FIXME: error-handling?
-*/
+/* Acquire a JIT-compilation context.  */
 extern gcc_jit_context *
 gcc_jit_context_acquire (void);
 
@@ -393,6 +389,7 @@ extern gcc_jit_type *
 gcc_jit_context_get_type (gcc_jit_context *ctxt,
 			  enum gcc_jit_types type_);
 
+/* Get the integer type of the given size and signedness.  */
 extern gcc_jit_type *
 gcc_jit_context_get_int_type (gcc_jit_context *ctxt,
 			      int num_bytes, int is_signed);
@@ -419,6 +416,8 @@ gcc_jit_context_new_array_type (gcc_jit_context *ctxt,
 				int num_elements);
 
 /* Struct-handling.  */
+
+/* Create a field, for use within a struct or union.  */
 extern gcc_jit_field *
 gcc_jit_context_new_field (gcc_jit_context *ctxt,
 			   gcc_jit_location *loc,
@@ -429,6 +428,7 @@ gcc_jit_context_new_field (gcc_jit_context *ctxt,
 extern gcc_jit_object *
 gcc_jit_field_as_object (gcc_jit_field *field);
 
+/* Create a struct type from an array of fields.  */
 extern gcc_jit_struct *
 gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 				 gcc_jit_location *loc,
@@ -436,11 +436,13 @@ gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 				 int num_fields,
 				 gcc_jit_field **fields);
 
+/* Create an opaque struct type.  */
 extern gcc_jit_struct *
 gcc_jit_context_new_opaque_struct (gcc_jit_context *ctxt,
 				   gcc_jit_location *loc,
 				   const char *name);
 
+/* Upcast a struct to a type.  */
 extern gcc_jit_type *
 gcc_jit_struct_as_type (gcc_jit_struct *struct_type);
 
@@ -473,6 +475,7 @@ gcc_jit_context_new_function_ptr_type (gcc_jit_context *ctxt,
 /**********************************************************************
  Constructing functions.
  **********************************************************************/
+/* Create a function param.  */
 extern gcc_jit_param *
 gcc_jit_context_new_param (gcc_jit_context *ctxt,
 			   gcc_jit_location *loc,
@@ -483,12 +486,15 @@ gcc_jit_context_new_param (gcc_jit_context *ctxt,
 extern gcc_jit_object *
 gcc_jit_param_as_object (gcc_jit_param *param);
 
+/* Upcasting from param to lvalue.  */
 extern gcc_jit_lvalue *
 gcc_jit_param_as_lvalue (gcc_jit_param *param);
 
+/* Upcasting from param to rvalue.  */
 extern gcc_jit_rvalue *
 gcc_jit_param_as_rvalue (gcc_jit_param *param);
 
+/* Kinds of function.  */
 enum gcc_jit_function_kind
 {
   /* Function is defined by the client code and visible
@@ -516,7 +522,7 @@ enum gcc_jit_function_kind
   GCC_JIT_FUNCTION_ALWAYS_INLINE
 };
 
-
+/* Create a function.  */
 extern gcc_jit_function *
 gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			      gcc_jit_location *loc,
@@ -527,6 +533,8 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			      gcc_jit_param **params,
 			      int is_variadic);
 
+/* Create a reference to a builtin function (sometimes called
+   intrinsic functions).  */
 extern gcc_jit_function *
 gcc_jit_context_get_builtin_function (gcc_jit_context *ctxt,
 				      const char *name);
@@ -535,6 +543,7 @@ gcc_jit_context_get_builtin_function (gcc_jit_context *ctxt,
 extern gcc_jit_object *
 gcc_jit_function_as_object (gcc_jit_function *func);
 
+/* Get a specific param of a function by index.  */
 extern gcc_jit_param *
 gcc_jit_function_get_param (gcc_jit_function *func, int index);
 

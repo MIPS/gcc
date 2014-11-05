@@ -1,5 +1,122 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/topics/expressions.rst (Type-coercion): Casts between
+	pointer types are valid.
+	* libgccjit.c: Document that gcc_jit_context et al are actually
+	subclasses of the gcc::jit::recording classes.
+	(RETURN_VAL_IF_FAIL): Add top-level descriptive comment.
+	(RETURN_IF_NOT_VALID_BLOCK): Likewise.
+	(RETURN_NULL_IF_NOT_VALID_BLOCK): Likewise.
+	(jit_error): Likewise.
+	(compatible_types): Likewise.
+	(gcc_jit_context_acquire): Likewise.
+	(gcc_jit_context_release): Likewise.
+	(gcc_jit_context_new_child_context): Likewise.
+	(gcc_jit_context_new_location): Likewise.
+	(gcc_jit_location_as_object): Likewise.
+	(gcc_jit_type_as_object): Likewise.
+	(gcc_jit_context_get_type): Likewise.
+	(gcc_jit_context_get_int_type): Likewise.
+	(gcc_jit_type_get_pointer): Likewise.
+	(gcc_jit_type_get_const): Likewise.
+	(gcc_jit_type_get_volatile): Likewise.
+	(gcc_jit_context_new_array_type): Likewise.  Also document that
+	LOC can be NULL.  Fail with an error on negative size.
+	(gcc_jit_context_new_field): Add top-level descriptive comment and
+	document that LOC can be NULL.
+	(gcc_jit_field_as_object): Add top-level descriptive comment.
+	(gcc_jit_context_new_struct_type): Likewise.  Also document that
+	LOC can be NULL.
+	(gcc_jit_context_new_opaque_struct): Likewise.
+	(gcc_jit_struct_as_type): Add top-level descriptive comment.
+	(gcc_jit_struct_set_fields): Likewise.  Also document that LOC can
+	be NULL.
+	(gcc_jit_context_new_union_type): Likewise.
+	(gcc_jit_context_new_function_ptr_type): Likewise.
+	(gcc_jit_context_new_param): Likewise.
+	(gcc_jit_param_as_object): Add top-level descriptive comment.
+	(gcc_jit_param_as_lvalue): Likewise.
+	(gcc_jit_param_as_rvalue): Likewise.
+	(gcc_jit_context_new_function): Likewise.  Also document that LOC
+	can be NULL.
+	(gcc_jit_context_get_builtin_function): Add top-level descriptive
+	comment.
+	(gcc_jit_function_as_object): Likewise.
+	(gcc_jit_function_get_param): Likewise.
+	(gcc_jit_function_dump_to_dot): Likewise.
+	(gcc_jit_function_new_block): Likewise.
+	(gcc_jit_block_as_object): Likewise.
+	(gcc_jit_block_get_function): Likewise.
+	(gcc_jit_context_new_global): Likewise.  Also document that LOC
+	can be NULL.
+	(gcc_jit_lvalue_as_object): Add top-level descriptive comment.
+	(gcc_jit_lvalue_as_rvalue): Likewise.
+	(gcc_jit_rvalue_as_object): Likewise.
+	(gcc_jit_rvalue_get_type): Likewise.
+	(RETURN_NULL_IF_FAIL_NONNULL_NUMERIC_TYPE): Likewise.
+	(gcc_jit_context_new_rvalue_from_int): Likewise.
+	(gcc_jit_context_zero): Likewise.
+	(gcc_jit_context_one): Likewise.
+	(gcc_jit_context_new_rvalue_from_double): Likewise.
+	(gcc_jit_context_new_rvalue_from_ptr): Likewise.
+	(gcc_jit_context_null): Likewise.
+	(gcc_jit_context_new_string_literal): Likewise.
+	(gcc_jit_context_new_unary_op): Likewise.  Also document that LOC
+	can be NULL.
+	(gcc_jit_context_new_binary_op): Likewise.
+	(gcc_jit_context_new_comparison): Likewise.
+	(gcc_jit_context_new_call): Likewise.
+	(gcc_jit_context_new_call_through_ptr): Likewise.
+	(is_valid_cast): Add top-level descriptive comment.
+	(gcc_jit_context_new_cast): Likewise.  Also document that LOC can
+	be NULL.
+	(gcc_jit_context_new_array_access): Likewise.
+	(gcc_jit_object_get_context): Add top-level descriptive comment.
+	(gcc_jit_object_get_debug_string): Likewise.
+	(gcc_jit_lvalue_access_field): Likewise.  Also document that LOC can
+	be NULL.
+	(gcc_jit_rvalue_access_field): Likewise.
+	(gcc_jit_rvalue_dereference_field): Likewise.
+	(gcc_jit_rvalue_dereference): Likewise.
+	(gcc_jit_lvalue_get_address): Likewise.
+	(gcc_jit_function_new_local): Likewise.
+	(gcc_jit_block_add_eval): Likewise.
+	(gcc_jit_block_add_assignment): Likewise.
+	(gcc_jit_block_add_assignment_op): Likewise.
+	(is_bool): Add top-level descriptive comment.
+	(gcc_jit_block_end_with_conditional): Likewise.  Also document
+	that LOC can be NULL.
+	(gcc_jit_block_add_comment): Likewise.
+	(gcc_jit_block_end_with_jump): Likewise.
+	(gcc_jit_block_end_with_return): Likewise.
+	(gcc_jit_block_end_with_void_return): Likewise.
+	(gcc_jit_context_set_str_option): Add top-level descriptive
+	comment.
+	(gcc_jit_context_set_int_option): Likewise.
+	(gcc_jit_context_set_bool_option): Likewise.
+	(gcc_jit_context_compile): Likewise.
+	(gcc_jit_context_dump_to_file): Likewise.
+	(gcc_jit_context_get_first_error): Likewise.
+	(gcc_jit_result_get_code): Likewise.
+	(gcc_jit_result_release): Likewise.
+
+	* libgccjit.h (gcc_jit_context_acquire): Remove FIXME from
+	comment.
+	(gcc_jit_context_get_int_type): Add comment.
+	(gcc_jit_context_new_field): Likewise.
+	(gcc_jit_context_new_struct_type): Likewise.
+	(gcc_jit_context_new_opaque_struct): Likewise.
+	(gcc_jit_struct_as_type): Likewise.
+	(gcc_jit_context_new_param): Likewise.
+	(gcc_jit_param_as_lvalue): Likewise.
+	(gcc_jit_param_as_rvalue): Likewise.
+	(enum gcc_jit_function_kind): Likewise.
+	(gcc_jit_context_new_function): Likewise.
+	(gcc_jit_context_get_builtin_function): Likewise.
+	(gcc_jit_function_get_param): Likewise.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.c (gcc_jit_context_get_type): Verify that "type"
 	is valid immediately, rather than relying on called code.
 	(gcc_jit_context_new_function): Likewise for "kind".

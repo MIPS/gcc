@@ -402,6 +402,7 @@ Type-coercion
 
      * int <-> float
      * int <-> bool
+     * P*  <-> Q*, for pointer types P and Q
 
 Lvalues
 -------
