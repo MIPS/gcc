@@ -1,3 +1,10 @@
+2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c/cache-1.c: Remove directives that are
+	expected to fail, and rename the file to...
+	* testsuite/libgomp.oacc-c-c++-common/cache-1.c: ... this.
+	* testsuite/libgomp.oacc-c++/cache-1.C: Remove file.
+
 2014-11-05  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c/cache-1.c: New file.
