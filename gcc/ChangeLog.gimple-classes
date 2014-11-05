@@ -1,5 +1,13 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* ipa-icf-gimple.c (func_checker::compare_bb): Add checked casts.
+	(func_checker::compare_gimple_assign): Strengthen params from
+	gimple to const gassign *.
+	* ipa-icf-gimple.h (func_checker::compare_gimple_assign):
+	Likewise.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* ipa-prop.c (stmt_may_be_vtbl_ptr_store): Replace
 	is_gimple_assign with dyn_cast, introducing local gassign *
 	"assign_stmt" and using it in place of "stmt" for typesafety.

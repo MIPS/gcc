@@ -591,7 +591,8 @@ func_checker::compare_bb (sem_bb *bb1, sem_bb *bb2)
 	    return return_different_stmts (s1, s2, "GIMPLE_CALL");
 	  break;
 	case GIMPLE_ASSIGN:
-	  if (!compare_gimple_assign (s1, s2))
+	  if (!compare_gimple_assign (as_a <gassign *> (s1),
+				      as_a <gassign *> (s2)))
 	    return return_different_stmts (s1, s2, "GIMPLE_ASSIGN");
 	  break;
 	case GIMPLE_COND:
@@ -682,11 +683,11 @@ func_checker::compare_gimple_call (gimple s1, gimple s2)
 }
 
 
-/* Verifies for given GIMPLEs S1 and S2 that
+/* Verifies for given GASSIGNs S1 and S2 that
    assignment statements are semantically equivalent.  */
 
 bool
-func_checker::compare_gimple_assign (gimple s1, gimple s2)
+func_checker::compare_gimple_assign (const gassign *s1, const gassign *s2)
 {
   tree arg1, arg2;
   tree_code code1, code2;

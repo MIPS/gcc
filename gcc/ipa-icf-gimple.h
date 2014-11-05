@@ -163,7 +163,7 @@ public:
 
   /* Verifies for given GIMPLEs S1 and S2 that
      assignment statements are semantically equivalent.  */
-  bool compare_gimple_assign (gimple s1, gimple s2);
+  bool compare_gimple_assign (const gassign *s1, const gassign *s2);
 
   /* Verifies for given GIMPLEs S1 and S2 that
      condition statements are semantically equivalent.  */
