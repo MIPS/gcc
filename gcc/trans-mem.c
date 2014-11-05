@@ -1403,23 +1403,23 @@ thread_private_new_memory (basic_block entry_block, tree x)
 	  && !dominated_by_p (CDI_DOMINATORS, gimple_bb (stmt), entry_block))
 	retval = mem_thread_local;
 
-      if (is_gimple_assign (stmt))
+      if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
 	{
-	  code = gimple_assign_rhs_code (stmt);
+	  code = gimple_assign_rhs_code (assign_stmt);
 	  /* x = foo ==> foo */
 	  if (code == SSA_NAME)
-	    x = gimple_assign_rhs1 (stmt);
+	    x = gimple_assign_rhs1 (assign_stmt);
 	  /* x = foo + n ==> foo */
 	  else if (code == POINTER_PLUS_EXPR)
-	    x = gimple_assign_rhs1 (stmt);
+	    x = gimple_assign_rhs1 (assign_stmt);
 	  /* x = (cast*) foo ==> foo */
 	  else if (code == VIEW_CONVERT_EXPR || code == NOP_EXPR)
-	    x = gimple_assign_rhs1 (stmt);
+	    x = gimple_assign_rhs1 (assign_stmt);
 	  /* x = c ? op1 : op2 == > op1 or op2 just like a PHI */
 	  else if (code == COND_EXPR)
 	    {
-	      tree op1 = gimple_assign_rhs2 (stmt);
-	      tree op2 = gimple_assign_rhs3 (stmt);
+	      tree op1 = gimple_assign_rhs2 (assign_stmt);
+	      tree op2 = gimple_assign_rhs3 (assign_stmt);
 	      enum thread_memory_type mem;
 	      retval = thread_private_new_memory (entry_block, op1);
 	      if (retval == mem_non_local)
@@ -1575,7 +1575,7 @@ requires_barrier (basic_block entry_block, tree x, gimple stmt)
 static void
 examine_assign_tm (unsigned *state, gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
 
   if (requires_barrier (/*entry_block=*/NULL, gimple_assign_rhs1 (stmt), NULL))
     *state |= GTMA_HAVE_LOAD;
@@ -2273,7 +2273,7 @@ build_tm_store (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
 static void
 expand_assign_tm (struct tm_region *region, gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
   location_t loc = gimple_location (stmt);
   tree lhs = gimple_assign_lhs (stmt);
   tree rhs = gimple_assign_rhs1 (stmt);
@@ -4298,10 +4298,10 @@ ipa_tm_scan_irr_block (basic_block bb)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_ASSIGN:
-	  if (gimple_assign_single_p (stmt))
+	  if (gassign *assign_stmt = gimple_assign_single_p (stmt))
 	    {
-	      tree lhs = gimple_assign_lhs (stmt);
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	      tree lhs = gimple_assign_lhs (assign_stmt);
+	      tree rhs = gimple_assign_rhs1 (assign_stmt);
 	      if (volatile_var_p (lhs) || volatile_var_p (rhs))
 		return true;
 	    }

@@ -1,5 +1,17 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* trans-mem.c (thread_private_new_memory): Replace
+	is_gimple_assign with a dyn_cast, introducing local gassign *
+	"assign_stmt", using it in place of "stmt" for typesafety.
+	(examine_assign_tm): Strengthen local "stmt" from gimple to
+	gassign *.
+	(expand_assign_tm): Likewise.
+	(ipa_tm_scan_irr_block): Capture result of gimple_assign_single_p
+	as a new local "assign_stmt", using it in place of "stmt" for
+	typesafety.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* sese.c (rename_uses): Add checked cast to gassign within region
 	guarded by is_gimple_assign.
 	(graphite_copy_stmts_from_block): Likewise.
