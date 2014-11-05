@@ -1,3 +1,8 @@
+2014-11-05  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
+
+	* config/aarch64/aarch64.c (aarch64_setup_incoming_varargs): Check if
+	the stdarg list is used. If not used then register save is unnecessary.
+
 2014-10-31  Andrew Pinski  <apinski@caviumnetworks.com>
 
 	Bug #12645

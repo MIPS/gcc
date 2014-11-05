@@ -7314,7 +7314,7 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   CUMULATIVE_ARGS local_cum;
-  int gr_saved, vr_saved;
+  int gr_saved=0, vr_saved=0;
 
   /* The caller has advanced CUM up to, but not beyond, the last named
      argument.  Advance a local copy of CUM past the last "real" named
@@ -7323,8 +7323,11 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
   aarch64_function_arg_advance (pack_cumulative_args(&local_cum), mode, type, true);
 
   /* Found out how many registers we need to save.  */
-  gr_saved = NUM_ARG_REGS - local_cum.aapcs_ncrn;
-  vr_saved = NUM_FP_ARG_REGS - local_cum.aapcs_nvrn;
+  if (cfun->va_list_gpr_size)
+     gr_saved = NUM_ARG_REGS - local_cum.aapcs_ncrn;
+
+  if (cfun->va_list_fpr_size)
+     vr_saved = NUM_FP_ARG_REGS - local_cum.aapcs_nvrn;
 
   if (TARGET_GENERAL_REGS_ONLY)
     {
