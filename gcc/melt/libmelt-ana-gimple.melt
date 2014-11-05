@@ -32,6 +32,26 @@
 (module_is_gpl_compatible "GPLv3+")
 
 
+;;;****************************************************************
+;; list of still unhandled GIMPLE codes from gimple.def
+;; GIMPLE_OMP_ATOMIC_LOAD
+;; GIMPLE_OMP_ATOMIC_STORE
+;; GIMPLE_OMP_CONTINUE
+;; GIMPLE_OMP_CRITICAL
+;; GIMPLE_OMP_FOR
+;; GIMPLE_OMP_MASTER
+;; GIMPLE_OMP_TASKGROUP
+;; GIMPLE_OMP_ORDERED
+;; GIMPLE_OMP_PARALLEL
+;; GIMPLE_OMP_TASK
+;; GIMPLE_OMP_RETURN
+;; GIMPLE_OMP_SECTION
+;; GIMPLE_OMP_SECTIONS
+;; GIMPLE_OMP_SECTIONS_SWITCH
+;; GIMPLE_OMP_SINGLE
+;; GIMPLE_OMP_TARGET
+;; GIMPLE_OMP_TEAMS
+;;;****************************************************************
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; gimple related primitives
 
@@ -2525,7 +2545,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
    #{/*gimple_transaction:*/ gimple_build_transaction($GSBODY,$TLAB)}#
    )
 
- ;; match a gimple exception else - only in GCC 4.7 or 4.8
+ ;; match a gimple exception else - only in GCC 4.7 or 4.8 or 4.9
  (defcmatcher gimple_eh_else
    (:gimple gi)
    (:gimple_seq gsnormbody gsexcbody)
@@ -2545,7 +2565,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
    )
 
  (export_values gimple_transaction gimple_eh_else)
- )					;end gccif "4.7"  or 4.8
+ )					;end gccif "4.7"  or 4.8 or 4.9
    
 ;;;;;;;;;;;;;;;;
 (defcmatcher gimple_eh_dispatch
@@ -2721,6 +2741,19 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; operator
   #{ /*gimple_bind:*/ gimple_build_bind($TVARS,$GBODY,$TBLOCK)}#
  )
+
+;;; match a with cleanup expr, which is only inside the gimplifier
+(defcmatcher gimple_with_cleanup_expr
+  (:gimple gr)
+  (:long cleanupflag)
+  gimpclx
+  :doc #{The $GIMPLE_WITH_CLEANUP_EXPR matches a cleanup expression, and sets the boolean $CLEANUPFLAG}#
+  ;; test
+  #{ /* gimple_with_cleanup_expr ? */ ($GR && gimple_code($GR) == GIMPLE_WITH_CLEANUP_EXPR) }#
+  ;; fill
+  #{ /* gimple_with_cleanup_expr ! */
+  $CLEANUPFLAG = gimple_wce_cleanup_eh_only($GR);
+  }#)
 
 ;;; match a gimple asm
 (defcmatcher gimple_asm
@@ -3581,6 +3614,7 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  gimple_try 
  gimple_try_catch
  gimple_try_finally
+ gimple_with_cleanup_expr
  gimpleseq_content 
  gimpleval
  inform_at_gimple
