@@ -2329,6 +2329,9 @@ treerr
   }#)
 
 ;;;;;;;;;;;;;;;;
+;; pseudoprimitive (TREE_CALL_EXPR fndecl args....)
+(defvar tree_call_primitive_cache_tuple)
+(setq tree_call_primitive_cache_tuple (make_multiple discr_multiple 32))
 (defun mexpand_tree_call_expr (sexpr env mexpander modctx)
   (debug "mexpand_tree_call_expr" "; sexpr=" sexpr "\n.. env=" env "\n.. modctx=" modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
@@ -2336,10 +2339,80 @@ treerr
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
+	(xargtup (expand_restlist_as_tuple cont env mexpander modctx))
+	(nbargs (multiple_length xargtup))
+	(nbcallargs (-i nbargs 1))
 	)
-    (debug "mexpand_tree_call_expr" "; loc=" loc "; cont=" cont)
-    (error_at loc "unimplemented TREE_CALL_EXPR macro")
-    (assert_msg "@$@unimplemented mexpand_tree_call_expr")
+    (debug "mexpand_tree_call_expr" "; loc=" loc "; cont=" cont
+	   "\n.. xargtup=" xargtup)
+    (when (<i nbargs 1)
+      (error_at loc "pseudo-primitive (TREE_CALL_EXPR <funtree> <args>...) with too few $1 arguments" nbargs)
+      (return))
+    (let (
+	  (cachelen (multiple_length tree_call_primitive_cache_tuple))
+	  (cprim (if (<i nbcallargs cachelen)
+		     (multiple_nth tree_call_primitive_cache_tuple nbcallargs)
+		   ()))
+	  )
+      (unless cprim
+	;; grow the cache if needed
+	(if (>=i nbcallargs cachelen)
+	    (let ( (newcachelen (+i 1 (ori 0xf (+i 5 (*i 3 (/iraw nbcallargs 2))))))
+		   (newtup (make_multiple discr_multiple newcachelen))
+		   )
+	      (foreach_long_upto
+	       (0 (-i cachelen 1))
+	       (:long hix)
+	       (multiple_put_nth newtup hix (multiple_nth tree_call_primitive_cache_tuple hix)))
+	      (setq tree_call_primitive_cache_tuple newtup)))
+	(let (
+	      (primname (string4out discr_string "TREE_CALL_" nbcallargs))
+	      (primsymb (create_symbolstr primname))
+	      (tupformsymbs
+	       (let ( (symlist (list 'tr_cfun))
+		      )
+		 (foreach_long_upto
+		  (0 nbcallargs)
+		  (:long fix)
+		  (list_append symlist
+			       (create_symbolstr  (string4out discr_string "TR_ARG_" fix))))
+		 (list_to_multiple symlist discr_multiple)))
+	      (primfortup (multiple_map
+			   tupformsymbs
+			   (lambda (tsymb)
+			     (instance class_formal_binding
+				       :binder tsymb :fbind_type ctype_tree))))
+	      (primexptup
+	       (let ( (pxl (make_list discr_list))
+		      (tr_cfun 'tr_cfun)
+		      )
+		 (add2list pxl ##{/* tree_call_expr quasiprimitive $PRIMNAME */ build_call_expr }# "("
+			   ##{$TR_CFUN, $NBCALLARGS}#)
+		 (foreach_in_multiple
+		  (tupformsymbs)
+		  (curform :long fix)
+		  (if fix (add2list pxl ##{, $CURFORM}#)))
+		 (list_to_multiple pxl discr_multiple)
+		 ))
+	      (newprim (instance class_primitive
+				 :named_name primsymb
+				 :prim_formals primfortup
+				 :prim_type ctype_tree
+				 :prim_expansion primexptup))
+	      )
+	  (debug "mexpand_tree_call_expr" "; loc=" loc "; newprim= " newprim)
+	  (setq cprim newprim)
+	  ))
+      (assert_msg "check cprim" (is_a cprim class_primitive))
+      (let ( (res (instance class_source_primitive
+			    :loca_location loc
+			    :sprim_oper cprim
+			    :sargop_args xargtup))
+	     )
+	(debug "mexpand_tree_call_expr" "; loc=" loc "; res=" res)
+	(return res)
+	)
+      )
     )
   )
 
