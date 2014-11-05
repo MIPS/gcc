@@ -1,5 +1,8 @@
 
 2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (make_tree_call_expr): New function.
+
+2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (mexpand_tree_call_expr):
 	Done.
 2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>

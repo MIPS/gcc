@@ -2416,7 +2416,62 @@ treerr
     )
   )
 
-
+;;; function make_tree_call_expr
+(defun make_tree_call_expr (fnv argv)
+  :doc #{The function $MAKE_TREE_CALL_EXPR takes a boxed tree function
+  declaration $FNV and a tuple or a list of boxes tree arguments $ARGV
+  and build a boxed @code{CALL_EXPR} tree, or else nil. See alo $TREE_CALL_EXPR
+  quasiprimitive.}#
+  (let ( (t_fn (unbox :tree fnv))
+	 )
+    (if t_fn
+	(let ( (args (make_list discr_list))
+	       )
+	  (cond
+	   ( (is_list argv)
+	     (each_component_in_list
+	      argv
+	      curargv
+	      (let ( (t_arg (unbox :tree curargv))
+		     )
+		(if t_arg (list_append args curargv)))))
+	   ( (is_multiple argv)
+	     (foreach_in_multiple
+	      (argv)
+	      (curargv :long aix)
+	      (let ( (t_arg (unbox :tree curargv))
+		     )
+		(if t_arg (list_append args curargv)))))
+	   (:else
+	    (return)))
+	  (let ( (nbargs (list_length args))
+		 (argtup (list_to_multiple  args discr_multiple))
+		 (:tree t_curarg (null_tree))
+		 (:tree t_res (null_tree))
+		 )
+	    (code_chunk maketreecall_chk #{ /* make_tree_call_expr $MAKETREECALL_CHK */
+			auto_vec<tree> targsvec_$MAKETREECALL_CHK;
+			targsvec_$MAKETREECALL_CHK.reserve($NBARGS);
+			for (int ix_$MAKETREECALL_CHK=0;
+				 ix_$MAKETREECALL_CHK<$NBARGS;
+				 ix_$MAKETREECALL_CHK++)
+			{
+			   $T_CURARG = melt_tree_content(melt_multiple_nth($ARGTUP, ix_$MAKETREECALL_CHK));
+			   targsvec_$MAKETREECALL_CHK.quick_push($T_CURARG);
+			}
+			$T_RES = build_call_expr_loc_array (UNKNOWN_LOCATION,
+							    $T_FN,
+							    $NBARGS,
+							    &targsvec_$MAKETREECALL_CHK[0]);
+			}#)
+	    (return (constant_box t_res))
+	    )
+	  )
+      )
+    )
+  (return)
+  )
+	      
 ;;;;;;;
 (defvar tree_call_cmatcher_cache_tuple)
 (setq tree_call_cmatcher_cache_tuple (make_multiple discr_multiple 32))
@@ -3751,7 +3806,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  is_tree
  isnull_tree
  make_maptree
- make_tree  
+ make_tree
+ make_tree_call_expr
  maptree_aux
  maptree_auxput
  maptree_count
