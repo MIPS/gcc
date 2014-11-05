@@ -5000,15 +5000,15 @@ expand_omp_taskreg (struct omp_region *region)
 	{
 	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  tree arg, narg;
-	  gimple parcopy_stmt = NULL;
+	  gassign *parcopy_stmt = NULL;
 
 	  for (gsi = gsi_start_bb (entry_succ_bb); ; gsi_next (&gsi))
 	    {
-	      gimple stmt;
+	      gassign *stmt;
 
 	      gcc_assert (!gsi_end_p (gsi));
-	      stmt = gsi_stmt (gsi);
-	      if (gimple_code (stmt) != GIMPLE_ASSIGN)
+	      stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+	      if (!stmt)
 		continue;
 
 	      if (gimple_num_ops (stmt) == 2)
@@ -7871,7 +7871,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   tree lhs, rhs;
   basic_block store_bb = single_succ (load_bb);
   gimple_stmt_iterator gsi;
-  gimple stmt;
+  gassign *stmt;
   location_t loc;
   enum tree_code code;
   bool need_old, need_new;
@@ -7893,10 +7893,10 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   */
 
   gsi = gsi_after_labels (store_bb);
-  stmt = gsi_stmt (gsi);
-  loc = gimple_location (stmt);
-  if (!is_gimple_assign (stmt))
+  stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+  if (!stmt)
     return false;
+  loc = gimple_location (stmt);
   gsi_next (&gsi);
   if (gimple_code (gsi_stmt (gsi)) != GIMPLE_OMP_ATOMIC_STORE)
     return false;
@@ -8323,7 +8323,6 @@ expand_omp_target (struct omp_region *region)
   tree child_fn = NULL_TREE, block, t;
   gimple_stmt_iterator gsi;
   gomp_target *entry_stmt;
-  gimple stmt;
   edge e;
 
   entry_stmt = as_a <gomp_target *> (last_stmt (region->entry));
@@ -8360,15 +8359,15 @@ expand_omp_target (struct omp_region *region)
 	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  gimple_stmt_iterator gsi;
 	  tree arg;
-	  gimple tgtcopy_stmt = NULL;
+	  gassign *tgtcopy_stmt = NULL;
 	  tree sender
 	    = TREE_VEC_ELT (gimple_omp_target_data_arg (entry_stmt), 0);
 
 	  for (gsi = gsi_start_bb (entry_succ_bb); ; gsi_next (&gsi))
 	    {
 	      gcc_assert (!gsi_end_p (gsi));
-	      stmt = gsi_stmt (gsi);
-	      if (gimple_code (stmt) != GIMPLE_ASSIGN)
+	      gassign *stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+	      if (!stmt)
 		continue;
 
 	      if (gimple_num_ops (stmt) == 2)
@@ -8417,7 +8416,7 @@ expand_omp_target (struct omp_region *region)
       /* Split ENTRY_BB at GIMPLE_OMP_TARGET,
 	 so that it can be moved to the child function.  */
       gsi = gsi_last_bb (entry_bb);
-      stmt = gsi_stmt (gsi);
+      gimple stmt = gsi_stmt (gsi);
       gcc_assert (stmt && gimple_code (stmt) == GIMPLE_OMP_TARGET
 		  && (gimple_omp_target_kind (as_a <gomp_target *> (stmt))
 		      == GF_OMP_TARGET_KIND_REGION));
@@ -8553,7 +8552,7 @@ expand_omp_target (struct omp_region *region)
       set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
       set_immediate_dominator (CDI_DOMINATORS, else_bb, cond_bb);
 
-      stmt = gimple_build_cond_empty (cond);
+      gimple stmt = gimple_build_cond_empty (cond);
       gsi = gsi_last_bb (cond_bb);
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
@@ -11916,9 +11915,11 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
 	}
       else
 	{
-	  stmt = gimple_build_assign (make_ssa_name (TREE_TYPE (repl),
-						     NULL), repl);
-	  repl = gimple_assign_lhs (stmt);
+	  gassign *assign_stmt =
+	    gimple_build_assign (make_ssa_name (TREE_TYPE (repl),
+						NULL), repl);
+	  stmt = assign_stmt;
+	  repl = gimple_assign_lhs (assign_stmt);
 	}
       gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
