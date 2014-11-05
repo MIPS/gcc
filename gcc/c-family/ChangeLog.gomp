@@ -1,3 +1,7 @@
+2014-11-05  James Norris  <jnorris@codesourcery.com>
+
+	* c-pragma.c (oacc_pragmas): Add "cache".
+
 2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-pragma.c (oacc_pragmas): Add entries for PRAGMA_OACC_ENTER_DATA

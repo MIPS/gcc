@@ -10053,6 +10053,14 @@ c_parser_omp_variable_list (c_parser *parser,
 	{
 	  switch (kind)
 	    {
+	    case OMP_NO_CLAUSE_CACHE:
+	      if (c_parser_peek_token (parser)->type != CPP_OPEN_SQUARE)
+		{
+		  c_parser_error (parser, "expected %<[%>");
+		  t = error_mark_node;
+		  break;
+		}
+	      /* FALL THROUGH.  */
 	    case OMP_CLAUSE_MAP:
 	    case OMP_CLAUSE_FROM:
 	    case OMP_CLAUSE_TO:
@@ -10091,6 +10099,29 @@ c_parser_omp_variable_list (c_parser *parser,
 		      t = error_mark_node;
 		      break;
 		    }
+
+		  if (kind == OMP_NO_CLAUSE_CACHE)
+		    {
+		      mark_exp_read (low_bound);
+		      mark_exp_read (length);
+
+		      if (TREE_CODE (low_bound) != INTEGER_CST
+			  && !TREE_READONLY (low_bound))
+			{
+			  error_at (clause_loc,
+					"%qD is not a constant", low_bound);
+			  t = error_mark_node;
+			}
+
+		      if (TREE_CODE (length) != INTEGER_CST
+			  && !TREE_READONLY (length))
+			{
+			  error_at (clause_loc,
+					"%qD is not a constant", length);
+			  t = error_mark_node;
+			}
+		    }
+
 		  t = tree_cons (low_bound, length, t);
 		}
 	      break;
@@ -11861,6 +11892,21 @@ c_parser_omp_structured_block (c_parser *parser)
   tree stmt = push_stmt_list ();
   c_parser_statement (parser);
   return pop_stmt_list (stmt);
+}
+
+/* OpenACC 2.0:
+   # pragma acc cache (variable-list) new-line
+
+   LOC is the location of the #pragma token.
+*/
+
+static tree
+c_parser_oacc_cache (location_t loc __attribute__((unused)), c_parser *parser)
+{
+  c_parser_omp_var_list_parens (parser, OMP_NO_CLAUSE_CACHE, NULL);
+  c_parser_skip_to_pragma_eol (parser);
+
+  return NULL_TREE;
 }
 
 /* OpenACC 2.0:
@@ -14506,6 +14552,10 @@ c_parser_omp_construct (c_parser *parser)
 
   switch (p_kind)
     {
+    case PRAGMA_OACC_CACHE:
+      strcpy (p_name, "#pragma acc");
+      stmt = c_parser_oacc_cache (loc, parser);
+      break;
     case PRAGMA_OACC_DATA:
       stmt = c_parser_oacc_data (loc, parser);
       break;

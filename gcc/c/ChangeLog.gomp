@@ -1,3 +1,10 @@
+2014-11-05  James Norris  <jnorris@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_variable_list): Handle
+	OMP_NO_CLAUSE_CACHE.
+	(c_parser_oacc_cache): New function.
+	(c_parser_omp_construct): Use it for PRAGMA_OACC_CACHE.
+
 2014-11-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_enter_exit_data): New function.
