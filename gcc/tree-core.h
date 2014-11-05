@@ -266,6 +266,10 @@ enum omp_clause_code {
      OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
   OMP_CLAUSE_MAP,
 
+  /* Internal structure to hold OpenACC cache directive's variable-list.
+     #pragma acc cache (variable-list).  */
+  OMP_CLAUSE__CACHE_,
+
   /* OpenACC clause: host (variable_list).  */
   OMP_CLAUSE_HOST,
 
@@ -291,10 +295,6 @@ enum omp_clause_code {
 
   /* OpenACC clause/directive: wait [(integer-expression-list)].  */
   OMP_CLAUSE_WAIT,
-
-  /* Internal structure to hold OpenACC cache directive's variable-list.
-     #pragma acc cache (variable-list).  */
-  OMP_NO_CLAUSE_CACHE,
 
   /* Internal clause: temporary for combined loops expansion.  */
   OMP_CLAUSE__LOOPTEMP_,

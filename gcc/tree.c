@@ -270,6 +270,7 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_FROM  */
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
+  2, /* OMP_CLAUSE__CACHE_  */
   1, /* OMP_CLAUSE_HOST  */
   1, /* OMP_CLAUSE_OACC_DEVICE  */
   1, /* OMP_CLAUSE_DEVICE_RESIDENT  */
@@ -277,7 +278,6 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_GANG  */
   1, /* OMP_CLAUSE_ASYNC  */
   1, /* OMP_CLAUSE_WAIT  */
-  1, /* OMP_NO_CLAUSE_CACHE  */
   1, /* OMP_CLAUSE__LOOPTEMP_  */
   1, /* OMP_CLAUSE_IF  */
   1, /* OMP_CLAUSE_NUM_THREADS  */
@@ -329,6 +329,7 @@ const char * const omp_clause_code_name[] =
   "from",
   "to",
   "map",
+  "_cache_",
   "host",
   "device",
   "device_resident",
@@ -336,7 +337,6 @@ const char * const omp_clause_code_name[] =
   "gang",
   "async",
   "wait",
-  "_cache_",
   "_looptemp_",
   "if",
   "num_threads",
@@ -11127,7 +11127,6 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
-	case OMP_NO_CLAUSE_CACHE:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
 	case OMP_CLAUSE_NUM_GANGS:
@@ -11194,6 +11193,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_FROM:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_MAP:
+	case OMP_CLAUSE__CACHE_:
 	  WALK_SUBTREE (OMP_CLAUSE_DECL (*tp));
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 1));
 	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));

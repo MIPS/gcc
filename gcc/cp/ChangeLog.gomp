@@ -1,5 +1,11 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* parser.c (cp_parser_oacc_cache): Generate OACC_CACHE.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE__CACHE_.
+
+	* parser.c (cp_parser_omp_var_list_no_open) <OMP_CLAUSE__CACHE_>:
+	Remove explicit mark_exp_read invocations.
+
 	* parser.c (cp_parser_omp_clause_name): Also look for "pcopy",
 	"pcopyin", "pcopyout", "pcreate".  Look for "wait" instead of
 	"WAIT".

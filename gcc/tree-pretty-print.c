@@ -347,9 +347,6 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     case OMP_CLAUSE_USE_DEVICE:
       name = "use_device";
       goto print_remap;
-    case OMP_NO_CLAUSE_CACHE:
-      name = "_cache_";
-      goto print_remap;
   print_remap:
       pp_string (buffer, name);
       pp_left_paren (buffer);
@@ -595,6 +592,12 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_TO:
       pp_string (buffer, "to(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
+			 spc, flags, false);
+      goto print_clause_size;
+
+    case OMP_CLAUSE__CACHE_:
+      pp_string (buffer, "(");
       dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
 			 spc, flags, false);
       goto print_clause_size;
@@ -2548,7 +2551,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OACC_CACHE:
       pp_string (buffer, "#pragma acc cache");
-      dump_omp_clauses (buffer, OACC_CACHE_CLAUSES(node), spc, flags);
+      dump_omp_clauses (buffer, OACC_CACHE_CLAUSES (node), spc, flags);
       break;
 
     case OMP_PARALLEL:

@@ -1807,7 +1807,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  clause_code = OMP_CLAUSE_DEVICE_RESIDENT;
 	  goto add_clause;
 	case OMP_LIST_CACHE:
-	  clause_code = OMP_NO_CLAUSE_CACHE;
+	  clause_code = OMP_CLAUSE__CACHE_;
 	  goto add_clause;
 
 	add_clause:

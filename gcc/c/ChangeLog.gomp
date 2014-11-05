@@ -1,3 +1,11 @@
+2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_cache): Generate OACC_CACHE.
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE__CACHE_.
+
+	* c-parser.c (c_parser_omp_variable_list) <OMP_CLAUSE__CACHE_>:
+	Remove explicit mark_exp_read invocations.
+
 2014-11-05  James Norris  <jnorris@codesourcery.com>
 
 	* c-parser.c (c_parser_omp_variable_list): Handle

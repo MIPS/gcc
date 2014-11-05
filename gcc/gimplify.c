@@ -6114,6 +6114,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
+	case OMP_CLAUSE__CACHE_:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (error_operand_p (decl))
 	    {
@@ -6294,7 +6295,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
-	case OMP_NO_CLAUSE_CACHE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
@@ -6641,6 +6641,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
+	case OMP_CLAUSE__CACHE_:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (!DECL_P (decl))
 	    break;
@@ -6698,7 +6699,6 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
-	case OMP_NO_CLAUSE_CACHE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
@@ -6720,6 +6720,21 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 
   gimplify_omp_ctxp = ctx->outer_context;
   delete_omp_context (ctx);
+}
+
+/* Gimplify OACC_CACHE.  */
+
+static void
+gimplify_oacc_cache (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+
+  gimplify_scan_omp_clauses (&OACC_CACHE_CLAUSES (expr), pre_p, ORT_WORKSHARE);
+  gimplify_adjust_omp_clauses (pre_p, &OACC_CACHE_CLAUSES (expr));
+
+  /* TODO: Do something sensible with this information.  */
+
+  *expr_p = NULL_TREE;
 }
 
 /* Gimplify the contents of an OMP_PARALLEL statement.  This involves
@@ -8312,7 +8327,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OACC_HOST_DATA:
 	case OACC_DECLARE:
-	case OACC_CACHE:
 	  sorry ("directive not yet implemented");
 	  ret = GS_ALL_DONE;
 	  break;
@@ -8349,6 +8363,11 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    sorry ("directive not yet implemented");
 	  else
 	    gimplify_omp_workshare (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case OACC_CACHE:
+	  gimplify_oacc_cache (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
 

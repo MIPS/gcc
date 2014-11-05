@@ -27669,7 +27669,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	{
 	  switch (kind)
 	    {
-	    case OMP_NO_CLAUSE_CACHE:
+	    case OMP_CLAUSE__CACHE_:
 	      if (cp_lexer_peek_token (parser->lexer)->type != CPP_OPEN_SQUARE)
 		{
 		  error_at (token->location, "expected %<[%>");
@@ -27708,11 +27708,8 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 					  RT_CLOSE_SQUARE))
 		    goto skip_comma;
 
-		  if (kind == OMP_NO_CLAUSE_CACHE)
+		  if (kind == OMP_CLAUSE__CACHE_)
 		    {
-		      mark_exp_read (low_bound);
-		      mark_exp_read (length);
-
 		      if (TREE_CODE (low_bound) != INTEGER_CST
 			  && !TREE_READONLY (low_bound))
 			{
@@ -31410,13 +31407,22 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 */
 
 static tree
-cp_parser_oacc_cache (cp_parser *parser,
-				cp_token *pragma_tok __attribute__((unused)))
+cp_parser_oacc_cache (cp_parser *parser, cp_token *pragma_tok)
 {
-  cp_parser_omp_var_list (parser, OMP_NO_CLAUSE_CACHE, NULL_TREE);
+  tree stmt, clauses;
+
+  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE__CACHE_, NULL_TREE);
+  clauses = finish_omp_clauses (clauses);
+
   cp_parser_require_pragma_eol (parser, cp_lexer_peek_token (parser->lexer));
 
-  return NULL_TREE;
+  stmt = make_node (OACC_CACHE);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_CACHE_CLAUSES (stmt) = clauses;
+  SET_EXPR_LOCATION (stmt, pragma_tok->location);
+  add_stmt (stmt);
+
+  return stmt;
 }
 
 /* OpenACC 2.0:

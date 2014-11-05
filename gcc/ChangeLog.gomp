@@ -1,5 +1,14 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimplify.c (gimplify_oacc_cache): New function.
+	(gimplify_expr): Use it for OACC_CACHE.
+	(gimplify_scan_omp_clauses, gimplify_adjust_omp_clauses): Handle
+	OMP_CLAUSE__CACHE_.
+
+	* tree-core.h (enum omp_clause_code): Move OMP_NO_CLAUSE_CACHE
+	next to, and handle it like a data clause.  Rename it to
+	OMP_CLAUSE__CACHE_.  Update all users.
+
 	* invoke.texi: Update for OpenACC.
 	* sourcebuild.texi: Likewise.
 

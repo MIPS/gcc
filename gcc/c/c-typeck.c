@@ -12204,6 +12204,7 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_MAP:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
+	case OMP_CLAUSE__CACHE_:
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {

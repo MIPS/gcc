@@ -1254,7 +1254,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_SIZE(NODE)						\
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_FROM,		\
-					      OMP_CLAUSE_MAP), 1)
+					      OMP_CLAUSE__CACHE_), 1)
 
 #define OMP_CLAUSE_CHAIN(NODE)     TREE_CHAIN (OMP_CLAUSE_CHECK (NODE))
 #define OMP_CLAUSE_DECL(NODE)      					\

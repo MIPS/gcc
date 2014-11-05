@@ -10053,7 +10053,7 @@ c_parser_omp_variable_list (c_parser *parser,
 	{
 	  switch (kind)
 	    {
-	    case OMP_NO_CLAUSE_CACHE:
+	    case OMP_CLAUSE__CACHE_:
 	      if (c_parser_peek_token (parser)->type != CPP_OPEN_SQUARE)
 		{
 		  c_parser_error (parser, "expected %<[%>");
@@ -10100,11 +10100,8 @@ c_parser_omp_variable_list (c_parser *parser,
 		      break;
 		    }
 
-		  if (kind == OMP_NO_CLAUSE_CACHE)
+		  if (kind == OMP_CLAUSE__CACHE_)
 		    {
-		      mark_exp_read (low_bound);
-		      mark_exp_read (length);
-
 		      if (TREE_CODE (low_bound) != INTEGER_CST
 			  && !TREE_READONLY (low_bound))
 			{
@@ -11901,12 +11898,22 @@ c_parser_omp_structured_block (c_parser *parser)
 */
 
 static tree
-c_parser_oacc_cache (location_t loc __attribute__((unused)), c_parser *parser)
+c_parser_oacc_cache (location_t loc, c_parser *parser)
 {
-  c_parser_omp_var_list_parens (parser, OMP_NO_CLAUSE_CACHE, NULL);
+  tree stmt, clauses;
+
+  clauses = c_parser_omp_var_list_parens (parser, OMP_CLAUSE__CACHE_, NULL);
+  clauses = c_finish_omp_clauses (clauses);
+
   c_parser_skip_to_pragma_eol (parser);
 
-  return NULL_TREE;
+  stmt = make_node (OACC_CACHE);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_CACHE_CLAUSES (stmt) = clauses;
+  SET_EXPR_LOCATION (stmt, loc);
+  add_stmt (stmt);
+
+  return stmt;
 }
 
 /* OpenACC 2.0:
