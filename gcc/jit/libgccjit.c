@@ -22,23 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "opts.h"
+#include "safe-ctype.h"
 
 #include "libgccjit.h"
 #include "jit-common.h"
 #include "jit-recording.h"
-
-#define IS_ASCII_ALPHA(CHAR) \
-  (					\
-    ((CHAR) >= 'a' && (CHAR) <='z')	\
-    ||					\
-    ((CHAR) >= 'A' && (CHAR) <= 'Z')	\
-  )
-
-#define IS_ASCII_DIGIT(CHAR) \
-  ((CHAR) >= '0' && (CHAR) <='9')
-
-#define IS_ASCII_ALNUM(CHAR) \
-  (IS_ASCII_ALPHA (CHAR) || IS_ASCII_DIGIT (CHAR))
 
 struct gcc_jit_context : public gcc::jit::recording::context
 {
@@ -589,13 +577,15 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (return_type, ctxt, loc, "NULL return_type");
   RETURN_NULL_IF_FAIL (name, ctxt, loc, "NULL name");
   /* The assembler can only handle certain names, so for now, enforce
-     C's rules for identiers upon the name.
-     Eventually we'll need some way to interact with e.g. C++ name mangling.  */
+     C's rules for identiers upon the name, using ISALPHA and ISALNUM
+     from safe-ctype.h to ignore the current locale.
+     Eventually we'll need some way to interact with e.g. C++ name
+     mangling.  */
   {
     /* Leading char: */
     char ch = *name;
     RETURN_NULL_IF_FAIL_PRINTF2 (
-	IS_ASCII_ALPHA (ch) || ch == '_',
+	ISALPHA (ch) || ch == '_',
 	ctxt, loc,
 	"name \"%s\" contains invalid character: '%c'",
 	name, ch);
@@ -603,7 +593,7 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
     for (const char *ptr = name + 1; (ch = *ptr); ptr++)
       {
 	RETURN_NULL_IF_FAIL_PRINTF2 (
-	  IS_ASCII_ALNUM (ch) || ch == '_',
+	  ISALNUM (ch) || ch == '_',
 	  ctxt, loc,
 	  "name \"%s\" contains invalid character: '%c'",
 	  name, ch);

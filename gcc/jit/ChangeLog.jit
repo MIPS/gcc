@@ -1,3 +1,13 @@
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.c: Include safe-ctype.h from libiberty.
+	(IS_ASCII_ALPHA): Delete.
+	(IS_ASCII_DIGIT): Delete.
+	(IS_ASCII_ALNUM): Delete.
+	(gcc_jit_context_new_function): Replace use of IS_ASCII_ALPHA and
+	IS_ASCII_ALNUM with ISALPHA and ISALNUM respectively, from
+	libiberty.
+
 2014-10-30  David Malcolm  <dmalcolm@redhat.com>
 
 	* dummy-frontend.c (jit_langhook_init): Remove some dead code.
