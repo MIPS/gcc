@@ -1805,15 +1805,16 @@ expr_expected_value_1 (tree type, tree op0, enum tree_code code,
 	    }
 	  return val;
 	}
-      if (is_gimple_assign (def))
+      if (gassign *def_assign = dyn_cast <gassign *> (def))
 	{
-	  if (gimple_assign_lhs (def) != op0)
+	  if (gimple_assign_lhs (def_assign) != op0)
 	    return NULL;
 
-	  return expr_expected_value_1 (TREE_TYPE (gimple_assign_lhs (def)),
-					gimple_assign_rhs1 (def),
-					gimple_assign_rhs_code (def),
-					gimple_assign_rhs2 (def),
+	  return expr_expected_value_1 (TREE_TYPE (
+					  gimple_assign_lhs (def_assign)),
+					gimple_assign_rhs1 (def_assign),
+					gimple_assign_rhs_code (def_assign),
+					gimple_assign_rhs2 (def_assign),
 					visited, predictor);
 	}
 

@@ -1,5 +1,11 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* predict.c (expr_expected_value_1): Replace is_gimple_assign with
+	a dyn_cast, introducing local "def_assign" and using it in place
+	of "def" for typesafety.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* omp-low.c (expand_omp_taskreg): Strengthen locals "parcopy_stmt"
 	and "stmt" from gimple to gassign *, replacing a check against
 	GIMPLE_ASSIGN with a dyn_cast.
