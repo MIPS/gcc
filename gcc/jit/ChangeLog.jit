@@ -1,5 +1,10 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit-playback.c (gcc::jit::playback::context::handle_locations):
+	Drop the disabled debugging code.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* docs/topics/expressions.rst (Type-coercion): Casts between
 	pointer types are valid.
 	* libgccjit.c: Document that gcc_jit_context et al are actually

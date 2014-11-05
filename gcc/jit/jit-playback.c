@@ -1858,12 +1858,6 @@ handle_locations ()
   /* line_table should now be populated; every playback::location should
      now have an m_srcloc.  */
 
-  if (0)
-    line_table_dump (stderr,
-		     line_table,
-		     LINEMAPS_ORDINARY_USED (line_table),
-		     LINEMAPS_MACRO_USED (line_table));
-
   /* Now assign them to tree nodes as appropriate.  */
   std::pair<tree, location *> *cached_location;
 
@@ -1871,10 +1865,6 @@ handle_locations ()
     {
       tree t = cached_location->first;
       source_location srcloc = cached_location->second->m_srcloc;
-#if 0
-      inform (srcloc, "location of ");
-      debug_tree (t);
-#endif
 
       /* This covers expressions: */
       if (CAN_HAVE_LOCATION_P (t))
@@ -1884,12 +1874,6 @@ handle_locations ()
       else
 	{
 	  /* Don't know how to set location on this node.  */
-	  if (0)
-	    {
-	      fprintf (stderr, "can't set location on:");
-	      debug_tree (t);
-	      fprintf (stderr, "\n");
-	    }
 	}
     }
 }
