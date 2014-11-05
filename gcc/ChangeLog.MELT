@@ -1,4 +1,8 @@
 
+2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (patexpand_tree_call_more_expr):
+	Improve.
+
 2014-11-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 

@@ -2659,19 +2659,42 @@ treerr
 	)
       (debug "patexpand_tree_call_more_expr" "; loc=" loc "; cmat=" cmat)
       (assert_msg "check cmat" (is_a cmat class_cmatcher) cmat)
-      (let (
-	    (res
-	     (instance class_source_cmatchexpr
-		       :loca_location loc
-		       :scmatx_cmatcher cmat
-		       :sargop_args argsp)
-	     )
-	    )
-	(debug "patexpand_tree_call_more_expr" "; loc=" loc "\n.. res=" res)
-	(assert_msg "@$@unimplemented patexpand_tree_call_more_expr" ())
-	;;; should call patmacexpand_for_matcher & pattern_weight_tuple
-	(return res)
+      (multicall
+       (args pats)
+       (patmacexpand_for_matcher curpair cmat env loc pctx)
+       (debug "patexpand_tree_call_more_expr" "; loc=" loc " args=" args " pats=" pats)
+       (multicall
+	(subpatw :long imax imin isum)
+	(pattern_weight_tuple pats)
+	(debug "patexpand_tree_call_more_expr" "; loc=" loc " subpatw=" subpatw
+	       "\n.. imax=" imax " imin=" imin " isum=" isum)
+	(let (
+	      (cmatsymb (get_field :named_name cmat))
+	      ;;; notice that we are embedding the binding in the
+	      ;;; result, but not putting the binding in the
+	      ;;; environment. See comment about 'mv is not bound' in
+	      ;;; file warmelt-normatch.melt function
+	      ;;; normpat_anymatchpat...
+	      (cmabind (instance class_cmatcher_binding
+				 :binder cmatsymb
+				 :cmbind_matcher cmat))
+	      (res
+	       (instance class_source_pattern_c_match
+			 :loca_location loc
+			 :pat_weight (constant_box (+i 1 isum))
+			 :spac_operator cmat
+			 :spac_operbind cmabind
+			 :spac_inargs args
+			 :spac_outargs pats)
+	       )
+	      )
+	  (debug "patexpand_tree_call_more_expr" "; loc=" loc "\n.. cmabind=" cmabind
+		 "\n.. res=" res)
+	  (return res)
+	  )
 	)
+       )
+      
       )
     )
   )
