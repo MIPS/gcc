@@ -27535,13 +27535,17 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_PARALLEL;
 	  else if (!strcmp ("present", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT;
-	  else if (!strcmp ("present_or_copy", p))
+	  else if (!strcmp ("present_or_copy", p)
+		   || !strcmp ("pcopy", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY;
-	  else if (!strcmp ("present_or_copyin", p))
+	  else if (!strcmp ("present_or_copyin", p)
+		   || !strcmp ("pcopyin", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN;
-	  else if (!strcmp ("present_or_copyout", p))
+	  else if (!strcmp ("present_or_copyout", p)
+		   || !strcmp ("pcopyout", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYOUT;
-	  else if (!strcmp ("present_or_create", p))
+	  else if (!strcmp ("present_or_create", p)
+		   || !strcmp ("pcreate", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE;
 	  else if (!strcmp ("private", p))
 	    result = PRAGMA_OMP_CLAUSE_PRIVATE;
@@ -27587,7 +27591,7 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_CILK_CLAUSE_VECTORLENGTH;
 	  break;
 	case 'w':
-	  if (!strcmp ("WAIT", p))
+	  if (!strcmp ("wait", p))
 	    result = PRAGMA_OMP_CLAUSE_WAIT;
 	  break;
 	}
