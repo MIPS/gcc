@@ -35,7 +35,6 @@ program test
   !$acc end parallel
 
 end program test
-! { dg-prune-output "sorry" }
 ! { dg-final { scan-tree-dump-times "pragma acc loop" 5 "original" } } 
 
 ! { dg-final { scan-tree-dump-times "collapse\\(2\\)" 1 "original" } } 

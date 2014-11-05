@@ -1,3 +1,11 @@
+2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.dg/goacc/data-tree.f95: Remove dg-prune-output directive.
+	* gfortran.dg/goacc/kernels-tree.f95: Likewise.
+	* gfortran.dg/goacc/loop-tree-1.f90: Likewise.
+	* gfortran.dg/goacc/parallel-tree.f95: Likewise.
+	* gfortran.dg/goacc/private-1.f95: Likewise.
+
 2014-11-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/routine-1.f90: New test.

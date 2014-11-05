@@ -12,7 +12,6 @@ program test
   !$acc end data
 
 end program test
-! { dg-prune-output "unimplemented" }
 ! { dg-final { scan-tree-dump-times "pragma acc data" 1 "original" } } 
 
 ! { dg-final { scan-tree-dump-times "if" 1 "original" } }

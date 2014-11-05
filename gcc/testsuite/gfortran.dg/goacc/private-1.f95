@@ -31,7 +31,6 @@ program test
   end do
   !$acc end parallel
 end program test
-! { dg-prune-output "unimplemented" }
 ! { dg-final { scan-tree-dump-times "pragma acc parallel" 3 "omplower" } }
 ! { dg-final { scan-tree-dump-times "private\\(i\\)" 3 "omplower" } }
 ! { dg-final { scan-tree-dump-times "private\\(j\\)" 2 "omplower" } }

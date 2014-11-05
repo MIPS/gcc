@@ -12,7 +12,6 @@ program test
   !$acc end kernels
 
 end program test
-! { dg-prune-output "unimplemented" }
 ! { dg-final { scan-tree-dump-times "pragma acc kernels" 1 "original" } } 
 
 ! { dg-final { scan-tree-dump-times "if" 1 "original" } }
