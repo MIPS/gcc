@@ -1534,10 +1534,10 @@ unmodified_parm (gimple stmt, tree op)
     return res;
 
   if (TREE_CODE (op) == SSA_NAME
-      && !SSA_NAME_IS_DEFAULT_DEF (op)
-      && gimple_assign_single_p (SSA_NAME_DEF_STMT (op)))
-    return unmodified_parm (SSA_NAME_DEF_STMT (op),
-			    gimple_assign_rhs1 (SSA_NAME_DEF_STMT (op)));
+      && !SSA_NAME_IS_DEFAULT_DEF (op))
+    if (gassign *def_assign = gimple_assign_single_p (SSA_NAME_DEF_STMT (op)))
+      return unmodified_parm (def_assign,
+			      gimple_assign_rhs1 (def_assign));
   return NULL_TREE;
 }
 
@@ -1568,11 +1568,13 @@ unmodified_parm_or_parm_agg_item (struct ipa_node_params *info,
 
   if (TREE_CODE (op) == SSA_NAME)
     {
-      if (SSA_NAME_IS_DEFAULT_DEF (op)
-	  || !gimple_assign_single_p (SSA_NAME_DEF_STMT (op)))
+      if (SSA_NAME_IS_DEFAULT_DEF (op))
 	return false;
-      stmt = SSA_NAME_DEF_STMT (op);
-      op = gimple_assign_rhs1 (stmt);
+      gassign *def_assign = gimple_assign_single_p (SSA_NAME_DEF_STMT (op));
+      if (!def_assign)
+	return false;
+      stmt = def_assign;
+      op = gimple_assign_rhs1 (def_assign);
       if (!REFERENCE_CLASS_P (op))
 	return unmodified_parm_or_parm_agg_item (info, stmt, op, index_p,
 						 aggpos);
@@ -1595,6 +1597,7 @@ eliminated_by_inlining_prob (gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
   enum tree_code rhs_code;
+  gassign *assign_stmt;
 
   if (!optimize)
     return 0;
@@ -1606,8 +1609,9 @@ eliminated_by_inlining_prob (gimple stmt)
     case GIMPLE_ASSIGN:
       if (gimple_num_ops (stmt) != 2)
 	return 0;
+      assign_stmt = as_a <gassign *> (stmt);
 
-      rhs_code = gimple_assign_rhs_code (stmt);
+      rhs_code = gimple_assign_rhs_code (assign_stmt);
 
       /* Casts of parameters, loads from parameters passed by reference
          and stores to return value or parameters are often free after
@@ -1617,10 +1621,10 @@ eliminated_by_inlining_prob (gimple stmt)
 	  || rhs_code == NOP_EXPR
 	  || rhs_code == VIEW_CONVERT_EXPR
 	  || rhs_code == ADDR_EXPR
-	  || gimple_assign_rhs_class (stmt) == GIMPLE_SINGLE_RHS)
+	  || gimple_assign_rhs_class (assign_stmt) == GIMPLE_SINGLE_RHS)
 	{
-	  tree rhs = gimple_assign_rhs1 (stmt);
-	  tree lhs = gimple_assign_lhs (stmt);
+	  tree rhs = gimple_assign_rhs1 (assign_stmt);
+	  tree lhs = gimple_assign_lhs (assign_stmt);
 	  tree inner_rhs = get_base_address (rhs);
 	  tree inner_lhs = get_base_address (lhs);
 	  bool rhs_free = false;
@@ -2018,7 +2022,7 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
   ssa_op_iter iter;
   tree use;
   struct predicate op_non_const;
-  bool is_load;
+  gassign *load_stmt;
   int base_index;
   struct agg_position_info aggpos;
 
@@ -2035,14 +2039,14 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
   if (gimple_store_p (stmt))
     return p;
 
-  is_load = gimple_assign_load_p (stmt);
+  load_stmt = gimple_assign_load_p (stmt);
 
   /* Loads can be optimized when the value is known.  */
-  if (is_load)
+  if (load_stmt)
     {
       tree op;
-      gcc_assert (gimple_assign_single_p (stmt));
-      op = gimple_assign_rhs1 (stmt);
+      gcc_assert (gimple_assign_single_p (load_stmt));
+      op = gimple_assign_rhs1 (load_stmt);
       if (!unmodified_parm_or_parm_agg_item (info, stmt, op, &base_index,
 					     &aggpos))
 	return p;
@@ -2067,7 +2071,7 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
       return p;
     }
 
-  if (is_load)
+  if (load_stmt)
     op_non_const =
       add_condition (summary, base_index, &aggpos, CHANGED, NULL);
   else
@@ -2088,10 +2092,10 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
 	p = nonconstant_names[SSA_NAME_VERSION (use)];
       op_non_const = or_predicates (summary->conds, &p, &op_non_const);
     }
-  if (gimple_code (stmt) == GIMPLE_ASSIGN
-      && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME)
-    nonconstant_names[SSA_NAME_VERSION (gimple_assign_lhs (stmt))]
-      = op_non_const;
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
+    if (TREE_CODE (gimple_assign_lhs (assign_stmt)) == SSA_NAME)
+      nonconstant_names[SSA_NAME_VERSION (gimple_assign_lhs (assign_stmt))]
+	= op_non_const;
   return op_non_const;
 }
 
@@ -2360,8 +2364,9 @@ find_foldable_builtin_expect (basic_block bb)
 
           while (TREE_CODE (arg) == SSA_NAME)
             {
-              gimple stmt_tmp = SSA_NAME_DEF_STMT (arg);
-              if (!is_gimple_assign (stmt_tmp))
+              gassign *stmt_tmp =
+		dyn_cast <gassign *> (SSA_NAME_DEF_STMT (arg));
+              if (!stmt_tmp)
                 break;
               switch (gimple_assign_rhs_code (stmt_tmp))
                 {
@@ -2586,7 +2591,8 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	      struct predicate this_array_index;
 	      this_array_index =
 		array_index_predicate (info, nonconstant_names,
-				       gimple_assign_rhs1 (stmt));
+				       gimple_assign_rhs1 (
+					 as_a <gassign *> (stmt)));
 	      if (!false_predicate_p (&this_array_index))
 		array_index =
 		  and_predicates (info->conds, &array_index,

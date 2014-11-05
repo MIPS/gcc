@@ -1,5 +1,23 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* ipa-inline-analysis.c (unmodified_parm): Capture result of
+	gimple_assign_single_p as a new local gassign * "def_assign" and
+	use in place of SSA_NAME_DEF_STMT (op) for typesafety.
+	(unmodified_parm_or_parm_agg_item): Likewise.
+	(eliminated_by_inlining_prob): Introduce local "assign_stmt",
+	using it within case GIMPLE_ASSIGN in place of "stmt" for
+	typesafety.
+	(will_be_nonconstant_predicate): Replace local bool "is_load" with
+	new local gassign * "load_stmt", using it in place of "stmt" for
+	typesafety.  Replace check against GIMPLE_ASSIGN with a dyn_cast,
+	introducing new local "assign_stmt", using it in place of "stmt"
+	for typesafety.
+	(find_foldable_builtin_expect): Replace is_gimple_assign with a
+	dyn_cast, strengthening local "stmt_tmp" from gimple to gassign *.
+	(estimate_function_body_sizes): Add a checked cast.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* ipa-split.c (find_return_bb): Eliminate check for GIMPLE_ASSIGN
 	since this is covered by gimple_assign_single_p, using the latter
 	to introduce local gassign * "assign_stmt", using it in place
