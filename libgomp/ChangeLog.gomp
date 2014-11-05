@@ -1,5 +1,23 @@
 2014-11-05  Julian Brown  <julian@codesourcery.com>
 
+	* Makefile.am (SUBDIRS): Add plugin.
+	(DIST_SUBDIRS): Define.
+	(libgomp_plugin_nvptx_*): Remove nvptx support from here.
+	(libgomp_plugin_host_nonshm_*): Likewise.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* oacc-host.c: Replace with #include of plugin/plugin-host.c code,
+	move implementation to the latter.
+	* plugin/plugin-host.c: New file.
+	* plugin-nvptx.c: Move to...
+	* plugin/plugin-nvptx.c: New file.
+	* plugin/Makefile.am: New.
+	* plugin/Makefile.in: Regenerate.
+	* plugin/aclocal.m4: Regenerate.
+	* plugin/configure: Regenerate.
+
+2014-11-05  Julian Brown  <julian@codesourcery.com>
+
 	* oacc-host.c: Add GOMP_OFFLOAD_ prefix for plugin hooks. Rename
 	device_init to init_device, device_fini to fini_device,
 	offload_register to register_image and remove extraneous "device_"

@@ -30,42 +30,6 @@ LIBGOMP_ENABLE(generated-files-in-srcdir, no, ,
 AC_MSG_RESULT($enable_generated_files_in_srcdir)
 AM_CONDITIONAL(GENINSRC, test "$enable_generated_files_in_srcdir" = yes)
 
-# Look for the CUDA driver package.
-CUDA_DRIVER_INCLUDE=
-CUDA_DRIVER_LIB=
-AC_SUBST(CUDA_DRIVER_INCLUDE)
-AC_SUBST(CUDA_DRIVER_LIB)
-CUDA_DRIVER_CPPFLAGS=
-CUDA_DRIVER_LDFLAGS=
-AC_ARG_WITH(cuda-driver,
-	[AS_HELP_STRING([--with-cuda-driver=PATH],
-		[specify prefix directory for installed CUDA driver package.
-		 Equivalent to --with-cuda-driver-include=PATH/include
-		 plus --with-cuda-driver-lib=PATH/lib])])
-AC_ARG_WITH(cuda-driver-include,
-	[AS_HELP_STRING([--with-cuda-driver-include=PATH],
-		[specify directory for installed CUDA driver include files])])
-AC_ARG_WITH(cuda-driver-lib,
-	[AS_HELP_STRING([--with-cuda-driver-lib=PATH],
-		[specify directory for the installed CUDA driver library])])
-if test "x$with_cuda_driver" != x; then
-  CUDA_DRIVER_INCLUDE=$with_cuda_driver/include
-  CUDA_DRIVER_LIB=$with_cuda_driver/lib
-fi
-if test "x$with_cuda_driver_include" != x; then
-  CUDA_DRIVER_INCLUDE=$with_cuda_driver_include
-fi
-if test "x$with_cuda_driver_lib" != x; then
-  CUDA_DRIVER_LIB=$with_cuda_driver_lib
-fi
-if test "x$CUDA_DRIVER_INCLUDE" != x; then
-  CUDA_DRIVER_CPPFLAGS=-I$CUDA_DRIVER_INCLUDE
-fi
-if test "x$CUDA_DRIVER_LIB" != x; then
-  CUDA_DRIVER_LDFLAGS=-L$CUDA_DRIVER_LIB
-fi
-
-
 # -------
 # -------
 
@@ -241,52 +205,7 @@ elif test "x$enable_accelerator" != xno; then
   AC_MSG_ERROR([Can't have support for accelerators without support for plugins])
 fi
 
-PLUGIN_NVPTX=0
-PLUGIN_NVPTX_CPPFLAGS=
-PLUGIN_NVPTX_LDFLAGS=
-PLUGIN_NVPTX_LIBS=
-AC_SUBST(PLUGIN_NVPTX)
-AC_SUBST(PLUGIN_NVPTX_CPPFLAGS)
-AC_SUBST(PLUGIN_NVPTX_LDFLAGS)
-AC_SUBST(PLUGIN_NVPTX_LIBS)
-# enable_accelerator has already been validated at top level.
-# No need to do it again.
-case $enable_offload_targets in
-  auto-nvptx*|nvptx*)
-    PLUGIN_NVPTX=yes
-    PLUGIN_NVPTX_CPPFLAGS=$CUDA_DRIVER_CPPFLAGS
-    PLUGIN_NVPTX_LDFLAGS=$CUDA_DRIVER_LDFLAGS
-    PLUGIN_NVPTX_LIBS='-lcuda'
-
-    PLUGIN_NVPTX_save_CPPFLAGS=$CPPFLAGS
-    CPPFLAGS="$PLUGIN_NVPTX_CPPFLAGS $CPPFLAGS"
-    PLUGIN_NVPTX_save_LDFLAGS=$LDFLAGS
-    LDFLAGS="$PLUGIN_NVPTX_LDFLAGS $LDFLAGS"
-    PLUGIN_NVPTX_save_LIBS=$LIBS
-    LIBS="$PLUGIN_NVPTX_LIBS $LIBS"
-    AC_LINK_IFELSE(
-      [AC_LANG_PROGRAM(
-	[#include "cuda.h"],
-	[CUresult r = cuCtxPushCurrent (NULL);])],
-      [PLUGIN_NVPTX=1])
-    CPPFLAGS=$PLUGIN_NVPTX_save_CPPFLAGS
-    LDFLAGS=$PLUGIN_NVPTX_save_LDFLAGS
-    LIBS=$PLUGIN_NVPTX_save_LIBS
-    case $PLUGIN_NVPTX in
-      auto-nvptx*)
-	PLUGIN_NVPTX=0
-	AC_MSG_WARN([CUDA driver package required for nvptx support; disabling])
-	;;
-      nvptx*)
-	PLUGIN_NVPTX=0
-	AC_MSG_ERROR([CUDA driver package required for nvptx support])
-	;;
-    esac
-    ;;
-esac
-AM_CONDITIONAL([PLUGIN_NVPTX], [test $PLUGIN_NVPTX = 1])
-AC_DEFINE_UNQUOTED([PLUGIN_NVPTX], [$PLUGIN_NVPTX],
-		  [Define to 1 if the NVIDIA plugin is built, 0 if not.])
+AC_CONFIG_SUBDIRS([plugin])
 
 # Check for functions needed.
 AC_CHECK_FUNCS(getloadavg clock_gettime strtoull)

@@ -1,7 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
 ACLOCAL_AMFLAGS = -I .. -I ../config
-SUBDIRS = testsuite
+SUBDIRS = testsuite plugin
+DIST_SUBDIRS = plugin
 
 ## May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
@@ -20,27 +21,6 @@ AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
 
 toolexeclib_LTLIBRARIES = libgomp.la
 nodist_toolexeclib_HEADERS = libgomp.spec
-
-if PLUGIN_NVPTX
-# Nvidia PTX OpenACC plugin.
-libgomp_plugin_nvptx_version_info = -version-info $(libtool_VERSION)
-toolexeclib_LTLIBRARIES += libgomp-plugin-nvptx.la
-libgomp_plugin_nvptx_la_SOURCES = plugin-nvptx.c
-libgomp_plugin_nvptx_la_CPPFLAGS = $(AM_CPPFLAGS) $(PLUGIN_NVPTX_CPPFLAGS)
-libgomp_plugin_nvptx_la_LDFLAGS = $(libgomp_plugin_nvptx_version_info) \
-	$(lt_host_flags)
-libgomp_plugin_nvptx_la_LDFLAGS += $(PLUGIN_NVPTX_LDFLAGS)
-libgomp_plugin_nvptx_la_LIBADD = $(PLUGIN_NVPTX_LIBS)
-libgomp_plugin_nvptx_la_LIBTOOLFLAGS = --tag=disable-static
-endif
-
-libgomp_plugin_host_nonshm_version_info = -version-info $(libtool_VERSION)
-toolexeclib_LTLIBRARIES += libgomp-plugin-host_nonshm.la
-libgomp_plugin_host_nonshm_la_SOURCES = oacc-host.c
-libgomp_plugin_host_nonshm_la_CPPFLAGS = $(AM_CPPFLAGS) -DHOST_NONSHM_PLUGIN
-libgomp_plugin_host_nonshm_la_LDFLAGS = \
-	$(libgomp_plugin_host_nonshm_version_info) $(lt_host_flags)
-libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS = --tag=disable-static
 
 if LIBGOMP_BUILD_VERSIONED_SHLIB
 # -Wc is only a libtool option.
