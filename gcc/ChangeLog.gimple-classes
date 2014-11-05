@@ -1,5 +1,11 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* sese.c (rename_uses): Add checked cast to gassign within region
+	guarded by is_gimple_assign.
+	(graphite_copy_stmts_from_block): Likewise.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* predict.c (expr_expected_value_1): Replace is_gimple_assign with
 	a dyn_cast, introducing local "def_assign" and using it in place
 	of "def" for typesafety.

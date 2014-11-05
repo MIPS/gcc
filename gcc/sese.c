@@ -507,7 +507,7 @@ rename_uses (gimple copy, rename_map_type *rename_map,
       if (TREE_CODE (new_expr) == INTEGER_CST
 	  && is_gimple_assign (copy))
 	{
-	  tree rhs = gimple_assign_rhs1 (copy);
+	  tree rhs = gimple_assign_rhs1 (as_a <gassign *> (copy));
 
 	  if (TREE_CODE (rhs) == ADDR_EXPR)
 	    recompute_tree_invariant_for_addr_expr (rhs);
@@ -548,7 +548,7 @@ graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb,
 
       /* Do not copy induction variables.  */
       if (is_gimple_assign (stmt)
-	  && (lhs = gimple_assign_lhs (stmt))
+	  && (lhs = gimple_assign_lhs (as_a <gassign *> (stmt)))
 	  && TREE_CODE (lhs) == SSA_NAME
 	  && is_gimple_reg (lhs)
 	  && scev_analyzable_p (lhs, region))
