@@ -3777,6 +3777,18 @@ extern const char melt_run_preprocessed_md5[]; /* defined in generated file melt
 #define flag_melt_debug melt_flag_debug
 
 
+/* This function sets the LHS of a gimple and return that gimple.
+   Useful for gimple_call_args pseudo-primitive in
+   libmelt-ana-gimple.melt file. */
+static inline gimple
+melt_gimple_call_set_lhs (gimple gs, tree lhs)
+{
+  if (gs && is_gimple_call (gs))
+    gimple_call_set_lhs (gs, lhs);
+  return gs;
+}
+
+
 /* With GCC 4.8, the gimple_seq are disappearing because they are the
 same as gimple (with file "coretypes.h" having the definition `typedef
 gimple gimple_seq;`), but our generated runtime support might still

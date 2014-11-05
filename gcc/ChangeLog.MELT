@@ -1,5 +1,14 @@
 
 2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (melt_gimple_call_set_lhs): Added function,
+	mostly useful for libmelt-ana-gimple.melt...
+
+	* melt/libmelt-ana-tree.melt (mexpand_tree_call_expr): Improve
+	surrounding comment by mentionning build_call_expr.
+
+	* melt/libmelt-ana-gimple.melt (mexpand_gimple_call_args): Improve.
+
+2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-gimple.melt (patexpand_gimple_call_args):
 	Improved.
 

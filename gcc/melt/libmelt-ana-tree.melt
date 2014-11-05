@@ -2330,6 +2330,7 @@ treerr
 
 ;;;;;;;;;;;;;;;;
 ;; pseudoprimitive (TREE_CALL_EXPR fndecl args....)
+;; expanded using build_call_expr GCC function
 (defvar tree_call_primitive_cache_tuple)
 (setq tree_call_primitive_cache_tuple (make_multiple discr_multiple 32))
 (defun mexpand_tree_call_expr (sexpr env mexpander modctx)
