@@ -1,3 +1,10 @@
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-get-type-bad-enum.c: New test case.
+	* jit.dg/test-error-new-binary-op-bad-op.c: Likewise.
+	* jit.dg/test-error-new-function-bad-kind.c: Likewise.
+	* jit.dg/test-error-new-unary-op-bad-op.c: Likewise.
+
 2014-10-22  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/jit.exp (DEFAULT_CFLAGS): Add -fgnu89-inline since

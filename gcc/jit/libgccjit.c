@@ -316,7 +316,11 @@ gcc_jit_context_get_type (gcc_jit_context *ctxt,
 			  enum gcc_jit_types type)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
-  /* The inner function checks "type" for us.  */
+  RETURN_NULL_IF_FAIL_PRINTF1 (
+    (type >= GCC_JIT_TYPE_VOID
+     && type <= GCC_JIT_TYPE_FILE_PTR),
+    ctxt, NULL,
+    "unrecognized value for enum gcc_jit_types: %i", type);
 
   return (gcc_jit_type *)ctxt->get_type (type);
 }
@@ -574,6 +578,12 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			      int is_variadic)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, loc, "NULL context");
+  RETURN_NULL_IF_FAIL_PRINTF1 (
+    ((kind >= GCC_JIT_FUNCTION_EXPORTED)
+     && (kind <= GCC_JIT_FUNCTION_ALWAYS_INLINE)),
+    ctxt, loc,
+    "unrecognized value for enum gcc_jit_function_kind: %i",
+    kind);
   RETURN_NULL_IF_FAIL (return_type, ctxt, loc, "NULL return_type");
   RETURN_NULL_IF_FAIL (name, ctxt, loc, "NULL name");
   /* The assembler can only handle certain names, so for now, enforce
@@ -835,11 +845,27 @@ gcc_jit_context_new_unary_op (gcc_jit_context *ctxt,
 			      gcc_jit_rvalue *rvalue)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, loc, "NULL context");
-  /* op is checked by the inner function.  */
+  RETURN_NULL_IF_FAIL_PRINTF1 (
+    (op >= GCC_JIT_UNARY_OP_MINUS
+     && op <= GCC_JIT_UNARY_OP_LOGICAL_NEGATE),
+    ctxt, loc,
+    "unrecognized value for enum gcc_jit_unary_op: %i",
+    op);
   RETURN_NULL_IF_FAIL (result_type, ctxt, loc, "NULL result_type");
   RETURN_NULL_IF_FAIL (rvalue, ctxt, loc, "NULL rvalue");
 
   return (gcc_jit_rvalue *)ctxt->new_unary_op (loc, op, result_type, rvalue);
+}
+
+/* Determine if OP is a valid value for enum gcc_jit_binary_op.
+   For use by both gcc_jit_context_new_binary_op and
+   gcc_jit_block_add_assignment_op.  */
+
+static bool
+valid_binary_op_p (enum gcc_jit_binary_op op)
+{
+  return (op >= GCC_JIT_BINARY_OP_PLUS
+	  && op <= GCC_JIT_BINARY_OP_RSHIFT);
 }
 
 gcc_jit_rvalue *
@@ -850,7 +876,11 @@ gcc_jit_context_new_binary_op (gcc_jit_context *ctxt,
 			       gcc_jit_rvalue *a, gcc_jit_rvalue *b)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, loc, "NULL context");
-  /* op is checked by the inner function.  */
+  RETURN_NULL_IF_FAIL_PRINTF1 (
+    valid_binary_op_p (op),
+    ctxt, loc,
+    "unrecognized value for enum gcc_jit_binary_op: %i",
+    op);
   RETURN_NULL_IF_FAIL (result_type, ctxt, loc, "NULL result_type");
   RETURN_NULL_IF_FAIL (a, ctxt, loc, "NULL a");
   RETURN_NULL_IF_FAIL (b, ctxt, loc, "NULL b");
@@ -874,7 +904,12 @@ gcc_jit_context_new_comparison (gcc_jit_context *ctxt,
 				gcc_jit_rvalue *a, gcc_jit_rvalue *b)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, loc, "NULL context");
-  /* op is checked by the inner function.  */
+  RETURN_NULL_IF_FAIL_PRINTF1 (
+    (op >= GCC_JIT_COMPARISON_EQ
+     && op <= GCC_JIT_COMPARISON_GE),
+    ctxt, loc,
+    "unrecognized value for enum gcc_jit_comparison: %i",
+    op);
   RETURN_NULL_IF_FAIL (a, ctxt, loc, "NULL a");
   RETURN_NULL_IF_FAIL (b, ctxt, loc, "NULL b");
   RETURN_NULL_IF_FAIL_PRINTF4 (
@@ -1281,7 +1316,11 @@ gcc_jit_block_add_assignment_op (gcc_jit_block *block,
   RETURN_IF_NOT_VALID_BLOCK (block, loc);
   gcc::jit::recording::context *ctxt = block->get_context ();
   RETURN_IF_FAIL (lvalue, ctxt, loc, "NULL lvalue");
-  /* FIXME: op is checked by new_binary_op */
+  RETURN_IF_FAIL_PRINTF1 (
+    valid_binary_op_p (op),
+    ctxt, loc,
+    "unrecognized value for enum gcc_jit_binary_op: %i",
+    op);
   RETURN_IF_FAIL (rvalue, ctxt, loc, "NULL rvalue");
 
   return block->add_assignment_op (loc, lvalue, op, rvalue);

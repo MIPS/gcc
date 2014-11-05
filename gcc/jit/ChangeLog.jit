@@ -1,5 +1,17 @@
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.c (gcc_jit_context_get_type): Verify that "type"
+	is valid immediately, rather than relying on called code.
+	(gcc_jit_context_new_function): Likewise for "kind".
+	(gcc_jit_context_new_unary_op): Likewise for "op".
+	(valid_binary_op_p): New.
+	(gcc_jit_context_new_binary_op): Verify that "op" is valid
+	immediately, rather than relying on called code.
+	(gcc_jit_context_new_comparison): Likewise.
+	(gcc_jit_block_add_assignment_op): Likewise.
+
+2014-11-05  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.c: Include safe-ctype.h from libiberty.
 	(IS_ASCII_ALPHA): Delete.
 	(IS_ASCII_DIGIT): Delete.
