@@ -1,5 +1,10 @@
 
 2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-gimple.melt (gimple_call_more_args): New patmacro.
+	(patexpand_gimple_call_more_args, mexpand_gimple_call_more_args):
+	Its implementation.
+
+2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (melt_gimple_call_set_lhs): Added function,
 	mostly useful for libmelt-ana-gimple.melt...
 
