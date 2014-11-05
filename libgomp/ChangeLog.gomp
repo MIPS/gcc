@@ -1,5 +1,11 @@
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* target.h (struct ACC_dispatch_t): Remove avail_func.  Update all
+	users.
+	* oacc-host.c (openacc_avail): Likewise.
+	* plugin-nvptx.c (PTX_avail, openacc_avail): Likewise.
+	* libgomp.texi (acc_get_num_devices): Revise.
+
 	* testsuite/libgomp.oacc-c/goacc_kernels.c: Remove file.
 	* testsuite/libgomp.oacc-c/goacc_parallel.c: Remove file.
 

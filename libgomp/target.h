@@ -103,9 +103,6 @@ typedef struct ACC_dispatch_t
   int (*get_device_num_func) (void);
   void (*set_device_num_func) (int);
 
-  /* Availability.  */
-  bool (*avail_func) (void);
-
   /* Execute.  */
   void (*exec_func) (void (*) (void *), size_t, void **, void **, size_t *,
 		     unsigned short *, int, int, int, int, void *);

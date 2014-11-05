@@ -187,12 +187,12 @@ API routines for target platforms.
 @node acc_get_num_devices
 @section @code{acc_get_num_devices} -- Get number of devices for given device type
 @table @asis
-item @emph{Description}
-This routine returns a value, between 0 and @emph{n}, indicating the
-number of devices available for the given device type. It determines
-the number of devices in a @emph{passive} manner. In other words, it
+@item @emph{Description}
+This routine returns a value indicating the
+number of devices available for the given device type.  It determines
+the number of devices in a @emph{passive} manner.  In other words, it
 does not alter the state within the runtime environment aside from
-possibly initializing an uninitialized device. This aspect allows
+possibly initializing an uninitialized device.  This aspect allows
 the routine to be called without concern for altering the interaction
 with an attached accelerator device.
 

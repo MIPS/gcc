@@ -730,17 +730,6 @@ PTX_get_num_devices (void)
   return n;
 }
 
-static bool
-PTX_avail(void)
-{
-  bool avail = false;
-
-  if (PTX_init () > 0)
-    avail = true;
-
-  return avail;
-}
-
 static void
 link_ptx (CUmodule *module, char *ptx_code)
 {
@@ -1727,15 +1716,6 @@ openacc_get_device_num (void)
     return nvthd->ptx_dev->ord;
   else
     return -1;
-}
-
-bool
-openacc_avail (void)
-{
-#ifdef DEBUG
-  fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
-#endif
-  return PTX_avail ();
 }
 
 void

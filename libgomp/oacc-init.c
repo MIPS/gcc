@@ -97,7 +97,7 @@ resolve_device (acc_device_t d)
 	    while (++d != _ACC_device_hwm)
 	      if (dispatchers[d]
 		  && !strcasecmp (goacc_device_type, dispatchers[d]->name)
-		  && dispatchers[d]->openacc.avail_func ())
+		  && dispatchers[d]->device_init_func () > 0)
 		goto found;
 
 	    gomp_fatal ("device type %s not supported", goacc_device_type);
@@ -112,7 +112,7 @@ resolve_device (acc_device_t d)
     case acc_device_not_host:
       /* Find the first available device after acc_device_not_host.  */
       while (++d != _ACC_device_hwm)
-	if (dispatchers[d] && dispatchers[d]->openacc.avail_func ())
+	if (dispatchers[d] && dispatchers[d]->device_init_func () > 0)
 	  goto found;
       if (d_arg == acc_device_default)
 	{	  
@@ -150,7 +150,7 @@ _acc_init (acc_device_t d)
 
   acc_dev = resolve_device (d);
 
-  if (!acc_dev || !acc_dev->openacc.avail_func ())
+  if (!acc_dev || acc_dev->device_init_func () <= 0)
     gomp_fatal ("device %u not supported", (unsigned)d);
 
   if (acc_dev->is_initialized)
