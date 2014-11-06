@@ -4530,7 +4530,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 {
   gimple_seq sub_seq = NULL;
   gimple stmt;
-  tree x, c, tid;
+  tree x, c, tid = NULL_TREE;
   int count = 0;
 
   /* SIMD reductions are handled in lower_rec_input_clauses.  */
