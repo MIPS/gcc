@@ -1,5 +1,13 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-loop-distribution.c (generate_memset_builtin): Strengthen
+	locals "stmt" and "fn_call" from gimple to gassign * and gcall *
+	respectively.
+	(classify_partition): Strengthen locals "stmt", "store", "load"
+	from gimple to gassign *.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-into-ssa.c (create_new_def_for): Add a checked cast.
 
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>

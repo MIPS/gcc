@@ -792,12 +792,13 @@ static void
 generate_memset_builtin (struct loop *loop, partition_t partition)
 {
   gimple_stmt_iterator gsi;
-  gimple stmt, fn_call;
+  gassign *stmt;
+  gcall *fn_call;
   tree mem, fn, nb_bytes;
   location_t loc;
   tree val;
 
-  stmt = DR_STMT (partition->main_dr);
+  stmt = as_a <gassign *> (DR_STMT (partition->main_dr));
   loc = gimple_location (stmt);
 
   /* The new statements will be placed before LOOP.  */
@@ -1083,7 +1084,7 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
 
   if (single_store && !single_load)
     {
-      gimple stmt = DR_STMT (single_store);
+      gassign *stmt = as_a <gassign *> (DR_STMT (single_store));
       tree rhs = gimple_assign_rhs1 (stmt);
       if (const_with_all_bytes_same (rhs) == -1
 	  && (!INTEGRAL_TYPE_P (TREE_TYPE (rhs))
@@ -1105,8 +1106,8 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
     }
   else if (single_store && single_load)
     {
-      gimple store = DR_STMT (single_store);
-      gimple load = DR_STMT (single_load);
+      gassign *store = as_a <gassign *> (DR_STMT (single_store));
+      gassign *load = as_a <gassign *> (DR_STMT (single_load));
       /* Direct aggregate copy or via an SSA name temporary.  */
       if (load != store
 	  && gimple_assign_lhs (load) != gimple_assign_rhs1 (store))
