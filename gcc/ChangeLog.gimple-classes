@@ -1,5 +1,27 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-phiopt.c (jump_function_from_stmt): Strengthen param
+	"stmt" from gimple to gassign *.
+	(rhs_is_fed_for_value_replacement): Replace is_gimple_assign with
+	a dyn_cast, strengthening local "def1" from gimple to gassign *.
+	(operand_equal_for_value_replacement):  Likewise for local "def".
+	(value_replacement): Likewise for local "stmt".  Rename local
+	"assign" to "last", reintroducing "assign" as a gassign * via a
+	dyn_cast.
+	(minmax_replacement): Likewise.
+	(abs_replacement): Likewise.
+	(neg_replacement): Likewise.
+	(nontrapping_dom_walker::before_dom_children): Add checked casts.
+	(cond_store_replacement): Rename local "assign" to "last",
+	reintroducing "assign" as a gassign * via a
+	gimple_assign_single_p.
+	(cond_if_else_store_replacement_1): Rename params "then_assign"
+	and "else_assign" to "then_stmt" and "else_stmt", reintroducing
+	them as gassign * via the results of gimple_assign_single_p.
+	(hoist_adjacent_loads): Add checked casts.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-loop-ch.c (pass_ch::execute): Add checked cast.
 	* tree-ssa-loop-im.c (movement_possibility): Add checked casts.
 	(stmt_cost): Likewise.

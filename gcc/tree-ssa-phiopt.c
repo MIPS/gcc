@@ -560,7 +560,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
    statement is made dead by that rewriting.  */
 
 static bool
-jump_function_from_stmt (tree *arg, gimple stmt)
+jump_function_from_stmt (tree *arg, gassign *stmt)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   if (code == ADDR_EXPR)
@@ -601,10 +601,10 @@ rhs_is_fed_for_value_replacement (const_tree arg0, const_tree arg1,
      statement.  */
   if (TREE_CODE (rhs) == SSA_NAME)
     {
-      gimple def1 = SSA_NAME_DEF_STMT (rhs);
+      gassign *def1 = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs));
 
       /* Verify the defining statement has an EQ_EXPR on the RHS.  */
-      if (is_gimple_assign (def1) && gimple_assign_rhs_code (def1) == EQ_EXPR)
+      if (def1 && gimple_assign_rhs_code (def1) == EQ_EXPR)
 	{
 	  /* Finally verify the source operands of the EQ_EXPR are equal
 	     to arg0 and arg1.  */
@@ -635,7 +635,7 @@ static bool
 operand_equal_for_value_replacement (const_tree arg0, const_tree arg1,
 				     enum tree_code *code, gimple cond)
 {
-  gimple def;
+  gassign *def;
   tree lhs = gimple_cond_lhs (cond);
   tree rhs = gimple_cond_rhs (cond);
 
@@ -654,8 +654,8 @@ operand_equal_for_value_replacement (const_tree arg0, const_tree arg1,
     return false;
 
   /* Now ensure that SSA_NAME is set by a BIT_AND_EXPR.  */
-  def = SSA_NAME_DEF_STMT (lhs);
-  if (!is_gimple_assign (def) || gimple_assign_rhs_code (def) != BIT_AND_EXPR)
+  def = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (lhs));
+  if (!def || gimple_assign_rhs_code (def) != BIT_AND_EXPR)
     return false;
 
   /* Now verify arg0/arg1 correspond to the source arguments of an 
@@ -757,10 +757,10 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
   gsi = gsi_start_nondebug_after_labels_bb (middle_bb);
   while (!gsi_end_p (gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
+      gassign *stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
       tree lhs;
       gsi_next_nondebug (&gsi);
-      if (!is_gimple_assign (stmt))
+      if (!stmt)
 	{
 	  emtpy_or_with_defined_p = false;
 	  continue;
@@ -854,8 +854,11 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
   /* Now optimize (x != 0) ? x + y : y to just y.
      The following condition is too restrictive, there can easily be another
      stmt in middle_bb, for instance a CONVERT_EXPR for the second argument.  */
-  gimple assign = last_and_only_stmt (middle_bb);
-  if (!assign || gimple_code (assign) != GIMPLE_ASSIGN
+  gimple last = last_and_only_stmt (middle_bb);
+  if (!last)
+    return 0;
+  gassign *assign = dyn_cast <gassign *> (last);
+  if (!assign
       || gimple_assign_rhs_class (assign) != GIMPLE_BINARY_RHS
       || (!INTEGRAL_TYPE_P (TREE_TYPE (arg0))
 	  && !POINTER_TYPE_P (TREE_TYPE (arg0))))
@@ -1009,11 +1012,14 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 	 b = MAX (a, d);
 	 x = MIN (b, u);  */
 
-      gimple assign = last_and_only_stmt (middle_bb);
+      gimple last = last_and_only_stmt (middle_bb);
       tree lhs, op0, op1, bound;
 
-      if (!assign
-	  || gimple_code (assign) != GIMPLE_ASSIGN)
+      if (!last)
+	return false;
+
+      gassign *assign = dyn_cast <gassign *> (last);
+      if (!assign)
 	return false;
 
       lhs = gimple_assign_lhs (assign);
@@ -1174,7 +1180,6 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   gimple cond;
   gimple_stmt_iterator gsi;
   edge true_edge, false_edge;
-  gimple assign;
   edge e;
   tree rhs, lhs;
   bool negate;
@@ -1188,16 +1193,18 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   /* OTHER_BLOCK must have only one executable statement which must have the
      form arg0 = -arg1 or arg1 = -arg0.  */
 
-  assign = last_and_only_stmt (middle_bb);
+  gimple last = last_and_only_stmt (middle_bb);
+
   /* If we did not find the proper negation assignment, then we can not
      optimize.  */
-  if (assign == NULL)
+  if (last == NULL)
     return false;
 
   /* If we got here, then we have found the only executable statement
      in OTHER_BLOCK.  If it is anything other than arg = -arg1 or
      arg1 = -arg0, then we can not optimize.  */
-  if (gimple_code (assign) != GIMPLE_ASSIGN)
+  gassign *assign = dyn_cast <gassign *> (last);
+  if (!assign)
     return false;
 
   lhs = gimple_assign_lhs (assign);
@@ -1304,7 +1311,6 @@ neg_replacement (basic_block cond_bb, basic_block middle_bb,
   gassign *new_stmt;
   gimple cond;
   gimple_stmt_iterator gsi;
-  gimple assign;
   edge true_edge, false_edge;
   tree rhs, lhs;
   enum tree_code cond_code;
@@ -1318,16 +1324,17 @@ neg_replacement (basic_block cond_bb, basic_block middle_bb,
   /* OTHER_BLOCK must have only one executable statement which must have the
      form arg0 = -arg1 or arg1 = -arg0.  */
 
-  assign = last_and_only_stmt (middle_bb);
+  gimple last = last_and_only_stmt (middle_bb);
   /* If we did not find the proper negation assignment, then we can not
      optimize.  */
-  if (assign == NULL)
+  if (last == NULL)
     return false;
 
   /* If we got here, then we have found the only executable statement
      in OTHER_BLOCK.  If it is anything other than arg0 = -arg1 or
      arg1 = -arg0, then we can not optimize.  */
-  if (gimple_code (assign) != GIMPLE_ASSIGN)
+  gassign *assign = dyn_cast <gassign *> (last);
+  if (!assign)
     return false;
 
   lhs = gimple_assign_lhs (assign);
@@ -1533,8 +1540,10 @@ nontrapping_dom_walker::before_dom_children (basic_block bb)
 	nt_call_phase++;
       else if (gimple_assign_single_p (stmt) && !gimple_has_volatile_ops (stmt))
 	{
-	  add_or_mark_expr (bb, gimple_assign_lhs (stmt), true);
-	  add_or_mark_expr (bb, gimple_assign_rhs1 (stmt), false);
+	  add_or_mark_expr (bb, gimple_assign_lhs (as_a <gassign *> (stmt)),
+			    true);
+	  add_or_mark_expr (bb, gimple_assign_rhs1 (as_a <gassign *> (stmt)),
+			    false);
 	}
     }
 }
@@ -1651,7 +1660,7 @@ static bool
 cond_store_replacement (basic_block middle_bb, basic_block join_bb,
 			edge e0, edge e1, hash_set<tree> *nontrap)
 {
-  gimple assign = last_and_only_stmt (middle_bb);
+  gimple last = last_and_only_stmt (middle_bb);
   tree lhs, rhs, name, name2;
   gphi *newphi;
   gassign *new_stmt;
@@ -1659,9 +1668,11 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
   source_location locus;
 
   /* Check if middle_bb contains of only one store.  */
+  if (!last)
+    return false;
+  gassign *assign = gimple_assign_single_p (last);
   if (!assign
-      || !gimple_assign_single_p (assign)
-      || gimple_has_volatile_ops (assign))
+      || gimple_has_volatile_ops (last))
     return false;
 
   locus = gimple_location (assign);
@@ -1721,8 +1732,8 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
 
 static bool
 cond_if_else_store_replacement_1 (basic_block then_bb, basic_block else_bb,
-				  basic_block join_bb, gimple then_assign,
-				  gimple else_assign)
+				  basic_block join_bb, gimple then_stmt,
+				  gimple else_stmt)
 {
   tree lhs_base, lhs, then_rhs, else_rhs, name;
   source_location then_locus, else_locus;
@@ -1730,12 +1741,20 @@ cond_if_else_store_replacement_1 (basic_block then_bb, basic_block else_bb,
   gphi *newphi;
   gassign *new_stmt;
 
-  if (then_assign == NULL
-      || !gimple_assign_single_p (then_assign)
+  if (then_stmt == NULL)
+    return false;
+
+  gassign *then_assign = gimple_assign_single_p (then_stmt);
+  if (!then_assign
       || gimple_clobber_p (then_assign)
-      || gimple_has_volatile_ops (then_assign)
-      || else_assign == NULL
-      || !gimple_assign_single_p (else_assign)
+      || gimple_has_volatile_ops (then_assign))
+    return false;
+
+  if (else_stmt == NULL)
+    return false;
+
+  gassign *else_assign = gimple_assign_single_p (else_stmt);
+  if (!else_assign
       || gimple_clobber_p (else_assign)
       || gimple_has_volatile_ops (else_assign))
     return false;
@@ -2071,8 +2090,8 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
 	  || gimple_has_volatile_ops (def2))
 	continue;
 
-      ref1 = gimple_assign_rhs1 (def1);
-      ref2 = gimple_assign_rhs1 (def2);
+      ref1 = gimple_assign_rhs1 (as_a <gassign *> (def1));
+      ref2 = gimple_assign_rhs1 (as_a <gassign *> (def2));
 
       if (TREE_CODE (ref1) != COMPONENT_REF
 	  || TREE_CODE (ref2) != COMPONENT_REF)
