@@ -1062,12 +1062,12 @@ name_for_ref (dref ref)
 {
   tree name;
 
-  if (is_gimple_assign (ref->stmt))
+  if (gassign *ref_assign = dyn_cast <gassign *> (ref->stmt))
     {
       if (!ref->ref || DR_IS_READ (ref->ref))
-	name = gimple_assign_lhs (ref->stmt);
+	name = gimple_assign_lhs (ref_assign);
       else
-	name = gimple_assign_rhs1 (ref->stmt);
+	name = gimple_assign_rhs1 (ref_assign);
     }
   else
     name = PHI_RESULT (ref->stmt);
@@ -1127,17 +1127,17 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
 {
   tree name, init, init_ref;
   gphi *phi = NULL;
-  gimple init_stmt;
+  gassign *init_stmt;
   edge latch = loop_latch_edge (loop);
   struct data_reference init_dr;
   gphi_iterator psi;
 
-  if (is_gimple_assign (ref->stmt))
+  if (gassign *ref_assign = dyn_cast <gassign *> (ref->stmt))
     {
       if (DR_IS_READ (ref->ref))
-	name = gimple_assign_lhs (ref->stmt);
+	name = gimple_assign_lhs (ref_assign);
       else
-	name = gimple_assign_rhs1 (ref->stmt);
+	name = gimple_assign_rhs1 (ref_assign);
     }
   else
     name = PHI_RESULT (ref->stmt);
@@ -1157,8 +1157,8 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
   init = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
   if (TREE_CODE (init) != SSA_NAME)
     return NULL;
-  init_stmt = SSA_NAME_DEF_STMT (init);
-  if (gimple_code (init_stmt) != GIMPLE_ASSIGN)
+  init_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (init));
+  if (!init_stmt)
     return NULL;
   gcc_assert (gimple_assign_lhs (init_stmt) == init);
 
@@ -1323,7 +1323,7 @@ replace_ref_with (gimple stmt, tree new_tree, bool set, bool in_lhs)
 
   /* Since the reference is of gimple_reg type, it should only
      appear as lhs or rhs of modify statement.  */
-  gcc_assert (is_gimple_assign (stmt));
+  gassign *assign_stmt = as_a <gassign *> (stmt);
 
   bsi = gsi_for_stmt (stmt);
 
@@ -1358,15 +1358,15 @@ replace_ref_with (gimple stmt, tree new_tree, bool set, bool in_lhs)
 
 	 */
 
-      val = gimple_assign_lhs (stmt);
+      val = gimple_assign_lhs (assign_stmt);
       if (TREE_CODE (val) != SSA_NAME)
 	{
-	  val = gimple_assign_rhs1 (stmt);
-	  gcc_assert (gimple_assign_single_p (stmt));
+	  val = gimple_assign_rhs1 (assign_stmt);
+	  gcc_assert (gimple_assign_single_p (assign_stmt));
 	  if (TREE_CLOBBER_P (val))
 	    val = get_or_create_ssa_default_def (cfun, SSA_NAME_VAR (new_tree));
 	  else
-	    gcc_assert (gimple_assign_copy_p (stmt));
+	    gcc_assert (gimple_assign_copy_p (assign_stmt));
 	}
     }
   else
@@ -1378,7 +1378,7 @@ replace_ref_with (gimple stmt, tree new_tree, bool set, bool in_lhs)
 	 VAL = OLD
 	 NEW = VAL  */
 
-      val = gimple_assign_lhs (stmt);
+      val = gimple_assign_lhs (assign_stmt);
     }
 
   new_stmt = gimple_build_assign (new_tree, unshare_expr (val));
@@ -1478,7 +1478,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
   chain->vars.create (n + 1);
 
   if (chain->type == CT_COMBINATION)
-    ref = gimple_assign_lhs (root->stmt);
+    ref = gimple_assign_lhs (as_a <gassign *> (root->stmt));
   else
     ref = DR_REF (root->ref);
 
@@ -1681,7 +1681,7 @@ remove_stmt (gimple stmt)
 
       if (!next
 	  || !gimple_assign_ssa_name_copy_p (next)
-	  || gimple_assign_rhs1 (next) != name)
+	  || gimple_assign_rhs1 (as_a <gassign *> (next)) != name)
 	return;
 
       stmt = next;
@@ -1693,7 +1693,7 @@ remove_stmt (gimple stmt)
 
       bsi = gsi_for_stmt (stmt);
 
-      name = gimple_assign_lhs (stmt);
+      name = gimple_assign_lhs (as_a <gassign *> (stmt));
       gcc_assert (TREE_CODE (name) == SSA_NAME);
 
       next = single_nonlooparound_use (name);
@@ -1705,7 +1705,7 @@ remove_stmt (gimple stmt)
 
       if (!next
 	  || !gimple_assign_ssa_name_copy_p (next)
-	  || gimple_assign_rhs1 (next) != name)
+	  || gimple_assign_rhs1 (as_a <gassign *> (next)) != name)
 	return;
 
       stmt = next;
@@ -1946,37 +1946,37 @@ chain_can_be_combined_p (chain_p chain)
    statements, NAME is replaced with the actual name used in the returned
    statement.  */
 
-static gimple
+static gassign *
 find_use_stmt (tree *name)
 {
-  gimple stmt;
   tree rhs, lhs;
 
   /* Skip over assignments.  */
   while (1)
     {
-      stmt = single_nonlooparound_use (*name);
+      gimple stmt = single_nonlooparound_use (*name);
       if (!stmt)
 	return NULL;
 
-      if (gimple_code (stmt) != GIMPLE_ASSIGN)
+      gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+      if (!assign_stmt)
 	return NULL;
 
-      lhs = gimple_assign_lhs (stmt);
+      lhs = gimple_assign_lhs (assign_stmt);
       if (TREE_CODE (lhs) != SSA_NAME)
 	return NULL;
 
-      if (gimple_assign_copy_p (stmt))
+      if (gimple_assign_copy_p (assign_stmt))
 	{
-	  rhs = gimple_assign_rhs1 (stmt);
+	  rhs = gimple_assign_rhs1 (assign_stmt);
 	  if (rhs != *name)
 	    return NULL;
 
 	  *name = lhs;
 	}
-      else if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
+      else if (get_gimple_rhs_class (gimple_assign_rhs_code (assign_stmt))
 	       == GIMPLE_BINARY_RHS)
-	return stmt;
+	return assign_stmt;
       else
 	return NULL;
     }
@@ -1999,11 +1999,11 @@ may_reassociate_p (tree type, enum tree_code code)
    tree of the same operations and returns its root.  Distance to the root
    is stored in DISTANCE.  */
 
-static gimple
-find_associative_operation_root (gimple stmt, unsigned *distance)
+static gassign *
+find_associative_operation_root (gassign *stmt, unsigned *distance)
 {
   tree lhs;
-  gimple next;
+  gassign *next;
   enum tree_code code = gimple_assign_rhs_code (stmt);
   tree type = TREE_TYPE (gimple_assign_lhs (stmt));
   unsigned dist = 0;
@@ -2036,10 +2036,10 @@ find_associative_operation_root (gimple stmt, unsigned *distance)
    tree formed by this operation instead of the statement that uses NAME1 or
    NAME2.  */
 
-static gimple
+static gassign *
 find_common_use_stmt (tree *name1, tree *name2)
 {
-  gimple stmt1, stmt2;
+  gassign *stmt1, *stmt2;
 
   stmt1 = find_use_stmt (name1);
   if (!stmt1)
@@ -2074,7 +2074,7 @@ combinable_refs_p (dref r1, dref r2,
   bool aswap;
   tree atype;
   tree name1, name2;
-  gimple stmt;
+  gassign *stmt;
 
   name1 = name_for_ref (r1);
   name2 = name_for_ref (r2);
@@ -2111,12 +2111,10 @@ combinable_refs_p (dref r1, dref r2,
    an assignment of the remaining operand.  */
 
 static void
-remove_name_from_operation (gimple stmt, tree op)
+remove_name_from_operation (gassign *stmt, tree op)
 {
   tree other_op;
   gimple_stmt_iterator si;
-
-  gcc_assert (is_gimple_assign (stmt));
 
   if (gimple_assign_rhs1 (stmt) == op)
     other_op = gimple_assign_rhs2 (stmt);
@@ -2138,7 +2136,7 @@ remove_name_from_operation (gimple stmt, tree op)
 static gimple
 reassociate_to_the_same_stmt (tree name1, tree name2)
 {
-  gimple stmt1, stmt2, root1, root2, s1, s2;
+  gassign *stmt1, *stmt2, *root1, *root2, *s1, *s2;
   gassign *new_stmt, *tmp_stmt;
   tree new_name, tmp_name, var, r1, r2;
   unsigned dist1, dist2;
@@ -2207,8 +2205,9 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
 
   bsi = gsi_for_stmt (s1);
   gimple_assign_set_rhs_with_ops (&bsi, code, new_name, tmp_name);
-  s1 = gsi_stmt (bsi);
-  update_stmt (s1);
+
+  gimple stmt = gsi_stmt (bsi);
+  update_stmt (stmt);
 
   gsi_insert_before (&bsi, new_stmt, GSI_SAME_STMT);
   gsi_insert_before (&bsi, tmp_stmt, GSI_SAME_STMT);

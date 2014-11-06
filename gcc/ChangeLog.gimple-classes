@@ -1,5 +1,32 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-predcom.c (name_for_ref): Replace is_gimple_assign with a
+	dyn_cast, introducing local gassign * "ref_assign", using it place
+	of ref->stmt for typesafety.
+	(find_looparound_phi): Likewise.  Strengthen local "init_stmt"
+	from gimple to gassign *, replacing a check against GIMPLE_ASSIGN
+	with a dyn_cast.
+	(replace_ref_with): Introduce local "assign_stmt" via a checked
+	cast in the region, where we know "stmt" is a GIMPLE_ASSIGN,
+	replacing the latter with the former for typesafety.
+	(initialize_root_vars): Add a checked cast.
+	(remove_stmt): Add checked casts.
+	(find_use_stmt): Strengthen return type from gimple to gassign *.
+	Replace check for GIMPLE_ASSIGN with a dyn_cast, introducing
+	local "assign_stmt" and using it in place of "stmt" for
+	typesafety.
+	(find_associative_operation_root): Strengthen return type, param
+	"stmt" and local "next" from gimple to gassign *.
+	(find_common_use_stmt): Likewise for return type and locals
+	"stmt1" and "stmt2".
+	(combinable_refs_p): Likewise for local "stmt".
+	(remove_name_from_operation): Likewise for param "stmt".
+	(reassociate_to_the_same_stmt): Likewise for locals "stmt1",
+	"stmt2", "root1", "root2", "s1", "s2".  Introduce local gimple
+	"stmt" and use in place of "s1" when updating gsi_stmt (bsi).
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-loop-distribution.c (generate_memset_builtin): Strengthen
 	locals "stmt" and "fn_call" from gimple to gassign * and gcall *
 	respectively.
