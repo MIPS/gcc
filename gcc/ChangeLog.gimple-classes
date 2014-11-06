@@ -1,5 +1,50 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-math-opts.c (is_division_by): Replace is_gimple_assign
+	with dyn_cast, introducing local gassign * "use_assign", using it
+	in place of "use_stmt" for typesafety.
+	(replace_reciprocal): Add a checked cast.
+	(pass_cse_reciprocals::execute): Replace is_gimple_assign
+	with dyn_cast, introducing local gassign * "assign_stmt", using it
+	to eliminate "stmt" for typesafety.  Likewise replace local gimple
+	"stmt2" with new local gassign * "assign_stmt2". Reintroduce local
+	gimple "stmt" near the end for the FOR_EACH_IMM_USE_STMT loop,
+	adding a checked cast.
+	(find_bswap_or_nop_1): Strengthen return type and locals
+	"source_stmt1" and "source_stmt2" from gimple to gassign *.
+	Replace is_gimple_assign with a dyn_cast, introducing local
+	gassign * "assign_stmt", using it in place of "stmt for
+	typesafety.
+	(find_bswap_or_nop): Strengthen return type and local
+	"source_stmt" from gimple to gassign *.
+	(bswap_replace): Likewise for params "cur_stmt" and "src_stmt".
+	(pass_optimize_bswap::execute): Likewise for locals "src_stmt" and
+	"cur_stmt", replacing an is_gimple_assign with a dyn_cast.
+	(widening_mult_conversion_strippable_p): Likewise for param
+	"stmt".
+	(is_widening_mult_rhs_p): Replace is_gimple_assign with a
+	dyn_cast, introducing local gassign * "assign_stmt" and using it
+	in place of "stmt" for typesafety.
+	(is_widening_mult_p): Strengthen param "stmt" from gimple to
+	gassign *.
+	(convert_mult_to_widen): Likewise.
+	(convert_plusminus_to_widen): Likewise, also for locals
+	"conv1_stmt", "conv2_stmt", "conv_stmt".  Replace is_gimple_assign
+	calls with dyn_casts, using them to introduce local gassign *
+	"rhs1_assign" and "rhs2_assign", using them in place of
+	"rhs1_stmt" and "rhs2_stmt" in the regions where we know we have
+	a GIMPLE_ASSIGN, adding gcc_assert to ensure that the gassign *
+	is equal to their plain gimple counterparts where we assume this.
+	(convert_mult_to_fma): Replace is_gimple_assigns with dyn_casts,
+	introducing locals gassign * "use_assign" and using them in place
+	of "use_stmt" for typesafety.  Similarly for the region where
+	"use_stmt" is known to be a GIMPLE_ASSIGN, via a checked cast.
+	(pass_optimize_widening_mul::execute): Replace is_gimple_assign
+	with dyn_cast, introducing local gassign * "assign_stmt", using it
+	to eliminate "stmt" for typesafety.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-live.c (remove_unused_locals): Add a checked cast in
 	region guarded by gimple_clobber_p.
 

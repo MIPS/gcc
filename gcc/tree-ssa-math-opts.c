@@ -343,13 +343,14 @@ compute_merit (struct occurrence *occ)
 static inline bool
 is_division_by (gimple use_stmt, tree def)
 {
-  return is_gimple_assign (use_stmt)
-	 && gimple_assign_rhs_code (use_stmt) == RDIV_EXPR
-	 && gimple_assign_rhs2 (use_stmt) == def
+  gassign *use_assign = dyn_cast <gassign *> (use_stmt);
+  return use_assign
+	 && gimple_assign_rhs_code (use_assign) == RDIV_EXPR
+	 && gimple_assign_rhs2 (use_assign) == def
 	 /* Do not recognize x / x as valid division, as we are getting
 	    confused later by replacing all immediate uses x in such
 	    a stmt.  */
-	 && gimple_assign_rhs1 (use_stmt) != def;
+	 && gimple_assign_rhs1 (use_assign) != def;
 }
 
 /* Walk the subset of the dominator tree rooted at OCC, setting the
@@ -429,7 +430,7 @@ replace_reciprocal (use_operand_p use_p)
       && occ->recip_def && use_stmt != occ->recip_def_stmt)
     {
       gimple_stmt_iterator gsi = gsi_for_stmt (use_stmt);
-      gimple_assign_set_rhs_code (use_stmt, MULT_EXPR);
+      gimple_assign_set_rhs_code (as_a <gassign *> (use_stmt), MULT_EXPR);
       SET_USE (use_p, occ->recip_def);
       fold_stmt_inplace (&gsi);
       update_stmt (use_stmt);
@@ -607,13 +608,14 @@ pass_cse_reciprocals::execute (function *fun)
       for (gimple_stmt_iterator gsi = gsi_after_labels (bb); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
         {
-	  gimple stmt = gsi_stmt (gsi);
+	  gassign *assign_stmt;
 	  tree fndecl;
 
-	  if (is_gimple_assign (stmt)
-	      && gimple_assign_rhs_code (stmt) == RDIV_EXPR)
+	  assign_stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+	  if (assign_stmt
+	      && gimple_assign_rhs_code (assign_stmt) == RDIV_EXPR)
 	    {
-	      tree arg1 = gimple_assign_rhs2 (stmt);
+	      tree arg1 = gimple_assign_rhs2 (assign_stmt);
 	      gimple stmt1;
 
 	      if (TREE_CODE (arg1) != SSA_NAME)
@@ -648,10 +650,11 @@ pass_cse_reciprocals::execute (function *fun)
 		      gimple stmt2 = USE_STMT (use_p);
 		      if (is_gimple_debug (stmt2))
 			continue;
-		      if (!is_gimple_assign (stmt2)
-			  || gimple_assign_rhs_code (stmt2) != RDIV_EXPR
-			  || gimple_assign_rhs1 (stmt2) == arg1
-			  || gimple_assign_rhs2 (stmt2) != arg1)
+		      gassign *assign_stmt2 = dyn_cast <gassign *> (stmt2);
+		      if (!assign_stmt2
+			  || gimple_assign_rhs_code (assign_stmt2) != RDIV_EXPR
+			  || gimple_assign_rhs1 (assign_stmt2) == arg1
+			  || gimple_assign_rhs2 (assign_stmt2) != arg1)
 			{
 			  fail = true;
 			  break;
@@ -665,10 +668,12 @@ pass_cse_reciprocals::execute (function *fun)
 		  update_stmt (stmt1);
 		  reciprocal_stats.rfuncs_inserted++;
 
+		  gimple stmt;
 		  FOR_EACH_IMM_USE_STMT (stmt, ui, arg1)
 		    {
 		      gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-		      gimple_assign_set_rhs_code (stmt, MULT_EXPR);
+		      gimple_assign_set_rhs_code (as_a <gassign *> (stmt),
+						  MULT_EXPR);
 		      fold_stmt_inplace (&gsi);
 		      update_stmt (stmt);
 		    }
@@ -1835,31 +1840,33 @@ find_bswap_or_nop_load (gimple stmt, tree ref, struct symbolic_number *n)
    rhs's first tree is the expression of the source operand and NULL
    otherwise.  */
 
-static gimple
+static gassign *
 find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 {
   enum tree_code code;
   tree rhs1, rhs2 = NULL;
-  gimple rhs1_stmt, rhs2_stmt, source_stmt1;
+  gimple rhs1_stmt, rhs2_stmt;
+  gassign *source_stmt1;
   enum gimple_rhs_class rhs_class;
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
 
-  if (!limit || !is_gimple_assign (stmt))
+  if (!limit || !assign_stmt)
     return NULL;
 
-  rhs1 = gimple_assign_rhs1 (stmt);
+  rhs1 = gimple_assign_rhs1 (assign_stmt);
 
-  if (find_bswap_or_nop_load (stmt, rhs1, n))
-    return stmt;
+  if (find_bswap_or_nop_load (assign_stmt, rhs1, n))
+    return assign_stmt;
 
   if (TREE_CODE (rhs1) != SSA_NAME)
     return NULL;
 
-  code = gimple_assign_rhs_code (stmt);
-  rhs_class = gimple_assign_rhs_class (stmt);
+  code = gimple_assign_rhs_code (assign_stmt);
+  rhs_class = gimple_assign_rhs_class (assign_stmt);
   rhs1_stmt = SSA_NAME_DEF_STMT (rhs1);
 
   if (rhs_class == GIMPLE_BINARY_RHS)
-    rhs2 = gimple_assign_rhs2 (stmt);
+    rhs2 = gimple_assign_rhs2 (assign_stmt);
 
   /* Handle unary rhs and binary rhs with integer constants as second
      operand.  */
@@ -1883,10 +1890,10 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	 we have to initialize the symbolic number.  */
       if (!source_stmt1)
 	{
-	  if (gimple_assign_load_p (stmt)
+	  if (gimple_assign_load_p (assign_stmt)
 	      || !init_symbolic_number (n, rhs1))
 	    return NULL;
-	  source_stmt1 = stmt;
+	  source_stmt1 = assign_stmt;
 	}
 
       switch (code)
@@ -1919,7 +1926,7 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	    int i, type_size, old_type_size;
 	    tree type;
 
-	    type = gimple_expr_type (stmt);
+	    type = gimple_expr_type (assign_stmt);
 	    type_size = TYPE_PRECISION (type);
 	    if (type_size % BITS_PER_UNIT != 0)
 	      return NULL;
@@ -1949,7 +1956,7 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	default:
 	  return NULL;
 	};
-      return verify_symbolic_number_p (n, stmt) ? source_stmt1 : NULL;
+      return verify_symbolic_number_p (n, assign_stmt) ? source_stmt1 : NULL;
     }
 
   /* Handle binary rhs.  */
@@ -1959,7 +1966,7 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
       int i, size;
       struct symbolic_number n1, n2;
       uint64_t mask;
-      gimple source_stmt2;
+      gassign *source_stmt2;
 
       if (code != BIT_IOR_EXPR)
 	return NULL;
@@ -2064,7 +2071,7 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	    }
 	  n->n = n1.n | n2.n;
 
-	  if (!verify_symbolic_number_p (n, stmt))
+	  if (!verify_symbolic_number_p (n, assign_stmt))
 	    return NULL;
 
 	  break;
@@ -2084,7 +2091,7 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
    function returns a stmt whose rhs's first tree is the source
    expression.  */
 
-static gimple
+static gassign *
 find_bswap_or_nop (gimple stmt, struct symbolic_number *n, bool *bswap)
 {
 /* The number which the find_bswap_or_nop_1 result should match in order
@@ -2093,7 +2100,7 @@ find_bswap_or_nop (gimple stmt, struct symbolic_number *n, bool *bswap)
   uint64_t cmpxchg = CMPXCHG;
   uint64_t cmpnop = CMPNOP;
 
-  gimple source_stmt;
+  gassign *source_stmt;
   int limit;
 
   /* The last parameter determines the depth search limit.  It usually
@@ -2188,7 +2195,7 @@ public:
    some statistics.  */
 
 static bool
-bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
+bswap_replace (gassign *cur_stmt, gimple_stmt_iterator gsi, gassign *src_stmt,
 	       tree fndecl, tree bswap_type, tree load_type,
 	       struct symbolic_number *n, bool bswap)
 {
@@ -2392,12 +2399,14 @@ pass_optimize_bswap::execute (function *fun)
 	 patterns, the wider variant wouldn't be detected.  */
       for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
         {
-	  gimple src_stmt, cur_stmt = gsi_stmt (gsi);
+	  gassign *src_stmt;
+	  gassign *cur_stmt;
 	  tree fndecl = NULL_TREE, bswap_type = NULL_TREE, load_type;
 	  struct symbolic_number n;
 	  bool bswap;
 
-	  if (!is_gimple_assign (cur_stmt)
+	  cur_stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+	  if (!cur_stmt
 	      || gimple_assign_rhs_code (cur_stmt) != BIT_IOR_EXPR)
 	    continue;
 
@@ -2472,7 +2481,7 @@ make_pass_optimize_bswap (gcc::context *ctxt)
 /* Return true if stmt is a type conversion operation that can be stripped
    when used in a widening multiply operation.  */
 static bool
-widening_mult_conversion_strippable_p (tree result_type, gimple stmt)
+widening_mult_conversion_strippable_p (tree result_type, gassign *stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 
@@ -2530,13 +2539,13 @@ is_widening_mult_rhs_p (tree type, tree rhs, tree *type_out,
   if (TREE_CODE (rhs) == SSA_NAME)
     {
       stmt = SSA_NAME_DEF_STMT (rhs);
-      if (is_gimple_assign (stmt))
+      if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
 	{
-	  if (! widening_mult_conversion_strippable_p (type, stmt))
+	  if (! widening_mult_conversion_strippable_p (type, assign_stmt))
 	    rhs1 = rhs;
 	  else
 	    {
-	      rhs1 = gimple_assign_rhs1 (stmt);
+	      rhs1 = gimple_assign_rhs1 (assign_stmt);
 
 	      if (TREE_CODE (rhs1) == INTEGER_CST)
 		{
@@ -2577,7 +2586,7 @@ is_widening_mult_rhs_p (tree type, tree rhs, tree *type_out,
    and *TYPE2_OUT would give the operands of the multiplication.  */
 
 static bool
-is_widening_mult_p (gimple stmt,
+is_widening_mult_p (gassign *stmt,
 		    tree *type1_out, tree *rhs1_out,
 		    tree *type2_out, tree *rhs2_out)
 {
@@ -2629,7 +2638,7 @@ is_widening_mult_p (gimple stmt,
    value is true iff we converted the statement.  */
 
 static bool
-convert_mult_to_widen (gimple stmt, gimple_stmt_iterator *gsi)
+convert_mult_to_widen (gassign *stmt, gimple_stmt_iterator *gsi)
 {
   tree lhs, rhs1, rhs2, type, type1, type2;
   enum insn_code handler;
@@ -2730,11 +2739,12 @@ convert_mult_to_widen (gimple stmt, gimple_stmt_iterator *gsi)
    is true iff we converted the statement.  */
 
 static bool
-convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
+convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gassign *stmt,
 			    enum tree_code code)
 {
   gimple rhs1_stmt = NULL, rhs2_stmt = NULL;
-  gimple conv1_stmt = NULL, conv2_stmt = NULL, conv_stmt;
+  gassign *rhs1_assign = NULL, *rhs2_assign = NULL;
+  gassign *conv1_stmt = NULL, *conv2_stmt = NULL, *conv_stmt;
   tree type, type1, type2, optype;
   tree lhs, rhs1, rhs2, mult_rhs1, mult_rhs2, add_rhs;
   enum tree_code rhs1_code = ERROR_MARK, rhs2_code = ERROR_MARK;
@@ -2763,15 +2773,17 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
   if (TREE_CODE (rhs1) == SSA_NAME)
     {
       rhs1_stmt = SSA_NAME_DEF_STMT (rhs1);
-      if (is_gimple_assign (rhs1_stmt))
-	rhs1_code = gimple_assign_rhs_code (rhs1_stmt);
+      rhs1_assign = dyn_cast <gassign *> (rhs1_stmt);
+      if (rhs1_assign)
+	rhs1_code = gimple_assign_rhs_code (rhs1_assign);
     }
 
   if (TREE_CODE (rhs2) == SSA_NAME)
     {
       rhs2_stmt = SSA_NAME_DEF_STMT (rhs2);
-      if (is_gimple_assign (rhs2_stmt))
-	rhs2_code = gimple_assign_rhs_code (rhs2_stmt);
+      rhs2_assign = dyn_cast <gassign *> (rhs2_stmt);
+      if (rhs2_assign)
+	rhs2_code = gimple_assign_rhs_code (rhs2_assign);
     }
 
   /* Allow for one conversion statement between the multiply
@@ -2781,26 +2793,28 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
      been folded before now.  */
   if (CONVERT_EXPR_CODE_P (rhs1_code))
     {
-      conv1_stmt = rhs1_stmt;
-      rhs1 = gimple_assign_rhs1 (rhs1_stmt);
+      conv1_stmt = rhs1_assign;
+      rhs1 = gimple_assign_rhs1 (rhs1_assign);
       if (TREE_CODE (rhs1) == SSA_NAME)
 	{
 	  rhs1_stmt = SSA_NAME_DEF_STMT (rhs1);
-	  if (is_gimple_assign (rhs1_stmt))
-	    rhs1_code = gimple_assign_rhs_code (rhs1_stmt);
+	  rhs1_assign = dyn_cast <gassign *> (rhs1_stmt);
+	  if (rhs1_assign)
+	    rhs1_code = gimple_assign_rhs_code (rhs1_assign);
 	}
       else
 	return false;
     }
   if (CONVERT_EXPR_CODE_P (rhs2_code))
     {
-      conv2_stmt = rhs2_stmt;
-      rhs2 = gimple_assign_rhs1 (rhs2_stmt);
+      conv2_stmt = rhs2_assign;
+      rhs2 = gimple_assign_rhs1 (as_a <gassign *> (rhs2_stmt));
       if (TREE_CODE (rhs2) == SSA_NAME)
 	{
 	  rhs2_stmt = SSA_NAME_DEF_STMT (rhs2);
-	  if (is_gimple_assign (rhs2_stmt))
-	    rhs2_code = gimple_assign_rhs_code (rhs2_stmt);
+	  rhs2_assign = dyn_cast <gassign *> (rhs2_stmt);
+	  if (rhs2_assign)
+	    rhs2_code = gimple_assign_rhs_code (rhs2_assign);
 	}
       else
 	return false;
@@ -2818,8 +2832,9 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
   if (code == PLUS_EXPR
       && (rhs1_code == MULT_EXPR || rhs1_code == WIDEN_MULT_EXPR))
     {
+      gcc_assert (rhs1_stmt == rhs1_assign);
       if (!has_single_use (rhs1)
-	  || !is_widening_mult_p (rhs1_stmt, &type1, &mult_rhs1,
+	  || !is_widening_mult_p (rhs1_assign, &type1, &mult_rhs1,
 				  &type2, &mult_rhs2))
 	return false;
       add_rhs = rhs2;
@@ -2827,8 +2842,9 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
     }
   else if (rhs2_code == MULT_EXPR || rhs2_code == WIDEN_MULT_EXPR)
     {
+      gcc_assert (rhs2_stmt == rhs2_assign);
       if (!has_single_use (rhs2)
-	  || !is_widening_mult_p (rhs2_stmt, &type1, &mult_rhs1,
+	  || !is_widening_mult_p (rhs2_assign, &type1, &mult_rhs1,
 				  &type2, &mult_rhs2))
 	return false;
       add_rhs = rhs1;
@@ -2998,10 +3014,11 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
       if (gimple_bb (use_stmt) != gimple_bb (mul_stmt))
 	return false;
 
-      if (!is_gimple_assign (use_stmt))
+      gassign *use_assign = dyn_cast <gassign *> (use_stmt);
+      if (!use_assign)
 	return false;
 
-      use_code = gimple_assign_rhs_code (use_stmt);
+      use_code = gimple_assign_rhs_code (use_assign);
 
       /* A negate on the multiplication leads to FNMA.  */
       if (use_code == NEGATE_EXPR)
@@ -3009,11 +3026,11 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
 	  ssa_op_iter iter;
 	  use_operand_p usep;
 
-	  result = gimple_assign_lhs (use_stmt);
+	  result = gimple_assign_lhs (use_assign);
 
 	  /* Make sure the negate statement becomes dead with this
 	     single transformation.  */
-	  if (!single_imm_use (gimple_assign_lhs (use_stmt),
+	  if (!single_imm_use (gimple_assign_lhs (use_assign),
 			       &use_p, &neguse_stmt))
 	    return false;
 
@@ -3026,17 +3043,18 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
 	  use_stmt = neguse_stmt;
 	  if (gimple_bb (use_stmt) != gimple_bb (mul_stmt))
 	    return false;
-	  if (!is_gimple_assign (use_stmt))
+	  use_assign = dyn_cast <gassign *> (use_stmt);
+	  if (!use_assign)
 	    return false;
 
-	  use_code = gimple_assign_rhs_code (use_stmt);
+	  use_code = gimple_assign_rhs_code (use_assign);
 	  negate_p = true;
 	}
 
       switch (use_code)
 	{
 	case MINUS_EXPR:
-	  if (gimple_assign_rhs2 (use_stmt) == result)
+	  if (gimple_assign_rhs2 (use_assign) == result)
 	    negate_p = !negate_p;
 	  break;
 	case PLUS_EXPR:
@@ -3046,30 +3064,31 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
 	  return false;
 	}
 
-      /* If the subtrahend (gimple_assign_rhs2 (use_stmt)) is computed
+      /* If the subtrahend (gimple_assign_rhs2 (use_assign)) is computed
 	 by a MULT_EXPR that we'll visit later, we might be able to
 	 get a more profitable match with fnma.
 	 OTOH, if we don't, a negate / fma pair has likely lower latency
 	 that a mult / subtract pair.  */
       if (use_code == MINUS_EXPR && !negate_p
-	  && gimple_assign_rhs1 (use_stmt) == result
+	  && gimple_assign_rhs1 (use_assign) == result
 	  && optab_handler (fms_optab, TYPE_MODE (type)) == CODE_FOR_nothing
 	  && optab_handler (fnma_optab, TYPE_MODE (type)) != CODE_FOR_nothing)
 	{
-	  tree rhs2 = gimple_assign_rhs2 (use_stmt);
+	  tree rhs2 = gimple_assign_rhs2 (use_assign);
 
 	  if (TREE_CODE (rhs2) == SSA_NAME)
 	    {
 	      gimple stmt2 = SSA_NAME_DEF_STMT (rhs2);
 	      if (has_single_use (rhs2)
 		  && is_gimple_assign (stmt2)
-		  && gimple_assign_rhs_code (stmt2) == MULT_EXPR)
+		  && (gimple_assign_rhs_code (as_a <gassign *> (stmt2))
+		      == MULT_EXPR))
 	      return false;
 	    }
 	}
 
       /* We can't handle a * b + a * b.  */
-      if (gimple_assign_rhs1 (use_stmt) == gimple_assign_rhs2 (use_stmt))
+      if (gimple_assign_rhs1 (use_assign) == gimple_assign_rhs2 (use_assign))
 	return false;
 
       /* While it is possible to validate whether or not the exact form
@@ -3092,25 +3111,26 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
       if (is_gimple_debug (use_stmt))
 	continue;
 
-      use_code = gimple_assign_rhs_code (use_stmt);
+      gassign *use_assign = as_a <gassign *> (use_stmt);
+      use_code = gimple_assign_rhs_code (use_assign);
       if (use_code == NEGATE_EXPR)
 	{
-	  result = gimple_assign_lhs (use_stmt);
-	  single_imm_use (gimple_assign_lhs (use_stmt), &use_p, &neguse_stmt);
+	  result = gimple_assign_lhs (use_assign);
+	  single_imm_use (gimple_assign_lhs (use_assign), &use_p, &neguse_stmt);
 	  gsi_remove (&gsi, true);
-	  release_defs (use_stmt);
+	  release_defs (use_assign);
 
-	  use_stmt = neguse_stmt;
-	  gsi = gsi_for_stmt (use_stmt);
-	  use_code = gimple_assign_rhs_code (use_stmt);
+	  use_assign = as_a <gassign *> (neguse_stmt);
+	  gsi = gsi_for_stmt (use_assign);
+	  use_code = gimple_assign_rhs_code (use_assign);
 	  negate_p = true;
 	}
 
-      if (gimple_assign_rhs1 (use_stmt) == result)
+      if (gimple_assign_rhs1 (use_assign) == result)
 	{
-	  addop = gimple_assign_rhs2 (use_stmt);
+	  addop = gimple_assign_rhs2 (use_assign);
 	  /* a * b - c -> a * b + (-c)  */
-	  if (gimple_assign_rhs_code (use_stmt) == MINUS_EXPR)
+	  if (gimple_assign_rhs_code (use_assign) == MINUS_EXPR)
 	    addop = force_gimple_operand_gsi (&gsi,
 					      build1 (NEGATE_EXPR,
 						      type, addop),
@@ -3119,9 +3139,9 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
 	}
       else
 	{
-	  addop = gimple_assign_rhs1 (use_stmt);
+	  addop = gimple_assign_rhs1 (use_assign);
 	  /* a - b * c -> (-b) * c + a */
-	  if (gimple_assign_rhs_code (use_stmt) == MINUS_EXPR)
+	  if (gimple_assign_rhs_code (use_assign) == MINUS_EXPR)
 	    negate_p = !negate_p;
 	}
 
@@ -3133,7 +3153,7 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
 					   GSI_SAME_STMT);
 
       fma_stmt = gimple_build_assign_with_ops (FMA_EXPR,
-					       gimple_assign_lhs (use_stmt),
+					       gimple_assign_lhs (use_assign),
 					       mulop1, op2,
 					       addop);
       gsi_replace (&gsi, fma_stmt, true);
@@ -3196,26 +3216,26 @@ pass_optimize_widening_mul::execute (function *fun)
 	  gimple stmt = gsi_stmt (gsi);
 	  enum tree_code code;
 
-	  if (is_gimple_assign (stmt))
+	  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
 	    {
-	      code = gimple_assign_rhs_code (stmt);
+	      code = gimple_assign_rhs_code (assign_stmt);
 	      switch (code)
 		{
 		case MULT_EXPR:
-		  if (!convert_mult_to_widen (stmt, &gsi)
-		      && convert_mult_to_fma (stmt,
-					      gimple_assign_rhs1 (stmt),
-					      gimple_assign_rhs2 (stmt)))
+		  if (!convert_mult_to_widen (assign_stmt, &gsi)
+		      && convert_mult_to_fma (assign_stmt,
+					      gimple_assign_rhs1 (assign_stmt),
+					      gimple_assign_rhs2 (assign_stmt)))
 		    {
 		      gsi_remove (&gsi, true);
-		      release_defs (stmt);
+		      release_defs (assign_stmt);
 		      continue;
 		    }
 		  break;
 
 		case PLUS_EXPR:
 		case MINUS_EXPR:
-		  convert_plusminus_to_widen (&gsi, stmt, code);
+		  convert_plusminus_to_widen (&gsi, assign_stmt, code);
 		  break;
 
 		default:;
