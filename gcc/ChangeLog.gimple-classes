@@ -1,5 +1,14 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-propagate.c
+	(substitute_and_fold_dom_walker::before_dom_children): Add checked
+	cast.  Replace is_gimple_assign with a dyn_cast, introducing local
+	"assign_stmt" and using it in place of "stmt" for typesafety.
+	(may_propagate_copy_into_stmt): Add checked casts.
+	(propagate_tree_value_into_stmt): Add checked cast.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-pre.c (compute_avail): Within case GIMPLE_ASSIGN,
 	introduce local "assign_stmt" via an as_a and use it in place of
 	"stmt" for typesafety.

@@ -1103,7 +1103,8 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 	 afterwards.  */
 
       if (code == GIMPLE_ASSIGN
-	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == ASSERT_EXPR)
+	  && (TREE_CODE (gimple_assign_rhs1 (as_a <gassign *> (stmt)))
+	      == ASSERT_EXPR))
 	continue;
 
       /* No point propagating into a stmt we have a value for we
@@ -1164,15 +1165,15 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 	  if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
 
-	  if (is_gimple_assign (stmt)
-	      && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
-		  == GIMPLE_SINGLE_RHS))
-	    {
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
+	    if (get_gimple_rhs_class (gimple_assign_rhs_code (assign_stmt))
+		== GIMPLE_SINGLE_RHS)
+	      {
+		tree rhs = gimple_assign_rhs1 (assign_stmt);
 
-	      if (TREE_CODE (rhs) == ADDR_EXPR)
-		recompute_tree_invariant_for_addr_expr (rhs);
-	    }
+		if (TREE_CODE (rhs) == ADDR_EXPR)
+		  recompute_tree_invariant_for_addr_expr (rhs);
+	      }
 
 	  /* Determine what needs to be done to update the SSA form.  */
 	  update_stmt (stmt);
@@ -1324,7 +1325,8 @@ may_propagate_copy_into_stmt (gimple dest, tree orig)
      for the expression, so we delegate to may_propagate_copy.  */
 
   if (gimple_assign_single_p (dest))
-    return may_propagate_copy (gimple_assign_rhs1 (dest), orig);
+    return may_propagate_copy (gimple_assign_rhs1 (as_a <gassign *> (dest)),
+			       orig);
   else if (gswitch *dest_swtch = dyn_cast <gswitch *> (dest))
     return may_propagate_copy (gimple_switch_index (dest_swtch), orig);
 
@@ -1338,7 +1340,7 @@ may_propagate_copy_into_stmt (gimple dest, tree orig)
     return false;
 
   if (is_gimple_assign (dest))
-    type_d = TREE_TYPE (gimple_assign_lhs (dest));
+    type_d = TREE_TYPE (gimple_assign_lhs (as_a <gassign *> (dest)));
   else if (gimple_code (dest) == GIMPLE_COND)
     type_d = boolean_type_node;
   else if (is_gimple_call (dest)
@@ -1450,7 +1452,7 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
     {
       tree expr = NULL_TREE;
       if (gimple_assign_single_p (stmt))
-        expr = gimple_assign_rhs1 (stmt);
+        expr = gimple_assign_rhs1 (as_a <gassign *> (stmt));
       propagate_tree_value (&expr, val);
       gimple_assign_set_rhs_from_tree (gsi, expr);
     }
