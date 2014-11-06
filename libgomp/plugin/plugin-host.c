@@ -153,16 +153,6 @@ GOMP_OFFLOAD_get_table (struct mapping_table **table)
   return 0;
 }
 
-STATIC bool
-GOMP_OFFLOAD_openacc_avail (void)
-{
-#ifdef DEBUG
-  fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
-#endif
-
-  return 1;
-}
-
 STATIC void *
 GOMP_OFFLOAD_openacc_open_device (int n)
 {
@@ -414,9 +404,6 @@ static struct gomp_device_descr host_dispatch =
 
       .get_device_num_func = GOMP_OFFLOAD_openacc_get_device_num,
       .set_device_num_func = GOMP_OFFLOAD_openacc_set_device_num,
-
-      /* Device available.  */
-      .avail_func = GOMP_OFFLOAD_openacc_avail,
 
       .exec_func = GOMP_OFFLOAD_openacc_parallel,
 

@@ -1,3 +1,9 @@
+2014-11-06  Julian Brown  <julian@codesourcery.com>
+
+	* contrib/gcc_update (libgomp/plugin/aclocal.m4)
+	(libgomp/plugin/Makefile.in, libgomp/plugin/configure)
+	(libgomp/plugin/config.h.in): Add.
+
 2014-10-30  Thomas Schwinge  <thomas@codesourcery.com>
 
 	Backport trunk r216912:

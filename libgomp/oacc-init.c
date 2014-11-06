@@ -97,7 +97,7 @@ resolve_device (acc_device_t d)
 	    while (++d != _ACC_device_hwm)
 	      if (dispatchers[d]
 		  && !strcasecmp (goacc_device_type, dispatchers[d]->name)
-		  && dispatchers[d]->device_init_func () > 0)
+		  && dispatchers[d]->init_device_func () > 0)
 		goto found;
 
 	    gomp_fatal ("device type %s not supported", goacc_device_type);
@@ -112,7 +112,7 @@ resolve_device (acc_device_t d)
     case acc_device_not_host:
       /* Find the first available device after acc_device_not_host.  */
       while (++d != _ACC_device_hwm)
-	if (dispatchers[d] && dispatchers[d]->device_init_func () > 0)
+	if (dispatchers[d] && dispatchers[d]->init_device_func () > 0)
 	  goto found;
       if (d_arg == acc_device_default)
 	{	  
@@ -140,7 +140,7 @@ resolve_device (acc_device_t d)
 }
 
 /* This is called when plugins have been initialized, and serves to call
-   (indirectly) the target's device_init hook.  Calling multiple times without
+   (indirectly) the target's init_device hook.  Calling multiple times without
    an intervening _acc_shutdown call is an error.  */
 
 static struct gomp_device_descr const *
@@ -150,7 +150,7 @@ _acc_init (acc_device_t d)
 
   acc_dev = resolve_device (d);
 
-  if (!acc_dev || acc_dev->device_init_func () <= 0)
+  if (!acc_dev || acc_dev->init_device_func () <= 0)
     gomp_fatal ("device %u not supported", (unsigned)d);
 
   if (acc_dev->is_initialized)

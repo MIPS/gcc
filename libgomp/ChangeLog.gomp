@@ -1,3 +1,23 @@
+2014-11-06  Julian Brown  <julian@codesourcery.com>
+
+	* oacc-init.c (resolve_device, _acc_init): Fix init_device_func
+	hook naming.
+	* plugin/plugin-host.c (GOMP_OFFLOAD_openacc_avail): Remove.
+	(host_dispatch): Don't set avail_func hook.
+	* plugin/configure.ac (libgomp-test-support.exp): Add to
+	AC_CONFIG_FILES.
+	* plugin/configure: Regenerate.
+	* testsuite/libgomp-test-support.exp.in: Move from here...
+	* plugin/libgomp-test-support.exp.in: ...to here.
+	* plugin/Makefile.in: Regenerate.
+	* testsuite/lib/libgomp.exp (libgomp-test-support.exp): Find in
+	plugin dir, for now.
+	* testsuite/Makefile.in: Regenerate.
+	* configure.ac (testsuite/libgomp-test-support.exp): Remove from
+	AC_CONFIG_FILES.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
 2014-11-05  Julian Brown  <julian@codesourcery.com>
 
 	* Makefile.am (SUBDIRS): Add plugin.

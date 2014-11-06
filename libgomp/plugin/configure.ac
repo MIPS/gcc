@@ -175,4 +175,5 @@ AC_DEFINE_UNQUOTED([PLUGIN_NVPTX], [$PLUGIN_NVPTX],
 AC_SUBST(config_path)
 
 AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([libgomp-test-support.exp])
 AC_OUTPUT

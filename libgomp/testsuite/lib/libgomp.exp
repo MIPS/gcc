@@ -32,7 +32,7 @@ load_gcc_lib torture-options.exp
 load_gcc_lib fortran-modules.exp
 
 # Try to load a test support file, built during libgomp configuration.
-load_file libgomp-test-support.exp
+load_file ../plugin/libgomp-test-support.exp
 
 set dg-do-what-default run
 
