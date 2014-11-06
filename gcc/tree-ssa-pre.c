@@ -3757,12 +3757,13 @@ compute_avail (void)
 
 	    case GIMPLE_ASSIGN:
 	      {
+		gassign *assign_stmt = as_a <gassign *> (stmt);
 		pre_expr result = NULL;
 		switch (vn_get_stmt_kind (stmt))
 		  {
 		  case VN_NARY:
 		    {
-		      enum tree_code code = gimple_assign_rhs_code (stmt);
+		      enum tree_code code = gimple_assign_rhs_code (assign_stmt);
 		      vn_nary_op_t nary;
 
 		      /* COND_EXPR and VEC_COND_EXPR are awkward in
@@ -3793,8 +3794,8 @@ compute_avail (void)
 		  case VN_REFERENCE:
 		    {
 		      vn_reference_t ref;
-		      vn_reference_lookup (gimple_assign_rhs1 (stmt),
-					   gimple_vuse (stmt),
+		      vn_reference_lookup (gimple_assign_rhs1 (assign_stmt),
+					   gimple_vuse (assign_stmt),
 					   VN_WALK, &ref);
 		      if (!ref)
 			continue;
@@ -3812,7 +3813,7 @@ compute_avail (void)
 				 && gimple_bb (def_stmt) == block)
 			    {
 			      if (stmt_may_clobber_ref_p
-				    (def_stmt, gimple_assign_rhs1 (stmt)))
+				    (def_stmt, gimple_assign_rhs1 (assign_stmt)))
 				{
 				  ok = false;
 				  break;
@@ -4040,6 +4041,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
       tree sprime = NULL_TREE;
       gimple stmt = gsi_stmt (gsi);
       tree lhs = gimple_get_lhs (stmt);
+      gassign *assign_stmt;
       if (lhs && TREE_CODE (lhs) == SSA_NAME
 	  && !gimple_has_volatile_ops (stmt)
 	  /* See PR43491.  Do not replace a global register variable when
@@ -4049,10 +4051,10 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	     ???  The fix isn't effective here.  This should instead
 	     be ensured by not value-numbering them the same but treating
 	     them like volatiles?  */
-	  && !(gimple_assign_single_p (stmt)
-	       && (TREE_CODE (gimple_assign_rhs1 (stmt)) == VAR_DECL
-		   && DECL_HARD_REGISTER (gimple_assign_rhs1 (stmt))
-		   && is_global_var (gimple_assign_rhs1 (stmt)))))
+	  && !((assign_stmt = gimple_assign_single_p (stmt))
+	       && (TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == VAR_DECL
+		   && DECL_HARD_REGISTER (gimple_assign_rhs1 (assign_stmt))
+		   && is_global_var (gimple_assign_rhs1 (assign_stmt)))))
 	{
 	  sprime = eliminate_avail (lhs);
 	  if (!sprime)
@@ -4159,9 +4161,10 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		  el_to_remove.safe_push (stmt);
 
 		  /* ???  Don't count copy/constant propagations.  */
-		  if (gimple_assign_single_p (stmt)
-		      && (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
-			  || gimple_assign_rhs1 (stmt) == sprime))
+		  if ((assign_stmt = gimple_assign_single_p (stmt))
+		      && ((TREE_CODE (gimple_assign_rhs1 (assign_stmt))
+			   == SSA_NAME)
+			  || gimple_assign_rhs1 (assign_stmt) == sprime))
 		    continue;
 
 		  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4182,7 +4185,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	         happens in the case the value-number is a constant)
 		 then there is nothing to do.  */
 	      if (gimple_assign_single_p (stmt)
-		  && sprime == gimple_assign_rhs1 (stmt))
+		  && sprime == gimple_assign_rhs1 (as_a <gassign *> (stmt)))
 		continue;
 
 	      /* Else replace its RHS.  */
@@ -4244,15 +4247,15 @@ eliminate_dom_walker::before_dom_children (basic_block b)
       /* If the statement is a scalar store, see if the expression
          has the same value number as its rhs.  If so, the store is
          dead.  */
-      if (gimple_assign_single_p (stmt)
+      if ((assign_stmt = gimple_assign_single_p (stmt))
 	  && !gimple_has_volatile_ops (stmt)
-	  && !is_gimple_reg (gimple_assign_lhs (stmt))
-	  && (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
-	      || is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
+	  && !is_gimple_reg (gimple_assign_lhs (assign_stmt))
+	  && (TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME
+	      || is_gimple_min_invariant (gimple_assign_rhs1 (assign_stmt))))
         {
           tree val;
-	  tree rhs = gimple_assign_rhs1 (stmt);
-          val = vn_reference_lookup (gimple_assign_lhs (stmt),
+	  tree rhs = gimple_assign_rhs1 (assign_stmt);
+          val = vn_reference_lookup (gimple_assign_lhs (assign_stmt),
                                      gimple_vuse (stmt), VN_WALK, NULL);
           if (TREE_CODE (rhs) == SSA_NAME)
             rhs = VN_INFO (rhs)->valnum;
@@ -4362,9 +4365,9 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	{
 	  /* If a formerly non-invariant ADDR_EXPR is turned into an
 	     invariant one it was on a separate stmt.  */
-	  if (gimple_assign_single_p (stmt)
-	      && TREE_CODE (gimple_assign_rhs1 (stmt)) == ADDR_EXPR)
-	    recompute_tree_invariant_for_addr_expr (gimple_assign_rhs1 (stmt));
+	  if ((assign_stmt = gimple_assign_single_p (stmt))
+	      && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == ADDR_EXPR)
+	    recompute_tree_invariant_for_addr_expr (gimple_assign_rhs1 (assign_stmt));
 	  gimple old_stmt = stmt;
 	  if (is_gimple_call (stmt))
 	    {

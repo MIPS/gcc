@@ -1,5 +1,15 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-pre.c (compute_avail): Within case GIMPLE_ASSIGN,
+	introduce local "assign_stmt" via an as_a and use it in place of
+	"stmt" for typesafety.
+	(eliminate_dom_walker::before_dom_children): Introduce local
+	gassign * "assign_stmt", using it to capture the result of
+	gimple_assign_single_p, using it in place of "stmt" for
+	typesafety.  Add a checked cast.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-phiprop.c (phiprop_insert_phi): Strengthen param
 	"use_stmt" from gimple to gassign *.  Add checked cast.
 	(propagate_with_phi): Add checked casts.  Replace is_gimple_assign
