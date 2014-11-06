@@ -1,6 +1,12 @@
 
 2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_case_label_expr): Correct
+	typos.
+	* melt/libmelt-ana-gimple.melt (make_gimple_switch): New function.
+
+2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_case_label_expr)
 	(build_case_label): New cmatcher & primitive.
 

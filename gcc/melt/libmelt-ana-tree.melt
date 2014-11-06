@@ -659,8 +659,8 @@ treerr
   #{ /* tree_case_label_expr $TREECASELABEL ! */
   $TCLOW = CASE_LOW($TR);
   $TCHIGH = CASE_HIGH($TR);
-  TLABEL = CASE_LABEL($TR);
-  TCHAIN = CASE_CHAIN($TR);
+  $TLABEL = CASE_LABEL($TR);
+  $TCHAIN = CASE_CHAIN($TR);
   }#)
 
 ;;; build a case label

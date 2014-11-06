@@ -2929,6 +2929,74 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
      gimple_switch_set_label ($GS, (unsigned)$N, $TLAB);
   }#)
 
+(defun make_gimple_switch (indexv defcasev cases)
+  :doc #{the $MAKE_GIMPLE_SWITCH function make a boxed gimple switch
+  with index in boxed tree $INDEXV, default case in boxed tree
+  $DEFCASEV, and cases in $CASES which is a list or tuple of boxed case label trees.}#
+  (debug "make_gimple_switch" " indexv=" indexv " defcasev=" defcasev " cases=" cases)
+  (let ( (tr_index (unbox :tree indexv))
+	 (tr_defcase (unbox :tree defcasev))
+	 )
+    (if (expr_chunk test_chk :long #{ /* make_gimple_switch $TEST_CHK */
+		    (!$TR_INDEX || EXPR_P($TR_INDEX))
+		    && (!$TR_DEFCASE || TREE_CODE($TR_DEFCASE) == CASE_LABEL_EXPR)}#)
+	(let ( (caselist (make_list discr_list))
+	       )
+	  (cond
+	   ( (is_list cases)
+	     (each_component_in_list
+	      cases curcasev
+	      (let ( (tr_curcase (unbox :tree curcasev))
+		     )
+		(if (expr_chunk testcurcasel_chk :long #{ /* make_gimple_switch $TESTCURCASEL_CHK */
+				($TR_CURCASE
+				 && TREE_CODE($TR_CURCASE) == CASE_LABEL_EXPR) }#
+				 )
+		    (list_append caselist curcasev)))
+	      )
+	     )
+	   ( (is_multiple cases)
+	     (foreach_in_multiple
+	      (cases)
+	      (curcasev :long cix)
+	      (let ( (tr_curcase (unbox :tree curcasev))
+		     )
+		(if (expr_chunk testcurcaset_chk :long #{ /* make_gimple_switch $TESTCURCASET_CHK */
+				($TR_CURCASE
+				 && TREE_CODE($TR_CURCASE) == CASE_LABEL_EXPR) }#
+				 )
+		    (list_append caselist curcasev)))
+	      )
+	     )
+	   (:else (void)))
+	  (let ( (casetup (list_to_multiple caselist discr_multiple))
+		 (nbcases (multiple_length casetup))
+		 (:gimple gr (null_gimple))
+		 (:tree t_curcase (null_tree))
+		 )
+	    (code_chunk makegr_chk #{
+			/* make_gimple_switch $MAKEGR_CHK */
+			$GR = gimple_build_switch_nlabels ($NBCASES, $TR_INDEX, $TR_DEFCASE);
+			for (int ix_$MAKEGR_CHK = 0;
+				 ix_$MAKEGR_CHK < (int) $NBCASES;
+				 ix_$MAKEGR_CHK ++) {
+			    $T_CURCASE = melt_tree_content(melt_multiple_nth($CASETUP, ix_$MAKEGR_CHK));
+			    gimple_switch_set_label ($GR, (unsigned)ix_$MAKEGR_CHK, $T_CURCASE);
+			    $T_CURCASE = NULL_TREE;
+			}#)
+	    (if gr
+		(let ( (res (constant_box gr))
+		       )
+		  (debug "make_gimple_switch" " res=" res)
+		  (return res)
+		  )
+	      )
+	    )
+	  )
+      )
+    )
+  )
+
 ;;; iterator on switch cases
 (defciterator foreach_case_of_gimple_switch
   (:gimple gs)
@@ -3746,7 +3814,8 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  is_mapgimple 
  make_gimple
  make_gimple_call
- make_gimple_mixloc 
+ make_gimple_mixloc
+ make_gimple_switch
  make_gimpleseq 
  make_mapgimple 
  mapgimple_aux 
