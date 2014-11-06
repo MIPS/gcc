@@ -1,5 +1,13 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-phiprop.c (phiprop_insert_phi): Strengthen param
+	"use_stmt" from gimple to gassign *.  Add checked cast.
+	(propagate_with_phi): Add checked casts.  Replace is_gimple_assign
+	with a dyn_cast, introducing local "use_assign" and using it in
+	place of "use_stmt" for typesafety.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-phiopt.c (jump_function_from_stmt): Strengthen param
 	"stmt" from gimple to gassign *.
 	(rhs_is_fed_for_value_replacement): Replace is_gimple_assign with

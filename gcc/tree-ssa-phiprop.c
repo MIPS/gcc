@@ -149,7 +149,7 @@ phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
    BB with the virtual operands from USE_STMT.  */
 
 static tree
-phiprop_insert_phi (basic_block bb, gphi *phi, gimple use_stmt,
+phiprop_insert_phi (basic_block bb, gphi *phi, gassign *use_stmt,
 		    struct phiprop_d *phivn, size_t n)
 {
   tree res;
@@ -157,8 +157,7 @@ phiprop_insert_phi (basic_block bb, gphi *phi, gimple use_stmt,
   edge_iterator ei;
   edge e;
 
-  gcc_assert (is_gimple_assign (use_stmt)
-	      && gimple_assign_rhs_code (use_stmt) == MEM_REF);
+  gcc_assert (gimple_assign_rhs_code (use_stmt) == MEM_REF);
 
   /* Build a new PHI node to replace the definition of
      the indirect reference lhs.  */
@@ -186,7 +185,7 @@ phiprop_insert_phi (basic_block bb, gphi *phi, gimple use_stmt,
 	         || phivn[SSA_NAME_VERSION (old_arg)].value == NULL_TREE))
 	{
 	  gimple def_stmt = SSA_NAME_DEF_STMT (old_arg);
-	  old_arg = gimple_assign_rhs1 (def_stmt);
+	  old_arg = gimple_assign_rhs1 (as_a <gassign *> (def_stmt));
 	  locus = gimple_location (def_stmt);
 	}
 
@@ -289,7 +288,7 @@ propagate_with_phi (basic_block bb, gphi *phi, struct phiprop_d *phivn,
 	  gimple def_stmt = SSA_NAME_DEF_STMT (arg);
 	  if (!gimple_assign_single_p (def_stmt))
 	    return false;
-	  arg = gimple_assign_rhs1 (def_stmt);
+	  arg = gimple_assign_rhs1 (as_a <gassign *> (def_stmt));
 	}
       if (TREE_CODE (arg) != ADDR_EXPR
 	  && !(TREE_CODE (arg) == SSA_NAME
@@ -309,7 +308,7 @@ propagate_with_phi (basic_block bb, gphi *phi, struct phiprop_d *phivn,
      copy chains for ptr.  */
   while (single_imm_use (ptr, &use, &use_stmt)
 	 && gimple_assign_ssa_name_copy_p (use_stmt))
-    ptr = gimple_assign_lhs (use_stmt);
+    ptr = gimple_assign_lhs (as_a <gassign *> (use_stmt));
 
   /* Replace the first dereference of *ptr if there is one and if we
      can move the loads to the place of the ptr phi node.  */
@@ -326,16 +325,19 @@ propagate_with_phi (basic_block bb, gphi *phi, struct phiprop_d *phivn,
 	continue;
          
       /* Check whether this is a load of *ptr.  */
-      if (!(is_gimple_assign (use_stmt)
-	    && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME
-	    && gimple_assign_rhs_code (use_stmt) == MEM_REF
-	    && TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 0) == ptr
-	    && integer_zerop (TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 1))
+      gassign *use_assign = dyn_cast <gassign *> (use_stmt);
+      if (!use_assign)
+	continue;
+
+      if (!(TREE_CODE (gimple_assign_lhs (use_assign)) == SSA_NAME
+	    && gimple_assign_rhs_code (use_assign) == MEM_REF
+	    && TREE_OPERAND (gimple_assign_rhs1 (use_assign), 0) == ptr
+	    && integer_zerop (TREE_OPERAND (gimple_assign_rhs1 (use_assign), 1))
 	    && (!type
 		|| types_compatible_p
-		     (TREE_TYPE (gimple_assign_lhs (use_stmt)), type))
+		     (TREE_TYPE (gimple_assign_lhs (use_assign)), type))
 	    /* We cannot replace a load that may throw or is volatile.  */
-	    && !stmt_can_throw_internal (use_stmt)))
+	    && !stmt_can_throw_internal (use_assign)))
 	continue;
 
       /* Check if we can move the loads.  The def stmt of the virtual use
@@ -352,7 +354,8 @@ propagate_with_phi (basic_block bb, gphi *phi, struct phiprop_d *phivn,
 	 is the first load transformation.  */
       if (!phi_inserted)
 	{
-	  res = phiprop_insert_phi (bb, phi, use_stmt, phivn, n);
+	  res = phiprop_insert_phi (bb, phi, use_assign,
+				    phivn, n);
 	  type = TREE_TYPE (res);
 
 	  /* Remember the value we created for *ptr.  */
@@ -371,7 +374,7 @@ propagate_with_phi (basic_block bb, gphi *phi, struct phiprop_d *phivn,
 	{
 	  /* Further replacements are easy, just make a copy out of the
 	     load.  */
-	  gimple_assign_set_rhs1 (use_stmt, res);
+	  gimple_assign_set_rhs1 (use_assign, res);
 	  update_stmt (use_stmt);
 	}
 
