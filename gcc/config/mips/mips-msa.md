@@ -680,7 +680,7 @@
         (vec_merge:MSA (vec_duplicate:MSA 
 			     (vec_select:<UNITMODE> 
 				 (match_operand:MSA 3 "register_operand")
-				 (const_int 0)))
+				 (parallel [(const_int 0)])))
 			 (match_operand:MSA 1 "register_operand")
 			 (match_operand 2 "const_<indeximm>_operand")))]
   "ISA_HAS_MSA"
@@ -693,7 +693,7 @@
         (vec_merge:MSA (vec_duplicate:MSA 
 			     (vec_select:<UNITMODE> 
 				 (match_operand:MSA 3 "register_operand" "f")
-				 (const_int 0)))
+				 (parallel [(const_int 0)])))
 			 (match_operand:MSA 1 "register_operand" "0")
 			 (match_operand 2 "const_<bitmask>_operand" "")))]
   "ISA_HAS_MSA"
