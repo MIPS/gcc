@@ -1556,7 +1556,8 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	 just drop the clobber stmt.  */
       if (id->blocks_to_copy && gimple_clobber_p (stmt))
 	{
-	  tree lhs = gimple_assign_lhs (stmt);
+	  gassign *assign_stmt = as_a <gassign *> (stmt);
+	  tree lhs = gimple_assign_lhs (assign_stmt);
 	  if (TREE_CODE (lhs) == MEM_REF
 	      && TREE_CODE (TREE_OPERAND (lhs, 0)) == SSA_NAME)
 	    {
@@ -1736,18 +1737,19 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
       /* With return slot optimization we can end up with
 	 non-gimple (foo *)&this->m, fix that here.  */
-      if (is_gimple_assign (stmt)
-	  && gimple_assign_rhs_code (stmt) == NOP_EXPR
-	  && !is_gimple_val (gimple_assign_rhs1 (stmt)))
-	{
-	  tree new_rhs;
-	  new_rhs = force_gimple_operand_gsi (&seq_gsi,
-					      gimple_assign_rhs1 (stmt),
-					      true, NULL, false,
-					      GSI_CONTINUE_LINKING);
-	  gimple_assign_set_rhs1 (stmt, new_rhs);
-	  id->regimplify = false;
-	}
+      if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
+	if (gimple_assign_rhs_code (assign_stmt) == NOP_EXPR
+	    && !is_gimple_val (gimple_assign_rhs1 (assign_stmt)))
+	  {
+	    tree new_rhs;
+	    new_rhs =
+	      force_gimple_operand_gsi (&seq_gsi,
+					gimple_assign_rhs1 (assign_stmt),
+					true, NULL, false,
+					GSI_CONTINUE_LINKING);
+	    gimple_assign_set_rhs1 (assign_stmt, new_rhs);
+	    id->regimplify = false;
+	  }
 
       gsi_insert_after (&seq_gsi, stmt, GSI_NEW_STMT);
 
@@ -2921,25 +2923,29 @@ insert_init_stmt (copy_body_data *id, basic_block bb, gimple init_stmt)
          from a rhs with a conversion.  Handle that here by forcing the
 	 rhs into a temporary.  gimple_regimplify_operands is not
 	 prepared to do this for us.  */
-      if (!is_gimple_debug (init_stmt)
-	  && !is_gimple_reg (gimple_assign_lhs (init_stmt))
-	  && is_gimple_reg_type (TREE_TYPE (gimple_assign_lhs (init_stmt)))
-	  && gimple_assign_rhs_class (init_stmt) == GIMPLE_UNARY_RHS)
+      if (!is_gimple_debug (init_stmt))
 	{
-	  tree rhs = build1 (gimple_assign_rhs_code (init_stmt),
-			     gimple_expr_type (init_stmt),
-			     gimple_assign_rhs1 (init_stmt));
-	  rhs = force_gimple_operand_gsi (&si, rhs, true, NULL_TREE, false,
-					  GSI_NEW_STMT);
-	  gimple_assign_set_rhs_code (init_stmt, TREE_CODE (rhs));
-	  gimple_assign_set_rhs1 (init_stmt, rhs);
+	  gassign *init_assign = as_a <gassign *> (init_stmt);
+	  if (!is_gimple_reg (gimple_assign_lhs (init_assign))
+	      && is_gimple_reg_type (TREE_TYPE (gimple_assign_lhs (
+						  init_assign)))
+	      && gimple_assign_rhs_class (init_assign) == GIMPLE_UNARY_RHS)
+	    {
+	      tree rhs = build1 (gimple_assign_rhs_code (init_assign),
+				 gimple_expr_type (init_assign),
+				 gimple_assign_rhs1 (init_assign));
+	      rhs = force_gimple_operand_gsi (&si, rhs, true, NULL_TREE, false,
+					      GSI_NEW_STMT);
+	      gimple_assign_set_rhs_code (init_assign, TREE_CODE (rhs));
+	      gimple_assign_set_rhs1 (init_assign, rhs);
+	    }
 	}
       gsi_insert_after (&si, init_stmt, GSI_NEW_STMT);
       gimple_regimplify_operands (init_stmt, &si);
 
       if (!is_gimple_debug (init_stmt) && MAY_HAVE_DEBUG_STMTS)
 	{
-	  tree def = gimple_assign_lhs (init_stmt);
+	  tree def = gimple_assign_lhs (as_a <gassign *> (init_stmt));
 	  insert_init_debug_bind (id, bb, def, def, init_stmt);
 	}
     }
@@ -3896,25 +3902,31 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	 likely be a real store, so the cost of the GIMPLE_ASSIGN is the cost
 	 of moving something into "a", which we compute using the function
 	 estimate_move_cost.  */
-      if (gimple_clobber_p (stmt))
-	return 0;	/* ={v} {CLOBBER} stmt expands to nothing.  */
+      {
+	gassign *assign_stmt = as_a <gassign *> (stmt);
+	if (gimple_clobber_p (assign_stmt))
+	  return 0;	/* ={v} {CLOBBER} stmt expands to nothing.  */
 
-      lhs = gimple_assign_lhs (stmt);
-      rhs = gimple_assign_rhs1 (stmt);
+	lhs = gimple_assign_lhs (assign_stmt);
+	rhs = gimple_assign_rhs1 (assign_stmt);
 
-      cost = 0;
+	cost = 0;
 
-      /* Account for the cost of moving to / from memory.  */
-      if (gimple_store_p (stmt))
-	cost += estimate_move_cost (TREE_TYPE (lhs), weights->time_based);
-      if (gimple_assign_load_p (stmt))
-	cost += estimate_move_cost (TREE_TYPE (rhs), weights->time_based);
+	/* Account for the cost of moving to / from memory.  */
+	if (gimple_store_p (assign_stmt))
+	  cost += estimate_move_cost (TREE_TYPE (lhs), weights->time_based);
+	if (gimple_assign_load_p (assign_stmt))
+	  cost += estimate_move_cost (TREE_TYPE (rhs), weights->time_based);
 
-      cost += estimate_operator_cost (gimple_assign_rhs_code (stmt), weights,
-      				      gimple_assign_rhs1 (stmt),
-				      get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
-				      == GIMPLE_BINARY_RHS
-				      ? gimple_assign_rhs2 (stmt) : NULL);
+	cost += estimate_operator_cost (gimple_assign_rhs_code (assign_stmt),
+					weights,
+					gimple_assign_rhs1 (assign_stmt),
+					((get_gimple_rhs_class (
+					   gimple_assign_rhs_code (assign_stmt))
+					  == GIMPLE_BINARY_RHS)
+					 ? gimple_assign_rhs2 (assign_stmt)
+					 : NULL));
+      }
       break;
 
     case GIMPLE_COND:
@@ -4560,11 +4572,12 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   /* If the value of the new expression is ignored, that's OK.  We
      don't warn about this for CALL_EXPRs, so we shouldn't warn about
      the equivalent inlined version either.  */
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      gcc_assert (gimple_assign_single_p (stmt)
-		  || CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt)));
-      TREE_USED (gimple_assign_rhs1 (stmt)) = 1;
+      gcc_assert (gimple_assign_single_p (assign_stmt)
+		  || CONVERT_EXPR_CODE_P (
+		       gimple_assign_rhs_code (assign_stmt)));
+      TREE_USED (gimple_assign_rhs1 (assign_stmt)) = 1;
     }
 
   /* Output the inlining info for this abstract function, since it has been

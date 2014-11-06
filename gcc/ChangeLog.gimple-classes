@@ -1,5 +1,21 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-inline.c (remap_gimple_stmt): Introduce local "assign_stmt"
+	in region guarded by gimple_clobber_p (stmt) and use it in place
+	of "stmt" for typesafety.
+	(copy_bb): Replace is_gimple_assign with a dyn_cast, introducing
+	local "assign_stmt", using it in place of "stmt" for typesafety.
+	(insert_init_stmt): Add local gassign * "init_assign" via a
+	checked cast and use it in place of "init_stmt" for typesafety.
+	Add checked cast.
+	(estimate_num_insns): Within case GIMPLE_ASSIGN, add local
+	"assign_stmt", using it in place of "stmt" for typesafety.
+	(expand_call_inline): Replace is_gimple_assign with a dyn_cast,
+	introducing local "assign_stmt", using it in place of "stmt" for
+	typesafety.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-complex.c (init_dont_simulate_again): Within case
 	GIMPLE_ASSIGN, introduce local gassign *"assign_stmt" and use it
 	in place of "stmt".
