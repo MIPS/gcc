@@ -4,6 +4,8 @@
 /* { dg-final { scan-assembler-not "0x12330000|305332224" } } */
 /* { dg-final { scan-assembler "addiu\t\\\$4,\\\$\[0-9\]*,-\[12\]" } } */
 
+extern void g (int, int);
+
 NOMIPS16 void f ()
 {
   g (0x1233ffff, 0x12340001);

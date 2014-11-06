@@ -1,3 +1,585 @@
+2014-11-05  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* gcc.target/mips/asm-1.c (bar): Add prototype.
+	* gcc.target/mips/call-1.c (f, h): Add return type.
+	* gcc.target/mips/call-5.c (f, h): Likewise.
+	* gcc.target/mips/call-6.c (f, h): Likewise.
+	* gcc.target/mips/call-3.c (f): Likewise.
+	* gcc.target/mips/call-2.c (g): Add prototype.
+	(f): Add return type.
+	* gcc.target/mips/call-4.c: Likewise.
+	* gcc.target/mips/code-readable-1.c (foo): Add type for x.
+	* gcc.target/mips/code-readable-2.c (foo): Likewise.
+	* gcc.target/mips/code-readable-3.c (foo): Likewise.
+	* gcc.target/mips/code-readable-4.c (foo): Likewise.
+	* gcc.target/mips/const-anchor-1.c (g): Add prototype.
+	* gcc.target/mips/const-anchor-2.c (g): Likewise.
+	* gcc.target/mips/const-anchor-3.c (g): Likewise.
+	* gcc.target/mips/const-anchor-4.c (g): Likewise.
+	* gcc.target/mips/interrupt_handler.c (t): Likewise.
+	* gcc.target/mips/mips-nonpic/main-1.c (main): Add return type.
+	* gcc.target/mips/mips-nonpic/main-2.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-3.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-4.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-5.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-6.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-7.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-8.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-9.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-10.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-11.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-12.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-13.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-14.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-15.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/main-16.c (main): Likewise.
+	* gcc.target/mips/mips-nonpic/mips-nonpic.h
+	(nonpic_call, nonpic_addr_call): Add prototype.
+	(pic_call, pic_addr_call): Likewise.
+	* gcc.target/mips/mips16e-extends.c (validate): Likewise.
+	* gcc.target/mips/octeon-bbit-3.c (foo): Likewise.
+	* gcc.target/mips/octeon-seq-4.c (h): Likewise.
+	* gcc.target/mips/truncate-3.c (g): Add prototype.
+	(f): Add return type.
+
+2014-11-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/63538
+	* gcc.target/i386/pr63538.c: New test.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr42.adb: New test.
+	* gnat.dg/discr42_pkg.ad[sb]: New helper.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/private2.ads: New test.
+	* gnat.dg/specs/private2_pkg.ads: New helper.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/inline1.adb: New test.
+	* gnat.dg/inline1_pkg.ad[sb]: New helper.
+	* gnat.dg/inline2.adb: New test.
+	* gnat.dg/inline2_pkg.ad[sb]: New helper.
+	* gnat.dg/inline3.adb: New test.
+	* gnat.dg/inline3_pkg.ad[sb]: New helper.
+	* gnat.dg/inline4.adb: New test.
+	* gnat.dg/inline4_pkg.ad[sb]: New helper.
+	* gnat.dg/inline5.adb: New test.
+	* gnat.dg/inline5_pkg.ad[sb]: New helper.
+	* gnat.dg/inline6.adb: New test.
+	* gnat.dg/inline6_pkg.ad[sb]: New helper.
+	* gnat.dg/inline7.adb: New test.
+	* gnat.dg/inline7_pkg1.ad[sb]: New helper.
+	* gnat.dg/inline7_pkg2.ad[sb]: Likewise.
+	* gnat.dg/inline8.adb: New test.
+	* gnat.dg/inline8_pkg1.ad[sb]: New helper.
+	* gnat.dg/inline8_pkg2.ad[sb]: New helper.
+	* gnat.dg/inline9.adb: New test.
+	* gnat.dg/inline9_pkg.ad[sb]: New helper.
+	* gnat.dg/inline10.adb: New test.
+	* gnat.dg/inline10_pkg.ad[sb]: New helper.
+	* gnat.dg/inline11.adb: New test.
+	* gnat.dg/inline11_pkg.ad[sb]: New helper.
+
+2014-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/9449
+	* lib/target-supports.exp (check_effective_target_ucn_nocache):
+	Don't use -fextended-identifiers.
+	* c-c++-common/cpp/normalize-3.c, c-c++-common/cpp/ucnid-2011-1.c,
+	g++.dg/cpp/ucn-1.C, g++.dg/cpp/ucnid-1.C, g++.dg/other/ucnid-1.C,
+	gcc.dg/cpp/normalize-1.c, gcc.dg/cpp/normalize-2.c,
+	gcc.dg/cpp/normalize-4.c: Don't use -fextended-identifiers.
+	* gcc.dg/cpp/ucnid-1.c: Don't use -fextended-identifiers.  Use
+	-g3.
+	* gcc.dg/cpp/ucnid-10.c, gcc.dg/cpp/ucnid-2.c,
+	gcc.dg/cpp/ucnid-3.c, gcc.dg/cpp/ucnid-4.c, gcc.dg/cpp/ucnid-5.c,
+	gcc.dg/cpp/ucnid-7.c, gcc.dg/cpp/ucnid-9.c,
+	gcc.dg/cpp/warn-normalized-1.c, gcc.dg/cpp/warn-normalized-2.c,
+	gcc.dg/cpp/warn-normalized-3.c: Don't use -fextended-identifiers.
+	* gcc.dg/ucnid-1.c, gcc.dg/ucnid-2.c, gcc.dg/ucnid-3.c,
+	gcc.dg/ucnid-4.c, gcc.dg/ucnid-5.c, gcc.dg/ucnid-6.c: Don't use
+	-fextended-identifiers.  Use -g.
+	* gcc.dg/ucnid-7.c, gcc.dg/ucnid-8.c: Don't use
+	-fextended-identifiers.
+	* gcc.dg/ucnid-9.c: Don't use -fextended-identifiers.  Use -g.
+	* gcc.dg/ucnid-10.c: Don't use -fextended-identifiers.
+	* gcc.dg/ucnid-11.c, gcc.dg/ucnid-12.c: Don't use
+	-fextended-identifiers.  Use -g.
+	* gcc.dg/ucnid-13.c: Don't use -fextended-identifiers.
+	* gcc.dg/cpp/ucnid-8.c: Remove test.
+	* gcc.dg/cpp/ucnid-10.c, gcc.dg/ucnid-14.c: New tests.
+
+2014-11-05  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/advsimd-intrinsics.exp:
+	Skip tests if target does not support Neon.
+
+2014-11-05  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* lib/target-supports.exp (check_effective_target_bswap): Update
+	conditions for AArch64 and ARM targets.
+
+2014-11-05  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/torture/pr59166.c: XFAIL on AIX.
+	* g++.dg/ext/visitibility/anon1.C: XFAIL on AIX.
+	* g++.dg/opt/pr60002.C: XFAIL on AIX.
+	* g++.dg/torture/pr63419.C: Ignore non-standard ABI warning.
+	* g++.dg/ipa/ipa-icf-5.C: Require visibility support.
+
+2014-11-05  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.target/i386/chkp-builtins-1.c: New.
+	* gcc.target/i386/chkp-builtins-2.c: New.
+	* gcc.target/i386/chkp-builtins-3.c: New.
+	* gcc.target/i386/chkp-builtins-4.c: New.
+	* gcc.target/i386/chkp-remove-bndint-1.c: New.
+	* gcc.target/i386/chkp-remove-bndint-2.c: New.
+	* gcc.target/i386/chkp-const-check-1.c: New.
+	* gcc.target/i386/chkp-const-check-2.c: New.
+	* gcc.target/i386/chkp-lifetime-1.c: New.
+	* gcc.dg/pr37858.c: Replace early_local_cleanups pass name
+	with build_ssa_passes.
+
+2014-11-05  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* gcc.dg/asr-div1.c: New testcase.
+
+2014-11-04  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* go.test/go-test.exp (go-set-goarch): Enable tests on s390[x].
+
+	* go.test/go-test.exp: In +build lines, require whitespace around
+	expected strings, fix check for negation.
+
+2014-11-04  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/align-2.c: Remove dg-output.
+	* c-c++-common/ubsan/align-4.c: Likewise.
+	* g++.dg/ubsan/null-1.C: Likewise.
+	* g++.dg/ubsan/null-2.C: Likewise.
+
+2014-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.misc-tests/godump-1.c (dg-skip-if): Add alpha*-*-*.
+
+2014-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/ipa/devirt-44.C (dg-options): Remove -fdump-tree-optimized.
+	* g++.dg/ipa/devirt-45.C (dg-options): Ditto.
+	* g++.dg/tree-prof/morefunc.C (dg-final-use): Cleanup profile ipa dump.
+	* g++.dg/tree-prof/reorder.C (dg-final-use): Ditto.
+	* g++.dg/tree-prof/pr35545.C (dg-fina-use): Cleanup profile_estimate
+	ipa dump.
+	* gcc.dg/fold-reassoc-3.c (dg-final): Fix scan string.
+	Cleanup original tree dump.
+	* gcc.dg/tree-prof/20050826-2.c (dg-final-use): Cleanup dom1 tree dump.
+	* gcc.dg/tree-prof/cmpsf-1.c (dg-final-use): Ditto.
+	* gcc.dg/tree-ssa/pr61144.c (dg-final): Cleanup optimized tree dump.
+
+2014-11-04  Martin Jambor  <mjambor@suse.cz>
+
+	* g++/dg/ipa/devirt-40.C: Changed dump to not matching OBJ_TYPE_REF in
+	function body.
+
+2014-11-04  Jason Merrill  <jason@redhat.com>
+
+	* lib/g++-dg.exp (g++-dg-runtest): Change -std=c++1y to -std=c++14.
+	* lib/target-supports.exp (check_effective_target_c++14_only): Likewise.
+
+2014-11-04  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.target/powerpc/pr60102.c: Move dg-skip-if after dg-options.
+	* gcc.target/powerpc/swaps-p8-12.c: Skip test if there would be
+	conflicting -mcpu options.
+	* gcc.target/powerpc/ppc-target-2.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-7.c: Likewise.
+	* gcc.target/powerpc/dfp-builtin-1.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-1.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-7.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-1.c: Likewise.
+	* gcc.target/powerpc/pr48053-3.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-6.c: Likewise.
+	* gcc.target/powerpc/440-nmaclhw-1.c: Likewise.
+	* gcc.target/powerpc/pr57744.c: Likewise.
+	* gcc.target/powerpc/pr47862.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-8.c: Likewise.
+	* gcc.target/powerpc/recip-1.c: Likewise.
+	* gcc.target/powerpc/darwin-longlong.c: Likewise.
+	* gcc.target/powerpc/bool2-p8.c: Likewise.
+	* gcc.target/powerpc/mmfpgpr.c: Likewise.
+	* gcc.target/powerpc/pr60203.c: Likewise.
+	* gcc.target/powerpc/direct-move-vint1.c: Likewise.
+	* gcc.target/powerpc/bool2-av.c: Likewise.
+	* gcc.target/powerpc/pr43154.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-2.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-5.c: Likewise.
+	* gcc.target/powerpc/pr59054.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-11.c: Likewise.
+	* gcc.target/powerpc/440-mullhwu-1.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-13.c: Likewise.
+	* gcc.target/powerpc/ppc-target-3.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-8.c: Likewise.
+	* gcc.target/powerpc/dfp-builtin-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-2.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-8.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-vbpermq.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-1.c: Likewise.
+	* gcc.target/powerpc/bswap64-3.c: Likewise.
+	* gcc.target/powerpc/bcd-1.c: Likewise.
+	* gcc.target/powerpc/440-mulchwu-1.c: Likewise.
+	* gcc.target/powerpc/extend-divide-1.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-7.c: Likewise.
+	* gcc.target/powerpc/pr48192.c: Likewise.
+	* gcc.target/powerpc/pr52775.c: Likewise.
+	* gcc.target/powerpc/p8vector-int128-1.c: Likewise.
+	* gcc.target/powerpc/pr58673-1.c: Likewise.
+	* gcc.target/powerpc/pr53487.c: Likewise.
+	* gcc.target/powerpc/440-nmaclhw-2.c: Likewise.
+	* gcc.target/powerpc/recip-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-fp.c: Likewise.
+	* gcc.target/powerpc/direct-move-vint2.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-3.c: Likewise.
+	* gcc.target/powerpc/pr57150.c: Likewise.
+	* gcc.target/powerpc/pr47251.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-6.c: Likewise.
+	* gcc.target/powerpc/440-mullhwu-2.c: Likewise.
+	* gcc.target/powerpc/bool3-p7.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-1.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-14.c: Likewise.
+	* gcc.target/powerpc/ppc-target-4.c: Likewise.
+	* gcc.target/powerpc/440-mulhhw-1.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-1.c: Likewise.
+	* gcc.target/powerpc/440-machhw-1.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-3.c: Likewise.
+	* gcc.target/powerpc/vsx-mass-1.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-9.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-3.c: Likewise.
+	* gcc.target/powerpc/loop_align.c: Likewise.
+	* gcc.target/powerpc/lhs-1.c: Likewise.
+	* gcc.target/powerpc/sd-vsx.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-2.c: Likewise.
+	* gcc.target/powerpc/bcd-2.c: Likewise.
+	* gcc.target/powerpc/20040121-1.c: Likewise.
+	* gcc.target/powerpc/pr52457.c: Likewise.
+	* gcc.target/powerpc/440-mulchwu-2.c: Likewise.
+	* gcc.target/powerpc/extend-divide-2.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-8.c: Likewise.
+	* gcc.target/powerpc/p8vector-int128-2.c: Likewise.
+	* gcc.target/powerpc/pr58673-2.c: Likewise.
+	* gcc.target/powerpc/atomic-p7.c: Likewise.
+	* gcc.target/powerpc/recip-3.c: Likewise.
+	* gcc.target/powerpc/440-maclhwu-1.c: Likewise.
+	* gcc.target/powerpc/optimize-bswapsi-2.c: Likewise.
+	* gcc.target/powerpc/popcount-1.c: Likewise.
+	* gcc.target/powerpc/altivec-32.c: Likewise.
+	* gcc.target/powerpc/timode_off.c: Likewise.
+	* gcc.target/powerpc/p8vector-ldst.c: Likewise.
+	* gcc.target/powerpc/pack01.c: Likewise.
+	* gcc.target/powerpc/pr55033.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-4.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-7.c: Likewise.
+	* gcc.target/powerpc/ppu-intrinsics.c: Likewise.
+	* gcc.target/powerpc/440-macchwu-1.c: Likewise.
+	* gcc.target/powerpc/440-mulhhwu-1.c: Likewise.
+	* gcc.target/powerpc/440-mulchw-1.c: Likewise.
+	* gcc.target/powerpc/bool3-p8.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-2.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-15.c: Likewise.
+	* gcc.target/powerpc/440-macchw-1.c: Likewise.
+	* gcc.target/powerpc/440-mulhhw-2.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-2.c: Likewise.
+	* gcc.target/powerpc/440-machhw-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-4.c: Likewise.
+	* gcc.target/powerpc/pr46728-16.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-1.c: Likewise.
+	* gcc.target/powerpc/bool3-av.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-4.c: Likewise.
+	* gcc.target/powerpc/ppc-pow.c: Likewise.
+	* gcc.target/powerpc/lhs-2.c: Likewise.
+	* gcc.target/powerpc/pr39902-2.c: Likewise.
+	* gcc.target/powerpc/20041111-1.c: Likewise.
+	* gcc.target/powerpc/builtins-1.c: Likewise.
+	* gcc.target/powerpc/bcd-3.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-3.c: Likewise.
+	* gcc.target/powerpc/pr57949-1.c: Likewise.
+	* gcc.target/powerpc/atomic-p8.c: Likewise.
+	* gcc.target/powerpc/sd-pwr6.c: Likewise.
+	* gcc.target/powerpc/recip-4.c: Likewise.
+	* gcc.target/powerpc/440-maclhwu-2.c: Likewise.
+	* gcc.target/powerpc/warn-2.c: Likewise.
+	* gcc.target/powerpc/parity-1.c: Likewise.
+	* gcc.target/powerpc/popcount-2.c: Likewise.
+	* gcc.target/powerpc/crypto-builtin-1.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-5.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-8.c: Likewise.
+	* gcc.target/powerpc/pr42747.c: Likewise.
+	* gcc.target/powerpc/440-macchwu-2.c: Likewise.
+	* gcc.target/powerpc/440-mulhhwu-2.c: Likewise.
+	* gcc.target/powerpc/dfp-dd-2.c: Likewise.
+	* gcc.target/powerpc/direct-move-float1.c: Likewise.
+	* gcc.target/powerpc/440-mulchw-2.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-3.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-16.c: Likewise.
+	* gcc.target/powerpc/440-macchw-2.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-3.c: Likewise.
+	* gcc.target/powerpc/dfp-td-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-5.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-5.c: Likewise.
+	* gcc.target/powerpc/lhs-3.c: Likewise.
+	* gcc.target/powerpc/440-nmachhw-1.c: Likewise.
+	* gcc.target/powerpc/builtins-2.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-4.c: Likewise.
+	* gcc.target/powerpc/pr52199.c: Likewise.
+	* gcc.target/powerpc/440-machhwu-1.c: Likewise.
+	* gcc.target/powerpc/pr57949-2.c: Likewise.
+	* gcc.target/powerpc/recip-5.c: Likewise.
+	* gcc.target/powerpc/popcount-3.c: Likewise.
+	* gcc.target/powerpc/vsx-vector-1.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-1.c: Likewise.
+	* gcc.target/powerpc/optimize-bswapdi-2.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-6.c: Likewise.
+	* gcc.target/powerpc/vsx-extract-1.c: Likewise.
+	* gcc.target/powerpc/pr48226.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-9.c: Likewise.
+	* gcc.target/powerpc/pr47755-2.c: Likewise.
+	* gcc.target/powerpc/direct-move-float2.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-4.c: Likewise.
+	* gcc.target/powerpc/direct-move-double1.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-17.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-4.c: Likewise.
+	* gcc.target/powerpc/dfp-td-3.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-6.c: Likewise.
+	* gcc.target/powerpc/440-nmacchw-1.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-3.c: Likewise.
+	* gcc.target/powerpc/440-nmachhw-2.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-5.c: Likewise.
+	* gcc.target/powerpc/bool2-p5.c: Likewise.
+	* gcc.target/powerpc/440-machhwu-2.c: Likewise.
+	* gcc.target/powerpc/fusion.c: Likewise.
+	* gcc.target/powerpc/recip-6.c: Likewise.
+	* gcc.target/powerpc/altivec-cell-6.c: Likewise.
+	* gcc.target/powerpc/vsx-vector-2.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-2.c: Likewise.
+	* gcc.target/powerpc/optimize-bswapdi-3.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-7.c: Likewise.
+	* gcc.target/powerpc/vsx-extract-2.c: Likewise.
+	* gcc.target/powerpc/direct-move-long1.c: Likewise.
+	* gcc.target/powerpc/dfp-dd.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-10.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-5.c: Likewise.
+	* gcc.target/powerpc/direct-move-double2.c: Likewise.
+	* gcc.target/powerpc/440-mullhw-1.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-5.c: Likewise.
+	* gcc.target/powerpc/440-maclhw-1.c: Likewise.
+	* gcc.target/powerpc/dfp-td.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-7.c: Likewise.
+	* gcc.target/powerpc/pr48053-1.c: Likewise.
+	* gcc.target/powerpc/440-nmacchw-2.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-4.c: Likewise.
+	* gcc.target/powerpc/pr60676.c: Likewise.
+	* gcc.target/powerpc/pr48258-1.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-6.c: Likewise.
+	* gcc.target/powerpc/pr48857.c: Likewise.
+	* gcc.target/powerpc/quad-atomic.c: Likewise.
+	* gcc.target/powerpc/altivec-cell-7.c: Likewise.
+	* gcc.target/powerpc/atomic_load_store-p8.c: Likewise.
+	* gcc.target/powerpc/vsx-vector-3.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-3.c: Likewise.
+	* gcc.target/powerpc/pr56605.c: Likewise.
+	* gcc.target/powerpc/vsx-extract-3.c: Likewise.
+	* gcc.target/powerpc/pr53199.c: Likewise.
+	* gcc.target/powerpc/direct-move-long2.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-11.c: Likewise.
+	* gcc.target/powerpc/vsx-float0.c: Likewise.
+	* gcc.target/powerpc/ppc-target-1.c: Likewise.
+	* gcc.target/powerpc/altivec-20.c: Likewise.
+	* gcc.target/powerpc/cell_builtin-6.c: Likewise.
+	* gcc.target/powerpc/440-mullhw-2.c: Likewise.
+	* gcc.target/powerpc/darwin-ehreturn-1.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-6.c: Likewise.
+	* gcc.target/powerpc/440-maclhw-2.c: Likewise.
+	* gcc.target/powerpc/440-dlmzb-strlen-1.c: Likewise.
+	* gcc.target/powerpc/pr60137.c: Likewise.
+	* gcc.target/powerpc/bswap64-1.c: Likewise.
+	* gcc.target/powerpc/pr48053-2.c: Likewise.
+	* gcc.target/powerpc/vsx-builtin-5.c: Likewise.
+	* gcc.target/powerpc/pr48258-2.c: Likewise.
+	* gcc.target/powerpc/vsx-vectorize-7.c: Likewise.
+	* gcc.target/powerpc/vsx-sfminmax.c: Likewise.
+	* gcc.target/powerpc/bool2-p7.c: Likewise.
+	* gcc.target/powerpc/ppc-round.c: Likewise.
+	* gcc.target/powerpc/altivec-cell-8.c: Likewise.
+	* gcc.target/powerpc/vsx-vector-4.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-1.c: Likewise.
+	* gcc.target/powerpc/swaps-p8-4.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-10.c: Likewise.
+	* gcc.target/powerpc/pr47755.c: Likewise.
+
+2014-11-04  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/object-size-10.c: New test.
+
+2014-11-03  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* build-go/gcc/testsuite/gcc/godump-1.out: Update godump tests.
+
+2014-11-03  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray_collectives_14.f90: Fix testcase.
+
+2014-11-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/52769
+	* gcc.dg/pr52769.c: New test.
+
+2014-11-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57820
+	* g++.dg/cpp0x/constexpr-ctor16.C: New.
+	* g++.dg/cpp0x/constexpr-ctor17.C: Likewise.
+
+2014-11-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/60770
+	* gcc.dg/tree-ssa/pr60770-1.c: New file.
+
+2014-11-03  Jan Beulich  <jbeulich@suse.com>
+
+	* gcc.target/i386/i386.exp: Extend option set to test
+	vect-args.c with to include -mavx, -mavx2, and -mavx512f.
+	* gcc.target/i386/vect-args.c: Add AVX* modes and tests.
+
+2014-11-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.c-torture/execute/20010129-1.c: Compile with -mtune=i686
+	for ia32 targets only.
+	* g++.dg/ext/attrib42.C: Compile for ia32 targets only.
+	* g++.dg/tree-ssa/pr29902.C: Ditto.
+	* g++.dg/cpp0x/gen-attrs-42.C: Ditto.
+
+2014-11-03  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* gcc.target/arm/ifcvt-size-check.c: New test.
+
+2014-11-03  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.target/mips/octeon3-pipe-1.c: New test.
+
+2014-11-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/cpp0x/gen-attrs-42.C: Add x86_64-*-* target.
+	* g++.dg/ext/attrib42.C: Ditto.
+	* g++.dg/torture/pr51344.C: Ditto.
+	* g++.dg/tree-ssa/pr29902.C: Ditto.
+	* gcc.c-torture/execute/20010129-1.c: Ditto.
+	* gcc.dg/combine_ashiftrt_2.c: Ditto.
+	* gcc.dg/march-generic.c: Ditto.
+	* gcc.dg/torture/pr17526.c: Ditto.
+	* gcc.dg/union-4.c: Ditto.
+
+2014-11-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* c-c++-common/ubsan/float-cast-overflow-6.c: Add i?86-*-* target.
+	* g++.dg/abi/no-weak1.C: Ditto.
+	* g++.dg/opt/pr44919.C: Ditto.
+	* g++.dg/opt/pr46640.C: Ditto.
+	* g++.dg/opt/pr46649.C: Ditto.
+	* g++.dg/opt/pr47036.C: Ditto.
+	* g++.dg/opt/pr48273.C: Ditto.
+	* g++.dg/opt/pr48302.C: Ditto.
+	* g++.dg/opt/pr45788.C: Ditto.
+	* g++.dg/opt/pr57662.C: Ditto.
+	* gcc.dg/20031102-1.c: Ditto.
+	* gcc.dg/builtin-bswap-7.c: Ditto.
+	* gcc.dg/builtin-bswap-7a.c: Ditto.
+	* gcc.dg/builtin-bswap-9.c: Ditto.
+	* gcc.dg/combine_ashiftrt_1.c: Ditto.
+	* gcc.dg/guality/bswaptest.c: Ditto.
+	* gcc.dg/guality/clztest.c: Ditto.
+	* gcc.dg/guality/ctztest.c: Ditto.
+	* gcc.dg/guality/pr45003-1.c: Ditto.
+	* gcc.dg/guality/pr45003-2.c: Ditto.
+	* gcc.dg/guality/pr45003-3.c: Ditto.
+	* gcc.dg/guality/pr58791-4.c: Ditto.
+	* gcc.dg/guality/rotatetest.c:Ditto.
+	* gcc.dg/ifcvt-fabs-1.c: Ditto.
+	* gcc.dg/ira-loop-pressure.c: Ditto.
+	* gcc.dg/ira-shrinkwrap-prep-1.c: Ditto.
+	* gcc.dg/ira-shrinkwrap-prep-2.c: Ditto.
+	* gcc.dg/lto/pr47259_0.c: Ditto.
+	* gcc.dg/memcpy-5.c: Ditto.
+	* gcc.dg/pr10474.c: Ditto.
+	* gcc.dg/pr37438.c: Ditto.
+	* gcc.dg/pr39453.c: Ditto.
+	* gcc.dg/pr40501.c: Ditto.
+	* gcc.dg/pr42245-2.c: Ditto.
+	* gcc.dg/pr42245.c: Ditto.
+	* gcc.dg/pr42246.c: Ditto.
+	* gcc.dg/pr42249.c: Ditto.
+	* gcc.dg/pr42388.c: Ditto.
+	* gcc.dg/pr42389.c: Ditto.
+	* gcc.dg/pr45352-1.c: Ditto.
+	* gcc.dg/pr45352-2.c: Ditto.
+	* gcc.dg/pr45352-3.c: Ditto.
+	* gcc.dg/pr45352.c: Ditto.
+	* gcc.dg/pr45472.c: Ditto.
+	* gcc.dg/pr45652.c: Ditto.
+	* gcc.dg/pr46212.c: Ditto.
+	* gcc.dg/pr46521.c: Ditto.
+	* gcc.dg/pr46522.c: Ditto.
+	* gcc.dg/pr46875.c: Ditto.
+	* gcc.dg/pr48374.c: Ditto.
+	* gcc.dg/pr50251.c: Ditto.
+	* gcc.dg/pr54472.c: Ditto.
+	* gcc.dg/pr55702.c: Ditto.
+	* gcc.dg/pr56990.c: Ditto.
+	* gcc.dg/pr57104.c: Ditto.
+	* gcc.dg/pr57662.c: Ditto.
+	* gcc.dg/pr60866.c: Ditto.
+	* gcc.dg/shrink-wrap-loop.c: Ditto.
+	* gcc.dg/tm/memopt-15.c: Ditto.
+	* gcc.dg/torture/pr52720.c: Ditto.
+	* gcc.dg/torture/pr56778.c: Ditto.
+	* gcc.dg/tree-prof/pr45354.c: Ditto.
+	* gcc.dg/tree-prof/pr50907.c: Ditto.
+	* gcc.dg/tree-ssa/loop-16.c: Ditto.
+	* gcc.dg/tree-ssa/loop-18.c: Ditto.
+	* gcc.dg/tree-ssa/pr44423.c: Ditto.
+	* gcc.dg/misc-tests/godump-1.c: Ditto.
+	* gfortran.dg/PR24188.f: Ditto.
+	* gfortran.dg/errnocheck_1.f90: Ditto.
+	* gfortran.dg/g77/20010216-1.f: Ditto.
+	* gfortran.dg/pr42246-2.f: Ditto.
+	* gfortran.dg/pr42294.f: Ditto.
+	* gfortran.dg/pr44691.f: Ditto.
+	* gfortran.dg/vect/pr45714-a.f: Ditto.
+	* gcc.c-torture/execute/ieee/ieee.exp: Ditto.
+	* gcc.misc-tests/linkage.exp: Ditto.
+	* lib/target-supports.exp: Reformat x86 tagets.
+	(check_effective_target_whole_vector_shift): Add i?86-*-* target.
+
+2014-11-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57694
+	* g++.dg/cpp0x/constexpr-ctor15.C: New.
+
+2014-11-01  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* g++.dg/cpp1y/feat-cxx11.C: Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx11-neg.C: Add aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx14.C: Enable aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx98-neg.C: Ditto
+	* g++.dg/cpp1y/feat-cxx98.C: Commentary.
+
 2014-10-31  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/63659
@@ -1856,10 +2438,10 @@
 
 	* gcc.dg/tree-prof/peel-1.c: Update.
 	* gcc.dg/tree-prof/unroll-1.c: Update.
-	* gcc.dg/gcc.dg/unroll_1.c: Update.
-	* gcc.dg/gcc.dg/unroll_2.c: Update.
-	* gcc.dg/gcc.dg/unroll_3.c: Update.
-	* gcc.dg/gcc.dg/unroll_4.c: Update.
+	* gcc.dg/unroll_1.c: Update.
+	* gcc.dg/unroll_2.c: Update.
+	* gcc.dg/unroll_3.c: Update.
+	* gcc.dg/unroll_4.c: Update.
 
 2014-10-14  DJ Delorie  <dj@redhat.com>
 
