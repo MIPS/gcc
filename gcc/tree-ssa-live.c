@@ -878,7 +878,7 @@ remove_unused_locals (void)
 
 	    if (gimple_clobber_p (stmt))
 	      {
-		tree lhs = gimple_assign_lhs (stmt);
+		tree lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
 		tree base = get_base_address (lhs);
 		/* Remove clobbers referencing unused vars, or clobbers
 		   with MEM_REF lhs referencing uninitialized pointers.  */

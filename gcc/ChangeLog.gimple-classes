@@ -1,5 +1,10 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-live.c (remove_unused_locals): Add a checked cast in
+	region guarded by gimple_clobber_p.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-ifcombine.c (get_name_for_bit_test): Replace
 	is_gimple_assign with a dyn_cast, strengthening local "def_stmt"
 	from gimple to gassign *.
