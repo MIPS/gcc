@@ -562,16 +562,7 @@
 /* { dg-final { scan-assembler "msa_gcc_4_vshf_w.*:.*vshf.w.*msa_gcc_4_vshf_w" } } */
 /* { dg-final { scan-assembler "msa_gcc_4_vshf_d.*:.*vshf.d.*msa_gcc_4_vshf_d" } } */
 
-typedef signed char v16i8 __attribute__ ((vector_size(16)));
-typedef short v8i16 __attribute__ ((vector_size(16)));
-typedef int v4i32 __attribute__ ((vector_size(16)));
-typedef long long v2i64 __attribute__ ((vector_size(16)));
-typedef unsigned char v16u8 __attribute__ ((vector_size(16)));
-typedef unsigned short v8u16 __attribute__ ((vector_size(16)));
-typedef unsigned int v4u32 __attribute__ ((vector_size(16)));
-typedef unsigned long long v2u64 __attribute__ ((vector_size(16)));
-typedef float v4f32 __attribute__ ((vector_size(16)));
-typedef double v2f64 __attribute__ ((vector_size(16)));
+#include <msa.h>
 
 #define U5MAX 31
 #define U8MAX 255
