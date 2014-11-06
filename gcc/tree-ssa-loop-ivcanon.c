@@ -261,6 +261,7 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
       for (gsi = gsi_start_bb (body[i]); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
+	  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
 	  int num = estimate_num_insns (stmt, &eni_size_weights);
 	  bool likely_eliminated = false;
 	  bool likely_eliminated_last = false;
@@ -294,8 +295,9 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 	      likely_eliminated_last = true;
 	    }
 	  /* Sets of IV variables  */
-	  else if (gimple_code (stmt) == GIMPLE_ASSIGN
-	      && constant_after_peeling (gimple_assign_lhs (stmt), stmt, loop))
+	  else if (assign_stmt
+		   && constant_after_peeling (gimple_assign_lhs (assign_stmt),
+					      assign_stmt, loop))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 	        fprintf (dump_file, "   Induction variable computation will"
@@ -303,12 +305,15 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 	      likely_eliminated = true;
 	    }
 	  /* Assignments of IV variables.  */
-	  else if (gimple_code (stmt) == GIMPLE_ASSIGN
-		   && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
-		   && constant_after_peeling (gimple_assign_rhs1 (stmt), stmt, loop)
-		   && (gimple_assign_rhs_class (stmt) != GIMPLE_BINARY_RHS
-		       || constant_after_peeling (gimple_assign_rhs2 (stmt),
-		       				  stmt, loop)))
+	  else if (assign_stmt
+		   && TREE_CODE (gimple_assign_lhs (assign_stmt)) == SSA_NAME
+		   && constant_after_peeling (gimple_assign_rhs1 (assign_stmt),
+					      assign_stmt, loop)
+		   && ((gimple_assign_rhs_class (assign_stmt)
+			!= GIMPLE_BINARY_RHS)
+		       || constant_after_peeling (gimple_assign_rhs2 (
+						    assign_stmt),
+						  assign_stmt, loop)))
 	    {
 	      size->constant_iv = true;
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1195,15 +1200,15 @@ propagate_into_all_uses (tree ssa_name, tree val)
       FOR_EACH_IMM_USE_ON_STMT (use, iter)
 	SET_USE (use, val);
 
-      if (is_gimple_assign (use_stmt)
-	  && get_gimple_rhs_class (gimple_assign_rhs_code (use_stmt))
-	     == GIMPLE_SINGLE_RHS)
-	{
-	  tree rhs = gimple_assign_rhs1 (use_stmt);
+      if (gassign *use_assign = dyn_cast <gassign *> (use_stmt))
+	if (get_gimple_rhs_class (gimple_assign_rhs_code (use_assign))
+	    == GIMPLE_SINGLE_RHS)
+	  {
+	    tree rhs = gimple_assign_rhs1 (use_assign);
 
-	  if (TREE_CODE (rhs) == ADDR_EXPR)
-	    recompute_tree_invariant_for_addr_expr (rhs);
-	}
+	    if (TREE_CODE (rhs) == ADDR_EXPR)
+	      recompute_tree_invariant_for_addr_expr (rhs);
+	  }
 
       fold_stmt_inplace (&use_stmt_gsi);
       update_stmt (use_stmt);
@@ -1236,10 +1241,11 @@ propagate_constants_for_unrolling (basic_block bb)
   /* Look for assignments to SSA names with constant RHS.  */
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
     {
-      gimple stmt = gsi_stmt (gsi);
+      gassign *stmt;
       tree lhs;
 
-      if (is_gimple_assign (stmt)
+      stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+      if (stmt
 	  && gimple_assign_rhs_code (stmt) == INTEGER_CST
 	  && (lhs = gimple_assign_lhs (stmt), TREE_CODE (lhs) == SSA_NAME)
 	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))

@@ -1163,14 +1163,15 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
   iv->base = NULL_TREE;
   iv->step = NULL_TREE;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt)
     return false;
 
-  lhs = gimple_assign_lhs (stmt);
+  lhs = gimple_assign_lhs (assign_stmt);
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (!simple_iv (loop, loop_containing_stmt (stmt), lhs, iv, true))
+  if (!simple_iv (loop, loop_containing_stmt (assign_stmt), lhs, iv, true))
     return false;
   iv->base = expand_simple_operations (iv->base);
 
@@ -1178,10 +1179,11 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
       || contains_abnormal_ssa_name_p (iv->step))
     return false;
 
-  /* If STMT could throw, then do not consider STMT as defining a GIV.  
+  /* If ASSIGN_STMT could throw, then do not consider ASSIGN_STMT as defining
+     a GIV.
      While this will suppress optimizations, we can not safely delete this
      GIV and associated statements, even if it appears it is not used.  */
-  if (stmt_could_throw_p (stmt))
+  if (stmt_could_throw_p (assign_stmt))
     return false;
 
   return true;
@@ -1197,7 +1199,7 @@ find_givs_in_stmt (struct ivopts_data *data, gimple stmt)
   if (!find_givs_in_stmt_scev (data, stmt, &iv))
     return;
 
-  set_iv (data, gimple_assign_lhs (stmt), iv.base, iv.step);
+  set_iv (data, gimple_assign_lhs (as_a <gassign *> (stmt)), iv.base, iv.step);
 }
 
 /* Finds general ivs in basic block BB.  */
@@ -1395,8 +1397,9 @@ extract_cond_operands (struct ivopts_data *data, gimple stmt,
     }
   else
     {
-      op0 = gimple_assign_rhs1_ptr (stmt);
-      op1 = gimple_assign_rhs2_ptr (stmt);
+      gassign *assign_stmt = as_a <gassign *> (stmt);
+      op0 = gimple_assign_rhs1_ptr (assign_stmt);
+      op1 = gimple_assign_rhs2_ptr (assign_stmt);
     }
 
   zero = integer_zero_node;
@@ -1931,10 +1934,10 @@ find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
       return;
     }
 
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      lhs = gimple_assign_lhs_ptr (stmt);
-      rhs = gimple_assign_rhs1_ptr (stmt);
+      lhs = gimple_assign_lhs_ptr (assign_stmt);
+      rhs = gimple_assign_rhs1_ptr (assign_stmt);
 
       if (TREE_CODE (*lhs) == SSA_NAME)
 	{
@@ -1947,23 +1950,23 @@ find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
 	    return;
 	}
 
-      code = gimple_assign_rhs_code (stmt);
+      code = gimple_assign_rhs_code (assign_stmt);
       if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS
 	  && (REFERENCE_CLASS_P (*rhs)
 	      || is_gimple_val (*rhs)))
 	{
 	  if (REFERENCE_CLASS_P (*rhs))
-	    find_interesting_uses_address (data, stmt, rhs);
+	    find_interesting_uses_address (data, assign_stmt, rhs);
 	  else
 	    find_interesting_uses_op (data, *rhs);
 
 	  if (REFERENCE_CLASS_P (*lhs))
-	    find_interesting_uses_address (data, stmt, lhs);
+	    find_interesting_uses_address (data, assign_stmt, lhs);
 	  return;
 	}
       else if (TREE_CODE_CLASS (code) == tcc_comparison)
 	{
-	  find_interesting_uses_cond (data, stmt);
+	  find_interesting_uses_cond (data, assign_stmt);
 	  return;
 	}
 
@@ -4482,9 +4485,8 @@ difference_cannot_overflow_p (struct ivopts_data *data, tree base, tree offset)
 
   if (TREE_CODE (base) == SSA_NAME)
     {
-      gimple stmt = SSA_NAME_DEF_STMT (base);
-
-      if (gimple_code (stmt) != GIMPLE_ASSIGN)
+      gassign *stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (base));
+      if (!stmt)
 	return false;
 
       code = gimple_assign_rhs_code (stmt);
@@ -6230,24 +6232,23 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       && cand->incremented_at == use->stmt)
     {
       enum tree_code stmt_code;
-
-      gcc_assert (is_gimple_assign (use->stmt));
-      gcc_assert (gimple_assign_lhs (use->stmt) == cand->var_after);
+      gassign *use_assign = as_a <gassign *> (use->stmt);
+      gcc_assert (gimple_assign_lhs (use_assign) == cand->var_after);
 
       /* Check whether we may leave the computation unchanged.
 	 This is the case only if it does not rely on other
 	 computations in the loop -- otherwise, the computation
 	 we rely upon may be removed in remove_unused_ivs,
 	 thus leading to ICE.  */
-      stmt_code = gimple_assign_rhs_code (use->stmt);
+      stmt_code = gimple_assign_rhs_code (use_assign);
       if (stmt_code == PLUS_EXPR
 	  || stmt_code == MINUS_EXPR
 	  || stmt_code == POINTER_PLUS_EXPR)
 	{
-	  if (gimple_assign_rhs1 (use->stmt) == cand->var_before)
-	    op = gimple_assign_rhs2 (use->stmt);
-	  else if (gimple_assign_rhs2 (use->stmt) == cand->var_before)
-	    op = gimple_assign_rhs1 (use->stmt);
+	  if (gimple_assign_rhs1 (use_assign) == cand->var_before)
+	    op = gimple_assign_rhs2 (use_assign);
+	  else if (gimple_assign_rhs2 (use_assign) == cand->var_before)
+	    op = gimple_assign_rhs1 (use_assign);
 	  else
 	    op = NULL_TREE;
 	}
@@ -6274,7 +6275,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       break;
 
     case GIMPLE_ASSIGN:
-      tgt = gimple_assign_lhs (use->stmt);
+      tgt = gimple_assign_lhs (as_a <gassign *> (use->stmt));
       bsi = gsi_for_stmt (use->stmt);
       break;
 
@@ -6380,7 +6381,7 @@ adjust_iv_update_pos (struct iv_cand *cand, struct iv_use *use)
   if (stmt != use->stmt)
     return;
 
-  if (TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
+  if (TREE_CODE (gimple_assign_lhs (as_a <gassign *> (stmt))) != SSA_NAME)
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))

@@ -1610,18 +1610,19 @@ expand_simple_operations (tree expr)
 
       return expand_simple_operations (e);
     }
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt)
     return expr;
 
   /* Avoid expanding to expressions that contain SSA names that need
      to take part in abnormal coalescing.  */
   ssa_op_iter iter;
-  FOR_EACH_SSA_TREE_OPERAND (e, stmt, iter, SSA_OP_USE)
+  FOR_EACH_SSA_TREE_OPERAND (e, assign_stmt, iter, SSA_OP_USE)
     if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (e))
       return expr;
 
-  e = gimple_assign_rhs1 (stmt);
-  code = gimple_assign_rhs_code (stmt);
+  e = gimple_assign_rhs1 (assign_stmt);
+  code = gimple_assign_rhs_code (assign_stmt);
   if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
     {
       if (is_gimple_min_invariant (e))
@@ -1647,7 +1648,7 @@ expand_simple_operations (tree expr)
       /* Fallthru.  */
     case POINTER_PLUS_EXPR:
       /* And increments and decrements by a constant are simple.  */
-      e1 = gimple_assign_rhs2 (stmt);
+      e1 = gimple_assign_rhs2 (assign_stmt);
       if (!is_gimple_min_invariant (e1))
 	return expr;
 
@@ -2188,18 +2189,19 @@ chain_of_csts_start (struct loop *loop, tree x)
       return NULL;
     }
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN
-      || gimple_assign_rhs_class (stmt) == GIMPLE_TERNARY_RHS)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt
+      || gimple_assign_rhs_class (assign_stmt) == GIMPLE_TERNARY_RHS)
     return NULL;
 
-  code = gimple_assign_rhs_code (stmt);
-  if (gimple_references_memory_p (stmt)
+  code = gimple_assign_rhs_code (assign_stmt);
+  if (gimple_references_memory_p (assign_stmt)
       || TREE_CODE_CLASS (code) == tcc_reference
       || (code == ADDR_EXPR
-	  && !is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
+	  && !is_gimple_min_invariant (gimple_assign_rhs1 (assign_stmt))))
     return NULL;
 
-  use = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_USE);
+  use = SINGLE_SSA_TREE_OPERAND (assign_stmt, SSA_OP_USE);
   if (use == NULL_TREE)
     return NULL;
 
@@ -2266,32 +2268,32 @@ get_val_for (tree x, tree base)
   if (gimple_code (stmt) == GIMPLE_PHI)
     return base;
 
-  gcc_checking_assert (is_gimple_assign (stmt));
+  gassign *assign_stmt = as_a <gassign *> (stmt);
 
   /* STMT must be either an assignment of a single SSA name or an
      expression involving an SSA name and a constant.  Try to fold that
      expression using the value for the SSA name.  */
   if (gassign *assign = gimple_assign_ssa_name_copy_p (stmt))
     return get_val_for (gimple_assign_rhs1 (assign), base);
-  else if (gimple_assign_rhs_class (stmt) == GIMPLE_UNARY_RHS
-	   && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
+  else if (gimple_assign_rhs_class (assign_stmt) == GIMPLE_UNARY_RHS
+	   && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME)
     {
-      return fold_build1 (gimple_assign_rhs_code (stmt),
-			  gimple_expr_type (stmt),
-			  get_val_for (gimple_assign_rhs1 (stmt), base));
+      return fold_build1 (gimple_assign_rhs_code (assign_stmt),
+			  gimple_expr_type (assign_stmt),
+			  get_val_for (gimple_assign_rhs1 (assign_stmt), base));
     }
-  else if (gimple_assign_rhs_class (stmt) == GIMPLE_BINARY_RHS)
+  else if (gimple_assign_rhs_class (assign_stmt) == GIMPLE_BINARY_RHS)
     {
-      tree rhs1 = gimple_assign_rhs1 (stmt);
-      tree rhs2 = gimple_assign_rhs2 (stmt);
+      tree rhs1 = gimple_assign_rhs1 (assign_stmt);
+      tree rhs2 = gimple_assign_rhs2 (assign_stmt);
       if (TREE_CODE (rhs1) == SSA_NAME)
 	rhs1 = get_val_for (rhs1, base);
       else if (TREE_CODE (rhs2) == SSA_NAME)
 	rhs2 = get_val_for (rhs2, base);
       else
 	gcc_unreachable ();
-      return fold_build2 (gimple_assign_rhs_code (stmt),
-			  gimple_expr_type (stmt), rhs1, rhs2);
+      return fold_build2 (gimple_assign_rhs_code (assign_stmt),
+			  gimple_expr_type (assign_stmt), rhs1, rhs2);
     }
   else
     gcc_unreachable ();
@@ -2451,7 +2453,7 @@ static widest_int derive_constant_upper_bound_ops (tree, tree,
    an assignment statement STMT.  */
 
 static widest_int
-derive_constant_upper_bound_assign (gimple stmt)
+derive_constant_upper_bound_assign (gassign *stmt)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   tree op0 = gimple_assign_rhs1 (stmt);
@@ -2605,9 +2607,9 @@ derive_constant_upper_bound_ops (tree type, tree op0,
     case SSA_NAME:
       stmt = SSA_NAME_DEF_STMT (op0);
       if (gimple_code (stmt) != GIMPLE_ASSIGN
-	  || gimple_assign_lhs (stmt) != op0)
+	  || gimple_assign_lhs (as_a <gassign *> (stmt)) != op0)
 	return max;
-      return derive_constant_upper_bound_assign (stmt);
+      return derive_constant_upper_bound_assign (as_a <gassign *> (stmt));
 
     default:
       return max;
@@ -2903,18 +2905,18 @@ infer_loop_bounds_from_ref (struct loop *loop, gimple stmt, tree ref)
 static void
 infer_loop_bounds_from_array (struct loop *loop, gimple stmt)
 {
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      tree op0 = gimple_assign_lhs (stmt);
-      tree op1 = gimple_assign_rhs1 (stmt);
+      tree op0 = gimple_assign_lhs (assign_stmt);
+      tree op1 = gimple_assign_rhs1 (assign_stmt);
 
       /* For each memory access, analyze its access function
 	 and record a bound on the loop iteration domain.  */
       if (REFERENCE_CLASS_P (op0))
-	infer_loop_bounds_from_ref (loop, stmt, op0);
+	infer_loop_bounds_from_ref (loop, assign_stmt, op0);
 
       if (REFERENCE_CLASS_P (op1))
-	infer_loop_bounds_from_ref (loop, stmt, op1);
+	infer_loop_bounds_from_ref (loop, assign_stmt, op1);
     }
   else if (is_gimple_call (stmt))
     {
@@ -2943,11 +2945,12 @@ infer_loop_bounds_from_pointer_arith (struct loop *loop, gimple stmt)
   tree def, base, step, scev, type, low, high;
   tree var, ptr;
 
-  if (!is_gimple_assign (stmt)
-      || gimple_assign_rhs_code (stmt) != POINTER_PLUS_EXPR)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt
+      || gimple_assign_rhs_code (assign_stmt) != POINTER_PLUS_EXPR)
     return;
 
-  def = gimple_assign_lhs (stmt);
+  def = gimple_assign_lhs (assign_stmt);
   if (TREE_CODE (def) != SSA_NAME)
     return;
 
@@ -2955,11 +2958,11 @@ infer_loop_bounds_from_pointer_arith (struct loop *loop, gimple stmt)
   if (!nowrap_type_p (type))
     return;
 
-  ptr = gimple_assign_rhs1 (stmt);
+  ptr = gimple_assign_rhs1 (assign_stmt);
   if (!expr_invariant_in_loop_p (loop, ptr))
     return;
 
-  var = gimple_assign_rhs2 (stmt);
+  var = gimple_assign_rhs2 (assign_stmt);
   if (TYPE_PRECISION (type) != TYPE_PRECISION (TREE_TYPE (var)))
     return;
 
@@ -2989,7 +2992,8 @@ infer_loop_bounds_from_pointer_arith (struct loop *loop, gimple stmt)
   if (flag_delete_null_pointer_checks && int_cst_value (low) == 0)
     low = build_int_cstu (TREE_TYPE (low), TYPE_ALIGN_UNIT (TREE_TYPE (type)));
 
-  record_nonwrapping_iv (loop, base, step, stmt, low, high, false, true);
+  record_nonwrapping_iv (loop, base, step, assign_stmt, low, high, false,
+			 true);
 }
 
 /* Determine information about number of iterations of a LOOP from the fact
@@ -3000,10 +3004,11 @@ infer_loop_bounds_from_signedness (struct loop *loop, gimple stmt)
 {
   tree def, base, step, scev, type, low, high;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt)
     return;
 
-  def = gimple_assign_lhs (stmt);
+  def = gimple_assign_lhs (assign_stmt);
 
   if (TREE_CODE (def) != SSA_NAME)
     return;
@@ -3029,7 +3034,7 @@ infer_loop_bounds_from_signedness (struct loop *loop, gimple stmt)
   low = lower_bound_in_type (type, type);
   high = upper_bound_in_type (type, type);
 
-  record_nonwrapping_iv (loop, base, step, stmt, low, high, false, true);
+  record_nonwrapping_iv (loop, base, step, assign_stmt, low, high, false, true);
 }
 
 /* The following analyzers are extracting informations on the bounds

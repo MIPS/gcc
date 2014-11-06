@@ -273,7 +273,8 @@ pass_ch::execute (function *fun)
 		    gimple_set_no_warning (stmt, true);
 		  else if (is_gimple_assign (stmt))
 		    {
-		      enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
+		      enum tree_code rhs_code =
+			gimple_assign_rhs_code (as_a <gassign *> (stmt));
 		      if (TREE_CODE_CLASS (rhs_code) == tcc_comparison)
 			gimple_set_no_warning (stmt, true);
 		    }

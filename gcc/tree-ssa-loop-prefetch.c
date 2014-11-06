@@ -651,20 +651,21 @@ gather_memory_references (struct loop *loop, bool *no_other_refs, unsigned *ref_
 		*no_other_refs = false;
 	      continue;
 	    }
+	  gassign *assign_stmt = as_a <gassign *> (stmt);
 
-	  lhs = gimple_assign_lhs (stmt);
-	  rhs = gimple_assign_rhs1 (stmt);
+	  lhs = gimple_assign_lhs (assign_stmt);
+	  rhs = gimple_assign_rhs1 (assign_stmt);
 
 	  if (REFERENCE_CLASS_P (rhs))
 	    {
 	    *no_other_refs &= gather_memory_references_ref (loop, &refs,
-							    rhs, false, stmt);
+							    rhs, false, assign_stmt);
 	    *ref_count += 1;
 	    }
 	  if (REFERENCE_CLASS_P (lhs))
 	    {
 	    *no_other_refs &= gather_memory_references_ref (loop, &refs,
-							    lhs, true, stmt);
+							    lhs, true, assign_stmt);
 	    *ref_count += 1;
 	    }
 	}
@@ -1240,7 +1241,7 @@ mark_nontemporal_store (struct mem_ref *ref)
     fprintf (dump_file, "Marked reference %p as a nontemporal store.\n",
 	     (void *) ref);
 
-  gimple_assign_set_nontemporal_move (ref->stmt, true);
+  gimple_assign_set_nontemporal_move (as_a <gassign *> (ref->stmt), true);
   ref->storent_p = true;
 
   return true;

@@ -346,7 +346,7 @@ movement_possibility (gimple stmt)
       lhs = gimple_call_lhs (stmt);
     }
   else if (is_gimple_assign (stmt))
-    lhs = gimple_assign_lhs (stmt);
+    lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
   else
     return MOVE_IMPOSSIBLE;
 
@@ -365,7 +365,7 @@ movement_possibility (gimple stmt)
       && gimple_in_transaction (stmt)
       && gimple_assign_single_p (stmt))
     {
-      tree rhs = gimple_assign_rhs1 (stmt);
+      tree rhs = gimple_assign_rhs1 (as_a <gassign *> (stmt));
       if (DECL_P (rhs) && is_global_var (rhs))
 	{
 	  if (dump_file)
@@ -503,7 +503,7 @@ stmt_cost (gimple stmt)
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return 1;
 
-  switch (gimple_assign_rhs_code (stmt))
+  switch (gimple_assign_rhs_code (as_a <gassign *> (stmt)))
     {
     case MULT_EXPR:
     case WIDEN_MULT_EXPR:
@@ -535,7 +535,7 @@ stmt_cost (gimple stmt)
     case CONSTRUCTOR:
       /* Make vector construction cost proportional to the number
          of elements.  */
-      return CONSTRUCTOR_NELTS (gimple_assign_rhs1 (stmt));
+      return CONSTRUCTOR_NELTS (gimple_assign_rhs1 (as_a <gassign *> (stmt)));
 
     case SSA_NAME:
     case PAREN_EXPR:
@@ -584,11 +584,12 @@ simple_mem_ref_in_stmt (gimple stmt, bool *is_store)
   tree *lhs, *rhs;
 
   /* Recognize SSA_NAME = MEM and MEM = (SSA_NAME | invariant) patterns.  */
-  if (!gimple_assign_single_p (stmt))
+  gassign *assign_stmt = gimple_assign_single_p (stmt);
+  if (!assign_stmt)
     return NULL;
 
-  lhs = gimple_assign_lhs_ptr (stmt);
-  rhs = gimple_assign_rhs1_ptr (stmt);
+  lhs = gimple_assign_lhs_ptr (assign_stmt);
+  rhs = gimple_assign_rhs1_ptr (assign_stmt);
 
   if (TREE_CODE (*lhs) == SSA_NAME && gimple_vuse (stmt))
     {
@@ -883,7 +884,7 @@ nonpure_call_p (gimple stmt)
 
 /* Rewrite a/b to a*(1/b).  Return the invariant stmt to process.  */
 
-static gimple
+static gassign *
 rewrite_reciprocal (gimple_stmt_iterator *bsi)
 {
   gassign *stmt, *stmt1, *stmt2;
@@ -918,12 +919,11 @@ rewrite_reciprocal (gimple_stmt_iterator *bsi)
 /* Check if the pattern at *BSI is a bittest of the form
    (A >> B) & 1 != 0 and in this case rewrite it to A & (1 << B) != 0.  */
 
-static gimple
+static gassign *
 rewrite_bittest (gimple_stmt_iterator *bsi)
 {
   gassign *stmt;
   gimple stmt1;
-  gassign *stmt2;
   gimple use_stmt;
   gcond *cond_stmt;
   tree lhs, name, t, a, b;
@@ -947,32 +947,34 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
 
   /* Get at the operands of the shift.  The rhs is TMP1 & 1.  */
   stmt1 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
-  if (gimple_code (stmt1) != GIMPLE_ASSIGN)
+  gassign *assign_stmt1 = dyn_cast <gassign *> (stmt1);
+  if (!assign_stmt1)
     return stmt;
 
   /* There is a conversion in between possibly inserted by fold.  */
-  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt1)))
+  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (assign_stmt1)))
     {
-      t = gimple_assign_rhs1 (stmt1);
+      t = gimple_assign_rhs1 (assign_stmt1);
       if (TREE_CODE (t) != SSA_NAME
 	  || !has_single_use (t))
 	return stmt;
-      stmt1 = SSA_NAME_DEF_STMT (t);
-      if (gimple_code (stmt1) != GIMPLE_ASSIGN)
+      assign_stmt1 = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (t));
+      if (!assign_stmt1)
 	return stmt;
     }
 
   /* Verify that B is loop invariant but A is not.  Verify that with
      all the stmt walking we are still in the same loop.  */
-  if (gimple_assign_rhs_code (stmt1) != RSHIFT_EXPR
-      || loop_containing_stmt (stmt1) != loop_containing_stmt (stmt))
+  if (gimple_assign_rhs_code (assign_stmt1) != RSHIFT_EXPR
+      || loop_containing_stmt (assign_stmt1) != loop_containing_stmt (stmt))
     return stmt;
 
-  a = gimple_assign_rhs1 (stmt1);
-  b = gimple_assign_rhs2 (stmt1);
+  a = gimple_assign_rhs1 (assign_stmt1);
+  b = gimple_assign_rhs2 (assign_stmt1);
 
-  if (outermost_invariant_loop (b, loop_containing_stmt (stmt1)) != NULL
-      && outermost_invariant_loop (a, loop_containing_stmt (stmt1)) == NULL)
+  if (outermost_invariant_loop (b, loop_containing_stmt (assign_stmt1)) != NULL
+      && outermost_invariant_loop (a,
+				   loop_containing_stmt (assign_stmt1)) == NULL)
     {
       gimple_stmt_iterator rsi;
 
@@ -980,12 +982,12 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
       t = fold_build2 (LSHIFT_EXPR, TREE_TYPE (a),
 		       build_int_cst (TREE_TYPE (a), 1), b);
       name = make_temp_ssa_name (TREE_TYPE (a), NULL, "shifttmp");
-      stmt1 = gimple_build_assign (name, t);
+      gassign *stmt1 = gimple_build_assign (name, t);
 
       /* A & (1 << B) */
       t = fold_build2 (BIT_AND_EXPR, TREE_TYPE (a), a, name);
       name = make_temp_ssa_name (TREE_TYPE (a), NULL, "shifttmp");
-      stmt2 = gimple_build_assign (name, t);
+      gassign *stmt2 = gimple_build_assign (name, t);
 
       /* Replace the SSA_NAME we compare against zero.  Adjust
 	 the type of zero accordingly.  */
@@ -1102,34 +1104,37 @@ invariantness_dom_walker::before_dom_children (basic_block bb)
 	  continue;
 	}
 
-      if (is_gimple_assign (stmt)
-	  && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
+      gassign *assign_stmt;
+      if ((assign_stmt = dyn_cast <gassign *> (stmt))
+	  && (get_gimple_rhs_class (gimple_assign_rhs_code (assign_stmt))
 	      == GIMPLE_BINARY_RHS))
 	{
-	  tree op0 = gimple_assign_rhs1 (stmt);
-	  tree op1 = gimple_assign_rhs2 (stmt);
+	  tree op0 = gimple_assign_rhs1 (assign_stmt);
+	  tree op1 = gimple_assign_rhs2 (assign_stmt);
 	  struct loop *ol1 = outermost_invariant_loop (op1,
 					loop_containing_stmt (stmt));
 
 	  /* If divisor is invariant, convert a/b to a*(1/b), allowing reciprocal
 	     to be hoisted out of loop, saving expensive divide.  */
 	  if (pos == MOVE_POSSIBLE
-	      && gimple_assign_rhs_code (stmt) == RDIV_EXPR
+	      && gimple_assign_rhs_code (assign_stmt) == RDIV_EXPR
 	      && flag_unsafe_math_optimizations
 	      && !flag_trapping_math
 	      && ol1 != NULL
 	      && outermost_invariant_loop (op0, ol1) == NULL)
-	    stmt = rewrite_reciprocal (&bsi);
+	    assign_stmt = rewrite_reciprocal (&bsi);
 
 	  /* If the shift count is invariant, convert (A >> B) & 1 to
 	     A & (1 << B) allowing the bit mask to be hoisted out of the loop
 	     saving an expensive shift.  */
 	  if (pos == MOVE_POSSIBLE
-	      && gimple_assign_rhs_code (stmt) == BIT_AND_EXPR
+	      && gimple_assign_rhs_code (assign_stmt) == BIT_AND_EXPR
 	      && integer_onep (op1)
 	      && TREE_CODE (op0) == SSA_NAME
 	      && has_single_use (op0))
-	    stmt = rewrite_bittest (&bsi);
+	    assign_stmt = rewrite_bittest (&bsi);
+
+	  stmt = assign_stmt;
 	}
 
       lim_data = init_lim_data (stmt);
@@ -1927,7 +1932,7 @@ sm_set_flag_if_changed::operator () (mem_ref_loc_p loc)
 {
   /* Only set the flag for writes.  */
   if (is_gimple_assign (loc->stmt)
-      && gimple_assign_lhs_ptr (loc->stmt) == loc->ref)
+      && gimple_assign_lhs_ptr (as_a <gassign *> (loc->stmt)) == loc->ref)
     {
       gimple_stmt_iterator gsi = gsi_for_stmt (loc->stmt);
       gassign *stmt = gimple_build_assign (flag, boolean_true_node);

@@ -1,5 +1,66 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-loop-ch.c (pass_ch::execute): Add checked cast.
+	* tree-ssa-loop-im.c (movement_possibility): Add checked casts.
+	(stmt_cost): Likewise.
+	(simple_mem_ref_in_stmt): Capture result of
+	gimple_assign_single_p as a new local gassign * "assign_stmt",
+	using it in place of "stmt" for typesafety.
+	(rewrite_reciprocal): Strengthen return type from gimple to
+	gassign *.
+	(rewrite_bittest): Likewise.  Replace check against GIMPLE_ASSIGN
+	with a dyn_cast, introducing local gassign * "assign_stmt1", using
+	it in place of "stmt1" for typesafety.  More tightly-scope "stmt2".
+	(invariantness_dom_walker::before_dom_children):  Replace an
+	is_gimple_assign with a dyn_cast, introducing local gassign *
+	 "assign_stmt" and using it in place of "stmt" for typesafety.
+	(sm_set_flag_if_changed::operator): Add a checked cast.
+	* tree-ssa-loop-ivcanon.c (tree_estimate_loop_size): Introduce
+	local gassign * "assign_stmt" via a dyn_cast, using it to replace
+	a pair of checks against GIMPLE_ASSIGN, and in place of "stmt" for
+	typesafety.
+	(propagate_into_all_uses): Replace an is_gimple_assign with a
+	dyn_cast, introducing local gassign * "use_assign", using it in
+	place of "use_stmt" for typesafety.
+	(propagate_constants_for_unrolling): Strengthen local "stmt" from
+	gimple to gassign * by replacing an is_gimple_assign with a
+	dyn_cast.
+	* tree-ssa-loop-ivopts.c (find_givs_in_stmt_scev): Replace a check
+	against GIMPLE_ASSIGN with a dyn_cast, introducing local gassign *
+	"assign_stmt", using it in place of "stmt" for typesafety.
+	(extract_cond_operands): Add a checked cast.
+	(find_interesting_uses_stmt): Replace an is_gimple_assign with a
+	dyn_cast, introducing local "assign_stmt" and using it in place of
+	"stmt" for typesafety.
+	(difference_cannot_overflow_p): Strengthen local "stmt" from
+	gimple to gassign * by replacing a check against GIMPLE_ASSIGN
+	with a dyn_cast.
+	(rewrite_use_nonlinear_expr): Introduce local gassign *
+	"use_assign" via an as_a, and use in place of use->stmt for
+	typesafety.  Add an as_a within case GIMPLE_ASSIGN.
+	(adjust_iv_update_pos): Add an as_a.
+	* tree-ssa-loop-niter.c (expand_simple_operations): Replace a
+	check against GIMPLE_ASSIGN with a dyn_cast, introducing local
+	"assign_stmt", using it in place of "stmt" for typesafety.
+	(chain_of_csts_start): Likewise.
+	(get_val_for): Introduce local gassign * "assign_stmt" via an
+	as_a, using it in place of "stmt" for typesafety.
+	(derive_constant_upper_bound_assign): Strengthen param "stmt" from
+	gimple to gassign *.
+	(derive_constant_upper_bound_ops): Add an as_a.
+	(infer_loop_bounds_from_array): Replace is_gimple_assign with a
+	dyn_cast, introducing a local "assign_stmt", using it in place of
+	"stmt" for typesafety.
+	(infer_loop_bounds_from_pointer_arith): Likewise.
+	(infer_loop_bounds_from_signedness): Likewise, replacing a check
+	against GIMPLE_ASSIGN.
+	* tree-ssa-loop-prefetch.c (gather_memory_references): Introduce
+	local gassign * "assign_stmt" via an as_a, using it in place of
+	"stmt" for typesafety.
+	(mark_nontemporal_store): Add an as_a.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-math-opts.c (is_division_by): Replace is_gimple_assign
 	with dyn_cast, introducing local gassign * "use_assign", using it
 	in place of "use_stmt" for typesafety.
