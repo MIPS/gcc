@@ -1,5 +1,9 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-into-ssa.c (create_new_def_for): Add a checked cast.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-inline.c (remap_gimple_stmt): Introduce local "assign_stmt"
 	in region guarded by gimple_clobber_p (stmt) and use it in place
 	of "stmt" for typesafety.

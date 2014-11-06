@@ -2859,7 +2859,7 @@ create_new_def_for (tree old_name, gimple stmt, def_operand_p def)
   if (def)
     SET_DEF (def, new_name);
   else
-    gimple_assign_set_lhs (stmt, new_name);
+    gimple_assign_set_lhs (as_a <gassign *> (stmt), new_name);
 
   if (gimple_code (stmt) == GIMPLE_PHI)
     {
