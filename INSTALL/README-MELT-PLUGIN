@@ -197,6 +197,44 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 ################################################################
+NEWS for 1.1.3 MELT plugin for GCC 4.8 & 4.9
+[[november XX, 2014]]
+
+Bug-fix & feature-increse with significant improvements release
+w.r.t. to MELT plugin 1.1.2.
+
+   Bug fixes
+   =========
+
+Better working macros, and improved documentations
+
+
+   Language improvement
+   ====================
+
+   Improved macro constructs.
+  
+   All common (i.e. non-language specific) tree codes are handled, at
+   least thru an automatically generated cmatcher.
+
+   All non-OMP gimple codes are handled.
+
+   Better handling of variadic tree & gimple constructs.
+   
+   Added gimple_call_args & gimple_call_more_args quasi-cmatcher,
+   gimple_switch handling, and functions to build them with a MELT
+   sequence (tuple or list) of constituents.
+
+   Variadic and polytypic add2list.
+  
+   End-user improvements
+   =====================
+
+   Better eval mode. More informative error messages.
+
+   Documentation generated in several HTML files.
+
+################################################################
 NEWS for 1.1.2 MELT plugin for GCC 4.8 & 4.9
 [[august, 31th, 2014]]
 

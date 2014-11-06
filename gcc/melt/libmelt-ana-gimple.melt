@@ -2939,7 +2939,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 	 )
     (if (expr_chunk test_chk :long #{ /* make_gimple_switch $TEST_CHK */
 		    (!$TR_INDEX || EXPR_P($TR_INDEX))
-		    && (!$TR_DEFCASE || TREE_CODE($TR_DEFCASE) == CASE_LABEL_EXPR)}#)
+		    && (!$TR_DEFCASE || TREE_CODE($TR_DEFCASE) == CASE_LABEL_EXPR) }#)
 	(let ( (caselist (make_list discr_list))
 	       )
 	  (cond
@@ -2950,7 +2950,8 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 		     )
 		(if (expr_chunk testcurcasel_chk :long #{ /* make_gimple_switch $TESTCURCASEL_CHK */
 				($TR_CURCASE
-				 && TREE_CODE($TR_CURCASE) == CASE_LABEL_EXPR) }#
+				 && TREE_CODE($TR_CURCASE) == CASE_LABEL_EXPR)
+				}#
 				 )
 		    (list_append caselist curcasev)))
 	      )
@@ -2963,7 +2964,8 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 		     )
 		(if (expr_chunk testcurcaset_chk :long #{ /* make_gimple_switch $TESTCURCASET_CHK */
 				($TR_CURCASE
-				 && TREE_CODE($TR_CURCASE) == CASE_LABEL_EXPR) }#
+				 && TREE_CODE($TR_CURCASE) == CASE_LABEL_EXPR)
+				}#
 				 )
 		    (list_append caselist curcasev)))
 	      )
@@ -2983,6 +2985,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 			    $T_CURCASE = melt_tree_content(melt_multiple_nth($CASETUP, ix_$MAKEGR_CHK));
 			    gimple_switch_set_label ($GR, (unsigned)ix_$MAKEGR_CHK, $T_CURCASE);
 			    $T_CURCASE = NULL_TREE;
+			} /* end for ix_$MAKEGR_CHK */
 			}#)
 	    (if gr
 		(let ( (res (constant_box gr))

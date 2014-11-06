@@ -1,6 +1,14 @@
 
 2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{MELT plugin 1.1.3rc0 release candidate for GCC 4.8 & 4.9}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.3rc0
+
+	* melt/libmelt-ana-gimple.melt (make_gimple_switch): Add missing
+	endbrace in chunk.
+
+2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_case_label_expr): Correct
 	typos.
 	* melt/libmelt-ana-gimple.melt (make_gimple_switch): New function.
