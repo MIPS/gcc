@@ -1,5 +1,11 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-switch-conversion.c (struct switch_conv_info): Strengthen
+	fields "arr_ref_first" and "arr_ref_last" from gimple to
+	gassign *.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-sra.c (build_accesses_from_assign): Strengthen param "stmt"
 	from gimple to gassign *.
 	(scan_function): Add checked cast within case GIMPLE_ASSIGN.

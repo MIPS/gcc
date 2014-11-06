@@ -599,10 +599,10 @@ struct switch_conv_info
 
   /* The first load statement that loads a temporary from a new static array.
    */
-  gimple arr_ref_first;
+  gassign *arr_ref_first;
 
   /* The last load statement that loads a temporary from a new static array.  */
-  gimple arr_ref_last;
+  gassign *arr_ref_last;
 
   /* String reason why the case wasn't a good candidate that is written to the
      dump file, if there is one.  */
