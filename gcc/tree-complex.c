@@ -245,14 +245,17 @@ init_dont_simulate_again (void)
 	      break;
 
 	    case GIMPLE_ASSIGN:
-	      sim_again_p = is_complex_reg (gimple_assign_lhs (stmt));
-	      if (gimple_assign_rhs_code (stmt) == REALPART_EXPR
-		  || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR)
-		op0 = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
-	      else
-		op0 = gimple_assign_rhs1 (stmt);
-	      if (gimple_num_ops (stmt) > 2)
-		op1 = gimple_assign_rhs2 (stmt);
+	      {
+		gassign *assign_stmt = as_a <gassign *> (stmt);
+		sim_again_p = is_complex_reg (gimple_assign_lhs (assign_stmt));
+		if (gimple_assign_rhs_code (assign_stmt) == REALPART_EXPR
+		    || gimple_assign_rhs_code (assign_stmt) == IMAGPART_EXPR)
+		  op0 = TREE_OPERAND (gimple_assign_rhs1 (assign_stmt), 0);
+		else
+		  op0 = gimple_assign_rhs1 (assign_stmt);
+		if (gimple_num_ops (assign_stmt) > 2)
+		  op1 = gimple_assign_rhs2 (assign_stmt);
+	      }
 	      break;
 
 	    case GIMPLE_COND:
@@ -339,18 +342,23 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
     {
     case SSA_NAME:
     case COMPLEX_CST:
-      new_l = find_lattice_value (gimple_assign_rhs1 (stmt));
+      new_l = find_lattice_value (gimple_assign_rhs1 (
+				    as_a <gassign *> (stmt)));
       break;
 
     case COMPLEX_EXPR:
-      new_l = find_lattice_value_parts (gimple_assign_rhs1 (stmt),
-				        gimple_assign_rhs2 (stmt));
+      new_l = find_lattice_value_parts (gimple_assign_rhs1 (
+					  as_a <gassign *> (stmt)),
+				        gimple_assign_rhs2 (
+					  as_a <gassign *> (stmt)));
       break;
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      op1_l = find_lattice_value (gimple_assign_rhs1 (stmt));
-      op2_l = find_lattice_value (gimple_assign_rhs2 (stmt));
+      op1_l = find_lattice_value (gimple_assign_rhs1 (
+				    as_a <gassign *> (stmt)));
+      op2_l = find_lattice_value (gimple_assign_rhs2 (
+				    as_a <gassign *> (stmt)));
 
       /* We've set up the lattice values such that IOR neatly
 	 models addition.  */
@@ -363,8 +371,10 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
-      op1_l = find_lattice_value (gimple_assign_rhs1 (stmt));
-      op2_l = find_lattice_value (gimple_assign_rhs2 (stmt));
+      op1_l = find_lattice_value (gimple_assign_rhs1 (
+				    as_a <gassign *> (stmt)));
+      op2_l = find_lattice_value (gimple_assign_rhs2 (
+				    as_a <gassign *> (stmt)));
 
       /* Obviously, if either varies, so does the result.  */
       if (op1_l == VARYING || op2_l == VARYING)
@@ -390,7 +400,8 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 
     case NEGATE_EXPR:
     case CONJ_EXPR:
-      new_l = find_lattice_value (gimple_assign_rhs1 (stmt));
+      new_l = find_lattice_value (gimple_assign_rhs1 (
+				    as_a <gassign *> (stmt)));
       break;
 
     default:
@@ -779,11 +790,11 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
   tree r, i, lhs, rhs;
   gimple stmt = gsi_stmt (*gsi);
 
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      lhs = gimple_assign_lhs (stmt);
+      lhs = gimple_assign_lhs (assign_stmt);
       if (gimple_num_ops (stmt) == 2)
-	rhs = gimple_assign_rhs1 (stmt);
+	rhs = gimple_assign_rhs1 (assign_stmt);
       else
 	rhs = NULL_TREE;
     }
@@ -814,7 +825,8 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 	}
       else if (is_gimple_call (stmt)
 	       || gimple_has_side_effects (stmt)
-	       || gimple_assign_rhs_code (stmt) == PAREN_EXPR)
+	       || (gimple_assign_rhs_code (as_a <gassign *> (stmt))
+		   == PAREN_EXPR))
 	{
 	  r = build1 (REALPART_EXPR, inner_type, lhs);
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
@@ -822,15 +834,16 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 	}
       else
 	{
-	  if (gimple_assign_rhs_code (stmt) != COMPLEX_EXPR)
+	  gassign *assign_stmt = as_a <gassign *> (stmt);
+	  if (gimple_assign_rhs_code (assign_stmt) != COMPLEX_EXPR)
 	    {
 	      r = extract_component (gsi, rhs, 0, true);
 	      i = extract_component (gsi, rhs, 1, true);
 	    }
 	  else
 	    {
-	      r = gimple_assign_rhs1 (stmt);
-	      i = gimple_assign_rhs2 (stmt);
+	      r = gimple_assign_rhs1 (assign_stmt);
+	      i = gimple_assign_rhs2 (assign_stmt);
 	    }
 	  update_complex_assignment (gsi, r, i);
 	}
@@ -853,8 +866,8 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
       if (stmt == gsi_stmt (*gsi))
 	{
 	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
-	  gimple_assign_set_lhs (stmt, x);
-	  gimple_assign_set_rhs1 (stmt, i);
+	  gimple_assign_set_lhs (as_a <gassign *> (stmt), x);
+	  gimple_assign_set_rhs1 (as_a <gassign *> (stmt), i);
 	}
       else
 	{
@@ -960,10 +973,10 @@ expand_complex_libcall (gimple_stmt_iterator *gsi, tree ar, tree ai,
   enum machine_mode mode;
   enum built_in_function bcode;
   tree fn, type, lhs;
-  gimple old_stmt;
+  gassign *old_stmt;
   gcall *stmt;
 
-  old_stmt = gsi_stmt (*gsi);
+  old_stmt = as_a <gassign *> (gsi_stmt (*gsi));
   lhs = gimple_assign_lhs (old_stmt);
   type = TREE_TYPE (lhs);
 
@@ -1140,26 +1153,27 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
   if (TREE_CODE (compare) != INTEGER_CST)
     {
       edge e;
-      gimple stmt;
+      gassign *stmt1;
+      gcond *stmt2;
       tree cond, tmp;
 
       tmp = create_tmp_var (boolean_type_node, NULL);
-      stmt = gimple_build_assign (tmp, compare);
+      stmt1 = gimple_build_assign (tmp, compare);
       if (gimple_in_ssa_p (cfun))
 	{
-	  tmp = make_ssa_name (tmp,  stmt);
-	  gimple_assign_set_lhs (stmt, tmp);
+	  tmp = make_ssa_name (tmp,  stmt1);
+	  gimple_assign_set_lhs (stmt1, tmp);
 	}
 
-      gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
+      gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
 
-      cond = fold_build2_loc (gimple_location (stmt),
+      cond = fold_build2_loc (gimple_location (stmt1),
 			  EQ_EXPR, boolean_type_node, tmp, boolean_true_node);
-      stmt = gimple_build_cond_from_tree (cond, NULL_TREE, NULL_TREE);
-      gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
+      stmt2 = gimple_build_cond_from_tree (cond, NULL_TREE, NULL_TREE);
+      gsi_insert_before (gsi, stmt2, GSI_SAME_STMT);
 
       /* Split the original block, and create the TRUE and FALSE blocks.  */
-      e = split_block (gsi_bb (*gsi), stmt);
+      e = split_block (gsi_bb (*gsi), stmt2);
       bb_cond = e->src;
       bb_join = e->dest;
       bb_true = create_empty_bb (bb_cond);
@@ -1409,7 +1423,7 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
       break;
 
     case GIMPLE_ASSIGN:
-      type = TREE_TYPE (gimple_assign_lhs (stmt));
+      type = TREE_TYPE (gimple_assign_lhs (as_a <gassign *> (stmt)));
       gimple_assign_set_rhs_from_tree (gsi, fold_convert (type, cc));
       stmt = gsi_stmt (*gsi);
       break;
@@ -1523,30 +1537,32 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
 	  expand_complex_move (gsi, type);
-	else if (is_gimple_assign (stmt)
-		 && (gimple_assign_rhs_code (stmt) == REALPART_EXPR
-		     || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR)
-		 && TREE_CODE (lhs) == SSA_NAME)
-	  {
-	    rhs = gimple_assign_rhs1 (stmt);
-	    rhs = extract_component (gsi, TREE_OPERAND (rhs, 0),
-		                     gimple_assign_rhs_code (stmt)
+	else if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
+	  if ((gimple_assign_rhs_code (assign_stmt) == REALPART_EXPR
+	       || gimple_assign_rhs_code (assign_stmt) == IMAGPART_EXPR)
+	      && TREE_CODE (lhs) == SSA_NAME)
+	    {
+	      rhs = gimple_assign_rhs1 (assign_stmt);
+	      rhs = extract_component (gsi, TREE_OPERAND (rhs, 0),
+				       gimple_assign_rhs_code (assign_stmt)
 				       == IMAGPART_EXPR,
-				     false);
-	    gimple_assign_set_rhs_from_tree (gsi, rhs);
-	    stmt = gsi_stmt (*gsi);
-	    update_stmt (stmt);
-	  }
+				       false);
+	      gimple_assign_set_rhs_from_tree (gsi, rhs);
+	      stmt = gsi_stmt (*gsi);
+	      update_stmt (stmt);
+	    }
       }
       return;
     }
 
   /* Extract the components of the two complex values.  Make sure and
      handle the common case of the same value used twice specially.  */
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      ac = gimple_assign_rhs1 (stmt);
-      bc = (gimple_num_ops (stmt) > 2) ? gimple_assign_rhs2 (stmt) : NULL;
+      ac = gimple_assign_rhs1 (assign_stmt);
+      bc = ((gimple_num_ops (stmt) > 2)
+	    ? gimple_assign_rhs2 (assign_stmt)
+	    : NULL);
     }
   /* GIMPLE_CALL can not get here.  */
   else

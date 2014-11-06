@@ -1,5 +1,28 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-complex.c (init_dont_simulate_again): Within case
+	GIMPLE_ASSIGN, introduce local gassign *"assign_stmt" and use it
+	in place of "stmt".
+	(complex_visit_stmt): Add checked casts to gassign *.
+	(expand_complex_move): Replace is_gimple_assign with a dyn_cast,
+	introducing local gassign * "assign_stmt", using it in place of
+	"stmt" for typesafety.  Within the non-call branch, introduce
+	local gassign * "assign_stmt", using it in place of "stmt" for
+	typesafety.  Add checked casts.
+	(expand_complex_libcall): Strengthen local "old_stmt" from gimple
+	to gassign *.
+	(expand_complex_div_wide): Split local "stmt" into local gassign *
+	"stmt1" and gcond * "stmt2".
+	(expand_complex_comparison): Within case GIMPLE_ASSIGN, add a
+	checked cast.
+	(expand_complex_operations_1): In two places, replace an
+	is_gimple_assign with a dyn_cast, introducing locals named
+	"assign_stmt" and using them in place of "stmt" for typesafety.
+	The first of these requires breaking an if into two if statements
+	and reindenting.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-vrp.c (stmt_overflow_infinity): Replace is_gimple_assign
 	with a dyn_cast, introducing local "assign_stmt" and using it in
 	place of "stmt" for typesafety.
