@@ -1,3 +1,66 @@
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* tree-vrp.c (stmt_overflow_infinity): Replace is_gimple_assign
+	with a dyn_cast, introducing local "assign_stmt" and using it in
+	place of "stmt" for typesafety.
+	(gimple_assign_nonnegative_warnv_p): Strengthen param "stmt" from
+	gimple to gassign *.
+	(gimple_stmt_nonnegative_warnv_p): Add a checked cast within
+	case GIMPLE_ASSIGN.
+	(gimple_assign_nonzero_warnv_p): Strengthen param "stmt" from
+	gimple to gassign *.
+	(gimple_stmt_nonzero_warnv_p): Add a checked cast within
+	case GIMPLE_ASSIGN.
+	(vrp_stmt_computes_nonzero): Replace is_gimple_assign with a
+	dyn_cast, introducing local "assign_stmt" and using it in place of
+	"stmt" for typesafety.
+	(register_edge_assert_for_2): Likewise five times, three times
+	using new locals gassign * "def_assign" in place of gimple
+	"def_stmt", once using new local gassign * "use_assign" in
+	place of gimple "use_stmt", and once using new local
+	gassign * "def_assign2" in place of gimple "def_stmt2".  Add a
+	checked cast in region guarded by is_gimple_assign.
+	(register_edge_assert_for_1): Strengthen local "op_def" from
+	gimple to gassign * by replacing a check against GIMPLE_ASSIGN with
+	a dyn_cast.
+	(register_edge_assert_for): Strengthen locals "def_stmt" from
+	gimple to gassign * by replacing is_gimple_assign calls with
+	dyn_casts.
+	(find_assert_locations_1): Likewise.
+	(search_for_addr_array): Strengthen local "g" from gimple to
+	gassign * by replacing a check against GIMPLE_ASSIGN with a
+	dyn_cast.
+	(all_imm_uses_in_stmt_or_feed_cond): Replace an is_gimple_assign
+	with a dyn_cast, introducing a local gassign * "use_assign", using
+	it in place of "use_stmt" for typesafety.  Putting the decl within
+	the while conditional requires converting the && clauses into
+	if/break statements within the while body, thus inverting their
+	conditions.
+	(maybe_set_nonzero_bits): Replace an is_gimple_assign with a
+	dyn_cast, introducing a local gassign * "assign_stmt", using it in
+	place of "stmt" for typesafety.  Similarly, after the call to
+	gimple_assign_cast_p (stmt2), introduce a local gassign *
+	"assign_stmt2" and use it in place of "stmt2" for typesafety.
+	(remove_range_assertions): Strengthen local "stmt" from gimple to
+	gassign * by replacing is_gimple_assign with a dyn_cast.
+	(simplify_truth_ops_using_ranges): Strengthen param "stmt" from
+	gimple to gassign *.
+	(simplify_div_or_mod_using_ranges): Likewise.
+	(simplify_abs_using_ranges): Likewise.
+	(simplify_bit_ops_using_ranges): Likewise.
+	(simplify_cond_using_ranges): Strengthen local "def_stmt" from
+	gimple to gassign * by replacing an is_gimple_assign with a
+	dyn_cast.
+	(simplify_conversion_using_ranges): Strengthen param "stmt" from
+	gimple to gassign *.  Likewise for local "def_stmt", by replacing
+	an is_gimple_assign with a dyn_cast.
+	(simplify_float_conversion_using_ranges): Strengthen param "stmt" from
+	gimple to gassign *.
+	(simplify_stmt_using_ranges): Replace is_gimple_assign with a
+	dyn_cast, introducing local gassign * "assign_stmt", using it in
+	place of "stmt" for typesafety.
+	(fold_predicate_in): Likewise.
+
 2014-11-05  David Malcolm  <dmalcolm@redhat.com>
 
 	* trans-mem.c (thread_private_new_memory): Replace

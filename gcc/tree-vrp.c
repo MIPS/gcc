@@ -334,10 +334,10 @@ is_overflow_infinity (const_tree val)
 static inline bool
 stmt_overflow_infinity (gimple stmt)
 {
-  if (is_gimple_assign (stmt)
-      && get_gimple_rhs_class (gimple_assign_rhs_code (stmt)) ==
-      GIMPLE_SINGLE_RHS)
-    return is_overflow_infinity (gimple_assign_rhs1 (stmt));
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
+    if (get_gimple_rhs_class (gimple_assign_rhs_code (assign_stmt)) ==
+	GIMPLE_SINGLE_RHS)
+      return is_overflow_infinity (gimple_assign_rhs1 (assign_stmt));
   return false;
 }
 
@@ -1061,7 +1061,7 @@ usable_range_p (value_range_t *vr, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.*/
 
 static bool
-gimple_assign_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
+gimple_assign_nonnegative_warnv_p (gassign *stmt, bool *strict_overflow_p)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   switch (get_gimple_rhs_class (code))
@@ -1120,7 +1120,8 @@ gimple_stmt_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      return gimple_assign_nonnegative_warnv_p (stmt, strict_overflow_p);
+      return gimple_assign_nonnegative_warnv_p (as_a <gassign *> (stmt),
+						strict_overflow_p);
     case GIMPLE_CALL:
       return gimple_call_nonnegative_warnv_p (stmt, strict_overflow_p);
     default:
@@ -1134,7 +1135,7 @@ gimple_stmt_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.*/
 
 static bool
-gimple_assign_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
+gimple_assign_nonzero_warnv_p (gassign *stmt, bool *strict_overflow_p)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   switch (get_gimple_rhs_class (code))
@@ -1173,7 +1174,8 @@ gimple_stmt_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      return gimple_assign_nonzero_warnv_p (stmt, strict_overflow_p);
+      return gimple_assign_nonzero_warnv_p (as_a <gassign *> (stmt),
+					    strict_overflow_p);
     case GIMPLE_CALL:
       {
 	tree fndecl = gimple_call_fndecl (stmt);
@@ -1204,10 +1206,11 @@ vrp_stmt_computes_nonzero (gimple stmt, bool *strict_overflow_p)
 
   /* If we have an expression of the form &X->a, then the expression
      is nonnull if X is nonnull.  */
-  if (is_gimple_assign (stmt)
-      && gimple_assign_rhs_code (stmt) == ADDR_EXPR)
+  gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+  if (assign_stmt
+      && gimple_assign_rhs_code (assign_stmt) == ADDR_EXPR)
     {
-      tree expr = gimple_assign_rhs1 (stmt);
+      tree expr = gimple_assign_rhs1 (assign_stmt);
       tree base = get_base_address (TREE_OPERAND (expr, 0));
 
       if (base != NULL_TREE
@@ -5016,24 +5019,25 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       tree cst2 = NULL_TREE, name2 = NULL_TREE, name3 = NULL_TREE;
 
       /* Extract CST2 from the (optional) addition.  */
-      if (is_gimple_assign (def_stmt)
-	  && gimple_assign_rhs_code (def_stmt) == PLUS_EXPR)
-	{
-	  name2 = gimple_assign_rhs1 (def_stmt);
-	  cst2 = gimple_assign_rhs2 (def_stmt);
-	  if (TREE_CODE (name2) == SSA_NAME
-	      && TREE_CODE (cst2) == INTEGER_CST)
-	    def_stmt = SSA_NAME_DEF_STMT (name2);
-	}
+      if (gassign *def_assign = dyn_cast <gassign *> (def_stmt))
+	if (gimple_assign_rhs_code (def_assign) == PLUS_EXPR)
+	  {
+	    name2 = gimple_assign_rhs1 (def_assign);
+	    cst2 = gimple_assign_rhs2 (def_assign);
+	    if (TREE_CODE (name2) == SSA_NAME
+		&& TREE_CODE (cst2) == INTEGER_CST)
+	      def_stmt = SSA_NAME_DEF_STMT (name2);
+	  }
 
       /* Extract NAME2 from the (optional) sign-changing cast.  */
       if (gimple_assign_cast_p (def_stmt))
 	{
-	  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
-	      && ! TYPE_UNSIGNED (TREE_TYPE (gimple_assign_rhs1 (def_stmt)))
+	  gassign *def_assign = as_a <gassign *> (def_stmt);
+	  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_assign))
+	      && ! TYPE_UNSIGNED (TREE_TYPE (gimple_assign_rhs1 (def_assign)))
 	      && (TYPE_PRECISION (gimple_expr_type (def_stmt))
-		  == TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt)))))
-	    name3 = gimple_assign_rhs1 (def_stmt);
+		  == TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_assign)))))
+	    name3 = gimple_assign_rhs1 (def_assign);
 	}
 
       /* If name3 is used later, create an ASSERT_EXPR for it.  */
@@ -5114,19 +5118,20 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  if (gimple_bb (use_stmt) != e->src)
 	    continue;
 
-	  if (!is_gimple_assign (use_stmt))
+	  gassign *use_assign = dyn_cast <gassign *> (use_stmt);
+	  if (!use_assign)
 	    continue;
 
-	  enum tree_code code = gimple_assign_rhs_code (use_stmt);
+	  enum tree_code code = gimple_assign_rhs_code (use_assign);
 	  if (code != PLUS_EXPR
 	      && code != MINUS_EXPR)
 	    continue;
 
-	  tree cst = gimple_assign_rhs2 (use_stmt);
+	  tree cst = gimple_assign_rhs2 (use_assign);
 	  if (TREE_CODE (cst) != INTEGER_CST)
 	    continue;
 
-	  tree name2 = gimple_assign_lhs (use_stmt);
+	  tree name2 = gimple_assign_lhs (use_assign);
 	  if (live_on_edge (e, name2))
 	    {
 	      cst = int_const_binop (code, val, cst);
@@ -5149,7 +5154,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       enum tree_code rhs_code = ERROR_MARK;
 
       if (is_gimple_assign (def_stmt))
-	rhs_code = gimple_assign_rhs_code (def_stmt);
+	rhs_code = gimple_assign_rhs_code (as_a <gassign *> (def_stmt));
 
       /* Add asserts for NAME cmp CST and NAME being defined
 	 as NAME = (int) NAME2.  */
@@ -5158,7 +5163,8 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	      || comp_code == GT_EXPR || comp_code == GE_EXPR)
 	  && gimple_assign_cast_p (def_stmt))
 	{
-	  name2 = gimple_assign_rhs1 (def_stmt);
+	  gassign *def_assign = as_a <gassign *> (def_stmt);
+	  name2 = gimple_assign_rhs1 (def_assign);
 	  if (CONVERT_EXPR_CODE_P (rhs_code)
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
 	      && TYPE_UNSIGNED (TREE_TYPE (name2))
@@ -5207,8 +5213,9 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	 Extract CST2 from the right shift.  */
       if (rhs_code == RSHIFT_EXPR)
 	{
-	  name2 = gimple_assign_rhs1 (def_stmt);
-	  cst2 = gimple_assign_rhs2 (def_stmt);
+	  gassign *def_assign = as_a <gassign *> (def_stmt);
+	  name2 = gimple_assign_rhs1 (def_assign);
+	  cst2 = gimple_assign_rhs2 (def_assign);
 	  if (TREE_CODE (name2) == SSA_NAME
 	      && tree_fits_uhwi_p (cst2)
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
@@ -5295,13 +5302,15 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  || (CONVERT_EXPR_CODE_P (rhs_code)
 	      && TREE_CODE (TREE_TYPE (val)) == INTEGER_TYPE
 	      && TYPE_UNSIGNED (TREE_TYPE (val))
-	      && TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt)))
+	      && TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (
+					      as_a <gassign *> (def_stmt))))
 		 > prec
 	      && !retval))
 	{
-	  name2 = gimple_assign_rhs1 (def_stmt);
+	  gassign *def_assign = as_a <gassign *> (def_stmt);
+	  name2 = gimple_assign_rhs1 (def_assign);
 	  if (rhs_code == BIT_AND_EXPR)
-	    cst2 = gimple_assign_rhs2 (def_stmt);
+	    cst2 = gimple_assign_rhs2 (def_assign);
 	  else
 	    {
 	      cst2 = TYPE_MAX_VALUE (TREE_TYPE (val));
@@ -5317,8 +5326,9 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	      gimple def_stmt2 = SSA_NAME_DEF_STMT (name2);
 	      if (gimple_assign_cast_p (def_stmt2))
 		{
-		  names[1] = gimple_assign_rhs1 (def_stmt2);
-		  if (!CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt2))
+		  gassign *def_assign2 = as_a <gassign *> (def_stmt2);
+		  names[1] = gimple_assign_rhs1 (def_assign2);
+		  if (!CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_assign2))
 		      || !INTEGRAL_TYPE_P (TREE_TYPE (names[1]))
 		      || (TYPE_PRECISION (TREE_TYPE (name2))
 			  != TYPE_PRECISION (TREE_TYPE (names[1])))
@@ -5542,7 +5552,7 @@ register_edge_assert_for_1 (tree op, enum tree_code code,
 			    edge e, gimple_stmt_iterator bsi)
 {
   bool retval = false;
-  gimple op_def;
+  gassign *op_def;
   tree val;
   enum tree_code rhs_code;
 
@@ -5563,8 +5573,8 @@ register_edge_assert_for_1 (tree op, enum tree_code code,
   /* Now look at how OP is set.  If it's set from a comparison,
      a truth operation or some bit operations, then we may be able
      to register information about the operands of that assignment.  */
-  op_def = SSA_NAME_DEF_STMT (op);
-  if (gimple_code (op_def) != GIMPLE_ASSIGN)
+  op_def = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (op));
+  if (!op_def)
     return retval;
 
   rhs_code = gimple_assign_rhs_code (op_def);
@@ -5665,9 +5675,9 @@ register_edge_assert_for (tree name, edge e, gimple_stmt_iterator si,
   if (((comp_code == EQ_EXPR && integer_onep (val))
        || (comp_code == NE_EXPR && integer_zerop (val))))
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (name));
 
-      if (is_gimple_assign (def_stmt)
+      if (def_stmt
 	  && gimple_assign_rhs_code (def_stmt) == BIT_AND_EXPR)
 	{
 	  tree op0 = gimple_assign_rhs1 (def_stmt);
@@ -5683,11 +5693,11 @@ register_edge_assert_for (tree name, edge e, gimple_stmt_iterator si,
   if (((comp_code == EQ_EXPR && integer_zerop (val))
        || (comp_code == NE_EXPR && integer_onep (val))))
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (name));
 
       /* For BIT_IOR_EXPR only if NAME == 0 both operands have
 	 necessarily zero value, or if type-precision is one.  */
-      if (is_gimple_assign (def_stmt)
+      if (def_stmt
 	  && (gimple_assign_rhs_code (def_stmt) == BIT_IOR_EXPR
 	      && (TYPE_PRECISION (TREE_TYPE (name)) == 1
 	          || comp_code == EQ_EXPR)))
@@ -6001,9 +6011,10 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 	      if (comp_code == NE_EXPR && integer_zerop (value))
 		{
 		  tree t = op;
-		  gimple def_stmt = SSA_NAME_DEF_STMT (t);
+		  gassign *def_stmt =
+		    dyn_cast <gassign *> (SSA_NAME_DEF_STMT (t));
 
-		  while (is_gimple_assign (def_stmt)
+		  while (def_stmt
 			 && gimple_assign_rhs_code (def_stmt)  == NOP_EXPR
 			 && TREE_CODE
 			     (gimple_assign_rhs1 (def_stmt)) == SSA_NAME
@@ -6011,7 +6022,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 			     (TREE_TYPE (gimple_assign_rhs1 (def_stmt))))
 		    {
 		      t = gimple_assign_rhs1 (def_stmt);
-		      def_stmt = SSA_NAME_DEF_STMT (t);
+		      def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (t));
 
 		      /* Note we want to register the assert for the
 			 operand of the NOP_EXPR after SI, not after the
@@ -6441,9 +6452,9 @@ search_for_addr_array (tree t, location_t location)
 {
   while (TREE_CODE (t) == SSA_NAME)
     {
-      gimple g = SSA_NAME_DEF_STMT (t);
+      gassign *g = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (t));
 
-      if (gimple_code (g) != GIMPLE_ASSIGN)
+      if (!g)
 	return;
 
       if (get_gimple_rhs_class (gimple_assign_rhs_code (g))
@@ -6625,11 +6636,15 @@ all_imm_uses_in_stmt_or_feed_cond (tree var, gimple stmt, basic_block cond_bb)
 	gimple use_stmt = USE_STMT (use_p), use_stmt2;
 	if (is_gimple_debug (use_stmt))
 	  continue;
-	while (is_gimple_assign (use_stmt)
-	       && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME
-	       && single_imm_use (gimple_assign_lhs (use_stmt),
-				  &use2_p, &use_stmt2))
-	  use_stmt = use_stmt2;
+	while (gassign *use_assign = dyn_cast <gassign *> (use_stmt))
+	  {
+	    if (TREE_CODE (gimple_assign_lhs (use_assign)) != SSA_NAME)
+	      break;
+	    if (!single_imm_use (gimple_assign_lhs (use_assign),
+				 &use2_p, &use_stmt2))
+	      break;
+	    use_stmt = use_stmt2;
+	  }
 	if (gimple_code (use_stmt) != GIMPLE_COND
 	    || gimple_bb (use_stmt) != cond_bb)
 	  return false;
@@ -6667,26 +6682,29 @@ maybe_set_nonzero_bits (basic_block bb, tree var)
       || !integer_zerop (gimple_cond_rhs (stmt)))
     return;
 
-  stmt = SSA_NAME_DEF_STMT (gimple_cond_lhs (stmt));
-  if (!is_gimple_assign (stmt)
-      || gimple_assign_rhs_code (stmt) != BIT_AND_EXPR
-      || TREE_CODE (gimple_assign_rhs2 (stmt)) != INTEGER_CST)
+  gassign *assign_stmt =
+    dyn_cast <gassign *> (SSA_NAME_DEF_STMT (gimple_cond_lhs (stmt)));
+  if (!assign_stmt
+      || gimple_assign_rhs_code (assign_stmt) != BIT_AND_EXPR
+      || TREE_CODE (gimple_assign_rhs2 (assign_stmt)) != INTEGER_CST)
     return;
-  if (gimple_assign_rhs1 (stmt) != var)
+  if (gimple_assign_rhs1 (assign_stmt) != var)
     {
       gimple stmt2;
 
-      if (TREE_CODE (gimple_assign_rhs1 (stmt)) != SSA_NAME)
+      if (TREE_CODE (gimple_assign_rhs1 (assign_stmt)) != SSA_NAME)
 	return;
-      stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
-      if (!gimple_assign_cast_p (stmt2)
-	  || gimple_assign_rhs1 (stmt2) != var
-	  || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt2))
-	  || (TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (stmt)))
+      stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (assign_stmt));
+      if (!gimple_assign_cast_p (stmt2))
+	return;
+      gassign *assign_stmt2 = as_a <gassign *> (stmt2);
+      if (gimple_assign_rhs1 (assign_stmt2) != var
+	  || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (assign_stmt2))
+	  || (TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (assign_stmt)))
 			      != TYPE_PRECISION (TREE_TYPE (var))))
 	return;
     }
-  cst = gimple_assign_rhs2 (stmt);
+  cst = gimple_assign_rhs2 (assign_stmt);
   set_nonzero_bits (var, wi::bit_and_not (get_nonzero_bits (var), cst));
 }
 
@@ -6730,10 +6748,11 @@ remove_range_assertions (void)
   FOR_EACH_BB_FN (bb, cfun)
     for (si = gsi_after_labels (bb), is_unreachable = -1; !gsi_end_p (si);)
       {
-	gimple stmt = gsi_stmt (si);
+	gassign *stmt;
 	gimple use_stmt;
 
-	if (is_gimple_assign (stmt)
+	stmt = dyn_cast <gassign *> (gsi_stmt (si));
+	if (stmt
 	    && gimple_assign_rhs_code (stmt) == ASSERT_EXPR)
 	  {
 	    tree lhs = gimple_assign_lhs (stmt);
@@ -8688,7 +8707,7 @@ varying:
 /* Simplify boolean operations if the source is known
    to be already a boolean.  */
 static bool
-simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
+simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gassign *stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree lhs, op0, op1;
@@ -8755,7 +8774,7 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
    than zero and the second operand is an exact power of two.  */
 
 static bool
-simplify_div_or_mod_using_ranges (gimple stmt)
+simplify_div_or_mod_using_ranges (gassign *stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree val = NULL;
@@ -8824,7 +8843,7 @@ simplify_div_or_mod_using_ranges (gimple stmt)
    ABS_EXPR into a NEGATE_EXPR.  */
 
 static bool
-simplify_abs_using_ranges (gimple stmt)
+simplify_abs_using_ranges (gassign *stmt)
 {
   tree val = NULL;
   tree op = gimple_assign_rhs1 (stmt);
@@ -8891,7 +8910,7 @@ simplify_abs_using_ranges (gimple stmt)
    operation is redundant.  */
 
 static bool
-simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
+simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gassign *stmt)
 {
   tree op0 = gimple_assign_rhs1 (stmt);
   tree op1 = gimple_assign_rhs2 (stmt);
@@ -9173,10 +9192,11 @@ simplify_cond_using_ranges (gcond *stmt)
   if (TREE_CODE (op0) == SSA_NAME
       && TREE_CODE (op1) == INTEGER_CST)
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (op0);
+      gassign *def_stmt;
       tree innerop;
 
-      if (!is_gimple_assign (def_stmt)
+      def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (op0));
+      if (!def_stmt
 	  || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))
 	return false;
 
@@ -9331,10 +9351,10 @@ simplify_switch_using_ranges (gswitch *stmt)
 /* Simplify an integral conversion from an SSA name in STMT.  */
 
 static bool
-simplify_conversion_using_ranges (gimple stmt)
+simplify_conversion_using_ranges (gassign *stmt)
 {
   tree innerop, middleop, finaltype;
-  gimple def_stmt;
+  gassign *def_stmt;
   value_range_t *innervr;
   signop inner_sgn, middle_sgn, final_sgn;
   unsigned inner_prec, middle_prec, final_prec;
@@ -9344,8 +9364,8 @@ simplify_conversion_using_ranges (gimple stmt)
   if (!INTEGRAL_TYPE_P (finaltype))
     return false;
   middleop = gimple_assign_rhs1 (stmt);
-  def_stmt = SSA_NAME_DEF_STMT (middleop);
-  if (!is_gimple_assign (def_stmt)
+  def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (middleop));
+  if (!def_stmt
       || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))
     return false;
   innerop = gimple_assign_rhs1 (def_stmt);
@@ -9410,7 +9430,8 @@ simplify_conversion_using_ranges (gimple stmt)
 /* Simplify a conversion from integral SSA name to float in STMT.  */
 
 static bool
-simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
+simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi,
+					gassign *stmt)
 {
   tree rhs1 = gimple_assign_rhs1 (stmt);
   value_range_t *vr = get_value_range (rhs1);
@@ -9567,10 +9588,10 @@ static bool
 simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  if (is_gimple_assign (stmt))
+  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
-      tree rhs1 = gimple_assign_rhs1 (stmt);
+      enum tree_code rhs_code = gimple_assign_rhs_code (assign_stmt);
+      tree rhs1 = gimple_assign_rhs1 (assign_stmt);
 
       switch (rhs_code)
 	{
@@ -9580,7 +9601,7 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	     if the RHS is zero or one, and the LHS are known to be boolean
 	     values.  */
 	  if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1)))
-	    return simplify_truth_ops_using_ranges (gsi, stmt);
+	    return simplify_truth_ops_using_ranges (gsi, assign_stmt);
 	  break;
 
       /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
@@ -9589,15 +9610,15 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	case TRUNC_DIV_EXPR:
 	case TRUNC_MOD_EXPR:
 	  if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-	      && integer_pow2p (gimple_assign_rhs2 (stmt)))
-	    return simplify_div_or_mod_using_ranges (stmt);
+	      && integer_pow2p (gimple_assign_rhs2 (assign_stmt)))
+	    return simplify_div_or_mod_using_ranges (assign_stmt);
 	  break;
 
       /* Transform ABS (X) into X or -X as appropriate.  */
 	case ABS_EXPR:
 	  if (TREE_CODE (rhs1) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (rhs1)))
-	    return simplify_abs_using_ranges (stmt);
+	    return simplify_abs_using_ranges (assign_stmt);
 	  break;
 
 	case BIT_AND_EXPR:
@@ -9606,19 +9627,19 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	     if all the bits being cleared are already cleared or
 	     all the bits being set are already set.  */
 	  if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1)))
-	    return simplify_bit_ops_using_ranges (gsi, stmt);
+	    return simplify_bit_ops_using_ranges (gsi, assign_stmt);
 	  break;
 
 	CASE_CONVERT:
 	  if (TREE_CODE (rhs1) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (rhs1)))
-	    return simplify_conversion_using_ranges (stmt);
+	    return simplify_conversion_using_ranges (assign_stmt);
 	  break;
 
 	case FLOAT_EXPR:
 	  if (TREE_CODE (rhs1) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (rhs1)))
-	    return simplify_float_conversion_using_ranges (gsi, stmt);
+	    return simplify_float_conversion_using_ranges (gsi, assign_stmt);
 	  break;
 
 	default:
@@ -9646,15 +9667,17 @@ fold_predicate_in (gimple_stmt_iterator *si)
   bool assignment_p = false;
   tree val;
   gimple stmt = gsi_stmt (*si);
+  gassign *assign_stmt;
 
-  if (is_gimple_assign (stmt)
-      && TREE_CODE_CLASS (gimple_assign_rhs_code (stmt)) == tcc_comparison)
+  if ((assign_stmt = dyn_cast <gassign *> (stmt))
+      && (TREE_CODE_CLASS (gimple_assign_rhs_code (assign_stmt))
+	  == tcc_comparison))
     {
       assignment_p = true;
-      val = vrp_evaluate_conditional (gimple_assign_rhs_code (stmt),
-				      gimple_assign_rhs1 (stmt),
-				      gimple_assign_rhs2 (stmt),
-				      stmt);
+      val = vrp_evaluate_conditional (gimple_assign_rhs_code (assign_stmt),
+				      gimple_assign_rhs1 (assign_stmt),
+				      gimple_assign_rhs2 (assign_stmt),
+				      assign_stmt);
     }
   else if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
     val = vrp_evaluate_conditional (gimple_cond_code (cond_stmt),
