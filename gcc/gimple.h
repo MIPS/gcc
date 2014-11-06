@@ -5867,8 +5867,8 @@ is_gimple_omp_oacc_specifically (const_gimple stmt)
       switch (gimple_omp_target_kind (stmt))
 	{
 	case GF_OMP_TARGET_KIND_OACC_DATA:
-	  return true;
 	case GF_OMP_TARGET_KIND_OACC_UPDATE:
+	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
 	  return true;
 	default:
 	  return false;

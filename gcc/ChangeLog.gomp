@@ -1,5 +1,8 @@
 2014-11-06  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimple.h (is_gimple_omp_oacc_specifically): Return true for
+	GIMPLE_OMP_TARGET's GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA.
+
 	* omp-low.c (lower_reduction_clauses): Initialize tid.
 
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
