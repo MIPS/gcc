@@ -1,5 +1,24 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-sra.c (build_accesses_from_assign): Strengthen param "stmt"
+	from gimple to gassign *.
+	(scan_function): Add checked cast within case GIMPLE_ASSIGN.
+	(sra_modify_constructor_assign): Strengthen param "stmt" from
+	gimple to gassign *.
+	(sra_modify_assign): Likewise.
+	(sra_modify_function_body): Add checked cast within case
+	GIMPLE_ASSIGN.
+	(ptr_parm_has_direct_uses): Introduce local "assign_stmt" from
+	result of gimple_assign_single_p, using it in place of "stmt" for
+	typesafety.
+	(replace_removed_params_ssa_names): Add checked casts.
+	(sra_ipa_modify_assign): Strengthen param "stmt" from gimple to
+	gassign *.
+	(ipa_sra_modify_function_body): Add checked cast within case
+	GIMPLE_ASSIGN.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Strengthen
 	param "stmt" from gimple to gassign *.
 	(follow_ssa_edge): Add checked cast within case GIMPLE_ASSIGN.

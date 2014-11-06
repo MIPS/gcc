@@ -1178,7 +1178,7 @@ disqualify_if_bad_bb_terminating_stmt (gimple stmt, tree lhs, tree rhs)
    true if any access has been inserted.  */
 
 static bool
-build_accesses_from_assign (gimple stmt)
+build_accesses_from_assign (gassign *stmt)
 {
   tree lhs, rhs;
   struct access *lacc, *racc;
@@ -1298,7 +1298,7 @@ scan_function (void)
 	      break;
 
 	    case GIMPLE_ASSIGN:
-	      ret |= build_accesses_from_assign (stmt);
+	      ret |= build_accesses_from_assign (as_a <gassign *> (stmt));
 	      break;
 
 	    case GIMPLE_CALL:
@@ -3034,7 +3034,7 @@ enum assignment_mod_result { SRA_AM_NONE,       /* nothing done for the stmt */
    the same values as sra_modify_assign.  */
 
 static enum assignment_mod_result
-sra_modify_constructor_assign (gimple stmt, gimple_stmt_iterator *gsi)
+sra_modify_constructor_assign (gassign *stmt, gimple_stmt_iterator *gsi)
 {
   tree lhs = gimple_assign_lhs (stmt);
   struct access *acc;
@@ -3124,7 +3124,7 @@ contains_vce_or_bfcref_p (const_tree ref)
    copying.  */
 
 static enum assignment_mod_result
-sra_modify_assign (gimple stmt, gimple_stmt_iterator *gsi)
+sra_modify_assign (gassign *stmt, gimple_stmt_iterator *gsi)
 {
   struct access *lacc, *racc;
   tree lhs, rhs;
@@ -3405,7 +3405,8 @@ sra_modify_function_body (void)
 	      break;
 
 	    case GIMPLE_ASSIGN:
-	      assign_result = sra_modify_assign (stmt, &gsi);
+	      assign_result = sra_modify_assign (as_a <gassign *> (stmt),
+						 &gsi);
 	      modified |= assign_result == SRA_AM_MODIFIED;
 	      deleted = assign_result == SRA_AM_REMOVED;
 	      break;
@@ -3681,9 +3682,9 @@ ptr_parm_has_direct_uses (tree parm)
 	      && !TREE_THIS_VOLATILE (lhs))
 	    uses_ok++;
 	}
-      if (gimple_assign_single_p (stmt))
+      if (gassign *assign_stmt = gimple_assign_single_p (stmt))
 	{
-	  tree rhs = gimple_assign_rhs1 (stmt);
+	  tree rhs = gimple_assign_rhs1 (assign_stmt);
 	  while (handled_component_p (rhs))
 	    rhs = TREE_OPERAND (rhs, 0);
 	  if (TREE_CODE (rhs) == MEM_REF
@@ -4531,7 +4532,7 @@ replace_removed_params_ssa_names (gimple stmt,
   if (gimple_code (stmt) == GIMPLE_PHI)
     lhs = gimple_phi_result (stmt);
   else if (is_gimple_assign (stmt))
-    lhs = gimple_assign_lhs (stmt);
+    lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
   else if (is_gimple_call (stmt))
     lhs = gimple_call_lhs (stmt);
   else
@@ -4562,7 +4563,7 @@ replace_removed_params_ssa_names (gimple stmt,
     }
 
   if (is_gimple_assign (stmt))
-    gimple_assign_set_lhs (stmt, name);
+    gimple_assign_set_lhs (as_a <gassign *> (stmt), name);
   else if (is_gimple_call (stmt))
     gimple_call_set_lhs (stmt, name);
   else
@@ -4579,7 +4580,7 @@ replace_removed_params_ssa_names (gimple stmt,
    point to the statement).  Return true iff the statement was modified.  */
 
 static bool
-sra_ipa_modify_assign (gimple stmt, gimple_stmt_iterator *gsi,
+sra_ipa_modify_assign (gassign *stmt, gimple_stmt_iterator *gsi,
 		       ipa_parm_adjustment_vec adjustments)
 {
   tree *lhs_p, *rhs_p;
@@ -4668,7 +4669,8 @@ ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
 	      break;
 
 	    case GIMPLE_ASSIGN:
-	      modified |= sra_ipa_modify_assign (stmt, &gsi, adjustments);
+	      modified |= sra_ipa_modify_assign (as_a <gassign *> (stmt),
+						 &gsi, adjustments);
 	      modified |= replace_removed_params_ssa_names (stmt, adjustments);
 	      break;
 
