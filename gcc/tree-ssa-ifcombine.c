@@ -194,8 +194,8 @@ get_name_for_bit_test (tree candidate)
   if (TREE_CODE (candidate) == SSA_NAME
       && has_single_use (candidate))
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (candidate);
-      if (is_gimple_assign (def_stmt)
+      gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (candidate));
+      if (def_stmt
 	  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))
 	{
 	  if (TYPE_PRECISION (TREE_TYPE (candidate))
@@ -216,6 +216,7 @@ static bool
 recognize_single_bit_test (gcond *cond, tree *name, tree *bit, bool inv)
 {
   gimple stmt;
+  gassign *assign_stmt;
 
   /* Get at the definition of the result of the bit test.  */
   if (gimple_cond_code (cond) != (inv ? EQ_EXPR : NE_EXPR)
@@ -223,7 +224,8 @@ recognize_single_bit_test (gcond *cond, tree *name, tree *bit, bool inv)
       || !integer_zerop (gimple_cond_rhs (cond)))
     return false;
   stmt = SSA_NAME_DEF_STMT (gimple_cond_lhs (cond));
-  if (!is_gimple_assign (stmt))
+  assign_stmt = dyn_cast <gassign *> (stmt);
+  if (!assign_stmt)
     return false;
 
   /* Look at which bit is tested.  One form to recognize is
@@ -231,31 +233,37 @@ recognize_single_bit_test (gcond *cond, tree *name, tree *bit, bool inv)
      D.1986_6 = (int) D.1985_5;
      D.1987_7 = op0 & 1;
      if (D.1987_7 != 0)  */
-  if (gimple_assign_rhs_code (stmt) == BIT_AND_EXPR
-      && integer_onep (gimple_assign_rhs2 (stmt))
-      && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
+  if (gimple_assign_rhs_code (assign_stmt) == BIT_AND_EXPR
+      && integer_onep (gimple_assign_rhs2 (assign_stmt))
+      && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME)
     {
-      tree orig_name = gimple_assign_rhs1 (stmt);
+      tree orig_name = gimple_assign_rhs1 (assign_stmt);
 
       /* Look through copies and conversions to eventually
 	 find the stmt that computes the shift.  */
       stmt = SSA_NAME_DEF_STMT (orig_name);
+      assign_stmt = dyn_cast <gassign *> (stmt);
 
-      while (is_gimple_assign (stmt)
-	     && ((CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
-		  && (TYPE_PRECISION (TREE_TYPE (gimple_assign_lhs (stmt)))
-		      <= TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (stmt))))
-		  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
-		 || gimple_assign_ssa_name_copy_p (stmt)))
-	stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
+      while (assign_stmt
+	     && ((CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (assign_stmt))
+		  && (TYPE_PRECISION (TREE_TYPE (gimple_assign_lhs (
+						   assign_stmt)))
+		      <= TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (
+						      assign_stmt))))
+		  && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME)
+		 || gimple_assign_ssa_name_copy_p (assign_stmt)))
+	{
+	  stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (assign_stmt));
+	  assign_stmt = dyn_cast <gassign *> (stmt);
+	}
 
       /* If we found such, decompose it.  */
-      if (is_gimple_assign (stmt)
-	  && gimple_assign_rhs_code (stmt) == RSHIFT_EXPR)
+      if (assign_stmt
+	  && gimple_assign_rhs_code (assign_stmt) == RSHIFT_EXPR)
 	{
 	  /* op0 & (1 << op1) */
-	  *bit = gimple_assign_rhs2 (stmt);
-	  *name = gimple_assign_rhs1 (stmt);
+	  *bit = gimple_assign_rhs2 (assign_stmt);
+	  *name = gimple_assign_rhs1 (assign_stmt);
 	}
       else
 	{
@@ -270,13 +278,13 @@ recognize_single_bit_test (gcond *cond, tree *name, tree *bit, bool inv)
   /* Another form is
      D.1987_7 = op0 & (1 << CST)
      if (D.1987_7 != 0)  */
-  if (gimple_assign_rhs_code (stmt) == BIT_AND_EXPR
-      && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
-      && integer_pow2p (gimple_assign_rhs2 (stmt)))
+  if (gimple_assign_rhs_code (assign_stmt) == BIT_AND_EXPR
+      && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME
+      && integer_pow2p (gimple_assign_rhs2 (assign_stmt)))
     {
-      *name = gimple_assign_rhs1 (stmt);
+      *name = gimple_assign_rhs1 (assign_stmt);
       *bit = build_int_cst (integer_type_node,
-			    tree_log2 (gimple_assign_rhs2 (stmt)));
+			    tree_log2 (gimple_assign_rhs2 (assign_stmt)));
       return true;
     }
 
@@ -284,30 +292,32 @@ recognize_single_bit_test (gcond *cond, tree *name, tree *bit, bool inv)
      D.1986_6 = 1 << control1_4(D)
      D.1987_7 = op0 & D.1986_6
      if (D.1987_7 != 0)  */
-  if (gimple_assign_rhs_code (stmt) == BIT_AND_EXPR
-      && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
-      && TREE_CODE (gimple_assign_rhs2 (stmt)) == SSA_NAME)
+  if (gimple_assign_rhs_code (assign_stmt) == BIT_AND_EXPR
+      && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME
+      && TREE_CODE (gimple_assign_rhs2 (assign_stmt)) == SSA_NAME)
     {
-      gimple tmp;
+      gassign *tmp;
 
       /* Both arguments of the BIT_AND_EXPR can be the single-bit
 	 specifying expression.  */
-      tmp = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
-      if (is_gimple_assign (tmp)
+      tmp = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (gimple_assign_rhs1 (
+						       assign_stmt)));
+      if (tmp
 	  && gimple_assign_rhs_code (tmp) == LSHIFT_EXPR
 	  && integer_onep (gimple_assign_rhs1 (tmp)))
 	{
-	  *name = gimple_assign_rhs2 (stmt);
+	  *name = gimple_assign_rhs2 (assign_stmt);
 	  *bit = gimple_assign_rhs2 (tmp);
 	  return true;
 	}
 
-      tmp = SSA_NAME_DEF_STMT (gimple_assign_rhs2 (stmt));
-      if (is_gimple_assign (tmp)
+      tmp = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (gimple_assign_rhs2 (
+						       assign_stmt)));
+      if (tmp
 	  && gimple_assign_rhs_code (tmp) == LSHIFT_EXPR
 	  && integer_onep (gimple_assign_rhs1 (tmp)))
 	{
-	  *name = gimple_assign_rhs1 (stmt);
+	  *name = gimple_assign_rhs1 (assign_stmt);
 	  *bit = gimple_assign_rhs2 (tmp);
 	  return true;
 	}
@@ -324,15 +334,14 @@ recognize_single_bit_test (gcond *cond, tree *name, tree *bit, bool inv)
 static bool
 recognize_bits_test (gcond *cond, tree *name, tree *bits, bool inv)
 {
-  gimple stmt;
-
   /* Get at the definition of the result of the bit test.  */
   if (gimple_cond_code (cond) != (inv ? EQ_EXPR : NE_EXPR)
       || TREE_CODE (gimple_cond_lhs (cond)) != SSA_NAME
       || !integer_zerop (gimple_cond_rhs (cond)))
     return false;
-  stmt = SSA_NAME_DEF_STMT (gimple_cond_lhs (cond));
-  if (!is_gimple_assign (stmt)
+  gassign *stmt =
+    dyn_cast <gassign *> (SSA_NAME_DEF_STMT (gimple_cond_lhs (cond)));
+  if (!stmt
       || gimple_assign_rhs_code (stmt) != BIT_AND_EXPR)
     return false;
 
