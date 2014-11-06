@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "hashtab.h"
 #include "varasm.h"
+#include "tree-ssa-operands.h"
+#include "tree-into-ssa.h"
 
 /* Structure types that appear in symtab_node: 
 
@@ -100,6 +102,9 @@ typedef const struct new_var_data *const_new_var;
 
 /* New global variables.  */
 htab_t new_global_vars = NULL;
+
+/* New local variables. Generated per-function.  */
+htab_t new_local_vars;
 
 /* Hash value for new_var.  */
 
@@ -1788,6 +1793,9 @@ update_varpool_with_new_var (new_var node)
   tree var;
   unsigned i;
 
+  if (!node)
+    return;
+
   FOR_EACH_VEC_ELT (node->new_vars, i, var)
     {
       notice_global_symbol (var);
@@ -1799,7 +1807,7 @@ update_varpool_with_new_var (new_var node)
    substitute the original variable VAR_DECL and adds
    them to the new_var's hashtable NEW_VARS_HTAB.  */
 
-static void
+static new_var
 create_new_var (tree var_decl, htab_t new_vars_htab)
 {
   new_var node;
@@ -1808,20 +1816,20 @@ create_new_var (tree var_decl, htab_t new_vars_htab)
   int i;
 
   if (!var_decl || is_in_new_vars_htab (var_decl, new_vars_htab))
-    return;
+    return NULL;
 
   if (!var_is_candidate (var_decl, &type))
-    return;
+    return NULL;
 
   i = is_in_struct_symbols_vec (type);
   if (i == -1)
-    return;
+    return NULL;
 
   str = struct_symbols_vec[i];
   node = create_new_var_node (var_decl, str);
   create_new_var_1 (var_decl, str, node);
   add_to_new_vars_htab (node, new_vars_htab);
-  update_varpool_with_new_var (node);
+  return node;
 }
 
 /* This function is a callback for traversal on new_var's hashtable.
@@ -1889,10 +1897,78 @@ struct_reorg_var_transform (varpool_node *vnode)
   if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
     return;
 
-  create_new_var (var_decl, new_global_vars);
+  update_varpool_with_new_var (create_new_var (var_decl, new_global_vars));
   dump_new_vars (new_global_vars);
   
-  print_struct_symbol_vec ();
+  if (dump_file)
+    dump_symtab (dump_file);
+}
+
+/* For each local variable of structure type from the vector of structures
+   this function generates new variable(s) to replace it.  */
+
+static void
+create_new_local_vars (void)
+{
+  tree decl;
+  unsigned ix;
+
+  new_local_vars = htab_create (vec_safe_length (cfun->local_decls),
+				new_var_hash, new_var_eq, NULL);
+
+  FOR_EACH_LOCAL_DECL (cfun, ix, decl)
+    {
+      /* Local static varibales are in symbol table,
+	 and were treated as part of varibale_transform.  */
+      if (!TREE_STATIC (decl))
+	create_new_var (decl, new_local_vars);
+    }
+
+  dump_new_vars (new_local_vars); 
+}
+
+/* This function is a callback for traversal over new_var's hashtable.
+   SLOT is a pointer to new_var. This function frees memory allocated
+   for new_var and pointed by *SLOT.  */
+
+static int
+free_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  new_var n_var = *(new_var *) slot;
+
+  /* Free vector of new_vars.  */
+  n_var->new_vars.release ();
+  free (n_var);
+  return 1;
+}
+
+/* Free new_vars hashtable NEW_VARS_HTAB.  */
+
+static void
+free_new_vars_htab (htab_t new_vars_htab)
+{
+  if (new_vars_htab)
+    htab_traverse (new_vars_htab, free_new_var, NULL);
+  htab_delete (new_vars_htab);
+  new_vars_htab = NULL;
+}
+
+/* Do struct-reorg transformation for individual function
+   represented by NODE. All structure types relevant
+   for this function are transformed.  */
+
+static void
+do_reorg_for_func ( /*struct cgraph_node *node */)
+{
+  create_new_local_vars ();
+  /*create_new_alloc_sites_for_func (node);
+  create_new_accesses_for_func ();
+  update_ssa (TODO_update_ssa);
+  cleanup_tree_cfg ();
+  cgraph_rebuild_references (); */
+
+  /* Free auxiliary data representing local variables.  */
+  free_new_vars_htab (new_local_vars);
 }
 
 /* Implementation of function_transform function for struct-reorg.  */
@@ -1904,8 +1980,14 @@ struct_reorg_func_transform (struct cgraph_node *node)
     {
       fprintf (dump_file, "\nStruct_reorg is transforming %s function.", node->name ());
     }
-  print_struct_symbol_vec ();
+
+  gcc_checking_assert (cfun);
+  gcc_checking_assert (current_function_decl);
+
+  do_reorg_for_func ( /*node */);
   return 0;
+
+  // DO not forget to free free_new_vars_htab (new_global_vars); !!!
 }
 
 /* Analyze each function in the cgraph. */
