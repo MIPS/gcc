@@ -1,4 +1,9 @@
 
+2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/libmelt-ana-gimple.melt (make_gimple_call)
+	(gimple_switch_set_index, gimple_switch_set_label): New.
+
 2014-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/libmelt-ana-gimple.melt: List in a comment the unhandled

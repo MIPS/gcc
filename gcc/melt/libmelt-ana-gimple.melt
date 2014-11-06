@@ -1849,6 +1849,111 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
                   @var{<lhs>} @var{<fndecl>} @var{<args>...})}.}#)
 
 
+(defun make_gimple_call (tlhs tfunv args)
+  :doc #{The function $MAKE_GIMPLE_CALL build a boxed gimple_call with lefthandside $TLHS for
+  function tree boxed in $TFUNV and arguments boxed in list or
+  multiple $ARGS.}#
+  (debug "make_gimple_call tlhs=" tlhs "\n.. tfunv=" tfunv "\n.. args=" args)
+  (let (
+	(tr_lhs (unbox :tree tlhs))
+	(tr_fun (unbox :tree tfunv))
+	 )
+    (if (expr_chunk testfun_chk :long
+		    #{/*make_gimple_call $TESTFUN_CHK*/ ($TR_FUN
+		       && (TREE_CODE ($TR_FUN) == FUNCTION_DECL || is_gimple_call_addr ($TR_FUN)))}#)
+	(let ( (arglist (make_list discr_list))
+	       )
+	  (cond
+	   ( (is_list args)
+	     (each_component_in_list
+	      args curarg
+	      (let ( (t_curarg (unbox :tree curarg))
+		     )
+		(if t_curarg (list_append args curarg)))
+	      ))
+	   ( (is_multiple args)
+	     (foreach_in_multiple
+	      (args)
+	      (curarg :long aix)
+	      (let ( (t_curarg (unbox :tree curarg))
+		     )
+		(if t_curarg (list_append args curarg)))))
+	   (:else
+	    (void))
+	   )
+	  (let ( (argtup (list_to_multiple arglist discr_multiple))
+		 (nbargs (multiple_length argtup))
+		 (gr (null_gimple))
+		 (t_curarg (null_tree))
+		 )
+	    (code_chunk
+	     makecall_chk #{ /*make_gimple_call $MAKECALL_CHK */
+	     /* special cases for small calls */
+	     switch ($NBARGS) {
+	     case 0:
+	       $GR = gimple_build_call ($TR_FUN, 0);
+	       break;
+	     case 1:
+	       $GR = gimple_build_call ($TR_FUN, 1,
+					melt_tree_content(melt_multiple_nth($ARGTUP, 0))
+					);
+	       break;
+	     case 2:
+	       $GR = gimple_build_call ($TR_FUN, 2,
+					melt_tree_content(melt_multiple_nth($ARGTUP, 0)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 1))
+					);
+	       break;
+	     case 3:
+	       $GR = gimple_build_call ($TR_FUN, 3,
+					melt_tree_content(melt_multiple_nth($ARGTUP, 0)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 1)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 2))
+					);
+	       break;
+	     case 4:
+	       $GR = gimple_build_call ($TR_FUN, 4,
+					melt_tree_content(melt_multiple_nth($ARGTUP, 0)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 1)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 2)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 3))
+					);
+	       break;
+	     case 5:
+	       $GR = gimple_build_call ($TR_FUN, 5,
+					melt_tree_content(melt_multiple_nth($ARGTUP, 0)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 1)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 2)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 3)),
+					melt_tree_content(melt_multiple_nth($ARGTUP, 4))
+					);
+	       break;
+	     default:
+	     {
+	       auto_vec<tree> $MAKECALL_CHK#_vargs;
+	       $MAKECALL_CHK#_vargs.reserve($NBARGS);
+	       for (int ix_$MAKECALL_CHK=0;
+			ix_$MAKECALL_CHK < (int) $NBARGS;
+			ix_$MAKECALL_CHK++) {
+		 $T_CURARG = melt_tree_content(melt_multiple_nth($ARGTUP, ix_$MAKECALL_CHK));
+		 $MAKECALL_CHK#_vargs.quick_push($T_CURARG);
+	         $T_CURARG = NULL_TREE;
+	       }
+	       $GR = gimple_build_call_vec ($TR_FUN, $MAKECALL_CHK#_vargs);	 
+	     }
+	     break;
+	     } /* end switch */
+	    if ($TR_LHS) gimple_call_set_lhs($GR, $TR_LHS);
+	    /*end make_gimple_call $MAKECALL_CHK */
+	    }#)
+	    (let ( (res (constant_box gr))
+		   )
+	      (debug "make_gimple_call res=" res)
+	      (return res)
+	    ))))))
+	      
+		
+    
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; add pattern matching ?(gimple_call_more_args ?lhs ?fndecl ?arg0 ?arg1 ... ?argn)
 
@@ -2498,13 +2603,14 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   gimpdbgbind
   :doc #{$GIMPLE_DEBUG_BIND match a Gimple debug bind extracting tree var $TVAR and value $TVALUE.}#
   ;; test
-  #{ /* gimple_debug_bind $gimpdbgbind ? */ (($gr) && gimple_debug_bind_p (($gr))) }#
+  #{ /* gimple_debug_bind $gimpdbgbind ? */ (($GR) && gimple_debug_bind_p (($GR))) }#
   ;; fill
   #{ /*  gimple_debug_bind  $gimpdbgbind ! */ 
-  $tvar = gimple_debug_bind_get_var ($gr);
-  $tval = gimple_debug_bind_get_value ($gr);
+  $TVAR = gimple_debug_bind_get_var ($GR);
+  $TVAL = gimple_debug_bind_get_value ($GR);
   }#
-  ;; FIXME: should have an operator
+  ;; oper
+  #{/* gimple_debug_bind oper */ gimple_build_debug_bind (($TVAR), ($TVAL), NULL)}#
 )
 
 ;;; match a label
@@ -2799,14 +2905,29 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ (($GS) && gimple_code($GS) == GIMPLE_SWITCH) ? 
   gimple_switch_index($GS) : (tree) NULL }#)
 
-;;; return a tree label
+;;; set the index of a switch
+(defprimitive gimple_switch_set_index (:gimple gs :tree trix) :void
+  :doc #{In gimple switch $GS set the index to $TRIX.}#
+  #{ if (($GS) && gimple_code($GS) == GIMPLE_SWITCH && ($TRIX) && (SSA_VAR_P ($TRIX) || CONSTANT_CLASS_P ($TRIX)))
+  { gimple_switch_set_index ($GS, $TRIX); }
+  }#)
+
+;;; return a tree label in a switch
 (defprimitive gimple_switch_label (:gimple gs :long n) :tree
-  :doc #{Safely retrieve the $N-th label in gimple switch $GS.}#
-  #{ (($gs) && gimple_code($gs) == GIMPLE_SWITCH
-      &&  $n>= 0&&  $n<  gimple_switch_num_labels($gs)) ?
-  gimple_switch_label($gs, $n) : NULL }#)
+  :doc #{Safely retrieve in gimple switch $GS the $N-th label -with $N positive or zero-.}#
+  #{ (($GS) && gimple_code($GS) == GIMPLE_SWITCH
+      &&  $N >= 0 &&  $N < gimple_switch_num_labels($GS)) ?
+  gimple_switch_label($GS, $N) : NULL_TREE }#)
 
-
+;;; set the tree label in a switch
+(defprimitive gimple_switch_set_label (:gimple gs :long n :tree tlab) :void
+  :doc  #{Safely set in gimple switch $GS the $N-th label -with $N positive or zero- to tree case label $TLAB.}#
+  #{ /* gimple_switch_set_label */
+  if (($GS) && gimple_code($GS) == GIMPLE_SWITCH
+      &&  $N >= 0 &&  $N < gimple_switch_num_labels($GS)
+      && ($TLAB == NULL_TREE || TREE_CODE($TLAB) == CASE_LABEL_EXPR))
+     gimple_switch_set_label ($GS, (unsigned)$N, $TLAB);
+  }#)
 
 ;;; iterator on switch cases
 (defciterator foreach_case_of_gimple_switch
@@ -3610,7 +3731,9 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  gimple_seq_of_basic_block 
  gimple_switch
  gimple_switch_index
- gimple_switch_label 
+ gimple_switch_label
+ gimple_switch_set_index
+ gimple_switch_set_label
  gimple_try 
  gimple_try_catch
  gimple_try_finally
@@ -3622,6 +3745,7 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  is_gimpleseq
  is_mapgimple 
  make_gimple
+ make_gimple_call
  make_gimple_mixloc 
  make_gimpleseq 
  make_mapgimple 
