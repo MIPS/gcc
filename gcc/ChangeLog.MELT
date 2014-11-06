@@ -1,6 +1,11 @@
 
 2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_case_label_expr)
+	(build_case_label): New cmatcher & primitive.
+
+2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-gimple.melt (make_gimple_call)
 	(gimple_switch_set_index, gimple_switch_set_label): New.
 

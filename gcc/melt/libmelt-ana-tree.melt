@@ -643,6 +643,34 @@ treerr
   :doc #{Create an artifical label tree, without source location.}#
   #{ /* tree_create_artificial_label */ create_artificial_label (UNKNOWN_LOCATION) }#)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; pattern for case label in switches
+(defcmatcher tree_case_label_expr
+  (:tree tr)
+  (:tree tclow tchigh tlabel tchain)
+  treecaselabel
+  :doc #{$TREE_CASE_LABEL_EXPR match a @code{CASE_LABEL_EXPR} tree.
+  $TCLOW is the CASE_LOW, TCHIGH is the CASE_HIGH, TLABEL is the CASE_LABEL, TCHAIN is the CASE_CHAIN. See also $BUILD_CASE_LABEL.}#
+  ;; test
+  #{ /* tree_case_label_expr $TREECASELABEL ? */
+  $TR && TREE_CODE($TR) == CASE_LABEL_EXPR
+  }#
+  ;; fill
+  #{ /* tree_case_label_expr $TREECASELABEL ! */
+  $TCLOW = CASE_LOW($TR);
+  $TCHIGH = CASE_HIGH($TR);
+  TLABEL = CASE_LABEL($TR);
+  TCHAIN = CASE_CHAIN($TR);
+  }#)
+
+;;; build a case label
+(defprimitive build_case_label (:tree tclow tchigh tlabel) :tree
+  :doc #{Build a case label with its low $TCLOW, high $TCHIGH, and label $TLABEL sub-trees.}#
+  #{ build_case_label($TCLOW, $TCHIGH, $TLABEL) }#)
+			      
+		      
+  
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; pattern for parameters (tree_parm_decl <type> <name> <uid>)
 (defcmatcher tree_parm_decl_named 
@@ -3792,6 +3820,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  ;;in alphanumerical order
  ==t
  arity_tree_call_expr
+ build_case_label
  build_identifier_tree
  build_int_tree
  build_string_tree
@@ -3858,7 +3887,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_boolean_false_node 
  tree_boolean_true_node 
  tree_boolean_type
- tree_boolean_type_node 
+ tree_boolean_type_node
+ tree_case_label_expr
  tree_chain_append
  tree_chain_join
  tree_chain_prepend
