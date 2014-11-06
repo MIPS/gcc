@@ -1,5 +1,17 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Strengthen
+	param "stmt" from gimple to gassign *.
+	(follow_ssa_edge): Add checked cast within case GIMPLE_ASSIGN.
+	(interpret_rhs_expr): Replace is_gimple_assign with a dyn_cast,
+	strengthening local "def" from gimple to gassign *.
+	(interpret_gimple_assign): Strengthen param "stmt" from gimple to
+	gassign *.
+	(analyze_scalar_evolution_1): Add checked cast within case
+	GIMPLE_ASSIGN.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-predcom.c (name_for_ref): Replace is_gimple_assign with a
 	dyn_cast, introducing local gassign * "ref_assign", using it place
 	of ref->stmt for typesafety.

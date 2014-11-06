@@ -1150,7 +1150,7 @@ follow_ssa_edge_expr (struct loop *loop, gimple at_stmt, tree expr,
    Return true if the strongly connected component has been found.  */
 
 static t_bool
-follow_ssa_edge_in_rhs (struct loop *loop, gimple stmt,
+follow_ssa_edge_in_rhs (struct loop *loop, gassign *stmt,
 			gphi *halting_phi, tree *evolution_of_loop,
 			int limit)
 {
@@ -1388,7 +1388,8 @@ follow_ssa_edge (struct loop *loop, gimple def, gphi *halting_phi,
       return t_false;
 
     case GIMPLE_ASSIGN:
-      return follow_ssa_edge_in_rhs (loop, def, halting_phi,
+      return follow_ssa_edge_in_rhs (loop, as_a <gassign *> (def),
+				     halting_phi,
 				     evolution_of_loop, limit);
 
     default:
@@ -1716,7 +1717,7 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
 		    tree type, tree rhs1, enum tree_code code, tree rhs2)
 {
   tree res, chrec1, chrec2;
-  gimple def;
+  gassign *def;
 
   if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
     {
@@ -1866,8 +1867,8 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
 	  && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (rhs1))
 	  && TYPE_OVERFLOW_UNDEFINED (type)
 	  && TREE_CODE (rhs1) == SSA_NAME
-	  && (def = SSA_NAME_DEF_STMT (rhs1))
-	  && is_gimple_assign (def)
+	  && (SSA_NAME_DEF_STMT (rhs1))
+	  && (def = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs1)))
 	  && TREE_CODE_CLASS (gimple_assign_rhs_code (def)) == tcc_binary
 	  && TREE_CODE (gimple_assign_rhs2 (def)) == INTEGER_CST)
 	{
@@ -1914,7 +1915,7 @@ interpret_expr (struct loop *loop, gimple at_stmt, tree expr)
 /* Interpret the rhs of the assignment STMT.  */
 
 static tree
-interpret_gimple_assign (struct loop *loop, gimple stmt)
+interpret_gimple_assign (struct loop *loop, gassign *stmt)
 {
   tree type = TREE_TYPE (gimple_assign_lhs (stmt));
   enum tree_code code = gimple_assign_rhs_code (stmt);
@@ -2003,7 +2004,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
   switch (gimple_code (def))
     {
     case GIMPLE_ASSIGN:
-      res = interpret_gimple_assign (loop, def);
+      res = interpret_gimple_assign (loop, as_a <gassign *> (def));
       break;
 
     case GIMPLE_PHI:
