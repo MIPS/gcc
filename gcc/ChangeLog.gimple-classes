@@ -1,5 +1,17 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-stdarg.c (va_list_counter_bump): Replace is_gimple_assign
+	with a dyn_cast, introducing local gassign * "assign_stmt" and
+	using it in place of "stmt" for typesafety.  Tighten the scope of
+	"stmt".  Introduce another local "assign_stmt" via an as_a, again
+	using it in place of "stmt".
+	(check_all_va_list_escapes): Replace is_gimple_assign with a
+	dyn_cast, introducing local gassign * "assign_stmt" and using it
+	in place of "stmt".
+	(pass_stdarg::execute): Likewise.
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* vtable-verify.c (is_vtable_assignment_stmt): Change return type
 	from bool to gassign * so that this can be used as a dynamic
 	casting function.  Introduce local gassign * "assign_stmt" once we

@@ -136,7 +136,6 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 		      bool gpr_p)
 {
   tree lhs, orig_lhs;
-  gimple stmt;
   unsigned HOST_WIDE_INT ret = 0, val, counter_val;
   unsigned int max_size;
 
@@ -169,15 +168,16 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	  break;
 	}
 
-      stmt = SSA_NAME_DEF_STMT (lhs);
+      gimple stmt = SSA_NAME_DEF_STMT (lhs);
 
-      if (!is_gimple_assign (stmt) || gimple_assign_lhs (stmt) != lhs)
+      gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+      if (!assign_stmt || gimple_assign_lhs (assign_stmt) != lhs)
 	return HOST_WIDE_INT_M1U;
 
-      rhs_code = gimple_assign_rhs_code (stmt);
-      rhs1 = gimple_assign_rhs1 (stmt);
+      rhs_code = gimple_assign_rhs_code (assign_stmt);
+      rhs1 = gimple_assign_rhs1 (assign_stmt);
       if ((get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS
-	   || gimple_assign_cast_p (stmt))
+	   || gimple_assign_cast_p (assign_stmt))
 	  && TREE_CODE (rhs1) == SSA_NAME)
 	{
 	  lhs = rhs1;
@@ -187,9 +187,9 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
       if ((rhs_code == POINTER_PLUS_EXPR
 	   || rhs_code == PLUS_EXPR)
 	  && TREE_CODE (rhs1) == SSA_NAME
-	  && tree_fits_uhwi_p (gimple_assign_rhs2 (stmt)))
+	  && tree_fits_uhwi_p (gimple_assign_rhs2 (assign_stmt)))
 	{
-	  ret += tree_to_uhwi (gimple_assign_rhs2 (stmt));
+	  ret += tree_to_uhwi (gimple_assign_rhs2 (assign_stmt));
 	  lhs = rhs1;
 	  continue;
 	}
@@ -207,7 +207,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
       if (get_gimple_rhs_class (rhs_code) != GIMPLE_SINGLE_RHS)
 	return HOST_WIDE_INT_M1U;
 
-      rhs = gimple_assign_rhs1 (stmt);
+      rhs = gimple_assign_rhs1 (assign_stmt);
       if (TREE_CODE (counter) != TREE_CODE (rhs))
 	return HOST_WIDE_INT_M1U;
 
@@ -239,12 +239,12 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
       else
 	si->offsets[SSA_NAME_VERSION (lhs)] = val;
 
-      stmt = SSA_NAME_DEF_STMT (lhs);
+      gassign *assign_stmt = as_a <gassign *> (SSA_NAME_DEF_STMT (lhs));
 
-      rhs_code = gimple_assign_rhs_code (stmt);
-      rhs1 = gimple_assign_rhs1 (stmt);
+      rhs_code = gimple_assign_rhs_code (assign_stmt);
+      rhs1 = gimple_assign_rhs1 (assign_stmt);
       if ((get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS
-	   || gimple_assign_cast_p (stmt))
+	   || gimple_assign_cast_p (assign_stmt))
 	  && TREE_CODE (rhs1) == SSA_NAME)
 	{
 	  lhs = rhs1;
@@ -254,9 +254,9 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
       if ((rhs_code == POINTER_PLUS_EXPR
 	   || rhs_code == PLUS_EXPR)
 	  && TREE_CODE (rhs1) == SSA_NAME
-	  && tree_fits_uhwi_p (gimple_assign_rhs2 (stmt)))
+	  && tree_fits_uhwi_p (gimple_assign_rhs2 (assign_stmt)))
 	{
-	  val -= tree_to_uhwi (gimple_assign_rhs2 (stmt));
+	  val -= tree_to_uhwi (gimple_assign_rhs2 (assign_stmt));
 	  lhs = rhs1;
 	  continue;
 	}
@@ -595,10 +595,11 @@ check_all_va_list_escapes (struct stdarg_info *si)
 				  SSA_NAME_VERSION (use)))
 		continue;
 
-	      if (is_gimple_assign (stmt))
+	      if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
 		{
-		  tree rhs = gimple_assign_rhs1 (stmt);
-		  enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
+		  tree rhs = gimple_assign_rhs1 (assign_stmt);
+		  enum tree_code rhs_code =
+		    gimple_assign_rhs_code (assign_stmt);
 
 		  /* x = *ap_temp;  */
 		  if (rhs_code == MEM_REF
@@ -628,13 +629,13 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		     statements.  */
 		  if (rhs == use
 		      && ((rhs_code == POINTER_PLUS_EXPR
-			   && (TREE_CODE (gimple_assign_rhs2 (stmt))
+			   && (TREE_CODE (gimple_assign_rhs2 (assign_stmt))
 			       == INTEGER_CST))
-			  || gimple_assign_cast_p (stmt)
+			  || gimple_assign_cast_p (assign_stmt)
 			  || (get_gimple_rhs_class (rhs_code)
 			      == GIMPLE_SINGLE_RHS)))
 		    {
-		      tree lhs = gimple_assign_lhs (stmt);
+		      tree lhs = gimple_assign_lhs (assign_stmt);
 
 		      if (TREE_CODE (lhs) == SSA_NAME
 			  && bitmap_bit_p (si->va_list_escape_vars,
@@ -650,7 +651,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 			   && TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF
 			   && TREE_OPERAND (TREE_OPERAND (rhs, 0), 0) == use)
 		    {
-		      tree lhs = gimple_assign_lhs (stmt);
+		      tree lhs = gimple_assign_lhs (assign_stmt);
 
 		      if (bitmap_bit_p (si->va_list_escape_vars,
 					SSA_NAME_VERSION (lhs)))
@@ -908,14 +909,14 @@ pass_stdarg::execute (function *fun)
 		continue;
 	    }
 
-	  if (is_gimple_assign (stmt))
+	  if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
 	    {
-	      tree lhs = gimple_assign_lhs (stmt);
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	      tree lhs = gimple_assign_lhs (assign_stmt);
+	      tree rhs = gimple_assign_rhs1 (assign_stmt);
 
 	      if (va_list_simple_ptr)
 		{
-		  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
+		  if (get_gimple_rhs_class (gimple_assign_rhs_code (assign_stmt))
 		      == GIMPLE_SINGLE_RHS)
 		    {
 		      /* Check for ap ={v} {}.  */
@@ -935,16 +936,16 @@ pass_stdarg::execute (function *fun)
 			continue;
 		    }
 
-		  if ((gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
-		       && TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST)
-		      || CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
-		      || (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
+		  if ((gimple_assign_rhs_code (assign_stmt) == POINTER_PLUS_EXPR
+		       && TREE_CODE (gimple_assign_rhs2 (assign_stmt)) == INTEGER_CST)
+		      || CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (assign_stmt))
+		      || (get_gimple_rhs_class (gimple_assign_rhs_code (assign_stmt))
 			  == GIMPLE_SINGLE_RHS))
 		    check_va_list_escapes (&si, lhs, rhs);
 		}
 	      else
 		{
-		  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
+		  if (get_gimple_rhs_class (gimple_assign_rhs_code (assign_stmt))
 		      == GIMPLE_SINGLE_RHS)
 		    {
 		      /* Check for ap ={v} {}.  */
@@ -963,7 +964,7 @@ pass_stdarg::execute (function *fun)
 
 		  /* Do any architecture specific checking.  */
 		  if (targetm.stdarg_optimize_hook
-		      && targetm.stdarg_optimize_hook (&si, stmt))
+		      && targetm.stdarg_optimize_hook (&si, assign_stmt))
 		    continue;
 		}
 	    }
