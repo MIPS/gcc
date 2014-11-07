@@ -224,6 +224,9 @@
    shift_shift"
   (const_string "unknown"))
 
+(define_attr "forbidden_slot" "yes,no"
+  (const_string "no"))
+
 (define_attr "branch_zero_ne_eq_compact" "yes,no"
   (const_string "no"))
 
@@ -1057,30 +1060,41 @@
 
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
-		   (eq_attr "branch_likely" "yes")
-		   (not (match_test "ISA_HAS_DELAYED_BRANCHES")))
+		   (eq_attr "branch_likely" "yes"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (eq_attr "can_delay" "yes")])
 
 ;; Branches that don't have likely variants do not annul on false.
+;; Or unconditional compact branches when both delay slot and compact
+;; branches are supported.
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
 		   (eq_attr "branch_likely" "no")
-		   (not (match_test "ISA_HAS_DELAYED_BRANCHES")))
+		   (eq_attr "forbidden_slot" "no")
+		   (match_test "ISA_HAS_DELAYED_BRANCHES"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
+;; Conditional compact branches.
+(define_delay (and (eq_attr "type" "branch")
+		   (not (match_test "TARGET_MIPS16"))
+		   (eq_attr "branch_likely" "no")
+		   (eq_attr "forbidden_slot" "yes"))
+  [(eq_attr "can_delay" "yes")
+   (eq_attr "can_delay" "yes")
+   (nil)])
+
 (define_delay (and (eq_attr "type" "jump")
-                   (not (match_test "ISA_HAS_DELAYED_BRANCHES")))
+                   (match_test "ISA_HAS_DELAYED_BRANCHES"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
 (define_delay (and (eq_attr "type" "call")
 		   (eq_attr "jal_macro" "no")
-		   (not (match_test "ISA_HAS_DELAYED_BRANCHES")))
+		   (match_test "ISA_HAS_DELAYED_BRANCHES"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -5777,6 +5791,82 @@
 
 ;; Conditional branches on ordered comparisons with zero.
 
+(define_insn "*branch_order_r6<mode>"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 1 "order_operator_r6"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (match_operand:GPR 3 "register_operand" "d")])
+	 (label_ref (match_operand 0 "" ""))
+	 (pc)))]
+  "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
+{
+  return "b%C1c\t%2,%z3,%0";
+  /*return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%C1c", "%2,%z3,%0"),
+					 MIPS_BRANCH ("b%N1c", "%2,%z3,%0"));*/
+}
+  [(set_attr "type" "branch")
+   (set_attr "branch_cond_compact" "yes")
+   (set_attr "forbidden_slot" "yes")])
+
+(define_insn "*branch_order_r6<mode>_inverted"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 1 "order_operator"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (match_operand:GPR 3 "register_operand" "d")])
+	 (pc)
+	 (label_ref (match_operand 0 "" ""))))]
+  "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
+{
+  return "b%N1c\t%2,%z3,%0";
+  /*return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%N1c", "%2,%z3,%0"),
+					 MIPS_BRANCH ("b%C1c", "%2,%z3,%0"));*/
+}
+  [(set_attr "type" "branch")
+   (set_attr "branch_cond_compact" "yes")])
+
+(define_insn "*branch_order_zero_r6<mode>"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 1 "order_operator_zero_r6"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (const_int 0)])
+	 (label_ref (match_operand 0 "" ""))
+	 (pc)))]
+  "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
+  {
+    return "b%C1zc\t%2,%0";
+    /*return mips_output_conditional_branch (insn, operands,
+					   "%*b%C1z%:\t%2,%0",
+					   "%*b%N1z%:\t%2,%0");*/
+  }
+  [(set_attr "type" "branch")
+   (set_attr "branch_cond_compact" "yes")
+   (set_attr "forbidden_slot" "yes")])
+
+(define_insn "*branch_order_zero_r6<mode>_inverted"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 1 "order_operator_zero_r6"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (const_int 0)])
+	 (pc)
+	 (label_ref (match_operand 0 "" ""))))]
+  "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
+  {
+    return "b%N1zc\t%2,%0";
+    /*return mips_output_conditional_branch (insn, operands,
+					   "%*b%C1zc\t%2,%0",
+					   "%*b%N1zc\t%2,%0");*/
+  }
+  [(set_attr "type" "branch")
+   (set_attr "branch_cond_compact" "yes")
+   (set_attr "forbidden_slot" "yes")])
+
+
 (define_insn "*branch_order<mode>"
   [(set (pc)
 	(if_then_else
@@ -5788,7 +5878,8 @@
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
-   (set_attr "branch_cond_compact" "yes")])
+   (set_attr "branch_cond_compact" "yes")
+   (set_attr "forbidden_slot" "yes")])
 
 (define_insn "*branch_order<mode>_inverted"
   [(set (pc)
@@ -5801,7 +5892,8 @@
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
-   (set_attr "branch_cond_compact" "yes")])
+   (set_attr "branch_cond_compact" "yes")
+   (set_attr "forbidden_slot" "yes")])
 
 ;; Conditional branch on equality comparison.
 
@@ -5827,7 +5919,8 @@
 					 MIPS_BRANCH ("b%N1%:", "%2,%z3,%0"));
 }
   [(set_attr "type" "branch")
-   (set_attr "branch_cond_compact" "yes")])
+   (set_attr "branch_cond_compact" "yes")
+   (set_attr "forbidden_slot" "yes")])
 
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
@@ -5851,7 +5944,8 @@
 					 MIPS_BRANCH ("b%C1%:", "%2,%z3,%0"));
 }
   [(set_attr "type" "branch")
-   (set_attr "branch_cond_compact" "yes")])
+   (set_attr "branch_cond_compact" "yes")
+   (set_attr "forbidden_slot" "yes")])
 
 (define_insn "*branch_equality<mode>"
   [(set (pc)
@@ -5941,10 +6035,14 @@
 		      (label_ref (match_operand 3 ""))
 		      (pc)))]
   ""
-{
-  mips_expand_conditional_branch (operands);
-  DONE;
-})
+  {
+    if (!ISA_HAS_BRANCH_COND_COMPACT || !TARGET_COMPACT_BRANCHES)
+      {
+        mips_expand_conditional_branch (operands);
+        DONE;
+      }
+
+  })
 
 (define_expand "cbranch<mode>4"
   [(set (pc)
@@ -5954,10 +6052,14 @@
 		      (label_ref (match_operand 3 ""))
 		      (pc)))]
   ""
-{
-  mips_expand_conditional_branch (operands);
-  DONE;
-})
+  {
+    if (!ISA_HAS_BRANCH_COND_COMPACT || !TARGET_COMPACT_BRANCHES)
+      {
+        mips_expand_conditional_branch (operands);
+        DONE;
+      }
+
+  })
 
 ;; Used to implement built-in functions.
 (define_expand "condjump"
