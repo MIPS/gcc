@@ -1,5 +1,13 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-outof-ssa.c (ssa_is_replaceable_p): Rename param "stmt" to
+	"gs", replacing is_gimple_assign with a dyn_cast, using it to
+	reintroduce "stmt" as a gassign * for typesafety.  Remove
+	redundant is_gimple_call (stmt) test, since we've already checked
+	for a GIMPLE_ASSIGN.
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* ubsan.c (ubsan_expand_null_ifn): Rename local "stmt" to
 	"ubsan_null_call" and strengthen from gimple to gcall *.
 	Eliminate local gimple "g" in favor of new locals

@@ -64,17 +64,18 @@ along with GCC; see the file COPYING3.  If not see
    should be in cfgexpand.c.  */
 #include "expr.h"
 
-/* Return TRUE if expression STMT is suitable for replacement.  */
+/* Return TRUE if expression GS is suitable for replacement.  */
 
 bool
-ssa_is_replaceable_p (gimple stmt)
+ssa_is_replaceable_p (gimple gs)
 {
   use_operand_p use_p;
   tree def;
   gimple use_stmt;
 
   /* Only consider modify stmts.  */
-  if (!is_gimple_assign (stmt))
+  gassign *stmt = dyn_cast <gassign *> (gs);
+  if (!stmt)
     return false;
 
   /* If the statement may throw an exception, it cannot be replaced.  */
@@ -107,10 +108,6 @@ ssa_is_replaceable_p (gimple stmt)
      replaceable.  */
   if (gimple_assign_rhs_code (stmt) == VAR_DECL
       && DECL_HARD_REGISTER (gimple_assign_rhs1 (stmt)))
-    return false;
-
-  /* No function calls can be replaced.  */
-  if (is_gimple_call (stmt))
     return false;
 
   /* Leave any stmt with volatile operands alone as well.  */
