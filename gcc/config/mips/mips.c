@@ -7661,7 +7661,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	     $18 is usually a call-saved register.  */
 	  fprintf (asm_out_file, "\tmove\t%s,%s\n",
 		   reg_names[GP_REG_FIRST + 18], reg_names[RETURN_ADDR_REGNUM]);
-	  output_asm_insn (MIPS_CALL ("jal", &fn, 0, -1), &fn);
+	  output_asm_insn (MIPS_JAL (&fn, 0, -1), &fn);
 	  fprintf (asm_out_file, "\t.cfi_register 31,18\n");
 
 	  /* Move the result from floating-point registers to
@@ -8748,8 +8748,8 @@ static int
 mips_insn_has_compact_form (rtx insn)
 {
   return (TARGET_COMPACT_BRANCHES
-	  && (((get_attr_branch_zero_ne_eq_compact (insn) == BRANCH_ZERO_NE_EQ_COMPACT_YES)
-	      && ISA_HAS_BRANCH_NE_EQ_COMPACT)
+	  && (((get_attr_branch_nez_eqz_compact (insn) == BRANCH_NEZ_EQZ_COMPACT_YES)
+	      && ISA_HAS_BRANCH_NEZ_EQZ_COMPACT)
 	      || ((get_attr_jump_reg_compact (insn) == JUMP_REG_COMPACT_YES)
 	          && ISA_HAS_JUMP_REG_COMPACT)
 	      || ((get_attr_branch_compact (insn) == BRANCH_COMPACT_YES)
@@ -8836,7 +8836,7 @@ mips_print_operand_punctuation (FILE *file, int ch)
 	 from the following ones.  This looks neater and is consistent
 	 with non-nop delayed sequences.  */
       if (mips_noreorder.nesting_level > 0 && final_sequence == 0
-	  && ISA_HAS_DELAYED_BRANCHES)
+	  && !mips_insn_has_compact_form (current_output_insn))
 	fputs ("\n\tnop\n", file);
       break;
 
@@ -8872,7 +8872,7 @@ mips_print_operand_punctuation (FILE *file, int ch)
 
     case ':':
       /* When final_sequence is 0, the delay slot will be a nop.  We can
-	 use the compact version for microMIPS.  */
+	 use the compact version for ISAs that support them.  */
       if (final_sequence == 0
 	  && mips_insn_has_compact_form (current_output_insn))
 	putc ('c', file);
@@ -8880,10 +8880,13 @@ mips_print_operand_punctuation (FILE *file, int ch)
 
     case '!':
       /* If the delay slot instruction is short, then use the
-	 compact version.  */
-      if (final_sequence == 0
-	  || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2)
-	putc ((TARGET_MICROMIPS && mips_isa_rev > 5) ? 'c' :'s', file);
+	 short delay slot version.  */
+      if ((final_sequence == 0
+	   || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2)
+	  && !TARGET_INTERLINK_COMPRESSED
+	  && TARGET_MICROMIPS && mips_isa_rev <= 5
+	  && !mips_insn_has_compact_form (current_output_insn))
+	putc ('s', file);
       break;
 
     default:
@@ -13546,8 +13549,9 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
   length = get_attr_length (insn);
   if (length <= 8)
     {
-      /* Just a simple conditional branch.  */
-      mips_branch_likely = (final_sequence && INSN_ANNULLED_BRANCH_P (insn));
+      /* Just a simple conditional branch.  */ 
+      /* HACK */
+      mips_branch_likely = (mips_isa_rev <= 5 && final_sequence && INSN_ANNULLED_BRANCH_P (insn));
       return branch_if_true;
     }
 
@@ -19005,7 +19009,7 @@ mips_option_override (void)
   if (mips_arch_info == 0)
     mips_set_architecture (mips_default_arch ());
 
-  if (!ISA_HAS_DELAYED_BRANCHES)
+  //if (!ISA_HAS_DELAYED_BRANCHES || TARGET_MICROMIPS)
     target_flags |= MASK_COMPACT_BRANCHES;
 
   if (ABI_NEEDS_64BIT_REGS && !ISA_HAS_64BIT_REGS)
