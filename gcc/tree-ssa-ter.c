@@ -640,14 +640,18 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	      if (gimple_vdef (stmt))
 		{
 		  gimple def_stmt = SSA_NAME_DEF_STMT (use);
-		  while (is_gimple_assign (def_stmt)
-			 && gimple_assign_rhs_code (def_stmt) == SSA_NAME)
-		    def_stmt
-		      = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_stmt));
+		  while (gassign *def_assign = dyn_cast <gassign *> (def_stmt))
+		    {
+		      if (gimple_assign_rhs_code (def_assign) != SSA_NAME)
+			break;
+		      def_stmt
+			= SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_assign));
+		    }
 		  if (gimple_vuse (def_stmt)
 		      && gimple_assign_single_p (def_stmt)
-		      && stmt_may_clobber_ref_p (stmt,
-						 gimple_assign_rhs1 (def_stmt)))
+		      && stmt_may_clobber_ref_p (
+			   stmt,
+			   gimple_assign_rhs1 (as_a <gassign *> (def_stmt))))
 		    {
 		      /* For calls, it is not a problem if USE is among
 			 call's arguments or say OBJ_TYPE_REF argument,

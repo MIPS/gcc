@@ -1,5 +1,12 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-ter.c (find_replaceable_in_bb): Replace
+	is_gimple_assign with a dyn_cast, introducing local "def_assign"
+	and using it in place of "def_stmt" for typesafety.  Add a checked
+	cast.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-tail-merge.c (same_succ_hash): Add checked cast.
 	(gimple_equal_p): Add checked casts.
 
