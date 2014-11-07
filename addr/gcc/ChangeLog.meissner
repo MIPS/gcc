@@ -1,3 +1,45 @@
+2014-11-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_inner): Fix up
+	loading address in 32-bit mode.
+
+	* config/rs6000/vsx.md (VSX_DF): Delete, no longer used.
+	(vsx_float<VSi><mode>): Do not provide support for floating point
+	scalars, only handle vectors here.
+	(vsx_floatuns<VSi><mode>2): Likewise.
+	(vsx_fix_trunc<mode><VSi>2): Likewise.
+	(vsx_fixuns_trunc<mode><VSi>2): Likewise.
+	(vsx_float_fix_v2df2): Likewise.
+
+	* config/rs6000/rs6000.md (copysign<mode>3_fcpsgn): Use correct
+	insn for SFmode.
+	(floatsi<mode>2_lfiwax): Go through integer to floating point and
+	floating point to integer conversions, making sure that adds
+	support for -mupper-regs-df and -mupper-regs-sf.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fix_trunc<mode>di2_fctidz): Likewise.
+	(fixuns_trunc<mode>si2): Likewise.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+	(fctiwz_<mode>): Likewise.
+	(fctiwuz_<mode>): Likewise.
+	(friz): Likewise.
+	(floatdidf2_fpr): Likewise.
+	(floatdidf2_mem): Likewise.
+	(floatunsdidf2_fcfidu): Likewise.
+	(floatunsdidf2_mem): Likewise.
+	(floatdisf2_fcfids): Likewise.
+	(floatdisf2_mem): Likewise.
+	(floatunsdisf2_fcfidus): Likewise.
+	(floatunsdisf2_mem): Likewise.
+	(floatdisf2_internal1): Add guard condition !TARGET_FCFIDS to make
+	it obvious the pre-ISA 2.06 code is not used on ISA 2.06 and
+	beyond, where we have a direct convert to single precision
+	floating point instruction.  Previously, it was just not done due
+	to ISA 2.06 support occuring earlier in the file.
+	(floatdisf2_internal2): Likewise.
+
 2014-11-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_secondary_reload_memory): Add

@@ -17335,7 +17335,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   else
     rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
-  // Make sure the mode is valid in this registers.
+  /* Make sure the mode is valid in this register class.  */
   if ((addr_mask & RELOAD_REG_VALID) == 0)
     rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
@@ -17478,8 +17478,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
-      emit_insn (gen_rtx_SET (VOIDmode, scratch,
-			      create_TOC_reference (addr, scratch)));
+      if (TARGET_TOC)
+	emit_insn (gen_rtx_SET (VOIDmode, scratch,
+				create_TOC_reference (addr, scratch)));
+      else
+	rs6000_emit_move (scratch, addr, Pmode);
+
       new_addr = scratch;
       break;
 
