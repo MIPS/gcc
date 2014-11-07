@@ -4661,11 +4661,13 @@ find_func_aliases (struct function *fn, gimple origt)
   /* Otherwise, just a regular assignment statement.  Only care about
      operations with pointer result, others are dealt with as escape
      points if they have pointer operands.  */
-  else if (is_gimple_assign (t))
+  else if (gassign *t_assign = dyn_cast <gassign *> (t))
     {
       /* Otherwise, just a regular assignment statement.  */
-      tree lhsop = gimple_assign_lhs (t);
-      tree rhsop = (gimple_num_ops (t) == 2) ? gimple_assign_rhs1 (t) : NULL;
+      tree lhsop = gimple_assign_lhs (t_assign);
+      tree rhsop = ((gimple_num_ops (t_assign) == 2)
+		    ? gimple_assign_rhs1 (t_assign)
+		    : NULL);
 
       if (rhsop && TREE_CLOBBER_P (rhsop))
 	/* Ignore clobbers, they don't actually store anything into
@@ -4675,7 +4677,7 @@ find_func_aliases (struct function *fn, gimple origt)
 	do_structure_copy (lhsop, rhsop);
       else
 	{
-	  enum tree_code code = gimple_assign_rhs_code (t);
+	  enum tree_code code = gimple_assign_rhs_code (t_assign);
 
 	  get_constraint_for (lhsop, &lhsc);
 
@@ -4684,20 +4686,21 @@ find_func_aliases (struct function *fn, gimple origt)
 	       assume the value is not produced to transfer a pointer.  */
 	    ;
 	  else if (code == POINTER_PLUS_EXPR)
-	    get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
-					   gimple_assign_rhs2 (t), &rhsc);
+	    get_constraint_for_ptr_offset (gimple_assign_rhs1 (t_assign),
+					   gimple_assign_rhs2 (t_assign),
+					   &rhsc);
 	  else if (code == BIT_AND_EXPR
-		   && TREE_CODE (gimple_assign_rhs2 (t)) == INTEGER_CST)
+		   && TREE_CODE (gimple_assign_rhs2 (t_assign)) == INTEGER_CST)
 	    {
 	      /* Aligning a pointer via a BIT_AND_EXPR is offsetting
 		 the pointer.  Handle it by offsetting it by UNKNOWN.  */
-	      get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
+	      get_constraint_for_ptr_offset (gimple_assign_rhs1 (t_assign),
 					     NULL_TREE, &rhsc);
 	    }
 	  else if ((CONVERT_EXPR_CODE_P (code)
-		    && !(POINTER_TYPE_P (gimple_expr_type (t))
+		    && !(POINTER_TYPE_P (gimple_expr_type (t_assign))
 			 && !POINTER_TYPE_P (TREE_TYPE (rhsop))))
-		   || gimple_assign_single_p (t))
+		   || gimple_assign_single_p (t_assign))
 	    get_constraint_for_rhs (rhsop, &rhsc);
 	  else if (code == COND_EXPR)
 	    {
@@ -4705,8 +4708,8 @@ find_func_aliases (struct function *fn, gimple origt)
 	      auto_vec<ce_s, 2> tmp;
 	      struct constraint_expr *rhsp;
 	      unsigned i;
-	      get_constraint_for_rhs (gimple_assign_rhs2 (t), &rhsc);
-	      get_constraint_for_rhs (gimple_assign_rhs3 (t), &tmp);
+	      get_constraint_for_rhs (gimple_assign_rhs2 (t_assign), &rhsc);
+	      get_constraint_for_rhs (gimple_assign_rhs3 (t_assign), &tmp);
 	      FOR_EACH_VEC_ELT (tmp, i, rhsp)
 		rhsc.safe_push (*rhsp);
 	    }
@@ -4720,10 +4723,10 @@ find_func_aliases (struct function *fn, gimple origt)
 	      auto_vec<ce_s, 4> tmp;
 	      struct constraint_expr *rhsp;
 	      unsigned i, j;
-	      get_constraint_for_rhs (gimple_assign_rhs1 (t), &rhsc);
-	      for (i = 2; i < gimple_num_ops (t); ++i)
+	      get_constraint_for_rhs (gimple_assign_rhs1 (t_assign), &rhsc);
+	      for (i = 2; i < gimple_num_ops (t_assign); ++i)
 		{
-		  get_constraint_for_rhs (gimple_op (t, i), &tmp);
+		  get_constraint_for_rhs (gimple_op (t_assign, i), &tmp);
 		  FOR_EACH_VEC_ELT (tmp, j, rhsp)
 		    rhsc.safe_push (*rhsp);
 		  tmp.truncate (0);
@@ -4898,7 +4901,7 @@ find_func_clobbers (struct function *fn, gimple origt)
 	  && gimple_return_retval (as_a <greturn *> (t)) != NULL_TREE))
     {
       tree rhs = (gimple_assign_single_p (t)
-		  ? gimple_assign_rhs1 (t)
+		  ? gimple_assign_rhs1 (as_a <gassign *> (t))
 		  : gimple_return_retval (as_a <greturn *> (t)));
       tree tem = rhs;
       while (handled_component_p (tem))
