@@ -240,7 +240,7 @@ merge_one_bitfield_store (const_bfstore *p, gimple ostmt, HOST_WIDE_INT *bitsize
     obitsize = *bitsize, obitpos = *bitpos;
   tree nconstval = p->constval, oconstval = *constval;
   gimple nstmt = p->stmt;
-  tree type, oconst, nconst, mask, one, minus_one;
+  tree type, oconst, nconst, mask, minus_one;
   gimple_stmt_iterator gsi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -267,7 +267,6 @@ merge_one_bitfield_store (const_bfstore *p, gimple ostmt, HOST_WIDE_INT *bitsize
   nconst = int_const_binop (BIT_AND_EXPR, nconst,
 			    build_low_bits_mask (type, nbitsize));
 
-  one = fold_convert (type, integer_one_node);
   minus_one = fold_convert (type, integer_minus_one_node);
 
   if (oshift)

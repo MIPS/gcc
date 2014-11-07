@@ -1232,6 +1232,8 @@ vrp_stmt_computes_nonzero (gimple stmt, bool *strict_overflow_p)
          case BUILT_IN_MEMCPY:
          case BUILT_IN_MEMMOVE:
            return true;
+	 default:
+	   ;
        }
     }
 
@@ -4727,6 +4729,8 @@ infer_value_range (gimple stmt, tree op, enum tree_code *comp_code_p, tree *val_
                    *comp_code_p = NE_EXPR;
                    return true;
                  }
+	     default:
+	       return false;
            }
        }
     }

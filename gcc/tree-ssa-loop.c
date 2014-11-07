@@ -882,13 +882,6 @@ pass_profile_loop_bounds::execute (function*)
   return ret;
 }
 
-static bool
-gate_profile_loop_bounds (void)
-{
-  return optimize >= 2 && flag_branch_probabilities;
-}
-
-
 gimple_opt_pass *
 make_pass_profile_loop_bounds (gcc::context *ctxt)
 {
