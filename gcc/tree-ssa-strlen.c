@@ -727,8 +727,8 @@ find_equal_ptrs (tree ptr, int idx)
     return;
   while (1)
     {
-      gimple stmt = SSA_NAME_DEF_STMT (ptr);
-      if (!is_gimple_assign (stmt))
+      gassign *stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (ptr));
+      if (!stmt)
 	return;
       ptr = gimple_assign_rhs1 (stmt);
       switch (gimple_assign_rhs_code (stmt))
@@ -824,17 +824,17 @@ adjust_last_stmt (strinfo si, gimple stmt, bool is_strcat)
 	return;
     }
 
-  if (is_gimple_assign (last.stmt))
+  if (gassign *last_assign = dyn_cast <gassign *> (last.stmt))
     {
       gimple_stmt_iterator gsi;
 
-      if (!integer_zerop (gimple_assign_rhs1 (last.stmt)))
+      if (!integer_zerop (gimple_assign_rhs1 (last_assign)))
 	return;
-      if (stmt_could_throw_p (last.stmt))
+      if (stmt_could_throw_p (last_assign))
 	return;
-      gsi = gsi_for_stmt (last.stmt);
-      unlink_stmt_vdef (last.stmt);
-      release_defs (last.stmt);
+      gsi = gsi_for_stmt (last_assign);
+      unlink_stmt_vdef (last_assign);
+      release_defs (last_assign);
       gsi_remove (&gsi, true);
       return;
     }
@@ -866,8 +866,8 @@ adjust_last_stmt (strinfo si, gimple stmt, bool is_strcat)
     }
   else if (TREE_CODE (len) == SSA_NAME)
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (len);
-      if (!is_gimple_assign (def_stmt)
+      gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (len));
+      if (!def_stmt
 	  || gimple_assign_rhs_code (def_stmt) != PLUS_EXPR
 	  || gimple_assign_rhs1 (def_stmt) != last.len
 	  || !integer_onep (gimple_assign_rhs2 (def_stmt)))
@@ -1322,7 +1322,7 @@ handle_builtin_memcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
 
   if (idx > 0)
     {
-      gimple def_stmt;
+      gassign *def_stmt;
 
       /* Handle memcpy (x, y, l) where l is strlen (y) + 1.  */
       si = get_strinfo (idx);
@@ -1330,8 +1330,8 @@ handle_builtin_memcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
 	return;
       if (TREE_CODE (len) != SSA_NAME)
 	return;
-      def_stmt = SSA_NAME_DEF_STMT (len);
-      if (!is_gimple_assign (def_stmt)
+      def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (len));
+      if (!def_stmt
 	  || gimple_assign_rhs_code (def_stmt) != PLUS_EXPR
 	  || gimple_assign_rhs1 (def_stmt) != si->length
 	  || !integer_onep (gimple_assign_rhs2 (def_stmt)))
@@ -1695,7 +1695,7 @@ handle_builtin_memset (gimple_stmt_iterator *gsi)
 static void
 handle_pointer_plus (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
   tree lhs = gimple_assign_lhs (stmt), off;
   int idx = get_stridx (gimple_assign_rhs1 (stmt));
   strinfo si, zsi;
@@ -1725,7 +1725,9 @@ handle_pointer_plus (gimple_stmt_iterator *gsi)
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (off);
       if (gimple_assign_single_p (def_stmt)
-	  && operand_equal_p (si->length, gimple_assign_rhs1 (def_stmt), 0))
+	  && operand_equal_p (si->length,
+			      gimple_assign_rhs1 (as_a <gassign *> (def_stmt)),
+			      0))
 	zsi = zero_length_string (lhs, si);
     }
   if (zsi != NULL
@@ -1749,7 +1751,7 @@ handle_char_store (gimple_stmt_iterator *gsi)
 {
   int idx = -1;
   strinfo si = NULL;
-  gimple stmt = gsi_stmt (*gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
   tree ssaname = NULL_TREE, lhs = gimple_assign_lhs (stmt);
 
   if (TREE_CODE (lhs) == MEM_REF
@@ -1936,20 +1938,21 @@ strlen_optimize_stmt (gimple_stmt_iterator *gsi)
 	    break;
 	  }
     }
-  else if (is_gimple_assign (stmt))
+  else if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
-      tree lhs = gimple_assign_lhs (stmt);
+      tree lhs = gimple_assign_lhs (assign_stmt);
 
       if (TREE_CODE (lhs) == SSA_NAME && POINTER_TYPE_P (TREE_TYPE (lhs)))
 	{
-	  if (gimple_assign_single_p (stmt)
-	      || (gimple_assign_cast_p (stmt)
-		  && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt)))))
+	  if (gimple_assign_single_p (assign_stmt)
+	      || (gimple_assign_cast_p (assign_stmt)
+		  && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (
+						  assign_stmt)))))
 	    {
-	      int idx = get_stridx (gimple_assign_rhs1 (stmt));
+	      int idx = get_stridx (gimple_assign_rhs1 (assign_stmt));
 	      ssa_ver_to_stridx[SSA_NAME_VERSION (lhs)] = idx;
 	    }
-	  else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+	  else if (gimple_assign_rhs_code (assign_stmt) == POINTER_PLUS_EXPR)
 	    handle_pointer_plus (gsi);
 	}
       else if (TREE_CODE (lhs) != SSA_NAME && !TREE_SIDE_EFFECTS (lhs))

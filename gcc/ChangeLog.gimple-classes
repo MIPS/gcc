@@ -1,5 +1,23 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-strlen.c (find_equal_ptrs): Replace is_gimple_assign
+	with a dyn_cast, strengthening local "stmt" from gimple to
+	gassign *.
+	(adjust_last_stmt): Likewise, introducing local "last_assign" and
+	using it in place of last.stmt, and strengthening local "def_stmt"
+	from gimple to gassign *.
+	(handle_builtin_memcpy): Replace is_gimple_assign with a dyn_cast,
+	strengthening local "def_stmt" from gimple to gassign *.
+	(handle_pointer_plus): Strengthen local "stmt" from gimple to
+	gassign *. Add checked cast.
+	(handle_char_store): Strengthen local "stmt" from gimple to
+	gassign *.
+	(strlen_optimize_stmt): Replace is_gimple_assign with dyn_cast,
+	introducing local gassign * "assign_stmt", using it in place of
+	"stmt" for typesafety.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-sink.c (statement_sink_location): Rename param "stmt"
 	to "gs", reintroducing "stmt" as a local gassign * via a dyn_cast
 	for typesafety.
