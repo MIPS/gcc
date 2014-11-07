@@ -1,5 +1,23 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* ubsan.c (ubsan_expand_null_ifn): Rename local "stmt" to
+	"ubsan_null_call" and strengthen from gimple to gcall *.
+	Eliminate local gimple "g" in favor of new locals
+	"assign_stmt", "builtin_call", "cond_stmt", "and_stmt".
+	(instrument_null):  Strengthen local "stmt" from gimple to
+	gassign *.
+	(instrument_si_overflow): Likewise.
+	(instrument_bool_enum_load): Likewise.  Eliminate local gimple
+	"g" in favor of new locals "assign_stmt", "cond_stmt",
+	"call_stmt".
+	(instrument_nonnull_arg): Strengthen local "stmt" from gimple to
+	gcall *.  Eliminate local gimple "g" in favor of new locals
+	"assign_stmt", "cond_stmt", "call_stmt".
+	(instrument_object_size): Strengthen locals "stmt" and "def_stmt"
+	from gimple to gassign *.
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* tsan.c (is_vptr_store): Add checked cast.
 	(instrument_gimple): Replace is_gimple_assign with a dyn_cast,
 	introducing local "assign_stmt", using in place of "stmt" for

@@ -673,28 +673,28 @@ bool
 ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
 {
   gimple_stmt_iterator gsi = *gsip;
-  gimple stmt = gsi_stmt (gsi);
-  location_t loc = gimple_location (stmt);
-  gcc_assert (gimple_call_num_args (stmt) == 3);
-  tree ptr = gimple_call_arg (stmt, 0);
-  tree ckind = gimple_call_arg (stmt, 1);
-  tree align = gimple_call_arg (stmt, 2);
+  gcall *ubsan_null_call = as_a <gcall *> (gsi_stmt (gsi));
+  location_t loc = gimple_location (ubsan_null_call);
+  gcc_assert (gimple_call_num_args (ubsan_null_call) == 3);
+  tree ptr = gimple_call_arg (ubsan_null_call, 0);
+  tree ckind = gimple_call_arg (ubsan_null_call, 1);
+  tree align = gimple_call_arg (ubsan_null_call, 2);
   tree check_align = NULL_TREE;
   bool check_null;
 
   basic_block cur_bb = gsi_bb (gsi);
 
-  gimple g;
   if (!integer_zerop (align))
     {
       unsigned int ptralign = get_pointer_alignment (ptr) / BITS_PER_UNIT;
       if (compare_tree_int (align, ptralign) == 1)
 	{
 	  check_align = make_ssa_name (pointer_sized_int_node, NULL);
-	  g = gimple_build_assign_with_ops (NOP_EXPR, check_align,
+	  gassign *assign_stmt
+	    = gimple_build_assign_with_ops (NOP_EXPR, check_align,
 					    ptr, NULL_TREE);
-	  gimple_set_location (g, loc);
-	  gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+	  gimple_set_location (assign_stmt, loc);
+	  gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 	}
     }
   check_null = (flag_sanitize & SANITIZE_NULL) != 0;
@@ -703,12 +703,12 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
     {
       gsi_remove (gsip, true);
       /* Unlink the UBSAN_NULLs vops before replacing it.  */
-      unlink_stmt_vdef (stmt);
+      unlink_stmt_vdef (ubsan_null_call);
       return true;
     }
 
   /* Split the original block holding the pointer dereference.  */
-  edge e = split_block (cur_bb, stmt);
+  edge e = split_block (cur_bb, ubsan_null_call);
 
   /* Get a hold on the 'condition block', the 'then block' and the
      'else block'.  */
@@ -741,8 +741,9 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
     set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
 
   /* Put the ubsan builtin call into the newly created BB.  */
+  gcall *builtin_call;
   if (flag_sanitize_undefined_trap_on_error)
-    g = gimple_build_call (builtin_decl_implicit (BUILT_IN_TRAP), 0);
+    builtin_call = gimple_build_call (builtin_decl_implicit (BUILT_IN_TRAP), 0);
   else
     {
       enum built_in_function bcode
@@ -760,25 +761,27 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
 			     fold_convert (unsigned_char_type_node, ckind),
 			     NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
-      g = gimple_build_call (fn, 2, data,
+      builtin_call
+	= gimple_build_call (fn, 2, data,
 			     check_align ? check_align
 			     : build_zero_cst (pointer_sized_int_node));
     }
   gimple_stmt_iterator gsi2 = gsi_start_bb (then_bb);
-  gimple_set_location (g, loc);
-  gsi_insert_after (&gsi2, g, GSI_NEW_STMT);
+  gimple_set_location (builtin_call, loc);
+  gsi_insert_after (&gsi2, builtin_call, GSI_NEW_STMT);
 
   /* Unlink the UBSAN_NULLs vops before replacing it.  */
-  unlink_stmt_vdef (stmt);
+  unlink_stmt_vdef (ubsan_null_call);
 
   if (check_null)
     {
-      g = gimple_build_cond (EQ_EXPR, ptr, build_int_cst (TREE_TYPE (ptr), 0),
+      gcond *cond_stmt
+	= gimple_build_cond (EQ_EXPR, ptr, build_int_cst (TREE_TYPE (ptr), 0),
 			     NULL_TREE, NULL_TREE);
-      gimple_set_location (g, loc);
+      gimple_set_location (cond_stmt, loc);
 
       /* Replace the UBSAN_NULL with a GIMPLE_COND stmt.  */
-      gsi_replace (&gsi, g, false);
+      gsi_replace (&gsi, cond_stmt, false);
     }
 
   if (check_align)
@@ -786,7 +789,7 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
       if (check_null)
 	{
 	  /* Split the block with the condition again.  */
-	  e = split_block (cond_bb, stmt);
+	  e = split_block (cond_bb, ubsan_null_call);
 	  basic_block cond1_bb = e->src;
 	  basic_block cond2_bb = e->dest;
 
@@ -814,25 +817,27 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
 
       tree mask = build_int_cst (pointer_sized_int_node,
 				 tree_to_uhwi (align) - 1);
-      g = gimple_build_assign_with_ops (BIT_AND_EXPR,
+      gassign *and_stmt
+	= gimple_build_assign_with_ops (BIT_AND_EXPR,
 					make_ssa_name (pointer_sized_int_node,
 						       NULL),
 					check_align, mask);
-      gimple_set_location (g, loc);
+      gimple_set_location (and_stmt, loc);
       if (check_null)
-	gsi_insert_after (&gsi2, g, GSI_NEW_STMT);
+	gsi_insert_after (&gsi2, and_stmt, GSI_NEW_STMT);
       else
-	gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+	gsi_insert_before (&gsi, and_stmt, GSI_SAME_STMT);
 
-      g = gimple_build_cond (NE_EXPR, gimple_assign_lhs (g),
+      gcond *cond_stmt
+	= gimple_build_cond (NE_EXPR, gimple_assign_lhs (and_stmt),
 			     build_int_cst (pointer_sized_int_node, 0),
 			     NULL_TREE, NULL_TREE);
-      gimple_set_location (g, loc);
+      gimple_set_location (cond_stmt, loc);
       if (check_null)
-	gsi_insert_after (&gsi2, g, GSI_NEW_STMT);
+	gsi_insert_after (&gsi2, cond_stmt, GSI_NEW_STMT);
       else
 	/* Replace the UBSAN_NULL with a GIMPLE_COND stmt.  */
-	gsi_replace (&gsi, g, false);
+	gsi_replace (&gsi, cond_stmt, false);
     }
   return false;
 }
@@ -941,7 +946,7 @@ instrument_mem_ref (tree mem, tree base, gimple_stmt_iterator *iter,
 static void
 instrument_null (gimple_stmt_iterator gsi, bool is_lhs)
 {
-  gimple stmt = gsi_stmt (gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (gsi));
   tree t = is_lhs ? gimple_get_lhs (stmt) : gimple_assign_rhs1 (stmt);
   tree base = get_base_address (t);
   const enum tree_code code = TREE_CODE (base);
@@ -1006,7 +1011,7 @@ ubsan_build_overflow_builtin (tree_code code, location_t loc, tree lhstype,
 static void
 instrument_si_overflow (gimple_stmt_iterator gsi)
 {
-  gimple stmt = gsi_stmt (gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (gsi));
   tree_code code = gimple_assign_rhs_code (stmt);
   tree lhs = gimple_assign_lhs (stmt);
   tree lhstype = TREE_TYPE (lhs);
@@ -1076,7 +1081,7 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
 static void
 instrument_bool_enum_load (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
   tree rhs = gimple_assign_rhs1 (stmt);
   tree type = TREE_TYPE (rhs);
   tree minv = NULL_TREE, maxv = NULL_TREE;
@@ -1118,43 +1123,47 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   location_t loc = gimple_location (stmt);
   tree ptype = build_pointer_type (TREE_TYPE (rhs));
   tree atype = reference_alias_ptr_type (rhs);
-  gimple g = gimple_build_assign (make_ssa_name (ptype, NULL),
-				  build_fold_addr_expr (rhs));
-  gimple_set_location (g, loc);
-  gsi_insert_before (gsi, g, GSI_SAME_STMT);
-  tree mem = build2 (MEM_REF, utype, gimple_assign_lhs (g),
+  gassign *assign_stmt
+    = gimple_build_assign (make_ssa_name (ptype, NULL),
+			   build_fold_addr_expr (rhs));
+  gimple_set_location (assign_stmt, loc);
+  gsi_insert_before (gsi, assign_stmt, GSI_SAME_STMT);
+  tree mem = build2 (MEM_REF, utype, gimple_assign_lhs (assign_stmt),
 		     build_int_cst (atype, 0));
   tree urhs = make_ssa_name (utype, NULL);
-  g = gimple_build_assign (urhs, mem);
-  gimple_set_location (g, loc);
-  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+  assign_stmt = gimple_build_assign (urhs, mem);
+  gimple_set_location (assign_stmt, loc);
+  gsi_insert_before (gsi, assign_stmt, GSI_SAME_STMT);
   minv = fold_convert (utype, minv);
   maxv = fold_convert (utype, maxv);
   if (!integer_zerop (minv))
     {
-      g = gimple_build_assign_with_ops (MINUS_EXPR,
+      assign_stmt
+	= gimple_build_assign_with_ops (MINUS_EXPR,
 					make_ssa_name (utype, NULL),
 					urhs, minv);
-      gimple_set_location (g, loc);
-      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+      gimple_set_location (assign_stmt, loc);
+      gsi_insert_before (gsi, assign_stmt, GSI_SAME_STMT);
     }
 
   gimple_stmt_iterator gsi2 = *gsi;
   basic_block then_bb, fallthru_bb;
   *gsi = create_cond_insert_point (gsi, true, false, true,
 				   &then_bb, &fallthru_bb);
-  g = gimple_build_cond (GT_EXPR, gimple_assign_lhs (g),
+  gcond *cond_stmt
+    = gimple_build_cond (GT_EXPR, gimple_assign_lhs (assign_stmt),
 			 int_const_binop (MINUS_EXPR, maxv, minv),
 			 NULL_TREE, NULL_TREE);
-  gimple_set_location (g, loc);
-  gsi_insert_after (gsi, g, GSI_NEW_STMT);
+  gimple_set_location (cond_stmt, loc);
+  gsi_insert_after (gsi, cond_stmt, GSI_NEW_STMT);
 
   gimple_assign_set_rhs_with_ops (&gsi2, NOP_EXPR, urhs, NULL_TREE);
   update_stmt (stmt);
 
   gsi2 = gsi_after_labels (then_bb);
+  gcall *call_stmt;
   if (flag_sanitize_undefined_trap_on_error)
-    g = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
+    call_stmt = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
   else
     {
       tree data = ubsan_create_data ("__ubsan_invalid_value_data", 1, &loc,
@@ -1171,10 +1180,10 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
       tree val = force_gimple_operand_gsi (&gsi2, ubsan_encode_value (urhs),
 					   true, NULL_TREE, true,
 					   GSI_SAME_STMT);
-      g = gimple_build_call (fn, 2, data, val);
+      call_stmt = gimple_build_call (fn, 2, data, val);
     }
-  gimple_set_location (g, loc);
-  gsi_insert_before (&gsi2, g, GSI_SAME_STMT);
+  gimple_set_location (call_stmt, loc);
+  gsi_insert_before (&gsi2, call_stmt, GSI_SAME_STMT);
   *gsi = gsi_for_stmt (stmt);
 }
 
@@ -1306,7 +1315,7 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
 static void
 instrument_nonnull_arg (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
   location_t loc[2];
   /* infer_nonnull_range needs flag_delete_null_pointer_checks set,
      while for nonnull sanitization it is clear.  */
@@ -1320,28 +1329,31 @@ instrument_nonnull_arg (gimple_stmt_iterator *gsi)
       if (POINTER_TYPE_P (TREE_TYPE (arg))
 	  && infer_nonnull_range (stmt, arg, false, true))
 	{
-	  gimple g;
 	  if (!is_gimple_val (arg))
 	    {
-	      g = gimple_build_assign (make_ssa_name (TREE_TYPE (arg), NULL),
+	      gassign *assign_stmt
+		= gimple_build_assign (make_ssa_name (TREE_TYPE (arg), NULL),
 				       arg);
-	      gimple_set_location (g, loc[0]);
-	      gsi_insert_before (gsi, g, GSI_SAME_STMT);
-	      arg = gimple_assign_lhs (g);
+	      gimple_set_location (assign_stmt, loc[0]);
+	      gsi_insert_before (gsi, assign_stmt, GSI_SAME_STMT);
+	      arg = gimple_assign_lhs (assign_stmt);
 	    }
 
 	  basic_block then_bb, fallthru_bb;
 	  *gsi = create_cond_insert_point (gsi, true, false, true,
 					   &then_bb, &fallthru_bb);
-	  g = gimple_build_cond (EQ_EXPR, arg,
+	  gcond *cond_stmt
+	    = gimple_build_cond (EQ_EXPR, arg,
 				 build_zero_cst (TREE_TYPE (arg)),
 				 NULL_TREE, NULL_TREE);
-	  gimple_set_location (g, loc[0]);
-	  gsi_insert_after (gsi, g, GSI_NEW_STMT);
+	  gimple_set_location (cond_stmt, loc[0]);
+	  gsi_insert_after (gsi, cond_stmt, GSI_NEW_STMT);
 
 	  *gsi = gsi_after_labels (then_bb);
+	  gcall *call_stmt;
 	  if (flag_sanitize_undefined_trap_on_error)
-	    g = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
+	    call_stmt
+	      = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
 	  else
 	    {
 	      tree data = ubsan_create_data ("__ubsan_nonnull_arg_data",
@@ -1356,10 +1368,10 @@ instrument_nonnull_arg (gimple_stmt_iterator *gsi)
 		  : BUILT_IN_UBSAN_HANDLE_NONNULL_ARG_ABORT;
 	      tree fn = builtin_decl_explicit (bcode);
 
-	      g = gimple_build_call (fn, 1, data);
+	      call_stmt = gimple_build_call (fn, 1, data);
 	    }
-	  gimple_set_location (g, loc[0]);
-	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	  gimple_set_location (call_stmt, loc[0]);
+	  gsi_insert_before (gsi, call_stmt, GSI_SAME_STMT);
 	}
       *gsi = gsi_for_stmt (stmt);
     }
@@ -1423,7 +1435,7 @@ instrument_nonnull_return (gimple_stmt_iterator *gsi)
 static void
 instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gassign *stmt = as_a <gassign *> (gsi_stmt (*gsi));
   location_t loc = gimple_location (stmt);
   tree t = is_lhs ? gimple_get_lhs (stmt) : gimple_assign_rhs1 (stmt);
   tree type;
@@ -1476,12 +1488,13 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 
   while (TREE_CODE (base) == SSA_NAME)
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (base);
+      gassign *def_stmt = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (base));
+      if (!def_stmt)
+	break;
       if (gimple_assign_ssa_name_copy_p (def_stmt)
 	  || (gimple_assign_cast_p (def_stmt)
 	      && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (def_stmt))))
-	  || (is_gimple_assign (def_stmt)
-	      && gimple_assign_rhs_code (def_stmt) == POINTER_PLUS_EXPR))
+	  || (gimple_assign_rhs_code (def_stmt) == POINTER_PLUS_EXPR))
 	base = gimple_assign_rhs1 (def_stmt);
       else
 	break;
