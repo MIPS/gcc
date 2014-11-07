@@ -1,3 +1,9 @@
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* value-prof.c (gimple_divmod_values_to_profile): Rename gimple
+	param "stmt" to "gs", reintroducing "stmt" as a local gassign * by
+	replacing a check against GIMPLE_ASSIGN with a dyn_cast.
+
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
 	* tree-ssa-threadedge.c (lhs_of_dominating_assert): Capture result

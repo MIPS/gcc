@@ -1887,15 +1887,16 @@ stringop_block_profile (gimple stmt, unsigned int *expected_align,
 }
 
 
-/* Find values inside STMT for that we want to measure histograms for
+/* Find values inside GS for that we want to measure histograms for
    division/modulo optimization.  */
 static void
-gimple_divmod_values_to_profile (gimple stmt, histogram_values *values)
+gimple_divmod_values_to_profile (gimple gs, histogram_values *values)
 {
   tree lhs, divisor, op0, type;
   histogram_value hist;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  gassign *stmt = dyn_cast <gassign *> (gs);
+  if (!stmt)
     return;
 
   lhs = gimple_assign_lhs (stmt);
