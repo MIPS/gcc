@@ -8744,6 +8744,26 @@ mips_pop_asm_switch (struct mips_asm_switch *asm_switch)
   mips_pop_asm_switch_1 (asm_switch, "\t", "\n");
 }
 
+static int
+mips_insn_has_compact_form (rtx insn)
+{
+  return (TARGET_COMPACT_BRANCHES
+	  && (((get_attr_branch_zero_ne_eq_compact (insn) == BRANCH_ZERO_NE_EQ_COMPACT_YES)
+	      && ISA_HAS_BRANCH_NE_EQ_COMPACT)
+	      || ((get_attr_jump_reg_compact (insn) == JUMP_REG_COMPACT_YES)
+	          && ISA_HAS_JUMP_REG_COMPACT)
+	      || ((get_attr_branch_compact (insn) == BRANCH_COMPACT_YES)
+	          && ISA_HAS_BRANCH_COMPACT)
+	      || ((get_attr_branch_cond_compact (insn) == BRANCH_COND_COMPACT_YES)
+	          && ISA_HAS_BRANCH_COND_COMPACT)
+	      || ((get_attr_jump_compact (insn) == JUMP_COMPACT_YES)
+	          && ISA_HAS_JUMP_COMPACT)
+	      || ((get_attr_jump_and_link_compact (insn) == JUMP_AND_LINK_COMPACT_YES)
+	          && ISA_HAS_JUMP_AND_LINK_COMPACT)
+	      || ((get_attr_branch_float_compact (insn) == BRANCH_FLOAT_COMPACT_YES)
+	          && ISA_HAS_BRANCH_FLOAT_COMPACT)));
+}
+
 /* Print the text for PRINT_OPERAND punctation character CH to FILE.
    The punctuation characters are:
 
@@ -8815,7 +8835,8 @@ mips_print_operand_punctuation (FILE *file, int ch)
       /* Print an extra newline so that the delayed insn is separated
 	 from the following ones.  This looks neater and is consistent
 	 with non-nop delayed sequences.  */
-      if (mips_noreorder.nesting_level > 0 && final_sequence == 0)
+      if (mips_noreorder.nesting_level > 0 && final_sequence == 0
+	  && ISA_HAS_DELAYED_BRANCHES)
 	fputs ("\n\tnop\n", file);
       break;
 
@@ -8853,21 +8874,7 @@ mips_print_operand_punctuation (FILE *file, int ch)
       /* When final_sequence is 0, the delay slot will be a nop.  We can
 	 use the compact version for microMIPS.  */
       if (final_sequence == 0
-	  && TARGET_COMPACT_BRANCHES
-	  && ((get_attr_branch_zero_ne_eq_compact (current_output_insn) == BRANCH_ZERO_NE_EQ_COMPACT_YES)
-	      && ISA_HAS_BRANCH_NE_EQ_COMPACT)
-	      || ((get_attr_jump_reg_compact (current_output_insn) == JUMP_REG_COMPACT_YES)
-	          && ISA_HAS_JUMP_REG_COMPACT)
-	      || ((get_attr_branch_compact (current_output_insn) == BRANCH_COMPACT_YES)
-	          && ISA_HAS_BRANCH_COMPACT)
-	      || ((get_attr_branch_cond_compact (current_output_insn) == BRANCH_COND_COMPACT_YES)
-	          && ISA_HAS_BRANCH_COND_COMPACT)
-	      || ((get_attr_jump_compact (current_output_insn) == JUMP_COMPACT_YES)
-	          && ISA_HAS_JUMP_COMPACT)
-	      || ((get_attr_jump_and_link_compact (current_output_insn) == JUMP_AND_LINK_COMPACT_YES)
-	          && ISA_HAS_JUMP_AND_LINK_COMPACT)
-	      || ((get_attr_branch_float_compact (current_output_insn) == BRANCH_FLOAT_COMPACT_YES)
-	          && ISA_HAS_BRANCH_FLOAT_COMPACT))
+	  && mips_insn_has_compact_form (current_output_insn))
 	putc ('c', file);
       break;
 
@@ -18962,9 +18969,6 @@ mips_option_override (void)
   mips_base_compression_flags = TARGET_COMPRESSION;
   target_flags &= ~TARGET_COMPRESSION;
 
-  if (!ISA_HAS_DELAYED_BRANCHES)
-    target_flags |= MASK_COMPACT_BRANCHES;
-
   /* -mno-float overrides -mhard-float and -msoft-float.  */
   if (TARGET_NO_FLOAT)
     {
@@ -19000,6 +19004,9 @@ mips_option_override (void)
 
   if (mips_arch_info == 0)
     mips_set_architecture (mips_default_arch ());
+
+  if (!ISA_HAS_DELAYED_BRANCHES)
+    target_flags |= MASK_COMPACT_BRANCHES;
 
   if (ABI_NEEDS_64BIT_REGS && !ISA_HAS_64BIT_REGS)
     error ("%<-march=%s%> is not compatible with the selected ABI",
