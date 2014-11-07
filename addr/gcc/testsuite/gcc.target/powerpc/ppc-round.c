@@ -5,9 +5,9 @@
 /* { dg-final { scan-assembler-times "stfiwx" 4 } } */
 /* { dg-final { scan-assembler-times "lfiwax" 2 } } */
 /* { dg-final { scan-assembler-times "lfiwzx" 2 } } */
-/* { dg-final { scan-assembler-times "fctiwz" 2 } } */
-/* { dg-final { scan-assembler-times "xscvsxddp" 2 } } */
-/* { dg-final { scan-assembler-times "fcfids" 2 } } */
+/* { dg-final { scan-assembler-times "fctiwz " 2 } } */
+/* { dg-final { scan-assembler-times "fctiwuz " 2 } } */
+/* { dg-final { scan-assembler-times "fcfids " 2 } } */
 /* { dg-final { scan-assembler-not "lwz" } } */
 /* { dg-final { scan-assembler-not "stw" } } */
 
