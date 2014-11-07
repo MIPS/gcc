@@ -256,13 +256,13 @@ select_best_block (basic_block early_bb,
   return early_bb;
 }
 
-/* Given a statement (STMT) and the basic block it is currently in (FROMBB),
+/* Given a statement (GS) and the basic block it is currently in (FROMBB),
    determine the location to sink the statement to, if any.
    Returns true if there is such location; in that case, TOGSI points to the
-   statement before that STMT should be moved.  */
+   statement before that GS should be moved.  */
 
 static bool
-statement_sink_location (gimple stmt, basic_block frombb,
+statement_sink_location (gimple gs, basic_block frombb,
 			 gimple_stmt_iterator *togsi)
 {
   gimple use;
@@ -274,7 +274,8 @@ statement_sink_location (gimple stmt, basic_block frombb,
   imm_use_iterator imm_iter;
 
   /* We only can sink assignments.  */
-  if (!is_gimple_assign (stmt))
+  gassign *stmt = dyn_cast <gassign *> (gs);
+  if (!stmt)
     return false;
 
   /* We only can sink stmts with a single definition.  */

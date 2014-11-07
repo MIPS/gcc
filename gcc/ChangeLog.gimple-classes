@@ -1,5 +1,11 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-sink.c (statement_sink_location): Rename param "stmt"
+	to "gs", reintroducing "stmt" as a local gassign * via a dyn_cast
+	for typesafety.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-propagate.c
 	(substitute_and_fold_dom_walker::before_dom_children): Add checked
 	cast.  Replace is_gimple_assign with a dyn_cast, introducing local
