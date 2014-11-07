@@ -527,7 +527,7 @@
   (match_code "le,ge,gt,lt"))
 
 (define_predicate "order_operator_r6"
-  (match_code "le,ge,gt,lt,geu,leu")
+  (match_code "ge,lt,geu,ltu")
 {
    rtx reg1, reg2;
 

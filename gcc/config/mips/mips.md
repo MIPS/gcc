@@ -5846,31 +5846,10 @@
   "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
 {
   return "%*b%C1c\t%2,%z3,%0";
-  /*return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%C1c", "%2,%z3,%0"),
-					 MIPS_BRANCH ("b%N1c", "%2,%z3,%0"));*/
 }
   [(set_attr "type" "branch")
    (set_attr "branch_cond_compact" "yes")
    (set_attr "forbidden_slot" "yes")])
-
-(define_insn "*branch_order_r6<mode>_inverted"
-  [(set (pc)
-	(if_then_else
-	 (match_operator 1 "order_operator"
-			 [(match_operand:GPR 2 "register_operand" "d")
-			  (match_operand:GPR 3 "register_operand" "d")])
-	 (pc)
-	 (label_ref (match_operand 0 "" ""))))]
-  "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
-{
-  return "%*b%N1c\t%2,%z3,%0";
-  /*return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%N1c", "%2,%z3,%0"),
-					 MIPS_BRANCH ("b%C1c", "%2,%z3,%0"));*/
-}
-  [(set_attr "type" "branch")
-   (set_attr "branch_cond_compact" "yes")])
 
 (define_insn "*branch_order_zero_r6<mode>"
   [(set (pc)
@@ -5883,33 +5862,10 @@
   "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
   {
     return "%*b%C1zc\t%2,%0";
-    /*return mips_output_conditional_branch (insn, operands,
-					   "%*b%C1z%:\t%2,%0",
-					   "%*b%N1z%:\t%2,%0");*/
   }
   [(set_attr "type" "branch")
    (set_attr "branch_cond_compact" "yes")
    (set_attr "forbidden_slot" "yes")])
-
-(define_insn "*branch_order_zero_r6<mode>_inverted"
-  [(set (pc)
-	(if_then_else
-	 (match_operator 1 "order_operator_zero_r6"
-			 [(match_operand:GPR 2 "register_operand" "d")
-			  (const_int 0)])
-	 (pc)
-	 (label_ref (match_operand 0 "" ""))))]
-  "TARGET_COMPACT_BRANCHES && ISA_HAS_BRANCH_COND_COMPACT"
-  {
-    return "%*b%N1zc\t%2,%0";
-    /*return mips_output_conditional_branch (insn, operands,
-					   "%*b%C1zc\t%2,%0",
-					   "%*b%N1zc\t%2,%0");*/
-  }
-  [(set_attr "type" "branch")
-   (set_attr "branch_cond_compact" "yes")
-   (set_attr "forbidden_slot" "yes")])
-
 
 (define_insn "*branch_order<mode>"
   [(set (pc)
