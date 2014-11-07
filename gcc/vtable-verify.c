@@ -420,34 +420,38 @@ find_or_create_vtbl_map_node (tree base_class_type)
    is an assignment, the rhs of which is getting the vtable pointer
    value out of an object.  (i.e. it's the value we need to verify
    because its the vtable pointer that will be used for a virtual
-   call).  */
+   call).
 
-static bool
+   If it is, STMT is returned, cast to a gassign *.  Otherwise NULL is
+   returned.  */
+
+static gassign *
 is_vtable_assignment_stmt (gimple stmt)
 {
 
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
-    return false;
+    return NULL;
   else
     {
-      tree lhs = gimple_assign_lhs (stmt);
-      tree rhs = gimple_assign_rhs1 (stmt);
+      gassign *assign_stmt = as_a <gassign *> (stmt);
+      tree lhs = gimple_assign_lhs (assign_stmt);
+      tree rhs = gimple_assign_rhs1 (assign_stmt);
 
       if (TREE_CODE (lhs) != SSA_NAME)
-        return false;
+        return NULL;
 
       if (TREE_CODE (rhs) != COMPONENT_REF)
-        return false;
+        return NULL;
 
       if (! (TREE_OPERAND (rhs, 1))
           || (TREE_CODE (TREE_OPERAND (rhs, 1)) != FIELD_DECL))
-        return false;
+        return NULL;
 
       if (! DECL_VIRTUAL_P (TREE_OPERAND (rhs, 1)))
-        return false;
-    }
+        return NULL;
 
-    return true;
+      return assign_stmt;
+    }
 }
 
 /* This function attempts to recover the declared class of an object
@@ -533,9 +537,9 @@ var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
 	                                            (gimple_phi_result (stmt2),
 	                                             mem_ref_depth);
         }
-      else if (is_gimple_assign (stmt2))
+      else if (gassign *assign_stmt2 = dyn_cast <gassign *> (stmt2))
         {
-	  tree rhs = gimple_assign_rhs1 (stmt2);
+	  tree rhs = gimple_assign_rhs1 (assign_stmt2);
 	  if (TREE_CODE (rhs) == ADDR_EXPR
 	      || TREE_CODE (rhs) == MEM_REF)
 	    *mem_ref_depth = *mem_ref_depth + 1;
@@ -551,9 +555,9 @@ var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
 	    }
 
 	  if (*mem_ref_depth < 3)
-	    found_vcall = var_is_used_for_virtual_call_p
-	                                            (gimple_assign_lhs (stmt2),
-						     mem_ref_depth);
+	    found_vcall = var_is_used_for_virtual_call_p (
+			    gimple_assign_lhs (assign_stmt2),
+			    mem_ref_depth);
         }
 
       else
@@ -599,9 +603,9 @@ verify_bb_vtables (basic_block bb)
             total_num_virtual_calls++;
         }
 
-      if (is_vtable_assignment_stmt (stmt))
+      if (gassign *assign_stmt = is_vtable_assignment_stmt (stmt))
         {
-          tree lhs = gimple_assign_lhs (stmt);
+          tree lhs = gimple_assign_lhs (assign_stmt);
           tree vtbl_var_decl = NULL_TREE;
           struct vtbl_map_node *vtable_map_node;
           tree vtbl_decl = NULL_TREE;
@@ -620,8 +624,8 @@ verify_bb_vtables (basic_block bb)
              we need to find the statically declared type of
              the object, so we can find and use the right
              vtable map variable in the verification call.  */
-          tree class_type = extract_object_class_type
-                                                   (gimple_assign_rhs1 (stmt));
+          tree class_type = extract_object_class_type (
+			      gimple_assign_rhs1 (assign_stmt));
 
           gsi_vtbl_assign = gsi_for_stmt (stmt);
 

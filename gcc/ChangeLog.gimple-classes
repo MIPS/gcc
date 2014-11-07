@@ -1,5 +1,19 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* vtable-verify.c (is_vtable_assignment_stmt): Change return type
+	from bool to gassign * so that this can be used as a dynamic
+	casting function.  Introduce local gassign * "assign_stmt" once we
+	know we have a GIMPLE_ASSIGN.  Update return statements
+	appropriately.
+	(var_is_used_for_virtual_call_p): Replace is_gimple_assign with a
+	dyn_cast, using it to introduce local gassign * "assign_stmt2",
+	using it in place of "stmt2" for typesafety.
+	(verify_bb_vtables): Capture result of is_vtable_assignment_stmt
+	as new local gassign * "assign_stmt", using it in place of "stmt"
+	for typesafety.
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* value-prof.c (gimple_divmod_values_to_profile): Rename gimple
 	param "stmt" to "gs", reintroducing "stmt" as a local gassign * by
 	replacing a check against GIMPLE_ASSIGN with a dyn_cast.
