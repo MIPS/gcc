@@ -1,3 +1,10 @@
+2014-11-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (floatdidf2_mem): Use d, not ws for
+	normal memory constraint.
+	(floatunsdidf2_mem): Likewise.
+	(floatunsdidf2_fcfidu): Fix typo in last change.
+
 2014-11-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_secondary_reload_inner): Fix up
