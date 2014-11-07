@@ -2284,14 +2284,14 @@ expand_call_stmt (gcall *stmt)
   for (i = 0; i < gimple_call_num_args (stmt); i++)
     {
       tree arg = gimple_call_arg (stmt, i);
-      gimple def;
+      gassign *def;
       /* TER addresses into arguments of builtin functions so we have a
 	 chance to infer more correct alignment information.  See PR39954.  */
       if (builtin_p
 	  && TREE_CODE (arg) == SSA_NAME
 	  && (def = get_gimple_for_ssa_name (arg))
-	  && gimple_assign_rhs_code (as_a <gassign *> (def)) == ADDR_EXPR)
-	arg = gimple_assign_rhs1 (as_a <gassign *> (def));
+	  && gimple_assign_rhs_code (def) == ADDR_EXPR)
+	arg = gimple_assign_rhs1 (def);
       CALL_EXPR_ARG (exp, i) = arg;
     }
 
@@ -4555,11 +4555,10 @@ expand_debug_expr (tree exp)
 
     case SSA_NAME:
       {
-	gimple g = get_gimple_for_ssa_name (exp);
+	gassign *g = get_gimple_for_ssa_name (exp);
 	if (g)
 	  {
-	    op0 = expand_debug_expr (gimple_assign_rhs_to_tree (
-				       as_a <gassign *> (g)));
+	    op0 = expand_debug_expr (gimple_assign_rhs_to_tree (g));
 	    if (!op0)
 	      return NULL;
 	  }
@@ -5015,7 +5014,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	{
 	  ssa_op_iter iter;
 	  tree op;
-	  gimple def;
+	  gassign *def;
 
 	  location_t sloc = curr_insn_location ();
 
@@ -5045,8 +5044,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		       replace all uses of OP in debug insns with that
 		       temporary.  */
 		    gimple debugstmt;
-		    tree value =
-		      gimple_assign_rhs_to_tree (as_a <gassign *> (def));
+		    tree value = gimple_assign_rhs_to_tree (def);
 		    tree vexpr = make_node (DEBUG_EXPR_DECL);
 		    rtx val;
 		    enum machine_mode mode;

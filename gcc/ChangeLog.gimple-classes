@@ -1,5 +1,30 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-outof-ssa.h (get_gimple_for_ssa_name): Strengthen return
+	type from gimple to gassign *, adding a checked cast, since the
+	only ssa-name-defining statements that TER flags are assignments.
+
+	* cfgexpand.c (expand_call_stmt): Strengthen local "def" from
+	gimple to gassign *, removing checked casts.
+	(expand_debug_expr): Likewise for local "g".
+	(expand_gimple_basic_block): Likewise for local "def".
+	* expr.c (get_def_for_expr): Strengthen return type and local
+	"def_stmt" from gimple to gassign *.
+	(get_def_for_expr_class): Likewise.
+	(optimize_bitfield_assignment_op): Likewise for locals "srcstmt"
+	and "op0stmt".  Remove redundant is_gimple_assign check.
+	(store_field): Strengthen local "nop_def" from gimple to
+	gassign *.
+	(expand_cond_expr_using_cmove): Likewise for local "srcstmt".
+	(expand_expr_real_2): Likewise for locals "def", "def0", "def2".
+	(stmt_is_replaceable_p): Add a checked cast.
+	(expand_expr_real_1): Introduce local "assign_stmt", using it in
+	place of "g" within if clause for typesafety.  Strengthen local
+	"def_stmt" from gimple to gassign *.
+	(do_store_flag): Likewise for local "srcstmt".
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa.c (ssa_undefined_value_p): Replace is_gimple_assign
 	with a dyn_cast, introducing local gassign * "def_assign" and
 	using it in place of "def_stmt" for typesafety.

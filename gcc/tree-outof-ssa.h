@@ -60,13 +60,13 @@ get_rtx_for_ssa_name (tree exp)
 }
 
 /* If TER decided to forward the definition of SSA name EXP this function
-   returns the defining statement, otherwise NULL.  */
-static inline gimple
+   returns the defining GIMPLE_ASSIGN statement, otherwise NULL.  */
+static inline gassign *
 get_gimple_for_ssa_name (tree exp)
 {
   int v = SSA_NAME_VERSION (exp);
   if (SA.values && bitmap_bit_p (SA.values, v))
-    return SSA_NAME_DEF_STMT (exp);
+    return as_a <gassign *> (SSA_NAME_DEF_STMT (exp));
   return NULL;
 }
 

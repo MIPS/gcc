@@ -2430,10 +2430,10 @@ use_group_regs (rtx *call_fusage, rtx regs)
    assigment and the code of the expresion on the RHS is CODE.  Return
    NULL otherwise.  */
 
-static gimple
+static gassign *
 get_def_for_expr (tree name, enum tree_code code)
 {
-  gimple def_stmt;
+  gassign *def_stmt;
 
   if (TREE_CODE (name) != SSA_NAME)
     return NULL;
@@ -2451,10 +2451,10 @@ get_def_for_expr (tree name, enum tree_code code)
    assigment and the class of the expresion on the RHS is CLASS.  Return
    NULL otherwise.  */
 
-static gimple
+static gassign *
 get_def_for_expr_class (tree name, enum tree_code_class tclass)
 {
-  gimple def_stmt;
+  gassign *def_stmt;
 
   if (TREE_CODE (name) != SSA_NAME)
     return NULL;
@@ -4456,7 +4456,7 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
   tree op0, op1;
   rtx value, result;
   optab binop;
-  gimple srcstmt;
+  gassign *srcstmt;
   enum tree_code code;
 
   if (mode1 != VOIDmode
@@ -4486,12 +4486,11 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
      be from a bitfield load.  */
   if (TREE_CODE (op0) == SSA_NAME)
     {
-      gimple op0stmt = get_gimple_for_ssa_name (op0);
+      gassign *op0stmt = get_gimple_for_ssa_name (op0);
 
       /* We want to eventually have OP0 be the same as TO, which
 	 should be a bitfield.  */
       if (!op0stmt
-	  || !is_gimple_assign (op0stmt)
 	  || gimple_assign_rhs_code (op0stmt) != TREE_CODE (to))
 	return false;
       op0 = gimple_assign_rhs1 (op0stmt);
@@ -6544,7 +6543,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  && DECL_MODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)) != BLKmode))
     {
       rtx temp;
-      gimple nop_def;
+      gassign *nop_def;
 
       /* If EXP is a NOP_EXPR of precision less than its mode, then that
 	 implies a mask operation.  If the precision is the same size as
@@ -7970,7 +7969,7 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
   rtx op00, op01, op1, op2;
   enum rtx_code comparison_code;
   enum machine_mode comparison_mode;
-  gimple srcstmt;
+  gassign *srcstmt;
   rtx temp;
   tree type = TREE_TYPE (treeop1);
   int unsignedp = TYPE_UNSIGNED (type);
@@ -8368,7 +8367,7 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 	  && TYPE_MODE (TREE_TYPE (treeop0))
 	     == TYPE_MODE (TREE_TYPE (treeop1)))
 	{
-	  gimple def = get_def_for_expr (treeop1, NEGATE_EXPR);
+	  gassign *def = get_def_for_expr (treeop1, NEGATE_EXPR);
 	  if (def)
 	    {
 	      treeop1 = gimple_assign_rhs1 (def);
@@ -8560,7 +8559,7 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
     case FMA_EXPR:
       {
 	optab opt = fma_optab;
-	gimple def0, def2;
+	gassign *def0, *def2;
 
 	/* If there is no insn for FMA, emit it as __builtin_fma{,f,l}
 	   call.  */
@@ -9296,7 +9295,7 @@ stmt_is_replaceable_p (gimple stmt)
     {
       /* Don't move around loads.  */
       if (!gimple_assign_single_p (stmt)
-	  || is_gimple_val (gimple_assign_rhs1 (stmt)))
+	  || is_gimple_val (gimple_assign_rhs1 (as_a <gassign *> (stmt))))
 	return true;
     }
   return false;
@@ -9446,27 +9445,28 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	g = SSA_NAME_DEF_STMT (exp);
       if (g)
 	{
+	  gassign *assign_stmt = as_a <gassign *> (g);
 	  rtx r;
-	  ops.code = gimple_assign_rhs_code (g);
+	  ops.code = gimple_assign_rhs_code (assign_stmt);
           switch (get_gimple_rhs_class (ops.code))
 	    {
 	    case GIMPLE_TERNARY_RHS:
-	      ops.op2 = gimple_assign_rhs3 (g);
+	      ops.op2 = gimple_assign_rhs3 (assign_stmt);
 	      /* Fallthru */
 	    case GIMPLE_BINARY_RHS:
-	      ops.op1 = gimple_assign_rhs2 (g);
+	      ops.op1 = gimple_assign_rhs2 (assign_stmt);
 	      /* Fallthru */
 	    case GIMPLE_UNARY_RHS:
-	      ops.op0 = gimple_assign_rhs1 (g);
-	      ops.type = TREE_TYPE (gimple_assign_lhs (g));
-	      ops.location = gimple_location (g);
+	      ops.op0 = gimple_assign_rhs1 (assign_stmt);
+	      ops.type = TREE_TYPE (gimple_assign_lhs (assign_stmt));
+	      ops.location = gimple_location (assign_stmt);
 	      r = expand_expr_real_2 (&ops, target, tmode, modifier);
 	      break;
 	    case GIMPLE_SINGLE_RHS:
 	      {
 		location_t saved_loc = curr_insn_location ();
-		set_curr_insn_location (gimple_location (g));
-		r = expand_expr_real (gimple_assign_rhs1 (g), target,
+		set_curr_insn_location (gimple_location (assign_stmt));
+		r = expand_expr_real (gimple_assign_rhs1 (assign_stmt), target,
 				      tmode, modifier, NULL, inner_reference_p);
 		set_curr_insn_location (saved_loc);
 		break;
@@ -9782,7 +9782,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
 	enum machine_mode address_mode;
 	tree base = TREE_OPERAND (exp, 0);
-	gimple def_stmt;
+	gassign *def_stmt;
 	enum insn_code icode;
 	unsigned align;
 	/* Handle expansion of non-aliased memory with non-BLKmode.  That
@@ -11053,7 +11053,7 @@ do_store_flag (sepops ops, rtx target, enum machine_mode mode)
       && integer_zerop (arg1)
       && (TYPE_PRECISION (ops->type) != 1 || TYPE_UNSIGNED (ops->type)))
     {
-      gimple srcstmt = get_def_for_expr (arg0, BIT_AND_EXPR);
+      gassign *srcstmt = get_def_for_expr (arg0, BIT_AND_EXPR);
       if (srcstmt
 	  && integer_pow2p (gimple_assign_rhs2 (srcstmt)))
 	{
