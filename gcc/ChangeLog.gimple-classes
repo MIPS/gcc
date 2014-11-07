@@ -1,5 +1,67 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-forwprop.c (get_prop_dest_stmt): Capture result of
+	gimple_assign_ssa_name_copy_p as new local "use_assign", using in
+	place of "use_stmt" for typesafety.
+	(remove_prop_source_from_use): Add checked cast.
+	(rhs_to_tree): Strengthen param "stmt" from gimple to gassign *.
+	(forward_propagate_into_comparison): Strengthen local "stmt" from
+	gimple to gassign *.
+	(forward_propagate_into_cond): Likewise.
+	(combine_cond_exprs): Likewise.  Replace local bool "changed" with
+	gimple "changed_stmt", adding assignments to "changed_stmt" in
+	place of those to "changed".  Replace is_gimple_assign with a
+	dyn_cast, using it to strenghten local "def_stmt" from gimple to
+	gassign *.
+	(tidy_after_forward_propagate_addr): Add checked cast.
+	(forward_propagate_addr_expr_1): Strengthen local "use_stmt" from
+	gimple to gassign *.
+	(forward_propagate_addr_expr): Introduce local "use_assign", using
+	it in place of "use_stmt" for typesafety.
+	(forward_propagate_comparison): Strengthen local "stmt" from
+	gimple to gassign *.  Replace is_gimple_assign with a dyn_cast,
+	using it to introduce local "use_assign", using it in place of
+	"use_stmt" for typesafety.
+	(simplify_conversion_from_bitmask): Strengthen local "stmt" from
+	gimple to gassign *.  Replace is_gimple_assign with a dyn_cast,
+	using it to introduce local "rhs_def_assign", using it in place of
+	"rhs_def_stmt" for typesafety.
+	(simplify_not_neg_expr): Strengthen local "stmt" from gimple to
+	gassign *.  Replace is_gimple_assign with a dyn_cast,
+	using it to strengthen local "rhs_def_stmt" from gimple to
+	gassign *.
+	(simplify_gimple_switch): Add checked cast.
+	(constant_pointer_difference): Replace is_gimple_assign with a
+	dyn_cast, using it to strengthen local "stmt" from gimple to
+	gassign *.
+	(simplify_builtin_call): Capture result of gimple_assign_single_p
+	as new local "assign_stmt1", using it in place of "stmt1" for
+	typesafety.
+	(truth_valued_ssa_name): Add checked cast.
+	(lookup_logical_inverted_value): Replace is_gimple_assign with a
+	dyn_cast, using it to strengthen local "def" from gimple to
+	gassign *.
+	(simplify_bitwise_binary_boolean): Likewise for local
+	"op0_def_stmt".  Strengthen local "stmt" from gimple to gassign *.
+	(simplify_bitwise_binary):  Strengthen local "stmt" from gimple to
+	gassign *.
+	(simplify_rotate): Likewise.
+	(associate_pointerplus_align): Likewise, also for local "def_stmt"
+	via various is_gimple_assign becoming dyn_casts.
+	(associate_pointerplus_diff): Likewise, also for local "minus".
+	(combine_conversions): Likewise.
+	(simplify_vce): Likewise.
+	(simplify_bitfield_ref): Likewise.
+	(simplify_permutation): Likewise.
+	(simplify_vector_constructor): Likewise.
+	(simplify_mult): Likewise.
+	(fold_all_stmts): Capture result of gimple_assign_single_p as new
+	local "assign_stmt", using it in place of "stmt" for typesafety.
+	(pass_forwprop::execute): Within case GIMPLE_ASSIGN add new
+	local "assign_stmt" and use it in place of "stmt" for typesafety.
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-outof-ssa.c (ssa_is_replaceable_p): Rename param "stmt" to
 	"gs", replacing is_gimple_assign with a dyn_cast, using it to
 	reintroduce "stmt" as a gassign * for typesafety.  Remove
