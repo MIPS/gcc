@@ -484,7 +484,7 @@ same_succ_hash (const_same_succ e)
 
       hstate.add_int (gimple_code (stmt));
       if (is_gimple_assign (stmt))
-	hstate.add_int (gimple_assign_rhs_code (stmt));
+	hstate.add_int (gimple_assign_rhs_code (as_a <gassign *> (stmt)));
       if (!is_gimple_call (stmt))
 	continue;
       if (gimple_call_internal_p (stmt))
@@ -1172,8 +1172,10 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
       if (TREE_CODE (lhs1) != SSA_NAME
 	  && TREE_CODE (lhs2) != SSA_NAME)
 	return (operand_equal_p (lhs1, lhs2, 0)
-		&& gimple_operand_equal_value_p (gimple_assign_rhs1 (s1),
-						 gimple_assign_rhs1 (s2)));
+		&& gimple_operand_equal_value_p (gimple_assign_rhs1 (
+						   as_a <gassign *> (s1)),
+						 gimple_assign_rhs1 (
+						   as_a <gassign *> (s2))));
       else if (TREE_CODE (lhs1) == SSA_NAME
 	       && TREE_CODE (lhs2) == SSA_NAME)
 	return vn_valueize (lhs1) == vn_valueize (lhs2);
