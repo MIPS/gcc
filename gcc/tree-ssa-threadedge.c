@@ -132,14 +132,15 @@ lhs_of_dominating_assert (tree op, basic_block bb, gimple stmt)
 
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, op)
     {
+      gassign *use_assign;
       use_stmt = USE_STMT (use_p);
       if (use_stmt != stmt
-          && gimple_assign_single_p (use_stmt)
-          && TREE_CODE (gimple_assign_rhs1 (use_stmt)) == ASSERT_EXPR
-          && TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 0) == op
-	  && dominated_by_p (CDI_DOMINATORS, bb, gimple_bb (use_stmt)))
+          && (use_assign = gimple_assign_single_p (use_stmt))
+          && TREE_CODE (gimple_assign_rhs1 (use_assign)) == ASSERT_EXPR
+          && TREE_OPERAND (gimple_assign_rhs1 (use_assign), 0) == op
+	  && dominated_by_p (CDI_DOMINATORS, bb, gimple_bb (use_assign)))
 	{
-	  return gimple_assign_lhs (use_stmt);
+	  return gimple_assign_lhs (use_assign);
 	}
     }
   return op;
@@ -243,7 +244,7 @@ record_temporary_equivalences_from_phis (edge e, vec<tree> *stack)
    May return NULL_TREE if no simplification is possible.  */
 
 static tree
-fold_assignment_stmt (gimple stmt)
+fold_assignment_stmt (gassign *stmt)
 {
   enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
@@ -365,8 +366,9 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
       /* If this is not a statement that sets an SSA_NAME to a new
 	 value, then do not try to simplify this statement as it will
 	 not simplify in any way that is helpful for jump threading.  */
-      if ((gimple_code (stmt) != GIMPLE_ASSIGN
-           || TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
+      gassign *assign_stmt = dyn_cast <gassign *> (stmt);
+      if ((!assign_stmt
+           || TREE_CODE (gimple_assign_lhs (assign_stmt)) != SSA_NAME)
           && (gimple_code (stmt) != GIMPLE_CALL
               || gimple_call_lhs (stmt) == NULL_TREE
               || TREE_CODE (gimple_call_lhs (stmt)) != SSA_NAME))
@@ -435,12 +437,13 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 
 	 Handle simple copy operations as well as implied copies from
 	 ASSERT_EXPRs.  */
-      if (gimple_assign_single_p (stmt)
-          && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
-	cached_lhs = gimple_assign_rhs1 (stmt);
-      else if (gimple_assign_single_p (stmt)
-               && TREE_CODE (gimple_assign_rhs1 (stmt)) == ASSERT_EXPR)
-	cached_lhs = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
+      assign_stmt = gimple_assign_single_p (stmt);
+      if (assign_stmt
+          && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == SSA_NAME)
+	cached_lhs = gimple_assign_rhs1 (assign_stmt);
+      else if (assign_stmt
+               && TREE_CODE (gimple_assign_rhs1 (assign_stmt)) == ASSERT_EXPR)
+	cached_lhs = TREE_OPERAND (gimple_assign_rhs1 (assign_stmt), 0);
       else
 	{
 	  /* A statement that is not a trivial copy or ASSERT_EXPR.
@@ -473,7 +476,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
           if (is_gimple_call (stmt))
             cached_lhs = fold_call_stmt (as_a <gcall *> (stmt), false);
 	  else
-            cached_lhs = fold_assignment_stmt (stmt);
+            cached_lhs = fold_assignment_stmt (as_a <gassign *> (stmt));
 
           if (!cached_lhs
               || (TREE_CODE (cached_lhs) != SSA_NAME

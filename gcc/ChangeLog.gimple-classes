@@ -1,5 +1,18 @@
 2014-11-06  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa-threadedge.c (lhs_of_dominating_assert): Capture result
+	of gimple_assign_single_p as new local gassign * "use_assign",
+	using it in place of "use_stmt" for typesafety.
+	(fold_assignment_stmt): Strengthen param "stmt" from gimple to
+	gassign *.
+	(record_temporary_equivalences_from_stmts_at_dest): Replace check
+	against GIMPLE_ASSIGN with a dyn_cast, introducing local gassign *
+	"assign_stmt", using it in place of "stmt" for typesafety.  Later,
+	use it to capture the result of gimple_assign_single_p, and use it
+	in place of "stmt" for typesafety.  Add checked cast.
+
+2014-11-06  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-ssa-ter.c (find_replaceable_in_bb): Replace
 	is_gimple_assign with a dyn_cast, introducing local "def_assign"
 	and using it in place of "def_stmt" for typesafety.  Add a checked
