@@ -1,3 +1,9 @@
+2014-11-07  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-66.c: Skip for shared memory
+	accelerators.
+	(main):  Use acc_device_default instead of acc_device_nvidia.
+
 2014-11-06  Julian Brown  <julian@codesourcery.com>
 
 	* oacc-init.c (resolve_device, _acc_init): Fix init_device_func

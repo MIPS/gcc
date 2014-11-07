@@ -1,4 +1,5 @@
 /* { dg-do run } */
+/* { dg-skip-if "" { *-*-* } { "*" } { "-DACC_MEM_SHARED=0" } } */
 
 #include <string.h>
 #include <stdlib.h>
@@ -12,7 +13,7 @@ main (int argc, char **argv)
   unsigned char *h;
   void *d;
 
-  acc_init (acc_device_nvidia);
+  acc_init (acc_device_default);
 
   h = (unsigned char *) malloc (N);
 
@@ -41,7 +42,7 @@ main (int argc, char **argv)
 
   free (h);
 
-  acc_shutdown (acc_device_nvidia);
+  acc_shutdown (acc_device_default);
 
   return 0;
 }
