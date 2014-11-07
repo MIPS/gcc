@@ -461,9 +461,6 @@
 })
 
 
-(define_predicate "equality_operator"
-  (match_code "eq,ne"))
-
 (define_predicate "order_operator_zero_r6"
   (match_code "le,ge,gt,lt"))
 
@@ -490,7 +487,7 @@
 })
 
 
-(define_predicate "equality_operator_reg_not_equal"
+(define_predicate "equality_operator"
   (match_code "eq,ne")
 {
    rtx reg1, reg2;
@@ -504,7 +501,7 @@
    if (GET_CODE (reg2) == SUBREG)
      reg2 = SUBREG_REG (reg2);
 
-   if (REG_P (reg1) && REG_P (reg2))
+   if (mips_isa_rev >= 6 && REG_P (reg1) && REG_P (reg2))
      return (REGNO (reg1) != REGNO (reg2));
    else
      return true;

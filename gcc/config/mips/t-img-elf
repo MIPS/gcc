@@ -18,9 +18,10 @@
 
 # The default build is mips32r6, hard-float big-endian.
 
-MULTILIB_OPTIONS = mips32r2 mmicromips EL msoft-float
-MULTILIB_DIRNAMES = mips32r2 micromips el sof
+MULTILIB_OPTIONS = mips64r6 mabi=64 EL
+MULTILIB_DIRNAMES = mips64r6 64 el
 MULTILIB_MATCHES = EL=mel EB=meb mips32r2=mips32r3 mips32r2=mips32r5
 
-MULTILIB_REQUIRED = mmicromips/EL*
+MULTILIB_REQUIRED = mips64r6/mabi=64/EL
+
 #MULTILIBS_OS_DIRNAMES = micromips=!micromips
