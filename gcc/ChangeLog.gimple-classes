@@ -1,5 +1,13 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* asan.c (asan_expand_check_ifn): Eliminate local gimple "g",
+	breaking it up into new locals "builtin_call", "stmt1",
+	"last_stmt", "stmt2", "cond_stmt", "assign_stmt", "last_assign",
+	"assign_and", "len_minus_one", "calc_last_byte", "t_ne_zero",
+	"library_call".
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-outof-ssa.h (get_gimple_for_ssa_name): Strengthen return
 	type from gimple to gassign *, adding a checked cast, since the
 	only ssa-name-defining statements that TER flags are assignments.
