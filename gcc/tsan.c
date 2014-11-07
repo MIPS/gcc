@@ -101,7 +101,7 @@ is_vptr_store (gimple stmt, tree expr, bool is_write)
       tree field = TREE_OPERAND (expr, 1);
       if (TREE_CODE (field) == FIELD_DECL
 	  && DECL_VIRTUAL_P (field))
-	return gimple_assign_rhs1 (stmt);
+	return gimple_assign_rhs1 (as_a <gassign *> (stmt));
     }
   return NULL;
 }
@@ -624,20 +624,20 @@ instrument_gimple (gimple_stmt_iterator *gsi)
 	instrument_builtin_call (gsi);
       return true;
     }
-  else if (is_gimple_assign (stmt)
-	   && !gimple_clobber_p (stmt))
-    {
-      if (gimple_store_p (stmt))
-	{
-	  lhs = gimple_assign_lhs (stmt);
-	  instrumented = instrument_expr (*gsi, lhs, true);
-	}
-      if (gimple_assign_load_p (stmt))
-	{
-	  rhs = gimple_assign_rhs1 (stmt);
-	  instrumented = instrument_expr (*gsi, rhs, false);
-	}
-    }
+  else if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
+    if (!gimple_clobber_p (assign_stmt))
+      {
+	if (gimple_store_p (assign_stmt))
+	  {
+	    lhs = gimple_assign_lhs (assign_stmt);
+	    instrumented = instrument_expr (*gsi, lhs, true);
+	  }
+	if (gimple_assign_load_p (assign_stmt))
+	  {
+	    rhs = gimple_assign_rhs1 (assign_stmt);
+	    instrumented = instrument_expr (*gsi, rhs, false);
+	  }
+      }
   return instrumented;
 }
 

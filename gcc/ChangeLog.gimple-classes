@@ -1,5 +1,12 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* tsan.c (is_vptr_store): Add checked cast.
+	(instrument_gimple): Replace is_gimple_assign with a dyn_cast,
+	introducing local "assign_stmt", using in place of "stmt" for
+	typesafety.
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* asan.c (asan_expand_check_ifn): Eliminate local gimple "g",
 	breaking it up into new locals "builtin_call", "stmt1",
 	"last_stmt", "stmt2", "cond_stmt", "assign_stmt", "last_assign",
