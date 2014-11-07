@@ -1,5 +1,14 @@
 2014-11-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* tree-ssa.c (ssa_undefined_value_p): Replace is_gimple_assign
+	with a dyn_cast, introducing local gassign * "def_assign" and
+	using it in place of "def_stmt" for typesafety.
+	(execute_update_addresses_taken): In two places, capture the
+	result of gimple_assign_single_p as a local gassign *
+	"assign_stmt", using them in place of "stmt" for typesafety.
+
+2014-11-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* tree-stdarg.c (va_list_counter_bump): Replace is_gimple_assign
 	with a dyn_cast, introducing local gassign * "assign_stmt" and
 	using it in place of "stmt" for typesafety.  Tighten the scope of

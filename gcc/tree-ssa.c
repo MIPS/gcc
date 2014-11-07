@@ -1214,16 +1214,16 @@ ssa_undefined_value_p (tree t)
     return true;
 
   /* Check if the complex was not only partially defined.  */
-  if (is_gimple_assign (def_stmt)
-      && gimple_assign_rhs_code (def_stmt) == COMPLEX_EXPR)
-    {
-      tree rhs1, rhs2;
+  if (gassign *def_assign = dyn_cast <gassign *> (def_stmt))
+    if (gimple_assign_rhs_code (def_assign) == COMPLEX_EXPR)
+      {
+	tree rhs1, rhs2;
 
-      rhs1 = gimple_assign_rhs1 (def_stmt);
-      rhs2 = gimple_assign_rhs2 (def_stmt);
-      return (TREE_CODE (rhs1) == SSA_NAME && ssa_undefined_value_p (rhs1))
-	     || (TREE_CODE (rhs2) == SSA_NAME && ssa_undefined_value_p (rhs2));
-    }
+	rhs1 = gimple_assign_rhs1 (def_assign);
+	rhs2 = gimple_assign_rhs2 (def_assign);
+	return (TREE_CODE (rhs1) == SSA_NAME && ssa_undefined_value_p (rhs1))
+	  || (TREE_CODE (rhs2) == SSA_NAME && ssa_undefined_value_p (rhs2));
+      }
   return false;
 }
 
@@ -1442,9 +1442,9 @@ execute_update_addresses_taken (void)
                 }
 	    }
 
-	  if (gimple_assign_single_p (stmt))
+	  if (gassign *assign_stmt = gimple_assign_single_p (stmt))
 	    {
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	      tree rhs = gimple_assign_rhs1 (assign_stmt);
 	      if ((decl = non_rewritable_mem_ref_base (rhs)))
 		bitmap_set_bit (not_reg_needs, DECL_UID (decl));
 	    }
@@ -1527,10 +1527,10 @@ execute_update_addresses_taken (void)
 
 	    /* Re-write TARGET_MEM_REFs of symbols we want to
 	       rewrite into SSA form.  */
-	    if (gimple_assign_single_p (stmt))
+	    if (gassign *assign_stmt = gimple_assign_single_p (stmt))
 	      {
-		tree lhs = gimple_assign_lhs (stmt);
-		tree rhs, *rhsp = gimple_assign_rhs1_ptr (stmt);
+		tree lhs = gimple_assign_lhs (assign_stmt);
+		tree rhs, *rhsp = gimple_assign_rhs1_ptr (assign_stmt);
 		tree sym;
 
 		/* We shouldn't have any fancy wrapping of
@@ -1547,20 +1547,20 @@ execute_update_addresses_taken (void)
 		    && bitmap_bit_p (suitable_for_renaming, DECL_UID (sym)))
 		  lhs = sym;
 		else
-		  lhs = gimple_assign_lhs (stmt);
+		  lhs = gimple_assign_lhs (assign_stmt);
 
 		/* Rewrite the RHS and make sure the resulting assignment
 		   is validly typed.  */
 		maybe_rewrite_mem_ref_base (rhsp, suitable_for_renaming);
-		rhs = gimple_assign_rhs1 (stmt);
-		if (gimple_assign_lhs (stmt) != lhs
+		rhs = gimple_assign_rhs1 (assign_stmt);
+		if (gimple_assign_lhs (assign_stmt) != lhs
 		    && !useless_type_conversion_p (TREE_TYPE (lhs),
 						   TREE_TYPE (rhs)))
 		  rhs = fold_build1 (VIEW_CONVERT_EXPR,
 				     TREE_TYPE (lhs), rhs);
 
-		if (gimple_assign_lhs (stmt) != lhs)
-		  gimple_assign_set_lhs (stmt, lhs);
+		if (gimple_assign_lhs (assign_stmt) != lhs)
+		  gimple_assign_set_lhs (assign_stmt, lhs);
 
 		/* For var ={v} {CLOBBER}; where var lost
 		   TREE_ADDRESSABLE just remove the stmt.  */
@@ -1568,15 +1568,15 @@ execute_update_addresses_taken (void)
 		    && TREE_CLOBBER_P (rhs)
 		    && bitmap_bit_p (suitable_for_renaming, DECL_UID (lhs)))
 		  {
-		    unlink_stmt_vdef (stmt);
+		    unlink_stmt_vdef (assign_stmt);
       		    gsi_remove (&gsi, true);
-		    release_defs (stmt);
+		    release_defs (assign_stmt);
 		    continue;
 		  }
 
-		if (gimple_assign_rhs1 (stmt) != rhs)
+		if (gimple_assign_rhs1 (assign_stmt) != rhs)
 		  {
-		    gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+		    gimple_stmt_iterator gsi = gsi_for_stmt (assign_stmt);
 		    gimple_assign_set_rhs_from_tree (&gsi, rhs);
 		  }
 	      }
