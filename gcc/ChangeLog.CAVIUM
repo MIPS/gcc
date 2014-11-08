@@ -1,3 +1,12 @@
+2014-11-08  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #12972
+	* optabs.c (emit_conditional_add): Call save_pending_stack_adjust
+	and get_last_insn before do_pending_stack_adjust, call
+	restore_pending_stack_adjust after delete_insns_since.
+	(emit_conditional_move): Call restore_pending_stack_adjust
+	after delete_insns_since right before returning.
+
 2014-11-07  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #12971
