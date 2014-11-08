@@ -58,6 +58,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "langhooks.h"
 #include "md5.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -69,7 +77,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "hash-table.h"  /* Required for ENABLE_FOLD_CHECKING.  */
 #include "builtins.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
+#include "generic-match.h"
+#include "optabs.h"
 
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
@@ -116,7 +129,7 @@ static tree optimize_bit_field_compare (location_t, enum tree_code,
 					tree, tree, tree);
 static tree decode_field_reference (location_t, tree, HOST_WIDE_INT *,
 				    HOST_WIDE_INT *,
-				    enum machine_mode *, int *, int *,
+				    machine_mode *, int *, int *,
 				    tree *, tree *);
 static tree sign_bit_p (tree, const_tree);
 static int simple_operand_p (const_tree);
@@ -1126,7 +1139,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
 
   if (TREE_CODE (arg1) == REAL_CST)
     {
-      enum machine_mode mode;
+      machine_mode mode;
       REAL_VALUE_TYPE d1;
       REAL_VALUE_TYPE d2;
       REAL_VALUE_TYPE value;
@@ -1406,8 +1419,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
       int count = TYPE_VECTOR_SUBPARTS (type), i;
       tree *elts = XALLOCAVEC (tree, count);
 
-      if (code == VEC_LSHIFT_EXPR
-	  || code == VEC_RSHIFT_EXPR)
+      if (code == VEC_RSHIFT_EXPR)
 	{
 	  if (!tree_fits_uhwi_p (arg2))
 	    return NULL_TREE;
@@ -1419,11 +1431,10 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
 	  if (shiftc >= outerc || (shiftc % innerc) != 0)
 	    return NULL_TREE;
 	  int offset = shiftc / innerc;
-	  /* The direction of VEC_[LR]SHIFT_EXPR is endian dependent.
-	     For reductions, compiler emits VEC_RSHIFT_EXPR always,
-	     for !BYTES_BIG_ENDIAN picks first vector element, but
-	     for BYTES_BIG_ENDIAN last element from the vector.  */
-	  if ((code == VEC_RSHIFT_EXPR) ^ (!BYTES_BIG_ENDIAN))
+	  /* The direction of VEC_RSHIFT_EXPR is endian dependent.
+	     For reductions, if !BYTES_BIG_ENDIAN then compiler picks first
+	     vector element, but last element if BYTES_BIG_ENDIAN.  */
+	  if (BYTES_BIG_ENDIAN)
 	    offset = -offset;
 	  tree zero = build_zero_cst (TREE_TYPE (type));
 	  for (i = 0; i < count; i++)
@@ -3448,7 +3459,7 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
   tree type = TREE_TYPE (lhs);
   tree unsigned_type;
   int const_p = TREE_CODE (rhs) == INTEGER_CST;
-  enum machine_mode lmode, rmode, nmode;
+  machine_mode lmode, rmode, nmode;
   int lunsignedp, runsignedp;
   int lvolatilep = 0, rvolatilep = 0;
   tree linner, rinner = NULL_TREE;
@@ -3605,7 +3616,7 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
 
 static tree
 decode_field_reference (location_t loc, tree exp, HOST_WIDE_INT *pbitsize,
-			HOST_WIDE_INT *pbitpos, enum machine_mode *pmode,
+			HOST_WIDE_INT *pbitpos, machine_mode *pmode,
 			int *punsignedp, int *pvolatilep,
 			tree *pmask, tree *pand_mask)
 {
@@ -5145,8 +5156,8 @@ fold_truth_andor_1 (location_t loc, enum tree_code code, tree truth_type,
   HOST_WIDE_INT xll_bitpos, xlr_bitpos, xrl_bitpos, xrr_bitpos;
   HOST_WIDE_INT lnbitsize, lnbitpos, rnbitsize, rnbitpos;
   int ll_unsignedp, lr_unsignedp, rl_unsignedp, rr_unsignedp;
-  enum machine_mode ll_mode, lr_mode, rl_mode, rr_mode;
-  enum machine_mode lnmode, rnmode;
+  machine_mode ll_mode, lr_mode, rl_mode, rr_mode;
+  machine_mode lnmode, rnmode;
   tree ll_mask, lr_mask, rl_mask, rr_mask;
   tree ll_and_mask, lr_and_mask, rl_and_mask, rr_and_mask;
   tree l_const, r_const;
@@ -6177,7 +6188,7 @@ fold_mathfn_compare (location_t loc,
   if (BUILTIN_SQRT_P (fcode))
     {
       tree arg = CALL_EXPR_ARG (arg0, 0);
-      enum machine_mode mode = TYPE_MODE (TREE_TYPE (arg0));
+      machine_mode mode = TYPE_MODE (TREE_TYPE (arg0));
 
       c = TREE_REAL_CST (arg1);
       if (REAL_VALUE_NEGATIVE (c))
@@ -6289,7 +6300,7 @@ static tree
 fold_inf_compare (location_t loc, enum tree_code code, tree type,
 		  tree arg0, tree arg1)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   REAL_VALUE_TYPE max;
   tree temp;
   bool neg;
@@ -6557,7 +6568,7 @@ fold_single_bit_test (location_t loc, enum tree_code code,
       tree inner = TREE_OPERAND (arg0, 0);
       tree type = TREE_TYPE (arg0);
       int bitnum = tree_log2 (TREE_OPERAND (arg0, 1));
-      enum machine_mode operand_mode = TYPE_MODE (type);
+      machine_mode operand_mode = TYPE_MODE (type);
       int ops_unsigned;
       tree signed_type, unsigned_type, intermediate_type;
       tree tem, one;
@@ -7062,7 +7073,7 @@ static int
 native_encode_fixed (const_tree expr, unsigned char *ptr, int len, int off)
 {
   tree type = TREE_TYPE (expr);
-  enum machine_mode mode = TYPE_MODE (type);
+  machine_mode mode = TYPE_MODE (type);
   int total_bytes = GET_MODE_SIZE (mode);
   FIXED_VALUE_TYPE value;
   tree i_value, i_type;
@@ -7324,7 +7335,7 @@ native_interpret_fixed (tree type, const unsigned char *ptr, int len)
 static tree
 native_interpret_real (tree type, const unsigned char *ptr, int len)
 {
-  enum machine_mode mode = TYPE_MODE (type);
+  machine_mode mode = TYPE_MODE (type);
   int total_bytes = GET_MODE_SIZE (mode);
   int byte, offset, word, words, bitpos;
   unsigned char value;
@@ -7564,6 +7575,10 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
   gcc_assert (IS_EXPR_CODE_CLASS (kind)
 	      && TREE_CODE_LENGTH (code) == 1);
 
+  tem = generic_simplify (loc, code, type, op0);
+  if (tem)
+    return tem;
+
   arg0 = op0;
   if (arg0)
     {
@@ -7650,14 +7665,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 
   switch (code)
     {
-    case PAREN_EXPR:
-      /* Re-association barriers around constants and other re-association
-	 barriers can be removed.  */
-      if (CONSTANT_CLASS_P (op0)
-	  || TREE_CODE (op0) == PAREN_EXPR)
-	return fold_convert_loc (loc, type, op0);
-      return NULL_TREE;
-
     case NON_LVALUE_EXPR:
       if (!maybe_lvalue_p (op0))
 	return fold_convert_loc (loc, type, op0);
@@ -7666,9 +7673,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     CASE_CONVERT:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-      if (TREE_TYPE (op0) == type)
-	return op0;
-
       if (COMPARISON_CLASS_P (op0))
 	{
 	  /* If we have (type) (a CMP b) and type is an integral type, return
@@ -7785,7 +7789,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
         {
 	  HOST_WIDE_INT bitsize, bitpos;
 	  tree offset;
-	  enum machine_mode mode;
+	  machine_mode mode;
 	  int unsignedp, volatilep;
           tree base = TREE_OPERAND (op0, 0);
 	  base = get_inner_reference (base, &bitsize, &bitpos, &offset,
@@ -7939,34 +7943,9 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
       return tem ? tem : NULL_TREE;
 
     case VIEW_CONVERT_EXPR:
-      if (TREE_TYPE (op0) == type)
-	return op0;
-      if (TREE_CODE (op0) == VIEW_CONVERT_EXPR)
-	return fold_build1_loc (loc, VIEW_CONVERT_EXPR,
-			    type, TREE_OPERAND (op0, 0));
       if (TREE_CODE (op0) == MEM_REF)
 	return fold_build2_loc (loc, MEM_REF, type,
 				TREE_OPERAND (op0, 0), TREE_OPERAND (op0, 1));
-
-      /* For integral conversions with the same precision or pointer
-	 conversions use a NOP_EXPR instead.  */
-      if ((INTEGRAL_TYPE_P (type)
-	   || POINTER_TYPE_P (type))
-	  && (INTEGRAL_TYPE_P (TREE_TYPE (op0))
-	      || POINTER_TYPE_P (TREE_TYPE (op0)))
-	  && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (op0)))
-	return fold_convert_loc (loc, type, op0);
-
-      /* Strip inner integral conversions that do not change the precision.  */
-      if (CONVERT_EXPR_P (op0)
-	  && (INTEGRAL_TYPE_P (TREE_TYPE (op0))
-	      || POINTER_TYPE_P (TREE_TYPE (op0)))
-	  && (INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0)))
-	      || POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0))))
-	  && (TYPE_PRECISION (TREE_TYPE (op0))
-	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
-	return fold_build1_loc (loc, VIEW_CONVERT_EXPR,
-			    type, TREE_OPERAND (op0, 0));
 
       return fold_view_convert_expr (type, op0);
 
@@ -7979,8 +7958,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case ABS_EXPR:
       if (TREE_CODE (arg0) == INTEGER_CST || TREE_CODE (arg0) == REAL_CST)
 	return fold_abs_const (arg0, type);
-      else if (TREE_CODE (arg0) == NEGATE_EXPR)
-	return fold_build1_loc (loc, ABS_EXPR, type, TREE_OPERAND (arg0, 0));
       /* Convert fabs((double)float) into (double)fabsf(float).  */
       else if (TREE_CODE (arg0) == NOP_EXPR
 	       && TREE_CODE (type) == REAL_TYPE)
@@ -7994,8 +7971,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	}
       /* ABS_EXPR<ABS_EXPR<x>> = ABS_EXPR<x> even if flag_wrapv is on.  */
       else if (TREE_CODE (arg0) == ABS_EXPR)
-	return arg0;
-      else if (tree_expr_nonnegative_p (arg0))
 	return arg0;
 
       /* Strip sign ops from argument.  */
@@ -8033,8 +8008,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case BIT_NOT_EXPR:
       if (TREE_CODE (arg0) == INTEGER_CST)
         return fold_not_const (arg0, type);
-      else if (TREE_CODE (arg0) == BIT_NOT_EXPR)
-	return fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
       /* Convert ~ (-A) to A - 1.  */
       else if (INTEGRAL_TYPE_P (type) && TREE_CODE (arg0) == NEGATE_EXPR)
 	return fold_build2_loc (loc, MINUS_EXPR, type,
@@ -8246,12 +8219,13 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case REDUC_MAX_EXPR:
     case REDUC_PLUS_EXPR:
       {
-	unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
+	unsigned int nelts, i;
 	tree *elts;
 	enum tree_code subcode;
 
 	if (TREE_CODE (op0) != VECTOR_CST)
 	  return NULL_TREE;
+        nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (op0));
 
 	elts = XALLOCAVEC (tree, nelts);
 	if (!vec_cst_ctor_to_array (op0, elts))
@@ -8270,10 +8244,9 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	    elts[0] = const_binop (subcode, elts[0], elts[i]);
 	    if (elts[0] == NULL_TREE || !CONSTANT_CLASS_P (elts[0]))
 	      return NULL_TREE;
-	    elts[i] = build_zero_cst (TREE_TYPE (type));
 	  }
 
-	return build_vector (type, elts);
+	return elts[0];
       }
 
     default:
@@ -8738,7 +8711,8 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 
       /* If the constant operation overflowed this can be
 	 simplified as a comparison against INT_MAX/INT_MIN.  */
-      if (TREE_OVERFLOW (new_const))
+      if (TREE_OVERFLOW (new_const)
+	  && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg0)))
 	{
 	  int const1_sgn = tree_int_cst_sgn (const1);
 	  enum tree_code code2 = code;
@@ -8816,7 +8790,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
     {
       tree base0, base1, offset0 = NULL_TREE, offset1 = NULL_TREE;
       HOST_WIDE_INT bitsize, bitpos0 = 0, bitpos1 = 0;
-      enum machine_mode mode;
+      machine_mode mode;
       int volatilep, unsignedp;
       bool indirect_base0 = false, indirect_base1 = false;
 
@@ -9668,7 +9642,7 @@ exact_inverse (tree type, tree cst)
 {
   REAL_VALUE_TYPE r;
   tree unit_type, *elts;
-  enum machine_mode mode;
+  machine_mode mode;
   unsigned vec_nelts, i;
 
   switch (TREE_CODE (cst))
@@ -9913,6 +9887,10 @@ fold_binary_loc (location_t loc,
       && tree_swap_operands_p (arg0, arg1, true))
     return fold_build2_loc (loc, swap_tree_comparison (code), type, op1, op0);
 
+  tem = generic_simplify (loc, code, type, op0, op1);
+  if (tem)
+    return tem;
+
   /* ARG0 is the first operand of EXPR, and ARG1 is the second operand.
 
      First check for cases where an arithmetic operation is applied to a
@@ -10031,14 +10009,6 @@ fold_binary_loc (location_t loc,
       return NULL_TREE;
 
     case POINTER_PLUS_EXPR:
-      /* 0 +p index -> (type)index */
-      if (integer_zerop (arg0))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
-
-      /* PTR +p 0 -> PTR */
-      if (integer_zerop (arg1))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
-
       /* INT +p INT -> (PTR)(INT + INT).  Stripping types allows for this. */
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
 	   && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
@@ -10048,19 +10018,6 @@ fold_binary_loc (location_t loc,
 								arg1),
 					      fold_convert_loc (loc, sizetype,
 								arg0)));
-
-      /* (PTR +p B) +p A -> PTR +p (B + A) */
-      if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
-	{
-	  tree inner;
-	  tree arg01 = fold_convert_loc (loc, sizetype, TREE_OPERAND (arg0, 1));
-	  tree arg00 = TREE_OPERAND (arg0, 0);
-	  inner = fold_build2_loc (loc, PLUS_EXPR, sizetype,
-			       arg01, fold_convert_loc (loc, sizetype, arg1));
-	  return fold_convert_loc (loc, type,
-				   fold_build_pointer_plus_loc (loc,
-								arg00, inner));
-	}
 
       /* PTR_CST +p CST -> CST1 */
       if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
@@ -10159,9 +10116,6 @@ fold_binary_loc (location_t loc,
 
       if (! FLOAT_TYPE_P (type))
 	{
-	  if (integer_zerop (arg1))
-	    return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
-
 	  /* If we are adding two BIT_AND_EXPR's, both of which are and'ing
 	     with a constant, and the two constants have no bits in common,
 	     we should treat this as a BIT_IOR_EXPR since this may produce more
@@ -10596,8 +10550,9 @@ fold_binary_loc (location_t loc,
 					     TREE_OPERAND (arg1, 0));
 	      tree arg11 = fold_convert_loc (loc, type,
 					     TREE_OPERAND (arg1, 1));
-	      tree tmp = fold_binary_loc (loc, MINUS_EXPR, type, arg0,
-					  fold_convert_loc (loc, type, arg10));
+	      tree tmp = fold_binary_loc (loc, MINUS_EXPR, type,
+					  fold_convert_loc (loc, type, arg0),
+					  arg10);
 	      if (tmp)
 		return fold_build2_loc (loc, MINUS_EXPR, type, tmp, arg11);
 	    }
@@ -10647,8 +10602,6 @@ fold_binary_loc (location_t loc,
 	{
 	  if (integer_zerop (arg0))
 	    return negate_expr (fold_convert_loc (loc, type, arg1));
-	  if (integer_zerop (arg1))
-	    return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
 
 	  /* Fold A - (A & B) into ~B & A.  */
 	  if (!TREE_SIDE_EFFECTS (arg0)
@@ -10741,16 +10694,6 @@ fold_binary_loc (location_t loc,
 	    }
 	}
 
-      /* Fold &x - &x.  This can happen from &x.foo - &x.
-	 This is unsafe for certain floats even in non-IEEE formats.
-	 In IEEE, it is unsafe because it does wrong for NaNs.
-	 Also note that operand_equal_p is always false if an operand
-	 is volatile.  */
-
-      if ((!FLOAT_TYPE_P (type) || !HONOR_NANS (TYPE_MODE (type)))
-	  && operand_equal_p (arg0, arg1, 0))
-	return build_zero_cst (type);
-
       /* A - B -> A + (-B) if B is easily negatable.  */
       if (negate_expr_p (arg1)
 	  && ((FLOAT_TYPE_P (type)
@@ -10828,10 +10771,6 @@ fold_binary_loc (location_t loc,
 
       if (! FLOAT_TYPE_P (type))
 	{
-	  if (integer_zerop (arg1))
-	    return omit_one_operand_loc (loc, type, arg1, arg0);
-	  if (integer_onep (arg1))
-	    return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
 	  /* Transform x * -1 into -x.  Make sure to do the negation
 	     on the original operand with conversions not stripped
 	     because we can only strip non-sign-changing conversions.  */
@@ -11128,13 +11067,6 @@ fold_binary_loc (location_t loc,
 
     case BIT_IOR_EXPR:
     bit_ior:
-      if (integer_all_onesp (arg1))
-	return omit_one_operand_loc (loc, type, arg1, arg0);
-      if (integer_zerop (arg1))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
-      if (operand_equal_p (arg0, arg1, 0))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
-
       /* ~X | X is -1.  */
       if (TREE_CODE (arg0) == BIT_NOT_EXPR
 	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0))
@@ -11201,26 +11133,6 @@ fold_binary_loc (location_t loc,
 				    arg1);
 	}
 
-      /* (X & Y) | Y is (X, Y).  */
-      if (TREE_CODE (arg0) == BIT_AND_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 1), arg1, 0))
-	return omit_one_operand_loc (loc, type, arg1, TREE_OPERAND (arg0, 0));
-      /* (X & Y) | X is (Y, X).  */
-      if (TREE_CODE (arg0) == BIT_AND_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0)
-	  && reorder_operands_p (TREE_OPERAND (arg0, 1), arg1))
-	return omit_one_operand_loc (loc, type, arg1, TREE_OPERAND (arg0, 1));
-      /* X | (X & Y) is (Y, X).  */
-      if (TREE_CODE (arg1) == BIT_AND_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0)
-	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 1)))
-	return omit_one_operand_loc (loc, type, arg0, TREE_OPERAND (arg1, 1));
-      /* X | (Y & X) is (Y, X).  */
-      if (TREE_CODE (arg1) == BIT_AND_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 1), 0)
-	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 0)))
-	return omit_one_operand_loc (loc, type, arg0, TREE_OPERAND (arg1, 0));
-
       /* (X & ~Y) | (~X & Y) is X ^ Y */
       if (TREE_CODE (arg0) == BIT_AND_EXPR
 	  && TREE_CODE (arg1) == BIT_AND_EXPR)
@@ -11270,13 +11182,6 @@ fold_binary_loc (location_t loc,
       goto bit_rotate;
 
     case BIT_XOR_EXPR:
-      if (integer_zerop (arg1))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
-      if (integer_all_onesp (arg1))
-	return fold_build1_loc (loc, BIT_NOT_EXPR, type, op0);
-      if (operand_equal_p (arg0, arg1, 0))
-	return omit_one_operand_loc (loc, type, integer_zero_node, arg0);
-
       /* ~X ^ X is -1.  */
       if (TREE_CODE (arg0) == BIT_NOT_EXPR
 	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0))
@@ -11431,13 +11336,6 @@ fold_binary_loc (location_t loc,
       goto bit_rotate;
 
     case BIT_AND_EXPR:
-      if (integer_all_onesp (arg1))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
-      if (integer_zerop (arg1))
-	return omit_one_operand_loc (loc, type, arg1, arg0);
-      if (operand_equal_p (arg0, arg1, 0))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
-
       /* ~X & X, (X == 0) & X, and !X & X are always zero.  */
       if ((TREE_CODE (arg0) == BIT_NOT_EXPR
 	   || TREE_CODE (arg0) == TRUTH_NOT_EXPR
@@ -11453,42 +11351,6 @@ fold_binary_loc (location_t loc,
 	       && integer_zerop (TREE_OPERAND (arg1, 1))))
 	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
 	return omit_one_operand_loc (loc, type, integer_zero_node, arg0);
-
-      /* Canonicalize (X | C1) & C2 as (X & C2) | (C1 & C2).  */
-      if (TREE_CODE (arg0) == BIT_IOR_EXPR
-	  && TREE_CODE (arg1) == INTEGER_CST
-	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-	{
-	  tree tmp1 = fold_convert_loc (loc, type, arg1);
-	  tree tmp2 = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
-	  tree tmp3 = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 1));
-	  tmp2 = fold_build2_loc (loc, BIT_AND_EXPR, type, tmp2, tmp1);
-	  tmp3 = fold_build2_loc (loc, BIT_AND_EXPR, type, tmp3, tmp1);
-	  return
-	    fold_convert_loc (loc, type,
-			      fold_build2_loc (loc, BIT_IOR_EXPR,
-					   type, tmp2, tmp3));
-	}
-
-      /* (X | Y) & Y is (X, Y).  */
-      if (TREE_CODE (arg0) == BIT_IOR_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 1), arg1, 0))
-	return omit_one_operand_loc (loc, type, arg1, TREE_OPERAND (arg0, 0));
-      /* (X | Y) & X is (Y, X).  */
-      if (TREE_CODE (arg0) == BIT_IOR_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0)
-	  && reorder_operands_p (TREE_OPERAND (arg0, 1), arg1))
-	return omit_one_operand_loc (loc, type, arg1, TREE_OPERAND (arg0, 1));
-      /* X & (X | Y) is (Y, X).  */
-      if (TREE_CODE (arg1) == BIT_IOR_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0)
-	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 1)))
-	return omit_one_operand_loc (loc, type, arg0, TREE_OPERAND (arg1, 1));
-      /* X & (Y | X) is (Y, X).  */
-      if (TREE_CODE (arg1) == BIT_IOR_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 1), 0)
-	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 0)))
-	return omit_one_operand_loc (loc, type, arg0, TREE_OPERAND (arg1, 0));
 
       /* Fold (X ^ 1) & 1 as (X & 1) == 0.  */
       if (TREE_CODE (arg0) == BIT_XOR_EXPR
@@ -12185,8 +12047,6 @@ fold_binary_loc (location_t loc,
     case ROUND_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case EXACT_DIV_EXPR:
-      if (integer_onep (arg1))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg0));
       if (integer_zerop (arg1))
 	return NULL_TREE;
       /* X / -1 is -X.  */
@@ -12256,21 +12116,6 @@ fold_binary_loc (location_t loc,
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
-      /* X % 1 is always zero, but be sure to preserve any side
-	 effects in X.  */
-      if (integer_onep (arg1))
-	return omit_one_operand_loc (loc, type, integer_zero_node, arg0);
-
-      /* X % 0, return X % 0 unchanged so that we can get the
-	 proper warnings and errors.  */
-      if (integer_zerop (arg1))
-	return NULL_TREE;
-
-      /* 0 % X is always zero, but be sure to preserve any side
-	 effects in X.  Place this after checking for X == 0.  */
-      if (integer_zerop (arg0))
-	return omit_one_operand_loc (loc, type, integer_zero_node, arg1);
-
       /* X % -1 is zero.  */
       if (!TYPE_UNSIGNED (type)
 	  && TREE_CODE (arg1) == INTEGER_CST
@@ -12972,7 +12817,7 @@ fold_binary_loc (location_t loc,
 	  tree arg00 = TREE_OPERAND (arg0, 0);
 	  tree arg01 = TREE_OPERAND (arg0, 1);
 	  tree itype = TREE_TYPE (arg00);
-	  if (wi::eq_p (arg01, TYPE_PRECISION (itype) - 1))
+	  if (wi::eq_p (arg01, element_precision (itype) - 1))
 	    {
 	      if (TYPE_UNSIGNED (itype))
 		{
@@ -13803,6 +13648,10 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
       && tree_swap_operands_p (op0, op1, true))
     return fold_build3_loc (loc, code, type, op1, op0, op2);
 
+  tem = generic_simplify (loc, code, type, op0, op1, op2);
+  if (tem)
+    return tem;
+
   /* Strip any conversions that don't change the mode.  This is safe
      for every expression, except for a comparison expression because
      its signedness is derived from its operands.  So, in the latter
@@ -14269,16 +14118,19 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
     case VEC_PERM_EXPR:
       if (TREE_CODE (arg2) == VECTOR_CST)
 	{
-	  unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i, mask;
-	  unsigned char *sel = XALLOCAVEC (unsigned char, nelts);
+	  unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i, mask, mask2;
+	  unsigned char *sel = XALLOCAVEC (unsigned char, 2 * nelts);
+	  unsigned char *sel2 = sel + nelts;
 	  bool need_mask_canon = false;
+	  bool need_mask_canon2 = false;
 	  bool all_in_vec0 = true;
 	  bool all_in_vec1 = true;
 	  bool maybe_identity = true;
 	  bool single_arg = (op0 == op1);
 	  bool changed = false;
 
-	  mask = single_arg ? (nelts - 1) : (2 * nelts - 1);
+	  mask2 = 2 * nelts - 1;
+	  mask = single_arg ? (nelts - 1) : mask2;
 	  gcc_assert (nelts == VECTOR_CST_NELTS (arg2));
 	  for (i = 0; i < nelts; i++)
 	    {
@@ -14289,13 +14141,10 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	      /* Make sure that the perm value is in an acceptable
 		 range.  */
 	      wide_int t = val;
-	      if (wi::gtu_p (t, mask))
-		{
-		  need_mask_canon = true;
-		  sel[i] = t.to_uhwi () & mask;
-		}
-	      else
-		sel[i] = t.to_uhwi ();
+	      need_mask_canon |= wi::gtu_p (t, mask);
+	      need_mask_canon2 |= wi::gtu_p (t, mask2);
+	      sel[i] = t.to_uhwi () & mask;
+	      sel2[i] = t.to_uhwi () & mask2;
 
 	      if (sel[i] < nelts)
 		all_in_vec1 = false;
@@ -14336,6 +14185,17 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 
 	  if (op0 == op1 && !single_arg)
 	    changed = true;
+
+	  /* Some targets are deficient and fail to expand a single
+	     argument permutation while still allowing an equivalent
+	     2-argument version.  */
+	  if (need_mask_canon && arg2 == op2
+	      && !can_vec_perm_p (TYPE_MODE (type), false, sel)
+	      && can_vec_perm_p (TYPE_MODE (type), false, sel2))
+	    {
+	      need_mask_canon = need_mask_canon2;
+	      sel = sel2;
+	    }
 
 	  if (need_mask_canon && arg2 == op2)
 	    {
@@ -16590,7 +16450,7 @@ split_address_to_core_and_offset (tree exp,
 				  HOST_WIDE_INT *pbitpos, tree *poffset)
 {
   tree core;
-  enum machine_mode mode;
+  machine_mode mode;
   int unsignedp, volatilep;
   HOST_WIDE_INT bitsize;
   location_t loc = EXPR_LOCATION (exp);

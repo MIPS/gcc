@@ -27,11 +27,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "expr.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "value-prof.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "regs.h"
 #include "tree-ssa-alias.h"
@@ -56,11 +66,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "dumpfile.h"
 #include "profile.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "data-streamer.h"
 #include "builtins.h"
 #include "tree-nested.h"
-#include "hash-set.h"
 #include "params.h"
+#include "tree-chkp.h"
 
 /* In this file value profile based optimizations are placed.  Currently the
    following optimizations are implemented (for more detailed descriptions
@@ -139,7 +153,7 @@ static bool gimple_ic_transform (gimple_stmt_iterator *);
 
 /* Allocate histogram value.  */
 
-static histogram_value
+histogram_value
 gimple_alloc_histogram_value (struct function *fun ATTRIBUTE_UNUSED,
 			      enum hist_type type, gimple stmt, tree value)
 {
@@ -1342,7 +1356,7 @@ find_func_by_profile_id (int profile_id)
    may ICE. Here we only do very minimal sanity check just to make compiler happy.
    Returns true if TARGET is considered ok for call CALL_STMT.  */
 
-static bool
+bool
 check_ic_target (gimple call_stmt, struct cgraph_node *target)
 {
    location_t locus;
@@ -1369,7 +1383,7 @@ gimple
 gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 	   int prob, gcov_type count, gcov_type all)
 {
-  gimple dcall_stmt, load_stmt, cond_stmt;
+  gimple dcall_stmt, load_stmt, cond_stmt, iretbnd_stmt = NULL;
   tree tmp0, tmp1, tmp;
   basic_block cond_bb, dcall_bb, icall_bb, join_bb = NULL;
   tree optype = build_pointer_type (void_type_node);
@@ -1382,6 +1396,9 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 
   cond_bb = gimple_bb (icall_stmt);
   gsi = gsi_for_stmt (icall_stmt);
+
+  if (gimple_call_with_bounds_p (icall_stmt) && gimple_call_lhs (icall_stmt))
+    iretbnd_stmt = chkp_retbnd_call_by_val (gimple_call_lhs (icall_stmt));
 
   tmp0 = make_temp_ssa_name (optype, NULL, "PROF");
   tmp1 = make_temp_ssa_name (optype, NULL, "PROF");
@@ -1475,6 +1492,50 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
       gimple_call_set_lhs (dcall_stmt,
 			   duplicate_ssa_name (result, dcall_stmt));
       add_phi_arg (phi, gimple_call_lhs (dcall_stmt), e_dj, UNKNOWN_LOCATION);
+
+      /* If indirect call has following BUILT_IN_CHKP_BNDRET
+	 call then we need to make it's copy for the direct
+	 call.  */
+      if (iretbnd_stmt)
+	{
+	  if (gimple_call_lhs (iretbnd_stmt))
+	    {
+	      gimple copy;
+
+	      gimple_set_vdef (iretbnd_stmt, NULL_TREE);
+	      gimple_set_vuse (iretbnd_stmt, NULL_TREE);
+	      update_stmt (iretbnd_stmt);
+
+	      result = gimple_call_lhs (iretbnd_stmt);
+	      phi = create_phi_node (result, join_bb);
+
+	      copy = gimple_copy (iretbnd_stmt);
+	      gimple_call_set_arg (copy, 0,
+				   gimple_call_lhs (dcall_stmt));
+	      gimple_call_set_lhs (copy, duplicate_ssa_name (result, copy));
+	      gsi_insert_on_edge (e_dj, copy);
+	      add_phi_arg (phi, gimple_call_lhs (copy),
+			   e_dj, UNKNOWN_LOCATION);
+
+	      gimple_call_set_arg (iretbnd_stmt, 0,
+				   gimple_call_lhs (icall_stmt));
+	      gimple_call_set_lhs (iretbnd_stmt,
+				   duplicate_ssa_name (result, iretbnd_stmt));
+	      psi = gsi_for_stmt (iretbnd_stmt);
+	      gsi_remove (&psi, false);
+	      gsi_insert_on_edge (e_ij, iretbnd_stmt);
+	      add_phi_arg (phi, gimple_call_lhs (iretbnd_stmt),
+			   e_ij, UNKNOWN_LOCATION);
+
+	      gsi_commit_one_edge_insert (e_dj, NULL);
+	      gsi_commit_one_edge_insert (e_ij, NULL);
+	    }
+	  else
+	    {
+	      psi = gsi_for_stmt (iretbnd_stmt);
+	      gsi_remove (&psi, true);
+	    }
+	}
     }
 
   /* Build an EH edge for the direct call if necessary.  */

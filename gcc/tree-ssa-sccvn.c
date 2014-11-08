@@ -24,6 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "stor-layout.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
@@ -966,7 +977,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
     size_tree = op->op0;
   else
     {
-      enum machine_mode mode = TYPE_MODE (type);
+      machine_mode mode = TYPE_MODE (type);
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (type);
       else
@@ -1149,6 +1160,8 @@ copy_reference_ops_from_call (gimple call,
   if (stmt_could_throw_p (call) && (lr = lookup_stmt_eh_lp (call)) > 0)
     temp.op2 = size_int (lr);
   temp.off = -1;
+  if (gimple_call_with_bounds_p (call))
+    temp.with_bounds = 1;
   result->safe_push (temp);
 
   /* Copy the call arguments.  As they can be references as well,
