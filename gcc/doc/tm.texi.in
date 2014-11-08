@@ -1226,7 +1226,7 @@ appropriate sizes.  If this macro is undefined, @code{GET_MODE_BITSIZE
 @end defmac
 
 @defmac STACK_SAVEAREA_MODE (@var{save_level})
-If defined, an expression of type @code{enum machine_mode} that
+If defined, an expression of type @code{machine_mode} that
 specifies the mode of the save area operand of a
 @code{save_stack_@var{level}} named pattern (@pxref{Standard Names}).
 @var{save_level} is one of @code{SAVE_BLOCK}, @code{SAVE_FUNCTION}, or
@@ -1240,7 +1240,7 @@ would most commonly define this macro if the
 @end defmac
 
 @defmac STACK_SIZE_MODE
-If defined, an expression of type @code{enum machine_mode} that
+If defined, an expression of type @code{machine_mode} that
 specifies the mode of the size increment operand of an
 @code{allocate_stack} named pattern (@pxref{Standard Names}).
 
@@ -3567,6 +3567,8 @@ need more space than is implied by @code{FUNCTION_VALUE_REGNO_P} for
 saving and restoring an arbitrary return value.
 @end defmac
 
+@hook TARGET_OMIT_STRUCT_RETURN_REG
+
 @hook TARGET_RETURN_IN_MSB
 
 @node Aggregate Return
@@ -3858,7 +3860,23 @@ These machine description macros help implement varargs:
 
 @hook TARGET_STRICT_ARGUMENT_NAMING
 
+@hook TARGET_CALL_ARGS
+
+@hook TARGET_END_CALL_ARGS
+
 @hook TARGET_PRETEND_OUTGOING_VARARGS_NAMED
+
+@hook TARGET_LOAD_BOUNDS_FOR_ARG
+
+@hook TARGET_STORE_BOUNDS_FOR_ARG
+
+@hook TARGET_LOAD_RETURNED_BOUNDS
+
+@hook TARGET_STORE_RETURNED_BOUNDS
+
+@hook TARGET_CHKP_FUNCTION_VALUE_BOUNDS
+
+@hook TARGET_SETUP_INCOMING_VARARG_BOUNDS
 
 @node Trampolines
 @section Trampolines for Nested Functions
@@ -4600,12 +4618,7 @@ optimized for speed rather than size.
 If you don't define this, a reasonable default is used.
 @end defmac
 
-@defmac MOVE_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{move_by_pieces} will be used to
-copy a chunk of memory, or whether some other block move mechanism
-will be used.  Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{MOVE_RATIO}.
-@end defmac
+@hook TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
 
 @defmac MOVE_MAX_PIECES
 A C expression used by @code{move_by_pieces} to determine the largest unit
@@ -4624,13 +4637,6 @@ optimized for speed rather than size.
 If you don't define this, a reasonable default is used.
 @end defmac
 
-@defmac CLEAR_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{clear_by_pieces} will be used
-to clear a chunk of memory, or whether some other block clear mechanism
-will be used.  Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{CLEAR_RATIO}.
-@end defmac
-
 @defmac SET_RATIO (@var{speed})
 The threshold of number of scalar move insns, @emph{below} which a sequence
 of insns should be generated to set memory to a constant value, instead of
@@ -4642,24 +4648,6 @@ The parameter @var{speed} is true if the code is currently being
 optimized for speed rather than size.
 
 If you don't define this, it defaults to the value of @code{MOVE_RATIO}.
-@end defmac
-
-@defmac SET_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{store_by_pieces} will be
-used to set a chunk of memory to a constant value, or whether some
-other mechanism will be used.  Used by @code{__builtin_memset} when
-storing values other than constant zero.
-Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{SET_RATIO}.
-@end defmac
-
-@defmac STORE_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{store_by_pieces} will be
-used to set a chunk of memory to a constant string value, or whether some
-other mechanism will be used.  Used by @code{__builtin_strcpy} when
-called with a constant source string.
-Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{MOVE_RATIO}.
 @end defmac
 
 @defmac USE_LOAD_POST_INCREMENT (@var{mode})
@@ -5208,6 +5196,8 @@ It must not be modified by command-line option processing.
 @hook TARGET_ASM_BYTE_OP
 
 @hook TARGET_ASM_INTEGER
+
+@hook TARGET_ASM_DECL_END
 
 @hook TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 
@@ -6978,6 +6968,8 @@ tables, and hence is desirable if it works.
 
 @hook TARGET_DELAY_VARTRACK
 
+@hook TARGET_NO_REGISTER_ALLOCATION
+
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
 A C statement to issue assembly directives that create a difference
 @var{lab1} minus @var{lab2}, using an integer of the given @var{size}.
@@ -7110,7 +7102,7 @@ Truncates @var{x} to an unsigned integer, rounding toward zero.  If
 @var{x} is negative, returns zero.
 @end deftypefn
 
-@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_ATOF (const char *@var{string}, enum machine_mode @var{mode})
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_ATOF (const char *@var{string}, machine_mode @var{mode})
 Converts @var{string} into a floating point number in the target machine's
 representation for mode @var{mode}.  This routine can handle both
 decimal and hexadecimal floating point constants, using the syntax
@@ -7955,6 +7947,12 @@ to by @var{ce_info}.
 @hook TARGET_BUILTIN_DECL
 
 @hook TARGET_EXPAND_BUILTIN
+
+@hook TARGET_BUILTIN_CHKP_FUNCTION
+@hook TARGET_CHKP_BOUND_TYPE
+@hook TARGET_CHKP_BOUND_MODE
+@hook TARGET_CHKP_MAKE_BOUNDS_CONSTANT
+@hook TARGET_CHKP_INITIALIZE_BOUNDS
 
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 

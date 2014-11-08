@@ -34,6 +34,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "function.h"
 #include "except.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -43,6 +48,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -2427,11 +2435,6 @@ operation_could_trap_helper_p (enum tree_code op,
     case UNGE_EXPR:
     case UNEQ_EXPR:
       return honor_snans;
-
-    case CONVERT_EXPR:
-    case FIX_TRUNC_EXPR:
-      /* Conversion of floating point might trap.  */
-      return honor_nans;
 
     case NEGATE_EXPR:
     case ABS_EXPR:

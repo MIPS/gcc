@@ -53,10 +53,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "targhooks.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "asan.h"
-#include "basic-block.h"
 #include "rtl-iter.h"
+#include "tree-chkp.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -97,11 +105,6 @@ tree last_assemble_variable_decl;
    in a function belongs to the cold partition or not.  */
 
 bool first_function_block_is_cold;
-
-/* We give all constants their own alias set.  Perhaps redundant with
-   MEM_READONLY_P, but pre-dates it.  */
-
-static alias_set_type const_alias_set;
 
 /* Whether we saw any functions with no_split_stack.  */
 
@@ -773,7 +776,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
       && (len = int_size_in_bytes (TREE_TYPE (decl))) > 0
       && TREE_STRING_LENGTH (decl) >= len)
     {
-      enum machine_mode mode;
+      machine_mode mode;
       unsigned int modesize;
       const char *str;
       HOST_WIDE_INT i;
@@ -817,7 +820,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 /* Return the section to use for constant merging.  */
 
 section *
-mergeable_constant_section (enum machine_mode mode ATTRIBUTE_UNUSED,
+mergeable_constant_section (machine_mode mode ATTRIBUTE_UNUSED,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED,
 			    unsigned int flags ATTRIBUTE_UNUSED)
 {
@@ -1241,6 +1244,30 @@ use_blocks_for_decl_p (tree decl)
   return targetm.use_blocks_for_decl_p (decl);
 }
 
+/* Follow the IDENTIFIER_TRANSPARENT_ALIAS chain starting at *ALIAS
+   until we find an identifier that is not itself a transparent alias.
+   Modify the alias passed to it by reference (and all aliases on the
+   way to the ultimate target), such that they do not have to be
+   followed again, and return the ultimate target of the alias
+   chain.  */
+
+static inline tree
+ultimate_transparent_alias_target (tree *alias)
+{
+  tree target = *alias;
+
+  if (IDENTIFIER_TRANSPARENT_ALIAS (target))
+    {
+      gcc_assert (TREE_CHAIN (target));
+      target = ultimate_transparent_alias_target (&TREE_CHAIN (target));
+      gcc_assert (! IDENTIFIER_TRANSPARENT_ALIAS (target)
+		  && ! TREE_CHAIN (target));
+      *alias = target;
+    }
+
+  return target;
+}
+
 /* Create the DECL_RTL for a VAR_DECL or FUNCTION_DECL.  DECL should
    have static storage duration.  In other words, it should not be an
    automatic variable, including PARM_DECLs.
@@ -1255,6 +1282,7 @@ make_decl_rtl (tree decl)
 {
   const char *name = 0;
   int reg_number;
+  tree id;
   rtx x;
 
   /* Check that we are not being given an automatic variable.  */
@@ -1312,7 +1340,12 @@ make_decl_rtl (tree decl)
       return;
     }
 
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  id = DECL_ASSEMBLER_NAME (decl);
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_node::get (decl)
+      && cgraph_node::get (decl)->instrumentation_clone)
+    ultimate_transparent_alias_target (&id);
+  name = IDENTIFIER_POINTER (id);
 
   if (name[0] != '*' && TREE_CODE (decl) != FUNCTION_DECL
       && DECL_REGISTER (decl))
@@ -1322,7 +1355,7 @@ make_decl_rtl (tree decl)
   else if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
       const char *asmspec = name+1;
-      enum machine_mode mode = DECL_MODE (decl);
+      machine_mode mode = DECL_MODE (decl);
       reg_number = decode_reg_name (asmspec);
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
@@ -1422,7 +1455,7 @@ make_decl_rtl (tree decl)
     x = create_block_symbol (name, get_block_for_decl (decl), -1);
   else
     {
-      enum machine_mode address_mode = Pmode;
+      machine_mode address_mode = Pmode;
       if (TREE_TYPE (decl) != error_mark_node)
 	{
 	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (decl));
@@ -1746,7 +1779,10 @@ assemble_start_function (tree decl, const char *fnname)
 
   /* Make function name accessible from other files, if appropriate.  */
 
-  if (TREE_PUBLIC (decl))
+  if (TREE_PUBLIC (decl)
+      || (cgraph_node::get (decl)->instrumentation_clone
+	  && cgraph_node::get (decl)->instrumented_version
+	  && TREE_PUBLIC (cgraph_node::get (decl)->instrumented_version->decl)))
     {
       notice_global_symbol (decl);
 
@@ -2005,6 +2041,7 @@ assemble_variable_contents (tree decl, const char *name,
       else
 	/* Leave space for it.  */
 	assemble_zeros (tree_to_uhwi (DECL_SIZE_UNIT (decl)));
+      targetm.asm_out.decl_end ();
     }
 }
 
@@ -2436,30 +2473,6 @@ mark_decl_referenced (tree decl)
 }
 
 
-/* Follow the IDENTIFIER_TRANSPARENT_ALIAS chain starting at *ALIAS
-   until we find an identifier that is not itself a transparent alias.
-   Modify the alias passed to it by reference (and all aliases on the
-   way to the ultimate target), such that they do not have to be
-   followed again, and return the ultimate target of the alias
-   chain.  */
-
-static inline tree
-ultimate_transparent_alias_target (tree *alias)
-{
-  tree target = *alias;
-
-  if (IDENTIFIER_TRANSPARENT_ALIAS (target))
-    {
-      gcc_assert (TREE_CHAIN (target));
-      target = ultimate_transparent_alias_target (&TREE_CHAIN (target));
-      gcc_assert (! IDENTIFIER_TRANSPARENT_ALIAS (target)
-		  && ! TREE_CHAIN (target));
-      *alias = target;
-    }
-
-  return target;
-}
-
 /* Output to FILE (an assembly file) a reference to NAME.  If NAME
    starts with a *, the rest of NAME is output verbatim.  Otherwise
    NAME is transformed in a target-specific way (usually by the
@@ -2679,7 +2692,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
      it into words it if is multi-word, otherwise split it into bytes.  */
   if (size > 1)
     {
-      enum machine_mode omode, imode;
+      machine_mode omode, imode;
       unsigned int subalign;
       unsigned int subsize, i;
       enum mode_class mclass;
@@ -2714,7 +2727,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
 }
 
 void
-assemble_real (REAL_VALUE_TYPE d, enum machine_mode mode, unsigned int align)
+assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align)
 {
   long data[4] = {0, 0, 0, 0};
   int i;
@@ -3231,7 +3244,6 @@ build_constant_desc (tree exp)
   rtl = gen_const_mem (TYPE_MODE (TREE_TYPE (exp)), symbol);
   set_mem_attributes (rtl, exp, 1);
   set_mem_alias_set (rtl, 0);
-  set_mem_alias_set (rtl, const_alias_set);
 
   /* We cannot share RTX'es in pool entries.
      Mark this piece of RTL as required for unsharing.  */
@@ -3336,6 +3348,8 @@ assemble_constant_contents (tree exp, const char *label, unsigned int align)
 
   /* Output the value of EXP.  */
   output_constant (exp, size, align);
+
+  targetm.asm_out.decl_end ();
 }
 
 /* We must output the constant data referred to by SYMBOL; do so.  */
@@ -3438,7 +3452,7 @@ struct GTY((chain_next ("%h.next"), for_user)) constant_descriptor_rtx {
   rtx constant;
   HOST_WIDE_INT offset;
   hashval_t hash;
-  enum machine_mode mode;
+  machine_mode mode;
   unsigned int align;
   int labelno;
   int mark;
@@ -3496,7 +3510,7 @@ static hashval_t
 const_rtx_hash_1 (const_rtx x)
 {
   unsigned HOST_WIDE_INT hwi;
-  enum machine_mode mode;
+  machine_mode mode;
   enum rtx_code code;
   hashval_t h;
   int i;
@@ -3617,7 +3631,7 @@ simplify_subtraction (rtx x)
    and return a MEM rtx to refer to it in memory.  */
 
 rtx
-force_const_mem (enum machine_mode mode, rtx x)
+force_const_mem (machine_mode mode, rtx x)
 {
   struct constant_descriptor_rtx *desc, tmp;
   struct rtx_constant_pool *pool;
@@ -3738,7 +3752,7 @@ get_pool_constant_mark (rtx addr, bool *pmarked)
 
 /* Similar, return the mode.  */
 
-enum machine_mode
+machine_mode
 get_pool_mode (const_rtx addr)
 {
   return SYMBOL_REF_CONSTANT (addr)->mode;
@@ -3756,7 +3770,7 @@ get_pool_size (void)
    in MODE with known alignment ALIGN.  */
 
 static void
-output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
+output_constant_pool_2 (machine_mode mode, rtx x, unsigned int align)
 {
   switch (GET_MODE_CLASS (mode))
     {
@@ -3777,6 +3791,7 @@ output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
     case MODE_UFRACT:
     case MODE_ACCUM:
     case MODE_UACCUM:
+    case MODE_POINTER_BOUNDS:
       assemble_integer (x, GET_MODE_SIZE (mode), align, 1);
       break;
 
@@ -3788,7 +3803,7 @@ output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
     case MODE_VECTOR_UACCUM:
       {
 	int i, units;
-        enum machine_mode submode = GET_MODE_INNER (mode);
+        machine_mode submode = GET_MODE_INNER (mode);
 	unsigned int subalign = MIN (align, GET_MODE_BITSIZE (submode));
 
 	gcc_assert (GET_CODE (x) == CONST_VECTOR);
@@ -4676,6 +4691,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case REFERENCE_TYPE:
     case OFFSET_TYPE:
     case FIXED_POINT_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case NULLPTR_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
@@ -4709,7 +4725,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	  break;
 	case VECTOR_CST:
 	  {
-	    enum machine_mode inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
+	    machine_mode inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
 	    unsigned int nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
 	    int elt_size = GET_MODE_SIZE (inner);
 	    output_constant (VECTOR_CST_ELT (exp, 0), elt_size, align);
@@ -5509,6 +5525,8 @@ vec<alias_pair, va_gc> *alias_pairs;
 void
 do_assemble_alias (tree decl, tree target)
 {
+  tree id;
+
   /* Emulated TLS had better not get this var.  */
   gcc_assert (!(!targetm.have_tls
 		&& TREE_CODE (decl) == VAR_DECL
@@ -5517,12 +5535,16 @@ do_assemble_alias (tree decl, tree target)
   if (TREE_ASM_WRITTEN (decl))
     return;
 
+  id = DECL_ASSEMBLER_NAME (decl);
+  ultimate_transparent_alias_target (&id);
+
   /* We must force creation of DECL_RTL for debug info generation, even though
      we don't use it here.  */
   make_decl_rtl (decl);
 
   TREE_ASM_WRITTEN (decl) = 1;
   TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
+  TREE_ASM_WRITTEN (id) = 1;
 
   if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
     {
@@ -5533,7 +5555,7 @@ do_assemble_alias (tree decl, tree target)
 
 #ifdef ASM_OUTPUT_WEAKREF
       ASM_OUTPUT_WEAKREF (asm_out_file, decl,
-			  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+			  IDENTIFIER_POINTER (id),
 			  IDENTIFIER_POINTER (target));
 #else
       if (!TARGET_SUPPORTS_WEAK)
@@ -5547,9 +5569,16 @@ do_assemble_alias (tree decl, tree target)
     }
 
 #ifdef ASM_OUTPUT_DEF
+  tree orig_decl = decl;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_node::get (decl)->instrumentation_clone
+      && cgraph_node::get (decl)->instrumented_version)
+    orig_decl = cgraph_node::get (decl)->instrumented_version->decl;
+
   /* Make name accessible from other files, if appropriate.  */
 
-  if (TREE_PUBLIC (decl))
+  if (TREE_PUBLIC (decl) || TREE_PUBLIC (orig_decl))
     {
       globalize_decl (decl);
       maybe_assemble_visibility (decl);
@@ -5559,7 +5588,7 @@ do_assemble_alias (tree decl, tree target)
 #if defined (ASM_OUTPUT_TYPE_DIRECTIVE)
       if (targetm.has_ifunc_p ())
 	ASM_OUTPUT_TYPE_DIRECTIVE
-	  (asm_out_file, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+	  (asm_out_file, IDENTIFIER_POINTER (id),
 	   IFUNC_ASM_TYPE);
       else
 #endif
@@ -5571,7 +5600,7 @@ do_assemble_alias (tree decl, tree target)
   ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
 # else
   ASM_OUTPUT_DEF (asm_out_file,
-		  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+		  IDENTIFIER_POINTER (id),
 		  IDENTIFIER_POINTER (target));
 # endif
 #elif defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
@@ -5579,7 +5608,7 @@ do_assemble_alias (tree decl, tree target)
     const char *name;
     tree *p, t;
 
-    name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+    name = IDENTIFIER_POINTER (id);
 # ifdef ASM_WEAKEN_DECL
     ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
 # else
@@ -5588,7 +5617,8 @@ do_assemble_alias (tree decl, tree target)
     /* Remove this function from the pending weak list so that
        we do not emit multiple .weak directives for it.  */
     for (p = &weak_decls; (t = *p) ; )
-      if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
+      if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (TREE_VALUE (t))
+	  || id == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
 	*p = TREE_CHAIN (t);
       else
 	p = &TREE_CHAIN (t);
@@ -5597,8 +5627,7 @@ do_assemble_alias (tree decl, tree target)
        list, for the same reason.  */
     for (p = &weakref_targets; (t = *p) ; )
       {
-	if (DECL_ASSEMBLER_NAME (decl)
-	    == ultimate_transparent_alias_target (&TREE_VALUE (t)))
+	if (id == ultimate_transparent_alias_target (&TREE_VALUE (t)))
 	  *p = TREE_CHAIN (t);
 	else
 	  p = &TREE_CHAIN (t);
@@ -5864,6 +5893,12 @@ maybe_assemble_visibility (tree decl)
 {
   enum symbol_visibility vis = DECL_VISIBILITY (decl);
 
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_node::get (decl)
+      && cgraph_node::get (decl)->instrumentation_clone
+      && cgraph_node::get (decl)->instrumented_version)
+    vis = DECL_VISIBILITY (cgraph_node::get (decl)->instrumented_version->decl);
+
   if (vis != VISIBILITY_DEFAULT)
     {
       targetm.asm_out.assemble_visibility (decl, vis);
@@ -5928,7 +5963,6 @@ init_varasm_once (void)
   object_block_htab = hash_table<object_block_hasher>::create_ggc (31);
   const_desc_htab = hash_table<tree_descriptor_hasher>::create_ggc (1009);
 
-  const_alias_set = new_alias_set ();
   shared_constant_pool = create_constant_pool ();
 
 #ifdef TEXT_SECTION_ASM_OP
@@ -6144,8 +6178,10 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
 
   if (!(flags & SECTION_DEBUG))
     *f++ = 'a';
+#if defined (HAVE_GAS_SECTION_EXCLUDE) && HAVE_GAS_SECTION_EXCLUDE == 1
   if (flags & SECTION_EXCLUDE)
     *f++ = 'e';
+#endif
   if (flags & SECTION_WRITE)
     *f++ = 'w';
   if (flags & SECTION_CODE)
@@ -6433,6 +6469,7 @@ default_unique_section (tree decl, int reloc)
   bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
   const char *prefix, *name, *linkonce;
   char *string;
+  tree id;
 
   switch (categorize_decl_for_section (decl, reloc))
     {
@@ -6482,7 +6519,9 @@ default_unique_section (tree decl, int reloc)
       gcc_unreachable ();
     }
 
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  id = DECL_ASSEMBLER_NAME (decl);
+  ultimate_transparent_alias_target (&id);
+  name = IDENTIFIER_POINTER (id);
   name = targetm.strip_name_encoding (name);
 
   /* If we're using one_only, then there needs to be a .gnu.linkonce
@@ -6538,7 +6577,7 @@ compute_reloc_for_rtx (const_rtx x)
 }
 
 section *
-default_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
+default_select_rtx_section (machine_mode mode ATTRIBUTE_UNUSED,
 			    rtx x,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
@@ -6549,7 +6588,7 @@ default_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 section *
-default_elf_select_rtx_section (enum machine_mode mode, rtx x,
+default_elf_select_rtx_section (machine_mode mode, rtx x,
 				unsigned HOST_WIDE_INT align)
 {
   int reloc = compute_reloc_for_rtx (x);
@@ -7384,7 +7423,7 @@ rtx
 make_debug_expr_from_rtl (const_rtx exp)
 {
   tree ddecl = make_node (DEBUG_EXPR_DECL), type;
-  enum machine_mode mode = GET_MODE (exp);
+  machine_mode mode = GET_MODE (exp);
   rtx dval;
 
   DECL_ARTIFICIAL (ddecl) = 1;

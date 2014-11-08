@@ -38,9 +38,13 @@
 typedef double __v8df __attribute__ ((__vector_size__ (64)));
 typedef float __v16sf __attribute__ ((__vector_size__ (64)));
 typedef long long __v8di __attribute__ ((__vector_size__ (64)));
+typedef unsigned long long __v8du __attribute__ ((__vector_size__ (64)));
 typedef int __v16si __attribute__ ((__vector_size__ (64)));
+typedef unsigned int __v16su __attribute__ ((__vector_size__ (64)));
 typedef short __v32hi __attribute__ ((__vector_size__ (64)));
+typedef unsigned short __v32hu __attribute__ ((__vector_size__ (64)));
 typedef char __v64qi __attribute__ ((__vector_size__ (64)));
+typedef unsigned char __v64qu __attribute__ ((__vector_size__ (64)));
 
 /* The Intel API is flexible enough that we must allow aliasing with other
    vector types, and their scalar components.  */
@@ -515,11 +519,7 @@ extern __inline __m512i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_mullo_epi32 (__m512i __A, __m512i __B)
 {
-  return (__m512i) __builtin_ia32_pmulld512_mask ((__v16si) __A,
-						  (__v16si) __B,
-						  (__v16si)
-						  _mm512_undefined_si512 (),
-						  (__mmask16) -1);
+  return (__m512i) ((__v16su) __A * (__v16su) __B);
 }
 
 extern __inline __m512i
@@ -642,11 +642,7 @@ extern __inline __m512i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_add_epi64 (__m512i __A, __m512i __B)
 {
-  return (__m512i) __builtin_ia32_paddq512_mask ((__v8di) __A,
-						 (__v8di) __B,
-						 (__v8di)
-						 _mm512_undefined_si512 (),
-						 (__mmask8) -1);
+  return (__m512i) ((__v8du) __A + (__v8du) __B);
 }
 
 extern __inline __m512i
@@ -674,11 +670,7 @@ extern __inline __m512i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_sub_epi64 (__m512i __A, __m512i __B)
 {
-  return (__m512i) __builtin_ia32_psubq512_mask ((__v8di) __A,
-						 (__v8di) __B,
-						 (__v8di)
-						 _mm512_undefined_pd (),
-						 (__mmask8) -1);
+  return (__m512i) ((__v8du) __A - (__v8du) __B);
 }
 
 extern __inline __m512i
@@ -802,11 +794,7 @@ extern __inline __m512i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_add_epi32 (__m512i __A, __m512i __B)
 {
-  return (__m512i) __builtin_ia32_paddd512_mask ((__v16si) __A,
-						 (__v16si) __B,
-						 (__v16si)
-						 _mm512_undefined_si512 (),
-						 (__mmask16) -1);
+  return (__m512i) ((__v16su) __A + (__v16su) __B);
 }
 
 extern __inline __m512i
@@ -865,11 +853,7 @@ extern __inline __m512i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_sub_epi32 (__m512i __A, __m512i __B)
 {
-  return (__m512i) __builtin_ia32_psubd512_mask ((__v16si) __A,
-						 (__v16si) __B,
-						 (__v16si)
-						 _mm512_undefined_si512 (),
-						 (__mmask16) -1);
+  return (__m512i) ((__v16su) __A - (__v16su) __B);
 }
 
 extern __inline __m512i

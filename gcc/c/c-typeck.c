@@ -40,7 +40,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-iterator.h"
 #include "bitmap.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-inline.h"
@@ -814,7 +821,7 @@ c_common_type (tree t1, tree t2)
   if (code1 == FIXED_POINT_TYPE || code2 == FIXED_POINT_TYPE)
     {
       unsigned int unsignedp = 0, satp = 0;
-      enum machine_mode m1, m2;
+      machine_mode m1, m2;
       unsigned int fbit1, ibit1, fbit2, ibit2, max_fbit, max_ibit;
 
       m1 = TYPE_MODE (t1);
@@ -8251,11 +8258,14 @@ output_init_element (location_t loc, tree value, tree origtype,
     value = array_to_pointer_conversion (input_location, value);
 
   if (TREE_CODE (value) == COMPOUND_LITERAL_EXPR
-      && require_constant_value && !flag_isoc99 && pending)
+      && require_constant_value && pending)
     {
       /* As an extension, allow initializing objects with static storage
 	 duration with compound literals (which are then treated just as
 	 the brace enclosed list they contain).  */
+      if (flag_isoc99)
+	pedwarn_init (loc, OPT_Wpedantic, "initializer element is not "
+		      "constant");
       tree decl = COMPOUND_LITERAL_EXPR_DECL (value);
       value = DECL_INITIAL (decl);
     }

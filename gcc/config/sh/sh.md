@@ -116,8 +116,9 @@
 
   (XD0_REG	136)
 
-  (FPSCR_PR	524288)
-  (FPSCR_SZ	1048576)
+  (FPSCR_PR	524288)  ;; 1 << 19
+  (FPSCR_SZ	1048576) ;; 1 << 20
+  (FPSCR_FR	2097152) ;; 1 << 21
 ])
 
 (define_c_enum "unspec" [
@@ -1579,7 +1580,7 @@
    (set (match_dup 4) (match_dup 5))]
 {
   rtx set1, set2;
-  rtx_insn *insn2;
+  rtx_insn *insn1, *insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -1606,14 +1607,16 @@
   /* ??? The last insn might be a jump insn, but the generic peephole2 code
      always uses emit_insn.  */
   /* Check that we don't violate matching constraints or earlyclobbers.  */
-  extract_insn (emit_insn (set1));
-  if (! constrain_operands (1))
+  basic_block bb = BLOCK_FOR_INSN (peep2_next_insn (2));
+  insn1 = emit_insn (set1);
+  extract_insn (insn1);
+  if (! constrain_operands (1, get_preferred_alternatives (insn1, bb)))
     goto failure;
   insn2 = emit (set2);
   if (GET_CODE (insn2) == BARRIER)
     goto failure;
   extract_insn (insn2);
-  if (! constrain_operands (1))
+  if (! constrain_operands (1, get_preferred_alternatives (insn2, bb)))
     {
       rtx tmp;
     failure:
@@ -3988,7 +3991,7 @@ label:
   [(set (match_dup 5) (match_dup 4))
    (set (match_dup 0) (sign_extend:DI (match_dup 5)))]
 {
-  enum machine_mode inmode = GET_MODE (operands[1]);
+  machine_mode inmode = GET_MODE (operands[1]);
   int offset = 0;
 
   if (GET_CODE (operands[0]) == SUBREG)
@@ -6508,11 +6511,11 @@ label:
   [(const_int 0)]
   "TARGET_SH2E"
 {
-  rtx insn = emit_insn (gen_fpu_switch (gen_frame_mem (PSImode,
-						 gen_rtx_PRE_DEC (Pmode,
-							  stack_pointer_rtx)),
-					get_fpscr_rtx ()));
-  add_reg_note (insn, REG_INC, stack_pointer_rtx);
+  add_reg_note (
+    emit_insn (
+      gen_sts_fpscr (
+	gen_frame_mem (SImode, gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx)))),
+    REG_INC, stack_pointer_rtx);
   DONE;
 })
 
@@ -6520,11 +6523,11 @@ label:
   [(const_int 0)]
   "TARGET_SH2E"
 {
-  rtx insn = emit_insn (gen_fpu_switch (get_fpscr_rtx (),
-					gen_frame_mem (PSImode,
-						 gen_rtx_POST_INC (Pmode,
-							  stack_pointer_rtx))));
-  add_reg_note (insn, REG_INC, stack_pointer_rtx);
+  add_reg_note (
+    emit_insn (
+      gen_lds_fpscr (
+	gen_frame_mem (SImode, gen_rtx_POST_INC (Pmode, stack_pointer_rtx)))),
+    REG_INC, stack_pointer_rtx);
   DONE;
 })
 
@@ -6713,8 +6716,10 @@ label:
 	(match_operand:SI 1 "general_movsrc_operand"
 	 "Q,r,I08,I20,I28,mr,x,l,r,x,l,r,r,>,>,>,y,i,r,y,y,*f,*f,y"))]
   "(TARGET_SH2E || TARGET_SH2A)
-   && (register_operand (operands[0], SImode)
-       || register_operand (operands[1], SImode))"
+   && ((register_operand (operands[0], SImode)
+	&& !fpscr_operand (operands[0], SImode))
+       || (register_operand (operands[1], SImode)
+	   && !fpscr_operand (operands[1], SImode)))"
   "@
 	mov.l	%1,%0
 	mov	%1,%0
@@ -8685,7 +8690,7 @@ label:
 		      (pc)))]
   "TARGET_SHMEDIA"
 {
-  enum machine_mode mode = GET_MODE (operands[1]);
+  machine_mode mode = GET_MODE (operands[1]);
   if (mode == VOIDmode)
     mode = GET_MODE (operands[2]);
   if (GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
@@ -11294,7 +11299,7 @@ label:
 	  (match_operand 3 "cmp_operand" "")]))]
   "TARGET_SHMEDIA"
 {
-  enum machine_mode mode = GET_MODE (operands[2]);
+  machine_mode mode = GET_MODE (operands[2]);
   enum rtx_code code = GET_CODE (operands[1]);
   bool invert, swap;
   if (mode == VOIDmode)
@@ -12207,97 +12212,69 @@ label:
 ;; Floating point instructions.
 ;; -------------------------------------------------------------------------
 
-;; ??? All patterns should have a type attribute.
-
-(define_expand "movpsi"
-  [(set (match_operand:PSI 0 "register_operand" "")
-	(match_operand:PSI 1 "general_movsrc_operand" ""))]
-  "TARGET_FPU_ANY"
-{
-  emit_insn (gen_fpu_switch (operands[0], operands[1]));
-  DONE;
-})
-
-;; The c / m alternative is a fake to guide reload to load directly into
-;; fpscr, since reload doesn't know how to use post-increment.
-;; TARGET_LEGITIMATE_ADDRESS_P guards about bogus addresses before reload,
-;; SECONDARY_INPUT_RELOAD_CLASS does this during reload, and the insn's
-;; predicate after reload.
-;; The mac_gp type for r/!c might look a bit odd, but it actually schedules
-;; like a mac -> gpr move.
-(define_insn "fpu_switch"
-  [(set (match_operand:PSI 0 "general_movdst_operand" "=c,c,r,c,c,r,m,r,<")
-	(match_operand:PSI 1 "general_movsrc_operand" " c,>,m,m,r,r,r,!c,c"))
-   (use (reg:SI FPSCR_STAT_REG))
-   (use (reg:SI FPSCR_MODES_REG))
+;; FIXME: For now we disallow any memory operands for fpscr loads/stores,
+;; except for post-inc loads and pre-dec stores for push/pop purposes.
+;; This avoids problems with reload.  As a consequence, user initiated fpscr
+;; stores to memory will always be ferried through a general register.
+;; User initiated fpscr loads always have to undergo bit masking to preserve
+;; the current fpu mode settings for the compiler generated code.  Thus such
+;; fpscr loads will always have to go through general registers anyways.
+(define_insn "lds_fpscr"
+  [(set (reg:SI FPSCR_REG)
+	(match_operand:SI 0 "fpscr_movsrc_operand" "r,>"))
    (set (reg:SI FPSCR_STAT_REG)
 	(unspec_volatile:SI [(const_int 0)] UNSPECV_FPSCR_STAT))
    (set (reg:SI FPSCR_MODES_REG)
 	(unspec_volatile:SI [(const_int 0)] UNSPECV_FPSCR_MODES))]
-  "TARGET_FPU_ANY
-   && (! reload_completed
-       || true_regnum (operands[0]) != FPSCR_REG
-       || !MEM_P (operands[1])
-       || GET_CODE (XEXP (operands[1], 0)) != PLUS)"
+  "TARGET_FPU_ANY"
   "@
-	! precision stays the same
-	lds.l	%1,fpscr
-	mov.l	%1,%0
-	#
-	lds	%1,fpscr
-	mov	%1,%0
-	mov.l	%1,%0
+	lds	%0,fpscr
+	lds.l	%0,fpscr"
+  [(set_attr "type" "gp_fpscr,mem_fpscr")])
+
+;; A move fpscr -> reg schedules like a move mac -> reg.  Thus we use mac_gp
+;; type for it.
+(define_insn "sts_fpscr"
+  [(set (match_operand:SI 0 "fpscr_movdst_operand" "=r,<")
+	(reg:SI FPSCR_REG))
+   (use (reg:SI FPSCR_STAT_REG))
+   (use (reg:SI FPSCR_MODES_REG))]
+  "TARGET_FPU_ANY"
+  "@
 	sts	fpscr,%0
 	sts.l	fpscr,%0"
-  [(set_attr "length" "0,2,2,4,2,2,2,2,2")
-   (set_attr "type" "nil,mem_fpscr,load,mem_fpscr,gp_fpscr,move,store,
-		     mac_gp,fstore")])
+  [(set_attr "type" "mac_gp,fstore")])
 
-(define_split
-  [(set (reg:PSI FPSCR_REG)
-        (match_operand:PSI 0 "simple_mem_operand"))
-   (use (reg:SI FPSCR_STAT_REG))
-   (use (reg:SI FPSCR_MODES_REG))
-   (set (reg:SI FPSCR_STAT_REG)
-	(unspec_volatile:SI [(const_int 0)] UNSPECV_FPSCR_STAT))
-   (set (reg:SI FPSCR_MODES_REG)
-	(unspec_volatile:SI [(const_int 0)] UNSPECV_FPSCR_MODES))]
-  "TARGET_FPU_ANY && reload_completed"
-  [(const_int 0)]
+(define_expand "set_fpscr"
+  [(parallel [(set (reg:SI FPSCR_REG)
+		   (match_operand:SI 0 "general_operand"))
+	      (set (reg:SI FPSCR_STAT_REG)
+		   (unspec_volatile:SI [(const_int 0)] UNSPECV_FPSCR_MODES))])]
+  "TARGET_FPU_ANY"
 {
-  rtx addrreg = XEXP (operands[0], 0);
-  rtx mem = replace_equiv_address (operands[0],
-				   gen_rtx_POST_INC (Pmode, addrreg));
+  /* We have to mask out the FR, SZ and PR bits.  To do that, we need to
+     get the current FPSCR value first.
+     (a & ~mask) | (b & mask) = a ^ ((a ^ b) & mask)  */
 
-  add_reg_note (emit_insn (gen_fpu_switch (get_fpscr_rtx (), mem)),
-		REG_INC, addrreg);
+  rtx mask = force_reg (SImode, GEN_INT (FPSCR_FR | FPSCR_SZ | FPSCR_PR));
 
-  /* Modify the address reg to compensate for the forced post-inc mode.
-     If the address reg becomes dead afterwards, the add will be eliminated
-     automatically.  */
-  emit_insn (gen_addsi3 (addrreg, addrreg, GEN_INT (-4)));
+  rtx a = force_reg (SImode, operands[0]);
+
+  rtx b = gen_reg_rtx (SImode);
+  emit_insn (gen_sts_fpscr (b));
+
+  rtx a_xor_b = gen_reg_rtx (SImode);
+  emit_insn (gen_xorsi3 (a_xor_b, a, b));
+
+  rtx a_xor_b_and_mask = gen_reg_rtx (SImode);
+  emit_insn (gen_andsi3 (a_xor_b_and_mask, a_xor_b, mask));
+
+  rtx r = gen_reg_rtx (SImode);
+  emit_insn (gen_xorsi3 (r, a_xor_b_and_mask, a));
+  emit_insn (gen_lds_fpscr (r));
+
+  DONE;
 })
-
-;; The 'extend_psi_si' and 'truncate_si_psi' insns are needed since we can't
-;; do logic on PSImode.  Adding PSImode logic patterns works, but loading
-;; a PSImode constant causes a double indirection, since the SH constant pool
-;; is not aware of it.
-;; FIXME: We could treat the FPSCR reg as SImode, but currently this causes
-;; additional troubles.
-(define_insn "extend_psi_si"
-  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(zero_extend:SI (match_operand:PSI 1 "arith_reg_operand" "0")))]
-  "TARGET_SH1"
-  ""
-  [(set_attr "length" "0")])
-
-(define_insn "truncate_si_psi"
-  [(set (match_operand:PSI 0 "arith_reg_dest" "=r")
-	(truncate:PSI (match_operand:SI 1 "arith_reg_operand" "0")))]
-  "TARGET_SH1"
-  ""
-  [(set_attr "length" "0")])
-
 
 ;; ??? This uses the fp unit, but has no type indicating that.
 ;; If we did that, this would either give a bogus latency or introduce
@@ -12306,8 +12283,8 @@ label:
 ;; it is probably best to claim no function unit, which matches the
 ;; current setting.
 (define_insn "toggle_sz"
-  [(set (reg:PSI FPSCR_REG)
-	(xor:PSI (reg:PSI FPSCR_REG) (const_int FPSCR_SZ)))
+  [(set (reg:SI FPSCR_REG)
+	(xor:SI (reg:SI FPSCR_REG) (const_int FPSCR_SZ)))
    (set (reg:SI FPSCR_MODES_REG)
 	(unspec_volatile:SI [(const_int 0)] UNSPECV_FPSCR_MODES))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE)"
@@ -12317,8 +12294,8 @@ label:
 ;; Toggle FPU precision PR mode.
 
 (define_insn "toggle_pr"
-  [(set (reg:PSI FPSCR_REG)
-	(xor:PSI (reg:PSI FPSCR_REG) (const_int FPSCR_PR)))
+  [(set (reg:SI FPSCR_REG)
+	(xor:SI (reg:SI FPSCR_REG) (const_int FPSCR_PR)))
    (set (reg:SI FPSCR_MODES_REG)
 	(unspec_volatile:SI [(const_int 0)] UNSPECV_FPSCR_MODES))]
   "TARGET_SH4A_FP"
@@ -14057,7 +14034,7 @@ label:
   [(set (match_dup 0) (match_dup 1))]
 {
   rtx v = operands[1];
-  enum machine_mode new_mode
+  machine_mode new_mode
     = mode_for_size (GET_MODE_BITSIZE (GET_MODE (v)), MODE_INT, 0);
 
   operands[0] = gen_rtx_REG (new_mode, true_regnum (operands[0]));
@@ -15146,7 +15123,7 @@ label:
   [(set (match_dup 0) (match_dup 3))]
 {
   rtx count = operands[2];
-  enum machine_mode outer_mode = GET_MODE (operands[2]), inner_mode;
+  machine_mode outer_mode = GET_MODE (operands[2]), inner_mode;
 
   while (GET_CODE (count) == ZERO_EXTEND || GET_CODE (count) == SIGN_EXTEND
 	 || (GET_CODE (count) == SUBREG && SUBREG_BYTE (count) == 0)
@@ -15826,10 +15803,7 @@ label:
   "TARGET_SHMEDIA && reload_completed"
   [(set (match_dup 0) (match_dup 1))]
 {
-  int n_changes = 0;
-
-  for_each_rtx (&operands[1], shmedia_cleanup_truncate, &n_changes);
-  if (!n_changes)
+  if (!shmedia_cleanup_truncate (operands[1]))
     FAIL;
 })
 
