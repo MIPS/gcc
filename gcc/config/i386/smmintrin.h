@@ -325,7 +325,7 @@ _mm_max_epu32 (__m128i __X, __m128i __Y)
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mullo_epi32 (__m128i __X, __m128i __Y)
 {
-  return (__m128i) __builtin_ia32_pmulld128 ((__v4si)__X, (__v4si)__Y);
+  return (__m128i) ((__v4su)__X * (__v4su)__Y);
 }
 
 /* Packed integer 32-bit multiplication of 2 pairs of operands
