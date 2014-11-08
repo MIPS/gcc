@@ -82,6 +82,7 @@
 #include "gimple-expr.h"
 #include "builtins.h"
 #include "tm-constrs.h"
+#include "rtl-iter.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -8110,25 +8111,6 @@ thumb_legitimize_reload_address (rtx *x_p,
   return NULL;
 }
 
-/* Test for various thread-local symbols.  */
-
-/* Helper for arm_tls_referenced_p.  */
-
-static int
-arm_tls_operand_p_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (*x) == SYMBOL_REF)
-    return SYMBOL_REF_TLS_MODEL (*x) != 0;
-
-  /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
-     TLS offsets, not real symbol references.  */
-  if (GET_CODE (*x) == UNSPEC
-      && XINT (*x, 1) == UNSPEC_TLS)
-    return -1;
-
-  return 0;
-}
-
 /* Return TRUE if X contains any TLS symbol references.  */
 
 bool
@@ -8137,7 +8119,19 @@ arm_tls_referenced_p (rtx x)
   if (! TARGET_HAVE_TLS)
     return false;
 
-  return for_each_rtx (&x, arm_tls_operand_p_1, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (x) != 0)
+	return true;
+
+      /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
+	 TLS offsets, not real symbol references.  */
+      if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_TLS)
+	iter.skip_subrtxes ();
+    }
+  return false;
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.
@@ -13205,16 +13199,6 @@ tls_mentioned_p (rtx x)
 
 /* Must not copy any rtx that uses a pc-relative address.  */
 
-static int
-arm_note_pic_base (rtx *x, void *date ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (*x) == UNSPEC
-      && (XINT (*x, 1) == UNSPEC_PIC_BASE
-	  || XINT (*x, 1) == UNSPEC_PIC_UNIFIED))
-    return 1;
-  return 0;
-}
-
 static bool
 arm_cannot_copy_insn_p (rtx_insn *insn)
 {
@@ -13223,7 +13207,16 @@ arm_cannot_copy_insn_p (rtx_insn *insn)
   if (recog_memoized (insn) == CODE_FOR_tlscall)
     return true;
 
-  return for_each_rtx (&PATTERN (insn), arm_note_pic_base, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (insn), ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == UNSPEC
+	  && (XINT (x, 1) == UNSPEC_PIC_BASE
+	      || XINT (x, 1) == UNSPEC_PIC_UNIFIED))
+	return true;
+    }
+  return false;
 }
 
 enum rtx_code
@@ -29012,7 +29005,11 @@ arm_set_return_address (rtx source, rtx scratch)
 
 	  addr = plus_constant (Pmode, addr, delta);
 	}
-      emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      /* The store needs to be marked as frame related in order to prevent
+	 DSE from deleting it as dead if it is based on fp.  */
+      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
     }
 }
 
@@ -29064,7 +29061,11 @@ thumb_set_return_address (rtx source, rtx scratch)
       else
 	addr = plus_constant (Pmode, addr, delta);
 
-      emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      /* The store needs to be marked as frame related in order to prevent
+	 DSE from deleting it as dead if it is based on fp.  */
+      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
     }
   else
     emit_move_insn (gen_rtx_REG (Pmode, LR_REGNUM), source);

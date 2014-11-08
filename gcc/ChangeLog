@@ -30,6 +30,38 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+2014-11-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/aarch64/aarch64.c: Include rtl-iter.h.
+	(aarch64_tls_operand_p_1): Delete.
+	(aarch64_tls_operand_p): Use FOR_EACH_SUBRTX.
+
+2014-11-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/arm/arm.c (arm_note_pic_base): Delete.
+	(arm_cannot_copy_insn_p): Use FOR_EACH_SUBRTX.
+
+2014-11-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/arm/arm.c: Include rtl-iter.h.
+	(arm_tls_referenced_p_1): Delete.
+	(arm_tls_referenced_p): Use FOR_EACH_SUBRTX.
+
+2014-11-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/arm/aarch-common.c: Include rtl-iter.h.
+	(search_term, arm_find_sub_rtx_with_search_term): Delete.
+	(arm_find_sub_rtx_with_code): Use FOR_EACH_SUBRTX_VAR.
+	(arm_get_set_operands): Pass the insn pattern rather than the
+	insn itself.
+	(arm_no_early_store_addr_dep): Likewise.
+
+2014-11-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_set_return_address): Mark the store as frame
+	related, if any.
+	(thumb_set_return_address): Likewise.
+
 2014-11-07  Jeff Law  <law@redhat.com>
 
 	PR tree-optimization/61515
