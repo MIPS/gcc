@@ -3018,12 +3018,10 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define PMODE_INSN(NAME, ARGS) \
   (Pmode == SImode ? NAME ## _si ARGS : NAME ## _di ARGS)
 
-<<<<<<< HEAD
-
 #define TARGET_CAN_COPY_MODES(orig_mode, copy_mode)		\
 	(((orig_mode) == SImode && (copy_mode) == DImode)	\
 	 || (GET_MODE_SIZE (orig_mode) >= GET_MODE_SIZE (copy_mode)))
-=======
+
 /* If we are *not* using multilibs and the default ABI is not ABI_32 we
    need to change these from /lib and /usr/lib.  */
 #if MIPS_ABI_DEFAULT == ABI_N32
@@ -3033,4 +3031,3 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define STANDARD_STARTFILE_PREFIX_1 "/lib64/"
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib64/"
 #endif
->>>>>>> origin/upstream
