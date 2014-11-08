@@ -1,3 +1,10 @@
+2014-11-07  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #12971
+	Bug #4613
+	* expr.c (expand_cond_expr_using_xors): Call
+	reduce_to_bit_field_precision if needed after the negation.
+
 2014-11-05  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
 
 	* config/aarch64/aarch64.c (aarch64_setup_incoming_varargs): Check if

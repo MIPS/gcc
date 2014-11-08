@@ -8370,7 +8370,8 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
 /* Try to expand the conditional expression which is represented by
    TREEOP0 ? TREEOP1 : TREEOP2 using an xor (one comp abs).  If succeseds
    return the rtl reg which represents the result.  Otherwise return
-   NULL_RTL.  */
+   NULL_RTL.  That is "a ? ~b : b" -> "b ^ -a"
+   and "a ? b : ~b" -> "b ^ -(a^1)"  */
 static rtx
 expand_cond_expr_using_xors (tree treeop0, tree treeop1, tree treeop2)
 {
@@ -8436,6 +8437,9 @@ expand_cond_expr_using_xors (tree treeop0, tree treeop1, tree treeop2)
   op0 = expand_unop (mode, optab_for_tree_code (NEGATE_EXPR, type, optab_default),
 		     op0, target, 0);
 
+  if (INTEGRAL_TYPE_P (type)
+      && GET_MODE_PRECISION (mode) > TYPE_PRECISION (type))
+    op0 = reduce_to_bit_field_precision (op0, NULL_RTX, type);
   /* op ^ -(treeop0) */
   return expand_binop (mode, xor_optab, op0, op1, target, 0,
 		       OPTAB_LIB_WIDEN);
