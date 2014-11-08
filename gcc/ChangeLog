@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 2014-08-20  Andrew Pinski  <apinski@cavium.com>
 	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
@@ -29,6 +30,154 @@
 	Define hooks.
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
+=======
+2014-11-07  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/61515
+	* tree-ssa-threadedge.c (invalidate_equivalences): Walk the unwinding
+	stack rather than looking at every SSA_NAME's value.
+
+2014-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63605
+	* fold-const.c (fold_binary_loc): Properly use element_precision
+	for types that may not be scalar.
+
+2014-11-07  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	PR target/63534
+	* config/i386/i386.md (builtin_setjmp_receiver): Use
+	pic_offset_table_rtx for PIC register.
+	(nonlocal_goto_receiver): Delete.
+
+2014-11-07  Daniel Hellstrom  <daniel@gaisler.com>
+
+	* config.gcc (sparc-*-rtems*): Clean away unused t-elf.
+	* config/sparc/t-rtems: Add leon3v7 and muser-mode multilibs.
+
+2014-11-07  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/63580
+	* cgraphunit.c (cgraph_node::create_wrapper):
+	TREE_ADDRESSABLE is set to false for a newly created thunk.
+
+2014-11-07  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/63747
+	* ipa-icf-gimple.c (func_checker::compare_gimple_switch):
+	Missing checking for CASE_LOW and CASE_HIGH added.
+
+2014-11-07  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/63595
+	* cgraphunit.c (cgraph_node::expand_thunk): DECL_BY_REFERENCE
+	is correctly handled for thunks created by IPA ICF.
+
+2014-11-07  Jiong Wang  <jiong.wang@arm.com>
+2014-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63676
+	* gimple-fold.c (fold_gimple_assign): Do not fold node when
+	TREE_CLOBBER_P be true.
+
+2014-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63770
+	* match.pd: Guard conflicting GENERIC pattern properly.
+
+2014-11-07  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add patterns for POINTER_PLUS_EXPR association
+	and special patterns from tree-ssa-forwprop.c
+	* fold-const.c (fold_binary_loc): Remove them here.
+	* tree-ssa-forwprop.c (to_purge): New global bitmap.
+	(fwprop_set_lattice_val): New function.
+	(fwprop_invalidate_lattice): Likewise.
+	(remove_prop_source_from_use): Instead of purging dead EH
+	edges record blocks to do that in to_purge.
+	(tidy_after_forward_propagate_addr): Likewise.
+	(forward_propagate_addr_expr): Invalidate the lattice for
+	SSA names we release.
+	(simplify_conversion_from_bitmask): Likewise.
+	(simplify_builtin_call): Likewise.
+	(associate_pointerplus_align): Remove.
+	(associate_pointerplus_diff): Likewise.
+	(associate_pointerplus): Likewise.
+	(fold_all_stmts): Merge with ...
+	(pass_forwprop::execute): ... the original loop over all
+	basic-blocks.  Delay purging dead EH edges and invalidate
+	the lattice for SSA names we release.
+
+2014-11-07  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.opt (masm-syntax-unified): New option.
+	* doc/invoke.texi (-masm-syntax-unified): Document new option.
+	* config/arm/arm.h (TARGET_UNIFIED_ASM): Also include thumb1.
+	(ASM_APP_ON): Redefined.
+	* config/arm/arm.c (arm_option_override): Thumb2 inline assembly
+	code always use UAL syntax.
+	(arm_output_mi_thunk): Use UAL syntax for Thumb1 target.
+	* config/arm/thumb1.md: Likewise.
+
+2014-11-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (trap): New insn.  Add "trap" to attribute type.
+	Don't allow trap insn in in_branch_delay, in_nullified_branch_delay
+	or in_call_delay.
+	
+2014-11-06  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config.gcc (mips*-mti-linux*): Remove gnu_ld and gas assignments.
+	Set default_mips_arch and default_mips_abi instead of tm_defines.
+	(mips*-*-linux*): Set default_mips_arch and default_mips_abi instead
+	of tm_defines.
+	(mips*-*-*): Check with_arch and with_abi.  Set tm_defines.
+	* config/mips/mips.h (STANDARD_STARTFILE_PREFIX_1): Set default
+	based on MIPS_ABI_DEFAULT.
+	(STANDARD_STARTFILE_PREFIX_2): Ditto.
+
+2014-11-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi (-std=c99, -std=c11): Don't refer to corner
+	cases of extended identifiers.
+
+2014-11-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-cfgcleanup.c (fixup_noreturn_call): Do not perform DCE here.
+
+2014-11-06  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/cond.md (movqicc_<code>_<mode>): Remove mode of
+	conditional.
+	(movhicc_<code>_<mode>): Likewise.
+	* config/m32c/m32c.c (encode_pattern_1): Specialise PSImode
+	subregs.
+	(m32c_eh_return_data_regno): Change to using memregs to avoid
+	tying up all the compute regs.
+	(m32c_legitimate_address_p) Subregs are not valid addresses.
+
+2014-11-06  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* target.def (call_args, end_call_args): New hooks.
+	* hooks.c (hook_void_rtx_tree): New empty function.
+	* hooks.h (hook_void_rtx_tree): Declare.
+	* doc/tm.texi.in (TARGET_CALL_ARGS, TARGET_END_CALL_ARGS): Add.
+	* doc/tm.texi: Regenerate.
+	* calls.c (expand_call): Slightly rearrange the code.  Use the two new
+	hooks.
+	(expand_library_call_value_1): Use the two new hooks.
+
+	* expr.c (use_reg_mode): Just return for pseudo registers.
+
+	* combine.c (try_combine): Don't allow a call as one of the source
+	insns.
+
+	* target.def (decl_end): New hook.
+	* varasm.c (assemble_variable_contents, assemble_constant_contents):
+	Use it.
+	* doc/tm.texi.in (TARGET_ASM_DECL_END): Add.
+	* doc/tm.texi: Regenerate.
+>>>>>>> origin/upstream
 
 2014-11-06  Renlin Li  <renlin.li@arm.com>
 

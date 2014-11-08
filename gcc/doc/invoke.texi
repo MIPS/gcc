@@ -546,6 +546,7 @@ Objective-C and Objective-C++ Dialects}.
 -munaligned-access @gol
 -mneon-for-64bits @gol
 -mslow-flash-data @gol
+-masm-syntax-unified @gol
 -mrestrict-it}
 
 @emph{AVR Options}
@@ -1674,7 +1675,7 @@ ISO C90 as modified in amendment 1.
 @itemx iso9899:1999
 @itemx iso9899:199x
 ISO C99.  This standard is substantially completely supported, modulo
-bugs, corner cases of extended identifiers and floating-point issues
+bugs and floating-point issues
 (mainly but not entirely relating to optional C99 features from
 Annexes F and G).  See
 @w{@uref{http://gcc.gnu.org/c99status.html}} for more information.  The
@@ -1684,8 +1685,7 @@ names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 @itemx c1x
 @itemx iso9899:2011
 ISO C11, the 2011 revision of the ISO C standard.  This standard is
-substantially completely supported, modulo bugs, corner cases of
-extended identifiers, floating-point issues
+substantially completely supported, modulo bugs, floating-point issues
 (mainly but not entirely relating to optional C11 features from
 Annexes F and G) and the optional Annexes K (Bounds-checking
 interfaces) and L (Analyzability).  The name @samp{c1x} is deprecated.
@@ -13033,6 +13033,16 @@ Assume loading data from flash is slower than fetching instruction.
 Therefore literal load is minimized for better performance.
 This option is only supported when compiling for ARMv7 M-profile and
 off by default.
+
+@item -masm-syntax-unified
+@opindex masm-syntax-unified
+Assume the Thumb1 inline assembly code are using unified syntax.
+The default is currently off, which means divided syntax is assumed.
+However, this may change in future releases of GCC.  Divided syntax
+should be considered deprecated.  This option has no effect when
+generating Thumb2 code.  Thumb2 assembly code always uses unified syntax.
+This option has no effect for ARM state assembly code which will still
+uses divided syntax.
 
 @item -mrestrict-it
 @opindex mrestrict-it

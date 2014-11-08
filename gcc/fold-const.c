@@ -10026,10 +10026,6 @@ fold_binary_loc (location_t loc,
       return NULL_TREE;
 
     case POINTER_PLUS_EXPR:
-      /* 0 +p index -> (type)index */
-      if (integer_zerop (arg0))
-	return non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
-
       /* INT +p INT -> (PTR)(INT + INT).  Stripping types allows for this. */
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
 	   && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
@@ -10039,19 +10035,6 @@ fold_binary_loc (location_t loc,
 								arg1),
 					      fold_convert_loc (loc, sizetype,
 								arg0)));
-
-      /* (PTR +p B) +p A -> PTR +p (B + A) */
-      if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
-	{
-	  tree inner;
-	  tree arg01 = fold_convert_loc (loc, sizetype, TREE_OPERAND (arg0, 1));
-	  tree arg00 = TREE_OPERAND (arg0, 0);
-	  inner = fold_build2_loc (loc, PLUS_EXPR, sizetype,
-			       arg01, fold_convert_loc (loc, sizetype, arg1));
-	  return fold_convert_loc (loc, type,
-				   fold_build_pointer_plus_loc (loc,
-								arg00, inner));
-	}
 
       /* PTR_CST +p CST -> CST1 */
       if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
@@ -12851,7 +12834,7 @@ fold_binary_loc (location_t loc,
 	  tree arg00 = TREE_OPERAND (arg0, 0);
 	  tree arg01 = TREE_OPERAND (arg0, 1);
 	  tree itype = TREE_TYPE (arg00);
-	  if (wi::eq_p (arg01, TYPE_PRECISION (itype) - 1))
+	  if (wi::eq_p (arg01, element_precision (itype) - 1))
 	    {
 	      if (TYPE_UNSIGNED (itype))
 		{

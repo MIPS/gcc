@@ -1,3 +1,64 @@
+2014-11-07  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.c-torture/execute/20141107-1.c: New testcase.
+
+2014-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63605
+	* gcc.dg/vect/pr63605.c: New testcase.
+
+2014-11-07  Jeff Law  <law@redhat.com>
+
+	* g++.dg/pr61289-2.C: Renamed from pr61289-2.c.
+
+2014-11-07  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/arm/lp1243022.c (xhci_test_trb_in_td): Add return type.
+	(xhci_check_trb_in_td_math): Likewise.
+
+2014-11-07  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.dg/tree-ssa/20040204-1.c: Add aarch64*-*-* to the list.
+
+2014-11-07  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/63580
+	* g++.dg/ipa/pr63580.C: New test.
+
+2014-11-07  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/63747
+	* gcc.dg/ipa/pr63747.c: New test.
+
+2014-11-07  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/63595
+	* g++.dg/ipa/pr63595.C: New test.
+
+2014-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63770
+	* gcc.dg/pr63770.c: New testcase.
+
+2014-11-07  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/anddi_notdi-1.c: Match with UAL format.
+	* gcc.target/arm/pr40956.c: Likewise.
+	* gcc.target/arm/thumb1-Os-mult.c: Likewise.
+	* gcc.target/arm/thumb1-load-64bit-constant-3.c: Likewise.
+	* gcc.target/arm/scd42-1.c: Likewise.
+
+2014-11-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* g++.dg/cpp/ucnid-2.C, g++.dg/cpp/ucnid-3.C,
+	gcc.dg/cpp/ucnid-11.c, gcc.dg/cpp/ucnid-12.c,
+	gcc.dg/cpp/ucnid-13.c, gcc.dg/cpp/ucnid-14.c,
+	gcc.dg/cpp/ucnid-15.c: New tests.
+
+2014-11-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt43.adb: New test.
+
 2014-11-06  Marek Polacek  <polacek@redhat.com>
 
 	* c-c++-common/ubsan/align-2.c: Add dg-output.

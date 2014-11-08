@@ -3860,6 +3860,10 @@ These machine description macros help implement varargs:
 
 @hook TARGET_STRICT_ARGUMENT_NAMING
 
+@hook TARGET_CALL_ARGS
+
+@hook TARGET_END_CALL_ARGS
+
 @hook TARGET_PRETEND_OUTGOING_VARARGS_NAMED
 
 @hook TARGET_LOAD_BOUNDS_FOR_ARG
@@ -5192,6 +5196,8 @@ It must not be modified by command-line option processing.
 @hook TARGET_ASM_BYTE_OP
 
 @hook TARGET_ASM_INTEGER
+
+@hook TARGET_ASM_DECL_END
 
 @hook TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 
