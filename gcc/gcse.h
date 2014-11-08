@@ -39,6 +39,4 @@ extern struct target_gcse *this_target_gcse;
 #define this_target_gcse (&default_target_gcse)
 #endif
 
-void gcse_c_finalize (void);
-
 #endif

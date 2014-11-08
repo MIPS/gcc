@@ -750,8 +750,6 @@ private
    pragma Inline (Unit_File_Name);
    pragma Inline (Unit_Name);
 
-   --  The Units Table
-
    type Unit_Record is record
       Unit_File_Name    : File_Name_Type;
       Unit_Name         : Unit_Name_Type;

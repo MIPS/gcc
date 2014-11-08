@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "function.h"
 #include "emit-rtl.h"
-#include "predict.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -43,9 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
@@ -54,7 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "calls.h"
 
-static const char *ipa_ref_use_name[] = {"read","write","addr","alias","chkp"};
+static const char *ipa_ref_use_name[] = {"read","write","addr","alias"};
 
 const char * const ld_plugin_symbol_resolution_names[]=
 {

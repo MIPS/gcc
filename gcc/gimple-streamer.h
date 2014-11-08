@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GIMPLE_STREAMER_H
 #define GCC_GIMPLE_STREAMER_H
 
+#include "basic-block.h"
 #include "hashtab.h"
 #include "hash-set.h"
 #include "vec.h"

@@ -24,24 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 extern struct cl_decoded_option *save_decoded_options;
 extern unsigned int save_decoded_options_count;
 
-/* Invoking the compiler.  */
-class toplev
-{
-public:
-  toplev (bool use_TV_TOTAL);
-  ~toplev ();
-
-  int main (int argc, char **argv);
-
-  void finalize ();
-
-private:
-
-  void start_timevars ();
-
-  bool m_use_TV_TOTAL;
-};
-
+extern int toplev_main (int, char **);
 extern void rest_of_decl_compilation (tree, int, int);
 extern void rest_of_type_compilation (tree, int);
 extern void init_optimization_passes (void);

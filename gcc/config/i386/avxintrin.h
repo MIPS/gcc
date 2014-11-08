@@ -41,13 +41,9 @@
 typedef double __v4df __attribute__ ((__vector_size__ (32)));
 typedef float __v8sf __attribute__ ((__vector_size__ (32)));
 typedef long long __v4di __attribute__ ((__vector_size__ (32)));
-typedef unsigned long long __v4du __attribute__ ((__vector_size__ (32)));
 typedef int __v8si __attribute__ ((__vector_size__ (32)));
-typedef unsigned int __v8su __attribute__ ((__vector_size__ (32)));
 typedef short __v16hi __attribute__ ((__vector_size__ (32)));
-typedef unsigned short __v16hu __attribute__ ((__vector_size__ (32)));
 typedef char __v32qi __attribute__ ((__vector_size__ (32)));
-typedef unsigned char __v32qu __attribute__ ((__vector_size__ (32)));
 
 /* The Intel API is flexible enough that we must allow aliasing with other
    vector types, and their scalar components.  */

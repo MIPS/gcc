@@ -80,9 +80,7 @@ typedef const struct vn_phi_s *const_vn_phi_t;
 
 typedef struct vn_reference_op_struct
 {
-  ENUM_BITFIELD(tree_code) opcode : 16;
-  /* 1 for instrumented calls.  */
-  unsigned with_bounds : 1;
+  enum tree_code opcode;
   /* Constant offset this op adds or -1 if it is variable.  */
   HOST_WIDE_INT off;
   tree type;

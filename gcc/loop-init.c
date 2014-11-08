@@ -25,17 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "regs.h"
 #include "obstack.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
@@ -43,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "ggc.h"
 #include "tree-ssa-loop-niter.h"
-#include "loop-unroll.h"
 
 
 /* Apply FLAGS to the loop state.  */

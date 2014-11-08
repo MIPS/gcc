@@ -63,17 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "flags.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
 #include "basic-block.h"
 #include "tree-pass.h"
 #include "target.h"
@@ -118,7 +107,7 @@ struct comparison
   struct comparison_use uses[MAX_CMP_USE];
 
   /* The original CC_MODE for this comparison.  */
-  machine_mode orig_mode;
+  enum machine_mode orig_mode;
 
   /* The number of uses identified for this comparison.  */
   unsigned short n_uses;
@@ -317,7 +306,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
       src = conforming_compare (insn);
       if (src)
 	{
-	  machine_mode src_mode = GET_MODE (src);
+	  enum machine_mode src_mode = GET_MODE (src);
 	  rtx eh_note = NULL;
 
 	  if (flag_non_call_exceptions)
@@ -338,7 +327,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 
 	  /* New mode must be compatible with the previous compare mode.  */
 	  {
-	    machine_mode new_mode
+	    enum machine_mode new_mode
 	      = targetm.cc_modes_compatible (last_cmp->orig_mode, src_mode);
 	    if (new_mode == VOIDmode)
 	      goto dont_delete;
@@ -466,7 +455,7 @@ static rtx
 maybe_select_cc_mode (struct comparison *cmp, rtx a ATTRIBUTE_UNUSED,
 		      rtx b ATTRIBUTE_UNUSED)
 {
-  machine_mode sel_mode;
+  enum machine_mode sel_mode;
   const int n = cmp->n_uses;
   rtx flags = NULL;
 
@@ -498,7 +487,7 @@ maybe_select_cc_mode (struct comparison *cmp, rtx a ATTRIBUTE_UNUSED,
       sel_mode = SELECT_CC_MODE (cmp->uses[0].code, a, b);
       for (i = 1; i < n; ++i)
 	{
-	  machine_mode new_mode;
+	  enum machine_mode new_mode;
 	  new_mode = SELECT_CC_MODE (cmp->uses[i].code, a, b);
 	  if (new_mode != sel_mode)
 	    {

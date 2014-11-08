@@ -72,9 +72,6 @@ along with GCC; see the file COPYING3.	If not see
 #include "input.h"
 #include "function.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "basic-block.h"
 #include "except.h"
 #include "optabs.h"
@@ -213,7 +210,7 @@ static rtx
 form_sum (rtx x, rtx y)
 {
   rtx tem;
-  machine_mode mode = GET_MODE (x);
+  enum machine_mode mode = GET_MODE (x);
 
   if (mode == VOIDmode)
     mode = GET_MODE (y);
@@ -310,7 +307,7 @@ get_elimination (rtx reg)
    If we make full substitution to SP for non-null INSN, add the insn
    sp offset.  */
 rtx
-lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
+lra_eliminate_regs_1 (rtx_insn *insn, rtx x, enum machine_mode mem_mode,
 		      bool subst_p, bool update_p, bool full_p)
 {
   enum rtx_code code = GET_CODE (x);
@@ -662,7 +659,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 /* This function is used externally in subsequent passes of GCC.  It
    always does a full elimination of X.	 */
 rtx
-lra_eliminate_regs (rtx x, machine_mode mem_mode,
+lra_eliminate_regs (rtx x, enum machine_mode mem_mode,
 		    rtx insn ATTRIBUTE_UNUSED)
 {
   return lra_eliminate_regs_1 (NULL, x, mem_mode, true, false, true);
@@ -679,7 +676,7 @@ static HOST_WIDE_INT curr_sp_change;
    MEM_MODE is the mode of an enclosing MEM rtx, or VOIDmode if not
    within a MEM.  */
 static void
-mark_not_eliminable (rtx x, machine_mode mem_mode)
+mark_not_eliminable (rtx x, enum machine_mode mem_mode)
 {
   enum rtx_code code = GET_CODE (x);
   struct lra_elim_table *ep;

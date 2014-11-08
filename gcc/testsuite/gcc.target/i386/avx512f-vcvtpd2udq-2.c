@@ -15,13 +15,9 @@ CALC (double *s, unsigned *r)
 {
   int i;
 
-  for (i = 0; i < SRC_SIZE; i++)
+  for (i = 0; i < DST_SIZE; i++)
     {
       r[i] = (unsigned) (s[i] + 0.5);
-    }
-  for (i = SRC_SIZE; i < DST_SIZE; i++)
-    {
-      r[i] = 0;
     }
 }
 

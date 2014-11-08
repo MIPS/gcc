@@ -82,7 +82,6 @@ static Type*
 runtime_function_type(Runtime_function_type bft)
 {
   go_assert(bft < NUMBER_OF_RUNTIME_FUNCTION_TYPES);
-  Type* any = Type::make_pointer_type(Type::make_void_type());
   if (runtime_function_types[bft] == NULL)
     {
       const Location bloc = Linemap::predeclared_location();
@@ -146,11 +145,13 @@ runtime_function_type(Runtime_function_type bft)
 	  break;
 
 	case RFT_SLICE:
-	  t = Type::make_array_type(any, NULL);
+	  t = Type::make_array_type(Type::make_void_type(), NULL);
 	  break;
 
 	case RFT_MAP:
-	  t = Type::make_map_type(any, any, bloc);
+	  t = Type::make_map_type(Type::make_void_type(),
+				  Type::make_void_type(),
+				  bloc);
 	  break;
 
 	case RFT_MAPITER:
@@ -158,7 +159,7 @@ runtime_function_type(Runtime_function_type bft)
 	  break;
 
 	case RFT_CHAN:
-	  t = Type::make_channel_type(true, true, any);
+	  t = Type::make_channel_type(true, true, Type::make_void_type());
 	  break;
 
 	case RFT_IFACE:
@@ -397,8 +398,12 @@ Type*
 Runtime::map_iteration_type()
 {
   const unsigned long map_iteration_size = 4;
-  Expression* iexpr =
-    Expression::make_integer_ul(map_iteration_size, NULL,
-				Linemap::predeclared_location());
+
+  mpz_t ival;
+  mpz_init_set_ui(ival, map_iteration_size);
+  Expression* iexpr = Expression::make_integer(&ival, NULL,
+                                               Linemap::predeclared_location());
+  mpz_clear(ival);
+
   return Type::make_array_type(runtime_function_type(RFT_POINTER), iexpr);
 }

@@ -88,8 +88,6 @@ write_header (void)
 #include \"output.h\"\n\
 #include \"flags.h\"\n\
 #include \"hard-reg-set.h\"\n\
-#include \"predict.h\"\n\
-#include \"basic-block.h\"\n\
 #include \"resource.h\"\n\
 #include \"diagnostic-core.h\"\n\
 #include \"reload.h\"\n\

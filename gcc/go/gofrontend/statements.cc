@@ -409,7 +409,13 @@ Temporary_statement::do_check_types(Gogo*)
   if (this->type_ != NULL && this->init_ != NULL)
     {
       std::string reason;
-      if (!Type::are_assignable(this->type_, this->init_->type(), &reason))
+      bool ok;
+      if (this->are_hidden_fields_ok_)
+	ok = Type::are_assignable_hidden_ok(this->type_, this->init_->type(),
+					    &reason);
+      else
+	ok = Type::are_assignable(this->type_, this->init_->type(), &reason);
+      if (!ok)
 	{
 	  if (reason.empty())
 	    error_at(this->location(), "incompatible types in assignment");
@@ -505,8 +511,14 @@ class Assignment_statement : public Statement
   Assignment_statement(Expression* lhs, Expression* rhs,
 		       Location location)
     : Statement(STATEMENT_ASSIGNMENT, location),
-      lhs_(lhs), rhs_(rhs)
+      lhs_(lhs), rhs_(rhs), are_hidden_fields_ok_(false)
   { }
+
+  // Note that it is OK for this assignment statement to set hidden
+  // fields.
+  void
+  set_hidden_fields_are_ok()
+  { this->are_hidden_fields_ok_ = true; }
 
  protected:
   int
@@ -532,6 +544,9 @@ class Assignment_statement : public Statement
   Expression* lhs_;
   // Right hand side--the rvalue.
   Expression* rhs_;
+  // True if this statement may set hidden fields in the assignment
+  // statement.  This is used for generated method stubs.
+  bool are_hidden_fields_ok_;
 };
 
 // Traversal.
@@ -592,7 +607,12 @@ Assignment_statement::do_check_types(Gogo*)
     }
 
   std::string reason;
-  if (!Type::are_assignable(lhs_type, rhs_type, &reason))
+  bool ok;
+  if (this->are_hidden_fields_ok_)
+    ok = Type::are_assignable_hidden_ok(lhs_type, rhs_type, &reason);
+  else
+    ok = Type::are_assignable(lhs_type, rhs_type, &reason);
+  if (!ok)
     {
       if (reason.empty())
 	error_at(this->location(), "incompatible types in assignment");
@@ -885,8 +905,14 @@ class Tuple_assignment_statement : public Statement
   Tuple_assignment_statement(Expression_list* lhs, Expression_list* rhs,
 			     Location location)
     : Statement(STATEMENT_TUPLE_ASSIGNMENT, location),
-      lhs_(lhs), rhs_(rhs)
+      lhs_(lhs), rhs_(rhs), are_hidden_fields_ok_(false)
   { }
+
+  // Note that it is OK for this assignment statement to set hidden
+  // fields.
+  void
+  set_hidden_fields_are_ok()
+  { this->are_hidden_fields_ok_ = true; }
 
  protected:
   int
@@ -911,6 +937,9 @@ class Tuple_assignment_statement : public Statement
   Expression_list* lhs_;
   // Right hand side--a list of rvalues.
   Expression_list* rhs_;
+  // True if this statement may set hidden fields in the assignment
+  // statement.  This is used for generated method stubs.
+  bool are_hidden_fields_ok_;
 };
 
 // Traversal.
@@ -969,6 +998,8 @@ Tuple_assignment_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
 
       Temporary_statement* temp = Statement::make_temporary((*plhs)->type(),
 							    *prhs, loc);
+      if (this->are_hidden_fields_ok_)
+	temp->set_hidden_fields_are_ok();
       b->add_statement(temp);
       temps.push_back(temp);
 
@@ -991,7 +1022,13 @@ Tuple_assignment_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
 	continue;
 
       Expression* ref = Expression::make_temporary_reference(*ptemp, loc);
-      b->add_statement(Statement::make_assignment(*plhs, ref, loc));
+      Statement* s = Statement::make_assignment(*plhs, ref, loc);
+      if (this->are_hidden_fields_ok_)
+	{
+	  Assignment_statement* as = static_cast<Assignment_statement*>(s);
+	  as->set_hidden_fields_are_ok();
+	}
+      b->add_statement(s);
       ++ptemp;
     }
   go_assert(ptemp == temps.end() || saw_errors());
@@ -1838,7 +1875,12 @@ Statement*
 Inc_dec_statement::do_lower(Gogo*, Named_object*, Block*, Statement_inserter*)
 {
   Location loc = this->location();
-  Expression* oexpr = Expression::make_integer_ul(1, this->expr_->type(), loc);
+
+  mpz_t oval;
+  mpz_init_set_ui(oval, 1UL);
+  Expression* oexpr = Expression::make_integer(&oval, NULL, loc);
+  mpz_clear(oval);
+
   Operator op = this->is_inc_ ? OPERATOR_PLUSEQ : OPERATOR_MINUSEQ;
   return Statement::make_assignment_operation(op, this->expr_, oexpr, loc);
 }
@@ -2694,7 +2736,12 @@ Return_statement::do_lower(Gogo*, Named_object* function, Block* enclosing,
       e->determine_type(&type_context);
 
       std::string reason;
-      if (Type::are_assignable(rvtype, e->type(), &reason))
+      bool ok;
+      if (this->are_hidden_fields_ok_)
+	ok = Type::are_assignable_hidden_ok(rvtype, e->type(), &reason);
+      else
+	ok = Type::are_assignable(rvtype, e->type(), &reason);
+      if (ok)
 	{
 	  Expression* ve = Expression::make_var_reference(rv, e->location());
 	  lhs->push_back(ve);
@@ -2716,13 +2763,28 @@ Return_statement::do_lower(Gogo*, Named_object* function, Block* enclosing,
     ;
   else if (lhs->size() == 1)
     {
-      b->add_statement(Statement::make_assignment(lhs->front(), rhs->front(),
-						  loc));
+      Statement* s = Statement::make_assignment(lhs->front(), rhs->front(),
+						loc);
+      if (this->are_hidden_fields_ok_)
+	{
+	  Assignment_statement* as = static_cast<Assignment_statement*>(s);
+	  as->set_hidden_fields_are_ok();
+	}
+      b->add_statement(s);
       delete lhs;
       delete rhs;
     }
   else
-    b->add_statement(Statement::make_tuple_assignment(lhs, rhs, loc));
+    {
+      Statement* s = Statement::make_tuple_assignment(lhs, rhs, loc);
+      if (this->are_hidden_fields_ok_)
+	{
+	  Tuple_assignment_statement* tas =
+	    static_cast<Tuple_assignment_statement*>(s);
+	  tas->set_hidden_fields_are_ok();
+	}
+      b->add_statement(s);
+    }
 
   b->add_statement(this);
 
@@ -3436,7 +3498,7 @@ Case_clauses::Case_clause::get_backend(Translate_context* context,
 		  continue;
 		}
 	      go_assert(nc.type() != NULL);
-	      e = Expression::make_integer_z(&ival, nc.type(), e->location());
+	      e = Expression::make_integer(&ival, nc.type(), e->location());
 	      mpz_clear(ival);
 	    }
 
@@ -4554,8 +4616,10 @@ Select_clauses::Select_clause::lower(Gogo* gogo, Named_object* function,
 
   Expression* selref = Expression::make_temporary_reference(sel, loc);
 
-  Expression* index_expr = Expression::make_integer_ul(this->index_, NULL,
-						       loc);
+  mpz_t ival;
+  mpz_init_set_ui(ival, this->index_);
+  Expression* index_expr = Expression::make_integer(&ival, NULL, loc);
+  mpz_clear(ival);
 
   if (this->is_default_)
     {
@@ -4900,8 +4964,11 @@ Select_clauses::get_backend(Translate_context* context,
        ++p, ++i)
     {
       int index = p->index();
-      Expression* index_expr = Expression::make_integer_ul(index, int32_type,
-							   location);
+      mpz_t ival;
+      mpz_init_set_ui(ival, index);
+      Expression* index_expr = Expression::make_integer(&ival, int32_type,
+							location);
+      mpz_clear(ival);
       cases[i].push_back(index_expr->get_backend(context));
 
       Bstatement* s = p->get_statements_backend(context);
@@ -4983,8 +5050,11 @@ Select_statement::do_lower(Gogo* gogo, Named_object* function,
 
   go_assert(this->sel_ == NULL);
 
-  Expression* size_expr = Expression::make_integer_ul(this->clauses_->size(),
-						      NULL, loc);
+  mpz_t ival;
+  mpz_init_set_ui(ival, this->clauses_->size());
+  Expression* size_expr = Expression::make_integer(&ival, NULL, loc);
+  mpz_clear(ival);
+
   Expression* call = Runtime::make_call(Runtime::NEWSELECT, loc, 1, size_expr);
 
   this->sel_ = Statement::make_temporary(NULL, call, loc);
@@ -5475,7 +5545,10 @@ For_range_statement::lower_range_array(Gogo* gogo,
 							    len_call, loc);
   init->add_statement(len_temp);
 
-  Expression* zexpr = Expression::make_integer_ul(0, NULL, loc);
+  mpz_t zval;
+  mpz_init_set_ui(zval, 0UL);
+  Expression* zexpr = Expression::make_integer(&zval, NULL, loc);
+  mpz_clear(zval);
 
   Temporary_reference_expression* tref =
     Expression::make_temporary_reference(index_temp, loc);
@@ -5573,7 +5646,10 @@ For_range_statement::lower_range_slice(Gogo* gogo,
 							    len_call, loc);
   init->add_statement(len_temp);
 
-  Expression* zexpr = Expression::make_integer_ul(0, NULL, loc);
+  mpz_t zval;
+  mpz_init_set_ui(zval, 0UL);
+  Expression* zexpr = Expression::make_integer(&zval, NULL, loc);
+  mpz_clear(zval);
 
   Temporary_reference_expression* tref =
     Expression::make_temporary_reference(index_temp, loc);
@@ -5662,7 +5738,9 @@ For_range_statement::lower_range_string(Gogo*,
     Statement::make_temporary(index_temp->type(), NULL, loc);
   init->add_statement(next_index_temp);
 
-  Expression* zexpr = Expression::make_integer_ul(0, NULL, loc);
+  mpz_t zval;
+  mpz_init_set_ui(zval, 0UL);
+  Expression* zexpr = Expression::make_integer(&zval, NULL, loc);
 
   Temporary_reference_expression* ref =
     Expression::make_temporary_reference(index_temp, loc);
@@ -5721,7 +5799,8 @@ For_range_statement::lower_range_string(Gogo*,
   iter_init->add_statement(s);
 
   ref = Expression::make_temporary_reference(next_index_temp, loc);
-  zexpr = Expression::make_integer_ul(0, NULL, loc);
+  zexpr = Expression::make_integer(&zval, NULL, loc);
+  mpz_clear(zval);
   Expression* equals = Expression::make_binary(OPERATOR_EQEQ, ref, zexpr, loc);
 
   Block* then_block = new Block(iter_init, loc);
@@ -5801,11 +5880,18 @@ For_range_statement::lower_range_map(Gogo*,
   //   hiter[0] != nil
 
   ref = Expression::make_temporary_reference(hiter, loc);
-  Expression* zexpr = Expression::make_integer_ul(0, NULL, loc);
+
+  mpz_t zval;
+  mpz_init_set_ui(zval, 0UL);
+  Expression* zexpr = Expression::make_integer(&zval, NULL, loc);
+  mpz_clear(zval);
+
   Expression* index = Expression::make_index(ref, zexpr, NULL, NULL, loc);
+
   Expression* ne = Expression::make_binary(OPERATOR_NOTEQ, index,
 					   Expression::make_nil(loc),
 					   loc);
+
   *pcond = ne;
 
   // Set *PITER_INIT to

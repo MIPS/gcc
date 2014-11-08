@@ -41,17 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "timevar.h"
 #include "diagnostic.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "target.h"
@@ -2449,7 +2438,7 @@ finish_increment_expr (tree expr, enum tree_code code)
 tree
 finish_this_expr (void)
 {
-  tree result = NULL_TREE;
+  tree result;
 
   if (current_class_ptr)
     {
@@ -2461,19 +2450,25 @@ finish_this_expr (void)
       else
         result = current_class_ptr;
     }
-
-  if (result)
-    /* The keyword 'this' is a prvalue expression.  */
-    return rvalue (result);
-
-  tree fn = current_nonlambda_function ();
-  if (fn && DECL_STATIC_FUNCTION_P (fn))
-    error ("%<this%> is unavailable for static member functions");
-  else if (fn)
-    error ("invalid use of %<this%> in non-member function");
+  else if (current_function_decl
+	   && DECL_STATIC_FUNCTION_P (current_function_decl))
+    {
+      error ("%<this%> is unavailable for static member functions");
+      result = error_mark_node;
+    }
   else
-    error ("invalid use of %<this%> at top level");
-  return error_mark_node;
+    {
+      if (current_function_decl)
+	error ("invalid use of %<this%> in non-member function");
+      else
+	error ("invalid use of %<this%> at top level");
+      result = error_mark_node;
+    }
+
+  /* The keyword 'this' is a prvalue expression.  */
+  result = rvalue (result);
+
+  return result;
 }
 
 /* Finish a pseudo-destructor expression.  If SCOPE is NULL, the

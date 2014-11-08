@@ -183,45 +183,39 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestParseInLocation(t *testing.T) {
-	// Check that Parse (and ParseInLocation) understand that
-	// Feb 01 AST (Arabia Standard Time) and Feb 01 AST (Atlantic Standard Time)
-	// are in different time zones even though both are called AST
-
-	baghdad, err := LoadLocation("Asia/Baghdad")
+func TestParseInSydney(t *testing.T) {
+	loc, err := LoadLocation("Australia/Sydney")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t1, err := ParseInLocation("Jan 02 2006 MST", "Feb 01 2013 AST", baghdad)
+	// Check that Parse (and ParseInLocation) understand
+	// that Feb EST and Aug EST are different time zones in Sydney
+	// even though both are called EST.
+	t1, err := ParseInLocation("Jan 02 2006 MST", "Feb 01 2013 EST", loc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t2 := Date(2013, February, 1, 00, 00, 00, 0, baghdad)
+	t2 := Date(2013, February, 1, 00, 00, 00, 0, loc)
 	if t1 != t2 {
-		t.Fatalf("ParseInLocation(Feb 01 2013 AST, Baghdad) = %v, want %v", t1, t2)
+		t.Fatalf("ParseInLocation(Feb 01 2013 EST, Sydney) = %v, want %v", t1, t2)
 	}
 	_, offset := t1.Zone()
-	if offset != 3*60*60 {
-		t.Fatalf("ParseInLocation(Feb 01 2013 AST, Baghdad).Zone = _, %d, want _, %d", offset, 3*60*60)
+	if offset != 11*60*60 {
+		t.Fatalf("ParseInLocation(Feb 01 2013 EST, Sydney).Zone = _, %d, want _, %d", offset, 11*60*60)
 	}
 
-	blancSablon, err := LoadLocation("America/Blanc-Sablon")
+	t1, err = ParseInLocation("Jan 02 2006 MST", "Aug 01 2013 EST", loc)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	t1, err = ParseInLocation("Jan 02 2006 MST", "Feb 01 2013 AST", blancSablon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t2 = Date(2013, February, 1, 00, 00, 00, 0, blancSablon)
+	t2 = Date(2013, August, 1, 00, 00, 00, 0, loc)
 	if t1 != t2 {
-		t.Fatalf("ParseInLocation(Feb 01 2013 AST, Blanc-Sablon) = %v, want %v", t1, t2)
+		t.Fatalf("ParseInLocation(Aug 01 2013 EST, Sydney) = %v, want %v", t1, t2)
 	}
 	_, offset = t1.Zone()
-	if offset != -4*60*60 {
-		t.Fatalf("ParseInLocation(Feb 01 2013 AST, Blanc-Sablon).Zone = _, %d, want _, %d", offset, -4*60*60)
+	if offset != 10*60*60 {
+		t.Fatalf("ParseInLocation(Aug 01 2013 EST, Sydney).Zone = _, %d, want _, %d", offset, 10*60*60)
 	}
 }
 

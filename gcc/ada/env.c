@@ -76,6 +76,10 @@
 extern "C" {
 #endif
 
+#if defined (__APPLE__)
+#include <crt_externs.h>
+#endif
+
 #ifdef VMS
 #include <vms/descrip.h>
 #endif
@@ -204,6 +208,9 @@ __gnat_environ (void)
 #if defined (VMS) || defined (RTX)
   /* Not implemented */
   return NULL;
+#elif defined (__APPLE__)
+  char ***result = _NSGetEnviron ();
+  return *result;
 #elif defined (__MINGW32__)
   return _environ;
 #elif defined (sun)

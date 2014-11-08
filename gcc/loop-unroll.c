@@ -25,22 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
-#include "profile.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "params.h"
-#include "insn-codes.h"
-#include "optabs.h"
 #include "expr.h"
 #include "hash-table.h"
 #include "recog.h"
@@ -782,7 +769,7 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
 {
   rtx_insn *seq, *jump;
   rtx cond;
-  machine_mode mode;
+  enum machine_mode mode;
 
   mode = GET_MODE (op0);
   if (mode == VOIDmode)
@@ -1248,7 +1235,7 @@ unroll_loop_stupid (struct loop *loop)
    Set *DEBUG_USES to the number of debug insns that reference the
    variable.  */
 
-static bool
+bool
 referenced_in_one_insn_in_loop_p (struct loop *loop, rtx reg,
 				  int *debug_uses)
 {
@@ -1681,7 +1668,7 @@ split_iv (struct iv_to_split *ivts, rtx_insn *insn, unsigned delta)
 {
   rtx expr, *loc, incr, var;
   rtx_insn *seq;
-  machine_mode mode = GET_MODE (ivts->base_var);
+  enum machine_mode mode = GET_MODE (ivts->base_var);
   rtx src, dest, set;
 
   /* Construct base + DELTA * step.  */
@@ -1821,7 +1808,7 @@ insert_var_expansion_initialization (struct var_to_expand *ve,
   rtx_insn *seq;
   rtx var, zero_init;
   unsigned i;
-  machine_mode mode = GET_MODE (ve->reg);
+  enum machine_mode mode = GET_MODE (ve->reg);
   bool honor_signed_zero_p = HONOR_SIGNED_ZEROS (mode);
 
   if (ve->var_expansions.length () == 0)

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=bounds -fno-sanitize-recover=bounds -Wall" } */
+/* { dg-options "-fsanitize=bounds -fno-sanitize-recover -Wall" } */
 
 /* Don't fail on valid uses.  */
 

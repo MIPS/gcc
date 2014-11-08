@@ -31,15 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "hash-table.h"
 #include "hard-reg-set.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "basic-block.h"
 #include "expr.h"
 #include "diagnostic-core.h"
@@ -1035,7 +1026,7 @@ setup_profitable_hard_regs (void)
   ira_allocno_t a;
   bitmap_iterator bi;
   enum reg_class aclass;
-  machine_mode mode;
+  enum machine_mode mode;
   allocno_color_data_t data;
 
   /* Initial set up from allocno classes and explicitly conflicting
@@ -1346,7 +1337,7 @@ update_costs_from_allocno (ira_allocno_t allocno, int hard_regno,
 			   int divisor, bool decr_p, bool record_p)
 {
   int cost, update_cost;
-  machine_mode mode;
+  enum machine_mode mode;
   enum reg_class rclass, aclass;
   ira_allocno_t another_allocno, from = NULL;
   ira_copy_t cp, next_cp;
@@ -1577,7 +1568,7 @@ check_hard_reg_p (ira_allocno_t a, int hard_regno,
 {
   int j, nwords, nregs;
   enum reg_class aclass;
-  machine_mode mode;
+  enum machine_mode mode;
 
   aclass = ALLOCNO_CLASS (a);
   mode = ALLOCNO_MODE (a);
@@ -1615,7 +1606,7 @@ check_hard_reg_p (ira_allocno_t a, int hard_regno,
    function prologue/epilogue if we allocate HARD_REGNO to hold value
    of MODE.  */
 static int
-calculate_saved_nregs (int hard_regno, machine_mode mode)
+calculate_saved_nregs (int hard_regno, enum machine_mode mode)
 {
   int i;
   int nregs = 0;
@@ -1660,7 +1651,7 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
   int cost, mem_cost, min_cost, full_cost, min_full_cost, nwords, word;
   int *a_costs;
   enum reg_class aclass;
-  machine_mode mode;
+  enum machine_mode mode;
   static int costs[FIRST_PSEUDO_REGISTER], full_costs[FIRST_PSEUDO_REGISTER];
   int saved_nregs;
   enum reg_class rclass;
@@ -2444,7 +2435,7 @@ static int
 calculate_allocno_spill_cost (ira_allocno_t a)
 {
   int regno, cost;
-  machine_mode mode;
+  enum machine_mode mode;
   enum reg_class rclass;
   ira_allocno_t parent_allocno;
   ira_loop_tree_node_t parent_node, loop_node;
@@ -2730,7 +2721,7 @@ improve_allocation (void)
   int check, spill_cost, min_cost, nregs, conflict_nregs, r, best;
   bool try_p;
   enum reg_class aclass;
-  machine_mode mode;
+  enum machine_mode mode;
   int *allocno_costs;
   int costs[FIRST_PSEUDO_REGISTER];
   HARD_REG_SET conflicting_regs[2], profitable_hard_regs;
@@ -3154,7 +3145,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
   int cost, exit_freq, enter_freq;
   unsigned int j;
   bitmap_iterator bi;
-  machine_mode mode;
+  enum machine_mode mode;
   enum reg_class rclass, aclass, pclass;
   ira_allocno_t a, subloop_allocno;
   ira_loop_tree_node_t subloop_node;
@@ -3356,7 +3347,7 @@ move_spill_restore (void)
   int cost, regno, hard_regno, hard_regno2, index;
   bool changed_p;
   int enter_freq, exit_freq;
-  machine_mode mode;
+  enum machine_mode mode;
   enum reg_class rclass;
   ira_allocno_t a, parent_allocno, subloop_allocno;
   ira_loop_tree_node_t parent, loop_node, subloop_node;
@@ -3469,7 +3460,7 @@ static void
 update_curr_costs (ira_allocno_t a)
 {
   int i, hard_regno, cost;
-  machine_mode mode;
+  enum machine_mode mode;
   enum reg_class aclass, rclass;
   ira_allocno_t another_a;
   ira_copy_t cp, next_cp;
@@ -4732,7 +4723,7 @@ fast_allocation (void)
   bool no_stack_reg_p;
 #endif
   enum reg_class aclass;
-  machine_mode mode;
+  enum machine_mode mode;
   ira_allocno_t a;
   ira_allocno_iterator ai;
   live_range_t r;

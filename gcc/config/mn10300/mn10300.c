@@ -37,7 +37,6 @@
 #include "recog.h"
 #include "reload.h"
 #include "expr.h"
-#include "insn-codes.h"
 #include "optabs.h"
 #include "hashtab.h"
 #include "hash-set.h"
@@ -51,15 +50,6 @@
 #include "tm-constrs.h"
 #include "target.h"
 #include "target-def.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "df.h"
 #include "opts.h"
 #include "cfgloop.h"
@@ -80,7 +70,7 @@ enum processor_type mn10300_tune_cpu = PROCESSOR_DEFAULT;
 #define CC_FLAG_C	4
 #define CC_FLAG_V	8
 
-static int cc_flags_for_mode(machine_mode);
+static int cc_flags_for_mode(enum machine_mode);
 static int cc_flags_for_code(enum rtx_code);
 
 /* Implement TARGET_OPTION_OVERRIDE.  */
@@ -161,7 +151,7 @@ mn10300_print_operand (FILE *file, rtx x, int code)
     case 'B':
       {
 	enum rtx_code cmp = GET_CODE (x);
-	machine_mode mode = GET_MODE (XEXP (x, 0));
+	enum machine_mode mode = GET_MODE (XEXP (x, 0));
 	const char *str;
 	int have_flags;
 
@@ -1370,7 +1360,7 @@ mn10300_preferred_output_reload_class (rtx x, reg_class_t rclass)
 
 static reg_class_t
 mn10300_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
-			  machine_mode mode, secondary_reload_info *sri)
+			  enum machine_mode mode, secondary_reload_info *sri)
 {
   enum reg_class rclass = (enum reg_class) rclass_i;
   enum reg_class xclass = NO_REGS;
@@ -1540,7 +1530,7 @@ mn10300_va_start (tree valist, rtx nextarg)
 
 static bool
 mn10300_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
-			   machine_mode mode, const_tree type,
+			   enum machine_mode mode, const_tree type,
 			   bool named ATTRIBUTE_UNUSED)
 {
   unsigned HOST_WIDE_INT size;
@@ -1557,7 +1547,7 @@ mn10300_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
    from a function.  If the result is NULL_RTX, the argument is pushed.  */
 
 static rtx
-mn10300_function_arg (cumulative_args_t cum_v, machine_mode mode,
+mn10300_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		      const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
@@ -1606,7 +1596,7 @@ mn10300_function_arg (cumulative_args_t cum_v, machine_mode mode,
    (TYPE is null for libcalls where that information may not be available.)  */
 
 static void
-mn10300_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
+mn10300_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 			      const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
@@ -1620,7 +1610,7 @@ mn10300_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
    partially in registers and partially in memory.  */
 
 static int
-mn10300_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
+mn10300_arg_partial_bytes (cumulative_args_t cum_v, enum machine_mode mode,
 			   tree type, bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
@@ -1666,7 +1656,7 @@ mn10300_function_value (const_tree valtype,
 			bool outgoing)
 {
   rtx rv;
-  machine_mode mode = TYPE_MODE (valtype);
+  enum machine_mode mode = TYPE_MODE (valtype);
 
   if (! POINTER_TYPE_P (valtype))
     return gen_rtx_REG (mode, FIRST_DATA_REGNUM);
@@ -1690,7 +1680,7 @@ mn10300_function_value (const_tree valtype,
 /* Implements TARGET_LIBCALL_VALUE.  */
 
 static rtx
-mn10300_libcall_value (machine_mode mode,
+mn10300_libcall_value (enum machine_mode mode,
 		       const_rtx fun ATTRIBUTE_UNUSED)
 {
   return gen_rtx_REG (mode, FIRST_DATA_REGNUM);
@@ -1802,7 +1792,7 @@ mn10300_output_add (rtx operands[3], bool need_flags)
 
 int
 mn10300_symbolic_operand (rtx op,
-			  machine_mode mode ATTRIBUTE_UNUSED)
+			  enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (op))
     {
@@ -1834,7 +1824,7 @@ mn10300_symbolic_operand (rtx op,
 
 static rtx
 mn10300_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
-			    machine_mode mode ATTRIBUTE_UNUSED)
+			    enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (flag_pic && ! mn10300_legitimate_pic_operand_p (x))
     x = mn10300_legitimize_pic_address (oldx, NULL_RTX);
@@ -1965,7 +1955,7 @@ mn10300_legitimate_pic_operand_p (rtx x)
    function record_unscaled_index_insn_codes.  */
 
 static bool
-mn10300_legitimate_address_p (machine_mode mode, rtx x, bool strict)
+mn10300_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 {
   rtx base, index;
 
@@ -2033,7 +2023,7 @@ mn10300_regno_in_class_p (unsigned regno, int rclass, bool strict)
 
 rtx
 mn10300_legitimize_reload_address (rtx x,
-				   machine_mode mode ATTRIBUTE_UNUSED,
+				   enum machine_mode mode ATTRIBUTE_UNUSED,
 				   int opnum, int type,
 				   int ind_levels ATTRIBUTE_UNUSED)
 {
@@ -2070,7 +2060,7 @@ mn10300_legitimize_reload_address (rtx x,
    those here.  */
 
 static bool
-mn10300_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+mn10300_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
   switch (GET_CODE (x))
     {
@@ -2176,7 +2166,7 @@ mn10300_delegitimize_address (rtx orig_x)
    with an address register.  */
 
 static int
-mn10300_address_cost (rtx x, machine_mode mode ATTRIBUTE_UNUSED,
+mn10300_address_cost (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
 		      addr_space_t as ATTRIBUTE_UNUSED, bool speed)
 {
   HOST_WIDE_INT i;
@@ -2241,7 +2231,7 @@ mn10300_address_cost (rtx x, machine_mode mode ATTRIBUTE_UNUSED,
    early exit from reload meaning no work is required.  */
 
 static int
-mn10300_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
+mn10300_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 			    reg_class_t ifrom, reg_class_t ito)
 {
   enum reg_class from = (enum reg_class) ifrom;
@@ -2328,7 +2318,7 @@ mn10300_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
    move cost above.  This is not a problem.  */
 
 static int
-mn10300_memory_move_cost (machine_mode mode ATTRIBUTE_UNUSED, 
+mn10300_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED, 
 			  reg_class_t iclass, bool in ATTRIBUTE_UNUSED)
 {
   enum reg_class rclass = (enum reg_class) iclass;
@@ -2640,7 +2630,7 @@ mn10300_can_output_mi_thunk (const_tree    thunk_fndecl ATTRIBUTE_UNUSED,
 }
 
 bool
-mn10300_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+mn10300_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 {
   if (REGNO_REG_CLASS (regno) == FP_REGS
       || REGNO_REG_CLASS (regno) == FP_ACC_REGS)
@@ -2662,7 +2652,7 @@ mn10300_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 }
 
 bool
-mn10300_modes_tieable (machine_mode mode1, machine_mode mode2)
+mn10300_modes_tieable (enum machine_mode mode1, enum machine_mode mode2)
 {
   if (GET_MODE_CLASS (mode1) == MODE_FLOAT
       && GET_MODE_CLASS (mode2) != MODE_FLOAT)
@@ -2681,7 +2671,7 @@ mn10300_modes_tieable (machine_mode mode1, machine_mode mode2)
 }
 
 static int
-cc_flags_for_mode (machine_mode mode)
+cc_flags_for_mode (enum machine_mode mode)
 {
   switch (mode)
     {
@@ -2739,7 +2729,7 @@ cc_flags_for_code (enum rtx_code code)
     }
 }
 
-machine_mode
+enum machine_mode
 mn10300_select_cc_mode (enum rtx_code code, rtx x, rtx y ATTRIBUTE_UNUSED)
 {
   int req;
@@ -2885,7 +2875,7 @@ mn10300_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
 /* A helper function for splitting cbranch patterns after reload.  */
 
 void
-mn10300_split_cbranch (machine_mode cmp_mode, rtx cmp_op, rtx label_ref)
+mn10300_split_cbranch (enum machine_mode cmp_mode, rtx cmp_op, rtx label_ref)
 {
   rtx flags, x;
 
@@ -2903,10 +2893,10 @@ mn10300_split_cbranch (machine_mode cmp_mode, rtx cmp_op, rtx label_ref)
 /* A helper function for matching parallels that set the flags.  */
 
 bool
-mn10300_match_ccmode (rtx insn, machine_mode cc_mode)
+mn10300_match_ccmode (rtx insn, enum machine_mode cc_mode)
 {
   rtx op1, flags;
-  machine_mode flags_mode;
+  enum machine_mode flags_mode;
 
   gcc_checking_assert (XVECLEN (PATTERN (insn), 0) == 2);
 

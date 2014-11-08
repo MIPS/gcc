@@ -3799,18 +3799,17 @@ foo:	nop
 	      ;;
 	  esac
 	fi
-	;;
-    esac
-
-    # Test if the assembler supports the section flag 'e' for specifying
-    # an excluded section.
-    gcc_GAS_CHECK_FEATURE([.section with e], gcc_cv_as_section_has_e,
-      [2,22,51], [--fatal-warnings],
+	# Test if the assembler supports the section flag 'e' for specifying
+	# an excluded section.
+	gcc_GAS_CHECK_FEATURE([.section with e], gcc_cv_as_section_has_e,
+	  [2,22,51],,
 [.section foo1,"e"
 .byte 0,0,0,0])
-    AC_DEFINE_UNQUOTED(HAVE_GAS_SECTION_EXCLUDE,
-      [`if test $gcc_cv_as_section_has_e = yes; then echo 1; else echo 0; fi`],
-      [Define if your assembler supports specifying the section flag e.])
+	AC_DEFINE_UNQUOTED(HAVE_GAS_SECTION_EXCLUDE,
+	  [`if test $gcc_cv_as_section_has_e = yes; then echo 1; else echo 0; fi`],
+          [Define if your assembler supports specifying the section flag e.])
+	;;
+    esac
 
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
        gcc_cv_as_ix86_filds,,,
@@ -4503,10 +4502,6 @@ glibc_version_minor=0
   glibc_version_minor=`echo "$glibc_version_minor_define" | sed -e 's/.*__GLIBC_MINOR__[ 	]*//'`
 fi]])
 AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
-AC_DEFINE_UNQUOTED([TARGET_GLIBC_MAJOR], [$glibc_version_major],
-[GNU C Library major version number used on the target, or 0.])
-AC_DEFINE_UNQUOTED([TARGET_GLIBC_MINOR], [$glibc_version_minor],
-[GNU C Library minor version number used on the target, or 0.])
 
 AC_ARG_ENABLE(gnu-unique-object,
  [AS_HELP_STRING([--enable-gnu-unique-object],
@@ -5552,7 +5547,105 @@ if test "x${CLOOGLIBS}" != "x" ; then
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
 fi
 
-GCC_ENABLE_PLUGINS
+# Check for plugin support
+AC_ARG_ENABLE(plugin,
+[AS_HELP_STRING([--enable-plugin], [enable plugin support])],
+enable_plugin=$enableval,
+enable_plugin=yes; default_plugin=yes)
+
+pluginlibs=
+
+case "${host}" in
+  *-*-darwin*)
+    if test x$build = x$host; then
+      export_sym_check="nm${exeext} -g"
+    elif test x$host = x$target; then
+      export_sym_check="$gcc_cv_nm -g"
+    else
+      export_sym_check=
+    fi
+  ;;
+  *)
+    if test x$build = x$host; then
+      export_sym_check="objdump${exeext} -T"
+    elif test x$host = x$target; then
+      export_sym_check="$gcc_cv_objdump -T"
+    else
+      export_sym_check=
+    fi
+  ;;
+esac
+
+if test x"$enable_plugin" = x"yes"; then
+
+  AC_MSG_CHECKING([for exported symbols])
+  if test "x$export_sym_check" != x; then
+    echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
+    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+    if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
+      : # No need to use a flag
+      AC_MSG_RESULT([yes])
+    else
+      AC_MSG_RESULT([yes])
+      AC_MSG_CHECKING([for -rdynamic])
+      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+      if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
+        plugin_rdynamic=yes
+        pluginlibs="-rdynamic"
+      else
+        plugin_rdynamic=no
+        enable_plugin=no
+      fi
+      AC_MSG_RESULT([$plugin_rdynamic])
+    fi
+  else
+    AC_MSG_RESULT([unable to check])
+  fi
+
+  # Check -ldl
+  saved_LIBS="$LIBS"
+  AC_SEARCH_LIBS([dlopen], [dl])
+  if test x"$ac_cv_search_dlopen" = x"-ldl"; then
+    pluginlibs="$pluginlibs -ldl"
+  fi
+  LIBS="$saved_LIBS"
+
+  # Check that we can build shared objects with -fPIC -shared
+  saved_LDFLAGS="$LDFLAGS"
+  saved_CFLAGS="$CFLAGS"
+  case "${host}" in
+    *-*-darwin*)
+      CFLAGS=`echo $CFLAGS | sed s/-mdynamic-no-pic//g`
+      CFLAGS="$CFLAGS -fPIC"
+      LDFLAGS="$LDFLAGS -shared -undefined dynamic_lookup"
+    ;;
+    *)
+      CFLAGS="$CFLAGS -fPIC"
+      LDFLAGS="$LDFLAGS -fPIC -shared"
+    ;;
+  esac
+  AC_MSG_CHECKING([for -fPIC -shared])
+  AC_TRY_LINK(
+    [extern int X;],[return X == 0;],
+    [AC_MSG_RESULT([yes]); have_pic_shared=yes],
+    [AC_MSG_RESULT([no]); have_pic_shared=no])
+  if test x"$have_pic_shared" != x"yes" -o x"$ac_cv_search_dlopen" = x"no"; then
+    pluginlibs=
+    enable_plugin=no
+  fi
+  LDFLAGS="$saved_LDFLAGS"
+  CFLAGS="$saved_CFLAGS"
+
+  # If plugin support had been requested but not available, fail.
+  if test x"$enable_plugin" = x"no" ; then
+    if test x"$default_plugin" != x"yes"; then
+      AC_MSG_ERROR([
+Building GCC with plugin support requires a host that supports
+-fPIC, -shared, -ldl and -rdynamic.])
+    fi
+  fi
+fi
+
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
 if test x"$enable_plugin" = x"yes"; then

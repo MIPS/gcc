@@ -167,14 +167,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "output.h"
 #include "rtl.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -199,11 +191,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "fibheap.h"
 #include "intl.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "ipa-prop.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
@@ -223,7 +217,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-nested.h"
 #include "gimplify.h"
 #include "dbgcnt.h"
-#include "tree-chkp.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -803,9 +796,6 @@ varpool_node::finalize_decl (tree decl)
       || (!flag_toplevel_reorder
 	&& symtab->state == EXPANSION))
     node->assemble_decl ();
-
-  if (DECL_INITIAL (decl))
-    chkp_register_var_initializer (decl);
 }
 
 /* EDGE is an polymorphic call.  Mark all possible targets as reachable
@@ -879,11 +869,6 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 
 	  edge->make_direct (target);
 	  edge->redirect_call_stmt_to_callee ();
-
-	  /* Call to __builtin_unreachable shouldn't be instrumented.  */
-	  if (!targets.length ())
-	    gimple_call_set_with_bounds (edge->call_stmt, false);
-
 	  if (symtab->dump_file)
 	    {
 	      fprintf (symtab->dump_file,
@@ -899,15 +884,15 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 
 /* Discover all functions and variables that are trivially needed, analyze
    them as well as all functions and variables referred by them  */
-static cgraph_node *first_analyzed;
-static varpool_node *first_analyzed_var;
 
 static void
 analyze_functions (void)
 {
   /* Keep track of already processed nodes when called multiple times for
      intermodule optimization.  */
+  static cgraph_node *first_analyzed;
   cgraph_node *first_handled = first_analyzed;
+  static varpool_node *first_analyzed_var;
   varpool_node *first_handled_var = first_analyzed_var;
   hash_set<void *> reachable_call_targets;
 
@@ -1555,21 +1540,11 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       if (!VOID_TYPE_P (restype))
 	{
 	  if (DECL_BY_REFERENCE (resdecl))
-	    {
-	      restmp = gimple_fold_indirect_ref (resdecl);
-	      if (!restmp)
-		restmp = build2 (MEM_REF,
-				 TREE_TYPE (TREE_TYPE (DECL_RESULT (alias))),
-				 resdecl,
-				 build_int_cst (TREE_TYPE
-				   (DECL_RESULT (alias)), 0));
-	    }
+	    restmp = gimple_fold_indirect_ref (resdecl);
 	  else if (!is_gimple_reg_type (restype))
 	    {
 	      restmp = resdecl;
-
-	      if (TREE_CODE (restmp) == VAR_DECL)
-		add_local_decl (cfun, restmp);
+	      add_local_decl (cfun, restmp);
 	      BLOCK_VARS (DECL_INITIAL (current_function_decl)) = restmp;
 	    }
 	  else
@@ -1601,7 +1576,6 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       call = gimple_build_call_vec (build_fold_addr_expr_loc (0, alias), vargs);
       callees->call_stmt = call;
       gimple_call_set_from_thunk (call, true);
-      gimple_call_set_with_bounds (call, instrumentation_clone);
       if (restmp)
 	{
           gimple_call_set_lhs (call, restmp);
@@ -1659,11 +1633,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	    gimple_call_set_tail (call, true);
 
 	  /* Build return value.  */
-	  if (!DECL_BY_REFERENCE (resdecl))
-	    ret = gimple_build_return (restmp);
-	  else
-	    ret = gimple_build_return (resdecl);
-
+	  ret = gimple_build_return (restmp);
 	  gsi_insert_after (&bsi, ret, GSI_NEW_STMT);
 	}
       else
@@ -1702,8 +1672,7 @@ cgraph_node::assemble_thunks_and_aliases (void)
   ipa_ref *ref;
 
   for (e = callers; e;)
-    if (e->caller->thunk.thunk_p
-	&& !e->caller->thunk.add_pointer_bounds_args)
+    if (e->caller->thunk.thunk_p)
       {
 	cgraph_node *thunk = e->caller;
 
@@ -2110,13 +2079,9 @@ void
 symbol_table::output_weakrefs (void)
 {
   symtab_node *node;
-  cgraph_node *cnode;
   FOR_EACH_SYMBOL (node)
     if (node->alias
         && !TREE_ASM_WRITTEN (node->decl)
-	&& (!(cnode = dyn_cast <cgraph_node *> (node))
-	    || !cnode->instrumented_version
-	    || !TREE_ASM_WRITTEN (cnode->instrumented_version->decl))
 	&& node->weakref)
       {
 	tree target;
@@ -2327,22 +2292,6 @@ symbol_table::finalize_compilation_unit (void)
   timevar_pop (TV_CGRAPH);
 }
 
-/* Reset all state within cgraphunit.c so that we can rerun the compiler
-   within the same process.  For use by toplev::finalize.  */
-
-void
-cgraphunit_c_finalize (void)
-{
-  gcc_assert (cgraph_new_nodes.length () == 0);
-  cgraph_new_nodes.truncate (0);
-
-  vtable_entry_type = NULL;
-  queued_nodes = &symtab_terminator;
-
-  first_analyzed = NULL;
-  first_analyzed_var = NULL;
-}
-
 /* Creates a wrapper from cgraph_node to TARGET node. Thunk is used for this
    kind of wrapper method.  */
 
@@ -2368,14 +2317,6 @@ cgraph_node::create_wrapper (cgraph_node *target)
     thunk.this_adjusting = false;
 
     cgraph_edge *e = create_edge (target, NULL, 0, CGRAPH_FREQ_BASE);
-
-    tree arguments = DECL_ARGUMENTS (decl);
-
-    while (arguments)
-      {
-	TREE_ADDRESSABLE (arguments) = false;
-	arguments = TREE_CHAIN (arguments);
-      }
 
     expand_thunk (false, true);
     e->call_stmt_cannot_inline_p = true;

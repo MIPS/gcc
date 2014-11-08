@@ -32,20 +32,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "predict.h"
-#include "vec.h"
+#include "basic-block.h"
 #include "hashtab.h"
 #include "hash-set.h"
+#include "vec.h"
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgcleanup.h"
-#include "basic-block.h"
 #include "expr.h"
 #include "except.h"
 #include "params.h"
@@ -1307,7 +1300,7 @@ fis_get_condition (rtx_insn *jump)
 static bool
 implicit_set_cond_p (const_rtx cond)
 {
-  machine_mode mode;
+  enum machine_mode mode;
   rtx cst;
 
   /* COND must be either an EQ or NE comparison.  */

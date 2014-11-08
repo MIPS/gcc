@@ -350,7 +350,7 @@
     }
   else
     {
-      machine_mode hmode = <CASHMODE>mode;
+      enum machine_mode hmode = <CASHMODE>mode;
       rtx lo_o, lo_e, lo_n, hi_o, hi_e, hi_n;
 
       lo_o = operands[1];

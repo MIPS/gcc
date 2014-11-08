@@ -168,13 +168,6 @@
 #include "regs.h"
 #include "flags.h"
 #include "recog.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "reload.h"
 #include "ggc.h"
@@ -481,7 +474,8 @@ check_asm_stack_operands (rtx_insn *insn)
 
   /* Find out what the constraints require.  If no constraint
      alternative matches, this asm is malformed.  */
-  extract_constrain_insn (insn);
+  extract_insn (insn);
+  constrain_operands (1);
 
   preprocess_constraints (insn);
 
@@ -2027,7 +2021,8 @@ subst_asm_stack_regs (rtx_insn *insn, stack_ptr regstack)
   /* Find out what the constraints required.  If no constraint
      alternative matches, that is a compiler bug: we should have caught
      such an insn in check_asm_stack_operands.  */
-  extract_constrain_insn (insn);
+  extract_insn (insn);
+  constrain_operands (1);
 
   preprocess_constraints (insn);
   const operand_alternative *op_alt = which_op_alt ();
@@ -3237,7 +3232,7 @@ reg_to_stack (void)
   /* Create the replacement registers up front.  */
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
     {
-      machine_mode mode;
+      enum machine_mode mode;
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
 	   mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))

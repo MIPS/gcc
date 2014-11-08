@@ -27,14 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "hash-set.h"
 #include "hash-table.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -57,9 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "bitmap.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-ssanames.h"
@@ -1738,10 +1727,6 @@ gimplify_conversion (tree *expr_p)
   if (CONVERT_EXPR_P (*expr_p) && !is_gimple_reg_type (TREE_TYPE (*expr_p)))
     *expr_p = fold_build1_loc (loc, VIEW_CONVERT_EXPR, TREE_TYPE (*expr_p),
 			       TREE_OPERAND (*expr_p, 0));
-
-  /* Canonicalize CONVERT_EXPR to NOP_EXPR.  */
-  if (TREE_CODE (*expr_p) == CONVERT_EXPR)
-    TREE_SET_CODE (*expr_p, NOP_EXPR);
 
   return GS_OK;
 }
@@ -3862,19 +3847,10 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   individual element initialization.  Also don't do this for small
 	   all-zero initializers (which aren't big enough to merit
 	   clearing), and don't try to make bitwise copies of
-	   TREE_ADDRESSABLE types.
-
-	   We cannot apply such transformation when compiling chkp static
-	   initializer because creation of initializer image in the memory
-	   will require static initialization of bounds for it.  It should
-	   result in another gimplification of similar initializer and we
-	   may fall into infinite loop.  */
+	   TREE_ADDRESSABLE types.  */
 	if (valid_const_initializer
 	    && !(cleared || num_nonzero_elements == 0)
-	    && !TREE_ADDRESSABLE (type)
-	    && (!current_function_decl
-		|| !lookup_attribute ("chkp ctor",
-				      DECL_ATTRIBUTES (current_function_decl))))
+	    && !TREE_ADDRESSABLE (type))
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;

@@ -22,16 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "basic-block.h"
 #include "tree.h"
 #include "stor-layout.h"
@@ -143,7 +133,7 @@ static bool
 check_target_format (tree arg)
 {
   tree type;
-  machine_mode mode;
+  enum machine_mode mode;
   const struct real_format *rfmt;
 
   type = TREE_TYPE (arg);

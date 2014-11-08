@@ -2769,7 +2769,7 @@
 "*
 {
    int ofs;
-   machine_mode mode;
+   enum machine_mode mode;
    rtx base_reg = XEXP (operands[4], 0);
 
    if ((ofs = mcore_byte_offset (INTVAL (operands[3]))) > -1)

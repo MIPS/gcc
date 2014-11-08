@@ -41,7 +41,6 @@
   m4k
   octeon
   octeon2
-  octeon3
   r3900
   r6000
   r4000

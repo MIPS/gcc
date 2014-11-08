@@ -24676,12 +24676,9 @@ $as_echo "$as_me: WARNING: LTO for $target requires binutils >= 2.20.1, but vers
 	      ;;
 	  esac
 	fi
-	;;
-    esac
-
-    # Test if the assembler supports the section flag 'e' for specifying
-    # an excluded section.
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .section with e" >&5
+	# Test if the assembler supports the section flag 'e' for specifying
+	# an excluded section.
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .section with e" >&5
 $as_echo_n "checking assembler for .section with e... " >&6; }
 if test "${gcc_cv_as_section_has_e+set}" = set; then :
   $as_echo_n "(cached) " >&6
@@ -24694,7 +24691,7 @@ fi
   elif test x$gcc_cv_as != x; then
     $as_echo '.section foo1,"e"
 .byte 0,0,0,0' > conftest.s
-    if { ac_try='$gcc_cv_as $gcc_cv_as_flags --fatal-warnings -o conftest.o conftest.s >&5'
+    if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
   (eval $ac_try) 2>&5
   ac_status=$?
@@ -24717,6 +24714,8 @@ cat >>confdefs.h <<_ACEOF
 #define HAVE_GAS_SECTION_EXCLUDE `if test $gcc_cv_as_section_has_e = yes; then echo 1; else echo 0; fi`
 _ACEOF
 
+	;;
+    esac
 
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for filds and fists mnemonics" >&5
 $as_echo_n "checking assembler for filds and fists mnemonics... " >&6; }
@@ -26700,16 +26699,6 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibc_version_major.$glibc_version_minor" >&5
 $as_echo "$glibc_version_major.$glibc_version_minor" >&6; }
 
-cat >>confdefs.h <<_ACEOF
-#define TARGET_GLIBC_MAJOR $glibc_version_major
-_ACEOF
-
-
-cat >>confdefs.h <<_ACEOF
-#define TARGET_GLIBC_MINOR $glibc_version_minor
-_ACEOF
-
-
 # Check whether --enable-gnu-unique-object was given.
 if test "${enable_gnu_unique_object+set}" = set; then :
   enableval=$enable_gnu_unique_object; case $enable_gnu_unique_object in
@@ -27941,7 +27930,7 @@ $as_echo "#define HAVE_cloog 1" >>confdefs.h
 fi
 
 # Check for plugin support
-   # Check whether --enable-plugin was given.
+# Check whether --enable-plugin was given.
 if test "${enable_plugin+set}" = set; then :
   enableval=$enable_plugin; enable_plugin=$enableval
 else
@@ -27949,64 +27938,64 @@ else
 fi
 
 
-   pluginlibs=
+pluginlibs=
 
-   case "${host}" in
-     *-*-darwin*)
-       if test x$build = x$host; then
-	 export_sym_check="nm${exeext} -g"
-       elif test x$host = x$target; then
-	 export_sym_check="$gcc_cv_nm -g"
-       else
-	 export_sym_check=
-       fi
-     ;;
-     *)
-       if test x$build = x$host; then
-	 export_sym_check="objdump${exeext} -T"
-       elif test x$host = x$target; then
-	 export_sym_check="$gcc_cv_objdump -T"
-       else
-	 export_sym_check=
-       fi
-     ;;
-   esac
+case "${host}" in
+  *-*-darwin*)
+    if test x$build = x$host; then
+      export_sym_check="nm${exeext} -g"
+    elif test x$host = x$target; then
+      export_sym_check="$gcc_cv_nm -g"
+    else
+      export_sym_check=
+    fi
+  ;;
+  *)
+    if test x$build = x$host; then
+      export_sym_check="objdump${exeext} -T"
+    elif test x$host = x$target; then
+      export_sym_check="$gcc_cv_objdump -T"
+    else
+      export_sym_check=
+    fi
+  ;;
+esac
 
-   if test x"$enable_plugin" = x"yes"; then
+if test x"$enable_plugin" = x"yes"; then
 
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for exported symbols" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for exported symbols" >&5
 $as_echo_n "checking for exported symbols... " >&6; }
-     if test "x$export_sym_check" != x; then
-       echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
-       ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest$ac_exeext > /dev/null 2>&1
-       if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
-	 : # No need to use a flag
-	 { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+  if test "x$export_sym_check" != x; then
+    echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
+    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+    if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
+      : # No need to use a flag
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-       else
-	 { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-	 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for -rdynamic" >&5
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for -rdynamic" >&5
 $as_echo_n "checking for -rdynamic... " >&6; }
-	 ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest$ac_exeext > /dev/null 2>&1
-	 if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
-	   plugin_rdynamic=yes
-	   pluginlibs="-rdynamic"
-	 else
-	   plugin_rdynamic=no
-	   enable_plugin=no
-	 fi
-	 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $plugin_rdynamic" >&5
+      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+      if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
+        plugin_rdynamic=yes
+        pluginlibs="-rdynamic"
+      else
+        plugin_rdynamic=no
+        enable_plugin=no
+      fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $plugin_rdynamic" >&5
 $as_echo "$plugin_rdynamic" >&6; }
-       fi
-     else
-       { $as_echo "$as_me:${as_lineno-$LINENO}: result: unable to check" >&5
+    fi
+  else
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: unable to check" >&5
 $as_echo "unable to check" >&6; }
-     fi
+  fi
 
-     # Check -ldl
-     saved_LIBS="$LIBS"
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing dlopen" >&5
+  # Check -ldl
+  saved_LIBS="$LIBS"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing dlopen" >&5
 $as_echo_n "checking for library containing dlopen... " >&6; }
 if test "${ac_cv_search_dlopen+set}" = set; then :
   $as_echo_n "(cached) " >&6
@@ -28062,28 +28051,28 @@ if test "$ac_res" != no; then :
 
 fi
 
-     if test x"$ac_cv_search_dlopen" = x"-ldl"; then
-       pluginlibs="$pluginlibs -ldl"
-     fi
-     LIBS="$saved_LIBS"
+  if test x"$ac_cv_search_dlopen" = x"-ldl"; then
+    pluginlibs="$pluginlibs -ldl"
+  fi
+  LIBS="$saved_LIBS"
 
-     # Check that we can build shared objects with -fPIC -shared
-     saved_LDFLAGS="$LDFLAGS"
-     saved_CFLAGS="$CFLAGS"
-     case "${host}" in
-       *-*-darwin*)
-	 CFLAGS=`echo $CFLAGS | sed s/-mdynamic-no-pic//g`
-	 CFLAGS="$CFLAGS -fPIC"
-	 LDFLAGS="$LDFLAGS -shared -undefined dynamic_lookup"
-       ;;
-       *)
-	 CFLAGS="$CFLAGS -fPIC"
-	 LDFLAGS="$LDFLAGS -fPIC -shared"
-       ;;
-     esac
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for -fPIC -shared" >&5
+  # Check that we can build shared objects with -fPIC -shared
+  saved_LDFLAGS="$LDFLAGS"
+  saved_CFLAGS="$CFLAGS"
+  case "${host}" in
+    *-*-darwin*)
+      CFLAGS=`echo $CFLAGS | sed s/-mdynamic-no-pic//g`
+      CFLAGS="$CFLAGS -fPIC"
+      LDFLAGS="$LDFLAGS -shared -undefined dynamic_lookup"
+    ;;
+    *)
+      CFLAGS="$CFLAGS -fPIC"
+      LDFLAGS="$LDFLAGS -fPIC -shared"
+    ;;
+  esac
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for -fPIC -shared" >&5
 $as_echo_n "checking for -fPIC -shared... " >&6; }
-     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 extern int X;
 int
@@ -28103,22 +28092,22 @@ $as_echo "no" >&6; }; have_pic_shared=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-     if test x"$have_pic_shared" != x"yes" -o x"$ac_cv_search_dlopen" = x"no"; then
-       pluginlibs=
-       enable_plugin=no
-     fi
-     LDFLAGS="$saved_LDFLAGS"
-     CFLAGS="$saved_CFLAGS"
+  if test x"$have_pic_shared" != x"yes" -o x"$ac_cv_search_dlopen" = x"no"; then
+    pluginlibs=
+    enable_plugin=no
+  fi
+  LDFLAGS="$saved_LDFLAGS"
+  CFLAGS="$saved_CFLAGS"
 
-     # If plugin support had been requested but not available, fail.
-     if test x"$enable_plugin" = x"no" ; then
-       if test x"$default_plugin" != x"yes"; then
-	 as_fn_error "
-   Building GCC with plugin support requires a host that supports
-   -fPIC, -shared, -ldl and -rdynamic." "$LINENO" 5
-       fi
-     fi
-   fi
+  # If plugin support had been requested but not available, fail.
+  if test x"$enable_plugin" = x"no" ; then
+    if test x"$default_plugin" != x"yes"; then
+      as_fn_error "
+Building GCC with plugin support requires a host that supports
+-fPIC, -shared, -ldl and -rdynamic." "$LINENO" 5
+    fi
+  fi
+fi
 
 
 

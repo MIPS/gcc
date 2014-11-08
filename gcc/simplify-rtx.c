@@ -37,8 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
-#include "insn-codes.h"
-#include "optabs.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
@@ -54,24 +52,24 @@ along with GCC; see the file COPYING3.  If not see
 #define HWI_SIGN_EXTEND(low) \
  ((((HOST_WIDE_INT) low) < 0) ? ((HOST_WIDE_INT) -1) : ((HOST_WIDE_INT) 0))
 
-static rtx neg_const_int (machine_mode, const_rtx);
+static rtx neg_const_int (enum machine_mode, const_rtx);
 static bool plus_minus_operand_p (const_rtx);
 static bool simplify_plus_minus_op_data_cmp (rtx, rtx);
-static rtx simplify_plus_minus (enum rtx_code, machine_mode, rtx, rtx);
-static rtx simplify_immed_subreg (machine_mode, rtx, machine_mode,
+static rtx simplify_plus_minus (enum rtx_code, enum machine_mode, rtx, rtx);
+static rtx simplify_immed_subreg (enum machine_mode, rtx, enum machine_mode,
 				  unsigned int);
-static rtx simplify_associative_operation (enum rtx_code, machine_mode,
+static rtx simplify_associative_operation (enum rtx_code, enum machine_mode,
 					   rtx, rtx);
-static rtx simplify_relational_operation_1 (enum rtx_code, machine_mode,
-					    machine_mode, rtx, rtx);
-static rtx simplify_unary_operation_1 (enum rtx_code, machine_mode, rtx);
-static rtx simplify_binary_operation_1 (enum rtx_code, machine_mode,
+static rtx simplify_relational_operation_1 (enum rtx_code, enum machine_mode,
+					    enum machine_mode, rtx, rtx);
+static rtx simplify_unary_operation_1 (enum rtx_code, enum machine_mode, rtx);
+static rtx simplify_binary_operation_1 (enum rtx_code, enum machine_mode,
 					rtx, rtx, rtx, rtx);
 
 /* Negate a CONST_INT rtx, truncating (because a conversion from a
    maximally negative number can overflow).  */
 static rtx
-neg_const_int (machine_mode mode, const_rtx i)
+neg_const_int (enum machine_mode mode, const_rtx i)
 {
   return gen_int_mode (-(unsigned HOST_WIDE_INT) INTVAL (i), mode);
 }
@@ -80,7 +78,7 @@ neg_const_int (machine_mode mode, const_rtx i)
    the most significant bit of machine mode MODE.  */
 
 bool
-mode_signbit_p (machine_mode mode, const_rtx x)
+mode_signbit_p (enum machine_mode mode, const_rtx x)
 {
   unsigned HOST_WIDE_INT val;
   unsigned int width;
@@ -133,7 +131,7 @@ mode_signbit_p (machine_mode mode, const_rtx x)
    precision of MODE is too large to handle.  */
 
 bool
-val_signbit_p (machine_mode mode, unsigned HOST_WIDE_INT val)
+val_signbit_p (enum machine_mode mode, unsigned HOST_WIDE_INT val)
 {
   unsigned int width;
 
@@ -151,7 +149,7 @@ val_signbit_p (machine_mode mode, unsigned HOST_WIDE_INT val)
 /* Test whether the most significant bit of mode MODE is set in VAL.
    Returns false if the precision of MODE is too large to handle.  */
 bool
-val_signbit_known_set_p (machine_mode mode, unsigned HOST_WIDE_INT val)
+val_signbit_known_set_p (enum machine_mode mode, unsigned HOST_WIDE_INT val)
 {
   unsigned int width;
 
@@ -169,7 +167,7 @@ val_signbit_known_set_p (machine_mode mode, unsigned HOST_WIDE_INT val)
 /* Test whether the most significant bit of mode MODE is clear in VAL.
    Returns false if the precision of MODE is too large to handle.  */
 bool
-val_signbit_known_clear_p (machine_mode mode, unsigned HOST_WIDE_INT val)
+val_signbit_known_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT val)
 {
   unsigned int width;
 
@@ -188,7 +186,7 @@ val_signbit_known_clear_p (machine_mode mode, unsigned HOST_WIDE_INT val)
    seeing if the expression folds.  */
 
 rtx
-simplify_gen_binary (enum rtx_code code, machine_mode mode, rtx op0,
+simplify_gen_binary (enum rtx_code code, enum machine_mode mode, rtx op0,
 		     rtx op1)
 {
   rtx tem;
@@ -212,7 +210,7 @@ rtx
 avoid_constant_pool_reference (rtx x)
 {
   rtx c, tmp, addr;
-  machine_mode cmode;
+  enum machine_mode cmode;
   HOST_WIDE_INT offset = 0;
 
   switch (GET_CODE (x))
@@ -296,7 +294,7 @@ delegitimize_mem_from_attrs (rtx x)
       && MEM_OFFSET_KNOWN_P (x))
     {
       tree decl = MEM_EXPR (x);
-      machine_mode mode = GET_MODE (x);
+      enum machine_mode mode = GET_MODE (x);
       HOST_WIDE_INT offset = 0;
 
       switch (TREE_CODE (decl))
@@ -386,8 +384,8 @@ delegitimize_mem_from_attrs (rtx x)
    the specified operation.  */
 
 rtx
-simplify_gen_unary (enum rtx_code code, machine_mode mode, rtx op,
-		    machine_mode op_mode)
+simplify_gen_unary (enum rtx_code code, enum machine_mode mode, rtx op,
+		    enum machine_mode op_mode)
 {
   rtx tem;
 
@@ -401,8 +399,8 @@ simplify_gen_unary (enum rtx_code code, machine_mode mode, rtx op,
 /* Likewise for ternary operations.  */
 
 rtx
-simplify_gen_ternary (enum rtx_code code, machine_mode mode,
-		      machine_mode op0_mode, rtx op0, rtx op1, rtx op2)
+simplify_gen_ternary (enum rtx_code code, enum machine_mode mode,
+		      enum machine_mode op0_mode, rtx op0, rtx op1, rtx op2)
 {
   rtx tem;
 
@@ -418,8 +416,8 @@ simplify_gen_ternary (enum rtx_code code, machine_mode mode,
    CMP_MODE specifies mode comparison is done in.  */
 
 rtx
-simplify_gen_relational (enum rtx_code code, machine_mode mode,
-			 machine_mode cmp_mode, rtx op0, rtx op1)
+simplify_gen_relational (enum rtx_code code, enum machine_mode mode,
+			 enum machine_mode cmp_mode, rtx op0, rtx op1)
 {
   rtx tem;
 
@@ -440,8 +438,8 @@ simplify_replace_fn_rtx (rtx x, const_rtx old_rtx,
 			 rtx (*fn) (rtx, const_rtx, void *), void *data)
 {
   enum rtx_code code = GET_CODE (x);
-  machine_mode mode = GET_MODE (x);
-  machine_mode op_mode;
+  enum machine_mode mode = GET_MODE (x);
+  enum machine_mode op_mode;
   const char *fmt;
   rtx op0, op1, op2, newx, op;
   rtvec vec, newvec;
@@ -637,8 +635,8 @@ simplify_replace_rtx (rtx x, const_rtx old_rtx, rtx new_rtx)
    assume that truncating it too is a no-op.  */
 
 static rtx
-simplify_truncation (machine_mode mode, rtx op,
-		     machine_mode op_mode)
+simplify_truncation (enum machine_mode mode, rtx op,
+		     enum machine_mode op_mode)
 {
   unsigned int precision = GET_MODE_UNIT_PRECISION (mode);
   unsigned int op_precision = GET_MODE_UNIT_PRECISION (op_mode);
@@ -654,7 +652,7 @@ simplify_truncation (machine_mode mode, rtx op,
 	 truncation without the extension.  Finally, if the outermode
 	 is larger than the origmode, we can just extend to the appropriate
 	 mode.  */
-      machine_mode origmode = GET_MODE (XEXP (op, 0));
+      enum machine_mode origmode = GET_MODE (XEXP (op, 0));
       if (mode == origmode)
 	return XEXP (op, 0);
       else if (precision <= GET_MODE_UNIT_PRECISION (origmode))
@@ -812,8 +810,8 @@ simplify_truncation (machine_mode mode, rtx op,
    MODE with input operand OP whose mode was originally OP_MODE.
    Return zero if no simplification can be made.  */
 rtx
-simplify_unary_operation (enum rtx_code code, machine_mode mode,
-			  rtx op, machine_mode op_mode)
+simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
+			  rtx op, enum machine_mode op_mode)
 {
   rtx trueop, tem;
 
@@ -829,7 +827,7 @@ simplify_unary_operation (enum rtx_code code, machine_mode mode,
 /* Perform some simplifications we can do even if the operands
    aren't constant.  */
 static rtx
-simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
+simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 {
   enum rtx_code reversed;
   rtx temp;
@@ -905,7 +903,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	  && GET_CODE (SUBREG_REG (op)) == ASHIFT
 	  && XEXP (SUBREG_REG (op), 0) == const1_rtx)
 	{
-	  machine_mode inner_mode = GET_MODE (SUBREG_REG (op));
+	  enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op));
 	  rtx x;
 
 	  x = gen_rtx_ROTATE (inner_mode,
@@ -924,7 +922,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
       if (GET_CODE (op) == IOR || GET_CODE (op) == AND)
 	{
 	  rtx in1 = XEXP (op, 0), in2 = XEXP (op, 1);
-	  machine_mode op_mode;
+	  enum machine_mode op_mode;
 
 	  op_mode = GET_MODE (in1);
 	  in1 = simplify_gen_unary (NOT, op_mode, in1, op_mode);
@@ -1042,7 +1040,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	  && XEXP (op, 1) == const0_rtx
 	  && SCALAR_INT_MODE_P (GET_MODE (XEXP (op, 0))))
 	{
-	  machine_mode inner = GET_MODE (XEXP (op, 0));
+	  enum machine_mode inner = GET_MODE (XEXP (op, 0));
 	  int isize = GET_MODE_PRECISION (inner);
 	  if (STORE_FLAG_VALUE == 1)
 	    {
@@ -1329,8 +1327,8 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	      && (rcode == SIGN_EXTEND
 		  || (rcode == ASHIFTRT && CONST_INT_P (XEXP (rhs, 1)))))
 	    {
-	      machine_mode lmode = GET_MODE (lhs);
-	      machine_mode rmode = GET_MODE (rhs);
+	      enum machine_mode lmode = GET_MODE (lhs);
+	      enum machine_mode rmode = GET_MODE (rhs);
 	      int bits;
 
 	      if (lcode == ASHIFTRT)
@@ -1389,7 +1387,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	  && XEXP (XEXP (op, 0), 1) == XEXP (op, 1)
 	  && GET_MODE_BITSIZE (GET_MODE (op)) > INTVAL (XEXP (op, 1)))
 	{
-	  machine_mode tmode
+	  enum machine_mode tmode
 	    = mode_for_size (GET_MODE_BITSIZE (GET_MODE (op))
 			     - INTVAL (XEXP (op, 1)), MODE_INT, 1);
 	  gcc_assert (GET_MODE_BITSIZE (mode)
@@ -1451,8 +1449,8 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	      && (rcode == ZERO_EXTEND
 		  || (rcode == LSHIFTRT && CONST_INT_P (XEXP (rhs, 1)))))
 	    {
-	      machine_mode lmode = GET_MODE (lhs);
-	      machine_mode rmode = GET_MODE (rhs);
+	      enum machine_mode lmode = GET_MODE (lhs);
+	      enum machine_mode rmode = GET_MODE (rhs);
 	      int bits;
 
 	      if (lcode == LSHIFTRT)
@@ -1491,7 +1489,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	  && XEXP (XEXP (op, 0), 1) == XEXP (op, 1)
 	  && GET_MODE_PRECISION (GET_MODE (op)) > INTVAL (XEXP (op, 1)))
 	{
-	  machine_mode tmode
+	  enum machine_mode tmode
 	    = mode_for_size (GET_MODE_PRECISION (GET_MODE (op))
 			     - INTVAL (XEXP (op, 1)), MODE_INT, 1);
 	  if (tmode != BLKmode)
@@ -1553,8 +1551,8 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
    be MODE with input operand OP whose mode was originally OP_MODE.
    Return zero if the value cannot be computed.  */
 rtx
-simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
-				rtx op, machine_mode op_mode)
+simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
+				rtx op, enum machine_mode op_mode)
 {
   unsigned int width = GET_MODE_PRECISION (mode);
 
@@ -1582,7 +1580,7 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
 	      RTVEC_ELT (v, i) = op;
 	  else
 	    {
-	      machine_mode inmode = GET_MODE (op);
+	      enum machine_mode inmode = GET_MODE (op);
               int in_elt_size = GET_MODE_SIZE (GET_MODE_INNER (inmode));
               unsigned in_n_elts = (GET_MODE_SIZE (inmode) / in_elt_size);
 
@@ -1599,7 +1597,7 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
     {
       int elt_size = GET_MODE_SIZE (GET_MODE_INNER (mode));
       unsigned n_elts = (GET_MODE_SIZE (mode) / elt_size);
-      machine_mode opmode = GET_MODE (op);
+      enum machine_mode opmode = GET_MODE (op);
       int op_elt_size = GET_MODE_SIZE (GET_MODE_INNER (opmode));
       unsigned op_n_elts = (GET_MODE_SIZE (opmode) / op_elt_size);
       rtvec v = rtvec_alloc (n_elts);
@@ -1662,7 +1660,7 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
   if (CONST_SCALAR_INT_P (op) && width > 0)
     {
       wide_int result;
-      machine_mode imode = op_mode == VOIDmode ? mode : op_mode;
+      enum machine_mode imode = op_mode == VOIDmode ? mode : op_mode;
       rtx_mode_t op0 = std::make_pair (op, imode);
       int int_value;
 
@@ -1856,7 +1854,7 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
    Return zero if no simplification or canonicalization is possible.  */
 
 static rtx
-simplify_byte_swapping_operation (enum rtx_code code, machine_mode mode,
+simplify_byte_swapping_operation (enum rtx_code code, enum machine_mode mode,
 				  rtx op0, rtx op1)
 {
   rtx tem;
@@ -1886,7 +1884,7 @@ simplify_byte_swapping_operation (enum rtx_code code, machine_mode mode,
    canonicalization is possible.  */
 
 static rtx
-simplify_associative_operation (enum rtx_code code, machine_mode mode,
+simplify_associative_operation (enum rtx_code code, enum machine_mode mode,
 				rtx op0, rtx op1)
 {
   rtx tem;
@@ -1940,7 +1938,7 @@ simplify_associative_operation (enum rtx_code code, machine_mode mode,
    Don't use this for relational operations such as EQ or LT.
    Use simplify_relational_operation instead.  */
 rtx
-simplify_binary_operation (enum rtx_code code, machine_mode mode,
+simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 			   rtx op0, rtx op1)
 {
   rtx trueop0, trueop1;
@@ -1975,7 +1973,7 @@ simplify_binary_operation (enum rtx_code code, machine_mode mode,
    actual constants.  */
 
 static rtx
-simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
+simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 			     rtx op0, rtx op1, rtx trueop0, rtx trueop1)
 {
   rtx tem, reversed, opleft, opright;
@@ -2807,7 +2805,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  && (~GET_MODE_MASK (GET_MODE (XEXP (op0, 0)))
 	      & UINTVAL (trueop1)) == 0)
 	{
-	  machine_mode imode = GET_MODE (XEXP (op0, 0));
+	  enum machine_mode imode = GET_MODE (XEXP (op0, 0));
 	  tem = simplify_gen_binary (AND, imode, XEXP (op0, 0),
 				     gen_int_mode (INTVAL (trueop1),
 						   imode));
@@ -2820,7 +2818,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
       if (GET_CODE (op0) == TRUNCATE && CONST_INT_P (trueop1))
 	{
 	  rtx x = XEXP (op0, 0);
-	  machine_mode xmode = GET_MODE (x);
+	  enum machine_mode xmode = GET_MODE (x);
 	  tem = simplify_gen_binary (AND, xmode, x,
 				     gen_int_mode (INTVAL (trueop1), xmode));
 	  return simplify_gen_unary (TRUNCATE, mode, tem, xmode);
@@ -3104,44 +3102,6 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  && UINTVAL (trueop0) == GET_MODE_MASK (mode)
 	  && ! side_effects_p (op1))
 	return op0;
-      /* Given:
-         scalar modes M1, M2
-         scalar constants c1, c2
-         size (M2) > size (M1)
-         c1 == size (M2) - size (M1)
-         optimize:
-         (ashiftrt:M1 (subreg:M1 (lshiftrt:M2 (reg:M2)
-                                              (const_int <c1>))
-                                  <low_part>)
-                      (const_int <c2>))
-         to:
-         (subreg:M1 (ashiftrt:M2 (reg:M2)
-                                 (const_int <c1 + c2>))
-          <low_part>).  */
-      if (!VECTOR_MODE_P (mode)
-          && SUBREG_P (op0)
-          && CONST_INT_P (op1)
-          && (GET_CODE (SUBREG_REG (op0)) == LSHIFTRT)
-          && !VECTOR_MODE_P (GET_MODE (SUBREG_REG (op0)))
-          && CONST_INT_P (XEXP (SUBREG_REG (op0), 1))
-          && (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
-              > GET_MODE_BITSIZE (mode))
-          && (INTVAL (XEXP (SUBREG_REG (op0), 1))
-              == (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
-                  - GET_MODE_BITSIZE (mode)))
-          && subreg_lowpart_p (op0))
-        {
-          rtx tmp = GEN_INT (INTVAL (XEXP (SUBREG_REG (op0), 1))
-                             + INTVAL (op1));
-          machine_mode inner_mode = GET_MODE (SUBREG_REG (op0));
-          tmp = simplify_gen_binary (ASHIFTRT,
-                                     GET_MODE (SUBREG_REG (op0)),
-                                     XEXP (SUBREG_REG (op0), 0),
-                                     tmp);
-          return simplify_gen_subreg (mode, tmp, inner_mode,
-                                      subreg_lowpart_offset (mode,
-                                                             inner_mode));
-        }
     canonicalize_shift:
       if (SHIFT_COUNT_TRUNCATED && CONST_INT_P (op1))
 	{
@@ -3171,7 +3131,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  && STORE_FLAG_VALUE == 1
 	  && INTVAL (trueop1) < (HOST_WIDE_INT)width)
 	{
-	  machine_mode imode = GET_MODE (XEXP (op0, 0));
+	  enum machine_mode imode = GET_MODE (XEXP (op0, 0));
 	  unsigned HOST_WIDE_INT zero_val = 0;
 
 	  if (CLZ_DEFINED_VALUE_AT_ZERO (imode, zero_val)
@@ -3262,7 +3222,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	      rtx op0 = XEXP (trueop0, 0);
 	      rtx op1 = XEXP (trueop0, 1);
 
-	      machine_mode opmode = GET_MODE (op0);
+	      enum machine_mode opmode = GET_MODE (op0);
 	      int elt_size = GET_MODE_SIZE (GET_MODE_INNER (opmode));
 	      int n_elts = GET_MODE_SIZE (opmode) / elt_size;
 
@@ -3284,7 +3244,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 		  rtx op00 = XEXP (op0, 0);
 		  rtx op01 = XEXP (op0, 1);
 
-		  machine_mode mode00, mode01;
+		  enum machine_mode mode00, mode01;
 		  int n_elts00, n_elts01;
 
 		  mode00 = GET_MODE (op00);
@@ -3421,8 +3381,8 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	    {
 	      rtx subop0 = XEXP (trueop0, 0);
 	      rtx subop1 = XEXP (trueop0, 1);
-	      machine_mode mode0 = GET_MODE (subop0);
-	      machine_mode mode1 = GET_MODE (subop1);
+	      enum machine_mode mode0 = GET_MODE (subop0);
+	      enum machine_mode mode1 = GET_MODE (subop1);
 	      int li = GET_MODE_SIZE (GET_MODE_INNER (mode0));
 	      int l0 = GET_MODE_SIZE (mode0) / li;
 	      int l1 = GET_MODE_SIZE (mode1) / li;
@@ -3539,10 +3499,10 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
       return 0;
     case VEC_CONCAT:
       {
-	machine_mode op0_mode = (GET_MODE (trueop0) != VOIDmode
+	enum machine_mode op0_mode = (GET_MODE (trueop0) != VOIDmode
 				      ? GET_MODE (trueop0)
 				      : GET_MODE_INNER (mode));
-	machine_mode op1_mode = (GET_MODE (trueop1) != VOIDmode
+	enum machine_mode op1_mode = (GET_MODE (trueop1) != VOIDmode
 				      ? GET_MODE (trueop1)
 				      : GET_MODE_INNER (mode));
 
@@ -3630,7 +3590,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 }
 
 rtx
-simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
+simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 				 rtx op0, rtx op1)
 {
   unsigned int width = GET_MODE_PRECISION (mode);
@@ -3641,9 +3601,9 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
       && GET_CODE (op1) == CONST_VECTOR)
     {
       unsigned n_elts = GET_MODE_NUNITS (mode);
-      machine_mode op0mode = GET_MODE (op0);
+      enum machine_mode op0mode = GET_MODE (op0);
       unsigned op0_n_elts = GET_MODE_NUNITS (op0mode);
-      machine_mode op1mode = GET_MODE (op1);
+      enum machine_mode op1mode = GET_MODE (op1);
       unsigned op1_n_elts = GET_MODE_NUNITS (op1mode);
       rtvec v = rtvec_alloc (n_elts);
       unsigned int i;
@@ -4002,13 +3962,13 @@ simplify_plus_minus_op_data_cmp (rtx x, rtx y)
 }
 
 static rtx
-simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
+simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 		     rtx op1)
 {
-  struct simplify_plus_minus_op_data ops[16];
+  struct simplify_plus_minus_op_data ops[8];
   rtx result, tem;
-  int n_ops = 2;
-  int changed, n_constants, canonicalized = 0;
+  int n_ops = 2, input_ops = 2;
+  int changed, n_constants = 0, canonicalized = 0;
   int i, j;
 
   memset (ops, 0, sizeof ops);
@@ -4025,7 +3985,6 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
   do
     {
       changed = 0;
-      n_constants = 0;
 
       for (i = 0; i < n_ops; i++)
 	{
@@ -4037,7 +3996,7 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
 	    {
 	    case PLUS:
 	    case MINUS:
-	      if (n_ops == ARRAY_SIZE (ops))
+	      if (n_ops == 7)
 		return NULL_RTX;
 
 	      ops[n_ops].op = XEXP (this_op, 1);
@@ -4045,8 +4004,9 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
 	      n_ops++;
 
 	      ops[i].op = XEXP (this_op, 0);
+	      input_ops++;
 	      changed = 1;
-	      canonicalized |= this_neg || i != n_ops - 2;
+	      canonicalized |= this_neg;
 	      break;
 
 	    case NEG:
@@ -4057,7 +4017,7 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
 	      break;
 
 	    case CONST:
-	      if (n_ops != ARRAY_SIZE (ops)
+	      if (n_ops < 7
 		  && GET_CODE (XEXP (this_op, 0)) == PLUS
 		  && CONSTANT_P (XEXP (XEXP (this_op, 0), 0))
 		  && CONSTANT_P (XEXP (XEXP (this_op, 0), 1)))
@@ -4073,7 +4033,7 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
 
 	    case NOT:
 	      /* ~a -> (-a - 1) */
-	      if (n_ops != ARRAY_SIZE (ops))
+	      if (n_ops != 7)
 		{
 		  ops[n_ops].op = CONSTM1_RTX (mode);
 		  ops[n_ops++].neg = this_neg;
@@ -4137,7 +4097,7 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
   /* Now simplify each pair of operands until nothing changes.  */
   do
     {
-      /* Insertion sort is good enough for a small array.  */
+      /* Insertion sort is good enough for an eight-element array.  */
       for (i = 1; i < n_ops; i++)
         {
           struct simplify_plus_minus_op_data save;
@@ -4188,21 +4148,16 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
 		else
 		  tem = simplify_binary_operation (ncode, mode, lhs, rhs);
 
-		if (tem)
+		/* Reject "simplifications" that just wrap the two
+		   arguments in a CONST.  Failure to do so can result
+		   in infinite recursion with simplify_binary_operation
+		   when it calls us to simplify CONST operations.  */
+		if (tem
+		    && ! (GET_CODE (tem) == CONST
+			  && GET_CODE (XEXP (tem, 0)) == ncode
+			  && XEXP (XEXP (tem, 0), 0) == lhs
+			  && XEXP (XEXP (tem, 0), 1) == rhs))
 		  {
-		    /* Reject "simplifications" that just wrap the two
-		       arguments in a CONST.  Failure to do so can result
-		       in infinite recursion with simplify_binary_operation
-		       when it calls us to simplify CONST operations.
-		       Also, if we find such a simplification, don't try
-		       any more combinations with this rhs:  We must have
-		       something like symbol+offset, ie. one of the
-		       trivial CONST expressions we handle later.  */
-		    if (GET_CODE (tem) == CONST
-			&& GET_CODE (XEXP (tem, 0)) == ncode
-			&& XEXP (XEXP (tem, 0), 0) == lhs
-			&& XEXP (XEXP (tem, 0), 1) == rhs)
-		      break;
 		    lneg &= rneg;
 		    if (GET_CODE (tem) == NEG)
 		      tem = XEXP (tem, 0), lneg = !lneg;
@@ -4302,8 +4257,8 @@ plus_minus_operand_p (const_rtx x)
    the operands or, if both are VOIDmode, the operands are compared in
    "infinite precision".  */
 rtx
-simplify_relational_operation (enum rtx_code code, machine_mode mode,
-			       machine_mode cmp_mode, rtx op0, rtx op1)
+simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
+			       enum machine_mode cmp_mode, rtx op0, rtx op1)
 {
   rtx tem, trueop0, trueop1;
 
@@ -4385,8 +4340,8 @@ simplify_relational_operation (enum rtx_code code, machine_mode mode,
    mode the comparison is done in, so it is the mode of the operands.  */
 
 static rtx
-simplify_relational_operation_1 (enum rtx_code code, machine_mode mode,
-				 machine_mode cmp_mode, rtx op0, rtx op1)
+simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
+				 enum machine_mode cmp_mode, rtx op0, rtx op1)
 {
   enum rtx_code op0code = GET_CODE (op0);
 
@@ -4659,7 +4614,7 @@ comparison_result (enum rtx_code code, int known_results)
 
 rtx
 simplify_const_relational_operation (enum rtx_code code,
-				     machine_mode mode,
+				     enum machine_mode mode,
 				     rtx op0, rtx op1)
 {
   rtx tem;
@@ -4784,7 +4739,7 @@ simplify_const_relational_operation (enum rtx_code code,
       /* It would be nice if we really had a mode here.  However, the
 	 largest int representable on the target is as good as
 	 infinite.  */
-      machine_mode cmode = (mode == VOIDmode) ? MAX_MODE_INT : mode;
+      enum machine_mode cmode = (mode == VOIDmode) ? MAX_MODE_INT : mode;
       rtx_mode_t ptrueop0 = std::make_pair (trueop0, cmode);
       rtx_mode_t ptrueop1 = std::make_pair (trueop1, cmode);
 
@@ -5020,8 +4975,8 @@ simplify_const_relational_operation (enum rtx_code code,
    a constant.  Return 0 if no simplifications is possible.  */
 
 rtx
-simplify_ternary_operation (enum rtx_code code, machine_mode mode,
-			    machine_mode op0_mode, rtx op0, rtx op1,
+simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
+			    enum machine_mode op0_mode, rtx op0, rtx op1,
 			    rtx op2)
 {
   unsigned int width = GET_MODE_PRECISION (mode);
@@ -5123,7 +5078,7 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 
       if (COMPARISON_P (op0) && ! side_effects_p (op0))
 	{
-	  machine_mode cmp_mode = (GET_MODE (XEXP (op0, 0)) == VOIDmode
+	  enum machine_mode cmp_mode = (GET_MODE (XEXP (op0, 0)) == VOIDmode
 					? GET_MODE (XEXP (op0, 1))
 					: GET_MODE (XEXP (op0, 0)));
 	  rtx temp;
@@ -5258,8 +5213,8 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
    and then repacking them again for OUTERMODE.  */
 
 static rtx
-simplify_immed_subreg (machine_mode outermode, rtx op,
-		       machine_mode innermode, unsigned int byte)
+simplify_immed_subreg (enum machine_mode outermode, rtx op,
+		       enum machine_mode innermode, unsigned int byte)
 {
   enum {
     value_bit = 8,
@@ -5276,7 +5231,7 @@ simplify_immed_subreg (machine_mode outermode, rtx op,
   rtx result_s;
   rtvec result_v = NULL;
   enum mode_class outer_class;
-  machine_mode outer_submode;
+  enum machine_mode outer_submode;
   int max_bitsize;
 
   /* Some ports misuse CCmode.  */
@@ -5586,8 +5541,8 @@ simplify_immed_subreg (machine_mode outermode, rtx op,
 /* Simplify SUBREG:OUTERMODE(OP:INNERMODE, BYTE)
    Return 0 if no simplifications are possible.  */
 rtx
-simplify_subreg (machine_mode outermode, rtx op,
-		 machine_mode innermode, unsigned int byte)
+simplify_subreg (enum machine_mode outermode, rtx op,
+		 enum machine_mode innermode, unsigned int byte)
 {
   /* Little bit of sanity checking.  */
   gcc_assert (innermode != VOIDmode);
@@ -5617,7 +5572,7 @@ simplify_subreg (machine_mode outermode, rtx op,
      or not at all if changing back op starting mode.  */
   if (GET_CODE (op) == SUBREG)
     {
-      machine_mode innermostmode = GET_MODE (SUBREG_REG (op));
+      enum machine_mode innermostmode = GET_MODE (SUBREG_REG (op));
       int final_offset = byte + SUBREG_BYTE (op);
       rtx newx;
 
@@ -5810,8 +5765,8 @@ simplify_subreg (machine_mode outermode, rtx op,
 /* Make a SUBREG operation or equivalent if it folds.  */
 
 rtx
-simplify_gen_subreg (machine_mode outermode, rtx op,
-		     machine_mode innermode, unsigned int byte)
+simplify_gen_subreg (enum machine_mode outermode, rtx op,
+		     enum machine_mode innermode, unsigned int byte)
 {
   rtx newx;
 
@@ -5874,7 +5829,7 @@ rtx
 simplify_rtx (const_rtx x)
 {
   const enum rtx_code code = GET_CODE (x);
-  const machine_mode mode = GET_MODE (x);
+  const enum machine_mode mode = GET_MODE (x);
 
   switch (GET_RTX_CLASS (code))
     {

@@ -26,18 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "predict.h"
-#include "vec.h"
+#include "basic-block.h"
 #include "hashtab.h"
 #include "hash-set.h"
+#include "vec.h"
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "hash-table.h"
 #include "tree-ssa-alias.h"
@@ -1833,15 +1829,14 @@ maybe_replace_use_in_debug_stmt (use_operand_p use_p)
 /* If the operand pointed to by DEF_P is an SSA name in NEW_SSA_NAMES
    or OLD_SSA_NAMES, or if it is a symbol marked for renaming,
    register it as the current definition for the names replaced by
-   DEF_P.  Returns whether the statement should be removed.  */
+   DEF_P.  */
 
-static inline bool
+static inline void
 maybe_register_def (def_operand_p def_p, gimple stmt,
 		    gimple_stmt_iterator gsi)
 {
   tree def = DEF_FROM_PTR (def_p);
   tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
-  bool to_delete = false;
 
   /* If DEF is a naked symbol that needs renaming, create a new
      name for it.  */
@@ -1849,21 +1844,12 @@ maybe_register_def (def_operand_p def_p, gimple stmt,
     {
       if (DECL_P (def))
 	{
-	  if (gimple_clobber_p (stmt) && is_gimple_reg (sym))
-	    {
-	      gcc_checking_assert (TREE_CODE (sym) == VAR_DECL);
-	      /* Replace clobber stmts with a default def. This new use of a
-		 default definition may make it look like SSA_NAMEs have
-		 conflicting lifetimes, so we need special code to let them
-		 coalesce properly.  */
-	      to_delete = true;
-	      def = get_or_create_ssa_default_def (cfun, sym);
-	    }
-	  else
-	    def = make_ssa_name (def, stmt);
+	  tree tracked_var;
+
+	  def = make_ssa_name (def, stmt);
 	  SET_DEF (def_p, def);
 
-	  tree tracked_var = target_for_debug_bind (sym);
+	  tracked_var = target_for_debug_bind (sym);
 	  if (tracked_var)
 	    {
 	      gimple note = gimple_build_debug_bind (tracked_var, def, stmt);
@@ -1921,8 +1907,6 @@ maybe_register_def (def_operand_p def_p, gimple stmt,
       if (is_old_name (def))
 	register_new_update_single (def, def);
     }
-
-  return to_delete;
 }
 
 
@@ -1931,9 +1915,9 @@ maybe_register_def (def_operand_p def_p, gimple stmt,
    OLD_SSA_NAMES used by SI will be updated to their current reaching
    definition.  Names in OLD_SSA_NAMES or NEW_SSA_NAMES defined by SI
    will be registered as a new definition for their corresponding name
-   in OLD_SSA_NAMES.  Returns whether STMT should be removed.  */
+   in OLD_SSA_NAMES.  */
 
-static bool
+static void
 rewrite_update_stmt (gimple stmt, gimple_stmt_iterator gsi)
 {
   use_operand_p use_p;
@@ -1942,7 +1926,7 @@ rewrite_update_stmt (gimple stmt, gimple_stmt_iterator gsi)
 
   /* Only update marked statements.  */
   if (!rewrite_uses_p (stmt) && !register_defs_p (stmt))
-    return false;
+    return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1993,12 +1977,9 @@ rewrite_update_stmt (gimple stmt, gimple_stmt_iterator gsi)
   /* Register definitions of names in NEW_SSA_NAMES and OLD_SSA_NAMES.
      Also register definitions for names whose underlying symbol is
      marked for renaming.  */
-  bool to_delete = false;
   if (register_defs_p (stmt))
     FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
-      to_delete |= maybe_register_def (def_p, stmt, gsi);
-
-  return to_delete;
+      maybe_register_def (def_p, stmt, gsi);
 }
 
 
@@ -2164,11 +2145,8 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
   if (bitmap_bit_p (interesting_blocks, bb->index))
     {
       gcc_checking_assert (bitmap_bit_p (blocks_to_update, bb->index));
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
-	if (rewrite_update_stmt (gsi_stmt (gsi), gsi))
-	  gsi_remove (&gsi, true);
-	else
-	  gsi_next (&gsi);
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+        rewrite_update_stmt (gsi_stmt (gsi), gsi);
     }
 
   /* Step 3.  Update PHI nodes.  */

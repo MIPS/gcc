@@ -1405,9 +1405,9 @@ func (v Value) send(x Value, nb bool) (selected bool) {
 func (v Value) Set(x Value) {
 	v.mustBeAssignable()
 	x.mustBeExported() // do not let unexported x leak
-	var target unsafe.Pointer
+	var target *interface{}
 	if v.kind() == Interface {
-		target = v.ptr
+		target = (*interface{})(v.ptr)
 	}
 	x = x.assignTo("reflect.Set", v.typ, target)
 	if x.flag&flagIndir != 0 {
@@ -2230,7 +2230,7 @@ func NewAt(typ Type, p unsafe.Pointer) Value {
 // assignTo returns a value v that can be assigned directly to typ.
 // It panics if v is not assignable to typ.
 // For a conversion to an interface type, target is a suggested scratch space to use.
-func (v Value) assignTo(context string, dst *rtype, target unsafe.Pointer) Value {
+func (v Value) assignTo(context string, dst *rtype, target *interface{}) Value {
 	if v.flag&flagMethod != 0 {
 		v = makeMethodValue(context, v)
 	}
@@ -2246,15 +2246,15 @@ func (v Value) assignTo(context string, dst *rtype, target unsafe.Pointer) Value
 
 	case implements(dst, v.typ):
 		if target == nil {
-			target = unsafe_New(dst)
+			target = new(interface{})
 		}
 		x := valueInterface(v, false)
 		if dst.NumMethod() == 0 {
-			*(*interface{})(target) = x
+			*target = x
 		} else {
-			ifaceE2I(dst, x, target)
+			ifaceE2I(dst, x, unsafe.Pointer(target))
 		}
-		return Value{dst, target /* 0, */, flagIndir | flag(Interface)<<flagKindShift}
+		return Value{dst, unsafe.Pointer(target) /* 0, */, flagIndir | flag(Interface)<<flagKindShift}
 	}
 
 	// Failed.
@@ -2537,14 +2537,14 @@ func cvtDirect(v Value, typ Type) Value {
 
 // convertOp: concrete -> interface
 func cvtT2I(v Value, typ Type) Value {
-	target := unsafe_New(typ.common())
+	target := new(interface{})
 	x := valueInterface(v, false)
 	if typ.NumMethod() == 0 {
-		*(*interface{})(target) = x
+		*target = x
 	} else {
-		ifaceE2I(typ.(*rtype), x, target)
+		ifaceE2I(typ.(*rtype), x, unsafe.Pointer(target))
 	}
-	return Value{typ.common(), target /* 0, */, v.flag&flagRO | flagIndir | flag(Interface)<<flagKindShift}
+	return Value{typ.common(), unsafe.Pointer(target) /* 0, */, v.flag&flagRO | flagIndir | flag(Interface)<<flagKindShift}
 }
 
 // convertOp: interface -> interface

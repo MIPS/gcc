@@ -24,17 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
@@ -73,10 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "dbgcnt.h"
 #include "domwalk.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
-#include "cgraph.h"
 #include "ipa-prop.h"
 #include "tree-ssa-propagate.h"
 #include "ipa-utils.h"
@@ -2517,8 +2502,6 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 				   (TREE_CODE (fn) == FUNCTION_DECL
 				    ? build_fold_addr_expr (fn) : fn),
 				   nargs, args);
-	if (currop->with_bounds)
-	  CALL_WITH_BOUNDS_P (folded) = true;
 	free (args);
 	if (sc)
 	  CALL_EXPR_STATIC_CHAIN (folded) = sc;

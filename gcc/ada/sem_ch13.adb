@@ -1119,39 +1119,33 @@ package body Sem_Ch13 is
                case A_Id is
 
                   --  For aspects whose expression is an optional Boolean, make
-                  --  the corresponding pragma at the freeze point.
+                  --  the corresponding pragma at the freezing point.
 
-                  when Boolean_Aspects      |
-                       Library_Unit_Aspects =>
-                     Make_Pragma_From_Boolean_Aspect (ASN);
+               when Boolean_Aspects      |
+                    Library_Unit_Aspects =>
+                  Make_Pragma_From_Boolean_Aspect (ASN);
 
                   --  Special handling for aspects that don't correspond to
                   --  pragmas/attributes.
 
-                  when Aspect_Default_Value           |
-                       Aspect_Default_Component_Value =>
-                     Analyze_Aspect_Default_Value (ASN);
+               when Aspect_Default_Value           |
+                    Aspect_Default_Component_Value =>
+                  Analyze_Aspect_Default_Value (ASN);
 
                   --  Ditto for iterator aspects, because the corresponding
                   --  attributes may not have been analyzed yet.
 
-                  when Aspect_Constant_Indexing |
-                       Aspect_Variable_Indexing |
-                       Aspect_Default_Iterator  |
-                       Aspect_Iterator_Element  =>
-                     Analyze (Expression (ASN));
+               when Aspect_Constant_Indexing |
+                    Aspect_Variable_Indexing |
+                    Aspect_Default_Iterator  |
+                    Aspect_Iterator_Element  =>
+                  Analyze (Expression (ASN));
 
-                     if Etype (Expression (ASN)) = Any_Type then
-                        Error_Msg_NE
-                          ("\aspect must be fully defined before & is frozen",
-                           ASN, E);
-                     end if;
+               when Aspect_Iterable =>
+                  Validate_Iterable_Aspect (E, ASN);
 
-                  when Aspect_Iterable =>
-                     Validate_Iterable_Aspect (E, ASN);
-
-                  when others =>
-                     null;
+               when others =>
+                  null;
                end case;
 
                Ritem := Aspect_Rep_Item (ASN);
@@ -1188,11 +1182,10 @@ package body Sem_Ch13 is
         (Prag    : Node_Id;
          Ins_Nod : Node_Id;
          Decls   : List_Id);
-      --  Subsidiary to the analysis of aspects Abstract_State, Ghost,
-      --  Initializes, Initial_Condition and Refined_State. Insert node Prag
-      --  before node Ins_Nod. If Ins_Nod is for pragma SPARK_Mode, then skip
-      --  SPARK_Mode. Decls is the associated declarative list where Prag is to
-      --  reside.
+      --  Subsidiary to the analysis of aspects Abstract_State, Initializes,
+      --  Initial_Condition and Refined_State. Insert node Prag before node
+      --  Ins_Nod. If Ins_Nod is for pragma SPARK_Mode, then skip SPARK_Mode.
+      --  Decls is the associated declarative list where Prag is to reside.
 
       procedure Insert_Pragma (Prag : Node_Id);
       --  Subsidiary to the analysis of aspects Attach_Handler, Contract_Cases,
@@ -1678,7 +1671,7 @@ package body Sem_Ch13 is
                   then
                      Error_Msg_N
                        ("indexing aspect can only apply to a tagged type",
-                        Aspect);
+                         Aspect);
                      goto Continue;
                   end if;
 
@@ -2191,11 +2184,10 @@ package body Sem_Ch13 is
                            end loop;
                         end if;
 
-                        --  When aspects Abstract_State, Ghost,
-                        --  Initial_Condition and Initializes are out of order,
-                        --  ensure that pragma SPARK_Mode is always at the top
-                        --  of the declarations to properly enabled/suppress
-                        --  errors.
+                        --  Pragma Abstract_State must be inserted after pragma
+                        --  SPARK_Mode in the tree. This ensures that any error
+                        --  messages dependent on SPARK_Mode will be properly
+                        --  enabled/suppressed.
 
                         Insert_After_SPARK_Mode
                           (Prag    => Aitem,
@@ -2238,20 +2230,6 @@ package body Sem_Ch13 is
                   Insert_Pragma (Aitem);
                   goto Continue;
 
-               --  Default_Storage_Pool
-
-               when Aspect_Default_Storage_Pool =>
-                  Make_Aitem_Pragma
-                    (Pragma_Argument_Associations => New_List (
-                       Make_Pragma_Argument_Association (Loc,
-                         Expression => Relocate_Node (Expr))),
-                     Pragma_Name                  =>
-                       Name_Default_Storage_Pool);
-
-                  Decorate (Aspect, Aitem);
-                  Insert_Pragma (Aitem);
-                  goto Continue;
-
                --  Depends
 
                --  Aspect Depends is never delayed because it is equivalent to
@@ -2271,72 +2249,6 @@ package body Sem_Ch13 is
                   Decorate (Aspect, Aitem);
                   Insert_Pragma (Aitem);
                   goto Continue;
-
-               --  Aspect Extensions_Visible is never delayed because it is
-               --  equivalent to a source pragma which appears after the
-               --  related subprogram.
-
-               when Aspect_Extensions_Visible =>
-                  Make_Aitem_Pragma
-                    (Pragma_Argument_Associations => New_List (
-                       Make_Pragma_Argument_Association (Loc,
-                         Expression => Relocate_Node (Expr))),
-                     Pragma_Name                  => Name_Extensions_Visible);
-
-                  Decorate (Aspect, Aitem);
-                  Insert_Pragma (Aitem);
-                  goto Continue;
-
-               --  Aspect Ghost is never delayed because it is equivalent to a
-               --  source pragma which appears at the top of [generic] package
-               --  declarations or after an object, a [generic] subprogram, or
-               --  a type declaration.
-
-               when Aspect_Ghost => Ghost : declare
-                  Decls : List_Id;
-
-               begin
-                  Make_Aitem_Pragma
-                    (Pragma_Argument_Associations => New_List (
-                       Make_Pragma_Argument_Association (Loc,
-                         Expression => Relocate_Node (Expr))),
-                     Pragma_Name                  => Name_Ghost);
-
-                  Decorate (Aspect, Aitem);
-
-                  --  When the aspect applies to a [generic] package, insert
-                  --  the pragma at the top of the visible declarations. This
-                  --  emulates the placement of a source pragma.
-
-                  if Nkind_In (N, N_Generic_Package_Declaration,
-                                  N_Package_Declaration)
-                  then
-                     Decls := Visible_Declarations (Specification (N));
-
-                     if No (Decls) then
-                        Decls := New_List;
-                        Set_Visible_Declarations (N, Decls);
-                     end if;
-
-                     --  When aspects Abstract_State, Ghost, Initial_Condition
-                     --  and Initializes are out of order, ensure that pragma
-                     --  SPARK_Mode is always at the top of the declarations to
-                     --  properly enabled/suppress errors.
-
-                     Insert_After_SPARK_Mode
-                       (Prag    => Aitem,
-                        Ins_Nod => First (Decls),
-                        Decls   => Decls);
-
-                  --  Otherwise the context is an object, [generic] subprogram
-                  --  or type declaration.
-
-                  else
-                     Insert_Pragma (Aitem);
-                  end if;
-
-                  goto Continue;
-               end Ghost;
 
                --  Global
 
@@ -2399,10 +2311,10 @@ package body Sem_Ch13 is
                         Set_Visible_Declarations (Context, Decls);
                      end if;
 
-                     --  When aspects Abstract_State, Ghost, Initial_Condition
-                     --  and Initializes are out of order, ensure that pragma
-                     --  SPARK_Mode is always at the top of the declarations to
-                     --  properly enabled/suppress errors.
+                     --  When aspects Abstract_State, Initial_Condition and
+                     --  Initializes are out of order, ensure that pragma
+                     --  SPARK_Mode is always at the top of the declarative
+                     --  list to properly enable/suppress errors.
 
                      Insert_After_SPARK_Mode
                        (Prag    => Aitem,
@@ -2457,10 +2369,10 @@ package body Sem_Ch13 is
                         Set_Visible_Declarations (Context, Decls);
                      end if;
 
-                     --  When aspects Abstract_State, Ghost, Initial_Condition
-                     --  and Initializes are out of order, ensure that pragma
-                     --  SPARK_Mode is always at the top of the declarations to
-                     --  properly enabled/suppress errors.
+                     --  When aspects Abstract_State, Initial_Condition and
+                     --  Initializes are out of order, ensure that pragma
+                     --  SPARK_Mode is always at the top of the declarative
+                     --  list to properly enable/suppress errors.
 
                      Insert_After_SPARK_Mode
                        (Prag    => Aitem,
@@ -2783,7 +2695,7 @@ package body Sem_Ch13 is
                when Aspect_Default_Value =>
                   if not Is_Scalar_Type (E) then
                      Error_Msg_N
-                       ("aspect Default_Value must apply to a scalar type", N);
+                       ("aspect Default_Value must apply to a scalar_Type", N);
                   end if;
 
                   Aitem := Empty;
@@ -2793,7 +2705,7 @@ package body Sem_Ch13 is
 
                when Aspect_Default_Component_Value =>
                   if not (Is_Array_Type (E)
-                           and then Is_Scalar_Type (Component_Type (E)))
+                            and then Is_Scalar_Type (Component_Type (E)))
                   then
                      Error_Msg_N ("aspect Default_Component_Value can only "
                        & "apply to an array of scalar components", N);
@@ -3989,9 +3901,6 @@ package body Sem_Ch13 is
             Ctrl := Etype (First_Formal (Subp));
          end if;
 
-         --  Type of formal may be the class-wide type, an access to such,
-         --  or an incomplete view.
-
          if Ctrl = Ent
            or else Ctrl = Class_Wide_Type (Ent)
            or else
@@ -3999,9 +3908,6 @@ package body Sem_Ch13 is
                and then (Designated_Type (Ctrl) = Ent
                            or else
                          Designated_Type (Ctrl) = Class_Wide_Type (Ent)))
-           or else
-             (Ekind (Ctrl) = E_Incomplete_Type
-               and then Full_View (Ctrl) = Ent)
          then
             null;
          else
@@ -8760,13 +8666,18 @@ package body Sem_Ch13 is
          when Aspect_Default_Component_Value =>
             T := Component_Type (Entity (ASN));
 
-         when Aspect_Default_Storage_Pool =>
-            T := Class_Wide_Type (RTE (RE_Root_Storage_Pool));
-
          --  Default_Value is resolved with the type entity in question
 
          when Aspect_Default_Value =>
             T := Entity (ASN);
+
+         --  Depends is a delayed aspect because it mentiones names first
+         --  introduced by aspect Global which is already delayed. There is
+         --  no action to be taken with respect to the aspect itself as the
+         --  analysis is done by the corresponding pragma.
+
+         when Aspect_Depends =>
+            return;
 
          when Aspect_Dispatching_Domain =>
             T := RTE (RE_Dispatching_Domain);
@@ -8776,6 +8687,14 @@ package body Sem_Ch13 is
 
          when Aspect_External_Name =>
             T := Standard_String;
+
+         --  Global is a delayed aspect because it may reference names that
+         --  have not been declared yet. There is no action to be taken with
+         --  respect to the aspect itself as the reference checking is done
+         --  on the corresponding pragma.
+
+         when Aspect_Global =>
+            return;
 
          when Aspect_Link_Name =>
             T := Standard_String;
@@ -8884,12 +8803,8 @@ package body Sem_Ch13 is
               Aspect_Annotate                  |
               Aspect_Contract_Cases            |
               Aspect_Default_Initial_Condition |
-              Aspect_Depends                   |
               Aspect_Dimension                 |
               Aspect_Dimension_System          |
-              Aspect_Extensions_Visible        |
-              Aspect_Ghost                     |
-              Aspect_Global                    |
               Aspect_Implicit_Dereference      |
               Aspect_Initial_Condition         |
               Aspect_Initializes               |
@@ -9234,12 +9149,11 @@ package body Sem_Ch13 is
 
    begin
       --  If rep_clauses are to be ignored, no need for legality checks. In
-      --  particular, no need to pester user about rep clauses that violate the
-      --  rule on constant addresses, given that these clauses will be removed
-      --  by Freeze before they reach the back end. Similarly in CodePeer mode,
-      --  we want to relax these checks.
+      --  particular, no need to pester user about rep clauses that violate
+      --  the rule on constant addresses, given that these clauses will be
+      --  removed by Freeze before they reach the back end.
 
-      if not Ignore_Rep_Clauses and not CodePeer_Mode then
+      if not Ignore_Rep_Clauses then
          Check_Expr_Constants (Expr);
       end if;
    end Check_Constant_Address_Clause;
@@ -10738,9 +10652,6 @@ package body Sem_Ch13 is
       --  Component_Size, Machine_Radix, Object_Size, Pack, Predicates,
       --  Preelaborable_Initialization, RM_Size and Small.
 
-      --  In addition, Convention must be propagated from base type to subtype,
-      --  because the subtype may have been declared on an incomplete view.
-
       if Nkind (Parent (Typ)) = N_Private_Extension_Declaration then
          return;
       end if;
@@ -10775,14 +10686,6 @@ package body Sem_Ch13 is
          Set_Is_Atomic (Typ);
          Set_Treat_As_Volatile (Typ);
          Set_Is_Volatile (Typ);
-      end if;
-
-      --  Convention
-
-      if Is_Record_Type (Typ)
-        and then Typ /= Base_Type (Typ) and then Is_Frozen (Base_Type (Typ))
-      then
-         Set_Convention (Typ, Convention (Base_Type (Typ)));
       end if;
 
       --  Default_Component_Value

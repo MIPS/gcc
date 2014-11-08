@@ -174,8 +174,7 @@ func (z *Writer) Flush() error {
 	return z.err
 }
 
-// Close closes the Writer, flushing any unwritten data to the underlying
-// io.Writer, but does not close the underlying io.Writer.
+// Calling Close does not close the wrapped io.Writer originally passed to NewWriter.
 func (z *Writer) Close() error {
 	if !z.wroteHeader {
 		z.err = z.writeHeader()

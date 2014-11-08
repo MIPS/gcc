@@ -99,25 +99,12 @@
 #include "tm_p.h"
 #include "obstack.h"
 #include "expr.h"
-#include "optabs.h"
 #include "params.h"
 #include "diagnostic-core.h"
 #include "toplev.h" /* user_defined_section_attribute */
 #include "tree-pass.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "df.h"
 #include "bb-reorder.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "except.h"
 
@@ -1393,12 +1380,13 @@ get_uncond_jump_length (void)
   rtx_insn *label, *jump;
   int length;
 
-  start_sequence ();
-  label = emit_label (gen_label_rtx ());
+  label = emit_label_before (gen_label_rtx (), get_insns ());
   jump = emit_jump_insn (gen_jump (label));
-  length = get_attr_min_length (jump);
-  end_sequence ();
 
+  length = get_attr_min_length (jump);
+
+  delete_insn (jump);
+  delete_insn (label);
   return length;
 }
 

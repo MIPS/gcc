@@ -31,11 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgbuild.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
@@ -891,7 +886,7 @@ static bool
 replace_src_with_reg_ok_p (insn_t insn, rtx new_src_reg)
 {
   vinsn_t vi = INSN_VINSN (insn);
-  machine_mode mode;
+  enum machine_mode mode;
   rtx dst_loc;
   bool res;
 
@@ -1003,7 +998,9 @@ get_reg_class (rtx_insn *insn)
 {
   int i, n_ops;
 
-  extract_constrain_insn (insn);
+  extract_insn (insn);
+  if (! constrain_operands (1))
+    fatal_insn_not_found (insn);
   preprocess_constraints (insn);
   n_ops = recog_data.n_operands;
 
@@ -1085,7 +1082,7 @@ sel_hard_regno_rename_ok (int from ATTRIBUTE_UNUSED, int to ATTRIBUTE_UNUSED)
 
 /* Calculate set of registers that are capable of holding MODE.  */
 static void
-init_regs_for_mode (machine_mode mode)
+init_regs_for_mode (enum machine_mode mode)
 {
   int cur_reg;
 
@@ -1178,7 +1175,7 @@ static void
 mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
                             regset used_regs ATTRIBUTE_UNUSED)
 {
-  machine_mode mode;
+  enum machine_mode mode;
   enum reg_class cl = NO_REGS;
   rtx orig_dest;
   unsigned cur_reg, regno;
@@ -1348,7 +1345,7 @@ choose_best_reg_1 (HARD_REG_SET hard_regs_used,
 {
   int best_new_reg;
   unsigned cur_reg;
-  machine_mode mode = VOIDmode;
+  enum machine_mode mode = VOIDmode;
   unsigned regno, i, n;
   hard_reg_set_iterator hrsi;
   def_list_iterator di;
@@ -1459,7 +1456,7 @@ choose_best_pseudo_reg (regset used_regs,
 {
   def_list_iterator i;
   def_t def;
-  machine_mode mode = VOIDmode;
+  enum machine_mode mode = VOIDmode;
   bool bad_hard_regs = false;
 
   /* We should not use this after reload.  */
@@ -1537,7 +1534,7 @@ verify_target_availability (expr_t expr, regset used_regs,
 			    struct reg_rename *reg_rename_p)
 {
   unsigned n, i, regno;
-  machine_mode mode;
+  enum machine_mode mode;
   bool target_available, live_available, hard_available;
 
   if (!REG_P (EXPR_LHS (expr)) || EXPR_TARGET_AVAILABLE (expr) < 0)

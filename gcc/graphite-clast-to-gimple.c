@@ -44,17 +44,6 @@ extern "C" {
 #include "coretypes.h"
 #include "diagnostic-core.h"
 #include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -359,7 +348,7 @@ clast_name_to_gcc (struct clast_name *name, ivs_params_p ip)
 static tree
 max_precision_type (tree type1, tree type2)
 {
-  machine_mode mode;
+  enum machine_mode mode;
   int p1, p2, precision;
   tree type;
 
@@ -548,7 +537,7 @@ type_for_interval (mpz_t bound_one, mpz_t bound_two)
 {
   bool unsigned_p;
   tree type;
-  machine_mode mode;
+  enum machine_mode mode;
   int wider_precision;
   int precision = MAX (mpz_sizeinbase (bound_one, 2),
 		       mpz_sizeinbase (bound_two, 2));

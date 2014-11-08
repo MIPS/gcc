@@ -27,17 +27,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
-#include "predict.h"
-#include "vec.h"
+#include "basic-block.h"
 #include "hashtab.h"
 #include "hash-set.h"
+#include "vec.h"
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -1188,11 +1185,10 @@ tree_ssa_strip_useless_type_conversions (tree exp)
 }
 
 
-/* Return true if T, an SSA_NAME, has an undefined value.  PARTIAL is what
-   should be returned if the value is only partially undefined.  */
+/* Return true if T, an SSA_NAME, has an undefined value.  */
 
 bool
-ssa_undefined_value_p (tree t, bool partial)
+ssa_undefined_value_p (tree t)
 {
   gimple def_stmt;
   tree var = SSA_NAME_VAR (t);
@@ -1216,7 +1212,7 @@ ssa_undefined_value_p (tree t, bool partial)
     return true;
 
   /* Check if the complex was not only partially defined.  */
-  if (partial && is_gimple_assign (def_stmt)
+  if (is_gimple_assign (def_stmt)
       && gimple_assign_rhs_code (def_stmt) == COMPLEX_EXPR)
     {
       tree rhs1, rhs2;
@@ -1561,6 +1557,18 @@ execute_update_addresses_taken (void)
 
 		if (gimple_assign_lhs (stmt) != lhs)
 		  gimple_assign_set_lhs (stmt, lhs);
+
+		/* For var ={v} {CLOBBER}; where var lost
+		   TREE_ADDRESSABLE just remove the stmt.  */
+		if (DECL_P (lhs)
+		    && TREE_CLOBBER_P (rhs)
+		    && bitmap_bit_p (suitable_for_renaming, DECL_UID (lhs)))
+		  {
+		    unlink_stmt_vdef (stmt);
+      		    gsi_remove (&gsi, true);
+		    release_defs (stmt);
+		    continue;
+		  }
 
 		if (gimple_assign_rhs1 (stmt) != rhs)
 		  {

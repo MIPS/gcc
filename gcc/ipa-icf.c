@@ -55,17 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -82,12 +71,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
-#include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "except.h"
@@ -216,7 +199,7 @@ sem_function::sem_function (cgraph_node *node, hashval_t hash,
 sem_function::~sem_function ()
 {
   for (unsigned i = 0; i < bb_sorted.length (); i++)
-    delete (bb_sorted[i]);
+    free (bb_sorted[i]);
 
   arg_types.release ();
   bb_sizes.release ();
@@ -579,8 +562,7 @@ sem_function::merge (sem_item *alias_item)
       redirect_callers
 	= (!original_discardable
 	   && alias->get_availability () > AVAIL_INTERPOSABLE
-	   && original->get_availability () > AVAIL_INTERPOSABLE
-	   && !alias->instrumented_version);
+	   && original->get_availability () > AVAIL_INTERPOSABLE);
     }
   else
     {
@@ -886,12 +868,6 @@ sem_function::compare_phi_node (basic_block bb1, basic_block bb2)
 
       phi1 = gsi_stmt (si1);
       phi2 = gsi_stmt (si2);
-
-      tree phi_result1 = gimple_phi_result (phi1);
-      tree phi_result2 = gimple_phi_result (phi2);
-
-      if (!m_checker->compare_operand (phi_result1, phi_result2))
-	return return_false_with_msg ("PHI results are different");
 
       size1 = gimple_phi_num_args (phi1);
       size2 = gimple_phi_num_args (phi2);
@@ -1201,7 +1177,6 @@ sem_variable::merge (sem_item *alias_item)
       alias->analyzed = false;
 
       DECL_INITIAL (alias->decl) = NULL;
-      alias->need_bounds_init = false;
       alias->remove_all_references ();
 
       varpool_node::create_alias (alias_var->decl, decl);
@@ -1761,7 +1736,7 @@ sem_item_optimizer::parse_nonsingleton_classes (void)
 
   if (dump_file)
     fprintf (dump_file, "Init called for %u items (%.2f%%).\n", init_called_count,
-	     m_items.length () ? 100.0f * init_called_count / m_items.length (): 0.0f);
+	     100.0f * init_called_count / m_items.length ());
 }
 
 /* Equality function for semantic items is used to subdivide existing
@@ -2221,15 +2196,14 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
       fprintf (dump_file, "Congruent classes before: %u, after: %u\n",
 	       prev_class_count, class_count);
       fprintf (dump_file, "Average class size before: %.2f, after: %.2f\n",
-	       prev_class_count ? 1.0f * item_count / prev_class_count : 0.0f,
-	       class_count ? 1.0f * item_count / class_count : 0.0f);
+	       1.0f * item_count / prev_class_count,
+	       1.0f * item_count / class_count);
       fprintf (dump_file, "Average non-singular class size: %.2f, count: %u\n",
-	       non_singular_classes_count ? 1.0f * non_singular_classes_sum /
-	       non_singular_classes_count : 0.0f,
+	       1.0f * non_singular_classes_sum / non_singular_classes_count,
 	       non_singular_classes_count);
       fprintf (dump_file, "Equal symbols: %u\n", equal_items);
       fprintf (dump_file, "Fraction of visited symbols: %.2f%%\n\n",
-	       item_count ? 100.0f * equal_items / item_count : 0.0f);
+	       100.0f * equal_items / item_count);
     }
 
   for (hash_table<congruence_class_group_hash>::iterator it = m_classes.begin ();
@@ -2346,7 +2320,6 @@ ipa_icf_driver (void)
   optimizer->unregister_hooks ();
 
   delete optimizer;
-  optimizer = NULL;
 
   return 0;
 }

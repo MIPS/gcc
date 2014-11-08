@@ -2127,8 +2127,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		tree gnu_max
 		  = convert (sizetype, TYPE_MAX_VALUE (gnu_index_type));
 		tree gnu_this_max
-		  = size_binop (PLUS_EXPR, size_one_node,
-				size_binop (MINUS_EXPR, gnu_max, gnu_min));
+		  = size_binop (MAX_EXPR,
+				size_binop (PLUS_EXPR, size_one_node,
+					    size_binop (MINUS_EXPR,
+							gnu_max, gnu_min)),
+				size_zero_node);
 
 		if (TREE_CODE (gnu_this_max) == INTEGER_CST
 		    && TREE_OVERFLOW (gnu_this_max))
@@ -2461,39 +2464,35 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    gnu_max_size = NULL_TREE;
 		  else
 		    {
-		      tree gnu_this_max;
-
-		      /* Use int_const_binop if the bounds are constant to
-			 avoid any unwanted overflow.  */
-		      if (TREE_CODE (gnu_base_min) == INTEGER_CST
-			  && TREE_CODE (gnu_base_max) == INTEGER_CST)
-			gnu_this_max
-			  = int_const_binop (PLUS_EXPR, size_one_node,
-					     int_const_binop (MINUS_EXPR,
+		      tree gnu_this_max
+			= size_binop (MAX_EXPR,
+				      size_binop (PLUS_EXPR, size_one_node,
+						  size_binop (MINUS_EXPR,
 							      gnu_base_max,
-							      gnu_base_min));
-		      else
-			gnu_this_max
-			  = size_binop (PLUS_EXPR, size_one_node,
-					size_binop (MINUS_EXPR,
-						    gnu_base_max,
-						    gnu_base_min));
+							      gnu_base_min)),
+				      size_zero_node);
 
-		      gnu_max_size
-			= size_binop (MULT_EXPR, gnu_max_size, gnu_this_max);
+		      if (TREE_CODE (gnu_this_max) == INTEGER_CST
+			  && TREE_OVERFLOW (gnu_this_max))
+			gnu_max_size = NULL_TREE;
+		      else
+			gnu_max_size
+			  = size_binop (MULT_EXPR, gnu_max_size, gnu_this_max);
 		    }
 		}
 
 	      /* We need special types for debugging information to point to
 		 the index types if they have variable bounds, are not integer
-		 types or are biased.  */
-	      if (TREE_CODE (gnu_orig_min) != INTEGER_CST
+		 types, are biased or are wider than sizetype.  */
+	      if (!integer_onep (gnu_orig_min)
 		  || TREE_CODE (gnu_orig_max) != INTEGER_CST
 		  || TREE_CODE (gnu_index_type) != INTEGER_TYPE
 		  || (TREE_TYPE (gnu_index_type)
 		      && TREE_CODE (TREE_TYPE (gnu_index_type))
 			 != INTEGER_TYPE)
-		  || TYPE_BIASED_REPRESENTATION_P (gnu_index_type))
+		  || TYPE_BIASED_REPRESENTATION_P (gnu_index_type)
+		  || compare_tree_int (rm_size (gnu_index_type),
+				       TYPE_PRECISION (sizetype)) > 0)
 		need_index_type_struct = true;
 	    }
 
@@ -3056,7 +3055,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		     gnat_field = Next_Stored_Discriminant (gnat_field))
 		  if (Present (Corresponding_Discriminant (gnat_field)))
 		    {
-		      Entity_Id field;
+		      Entity_Id field = Empty;
 		      for (field = First_Stored_Discriminant (gnat_parent);
 			   Present (field);
 			   field = Next_Stored_Discriminant (field))
@@ -3138,30 +3137,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		&& Ekind (Entity (Node (gnat_constr))) == E_Discriminant)
 	      {
 		Entity_Id gnat_discr = Entity (Node (gnat_constr));
-		tree gnu_discr_type, gnu_ref;
-
-		/* If the scope of the discriminant is not the record type,
-		   this means that we're processing the implicit full view
-		   of a type derived from a private discriminated type: in
-		   this case, the Stored_Constraint list is simply copied
-		   from the partial view, see Build_Derived_Private_Type.
-		   So we need to retrieve the corresponding discriminant
-		   of the implicit full view, otherwise we will abort.  */
-		if (Scope (gnat_discr) != gnat_entity)
-		  {
-		    Entity_Id field;
-		    for (field = First_Entity (gnat_entity);
-			 Present (field);
-			 field = Next_Entity (field))
-		      if (Ekind (field) == E_Discriminant
-			  && same_discriminant_p (gnat_discr, field))
-			break;
-		    gcc_assert (Present (field));
-		    gnat_discr = field;
-		  }
-
-		gnu_discr_type = gnat_to_gnu_type (Etype (gnat_discr));
-		gnu_ref
+		tree gnu_discr_type = gnat_to_gnu_type (Etype (gnat_discr));
+		tree gnu_ref
 		  = gnat_to_gnu_entity (Original_Record_Component (gnat_discr),
 					NULL_TREE, 0);
 
@@ -3758,7 +3735,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* True if we make a dummy type here.  */
 	bool made_dummy = false;
 	/* The mode to be used for the pointer type.  */
-	machine_mode p_mode = mode_for_size (esize, MODE_INT, 0);
+	enum machine_mode p_mode = mode_for_size (esize, MODE_INT, 0);
 	/* The GCC type used for the designated type.  */
 	tree gnu_desig_type = NULL_TREE;
 
@@ -4490,7 +4467,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    unsigned int size
 		      = TREE_INT_CST_LOW (TYPE_SIZE (gnu_return_type));
 		    unsigned int i = BITS_PER_UNIT;
-		    machine_mode mode;
+		    enum machine_mode mode;
 
 		    while (i < size)
 		      i <<= 1;
@@ -5103,10 +5080,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       if (Is_Derived_Type (gnat_entity) && !type_annotate_only)
 	{
 	  Entity_Id gnat_parent_type = Underlying_Type (Etype (gnat_entity));
-	  /* For constrained packed array subtypes, the implementation type is
-	     used instead of the nominal type.  */
+	  /* For packed array subtypes, the implementation type is used.  */
 	  if (kind == E_Array_Subtype
-	      && Is_Constrained (gnat_entity)
 	      && Present (Packed_Array_Impl_Type (gnat_parent_type)))
 	    gnat_parent_type = Packed_Array_Impl_Type (gnat_parent_type);
 	  relate_alias_sets (gnu_type, gnat_to_gnu_type (gnat_parent_type),
@@ -6177,7 +6152,7 @@ elaborate_expression_1 (tree gnu_expr, Entity_Id gnat_entity, tree gnu_name,
 	{
 	  HOST_WIDE_INT bitsize, bitpos;
 	  tree offset;
-	  machine_mode mode;
+	  enum machine_mode mode;
 	  int unsignedp, volatilep;
 
 	  inner = get_inner_reference (inner, &bitsize, &bitpos, &offset,
@@ -7861,7 +7836,7 @@ validate_size (Uint uint_size, tree gnu_type, Entity_Id gnat_object,
      by the smallest integral mode that's valid for pointers.  */
   if (TREE_CODE (gnu_type) == POINTER_TYPE || TYPE_IS_FAT_POINTER_P (gnu_type))
     {
-      machine_mode p_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+      enum machine_mode p_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
       while (!targetm.valid_pointer_mode (p_mode))
 	p_mode = GET_MODE_WIDER_MODE (p_mode);
       type_size = bitsize_int (GET_MODE_BITSIZE (p_mode));
@@ -8071,7 +8046,7 @@ check_ok_for_atomic (tree object, Entity_Id gnat_entity, bool comp_p)
 {
   Node_Id gnat_error_point = gnat_entity;
   Node_Id gnat_node;
-  machine_mode mode;
+  enum machine_mode mode;
   unsigned int align;
   tree size;
 

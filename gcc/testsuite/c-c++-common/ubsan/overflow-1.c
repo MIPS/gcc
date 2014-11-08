@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=signed-integer-overflow -fno-sanitize-recover=signed-integer-overflow" } */
+/* { dg-options "-fsanitize=signed-integer-overflow -fno-sanitize-recover" } */
 
 #ifndef ASM1
 # define ASM1(a) /* Nothing */

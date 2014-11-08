@@ -67,12 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h" /* for init_set_costs */
 #include "hosthooks.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "opts.h"
 #include "opts-diagnostic.h"
@@ -89,15 +83,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
-#include "auto-profile.h"
-#include "dwarf2out.h"
-#include "bitmap.h"
-#include "ipa-reference.h"
-#include "ipa-prop.h"
-#include "gcse.h"
-#include "insn-codes.h"
 #include "optabs.h"
-#include "tree-chkp.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -115,7 +101,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <new>
 
 static void general_init (const char *);
-static void do_compile ();
+static void do_compile (void);
 static void process_options (void);
 static void backend_init (void);
 static int lang_dependent_init (const char *);
@@ -598,9 +584,6 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
-      if (flag_check_pointer_bounds)
-	chkp_finish_file ();
-
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -683,10 +666,6 @@ compile_file (void)
       ident_str = ACONCAT (("GCC: ", pkg_version, version_string, NULL));
       targetm.asm_out.output_ident (ident_str);
     }
-
-  /* Auto profile finalization. */
-  if (flag_auto_profile)
-    end_auto_profile ();
 
   /* Invoke registered plugin callbacks.  */
   invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
@@ -1182,7 +1161,6 @@ general_init (const char *argv0)
      table.  */
   init_ggc ();
   init_stringpool ();
-  input_location = UNKNOWN_LOCATION;
   line_table = ggc_alloc<line_maps> ();
   linemap_init (line_table, BUILTINS_LOCATION);
   line_table->reallocator = realloc_for_line_map;
@@ -1270,20 +1248,6 @@ process_options (void)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
 
-  /* Set default values for parameters relation to the Scalar Reduction
-     of Aggregates passes (SRA and IP-SRA).  We must do this here, rather
-     than in opts.c:default_options_optimization as historically these
-     tuning heuristics have been based on MOVE_RATIO, which on some
-     targets requires other symbols from the backend.  */
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED,
-     get_move_ratio (true) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
-     get_move_ratio (false) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
 
@@ -1326,12 +1290,6 @@ process_options (void)
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "and -ftree-loop-linear)");
 #endif
-
-  if (flag_check_pointer_bounds)
-    {
-      if (targetm.chkp_bound_mode () == VOIDmode)
-	error ("-fcheck-pointer-bounds is not supported for this target");
-    }
 
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
@@ -1750,16 +1708,16 @@ lang_dependent_init_target (void)
 /* Perform initializations that are lang-dependent or target-dependent.
    but matters only for late optimizations and RTL generation.  */
 
-static int rtl_initialized;
-
 void
 initialize_rtl (void)
 {
+  static int initialized_once;
+
   /* Initialization done just once per compilation, but delayed
      till code generation.  */
-  if (!rtl_initialized)
+  if (!initialized_once)
     ira_init_once ();
-  rtl_initialized = true;
+  initialized_once = true;
 
   /* Target specific RTL backend initialization.  */
   if (!this_target_rtl->target_specific_initialized)
@@ -1964,8 +1922,14 @@ standard_type_bitsize (int bitsize)
 
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile ()
+do_compile (void)
 {
+  /* Initialize timing first.  The C front ends read the main file in
+     the post_options hook, and C++ does file timings.  */
+  if (time_report || !quiet_flag  || flag_detailed_statistics)
+    timevar_init ();
+  timevar_start (TV_TOTAL);
+
   process_options ();
 
   /* Don't do any more if an error has already occurred.  */
@@ -2023,28 +1987,10 @@ do_compile ()
 
       timevar_stop (TV_PHASE_FINALIZE);
     }
-}
 
-toplev::toplev (bool use_TV_TOTAL)
-  : m_use_TV_TOTAL (use_TV_TOTAL)
-{
-  if (!m_use_TV_TOTAL)
-    start_timevars ();
-}
-
-toplev::~toplev ()
-{
+  /* Stop timing and print the times.  */
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
-}
-
-void
-toplev::start_timevars ()
-{
-  if (time_report || !quiet_flag  || flag_detailed_statistics)
-    timevar_init ();
-
-  timevar_start (TV_TOTAL);
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
@@ -2054,7 +2000,7 @@ toplev::start_timevars ()
    It is not safe to call this function more than once.  */
 
 int
-toplev::main (int argc, char **argv)
+toplev_main (int argc, char **argv)
 {
   /* Parsing and gimplification sometimes need quite large stack.
      Increase stack size limits if possible.  */
@@ -2104,11 +2050,7 @@ toplev::main (int argc, char **argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    {
-      if (m_use_TV_TOTAL)
-	start_timevars ();
-      do_compile ();
-    }
+    do_compile ();
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
@@ -2125,21 +2067,4 @@ toplev::main (int argc, char **argv)
     return (FATAL_EXIT_CODE);
 
   return (SUCCESS_EXIT_CODE);
-}
-
-/* For those that want to, this function aims to clean up enough state that
-   you can call toplev::main again. */
-void
-toplev::finalize (void)
-{
-  rtl_initialized = false;
-  this_target_rtl->target_specific_initialized = false;
-
-  cgraph_c_finalize ();
-  cgraphunit_c_finalize ();
-  dwarf2out_c_finalize ();
-  gcse_c_finalize ();
-  ipa_cp_c_finalize ();
-  ipa_reference_c_finalize ();
-  params_c_finalize ();
 }

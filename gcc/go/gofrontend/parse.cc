@@ -2510,8 +2510,8 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
       return ret;
 
     case Token::TOKEN_INTEGER:
-      ret = Expression::make_integer_z(token->integer_value(), NULL,
-				       token->location());
+      ret = Expression::make_integer(token->integer_value(), NULL,
+				     token->location());
       this->advance_token();
       return ret;
 
@@ -2525,12 +2525,9 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
       {
 	mpfr_t zero;
 	mpfr_init_set_ui(zero, 0, GMP_RNDN);
-	mpc_t val;
-	mpc_init2(val, mpc_precision);
-	mpc_set_fr_fr(val, zero, *token->imaginary_value(), MPC_RNDNN);
+	ret = Expression::make_complex(&zero, token->imaginary_value(),
+				       NULL, token->location());
 	mpfr_clear(zero);
-	ret = Expression::make_complex(&val, NULL, token->location());
-	mpc_clear(val);
 	this->advance_token();
 	return ret;
       }
@@ -3132,7 +3129,12 @@ Parse::index(Expression* expr)
   if (!this->peek_token()->is_op(OPERATOR_COLON))
     start = this->expression(PRECEDENCE_NORMAL, false, true, NULL, NULL);
   else
-    start = Expression::make_integer_ul(0, NULL, location);
+    {
+      mpz_t zero;
+      mpz_init_set_ui(zero, 0);
+      start = Expression::make_integer(&zero, NULL, location);
+      mpz_clear(zero);
+    }
 
   Expression* end = NULL;
   if (this->peek_token()->is_op(OPERATOR_COLON))

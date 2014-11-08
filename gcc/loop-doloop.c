@@ -26,24 +26,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "expr.h"
 #include "hard-reg-set.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
+#include "basic-block.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgloop.h"
-#include "cfgrtl.h"
-#include "basic-block.h"
 #include "params.h"
 #include "target.h"
 #include "dumpfile.h"
-#include "loop-unroll.h"
 
 /* This module is used to modify loops with a determinable number of
    iterations to use special low-overhead looping instructions.
@@ -349,7 +338,7 @@ add_test (rtx cond, edge *e, basic_block dest)
 {
   rtx_insn *seq, *jump;
   rtx label;
-  machine_mode mode;
+  enum machine_mode mode;
   rtx op0 = XEXP (cond, 0), op1 = XEXP (cond, 1);
   enum rtx_code code = GET_CODE (cond);
   basic_block bb;
@@ -419,7 +408,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
   int nonneg = 0;
   bool increment_count;
   basic_block loop_end = desc->out_edge->src;
-  machine_mode mode;
+  enum machine_mode mode;
   rtx true_prob_val;
   widest_int iterations;
 
@@ -606,7 +595,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 static bool
 doloop_optimize (struct loop *loop)
 {
-  machine_mode mode;
+  enum machine_mode mode;
   rtx doloop_seq, doloop_pat, doloop_reg;
   rtx count;
   widest_int iterations, iterations_max;

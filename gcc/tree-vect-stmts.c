@@ -27,16 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "target.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -60,14 +50,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "expr.h"
 #include "recog.h"		/* FIXME: for insn_data */
-#include "insn-codes.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "builtins.h"
 
@@ -3449,7 +3435,7 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
   vec<tree> interm_types = vNULL;
   tree last_oprnd, intermediate_type, cvt_type = NULL_TREE;
   int op_type;
-  machine_mode rhs_mode;
+  enum machine_mode rhs_mode;
   unsigned short fltsz;
 
   /* Is STMT a vectorizable conversion?   */
@@ -4158,7 +4144,7 @@ bool
 vect_supportable_shift (enum tree_code code, tree scalar_type)
 {
 
-  machine_mode vec_mode;
+  enum machine_mode vec_mode;
   optab optab;
   int icode;
   tree vectype;
@@ -4206,11 +4192,11 @@ vectorizable_shift (gimple stmt, gimple_stmt_iterator *gsi,
   tree vectype;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   enum tree_code code;
-  machine_mode vec_mode;
+  enum machine_mode vec_mode;
   tree new_temp;
   optab optab;
   int icode;
-  machine_mode optab_op2_mode;
+  enum machine_mode optab_op2_mode;
   tree def;
   gimple def_stmt;
   enum vect_def_type dt[2] = {vect_unknown_def_type, vect_unknown_def_type};
@@ -4568,7 +4554,7 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   tree vectype;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   enum tree_code code;
-  machine_mode vec_mode;
+  enum machine_mode vec_mode;
   tree new_temp;
   int op_type;
   optab optab;
@@ -4965,7 +4951,7 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   tree elem_type;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = NULL;
-  machine_mode vec_mode;
+  enum machine_mode vec_mode;
   tree dummy;
   enum dr_alignment_support alignment_support_scheme;
   tree def;
@@ -5602,7 +5588,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree elem_type;
   tree new_temp;
-  machine_mode mode;
+  enum machine_mode mode;
   gimple new_stmt = NULL;
   tree dummy;
   enum dr_alignment_support alignment_support_scheme;
@@ -7491,8 +7477,8 @@ free_stmt_vec_info (gimple stmt)
 static tree
 get_vectype_for_scalar_type_and_size (tree scalar_type, unsigned size)
 {
-  machine_mode inner_mode = TYPE_MODE (scalar_type);
-  machine_mode simd_mode;
+  enum machine_mode inner_mode = TYPE_MODE (scalar_type);
+  enum machine_mode simd_mode;
   unsigned int nbytes = GET_MODE_SIZE (inner_mode);
   int nunits;
   tree vectype;
@@ -7807,7 +7793,7 @@ supportable_widening_operation (enum tree_code code, gimple stmt,
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *vect_loop = NULL;
-  machine_mode vec_mode;
+  enum machine_mode vec_mode;
   enum insn_code icode1, icode2;
   optab optab1, optab2;
   tree vectype = vectype_in;
@@ -7815,7 +7801,7 @@ supportable_widening_operation (enum tree_code code, gimple stmt,
   enum tree_code c1, c2;
   int i;
   tree prev_type, intermediate_type;
-  machine_mode intermediate_mode, prev_mode;
+  enum machine_mode intermediate_mode, prev_mode;
   optab optab3, optab4;
 
   *multi_step_cvt = 0;
@@ -8025,14 +8011,14 @@ supportable_narrowing_operation (enum tree_code code,
 				 enum tree_code *code1, int *multi_step_cvt,
                                  vec<tree> *interm_types)
 {
-  machine_mode vec_mode;
+  enum machine_mode vec_mode;
   enum insn_code icode1;
   optab optab1, interm_optab;
   tree vectype = vectype_in;
   tree narrow_vectype = vectype_out;
   enum tree_code c1;
   tree intermediate_type;
-  machine_mode intermediate_mode, prev_mode;
+  enum machine_mode intermediate_mode, prev_mode;
   int i;
   bool uns;
 

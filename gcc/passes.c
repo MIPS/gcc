@@ -47,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
-#include "predict.h"
 #include "basic-block.h"
 #include "intl.h"
 #include "graph.h"
@@ -80,10 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-dump.h"
 #include "df.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
-#include "cgraph.h"
+#include "predict.h"
 #include "lto-streamer.h"
 #include "plugin.h"
 #include "ipa-utils.h"
@@ -92,6 +88,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
+#include "hash-map.h"
 
 using namespace gcc;
 
@@ -140,9 +137,7 @@ opt_pass::opt_pass (const pass_data &data, context *ctxt)
 void
 pass_manager::execute_early_local_passes ()
 {
-  execute_pass_list (cfun, pass_build_ssa_passes_1->sub);
-  execute_pass_list (cfun, pass_chkp_instrumentation_passes_1->sub);
-  execute_pass_list (cfun, pass_local_optimization_passes_1->sub);
+  execute_pass_list (cfun, pass_early_local_passes_1->sub);
 }
 
 unsigned int
@@ -334,7 +329,7 @@ finish_optimization_passes (void)
 }
 
 static unsigned int
-execute_build_ssa_passes (void)
+execute_all_early_local_passes (void)
 {
   /* Once this pass (and its sub-passes) are complete, all functions
      will be in SSA form.  Technically this state change is happening
@@ -349,10 +344,10 @@ execute_build_ssa_passes (void)
 
 namespace {
 
-const pass_data pass_data_build_ssa_passes =
+const pass_data pass_data_early_local_passes =
 {
   SIMPLE_IPA_PASS, /* type */
-  "build_ssa_passes", /* name */
+  "early_local_cleanups", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_EARLY_LOCAL, /* tv_id */
   0, /* properties_required */
@@ -364,11 +359,11 @@ const pass_data pass_data_build_ssa_passes =
   0, /* todo_flags_finish */
 };
 
-class pass_build_ssa_passes : public simple_ipa_opt_pass
+class pass_early_local_passes : public simple_ipa_opt_pass
 {
 public:
-  pass_build_ssa_passes (gcc::context *ctxt)
-    : simple_ipa_opt_pass (pass_data_build_ssa_passes, ctxt)
+  pass_early_local_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_early_local_passes, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -380,87 +375,17 @@ public:
 
   virtual unsigned int execute (function *)
     {
-      return execute_build_ssa_passes ();
+      return execute_all_early_local_passes ();
     }
 
-}; // class pass_build_ssa_passes
-
-const pass_data pass_data_chkp_instrumentation_passes =
-{
-  SIMPLE_IPA_PASS, /* type */
-  "chkp_passes", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
-  0, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_chkp_instrumentation_passes : public simple_ipa_opt_pass
-{
-public:
-  pass_chkp_instrumentation_passes (gcc::context *ctxt)
-    : simple_ipa_opt_pass (pass_data_chkp_instrumentation_passes, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *)
-    {
-      /* Don't bother doing anything if the program has errors.  */
-      return (!seen_error () && !in_lto_p);
-    }
-
-}; // class pass_chkp_instrumentation_passes
-
-const pass_data pass_data_local_optimization_passes =
-{
-  SIMPLE_IPA_PASS, /* type */
-  "opt_local_passes", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
-  0, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_local_optimization_passes : public simple_ipa_opt_pass
-{
-public:
-  pass_local_optimization_passes (gcc::context *ctxt)
-    : simple_ipa_opt_pass (pass_data_local_optimization_passes, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *)
-    {
-      /* Don't bother doing anything if the program has errors.  */
-      return (!seen_error () && !in_lto_p);
-    }
-
-}; // class pass_local_optimization_passes
+}; // class pass_early_local_passes
 
 } // anon namespace
 
 simple_ipa_opt_pass *
-make_pass_build_ssa_passes (gcc::context *ctxt)
+make_pass_early_local_passes (gcc::context *ctxt)
 {
-  return new pass_build_ssa_passes (ctxt);
-}
-
-simple_ipa_opt_pass *
-make_pass_chkp_instrumentation_passes (gcc::context *ctxt)
-{
-  return new pass_chkp_instrumentation_passes (ctxt);
-}
-
-simple_ipa_opt_pass *
-make_pass_local_optimization_passes (gcc::context *ctxt)
-{
-  return new pass_local_optimization_passes (ctxt);
+  return new pass_early_local_passes (ctxt);
 }
 
 namespace {
@@ -646,44 +571,6 @@ static rtl_opt_pass *
 make_pass_postreload (gcc::context *ctxt)
 {
   return new pass_postreload (ctxt);
-}
-
-namespace {
-
-const pass_data pass_data_late_compilation =
-{
-  RTL_PASS, /* type */
-  "*all-late_compilation", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_LATE_COMPILATION, /* tv_id */
-  PROP_rtl, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_late_compilation : public rtl_opt_pass
-{
-public:
-  pass_late_compilation (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_late_compilation, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *)
-  {
-    return reload_completed || targetm.no_register_allocation;
-  }
-
-}; // class pass_late_compilation
-
-} // anon namespace
-
-static rtl_opt_pass *
-make_pass_late_compilation (gcc::context *ctxt)
-{
-  return new pass_late_compilation (ctxt);
 }
 
 
@@ -2061,7 +1948,6 @@ execute_ipa_summary_passes (ipa_opt_pass_d *ipa_pass)
 	  if (pass->tv_id)
 	    timevar_push (pass->tv_id);
 
-	  current_pass = pass;
 	  ipa_pass->generate_summary ();
 
 	  /* Stop timevar.  */
@@ -2373,7 +2259,6 @@ ipa_write_summaries_2 (opt_pass *pass, struct lto_out_decl_state *state)
 
           pass_init_dump_file (pass);
 
-	  current_pass = pass;
 	  ipa_pass->write_summary ();
 
           pass_fini_dump_file (pass);
@@ -2492,7 +2377,6 @@ ipa_write_optimization_summaries_1 (opt_pass *pass,
 
           pass_init_dump_file (pass);
 
-	  current_pass = pass;
 	  ipa_pass->write_optimization_summary ();
 
           pass_fini_dump_file (pass);
@@ -2573,7 +2457,6 @@ ipa_read_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
-	      current_pass = pass;
 	      ipa_pass->read_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2624,7 +2507,6 @@ ipa_read_optimization_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
-	      current_pass = pass;
 	      ipa_pass->read_optimization_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2704,7 +2586,6 @@ execute_ipa_stmt_fixups (opt_pass *pass,
 	      if (pass->tv_id)
 		timevar_push (pass->tv_id);
 
-	      current_pass = pass;
 	      ipa_pass->stmt_fixup (node, stmts);
 
 	      /* Stop timevar.  */

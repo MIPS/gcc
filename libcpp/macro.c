@@ -80,15 +80,6 @@ struct macro_arg_token_iter
 #endif
 };
 
-/* Saved data about an identifier being used as a macro argument
-   name.  */
-struct macro_arg_saved_data {
-  /* The canonical (UTF-8) spelling of this identifier.  */
-  cpp_hashnode *canonical_node;
-  /* The previous value of this identifier.  */
-  union _cpp_hashnode_value value;
-};
-
 /* Macro expansion.  */
 
 static int enter_macro_context (cpp_reader *, cpp_hashnode *,
@@ -599,7 +590,7 @@ paste_tokens (cpp_reader *pfile, source_location location,
 
   len = cpp_token_len (*plhs) + cpp_token_len (rhs) + 1;
   buf = (unsigned char *) alloca (len);
-  end = lhsend = cpp_spell_token (pfile, *plhs, buf, true);
+  end = lhsend = cpp_spell_token (pfile, *plhs, buf, false);
 
   /* Avoid comment headers, since they are still processed in stage 3.
      It is simpler to insert a space here, rather than modifying the
@@ -609,7 +600,7 @@ paste_tokens (cpp_reader *pfile, source_location location,
     *end++ = ' ';
   /* In one obscure case we might see padding here.  */
   if (rhs->type != CPP_PADDING)
-    end = cpp_spell_token (pfile, rhs, end, true);
+    end = cpp_spell_token (pfile, rhs, end, false);
   *end = '\n';
 
   cpp_push_buffer (pfile, buf, end - buf, /* from_stage3 */ true);
@@ -2757,12 +2748,10 @@ _cpp_free_definition (cpp_hashnode *h)
   h->flags &= ~(NODE_BUILTIN | NODE_DISABLED | NODE_USED);
 }
 
-/* Save parameter NODE (spelling SPELLING) to the parameter list of
-   macro MACRO.  Returns zero on success, nonzero if the parameter is
-   a duplicate.  */
+/* Save parameter NODE to the parameter list of macro MACRO.  Returns
+   zero on success, nonzero if the parameter is a duplicate.  */
 bool
-_cpp_save_parameter (cpp_reader *pfile, cpp_macro *macro, cpp_hashnode *node,
-		     cpp_hashnode *spelling)
+_cpp_save_parameter (cpp_reader *pfile, cpp_macro *macro, cpp_hashnode *node)
 {
   unsigned int len;
   /* Constraint 6.10.3.6 - duplicate parameter names.  */
@@ -2777,20 +2766,17 @@ _cpp_save_parameter (cpp_reader *pfile, cpp_macro *macro, cpp_hashnode *node,
       < (macro->paramc + 1) * sizeof (cpp_hashnode *))
     _cpp_extend_buff (pfile, &pfile->a_buff, sizeof (cpp_hashnode *));
 
-  ((cpp_hashnode **) BUFF_FRONT (pfile->a_buff))[macro->paramc++] = spelling;
+  ((cpp_hashnode **) BUFF_FRONT (pfile->a_buff))[macro->paramc++] = node;
   node->flags |= NODE_MACRO_ARG;
-  len = macro->paramc * sizeof (struct macro_arg_saved_data);
+  len = macro->paramc * sizeof (union _cpp_hashnode_value);
   if (len > pfile->macro_buffer_len)
     {
       pfile->macro_buffer = XRESIZEVEC (unsigned char, pfile->macro_buffer,
                                         len);
       pfile->macro_buffer_len = len;
     }
-  struct macro_arg_saved_data save;
-  save.value = node->value;
-  save.canonical_node = node;
-  ((struct macro_arg_saved_data *) pfile->macro_buffer)[macro->paramc - 1]
-    = save;
+  ((union _cpp_hashnode_value *) pfile->macro_buffer)[macro->paramc - 1]
+    = node->value;
   
   node->value.arg_index  = macro->paramc;
   return false;
@@ -2830,8 +2816,7 @@ parse_params (cpp_reader *pfile, cpp_macro *macro)
 	    }
 	  prev_ident = 1;
 
-	  if (_cpp_save_parameter (pfile, macro, token->val.node.node,
-				   token->val.node.spelling))
+	  if (_cpp_save_parameter (pfile, macro, token->val.node.node))
 	    return false;
 	  continue;
 
@@ -2854,7 +2839,6 @@ parse_params (cpp_reader *pfile, cpp_macro *macro)
 	  if (!prev_ident)
 	    {
 	      _cpp_save_parameter (pfile, macro,
-				   pfile->spec_nodes.n__VA_ARGS__,
 				   pfile->spec_nodes.n__VA_ARGS__);
 	      pfile->state.va_args_ok = 1;
 	      if (! CPP_OPTION (pfile, c99)
@@ -2925,10 +2909,8 @@ lex_expansion_token (cpp_reader *pfile, cpp_macro *macro)
   if (token->type == CPP_NAME
       && (token->val.node.node->flags & NODE_MACRO_ARG) != 0)
     {
-      cpp_hashnode *spelling = token->val.node.spelling;
       token->type = CPP_MACRO_ARG;
       token->val.macro_arg.arg_no = token->val.node.node->value.arg_index;
-      token->val.macro_arg.spelling = spelling;
     }
   else if (CPP_WTRADITIONAL (pfile) && macro->paramc > 0
 	   && (token->type == CPP_STRING || token->type == CPP_CHAR))
@@ -3180,11 +3162,9 @@ _cpp_create_definition (cpp_reader *pfile, cpp_hashnode *node)
   /* Clear the fast argument lookup indices.  */
   for (i = macro->paramc; i-- > 0; )
     {
-      struct macro_arg_saved_data *save =
-	&((struct macro_arg_saved_data *) pfile->macro_buffer)[i];
-      struct cpp_hashnode *node = save->canonical_node;
+      struct cpp_hashnode *node = macro->params[i];
       node->flags &= ~ NODE_MACRO_ARG;
-      node->value = save->value;
+      node->value = ((union _cpp_hashnode_value *) pfile->macro_buffer)[i];
     }
 
   if (!ok)
@@ -3305,7 +3285,7 @@ cpp_macro_definition (cpp_reader *pfile, cpp_hashnode *node)
 
   macro = node->value.macro;
   /* Calculate length.  */
-  len = NODE_LEN (node) * 10 + 2;		/* ' ' and NUL.  */
+  len = NODE_LEN (node) + 2;			/* ' ' and NUL.  */
   if (macro->fun_like)
     {
       len += 4;		/* "()" plus possible final ".." of named
@@ -3325,7 +3305,7 @@ cpp_macro_definition (cpp_reader *pfile, cpp_hashnode *node)
 	  cpp_token *token = &macro->exp.tokens[i];
 
 	  if (token->type == CPP_MACRO_ARG)
-	    len += NODE_LEN (token->val.macro_arg.spelling);
+	    len += NODE_LEN (macro->params[token->val.macro_arg.arg_no - 1]);
 	  else
 	    len += cpp_token_len (token);
 
@@ -3347,7 +3327,8 @@ cpp_macro_definition (cpp_reader *pfile, cpp_hashnode *node)
 
   /* Fill in the buffer.  Start with the macro name.  */
   buffer = pfile->macro_buffer;
-  buffer = _cpp_spell_ident_ucns (buffer, node);
+  memcpy (buffer, NODE_NAME (node), NODE_LEN (node));
+  buffer += NODE_LEN (node);
 
   /* Parameter names.  */
   if (macro->fun_like)
@@ -3396,12 +3377,12 @@ cpp_macro_definition (cpp_reader *pfile, cpp_hashnode *node)
 	  if (token->type == CPP_MACRO_ARG)
 	    {
 	      memcpy (buffer,
-		      NODE_NAME (token->val.macro_arg.spelling),
-		      NODE_LEN (token->val.macro_arg.spelling));
-	      buffer += NODE_LEN (token->val.macro_arg.spelling);
+		      NODE_NAME (macro->params[token->val.macro_arg.arg_no - 1]),
+		      NODE_LEN (macro->params[token->val.macro_arg.arg_no - 1]));
+	      buffer += NODE_LEN (macro->params[token->val.macro_arg.arg_no - 1]);
 	    }
 	  else
-	    buffer = cpp_spell_token (pfile, token, buffer, true);
+	    buffer = cpp_spell_token (pfile, token, buffer, false);
 
 	  if (token->flags & PASTE_LEFT)
 	    {

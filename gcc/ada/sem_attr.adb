@@ -773,6 +773,10 @@ package body Sem_Attr is
 
             elsif Aname = Name_Unchecked_Access then
                Error_Attr ("attribute% cannot be applied to a subprogram", P);
+
+            elsif Is_Ghost_Subprogram (Entity (P)) then
+               Error_Attr_P
+                 ("prefix of % attribute cannot be a ghost subprogram");
             end if;
 
             --  Issue an error if the prefix denotes an eliminated subprogram
@@ -1037,16 +1041,11 @@ package body Sem_Attr is
          if not Is_Aliased_View (P)
            and then not In_Instance
            and then not In_Inlined_Body
-           and then Comes_From_Source (N)
          then
             --  Here we have a non-aliased view. This is illegal unless we
             --  have the case of Unrestricted_Access, where for now we allow
             --  this (we will reject later if expected type is access to an
             --  unconstrained array with a thin pointer).
-
-            --  No need for an error message on a generated access reference
-            --  for the controlling argument in a dispatching call: error will
-            --  be reported when resolving the call.
 
             if Aname /= Name_Unrestricted_Access then
                Error_Attr_P ("prefix of % attribute must be aliased");
@@ -1510,8 +1509,8 @@ package body Sem_Attr is
                        Is_Empty_List (Static_Discrete_Predicate (P_Type)))
          then
             Error_Attr_P
-              ("prefix of % attribute must be subtype with at least one "
-               & "value");
+              ("prefix of % attribute must be subtype with "
+               & "at least one value");
          end if;
       end Check_First_Last_Valid;
 
@@ -1908,17 +1907,6 @@ package body Sem_Attr is
                Error_Msg_NE
                  ("attribute% for type& is not available", P, P_Type);
             end if;
-         end if;
-
-         --  Check for no stream operations allowed from No_Tagged_Streams
-
-         if Is_Tagged_Type (P_Type)
-           and then Present (No_Tagged_Streams_Pragma (P_Type))
-         then
-            Error_Msg_Sloc := Sloc (No_Tagged_Streams_Pragma (P_Type));
-            Error_Msg_NE
-              ("no stream operations for & (No_Tagged_Streams #)", N, P_Type);
-            return;
          end if;
 
          --  Check restriction violations
@@ -4947,48 +4935,47 @@ package body Sem_Attr is
       ------------
 
       when Attribute_Result => Result : declare
-         Post_Id : Entity_Id;
-         --  The entity of the _Postconditions procedure
+         CS : Entity_Id;
+         --  The enclosing scope, excluding loops for quantified expressions
+
+         PS : Entity_Id;
+         --  During analysis, CS is the postcondition subprogram and PS the
+         --  source subprogram to which the postcondition applies. During
+         --  pre-analysis, CS is the scope of the subprogram declaration.
 
          Prag : Node_Id;
          --  During pre-analysis, Prag is the enclosing pragma node if any
 
-         Subp_Id : Entity_Id;
-         --  The entity of the enclosing subprogram
-
       begin
          --  Find the proper enclosing scope
 
-         Post_Id := Current_Scope;
-         while Present (Post_Id) loop
+         CS := Current_Scope;
+         while Present (CS) loop
 
             --  Skip generated loops
 
-            if Ekind (Post_Id) = E_Loop then
-               Post_Id := Scope (Post_Id);
+            if Ekind (CS) = E_Loop then
+               CS := Scope (CS);
 
             --  Skip the special _Parent scope generated to capture references
             --  to formals during the process of subprogram inlining.
 
-            elsif Ekind (Post_Id) = E_Function
-              and then Chars (Post_Id) = Name_uParent
+            elsif Ekind (CS) = E_Function
+              and then Chars (CS) = Name_uParent
             then
-               Post_Id := Scope (Post_Id);
-
-            --  Otherwise this must be _Postconditions
-
+               CS := Scope (CS);
             else
                exit;
             end if;
          end loop;
 
-         Subp_Id := Scope (Post_Id);
+         PS := Scope (CS);
 
          --  If the enclosing subprogram is always inlined, the enclosing
          --  postcondition will not be propagated to the expanded call.
 
          if not In_Spec_Expression
-           and then Has_Pragma_Inline_Always (Subp_Id)
+           and then Has_Pragma_Inline_Always (PS)
            and then Warn_On_Redundant_Constructs
          then
             Error_Msg_N
@@ -5000,14 +4987,16 @@ package body Sem_Attr is
          --  or test case) pragma, and we just set the proper type. If there is
          --  an error it will be caught when the real Analyze call is done.
 
-         if Ekind (Post_Id) = E_Function and then In_Spec_Expression then
-
+         if Ekind (CS) = E_Function
+           and then In_Spec_Expression
+         then
             --  Check OK prefix
 
-            if Chars (Post_Id) /= Chars (P) then
+            if Chars (CS) /= Chars (P) then
                Error_Msg_Name_1 := Name_Result;
+
                Error_Msg_NE
-                 ("incorrect prefix for % attribute, expected &", P, Post_Id);
+                 ("incorrect prefix for % attribute, expected &", P, CS);
                Error_Attr;
             end if;
 
@@ -5041,6 +5030,7 @@ package body Sem_Attr is
 
             else
                case Get_Pragma_Id (Prag) is
+
                   when Pragma_Test_Case =>
                      declare
                         Arg_Ens : constant Node_Id :=
@@ -5113,13 +5103,13 @@ package body Sem_Attr is
                return;
             end if;
 
-            Set_Etype (N, Etype (Post_Id));
+            Set_Etype (N, Etype (CS));
 
             --  If several functions with that name are visible, the intended
             --  one is the current scope.
 
             if Is_Overloaded (P) then
-               Set_Entity (P, Post_Id);
+               Set_Entity (P, CS);
                Set_Is_Overloaded (P, False);
             end if;
 
@@ -5131,32 +5121,22 @@ package body Sem_Attr is
          --  then on the legality of 'Result is determined as usual.
 
          elsif not Expander_Active and then In_Refined_Post then
+            PS := Current_Scope;
 
-            --  Routine _Postconditions has not been generated yet, the nearest
-            --  enclosing subprogram is denoted by the current scope.
-
-            if Ekind (Post_Id) /= E_Procedure
-              or else Chars (Post_Id) /= Name_uPostconditions
-            then
-               Subp_Id := Current_Scope;
-            end if;
-
-            --  The prefix denotes the nearest enclosing function
+            --  The prefix denotes the proper related function
 
             if Is_Entity_Name (P)
               and then Ekind (Entity (P)) = E_Function
-              and then Entity (P) = Subp_Id
+              and then Entity (P) = PS
             then
                null;
 
-            --  Otherwise the use of 'Result is illegal
-
             else
-               Error_Msg_Name_2 := Chars (Subp_Id);
+               Error_Msg_Name_2 := Chars (PS);
                Error_Attr ("incorrect prefix for % attribute, expected %", P);
             end if;
 
-            Set_Etype (N, Etype (Subp_Id));
+            Set_Etype (N, Etype (PS));
 
          --  Body case, where we must be inside a generated _Postconditions
          --  procedure, and the prefix must be on the scope stack, or else the
@@ -5165,25 +5145,23 @@ package body Sem_Attr is
          --  current one.
 
          else
-            while Present (Post_Id)
-              and then Post_Id /= Standard_Standard
-            loop
-               if Chars (Post_Id) = Name_uPostconditions then
+            while Present (CS) and then CS /= Standard_Standard loop
+               if Chars (CS) = Name_uPostconditions then
                   exit;
                else
-                  Post_Id := Scope (Post_Id);
+                  CS := Scope (CS);
                end if;
             end loop;
 
-            Subp_Id := Scope (Post_Id);
+            PS := Scope (CS);
 
-            if Chars (Post_Id) = Name_uPostconditions
-              and then Ekind (Subp_Id) = E_Function
+            if Chars (CS) = Name_uPostconditions
+              and then Ekind (PS) = E_Function
             then
                --  Check OK prefix
 
                if Nkind_In (P, N_Identifier, N_Operator_Symbol)
-                 and then Chars (P) = Chars (Subp_Id)
+                 and then Chars (P) = Chars (PS)
                then
                   null;
 
@@ -5193,18 +5171,18 @@ package body Sem_Attr is
                elsif Is_Entity_Name (P)
                  and then Ekind (Entity (P)) = E_Function
                  and then Present (Alias (Entity (P)))
-                 and then Chars (Alias (Entity (P))) = Chars (Subp_Id)
+                 and then Chars (Alias (Entity (P))) = Chars (PS)
                then
                   null;
 
                else
-                  Error_Msg_Name_2 := Chars (Subp_Id);
+                  Error_Msg_Name_2 := Chars (PS);
                   Error_Attr
                     ("incorrect prefix for % attribute, expected %", P);
                end if;
 
                Rewrite (N, Make_Identifier (Sloc (N), Name_uResult));
-               Analyze_And_Resolve (N, Etype (Subp_Id));
+               Analyze_And_Resolve (N, Etype (PS));
 
             else
                Error_Attr
@@ -11165,16 +11143,7 @@ package body Sem_Attr is
       --  Normally the Freezing is done by Resolve but sometimes the Prefix
       --  is not resolved, in which case the freezing must be done now.
 
-      --  For an elaboration check on a subprogram, we do not freeze its type.
-      --  It may be declared in an unrelated scope, in particular in the case
-      --  of a generic function whose type may remain unelaborated.
-
-      if Attr_Id = Attribute_Elaborated then
-         null;
-
-      else
-         Freeze_Expression (P);
-      end if;
+      Freeze_Expression (P);
 
       --  Finally perform static evaluation on the attribute reference
 

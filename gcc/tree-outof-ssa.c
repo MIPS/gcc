@@ -24,18 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "stor-layout.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
@@ -287,7 +275,7 @@ static void
 insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
 {
   rtx dest_rtx, seq, x;
-  machine_mode dest_mode, src_mode;
+  enum machine_mode dest_mode, src_mode;
   int unsignedp;
   tree var;
 
@@ -697,7 +685,7 @@ get_temp_reg (tree name)
   tree var = TREE_CODE (name) == SSA_NAME ? SSA_NAME_VAR (name) : name;
   tree type = TREE_TYPE (var);
   int unsignedp;
-  machine_mode reg_mode = promote_decl_mode (var, &unsignedp);
+  enum machine_mode reg_mode = promote_decl_mode (var, &unsignedp);
   rtx x = gen_reg_rtx (reg_mode);
   if (POINTER_TYPE_P (type))
     mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));

@@ -14,7 +14,7 @@
 ------------------------------------------------------------------------------
 
 pragma Warnings (Off);
---  Turn off categorization warnings
+--  Turn of categorization warnings
 
 generic
    type T (<>) is abstract tagged limited private;

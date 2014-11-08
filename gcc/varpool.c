@@ -24,22 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "varasm.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
+#include "hashtab.h"
 #include "timevar.h"
 #include "debug.h"
 #include "target.h"
@@ -49,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "gimple.h"
 #include "lto-streamer.h"
+#include "hash-set.h"
 
 const char * const tls_model_names[]={"none", "tls-emulated", "tls-real",
 				      "tls-global-dynamic", "tls-local-dynamic",
@@ -221,8 +210,6 @@ varpool_node::dump (FILE *f)
     fprintf (f, " output");
   if (used_by_single_function)
     fprintf (f, " used-by-single-function");
-  if (need_bounds_init)
-    fprintf (f, " need-bounds-init");
   if (TREE_READONLY (decl))
     fprintf (f, " read-only");
   if (ctor_useable_for_folding_p ())
@@ -390,12 +377,6 @@ ctor_for_folding (tree decl)
 
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != CONST_DECL)
-    return error_mark_node;
-
-  /* Static constant bounds are created to be
-     used instead of constants and therefore
-     do not let folding it.  */
-  if (POINTER_BOUNDS_P (decl))
     return error_mark_node;
 
   if (TREE_CODE (decl) == CONST_DECL

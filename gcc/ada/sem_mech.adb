@@ -149,6 +149,7 @@ package body Sem_Mech is
                when Convention_Ada       |
                     Convention_Intrinsic |
                     Convention_Entry     |
+                    Convention_Ghost     |
                     Convention_Protected |
                     Convention_Stubbed   =>
 

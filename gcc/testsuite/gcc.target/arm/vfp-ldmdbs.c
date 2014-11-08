@@ -3,7 +3,7 @@
 /* { dg-skip-if "need fp instructions" { *-*-* } { "-mfloat-abi=soft" } { "" } } */
 /* { dg-options "-O2 -mfpu=vfp -mfloat-abi=softfp" } */
 
-extern void bar (float);
+extern void baz (float);
 
 void
 foo (float *p, float a, int n)

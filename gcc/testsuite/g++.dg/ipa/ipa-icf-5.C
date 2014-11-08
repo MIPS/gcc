@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-visibility "" } */
 /* { dg-options "-O2 -fdump-ipa-icf" } */
 
 struct test

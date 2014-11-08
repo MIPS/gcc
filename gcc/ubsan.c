@@ -24,23 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "stringpool.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "tree-ssa-alias.h"
@@ -51,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "gimple-walk.h"
+#include "hashtab.h"
 #include "output.h"
 #include "tm_p.h"
 #include "toplev.h"
@@ -654,7 +638,7 @@ ubsan_expand_bounds_ifn (gimple_stmt_iterator *gsi)
 			     NULL_TREE, NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
-	= (flag_sanitize_recover & SANITIZE_BOUNDS)
+	= flag_sanitize_recover
 	  ? BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS
 	  : BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS_ABORT;
       tree fn = builtin_decl_explicit (bcode);
@@ -757,8 +741,7 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
   else
     {
       enum built_in_function bcode
-	= (flag_sanitize_recover & ((check_align ? SANITIZE_ALIGNMENT : 0)
-				    | (check_null ? SANITIZE_NULL : 0)))
+	= flag_sanitize_recover
 	  ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH
 	  : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_ABORT;
       tree fn = builtin_decl_implicit (bcode);
@@ -896,7 +879,7 @@ ubsan_expand_objsize_ifn (gimple_stmt_iterator *gsi)
 				 NULL_TREE);
 	  data = build_fold_addr_expr_loc (loc, data);
 	  enum built_in_function bcode
-	    = (flag_sanitize_recover & SANITIZE_OBJECT_SIZE)
+	    = flag_sanitize_recover
 	      ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH
 	      : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_ABORT;
 	  tree p = make_ssa_name (pointer_sized_int_node, NULL);
@@ -981,22 +964,22 @@ ubsan_build_overflow_builtin (tree_code code, location_t loc, tree lhstype,
   switch (code)
     {
     case PLUS_EXPR:
-      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
+      fn_code = flag_sanitize_recover
 		? BUILT_IN_UBSAN_HANDLE_ADD_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_ADD_OVERFLOW_ABORT;
       break;
     case MINUS_EXPR:
-      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
+      fn_code = flag_sanitize_recover
 		? BUILT_IN_UBSAN_HANDLE_SUB_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_SUB_OVERFLOW_ABORT;
       break;
     case MULT_EXPR:
-      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
+      fn_code = flag_sanitize_recover
 		? BUILT_IN_UBSAN_HANDLE_MUL_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_MUL_OVERFLOW_ABORT;
       break;
     case NEGATE_EXPR:
-      fn_code = (flag_sanitize_recover & SANITIZE_SI_OVERFLOW)
+      fn_code = flag_sanitize_recover
 		? BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW
 		: BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW_ABORT;
       break;
@@ -1113,7 +1096,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   int modebitsize = GET_MODE_BITSIZE (TYPE_MODE (type));
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
-  machine_mode mode;
+  enum machine_mode mode;
   int volatilep = 0, unsignedp = 0;
   tree base = get_inner_reference (rhs, &bitsize, &bitpos, &offset, &mode,
 				   &unsignedp, &volatilep, false);
@@ -1173,8 +1156,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
 				     NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
-	= (flag_sanitize_recover & (TREE_CODE (type) == BOOLEAN_TYPE
-				    ? SANITIZE_BOOL : SANITIZE_ENUM))
+	= flag_sanitize_recover
 	  ? BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE
 	  : BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE_ABORT;
       tree fn = builtin_decl_explicit (bcode);
@@ -1197,7 +1179,7 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
 {
   tree expr_type = TREE_TYPE (expr);
   tree t, tt, fn, min, max;
-  machine_mode mode = TYPE_MODE (expr_type);
+  enum machine_mode mode = TYPE_MODE (expr_type);
   int prec = TYPE_PRECISION (type);
   bool uns_p = TYPE_UNSIGNED (type);
 
@@ -1296,7 +1278,7 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
 				     ubsan_type_descriptor (type), NULL_TREE,
 				     NULL_TREE);
       enum built_in_function bcode
-	= (flag_sanitize_recover & SANITIZE_FLOAT_CAST)
+	= flag_sanitize_recover
 	  ? BUILT_IN_UBSAN_HANDLE_FLOAT_CAST_OVERFLOW
 	  : BUILT_IN_UBSAN_HANDLE_FLOAT_CAST_OVERFLOW_ABORT;
       fn = builtin_decl_explicit (bcode);
@@ -1362,7 +1344,7 @@ instrument_nonnull_arg (gimple_stmt_iterator *gsi)
 					     NULL_TREE);
 	      data = build_fold_addr_expr_loc (loc[0], data);
 	      enum built_in_function bcode
-		= (flag_sanitize_recover & SANITIZE_NONNULL_ATTRIBUTE)
+		= flag_sanitize_recover
 		  ? BUILT_IN_UBSAN_HANDLE_NONNULL_ARG
 		  : BUILT_IN_UBSAN_HANDLE_NONNULL_ARG_ABORT;
 	      tree fn = builtin_decl_explicit (bcode);
@@ -1414,7 +1396,7 @@ instrument_nonnull_return (gimple_stmt_iterator *gsi)
 					 2, loc, NULL_TREE, NULL_TREE);
 	  data = build_fold_addr_expr_loc (loc[0], data);
 	  enum built_in_function bcode
-	    = (flag_sanitize_recover & SANITIZE_RETURNS_NONNULL_ATTRIBUTE)
+	    = flag_sanitize_recover
 	      ? BUILT_IN_UBSAN_HANDLE_NONNULL_RETURN
 	      : BUILT_IN_UBSAN_HANDLE_NONNULL_RETURN_ABORT;
 	  tree fn = builtin_decl_explicit (bcode);
@@ -1438,7 +1420,6 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
   location_t loc = gimple_location (stmt);
   tree t = is_lhs ? gimple_get_lhs (stmt) : gimple_assign_rhs1 (stmt);
   tree type;
-  tree index = NULL_TREE;
   HOST_WIDE_INT size_in_bytes;
 
   type = TREE_TYPE (t);
@@ -1457,8 +1438,6 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 	}
       break;
     case ARRAY_REF:
-      index = TREE_OPERAND (t, 1);
-      break;
     case INDIRECT_REF:
     case MEM_REF:
     case VAR_DECL:
@@ -1475,7 +1454,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
-  machine_mode mode;
+  enum machine_mode mode;
   int volatilep = 0, unsignedp = 0;
   tree inner = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
 				    &unsignedp, &volatilep, false);
@@ -1539,24 +1518,6 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
       && TREE_CODE (sizet) == INTEGER_CST
       && tree_int_cst_le (t, sizet))
     return;
-
-  if (index != NULL_TREE
-      && TREE_CODE (index) == SSA_NAME
-      && TREE_CODE (sizet) == INTEGER_CST)
-    {
-      gimple def = SSA_NAME_DEF_STMT (index);
-      if (is_gimple_assign (def)
-	  && gimple_assign_rhs_code (def) == BIT_AND_EXPR
-	  && TREE_CODE (gimple_assign_rhs2 (def)) == INTEGER_CST)
-	{
-	  tree cst = gimple_assign_rhs2 (def);
-	  tree sz = fold_build2 (EXACT_DIV_EXPR, sizetype, sizet,
-				 TYPE_SIZE_UNIT (type));
-	  if (tree_int_cst_sgn (cst) >= 0
-	      && tree_int_cst_lt (cst, sz))
-	    return;
-	}
-    }
 
   /* Nope.  Emit the check.  */
   t = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, true,

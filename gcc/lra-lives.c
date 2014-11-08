@@ -43,10 +43,6 @@ along with GCC; see the file COPYING3.	If not see
 #include "input.h"
 #include "function.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
 #include "basic-block.h"
 #include "except.h"
 #include "df.h"
@@ -321,7 +317,7 @@ mark_pseudo_dead (int regno, int point)
    Return TRUE if the liveness tracking sets were modified,
    or FALSE if nothing changed.  */
 static bool
-mark_regno_live (int regno, machine_mode mode, int point)
+mark_regno_live (int regno, enum machine_mode mode, int point)
 {
   int last;
   bool changed = false;
@@ -346,7 +342,7 @@ mark_regno_live (int regno, machine_mode mode, int point)
    Return TRUE if the liveness tracking sets were modified,
    or FALSE if nothing changed.  */
 static bool
-mark_regno_dead (int regno, machine_mode mode, int point)
+mark_regno_dead (int regno, enum machine_mode mode, int point)
 {
   int last;
   bool changed = false;

@@ -36,17 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
@@ -1979,7 +1968,7 @@ enum { non_attr = 0, normal_attr = 1, id_attr = 2 };
 static void cp_parser_pseudo_destructor_name
   (cp_parser *, tree, tree *, tree *);
 static tree cp_parser_unary_expression
-  (cp_parser *, cp_id_kind * = NULL, bool = false, bool = false, bool = false);
+  (cp_parser *, bool, bool, cp_id_kind *);
 static enum tree_code cp_parser_unary_operator
   (cp_token *);
 static tree cp_parser_new_expression
@@ -4502,9 +4491,39 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_FUNCTION_NAME:
 	case RID_PRETTY_FUNCTION_NAME:
 	case RID_C99_FUNCTION_NAME:
+	  {
+	    non_integral_constant name;
+
 	    /* The symbols __FUNCTION__, __PRETTY_FUNCTION__, and
-	       __func__ are the names of variables.  */
-	  goto id_expression;
+	       __func__ are the names of variables -- but they are
+	       treated specially.  Therefore, they are handled here,
+	       rather than relying on the generic id-expression logic
+	       below.  Grammatically, these names are id-expressions.
+
+	       Consume the token.  */
+	    token = cp_lexer_consume_token (parser->lexer);
+
+	    switch (token->keyword)
+	      {
+	      case RID_FUNCTION_NAME:
+		name = NIC_FUNC_NAME;
+		break;
+	      case RID_PRETTY_FUNCTION_NAME:
+		name = NIC_PRETTY_FUNC;
+		break;
+	      case RID_C99_FUNCTION_NAME:
+		name = NIC_C99_FUNC;
+		break;
+	      default:
+		gcc_unreachable ();
+	      }
+
+	    if (cp_parser_non_integral_constant_expression (parser, name))
+	      return error_mark_node;
+
+	    /* Look up the name.  */
+	    return finish_fname (token->u.value);
+	  }
 
 	case RID_VA_ARG:
 	  {
@@ -4925,7 +4944,6 @@ cp_parser_unqualified_id (cp_parser* parser,
 			  bool optional_p)
 {
   cp_token *token;
-  tree id;
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -4934,6 +4952,8 @@ cp_parser_unqualified_id (cp_parser* parser,
     {
     case CPP_NAME:
       {
+	tree id;
+
 	/* We don't know yet whether or not this will be a
 	   template-id.  */
 	cp_parser_parse_tentatively (parser);
@@ -5170,9 +5190,10 @@ cp_parser_unqualified_id (cp_parser* parser,
       }
 
     case CPP_KEYWORD:
-      switch (token->keyword)
+      if (token->keyword == RID_OPERATOR)
 	{
-	case RID_OPERATOR:
+	  tree id;
+
 	  /* This could be a template-id, so we try that first.  */
 	  cp_parser_parse_tentatively (parser);
 	  /* Try a template-id.  */
@@ -5202,16 +5223,6 @@ cp_parser_unqualified_id (cp_parser* parser,
 	    }
 
 	  return id;
-
-	case RID_FUNCTION_NAME:
-	case RID_PRETTY_FUNCTION_NAME:
-	case RID_C99_FUNCTION_NAME:
-	  cp_lexer_consume_token (parser->lexer);
-	  finish_fname (token->u.value);
-	  return token->u.value;
-
-	default:
-	  break;
 	}
       /* Fall through.  */
 
@@ -7093,8 +7104,8 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
    Returns a representation of the expression.  */
 
 static tree
-cp_parser_unary_expression (cp_parser *parser, cp_id_kind * pidk,
-			    bool address_p, bool cast_p, bool decltype_p)
+cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p,
+			    bool decltype_p, cp_id_kind * pidk)
 {
   cp_token *token;
   enum tree_code unary_operator;
@@ -7368,6 +7379,14 @@ cp_parser_unary_expression (cp_parser *parser, cp_id_kind * pidk,
                                        /*member_access_only_p=*/false,
 				       decltype_p,
 				       pidk);
+}
+
+static inline tree
+cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p,
+			    cp_id_kind * pidk)
+{
+  return cp_parser_unary_expression (parser, address_p, cast_p,
+				     /*decltype*/false, pidk);
 }
 
 /* Returns ERROR_MARK if TOKEN is not a unary-operator.  If TOKEN is a
@@ -7999,8 +8018,8 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 
   /* If we get here, then it's not a cast, so it must be a
      unary-expression.  */
-  return cp_parser_unary_expression (parser, pidk, address_p,
-				     cast_p, decltype_p);
+  return cp_parser_unary_expression (parser, address_p, cast_p,
+				     decltype_p, pidk);
 }
 
 /* Parse a binary expression of the general form:
@@ -24355,7 +24374,8 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
   /* If the type-id production did not work out, then we must be
      looking at the unary-expression production.  */
   if (!expr)
-    expr = cp_parser_unary_expression (parser);
+    expr = cp_parser_unary_expression (parser, /*address_p=*/false,
+				       /*cast_p=*/false, NULL);
 
   /* Go back to evaluating expressions.  */
   --cp_unevaluated_operand;
@@ -29019,7 +29039,8 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
     {
     case OMP_ATOMIC_READ:
     case NOP_EXPR: /* atomic write */
-      v = cp_parser_unary_expression (parser);
+      v = cp_parser_unary_expression (parser, /*address_p=*/false,
+				      /*cast_p=*/false, NULL);
       if (v == error_mark_node)
 	goto saw_error;
       if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
@@ -29027,7 +29048,8 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
       if (code == NOP_EXPR)
 	lhs = cp_parser_expression (parser);
       else
-	lhs = cp_parser_unary_expression (parser);
+	lhs = cp_parser_unary_expression (parser, /*address_p=*/false,
+					  /*cast_p=*/false, NULL);
       if (lhs == error_mark_node)
 	goto saw_error;
       if (code == NOP_EXPR)
@@ -29048,7 +29070,8 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
 	}
       else
 	{
-	  v = cp_parser_unary_expression (parser);
+	  v = cp_parser_unary_expression (parser, /*address_p=*/false,
+					  /*cast_p=*/false, NULL);
 	  if (v == error_mark_node)
 	    goto saw_error;
 	  if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
@@ -29059,7 +29082,8 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
     }
 
 restart:
-  lhs = cp_parser_unary_expression (parser);
+  lhs = cp_parser_unary_expression (parser, /*address_p=*/false,
+				    /*cast_p=*/false, NULL);
   orig_lhs = lhs;
   switch (TREE_CODE (lhs))
     {
@@ -29298,12 +29322,14 @@ stmt_done:
     {
       if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
 	goto saw_error;
-      v = cp_parser_unary_expression (parser);
+      v = cp_parser_unary_expression (parser, /*address_p=*/false,
+				      /*cast_p=*/false, NULL);
       if (v == error_mark_node)
 	goto saw_error;
       if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
 	goto saw_error;
-      lhs1 = cp_parser_unary_expression (parser);
+      lhs1 = cp_parser_unary_expression (parser, /*address_p=*/false,
+					 /*cast_p=*/false, NULL);
       if (lhs1 == error_mark_node)
 	goto saw_error;
     }

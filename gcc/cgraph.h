@@ -21,6 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
 
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "dumpfile.h"
 
 /* Symbol table consists of functions and variables.
    TODO: add labels and CONST_DECLs.  */
@@ -543,7 +557,6 @@ struct GTY(()) cgraph_thunk_info {
   tree alias;
   bool this_adjusting;
   bool virtual_offset_p;
-  bool add_pointer_bounds_args;
   /* Set to true when alias node is thunk.  */
   bool thunk_p;
 };
@@ -1188,13 +1201,6 @@ public:
   cgraph_node *prev_sibling_clone;
   cgraph_node *clones;
   cgraph_node *clone_of;
-  /* If instrumentation_clone is 1 then instrumented_version points
-     to the original function used to make instrumented version.
-     Otherwise points to instrumented version of the function.  */
-  cgraph_node *instrumented_version;
-  /* If instrumentation_clone is 1 then orig_decl is the original
-     function declaration.  */
-  tree orig_decl;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
   hash_table<cgraph_edge_hasher> *GTY(()) call_site_hash;
@@ -1257,9 +1263,6 @@ public:
   unsigned calls_comdat_local : 1;
   /* True if node has been created by merge operation in IPA-ICF.  */
   unsigned icf_merged: 1;
-  /* True when function is clone created for Pointer Bounds Checker
-     instrumentation.  */
-  unsigned instrumentation_clone : 1;
 };
 
 /* A cgraph node set is a collection of cgraph nodes.  A cgraph node
@@ -1669,10 +1672,6 @@ public:
   /* Set when variable is scheduled to be assembled.  */
   unsigned output : 1;
 
-  /* Set when variable has statically initialized pointer
-     or is a static bounds variable and needs initalization.  */
-  unsigned need_bounds_init : 1;
-
   /* Set if the variable is dynamically initialized, except for
      function local statics.   */
   unsigned dynamically_initialized : 1;
@@ -1787,7 +1786,12 @@ public:
   friend class cgraph_edge;
 
   /* Initialize callgraph dump file.  */
-  void initialize (void);
+  inline void
+  initialize (void)
+  {
+    if (!dump_file)
+      dump_file = dump_begin (TDI_cgraph, NULL);
+  }
 
   /* Register a top-level asm statement ASM_STR.  */
   inline asm_node *finalize_toplevel_asm (tree asm_str);
@@ -2104,7 +2108,6 @@ asmname_hasher::pch_nx (symtab_node *&n, gt_pointer_operator op, void *cookie)
 }
 
 /* In cgraph.c  */
-void cgraph_c_finalize (void);
 void release_function_body (tree);
 cgraph_indirect_call_info *cgraph_allocate_init_indirect_info (void);
 
@@ -2118,8 +2121,6 @@ bool resolution_used_from_other_file_p (enum ld_plugin_symbol_resolution);
 extern bool gimple_check_call_matching_types (gimple, tree, bool);
 
 /* In cgraphunit.c  */
-void cgraphunit_c_finalize (void);
-
 /*  Initialize datastructures so DECL is a function in lowered gimple form.
     IN_SSA is true if the gimple is in SSA.  */
 basic_block init_lowered_empty_function (tree, bool);
@@ -2196,8 +2197,6 @@ symtab_node::get_alias_target (void)
 {
   ipa_ref *ref = NULL;
   iterate_reference (0, ref);
-  if (ref->use == IPA_REF_CHKP)
-    iterate_reference (1, ref);
   gcc_checking_assert (ref->use == IPA_REF_ALIAS);
   return ref->referred;
 }
@@ -2274,6 +2273,21 @@ symbol_table::unregister (symtab_node *node)
 
   node->next = NULL;
   node->previous = NULL;
+}
+
+/* Allocate new callgraph node and insert it into basic data structures.  */
+
+inline cgraph_node *
+symbol_table::create_empty (void)
+{
+  cgraph_node *node = allocate_cgraph_symbol ();
+
+  node->type = SYMTAB_FUNCTION;
+  node->frequency = NODE_FREQUENCY_NORMAL;
+  node->count_materialization_scale = REG_BR_PROB_BASE;
+  cgraph_count++;
+
+  return node;
 }
 
 /* Release a callgraph NODE with UID and put in to the list of free nodes.  */
@@ -2691,19 +2705,6 @@ cgraph_node::mark_force_output (void)
   gcc_checking_assert (!global.inlined_to);
 }
 
-/* Return true if function should be optimized for size.  */
-
-inline bool
-cgraph_node::optimize_for_size_p (void)
-{
-  if (optimize_size)
-    return true;
-  if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return true;
-  else
-    return false;
-}
-
 inline symtab_node * symtab_node::get_create (tree node)
 {
   if (TREE_CODE (node) == VAR_DECL)
@@ -2773,17 +2774,4 @@ ipa_polymorphic_call_context::useless_p () const
 {
   return (!outer_type && !speculative_outer_type);
 }
-
-/* Return true if NODE is local.  Instrumentation clones are counted as local
-   only when original function is local.  */
-
-static inline bool
-cgraph_local_p (cgraph_node *node)
-{
-  if (!node->instrumentation_clone || !node->instrumented_version)
-    return node->local.local;
-
-  return node->local.local && node->instrumented_version->local.local;
-}
-
 #endif  /* GCC_CGRAPH_H  */
