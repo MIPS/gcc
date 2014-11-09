@@ -1251,7 +1251,7 @@ _mm_srl_epi64 (__m128i __A, __m128i __B)
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_and_si128 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pand128 ((__v2di)__A, (__v2di)__B);
+  return (__m128i) ((__v2du)__A & (__v2du)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -1263,13 +1263,13 @@ _mm_andnot_si128 (__m128i __A, __m128i __B)
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_or_si128 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_por128 ((__v2di)__A, (__v2di)__B);
+  return (__m128i) ((__v2du)__A | (__v2du)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_xor_si128 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pxor128 ((__v2di)__A, (__v2di)__B);
+  return (__m128i) ((__v2du)__A ^ (__v2du)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
