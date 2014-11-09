@@ -3567,6 +3567,8 @@ need more space than is implied by @code{FUNCTION_VALUE_REGNO_P} for
 saving and restoring an arbitrary return value.
 @end defmac
 
+@hook TARGET_OMIT_STRUCT_RETURN_REG
+
 @hook TARGET_RETURN_IN_MSB
 
 @node Aggregate Return
@@ -3858,7 +3860,23 @@ These machine description macros help implement varargs:
 
 @hook TARGET_STRICT_ARGUMENT_NAMING
 
+@hook TARGET_CALL_ARGS
+
+@hook TARGET_END_CALL_ARGS
+
 @hook TARGET_PRETEND_OUTGOING_VARARGS_NAMED
+
+@hook TARGET_LOAD_BOUNDS_FOR_ARG
+
+@hook TARGET_STORE_BOUNDS_FOR_ARG
+
+@hook TARGET_LOAD_RETURNED_BOUNDS
+
+@hook TARGET_STORE_RETURNED_BOUNDS
+
+@hook TARGET_CHKP_FUNCTION_VALUE_BOUNDS
+
+@hook TARGET_SETUP_INCOMING_VARARG_BOUNDS
 
 @node Trampolines
 @section Trampolines for Nested Functions
@@ -5178,6 +5196,8 @@ It must not be modified by command-line option processing.
 @hook TARGET_ASM_BYTE_OP
 
 @hook TARGET_ASM_INTEGER
+
+@hook TARGET_ASM_DECL_END
 
 @hook TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 
@@ -6948,6 +6968,8 @@ tables, and hence is desirable if it works.
 
 @hook TARGET_DELAY_VARTRACK
 
+@hook TARGET_NO_REGISTER_ALLOCATION
+
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
 A C statement to issue assembly directives that create a difference
 @var{lab1} minus @var{lab2}, using an integer of the given @var{size}.
@@ -7925,6 +7947,12 @@ to by @var{ce_info}.
 @hook TARGET_BUILTIN_DECL
 
 @hook TARGET_EXPAND_BUILTIN
+
+@hook TARGET_BUILTIN_CHKP_FUNCTION
+@hook TARGET_CHKP_BOUND_TYPE
+@hook TARGET_CHKP_BOUND_MODE
+@hook TARGET_CHKP_MAKE_BOUNDS_CONSTANT
+@hook TARGET_CHKP_INITIALIZE_BOUNDS
 
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 

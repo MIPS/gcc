@@ -154,6 +154,9 @@ static bool aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
 						 const unsigned char *sel);
 static int aarch64_address_cost (rtx, machine_mode, addr_space_t, bool);
 
+/* Major revision number of the ARM Architecture implemented by the target.  */
+unsigned aarch64_architecture_version;
+
 /* The processor for which instructions should be scheduled.  */
 enum aarch64_processor aarch64_tune = cortexa53;
 
@@ -348,6 +351,7 @@ struct processor
   const char *const name;
   enum aarch64_processor core;
   const char *arch;
+  unsigned architecture_version;
   const unsigned long flags;
   const struct tune_params *const tune;
 };
@@ -356,21 +360,23 @@ struct processor
 static const struct processor all_cores[] =
 {
 #define AARCH64_CORE(NAME, X, IDENT, ARCH, FLAGS, COSTS) \
-  {NAME, IDENT, #ARCH, FLAGS | AARCH64_FL_FOR_ARCH##ARCH, &COSTS##_tunings},
+  {NAME, IDENT, #ARCH, ARCH,\
+    FLAGS | AARCH64_FL_FOR_ARCH##ARCH, &COSTS##_tunings},
 #include "aarch64-cores.def"
 #undef AARCH64_CORE
-  {"generic", cortexa53, "8", AARCH64_FL_FPSIMD | AARCH64_FL_FOR_ARCH8, &generic_tunings},
-  {NULL, aarch64_none, NULL, 0, NULL}
+  {"generic", cortexa53, "8", 8,\
+    AARCH64_FL_FPSIMD | AARCH64_FL_FOR_ARCH8, &generic_tunings},
+  {NULL, aarch64_none, NULL, 0, 0, NULL}
 };
 
 /* Architectures implementing AArch64.  */
 static const struct processor all_architectures[] =
 {
 #define AARCH64_ARCH(NAME, CORE, ARCH, FLAGS) \
-  {NAME, CORE, #ARCH, FLAGS, NULL},
+  {NAME, CORE, #ARCH, ARCH, FLAGS, NULL},
 #include "aarch64-arches.def"
 #undef AARCH64_ARCH
-  {NULL, aarch64_none, NULL, 0, NULL}
+  {NULL, aarch64_none, NULL, 0, 0, NULL}
 };
 
 /* Target specification.  These are populated as commandline arguments
@@ -2399,6 +2405,9 @@ aarch64_expand_epilogue (bool for_sibcall)
   HOST_WIDE_INT fp_offset;
   HOST_WIDE_INT hard_fp_offset;
   rtx_insn *insn;
+  /* We need to add memory barrier to prevent read from deallocated stack.  */
+  bool need_barrier_p = (get_frame_size () != 0
+			 || cfun->machine->frame.saved_varargs_size);
 
   aarch64_layout_frame ();
 
@@ -2433,6 +2442,9 @@ aarch64_expand_epilogue (bool for_sibcall)
   if (frame_pointer_needed
       && (crtl->outgoing_args_size || cfun->calls_alloca))
     {
+      if (cfun->calls_alloca)
+	emit_insn (gen_stack_tie (stack_pointer_rtx, stack_pointer_rtx));
+
       insn = emit_insn (gen_add3_insn (stack_pointer_rtx,
 				       hard_frame_pointer_rtx,
 				       GEN_INT (0)));
@@ -2458,6 +2470,9 @@ aarch64_expand_epilogue (bool for_sibcall)
 				    skip_wb, &cfi_ops);
       aarch64_restore_callee_saves (DFmode, fp_offset, V0_REGNUM, V31_REGNUM,
 				    skip_wb, &cfi_ops);
+
+      if (need_barrier_p)
+	emit_insn (gen_stack_tie (stack_pointer_rtx, stack_pointer_rtx));
 
       if (skip_wb)
 	{
@@ -2499,6 +2514,9 @@ aarch64_expand_epilogue (bool for_sibcall)
 
   if (frame_size > 0)
     {
+      if (need_barrier_p)
+	emit_insn (gen_stack_tie (stack_pointer_rtx, stack_pointer_rtx));
+
       if (frame_size >= 0x1000000)
 	{
 	  rtx op0 = gen_rtx_REG (Pmode, IP0_REGNUM);
@@ -2791,28 +2809,23 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   reload_completed = 0;
 }
 
-static int
-aarch64_tls_operand_p_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (*x) == SYMBOL_REF)
-    return SYMBOL_REF_TLS_MODEL (*x) != 0;
-
-  /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
-     TLS offsets, not real symbol references.  */
-  if (GET_CODE (*x) == UNSPEC
-      && XINT (*x, 1) == UNSPEC_TLS)
-    return -1;
-
-  return 0;
-}
-
 static bool
 aarch64_tls_referenced_p (rtx x)
 {
   if (!TARGET_HAVE_TLS)
     return false;
-
-  return for_each_rtx (&x, aarch64_tls_operand_p_1, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (x) != 0)
+	return true;
+      /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
+	 TLS offsets, not real symbol references.  */
+      if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_TLS)
+	iter.skip_subrtxes ();
+    }
+  return false;
 }
 
 
@@ -6458,6 +6471,7 @@ aarch64_override_options (void)
   aarch64_tune_flags = selected_tune->flags;
   aarch64_tune = selected_tune->core;
   aarch64_tune_params = selected_tune->tune;
+  aarch64_architecture_version = selected_cpu->architecture_version;
 
   if (aarch64_fix_a53_err835769 == 2)
     {
@@ -7585,54 +7599,6 @@ aarch64_autovectorize_vector_sizes (void)
   return (16 | 8);
 }
 
-/* A table to help perform AArch64-specific name mangling for AdvSIMD
-   vector types in order to conform to the AAPCS64 (see "Procedure
-   Call Standard for the ARM 64-bit Architecture", Appendix A).  To
-   qualify for emission with the mangled names defined in that document,
-   a vector type must not only be of the correct mode but also be
-   composed of AdvSIMD vector element types (e.g.
-   _builtin_aarch64_simd_qi); these types are registered by
-   aarch64_init_simd_builtins ().  In other words, vector types defined
-   in other ways e.g. via vector_size attribute will get default
-   mangled names.  */
-typedef struct
-{
-  machine_mode mode;
-  const char *element_type_name;
-  const char *mangled_name;
-} aarch64_simd_mangle_map_entry;
-
-static aarch64_simd_mangle_map_entry aarch64_simd_mangle_map[] = {
-  /* 64-bit containerized types.  */
-  { V8QImode,  "__builtin_aarch64_simd_qi",     "10__Int8x8_t" },
-  { V8QImode,  "__builtin_aarch64_simd_uqi",    "11__Uint8x8_t" },
-  { V4HImode,  "__builtin_aarch64_simd_hi",     "11__Int16x4_t" },
-  { V4HImode,  "__builtin_aarch64_simd_uhi",    "12__Uint16x4_t" },
-  { V2SImode,  "__builtin_aarch64_simd_si",     "11__Int32x2_t" },
-  { V2SImode,  "__builtin_aarch64_simd_usi",    "12__Uint32x2_t" },
-  { V2SFmode,  "__builtin_aarch64_simd_sf",     "13__Float32x2_t" },
-  { DImode,    "__builtin_aarch64_simd_di",     "11__Int64x1_t" },
-  { DImode,    "__builtin_aarch64_simd_udi",    "12__Uint64x1_t" },
-  { V1DFmode,  "__builtin_aarch64_simd_df",	"13__Float64x1_t" },
-  { V8QImode,  "__builtin_aarch64_simd_poly8",  "11__Poly8x8_t" },
-  { V4HImode,  "__builtin_aarch64_simd_poly16", "12__Poly16x4_t" },
-  /* 128-bit containerized types.  */
-  { V16QImode, "__builtin_aarch64_simd_qi",     "11__Int8x16_t" },
-  { V16QImode, "__builtin_aarch64_simd_uqi",    "12__Uint8x16_t" },
-  { V8HImode,  "__builtin_aarch64_simd_hi",     "11__Int16x8_t" },
-  { V8HImode,  "__builtin_aarch64_simd_uhi",    "12__Uint16x8_t" },
-  { V4SImode,  "__builtin_aarch64_simd_si",     "11__Int32x4_t" },
-  { V4SImode,  "__builtin_aarch64_simd_usi",    "12__Uint32x4_t" },
-  { V2DImode,  "__builtin_aarch64_simd_di",     "11__Int64x2_t" },
-  { V2DImode,  "__builtin_aarch64_simd_udi",    "12__Uint64x2_t" },
-  { V4SFmode,  "__builtin_aarch64_simd_sf",     "13__Float32x4_t" },
-  { V2DFmode,  "__builtin_aarch64_simd_df",     "13__Float64x2_t" },
-  { V16QImode, "__builtin_aarch64_simd_poly8",  "12__Poly8x16_t" },
-  { V8HImode,  "__builtin_aarch64_simd_poly16", "12__Poly16x8_t" },
-  { V2DImode,  "__builtin_aarch64_simd_poly64", "12__Poly64x2_t" },
-  { VOIDmode, NULL, NULL }
-};
-
 /* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
@@ -7643,25 +7609,10 @@ aarch64_mangle_type (const_tree type)
   if (lang_hooks.types_compatible_p (CONST_CAST_TREE (type), va_list_type))
     return "St9__va_list";
 
-  /* Check the mode of the vector type, and the name of the vector
-     element type, against the table.  */
-  if (TREE_CODE (type) == VECTOR_TYPE)
-    {
-      aarch64_simd_mangle_map_entry *pos = aarch64_simd_mangle_map;
-
-      while (pos->mode != VOIDmode)
-	{
-	  tree elt_type = TREE_TYPE (type);
-
-	  if (pos->mode == TYPE_MODE (type)
-	      && TREE_CODE (TYPE_NAME (elt_type)) == TYPE_DECL
-	      && !strcmp (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (elt_type))),
-			  pos->element_type_name))
-	    return pos->mangled_name;
-
-	  pos++;
-	}
-    }
+  /* Mangle AArch64-specific internal types.  TYPE_NAME is non-NULL_TREE for
+     builtin types.  */
+  if (TYPE_NAME (type) != NULL)
+    return aarch64_mangle_builtin_type (type);
 
   /* Use the default mangling.  */
   return NULL;

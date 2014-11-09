@@ -2515,6 +2515,7 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	gimple call;
 	call = gimple_build_call_vec ((TREE_CODE (fn) == FUNCTION_DECL
 				       ? build_fold_addr_expr (fn) : fn), args);
+	gimple_call_set_with_bounds (call, currop->with_bounds);
 	if (sc)
 	  gimple_call_set_chain (call, sc);
 	tree forcedname = make_ssa_name (currop->type, NULL);
