@@ -104,28 +104,28 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_add_epi8 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_paddb256 ((__v32qi)__A, (__v32qi)__B);
+  return (__m256i) ((__v32qu)__A + (__v32qu)__B);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_add_epi16 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_paddw256 ((__v16hi)__A, (__v16hi)__B);
+  return (__m256i) ((__v16hu)__A + (__v16hu)__B);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_add_epi32 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_paddd256 ((__v8si)__A, (__v8si)__B);
+  return (__m256i) ((__v8su)__A + (__v8su)__B);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_add_epi64 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_paddq256 ((__v4di)__A, (__v4di)__B);
+  return (__m256i) ((__v4du)__A + (__v4du)__B);
 }
 
 extern __inline __m256i
@@ -555,14 +555,14 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mullo_epi16 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_pmullw256 ((__v16hi)__A, (__v16hi)__B);
+  return (__m256i) ((__v16hu)__A * (__v16hu)__B);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mullo_epi32 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_pmulld256 ((__v8si)__A, (__v8si)__B);
+  return (__m256i) ((__v8su)__A * (__v8su)__B);
 }
 
 extern __inline __m256i
@@ -785,28 +785,28 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_sub_epi8 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_psubb256 ((__v32qi)__A, (__v32qi)__B);
+  return (__m256i) ((__v32qu)__A - (__v32qu)__B);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_sub_epi16 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_psubw256 ((__v16hi)__A, (__v16hi)__B);
+  return (__m256i) ((__v16hu)__A - (__v16hu)__B);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_sub_epi32 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_psubd256 ((__v8si)__A, (__v8si)__B);
+  return (__m256i) ((__v8su)__A - (__v8su)__B);
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_sub_epi64 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_psubq256 ((__v4di)__A, (__v4di)__B);
+  return (__m256i) ((__v4du)__A - (__v4du)__B);
 }
 
 extern __inline __m256i
