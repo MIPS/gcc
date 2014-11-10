@@ -1,3 +1,14 @@
+2014-11-10  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (simplify_conversion_from_bitmask): Remove.
+	(associate_plusminus): Likewise.
+	(combine_conversions): Likewise.
+	(simplify_mult): Likewise.
+	(pass_forwprop::execute): Adjust.
+	* gimple-fold.c (fold_gimple_assign): Remove dispatches to
+	fold_binary_loc and fold_ternary_loc.
+	(gimple_fold_stmt_to_constant_1): Likewise.
+
 2014-11-09  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r217075 through r217260.
