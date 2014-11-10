@@ -1,3 +1,11 @@
+2014-11-10  Marc Glisse  <marc.glisse@inria.fr>
+
+	* config/i386/avx2intrin.h (_mm256_and_si256, _mm256_or_si256,
+	_mm256_xor_si256): Use vector extensions instead of builtins.
+	* config/i386/avx512fintrin.h (_mm512_or_si512, _mm512_or_epi32,
+	_mm512_or_epi64, _mm512_xor_si512, _mm512_xor_epi32, _mm512_xor_epi64,
+	_mm512_and_si512, _mm512_and_epi32, _mm512_and_epi64): Likewise.
+
 2014-11-09  Marc Glisse  <marc.glisse@inria.fr>
 
 	* config/i386/emmintrin.h (_mm_and_si128, _mm_or_si128, _mm_xor_si128):

@@ -178,7 +178,7 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_and_si256 (__m256i __A, __m256i __B)
 {
-  return (__m256i) __builtin_ia32_andsi256 ((__v4di)__A, (__v4di)__B);
+  return (__m256i) ((__v4du)__A & (__v4du)__B);
 }
 
 extern __inline __m256i
@@ -576,7 +576,7 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_or_si256 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_por256 ((__v4di)__A, (__v4di)__B);
+  return (__m256i) ((__v4du)__A | (__v4du)__B);
 }
 
 extern __inline __m256i
@@ -897,7 +897,7 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_xor_si256 (__m256i __A, __m256i __B)
 {
-  return (__m256i)__builtin_ia32_pxor256 ((__v4di)__A, (__v4di)__B);
+  return (__m256i) ((__v4du)__A ^ (__v4du)__B);
 }
 
 extern __inline __m256i
