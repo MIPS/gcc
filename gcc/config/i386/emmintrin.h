@@ -1275,55 +1275,55 @@ _mm_xor_si128 (__m128i __A, __m128i __B)
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmpeq_epi8 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpeqb128 ((__v16qi)__A, (__v16qi)__B);
+  return (__m128i) ((__v16qi)__A == (__v16qi)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmpeq_epi16 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpeqw128 ((__v8hi)__A, (__v8hi)__B);
+  return (__m128i) ((__v8hi)__A == (__v8hi)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmpeq_epi32 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpeqd128 ((__v4si)__A, (__v4si)__B);
+  return (__m128i) ((__v4si)__A == (__v4si)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmplt_epi8 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpgtb128 ((__v16qi)__B, (__v16qi)__A);
+  return (__m128i) ((__v16qi)__A < (__v16qi)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmplt_epi16 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpgtw128 ((__v8hi)__B, (__v8hi)__A);
+  return (__m128i) ((__v8hi)__A < (__v8hi)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmplt_epi32 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpgtd128 ((__v4si)__B, (__v4si)__A);
+  return (__m128i) ((__v4si)__A < (__v4si)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmpgt_epi8 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpgtb128 ((__v16qi)__A, (__v16qi)__B);
+  return (__m128i) ((__v16qi)__A > (__v16qi)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmpgt_epi16 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpgtw128 ((__v8hi)__A, (__v8hi)__B);
+  return (__m128i) ((__v8hi)__A > (__v8hi)__B);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_cmpgt_epi32 (__m128i __A, __m128i __B)
 {
-  return (__m128i)__builtin_ia32_pcmpgtd128 ((__v4si)__A, (__v4si)__B);
+  return (__m128i) ((__v4si)__A > (__v4si)__B);
 }
 
 #ifdef __OPTIMIZE__
