@@ -1,3 +1,11 @@
+2014-11-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (valid_move_insn_p): Make sure mask is
+	properly set if not GPR, FPR, or Altivec register.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs-df and -mupper-regs-sf.
+
 2014-11-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (floatdidf2_mem): Use d, not ws for

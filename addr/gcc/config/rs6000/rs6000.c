@@ -6271,10 +6271,7 @@ valid_move_insn_p (rtx dest_orig, rtx src_orig)
 	mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
 
       else
-	{
-	  ret = false;
-	  done_p = true;
-	}
+	mask = 0;
 
       if ((mask & RELOAD_REG_VALID) == 0)
 	{
