@@ -3,6 +3,9 @@
 	* config/rs6000/rs6000.c (valid_move_insn_p): Make sure mask is
 	properly set if not GPR, FPR, or Altivec register.
 
+	* config/rs6000/rs6000.opt (-mupper-regs-df): Make option public.
+	(-mupper-regs-sf): Likewise.
+
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
 	-mupper-regs-df and -mupper-regs-sf.
 
