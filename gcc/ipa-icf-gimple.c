@@ -48,6 +48,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
 #include "except.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "data-streamer.h"
 #include "ipa-utils.h"
 #include <list>
@@ -523,6 +527,10 @@ func_checker::compare_variable_decl (tree t1, tree t2)
   return return_with_debug (ret);
 }
 
+
+/* Function visits all gimple labels and creates corresponding
+   mapping between basic blocks and labels.  */
+
 void
 func_checker::parse_labels (sem_bb *bb)
 {
@@ -761,7 +769,8 @@ func_checker::compare_gimple_label (gimple g1, gimple g2)
   if (FORCED_LABEL (t1) || FORCED_LABEL (t2))
     return return_false_with_msg ("FORCED_LABEL");
 
-  return compare_tree_ssa_label (t1, t2);
+  /* As the pass build BB to label mapping, no further check is needed.  */
+  return true;
 }
 
 /* Verifies for given GIMPLEs S1 and S2 that
@@ -788,6 +797,19 @@ func_checker::compare_gimple_switch (gimple g1, gimple g2)
     {
       tree label1 = gimple_switch_label (g1, i);
       tree label2 = gimple_switch_label (g2, i);
+
+      /* Label LOW and HIGH comparison.  */
+      tree low1 = CASE_LOW (label1);
+      tree low2 = CASE_LOW (label2);
+
+      if (!tree_int_cst_equal (low1, low2))
+	return return_false_with_msg ("case low values are different");
+
+      tree high1 = CASE_HIGH (label1);
+      tree high2 = CASE_HIGH (label2);
+
+      if (!tree_int_cst_equal (high1, high2))
+	return return_false_with_msg ("case high values are different");
 
       if (TREE_CODE (label1) == CASE_LABEL_EXPR
 	  && TREE_CODE (label2) == CASE_LABEL_EXPR)

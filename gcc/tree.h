@@ -560,6 +560,21 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
+/* Nonzero if this type is a pointer bounds type.  */
+#define POINTER_BOUNDS_TYPE_P(NODE) \
+  (TREE_CODE (NODE) == POINTER_BOUNDS_TYPE)
+
+/* Nonzero if this node has a pointer bounds type.  */
+#define POINTER_BOUNDS_P(NODE) \
+  (POINTER_BOUNDS_TYPE_P (TREE_TYPE (NODE)))
+
+/* Nonzero if this type supposes bounds existence.  */
+#define BOUNDED_TYPE_P(type) (POINTER_TYPE_P (type))
+
+/* Nonzero for objects with bounded type.  */
+#define BOUNDED_P(node) \
+  BOUNDED_TYPE_P (TREE_TYPE (node))
+
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 
@@ -835,6 +850,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    it has been built for the declaration of a variable-sized object.  */
 #define CALL_ALLOCA_FOR_VAR_P(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.protected_flag)
+
+/* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
+#define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -3284,6 +3302,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
 
+#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
+
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
@@ -3645,11 +3665,11 @@ extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
 extern tree truth_type_for (tree);
-extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
+extern tree build_pointer_type_for_mode (tree, machine_mode, bool);
 extern tree build_pointer_type (tree);
-extern tree build_reference_type_for_mode (tree, enum machine_mode, bool);
+extern tree build_reference_type_for_mode (tree, machine_mode, bool);
 extern tree build_reference_type (tree);
-extern tree build_vector_type_for_mode (tree, enum machine_mode);
+extern tree build_vector_type_for_mode (tree, machine_mode);
 extern tree build_vector_type (tree innertype, int nunits);
 extern tree build_opaque_vector_type (tree innertype, int nunits);
 extern tree build_index_type (tree);
@@ -4791,7 +4811,7 @@ extern tree build_personality_function (const char *);
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 tree *, enum machine_mode *, int *, int *,
+				 tree *, machine_mode *, int *, int *,
 				 bool);
 
 /* Return a tree representing the lower bound of the array mentioned in

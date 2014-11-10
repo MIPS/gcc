@@ -821,7 +821,7 @@ c_common_type (tree t1, tree t2)
   if (code1 == FIXED_POINT_TYPE || code2 == FIXED_POINT_TYPE)
     {
       unsigned int unsignedp = 0, satp = 0;
-      enum machine_mode m1, m2;
+      machine_mode m1, m2;
       unsigned int fbit1, ibit1, fbit2, ibit2, max_fbit, max_ibit;
 
       m1 = TYPE_MODE (t1);
@@ -10491,7 +10491,8 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "right shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"right shift count is negative");
 		}
 	      else
 		{
@@ -10502,8 +10503,8 @@ build_binary_op (location_t location, enum tree_code code,
 		    {
 		      int_const = false;
 		      if (c_inhibit_evaluation_warnings == 0)
-			warning_at (location, 0, "right shift count >= width "
-				    "of type");
+			warning_at (location, OPT_Wshift_count_overflow,
+				    "right shift count >= width of type");
 		    }
 		}
 	    }
@@ -10545,15 +10546,16 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "left shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"left shift count is negative");
 		}
 
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "left shift count >= width of "
-				"type");
+		    warning_at (location, OPT_Wshift_count_overflow,
+				"left shift count >= width of type");
 		}
 	    }
 

@@ -55,6 +55,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-address.h"
@@ -65,6 +69,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tree-eh.h"
 #include "gimple-match.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -314,6 +320,9 @@ fold_gimple_assign (gimple_stmt_iterator *si)
       {
         tree rhs = gimple_assign_rhs1 (stmt);
 
+	if (TREE_CLOBBER_P (rhs))
+	  return NULL_TREE;
+
 	if (REFERENCE_CLASS_P (rhs))
 	  return maybe_fold_reference (rhs, false);
 
@@ -411,27 +420,6 @@ fold_gimple_assign (gimple_stmt_iterator *si)
       break;
 
     case GIMPLE_UNARY_RHS:
-      {
-	tree rhs = gimple_assign_rhs1 (stmt);
-
-	result = fold_unary_loc (loc, subcode, gimple_expr_type (stmt), rhs);
-	if (result)
-	  {
-	    /* If the operation was a conversion do _not_ mark a
-	       resulting constant with TREE_OVERFLOW if the original
-	       constant was not.  These conversions have implementation
-	       defined behavior and retaining the TREE_OVERFLOW flag
-	       here would confuse later passes such as VRP.  */
-	    if (CONVERT_EXPR_CODE_P (subcode)
-		&& TREE_CODE (result) == INTEGER_CST
-		&& TREE_CODE (rhs) == INTEGER_CST)
-	      TREE_OVERFLOW (result) = TREE_OVERFLOW (rhs);
-
-	    STRIP_USELESS_TYPE_CONVERSION (result);
-	    if (valid_gimple_rhs_p (result))
-	      return result;
-	  }
-      }
       break;
 
     case GIMPLE_BINARY_RHS:
@@ -2870,7 +2858,7 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	   && rcode.is_tree_code ())
     {
       if (!inplace
-	  || gimple_num_ops (stmt) <= get_gimple_rhs_num_ops (rcode))
+	  || gimple_num_ops (stmt) > get_gimple_rhs_num_ops (rcode))
 	{
 	  maybe_build_generic_op (rcode,
 				  TREE_TYPE (gimple_assign_lhs (stmt)),
@@ -3239,6 +3227,17 @@ tree
 no_follow_ssa_edges (tree)
 {
   return NULL_TREE;
+}
+
+/* Valueization callback that ends up following single-use SSA edges only.  */
+
+tree
+follow_single_use_edges (tree val)
+{
+  if (TREE_CODE (val) == SSA_NAME
+      && !has_single_use (val))
+    return NULL_TREE;
+  return val;
 }
 
 /* Fold the statement pointed to by GSI.  In some cases, this function may
@@ -4371,6 +4370,30 @@ maybe_fold_or_comparisons (enum tree_code code1, tree op1a, tree op1b,
 tree
 gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
 {
+  code_helper rcode;
+  tree ops[3] = {};
+  /* ???  The SSA propagators do not correctly deal with following SSA use-def
+     edges if there are intermediate VARYING defs.  For this reason
+     do not follow SSA edges here even though SCCVN can technically
+     just deal fine with that.  */
+  if (gimple_simplify (stmt, &rcode, ops, NULL, no_follow_ssa_edges)
+      && rcode.is_tree_code ()
+      && (TREE_CODE_LENGTH ((tree_code) rcode) == 0
+	  || ((tree_code) rcode) == ADDR_EXPR)
+      && is_gimple_val (ops[0]))
+    {
+      tree res = ops[0];
+      if (dump_file && dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "Match-and-simplified ");
+	  print_gimple_expr (dump_file, stmt, 0, TDF_SLIM);
+	  fprintf (dump_file, " to ");
+	  print_generic_expr (dump_file, res, 0);
+	  fprintf (dump_file, "\n");
+	}
+      return res;
+    }
+
   location_t loc = gimple_location (stmt);
   switch (gimple_code (stmt))
     {
@@ -4482,16 +4505,7 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
             }
 
           case GIMPLE_UNARY_RHS:
-            {
-              /* Handle unary operators that can appear in GIMPLE form.
-                 Note that we know the single operand must be a constant,
-                 so this should almost always return a simplified RHS.  */
-              tree op0 = (*valueize) (gimple_assign_rhs1 (stmt));
-
-              return
-		fold_unary_ignore_overflow_loc (loc, subcode,
-						gimple_expr_type (stmt), op0);
-            }
+	    return NULL_TREE;
 
           case GIMPLE_BINARY_RHS:
             {

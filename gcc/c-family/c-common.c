@@ -46,6 +46,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "hashtab.h"
 #include "opts.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "target-def.h"
 #include "gimplify.h"
@@ -381,6 +391,9 @@ static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_designated_init_attribute (tree *, tree, tree, int, bool *);
+static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *);
+static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
+static tree handle_bnd_instrument (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -613,7 +626,12 @@ const struct c_common_resword c_common_reswords[] =
 const unsigned int num_c_common_reswords =
   sizeof c_common_reswords / sizeof (struct c_common_resword);
 
-/* Table of machine-independent attributes common to all C-like languages.  */
+/* Table of machine-independent attributes common to all C-like languages.
+
+   All attributes referencing arguments should be additionally processed
+   in chkp_copy_function_type_adding_bounds for correct instrumentation
+   by Pointer Bounds Checker.
+   Current list of processed common attributes: nonnull.  */
 const struct attribute_spec c_common_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
@@ -780,12 +798,22 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_assume_aligned_attribute, false },
   { "designated_init",        0, 0, false, true, false,
 			      handle_designated_init_attribute, false },
+  { "bnd_variable_size",      0, 0, true,  false, false,
+			      handle_bnd_variable_size_attribute, false },
+  { "bnd_legacy",             0, 0, true, false, false,
+			      handle_bnd_legacy, false },
+  { "bnd_instrument",         0, 0, true, false, false,
+			      handle_bnd_instrument, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
 /* Give the specifications for the format attributes, used by C and all
-   descendants.  */
+   descendants.
 
+   All attributes referencing arguments should be additionally processed
+   in chkp_copy_function_type_adding_bounds for correct instrumentation
+   by Pointer Bounds Checker.
+   Current list of processed format attributes: format, format_arg.  */
 const struct attribute_spec c_common_format_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
@@ -3497,7 +3525,7 @@ tree
 c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
 				    int unsignedp, int satp)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   if (ibit == 0)
     mode = unsignedp ? UQQmode : QQmode;
   else
@@ -3529,7 +3557,7 @@ tree registered_builtin_types;
    then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
 tree
-c_common_type_for_mode (enum machine_mode mode, int unsignedp)
+c_common_type_for_mode (machine_mode mode, int unsignedp)
 {
   tree t;
   int i;
@@ -3600,7 +3628,7 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
 
   if (COMPLEX_MODE_P (mode))
     {
-      enum machine_mode inner_mode;
+      machine_mode inner_mode;
       tree inner_type;
 
       if (mode == TYPE_MODE (complex_float_type_node))
@@ -3620,7 +3648,7 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
     }
   else if (VECTOR_MODE_P (mode))
     {
-      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      machine_mode inner_mode = GET_MODE_INNER (mode);
       tree inner_type = c_common_type_for_mode (inner_mode, unsignedp);
       if (inner_type != NULL_TREE)
 	return build_vector_type_for_mode (inner_type, mode);
@@ -4304,9 +4332,15 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
   /* If either arg is decimal float and the other is float, find the
      proper common type to use for comparison.  */
   else if (real1 && real2
+	   && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (primop0)))
+	   && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (primop1))))
+    type = common_type (TREE_TYPE (primop0), TREE_TYPE (primop1));
+
+  /* If either arg is decimal float and the other is float, fail.  */
+  else if (real1 && real2
 	   && (DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (primop0)))
 	       || DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (primop1)))))
-    type = common_type (TREE_TYPE (primop0), TREE_TYPE (primop1));
+    return 0;
 
   else if (real1 && real2
 	   && (TYPE_PRECISION (TREE_TYPE (primop0))
@@ -7233,10 +7267,10 @@ handle_destructor_attribute (tree *node, tree name, tree args,
    vector mode, but we can emulate with narrower modes.  */
 
 static int
-vector_mode_valid_p (enum machine_mode mode)
+vector_mode_valid_p (machine_mode mode)
 {
   enum mode_class mclass = GET_MODE_CLASS (mode);
-  enum machine_mode innermode;
+  machine_mode innermode;
 
   /* Doh!  What's going on?  */
   if (mclass != MODE_VECTOR_INT
@@ -7281,7 +7315,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
       int j;
       const char *p = IDENTIFIER_POINTER (ident);
       int len = strlen (p);
-      enum machine_mode mode = VOIDmode;
+      machine_mode mode = VOIDmode;
       tree typefm;
       bool valid_mode;
 
@@ -7313,7 +7347,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))
 	    {
-	      mode = (enum machine_mode) j;
+	      mode = (machine_mode) j;
 	      break;
 	    }
 
@@ -7367,7 +7401,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
       if (POINTER_TYPE_P (type))
 	{
 	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
-	  tree (*fn)(tree, enum machine_mode, bool);
+	  tree (*fn)(tree, machine_mode, bool);
 
 	  if (!targetm.addr_space.valid_pointer_mode (mode, as))
 	    {
@@ -8242,6 +8276,54 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
+/* Handle a "bnd_variable_size" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_bnd_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+				    int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FIELD_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "bnd_legacy" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_bnd_legacy (tree *node, tree name, tree ARG_UNUSED (args),
+		   int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "bnd_instrument" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_bnd_instrument (tree *node, tree name, tree ARG_UNUSED (args),
+		       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "warn_unused" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -8653,7 +8735,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 			      bool *no_add_attrs)
 {
   unsigned HOST_WIDE_INT vecsize, nunits;
-  enum machine_mode orig_mode;
+  machine_mode orig_mode;
   tree type = *node, new_type, size;
 
   *no_add_attrs = true;

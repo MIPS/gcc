@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "expr.h"
 #include "recog.h"		/* FIXME: for insn_data */
+#include "insn-codes.h"
 #include "optabs.h"
 #include "tree-vectorizer.h"
 #include "langhooks.h"
@@ -461,8 +462,8 @@ vect_build_slp_tree_1 (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
   tree vectype, scalar_type, first_op1 = NULL_TREE;
   optab optab;
   int icode;
-  enum machine_mode optab_op2_mode;
-  enum machine_mode vec_mode;
+  machine_mode optab_op2_mode;
+  machine_mode vec_mode;
   struct data_reference *first_dr;
   HOST_WIDE_INT dummy;
   gimple first_load = NULL, prev_first_load = NULL, old_first_load = NULL;
@@ -2890,7 +2891,7 @@ vect_get_mask_element (gimple stmt, int first_mask_element, int m,
     }
 
   /* The mask requires the next vector.  */
-  if (*current_mask_element >= mask_nunits * 2)
+  while (*current_mask_element >= mask_nunits * 2)
     {
       if (*needs_first_vector || *mask_fixed)
         {
@@ -2960,7 +2961,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
   int number_of_mask_fixes = 1;
   bool mask_fixed = false;
   bool needs_first_vector = false;
-  enum machine_mode mode;
+  machine_mode mode;
 
   mode = TYPE_MODE (vectype);
 
@@ -3041,6 +3042,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 					  &number_of_mask_fixes, &mask_fixed,
 					  &needs_first_vector))
 		return false;
+	      gcc_assert (current_mask_element < 2 * nunits);
 	      mask[index++] = current_mask_element;
 
               if (index == nunits)

@@ -238,6 +238,7 @@ gnat_init_options (unsigned int decoded_options_count,
 #undef flag_compare_debug
 #undef flag_short_enums
 #undef flag_stack_check
+int gnat_encodings = 0;
 int optimize;
 int optimize_size;
 int flag_compare_debug;
@@ -725,8 +726,8 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 
   for (iloop = 0; iloop < NUM_MACHINE_MODES; iloop++)
     {
-      enum machine_mode i = (enum machine_mode) iloop;
-      enum machine_mode inner_mode = i;
+      machine_mode i = (machine_mode) iloop;
+      machine_mode inner_mode = i;
       bool float_p = false;
       bool complex_p = false;
       bool vector_p = false;
@@ -821,7 +822,7 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 int
 fp_prec_to_size (int prec)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
@@ -836,7 +837,7 @@ fp_prec_to_size (int prec)
 int
 fp_size_to_prec (int size)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))

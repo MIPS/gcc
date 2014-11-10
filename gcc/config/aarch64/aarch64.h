@@ -28,7 +28,13 @@
     {							\
       builtin_define ("__aarch64__");                   \
       builtin_define ("__ARM_64BIT_STATE");             \
+      builtin_define_with_int_value                     \
+        ("__ARM_ARCH", aarch64_architecture_version);   \
+      cpp_define_formatted                                              \
+        (parse_in, "__ARM_ARCH_%dA", aarch64_architecture_version);     \
       builtin_define ("__ARM_ARCH_ISA_A64");            \
+      builtin_define_with_int_value                     \
+        ("__ARM_ARCH_PROFILE", 'A');                    \
       builtin_define ("__ARM_FEATURE_CLZ");             \
       builtin_define ("__ARM_FEATURE_IDIV");            \
       builtin_define ("__ARM_FEATURE_UNALIGNED");       \
@@ -172,6 +178,8 @@
 
 #define PCC_BITFIELD_TYPE_MATTERS	1
 
+/* Major revision number of the ARM Architecture implemented by the target.  */
+extern unsigned aarch64_architecture_version;
 
 /* Instruction tuning/selection flags.  */
 
@@ -604,7 +612,7 @@ enum arm_pcs
 
 
 
-/* We can't use enum machine_mode inside a generator file because it
+/* We can't use machine_mode inside a generator file because it
    hasn't been created yet; we shouldn't be using any code that
    needs the real definition though, so this ought to be safe.  */
 #ifdef GENERATOR_FILE
@@ -722,12 +730,6 @@ do {									     \
    the constant.  */
 #define SET_RATIO(speed) \
   ((speed) ? 15 : AARCH64_CALL_RATIO - 2)
-
-/* STORE_BY_PIECES_P can be used when copying a constant string, but
-   in that case each 64-bit chunk takes 5 insns instead of 2 (LDR/STR).
-   For now we always fail this and let the move_by_pieces code copy
-   the string from read-only memory.  */
-#define STORE_BY_PIECES_P(SIZE, ALIGN) 0
 
 /* Disable auto-increment in move_by_pieces et al.  Use of auto-increment is
    rarely a good idea in straight-line code since it adds an extra address

@@ -625,7 +625,7 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
       {
 	tree base, poffset;
 	HOST_WIDE_INT pbitsize, pbitpos;
-	enum machine_mode pmode;
+	machine_mode pmode;
 	int punsignedp, pvolatilep;
 
 	op0 = TREE_OPERAND (op0, 0);
@@ -770,7 +770,7 @@ dr_analyze_innermost (struct data_reference *dr, struct loop *nest)
   tree ref = DR_REF (dr);
   HOST_WIDE_INT pbitsize, pbitpos;
   tree base, poffset;
-  enum machine_mode pmode;
+  machine_mode pmode;
   int punsignedp, pvolatilep;
   affine_iv base_iv, offset_iv;
   tree init, dinit, step;
@@ -2100,7 +2100,7 @@ initialize_matrix_A (lambda_matrix A, tree chrec, unsigned index, int mult)
 	return chrec_fold_op (TREE_CODE (chrec), chrec_type (chrec), op0, op1);
       }
 
-    case NOP_EXPR:
+    CASE_CONVERT:
       {
 	tree op = initialize_matrix_A (A, TREE_OPERAND (chrec, 0), index, mult);
 	return chrec_convert (chrec_type (chrec), op, NULL);

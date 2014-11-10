@@ -63,6 +63,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "langhooks.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -1322,6 +1326,7 @@ propagate_pure_const (void)
 		    fprintf (dump_file, "    global var write\n");
 		  break;
 		case IPA_REF_ADDR:
+		case IPA_REF_CHKP:
 		  break;
 		default:
 		  gcc_unreachable ();

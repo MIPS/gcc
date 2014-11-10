@@ -164,6 +164,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "wide-int-print.h"
 #include "builtins.h"
+#include "tree-chkp.h"
 
 
 /* Possible lattice values.  */
@@ -422,7 +423,7 @@ set_value_varying (tree var)
 static void
 canonicalize_value (ccp_prop_value_t *val)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   tree type;
   REAL_VALUE_TYPE d;
 
@@ -1945,6 +1946,8 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
     else if (gimple_assign_ssa_name_copy_p (stmt))
       insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
 					   visited);
+    else if (chkp_gimple_call_builtin_p (stmt, BUILT_IN_CHKP_BNDRET))
+      continue;
     else
       gcc_assert (is_gimple_debug (stmt));
 }

@@ -112,6 +112,8 @@ along with GCC; see the file COPYING3.	If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "tree-core.h"
+#include "optabs.h"
 #include "expr.h"
 #include "predict.h"
 #include "dominance.h"
@@ -126,6 +128,33 @@ along with GCC; see the file COPYING3.	If not see
 #include "ira.h"
 #include "lra-int.h"
 #include "df.h"
+
+/* Dump bitmap SET with TITLE and BB INDEX.  */
+void
+lra_dump_bitmap_with_title (const char *title, bitmap set, int index)
+{
+  unsigned int i;
+  int count;
+  bitmap_iterator bi;
+  static const int max_nums_on_line = 10;
+
+  if (bitmap_empty_p (set))
+    return;
+  fprintf (lra_dump_file, "  %s %d:", title, index);
+  fprintf (lra_dump_file, "\n");
+  count = max_nums_on_line + 1;
+  EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
+    {
+      if (count > max_nums_on_line)
+	{
+	  fprintf (lra_dump_file, "\n    ");
+	  count = 0;
+	}
+      fprintf (lra_dump_file, " %4u", i);
+      count++;
+    }
+  fprintf (lra_dump_file, "\n");
+}
 
 /* Hard registers currently not available for allocation.  It can
    changed after some hard  registers become not eliminable.  */
@@ -156,10 +185,10 @@ expand_reg_data (int old)
    attributes of ORIGINAL if it is a register.  The created register
    will have unique held value.  */
 rtx
-lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
+lra_create_new_reg_with_unique_value (machine_mode md_mode, rtx original,
 				      enum reg_class rclass, const char *title)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   rtx new_reg;
 
   if (original == NULL_RTX || (mode = GET_MODE (original)) == VOIDmode)
@@ -198,7 +227,7 @@ lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
 /* Analogous to the previous function but also inherits value of
    ORIGINAL.  */
 rtx
-lra_create_new_reg (enum machine_mode md_mode, rtx original,
+lra_create_new_reg (machine_mode md_mode, rtx original,
 		    enum reg_class rclass, const char *title)
 {
   rtx new_reg;
@@ -514,7 +543,7 @@ init_insn_regs (void)
    info (NEXT).	 */
 static struct lra_insn_reg *
 new_insn_reg (rtx_insn *insn, int regno, enum op_type type,
-	      enum machine_mode mode,
+	      machine_mode mode,
 	      bool subreg_p, bool early_clobber, struct lra_insn_reg *next)
 {
   struct lra_insn_reg *ir;
@@ -789,7 +818,7 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
 {
   int i, j, regno, last;
   bool subreg_p;
-  enum machine_mode mode;
+  machine_mode mode;
   struct lra_insn_reg *curr;
   rtx op = *x;
   enum rtx_code code = GET_CODE (op);
@@ -934,7 +963,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
   if (icode < 0)
     {
       int nop, nalt;
-      enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
+      machine_mode operand_mode[MAX_RECOG_OPERANDS];
       const char *constraints[MAX_RECOG_OPERANDS];
 
       nop = asm_noperands (PATTERN (insn));
@@ -1165,7 +1194,7 @@ lra_update_insn_recog_data (rtx_insn *insn)
   if (data->icode < 0)
     {
       int nop;
-      enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
+      machine_mode operand_mode[MAX_RECOG_OPERANDS];
       const char *constraints[MAX_RECOG_OPERANDS];
 
       nop = asm_noperands (PATTERN (insn));
@@ -1405,7 +1434,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
 {
   int i, j, regno;
   bool subreg_p;
-  enum machine_mode mode;
+  machine_mode mode;
   const char *fmt;
   enum rtx_code code;
   struct lra_insn_reg *curr;
@@ -1751,6 +1780,68 @@ lra_process_new_insns (rtx_insn *insn, rtx_insn *before, rtx_insn *after,
 
 
 
+/* Replace all references to register OLD_REGNO in *LOC with pseudo
+   register NEW_REG.  Return true if any change was made.  */
+bool
+lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
+{
+  rtx x = *loc;
+  bool result = false;
+  enum rtx_code code;
+  const char *fmt;
+  int i, j;
+
+  if (x == NULL_RTX)
+    return false;
+
+  code = GET_CODE (x);
+  if (code == REG && (int) REGNO (x) == old_regno)
+    {
+      machine_mode mode = GET_MODE (*loc);
+      machine_mode inner_mode = GET_MODE (new_reg);
+
+      if (mode != inner_mode)
+	{
+	  if (GET_MODE_SIZE (mode) >= GET_MODE_SIZE (inner_mode)
+	      || ! SCALAR_INT_MODE_P (inner_mode))
+	    new_reg = gen_rtx_SUBREG (mode, new_reg, 0);
+	  else
+	    new_reg = gen_lowpart_SUBREG (mode, new_reg);
+	}
+      *loc = new_reg;
+      return true;
+    }
+
+  /* Scan all the operand sub-expressions.  */
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if (lra_substitute_pseudo (&XEXP (x, i), old_regno, new_reg))
+	    result = true;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    if (lra_substitute_pseudo (&XVECEXP (x, i, j), old_regno, new_reg))
+	      result = true;
+	}
+    }
+  return result;
+}
+
+/* Call lra_substitute_pseudo within an insn.  This won't update the insn ptr,
+   just the contents of the insn.  */
+bool
+lra_substitute_pseudo_within_insn (rtx_insn *insn, int old_regno, rtx new_reg)
+{
+  rtx loc = insn;
+  return lra_substitute_pseudo (&loc, old_regno, new_reg);
+}
+
+
+
 /* This page contains code dealing with scratches (changing them onto
    pseudos and restoring them from the pseudos).
 
@@ -2081,7 +2172,7 @@ setup_reg_spill_flag (void)
     for (cl = 0; cl < (int) LIM_REG_CLASSES; cl++)
       for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	if (targetm.spill_class ((enum reg_class) cl,
-				 (enum machine_mode) mode) != NO_REGS)
+				 (machine_mode) mode) != NO_REGS)
 	  {
 	    lra_reg_spill_p = true;
 	    return;

@@ -82,6 +82,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "alloc-pool.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "except.h"
@@ -210,7 +216,7 @@ sem_function::sem_function (cgraph_node *node, hashval_t hash,
 sem_function::~sem_function ()
 {
   for (unsigned i = 0; i < bb_sorted.length (); i++)
-    free (bb_sorted[i]);
+    delete (bb_sorted[i]);
 
   arg_types.release ();
   bb_sizes.release ();
@@ -573,7 +579,8 @@ sem_function::merge (sem_item *alias_item)
       redirect_callers
 	= (!original_discardable
 	   && alias->get_availability () > AVAIL_INTERPOSABLE
-	   && original->get_availability () > AVAIL_INTERPOSABLE);
+	   && original->get_availability () > AVAIL_INTERPOSABLE
+	   && !alias->instrumented_version);
     }
   else
     {
@@ -1194,6 +1201,7 @@ sem_variable::merge (sem_item *alias_item)
       alias->analyzed = false;
 
       DECL_INITIAL (alias->decl) = NULL;
+      alias->need_bounds_init = false;
       alias->remove_all_references ();
 
       varpool_node::create_alias (alias_var->decl, decl);

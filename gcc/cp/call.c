@@ -40,6 +40,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-objc.h"
 #include "timevar.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "wide-int.h"
 
@@ -5298,6 +5309,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 
   arg1 = prep_operand (arg1);
 
+  bool memonly = false;
   switch (code)
     {
     case NEW_EXPR:
@@ -5329,6 +5341,16 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
       code_orig_arg1 = TREE_CODE (TREE_TYPE (arg1));
       code_orig_arg2 = TREE_CODE (TREE_TYPE (arg2));
       break;
+
+      /* =, ->, [], () must be non-static member functions.  */
+    case MODIFY_EXPR:
+      if (code2 != NOP_EXPR)
+	break;
+    case COMPONENT_REF:
+    case ARRAY_REF:
+      memonly = true;
+      break;
+
     default:
       break;
     }
@@ -5358,10 +5380,12 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 
   /* Add namespace-scope operators to the list of functions to
      consider.  */
-  add_candidates (lookup_function_nonclass (fnname, arglist, /*block_p=*/true),
-		  NULL_TREE, arglist, NULL_TREE,
-		  NULL_TREE, false, NULL_TREE, NULL_TREE,
-		  flags, &candidates, complain);
+  if (!memonly)
+    add_candidates (lookup_function_nonclass (fnname, arglist,
+					      /*block_p=*/true),
+		    NULL_TREE, arglist, NULL_TREE,
+		    NULL_TREE, false, NULL_TREE, NULL_TREE,
+		    flags, &candidates, complain);
 
   args[0] = arg1;
   args[1] = arg2;

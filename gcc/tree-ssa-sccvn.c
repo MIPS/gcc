@@ -977,7 +977,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
     size_tree = op->op0;
   else
     {
-      enum machine_mode mode = TYPE_MODE (type);
+      machine_mode mode = TYPE_MODE (type);
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (type);
       else
@@ -1160,6 +1160,8 @@ copy_reference_ops_from_call (gimple call,
   if (stmt_could_throw_p (call) && (lr = lookup_stmt_eh_lp (call)) > 0)
     temp.op2 = size_int (lr);
   temp.off = -1;
+  if (gimple_call_with_bounds_p (call))
+    temp.with_bounds = 1;
   result->safe_push (temp);
 
   /* Copy the call arguments.  As they can be references as well,
