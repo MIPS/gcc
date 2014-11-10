@@ -1426,24 +1426,59 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
-(define_insn "msa_addvi_<msafmt>"
+(define_expand "msa_addvi_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand")
+	(plus:IMSA (match_operand:IMSA 1 "register_operand")
+		   (match_operand 2 "const_uimm5_operand")))]
+  "ISA_HAS_MSA"
+  {
+    unsigned n_elts = GET_MODE_NUNITS (<MODE>mode);
+    rtvec v = rtvec_alloc (n_elts);
+    HOST_WIDE_INT val = INTVAL (operands[2]);
+    unsigned int i;
+
+    for (i = 0; i < n_elts; i++)
+      RTVEC_ELT (v, i) = GEN_INT (val);
+
+    gen_msa_addvi_<msafmt>_insn (operands[0], operands[1], 
+                gen_rtx_CONST_VECTOR (<MODE>mode, v));
+    DONE;
+  })
+
+(define_expand "msa_andi_b"
+  [(set (match_operand:V16QI 0 "register_operand")
+	(and:V16QI (match_operand:V16QI 1 "register_operand")
+		   (match_operand:QI 2 "const_uimm8_operand")))]
+  "ISA_HAS_MSA"
+  {
+    rtvec v = rtvec_alloc (16);
+    HOST_WIDE_INT val = INTVAL (operands[2]);
+    unsigned int i;
+
+    for (i = 0; i < 16; i++)
+      RTVEC_ELT (v, i) = GEN_INT (val);
+
+    gen_msa_andi_b_insn (operands[0], operands[1], 
+                gen_rtx_CONST_VECTOR (V16QImode, v));
+    DONE;
+  })
+
+(define_insn "msa_addvi_<msafmt>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(plus:IMSA (match_operand:IMSA 1 "register_operand" "f")
-		   (vec_duplicate:IMSA 
-			(match_operand 2 "const_uimm5_operand" ""))))]
+		   (match_operand:IMSA 2 "const_vector_same_uimm5_operand" "")))]
   "ISA_HAS_MSA"
-  "addvi.<msafmt>\t%w0,%w1,%2"
+  "addvi.<msafmt>\t%w0,%w1,%E2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
-(define_insn "msa_andi_b"
+(define_insn "msa_andi_b_insn"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
 	(and:V16QI (match_operand:V16QI 1 "register_operand" "f")
-		   (vec_duplicate:V16QI 
-			(match_operand:QI 2 "const_uimm8_operand" ""))))]
+		   (match_operand:V16QI 2 "const_vector_same_uimm8_operand" "")))]
   "ISA_HAS_MSA"
-  "andi.b\t%w0,%w1,%2"
+  "andi.b\t%w0,%w1,%E2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
