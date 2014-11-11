@@ -1,3 +1,10 @@
+2014-11-11  Marc Glisse  <marc.glisse@inria.fr>
+
+	* config/i386/avx2intrin.h (_mm256_cmpeq_epi8, _mm256_cmpeq_epi16,
+	_mm256_cmpeq_epi32, _mm256_cmpeq_epi64, _mm256_cmpgt_epi8,
+	_mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi64):
+	Use vector extensions instead of builtins.
+
 2014-11-10  Marc Glisse  <marc.glisse@inria.fr>
 
 	* config/i386/emmintrin.h (_mm_cmpeq_epi8, _mm_cmpeq_epi16,
