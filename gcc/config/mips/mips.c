@@ -7652,7 +7652,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	     $18 is usually a call-saved register.  */
 	  fprintf (asm_out_file, "\tmove\t%s,%s\n",
 		   reg_names[GP_REG_FIRST + 18], reg_names[RETURN_ADDR_REGNUM]);
-	  output_asm_insn (MIPS_CALL ("jal", &fn, 0, -1), &fn);
+	  output_asm_insn (MIPS_JAL (&fn, 0, -1), &fn);
 	  fprintf (asm_out_file, "\t.cfi_register 31,18\n");
 
 	  /* Move the result from floating-point registers to
@@ -8755,7 +8755,7 @@ mips_pop_asm_switch (struct mips_asm_switch *asm_switch)
    '!'  Print "s" to use the short version if the delay slot contains a
 	16-bit instruction.
 
-   See also mips_init_print_operand_pucnt.  */
+   See also mips_init_print_operand_punct.  */
 
 static void
 mips_print_operand_punctuation (FILE *file, int ch)
@@ -8847,8 +8847,9 @@ mips_print_operand_punctuation (FILE *file, int ch)
     case '!':
       /* If the delay slot instruction is short, then use the
 	 compact version.  */
-      if (final_sequence == 0
-	  || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2)
+      if (TARGET_MICROMIPS && !TARGET_INTERLINK_COMPRESSED && mips_isa_rev <= 5
+	  && (final_sequence == 0
+	      || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2))
 	putc ('s', file);
       break;
 
@@ -13493,6 +13494,25 @@ mips_adjust_insn_length (rtx insn, int length)
   return length;
 }
 
+const char *
+mips_output_jump (rtx *operands, int target_opno, int size_opno, bool reg_p)
+{
+  if (reg_p)
+    {
+      if (ISA_HAS_JRC)
+	return MIPS_MAYBE_JRC (operands, target_opno, size_opno);
+      else
+	return MIPS_JR (operands, target_opno, size_opno);
+    }
+  else
+    {
+      if (ISA_HAS_JC)
+	return MIPS_MAYBE_JC (operands, target_opno);
+      else
+	return MIPS_J (operands, target_opno);
+    }
+}
+
 /* Return the assembly code for INSN, which has the operands given by
    OPERANDS, and which branches to OPERANDS[0] if some condition is true.
    BRANCH_IF_TRUE is the asm template that should be used if OPERANDS[0]
@@ -13513,7 +13533,9 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
   if (length <= 8)
     {
       /* Just a simple conditional branch.  */
-      mips_branch_likely = (final_sequence && INSN_ANNULLED_BRANCH_P (insn));
+      mips_branch_likely =
+	  (final_sequence && INSN_ANNULLED_BRANCH_P (insn)
+	   && INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1));
       return branch_if_true;
     }
 
@@ -13546,12 +13568,18 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
     }
 
   /* Output the unconditional branch to TAKEN.  */
-  if (TARGET_ABSOLUTE_JUMPS)
+  if (TARGET_ABSOLUTE_JUMPS && TARGET_COMPACT_BRANCHES)
+    /* WORK NEEDED: Don't use JC, expand it explicitly.  */
+    output_asm_insn (MIPS_ABSOLUTE_JUMP ("jc\t%0"), &taken);
+  else if (TARGET_ABSOLUTE_JUMPS)
     output_asm_insn (MIPS_ABSOLUTE_JUMP ("j\t%0%/"), &taken);
   else
     {
       mips_output_load_label (taken);
-      output_asm_insn ("jr\t%@%]%/", 0);
+      if (TARGET_COMPACT_BRANCHES)
+	output_asm_insn ("jrc\t%@%]", 0);
+      else
+	output_asm_insn ("jr\t%@%]%/", 0);
     }
 
   /* Now deal with its delay slot; see above.  */
@@ -13559,13 +13587,14 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
     {
       /* This delay slot will only be executed if the branch is taken.
 	 Use INSN's delay slot if is annulled.  */
-      if (INSN_ANNULLED_BRANCH_P (insn))
+      if (INSN_ANNULLED_BRANCH_P (insn)
+	  && INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1)))
 	{
 	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
 			   asm_out_file, optimize, 1, NULL);
 	  INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
 	}
-      else
+      else if (!TARGET_COMPACT_BRANCHES)
 	output_asm_insn ("nop", 0);
       fprintf (asm_out_file, "\n");
     }
@@ -13573,7 +13602,61 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
   /* Output NOT_TAKEN.  */
   targetm.asm_out.internal_label (asm_out_file, "L",
 				  CODE_LABEL_NUMBER (not_taken));
+
+  /* Output the forbidden slot instruction.  */
+  if (final_sequence
+      && INSN_ANNULLED_BRANCH_P (insn)
+      && !INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1)))
+    {
+      final_scan_insn (XVECEXP (final_sequence, 0, 1),
+		       asm_out_file, optimize, 1, NULL);
+      INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
+    }
   return "";
+}
+
+const char *
+mips_output_equal_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
+{
+  const char *branch[2];
+  /* For a simple BNEZ or BEQZ microMIPSr3 branch.  */
+  if (TARGET_MICROMIPS
+      && mips_isa_rev <= 5
+      && operands[3] == const0_rtx
+      && get_attr_length (insn) <= 8)
+    {
+      branch[inverted_p] = "%*b%C1z%:\t%2,%0";
+      branch[!inverted_p] = "%*b%N1z%:\t%2,%0";
+    }
+  else if (TARGET_COMPACT_BRANCHES)
+    {
+      if (operands[3] == const0_rtx)
+	{
+	  branch[inverted_p] = MIPS_BRANCH ("b%C1zc", "%2,%0");
+	  branch[!inverted_p] = MIPS_BRANCH ("b%N1zc", "%2,%0");
+	}
+      else if (REGNO (operands[2]) != REGNO (operands[3]))
+	{
+	  branch[inverted_p] = MIPS_BRANCH ("b%C1c", "%2,%3,%0");
+	  branch[!inverted_p] = MIPS_BRANCH ("b%N1c", "%2,%3,%0");
+	}
+      else
+	{
+	  /* This case is stupid.  Fix me.  */
+	  if (GET_CODE (operands[1]) == NE)
+	    inverted_p = !inverted_p;
+
+	  branch[inverted_p] = MIPS_BRANCH ("bc", "%0");
+	  branch[!inverted_p] = "nop";
+	}
+    }
+  else
+    {
+      branch[inverted_p] = MIPS_BRANCH ("b%C1", "%2,%z3,%0");
+      branch[inverted_p] = MIPS_BRANCH ("b%N1", "%2,%z3,%0");
+    }
+
+  return mips_output_conditional_branch (insn, operands, branch[1], branch[0]);
 }
 
 /* Return the assembly code for INSN, which branches to OPERANDS[0]
@@ -13596,8 +13679,16 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       inverted_p = !inverted_p;
       /* Fall through.  */
     case GTU:
-      branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%0");
-      branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%0");
+      if (TARGET_COMPACT_BRANCHES)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("bnezc", "%2,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("beqzc", "%2,%0");
+	}
+      else
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%0");
+	}
       break;
 
       /* These cases are always true or always false.  */
@@ -13605,13 +13696,29 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       inverted_p = !inverted_p;
       /* Fall through.  */
     case GEU:
-      branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%0");
-      branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%0");
+      if (TARGET_COMPACT_BRANCHES)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("bc", "%0");
+	  branch[inverted_p] = MIPS_BRANCH ("nop", "");
+	}
+      else
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%0");
+	}
       break;
 
     default:
-      branch[!inverted_p] = MIPS_BRANCH ("b%C1z", "%2,%0");
-      branch[inverted_p] = MIPS_BRANCH ("b%N1z", "%2,%0");
+      if (TARGET_COMPACT_BRANCHES)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("b%C1zc", "%2,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("b%N1zc", "%2,%0");
+	}
+      else
+	{
+	  branch[!inverted_p] = MIPS_BRANCH ("b%C1z", "%2,%0");
+	  branch[inverted_p] = MIPS_BRANCH ("b%N1z", "%2,%0");
+	}
       break;
     }
   return mips_output_conditional_branch (insn, operands, branch[1], branch[0]);
@@ -19117,6 +19224,21 @@ mips_option_override (void)
       error ("unsupported combination: %s", "-mgp64 -mno-odd-spreg");
       target_flags |= MASK_ODD_SPREG;
     }
+
+  if ((target_flags_explicit & MASK_COMPACT_BRANCHES) == 0)
+    {
+      if (TARGET_MICROMIPS_R6)
+	target_flags |= MASK_COMPACT_BRANCHES;
+      else
+	target_flags &= ~MASK_ODD_SPREG;
+    }
+  else if (!TARGET_COMPACT_BRANCHES && TARGET_MICROMIPS_R6)
+    {
+      error ("unsupported combination: %qs %s",
+	     mips_arch_info->name, "-mmicromips -mno-compact-branches");
+      target_flags |= MASK_COMPACT_BRANCHES;
+    }
+    
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)

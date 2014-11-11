@@ -89,6 +89,9 @@ struct mips_cpu_info {
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
+/* True if we are targetting micromips R6 onwards.  */
+#define TARGET_MICROMIPS_R6 (TARGET_MICROMIPS && mips_isa_rev >= 6)
+
 /* True if we are generating position-independent VxWorks RTP code.  */
 #define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
 
@@ -2684,30 +2687,51 @@ typedef struct mips_args {
 
    For microMIPS jal(r), we try to generate jal(r)s when a 16-bit
    instruction is in the delay slot of jal(r).  */
-#define MIPS_CALL(INSN, OPERANDS, TARGET_OPNO, SIZE_OPNO)	\
+#define MIPS_JAL(OPERANDS, TARGET_OPNO, SIZE_OPNO)		\
   (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? "%*" INSN "\t%" #TARGET_OPNO "%/"				\
-   : REG_P (OPERANDS[TARGET_OPNO])				\
-   ? (mips_get_pic_call_symbol (OPERANDS, SIZE_OPNO)		\
-      ? ("%*.reloc\t1f,R_MIPS_JALR,%" #SIZE_OPNO "\n"		\
-	 "1:\t" INSN "r\t%" #TARGET_OPNO "%/")			\
-      : TARGET_MICROMIPS && !TARGET_INTERLINK_COMPRESSED	\
-      ? "%*" INSN "r%!\t%" #TARGET_OPNO "%/"			\
-      : "%*" INSN "r\t%" #TARGET_OPNO "%/")			\
-   : TARGET_MICROMIPS && !TARGET_INTERLINK_COMPRESSED		\
-     ? MIPS_ABSOLUTE_JUMP ("%*" INSN "%!\t%" #TARGET_OPNO "%/")	\
-     : MIPS_ABSOLUTE_JUMP ("%*" INSN "\t%" #TARGET_OPNO "%/"))	\
+   ? (TARGET_ABICALLS_PIC2					\
+      ? "%*bal\t%" #TARGET_OPNO "%/"				\
+      : "%*jal%!\t%" #TARGET_OPNO "%/")				\
+   : MIPS_ABSOLUTE_JUMP ("%*jal%!\t%" #TARGET_OPNO "%/"))
 
-/* Similar to MIPS_CALL, but this is for MICROMIPS "j" to generate
-   "jrc" when nop is in the delay slot of "jr".  */
-
-#define MICROMIPS_J(INSN, OPERANDS, OPNO)			\
+#define MIPS_JALR(OPERANDS, TARGET_OPNO, SIZE_OPNO)		\
   (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? "%*j\t%" #OPNO "%/"					\
-   : REG_P (OPERANDS[OPNO])					\
-   ? "%*jr%:\t%" #OPNO						\
-   : MIPS_ABSOLUTE_JUMP ("%*" INSN "\t%" #OPNO "%/"))
+   ? "%*jalr%:%!\t%" #TARGET_OPNO "%/"				\
+   : mips_get_pic_call_symbol (OPERANDS, SIZE_OPNO)		\
+   ? ("%*.reloc\t1f,R_MIPS_JALR,%" #SIZE_OPNO "\n"		\
+      "1:\tjalr%:%!\t%" #TARGET_OPNO "%/")			\
+   : MIPS_ABSOLUTE_JUMP ("%*jalr%:%!\t%" #TARGET_OPNO "%/"))
 
+#define MIPS_J(OPERANDS, TARGET_OPNO)				\
+  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
+   ? (TARGET_ABICALLS_PIC2					\
+      ? "%*b\t%" #TARGET_OPNO "%/"				\
+      : "%*j\t%" #TARGET_OPNO "%/")				\
+   : MIPS_ABSOLUTE_JUMP ("%*j\t%" #TARGET_OPNO "%/"))
+
+#define MIPS_MAYBE_JC(OPERANDS, TARGET_OPNO)			\
+  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
+   ? (TARGET_ABICALLS_PIC2					\
+      ? "%*b%:\t%" #TARGET_OPNO					\
+      : "%*j%:\t%" #TARGET_OPNO)				\
+   : MIPS_ABSOLUTE_JUMP ("%*j%:\t%" #TARGET_OPNO))
+
+#define MIPS_JR(OPERANDS, TARGET_OPNO, SIZE_OPNO)		\
+  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
+   ? "%*jr\t%" #TARGET_OPNO "%/"				\
+   : mips_get_pic_call_symbol (OPERANDS, SIZE_OPNO)		\
+   ? ("%*.reloc\t1f,R_MIPS_JALR,%" #SIZE_OPNO "\n"		\
+      "1:\tjr\t%" #TARGET_OPNO "%/")				\
+   : MIPS_ABSOLUTE_JUMP ("%*jr\t%" #TARGET_OPNO "%/"))
+
+#define MIPS_MAYBE_JRC(OPERANDS, TARGET_OPNO, SIZE_OPNO)	\
+  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
+   ? "%*jr%:\t%" #TARGET_OPNO					\
+   : mips_get_pic_call_symbol (OPERANDS, SIZE_OPNO)		\
+   ? ("%*.reloc\t1f,R_MIPS_JALR,%" #SIZE_OPNO "\n"		\
+      "1:\tjr%:\t%" #TARGET_OPNO)				\
+   : MIPS_ABSOLUTE_JUMP ("%*jr%:\t%" #TARGET_OPNO))
+
 
 /* Control the assembler format that we output.  */
 
