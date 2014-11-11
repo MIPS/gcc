@@ -29,6 +29,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "hashtab.h"
 #include "bitmap.h"
+#include "predict.h"
+#include "vec.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -38,6 +45,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-ssanames.h"
@@ -557,11 +567,12 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  tree t;
+  tree t, t2;
 
   t = gimple_return_retval (gs);
+  t2 = gimple_return_retbnd (gs);
   if (flags & TDF_RAW)
-    dump_gimple_fmt (buffer, spc, flags, "%G <%T>", gs, t);
+    dump_gimple_fmt (buffer, spc, flags, "%G <%T %T>", gs, t, t2);
   else
     {
       pp_string (buffer, "return");
@@ -569,6 +580,11 @@ dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 	{
 	  pp_space (buffer);
 	  dump_generic_node (buffer, t, spc, flags, false);
+	}
+      if (t2)
+	{
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, t2, spc, flags, false);
 	}
       pp_semicolon (buffer);
     }

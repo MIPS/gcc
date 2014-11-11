@@ -1,5 +1,10 @@
 2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 217365.
+	* REVISION: Update subversion id.
+
+2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/predicates.md (memory_fp_constant): Delete
 	define_split for fp cases before reload.  Delete valid_move_insn_p
 	and make SF/DF move insns use the original checks.

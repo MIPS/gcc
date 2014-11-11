@@ -64,17 +64,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "emit-rtl.h"
 #include "hash-table.h"
 #include "version.h"
 #include "flags.h"
-#include "hard-reg-set.h"
 #include "regs.h"
 #include "rtlhash.h"
 #include "insn-config.h"
 #include "reload.h"
-#include "function.h"
 #include "output.h"
 #include "expr.h"
 #include "except.h"
@@ -90,8 +94,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
-#include "input.h"
 #include "ira.h"
 #include "lra.h"
 #include "dumpfile.h"
@@ -3194,7 +3201,7 @@ static int is_based_loc (const_rtx);
 static bool resolve_one_addr (rtx *);
 static dw_loc_descr_ref concat_loc_descriptor (rtx, rtx,
 					       enum var_init_status);
-static dw_loc_descr_ref loc_descriptor (rtx, enum machine_mode mode,
+static dw_loc_descr_ref loc_descriptor (rtx, machine_mode mode,
 					enum var_init_status);
 static dw_loc_list_ref loc_list_from_tree (tree, int);
 static dw_loc_descr_ref loc_descriptor_from_tree (tree, int);
@@ -10384,6 +10391,7 @@ is_base_type (tree type)
     case FIXED_POINT_TYPE:
     case COMPLEX_TYPE:
     case BOOLEAN_TYPE:
+    case POINTER_BOUNDS_TYPE:
       return 1;
 
     case ARRAY_TYPE:
@@ -11591,7 +11599,7 @@ const_ok_for_output (rtx rtl)
    if possible, NULL otherwise.  */
 
 static dw_die_ref
-base_type_for_mode (enum machine_mode mode, bool unsignedp)
+base_type_for_mode (machine_mode mode, bool unsignedp)
 {
   dw_die_ref type_die;
   tree type = lang_hooks.types.type_for_mode (mode, unsignedp);
@@ -11620,9 +11628,9 @@ base_type_for_mode (enum machine_mode mode, bool unsignedp)
    possible.  */
 
 static dw_loc_descr_ref
-convert_descriptor_to_mode (enum machine_mode mode, dw_loc_descr_ref op)
+convert_descriptor_to_mode (machine_mode mode, dw_loc_descr_ref op)
 {
-  enum machine_mode outer_mode = mode;
+  machine_mode outer_mode = mode;
   dw_die_ref type_die;
   dw_loc_descr_ref cvt;
 
@@ -11663,9 +11671,9 @@ compare_loc_descriptor (enum dwarf_location_atom op, dw_loc_descr_ref op0,
 
 static dw_loc_descr_ref
 scompare_loc_descriptor (enum dwarf_location_atom op, rtx rtl,
-			 enum machine_mode mem_mode)
+			 machine_mode mem_mode)
 {
-  enum machine_mode op_mode = GET_MODE (XEXP (rtl, 0));
+  machine_mode op_mode = GET_MODE (XEXP (rtl, 0));
   dw_loc_descr_ref op0, op1;
   int shift;
 
@@ -11773,9 +11781,9 @@ scompare_loc_descriptor (enum dwarf_location_atom op, rtx rtl,
 
 static dw_loc_descr_ref
 ucompare_loc_descriptor (enum dwarf_location_atom op, rtx rtl,
-			 enum machine_mode mem_mode)
+			 machine_mode mem_mode)
 {
-  enum machine_mode op_mode = GET_MODE (XEXP (rtl, 0));
+  machine_mode op_mode = GET_MODE (XEXP (rtl, 0));
   dw_loc_descr_ref op0, op1;
 
   if (op_mode == VOIDmode)
@@ -11841,8 +11849,8 @@ ucompare_loc_descriptor (enum dwarf_location_atom op, rtx rtl,
 /* Return location descriptor for {U,S}{MIN,MAX}.  */
 
 static dw_loc_descr_ref
-minmax_loc_descriptor (rtx rtl, enum machine_mode mode,
-		       enum machine_mode mem_mode)
+minmax_loc_descriptor (rtx rtl, machine_mode mode,
+		       machine_mode mem_mode)
 {
   enum dwarf_location_atom op;
   dw_loc_descr_ref op0, op1, ret;
@@ -11937,7 +11945,7 @@ minmax_loc_descriptor (rtx rtl, enum machine_mode mode,
 
 static dw_loc_descr_ref
 typed_binop (enum dwarf_location_atom op, rtx rtl, dw_die_ref type_die,
-	     enum machine_mode mode, enum machine_mode mem_mode)
+	     machine_mode mode, machine_mode mem_mode)
 {
   dw_loc_descr_ref cvt, op0, op1;
 
@@ -11993,8 +12001,8 @@ typed_binop (enum dwarf_location_atom op, rtx rtl, dw_die_ref type_die,
    L4: DW_OP_nop  */
 
 static dw_loc_descr_ref
-clz_loc_descriptor (rtx rtl, enum machine_mode mode,
-		    enum machine_mode mem_mode)
+clz_loc_descriptor (rtx rtl, machine_mode mode,
+		    machine_mode mem_mode)
 {
   dw_loc_descr_ref op0, ret, tmp;
   HOST_WIDE_INT valv;
@@ -12105,8 +12113,8 @@ clz_loc_descriptor (rtx rtl, enum machine_mode mode,
    L2: DW_OP_drop  */
 
 static dw_loc_descr_ref
-popcount_loc_descriptor (rtx rtl, enum machine_mode mode,
-			 enum machine_mode mem_mode)
+popcount_loc_descriptor (rtx rtl, machine_mode mode,
+			 machine_mode mem_mode)
 {
   dw_loc_descr_ref op0, ret, tmp;
   dw_loc_descr_ref l1jump, l1label;
@@ -12166,8 +12174,8 @@ popcount_loc_descriptor (rtx rtl, enum machine_mode mode,
    L2: DW_OP_drop DW_OP_swap DW_OP_drop  */
 
 static dw_loc_descr_ref
-bswap_loc_descriptor (rtx rtl, enum machine_mode mode,
-		      enum machine_mode mem_mode)
+bswap_loc_descriptor (rtx rtl, machine_mode mode,
+		      machine_mode mem_mode)
 {
   dw_loc_descr_ref op0, ret, tmp;
   dw_loc_descr_ref l1jump, l1label;
@@ -12251,8 +12259,8 @@ bswap_loc_descriptor (rtx rtl, enum machine_mode mode,
    [ DW_OP_swap constMASK DW_OP_and DW_OP_swap ] DW_OP_shr DW_OP_or  */
 
 static dw_loc_descr_ref
-rotate_loc_descriptor (rtx rtl, enum machine_mode mode,
-		       enum machine_mode mem_mode)
+rotate_loc_descriptor (rtx rtl, machine_mode mode,
+		       machine_mode mem_mode)
 {
   rtx rtlop1 = XEXP (rtl, 1);
   dw_loc_descr_ref op0, op1, ret, mask[2] = { NULL, NULL };
@@ -12366,8 +12374,8 @@ parameter_ref_descriptor (rtx rtl)
    Return 0 if we can't represent the location.  */
 
 dw_loc_descr_ref
-mem_loc_descriptor (rtx rtl, enum machine_mode mode,
-		    enum machine_mode mem_mode,
+mem_loc_descriptor (rtx rtl, machine_mode mode,
+		    machine_mode mem_mode,
 		    enum var_init_status initialized)
 {
   dw_loc_descr_ref mem_loc_result = NULL;
@@ -12534,7 +12542,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 		  masking.  */
 	       && GET_MODE_SIZE (GET_MODE (XEXP (rtl, 0))) <= 4)
 	{
-	  enum machine_mode imode = GET_MODE (XEXP (rtl, 0));
+	  machine_mode imode = GET_MODE (XEXP (rtl, 0));
 	  mem_loc_result = op0;
 	  add_loc_descr (&mem_loc_result,
 			 int_loc_descriptor (GET_MODE_MASK (imode)));
@@ -12935,7 +12943,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	      || GET_MODE_BITSIZE (mode) == HOST_BITS_PER_DOUBLE_INT))
 	{
 	  dw_die_ref type_die = base_type_for_mode (mode, 1);
-	  enum machine_mode amode;
+	  machine_mode amode;
 	  if (type_die == NULL)
 	    return NULL;
 	  amode = mode_for_size (DWARF2_ADDR_SIZE * BITS_PER_UNIT,
@@ -13399,7 +13407,7 @@ implicit_ptr_descriptor (rtx rtl, HOST_WIDE_INT offset)
    If we don't know how to describe it, return 0.  */
 
 static dw_loc_descr_ref
-loc_descriptor (rtx rtl, enum machine_mode mode,
+loc_descriptor (rtx rtl, machine_mode mode,
 		enum var_init_status initialized)
 {
   dw_loc_descr_ref loc_result = NULL;
@@ -13463,7 +13471,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
       {
 	rtvec par_elems = XVEC (rtl, 0);
 	int num_elem = GET_NUM_ELEM (par_elems);
-	enum machine_mode mode;
+	machine_mode mode;
 	int i;
 
 	/* Create the first one, so we have something to add to.  */
@@ -13556,7 +13564,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	    = ggc_vec_alloc<unsigned char> (length * elt_size);
 	  unsigned int i;
 	  unsigned char *p;
-	  enum machine_mode imode = GET_MODE_INNER (mode);
+	  machine_mode imode = GET_MODE_INNER (mode);
 
 	  gcc_assert (mode == GET_MODE (rtl) || VOIDmode == GET_MODE (rtl));
 	  switch (GET_MODE_CLASS (mode))
@@ -13690,7 +13698,7 @@ dw_loc_list_1 (tree loc, rtx varloc, int want_address,
 {
   int have_address = 0;
   dw_loc_descr_ref descr;
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (want_address != 2)
     {
@@ -14189,7 +14197,7 @@ loc_list_for_address_of_addr_expr_of_indirect_ref (tree loc, bool toplev)
 {
   tree obj, offset;
   HOST_WIDE_INT bitsize, bitpos, bytepos;
-  enum machine_mode mode;
+  machine_mode mode;
   int unsignedp, volatilep = 0;
   dw_loc_list_ref list_ret = NULL, list_ret1 = NULL;
 
@@ -14410,7 +14418,7 @@ loc_list_from_tree (tree loc, int want_address)
           ret = new_addr_loc_descr (rtl, dtprel_false);
 	else
 	  {
-	    enum machine_mode mode, mem_mode;
+	    machine_mode mode, mem_mode;
 
 	    /* Certain constructs can only be represented at top-level.  */
 	    if (want_address == 2)
@@ -14474,7 +14482,7 @@ loc_list_from_tree (tree loc, int want_address)
       {
 	tree obj, offset;
 	HOST_WIDE_INT bitsize, bitpos, bytepos;
-	enum machine_mode mode;
+	machine_mode mode;
 	int unsignedp, volatilep = 0;
 
 	obj = get_inner_reference (loc, &bitsize, &bitpos, &offset, &mode,
@@ -15286,7 +15294,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	 constant requires more than one word in order to be adequately
 	 represented.  */
       {
-	enum machine_mode mode = GET_MODE (rtl);
+	machine_mode mode = GET_MODE (rtl);
 
 	if (TARGET_SUPPORTS_WIDE_INT == 0 && !SCALAR_FLOAT_MODE_P (mode))
 	  add_AT_double (die, DW_AT_const_value,
@@ -15304,14 +15312,14 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 
     case CONST_VECTOR:
       {
-	enum machine_mode mode = GET_MODE (rtl);
+	machine_mode mode = GET_MODE (rtl);
 	unsigned int elt_size = GET_MODE_UNIT_SIZE (mode);
 	unsigned int length = CONST_VECTOR_NUNITS (rtl);
 	unsigned char *array
 	  = ggc_vec_alloc<unsigned char> (length * elt_size);
 	unsigned int i;
 	unsigned char *p;
-	enum machine_mode imode = GET_MODE_INNER (mode);
+	machine_mode imode = GET_MODE_INNER (mode);
 
 	switch (GET_MODE_CLASS (mode))
 	  {
@@ -15457,7 +15465,7 @@ rtl_for_decl_init (tree init, tree type)
     {
       tree enttype = TREE_TYPE (type);
       tree domain = TYPE_DOMAIN (type);
-      enum machine_mode mode = TYPE_MODE (enttype);
+      machine_mode mode = TYPE_MODE (enttype);
 
       if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE_SIZE (mode) == 1
 	  && domain
@@ -15647,8 +15655,8 @@ rtl_for_decl_location (tree decl)
 	{
 	  tree declared_type = TREE_TYPE (decl);
 	  tree passed_type = DECL_ARG_TYPE (decl);
-	  enum machine_mode dmode = TYPE_MODE (declared_type);
-	  enum machine_mode pmode = TYPE_MODE (passed_type);
+	  machine_mode dmode = TYPE_MODE (declared_type);
+	  machine_mode pmode = TYPE_MODE (passed_type);
 
 	  /* This decl represents a formal parameter which was optimized out.
 	     Note that DECL_INCOMING_RTL may be NULL in here, but we handle
@@ -15701,7 +15709,7 @@ rtl_for_decl_location (tree decl)
 	       && (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (decl)))
 		   < UNITS_PER_WORD))
 	{
-	  enum machine_mode addr_mode = get_address_mode (rtl);
+	  machine_mode addr_mode = get_address_mode (rtl);
 	  int offset = (UNITS_PER_WORD
 			- GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (decl))));
 
@@ -15715,7 +15723,7 @@ rtl_for_decl_location (tree decl)
 	   && GET_MODE (rtl) != TYPE_MODE (TREE_TYPE (decl))
 	   && BYTES_BIG_ENDIAN)
     {
-      enum machine_mode addr_mode = get_address_mode (rtl);
+      machine_mode addr_mode = get_address_mode (rtl);
       int rsize = GET_MODE_SIZE (GET_MODE (rtl));
       int dsize = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (decl)));
 
@@ -15775,7 +15783,7 @@ static tree
 fortran_common (tree decl, HOST_WIDE_INT *value)
 {
   tree val_expr, cvar;
-  enum machine_mode mode;
+  machine_mode mode;
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   int unsignedp, volatilep = 0;
@@ -15944,7 +15952,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
 	  tree enttype = TREE_TYPE (type);
-	  enum machine_mode mode = TYPE_MODE (enttype);
+	  machine_mode mode = TYPE_MODE (enttype);
 
 	  if (GET_MODE_CLASS (mode) != MODE_INT || GET_MODE_SIZE (mode) != 1)
 	    return false;
@@ -17806,18 +17814,21 @@ gen_formal_types_die (tree function_or_method_type, dw_die_ref context_die)
 	break;
 
       /* Output a (nameless) DIE to represent the formal parameter itself.  */
-      parm_die = gen_formal_parameter_die (formal_type, NULL,
-					   true /* Emit name attribute.  */,
-					   context_die);
-      if (TREE_CODE (function_or_method_type) == METHOD_TYPE
-	  && link == first_parm_type)
+      if (!POINTER_BOUNDS_TYPE_P (formal_type))
 	{
-	  add_AT_flag (parm_die, DW_AT_artificial, 1);
-	  if (dwarf_version >= 3 || !dwarf_strict)
-	    add_AT_die_ref (context_die, DW_AT_object_pointer, parm_die);
+	  parm_die = gen_formal_parameter_die (formal_type, NULL,
+					       true /* Emit name attribute.  */,
+					       context_die);
+	  if (TREE_CODE (function_or_method_type) == METHOD_TYPE
+	      && link == first_parm_type)
+	    {
+	      add_AT_flag (parm_die, DW_AT_artificial, 1);
+	      if (dwarf_version >= 3 || !dwarf_strict)
+		add_AT_die_ref (context_die, DW_AT_object_pointer, parm_die);
+	    }
+	  else if (arg && DECL_ARTIFICIAL (arg))
+	    add_AT_flag (parm_die, DW_AT_artificial, 1);
 	}
-      else if (arg && DECL_ARTIFICIAL (arg))
-	add_AT_flag (parm_die, DW_AT_artificial, 1);
 
       link = TREE_CHAIN (link);
       if (arg)
@@ -18591,7 +18602,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    gen_formal_parameter_pack_die (generic_decl_parm,
 					   parm, subr_die,
 					   &parm);
-	  else if (parm)
+	  else if (parm && !POINTER_BOUNDS_P (parm))
 	    {
 	      dw_die_ref parm_die = gen_decl_die (parm, NULL, subr_die);
 
@@ -18603,6 +18614,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 	      parm = DECL_CHAIN (parm);
 	    }
+	  else if (parm)
+	    parm = DECL_CHAIN (parm);
 
 	  if (generic_decl_parm)
 	    generic_decl_parm = DECL_CHAIN (generic_decl_parm);
@@ -18666,7 +18679,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		   arg; arg = next_arg)
 		{
 		  dw_loc_descr_ref reg, val;
-		  enum machine_mode mode = GET_MODE (XEXP (XEXP (arg, 0), 1));
+		  machine_mode mode = GET_MODE (XEXP (XEXP (arg, 0), 1));
 		  dw_die_ref cdie, tdie = NULL;
 
 		  next_arg = XEXP (arg, 1);
@@ -20096,6 +20109,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
     case FIXED_POINT_TYPE:
     case COMPLEX_TYPE:
     case BOOLEAN_TYPE:
+    case POINTER_BOUNDS_TYPE:
       /* No DIEs needed for fundamental types.  */
       break;
 
@@ -20473,6 +20487,26 @@ declare_in_namespace (tree thing, dw_die_ref context_die)
   if (debug_info_level <= DINFO_LEVEL_TERSE)
     return context_die;
 
+  /* External declarations in the local scope only need to be emitted
+     once, not once in the namespace and once in the scope.
+
+     This avoids declaring the `extern' below in the
+     namespace DIE as well as in the innermost scope:
+
+          namespace S
+	  {
+            int i=5;
+            int foo()
+	    {
+              int i=8;
+              extern int i;
+     	      return i;
+	    }
+          }
+  */
+  if (DECL_P (thing) && DECL_EXTERNAL (thing) && local_scope_p (context_die))
+    return context_die;
+
   /* If this decl is from an inlined function, then don't try to emit it in its
      namespace, as we will get confused.  It would have already been emitted
      when the abstract instance of the inline function was emitted anyways.  */
@@ -20555,6 +20589,12 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
   tree class_origin = NULL, ultimate_origin;
 
   if (DECL_P (decl_or_origin) && DECL_IGNORED_P (decl_or_origin))
+    return NULL;
+
+  /* Ignore pointer bounds decls.  */
+  if (DECL_P (decl_or_origin)
+      && TREE_TYPE (decl_or_origin)
+      && POINTER_BOUNDS_P (decl_or_origin))
     return NULL;
 
   switch (TREE_CODE (decl_or_origin))
@@ -20764,7 +20804,8 @@ dwarf2out_global_decl (tree decl)
      declarations, file-scope (extern) function declarations (which
      had no corresponding body) and file-scope tagged type declarations
      and definitions which have not yet been forced out.  */
-  if (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
+  if ((TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
+      && !POINTER_BOUNDS_P (decl))
     dwarf2out_decl (decl);
 }
 
@@ -24614,6 +24655,92 @@ dwarf2out_finish (const char *filename)
   /* If we emitted any indirect strings, output the string table too.  */
   if (debug_str_hash || skeleton_debug_str_hash)
     output_indirect_strings ();
+}
+
+/* Reset all state within dwarf2out.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+dwarf2out_c_finalize (void)
+{
+  last_var_location_insn = NULL;
+  cached_next_real_insn = NULL;
+  used_rtx_array = NULL;
+  incomplete_types = NULL;
+  decl_scope_table = NULL;
+  debug_info_section = NULL;
+  debug_skeleton_info_section = NULL;
+  debug_abbrev_section = NULL;
+  debug_skeleton_abbrev_section = NULL;
+  debug_aranges_section = NULL;
+  debug_addr_section = NULL;
+  debug_macinfo_section = NULL;
+  debug_line_section = NULL;
+  debug_skeleton_line_section = NULL;
+  debug_loc_section = NULL;
+  debug_pubnames_section = NULL;
+  debug_pubtypes_section = NULL;
+  debug_str_section = NULL;
+  debug_str_dwo_section = NULL;
+  debug_str_offsets_section = NULL;
+  debug_ranges_section = NULL;
+  debug_frame_section = NULL;
+  fde_vec = NULL;
+  debug_str_hash = NULL;
+  skeleton_debug_str_hash = NULL;
+  dw2_string_counter = 0;
+  have_multiple_function_sections = false;
+  text_section_used = false;
+  cold_text_section_used = false;
+  cold_text_section = NULL;
+  current_unit_personality = NULL;
+
+  deferred_locations_list = NULL;
+
+  next_die_offset = 0;
+  single_comp_unit_die = NULL;
+  comdat_type_list = NULL;
+  limbo_die_list = NULL;
+  deferred_asm_name = NULL;
+  file_table = NULL;
+  decl_die_table = NULL;
+  common_block_die_table = NULL;
+  decl_loc_table = NULL;
+  call_arg_locations = NULL;
+  call_arg_loc_last = NULL;
+  call_site_count = -1;
+  tail_call_site_count = -1;
+  //block_map = NULL;
+  cached_dw_loc_list_table = NULL;
+  abbrev_die_table = NULL;
+  abbrev_die_table_allocated = 0;
+  abbrev_die_table_in_use = 0;
+  line_info_label_num = 0;
+  cur_line_info_table = NULL;
+  text_section_line_info = NULL;
+  cold_text_section_line_info = NULL;
+  separate_line_info = NULL;
+  info_section_emitted = false;
+  pubname_table = NULL;
+  pubtype_table = NULL;
+  macinfo_table = NULL;
+  ranges_table = NULL;
+  ranges_table_allocated = 0;
+  ranges_table_in_use = 0;
+  ranges_by_label = 0;
+  ranges_by_label_allocated = 0;
+  ranges_by_label_in_use = 0;
+  have_location_lists = false;
+  loclabel_num = 0;
+  poc_label_num = 0;
+  last_emitted_file = NULL;
+  label_num = 0;
+  file_table_last_lookup = NULL;
+  tmpl_value_parm_die_table = NULL;
+  generic_type_instances = NULL;
+  frame_pointer_fb_offset = 0;
+  frame_pointer_fb_offset_valid = false;
+  base_types.release ();
 }
 
 #include "gt-dwarf2out.h"

@@ -32,6 +32,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -42,6 +53,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -57,6 +71,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Need to include expr.h and optabs.h for lshift_cheap_p.  */
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 
 /* Maximum number of case bit tests.
@@ -124,35 +139,6 @@ hoist_edge_and_branch_if_true (gimple_stmt_iterator *gsip,
   return new_bb;
 }
 
-
-/* Determine whether "1 << x" is relatively cheap in word_mode.  */
-/* FIXME: This is the function that we need rtl.h and optabs.h for.
-   This function (and similar RTL-related cost code in e.g. IVOPTS) should
-   be moved to some kind of interface file for GIMPLE/RTL interactions.  */
-static bool
-lshift_cheap_p (bool speed_p)
-{
-  /* FIXME: This should be made target dependent via this "this_target"
-     mechanism, similar to e.g. can_copy_init_p in gcse.c.  */
-  static bool init[2] = {false, false};
-  static bool cheap[2] = {true, true};
-
-  /* If the targer has no lshift in word_mode, the operation will most
-     probably not be cheap.  ??? Does GCC even work for such targets?  */
-  if (optab_handler (ashl_optab, word_mode) == CODE_FOR_nothing)
-    return false;
-
-  if (!init[speed_p])
-    {
-      rtx reg = gen_raw_REG (word_mode, 10000);
-      int cost = set_src_cost (gen_rtx_ASHIFT (word_mode, const1_rtx, reg),
-			       speed_p);
-      cheap[speed_p] = cost < COSTS_N_INSNS (MAX_CASE_BIT_TESTS);
-      init[speed_p] = true;
-    }
-
-  return cheap[speed_p];
-}
 
 /* Return true if a switch should be expanded as a bit test.
    RANGE is the difference between highest and lowest case.
@@ -979,7 +965,7 @@ array_value_type (gimple swtch, tree type, int num,
 {
   unsigned int i, len = vec_safe_length (info->constructors[num]);
   constructor_elt *elt;
-  enum machine_mode mode;
+  machine_mode mode;
   int sign = 0;
   tree smaller_type;
 

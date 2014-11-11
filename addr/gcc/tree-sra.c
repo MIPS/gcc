@@ -79,6 +79,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -102,6 +112,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-prop.h"
 #include "statistics.h"
 #include "params.h"
@@ -2498,10 +2511,12 @@ analyze_all_variable_accesses (void)
   int res = 0;
   bitmap tmp = BITMAP_ALLOC (NULL);
   bitmap_iterator bi;
-  unsigned i, max_total_scalarization_size;
-
-  max_total_scalarization_size = UNITS_PER_WORD * BITS_PER_UNIT
-    * MOVE_RATIO (optimize_function_for_speed_p (cfun));
+  unsigned i;
+  unsigned max_scalarization_size
+    = (optimize_function_for_size_p (cfun)
+	? PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE)
+	: PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED))
+      * BITS_PER_UNIT;
 
   EXECUTE_IF_SET_IN_BITMAP (candidate_bitmap, 0, i, bi)
     if (bitmap_bit_p (should_scalarize_away_bitmap, i)
@@ -2513,7 +2528,7 @@ analyze_all_variable_accesses (void)
 	    && type_consists_of_records_p (TREE_TYPE (var)))
 	  {
 	    if (tree_to_uhwi (TYPE_SIZE (TREE_TYPE (var)))
-		<= max_total_scalarization_size)
+		<= max_scalarization_size)
 	      {
 		completely_scalarize_var (var);
 		if (dump_file && (dump_flags & TDF_DETAILS))

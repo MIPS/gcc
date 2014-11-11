@@ -24,6 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
@@ -62,6 +73,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "dbgcnt.h"
 #include "domwalk.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-prop.h"
 #include "tree-ssa-propagate.h"
 #include "ipa-utils.h"
@@ -2502,6 +2517,8 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 				   (TREE_CODE (fn) == FUNCTION_DECL
 				    ? build_fold_addr_expr (fn) : fn),
 				   nargs, args);
+	if (currop->with_bounds)
+	  CALL_WITH_BOUNDS_P (folded) = true;
 	free (args);
 	if (sc)
 	  CALL_EXPR_STATIC_CHAIN (folded) = sc;
@@ -2897,6 +2914,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	    }
 
 	  gimple_set_vuse (stmt, BB_LIVE_VOP_ON_EXIT (block));
+	  gimple_set_modified (stmt, true);
 	}
       gimple_seq_add_seq (stmts, forced_stmts);
     }
@@ -2904,6 +2922,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
   name = make_temp_ssa_name (exprtype, NULL, "pretmp");
   newstmt = gimple_build_assign (name, folded);
   gimple_set_vuse (newstmt, BB_LIVE_VOP_ON_EXIT (block));
+  gimple_set_modified (newstmt, true);
   gimple_set_plf (newstmt, NECESSARY, false);
 
   gimple_seq_add_stmt (stmts, newstmt);
@@ -3887,8 +3906,11 @@ eliminate_push_avail (tree op)
     {
       if (el_avail.length () <= SSA_NAME_VERSION (valnum))
 	el_avail.safe_grow_cleared (SSA_NAME_VERSION (valnum) + 1);
+      tree pushop = op;
+      if (el_avail[SSA_NAME_VERSION (valnum)])
+	pushop = el_avail[SSA_NAME_VERSION (valnum)];
+      el_avail_stack.safe_push (pushop);
       el_avail[SSA_NAME_VERSION (valnum)] = op;
-      el_avail_stack.safe_push (op);
     }
 }
 
@@ -4432,7 +4454,14 @@ eliminate_dom_walker::after_dom_children (basic_block)
 {
   tree entry;
   while ((entry = el_avail_stack.pop ()) != NULL_TREE)
-    el_avail[SSA_NAME_VERSION (VN_INFO (entry)->valnum)] = NULL_TREE;
+    {
+      tree valnum = VN_INFO (entry)->valnum;
+      tree old = el_avail[SSA_NAME_VERSION (valnum)];
+      if (old == entry)
+	el_avail[SSA_NAME_VERSION (valnum)] = NULL_TREE;
+      else
+	el_avail[SSA_NAME_VERSION (valnum)] = entry;
+    }
 }
 
 /* Eliminate fully redundant computations.  */

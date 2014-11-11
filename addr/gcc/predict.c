@@ -36,16 +36,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "flags.h"
-#include "function.h"
+#include "profile.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
 #include "expr.h"
-#include "predict.h"
 #include "coverage.h"
 #include "sreal.h"
 #include "params.h"
@@ -59,6 +68,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -161,7 +172,7 @@ set_hot_bb_threshold (gcov_type min)
 
 /* Return TRUE if frequency FREQ is considered to be hot.  */
 
-static inline bool
+bool
 maybe_hot_count_p (struct function *fun, gcov_type count)
 {
   if (fun && profile_status_for_fn (fun) != PROFILE_READ)
@@ -184,39 +195,6 @@ maybe_hot_bb_p (struct function *fun, const_basic_block bb)
   return maybe_hot_frequency_p (fun, bb->frequency);
 }
 
-/* Return true if the call can be hot.  */
-
-bool
-cgraph_edge::maybe_hot_p (void)
-{
-  if (profile_info && flag_branch_probabilities
-      && !maybe_hot_count_p (NULL, count))
-    return false;
-  if (caller->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
-      || (callee
-	  && callee->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED))
-    return false;
-  if (caller->frequency > NODE_FREQUENCY_UNLIKELY_EXECUTED
-      && (callee
-	  && callee->frequency <= NODE_FREQUENCY_EXECUTED_ONCE))
-    return false;
-  if (optimize_size)
-    return false;
-  if (caller->frequency == NODE_FREQUENCY_HOT)
-    return true;
-  if (caller->frequency == NODE_FREQUENCY_EXECUTED_ONCE
-      && frequency < CGRAPH_FREQ_BASE * 3 / 2)
-    return false;
-  if (flag_guess_branch_prob)
-    {
-      if (PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION) == 0
-	  || frequency <= (CGRAPH_FREQ_BASE
-				 / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)))
-        return false;
-    }
-  return true;
-}
-
 /* Return true in case BB can be CPU intensive and should be optimized
    for maximal performance.  */
 
@@ -227,8 +205,6 @@ maybe_hot_edge_p (edge e)
     return maybe_hot_count_p (cfun, e->count);
   return maybe_hot_frequency_p (cfun, EDGE_FREQUENCY (e));
 }
-
-
 
 /* Return true if profile COUNT and FREQUENCY, or function FUN static
    node frequency reflects never being executed.  */
@@ -296,19 +272,6 @@ bool
 probably_never_executed_edge_p (struct function *fun, edge e)
 {
   return probably_never_executed (fun, e->count, EDGE_FREQUENCY (e));
-}
-
-/* Return true if function should be optimized for size.  */
-
-bool
-cgraph_node::optimize_for_size_p (void)
-{
-  if (optimize_size)
-    return true;
-  if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return true;
-  else
-    return false;
 }
 
 /* Return true when current function should always be optimized for size.  */
@@ -2522,6 +2485,7 @@ struct edge_prob_info
 };
 
 #define BLOCK_INFO(B)	((block_info *) (B)->aux)
+#undef EDGE_INFO
 #define EDGE_INFO(E)	((edge_prob_info *) (E)->aux)
 
 /* Helper function for estimate_bb_frequencies.
@@ -2564,15 +2528,13 @@ propagate_freq (basic_block head, bitmap tovisit)
 	bb->count = bb->frequency = 0;
     }
 
-  memcpy (&BLOCK_INFO (head)->frequency, &real_one, sizeof (real_one));
+  BLOCK_INFO (head)->frequency = real_one;
   last = head;
   for (bb = head; bb; bb = nextbb)
     {
       edge_iterator ei;
-      sreal cyclic_probability, frequency;
-
-      memcpy (&cyclic_probability, &real_zero, sizeof (real_zero));
-      memcpy (&frequency, &real_zero, sizeof (real_zero));
+      sreal cyclic_probability = real_zero;
+      sreal frequency = real_zero;
 
       nextbb = BLOCK_INFO (bb)->next;
       BLOCK_INFO (bb)->next = NULL;
@@ -2589,42 +2551,34 @@ propagate_freq (basic_block head, bitmap tovisit)
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (EDGE_INFO (e)->back_edge)
 	      {
-		sreal_add (&cyclic_probability, &cyclic_probability,
-			   &EDGE_INFO (e)->back_edge_prob);
+		cyclic_probability += EDGE_INFO (e)->back_edge_prob;
 	      }
 	    else if (!(e->flags & EDGE_DFS_BACK))
 	      {
-		sreal tmp;
-
 		/*  frequency += (e->probability
 				  * BLOCK_INFO (e->src)->frequency /
 				  REG_BR_PROB_BASE);  */
 
-		sreal_init (&tmp, e->probability, 0);
-		sreal_mul (&tmp, &tmp, &BLOCK_INFO (e->src)->frequency);
-		sreal_mul (&tmp, &tmp, &real_inv_br_prob_base);
-		sreal_add (&frequency, &frequency, &tmp);
+		sreal tmp (e->probability, 0);
+		tmp *= BLOCK_INFO (e->src)->frequency;
+		tmp *= real_inv_br_prob_base;
+		frequency += tmp;
 	      }
 
-	  if (sreal_compare (&cyclic_probability, &real_zero) == 0)
+	  if (cyclic_probability == real_zero)
 	    {
-	      memcpy (&BLOCK_INFO (bb)->frequency, &frequency,
-		      sizeof (frequency));
+	      BLOCK_INFO (bb)->frequency = frequency;
 	    }
 	  else
 	    {
-	      if (sreal_compare (&cyclic_probability, &real_almost_one) > 0)
-		{
-		  memcpy (&cyclic_probability, &real_almost_one,
-			  sizeof (real_almost_one));
-		}
+	      if (cyclic_probability > real_almost_one)
+		cyclic_probability = real_almost_one;
 
 	      /* BLOCK_INFO (bb)->frequency = frequency
 					      / (1 - cyclic_probability) */
 
-	      sreal_sub (&cyclic_probability, &real_one, &cyclic_probability);
-	      sreal_div (&BLOCK_INFO (bb)->frequency,
-			 &frequency, &cyclic_probability);
+	      cyclic_probability = real_one - cyclic_probability;
+	      BLOCK_INFO (bb)->frequency = frequency / cyclic_probability;
 	    }
 	}
 
@@ -2633,16 +2587,13 @@ propagate_freq (basic_block head, bitmap tovisit)
       e = find_edge (bb, head);
       if (e)
 	{
-	  sreal tmp;
-
 	  /* EDGE_INFO (e)->back_edge_prob
 	     = ((e->probability * BLOCK_INFO (bb)->frequency)
 	     / REG_BR_PROB_BASE); */
 
-	  sreal_init (&tmp, e->probability, 0);
-	  sreal_mul (&tmp, &tmp, &BLOCK_INFO (bb)->frequency);
-	  sreal_mul (&EDGE_INFO (e)->back_edge_prob,
-		     &tmp, &real_inv_br_prob_base);
+	  sreal tmp (e->probability, 0);
+	  tmp *= BLOCK_INFO (bb)->frequency;
+	  EDGE_INFO (e)->back_edge_prob = tmp * real_inv_br_prob_base;
 	}
 
       /* Propagate to successor blocks.  */
@@ -2852,7 +2803,7 @@ counts_to_freqs (void)
   /* Don't overwrite the estimated frequencies when the profile for
      the function is missing.  We may drop this function PROFILE_GUESSED
      later in drop_profile ().  */
-  if (!ENTRY_BLOCK_PTR_FOR_FN (cfun)->count)
+  if (!flag_auto_profile && !ENTRY_BLOCK_PTR_FOR_FN (cfun)->count)
     return 0;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL, next_bb)
@@ -2922,13 +2873,13 @@ estimate_bb_frequencies (bool force)
       if (!real_values_initialized)
         {
 	  real_values_initialized = 1;
-	  sreal_init (&real_zero, 0, 0);
-	  sreal_init (&real_one, 1, 0);
-	  sreal_init (&real_br_prob_base, REG_BR_PROB_BASE, 0);
-	  sreal_init (&real_bb_freq_max, BB_FREQ_MAX, 0);
-	  sreal_init (&real_one_half, 1, -1);
-	  sreal_div (&real_inv_br_prob_base, &real_one, &real_br_prob_base);
-	  sreal_sub (&real_almost_one, &real_one, &real_inv_br_prob_base);
+	  real_zero = sreal (0, 0);
+	  real_one = sreal (1, 0);
+	  real_br_prob_base = sreal (REG_BR_PROB_BASE, 0);
+	  real_bb_freq_max = sreal (BB_FREQ_MAX, 0);
+	  real_one_half = sreal (1, -1);
+	  real_inv_br_prob_base = real_one / real_br_prob_base;
+	  real_almost_one = real_one - real_inv_br_prob_base;
 	}
 
       mark_dfs_back_edges ();
@@ -2946,10 +2897,8 @@ estimate_bb_frequencies (bool force)
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
-	      sreal_init (&EDGE_INFO (e)->back_edge_prob, e->probability, 0);
-	      sreal_mul (&EDGE_INFO (e)->back_edge_prob,
-			 &EDGE_INFO (e)->back_edge_prob,
-			 &real_inv_br_prob_base);
+	      EDGE_INFO (e)->back_edge_prob = sreal (e->probability, 0);
+	      EDGE_INFO (e)->back_edge_prob *= real_inv_br_prob_base;
 	    }
 	}
 
@@ -2957,19 +2906,16 @@ estimate_bb_frequencies (bool force)
          to outermost to examine frequencies for back edges.  */
       estimate_loops ();
 
-      memcpy (&freq_max, &real_zero, sizeof (real_zero));
+      freq_max = real_zero;
       FOR_EACH_BB_FN (bb, cfun)
-	if (sreal_compare (&freq_max, &BLOCK_INFO (bb)->frequency) < 0)
-	  memcpy (&freq_max, &BLOCK_INFO (bb)->frequency, sizeof (freq_max));
+	if (freq_max < BLOCK_INFO (bb)->frequency)
+	  freq_max = BLOCK_INFO (bb)->frequency;
 
-      sreal_div (&freq_max, &real_bb_freq_max, &freq_max);
+      freq_max = real_bb_freq_max / freq_max;
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL, next_bb)
 	{
-	  sreal tmp;
-
-	  sreal_mul (&tmp, &BLOCK_INFO (bb)->frequency, &freq_max);
-	  sreal_add (&tmp, &tmp, &real_one_half);
-	  bb->frequency = sreal_to_int (&tmp);
+	  sreal tmp = BLOCK_INFO (bb)->frequency * freq_max + real_one_half;
+	  bb->frequency = tmp.to_int ();
 	}
 
       free_aux_for_blocks ();
@@ -3223,7 +3169,8 @@ rebuild_frequencies (void)
     count_max = MAX (bb->count, count_max);
 
   if (profile_status_for_fn (cfun) == PROFILE_GUESSED
-      || (profile_status_for_fn (cfun) == PROFILE_READ && count_max < REG_BR_PROB_BASE/10))
+      || (!flag_auto_profile && profile_status_for_fn (cfun) == PROFILE_READ
+	  && count_max < REG_BR_PROB_BASE/10))
     {
       loop_optimizer_init (0);
       add_noreturn_fake_exit_edges ();

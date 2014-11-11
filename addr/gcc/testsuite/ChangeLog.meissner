@@ -1,5 +1,9 @@
 2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 217365.
+
+2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* gcc.target/powerpc/upper-regs-sf.c: New -mupper-regs-sf and
 	-mupper-regs-df tests.
 	* gcc.target/powerpc/upper-regs-df.c: Likewise.

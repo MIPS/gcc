@@ -270,6 +270,7 @@ cp_common_type (tree t1, tree t2)
   enum tree_code code1 = TREE_CODE (t1);
   enum tree_code code2 = TREE_CODE (t2);
   tree attributes;
+  int i;
 
 
   /* In what follows, we slightly generalize the rules given in [expr] so
@@ -364,17 +365,6 @@ cp_common_type (tree t1, tree t2)
 		    : long_long_integer_type_node);
 	  return build_type_attribute_variant (t, attributes);
 	}
-      if (int128_integer_type_node != NULL_TREE
-	  && (same_type_p (TYPE_MAIN_VARIANT (t1),
-			   int128_integer_type_node)
-	      || same_type_p (TYPE_MAIN_VARIANT (t2),
-			      int128_integer_type_node)))
-	{
-	  tree t = ((TYPE_UNSIGNED (t1) || TYPE_UNSIGNED (t2))
-		    ? int128_unsigned_type_node
-		    : int128_integer_type_node);
-	  return build_type_attribute_variant (t, attributes);
-	}
 
       /* Go through the same procedure, but for longs.  */
       if (same_type_p (TYPE_MAIN_VARIANT (t1), long_unsigned_type_node)
@@ -388,6 +378,26 @@ cp_common_type (tree t1, tree t2)
 		    ? long_unsigned_type_node : long_integer_type_node);
 	  return build_type_attribute_variant (t, attributes);
 	}
+
+      /* For __intN types, either the type is __int128 (and is lower
+	 priority than the types checked above, but higher than other
+	 128-bit types) or it's known to not be the same size as other
+	 types (enforced in toplev.c).  Prefer the unsigned type. */
+      for (i = 0; i < NUM_INT_N_ENTS; i ++)
+	{
+	  if (int_n_enabled_p [i]
+	      && (same_type_p (TYPE_MAIN_VARIANT (t1), int_n_trees[i].signed_type)
+		  || same_type_p (TYPE_MAIN_VARIANT (t2), int_n_trees[i].signed_type)
+		  || same_type_p (TYPE_MAIN_VARIANT (t1), int_n_trees[i].unsigned_type)
+		  || same_type_p (TYPE_MAIN_VARIANT (t2), int_n_trees[i].unsigned_type)))
+	    {
+	      tree t = ((TYPE_UNSIGNED (t1) || TYPE_UNSIGNED (t2))
+			? int_n_trees[i].unsigned_type
+			: int_n_trees[i].signed_type);
+	      return build_type_attribute_variant (t, attributes);
+	    }
+	}
+
       /* Otherwise prefer the unsigned one.  */
       if (TYPE_UNSIGNED (t1))
 	return build_type_attribute_variant (t1, attributes);
@@ -4270,14 +4280,16 @@ cp_build_binary_op (location_t location,
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "right shift count is negative");
+		    warning (OPT_Wshift_count_negative,
+			     "right shift count is negative");
 		}
 	      else
 		{
 		  if (compare_tree_int (const_op1, TYPE_PRECISION (type0)) >= 0
 		      && (complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "right shift count >= width of type");
+		    warning (OPT_Wshift_count_overflow,
+			     "right shift count >= width of type");
 		}
 	    }
 	  /* Convert the shift-count to an integer, regardless of
@@ -4318,14 +4330,16 @@ cp_build_binary_op (location_t location,
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "left shift count is negative");
+		    warning (OPT_Wshift_count_negative,
+			     "left shift count is negative");
 		}
 	      else if (compare_tree_int (const_op1,
 					 TYPE_PRECISION (type0)) >= 0)
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "left shift count >= width of type");
+		    warning (OPT_Wshift_count_overflow,
+			     "left shift count >= width of type");
 		}
 	    }
 	  /* Convert the shift-count to an integer, regardless of
@@ -5723,7 +5737,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
       break;
 
     case TRUTH_NOT_EXPR:
-      if (VECTOR_INTEGER_TYPE_P (TREE_TYPE (arg)))
+      if (VECTOR_TYPE_P (TREE_TYPE (arg)))
 	return cp_build_binary_op (input_location, EQ_EXPR, arg,
 				   build_zero_cst (TREE_TYPE (arg)), complain);
       arg = perform_implicit_conversion (boolean_type_node, arg,
@@ -6888,7 +6902,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	    || TYPE_PTR_OR_PTRMEM_P (type))
 	   && same_type_p (type, intype))
     /* DR 799 */
-    return fold_if_not_in_template (build_nop (type, expr));
+    return rvalue (expr);
   else if ((TYPE_PTRFN_P (type) && TYPE_PTRFN_P (intype))
 	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
     return fold_if_not_in_template (build_nop (type, expr));

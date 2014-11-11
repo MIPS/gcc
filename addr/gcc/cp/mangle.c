@@ -57,6 +57,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "flags.h"
 #include "target.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "wide-int.h"
 
@@ -154,8 +165,8 @@ integer_type_codes[itk_none] =
   'm',  /* itk_unsigned_long */
   'x',  /* itk_long_long */
   'y',  /* itk_unsigned_long_long */
-  'n',  /* itk_int128 */
-  'o',  /* itk_unsigned_int128  */
+  /* __intN types are handled separately */
+  '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'
 };
 
 static int decl_is_template_id (const tree, tree* const);
@@ -2215,6 +2226,7 @@ write_builtin_type (tree type)
 	iagain:
 	  for (itk = 0; itk < itk_none; ++itk)
 	    if (integer_types[itk] != NULL_TREE
+		&& integer_type_codes[itk] != '\0'
 		&& type == integer_types[itk])
 	      {
 		/* Print the corresponding single-letter code.  */

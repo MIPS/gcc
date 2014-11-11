@@ -25,9 +25,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "print-tree.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -402,9 +409,10 @@ finalize_ssa_uses (struct function *fn, gimple stmt)
   /* If there is anything in the old list, free it.  */
   if (old_ops)
     {
-      for (ptr = old_ops; ptr; ptr = ptr->next)
+      for (ptr = old_ops; ptr->next; ptr = ptr->next)
 	delink_imm_use (USE_OP_PTR (ptr));
-      old_ops->next = gimple_ssa_operands (fn)->free_uses;
+      delink_imm_use (USE_OP_PTR (ptr));
+      ptr->next = gimple_ssa_operands (fn)->free_uses;
       gimple_ssa_operands (fn)->free_uses = old_ops;
     }
 

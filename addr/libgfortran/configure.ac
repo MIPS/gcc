@@ -255,7 +255,7 @@ AC_CHECK_TYPES([ptrdiff_t])
 # check header files (we assume C89 is available, so don't check for that)
 AC_CHECK_HEADERS_ONCE(unistd.h sys/time.h sys/times.h sys/resource.h \
 sys/types.h sys/stat.h sys/wait.h floatingpoint.h ieeefp.h fenv.h fptrap.h \
-fpxcp.h pwd.h complex.h) 
+fpxcp.h pwd.h complex.h xlocale.h)
 
 GCC_HEADER_STDINT(gstdint.h)
 
@@ -275,6 +275,7 @@ if test "x${with_newlib}" = "xyes"; then
    AC_DEFINE(HAVE_GMTIME_R, 1, [Define if you have gmtime_r.])
    AC_DEFINE(HAVE_STRNLEN, 1, [Define if you have strnlen.])
    AC_DEFINE(HAVE_STRNDUP, 1, [Define if you have strndup.])
+   AC_DEFINE(HAVE_STRTOK_R, 1, [Define if you have strtok_r.])
 
    # At some point, we should differentiate between architectures
    # like x86, which have long double versions, and alpha/powerpc/etc.,
@@ -289,7 +290,8 @@ else
    strcasestr getrlimit gettimeofday stat fstat lstat getpwuid vsnprintf dup \
    getcwd localtime_r gmtime_r getpwuid_r ttyname_r clock_gettime \
    readlink getgid getpid getppid getuid geteuid umask getegid \
-   secure_getenv __secure_getenv mkostemp strnlen strndup)
+   secure_getenv __secure_getenv mkostemp strnlen strndup strtok_r newlocale \
+   freelocale uselocale strerror_l)
 fi
 
 # Check strerror_r, cannot be above as versions with two and three arguments exist

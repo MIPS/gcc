@@ -58,6 +58,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "splay-tree.h"
 #include "plugin.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cilk.h"
 #include "wide-int.h"
@@ -1967,7 +1977,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      if (!DECL_LANG_SPECIFIC (newdecl))
 		retrofit_lang_decl (newdecl);
 
-	      set_decl_tls_model (newdecl, DECL_TLS_MODEL (olddecl));
 	      CP_DECL_THREADPRIVATE_P (newdecl) = 1;
 	    }
 	}
@@ -2030,15 +2039,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	}
 
-      /* Merge the section attribute.
-	 We want to issue an error if the sections conflict but that must be
-	 done later in decl_attributes since we are called before attributes
-	 are assigned.  */
-      if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
-	  && DECL_SECTION_NAME (newdecl) == NULL
-	  && DECL_SECTION_NAME (olddecl) != NULL)
-	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
-
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
 	{
 	  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
@@ -2082,19 +2082,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
   /* Merge the storage class information.  */
   merge_weak (newdecl, olddecl);
-
-  if ((TREE_CODE (olddecl) == FUNCTION_DECL || TREE_CODE (olddecl) == VAR_DECL)
-      && (DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
-      && DECL_ONE_ONLY (olddecl))
-    {
-      struct symtab_node *symbol;
-      if (TREE_CODE (olddecl) == FUNCTION_DECL)
-	symbol = cgraph_node::get_create (newdecl);
-      else
-	symbol = varpool_node::get_create (newdecl);
-      symbol->set_comdat_group (symtab_node::get
-	(olddecl)->get_comdat_group ());
-    }
 
   DECL_DEFER_OUTPUT (newdecl) |= DECL_DEFER_OUTPUT (olddecl);
   TREE_PUBLIC (newdecl) = TREE_PUBLIC (olddecl);
@@ -2449,12 +2436,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
     }
   else
     {
-      size_t size = tree_code_size (TREE_CODE (olddecl));
+      size_t size = tree_code_size (TREE_CODE (newdecl));
 
       memcpy ((char *) olddecl + sizeof (struct tree_common),
 	      (char *) newdecl + sizeof (struct tree_common),
 	      sizeof (struct tree_decl_common) - sizeof (struct tree_common));
-      switch (TREE_CODE (olddecl))
+      switch (TREE_CODE (newdecl))
 	{
 	case LABEL_DECL:
 	case VAR_DECL:
@@ -2466,14 +2453,14 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  {
             struct symtab_node *snode = NULL;
 
-            if (TREE_CODE (olddecl) == VAR_DECL
+            if (TREE_CODE (newdecl) == VAR_DECL
 		&& (TREE_STATIC (olddecl) || TREE_PUBLIC (olddecl) || DECL_EXTERNAL (olddecl)))
 	      snode = symtab_node::get (olddecl);
 	    memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		    (char *) newdecl + sizeof (struct tree_decl_common),
 		    size - sizeof (struct tree_decl_common)
 		    + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
-            if (TREE_CODE (olddecl) == VAR_DECL)
+            if (TREE_CODE (newdecl) == VAR_DECL)
 	      olddecl->decl_with_vis.symtab_node = snode;
 	  }
 	  break;
@@ -2485,6 +2472,38 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  break;
 	}
     }
+
+  if (TREE_CODE (newdecl) == FUNCTION_DECL
+      || TREE_CODE (newdecl) == VAR_DECL)
+    {
+      if (DECL_EXTERNAL (olddecl)
+	  || TREE_PUBLIC (olddecl)
+	  || TREE_STATIC (olddecl))
+	{
+	  /* Merge the section attribute.
+	     We want to issue an error if the sections conflict but that must be
+	     done later in decl_attributes since we are called before attributes
+	     are assigned.  */
+	  if (DECL_SECTION_NAME (newdecl) != NULL)
+	    set_decl_section_name (olddecl, DECL_SECTION_NAME (newdecl));
+
+	  if (DECL_ONE_ONLY (newdecl))
+	    {
+	      struct symtab_node *oldsym, *newsym;
+	      if (TREE_CODE (olddecl) == FUNCTION_DECL)
+		oldsym = cgraph_node::get_create (olddecl);
+	      else
+		oldsym = varpool_node::get_create (olddecl);
+	      newsym = symtab_node::get (newdecl);
+	      oldsym->set_comdat_group (newsym->get_comdat_group ());
+	    }
+	}
+
+      if (TREE_CODE (newdecl) == VAR_DECL
+	  && DECL_THREAD_LOCAL_P (newdecl))
+	set_decl_tls_model (olddecl, DECL_TLS_MODEL (newdecl));
+    }
+
   DECL_UID (olddecl) = olddecl_uid;
   if (olddecl_friend)
     DECL_FRIEND_P (olddecl) = 1;
@@ -8802,7 +8821,7 @@ grokdeclarator (const cp_declarator *declarator,
 {
   tree type = NULL_TREE;
   int longlong = 0;
-  int explicit_int128 = 0;
+  int explicit_intN = 0;
   int virtualp, explicitp, friendp, inlinep, staticp;
   int explicit_int = 0;
   int explicit_char = 0;
@@ -8875,7 +8894,7 @@ grokdeclarator (const cp_declarator *declarator,
   short_p = decl_spec_seq_has_spec_p (declspecs, ds_short);
   long_p = decl_spec_seq_has_spec_p (declspecs, ds_long);
   longlong = decl_spec_seq_has_spec_p (declspecs, ds_long_long);
-  explicit_int128 = declspecs->explicit_int128_p;
+  explicit_intN = declspecs->explicit_intN_p;
   thread_p = decl_spec_seq_has_spec_p (declspecs, ds_thread);
 
   if (decl_context == FUNCDEF)
@@ -9163,11 +9182,23 @@ grokdeclarator (const cp_declarator *declarator,
     }
   /* No type at all: default to `int', and set DEFAULTED_INT
      because it was not a user-defined typedef.  */
-  if (type == NULL_TREE && (signed_p || unsigned_p || long_p || short_p))
+  if (type == NULL_TREE)
     {
-      /* These imply 'int'.  */
-      type = integer_type_node;
-      defaulted_int = 1;
+      if (signed_p || unsigned_p || long_p || short_p)
+	{
+	  /* These imply 'int'.  */
+	  type = integer_type_node;
+	  defaulted_int = 1;
+	}
+      /* If we just have "complex", it is equivalent to "complex double".  */
+      else if (!longlong && !explicit_intN
+	       && decl_spec_seq_has_spec_p (declspecs, ds_complex))
+	{
+	  type = double_type_node;
+	  pedwarn (declspecs->locations[ds_complex], OPT_Wpedantic,
+		   "ISO C++ does not support plain %<complex%> meaning "
+		   "%<double complex%>");
+	}
     }
   /* Gather flags.  */
   explicit_int = declspecs->explicit_int_p;
@@ -9221,16 +9252,18 @@ grokdeclarator (const cp_declarator *declarator,
 
   ctype = NULL_TREE;
 
-  if (explicit_int128)
+  if (explicit_intN)
     {
-      if (int128_integer_type_node == NULL_TREE)
-	{
-	  error ("%<__int128%> is not supported by this target");
-	  explicit_int128 = false;
-	}
+      if (! int_n_enabled_p[declspecs->int_n_idx])
+       {
+         error ("%<__int%d%> is not supported by this target",
+		int_n_data[declspecs->int_n_idx].bitsize);
+         explicit_intN = false;
+       }
       else if (pedantic && ! in_system_header_at (input_location))
-	pedwarn (input_location, OPT_Wpedantic,
-		 "ISO C++ does not support %<__int128%> for %qs", name);
+       pedwarn (input_location, OPT_Wpedantic,
+                "ISO C++ does not support %<__int%d%> for %qs",
+		int_n_data[declspecs->int_n_idx].bitsize,  name);
     }
 
   /* Now process the modifiers that were specified
@@ -9262,7 +9295,7 @@ grokdeclarator (const cp_declarator *declarator,
 	error ("%<short%> invalid for %qs", name);
       else if ((long_p || short_p) && TREE_CODE (type) != INTEGER_TYPE)
 	error ("%<long%> or %<short%> invalid for %qs", name);
-      else if ((long_p || short_p || explicit_char || explicit_int) && explicit_int128)
+      else if ((long_p || short_p || explicit_char || explicit_int) && explicit_intN)
 	error ("%<long%>, %<int%>, %<short%>, or %<char%> invalid for %qs", name);
       else if ((long_p || short_p) && explicit_char)
 	error ("%<long%> or %<short%> specified with char for %qs", name);
@@ -9278,7 +9311,7 @@ grokdeclarator (const cp_declarator *declarator,
       else
 	{
 	  ok = 1;
-	  if (!explicit_int && !defaulted_int && !explicit_char && !explicit_int128 && pedantic)
+	  if (!explicit_int && !defaulted_int && !explicit_char && !explicit_intN && pedantic)
 	    {
 	      pedwarn (input_location, OPT_Wpedantic, 
 		       "long, short, signed or unsigned used invalidly for %qs",
@@ -9320,8 +9353,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  && TREE_CODE (type) == INTEGER_TYPE
 	  && !same_type_p (TYPE_MAIN_VARIANT (type), wchar_type_node)))
     {
-      if (explicit_int128)
-	type = int128_unsigned_type_node;
+      if (explicit_intN)
+	type = int_n_trees[declspecs->int_n_idx].unsigned_type;
       else if (longlong)
 	type = long_long_unsigned_type_node;
       else if (long_p)
@@ -9337,8 +9370,8 @@ grokdeclarator (const cp_declarator *declarator,
     }
   else if (signed_p && type == char_type_node)
     type = signed_char_type_node;
-  else if (explicit_int128)
-    type = int128_integer_type_node;
+  else if (explicit_intN)
+    type = int_n_trees[declspecs->int_n_idx].signed_type;
   else if (longlong)
     type = long_long_integer_type_node;
   else if (long_p)
@@ -9350,13 +9383,8 @@ grokdeclarator (const cp_declarator *declarator,
     {
       if (TREE_CODE (type) != INTEGER_TYPE && TREE_CODE (type) != REAL_TYPE)
 	error ("complex invalid for %qs", name);
-      /* If we just have "complex", it is equivalent to
-	 "complex double", but if any modifiers at all are specified it is
-	 the complex form of TYPE.  E.g, "complex short" is
-	 "complex short int".  */
-      else if (defaulted_int && ! longlong && ! explicit_int128
-	       && ! (long_p || short_p || signed_p || unsigned_p))
-	type = complex_double_type_node;
+      /* If a modifier is specified, the resulting complex is the complex
+	 form of TYPE.  E.g, "complex short" is "complex short int".  */
       else if (type == integer_type_node)
 	type = complex_integer_type_node;
       else if (type == float_type_node)

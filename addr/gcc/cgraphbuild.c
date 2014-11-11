@@ -23,6 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -35,8 +45,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "intl.h"
 #include "tree-pass.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
 #include "except.h"
+#include "alloc-pool.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 
 /* Context of record_reference.  */
@@ -456,6 +472,10 @@ cgraph_edge::rebuild_edges (void)
   record_eh_tables (node, cfun);
   gcc_assert (!node->global.inlined_to);
 
+  if (node->instrumented_version
+      && !node->instrumentation_clone)
+    node->create_reference (node->instrumented_version, IPA_REF_CHKP, NULL);
+
   return 0;
 }
 
@@ -488,6 +508,10 @@ cgraph_edge::rebuild_references (void)
 	node->record_stmt_references (gsi_stmt (gsi));
     }
   record_eh_tables (node, cfun);
+
+  if (node->instrumented_version
+      && !node->instrumentation_clone)
+    node->create_reference (node->instrumented_version, IPA_REF_CHKP, NULL);
 }
 
 namespace {

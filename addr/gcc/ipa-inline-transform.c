@@ -38,6 +38,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "ggc.h"
 #include "tree-cfg.h"
+#include "vec.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "tree-inline.h"
@@ -122,6 +135,20 @@ can_remove_node_now_p (struct cgraph_node *node, struct cgraph_edge *e)
   return true;
 }
 
+/* Return true if NODE is a master clone with non-inline clones.  */
+
+static bool
+master_clone_with_noninline_clones_p (struct cgraph_node *node)
+{
+  if (node->clone_of)
+    return false;
+
+  for (struct cgraph_node *n = node->clones; n; n = n->next_sibling_clone)
+    if (n->decl != node->decl)
+      return true;
+
+  return false;
+}
 
 /* E is expected to be an edge being inlined.  Clone destination node of
    the edge and redirect it to the new clone.
@@ -155,7 +182,10 @@ clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
 	  /* Recursive inlining never wants the master clone to
 	     be overwritten.  */
 	  && update_original
-	  && can_remove_node_now_p (e->callee, e))
+	  && can_remove_node_now_p (e->callee, e)
+	  /* We cannot overwrite a master clone with non-inline clones
+	     until after these clones are materialized.  */
+	  && !master_clone_with_noninline_clones_p (e->callee))
 	{
 	  /* TODO: When callee is in a comdat group, we could remove all of it,
 	     including all inline clones inlined into it.  That would however

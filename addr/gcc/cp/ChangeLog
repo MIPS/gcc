@@ -1,3 +1,221 @@
+2014-11-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63265
+	* pt.c (tsubst_copy_and_build, case COND_EXPR): Maybe fold to
+	constant the condition.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	* semantics.c (finish_goto_stmt): Call check_no_cilk.
+	(finish_while_stmt_cond): Dito.
+	(finish_do_stmt): Dito.
+	(finish_for_cond): Dito.
+	(finish_switch_cond): Dito.
+
+2014-11-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* typeck.c (cp_build_binary_op): Use OPT_Wshift_count_negative and
+	OPT_Wshift_count_overflow in the warnings.
+
+2014-11-09  Jason Merrill  <jason@redhat.com>
+
+	DR 799
+	* typeck.c (build_reinterpret_cast_1): reinterpret_cast to the
+	same scalar type is an rvalue.
+
+	DR 2007
+	* call.c (build_new_op_1): Don't do non-class lookup for =, -> or [].
+
+2014-11-07  Jason Merrill  <jason@redhat.com>
+
+	DR 1558
+	* pt.c (dependent_alias_template_spec_p): New.
+	(dependent_type_p_r): Handle dependent alias template specialization.
+	(template_args_equal): A dependent alias template specializations
+	is not equal to its underlying type as a template argument.
+	* tree.c (strip_typedefs): Don't strip a dependent alias
+	template-id.
+
+	* parser.c (cp_parser_unqualified_id): Handle __func__ here.
+	(cp_parser_primary_expression): Not here.
+
+2014-11-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR c++/63366
+	* decl.c (grokdeclarator): Fix __complex meaning __complex double.
+
+2014-10-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* constexpr.c: Remove redundant enum from machine_mode.
+
+2014-10-28  Jason Merrill  <jason@redhat.com>
+
+	* constexpr.c (cxx_eval_outermost_constant_expr): Tweak.
+
+2014-10-28  Andrew MacLeod  <amacleod@redhat.com>
+
+	* call.c: Adjust include files.
+	* class.c: Ditto.
+	* decl2.c: Ditto.
+	* decl.c: Ditto.
+	* lambda.c: Ditto.
+	* mangle.c: Ditto.
+	* method.c: Ditto.
+	* optimize.c: Ditto.
+	* parser.c: Ditto.
+	* semantics.c: Ditto.
+	* tree.c: Ditto.
+	* vtable-class-hierarchy.c: Ditto.
+
+2014-10-24  Jason Merrill  <jason@redhat.com>
+
+	Implement N3653 (Member initializers and aggregates) and fix
+	references to 'this' in constexpr constructors.
+	* class.c (check_field_decls): In C++14 an NSDMI does not make the
+	class non-aggregate.
+	* constexpr.c (struct constexpr_ctx): New.
+	(cxx_bind_parameters_in_call): Handle 'this'.
+	(cxx_eval_call_expression): Create new constexpr_ctx.
+	(cxx_eval_component_reference): Check CONSTRUCTOR_NO_IMPLICIT_ZERO.
+	(initialized_type, init_subob_ctx, verify_ctor_sanity): New.
+	(cxx_eval_bare_aggregate): Use them.  Build CONSTRUCTOR early.
+	(cxx_eval_vec_init_1): Likewise.
+	(cxx_eval_constant_expression) [PARM_DECL]: Allow 'this'.
+	[TARGET_EXPR]: Build new constexpr_ctx.
+	[PLACEHOLDER_EXPR]: New.
+	(cxx_eval_outermost_constant_expr): Build new constexpr_ctx.  Add
+	object parameter.
+	(is_sub_constant_expr): Build new constexpr_ctx.
+	(potential_constant_expression_1): Handle PLACEHOLDER_EXPR.
+	Allow 'this'.
+	* cp-gimplify.c (cp_gimplify_init_expr): Call replace_placeholders.
+	* cp-tree.h (CONSTRUCTOR_NO_IMPLICIT_ZERO): New.
+	* error.c (dump_expr): Handle PLACEHOLDER_EXPR.
+	* init.c (get_nsdmi): Generate PLACEHOLDER_EXPR.
+	* tree.c (lvalue_kind): Handle PLACEHOLDER_EXPR.
+	(build_ctor_subob_ref, replace_placeholders): New.
+	* typeck2.c (store_init_value): Use replace_placeholders.
+	(process_init_constructor_record): Make zero-init before NSDMI
+	explicit.
+
+2014-10-27  Andrew MacLeod  <amacleod@redhat.com>
+
+	* cp-gimplify.c: Adjust include files.
+
+2014-10-26  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/53061
+	* cp-objcp-common.c: Do not include new.
+	(cxx_initialize_diagnostics): Move from here to ...
+	* error.c (cxx_initialize_diagnostics): : ... here. Move
+	diagnostics initialization here from init_error.
+	(cxx_pp): Use a real pointer not a macro.
+	(init_error): Just initialize cxx_pp.
+	* cxx-pretty-print.c (cxx_pretty_printer::cxx_pretty_printer): Do
+	not set maximum line length.
+
+2014-10-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/63619
+	* decl2.c (delete_sanity): Use OPT_Wdelete_incomplete in warning.
+
+2014-10-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* parser.c (cp_parser_unary_expression): Add default arguments.
+	(cp_parser_cast_expression, cp_parser_sizeof_operand,
+	cp_parser_omp_atomic): Adjust.
+
+2014-10-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63601
+	* lambda.c (current_nonlambda_function): New.
+	* semantics.c (finish_this_expr): Use it.
+	* cp-tree.h: Declare it.
+
+2014-10-17  Alan Modra  <amodra@gmail.com>
+
+	PR middle-end/61848
+	* decl.c (merge_decls): Don't merge section name, comdat group or
+	tls model to newdecl symtab node, instead merge to olddecl.
+	Override existing olddecl section name.  Set tls_model for all
+	thread-local vars, not just OMP thread-private ones.  Remove
+	incorrect comment.
+
+2014-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* cp-tree.h: Adjust include files.
+
+2014-10-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63528
+	* pt.c (lookup_template_variable): Call coerce_template_parms.
+
+2014-10-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* semantics.c (is_instantiation_of_constexpr, literal_type_p,
+	ensure_literal_type_for_constexpr_object,
+	constexpr_fundef_hasher::equal, constexpr_fundef_hasher::hash,
+	retrieve_constexpr_fundef, is_valid_constexpr_fn,
+	build_anon_member_initialization, build_data_member_initialization,
+	check_constexpr_bind_expr_vars, check_constexpr_ctor_body_1,
+	check_constexpr_ctor_body, sort_constexpr_mem_initializers,
+	build_constexpr_constructor_member_initializers, constexpr_fn_retval,
+	massage_constexpr_body, cx_check_missing_mem_inits,
+	register_constexpr_fundef, explain_invalid_constexpr_fn,
+	constexpr_call_hasher::hash, constexpr_call_hasher::equal,
+	maybe_initialize_constexpr_call_table, get_function_named_in_call,
+	get_nth_callarg, lookup_parameter_binding,
+	cxx_eval_builtin_function_call, adjust_temp_type,
+	cxx_bind_parameters_in_call, push_cx_call_context,
+	pop_cx_call_context, cx_error_context, cxx_eval_call_expression,
+	reduced_constant_expression_p, verify_constant,
+	cxx_eval_unary_expression, cxx_eval_binary_expression,
+	cxx_eval_conditional_expression, cxx_eval_array_reference,
+	cxx_eval_component_reference, cxx_eval_bit_field_ref,
+	cxx_eval_logical_expression, base_field_constructor_elt,
+	cxx_eval_bare_aggregate, cxx_eval_vec_init_1, cxx_eval_vec_init,
+	cxx_fold_indirect_ref, cxx_eval_indirect_ref, non_const_var_error,
+	cxx_eval_trinary_expression, var_in_constexpr_fn,
+	cxx_eval_constant_expression, cxx_eval_outermost_constant_expr,
+	is_sub_constant_expr, cxx_constant_value, maybe_constant_value,
+	maybe_constant_init, potential_constant_expression_1,
+	potential_constant_expression, potential_rvalue_constant_expression,
+	require_potential_constant_expression,
+	require_potential_rvalue_constant_expression): Moved definitions...
+	* constexpr.c: ... here, new file.
+	* Make-lang.in: Update.
+	* config-lang.in: Likewise.
+
+2014-10-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63455
+	* parser.c (struct saved_token_sentinel): New.
+	(cp_parser_statement): Use it.
+	(cp_parser_start_tentative_firewall): New.
+	(cp_parser_end_tentative_firewall): New.
+	(cp_parser_lambda_expression): Use them.
+	(cp_parser_statement_expr): New.
+	(cp_parser_primary_expression): Use it.
+
+2014-10-14  DJ Delorie  <dj@redhat.com>
+
+	* typeck.c (cp_common_type): Check for all __intN types, not just
+	__int128.
+	* decl.c (grokdeclarator): Likewise.
+	* rtti.c (emit_support_tinfos): Check for all __intN types, not just
+	__int128.
+	* parser.c (cp_lexer_next_token_is_decl_specifier_keyword): Check
+	for all __intN types, not just __int128.
+	(cp_parser_simple_type_specifier): Likewise.
+	* mangle.c (integer_type_codes): Remove int128-specific codes.
+	* cp-tree.h (cp_decl_specifier_seq): Add int_n_idx to store which
+	__intN was specified.
+	* lex.c (init_reswords): Reserve all __intN keywords.
+
+2014-10-14  Marc Glisse  <marc.glisse@inria.fr>
+
+	* typeck.c (cp_build_unary_op) [TRUTH_NOT_EXPR]: Accept float vectors.
+
 2014-10-13  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* mangle.c (mangle_conv_op_name_for_type): Cast elements to
