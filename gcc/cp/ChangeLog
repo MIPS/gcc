@@ -1,4 +1,34 @@
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	* semantics.c (finish_goto_stmt): Call check_no_cilk.
+	(finish_while_stmt_cond): Dito.
+	(finish_do_stmt): Dito.
+	(finish_for_cond): Dito.
+	(finish_switch_cond): Dito.
+
+2014-11-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* typeck.c (cp_build_binary_op): Use OPT_Wshift_count_negative and
+	OPT_Wshift_count_overflow in the warnings.
+
+2014-11-09  Jason Merrill  <jason@redhat.com>
+
+	DR 799
+	* typeck.c (build_reinterpret_cast_1): reinterpret_cast to the
+	same scalar type is an rvalue.
+
+	DR 2007
+	* call.c (build_new_op_1): Don't do non-class lookup for =, -> or [].
+
 2014-11-07  Jason Merrill  <jason@redhat.com>
+
+	DR 1558
+	* pt.c (dependent_alias_template_spec_p): New.
+	(dependent_type_p_r): Handle dependent alias template specialization.
+	(template_args_equal): A dependent alias template specializations
+	is not equal to its underlying type as a template argument.
+	* tree.c (strip_typedefs): Don't strip a dependent alias
+	template-id.
 
 	* parser.c (cp_parser_unqualified_id): Handle __func__ here.
 	(cp_parser_primary_expression): Not here.

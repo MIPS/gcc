@@ -436,6 +436,7 @@ proc check_effective_target_trampolines { } {
     }
     if { [istarget avr-*-*]
 	 || [istarget msp430-*-*]
+	 || [istarget nvptx-*-*]
 	 || [istarget hppa2.0w-hp-hpux11.23]
 	 || [istarget hppa64-hp-hpux11.23] } {
 	return 0;
@@ -532,6 +533,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget msp430-*-*]
 	     || [istarget nds32*-*-elf]
 	     || [istarget nios2-*-elf]
+	     || [istarget nvptx-*-*]
 	     || [istarget powerpc-*-eabi*]
 	     || [istarget powerpc-*-elf]
 	     || [istarget rx-*-*]	
@@ -597,6 +599,67 @@ proc add_options_for_tls { flags } {
 	return "$flags -pthread"
     }
     return $flags
+}
+
+# Return 1 if indirect jumps are supported, 0 otherwise.
+
+proc check_effective_target_indirect_jumps {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if nonlocal goto is supported, 0 otherwise.
+
+proc check_effective_target_nonlocal_goto {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if taking label values is supported, 0 otherwise.
+
+proc check_effective_target_label_values {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return [check_no_compiler_messages label_values assembly {
+	#ifdef NO_LABEL_VALUES
+	#error NO
+	#endif
+    }]
+}
+
+# Return 1 if builtin_return_address and builtin_frame_address are
+# supported, 0 otherwise.
+
+proc check_effective_target_return_address {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if the assembler does not verify function types against
+# calls, 0 otherwise.  Such verification will typically show up problems
+# with K&R C function declarations.
+
+proc check_effective_target_untyped_assembly {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if alloca is supported, 0 otherwise.
+
+proc check_effective_target_alloca {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
 }
 
 # Return 1 if thread local storage (TLS) is supported, 0 otherwise.
@@ -4170,7 +4233,8 @@ proc check_effective_target_vect_natural_alignment { } {
         verbose "check_effective_target_vect_natural_alignment: using cached result" 2
     } else {
         set et_vect_natural_alignment_saved 1
-        if { [check_effective_target_arm_eabi] } {
+        if { [check_effective_target_arm_eabi]
+	     || [istarget nvptx-*-*] } {
             set et_vect_natural_alignment_saved 0
         }
     }
@@ -5640,6 +5704,9 @@ proc check_effective_target_gld { } {
 
 proc check_effective_target_lto { } {
     global ENABLE_LTO
+    if { [istarget nvptx-*-*] } {
+	return 0;
+    }
     return [info exists ENABLE_LTO]
 }
 

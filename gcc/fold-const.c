@@ -7692,94 +7692,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 			       constant_boolean_node (false, type));
 	}
 
-      /* Handle cases of two conversions in a row.  */
-      if (CONVERT_EXPR_P (op0))
-	{
-	  tree inside_type = TREE_TYPE (TREE_OPERAND (op0, 0));
-	  tree inter_type = TREE_TYPE (op0);
-	  int inside_int = INTEGRAL_TYPE_P (inside_type);
-	  int inside_ptr = POINTER_TYPE_P (inside_type);
-	  int inside_float = FLOAT_TYPE_P (inside_type);
-	  int inside_vec = TREE_CODE (inside_type) == VECTOR_TYPE;
-	  unsigned int inside_prec = TYPE_PRECISION (inside_type);
-	  int inside_unsignedp = TYPE_UNSIGNED (inside_type);
-	  int inter_int = INTEGRAL_TYPE_P (inter_type);
-	  int inter_ptr = POINTER_TYPE_P (inter_type);
-	  int inter_float = FLOAT_TYPE_P (inter_type);
-	  int inter_vec = TREE_CODE (inter_type) == VECTOR_TYPE;
-	  unsigned int inter_prec = TYPE_PRECISION (inter_type);
-	  int inter_unsignedp = TYPE_UNSIGNED (inter_type);
-	  int final_int = INTEGRAL_TYPE_P (type);
-	  int final_ptr = POINTER_TYPE_P (type);
-	  int final_float = FLOAT_TYPE_P (type);
-	  int final_vec = TREE_CODE (type) == VECTOR_TYPE;
-	  unsigned int final_prec = TYPE_PRECISION (type);
-	  int final_unsignedp = TYPE_UNSIGNED (type);
-
-	  /* In addition to the cases of two conversions in a row
-	     handled below, if we are converting something to its own
-	     type via an object of identical or wider precision, neither
-	     conversion is needed.  */
-	  if (TYPE_MAIN_VARIANT (inside_type) == TYPE_MAIN_VARIANT (type)
-	      && (((inter_int || inter_ptr) && final_int)
-		  || (inter_float && final_float))
-	      && inter_prec >= final_prec)
-	    return fold_build1_loc (loc, code, type, TREE_OPERAND (op0, 0));
-
-	  /* Likewise, if the intermediate and initial types are either both
-	     float or both integer, we don't need the middle conversion if the
-	     former is wider than the latter and doesn't change the signedness
-	     (for integers).  Avoid this if the final type is a pointer since
-	     then we sometimes need the middle conversion.  Likewise if the
-	     final type has a precision not equal to the size of its mode.  */
-	  if (((inter_int && inside_int)
-	       || (inter_float && inside_float)
-	       || (inter_vec && inside_vec))
-	      && inter_prec >= inside_prec
-	      && (inter_float || inter_vec
-		  || inter_unsignedp == inside_unsignedp)
-	      && ! (final_prec != GET_MODE_PRECISION (TYPE_MODE (type))
-		    && TYPE_MODE (type) == TYPE_MODE (inter_type))
-	      && ! final_ptr
-	      && (! final_vec || inter_prec == inside_prec))
-	    return fold_build1_loc (loc, code, type, TREE_OPERAND (op0, 0));
-
-	  /* If we have a sign-extension of a zero-extended value, we can
-	     replace that by a single zero-extension.  Likewise if the
-	     final conversion does not change precision we can drop the
-	     intermediate conversion.  */
-	  if (inside_int && inter_int && final_int
-	      && ((inside_prec < inter_prec && inter_prec < final_prec
-		   && inside_unsignedp && !inter_unsignedp)
-		  || final_prec == inter_prec))
-	    return fold_build1_loc (loc, code, type, TREE_OPERAND (op0, 0));
-
-	  /* Two conversions in a row are not needed unless:
-	     - some conversion is floating-point (overstrict for now), or
-	     - some conversion is a vector (overstrict for now), or
-	     - the intermediate type is narrower than both initial and
-	       final, or
-	     - the intermediate type and innermost type differ in signedness,
-	       and the outermost type is wider than the intermediate, or
-	     - the initial type is a pointer type and the precisions of the
-	       intermediate and final types differ, or
-	     - the final type is a pointer type and the precisions of the
-	       initial and intermediate types differ.  */
-	  if (! inside_float && ! inter_float && ! final_float
-	      && ! inside_vec && ! inter_vec && ! final_vec
-	      && (inter_prec >= inside_prec || inter_prec >= final_prec)
-	      && ! (inside_int && inter_int
-		    && inter_unsignedp != inside_unsignedp
-		    && inter_prec < final_prec)
-	      && ((inter_unsignedp && inter_prec > inside_prec)
-		  == (final_unsignedp && final_prec > inter_prec))
-	      && ! (inside_ptr && inter_prec != final_prec)
-	      && ! (final_ptr && inside_prec != inter_prec)
-	      && ! (final_prec != GET_MODE_PRECISION (TYPE_MODE (type))
-		    && TYPE_MODE (type) == TYPE_MODE (inter_type)))
-	    return fold_build1_loc (loc, code, type, TREE_OPERAND (op0, 0));
-	}
-
       /* Handle (T *)&A.B.C for A being of type T and B and C
 	 living at offset zero.  This occurs frequently in
 	 C++ upcasting and then accessing the base.  */
@@ -10027,59 +9939,8 @@ fold_binary_loc (location_t loc,
       return NULL_TREE;
 
     case PLUS_EXPR:
-      /* A + (-B) -> A - B */
-      if (TREE_CODE (arg1) == NEGATE_EXPR
-	  && (flag_sanitize & SANITIZE_SI_OVERFLOW) == 0)
-	return fold_build2_loc (loc, MINUS_EXPR, type,
-			    fold_convert_loc (loc, type, arg0),
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg1, 0)));
-      /* (-A) + B -> B - A */
-      if (TREE_CODE (arg0) == NEGATE_EXPR
-	  && reorder_operands_p (TREE_OPERAND (arg0, 0), arg1)
-	  && (flag_sanitize & SANITIZE_SI_OVERFLOW) == 0)
-	return fold_build2_loc (loc, MINUS_EXPR, type,
-			    fold_convert_loc (loc, type, arg1),
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg0, 0)));
-
       if (INTEGRAL_TYPE_P (type) || VECTOR_INTEGER_TYPE_P (type))
 	{
-	  /* Convert ~A + 1 to -A.  */
-	  if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	      && integer_each_onep (arg1))
-	    return fold_build1_loc (loc, NEGATE_EXPR, type,
-				fold_convert_loc (loc, type,
-						  TREE_OPERAND (arg0, 0)));
-
-	  /* ~X + X is -1.  */
-	  if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	      && !TYPE_OVERFLOW_TRAPS (type))
-	    {
-	      tree tem = TREE_OPERAND (arg0, 0);
-
-	      STRIP_NOPS (tem);
-	      if (operand_equal_p (tem, arg1, 0))
-		{
-		  t1 = build_all_ones_cst (type);
-		  return omit_one_operand_loc (loc, type, t1, arg1);
-		}
-	    }
-
-	  /* X + ~X is -1.  */
-	  if (TREE_CODE (arg1) == BIT_NOT_EXPR
-	      && !TYPE_OVERFLOW_TRAPS (type))
-	    {
-	      tree tem = TREE_OPERAND (arg1, 0);
-
-	      STRIP_NOPS (tem);
-	      if (operand_equal_p (arg0, tem, 0))
-		{
-		  t1 = build_all_ones_cst (type);
-		  return omit_one_operand_loc (loc, type, t1, arg0);
-		}
-	    }
-
 	  /* X + (X / CST) * -CST is X % CST.  */
 	  if (TREE_CODE (arg1) == MULT_EXPR
 	      && TREE_CODE (TREE_OPERAND (arg1, 0)) == TRUNC_DIV_EXPR
@@ -10557,11 +10418,6 @@ fold_binary_loc (location_t loc,
 		return fold_build2_loc (loc, MINUS_EXPR, type, tmp, arg11);
 	    }
 	}
-      /* A - (-B) -> A + B */
-      if (TREE_CODE (arg1) == NEGATE_EXPR)
-	return fold_build2_loc (loc, PLUS_EXPR, type, op0,
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg1, 0)));
       /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */
       if (TREE_CODE (arg0) == NEGATE_EXPR
 	  && negate_expr_p (arg1)
