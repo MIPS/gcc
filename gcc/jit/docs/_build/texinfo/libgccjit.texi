@@ -19,7 +19,7 @@
 
 @copying
 @quotation
-libgccjit 5.0.0 (experimental 20141006), October 21, 2014
+libgccjit 5.0.0 (experimental 20141110), November 10, 2014
 
 David Malcolm
 
@@ -5344,6 +5344,9 @@ int <-> float
 
 @item 
 int <-> bool
+
+@item 
+P*  <-> Q*, for pointer types P and Q
 @end itemize
 @end quotation
 @end deffn

@@ -1,5 +1,9 @@
 2014-11-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2014-11-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* dummy-frontend.c: Add includes now needed since r216805 by
 	cgraph.h: hash-map.h, is-a.h, plugin-api.h, vec.h, hashtab.h,
 	hash-set.h, machmode.h, tm.h, hard-reg-set.h, function.h,
