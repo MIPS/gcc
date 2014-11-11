@@ -1707,25 +1707,6 @@ gfc_trans_omp_reduction_list (gfc_omp_namelist *namelist, tree list,
   return list;
 }
 
-static tree
-gfc_trans_omp_map_clause_list (enum omp_clause_map_kind kind, 
-			       gfc_omp_namelist *namelist, tree list)
-{
-  for (; namelist != NULL; namelist = namelist->next)
-    if (namelist->sym->attr.referenced)
-      {
-	tree t = gfc_trans_omp_variable (namelist->sym, false);
-	if (t != error_mark_node)
-	  {
-	    tree node = build_omp_clause (input_location, OMP_CLAUSE_MAP);
-	    OMP_CLAUSE_DECL (node) = t;
-	    OMP_CLAUSE_MAP_KIND (node) = kind;
-	    list = gfc_trans_add_clause (node, list);
-	  }
-      }
-  return list;
-}
-
 static inline tree
 gfc_convert_expr_to_tree (stmtblock_t *block, gfc_expr *expr)
 {
@@ -1759,18 +1740,6 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 
       if (n == NULL)
 	continue;
-      if (list >= OMP_LIST_DATA_CLAUSE_FIRST
-	  && list <= OMP_LIST_DATA_CLAUSE_LAST)
-	{
-	  enum omp_clause_map_kind kind;
-	  switch (list) 
-	    {
-	    default:
-	      gcc_unreachable ();
-	    }
-	  omp_clauses = gfc_trans_omp_map_clause_list (kind, n, omp_clauses);
-	  continue;
-	}
       switch (list)
 	{
 	case OMP_LIST_REDUCTION:

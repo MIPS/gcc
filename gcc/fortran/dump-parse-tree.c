@@ -1251,7 +1251,6 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
 	const char *type = NULL;
 	switch (list_type)
 	  {
-	  case OMP_LIST_COPY: type = "COPY"; break;
 	  case OMP_LIST_USE_DEVICE: type = "USE_DEVICE"; break;
 	  case OMP_LIST_DEVICE_RESIDENT: type = "USE_DEVICE"; break;
 	  case OMP_LIST_CACHE: type = ""; break;

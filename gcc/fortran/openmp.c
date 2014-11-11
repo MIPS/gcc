@@ -2870,11 +2870,8 @@ resolve_omp_clauses (gfc_code *code, locus *where,
   static const char *clause_names[]
     = { "PRIVATE", "FIRSTPRIVATE", "LASTPRIVATE", "COPYPRIVATE", "SHARED",
 	"COPYIN", "UNIFORM", "ALIGNED", "LINEAR", "DEPEND", "MAP",
-	"TO", "FROM", "REDUCTION",
-	"COPY", "COPYIN", "COPYOUT", "CREATE", "DELETE", "PRESENT",
-	"PRESENT_OR_COPY", "PRESENT_OR_COPYIN", "PRESENT_OR_COPYOUT",
-	"PRESENT_OR_CREATE", "DEVICE_RESIDENT", "USE_DEVICE",
-	"HOST", "DEVICE", "CACHE" };
+	"TO", "FROM", "REDUCTION", "DEVICE_RESIDENT", "USE_DEVICE",
+	"CACHE" };
 
   if (omp_clauses == NULL)
     return;
@@ -3231,15 +3228,6 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 		      break;
 		    }
 
-		if (list >= OMP_LIST_DATA_CLAUSE_FIRST
-		    && list < OMP_LIST_DATA_CLAUSE_LAST)
-		  resolve_oacc_data_clauses (n->sym, *where, name);
-
-		if (list > OMP_LIST_DATA_CLAUSE_LAST)
-		  {
-		    check_symbol_not_pointer (n->sym, *where, name);
-		    check_array_not_assumed (n->sym, *where, name);
-		  }
 		switch (list)
 		  {
 		  case OMP_LIST_REDUCTION:
@@ -3391,6 +3379,11 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 		      if (n->sym->attr.cray_pointee)
 			gfc_error ("Cray pointee object '%s' in %s clause at %L",
 				   n->sym->name, name, where);
+		      /* FALLTHRU */
+		  case OMP_LIST_DEVICE_RESIDENT:
+		  case OMP_LIST_CACHE:
+		    check_symbol_not_pointer (n->sym, *where, name);
+		    check_array_not_assumed (n->sym, *where, name);
 		    break;
 		  default:
 		    break;
@@ -4618,10 +4611,6 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
   int list;
   gfc_omp_namelist *n;
   locus loc;
-  static const char *clause_names[] = {"COPY", "COPYIN", "COPYOUT", "CREATE",
-	"DELETE", "PRESENT", "PRESENT_OR_COPY", "PRESENT_OR_COPYIN",
-	"PRESENT_OR_COPYOUT", "PRESENT_OR_CREATE",
-	"DEVICE_RESIDENT"};
 
   if (ns->oacc_declare_clauses == NULL)
     return;
@@ -4629,7 +4618,7 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
   loc = ns->oacc_declare_clauses->ext.loc;
 
   /* FIXME: handle omp_list_map.  */
-  for (list = OMP_LIST_DATA_CLAUSE_FIRST;
+  for (/* TODO */ list = OMP_LIST_DEVICE_RESIDENT;
        list <= OMP_LIST_DEVICE_RESIDENT; list++)
     for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
       {
@@ -4638,7 +4627,7 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 	  gfc_error ("PARAMETER object '%s' is not allowed at %L", n->sym->name, &loc);
       }
 
-  for (list = OMP_LIST_DATA_CLAUSE_FIRST;
+  for (/* TODO */ list = OMP_LIST_DEVICE_RESIDENT;
        list <= OMP_LIST_DEVICE_RESIDENT; list++)
     for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
       {
@@ -4649,20 +4638,9 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 	  n->sym->mark = 1;
       }
 
-  for (list = OMP_LIST_DATA_CLAUSE_FIRST;
-       list < OMP_LIST_DATA_CLAUSE_LAST; /* Skip deviceptr clause.  */
-       list++)
-    {
-      const char *name = clause_names[list - OMP_LIST_DATA_CLAUSE_FIRST];
-      for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
-	resolve_oacc_data_clauses (n->sym, loc, name);
-    }
-
   for (n = ns->oacc_declare_clauses->lists[OMP_LIST_DEVICE_RESIDENT]; n;
        n = n->next)
-    check_array_not_assumed (n->sym, loc,
-			     clause_names[OMP_LIST_DEVICE_RESIDENT -
-					  OMP_LIST_DATA_CLAUSE_FIRST]);
+    check_array_not_assumed (n->sym, loc, "DEVICE_RESIDENT");
 }
 
 
