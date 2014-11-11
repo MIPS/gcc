@@ -299,10 +299,14 @@ load_store_sf (unsigned long num,
 	*to_ptr++ = value39;
     }
 
-  return (  value00 + value01 + value02 + value03 + value04 + value05 + value06 + value07 + value08 + value09
-	  + value10 + value11 + value12 + value13 + value14 + value15 + value16 + value17 + value18 + value19
-	  + value20 + value21 + value22 + value23 + value24 + value25 + value26 + value27 + value28 + value29
-	  + value30 + value31 + value32 + value33 + value34 + value35 + value36 + value37 + value38 + value39);
+  return (  value00 + value01 + value02 + value03 + value04
+	  + value05 + value06 + value07 + value08 + value09
+	  + value10 + value11 + value12 + value13 + value14
+	  + value15 + value16 + value17 + value18 + value19
+	  + value20 + value21 + value22 + value23 + value24
+	  + value25 + value26 + value27 + value28 + value29
+	  + value30 + value31 + value32 + value33 + value34
+	  + value35 + value36 + value37 + value38 + value39);
 }
 
 double
@@ -601,10 +605,14 @@ load_store_df (unsigned long num,
 	*to_ptr++ = value39;
     }
 
-  return (  value00 + value01 + value02 + value03 + value04 + value05 + value06 + value07 + value08 + value09
-	  + value10 + value11 + value12 + value13 + value14 + value15 + value16 + value17 + value18 + value19
-	  + value20 + value21 + value22 + value23 + value24 + value25 + value26 + value27 + value28 + value29
-	  + value30 + value31 + value32 + value33 + value34 + value35 + value36 + value37 + value38 + value39);
+  return (  value00 + value01 + value02 + value03 + value04
+	  + value05 + value06 + value07 + value08 + value09
+	  + value10 + value11 + value12 + value13 + value14
+	  + value15 + value16 + value17 + value18 + value19
+	  + value20 + value21 + value22 + value23 + value24
+	  + value25 + value26 + value27 + value28 + value29
+	  + value30 + value31 + value32 + value33 + value34
+	  + value35 + value36 + value37 + value38 + value39);
 }
 
 /* { dg-final { scan-assembler "lxsspx"  } } */
