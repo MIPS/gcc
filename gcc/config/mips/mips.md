@@ -176,6 +176,19 @@
 ;;
 ;; ....................
 
+(define_attr "compact_class" "mipsr6_cond,umipsr6_cond,umipsr6,none"
+  (const_string "none"))
+
+(define_attr "forbidden_slot" "yes,no"
+  (cond [(and (eq_attr "compact_class" "mipsr6_cond")
+	      (match_test "TARGET_COMPACT_BRANCHES"))
+	 (const_string "yes")
+	 
+	 (and (eq_attr "compact_class" "umipsr6_cond")
+	      (match_test "TARGET_MICROMIPS_R6"))
+	 (const_string "yes")]
+	(const_string "no")))
+
 (define_attr "got" "unset,xgot_high,load"
   (const_string "unset"))
 
@@ -1074,12 +1087,23 @@
    (nil)
    (eq_attr "can_delay" "yes")])
 
-;; Branches that don't have likely variants do not annul on false.
+;; Branches that have delay slots and don't have likely variants do
+;; not annul on false.
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
+		   (not (match_test "TARGET_MICROMIPS_R6"))
+		   (or (not (match_test "TARGET_COMPACT_BRANCHES"))
+		       (eq_attr "compact_class" "umipsr6")
+		       (eq_attr "compact_class" "umipsr6_cond"))
 		   (eq_attr "branch_likely" "no"))
   [(eq_attr "can_delay" "yes")
    (nil)
+   (nil)])
+
+(define_delay (and (eq_attr "type" "branch")
+		   (eq_attr "forbidden_slot" "yes"))
+  [(eq_attr "can_delay" "yes")
+   (eq_attr "can_delay" "yes")
    (nil)])
 
 (define_delay (eq_attr "type" "jump")
@@ -5760,11 +5784,17 @@
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%F1", "%Z2%0"),
-					 MIPS_BRANCH ("b%W1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%F1c", "%Z2%0"),
+					   MIPS_BRANCH ("b%W1c", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "umipsr6_cond")])
 
 (define_insn "*branch_fp_inverted_<mode>"
   [(set (pc)
@@ -5776,11 +5806,17 @@
          (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%W1", "%Z2%0"),
-					 MIPS_BRANCH ("b%F1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%W1c", "%Z2%0"),
+					   MIPS_BRANCH ("b%F1c", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "umipsr6_cond")])
 
 ;; Conditional branches on ordered comparisons with zero.
 
@@ -5794,7 +5830,8 @@
 	 (pc)))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, false); }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 (define_insn "*branch_order<mode>_inverted"
   [(set (pc)
@@ -5806,7 +5843,8 @@
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 ;; Conditional branch on equality comparison.
 
@@ -5819,20 +5857,9 @@
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
-{
-  /* For a simple BNEZ or BEQZ microMIPS branch.  */
-  if (TARGET_MICROMIPS
-      && operands[3] == const0_rtx
-      && get_attr_length (insn) <= 8)
-    return mips_output_conditional_branch (insn, operands,
-					   "%*b%C1z%:\t%2,%0",
-					   "%*b%N1z%:\t%2,%0");
-
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"),
-					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"));
-}
-  [(set_attr "type" "branch")])
+  { return mips_output_equal_conditional_branch (insn, operands, false); }
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
@@ -5843,20 +5870,9 @@
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
-{
-  /* For a simple BNEZ or BEQZ microMIPS branch.  */
-  if (TARGET_MICROMIPS
-      && operands[3] == const0_rtx
-      && get_attr_length (insn) <= 8)
-    return mips_output_conditional_branch (insn, operands,
-					   "%*b%N0z%:\t%2,%1",
-					   "%*b%C0z%:\t%2,%1");
-
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"),
-					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"));
-}
-  [(set_attr "type" "branch")])
+  { return mips_output_equal_conditional_branch (insn, operands, true); }
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 ;; MIPS16 branches
 
@@ -6761,13 +6777,11 @@
 	 (match_operand 1 "" ""))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
 {
-  if (TARGET_MICROMIPS)
-    return MICROMIPS_J ("j", operands, 0);
-  else
-    return MIPS_CALL ("j", operands, 0, 1);
+  return mips_output_jump (operands, 0, 1, which_alternative == 0);
 }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "compact_class" "none,umipsr6")])
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "")
@@ -6787,13 +6801,11 @@
               (match_operand 2 "" "")))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
 {
-  if (TARGET_MICROMIPS)
-    return MICROMIPS_J ("j", operands, 1);
-  else
-    return MIPS_CALL ("j", operands, 1, 2);
+  return mips_output_jump (operands, 1, 2, which_alternative == 0);
 }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "compact_class" "none,umipsr6")])
 
 (define_insn "sibcall_value_multiple_internal"
   [(set (match_operand 0 "register_operand" "")
@@ -6804,13 +6816,11 @@
 	      (match_dup 2)))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
 {
-  if (TARGET_MICROMIPS)
-    return MICROMIPS_J ("j", operands, 1);
-  else
-    return MIPS_CALL ("j", operands, 1, 2);
+  return mips_output_jump (operands, 1, 2, which_alternative == 0);
 }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "compact_class" "none,umipsr6")])
 
 (define_expand "call"
   [(parallel [(call (match_operand 0 "")
