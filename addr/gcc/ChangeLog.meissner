@@ -1,3 +1,18 @@
+2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (memory_fp_constant): Delete
+	define_split for fp cases before reload.  Delete valid_move_insn_p
+	and make SF/DF move insns use the original checks.
+	* config/rs6000/rs6000-protos.h (valid_move_insn_p): Likewise.
+	* config/rs6000/rs6000.c (valid_move_insn_p): Likewise.
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat, FMOVE32 case):
+	Likewise.
+	(mov<mode>_hardfloat32, FMOVE64 case): Likewise.
+	(mov<mode>_softfloat32, FMOVE64 case): Likewise.
+	(mov<mode>_hardfloat64, FMOVE64 case): Likewise.
+	(define_split for fp constants): Likewise.
+	(peephole2 for reg/reg moves): Delete valid_move_insn_p call.
+
 2014-11-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (valid_move_insn_p): Make sure mask is
