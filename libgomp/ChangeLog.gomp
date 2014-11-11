@@ -1,3 +1,7 @@
+2014-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* plugin-nvptx.c: Remove.
+
 2014-11-07  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/lib-66.c: Skip for shared memory
@@ -35,7 +39,7 @@
 	* oacc-host.c: Replace with #include of plugin/plugin-host.c code,
 	move implementation to the latter.
 	* plugin/plugin-host.c: New file.
-	* plugin-nvptx.c: Move to...
+	* plugin-nvptx.c: Copy to...
 	* plugin/plugin-nvptx.c: New file.
 	* plugin/Makefile.am: New.
 	* plugin/Makefile.in: Regenerate.
