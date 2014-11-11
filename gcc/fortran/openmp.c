@@ -666,10 +666,19 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, unsigned long long mask,
 				       OMP_MAP_ALLOC))
 	continue;
       if ((mask & OMP_CLAUSE_DEVICEPTR)
-	  && gfc_match_omp_variable_list ("deviceptr (",
-					  &c->lists[OMP_LIST_DEVICEPTR], true)
-	     == MATCH_YES)
-	continue;
+	  && gfc_match ("deviceptr ( ") == MATCH_YES)
+	{
+	  gfc_omp_namelist **list = &c->lists[OMP_LIST_MAP];
+	  gfc_omp_namelist **head = NULL;
+	  if (gfc_match_omp_variable_list ("", list, true, NULL, &head, false)
+	      == MATCH_YES)
+	    {
+	      gfc_omp_namelist *n;
+	      for (n = *head; n; n = n->next)
+		n->u.map_op = OMP_MAP_FORCE_DEVICEPTR;
+	      continue;
+	    }
+	}
       if ((mask & OMP_CLAUSE_USE_DEVICE)
 	  && gfc_match_omp_variable_list ("use_device (",
 					  &c->lists[OMP_LIST_USE_DEVICE], true)
@@ -2864,7 +2873,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 	"TO", "FROM", "REDUCTION",
 	"COPY", "COPYIN", "COPYOUT", "CREATE", "DELETE", "PRESENT",
 	"PRESENT_OR_COPY", "PRESENT_OR_COPYIN", "PRESENT_OR_COPYOUT",
-	"PRESENT_OR_CREATE", "DEVICEPTR", "DEVICE_RESIDENT", "USE_DEVICE",
+	"PRESENT_OR_CREATE", "DEVICE_RESIDENT", "USE_DEVICE",
 	"HOST", "DEVICE", "CACHE" };
 
   if (omp_clauses == NULL)
@@ -3152,8 +3161,13 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 		      }
 		  }
 		else if (openacc)
-		  resolve_oacc_data_clauses (n->sym, *where,
-					     clause_names[list]);
+		  {
+		    if (list == OMP_LIST_MAP
+			&& n->u.map_op == OMP_MAP_FORCE_DEVICEPTR)
+		      resolve_oacc_deviceptr_clause (n->sym, *where, name);
+		    else
+		      resolve_oacc_data_clauses (n->sym, *where, name);
+		  }
 	      }
 
 	    if (list != OMP_LIST_DEPEND)
@@ -3359,9 +3373,6 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 		     to be done here for OMP_LIST_PRIVATE.  */
 		  case OMP_LIST_PRIVATE:
 		    gcc_assert (code && code->op != EXEC_NOP);
-		    break;
-		  case OMP_LIST_DEVICEPTR:
-		    resolve_oacc_deviceptr_clause (n->sym, *where, name);
 		    break;
 		  case OMP_LIST_USE_DEVICE:
 		      if (n->sym->attr.allocatable
@@ -4609,7 +4620,7 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
   locus loc;
   static const char *clause_names[] = {"COPY", "COPYIN", "COPYOUT", "CREATE",
 	"DELETE", "PRESENT", "PRESENT_OR_COPY", "PRESENT_OR_COPYIN",
-	"PRESENT_OR_COPYOUT", "PRESENT_OR_CREATE", "DEVICEPTR",
+	"PRESENT_OR_COPYOUT", "PRESENT_OR_CREATE",
 	"DEVICE_RESIDENT"};
 
   if (ns->oacc_declare_clauses == NULL)
@@ -4646,11 +4657,6 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
       for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
 	resolve_oacc_data_clauses (n->sym, loc, name);
     }
-
-  for (n = ns->oacc_declare_clauses->lists[OMP_LIST_DEVICEPTR]; n; n = n->next)
-    resolve_oacc_deviceptr_clause (n->sym, loc,
-				   clause_names[OMP_LIST_DEVICEPTR -
-						OMP_LIST_DATA_CLAUSE_FIRST]);
 
   for (n = ns->oacc_declare_clauses->lists[OMP_LIST_DEVICE_RESIDENT]; n;
        n = n->next)

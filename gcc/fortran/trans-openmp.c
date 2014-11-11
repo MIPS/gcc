@@ -1765,9 +1765,6 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  enum omp_clause_map_kind kind;
 	  switch (list) 
 	    {
-	    case OMP_LIST_DEVICEPTR:
-	      kind = OMP_CLAUSE_MAP_FORCE_DEVICEPTR;
-	      break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -2163,6 +2160,9 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		  break;
 		case OMP_MAP_FORCE_PRESENT:
 		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_PRESENT;
+		  break;
+		case OMP_MAP_FORCE_DEVICEPTR:
+		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_DEVICEPTR;
 		  break;
 		default:
 		  gcc_unreachable ();

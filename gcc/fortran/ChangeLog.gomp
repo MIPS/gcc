@@ -1,3 +1,12 @@
+2014-11-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.h (OMP_LIST_DEVICEPTR): Remove, and instead...
+	(enum gfc_omp_map_op): ... add OMP_MAP_FORCE_DEVICEPTR here.
+	* dump-parse-tree.c (show_omp_clauses): Update.
+	* openmp.c (gfc_match_omp_clauses, resolve_omp_clauses)
+	(gfc_resolve_oacc_declare): Likewise.
+	* trans-openmp.c (gfc_trans_omp_clauses): Likewise.
+
 2014-11-05  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* openmp.c (OMP_CLAUSE_HOST, OMP_CLAUSE_SELF): Merge into the new

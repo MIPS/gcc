@@ -12044,6 +12044,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 		    && TREE_CODE (TREE_TYPE (ovar)) == ARRAY_TYPE)
 		  {
+		    gcc_assert (kind == GF_OMP_TARGET_KIND_REGION);
 		    tree avar
 		      = create_tmp_var (TREE_TYPE (TREE_TYPE (x)), NULL);
 		    mark_addressable (avar);
@@ -12054,6 +12055,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  }
 		else if (is_gimple_reg (var))
 		  {
+		    gcc_assert (kind == GF_OMP_TARGET_KIND_REGION);
 		    tree avar = create_tmp_var (TREE_TYPE (var), NULL);
 		    mark_addressable (avar);
 		    enum omp_clause_map_kind map_kind
