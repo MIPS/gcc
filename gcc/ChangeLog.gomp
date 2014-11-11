@@ -1,5 +1,11 @@
 2014-11-11  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (delete_omp_context): Dispose of reduction_map.
+
+	* omp-low.c (maybe_lookup_reduction): Don't require an OpenACC
+	context.
+	(lower_oacc_offload): Simplify use of maybe_lookup_reduction.
+
 	* omp-low.c (lower_omp_target): Restore two gcc_asserts.
 
 2014-11-06  Thomas Schwinge  <thomas@codesourcery.com>

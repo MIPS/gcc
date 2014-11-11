@@ -938,7 +938,7 @@ get_base_type (tree decl)
   return type;
 }
 
-/* Lookup variables in the decl or field splay trees.  The "maybe" form
+/* Lookup variables.  The "maybe" form
    allows for the variable form to not have been entered, otherwise we
    assert that the variable must have been entered.  */
 
@@ -975,17 +975,6 @@ lookup_sfield (tree var, omp_context *ctx)
 }
 
 static inline tree
-lookup_reduction (const char *id, omp_context *ctx)
-{
-  gcc_assert (is_gimple_omp_oacc_specifically (ctx->stmt));
-
-  splay_tree_node n;
-  n = splay_tree_lookup (ctx->reduction_map,
-			 (splay_tree_key) id);
-  return (tree) n->value;
-}
-
-static inline tree
 maybe_lookup_field (tree var, omp_context *ctx)
 {
   splay_tree_node n;
@@ -994,14 +983,22 @@ maybe_lookup_field (tree var, omp_context *ctx)
 }
 
 static inline tree
-maybe_lookup_reduction (tree var, omp_context *ctx)
+lookup_reduction (const char *id, omp_context *ctx)
 {
   gcc_assert (is_gimple_omp_oacc_specifically (ctx->stmt));
 
   splay_tree_node n;
-  n = splay_tree_lookup (ctx->reduction_map,
-			 (splay_tree_key) var);
-  return n ?(tree) n->value : NULL_TREE;
+  n = splay_tree_lookup (ctx->reduction_map, (splay_tree_key) id);
+  return (tree) n->value;
+}
+
+static inline tree
+maybe_lookup_reduction (tree var, omp_context *ctx)
+{
+  splay_tree_node n = NULL;
+  if (ctx->reduction_map)
+    n = splay_tree_lookup (ctx->reduction_map, (splay_tree_key) var);
+  return n ? (tree) n->value : NULL_TREE;
 }
 
 /* Return true if DECL should be copied by pointer.  SHARED_CTX is
@@ -1574,6 +1571,11 @@ delete_omp_context (splay_tree_value value)
     splay_tree_delete (ctx->field_map);
   if (ctx->sfield_map)
     splay_tree_delete (ctx->sfield_map);
+  if (ctx->reduction_map
+      /* Shared over several omp_contexts.  */
+      && (ctx->outer == NULL
+	  || ctx->reduction_map != ctx->outer->reduction_map))
+    splay_tree_delete (ctx->reduction_map);
 
   /* We hijacked DECL_ABSTRACT_ORIGIN earlier.  We need to clear it before
      it produces corrupt debug information.  */
@@ -10481,10 +10483,14 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			    || (OMP_CLAUSE_MAP_KIND (c)
 				!= OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
 			    || TREE_CODE (TREE_TYPE (ovar)) != ARRAY_TYPE);
-		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		    && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
-		    && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
-		    && TREE_CODE (TREE_TYPE (ovar)) == ARRAY_TYPE)
+		if (maybe_lookup_reduction (var, ctx))
+		  {
+		    gimplify_assign (x, var, &ilist);
+		  }
+		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+			 && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+			 && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
+			 && TREE_CODE (TREE_TYPE (ovar)) == ARRAY_TYPE)
 		  {
 		    tree avar
 		      = create_tmp_var (TREE_TYPE (TREE_TYPE (x)), NULL);
@@ -10494,8 +10500,7 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
 		  }
-		else if (is_gimple_reg (var)
-			 && !maybe_lookup_reduction (var, ctx))
+		else if (is_gimple_reg (var))
 		  {
 		    tree avar = create_tmp_var (TREE_TYPE (var), NULL);
 		    mark_addressable (avar);
@@ -10521,8 +10526,7 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  }
 		else
 		  {
-		    if (!maybe_lookup_reduction (var, ctx))
-		      var = build_fold_addr_expr (var);
+		    var = build_fold_addr_expr (var);
 		    gimplify_assign (x, var, &ilist);
 		  }
 	      }
