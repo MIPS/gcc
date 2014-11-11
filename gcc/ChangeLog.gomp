@@ -1,5 +1,7 @@
 2014-11-11  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (scan_sharing_clauses): Remove bogus assertion.
+
 	* omp-low.c (delete_omp_context): Dispose of reduction_map.
 
 	* omp-low.c (maybe_lookup_reduction): Don't require an OpenACC

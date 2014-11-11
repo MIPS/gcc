@@ -1920,10 +1920,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    {
 	      tree base = get_base_address (decl);
 	      tree nc = OMP_CLAUSE_CHAIN (c);
-	      gcc_assert (nc == NULL_TREE
-			  || OMP_CLAUSE_CODE (nc) != OMP_CLAUSE_MAP
-			  || (OMP_CLAUSE_MAP_KIND (nc)
-			      != OMP_CLAUSE_MAP_FORCE_DEVICEPTR));
 	      if (DECL_P (base)
 		  && nc != NULL_TREE
 		  && OMP_CLAUSE_CODE (nc) == OMP_CLAUSE_MAP
