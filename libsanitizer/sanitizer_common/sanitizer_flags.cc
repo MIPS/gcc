@@ -54,7 +54,7 @@ void SetCommonFlagsDefaults(CommonFlags *f) {
   f->use_sigaltstack = true;
   f->detect_deadlocks = false;
   f->clear_shadow_mmap_threshold = 64 * 1024;
-  f->color = "auto";
+  f->color = "never";
   f->legacy_pthread_cond = false;
   f->intercept_tls_get_addr = false;
   f->coverage = false;
