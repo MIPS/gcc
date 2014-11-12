@@ -2671,6 +2671,9 @@ typedef struct mips_args {
 #define MIPS_BRANCH(OPCODE, OPERANDS) \
   "%*" OPCODE "%?\t" OPERANDS "%/"
 
+#define MIPS_BRANCH_C(OPCODE, OPERANDS) \
+  "%*" OPCODE "c\t" OPERANDS
+
 /* Return an asm string that forces INSN to be treated as an absolute
    J or JAL instruction instead of an assembler macro.  */
 #define MIPS_ABSOLUTE_JUMP(INSN) \

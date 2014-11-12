@@ -5535,7 +5535,8 @@ mips_allocate_fcc (enum machine_mode mode)
    conditions are:
 
       - EQ or NE between two registers.
-      - any comparison between a register and zero.  */
+      - any comparison between a register and zero.
+      - if mips R6 then any of the conditional branches are valid.  */
 
 static void
 mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
@@ -5557,6 +5558,8 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	  else
 	    *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
 	}
+      else if (TARGET_COMPACT_BRANCHES)
+	*op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
       else
 	{
 	  /* The comparison needs a separate scc instruction.  Store the
@@ -13643,13 +13646,13 @@ mips_output_equal_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
     {
       if (operands[3] == const0_rtx)
 	{
-	  branch[inverted_p] = MIPS_BRANCH ("b%C1zc", "%2,%0");
-	  branch[!inverted_p] = MIPS_BRANCH ("b%N1zc", "%2,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%C1z", "%2,%0");
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%N1z", "%2,%0");
 	}
       else if (REGNO (operands[2]) != REGNO (operands[3]))
 	{
-	  branch[inverted_p] = MIPS_BRANCH ("b%C1c", "%2,%3,%0");
-	  branch[!inverted_p] = MIPS_BRANCH ("b%N1c", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%C1", "%2,%3,%0");
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%N1", "%2,%3,%0");
 	}
       else
 	{
@@ -13657,7 +13660,7 @@ mips_output_equal_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
 	  if (GET_CODE (operands[1]) == NE)
 	    inverted_p = !inverted_p;
 
-	  branch[inverted_p] = MIPS_BRANCH ("bc", "%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b", "%0");
 	  branch[!inverted_p] = "nop";
 	}
     }
@@ -13681,56 +13684,64 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
 {
   const char *branch[2];
 
-  /* Make BRANCH[1] branch to OPERANDS[0] when the condition is true.
-     Make BRANCH[0] branch on the inverse condition.  */
-  switch (GET_CODE (operands[1]))
+  if (operands[3] != const0_rtx)
     {
-      /* These cases are equivalent to comparisons against zero.  */
-    case LEU:
-      inverted_p = !inverted_p;
-      /* Fall through.  */
-    case GTU:
-      if (TARGET_COMPACT_BRANCHES)
+      branch[!inverted_p] = MIPS_BRANCH_C ("b%C1", "%2,%3,%0");
+      branch[inverted_p] = MIPS_BRANCH_C ("b%C1", "%3,%2,%0");
+    }
+  else
+    {
+      /* Make BRANCH[1] branch to OPERANDS[0] when the condition is true.
+	Make BRANCH[0] branch on the inverse condition.  */
+      switch (GET_CODE (operands[1]))
 	{
-	  branch[!inverted_p] = MIPS_BRANCH ("bnezc", "%2,%0");
-	  branch[inverted_p] = MIPS_BRANCH ("beqzc", "%2,%0");
-	}
-      else
-	{
-	  branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%0");
-	  branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%0");
-	}
-      break;
+	  /* These cases are equivalent to comparisons against zero.  */
+	case LEU:
+	  inverted_p = !inverted_p;
+	  /* Fall through.  */
+	case GTU:
+	  if (TARGET_COMPACT_BRANCHES)
+	    {
+	      branch[!inverted_p] = MIPS_BRANCH_C ("bnez", "%2,%0");
+	      branch[inverted_p] = MIPS_BRANCH_C ("beqz", "%2,%0");
+	    }
+	  else
+	    {
+	      branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%0");
+	      branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%0");
+	    }
+	  break;
 
-      /* These cases are always true or always false.  */
-    case LTU:
-      inverted_p = !inverted_p;
-      /* Fall through.  */
-    case GEU:
-      if (TARGET_COMPACT_BRANCHES)
-	{
-	  branch[!inverted_p] = MIPS_BRANCH ("bc", "%0");
-	  branch[inverted_p] = MIPS_BRANCH ("nop", "");
-	}
-      else
-	{
-	  branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%0");
-	  branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%0");
-	}
-      break;
+	  /* These cases are always true or always false.  */
+	case LTU:
+	  inverted_p = !inverted_p;
+	  /* Fall through.  */
+	case GEU:
+	  if (TARGET_COMPACT_BRANCHES)
+	    {
+	      branch[!inverted_p] = MIPS_BRANCH_C ("b", "%0");
+	      branch[inverted_p] = "nop";
+	    }
+	  else
+	    {
+	      branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%0");
+	      branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%0");
+	    }
+	  break;
 
-    default:
-      if (TARGET_COMPACT_BRANCHES)
-	{
-	  branch[!inverted_p] = MIPS_BRANCH ("b%C1zc", "%2,%0");
-	  branch[inverted_p] = MIPS_BRANCH ("b%N1zc", "%2,%0");
+	default:
+	  if (TARGET_COMPACT_BRANCHES)
+	    {
+	      branch[!inverted_p] = MIPS_BRANCH_C ("b%C1z", "%2,%0");
+	      branch[inverted_p] = MIPS_BRANCH_C ("b%N1z", "%2,%0");
+	    }
+	  else
+	    {
+	      branch[!inverted_p] = MIPS_BRANCH ("b%C1z", "%2,%0");
+	      branch[inverted_p] = MIPS_BRANCH ("b%N1z", "%2,%0");
+	    }
+	  break;
 	}
-      else
-	{
-	  branch[!inverted_p] = MIPS_BRANCH ("b%C1z", "%2,%0");
-	  branch[inverted_p] = MIPS_BRANCH ("b%N1z", "%2,%0");
-	}
-      break;
     }
   return mips_output_conditional_branch (insn, operands, branch[1], branch[0]);
 }

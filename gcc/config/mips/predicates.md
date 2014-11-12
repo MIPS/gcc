@@ -533,7 +533,10 @@
   (match_code "eq,ne,lt,ltu,ge,geu"))
 
 (define_predicate "order_operator"
-  (match_code "lt,ltu,le,leu,ge,geu,gt,gtu"))
+  (match_code "lt,ltu,le,leu,ge,geu,gt,gtu")
+{
+  return XEXP (op, 1) == const0_rtx || TARGET_COMPACT_BRANCHES;
+})
 
 ;; For NE, cstore uses sltu instructions in which the first operand is $0.
 ;; This isn't possible in mips16 code.

@@ -5786,8 +5786,8 @@
 {
   if (TARGET_MICROMIPS_R6)
     return mips_output_conditional_branch (insn, operands,
-					   MIPS_BRANCH ("b%F1c", "%Z2%0"),
-					   MIPS_BRANCH ("b%W1c", "%Z2%0"));
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"));
   else
     return mips_output_conditional_branch (insn, operands,
 					   MIPS_BRANCH ("b%F1", "%Z2%0"),
@@ -5808,8 +5808,8 @@
 {
   if (TARGET_MICROMIPS_R6)
     return mips_output_conditional_branch (insn, operands,
-					   MIPS_BRANCH ("b%W1c", "%Z2%0"),
-					   MIPS_BRANCH ("b%F1c", "%Z2%0"));
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"));
   else
     return mips_output_conditional_branch (insn, operands,
 					   MIPS_BRANCH ("b%W1", "%Z2%0"),
@@ -5825,7 +5825,7 @@
 	(if_then_else
 	 (match_operator 1 "order_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
-			  (const_int 0)])
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
@@ -5838,7 +5838,7 @@
 	(if_then_else
 	 (match_operator 1 "order_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
-			  (const_int 0)])
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
