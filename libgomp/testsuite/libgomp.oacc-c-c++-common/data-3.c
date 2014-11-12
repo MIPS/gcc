@@ -28,8 +28,8 @@ main (int argc, char **argv)
 #pragma acc enter data copyin (a[0:N]) copyin (b[0:N]) copyin (N) async
 #pragma acc parallel async wait
 #pragma acc loop
-  for (int ii = 0; ii < N; ii++)
-    b[ii] = a[ii];
+  for (i = 0; i < N; i++)
+    b[i] = a[i];
 
 #pragma acc update host (a[0:N], b[0:N]) async wait
 #pragma acc wait
@@ -52,8 +52,8 @@ main (int argc, char **argv)
 #pragma acc update device (a[0:N], b[0:N]) async (1)
 #pragma acc parallel async (1)
 #pragma acc loop
-  for (int ii = 0; ii < N; ii++)
-    b[ii] = a[ii];
+  for (i = 0; i < N; i++)
+    b[i] = a[i];
 
 #pragma acc update host (a[0:N], b[0:N]) async (1) wait (1)
 #pragma acc wait (1)
@@ -81,18 +81,18 @@ main (int argc, char **argv)
 
 #pragma acc parallel async (1) wait (1,2)
 #pragma acc loop
-  for (int ii = 0; ii < N; ii++)
-    b[ii] = (a[ii] * a[ii] * a[ii]) / a[ii];
+  for (i = 0; i < N; i++)
+    b[i] = (a[i] * a[i] * a[i]) / a[i];
 
 #pragma acc parallel async (2) wait (1,3)
 #pragma acc loop
-  for (int ii = 0; ii < N; ii++)
-    c[ii] = (a[ii] + a[ii] + a[ii] + a[ii]) / a[ii];
+  for (i = 0; i < N; i++)
+    c[i] = (a[i] + a[i] + a[i] + a[i]) / a[i];
 
 #pragma acc parallel async (3) wait (1,3)
 #pragma acc loop
-  for (int ii = 0; ii < N; ii++)
-    d[ii] = ((a[ii] * a[ii] + a[ii]) / a[ii]) - a[ii];
+  for (i = 0; i < N; i++)
+    d[i] = ((a[i] * a[i] + a[i]) / a[i]) - a[i];
 
 #pragma acc update host (a[0:N], b[0:N], c[0:N], d[0:N]) async (1) wait (1,2,3)
 #pragma acc wait (1)

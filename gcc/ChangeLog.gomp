@@ -1,5 +1,8 @@
 2014-11-12  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimplify.c (gimplify_omp_for): Eliminate govd_private; always
+	use GOVD_PRIVATE.
+
 	* omp-low.c (scan_oacc_offload, expand_oacc_offload)
 	(lower_oacc_offload): Merge into scan_omp_target,
 	expand_omp_target, lower_omp_target, respectively.  Update all

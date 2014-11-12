@@ -6843,7 +6843,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   gimple_seq for_body, for_pre_body;
   int i;
   bool simd;
-  enum gimplify_omp_var_data govd_private;
   enum omp_region_type ort;
   bitmap has_decl_expr = NULL;
 
@@ -6855,18 +6854,15 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     case CILK_FOR:
     case OMP_DISTRIBUTE:
       simd = false;
-      govd_private = GOVD_PRIVATE;
       ort = ORT_WORKSHARE;
       break;
     case OMP_SIMD:
     case CILK_SIMD:
       simd = true;
-      govd_private = GOVD_PRIVATE;
       ort = ORT_SIMD;
       break;
     case OACC_LOOP:
       simd = false;
-      govd_private = /* TODO */ GOVD_LOCAL;
       ort = /* TODO */ ORT_WORKSHARE;
       break;
     default:
@@ -6928,7 +6924,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl))
 		  || POINTER_TYPE_P (TREE_TYPE (decl)));
 
-      /* Make sure the iteration variable is some kind of private.  */
+      /* Make sure the iteration variable is private.  */
       tree c = NULL_TREE;
       tree c2 = NULL_TREE;
       if (orig_for_stmt != for_stmt)
@@ -6957,7 +6953,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	  else
 	    {
-	      gcc_assert (govd_private == GOVD_PRIVATE);
 	      bool lastprivate
 		= (!has_decl_expr
 		   || !bitmap_bit_p (has_decl_expr, DECL_UID (decl)));
@@ -7001,7 +6996,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       else if (omp_is_private (gimplify_omp_ctxp, decl, 0))
 	omp_notice_variable (gimplify_omp_ctxp, decl, true);
       else
-	omp_add_variable (gimplify_omp_ctxp, decl, govd_private | GOVD_SEEN);
+	omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
       /* If DECL is not a gimple register, create a temporary variable to act
 	 as an iteration counter.  This is valid, since DECL cannot be
@@ -7036,7 +7031,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	  else
 	    omp_add_variable (gimplify_omp_ctxp, var,
-			      govd_private | GOVD_SEEN);
+			      GOVD_PRIVATE | GOVD_SEEN);
 	}
       else
 	var = decl;
@@ -7193,7 +7188,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
 	decl = TREE_OPERAND (t, 0);
 	var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
-	omp_add_variable (gimplify_omp_ctxp, var, govd_private | GOVD_SEEN);
+	omp_add_variable (gimplify_omp_ctxp, var, GOVD_PRIVATE | GOVD_SEEN);
 	TREE_OPERAND (t, 0) = var;
 	t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
 	TREE_OPERAND (t, 1) = copy_node (TREE_OPERAND (t, 1));
