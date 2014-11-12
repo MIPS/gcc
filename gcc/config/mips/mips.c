@@ -13624,8 +13624,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
     }
 
   /* Output the unconditional branch to TAKEN.  */
-  if (TARGET_ABSOLUTE_JUMPS && TARGET_COMPACT_BRANCHES)
-    /* WORK NEEDED: Don't use JC, expand it explicitly.  */
+  if (TARGET_ABSOLUTE_JUMPS && TARGET_COMPACT_BRANCHES && ISA_HAS_JC)
     output_asm_insn (MIPS_ABSOLUTE_JUMP ("jc\t%0"), &taken);
   else if (TARGET_ABSOLUTE_JUMPS)
     output_asm_insn (MIPS_ABSOLUTE_JUMP ("j\t%0%/"), &taken);
