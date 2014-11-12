@@ -854,6 +854,11 @@ struct mips_cpu_info {
 				 || ISA_MIPS64R6)
 
 #define ISA_HAS_JR		(mips_isa_rev <= 5)
+#define ISA_HAS_JALRC		(mips_isa_rev >= 6)
+#define ISA_HAS_JRC		(TARGET_MICROMIPS			\
+				 || mips_isa_rev >= 6)
+#define ISA_HAS_JALC		(TARGET_MICROMIPS_R6)
+#define ISA_HAS_JC		(TARGET_MICROMIPS_R6)
 
 /* ISA has branch likely instructions (e.g. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
@@ -2675,66 +2680,6 @@ typedef struct mips_args {
    ? ".option\tpic0\n\t" INSN "\n\t.option\tpic2"		\
    : INSN)
 
-/* Return the asm template for a call.  INSN is the instruction's mnemonic
-   ("j" or "jal"), OPERANDS are its operands, TARGET_OPNO is the operand
-   number of the target.  SIZE_OPNO is the operand number of the argument size
-   operand that can optionally hold the call attributes.  If SIZE_OPNO is not
-   -1 and the call is indirect, use the function symbol from the call
-   attributes to attach a R_MIPS_JALR relocation to the call.
-
-   When generating GOT code without explicit relocation operators,
-   all calls should use assembly macros.  Otherwise, all indirect
-   calls should use "jr" or "jalr"; we will arrange to restore $gp
-   afterwards if necessary.  Finally, we can only generate direct
-   calls for -mabicalls by temporarily switching to non-PIC mode.
-
-   For microMIPS jal(r), we try to generate jal(r)s when a 16-bit
-   instruction is in the delay slot of jal(r).  */
-#define MIPS_JAL(OPERANDS, TARGET_OPNO, SIZE_OPNO)		\
-  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? (TARGET_ABICALLS_PIC2					\
-      ? "%*bal\t%" #TARGET_OPNO "%/"				\
-      : "%*jal%!\t%" #TARGET_OPNO "%/")				\
-   : MIPS_ABSOLUTE_JUMP ("%*jal%!\t%" #TARGET_OPNO "%/"))
-
-#define MIPS_JALR(OPERANDS, TARGET_OPNO, SIZE_OPNO)		\
-  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? "%*jalr%:%!\t%" #TARGET_OPNO "%/"				\
-   : mips_get_pic_call_symbol (OPERANDS, SIZE_OPNO)		\
-   ? ("%*.reloc\t1f,R_MIPS_JALR,%" #SIZE_OPNO "\n"		\
-      "1:\tjalr%:%!\t%" #TARGET_OPNO "%/")			\
-   : MIPS_ABSOLUTE_JUMP ("%*jalr%:%!\t%" #TARGET_OPNO "%/"))
-
-#define MIPS_J(OPERANDS, TARGET_OPNO)				\
-  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? (TARGET_ABICALLS_PIC2					\
-      ? "%*b\t%" #TARGET_OPNO "%/"				\
-      : "%*j\t%" #TARGET_OPNO "%/")				\
-   : MIPS_ABSOLUTE_JUMP ("%*j\t%" #TARGET_OPNO "%/"))
-
-#define MIPS_MAYBE_JC(OPERANDS, TARGET_OPNO)			\
-  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? (TARGET_ABICALLS_PIC2					\
-      ? "%*b%:\t%" #TARGET_OPNO					\
-      : "%*j%:\t%" #TARGET_OPNO)				\
-   : MIPS_ABSOLUTE_JUMP ("%*j%:\t%" #TARGET_OPNO))
-
-#define MIPS_JR(OPERANDS, TARGET_OPNO, SIZE_OPNO)		\
-  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? "%*jr\t%" #TARGET_OPNO "%/"				\
-   : mips_get_pic_call_symbol (OPERANDS, SIZE_OPNO)		\
-   ? ("%*.reloc\t1f,R_MIPS_JALR,%" #SIZE_OPNO "\n"		\
-      "1:\tjr\t%" #TARGET_OPNO "%/")				\
-   : MIPS_ABSOLUTE_JUMP ("%*jr\t%" #TARGET_OPNO "%/"))
-
-#define MIPS_MAYBE_JRC(OPERANDS, TARGET_OPNO, SIZE_OPNO)	\
-  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
-   ? "%*jr%:\t%" #TARGET_OPNO					\
-   : mips_get_pic_call_symbol (OPERANDS, SIZE_OPNO)		\
-   ? ("%*.reloc\t1f,R_MIPS_JALR,%" #SIZE_OPNO "\n"		\
-      "1:\tjr%:\t%" #TARGET_OPNO)				\
-   : MIPS_ABSOLUTE_JUMP ("%*jr%:\t%" #TARGET_OPNO))
-
 
 /* Control the assembler format that we output.  */
 
