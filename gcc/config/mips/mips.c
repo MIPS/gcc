@@ -7663,7 +7663,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	     $18 is usually a call-saved register.  */
 	  fprintf (asm_out_file, "\tmove\t%s,%s\n",
 		   reg_names[GP_REG_FIRST + 18], reg_names[RETURN_ADDR_REGNUM]);
-	  output_asm_insn (MIPS_JAL (&fn, 0, -1), &fn);
+	  output_asm_insn (mips_output_jump (&fn, 0, -1, true), &fn);
 	  fprintf (asm_out_file, "\t.cfi_register 31,18\n");
 
 	  /* Move the result from floating-point registers to
@@ -8853,7 +8853,8 @@ mips_print_operand_punctuation (FILE *file, int ch)
 
     case ':':
       /* When final_sequence is 0, the delay slot will be a nop.  We can
-	 use the compact version for microMIPS.  */
+	 use the compact version where available.  The %: formatter will
+	 only be present if a compact form of the branch is available.  */
       if (final_sequence == 0)
 	putc ('c', file);
       break;
@@ -13508,23 +13509,75 @@ mips_adjust_insn_length (rtx insn, int length)
   return length;
 }
 
+/* Return the asm template for a call.  OPERANDS are the operands, TARGET_OPNO
+   is the operand number of the target.  SIZE_OPNO is the operand number of
+   the argument size operand that can optionally hold the call attributes.  If
+   SIZE_OPNO is not -1 and the call is indirect, use the function symbol from
+   the call attributes to attach a R_MIPS_JALR relocation to the call.
+
+   When generating GOT code without explicit relocation operators, all calls
+   should use assembly macros.  Otherwise, all indirect calls should use "jr"
+   or "jalr"; we will arrange to restore $gp afterwards if necessary.  Finally,
+   we can only generate direct calls for -mabicalls by temporarily switching
+   to non-PIC mode.
+
+   For microMIPS jal(r), we try to generate jal(r)s when a 16-bit
+   instruction is in the delay slot of jal(r).
+
+   Where compact branches are available, we try to use them if the delay slot
+   has a NOP (or equivalently delay slots were not enabled for the instruction
+   anyway).  */
+
 const char *
-mips_output_jump (rtx *operands, int target_opno, int size_opno, bool reg_p)
+mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
 {
-  if (reg_p)
+  static char buffer[300];
+  char *s = buffer;
+  bool reg_p = REG_P (operands[target_opno]);
+
+  const char *and_link = link_p ? "al" : "";
+  const char *reg = reg_p ? "r" : "";
+  const char *compact = "";
+  const char *nop = "%/";
+  const char *short_delay = link_p ? "%!" : "";
+
+  /* Compact branches can only be described when the ISA has support for them
+     as both the compact formatter '%:' and the delay slot NOP formatter '%/'
+     work as a mutually exclusive pair.  I.e. a NOP is never required if a
+     compact form is available.  */
+  if ((reg_p && link_p && ISA_HAS_JALRC)
+      || (reg_p && !link_p && ISA_HAS_JRC)
+      || (!reg_p && link_p && ISA_HAS_JALC)
+      || (!reg_p && !link_p && ISA_HAS_JC))
     {
-      if (ISA_HAS_JRC)
-	return MIPS_MAYBE_JRC (operands, target_opno, size_opno);
-      else
-	return MIPS_JR (operands, target_opno, size_opno);
+      compact = "%:";
+      nop = "";
     }
+
+  if (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS)
+    sprintf (s, "%%*j%s\t%%%d%%/", link_p ? "al" : "", target_opno);
   else
     {
-      if (ISA_HAS_JC)
-	return MIPS_MAYBE_JC (operands, target_opno);
+      if (!reg_p && TARGET_ABICALLS_PIC2)
+	s += sprintf (s, ".option\tpic0\n\t");
+
+      if (reg_p && mips_get_pic_call_symbol (operands, size_opno))
+	{
+	  s += sprintf (s, "%%*.reloc\t1f,R_MIPS_JALR,%%%d\n1:\t", size_opno);
+	  /* Not sure why this shouldn't permit a short delay but it did not
+	     allow it before so we still don't allow it.  */
+	  short_delay = "";
+	}
       else
-	return MIPS_J (operands, target_opno);
+	s += sprintf (s, "%%*");
+
+      s += sprintf (s, "j%s%s%s%s\t%%%d%s", and_link, reg, compact, short_delay,
+					    target_opno, nop);
+
+      if (!reg_p && TARGET_ABICALLS_PIC2)
+	s += sprintf (s, "\n\t.option\tpic2");
     }
+  return buffer;
 }
 
 /* Return the assembly code for INSN, which has the operands given by
@@ -13549,7 +13602,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
       /* Just a simple conditional branch.  */
       mips_branch_likely =
 	  (final_sequence && INSN_ANNULLED_BRANCH_P (insn)
-	   && INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1));
+	   && INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1)));
       return branch_if_true;
     }
 
@@ -13666,7 +13719,7 @@ mips_output_equal_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
     }
   else
     {
-      branch[inverted_p] = MIPS_BRANCH ("b%C1", "%2,%z3,%0");
+      branch[!inverted_p] = MIPS_BRANCH ("b%C1", "%2,%z3,%0");
       branch[inverted_p] = MIPS_BRANCH ("b%N1", "%2,%z3,%0");
     }
 
@@ -19298,7 +19351,14 @@ mips_option_override (void)
 	     mips_arch_info->name, "-mmicromips -mno-compact-branches");
       target_flags |= MASK_COMPACT_BRANCHES;
     }
-    
+
+  /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
+     of the compact branch and jump support through the backend.  */
+  if (!TARGET_EXPLICIT_RELOCS && mips_isa_rev >= 6)
+    {
+      error ("unsupported combination: %qs %s",
+	     mips_arch_info->name, "-mno-explicit-relocs");
+    }
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
