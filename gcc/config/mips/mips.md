@@ -1101,19 +1101,19 @@
    (nil)
    (nil)])
 
-(define_delay (and (eq_attr "type" "branch")
-		   (eq_attr "forbidden_slot" "yes"))
-  [(nil)
-   (eq_attr "can_delay" "yes")
-   (nil)])
-
-(define_delay (eq_attr "type" "jump")
+(define_delay (and (eq_attr "type" "jump")
+		   (not (match_test "TARGET_MICROMIPS_R6"))
+		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
+			(eq_attr "compact_class" "umipsr6")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
 (define_delay (and (eq_attr "type" "call")
-		   (eq_attr "jal_macro" "no"))
+		   (eq_attr "jal_macro" "no")
+		   (not (match_test "TARGET_MICROMIPS_R6"))
+		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
+			(eq_attr "compact_class" "umipsr6")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -6162,19 +6162,34 @@
   [(set (pc)
 	(label_ref (match_operand 0)))])
 
-(define_insn "*jump_absolute"
+(define_insn "*jump_absolute_micromips"
   [(set (pc)
 	(label_ref (match_operand 0)))]
-  "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS"
+  "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS
+   && TARGET_MICROMIPS && !TARGET_ABICALLS_PIC2"
 {
   /* Use a branch for microMIPS.  The assembler will choose
      a 16-bit branch, a 32-bit branch, or a 32-bit jump.  */
-  if (TARGET_MICROMIPS && !TARGET_ABICALLS_PIC2)
+  if (TARGET_COMPACT_BRANCHES)
+    return "%*bc\t%l0";
+  else
     return "%*b\t%l0%/";
+}
+  [(set_attr "type" "jump")])
+
+(define_insn "*jump_absolute"
+  [(set (pc)
+	(label_ref (match_operand 0)))]
+  "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS
+   && (!TARGET_MICROMIPS || TARGET_ABICALLS_PIC2)"
+{
+  if (TARGET_COMPACT_BRANCHES)
+    return MIPS_ABSOLUTE_JUMP ("%*jc\t%l0");
   else
     return MIPS_ABSOLUTE_JUMP ("%*j\t%l0%/");
 }
-  [(set_attr "type" "jump")])
+  [(set_attr "type" "jump")
+   (set_attr "compact_class" "umipsr6")])
 
 (define_insn "*jump_pic"
   [(set (pc)
@@ -6182,11 +6197,19 @@
   "!TARGET_MIPS16 && !TARGET_ABSOLUTE_JUMPS"
 {
   if (get_attr_length (insn) <= 8)
-    return "%*b\t%l0%/";
+    {
+      if (TARGET_COMPACT_BRANCHES)
+	return "%*bc\t%l0";
+      else
+	return "%*b\t%l0%/";
+    }
   else
     {
       mips_output_load_label (operands[0]);
-      return "%*jr\t%@%/%]";
+      if (TARGET_COMPACT_BRANCHES)
+	return "%*jrc\t%@%]";
+      else
+	return "%*jr\t%@%/%]";
     }
 }
   [(set_attr "type" "branch")])
@@ -6236,12 +6259,9 @@
 (define_insn "indirect_jump_<mode>"
   [(set (pc) (match_operand:P 0 "register_operand" "d"))]
   ""
-{
-  if (TARGET_MICROMIPS)
-    return "%*jr%:\t%0";
-  else
-    return "%*j\t%0%/";
-}
+  {
+    return mips_output_jump (operands, 0, -1, false);
+  }
   [(set_attr "type" "jump")
    (set_attr "mode" "none")])
 
@@ -6285,12 +6305,9 @@
 	(match_operand:P 0 "register_operand" "d"))
    (use (label_ref (match_operand 1 "" "")))]
   ""
-{
-  if (TARGET_MICROMIPS)
-    return "%*jr%:\t%0";
-  else
-    return "%*j\t%0%/";
-}
+  {
+    return mips_output_jump (operands, 0, -1, false);
+  }
   [(set_attr "type" "jump")
    (set_attr "mode" "none")])
 
@@ -6502,10 +6519,8 @@
   [(any_return)]
   ""
   {
-    if (TARGET_MICROMIPS)
-      return "%*jr%:\t$31";
-    else
-      return "%*j\t$31%/";
+    rtx operands[1] = { gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM) };
+    return mips_output_jump (operands, 0, -1, false);
   }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
@@ -6516,12 +6531,10 @@
   [(any_return)
    (use (match_operand 0 "pmode_register_operand" ""))]
   ""
-{
-  if (TARGET_MICROMIPS)
-    return "%*jr%:\t%0";
-  else
-    return "%*j\t%0%/";
-}
+  {
+    rtx operands[1] = { gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM) };
+    return mips_output_jump (operands, 0, -1, false);
+  }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
 
