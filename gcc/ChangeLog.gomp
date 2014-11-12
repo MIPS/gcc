@@ -1,3 +1,10 @@
+2014-11-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (scan_oacc_offload, expand_oacc_offload)
+	(lower_oacc_offload): Merge into scan_omp_target,
+	expand_omp_target, lower_omp_target, respectively.  Update all
+	users.
+
 2014-11-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (scan_sharing_clauses): Remove bogus assertion.
