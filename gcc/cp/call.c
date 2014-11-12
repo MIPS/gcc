@@ -1960,21 +1960,6 @@ add_function_candidate (struct z_candidate **candidates,
   len = vec_safe_length (args) - skip + (first_arg != NULL_TREE ? 1 : 0);
   convs = alloc_conversions (len);
 
-  // Viable functions
-  //
-  // Zeroth, a constrained function is not viable if its constraints are not
-  // satisfied.
-  if (flag_concepts) {
-    if (tree ci = get_constraints (fn)) {
-      if (!check_constraints (ci))
-        {
-          reason = constraint_failure (fn);
-          viable = false;
-          goto out;
-        }
-    }
-  }
-
   /* 13.3.2 - Viable functions [over.match.viable]
      First, to be a viable function, a candidate function shall have enough
      parameters to agree in number with the arguments in the list.
@@ -1997,10 +1982,23 @@ add_function_candidate (struct z_candidate **candidates,
       viable = 0;
       reason = arity_rejection (first_arg, i + remaining, len);
     }
+
+  // Second, a constrained function is not viable if its constraints are not
+  // satisfied.
+  if (viable && flag_concepts) {
+    if (tree ci = get_constraints (fn)) {
+      if (!check_constraints (ci))
+        {
+          reason = constraint_failure (fn);
+          viable = false;
+        }
+    }
+  }
+
   /* When looking for a function from a subobject from an implicit
      copy/move constructor/operator=, don't consider anything that takes (a
      reference to) an unrelated type.  See c++/44909 and core 1092.  */
-  else if (parmlist && (flags & LOOKUP_DEFAULTED))
+  if (viable && parmlist && (flags & LOOKUP_DEFAULTED))
     {
       if (DECL_CONSTRUCTOR_P (fn))
 	i = 1;
@@ -2024,7 +2022,7 @@ add_function_candidate (struct z_candidate **candidates,
   if (! viable)
     goto out;
 
-  /* Second, for F to be a viable function, there shall exist for each
+  /* Third, for F to be a viable function, there shall exist for each
      argument an implicit conversion sequence that converts that argument
      to the corresponding parameter of F.  */
 

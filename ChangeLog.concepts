@@ -1,5 +1,8 @@
 2014-11-11  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/call.c (add_function_candidate): Move constraint check after
+	arity check.
+
 	* gcc/cp/class.c (get_member_fn_template)
 	(are_constrained_member_overloads): Remove.
 	(add_method): Call equivalently_constrained directly.
