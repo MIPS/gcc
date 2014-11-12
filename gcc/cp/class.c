@@ -961,41 +961,6 @@ modify_vtable_entry (tree t,
       BV_FN (v) = fndecl;
     }
 }
-
-// Returns the template associated with the member FN or
-// NULL if the declaration is neither a template nor temploid.
-static inline tree
-get_member_fn_template (tree fn)
-{
-  if (TREE_CODE (fn) == TEMPLATE_DECL)
-    return fn;
-  if (TREE_CODE (fn) == FUNCTION_DECL && DECL_TEMPLATE_INFO (fn))
-    return DECL_TI_TEMPLATE (fn);
-  return NULL_TREE;
-}
-
-// Returns true if NEWDECL and OLDDECL are member functions with with 
-// different constraints. If NEWDECL and OLDDECL are non-template members
-// or specializations of non-template members, the overloads are 
-// differentiated by the template constraints.
-//
-// Note that the types of the functions are assumed to be equivalent.
-static inline bool
-are_constrained_member_overloads (tree newdecl, tree olddecl) 
-{
-  return !equivalently_constrained (newdecl, olddecl);
-
-  // newdecl = get_member_fn_template (newdecl);
-  // olddecl = get_member_fn_template (olddecl);
-
-  // // If neither is a template or temploid, then they cannot
-  // // be constrained declarations.
-  // if (!newdecl && !olddecl)
-  //   return false;
-  // else
-  //   return !equivalently_constrained (newdecl, olddecl);
-}
-
 
 /* Add method METHOD to class TYPE.  If USING_DECL is non-null, it is
    the USING_DECL naming METHOD.  Returns true if the method could be
@@ -1153,7 +1118,8 @@ add_method (tree type, tree method, tree using_decl)
       if (compparms (parms1, parms2)
 	  && (!DECL_CONV_FN_P (fn)
 	      || same_type_p (TREE_TYPE (fn_type),
-			      TREE_TYPE (method_type))))
+			      TREE_TYPE (method_type)))
+          && equivalently_constrained (fn, method))
 	{
 	  /* For function versions, their parms and types match
 	     but they are not duplicates.  Record function versions
@@ -1202,8 +1168,6 @@ add_method (tree type, tree method, tree using_decl)
 		/* Defer to the local function.  */
 		return false;
 	    }
-          else if (are_constrained_member_overloads (fn, method))
-            continue;
 	  else
 	    {
 	      error ("%q+#D cannot be overloaded", method);
