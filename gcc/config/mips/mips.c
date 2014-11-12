@@ -18247,7 +18247,7 @@ mips_orphaned_high_part_p (mips_offset_table htab, rtx insn)
 
 static void
 mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
-		   rtx *delayed_reg, rtx lo_reg)
+		   rtx *delayed_reg, rtx lo_reg, bool *fs_delay)
 {
   rtx pattern, set;
   int nops, ninsns;
@@ -18273,6 +18273,8 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
     nops = 2 - *hilo_delay;
   else if (*delayed_reg != 0 && reg_referenced_p (*delayed_reg, pattern))
     nops = 1;
+  else if (*fs_delay && get_attr_can_delay (insn) == CAN_DELAY_NO)
+    nops = 1;
   else
     nops = 0;
 
@@ -18285,10 +18287,15 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
   /* Set up the state for the next instruction.  */
   *hilo_delay += ninsns;
   *delayed_reg = 0;
+  *fs_delay = false;
   if (INSN_CODE (insn) >= 0)
     switch (get_attr_hazard (insn))
       {
       case HAZARD_NONE:
+	break;
+
+      case HAZARD_FORBIDDEN_SLOT:
+	*fs_delay = true;
 	break;
 
       case HAZARD_HILO:
@@ -18314,6 +18321,7 @@ mips_reorg_process_insns (void)
   rtx insn, last_insn, subinsn, next_insn, lo_reg, delayed_reg;
   int hilo_delay;
   mips_offset_table htab;
+  bool fs_delay;
 
   /* Force all instructions to be split into their final form.  */
   split_all_insns_noflow ();
@@ -18382,6 +18390,7 @@ mips_reorg_process_insns (void)
   hilo_delay = 2;
   delayed_reg = 0;
   lo_reg = gen_rtx_REG (SImode, LO_REGNUM);
+  fs_delay = false;
 
   /* Make a second pass over the instructions.  Delete orphaned
      high-part relocations or turn them into NOPs.  Avoid hazards
@@ -18405,7 +18414,7 @@ mips_reorg_process_insns (void)
 			INSN_CODE (subinsn) = CODE_FOR_nop;
 		      }
 		    mips_avoid_hazard (last_insn, subinsn, &hilo_delay,
-				       &delayed_reg, lo_reg);
+				       &delayed_reg, lo_reg, &fs_delay);
 		  }
 	      last_insn = insn;
 	    }
@@ -18426,7 +18435,7 @@ mips_reorg_process_insns (void)
 	      else
 		{
 		  mips_avoid_hazard (last_insn, insn, &hilo_delay,
-				     &delayed_reg, lo_reg);
+				     &delayed_reg, lo_reg, &fs_delay);
 		  last_insn = insn;
 		}
 	    }

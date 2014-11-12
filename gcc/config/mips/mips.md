@@ -189,16 +189,6 @@
 	 (const_string "umipsr6")]
 	(const_string "none")))
 
-(define_attr "forbidden_slot" "yes,no"
-  (cond [(and (eq_attr "compact_class" "mipsr6_cond")
-	      (match_test "TARGET_COMPACT_BRANCHES"))
-	 (const_string "yes")
-	 
-	 (and (eq_attr "compact_class" "umipsr6_cond")
-	      (match_test "TARGET_MICROMIPS_R6"))
-	 (const_string "yes")]
-	(const_string "no")))
-
 ;; This attribute is YES if the instruction is a jal macro (not a
 ;; real jal instruction).
 ;;
@@ -736,7 +726,7 @@
 ;; DELAY means that the next instruction cannot read the result
 ;; of this one.  HILO means that the next two instructions cannot
 ;; write to HI or LO.
-(define_attr "hazard" "none,delay,hilo"
+(define_attr "hazard" "none,delay,hilo,forbidden_slot"
   (cond [(and (eq_attr "type" "load,fpload,fpidxload")
 	      (match_test "ISA_HAS_LOAD_DELAY"))
 	 (const_string "delay")
@@ -756,7 +746,16 @@
 
 	 (and (eq_attr "type" "mfhi,mflo")
 	      (not (match_test "ISA_HAS_HILO_INTERLOCKS")))
-	 (const_string "hilo")]
+	 (const_string "hilo")
+
+	 (and (eq_attr "compact_class" "mipsr6_cond")
+	      (match_test "TARGET_COMPACT_BRANCHES"))
+	 (const_string "forbidden_slot")
+ 
+	 (and (eq_attr "compact_class" "umipsr6_cond")
+	      (match_test "TARGET_MICROMIPS_R6"))
+	 (const_string "forbidden_slot")]
+
 	(const_string "none")))
 
 ;; Can the instruction be put into a delay slot?
