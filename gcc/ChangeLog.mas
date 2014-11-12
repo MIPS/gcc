@@ -1,3 +1,11 @@
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r217261 through r217416.
+
+	Brings back next merge piece.
+
+	* match-plusminus.pd: Remove.
+
 2014-11-10  Richard Biener  <rguenther@suse.de>
 
 	* tree-ssa-forwprop.c (simplify_conversion_from_bitmask): Remove.

@@ -168,7 +168,6 @@ static void emit_single_push_insn (machine_mode, rtx, tree);
 #endif
 static void do_tablejump (rtx, machine_mode, rtx, rtx, rtx, int);
 static rtx const_vector_from_tree (tree);
-static void write_complex_part (rtx, rtx, bool);
 
 
 /* This is run to set up which modes can be used
@@ -2995,7 +2994,7 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 /* Write to one of the components of the complex value CPLX.  Write VAL to
    the real part if IMAG_P is false, and the imaginary part if its true.  */
 
-static void
+void
 write_complex_part (rtx cplx, rtx val, bool imag_p)
 {
   machine_mode cmode;
@@ -8621,6 +8620,19 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	  }
 
 	def0 = get_def_for_expr (treeop0, NEGATE_EXPR);
+	/* The multiplication is commutative - look at its 2nd operand
+	   if the first isn't fed by a negate.  */
+	if (!def0)
+	  {
+	    def0 = get_def_for_expr (treeop1, NEGATE_EXPR);
+	    /* Swap operands if the 2nd operand is fed by a negate.  */
+	    if (def0)
+	      {
+		tree tem = treeop0;
+		treeop0 = treeop1;
+		treeop1 = tem;
+	      }
+	  }
 	def2 = get_def_for_expr (treeop2, NEGATE_EXPR);
 
 	op0 = op2 = NULL;

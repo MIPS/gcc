@@ -2020,9 +2020,14 @@ aggregate_value_p (const_tree exp, const_tree fntype)
       case CALL_EXPR:
 	{
 	  tree fndecl = get_callee_fndecl (fntype);
-	  fntype = (fndecl
-		    ? TREE_TYPE (fndecl)
-		    : TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (fntype))));
+	  if (fndecl)
+	    fntype = TREE_TYPE (fndecl);
+	  else if (CALL_EXPR_FN (fntype))
+	    fntype = TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (fntype)));
+	  else
+	    /* For internal functions, assume nothing needs to be
+	       returned in memory.  */
+	    return 0;
 	}
 	break;
       case FUNCTION_DECL:
@@ -5849,7 +5854,7 @@ emit_return_for_exit (edge exit_fallthru_edge, bool simple_p)
    in a sibcall omit the sibcall_epilogue if the block is not in
    ANTIC.  */
 
-static void
+void
 thread_prologue_and_epilogue_insns (void)
 {
   bool inserted;

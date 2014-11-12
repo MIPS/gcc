@@ -304,6 +304,7 @@ aarch64*-*-*)
 	cpu_type=aarch64
 	extra_headers="arm_neon.h arm_acle.h"
 	extra_objs="aarch64-builtins.o aarch-common.o"
+	target_gtfiles="\$(srcdir)/config/aarch64/aarch64-builtins.c"
 	target_has_targetm_common=yes
 	;;
 alpha*-*-*)
@@ -421,6 +422,9 @@ nds32*)
 nios2-*-*)
 	cpu_type=nios2
 	extra_options="${extra_options} g.opt"
+	;;
+nvptx-*-*)
+	cpu_type=nvptx
 	;;
 powerpc*-*-*)
 	cpu_type=rs6000
@@ -2152,6 +2156,10 @@ nios2-*-*)
 		tmake_file="${tmake_file} t-rtems nios2/t-rtems"
 		;;
         esac
+	;;
+nvptx-*)
+	tm_file="${tm_file} newlib-stdint.h"
+	tmake_file="nvptx/t-nvptx"
 	;;
 pdp11-*-*)
 	tm_file="${tm_file} newlib-stdint.h"

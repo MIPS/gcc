@@ -76,6 +76,8 @@ extensions, accepted by GCC in C90 mode and in C++.
 * Offsetof::            Special syntax for implementing @code{offsetof}.
 * __sync Builtins::     Legacy built-in functions for atomic memory access.
 * __atomic Builtins::   Atomic built-in functions with memory model.
+* Integer Overflow Builtins:: Built-in functions to perform arithmetics and
+                        arithmetic overflow checking.
 * x86 specific memory model extensions for transactional memory:: x86 memory models.
 * Object Size Checking:: Built-in functions for limited buffer overflow
                         checking.
@@ -8487,6 +8489,65 @@ alignment.  A value of 0 indicates typical alignment should be used.  The
 compiler may also ignore this parameter.
 @end deftypefn
 
+@node Integer Overflow Builtins
+@section Built-in functions to perform arithmetics and arithmetic overflow checking.
+
+The following built-in functions allow performing simple arithmetic operations
+together with checking whether the operations overflowed.
+
+@deftypefn {Built-in Function} bool __builtin_add_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
+@deftypefnx {Built-in Function} bool __builtin_sadd_overflow (int a, int b, int *res)
+@deftypefnx {Built-in Function} bool __builtin_saddl_overflow (long int a, long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_saddll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_uadd_overflow (unsigned int a, unsigned int b, unsigned int *res)
+@deftypefnx {Built-in Function} bool __builtin_uaddl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_uaddll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+
+These built-in functions promote the first two operands into infinite precision signed
+type and perform addition on those promoted operands.  The result is then
+cast to the type the third pointer argument points to and stored there.
+If the stored result is equal to the infinite precision result, the built-in
+functions return false, otherwise they return true.  As the addition is
+performed in infinite signed precision, these built-in functions have fully defined
+behavior for all argument values.
+
+The first built-in function allows arbitrary integral types for operands and
+the result type must be pointer to some integer type, the rest of the built-in
+functions have explicit integer types.
+
+The compiler will attempt to use hardware instructions to implement
+these built-in functions where possible, like conditional jump on overflow
+after addition, conditional jump on carry etc.
+
+@end deftypefn
+
+@deftypefn {Built-in Function} bool __builtin_sub_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
+@deftypefnx {Built-in Function} bool __builtin_ssub_overflow (int a, int b, int *res)
+@deftypefnx {Built-in Function} bool __builtin_ssubl_overflow (long int a, long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_ssubll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_usub_overflow (unsigned int a, unsigned int b, unsigned int *res)
+@deftypefnx {Built-in Function} bool __builtin_usubl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_usubll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+
+These built-in functions are similar to the add overflow checking built-in
+functions above, except they perform subtraction, subtract the second argument
+from the first one, instead of addition.
+
+@end deftypefn
+
+@deftypefn {Built-in Function} bool __builtin_mul_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
+@deftypefnx {Built-in Function} bool __builtin_smul_overflow (int a, int b, int *res)
+@deftypefnx {Built-in Function} bool __builtin_smull_overflow (long int a, long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_smulll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_umul_overflow (unsigned int a, unsigned int b, unsigned int *res)
+@deftypefnx {Built-in Function} bool __builtin_umull_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_umulll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+
+These built-in functions are similar to the add overflow checking built-in
+functions above, except they perform multiplication, instead of addition.
+
+@end deftypefn
+
 @node x86 specific memory model extensions for transactional memory
 @section x86 specific memory model extensions for transactional memory
 
@@ -9986,14 +10047,12 @@ instructions, but allow the compiler to schedule those calls.
 
 @menu
 * AArch64 Built-in Functions::
-* AArch64 intrinsics::
 * Alpha Built-in Functions::
 * Altera Nios II Built-in Functions::
 * ARC Built-in Functions::
 * ARC SIMD Built-in Functions::
 * ARM iWMMXt Built-in Functions::
-* ARM NEON Intrinsics::
-* ARM ACLE Intrinsics::
+* ARM C Language Extensions (ACLE)::
 * ARM Floating Point Status and Control Intrinsics::
 * AVR Built-in Functions::
 * Blackfin Built-in Functions::
@@ -10031,11 +10090,6 @@ void __builtin_aarch64_set_fpcr (unsigned int)
 unsigned int __builtin_aarch64_get_fpsr ()
 void __builtin_aarch64_set_fpsr (unsigned int)
 @end smallexample
-
-@node AArch64 intrinsics
-@subsection ACLE Intrinsics for AArch64
-
-@include aarch64-acle-intrinsics.texi
 
 @node Alpha Built-in Functions
 @subsection Alpha Built-in Functions
@@ -10800,18 +10854,29 @@ long long __builtin_arm_wxor (long long, long long)
 long long __builtin_arm_wzero ()
 @end smallexample
 
-@node ARM NEON Intrinsics
-@subsection ARM NEON Intrinsics
 
-These built-in intrinsics for the ARM Advanced SIMD extension are available
-when the @option{-mfpu=neon} switch is used:
+@node ARM C Language Extensions (ACLE)
+@subsection ARM C Language Extensions (ACLE)
 
-@include arm-neon-intrinsics.texi
+GCC implements extensions for C as described in the ARM C Language
+Extensions (ACLE) specification, which can be found at
+@uref{http://infocenter.arm.com/help/topic/com.arm.doc.ihi0053c/IHI0053C_acle_2_0.pdf}.
 
-@node ARM ACLE Intrinsics
-@subsection ARM ACLE Intrinsics
+As a part of ACLE, GCC implements extensions for Advanced SIMD as described in
+the ARM C Language Extensions Specification.  The complete list of Advanced SIMD
+intrinsics can be found at
+@uref{http://infocenter.arm.com/help/topic/com.arm.doc.ihi0073a/IHI0073A_arm_neon_intrinsics_ref.pdf}.
+The built-in intrinsics for the Advanced SIMD extension are available when
+NEON is enabled.
 
-@include arm-acle-intrinsics.texi
+Currently, ARM and AArch64 back-ends do not support ACLE 2.0 fully.  Both
+back-ends support CRC32 intrinsics from @file{arm_acle.h}.  The ARM backend's
+16-bit floating-point Advanded SIMD Intrinsics currently comply to ACLE v1.1.
+AArch64's backend does not have support for 16-bit floating point Advanced SIMD
+Intrinsics yet.
+
+See @ref{ARM Options} and @ref{AArch64 Options} for more information on the
+availability of extensions.
 
 @node ARM Floating Point Status and Control Intrinsics
 @subsection ARM Floating Point Status and Control Intrinsics
