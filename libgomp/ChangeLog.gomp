@@ -6,7 +6,7 @@
 	* testsuite/libgomp.oacc-c-c++-common/data-2.c: Update.
 	* testsuite/libgomp.oacc-c-c++-common/data-3.c: Likewise.
 
-2014-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+2014-11-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* plugin-nvptx.c: Remove.
 

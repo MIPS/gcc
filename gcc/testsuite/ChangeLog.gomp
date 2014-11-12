@@ -2,7 +2,7 @@
 
 	* c-c++-common/goacc/loop-private-1.c: New file.
 
-2014-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+2014-11-11  Thomas Schwinge  <thomas@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>
 
 	* c-c++-common/goacc/deviceptr-3.c: New file.
