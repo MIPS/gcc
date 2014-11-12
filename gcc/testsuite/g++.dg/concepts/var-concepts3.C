@@ -4,7 +4,7 @@ template<typename T>
   concept bool C1 = __is_class(T);
 
 template<typename T>
-  concept bool C2() { __is_class(T); }
+  concept bool C2() { return __is_class(T); }
 
 template<typename T>
   constexpr bool C3 = __is_class(T);
