@@ -6183,7 +6183,7 @@
   "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS
    && (!TARGET_MICROMIPS || TARGET_ABICALLS_PIC2)"
 {
-  if (TARGET_COMPACT_BRANCHES)
+  if (TARGET_COMPACT_BRANCHES && ISA_HAS_JC)
     return MIPS_ABSOLUTE_JUMP ("%*jc\t%l0");
   else
     return MIPS_ABSOLUTE_JUMP ("%*j\t%l0%/");
@@ -6519,7 +6519,7 @@
   [(any_return)]
   ""
   {
-    rtx operands[1] = { gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM) };
+    operands[0] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
     return mips_output_jump (operands, 0, -1, false);
   }
   [(set_attr "type"	"jump")
@@ -6532,7 +6532,7 @@
    (use (match_operand 0 "pmode_register_operand" ""))]
   ""
   {
-    rtx operands[1] = { gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM) };
+    operands[0] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
     return mips_output_jump (operands, 0, -1, false);
   }
   [(set_attr "type"	"jump")

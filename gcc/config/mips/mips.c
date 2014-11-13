@@ -5558,8 +5558,36 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	  else
 	    *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
 	}
-      else if (TARGET_COMPACT_BRANCHES)
-	*op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
+      else if (!need_eq_ne_p && TARGET_COMPACT_BRANCHES)
+	{
+	  bool swap = false;
+	  switch (*code)
+	    {
+	    case LE:
+	      swap = true;
+	      *code = GE;
+	      break;
+	    case GT:
+	      swap = true;
+	      *code = LT;
+	      break;
+	    case LEU:
+	      swap = true;
+	      *code = GEU;
+	      break;
+	    case GTU:
+	      swap = true;
+	      *code = LTU;
+	      break;
+	    }
+	  *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
+	  if (swap)
+	    {
+	      rtx tmp = *op1;
+	      *op1 = *op0;
+	      *op0 = tmp;
+	    }
+	}
       else
 	{
 	  /* The comparison needs a separate scc instruction.  Store the
@@ -13600,9 +13628,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
   if (length <= 8)
     {
       /* Just a simple conditional branch.  */
-      mips_branch_likely =
-	  (final_sequence && INSN_ANNULLED_BRANCH_P (insn)
-	   && INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1)));
+      mips_branch_likely = final_sequence && INSN_ANNULLED_BRANCH_P (insn);
       return branch_if_true;
     }
 
@@ -13631,6 +13657,10 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
 	}
       else
 	output_asm_insn ("nop", 0);
+    }
+  else if (TARGET_COMPACT_BRANCHES)
+    {
+      output_asm_insn ("nop", 0);
       fprintf (asm_out_file, "\n");
     }
 
@@ -13653,8 +13683,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
     {
       /* This delay slot will only be executed if the branch is taken.
 	 Use INSN's delay slot if is annulled.  */
-      if (INSN_ANNULLED_BRANCH_P (insn)
-	  && INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1)))
+      if (INSN_ANNULLED_BRANCH_P (insn))
 	{
 	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
 			   asm_out_file, optimize, 1, NULL);
@@ -13669,15 +13698,6 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
   targetm.asm_out.internal_label (asm_out_file, "L",
 				  CODE_LABEL_NUMBER (not_taken));
 
-  /* Output the forbidden slot instruction.  */
-  if (final_sequence
-      && INSN_ANNULLED_BRANCH_P (insn)
-      && !INSN_FROM_TARGET_P (XVECEXP (final_sequence, 0, 1)))
-    {
-      final_scan_insn (XVECEXP (final_sequence, 0, 1),
-		       asm_out_file, optimize, 1, NULL);
-      INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
-    }
   return "";
 }
 
@@ -13739,12 +13759,12 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
   if (operands[3] != const0_rtx)
     {
       branch[!inverted_p] = MIPS_BRANCH_C ("b%C1", "%2,%3,%0");
-      branch[inverted_p] = MIPS_BRANCH_C ("b%C1", "%3,%2,%0");
+      branch[inverted_p] = MIPS_BRANCH_C ("b%N1", "%2,%3,%0");
     }
   else
     {
       /* Make BRANCH[1] branch to OPERANDS[0] when the condition is true.
-	Make BRANCH[0] branch on the inverse condition.  */
+	 Make BRANCH[0] branch on the inverse condition.  */
       switch (GET_CODE (operands[1]))
 	{
 	  /* These cases are equivalent to comparisons against zero.  */
