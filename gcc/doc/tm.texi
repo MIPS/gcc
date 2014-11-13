@@ -5941,10 +5941,11 @@ for comparisons whose argument is a @code{plus}:
 
 @smallexample
 #define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-   ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-       || GET_CODE (X) == NEG) \
+  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT           \
+   ? ((OP == LT || OP == LE || OP == GT || OP == GE)     \
+      ? CCFPEmode : CCFPmode)                            \
+   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
+       || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
       ? CC_NOOVmode : CCmode))
 @end smallexample
 
@@ -5987,10 +5988,11 @@ then @code{REVERSIBLE_CC_MODE (@var{mode})} must be zero.
 You need not define this macro if it would always returns zero or if the
 floating-point format is anything other than @code{IEEE_FLOAT_FORMAT}.
 For example, here is the definition used on the SPARC, where floating-point
-inequality comparisons are always given @code{CCFPEmode}:
+inequality comparisons are given either @code{CCFPEmode} or @code{CCFPmode}:
 
 @smallexample
-#define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)
+#define REVERSIBLE_CC_MODE(MODE) \
+   ((MODE) != CCFPEmode && (MODE) != CCFPmode)
 @end smallexample
 @end defmac
 
@@ -6000,7 +6002,7 @@ comparison done in CC_MODE @var{mode}.  The macro is used only in case
 @code{REVERSIBLE_CC_MODE (@var{mode})} is nonzero.  Define this macro in case
 machine has some non-standard way how to reverse certain conditionals.  For
 instance in case all floating point conditions are non-trapping, compiler may
-freely convert unordered compares to ordered one.  Then definition may look
+freely convert unordered compares to ordered ones.  Then definition may look
 like:
 
 @smallexample
@@ -11392,6 +11394,21 @@ If defined, this function returns an appropriate alignment in bits for an atomic
 
 @deftypefn {Target Hook} void TARGET_ATOMIC_ASSIGN_EXPAND_FENV (tree *@var{hold}, tree *@var{clear}, tree *@var{update})
 ISO C11 requires atomic compound assignments that may raise floating-point exceptions to raise exceptions corresponding to the arithmetic operation whose result was successfully stored in a compare-and-exchange sequence.  This requires code equivalent to calls to @code{feholdexcept}, @code{feclearexcept} and @code{feupdateenv} to be generated at appropriate points in the compare-and-exchange sequence.  This hook should set @code{*@var{hold}} to an expression equivalent to the call to @code{feholdexcept}, @code{*@var{clear}} to an expression equivalent to the call to @code{feclearexcept} and @code{*@var{update}} to an expression equivalent to the call to @code{feupdateenv}.  The three expressions are @code{NULL_TREE} on entry to the hook and may be left as @code{NULL_TREE} if no code is required in a particular place.  The default implementation leaves all three expressions as @code{NULL_TREE}.  The @code{__atomic_feraiseexcept} function from @code{libatomic} may be of use as part of the code generated in @code{*@var{update}}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_RECORD_OFFLOAD_SYMBOL (tree)
+Used when offloaded functions are seen in the compilation unit and no named
+sections are available.  It is called once for each symbol that must be
+recorded in the offload function and variable table.
+@end deftypefn
+
+@deftypefn {Target Hook} {char *} TARGET_OFFLOAD_OPTIONS (void)
+Used when writing out the list of options into an LTO file.  It should
+translate any relevant target-specific options (such as the ABI in use)
+into one of the @option{-foffload} options that exist as a common interface
+to express such options.  It should return a string containing these options,
+separated by spaces, which the caller will free.
+
 @end deftypefn
 
 @defmac TARGET_SUPPORTS_WIDE_INT

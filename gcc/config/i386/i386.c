@@ -4335,6 +4335,15 @@ ix86_option_override (void)
   register_pass (&insert_vzeroupper_info);
 }
 
+/* Implement the TARGET_OFFLOAD_OPTIONS hook.  */
+static char *
+ix86_offload_options (void)
+{
+  if (TARGET_LP64)
+    return xstrdup ("-foffload-abi=lp64");
+  return xstrdup ("-foffload-abi=ilp32");
+}
+
 /* Update register usage after having seen the compiler flags.  */
 
 static void
@@ -6195,6 +6204,27 @@ ix86_use_pseudo_pic_reg (void)
   return true;
 }
 
+/* Initialize large model PIC register.  */
+
+static void
+ix86_init_large_pic_reg (unsigned int tmp_regno)
+{
+  rtx_code_label *label;
+  rtx tmp_reg;
+
+  gcc_assert (Pmode == DImode);
+  label = gen_label_rtx ();
+  emit_label (label);
+  LABEL_PRESERVE_P (label) = 1;
+  tmp_reg = gen_rtx_REG (Pmode, tmp_regno);
+  gcc_assert (REGNO (pic_offset_table_rtx) != tmp_regno);
+  emit_insn (gen_set_rip_rex64 (pic_offset_table_rtx,
+				label));
+  emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
+  emit_insn (ix86_gen_add3 (pic_offset_table_rtx,
+			    pic_offset_table_rtx, tmp_reg));
+}
+
 /* Create and initialize PIC register if required.  */
 static void
 ix86_init_pic_reg (void)
@@ -6210,22 +6240,7 @@ ix86_init_pic_reg (void)
   if (TARGET_64BIT)
     {
       if (ix86_cmodel == CM_LARGE_PIC)
-	{
-	  rtx_code_label *label;
-	  rtx tmp_reg;
-
-	  gcc_assert (Pmode == DImode);
-	  label = gen_label_rtx ();
-	  emit_label (label);
-	  LABEL_PRESERVE_P (label) = 1;
-	  tmp_reg = gen_rtx_REG (Pmode, R11_REG);
-	  gcc_assert (REGNO (pic_offset_table_rtx) != REGNO (tmp_reg));
-	  emit_insn (gen_set_rip_rex64 (pic_offset_table_rtx,
-					label));
-	  emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
-	  emit_insn (ix86_gen_add3 (pic_offset_table_rtx,
-				    pic_offset_table_rtx, tmp_reg));
-	}
+	ix86_init_large_pic_reg (R11_REG);
       else
 	emit_insn (gen_set_got_rex64 (pic_offset_table_rtx));
     }
@@ -42686,8 +42701,16 @@ x86_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
   else
     {
       if (ix86_cmodel == CM_LARGE_PIC && SYMBOLIC_CONST (fnaddr))
-	fnaddr = legitimize_pic_address (fnaddr,
-					 gen_rtx_REG (Pmode, tmp_regno));
+	{
+	  // CM_LARGE_PIC always uses pseudo PIC register which is
+	  // uninitialized.  Since FUNCTION is local and calling it
+	  // doesn't go through PLT, we use scratch register %r11 as
+	  // PIC register and initialize it here.
+	  pic_offset_table_rtx = gen_rtx_REG (Pmode, R11_REG);
+	  ix86_init_large_pic_reg (tmp_regno);
+	  fnaddr = legitimize_pic_address (fnaddr,
+					   gen_rtx_REG (Pmode, tmp_regno));
+	}
 
       if (!sibcall_insn_operand (fnaddr, word_mode))
 	{
@@ -51658,6 +51681,10 @@ ix86_initialize_bounds (tree var, tree lb, tree ub, tree *stmts)
 
 #undef TARGET_SETUP_INCOMING_VARARG_BOUNDS
 #define TARGET_SETUP_INCOMING_VARARG_BOUNDS ix86_setup_incoming_vararg_bounds
+
+#undef TARGET_OFFLOAD_OPTIONS
+#define TARGET_OFFLOAD_OPTIONS \
+  ix86_offload_options
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

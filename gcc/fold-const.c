@@ -121,7 +121,6 @@ static enum tree_code compcode_to_comparison (enum comparison_code);
 static int operand_equal_for_comparison_p (tree, tree, tree);
 static int twoval_comparison_p (tree, tree *, tree *, int *);
 static tree eval_subst (location_t, tree, tree, tree, tree, tree);
-static tree pedantic_omit_one_operand_loc (location_t, tree, tree, tree);
 static tree distribute_bit_expr (location_t, enum tree_code, tree, tree, tree);
 static tree make_bit_field_ref (location_t, tree, tree,
 				HOST_WIDE_INT, HOST_WIDE_INT, int);
@@ -3072,27 +3071,6 @@ omit_one_operand_loc (location_t loc, tree type, tree result, tree omitted)
 		       fold_ignored_result (omitted), t);
 
   return non_lvalue_loc (loc, t);
-}
-
-/* Similar, but call pedantic_non_lvalue instead of non_lvalue.  */
-
-static tree
-pedantic_omit_one_operand_loc (location_t loc, tree type, tree result,
-			       tree omitted)
-{
-  tree t = fold_convert_loc (loc, type, result);
-
-  /* If the resulting operand is an empty statement, just return the omitted
-     statement casted to void. */
-  if (IS_EMPTY_STMT (t) && TREE_SIDE_EFFECTS (omitted))
-    return build1_loc (loc, NOP_EXPR, void_type_node,
-		       fold_ignored_result (omitted));
-
-  if (TREE_SIDE_EFFECTS (omitted))
-    return build2_loc (loc, COMPOUND_EXPR, type,
-		       fold_ignored_result (omitted), t);
-
-  return pedantic_non_lvalue_loc (loc, t);
 }
 
 /* Return a tree for the case when the result of an expression is RESULT
@@ -7960,18 +7938,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	  if (i == count)
 	    return build_vector (type, elements);
 	}
-      else if (COMPARISON_CLASS_P (arg0)
-	       && (VECTOR_TYPE_P (type)
-		   || (INTEGRAL_TYPE_P (type) && TYPE_PRECISION (type) == 1)))
-	{
-	  tree op_type = TREE_TYPE (TREE_OPERAND (arg0, 0));
-	  enum tree_code subcode = invert_tree_comparison (TREE_CODE (arg0),
-				     HONOR_NANS (TYPE_MODE (op_type)));
-	  if (subcode != ERROR_MARK)
-	    return build2_loc (loc, subcode, type, TREE_OPERAND (arg0, 0),
-			       TREE_OPERAND (arg0, 1));
-	}
-
 
       return NULL_TREE;
 
@@ -7988,9 +7954,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case REALPART_EXPR:
       if (TREE_CODE (TREE_TYPE (arg0)) != COMPLEX_TYPE)
 	return fold_convert_loc (loc, type, arg0);
-      if (TREE_CODE (arg0) == COMPLEX_EXPR)
-	return omit_one_operand_loc (loc, type, TREE_OPERAND (arg0, 0),
-				 TREE_OPERAND (arg0, 1));
       if (TREE_CODE (arg0) == COMPLEX_CST)
 	return fold_convert_loc (loc, type, TREE_REALPART (arg0));
       if (TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
@@ -8031,9 +7994,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case IMAGPART_EXPR:
       if (TREE_CODE (TREE_TYPE (arg0)) != COMPLEX_TYPE)
 	return build_zero_cst (type);
-      if (TREE_CODE (arg0) == COMPLEX_EXPR)
-	return omit_one_operand_loc (loc, type, TREE_OPERAND (arg0, 1),
-				 TREE_OPERAND (arg0, 0));
       if (TREE_CODE (arg0) == COMPLEX_CST)
 	return fold_convert_loc (loc, type, TREE_IMAGPART (arg0));
       if (TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
@@ -10544,6 +10504,7 @@ fold_binary_loc (location_t loc,
 
       /* A - B -> A + (-B) if B is easily negatable.  */
       if (negate_expr_p (arg1)
+	  && !TYPE_OVERFLOW_SANITIZED (type)
 	  && ((FLOAT_TYPE_P (type)
                /* Avoid this transformation if B is a positive REAL_CST.  */
 	       && (TREE_CODE (arg1) != REAL_CST
@@ -13350,13 +13311,6 @@ fold_binary_loc (location_t loc,
 	  || (TREE_CODE (arg0) == INTEGER_CST
 	      && TREE_CODE (arg1) == INTEGER_CST))
 	return build_complex (type, arg0, arg1);
-      if (TREE_CODE (arg0) == REALPART_EXPR
-	  && TREE_CODE (arg1) == IMAGPART_EXPR
-	  && TREE_TYPE (TREE_OPERAND (arg0, 0)) == type
-	  && operand_equal_p (TREE_OPERAND (arg0, 0),
-			      TREE_OPERAND (arg1, 0), 0))
-	return omit_one_operand_loc (loc, type, TREE_OPERAND (arg0, 0),
-				     TREE_OPERAND (arg1, 0));
       return NULL_TREE;
 
     case ASSERT_EXPR:
@@ -13563,11 +13517,6 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	}
       else if (TREE_CODE (arg0) == VECTOR_CST)
 	{
-	  if (integer_all_onesp (arg0))
-	    return pedantic_omit_one_operand_loc (loc, type, arg1, arg2);
-	  if (integer_zerop (arg0))
-	    return pedantic_omit_one_operand_loc (loc, type, arg2, arg1);
-
 	  if ((TREE_CODE (arg1) == VECTOR_CST
 	       || TREE_CODE (arg1) == CONSTRUCTOR)
 	      && (TREE_CODE (arg2) == VECTOR_CST
@@ -13591,9 +13540,6 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 		return t;
 	    }
 	}
-
-      if (operand_equal_p (arg1, op2, 0))
-	return pedantic_omit_one_operand_loc (loc, type, arg1, arg0);
 
       /* If we have A op B ? A : C, we may be able to convert this to a
 	 simpler expression, depending on the operation and the values

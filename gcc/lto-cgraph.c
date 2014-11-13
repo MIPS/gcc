@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "ipa-utils.h"
+#include "omp-low.h"
 
 /* True when asm nodes has been output.  */
 bool asm_nodes_output = false;
@@ -330,6 +331,11 @@ referenced_from_other_partition_p (symtab_node *node, lto_symtab_encoder_t encod
 
   for (i = 0; node->iterate_referring (i, ref); i++)
     {
+      /* Ignore references from non-offloadable nodes while streaming NODE into
+	 offload LTO section.  */
+      if (!ref->referring->need_lto_streaming)
+	continue;
+
       if (ref->referring->in_other_partition
           || !lto_symtab_encoder_in_partition_p (encoder, ref->referring))
 	return true;
@@ -348,9 +354,16 @@ reachable_from_other_partition_p (struct cgraph_node *node, lto_symtab_encoder_t
   if (node->global.inlined_to)
     return false;
   for (e = node->callers; e; e = e->next_caller)
-    if (e->caller->in_other_partition
-	|| !lto_symtab_encoder_in_partition_p (encoder, e->caller))
-      return true;
+    {
+      /* Ignore references from non-offloadable nodes while streaming NODE into
+	 offload LTO section.  */
+      if (!e->caller->need_lto_streaming)
+	continue;
+
+      if (e->caller->in_other_partition
+	  || !lto_symtab_encoder_in_partition_p (encoder, e->caller))
+	return true;
+    }
   return false;
 }
 
@@ -818,6 +831,16 @@ create_references (lto_symtab_encoder_t encoder, symtab_node *node)
       lto_symtab_encoder_encode (encoder, ref->referred);
 }
 
+/* Select what needs to be streamed out.  In regular lto mode stream everything.
+   In offload lto mode stream only nodes marked as offloadable.  */
+void
+select_what_to_stream (bool offload_lto_mode)
+{
+  struct symtab_node *snode;
+  FOR_EACH_SYMBOL (snode)
+    snode->need_lto_streaming = !offload_lto_mode || snode->offloadable;
+}
+
 /* Find all symbols we want to stream into given partition and insert them
    to encoders.
 
@@ -844,6 +867,8 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
        !lsei_end_p (lsei); lsei_next_function_in_partition (&lsei))
     {
       struct cgraph_node *node = lsei_cgraph_node (lsei);
+      if (!node->need_lto_streaming)
+	continue;
       add_node_to (encoder, node, true);
       lto_set_symtab_encoder_in_partition (encoder, node);
       create_references (encoder, node);
@@ -860,6 +885,8 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
     {
       varpool_node *vnode = lsei_varpool_node (lsei);
 
+      if (!vnode->need_lto_streaming)
+	continue;
       lto_set_symtab_encoder_in_partition (encoder, vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
       create_references (encoder, vnode);
@@ -1040,6 +1067,50 @@ read_string (struct lto_input_block *ib)
   str = ib->data + ib->p;
   ib->p += len + 1;
   return str;
+}
+
+/* Output function/variable tables that will allow libgomp to look up offload
+   target code.
+   OFFLOAD_FUNCS is filled in expand_omp_target, OFFLOAD_VARS is filled in
+   varpool_node::get_create.  In WHOPR (partitioned) mode during the WPA stage
+   both OFFLOAD_FUNCS and OFFLOAD_VARS are filled by input_offload_tables.  */
+
+void
+output_offload_tables (void)
+{
+  if (vec_safe_is_empty (offload_funcs) && vec_safe_is_empty (offload_vars))
+    return;
+
+  struct lto_simple_output_block *ob
+    = lto_create_simple_output_block (LTO_section_offload_table);
+
+  for (unsigned i = 0; i < vec_safe_length (offload_funcs); i++)
+    {
+      streamer_write_enum (ob->main_stream, LTO_symtab_tags,
+			   LTO_symtab_last_tag, LTO_symtab_unavail_node);
+      lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
+				(*offload_funcs)[i]);
+    }
+
+  for (unsigned i = 0; i < vec_safe_length (offload_vars); i++)
+    {
+      streamer_write_enum (ob->main_stream, LTO_symtab_tags,
+			   LTO_symtab_last_tag, LTO_symtab_variable);
+      lto_output_var_decl_index (ob->decl_state, ob->main_stream,
+				 (*offload_vars)[i]);
+    }
+
+  streamer_write_uhwi_stream (ob->main_stream, 0);
+  lto_destroy_simple_output_block (ob);
+
+  /* In WHOPR mode during the WPA stage the joint offload tables need to be
+     streamed to one partition only.  That's why we free offload_funcs and
+     offload_vars after the first call of output_offload_tables.  */
+  if (flag_wpa)
+    {
+      vec_free (offload_funcs);
+      vec_free (offload_vars);
+    }
 }
 
 /* Overwrite the information in NODE based on FILE_DATA, TAG, FLAGS,
@@ -1765,6 +1836,55 @@ input_symtab (void)
 	 context of the nested function.  */
       if (node->lto_file_data)
 	node->aux = NULL;
+    }
+}
+
+/* Input function/variable tables that will allow libgomp to look up offload
+   target code, and store them into OFFLOAD_FUNCS and OFFLOAD_VARS.  */
+
+void
+input_offload_tables (void)
+{
+  struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
+  struct lto_file_decl_data *file_data;
+  unsigned int j = 0;
+
+  while ((file_data = file_data_vec[j++]))
+    {
+      const char *data;
+      size_t len;
+      struct lto_input_block *ib
+	= lto_create_simple_input_block (file_data, LTO_section_offload_table,
+					 &data, &len);
+      if (!ib)
+	continue;
+
+      enum LTO_symtab_tags tag
+	= streamer_read_enum (ib, LTO_symtab_tags, LTO_symtab_last_tag);
+      while (tag)
+	{
+	  if (tag == LTO_symtab_unavail_node)
+	    {
+	      int decl_index = streamer_read_uhwi (ib);
+	      tree fn_decl
+		= lto_file_decl_data_get_fn_decl (file_data, decl_index);
+	      vec_safe_push (offload_funcs, fn_decl);
+	    }
+	  else if (tag == LTO_symtab_variable)
+	    {
+	      int decl_index = streamer_read_uhwi (ib);
+	      tree var_decl
+		= lto_file_decl_data_get_var_decl (file_data, decl_index);
+	      vec_safe_push (offload_vars, var_decl);
+	    }
+	  else
+	    fatal_error ("invalid offload table in %s", file_data->file_name);
+
+	  tag = streamer_read_enum (ib, LTO_symtab_tags, LTO_symtab_last_tag);
+	}
+
+      lto_destroy_simple_input_block (file_data, LTO_section_offload_table,
+				      ib, data, len);
     }
 }
 

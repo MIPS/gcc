@@ -31,6 +31,14 @@ along with GCC; see the file COPYING3.  If not see
    CONSTANT_CLASS_P
    tree_expr_nonnegative_p)
 
+/* Operator lists.  */
+(define_operator_list tcc_comparison
+  lt   le   eq ne ge   gt   unordered ordered   unlt unle ungt unge uneq ltgt)
+(define_operator_list inverted_tcc_comparison
+  ge   gt   ne eq lt   le   ordered   unordered ge   gt   le   lt   ltgt uneq)
+(define_operator_list inverted_tcc_comparison_with_nans
+  unge ungt ne eq unlt unle ordered   unordered ge   gt   le   lt   ltgt uneq)
+
 
 /* Simplifications of operations with one constant operand and
    simplifications to constants or single values.  */
@@ -172,7 +180,7 @@ along with GCC; see the file COPYING3.  If not see
 (match truth_valued_p
  @0
  (if (INTEGRAL_TYPE_P (type) && TYPE_PRECISION (type) == 1)))
-(for op (lt le eq ne ge gt truth_and truth_andif truth_or truth_orif truth_xor)
+(for op (tcc_comparison truth_and truth_andif truth_or truth_orif truth_xor)
  (match truth_valued_p
   (op @0 @1)))
 (match truth_valued_p
@@ -187,7 +195,8 @@ along with GCC; see the file COPYING3.  If not see
  (ne truth_valued_p@0 integer_onep)
  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))))
 (match (logical_inverted_value @0)
- (bit_xor truth_valued_p@0 integer_onep))
+ (bit_xor truth_valued_p@0 integer_onep)
+ (if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))))
 
 /* X & !X -> 0.  */
 (simplify
@@ -197,7 +206,7 @@ along with GCC; see the file COPYING3.  If not see
 (for op (bit_ior bit_xor)
  (simplify
   (op:c truth_valued_p@0 (logical_inverted_value @0))
-  { build_one_cst (type); }))
+  { constant_boolean_node (true, type); }))
 
 (for bitop (bit_and bit_ior)
      rbitop (bit_ior bit_and)
@@ -285,20 +294,20 @@ along with GCC; see the file COPYING3.  If not see
   /* Apply STRIP_NOPS on @0 and the negate.  */
   (if (tree_nop_conversion_p (type, TREE_TYPE (@0))
        && tree_nop_conversion_p (type, TREE_TYPE (@1))
-       && (flag_sanitize & SANITIZE_SI_OVERFLOW) == 0)
+       && !TYPE_OVERFLOW_SANITIZED (type))
    (minus (convert @0) (convert @1))))
  /* A - (-B) -> A + B */
  (simplify
   (minus (convert1? @0) (convert2? (negate @1)))
   (if (tree_nop_conversion_p (type, TREE_TYPE (@0))
-       && tree_nop_conversion_p (type, TREE_TYPE (@1)))
+       && tree_nop_conversion_p (type, TREE_TYPE (@1))
+       && !TYPE_OVERFLOW_SANITIZED (type))
    (plus (convert @0) (convert @1))))
  /* -(-A) -> A */
  (simplify
   (negate (convert? (negate @1)))
   (if (tree_nop_conversion_p (type, TREE_TYPE (@1))
-       && (TYPE_OVERFLOW_WRAPS (type)
-	   || (flag_sanitize & SANITIZE_SI_OVERFLOW) == 0))
+       && !TYPE_OVERFLOW_SANITIZED (type))
    (convert @1)))
 
  /* We can't reassociate floating-point or fixed-point plus or minus
@@ -560,6 +569,119 @@ along with GCC; see the file COPYING3.  If not see
    (convert @0)))
 
 
+/* COMPLEX_EXPR and REALPART/IMAGPART_EXPR cancellations.  */
+(simplify
+ (complex (realpart @0) (imagpart @0))
+ @0)
+(simplify
+ (realpart (complex @0 @1))
+ @0)
+(simplify
+ (imagpart (complex @0 @1))
+ @1)
+
+
+/* BSWAP simplifications, transforms checked by gcc.dg/builtin-bswap-8.c.  */
+(for bswap (BUILT_IN_BSWAP16 BUILT_IN_BSWAP32 BUILT_IN_BSWAP64)
+ (simplify
+  (bswap (bswap @0))
+  @0)
+ (simplify
+  (bswap (bit_not (bswap @0)))
+  (bit_not @0))
+ (for bitop (bit_xor bit_ior bit_and)
+  (simplify
+   (bswap (bitop:c (bswap @0) @1))
+   (bitop @0 (bswap @1)))))
+
+
+/* Combine COND_EXPRs and VEC_COND_EXPRs.  */
+
+/* Simplify constant conditions.
+   Only optimize constant conditions when the selected branch
+   has the same type as the COND_EXPR.  This avoids optimizing
+   away "c ? x : throw", where the throw has a void type.
+   Note that we cannot throw away the fold-const.c variant nor
+   this one as we depend on doing this transform before possibly
+   A ? B : B -> B triggers and the fold-const.c one can optimize
+   0 ? A : B to B even if A has side-effects.  Something
+   genmatch cannot handle.  */
+(simplify
+ (cond INTEGER_CST@0 @1 @2)
+ (if (integer_zerop (@0)
+      && (!VOID_TYPE_P (TREE_TYPE (@2))
+	  || VOID_TYPE_P (type)))
+  @2)
+ (if (!integer_zerop (@0)
+      && (!VOID_TYPE_P (TREE_TYPE (@1))
+	  || VOID_TYPE_P (type)))
+  @1))
+(simplify
+ (vec_cond VECTOR_CST@0 @1 @2)
+ (if (integer_all_onesp (@0))
+  @1)
+ (if (integer_zerop (@0))
+  @2))
+
+(for cnd (cond vec_cond)
+ /* A ? B : (A ? X : C) -> A ? B : C.  */
+ (simplify
+  (cnd @0 (cnd @0 @1 @2) @3)
+  (cnd @0 @1 @3))
+ (simplify
+  (cnd @0 @1 (cnd @0 @2 @3))
+  (cnd @0 @1 @3))
+
+ /* A ? B : B -> B.  */
+ (simplify
+  (cnd @0 @1 @1)
+  @1))
+
+/* !A ? B : C -> A ? C : B.  */
+(simplify
+ (cond (logical_inverted_value truth_valued_p@0) @1 @2)
+ (cond @0 @2 @1))
+
+
+/* Simplifications of comparisons.  */
+
+/* We can simplify a logical negation of a comparison to the
+   inverted comparison.  As we cannot compute an expression
+   operator using invert_tree_comparison we have to simulate
+   that with expression code iteration.  */
+(for cmp (tcc_comparison)
+     icmp (inverted_tcc_comparison)
+     ncmp (inverted_tcc_comparison_with_nans)
+ /* Ideally we'd like to combine the following two patterns
+    and handle some more cases by using
+      (logical_inverted_value (cmp @0 @1))
+    here but for that genmatch would need to "inline" that.
+    For now implement what forward_propagate_comparison did.  */
+ (simplify
+  (bit_not (cmp @0 @1))
+  (if (VECTOR_TYPE_P (type)
+       || (INTEGRAL_TYPE_P (type) && TYPE_PRECISION (type) == 1))
+   /* Comparison inversion may be impossible for trapping math,
+      invert_tree_comparison will tell us.  But we can't use
+      a computed operator in the replacement tree thus we have
+      to play the trick below.  */
+   (with { enum tree_code ic = invert_tree_comparison
+             (cmp, HONOR_NANS (TYPE_MODE (TREE_TYPE (@0)))); }
+    (if (ic == icmp)
+     (icmp @0 @1))
+    (if (ic == ncmp)
+     (ncmp @0 @1)))))
+ (simplify
+  (bit_xor (cmp @0 @1) integer_onep)
+  (if (INTEGRAL_TYPE_P (type))
+   (with { enum tree_code ic = invert_tree_comparison
+             (cmp, HONOR_NANS (TYPE_MODE (TREE_TYPE (@0)))); }
+    (if (ic == icmp)
+     (icmp @0 @1))
+    (if (ic == ncmp)
+     (ncmp @0 @1))))))
+
+
 
 
 /* Simple example for a user-defined predicate - modeled after
@@ -648,17 +770,6 @@ along with GCC; see the file COPYING3.  If not see
   (bit_and (rshift@0 @1 INTEGER_CST@2) integer_onep)
   (if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0)
    @0))
-
-/* COMPLEX_EXPR and REALPART/IMAGPART_EXPR cancellations.  */
-(simplify
-  (complex (realpart @0) (imagpart @0))
-  @0)
-(simplify
-  (realpart (complex @0 @1))
-  @0)
-(simplify
-  (imagpart (complex @0 @1))
-  @1)
 
 /* One unary pattern.  */
 

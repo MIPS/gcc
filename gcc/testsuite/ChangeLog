@@ -1,3 +1,210 @@
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/forwprop-28.c: Adjust.
+
+2014-11-12  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	* lib/target-supports.exp (error_h): New check.
+	(libc_has_complex_functions): Ditto.
+	(tgmath_h): Ditto.
+	* gcc.dg/builtins-59.c: Add libc_has_complex_functions check.
+	* gcc.dg/builtins-61.c: Likewise.
+	* gcc.dg/builtins-67.c: Disable test for Bionic.
+	* gcc.dg/strlenopt-14g.c: Likewise.
+	* gcc.dg/strlenopt-14gf.c: Likewise.
+	* gcc.dg/c99-tgmath-1.c: Add tgmath_h check.
+	* gcc.dg/c99-tgmath-2.c: Likewise.
+	* gcc.dg/c99-tgmath-3.c: Likewise.
+	* gcc.dg/c99-tgmath-4.c: Likewise.
+	* gcc.dg/dfp/convert-dfp-round-thread.c: Add error_h check.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/63838
+	* g++.dg/ipa/pr63838.C: New test.
+
+2014-11-12  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* gcc.target/mips/args-1.c: Handle __mips_fpr == 0.
+	* gcc.target/mips/call-clobbered-1.c: New.
+	* gcc.target/mips/call-clobbered-2.c: New.
+	* gcc.target/mips/call-clobbered-3.c: New.
+	* gcc.target/mips/call-clobbered-4.c: New.
+	* gcc.target/mips/call-clobbered-5.c: New.
+	* gcc.target/mips/call-saved-4.c: New.
+	* gcc.target/mips/call-saved-5.c: New.
+	* gcc.target/mips/call-saved-6.c: New.
+	* gcc.target/mips/mips.exp: Support -mfpxx, -ffixed-f*,
+	and -m[no-]odd-spreg.  Use _MIPS_SPFPSET to determine default
+	odd-spreg option.  Account for -modd-spreg in minimum arch code.
+	* gcc.target/mips/movdf-1.c: New.
+	* gcc.target/mips/movdf-2.c: New.
+	* gcc.target/mips/movdf-3.c: New.
+	* gcc.target/mips/oddspreg-1.c: New.
+	* gcc.target/mips/oddspreg-2.c: New.
+	* gcc.target/mips/oddspreg-3.c: New.
+	* gcc.target/mips/oddspreg-4.c: New.
+	* gcc.target/mips/oddspreg-5.c: New.
+	* gcc.target/mips/oddspreg-6.c: New.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/63815
+	* g++.dg/other/pr63815.C: New test.
+
+2014-11-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 1510
+	PR c++/60420
+	* g++.dg/cpp0x/decltype61.C: New.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/63835
+	* gcc.dg/pr63835.c: New test.
+
+2014-11-12  Alan Lawrence  <alan.lawrence@arm.com>
+
+         * gcc.target/aarch64/simd/vqdmlal_high_lane_s16_indices_1.c: New test.
+         * gcc.target/aarch64/simd/vqdmlal_high_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_high_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_high_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlalh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlals_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlslh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsls_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhs_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmullh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulls_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhs_lane_s32_indices_1.c: Likewise.
+
+2014-11-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/387-1.c (dg-skip-if): Use *-*-* target selector.
+	* gcc.target/i386/387-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/387-5.c (dg-skip-if): Ditto.
+	* gcc.target/i386/387-6.c (dg-skip-if): Ditto.
+	* gcc.target/i386/cmov7.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-3.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-8.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-9.c (dg-skip-if): Ditto.
+	* gcc.target/i386/gcc-have-sync-compare-and-swap-1.c (dg-skip-if):
+	Ditto.
+	* gcc.target/i386/gcc-have-sync-compare-and-swap-2.c (dg-skip-if):
+	Ditto.
+	* gcc.target/i386/isa-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/isa-6.c (dg-skip-if): Ditto.
+	* gcc.target/i386/isa-9.c (dg-skip-if): Ditto.
+	* gcc.target/i386/lea.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-strategy-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-strategy-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-vector_loop-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-vector_loop-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memset-vector_loop-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memset-vector_loop-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-10.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-3.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-4.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-5a.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-5b.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-6a.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-6b.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-7.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-8.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-9.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pentium4-not-mull.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pr42589.c (dg-skip-if): Ditto.
+	* gcc.target/i386/sse-19.c (dg-skip-if): Ditto.
+	* gcc.target/i386/sse2-init-v2di-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssefn-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssetype-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssetype-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssetype-5.c (dg-skip-if): Ditto.
+	* gcc.target/i386/vect-double-1.c (dg-skip-if): Ditto.
+
+2014-11-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr45852.c: Simplify target selector.
+	* gcc.target/i386/pr63495.c: Ditto.
+	* gcc.target/i386/pr39496.c: Ditto.
+	* gcc.target/i386/pr36613.c: Ditto.
+
+2014-11-12  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/lr_free_1.c: New testcase for -fomit-frame-pointer.
+	* gcc.target/aarch64/lr_free_2.c: New testcase for leaf
+	-fno-omit-frame-pointer.
+
+2014-11-12  Marek Polacek  <polacek@redhat.com>
+
+	* lib/gcc-dg.exp (${tool}_load): Call prune_file_path instead
+	of prune_gcc_output.
+	* lib/prune.exp (prune_file_path): New procedure.
+
+2014-11-12  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/overflow-sub-4.c: New test.
+	* c-c++-common/ubsan/overflow-sub-2.c: Adjust dg-output.
+	* c-c++-common/ubsan/overflow-int128.c: Likewise.
+
+2014-11-12  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* gcc.target/i386/pr52252-atom-1.c: Extend assembler scan on AVX2 case.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-fre-32.c: Disable forwprop.
+
+2014-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/no-math-errno-1.c, gcc.dg/no-math-errno-2.c,
+	gcc.dg/no-math-errno-3.c, gcc.dg/no-math-errno-4.c: New tests.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/63830
+	* c-c++-common/asan/strlen-overflow-1.c (main): Avoid tail call.
+
 2014-11-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/59708

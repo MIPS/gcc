@@ -1,3 +1,9 @@
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r217417 through r217496.
+
+	Brings back next merge piece.
+
 2014-11-12  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r217261 through r217416.

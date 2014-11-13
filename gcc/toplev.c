@@ -98,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "tree-chkp.h"
+#include "omp-low.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -600,6 +601,8 @@ compile_file (void)
 
       if (flag_check_pointer_bounds)
 	chkp_finish_file ();
+
+      omp_finish_file ();
 
       output_shared_constant_pool ();
       output_object_blocks ();
@@ -1470,7 +1473,7 @@ process_options (void)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
   else
-    error ("target system does not support the \"%s\" debug format",
+    error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
 
   /* We know which debug output will be used so we can set flag_var_tracking

@@ -252,8 +252,7 @@ make_hard_regno_born (int regno)
   unsigned int i;
 
   lra_assert (regno < FIRST_PSEUDO_REGISTER);
-  if (TEST_HARD_REG_BIT (lra_no_alloc_regs, regno)
-      || TEST_HARD_REG_BIT (hard_regs_live, regno))
+  if (TEST_HARD_REG_BIT (hard_regs_live, regno))
     return;
   SET_HARD_REG_BIT (hard_regs_live, regno);
   sparseset_set_bit (start_living, regno);
@@ -267,8 +266,7 @@ static void
 make_hard_regno_dead (int regno)
 {
   lra_assert (regno < FIRST_PSEUDO_REGISTER);
-  if (TEST_HARD_REG_BIT (lra_no_alloc_regs, regno)
-      || ! TEST_HARD_REG_BIT (hard_regs_live, regno))
+  if (! TEST_HARD_REG_BIT (hard_regs_live, regno))
     return;
   sparseset_set_bit (start_dying, regno);
   CLEAR_HARD_REG_BIT (hard_regs_live, regno);
@@ -392,7 +390,7 @@ mark_regno_dead (int regno, machine_mode mode, int point, bool local_sets_p)
 
 /* Structure describing local BB data used for pseudo
    live-analysis.  */
-struct bb_data
+struct bb_data_pseudos
 {
   /* Basic block about which the below data are.  */
   basic_block bb;
@@ -401,7 +399,7 @@ struct bb_data
 };
 
 /* Array for all BB data.  Indexed by the corresponding BB index.  */
-typedef struct bb_data *bb_data_t;
+typedef struct bb_data_pseudos *bb_data_t;
 
 /* All basic block data are referred through the following array.  */
 static bb_data_t bb_data;
@@ -481,7 +479,7 @@ initiate_live_solver (void)
   bitmap_initialize (&temp_bitmap, &reg_obstack);
   bitmap_initialize (&all_hard_regs_bitmap, &reg_obstack);
   bitmap_set_range (&all_hard_regs_bitmap, 0, FIRST_PSEUDO_REGISTER);
-  bb_data = XNEWVEC (struct bb_data, last_basic_block_for_fn (cfun));
+  bb_data = XNEWVEC (struct bb_data_pseudos, last_basic_block_for_fn (cfun));
   bitmap_initialize (&all_blocks, &reg_obstack);
 
   basic_block bb;
@@ -662,7 +660,6 @@ process_bb_lives (basic_block bb, int &curr_point)
   sparseset_clear (pseudos_live_through_setjumps);
   REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_out);
   AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
-  AND_COMPL_HARD_REG_SET (hard_regs_live, lra_no_alloc_regs);
   EXECUTE_IF_SET_IN_BITMAP (reg_live_out, FIRST_PSEUDO_REGISTER, j, bi)
     mark_pseudo_live (j, curr_point);
 

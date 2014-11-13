@@ -1779,6 +1779,14 @@ HOOK_VECTOR_END (vectorize)
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_"
 
+DEFHOOK
+(record_offload_symbol,
+ "Used when offloaded functions are seen in the compilation unit and no named\n\
+sections are available.  It is called once for each symbol that must be\n\
+recorded in the offload function and variable table.",
+ void, (tree),
+ hook_void_tree)
+
 /* Allow target specific overriding of option settings after options have
   been changed by an attribute or pragma or when it is reset at the
   end of the code affected by an attribute or pragma.  */
@@ -1793,6 +1801,15 @@ actions then, you should have @code{TARGET_OPTION_OVERRIDE} call\n\
 @code{TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE}.",
  void, (void),
  hook_void_void)
+
+DEFHOOK
+(offload_options,
+ "Used when writing out the list of options into an LTO file.  It should\n\
+translate any relevant target-specific options (such as the ABI in use)\n\
+into one of the @option{-foffload} options that exist as a common interface\n\
+to express such options.  It should return a string containing these options,\n\
+separated by spaces, which the caller will free.\n",
+char *, (void), hook_charptr_void_null)
 
 DEFHOOK_UNDOC
 (eh_return_filter_mode,

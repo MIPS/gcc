@@ -1,3 +1,562 @@
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add tcc_comparison, inverted_tcc_comparison
+	and inverted_tcc_comparison_with_nans operator lists.
+	Use tcc_comparison in the truth_valued_p predicate definition.
+	Restrict logical_inverted_value with bit_xor to integral types.
+	Build a boolean true for simplifying x |^ !x because of
+	vector types.  Implement patterns from forward_propagate_comparison
+	* tree-ssa-forwprop.c (forward_propagate_comparison): Remove.
+	(get_prop_dest_stmt): Likewise.
+	(pass_forwprop::execute): Do not call it.
+	* fold-const.c (fold_unary_loc): Remove the pattern here.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* config.gcc (*-intelmic-* | *-intelmicemul-*): Add i386/t-intelmic to
+	tmake_file.
+	(i[34567]86-*-* | x86_64-*-*): Build mkoffload$(exeext) with the
+	accelerator compiler.
+	* config/i386/intelmic-mkoffload.c: New file.
+	* config/i386/t-intelmic: Ditto.
+
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* common.opt (foffload, foffload-abi): New options.
+	* config/i386/i386.c (ix86_offload_options): New static function.
+	(TARGET_OFFLOAD_OPTIONS): Define.
+	* coretypes.h (enum offload_abi): New enum.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (TARGET_OFFLOAD_OPTIONS): Document.
+	* gcc.c (offload_targets): New static variable.
+	(handle_foffload_option): New static function.
+	(driver_handle_option): Handle OPT_foffload_.
+	(driver::maybe_putenv_OFFLOAD_TARGETS): Set OFFLOAD_TARGET_NAMES
+	according to offload_targets.
+	* hooks.c (hook_charptr_void_null): New hook.
+	* hooks.h (hook_charptr_void_null): Declare.
+	* lto-opts.c: Include lto-section-names.h.
+	(lto_write_options): Append options from target offload_options hook and
+	store them to offload_lto section.  Do not store target-specific,
+	driver and diagnostic options in offload_lto section.
+	* lto-wrapper.c (merge_and_complain): Handle OPT_foffload_ and
+	OPT_foffload_abi_.
+	(append_compiler_options, append_linker_options)
+	(append_offload_options): New static functions.
+	(compile_offload_image): Add new arguments with options.
+	Call append_compiler_options and append_offload_options.
+	(compile_images_for_offload_targets): Add new arguments with options.
+	(find_and_merge_options): New static function.
+	(run_gcc): Outline options handling into the new functions:
+	find_and_merge_options, append_compiler_options, append_linker_options.
+	* opts.c (common_handle_option): Don't handle OPT_foffload_.
+	Forbid OPT_foffload_abi_ for non-offload compiler.
+	* target.def (offload_options): New target hook.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* gcc.c (spec_host_machine, accel_dir_suffix): New variables.
+	(process_command): Tweak path construction for the possibility
+	of being configured as an offload compiler.
+	(driver::maybe_putenv_OFFLOAD_TARGETS): New function.
+	(driver::main): Call maybe_putenv_OFFLOAD_TARGETS.
+	(driver::set_up_specs): Tweak path construction for the possibility of
+	being configured as an offload compiler.
+	* lto-wrapper.c (OFFLOAD_TARGET_NAMES_ENV): Define.
+	(offload_names, offloadbegin, offloadend): New static variables.
+	(free_array_of_ptrs, parse_env_var, access_check, compile_offload_image)
+	(compile_images_for_offload_targets, copy_file, find_offloadbeginend):
+	New static functions.
+	(run_gcc): Determine whether offload sections are present.  If so, run
+	compile_images_for_offload_targets and return the names of new generated
+	objects to linker.  If there are offload sections, but no LTO sections,
+	then return the copies of input objects without link-time recompilation.
+
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_node::gen_kids): Fix placement of break statement.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* Makefile.in (GTFILES): Add omp-low.h to list of GC files.
+	* cgraphunit.c: Include omp-low.h.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (TARGET_RECORD_OFFLOAD_SYMBOL): Document.
+	* gengtype.c (open_base_files): Add omp-low.h to ifiles.
+	* lto-cgraph.c (output_offload_tables): New function.
+	(input_offload_tables): Likewise.
+	* lto-section-in.c (lto_section_name): Add "offload_table".
+	* lto-section-names.h (OFFLOAD_VAR_TABLE_SECTION_NAME): Define.
+	(OFFLOAD_FUNC_TABLE_SECTION_NAME): Likewise.
+	* lto-streamer-out.c (lto_output): Call output_offload_tables.
+	* lto-streamer.h (lto_section_type): Add LTO_section_offload_table.
+	(output_offload_tables, input_offload_tables): Declare.
+	* omp-low.c: Include common/common-target.h and lto-section-names.h.
+	(offload_funcs, offload_vars): New global <tree, va_gc> vectors.
+	(expand_omp_target): Add child_fn into offload_funcs vector.
+	(add_decls_addresses_to_decl_constructor): New function.
+	(omp_finish_file): Likewise.
+	* omp-low.h (omp_finish_file, offload_funcs, offload_vars): Declare.
+	* target.def (record_offload_symbol): New DEFHOOK.
+	* toplev.c: Include omp-low.h.
+	(compile_file): Call omp_finish_file.
+	* varpool.c: Include omp-low.h.
+	(varpool_node::get_create): Add decl into offload_vars vector.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* cgraph.c: Include context.h.
+	(cgraph_node::create): Set node->offloadable and g->have_offload if
+	decl have "omp declare target" attribute.
+	* cgraph.h (symtab_node): Add need_lto_streaming and offloadable flags.
+	* cgraphunit.c: Include lto-section-names.h.
+	(ipa_passes): Call ipa_write_summaries if there is something to write to
+	OFFLOAD_SECTION_NAME_PREFIX sections.
+	(symbol_table::compile): Set flag_generate_lto if there is something to
+	offload.
+	Replace flag_lto with flag_generate_lto before lto_streamer_hooks_init.
+	* context.c (gcc::context::context): Initialize have_offload with false.
+	* context.h (class context): Add have_offload flag.
+	* ipa-inline-analysis.c (inline_generate_summary): Do not exit under
+	flag_generate_lto.
+	(inline_free_summary): Always remove hooks.
+	* lto-cgraph.c (referenced_from_other_partition_p): Ignore references
+	from non-offloadable nodes while streaming a node into offload section.
+	(reachable_from_other_partition_p): Likewise.
+	(select_what_to_stream): New function.
+	(compute_ltrans_boundary): Do not call
+	lto_set_symtab_encoder_in_partition if the node should not be streamed.
+	* lto-section-names.h (OFFLOAD_SECTION_NAME_PREFIX): Define.
+	(section_name_prefix): Declare.
+	* lto-streamer.c (section_name_prefix): New variable.
+	(lto_get_section_name): Use section_name_prefix instead of
+	LTO_SECTION_NAME_PREFIX.
+	* lto-streamer.h (select_what_to_stream): Declare.
+	* omp-low.c: Include context.h.
+	(is_targetreg_ctx): New function.
+	(scan_sharing_clauses): Use offloadable flag, instead of an attribute.
+	(create_omp_child_function, check_omp_nesting_restrictions): Use new
+	is_targetreg_ctx function.  Replace usage of "omp declare target"
+	attribute with a cgraph_node flag offloadable.
+	(expand_omp_target): Set mark_force_output for offloadable functions.
+	(lower_omp_critical): Set offloadable flag for omp critical symbol.
+	* passes.c (ipa_write_summaries): New argument offload_lto_mode.  Call
+	select_what_to_stream.  Do not call lto_set_symtab_encoder_in_partition
+	if the node should not be streamed out.
+	* tree-pass.h (ipa_write_summaries): New bool argument.
+	* varpool.c: Include context.h.
+	(varpool_node::get_create): Set node->offloadable and g->have_offload if
+	decl have "omp declare target" attribute.
+
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* Makefile.in (real_target_noncanonical, accel_dir_suffix)
+	(enable_as_accelerator): New variables substituted by configure.
+	(libsubdir, libexecsubdir, unlibsubdir): Tweak for the possibility of
+	being configured as an offload compiler.
+	(DRIVER_DEFINES): Pass new defines DEFAULT_REAL_TARGET_MACHINE and
+	ACCEL_DIR_SUFFIX.
+	(install-cpp, install-common, install_driver, install-gcc-ar): Do not
+	install for the offload compiler.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac (real_target_noncanonical, accel_dir_suffix)
+	(enable_as_accelerator): Compute new variables.
+	(ACCEL_COMPILER): Define if the compiler is built as the accel compiler.
+	(OFFLOAD_TARGETS): List of target names suitable for offloading.
+	(ENABLE_OFFLOADING): Define if list of offload targets is not empty.
+	* doc/install.texi (Options specification): Document
+	--enable-as-accelerator-for and --enable-offload-targets.
+
+2014-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/63828
+	* ipa-polymorphic-call.c (possible_placement_new): Check
+	POINTER_SIZE, instead of BITS_PER_WORD, for pointer size.
+
+2014-11-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/tm.texi.in (SELECT_CC_MODE): Update example.
+	(REVERSIBLE_CC_MODE): Fix example.
+	(REVERSE_CONDITION): Fix typo.
+	* doc/tm.texi: Regenerate.
+
+2014-11-13  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (pass_data_expand_omp): Set properties_provided to
+	PROP_gimple_eomp.
+	(pass_expand_omp::gate): Remove function.  Move gate expression to ...
+	(pass_expand_omp::execute): ... here, as new variable gate.  Add early
+	exit if gate is false.
+	(pass_data pass_data_expand_omp_ssa): New pass_data.
+	(class pass_expand_omp_ssa): New pass.
+	(make_pass_expand_omp_ssa): New function.
+	* passes.def (pass_parallelize_loops): Use PUSH_INSERT_PASSES_WITHIN
+	instead of NEXT_PASS.
+	(pass_expand_omp_ssa): Add after pass_parallelize_loops.
+	* tree-parloops.c (gen_parallel_loop): Remove call to omp_expand_local.
+	(pass_parallelize_loops::execute): Don't do cleanups TODO_cleanup_cfg
+	and TODO_rebuild_alias yet.  Add TODO_update_ssa.  Set
+	cfun->omp_expand_needed.
+	* tree-pass.h: Add define PROP_gimple_eomp.
+	(make_pass_expand_omp_ssa): Declare.
+
+2014-11-13  Marek Polacek  <polacek@redhat.com>
+
+	* tree.h (TYPE_OVERFLOW_SANITIZED): Define.
+	* fold-const.c (fold_binary_loc): Use it.
+	* match.pd: Likewise.
+
+2014-11-14  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* lra-lives.c (struct bb_data): Rename to ...
+	(struct bb_data_pseudos): ... this.
+	(initiate_live_solver): Update struct name.
+
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Implement conditional expression patterns.
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Remove
+	them here.
+	(combine_cond_exprs): Remove.
+	(pass_forwprop::execute): Do not call combine_cond_exprs.
+	* fold-const.c (fold_ternary_loc): Remove patterns here.
+	(pedantic_omit_one_operand_loc): Remove.
+
+2014-12-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61559
+	* match.pd: Implement bswap patterns for transforms checked by
+	gcc.dg/builtin-bswap-8.c.
+
+2014-11-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (lra): Switch off rematerialization pass.
+
+2014-11-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (flra-remat): New.
+	* opts.c (default_options_table): Add entry for flra_remat.
+	* timevar_def (TV_LRA_REMAT): New.
+	* doc/invoke.texi (-flra-remat): Add description of the new
+	option.
+	* doc/passes.texi (-flra-remat): Remove lra-equivs.c and
+	lra-saves.c.  Add lra-remat.c.
+	* Makefile.in (OBJS): Add lra-remat.o.
+	* lra-remat.c: New file.
+	* lra.c: Add info about the rematerialization pass in the top
+	comment.
+	(collect_non_operand_hard_regs, add_regs_to_insn_regno_info):
+	Process unallocatable regs too.
+	(lra_constraint_new_insn_uid_start): Remove.
+	(lra): Add code for calling rematerialization sub-pass.
+	* lra-int.h (lra_constraint_new_insn_uid_start): Remove.
+	(lra_constrain_insn, lra_remat): New prototypes.
+	(lra_eliminate_regs_1): Add parameter.
+	* lra-lives.c (make_hard_regno_born, make_hard_regno_dead):
+	Process unallocatable hard regs too.
+	(process_bb_lives): Ditto.
+	* lra-spills.c (remove_pseudos): Add argument to
+	lra_eliminate_regs_1 call.
+	* lra-eliminations.c (lra_eliminate_regs_1): Add parameter.  Use it
+	for sp offset calculation.
+	(lra_eliminate_regs): Add argument for lra_eliminate_regs_1 call.
+	(eliminate_regs_in_insn): Add parameter.  Use it for sp offset
+	calculation.
+	(process_insn_for_elimination): Add argument for
+	eliminate_regs_in_insn call.
+	* lra-constraints.c (get_equiv_with_elimination):  Add argument
+	for lra_eliminate_regs_1 call.
+	(process_addr_reg): Add parameter.  Use it.
+	(process_address_1): Ditto.  Add argument for process_addr_reg
+	call.
+	(process_address): Ditto.
+	(curr_insn_transform): Add parameter.  Use it.  Add argument for
+	process_address calls.
+	(lra_constrain_insn): New function.
+	(lra_constraints): Add argument for curr_insn_transform call.
+
+2014-11-13  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* opts-global.c (postpone_unknown_option_warning): Fix spelling.
+	(print_ignored_options): Fix quoting.
+	* opts.c (common_handle_option): Likewise.
+	(set_debug_level): Likewise.
+	* toplev.c (process_options): Likewise.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/63838
+	* ipa-pure-const.c (propagate_nothrow): Walk w->indirect_calls
+	chain instead of node->indirect_calls.  Put !can_throw into
+	conditions of all the loops.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (x86_output_mi_thunk): Use gen_rtx_REG to
+	set pic_offset_table_rtx.
+
+2014-11-12  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* common/config/mips/mips-common.c (mips_handle_option): Ensure
+	that -mfp32, -mfp64 disable -mfpxx and -mfpxx disables -mfp64.
+	* config.gcc (--with-fp-32): New option.
+	(--with-odd-spreg-32): Likewise.
+	* config.in (HAVE_AS_DOT_MODULE): New config define.
+	* config/mips/mips-protos.h
+	(mips_secondary_memory_needed): New prototype.
+	(mips_hard_regno_caller_save_mode): Likewise.
+	* config/mips/mips.c (mips_get_reg_raw_mode): New static prototype.
+	(mips_get_arg_info): Assert that V2SFmode is only handled specially
+	with TARGET_PAIRED_SINGLE_FLOAT.
+	(mips_return_mode_in_fpr_p): Likewise.
+	(mips16_call_stub_mode_suffix): Likewise.
+	(mips_get_reg_raw_mode): New static function.
+	(mips_return_fpr_pair): O32 return values span two registers.
+	(mips16_build_call_stub): Likewise.
+	(mips_function_value_regno_p): Support both FP return registers.
+	(mips_output_64bit_xfer): Use mthc1 whenever TARGET_HAS_MXHC1.  Add
+	specific cases for TARGET_FPXX to move via memory.
+	(mips_dwarf_register_span): For TARGET_FPXX pretend that modes larger
+	than UNITS_PER_FPREG 'span' one register.
+	(mips_dwarf_frame_reg_mode): New static function.
+	(mips_file_start): Switch to using .module instead of .gnu_attribute.
+	No longer support FP ABI 4 (-mips32r2 -mfp64), replace with FP ABI 6.
+	Add FP ABI 5 (-mfpxx) and FP ABI 7 (-mfp64 -mno-odd-spreg).
+	(mips_save_reg, mips_restore_reg): Always represent DFmode frame
+	slots with two CFI directives even for O32 FP64.
+	(mips_for_each_saved_gpr_and_fpr): Account for fixed_regs when
+	saving/restoring callee-saved registers.
+	(mips_hard_regno_mode_ok_p): Implement O32 FP64A extension.
+	(mips_secondary_memory_needed): New function.
+	(mips_option_override): ABI check for TARGET_FLOATXX.  Disable
+	odd-numbered single-precision registers	when using TARGET_FLOATXX.
+	Implement -modd-spreg and defaults.
+	(mips_conditional_register_usage): Redefine O32 FP64 to match O32 FP32
+	callee-saved behaviour.
+	(mips_hard_regno_caller_save_mode): Implement.
+	(TARGET_GET_RAW_RESULT_MODE): Define target hook.
+	(TARGET_GET_RAW_ARG_MODE): Define target hook.
+	(TARGET_DWARF_FRAME_REG_MODE): Define target hook.
+	* config/mips/mips.h (TARGET_FLOAT32): New macro.
+	(TARGET_O32_FP64A_ABI): Likewise.
+	(TARGET_CPU_CPP_BUILTINS): TARGET_FPXX is __mips_fpr==0. Add
+	_MIPS_SPFPSET builtin define.
+	(MIPS_FPXX_OPTION_SPEC): New macro.
+	(OPTION_DEFAULT_SPECS): Pass through --with-fp-32=* to -mfp and
+	--with-odd-spreg-32=* to -m[no-]odd-spreg.
+	(ISA_HAS_ODD_SPREG): New macro.
+	(ISA_HAS_MXHC1): True for anything other than -mfp32.
+	(ASM_SPEC): Pass through mfpxx, mfp64, -mno-odd-spreg and -modd-spreg.
+	(MIN_FPRS_PER_FMT): Redefine in terms of TARGET_ODD_SPREG.
+	(HARD_REGNO_CALLER_SAVE_MODE): Define.  Implement O32 FPXX extension
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+	(SECONDARY_MEMORY_NEEDED): Likewise.
+	(FUNCTION_ARG_REGNO_P): Update for O32 FPXX and FP64 extensions.
+	* config/mips/mips.md (define_attr enabled): Implement O32 FPXX and
+	FP64A ABI extensions.
+	(move_doubleword_fpr<mode>): Use ISA_HAS_MXHC1 instead of
+	TARGET_FLOAT64.
+	* config/mips/mips.opt (mfpxx): New target option.
+	(modd-spreg): Likewise.
+	* config/mips/mti-elf.h (DRIVER_SELF_SPECS): Infer FP ABI from arch.
+	* config/mips/mti-linux.h (DRIVER_SELF_SPECS): Likewise and remove
+	fp64 sysroot.
+	* config/mips/t-mti-elf: Remove fp64 multilib.
+	* config/mips/t-mti-linux: Likewise.
+	* configure.ac: Detect .module support.
+	* configure: Regenerate.
+	* doc/invoke.texi: Document -mfpxx, -modd-spreg, -mno-odd-spreg option.
+	* doc/install.texi (--with-fp-32, --with-odd-spreg-32): Document new
+	options.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/63815
+	* config/i386/i386.c (ix86_init_large_pic_reg): New.  Extracted
+	from ...
+	(ix86_init_pic_reg): Here.  Use ix86_init_large_pic_reg.
+	(x86_output_mi_thunk): Set PIC register to %r11.  Call
+	ix86_init_large_pic_reg to initialize PIC register.
+
+2014-11-12  Kai Tietz  <ktietz@redhat.com>
+
+	* sdbout.c (sdbout_symbol): Eliminate register only
+	if decl isn't a global variable.
+
+2014-11-12  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_lane_bounds): Display indices.
+
+	* config/aarch64/aarch64-builtins.c (enum aarch64_type_qualifiers): Add
+	qualifier_lane_index.
+	(aarch64_types_ternop_lane_qualifiers, TYPES_TERNOP_LANE): Rename to...
+	(aarch64_types_quadop_lane_qualifiers, TYPES_QUADOP_LANE): ...these.
+	(aarch64_types_ternop_lane_qualifiers, TYPES_TERNOP_LANE): New.
+
+	(aarch64_types_getlane_qualifiers): Rename to...
+	(aarch64_types_binop_imm_qualifiers): ...this.
+	(TYPES_SHIFTIMM): Follow renaming.
+	(TYPES_GETLANE): Rename to...
+	(TYPE_GETREG): ...this.
+
+	(aarch64_types_setlane_qualifiers): Rename to...
+	(aarch64_type_ternop_imm_qualifiers): ...this.
+	(TYPES_SHIFTINSERT, TYPES_SHIFTACC): Follow renaming.
+	(TYPES_SETLANE): Follow renaming above, and rename self to...
+	(TYPE_SETREG): ...this.
+
+	(enum builtin_simd_arg): Add SIMD_ARG_LANE_INDEX.
+	(aarch64_simd_expand_args): Add range check and endianness-flip.
+
+	(aarch64_simd_expand_builtin): Add mapping for qualifier_lane_index.
+
+	* config/aarch64/aarch64-simd.md
+	(aarch64_sq<r>dmulh_lane<mode>_internal *2): Rename to...
+	(aarch64_sq<r>dmulh_lane<mode>): ...this, and remove lane bounds check.
+	(aarch64_sqdmulh_lane<mode> *2, aarch64_sqrdmulh_lane<mode> *2): Delete.
+
+	(aarch64_sq<r>dmulh_laneq<mode>_internal): Rename to...
+	(aarch64_sq<r>dmulh_lane<mode>): ...this.
+
+	(aarch64_sqdml<SBINQOPS:as>l_lane<mode>_internal *2): Rename to...
+	(aarch64_sqdml<SBINQOPS:as>l_lane<mode>): ...this.
+
+	(aarch64_sqdml<SBINQOPS:as>l_laneq<mode>_internal *2): Rename to...
+	(aarch64_sqdml<SBINQOPS:as>l_laneq<mode>): ...this.
+
+	(aarch64_sqdmull_lane<mode>_internal *2): Rename to...
+	(aarch64_sqdmull_lane<mode>): ...this.
+
+	(aarch64_sqdmull_laneq<mode>_internal *2): Rename to...
+	(aarch64_sqdmull_laneq<mode>): ...this.
+
+	(aarch64_sqdmulh_laneq<mode>, aarch64_sqrdmulh_laneq<mode>,
+	(aarch64_sqdmlal_lane<mode>, aarch64_sqdmlal_laneq<mode>,
+	aarch64_sqdmlsl_lane<mode>, aarch64_sqdmlsl_laneq<mode>,
+	aarch64_sqdmull_lane<mode>, aarch64_sqdmull_laneq<mode>): Delete.
+
+	(aarch64_sqdmlal2_lane<mode>, aarch64_sqdmlal2_laneq<mode>,
+	aarch64_sqdmlsl2_lane<mode>, aarch64_sqdmlsl2_laneq<mode>,
+	aarch64_sqdmull2_lane<mode>, aarch64_sqdmull2_laneq<mode>): Remove
+	bounds check and lane flip.
+
+	* config/aarch64/aarch64-simd-builtins.def (be_checked_get_lane,
+	get_dregoi, get_dregci, getdregxi, get_qregoi,get_qregci, get_qregxi,
+	set_qregoi, set_qregci, set_qregxi): Change qualifiers to GETREG.
+
+	(sqdmlal_lane, sqdmlsl_lane, sqdmlal_laneq, sqdmlsl_laneq,
+	sqdmlal2_lane, sqdmlsl2_lane, sqdmlal2_laneq, sqdmlsl2_laneq): Follow
+	renaming of TERNOP_LANE to QUADOP_LANE.
+
+	(sqdmull_lane, sqdmull_laneq, sqdmull2_lane, sqdmull2_laneq,
+	sqdmulh_lane, sqdmulh_laneq, sqrdmulh_lane, sqrdmulh_laneq): Set
+	qualifiers to TERNOP_LANE.
+
+2014-11-12  Tobias Burnus  <burnus@net-b.de>
+
+	* Makefile.in (CLOOGLIBS, CLOOGINC): Remove.
+	* configure.ac: Ditto.
+	* graphite-interchange.c: Remove HAVE_CLOOG block.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+
+2014-11-12  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.h (CALL_USED_REGISTERS): Mark LR as
+	caller-save.
+	(EPILOGUE_USES): Guard the check by epilogue_completed.
+	* config/aarch64/aarch64.c (aarch64_layout_frame): Explictly check for
+	LR.
+	(aarch64_can_eliminate): Check LR_REGNUM liveness.
+
+2014-11-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.c (*<arith_shift_insn>_shiftsi): Fix typo.
+
+2014-11-12  Marek Polacek  <polacek@redhat.com>
+
+	* fold-const.c (fold_binary_loc): Don't fold if the result
+	is undefined.
+	* match.pd (A + (-B) -> A - B, A - (-B) -> A + B,
+	-(-A) -> A): Likewise.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	Merge from match-and-simplify branch
+	2014-11-04  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (user_id): Add new member is_oper_list.
+	(user_id::user_id): Add new default argument.
+	(parser::parse_operator_list): New function.
+	(parser::parse_for): Allow operator-list.
+	(parser::parse_pattern): Call parser::parse_operator_list.
+	(parser::parse_operation): Reject operator-list.
+	* match-builtin.pd: Define operator lists POWs, CBRTs and SQRTs.
+
+	2014-10-31  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_c_expr): Mark user-defined ops as used.
+
+	2014-10-30  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_op): Check if predicate is used in
+	result operand.
+
+	2014-10-29  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_for): Make sure to have a valid
+	token to report errors at.
+
+	2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser): Add new member parsing_match_operand.
+	(parser::parse_operation): Check for conditional convert in result
+	operand.
+	(parser::parse_expr): Check for commutative operator in result operand.
+	Check for :type in match operand.
+	(parser::parse_simplify): Set/unset parsing_match_operand.
+	(parser::parser): Initialize parsing_match_operand.
+
+	2014-10-28  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parser::parse_for): Properly check for already
+	defined operators.
+
+	2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (error_cb): Adjust for printing warnings.
+	(warning_at): New function.
+	(user_id): Add new member used.
+	(get_operator): Mark user_id as used.
+	(parse_for): Warn for unused operators.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Implement simple complex operations cancelling.
+	* fold-const.c (fold_unary_loc): Remove them here.
+
+2014-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* cppbuiltin.c (define_builtin_macros_for_compilation_flags):
+	Define __NO_MATH_ERRNO__ if -fno-math-errno.
+	* doc/cpp.texi (__NO_MATH_ERRNO__): Document predefined macro.
+
 2014-11-12  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (::gen_transform): Add capture_info and
