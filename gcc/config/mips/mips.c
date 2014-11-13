@@ -13815,11 +13815,20 @@ mips_process_sync_loop (rtx insn, rtx *operands)
 			       at, oldval, inclusive_mask, NULL);
 	  tmp1 = at;
 	}
-      mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
-
+      if (TARGET_MICROMIPS && mips_isa_rev > 5)
+        {
       /* CMP = 0 [delay slot].  */
-      if (cmp)
-        mips_multi_add_insn ("li\t%0,0", cmp, NULL);
+	  if (cmp)
+	    mips_multi_add_insn ("li\t%0,0", cmp, NULL);
+	  mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
+	  mips_multi_add_insn ("nop", NULL);
+        }
+      else
+	{
+	  mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
+	  if (cmp)
+	    mips_multi_add_insn ("li\t%0,0", cmp, NULL);
+	}
     }
 
   /* $TMP1 = OLDVAL & EXCLUSIVE_MASK.  */
@@ -13875,20 +13884,49 @@ mips_process_sync_loop (rtx insn, rtx *operands)
      This will sometimes be a delayed branch; see the write code below
      for details.  */
   mips_multi_add_insn (is_64bit_p ? "scd\t%0,%1" : "sc\t%0,%1", at, mem, NULL);
-  mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
 
-  /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
-  if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
+  if (TARGET_MICROMIPS && mips_isa_rev > 5)
     {
-      mips_multi_copy_insn (tmp3_insn);
-      mips_multi_set_operand (mips_multi_last_index (), 0, newval);
-    }
-  else if (!(required_oldval && cmp))
-    mips_multi_add_insn ("nop", NULL);
+      int output_branch = 0;
 
-  /* CMP = 1 -- either standalone or in a delay slot.  */
-  if (required_oldval && cmp)
-    mips_multi_add_insn ("li\t%0,1", cmp, NULL);
+      /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
+      if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
+	{
+	  mips_multi_copy_insn (tmp3_insn);
+	  mips_multi_set_operand (mips_multi_last_index (), 0, newval);
+
+	  mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+	  mips_multi_add_insn ("nop", NULL);
+	  output_branch = 1;
+	}
+
+       /* CMP = 1 -- either standalone or in a delay slot.  */
+       if (required_oldval && cmp)
+	 mips_multi_add_insn ("li\t%0,1", cmp, NULL);
+
+       if (!output_branch)
+	 {
+	   mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+	   mips_multi_add_insn ("nop", NULL);
+	 }
+    }
+  else
+    {
+      mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+
+      /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
+      if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
+	{
+	  mips_multi_copy_insn (tmp3_insn);
+	  mips_multi_set_operand (mips_multi_last_index (), 0, newval);
+	}
+      else if (!(required_oldval && cmp))
+	  mips_multi_add_insn ("nop", NULL);
+
+       /* CMP = 1 -- either standalone or in a delay slot.  */
+       if (required_oldval && cmp)
+	 mips_multi_add_insn ("li\t%0,1", cmp, NULL);
+    }
 
   /* Output the acquire side of the memory barrier.  */
   if (TARGET_SYNC_AFTER_SC && need_atomic_barrier_p (model, false))
