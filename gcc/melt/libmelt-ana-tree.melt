@@ -3954,7 +3954,6 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_long_unsigned_type_node 
  tree_mem_ref
  tree_modify_expr
- tree_namelist_decl
  tree_namespace_decl
  tree_null_pointer_node 
  tree_nullptr_type
@@ -4025,6 +4024,9 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  warning_at_tree_decl_with_number
 )
 
+(gccif "4.9"
+       (export_values
+	tree_namelist_decl))
 
 ;;; second and last load of _libmelt-treecode.melt should go here
 (let (      
