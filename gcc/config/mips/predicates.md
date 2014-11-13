@@ -535,7 +535,15 @@
 (define_predicate "order_operator"
   (match_code "lt,ltu,le,leu,ge,geu,gt,gtu")
 {
-  return XEXP (op, 1) == const0_rtx || TARGET_COMPACT_BRANCHES;
+  if (XEXP (op, 1) == const0_rtx)
+    return true;
+
+  if (TARGET_COMPACT_BRANCHES
+      && (GET_CODE (op) == LT || GET_CODE (op) == LTU
+	  || GET_CODE (op) == GE || GET_CODE (op) == GEU))
+    return true;
+
+  return false;
 })
 
 ;; For NE, cstore uses sltu instructions in which the first operand is $0.
