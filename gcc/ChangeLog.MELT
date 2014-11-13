@@ -1,5 +1,8 @@
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h: Don't include plugin-version.h.
 	Declare the built-in defaults as extern "C".
 	* melt-runtime.cc: Remove a lot of includes, but include
