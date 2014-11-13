@@ -22,9 +22,10 @@
 # A multilib for mips64r6+LE
 # A multilib for mips32r6+LE+singlefloat+shortdouble
 
-MULTILIB_OPTIONS = mips64r6 mabi=64 EL
-MULTILIB_DIRNAMES = mips64r6 64 el
+MULTILIB_OPTIONS = mips64r6 mabi=64 EL mcompact-branches
+MULTILIB_DIRNAMES = mips64r6 64 el cb
 MULTILIB_MATCHES = EL=mel EB=meb
 
 MULTILIB_REQUIRED = mips64r6/mabi=64/EL
 MULTILIB_REQUIRED += EL
+MULTILIB_REQUIRED += mcompact-branches
