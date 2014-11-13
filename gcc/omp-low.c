@@ -1902,16 +1902,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 		    install_var_field (decl, true, 7, ctx);
 		  else
-		    {
-		      if (!is_gimple_omp_oacc_specifically (ctx->stmt))
-			install_var_field (decl, true, 3, ctx);
-		      else
-		    {
-		      /* decl goes heres.  */
-		      omp_context *c = (ctx->field_map ? ctx : ctx->outer);
-		      install_var_field (decl, true, 3, c);
-		    }
-		    }
+		    install_var_field (decl, true, 3, ctx);
 		  if (is_gimple_omp_offloaded (ctx->stmt))
 		    install_var_local (decl, ctx);
 		}

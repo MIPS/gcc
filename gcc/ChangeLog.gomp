@@ -1,3 +1,8 @@
+2014-11-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (scan_sharing_clauses) <OMP_CLAUSE_MAP>: Revert
+	earlier change.
+
 2014-11-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* tree.c (omp_clause_code_name): Add missing comma
