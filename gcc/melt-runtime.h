@@ -28,10 +28,6 @@ along with GCC; see the file COPYING3.   If not see
 #error MELT runtime requires a C++ compiler
 #endif	/*__cplusplus*/
 
-#ifndef GCCPLUGIN_VERSION
-#include "plugin-version.h"
-#endif /*GCCPLUGIN_VERSION*/
-
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif /*HAVE_STDINT_H*/
@@ -153,12 +149,12 @@ extern const char* melt_version_str(void);
 
 
 /* Built-in defaults */
-extern const char melt_source_dir[];
-extern const char melt_module_dir[];
-extern const char melt_module_make_command[];
-extern const char melt_module_makefile[];
-extern const char melt_module_cflags[];
-extern const char melt_default_modlis[];
+extern "C" const char melt_source_dir[];
+extern "C" const char melt_module_dir[];
+extern "C" const char melt_module_make_command[];
+extern "C" const char melt_module_makefile[];
+extern "C" const char melt_module_cflags[];
+extern "C" const char melt_default_modlis[];
 
 /* Set to 1 iff MELT is a plugin, otherwise 0 */
 extern const int melt_is_plugin;

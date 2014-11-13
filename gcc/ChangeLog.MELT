@@ -1,5 +1,13 @@
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h: Don't include plugin-version.h.
+	Declare the built-in defaults as extern "C".
+	* melt-runtime.cc: Remove a lot of includes, but include
+	"melt-run.h" Require GCC 4.8 at least, so remove
+	MELT_BOGUS_GENGTYPE_4dot7 trick.  Add some includes, like
+	"intl.h", <dirent.h>, "print-tree.h", etc...
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-run.proto.h: Include plugin-version.h after gcc-plugin.h
 	after config.h.
 	(MELT_GCC_VERSION): Defaults to GCCPLUGIN_VERSION.
