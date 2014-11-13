@@ -1,5 +1,8 @@
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{remove all mentions of GCC 4.7}}
 	* melt/warmelt-moremacro.melt (gccif): Don't mention GCC 4.7.
 	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Remove
@@ -15,7 +18,7 @@
 	* melt-runtime.h: Don't include plugin-version.h.
 	Declare the built-in defaults as extern "C".
 	* melt-runtime.cc: Remove a lot of includes, but include
-	"melt-run.h" Require GCC 4.8 at least, so remove
+	"melt-run.h". Require GCC 4.8 at least, so remove
 	MELT_BOGUS_GENGTYPE_4dot7 trick.  Add some includes, like
 	"intl.h", <dirent.h>, "print-tree.h", etc...
 

@@ -170,12 +170,10 @@ struct GTY (()) meltbasicblock_st   /* when MELTOBMAG_BASICBLOCK*/
 {
     meltobject_ptr_t discr;
     basic_block val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltbasicblock_st */
 
 struct GTY (()) entrybasicblockmelt_st   /* for MELTOBMAG_MAPBASICBLOCKS*/
@@ -200,12 +198,10 @@ struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
 {
     meltobject_ptr_t discr;
     bitmap val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltbitmap_st */
 
 struct GTY (()) entrybitmapmelt_st   /* for MELTOBMAG_MAPBITMAPS*/
@@ -230,12 +226,10 @@ struct GTY (()) meltedge_st   /* when MELTOBMAG_EDGE*/
 {
     meltobject_ptr_t discr;
     edge val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltedge_st */
 
 struct GTY (()) entryedgemelt_st   /* for MELTOBMAG_MAPEDGES*/
@@ -260,12 +254,10 @@ struct GTY (()) meltgimple_st   /* when MELTOBMAG_GIMPLE*/
 {
     meltobject_ptr_t discr;
     gimple val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltgimple_st */
 
 struct GTY (()) entrygimplemelt_st   /* for MELTOBMAG_MAPGIMPLES*/
@@ -290,12 +282,10 @@ struct GTY (()) meltgimpleseq_st   /* when MELTOBMAG_GIMPLESEQ*/
 {
     meltobject_ptr_t discr;
     gimple_seq val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltgimpleseq_st */
 
 struct GTY (()) entrygimpleseqmelt_st   /* for MELTOBMAG_MAPGIMPLESEQS*/
@@ -320,12 +310,10 @@ struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
 {
     meltobject_ptr_t discr;
     loop_p val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltloop_st */
 
 struct GTY (()) entryloopmelt_st   /* for MELTOBMAG_MAPLOOPS*/
@@ -350,12 +338,10 @@ struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
 {
     meltobject_ptr_t discr;
     rtvec val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltrtvec_st */
 
 struct GTY (()) entryrtvecmelt_st   /* for MELTOBMAG_MAPRTVECS*/
@@ -380,12 +366,10 @@ struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
 {
     meltobject_ptr_t discr;
     rtx val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltrtx_st */
 
 struct GTY (()) entryrtxmelt_st   /* for MELTOBMAG_MAPRTXS*/
@@ -410,12 +394,10 @@ struct GTY (()) melttree_st   /* when MELTOBMAG_TREE*/
 {
     meltobject_ptr_t discr;
     tree val;
-#ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
 {
     return reinterpret_cast<melt_ptr_t>(this);
 }
-#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of melttree_st */
 
 struct GTY (()) entrytreemelt_st   /* for MELTOBMAG_MAPTREES*/
