@@ -1440,8 +1440,8 @@
     for (i = 0; i < n_elts; i++)
       RTVEC_ELT (v, i) = GEN_INT (val);
 
-    gen_msa_addvi_<msafmt>_insn (operands[0], operands[1], 
-                gen_rtx_CONST_VECTOR (<MODE>mode, v));
+    emit_insn (gen_msa_addvi_<msafmt>_insn (operands[0], operands[1], 
+                gen_rtx_CONST_VECTOR (<MODE>mode, v)));
     DONE;
   })
 
@@ -1458,8 +1458,8 @@
     for (i = 0; i < 16; i++)
       RTVEC_ELT (v, i) = GEN_INT (val);
 
-    gen_msa_andi_b_insn (operands[0], operands[1], 
-                gen_rtx_CONST_VECTOR (V16QImode, v));
+    emit_insn (gen_msa_andi_b_insn (operands[0], operands[1], 
+                gen_rtx_CONST_VECTOR (V16QImode, v)));
     DONE;
   })
 
