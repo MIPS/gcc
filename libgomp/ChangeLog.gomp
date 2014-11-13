@@ -1,5 +1,8 @@
 2014-11-13  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/context-2.c: Fix data
+	clause.
+
 	* target.c (gomp_map_vars_existing): Error out if "force"
 	semantics.
 	(gomp_map_vars): Actually pass kinds to gomp_map_vars_existing.

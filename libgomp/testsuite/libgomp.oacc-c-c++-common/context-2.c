@@ -149,7 +149,7 @@ main (int argc, char **argv)
 
     context_check (pctx);
 
-#pragma acc parallel copyin (h_X[0:N]), copy (h_Y2[0:N]) copyin (alpha)
+#pragma acc parallel present (h_X[0:N]), copy (h_Y2[0:N]) copyin (alpha)
     {
         int i;
 
