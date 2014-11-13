@@ -1,3 +1,26 @@
+2014-11-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* target.c (gomp_map_vars_existing): Error out if "force"
+	semantics.
+	(gomp_map_vars): Actually pass kinds to gomp_map_vars_existing.
+	Remove FIXMEs.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-1.c: New file.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-5.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-6.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-7.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-8.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-1.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-2.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-3.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-4.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-5.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-6.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-7.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-8.f: Likewise.
+
 2014-11-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/collapse-4.c: New file.

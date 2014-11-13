@@ -1,5 +1,11 @@
 2014-11-13  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimplify.c (gimplify_omp_workshare) <OACC_DATA, OACC_KERNELS,
+	OACC_PARALLEL>: Don't request ORT_TARGET_MAP_FORCE.
+	(enum gimplify_omp_var_data, enum omp_region_type): Remove
+	GOVD_MAP_FORCE, and ORT_TARGET_MAP_FORCE, respectively.  Update
+	all users.
+
 	* omp-low.c (scan_sharing_clauses) <OMP_CLAUSE_MAP>: Revert
 	earlier change.
 

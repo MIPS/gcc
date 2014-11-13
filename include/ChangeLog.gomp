@@ -1,0 +1,4 @@
+2014-11-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gomp-constants.h: Define _GOMP_MAP_FLAG_SPECIAL and
+	_GOMP_MAP_FLAG_FORCE.

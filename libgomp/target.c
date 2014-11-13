@@ -117,9 +117,11 @@ static inline void
 gomp_map_vars_existing (splay_tree_key oldn, splay_tree_key newn,
 			unsigned char kind)
 {
-  if (oldn->host_start > newn->host_start
+  if ((!(kind & _GOMP_MAP_FLAG_SPECIAL)
+       && (kind & _GOMP_MAP_FLAG_FORCE))
+      || oldn->host_start > newn->host_start
       || oldn->host_end < newn->host_end)
-    gomp_fatal ("Trying to map into device [%p..%p) object when"
+    gomp_fatal ("Trying to map into device [%p..%p) object when "
 		"[%p..%p) is already mapped",
 		(void *) newn->host_start, (void *) newn->host_end,
 		(void *) oldn->host_start, (void *) oldn->host_end);
@@ -200,7 +202,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
       if (n)
 	{
 	  tgt->list[i] = n;
-	  gomp_map_vars_existing (n, &cur_node, kind);
+	  gomp_map_vars_existing (n, &cur_node, kind & typemask);
 	}
       else
 	{
@@ -323,7 +325,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	    if (n)
 	      {
 		tgt->list[i] = n;
-		gomp_map_vars_existing (n, k, kind);
+		gomp_map_vars_existing (n, k, kind & typemask);
 	      }
 	    else
 	      {
@@ -345,18 +347,15 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 
 		switch (kind & typemask)
 		  {
-		  case GOMP_MAP_FORCE_ALLOC:
-		  case GOMP_MAP_FORCE_FROM:
-		    /* FIXME: No special handling (see comment in
-		       oacc-parallel.c).  */
 		  case GOMP_MAP_ALLOC:
 		  case GOMP_MAP_ALLOC_FROM:
+		  case GOMP_MAP_FORCE_ALLOC:
+		  case GOMP_MAP_FORCE_FROM:
 		    break;
-		  case GOMP_MAP_FORCE_TO:
-		  case GOMP_MAP_FORCE_TOFROM:
-		    /* FIXME: No special handling, as above.  */
 		  case GOMP_MAP_ALLOC_TO:
 		  case GOMP_MAP_ALLOC_TOFROM:
+		  case GOMP_MAP_FORCE_TO:
+		  case GOMP_MAP_FORCE_TOFROM:
 		    /* Copy from host to device memory.  */
 		    /* FIXME: Perhaps add some smarts, like if copying
 		       several adjacent fields from host to target, use some

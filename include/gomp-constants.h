@@ -28,6 +28,9 @@
 /* Enumerated variable mapping types used to communicate between GCC and
    libgomp.  These values are used for both OpenMP and OpenACC.  */
 
+#define _GOMP_MAP_FLAG_SPECIAL		(1 << 2)
+#define _GOMP_MAP_FLAG_FORCE		(1 << 3)
+
 #define GOMP_MAP_ALLOC			0x00
 #define GOMP_MAP_ALLOC_TO		0x01
 #define GOMP_MAP_ALLOC_FROM		0x02

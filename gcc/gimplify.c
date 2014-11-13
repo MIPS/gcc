@@ -94,8 +94,6 @@ enum gimplify_omp_var_data
   /* Flags for GOVD_MAP.  */
   /* Don't copy back.  */
   GOVD_MAP_TO_ONLY = 8192,
-  /* Force a specific behavior (or else, a run-time error).  */
-  GOVD_MAP_FORCE = 16384,
 
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
@@ -116,9 +114,7 @@ enum omp_region_type
 
   /* Flags for ORT_TARGET.  */
   /* Prepare this region for offloading.  */
-  ORT_TARGET_OFFLOAD = 32,
-  /* Default to GOVD_MAP_FORCE for implicit mappings in this region.  */
-  ORT_TARGET_MAP_FORCE = 64
+  ORT_TARGET_OFFLOAD = 32
 };
 
 /* Gimplify hashtable helper.  */
@@ -5585,15 +5581,7 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
       if (!(flags & GOVD_LOCAL))
 	{
 	  if (flags & GOVD_MAP)
-	    {
-	      nflags = GOVD_MAP | GOVD_MAP_TO_ONLY | GOVD_EXPLICIT;
-#if 0
-	      /* Not sure if this is actually needed; haven't found a case
-		 where this would change anything; TODO.  */
-	      if (flags & GOVD_MAP_FORCE)
-		nflags |= OMP_CLAUSE_MAP_FORCE;
-#endif
-	    }
+	    nflags = GOVD_MAP | GOVD_MAP_TO_ONLY | GOVD_EXPLICIT;
 	  else if (flags & GOVD_PRIVATE)
 	    nflags = GOVD_PRIVATE;
 	  else
@@ -5667,8 +5655,6 @@ omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
     if ((octx->region_type & ORT_TARGET)
 	&& (octx->region_type & ORT_TARGET_OFFLOAD))
       {
-	gcc_assert (!(octx->region_type & ORT_TARGET_MAP_FORCE));
-
 	n = splay_tree_lookup (octx->variables, (splay_tree_key)decl);
 	if (n == NULL)
 	  {
@@ -5731,11 +5717,6 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   if ((ctx->region_type & ORT_TARGET)
       && (ctx->region_type & ORT_TARGET_OFFLOAD))
     {
-      unsigned map_force;
-      if (ctx->region_type & ORT_TARGET_MAP_FORCE)
-	map_force = GOVD_MAP_FORCE;
-      else
-	map_force = 0;
       ret = lang_hooks.decls.omp_disregard_value_expr (decl, true);
       if (n == NULL)
 	{
@@ -5743,32 +5724,13 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	    {
 	      error ("%qD referenced in target region does not have "
 		     "a mappable type", decl);
-	      omp_add_variable (ctx, decl, GOVD_MAP | map_force | GOVD_EXPLICIT | flags);
+	      omp_add_variable (ctx, decl, GOVD_MAP | GOVD_EXPLICIT | flags);
 	    }
 	  else
-	    omp_add_variable (ctx, decl, GOVD_MAP | map_force | flags);
+	    omp_add_variable (ctx, decl, GOVD_MAP | flags);
 	}
       else
 	{
-#if 0
-	  /* The following fails for:
-
-	     int l = 10;
-	     float c[l];
-	     #pragma acc parallel copy(c[2:4])
-	       {
-	     #pragma acc parallel
-		 {
-		   int t = sizeof c;
-		 }
-	       }
-
-	     ..., which we currently don't have to care about (nesting
-	     disabled), but eventually will have to; TODO.  */
-	  if ((n->value & GOVD_MAP) && !(n->value & GOVD_EXPLICIT))
-	    gcc_assert ((n->value & GOVD_MAP_FORCE) == map_force);
-#endif
-
 	  /* If nothing changed, there's nothing left to do.  */
 	  if ((n->value & flags) == flags)
 	    return ret;
@@ -6423,13 +6385,11 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
   else if (code == OMP_CLAUSE_MAP)
     {
-      unsigned map_kind;
+      enum omp_clause_map_kind map_kind;
       map_kind = (flags & GOVD_MAP_TO_ONLY
 		  ? OMP_CLAUSE_MAP_TO
 		  : OMP_CLAUSE_MAP_TOFROM);
-      if (flags & GOVD_MAP_FORCE)
-	map_kind |= OMP_CLAUSE_MAP_FORCE;
-      OMP_CLAUSE_MAP_KIND (clause) = (enum omp_clause_map_kind) map_kind;
+      OMP_CLAUSE_MAP_KIND (clause) = map_kind;
 
       if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
@@ -7258,23 +7218,16 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 
   switch (TREE_CODE (expr))
     {
-    case OACC_DATA:
-      ort = (enum omp_region_type) (ORT_TARGET
-				    | ORT_TARGET_MAP_FORCE);
-      break;
-    case OACC_KERNELS:
-    case OACC_PARALLEL:
-      ort = (enum omp_region_type) (ORT_TARGET
-				    | ORT_TARGET_OFFLOAD
-				    | ORT_TARGET_MAP_FORCE);
-      break;
     case OMP_SECTIONS:
     case OMP_SINGLE:
       ort = ORT_WORKSHARE;
       break;
+    case OACC_KERNELS:
+    case OACC_PARALLEL:
     case OMP_TARGET:
       ort = (enum omp_region_type) (ORT_TARGET | ORT_TARGET_OFFLOAD);
       break;
+    case OACC_DATA:
     case OMP_TARGET_DATA:
       ort = ORT_TARGET;
       break;
