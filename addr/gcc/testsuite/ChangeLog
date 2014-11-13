@@ -1,3 +1,298 @@
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/63815
+	* g++.dg/other/pr63815.C: New test.
+
+2014-11-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 1510
+	PR c++/60420
+	* g++.dg/cpp0x/decltype61.C: New.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/63835
+	* gcc.dg/pr63835.c: New test.
+
+2014-11-12  Alan Lawrence  <alan.lawrence@arm.com>
+
+         * gcc.target/aarch64/simd/vqdmlal_high_lane_s16_indices_1.c: New test.
+         * gcc.target/aarch64/simd/vqdmlal_high_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_high_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_high_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlal_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlalh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlals_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_high_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsl_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlslh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmlsls_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulh_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhq_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulhs_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_high_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmull_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmullh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqdmulls_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulh_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhh_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_lane_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_lane_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_laneq_s16_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhq_laneq_s32_indices_1.c: Likewise.
+         * gcc.target/aarch64/simd/vqrdmulhs_lane_s32_indices_1.c: Likewise.
+
+2014-11-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/387-1.c (dg-skip-if): Use *-*-* target selector.
+	* gcc.target/i386/387-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/387-5.c (dg-skip-if): Ditto.
+	* gcc.target/i386/387-6.c (dg-skip-if): Ditto.
+	* gcc.target/i386/cmov7.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-3.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-8.c (dg-skip-if): Ditto.
+	* gcc.target/i386/funcspec-9.c (dg-skip-if): Ditto.
+	* gcc.target/i386/gcc-have-sync-compare-and-swap-1.c (dg-skip-if):
+	Ditto.
+	* gcc.target/i386/gcc-have-sync-compare-and-swap-2.c (dg-skip-if):
+	Ditto.
+	* gcc.target/i386/isa-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/isa-6.c (dg-skip-if): Ditto.
+	* gcc.target/i386/isa-9.c (dg-skip-if): Ditto.
+	* gcc.target/i386/lea.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-strategy-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-strategy-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-vector_loop-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memcpy-vector_loop-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memset-vector_loop-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/memset-vector_loop-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-10.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-3.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-4.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-5a.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-5b.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-6a.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-6b.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-7.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-8.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pad-9.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pentium4-not-mull.c (dg-skip-if): Ditto.
+	* gcc.target/i386/pr42589.c (dg-skip-if): Ditto.
+	* gcc.target/i386/sse-19.c (dg-skip-if): Ditto.
+	* gcc.target/i386/sse2-init-v2di-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssefn-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssetype-1.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssetype-2.c (dg-skip-if): Ditto.
+	* gcc.target/i386/ssetype-5.c (dg-skip-if): Ditto.
+	* gcc.target/i386/vect-double-1.c (dg-skip-if): Ditto.
+
+2014-11-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr45852.c: Simplify target selector.
+	* gcc.target/i386/pr63495.c: Ditto.
+	* gcc.target/i386/pr39496.c: Ditto.
+	* gcc.target/i386/pr36613.c: Ditto.
+
+2014-11-12  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/lr_free_1.c: New testcase for -fomit-frame-pointer.
+	* gcc.target/aarch64/lr_free_2.c: New testcase for leaf
+	-fno-omit-frame-pointer.
+
+2014-11-12  Marek Polacek  <polacek@redhat.com>
+
+	* lib/gcc-dg.exp (${tool}_load): Call prune_file_path instead
+	of prune_gcc_output.
+	* lib/prune.exp (prune_file_path): New procedure.
+
+2014-11-12  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/overflow-sub-4.c: New test.
+	* c-c++-common/ubsan/overflow-sub-2.c: Adjust dg-output.
+	* c-c++-common/ubsan/overflow-int128.c: Likewise.
+
+2014-11-12  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* gcc.target/i386/pr52252-atom-1.c: Extend assembler scan on AVX2 case.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-fre-32.c: Disable forwprop.
+
+2014-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/no-math-errno-1.c, gcc.dg/no-math-errno-2.c,
+	gcc.dg/no-math-errno-3.c, gcc.dg/no-math-errno-4.c: New tests.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/63830
+	* c-c++-common/asan/strlen-overflow-1.c (main): Avoid tail call.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59708
+	* c-c++-common/builtin-arith-overflow-1.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-10.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-11.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-12.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-12.h: New file.
+	* c-c++-common/torture/builtin-arith-overflow-13.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-14.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-15.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-16.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-17.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-18.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-1.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-1.h: New file.
+	* c-c++-common/torture/builtin-arith-overflow-2.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-3.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-4.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-5.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-6.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-7.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-8.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-9.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow.h: New file.
+	* gcc.dg/builtin-arith-overflow-1.c: New test.
+	* gcc.dg/builtin-arith-overflow-2.c: New test.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63821
+	* gfortran.dg/pr63821.f90: New testcase.
+
+2014-11-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/63761
+	* gcc.c-torture/compile/pr63761.c: New test.
+
+2014-11-12  Jiong Wang  <jiong.wang@arm.com>
+
+	* lib/gcc-dg.exp (${tool}_load): Truncate gcc output.
+	* lib/prune.exp (prune_gcc_output): New absolute path to relative path
+	truncation pattern.
+
+2014-11-12  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* gcc.target/arm/eabi1.c: Replace arm*-*-*eabi* and arm*-*-symbianelf*
+	with arm_eabi.
+	* g++.dg/abi/arm_rtti1.C: Likewise.
+	* g++.dg/abi/key1.C: Likewise.
+	* g++.dg/ext/visibility/arm1.C: Likewise.
+	* g++.dg/ext/visibility/arm2.C: Likewise.
+	* g++.dg/ext/visibility/arm3.C: Likewise.
+
+2014-11-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/ipa/devirt-42.C: Fix dump scanning for "return 2".
+
+2014-11-11  Anthony Brandon  <anthony.brandon@gmail.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR driver/36312
+	* gcc.misc-tests/output.exp: New test case for identical input and
+	output files.
+
+2014-11-11  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* lib/gfortran-dg.exp: Update regexp to match locus and message
+	without caret.
+	* gfortran.dg/use_without_only_1.f90: Add column numbers.
+        * gfortran.dg/warnings_are_errors_1.f: Update.
+
+2014-11-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* ChangeLog.jit: New.
+	* jit.dg/all-non-failing-tests.h: New.
+	* jit.dg/harness.h: New.
+	* jit.dg/jit.exp: New.
+	* jit.dg/test-accessing-struct.c: New.
+	* jit.dg/test-accessing-union.c: New.
+	* jit.dg/test-array-as-pointer.c: New.
+	* jit.dg/test-arrays.c: New.
+	* jit.dg/test-calling-external-function.c: New.
+	* jit.dg/test-calling-function-ptr.c: New.
+	* jit.dg/test-combination.c: New.
+	* jit.dg/test-dot-product.c: New.
+	* jit.dg/test-empty.c: New.
+	* jit.dg/test-error-accessing-field-in-other-struct.c: New.
+	* jit.dg/test-error-adding-to-terminated-block.c: New.
+	* jit.dg/test-error-array-as-pointer.c: New.
+	* jit.dg/test-error-bad-cast.c: New.
+	* jit.dg/test-error-block-in-wrong-function.c: New.
+	* jit.dg/test-error-call-through-ptr-with-mismatching-args.c: New.
+	* jit.dg/test-error-call-through-ptr-with-non-function.c: New.
+	* jit.dg/test-error-call-through-ptr-with-non-pointer.c: New.
+	* jit.dg/test-error-call-through-ptr-with-not-enough-args.c: New.
+	* jit.dg/test-error-call-through-ptr-with-too-many-args.c: New.
+	* jit.dg/test-error-call-with-mismatching-args.c: New.
+	* jit.dg/test-error-call-with-not-enough-args.c: New.
+	* jit.dg/test-error-call-with-too-many-args.c: New.
+	* jit.dg/test-error-dereference-field-of-non-pointer.c: New.
+	* jit.dg/test-error-dereference-read-of-non-pointer.c: New.
+	* jit.dg/test-error-get-type-bad-enum.c: New.
+	* jit.dg/test-error-index-not-a-numeric-type.c: New.
+	* jit.dg/test-error-mismatching-types-in-assignment.c: New.
+	* jit.dg/test-error-mismatching-types-in-call.c: New.
+	* jit.dg/test-error-missing-return.c: New.
+	* jit.dg/test-error-new-binary-op-bad-op.c: New.
+	* jit.dg/test-error-new-function-bad-kind.c: New.
+	* jit.dg/test-error-new-unary-op-bad-op.c: New.
+	* jit.dg/test-error-null-passed-to-api.c: New.
+	* jit.dg/test-error-return-within-void-function.c: New.
+	* jit.dg/test-error-unreachable-block.c: New.
+	* jit.dg/test-error-unterminated-block.c: New.
+	* jit.dg/test-error-value-not-a-numeric-type.c: New.
+	* jit.dg/test-expressions.c: New.
+	* jit.dg/test-factorial.c: New.
+	* jit.dg/test-fibonacci.c: New.
+	* jit.dg/test-functions.c: New.
+	* jit.dg/test-fuzzer.c: New.
+	* jit.dg/test-hello-world.c: New.
+	* jit.dg/test-linked-list.c: New.
+	* jit.dg/test-long-names.c: New.
+	* jit.dg/test-nested-contexts.c: New.
+	* jit.dg/test-nested-loops.c: New.
+	* jit.dg/test-operator-overloading.cc: New.
+	* jit.dg/test-quadratic.c: New.
+	* jit.dg/test-quadratic.cc: New.
+	* jit.dg/test-reading-struct.c: New.
+	* jit.dg/test-string-literal.c: New.
+	* jit.dg/test-sum-of-squares.c: New.
+	* jit.dg/test-threads.c: New.
+	* jit.dg/test-types.c: New.
+	* jit.dg/test-using-global.c: New.
+	* jit.dg/test-volatile.c: New.
+
 2014-11-11  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* gcc.target/aarch64/vbslq_f64_1.c: New.

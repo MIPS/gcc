@@ -1,3 +1,393 @@
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/63815
+	* config/i386/i386.c (ix86_init_large_pic_reg): New.  Extracted
+	from ...
+	(ix86_init_pic_reg): Here.  Use ix86_init_large_pic_reg.
+	(x86_output_mi_thunk): Set PIC register to %r11.  Call
+	ix86_init_large_pic_reg to initialize PIC register.
+
+2014-11-12  Kai Tietz  <ktietz@redhat.com>
+
+	* sdbout.c (sdbout_symbol): Eliminate register only
+	if decl isn't a global variable.
+
+2014-11-12  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_lane_bounds): Display indices.
+
+	* config/aarch64/aarch64-builtins.c (enum aarch64_type_qualifiers): Add
+	qualifier_lane_index.
+	(aarch64_types_ternop_lane_qualifiers, TYPES_TERNOP_LANE): Rename to...
+	(aarch64_types_quadop_lane_qualifiers, TYPES_QUADOP_LANE): ...these.
+	(aarch64_types_ternop_lane_qualifiers, TYPES_TERNOP_LANE): New.
+
+	(aarch64_types_getlane_qualifiers): Rename to...
+	(aarch64_types_binop_imm_qualifiers): ...this.
+	(TYPES_SHIFTIMM): Follow renaming.
+	(TYPES_GETLANE): Rename to...
+	(TYPE_GETREG): ...this.
+
+	(aarch64_types_setlane_qualifiers): Rename to...
+	(aarch64_type_ternop_imm_qualifiers): ...this.
+	(TYPES_SHIFTINSERT, TYPES_SHIFTACC): Follow renaming.
+	(TYPES_SETLANE): Follow renaming above, and rename self to...
+	(TYPE_SETREG): ...this.
+
+	(enum builtin_simd_arg): Add SIMD_ARG_LANE_INDEX.
+	(aarch64_simd_expand_args): Add range check and endianness-flip.
+
+	(aarch64_simd_expand_builtin): Add mapping for qualifier_lane_index.
+
+	* config/aarch64/aarch64-simd.md
+	(aarch64_sq<r>dmulh_lane<mode>_internal *2): Rename to...
+	(aarch64_sq<r>dmulh_lane<mode>): ...this, and remove lane bounds check.
+	(aarch64_sqdmulh_lane<mode> *2, aarch64_sqrdmulh_lane<mode> *2): Delete.
+
+	(aarch64_sq<r>dmulh_laneq<mode>_internal): Rename to...
+	(aarch64_sq<r>dmulh_lane<mode>): ...this.
+
+	(aarch64_sqdml<SBINQOPS:as>l_lane<mode>_internal *2): Rename to...
+	(aarch64_sqdml<SBINQOPS:as>l_lane<mode>): ...this.
+
+	(aarch64_sqdml<SBINQOPS:as>l_laneq<mode>_internal *2): Rename to...
+	(aarch64_sqdml<SBINQOPS:as>l_laneq<mode>): ...this.
+
+	(aarch64_sqdmull_lane<mode>_internal *2): Rename to...
+	(aarch64_sqdmull_lane<mode>): ...this.
+
+	(aarch64_sqdmull_laneq<mode>_internal *2): Rename to...
+	(aarch64_sqdmull_laneq<mode>): ...this.
+
+	(aarch64_sqdmulh_laneq<mode>, aarch64_sqrdmulh_laneq<mode>,
+	(aarch64_sqdmlal_lane<mode>, aarch64_sqdmlal_laneq<mode>,
+	aarch64_sqdmlsl_lane<mode>, aarch64_sqdmlsl_laneq<mode>,
+	aarch64_sqdmull_lane<mode>, aarch64_sqdmull_laneq<mode>): Delete.
+
+	(aarch64_sqdmlal2_lane<mode>, aarch64_sqdmlal2_laneq<mode>,
+	aarch64_sqdmlsl2_lane<mode>, aarch64_sqdmlsl2_laneq<mode>,
+	aarch64_sqdmull2_lane<mode>, aarch64_sqdmull2_laneq<mode>): Remove
+	bounds check and lane flip.
+
+	* config/aarch64/aarch64-simd-builtins.def (be_checked_get_lane,
+	get_dregoi, get_dregci, getdregxi, get_qregoi,get_qregci, get_qregxi,
+	set_qregoi, set_qregci, set_qregxi): Change qualifiers to GETREG.
+
+	(sqdmlal_lane, sqdmlsl_lane, sqdmlal_laneq, sqdmlsl_laneq,
+	sqdmlal2_lane, sqdmlsl2_lane, sqdmlal2_laneq, sqdmlsl2_laneq): Follow
+	renaming of TERNOP_LANE to QUADOP_LANE.
+
+	(sqdmull_lane, sqdmull_laneq, sqdmull2_lane, sqdmull2_laneq,
+	sqdmulh_lane, sqdmulh_laneq, sqrdmulh_lane, sqrdmulh_laneq): Set
+	qualifiers to TERNOP_LANE.
+
+2014-11-12  Tobias Burnus  <burnus@net-b.de>
+
+	* Makefile.in (CLOOGLIBS, CLOOGINC): Remove.
+	* configure.ac: Ditto.
+	* graphite-interchange.c: Remove HAVE_CLOOG block.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+
+2014-11-12  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.h (CALL_USED_REGISTERS): Mark LR as
+	caller-save.
+	(EPILOGUE_USES): Guard the check by epilogue_completed.
+	* config/aarch64/aarch64.c (aarch64_layout_frame): Explictly check for
+	LR.
+	(aarch64_can_eliminate): Check LR_REGNUM liveness.
+
+2014-11-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.c (*<arith_shift_insn>_shiftsi): Fix typo.
+
+2014-11-12  Marek Polacek  <polacek@redhat.com>
+
+	* fold-const.c (fold_binary_loc): Don't fold if the result
+	is undefined.
+	* match.pd (A + (-B) -> A - B, A - (-B) -> A + B,
+	-(-A) -> A): Likewise.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	Merge from match-and-simplify branch
+	2014-11-04  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (user_id): Add new member is_oper_list.
+	(user_id::user_id): Add new default argument.
+	(parser::parse_operator_list): New function.
+	(parser::parse_for): Allow operator-list.
+	(parser::parse_pattern): Call parser::parse_operator_list.
+	(parser::parse_operation): Reject operator-list.
+	* match-builtin.pd: Define operator lists POWs, CBRTs and SQRTs.
+
+	2014-10-31  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_c_expr): Mark user-defined ops as used.
+
+	2014-10-30  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_op): Check if predicate is used in
+	result operand.
+
+	2014-10-29  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser::parse_for): Make sure to have a valid
+	token to report errors at.
+
+	2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (parser): Add new member parsing_match_operand.
+	(parser::parse_operation): Check for conditional convert in result
+	operand.
+	(parser::parse_expr): Check for commutative operator in result operand.
+	Check for :type in match operand.
+	(parser::parse_simplify): Set/unset parsing_match_operand.
+	(parser::parser): Initialize parsing_match_operand.
+
+	2014-10-28  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parser::parse_for): Properly check for already
+	defined operators.
+
+	2014-10-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (error_cb): Adjust for printing warnings.
+	(warning_at): New function.
+	(user_id): Add new member used.
+	(get_operator): Mark user_id as used.
+	(parse_for): Warn for unused operators.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Implement simple complex operations cancelling.
+	* fold-const.c (fold_unary_loc): Remove them here.
+
+2014-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* cppbuiltin.c (define_builtin_macros_for_compilation_flags):
+	Define __NO_MATH_ERRNO__ if -fno-math-errno.
+	* doc/cpp.texi (__NO_MATH_ERRNO__): Document predefined macro.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (::gen_transform): Add capture_info and
+	expand_compares arguments.
+	(struct expr): Add is_generic flag.
+	(lower_cond): New functions lowering [VEC_]COND_EXPR
+	conditions to a GENERIC and a GIMPLE variant.
+	(lower): Call lower_cond.
+	(cmp_operand): Also compare the is_generic flag.
+	(capture_info::cinfo): Add cond_expr_cond_p flag.
+	(capture_info::capture_info): Pass down whether the
+	expression argument is a COND_EXPR condition.
+	(capture_info::walk_match): Likewise, mark captures
+	capturing COND_EXPR conditions with cond_expr_cond_p.
+	(expr::gen_transform): Pass down whether we need to
+	expand compares from COND_EXPR conditions.
+	(capture::gen_transform): Expand compares substituted
+	from COND_EXPR conditions into non-COND_EXPR conditions.
+	(dt_operand::gen_gimple_expr): Handle explicitely marked
+	GENERIC expressions as generic.
+	(dt_simplify::gen): Pass whether we need to expand
+	conditions to gen_transform.  Handle capture results
+	which are from COND_EXPR conditions.
+	(main): Pass gimple flag down to lower.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59708
+	* builtin-attrs.def (ATTR_NOTHROW_TYPEGENERIC_LEAF): New attribute.
+	* builtins.c (fold_builtin_arith_overflow): New function.
+	(fold_builtin_3): Use it.
+	* builtins.def (BUILT_IN_ADD_OVERFLOW, BUILT_IN_SUB_OVERFLOW,
+	BUILT_IN_MUL_OVERFLOW, BUILT_IN_SADD_OVERFLOW, BUILT_IN_SADDL_OVERFLOW,
+	BUILT_IN_SADDLL_OVERFLOW, BUILT_IN_SSUB_OVERFLOW,
+	BUILT_IN_SSUBL_OVERFLOW, BUILT_IN_SSUBLL_OVERFLOW,
+	BUILT_IN_SMUL_OVERFLOW, BUILT_IN_SMULL_OVERFLOW,
+	BUILT_IN_SMULLL_OVERFLOW, BUILT_IN_UADDL_OVERFLOW,
+	BUILT_IN_UADDLL_OVERFLOW, BUILT_IN_USUB_OVERFLOW,
+	BUILT_IN_USUBL_OVERFLOW, BUILT_IN_USUBLL_OVERFLOW,
+	BUILT_IN_UMUL_OVERFLOW, BUILT_IN_UMULL_OVERFLOW,
+	BUILT_IN_UMULLL_OVERFLOW): New built-in functions.
+	* builtin-types.def (BT_PTR_UINT, BT_PTR_ULONG, BT_PTR_LONGLONG,
+	BT_FN_BOOL_INT_INT_INTPTR, BT_FN_BOOL_LONG_LONG_LONGPTR,
+	BT_FN_BOOL_LONGLONG_LONGLONG_LONGLONGPTR, BT_FN_BOOL_UINT_UINT_UINTPTR,
+	BT_FN_BOOL_ULONG_ULONG_ULONGPTR,
+	BT_FN_BOOL_ULONGLONG_ULONGLONG_ULONGLONGPTR, BT_FN_BOOL_VAR): New.
+	* expr.c (write_complex_part): Remove prototype, no longer static.
+	* expr.h (write_complex_part): New prototype.
+	* function.c (aggregate_value_p): For internal functions return 0.
+	* gimple-fold.c (arith_overflowed_p): New functions.
+	(gimple_fold_call): Fold {ADD,SUB,MUL}_OVERFLOW internal calls.
+	* gimple-fold.h (arith_overflowed_p): New prototype.
+	* tree-ssa-dce.c: Include tree-ssa-propagate.h and gimple-fold.h.
+	(find_non_realpart_uses, maybe_optimize_arith_overflow): New
+	functions.
+	(eliminate_unnecessary_stmts): Transform {ADD,SUB,MUL}_OVERFLOW
+	into COMPLEX_CST/COMPLEX_EXPR if IMAGPART_EXPR of the result is
+	never used.
+	* gimplify.c (gimplify_call_expr): Handle gimplification of
+	internal calls with lhs.
+	* internal-fn.c (get_range_pos_neg, get_min_precision,
+	expand_arith_overflow_result_store): New functions.
+	(ubsan_expand_si_overflow_addsub_check): Renamed to ...
+	(expand_addsub_overflow): ... this.  Add LOC, LHS, ARG0, ARG1,
+	UNSR_P, UNS0_P, UNS1_P, IS_UBSAN arguments, remove STMT argument.
+	Handle ADD_OVERFLOW and SUB_OVERFLOW expansion.
+	(ubsan_expand_si_overflow_neg_check): Renamed to ...
+	(expand_neg_overflow): ... this.  Add LOC, LHS, ARG1, IS_UBSAN
+	arguments, remove STMT argument.  Handle SUB_OVERFLOW with
+	0 as first argument expansion.
+	(ubsan_expand_si_overflow_mul_check): Renamed to ...
+	(expand_mul_overflow): ... this.  Add LOC, LHS, ARG0, ARG1,
+	UNSR_P, UNS0_P, UNS1_P, IS_UBSAN arguments, remove STMT argument.
+	Handle MUL_OVERFLOW expansion.
+	(expand_UBSAN_CHECK_ADD): Use expand_addsub_overflow, prepare
+	arguments for it.
+	(expand_UBSAN_CHECK_SUB): Use expand_addsub_overflow or
+	expand_neg_overflow, prepare arguments for it.
+	(expand_UBSAN_CHECK_MUL): Use expand_mul_overflow, prepare arguments
+	for it.
+	(expand_arith_overflow, expand_ADD_OVERFLOW, expand_SUB_OVERFLOW,
+	expand_MUL_OVERFLOW): New functions.
+	* internal-fn.def (ADD_OVERFLOW, SUB_OVERFLOW, MUL_OVERFLOW): New
+	internal functions.
+	* tree-vrp.c (check_for_binary_op_overflow): New function.
+	(extract_range_basic): Handle {REAL,IMAG}PART_EXPR if the operand
+	is SSA_NAME set by {ADD,SUB,MUL}_OVERFLOW internal functions.
+	(simplify_internal_call_using_ranges): Handle {ADD,SUB,MUL}_OVERFLOW
+	internal functions.
+	* optabs.def (umulv4_optab): New optab.
+	* config/i386/i386.md (umulv<mode>4, <u>mulvqi4): New define_expands.
+	(*umulv<mode>4, *<u>mulvqi4): New define_insns.
+	* doc/extend.texi (Integer Overflow Builtins): Document
+	__builtin_*_overflow.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (capture_info::capture_info): Add missing
+	COND_EXPR handling.
+	(capture_info::walk_match): Fix COND_EXPR handling.
+	(capture_info::walk_result): Likewise.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63821
+	* match.pd: Add missing conversion to the -(T)-X pattern.
+
+2014-11-12  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/63819
+	* hash-table.h: Include ggc.h also for generator programs.
+	* genmatch.c (ggc_internal_cleared_alloc): Properly define
+	using MEM_STAT_DECL instead of CXX_MEM_STAT_INFO.
+
+2014-11-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/63761
+	* tree-ssa-math-opts.c (bswap_replace): Construct gsi from cur_stmt
+	rather than taking it as a parameter. Add some comments to explain the
+	gsi_move_before in case of load and why canonicalization of bswap into
+	a rotation is only done for 16bit values.
+	(pass_optimize_bswap::execute): Adapt for loop via gsi to make gsi
+	refer to the statement just before cur_stmt. Ignore 16bit bswap that
+	are already in canonical form. Adapt bswap_replace to removal of its
+	gsi parameter.
+
+2014-11-12  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* rtl.h (rtx_function, for_each_rtx, for_each_rtx_in_insn): Delete.
+	* rtlanal.c (non_rtx_starting_operands, for_each_rtx_1, for_each_rtx):
+	(for_each_rtx_in_insn): Delete.
+	(init_rtlanal): Remove initialization of non_rtx_starting_operands.
+	* df-core.c: Remove reference to for_each_rtx in comment.
+
+2014-11-12  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* Makefile.in (TEXI_GCC_FILES): Remove arm-acle-intrinsics.texi,
+	arm-neon-intrinsics.texi, aarch64-acle-intrinsics.texi.
+	* doc/aarch64-acle-intrinsics.texi: Remove.
+	* doc/arm-acle-intrinsics.texi: Remove.
+	* doc/arm-neon-intrinsics.texi: Remove.
+	* doc/extend.texi: Consolidate sections AArch64 intrinsics,
+	ARM NEON Intrinsics, ARM ACLE Intrinsics into one ARM C Language
+	Extension section. Add references to public ACLE specification.
+
+2014-11-11  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* tree-vrp.c (register_edge_assert_for_2): Change return type to
+	void and adjust accordingly.
+	(register_edge_assert_for_1): Likewise.
+	(register_edge_assert_for): Likewise.
+	(find_conditional_asserts): Likewise.
+	(find_switch_asserts): Likewise.
+	(find_assert_locations_1): Likewise.
+	(find_assert_locations): Likewise.
+	(insert_range_insertions): Inspect the need_assert_for bitmap.
+
+2014-11-11  Andrew Pinski  <apinski@cavium.com>
+
+	Bug target/61997
+	* config.gcc (aarch64*-*-*): Set target_gtfiles to include
+	aarch64-builtins.c.
+	* config/aarch64/aarch64-builtins.c: Include gt-aarch64-builtins.h
+	at the end of the file.
+
+2014-11-11  Anthony Brandon  <anthony.brandon@gmail.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR driver/36312
+	* diagnostic-core.h: Add prototype for fatal_error.
+	* diagnostic.c (fatal_error): New function fatal_error.
+	* gcc.c (store_arg): Remove have_o_argbuf_index.
+	(process_command): Check if input and output files are the same.
+	* toplev.c (init_asm_output): Check if input and output files are
+	the same.
+
+2014-11-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* reorg.c (fill_slots_from_thread): Do not copy frame-related insns.
+
+2014-11-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/61535
+	* config/sparc/sparc.c (function_arg_vector_value): Deal with vectors
+	smaller than 8 bytes.
+	(sparc_function_arg_1): Tweak.
+	(sparc_function_value_1): Tweak.
+
+2014-11-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* ChangeLog.jit: New.
+	* Makefile.in (doc_build_sys): New variable, set to "sphinx" if
+	sphinx is installed, falling back to "texinfo" otherwise.
+	(FULL_DRIVER_NAME): New variable, adapted from the
+	install-driver target.  New target, a symlink within the builddir,
+	linked to "xgcc", for use when running the JIT library from the
+	builddir.
+	(MOSTLYCLEANFILES): Add FULL_DRIVER_NAME.
+	(install-driver): Use $(FULL_DRIVER_NAME) rather than spelling it
+	out.
+	* configure.ac (doc_build_sys): New variable, set to "sphinx" if
+	sphinx is installed, falling back to "texinfo" otherwise.
+	(GCC_DRIVER_NAME): Generate a gcc-driver-name.h file containing
+	GCC_DRIVER_NAME for the benefit of jit/internal-api.c.
+	* configure: Regenerate.
+	* doc/install.texi (--enable-host-shared): Specify that this is
+	required when building libgccjit.
+	(Tools/packages necessary for modifying GCC): Add Sphinx.
+	* timevar.def (TV_JIT_REPLAY): New.
+	(TV_ASSEMBLE): New.
+	(TV_LINK): New.
+	(TV_LOAD): New.
+
+2014-11-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/63610
+	* configure: Regenerate.
+
 2014-11-11  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* config/aarch64/aarch64-simd.md

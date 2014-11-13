@@ -971,6 +971,10 @@ else
   AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
 fi
 
+# The jit documentation looks better if built with sphinx, but can be
+# built with texinfo if sphinx is not available.
+# Set "doc_build_sys" to "sphinx" or "texinfo" accordingly.
+AC_CHECK_PROG(doc_build_sys, sphinx-build, sphinx, texinfo)
 
 # --------------------
 # Checks for C headers
@@ -5546,12 +5550,6 @@ if test "x${ISLLIBS}" != "x" ; then
    AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
 fi
 
-AC_ARG_VAR(CLOOGLIBS,[How to link CLOOG])
-AC_ARG_VAR(CLOOGINC,[How to find CLOOG include files])
-if test "x${CLOOGLIBS}" != "x" ; then 
-   AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
-fi
-
 GCC_ENABLE_PLUGINS
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
@@ -5603,6 +5601,12 @@ if test x"${LINKER_HASH_STYLE}" != x; then
   AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
                                          [The linker hash style])
 fi
+
+# Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
+# of jit/jit-playback.c.
+cat > gcc-driver-name.h <<EOF
+#define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
+EOF
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)
