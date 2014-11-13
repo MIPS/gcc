@@ -1,3 +1,109 @@
+2014-11-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr.h (weak_ptr): Add move constructor and
+	assignment.
+	* include/bits/shared_ptr_base.h (__weak_count, __weak_ptr): Likewise.
+	Use nullptr and injected class name.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust dg-error.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Adjust dg-error.
+
+	* include/bits/shared_ptr.h (shared_ptr, weak_ptr): Define
+	_Convertible alias template to simplify constraints.
+	(shared_ptr(unique_ptr<TD>&&)): Constrain (LWG 2399).
+	* include/bits/shared_ptr_base.h: Likewise.
+	(_Sp_counted_deleter::_M_get_deleter()): Use addressof (LWG 2400).
+	* include/std/functional (function::operator=(nullptr_t)): Add
+	noexcept (LWG 2401).
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust dg-error.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Adjust dg-error.
+
+2014-11-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/33911
+	* testsuite/20_util/shared_ptr/assign/auto_ptr.cc: Use -Wno-deprecated.
+	* testsuite/20_util/shared_ptr/assign/auto_ptr_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/auto_ptr.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/auto_ptr_neg.cc: Likewise.
+	* testsuite/20_util/unique_ptr/cons/auto_ptr.cc: Likewise.
+	* testsuite/20_util/unique_ptr/cons/auto_ptr_neg.cc: Likewise.
+	* testsuite/ext/array_allocator/variadic_construct.cc: Likewise.
+
+2014-11-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/optional (_Has_addressof): Check for non-member
+	operator&.
+	* testsuite/experimental/optional/observers/2.cc: Add operator&.
+	* testsuite/experimental/optional/constexpr/observers/2.cc: Likewise.
+
+	* testsuite/experimental/optional/constexpr/observers/1.cc: Remove
+	unused header.
+	* testsuite/experimental/optional/constexpr/observers/2.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/3.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/4.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/5.cc: Likewise.
+
+2014-11-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/type_traits (__void_t): Define new alias template.
+	(_GLIBCXX_HAS_NESTED_TYPE): Redefine using __void_t.
+	* include/std/functional (_Maybe_get_result_type): Likewise.
+	* include/bits/stl_iterator_base_types.h (__iterator_traits): Likewise.
+	* include/bits/uses_allocator.h (__uses_allocator_helper): Likewise.
+	* testsuite/20_util/bind/ref_neg.cc: Adjust dg-error.
+	* testsuite/20_util/reference_wrapper/typedefs-3.cc: Adjust to changes
+	in _GLIBCXX_HAS_NESTED_TYPE.
+
+2014-11-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/functional (_Mem_fn_traits): Add partial specializations
+	for varargs functions.
+	(_Mem_fn_base): Do not check arguments are convertible for varargs.
+	(_Bind_check_arity): Add partial specializations for varargs functions.
+	* include/std/type_traits (__bool_constant): Add alias template.
+	* testsuite/20_util/bind/ref_neg.cc: Adjust dg-error.
+	* testsuite/20_util/bind/refqual.cc: New, test ref-qualifiers.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error.
+	* testsuite/20_util/function_objects/mem_fn/refqual.cc: Test varargs.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Adjust
+	dg-error.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc: Adjust
+	dg-error.
+
+2014-11-11  Siva Chandra Reddy  <sivachandra@google.com>
+
+	* testsuite/libstdc++-xmethods/associative-containers.cc: Add new
+	file missed from earlier commit.
+
+2014-11-11  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/61107
+	* include/bits/stl_algo.h (__inplace_stable_partition): Delete.
+	(__stable_partition_adaptive): Return __first if range length is 1.
+	(__stable_partition): Adapt.
+	* testsuite/util/testsuite_new_operators.h: New.
+	* testsuite/25_algorithms/stable_sort/1.cc: Test algo in simulated
+	constraint memory context.
+	* testsuite/25_algorithms/inplace_merge/1.cc: Likewise.
+	* testsuite/25_algorithms/stable_partition/1.cc: Likewise.
+
+2014-11-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/63610
+	* configure: Regenerate.
+
+2014-11-11  Siva Chandra Reddy  <sivachandra@google.com>
+
+	* python/libstdcxx/v6/xmethods.py: Add xmethods for associative
+	containers.
+	* testsuite/libstdc++-xmethods/associative-containers.cc: New file.
+
+2014-11-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/63811
+	* include/bits/stl_deque.h (_Deque_base::_M_move_impl()): Avoid using
+	badname.
+
 2014-11-10  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/bits/stl_deque.h (_Deque_base::_Deque_base(_Deque_base&&)):

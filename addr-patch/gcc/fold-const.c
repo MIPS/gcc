@@ -2152,20 +2152,12 @@ non_lvalue_loc (location_t loc, tree x)
   return build1_loc (loc, NON_LVALUE_EXPR, TREE_TYPE (x), x);
 }
 
-/* Nonzero means lvalues are limited to those valid in pedantic ANSI C.
-   Zero means allow extended lvalues.  */
-
-int pedantic_lvalues;
-
 /* When pedantic, return an expr equal to X but certainly not valid as a
    pedantic lvalue.  Otherwise, return X.  */
 
 static tree
 pedantic_non_lvalue_loc (location_t loc, tree x)
 {
-  if (pedantic_lvalues)
-    return non_lvalue_loc (loc, x);
-
   return protected_set_expr_location_unshare (x, loc);
 }
 
@@ -7996,9 +7988,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case REALPART_EXPR:
       if (TREE_CODE (TREE_TYPE (arg0)) != COMPLEX_TYPE)
 	return fold_convert_loc (loc, type, arg0);
-      if (TREE_CODE (arg0) == COMPLEX_EXPR)
-	return omit_one_operand_loc (loc, type, TREE_OPERAND (arg0, 0),
-				 TREE_OPERAND (arg0, 1));
       if (TREE_CODE (arg0) == COMPLEX_CST)
 	return fold_convert_loc (loc, type, TREE_REALPART (arg0));
       if (TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
@@ -8039,9 +8028,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case IMAGPART_EXPR:
       if (TREE_CODE (TREE_TYPE (arg0)) != COMPLEX_TYPE)
 	return build_zero_cst (type);
-      if (TREE_CODE (arg0) == COMPLEX_EXPR)
-	return omit_one_operand_loc (loc, type, TREE_OPERAND (arg0, 1),
-				 TREE_OPERAND (arg0, 0));
       if (TREE_CODE (arg0) == COMPLEX_CST)
 	return fold_convert_loc (loc, type, TREE_IMAGPART (arg0));
       if (TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
@@ -9939,59 +9925,8 @@ fold_binary_loc (location_t loc,
       return NULL_TREE;
 
     case PLUS_EXPR:
-      /* A + (-B) -> A - B */
-      if (TREE_CODE (arg1) == NEGATE_EXPR
-	  && (flag_sanitize & SANITIZE_SI_OVERFLOW) == 0)
-	return fold_build2_loc (loc, MINUS_EXPR, type,
-			    fold_convert_loc (loc, type, arg0),
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg1, 0)));
-      /* (-A) + B -> B - A */
-      if (TREE_CODE (arg0) == NEGATE_EXPR
-	  && reorder_operands_p (TREE_OPERAND (arg0, 0), arg1)
-	  && (flag_sanitize & SANITIZE_SI_OVERFLOW) == 0)
-	return fold_build2_loc (loc, MINUS_EXPR, type,
-			    fold_convert_loc (loc, type, arg1),
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg0, 0)));
-
       if (INTEGRAL_TYPE_P (type) || VECTOR_INTEGER_TYPE_P (type))
 	{
-	  /* Convert ~A + 1 to -A.  */
-	  if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	      && integer_each_onep (arg1))
-	    return fold_build1_loc (loc, NEGATE_EXPR, type,
-				fold_convert_loc (loc, type,
-						  TREE_OPERAND (arg0, 0)));
-
-	  /* ~X + X is -1.  */
-	  if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	      && !TYPE_OVERFLOW_TRAPS (type))
-	    {
-	      tree tem = TREE_OPERAND (arg0, 0);
-
-	      STRIP_NOPS (tem);
-	      if (operand_equal_p (tem, arg1, 0))
-		{
-		  t1 = build_all_ones_cst (type);
-		  return omit_one_operand_loc (loc, type, t1, arg1);
-		}
-	    }
-
-	  /* X + ~X is -1.  */
-	  if (TREE_CODE (arg1) == BIT_NOT_EXPR
-	      && !TYPE_OVERFLOW_TRAPS (type))
-	    {
-	      tree tem = TREE_OPERAND (arg1, 0);
-
-	      STRIP_NOPS (tem);
-	      if (operand_equal_p (arg0, tem, 0))
-		{
-		  t1 = build_all_ones_cst (type);
-		  return omit_one_operand_loc (loc, type, t1, arg0);
-		}
-	    }
-
 	  /* X + (X / CST) * -CST is X % CST.  */
 	  if (TREE_CODE (arg1) == MULT_EXPR
 	      && TREE_CODE (TREE_OPERAND (arg1, 0)) == TRUNC_DIV_EXPR
@@ -10469,11 +10404,6 @@ fold_binary_loc (location_t loc,
 		return fold_build2_loc (loc, MINUS_EXPR, type, tmp, arg11);
 	    }
 	}
-      /* A - (-B) -> A + B */
-      if (TREE_CODE (arg1) == NEGATE_EXPR)
-	return fold_build2_loc (loc, PLUS_EXPR, type, op0,
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg1, 0)));
       /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */
       if (TREE_CODE (arg0) == NEGATE_EXPR
 	  && negate_expr_p (arg1)
@@ -10608,6 +10538,9 @@ fold_binary_loc (location_t loc,
 
       /* A - B -> A + (-B) if B is easily negatable.  */
       if (negate_expr_p (arg1)
+	  && (!INTEGRAL_TYPE_P (type)
+	      || TYPE_OVERFLOW_WRAPS (type)
+	      || (flag_sanitize & SANITIZE_SI_OVERFLOW) == 0)
 	  && ((FLOAT_TYPE_P (type)
                /* Avoid this transformation if B is a positive REAL_CST.  */
 	       && (TREE_CODE (arg1) != REAL_CST
@@ -13414,13 +13347,6 @@ fold_binary_loc (location_t loc,
 	  || (TREE_CODE (arg0) == INTEGER_CST
 	      && TREE_CODE (arg1) == INTEGER_CST))
 	return build_complex (type, arg0, arg1);
-      if (TREE_CODE (arg0) == REALPART_EXPR
-	  && TREE_CODE (arg1) == IMAGPART_EXPR
-	  && TREE_TYPE (TREE_OPERAND (arg0, 0)) == type
-	  && operand_equal_p (TREE_OPERAND (arg0, 0),
-			      TREE_OPERAND (arg1, 0), 0))
-	return omit_one_operand_loc (loc, type, TREE_OPERAND (arg0, 0),
-				     TREE_OPERAND (arg1, 0));
       return NULL_TREE;
 
     case ASSERT_EXPR:
