@@ -1,4 +1,8 @@
 
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 1.1.3 plugin release for GCC 4.8 & 4.9}}
+	* INSTALL/README-MELT-PLUGIN: Improvements of 1.1.3
+
 2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin 1.1.3rc0 release candidate for GCC 4.8 & 4.9}}
 	* INSTALL/README-MELT-PLUGIN: Improvements of 1.1.3
