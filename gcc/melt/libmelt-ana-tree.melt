@@ -760,17 +760,20 @@ treerr
   }#)
   
 ;;;;
-(defcmatcher tree_namelist_decl
-  (:tree tr)
-  (:tree trdecl)
-  trnamlisdcl
-  :doc #{$TREE_NAMELIST_DECL match a namelist declaration, extracting the list into $TRDECL.}#
-  ;; test
-  #{ /* tree_namelist_decl $TRNAMLISDCL ? */ (($TR) && TREE_CODE($TR) == NAMELIST_DECL) }#
-  ;; fill
-  #{ /* tree_namelist_decl $TRNAMLISDCL ! */
-  $TRDECL = NAMELIST_DECL_ASSOCIATED_DECL ($TR);
-  }#)
+;;; NAMELIST_DECL exists only in GCC 4.9, not GCC 4.8
+(gccif "4.9"
+       (defcmatcher tree_namelist_decl
+	 (:tree tr)
+	 (:tree trdecl)
+	 trnamlisdcl
+	 :doc #{$TREE_NAMELIST_DECL match a namelist declaration, extracting the list into $TRDECL.}#
+	 ;; test
+	 #{ /* tree_namelist_decl $TRNAMLISDCL ? */ (($TR) && TREE_CODE($TR) == NAMELIST_DECL) }#
+	 ;; fill
+	 #{ /* tree_namelist_decl $TRNAMLISDCL ! */
+	 $TRDECL = NAMELIST_DECL_ASSOCIATED_DECL ($TR) ;
+	 }#)
+       )
 
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_translation_unit_decl

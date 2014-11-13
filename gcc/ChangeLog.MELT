@@ -1,5 +1,9 @@
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (tree_namelist_decl): Only for GCC
+	4.9, not for GCC 4.8
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	{last-minute bug before 1.1.3 - for GCC 4.8}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.1.3quasi"
 
