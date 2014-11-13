@@ -1,5 +1,9 @@
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{The real MELT 1.1.3 plugin release for GCC 4.8 & 4.9}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump again to "1.1.3"
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (make_tree_call_expr): Use auto_vec
 	only for GCC 4.9, but vec for GCC 4.8
 
