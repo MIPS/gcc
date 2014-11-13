@@ -286,8 +286,6 @@ _melt-runtime.c: $(MELT_RUNTIME_CC)
 _meltrunsup-inc.c: melt/generated/meltrunsup-inc.cc
 	$(LN_S) $^ $@
 
-melt-run.h melt-run-md5.h:
-
 # intermediate file for the version number
 gfmeltgcc_version_number: 
 	 echo "$(MELTGCC_VERSION)"  | $(AWK) '{split($$1,vertab,"."); printf "%d", vertab[1]*1000+vertab[2]}' > $@
@@ -305,7 +303,7 @@ gfmeltgcc_run_md5: $(MELTGCC_RUNTIME_INCLUDES) MELT-Plugin-Makefile  melt-run.pr
 	 | grep -v '^#' | md5sum | cut -c 1-32 > $@-tmp
 	mv $@-tmp $@
 
-melt-run.h: melt-run.proto.h gfmeltgcc_run_md5 gfmeltgcc_version_number
+melt-run.h  melt-run-md5.h: melt-run.proto.h gfmeltgcc_run_md5 gfmeltgcc_version_number
 	rm -f $@-tmp
 	$(SED) \
             -e '/include.*melt-runtime.h/i #define MELT_IS_PLUGIN 1' \
@@ -344,9 +342,9 @@ melt-mv-if-changed: melt-mv-if-changed.c
 
 melt.so melt-runtime.args: $(MELT_RUNTIME_CC) $(MELTGCC_RUNTIME_INCLUDES) \
    melt-runtime-params-inc.c melt-mv-if-changed \
+	gfmeltgcc_version_number gfmeltgcc_revision \
    gt-melt-runtime.h $(wildcard $(MELTGCC_PLUGIN_DIR)/include/*.h) \
-   melt-predef.h melt-run.h melt-run-md5.h GCCMELT-REVISION \
-	gfmeltgcc_version_number gfmeltgcc_revision
+   melt-predef.h melt-run.h melt-run-md5.h GCCMELT-REVISION
 	@echo  $(melt_cflags) >  melt-runtime.args-tmp
 	@echo -DMELT_IS_PLUGIN \
 	   -DMELT_GCC_VERSION=$(MELTGCC_VERSION_NUMBER) \

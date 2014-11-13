@@ -1,4 +1,13 @@
 
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-run.proto.h: Include plugin-version.h after gcc-plugin.h
+	after config.h.
+	(MELT_GCC_VERSION): Defaults to GCCPLUGIN_VERSION.
+	Us GCCPLUGIN_VERSION preferably.
+	* melt-runtime.h: Use GCCPLUGIN_VERSION preferably.
+	(MELT_VERSION_STRING): Bump to 1.1.3rc0post.
+	* melt-runtime.cc: Likewise.
+
 2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{MELT plugin 1.1.3rc0 release candidate for GCC 4.8 & 4.9}}

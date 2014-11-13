@@ -28,6 +28,10 @@ along with GCC; see the file COPYING3.   If not see
 #error MELT runtime requires a C++ compiler
 #endif	/*__cplusplus*/
 
+#ifndef GCCPLUGIN_VERSION
+#include "plugin-version.h"
+#endif /*GCCPLUGIN_VERSION*/
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif /*HAVE_STDINT_H*/
@@ -142,7 +146,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
 /* The version string of MELT; this is parsed by make, so spaces are
    important, don't add spaces after the terminating double-quote!
    That version string is extracted by scripts or makefiles... */
-#define MELT_VERSION_STRING "1.1.3rc0"
+#define MELT_VERSION_STRING "1.1.3-rc0post"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -3794,12 +3798,12 @@ same as gimple (with file "coretypes.h" having the definition `typedef
 gimple gimple_seq;`), but our generated runtime support might still
 want their old marking routine.  */
 
-#if MELT_GCC_VERSION >= 4008
+#if GCCPLUGIN_VERSION >= 4008
 extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #define gt_ggc_mx_gimple_seq_d melt_gt_ggc_mx_gimple_seq_d
 #endif /* GCC 4.8 */
 
-#if MELT_GCC_VERSION == 4009
+#if GCCPLUGIN_VERSION == 4009
 /* Probably temporary */
 #define gt_ggc_mx_gimple_statement_d gt_ggc_m_21gimple_statement_base
 #endif /* GCC 4.9 */

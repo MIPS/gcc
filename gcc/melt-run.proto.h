@@ -27,21 +27,27 @@ along with GCC; see the file COPYING3.   If not see
 /* We need <cstdlib> very early for GCC 4.8 & 4.9; see http://gcc.gnu.org/ml/gcc/2012-08/msg00277.html */
 #include <cstdlib>
 
+#include "config.h"
+
+
+/* all file including this melt-run.h are somehow plugins, perhaps MELT specific ones */
+
+#include "gcc-plugin.h"
+
+
+#ifndef GCCPLUGIN_VERSION
+#include "plugin-version.h"
+#endif /*GCCPLUGIN_VERSION*/
+
+/// Since at least GCC 4.8, plugin-version.h defines GCCPLUGIN_VERSION
+
 #ifndef MELT_GCC_VERSION
 /* Actually, the generated melt-run.h contains a number like 4007 for
    GCC 4.7 etc.  This is the version of the GCC using this MELT. */
 #define MELT_GCC_VERSION GCCPLUGIN_VERSION
 #endif
 
-
-/* all file including this are somehow plugins, perhaps MELT specific ones */
-#include "gcc-plugin.h"
-
-
-
 /* usual GCC middle-end includes, copied from melt-runtime.c */
-
-#include "config.h"
 
 /* this is intended to pass -DDISABLE_CHECKING explicitly */
 #ifdef DISABLE_CHECKING
@@ -54,7 +60,7 @@ along with GCC; see the file COPYING3.   If not see
 #include "tm.h"
 #include "tree.h"
 
-#if MELT_GCC_VERSION >= 4009
+#if GCCPLUGIN_VERSION >= 4009
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -84,7 +90,7 @@ along with GCC; see the file COPYING3.   If not see
 
 #include "diagnostic.h"
 
-#if MELT_GCC_VERSION >= 4009
+#if GCCPLUGIN_VERSION >= 4009
 #include "context.h"
 #include "tree-cfg.h"
 #include "gimple-iterator.h"

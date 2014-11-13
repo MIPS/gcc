@@ -1,4 +1,7 @@
 
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile (melt-run.h): Have only one rule for it.
+
 2014-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile (_libmelt-treecode.melt): Improve
 	generation.

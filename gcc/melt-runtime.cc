@@ -39,6 +39,12 @@ const int melt_is_plugin = 1;
 const int melt_is_plugin = 0;
 #endif /* MELT_IS_PLUGIN */
 
+/* the file "plugin-version.h" defines GCCPLUGIN_VERSION, but sadly
+   also provide useless static constants like revision, datestamp,
+   gcc_version, etc... and thru "configargs.h" static constants like
+   configure_default_options etc.... */
+#include "plugin-version.h"
+
 #include <string.h>
 #include <string>
 #include <vector>
@@ -65,7 +71,7 @@ const int melt_is_plugin = 0;
 #include "ggc.h"
 #include "tree.h"
 
-#if MELT_GCC_VERSION >= 4009
+#if GCCPLUGIN_VERSION >= 4009
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -84,7 +90,7 @@ const int melt_is_plugin = 0;
 #include "cfgloop.h"
 #include "timevar.h"
 
-#if MELT_GCC_VERSION >= 4009
+#if GCCPLUGIN_VERSION >= 4009
 #include "tree-ssa.h"
 #include "tree-cfg.h"
 #include "print-tree.h"
@@ -116,11 +122,6 @@ const int melt_is_plugin = 0;
 /* Diagnostic related files need to be included after c-pretty-print.h!  */
 #include "diagnostic.h"
 
-/* the file "plugin-version.h" defines GCCPLUGIN_VERSION, but sadly
-   also provide useless static constants like revision, datestamp,
-   gcc_version, etc... and thru "configargs.h" static constants like
-   configure_default_options etc.... */
-#include "plugin-version.h"
 
 /* since 4.7, we have a GCCPLUGIN_VERSION in plugin-version.h. */
 #if defined(GCCPLUGIN_VERSION) && (GCCPLUGIN_VERSION != MELT_GCC_VERSION)
@@ -5621,14 +5622,12 @@ melt_run_make_for_plugin (const char*ourmakecommand, const char*ourmakefile, con
     warning (0, "escaped character[s] in MELT binary module %s", binbase);
   obstack_1grow (&cmd_obstack, ' ');
 
-  /* add the built with C++ argument if needed */
-#if defined(ENABLE_BUILD_WITH_CXX) || MELT_GCC_VERSION >= 4008 || defined(__cplusplus)
+  /* add the built with C++ argument */
   {
     obstack_1grow (&cmd_obstack, ' ');
     obstack_grow (&cmd_obstack, BUILD_WITH_CXX_ARG "YesPlugin",
                   strlen (BUILD_WITH_CXX_ARG "YesPlugin"));
   }
-#endif
 
   /* add the cflag argument if needed */
   if (ourcflags && ourcflags[0])
@@ -6496,11 +6495,7 @@ melt_linemap_compute_current_location (struct melt_reading_st* rd)
       else
         colnum++;
     }
-#if MELT_GCC_VERSION <= 4006 /* GCC 4.6 */
-  LINEMAP_POSITION_FOR_COLUMN(rd->rsrcloc, line_table, colnum);
-#else /* GCC 4.7 or newer */
   rd->rsrcloc = linemap_position_for_column (line_table, colnum);
-#endif /*MELT_GCC_VERSION*/
 }
 
 static void
@@ -10572,15 +10567,12 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
                  gcc_exec_prefix);
       else
         fprintf (setfil, "# MELTGCCBUILTIN_GCC_EXEC_PREFIX is not set\n");
-#if defined(ENABLE_BUILD_WITH_CXX) || MELT_GCC_VERSION >= 4008
 #ifdef __cplusplus
       fprintf (setfil, "MELTGCCBUILTIN_BUILD_WITH_CXX=1\n");
 #else
+#error MELT needs to be built with a C++ compiler
       fprintf (setfil, "MELTGCCBUILTIN_BUILD_WITH_CXX=O\n");
 #endif /*__cplusplus*/
-#else /* !ENABLE_BUILD_WITH_CXX*/
-      fprintf (setfil, "# MELTGCCBUILTIN_BUILD_WITH_CXX is not set\n");
-#endif /*ENABLE_BUILD_WITH_CXX*/
       fflush (setfil);
       if (setfil == stdout)
         inform (UNKNOWN_LOCATION,
@@ -11908,7 +11900,7 @@ meltgc_out_edge (melt_ptr_t out_p, edge edg)
     {
       FILE* oldfil= melt_open_ppfile ();
       dump_edge_info (meltppfile, edg,
-#if MELT_GCC_VERSION >= 4008
+#if GCCPLUGIN_VERSION >= 4008
                       TDF_DETAILS,
 #endif
                       /*do_succ=*/ 1);
@@ -11925,7 +11917,7 @@ meltgc_out_edge (melt_ptr_t out_p, edge edg)
       if (!f)
         goto end;
       dump_edge_info (f, edg,
-#if MELT_GCC_VERSION >= 4008
+#if GCCPLUGIN_VERSION >= 4008
                       TDF_DETAILS, // argument appearing in GCC 4.8 august 2012 trunk
 #endif
                       /*do_succ=*/ 1);
@@ -13421,12 +13413,12 @@ same as gimple (with file "coretypes.h" having the definition `typedef
 gimple gimple_seq;`), but our generated runtime support might still
 want their old marking routine.  */
 
-#if MELT_GCC_VERSION == 4008
+#if GCCPLUGIN_VERSION == 4008
 void melt_gt_ggc_mx_gimple_seq_d(void*p)
 {
   gt_ggc_mx_gimple_statement_d (p);
 }
-#elif MELT_GCC_VERSION == 4009
+#elif GCCPLUGIN_VERSION == 4009
 void melt_gt_ggc_mx_gimple_seq_d(void*p)
 {
   if (p)
