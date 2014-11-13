@@ -1,5 +1,19 @@
 2014-11-13  Richard Biener  <rguenther@suse.de>
 
+	* match.pd: Implement more binary patterns exercised by
+	fold_stmt.
+	* fold-const.c (sing_bit_p): Export.
+	(exact_inverse): Likewise.
+	(fold_binary_loc): Remove patterns here.
+	(tree_unary_nonnegative_warnv_p): Use CASE_CONVERT.
+	* fold-const.h (sing_bit_p): Declare.
+	(exact_inverse): Likewise.
+	* genmatch.c (add_operator): Allow CONSTRUCTOR.
+	(dt_node::gen_kids): Handle CONSTRUCTOR not as GENERIC.
+	(parser::parse_op): Allow to iterate over predicates.
+
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
 	* match.pd: Remove redundant pattern.  Inline remaining
 	stuff from match-rotate.pd and match-conversions.pd.
 	* match-rotate.pd: Remove.
