@@ -296,7 +296,7 @@
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN && unaligned_access"
   "vld1.<V_sz_elem>\t{%q0}, %A1"
-  [(set_attr "type" "neon_store1_1reg<q>")])
+  [(set_attr "type" "neon_load1_1reg<q>")])
 
 (define_insn "vec_set<mode>_internal"
   [(set (match_operand:VD 0 "s_register_operand" "=w,w")
@@ -627,6 +627,17 @@
   "TARGET_NEON && TARGET_FPU_ARMV8"
   "vrint<nvrint_variant>%?.f32\\t%<V_reg>0, %<V_reg>1"
   [(set_attr "type" "neon_fp_round_<V_elem_ch><q>")]
+)
+
+(define_insn "neon_vcvt<NEON_VCVT:nvrint_variant><su_optab><VCVTF:mode><v_cmp_result>"
+  [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w")
+	(FIXUORS:<V_cmp_result> (unspec:VCVTF
+			       [(match_operand:VCVTF 1 "register_operand" "w")]
+			       NEON_VCVT)))]
+  "TARGET_NEON && TARGET_FPU_ARMV8"
+  "vcvt<nvrint_variant>.<su>32.f32\\t%<V_reg>0, %<V_reg>1"
+  [(set_attr "type" "neon_fp_to_int_<V_elem_ch><q>")
+   (set_attr "predicable" "no")]
 )
 
 (define_insn "ior<mode>3"
@@ -1199,7 +1210,7 @@
   rtx zero_reg;
   HOST_WIDE_INT num_bits = INTVAL (operands[2]);
   const int width = GET_MODE_BITSIZE (<MODE>mode);
-  const enum machine_mode bvecmode = (width == 128) ? V16QImode : V8QImode;
+  const machine_mode bvecmode = (width == 128) ? V16QImode : V8QImode;
   rtx (*gen_ext) (rtx, rtx, rtx, rtx) =
     (width == 128) ? gen_neon_vextv16qi : gen_neon_vextv8qi;
 
@@ -1227,7 +1238,7 @@
   rtx zero_reg;
   HOST_WIDE_INT num_bits = INTVAL (operands[2]);
   const int width = GET_MODE_BITSIZE (<MODE>mode);
-  const enum machine_mode bvecmode = (width == 128) ? V16QImode : V8QImode;
+  const machine_mode bvecmode = (width == 128) ? V16QImode : V8QImode;
   rtx (*gen_ext) (rtx, rtx, rtx, rtx) =
     (width == 128) ? gen_neon_vextv16qi : gen_neon_vextv8qi;
 
@@ -1338,33 +1349,47 @@
 
 ;; Reduction operations
 
-(define_expand "reduc_splus_<mode>"
-  [(match_operand:VD 0 "s_register_operand" "")
+(define_expand "reduc_plus_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VD 1 "s_register_operand" "")]
   "TARGET_NEON && (!<Is_float_mode> || flag_unsafe_math_optimizations)"
 {
-  neon_pairwise_reduce (operands[0], operands[1], <MODE>mode,
+  rtx vec = gen_reg_rtx (<MODE>mode);
+  neon_pairwise_reduce (vec, operands[1], <MODE>mode,
 			&gen_neon_vpadd_internal<mode>);
+  /* The same result is actually computed into every element.  */
+  emit_insn (gen_vec_extract<mode> (operands[0], vec, const0_rtx));
   DONE;
 })
 
-(define_expand "reduc_splus_<mode>"
-  [(match_operand:VQ 0 "s_register_operand" "")
+(define_expand "reduc_plus_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VQ 1 "s_register_operand" "")]
   "TARGET_NEON && (!<Is_float_mode> || flag_unsafe_math_optimizations)
    && !BYTES_BIG_ENDIAN"
 {
   rtx step1 = gen_reg_rtx (<V_HALF>mode);
-  rtx res_d = gen_reg_rtx (<V_HALF>mode);
 
   emit_insn (gen_quad_halves_plus<mode> (step1, operands[1]));
-  emit_insn (gen_reduc_splus_<V_half> (res_d, step1));
-  emit_insn (gen_move_lo_quad_<mode> (operands[0], res_d));
+  emit_insn (gen_reduc_plus_scal_<V_half> (operands[0], step1));
 
   DONE;
 })
 
-(define_insn "reduc_splus_v2di"
+(define_expand "reduc_plus_scal_v2di"
+  [(match_operand:DI 0 "nonimmediate_operand" "=w")
+   (match_operand:V2DI 1 "s_register_operand" "")]
+  "TARGET_NEON && !BYTES_BIG_ENDIAN"
+{
+  rtx vec = gen_reg_rtx (V2DImode);
+
+  emit_insn (gen_arm_reduc_plus_internal_v2di (vec, operands[1]));
+  emit_insn (gen_vec_extractv2di (operands[0], vec, const0_rtx));
+
+  DONE;
+})
+
+(define_insn "arm_reduc_plus_internal_v2di"
   [(set (match_operand:V2DI 0 "s_register_operand" "=w")
 	(unspec:V2DI [(match_operand:V2DI 1 "s_register_operand" "w")]
 		     UNSPEC_VPADD))]
@@ -1373,115 +1398,109 @@
   [(set_attr "type" "neon_add_q")]
 )
 
-;; NEON does not distinguish between signed and unsigned addition except on
-;; widening operations.
-(define_expand "reduc_uplus_<mode>"
-  [(match_operand:VDQI 0 "s_register_operand" "")
-   (match_operand:VDQI 1 "s_register_operand" "")]
-  "TARGET_NEON && (<Is_d_reg> || !BYTES_BIG_ENDIAN)"
-{
-  emit_insn (gen_reduc_splus_<mode> (operands[0], operands[1]));
-  DONE;
-})
-
-(define_expand "reduc_smin_<mode>"
-  [(match_operand:VD 0 "s_register_operand" "")
+(define_expand "reduc_smin_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VD 1 "s_register_operand" "")]
   "TARGET_NEON && (!<Is_float_mode> || flag_unsafe_math_optimizations)"
 {
-  neon_pairwise_reduce (operands[0], operands[1], <MODE>mode,
+  rtx vec = gen_reg_rtx (<MODE>mode);
+
+  neon_pairwise_reduce (vec, operands[1], <MODE>mode,
 			&gen_neon_vpsmin<mode>);
+  /* The result is computed into every element of the vector.  */
+  emit_insn (gen_vec_extract<mode> (operands[0], vec, const0_rtx));
   DONE;
 })
 
-(define_expand "reduc_smin_<mode>"
-  [(match_operand:VQ 0 "s_register_operand" "")
+(define_expand "reduc_smin_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VQ 1 "s_register_operand" "")]
   "TARGET_NEON && (!<Is_float_mode> || flag_unsafe_math_optimizations)
    && !BYTES_BIG_ENDIAN"
 {
   rtx step1 = gen_reg_rtx (<V_HALF>mode);
-  rtx res_d = gen_reg_rtx (<V_HALF>mode);
 
   emit_insn (gen_quad_halves_smin<mode> (step1, operands[1]));
-  emit_insn (gen_reduc_smin_<V_half> (res_d, step1));
-  emit_insn (gen_move_lo_quad_<mode> (operands[0], res_d));
+  emit_insn (gen_reduc_smin_scal_<V_half> (operands[0], step1));
 
   DONE;
 })
 
-(define_expand "reduc_smax_<mode>"
-  [(match_operand:VD 0 "s_register_operand" "")
+(define_expand "reduc_smax_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VD 1 "s_register_operand" "")]
   "TARGET_NEON && (!<Is_float_mode> || flag_unsafe_math_optimizations)"
 {
-  neon_pairwise_reduce (operands[0], operands[1], <MODE>mode,
+  rtx vec = gen_reg_rtx (<MODE>mode);
+  neon_pairwise_reduce (vec, operands[1], <MODE>mode,
 			&gen_neon_vpsmax<mode>);
+  /* The result is computed into every element of the vector.  */
+  emit_insn (gen_vec_extract<mode> (operands[0], vec, const0_rtx));
   DONE;
 })
 
-(define_expand "reduc_smax_<mode>"
-  [(match_operand:VQ 0 "s_register_operand" "")
+(define_expand "reduc_smax_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VQ 1 "s_register_operand" "")]
   "TARGET_NEON && (!<Is_float_mode> || flag_unsafe_math_optimizations)
    && !BYTES_BIG_ENDIAN"
 {
   rtx step1 = gen_reg_rtx (<V_HALF>mode);
-  rtx res_d = gen_reg_rtx (<V_HALF>mode);
 
   emit_insn (gen_quad_halves_smax<mode> (step1, operands[1]));
-  emit_insn (gen_reduc_smax_<V_half> (res_d, step1));
-  emit_insn (gen_move_lo_quad_<mode> (operands[0], res_d));
+  emit_insn (gen_reduc_smax_scal_<V_half> (operands[0], step1));
 
   DONE;
 })
 
-(define_expand "reduc_umin_<mode>"
-  [(match_operand:VDI 0 "s_register_operand" "")
+(define_expand "reduc_umin_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VDI 1 "s_register_operand" "")]
   "TARGET_NEON"
 {
-  neon_pairwise_reduce (operands[0], operands[1], <MODE>mode,
+  rtx vec = gen_reg_rtx (<MODE>mode);
+  neon_pairwise_reduce (vec, operands[1], <MODE>mode,
 			&gen_neon_vpumin<mode>);
+  /* The result is computed into every element of the vector.  */
+  emit_insn (gen_vec_extract<mode> (operands[0], vec, const0_rtx));
   DONE;
 })
 
-(define_expand "reduc_umin_<mode>"
-  [(match_operand:VQI 0 "s_register_operand" "")
+(define_expand "reduc_umin_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VQI 1 "s_register_operand" "")]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
 {
   rtx step1 = gen_reg_rtx (<V_HALF>mode);
-  rtx res_d = gen_reg_rtx (<V_HALF>mode);
 
   emit_insn (gen_quad_halves_umin<mode> (step1, operands[1]));
-  emit_insn (gen_reduc_umin_<V_half> (res_d, step1));
-  emit_insn (gen_move_lo_quad_<mode> (operands[0], res_d));
+  emit_insn (gen_reduc_umin_scal_<V_half> (operands[0], step1));
 
   DONE;
 })
 
-(define_expand "reduc_umax_<mode>"
-  [(match_operand:VDI 0 "s_register_operand" "")
+(define_expand "reduc_umax_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VDI 1 "s_register_operand" "")]
   "TARGET_NEON"
 {
-  neon_pairwise_reduce (operands[0], operands[1], <MODE>mode,
+  rtx vec = gen_reg_rtx (<MODE>mode);
+  neon_pairwise_reduce (vec, operands[1], <MODE>mode,
 			&gen_neon_vpumax<mode>);
+  /* The result is computed into every element of the vector.  */
+  emit_insn (gen_vec_extract<mode> (operands[0], vec, const0_rtx));
   DONE;
 })
 
-(define_expand "reduc_umax_<mode>"
-  [(match_operand:VQI 0 "s_register_operand" "")
+(define_expand "reduc_umax_scal_<mode>"
+  [(match_operand:<V_elem> 0 "nonimmediate_operand" "")
    (match_operand:VQI 1 "s_register_operand" "")]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
 {
   rtx step1 = gen_reg_rtx (<V_HALF>mode);
-  rtx res_d = gen_reg_rtx (<V_HALF>mode);
 
   emit_insn (gen_quad_halves_umax<mode> (step1, operands[1]));
-  emit_insn (gen_reduc_umax_<V_half> (res_d, step1));
-  emit_insn (gen_move_lo_quad_<mode> (operands[0], res_d));
+  emit_insn (gen_reduc_umax_scal_<V_half> (operands[0], step1));
 
   DONE;
 })
@@ -2568,6 +2587,33 @@
   emit_insn (gen_neg<mode>2 (operands[0], operands[1]));
   DONE;
 })
+
+(define_expand "neon_copysignf<mode>"
+  [(match_operand:VCVTF 0 "register_operand")
+   (match_operand:VCVTF 1 "register_operand")
+   (match_operand:VCVTF 2 "register_operand")]
+  "TARGET_NEON"
+  "{
+     rtx v_bitmask_cast;
+     rtx v_bitmask = gen_reg_rtx (<VCVTF:V_cmp_result>mode);
+     int i, n_elt = GET_MODE_NUNITS (<MODE>mode);
+     rtvec v = rtvec_alloc (n_elt);
+
+     /* Create bitmask for vector select.  */
+     for (i = 0; i < n_elt; ++i)
+       RTVEC_ELT (v, i) = GEN_INT (0x80000000);
+
+     emit_move_insn (v_bitmask,
+		     gen_rtx_CONST_VECTOR (<VCVTF:V_cmp_result>mode, v));
+     emit_move_insn (operands[0], operands[2]);
+     v_bitmask_cast = simplify_gen_subreg (<MODE>mode, v_bitmask,
+					   <VCVTF:V_cmp_result>mode, 0);
+     emit_insn (gen_neon_vbsl<mode> (operands[0], v_bitmask_cast, operands[0],
+				     operands[1]));
+
+     DONE;
+  }"
+)
 
 (define_insn "neon_vqneg<mode>"
   [(set (match_operand:VDQIW 0 "s_register_operand" "=w")

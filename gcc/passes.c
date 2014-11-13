@@ -40,9 +40,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "except.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "intl.h"
 #include "graph.h"
@@ -75,7 +80,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-dump.h"
 #include "df.h"
-#include "predict.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "plugin.h"
 #include "ipa-utils.h"
@@ -84,7 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
-#include "hash-map.h"
 
 using namespace gcc;
 
@@ -133,7 +140,9 @@ opt_pass::opt_pass (const pass_data &data, context *ctxt)
 void
 pass_manager::execute_early_local_passes ()
 {
-  execute_pass_list (cfun, pass_early_local_passes_1->sub);
+  execute_pass_list (cfun, pass_build_ssa_passes_1->sub);
+  execute_pass_list (cfun, pass_chkp_instrumentation_passes_1->sub);
+  execute_pass_list (cfun, pass_local_optimization_passes_1->sub);
 }
 
 unsigned int
@@ -325,7 +334,7 @@ finish_optimization_passes (void)
 }
 
 static unsigned int
-execute_all_early_local_passes (void)
+execute_build_ssa_passes (void)
 {
   /* Once this pass (and its sub-passes) are complete, all functions
      will be in SSA form.  Technically this state change is happening
@@ -333,31 +342,33 @@ execute_all_early_local_passes (void)
      none of the sub-passes are IPA passes and do not create new
      functions, this is ok.  We're setting this value for the benefit
      of IPA passes that follow.  */
-  if (cgraph_state < CGRAPH_STATE_IPA_SSA)
-    cgraph_state = CGRAPH_STATE_IPA_SSA;
+  if (symtab->state < IPA_SSA)
+    symtab->state = IPA_SSA;
   return 0;
 }
 
 namespace {
 
-const pass_data pass_data_early_local_passes =
+const pass_data pass_data_build_ssa_passes =
 {
   SIMPLE_IPA_PASS, /* type */
-  "early_local_cleanups", /* name */
+  "build_ssa_passes", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_EARLY_LOCAL, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_remove_functions, /* todo_flags_finish */
+  /* todo_flags_finish is executed before subpases. For this reason
+     it makes no sense to remove unreachable functions here.  */
+  0, /* todo_flags_finish */
 };
 
-class pass_early_local_passes : public simple_ipa_opt_pass
+class pass_build_ssa_passes : public simple_ipa_opt_pass
 {
 public:
-  pass_early_local_passes (gcc::context *ctxt)
-    : simple_ipa_opt_pass (pass_data_early_local_passes, ctxt)
+  pass_build_ssa_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_build_ssa_passes, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -369,17 +380,87 @@ public:
 
   virtual unsigned int execute (function *)
     {
-      return execute_all_early_local_passes ();
+      return execute_build_ssa_passes ();
     }
 
-}; // class pass_early_local_passes
+}; // class pass_build_ssa_passes
+
+const pass_data pass_data_chkp_instrumentation_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_chkp_instrumentation_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_chkp_instrumentation_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_chkp_instrumentation_passes, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Don't bother doing anything if the program has errors.  */
+      return (!seen_error () && !in_lto_p);
+    }
+
+}; // class pass_chkp_instrumentation_passes
+
+const pass_data pass_data_local_optimization_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "opt_local_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_local_optimization_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_local_optimization_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_local_optimization_passes, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Don't bother doing anything if the program has errors.  */
+      return (!seen_error () && !in_lto_p);
+    }
+
+}; // class pass_local_optimization_passes
 
 } // anon namespace
 
 simple_ipa_opt_pass *
-make_pass_early_local_passes (gcc::context *ctxt)
+make_pass_build_ssa_passes (gcc::context *ctxt)
 {
-  return new pass_early_local_passes (ctxt);
+  return new pass_build_ssa_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_chkp_instrumentation_passes (gcc::context *ctxt)
+{
+  return new pass_chkp_instrumentation_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_local_optimization_passes (gcc::context *ctxt)
+{
+  return new pass_local_optimization_passes (ctxt);
 }
 
 namespace {
@@ -565,6 +646,44 @@ static rtl_opt_pass *
 make_pass_postreload (gcc::context *ctxt)
 {
   return new pass_postreload (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_late_compilation =
+{
+  RTL_PASS, /* type */
+  "*all-late_compilation", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_LATE_COMPILATION, /* tv_id */
+  PROP_rtl, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_late_compilation : public rtl_opt_pass
+{
+public:
+  pass_late_compilation (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_late_compilation, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+  {
+    return reload_completed || targetm.no_register_allocation;
+  }
+
+}; // class pass_late_compilation
+
+} // anon namespace
+
+static rtl_opt_pass *
+make_pass_late_compilation (gcc::context *ctxt)
+{
+  return new pass_late_compilation (ctxt);
 }
 
 
@@ -1504,7 +1623,7 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
   else
     {
       gcc_assert (!order);
-      order = ggc_vec_alloc<cgraph_node *> (cgraph_n_nodes);
+      order = ggc_vec_alloc<cgraph_node *> (symtab->cgraph_count);
       nnodes = ipa_reverse_postorder (order);
       for (i = nnodes - 1; i >= 0; i--)
         order[i]->process = 1;
@@ -1730,7 +1849,7 @@ execute_function_todo (function *fn, void *data)
     rebuild_frequencies ();
 
   if (flags & TODO_rebuild_cgraph_edges)
-    rebuild_cgraph_edges ();
+    cgraph_edge::rebuild_edges ();
 
   /* If we've seen errors do not bother running any verifiers.  */
   if (!seen_error ())
@@ -1812,7 +1931,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_remove_functions)
     {
       gcc_assert (!cfun);
-      symtab_remove_unreachable_nodes (true, dump_file);
+      symtab->remove_unreachable_nodes (true, dump_file);
     }
 
   if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)
@@ -1942,6 +2061,7 @@ execute_ipa_summary_passes (ipa_opt_pass_d *ipa_pass)
 	  if (pass->tv_id)
 	    timevar_push (pass->tv_id);
 
+	  current_pass = pass;
 	  ipa_pass->generate_summary ();
 
 	  /* Stop timevar.  */
@@ -2111,7 +2231,7 @@ execute_one_pass (opt_pass *pass)
 		node->get_body ();
 		push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 		execute_all_ipa_transforms ();
-		rebuild_cgraph_edges ();
+		cgraph_edge::rebuild_edges ();
 		free_dominance_info (CDI_DOMINATORS);
 		free_dominance_info (CDI_POST_DOMINATORS);
 		pop_cfun ();
@@ -2119,7 +2239,7 @@ execute_one_pass (opt_pass *pass)
 	      }
 	  }
       if (applied)
-        symtab_remove_unreachable_nodes (true, dump_file);
+	symtab->remove_unreachable_nodes (false, dump_file);
       /* Restore current_pass.  */
       current_pass = pass;
     }
@@ -2174,7 +2294,7 @@ execute_one_pass (opt_pass *pass)
     }
 
   if (!current_function_decl)
-    cgraph_process_new_functions ();
+    symtab->process_new_functions ();
 
   pass_fini_dump_file (pass);
 
@@ -2253,6 +2373,7 @@ ipa_write_summaries_2 (opt_pass *pass, struct lto_out_decl_state *state)
 
           pass_init_dump_file (pass);
 
+	  current_pass = pass;
 	  ipa_pass->write_summary ();
 
           pass_fini_dump_file (pass);
@@ -2312,9 +2433,9 @@ ipa_write_summaries (void)
      cgraph_expand_all_functions.  This mostly facilitates debugging,
      since it causes the gimple file to be processed in the same order
      as the source code.  */
-  order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  order = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
   order_pos = ipa_reverse_postorder (order);
-  gcc_assert (order_pos == cgraph_n_nodes);
+  gcc_assert (order_pos == symtab->cgraph_count);
 
   for (i = order_pos - 1; i >= 0; i--)
     {
@@ -2371,6 +2492,7 @@ ipa_write_optimization_summaries_1 (opt_pass *pass,
 
           pass_init_dump_file (pass);
 
+	  current_pass = pass;
 	  ipa_pass->write_optimization_summary ();
 
           pass_fini_dump_file (pass);
@@ -2451,6 +2573,7 @@ ipa_read_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
+	      current_pass = pass;
 	      ipa_pass->read_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2501,6 +2624,7 @@ ipa_read_optimization_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
+	      current_pass = pass;
 	      ipa_pass->read_optimization_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2553,7 +2677,7 @@ execute_ipa_pass_list (opt_pass *pass)
 	    gcc_unreachable ();
 	}
       gcc_assert (!current_function_decl);
-      cgraph_process_new_functions ();
+      symtab->process_new_functions ();
       pass = pass->next;
     }
   while (pass);
@@ -2580,6 +2704,7 @@ execute_ipa_stmt_fixups (opt_pass *pass,
 	      if (pass->tv_id)
 		timevar_push (pass->tv_id);
 
+	      current_pass = pass;
 	      ipa_pass->stmt_fixup (node, stmts);
 
 	      /* Stop timevar.  */

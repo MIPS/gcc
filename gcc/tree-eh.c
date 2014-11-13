@@ -26,9 +26,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "calls.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "except.h"
-#include "hash-set.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -38,6 +48,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -77,23 +90,12 @@ typedef union {tree *tp; tree t; gimple g;} treemple;
 static void
 add_stmt_to_eh_lp_fn (struct function *ifun, gimple t, int num)
 {
-  struct throw_stmt_node *n;
-  void **slot;
-
   gcc_assert (num != 0);
 
-  n = ggc_alloc<throw_stmt_node> ();
-  n->stmt = t;
-  n->lp_nr = num;
-
   if (!get_eh_throw_stmt_table (ifun))
-    set_eh_throw_stmt_table (ifun, htab_create_ggc (31, struct_ptr_hash,
-						    struct_ptr_eq,
-						    ggc_free));
+    set_eh_throw_stmt_table (ifun, hash_map<gimple, int>::create_ggc (31));
 
-  slot = htab_find_slot (get_eh_throw_stmt_table (ifun), n, INSERT);
-  gcc_assert (!*slot);
-  *slot = n;
+  gcc_assert (!get_eh_throw_stmt_table (ifun)->put (t, num));
 }
 
 /* Add statement T in the current function (cfun) to EH landing pad NUM.  */
@@ -130,22 +132,14 @@ record_stmt_eh_region (eh_region region, gimple t)
 bool
 remove_stmt_from_eh_lp_fn (struct function *ifun, gimple t)
 {
-  struct throw_stmt_node dummy;
-  void **slot;
-
   if (!get_eh_throw_stmt_table (ifun))
     return false;
 
-  dummy.stmt = t;
-  slot = htab_find_slot (get_eh_throw_stmt_table (ifun), &dummy,
-                        NO_INSERT);
-  if (slot)
-    {
-      htab_clear_slot (get_eh_throw_stmt_table (ifun), slot);
-      return true;
-    }
-  else
+  if (!get_eh_throw_stmt_table (ifun)->get (t))
     return false;
+
+  get_eh_throw_stmt_table (ifun)->remove (t);
+      return true;
 }
 
 
@@ -166,14 +160,11 @@ remove_stmt_from_eh_lp (gimple t)
 int
 lookup_stmt_eh_lp_fn (struct function *ifun, gimple t)
 {
-  struct throw_stmt_node *p, n;
-
   if (ifun->eh->throw_stmt_table == NULL)
     return 0;
 
-  n.stmt = t;
-  p = (struct throw_stmt_node *) htab_find (ifun->eh->throw_stmt_table, &n);
-  return p ? p->lp_nr : 0;
+  int *lp_nr = ifun->eh->throw_stmt_table->get (t);
+  return lp_nr ? *lp_nr : 0;
 }
 
 /* Likewise, but always use the current function.  */
@@ -2445,11 +2436,6 @@ operation_could_trap_helper_p (enum tree_code op,
     case UNEQ_EXPR:
       return honor_snans;
 
-    case CONVERT_EXPR:
-    case FIX_TRUNC_EXPR:
-      /* Conversion of floating point might trap.  */
-      return honor_nans;
-
     case NEGATE_EXPR:
     case ABS_EXPR:
     case CONJ_EXPR:
@@ -2679,15 +2665,12 @@ tree_could_trap_p (tree expr)
       /* Assume that accesses to weak functions may trap, unless we know
 	 they are certainly defined in current TU or in some other
 	 LTO partition.  */
-      if (DECL_WEAK (expr) && !DECL_COMDAT (expr))
+      if (DECL_WEAK (expr) && !DECL_COMDAT (expr) && DECL_EXTERNAL (expr))
 	{
-	  struct cgraph_node *node;
-	  if (!DECL_EXTERNAL (expr))
-	    return false;
-	  node = cgraph_node::get (expr)->function_symbol ();
-	  if (node && node->in_other_partition)
-	    return false;
-	  return true;
+	  cgraph_node *node = cgraph_node::get (expr);
+	  if (node)
+	    node = node->function_symbol ();
+	  return !(node && node->in_other_partition);
 	}
       return false;
 
@@ -2695,15 +2678,12 @@ tree_could_trap_p (tree expr)
       /* Assume that accesses to weak vars may trap, unless we know
 	 they are certainly defined in current TU or in some other
 	 LTO partition.  */
-      if (DECL_WEAK (expr) && !DECL_COMDAT (expr))
+      if (DECL_WEAK (expr) && !DECL_COMDAT (expr) && DECL_EXTERNAL (expr))
 	{
-	  varpool_node *node;
-	  if (!DECL_EXTERNAL (expr))
-	    return false;
-	  node = varpool_node::get (expr)->ultimate_alias_target ();
-	  if (node && node->in_other_partition)
-	    return false;
-	  return true;
+	  varpool_node *node = varpool_node::get (expr);
+	  if (node)
+	    node = node->ultimate_alias_target ();
+	  return !(node && node->in_other_partition);
 	}
       return false;
 
@@ -4193,10 +4173,9 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
 	   and mark the other loop as possibly having multiple latches.  */
 	if (e->dest == e->dest->loop_father->header)
 	  {
-	    e->dest->loop_father->header = NULL;
-	    e->dest->loop_father->latch = NULL;
+	    mark_loop_for_removal (e->dest->loop_father);
 	    new_bb->loop_father->latch = NULL;
-	    loops_state_set (LOOPS_NEED_FIXUP|LOOPS_MAY_HAVE_MULTIPLE_LATCHES);
+	    loops_state_set (LOOPS_MAY_HAVE_MULTIPLE_LATCHES);
 	  }
 	redirect_eh_edge_1 (e, new_bb, change_region);
 	redirect_edge_succ (e, new_bb);

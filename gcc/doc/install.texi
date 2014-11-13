@@ -393,21 +393,6 @@ built together with GCC.  Alternatively, the @option{--with-isl} configure
 option should be used if ISL is not installed in your default library
 search path.
 
-@item CLooG 0.18.1
-
-Necessary to build GCC with the Graphite loop optimizations.  It can be
-downloaded from @uref{ftp://gcc.gnu.org/pub/gcc/infrastructure/} as
-@file{cloog-0.18.1.tar.gz}.  If a CLooG source distribution is found
-in a subdirectory of your GCC sources named @file{cloog}, it will be
-built together with GCC.  Alternatively, the @option{--with-cloog} configure
-option should be used if CLooG is not installed in your default library search
-path.
-
-If you want to install CLooG separately it needs to be built against
-ISL 0.12.2 by using the @option{--with-isl=system} to direct CLooG to pick
-up an already installed ISL.  Using the ISL library as bundled with CLooG
-is not supported.
-
 @end table
 
 @heading Tools/packages necessary for modifying GCC
@@ -451,7 +436,7 @@ Necessary to run the GCC testsuite; see the section on testing for
 details.  Tcl 8.6 has a known regression in RE pattern handling that
 make parts of the testsuite fail.  See
 @uref{http://core.tcl.tk/tcl/tktview/267b7e2334ee2e9de34c4b00d6e72e2f1997085f}
-for more information.
+for more information.  This bug has been fixed in 8.6.1.
 
 @item autogen version 5.5.4 (or later) and
 @itemx guile version 1.4.1 (or later)
@@ -490,6 +475,11 @@ included in releases.
 Necessary for running @command{texi2dvi} and @command{texi2pdf}, which
 are used when running @command{make dvi} or @command{make pdf} to create
 DVI or PDF files, respectively.
+
+@item Sphinx version 1.0 (or later)
+
+Necessary to regenerate @file{jit/docs/_build/texinfo} from the @file{.rst}
+files in the directories below @file{jit/docs}.
 
 @item SVN (any version)
 @itemx SSH (any version)
@@ -954,7 +944,7 @@ Specify that the @emph{host} code should be built into position-independent
 machine code (with -fPIC), allowing it to be used within shared libraries,
 but yielding a slightly slower compiler.
 
-Currently this option is only of use to people developing GCC itself.
+This option is required when building the libgccjit.so library.
 
 Contrast with @option{--enable-shared}, which affects @emph{target}
 libraries.
@@ -1450,6 +1440,10 @@ Specify that the run-time libraries and tools used by GNAT should not
 be built.  This can be useful for debugging, or for compatibility with
 previous Ada build procedures, when it was required to explicitly
 do a @samp{make -C gcc gnatlib_and_tools}.
+
+@item --disable-libsanitizer
+Specify that the run-time libraries for the various sanitizers should
+not be built.
 
 @item --disable-libssp
 Specify that the run-time libraries for stack smashing protection
@@ -3757,6 +3751,16 @@ removed and the system libunwind library will always be used.
 Binutils pre 2.24 does not have support for selecting @option{-mabi} and
 does not support ILP32.  If it is used to build GCC 4.9 or later, GCC will
 not support option @option{-mabi=ilp32}.
+
+To enable a workaround for the Cortex-A53 erratum number 835769 by default
+(for all CPUs regardless of -mcpu option given) at configure time use the
+@option{--enable-fix-cortex-a53-835769} option.  This will enable the fix by
+default and can be explicitly disabled during during compilation by passing the
+@option{-mno-fix-cortex-a53-835769} option.  Conversely,
+@option{--disable-fix-cortex-a53-835769} will disable the workaround by
+default.  The workaround is disabled by default if neither of
+@option{--enable-fix-cortex-a53-835769} or
+@option{--disable-fix-cortex-a53-835769} is given at configure time.
 
 @html
 <hr />

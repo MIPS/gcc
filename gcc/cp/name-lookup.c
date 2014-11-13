@@ -766,22 +766,19 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
 		   middle end.  */
 		{
 		  struct cxx_int_tree_map *h;
-		  void **loc;
 
 		  TREE_PUBLIC (x) = TREE_PUBLIC (t);
 
 		  if (cp_function_chain->extern_decl_map == NULL)
 		    cp_function_chain->extern_decl_map
-		      = htab_create_ggc (20, cxx_int_tree_map_hash,
-					 cxx_int_tree_map_eq, NULL);
+		      = hash_table<cxx_int_tree_map_hasher>::create_ggc (20);
 
 		  h = ggc_alloc<cxx_int_tree_map> ();
 		  h->uid = DECL_UID (x);
 		  h->to = t;
-		  loc = htab_find_slot_with_hash
-			  (cp_function_chain->extern_decl_map, h,
-			   h->uid, INSERT);
-		  *(struct cxx_int_tree_map **) loc = h;
+		  cxx_int_tree_map **loc = cp_function_chain->extern_decl_map
+		    ->find_slot (h, INSERT);
+		  *loc = h;
 		}
 	    }
 	  else if (TREE_CODE (t) == PARM_DECL)
@@ -1239,9 +1236,24 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
 
 	      if (member && !TREE_STATIC (member))
 		{
-		  /* Location of previous decl is not useful in this case.  */
-		  warning (OPT_Wshadow, "declaration of %qD shadows a member of 'this'",
-			   x);
+		  if (BASELINK_P (member))
+		    member = BASELINK_FUNCTIONS (member);
+		  member = OVL_CURRENT (member);
+	
+		  /* Do not warn if a variable shadows a function, unless
+		     the variable is a function or a pointer-to-function.  */
+		  if (TREE_CODE (member) != FUNCTION_DECL
+		      || TREE_CODE (x) == FUNCTION_DECL
+		      || TYPE_PTRFN_P (TREE_TYPE (x))
+		      || TYPE_PTRMEMFUNC_P (TREE_TYPE (x)))
+		    {
+		      if (warning_at (input_location, OPT_Wshadow,
+				      "declaration of %qD shadows a member of %qT",
+				      x, current_nonlambda_class_type ())
+			  && DECL_P (member))
+			inform (DECL_SOURCE_LOCATION (member),
+				"shadowed declaration is here");
+		    }
 		}
 	      else if (oldglobal != NULL_TREE
 		       && (VAR_P (oldglobal)

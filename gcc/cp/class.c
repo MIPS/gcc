@@ -35,6 +35,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "target.h"
 #include "convert.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
@@ -251,6 +262,7 @@ build_base_path (enum tree_code code,
   int want_pointer = TYPE_PTR_P (TREE_TYPE (expr));
   bool has_empty = false;
   bool virtual_access;
+  bool rvalue = false;
 
   if (expr == error_mark_node || binfo == error_mark_node || !binfo)
     return error_mark_node;
@@ -324,8 +336,11 @@ build_base_path (enum tree_code code,
     }
 
   if (!want_pointer)
-    /* This must happen before the call to save_expr.  */
-    expr = cp_build_addr_expr (expr, complain);
+    {
+      rvalue = !real_lvalue_p (expr);
+      /* This must happen before the call to save_expr.  */
+      expr = cp_build_addr_expr (expr, complain);
+    }
   else
     expr = mark_rvalue_use (expr);
 
@@ -351,9 +366,7 @@ build_base_path (enum tree_code code,
       || in_template_function ())
     {
       expr = build_nop (ptr_target_type, expr);
-      if (!want_pointer)
-	expr = build_indirect_ref (EXPR_LOCATION (expr), expr, RO_NULL);
-      return expr;
+      goto indout;
     }
 
   /* If we're in an NSDMI, we don't have the full constructor context yet
@@ -364,9 +377,7 @@ build_base_path (enum tree_code code,
     {
       expr = build1 (CONVERT_EXPR, ptr_target_type, expr);
       CONVERT_EXPR_VBASE_PATH (expr) = true;
-      if (!want_pointer)
-	expr = build_indirect_ref (EXPR_LOCATION (expr), expr, RO_NULL);
-      return expr;
+      goto indout;
     }
 
   /* Do we need to check for a null pointer?  */
@@ -402,6 +413,8 @@ build_base_path (enum tree_code code,
     {
       expr = cp_build_indirect_ref (expr, RO_NULL, complain);
       expr = build_simple_base_path (expr, binfo);
+      if (rvalue)
+	expr = move (expr);
       if (want_pointer)
 	expr = build_address (expr);
       target_type = TREE_TYPE (expr);
@@ -478,8 +491,13 @@ build_base_path (enum tree_code code,
   else
     null_test = NULL;
 
+ indout:
   if (!want_pointer)
-    expr = cp_build_indirect_ref (expr, RO_NULL, complain);
+    {
+      expr = cp_build_indirect_ref (expr, RO_NULL, complain);
+      if (rvalue)
+	expr = move (expr);
+    }
 
  out:
   if (null_test)
@@ -1441,7 +1459,8 @@ check_abi_tags (tree t, tree subob)
 void
 inherit_targ_abi_tags (tree t)
 {
-  if (CLASSTYPE_TEMPLATE_INFO (t) == NULL_TREE)
+  if (!CLASS_TYPE_P (t)
+      || CLASSTYPE_TEMPLATE_INFO (t) == NULL_TREE)
     return;
 
   mark_type_abi_tags (t, true);
@@ -2820,7 +2839,8 @@ warn_hidden (tree t)
       for (fn = fns; fn; fn = OVL_NEXT (fn))
 	{
 	  fndecl = OVL_CURRENT (fn);
-	  if (DECL_VINDEX (fndecl))
+	  if (TREE_CODE (fndecl) == FUNCTION_DECL
+	      && DECL_VINDEX (fndecl))
 	    {
 	      tree *prev = &base_fndecls;
 
@@ -3156,7 +3176,7 @@ add_implicitly_declared_members (tree t, tree* access_decls,
       TYPE_HAS_COPY_ASSIGN (t) = 1;
       TYPE_HAS_CONST_COPY_ASSIGN (t) = !cant_have_const_assignment;
       CLASSTYPE_LAZY_COPY_ASSIGN (t) = 1;
-      if (move_ok)
+      if (move_ok && !LAMBDA_TYPE_P (t))
 	CLASSTYPE_LAZY_MOVE_ASSIGN (t) = 1;
     }
 
@@ -3528,9 +3548,11 @@ check_field_decls (tree t, tree *access_decls,
 	CLASSTYPE_NON_AGGREGATE (t) = 1;
 
       /* If at least one non-static data member is non-literal, the whole
-         class becomes non-literal.  Note: if the type is incomplete we
-	 will complain later on.  */
-      if (COMPLETE_TYPE_P (type) && !literal_type_p (type))
+         class becomes non-literal.  Per Core/1453, volatile non-static
+	 data members and base classes are also not allowed.
+	 Note: if the type is incomplete we will complain later on.  */
+      if (COMPLETE_TYPE_P (type)
+	  && (!literal_type_p (type) || CP_TYPE_VOLATILE_P (type))) 
         CLASSTYPE_LITERAL_P (t) = false;
 
       /* A standard-layout class is a class that:
@@ -3648,8 +3670,8 @@ check_field_decls (tree t, tree *access_decls,
 
       /* Now that we've removed bit-field widths from DECL_INITIAL,
 	 anything left in DECL_INITIAL is an NSDMI that makes the class
-	 non-aggregate.  */
-      if (DECL_INITIAL (x))
+	 non-aggregate in C++11.  */
+      if (DECL_INITIAL (x) && cxx_dialect < cxx14)
 	CLASSTYPE_NON_AGGREGATE (t) = true;
 
       /* If any field is const, the structure type is pseudo-const.  */
@@ -4578,7 +4600,7 @@ clone_function_decl (tree fn, int update_method_vec_p)
     }
 
   /* Note that this is an abstract function that is never emitted.  */
-  DECL_ABSTRACT (fn) = 1;
+  DECL_ABSTRACT_P (fn) = true;
 }
 
 /* DECL is an in charge constructor, which is being defined. This will
@@ -4933,21 +4955,25 @@ type_has_user_provided_constructor (tree t)
   return false;
 }
 
-/* Returns true iff class T has a user-provided default constructor.  */
+/* Returns true iff class T has a non-user-provided (i.e. implicitly
+   declared or explicitly defaulted in the class body) default
+   constructor.  */
 
 bool
-type_has_user_provided_default_constructor (tree t)
+type_has_non_user_provided_default_constructor (tree t)
 {
   tree fns;
 
-  if (!TYPE_HAS_USER_CONSTRUCTOR (t))
+  if (!TYPE_HAS_DEFAULT_CONSTRUCTOR (t))
     return false;
+  if (CLASSTYPE_LAZY_DEFAULT_CTOR (t))
+    return true;
 
   for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
     {
       tree fn = OVL_CURRENT (fns);
       if (TREE_CODE (fn) == FUNCTION_DECL
-	  && user_provided_p (fn)
+	  && !user_provided_p (fn)
 	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)))
 	return true;
     }
@@ -5005,7 +5031,7 @@ default_init_uninitialized_part (tree type)
   type = strip_array_types (type);
   if (!CLASS_TYPE_P (type))
     return type;
-  if (type_has_user_provided_default_constructor (type))
+  if (!type_has_non_user_provided_default_constructor (type))
     return NULL_TREE;
   for (binfo = TYPE_BINFO (type), i = 0;
        BINFO_BASE_ITERATE (binfo, i, t); ++i)
@@ -5379,8 +5405,7 @@ explain_non_literal_class (tree t)
       inform (0, "  %q+T is not an aggregate, does not have a trivial "
 	      "default constructor, and has no constexpr constructor that "
 	      "is not a copy or move constructor", t);
-      if (TYPE_HAS_DEFAULT_CONSTRUCTOR (t)
-	  && !type_has_user_provided_default_constructor (t))
+      if (type_has_non_user_provided_default_constructor (t))
 	{
 	  /* Note that we can't simply call locate_ctor because when the
 	     constructor is deleted it just returns NULL_TREE.  */
@@ -5431,6 +5456,9 @@ explain_non_literal_class (tree t)
 	      if (CLASS_TYPE_P (ftype))
 		explain_non_literal_class (ftype);
 	    }
+	  if (CP_TYPE_VOLATILE_P (ftype))
+	    inform (0, "  non-static data member %q+D has "
+		    "volatile type", field);
 	}
     }
 }
@@ -5454,9 +5482,6 @@ check_bases_and_members (tree t)
   bool saved_complex_asn_ref;
   bool saved_nontrivial_dtor;
   tree fn;
-
-  /* Pick up any abi_tags from our template arguments before checking.  */
-  inherit_targ_abi_tags (t);
 
   /* By default, we use const reference arguments and generate default
      constructors.  */
@@ -5523,6 +5548,13 @@ check_bases_and_members (tree t)
   TYPE_HAS_COMPLEX_COPY_ASSIGN (t) |= TYPE_CONTAINS_VPTR_P (t);
   TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) |= TYPE_CONTAINS_VPTR_P (t);
   TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_CONTAINS_VPTR_P (t);
+
+  /* If the only explicitly declared default constructor is user-provided,
+     set TYPE_HAS_COMPLEX_DFLT.  */
+  if (!TYPE_HAS_COMPLEX_DFLT (t)
+      && TYPE_HAS_DEFAULT_CONSTRUCTOR (t)
+      && !type_has_non_user_provided_default_constructor (t))
+    TYPE_HAS_COMPLEX_DFLT (t) = true;
 
   /* Warn if a public base of a polymorphic type has an accessible
      non-virtual destructor.  It is only now that we know the class is
@@ -5610,13 +5642,6 @@ check_bases_and_members (tree t)
 
   if (LAMBDA_TYPE_P (t))
     {
-      /* "The closure type associated with a lambda-expression has a deleted
-	 default constructor and a deleted copy assignment operator."  */
-      TYPE_NEEDS_CONSTRUCTING (t) = 1;
-      TYPE_HAS_COMPLEX_DFLT (t) = 1;
-      TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
-      CLASSTYPE_LAZY_MOVE_ASSIGN (t) = 0;
-
       /* "This class type is not an aggregate."  */
       CLASSTYPE_NON_AGGREGATE (t) = 1;
     }
@@ -6503,7 +6528,8 @@ finish_struct_1 (tree t)
   /* This warning does not make sense for Java classes, since they
      cannot have destructors.  */
   if (!TYPE_FOR_JAVA (t) && warn_nonvdtor
-      && TYPE_POLYMORPHIC_P (t) && accessible_nvdtor_p (t))
+      && TYPE_POLYMORPHIC_P (t) && accessible_nvdtor_p (t)
+      && !CLASSTYPE_FINAL (t))
     warning (OPT_Wnon_virtual_dtor,
 	     "%q#T has virtual functions and accessible"
 	     " non-virtual destructor", t);
@@ -7130,6 +7156,29 @@ currently_open_derived_class (tree t)
     }
 
   return NULL_TREE;
+}
+
+/* Return the outermost enclosing class type that is still open, or
+   NULL_TREE.  */
+
+tree
+outermost_open_class (void)
+{
+  if (!current_class_type)
+    return NULL_TREE;
+  tree r = NULL_TREE;
+  if (TYPE_BEING_DEFINED (current_class_type))
+    r = current_class_type;
+  for (int i = current_class_depth - 1; i > 0; --i)
+    {
+      if (current_class_stack[i].hidden)
+	break;
+      tree t = current_class_stack[i].type;
+      if (!TYPE_BEING_DEFINED (t))
+	break;
+      r = t;
+    }
+  return r;
 }
 
 /* Returns the innermost class type which is not a lambda closure type.  */

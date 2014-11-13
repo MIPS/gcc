@@ -27,8 +27,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -49,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-inline.h"
 #include "hash-map.h"
-#include "hashtab.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "cfgloop.h"
@@ -1055,24 +1063,6 @@ err:
   internal_error ("verify_ssa failed");
 }
 
-/* Return true if the DECL_UID in both trees are equal.  */
-
-static int
-uid_ssaname_map_eq (const void *va, const void *vb)
-{
-  const_tree a = (const_tree) va;
-  const_tree b = (const_tree) vb;
-  return (a->ssa_name.var->decl_minimal.uid == b->ssa_name.var->decl_minimal.uid);
-}
-
-/* Hash a tree in a uid_decl_map.  */
-
-static unsigned int
-uid_ssaname_map_hash (const void *item)
-{
-  return ((const_tree)item)->ssa_name.var->decl_minimal.uid;
-}
-
 
 /* Initialize global DFA and SSA structures.  */
 
@@ -1080,8 +1070,7 @@ void
 init_tree_ssa (struct function *fn)
 {
   fn->gimple_df = ggc_cleared_alloc<gimple_df> ();
-  fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash,
-				                 uid_ssaname_map_eq, NULL);
+  fn->gimple_df->default_defs = hash_table<ssa_name_hasher>::create_ggc (20);
   pt_solution_reset (&fn->gimple_df->escaped);
   init_ssanames (fn, 0);
 }
@@ -1153,7 +1142,7 @@ delete_tree_ssa (void)
   if (ssa_operands_active (cfun))
     fini_ssa_operands (cfun);
 
-  htab_delete (cfun->gimple_df->default_defs);
+  cfun->gimple_df->default_defs->empty ();
   cfun->gimple_df->default_defs = NULL;
   pt_solution_reset (&cfun->gimple_df->escaped);
   if (cfun->gimple_df->decls_to_pointers != NULL)
@@ -1199,10 +1188,11 @@ tree_ssa_strip_useless_type_conversions (tree exp)
 }
 
 
-/* Return true if T, an SSA_NAME, has an undefined value.  */
+/* Return true if T, an SSA_NAME, has an undefined value.  PARTIAL is what
+   should be returned if the value is only partially undefined.  */
 
 bool
-ssa_undefined_value_p (tree t)
+ssa_undefined_value_p (tree t, bool partial)
 {
   gimple def_stmt;
   tree var = SSA_NAME_VAR (t);
@@ -1226,7 +1216,7 @@ ssa_undefined_value_p (tree t)
     return true;
 
   /* Check if the complex was not only partially defined.  */
-  if (is_gimple_assign (def_stmt)
+  if (partial && is_gimple_assign (def_stmt)
       && gimple_assign_rhs_code (def_stmt) == COMPLEX_EXPR)
     {
       tree rhs1, rhs2;
@@ -1571,18 +1561,6 @@ execute_update_addresses_taken (void)
 
 		if (gimple_assign_lhs (stmt) != lhs)
 		  gimple_assign_set_lhs (stmt, lhs);
-
-		/* For var ={v} {CLOBBER}; where var lost
-		   TREE_ADDRESSABLE just remove the stmt.  */
-		if (DECL_P (lhs)
-		    && TREE_CLOBBER_P (rhs)
-		    && bitmap_bit_p (suitable_for_renaming, DECL_UID (lhs)))
-		  {
-		    unlink_stmt_vdef (stmt);
-      		    gsi_remove (&gsi, true);
-		    release_defs (stmt);
-		    continue;
-		  }
 
 		if (gimple_assign_rhs1 (stmt) != rhs)
 		  {

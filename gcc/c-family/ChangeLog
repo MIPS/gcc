@@ -1,3 +1,373 @@
+2014-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins_optimize_pragma): Define and
+	undefine __NO_MATH_ERRNO__ based on changes to -fmath-errno state.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59708
+	* c-common.c (check_builtin_function_arguments): Handle
+	BUILT_IN_{ADD,SUB,MUL}_OVERFLOW.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	PR c/60804
+	* c-common.h (check_no_cilk): Declare.
+	* cilk.c (get_error_location): New function.
+	(check_no_cilk): Dito.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	* cilk.c (recognize_spawn): Use expression location
+	for error message.
+
+2014-11-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* c.opt ([Wshift-count-negative, Wshift-count-overflow]): Add.
+
+2014-11-10  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* c-cppbuiltin.c (__has_attribute, __has_cpp_attribute): New macros;
+	(__cpp_rtti, __cpp_exceptions): New macros for C++98;
+	(__cpp_range_based_for, __cpp_initializer_lists,
+	__cpp_delegating_constructors, __cpp_nsdmi,
+	__cpp_inheriting_constructors, __cpp_ref_qualifiers): New macros
+	for C++11; (__cpp_attribute_deprecated): Remove in favor of
+	__has_cpp_attribute.
+	* c-lex.c (cb_has_attribute): New callback CPP function;
+	(init_c_lex): Set has_attribute callback.
+
+2014-11-04  Richard Biener  <rguenther@suse.de>
+
+	* c-common.c (shorten_compare): Do not shorten mixed
+	DFP and non-DFP compares.
+
+2014-11-01  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* g++.dg/cpp1y/feat-cxx11.C: Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx11-neg.C: Add aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx14.C: Enable aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx98-neg.C: Ditto
+	* g++.dg/cpp1y/feat-cxx98.C: Commentary.
+
+2014-10-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* c-common.c, c-common.h, c-cppbuiltin.c, c-lex.c: Remove redundant
+	enum from machine_mode.
+
+2014-10-28  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-family/c-common.c: Adjust include files.
+	* c-family/c-gimplify.c: Ditto.
+	* c-family/cilk.c: Ditto.
+	* c-family/c-pragma.c: Ditto.
+	* c-family/c-ubsan.c: Ditto.
+
+2014-10-27  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-gimplify.c: Adjust include files.
+
+2014-10-26  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/53061
+	* c-opts.c (c_common_diagnostics_set_defaults): Renamed from
+	c_common_initialize_diagnostics.
+	* c-common.h: Likewise.
+
+2014-10-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/56980
+	* c-pretty-print.c (c_pretty_printer::simple_type_specifier): Don't
+	print "struct"/"union"/"enum" for typedefed names.
+
+2014-10-23  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Perform the MINUS_EXPR
+	in unsigned type.
+
+2014-10-22  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	* c-ubsan.c (ubsan_instrument_division, ubsan_instrument_shift,
+	ubsan_instrument_vla): Check bits in flag_sanitize_recover bitmask
+	instead of flag_sanitize_recover as bool flag.
+
+2014-10-21  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* cilk.c: Revert previous change.
+
+2014-10-20  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/63307
+	* cilk.c: Include vec.h.
+	(struct cilk_decls): New structure.
+	(wrapper_parm_cb): Split this function to...
+	(fill_decls_vec): ...this...
+	(create_parm_list): ...and this.
+	(compare_decls): New function.
+	(for_local_cb): Remove.
+	(wrapper_local_cb): Ditto.
+	(build_wrapper_type): For now first traverse and fill vector of
+	declarations then sort it and then deal with sorted vector.
+	(cilk_outline): Ditto.
+	(declare_one_free_variable): Ditto.
+
+2014-10-17  Marek Polacek  <polacek@redhat.com>
+
+	* c-opts.c (c_common_post_options): Set warn_implicit_int.
+	* c.opt (Wimplicit-int): Initialize to -1.
+
+2014-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-pragma.c: Adjust include files.
+	* c-semantics.c: Likewise.
+
+2014-10-16  DJ Delorie  <dj@redhat.com>
+
+	* c-cppbuiltin.c (cpp_atomic_builtins): Don't assume pointers are
+	multiples of bytes.
+
+2014-10-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63455
+	* c-common.h (CPP_PREPARSED_EXPR): New.
+	(N_CP_TTYPES): Adjust.
+
+2014-10-15  Marek Polacek  <polacek@redhat.com>
+
+	* c-opts.c (c_common_init_options): Make -std=gnu11 the default for C.
+
+2014-10-14  DJ Delorie  <dj@redhat.com>
+
+	* c-pretty-print.c (pp_c_integer_constant): Check for all __intN
+	types, not just __int128.
+	* c-cppbuiltin.c (c_cpp_builtins): Add builtins for all __intN
+	types, not just __int128.
+	(cpp_atomic_builtins): Round pointer sizes up.
+	(type_suffix): Use type precision, not specific types.
+	* c-common.c (c_common_reswords): Remove __int128 special case.
+	(c_common_type_for_size): Check for all __intN types, not just
+	__int128.
+	(c_common_type_for_mode): Likewise.
+	(c_common_signed_or_unsigned_type): Likewise.
+	(c_build_bitfield_integer_type): Likewise.
+	(c_common_nodes_and_builtins): Likewise.
+	(keyword_begins_type_specifier): Likewise.
+	* c-common.h (rid): Remove RID_INT128 and add RID_INT_N_* for all
+	__intN variants.
+
+2014-10-12  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-common.c: Use hash_table instead of hashtab.
+
+2014-10-06  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* c-family/c-cppbuiltin.c: Move __cpp_attribute_deprecated to the
+	C++11 section.
+
+2014-10-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/54427
+	PR c++/57198
+	PR c++/58845
+	* c-common.c (warn_logical_operator): Punt for vectors.
+
+2014-10-01  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement SD-6: SG10 Feature Test Recommendations
+	* c-cppbuiltin.c (c_cpp_builtins()): Define language feature
+	macros and the __has_header macro.
+
+2014-09-30  Jason Merrill  <jason@redhat.com>
+
+	* c-common.h (enum rid): Add RID_IS_TRIVIALLY_ASSIGNABLE and
+	RID_IS_TRIVIALLY_CONSTRUCTIBLE.
+	* c-common.c (c_common_reswords): Add __is_trivially_copyable.
+
+	* c-common.h (enum rid): Add RID_IS_TRIVIALLY_COPYABLE.
+	* c-common.c (c_common_reswords): Add __is_trivially_copyable.
+
+	* c-common.h (enum rid): Remove RID_IS_CONVERTIBLE_TO.
+	* c-common.c (c_common_reswords): Remove __is_convertible_to.
+
+2014-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61405
+	PR c/53874
+	* c-common.h (struct c_common_resword): Don't define CPP_KEYWORD.
+
+2014-09-23  Andi Kleen  <ak@linux.intel.com>
+
+	* c-common.c (handle_no_reorder_attribute): New function.
+	(c_common_attribute_table): Add no_reorder attribute.
+
+2014-09-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define
+	__LIBGCC_*_EXCESS_PRECISION__ macros for supported floating-point
+	modes.
+
+2014-09-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __LIBGCC_*_FUNC_EXT__
+	for supported floating-point modes.
+
+2014-09-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt (Wpsabi): Use LangEnabledBy.
+	* c-opts.c (c_common_handle_option): Do not handle here.
+
+2014-09-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __LIBGCC_HAS_%s_MODE__
+	macros for floating-point modes.
+
+2014-09-11  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR target/58757
+	* c-cppbuiltin.c (builtin_define_float_constants): Correct
+	__*_DENORM_MIN__ without denormals.
+
+2014-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_division, ubsan_instrument_shift,
+	ubsan_instrument_vla, ubsan_instrument_return): Adjust
+	ubsan_create_data callers.
+	(ubsan_instrument_bounds): Don't emit UBSAN_BOUNDS at all if
+	index is constant or BIT_AND_EXPR with constant mask and is
+	small enough for the bound.
+	* c-gimplify.c (ubsan_walk_array_refs_r): For ADDR_EXPR of
+	ARRAY_REF, make sure the inner ARRAY_REF is not walked again.
+
+2014-09-09  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt: Add CppReason to various flags.
+	(Wdate-time): Re-sort.
+	* c-common.c: Include c-common.h earlier.
+	(struct reason_option_codes_t): Delete.
+	(c_option_controlling_cpp_error): Prefix global type and struct
+	with cpp_.
+
+2014-09-09  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt	(Wnormalized): New.
+	(Wnormalized=): Use Enum and Reject Negative.
+	* c-opts.c (c_common_handle_option): Do not handle Wnormalized here.
+
+2014-09-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define macros for mantissa
+	digits of floating-point modes if -fbuilding-libgcc.
+
+2014-09-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Also define
+	__LIBGCC_EH_TABLES_CAN_BE_READ_ONLY__,
+	__LIBGCC_EH_FRAME_SECTION_NAME__, __LIBGCC_JCR_SECTION_NAME__,
+	__LIBGCC_CTORS_SECTION_ASM_OP__, __LIBGCC_DTORS_SECTION_ASM_OP__,
+	__LIBGCC_TEXT_SECTION_ASM_OP__, __LIBGCC_INIT_SECTION_ASM_OP__,
+	__LIBGCC_INIT_ARRAY_SECTION_ASM_OP__,
+	__LIBGCC_STACK_GROWS_DOWNWARD__,
+	__LIBGCC_DONT_USE_BUILTIN_SETJMP__,
+	__LIBGCC_DWARF_ALT_FRAME_RETURN_COLUMN__,
+	__LIBGCC_DWARF_FRAME_REGISTERS__,
+	__LIBGCC_EH_RETURN_STACKADJ_RTX__, __LIBGCC_JMP_BUF_SIZE__,
+	__LIBGCC_STACK_POINTER_REGNUM__ and
+	__LIBGCC_VTABLE_USES_DESCRIPTORS__ for -fbuilding-libgcc.
+	(builtin_define_with_value): Handle backslash-escaping in string
+	macro values.
+
+2014-09-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63148
+	* c-format.c (check_format_arg): Properly handle
+	effectively signed POINTER_PLUS_EXPR offset.
+
+2014-09-04  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt (Wc90-c99-compat,Wc++-compat,Wcomment,Wendif-labels,
+	Winvalid-pch,Wlong-long,Wmissing-include-dirs,Wmultichar,Wpedantic,
+	(Wdate-time,Wtraditional,Wundef,Wvariadic-macros): Add CPP, Var
+	and Init.
+	* c-opts.c (c_common_handle_option): Do not handle here.
+	(sanitize_cpp_opts): Likewise.
+	* c-common.c (struct reason_option_codes_t): Handle
+	CPP_W_C90_C99_COMPAT and CPP_W_PEDANTIC.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	* c.opt (Wlogical-not-parentheses): Enable by -Wall.
+
+2014-09-02  Jakub Jelinek  <jakub@redhat.com>
+	    Balaji V. Iyer  <balaji.v.iyer@intel.com>
+	    Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	* c-cilkplus.c (cilk_for_number_of_iterations): New function.
+	* c-common.c (c_common_reswords): Added _Cilk_for.
+	* c-common.h (enum rid): Added RID_CILK_FOR.
+	(cilk_for_number_of_iterations): Add declaration.
+	* c-omp.c (c_finish_omp_for): Added checks for CILK_SIMD and
+	CILK_FOR.
+	* c-pragma.c (init_pragma): Register "grainsize" pragma.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_CILK_GRAINSIZE.
+
+2014-08-29  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt (Wbuiltin-macro-redefined,Wdeprecated,Wendif-labels,
+	Winvalid-pch,Wliteral-suffix,Wmissing-include-dirs,Wtrigraphs,
+	Wundef): Use CPP, Var and Init.
+	* c-opts.c (c_common_handle_option): Do not handle the above flags here.
+
+2014-08-29  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt (Wbuiltin-macro-redefined): Use CPP, Var and Init.
+	* c-opts.c (c_common_handle_option): Do not handle here.
+
+2014-08-25  Jason Merrill  <jason@redhat.com>
+
+	* c.opt: Change -std=c++1y and -std=gnu++1y to be aliases for
+	-std=c++14 and -std=gnu++14, rather than the reverse.
+	* c-opts.c (c_common_handle_option): Change OPT_std_c__1y and
+	OPT_std_gnu__1y to OPT_std_c__14 and OPT_std_gnu__14.
+	* c-common.h (cxx_dialect): Remove cxx1y.
+
+2014-08-23  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* c-common.h (enum cxx_dialect): Add cxx14.
+	* c-opts.c (set_std_cxx1y): Rename to set_std_cxx14; Use cxx14.
+	* c-ubsan.c (ubsan_instrument_shift): Change comment and logic from
+	cxx_dialect == cxx11 || cxx_dialect == cxx1y to cxx_dialect >= cxx11.
+
+2014-08-22  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (std=gnu++17): Fix alias.
+
+2014-08-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/62199
+	* c-common.c (warn_logical_not_parentheses): Don't check LHS.  Don't
+	check for vector types.  Drop LHS argument.
+	* c-common.h (warn_logical_not_parentheses): Adjust.
+
+2014-08-22  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt (Wcomment): Use CPP, Var and LangEnabledBy.
+	(Wmultichar): Likewise.
+	(Wdate-time): Use C-family languages instead of Common. Use CPP
+	and Var.
+	* c-opts.c (c_common_handle_option): Do not handle the above
+	options here.
+	(sanitize_cpp_opts): Likewise.
+
+2014-08-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* c-opts.c: Include tree-diagnostics.h.
+	(c_diagnostic_finalizer): New.
+	(c_common_initialize_diagnostics): Use it.
+
 2014-08-20  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
 	PR preprocessor/51303

@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "diagnostic.h"
 #include "diagnostic-color.h"
+#include "tree-diagnostic.h" /* tree_diagnostics_defaults */
 
 static int suppress_errors = 0;
 
@@ -958,6 +959,38 @@ gfc_warning_now (const char *gmsgid, ...)
   buffer_flag = i;
 }
 
+/* Called from output_format -- during diagnostic message processing
+   to handle Fortran specific format specifiers with the following meanings:
+
+   %C  Current locus (no argument)
+*/
+static bool
+gfc_format_decoder (pretty_printer *pp,
+		    text_info *text, const char *spec,
+		    int precision ATTRIBUTE_UNUSED, bool wide ATTRIBUTE_UNUSED,
+		    bool plus ATTRIBUTE_UNUSED, bool hash ATTRIBUTE_UNUSED)
+{
+  switch (*spec)
+    {
+    case 'C':
+      {
+	static const char *result = "(1)";
+	gcc_assert (gfc_current_locus.nextc - gfc_current_locus.lb->line >= 0);
+	unsigned int c1 = gfc_current_locus.nextc - gfc_current_locus.lb->line;
+	gcc_assert (text->locus);
+	*text->locus
+	  = linemap_position_for_loc_and_offset (line_table,
+						 gfc_current_locus.lb->location,
+						 c1);
+	global_dc->caret_char = '1';
+	pp_string (pp, result);
+	return true;
+      }
+    default:
+      return false;
+    }
+}
+
 /* Return a malloc'd string describing a location.  The caller is
    responsible for freeing the memory.  */
 static char *
@@ -987,51 +1020,117 @@ gfc_diagnostic_build_prefix (diagnostic_context *context,
 				diagnostic_kind_color[diagnostic->kind]);
       text_ce = colorize_stop (pp_show_color (pp));
     }
+  return build_message_string ("%s%s%s: ", text_cs, text, text_ce);
+}
+
+/* Return a malloc'd string describing a location.  The caller is
+   responsible for freeing the memory.  */
+static char *
+gfc_diagnostic_build_locus_prefix (diagnostic_context *context,
+				   const diagnostic_info *diagnostic)
+{
+  pretty_printer *pp = context->printer;
   const char *locus_cs = colorize_start (pp_show_color (pp), "locus");
   const char *locus_ce = colorize_stop (pp_show_color (pp));
-
   expanded_location s = expand_location_to_spelling_point (diagnostic->location);
   if (diagnostic->override_column)
     s.column = diagnostic->override_column;
 
   return (s.file == NULL
-	  ? build_message_string ("%s%s:%s %s%s%s: ", locus_cs, progname, locus_ce,
-				  text_cs, text, text_ce)
+	  ? build_message_string ("%s%s:%s", locus_cs, progname, locus_ce )
 	  : !strcmp (s.file, N_("<built-in>"))
-	  ? build_message_string ("%s%s:%s %s%s%s: ", locus_cs, s.file, locus_ce,
-			     text_cs, text, text_ce)
+	  ? build_message_string ("%s%s:%s", locus_cs, s.file, locus_ce)
 	  : context->show_column
-	  ? build_message_string ("%s%s:%d:%d:%s %s%s%s: ", locus_cs, s.file, s.line,
-				  s.column, locus_ce, text_cs, text, text_ce)
-	  : build_message_string ("%s%s:%d:%s %s%s%s: ", locus_cs, s.file, s.line, locus_ce,
-				  text_cs, text, text_ce));
+	  ? build_message_string ("%s%s:%d:%d:%s", locus_cs, s.file, s.line,
+				  s.column, locus_ce)
+	  : build_message_string ("%s%s:%d:%s", locus_cs, s.file, s.line, locus_ce));
 }
 
 static void
 gfc_diagnostic_starter (diagnostic_context *context,
 			diagnostic_info *diagnostic)
 {
-  pp_set_prefix (context->printer, gfc_diagnostic_build_prefix (context,
-								diagnostic));
+  char * locus_prefix = gfc_diagnostic_build_locus_prefix (context, diagnostic);
+  char * prefix = gfc_diagnostic_build_prefix (context, diagnostic);
+  /* First we assume there is a caret line.  */
+  pp_set_prefix (context->printer, NULL);
+  if (pp_needs_newline (context->printer))
+    pp_newline (context->printer);
+  pp_verbatim (context->printer, locus_prefix);
+  /* Fortran uses an empty line between locus and caret line.  */
+  pp_newline (context->printer);
+  diagnostic_show_locus (context, diagnostic);
+  if (pp_needs_newline (context->printer))
+    {
+      pp_newline (context->printer);
+      /* If the caret line was shown, the prefix does not contain the
+	 locus.  */
+      pp_set_prefix (context->printer, prefix);
+    }
+  else 
+    {
+      /* Otherwise, start again.  */
+      pp_clear_output_area(context->printer);
+      pp_set_prefix (context->printer, concat (locus_prefix, " ", prefix, NULL));
+      free (prefix);
+    }
+  free (locus_prefix);
 }
 
 static void
-gfc_diagnostic_finalizer (diagnostic_context *context ATTRIBUTE_UNUSED,
+gfc_diagnostic_finalizer (diagnostic_context *context,
 			  diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
+  pp_destroy_prefix (context->printer);
+  pp_newline_and_flush (context->printer);
 }
 
-/* Give a warning about the command-line.  */
+/* Immediate warning (i.e. do not buffer the warning).  */
+
+bool
+gfc_warning_now_2 (int opt, const char *gmsgid, ...)
+{
+  va_list argp;
+  diagnostic_info diagnostic;
+  bool ret;
+
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION,
+		       DK_WARNING);
+  diagnostic.option_index = opt;
+  ret = report_diagnostic (&diagnostic);
+  va_end (argp);
+  return ret;
+}
+
+/* Immediate warning (i.e. do not buffer the warning).  */
+
+bool
+gfc_warning_now_2 (const char *gmsgid, ...)
+{
+  va_list argp;
+  diagnostic_info diagnostic;
+  bool ret;
+
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION,
+		       DK_WARNING);
+  ret = report_diagnostic (&diagnostic);
+  va_end (argp);
+  return ret;
+}
+
+
+/* Immediate error (i.e. do not buffer).  */
 
 void
-gfc_warning_cmdline (const char *gmsgid, ...)
+gfc_error_now_2 (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
 
   va_start (argp, gmsgid);
-  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION,
-		       DK_WARNING);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_ERROR);
   report_diagnostic (&diagnostic);
   va_end (argp);
 }
@@ -1290,4 +1389,17 @@ gfc_diagnostics_init (void)
 {
   diagnostic_starter (global_dc) = gfc_diagnostic_starter;
   diagnostic_finalizer (global_dc) = gfc_diagnostic_finalizer;
+  diagnostic_format_decoder (global_dc) = gfc_format_decoder;
+  global_dc->caret_char = '^';
+}
+
+void
+gfc_diagnostics_finish (void)
+{
+  tree_diagnostics_defaults (global_dc);
+  /* We still want to use the gfc starter and finalizer, not the tree
+     defaults.  */
+  diagnostic_starter (global_dc) = gfc_diagnostic_starter;
+  diagnostic_finalizer (global_dc) = gfc_diagnostic_finalizer;
+  global_dc->caret_char = '^';
 }

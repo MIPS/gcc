@@ -29,6 +29,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "c-common.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -43,6 +51,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "dumpfile.h"
 #include "c-pretty-print.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cilk.h"
 #include "c-ubsan.h"
@@ -95,7 +106,20 @@ ubsan_walk_array_refs_r (tree *tp, int *walk_subtrees, void *data)
     }
   else if (TREE_CODE (*tp) == ADDR_EXPR
 	   && TREE_CODE (TREE_OPERAND (*tp, 0)) == ARRAY_REF)
-    ubsan_maybe_instrument_array_ref (&TREE_OPERAND (*tp, 0), true);
+    {
+      ubsan_maybe_instrument_array_ref (&TREE_OPERAND (*tp, 0), true);
+      /* Make sure ubsan_maybe_instrument_array_ref is not called again
+	 on the ARRAY_REF, the above call might not instrument anything
+	 as the index might be constant or masked, so ensure it is not
+	 walked again and walk its subtrees manually.  */
+      tree aref = TREE_OPERAND (*tp, 0);
+      pset->add (aref);
+      *walk_subtrees = 0;
+      walk_tree (&TREE_OPERAND (aref, 0), ubsan_walk_array_refs_r, pset, pset);
+      walk_tree (&TREE_OPERAND (aref, 1), ubsan_walk_array_refs_r, pset, pset);
+      walk_tree (&TREE_OPERAND (aref, 2), ubsan_walk_array_refs_r, pset, pset);
+      walk_tree (&TREE_OPERAND (aref, 3), ubsan_walk_array_refs_r, pset, pset);
+    }
   else if (TREE_CODE (*tp) == ARRAY_REF)
     ubsan_maybe_instrument_array_ref (tp, false);
   return NULL_TREE;

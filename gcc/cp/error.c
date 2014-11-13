@@ -39,11 +39,13 @@ along with GCC; see the file COPYING3.  If not see
 #define pp_separate_with_comma(PP) pp_cxx_separate_with (PP, ',')
 #define pp_separate_with_semicolon(PP) pp_cxx_separate_with (PP, ';')
 
-/* The global buffer where we dump everything.  It is there only for
-   transitional purpose.  It is expected, in the near future, to be
-   completely removed.  */
+/* cxx_pp is a C++ front-end-specific pretty printer: this is where we
+   dump C++ ASTs as strings. It is mostly used only by the various
+   tree -> string functions that are occasionally called from the
+   debugger or by the front-end for things like
+   __PRETTY_FUNCTION__.  */
 static cxx_pretty_printer scratch_pretty_printer;
-#define cxx_pp (&scratch_pretty_printer)
+static cxx_pretty_printer * cxx_pp = &scratch_pretty_printer;
 
 /* Translate if being used for diagnostics, but not for dump files or
    __PRETTY_FUNCTION.  */
@@ -100,19 +102,42 @@ static void print_instantiation_partial_context (diagnostic_context *,
 						 struct tinst_level *,
 						 location_t);
 static void cp_diagnostic_starter (diagnostic_context *, diagnostic_info *);
-static void cp_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 static void cp_print_error_function (diagnostic_context *, diagnostic_info *);
 
 static bool cp_printer (pretty_printer *, text_info *, const char *,
 			int, bool, bool, bool);
 
+/* CONTEXT->printer is a basic pretty printer that was constructed
+   presumably by diagnostic_initialize(), called early in the
+   compiler's initialization process (in general_init) Before the FE
+   is initialized.  This (C++) FE-specific diagnostic initializer is
+   thus replacing the basic pretty printer with one that has C++-aware
+   capacities.  */
+
+void
+cxx_initialize_diagnostics (diagnostic_context *context)
+{
+  pretty_printer *base = context->printer;
+  cxx_pretty_printer *pp = XNEW (cxx_pretty_printer);
+  context->printer = new (pp) cxx_pretty_printer ();
+
+  /* It is safe to free this object because it was previously XNEW()'d.  */
+  base->~pretty_printer ();
+  XDELETE (base);
+
+  c_common_diagnostics_set_defaults (context);
+  diagnostic_starter (context) = cp_diagnostic_starter;
+  /* diagnostic_finalizer is already c_diagnostic_finalizer.  */
+  diagnostic_format_decoder (context) = cp_printer;
+}
+
+/* Initialize the global cxx_pp that is used as the memory store for
+   the string representation of C++ AST.  See the description of
+   cxx_pp above.  */
+
 void
 init_error (void)
 {
-  diagnostic_starter (global_dc) = cp_diagnostic_starter;
-  diagnostic_finalizer (global_dc) = cp_diagnostic_finalizer;
-  diagnostic_format_decoder (global_dc) = cp_printer;
-
   new (cxx_pp) cxx_pretty_printer ();
 }
 
@@ -822,6 +847,8 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
       if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
 	  || TREE_CODE (TREE_TYPE (t)) == FUNCTION_TYPE)
 	pp_cxx_right_paren (pp);
+      if (TREE_CODE (t) == POINTER_TYPE)
+	flags |= TFF_POINTER;
       dump_type_suffix (pp, TREE_TYPE (t), flags);
       break;
 
@@ -841,7 +868,9 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
 	dump_parameters (pp, arg, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
 
 	pp->padding = pp_before;
-	pp_cxx_cv_qualifiers (pp, type_memfn_quals (t));
+	pp_cxx_cv_qualifiers (pp, type_memfn_quals (t),
+			      TREE_CODE (t) == FUNCTION_TYPE
+			      && (flags & TFF_POINTER));
 	dump_ref_qualifier (pp, t, flags);
 	dump_exception_spec (pp, TYPE_RAISES_EXCEPTIONS (t), flags);
 	dump_type_suffix (pp, TREE_TYPE (t), flags);
@@ -1042,6 +1071,18 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
     case FIELD_DECL:
     case PARM_DECL:
       dump_simple_decl (pp, t, TREE_TYPE (t), flags);
+
+      /* Handle variable template specializations.  */
+      if (TREE_CODE (t) == VAR_DECL
+	  && DECL_LANG_SPECIFIC (t)
+	  && DECL_TEMPLATE_INFO (t)
+	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t)))
+	{
+	  pp_cxx_begin_template_argument_list (pp);
+	  tree args = INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (t));
+	  dump_template_argument_list (pp, args, flags);
+	  pp_cxx_end_template_argument_list (pp);
+	}
       break;
 
     case RESULT_DECL:
@@ -2670,7 +2711,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       pp_cxx_constexpr_expr (cxx_pp, t);
 
     case PLACEHOLDER_EXPR:
-      pp_cxx_ws_string (cxx_pp, "<placeholder>");
+      pp_string (pp, M_("*this"));
       break;
 
       /*  This list is incomplete, but should suffice for now.
@@ -3096,14 +3137,6 @@ cp_diagnostic_starter (diagnostic_context *context,
 								 diagnostic));
 }
 
-static void
-cp_diagnostic_finalizer (diagnostic_context *context,
-			 diagnostic_info *diagnostic)
-{
-  virt_loc_aware_diagnostic_finalizer (context, diagnostic);
-  pp_destroy_prefix (context->printer);
-}
-
 /* Print current function onto BUFFER, in the process of reporting
    a diagnostic message.  Called from cp_diagnostic_starter.  */
 static void
@@ -3407,16 +3440,6 @@ maybe_print_instantiation_context (diagnostic_context *context)
 
   record_last_problematic_instantiation ();
   print_instantiation_full_context (context);
-}
-
-/* Report the bare minimum context of a template instantiation.  */
-void
-print_instantiation_context (void)
-{
-  print_instantiation_partial_context
-    (global_dc, current_instantiation (), input_location);
-  pp_newline (global_dc->printer);
-  diagnostic_flush_buffer (global_dc);
 }
 
 /* Report what constexpr call(s) we're trying to expand, if any.  */

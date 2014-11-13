@@ -1223,10 +1223,26 @@ implemented with the @code{system} function, which need not be
 thread-safe.  It is the responsibility of the user to ensure that
 @code{system} is not called concurrently.
 
-Finally, for platforms not supporting thread-safe POSIX functions,
-further functionality might not be thread-safe.  For details, please
-consult the documentation for your operating system.
+For platforms not supporting thread-safe POSIX functions, further
+functionality might not be thread-safe.  For details, please consult
+the documentation for your operating system.
 
+The GNU Fortran runtime library uses various C library functions that
+depend on the locale, such as @code{strtod} and @code{snprintf}.  In
+order to work correctly in locale-aware programs that set the locale
+using @code{setlocale}, the locale is reset to the default ``C''
+locale while executing a formatted @code{READ} or @code{WRITE}
+statement.  On targets supporting the POSIX 2008 per-thread locale
+functions (e.g. @code{newlocale}, @code{uselocale},
+@code{freelocale}), these are used and thus the global locale set
+using @code{setlocale} or the per-thread locales in other threads are
+not affected.  However, on targets lacking this functionality, the
+global LC_NUMERIC locale is set to ``C'' during the formatted I/O.
+Thus, on such targets it's not safe to call @code{setlocale}
+concurrently from another thread while a Fortran formatted I/O
+operation is in progress.  Also, other threads doing something
+dependent on the LC_NUMERIC locale might not work correctly if a
+formatted I/O operation is in progress in another thread.
 
 @node Data consistency and durability
 @section Data consistency and durability
@@ -3238,6 +3254,11 @@ caf_register_t;
 * _gfortran_caf_sendget:: Sending data between remote images
 * _gfortran_caf_lock:: Locking a lock variable
 * _gfortran_caf_unlock:: Unlocking a lock variable
+* _gfortran_caf_co_broadcast:: Sending data to all images
+* _gfortran_caf_co_max:: Collective maximum reduction
+* _gfortran_caf_co_min:: Collective minimum reduction
+* _gfortran_caf_co_sum:: Collective summing reduction
+* _gfortran_caf_co_reduce:: Generic collective reduction
 @end menu
 
 
@@ -3448,7 +3469,7 @@ to a remote image identified by the image_index.
 @item @emph{Syntax}:
 @code{void _gfortran_caf_send (caf_token_t token, size_t offset,
 int image_index, gfc_descriptor_t *dest, caf_vector_t *dst_vector,
-gfc_descriptor_t *src, int dst_kind, int src_kind)}
+gfc_descriptor_t *src, int dst_kind, int src_kind, bool may_require_tmp)}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
@@ -3466,15 +3487,26 @@ triplet of the dest argument.
 transferred to the remote image
 @item @var{dst_kind} @tab Kind of the destination argument
 @item @var{src_kind} @tab Kind of the source argument
+@item @var{may_require_tmp} @tab The variable is false it is known at compile
+time that the @var{dest} and @var{src} either cannot overlap or overlap (fully
+or partially) such that walking @var{src} and @var{dest} in element wise
+element order (honoring the stride value) will not lead to wrong results.
+Otherwise, the value is true.
 @end multitable
 
 @item @emph{NOTES}
 It is permitted to have image_id equal the current image; the memory of the
 send-to and the send-from might (partially) overlap in that case. The
-implementation has to take care that it handles this case. Note that the
-assignment of a scalar to an array is permitted. In addition, the library has
-to handle numeric-type conversion and for strings, padding and different
-character kinds.
+implementation has to take care that it handles this case, e.g. using
+@code{memmove} which handles (partially) overlapping memory. If
+@var{may_require_tmp} is true, the library might additionally create a
+temporary variable, unless additional checks show that this is not required
+(e.g. because walking backward is possible or because both arrays are
+contiguous and @code{memmove} takes care of overlap issues).
+
+Note that the assignment of a scalar to an array is permitted. In addition,
+the library has to handle numeric-type conversion and for strings, padding
+and different character kinds.
 @end table
 
 
@@ -3490,7 +3522,7 @@ image identified by the image_index.
 @item @emph{Syntax}:
 @code{void _gfortran_caf_get_desc (caf_token_t token, size_t offset,
 int image_index, gfc_descriptor_t *src, caf_vector_t *src_vector,
-gfc_descriptor_t *dest, int src_kind, int dst_kind)}
+gfc_descriptor_t *dest, int src_kind, int dst_kind, bool may_require_tmp)}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
@@ -3508,14 +3540,25 @@ subscript of the destination array; the values are relative to the dimension
 triplet of the dest argument.
 @item @var{dst_kind} @tab Kind of the destination argument
 @item @var{src_kind} @tab Kind of the source argument
+@item @var{may_require_tmp} @tab The variable is false it is known at compile
+time that the @var{dest} and @var{src} either cannot overlap or overlap (fully
+or partially) such that walking @var{src} and @var{dest} in element wise
+element order (honoring the stride value) will not lead to wrong results.
+Otherwise, the value is true.
 @end multitable
 
 @item @emph{NOTES}
 It is permitted to have image_id equal the current image; the memory of the
 send-to and the send-from might (partially) overlap in that case. The
-implementation has to take care that it handles this case. Note that the
-library has to handle numeric-type conversion and for strings, padding
-and different character kinds.
+implementation has to take care that it handles this case, e.g. using
+@code{memmove} which handles (partially) overlapping memory. If
+@var{may_require_tmp} is true, the library might additionally create a
+temporary variable, unless additional checks show that this is not required
+(e.g. because walking backward is possible or because both arrays are
+contiguous and @code{memmove} takes care of overlap issues).
+
+Note that the library has to handle numeric-type conversion and for strings,
+padding and different character kinds.
 @end table
 
 
@@ -3533,7 +3576,8 @@ dst_image_index.
 @code{void _gfortran_caf_sendget (caf_token_t dst_token, size_t dst_offset,
 int dst_image_index, gfc_descriptor_t *dest, caf_vector_t *dst_vector,
 caf_token_t src_token, size_t src_offset, int src_image_index,
-gfc_descriptor_t *src, caf_vector_t *src_vector, int dst_kind, int src_kind)}
+gfc_descriptor_t *src, caf_vector_t *src_vector, int dst_kind, int src_kind,
+bool may_require_tmp)}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
@@ -3543,7 +3587,7 @@ destination coarray.
 shifted compared to the base address of the destination coarray.
 @item @var{dst_image_index} @tab The ID of the destination remote image; must
 be a positive number.
-@item @var{dst_dest} @tab intent(in) Array descriptor for the destination
+@item @var{dest} @tab intent(in) Array descriptor for the destination
 remote image for the bounds and the size. The base_addr shall not be accessed.
 @item @var{dst_vector} @tab intent(int)  If not NULL, it contains the vector
 subscript of the destination array; the values are relative to the dimension
@@ -3553,21 +3597,31 @@ triplet of the dest argument.
 compared to the base address of the source coarray.
 @item @var{src_image_index} @tab The ID of the source remote image; must be a
 positive number.
-@item @var{src_dest} @tab intent(in) Array descriptor of the local array to be
+@item @var{src} @tab intent(in) Array descriptor of the local array to be
 transferred to the remote image.
 @item @var{src_vector} @tab intent(in) Array descriptor of the local array to
 be transferred to the remote image
 @item @var{dst_kind} @tab Kind of the destination argument
 @item @var{src_kind} @tab Kind of the source argument
+@item @var{may_require_tmp} @tab The variable is false it is known at compile
+time that the @var{dest} and @var{src} either cannot overlap or overlap (fully
+or partially) such that walking @var{src} and @var{dest} in element wise
+element order (honoring the stride value) will not lead to wrong results.
+Otherwise, the value is true.
 @end multitable
 
 @item @emph{NOTES}
-It is permitted to have image_id equal the current image; the memory of the
-send-to and the send-from might (partially) overlap in that case. The
-implementation has to take care that it handles this case. Note that the
-assignment of a scalar to an array is permitted. In addition, the library has
-to handle numeric-type conversion and for strings, padding and different
-character kinds.
+It is permitted to have image_ids equal; the memory of the send-to and the
+send-from might (partially) overlap in that case. The implementation has to
+take care that it handles this case, e.g. using @code{memmove} which handles
+(partially) overlapping memory. If @var{may_require_tmp} is true, the library
+might additionally create a temporary variable, unless additional checks show
+that this is not required (e.g. because walking backward is possible or because
+both arrays are contiguous and @code{memmove} takes care of overlap issues).
+
+Note that the assignment of a scalar to an array is permitted. In addition,
+the library has to handle numeric-type conversion and for strings, padding and
+different character kinds.
 @end table
 
 
@@ -3645,6 +3699,191 @@ is always zero and the image index is one.  Libraries are permitted to use other
 images for critical-block locking variables.
 @end table
 
+
+
+@node _gfortran_caf_co_broadcast
+@subsection @code{_gfortran_caf_co_broadcast} --- Sending data to all images
+@cindex Coarray, _gfortran_caf_co_broadcast
+
+@table @asis
+@item @emph{Description}:
+Distribute a value from a given image to all other images in the team. Has to
+be called collectively.
+
+@item @emph{Syntax}:
+@code{void _gfortran_caf_co_broadcast (gfc_descriptor_t *a,
+int source_image, int *stat, char *errmsg, int errmsg_len)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{a} @tab intent(inout) And array descriptor with the data to be
+breoadcasted (on @var{source_image}) or to be received (other images).
+@item @var{source_image} @tab The ID of the image from which the data should
+be taken.
+@item @var{stat} @tab intent(out) Stores the status STAT= and my may be NULL.
+@item @var{errmsg} @tab intent(out) When an error occurs, this will be set to
+an error message; may be NULL
+@item @var{errmsg_len} @tab the buffer size of errmsg.
+@end multitable
+@end table
+
+
+
+@node _gfortran_caf_co_max
+@subsection @code{_gfortran_caf_co_max} --- Collective maximum reduction
+@cindex Coarray, _gfortran_caf_co_max
+
+@table @asis
+@item @emph{Description}:
+Calculates the for the each array element of the variable @var{a} the maximum
+value for that element in the current team; if @var{result_image} has the
+value 0, the result shall be stored on all images, otherwise, only on the
+specified image. This function operates on numeric values and character
+strings.
+
+@item @emph{Syntax}:
+@code{void _gfortran_caf_co_max (gfc_descriptor_t *a, int result_image,
+int *stat, char *errmsg, int a_len, int errmsg_len)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{a} @tab intent(inout) And array descriptor with the data to be
+breoadcasted (on @var{source_image}) or to be received (other images).
+@item @var{result_image} @tab The ID of the image to which the reduced
+value should be copied to; if zero, it has to be copied to all images.
+@item @var{stat} @tab intent(out) Stores the status STAT= and my may be NULL.
+@item @var{errmsg} @tab intent(out) When an error occurs, this will be set to
+an error message; may be NULL
+@item @var{a_len} @tab The string length of argument @var{a}.
+@item @var{errmsg_len} @tab the buffer size of errmsg.
+@end multitable
+
+@item @emph{NOTES}
+If @var{result_image} is nonzero, the value on all images except of the
+specified one become undefined; hence, the library may make use of this.
+@end table
+
+
+
+@node _gfortran_caf_co_min
+@subsection @code{_gfortran_caf_co_min} --- Collective minimum reduction
+@cindex Coarray, _gfortran_caf_co_min
+
+@table @asis
+@item @emph{Description}:
+Calculates the for the each array element of the variable @var{a} the minimum
+value for that element in the current team; if @var{result_image} has the
+value 0, the result shall be stored on all images, otherwise, only on the
+specified image. This function operates on numeric values and character
+strings.
+
+@item @emph{Syntax}:
+@code{void _gfortran_caf_co_min (gfc_descriptor_t *a, int result_image,
+int *stat, char *errmsg, int a_len, int errmsg_len)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{a} @tab intent(inout) And array descriptor with the data to be
+breoadcasted (on @var{source_image}) or to be received (other images).
+@item @var{result_image} @tab The ID of the image to which the reduced
+value should be copied to; if zero, it has to be copied to all images.
+@item @var{stat} @tab intent(out) Stores the status STAT= and my may be NULL.
+@item @var{errmsg} @tab intent(out) When an error occurs, this will be set to
+an error message; may be NULL
+@item @var{a_len} @tab The string length of argument @var{a}.
+@item @var{errmsg_len} @tab the buffer size of errmsg.
+@end multitable
+
+@item @emph{NOTES}
+If @var{result_image} is nonzero, the value on all images except of the
+specified one become undefined; hence, the library may make use of this.
+@end table
+
+
+
+@node _gfortran_caf_co_sum
+@subsection @code{_gfortran_caf_co_sum} --- Collective summing reduction
+@cindex Coarray, _gfortran_caf_co_sum
+
+@table @asis
+@item @emph{Description}:
+Calculates the for the each array element of the variable @var{a} the sum
+value for that element in the current team; if @var{result_image} has the
+value 0, the result shall be stored on all images, otherwise, only on the
+specified image. This function operates on numeric values.
+
+@item @emph{Syntax}:
+@code{void _gfortran_caf_co_sum (gfc_descriptor_t *a, int result_image,
+int *stat, char *errmsg, int errmsg_len)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{a} @tab intent(inout) And array descriptor with the data to be
+breoadcasted (on @var{source_image}) or to be received (other images).
+@item @var{result_image} @tab The ID of the image to which the reduced
+value should be copied to; if zero, it has to be copied to all images.
+@item @var{stat} @tab intent(out) Stores the status STAT= and my may be NULL.
+@item @var{errmsg} @tab intent(out) When an error occurs, this will be set to
+an error message; may be NULL
+@item @var{errmsg_len} @tab the buffer size of errmsg.
+@end multitable
+
+@item @emph{NOTES}
+If @var{result_image} is nonzero, the value on all images except of the
+specified one become undefined; hence, the library may make use of this.
+@end table
+
+
+
+@node _gfortran_caf_co_reduce
+@subsection @code{_gfortran_caf_co_reduce} --- Generic collective reduction
+@cindex Coarray, _gfortran_caf_co_reduce
+
+@table @asis
+@item @emph{Description}:
+Calculates the for the each array element of the variable @var{a} the reduction
+value for that element in the current team; if @var{result_image} has the
+value 0, the result shall be stored on all images, otherwise, only on the
+specified image. The @var{opr} is a pure function doing a mathematically
+commutative and associative operation.
+
+The @var{opr_flags} denote the following; the values are bitwise ored.
+@code{GFC_CAF_BYREF} (1) if the result should be returned
+by value; @code{GFC_CAF_HIDDENLEN} (2) whether the result and argument
+string lengths shall be specified as hidden argument;
+@code{GFC_CAF_ARG_VALUE} (4) whether the arguments shall be passed by value,
+@code{GFC_CAF_ARG_DESC} (8) whether the arguments shall be passed by descriptor.
+
+
+@item @emph{Syntax}:
+@code{void _gfortran_caf_co_reduce (gfc_descriptor_t *a,
+void * (*opr) (void *, void *), int opr_flags, int result_image,
+int *stat, char *errmsg, int a_len, int errmsg_len)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{opr} @tab Function pointer to the reduction function.
+@item @var{opr_flags} @tab Flags regarding the reduction function
+@item @var{a} @tab intent(inout) And array descriptor with the data to be
+breoadcasted (on @var{source_image}) or to be received (other images).
+@item @var{result_image} @tab The ID of the image to which the reduced
+value should be copied to; if zero, it has to be copied to all images.
+@item @var{stat} @tab intent(out) Stores the status STAT= and my may be NULL.
+@item @var{errmsg} @tab intent(out) When an error occurs, this will be set to
+an error message; may be NULL
+@item @var{a_len} @tab The string length of argument @var{a}.
+@item @var{errmsg_len} @tab the buffer size of errmsg.
+@end multitable
+
+@item @emph{NOTES}
+If @var{result_image} is nonzero, the value on all images except of the
+specified one become undefined; hence, the library may make use of this.
+For character arguments, the result is passed as first argument, followed
+by the result string length, next come the two string arguments, followed
+by the two hidden arguments. With C binding, there are no hidden arguments
+and by-reference passing and either only a single character is passed or
+an array descriptor.
+@end table
 
 
 @c Intrinsic Procedures

@@ -29,6 +29,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "stor-layout.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -47,6 +56,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "demangle.h"
 #include "langhooks.h"
 #include "bitmap.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 
 
 /* All the tuples have their operand vector (if present) at the very bottom
@@ -180,7 +191,7 @@ gimple_build_with_ops_stat (enum gimple_code code, unsigned subcode,
 gimple
 gimple_build_return (tree retval)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_RETURN, ERROR_MARK, 1);
+  gimple s = gimple_build_with_ops (GIMPLE_RETURN, ERROR_MARK, 2);
   if (retval)
     gimple_return_set_retval (s, retval);
   return s;
@@ -367,6 +378,7 @@ gimple_build_call_from_tree (tree t)
   gimple_call_set_va_arg_pack (call, CALL_EXPR_VA_ARG_PACK (t));
   gimple_call_set_nothrow (call, TREE_NOTHROW (t));
   gimple_set_no_warning (call, TREE_NO_WARNING (t));
+  gimple_call_set_with_bounds (call, CALL_WITH_BOUNDS_P (t));
 
   return call;
 }
@@ -2113,6 +2125,7 @@ static tree
 gimple_signed_or_unsigned_type (bool unsignedp, tree type)
 {
   tree type1;
+  int i;
 
   type1 = TYPE_MAIN_VARIANT (type);
   if (type1 == signed_char_type_node
@@ -2130,10 +2143,15 @@ gimple_signed_or_unsigned_type (bool unsignedp, tree type)
     return unsignedp
            ? long_long_unsigned_type_node
 	   : long_long_integer_type_node;
-  if (int128_integer_type_node && (type1 == int128_integer_type_node || type1 == int128_unsigned_type_node))
-    return unsignedp
-           ? int128_unsigned_type_node
-	   : int128_integer_type_node;
+
+  for (i = 0; i < NUM_INT_N_ENTS; i ++)
+    if (int_n_enabled_p[i]
+	&& (type1 == int_n_trees[i].unsigned_type
+	    || type1 == int_n_trees[i].signed_type))
+	return unsignedp
+	  ? int_n_trees[i].unsigned_type
+	  : int_n_trees[i].signed_type;
+
 #if HOST_BITS_PER_WIDE_INT >= 64
   if (type1 == intTI_type_node || type1 == unsigned_intTI_type_node)
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
@@ -2246,10 +2264,14 @@ gimple_signed_or_unsigned_type (bool unsignedp, tree type)
     return (unsignedp
 	    ? long_long_unsigned_type_node
 	    : long_long_integer_type_node);
-  if (int128_integer_type_node && TYPE_OK (int128_integer_type_node))
-    return (unsignedp
-	    ? int128_unsigned_type_node
-	    : int128_integer_type_node);
+
+  for (i = 0; i < NUM_INT_N_ENTS; i ++)
+    if (int_n_enabled_p[i]
+	&& TYPE_MODE (type) == int_n_data[i].m
+	&& TYPE_PRECISION (type) == int_n_data[i].bitsize)
+	return unsignedp
+	  ? int_n_trees[i].unsigned_type
+	  : int_n_trees[i].signed_type;
 
 #if HOST_BITS_PER_WIDE_INT >= 64
   if (TYPE_OK (intTI_type_node))
@@ -2815,4 +2837,20 @@ gimple_seq_set_location (gimple_seq seq, location_t loc)
 {
   for (gimple_stmt_iterator i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
     gimple_set_location (gsi_stmt (i), loc);
+}
+
+/* Release SSA_NAMEs in SEQ as well as the GIMPLE statements.  */
+
+void
+gimple_seq_discard (gimple_seq seq)
+{
+  gimple_stmt_iterator gsi;
+
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); )
+    {
+      gimple stmt = gsi_stmt (gsi);
+      gsi_remove (&gsi, true);
+      release_defs (stmt);
+      ggc_free (stmt);
+    }
 }

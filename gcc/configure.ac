@@ -971,6 +971,10 @@ else
   AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
 fi
 
+# The jit documentation looks better if built with sphinx, but can be
+# built with texinfo if sphinx is not available.
+# Set "doc_build_sys" to "sphinx" or "texinfo" accordingly.
+AC_CHECK_PROG(doc_build_sys, sphinx-build, sphinx, texinfo)
 
 # --------------------
 # Checks for C headers
@@ -1924,6 +1928,22 @@ elif test "x$TARGET_SYSTEM_ROOT" != x; then
         SYSTEM_HEADER_DIR=$build_system_header_dir 
 fi
 
+if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
+  if test "x$with_headers" != x; then
+    target_header_dir=$with_headers
+  elif test "x$with_sysroot" = x; then
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
+  elif test "x$with_build_sysroot" != "x"; then
+    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
+  elif test "x$with_sysroot" = xyes; then
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
+  else
+    target_header_dir="${with_sysroot}${native_system_header_dir}"
+  fi
+else
+  target_header_dir=${native_system_header_dir}
+fi
+
 # If this is a cross-compiler that does not
 # have its own set of headers then define
 # inhibit_libc
@@ -1935,7 +1955,7 @@ fi
 : ${inhibit_libc=false}
 if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
        test x$with_newlib = xyes ; } &&
-     { test "x$with_headers" = x || test "x$with_headers" = xno ; } ; then
+     { test "x$with_headers" = xno || test ! -f "$target_header_dir/stdio.h"; } ; then
        inhibit_libc=true
 fi
 AC_SUBST(inhibit_libc)
@@ -3510,6 +3530,29 @@ case "$target" in
         done
       fi
     fi
+    # Enable default workaround for AArch64 Cortex-A53 erratum 835769.
+    AC_ARG_ENABLE(fix-cortex-a53-835769,
+    [
+AS_HELP_STRING([--enable-fix-cortex-a53-835769],
+        [enable workaround for AArch64 Cortex-A53 erratum 835769 by default])
+AS_HELP_STRING([--disable-fix-cortex-a53-835769],
+        [disable workaround for AArch64 Cortex-A53 erratum 835769 by default])
+    ],
+      [
+        case $enableval in
+          yes)
+            tm_defines="${tm_defines} TARGET_FIX_ERR_A53_835769_DEFAULT=1"
+            ;;
+          no)
+            ;;
+          *)
+            AC_MSG_ERROR(['$enableval' is an invalid value for --enable-fix-cortex-a53-835769.\
+  Valid choices are 'yes' and 'no'.])
+            ;;
+
+        esac
+      ],
+    [])
     ;;
 
   # All TARGET_ABI_OSF targets.
@@ -3760,17 +3803,18 @@ foo:	nop
 	      ;;
 	  esac
 	fi
-	# Test if the assembler supports the section flag 'e' for specifying
-	# an excluded section.
-	gcc_GAS_CHECK_FEATURE([.section with e], gcc_cv_as_section_has_e,
-	  [2,22,51],,
-[.section foo1,"e"
-.byte 0,0,0,0])
-	AC_DEFINE_UNQUOTED(HAVE_GAS_SECTION_EXCLUDE,
-	  [`if test $gcc_cv_as_section_has_e = yes; then echo 1; else echo 0; fi`],
-          [Define if your assembler supports specifying the section flag e.])
 	;;
     esac
+
+    # Test if the assembler supports the section flag 'e' for specifying
+    # an excluded section.
+    gcc_GAS_CHECK_FEATURE([.section with e], gcc_cv_as_section_has_e,
+      [2,22,51], [--fatal-warnings],
+[.section foo1,"e"
+.byte 0,0,0,0])
+    AC_DEFINE_UNQUOTED(HAVE_GAS_SECTION_EXCLUDE,
+      [`if test $gcc_cv_as_section_has_e = yes; then echo 1; else echo 0; fi`],
+      [Define if your assembler supports specifying the section flag e.])
 
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
        gcc_cv_as_ix86_filds,,,
@@ -4443,22 +4487,6 @@ if test x$with_sysroot = x && test x$host = x$target \
 [Define to PREFIX/include if cpp should also search that directory.])
 fi
 
-if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
-  if test "x$with_headers" != x; then
-    target_header_dir=$with_headers
-  elif test "x$with_sysroot" = x; then
-    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
-  elif test "x$with_build_sysroot" != "x"; then
-    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
-  elif test "x$with_sysroot" = xyes; then
-    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
-  else
-    target_header_dir="${with_sysroot}${native_system_header_dir}"
-  fi
-else
-  target_header_dir=${native_system_header_dir}
-fi
-
 # Determine the version of glibc, if any, used on the target.
 AC_MSG_CHECKING([for target glibc version])
 AC_ARG_WITH([glibc-version],
@@ -4479,6 +4507,10 @@ glibc_version_minor=0
   glibc_version_minor=`echo "$glibc_version_minor_define" | sed -e 's/.*__GLIBC_MINOR__[ 	]*//'`
 fi]])
 AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MAJOR], [$glibc_version_major],
+[GNU C Library major version number used on the target, or 0.])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MINOR], [$glibc_version_minor],
+[GNU C Library minor version number used on the target, or 0.])
 
 AC_ARG_ENABLE(gnu-unique-object,
  [AS_HELP_STRING([--enable-gnu-unique-object],
@@ -5524,105 +5556,7 @@ if test "x${CLOOGLIBS}" != "x" ; then
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
 fi
 
-# Check for plugin support
-AC_ARG_ENABLE(plugin,
-[AS_HELP_STRING([--enable-plugin], [enable plugin support])],
-enable_plugin=$enableval,
-enable_plugin=yes; default_plugin=yes)
-
-pluginlibs=
-
-case "${host}" in
-  *-*-darwin*)
-    if test x$build = x$host; then
-      export_sym_check="nm${exeext} -g"
-    elif test x$host = x$target; then
-      export_sym_check="$gcc_cv_nm -g"
-    else
-      export_sym_check=
-    fi
-  ;;
-  *)
-    if test x$build = x$host; then
-      export_sym_check="objdump${exeext} -T"
-    elif test x$host = x$target; then
-      export_sym_check="$gcc_cv_objdump -T"
-    else
-      export_sym_check=
-    fi
-  ;;
-esac
-
-if test x"$enable_plugin" = x"yes"; then
-
-  AC_MSG_CHECKING([for exported symbols])
-  if test "x$export_sym_check" != x; then
-    echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
-    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest$ac_exeext > /dev/null 2>&1
-    if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
-      : # No need to use a flag
-      AC_MSG_RESULT([yes])
-    else
-      AC_MSG_RESULT([yes])
-      AC_MSG_CHECKING([for -rdynamic])
-      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest$ac_exeext > /dev/null 2>&1
-      if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
-        plugin_rdynamic=yes
-        pluginlibs="-rdynamic"
-      else
-        plugin_rdynamic=no
-        enable_plugin=no
-      fi
-      AC_MSG_RESULT([$plugin_rdynamic])
-    fi
-  else
-    AC_MSG_RESULT([unable to check])
-  fi
-
-  # Check -ldl
-  saved_LIBS="$LIBS"
-  AC_SEARCH_LIBS([dlopen], [dl])
-  if test x"$ac_cv_search_dlopen" = x"-ldl"; then
-    pluginlibs="$pluginlibs -ldl"
-  fi
-  LIBS="$saved_LIBS"
-
-  # Check that we can build shared objects with -fPIC -shared
-  saved_LDFLAGS="$LDFLAGS"
-  saved_CFLAGS="$CFLAGS"
-  case "${host}" in
-    *-*-darwin*)
-      CFLAGS=`echo $CFLAGS | sed s/-mdynamic-no-pic//g`
-      CFLAGS="$CFLAGS -fPIC"
-      LDFLAGS="$LDFLAGS -shared -undefined dynamic_lookup"
-    ;;
-    *)
-      CFLAGS="$CFLAGS -fPIC"
-      LDFLAGS="$LDFLAGS -fPIC -shared"
-    ;;
-  esac
-  AC_MSG_CHECKING([for -fPIC -shared])
-  AC_TRY_LINK(
-    [extern int X;],[return X == 0;],
-    [AC_MSG_RESULT([yes]); have_pic_shared=yes],
-    [AC_MSG_RESULT([no]); have_pic_shared=no])
-  if test x"$have_pic_shared" != x"yes" -o x"$ac_cv_search_dlopen" = x"no"; then
-    pluginlibs=
-    enable_plugin=no
-  fi
-  LDFLAGS="$saved_LDFLAGS"
-  CFLAGS="$saved_CFLAGS"
-
-  # If plugin support had been requested but not available, fail.
-  if test x"$enable_plugin" = x"no" ; then
-    if test x"$default_plugin" != x"yes"; then
-      AC_MSG_ERROR([
-Building GCC with plugin support requires a host that supports
--fPIC, -shared, -ldl and -rdynamic.])
-    fi
-  fi
-fi
-
+GCC_ENABLE_PLUGINS
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
 if test x"$enable_plugin" = x"yes"; then
@@ -5673,6 +5607,12 @@ if test x"${LINKER_HASH_STYLE}" != x; then
   AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
                                          [The linker hash style])
 fi
+
+# Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
+# of jit/jit-playback.c.
+cat > gcc-driver-name.h <<EOF
+#define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
+EOF
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

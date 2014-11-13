@@ -25,10 +25,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "expr.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "intl.h"
-#include "hash-set.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
@@ -1633,6 +1642,9 @@ expand_simple_operations (tree expr)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
+      if (TYPE_OVERFLOW_TRAPS (TREE_TYPE (expr)))
+	return expr;
+      /* Fallthru.  */
     case POINTER_PLUS_EXPR:
       /* And increments and decrements by a constant are simple.  */
       e1 = gimple_assign_rhs2 (stmt);

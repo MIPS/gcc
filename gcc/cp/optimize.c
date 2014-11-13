@@ -36,6 +36,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "tree-iterator.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 
 /* Prototypes.  */
@@ -159,18 +168,12 @@ build_delete_destructor_body (tree delete_dtor, tree complete_dtor)
 static tree
 cdtor_comdat_group (tree complete, tree base)
 {
-  tree complete_name = DECL_COMDAT_GROUP (complete);
-  tree base_name = DECL_COMDAT_GROUP (base);
+  tree complete_name = DECL_ASSEMBLER_NAME (complete);
+  tree base_name = DECL_ASSEMBLER_NAME (base);
   char *grp_name;
   const char *p, *q;
   bool diff_seen = false;
   size_t idx;
-  if (complete_name == NULL)
-    complete_name = cxx_comdat_group (complete);
-  if (base_name == NULL)
-    base_name = cxx_comdat_group (base);
-  complete_name = DECL_ASSEMBLER_NAME (complete_name);
-  base_name = DECL_ASSEMBLER_NAME (base_name);
   gcc_assert (IDENTIFIER_LENGTH (complete_name)
 	      == IDENTIFIER_LENGTH (base_name));
   grp_name = XALLOCAVEC (char, IDENTIFIER_LENGTH (complete_name) + 1);
@@ -190,7 +193,7 @@ cdtor_comdat_group (tree complete, tree base)
 	diff_seen = true;
       }
   grp_name[idx] = '\0';
-  gcc_assert (diff_seen || symtab_node::get (complete)->alias);
+  gcc_assert (diff_seen);
   return get_identifier (grp_name);
 }
 
@@ -276,7 +279,7 @@ maybe_thunk_body (tree fn, bool force)
      (for non-vague linkage ctors) or the COMDAT group (otherwise).  */
 
   populate_clone_array (fn, fns);
-  DECL_ABSTRACT (fn) = false;
+  DECL_ABSTRACT_P (fn) = false;
   if (!DECL_WEAK (fn))
     {
       TREE_PUBLIC (fn) = false;

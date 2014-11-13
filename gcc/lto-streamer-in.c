@@ -32,6 +32,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "input.h"
 #include "hashtab.h"
+#include "predict.h"
+#include "vec.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -46,10 +54,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
-#include "function.h"
 #include "diagnostic.h"
 #include "except.h"
 #include "debug.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
 #include "data-streamer.h"
 #include "gimple-streamer.h"
@@ -1358,10 +1369,10 @@ lto_input_toplevel_asms (struct lto_file_decl_data *file_data, int order_base)
 
   while ((str = streamer_read_string_cst (data_in, &ib)))
     {
-      struct asm_node *node = add_asm_node (str);
+      asm_node *node = symtab->finalize_toplevel_asm (str);
       node->order = streamer_read_hwi (&ib) + order_base;
-      if (node->order >= symtab_order)
-	symtab_order = node->order + 1;
+      if (node->order >= symtab->order)
+	symtab->order = node->order + 1;
     }
 
   lto_data_in_delete (data_in);

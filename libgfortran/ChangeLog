@@ -1,3 +1,126 @@
+2014-11-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/63610
+	* configure: Regenerate.
+
+2014-11-10  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/47007
+	PR libfortran/61847
+	* config.h.in: Regenerated.
+	* configure: Regenerated.
+	* configure.ac (AC_CHECK_HEADERS_ONCE): Check for xlocale.h.
+	(AC_CHECK_FUNCS_ONCE): Check for newlocale, freelocale, uselocale,
+	strerror_l.
+	* io/io.h (locale.h): Include.
+	(xlocale.h): Include if present.
+	(c_locale): New variable.
+	(old_locale): New variable.
+	(old_locale_ctr): New variable.
+	(old_locale_lock): New variable.
+	(st_parameter_dt): Add old_locale member.
+	* io/transfer.c (data_transfer_init): Set locale to "C" if doing
+	formatted transfer.
+	(finalize_transfer): Reset locale to previous.
+	* io/unit.c (c_locale): New variable.
+	(old_locale): New variable.
+	(old_locale_ctr): New variable.
+	(old_locale_lock): New variable.
+	(init_units): Init c_locale, init old_locale_lock.
+	(close_units): Free c_locale.
+	* runtime/error.c (locale.h): Include.
+	(xlocale.h): Include if present.
+	(gf_strerror): Use strerror_l if available. Reset locale to
+	LC_GLOBAL_LOCALE for strerror_r branch.
+
+2014-10-20  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/63589
+	* configure.ac: Check for strtok_r.
+	* runtime/main.c (gfstrtok_r): Fallback implementation of
+	strtok_r.
+	(find_addr2line): Use strtok_r to split PATH.
+	* config.h.in: Regenerated.
+	* configure: Regenerated.
+
+2014-10-09  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* ieee/ieee_helper.c (ieee_is_finite_*, ieee_is_nan_*,
+	ieee_is_negative_*, ieee_is_normal_*, ieee_copy_sign_*,
+	ieee_unordered_*, ieee_logb_*, ieee_rint_*, ieee_scalb_*,
+	ieee_rem_*, ieee_next_after_*): Remove functions.
+	* gfortran.map (GFORTRAN_1.5): Remove corresponding symbols.
+
+2014-10-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/63460
+	* io/unit.c (init_units): Initialize the DELIM flag to
+	UNSPECIFIED for the STDIN unit so that the flag is
+	correctly set later.
+
+2014-10-01  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* intrinsics/pack_generic.c (pack_s_internal): Fix
+	-Wmaybe-uninitialized warning.
+	* m4/unpack.m4 (unpack0_'rtype_code`): Likewise.
+	(unpack1_'rtype_code`): Likewise.
+	* generated/unpack_*.m4: Regenerated.
+
+2014-09-30  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* configure.ac (AM_CFLAGS): Add
+	-Werror=implicit-function-declaration.
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+2014-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_co_broadcast): New prototype.
+	* caf/single.c (_gfortran_caf_co_broadcast): New.
+
+2014-09-18  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/62768
+	* io/inquire.c (inquire_via_unit): Use gfc_unit.filename also when
+	HAVE_TTYNAME{_R} is not defined.
+
+2014-09-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/62768
+	* io/io.h (gfc_unit): Store C string for the filename.
+	* io/close.c (st_close): Use gfc_unit.filename.
+	* io/inquire.c (inquire_via_unit): Likewise.
+	* io/open.c (new_unit): Likewise.
+	(already_open): Likewise, unlink file before freeing filename.
+	* io/unit.c (init_units): Likewise.
+	(close_unit_1): Likewise.
+	(filename_from_unit): Likewise.
+	* io/unix.c (compare_file_filename): Likewise.
+	(find_file0): Likewise.
+	(delete_file): Likewise.
+
+2014-09-10  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* io/transfer.c (read_block_form): Fix pad status check (found by
+	Thomas Schwinge with -Wlogical-not-parentheses).
+
+2014-08-31  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Update prototype.
+	* caf/single.c (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Handle may_require_tmp.
+
+2014-08-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR libgfortran/62188
+	* m4/bessel.m4: Avoid indexing off the end of an array.
+	* generated/bessel_r10.c: Regenerated.
+	* generated/bessel_r16.c: Ditto.
+	* generated/bessel_r4.c: Ditto.
+	* generated/bessel_r8.c: Ditto.
+
 2014-08-14  Tobias Burnus  <burnus@net-b.de>
 
 	* caf/libcaf.h (caf_register_t): Update for critical.

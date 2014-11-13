@@ -60,6 +60,9 @@ typedef const struct rtx_def *const_rtx;
    hierarchy, along with the relevant invariant.
    Where possible, keep this list in the same order as in rtl.def.  */
 class rtx_def;
+  class rtx_expr_list;           /* GET_CODE (X) == EXPR_LIST */
+  class rtx_insn_list;           /* GET_CODE (X) == INSN_LIST */
+  class rtx_sequence;            /* GET_CODE (X) == SEQUENCE */
   class rtx_insn;
     class rtx_debug_insn;      /* DEBUG_INSN_P (X) */
     class rtx_nonjump_insn;    /* NONJUMP_INSN_P (X) */
@@ -173,13 +176,13 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 typedef const struct basic_block_def *const_basic_block;
 
-#define obstack_chunk_alloc	((void *(*) (long)) xmalloc)
-#define obstack_chunk_free	((void (*) (void *)) free)
+#define obstack_chunk_alloc	xmalloc
+#define obstack_chunk_free	free
 #define OBSTACK_CHUNK_SIZE	0
-#define gcc_obstack_init(OBSTACK)			\
-  _obstack_begin ((OBSTACK), OBSTACK_CHUNK_SIZE, 0,	\
-		  obstack_chunk_alloc,			\
-		  obstack_chunk_free)
+#define gcc_obstack_init(OBSTACK)				\
+  obstack_specify_allocation ((OBSTACK), OBSTACK_CHUNK_SIZE, 0,	\
+			      obstack_chunk_alloc,		\
+			      obstack_chunk_free)
 
 /* enum reg_class is target specific, so it should not appear in
    target-independent code or interfaces, like the target hook declarations
@@ -196,11 +199,13 @@ namespace gcc {
 
 struct _dont_use_rtx_here_;
 struct _dont_use_rtvec_here_;
+struct _dont_use_rtx_insn_here_;
 union _dont_use_tree_here_;
 #define rtx struct _dont_use_rtx_here_ *
 #define const_rtx struct _dont_use_rtx_here_ *
 #define rtvec struct _dont_use_rtvec_here *
 #define const_rtvec struct _dont_use_rtvec_here *
+#define rtx_insn struct _dont_use_rtx_insn_here_
 #define tree union _dont_use_tree_here_ *
 #define const_tree union _dont_use_tree_here_ *
 

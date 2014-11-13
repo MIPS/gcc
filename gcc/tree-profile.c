@@ -29,7 +29,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "coverage.h"
@@ -45,6 +54,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "stringpool.h"
@@ -56,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-cfgcleanup.h"
 #include "tree-nested.h"
+#include "params.h"
 
 static GTY(()) tree gcov_type_node;
 static GTY(()) tree tree_interval_profiler_fn;
@@ -101,7 +114,10 @@ init_ic_make_global_vars (void)
     {
       ic_void_ptr_var
 	= build_decl (UNKNOWN_LOCATION, VAR_DECL,
-		      get_identifier ("__gcov_indirect_call_callee"),
+		      get_identifier (
+			      (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
+			       "__gcov_indirect_call_topn_callee" :
+			       "__gcov_indirect_call_callee")),
 		      ptr_void);
       TREE_PUBLIC (ic_void_ptr_var) = 1;
       DECL_EXTERNAL (ic_void_ptr_var) = 1;
@@ -131,7 +147,10 @@ init_ic_make_global_vars (void)
     {
       ic_gcov_type_ptr_var
 	= build_decl (UNKNOWN_LOCATION, VAR_DECL,
-		      get_identifier ("__gcov_indirect_call_counters"),
+		      get_identifier (
+			      (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
+			       "__gcov_indirect_call_topn_counters" :
+		               "__gcov_indirect_call_counters")),
 		      gcov_type_ptr);
       TREE_PUBLIC (ic_gcov_type_ptr_var) = 1;
       DECL_EXTERNAL (ic_gcov_type_ptr_var) = 1;
@@ -226,8 +245,10 @@ gimple_init_edge_profiler (void)
 					      ptr_void,
 					      NULL_TREE);
 	  tree_indirect_call_profiler_fn
-		  = build_fn_decl ("__gcov_indirect_call_profiler_v2",
-					 ic_profiler_fn_type);
+		  = build_fn_decl ( (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
+				     "__gcov_indirect_call_topn_profiler":
+				     "__gcov_indirect_call_profiler_v2"),
+				   ic_profiler_fn_type);
         }
       TREE_NOTHROW (tree_indirect_call_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_indirect_call_profiler_fn)
@@ -398,6 +419,12 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
 
+  if ( (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) &&
+        tag == GCOV_COUNTER_V_INDIR) ||
+       (!PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) &&
+        tag == GCOV_COUNTER_ICALL_TOPNV))
+    return;
+
   ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,
 				      true, NULL_TREE, true, GSI_SAME_STMT);
 
@@ -442,8 +469,7 @@ gimple_gen_ic_func_profiler (void)
     stmt1: __gcov_indirect_call_profiler_v2 (profile_id,
 					     &current_function_decl)
    */
-  gsi =
-					     gsi_after_labels (split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun))));
+  gsi = gsi_after_labels (split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun))));
 
   cur_func = force_gimple_operand_gsi (&gsi,
 				       build_addr (current_function_decl,
@@ -565,7 +591,7 @@ tree_profiling (void)
 
   /* This is a small-ipa pass that gets called only once, from
      cgraphunit.c:ipa_passes().  */
-  gcc_assert (cgraph_state == CGRAPH_STATE_IPA_SSA);
+  gcc_assert (symtab->state == IPA_SSA);
 
   init_node_map (true);
 
@@ -576,6 +602,13 @@ tree_profiling (void)
 
       /* Don't profile functions produced for builtin stuff.  */
       if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
+	continue;
+
+      /* Do not instrument extern inline functions when testing coverage.
+	 While this is not perfectly consistent (early inlined extern inlines
+	 will get acocunted), testsuite expects that.  */
+      if (DECL_EXTERNAL (node->decl)
+	  && flag_test_coverage)
 	continue;
 
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
@@ -650,7 +683,7 @@ tree_profiling (void)
       cleanup_tree_cfg ();
       update_ssa (TODO_update_ssa);
 
-      rebuild_cgraph_edges ();
+      cgraph_edge::rebuild_edges ();
 
       pop_cfun ();
     }
@@ -692,8 +725,10 @@ public:
 bool
 pass_ipa_tree_profile::gate (function *)
 {
-  /* When profile instrumentation, use or test coverage shall be performed.  */
-  return (!in_lto_p
+  /* When profile instrumentation, use or test coverage shall be performed.
+     But for AutoFDO, this there is no instrumentation, thus this pass is
+     diabled.  */
+  return (!in_lto_p && !flag_auto_profile
 	  && (flag_branch_probabilities || flag_test_coverage
 	      || profile_arc_flag));
 }

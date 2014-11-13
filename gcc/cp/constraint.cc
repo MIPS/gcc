@@ -33,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "timevar.h"
 #include "diagnostic.h"
-#include "cgraph.h"
 #include "tree-iterator.h"
 #include "vec.h"
 #include "target.h"

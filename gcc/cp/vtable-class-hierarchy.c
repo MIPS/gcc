@@ -115,6 +115,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "cp-tree.h"
 #include "output.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "vtable-verify.h"
@@ -1188,7 +1200,7 @@ vtv_generate_init_routine (void)
       gimplify_function_tree (vtv_fndecl);
       cgraph_node::add_new_function (vtv_fndecl, false);
 
-      cgraph_process_new_functions ();
+      symtab->process_new_functions ();
 
       if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
         assemble_vtv_preinit_initializer (vtv_fndecl);

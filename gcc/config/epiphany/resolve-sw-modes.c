@@ -27,6 +27,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "vec.h"
 #include "sbitmap.h"
+#include "predict.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "df.h"
 #include "rtl.h"
@@ -34,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "emit-rtl.h"
 #include "recog.h"
-#include "function.h"
 #include "insn-attr-common.h"
 #include "tree-pass.h"
 
@@ -77,7 +88,8 @@ unsigned
 pass_resolve_sw_modes::execute (function *fun)
 {
   basic_block bb;
-  rtx insn, src;
+  rtx_insn *insn;
+  rtx src;
   vec<basic_block> todo;
   sbitmap pushed;
   bool need_commit = false;
@@ -155,7 +167,7 @@ pass_resolve_sw_modes::execute (function *fun)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  basic_block succ = e->dest;
-	  rtx seq;
+	  rtx_insn *seq;
 
 	  if (!REGNO_REG_SET_P (DF_LIVE_IN (succ), jilted_reg))
 	    continue;

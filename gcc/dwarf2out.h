@@ -223,7 +223,7 @@ extern struct dw_loc_descr_node *build_cfa_loc
 extern struct dw_loc_descr_node *build_cfa_aligned_loc
   (dw_cfa_location *, HOST_WIDE_INT offset, HOST_WIDE_INT alignment);
 extern struct dw_loc_descr_node *mem_loc_descriptor
-  (rtx, enum machine_mode mode, enum machine_mode mem_mode,
+  (rtx, machine_mode mode, machine_mode mem_mode,
    enum var_init_status);
 extern bool loc_descr_equal_p (dw_loc_descr_ref, dw_loc_descr_ref);
 extern dw_fde_ref dwarf2out_alloc_current_fde (void);
@@ -249,7 +249,6 @@ extern enum dw_cfi_oprnd_type dw_cfi_oprnd2_desc
 
 extern void output_cfi_directive (FILE *f, struct dw_cfi_node *cfi);
 
-extern void dwarf2out_decl (tree);
 extern void dwarf2out_emit_cfi (dw_cfi_ref cfi);
 
 extern void debug_dwarf (void);
@@ -277,5 +276,7 @@ struct array_descr_info
       tree stride;
     } dimen[10];
 };
+
+void dwarf2out_c_finalize (void);
 
 #endif /* GCC_DWARF2OUT_H */

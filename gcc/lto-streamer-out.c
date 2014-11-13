@@ -33,6 +33,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "hashtab.h"
 #include "hash-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -43,11 +50,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
-#include "function.h"
 #include "diagnostic-core.h"
 #include "inchash.h"
 #include "except.h"
 #include "lto-symtab.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
 #include "gimple-streamer.h"
@@ -817,7 +827,7 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
       hstate.add_flag (DECL_NONLOCAL (t));
       hstate.add_flag (DECL_VIRTUAL_P (t));
       hstate.add_flag (DECL_IGNORED_P (t));
-      hstate.add_flag (DECL_ABSTRACT (t));
+      hstate.add_flag (DECL_ABSTRACT_P (t));
       hstate.add_flag (DECL_ARTIFICIAL (t));
       hstate.add_flag (DECL_USER_ALIGN (t));
       hstate.add_flag (DECL_PRESERVE_P (t));
@@ -2098,7 +2108,7 @@ lto_output_toplevel_asms (void)
   char *section_name;
   struct lto_simple_header_with_strings header;
 
-  if (! asm_nodes)
+  if (!symtab->first_asm_symbol ())
     return;
 
   ob = create_output_block (LTO_section_asm);
@@ -2106,7 +2116,7 @@ lto_output_toplevel_asms (void)
   /* Make string 0 be a NULL string.  */
   streamer_write_char_stream (ob->string_stream, 0);
 
-  for (can = asm_nodes; can; can = can->next)
+  for (can = symtab->first_asm_symbol (); can; can = can->next)
     {
       streamer_write_string_cst (ob, ob->main_stream, can->asm_str);
       streamer_write_hwi (ob, can->order);
@@ -2249,7 +2259,10 @@ lto_output (void)
 #endif
 	      decl_state = lto_new_out_decl_state ();
 	      lto_push_out_decl_state (decl_state);
-	      if (gimple_has_body_p (node->decl) || !flag_wpa)
+	      if (gimple_has_body_p (node->decl) || !flag_wpa
+		  /* Thunks have no body but they may be synthetized
+		     at WPA time.  */
+		  || DECL_ARGUMENTS (node->decl))
 		output_function (node);
 	      else
 		copy_function_or_variable (node);
@@ -2422,7 +2435,7 @@ write_symbol (struct streamer_tree_cache_d *cache,
 {
   const char *name;
   enum gcc_plugin_symbol_kind kind;
-  enum gcc_plugin_symbol_visibility visibility;
+  enum gcc_plugin_symbol_visibility visibility = GCCPV_DEFAULT;
   unsigned slot_num;
   uint64_t size;
   const char *comdat;
@@ -2432,7 +2445,7 @@ write_symbol (struct streamer_tree_cache_d *cache,
      symbol table.  */
   if (!TREE_PUBLIC (t)
       || is_builtin_fn (t)
-      || DECL_ABSTRACT (t)
+      || DECL_ABSTRACT_P (t)
       || (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t)))
     return;
   gcc_assert (TREE_CODE (t) != RESULT_DECL);

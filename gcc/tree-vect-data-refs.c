@@ -28,6 +28,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "target.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -53,9 +63,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
 #include "diagnostic-core.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 /* Need to include rtl.h, expr.h, etc. for optabs.  */
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "builtins.h"
 #include "varasm.h"
@@ -67,7 +81,7 @@ static bool
 vect_lanes_optab_supported_p (const char *name, convert_optab optab,
 			      tree vectype, unsigned HOST_WIDE_INT count)
 {
-  enum machine_mode mode, array_mode;
+  machine_mode mode, array_mode;
   bool limit_p;
 
   mode = TYPE_MODE (vectype);
@@ -1515,10 +1529,20 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
-  if (do_peeling && all_misalignments_unknown
+  /* If we don't know how many times the peeling loop will run
+     assume it will run VF-1 times and disable peeling if the remaining
+     iters are less than the vectorization factor.  */
+  if (do_peeling
+      && all_misalignments_unknown
+      && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	  < 2 * (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 1))
+    do_peeling = false;
+
+  if (do_peeling
+      && all_misalignments_unknown
       && vect_supportable_dr_alignment (dr0, false))
     {
-
       /* Check if the target requires to prefer stores over loads, i.e., if
          misaligned stores are more expensive than misaligned loads (taking
          drs with same alignment into account).  */
@@ -1605,6 +1629,14 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						   &body_cost_vec);
       if (!dr0 || !npeel)
         do_peeling = false;
+
+      /* If peeling by npeel will result in a remaining loop not iterating
+         enough to be vectorized then do not peel.  */
+      if (do_peeling
+	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+	  && (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	      < LOOP_VINFO_VECT_FACTOR (loop_vinfo) + npeel))
+	do_peeling = false;
     }
 
   if (do_peeling)
@@ -2533,11 +2565,14 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 	     over them.  The we can just skip ahead to the next DR here.  */
 
 	  /* Check that the data-refs have same first location (except init)
-	     and they are both either store or load (not load and store).  */
+	     and they are both either store or load (not load and store,
+	     not masked loads or stores).  */
 	  if (DR_IS_READ (dra) != DR_IS_READ (drb)
 	      || !operand_equal_p (DR_BASE_ADDRESS (dra),
 				   DR_BASE_ADDRESS (drb), 0)
-	      || !dr_equal_offsets_p (dra, drb))
+	      || !dr_equal_offsets_p (dra, drb)
+	      || !gimple_assign_single_p (DR_STMT (dra))
+	      || !gimple_assign_single_p (DR_STMT (drb)))
 	    break;
 
 	  /* Check that the data-refs have the same constant size and step.  */
@@ -2683,14 +2718,6 @@ comp_dr_with_seg_len_pair (const void *p1_, const void *p2_)
   return 0;
 }
 
-template <class T> static void
-swap (T& a, T& b)
-{
-  T c (a);
-  a = b;
-  b = c;
-}
-
 /* Function vect_vfa_segment_size.
 
    Create an expression that computes the size of segment
@@ -2823,7 +2850,7 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	   dr_with_seg_len (dr_b, segment_length_b));
 
       if (compare_tree (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b)) > 0)
-	swap (dr_with_seg_len_pair.first, dr_with_seg_len_pair.second);
+	std::swap (dr_with_seg_len_pair.first, dr_with_seg_len_pair.second);
 
       comp_alias_ddrs.safe_push (dr_with_seg_len_pair);
     }
@@ -2873,8 +2900,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	     and DR_A1 and DR_A2 are two consecutive memrefs.  */
 	  if (*dr_a1 == *dr_a2)
 	    {
-	      swap (dr_a1, dr_b1);
-	      swap (dr_a2, dr_b2);
+	      std::swap (dr_a1, dr_b1);
+	      std::swap (dr_a2, dr_b2);
 	    }
 
 	  if (!operand_equal_p (DR_BASE_ADDRESS (dr_a1->dr),
@@ -2960,7 +2987,7 @@ vect_check_gather (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree offtype = NULL_TREE;
   tree decl, base, off;
-  enum machine_mode pmode;
+  machine_mode pmode;
   int punsignedp, pvolatilep;
 
   base = DR_REF (dr);
@@ -3533,7 +3560,7 @@ again:
 	  tree outer_step, outer_base, outer_init;
 	  HOST_WIDE_INT pbitsize, pbitpos;
 	  tree poffset;
-	  enum machine_mode pmode;
+	  machine_mode pmode;
 	  int punsignedp, pvolatilep;
 	  affine_iv base_iv, offset_iv;
 	  tree dinit;
@@ -3842,6 +3869,9 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 	    is as follows:
 	    if LOOP=i_loop:	&in		(relative to i_loop)
 	    if LOOP=j_loop: 	&in+i*2B	(relative to j_loop)
+   BYTE_OFFSET: Optional, defaulted to NULL.  If supplied, it is added to the
+	    initial address.  Unlike OFFSET, which is number of elements to
+	    be added, BYTE_OFFSET is measured in bytes.
 
    Output:
    1. Return an SSA_NAME whose value is the address of the memory location of
@@ -3855,7 +3885,8 @@ tree
 vect_create_addr_base_for_vector_ref (gimple stmt,
 				      gimple_seq *new_stmt_list,
 				      tree offset,
-				      struct loop *loop)
+				      struct loop *loop,
+				      tree byte_offset)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -3908,6 +3939,12 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
       base_offset = fold_build2 (PLUS_EXPR, sizetype,
 				 base_offset, offset);
     }
+  if (byte_offset)
+    {
+      byte_offset = fold_convert (sizetype, byte_offset);
+      base_offset = fold_build2 (PLUS_EXPR, sizetype,
+				 base_offset, byte_offset);
+    }
 
   /* base + base_offset */
   if (loop_vinfo)
@@ -3929,8 +3966,12 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
       && TREE_CODE (addr_base) == SSA_NAME)
     {
       duplicate_ssa_name_ptr_info (addr_base, DR_PTR_INFO (dr));
-      if (offset)
+      unsigned int align = TYPE_ALIGN_UNIT (STMT_VINFO_VECTYPE (stmt_info));
+      int misalign = DR_MISALIGNMENT (dr);
+      if (offset || byte_offset || (misalign == -1))
 	mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (addr_base));
+      else
+	set_ptr_info_alignment (SSA_NAME_PTR_INFO (addr_base), align, misalign);
     }
 
   if (dump_enabled_p ())
@@ -3965,6 +4006,10 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
    5. BSI: location where the new stmts are to be placed if there is no loop
    6. ONLY_INIT: indicate if ap is to be updated in the loop, or remain
         pointing to the initial address.
+   7. BYTE_OFFSET (optional, defaults to NULL): a byte offset to be added
+	to the initial address accessed by the data-ref in STMT.  This is
+	similar to OFFSET, but OFFSET is counted in elements, while BYTE_OFFSET
+	in bytes.
 
    Output:
    1. Declare a new ptr to vector_type, and have it point to the base of the
@@ -3978,6 +4023,8 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
          initial_address = &a[init];
       if OFFSET is supplied:
          initial_address = &a[init + OFFSET];
+      if BYTE_OFFSET is supplied:
+	 initial_address = &a[init] + BYTE_OFFSET;
 
       Return the initial_address in INITIAL_ADDRESS.
 
@@ -3995,7 +4042,7 @@ tree
 vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
 			  tree offset, tree *initial_address,
 			  gimple_stmt_iterator *gsi, gimple *ptr_incr,
-			  bool only_init, bool *inv_p)
+			  bool only_init, bool *inv_p, tree byte_offset)
 {
   const char *base_name;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -4138,10 +4185,10 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   /* (2) Calculate the initial address of the aggregate-pointer, and set
      the aggregate-pointer to point to it before the loop.  */
 
-  /* Create: (&(base[init_val+offset]) in the loop preheader.  */
+  /* Create: (&(base[init_val+offset]+byte_offset) in the loop preheader.  */
 
   new_temp = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list,
-                                                   offset, loop);
+						   offset, loop, byte_offset);
   if (new_stmt_list)
     {
       if (pe)
@@ -4367,7 +4414,7 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
 bool
 vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
 {
-  enum machine_mode mode = TYPE_MODE (vectype);
+  machine_mode mode = TYPE_MODE (vectype);
 
   /* vect_permute_store_chain requires the group size to be equal to 3 or
      be a power of two.  */
@@ -4939,7 +4986,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 bool
 vect_grouped_load_supported (tree vectype, unsigned HOST_WIDE_INT count)
 {
-  enum machine_mode mode = TYPE_MODE (vectype);
+  machine_mode mode = TYPE_MODE (vectype);
 
   /* vect_permute_load_chain requires the group size to be equal to 3 or
      be a power of two.  */
@@ -5151,7 +5198,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
 	  /* Create interleaving stmt (low part of):
 	     low = VEC_PERM_EXPR <first_vect, second_vect2, {k, 3 + k, 6 + k,
 							     ...}>  */
-	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_suffle3_low");
+	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle3_low");
 	  perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
 						    first_vect, second_vect,
 						    perm3_mask_low);
@@ -5162,7 +5209,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
 							      ...}>  */
 	  first_vect = data_ref;
 	  second_vect = dr_chain[2];
-	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_suffle3_high");
+	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle3_high");
 	  perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
 						    first_vect, second_vect,
 						    perm3_mask_high);
@@ -5324,8 +5371,9 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
   memcpy (result_chain->address (), dr_chain.address (),
 	  length * sizeof (tree));
 
-  if (length == 2 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
+  if (exact_log2 (length) != -1 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
     {
+      unsigned int j, log_length = exact_log2 (length);
       for (i = 0; i < nelt / 2; ++i)
 	sel[i] = i * 2;
       for (i = 0; i < nelt / 2; ++i)
@@ -5386,37 +5434,44 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
       select_mask = vect_gen_perm_mask (vectype, sel);
       gcc_assert (select_mask != NULL);
 
-      first_vect = dr_chain[0];
-      second_vect = dr_chain[1];
+      for (i = 0; i < log_length; i++)
+	{
+	  for (j = 0; j < length; j += 2)
+	    {
+	      first_vect = dr_chain[j];
+	      second_vect = dr_chain[j + 1];
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						first_vect, first_vect,
-						perm2_mask1);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      vect[0] = data_ref;
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							first_vect, first_vect,
+							perm2_mask1);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      vect[0] = data_ref;
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						second_vect, second_vect,
-						perm2_mask2);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      vect[1] = data_ref;
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							second_vect, second_vect,
+							perm2_mask2);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      vect[1] = data_ref;
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shift");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						vect[0], vect[1],
-						shift1_mask);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      (*result_chain)[1] = data_ref;
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shift");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							vect[0], vect[1],
+							shift1_mask);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      (*result_chain)[j/2 + length/2] = data_ref;
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_select");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						vect[0], vect[1],
-						select_mask);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      (*result_chain)[0] = data_ref;
-
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_select");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							vect[0], vect[1],
+							select_mask);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      (*result_chain)[j/2] = data_ref;
+	    }
+	  memcpy (dr_chain.address (), result_chain->address (),
+		  length * sizeof (tree));
+	}
       return true;
     }
   if (length == 3 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 2)
@@ -5504,7 +5559,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 
       for (k = 0; k < 3; k++)
 	{
-	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_suffle3");
+	  data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle3");
 	  perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
 						    dr_chain[k], dr_chain[k],
 						    perm3_mask);
@@ -5565,7 +5620,7 @@ void
 vect_transform_grouped_load (gimple stmt, vec<tree> dr_chain, int size,
 			     gimple_stmt_iterator *gsi)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   vec<tree> result_chain = vNULL;
 
   /* DR_CHAIN contains input data-refs that are a part of the interleaving.
@@ -5742,7 +5797,7 @@ vect_supportable_dr_alignment (struct data_reference *dr,
   gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  enum machine_mode mode = TYPE_MODE (vectype);
+  machine_mode mode = TYPE_MODE (vectype);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *vect_loop = NULL;
   bool nested_in_vect_loop = false;

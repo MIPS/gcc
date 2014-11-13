@@ -90,16 +90,19 @@ enum gf_mask {
     GF_CALL_NOTHROW		= 1 << 4,
     GF_CALL_ALLOCA_FOR_VAR	= 1 << 5,
     GF_CALL_INTERNAL		= 1 << 6,
+    GF_CALL_CTRL_ALTERING       = 1 << 7,
+    GF_CALL_WITH_BOUNDS 	= 1 << 8,
     GF_OMP_PARALLEL_COMBINED	= 1 << 0,
-    GF_OMP_FOR_KIND_MASK	= (1 << 2) - 1,
+    GF_OMP_FOR_KIND_MASK	= 7 << 0,
     GF_OMP_FOR_KIND_FOR		= 0,
     GF_OMP_FOR_KIND_DISTRIBUTE	= 1,
+    GF_OMP_FOR_KIND_CILKFOR     = 2,
     /* Flag for SIMD variants of OMP_FOR kinds.  */
-    GF_OMP_FOR_SIMD		= 1 << 1,
+    GF_OMP_FOR_SIMD		= 1 << 2,
     GF_OMP_FOR_KIND_SIMD	= GF_OMP_FOR_SIMD | 0,
     GF_OMP_FOR_KIND_CILKSIMD	= GF_OMP_FOR_SIMD | 1,
-    GF_OMP_FOR_COMBINED		= 1 << 2,
-    GF_OMP_FOR_COMBINED_INTO	= 1 << 3,
+    GF_OMP_FOR_COMBINED		= 1 << 3,
+    GF_OMP_FOR_COMBINED_INTO	= 1 << 4,
     GF_OMP_TARGET_KIND_MASK	= (1 << 2) - 1,
     GF_OMP_TARGET_KIND_REGION	= 0,
     GF_OMP_TARGET_KIND_DATA	= 1,
@@ -1267,9 +1270,10 @@ extern bool gimple_asm_clobbers_memory_p (const_gimple);
 extern void dump_decl_set (FILE *, bitmap);
 extern bool nonfreeing_call_p (gimple);
 extern bool infer_nonnull_range (gimple, tree, bool, bool);
-extern void sort_case_labels (vec<tree> );
-extern void preprocess_case_label_vec_for_gimple (vec<tree> , tree, tree *);
-extern void gimple_seq_set_location (gimple_seq , location_t);
+extern void sort_case_labels (vec<tree>);
+extern void preprocess_case_label_vec_for_gimple (vec<tree>, tree, tree *);
+extern void gimple_seq_set_location (gimple_seq, location_t);
+extern void gimple_seq_discard (gimple_seq);
 
 /* Formal (expression) temporary table handling: multiple occurrences of
    the same scalar expression are evaluated into the same temporary.  */
@@ -2450,6 +2454,31 @@ gimple_call_internal_p (const_gimple gs)
 }
 
 
+/* Return true if call GS is marked as instrumented by
+   Pointer Bounds Checker.  */
+
+static inline bool
+gimple_call_with_bounds_p (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return (gs->subcode & GF_CALL_WITH_BOUNDS) != 0;
+}
+
+
+/* If INSTRUMENTED_P is true, marm statement GS as instrumented by
+   Pointer Bounds Checker.  */
+
+static inline void
+gimple_call_set_with_bounds (gimple gs, bool with_bounds)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  if (with_bounds)
+    gs->subcode |= GF_CALL_WITH_BOUNDS;
+  else
+    gs->subcode &= ~GF_CALL_WITH_BOUNDS;
+}
+
+
 /* Return the target of internal call GS.  */
 
 static inline enum internal_fn
@@ -2457,6 +2486,29 @@ gimple_call_internal_fn (const_gimple gs)
 {
   gcc_gimple_checking_assert (gimple_call_internal_p (gs));
   return static_cast <const gimple_statement_call *> (gs)->u.internal_fn;
+}
+
+/* If CTRL_ALTERING_P is true, mark GIMPLE_CALL S to be a stmt
+   that could alter control flow.  */
+
+static inline void
+gimple_call_set_ctrl_altering (gimple s, bool ctrl_altering_p)
+{
+  GIMPLE_CHECK (s, GIMPLE_CALL);
+  if (ctrl_altering_p)
+    s->subcode |= GF_CALL_CTRL_ALTERING;
+  else
+    s->subcode &= ~GF_CALL_CTRL_ALTERING;
+}
+
+/* Return true if call GS calls an func whose GF_CALL_CTRL_ALTERING
+   flag is set. Such call could not be a stmt in the middle of a bb.  */
+
+static inline bool
+gimple_call_ctrl_altering_p (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return (gs->subcode & GF_CALL_CTRL_ALTERING) != 0;
 }
 
 
@@ -5526,6 +5578,26 @@ gimple_return_set_retval (gimple gs, tree retval)
 {
   GIMPLE_CHECK (gs, GIMPLE_RETURN);
   gimple_set_op (gs, 0, retval);
+}
+
+
+/* Return the return bounds for GIMPLE_RETURN GS.  */
+
+static inline tree
+gimple_return_retbnd (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  return gimple_op (gs, 1);
+}
+
+
+/* Set RETVAL to be the return bounds for GIMPLE_RETURN GS.  */
+
+static inline void
+gimple_return_set_retbnd (gimple gs, tree retval)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  gimple_set_op (gs, 1, retval);
 }
 
 

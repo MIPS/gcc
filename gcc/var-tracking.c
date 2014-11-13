@@ -95,9 +95,20 @@
 #include "stor-layout.h"
 #include "hash-map.h"
 #include "hash-table.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "reload.h"
@@ -118,6 +129,7 @@
 #include "recog.h"
 #include "tm_p.h"
 #include "alias.h"
+#include "rtl-iter.h"
 
 /* var-tracking.c assumes that tree code with the same value as VALUE rtx code
    has no chance to appear in REG_EXPR/MEM_EXPRs and isn't a decl.
@@ -179,7 +191,7 @@ typedef struct micro_operation_def
      instruction or note in the original flow (before any var-tracking
      notes are inserted, to simplify emission of notes), for MO_SET
      and MO_CLOBBER.  */
-  rtx insn;
+  rtx_insn *insn;
 
   union {
     /* Location.  For MO_SET and MO_COPY, this is the SET that
@@ -509,7 +521,7 @@ typedef variable_table_type::iterator variable_iterator_type;
 typedef struct emit_note_data_def
 {
   /* The instruction which the note will be emitted before/after.  */
-  rtx insn;
+  rtx_insn *insn;
 
   /* Where the note will be emitted (before/after insn)?  */
   enum emit_note_where where;
@@ -622,7 +634,7 @@ static bool cselib_hook_called;
 /* Local function prototypes.  */
 static void stack_adjust_offset_pre_post (rtx, HOST_WIDE_INT *,
 					  HOST_WIDE_INT *);
-static void insn_stack_adjust_offset_pre_post (rtx, HOST_WIDE_INT *,
+static void insn_stack_adjust_offset_pre_post (rtx_insn *, HOST_WIDE_INT *,
 					       HOST_WIDE_INT *);
 static bool vt_stack_adjustments (void);
 
@@ -664,7 +676,6 @@ static void dataflow_set_destroy (dataflow_set *);
 static bool contains_symbol_ref (rtx);
 static bool track_expr_p (tree, bool);
 static bool same_variable_part_p (rtx, tree, HOST_WIDE_INT);
-static int add_uses (rtx *, void *);
 static void add_uses_1 (rtx *, void *);
 static void add_stores (rtx, const_rtx, void *);
 static bool compute_bb_dataflow (basic_block);
@@ -700,6 +711,39 @@ static void vt_add_function_parameters (void);
 static bool vt_initialize (void);
 static void vt_finalize (void);
 
+/* Callback for stack_adjust_offset_pre_post, called via for_each_inc_dec.  */
+
+static int
+stack_adjust_offset_pre_post_cb (rtx, rtx op, rtx dest, rtx src, rtx srcoff,
+				 void *arg)
+{
+  if (dest != stack_pointer_rtx)
+    return 0;
+
+  switch (GET_CODE (op))
+    {
+    case PRE_INC:
+    case PRE_DEC:
+      ((HOST_WIDE_INT *)arg)[0] -= INTVAL (srcoff);
+      return 0;
+    case POST_INC:
+    case POST_DEC:
+      ((HOST_WIDE_INT *)arg)[1] -= INTVAL (srcoff);
+      return 0;
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      /* We handle only adjustments by constant amount.  */
+      gcc_assert (GET_CODE (src) == PLUS
+		  && CONST_INT_P (XEXP (src, 1))
+		  && XEXP (src, 0) == stack_pointer_rtx);
+      ((HOST_WIDE_INT *)arg)[GET_CODE (op) == POST_MODIFY]
+	-= INTVAL (XEXP (src, 1));
+      return 0;
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Given a SET, calculate the amount of stack adjustment it contains
    PRE- and POST-modifying stack pointer.
    This function is similar to stack_adjust_offset.  */
@@ -725,75 +769,19 @@ stack_adjust_offset_pre_post (rtx pattern, HOST_WIDE_INT *pre,
 	*post += INTVAL (XEXP (src, 1));
       else
 	*post -= INTVAL (XEXP (src, 1));
+      return;	
     }
-  else if (MEM_P (dest))
-    {
-      /* (set (mem (pre_dec (reg sp))) (foo)) */
-      src = XEXP (dest, 0);
-      code = GET_CODE (src);
-
-      switch (code)
-	{
-	case PRE_MODIFY:
-	case POST_MODIFY:
-	  if (XEXP (src, 0) == stack_pointer_rtx)
-	    {
-	      rtx val = XEXP (XEXP (src, 1), 1);
-	      /* We handle only adjustments by constant amount.  */
-	      gcc_assert (GET_CODE (XEXP (src, 1)) == PLUS &&
-			  CONST_INT_P (val));
-
-	      if (code == PRE_MODIFY)
-		*pre -= INTVAL (val);
-	      else
-		*post -= INTVAL (val);
-	      break;
-	    }
-	  return;
-
-	case PRE_DEC:
-	  if (XEXP (src, 0) == stack_pointer_rtx)
-	    {
-	      *pre += GET_MODE_SIZE (GET_MODE (dest));
-	      break;
-	    }
-	  return;
-
-	case POST_DEC:
-	  if (XEXP (src, 0) == stack_pointer_rtx)
-	    {
-	      *post += GET_MODE_SIZE (GET_MODE (dest));
-	      break;
-	    }
-	  return;
-
-	case PRE_INC:
-	  if (XEXP (src, 0) == stack_pointer_rtx)
-	    {
-	      *pre -= GET_MODE_SIZE (GET_MODE (dest));
-	      break;
-	    }
-	  return;
-
-	case POST_INC:
-	  if (XEXP (src, 0) == stack_pointer_rtx)
-	    {
-	      *post -= GET_MODE_SIZE (GET_MODE (dest));
-	      break;
-	    }
-	  return;
-
-	default:
-	  return;
-	}
-    }
+  HOST_WIDE_INT res[2] = { 0, 0 };
+  for_each_inc_dec (pattern, stack_adjust_offset_pre_post_cb, res);
+  *pre += res[0];
+  *post += res[1];
 }
 
 /* Given an INSN, calculate the amount of stack adjustment it contains
    PRE- and POST-modifying stack pointer.  */
 
 static void
-insn_stack_adjust_offset_pre_post (rtx insn, HOST_WIDE_INT *pre,
+insn_stack_adjust_offset_pre_post (rtx_insn *insn, HOST_WIDE_INT *pre,
 				   HOST_WIDE_INT *post)
 {
   rtx pattern;
@@ -836,10 +824,10 @@ vt_stack_adjustments (void)
 
   /* Initialize entry block.  */
   VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->visited = true;
-  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->in.stack_adjust =
- INCOMING_FRAME_SP_OFFSET;
-  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->out.stack_adjust =
- INCOMING_FRAME_SP_OFFSET;
+  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->in.stack_adjust
+    = INCOMING_FRAME_SP_OFFSET;
+  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->out.stack_adjust
+    = INCOMING_FRAME_SP_OFFSET;
 
   /* Allocate stack for back-tracking up CFG.  */
   stack = XNEWVEC (edge_iterator, n_basic_blocks_for_fn (cfun) + 1);
@@ -862,7 +850,7 @@ vt_stack_adjustments (void)
       /* Check if the edge destination has been visited yet.  */
       if (!VTI (dest)->visited)
 	{
-	  rtx insn;
+	  rtx_insn *insn;
 	  HOST_WIDE_INT pre, post, offset;
 	  VTI (dest)->visited = true;
 	  VTI (dest)->in.stack_adjust = offset = VTI (src)->out.stack_adjust;
@@ -946,52 +934,52 @@ static HOST_WIDE_INT hard_frame_pointer_adjustment = -1;
 struct adjust_mem_data
 {
   bool store;
-  enum machine_mode mem_mode;
+  machine_mode mem_mode;
   HOST_WIDE_INT stack_adjust;
-  rtx side_effects;
+  rtx_expr_list *side_effects;
 };
 
-/* Helper for adjust_mems.  Return 1 if *loc is unsuitable for
-   transformation of wider mode arithmetics to narrower mode,
-   -1 if it is suitable and subexpressions shouldn't be
-   traversed and 0 if it is suitable and subexpressions should
-   be traversed.  Called through for_each_rtx.  */
+/* Helper for adjust_mems.  Return true if X is suitable for
+   transformation of wider mode arithmetics to narrower mode.  */
 
-static int
-use_narrower_mode_test (rtx *loc, void *data)
+static bool
+use_narrower_mode_test (rtx x, const_rtx subreg)
 {
-  rtx subreg = (rtx) data;
-
-  if (CONSTANT_P (*loc))
-    return -1;
-  switch (GET_CODE (*loc))
+  subrtx_var_iterator::array_type array;
+  FOR_EACH_SUBRTX_VAR (iter, array, x, NONCONST)
     {
-    case REG:
-      if (cselib_lookup (*loc, GET_MODE (SUBREG_REG (subreg)), 0, VOIDmode))
-	return 1;
-      if (!validate_subreg (GET_MODE (subreg), GET_MODE (*loc),
-			    *loc, subreg_lowpart_offset (GET_MODE (subreg),
-							 GET_MODE (*loc))))
-	return 1;
-      return -1;
-    case PLUS:
-    case MINUS:
-    case MULT:
-      return 0;
-    case ASHIFT:
-      if (for_each_rtx (&XEXP (*loc, 0), use_narrower_mode_test, data))
-	return 1;
+      rtx x = *iter;
+      if (CONSTANT_P (x))
+	iter.skip_subrtxes ();
       else
-	return -1;
-    default:
-      return 1;
+	switch (GET_CODE (x))
+	  {
+	  case REG:
+	    if (cselib_lookup (x, GET_MODE (SUBREG_REG (subreg)), 0, VOIDmode))
+	      return false;
+	    if (!validate_subreg (GET_MODE (subreg), GET_MODE (x), x,
+				  subreg_lowpart_offset (GET_MODE (subreg),
+							 GET_MODE (x))))
+	      return false;
+	    break;
+	  case PLUS:
+	  case MINUS:
+	  case MULT:
+	    break;
+	  case ASHIFT:
+	    iter.substitute (XEXP (x, 0));
+	    break;
+	  default:
+	    return false;
+	  }
     }
+  return true;
 }
 
 /* Transform X into narrower mode MODE from wider mode WMODE.  */
 
 static rtx
-use_narrower_mode (rtx x, enum machine_mode mode, enum machine_mode wmode)
+use_narrower_mode (rtx x, machine_mode mode, machine_mode wmode)
 {
   rtx op0, op1;
   if (CONSTANT_P (x))
@@ -1021,7 +1009,7 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
 {
   struct adjust_mem_data *amd = (struct adjust_mem_data *) data;
   rtx mem, addr = loc, tem;
-  enum machine_mode mem_mode_save;
+  machine_mode mem_mode_save;
   bool store_save;
   switch (GET_CODE (loc))
     {
@@ -1141,12 +1129,14 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
 	      || GET_CODE (SUBREG_REG (tem)) == MINUS
 	      || GET_CODE (SUBREG_REG (tem)) == MULT
 	      || GET_CODE (SUBREG_REG (tem)) == ASHIFT)
-	  && GET_MODE_CLASS (GET_MODE (tem)) == MODE_INT
-	  && GET_MODE_CLASS (GET_MODE (SUBREG_REG (tem))) == MODE_INT
-	  && GET_MODE_SIZE (GET_MODE (tem))
-	     < GET_MODE_SIZE (GET_MODE (SUBREG_REG (tem)))
+	  && (GET_MODE_CLASS (GET_MODE (tem)) == MODE_INT
+	      || GET_MODE_CLASS (GET_MODE (tem)) == MODE_PARTIAL_INT)
+	  && (GET_MODE_CLASS (GET_MODE (SUBREG_REG (tem))) == MODE_INT
+	      || GET_MODE_CLASS (GET_MODE (SUBREG_REG (tem))) == MODE_PARTIAL_INT)
+	  && GET_MODE_PRECISION (GET_MODE (tem))
+	     < GET_MODE_PRECISION (GET_MODE (SUBREG_REG (tem)))
 	  && subreg_lowpart_p (tem)
-	  && !for_each_rtx (&SUBREG_REG (tem), use_narrower_mode_test, tem))
+	  && use_narrower_mode_test (SUBREG_REG (tem), tem))
 	return use_narrower_mode (SUBREG_REG (tem), GET_MODE (tem),
 				  GET_MODE (SUBREG_REG (tem)));
       return tem;
@@ -1198,7 +1188,7 @@ adjust_mem_stores (rtx loc, const_rtx expr, void *data)
    as other sets to the insn.  */
 
 static void
-adjust_insn (basic_block bb, rtx insn)
+adjust_insn (basic_block bb, rtx_insn *insn)
 {
   struct adjust_mem_data amd;
   rtx set;
@@ -1231,7 +1221,7 @@ adjust_insn (basic_block bb, rtx insn)
 
   amd.mem_mode = VOIDmode;
   amd.stack_adjust = -VTI (bb)->out.stack_adjust;
-  amd.side_effects = NULL_RTX;
+  amd.side_effects = NULL;
 
   amd.store = true;
   note_stores (PATTERN (insn), adjust_mem_stores, &amd);
@@ -2143,7 +2133,7 @@ static rtx
 vt_canonicalize_addr (dataflow_set *set, rtx oloc)
 {
   HOST_WIDE_INT ofst = 0;
-  enum machine_mode mode = GET_MODE (oloc);
+  machine_mode mode = GET_MODE (oloc);
   rtx loc = oloc;
   rtx x;
   bool retry = true;
@@ -2471,7 +2461,8 @@ val_bind (dataflow_set *set, rtx val, rtx loc, bool modified)
    values bound to it.  */
 
 static void
-val_store (dataflow_set *set, rtx val, rtx loc, rtx insn, bool modified)
+val_store (dataflow_set *set, rtx val, rtx loc, rtx_insn *insn,
+	   bool modified)
 {
   cselib_val *v = CSELIB_VAL_PTR (val);
 
@@ -2600,7 +2591,7 @@ val_reset (dataflow_set *set, decl_or_value dv)
    value.  */
 
 static void
-val_resolve (dataflow_set *set, rtx val, rtx loc, rtx insn)
+val_resolve (dataflow_set *set, rtx val, rtx loc, rtx_insn *insn)
 {
   decl_or_value dv = dv_from_value (val);
 
@@ -5215,9 +5206,9 @@ same_variable_part_p (rtx loc, tree expr, HOST_WIDE_INT offset)
 
 static bool
 track_loc_p (rtx loc, tree expr, HOST_WIDE_INT offset, bool store_reg_p,
-	     enum machine_mode *mode_out, HOST_WIDE_INT *offset_out)
+	     machine_mode *mode_out, HOST_WIDE_INT *offset_out)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (expr == NULL || !track_expr_p (expr, true))
     return false;
@@ -5227,7 +5218,7 @@ track_loc_p (rtx loc, tree expr, HOST_WIDE_INT offset, bool store_reg_p,
   mode = GET_MODE (loc);
   if (REG_P (loc) && !HARD_REGISTER_NUM_P (ORIGINAL_REGNO (loc)))
     {
-      enum machine_mode pseudo_mode;
+      machine_mode pseudo_mode;
 
       pseudo_mode = PSEUDO_REGNO_MODE (ORIGINAL_REGNO (loc));
       if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (pseudo_mode))
@@ -5269,7 +5260,7 @@ track_loc_p (rtx loc, tree expr, HOST_WIDE_INT offset, bool store_reg_p,
    on the returned value are updated.  */
 
 static rtx
-var_lowpart (enum machine_mode mode, rtx loc)
+var_lowpart (machine_mode mode, rtx loc)
 {
   unsigned int offset, reg_offset, regno;
 
@@ -5295,7 +5286,7 @@ var_lowpart (enum machine_mode mode, rtx loc)
 struct count_use_info
 {
   /* The insn where the RTX is.  */
-  rtx insn;
+  rtx_insn *insn;
 
   /* The basic block where insn is.  */
   basic_block bb;
@@ -5311,7 +5302,7 @@ struct count_use_info
 /* Find a VALUE corresponding to X.   */
 
 static inline cselib_val *
-find_use_val (rtx x, enum machine_mode mode, struct count_use_info *cui)
+find_use_val (rtx x, machine_mode mode, struct count_use_info *cui)
 {
   int i;
 
@@ -5365,23 +5356,23 @@ replace_expr_with_values (rtx loc)
     return cselib_subst_to_values (loc, VOIDmode);
 }
 
-/* Return true if *X is a DEBUG_EXPR.  Usable as an argument to
-   for_each_rtx to tell whether there are any DEBUG_EXPRs within
-   RTX.  */
+/* Return true if X contains a DEBUG_EXPR.  */
 
-static int
-rtx_debug_expr_p (rtx *x, void *data ATTRIBUTE_UNUSED)
+static bool
+rtx_debug_expr_p (const_rtx x)
 {
-  rtx loc = *x;
-
-  return GET_CODE (loc) == DEBUG_EXPR;
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    if (GET_CODE (*iter) == DEBUG_EXPR)
+      return true;
+  return false;
 }
 
 /* Determine what kind of micro operation to choose for a USE.  Return
    MO_CLOBBER if no micro operation is to be generated.  */
 
 static enum micro_operation_type
-use_type (rtx loc, struct count_use_info *cui, enum machine_mode *modep)
+use_type (rtx loc, struct count_use_info *cui, machine_mode *modep)
 {
   tree expr;
 
@@ -5464,7 +5455,7 @@ use_type (rtx loc, struct count_use_info *cui, enum machine_mode *modep)
 		  DEBUG_EXPRs (only happens in the presence of debug
 		  insns).  */
 	       && (!MAY_HAVE_DEBUG_INSNS
-		   || !for_each_rtx (&XEXP (loc, 0), rtx_debug_expr_p, NULL)))
+		   || !rtx_debug_expr_p (XEXP (loc, 0))))
 	return MO_USE;
       else
 	return MO_CLOBBER;
@@ -5477,7 +5468,7 @@ use_type (rtx loc, struct count_use_info *cui, enum machine_mode *modep)
    INSN of BB.  */
 
 static inline void
-log_op_type (rtx x, basic_block bb, rtx insn,
+log_op_type (rtx x, basic_block bb, rtx_insn *insn,
 	     enum micro_operation_type mopt, FILE *out)
 {
   fprintf (out, "bb %i op %i insn %i %s ",
@@ -5521,38 +5512,41 @@ preserve_value (cselib_val *val)
    any rtxes not suitable for CONST use not replaced by VALUEs
    are discovered.  */
 
-static int
-non_suitable_const (rtx *x, void *data ATTRIBUTE_UNUSED)
+static bool
+non_suitable_const (const_rtx x)
 {
-  if (*x == NULL_RTX)
-    return 0;
-
-  switch (GET_CODE (*x))
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
     {
-    case REG:
-    case DEBUG_EXPR:
-    case PC:
-    case SCRATCH:
-    case CC0:
-    case ASM_INPUT:
-    case ASM_OPERANDS:
-      return 1;
-    case MEM:
-      return !MEM_READONLY_P (*x);
-    default:
-      return 0;
+      const_rtx x = *iter;
+      switch (GET_CODE (x))
+	{
+	case REG:
+	case DEBUG_EXPR:
+	case PC:
+	case SCRATCH:
+	case CC0:
+	case ASM_INPUT:
+	case ASM_OPERANDS:
+	  return true;
+	case MEM:
+	  if (!MEM_READONLY_P (x))
+	    return true;
+	  break;
+	default:
+	  break;
+	}
     }
+  return false;
 }
 
 /* Add uses (register and memory references) LOC which will be tracked
-   to VTI (bb)->mos.  INSN is instruction which the LOC is part of.  */
+   to VTI (bb)->mos.  */
 
-static int
-add_uses (rtx *ploc, void *data)
+static void
+add_uses (rtx loc, struct count_use_info *cui)
 {
-  rtx loc = *ploc;
-  enum machine_mode mode = VOIDmode;
-  struct count_use_info *cui = (struct count_use_info *)data;
+  machine_mode mode = VOIDmode;
   enum micro_operation_type type = use_type (loc, cui, &mode);
 
   if (type != MO_CLOBBER)
@@ -5577,7 +5571,7 @@ add_uses (rtx *ploc, void *data)
 	      && !MEM_P (XEXP (vloc, 0)))
 	    {
 	      rtx mloc = vloc;
-	      enum machine_mode address_mode = get_address_mode (mloc);
+	      machine_mode address_mode = get_address_mode (mloc);
 	      cselib_val *val
 		= cselib_lookup (XEXP (mloc, 0), address_mode, 0,
 				 GET_MODE (mloc));
@@ -5587,13 +5581,12 @@ add_uses (rtx *ploc, void *data)
 	    }
 
 	  if (CONSTANT_P (vloc)
-	      && (GET_CODE (vloc) != CONST
-		  || for_each_rtx (&vloc, non_suitable_const, NULL)))
+	      && (GET_CODE (vloc) != CONST || non_suitable_const (vloc)))
 	    /* For constants don't look up any value.  */;
 	  else if (!VAR_LOC_UNKNOWN_P (vloc) && !unsuitable_loc (vloc)
 		   && (val = find_use_val (vloc, GET_MODE (oloc), cui)))
 	    {
-	      enum machine_mode mode2;
+	      machine_mode mode2;
 	      enum micro_operation_type type2;
 	      rtx nloc = NULL;
 	      bool resolvable = REG_P (vloc) || MEM_P (vloc);
@@ -5631,7 +5624,7 @@ add_uses (rtx *ploc, void *data)
 	}
       else if (type == MO_VAL_USE)
 	{
-	  enum machine_mode mode2 = VOIDmode;
+	  machine_mode mode2 = VOIDmode;
 	  enum micro_operation_type type2;
 	  cselib_val *val = find_use_val (loc, GET_MODE (loc), cui);
 	  rtx vloc, oloc = loc, nloc;
@@ -5643,7 +5636,7 @@ add_uses (rtx *ploc, void *data)
 	      && !MEM_P (XEXP (oloc, 0)))
 	    {
 	      rtx mloc = oloc;
-	      enum machine_mode address_mode = get_address_mode (mloc);
+	      machine_mode address_mode = get_address_mode (mloc);
 	      cselib_val *val
 		= cselib_lookup (XEXP (mloc, 0), address_mode, 0,
 				 GET_MODE (mloc));
@@ -5699,8 +5692,6 @@ add_uses (rtx *ploc, void *data)
 	log_op_type (mo.u.loc, cui->bb, cui->insn, mo.type, dump_file);
       VTI (bb)->mos.safe_push (mo);
     }
-
-  return 0;
 }
 
 /* Helper function for finding all uses of REG/MEM in X in insn INSN.  */
@@ -5708,7 +5699,9 @@ add_uses (rtx *ploc, void *data)
 static void
 add_uses_1 (rtx *x, void *cui)
 {
-  for_each_rtx (x, add_uses, cui);
+  subrtx_var_iterator::array_type array;
+  FOR_EACH_SUBRTX_VAR (iter, array, *x, NONCONST)
+    add_uses (*iter, (struct count_use_info *) cui);
 }
 
 /* This is the value used during expansion of locations.  We want it
@@ -5729,7 +5722,7 @@ add_uses_1 (rtx *x, void *cui)
    no longer live we can express its value as VAL - 6.  */
 
 static void
-reverse_op (rtx val, const_rtx expr, rtx insn)
+reverse_op (rtx val, const_rtx expr, rtx_insn *insn)
 {
   rtx src, arg, ret;
   cselib_val *v;
@@ -5839,7 +5832,7 @@ reverse_op (rtx val, const_rtx expr, rtx insn)
 static void
 add_stores (rtx loc, const_rtx expr, void *cuip)
 {
-  enum machine_mode mode = VOIDmode, mode2;
+  machine_mode mode = VOIDmode, mode2;
   struct count_use_info *cui = (struct count_use_info *)cuip;
   basic_block bb = cui->bb;
   micro_operation mo;
@@ -5923,7 +5916,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	  && !MEM_P (XEXP (loc, 0)))
 	{
 	  rtx mloc = loc;
-	  enum machine_mode address_mode = get_address_mode (mloc);
+	  machine_mode address_mode = get_address_mode (mloc);
 	  cselib_val *val = cselib_lookup (XEXP (mloc, 0),
 					   address_mode, 0,
 					   GET_MODE (mloc));
@@ -6127,7 +6120,7 @@ static rtx call_arguments;
 /* Compute call_arguments.  */
 
 static void
-prepare_call_arguments (basic_block bb, rtx insn)
+prepare_call_arguments (basic_block bb, rtx_insn *insn)
 {
   rtx link, x, call;
   rtx prev, cur, next;
@@ -6181,7 +6174,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
 		  && targetm.calls.struct_value_rtx (type, 0) == 0)
 		{
 		  tree struct_addr = build_pointer_type (TREE_TYPE (type));
-		  enum machine_mode mode = TYPE_MODE (struct_addr);
+		  machine_mode mode = TYPE_MODE (struct_addr);
 		  rtx reg;
 		  INIT_CUMULATIVE_ARGS (args_so_far_v, type, NULL_RTX, fndecl,
 					nargs + 1);
@@ -6206,7 +6199,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
 				      nargs);
 	      if (obj_type_ref && TYPE_ARG_TYPES (type) != void_list_node)
 		{
-		  enum machine_mode mode;
+		  machine_mode mode;
 		  t = TYPE_ARG_TYPES (type);
 		  mode = TYPE_MODE (TREE_VALUE (t));
 		  this_arg = targetm.calls.function_arg (args_so_far, mode,
@@ -6237,8 +6230,10 @@ prepare_call_arguments (basic_block bb, rtx insn)
 	if (GET_MODE (link) == VOIDmode
 	    || GET_MODE (link) == BLKmode
 	    || (GET_MODE (link) != GET_MODE (x)
-		&& (GET_MODE_CLASS (GET_MODE (link)) != MODE_INT
-		    || GET_MODE_CLASS (GET_MODE (x)) != MODE_INT)))
+		&& ((GET_MODE_CLASS (GET_MODE (link)) != MODE_INT
+		     && GET_MODE_CLASS (GET_MODE (link)) != MODE_PARTIAL_INT)
+		    || (GET_MODE_CLASS (GET_MODE (x)) != MODE_INT
+			&& GET_MODE_CLASS (GET_MODE (x)) != MODE_PARTIAL_INT))))
 	  /* Can't do anything for these, if the original type mode
 	     isn't known or can't be converted.  */;
 	else if (REG_P (x))
@@ -6246,9 +6241,10 @@ prepare_call_arguments (basic_block bb, rtx insn)
 	    cselib_val *val = cselib_lookup (x, GET_MODE (x), 0, VOIDmode);
 	    if (val && cselib_preserved_value_p (val))
 	      item = val->val_rtx;
-	    else if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
+	    else if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT
+		     || GET_MODE_CLASS (GET_MODE (x)) == MODE_PARTIAL_INT)
 	      {
-		enum machine_mode mode = GET_MODE (x);
+		machine_mode mode = GET_MODE (x);
 
 		while ((mode = GET_MODE_WIDER_MODE (mode)) != VOIDmode
 		       && GET_MODE_BITSIZE (mode) <= BITS_PER_WORD)
@@ -6276,7 +6272,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
 		struct adjust_mem_data amd;
 		amd.mem_mode = VOIDmode;
 		amd.stack_adjust = -VTI (bb)->out.stack_adjust;
-		amd.side_effects = NULL_RTX;
+		amd.side_effects = NULL;
 		amd.store = true;
 		mem = simplify_replace_fn_rtx (mem, NULL_RTX, adjust_mems,
 					       &amd);
@@ -6285,11 +6281,12 @@ prepare_call_arguments (basic_block bb, rtx insn)
 	    val = cselib_lookup (mem, GET_MODE (mem), 0, VOIDmode);
 	    if (val && cselib_preserved_value_p (val))
 	      item = val->val_rtx;
-	    else if (GET_MODE_CLASS (GET_MODE (mem)) != MODE_INT)
+	    else if (GET_MODE_CLASS (GET_MODE (mem)) != MODE_INT
+		     && GET_MODE_CLASS (GET_MODE (mem)) != MODE_PARTIAL_INT)
 	      {
 		/* For non-integer stack argument see also if they weren't
 		   initialized by integers.  */
-		enum machine_mode imode = int_mode_for_mode (GET_MODE (mem));
+		machine_mode imode = int_mode_for_mode (GET_MODE (mem));
 		if (imode != GET_MODE (mem) && imode != BLKmode)
 		  {
 		    val = cselib_lookup (adjust_address_nv (mem, imode, 0),
@@ -6314,7 +6311,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
 	if (t && t != void_list_node)
 	  {
 	    tree argtype = TREE_VALUE (t);
-	    enum machine_mode mode = TYPE_MODE (argtype);
+	    machine_mode mode = TYPE_MODE (argtype);
 	    rtx reg;
 	    if (pass_by_reference (&args_so_far_v, mode, argtype, true))
 	      {
@@ -6328,13 +6325,14 @@ prepare_call_arguments (basic_block bb, rtx insn)
 		&& reg
 		&& REG_P (reg)
 		&& GET_MODE (reg) == mode
-		&& GET_MODE_CLASS (mode) == MODE_INT
+		&& (GET_MODE_CLASS (mode) == MODE_INT
+		    || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
 		&& REG_P (x)
 		&& REGNO (x) == REGNO (reg)
 		&& GET_MODE (x) == mode
 		&& item)
 	      {
-		enum machine_mode indmode
+		machine_mode indmode
 		  = TYPE_MODE (TREE_TYPE (argtype));
 		rtx mem = gen_rtx_MEM (indmode, x);
 		cselib_val *val = cselib_lookup (mem, indmode, 0, VOIDmode);
@@ -6395,7 +6393,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
 	    {
 	      rtx item;
 	      tree dtemp = (**debug_args)[ix + 1];
-	      enum machine_mode mode = DECL_MODE (dtemp);
+	      machine_mode mode = DECL_MODE (dtemp);
 	      item = gen_rtx_DEBUG_PARAMETER_REF (mode, param);
 	      item = gen_rtx_CONCAT (mode, item, DECL_RTL_KNOWN_SET (dtemp));
 	      call_arguments = gen_rtx_EXPR_LIST (VOIDmode, item,
@@ -6440,7 +6438,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
     }
   if (this_arg)
     {
-      enum machine_mode mode
+      machine_mode mode
 	= TYPE_MODE (TREE_TYPE (OBJ_TYPE_REF_EXPR (obj_type_ref)));
       rtx clobbered = gen_rtx_MEM (mode, this_arg);
       HOST_WIDE_INT token
@@ -6463,7 +6461,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
    first place, in which case sets and n_sets will be 0).  */
 
 static void
-add_with_sets (rtx insn, struct cselib_set *sets, int n_sets)
+add_with_sets (rtx_insn *insn, struct cselib_set *sets, int n_sets)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   int n1, n2;
@@ -6661,7 +6659,7 @@ compute_bb_dataflow (basic_block bb)
 
   FOR_EACH_VEC_ELT (VTI (bb)->mos, i, mo)
     {
-      rtx insn = mo->insn;
+      rtx_insn *insn = mo->insn;
 
       switch (mo->type)
 	{
@@ -8586,7 +8584,7 @@ int
 emit_note_insn_var_location (variable_def **varp, emit_note_data *data)
 {
   variable var = *varp;
-  rtx insn = data->insn;
+  rtx_insn *insn = data->insn;
   enum emit_note_where where = data->where;
   variable_table_type *vars = data->vars;
   rtx_note *note;
@@ -8615,7 +8613,7 @@ emit_note_insn_var_location (variable_def **varp, emit_note_data *data)
 	var->var_part[i].cur_loc = var->var_part[i].loc_chain->loc;
   for (i = 0; i < var->n_var_parts; i++)
     {
-      enum machine_mode mode, wider_mode;
+      machine_mode mode, wider_mode;
       rtx loc2;
       HOST_WIDE_INT offset;
 
@@ -8967,7 +8965,7 @@ process_changed_values (variable_table_type *htab)
    the notes shall be emitted before of after instruction INSN.  */
 
 static void
-emit_notes_for_changes (rtx insn, enum emit_note_where where,
+emit_notes_for_changes (rtx_insn *insn, enum emit_note_where where,
 			shared_hash vars)
 {
   emit_note_data data;
@@ -9085,7 +9083,7 @@ emit_notes_for_differences_2 (variable_def **slot, variable_table_type *old_vars
    NEW_SET.  */
 
 static void
-emit_notes_for_differences (rtx insn, dataflow_set *old_set,
+emit_notes_for_differences (rtx_insn *insn, dataflow_set *old_set,
 			    dataflow_set *new_set)
 {
   shared_hash_htab (old_set->vars)
@@ -9099,8 +9097,8 @@ emit_notes_for_differences (rtx insn, dataflow_set *old_set,
 
 /* Return the next insn after INSN that is not a NOTE_INSN_VAR_LOCATION.  */
 
-static rtx
-next_non_note_insn_var_location (rtx insn)
+static rtx_insn *
+next_non_note_insn_var_location (rtx_insn *insn)
 {
   while (insn)
     {
@@ -9127,8 +9125,8 @@ emit_notes_in_bb (basic_block bb, dataflow_set *set)
 
   FOR_EACH_VEC_ELT (VTI (bb)->mos, i, mo)
     {
-      rtx insn = mo->insn;
-      rtx next_insn = next_non_note_insn_var_location (insn);
+      rtx_insn *insn = mo->insn;
+      rtx_insn *next_insn = next_non_note_insn_var_location (insn);
 
       switch (mo->type)
 	{
@@ -9577,7 +9575,7 @@ vt_add_function_parameter (tree parm)
   rtx decl_rtl = DECL_RTL_IF_SET (parm);
   rtx incoming = DECL_INCOMING_RTL (parm);
   tree decl;
-  enum machine_mode mode;
+  machine_mode mode;
   HOST_WIDE_INT offset;
   dataflow_set *out;
   decl_or_value dv;
@@ -9768,7 +9766,7 @@ vt_add_function_parameter (tree parm)
 	  if (TREE_CODE (TREE_TYPE (parm)) == REFERENCE_TYPE
 	      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (parm))))
 	    {
-	      enum machine_mode indmode
+	      machine_mode indmode
 		= TYPE_MODE (TREE_TYPE (TREE_TYPE (parm)));
 	      rtx mem = gen_rtx_MEM (indmode, incoming);
 	      cselib_val *val = cselib_lookup_from_insn (mem, indmode, true,
@@ -9815,7 +9813,8 @@ vt_add_function_parameters (void)
 
   for (parm = DECL_ARGUMENTS (current_function_decl);
        parm; parm = DECL_CHAIN (parm))
-    vt_add_function_parameter (parm);
+    if (!POINTER_BOUNDS_P (parm))
+      vt_add_function_parameter (parm);
 
   if (DECL_HAS_VALUE_EXPR_P (DECL_RESULT (current_function_decl)))
     {
@@ -10050,7 +10049,7 @@ vt_initialize (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn;
+      rtx_insn *insn;
       HOST_WIDE_INT pre, post = 0;
       basic_block first_bb, last_bb;
 
@@ -10186,7 +10185,7 @@ static void
 delete_debug_insns (void)
 {
   basic_block bb;
-  rtx insn, next;
+  rtx_insn *insn, *next;
 
   if (!MAY_HAVE_DEBUG_INSNS)
     return;

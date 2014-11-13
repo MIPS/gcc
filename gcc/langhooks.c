@@ -37,6 +37,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks-def.h"
 #include "diagnostic.h"
 #include "tree-diagnostic.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "timevar.h"
 #include "output.h"
@@ -146,6 +157,11 @@ void
 lhd_set_decl_assembler_name (tree decl)
 {
   tree id;
+
+  /* set_decl_assembler_name may be called on TYPE_DECL to record ODR
+     name for C++ types.  By default types have no ODR names.  */
+  if (TREE_CODE (decl) == TYPE_DECL)
+    return;
 
   /* The language-independent code should never use the
      DECL_ASSEMBLER_NAME for lots of DECLs.  Only FUNCTION_DECLs and
@@ -320,7 +336,7 @@ write_global_declarations (void)
   timevar_start (TV_PHASE_OPT_GEN);
   /* This lang hook is dual-purposed, and also finalizes the
      compilation unit.  */
-  finalize_compilation_unit ();
+  symtab->finalize_compilation_unit ();
   timevar_stop (TV_PHASE_OPT_GEN);
 
   timevar_start (TV_PHASE_DBGINFO);
@@ -655,7 +671,7 @@ lhd_begin_section (const char *name)
     saved_section = text_section;
 
   /* Create a new section and switch to it.  */
-  section = get_section (name, SECTION_DEBUG, NULL);
+  section = get_section (name, SECTION_DEBUG | SECTION_EXCLUDE, NULL);
   switch_to_section (section);
 }
 

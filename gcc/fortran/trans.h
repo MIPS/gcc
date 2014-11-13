@@ -420,6 +420,8 @@ tree gfc_conv_scalar_to_descriptor (gfc_se *, tree, symbol_attribute);
 void gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr);
 tree gfc_string_to_single_character (tree len, tree str, int kind);
 tree gfc_get_tree_for_caf_expr (gfc_expr *);
+void gfc_get_caf_token_offset (tree *, tree *, tree, tree, gfc_expr *);
+tree gfc_caf_get_image_index (stmtblock_t *, gfc_expr *, tree);
 
 /* Find the decl containing the auxiliary variables for assigned variables.  */
 void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
@@ -435,6 +437,10 @@ tree size_of_string_in_bytes (int, tree);
 /* Intrinsic procedure handling.  */
 tree gfc_conv_intrinsic_subroutine (gfc_code *);
 void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
+bool gfc_conv_ieee_arithmetic_function (gfc_se *, gfc_expr *);
+tree gfc_save_fp_state (stmtblock_t *);
+void gfc_restore_fp_state (stmtblock_t *, tree);
+
 
 /* Does an intrinsic map directly to an external library call
    This is true for array-returning intrinsics, unless
@@ -569,10 +575,18 @@ void gfc_generate_module_vars (gfc_namespace *);
 /* Get the appropriate return statement for a procedure.  */
 tree gfc_generate_return (void);
 
-struct GTY(()) module_htab_entry {
+struct module_decl_hasher : ggc_hasher<tree_node *>
+{
+  typedef const char *compare_type;
+
+  static hashval_t hash (tree);
+  static bool equal (tree, const char *);
+};
+
+struct GTY((for_user)) module_htab_entry {
   const char *name;
   tree namespace_decl;
-  htab_t GTY ((param_is (union tree_node))) decls;
+  hash_table<module_decl_hasher> *GTY (()) decls;
 };
 
 struct module_htab_entry *gfc_find_module (const char *);
@@ -725,8 +739,10 @@ extern GTY(()) tree gfor_fndecl_caf_atomic_cas;
 extern GTY(()) tree gfor_fndecl_caf_atomic_op;
 extern GTY(()) tree gfor_fndecl_caf_lock;
 extern GTY(()) tree gfor_fndecl_caf_unlock;
+extern GTY(()) tree gfor_fndecl_co_broadcast;
 extern GTY(()) tree gfor_fndecl_co_max;
 extern GTY(()) tree gfor_fndecl_co_min;
+extern GTY(()) tree gfor_fndecl_co_reduce;
 extern GTY(()) tree gfor_fndecl_co_sum;
 
 
@@ -788,6 +804,10 @@ extern GTY(()) tree gfor_fndecl_iargc;
 extern GTY(()) tree gfor_fndecl_sc_kind;
 extern GTY(()) tree gfor_fndecl_si_kind;
 extern GTY(()) tree gfor_fndecl_sr_kind;
+
+/* IEEE-related.  */
+extern GTY(()) tree gfor_fndecl_ieee_procedure_entry;
+extern GTY(()) tree gfor_fndecl_ieee_procedure_exit;
 
 
 /* True if node is an integer constant.  */

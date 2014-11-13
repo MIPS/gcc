@@ -13,22 +13,22 @@
 
 2014-10-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-        Fixing user-reported issues and regressions
-        * gcc/cp/parser.c (cp_parser_template_declaration_after_exp):
-        Only pop access checks on failed parsing.
-        * gcc/cp/pt.cpp (type_dependent_expr_p): Always treat a 
-        requires-expr as if dependently typed. Otherwise, we try to
-        evaluate these expressions when they have dependent types.
-        * gcc/cp/constriant.cc (normalize_stmt_list): Remove unused
-        function.
-        (normalize_call): Don't fold constraints during normalization.
-        * gcc/testsuite/g++.dg/concepts/decl-diagnose.C: Update diagnostics.
+	Fixing user-reported issues and regressions
+	* gcc/cp/parser.c (cp_parser_template_declaration_after_exp):
+	Only pop access checks on failed parsing.
+	* gcc/cp/pt.c (type_dependent_expr_p): Always treat a 
+	requires-expr as if dependently typed. Otherwise, we try to
+	evaluate these expressions when they have dependent types.
+	* gcc/cp/constriant.cc (normalize_stmt_list): Remove unused
+	function.
+	(normalize_call): Don't fold constraints during normalization.
+	* gcc/testsuite/g++.dg/concepts/decl-diagnose.C: Update diagnostics.
 
 2014-10-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-        Fix another introduction regression.
-        * gcc/cp/parser.c (cp_parser_template_declaration_after_exp):
-        Only pop access checks on failed parsing.
+				Fix another introduction regression.
+				* gcc/cp/parser.c (cp_parser_template_declaration_after_exp):
+				Only pop access checks on failed parsing.
 
 2014-10-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
 

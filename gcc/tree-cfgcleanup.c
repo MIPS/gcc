@@ -23,10 +23,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "flags.h"
-#include "function.h"
 #include "langhooks.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -49,7 +60,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "except.h"
 #include "cfgloop.h"
-#include "hashtab.h"
 #include "tree-ssa-propagate.h"
 #include "tree-scalar-evolution.h"
 
@@ -162,6 +172,23 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
   return retval;
 }
 
+/* Cleanup the GF_CALL_CTRL_ALTERING flag according to
+   to updated gimple_call_flags.  */
+
+static void
+cleanup_call_ctrl_altering_flag (gimple bb_end)
+{
+  if (!is_gimple_call (bb_end)
+      || !gimple_call_ctrl_altering_p (bb_end))
+    return;
+
+  int flags = gimple_call_flags (bb_end);
+  if (((flags & (ECF_CONST | ECF_PURE))
+       && !(flags & ECF_LOOPING_CONST_OR_PURE))
+      || (flags & ECF_LEAF))
+    gimple_call_set_ctrl_altering (bb_end, false);
+}
+
 /* Try to remove superfluous control structures in basic block BB.  Returns
    true if anything changes.  */
 
@@ -181,6 +208,9 @@ cleanup_control_flow_bb (basic_block bb)
     return retval;
 
   stmt = gsi_stmt (gsi);
+
+  /* Try to cleanup ctrl altering flag for call which ends bb.  */
+  cleanup_call_ctrl_altering_flag (stmt);
 
   if (gimple_code (stmt) == GIMPLE_COND
       || gimple_code (stmt) == GIMPLE_SWITCH)
@@ -538,55 +568,46 @@ bool
 fixup_noreturn_call (gimple stmt)
 {
   basic_block bb = gimple_bb (stmt);
-  bool changed = false;
 
   if (gimple_call_builtin_p (stmt, BUILT_IN_RETURN))
     return false;
 
   /* First split basic block if stmt is not last.  */
   if (stmt != gsi_stmt (gsi_last_bb (bb)))
-    split_block (bb, stmt);
-
-  changed |= remove_fallthru_edge (bb->succs);
-
-  /* If there is LHS, remove it.  */
-  if (gimple_call_lhs (stmt))
     {
-      tree op = gimple_call_lhs (stmt);
+      if (stmt == gsi_stmt (gsi_last_nondebug_bb (bb)))
+	{
+	  /* Don't split if there are only debug stmts
+	     after stmt, that can result in -fcompare-debug
+	     failures.  Remove the debug stmts instead,
+	     they should be all unreachable anyway.  */
+	  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+	  for (gsi_next (&gsi); !gsi_end_p (gsi); )
+	    gsi_remove (&gsi, true);
+	}
+      else
+	split_block (bb, stmt);
+    }
+
+  /* If there is an LHS, remove it.  */
+  tree lhs = gimple_call_lhs (stmt);
+  if (lhs)
+    {
       gimple_call_set_lhs (stmt, NULL_TREE);
 
-      /* We need to remove SSA name to avoid checking errors.
-	 All uses are dominated by the noreturn and thus will
-	 be removed afterwards.
-	 We proactively remove affected non-PHI statements to avoid
-	 fixup_cfg from trying to update them and crashing.  */
-      if (TREE_CODE (op) == SSA_NAME)
+      /* We need to fix up the SSA name to avoid checking errors.  */
+      if (TREE_CODE (lhs) == SSA_NAME)
 	{
-	  use_operand_p use_p;
-          imm_use_iterator iter;
-	  gimple use_stmt;
-	  bitmap_iterator bi;
-	  unsigned int bb_index;
-
-	  bitmap blocks = BITMAP_ALLOC (NULL);
-
-          FOR_EACH_IMM_USE_STMT (use_stmt, iter, op)
-	    {
-	      if (gimple_code (use_stmt) != GIMPLE_PHI)
-	        bitmap_set_bit (blocks, gimple_bb (use_stmt)->index);
-	      else
-		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-		  SET_USE (use_p, error_mark_node);
-	    }
-	  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, bb_index, bi)
-	    delete_basic_block (BASIC_BLOCK_FOR_FN (cfun, bb_index));
-	  BITMAP_FREE (blocks);
-	  release_ssa_name (op);
+	  tree new_var = create_tmp_reg (TREE_TYPE (lhs), NULL);
+	  SET_SSA_NAME_VAR_OR_IDENTIFIER (lhs, new_var);
+	  SSA_NAME_DEF_STMT (lhs) = gimple_build_nop ();
+	  set_ssa_default_def (cfun, new_var, lhs);
 	}
+
       update_stmt (stmt);
-      changed = true;
     }
-  return changed;
+
+  return remove_fallthru_edge (bb->succs);
 }
 
 
@@ -594,30 +615,24 @@ fixup_noreturn_call (gimple stmt)
    known not to return, and remove the unreachable code.  */
 
 static bool
-split_bbs_on_noreturn_calls (void)
+split_bb_on_noreturn_calls (basic_block bb)
 {
   bool changed = false;
-  gimple stmt;
-  basic_block bb;
+  gimple_stmt_iterator gsi;
 
-  /* Detect cases where a mid-block call is now known not to return.  */
-  if (cfun->gimple_df)
-    while (vec_safe_length (MODIFIED_NORETURN_CALLS (cfun)))
-      {
-	stmt = MODIFIED_NORETURN_CALLS (cfun)->pop ();
-	bb = gimple_bb (stmt);
-	/* BB might be deleted at this point, so verify first
-	   BB is present in the cfg.  */
-	if (bb == NULL
-	    || bb->index < NUM_FIXED_BLOCKS
-	    || bb->index >= last_basic_block_for_fn (cfun)
-	    || BASIC_BLOCK_FOR_FN (cfun, bb->index) != bb
-	    || !gimple_call_noreturn_p (stmt))
-	  continue;
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple stmt = gsi_stmt (gsi);
 
+      if (!is_gimple_call (stmt))
+	continue;
+
+      if (gimple_call_noreturn_p (stmt))
 	changed |= fixup_noreturn_call (stmt);
-      }
+    }
 
+  if (changed)
+    bitmap_set_bit (cfgcleanup_altered_bbs, bb->index);
   return changed;
 }
 
@@ -655,8 +670,6 @@ cleanup_tree_cfg_1 (void)
   basic_block bb;
   unsigned i, n;
 
-  retval |= split_bbs_on_noreturn_calls ();
-
   /* Prepare the worklists of altered blocks.  */
   cfgcleanup_altered_bbs = BITMAP_ALLOC (NULL);
 
@@ -672,7 +685,10 @@ cleanup_tree_cfg_1 (void)
     {
       bb = BASIC_BLOCK_FOR_FN (cfun, i);
       if (bb)
-	retval |= cleanup_tree_cfg_bb (bb);
+	{
+	  retval |= cleanup_tree_cfg_bb (bb);
+	  retval |= split_bb_on_noreturn_calls (bb);
+	}
     }
 
   /* Now process the altered blocks, as long as any are available.  */
@@ -689,9 +705,9 @@ cleanup_tree_cfg_1 (void)
 
       retval |= cleanup_tree_cfg_bb (bb);
 
-      /* Rerun split_bbs_on_noreturn_calls, in case we have altered any noreturn
+      /* Rerun split_bb_on_noreturn_calls, in case we have altered any noreturn
 	 calls.  */
-      retval |= split_bbs_on_noreturn_calls ();
+      retval |= split_bb_on_noreturn_calls (bb);
     }
 
   end_recording_case_labels ();

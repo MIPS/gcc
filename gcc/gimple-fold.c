@@ -28,9 +28,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "stor-layout.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "dumpfile.h"
 #include "bitmap.h"
+#include "predict.h"
+#include "dominance.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -47,6 +55,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
 #include "gimple-pretty-print.h"
 #include "tree-ssa-address.h"
@@ -55,6 +67,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "builtins.h"
 #include "output.h"
+#include "tree-eh.h"
+#include "gimple-match.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -85,7 +101,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
   struct cgraph_node *node;
   symtab_node *snode;
 
-  if (DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT_P (decl))
     return false;
 
   /* We are concerned only about static/external vars and functions.  */
@@ -98,7 +114,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
     {
       /* Before we start optimizing unreachable code we can be sure all
 	 static objects are defined.  */
-      if (cgraph_function_flags_ready)
+      if (symtab->function_flags_ready)
 	return true;
       snode = symtab_node::get (decl);
       if (!snode || !snode->definition)
@@ -143,7 +159,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
      units where they are used and when the other unit was compiled with LTO
      it is possible that vtable was kept public while the function itself
      was privatized. */
-  if (!cgraph_function_flags_ready)
+  if (!symtab->function_flags_ready)
     return true;
 
   snode = symtab_node::get (decl);
@@ -304,6 +320,9 @@ fold_gimple_assign (gimple_stmt_iterator *si)
       {
         tree rhs = gimple_assign_rhs1 (stmt);
 
+	if (TREE_CLOBBER_P (rhs))
+	  return NULL_TREE;
+
 	if (REFERENCE_CLASS_P (rhs))
 	  return maybe_fold_reference (rhs, false);
 
@@ -401,27 +420,6 @@ fold_gimple_assign (gimple_stmt_iterator *si)
       break;
 
     case GIMPLE_UNARY_RHS:
-      {
-	tree rhs = gimple_assign_rhs1 (stmt);
-
-	result = fold_unary_loc (loc, subcode, gimple_expr_type (stmt), rhs);
-	if (result)
-	  {
-	    /* If the operation was a conversion do _not_ mark a
-	       resulting constant with TREE_OVERFLOW if the original
-	       constant was not.  These conversions have implementation
-	       defined behavior and retaining the TREE_OVERFLOW flag
-	       here would confuse later passes such as VRP.  */
-	    if (CONVERT_EXPR_CODE_P (subcode)
-		&& TREE_CODE (result) == INTEGER_CST
-		&& TREE_CODE (rhs) == INTEGER_CST)
-	      TREE_OVERFLOW (result) = TREE_OVERFLOW (rhs);
-
-	    STRIP_USELESS_TYPE_CONVERSION (result);
-	    if (valid_gimple_rhs_p (result))
-	      return result;
-	  }
-      }
       break;
 
     case GIMPLE_BINARY_RHS:
@@ -1285,7 +1283,7 @@ gimple_fold_builtin_memset (gimple_stmt_iterator *gsi, tree c, tree len)
    length and 2 for maximum value ARG can have.  */
 
 static bool
-get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
+get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
 {
   tree var, val;
   gimple def_stmt;
@@ -1342,7 +1340,9 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
     return false;
 
   /* If we were already here, break the infinite cycle.  */
-  if (!bitmap_set_bit (visited, SSA_NAME_VERSION (arg)))
+  if (!*visited)
+    *visited = BITMAP_ALLOC (NULL);
+  if (!bitmap_set_bit (*visited, SSA_NAME_VERSION (arg)))
     return true;
 
   var = arg;
@@ -1399,6 +1399,19 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
     }
 }
 
+tree
+get_maxval_strlen (tree arg, int type)
+{
+  bitmap visited = NULL;
+  tree len = NULL_TREE;
+  if (!get_maxval_strlen (arg, &len, &visited, type))
+    len = NULL_TREE;
+  if (visited)
+    BITMAP_FREE (visited);
+
+  return len;
+}
+
 
 /* Fold function call to builtin strcpy with arguments DEST and SRC.
    If LEN is not NULL, it represents the length of the string to be
@@ -1406,8 +1419,9 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 
 static bool
 gimple_fold_builtin_strcpy (gimple_stmt_iterator *gsi,
-			    location_t loc, tree dest, tree src, tree len)
+			    tree dest, tree src)
 {
+  location_t loc = gimple_location (gsi_stmt (*gsi));
   tree fn;
 
   /* If SRC and DEST are the same (and not volatile), return DEST.  */
@@ -1424,12 +1438,9 @@ gimple_fold_builtin_strcpy (gimple_stmt_iterator *gsi,
   if (!fn)
     return false;
 
+  tree len = get_maxval_strlen (src, 0);
   if (!len)
-    {
-      len = c_strlen (src, 1);
-      if (! len || TREE_SIDE_EFFECTS (len))
-	return NULL_TREE;
-    }
+    return false;
 
   len = fold_convert_loc (loc, size_type_node, len);
   len = size_binop_loc (loc, PLUS_EXPR, len, build_int_cst (size_type_node, 1));
@@ -1445,9 +1456,10 @@ gimple_fold_builtin_strcpy (gimple_stmt_iterator *gsi,
    Return NULL_TREE if no simplification can be made.  */
 
 static bool
-gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi, location_t loc,
-			     tree dest, tree src, tree len, tree slen)
+gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi,
+			     tree dest, tree src, tree len)
 {
+  location_t loc = gimple_location (gsi_stmt (*gsi));
   tree fn;
 
   /* If the LEN parameter is zero, return DEST.  */
@@ -1459,14 +1471,12 @@ gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi, location_t loc,
 
   /* We can't compare slen with len as constants below if len is not a
      constant.  */
-  if (len == 0 || TREE_CODE (len) != INTEGER_CST)
+  if (TREE_CODE (len) != INTEGER_CST)
     return false;
 
-  if (!slen)
-    slen = c_strlen (src, 1);
-
   /* Now, we must be passed a constant src ptr parameter.  */
-  if (slen == 0 || TREE_CODE (slen) != INTEGER_CST)
+  tree slen = get_maxval_strlen (src, 0);
+  if (!slen || TREE_CODE (slen) != INTEGER_CST)
     return false;
 
   slen = size_binop_loc (loc, PLUS_EXPR, slen, ssize_int (1));
@@ -1509,11 +1519,10 @@ gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi, location_t loc,
    form of the builtin function call.  */
 
 static bool
-gimple_fold_builtin_strcat (gimple_stmt_iterator *gsi,
-			    location_t loc ATTRIBUTE_UNUSED, tree dst, tree src,
-			    tree len)
+gimple_fold_builtin_strcat (gimple_stmt_iterator *gsi, tree dst, tree src)
 {
   gimple stmt = gsi_stmt (*gsi);
+  location_t loc = gimple_location (stmt);
 
   const char *p = c_getstr (src);
 
@@ -1537,9 +1546,8 @@ gimple_fold_builtin_strcat (gimple_stmt_iterator *gsi,
 
   /* If the length of the source string isn't computable don't
      split strcat into strlen and memcpy.  */
+  tree len = get_maxval_strlen (src, 0);
   if (! len)
-    len = c_strlen (src, 1);
-  if (! len || TREE_SIDE_EFFECTS (len))
     return false;
 
   /* Create strlen (dst).  */
@@ -1587,6 +1595,97 @@ gimple_fold_builtin_strcat (gimple_stmt_iterator *gsi,
   return true;
 }
 
+/* Fold a call to the __strcat_chk builtin FNDECL.  DEST, SRC, and SIZE
+   are the arguments to the call.  */
+
+static bool
+gimple_fold_builtin_strcat_chk (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree dest = gimple_call_arg (stmt, 0);
+  tree src = gimple_call_arg (stmt, 1);
+  tree size = gimple_call_arg (stmt, 2);
+  tree fn;
+  const char *p;
+
+
+  p = c_getstr (src);
+  /* If the SRC parameter is "", return DEST.  */
+  if (p && *p == '\0')
+    {
+      replace_call_with_value (gsi, dest);
+      return true;
+    }
+
+  if (! tree_fits_uhwi_p (size) || ! integer_all_onesp (size))
+    return false;
+
+  /* If __builtin_strcat_chk is used, assume strcat is available.  */
+  fn = builtin_decl_explicit (BUILT_IN_STRCAT);
+  if (!fn)
+    return false;
+
+  gimple repl = gimple_build_call (fn, 2, dest, src);
+  replace_call_with_call_and_fold (gsi, repl);
+  return true;
+}
+
+/* Fold a call to the __strncat_chk builtin with arguments DEST, SRC,
+   LEN, and SIZE.  */
+
+static bool 
+gimple_fold_builtin_strncat_chk (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree dest = gimple_call_arg (stmt, 0);
+  tree src = gimple_call_arg (stmt, 1);
+  tree len = gimple_call_arg (stmt, 2);
+  tree size = gimple_call_arg (stmt, 3);
+  tree fn;
+  const char *p;
+
+  p = c_getstr (src);
+  /* If the SRC parameter is "" or if LEN is 0, return DEST.  */
+  if ((p && *p == '\0')
+      || integer_zerop (len))
+    {
+      replace_call_with_value (gsi, dest);
+      return true;
+    }
+
+  if (! tree_fits_uhwi_p (size))
+    return false;
+
+  if (! integer_all_onesp (size))
+    {
+      tree src_len = c_strlen (src, 1);
+      if (src_len
+	  && tree_fits_uhwi_p (src_len)
+	  && tree_fits_uhwi_p (len)
+	  && ! tree_int_cst_lt (len, src_len))
+	{
+	  /* If LEN >= strlen (SRC), optimize into __strcat_chk.  */
+	  fn = builtin_decl_explicit (BUILT_IN_STRCAT_CHK);
+	  if (!fn)
+	    return false;
+
+	  gimple repl = gimple_build_call (fn, 3, dest, src, size);
+	  replace_call_with_call_and_fold (gsi, repl);
+	  return true;
+	}
+      return false;
+    }
+
+  /* If __builtin_strncat_chk is used, assume strncat is available.  */
+  fn = builtin_decl_explicit (BUILT_IN_STRNCAT);
+  if (!fn)
+    return false;
+
+  gimple repl = gimple_build_call (fn, 3, dest, src, len);
+  replace_call_with_call_and_fold (gsi, repl);
+  return true;
+}
+
 /* Fold a call to the fputs builtin.  ARG0 and ARG1 are the arguments
    to the call.  IGNORE is true if the value returned
    by the builtin will be ignored.  UNLOCKED is true is true if this
@@ -1596,10 +1695,11 @@ gimple_fold_builtin_strcat (gimple_stmt_iterator *gsi,
 
 static bool
 gimple_fold_builtin_fputs (gimple_stmt_iterator *gsi,
-			   location_t loc ATTRIBUTE_UNUSED,
 			   tree arg0, tree arg1,
-			   bool ignore, bool unlocked, tree len)
+			   bool unlocked)
 {
+  gimple stmt = gsi_stmt (*gsi);
+
   /* If we're using an unlocked function, assume the other unlocked
      functions exist explicitly.  */
   tree const fn_fputc = (unlocked
@@ -1610,14 +1710,12 @@ gimple_fold_builtin_fputs (gimple_stmt_iterator *gsi,
 			  : builtin_decl_implicit (BUILT_IN_FWRITE));
 
   /* If the return value is used, don't do the transformation.  */
-  if (!ignore)
+  if (gimple_call_lhs (stmt))
     return false;
-
-  if (! len)
-    len = c_strlen (arg0, 0);
 
   /* Get the length of the string passed to fputs.  If the length
      can't be determined, punt.  */
+  tree len = get_maxval_strlen (arg0, 0);
   if (!len
       || TREE_CODE (len) != INTEGER_CST)
     return false;
@@ -1673,11 +1771,12 @@ gimple_fold_builtin_fputs (gimple_stmt_iterator *gsi,
 
 static bool
 gimple_fold_builtin_memory_chk (gimple_stmt_iterator *gsi,
-				location_t loc,
 				tree dest, tree src, tree len, tree size,
-				tree maxlen, bool ignore,
 				enum built_in_function fcode)
 {
+  gimple stmt = gsi_stmt (*gsi);
+  location_t loc = gimple_location (stmt);
+  bool ignore = gimple_call_lhs (stmt) == NULL_TREE;
   tree fn;
 
   /* If SRC and DEST are the same (and not volatile), return DEST
@@ -1703,6 +1802,7 @@ gimple_fold_builtin_memory_chk (gimple_stmt_iterator *gsi,
   if (! tree_fits_uhwi_p (size))
     return false;
 
+  tree maxlen = get_maxval_strlen (len, 2);
   if (! integer_all_onesp (size))
     {
       if (! tree_fits_uhwi_p (len))
@@ -1771,11 +1871,13 @@ gimple_fold_builtin_memory_chk (gimple_stmt_iterator *gsi,
 
 static bool
 gimple_fold_builtin_stxcpy_chk (gimple_stmt_iterator *gsi,
-				location_t loc, tree dest,
+				tree dest,
 				tree src, tree size,
-				tree maxlen, bool ignore,
 				enum built_in_function fcode)
 {
+  gimple stmt = gsi_stmt (*gsi);
+  location_t loc = gimple_location (stmt);
+  bool ignore = gimple_call_lhs (stmt) == NULL_TREE;
   tree len, fn;
 
   /* If SRC and DEST are the same (and not volatile), return DEST.  */
@@ -1788,6 +1890,7 @@ gimple_fold_builtin_stxcpy_chk (gimple_stmt_iterator *gsi,
   if (! tree_fits_uhwi_p (size))
     return false;
 
+  tree maxlen = get_maxval_strlen (src, 1);
   if (! integer_all_onesp (size))
     {
       len = c_strlen (src, 1);
@@ -1859,9 +1962,11 @@ gimple_fold_builtin_stxcpy_chk (gimple_stmt_iterator *gsi,
 static bool
 gimple_fold_builtin_stxncpy_chk (gimple_stmt_iterator *gsi,
 				 tree dest, tree src,
-				 tree len, tree size, tree maxlen, bool ignore,
+				 tree len, tree size,
 				 enum built_in_function fcode)
 {
+  gimple stmt = gsi_stmt (*gsi);
+  bool ignore = gimple_call_lhs (stmt) == NULL_TREE;
   tree fn;
 
   if (fcode == BUILT_IN_STPNCPY_CHK && ignore)
@@ -1880,6 +1985,7 @@ gimple_fold_builtin_stxncpy_chk (gimple_stmt_iterator *gsi,
   if (! tree_fits_uhwi_p (size))
     return false;
 
+  tree maxlen = get_maxval_strlen (len, 2);
   if (! integer_all_onesp (size))
     {
       if (! tree_fits_uhwi_p (len))
@@ -1916,7 +2022,7 @@ gimple_fold_builtin_stxncpy_chk (gimple_stmt_iterator *gsi,
 
 static bool
 gimple_fold_builtin_snprintf_chk (gimple_stmt_iterator *gsi,
-				  tree maxlen, enum built_in_function fcode)
+				  enum built_in_function fcode)
 {
   gimple stmt = gsi_stmt (*gsi);
   tree dest, size, len, fn, fmt, flag;
@@ -1937,6 +2043,7 @@ gimple_fold_builtin_snprintf_chk (gimple_stmt_iterator *gsi,
 
   if (! integer_all_onesp (size))
     {
+      tree maxlen = get_maxval_strlen (len, 2);
       if (! tree_fits_uhwi_p (len))
 	{
 	  /* If LEN is not constant, try MAXLEN too.
@@ -2093,7 +2200,7 @@ gimple_fold_builtin_sprintf_chk (gimple_stmt_iterator *gsi,
    the caller does not use the returned value of the function.  */
 
 static bool
-gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi, tree orig_len)
+gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
   tree dest = gimple_call_arg (stmt, 0);
@@ -2171,10 +2278,10 @@ gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi, tree orig_len)
       if (!orig)
 	return false;
 
-      if (gimple_call_lhs (stmt)
-	  && !orig_len)
+      tree orig_len = NULL_TREE;
+      if (gimple_call_lhs (stmt))
 	{
-	  orig_len = c_strlen (orig, 1);
+	  orig_len = get_maxval_strlen (orig, 0);
 	  if (!orig_len)
 	    return false;
 	}
@@ -2218,7 +2325,7 @@ gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi, tree orig_len)
    the caller does not use the returned value of the function.  */
 
 static bool
-gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi, tree orig_len)
+gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
   tree dest = gimple_call_arg (stmt, 0);
@@ -2303,12 +2410,9 @@ gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi, tree orig_len)
       if (!orig)
 	return false;
 
+      tree orig_len = get_maxval_strlen (orig, 0);
       if (!orig_len)
-	{
-	  orig_len = c_strlen (orig, 1);
-	  if (!orig_len)
-	    return false;
-	}
+	return false;
 
       /* We could expand this as
 	 memcpy (str1, str2, cst - 1); str1[cst - 1] = '\0';
@@ -2355,176 +2459,15 @@ gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi, tree orig_len)
 /* Fold a call to __builtin_strlen with known length LEN.  */
 
 static bool
-gimple_fold_builtin_strlen (gimple_stmt_iterator *gsi, tree len)
-{
-  if (!len)
-    {
-      gimple stmt = gsi_stmt (*gsi);
-      len = c_strlen (gimple_call_arg (stmt, 0), 0);
-    }
-  if (!len)
-    return false;
-  replace_call_with_value (gsi, len);
-  return true;
-}
-
-
-/* Fold builtins at *GSI with knowledge about a length argument.  */
-
-static bool
-gimple_fold_builtin_with_strlen (gimple_stmt_iterator *gsi)
+gimple_fold_builtin_strlen (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  tree val[4];
-  tree a;
-  int arg_idx, type;
-  bitmap visited;
-  bool ignore;
-  location_t loc = gimple_location (stmt);
-
-  ignore = (gimple_call_lhs (stmt) == NULL);
-
-  /* Limit the work only for builtins we know how to simplify.  */
-  tree callee = gimple_call_fndecl (stmt);
-  switch (DECL_FUNCTION_CODE (callee))
-    {
-    case BUILT_IN_STRLEN:
-    case BUILT_IN_FPUTS:
-    case BUILT_IN_FPUTS_UNLOCKED:
-      arg_idx = 0;
-      type = 0;
-      break;
-    case BUILT_IN_STRCPY:
-    case BUILT_IN_STRNCPY:
-    case BUILT_IN_STRCAT:
-      arg_idx = 1;
-      type = 0;
-      break;
-    case BUILT_IN_MEMCPY_CHK:
-    case BUILT_IN_MEMPCPY_CHK:
-    case BUILT_IN_MEMMOVE_CHK:
-    case BUILT_IN_MEMSET_CHK:
-    case BUILT_IN_STRNCPY_CHK:
-    case BUILT_IN_STPNCPY_CHK:
-      arg_idx = 2;
-      type = 2;
-      break;
-    case BUILT_IN_STRCPY_CHK:
-    case BUILT_IN_STPCPY_CHK:
-      arg_idx = 1;
-      type = 1;
-      break;
-    case BUILT_IN_SNPRINTF_CHK:
-    case BUILT_IN_VSNPRINTF_CHK:
-      arg_idx = 1;
-      type = 2;
-      break;
-    case BUILT_IN_SPRINTF:
-      arg_idx = 2;
-      type = 0;
-      break;
-    case BUILT_IN_SNPRINTF:
-      arg_idx = 3;
-      type = 0;
-      break;
-    default:
-      return false;
-    }
-
-  int nargs = gimple_call_num_args (stmt);
-
-  /* Try to use the dataflow information gathered by the CCP process.  */
-  visited = BITMAP_ALLOC (NULL);
-  bitmap_clear (visited);
-
-  memset (val, 0, sizeof (val));
-  if (arg_idx < nargs)
-    {
-      a = gimple_call_arg (stmt, arg_idx);
-      if (!get_maxval_strlen (a, &val[arg_idx], visited, type)
-	  || !is_gimple_val (val[arg_idx]))
-	val[arg_idx] = NULL_TREE;
-    }
-
-  BITMAP_FREE (visited);
-
-  switch (DECL_FUNCTION_CODE (callee))
-    {
-    case BUILT_IN_STRLEN:
-      return gimple_fold_builtin_strlen (gsi, val[0]);
-
-    case BUILT_IN_STRCPY:
-      return gimple_fold_builtin_strcpy (gsi, loc,
-					 gimple_call_arg (stmt, 0),
-					 gimple_call_arg (stmt, 1),
-					 val[1]);
-
-    case BUILT_IN_STRNCPY:
-      return gimple_fold_builtin_strncpy (gsi, loc,
-					  gimple_call_arg (stmt, 0),
-					  gimple_call_arg (stmt, 1),
-					  gimple_call_arg (stmt, 2),
-					  val[1]);
-
-    case BUILT_IN_STRCAT:
-      return gimple_fold_builtin_strcat (gsi, loc, gimple_call_arg (stmt, 0),
-					 gimple_call_arg (stmt, 1),
-					 val[1]);
-
-    case BUILT_IN_FPUTS:
-      return gimple_fold_builtin_fputs (gsi, loc, gimple_call_arg (stmt, 0),
-					gimple_call_arg (stmt, 1),
-					ignore, false, val[0]);
-
-    case BUILT_IN_FPUTS_UNLOCKED:
-      return gimple_fold_builtin_fputs (gsi, loc, gimple_call_arg (stmt, 0),
-					gimple_call_arg (stmt, 1),
-					ignore, true, val[0]);
-
-    case BUILT_IN_MEMCPY_CHK:
-    case BUILT_IN_MEMPCPY_CHK:
-    case BUILT_IN_MEMMOVE_CHK:
-    case BUILT_IN_MEMSET_CHK:
-      return gimple_fold_builtin_memory_chk (gsi, loc,
-					     gimple_call_arg (stmt, 0),
-					     gimple_call_arg (stmt, 1),
-					     gimple_call_arg (stmt, 2),
-					     gimple_call_arg (stmt, 3),
-					     val[2], ignore,
-					     DECL_FUNCTION_CODE (callee));
-
-    case BUILT_IN_STRCPY_CHK:
-    case BUILT_IN_STPCPY_CHK:
-      return gimple_fold_builtin_stxcpy_chk (gsi, loc,
-					     gimple_call_arg (stmt, 0),
-					     gimple_call_arg (stmt, 1),
-					     gimple_call_arg (stmt, 2),
-					     val[1], ignore,
-					     DECL_FUNCTION_CODE (callee));
-
-    case BUILT_IN_STRNCPY_CHK:
-    case BUILT_IN_STPNCPY_CHK:
-      return gimple_fold_builtin_stxncpy_chk (gsi,
-					      gimple_call_arg (stmt, 0),
-					      gimple_call_arg (stmt, 1),
-					      gimple_call_arg (stmt, 2),
-					      gimple_call_arg (stmt, 3),
-					      val[2], ignore,
-					      DECL_FUNCTION_CODE (callee));
-
-    case BUILT_IN_SNPRINTF_CHK:
-    case BUILT_IN_VSNPRINTF_CHK:
-      return gimple_fold_builtin_snprintf_chk (gsi, val[1],
-					       DECL_FUNCTION_CODE (callee));
-    case BUILT_IN_SNPRINTF:
-      return gimple_fold_builtin_snprintf (gsi, val[3]);
-    case BUILT_IN_SPRINTF:
-      return gimple_fold_builtin_sprintf (gsi, val[2]);
-    default:
-      gcc_unreachable ();
-    }
-
-  return false;
+  tree len = get_maxval_strlen (gimple_call_arg (stmt, 0), 0);
+  if (!len)
+    return false;
+  len = force_gimple_operand_gsi (gsi, len, true, NULL, true, GSI_SAME_STMT);
+  replace_call_with_value (gsi, len);
+  return true;
 }
 
 
@@ -2541,9 +2484,6 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
      inlined.  */
   if (avoid_folding_inline_builtin (callee))
     return false;
-
-  if (gimple_fold_builtin_with_strlen (gsi))
-    return true;
 
   switch (DECL_FUNCTION_CODE (callee))
     {
@@ -2569,6 +2509,63 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case BUILT_IN_SPRINTF_CHK:
     case BUILT_IN_VSPRINTF_CHK:
       return gimple_fold_builtin_sprintf_chk (gsi, DECL_FUNCTION_CODE (callee));
+    case BUILT_IN_STRCAT_CHK:
+      return gimple_fold_builtin_strcat_chk (gsi);
+    case BUILT_IN_STRNCAT_CHK:
+      return gimple_fold_builtin_strncat_chk (gsi);
+    case BUILT_IN_STRLEN:
+      return gimple_fold_builtin_strlen (gsi);
+    case BUILT_IN_STRCPY:
+      return gimple_fold_builtin_strcpy (gsi,
+					 gimple_call_arg (stmt, 0),
+					 gimple_call_arg (stmt, 1));
+    case BUILT_IN_STRNCPY:
+      return gimple_fold_builtin_strncpy (gsi,
+					  gimple_call_arg (stmt, 0),
+					  gimple_call_arg (stmt, 1),
+					  gimple_call_arg (stmt, 2));
+    case BUILT_IN_STRCAT:
+      return gimple_fold_builtin_strcat (gsi, gimple_call_arg (stmt, 0),
+					 gimple_call_arg (stmt, 1));
+    case BUILT_IN_FPUTS:
+      return gimple_fold_builtin_fputs (gsi, gimple_call_arg (stmt, 0),
+					gimple_call_arg (stmt, 1), false);
+    case BUILT_IN_FPUTS_UNLOCKED:
+      return gimple_fold_builtin_fputs (gsi, gimple_call_arg (stmt, 0),
+					gimple_call_arg (stmt, 1), true);
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+      return gimple_fold_builtin_memory_chk (gsi,
+					     gimple_call_arg (stmt, 0),
+					     gimple_call_arg (stmt, 1),
+					     gimple_call_arg (stmt, 2),
+					     gimple_call_arg (stmt, 3),
+					     DECL_FUNCTION_CODE (callee));
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+      return gimple_fold_builtin_stxcpy_chk (gsi,
+					     gimple_call_arg (stmt, 0),
+					     gimple_call_arg (stmt, 1),
+					     gimple_call_arg (stmt, 2),
+					     DECL_FUNCTION_CODE (callee));
+    case BUILT_IN_STRNCPY_CHK:
+    case BUILT_IN_STPNCPY_CHK:
+      return gimple_fold_builtin_stxncpy_chk (gsi,
+					      gimple_call_arg (stmt, 0),
+					      gimple_call_arg (stmt, 1),
+					      gimple_call_arg (stmt, 2),
+					      gimple_call_arg (stmt, 3),
+					      DECL_FUNCTION_CODE (callee));
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      return gimple_fold_builtin_snprintf_chk (gsi,
+					       DECL_FUNCTION_CODE (callee));
+    case BUILT_IN_SNPRINTF:
+      return gimple_fold_builtin_snprintf (gsi);
+    case BUILT_IN_SPRINTF:
+      return gimple_fold_builtin_sprintf (gsi);
     default:;
     }
 
@@ -2587,6 +2584,33 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
     }
 
   return false;
+}
+
+/* Return true if ARG0 CODE ARG1 in infinite signed precision operation
+   doesn't fit into TYPE.  The test for overflow should be regardless of
+   -fwrapv, and even for unsigned types.  */
+
+bool
+arith_overflowed_p (enum tree_code code, const_tree type,
+		    const_tree arg0, const_tree arg1)
+{
+  typedef FIXED_WIDE_INT (WIDE_INT_MAX_PRECISION * 2) widest2_int;
+  typedef generic_wide_int <wi::extended_tree <WIDE_INT_MAX_PRECISION * 2> >
+    widest2_int_cst;
+  widest2_int warg0 = widest2_int_cst (arg0);
+  widest2_int warg1 = widest2_int_cst (arg1);
+  widest2_int wres;
+  switch (code)
+    {
+    case PLUS_EXPR: wres = wi::add (warg0, warg1); break;
+    case MINUS_EXPR: wres = wi::sub (warg0, warg1); break;
+    case MULT_EXPR: wres = wi::mul (warg0, warg1); break;
+    default: gcc_unreachable ();
+    }
+  signop sign = TYPE_SIGN (type);
+  if (sign == UNSIGNED && wi::neg_p (wres))
+    return true;
+  return wi::min_precision (wres, sign) > TYPE_PRECISION (type);
 }
 
 /* Attempt to fold a call statement referenced by the statement iterator GSI.
@@ -2622,8 +2646,8 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	{
           if (dump_file && virtual_method_call_p (callee)
 	      && !possible_polymorphic_call_target_p
-		    (callee, cgraph_node::get (gimple_call_addr_fndecl
-					       (OBJ_TYPE_REF_EXPR (callee)))))
+		    (callee, stmt, cgraph_node::get (gimple_call_addr_fndecl
+						     (OBJ_TYPE_REF_EXPR (callee)))))
 	    {
 	      fprintf (dump_file,
 		       "Type inheritance inconsistent devirtualization of ");
@@ -2688,7 +2712,11 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 		      gsi_insert_before (gsi, new_stmt, GSI_NEW_STMT);
 		    }
 		  else
-		    gsi_replace (gsi, new_stmt, true);
+		    {
+		      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+		      gimple_set_vdef (new_stmt, gimple_vdef (stmt));
+		      gsi_replace (gsi, new_stmt, false);
+		    }
 		  return true;
 		}
 	    }
@@ -2713,6 +2741,8 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
     {
       enum tree_code subcode = ERROR_MARK;
       tree result = NULL_TREE;
+      bool cplx_result = false;
+      tree overflow = NULL_TREE;
       switch (gimple_call_internal_fn (stmt))
 	{
 	case IFN_BUILTIN_EXPECT:
@@ -2720,6 +2750,19 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 					gimple_call_arg (stmt, 0),
 					gimple_call_arg (stmt, 1),
 					gimple_call_arg (stmt, 2));
+	  break;
+	case IFN_UBSAN_OBJECT_SIZE:
+	  if (integer_all_onesp (gimple_call_arg (stmt, 2))
+	      || (TREE_CODE (gimple_call_arg (stmt, 1)) == INTEGER_CST
+		  && TREE_CODE (gimple_call_arg (stmt, 2)) == INTEGER_CST
+		  && tree_int_cst_le (gimple_call_arg (stmt, 1),
+				      gimple_call_arg (stmt, 2))))
+	    {
+	      gsi_replace (gsi, gimple_build_nop (), true);
+	      unlink_stmt_vdef (stmt);
+	      release_defs (stmt);
+	      return true;
+	    }
 	  break;
 	case IFN_UBSAN_CHECK_ADD:
 	  subcode = PLUS_EXPR;
@@ -2730,6 +2773,18 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	case IFN_UBSAN_CHECK_MUL:
 	  subcode = MULT_EXPR;
 	  break;
+	case IFN_ADD_OVERFLOW:
+	  subcode = PLUS_EXPR;
+	  cplx_result = true;
+	  break;
+	case IFN_SUB_OVERFLOW:
+	  subcode = MINUS_EXPR;
+	  cplx_result = true;
+	  break;
+	case IFN_MUL_OVERFLOW:
+	  subcode = MULT_EXPR;
+	  cplx_result = true;
+	  break;
 	default:
 	  break;
 	}
@@ -2737,30 +2792,88 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	{
 	  tree arg0 = gimple_call_arg (stmt, 0);
 	  tree arg1 = gimple_call_arg (stmt, 1);
+	  tree type = TREE_TYPE (arg0);
+	  if (cplx_result)
+	    {
+	      tree lhs = gimple_call_lhs (stmt);
+	      if (lhs == NULL_TREE)
+		type = NULL_TREE;
+	      else
+		type = TREE_TYPE (TREE_TYPE (lhs));
+	    }
+	  if (type == NULL_TREE)
+	    ;
 	  /* x = y + 0; x = y - 0; x = y * 0; */
-	  if (integer_zerop (arg1))
-	    result = subcode == MULT_EXPR
-		     ? build_zero_cst (TREE_TYPE (arg0))
-		     : arg0;
+	  else if (integer_zerop (arg1))
+	    result = subcode == MULT_EXPR ? integer_zero_node : arg0;
 	  /* x = 0 + y; x = 0 * y; */
 	  else if (subcode != MINUS_EXPR && integer_zerop (arg0))
-	    result = subcode == MULT_EXPR
-		     ? build_zero_cst (TREE_TYPE (arg0))
-		     : arg1;
+	    result = subcode == MULT_EXPR ? integer_zero_node : arg1;
 	  /* x = y - y; */
 	  else if (subcode == MINUS_EXPR && operand_equal_p (arg0, arg1, 0))
-	    result = build_zero_cst (TREE_TYPE (arg0));
+	    result = integer_zero_node;
 	  /* x = y * 1; x = 1 * y; */
-	  else if (subcode == MULT_EXPR)
+	  else if (subcode == MULT_EXPR && integer_onep (arg1))
+	    result = arg0;
+	  else if (subcode == MULT_EXPR && integer_onep (arg0))
+	    result = arg1;
+	  else if (TREE_CODE (arg0) == INTEGER_CST
+		   && TREE_CODE (arg1) == INTEGER_CST)
 	    {
-	      if (integer_onep (arg1))
-		result = arg0;
-	      else if (integer_onep (arg0))
-		result = arg1;
+	      if (cplx_result)
+		result = int_const_binop (subcode, fold_convert (type, arg0),
+					  fold_convert (type, arg1));
+	      else
+		result = int_const_binop (subcode, arg0, arg1);
+	      if (result && arith_overflowed_p (subcode, type, arg0, arg1))
+		{
+		  if (cplx_result)
+		    overflow = build_one_cst (type);
+		  else
+		    result = NULL_TREE;
+		}
+	    }
+	  if (result)
+	    {
+	      if (result == integer_zero_node)
+		result = build_zero_cst (type);
+	      else if (cplx_result && TREE_TYPE (result) != type)
+		{
+		  if (TREE_CODE (result) == INTEGER_CST)
+		    {
+		      if (arith_overflowed_p (PLUS_EXPR, type, result,
+					      integer_zero_node))
+			overflow = build_one_cst (type);
+		    }
+		  else if ((!TYPE_UNSIGNED (TREE_TYPE (result))
+			    && TYPE_UNSIGNED (type))
+			   || (TYPE_PRECISION (type)
+			       < (TYPE_PRECISION (TREE_TYPE (result))
+				  + (TYPE_UNSIGNED (TREE_TYPE (result))
+				     && !TYPE_UNSIGNED (type)))))
+		    result = NULL_TREE;
+		  if (result)
+		    result = fold_convert (type, result);
+		}
 	    }
 	}
+
       if (result)
 	{
+	  if (TREE_CODE (result) == INTEGER_CST && TREE_OVERFLOW (result))
+	    result = drop_tree_overflow (result);
+	  if (cplx_result)
+	    {
+	      if (overflow == NULL_TREE)
+		overflow = build_zero_cst (TREE_TYPE (result));
+	      tree ctype = build_complex_type (TREE_TYPE (result));
+	      if (TREE_CODE (result) == INTEGER_CST
+		  && TREE_CODE (overflow) == INTEGER_CST)
+		result = build_complex (ctype, result, overflow);
+	      else
+		result = build2_loc (gimple_location (stmt), COMPLEX_EXPR,
+				     ctype, result, overflow);
+	    }
 	  if (!update_call_from_tree (gsi, result))
 	    gimplify_and_update_call_from_tree (gsi, result);
 	  changed = true;
@@ -2768,6 +2881,121 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
     }
 
   return changed;
+}
+
+
+/* Worker for fold_stmt_1 dispatch to pattern based folding with
+   gimple_simplify.
+
+   Replaces *GSI with the simplification result in RCODE and OPS
+   and the associated statements in *SEQ.  Does the replacement
+   according to INPLACE and returns true if the operation succeeded.  */
+
+static bool
+replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
+				  code_helper rcode, tree *ops,
+				  gimple_seq *seq, bool inplace)
+{
+  gimple stmt = gsi_stmt (*gsi);
+
+  /* Play safe and do not allow abnormals to be mentioned in
+     newly created statements.  See also maybe_push_res_to_seq.  */
+  if ((TREE_CODE (ops[0]) == SSA_NAME
+       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
+      || (ops[1]
+	  && TREE_CODE (ops[1]) == SSA_NAME
+	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
+      || (ops[2]
+	  && TREE_CODE (ops[2]) == SSA_NAME
+	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
+    return false;
+
+  if (gimple_code (stmt) == GIMPLE_COND)
+    {
+      gcc_assert (rcode.is_tree_code ());
+      if (TREE_CODE_CLASS ((enum tree_code)rcode) == tcc_comparison
+	  /* GIMPLE_CONDs condition may not throw.  */
+	  && (!flag_exceptions
+	      || !cfun->can_throw_non_call_exceptions
+	      || !operation_could_trap_p (rcode,
+					  FLOAT_TYPE_P (TREE_TYPE (ops[0])),
+					  false, NULL_TREE)))
+	gimple_cond_set_condition (stmt, rcode, ops[0], ops[1]);
+      else if (rcode == SSA_NAME)
+	gimple_cond_set_condition (stmt, NE_EXPR, ops[0],
+				   build_zero_cst (TREE_TYPE (ops[0])));
+      else if (rcode == INTEGER_CST)
+	{
+	  if (integer_zerop (ops[0]))
+	    gimple_cond_make_false (stmt);
+	  else
+	    gimple_cond_make_true (stmt);
+	}
+      else if (!inplace)
+	{
+	  tree res = maybe_push_res_to_seq (rcode, boolean_type_node,
+					    ops, seq);
+	  if (!res)
+	    return false;
+	  gimple_cond_set_condition (stmt, NE_EXPR, res,
+				     build_zero_cst (TREE_TYPE (res)));
+	}
+      else
+	return false;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "gimple_simplified to ");
+	  if (!gimple_seq_empty_p (*seq))
+	    print_gimple_seq (dump_file, *seq, 0, TDF_SLIM);
+	  print_gimple_stmt (dump_file, gsi_stmt (*gsi),
+			     0, TDF_SLIM);
+	}
+      gsi_insert_seq_before (gsi, *seq, GSI_SAME_STMT);
+      return true;
+    }
+  else if (is_gimple_assign (stmt)
+	   && rcode.is_tree_code ())
+    {
+      if (!inplace
+	  || gimple_num_ops (stmt) > get_gimple_rhs_num_ops (rcode))
+	{
+	  maybe_build_generic_op (rcode,
+				  TREE_TYPE (gimple_assign_lhs (stmt)),
+				  &ops[0], ops[1], ops[2]);
+	  gimple_assign_set_rhs_with_ops_1 (gsi, rcode,
+					    ops[0], ops[1], ops[2]);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "gimple_simplified to ");
+	      if (!gimple_seq_empty_p (*seq))
+		print_gimple_seq (dump_file, *seq, 0, TDF_SLIM);
+	      print_gimple_stmt (dump_file, gsi_stmt (*gsi),
+				 0, TDF_SLIM);
+	    }
+	  gsi_insert_seq_before (gsi, *seq, GSI_SAME_STMT);
+	  return true;
+	}
+    }
+  else if (!inplace)
+    {
+      if (gimple_has_lhs (stmt))
+	{
+	  tree lhs = gimple_get_lhs (stmt);
+	  maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
+				 ops, seq, lhs);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "gimple_simplified to ");
+	      print_gimple_seq (dump_file, *seq, 0, TDF_SLIM);
+	    }
+	  gsi_replace_with_seq_vops (gsi, *seq);
+	  return true;
+	}
+      else
+	gcc_unreachable ();
+    }
+
+  return false;
 }
 
 /* Canonicalize MEM_REFs invariant address operand after propagation.  */
@@ -2856,7 +3084,7 @@ maybe_canonicalize_mem_ref_addr (tree *t)
    distinguishes both cases.  */
 
 static bool
-fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
+fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 {
   bool changed = false;
   gimple stmt = gsi_stmt (*gsi);
@@ -2933,6 +3161,25 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
       break;
     default:;
     }
+
+  /* Dispatch to pattern-based folding.  */
+  if (!inplace
+      || is_gimple_assign (stmt)
+      || gimple_code (stmt) == GIMPLE_COND)
+    {
+      gimple_seq seq = NULL;
+      code_helper rcode;
+      tree ops[3] = {};
+      if (gimple_simplify (stmt, &rcode, ops, inplace ? NULL : &seq, valueize))
+	{
+	  if (replace_stmt_with_simplification (gsi, rcode, ops, &seq, inplace))
+	    changed = true;
+	  else
+	    gimple_seq_discard (seq);
+	}
+    }
+
+  stmt = gsi_stmt (*gsi);
 
   /* Fold the main computation performed by the statement.  */
   switch (gimple_code (stmt))
@@ -3073,6 +3320,25 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
   return changed;
 }
 
+/* Valueziation callback that ends up not following SSA edges.  */
+
+tree
+no_follow_ssa_edges (tree)
+{
+  return NULL_TREE;
+}
+
+/* Valueization callback that ends up following single-use SSA edges only.  */
+
+tree
+follow_single_use_edges (tree val)
+{
+  if (TREE_CODE (val) == SSA_NAME
+      && !has_single_use (val))
+    return NULL_TREE;
+  return val;
+}
+
 /* Fold the statement pointed to by GSI.  In some cases, this function may
    replace the whole statement with a new one.  Returns true iff folding
    makes any changes.
@@ -3083,7 +3349,13 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
 bool
 fold_stmt (gimple_stmt_iterator *gsi)
 {
-  return fold_stmt_1 (gsi, false);
+  return fold_stmt_1 (gsi, false, no_follow_ssa_edges);
+}
+
+bool
+fold_stmt (gimple_stmt_iterator *gsi, tree (*valueize) (tree))
+{
+  return fold_stmt_1 (gsi, false, valueize);
 }
 
 /* Perform the minimal folding on statement *GSI.  Only operations like
@@ -3098,7 +3370,7 @@ bool
 fold_stmt_inplace (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  bool changed = fold_stmt_1 (gsi, true);
+  bool changed = fold_stmt_1 (gsi, true, no_follow_ssa_edges);
   gcc_assert (gsi_stmt (*gsi) == stmt);
   return changed;
 }
@@ -4197,6 +4469,30 @@ maybe_fold_or_comparisons (enum tree_code code1, tree op1a, tree op1b,
 tree
 gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
 {
+  code_helper rcode;
+  tree ops[3] = {};
+  /* ???  The SSA propagators do not correctly deal with following SSA use-def
+     edges if there are intermediate VARYING defs.  For this reason
+     do not follow SSA edges here even though SCCVN can technically
+     just deal fine with that.  */
+  if (gimple_simplify (stmt, &rcode, ops, NULL, no_follow_ssa_edges)
+      && rcode.is_tree_code ()
+      && (TREE_CODE_LENGTH ((tree_code) rcode) == 0
+	  || ((tree_code) rcode) == ADDR_EXPR)
+      && is_gimple_val (ops[0]))
+    {
+      tree res = ops[0];
+      if (dump_file && dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "Match-and-simplified ");
+	  print_gimple_expr (dump_file, stmt, 0, TDF_SLIM);
+	  fprintf (dump_file, " to ");
+	  print_generic_expr (dump_file, res, 0);
+	  fprintf (dump_file, "\n");
+	}
+      return res;
+    }
+
   location_t loc = gimple_location (stmt);
   switch (gimple_code (stmt))
     {
@@ -4308,16 +4604,7 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
             }
 
           case GIMPLE_UNARY_RHS:
-            {
-              /* Handle unary operators that can appear in GIMPLE form.
-                 Note that we know the single operand must be a constant,
-                 so this should almost always return a simplified RHS.  */
-              tree op0 = (*valueize) (gimple_assign_rhs1 (stmt));
-
-              return
-		fold_unary_ignore_overflow_loc (loc, subcode,
-						gimple_expr_type (stmt), op0);
-            }
+	    return NULL_TREE;
 
           case GIMPLE_BINARY_RHS:
             {
@@ -5340,4 +5627,204 @@ rewrite_to_defined_overflow (gimple stmt)
   gimple_seq_add_stmt (&stmts, cvt);
 
   return stmts;
+}
+
+
+/* Build the expression CODE OP0 of type TYPE with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   OP0 is expected to be valueized already.  Returns the built
+   expression value and appends statements possibly defining it
+   to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum tree_code code, tree type, tree op0,
+	      tree (*valueize)(tree))
+{
+  tree res = gimple_simplify (code, type, op0, seq, valueize);
+  if (!res)
+    {
+      if (gimple_in_ssa_p (cfun))
+	res = make_ssa_name (type, NULL);
+      else
+	res = create_tmp_reg (type, NULL);
+      gimple stmt;
+      if (code == REALPART_EXPR
+	  || code == IMAGPART_EXPR
+	  || code == VIEW_CONVERT_EXPR)
+	stmt = gimple_build_assign_with_ops (code, res,
+					     build1 (code, type,
+						     op0), NULL_TREE);
+      else
+	stmt = gimple_build_assign_with_ops (code, res, op0, NULL_TREE);
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the expression OP0 CODE OP1 of type TYPE with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   OP0 and OP1 are expected to be valueized already.  Returns the built
+   expression value and appends statements possibly defining it
+   to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum tree_code code, tree type, tree op0, tree op1,
+	      tree (*valueize)(tree))
+{
+  tree res = gimple_simplify (code, type, op0, op1, seq, valueize);
+  if (!res)
+    {
+      if (gimple_in_ssa_p (cfun))
+	res = make_ssa_name (type, NULL);
+      else
+	res = create_tmp_reg (type, NULL);
+      gimple stmt = gimple_build_assign_with_ops (code, res, op0, op1);
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the expression (CODE OP0 OP1 OP2) of type TYPE with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   OP0, OP1 and OP2 are expected to be valueized already.  Returns the built
+   expression value and appends statements possibly defining it
+   to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum tree_code code, tree type, tree op0, tree op1, tree op2,
+	      tree (*valueize)(tree))
+{
+  tree res = gimple_simplify (code, type, op0, op1, op2,
+			      seq, valueize);
+  if (!res)
+    {
+      if (gimple_in_ssa_p (cfun))
+	res = make_ssa_name (type, NULL);
+      else
+	res = create_tmp_reg (type, NULL);
+      gimple stmt;
+      if (code == BIT_FIELD_REF)
+	stmt = gimple_build_assign_with_ops (code, res,
+					     build3 (BIT_FIELD_REF, type,
+						     op0, op1, op2),
+					     NULL_TREE);
+      else
+	stmt = gimple_build_assign_with_ops (code, res, op0, op1, op2);
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the call FN (ARG0) with a result of type TYPE
+   (or no result if TYPE is void) with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   ARG0 is expected to be valueized already.  Returns the built
+   expression value (or NULL_TREE if TYPE is void) and appends
+   statements possibly defining it to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum built_in_function fn, tree type, tree arg0,
+	      tree (*valueize)(tree))
+{
+  tree res = gimple_simplify (fn, type, arg0, seq, valueize);
+  if (!res)
+    {
+      tree decl = builtin_decl_implicit (fn);
+      gimple stmt = gimple_build_call (decl, 1, arg0);
+      if (!VOID_TYPE_P (type))
+	{
+	  if (gimple_in_ssa_p (cfun))
+	    res = make_ssa_name (type, NULL);
+	  else
+	    res = create_tmp_reg (type, NULL);
+	  gimple_call_set_lhs (stmt, res);
+	}
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the call FN (ARG0, ARG1) with a result of type TYPE
+   (or no result if TYPE is void) with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   ARG0 is expected to be valueized already.  Returns the built
+   expression value (or NULL_TREE if TYPE is void) and appends
+   statements possibly defining it to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum built_in_function fn, tree type, tree arg0, tree arg1,
+	      tree (*valueize)(tree))
+{
+  tree res = gimple_simplify (fn, type, arg0, arg1, seq, valueize);
+  if (!res)
+    {
+      tree decl = builtin_decl_implicit (fn);
+      gimple stmt = gimple_build_call (decl, 2, arg0, arg1);
+      if (!VOID_TYPE_P (type))
+	{
+	  if (gimple_in_ssa_p (cfun))
+	    res = make_ssa_name (type, NULL);
+	  else
+	    res = create_tmp_reg (type, NULL);
+	  gimple_call_set_lhs (stmt, res);
+	}
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the call FN (ARG0, ARG1, ARG2) with a result of type TYPE
+   (or no result if TYPE is void) with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   ARG0 is expected to be valueized already.  Returns the built
+   expression value (or NULL_TREE if TYPE is void) and appends
+   statements possibly defining it to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum built_in_function fn, tree type,
+	      tree arg0, tree arg1, tree arg2,
+	      tree (*valueize)(tree))
+{
+  tree res = gimple_simplify (fn, type, arg0, arg1, arg2, seq, valueize);
+  if (!res)
+    {
+      tree decl = builtin_decl_implicit (fn);
+      gimple stmt = gimple_build_call (decl, 3, arg0, arg1, arg2);
+      if (!VOID_TYPE_P (type))
+	{
+	  if (gimple_in_ssa_p (cfun))
+	    res = make_ssa_name (type, NULL);
+	  else
+	    res = create_tmp_reg (type, NULL);
+	  gimple_call_set_lhs (stmt, res);
+	}
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the conversion (TYPE) OP with a result of type TYPE
+   with location LOC if such conversion is neccesary in GIMPLE,
+   simplifying it first.
+   Returns the built expression value and appends
+   statements possibly defining it to SEQ.  */
+
+tree
+gimple_convert (gimple_seq *seq, location_t loc, tree type, tree op)
+{
+  if (useless_type_conversion_p (type, TREE_TYPE (op)))
+    return op;
+  return gimple_build (seq, loc, NOP_EXPR, type, op);
 }

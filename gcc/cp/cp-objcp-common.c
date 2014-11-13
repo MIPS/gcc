@@ -32,8 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cxx-pretty-print.h"
 #include "cp-objcp-common.h"
 
-#include <new>                       // For placement new.
-
 /* Special routine to get the alias set for C++.  */
 
 alias_set_type
@@ -134,22 +132,6 @@ cp_var_mod_type_p (tree type, tree fn)
   return false;
 }
 
-/* Construct a C++-aware pretty-printer for CONTEXT.  It is assumed
-   that CONTEXT->printer is an already constructed basic pretty_printer.  */
-void
-cxx_initialize_diagnostics (diagnostic_context *context)
-{
-  c_common_initialize_diagnostics (context);
-
-  pretty_printer *base = context->printer;
-  cxx_pretty_printer *pp = XNEW (cxx_pretty_printer);
-  context->printer = new (pp) cxx_pretty_printer ();
-
-  /* It is safe to free this object because it was previously XNEW()'d.  */
-  base->~pretty_printer ();
-  XDELETE (base);
-}
-
 /* This compares two types for equivalence ("compatible" in C-based languages).
    This routine should only return 1 if it is sure.  It should not be used
    in contexts where erroneously returning 0 causes problems.  */
@@ -168,6 +150,16 @@ cp_function_decl_explicit_p (tree decl)
   return (decl
 	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
 	  && DECL_NONCONVERTING_P (decl));
+}
+
+/* Return true if DECL is deleted special member function.  */
+
+bool
+cp_function_decl_deleted_p (tree decl)
+{
+  return (decl
+	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
+	  && DECL_DELETED_FN (decl));
 }
 
 /* Stubs to keep c-opts.c happy.  */

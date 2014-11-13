@@ -8,6 +8,7 @@
 #define GO_EXPRESSIONS_H
 
 #include <mpfr.h>
+#include <mpc.h>
 
 #include "operator.h"
 
@@ -51,6 +52,9 @@ class Temporary_statement;
 class Label;
 class Ast_dump_context;
 class String_dump;
+
+// The precision to use for complex values represented as an mpc_t.
+const int mpc_precision = 256;
 
 // The base class for all expressions.
 
@@ -103,6 +107,7 @@ class Expression
     EXPRESSION_HEAP,
     EXPRESSION_RECEIVE,
     EXPRESSION_TYPE_DESCRIPTOR,
+    EXPRESSION_GC_SYMBOL,
     EXPRESSION_TYPE_INFO,
     EXPRESSION_SLICE_INFO,
     EXPRESSION_SLICE_VALUE,
@@ -213,10 +218,20 @@ class Expression
   static Expression*
   make_character(const mpz_t*, Type*, Location);
 
-  // Make a constant integer expression.  TYPE should be NULL for an
-  // abstract type.
+  // Make a constant integer expression from a multi-precision
+  // integer.  TYPE should be NULL for an abstract type.
   static Expression*
-  make_integer(const mpz_t*, Type*, Location);
+  make_integer_z(const mpz_t*, Type*, Location);
+
+  // Make a constant integer expression from an unsigned long.  TYPE
+  // should be NULL for an abstract type.
+  static Expression*
+  make_integer_ul(unsigned long, Type*, Location);
+
+  // Make a constant integer expression from a signed long.  TYPE
+  // should be NULL for an abstract type.
+  static Expression*
+  make_integer_sl(long, Type*, Location);
 
   // Make a constant float expression.  TYPE should be NULL for an
   // abstract type.
@@ -226,7 +241,7 @@ class Expression
   // Make a constant complex expression.  TYPE should be NULL for an
   // abstract type.
   static Expression*
-  make_complex(const mpfr_t* real, const mpfr_t* imag, Type*, Location);
+  make_complex(const mpc_t*, Type*, Location);
 
   // Make a nil expression.
   static Expression*
@@ -348,6 +363,11 @@ class Expression
   // descriptor for TYPE.
   static Expression*
   make_type_descriptor(Type* type, Location);
+
+  // Make an expression which evaluates to the address of the gc
+  // symbol for TYPE.
+  static Expression*
+  make_gc_symbol(Type* type);
 
   // Make an expression which evaluates to some characteristic of a
   // type.  These are only used for type descriptors, so there is no
@@ -1513,6 +1533,10 @@ class Binary_expression : public Expression
   { return this->left_->is_constant() && this->right_->is_constant(); }
 
   bool
+  do_is_immutable() const
+  { return this->left_->is_immutable() && this->right_->is_immutable(); }
+
+  bool
   do_numeric_constant_value(Numeric_constant*) const;
 
   bool
@@ -1607,8 +1631,8 @@ class Call_expression : public Expression
     : Expression(EXPRESSION_CALL, location),
       fn_(fn), args_(args), type_(NULL), results_(NULL), call_(NULL),
       call_temp_(NULL), expected_result_count_(0), is_varargs_(is_varargs),
-      are_hidden_fields_ok_(false), varargs_are_lowered_(false),
-      types_are_determined_(false), is_deferred_(false), issued_error_(false)
+      varargs_are_lowered_(false), types_are_determined_(false),
+      is_deferred_(false), issued_error_(false)
   { }
 
   // The function to call.
@@ -1663,12 +1687,6 @@ class Call_expression : public Expression
   void
   set_varargs_are_lowered()
   { this->varargs_are_lowered_ = true; }
-
-  // Note that it is OK for this call to set hidden fields when
-  // passing arguments.
-  void
-  set_hidden_fields_are_ok()
-  { this->are_hidden_fields_ok_ = true; }
 
   // Whether this call is being deferred.
   bool
@@ -1778,9 +1796,6 @@ class Call_expression : public Expression
   size_t expected_result_count_;
   // True if the last argument is a varargs argument (f(a...)).
   bool is_varargs_;
-  // True if this statement may pass hidden fields in the arguments.
-  // This is used for generated method stubs.
-  bool are_hidden_fields_ok_;
   // True if varargs have already been lowered.
   bool varargs_are_lowered_;
   // True if types have been determined.
@@ -2574,7 +2589,7 @@ class Numeric_constant
 
   // Set to a complex value.
   void
-  set_complex(Type*, const mpfr_t, const mpfr_t);
+  set_complex(Type*, const mpc_t);
 
   // Classifiers.
   bool
@@ -2606,7 +2621,7 @@ class Numeric_constant
   get_float(mpfr_t*) const;
 
   void
-  get_complex(mpfr_t*, mpfr_t*) const;
+  get_complex(mpc_t*) const;
 
   // Codes returned by to_unsigned_long.
   enum To_unsigned_long
@@ -2642,7 +2657,7 @@ class Numeric_constant
   // If the value can be expressed as a complex, return true and
   // initialize and set VR and VI.
   bool
-  to_complex(mpfr_t* vr, mpfr_t* vi) const;
+  to_complex(mpc_t* val) const;
 
   // Get the type.
   Type*
@@ -2698,11 +2713,7 @@ class Numeric_constant
     // If NC_FLOAT.
     mpfr_t float_val;
     // If NC_COMPLEX.
-    struct
-    {
-      mpfr_t real;
-      mpfr_t imag;
-    } complex_val;
+    mpc_t complex_val;
   } u_;
   // The type if there is one.  This will be NULL for an untyped
   // constant.

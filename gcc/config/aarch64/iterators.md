@@ -66,6 +66,12 @@
 ;; Quad vector modes.
 (define_mode_iterator VQ [V16QI V8HI V4SI V2DI V4SF V2DF])
 
+;; VQ without 2 element modes.
+(define_mode_iterator VQ_NO2E [V16QI V8HI V4SI V4SF])
+
+;; Quad vector with only 2 element modes.
+(define_mode_iterator VQ_2E [V2DI V2DF])
+
 ;; All vector modes, except double.
 (define_mode_iterator VQ_S [V8QI V16QI V4HI V8HI V2SI V4SI])
 
@@ -88,6 +94,9 @@
 
 ;; Vector Float modes.
 (define_mode_iterator VDQF [V2SF V4SF V2DF])
+
+;; Vector Float modes, and DF.
+(define_mode_iterator VDQF_DF [V2SF V4SF V2DF DF])
 
 ;; Vector single Float modes.
 (define_mode_iterator VDQSF [V2SF V4SF])
@@ -137,9 +146,6 @@
 
 ;; Double vector modes for combines.
 (define_mode_iterator VDIC [V8QI V4HI V2SI])
-
-;; Double vector modes, inc. V1DF and the DI "vector" mode, for VREINTERPRET.
-(define_mode_iterator VD_RE [V8QI V4HI V2SI DI V1DF V2SF])
 
 ;; Double vector modes inc V1DF
 (define_mode_iterator VD1 [V8QI V4HI V2SI V2SF V1DF])
@@ -207,8 +213,7 @@
     UNSPEC_FMINNMV	; Used in aarch64-simd.md.
     UNSPEC_FMINV	; Used in aarch64-simd.md.
     UNSPEC_FADDV	; Used in aarch64-simd.md.
-    UNSPEC_SADDV	; Used in aarch64-simd.md.
-    UNSPEC_UADDV	; Used in aarch64-simd.md.
+    UNSPEC_ADDV		; Used in aarch64-simd.md.
     UNSPEC_SMAXV	; Used in aarch64-simd.md.
     UNSPEC_SMINV	; Used in aarch64-simd.md.
     UNSPEC_UMAXV	; Used in aarch64-simd.md.
@@ -355,6 +360,9 @@
 
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
+
+;; Attribute to describe constants acceptable in atomic logical operations
+(define_mode_attr lconst_atomic [(QI "K") (HI "K") (SI "K") (DI "L")])
 
 ;; Map a mode to a specific constraint character.
 (define_mode_attr cmode [(QI "q") (HI "h") (SI "s") (DI "d")])
@@ -531,6 +539,14 @@
 				(V2SF "v2si") (V4SF  "v4si")
 				(V2DF "v2di") (DF    "di")
 				(SF   "si")])
+
+;; Lower case element modes (as used in shift immediate patterns).
+(define_mode_attr ve_mode [(V8QI "qi") (V16QI "qi")
+			   (V4HI "hi") (V8HI  "hi")
+			   (V2SI "si") (V4SI  "si")
+			   (DI   "di") (V2DI  "di")
+			   (QI   "qi") (HI    "hi")
+			   (SI   "si")])
 
 ;; Vm for lane instructions is restricted to FP_LO_REGS.
 (define_mode_attr vwx [(V4HI "x") (V8HI "x") (HI "x")
@@ -845,8 +861,6 @@
 (define_int_iterator FMAXMINV [UNSPEC_FMAXV UNSPEC_FMINV
 			       UNSPEC_FMAXNMV UNSPEC_FMINNMV])
 
-(define_int_iterator SUADDV [UNSPEC_SADDV UNSPEC_UADDV])
-
 (define_int_iterator HADDSUB [UNSPEC_SHADD UNSPEC_UHADD
 			      UNSPEC_SRHADD UNSPEC_URHADD
 			      UNSPEC_SHSUB UNSPEC_UHSUB
@@ -951,7 +965,6 @@
 		      (UNSPEC_SUBHN2 "") (UNSPEC_RSUBHN2 "r")
 		      (UNSPEC_SQXTN "s") (UNSPEC_UQXTN "u")
 		      (UNSPEC_USQADD "us") (UNSPEC_SUQADD "su")
-		      (UNSPEC_SADDV "s") (UNSPEC_UADDV "u")
 		      (UNSPEC_SSLI  "s") (UNSPEC_USLI  "u")
 		      (UNSPEC_SSRI  "s") (UNSPEC_USRI  "u")
 		      (UNSPEC_USRA  "u") (UNSPEC_SSRA  "s")
@@ -1001,8 +1014,9 @@
 			 (UNSPEC_RADDHN2 "add")
 			 (UNSPEC_RSUBHN2 "sub")])
 
-(define_int_attr offsetlr [(UNSPEC_SSLI	"1") (UNSPEC_USLI "1")
-			   (UNSPEC_SSRI	"0") (UNSPEC_USRI "0")])
+(define_int_attr offsetlr [(UNSPEC_SSLI "") (UNSPEC_USLI "")
+			   (UNSPEC_SSRI "offset_")
+			   (UNSPEC_USRI "offset_")])
 
 ;; Standard pattern names for floating-point rounding instructions.
 (define_int_attr frint_pattern [(UNSPEC_FRINTZ "btrunc")

@@ -126,7 +126,7 @@ struct operand_data
   int index;
   const char *predicate;
   const char *constraint;
-  enum machine_mode mode;
+  machine_mode mode;
   unsigned char n_alternatives;
   char address_p;
   char strict_low;
@@ -248,6 +248,7 @@ output_prologue (void)
   printf ("#include \"output.h\"\n");
   printf ("#include \"target.h\"\n");
   printf ("#include \"tm-constrs.h\"\n");
+  printf ("#include \"predict.h\"\n");
 }
 
 static void
@@ -643,7 +644,7 @@ process_template (struct data *d, const char *template_code)
       d->output_format = INSN_OUTPUT_FORMAT_FUNCTION;
 
       puts ("\nstatic const char *");
-      printf ("output_%d (rtx *operands ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED)\n",
+      printf ("output_%d (rtx *operands ATTRIBUTE_UNUSED, rtx_insn *insn ATTRIBUTE_UNUSED)\n",
 	      d->code_number);
       puts ("{");
       print_md_ptr_loc (template_code);
@@ -672,7 +673,7 @@ process_template (struct data *d, const char *template_code)
 	  d->output_format = INSN_OUTPUT_FORMAT_FUNCTION;
 	  puts ("\nstatic const char *");
 	  printf ("output_%d (rtx *operands ATTRIBUTE_UNUSED, "
-		  "rtx insn ATTRIBUTE_UNUSED)\n", d->code_number);
+		  "rtx_insn *insn ATTRIBUTE_UNUSED)\n", d->code_number);
 	  puts ("{");
 	  puts ("  switch (which_alternative)\n    {");
 	}
@@ -769,6 +770,7 @@ validate_insn_alternatives (struct data *d)
 	char c;
 	int which_alternative = 0;
 	int alternative_count_unsure = 0;
+	bool seen_write = false;
 
 	for (p = d->operand[start].constraint; (c = *p); p += len)
 	  {
@@ -777,6 +779,18 @@ validate_insn_alternatives (struct data *d)
 	      error_with_line (d->lineno,
 			       "character '%c' can only be used at the"
 			       " beginning of a constraint string", c);
+
+	    if (c == '=' || c == '+')
+	      seen_write = true;
+
+	    /* Earlyclobber operands must always be marked write-only
+	       or read/write.  */
+	    if (!seen_write && c == '&')
+	      error_with_line (d->lineno,
+			       "earlyclobber operands may not be"
+			       " read-only in alternative %d",
+			       which_alternative);
+
 	    if (ISSPACE (c) || strchr (indep_constraints, c))
 	      len = 1;
 	    else if (ISDIGIT (c))

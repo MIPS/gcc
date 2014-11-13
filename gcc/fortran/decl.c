@@ -1904,8 +1904,9 @@ variable_decl (int elem)
     }
 
   /*  If this symbol has already shown up in a Cray Pointer declaration,
+      and this is not a component declaration,
       then we want to set the type & bail out.  */
-  if (gfc_option.flag_cray_pointer)
+  if (gfc_option.flag_cray_pointer && gfc_current_state () != COMP_DERIVED)
     {
       gfc_find_symbol (name, gfc_current_ns, 1, &sym);
       if (sym != NULL && sym->attr.cray_pointee)
@@ -2945,7 +2946,66 @@ get_kind:
 match
 gfc_match_implicit_none (void)
 {
-  return (gfc_match_eos () == MATCH_YES) ? MATCH_YES : MATCH_NO;
+  char c;
+  match m;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  bool type = false;
+  bool external = false;
+  locus cur_loc = gfc_current_locus;
+
+  if (gfc_current_ns->seen_implicit_none
+      || gfc_current_ns->has_implicit_none_export)
+    {
+      gfc_error ("Duplicate IMPLICIT NONE statement at %C");
+      return MATCH_ERROR;
+    }
+
+  gfc_gobble_whitespace ();
+  c = gfc_peek_ascii_char ();
+  if (c == '(')
+    {
+      (void) gfc_next_ascii_char ();
+      if (!gfc_notify_std (GFC_STD_F2015, "IMPORT NONE with spec list at %C"))
+	return MATCH_ERROR;
+
+      gfc_gobble_whitespace ();
+      if (gfc_peek_ascii_char () == ')')
+	{
+	  (void) gfc_next_ascii_char ();
+	  type = true;
+	}
+      else
+	for(;;)
+	  {
+	    m = gfc_match (" %n", name);
+	    if (m != MATCH_YES)
+	      return MATCH_ERROR;
+
+	    if (strcmp (name, "type") == 0)
+	      type = true;
+	    else if (strcmp (name, "external") == 0)
+	      external = true;
+	    else
+	      return MATCH_ERROR;
+
+	    gfc_gobble_whitespace ();
+	    c = gfc_next_ascii_char ();
+	    if (c == ',')
+	      continue;
+	    if (c == ')')
+	      break;
+	    return MATCH_ERROR;
+	  }
+    }
+  else
+    type = true;
+
+  if (gfc_match_eos () != MATCH_YES)
+    return MATCH_ERROR;
+
+  gfc_set_implicit_none (type, external, &cur_loc);
+
+  return MATCH_YES;
 }
 
 
@@ -3061,6 +3121,13 @@ gfc_match_implicit (void)
   char c;
   match m;
 
+  if (gfc_current_ns->seen_implicit_none)
+    {
+      gfc_error ("IMPLICIT statement at %C following an IMPLICIT NONE (type) "
+		 "statement");
+      return MATCH_ERROR;
+    }
+
   gfc_clear_ts (&ts);
 
   /* We don't allow empty implicit statements.  */
@@ -3089,8 +3156,8 @@ gfc_match_implicit (void)
 	{
 	  /* We may have <TYPE> (<RANGE>).  */
 	  gfc_gobble_whitespace ();
-	  c = gfc_next_ascii_char ();
-	  if ((c == '\n') || (c == ','))
+          c = gfc_peek_ascii_char ();
+	  if (c == ',' || c == '\n' || c == ';' || c == '!')
 	    {
 	      /* Check for CHARACTER with no length parameter.  */
 	      if (ts.type == BT_CHARACTER && !ts.u.cl)
@@ -3104,6 +3171,10 @@ gfc_match_implicit (void)
 	      /* Record the Successful match.  */
 	      if (!gfc_merge_new_implicit (&ts))
 		return MATCH_ERROR;
+	      if (c == ',')
+		c = gfc_next_ascii_char ();
+	      else if (gfc_match_eos () == MATCH_ERROR)
+		goto error;
 	      continue;
 	    }
 
@@ -3139,7 +3210,7 @@ gfc_match_implicit (void)
 
       gfc_gobble_whitespace ();
       c = gfc_next_ascii_char ();
-      if ((c != '\n') && (c != ','))
+      if (c != ',' && gfc_match_eos () != MATCH_YES)
 	goto syntax;
 
       if (!gfc_merge_new_implicit (&ts))
@@ -3237,7 +3308,7 @@ gfc_match_import (void)
 	    {
 	      /* The actual derived type is stored in a symtree with the first
 		 letter of the name capitalized; the symtree with the all
-		 lower-case name contains the associated generic function. */
+		 lower-case name contains the associated generic function.  */
 	      st = gfc_new_symtree (&gfc_current_ns->sym_root,
 			gfc_get_string ("%c%s",
 				(char) TOUPPER ((unsigned char) name[0]),
@@ -4856,7 +4927,7 @@ match_procedure_decl (void)
   int num;
   gfc_expr *initializer = NULL;
 
-  /* Parse interface (with brackets). */
+  /* Parse interface (with brackets).  */
   m = match_procedure_interface (&proc_if);
   if (m != MATCH_YES)
     return m;
@@ -5697,7 +5768,7 @@ gfc_match_subroutine (void)
     return MATCH_ERROR;
 
   /* Set declared_at as it might point to, e.g., a PUBLIC statement, if
-     the symbol existed before. */
+     the symbol existed before.  */
   sym->declared_at = gfc_current_locus;
 
   if (add_hidden_procptr_result (sym))
@@ -5942,7 +6013,7 @@ gfc_match_bind_c (gfc_symbol *sym, bool allow_binding_name)
       /* No binding label, but if symbol isn't null, we
 	 can set the label for it here.
 	 If name="" or allow_binding_name is false, no C binding name is
-	 created. */
+	 created.  */
       if (sym != NULL && sym->name != NULL && has_name_equals == 0)
 	sym->binding_label = IDENTIFIER_POINTER (get_identifier (sym->name));
     }
@@ -7232,7 +7303,7 @@ gfc_match_volatile (void)
   for(;;)
     {
       /* VOLATILE is special because it can be added to host-associated
-	 symbols locally. Except for coarrays. */
+	 symbols locally.  Except for coarrays.  */
       m = gfc_match_symbol (&sym, 1);
       switch (m)
 	{

@@ -26,11 +26,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "stringpool.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "cp-tree.h"
 #include "toplev.h"
-#include "vec.h"
 
 /* Constructor for a lambda expression.  */
 
@@ -474,7 +485,7 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
     }
   else if (variably_modified_type_p (type, NULL_TREE))
     {
-      error ("capture of variable-size type %qT that is not a C++1y array "
+      error ("capture of variable-size type %qT that is not a C++14 array "
 	     "of runtime bound", type);
       if (TREE_CODE (type) == ARRAY_TYPE
 	  && variably_modified_type_p (TREE_TYPE (type), NULL_TREE))
@@ -724,7 +735,8 @@ lambda_expr_this_capture (tree lambda, bool add_capture_p)
 
   if (!this_capture)
     {
-      error ("%<this%> was not captured for this lambda function");
+      if (add_capture_p)
+	error ("%<this%> was not captured for this lambda function");
       result = error_mark_node;
     }
   else
@@ -768,11 +780,23 @@ maybe_resolve_dummy (tree object, bool add_capture_p)
       /* In a lambda, need to go through 'this' capture.  */
       tree lam = CLASSTYPE_LAMBDA_EXPR (current_class_type);
       tree cap = lambda_expr_this_capture (lam, add_capture_p);
-      object = build_x_indirect_ref (EXPR_LOCATION (object), cap,
-				     RO_NULL, tf_warning_or_error);
+      if (cap != error_mark_node)
+	object = build_x_indirect_ref (EXPR_LOCATION (object), cap,
+				       RO_NULL, tf_warning_or_error);
     }
 
   return object;
+}
+
+/* Returns the innermost non-lambda function.  */
+
+tree
+current_nonlambda_function (void)
+{
+  tree fn = current_function_decl;
+  while (fn && LAMBDA_FUNCTION_P (fn))
+    fn = decl_function_context (fn);
+  return fn;
 }
 
 /* Returns the method basetype of the innermost non-lambda function, or

@@ -42,6 +42,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "calls.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -51,7 +59,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "splay-tree.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
+#include "bitmap.h"
 #include "ipa-reference.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -387,7 +400,7 @@ propagate_bits (ipa_reference_global_vars_info_t x_global, struct cgraph_node *x
 		 seems so to local analysis.  If we cannot return from
 		 the function, we can safely ignore the call.  */
 	      if ((flags & ECF_PURE)
-		  || cgraph_edge_cannot_lead_to_return (e))
+		  || e->cannot_lead_to_return_p ())
 		continue;
 
 	      union_static_var_sets (x_global->statics_written,
@@ -399,17 +412,17 @@ propagate_bits (ipa_reference_global_vars_info_t x_global, struct cgraph_node *x
     }
 }
 
+static bool ipa_init_p = false;
+
 /* The init routine for analyzing global static variable usage.  See
    comments at top for description.  */
 static void
 ipa_init (void)
 {
-  static bool init_p = false;
-
-  if (init_p)
+  if (ipa_init_p)
     return;
 
-  init_p = true;
+  ipa_init_p = true;
 
   if (dump_file)
     reference_vars_to_consider = splay_tree_new (splay_tree_compare_ints, 0, 0);
@@ -419,9 +432,9 @@ ipa_init (void)
   all_module_statics = BITMAP_ALLOC (&optimization_summary_obstack);
 
   node_removal_hook_holder =
-      cgraph_add_node_removal_hook (&remove_node_data, NULL);
+      symtab->add_cgraph_removal_hook (&remove_node_data, NULL);
   node_duplication_hook_holder =
-      cgraph_add_node_duplication_hook (&duplicate_node_data, NULL);
+      symtab->add_cgraph_duplication_hook (&duplicate_node_data, NULL);
 }
 
 
@@ -642,7 +655,7 @@ get_read_write_all_from_node (struct cgraph_node *node,
 	read_all = true;
 	if (dump_file && (dump_flags & TDF_DETAILS))
 	  fprintf (dump_file, "   indirect call -> read all\n");
-	if (!cgraph_edge_cannot_lead_to_return (ie)
+	if (!ie->cannot_lead_to_return_p ()
 	    && !(ie->indirect_info->ecf_flags & ECF_PURE))
 	  {
 	    if (dump_file && (dump_flags & TDF_DETAILS))
@@ -660,7 +673,7 @@ propagate (void)
 {
   struct cgraph_node *node;
   struct cgraph_node **order =
-    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+    XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
   int order_pos;
   int i;
 
@@ -1011,9 +1024,9 @@ ipa_reference_read_optimization_summary (void)
   bitmap_obstack_initialize (&optimization_summary_obstack);
 
   node_removal_hook_holder =
-      cgraph_add_node_removal_hook (&remove_node_data, NULL);
+      symtab->add_cgraph_removal_hook (&remove_node_data, NULL);
   node_duplication_hook_holder =
-      cgraph_add_node_duplication_hook (&duplicate_node_data, NULL);
+      symtab->add_cgraph_duplication_hook (&duplicate_node_data, NULL);
   all_module_statics = BITMAP_ALLOC (&optimization_summary_obstack);
 
   while ((file_data = file_data_vec[j++]))
@@ -1172,4 +1185,13 @@ ipa_opt_pass_d *
 make_pass_ipa_reference (gcc::context *ctxt)
 {
   return new pass_ipa_reference (ctxt);
+}
+
+/* Reset all state within ipa-reference.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+ipa_reference_c_finalize (void)
+{
+  ipa_init_p = false;
 }

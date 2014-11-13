@@ -24,16 +24,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "calls.h"
 #include "stringpool.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "hash-map.h"
-#include "hash-set.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "flags.h"
 #include "target.h"
 #include "tree-iterator.h"
 #include "ipa-utils.h"
+#include "alloc-pool.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "tree-inline.h"
 #include "profile.h"
@@ -114,7 +127,7 @@ process_references (symtab_node *snode,
       if (node->definition && !node->in_other_partition
 	  && ((!DECL_EXTERNAL (node->decl) || node->alias)
 	      || (((before_inlining_p
-		    && (cgraph_state < CGRAPH_STATE_IPA_SSA
+		    && (symtab->state < IPA_SSA
 		        || !lookup_attribute ("always_inline",
 					      DECL_ATTRIBUTES (node->decl)))))
 		  /* We use variable constructors during late complation for
@@ -169,7 +182,7 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 	     devirtualization.  */
 	   if (n->definition
 	       && (before_inlining_p
-		   && (cgraph_state < CGRAPH_STATE_IPA_SSA
+		   && (symtab->state < IPA_SSA
 		       || !lookup_attribute ("always_inline",
 					     DECL_ATTRIBUTES (n->decl)))))
 	     reachable->add (n);
@@ -198,18 +211,28 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 
 	  if (dump_enabled_p ())
             {
-	      location_t locus = gimple_location (edge->call_stmt);
+	      location_t locus;
+	      if (edge->call_stmt)
+		locus = gimple_location (edge->call_stmt);
+	      else
+		locus = UNKNOWN_LOCATION;
 	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
                                "devirtualizing call in %s/%i to %s/%i\n",
                                edge->caller->name (), edge->caller->order,
                                target->name (),
                                target->order);
 	    }
-	  edge = cgraph_make_edge_direct (edge, target);
+	  edge = edge->make_direct (target);
 	  if (inline_summary_vec)
 	    inline_update_overall_summary (node);
 	  else if (edge->call_stmt)
-	    cgraph_redirect_edge_call_stmt_to_callee (edge);
+	    {
+	      edge->redirect_call_stmt_to_callee ();
+
+	      /* Call to __builtin_unreachable shouldn't be instrumented.  */
+	      if (!targets.length ())
+		gimple_call_set_with_bounds (edge->call_stmt, false);
+	    }
 	}
     }
 }
@@ -270,7 +293,7 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
    we set AUX pointer of processed symbols in the boundary to constant 2.  */
 
 bool
-symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
+symbol_table::remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 {
   symtab_node *first = (symtab_node *) (void *) 1;
   struct cgraph_node *node, *next;
@@ -448,9 +471,9 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
     }
 
   /* Remove unreachable functions.   */
-  for (node = cgraph_first_function (); node; node = next)
+  for (node = first_function (); node; node = next)
     {
-      next = cgraph_next_function (node);
+      next = next_function (node);
 
       /* If node is not needed at all, remove it.  */
       if (!node->aux)
@@ -490,6 +513,12 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      node->remove_from_same_comdat_group ();
 	      node->remove_all_references ();
 	      changed = true;
+	      if (node->thunk.thunk_p
+		  && node->thunk.add_pointer_bounds_args)
+		{
+		  node->thunk.thunk_p = false;
+		  node->thunk.add_pointer_bounds_args = false;
+		}
 	    }
 	}
       else
@@ -515,9 +544,9 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
   /* Remove unreachable variables.  */
   if (file)
     fprintf (file, "\nReclaiming variables:");
-  for (vnode = varpool_first_variable (); vnode; vnode = vnext)
+  for (vnode = first_variable (); vnode; vnode = vnext)
     {
-      vnext = varpool_next_variable (vnode);
+      vnext = next_variable (vnode);
       if (!vnode->aux
 	  /* For can_refer_decl_in_current_unit_p we want to track for
 	     all external variables if they are defined in other partition
@@ -538,6 +567,12 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		fprintf (file, " %s", vnode->name ());
 	      changed = true;
 	    }
+	  /* Keep body if it may be useful for constant folding.  */
+	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node
+	      && !POINTER_BOUNDS_P (vnode->decl))
+	    vnode->remove_initializer ();
+	  else
+	    DECL_INITIAL (vnode->decl) = init;
 	  vnode->body_removed = true;
 	  vnode->definition = false;
 	  vnode->analyzed = false;
@@ -545,11 +580,6 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 
 	  vnode->remove_from_same_comdat_group ();
 
-	  /* Keep body if it may be useful for constant folding.  */
-	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node)
-	    vnode->remove_initializer ();
-	  else
-	    DECL_INITIAL (vnode->decl) = init;
 	  vnode->remove_all_references ();
 	}
       else
@@ -564,7 +594,10 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	&& !node->used_from_other_partition)
       {
 	if (!node->call_for_symbol_thunks_and_aliases
-	  (has_addr_references_p, NULL, true))
+	    (has_addr_references_p, NULL, true)
+	    && (!node->instrumentation_clone
+		|| !node->instrumented_version
+		|| !node->instrumented_version->address_taken))
 	  {
 	    if (file)
 	      fprintf (file, " %s", node->name ());
@@ -627,6 +660,8 @@ process_references (varpool_node *vnode,
 	process_references (dyn_cast<varpool_node *> (ref->referring), written,
 			    address_taken, read, explicit_refs);
 	break;
+      case IPA_REF_CHKP:
+	gcc_unreachable ();
       }
 }
 
@@ -727,14 +762,17 @@ namespace {
 const pass_data pass_data_ipa_free_inline_summary =
 {
   SIMPLE_IPA_PASS, /* type */
-  "*free_inline_summary", /* name */
+  "free-inline-summary", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_IPA_FREE_INLINE_SUMMARY, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  0, /* todo_flags_finish */
+  /* Early optimizations may make function unreachable.  We can not
+     remove unreachable functions as part of the ealry opts pass because
+     TODOs are run before subpasses.  Do it here.  */
+  ( TODO_remove_functions | TODO_dump_symtab ), /* todo_flags_finish */
 };
 
 class pass_ipa_free_inline_summary : public simple_ipa_opt_pass
@@ -762,9 +800,11 @@ make_pass_ipa_free_inline_summary (gcc::context *ctxt)
 }
 
 /* Generate and emit a static constructor or destructor.  WHICH must
-   be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
-   is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority for this constructor or destructor. 
+   be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
+   (for chp static vars constructor) or 'B' (for chkp static bounds
+   constructor).  BODY is a STATEMENT_LIST containing GENERIC
+   statements.  PRIORITY is the initialization priority for this
+   constructor or destructor.
 
    FINAL specify whether the externally visible name for collect2 should
    be produced. */
@@ -823,6 +863,20 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
       decl_init_priority_insert (decl, priority);
       break;
+    case 'P':
+      DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("chkp ctor"),
+					  NULL,
+					  NULL_TREE);
+      decl_init_priority_insert (decl, priority);
+      break;
+    case 'B':
+      DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("bnd_legacy"),
+					  NULL,
+					  NULL_TREE);
+      decl_init_priority_insert (decl, priority);
+      break;
     case 'D':
       DECL_STATIC_DESTRUCTOR (decl) = 1;
       decl_fini_priority_insert (decl, priority);
@@ -840,9 +894,11 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
 }
 
 /* Generate and emit a static constructor or destructor.  WHICH must
-   be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
-   is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority for this constructor or destructor.  */
+   be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
+   (for chkp static vars constructor) or 'B' (for chkp static bounds
+   constructor).  BODY is a STATEMENT_LIST containing GENERIC
+   statements.  PRIORITY is the initialization priority for this
+   constructor or destructor.  */
 
 void
 cgraph_build_static_cdtor (char which, tree body, int priority)

@@ -3449,7 +3449,7 @@
 	 [(match_operand:SI 1 "s_register_operand" "r")
 	  (match_operand:SI 2 "s_register_operand" "r")]))
    (clobber (reg:CC CC_REGNUM))]
-  "TARGET_32BIT && optimize_function_for_size_p (cfun)"
+  "TARGET_32BIT && optimize_function_for_size_p (cfun) && !arm_restrict_it"
   "*
   operands[3] = gen_rtx_fmt_ee (minmax_code (operands[3]), SImode,
 				operands[1], operands[2]);
@@ -3538,7 +3538,7 @@
               (set (match_dup 0)
                    (match_dup 6)))]
   {
-  enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+  machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
                                            operands[2], operands[3]);
   enum rtx_code rc = minmax_code (operands[4]);
   operands[4] = gen_rtx_fmt_ee (rc, VOIDmode,
@@ -4876,7 +4876,7 @@
   [(set (match_dup 0) (match_dup 1))]
 {
   rtx lo_part = gen_lowpart (SImode, operands[0]);
-  enum machine_mode src_mode = GET_MODE (operands[1]);
+  machine_mode src_mode = GET_MODE (operands[1]);
 
   if (REG_P (operands[0])
       && !reg_overlap_mentioned_p (operands[0], operands[1]))
@@ -4902,7 +4902,7 @@
   [(set (match_dup 0) (ashiftrt:SI (match_dup 1) (const_int 31)))]
 {
   rtx lo_part = gen_lowpart (SImode, operands[0]);
-  enum machine_mode src_mode = GET_MODE (operands[1]);
+  machine_mode src_mode = GET_MODE (operands[1]);
 
   if (REG_P (operands[0])
       && !reg_overlap_mentioned_p (operands[0], operands[1]))
@@ -6425,7 +6425,7 @@
 
 (define_insn "*arm_movqi_insn"
   [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r,r,l,r,l,Uu,r,m")
-	(match_operand:QI 1 "general_operand" "rk,rk,I,Py,K,Uu,l,m,r"))]
+	(match_operand:QI 1 "general_operand" "rk,rk,I,Py,K,Uu,l,Uh,r"))]
   "TARGET_32BIT
    && (   register_operand (operands[0], QImode)
        || register_operand (operands[1], QImode))"
@@ -6713,6 +6713,20 @@
 			      INTVAL (operands[2]),
 			      force_reg (SImode, XEXP (operands[0], 0)),
 			      FALSE, operands[0], &offset);
+})
+
+
+(define_expand "setmemsi"
+  [(match_operand:BLK 0 "general_operand" "")
+   (match_operand:SI 1 "const_int_operand" "")
+   (match_operand:SI 2 "const_int_operand" "")
+   (match_operand:SI 3 "const_int_operand" "")]
+  "TARGET_32BIT"
+{
+  if (arm_gen_setmem (operands))
+    DONE;
+
+  FAIL;
 })
 
 
@@ -7439,7 +7453,7 @@
   [(const_int 0)]
   {
     enum rtx_code rev_code;
-    enum machine_mode mode;
+    machine_mode mode;
     rtx rev_cond;
 
     emit_insn (gen_rtx_COND_EXEC (VOIDmode,
@@ -8369,7 +8383,7 @@
    (cond_exec (match_dup 4) (set (match_dup 0)
                                  (and:SI (match_dup 3) (const_int 1))))]
   {
-    enum machine_mode mode = GET_MODE (operands[2]);
+    machine_mode mode = GET_MODE (operands[2]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
     /* Note that operands[4] is the same as operands[1],
@@ -8403,7 +8417,7 @@
    (cond_exec (match_dup 4) (set (match_dup 0)
                                  (ior:SI (match_dup 3) (const_int 1))))]
   {
-    enum machine_mode mode = GET_MODE (operands[2]);
+    machine_mode mode = GET_MODE (operands[2]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
     /* Note that operands[4] is the same as operands[1],
@@ -8507,7 +8521,7 @@
    (cond_exec (match_dup 5) (set (match_dup 0) (const_int 1)))]
 {
   rtx tmp1;
-  enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+  machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					   operands[2], operands[3]);
   enum rtx_code rc = GET_CODE (operands[1]);
 
@@ -9311,13 +9325,19 @@
 	      (set (match_dup 0) (match_dup 2)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[5]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[5]),
 					     operands[3], operands[4]);
     enum rtx_code rc = GET_CODE (operands[5]);
-
     operands[6] = gen_rtx_REG (mode, CC_REGNUM);
     gcc_assert (!(mode == CCFPmode || mode == CCFPEmode));
-    rc = reverse_condition (rc);
+    if (REGNO (operands[2]) != REGNO (operands[0]))
+      rc = reverse_condition (rc);
+    else 
+      {
+	rtx tmp = operands[1];
+	operands[1] = operands[2];
+	operands[2] = tmp;
+      }
 
     operands[6] = gen_rtx_fmt_ee (rc, VOIDmode, operands[6], const0_rtx);
   }
@@ -10201,7 +10221,7 @@
 	      (set (match_dup 0) (match_dup 4)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
@@ -10229,7 +10249,7 @@
 	      (set (match_dup 0) (match_dup 4)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
 
     operands[5] = gen_rtx_REG (mode, CC_REGNUM);
@@ -10252,7 +10272,7 @@
 	      (set (match_dup 0) (match_dup 5)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
@@ -10284,7 +10304,7 @@
 	      (set (match_dup 0) (not:SI (match_dup 5))))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
@@ -10514,7 +10534,7 @@
     int num_regs = XVECLEN (operands[0], 0);
     char pattern[100];
     rtx op_list[2];
-    strcpy (pattern, \"fldmfdd\\t\");
+    strcpy (pattern, \"vldm\\t\");
     strcat (pattern, reg_names[REGNO (SET_DEST (XVECEXP (operands[0], 0, 0)))]);
     strcat (pattern, \"!, {\");
     op_list[0] = XEXP (XVECEXP (operands[0], 0, 1), 0);

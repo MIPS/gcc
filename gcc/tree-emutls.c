@@ -23,6 +23,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -33,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-walk.h"
 #include "tree-pass.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
@@ -42,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "targhooks.h"
 #include "tree-iterator.h"
-#include "hash-map.h"
 
 /* Whenever a target does not support thread-local storage (TLS) natively,
    we can emulate it with some run-time support in libgcc.  This will in
@@ -274,7 +287,7 @@ get_emutls_init_templ_addr (tree decl)
   if (DECL_EXTERNAL (to))
     varpool_node::get_create (to);
   else
-    varpool_add_new_variable (to);
+    varpool_node::add (to);
   return build_fold_addr_expr (to);
 }
 
@@ -344,7 +357,7 @@ new_emutls_decl (tree decl, tree alias_of)
   if (DECL_EXTERNAL (to))
     varpool_node::get_create (to);
   else if (!alias_of)
-    varpool_add_new_variable (to);
+    varpool_node::add (to);
   else 
     varpool_node::create_alias (to,
 				varpool_node::get_for_asmname
@@ -425,7 +438,7 @@ gen_emutls_addr (tree decl, struct lower_emutls_data *d)
 
       /* We may be adding a new reference to a new variable to the function.
          This means we have to play with the ipa-reference web.  */
-      d->cfun_node->add_reference (cvar, IPA_REF_ADDR, x);
+      d->cfun_node->create_reference (cvar, IPA_REF_ADDR, x);
 
       /* Record this ssa_name for possible use later in the basic block.  */
       data->access = addr;

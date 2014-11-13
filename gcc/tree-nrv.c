@@ -22,7 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -55,7 +64,7 @@ along with GCC; see the file COPYING3.  If not see
    This is basically a generic equivalent to the C++ front-end's
    Named Return Value optimization.  */
 
-struct nrv_data
+struct nrv_data_t
 {
   /* This is the temporary (a VAR_DECL) which appears in all of
      this function's RETURN_EXPR statements.  */
@@ -84,7 +93,7 @@ static tree
 finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nrv_data *dp = (struct nrv_data *) wi->info;
+  struct nrv_data_t *dp = (struct nrv_data_t *) wi->info;
 
   /* No need to walk into types.  */
   if (TYPE_P (*tp))
@@ -150,7 +159,7 @@ pass_nrv::execute (function *fun)
   tree found = NULL;
   basic_block bb;
   gimple_stmt_iterator gsi;
-  struct nrv_data data;
+  struct nrv_data_t data;
 
   /* If this function does not return an aggregate type in memory, then
      there is nothing to do.  */
@@ -216,8 +225,7 @@ pass_nrv::execute (function *fun)
 		 same type and alignment as the function's result.  */
 	      if (TREE_CODE (found) != VAR_DECL
 		  || TREE_THIS_VOLATILE (found)
-		  || DECL_CONTEXT (found) != current_function_decl
-		  || TREE_STATIC (found)
+		  || !auto_var_in_fn_p (found, current_function_decl)
 		  || TREE_ADDRESSABLE (found)
 		  || DECL_ALIGN (found) > DECL_ALIGN (result)
 		  || !useless_type_conversion_p (result_type,

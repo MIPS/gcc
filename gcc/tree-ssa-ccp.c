@@ -126,8 +126,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "hash-table.h"
 #include "tree-ssa-alias.h"
@@ -155,6 +164,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "wide-int-print.h"
 #include "builtins.h"
+#include "tree-chkp.h"
 
 
 /* Possible lattice values.  */
@@ -166,7 +176,7 @@ typedef enum
   VARYING
 } ccp_lattice_t;
 
-struct prop_value_d {
+struct ccp_prop_value_t {
     /* Lattice value.  */
     ccp_lattice_t lattice_val;
 
@@ -180,24 +190,22 @@ struct prop_value_d {
     widest_int mask;
 };
 
-typedef struct prop_value_d prop_value_t;
-
 /* Array of propagated constant values.  After propagation,
    CONST_VAL[I].VALUE holds the constant value for SSA_NAME(I).  If
    the constant is held in an SSA name representing a memory store
    (i.e., a VDEF), CONST_VAL[I].MEM_REF will contain the actual
    memory reference used to store (i.e., the LHS of the assignment
    doing the store).  */
-static prop_value_t *const_val;
+static ccp_prop_value_t *const_val;
 static unsigned n_const_val;
 
-static void canonicalize_value (prop_value_t *);
+static void canonicalize_value (ccp_prop_value_t *);
 static bool ccp_fold_stmt (gimple_stmt_iterator *);
 
 /* Dump constant propagation value VAL to file OUTF prefixed by PREFIX.  */
 
 static void
-dump_lattice_value (FILE *outf, const char *prefix, prop_value_t val)
+dump_lattice_value (FILE *outf, const char *prefix, ccp_prop_value_t val)
 {
   switch (val.lattice_val)
     {
@@ -236,10 +244,10 @@ dump_lattice_value (FILE *outf, const char *prefix, prop_value_t val)
 
 /* Print lattice value VAL to stderr.  */
 
-void debug_lattice_value (prop_value_t val);
+void debug_lattice_value (ccp_prop_value_t val);
 
 DEBUG_FUNCTION void
-debug_lattice_value (prop_value_t val)
+debug_lattice_value (ccp_prop_value_t val)
 {
   dump_lattice_value (stderr, "", val);
   fprintf (stderr, "\n");
@@ -272,10 +280,10 @@ extend_mask (const wide_int &nonzero_bits)
    4- Initial values of variables that are not GIMPLE registers are
       considered VARYING.  */
 
-static prop_value_t
+static ccp_prop_value_t
 get_default_value (tree var)
 {
-  prop_value_t val = { UNINITIALIZED, NULL_TREE, 0 };
+  ccp_prop_value_t val = { UNINITIALIZED, NULL_TREE, 0 };
   gimple stmt;
 
   stmt = SSA_NAME_DEF_STMT (var);
@@ -343,10 +351,10 @@ get_default_value (tree var)
 
 /* Get the constant value associated with variable VAR.  */
 
-static inline prop_value_t *
+static inline ccp_prop_value_t *
 get_value (tree var)
 {
-  prop_value_t *val;
+  ccp_prop_value_t *val;
 
   if (const_val == NULL
       || SSA_NAME_VERSION (var) >= n_const_val)
@@ -366,7 +374,7 @@ get_value (tree var)
 static inline tree
 get_constant_value (tree var)
 {
-  prop_value_t *val;
+  ccp_prop_value_t *val;
   if (TREE_CODE (var) != SSA_NAME)
     {
       if (is_gimple_min_invariant (var))
@@ -387,7 +395,7 @@ get_constant_value (tree var)
 static inline void
 set_value_varying (tree var)
 {
-  prop_value_t *val = &const_val[SSA_NAME_VERSION (var)];
+  ccp_prop_value_t *val = &const_val[SSA_NAME_VERSION (var)];
 
   val->lattice_val = VARYING;
   val->value = NULL_TREE;
@@ -413,9 +421,9 @@ set_value_varying (tree var)
   For other constants, make sure to drop TREE_OVERFLOW.  */
 
 static void
-canonicalize_value (prop_value_t *val)
+canonicalize_value (ccp_prop_value_t *val)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   tree type;
   REAL_VALUE_TYPE d;
 
@@ -451,7 +459,7 @@ canonicalize_value (prop_value_t *val)
 /* Return whether the lattice transition is valid.  */
 
 static bool
-valid_lattice_transition (prop_value_t old_val, prop_value_t new_val)
+valid_lattice_transition (ccp_prop_value_t old_val, ccp_prop_value_t new_val)
 {
   /* Lattice transitions must always be monotonically increasing in
      value.  */
@@ -486,10 +494,10 @@ valid_lattice_transition (prop_value_t old_val, prop_value_t new_val)
    value is different from VAR's previous value.  */
 
 static bool
-set_lattice_value (tree var, prop_value_t new_val)
+set_lattice_value (tree var, ccp_prop_value_t new_val)
 {
   /* We can deal with old UNINITIALIZED values just fine here.  */
-  prop_value_t *old_val = &const_val[SSA_NAME_VERSION (var)];
+  ccp_prop_value_t *old_val = &const_val[SSA_NAME_VERSION (var)];
 
   canonicalize_value (&new_val);
 
@@ -534,8 +542,8 @@ set_lattice_value (tree var, prop_value_t new_val)
   return false;
 }
 
-static prop_value_t get_value_for_expr (tree, bool);
-static prop_value_t bit_value_binop (enum tree_code, tree, tree, tree);
+static ccp_prop_value_t get_value_for_expr (tree, bool);
+static ccp_prop_value_t bit_value_binop (enum tree_code, tree, tree, tree);
 static void bit_value_binop_1 (enum tree_code, tree, widest_int *, widest_int *,
 			       tree, const widest_int &, const widest_int &,
 			       tree, const widest_int &, const widest_int &);
@@ -544,7 +552,7 @@ static void bit_value_binop_1 (enum tree_code, tree, widest_int *, widest_int *,
    from VAL.  */
 
 static widest_int
-value_to_wide_int (prop_value_t val)
+value_to_wide_int (ccp_prop_value_t val)
 {
   if (val.value
       && TREE_CODE (val.value) == INTEGER_CST)
@@ -556,11 +564,11 @@ value_to_wide_int (prop_value_t val)
 /* Return the value for the address expression EXPR based on alignment
    information.  */
 
-static prop_value_t
+static ccp_prop_value_t
 get_value_from_alignment (tree expr)
 {
   tree type = TREE_TYPE (expr);
-  prop_value_t val;
+  ccp_prop_value_t val;
   unsigned HOST_WIDE_INT bitpos;
   unsigned int align;
 
@@ -583,10 +591,10 @@ get_value_from_alignment (tree expr)
    return constant bits extracted from alignment information for
    invariant addresses.  */
 
-static prop_value_t
+static ccp_prop_value_t
 get_value_for_expr (tree expr, bool for_bits_p)
 {
-  prop_value_t val;
+  ccp_prop_value_t val;
 
   if (TREE_CODE (expr) == SSA_NAME)
     {
@@ -654,7 +662,7 @@ likely_value (gimple stmt)
   all_undefined_operands = true;
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
-      prop_value_t *val = get_value (use);
+      ccp_prop_value_t *val = get_value (use);
 
       if (val->lattice_val == UNDEFINED)
 	has_undefined_operand = true;
@@ -792,7 +800,7 @@ ccp_initialize (void)
   basic_block bb;
 
   n_const_val = num_ssa_names;
-  const_val = XCNEWVEC (prop_value_t, n_const_val);
+  const_val = XCNEWVEC (ccp_prop_value_t, n_const_val);
 
   /* Initialize simulation flags for PHI nodes and statements.  */
   FOR_EACH_BB_FN (bb, cfun)
@@ -884,7 +892,7 @@ ccp_finalize (void)
   for (i = 1; i < num_ssa_names; ++i)
     {
       tree name = ssa_name (i);
-      prop_value_t *val;
+      ccp_prop_value_t *val;
       unsigned int tem, align;
 
       if (!name
@@ -941,7 +949,7 @@ ccp_finalize (void)
    */
 
 static void
-ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
+ccp_lattice_meet (ccp_prop_value_t *val1, ccp_prop_value_t *val2)
 {
   if (val1->lattice_val == UNDEFINED)
     {
@@ -997,7 +1005,7 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
     {
       /* When not equal addresses are involved try meeting for
 	 alignment.  */
-      prop_value_t tem = *val2;
+      ccp_prop_value_t tem = *val2;
       if (TREE_CODE (val1->value) == ADDR_EXPR)
 	*val1 = get_value_for_expr (val1->value, true);
       if (TREE_CODE (val2->value) == ADDR_EXPR)
@@ -1023,7 +1031,7 @@ static enum ssa_prop_result
 ccp_visit_phi_node (gimple phi)
 {
   unsigned i;
-  prop_value_t *old_val, new_val;
+  ccp_prop_value_t *old_val, new_val;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1069,7 +1077,7 @@ ccp_visit_phi_node (gimple phi)
       if (e->flags & EDGE_EXECUTABLE)
 	{
 	  tree arg = gimple_phi_arg (phi, i)->def;
-	  prop_value_t arg_val = get_value_for_expr (arg, false);
+	  ccp_prop_value_t arg_val = get_value_for_expr (arg, false);
 
 	  ccp_lattice_meet (&new_val, &arg_val);
 
@@ -1449,12 +1457,12 @@ bit_value_binop_1 (enum tree_code code, tree type,
 /* Return the propagation value when applying the operation CODE to
    the value RHS yielding type TYPE.  */
 
-static prop_value_t
+static ccp_prop_value_t
 bit_value_unop (enum tree_code code, tree type, tree rhs)
 {
-  prop_value_t rval = get_value_for_expr (rhs, true);
+  ccp_prop_value_t rval = get_value_for_expr (rhs, true);
   widest_int value, mask;
-  prop_value_t val;
+  ccp_prop_value_t val;
 
   if (rval.lattice_val == UNDEFINED)
     return rval;
@@ -1483,13 +1491,13 @@ bit_value_unop (enum tree_code code, tree type, tree rhs)
 /* Return the propagation value when applying the operation CODE to
    the values RHS1 and RHS2 yielding type TYPE.  */
 
-static prop_value_t
+static ccp_prop_value_t
 bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
 {
-  prop_value_t r1val = get_value_for_expr (rhs1, true);
-  prop_value_t r2val = get_value_for_expr (rhs2, true);
+  ccp_prop_value_t r1val = get_value_for_expr (rhs1, true);
+  ccp_prop_value_t r2val = get_value_for_expr (rhs2, true);
   widest_int value, mask;
-  prop_value_t val;
+  ccp_prop_value_t val;
 
   if (r1val.lattice_val == UNDEFINED
       || r2val.lattice_val == UNDEFINED)
@@ -1532,15 +1540,15 @@ bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
    is false, for alloc_aligned attribute ATTR is non-NULL and
    ALLOC_ALIGNED is true.  */
 
-static prop_value_t
-bit_value_assume_aligned (gimple stmt, tree attr, prop_value_t ptrval,
+static ccp_prop_value_t
+bit_value_assume_aligned (gimple stmt, tree attr, ccp_prop_value_t ptrval,
 			  bool alloc_aligned)
 {
   tree align, misalign = NULL_TREE, type;
   unsigned HOST_WIDE_INT aligni, misaligni = 0;
-  prop_value_t alignval;
+  ccp_prop_value_t alignval;
   widest_int value, mask;
-  prop_value_t val;
+  ccp_prop_value_t val;
 
   if (attr == NULL_TREE)
     {
@@ -1632,10 +1640,10 @@ bit_value_assume_aligned (gimple stmt, tree attr, prop_value_t ptrval,
 /* Evaluate statement STMT.
    Valid only for assignments, calls, conditionals, and switches. */
 
-static prop_value_t
+static ccp_prop_value_t
 evaluate_stmt (gimple stmt)
 {
-  prop_value_t val;
+  ccp_prop_value_t val;
   tree simplified = NULL_TREE;
   ccp_lattice_t likelyvalue = likely_value (stmt);
   bool is_constant = false;
@@ -1938,6 +1946,8 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
     else if (gimple_assign_ssa_name_copy_p (stmt))
       insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
 					   visited);
+    else if (chkp_gimple_call_builtin_p (stmt, BUILT_IN_CHKP_BNDRET))
+      continue;
     else
       gcc_assert (is_gimple_debug (stmt));
 }
@@ -2062,7 +2072,7 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
     {
     case GIMPLE_COND:
       {
-	prop_value_t val;
+	ccp_prop_value_t val;
 	/* Statement evaluation will handle type mismatches in constants
 	   more gracefully than the final propagation.  This allows us to
 	   fold more conditionals here.  */
@@ -2197,7 +2207,7 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 static enum ssa_prop_result
 visit_assignment (gimple stmt, tree *output_p)
 {
-  prop_value_t val;
+  ccp_prop_value_t val;
   enum ssa_prop_result retval;
 
   tree lhs = gimple_get_lhs (stmt);
@@ -2242,7 +2252,7 @@ visit_assignment (gimple stmt, tree *output_p)
 static enum ssa_prop_result
 visit_cond_stmt (gimple stmt, edge *taken_edge_p)
 {
-  prop_value_t val;
+  ccp_prop_value_t val;
   basic_block block;
 
   block = gimple_bb (stmt);
@@ -2320,7 +2330,7 @@ ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
      Mark them VARYING.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
-      prop_value_t v = { VARYING, NULL_TREE, -1 };
+      ccp_prop_value_t v = { VARYING, NULL_TREE, -1 };
       set_lattice_value (def, v);
     }
 

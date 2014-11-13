@@ -38,10 +38,24 @@
 #include "insn-codes.h"		/* For CODE_FOR_xxx.  */
 #include "reload.h"		/* For push_reload().  */
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "expr.h"
 #include "recog.h"
 #include "diagnostic-core.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "tm_p.h"
 #include "tm-constrs.h"
@@ -572,6 +586,30 @@ nds32_asm_file_end_for_isr (void)
 	  fprintf (asm_out_file, "\t! ------------------------------------\n");
 	}
     }
+}
+
+/* Return true if FUNC is a isr function.  */
+bool
+nds32_isr_function_p (tree func)
+{
+  tree t_intr;
+  tree t_excp;
+  tree t_reset;
+
+  tree attrs;
+
+  if (TREE_CODE (func) != FUNCTION_DECL)
+    abort ();
+
+  attrs = DECL_ATTRIBUTES (func);
+
+  t_intr  = lookup_attribute ("interrupt", attrs);
+  t_excp  = lookup_attribute ("exception", attrs);
+  t_reset = lookup_attribute ("reset", attrs);
+
+  return ((t_intr != NULL_TREE)
+	  || (t_excp != NULL_TREE)
+	  || (t_reset != NULL_TREE));
 }
 
 /* ------------------------------------------------------------------------ */

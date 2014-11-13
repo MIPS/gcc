@@ -25,9 +25,16 @@
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "tm_p.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -39,6 +46,9 @@
 #include "gimple-walk.h"
 #include "tree-iterator.h"
 #include "bitmap.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "expr.h"	/* FIXME: For STACK_SAVEAREA_MODE and SAVE_NONLOCAL.  */
@@ -1115,6 +1125,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	  wi->val_only = true;
 	  wi->is_lhs = false;
 	  convert_nonlocal_reference_op (&OMP_CLAUSE_OPERAND (clause, 0),
@@ -1744,6 +1755,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	  wi->val_only = true;
 	  wi->is_lhs = false;
 	  convert_local_reference_op (&OMP_CLAUSE_OPERAND (clause, 0), &dummy,
@@ -2715,10 +2727,6 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	  else
 	    x = p;
 
-	  y = build3 (COMPONENT_REF, TREE_TYPE (field),
-		      root->frame_decl, field, NULL_TREE);
-	  stmt = gimple_build_assign (y, x);
-	  gimple_seq_add_stmt (&stmt_list, stmt);
 	  /* If the assignment is from a non-register the stmt is
 	     not valid gimple.  Make it so by using a temporary instead.  */
 	  if (!is_gimple_reg (x)
@@ -2726,8 +2734,12 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	    {
 	      gimple_stmt_iterator gsi = gsi_last (stmt_list);
 	      x = init_tmp_var (root, x, &gsi);
-	      gimple_assign_set_rhs1 (stmt, x);
 	    }
+
+	  y = build3 (COMPONENT_REF, TREE_TYPE (field),
+		      root->frame_decl, field, NULL_TREE);
+	  stmt = gimple_build_assign (y, x);
+	  gimple_seq_add_stmt (&stmt_list, stmt);
 	}
     }
 
@@ -2897,7 +2909,7 @@ unnest_nesting_tree_1 (struct nesting_info *root)
   if (node->origin)
     {
        node->unnest ();
-       cgraph_finalize_function (root->context, true);
+       cgraph_node::finalize_function (root->context, true);
     }
 }
 

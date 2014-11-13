@@ -23,6 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -33,12 +43,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "langhooks.h"
 #include "splay-tree.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
+#include "bitmap.h"
 #include "ipa-reference.h"
 #include "flags.h"
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "lto-streamer.h"
+#include "alloc-pool.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 
 /* Debugging function for postorder and inorder code. NOTE is a string
@@ -173,7 +190,7 @@ ipa_reduced_postorder (struct cgraph_node **order,
   struct cgraph_node *node;
   struct searchc_env env;
   splay_tree_node result;
-  env.stack = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  env.stack = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
   env.stack_size = 0;
   env.result = order;
   env.order_pos = 0;
@@ -292,7 +309,7 @@ ipa_reverse_postorder (struct cgraph_node **order)
   struct ipa_ref *ref = NULL;
 
   struct postorder_stack *stack =
-    XCNEWVEC (struct postorder_stack, cgraph_n_nodes);
+    XCNEWVEC (struct postorder_stack, symtab->cgraph_count);
 
   /* We have to deal with cycles nicely, so use a depth first traversal
      output algorithm.  Ignore the fact that some functions won't need
@@ -407,9 +424,9 @@ ipa_merge_profiles (struct cgraph_node *dst,
 
   if (!dst->count)
     return;
-  if (cgraph_dump_file)
+  if (symtab->dump_file)
     {
-      fprintf (cgraph_dump_file, "Merging profiles of %s/%i to %s/%i\n",
+      fprintf (symtab->dump_file, "Merging profiles of %s/%i to %s/%i\n",
 	       xstrdup (src->name ()), src->order,
 	       xstrdup (dst->name ()), dst->order);
     }
@@ -456,16 +473,16 @@ ipa_merge_profiles (struct cgraph_node *dst,
   if (n_basic_blocks_for_fn (srccfun)
       != n_basic_blocks_for_fn (dstcfun))
     {
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file,
+      if (symtab->dump_file)
+	fprintf (symtab->dump_file,
 		 "Giving up; number of basic block mismatch.\n");
       match = false;
     }
   else if (last_basic_block_for_fn (srccfun)
 	   != last_basic_block_for_fn (dstcfun))
     {
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file,
+      if (symtab->dump_file)
+	fprintf (symtab->dump_file,
 		 "Giving up; last block mismatch.\n");
       match = false;
     }
@@ -480,8 +497,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	  dstbb = BASIC_BLOCK_FOR_FN (dstcfun, srcbb->index);
 	  if (dstbb == NULL)
 	    {
-	      if (cgraph_dump_file)
-		fprintf (cgraph_dump_file,
+	      if (symtab->dump_file)
+		fprintf (symtab->dump_file,
 			 "No matching block for bb %i.\n",
 			 srcbb->index);
 	      match = false;
@@ -489,8 +506,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	    }
 	  if (EDGE_COUNT (srcbb->succs) != EDGE_COUNT (dstbb->succs))
 	    {
-	      if (cgraph_dump_file)
-		fprintf (cgraph_dump_file,
+	      if (symtab->dump_file)
+		fprintf (symtab->dump_file,
 			 "Edge count mistmatch for bb %i.\n",
 			 srcbb->index);
 	      match = false;
@@ -502,8 +519,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	      edge dste = EDGE_SUCC (dstbb, i);
 	      if (srce->dest->index != dste->dest->index)
 		{
-		  if (cgraph_dump_file)
-		    fprintf (cgraph_dump_file,
+		  if (symtab->dump_file)
+		    fprintf (symtab->dump_file,
 			     "Succ edge mistmatch for bb %i.\n",
 			     srce->dest->index);
 		  match = false;

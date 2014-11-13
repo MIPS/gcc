@@ -54,6 +54,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "expr.h"
@@ -62,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "hash-table.h"
 #include "dumpfile.h"
+#include "rtl-iter.h"
 
 /* Possible return values of iv_get_reaching_def.  */
 
@@ -136,7 +146,7 @@ biv_entry_hasher::equal (const value_type *b, const compare_type *r)
 
 static hash_table<biv_entry_hasher> *bivs;
 
-static bool iv_analyze_op (rtx, rtx, struct rtx_iv *);
+static bool iv_analyze_op (rtx_insn *, rtx, struct rtx_iv *);
 
 /* Return the RTX code corresponding to the IV extend code EXTEND.  */
 static inline enum rtx_code
@@ -202,8 +212,8 @@ dump_iv_info (FILE *file, struct rtx_iv *iv)
    INNER_MODE) to OUTER_MODE.  */
 
 rtx
-lowpart_subreg (enum machine_mode outer_mode, rtx expr,
-		enum machine_mode inner_mode)
+lowpart_subreg (machine_mode outer_mode, rtx expr,
+		machine_mode inner_mode)
 {
   return simplify_gen_subreg (outer_mode, expr, inner_mode,
 			      subreg_lowpart_offset (outer_mode, inner_mode));
@@ -339,11 +349,11 @@ latch_dominating_def (rtx reg, df_ref *def)
 /* Gets definition of REG reaching its use in INSN and stores it to DEF.  */
 
 static enum iv_grd_result
-iv_get_reaching_def (rtx insn, rtx reg, df_ref *def)
+iv_get_reaching_def (rtx_insn *insn, rtx reg, df_ref *def)
 {
   df_ref use, adef;
   basic_block def_bb, use_bb;
-  rtx def_insn;
+  rtx_insn *def_insn;
   bool dom_p;
 
   *def = NULL;
@@ -397,7 +407,7 @@ iv_get_reaching_def (rtx insn, rtx reg, df_ref *def)
    consistency with other iv manipulation functions that may fail).  */
 
 static bool
-iv_constant (struct rtx_iv *iv, rtx cst, enum machine_mode mode)
+iv_constant (struct rtx_iv *iv, rtx cst, machine_mode mode)
 {
   if (mode == VOIDmode)
     mode = GET_MODE (cst);
@@ -417,7 +427,7 @@ iv_constant (struct rtx_iv *iv, rtx cst, enum machine_mode mode)
 /* Evaluates application of subreg to MODE on IV.  */
 
 static bool
-iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
+iv_subreg (struct rtx_iv *iv, machine_mode mode)
 {
   /* If iv is invariant, just calculate the new value.  */
   if (iv->step == const0_rtx
@@ -459,7 +469,7 @@ iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
 /* Evaluates application of EXTEND to MODE on IV.  */
 
 static bool
-iv_extend (struct rtx_iv *iv, enum iv_extend_code extend, enum machine_mode mode)
+iv_extend (struct rtx_iv *iv, enum iv_extend_code extend, machine_mode mode)
 {
   /* If iv is invariant, just calculate the new value.  */
   if (iv->step == const0_rtx
@@ -522,7 +532,7 @@ iv_neg (struct rtx_iv *iv)
 static bool
 iv_add (struct rtx_iv *iv0, struct rtx_iv *iv1, enum rtx_code op)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   rtx arg;
 
   /* Extend the constant to extend_mode of the other operand if necessary.  */
@@ -592,7 +602,7 @@ iv_add (struct rtx_iv *iv0, struct rtx_iv *iv1, enum rtx_code op)
 static bool
 iv_mult (struct rtx_iv *iv, rtx mby)
 {
-  enum machine_mode mode = iv->extend_mode;
+  machine_mode mode = iv->extend_mode;
 
   if (GET_MODE (mby) != VOIDmode
       && GET_MODE (mby) != mode)
@@ -617,7 +627,7 @@ iv_mult (struct rtx_iv *iv, rtx mby)
 static bool
 iv_shift (struct rtx_iv *iv, rtx mby)
 {
-  enum machine_mode mode = iv->extend_mode;
+  machine_mode mode = iv->extend_mode;
 
   if (GET_MODE (mby) != VOIDmode
       && GET_MODE (mby) != mode)
@@ -643,14 +653,14 @@ iv_shift (struct rtx_iv *iv, rtx mby)
 
 static bool
 get_biv_step_1 (df_ref def, rtx reg,
-		rtx *inner_step, enum machine_mode *inner_mode,
-		enum iv_extend_code *extend, enum machine_mode outer_mode,
+		rtx *inner_step, machine_mode *inner_mode,
+		enum iv_extend_code *extend, machine_mode outer_mode,
 		rtx *outer_step)
 {
   rtx set, rhs, op0 = NULL_RTX, op1 = NULL_RTX;
   rtx next, nextr, tmp;
   enum rtx_code code;
-  rtx insn = DF_REF_INSN (def);
+  rtx_insn *insn = DF_REF_INSN (def);
   df_ref next_def;
   enum iv_grd_result res;
 
@@ -755,7 +765,7 @@ get_biv_step_1 (df_ref def, rtx reg,
 
   if (GET_CODE (next) == SUBREG)
     {
-      enum machine_mode amode = GET_MODE (next);
+      machine_mode amode = GET_MODE (next);
 
       if (GET_MODE_SIZE (amode) > GET_MODE_SIZE (*inner_mode))
 	return false;
@@ -810,8 +820,8 @@ get_biv_step_1 (df_ref def, rtx reg,
 
 static bool
 get_biv_step (df_ref last_def, rtx reg, rtx *inner_step,
-	      enum machine_mode *inner_mode, enum iv_extend_code *extend,
-	      enum machine_mode *outer_mode, rtx *outer_step)
+	      machine_mode *inner_mode, enum iv_extend_code *extend,
+	      machine_mode *outer_mode, rtx *outer_step)
 {
   *outer_mode = GET_MODE (reg);
 
@@ -872,7 +882,7 @@ static bool
 iv_analyze_biv (rtx def, struct rtx_iv *iv)
 {
   rtx inner_step, outer_step;
-  enum machine_mode inner_mode, outer_mode;
+  machine_mode inner_mode, outer_mode;
   enum iv_extend_code extend;
   df_ref last_def;
 
@@ -946,13 +956,14 @@ iv_analyze_biv (rtx def, struct rtx_iv *iv)
    The mode of the induction variable is MODE.  */
 
 bool
-iv_analyze_expr (rtx insn, rtx rhs, enum machine_mode mode, struct rtx_iv *iv)
+iv_analyze_expr (rtx_insn *insn, rtx rhs, machine_mode mode,
+		 struct rtx_iv *iv)
 {
   rtx mby = NULL_RTX, tmp;
   rtx op0 = NULL_RTX, op1 = NULL_RTX;
   struct rtx_iv iv0, iv1;
   enum rtx_code code = GET_CODE (rhs);
-  enum machine_mode omode = mode;
+  machine_mode omode = mode;
 
   iv->mode = VOIDmode;
   iv->base = NULL_RTX;
@@ -1073,7 +1084,7 @@ iv_analyze_expr (rtx insn, rtx rhs, enum machine_mode mode, struct rtx_iv *iv)
 static bool
 iv_analyze_def (df_ref def, struct rtx_iv *iv)
 {
-  rtx insn = DF_REF_INSN (def);
+  rtx_insn *insn = DF_REF_INSN (def);
   rtx reg = DF_REF_REG (def);
   rtx set, rhs;
 
@@ -1134,7 +1145,7 @@ iv_analyze_def (df_ref def, struct rtx_iv *iv)
 /* Analyzes operand OP of INSN and stores the result to *IV.  */
 
 static bool
-iv_analyze_op (rtx insn, rtx op, struct rtx_iv *iv)
+iv_analyze_op (rtx_insn *insn, rtx op, struct rtx_iv *iv)
 {
   df_ref def = NULL;
   enum iv_grd_result res;
@@ -1192,7 +1203,7 @@ iv_analyze_op (rtx insn, rtx op, struct rtx_iv *iv)
 /* Analyzes value VAL at INSN and stores the result to *IV.  */
 
 bool
-iv_analyze (rtx insn, rtx val, struct rtx_iv *iv)
+iv_analyze (rtx_insn *insn, rtx val, struct rtx_iv *iv)
 {
   rtx reg;
 
@@ -1217,7 +1228,7 @@ iv_analyze (rtx insn, rtx val, struct rtx_iv *iv)
 /* Analyzes definition of DEF in INSN and stores the result to IV.  */
 
 bool
-iv_analyze_result (rtx insn, rtx def, struct rtx_iv *iv)
+iv_analyze_result (rtx_insn *insn, rtx def, struct rtx_iv *iv)
 {
   df_ref adef;
 
@@ -1233,7 +1244,7 @@ iv_analyze_result (rtx insn, rtx def, struct rtx_iv *iv)
    iv_analysis_loop_init) for this function to produce a result.  */
 
 bool
-biv_p (rtx insn, rtx reg)
+biv_p (rtx_insn *insn, rtx reg)
 {
   struct rtx_iv iv;
   df_ref def, last_def;
@@ -1326,15 +1337,19 @@ inverse (uint64_t x, int mod)
   return rslt;
 }
 
-/* Checks whether register *REG is in set ALT.  Callback for for_each_rtx.  */
+/* Checks whether any register in X is in set ALT.  */
 
-static int
-altered_reg_used (rtx *reg, void *alt)
+static bool
+altered_reg_used (const_rtx x, bitmap alt)
 {
-  if (!REG_P (*reg))
-    return 0;
-
-  return REGNO_REG_SET_P ((bitmap) alt, REGNO (*reg));
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, NONCONST)
+    {
+      const_rtx x = *iter;
+      if (REG_P (x) && REGNO_REG_SET_P (alt, REGNO (x)))
+	return true;
+    }
+  return false;
 }
 
 /* Marks registers altered by EXPR in set ALT.  */
@@ -1397,33 +1412,27 @@ simple_rhs_p (rtx rhs)
     }
 }
 
-/* If REG has a single definition, replace it with its known value in EXPR.
-   Callback for for_each_rtx.  */
+/* If REGNO has a single definition, return its known value, otherwise return
+   null.  */
 
-static int
-replace_single_def_regs (rtx *reg, void *expr1)
+static rtx
+find_single_def_src (unsigned int regno)
 {
-  unsigned regno;
   df_ref adef;
   rtx set, src;
-  rtx *expr = (rtx *)expr1;
 
-  if (!REG_P (*reg))
-    return 0;
-
-  regno = REGNO (*reg);
   for (;;)
     {
       rtx note;
       adef = DF_REG_DEF_CHAIN (regno);
       if (adef == NULL || DF_REF_NEXT_REG (adef) != NULL
-	    || DF_REF_IS_ARTIFICIAL (adef))
-	return -1;
+	  || DF_REF_IS_ARTIFICIAL (adef))
+	return NULL_RTX;
 
       set = single_set (DF_REF_INSN (adef));
       if (set == NULL || !REG_P (SET_DEST (set))
 	  || REGNO (SET_DEST (set)) != regno)
-	return -1;
+	return NULL_RTX;
 
       note = find_reg_equal_equiv_note (DF_REF_INSN (adef));
 
@@ -1442,10 +1451,29 @@ replace_single_def_regs (rtx *reg, void *expr1)
       break;
     }
   if (!function_invariant_p (src))
-    return -1;
+    return NULL_RTX;
 
-  *expr = simplify_replace_rtx (*expr, *reg, src);
-  return 1;
+  return src;
+}
+
+/* If any registers in *EXPR that have a single definition, try to replace
+   them with the known-equivalent values.  */
+
+static void
+replace_single_def_regs (rtx *expr)
+{
+  subrtx_var_iterator::array_type array;
+ repeat:
+  FOR_EACH_SUBRTX_VAR (iter, array, *expr, NONCONST)
+    {
+      rtx x = *iter;
+      if (REG_P (x))
+	if (rtx new_x = find_single_def_src (REGNO (x)))
+	  {
+	    *expr = simplify_replace_rtx (*expr, x, new_x);
+	    goto repeat;
+	  }
+    }
 }
 
 /* A subroutine of simplify_using_initial_values, this function examines INSN
@@ -1454,7 +1482,7 @@ replace_single_def_regs (rtx *reg, void *expr1)
    the set; return false otherwise.  */
 
 static bool
-suitable_set_for_replacement (rtx insn, rtx *dest, rtx *src)
+suitable_set_for_replacement (rtx_insn *insn, rtx *dest, rtx *src)
 {
   rtx set = single_set (insn);
   rtx lhs = NULL_RTX, rhs;
@@ -1490,8 +1518,7 @@ replace_in_expr (rtx *expr, rtx dest, rtx src)
   *expr = simplify_replace_rtx (*expr, dest, src);
   if (old == *expr)
     return;
-  while (for_each_rtx (expr, replace_single_def_regs, expr) != 0)
-    continue;
+  replace_single_def_regs (expr);
 }
 
 /* Checks whether A implies B.  */
@@ -1500,7 +1527,7 @@ static bool
 implies_p (rtx a, rtx b)
 {
   rtx op0, op1, opb0, opb1, r;
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (rtx_equal_p (a, b))
     return true;
@@ -1665,7 +1692,7 @@ canon_condition (rtx cond)
   rtx tem;
   rtx op0, op1;
   enum rtx_code code;
-  enum machine_mode mode;
+  machine_mode mode;
 
   code = GET_CODE (cond);
   op0 = XEXP (cond, 0);
@@ -1758,8 +1785,7 @@ simplify_using_condition (rtx cond, rtx *expr, regset altered)
 
   /* If some register gets altered later, we do not really speak about its
      value at the time of comparison.  */
-  if (altered
-      && for_each_rtx (&cond, altered_reg_used, altered))
+  if (altered && altered_reg_used (cond, altered))
     return;
 
   if (GET_CODE (cond) == EQ
@@ -1872,7 +1898,9 @@ static void
 simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 {
   bool expression_valid;
-  rtx head, tail, insn, cond_list, last_valid_expr;
+  rtx head, tail, last_valid_expr;
+  rtx_expr_list *cond_list;
+  rtx_insn *insn;
   rtx neutral, aggr;
   regset altered, this_altered;
   edge e;
@@ -1934,9 +1962,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
   gcc_assert (op == UNKNOWN);
 
-  for (;;)
-    if (for_each_rtx (expr, replace_single_def_regs, expr) == 0)
-      break;
+  replace_single_def_regs (expr);
   if (CONSTANT_P (*expr))
     return;
 
@@ -1949,7 +1975,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
   expression_valid = true;
   last_valid_expr = *expr;
-  cond_list = NULL_RTX;
+  cond_list = NULL;
   while (1)
     {
       insn = BB_END (e->src);
@@ -2001,7 +2027,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
 	  if (suitable_set_for_replacement (insn, &dest, &src))
 	    {
-	      rtx *pnote, *pnote_next;
+	      rtx_expr_list **pnote, **pnote_next;
 
 	      replace_in_expr (expr, dest, src);
 	      if (CONSTANT_P (*expr))
@@ -2012,7 +2038,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 		  rtx note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
-		  pnote_next = &XEXP (note, 1);
+		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);
 		  replace_in_expr (&XEXP (note, 0), dest, src);
 
 		  /* We can no longer use a condition that has been simplified
@@ -2032,12 +2058,12 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	    }
 	  else
 	    {
-	      rtx *pnote, *pnote_next;
+	      rtx_expr_list **pnote, **pnote_next;
 
 	      /* If we did not use this insn to make a replacement, any overlap
 		 between stores in this insn and our expression will cause the
 		 expression to become invalid.  */
-	      if (for_each_rtx (expr, altered_reg_used, this_altered))
+	      if (altered_reg_used (*expr, this_altered))
 		goto out;
 
 	      /* Likewise for the conditions.  */
@@ -2046,8 +2072,8 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 		  rtx note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
-		  pnote_next = &XEXP (note, 1);
-		  if (for_each_rtx (&old_cond, altered_reg_used, this_altered))
+		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);
+		  if (altered_reg_used (old_cond, this_altered))
 		    {
 		      *pnote = *pnote_next;
 		      pnote_next = pnote;
@@ -2065,7 +2091,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	     can't return it to the caller.  However, it is still valid for
 	     further simplification, so keep searching to see if we can
 	     eventually turn it into a constant.  */
-	  if (for_each_rtx (expr, altered_reg_used, altered))
+	  if (altered_reg_used (*expr, altered))
 	    expression_valid = false;
 	  if (expression_valid)
 	    last_valid_expr = *expr;
@@ -2090,7 +2116,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
    is SIGNED_P to DESC.  */
 
 static void
-shorten_into_mode (struct rtx_iv *iv, enum machine_mode mode,
+shorten_into_mode (struct rtx_iv *iv, machine_mode mode,
 		   enum rtx_code cond, bool signed_p, struct niter_desc *desc)
 {
   rtx mmin, mmax, cond_over, cond_under;
@@ -2152,7 +2178,7 @@ static bool
 canonicalize_iv_subregs (struct rtx_iv *iv0, struct rtx_iv *iv1,
 			 enum rtx_code cond, struct niter_desc *desc)
 {
-  enum machine_mode comp_mode;
+  machine_mode comp_mode;
   bool signed_p;
 
   /* If the ivs behave specially in the first iteration, or are
@@ -2323,14 +2349,14 @@ determine_max_iter (struct loop *loop, struct niter_desc *desc, rtx old_niter)
    (basically its rtl version), complicated by things like subregs.  */
 
 static void
-iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
+iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
 			 struct niter_desc *desc)
 {
   rtx op0, op1, delta, step, bound, may_xform, tmp, tmp0, tmp1;
   struct rtx_iv iv0, iv1, tmp_iv;
   rtx assumption, may_not_xform;
   enum rtx_code cond;
-  enum machine_mode mode, comp_mode;
+  machine_mode mode, comp_mode;
   rtx mmin, mmax, mode_mmin, mode_mmax;
   uint64_t s, size, d, inv, max;
   int64_t up, down, inc, step_val;
@@ -2413,7 +2439,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 
   comp_mode = iv0.extend_mode;
   mode = iv0.mode;
-  size = GET_MODE_BITSIZE (mode);
+  size = GET_MODE_PRECISION (mode);
   get_mode_bounds (mode, (cond == LE || cond == LT), comp_mode, &mmin, &mmax);
   mode_mmin = lowpart_subreg (mode, mmin, comp_mode);
   mode_mmax = lowpart_subreg (mode, mmax, comp_mode);
@@ -2891,7 +2917,8 @@ static void
 check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
 {
   basic_block exit_bb;
-  rtx condition, at;
+  rtx condition;
+  rtx_insn *at;
   edge ein;
 
   exit_bb = e->src;

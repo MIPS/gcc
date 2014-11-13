@@ -107,6 +107,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "gimple-expr.h"
 #include "target.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "vec.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "bitmap.h"
 #include "tree-pass.h"
@@ -498,7 +514,7 @@ gather_caller_stats (struct cgraph_node *node, void *data)
 	stats->count_sum += cs->count;
 	stats->freq_sum += cs->frequency;
 	stats->n_calls++;
-	if (cgraph_maybe_hot_edge_p (cs))
+	if (cs->maybe_hot_p ())
 	  stats->n_hot_calls ++;
       }
   return false;
@@ -573,7 +589,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
 /* Arrays representing a topological ordering of call graph nodes and a stack
    of noes used during constant propagation.  */
 
-struct topo_info
+struct ipa_topo_info
 {
   struct cgraph_node **order;
   struct cgraph_node **stack;
@@ -583,10 +599,11 @@ struct topo_info
 /* Allocate the arrays in TOPO and topologically sort the nodes into order.  */
 
 static void
-build_toporder_info (struct topo_info *topo)
+build_toporder_info (struct ipa_topo_info *topo)
 {
-  topo->order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
-  topo->stack = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  topo->order = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
+  topo->stack = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
+
   topo->stack_top = 0;
   topo->nnodes = ipa_reduced_postorder (topo->order, true, true, NULL);
 }
@@ -595,7 +612,7 @@ build_toporder_info (struct topo_info *topo)
    TOPO.  */
 
 static void
-free_toporder_info (struct topo_info *topo)
+free_toporder_info (struct ipa_topo_info *topo)
 {
   ipa_free_postorder_info ();
   free (topo->order);
@@ -605,7 +622,7 @@ free_toporder_info (struct topo_info *topo)
 /* Add NODE to the stack in TOPO, unless it is already there.  */
 
 static inline void
-push_node_to_stack (struct topo_info *topo, struct cgraph_node *node)
+push_node_to_stack (struct ipa_topo_info *topo, struct cgraph_node *node)
 {
   struct ipa_node_params *info = IPA_NODE_REF (node);
   if (info->node_enqueued)
@@ -618,7 +635,7 @@ push_node_to_stack (struct topo_info *topo, struct cgraph_node *node)
    is empty.  */
 
 static struct cgraph_node *
-pop_node_from_stack (struct topo_info *topo)
+pop_node_from_stack (struct ipa_topo_info *topo)
 {
   if (topo->stack_top)
     {
@@ -699,7 +716,7 @@ initialize_node_lattices (struct cgraph_node *node)
   int i;
 
   gcc_checking_assert (node->has_gimple_body_p ());
-  if (!node->local.local)
+  if (!cgraph_local_p (node))
     {
       /* When cloning is allowed, we can assume that externally visible
 	 functions are not called.  We will compensate this by cloning
@@ -1447,6 +1464,24 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
   if (parms_count == 0)
     return false;
 
+  /* No propagation through instrumentation thunks is available yet.
+     It should be possible with proper mapping of call args and
+     instrumented callee params in the propagation loop below.  But
+     this case mostly occurs when legacy code calls instrumented code
+     and it is not a primary target for optimizations.
+     We detect instrumentation thunks in aliases and thunks chain by
+     checking instrumentation_clone flag for chain source and target.
+     Going through instrumentation thunks we always have it changed
+     from 0 to 1 and all other nodes do not change it.  */
+  if (!cs->callee->instrumentation_clone
+      && callee->instrumentation_clone)
+    {
+      for (i = 0; i < parms_count; i++)
+	ret |= set_all_contains_variable (ipa_get_parm_lattices (callee_info,
+								 i));
+      return ret;
+    }
+
   /* If this call goes through a thunk we must not propagate to the first (0th)
      parameter.  However, we might need to uncover a thunk from below a series
      of aliases first.  */
@@ -1559,7 +1594,8 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   t = NULL;
 
   /* Try to work out value of virtual table pointer value in replacemnets.  */
-  if (!t && agg_reps && !ie->indirect_info->by_ref)
+  if (!t && agg_reps && !ie->indirect_info->by_ref
+      && !ie->indirect_info->vptr_changed)
     {
       while (agg_reps)
 	{
@@ -1577,7 +1613,8 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   /* Try to work out value of virtual table pointer value in known
      aggregate values.  */
   if (!t && known_aggs.length () > (unsigned int) param_index
-      && !ie->indirect_info->by_ref)
+      && !ie->indirect_info->by_ref
+      && !ie->indirect_info->vptr_changed)
     {
        struct ipa_agg_jump_function *agg;
        agg = known_aggs[param_index];
@@ -1617,14 +1654,11 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 
   if (TREE_CODE (t) != TREE_BINFO)
     {
-      ipa_polymorphic_call_context context;
+      ipa_polymorphic_call_context context (t, ie->indirect_info->otr_type,
+					    anc_offset);
       vec <cgraph_node *>targets;
       bool final;
 
-      if (!get_polymorphic_call_info_from_invariant
-	     (&context, t, ie->indirect_info->otr_type,
-	      anc_offset))
-	return NULL_TREE;
       targets = possible_polymorphic_call_targets
 		 (ie->indirect_info->otr_type,
 		  ie->indirect_info->otr_token,
@@ -2200,7 +2234,7 @@ add_all_node_vals_to_toposort (struct cgraph_node *node)
    connected components.  */
 
 static void
-propagate_constants_topo (struct topo_info *topo)
+propagate_constants_topo (struct ipa_topo_info *topo)
 {
   int i;
 
@@ -2284,7 +2318,7 @@ propagate_effects (void)
       for (val = base; val; val = val->scc_next)
 	for (src = val->sources; src; src = src->next)
 	  if (src->val
-	      && cgraph_maybe_hot_edge_p (src->cs))
+	      && src->cs->maybe_hot_p ())
 	    {
 	      src->val->prop_time_benefit = safe_add (time,
 						src->val->prop_time_benefit);
@@ -2299,7 +2333,7 @@ propagate_effects (void)
    interprocedurally.  */
 
 static void
-ipcp_propagate_stage (struct topo_info *topo)
+ipcp_propagate_stage (struct ipa_topo_info *topo)
 {
   struct cgraph_node *node;
 
@@ -2415,11 +2449,11 @@ static inline void
 grow_edge_clone_vectors (void)
 {
   if (next_edge_clone.length ()
-      <=  (unsigned) cgraph_edge_max_uid)
-    next_edge_clone.safe_grow_cleared (cgraph_edge_max_uid + 1);
+      <=  (unsigned) symtab->edges_max_uid)
+    next_edge_clone.safe_grow_cleared (symtab->edges_max_uid + 1);
   if (prev_edge_clone.length ()
-      <=  (unsigned) cgraph_edge_max_uid)
-    prev_edge_clone.safe_grow_cleared (cgraph_edge_max_uid + 1);
+      <=  (unsigned) symtab->edges_max_uid)
+    prev_edge_clone.safe_grow_cleared (symtab->edges_max_uid + 1);
 }
 
 /* Edge duplication hook to grow the appropriate linked list in
@@ -2555,7 +2589,7 @@ get_info_about_necessary_edges (struct ipcp_value *val, int *freq_sum,
 	      count++;
 	      freq += cs->frequency;
 	      cnt += cs->count;
-	      hot |= cgraph_maybe_hot_edge_p (cs);
+	      hot |= cs->maybe_hot_p ();
 	    }
 	  cs = get_next_cgraph_edge_clone (cs);
 	}
@@ -2805,7 +2839,7 @@ create_specialized_node (struct cgraph_node *node,
 					 args_to_skip, "constprop");
   ipa_set_node_agg_value_chain (new_node, aggvals);
   for (av = aggvals; av; av = av->next)
-    new_node->maybe_add_reference (av->value, IPA_REF_ADDR, NULL);
+    new_node->maybe_create_reference (av->value, IPA_REF_ADDR, NULL);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -3047,6 +3081,11 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 		intersect_with_agg_replacements (cs->caller, src_idx,
 						 &inter, 0);
 	    }
+	  else
+	    {
+	      inter.release ();
+	      return vNULL;
+	    }
 	}
       else
 	{
@@ -3061,6 +3100,11 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 		inter = copy_plats_to_inter (src_plats, 0);
 	      else
 		intersect_with_plats (src_plats, &inter, 0);
+	    }
+	  else
+	    {
+	      inter.release ();
+	      return vNULL;
 	    }
 	}
     }
@@ -3145,7 +3189,8 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 					  vec<cgraph_edge *> callers)
 {
   struct ipa_node_params *dest_info = IPA_NODE_REF (node);
-  struct ipa_agg_replacement_value *res = NULL;
+  struct ipa_agg_replacement_value *res;
+  struct ipa_agg_replacement_value **tail = &res;
   struct cgraph_edge *cs;
   int i, j, count = ipa_get_param_count (dest_info);
 
@@ -3189,14 +3234,15 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 	  v->offset = item->offset;
 	  v->value = item->value;
 	  v->by_ref = plats->aggs_by_ref;
-	  v->next = res;
-	  res = v;
+	  *tail = v;
+	  tail = &v->next;
 	}
 
     next_param:
       if (inter.exists ())
 	inter.release ();
     }
+  *tail = NULL;
   return res;
 }
 
@@ -3205,7 +3251,8 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 static struct ipa_agg_replacement_value *
 known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
 {
-  struct ipa_agg_replacement_value *res = NULL;
+  struct ipa_agg_replacement_value *res;
+  struct ipa_agg_replacement_value **tail = &res;
   struct ipa_agg_jump_function *aggjf;
   struct ipa_agg_jf_item *item;
   int i, j;
@@ -3219,9 +3266,10 @@ known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
 	v->offset = item->offset;
 	v->value = item->value;
 	v->by_ref = aggjf->by_ref;
-	v->next = res;
-	res = v;
+	*tail = v;
+	tail = &v->next;
       }
+  *tail = NULL;
   return res;
 }
 
@@ -3366,7 +3414,7 @@ perhaps_add_new_callers (struct cgraph_node *node, struct ipcp_value *val)
 			     xstrdup (val->spec_node->name ()),
 			     val->spec_node->order);
 
-		  cgraph_redirect_edge_callee (cs, val->spec_node);
+		  cs->redirect_callee (val->spec_node);
 		  redirected_sum += cs->count;
 		}
 	    }
@@ -3646,7 +3694,7 @@ identify_dead_nodes (struct cgraph_node *node)
    TOPO and make specialized clones if deemed beneficial.  */
 
 static void
-ipcp_decision_stage (struct topo_info *topo)
+ipcp_decision_stage (struct ipa_topo_info *topo)
 {
   int i;
 
@@ -3681,15 +3729,15 @@ ipcp_driver (void)
 {
   struct cgraph_2edge_hook_list *edge_duplication_hook_holder;
   struct cgraph_edge_hook_list *edge_removal_hook_holder;
-  struct topo_info topo;
+  struct ipa_topo_info topo;
 
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
   grow_edge_clone_vectors ();
   edge_duplication_hook_holder =
-    cgraph_add_edge_duplication_hook (&ipcp_edge_duplication_hook, NULL);
+    symtab->add_edge_duplication_hook (&ipcp_edge_duplication_hook, NULL);
   edge_removal_hook_holder =
-    cgraph_add_edge_removal_hook (&ipcp_edge_removal_hook, NULL);
+    symtab->add_edge_removal_hook (&ipcp_edge_removal_hook, NULL);
 
   ipcp_values_pool = create_alloc_pool ("IPA-CP values",
 					sizeof (struct ipcp_value), 32);
@@ -3716,8 +3764,8 @@ ipcp_driver (void)
   /* Free all IPCP structures.  */
   free_toporder_info (&topo);
   next_edge_clone.release ();
-  cgraph_remove_edge_removal_hook (edge_removal_hook_holder);
-  cgraph_remove_edge_duplication_hook (edge_duplication_hook_holder);
+  symtab->remove_edge_removal_hook (edge_removal_hook_holder);
+  symtab->remove_edge_duplication_hook (edge_duplication_hook_holder);
   ipa_free_all_structures_after_ipa_cp ();
   if (dump_file)
     fprintf (dump_file, "\nIPA constant propagation end\n");
@@ -3812,4 +3860,16 @@ ipa_opt_pass_d *
 make_pass_ipa_cp (gcc::context *ctxt)
 {
   return new pass_ipa_cp (ctxt);
+}
+
+/* Reset all state within ipa-cp.c so that we can rerun the compiler
+   within the same process.  For use by toplev::finalize.  */
+
+void
+ipa_cp_c_finalize (void)
+{
+  max_count = 0;
+  overall_size = 0;
+  max_new_size = 0;
+  values_topo = NULL;
 }

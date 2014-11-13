@@ -68,6 +68,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "hash-map.h"
@@ -82,6 +92,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-ssa.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -2428,7 +2440,7 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
 			bool important, struct iv_use *use)
 {
   basic_block use_bb = gimple_bb (use->stmt);
-  enum machine_mode mem_mode;
+  machine_mode mem_mode;
   unsigned HOST_WIDE_INT cstepi;
 
   /* If we insert the increment in any position other than the standard
@@ -2842,32 +2854,12 @@ get_use_iv_cost (struct ivopts_data *data, struct iv_use *use,
   return NULL;
 }
 
-/* Returns estimate on cost of computing SEQ.  */
-
-static unsigned
-seq_cost (rtx seq, bool speed)
-{
-  unsigned cost = 0;
-  rtx set;
-
-  for (; seq; seq = NEXT_INSN (seq))
-    {
-      set = single_set (seq);
-      if (set)
-	cost += set_src_cost (SET_SRC (set), speed);
-      else
-	cost++;
-    }
-
-  return cost;
-}
-
 /* Produce DECL_RTL for object obj so it looks like it is stored in memory.  */
 static rtx
 produce_memory_decl_rtl (tree obj, int *regno)
 {
   addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (obj));
-  enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+  machine_mode address_mode = targetm.addr_space.address_mode (as);
   rtx x;
 
   gcc_assert (obj);
@@ -2956,7 +2948,8 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
 static unsigned
 computation_cost (tree expr, bool speed)
 {
-  rtx seq, rslt;
+  rtx_insn *seq;
+  rtx rslt;
   tree type = TREE_TYPE (expr);
   unsigned cost;
   /* Avoid using hard regs in ways which may be unsupported.  */
@@ -3174,7 +3167,7 @@ adjust_setup_cost (struct ivopts_data *data, unsigned cost)
 
 
 bool
-multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, enum machine_mode mode,
+multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, machine_mode mode,
 				 addr_space_t as)
 {
 #define MAX_RATIO 128
@@ -3188,7 +3181,7 @@ multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, enum machine_mode mode,
   valid_mult = valid_mult_list[data_index];
   if (!valid_mult)
     {
-      enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+      machine_mode address_mode = targetm.addr_space.address_mode (as);
       rtx reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
       rtx reg2 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 2);
       rtx addr, scaled;
@@ -3259,11 +3252,11 @@ typedef struct address_cost_data_s
 static comp_cost
 get_address_cost (bool symbol_present, bool var_present,
 		  unsigned HOST_WIDE_INT offset, HOST_WIDE_INT ratio,
-		  HOST_WIDE_INT cstep, enum machine_mode mem_mode,
+		  HOST_WIDE_INT cstep, machine_mode mem_mode,
 		  addr_space_t as, bool speed,
 		  bool stmt_after_inc, bool *may_autoinc)
 {
-  enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+  machine_mode address_mode = targetm.addr_space.address_mode (as);
   static vec<address_cost_data> address_cost_data_list;
   unsigned int data_index = (int) as * MAX_MACHINE_MODE + (int) mem_mode;
   address_cost_data data;
@@ -3286,7 +3279,8 @@ get_address_cost (bool symbol_present, bool var_present,
       HOST_WIDE_INT rat, off = 0;
       int old_cse_not_expected, width;
       unsigned sym_p, var_p, off_p, rat_p, add_c;
-      rtx seq, addr, base;
+      rtx_insn *seq;
+      rtx addr, base;
       rtx reg0, reg1;
 
       data = (address_cost_data) xcalloc (1, sizeof (*data));
@@ -3577,7 +3571,7 @@ get_address_cost (bool symbol_present, bool var_present,
     the cost in COST.  */
 
 static bool
-get_shiftadd_cost (tree expr, enum machine_mode mode, comp_cost cost0,
+get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
                    comp_cost cost1, tree mult, bool speed, comp_cost *cost)
 {
   comp_cost res;
@@ -3622,7 +3616,7 @@ force_expr_to_var_cost (tree expr, bool speed)
   static unsigned address_cost [2];
   tree op0, op1;
   comp_cost cost0, cost1, cost;
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (!costs_initialized)
     {
@@ -3814,7 +3808,7 @@ split_address_cost (struct ivopts_data *data,
   HOST_WIDE_INT bitsize;
   HOST_WIDE_INT bitpos;
   tree toffset;
-  enum machine_mode mode;
+  machine_mode mode;
   int unsignedp, volatilep;
 
   core = get_inner_reference (addr, &bitsize, &bitpos, &toffset, &mode,
@@ -3897,7 +3891,7 @@ difference_cost (struct ivopts_data *data,
 		 tree e1, tree e2, bool *symbol_present, bool *var_present,
 		 unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
 {
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (e1));
+  machine_mode mode = TYPE_MODE (TREE_TYPE (e1));
   unsigned HOST_WIDE_INT off1, off2;
   aff_tree aff_e1, aff_e2;
   tree type;
@@ -4111,7 +4105,7 @@ get_computation_cost_at (struct ivopts_data *data,
   comp_cost cost;
   widest_int rat;
   bool speed = optimize_bb_for_speed_p (gimple_bb (at));
-  enum machine_mode mem_mode = (address_p
+  machine_mode mem_mode = (address_p
 				? TYPE_MODE (TREE_TYPE (*use->op_p))
 				: VOIDmode);
 
@@ -5415,35 +5409,39 @@ iv_ca_set_cp (struct ivopts_data *data, struct iv_ca *ivs,
 }
 
 /* Extend set IVS by expressing USE by some of the candidates in it
-   if possible. All important candidates will be considered
-   if IMPORTANT_CANDIDATES is true.  */
+   if possible.  Consider all important candidates if candidates in
+   set IVS don't give any result.  */
 
 static void
 iv_ca_add_use (struct ivopts_data *data, struct iv_ca *ivs,
-	       struct iv_use *use, bool important_candidates)
+	       struct iv_use *use)
 {
   struct cost_pair *best_cp = NULL, *cp;
   bitmap_iterator bi;
-  bitmap cands;
   unsigned i;
+  struct iv_cand *cand;
 
   gcc_assert (ivs->upto >= use->id);
+  ivs->upto++;
+  ivs->bad_uses++;
 
-  if (ivs->upto == use->id)
+  EXECUTE_IF_SET_IN_BITMAP (ivs->cands, 0, i, bi)
     {
-      ivs->upto++;
-      ivs->bad_uses++;
-    }
-
-  cands = (important_candidates ? data->important_candidates : ivs->cands);
-  EXECUTE_IF_SET_IN_BITMAP (cands, 0, i, bi)
-    {
-      struct iv_cand *cand = iv_cand (data, i);
-
+      cand = iv_cand (data, i);
       cp = get_use_iv_cost (data, use, cand);
-
       if (cheaper_cost_pair (cp, best_cp))
 	best_cp = cp;
+    }
+   
+  if (best_cp == NULL)
+    {
+      EXECUTE_IF_SET_IN_BITMAP (data->important_candidates, 0, i, bi)
+	{
+	  cand = iv_cand (data, i);
+	  cp = get_use_iv_cost (data, use, cand);
+	  if (cheaper_cost_pair (cp, best_cp))
+	    best_cp = cp;
+	}
     }
 
   iv_ca_set_cp (data, ivs, use, best_cp);
@@ -5878,18 +5876,9 @@ try_add_cand_for (struct ivopts_data *data, struct iv_ca *ivs,
   struct iv_ca_delta *best_delta = NULL, *act_delta;
   struct cost_pair *cp;
 
-  iv_ca_add_use (data, ivs, use, false);
+  iv_ca_add_use (data, ivs, use);
   best_cost = iv_ca_cost (ivs);
-
   cp = iv_ca_cand_for_use (ivs, use);
-  if (!cp)
-    {
-      ivs->upto--;
-      ivs->bad_uses--;
-      iv_ca_add_use (data, ivs, use, true);
-      best_cost = iv_ca_cost (ivs);
-      cp = iv_ca_cand_for_use (ivs, use);
-    }
   if (cp)
     {
       best_delta = iv_ca_delta_add (use, NULL, cp, NULL);

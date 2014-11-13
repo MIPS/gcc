@@ -24,6 +24,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -33,12 +41,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "flags.h"
 #include "params.h"
-#include "input.h"
-#include "hashtab.h"
-#include "function.h"
 #include "diagnostic-core.h"
 #include "except.h"
 #include "timevar.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "lto-compress.h"
 
@@ -60,7 +69,8 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "opts",
   "cgraphopt",
   "inline",
-  "ipcp_trans"
+  "ipcp_trans",
+  "icf"
 };
 
 

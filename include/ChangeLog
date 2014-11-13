@@ -1,3 +1,56 @@
+2014-11-11  Anthony Brandon  <anthony.brandon@gmail.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR driver/36312
+	* filenames.h: Add prototype for canonical_filename_eq.
+
+2014-11-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* ChangeLog.jit: New.
+
+2014-10-28  Richard Henderson  <rth@redhat.com>
+
+	* longlong.h [__alpha] (umul_ppmm): Disable for c++.
+
+2014-10-28  Yury Gribov  <y.gribov@samsung.com>
+
+	* libiberty.h (strtol, strtoul, strtoll, strtoull): New prototypes.
+
+2014-10-27  Phil Muldoon  <pmuldoon@redhat.com>
+	    Jan Kratochvil  <jan.kratochvil@redhat.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* gcc-c-fe.def: New file.
+	* gcc-c-interface.h: New file.
+	* gcc-interface.h: New file.
+
+2014-10-15  David Malcolm  <dmalcolm@redhat.com>
+
+	* libiberty.h (choose_tmpdir): New prototype.
+
+2013-10-02  Mark Wielaard  <mjw@redhat.com>
+
+	PR debug/63239
+	* dwarf2.def (DW_AT_GNU_deleted): New attribute.
+
+2014-09-26  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* libiberty.h (PEX_STDOUT_APPEND): New flag.
+	(PEX_STDERR_APPEND): Likewise.
+
+2014-09-23  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	* demangle.h (DMGL_DLANG): New macro.
+	(DMGL_STYLE_MASK): Add DMGL_DLANG.
+	(demangling_styles): Add dlang_demangling.
+	(DLANG_DEMANGLING_STYLE_STRING): New macro.
+	(DLANG_DEMANGLING): New macro.
+	(dlang_demangle): New prototype.
+
+2014-09-15  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* longlong.h: Add __udiv_w_sdiv prototype.
+
 2014-06-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR lto/61334

@@ -26,12 +26,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree.h"
 #include "stor-layout.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "tree-streamer.h"
 #include "data-streamer.h"
 #include "streamer-hooks.h"
@@ -178,7 +190,7 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, DECL_NONLOCAL (expr), 1);
   bp_pack_value (bp, DECL_VIRTUAL_P (expr), 1);
   bp_pack_value (bp, DECL_IGNORED_P (expr), 1);
-  bp_pack_value (bp, DECL_ABSTRACT (expr), 1);
+  bp_pack_value (bp, DECL_ABSTRACT_P (expr), 1);
   bp_pack_value (bp, DECL_ARTIFICIAL (expr), 1);
   bp_pack_value (bp, DECL_USER_ALIGN (expr), 1);
   bp_pack_value (bp, DECL_PRESERVE_P (expr), 1);

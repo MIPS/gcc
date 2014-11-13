@@ -131,6 +131,7 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
     context->classify_diagnostic[i] = DK_UNSPECIFIED;
   context->show_caret = false;
   diagnostic_set_caret_max_width (context, pp_line_cutoff (context->printer));
+  context->caret_char = '^';
   context->show_option_requested = false;
   context->abort_on_error = false;
   context->show_column = false;
@@ -176,6 +177,15 @@ diagnostic_finish (diagnostic_context *context)
     }
 
   diagnostic_file_cache_fini ();
+
+  XDELETEVEC (context->classify_diagnostic);
+  context->classify_diagnostic = NULL;
+
+  /* diagnostic_initialize allocates context->printer using XNEW
+     and placement-new.  */
+  context->printer->~pretty_printer ();
+  XDELETE (context->printer);
+  context->printer = NULL;
 }
 
 /* Initialize DIAGNOSTIC, where the message MSG has already been
@@ -280,7 +290,7 @@ adjust_line (const char *line, int line_width,
 }
 
 /* Print the physical source line corresponding to the location of
-   this diagnostics, and a caret indicating the precise column.  */
+   this diagnostic, and a caret indicating the precise column.  */
 void
 diagnostic_show_locus (diagnostic_context * context,
 		       const diagnostic_info *diagnostic)
@@ -328,9 +338,11 @@ diagnostic_show_locus (diagnostic_context * context,
   /* pp_printf does not implement %*c.  */
   size_t len = s.column + 3 + strlen (caret_cs) + strlen (caret_ce);
   buffer = XALLOCAVEC (char, len);
-  snprintf (buffer, len, "%s %*c%s", caret_cs, s.column, '^', caret_ce);
+  snprintf (buffer, len, "%s %*c%s", caret_cs, s.column, context->caret_char,
+	    caret_ce);
   pp_string (context->printer, buffer);
   pp_set_prefix (context->printer, saved_prefix);
+  pp_needs_newline (context->printer) = true;
 }
 
 /* Functions at which to stop the backtrace print.  It's not
@@ -339,7 +351,7 @@ diagnostic_show_locus (diagnostic_context * context,
 static const char * const bt_stop[] =
 {
   "main",
-  "toplev_main",
+  "toplev::main",
   "execute_one_pass",
   "compile_file",
 };
@@ -554,9 +566,12 @@ default_diagnostic_starter (diagnostic_context *context,
 }
 
 void
-default_diagnostic_finalizer (diagnostic_context *context ATTRIBUTE_UNUSED,
-			      diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
+default_diagnostic_finalizer (diagnostic_context *context,
+			      diagnostic_info *diagnostic)
 {
+  diagnostic_show_locus (context, diagnostic);
+  pp_destroy_prefix (context->printer);
+  pp_newline_and_flush (context->printer);
 }
 
 /* Interface to specify diagnostic kind overrides.  Returns the
@@ -805,10 +820,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
   pp_format (context->printer, &diagnostic->message);
   (*diagnostic_starter (context)) (context, diagnostic);
   pp_output_formatted_text (context->printer);
-  diagnostic_show_locus (context, diagnostic);
   (*diagnostic_finalizer (context)) (context, diagnostic);
-  pp_destroy_prefix (context->printer);
-  pp_newline_and_flush (context->printer);
   diagnostic_action_after_output (context, diagnostic);
   diagnostic->message.format_spec = saved_format_spec;
   diagnostic->x_data = NULL;
@@ -994,6 +1006,28 @@ warning_at (location_t location, int opt, const char *gmsgid, ...)
   return ret;
 }
 
+/* A warning at LOCATION.  Use this for code which is correct according to the
+   relevant language specification but is likely to be buggy anyway.
+   Returns true if the warning was printed, false if it was inhibited.  */
+
+bool
+warning_n (location_t location, int opt, int n, const char *singular_gmsgid,
+	   const char *plural_gmsgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+  bool ret;
+
+  va_start (ap, plural_gmsgid);
+  diagnostic_set_info_translated (&diagnostic,
+                                  ngettext (singular_gmsgid, plural_gmsgid, n),
+                                  &ap, location, DK_WARNING);
+  diagnostic.option_index = opt;
+  ret = report_diagnostic (&diagnostic);
+  va_end (ap);
+  return ret;
+}
+
 /* A "pedantic" warning at LOCATION: issues a warning unless
    -pedantic-errors was given on the command line, in which case it
    issues an error.  Use this for diagnostics required by the relevant
@@ -1123,6 +1157,23 @@ fatal_error (const char *gmsgid, ...)
 
   va_start (ap, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &ap, input_location, DK_FATAL);
+  report_diagnostic (&diagnostic);
+  va_end (ap);
+
+  gcc_unreachable ();
+}
+
+/* An error which is severe enough that we make no attempt to
+   continue.  Do not use this for internal consistency checks; that's
+   internal_error.  Use of this function should be rare.  */
+void
+fatal_error (location_t loc, const char *gmsgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &ap, loc, DK_FATAL);
   report_diagnostic (&diagnostic);
   va_end (ap);
 

@@ -23,6 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -32,6 +42,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -429,15 +442,17 @@ gsi_split_seq_before (gimple_stmt_iterator *i, gimple_seq *pnew_seq)
 /* Replace the statement pointed-to by GSI to STMT.  If UPDATE_EH_INFO
    is true, the exception handling information of the original
    statement is moved to the new statement.  Assignments must only be
-   replaced with assignments to the same LHS.  */
+   replaced with assignments to the same LHS.  Returns whether EH edge
+   cleanup is required.  */
 
-void
+bool
 gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
 {
   gimple orig_stmt = gsi_stmt (*gsi);
+  bool require_eh_edge_purge = false;
 
   if (stmt == orig_stmt)
-    return;
+    return false;
 
   gcc_assert (!gimple_has_lhs (orig_stmt) || !gimple_has_lhs (stmt)
 	      || gimple_get_lhs (orig_stmt) == gimple_get_lhs (stmt));
@@ -448,7 +463,7 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
   /* Preserve EH region information from the original statement, if
      requested by the caller.  */
   if (update_eh_info)
-    maybe_clean_or_replace_eh_stmt (orig_stmt, stmt);
+    require_eh_edge_purge = maybe_clean_or_replace_eh_stmt (orig_stmt, stmt);
 
   gimple_duplicate_stmt_histograms (cfun, stmt, cfun, orig_stmt);
 
@@ -460,6 +475,7 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
   gsi_set_stmt (gsi, stmt);
   gimple_set_modified (stmt, true);
   update_modified_stmt (stmt);
+  return require_eh_edge_purge;
 }
 
 

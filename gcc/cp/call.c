@@ -40,6 +40,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-objc.h"
 #include "timevar.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "wide-int.h"
 
@@ -5343,6 +5354,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 
   arg1 = prep_operand (arg1);
 
+  bool memonly = false;
   switch (code)
     {
     case NEW_EXPR:
@@ -5374,6 +5386,16 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
       code_orig_arg1 = TREE_CODE (TREE_TYPE (arg1));
       code_orig_arg2 = TREE_CODE (TREE_TYPE (arg2));
       break;
+
+      /* =, ->, [], () must be non-static member functions.  */
+    case MODIFY_EXPR:
+      if (code2 != NOP_EXPR)
+	break;
+    case COMPONENT_REF:
+    case ARRAY_REF:
+      memonly = true;
+      break;
+
     default:
       break;
     }
@@ -5403,10 +5425,12 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 
   /* Add namespace-scope operators to the list of functions to
      consider.  */
-  add_candidates (lookup_function_nonclass (fnname, arglist, /*block_p=*/true),
-		  NULL_TREE, arglist, NULL_TREE,
-		  NULL_TREE, false, NULL_TREE, NULL_TREE,
-		  flags, &candidates, complain);
+  if (!memonly)
+    add_candidates (lookup_function_nonclass (fnname, arglist,
+					      /*block_p=*/true),
+		    NULL_TREE, arglist, NULL_TREE,
+		    NULL_TREE, false, NULL_TREE, NULL_TREE,
+		    flags, &candidates, complain);
 
   args[0] = arg1;
   args[1] = arg2;
@@ -6251,7 +6275,6 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	return expr;
       }
     case ck_identity:
-      expr = mark_rvalue_use (expr);
       if (BRACE_ENCLOSED_INITIALIZER_P (expr))
 	{
 	  int nelts = CONSTRUCTOR_NELTS (expr);
@@ -6262,6 +6285,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else
 	    gcc_unreachable ();
 	}
+      expr = mark_rvalue_use (expr);
 
       if (type_unknown_p (expr))
 	expr = instantiate_type (totype, expr, complain);
@@ -6386,10 +6410,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  /* We are going to bind a reference directly to a base-class
 	     subobject of EXPR.  */
 	  /* Build an expression for `*((base*) &expr)'.  */
-	  expr = cp_build_addr_expr (expr, complain);
-	  expr = convert_to_base (expr, build_pointer_type (totype),
+	  expr = convert_to_base (expr, totype,
 				  !c_cast_p, /*nonnull=*/true, complain);
-	  expr = cp_build_indirect_ref (expr, RO_IMPLICIT_CONVERSION, complain);
 	  return expr;
 	}
 
@@ -6941,6 +6963,25 @@ mark_versions_used (tree fn)
     }
 }
 
+/* Build a call to "the copy constructor" for the type of A, even if it
+   wouldn't be selected by normal overload resolution.  Used for
+   diagnostics.  */
+
+static tree
+call_copy_ctor (tree a, tsubst_flags_t complain)
+{
+  tree ctype = TYPE_MAIN_VARIANT (TREE_TYPE (a));
+  tree binfo = TYPE_BINFO (ctype);
+  tree copy = get_copy_ctor (ctype, complain);
+  copy = build_baselink (binfo, binfo, copy, NULL_TREE);
+  tree ob = build_dummy_object (ctype);
+  vec<tree, va_gc>* args = make_tree_vector_single (a);
+  tree r = build_new_method_call (ob, copy, &args, NULL_TREE,
+				  LOOKUP_NORMAL, NULL, complain);
+  release_tree_vector (args);
+  return r;
+}
+
 /* Subroutine of the various build_*_call functions.  Overload resolution
    has chosen a winning candidate CAND; build up a CALL_EXPR accordingly.
    ARGS is a TREE_LIST of the unconverted arguments to the call.  FLAGS is a
@@ -7279,6 +7320,16 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (magic_varargs_p (fn))
 	/* Do no conversions for magic varargs.  */
 	a = mark_type_use (a);
+      else if (DECL_CONSTRUCTOR_P (fn)
+	       && same_type_ignoring_top_level_qualifiers_p (DECL_CONTEXT (fn),
+							     TREE_TYPE (a)))
+	{
+	  /* Avoid infinite recursion trying to call A(...).  */
+	  if (complain & tf_error)
+	    /* Try to call the actual copy constructor for a good error.  */
+	    call_copy_ctor (a, complain);
+	  return error_mark_node;
+	}
       else
 	a = convert_arg_to_ellipsis (a, complain);
       argarray[j++] = a;
@@ -7296,7 +7347,11 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
     /* Do things the hard way.  */;
   else if (cand->num_convs == 1 
            && (DECL_COPY_CONSTRUCTOR_P (fn) 
-               || DECL_MOVE_CONSTRUCTOR_P (fn)))
+               || DECL_MOVE_CONSTRUCTOR_P (fn))
+	   /* It's unsafe to elide the constructor when handling
+	      a noexcept-expression, it may evaluate to the wrong
+	      value (c++/53025).  */
+	   && cp_noexcept_operand == 0)
     {
       tree targ;
       tree arg = argarray[num_artificial_parms_for (fn)];
@@ -7986,7 +8041,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 	  && TYPE_HAS_DEFAULT_CONSTRUCTOR (basetype)
 	  /* For a user-provided default constructor, use the normal
 	     mechanisms so that protected access works.  */
-	  && !type_has_user_provided_default_constructor (basetype)
+	  && type_has_non_user_provided_default_constructor (basetype)
 	  && !processing_template_decl)
 	init = build_value_init (basetype, complain);
 
