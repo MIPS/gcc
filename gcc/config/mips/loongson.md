@@ -39,7 +39,6 @@
   UNSPEC_LOONGSON_PUNPCKL
   UNSPEC_LOONGSON_PADDD
   UNSPEC_LOONGSON_PSUBD
-  UNSPEC_LOONGSON_DSLL
   UNSPEC_LOONGSON_DSRL
 ])
 
@@ -834,21 +833,12 @@
 })
 
 ;; Whole vector shifts, used for reduction epilogues.
-(define_insn "vec_shl_<mode>"
-  [(set (match_operand:VWHBDI 0 "register_operand" "=f")
-        (unspec:VWHBDI [(match_operand:VWHBDI 1 "register_operand" "f")
-                        (match_operand:SI 2 "register_operand" "f")]
-                       UNSPEC_LOONGSON_DSLL))]
-  "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
-  "dsll\t%0,%1,%2"
-  [(set_attr "type" "fcvt")])
-
 (define_insn "vec_shr_<mode>"
   [(set (match_operand:VWHBDI 0 "register_operand" "=f")
         (unspec:VWHBDI [(match_operand:VWHBDI 1 "register_operand" "f")
                         (match_operand:SI 2 "register_operand" "f")]
                        UNSPEC_LOONGSON_DSRL))]
-  "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
+  "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS && TARGET_LITTLE_ENDIAN"
   "dsrl\t%0,%1,%2"
   [(set_attr "type" "fcvt")])
 
