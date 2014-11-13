@@ -358,7 +358,7 @@ const char * const omp_clause_code_name[] =
   "sections",
   "taskgroup",
   "_simduid_",
-  "_Cilk_for_count_"
+  "_Cilk_for_count_",
   "independent",
   "worker",
   "vector",

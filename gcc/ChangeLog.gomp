@@ -1,3 +1,8 @@
+2014-11-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* tree.c (omp_clause_code_name): Add missing comma
+	after "_Cilk_for_count_".
+
 2014-11-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimplify.c (gimplify_omp_for): Eliminate govd_private; always
