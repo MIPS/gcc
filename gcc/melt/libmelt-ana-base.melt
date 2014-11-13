@@ -231,7 +231,7 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 gimplepass_chk
 	 #{ /* start install_melt_gcc_pass $GIMPLEPASS_CHK */
-#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC 4.7 or 4.8 */
+#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC  4.8 */
 	 struct gimple_opt_pass* gimpass = NULL;
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
@@ -299,7 +299,7 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 simipapass_chk
 	 #{ /* start install_melt_gcc_pass $SIMIPAPASS_CHK */
-#if GCCPLUGIN_VERSION <= 4008  &&  MELT_GCC_VERSION <= 4008 /* GCC 4.7 or 4.8 */
+#if GCCPLUGIN_VERSION <= 4008  &&  MELT_GCC_VERSION <= 4008 /* GCC  4.8 */
 	 struct simple_ipa_opt_pass* simipass = NULL;
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
@@ -367,7 +367,7 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 rtlpass_chk
 	 #{ /* start install_melt_gcc_pass $RTLPASS_CHK */
-#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC 4.7 or 4.8 */
+#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC  4.8 */
 	 struct rtl_opt_pass* rtlpass = NULL;
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
@@ -692,7 +692,7 @@ unsigned int melthk_rtl_execute(void)
   #{ /* number_of_loops primitive */
 #if MELT_GCC_VERSION >= 4009 /* GCC 4.9 */
   number_of_loops (cfun)
-#else /* GCC 4.7 or 4.8 */
+#else /* GCC 4.8 */
   number_of_loops ()
 #endif /*GCC 4.9*/
   }#)

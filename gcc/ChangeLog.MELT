@@ -1,5 +1,14 @@
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{remove all mentions of GCC 4.7}}
+	* melt/warmelt-moremacro.melt (gccif): Don't mention GCC 4.7.
+	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Remove
+	MELT_BOGUS_GENGTYPE_4dot7 hack.
+	* melt/libmelt-ana-base.melt (install_melt_pass_in_gcc): Don't
+	mention GCC 4.7.
+	* melt/libmelt-ana-gimple.melt (gimple_transaction): Likewise.
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>

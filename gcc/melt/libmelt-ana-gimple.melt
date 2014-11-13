@@ -2631,8 +2631,8 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 
 
 (gccif 
- ("4.7" "4.8" "4.9")
-;;; match a transaction - only in GCC 4.7 or 4.8 or 4.9
+ ("4.8" "4.9")
+;;; match a transaction - only in GCC 4.8 or 4.9
  (defcmatcher gimple_transaction
    (:gimple gr)
    (:gimple_seq gsbody

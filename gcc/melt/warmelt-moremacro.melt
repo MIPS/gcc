@@ -214,9 +214,10 @@
 (install_initial_macro 'gccif mexpand_gccif)
 (export_macro gccif mexpand_gccif
  :doc #{The $GCCIF macro expands the rest of the expression if the
-version string of the GCC translating this MELT expression matches
-the condition. Syntax is ($GCCIF condition expr...), where the
-condition is a constant string such as "4.7" or a list of such strings.}#)
+version string of the GCC translating this MELT expression matches the
+condition. Syntax is ($GCCIF condition expr...), where the condition
+is a constant string such as "4.8" for @code{gcc-4.8} or a list of
+such strings.}#)
 
 ;;;;;;;;;;;;;;;;
 ;;;; obsolete CONTAINER same as REFERENCE
