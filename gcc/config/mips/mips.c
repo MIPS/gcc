@@ -19323,7 +19323,7 @@ mips_option_override (void)
       if (TARGET_MICROMIPS_R6)
 	target_flags |= MASK_COMPACT_BRANCHES;
       else
-	target_flags &= ~MASK_ODD_SPREG;
+	target_flags &= ~MASK_COMPACT_BRANCHES;
     }
   else if (!TARGET_COMPACT_BRANCHES && TARGET_MICROMIPS_R6)
     {
