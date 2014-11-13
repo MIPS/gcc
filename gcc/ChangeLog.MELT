@@ -1,5 +1,11 @@
 
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (make_tree_call_expr): Use auto_vec
+	only for GCC 4.9, but vec for GCC 4.8
+
+	* melt/libmelt-ana-gimple.melt (make_gimple_call): Likewise.
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (tree_namelist_decl): Export it only
 	for GCC 4.9, not 4.8
 

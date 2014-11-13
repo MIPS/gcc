@@ -1930,7 +1930,11 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
 	       break;
 	     default:
 	     {
-	       auto_vec<tree> $MAKECALL_CHK#_vargs;
+     #if GCCPLUGIN_VERSION == 4008 /* GCC 4.8 */
+               vec<tree> $MAKECALL_CHK#_vargs;
+     #else /* GCC 4.9 */
+               auto_vec<tree> $MAKECALL_CHK#_vargs;
+     #endif /* GCC 4.9 */
 	       $MAKECALL_CHK#_vargs.reserve($NBARGS);
 	       for (int ix_$MAKECALL_CHK=0;
 			ix_$MAKECALL_CHK < (int) $NBARGS;

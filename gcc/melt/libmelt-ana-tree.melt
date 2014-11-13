@@ -2482,7 +2482,11 @@ treerr
 		 (:tree t_res (null_tree))
 		 )
 	    (code_chunk maketreecall_chk #{ /* make_tree_call_expr $MAKETREECALL_CHK */
+     #if GCCPLUGIN_VERSION == 4008 /* GCC 4.8 */
+			vec<tree> targsvec_$MAKETREECALL_CHK;
+     #else /* GCC 4.9 */
 			auto_vec<tree> targsvec_$MAKETREECALL_CHK;
+     #endif /* GCC 4.9 */
 			targsvec_$MAKETREECALL_CHK.reserve($NBARGS);
 			for (int ix_$MAKETREECALL_CHK=0;
 				 ix_$MAKETREECALL_CHK<$NBARGS;
