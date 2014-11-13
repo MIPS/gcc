@@ -13700,20 +13700,20 @@ mips_output_equal_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       && operands[3] == const0_rtx
       && get_attr_length (insn) <= 8)
     {
-      branch[inverted_p] = "%*b%C1z%:\t%2,%0";
-      branch[!inverted_p] = "%*b%N1z%:\t%2,%0";
+      branch[!inverted_p] = "%*b%C1z%:\t%2,%0";
+      branch[inverted_p] = "%*b%N1z%:\t%2,%0";
     }
   else if (TARGET_COMPACT_BRANCHES)
     {
       if (operands[3] == const0_rtx)
 	{
-	  branch[inverted_p] = MIPS_BRANCH_C ("b%C1z", "%2,%0");
-	  branch[!inverted_p] = MIPS_BRANCH_C ("b%N1z", "%2,%0");
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1z", "%2,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1z", "%2,%0");
 	}
       else if (REGNO (operands[2]) != REGNO (operands[3]))
 	{
-	  branch[inverted_p] = MIPS_BRANCH_C ("b%C1", "%2,%3,%0");
-	  branch[!inverted_p] = MIPS_BRANCH_C ("b%N1", "%2,%3,%0");
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1", "%2,%3,%0");
 	}
       else
 	{
