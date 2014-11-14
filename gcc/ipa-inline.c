@@ -590,19 +590,21 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
       want_inline = false;
     }
   /* Do fast and conservative check if the function can be good
-     inline cnadidate.  At themoment we allow inline hints to
-     promote non-inline function to inline and we increase
-     MAX_INLINE_INSNS_SINGLE 16fold for inline functions.  */
+     inline candidate.  At the moment we allow inline hints to
+     promote non-inline functions to inline and we increase
+     MAX_INLINE_INSNS_SINGLE 16-fold for inline functions.  */
   else if ((!DECL_DECLARED_INLINE_P (callee->decl)
 	   && (!e->count || !e->maybe_hot_p ()))
-	   && inline_summary (callee)->min_size - inline_edge_summary (e)->call_stmt_size
+	   && inline_summary (callee)->min_size
+		- inline_edge_summary (e)->call_stmt_size
 	      > MAX (MAX_INLINE_INSNS_SINGLE, MAX_INLINE_INSNS_AUTO))
     {
       e->inline_failed = CIF_MAX_INLINE_INSNS_AUTO_LIMIT;
       want_inline = false;
     }
   else if ((DECL_DECLARED_INLINE_P (callee->decl) || e->count)
-	   && inline_summary (callee)->min_size - inline_edge_summary (e)->call_stmt_size
+	   && inline_summary (callee)->min_size
+		- inline_edge_summary (e)->call_stmt_size
 	      > 16 * MAX_INLINE_INSNS_SINGLE)
     {
       e->inline_failed = (DECL_DECLARED_INLINE_P (callee->decl)
@@ -836,27 +838,26 @@ has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 static bool
 want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
 {
-   struct cgraph_node *function = node->ultimate_alias_target ();
-   bool has_hot_call = false;
+  bool has_hot_call = false;
 
-   /* Does it have callers?  */
-   if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
-     return false;
-   /* Already inlined?  */
-   if (function->global.inlined_to)
-     return false;
-   if (node->ultimate_alias_target () != node)
-     return false;
-   /* Inlining into all callers would increase size?  */
-   if (estimate_growth (node) > 0)
-     return false;
-   /* All inlines must be possible.  */
-   if (node->call_for_symbol_thunks_and_aliases
-     (check_callers, &has_hot_call, true))
-     return false;
-   if (!cold && !has_hot_call)
-     return false;
-   return true;
+  if (node->ultimate_alias_target () != node)
+    return false;
+  /* Already inlined?  */
+  if (node->global.inlined_to)
+    return false;
+  /* Does it have callers?  */
+  if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
+    return false;
+  /* Inlining into all callers would increase size?  */
+  if (estimate_growth (node) > 0)
+    return false;
+  /* All inlines must be possible.  */
+  if (node->call_for_symbol_thunks_and_aliases (check_callers, &has_hot_call,
+						true))
+    return false;
+  if (!cold && !has_hot_call)
+    return false;
+  return true;
 }
 
 #define RELATIVE_TIME_BENEFIT_RANGE (INT_MAX / 64)
@@ -961,29 +962,28 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 
   else if (max_count)
     {
-      sreal tmp, relbenefit_real, growth_real;
       int relbenefit = relative_time_benefit (callee_info, edge, edge_time);
       /* Capping edge->count to max_count. edge->count can be larger than
 	 max_count if an inline adds new edges which increase max_count
 	 after max_count is computed.  */
       gcov_type edge_count = edge->count > max_count ? max_count : edge->count;
 
-      sreal_init (&relbenefit_real, relbenefit, 0);
-      sreal_init (&growth_real, growth, 0);
+      sreal relbenefit_real (relbenefit, 0);
+      sreal growth_real (growth, 0);
 
       /* relative_edge_count.  */
-      sreal_init (&tmp, edge_count, 0);
-      sreal_div (&tmp, &tmp, &max_count_real);
+      sreal tmp (edge_count, 0);
+      tmp /= max_count_real;
 
       /* relative_time_benefit.  */
-      sreal_mul (&tmp, &tmp, &relbenefit_real);
-      sreal_div (&tmp, &tmp, &max_relbenefit_real);
+      tmp *= relbenefit_real;
+      tmp /= max_relbenefit_real;
 
       /* growth_f_caller.  */
-      sreal_mul (&tmp, &tmp, &half_int_min_real);
-      sreal_div (&tmp, &tmp, &growth_real);
+      tmp *= half_int_min_real;
+      tmp /=  growth_real;
 
-      badness = -1 * sreal_to_int (&tmp);
+      badness = -1 * tmp.to_int ();
  
       if (dump)
 	{
@@ -1626,9 +1626,9 @@ inline_small_functions (void)
 	  if (max_count < edge->count)
 	    max_count = edge->count;
       }
-  sreal_init (&max_count_real, max_count, 0);
-  sreal_init (&max_relbenefit_real, RELATIVE_TIME_BENEFIT_RANGE, 0);
-  sreal_init (&half_int_min_real, INT_MAX / 2, 0);
+  max_count_real = sreal (max_count, 0);
+  max_relbenefit_real = sreal (RELATIVE_TIME_BENEFIT_RANGE, 0);
+  half_int_min_real = sreal (INT_MAX / 2, 0);
   ipa_free_postorder_info ();
   initialize_growth_caches ();
 
@@ -2452,11 +2452,15 @@ early_inliner (function *fun)
 	     info that might be cleared out for newly discovered edges.  */
 	  for (edge = node->callees; edge; edge = edge->next_callee)
 	    {
-	      struct inline_edge_summary *es = inline_edge_summary (edge);
-	      es->call_stmt_size
-		= estimate_num_insns (edge->call_stmt, &eni_size_weights);
-	      es->call_stmt_time
-		= estimate_num_insns (edge->call_stmt, &eni_time_weights);
+	      /* We have no summary for new bound store calls yet.  */
+	      if (inline_edge_summary_vec.length () > (unsigned)edge->uid)
+		{
+		  struct inline_edge_summary *es = inline_edge_summary (edge);
+		  es->call_stmt_size
+		    = estimate_num_insns (edge->call_stmt, &eni_size_weights);
+		  es->call_stmt_time
+		    = estimate_num_insns (edge->call_stmt, &eni_time_weights);
+		}
 	      if (edge->callee->decl
 		  && !gimple_check_call_matching_types (
 		      edge->call_stmt, edge->callee->decl, false))

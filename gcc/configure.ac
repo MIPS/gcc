@@ -1005,6 +1005,10 @@ else
   AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
 fi
 
+# The jit documentation looks better if built with sphinx, but can be
+# built with texinfo if sphinx is not available.
+# Set "doc_build_sys" to "sphinx" or "texinfo" accordingly.
+AC_CHECK_PROG(doc_build_sys, sphinx-build, sphinx, texinfo)
 
 # --------------------
 # Checks for C headers
@@ -4271,6 +4275,17 @@ LCF0:
       [AC_DEFINE(HAVE_AS_GNU_ATTRIBUTE, 1,
 	  [Define if your assembler supports .gnu_attribute.])])
 
+    gcc_GAS_CHECK_FEATURE([.module support],
+      gcc_cv_as_mips_dot_module,,,
+      [.module fp=32],,
+      [AC_DEFINE(HAVE_AS_DOT_MODULE, 1,
+	  [Define if your assembler supports .module.])])
+    if test x$gcc_cv_as_mips_dot_module = xno \
+       && test x$with_fp_32 != x; then
+      AC_MSG_ERROR(
+	[Requesting --with-fp-32= requires assembler support for .module.])
+    fi
+
     gcc_GAS_CHECK_FEATURE([.micromips support],
       gcc_cv_as_micromips_support,,[--fatal-warnings],
       [.set micromips],,
@@ -4537,6 +4552,10 @@ glibc_version_minor=0
   glibc_version_minor=`echo "$glibc_version_minor_define" | sed -e 's/.*__GLIBC_MINOR__[ 	]*//'`
 fi]])
 AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MAJOR], [$glibc_version_major],
+[GNU C Library major version number used on the target, or 0.])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MINOR], [$glibc_version_minor],
+[GNU C Library minor version number used on the target, or 0.])
 
 AC_ARG_ENABLE(gnu-unique-object,
  [AS_HELP_STRING([--enable-gnu-unique-object],
@@ -5578,12 +5597,6 @@ if test "x${ISLLIBS}" != "x" ; then
    AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
 fi
 
-AC_ARG_VAR(CLOOGLIBS,[How to link CLOOG])
-AC_ARG_VAR(CLOOGINC,[How to find CLOOG include files])
-if test "x${CLOOGLIBS}" != "x" ; then 
-   AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
-fi
-
 GCC_ENABLE_PLUGINS
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
@@ -5635,6 +5648,12 @@ if test x"${LINKER_HASH_STYLE}" != x; then
   AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
                                          [The linker hash style])
 fi
+
+# Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
+# of jit/jit-playback.c.
+cat > gcc-driver-name.h <<EOF
+#define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
+EOF
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

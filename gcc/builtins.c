@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "insn-config.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "recog.h"
@@ -65,6 +66,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "ubsan.h"
 #include "cilk.h"
+#include "ipa-ref.h"
+#include "lto-streamer.h"
+#include "cgraph.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
@@ -4323,6 +4329,13 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   rtx va_r = expand_expr (valist, NULL_RTX, VOIDmode, EXPAND_WRITE);
   convert_move (va_r, nextarg, 0);
+
+  /* We do not have any valid bounds for the pointer, so
+     just store zero bounds for it.  */
+  if (chkp_function_instrumented_p (current_function_decl))
+    chkp_expand_bounds_reset_for_mem (valist,
+				      make_tree (TREE_TYPE (valist),
+						 nextarg));
 }
 
 /* Expand EXP, a call to __builtin_va_start.  */
@@ -5551,7 +5564,7 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
 	 end before anything else has a chance to look at it.  The pointer
 	 parameter at this point is usually cast to a void *, so check for that
 	 and look past the cast.  */
-      if (TREE_CODE (arg1) == NOP_EXPR && POINTER_TYPE_P (ttype)
+      if (CONVERT_EXPR_P (arg1) && POINTER_TYPE_P (ttype)
 	  && VOID_TYPE_P (TREE_TYPE (ttype)))
 	arg1 = TREE_OPERAND (arg1, 0);
 
@@ -5833,7 +5846,19 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       && fcode != BUILT_IN_EXECVE
       && fcode != BUILT_IN_ALLOCA
       && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
-      && fcode != BUILT_IN_FREE)
+      && fcode != BUILT_IN_FREE
+      && fcode != BUILT_IN_CHKP_SET_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_INIT_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_NULL_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_COPY_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_NARROW_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_STORE_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_LBOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_UBOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_GET_PTR_LBOUND
+      && fcode != BUILT_IN_CHKP_GET_PTR_UBOUND
+      && fcode != BUILT_IN_CHKP_BNDRET)
     return expand_call (exp, target, ignore);
 
   /* The built-in function expanders test for target == const0_rtx
@@ -5866,6 +5891,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 	  return const0_rtx;
 	}
     }
+
+  gcc_assert (!CALL_WITH_BOUNDS_P (exp));
 
   switch (fcode)
     {
@@ -6871,6 +6898,51 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       expand_builtin_cilk_pop_frame (exp);
       return const0_rtx;
 
+    case BUILT_IN_CHKP_INIT_PTR_BOUNDS:
+    case BUILT_IN_CHKP_NULL_PTR_BOUNDS:
+    case BUILT_IN_CHKP_COPY_PTR_BOUNDS:
+    case BUILT_IN_CHKP_CHECK_PTR_LBOUNDS:
+    case BUILT_IN_CHKP_CHECK_PTR_UBOUNDS:
+    case BUILT_IN_CHKP_CHECK_PTR_BOUNDS:
+    case BUILT_IN_CHKP_SET_PTR_BOUNDS:
+    case BUILT_IN_CHKP_NARROW_PTR_BOUNDS:
+    case BUILT_IN_CHKP_STORE_PTR_BOUNDS:
+    case BUILT_IN_CHKP_GET_PTR_LBOUND:
+    case BUILT_IN_CHKP_GET_PTR_UBOUND:
+      /* We allow user CHKP builtins if Pointer Bounds
+	 Checker is off.  */
+      if (!chkp_function_instrumented_p (current_function_decl))
+	{
+	  if (fcode == BUILT_IN_CHKP_SET_PTR_BOUNDS
+	      || fcode == BUILT_IN_CHKP_NARROW_PTR_BOUNDS
+	      || fcode == BUILT_IN_CHKP_INIT_PTR_BOUNDS
+	      || fcode == BUILT_IN_CHKP_NULL_PTR_BOUNDS
+	      || fcode == BUILT_IN_CHKP_COPY_PTR_BOUNDS)
+	    return expand_normal (CALL_EXPR_ARG (exp, 0));
+	  else if (fcode == BUILT_IN_CHKP_GET_PTR_LBOUND)
+	    return expand_normal (size_zero_node);
+	  else if (fcode == BUILT_IN_CHKP_GET_PTR_UBOUND)
+	    return expand_normal (size_int (-1));
+	  else
+	    return const0_rtx;
+	}
+      /* FALLTHROUGH */
+
+    case BUILT_IN_CHKP_BNDMK:
+    case BUILT_IN_CHKP_BNDSTX:
+    case BUILT_IN_CHKP_BNDCL:
+    case BUILT_IN_CHKP_BNDCU:
+    case BUILT_IN_CHKP_BNDLDX:
+    case BUILT_IN_CHKP_BNDRET:
+    case BUILT_IN_CHKP_INTERSECT:
+    case BUILT_IN_CHKP_NARROW:
+    case BUILT_IN_CHKP_EXTRACT_LOWER:
+    case BUILT_IN_CHKP_EXTRACT_UPPER:
+      /* Software implementation of Pointer Bounds Checker is NYI.
+	 Target support is required.  */
+      error ("Your target platform does not support -fcheck-pointer-bounds");
+      break;
+
     case BUILT_IN_ACC_ON_DEVICE:
       target = expand_builtin_acc_on_device (exp, target);
       if (target)
@@ -7038,7 +7110,7 @@ fold_builtin_expect (location_t loc, tree arg0, tree arg1, tree arg2)
   /* Distribute the expected value over short-circuiting operators.
      See through the cast from truthvalue_type_node to long.  */
   inner_arg0 = arg0;
-  while (TREE_CODE (inner_arg0) == NOP_EXPR
+  while (CONVERT_EXPR_P (inner_arg0)
 	 && INTEGRAL_TYPE_P (TREE_TYPE (inner_arg0))
 	 && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (inner_arg0, 0))))
     inner_arg0 = TREE_OPERAND (inner_arg0, 0);
@@ -7204,7 +7276,7 @@ integer_valued_real_p (tree t)
     case REAL_CST:
       return real_isinteger (TREE_REAL_CST_PTR (t), TYPE_MODE (TREE_TYPE (t)));
 
-    case NOP_EXPR:
+    CASE_CONVERT:
       {
 	tree type = TREE_TYPE (TREE_OPERAND (t, 0));
 	if (TREE_CODE (type) == INTEGER_TYPE)
@@ -9701,6 +9773,62 @@ fold_builtin_unordered_cmp (location_t loc, tree fndecl, tree arg0, tree arg1,
 		      fold_build2_loc (loc, code, type, arg0, arg1));
 }
 
+/* Fold __builtin_{,s,u}{add,sub,mul}{,l,ll}_overflow, either into normal
+   arithmetics if it can never overflow, or into internal functions that
+   return both result of arithmetics and overflowed boolean flag in
+   a complex integer result, or some other check for overflow.  */
+
+static tree
+fold_builtin_arith_overflow (location_t loc, enum built_in_function fcode,
+			     tree arg0, tree arg1, tree arg2)
+{
+  enum internal_fn ifn = IFN_LAST;
+  tree type = TREE_TYPE (TREE_TYPE (arg2));
+  tree mem_arg2 = build_fold_indirect_ref_loc (loc, arg2);
+  switch (fcode)
+    {
+    case BUILT_IN_ADD_OVERFLOW:
+    case BUILT_IN_SADD_OVERFLOW:
+    case BUILT_IN_SADDL_OVERFLOW:
+    case BUILT_IN_SADDLL_OVERFLOW:
+    case BUILT_IN_UADD_OVERFLOW:
+    case BUILT_IN_UADDL_OVERFLOW:
+    case BUILT_IN_UADDLL_OVERFLOW:
+      ifn = IFN_ADD_OVERFLOW;
+      break;
+    case BUILT_IN_SUB_OVERFLOW:
+    case BUILT_IN_SSUB_OVERFLOW:
+    case BUILT_IN_SSUBL_OVERFLOW:
+    case BUILT_IN_SSUBLL_OVERFLOW:
+    case BUILT_IN_USUB_OVERFLOW:
+    case BUILT_IN_USUBL_OVERFLOW:
+    case BUILT_IN_USUBLL_OVERFLOW:
+      ifn = IFN_SUB_OVERFLOW;
+      break;
+    case BUILT_IN_MUL_OVERFLOW:
+    case BUILT_IN_SMUL_OVERFLOW:
+    case BUILT_IN_SMULL_OVERFLOW:
+    case BUILT_IN_SMULLL_OVERFLOW:
+    case BUILT_IN_UMUL_OVERFLOW:
+    case BUILT_IN_UMULL_OVERFLOW:
+    case BUILT_IN_UMULLL_OVERFLOW:
+      ifn = IFN_MUL_OVERFLOW;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  tree ctype = build_complex_type (type);
+  tree call = build_call_expr_internal_loc (loc, ifn, ctype,
+					    2, arg0, arg1);
+  tree tgt = save_expr (call);
+  tree intres = build1_loc (loc, REALPART_EXPR, type, tgt);
+  tree ovfres = build1_loc (loc, IMAGPART_EXPR, type, tgt);
+  ovfres = fold_convert_loc (loc, boolean_type_node, ovfres);
+  tree store
+    = fold_build2_loc (loc, MODIFY_EXPR, void_type_node, mem_arg2, intres);
+  return build2_loc (loc, COMPOUND_EXPR, boolean_type_node, store, ovfres);
+}
+
 /* Fold a call to built-in function FNDECL with 0 arguments.
    IGNORE is true if the result of the function call is ignored.  This
    function returns NULL_TREE if no simplification was possible.  */
@@ -10407,6 +10535,29 @@ fold_builtin_3 (location_t loc, tree fndecl,
 
     case BUILT_IN_EXPECT:
       return fold_builtin_expect (loc, arg0, arg1, arg2);
+
+    case BUILT_IN_ADD_OVERFLOW:
+    case BUILT_IN_SUB_OVERFLOW:
+    case BUILT_IN_MUL_OVERFLOW:
+    case BUILT_IN_SADD_OVERFLOW:
+    case BUILT_IN_SADDL_OVERFLOW:
+    case BUILT_IN_SADDLL_OVERFLOW:
+    case BUILT_IN_SSUB_OVERFLOW:
+    case BUILT_IN_SSUBL_OVERFLOW:
+    case BUILT_IN_SSUBLL_OVERFLOW:
+    case BUILT_IN_SMUL_OVERFLOW:
+    case BUILT_IN_SMULL_OVERFLOW:
+    case BUILT_IN_SMULLL_OVERFLOW:
+    case BUILT_IN_UADD_OVERFLOW:
+    case BUILT_IN_UADDL_OVERFLOW:
+    case BUILT_IN_UADDLL_OVERFLOW:
+    case BUILT_IN_USUB_OVERFLOW:
+    case BUILT_IN_USUBL_OVERFLOW:
+    case BUILT_IN_USUBLL_OVERFLOW:
+    case BUILT_IN_UMUL_OVERFLOW:
+    case BUILT_IN_UMULL_OVERFLOW:
+    case BUILT_IN_UMULLL_OVERFLOW:
+      return fold_builtin_arith_overflow (loc, fcode, arg0, arg1, arg2);
 
     default:
       break;

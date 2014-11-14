@@ -129,6 +129,7 @@ along with GCC; see the file COPYING3.  If not see
 /* FIXME: RTL headers have to be included here for optabs.  */
 #include "rtl.h"		/* Because optabs.h wants enum rtx_code.  */
 #include "expr.h"		/* Because optabs.h wants sepops.  */
+#include "insn-codes.h"
 #include "optabs.h"
 
 /* This structure represents one basic block that either computes a
@@ -1867,8 +1868,7 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	  && code != RSHIFT_EXPR
 	  && code != LROTATE_EXPR
 	  && code != RROTATE_EXPR
-	  && code != NOP_EXPR
-	  && code != CONVERT_EXPR)
+	  && !CONVERT_EXPR_CODE_P (code))
 	return NULL;
 
       source_stmt1 = find_bswap_or_nop_1 (rhs1_stmt, n, limit - 1);
@@ -2172,23 +2172,28 @@ public:
 
 }; // class pass_optimize_bswap
 
-/* Perform the bswap optimization: replace the statement CUR_STMT at
-   GSI with a load of type, VUSE and set-alias as described by N if a
-   memory source is involved (N->base_addr is non null), followed by
-   the builtin bswap invocation in FNDECL if BSWAP is true.  SRC_STMT
-   gives where should the replacement be made.  It also gives the
-   source on which CUR_STMT is operating via its rhs's first tree nad
-   N->range gives the size of the expression involved for maintaining
-   some statistics.  */
+/* Perform the bswap optimization: replace the expression computed in the rhs
+   of CUR_STMT by an equivalent bswap, load or load + bswap expression.
+   Which of these alternatives replace the rhs is given by N->base_addr (non
+   null if a load is needed) and BSWAP.  The type, VUSE and set-alias of the
+   load to perform are also given in N while the builtin bswap invoke is given
+   in FNDEL.  Finally, if a load is involved, SRC_STMT refers to one of the
+   load statements involved to construct the rhs in CUR_STMT and N->range gives
+   the size of the rhs expression for maintaining some statistics.
+
+   Note that if the replacement involve a load, CUR_STMT is moved just after
+   SRC_STMT to do the load with the same VUSE which can lead to CUR_STMT
+   changing of basic block.  */
 
 static bool
-bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
-	       tree fndecl, tree bswap_type, tree load_type,
-	       struct symbolic_number *n, bool bswap)
+bswap_replace (gimple cur_stmt, gimple src_stmt, tree fndecl, tree bswap_type,
+	       tree load_type, struct symbolic_number *n, bool bswap)
 {
+  gimple_stmt_iterator gsi;
   tree src, tmp, tgt;
-  gimple call;
+  gimple bswap_stmt;
 
+  gsi = gsi_for_stmt (cur_stmt);
   src = gimple_assign_rhs1 (src_stmt);
   tgt = gimple_assign_lhs (cur_stmt);
 
@@ -2207,6 +2212,9 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
 	  && SLOW_UNALIGNED_ACCESS (TYPE_MODE (load_type), align))
 	return false;
 
+      /* Move cur_stmt just before  one of the load of the original
+	 to ensure it has the same VUSE.  See PR61517 for what could
+	 go wrong.  */
       gsi_move_before (&gsi, &gsi_ins);
       gsi = gsi_for_stmt (cur_stmt);
 
@@ -2293,16 +2301,31 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
 
   tmp = src;
 
-  /* Convert the src expression if necessary.  */
-  if (!useless_type_conversion_p (TREE_TYPE (tmp), bswap_type))
+  /* Canonical form for 16 bit bswap is a rotate expression.  Only 16bit values
+     are considered as rotation of 2N bit values by N bits is generally not
+     equivalent to a bswap.  Consider for instance 0x01020304 >> 16 which gives
+     0x03040102 while a bswap for that value is 0x04030201.  */
+  if (bswap && n->range == 16)
     {
-      gimple convert_stmt;
-      tmp = make_temp_ssa_name (bswap_type, NULL, "bswapsrc");
-      convert_stmt = gimple_build_assign_with_ops (NOP_EXPR, tmp, src, NULL);
-      gsi_insert_before (&gsi, convert_stmt, GSI_SAME_STMT);
+      tree count = build_int_cst (NULL, BITS_PER_UNIT);
+      bswap_type = TREE_TYPE (src);
+      src = fold_build2 (LROTATE_EXPR, bswap_type, src, count);
+      bswap_stmt = gimple_build_assign (NULL, src);
     }
+  else
+    {
+      /* Convert the src expression if necessary.  */
+      if (!useless_type_conversion_p (TREE_TYPE (tmp), bswap_type))
+	{
+	  gimple convert_stmt;
+	  tmp = make_temp_ssa_name (bswap_type, NULL, "bswapsrc");
+	  convert_stmt = gimple_build_assign_with_ops (NOP_EXPR, tmp, src,
+						       NULL);
+	  gsi_insert_before (&gsi, convert_stmt, GSI_SAME_STMT);
+	}
 
-  call = gimple_build_call (fndecl, 1, tmp);
+      bswap_stmt = gimple_build_call (fndecl, 1, tmp);
+    }
 
   tmp = tgt;
 
@@ -2315,7 +2338,7 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
       gsi_insert_after (&gsi, convert_stmt, GSI_SAME_STMT);
     }
 
-  gimple_call_set_lhs (call, tmp);
+  gimple_set_lhs (bswap_stmt, tmp);
 
   if (dump_file)
     {
@@ -2324,7 +2347,7 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
       print_gimple_stmt (dump_file, cur_stmt, 0, 0);
     }
 
-  gsi_insert_after (&gsi, call, GSI_SAME_STMT);
+  gsi_insert_after (&gsi, bswap_stmt, GSI_SAME_STMT);
   gsi_remove (&gsi, true);
   return true;
 }
@@ -2381,19 +2404,43 @@ pass_optimize_bswap::execute (function *fun)
       gimple_stmt_iterator gsi;
 
       /* We do a reverse scan for bswap patterns to make sure we get the
-	 widest match. As bswap pattern matching doesn't handle
-	 previously inserted smaller bswap replacements as sub-
-	 patterns, the wider variant wouldn't be detected.  */
-      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
+	 widest match. As bswap pattern matching doesn't handle previously
+	 inserted smaller bswap replacements as sub-patterns, the wider
+	 variant wouldn't be detected.  */
+      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
         {
 	  gimple src_stmt, cur_stmt = gsi_stmt (gsi);
 	  tree fndecl = NULL_TREE, bswap_type = NULL_TREE, load_type;
+	  enum tree_code code;
 	  struct symbolic_number n;
 	  bool bswap;
 
-	  if (!is_gimple_assign (cur_stmt)
-	      || gimple_assign_rhs_code (cur_stmt) != BIT_IOR_EXPR)
+	  /* This gsi_prev (&gsi) is not part of the for loop because cur_stmt
+	     might be moved to a different basic block by bswap_replace and gsi
+	     must not points to it if that's the case.  Moving the gsi_prev
+	     there make sure that gsi points to the statement previous to
+	     cur_stmt while still making sure that all statements are
+	     considered in this basic block.  */
+	  gsi_prev (&gsi);
+
+	  if (!is_gimple_assign (cur_stmt))
 	    continue;
+
+	  code = gimple_assign_rhs_code (cur_stmt);
+	  switch (code)
+	    {
+	    case LROTATE_EXPR:
+	    case RROTATE_EXPR:
+	      if (!tree_fits_uhwi_p (gimple_assign_rhs2 (cur_stmt))
+		  || tree_to_uhwi (gimple_assign_rhs2 (cur_stmt))
+		     % BITS_PER_UNIT)
+		continue;
+	      /* Fall through.  */
+	    case BIT_IOR_EXPR:
+	      break;
+	    default:
+	      continue;
+	    }
 
 	  src_stmt = find_bswap_or_nop (cur_stmt, &n, &bswap);
 
@@ -2403,6 +2450,9 @@ pass_optimize_bswap::execute (function *fun)
 	  switch (n.range)
 	    {
 	    case 16:
+	      /* Already in canonical form, nothing to do.  */
+	      if (code == LROTATE_EXPR || code == RROTATE_EXPR)
+		continue;
 	      load_type = uint16_type_node;
 	      if (bswap16_p)
 		{
@@ -2433,8 +2483,8 @@ pass_optimize_bswap::execute (function *fun)
 	  if (bswap && !fndecl)
 	    continue;
 
-	  if (bswap_replace (cur_stmt, gsi, src_stmt, fndecl, bswap_type,
-			     load_type, &n, bswap))
+	  if (bswap_replace (cur_stmt, src_stmt, fndecl, bswap_type, load_type,
+			     &n, bswap))
 	    changed = true;
 	}
     }

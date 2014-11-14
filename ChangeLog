@@ -1,3 +1,57 @@
+2014-11-11  Tobias Burnus  <burnus@net-b.de>
+
+	* Makefile.def: Make all-gcc depend on all-isl.
+	* Makefile.in: Regenerate.
+
+2014-11-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* ChangeLog.jit: New.
+	* MAINTAINERS (Various Maintainers): Add myself as jit maintainer.
+
+2014-11-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/63610
+	* libtool.m4: Fix globbing of darwin versions.
+	* configure: Regenerate.
+
+2014-11-11  Tobias Burnus  <burnus@net-b.de>
+
+	* config/cloog.m4: Remove.
+	* Makefile.def: Remove CLooG.
+	* Makefile.tpl: Ditto.
+	* configure.ac: Ditto.
+	* configure: Regenerate.
+	* Makefile.in: Ditto.
+
+2014-11-06  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* configure.ac: Handle nvptx-*-*.
+	* configure: Regenerate.
+
+2014-11-06  Prachi Godbole  <prachi.godbole@imgtec.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.def (libcc1): Remove bootstrap=true;.
+	* Makefile.in: Regenerated.
+
+2014-10-31  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* configure.ac: Update comment.
+	* configure: Regenerate.
+
+2014-10-31  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-10-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* configure.ac (extra_host_libiberty_configure_flags): Add
+	--enable-shared also for libcc1's benefit.
+	* configure: Regenerate.
+
 2014-10-29  Tristan Gingold  <gingold@adacore.com>
 
 	* MAINTAINERS: Change my email address.

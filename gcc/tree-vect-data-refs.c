@@ -69,6 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 /* Need to include rtl.h, expr.h, etc. for optabs.  */
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "builtins.h"
 #include "varasm.h"
@@ -2717,14 +2718,6 @@ comp_dr_with_seg_len_pair (const void *p1_, const void *p2_)
   return 0;
 }
 
-template <class T> static void
-swap (T& a, T& b)
-{
-  T c (a);
-  a = b;
-  b = c;
-}
-
 /* Function vect_vfa_segment_size.
 
    Create an expression that computes the size of segment
@@ -2857,7 +2850,7 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	   dr_with_seg_len (dr_b, segment_length_b));
 
       if (compare_tree (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b)) > 0)
-	swap (dr_with_seg_len_pair.first, dr_with_seg_len_pair.second);
+	std::swap (dr_with_seg_len_pair.first, dr_with_seg_len_pair.second);
 
       comp_alias_ddrs.safe_push (dr_with_seg_len_pair);
     }
@@ -2907,8 +2900,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	     and DR_A1 and DR_A2 are two consecutive memrefs.  */
 	  if (*dr_a1 == *dr_a2)
 	    {
-	      swap (dr_a1, dr_b1);
-	      swap (dr_a2, dr_b2);
+	      std::swap (dr_a1, dr_b1);
+	      std::swap (dr_a2, dr_b2);
 	    }
 
 	  if (!operand_equal_p (DR_BASE_ADDRESS (dr_a1->dr),
@@ -5378,8 +5371,9 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
   memcpy (result_chain->address (), dr_chain.address (),
 	  length * sizeof (tree));
 
-  if (length == 2 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
+  if (exact_log2 (length) != -1 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
     {
+      unsigned int j, log_length = exact_log2 (length);
       for (i = 0; i < nelt / 2; ++i)
 	sel[i] = i * 2;
       for (i = 0; i < nelt / 2; ++i)
@@ -5440,37 +5434,44 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
       select_mask = vect_gen_perm_mask (vectype, sel);
       gcc_assert (select_mask != NULL);
 
-      first_vect = dr_chain[0];
-      second_vect = dr_chain[1];
+      for (i = 0; i < log_length; i++)
+	{
+	  for (j = 0; j < length; j += 2)
+	    {
+	      first_vect = dr_chain[j];
+	      second_vect = dr_chain[j + 1];
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						first_vect, first_vect,
-						perm2_mask1);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      vect[0] = data_ref;
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							first_vect, first_vect,
+							perm2_mask1);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      vect[0] = data_ref;
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						second_vect, second_vect,
-						perm2_mask2);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      vect[1] = data_ref;
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shuffle2");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							second_vect, second_vect,
+							perm2_mask2);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      vect[1] = data_ref;
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shift");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						vect[0], vect[1],
-						shift1_mask);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      (*result_chain)[1] = data_ref;
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_shift");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							vect[0], vect[1],
+							shift1_mask);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      (*result_chain)[j/2 + length/2] = data_ref;
 
-      data_ref = make_temp_ssa_name (vectype, NULL, "vect_select");
-      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
-						vect[0], vect[1],
-						select_mask);
-      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      (*result_chain)[0] = data_ref;
-
+	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_select");
+	      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, data_ref,
+							vect[0], vect[1],
+							select_mask);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      (*result_chain)[j/2] = data_ref;
+	    }
+	  memcpy (dr_chain.address (), result_chain->address (),
+		  length * sizeof (tree));
+	}
       return true;
     }
   if (length == 3 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 2)

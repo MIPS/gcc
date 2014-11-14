@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "except.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "recog.h"
@@ -4530,13 +4531,16 @@ prepare_float_lib_cmp (rtx x, rtx y, enum rtx_code comparison,
 /* Generate code to indirectly jump to a location given in the rtx LOC.  */
 
 void
-emit_indirect_jump (rtx loc)
+emit_indirect_jump (rtx loc ATTRIBUTE_UNUSED)
 {
+#ifndef HAVE_indirect_jump
+  sorry ("indirect jumps are not available on this target");
+#else
   struct expand_operand ops[1];
-
   create_address_operand (&ops[0], loc);
   expand_jump_insn (CODE_FOR_indirect_jump, 1, ops);
   emit_barrier ();
+#endif
 }
 
 #ifdef HAVE_conditional_move
@@ -4893,21 +4897,6 @@ have_sub2_insn (rtx x, rtx y)
     return 0;
 
   return 1;
-}
-
-/* Generate the body of an instruction to copy Y into X.
-   It may be a list of insns, if one insn isn't enough.  */
-
-rtx
-gen_move_insn (rtx x, rtx y)
-{
-  rtx_insn *seq;
-
-  start_sequence ();
-  emit_move_insn_1 (x, y);
-  seq = get_insns ();
-  end_sequence ();
-  return seq;
 }
 
 /* Return the insn code used to extend FROM_MODE to TO_MODE.

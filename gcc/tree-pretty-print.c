@@ -225,7 +225,7 @@ dump_decl_name (pretty_printer *buffer, tree node, int flags)
 static void
 dump_function_name (pretty_printer *buffer, tree node, int flags)
 {
-  if (TREE_CODE (node) == NOP_EXPR)
+  if (CONVERT_EXPR_P (node))
     node = TREE_OPERAND (node, 0);
   if (DECL_NAME (node) && (flags & TDF_ASMNAME) == 0)
     pp_string (buffer, lang_hooks.decl_printable_name (node, 1));
@@ -990,6 +990,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case VOID_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
@@ -3411,7 +3412,7 @@ print_call_name (pretty_printer *buffer, tree node, int flags)
 
     case ADDR_EXPR:
     case INDIRECT_REF:
-    case NOP_EXPR:
+    CASE_CONVERT:
       op0 = TREE_OPERAND (op0, 0);
       goto again;
 

@@ -69,6 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "regs.h"
 #include "reload.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "recog.h"
 #include "intl.h"
@@ -78,7 +79,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
-#include "insn-codes.h"
 
 
 bool
@@ -1406,6 +1406,61 @@ default_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 #endif
 }
 
+/* For hooks which use the MOVE_RATIO macro, this gives the legacy default
+   behaviour.  SPEED_P is true if we are compiling for speed.  */
+
+unsigned int
+get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
+{
+  unsigned int move_ratio;
+#ifdef MOVE_RATIO
+  move_ratio = (unsigned int) MOVE_RATIO (speed_p);
+#else
+#if defined (HAVE_movmemqi) || defined (HAVE_movmemhi) || defined (HAVE_movmemsi) || defined (HAVE_movmemdi) || defined (HAVE_movmemti)
+  move_ratio = 2;
+#else /* No movmem patterns, pick a default.  */
+  move_ratio = ((speed_p) ? 15 : 3);
+#endif
+#endif
+  return move_ratio;
+}
+
+/* Return TRUE if the move_by_pieces/set_by_pieces infrastructure should be
+   used; return FALSE if the movmem/setmem optab should be expanded, or
+   a call to memcpy emitted.  */
+
+bool
+default_use_by_pieces_infrastructure_p (unsigned int size,
+					unsigned int alignment,
+					enum by_pieces_operation op,
+					bool speed_p)
+{
+  unsigned int max_size = 0;
+  unsigned int ratio = 0;
+
+  switch (op)
+    {
+      case CLEAR_BY_PIECES:
+	max_size = STORE_MAX_PIECES;
+	ratio = CLEAR_RATIO (speed_p);
+	break;
+      case MOVE_BY_PIECES:
+	max_size = MOVE_MAX_PIECES;
+	ratio = get_move_ratio (speed_p);
+	break;
+      case SET_BY_PIECES:
+	max_size = STORE_MAX_PIECES;
+	ratio = SET_RATIO (speed_p);
+	break;
+      case STORE_BY_PIECES:
+	max_size = STORE_MAX_PIECES;
+	ratio = get_move_ratio (speed_p);
+	break;
+    }
+
+  return move_by_pieces_ninsns (size, alignment, max_size + 1) < ratio;
+}
+
 bool
 default_profile_before_prologue (void)
 {
@@ -1645,6 +1700,36 @@ default_member_type_forces_blk (const_tree, machine_mode)
   return false;
 }
 
+rtx
+default_load_bounds_for_arg (rtx addr ATTRIBUTE_UNUSED,
+			     rtx ptr ATTRIBUTE_UNUSED,
+			     rtx bnd ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+void
+default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
+			      rtx addr ATTRIBUTE_UNUSED,
+			      rtx bounds ATTRIBUTE_UNUSED,
+			      rtx to ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+rtx
+default_load_returned_bounds (rtx slot ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+void
+default_store_returned_bounds (rtx slot ATTRIBUTE_UNUSED,
+			       rtx bounds ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
 /* Default version of canonicalize_comparison.  */
 
 void
@@ -1767,6 +1852,62 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
     addr = build_va_arg_indirect_ref (addr);
 
   return build_va_arg_indirect_ref (addr);
+}
+
+tree
+default_chkp_bound_type (void)
+{
+  tree res = make_node (POINTER_BOUNDS_TYPE);
+  TYPE_PRECISION (res) = TYPE_PRECISION (size_type_node) * 2;
+  TYPE_NAME (res) = get_identifier ("__bounds_type");
+  SET_TYPE_MODE (res, targetm.chkp_bound_mode ());
+  layout_type (res);
+  return res;
+}
+
+enum machine_mode
+default_chkp_bound_mode (void)
+{
+  return VOIDmode;
+}
+
+tree
+default_builtin_chkp_function (unsigned int fcode ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+rtx
+default_chkp_function_value_bounds (const_tree ret_type ATTRIBUTE_UNUSED,
+				    const_tree fn_decl_or_type ATTRIBUTE_UNUSED,
+				    bool outgoing ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+tree
+default_chkp_make_bounds_constant (HOST_WIDE_INT lb ATTRIBUTE_UNUSED,
+				   HOST_WIDE_INT ub ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+int
+default_chkp_initialize_bounds (tree var ATTRIBUTE_UNUSED,
+				tree lb ATTRIBUTE_UNUSED,
+				tree ub ATTRIBUTE_UNUSED,
+				tree *stmts ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+void
+default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE_UNUSED,
+				      enum machine_mode mode ATTRIBUTE_UNUSED,
+				      tree type ATTRIBUTE_UNUSED,
+				      int *pretend_arg_size ATTRIBUTE_UNUSED,
+				      int second_time ATTRIBUTE_UNUSED)
+{
 }
 
 /* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do
