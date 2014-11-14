@@ -13558,22 +13558,35 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
   const char *compact = "";
   const char *nop = "%/";
   const char *short_delay = link_p ? "%!" : "";
+  const char *insn_name = (TARGET_ONLY_COMPACT_BRANCHES && !reg_p) ? "b" : "j";
 
   /* Compact branches can only be described when the ISA has support for them
      as both the compact formatter '%:' and the delay slot NOP formatter '%/'
      work as a mutually exclusive pair.  I.e. a NOP is never required if a
      compact form is available.  */
   if ((reg_p && link_p && ISA_HAS_JALRC)
-      || (reg_p && !link_p && ISA_HAS_JRC)
-      || (!reg_p && link_p && ISA_HAS_JALC)
-      || (!reg_p && !link_p && ISA_HAS_JC))
+      || (reg_p && !link_p && ISA_HAS_JRC))
     {
       compact = "%:";
       nop = "";
     }
+  else if (!TARGET_ONLY_COMPACT_BRANCHES
+	   && ((!reg_p && link_p && ISA_HAS_JALC)
+	       ||  (!reg_p && !link_p && ISA_HAS_JC)))
+      {
+	compact = "%:";
+	nop = "";
+      }
+  else if (TARGET_ONLY_COMPACT_BRANCHES
+	   && ((!reg_p && link_p && ISA_HAS_BALC)
+	       || (!reg_p && !link_p && ISA_HAS_BC)))
+      {
+	compact = "%:";
+	nop = "";
+      }
 
   if (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS)
-    sprintf (s, "%%*j%s\t%%%d%%/", link_p ? "al" : "", target_opno);
+    sprintf (s, "%%*%s%s\t%%%d%%/", insn_name, link_p ? "al" : "", target_opno);
   else
     {
       if (!reg_p && TARGET_ABICALLS_PIC2)
@@ -13589,7 +13602,7 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
       else
 	s += sprintf (s, "%%*");
 
-      s += sprintf (s, "j%s%s%s%s\t%%%d%s", and_link, reg, compact, short_delay,
+      s += sprintf (s, "%s%s%s%s%s\t%%%d%s", insn_name, and_link, reg, compact, short_delay,
 					    target_opno, nop);
 
       if (!reg_p && TARGET_ABICALLS_PIC2)
@@ -19336,6 +19349,12 @@ mips_option_override (void)
     {
       error ("compact branches are not supported for %qs", mips_arch_info->name);
       target_flags &= ~MASK_COMPACT_BRANCHES;
+    }
+
+  if (TARGET_ONLY_COMPACT_BRANCHES && !TARGET_COMPACT_BRANCHES)
+    {
+      error ("-monly-compact-branches requires -mcompact-branches");
+      target_flags &= ~MASK_ONLY_COMPACT_BRANCHES;
     }
 
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification

@@ -1104,7 +1104,8 @@
 (define_delay (and (eq_attr "type" "jump")
 		   (not (match_test "TARGET_MICROMIPS_R6"))
 		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
-			(eq_attr "compact_class" "umipsr6")))
+			(and (eq_attr "compact_class" "umipsr6")
+			     (not (match_test "TARGET_ONLY_COMPACT_BRANCHES")))))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -6179,6 +6180,8 @@
 {
   if (TARGET_COMPACT_BRANCHES && ISA_HAS_JC)
     return MIPS_ABSOLUTE_JUMP ("%*jc\t%l0");
+  else if (TARGET_ONLY_COMPACT_BRANCHES && ISA_HAS_BC)
+    return MIPS_ABSOLUTE_JUMP ("%*bc\t%l0");
   else
     return MIPS_ABSOLUTE_JUMP ("%*j\t%l0%/");
 }

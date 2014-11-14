@@ -859,6 +859,8 @@ struct mips_cpu_info {
 				 || mips_isa_rev >= 6)
 #define ISA_HAS_JALC		(TARGET_MICROMIPS_R6)
 #define ISA_HAS_JC		(TARGET_MICROMIPS_R6)
+#define ISA_HAS_BALC		(mips_isa_rev >= 6)
+#define ISA_HAS_BC		(mips_isa_rev >= 6)
 
 /* ISA has branch likely instructions (e.g. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't

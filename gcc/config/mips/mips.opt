@@ -453,3 +453,7 @@ Enable load/store bonding.
 mcompact-branches
 Target Report Mask(COMPACT_BRANCHES)
 Enable compact branches.
+
+monly-compact-branches
+Target Report Mask(ONLY_COMPACT_BRANCHES)
+Only use branch instructions.
