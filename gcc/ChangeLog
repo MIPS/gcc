@@ -1,5 +1,67 @@
 2014-11-14  Richard Biener  <rguenther@suse.de>
 
+	* gimple-fold.h (gimple_fold_stmt_to_constant_1): Add 2nd
+	valueization hook defaulted to no_follow_ssa_edges.
+	* gimple-fold.c (gimple_fold_stmt_to_constant_1): Pass
+	2nd valueization hook to gimple_simplify.
+	* tree-ssa-ccp.c (valueize_op_1): New function to be
+	used for gimple_simplify called via gimple_fold_stmt_to_constant_1.
+	(ccp_fold): Adjust.
+	* tree-vrp.c (vrp_valueize_1): New function to be
+	used for gimple_simplify called via gimple_fold_stmt_to_constant_1.
+	(vrp_visit_assignment_or_call): Adjust.
+
+2014-11-14  Marek Polacek  <polacek@redhat.com>
+
+	* fold-const.c (fold_negate_expr): Don't fold INTEGER_CST if
+	that overflows when SANITIZE_SI_OVERFLOW is on.  Guard -(-A)
+	folding with TYPE_OVERFLOW_SANITIZED.
+
+2014-11-14  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63839
+	* asan.c (ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST,
+	ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST): Define.
+	* builtin-attrs.def (ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST):
+	Define.
+	* builtins.c (fold_builtin_0): Don't include ubsan.h.  Don't
+	instrument BUILT_IN_UNREACHABLE here.
+	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE): Make
+	const.
+	* sanopt.c (pass_sanopt::execute): Instrument BUILT_IN_UNREACHABLE.
+	* tree-ssa-ccp.c (optimize_unreachable): Bail out if
+	SANITIZE_UNREACHABLE.
+	* ubsan.c (ubsan_instrument_unreachable): Rewrite for GIMPLE.
+	* ubsan.h (ubsan_instrument_unreachable): Adjust declaration.
+
+2014-11-14  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/rs6000/vector.md (vec_shl_<mode>): Remove.
+	(vec_shr_<mode>): Reverse shift if BYTES_BIG_ENDIAN.
+
+2014-11-14  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* optabs.c (shift_amt_for_vec_perm_mask): Remove code conditional on
+	BYTES_BIG_ENDIAN.
+	* tree-vect-loop.c (calc_vec_perm_mask_for_shift,
+	vect_create_epilog_for_reduction): Likewise.
+	* doc/md.texi (vec_shr_m): Clarify direction of shifting.
+
+2014-11-14  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/63724
+        * config/aarch64/aarch64.c (aarch64_expand_mov_immediate): Split out
+        numerical immediate handling to...
+        (aarch64_internal_mov_immediate): ...this. New.
+        (aarch64_rtx_costs): Use aarch64_internal_mov_immediate.
+        (aarch64_mov_operand_p): Relax predicate.
+        * config/aarch64/aarch64.md (mov<mode>:GPI): Do not expand CONST_INTs.
+        (*movsi_aarch64): Turn into define_insn_and_split and new alternative
+        for 'n'.
+        (*movdi_aarch64): Likewise.
+
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
 	* match.pd: Implement more binary patterns exercised by
 	fold_stmt.
 	* fold-const.c (sing_bit_p): Export.
