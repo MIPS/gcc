@@ -164,7 +164,11 @@
   "unknown, msa_eu_div, msa_eu_float2, msa_eu_float2_l,
   msa_eu_float4, msa_eu_float5, msa_eu_float8, msa_eu_logic, 
   msa_eu_logic3, msa_eu_logic_l, msa_eu_mult, msa_eu_cmp, 
-  msa_eu_store4, msa_eu_int_add, msa_eu_fdiv"
+  msa_eu_store4, msa_eu_int_add, msa_eu_fdiv, msa_eu_logic_l2, msa_eu_logic2"
+  (const_string "unknown"))
+
+(define_attr "datafmt"
+  "unknown, d, w, h, b"
   (const_string "unknown"))
 
 ;; All vector modes with 128 bits.
@@ -701,7 +705,10 @@
   "vshf.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic_l2")
+		      (const_string "msa_eu_logic_l")))])
 
 ;; 128-bit integer/MSA vector registers moves
 ;; Note that we prefer floating-point loads, stores, and moves by adding * to
@@ -844,8 +851,9 @@
 	gcc_unreachable ();
       }
   }
-  [(set_attr "alu_type"	"add")
+  [(set_attr "alu_type"	"add, unknown, unknown")
    (set_attr "mode"	"TI")
+   (set_attr "datafmt"	"<msafmt>")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "sub<mode>3"
@@ -876,8 +884,9 @@
 	gcc_unreachable ();
       }
   }
-  [(set_attr "alu_type"	"sub")
+  [(set_attr "alu_type"	"sub, unknown, unknown")
    (set_attr "mode"	"TI")
+   (set_attr "datafmt"  "<msafmt>")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "mul<mode>3"
@@ -989,7 +998,11 @@
   }
   [(set_attr "alu_type"	"xor")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (and (eq_attr "cpu" "i6400")
+			   (eq_attr "alternative" "1"))
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "iorv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
@@ -1028,7 +1041,11 @@
   }
   [(set_attr "alu_type"	"or")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (and (eq_attr "cpu" "i6400")
+			   (eq_attr "alternative" "1"))
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "andv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
@@ -1067,7 +1084,11 @@
   }
   [(set_attr "alu_type"	"and")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (and (eq_attr "cpu" "i6400")
+			   (eq_attr "alternative" "1"))
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "one_cmpl<mode>2"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1093,7 +1114,10 @@
 }
   [(set_attr "type"	"shift")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "vashr<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
@@ -1110,7 +1134,10 @@
 }
   [(set_attr "type"	"shift")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "vashl<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
@@ -1127,7 +1154,10 @@
 }
   [(set_attr "type"	"shift")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 ;; Floating-point operations
 (define_insn "add<mode>3"
@@ -1339,7 +1369,10 @@
   "bclr.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_bclri_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1350,7 +1383,10 @@
   "bclri.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_binsl_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1362,7 +1398,10 @@
   "binsl.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic_l2")
+		      (const_string "msa_eu_logic_l")))])
 
 (define_insn "msa_binsli_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1374,7 +1413,10 @@
   "binsli.<msafmt>\t%w0,%w2,%3"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic_l2")
+		      (const_string "msa_eu_logic_l")))])
 
 (define_insn "msa_binsr_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1386,7 +1428,10 @@
   "binsr.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic_l2")
+		      (const_string "msa_eu_logic_l")))])
 
 (define_insn "msa_binsri_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1398,7 +1443,10 @@
   "binsri.<msafmt>\t%w0,%w2,%3"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic_l2")
+		      (const_string "msa_eu_logic_l")))])
 
 (define_insn "msa_bmnz_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1457,7 +1505,10 @@
   "bneg.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_bnegi_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1468,7 +1519,10 @@
   "bnegi.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_bsel_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1479,7 +1533,8 @@
   "ISA_HAS_MSA"
   "bsel.v\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_bseli_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -1502,7 +1557,10 @@
   "bset.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_bseti_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1513,7 +1571,10 @@
   "bseti.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_code_iterator ICC [eq le leu lt ltu])
 
@@ -2014,7 +2075,8 @@
   "ISA_HAS_MSA"
   "frcp.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"frdiv")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_fdiv")])
 
 (define_insn "msa_frint_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -2033,7 +2095,8 @@
   "ISA_HAS_MSA"
   "frsqrt.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"frsqrt")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_fdiv")])
 
 (define_insn "msa_ftint_s_<msafmt>"
   [(set (match_operand:<FINT> 0 "register_operand" "=f")
@@ -2385,7 +2448,10 @@
   "nloc.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "clz<mode>2"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2394,7 +2460,10 @@
   "nlzc.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_nor_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2456,7 +2525,10 @@
   "pcnt.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic3")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_sat_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2489,7 +2561,11 @@
   "shf.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set_attr "datafmt" "<msafmt>")
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_shf_w_f"
   [(set (match_operand:V4SF 0 "register_operand" "=f")
@@ -2500,7 +2576,10 @@
   "shf.w\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_slli_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2511,7 +2590,10 @@
   "slli.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_srai_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2522,7 +2604,10 @@
   "srai.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_srar_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2533,7 +2618,10 @@
   "srar.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_srari_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2544,7 +2632,10 @@
   "srari.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_srli_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2555,7 +2646,10 @@
   "srli.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_srlr_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2566,7 +2660,10 @@
   "srlr.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_srlri_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2577,7 +2674,10 @@
   "srlri.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic2")
+		      (const_string "msa_eu_logic")))])
 
 (define_insn "msa_subs_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2655,7 +2755,10 @@
   "sld.<msafmt>\t%w0,%w2[%z3]"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic_l2")
+		      (const_string "msa_eu_logic_l")))])
 
 (define_insn "msa_sldi_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
@@ -2667,7 +2770,10 @@
   "sldi.<msafmt>\t%w0,%w2[%3]"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
+   (set (attr "msa_execunit")
+	(if_then_else (eq_attr "cpu" "i6400")
+		      (const_string "msa_eu_logic_l2")
+		      (const_string "msa_eu_logic_l")))])
 
 (define_insn "msa_splat_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
