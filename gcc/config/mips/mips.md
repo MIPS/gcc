@@ -1089,6 +1089,7 @@
   (eq_attr "type" "ghost")
   "nothing")
 
+(include "i6400.md")
 (include "p5600.md")
 (include "4k.md")
 (include "5k.md")
