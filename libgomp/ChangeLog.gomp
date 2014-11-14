@@ -1,3 +1,8 @@
+2014-11-14  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp.texi (Reporting Bugs): Mention the "openacc" Bugzilla
+	keyword.
+
 2014-11-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/context-2.c: Fix data

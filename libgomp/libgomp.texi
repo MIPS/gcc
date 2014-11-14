@@ -2686,8 +2686,9 @@ becomes
 @chapter Reporting Bugs
 
 Bugs in the GNU OpenACC or OpenMP implementation should be reported via
-@uref{http://gcc.gnu.org/bugzilla/, Bugzilla}.  For OpenMP cases, please add
-"openmp" to the keywords field in the bug report.
+@uref{http://gcc.gnu.org/bugzilla/, Bugzilla}.  As appropriate, please
+add "openacc", or "openmp", or both to the keywords field in the bug
+report.
 
 
 
