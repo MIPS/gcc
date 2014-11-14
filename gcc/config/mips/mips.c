@@ -13722,8 +13722,8 @@ mips_output_equal_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
 	  if (GET_CODE (operands[1]) == NE)
 	    inverted_p = !inverted_p;
 
-	  branch[inverted_p] = MIPS_BRANCH_C ("b", "%0");
-	  branch[!inverted_p] = "nop";
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b", "%0");
+	  branch[inverted_p] = "nop";
 	}
     }
   else
@@ -19330,6 +19330,12 @@ mips_option_override (void)
       error ("unsupported combination: %qs %s",
 	     mips_arch_info->name, "-mmicromips -mno-compact-branches");
       target_flags |= MASK_COMPACT_BRANCHES;
+    }
+
+  if (TARGET_COMPACT_BRANCHES && mips_isa_rev <= 5)
+    {
+      error ("compact branches are not supported for %qs", mips_arch_info->name);
+      target_flags &= ~MASK_COMPACT_BRANCHES;
     }
 
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
