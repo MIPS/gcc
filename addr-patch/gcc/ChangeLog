@@ -1,3 +1,865 @@
+2014-11-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Delete redunant
+	tests for 0.0.
+
+	* config/rs6000/vector.md (VEC_R): Move secondary reload support
+	insns to rs6000.md from vector.md.
+	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+
+	* config/rs6000/rs6000.md (Fa): New mode attribute to give
+	constraint for the Altivec registers for a type.
+	(RELOAD): New mode iterator for all of the types that have
+	secondary reload address support to load up a base register.
+	(extendsfdf2_fpr): Use correct constraint.
+	(copysign<mode>3_fcpsgn): For SFmode, use correct xscpsgndp
+	instruction.
+	(floatsi<mode>2_lfiwax): Add support for -mupper-regs-{sf,df}.
+	Generate the non-VSX instruction if all registers were FPRs.  Do
+	not use the patterns in vsx.md for scalar operations.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fix_trunc<mode>di2_fctidz): Likewise.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+	(fctiwz_<mode>): Likewise.
+	(fctiwuz_<mode>): Likewise.
+	(friz): Likewise.
+	(floatdidf2_fpr): Likewise.
+	(floatdidf2_mem): Likewise.
+	(floatunsdidf2): Likewise.
+	(floatunsdidf2_fcfidu): Likewise.
+	(floatunsdidf2_mem): Likewise.
+	(floatdisf2_fcfids): Likewise.
+	(floatdisf2_mem): Likewise.
+	(floatdisf2_internal1): Add explicit test for not FCFIDS to make
+	it more obvious that the code is for pre-ISA 2.06 machines.
+	(floatdisf2_internal2): Likewise.
+	(floatunsdisf2_fcfidus): Add support for -mupper-regs-{sf,df}.
+	Generate the non-VSX instruction if all registers were FPRs.  Do
+	not use the patterns in vsx.md for scalar operations.
+	(floatunsdisf2_mem): Likewise.
+	(reload_<RELOAD:mode>_<P:mptrsize>_store): Move the reload
+	handlers here from vector.md, and expand the types we generate
+	reload handlers for.
+	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+
+	* config/rs6000/vsx.md (vsx_float<VSi><mode>2): Only provide the
+	vector forms of the instructions.  Move VSX scalar forms to
+	rs6000.md, and add support for -mupper-regs-sf.
+	(vsx_floatuns<VSi><mode>2): Likewise.
+	(vsx_fix_trunc<mode><VSi>2): Likewise.
+	(vsx_fixuns_trunc<mode><VSi>2): Likewise.
+	(vsx_float_fix_<mode>2): Delete DF version, rename to
+	vsx_float_fix_v2df2.
+	(vsx_float_fix_v2df2): Likewise.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h (jump_func_type): Removed value IPA_JF_KNOWN_TYPE.
+	(ipa_pass_through_data): Removed field type_preserved.
+	(ipa_ancestor_jf_data): removed fields type and type_preserved.
+	(ipa_jump_func): Removed field known_type.
+	(ipa_get_jf_known_type_offset): Removed.
+	(ipa_get_jf_known_type_base_type): Likewise.
+	(ipa_get_jf_known_type_component_type): Likewise.
+	(ipa_get_jf_ancestor_type): Likewise.
+	* ipa-cp.c (print_ipcp_constant_value): Removed BINFO handling.
+	(ipa_get_jf_pass_through_result): Likewise.
+	(ipa_get_jf_ancestor_result): Always build ptr_node_type accesses.
+	(values_equal_for_ipcp_p): Removed BINFO handling.
+	(ipa_get_indirect_edge_target_1): Updated comment.
+	* ipa-prop.c (ipa_print_node_jump_functions_for_edge): Removed handling
+	of IPA_JF_KNOWN_TYPE jump functions.  Do not print removed fields.
+	(ipa_set_jf_known_type): Removed.
+	(ipa_set_jf_simple_pass_through): Do not set removed fields.  Update
+	all callers.
+	(ipa_set_jf_arith_pass_through): Likewise.
+	(ipa_set_ancestor_jf): Likewise.
+	(ipa_binfo_from_known_type_jfunc): Removed.
+	(prop_type_change_info): Removed fields known_current_type and
+	multiple_types_encountered.
+	(extr_type_from_vtbl_ptr_store): Removed.
+	(check_stmt_for_type_change): Do not attempt to identify changed type.
+	(detect_type_change_from_memory_writes): Do not set the removed fields,
+	always set jfunc to unknown.
+	(compute_complex_assign_jump_func): Do not detect dynamic type change.
+	(compute_complex_ancestor_jump_func): Likewise.
+	(compute_known_type_jump_func): Removed.
+	(ipa_compute_jump_functions_for_edge): Do not detect dynamic type
+	change.  Do not comute known type jump functions.
+	(combine_known_type_and_ancestor_jfs): Removed.
+	(update_jump_functions_after_inlining): Removed handling of
+	IPA_JF_KNOWN_TYPE jump functions.  Do not set removed fields.
+	(ipa_write_jump_function): Do not stream removed fields or known type
+	jump functions.
+	(ipa_read_jump_function): Likewise.
+
+2014-11-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_create_live_ranges): Add parameter.
+	* lra-lives.c (temp_bitmap): Move higher.
+	(initiate_live_solver): Move temp_bitmap initialization into
+	lra_live_ranges_init.
+	(finish_live_solver): Move temp_bitmap clearing into
+	live_ranges_finish.
+	(process_bb_lives): Add parameter.  Use it to control live info
+	update and dead insn elimination.  Pass it to mark_regno_live and
+	mark_regno_dead.
+	(lra_create_live_ranges): Add parameter.  Pass it to
+	process_bb_lives.
+	(lra_live_ranges_init, lra_live_ranges_finish): See changes in
+	initiate_live_solver and finish_live_solver.
+	* lra-remat.c (do_remat): Process insn non-operand hard regs too.
+	Use temp_bitmap to update avail_cands.
+	* lra.c (lra): Pass new parameter to lra_create_live_ranges.  Move
+	check with lra_need_for_spill_p after live range pass.  Switch on
+	rematerialization pass.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h (ipa_get_jf_pass_through_type_preserved): use
+	agg_preserved flag instead.
+	(ipa_get_jf_ancestor_type_preserved): Likewise.
+	(ipa_node_params): Rename known_vals to known_csts, update all users.
+	New field known_contexts.
+	(ipa_get_indirect_edge_target): Update prototype.
+	(ipcp_poly_ctx_values_pool): Declare.
+	(ipa_context_from_jfunc): Likewise.
+	* ipa-inline.h (estimate_ipcp_clone_size_and_time): Updated prototype.
+	* cgraph.h (ipa_polymorphic_call_context): New method equal_to.  New
+	parameter newline of method dump.
+	* ipa-cp.c (ctxlat): New field.
+	(ipcp_values_pool): Renamed to ipcp_cst_values_pool, updated all users.
+	(ipcp_poly_ctx_values_pool):New variable.
+	(ipa_get_poly_ctx_lat): New function.
+	(print_ipcp_constant_value): New overloaded function for contexts.
+	(print_all_lattices): Also print contexts.
+	(ipa_topo_info): New field contexts;
+	(set_all_contains_variable): Also set the flag in the context lattice.
+	(initialize_node_lattices): Likewise for flag bottom.
+	(ipa_get_jf_ancestor_result): Removed BINFO handling.
+	(ipa_value_from_jfunc): Likewise.
+	(ipa_context_from_jfunc): New function.
+	(values_equal_for_ipcp_p): New overloaded function for contexts.
+	(allocate_and_init_ipcp_value): Construct the value.
+	(allocate_and_init_ipcp_value): New overloaded function for contexts.
+	(propagate_scalar_accross_jump_function): Removed handling of
+	KNOWN_TYPE jump functions.
+	(propagate_context_accross_jump_function): New function.
+	(propagate_constants_accross_call): Also propagate contexts.
+	(ipa_get_indirect_edge_target_1): Work on contexts rather than BINFOs.
+	(ipa_get_indirect_edge_target): Likewise.
+	(devirtualization_time_bonus): Likewise.
+	(gather_context_independent_values): Create and populate known_contexts
+	vector rather than known_binfos.
+	(perform_estimation_of_a_value): Work on contexts rather than BINFOs.
+	(estimate_local_effects): Likewise.
+	(add_all_node_vals_to_toposort): Also add contexts to teir topological
+	sort.
+	(ipcp_propagate_stage): Also propagate effects of contexts.
+	(ipcp_discover_new_direct_edges): Receive and pass known_contexts to
+	ipa_get_indirect_edge_target_1.
+	(cgraph_edge_brings_value_p): New overloaded function for contexts.
+	(create_specialized_node): Work on contexts rather than BINFOs.
+	(find_more_contexts_for_caller_subset): New function.
+	(known_contexts_useful_p): New function.
+	(copy_useful_known_contexts): Likewise.
+	(modify_known_vectors_with_val): Likewise.
+	(ipcp_val_in_agg_replacements_p): Renamed to
+	ipcp_val_agg_replacement_ok_p, return true for all offset indicating
+	non-aggregate.
+	(ipcp_val_agg_replacement_ok_p): New overloaded function for contexts.
+	(decide_about_value): Work on contexts rather than BINFOs.
+	(decide_whether_version_node): Likewise.
+	(ipcp_driver): Initialize the new alloc pool.
+	* ipa-prop.c (ipa_print_node_jump_functions_for_edge): Prettify
+	printing of edge contexts.
+	(ipa_set_ancestor_jf): Replace assert with conditional setting of
+	type_preserved to false.
+	(update_jump_functions_after_inlining): Use access function instead of
+	reading agg_preserved directly.  Store combined context in the ancestor
+	case.
+	(try_make_edge_direct_virtual_call): Work on contexts rather than
+	BINFOs.
+	(update_indirect_edges_after_inlining): Get context from
+	ipa_context_from_jfunc.
+	(ipa_free_node_params_substructures): Free also known_contexts.
+	(ipa_free_all_structures_after_ipa_cp): Free the new alloc pool.
+	(ipa_free_all_structures_after_iinln): Likewise.
+	* ipa-inline-analysis.c (evaluate_properties_for_edge): Work on
+	contexts rather than BINFOs.
+	(estimate_edge_devirt_benefit): Likewise.
+	(estimate_edge_size_and_time): Likewise.
+	(estimate_calls_size_and_time): Likewise.
+	(estimate_node_size_and_time): Likewise.
+	(estimate_ipcp_clone_size_and_time): Likewise.
+	(do_estimate_edge_time): Likewise.
+	(do_estimate_edge_size): Likewise.
+	(do_estimate_edge_hints): Likewise.
+	* ipa-polymorphic-call.c (ipa_polymorphic_call_context::dump): New
+	parameter newline, ouput newline only when it is set.
+	(ipa_polymorphic_call_context::equal_to): New method.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-cp.c (ipcp_value_source): Converted to a template class.  All
+	users converted to the same specialization as the using class/function
+	or specialization on tree.
+	(ipcp_value): Likewise.
+	(ipcp_lattice): Likewise.
+	(ipcp_agg_lattice): Now derived from tree specialization of
+	ipcp_lattice.
+	(values_topo): Moved to new class value_topo_info.
+	(ipa_lat_is_single_const): Turned into ipcp_lattice::is_single_const.
+	Updated all callers.
+	(print_lattice): Turned into ipcp_lattice::print.  Updated all
+	callers.
+	(value_topo_info): New class template.
+	(ipa_topo_info): New field constants.  New constructor.
+	(build_toporder_info): Do not clear stack_top, only checkign assert
+	it.
+	(set_lattice_to_bottom): Turned into ipcp_lattice::set_to_bottom.
+	Updated all callers.
+	(set_lattice_contains_variable): Turned into
+	ipcp_lattice::set_contains_variable.  Updated all callers.
+	(add_value_source): Turned into ipcp_value::add_source.  Updated all
+	callers.
+	(allocate_and_init_ipcp_value): New function.
+	(add_value_to_lattice): Turned into ipcp_lattice::add_value.  Last
+	parameter got default a value.  Updated all callers.
+	(add_scalar_value_to_lattice): Removed, users converted to using
+	ipcp_lattice::add_value with default value of the last parameter.
+	(add_val_to_toposort): Turned to value_topo_info::add_val.  Updated
+	all callers.
+	(propagate_effects): Made method of value_topo_info.
+	(cgraph_edge_brings_value_p): Now a template function.
+	(get_info_about_necessary_edges): Likewise.
+	(gather_edges_for_value): Likewise.
+	(perhaps_add_new_callers): Likewise.
+	(decide_about_value): Likewise.
+	* ipa-prop.h (ipcp_lattice): Remove fowrward declaration.
+
+2014-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/install.texi (--with-diagnostics-color=): Document.
+
+	* tree-ssa.dce.c (eliminate_unnecessary_stmts): Eliminate
+	IFN_GOMP_SIMD_LANE without lhs as useless.
+
+	* ipa-pure-const.c (struct funct_state_d): Add can_free field.
+	(varying_state): Add true for can_free.
+	(check_call): For builtin or internal !nonfreeing_call_p set
+	local->can_free.
+	(check_stmt): For asm volatile and asm with "memory" set
+	local->can_free.
+	(analyze_function): Clear local->can_free initially, continue
+	calling check_stmt until all flags are computed, dump can_free
+	flag.
+	(pure_const_write_summary): Write can_free flag.
+	(pure_const_read_summary): Read it back.
+	(propagate_pure_const): Propagate also can_free flag, set
+	w->nonfreeing_fn if it is false after propagation.
+	* cgraph.h (cgraph_node): Add nonfreeing_fn member.
+	* gimple.c: Include ipa-ref.h, lto-streamer.h and cgraph.h.
+	(nonfreeing_call_p): Return cgraph nonfreeing_fn flag if set.
+	Also return true for IFN_ABNORMAL_DISPATCHER.
+	* cgraph.c (cgraph_node::dump): Dump nonfreeing_fn flag.
+	* lto-cgraph.c (lto_output_node): Write nonfreeing_fn flag.
+	(input_overwrite_node): Read it back.
+
+2014-11-14  Jakub Jelinek  <jakub@redhat.com>
+	    Marek Polacek  <polacek@redhat.com>
+
+	* sanopt.c: Include tree-ssa-operands.h.
+	(struct sanopt_info): Add has_freeing_call_p,
+	has_freeing_call_computed_p, imm_dom_path_with_freeing_call_p,
+	imm_dom_path_with_freeing_call_computed_p, freeing_call_events,
+	being_visited_p fields.
+	(struct sanopt_ctx): Add asan_check_map field.
+	(imm_dom_path_with_freeing_call, maybe_optimize_ubsan_null_ifn,
+	maybe_optimize_asan_check_ifn): New functions.
+	(sanopt_optimize_walker): Use them, optimize even ASAN_CHECK
+	internal calls.
+	(pass_sanopt::execute): Call sanopt_optimize even for
+	-fsanitize=address.
+	* gimple.c (nonfreeing_call_p): Return true for non-ECF_LEAF
+	internal calls.
+
+2014-11-14  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Move code for
+	'if (extract_scalar_result)' to the only place that it is true.
+
+2014-11-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config.gcc (default_gnu_indirect_function): Set to yes
+	for i[34567]86-*-linux* and x86_64-*-linux* if not targeting
+	Android nor uclibc.
+
+2014-11-14  Felix Yang  <felix.yang@huawei.com>
+	    Jiji Jiang  <jiangjiji@huawei.com>
+
+	* config/aarch64/aarch64-simd.md (*aarch64_simd_ld1r<mode>): Use
+	VALL mode iterator instead of VALLDI.
+
+
+2014-11-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* optc-save-gen.awk: Output cl_target_option_eq,
+	cl_target_option_hash, cl_target_option_stream_out,
+	cl_target_option_stream_in functions.
+	* opth-gen.awk: Output prototypes for
+	cl_target_option_eq and cl_target_option_hash.
+	* lto-streamer.h (cl_target_option_stream_out,
+	cl_target_option_stream_in): Declare.
+	* tree.c (cl_option_hash_hash): Use cl_target_option_hash.
+	(cl_option_hash_eq): Use cl_target_option_eq.
+	* tree-streamer-in.c (unpack_value_fields): Stream in
+	TREE_TARGET_OPTION.
+	* lto-streamer-out.c (DFS::DFS_write_tree_body): Follow
+	DECL_FUNCTION_SPECIFIC_TARGET.
+	(hash_tree): Hash TREE_TARGET_OPTION; visit
+	DECL_FUNCTION_SPECIFIC_TARGET.
+	* tree-streamer-out.c (streamer_pack_tree_bitfields): Skip
+	TS_TARGET_OPTION.
+	(streamer_write_tree_body): Output TS_TARGET_OPTION.
+
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.h (gimple_fold_stmt_to_constant_1): Add 2nd
+	valueization hook defaulted to no_follow_ssa_edges.
+	* gimple-fold.c (gimple_fold_stmt_to_constant_1): Pass
+	2nd valueization hook to gimple_simplify.
+	* tree-ssa-ccp.c (valueize_op_1): New function to be
+	used for gimple_simplify called via gimple_fold_stmt_to_constant_1.
+	(ccp_fold): Adjust.
+	* tree-vrp.c (vrp_valueize_1): New function to be
+	used for gimple_simplify called via gimple_fold_stmt_to_constant_1.
+	(vrp_visit_assignment_or_call): Adjust.
+
+2014-11-14  Marek Polacek  <polacek@redhat.com>
+
+	* fold-const.c (fold_negate_expr): Don't fold INTEGER_CST if
+	that overflows when SANITIZE_SI_OVERFLOW is on.  Guard -(-A)
+	folding with TYPE_OVERFLOW_SANITIZED.
+
+2014-11-14  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63839
+	* asan.c (ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST,
+	ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST): Define.
+	* builtin-attrs.def (ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST):
+	Define.
+	* builtins.c (fold_builtin_0): Don't include ubsan.h.  Don't
+	instrument BUILT_IN_UNREACHABLE here.
+	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE): Make
+	const.
+	* sanopt.c (pass_sanopt::execute): Instrument BUILT_IN_UNREACHABLE.
+	* tree-ssa-ccp.c (optimize_unreachable): Bail out if
+	SANITIZE_UNREACHABLE.
+	* ubsan.c (ubsan_instrument_unreachable): Rewrite for GIMPLE.
+	* ubsan.h (ubsan_instrument_unreachable): Adjust declaration.
+
+2014-11-14  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/rs6000/vector.md (vec_shl_<mode>): Remove.
+	(vec_shr_<mode>): Reverse shift if BYTES_BIG_ENDIAN.
+
+2014-11-14  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* optabs.c (shift_amt_for_vec_perm_mask): Remove code conditional on
+	BYTES_BIG_ENDIAN.
+	* tree-vect-loop.c (calc_vec_perm_mask_for_shift,
+	vect_create_epilog_for_reduction): Likewise.
+	* doc/md.texi (vec_shr_m): Clarify direction of shifting.
+
+2014-11-14  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/63724
+        * config/aarch64/aarch64.c (aarch64_expand_mov_immediate): Split out
+        numerical immediate handling to...
+        (aarch64_internal_mov_immediate): ...this. New.
+        (aarch64_rtx_costs): Use aarch64_internal_mov_immediate.
+        (aarch64_mov_operand_p): Relax predicate.
+        * config/aarch64/aarch64.md (mov<mode>:GPI): Do not expand CONST_INTs.
+        (*movsi_aarch64): Turn into define_insn_and_split and new alternative
+        for 'n'.
+        (*movdi_aarch64): Likewise.
+
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Implement more binary patterns exercised by
+	fold_stmt.
+	* fold-const.c (sing_bit_p): Export.
+	(exact_inverse): Likewise.
+	(fold_binary_loc): Remove patterns here.
+	(tree_unary_nonnegative_warnv_p): Use CASE_CONVERT.
+	* fold-const.h (sing_bit_p): Declare.
+	(exact_inverse): Likewise.
+
+2014-11-14  Marek Polacek  <polacek@redhat.com>
+
+	* tree.c (build_common_builtin_nodes): Remove doubled ECF_LEAF.
+
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (add_operator): Allow CONSTRUCTOR.
+	(dt_node::gen_kids): Handle CONSTRUCTOR not as GENERIC.
+	(parser::parse_op): Allow to iterate over predicates.
+
+2014-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (--with-diagnostics-color): New configure
+	option, default to --with-diagnostics-color=auto.
+	* toplev.c (process_options): Use DIAGNOSTICS_COLOR_DEFAULT
+	to determine -fdiagnostics-color= option default.
+	* doc/invoke.texi (-fdiagnostics-color=): Document new
+	default.
+	* configure: Regenerated.
+	* config.in: Regenerated.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* tree-ssa-strlen.c (strlen_optimize_stmt): Ignore clobbers.
+
+2014-11-14  Bin Cheng  <bin.cheng@arm.com>
+
+	* timevar.def (TV_SCHED_FUSION): New time var.
+	* passes.def (pass_sched_fusion): New pass.
+	* config/arm/arm.c (TARGET_SCHED_FUSION_PRIORITY): New.
+	(extract_base_offset_in_addr, fusion_load_store): New.
+	(arm_sched_fusion_priority): New.
+	(arm_option_override): Disable scheduling fusion by default
+	on non-armv7 processors or ldrd/strd isn't preferred.
+	* sched-int.h (struct _haifa_insn_data): New field.
+	(INSN_FUSION_PRIORITY, FUSION_MAX_PRIORITY, sched_fusion): New.
+	* sched-rgn.c (rest_of_handle_sched_fusion): New.
+	(pass_data_sched_fusion, pass_sched_fusion): New.
+	(make_pass_sched_fusion): New.
+	* haifa-sched.c (sched_fusion): New.
+	(insn_cost): Handle sched_fusion.
+	(priority): Handle sched_fusion by calling target hook.
+	(enum rfs_decision): New enum value.
+	(rfs_str): New element for RFS_FUSION.
+	(rank_for_schedule): Support sched_fusion.
+	(schedule_insn, max_issue, prune_ready_list): Handle sched_fusion.
+	(schedule_block, fix_tick_ready): Handle sched_fusion.
+	* common.opt (flag_schedule_fusion): New.
+	* tree-pass.h (make_pass_sched_fusion): New.
+	* target.def (fusion_priority): New.
+	* doc/tm.texi.in (TARGET_SCHED_FUSION_PRIORITY): New.
+	* doc/tm.texi: Regenerated.
+	* doc/invoke.texi (-fschedule-fusion): New.
+
+2014-11-13  Rong Xu  <xur@google.com>
+
+	PR debug/63581
+	* cfgrtl.c (emit_barrier_after_bb): Append the barrier to the
+	footer, instead of unconditionally overwritten.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* cgraph.h (clear_outer_type): Make public.  Fix comment.
+	* ipa-devirt.c (possible_polymorphic_call_targets): Use
+	clear_outer_type when resetting the context.
+
+2014-11-13  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	PR bootstrap/63853
+	* gcc.c (handle_foffload_option): Replace strchrnul with strchr.
+	* lto-wrapper.c (parse_env_var, append_offload_options): Likewise.
+
+2014-11-13  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* fold-const.c (const_binop): Remove code handling VEC_RSHIFT_EXPR.
+	* tree-cfg.c (verify_gimple_assign_binary): Likewise.
+	* tree-inline.c (estimate_operator_cost): Likewise.
+	* tree-pretty-print.c (dump_generic_node, op_code_prio, op_symbol_code):
+	Likewise.
+
+	* tree-vect-generic.c (expand_vector_operations_1): Remove assertion
+	against VEC_RSHIFT_EXPR.
+
+	* optabs.h (expand_vec_shift_expr): Remove.
+	* optabs.c (optab_for_tree_code): Remove case VEC_RSHIFT_EXPR.
+	(expand_vec_shift_expr): Remove.
+	* tree.def (VEC_RSHIFT_EXPR): Remove
+
+2014-11-13  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* optabs.c (can_vec_perm_p): Update comment, does not consider vec_shr.
+	(shift_amt_for_vec_perm_mask): New.
+	(expand_vec_perm_1): Use vec_shr_optab if second vector is const0_rtx
+	and mask appropriate.
+
+	* tree-vect-loop.c (calc_vec_perm_mask_for_shift): New.
+	(have_whole_vector_shift): New.
+	(vect_model_reduction_cost): Call have_whole_vector_shift instead of
+	looking for vec_shr_optab.
+	(vect_create_epilog_for_reduction): Likewise; also rename local variable
+	have_whole_vector_shift to reduce_with_shift; output VEC_PERM_EXPRs
+	instead of VEC_RSHIFT_EXPRs.
+
+	* tree-vect-stmts.c (vect_gen_perm_mask_checked): Extend comment.
+
+2014-11-13  Alan Lawrence  <alan.lawrence@arm.com>
+
+        * tree-vectorizer.h (vect_gen_perm_mask): Remove.
+        (vect_gen_perm_mask_checked, vect_gen_perm_mask_any): New.
+
+        tree_vec_data_refs.c (vect_permute_load_chain, vec_permute_store_chain,
+        vec_shift_permute_load_chain): Replace vect_gen_perm_mask & assert
+        with vect_gen_perm_mask_checked.
+
+        * tree-vect-stmts.c (vectorizable_mask_load_store, vectorizable_load):
+        Likewise.
+
+        (vect_gen_perm_mask_checked): New.
+        (vect_gen_perm_mask): Remove can_vec_perm_p check, rename to...
+        (vect_gen_perm_mask_any): ...this.
+
+        (perm_mask_for_reverse): Call can_vec_perm_p and
+        vect_gen_perm_mask_checked.
+
+2014-11-13  Felix Yang  <felix.yang@huawei.com>
+
+	* ipa-utils.h: Fix typo in comments.
+	* ipa-profile.c: Likewise.
+	* tree-ssa-loop-ivcanon.c: Fix typo in comments and debugging dumps.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* tree-ssa-strlen.c (strlen_optimize_stmt): Ignore clobbers.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* tree.c (initializer_zerop): A clobber does not zero initialize.
+
+2014-11-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* optabs.c (prepare_operand): Gracefully fail if the mode of X
+	does not match the operand mode expected by the insn pattern.
+
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add tcc_comparison, inverted_tcc_comparison
+	and inverted_tcc_comparison_with_nans operator lists.
+	Use tcc_comparison in the truth_valued_p predicate definition.
+	Restrict logical_inverted_value with bit_xor to integral types.
+	Build a boolean true for simplifying x |^ !x because of
+	vector types.  Implement patterns from forward_propagate_comparison
+	* tree-ssa-forwprop.c (forward_propagate_comparison): Remove.
+	(get_prop_dest_stmt): Likewise.
+	(pass_forwprop::execute): Do not call it.
+	* fold-const.c (fold_unary_loc): Remove the pattern here.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* config.gcc (*-intelmic-* | *-intelmicemul-*): Add i386/t-intelmic to
+	tmake_file.
+	(i[34567]86-*-* | x86_64-*-*): Build mkoffload$(exeext) with the
+	accelerator compiler.
+	* config/i386/intelmic-mkoffload.c: New file.
+	* config/i386/t-intelmic: Ditto.
+
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* common.opt (foffload, foffload-abi): New options.
+	* config/i386/i386.c (ix86_offload_options): New static function.
+	(TARGET_OFFLOAD_OPTIONS): Define.
+	* coretypes.h (enum offload_abi): New enum.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (TARGET_OFFLOAD_OPTIONS): Document.
+	* gcc.c (offload_targets): New static variable.
+	(handle_foffload_option): New static function.
+	(driver_handle_option): Handle OPT_foffload_.
+	(driver::maybe_putenv_OFFLOAD_TARGETS): Set OFFLOAD_TARGET_NAMES
+	according to offload_targets.
+	* hooks.c (hook_charptr_void_null): New hook.
+	* hooks.h (hook_charptr_void_null): Declare.
+	* lto-opts.c: Include lto-section-names.h.
+	(lto_write_options): Append options from target offload_options hook and
+	store them to offload_lto section.  Do not store target-specific,
+	driver and diagnostic options in offload_lto section.
+	* lto-wrapper.c (merge_and_complain): Handle OPT_foffload_ and
+	OPT_foffload_abi_.
+	(append_compiler_options, append_linker_options)
+	(append_offload_options): New static functions.
+	(compile_offload_image): Add new arguments with options.
+	Call append_compiler_options and append_offload_options.
+	(compile_images_for_offload_targets): Add new arguments with options.
+	(find_and_merge_options): New static function.
+	(run_gcc): Outline options handling into the new functions:
+	find_and_merge_options, append_compiler_options, append_linker_options.
+	* opts.c (common_handle_option): Don't handle OPT_foffload_.
+	Forbid OPT_foffload_abi_ for non-offload compiler.
+	* target.def (offload_options): New target hook.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* gcc.c (spec_host_machine, accel_dir_suffix): New variables.
+	(process_command): Tweak path construction for the possibility
+	of being configured as an offload compiler.
+	(driver::maybe_putenv_OFFLOAD_TARGETS): New function.
+	(driver::main): Call maybe_putenv_OFFLOAD_TARGETS.
+	(driver::set_up_specs): Tweak path construction for the possibility of
+	being configured as an offload compiler.
+	* lto-wrapper.c (OFFLOAD_TARGET_NAMES_ENV): Define.
+	(offload_names, offloadbegin, offloadend): New static variables.
+	(free_array_of_ptrs, parse_env_var, access_check, compile_offload_image)
+	(compile_images_for_offload_targets, copy_file, find_offloadbeginend):
+	New static functions.
+	(run_gcc): Determine whether offload sections are present.  If so, run
+	compile_images_for_offload_targets and return the names of new generated
+	objects to linker.  If there are offload sections, but no LTO sections,
+	then return the copies of input objects without link-time recompilation.
+
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_node::gen_kids): Fix placement of break statement.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* Makefile.in (GTFILES): Add omp-low.h to list of GC files.
+	* cgraphunit.c: Include omp-low.h.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (TARGET_RECORD_OFFLOAD_SYMBOL): Document.
+	* gengtype.c (open_base_files): Add omp-low.h to ifiles.
+	* lto-cgraph.c (output_offload_tables): New function.
+	(input_offload_tables): Likewise.
+	* lto-section-in.c (lto_section_name): Add "offload_table".
+	* lto-section-names.h (OFFLOAD_VAR_TABLE_SECTION_NAME): Define.
+	(OFFLOAD_FUNC_TABLE_SECTION_NAME): Likewise.
+	* lto-streamer-out.c (lto_output): Call output_offload_tables.
+	* lto-streamer.h (lto_section_type): Add LTO_section_offload_table.
+	(output_offload_tables, input_offload_tables): Declare.
+	* omp-low.c: Include common/common-target.h and lto-section-names.h.
+	(offload_funcs, offload_vars): New global <tree, va_gc> vectors.
+	(expand_omp_target): Add child_fn into offload_funcs vector.
+	(add_decls_addresses_to_decl_constructor): New function.
+	(omp_finish_file): Likewise.
+	* omp-low.h (omp_finish_file, offload_funcs, offload_vars): Declare.
+	* target.def (record_offload_symbol): New DEFHOOK.
+	* toplev.c: Include omp-low.h.
+	(compile_file): Call omp_finish_file.
+	* varpool.c: Include omp-low.h.
+	(varpool_node::get_create): Add decl into offload_vars vector.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* cgraph.c: Include context.h.
+	(cgraph_node::create): Set node->offloadable and g->have_offload if
+	decl have "omp declare target" attribute.
+	* cgraph.h (symtab_node): Add need_lto_streaming and offloadable flags.
+	* cgraphunit.c: Include lto-section-names.h.
+	(ipa_passes): Call ipa_write_summaries if there is something to write to
+	OFFLOAD_SECTION_NAME_PREFIX sections.
+	(symbol_table::compile): Set flag_generate_lto if there is something to
+	offload.
+	Replace flag_lto with flag_generate_lto before lto_streamer_hooks_init.
+	* context.c (gcc::context::context): Initialize have_offload with false.
+	* context.h (class context): Add have_offload flag.
+	* ipa-inline-analysis.c (inline_generate_summary): Do not exit under
+	flag_generate_lto.
+	(inline_free_summary): Always remove hooks.
+	* lto-cgraph.c (referenced_from_other_partition_p): Ignore references
+	from non-offloadable nodes while streaming a node into offload section.
+	(reachable_from_other_partition_p): Likewise.
+	(select_what_to_stream): New function.
+	(compute_ltrans_boundary): Do not call
+	lto_set_symtab_encoder_in_partition if the node should not be streamed.
+	* lto-section-names.h (OFFLOAD_SECTION_NAME_PREFIX): Define.
+	(section_name_prefix): Declare.
+	* lto-streamer.c (section_name_prefix): New variable.
+	(lto_get_section_name): Use section_name_prefix instead of
+	LTO_SECTION_NAME_PREFIX.
+	* lto-streamer.h (select_what_to_stream): Declare.
+	* omp-low.c: Include context.h.
+	(is_targetreg_ctx): New function.
+	(scan_sharing_clauses): Use offloadable flag, instead of an attribute.
+	(create_omp_child_function, check_omp_nesting_restrictions): Use new
+	is_targetreg_ctx function.  Replace usage of "omp declare target"
+	attribute with a cgraph_node flag offloadable.
+	(expand_omp_target): Set mark_force_output for offloadable functions.
+	(lower_omp_critical): Set offloadable flag for omp critical symbol.
+	* passes.c (ipa_write_summaries): New argument offload_lto_mode.  Call
+	select_what_to_stream.  Do not call lto_set_symtab_encoder_in_partition
+	if the node should not be streamed out.
+	* tree-pass.h (ipa_write_summaries): New bool argument.
+	* varpool.c: Include context.h.
+	(varpool_node::get_create): Set node->offloadable and g->have_offload if
+	decl have "omp declare target" attribute.
+
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* Makefile.in (real_target_noncanonical, accel_dir_suffix)
+	(enable_as_accelerator): New variables substituted by configure.
+	(libsubdir, libexecsubdir, unlibsubdir): Tweak for the possibility of
+	being configured as an offload compiler.
+	(DRIVER_DEFINES): Pass new defines DEFAULT_REAL_TARGET_MACHINE and
+	ACCEL_DIR_SUFFIX.
+	(install-cpp, install-common, install_driver, install-gcc-ar): Do not
+	install for the offload compiler.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac (real_target_noncanonical, accel_dir_suffix)
+	(enable_as_accelerator): Compute new variables.
+	(ACCEL_COMPILER): Define if the compiler is built as the accel compiler.
+	(OFFLOAD_TARGETS): List of target names suitable for offloading.
+	(ENABLE_OFFLOADING): Define if list of offload targets is not empty.
+	* doc/install.texi (Options specification): Document
+	--enable-as-accelerator-for and --enable-offload-targets.
+
+2014-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/63828
+	* ipa-polymorphic-call.c (possible_placement_new): Check
+	POINTER_SIZE, instead of BITS_PER_WORD, for pointer size.
+
+2014-11-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/tm.texi.in (SELECT_CC_MODE): Update example.
+	(REVERSIBLE_CC_MODE): Fix example.
+	(REVERSE_CONDITION): Fix typo.
+	* doc/tm.texi: Regenerate.
+
+2014-11-13  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (pass_data_expand_omp): Set properties_provided to
+	PROP_gimple_eomp.
+	(pass_expand_omp::gate): Remove function.  Move gate expression to ...
+	(pass_expand_omp::execute): ... here, as new variable gate.  Add early
+	exit if gate is false.
+	(pass_data pass_data_expand_omp_ssa): New pass_data.
+	(class pass_expand_omp_ssa): New pass.
+	(make_pass_expand_omp_ssa): New function.
+	* passes.def (pass_parallelize_loops): Use PUSH_INSERT_PASSES_WITHIN
+	instead of NEXT_PASS.
+	(pass_expand_omp_ssa): Add after pass_parallelize_loops.
+	* tree-parloops.c (gen_parallel_loop): Remove call to omp_expand_local.
+	(pass_parallelize_loops::execute): Don't do cleanups TODO_cleanup_cfg
+	and TODO_rebuild_alias yet.  Add TODO_update_ssa.  Set
+	cfun->omp_expand_needed.
+	* tree-pass.h: Add define PROP_gimple_eomp.
+	(make_pass_expand_omp_ssa): Declare.
+
+2014-11-13  Marek Polacek  <polacek@redhat.com>
+
+	* tree.h (TYPE_OVERFLOW_SANITIZED): Define.
+	* fold-const.c (fold_binary_loc): Use it.
+	* match.pd: Likewise.
+
+2014-11-14  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* lra-lives.c (struct bb_data): Rename to ...
+	(struct bb_data_pseudos): ... this.
+	(initiate_live_solver): Update struct name.
+
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Implement conditional expression patterns.
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Remove
+	them here.
+	(combine_cond_exprs): Remove.
+	(pass_forwprop::execute): Do not call combine_cond_exprs.
+	* fold-const.c (fold_ternary_loc): Remove patterns here.
+	(pedantic_omit_one_operand_loc): Remove.
+
+2014-12-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61559
+	* match.pd: Implement bswap patterns for transforms checked by
+	gcc.dg/builtin-bswap-8.c.
+
+2014-11-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (lra): Switch off rematerialization pass.
+
+2014-11-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (flra-remat): New.
+	* opts.c (default_options_table): Add entry for flra_remat.
+	* timevar_def (TV_LRA_REMAT): New.
+	* doc/invoke.texi (-flra-remat): Add description of the new
+	option.
+	* doc/passes.texi (-flra-remat): Remove lra-equivs.c and
+	lra-saves.c.  Add lra-remat.c.
+	* Makefile.in (OBJS): Add lra-remat.o.
+	* lra-remat.c: New file.
+	* lra.c: Add info about the rematerialization pass in the top
+	comment.
+	(collect_non_operand_hard_regs, add_regs_to_insn_regno_info):
+	Process unallocatable regs too.
+	(lra_constraint_new_insn_uid_start): Remove.
+	(lra): Add code for calling rematerialization sub-pass.
+	* lra-int.h (lra_constraint_new_insn_uid_start): Remove.
+	(lra_constrain_insn, lra_remat): New prototypes.
+	(lra_eliminate_regs_1): Add parameter.
+	* lra-lives.c (make_hard_regno_born, make_hard_regno_dead):
+	Process unallocatable hard regs too.
+	(process_bb_lives): Ditto.
+	* lra-spills.c (remove_pseudos): Add argument to
+	lra_eliminate_regs_1 call.
+	* lra-eliminations.c (lra_eliminate_regs_1): Add parameter.  Use it
+	for sp offset calculation.
+	(lra_eliminate_regs): Add argument for lra_eliminate_regs_1 call.
+	(eliminate_regs_in_insn): Add parameter.  Use it for sp offset
+	calculation.
+	(process_insn_for_elimination): Add argument for
+	eliminate_regs_in_insn call.
+	* lra-constraints.c (get_equiv_with_elimination):  Add argument
+	for lra_eliminate_regs_1 call.
+	(process_addr_reg): Add parameter.  Use it.
+	(process_address_1): Ditto.  Add argument for process_addr_reg
+	call.
+	(process_address): Ditto.
+	(curr_insn_transform): Add parameter.  Use it.  Add argument for
+	process_address calls.
+	(lra_constrain_insn): New function.
+	(lra_constraints): Add argument for curr_insn_transform call.
+
+2014-11-13  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* opts-global.c (postpone_unknown_option_warning): Fix spelling.
+	(print_ignored_options): Fix quoting.
+	* opts.c (common_handle_option): Likewise.
+	(set_debug_level): Likewise.
+	* toplev.c (process_options): Likewise.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/63838
+	* ipa-pure-const.c (propagate_nothrow): Walk w->indirect_calls
+	chain instead of node->indirect_calls.  Put !can_throw into
+	conditions of all the loops.
+
+2014-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (x86_output_mi_thunk): Use gen_rtx_REG to
+	set pic_offset_table_rtx.
+
 2014-11-12  Matthew Fortune  <matthew.fortune@imgtec.com>
 
 	* common/config/mips/mips-common.c (mips_handle_option): Ensure
@@ -6006,6 +6868,7 @@
 	(lds_fpscr, sts_fpscr): New insns.
 	(toggle_sz, toggle_pr): Use SImode for FPSCR_REG instead of PSImode.
 
+>>>>>>> .r217525
 2014-10-17  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* ipa-inline-transform.c (master_clone_with_noninline_clones_p): New.

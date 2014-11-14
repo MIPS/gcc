@@ -9935,7 +9935,7 @@ build_common_builtin_nodes (void)
       local_define_builtin ("__builtin_unreachable", ftype, BUILT_IN_UNREACHABLE,
 			    "__builtin_unreachable",
 			    ECF_NOTHROW | ECF_LEAF | ECF_NORETURN
-			    | ECF_CONST | ECF_LEAF);
+			    | ECF_CONST);
     }
 
   if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY)
@@ -10330,6 +10330,8 @@ initializer_zerop (const_tree init)
       {
 	unsigned HOST_WIDE_INT idx;
 
+	if (TREE_CLOBBER_P (init))
+	  return false;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, elt)
 	  if (!initializer_zerop (elt))
 	    return false;
@@ -11484,10 +11486,7 @@ cl_option_hash_hash (const void *x)
     }
 
   else if (TREE_CODE (t) == TARGET_OPTION_NODE)
-    {
-      p = (const char *)TREE_TARGET_OPTION (t);
-      len = sizeof (struct cl_target_option);
-    }
+    return cl_target_option_hash (TREE_TARGET_OPTION (t));
 
   else
     gcc_unreachable ();
@@ -11526,9 +11525,8 @@ cl_option_hash_eq (const void *x, const void *y)
 
   else if (TREE_CODE (xt) == TARGET_OPTION_NODE)
     {
-      xp = (const char *)TREE_TARGET_OPTION (xt);
-      yp = (const char *)TREE_TARGET_OPTION (yt);
-      len = sizeof (struct cl_target_option);
+      return cl_target_option_eq (TREE_TARGET_OPTION (xt),
+				  TREE_TARGET_OPTION (yt));
     }
 
   else
