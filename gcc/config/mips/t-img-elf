@@ -24,11 +24,11 @@
 
 MULTILIB_OPTIONS = mips64r6 mabi=64 EL mcompact-branches monly-compact-branches
 MULTILIB_DIRNAMES = mips64r6 64 el cb only-cb
-MULTILIB_MATCHES = EL=mel EB=meb
+MULTILIB_MATCHES = EL=mel EB=meb mcompact-branches=monly-compact-branches
 
 MULTILIB_REQUIRED = mips64r6/mabi=64/EL
 MULTILIB_REQUIRED += mips64r6/mabi=64/EL/mcompact-branches
-MULTILIB_REQUIRED += mips64r6/mabi=64/EL/mcompact-branches/monly-compact-branches
+#MULTILIB_REQUIRED += mips64r6/mabi=64/EL/mcompact-branches/monly-compact-branches
 MULTILIB_REQUIRED += EL
 MULTILIB_REQUIRED += EL/mcompact-branches
-MULTILIB_REQUIRED += EL/mcompact-branches/monly-compact-branches
+#MULTILIB_REQUIRED += EL/mcompact-branches/monly-compact-branches
