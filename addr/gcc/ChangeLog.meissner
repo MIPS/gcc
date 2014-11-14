@@ -1,3 +1,38 @@
+2014-11-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (memory_fp_constant): New predicate
+	to return true if the operand is a floating point constant that
+	must be put into the constant pool, before register allocation
+	occurs.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Enable
+	-mupper-regs-df by default.
+	(ISA_2_7_MASKS_SERVER): Enable -mupper-regs-sf by default.
+	(POWERPC_MASKS): Add -mupper-regs-{sf,df} as options set by the
+	various -mcpu=... options.
+	(power7 cpu): Enable -mupper-regs-df by default.
+
+	* config/rs6000/rs6000.opt (-mupper-regs): New combination option
+	that sets -mupper-regs-sf and -mupper-regs-df by default if the
+	cpu supports the instructions.
+
+	* config/rs6000/rs6000.c (rs6000_setup_reg_addr_masks): Allow
+	pre-increment and pre-decrement on floating point, even if the
+	-mupper-regs-{sf,df} options were used.
+	(rs6000_option_override_internal): If -mupper-regs, set both
+	-mupper-regs-sf and -mupper-regs-df, depending on the underlying
+	cpu.
+
+	* config/rs6000/rs6000.md (DFmode splitter): Add a define_split to
+	move floating point constants to the constant pool before register
+	allocation.  Normally constants are put into the pool immediately,
+	but -ffast-math delays putting them into the constant pool for the
+	reciprocal approximation support.
+	(SFmode splitter): Likewise.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs.
+
 2014-11-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 217445.
