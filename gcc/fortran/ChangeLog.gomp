@@ -1,5 +1,10 @@
 2014-11-13  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* match.c (match_exit_cycle): Restructure error strings.
+	* parse.c (is_oacc): Remove bogus break.
+
+2014-11-13  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* f95-lang.c (DEF_GOACC_BUILTIN_COMPILER): Remove bogus TODO.
 	* gfortran.h (gfc_omp_clauses): Move loc out of the ext union and
 	remove the ext union.

@@ -5554,7 +5554,7 @@ is_oacc (gfc_state_data *sd)
 {
   switch (sd->construct->op)
     {
-    case EXEC_OACC_PARALLEL_LOOP:break;
+    case EXEC_OACC_PARALLEL_LOOP:
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS_LOOP:
     case EXEC_OACC_KERNELS:
