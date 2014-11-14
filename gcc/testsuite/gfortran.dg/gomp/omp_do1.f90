@@ -44,7 +44,7 @@ outer: do i = 1, 30
   end do outer
 last: do i = 1, 30
 !$omp parallel
-    if (i .eq. 21) exit last ! { dg-error "leaving OpenMP or OpenACC structured block" }
+    if (i .eq. 21) exit last ! { dg-error "leaving OpenMP structured block" }
 !$omp end parallel
   end do last
 !$omp parallel do shared (i)

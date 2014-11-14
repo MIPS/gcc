@@ -1262,14 +1262,8 @@ typedef struct gfc_omp_clauses
   gfc_expr_list *tile_list;
   unsigned async:1, gang:1, worker:1, vector:1, seq:1, independent:1;
   unsigned wait:1, par_auto:1, gang_static:1;
+  locus loc;
 
-  /* Directive specific data.  */
-  union
-  {
-    /* !$ACC DECLARE locus.  */
-    locus loc;
-  }
-  ext;
 }
 gfc_omp_clauses;
 

@@ -56,7 +56,8 @@ gfc_directorylist *include_dirs, *intrinsic_modules_dirs;
 static gfc_file *file_head, *current_file;
 
 static int continue_flag, end_flag, gcc_attribute_flag;
-static int openmp_flag, openacc_flag; /* If !$omp/!$acc occurred in current comment line */
+/* If !$omp/!$acc occurred in current comment line.  */
+static int openmp_flag, openacc_flag;
 static int continue_count, continue_line;
 static locus openmp_locus;
 static locus openacc_locus;
@@ -1363,7 +1364,7 @@ restart:
 	{
 	  for (i = 0; i < 5; i++, c = next_char ())
 	    {
-	      gcc_assert(gfc_wide_tolower (c) == (unsigned char) "!$acc"[i]);
+	      gcc_assert (gfc_wide_tolower (c) == (unsigned char) "!$acc"[i]);
 	      if (i == 4)
 		old_loc = gfc_current_locus;
 	    }
@@ -1431,18 +1432,16 @@ restart:
       skip_fixed_comments ();
 
       /* See if this line is a continuation line.  */
-      if (gfc_option.gfc_flag_openmp)
-	if (openmp_flag != prev_openmp_flag)
-	  {
-	    openmp_flag = prev_openmp_flag;
-	    goto not_continuation;
-	  }
-      if (gfc_option.gfc_flag_openacc)
-	if (openacc_flag != prev_openacc_flag)
-	  {
-	    openacc_flag = prev_openacc_flag;
-	    goto not_continuation;
-	  }
+      if (gfc_option.gfc_flag_openmp && openmp_flag != prev_openmp_flag)
+	{
+	  openmp_flag = prev_openmp_flag;
+	  goto not_continuation;
+	}
+      if (gfc_option.gfc_flag_openacc && openacc_flag != prev_openacc_flag)
+	{
+	  openacc_flag = prev_openacc_flag;
+	  goto not_continuation;
+	}
 
       if (!openmp_flag && !openacc_flag)
 	for (i = 0; i < 5; i++)

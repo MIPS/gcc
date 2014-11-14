@@ -3818,7 +3818,9 @@ parse_critical_block (void)
 
   for (sd = gfc_state_stack; sd; sd = sd->previous) 
     if (sd->state == COMP_OMP_STRUCTURED_BLOCK)
-      gfc_error_now ("CRITICAL block inside of OpenMP or OpenACC region at %C");
+      gfc_error_now (is_oacc (sd)
+		     ? "CRITICAL block inside of OpenACC region at %C"
+		     : "CRITICAL block inside of OpenMP region at %C");
 
   s.ext.end_do_label = new_st.label1;
 
@@ -5544,4 +5546,29 @@ duplicate_main:
   reject_statement ();
   gfc_done_2 ();
   return true;
+}
+
+/* Return true if this state data represents an OpenACC region.  */
+bool
+is_oacc (gfc_state_data *sd)
+{
+  switch (sd->construct->op)
+    {
+    case EXEC_OACC_PARALLEL_LOOP:break;
+    case EXEC_OACC_PARALLEL:
+    case EXEC_OACC_KERNELS_LOOP:
+    case EXEC_OACC_KERNELS:
+    case EXEC_OACC_DATA:
+    case EXEC_OACC_HOST_DATA:
+    case EXEC_OACC_LOOP:
+    case EXEC_OACC_UPDATE:
+    case EXEC_OACC_WAIT:
+    case EXEC_OACC_CACHE:
+    case EXEC_OACC_ENTER_DATA:
+    case EXEC_OACC_EXIT_DATA:
+      return true;
+
+    default:
+      return false;
+    }
 }

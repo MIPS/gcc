@@ -2502,8 +2502,8 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
     {
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_ASYNC);
       if (clauses->async_expr)
-	OMP_CLAUSE_ASYNC_EXPR (c) =
-	    gfc_convert_expr_to_tree (block, clauses->async_expr);
+	OMP_CLAUSE_ASYNC_EXPR (c)
+	  = gfc_convert_expr_to_tree (block, clauses->async_expr);
       else
 	OMP_CLAUSE_ASYNC_EXPR (c) = NULL;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
@@ -2532,36 +2532,36 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
     }
   if (clauses->num_gangs_expr)
     {
-      tree num_gangs_var = 
-	  gfc_convert_expr_to_tree (block, clauses->num_gangs_expr);
+      tree num_gangs_var
+	= gfc_convert_expr_to_tree (block, clauses->num_gangs_expr);
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_NUM_GANGS);
       OMP_CLAUSE_NUM_GANGS_EXPR (c) = num_gangs_var;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
   if (clauses->num_workers_expr)
     {
-      tree num_workers_var = 
-	  gfc_convert_expr_to_tree (block, clauses->num_workers_expr);
+      tree num_workers_var
+	= gfc_convert_expr_to_tree (block, clauses->num_workers_expr);
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_NUM_WORKERS);
-      OMP_CLAUSE_NUM_WORKERS_EXPR (c)= num_workers_var;
+      OMP_CLAUSE_NUM_WORKERS_EXPR (c) = num_workers_var;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
   if (clauses->vector_length_expr)
     {
-      tree vector_length_var = 
-	  gfc_convert_expr_to_tree (block, clauses->vector_length_expr);
+      tree vector_length_var
+	= gfc_convert_expr_to_tree (block, clauses->vector_length_expr);
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_VECTOR_LENGTH);
-      OMP_CLAUSE_VECTOR_LENGTH_EXPR (c)= vector_length_var;
+      OMP_CLAUSE_VECTOR_LENGTH_EXPR (c) = vector_length_var;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
   if (clauses->vector)
     {
       if (clauses->vector_expr)
 	{
-	  tree vector_var = 
-	      gfc_convert_expr_to_tree (block, clauses->vector_expr);
+	  tree vector_var
+	    = gfc_convert_expr_to_tree (block, clauses->vector_expr);
 	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_VECTOR);
-	  OMP_CLAUSE_VECTOR_EXPR (c)= vector_var;
+	  OMP_CLAUSE_VECTOR_EXPR (c) = vector_var;
 	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
 	}
       else
@@ -2574,10 +2574,10 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
     {
       if (clauses->worker_expr)
 	{
-	  tree worker_var = 
-	      gfc_convert_expr_to_tree (block, clauses->worker_expr);
+	  tree worker_var
+	    = gfc_convert_expr_to_tree (block, clauses->worker_expr);
 	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_WORKER);
-	  OMP_CLAUSE_WORKER_EXPR (c)= worker_var;
+	  OMP_CLAUSE_WORKER_EXPR (c) = worker_var;
 	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
 	}
       else
@@ -2590,10 +2590,10 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
     {
       if (clauses->gang_expr)
 	{
-	  tree gang_var = 
-	      gfc_convert_expr_to_tree (block, clauses->gang_expr);
+	  tree gang_var
+	    = gfc_convert_expr_to_tree (block, clauses->gang_expr);
 	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_GANG);
-	  OMP_CLAUSE_GANG_EXPR (c)= gang_var;
+	  OMP_CLAUSE_GANG_EXPR (c) = gang_var;
 	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
 	}
       else
@@ -4323,8 +4323,8 @@ gfc_trans_oacc_declare (stmtblock_t *block, gfc_namespace *ns)
 {
   tree oacc_clauses;
   oacc_clauses = gfc_trans_omp_clauses (block, ns->oacc_declare_clauses,
-					ns->oacc_declare_clauses->ext.loc);
-  return build1_loc (ns->oacc_declare_clauses->ext.loc.lb->location, 
+					ns->oacc_declare_clauses->loc);
+  return build1_loc (ns->oacc_declare_clauses->loc.lb->location,
 		     OACC_DECLARE, void_type_node, oacc_clauses);
 }
 

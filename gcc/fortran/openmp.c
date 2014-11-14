@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "match.h"
 #include "parse.h"
 #include "hash-set.h"
+#include "diagnostic.h"
 
 /* Match an end of OpenMP directive.  End of OpenMP directive is optional
    whitespace, followed by '\n' or comment '!'.  */
@@ -391,66 +392,66 @@ match_oacc_clause_gang (gfc_omp_clauses *cp)
   return gfc_match (" %e )", &cp->gang_expr);
 }
 
-#define OMP_CLAUSE_PRIVATE	(1U << 0)
-#define OMP_CLAUSE_FIRSTPRIVATE	(1U << 1)
-#define OMP_CLAUSE_LASTPRIVATE	(1U << 2)
-#define OMP_CLAUSE_COPYPRIVATE	(1U << 3)
-#define OMP_CLAUSE_SHARED	(1U << 4)
-#define OMP_CLAUSE_COPYIN	(1U << 5)
-#define OMP_CLAUSE_REDUCTION	(1U << 6)
-#define OMP_CLAUSE_IF		(1U << 7)
-#define OMP_CLAUSE_NUM_THREADS	(1U << 8)
-#define OMP_CLAUSE_SCHEDULE	(1U << 9)
-#define OMP_CLAUSE_DEFAULT	(1U << 10)
-#define OMP_CLAUSE_ORDERED	(1U << 11)
-#define OMP_CLAUSE_COLLAPSE	(1U << 12)
-#define OMP_CLAUSE_UNTIED	(1U << 13)
-#define OMP_CLAUSE_FINAL	(1U << 14)
-#define OMP_CLAUSE_MERGEABLE	(1U << 15)
-#define OMP_CLAUSE_ALIGNED	(1U << 16)
-#define OMP_CLAUSE_DEPEND	(1U << 17)
-#define OMP_CLAUSE_INBRANCH	(1U << 18)
-#define OMP_CLAUSE_LINEAR	(1U << 19)
-#define OMP_CLAUSE_NOTINBRANCH	(1U << 20)
-#define OMP_CLAUSE_PROC_BIND	(1U << 21)
-#define OMP_CLAUSE_SAFELEN	(1U << 22)
-#define OMP_CLAUSE_SIMDLEN	(1U << 23)
-#define OMP_CLAUSE_UNIFORM	(1U << 24)
-#define OMP_CLAUSE_DEVICE	(1U << 25)
-#define OMP_CLAUSE_MAP		(1U << 26)
-#define OMP_CLAUSE_TO		(1U << 27)
-#define OMP_CLAUSE_FROM		(1U << 28)
-#define OMP_CLAUSE_NUM_TEAMS	(1U << 29)
-#define OMP_CLAUSE_THREAD_LIMIT	(1U << 30)
-#define OMP_CLAUSE_DIST_SCHEDULE	(1U << 31)
+#define OMP_CLAUSE_PRIVATE		((uint64_t) 1 << 0)
+#define OMP_CLAUSE_FIRSTPRIVATE		((uint64_t) 1 << 1)
+#define OMP_CLAUSE_LASTPRIVATE		((uint64_t) 1 << 2)
+#define OMP_CLAUSE_COPYPRIVATE		((uint64_t) 1 << 3)
+#define OMP_CLAUSE_SHARED		((uint64_t) 1 << 4)
+#define OMP_CLAUSE_COPYIN		((uint64_t) 1 << 5)
+#define OMP_CLAUSE_REDUCTION		((uint64_t) 1 << 6)
+#define OMP_CLAUSE_IF			((uint64_t) 1 << 7)
+#define OMP_CLAUSE_NUM_THREADS		((uint64_t) 1 << 8)
+#define OMP_CLAUSE_SCHEDULE		((uint64_t) 1 << 9)
+#define OMP_CLAUSE_DEFAULT		((uint64_t) 1 << 10)
+#define OMP_CLAUSE_ORDERED		((uint64_t) 1 << 11)
+#define OMP_CLAUSE_COLLAPSE		((uint64_t) 1 << 12)
+#define OMP_CLAUSE_UNTIED		((uint64_t) 1 << 13)
+#define OMP_CLAUSE_FINAL		((uint64_t) 1 << 14)
+#define OMP_CLAUSE_MERGEABLE		((uint64_t) 1 << 15)
+#define OMP_CLAUSE_ALIGNED		((uint64_t) 1 << 16)
+#define OMP_CLAUSE_DEPEND		((uint64_t) 1 << 17)
+#define OMP_CLAUSE_INBRANCH		((uint64_t) 1 << 18)
+#define OMP_CLAUSE_LINEAR		((uint64_t) 1 << 19)
+#define OMP_CLAUSE_NOTINBRANCH		((uint64_t) 1 << 20)
+#define OMP_CLAUSE_PROC_BIND		((uint64_t) 1 << 21)
+#define OMP_CLAUSE_SAFELEN		((uint64_t) 1 << 22)
+#define OMP_CLAUSE_SIMDLEN		((uint64_t) 1 << 23)
+#define OMP_CLAUSE_UNIFORM		((uint64_t) 1 << 24)
+#define OMP_CLAUSE_DEVICE		((uint64_t) 1 << 25)
+#define OMP_CLAUSE_MAP			((uint64_t) 1 << 26)
+#define OMP_CLAUSE_TO			((uint64_t) 1 << 27)
+#define OMP_CLAUSE_FROM			((uint64_t) 1 << 28)
+#define OMP_CLAUSE_NUM_TEAMS		((uint64_t) 1 << 29)
+#define OMP_CLAUSE_THREAD_LIMIT		((uint64_t) 1 << 30)
+#define OMP_CLAUSE_DIST_SCHEDULE	((uint64_t) 1 << 31)
 
 /* OpenACC 2.0 clauses. */
-#define OMP_CLAUSE_ASYNC		(1ULL << 32)
-#define OMP_CLAUSE_NUM_GANGS		(1ULL << 33)
-#define OMP_CLAUSE_NUM_WORKERS		(1ULL << 34)
-#define OMP_CLAUSE_VECTOR_LENGTH	(1ULL << 35)
-#define OMP_CLAUSE_COPY			(1ULL << 36)
-#define OMP_CLAUSE_COPYOUT		(1ULL << 37)
-#define OMP_CLAUSE_CREATE		(1ULL << 38)
-#define OMP_CLAUSE_PRESENT		(1ULL << 39)
-#define OMP_CLAUSE_PRESENT_OR_COPY	(1ULL << 40)
-#define OMP_CLAUSE_PRESENT_OR_COPYIN	(1ULL << 41)
-#define OMP_CLAUSE_PRESENT_OR_COPYOUT	(1ULL << 42)
-#define OMP_CLAUSE_PRESENT_OR_CREATE	(1ULL << 43)
-#define OMP_CLAUSE_DEVICEPTR		(1ULL << 44)
-#define OMP_CLAUSE_GANG			(1ULL << 45)
-#define OMP_CLAUSE_WORKER		(1ULL << 46)
-#define OMP_CLAUSE_VECTOR		(1ULL << 47)
-#define OMP_CLAUSE_SEQ			(1ULL << 48)
-#define OMP_CLAUSE_INDEPENDENT		(1ULL << 49)
-#define OMP_CLAUSE_USE_DEVICE		(1ULL << 50)
-#define OMP_CLAUSE_DEVICE_RESIDENT	(1ULL << 51)
-#define OMP_CLAUSE_HOST_SELF		(1ULL << 52)
-#define OMP_CLAUSE_OACC_DEVICE		(1ULL << 53)
-#define OMP_CLAUSE_WAIT			(1ULL << 54)
-#define OMP_CLAUSE_DELETE		(1ULL << 55)
-#define OMP_CLAUSE_AUTO			(1ULL << 56)
-#define OMP_CLAUSE_TILE			(1ULL << 57)
+#define OMP_CLAUSE_ASYNC		((uint64_t) 1 << 32)
+#define OMP_CLAUSE_NUM_GANGS		((uint64_t) 1 << 33)
+#define OMP_CLAUSE_NUM_WORKERS		((uint64_t) 1 << 34)
+#define OMP_CLAUSE_VECTOR_LENGTH	((uint64_t) 1 << 35)
+#define OMP_CLAUSE_COPY			((uint64_t) 1 << 36)
+#define OMP_CLAUSE_COPYOUT		((uint64_t) 1 << 37)
+#define OMP_CLAUSE_CREATE		((uint64_t) 1 << 38)
+#define OMP_CLAUSE_PRESENT		((uint64_t) 1 << 39)
+#define OMP_CLAUSE_PRESENT_OR_COPY	((uint64_t) 1 << 40)
+#define OMP_CLAUSE_PRESENT_OR_COPYIN	((uint64_t) 1 << 41)
+#define OMP_CLAUSE_PRESENT_OR_COPYOUT	((uint64_t) 1 << 42)
+#define OMP_CLAUSE_PRESENT_OR_CREATE	((uint64_t) 1 << 43)
+#define OMP_CLAUSE_DEVICEPTR		((uint64_t) 1 << 44)
+#define OMP_CLAUSE_GANG			((uint64_t) 1 << 45)
+#define OMP_CLAUSE_WORKER		((uint64_t) 1 << 46)
+#define OMP_CLAUSE_VECTOR		((uint64_t) 1 << 47)
+#define OMP_CLAUSE_SEQ			((uint64_t) 1 << 48)
+#define OMP_CLAUSE_INDEPENDENT		((uint64_t) 1 << 49)
+#define OMP_CLAUSE_USE_DEVICE		((uint64_t) 1 << 50)
+#define OMP_CLAUSE_DEVICE_RESIDENT	((uint64_t) 1 << 51)
+#define OMP_CLAUSE_HOST_SELF		((uint64_t) 1 << 52)
+#define OMP_CLAUSE_OACC_DEVICE		((uint64_t) 1 << 53)
+#define OMP_CLAUSE_WAIT			((uint64_t) 1 << 54)
+#define OMP_CLAUSE_DELETE		((uint64_t) 1 << 55)
+#define OMP_CLAUSE_AUTO			((uint64_t) 1 << 56)
+#define OMP_CLAUSE_TILE			((uint64_t) 1 << 57)
 
 /* Helper function for OpenACC and OpenMP clauses involving memory
    mapping.  */
@@ -475,7 +476,7 @@ gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op)
    clauses that are allowed for a particular directive.  */
 
 static match
-gfc_match_omp_clauses (gfc_omp_clauses **cp, unsigned long long mask,
+gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 		       bool first = true, bool needs_space = true,
 		       bool openacc = false)
 {
@@ -1294,7 +1295,7 @@ gfc_match_oacc_declare (void)
     return MATCH_ERROR;
 
   new_st.ext.omp_clauses = c;
-  new_st.ext.omp_clauses->ext.loc = gfc_current_locus;
+  new_st.ext.omp_clauses->loc = gfc_current_locus;
   return MATCH_YES;
 }
 
@@ -4267,57 +4268,57 @@ oacc_is_kernels (gfc_code *code)
 static gfc_statement
 omp_code_to_statement (gfc_code *code)
 {
-switch (code->op)
-  {
-  case EXEC_OMP_PARALLEL:
-    return ST_OMP_PARALLEL;
-  case EXEC_OMP_PARALLEL_SECTIONS:
-    return ST_OMP_PARALLEL_SECTIONS;
-  case EXEC_OMP_SECTIONS:
-    return ST_OMP_SECTIONS;
-  case EXEC_OMP_ORDERED:
-    return ST_OMP_ORDERED;
-  case EXEC_OMP_CRITICAL:
-    return ST_OMP_CRITICAL;
-  case EXEC_OMP_MASTER:
-    return ST_OMP_MASTER;
-  case EXEC_OMP_SINGLE:
-    return ST_OMP_SINGLE;
-  case EXEC_OMP_TASK:
-    return ST_OMP_TASK;
-  case EXEC_OMP_WORKSHARE:
-    return ST_OMP_WORKSHARE;
-  case EXEC_OMP_PARALLEL_WORKSHARE:
-    return ST_OMP_PARALLEL_WORKSHARE;
-  case EXEC_OMP_DO:
-    return ST_OMP_DO;
-  default:
-    gcc_unreachable ();
-  }
+  switch (code->op)
+    {
+    case EXEC_OMP_PARALLEL:
+      return ST_OMP_PARALLEL;
+    case EXEC_OMP_PARALLEL_SECTIONS:
+      return ST_OMP_PARALLEL_SECTIONS;
+    case EXEC_OMP_SECTIONS:
+      return ST_OMP_SECTIONS;
+    case EXEC_OMP_ORDERED:
+      return ST_OMP_ORDERED;
+    case EXEC_OMP_CRITICAL:
+      return ST_OMP_CRITICAL;
+    case EXEC_OMP_MASTER:
+      return ST_OMP_MASTER;
+    case EXEC_OMP_SINGLE:
+      return ST_OMP_SINGLE;
+    case EXEC_OMP_TASK:
+      return ST_OMP_TASK;
+    case EXEC_OMP_WORKSHARE:
+      return ST_OMP_WORKSHARE;
+    case EXEC_OMP_PARALLEL_WORKSHARE:
+      return ST_OMP_PARALLEL_WORKSHARE;
+    case EXEC_OMP_DO:
+      return ST_OMP_DO;
+    default:
+      gcc_unreachable ();
+    }
 }
 
 static gfc_statement
 oacc_code_to_statement (gfc_code *code)
 {
-switch (code->op)
-  {
-  case EXEC_OACC_PARALLEL:
-    return ST_OACC_PARALLEL;
-  case EXEC_OACC_KERNELS:
-    return ST_OACC_KERNELS;
-  case EXEC_OACC_DATA:
-    return ST_OACC_DATA;
-  case EXEC_OACC_HOST_DATA:
-    return ST_OACC_HOST_DATA;
-  case EXEC_OACC_PARALLEL_LOOP:
-    return ST_OACC_PARALLEL_LOOP;
-  case EXEC_OACC_KERNELS_LOOP:
-    return ST_OACC_KERNELS_LOOP;
-  case EXEC_OACC_LOOP:
-    return ST_OACC_LOOP;
-  default:
-    gcc_unreachable ();
-  }
+  switch (code->op)
+    {
+    case EXEC_OACC_PARALLEL:
+      return ST_OACC_PARALLEL;
+    case EXEC_OACC_KERNELS:
+      return ST_OACC_KERNELS;
+    case EXEC_OACC_DATA:
+      return ST_OACC_DATA;
+    case EXEC_OACC_HOST_DATA:
+      return ST_OACC_HOST_DATA;
+    case EXEC_OACC_PARALLEL_LOOP:
+      return ST_OACC_PARALLEL_LOOP;
+    case EXEC_OACC_KERNELS_LOOP:
+      return ST_OACC_KERNELS_LOOP;
+    case EXEC_OACC_LOOP:
+      return ST_OACC_LOOP;
+    default:
+      gcc_unreachable ();
+    }
 }
 
 static void
@@ -4581,7 +4582,7 @@ gfc_resolve_oacc_blocks (gfc_code *code, gfc_namespace *ns)
 
 
 static void
-resolve_oacc_loop(gfc_code *code)
+resolve_oacc_loop (gfc_code *code)
 {
   gfc_code *do_code;
   int collapse;
@@ -4601,7 +4602,7 @@ resolve_oacc_loop(gfc_code *code)
 static void
 resolve_oacc_cache (gfc_code *code)
 {
-  gfc_error ("Sorry, !$ACC cache unimplemented yet at %L", &code->loc);
+  sorry ("Sorry, !$ACC cache unimplemented yet");
 }
 
 
@@ -4615,10 +4616,9 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
   if (ns->oacc_declare_clauses == NULL)
     return;
 
-  loc = ns->oacc_declare_clauses->ext.loc;
+  loc = ns->oacc_declare_clauses->loc;
 
-  /* FIXME: handle omp_list_map.  */
-  for (/* TODO */ list = OMP_LIST_DEVICE_RESIDENT;
+  for (list = OMP_LIST_DEVICE_RESIDENT;
        list <= OMP_LIST_DEVICE_RESIDENT; list++)
     for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
       {
@@ -4627,7 +4627,7 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 	  gfc_error ("PARAMETER object '%s' is not allowed at %L", n->sym->name, &loc);
       }
 
-  for (/* TODO */ list = OMP_LIST_DEVICE_RESIDENT;
+  for (list = OMP_LIST_DEVICE_RESIDENT;
        list <= OMP_LIST_DEVICE_RESIDENT; list++)
     for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
       {

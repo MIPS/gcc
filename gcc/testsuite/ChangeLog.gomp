@@ -1,3 +1,7 @@
+2014-11-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/gomp/omp_do1.f90: Update expected error.
+
 2014-11-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/loop-private-1.c: New file.

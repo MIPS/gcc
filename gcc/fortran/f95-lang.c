@@ -1189,7 +1189,6 @@ gfc_init_builtin_functions (void)
       gfc_define_builtin ("__builtin_" name, builtin_types[type], \
 			  code, name, attr);
 #undef DEF_GOACC_BUILTIN_COMPILER
-      /* TODO: this is not doing the right thing.  */
 #define DEF_GOACC_BUILTIN_COMPILER(code, name, type, attr) \
       gfc_define_builtin (name, builtin_types[type], code, name, attr);
 #include "../oacc-builtins.def"

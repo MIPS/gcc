@@ -69,4 +69,5 @@ match gfc_match_enumerator_def (void);
 void gfc_free_enum_history (void);
 extern bool gfc_matching_function;
 match gfc_match_prefix (gfc_typespec *);
+bool is_oacc (gfc_state_data *);
 #endif  /* GFC_PARSE_H  */
