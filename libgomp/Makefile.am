@@ -85,6 +85,8 @@ omp_lib_kinds.mod: omp_lib.mod
 	:
 openacc_kinds.mod: openacc.mod
 	:
+openacc.mod: openacc.lo
+	:
 %.mod: %.f90
 	$(FC) $(FCFLAGS) -fsyntax-only $<
 fortran.lo: libgomp_f.h
