@@ -68,6 +68,7 @@
   p5600
   w32
   w64
+  i6400
 ])
 
 (define_c_enum "unspec" [
