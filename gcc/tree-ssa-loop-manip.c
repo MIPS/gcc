@@ -1343,7 +1343,7 @@ canonicalize_loop_ivs (struct loop *loop, tree *nit, bool bump_in_latch)
   gcond *stmt;
   edge exit = single_dom_exit (loop);
   gimple_seq stmts;
-  enum machine_mode mode;
+  machine_mode mode;
   bool unsigned_p = false;
 
   for (psi = gsi_start_phis (loop->header);

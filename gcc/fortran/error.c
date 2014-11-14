@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "diagnostic.h"
 #include "diagnostic-color.h"
+#include "tree-diagnostic.h" /* tree_diagnostics_defaults */
 
 static int suppress_errors = 0;
 
@@ -958,6 +959,38 @@ gfc_warning_now (const char *gmsgid, ...)
   buffer_flag = i;
 }
 
+/* Called from output_format -- during diagnostic message processing
+   to handle Fortran specific format specifiers with the following meanings:
+
+   %C  Current locus (no argument)
+*/
+static bool
+gfc_format_decoder (pretty_printer *pp,
+		    text_info *text, const char *spec,
+		    int precision ATTRIBUTE_UNUSED, bool wide ATTRIBUTE_UNUSED,
+		    bool plus ATTRIBUTE_UNUSED, bool hash ATTRIBUTE_UNUSED)
+{
+  switch (*spec)
+    {
+    case 'C':
+      {
+	static const char *result = "(1)";
+	gcc_assert (gfc_current_locus.nextc - gfc_current_locus.lb->line >= 0);
+	unsigned int c1 = gfc_current_locus.nextc - gfc_current_locus.lb->line;
+	gcc_assert (text->locus);
+	*text->locus
+	  = linemap_position_for_loc_and_offset (line_table,
+						 gfc_current_locus.lb->location,
+						 c1);
+	global_dc->caret_char = '1';
+	pp_string (pp, result);
+	return true;
+      }
+    default:
+      return false;
+    }
+}
+
 /* Return a malloc'd string describing a location.  The caller is
    responsible for freeing the memory.  */
 static char *
@@ -1004,13 +1037,13 @@ gfc_diagnostic_build_locus_prefix (diagnostic_context *context,
     s.column = diagnostic->override_column;
 
   return (s.file == NULL
-	  ? build_message_string ("%s%s:%s ", locus_cs, progname, locus_ce )
+	  ? build_message_string ("%s%s:%s", locus_cs, progname, locus_ce )
 	  : !strcmp (s.file, N_("<built-in>"))
-	  ? build_message_string ("%s%s:%s ", locus_cs, s.file, locus_ce)
+	  ? build_message_string ("%s%s:%s", locus_cs, s.file, locus_ce)
 	  : context->show_column
-	  ? build_message_string ("%s%s:%d:%d:%s ", locus_cs, s.file, s.line,
+	  ? build_message_string ("%s%s:%d:%d:%s", locus_cs, s.file, s.line,
 				  s.column, locus_ce)
-	  : build_message_string ("%s%s:%d:%s ", locus_cs, s.file, s.line, locus_ce));
+	  : build_message_string ("%s%s:%d:%s", locus_cs, s.file, s.line, locus_ce));
 }
 
 static void
@@ -1038,7 +1071,7 @@ gfc_diagnostic_starter (diagnostic_context *context,
     {
       /* Otherwise, start again.  */
       pp_clear_output_area(context->printer);
-      pp_set_prefix (context->printer, concat (locus_prefix, prefix, NULL));
+      pp_set_prefix (context->printer, concat (locus_prefix, " ", prefix, NULL));
       free (prefix);
     }
   free (locus_prefix);
@@ -1052,10 +1085,10 @@ gfc_diagnostic_finalizer (diagnostic_context *context,
   pp_newline_and_flush (context->printer);
 }
 
-/* Give a warning about the command-line.  */
+/* Immediate warning (i.e. do not buffer the warning).  */
 
 bool
-gfc_warning_cmdline (int opt, const char *gmsgid, ...)
+gfc_warning_now_2 (int opt, const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1070,11 +1103,10 @@ gfc_warning_cmdline (int opt, const char *gmsgid, ...)
   return ret;
 }
 
-
-/* Give a warning about the command-line.  */
+/* Immediate warning (i.e. do not buffer the warning).  */
 
 bool
-gfc_warning_cmdline (const char *gmsgid, ...)
+gfc_warning_now_2 (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1089,10 +1121,10 @@ gfc_warning_cmdline (const char *gmsgid, ...)
 }
 
 
-/* Give an error about the command-line.  */
+/* Immediate error (i.e. do not buffer).  */
 
 void
-gfc_error_cmdline (const char *gmsgid, ...)
+gfc_error_now_2 (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1355,6 +1387,18 @@ gfc_errors_to_warnings (int f)
 void
 gfc_diagnostics_init (void)
 {
+  diagnostic_starter (global_dc) = gfc_diagnostic_starter;
+  diagnostic_finalizer (global_dc) = gfc_diagnostic_finalizer;
+  diagnostic_format_decoder (global_dc) = gfc_format_decoder;
+  global_dc->caret_char = '^';
+}
+
+void
+gfc_diagnostics_finish (void)
+{
+  tree_diagnostics_defaults (global_dc);
+  /* We still want to use the gfc starter and finalizer, not the tree
+     defaults.  */
   diagnostic_starter (global_dc) = gfc_diagnostic_starter;
   diagnostic_finalizer (global_dc) = gfc_diagnostic_finalizer;
   global_dc->caret_char = '^';

@@ -48,6 +48,9 @@
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "stringpool.h"
@@ -1413,7 +1416,7 @@ thread_private_new_memory (basic_block entry_block, tree x)
 	  else if (code == POINTER_PLUS_EXPR)
 	    x = gimple_assign_rhs1 (stmt);
 	  /* x = (cast*) foo ==> foo */
-	  else if (code == VIEW_CONVERT_EXPR || code == NOP_EXPR)
+	  else if (code == VIEW_CONVERT_EXPR || CONVERT_EXPR_CODE_P (code))
 	    x = gimple_assign_rhs1 (stmt);
 	  /* x = c ? op1 : op2 == > op1 or op2 just like a PHI */
 	  else if (code == COND_EXPR)

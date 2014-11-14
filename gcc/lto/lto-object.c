@@ -39,6 +39,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "diagnostic-core.h"
 #include "lto.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "lto-section-names.h"
 #include "simple-object.h"
@@ -238,8 +242,7 @@ lto_obj_add_section (void *data, const char *name, off_t offset,
   void **slot;
   struct lto_section_list *list = loasd->list;
 
-  if (strncmp (name, LTO_SECTION_NAME_PREFIX,
-	       strlen (LTO_SECTION_NAME_PREFIX)) != 0)
+  if (strncmp (name, section_name_prefix, strlen (section_name_prefix)))
     return 1;
 
   new_name = xstrdup (name);

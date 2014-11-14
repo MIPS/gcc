@@ -44,6 +44,7 @@
 #include "basic-block.h"
 #include "expr.h"
 #include "output.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
@@ -427,7 +428,7 @@ cond_exec_process_insns (ce_if_block *ce_info ATTRIBUTE_UNUSED,
 
       if (CALL_P (insn) && prob_val >= 0)
 	validate_change (insn, &REG_NOTES (insn),
-			 gen_rtx_INT_LIST ((enum machine_mode) REG_BR_PROB,
+			 gen_rtx_INT_LIST ((machine_mode) REG_BR_PROB,
 					   prob_val, REG_NOTES (insn)), 1);
 
     insn_done:
@@ -909,7 +910,7 @@ noce_emit_store_flag (struct noce_if_info *if_info, rtx x, int reversep,
 static void
 noce_emit_move_insn (rtx x, rtx y)
 {
-  enum machine_mode outmode;
+  machine_mode outmode;
   rtx outer, inner;
   int bitpos;
 
@@ -1149,7 +1150,7 @@ noce_try_store_flag_constants (struct noce_if_info *if_info)
   int reversep;
   HOST_WIDE_INT itrue, ifalse, diff, tmp;
   int normalize, can_reverse;
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (CONST_INT_P (if_info->a)
       && CONST_INT_P (if_info->b))
@@ -1393,11 +1394,22 @@ noce_try_store_flag_mask (struct noce_if_info *if_info)
 
       if (target)
 	{
+	  int old_cost, new_cost, insn_cost;
+	  int speed_p;
+
 	  if (target != if_info->x)
 	    noce_emit_move_insn (if_info->x, target);
 
 	  seq = end_ifcvt_sequence (if_info);
 	  if (!seq)
+	    return FALSE;
+
+	  speed_p = optimize_bb_for_speed_p (BLOCK_FOR_INSN (if_info->insn_a));
+	  insn_cost = insn_rtx_cost (PATTERN (if_info->insn_a), speed_p);
+	  old_cost = COSTS_N_INSNS (if_info->branch_cost) + insn_cost;
+	  new_cost = seq_cost (seq, speed_p);
+
+	  if (new_cost > old_cost)
 	    return FALSE;
 
 	  emit_insn_before_setloc (seq, if_info->jump,
@@ -1589,7 +1601,7 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
       && MEM_ADDR_SPACE (a) == MEM_ADDR_SPACE (b)
       && if_info->branch_cost >= 5)
     {
-      enum machine_mode address_mode = get_address_mode (a);
+      machine_mode address_mode = get_address_mode (a);
 
       a = XEXP (a, 0);
       b = XEXP (b, 0);
@@ -2169,7 +2181,7 @@ noce_try_sign_mask (struct noce_if_info *if_info)
 {
   rtx cond, t, m, c;
   rtx_insn *seq;
-  enum machine_mode mode;
+  machine_mode mode;
   enum rtx_code code;
   bool t_unconditional;
 
@@ -2248,7 +2260,7 @@ noce_try_bitop (struct noce_if_info *if_info)
 {
   rtx cond, x, a, result;
   rtx_insn *seq;
-  enum machine_mode mode;
+  machine_mode mode;
   enum rtx_code code;
   int bitnum;
 

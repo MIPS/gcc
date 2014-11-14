@@ -762,7 +762,7 @@ extern bool attribute_takes_identifier_p (const_tree);
 extern bool c_common_handle_option (size_t, const char *, int, int, location_t,
 				    const struct cl_option_handlers *);
 extern bool default_handle_c_option (size_t, const char *, int);
-extern tree c_common_type_for_mode (enum machine_mode, int);
+extern tree c_common_type_for_mode (machine_mode, int);
 extern tree c_common_type_for_size (unsigned int, int);
 extern tree c_common_fixed_point_type_for_size (unsigned int, unsigned int,
 						int, int);
@@ -1414,4 +1414,6 @@ extern tree cilk_install_body_pedigree_operations (tree);
 extern void cilk_outline (tree, tree *, void *);
 extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);
+extern bool check_no_cilk (tree, const char *, const char *,
+		           location_t loc = UNKNOWN_LOCATION);
 #endif /* ! GCC_C_COMMON_H */

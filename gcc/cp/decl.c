@@ -58,6 +58,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "splay-tree.h"
 #include "plugin.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cilk.h"
 #include "wide-int.h"
@@ -8346,7 +8356,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	   NOP_EXPR with TREE_SIDE_EFFECTS; don't fold in that case.  */;
       else
 	{
-	  size = fold_non_dependent_expr_sfinae (size, complain);
+	  size = instantiate_non_dependent_expr_sfinae (size, complain);
 
 	  if (CLASS_TYPE_P (type)
 	      && CLASSTYPE_LITERAL_P (type))
@@ -9172,11 +9182,23 @@ grokdeclarator (const cp_declarator *declarator,
     }
   /* No type at all: default to `int', and set DEFAULTED_INT
      because it was not a user-defined typedef.  */
-  if (type == NULL_TREE && (signed_p || unsigned_p || long_p || short_p))
+  if (type == NULL_TREE)
     {
-      /* These imply 'int'.  */
-      type = integer_type_node;
-      defaulted_int = 1;
+      if (signed_p || unsigned_p || long_p || short_p)
+	{
+	  /* These imply 'int'.  */
+	  type = integer_type_node;
+	  defaulted_int = 1;
+	}
+      /* If we just have "complex", it is equivalent to "complex double".  */
+      else if (!longlong && !explicit_intN
+	       && decl_spec_seq_has_spec_p (declspecs, ds_complex))
+	{
+	  type = double_type_node;
+	  pedwarn (declspecs->locations[ds_complex], OPT_Wpedantic,
+		   "ISO C++ does not support plain %<complex%> meaning "
+		   "%<double complex%>");
+	}
     }
   /* Gather flags.  */
   explicit_int = declspecs->explicit_int_p;
@@ -9361,13 +9383,8 @@ grokdeclarator (const cp_declarator *declarator,
     {
       if (TREE_CODE (type) != INTEGER_TYPE && TREE_CODE (type) != REAL_TYPE)
 	error ("complex invalid for %qs", name);
-      /* If we just have "complex", it is equivalent to
-	 "complex double", but if any modifiers at all are specified it is
-	 the complex form of TYPE.  E.g, "complex short" is
-	 "complex short int".  */
-      else if (defaulted_int && ! longlong && ! explicit_intN
-	       && ! (long_p || short_p || signed_p || unsigned_p))
-	type = complex_double_type_node;
+      /* If a modifier is specified, the resulting complex is the complex
+	 form of TYPE.  E.g, "complex short" is "complex short int".  */
       else if (type == integer_type_node)
 	type = complex_integer_type_node;
       else if (type == float_type_node)
@@ -9404,7 +9421,8 @@ grokdeclarator (const cp_declarator *declarator,
 
   type_quals |= cp_type_quals (type);
   type = cp_build_qualified_type_real
-    (type, type_quals, ((typedef_decl && !DECL_ARTIFICIAL (typedef_decl)
+    (type, type_quals, ((((typedef_decl && !DECL_ARTIFICIAL (typedef_decl))
+			  || declspecs->decltype_p)
 			 ? tf_ignore_bad_quals : 0) | tf_warning_or_error));
   /* We might have ignored or rejected some of the qualifiers.  */
   type_quals = cp_type_quals (type);
@@ -12980,6 +12998,11 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
   tree decl;
   tree context;
   tree type;
+
+  /* integral_constant_value will pull out this expression, so make sure
+     it's folded as appropriate.  */
+  if (processing_template_decl)
+    value = fold_non_dependent_expr (value);
 
   /* If the VALUE was erroneous, pretend it wasn't there; that will
      result in the enum being assigned the next value in sequence.  */

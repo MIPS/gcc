@@ -320,6 +320,25 @@ mips*-*-*)
     [libgcc_cv_mips_hard_float=no])])
 esac
 
+# Determine the version of glibc, if any, used on the target.
+AC_MSG_CHECKING([for target glibc version])
+AC_ARG_WITH([glibc-version],
+  [AS_HELP_STRING([--with-glibc-version=M.N],
+    [assume GCC used with glibc version M.N or later])], [
+if [echo "$with_glibc_version" | grep '^[0-9][0-9]*\.[0-9][0-9]*$']; then
+  glibc_version_major=`echo "$with_glibc_version" | sed -e 's/\..*//'`
+  glibc_version_minor=`echo "$with_glibc_version" | sed -e 's/.*\.//'`
+else
+  AC_MSG_ERROR([option --with-glibc-version requires a version number M.N])
+fi], [
+AC_COMPUTE_INT([glibc_version_major], [__GLIBC__],
+				      [#include <features.h>],
+				      [glibc_version_major=0])
+AC_COMPUTE_INT([glibc_version_minor], [__GLIBC_MINOR__],
+				      [#include <features.h>],
+				      [glibc_version_minor=0])])
+AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
+
 # Determine floating-point type for powerpc*-*-linux*.
 # Single-precision-only FPRs are not a supported configuration for
 # this target, so are not allowed for in this test.
@@ -340,11 +359,42 @@ ppc_fp_type=hard
 EOF
 eval `${CC-cc} -E conftest.c | grep ppc_fp_type=`
 rm -f conftest.c
+# glibc 2.19 and later provide all the soft-fp functions, with proper
+# interactions with <fenv.h> exception and rounding mode handling, so
+# make libgcc's versions into compat symbols if a recent enough glibc
+# version is being used.
+ppc_fp_compat=
+case ${ppc_fp_type} in
+soft|e500v1|e500v2)
+  if test $glibc_version_major -gt 2 \
+    || ( test $glibc_version_major -eq 2 \
+        && test $glibc_version_minor -ge 19 ); then
+    ppc_fp_compat="t-softfp-compat"
+  fi
+  ;;
+esac
 ;;
 esac
 
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
+
+# Used for constructing correct paths for offload compilers.
+accel_dir_suffix=
+if test x"$enable_as_accelerator_for" != x; then
+  accel_dir_suffix=/accel/${target_noncanonical}
+  case "${target_noncanonical}" in
+    *-intelmicemul-*)
+      # In this case we expect offload compiler to be built as native, so we
+      # need to change install directory for driver to be able to find libgcc.
+      host_noncanonical=${enable_as_accelerator_for} ;;
+  esac
+fi
+AC_SUBST(accel_dir_suffix)
+
+if test x"$enable_offload_targets" != x; then
+  extra_parts="${extra_parts} crtoffloadbegin.o crtoffloadend.o"
+fi
 
 # Check if Solaris/x86 linker supports ZERO terminator unwind entries.
 # This is after config.host so we can augment tmake_file.

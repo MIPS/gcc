@@ -45,6 +45,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
@@ -4940,7 +4951,7 @@ mark_used (tree decl, tsubst_flags_t complain)
   if (processing_template_decl)
     return true;
 
-  /* Check this too in case we're within fold_non_dependent_expr.  */
+  /* Check this too in case we're within instantiate_non_dependent_expr.  */
   if (DECL_TEMPLATE_INFO (decl)
       && uses_template_parms (DECL_TI_ARGS (decl)))
     return true;

@@ -29,20 +29,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "predict.h"
 #include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "bitmap.h"
-#include "hash-map.h"
 #include "inchash.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "lto.h"
 #include "lto-tree.h"
@@ -1367,7 +1377,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       return false;
 
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    gcc_unreachable ();
+    if (!cl_target_option_eq (TREE_TARGET_OPTION (t1), TREE_TARGET_OPTION (t2)))
+      return false;
 
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
     if (memcmp (TREE_OPTIMIZATION (t1), TREE_OPTIMIZATION (t2),
@@ -2127,7 +2138,7 @@ lto_section_with_id (const char *name, unsigned HOST_WIDE_INT *id)
 {
   const char *s;
 
-  if (strncmp (name, LTO_SECTION_NAME_PREFIX, strlen (LTO_SECTION_NAME_PREFIX)))
+  if (strncmp (name, section_name_prefix, strlen (section_name_prefix)))
     return 0;
   s = strrchr (name, '.');
   return s && sscanf (s, "." HOST_WIDE_INT_PRINT_HEX_PURE, id) == 1;
@@ -2902,6 +2913,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
   timevar_push (TV_IPA_LTO_DECL_IN);
 
+#ifdef ACCEL_COMPILER
+    section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
+#endif
+
   real_file_decl_data
     = decl_data = ggc_cleared_vec_alloc<lto_file_decl_data_ptr> (nfiles + 1);
   real_file_count = nfiles;
@@ -3019,6 +3034,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   timevar_push (TV_IPA_LTO_CGRAPH_IO);
   /* Read the symtab.  */
   input_symtab ();
+
+  input_offload_tables ();
 
   /* Store resolutions into the symbol table.  */
 

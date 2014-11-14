@@ -54,6 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "gimple-ssa.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -3683,39 +3685,6 @@ verify_gimple_assign_binary (gassign *stmt)
 	    debug_generic_expr (lhs_type);
 	    debug_generic_expr (rhs1_type);
 	    debug_generic_expr (rhs2_type);
-	    return true;
-	  }
-
-	return false;
-      }
-
-    case VEC_LSHIFT_EXPR:
-    case VEC_RSHIFT_EXPR:
-      {
-	if (TREE_CODE (rhs1_type) != VECTOR_TYPE
-	    || !(INTEGRAL_TYPE_P (TREE_TYPE (rhs1_type))
-		 || POINTER_TYPE_P (TREE_TYPE (rhs1_type))
-		 || FIXED_POINT_TYPE_P (TREE_TYPE (rhs1_type))
-		 || SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs1_type)))
-	    || (!INTEGRAL_TYPE_P (rhs2_type)
-		&& (TREE_CODE (rhs2_type) != VECTOR_TYPE
-		    || !INTEGRAL_TYPE_P (TREE_TYPE (rhs2_type))))
-	    || !useless_type_conversion_p (lhs_type, rhs1_type))
-	  {
-	    error ("type mismatch in vector shift expression");
-	    debug_generic_expr (lhs_type);
-	    debug_generic_expr (rhs1_type);
-	    debug_generic_expr (rhs2_type);
-	    return true;
-	  }
-	/* For shifting a vector of non-integral components we
-	   only allow shifting by a constant multiple of the element size.  */
-	if (!INTEGRAL_TYPE_P (TREE_TYPE (rhs1_type))
-	    && (TREE_CODE (rhs2) != INTEGER_CST
-		|| !div_if_zero_remainder (rhs2,
-					   TYPE_SIZE (TREE_TYPE (rhs1_type)))))
-	  {
-	    error ("non-element sized vector shift of floating point vector");
 	    return true;
 	  }
 

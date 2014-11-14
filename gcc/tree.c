@@ -68,6 +68,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-phinodes.h"
 #include "stringpool.h"
@@ -1336,7 +1339,8 @@ wide_int_to_tree (tree type, const wide_int_ref &pcst)
 
 	case POINTER_TYPE:
 	case REFERENCE_TYPE:
-	  /* Cache NULL pointer.  */
+	case POINTER_BOUNDS_TYPE:
+	  /* Cache NULL pointer and zero bounds.  */
 	  if (hwi == 0)
 	    {
 	      limit = 1;
@@ -3410,6 +3414,7 @@ type_contains_placeholder_1 (const_tree type)
   switch (TREE_CODE (type))
     {
     case VOID_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case COMPLEX_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
@@ -7552,7 +7557,7 @@ add_expr (const_tree t, inchash::hash &hstate)
    constructed, reuse it.  */
 
 tree
-build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
+build_pointer_type_for_mode (tree to_type, machine_mode mode,
 			     bool can_alias_all)
 {
   tree t;
@@ -7612,14 +7617,14 @@ build_pointer_type (tree to_type)
 {
   addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
 					      : TYPE_ADDR_SPACE (to_type);
-  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_pointer_type_for_mode (to_type, pointer_mode, false);
 }
 
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */
 
 tree
-build_reference_type_for_mode (tree to_type, enum machine_mode mode,
+build_reference_type_for_mode (tree to_type, machine_mode mode,
 			       bool can_alias_all)
 {
   tree t;
@@ -7679,7 +7684,7 @@ build_reference_type (tree to_type)
 {
   addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
 					      : TYPE_ADDR_SPACE (to_type);
-  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_reference_type_for_mode (to_type, pointer_mode, false);
 }
 
@@ -9420,7 +9425,7 @@ omp_clause_operand_check_failed (int idx, const_tree t, const char *file,
    the information necessary for debugging output.  */
 
 static tree
-make_vector_type (tree innertype, int nunits, enum machine_mode mode)
+make_vector_type (tree innertype, int nunits, machine_mode mode)
 {
   tree t;
   inchash::hash hstate;
@@ -9630,7 +9635,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
       TYPE_SIZE (int_n_trees[i].signed_type) = bitsize_int (int_n_data[i].bitsize);
       TYPE_SIZE (int_n_trees[i].unsigned_type) = bitsize_int (int_n_data[i].bitsize);
 
-      if (int_n_data[i].bitsize > LONG_LONG_TYPE_SIZE)
+      if (int_n_data[i].bitsize > LONG_LONG_TYPE_SIZE
+	  && int_n_enabled_p[i])
 	{
 	  integer_types[itk_intN_0 + i * 2] = int_n_trees[i].signed_type;
 	  integer_types[itk_unsigned_intN_0 + i * 2] = int_n_trees[i].unsigned_type;
@@ -9725,6 +9731,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
   void_type_node = make_node (VOID_TYPE);
   layout_type (void_type_node);
+
+  pointer_bounds_type_node = targetm.chkp_bound_type ();
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
@@ -9928,7 +9936,7 @@ build_common_builtin_nodes (void)
       local_define_builtin ("__builtin_unreachable", ftype, BUILT_IN_UNREACHABLE,
 			    "__builtin_unreachable",
 			    ECF_NOTHROW | ECF_LEAF | ECF_NORETURN
-			    | ECF_CONST | ECF_LEAF);
+			    | ECF_CONST);
     }
 
   if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY)
@@ -10117,7 +10125,7 @@ build_common_builtin_nodes (void)
 	if (targetm.libfunc_gnu_prefix)
 	  prefix = "__gnu_";
 
-	type = lang_hooks.types.type_for_mode ((enum machine_mode) mode, 0);
+	type = lang_hooks.types.type_for_mode ((machine_mode) mode, 0);
 	if (type == NULL)
 	  continue;
 	inner_type = TREE_TYPE (type);
@@ -10214,7 +10222,7 @@ reconstruct_complex_type (tree type, tree bottom)
 /* Returns a vector tree node given a mode (integer, vector, or BLKmode) and
    the inner type.  */
 tree
-build_vector_type_for_mode (tree innertype, enum machine_mode mode)
+build_vector_type_for_mode (tree innertype, machine_mode mode)
 {
   int nunits;
 
@@ -10323,6 +10331,8 @@ initializer_zerop (const_tree init)
       {
 	unsigned HOST_WIDE_INT idx;
 
+	if (TREE_CLOBBER_P (init))
+	  return false;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, elt)
 	  if (!initializer_zerop (elt))
 	    return false;
@@ -11477,10 +11487,7 @@ cl_option_hash_hash (const void *x)
     }
 
   else if (TREE_CODE (t) == TARGET_OPTION_NODE)
-    {
-      p = (const char *)TREE_TARGET_OPTION (t);
-      len = sizeof (struct cl_target_option);
-    }
+    return cl_target_option_hash (TREE_TARGET_OPTION (t));
 
   else
     gcc_unreachable ();
@@ -11519,9 +11526,8 @@ cl_option_hash_eq (const void *x, const void *y)
 
   else if (TREE_CODE (xt) == TARGET_OPTION_NODE)
     {
-      xp = (const char *)TREE_TARGET_OPTION (xt);
-      yp = (const char *)TREE_TARGET_OPTION (yt);
-      len = sizeof (struct cl_target_option);
+      return cl_target_option_eq (TREE_TARGET_OPTION (xt),
+				  TREE_TARGET_OPTION (yt));
     }
 
   else
@@ -11652,6 +11658,27 @@ block_ultimate_origin (const_tree block)
     }
 }
 
+/* Return true iff conversion from INNER_TYPE to OUTER_TYPE generates
+   no instruction.  */
+
+bool
+tree_nop_conversion_p (const_tree outer_type, const_tree inner_type)
+{
+  /* Use precision rather then machine mode when we can, which gives
+     the correct answer even for submode (bit-field) types.  */
+  if ((INTEGRAL_TYPE_P (outer_type)
+       || POINTER_TYPE_P (outer_type)
+       || TREE_CODE (outer_type) == OFFSET_TYPE)
+      && (INTEGRAL_TYPE_P (inner_type)
+	  || POINTER_TYPE_P (inner_type)
+	  || TREE_CODE (inner_type) == OFFSET_TYPE))
+    return TYPE_PRECISION (outer_type) == TYPE_PRECISION (inner_type);
+
+  /* Otherwise fall back on comparing machine modes (e.g. for
+     aggregate types, floats).  */
+  return TYPE_MODE (outer_type) == TYPE_MODE (inner_type);
+}
+
 /* Return true iff conversion in EXP generates no instruction.  Mark
    it inline so that we fully inline into the stripping functions even
    though we have two uses of this function.  */
@@ -11673,19 +11700,7 @@ tree_nop_conversion (const_tree exp)
   if (!inner_type)
     return false;
 
-  /* Use precision rather then machine mode when we can, which gives
-     the correct answer even for submode (bit-field) types.  */
-  if ((INTEGRAL_TYPE_P (outer_type)
-       || POINTER_TYPE_P (outer_type)
-       || TREE_CODE (outer_type) == OFFSET_TYPE)
-      && (INTEGRAL_TYPE_P (inner_type)
-	  || POINTER_TYPE_P (inner_type)
-	  || TREE_CODE (inner_type) == OFFSET_TYPE))
-    return TYPE_PRECISION (outer_type) == TYPE_PRECISION (inner_type);
-
-  /* Otherwise fall back on comparing machine modes (e.g. for
-     aggregate types, floats).  */
-  return TYPE_MODE (outer_type) == TYPE_MODE (inner_type);
+  return tree_nop_conversion_p (outer_type, inner_type);
 }
 
 /* Return true iff conversion in EXP generates no instruction.  Don't

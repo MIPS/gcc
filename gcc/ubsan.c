@@ -29,6 +29,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfg.h"
 #include "cfganal.h"
 #include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "tree-ssa-alias.h"
@@ -39,7 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "gimple-walk.h"
-#include "hashtab.h"
 #include "output.h"
 #include "tm_p.h"
 #include "toplev.h"
@@ -577,17 +588,26 @@ ubsan_create_data (const char *name, int loccnt, const location_t *ploc, ...)
 /* Instrument the __builtin_unreachable call.  We just call the libubsan
    routine instead.  */
 
-tree
-ubsan_instrument_unreachable (location_t loc)
+bool
+ubsan_instrument_unreachable (gimple_stmt_iterator *gsi)
 {
-  if (flag_sanitize_undefined_trap_on_error)
-    return build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
+  gimple g;
+  location_t loc = gimple_location (gsi_stmt (*gsi));
 
-  initialize_sanitizer_builtins ();
-  tree data = ubsan_create_data ("__ubsan_unreachable_data", 1, &loc, NULL_TREE,
-				 NULL_TREE);
-  tree t = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE);
-  return build_call_expr_loc (loc, t, 1, build_fold_addr_expr_loc (loc, data));
+  if (flag_sanitize_undefined_trap_on_error)
+    g = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
+  else
+    {
+      tree data = ubsan_create_data ("__ubsan_unreachable_data", 1, &loc,
+				     NULL_TREE, NULL_TREE);
+      data = build_fold_addr_expr_loc (loc, data);
+      tree fn
+	= builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE);
+      g = gimple_build_call (fn, 1, data);
+    }
+  gimple_set_location (g, loc);
+  gsi_replace (gsi, g, false);
+  return false;
 }
 
 /* Return true if T is a call to a libubsan routine.  */
@@ -1102,7 +1122,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   int modebitsize = GET_MODE_BITSIZE (TYPE_MODE (type));
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
-  enum machine_mode mode;
+  machine_mode mode;
   int volatilep = 0, unsignedp = 0;
   tree base = get_inner_reference (rhs, &bitsize, &bitpos, &offset, &mode,
 				   &unsignedp, &volatilep, false);
@@ -1186,7 +1206,7 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
 {
   tree expr_type = TREE_TYPE (expr);
   tree t, tt, fn, min, max;
-  enum machine_mode mode = TYPE_MODE (expr_type);
+  machine_mode mode = TYPE_MODE (expr_type);
   int prec = TYPE_PRECISION (type);
   bool uns_p = TYPE_UNSIGNED (type);
 
@@ -1427,6 +1447,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
   location_t loc = gimple_location (stmt);
   tree t = is_lhs ? gimple_get_lhs (stmt) : gimple_assign_rhs1 (stmt);
   tree type;
+  tree index = NULL_TREE;
   HOST_WIDE_INT size_in_bytes;
 
   type = TREE_TYPE (t);
@@ -1445,6 +1466,8 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 	}
       break;
     case ARRAY_REF:
+      index = TREE_OPERAND (t, 1);
+      break;
     case INDIRECT_REF:
     case MEM_REF:
     case VAR_DECL:
@@ -1461,7 +1484,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
-  enum machine_mode mode;
+  machine_mode mode;
   int volatilep = 0, unsignedp = 0;
   tree inner = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
 				    &unsignedp, &volatilep, false);
@@ -1525,6 +1548,24 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
       && TREE_CODE (sizet) == INTEGER_CST
       && tree_int_cst_le (t, sizet))
     return;
+
+  if (index != NULL_TREE
+      && TREE_CODE (index) == SSA_NAME
+      && TREE_CODE (sizet) == INTEGER_CST)
+    {
+      gimple def = SSA_NAME_DEF_STMT (index);
+      if (is_gimple_assign (def)
+	  && gimple_assign_rhs_code (def) == BIT_AND_EXPR
+	  && TREE_CODE (gimple_assign_rhs2 (def)) == INTEGER_CST)
+	{
+	  tree cst = gimple_assign_rhs2 (def);
+	  tree sz = fold_build2 (EXACT_DIV_EXPR, sizetype, sizet,
+				 TYPE_SIZE_UNIT (type));
+	  if (tree_int_cst_sgn (cst) >= 0
+	      && tree_int_cst_lt (cst, sz))
+	    return;
+	}
+    }
 
   /* Nope.  Emit the check.  */
   t = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, true,

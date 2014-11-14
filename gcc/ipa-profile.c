@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 
    - Count histogram construction.  This is a histogram analyzing how much
      time is spent executing statements with a given execution count read
-     from profile feedback. This histogram is complette only with LTO,
+     from profile feedback. This histogram is complete only with LTO,
      otherwise it contains information only about the current unit.
 
      Similar histogram is also estimated by coverage runtime.  This histogram
@@ -53,6 +53,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "tree-ssa-alias.h"
@@ -71,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 
 /* Entry in the histogram.  */

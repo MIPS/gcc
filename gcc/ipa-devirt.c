@@ -114,10 +114,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "predict.h"
 #include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "hash-set.h"
 #include "target.h"
 #include "hash-table.h"
 #include "inchash.h"
@@ -128,6 +138,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "gimple-expr.h"
 #include "gimple.h"
+#include "alloc-pool.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "diagnostic.h"
 #include "tree-dfa.h"
@@ -136,7 +148,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "stor-layout.h"
 #include "intl.h"
-#include "hash-map.h"
 
 /* Hash based set of pairs of types.  */
 typedef struct
@@ -2270,10 +2281,7 @@ possible_polymorphic_call_targets (tree otr_type,
   /* Without outer type, we have no use for offset.  Just do the
      basic search from innter type  */
   if (!context.outer_type)
-    {
-      context.outer_type = otr_type;
-      context.offset = 0;
-    }
+    context.clear_outer_type (otr_type);
   /* We need to update our hiearchy if the type does not exist.  */
   outer_type = get_odr_type (context.outer_type, true);
   /* If the type is complete, there are no derivations.  */
