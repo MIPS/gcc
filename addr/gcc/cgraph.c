@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "profile.h"
 #include "params.h"
 #include "tree-chkp.h"
+#include "context.h"
 
 /* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
 #include "tree-pass.h"
@@ -494,6 +495,14 @@ cgraph_node::create (tree decl)
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
 
   node->decl = decl;
+
+  if (flag_openmp
+      && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
+    {
+      node->offloadable = 1;
+      g->have_offload = true;
+    }
+
   node->register_symbol ();
 
   if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
@@ -1986,6 +1995,8 @@ cgraph_node::dump (FILE *f)
     fprintf (f, " tm_clone");
   if (icf_merged)
     fprintf (f, " icf_merged");
+  if (nonfreeing_fn)
+    fprintf (f, " nonfreeing_fn");
   if (DECL_STATIC_CONSTRUCTOR (decl))
     fprintf (f," static_constructor (priority:%i)", get_init_priority ());
   if (DECL_STATIC_DESTRUCTOR (decl))

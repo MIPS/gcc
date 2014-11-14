@@ -450,6 +450,13 @@ public:
   /* Set when init priority is set.  */
   unsigned in_init_priority_hash : 1;
 
+  /* Set when symbol needs to be streamed into LTO bytecode for LTO, or in case
+     of offloading, for separate compilation for a different target.  */
+  unsigned need_lto_streaming : 1;
+
+  /* Set when symbol can be streamed into bytecode for offloading.  */
+  unsigned offloadable : 1;
+
 
   /* Ordering of all symtab entries.  */
   int order;
@@ -1260,6 +1267,10 @@ public:
   /* True when function is clone created for Pointer Bounds Checker
      instrumentation.  */
   unsigned instrumentation_clone : 1;
+  /* True if call to node can't result in a call to free, munmap or
+     other operation that could make previously non-trapping memory
+     accesses trapping.  */
+  unsigned nonfreeing_fn : 1;
 };
 
 /* A cgraph node set is a collection of cgraph nodes.  A cgraph node
@@ -1345,6 +1356,10 @@ public:
   /* Make context non-speculative.  */
   void clear_speculation ();
 
+  /* Produce context specifying all derrived types of OTR_TYPE.  If OTR_TYPE is
+     NULL, the context is set to dummy "I know nothing" setting.  */
+  void clear_outer_type (tree otr_type = NULL);
+
   /* Walk container types and modify context to point to actual class
      containing OTR_TYPE (if non-NULL) as base class.
      Return true if resulting context is valid.
@@ -1372,9 +1387,12 @@ public:
 
   /* Return TRUE if context is fully useless.  */
   bool useless_p () const;
+  /* Return TRUE if this context conveys the same information as X.  */
+  bool equal_to (const ipa_polymorphic_call_context &x) const;
 
-  /* Dump human readable context to F.  */
-  void dump (FILE *f) const;
+  /* Dump human readable context to F.  If NEWLINE is true, it will be
+     terminated by a newline.  */
+  void dump (FILE *f, bool newline = true) const;
   void DEBUG_FUNCTION debug () const;
 
   /* LTO streaming.  */
@@ -1385,7 +1403,6 @@ private:
   bool combine_speculation_with (tree, HOST_WIDE_INT, bool, tree);
   void set_by_decl (tree, HOST_WIDE_INT);
   bool set_by_invariant (tree, tree, HOST_WIDE_INT);
-  void clear_outer_type (tree otr_type = NULL);
   bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree);
   void make_speculative (tree otr_type = NULL);
 };
@@ -2741,9 +2758,8 @@ ipa_polymorphic_call_context::clear_speculation ()
   speculative_maybe_derived_type = false;
 }
 
-/* Produce context specifying all derrived types of OTR_TYPE.
-   If OTR_TYPE is NULL or type of the OBJ_TYPE_REF, the context is set
-   to dummy "I know nothing" setting.  */
+/* Produce context specifying all derrived types of OTR_TYPE.  If OTR_TYPE is
+   NULL, the context is set to dummy "I know nothing" setting.  */
 
 inline void
 ipa_polymorphic_call_context::clear_outer_type (tree otr_type)

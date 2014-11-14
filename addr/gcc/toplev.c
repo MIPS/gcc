@@ -98,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "tree-chkp.h"
+#include "omp-low.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -600,6 +601,8 @@ compile_file (void)
 
       if (flag_check_pointer_bounds)
 	chkp_finish_file ();
+
+      omp_finish_file ();
 
       output_shared_constant_pool ();
       output_object_blocks ();
@@ -1264,12 +1267,28 @@ process_options (void)
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
-  /* Default to -fdiagnostics-color=auto if GCC_COLORS is in the environment,
-     otherwise default to -fdiagnostics-color=never.  */
-  if (!global_options_set.x_flag_diagnostics_show_color
-      && getenv ("GCC_COLORS"))
-    pp_show_color (global_dc->printer)
-      = colorize_init (DIAGNOSTICS_COLOR_AUTO);
+  /* If DIAGNOSTICS_COLOR_DEFAULT is -1, default to -fdiagnostics-color=auto
+     if GCC_COLORS is in the environment, otherwise default to
+     -fdiagnostics-color=never, for other values default to that
+     -fdiagnostics-color={never,auto,always}.  */
+  if (!global_options_set.x_flag_diagnostics_show_color)
+    switch ((int) DIAGNOSTICS_COLOR_DEFAULT)
+      {
+      case -1:
+	if (!getenv ("GCC_COLORS"))
+	  break;
+	/* FALLTHRU */
+      case DIAGNOSTICS_COLOR_AUTO:
+	pp_show_color (global_dc->printer)
+	  = colorize_init (DIAGNOSTICS_COLOR_AUTO);
+	break;
+      case DIAGNOSTICS_COLOR_YES:
+	pp_show_color (global_dc->printer)
+	  = colorize_init (DIAGNOSTICS_COLOR_YES);
+	break;
+      default:
+	break;
+      }
 
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
@@ -1470,7 +1489,7 @@ process_options (void)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
   else
-    error ("target system does not support the \"%s\" debug format",
+    error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
 
   /* We know which debug output will be used so we can set flag_var_tracking

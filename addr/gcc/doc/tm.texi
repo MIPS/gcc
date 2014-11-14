@@ -5941,10 +5941,11 @@ for comparisons whose argument is a @code{plus}:
 
 @smallexample
 #define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-   ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-       || GET_CODE (X) == NEG) \
+  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT           \
+   ? ((OP == LT || OP == LE || OP == GT || OP == GE)     \
+      ? CCFPEmode : CCFPmode)                            \
+   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
+       || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
       ? CC_NOOVmode : CCmode))
 @end smallexample
 
@@ -5987,10 +5988,11 @@ then @code{REVERSIBLE_CC_MODE (@var{mode})} must be zero.
 You need not define this macro if it would always returns zero or if the
 floating-point format is anything other than @code{IEEE_FLOAT_FORMAT}.
 For example, here is the definition used on the SPARC, where floating-point
-inequality comparisons are always given @code{CCFPEmode}:
+inequality comparisons are given either @code{CCFPEmode} or @code{CCFPmode}:
 
 @smallexample
-#define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)
+#define REVERSIBLE_CC_MODE(MODE) \
+   ((MODE) != CCFPEmode && (MODE) != CCFPmode)
 @end smallexample
 @end defmac
 
@@ -6000,7 +6002,7 @@ comparison done in CC_MODE @var{mode}.  The macro is used only in case
 @code{REVERSIBLE_CC_MODE (@var{mode})} is nonzero.  Define this macro in case
 machine has some non-standard way how to reverse certain conditionals.  For
 instance in case all floating point conditions are non-trapping, compiler may
-freely convert unordered compares to ordered one.  Then definition may look
+freely convert unordered compares to ordered ones.  Then definition may look
 like:
 
 @smallexample
@@ -6767,6 +6769,76 @@ also the latencies of operations.
 @deftypefn {Target Hook} int TARGET_SCHED_REASSOCIATION_WIDTH (unsigned int @var{opc}, machine_mode @var{mode})
 This hook is called by tree reassociator to determine a level of
 parallelism required in output calculations chain.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_FUSION_PRIORITY (rtx_insn *@var{insn}, int @var{max_pri}, int *@var{fusion_pri}, int *@var{pri})
+This hook is called by scheduling fusion pass.  It calculates fusion
+priorities for each instruction passed in by parameter.  The priorities
+are returned via pointer parameters.
+
+@var{insn} is the instruction whose priorities need to be calculated.
+@var{max_pri} is the maximum priority can be returned in any cases.
+@var{fusion_pri} is the pointer parameter through which @var{insn}'s
+fusion priority should be calculated and returned.
+@var{pri} is the pointer parameter through which @var{insn}'s priority
+should be calculated and returned.
+
+Same @var{fusion_pri} should be returned for instructions which should
+be scheduled together.  Different @var{pri} should be returned for
+instructions with same @var{fusion_pri}.  @var{fusion_pri} is the major
+sort key, @var{pri} is the minor sort key.  All instructions will be
+scheduled according to the two priorities.  All priorities calculated
+should be between 0 (exclusive) and @var{max_pri} (inclusive).  To avoid
+false dependencies, @var{fusion_pri} of instructions which need to be
+scheduled together should be smaller than @var{fusion_pri} of irrelevant
+instructions.
+
+Given below example:
+
+    ldr r10, [r1, 4]
+    add r4, r4, r10
+    ldr r15, [r2, 8]
+    sub r5, r5, r15
+    ldr r11, [r1, 0]
+    add r4, r4, r11
+    ldr r16, [r2, 12]
+    sub r5, r5, r16
+
+On targets like ARM/AArch64, the two pairs of consecutive loads should be
+merged.  Since peephole2 pass can't help in this case unless consecutive
+loads are actually next to each other in instruction flow.  That's where
+this scheduling fusion pass works.  This hook calculates priority for each
+instruction based on its fustion type, like:
+
+    ldr r10, [r1, 4]  ; fusion_pri=99,  pri=96   
+    add r4, r4, r10   ; fusion_pri=100, pri=100  
+    ldr r15, [r2, 8]  ; fusion_pri=98,  pri=92   
+    sub r5, r5, r15   ; fusion_pri=100, pri=100  
+    ldr r11, [r1, 0]  ; fusion_pri=99,  pri=100  
+    add r4, r4, r11   ; fusion_pri=100, pri=100  
+    ldr r16, [r2, 12] ; fusion_pri=98,  pri=88   
+    sub r5, r5, r16   ; fusion_pri=100, pri=100  
+
+Scheduling fusion pass then sorts all ready to issue instructions according
+to the priorities.  As a result, instructions of same fusion type will be
+pushed together in instruction flow, like:
+
+    ldr r11, [r1, 0]
+    ldr r10, [r1, 4]
+    ldr r15, [r2, 8]
+    ldr r16, [r2, 12]
+    add r4, r4, r10
+    sub r5, r5, r15
+    add r4, r4, r11
+    sub r5, r5, r16
+
+Now peephole2 pass can simply merge the two pairs of loads.
+
+Since scheduling fusion pass relies on peephole2 to do real fusion
+work, it is only enabled by default when peephole2 is in effect.
+
+This is firstly introduced on ARM/AArch64 targets, please refer to
+the hook implementation for how different fusion types are supported.
 @end deftypefn
 
 @node Sections
@@ -11392,6 +11464,21 @@ If defined, this function returns an appropriate alignment in bits for an atomic
 
 @deftypefn {Target Hook} void TARGET_ATOMIC_ASSIGN_EXPAND_FENV (tree *@var{hold}, tree *@var{clear}, tree *@var{update})
 ISO C11 requires atomic compound assignments that may raise floating-point exceptions to raise exceptions corresponding to the arithmetic operation whose result was successfully stored in a compare-and-exchange sequence.  This requires code equivalent to calls to @code{feholdexcept}, @code{feclearexcept} and @code{feupdateenv} to be generated at appropriate points in the compare-and-exchange sequence.  This hook should set @code{*@var{hold}} to an expression equivalent to the call to @code{feholdexcept}, @code{*@var{clear}} to an expression equivalent to the call to @code{feclearexcept} and @code{*@var{update}} to an expression equivalent to the call to @code{feupdateenv}.  The three expressions are @code{NULL_TREE} on entry to the hook and may be left as @code{NULL_TREE} if no code is required in a particular place.  The default implementation leaves all three expressions as @code{NULL_TREE}.  The @code{__atomic_feraiseexcept} function from @code{libatomic} may be of use as part of the code generated in @code{*@var{update}}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_RECORD_OFFLOAD_SYMBOL (tree)
+Used when offloaded functions are seen in the compilation unit and no named
+sections are available.  It is called once for each symbol that must be
+recorded in the offload function and variable table.
+@end deftypefn
+
+@deftypefn {Target Hook} {char *} TARGET_OFFLOAD_OPTIONS (void)
+Used when writing out the list of options into an LTO file.  It should
+translate any relevant target-specific options (such as the ABI in use)
+into one of the @option{-foffload} options that exist as a common interface
+to express such options.  It should return a string containing these options,
+separated by spaces, which the caller will free.
+
 @end deftypefn
 
 @defmac TARGET_SUPPORTS_WIDE_INT

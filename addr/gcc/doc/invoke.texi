@@ -392,7 +392,7 @@ Objective-C and Objective-C++ Dialects}.
 -fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts -flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
--floop-parallelize-all -flto -flto-compression-level @gol
+-floop-parallelize-all -flra-remat -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants -fno-branch-count-reg @gol
@@ -406,7 +406,7 @@ Objective-C and Objective-C++ Dialects}.
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values -fprofile-reorder-functions @gol
--freciprocal-math -free -frename-registers -freorder-blocks @gol
+-freciprocal-math -free -frename-registers -fschedule-fusion -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -frounding-math -fsched2-use-superblocks -fsched-pressure @gol
@@ -788,8 +788,9 @@ Objective-C and Objective-C++ Dialects}.
 -minterlink-mips16  -mno-interlink-mips16 @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
--mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
+-mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
 -mno-float  -msingle-float  -mdouble-float @gol
+-modd-spreg -mno-odd-spreg @gol
 -mabs=@var{mode}  -mnan=@var{encoding} @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
@@ -3105,8 +3106,10 @@ a message which is too long to fit on a single line.
 @cindex highlight, color, colour
 @vindex GCC_COLORS @r{environment variable}
 Use color in diagnostics.  @var{WHEN} is @samp{never}, @samp{always},
-or @samp{auto}.  The default is @samp{never} if @env{GCC_COLORS} environment
-variable isn't present in the environment, and @samp{auto} otherwise.
+or @samp{auto}.  The default depends on how the compiler has been configured,
+it can be any of the above @var{WHEN} options or also @samp{never}
+if @env{GCC_COLORS} environment variable isn't present in the environment,
+and @samp{auto} otherwise.
 @samp{auto} means to use color only when the standard error is a terminal.
 The forms @option{-fdiagnostics-color} and @option{-fno-diagnostics-color} are
 aliases for @option{-fdiagnostics-color=always} and
@@ -7184,6 +7187,7 @@ also turns on the following optimization flags:
 -fipa-sra @gol
 -fipa-icf @gol
 -fisolate-erroneous-paths-dereference @gol
+-flra-remat @gol
 -foptimize-sibling-calls @gol
 -foptimize-strlen @gol
 -fpartial-inlining @gol
@@ -7811,6 +7815,14 @@ stack slot, and as a result function stack frames are larger.
 Control the verbosity of the dump file for the integrated register allocator.
 The default value is 5.  If the value @var{n} is greater or equal to 10,
 the dump output is sent to stderr using the same format as @var{n} minus 10.
+
+@item -flra-remat
+@opindex fcaller-saves
+Enable CFG-sensitive rematerialization in LRA.  Instead of loading
+values of spilled pseudos, LRA tries to rematerialize (recalculate)
+values if it is profitable.
+
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fdelayed-branch
 @opindex fdelayed-branch
@@ -9566,6 +9578,14 @@ make debugging impossible, since variables no longer stay in
 a ``home register''.
 
 Enabled by default with @option{-funroll-loops} and @option{-fpeel-loops}.
+
+@item -fschedule-fusion
+@opindex fschedule-fusion
+Performs a target dependent pass over the instruction stream to schedule
+instructions of same type together because target machine can execute them
+more efficiently if they are adjacent to each other in the instruction flow.
+
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -ftracer
 @opindex ftracer
@@ -17747,7 +17767,20 @@ same, but each scalar value is passed in a single 64-bit register
 rather than a pair of 32-bit registers.  For example, scalar
 floating-point values are returned in @samp{$f0} only, not a
 @samp{$f0}/@samp{$f1} pair.  The set of call-saved registers also
-remains the same, but all 64 bits are saved.
+remains the same in that the even-numbered double-precision registers
+are saved.
+
+Two additional variants of the o32 ABI are supported to enable
+a transition from 32-bit to 64-bit registers.  These are FPXX
+(@option{-mfpxx}) and FP64A (@option{-mfp64} @option{-mno-odd-spreg}).
+The FPXX extension mandates that all code must execute correctly
+when run using 32-bit or 64-bit registers.  The code can be interlinked
+with either FP32 or FP64, but not both.
+The FP64A extension is similar to the FP64 extension but forbids the
+use of odd-numbered single-precision registers.  This can be used
+in conjunction with the @code{FRE} mode of FPUs in MIPS32R5
+processors and allows both FP32 and FP64A code to interlink and
+run in the same process without changing FPU modes.
 
 @item -mabicalls
 @itemx -mno-abicalls
@@ -17836,6 +17869,10 @@ Assume that floating-point registers are 32 bits wide.
 @opindex mfp64
 Assume that floating-point registers are 64 bits wide.
 
+@item -mfpxx
+@opindex mfpxx
+Do not assume the width of floating-point registers.
+
 @item -mhard-float
 @opindex mhard-float
 Use floating-point coprocessor instructions.
@@ -17866,6 +17903,15 @@ operations.
 @opindex mdouble-float
 Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
+
+@item -modd-spreg
+@itemx -mno-odd-spreg
+@opindex modd-spreg
+@opindex mno-odd-spreg
+Enable the use of odd-numbered single-precision floating-point registers
+for the o32 ABI.  This is the default for processors that are known to
+support these registers.  When using the o32 FPXX ABI, @code{-mno-odd-spreg}
+is set by default.
 
 @item -mabs=2008
 @itemx -mabs=legacy

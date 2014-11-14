@@ -1261,6 +1261,32 @@ ISA for floating-point arithmetics.  You can select either @samp{sse} which
 enables @option{-msse2} or @samp{avx} which enables @option{-mavx} by default.
 This option is only supported on i386 and x86-64 targets.
 
+@item --with-fp-32=@var{mode}
+On MIPS targets, set the default value for the @option{-mfp} option when using
+the o32 ABI.  The possibilities for @var{mode} are:
+@table @code
+@item 32
+Use the o32 FP32 ABI extension, as with the @option{-mfp32} command-line
+option.
+@item xx
+Use the o32 FPXX ABI extension, as with the @option{-mfpxx} command-line
+option.
+@item 64
+Use the o32 FP64 ABI extension, as with the @option{-mfp64} command-line
+option.
+@end table
+In the absence of this configuration option the default is to use the o32
+FP32 ABI extension.
+
+@item --with-odd-spreg-32
+On MIPS targets, set the @option{-modd-spreg} option by default when using
+the o32 ABI.
+
+@item --without-odd-spreg-32
+On MIPS targets, set the @option{-mno-odd-spreg} option by default when using
+the o32 ABI.  This is normally used in conjunction with
+@option{--with-fp-32=64} in order to target the o32 FP64A ABI extension.
+
 @item --with-nan=@var{encoding}
 On MIPS targets, set the default encoding convention to use for the
 special not-a-number (NaN) IEEE 754 floating-point data.  The
@@ -1769,6 +1795,15 @@ static data members and inline function local statics.  Enabled by
 default for a toolchain with an assembler that accepts it and
 GLIBC 2.11 or above, otherwise disabled.
 
+@item --with-diagnostics-color=@var{choice}
+Tells GCC to use @var{choice} as the default for @option{-fdiagnostics-color=}
+option (if not used explicitly on the command line).  @var{choice}
+can be one of @samp{never}, @samp{auto}, @samp{always}, and @samp{auto-if-env}
+where @samp{auto} is the default.  @samp{auto-if-env} means that
+@option{-fdiagnostics-color=auto} will be the default if @code{GCC_COLORS}
+is present and non-empty in the environment, and
+@option{-fdiagnostics-color=never} otherwise.
+
 @item --enable-lto
 @itemx --disable-lto
 Enable support for link-time optimization (LTO).  This is enabled by
@@ -1819,6 +1854,20 @@ If GCC is configured with some multilibs that use glibc and some that
 do not, this option applies only to the multilibs that use glibc.
 However, such configurations may not work well as not all the relevant
 configuration in GCC is on a per-multilib basis.
+
+@item --enable-as-accelerator-for=@var{target}
+Build as offload target compiler. Specify offload host triple by @var{target}.
+
+@item --enable-offload-targets=@var{target1}[=@var{path1}],@dots{},@var{targetN}[=@var{pathN}]
+Enable offloading to targets @var{target1}, @dots{}, @var{targetN}.
+Offload compilers are expected to be already installed.  Default search
+path for them is @file{@var{exec-prefix}}, but it can be changed by
+specifying paths @var{path1}, @dots{}, @var{pathN}.
+
+@smallexample
+% @var{srcdir}/configure \
+    --enable-offload-target=i686-unknown-linux-gnu=/path/to/i686/compiler,x86_64-pc-linux-gnu
+@end smallexample
 @end table
 
 @subheading Cross-Compiler-Specific Options
