@@ -1374,6 +1374,9 @@ insn_cost (rtx insn)
 {
   int cost;
 
+  if (sched_fusion)
+    return 0;
+
   if (sel_sched_p ())
     {
       if (recog_memoized (insn) < 0)
@@ -1585,6 +1588,8 @@ dep_list_size (rtx insn, sd_list_types_def list)
   return nodbgcount;
 }
 
+bool sched_fusion;
+
 /* Compute the priority number for INSN.  */
 static int
 priority (rtx insn)
@@ -1599,7 +1604,15 @@ priority (rtx insn)
     {
       int this_priority = -1;
 
-      if (dep_list_size (insn, SD_LIST_FORW) == 0)
+      if (sched_fusion)
+	{
+	  int this_fusion_priority;
+
+	  targetm.sched.fusion_priority (insn, FUSION_MAX_PRIORITY,
+					 &this_fusion_priority, &this_priority);
+	  INSN_FUSION_PRIORITY (insn) = this_fusion_priority;
+	}
+      else if (dep_list_size (insn, SD_LIST_FORW) == 0)
 	/* ??? We should set INSN_PRIORITY to insn_cost when and insn has
 	   some forward deps but all of them are ignored by
 	   contributes_to_priority hook.  At the moment we set priority of
@@ -2530,7 +2543,7 @@ enum rfs_decision {
   RFS_SCHED_GROUP, RFS_PRESSURE_DELAY, RFS_PRESSURE_TICK,
   RFS_FEEDS_BACKTRACK_INSN, RFS_PRIORITY, RFS_SPECULATION,
   RFS_SCHED_RANK, RFS_LAST_INSN, RFS_PRESSURE_INDEX,
-  RFS_DEP_COUNT, RFS_TIE, RFS_N };
+  RFS_DEP_COUNT, RFS_TIE, RFS_FUSION, RFS_N };
 
 /* Corresponding strings for print outs.  */
 static const char *rfs_str[RFS_N] = {
@@ -2538,7 +2551,7 @@ static const char *rfs_str[RFS_N] = {
   "RFS_SCHED_GROUP", "RFS_PRESSURE_DELAY", "RFS_PRESSURE_TICK",
   "RFS_FEEDS_BACKTRACK_INSN", "RFS_PRIORITY", "RFS_SPECULATION",
   "RFS_SCHED_RANK", "RFS_LAST_INSN", "RFS_PRESSURE_INDEX",
-  "RFS_DEP_COUNT", "RFS_TIE" };
+  "RFS_DEP_COUNT", "RFS_TIE", "RFS_FUSION" };
 
 /* Statistical breakdown of rank_for_schedule decisions.  */
 typedef struct { unsigned stats[RFS_N]; } rank_for_schedule_stats_t;
@@ -2608,6 +2621,55 @@ rank_for_schedule (const void *x, const void *y)
 
   /* Make sure that priority of TMP and TMP2 are initialized.  */
   gcc_assert (INSN_PRIORITY_KNOWN (tmp) && INSN_PRIORITY_KNOWN (tmp2));
+
+  if (sched_fusion)
+    {
+      /* The instruction that has the same fusion priority as the last
+	 instruction is the instruction we picked next.  If that is not
+	 the case, we sort ready list firstly by fusion priority, then
+	 by priority, and at last by INSN_LUID.  */
+      int a = INSN_FUSION_PRIORITY (tmp);
+      int b = INSN_FUSION_PRIORITY (tmp2);
+      int last = -1;
+
+      if (last_nondebug_scheduled_insn
+	  && !NOTE_P (last_nondebug_scheduled_insn)
+	  && BLOCK_FOR_INSN (tmp)
+	       == BLOCK_FOR_INSN (last_nondebug_scheduled_insn))
+	last = INSN_FUSION_PRIORITY (last_nondebug_scheduled_insn);
+
+      if (a != last && b != last)
+	{
+	  if (a == b)
+	    {
+	      a = INSN_PRIORITY (tmp);
+	      b = INSN_PRIORITY (tmp2);
+	    }
+	  if (a != b)
+	    return rfs_result (RFS_FUSION, b - a, tmp, tmp2);
+	  else
+	    return rfs_result (RFS_FUSION,
+			       INSN_LUID (tmp) - INSN_LUID (tmp2), tmp, tmp2);
+	}
+      else if (a == b)
+	{
+	  gcc_assert (last_nondebug_scheduled_insn
+		      && !NOTE_P (last_nondebug_scheduled_insn));
+	  last = INSN_PRIORITY (last_nondebug_scheduled_insn);
+
+	  a = abs (INSN_PRIORITY (tmp) - last);
+	  b = abs (INSN_PRIORITY (tmp2) - last);
+	  if (a != b)
+	    return rfs_result (RFS_FUSION, a - b, tmp, tmp2);
+	  else
+	    return rfs_result (RFS_FUSION,
+			       INSN_LUID (tmp) - INSN_LUID (tmp2), tmp, tmp2);
+	}
+      else if (a == last)
+	return rfs_result (RFS_FUSION, -1, tmp, tmp2);
+      else
+	return rfs_result (RFS_FUSION, 1, tmp, tmp2);
+    }
 
   if (sched_pressure != SCHED_PRESSURE_NONE)
     {
@@ -3945,8 +4007,8 @@ schedule_insn (rtx insn)
   gcc_assert (INSN_TICK (insn) >= MIN_TICK);
   if (INSN_TICK (insn) > clock_var)
     /* INSN has been prematurely moved from the queue to the ready list.
-       This is possible only if following flag is set.  */
-    gcc_assert (flag_sched_stalled_insns);
+       This is possible only if following flags are set.  */
+    gcc_assert (flag_sched_stalled_insns || sched_fusion);
 
   /* ??? Probably, if INSN is scheduled prematurely, we should leave
      INSN_TICK untouched.  This is a machine-dependent issue, actually.  */
@@ -5409,6 +5471,9 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
   struct choice_entry *top;
   rtx insn;
 
+  if (sched_fusion)
+    return 0;
+
   n_ready = ready->n_ready;
   gcc_assert (dfa_lookahead >= 1 && privileged_n >= 0
 	      && privileged_n <= n_ready);
@@ -5789,6 +5854,9 @@ prune_ready_list (state_t temp_state, bool first_cycle_insn_p,
   bool sched_group_found = false;
   int min_cost_group = 1;
 
+  if (sched_fusion)
+    return;
+
   for (i = 0; i < ready.n_ready; i++)
     {
       rtx insn = ready_element (&ready, i);
@@ -6000,7 +6068,7 @@ schedule_block (basic_block *target_bb, state_t init_state)
   rtx tail = PREV_INSN (next_tail);
 
   if ((current_sched_info->flags & DONT_BREAK_DEPENDENCIES) == 0
-      && sched_pressure != SCHED_PRESSURE_MODEL)
+      && sched_pressure != SCHED_PRESSURE_MODEL && !sched_fusion)
     find_modifiable_mems (head, tail);
 
   /* We used to have code to avoid getting parameters moved from hard
@@ -6394,7 +6462,7 @@ schedule_block (basic_block *target_bb, state_t init_state)
 	    {
 	      memcpy (temp_state, curr_state, dfa_state_size);
 	      cost = state_transition (curr_state, insn);
-	      if (sched_pressure != SCHED_PRESSURE_WEIGHTED)
+	      if (sched_pressure != SCHED_PRESSURE_WEIGHTED && !sched_fusion)
 		gcc_assert (cost < 0);
 	      if (memcmp (temp_state, curr_state, dfa_state_size) != 0)
 		cycle_issued_insns++;
@@ -7213,7 +7281,7 @@ fix_tick_ready (rtx next)
   INSN_TICK (next) = tick;
 
   delay = tick - clock_var;
-  if (delay <= 0 || sched_pressure != SCHED_PRESSURE_NONE)
+  if (delay <= 0 || sched_pressure != SCHED_PRESSURE_NONE || sched_fusion)
     delay = QUEUE_READY;
 
   change_queue_index (next, delay);
