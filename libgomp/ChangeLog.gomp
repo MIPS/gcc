@@ -1,3 +1,7 @@
+2014-11-14  Tom de Vries  <tom@codesourcery.com>
+
+	* configure.tgt: Handle case that $enable_linux_futex is empty.
+
 2014-11-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp.texi (Reporting Bugs): Mention the "openacc" Bugzilla
