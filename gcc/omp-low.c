@@ -250,7 +250,7 @@ oacc_get_reduction_array_id (tree node)
   const char *id = IDENTIFIER_POINTER (DECL_NAME (node));
   int len = strlen ("OACC") + strlen (id);
   char *temp_name = XALLOCAVEC (char, len + 1);
-  snprintf (temp_name, len+1, "OACC%s", id);
+  snprintf (temp_name, len + 1, "OACC%s", id);
   return IDENTIFIER_POINTER (get_identifier (temp_name));
 }
 

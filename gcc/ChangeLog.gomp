@@ -1,5 +1,9 @@
 2014-11-13  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* omp-low.c (oacc_get_reduction_array_id): Fix whitespace.
+
+2014-11-13  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* omp-low.c (omp_get_id): Rename to...
 	(oacc_get_reduction_array_id): ... this.
 	(lookup_oacc_reduction): ... this.
