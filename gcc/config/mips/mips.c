@@ -1205,6 +1205,19 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (8),            /* int_div_di */
 		    2,            /* branch_cost */
 		    4             /* memory_latency */
+  },
+  { /* I6400 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (5),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (32),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (36),           /* int_div_si */
+    COSTS_N_INSNS (36),           /* int_div_di */
+		    2,            /* branch_cost */
+		    4             /* memory_latency */
   }
 };
 
@@ -14083,6 +14096,7 @@ mips_issue_rate (void)
     case PROCESSOR_OCTEON:
     case PROCESSOR_OCTEON2:
     case PROCESSOR_OCTEON3:
+    case PROCESSOR_I6400:
       return 2;
 
     case PROCESSOR_SB1:
@@ -14232,7 +14246,7 @@ mips_multipass_dfa_lookahead (void)
   if (TUNE_OCTEON)
     return 2;
 
-  if (TUNE_P5600)
+  if (TUNE_P5600 || TUNE_I6400)
     return 4;
 
   return 0;

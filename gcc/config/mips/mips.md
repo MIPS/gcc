@@ -67,6 +67,7 @@
   xlr
   xlp
   p5600
+  i6400
 ])
 
 (define_c_enum "unspec" [
