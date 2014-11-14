@@ -1,3 +1,160 @@
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Implement more binary patterns exercised by
+	fold_stmt.
+	* fold-const.c (sing_bit_p): Export.
+	(exact_inverse): Likewise.
+	(fold_binary_loc): Remove patterns here.
+	(tree_unary_nonnegative_warnv_p): Use CASE_CONVERT.
+	* fold-const.h (sing_bit_p): Declare.
+	(exact_inverse): Likewise.
+
+2014-11-14  Marek Polacek  <polacek@redhat.com>
+
+	* tree.c (build_common_builtin_nodes): Remove doubled ECF_LEAF.
+
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (add_operator): Allow CONSTRUCTOR.
+	(dt_node::gen_kids): Handle CONSTRUCTOR not as GENERIC.
+	(parser::parse_op): Allow to iterate over predicates.
+
+2014-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (--with-diagnostics-color): New configure
+	option, default to --with-diagnostics-color=auto.
+	* toplev.c (process_options): Use DIAGNOSTICS_COLOR_DEFAULT
+	to determine -fdiagnostics-color= option default.
+	* doc/invoke.texi (-fdiagnostics-color=): Document new
+	default.
+	* configure: Regenerated.
+	* config.in: Regenerated.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* tree-ssa-strlen.c (strlen_optimize_stmt): Ignore clobbers.
+
+2014-11-14  Bin Cheng  <bin.cheng@arm.com>
+
+	* timevar.def (TV_SCHED_FUSION): New time var.
+	* passes.def (pass_sched_fusion): New pass.
+	* config/arm/arm.c (TARGET_SCHED_FUSION_PRIORITY): New.
+	(extract_base_offset_in_addr, fusion_load_store): New.
+	(arm_sched_fusion_priority): New.
+	(arm_option_override): Disable scheduling fusion by default
+	on non-armv7 processors or ldrd/strd isn't preferred.
+	* sched-int.h (struct _haifa_insn_data): New field.
+	(INSN_FUSION_PRIORITY, FUSION_MAX_PRIORITY, sched_fusion): New.
+	* sched-rgn.c (rest_of_handle_sched_fusion): New.
+	(pass_data_sched_fusion, pass_sched_fusion): New.
+	(make_pass_sched_fusion): New.
+	* haifa-sched.c (sched_fusion): New.
+	(insn_cost): Handle sched_fusion.
+	(priority): Handle sched_fusion by calling target hook.
+	(enum rfs_decision): New enum value.
+	(rfs_str): New element for RFS_FUSION.
+	(rank_for_schedule): Support sched_fusion.
+	(schedule_insn, max_issue, prune_ready_list): Handle sched_fusion.
+	(schedule_block, fix_tick_ready): Handle sched_fusion.
+	* common.opt (flag_schedule_fusion): New.
+	* tree-pass.h (make_pass_sched_fusion): New.
+	* target.def (fusion_priority): New.
+	* doc/tm.texi.in (TARGET_SCHED_FUSION_PRIORITY): New.
+	* doc/tm.texi: Regenerated.
+	* doc/invoke.texi (-fschedule-fusion): New.
+
+2014-11-13  Rong Xu  <xur@google.com>
+
+	PR debug/63581
+	* cfgrtl.c (emit_barrier_after_bb): Append the barrier to the
+	footer, instead of unconditionally overwritten.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* cgraph.h (clear_outer_type): Make public.  Fix comment.
+	* ipa-devirt.c (possible_polymorphic_call_targets): Use
+	clear_outer_type when resetting the context.
+
+2014-11-13  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	PR bootstrap/63853
+	* gcc.c (handle_foffload_option): Replace strchrnul with strchr.
+	* lto-wrapper.c (parse_env_var, append_offload_options): Likewise.
+
+2014-11-13  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* fold-const.c (const_binop): Remove code handling VEC_RSHIFT_EXPR.
+	* tree-cfg.c (verify_gimple_assign_binary): Likewise.
+	* tree-inline.c (estimate_operator_cost): Likewise.
+	* tree-pretty-print.c (dump_generic_node, op_code_prio, op_symbol_code):
+	Likewise.
+
+	* tree-vect-generic.c (expand_vector_operations_1): Remove assertion
+	against VEC_RSHIFT_EXPR.
+
+	* optabs.h (expand_vec_shift_expr): Remove.
+	* optabs.c (optab_for_tree_code): Remove case VEC_RSHIFT_EXPR.
+	(expand_vec_shift_expr): Remove.
+	* tree.def (VEC_RSHIFT_EXPR): Remove
+
+2014-11-13  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* optabs.c (can_vec_perm_p): Update comment, does not consider vec_shr.
+	(shift_amt_for_vec_perm_mask): New.
+	(expand_vec_perm_1): Use vec_shr_optab if second vector is const0_rtx
+	and mask appropriate.
+
+	* tree-vect-loop.c (calc_vec_perm_mask_for_shift): New.
+	(have_whole_vector_shift): New.
+	(vect_model_reduction_cost): Call have_whole_vector_shift instead of
+	looking for vec_shr_optab.
+	(vect_create_epilog_for_reduction): Likewise; also rename local variable
+	have_whole_vector_shift to reduce_with_shift; output VEC_PERM_EXPRs
+	instead of VEC_RSHIFT_EXPRs.
+
+	* tree-vect-stmts.c (vect_gen_perm_mask_checked): Extend comment.
+
+2014-11-13  Alan Lawrence  <alan.lawrence@arm.com>
+
+        * tree-vectorizer.h (vect_gen_perm_mask): Remove.
+        (vect_gen_perm_mask_checked, vect_gen_perm_mask_any): New.
+
+        tree_vec_data_refs.c (vect_permute_load_chain, vec_permute_store_chain,
+        vec_shift_permute_load_chain): Replace vect_gen_perm_mask & assert
+        with vect_gen_perm_mask_checked.
+
+        * tree-vect-stmts.c (vectorizable_mask_load_store, vectorizable_load):
+        Likewise.
+
+        (vect_gen_perm_mask_checked): New.
+        (vect_gen_perm_mask): Remove can_vec_perm_p check, rename to...
+        (vect_gen_perm_mask_any): ...this.
+
+        (perm_mask_for_reverse): Call can_vec_perm_p and
+        vect_gen_perm_mask_checked.
+
+2014-11-13  Felix Yang  <felix.yang@huawei.com>
+
+	* ipa-utils.h: Fix typo in comments.
+	* ipa-profile.c: Likewise.
+	* tree-ssa-loop-ivcanon.c: Fix typo in comments and debugging dumps.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* tree-ssa-strlen.c (strlen_optimize_stmt): Ignore clobbers.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* tree.c (initializer_zerop): A clobber does not zero initialize.
+
+2014-11-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* optabs.c (prepare_operand): Gracefully fail if the mode of X
+	does not match the operand mode expected by the insn pattern.
+
 2014-11-13  Richard Biener  <rguenther@suse.de>
 
 	* match.pd: Add tcc_comparison, inverted_tcc_comparison
@@ -6319,6 +6476,7 @@
 	(lds_fpscr, sts_fpscr): New insns.
 	(toggle_sz, toggle_pr): Use SImode for FPSCR_REG instead of PSImode.
 
+>>>>>>> .r217525
 2014-10-17  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* ipa-inline-transform.c (master_clone_with_noninline_clones_p): New.

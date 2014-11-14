@@ -1,3 +1,32 @@
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
+	* gcc.c-torture/execute/shiftopt-1.c: XFAIL invalid parts.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* g++.dg/tree-ssa/pr63841.C: Remove prints, use abort.
+
+2014-11-14  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.target/arm/ldrd-strd-pair-1.c: New test.
+	* gcc.target/arm/vfp-1.c: Improve scanning string.
+
+2014-11-13  Rong Xu  <xur@google.com>
+
+	PR debug/63581
+	* g++.dg/tree-prof/pr63581.C: New test.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* g++.dg/tree-ssa/pr63841.C: Remove prints, use abort.
+
+2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* g++.dg/tree-ssa/pr63841.C: New test.
+
 2014-11-13  Richard Biener  <rguenther@suse.de>
 
 	* gcc.dg/tree-ssa/forwprop-28.c: Adjust.
@@ -3148,6 +3177,7 @@
 	* gcc.dg/attr-isr.c: Move SH specific test to ...
 	* gcc.target/sh/attr-isr.c: ... here.
 
+>>>>>>> .r217525
 2014-10-17  Marek Polacek  <polacek@redhat.com>
 
 	PR c/63567

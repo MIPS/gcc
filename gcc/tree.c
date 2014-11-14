@@ -9935,7 +9935,7 @@ build_common_builtin_nodes (void)
       local_define_builtin ("__builtin_unreachable", ftype, BUILT_IN_UNREACHABLE,
 			    "__builtin_unreachable",
 			    ECF_NOTHROW | ECF_LEAF | ECF_NORETURN
-			    | ECF_CONST | ECF_LEAF);
+			    | ECF_CONST);
     }
 
   if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY)
@@ -10330,6 +10330,8 @@ initializer_zerop (const_tree init)
       {
 	unsigned HOST_WIDE_INT idx;
 
+	if (TREE_CLOBBER_P (init))
+	  return false;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, elt)
 	  if (!initializer_zerop (elt))
 	    return false;

@@ -142,7 +142,8 @@ along with GCC; see the file COPYING3.  If not see
  (if (COMPLEX_FLOAT_TYPE_P (type)
       && ! HONOR_NANS (TYPE_MODE (TREE_TYPE (type)))
       && ! HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (type))))
-  (convert { build_real (TREE_TYPE (type), dconst1); })))
+  { build_complex (type, build_real (TREE_TYPE (type), dconst1),
+		   build_real (TREE_TYPE (type), dconst0)); }))
 
 /* In IEEE floating point, x/1 is not equivalent to x for snans.  */
 (simplify
@@ -744,6 +745,38 @@ along with GCC; see the file COPYING3.  If not see
   (if (TYPE_PRECISION (TREE_TYPE (@0)) == TYPE_PRECISION (type))
    (convert @0)))
 
+/* Canonicalization of binary operations.  */
+
+/* Convert X + -C into X - C.  */
+(simplify
+ (plus @0 REAL_CST@1)
+ (if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (@1)))
+  (with { tree tem = fold_unary (NEGATE_EXPR, type, @1); }
+   (if (!TREE_OVERFLOW (tem) || !flag_trapping_math)
+    (minus @0 { tem; })))))
+
+/* Convert x+x into x*2.0.  */
+(simplify
+ (plus @0 @0)
+ (if (SCALAR_FLOAT_TYPE_P (type))
+  (mult @0 { build_real (type, dconst2); })))
+
+(simplify
+ (minus integer_zerop @1)
+ (negate @1))
+
+/* (ARG0 - ARG1) is the same as (-ARG1 + ARG0).  So check whether
+   ARG0 is zero and X + ARG0 reduces to X, since that would mean
+   (-ARG1 + ARG0) reduces to -ARG1.  */
+(simplify
+ (minus real_zerop@0 @1)
+ (if (fold_real_zero_addition_p (type, @0, 0))
+  (negate @1)))
+
+/* Transform x * -1 into -x.  */
+(simplify
+ (mult @0 integer_minus_onep)
+ (negate @0))
 
 /* COMPLEX_EXPR and REALPART/IMAGPART_EXPR cancellations.  */
 (simplify
@@ -858,38 +891,6 @@ along with GCC; see the file COPYING3.  If not see
      (ncmp @0 @1))))))
 
 
-/* Canonicalization of binary operations.  */
-
-/* Convert X + -C into X - C.  */
-(simplify
- (plus @0 REAL_CST@1)
- (if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (@1)))
-  (with { tree tem = fold_unary (NEGATE_EXPR, type, @1); }
-   (if (!TREE_OVERFLOW (tem) || !flag_trapping_math)
-    (minus @0 { tem; })))))
-
-/* Convert x+x into x*2.0.  */
-(simplify
- (plus @0 @0)
- (if (SCALAR_FLOAT_TYPE_P (type))
-  (mult @0 { build_real (type, dconst2); })))
-
-(simplify
- (minus integer_zerop @1)
- (negate @1))
-
-/* (ARG0 - ARG1) is the same as (-ARG1 + ARG0).  So check whether
-   ARG0 is zero and X + ARG0 reduces to X, since that would mean
-   (-ARG1 + ARG0) reduces to -ARG1.  */
-(simplify
- (minus real_zerop@0 @1)
- (if (fold_real_zero_addition_p (type, @0, 0))
-  (negate @1)))
-
-/* Transform x * -1 into -x.  */
-(simplify
- (mult @0 integer_minus_onep)
- (negate @0))
 
 
 /* Simple example for a user-defined predicate - modeled after

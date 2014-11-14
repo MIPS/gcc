@@ -1,3 +1,9 @@
+2014-11-14  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r217497 through r217545.
+
+	Brings back next merge piece.
+
 2014-11-13  Richard Biener  <rguenther@suse.de>
 
 	* match.pd: Implement more binary patterns exercised by
