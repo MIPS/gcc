@@ -30,7 +30,270 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+2014-11-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-prop.h (ipa_known_type_data): Remove.
+	(ipa_binfo_from_known_type_jfunc): Remove.
+
+2014-11-14  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def (thunderx): Change the scheduler
+	over to thunderx.
+	* config/aarch64/aarch64.md: Include thunderx.md.
+	(generic_sched): Set to no for thunderx.
+	* config/aarch64/thunderx.md: New file.
+
+2014-11-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Delete redunant
+	tests for 0.0.
+
+	* config/rs6000/vector.md (VEC_R): Move secondary reload support
+	insns to rs6000.md from vector.md.
+	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+
+	* config/rs6000/rs6000.md (Fa): New mode attribute to give
+	constraint for the Altivec registers for a type.
+	(RELOAD): New mode iterator for all of the types that have
+	secondary reload address support to load up a base register.
+	(extendsfdf2_fpr): Use correct constraint.
+	(copysign<mode>3_fcpsgn): For SFmode, use correct xscpsgndp
+	instruction.
+	(floatsi<mode>2_lfiwax): Add support for -mupper-regs-{sf,df}.
+	Generate the non-VSX instruction if all registers were FPRs.  Do
+	not use the patterns in vsx.md for scalar operations.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fix_trunc<mode>di2_fctidz): Likewise.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+	(fctiwz_<mode>): Likewise.
+	(fctiwuz_<mode>): Likewise.
+	(friz): Likewise.
+	(floatdidf2_fpr): Likewise.
+	(floatdidf2_mem): Likewise.
+	(floatunsdidf2): Likewise.
+	(floatunsdidf2_fcfidu): Likewise.
+	(floatunsdidf2_mem): Likewise.
+	(floatdisf2_fcfids): Likewise.
+	(floatdisf2_mem): Likewise.
+	(floatdisf2_internal1): Add explicit test for not FCFIDS to make
+	it more obvious that the code is for pre-ISA 2.06 machines.
+	(floatdisf2_internal2): Likewise.
+	(floatunsdisf2_fcfidus): Add support for -mupper-regs-{sf,df}.
+	Generate the non-VSX instruction if all registers were FPRs.  Do
+	not use the patterns in vsx.md for scalar operations.
+	(floatunsdisf2_mem): Likewise.
+	(reload_<RELOAD:mode>_<P:mptrsize>_store): Move the reload
+	handlers here from vector.md, and expand the types we generate
+	reload handlers for.
+	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+
+	* config/rs6000/vsx.md (vsx_float<VSi><mode>2): Only provide the
+	vector forms of the instructions.  Move VSX scalar forms to
+	rs6000.md, and add support for -mupper-regs-sf.
+	(vsx_floatuns<VSi><mode>2): Likewise.
+	(vsx_fix_trunc<mode><VSi>2): Likewise.
+	(vsx_fixuns_trunc<mode><VSi>2): Likewise.
+	(vsx_float_fix_<mode>2): Delete DF version, rename to
+	vsx_float_fix_v2df2.
+	(vsx_float_fix_v2df2): Likewise.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h (jump_func_type): Removed value IPA_JF_KNOWN_TYPE.
+	(ipa_pass_through_data): Removed field type_preserved.
+	(ipa_ancestor_jf_data): removed fields type and type_preserved.
+	(ipa_jump_func): Removed field known_type.
+	(ipa_get_jf_known_type_offset): Removed.
+	(ipa_get_jf_known_type_base_type): Likewise.
+	(ipa_get_jf_known_type_component_type): Likewise.
+	(ipa_get_jf_ancestor_type): Likewise.
+	* ipa-cp.c (print_ipcp_constant_value): Removed BINFO handling.
+	(ipa_get_jf_pass_through_result): Likewise.
+	(ipa_get_jf_ancestor_result): Always build ptr_node_type accesses.
+	(values_equal_for_ipcp_p): Removed BINFO handling.
+	(ipa_get_indirect_edge_target_1): Updated comment.
+	* ipa-prop.c (ipa_print_node_jump_functions_for_edge): Removed handling
+	of IPA_JF_KNOWN_TYPE jump functions.  Do not print removed fields.
+	(ipa_set_jf_known_type): Removed.
+	(ipa_set_jf_simple_pass_through): Do not set removed fields.  Update
+	all callers.
+	(ipa_set_jf_arith_pass_through): Likewise.
+	(ipa_set_ancestor_jf): Likewise.
+	(ipa_binfo_from_known_type_jfunc): Removed.
+	(prop_type_change_info): Removed fields known_current_type and
+	multiple_types_encountered.
+	(extr_type_from_vtbl_ptr_store): Removed.
+	(check_stmt_for_type_change): Do not attempt to identify changed type.
+	(detect_type_change_from_memory_writes): Do not set the removed fields,
+	always set jfunc to unknown.
+	(compute_complex_assign_jump_func): Do not detect dynamic type change.
+	(compute_complex_ancestor_jump_func): Likewise.
+	(compute_known_type_jump_func): Removed.
+	(ipa_compute_jump_functions_for_edge): Do not detect dynamic type
+	change.  Do not comute known type jump functions.
+	(combine_known_type_and_ancestor_jfs): Removed.
+	(update_jump_functions_after_inlining): Removed handling of
+	IPA_JF_KNOWN_TYPE jump functions.  Do not set removed fields.
+	(ipa_write_jump_function): Do not stream removed fields or known type
+	jump functions.
+	(ipa_read_jump_function): Likewise.
+
+2014-11-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_create_live_ranges): Add parameter.
+	* lra-lives.c (temp_bitmap): Move higher.
+	(initiate_live_solver): Move temp_bitmap initialization into
+	lra_live_ranges_init.
+	(finish_live_solver): Move temp_bitmap clearing into
+	live_ranges_finish.
+	(process_bb_lives): Add parameter.  Use it to control live info
+	update and dead insn elimination.  Pass it to mark_regno_live and
+	mark_regno_dead.
+	(lra_create_live_ranges): Add parameter.  Pass it to
+	process_bb_lives.
+	(lra_live_ranges_init, lra_live_ranges_finish): See changes in
+	initiate_live_solver and finish_live_solver.
+	* lra-remat.c (do_remat): Process insn non-operand hard regs too.
+	Use temp_bitmap to update avail_cands.
+	* lra.c (lra): Pass new parameter to lra_create_live_ranges.  Move
+	check with lra_need_for_spill_p after live range pass.  Switch on
+	rematerialization pass.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h (ipa_get_jf_pass_through_type_preserved): use
+	agg_preserved flag instead.
+	(ipa_get_jf_ancestor_type_preserved): Likewise.
+	(ipa_node_params): Rename known_vals to known_csts, update all users.
+	New field known_contexts.
+	(ipa_get_indirect_edge_target): Update prototype.
+	(ipcp_poly_ctx_values_pool): Declare.
+	(ipa_context_from_jfunc): Likewise.
+	* ipa-inline.h (estimate_ipcp_clone_size_and_time): Updated prototype.
+	* cgraph.h (ipa_polymorphic_call_context): New method equal_to.  New
+	parameter newline of method dump.
+	* ipa-cp.c (ctxlat): New field.
+	(ipcp_values_pool): Renamed to ipcp_cst_values_pool, updated all users.
+	(ipcp_poly_ctx_values_pool):New variable.
+	(ipa_get_poly_ctx_lat): New function.
+	(print_ipcp_constant_value): New overloaded function for contexts.
+	(print_all_lattices): Also print contexts.
+	(ipa_topo_info): New field contexts;
+	(set_all_contains_variable): Also set the flag in the context lattice.
+	(initialize_node_lattices): Likewise for flag bottom.
+	(ipa_get_jf_ancestor_result): Removed BINFO handling.
+	(ipa_value_from_jfunc): Likewise.
+	(ipa_context_from_jfunc): New function.
+	(values_equal_for_ipcp_p): New overloaded function for contexts.
+	(allocate_and_init_ipcp_value): Construct the value.
+	(allocate_and_init_ipcp_value): New overloaded function for contexts.
+	(propagate_scalar_accross_jump_function): Removed handling of
+	KNOWN_TYPE jump functions.
+	(propagate_context_accross_jump_function): New function.
+	(propagate_constants_accross_call): Also propagate contexts.
+	(ipa_get_indirect_edge_target_1): Work on contexts rather than BINFOs.
+	(ipa_get_indirect_edge_target): Likewise.
+	(devirtualization_time_bonus): Likewise.
+	(gather_context_independent_values): Create and populate known_contexts
+	vector rather than known_binfos.
+	(perform_estimation_of_a_value): Work on contexts rather than BINFOs.
+	(estimate_local_effects): Likewise.
+	(add_all_node_vals_to_toposort): Also add contexts to teir topological
+	sort.
+	(ipcp_propagate_stage): Also propagate effects of contexts.
+	(ipcp_discover_new_direct_edges): Receive and pass known_contexts to
+	ipa_get_indirect_edge_target_1.
+	(cgraph_edge_brings_value_p): New overloaded function for contexts.
+	(create_specialized_node): Work on contexts rather than BINFOs.
+	(find_more_contexts_for_caller_subset): New function.
+	(known_contexts_useful_p): New function.
+	(copy_useful_known_contexts): Likewise.
+	(modify_known_vectors_with_val): Likewise.
+	(ipcp_val_in_agg_replacements_p): Renamed to
+	ipcp_val_agg_replacement_ok_p, return true for all offset indicating
+	non-aggregate.
+	(ipcp_val_agg_replacement_ok_p): New overloaded function for contexts.
+	(decide_about_value): Work on contexts rather than BINFOs.
+	(decide_whether_version_node): Likewise.
+	(ipcp_driver): Initialize the new alloc pool.
+	* ipa-prop.c (ipa_print_node_jump_functions_for_edge): Prettify
+	printing of edge contexts.
+	(ipa_set_ancestor_jf): Replace assert with conditional setting of
+	type_preserved to false.
+	(update_jump_functions_after_inlining): Use access function instead of
+	reading agg_preserved directly.  Store combined context in the ancestor
+	case.
+	(try_make_edge_direct_virtual_call): Work on contexts rather than
+	BINFOs.
+	(update_indirect_edges_after_inlining): Get context from
+	ipa_context_from_jfunc.
+	(ipa_free_node_params_substructures): Free also known_contexts.
+	(ipa_free_all_structures_after_ipa_cp): Free the new alloc pool.
+	(ipa_free_all_structures_after_iinln): Likewise.
+	* ipa-inline-analysis.c (evaluate_properties_for_edge): Work on
+	contexts rather than BINFOs.
+	(estimate_edge_devirt_benefit): Likewise.
+	(estimate_edge_size_and_time): Likewise.
+	(estimate_calls_size_and_time): Likewise.
+	(estimate_node_size_and_time): Likewise.
+	(estimate_ipcp_clone_size_and_time): Likewise.
+	(do_estimate_edge_time): Likewise.
+	(do_estimate_edge_size): Likewise.
+	(do_estimate_edge_hints): Likewise.
+	* ipa-polymorphic-call.c (ipa_polymorphic_call_context::dump): New
+	parameter newline, ouput newline only when it is set.
+	(ipa_polymorphic_call_context::equal_to): New method.
+
+2014-11-14  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-cp.c (ipcp_value_source): Converted to a template class.  All
+	users converted to the same specialization as the using class/function
+	or specialization on tree.
+	(ipcp_value): Likewise.
+	(ipcp_lattice): Likewise.
+	(ipcp_agg_lattice): Now derived from tree specialization of
+	ipcp_lattice.
+	(values_topo): Moved to new class value_topo_info.
+	(ipa_lat_is_single_const): Turned into ipcp_lattice::is_single_const.
+	Updated all callers.
+	(print_lattice): Turned into ipcp_lattice::print.  Updated all
+	callers.
+	(value_topo_info): New class template.
+	(ipa_topo_info): New field constants.  New constructor.
+	(build_toporder_info): Do not clear stack_top, only checkign assert
+	it.
+	(set_lattice_to_bottom): Turned into ipcp_lattice::set_to_bottom.
+	Updated all callers.
+	(set_lattice_contains_variable): Turned into
+	ipcp_lattice::set_contains_variable.  Updated all callers.
+	(add_value_source): Turned into ipcp_value::add_source.  Updated all
+	callers.
+	(allocate_and_init_ipcp_value): New function.
+	(add_value_to_lattice): Turned into ipcp_lattice::add_value.  Last
+	parameter got default a value.  Updated all callers.
+	(add_scalar_value_to_lattice): Removed, users converted to using
+	ipcp_lattice::add_value with default value of the last parameter.
+	(add_val_to_toposort): Turned to value_topo_info::add_val.  Updated
+	all callers.
+	(propagate_effects): Made method of value_topo_info.
+	(cgraph_edge_brings_value_p): Now a template function.
+	(get_info_about_necessary_edges): Likewise.
+	(gather_edges_for_value): Likewise.
+	(perhaps_add_new_callers): Likewise.
+	(decide_about_value): Likewise.
+	* ipa-prop.h (ipcp_lattice): Remove fowrward declaration.
+
 2014-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/install.texi (--with-diagnostics-color=): Document.
+
+	* tree-ssa.dce.c (eliminate_unnecessary_stmts): Eliminate
+	IFN_GOMP_SIMD_LANE without lhs as useless.
 
 	* ipa-pure-const.c (struct funct_state_d): Add can_free field.
 	(varying_state): Add true for can_free.
