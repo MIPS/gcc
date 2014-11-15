@@ -1,3 +1,15 @@
+2014-11-14  Andrew Pinski  <apinski@cavium.com>
+
+	Revert 376e0a4f52ee7e346cc1ccd7bfd6d04b5112996d until it is fixed.
+        * config/aarch64/aarch64.h (CALL_USED_REGISTERS): Mark LR as caller-save.
+        (EPILOGUE_USES): Guard the check by epilogue_completed.
+        * config/aarch64/aarch64.c (aarch64_layout_frame): Explictly check for LR.
+        (aarch64_can_eliminate): Check LR_REGNUM liveness.
+        * gcc.target/aarch64/lr_free_1.c: New testcase for -fomit-frame-pointer.
+        * gcc.target/aarch64/lr_free_2.c: New testcase for leaf
+        -fno-omit-frame-pointer.
+
+
 2014-10-31  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/thunderx.md (thunderx_mul): Add
