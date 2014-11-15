@@ -42,6 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "params.h"
 
+static tree cp_build_addr_expr_strict (tree, tsubst_flags_t);
+static tree cp_build_function_call (tree, tree, tsubst_flags_t);
 static tree pfn_from_ptrmemfunc (tree);
 static tree delta_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, impl_conv_rhs, tree, int,
@@ -1785,7 +1787,7 @@ cxx_alignas_expr (tree e)
     /* Leave value-dependent expression alone for now. */
     return e;
 
-  e = fold_non_dependent_expr (e);
+  e = instantiate_non_dependent_expr (e);
   e = mark_rvalue_use (e);
 
   /* [dcl.align]/2 says:
@@ -3400,7 +3402,7 @@ build_function_call_vec (location_t /*loc*/, vec<location_t> /*arg_loc*/,
 
 /* Build a function call using a tree list of arguments.  */
 
-tree
+static tree
 cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
 {
   vec<tree, va_gc> *vec;
@@ -4133,8 +4135,7 @@ cp_build_binary_op (location_t location,
 	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
 	  enum tree_code tcode0 = code0, tcode1 = code1;
-	  tree cop1 = fold_non_dependent_expr_sfinae (op1, tf_none);
-	  cop1 = maybe_constant_value (cop1);
+	  tree cop1 = fold_non_dependent_expr (op1);
 	  doing_div_or_mod = true;
 	  warn_for_div_by_zero (location, cop1);
 
@@ -4173,8 +4174,7 @@ cp_build_binary_op (location_t location,
     case TRUNC_MOD_EXPR:
     case FLOOR_MOD_EXPR:
       {
-	tree cop1 = fold_non_dependent_expr_sfinae (op1, tf_none);
-	cop1 = maybe_constant_value (cop1);
+	tree cop1 = fold_non_dependent_expr (op1);
 	doing_div_or_mod = true;
 	warn_for_div_by_zero (location, cop1);
       }
@@ -4268,8 +4268,7 @@ cp_build_binary_op (location_t location,
 	}
       else if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
-	  tree const_op1 = fold_non_dependent_expr_sfinae (op1, tf_none);
-	  const_op1 = maybe_constant_value (const_op1);
+	  tree const_op1 = fold_non_dependent_expr (op1);
 	  if (TREE_CODE (const_op1) != INTEGER_CST)
 	    const_op1 = op1;
 	  result_type = type0;
@@ -4280,14 +4279,16 @@ cp_build_binary_op (location_t location,
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "right shift count is negative");
+		    warning (OPT_Wshift_count_negative,
+			     "right shift count is negative");
 		}
 	      else
 		{
 		  if (compare_tree_int (const_op1, TYPE_PRECISION (type0)) >= 0
 		      && (complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "right shift count >= width of type");
+		    warning (OPT_Wshift_count_overflow,
+			     "right shift count >= width of type");
 		}
 	    }
 	  /* Convert the shift-count to an integer, regardless of
@@ -4316,8 +4317,7 @@ cp_build_binary_op (location_t location,
 	}
       else if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
-	  tree const_op1 = fold_non_dependent_expr_sfinae (op1, tf_none);
-	  const_op1 = maybe_constant_value (const_op1);
+	  tree const_op1 = fold_non_dependent_expr (op1);
 	  if (TREE_CODE (const_op1) != INTEGER_CST)
 	    const_op1 = op1;
 	  result_type = type0;
@@ -4328,14 +4328,16 @@ cp_build_binary_op (location_t location,
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "left shift count is negative");
+		    warning (OPT_Wshift_count_negative,
+			     "left shift count is negative");
 		}
 	      else if (compare_tree_int (const_op1,
 					 TYPE_PRECISION (type0)) >= 0)
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (0, "left shift count >= width of type");
+		    warning (OPT_Wshift_count_overflow,
+			     "left shift count >= width of type");
 		}
 	    }
 	  /* Convert the shift-count to an integer, regardless of
@@ -4987,10 +4989,8 @@ cp_build_binary_op (location_t location,
       /* OP0 and/or OP1 might have side-effects.  */
       op0 = cp_save_expr (op0);
       op1 = cp_save_expr (op1);
-      op0 = maybe_constant_value (fold_non_dependent_expr_sfinae (op0,
-								  tf_none));
-      op1 = maybe_constant_value (fold_non_dependent_expr_sfinae (op1,
-								  tf_none));
+      op0 = fold_non_dependent_expr (op0);
+      op1 = fold_non_dependent_expr (op1);
       if (doing_div_or_mod && (flag_sanitize & (SANITIZE_DIVIDE
 						| SANITIZE_FLOAT_DIVIDE)))
 	{
@@ -5318,19 +5318,6 @@ build_address (tree t)
   return t;
 }
 
-/* Returns the address of T with type TYPE.  */
-
-tree
-build_typed_address (tree t, tree type)
-{
-  if (error_operand_p (t) || !cxx_mark_addressable (t))
-    return error_mark_node;
-  t = build_fold_addr_expr_with_type (t, type);
-  if (TREE_CODE (t) != ADDR_EXPR)
-    t = rvalue (t);
-  return t;
-}
-
 /* Return a NOP_EXPR converting EXPR to TYPE.  */
 
 tree
@@ -5624,7 +5611,7 @@ cp_build_addr_expr (tree arg, tsubst_flags_t complain)
 
 /* Take the address of ARG, but only if it's an lvalue.  */
 
-tree
+static tree
 cp_build_addr_expr_strict (tree arg, tsubst_flags_t complain)
 {
   return cp_build_addr_expr_1 (arg, 1, complain);
@@ -6898,7 +6885,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	    || TYPE_PTR_OR_PTRMEM_P (type))
 	   && same_type_p (type, intype))
     /* DR 799 */
-    return fold_if_not_in_template (build_nop (type, expr));
+    return rvalue (expr);
   else if ((TYPE_PTRFN_P (type) && TYPE_PTRFN_P (intype))
 	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
     return fold_if_not_in_template (build_nop (type, expr));

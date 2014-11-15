@@ -6886,7 +6886,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 	      }
 
 	    if (fold_expr_p)
-	      expr = fold_non_dependent_expr (expr);
+	      expr = instantiate_non_dependent_expr (expr);
 
             /* If we have an ellipsis, then this is an expression
 	       expansion.  */
@@ -14903,9 +14903,15 @@ cp_parser_simple_type_specifier (cp_parser* parser,
     {
       type = token->u.value;
       if (decl_specs)
-	cp_parser_set_decl_spec_type (decl_specs, type,
-				      token,
-				      /*type_definition_p=*/false);
+	{
+	  cp_parser_set_decl_spec_type (decl_specs, type,
+					token,
+					/*type_definition_p=*/false);
+	  /* Remember that we are handling a decltype in order to
+	     implement the resolution of DR 1510 when the argument
+	     isn't instantiation dependent.  */
+	  decl_specs->decltype_p = true;
+	}
       cp_lexer_consume_token (parser->lexer);
       return type;
     }
@@ -15989,10 +15995,6 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
      enumerator doesn't contain any bare template parameter pack.  */
   if (check_for_bare_parameter_packs (value))
     value = error_mark_node;
-
-  /* integral_constant_value will pull out this expression, so make sure
-     it's folded as appropriate.  */
-  value = fold_non_dependent_expr (value);
 
   /* Create the enumerator.  */
   build_enumerator (identifier, value, type, loc);

@@ -98,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "tree-chkp.h"
+#include "omp-low.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -601,6 +602,8 @@ compile_file (void)
       if (flag_check_pointer_bounds)
 	chkp_finish_file ();
 
+      omp_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -942,10 +945,17 @@ init_asm_output (const char *name)
 	}
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
-      else
+      else if (!canonical_filename_eq (asm_file_name, name))
 	asm_out_file = fopen (asm_file_name, "w");
+      else
+	/* Use fatal_error (UNKOWN_LOCATION) instead of just fatal_error to
+	   prevent gcc from printing the first line in the current file. */
+	fatal_error (UNKNOWN_LOCATION,
+		     "input file %qs is the same as output file",
+		     asm_file_name);
       if (asm_out_file == 0)
-	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
+	fatal_error (UNKNOWN_LOCATION,
+		     "can%'t open %qs for writing: %m", asm_file_name);
     }
 
   if (!flag_syntax_only)
@@ -1257,12 +1267,28 @@ process_options (void)
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
-  /* Default to -fdiagnostics-color=auto if GCC_COLORS is in the environment,
-     otherwise default to -fdiagnostics-color=never.  */
-  if (!global_options_set.x_flag_diagnostics_show_color
-      && getenv ("GCC_COLORS"))
-    pp_show_color (global_dc->printer)
-      = colorize_init (DIAGNOSTICS_COLOR_AUTO);
+  /* If DIAGNOSTICS_COLOR_DEFAULT is -1, default to -fdiagnostics-color=auto
+     if GCC_COLORS is in the environment, otherwise default to
+     -fdiagnostics-color=never, for other values default to that
+     -fdiagnostics-color={never,auto,always}.  */
+  if (!global_options_set.x_flag_diagnostics_show_color)
+    switch ((int) DIAGNOSTICS_COLOR_DEFAULT)
+      {
+      case -1:
+	if (!getenv ("GCC_COLORS"))
+	  break;
+	/* FALLTHRU */
+      case DIAGNOSTICS_COLOR_AUTO:
+	pp_show_color (global_dc->printer)
+	  = colorize_init (DIAGNOSTICS_COLOR_AUTO);
+	break;
+      case DIAGNOSTICS_COLOR_YES:
+	pp_show_color (global_dc->printer)
+	  = colorize_init (DIAGNOSTICS_COLOR_YES);
+	break;
+      default:
+	break;
+      }
 
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
@@ -1463,7 +1489,7 @@ process_options (void)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
   else
-    error ("target system does not support the \"%s\" debug format",
+    error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
 
   /* We know which debug output will be used so we can set flag_var_tracking

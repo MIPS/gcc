@@ -572,7 +572,7 @@ null_ptr_cst_p (tree t)
     {
       /* Core issue 903 says only literal 0 is a null pointer constant.  */
       if (cxx_dialect < cxx11)
-	t = maybe_constant_value (fold_non_dependent_expr_sfinae (t, tf_none));
+	t = fold_non_dependent_expr (t);
       STRIP_NOPS (t);
       if (integer_zerop (t) && !TREE_OVERFLOW (t))
 	return true;
@@ -5309,6 +5309,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 
   arg1 = prep_operand (arg1);
 
+  bool memonly = false;
   switch (code)
     {
     case NEW_EXPR:
@@ -5340,6 +5341,16 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
       code_orig_arg1 = TREE_CODE (TREE_TYPE (arg1));
       code_orig_arg2 = TREE_CODE (TREE_TYPE (arg2));
       break;
+
+      /* =, ->, [], () must be non-static member functions.  */
+    case MODIFY_EXPR:
+      if (code2 != NOP_EXPR)
+	break;
+    case COMPONENT_REF:
+    case ARRAY_REF:
+      memonly = true;
+      break;
+
     default:
       break;
     }
@@ -5369,10 +5380,12 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 
   /* Add namespace-scope operators to the list of functions to
      consider.  */
-  add_candidates (lookup_function_nonclass (fnname, arglist, /*block_p=*/true),
-		  NULL_TREE, arglist, NULL_TREE,
-		  NULL_TREE, false, NULL_TREE, NULL_TREE,
-		  flags, &candidates, complain);
+  if (!memonly)
+    add_candidates (lookup_function_nonclass (fnname, arglist,
+					      /*block_p=*/true),
+		    NULL_TREE, arglist, NULL_TREE,
+		    NULL_TREE, false, NULL_TREE, NULL_TREE,
+		    flags, &candidates, complain);
 
   args[0] = arg1;
   args[1] = arg2;
@@ -7424,8 +7437,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
     return error_mark_node;
 
   if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0
-      /* Don't mess with virtual lookup in fold_non_dependent_expr; virtual
-	 functions can't be constexpr.  */
+      /* Don't mess with virtual lookup in instantiate_non_dependent_expr;
+	 virtual functions can't be constexpr.  */
       && !in_template_function ())
     {
       tree t;
@@ -9348,7 +9361,7 @@ perform_implicit_conversion_flags (tree type, tree expr,
 	 type of non-dependent expressions, so we do not have to
 	 perform the actual conversion.  But for initializers, we
 	 need to be able to perform it at instantiation
-	 (or fold_non_dependent_expr) time.  */
+	 (or instantiate_non_dependent_expr) time.  */
       expr = build1 (IMPLICIT_CONV_EXPR, type, expr);
       if (!(flags & LOOKUP_ONLYCONVERTING))
 	IMPLICIT_CONV_EXPR_DIRECT_INIT (expr) = true;

@@ -789,6 +789,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
 
+/* True if an overflow is to be preserved for sanitization.  */
+#define TYPE_OVERFLOW_SANITIZED(TYPE)			\
+  (INTEGRAL_TYPE_P (TYPE)				\
+   && !TYPE_OVERFLOW_WRAPS (TYPE)			\
+   && (flag_sanitize & SANITIZE_SI_OVERFLOW))
+
 /* True if pointer types have undefined overflow.  */
 #define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
 
@@ -4232,6 +4238,7 @@ extern bool is_typedef_decl (tree x);
 extern bool typedef_variant_p (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern bool tree_nop_conversion_p (const_tree, const_tree);
 extern tree tree_strip_nop_conversions (tree);
 extern tree tree_strip_sign_nop_conversions (tree);
 extern const_tree strip_invariant_refs (const_tree);
