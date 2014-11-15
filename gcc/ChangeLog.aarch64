@@ -406,3 +406,7 @@
 
 	* config/aarch64/aarch64-cores.def: Add an entry for thunder.
 	* config/aarch64/aarch64-tune.md: Re-generate.
+
+2014-09-05  Joel Jones  <jjones@caveonetworks.com>
+	* gcc/config/aarch64/aarch64-cores.def (AARCH64_CORE("thunderx"...)):
+	remove AARCH64_FL_ATOMIC
