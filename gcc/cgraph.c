@@ -1363,8 +1363,8 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	    {
 	      tree dresult = gimple_call_lhs (new_stmt);
 	      tree iresult = gimple_call_lhs (e2->call_stmt);
-	      gimple dbndret = chkp_retbnd_call_by_val (dresult);
-	      gimple ibndret = chkp_retbnd_call_by_val (iresult);
+	      gcall *dbndret = chkp_retbnd_call_by_val (dresult);
+	      gcall *ibndret = chkp_retbnd_call_by_val (iresult);
 	      struct cgraph_edge *iedge
 		= e2->caller->cgraph_node::get_edge (ibndret);
 	      struct cgraph_edge *dedge;

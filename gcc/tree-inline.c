@@ -1815,13 +1815,13 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		 we handle not instrumented call in instrumented
 		 function.  */
 	      nargs_to_copy = nargs;
-	      if (gimple_call_with_bounds_p (id->gimple_call)
+	      if (gimple_call_with_bounds_p (id->call_stmt)
 		  && !gimple_call_with_bounds_p (stmt))
 		{
-		  for (i = gimple_call_num_args (id->gimple_call) - nargs;
-		       i < gimple_call_num_args (id->gimple_call);
+		  for (i = gimple_call_num_args (id->call_stmt) - nargs;
+		       i < gimple_call_num_args (id->call_stmt);
 		       i++)
-		    if (POINTER_BOUNDS_P (gimple_call_arg (id->gimple_call, i)))
+		    if (POINTER_BOUNDS_P (gimple_call_arg (id->call_stmt, i)))
 		      nargs_to_copy--;
 		  remove_bounds = true;
 		}
@@ -1840,20 +1840,20 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		{
 		  /* Append the rest of arguments removing bounds.  */
 		  unsigned cur = gimple_call_num_args (call_stmt);
-		  i = gimple_call_num_args (id->gimple_call) - nargs;
-		  for (i = gimple_call_num_args (id->gimple_call) - nargs;
-		       i < gimple_call_num_args (id->gimple_call);
+		  i = gimple_call_num_args (id->call_stmt) - nargs;
+		  for (i = gimple_call_num_args (id->call_stmt) - nargs;
+		       i < gimple_call_num_args (id->call_stmt);
 		       i++)
-		    if (!POINTER_BOUNDS_P (gimple_call_arg (id->gimple_call, i)))
-		      argarray[cur++] = gimple_call_arg (id->gimple_call, i);
+		    if (!POINTER_BOUNDS_P (gimple_call_arg (id->call_stmt, i)))
+		      argarray[cur++] = gimple_call_arg (id->call_stmt, i);
 		  gcc_assert (cur == n);
 		}
 	      else
 		{
 		  /* Append the arguments passed in '...'  */
 		  memcpy (argarray.address () + gimple_call_num_args (call_stmt),
-			  gimple_call_arg_ptr (id->gimple_call, 0)
-			  + (gimple_call_num_args (id->gimple_call) - nargs),
+			  gimple_call_arg_ptr (id->call_stmt, 0)
+			  + (gimple_call_num_args (id->call_stmt) - nargs),
 			  nargs * sizeof (tree));
 		}
 
@@ -1889,10 +1889,10 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		nargs--;
 
 	      /* For instrumented calls we should ignore bounds.  */
-	      for (i = gimple_call_num_args (id->gimple_call) - nargs;
-		   i < gimple_call_num_args (id->gimple_call);
+	      for (i = gimple_call_num_args (id->call_stmt) - nargs;
+		   i < gimple_call_num_args (id->call_stmt);
 		   i++)
-		if (POINTER_BOUNDS_P (gimple_call_arg (id->gimple_call, i)))
+		if (POINTER_BOUNDS_P (gimple_call_arg (id->call_stmt, i)))
 		  nargs--;
 
 	      count = build_int_cst (integer_type_node, nargs);
@@ -4509,7 +4509,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       if (gimple_call_with_bounds_p (stmt)
 	  && TREE_CODE (modify_dest) == SSA_NAME)
 	{
-	  gimple retbnd = chkp_retbnd_call_by_val (modify_dest);
+	  gcall *retbnd = chkp_retbnd_call_by_val (modify_dest);
 	  if (retbnd)
 	    {
 	      return_bounds = gimple_call_lhs (retbnd);

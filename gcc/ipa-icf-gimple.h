@@ -161,7 +161,7 @@ public:
 
   /* Verifies for given GIMPLEs S1 and S2 that
      call statements are semantically equivalent.  */
-  bool compare_gimple_call (gimple s1, gimple s2);
+  bool compare_gimple_call (gcall *s1, gcall *s2);
 
   /* Verifies for given GIMPLEs S1 and S2 that
      assignment statements are semantically equivalent.  */

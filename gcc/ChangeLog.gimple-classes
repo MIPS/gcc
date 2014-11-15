@@ -1,3 +1,55 @@
+2014-11-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* cgraph.c (cgraph_edge::redirect_call_stmt_to_callee):
+	Strengthen locals "dbndret" and "ibndret" from gimple to gcall *.
+	* gimple-iterator.c (gsi_for_phi): New function.
+	* gimple-iterator.h (gsi_for_phi): New prototype.
+	* internal-fn.c (expand_ADD_OVERFLOW): Strengthen param "stmt"
+	from gimple to gcall *.
+	(expand_SUB_OVERFLOW): Likewise.
+	(expand_MUL_OVERFLOW): Likewise.
+	* ipa-icf-gimple.c (func_checker::compare_bb): Add checked casts
+	within case GIMPLE_CALL.
+	(func_checker::compare_gimple_call): Strengthen params from gimple
+	to gcall *.
+	* ipa-icf-gimple.h (func_checker::compare_gimple_call): Likewise.
+	* sanopt.c (sanopt_optimize_walker): Replace check for GIMPLE_ASM
+	with a dyn_cast, introducing local "asm_stmt" and using it in
+	place of "stmt" for typesafety.
+	* tree-chkp.c (chkp_recompute_phi_bounds): Strengthen locals
+	"bounds_phi" and "ptr_phi" from gimple to gphi *.
+	(chkp_add_bounds_to_ret_stmt): Strengthen local "ret" from gimple
+	to greturn *.
+	(chkp_add_bounds_to_call_stmt): Strengthen locals "call" and
+	"new_call" from gimple to gcall *.
+	(chkp_build_returned_bound): Likewise for param "call".
+	(chkp_retbnd_call_by_val): Likewise for return type.
+	(chkp_get_bounds_by_definition): Strengthen param "iter" from
+	gimple_stmt_iterator * to gphi_iterator *.  Add a checked cast
+	within case GIMPLE_CALL.  Use gsi_for_phi rather than
+	gsi_for_stmt.
+	(chkp_find_bounds_1): Strengthen local "phi_iter" from
+	gimple_stmt_iterator to gphi_iterator.  Replace check for
+	GIMPLE_PHI with a dyn_cast, introducing local "def_phi" and using
+	in place of "def_stmt" for typesafety.
+	(chkp_copy_bounds_for_assign): Add checked cast.
+	(chkp_instrument_function): Within case GIMPLE_RETURN, add local
+	greturn * "r" from a checked cast and use in place of "s" for
+	typesafety.
+	* tree-chkp.h (chkp_retbnd_call_by_val): Strengthen return type
+	from gimple to gcall *.
+	* tree-inline.c (copy_bb): Update for renaming of field
+	"gimple_call" to "call_stmt" on the gimple-classes branch.
+	(expand_call_inline): Strengthen local "retbnc" from gimple to
+	gcall *.
+	* tree-ssa-forwprop.c (pass_forwprop::execute): Replace check for
+	GIMPLE_COND with a dyn_cast, introducing local "cond" and using
+	in place of "stmt" for typesafety.
+	* value-prof.c (gimple_ic): Strengthen local "iretbnd_stmt" from
+	gimple to gcall *.  Weaken top-level local "psi" from
+	gphi_iterator back to gimple_stmt_iterator, reintroducing the
+	name as a phi_iterator within the for loop that needs it.
+
 2014-10-28  David Malcolm  <dmalcolm@redhat.com>
 
 	* auto-profile.c (autofdo::function_instance::find_icall_target_map):

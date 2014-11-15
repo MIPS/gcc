@@ -1391,7 +1391,7 @@ gimple_ic (gcall *icall_stmt, struct cgraph_node *direct_call,
   gcall *dcall_stmt;
   gassign *load_stmt;
   gcond *cond_stmt;
-  gimple iretbnd_stmt = NULL;
+  gcall *iretbnd_stmt = NULL;
   tree tmp0, tmp1, tmp;
   basic_block cond_bb, dcall_bb, icall_bb, join_bb = NULL;
   tree optype = build_pointer_type (void_type_node);
@@ -1400,7 +1400,7 @@ gimple_ic (gcall *icall_stmt, struct cgraph_node *direct_call,
   int lp_nr, dflags;
   edge e_eh, e;
   edge_iterator ei;
-  gphi_iterator psi;
+  gimple_stmt_iterator psi;
 
   cond_bb = gimple_bb (icall_stmt);
   gsi = gsi_for_stmt (icall_stmt);
@@ -1557,7 +1557,7 @@ gimple_ic (gcall *icall_stmt, struct cgraph_node *direct_call,
     if (e_eh->flags & (EDGE_EH | EDGE_ABNORMAL))
       {
 	e = make_edge (dcall_bb, e_eh->dest, e_eh->flags);
-	for (psi = gsi_start_phis (e_eh->dest);
+	for (gphi_iterator psi = gsi_start_phis (e_eh->dest);
 	     !gsi_end_p (psi); gsi_next (&psi))
 	  {
 	    gphi *phi = psi.phi ();

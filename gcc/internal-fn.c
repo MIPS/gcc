@@ -1813,7 +1813,7 @@ expand_arith_overflow (enum tree_code code, gimple stmt)
 /* Expand ADD_OVERFLOW STMT.  */
 
 static void
-expand_ADD_OVERFLOW (gimple stmt)
+expand_ADD_OVERFLOW (gcall *stmt)
 {
   expand_arith_overflow (PLUS_EXPR, stmt);
 }
@@ -1821,7 +1821,7 @@ expand_ADD_OVERFLOW (gimple stmt)
 /* Expand SUB_OVERFLOW STMT.  */
 
 static void
-expand_SUB_OVERFLOW (gimple stmt)
+expand_SUB_OVERFLOW (gcall *stmt)
 {
   expand_arith_overflow (MINUS_EXPR, stmt);
 }
@@ -1829,7 +1829,7 @@ expand_SUB_OVERFLOW (gimple stmt)
 /* Expand MUL_OVERFLOW STMT.  */
 
 static void
-expand_MUL_OVERFLOW (gimple stmt)
+expand_MUL_OVERFLOW (gcall *stmt)
 {
   expand_arith_overflow (MULT_EXPR, stmt);
 }

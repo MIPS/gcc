@@ -595,7 +595,8 @@ func_checker::compare_bb (sem_bb *bb1, sem_bb *bb2)
       switch (gimple_code (s1))
 	{
 	case GIMPLE_CALL:
-	  if (!compare_gimple_call (s1, s2))
+	  if (!compare_gimple_call (as_a <gcall *> (s1),
+				    as_a <gcall *> (s2)))
 	    return return_different_stmts (s1, s2, "GIMPLE_CALL");
 	  break;
 	case GIMPLE_ASSIGN:
@@ -656,7 +657,7 @@ func_checker::compare_bb (sem_bb *bb1, sem_bb *bb2)
    call statements are semantically equivalent.  */
 
 bool
-func_checker::compare_gimple_call (gimple s1, gimple s2)
+func_checker::compare_gimple_call (gcall *s1, gcall *s2)
 {
   unsigned i;
   tree t1, t2;

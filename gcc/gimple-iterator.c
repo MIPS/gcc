@@ -639,6 +639,19 @@ gsi_for_stmt (gimple stmt)
   return i;
 }
 
+/* Finds iterator for PHI.  */
+
+gphi_iterator
+gsi_for_phi (gphi *phi)
+{
+  gphi_iterator i;
+  basic_block bb = gimple_bb (phi);
+
+  i = gsi_start_phis (bb);
+  i.ptr = phi;
+
+  return i;
+}
 
 /* Move the statement at FROM so it comes right after the statement at TO.  */
 
