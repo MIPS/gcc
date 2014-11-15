@@ -3304,7 +3304,7 @@ install-common: native lang.install-common installdirs
 	      rm -f $(DESTDIR)$(bindir)/$(GCOV_DUMP_INSTALL_NAME)$(exeext); \
 	      $(INSTALL_PROGRAM) gcov-dump$(exeext) \
 	        $(DESTDIR)$(bindir)/$(GCOV_DUMP_INSTALL_NAME)$(exeext); \
-	  fi \
+	  fi; \
 	  if [ -f gcov$(exeext) ]; \
 	  then \
 	    rm -f $(DESTDIR)$(bindir)/$(GCOV_INSTALL_NAME)$(exeext); \
