@@ -791,17 +791,16 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* BSWAP simplifications, transforms checked by gcc.dg/builtin-bswap-8.c.  */
-(for bswap (BUILT_IN_BSWAP16 BUILT_IN_BSWAP32 BUILT_IN_BSWAP64)
- (simplify
-  (bswap (bswap @0))
+(simplify
+  (byteswap (byteswap @0))
   @0)
+(simplify
+ (byteswap (bit_not (byteswap @0)))
+ (bit_not @0))
+(for bitop (bit_xor bit_ior bit_and)
  (simplify
-  (bswap (bit_not (bswap @0)))
-  (bit_not @0))
- (for bitop (bit_xor bit_ior bit_and)
-  (simplify
-   (bswap (bitop:c (bswap @0) @1))
-   (bitop @0 (bswap @1)))))
+  (byteswap (bitop:c (byteswap @0) @1))
+  (bitop @0 (byteswap @1))))
 
 
 /* Combine COND_EXPRs and VEC_COND_EXPRs.  */
