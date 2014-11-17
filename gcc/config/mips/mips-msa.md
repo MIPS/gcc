@@ -233,7 +233,7 @@
    (V8HI "SI")
    (V16QI "SI")])
 
-;; This attribute qives suffix for MSA instructions.
+;; This attribute gives suffix for MSA instructions.
 (define_mode_attr msafmt
   [(V2DF "d")
    (V4SF "w")
@@ -247,8 +247,8 @@
   [(V2DF "d")
    (V4SF "s")])
 
-;; This attribute qives define_insn suffix for MSA instructions
-;; with need distinction between integer and floating point.
+;; This attribute gives define_insn suffix for MSA instructions with need
+;; distinction between integer and floating point.
 (define_mode_attr msafmt_f
   [(V2DF "d_f")
    (V4SF "w_f")
@@ -264,8 +264,8 @@
    (V8HI "15")
    (V16QI "7")])
 
-;; This is used to form an immediate operand constraint
-;; using "const_<indeximm>_operand".
+;; This is used to form an immediate operand constraint using
+;; "const_<indeximm>_operand".
 (define_mode_attr indeximm
   [(V2DF "0_or_1")
    (V4SF "0_to_3")
@@ -274,8 +274,7 @@
    (V8HI "uimm3")
    (V16QI "uimm4")])
 
-;; To represent bitmask needed for vec_merge
-;; using "const_<bitmask>_operand".
+;; To represent bitmask needed for vec_merge using "const_<bitmask>_operand".
 (define_mode_attr bitmask
   [(V2DF "exp_2")
    (V4SF "exp_4")
@@ -293,8 +292,8 @@
    (V8HI "SI")
    (V16QI "SI")])
 
-;; This attribute used to form an immediate operand constraint
-;; using  "const_<bitimm>_operand".
+;; This attribute used to form an immediate operand constraint using
+;; "const_<bitimm>_operand".
 (define_mode_attr bitimm
   [(V16QI "uimm3")
    (V8HI  "uimm4")
@@ -933,9 +932,8 @@
     DONE;
 })
 
-;; 128bit MSA modes only in msa registers or memory
-;; an exception is allowing MSA modes for GP registers for arguments
-;; and return values.
+;; 128bit MSA modes only in msa registers or memory.  An exception is allowing
+;; MSA modes for GP registers for arguments and return values.
 (define_insn "mov<mode>_msa"
   [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R,!d,f")
 	(match_operand:MODE128 1 "move_operand" "fYGYI,R,f,f,!d"))]

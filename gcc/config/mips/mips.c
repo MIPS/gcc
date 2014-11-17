@@ -1899,7 +1899,7 @@ mips_const_vector_same_byte_p (rtx op, machine_mode mode)
     if (!rtx_equal_p (first, CONST_VECTOR_ELT (op, i)))
       return false;
 
-  /* it's a 8-bit mode don't care if signed or unsigned */
+  /* It's an 8-bit mode don't care if signed or unsigned.  */
   return true;
 }
 
@@ -2783,7 +2783,7 @@ mips_const_insns (rtx x)
       if (TARGET_MSA
 	  && mips_const_vector_same_int_p (x, GET_MODE (x), -512, 511))
 	return 1;
-      /* fall through.  */
+      /* Fall through.  */
     case CONST_DOUBLE:
       /* Allow zeros for normal mode, where we can use $0.  */
       return !TARGET_MIPS16 && x == CONST0_RTX (GET_MODE (x)) ? 1 : 0;
@@ -2844,9 +2844,9 @@ mips_split_const_insns (rtx x)
   return low + high;
 }
 
-/* X is a 128-bit constant that can be handled by splitting it into
-   two or four words and loading each word separately.  Return the number of
-   instructions required to do this.  */
+/* X is a 128-bit constant that can be handled by splitting it into two or four
+   words and loading each word separately.  Return the number of instructions
+   required to do this.  */
 
 int
 mips_split_128bit_const_insns (rtx x)
@@ -4264,9 +4264,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return false;
 	}
 
-      /* If it's an add + mult (which is equivalent to shift left)
-         and it's immediate operand satisfies const_immlsa_operand
-         predicate.  */
+      /* If it's an add + mult (which is equivalent to shift left) and
+         it's immediate operand satisfies const_immlsa_operand predicate.  */
       if (ISA_HAS_LSA
 	  && mode == SImode
 	  && GET_CODE (XEXP (x, 0)) == MULT)
@@ -4659,7 +4658,7 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
   return size > UNITS_PER_WORD;
 }
 
-/* Determine if the DEST,SRC move insn applies to MSA.  */
+/* Determine if the split applies to an MSA move from SRC to DEST.  */
 #define MSA_SPLIT_P(DEST, SRC)	\
   (MSA_SUPPORTED_MODE_P (GET_MODE (DEST)) && MSA_SUPPORTED_MODE_P (GET_MODE (SRC)))
 
@@ -4711,9 +4710,6 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
     }
   else if (MSA_SPLIT_P (dest, src))
     {
-      /* Temporary sanity check should only get here if
-         a 128bit move needed spliting.  */
-      gcc_assert (mips_split_128bit_move_p (dest, src));
       mips_split_128bit_move (dest, src);
     }
   else
@@ -4753,8 +4749,8 @@ mips_insn_split_type (rtx insn)
   return SPLIT_IF_NECESSARY;
 }
 
-/* Return true if a 128-bit move from SRC to DEST should be split into two
-   or four.  */
+/* Return true if a 128-bit move from SRC to DEST should be split.  */
+
 bool
 mips_split_128bit_move_p (rtx dest, rtx src)
 {
@@ -4768,7 +4764,8 @@ mips_split_128bit_move_p (rtx dest, rtx src)
   if (FP_REG_RTX_P (src) && MEM_P (dest))
     return false;
 
-  /* Check for MSA set to an immediate const vector with valid replicated element.  */
+  /* Check for MSA set to an immediate const vector with valid replicated
+     element.  */
   if (FP_REG_RTX_P (dest)
       && mips_const_vector_same_int_p (src, GET_MODE (src), -512, 511))
     return false;
@@ -12964,8 +12961,8 @@ static int
 mips_memory_move_cost (machine_mode mode, reg_class_t rclass, bool in)
 {
   int multiplier = 1;
-  /* Acount for the numder of losds md nd stores that are needed to
-   * handle MSA type in GPRs. */
+  /* Account for the number of loads and stores that are needed to handle
+     MSA type in GPRs. */
   if (MSA_SUPPORTED_MODE_P (mode) && rclass != FP_REGS)
     multiplier = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
 
@@ -16032,8 +16029,8 @@ mips_builtin_vectorized_function (tree fndecl, tree type_out,
   in_mode = TYPE_MODE (TREE_TYPE (type_in));
   in_n = TYPE_VECTOR_SUBPARTS (type_in);
 
-  /* INSN is the name of the associated instruction pattern, without the
-     leading CODE_FOR_.  */
+  /* INSN is the name of the associated instruction pattern, without
+     the leading CODE_FOR_.  */
 #define MIPS_GET_BUILTIN(INSN) \
   mips_builtin_decls[mips_get_builtin_decl_index[CODE_FOR_##INSN]]
 
