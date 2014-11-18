@@ -1,0 +1,7 @@
+2014-11-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mlra): Default to 1.
+
+	Clone branch from subversion id 217733.
+	* REVISION: New file, track subversion id.
+
