@@ -933,6 +933,11 @@ public:
 
   /* When doing LTO, read cgraph_node's body from disk if it is not already
      present.  */
+  bool get_untransformed_body (void);
+
+  /* Prepare function body.  When doing LTO, read cgraph_node's body from disk 
+     if it is not already present.  When some IPA transformations are scheduled,
+     apply them.  */
   bool get_body (void);
 
   /* Release memory used to represent body of function.
@@ -1384,6 +1389,7 @@ public:
      If actual type the context is being used in is known, OTR_TYPE should be
      set accordingly. This improves quality of combined result.  */
   bool combine_with (ipa_polymorphic_call_context, tree otr_type = NULL);
+  bool meet_with (ipa_polymorphic_call_context, tree otr_type = NULL);
 
   /* Return TRUE if context is fully useless.  */
   bool useless_p () const;
@@ -1401,9 +1407,10 @@ public:
 
 private:
   bool combine_speculation_with (tree, HOST_WIDE_INT, bool, tree);
+  bool meet_speculation_with (tree, HOST_WIDE_INT, bool, tree);
   void set_by_decl (tree, HOST_WIDE_INT);
   bool set_by_invariant (tree, tree, HOST_WIDE_INT);
-  bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree);
+  bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree) const;
   void make_speculative (tree otr_type = NULL);
 };
 
@@ -2713,7 +2720,7 @@ cgraph_node::mark_force_output (void)
 inline bool
 cgraph_node::optimize_for_size_p (void)
 {
-  if (optimize_size)
+  if (opt_for_fn (decl, optimize_size))
     return true;
   if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
     return true;

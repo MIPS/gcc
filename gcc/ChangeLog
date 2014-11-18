@@ -1,3 +1,2112 @@
+2014-11-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/cortex-a15-neon.md (cortex_a15_vfp_to_from_gp):
+	Split into...
+	(cortex_a15_gp_to_vfp): ...This.
+	(cortex_a15_fp_to_gp): ...And this.
+	Define and comment bypass from vfp operations to fp->gp moves.
+
+2014-11-18  Martin Liska  <mliska@suse.cz>
+
+	* var-tracking.c (vt_find_locations): New fibonacci_node is used.
+
+2014-11-18  Martin Liska  <mliska@suse.cz>
+
+	* bt-load.c (add_btr_def): New fibonacci_heap is used.
+	(migrate_btr_defs): Likewise.
+
+2014-11-18  Martin Liska  <mliska@suse.cz>
+
+	* tracer.c (tail_duplicate): New fibonacci_heap class is used.
+
+2014-11-18  Martin Liska  <mliska@suse.cz>
+
+	* bb-reorder.c (mark_bb_visited): New fibonacci_heap is used.
+	(find_traces): Likewise.
+	(find_traces_1_round): Likewise.
+
+2014-11-18  Martin Liska  <mliska@suse.cz>
+
+	* fibonacci_heap.h: New file.
+	(fibonacci_heap::insert): Created from fibheap_insert.
+	(fibonacci_heap::empty): Created from fibheap_empty.
+	(fibonacci_heap::nodes): Created from fibheap_nodes.
+	(fibonacci_heap::min_key): Created from fibheap_min_key.
+	(fibonacci_heap::decrease_key): Created from fibheap_replace_key.
+	(fibonacci_heap::replace_key_data): Created from fibheap_replace_key_data.
+	(fibonacci_heap::extract_min): Created from fibheap_extract_min.
+	(fibonacci_heap::min): Created from fibheap_min.
+	(fibonacci_heap::replace_data): Created from fibheap_replace_data.
+	(fibonacci_heap::delete_node): Created from fibheap_delete_node.
+	(fibonacci_heap::union_with): Created from fibheap_union.
+	* ipa-inline.c (update_edge_key): New heap API is used.
+	(update_caller_keys): Likewise.
+	(update_callee_keys): Likewise.
+	(lookup_recursive_calls): Likewise.
+	(recursive_inlining): Likewise.
+	(add_new_edges_to_heap): Likewise.
+	(heap_edge_removal_hook): Likewise.
+	(inline_small_functions): Likewise.
+
+2014-11-18  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63866
+	* asan.c (asan_global_struct): Create a TYPE_DECL for "__asan_global",
+	put it into TYPE_NAME and TYPE_STUB_DECL.
+	* ubsan.c (ubsan_type_descriptor_type): New variable.
+	Function renamed to ...
+	(ubsan_get_type_descriptor_type): ... this.  Cache
+	return value in ubsan_type_descriptor_type variable.
+	Create a TYPE_DECL for "__ubsan_type_descriptor", put it into
+	TYPE_NAME and TYPE_STUB_DECL.
+	(ubsan_get_source_location_type): Create a TYPE_DECL for
+	"__ubsan_source_location", put it into TYPE_NAME and TYPE_STUB_DECL.
+	(ubsan_type_descriptor, ubsan_create_data): Call
+	ubsan_get_type_descriptor_type instead of ubsan_type_descriptor_type.
+	Create a TYPE_DECL for name, put it into TYPE_NAME and TYPE_STUB_DECL.
+
+2014-11-18  Felix Yang  <felix.yang@huawei.com>
+
+	* config/aarch64/aarch64.c (doloop_end): New pattern.
+	* config/aarch64/aarch64.md (TARGET_CAN_USE_DOLOOP_P): Implement.
+
+2014-11-18  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (warn_deprecated_use): Show declaration with inform.
+
+2014-11-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63914
+	* tree-ssa-ccp.c (canonicalize_value): Remove float value
+	canonicalization.
+	(valid_lattice_transition): Allow (partial) transition
+	from NaN to non-NaN if !HONOR_NANS.
+	(set_lattice_value): Check for valid lattice transitions
+	only when checking is enabled.
+
+2014-11-18  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/nvptx/nvptx.c: Include <sstream> directly after "config.h".
+
+2014-11-18  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/arm/neon-testgen.ml (emit_prologue): Handle new
+	compile_test_optim argument.
+	(emit_automatics): Rename to emit_variables. Support variable
+	indentation of its output.
+	(compile_test_optim): New function.
+	(test_intrinsic): Call compile_test_optim.
+	* config/arm/neon.ml (features): Add Compiler_optim.
+	(ops): Add Compiler_optim feature to Vbic and Vorn.
+	(type_in_crypto_only): Replace 'or' by '||'.
+	(reinterp): Likewise.
+	(reinterpq): Likewise.
+
+2014-11-18  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (vld1_dup_f32, vld1_dup_f64, vld1_dup_p8,
+	vld1_dup_p16, vld1_dup_s8, vld1_dup_s16, vld1_dup_s32, vld1_dup_s64,
+	vld1_dup_u8, vld1_dup_u16, vld1_dup_u32, vld1_dup_u64, vld1q_dup_f32,
+	vld1q_dup_f64, vld1q_dup_p8, vld1q_dup_p16, vld1q_dup_s8, vld1q_dup_s16,
+	vld1q_dup_s32, vld1q_dup_s64, vld1q_dup_u8, vld1q_dup_u16,
+	vld1q_dup_u32, vld1q_dup_u64): Replace inline asm with vdup_n_ and
+	pointer dereference.
+
+2014-11-18  Marc Glisse  <marc.glisse@inria.fr>
+
+	* tree.c (element_mode, integer_truep): New functions.
+	* tree.h (element_mode, integer_truep): Declare them.
+	* fold-const.c (negate_expr_p, fold_negate_expr, combine_comparisons,
+	fold_cond_expr_with_comparison, fold_real_zero_addition_p,
+	fold_comparison, fold_ternary_loc, tree_call_nonnegative_warnv_p,
+	fold_strip_sign_ops): Use element_mode.
+	(fold_binary_loc): Use element_mode and element_precision.
+	* match.pd: Use integer_truep, element_mode, element_precision,
+	VECTOR_TYPE_P and build_one_cst. Extend some transformations to
+	vectors. Simplify A/-A.
+
+2014-11-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (unaligned_loaddi): Use std::swap instead of
+	manual swapping implementation.
+	(movcond_addsi): Likewise.
+	* config/arm/arm.c (arm_canonicalize_comparison): Likewise.
+	(arm_select_dominance_cc_mode): Likewise.
+	(arm_reload_out_hi): Likewise.
+	(gen_operands_ldrd_strd): Likewise.
+	(output_move_double): Likewise.
+	(arm_print_operand_address): Likewise.
+	(thumb_output_move_mem_multiple): Likewise.
+	(SWAP_RTX): Delete.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm-builtins.c (CONVERT_QUALIFIERS): Delete.
+	(COPYSIGNF_QUALIFIERS): Likewise.
+	(CREATE_QUALIFIERS): Likewise.
+	(DUP_QUALIFIERS): Likewise.
+	(FLOAT_WIDEN_QUALIFIERS): Likewise.
+	(FLOAT_NARROW_QUALIFIERS): Likewise.
+	(REINTERP_QUALIFIERS): Likewise.
+	(RINT_QUALIFIERS): Likewise.
+	(SPLIT_QUALIFIERS): Likewise.
+	(FIXCONV_QUALIFIERS): Likewise.
+	(SCALARMUL_QUALIFIERS): Likewise.
+	(SCALARMULL_QUALIFIERS): Likewise.
+	(SCALARMULH_QUALIFIERS): Likewise.
+	(SELECT_QUALIFIERS): Likewise.
+	(VTBX_QUALIFIERS): Likewise.
+	(SHIFTIMM_QUALIFIERS): Likewise.
+	(SCALARMAC_QUALIFIERS): Likewise.
+	(LANEMUL_QUALIFIERS): Likewise.
+	(LANEMULH_QUALIFIERS): Likewise.
+	(LANEMULL_QUALIFIERS): Likewise.
+	(SHIFTACC_QUALIFIERS): Likewise.
+	(SHIFTINSERT_QUALIFIERS): Likewise.
+	(VTBL_QUALIFIERS): Likewise.
+	(LOADSTRUCT_QUALIFIERS): Likewise.
+	(LOADSTRUCTLANE_QUALIFIERS): Likewise.
+	(STORESTRUCT_QUALIFIERS): Likewise.
+	(STORESTRUCTLANE_QUALIFIERS): Likewise.
+	(neon_builtin_type_mode): Delete.
+	(v8qi_UP): Map to V8QImode.
+	(v8qi_UP): Map to V8QImode.
+	(v4hi_UP): Map to V4HImode.
+	(v4hf_UP): Map to V4HFmode.
+	(v2si_UP): Map to V2SImode.
+	(v2sf_UP): Map to V2SFmode.
+	(di_UP): Map to DImode.
+	(v16qi_UP): Map to V16QImode.
+	(v8hi_UP): Map to V8HImode.
+	(v4si_UP): Map to V4SImode.
+	(v4sf_UP): Map to V4SFmode.
+	(v2di_UP): Map to V2DImode.
+	(ti_UP): Map to TImode.
+	(ei_UP): Map to EImode.
+	(oi_UP): Map to OImode.
+	(neon_itype): Delete.
+	(neon_builtin_datum): Remove itype, make mode a machine_mode.
+	(VAR1): Update accordingly.
+	(arm_init_neon_builtins): Use machine_mode directly.
+	(neon_dereference_pointer): Likewise.
+	(arm_expand_neon_args): Use qualifiers to decide operand types.
+	(arm_expand_neon_builtin): Likewise.
+	* config/arm/arm_neon_builtins.def: Remap operation type for
+	many builtins.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm-builtins.c (arm_scalar_builtin_types): New.
+	(enum arm_simd_type): Likewise.
+	(struct arm_simd_type_info): Likewise
+	(arm_mangle_builtin_scalar_type): Likewise.
+	(arm_mangle_builtin_vector_type): Likewise.
+	(arm_mangle_builtin_type): Likewise.
+	(arm_simd_builtin_std_type): Likewise.
+	(arm_lookup_simd_builtin_type): Likewise.
+	(arm_simd_builtin_type): Likewise.
+	(arm_init_simd_builtin_types): Likewise.
+	(arm_init_simd_builtin_scalar_types): Likewise.
+	(arm_init_neon_builtins): Rewrite using qualifiers.
+	* config/arm/arm-protos.h (arm_mangle_builtin_type): New.
+	* config/arm/arm-simd-builtin-types.def: New file.
+	* config/arm/t-arm (arm-builtins.o): Depend on it.
+	* config/arm/arm.c (arm_mangle_type): Call arm_mangle_builtin_type.
+	* config/arm/arm_neon.h (int8x8_t): Use new internal type.
+	(int16x4_t): Likewise.
+	(int32x2_t): Likewise.
+	(float16x4_t): Likewise.
+	(float32x2_t): Likewise.
+	(poly8x8_t): Likewise.
+	(poly16x4_t): Likewise.
+	(uint8x8_t): Likewise.
+	(uint16x4_t): Likewise.
+	(uint32x2_t): Likewise.
+	(int8x16_t): Likewise.
+	(int16x8_t): Likewise.
+	(int32x4_t): Likewise.
+	(int64x2_t): Likewise.
+	(float32x4_t): Likewise.
+	(poly8x16_t): Likewise.
+	(poly16x8_t): Likewise.
+	(uint8x16_t): Likewise.
+	(uint16x8_t): Likewise.
+	(uint32x4_t): Likewise.
+	(uint64x2_t): Likewise.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc/config/arm/arm-builtins.c	(arm_type_qualifiers): New.
+	(neon_itype): Add new types corresponding to the types used in
+	qualifiers names.
+	(arm_unop_qualifiers): New.
+	(arm_bswap_qualifiers): Likewise.
+	(arm_binop_qualifiers): Likewise.
+	(arm_ternop_qualifiers): Likewise.
+	(arm_getlane_qualifiers): Likewise.
+	(arm_lanemac_qualifiers): Likewise.
+	(arm_setlane_qualifiers): Likewise.
+	(arm_combine_qualifiers): Likewise.
+	(arm_load1_qualifiers): Likewise.
+	(arm_load1_lane_qualifiers): Likewise.
+	(arm_store1_qualifiers): Likewise.
+	(arm_storestruct_lane_qualifiers): Likewise.
+	(UNOP_QUALIFIERS): Likewise.
+	(DUP_QUALIFIERS): Likewise.
+	(SPLIT_QUALIFIERS): Likewise.
+	(CONVERT_QUALIFIERS): Likewise.
+	(FLOAT_WIDEN_QUALIFIERS): Likewise.
+	(FLOAT_NARROW_QUALIFIERS): Likewise.
+	(RINT_QUALIFIERS): Likewise.
+	(COPYSIGNF_QUALIFIERS): Likewise.
+	(CREATE_QUALIFIERS): Likewise.
+	(REINTERP_QUALIFIERS): Likewise.
+	(BSWAP_QUALIFIERS): Likewise.
+	(BINOP_QUALIFIERS): Likewise.
+	(FIXCONV_QUALIFIERS): Likewise.
+	(SCALARMUL_QUALIFIERS): Likewise.
+	(SCALARMULL_QUALIFIERS): Likewise.
+	(SCALARMULH_QUALIFIERS): Likewise.
+	(TERNOP_QUALIFIERS): Likewise.
+	(SELECT_QUALIFIERS): Likewise.
+	(VTBX_QUALIFIERS): Likewise.
+	(GETLANE_QUALIFIERS): Likewise.
+	(SHIFTIMM_QUALIFIERS): Likewise.
+	(LANEMAC_QUALIFIERS): Likewise.
+	(SCALARMAC_QUALIFIERS): Likewise.
+	(SETLANE_QUALIFIERS): Likewise.
+	(SHIFTINSERT_QUALIFIERS): Likewise.
+	(SHIFTACC_QUALIFIERS): Likewise.
+	(LANEMUL_QUALIFIERS): Likewise.
+	(LANEMULL_QUALIFIERS): Likewise.
+	(LANEMULH_QUALIFIERS): Likewise.
+	(COMBINE_QUALIFIERS): Likewise.
+	(VTBL_QUALIFIERS): Likewise.
+	(LOAD1_QUALIFIERS): Likewise.
+	(LOADSTRUCT_QUALIFIERS): Likewise.
+	(LOAD1LANE_QUALIFIERS): Likewise.
+	(LOADSTRUCTLANE_QUALIFIERS): Likewise.
+	(STORE1_QUALIFIERS): Likewise.
+	(STORESTRUCT_QUALIFIERS): Likewise.
+	(STORE1LANE_QUALIFIERS): Likewise.
+	(STORESTRUCTLANE_QUALIFIERS): Likewise.
+	(neon_builtin_datum): Keep track of qualifiers.
+	(VAR1): Likewise.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm-builtins.c (VAR1): Add a comma.
+	(VAR2): Rewrite in terms of VAR1.
+	(VAR3-10): Likewise.
+	(arm_builtins): Remove leading comma before ARM_BUILTIN_MAX.
+	* config/arm/arm_neon_builtins.def: Remove trailing commas.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config.gcc (extra_objs): Add arm-builtins.o for arm*-*-*.
+	(target_gtfiles): Add config/arm/arm-builtins.c for arm*-*-*.
+	* config/arm/arm-builtins.c: New.
+	* config/arm/t-arm (arm_builtins.o): New.
+	* config/arm/arm-protos.h (arm_expand_builtin): New.
+	(arm_builtin_decl): Likewise.
+	(arm_init_builtins): Likewise.
+	(arm_atomic_assign_expand_fenv): Likewise.
+	* config/arm/arm.c (arm_atomic_assign_expand_fenv): Remove prototype.
+	(arm_init_builtins): Likewise.
+	(arm_init_iwmmxt_builtins): Likewise
+	(safe_vector_operand): Likewise
+	(arm_expand_binop_builtin): Likewise
+	(arm_expand_unop_builtin): Likewise
+	(arm_expand_builtin): Likewise
+	(arm_builtin_decl): Likewise
+	(insn_flags): Remove static.
+	(tune_flags): Likewise.
+	(enum arm_builtins): Move to config/arm/arm-builtins.c.
+	(arm_init_neon_builtins): Likewise.
+	(struct builtin_description): Likewise.
+	(arm_init_iwmmxt_builtins): Likewise.
+	(arm_init_fp16_builtins): Likewise.
+	(arm_init_crc32_builtins): Likewise.
+	(arm_init_builtins): Likewise.
+	(arm_builtin_decl): Likewise.
+	(safe_vector_operand): Likewise.
+	(arm_expand_ternop_builtin): Likewise.
+	(arm_expand_binop_builtin): Likewise.
+	(arm_expand_unop_builtin): Likewise.
+	(neon_dereference_pointer): Likewise.
+	(arm_expand_neon_args): Likewise.
+	(arm_expand_neon_builtin): Likewise.
+	(neon_split_vcombine): Likewise.
+	(arm_expand_builtin): Likewise.
+	(arm_builtin_vectorized_function): Likewise.
+	(arm_atomic_assign_expand_fenv): Likewise.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/t-arm (arm.o): Include arm-protos.h in the recipe.
+	* config/arm/arm.c (FL_CO_PROC): Move to arm-protos.h.
+	(FL_ARCH3M): Likewise.
+	(FL_MODE26): Likewise.
+	(FL_MODE32): Likewise.
+	(FL_ARCH4): Likewise.
+	(FL_ARCH5): Likewise.
+	(FL_THUMB): Likewise.
+	(FL_LDSCHED): Likewise.
+	(FL_STRONG): Likewise.
+	(FL_ARCH5E): Likewise.
+	(FL_XSCALE): Likewise.
+	(FL_ARCH6): Likewise.
+	(FL_VFPV2): Likewise.
+	(FL_WBUF): Likewise.
+	(FL_ARCH6K): Likewise.
+	(FL_THUMB2): Likewise.
+	(FL_NOTM): Likewise.
+	(FL_THUMB_DIV): Likewise.
+	(FL_VFPV3): Likewise.
+	(FL_NEON): Likewise.
+	(FL_ARCH7EM): Likewise.
+	(FL_ARCH7): Likewise.
+	(FL_ARM_DIV): Likewise.
+	(FL_ARCH8): Likewise.
+	(FL_CRC32): Likewise.
+	(FL_SMALLMUL): Likewise.
+	(FL_IWMMXT): Likewise.
+	(FL_IWMMXT2): Likewise.
+	(FL_TUNE): Likewise.
+	(FL_FOR_ARCH2): Likewise.
+	(FL_FOR_ARCH3): Likewise.
+	(FL_FOR_ARCH3M): Likewise.
+	(FL_FOR_ARCH4): Likewise.
+	(FL_FOR_ARCH4T): Likewise.
+	(FL_FOR_ARCH5): Likewise.
+	(FL_FOR_ARCH5T): Likewise.
+	(FL_FOR_ARCH5E): Likewise.
+	(FL_FOR_ARCH5TE): Likewise.
+	(FL_FOR_ARCH5TEJ): Likewise.
+	(FL_FOR_ARCH6): Likewise.
+	(FL_FOR_ARCH6J): Likewise.
+	(FL_FOR_ARCH6K): Likewise.
+	(FL_FOR_ARCH6Z): Likewise.
+	(FL_FOR_ARCH6ZK): Likewise.
+	(FL_FOR_ARCH6T2): Likewise.
+	(FL_FOR_ARCH6M): Likewise.
+	(FL_FOR_ARCH7): Likewise.
+	(FL_FOR_ARCH7A): Likewise.
+	(FL_FOR_ARCH7VE): Likewise.
+	(FL_FOR_ARCH7R): Likewise.
+	(FL_FOR_ARCH7M): Likewise.
+	(FL_FOR_ARCH7EM): Likewise.
+	(FL_FOR_ARCH8A): Likewise.
+	* config/arm/arm-protos.h: Take definitions moved from arm.c.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm.c (arm_expand_neon_builtin): Remove "Magic Word"
+	parameter, rearrange switch statement accordingly.
+	(arm_evpc_neon_vrev): Remove "Magic Word".
+	* config/arm/unspecs.md (unspec): Split many UNSPECs to
+	rounding, or signed/unsigned variants.
+	* config/arm/neon.md (vcond<mode><mode>): Remove "Magic Word" code.
+	(vcondu<mode><mode>): Likewise.
+	(neon_vadd): Remove "Magic Word" operand.
+	(neon_vaddl): Remove "Magic Word" operand, convert to use
+	signed/unsigned iterator.
+	(neon_vaddw): Likewise.
+	(neon_vhadd): Likewise, also iterate over "rounding" forms.
+	(neon_vqadd): Remove "Magic Word" operand, convert to use
+	signed/unsigned iterator.
+	(neon_v<r>addhn): Remove "Magic Word" operand, convert to iterate
+	over "rounding" forms.
+	(neon_vmul): Remove "Magic Word" operand, iterate over
+	polynomial/float instruction forms.
+	(neon_vmla): Remove "Magic Word" operand.
+	(neon_vfma): Likewise.
+	(neon_vfms): Likewise.
+	(neon_vmls): Likewise.
+	(neon_vmlal): Remove "Magic Word" operand, iterate over
+	signed/unsigned forms.
+	(neon_vmlsl): Likewise.
+	(neon_vqdmulh): Remove "Magic Word" operand, iterate over "rounding"
+	forms.
+	(neon_vqdmlal): Remove "Magic Word" operand, iterate over
+	signed/unsigned forms.
+	(neon_vqdmlsl): Likewise.
+	(neon_vmull): Likewise.
+	(neon_vqdmull): Remove "Magic Word" operand.
+	(neon_vsub): Remove "Magic Word" operand.
+	(neon_vsubl): Remove "Magic Word" operand, convert to use
+	signed/unsigned iterator.
+	(neon_vsubw): Likewise.
+	(neon_vhsub): Likewise.
+	(neon_vqsub): Likewise.
+	(neon_v<r>subhn): Remove "Magic Word" operand, convert to iterate
+	over "rounding" forms.
+	(neon_vceq): Remove "Magic Word" operand.
+	(neon_vcge): Likewise.
+	(neon_vcgeu): Likewise.
+	(neon_vcgt): Likewise.
+	(neon_vcgtu): Likewise.
+	(neon_vcle): Likewise.
+	(neon_vclt): Likewise.
+	(neon_vcage): Likewise.
+	(neon_vcagt): Likewise.
+	(neon_vabd): Remove "Magic Word" operand, iterate over
+	signed/unsigned forms, and split out...
+	(neon_vabdf): ...this as new.
+	(neon_vabdl): Remove "Magic Word" operand, iterate over
+	signed/unsigned forms.
+	(neon_vaba): Likewise.
+	(neon_vmax): Remove "Magic Word" operand, iterate over
+	signed/unsigned and max/min forms, and split out...
+	(neon_v<maxmin>f): ...this as new.
+	(neon_vmin): Delete.
+	(neon_vpadd): Remove "Magic Word" operand.
+	(neon_vpaddl): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vpadal): Likewise.
+	(neon_vpmax): Remove "Magic Word" operand, iterate over
+	signed/unsigned and max/min forms, and split out...
+	(neon_vp<maxmin>f): ...this as new.
+	(neon_vpmin): Delete.
+	(neon_vrecps): Remove "Magic Word" operand.
+	(neon_vrsqrts): Likewise.
+	(neon_vabs): Likewise.
+	(neon_vqabs): Likewise.
+	(neon_vneg): Likewise.
+	(neon_vqneg): Likewise.
+	(neon_vcls): Likewise.
+	(neon_vcnt): Likewise.
+	(neon_vrecpe): Likewise.
+	(neon_vrsqrte): Likewise.
+	(neon_vmvn): Likewise.
+	(neon_vget_lane): Likewise.
+	(neon_vget_laneu): New.
+	(neon_vget_lanedi): Remove "Magic Word" operand.
+	(neon_vget_lanev2di): Likewise.
+	(neon_vcvt): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vcvt_n): Likewise.
+	(neon_vmovn): Remove "Magic Word" operand.
+	(neon_vqmovn): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vmovun): Remove "Magic Word" operand.
+	(neon_vmovl): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vmul_lane): Remove "Magic Word" operand.
+	(neon_vmull_lane): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vqdmull_lane): Remove "Magic Word" operand.
+	(neon_vqdmulh_lane): Remove "Magic Word" operand, iterate over
+	rounding variants.
+	(neon_vmla_lane): Remove "Magic Word" operand.
+	(neon_vmlal_lane): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vqdmlal_lane): Remove "Magic Word" operand.
+	(neon_vmls_lane): Likewise.
+	(neon_vmlsl_lane): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vqdmlsl_lane): Remove "Magic Word" operand.
+	(neon_vmul_n): Remove "Magic Word" operand.
+	(neon_vmull_n): Rename to...
+	(neon_vmulls_n): ...this, remove "Magic Word" operand.
+	(neon_vmullu_n): New.
+	(neon_vqdmull_n): Remove "Magic Word" operand.
+	(neon_vqdmulh_n): Likewise.
+	(neon_vqrdmulh_n): New.
+	(neon_vmla_n): Remove "Magic Word" operand.
+	(neon_vmls_n): Likewise.
+	(neon_vmlal_n): Rename to...
+	(neon_vmlals_n): ...this, remove "Magic Word" operand.
+	(neon_vmlalu_n): New.
+	(neon_vqdmlal_n): Remove "Magic Word" operand.
+	(neon_vmlsl_n): Rename to...
+	(neon_vmlsls_n): ...this, remove "Magic Word" operand.
+	(neon_vmlslu_n): New.
+	(neon_vqdmlsl_n): Remove "Magic Word" operand.
+	(neon_vrev64): Remove "Magic Word" operand.
+	(neon_vrev32): Likewise.
+	(neon_vrev16): Likewise.
+	(neon_vshl): Remove "Magic Word" operand, iterate over
+	signed/unsigned and "rounding" forms.
+	(neon_vqshl): Likewise.
+	(neon_vshr_n): Likewise.
+	(neon_vshrn_n): Remove "Magic Word" operand, iterate over
+	"rounding" forms.
+	(neon_vqshrn_n): Remove "Magic Word" operand, iterate over
+	signed/unsigned and "rounding" forms.
+	(neon_vqshrun_n): Remove "Magic Word" operand, iterate over
+	"rounding" forms.
+	(neon_vshl_n): Remove "Magic Word" operand.
+	(neon_vqshl_n): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vqshlu_n): Remove "Magic Word" operand.
+	(neon_vshll_n): Remove "Magic Word" operand, iterate over
+	signed/unsigned variants.
+	(neon_vsra_n): Remove "Magic Word" operand, iterate over
+	signed/unsigned and "rounding" forms.
+	* config/arm/iterators.md (VPF): New.
+	(VADDL): Likewise.
+	(VADDW): Likewise.
+	(VHADD): Likewise.
+	(VQADD): Likewise.
+	(VADDHN): Likewise.
+	(VMLAL): Likewise.
+	(VMLAL_LANE): Likewise.
+	(VLMSL): Likewise.
+	(VMLSL_LANE): Likewise.
+	(VQDMULH): Likewise,
+	(VQDMULH_LANE): Likewise.
+	(VMULL): Likewise.
+	(VMULL_LANE): Likewise.
+	(VSUBL): Likewise.
+	(VSUBW): Likewise.
+	(VHSUB): Likewise.
+	(VQSUB): Likewise.
+	(VSUBHN): Likewise.
+	(VABD): Likewise.
+	(VABDL): Likewise.
+	(VMAXMIN): Likewise.
+	(VMAXMINF): Likewise.
+	(VPADDL): Likewise.
+	(VPADAL): Likewise.
+	(VPMAXMIN): Likewise.
+	(VPMAXMINF): Likewise.
+	(VCVT_US): Likewise.
+	(VCVT_US_N): Likewise.
+	(VQMOVN): Likewise.
+	(VMOVL): Likewise.
+	(VSHL): Likewise.
+	(VQSHL): Likewise.
+	(VSHR_N): Likewise.
+	(VSHRN_N): Likewise.
+	(VQSHRN_N): Likewise.
+	(VQSHRUN_N): Likewise.
+	(VQSHL_N): Likewise.
+	(VSHLL_N): Likewise.
+	(VSRA_N): Likewise.
+	(pf): Likewise.
+	(sup): Likewise.
+	(r): Liekwise.
+	(maxmin): Likewise.
+	(shift_op): Likewise.
+	* config/arm/arm_neon_builtins.def (vaddl): Split to...
+	(vaddls): ...this and...
+	(vaddlu): ...this.
+	(vaddw): Split to...
+	(vaddws): ...this and...
+	(vaddwu): ...this.
+	(vhadd): Split to...
+	(vhadds): ...this and...
+	(vhaddu): ...this and...
+	(vrhadds): ...this and...
+	(vrhaddu): ...this.
+	(vqadd): Split to...
+	(vqadds): ...this and...
+	(vqaddu): ...this.
+	(vaddhn): Split to itself and...
+	(vraddhn): ...this.
+	(vmul): Split to...
+	(vmulf): ...this and...
+	(vmulp): ...this.
+	(vmlal): Split to...
+	(vmlals): ...this and...
+	(vmlalu): ...this.
+	(vmlsl): Split to...
+	(vmlsls): ...this and...
+	(vmlslu): ...this.
+	(vqdmulh): Split to itself and...
+	(vqrdmulh): ...this.
+	(vmull): Split to...
+	(vmullp): ...this and...
+	(vmulls): ...this and...
+	(vmullu): ...this.
+	(vmull_n): Split to...
+	(vmulls_n): ...this and...
+	(vmullu_n): ...this.
+	(vmull_lane): Split to...
+	(vmulls_lane): ...this and...
+	(vmullu_lane): ...this.
+	(vqdmulh_n): Split to itself and...
+	(vqrdmulh_n): ...this.
+	(vqdmulh_lane): Split to itself and...
+	(vqrdmulh_lane): ...this.
+	(vshl): Split to...
+	(vshls): ...this and...
+	(vshlu): ...this and...
+	(vrshls): ...this and...
+	(vrshlu): ...this.
+	(vqshl): Split to...
+	(vqshls): ...this and...
+	(vqrshlu): ...this and...
+	(vqrshls): ...this and...
+	(vqrshlu): ...this.
+	(vshr_n): Split to...
+	(vshrs_n): ...this and...
+	(vshru_n): ...this and...
+	(vrshrs_n): ...this and...
+	(vrshru_n): ...this.
+	(vshrn_n): Split to itself and...
+	(vrshrn_n): ...this.
+	(vqshrn_n): Split to...
+	(vqshrns_n): ...this and...
+	(vqshrnu_n): ...this and...
+	(vqrshrns_n): ...this and...
+	(vqrshrnu_n): ...this.
+	(vqshrun_n): Split to itself and...
+	(vqrshrun_n): ...this.
+	(vqshl_n): Split to...
+	(vqshl_s_n): ...this and...
+	(vqshl_u_n): ...this.
+	(vshll_n): Split to...
+	(vshlls_n): ...this and...
+	(vshllu_n): ...this.
+	(vsra_n): Split to...
+	(vsras_n): ...this and...
+	(vsrau_n): ...this and.
+	(vrsras_n): ...this and...
+	(vrsrau_n): ...this and.
+	(vsubl): Split to...
+	(vsubls): ...this and...
+	(vsublu): ...this.
+	(vsubw): Split to...
+	(vsubws): ...this and...
+	(vsubwu): ...this.
+	(vqsub): Split to...
+	(vqsubs): ...this and...
+	(vqsubu): ...this.
+	(vhsub): Split to...
+	(vhsubs): ...this and...
+	(vhsubu): ...this.
+	(vsubhn): Split to itself and...
+	(vrsubhn): ...this.
+	(vabd): Split to...
+	(vabds): ...this and...
+	(vabdu): ...this and...
+	(vabdf): ...this.
+	(vabdl): Split to...
+	(vabdls): ...this and...
+	(vabdlu): ...this.
+	(vaba): Split to...
+	(vabas): ...this and...
+	(vabau): ...this and...
+	(vabal): Split to...
+	(vabals): ...this and...
+	(vabalu): ...this.
+	(vmax): Split to...
+	(vmaxs): ...this and...
+	(vmaxu): ...this and...
+	(vmaxf): ...this.
+	(vmin): Split to...
+	(vmins): ...this and...
+	(vminu): ...this and...
+	(vminf): ...this.
+	(vpmax): Split to...
+	(vpmaxs): ...this and...
+	(vpmaxu): ...this and...
+	(vpmaxf): ...this.
+	(vpmin): Split to...
+	(vpmins): ...this and...
+	(vpminu): ...this and...
+	(vpminf): ...this.
+	(vpaddl): Split to...
+	(vpaddls): ...this and...
+	(vpaddlu): ...this.
+	(vpadal): Split to...
+	(vpadals): ...this and...
+	(vpadalu): ...this.
+	(vget_laneu): New.
+	(vqmovn): Split to...
+	(vqmovns): ...this and...
+	(vqmovnu): ...this.
+	(vmovl): Split to...
+	(vmovls): ...this and...
+	(vmovlu): ...this.
+	(vmlal_lane): Split to...
+	(vmlals_lane): ...this and...
+	(vmlalu_lane): ...this.
+	(vmlsl_lane): Split to...
+	(vmlsls_lane): ...this and...
+	(vmlslu_lane): ...this.
+	(vmlal_n): Split to...
+	(vmlals_n): ...this and...
+	(vmlalu_n): ...this.
+	(vmlsl_n): Split to...
+	(vmlsls_n): ...this and...
+	(vmlslu_n): ...this.
+	(vext): Make type "SHIFTINSERT".
+	(vcvt): Split to...
+	(vcvts): ...this and...
+	(vcvtu): ...this.
+	(vcvt_n): Split to...
+	(vcvts_n): ...this and...
+	(vcvtu_n): ...this.
+	* config/arm/arm_neon.h (vaddl_s8): Remove "Magic Word".
+	(vaddl_s16): Likewise.
+	(vaddl_s32): Likewise.
+	(vaddl_u8): Likewise.
+	(vaddl_u16): Likewise.
+	(vaddl_u32): Likewise.
+	(vaddw_s8): Likewise.
+	(vaddw_s16): Likewise.
+	(vaddw_s32): Likewise.
+	(vaddw_u8): Likewise.
+	(vaddw_u16): Likewise.
+	(vaddw_u32): Likewise.
+	(vhadd_s8): Likewise.
+	(vhadd_s16): Likewise.
+	(vhadd_s32): Likewise.
+	(vhadd_u8): Likewise.
+	(vhadd_u16): Likewise.
+	(vhadd_u32): Likewise.
+	(vhaddq_s8): Likewise.
+	(vhaddq_s16): Likewise.
+	(vhaddq_s32): Likewise.
+	(vhaddq_u8): Likewise.
+	(vhaddq_u16): Likewise.
+	(vrhadd_s8): Likewise.
+	(vrhadd_s16): Likewise.
+	(vrhadd_s32): Likewise.
+	(vrhadd_u8): Likewise.
+	(vrhadd_u16): Likewise.
+	(vrhadd_u32): Likewise.
+	(vrhaddq_s8): Likewise.
+	(vrhaddq_s16): Likewise.
+	(vrhaddq_s32): Likewise.
+	(vrhaddq_u8): Likewise.
+	(vrhaddq_u16): Likewise.
+	(vrhaddq_u32): Likewise.
+	(vqadd_s8): Likewise.
+	(vqadd_s16): Likewise.
+	(vqadd_s32): Likewise.
+	(vqadd_s64): Likewise.
+	(vqadd_u8): Likewise.
+	(vqadd_u16): Likewise.
+	(vqadd_u32): Likewise.
+	(vqadd_u64): Likewise.
+	(vqaddq_s8): Likewise.
+	(vqaddq_s16): Likewise.
+	(vqaddq_s32): Likewise.
+	(vqaddq_s64): Likewise.
+	(vqaddq_u8): Likewise.
+	(vqaddq_u16): Likewise.
+	(vqaddq_u32): Likewise.
+	(vqaddq_u64): Likewise.
+	(vaddhn_s16): Likewise.
+	(vaddhn_s32): Likewise.
+	(vaddhn_s64): Likewise.
+	(vaddhn_u16): Likewise.
+	(vaddhn_u32): Likewise.
+	(vaddhn_u64): Likewise.
+	(vraddhn_s16): Likewise.
+	(vraddhn_s32): Likewise.
+	(vraddhn_s64): Likewise.
+	(vraddhn_u16): Likewise.
+	(vraddhn_u32): Likewise.
+	(vraddhn_u64): Likewise.
+	(vmul_p8): Likewise.
+	(vmulq_p8): Likewise.
+	(vqdmulh_s16): Likewise.
+	(vqdmulh_s32): Likewise.
+	(vqdmulhq_s16): Likewise.
+	(vqdmulhq_s32): Likewise.
+	(vqrdmulh_s16): Likewise.
+	(vqrdmulh_s32): Likewise.
+	(vqrdmulhq_s16): Likewise.
+	(vqrdmulhq_s32): Likewise.
+	(vmull_s8): Likewise.
+	(vmull_s16): Likewise.
+	(vmull_s32): Likewise.
+	(vmull_u8): Likewise.
+	(vmull_u16): Likewise.
+	(vmull_u32): Likewise.
+	(vmull_p8): Likewise.
+	(vqdmull_s16): Likewise.
+	(vqdmull_s32): Likewise.
+	(vmla_s8): Likewise.
+	(vmla_s16): Likewise.
+	(vmla_s32): Likewise.
+	(vmla_f32): Likewise.
+	(vmla_u8): Likewise.
+	(vmla_u16): Likewise.
+	(vmla_u32): Likewise.
+	(vmlaq_s8): Likewise.
+	(vmlaq_s16): Likewise.
+	(vmlaq_s32): Likewise.
+	(vmlaq_f32): Likewise.
+	(vmlaq_u8): Likewise.
+	(vmlaq_u16): Likewise.
+	(vmlaq_u32): Likewise.
+	(vmlal_s8): Likewise.
+	(vmlal_s16): Likewise.
+	(vmlal_s32): Likewise.
+	(vmlal_u8): Likewise.
+	(vmlal_u16): Likewise.
+	(vmlal_u32): Likewise.
+	(vqdmlal_s16): Likewise.
+	(vqdmlal_s32): Likewise.
+	(vmls_s8): Likewise.
+	(vmls_s16): Likewise.
+	(vmls_s32): Likewise.
+	(vmls_f32): Likewise.
+	(vmls_u8): Likewise.
+	(vmls_u16): Likewise.
+	(vmls_u32): Likewise.
+	(vmlsq_s8): Likewise.
+	(vmlsq_s16): Likewise.
+	(vmlsq_s32): Likewise.
+	(vmlsq_f32): Likewise.
+	(vmlsq_u8): Likewise.
+	(vmlsq_u16): Likewise.
+	(vmlsq_u32): Likewise.
+	(vmlsl_s8): Likewise.
+	(vmlsl_s16): Likewise.
+	(vmlsl_s32): Likewise.
+	(vmlsl_u8): Likewise.
+	(vmlsl_u16): Likewise.
+	(vmlsl_u32): Likewise.
+	(vqdmlsl_s16): Likewise.
+	(vqdmlsl_s32): Likewise.
+	(vfma_f32): Likewise.
+	(vfmaq_f32): Likewise.
+	(vfms_f32): Likewise.
+	(vfmsq_f32): Likewise.
+	(vsubl_s8): Likewise.
+	(vsubl_s16): Likewise.
+	(vsubl_s32): Likewise.
+	(vsubl_u8): Likewise.
+	(vsubl_u16): Likewise.
+	(vsubl_u32): Likewise.
+	(vsubw_s8): Likewise.
+	(vsubw_s16): Likewise.
+	(vsubw_s32): Likewise.
+	(vsubw_u8): Likewise.
+	(vsubw_u16): Likewise.
+	(vsubw_u32): Likewise.
+	(vhsub_s8): Likewise.
+	(vhsub_s16): Likewise.
+	(vhsub_s32): Likewise.
+	(vhsub_u8): Likewise.
+	(vhsub_u16): Likewise.
+	(vhsub_u32): Likewise.
+	(vhsubq_s8): Likewise.
+	(vhsubq_s16): Likewise.
+	(vhsubq_s32): Likewise.
+	(vhsubq_u8): Likewise.
+	(vhsubq_u16): Likewise.
+	(vhsubq_u32): Likewise.
+	(vqsub_s8): Likewise.
+	(vqsub_s16): Likewise.
+	(vqsub_s32): Likewise.
+	(vqsub_s64): Likewise.
+	(vqsub_u8): Likewise.
+	(vqsub_u16): Likewise.
+	(vqsub_u32): Likewise.
+	(vqsub_u64): Likewise.
+	(vqsubq_s8): Likewise.
+	(vqsubq_s16): Likewise.
+	(vqsubq_s32): Likewise.
+	(vqsubq_s64): Likewise.
+	(vqsubq_u8): Likewise.
+	(vqsubq_u16): Likewise.
+	(vqsubq_u32): Likewise.
+	(vqsubq_u64): Likewise.
+	(vsubhn_s16): Likewise.
+	(vsubhn_s32): Likewise.
+	(vsubhn_s64): Likewise.
+	(vsubhn_u16): Likewise.
+	(vsubhn_u32): Likewise.
+	(vsubhn_u64): Likewise.
+	(vrsubhn_s16): Likewise.
+	(vrsubhn_s32): Likewise.
+	(vrsubhn_s64): Likewise.
+	(vrsubhn_u16): Likewise.
+	(vrsubhn_u32): Likewise.
+	(vrsubhn_u64): Likewise.
+	(vceq_s8): Likewise.
+	(vceq_s16): Likewise.
+	(vceq_s32): Likewise.
+	(vceq_f32): Likewise.
+	(vceq_u8): Likewise.
+	(vceq_u16): Likewise.
+	(vceq_u32): Likewise.
+	(vceq_p8): Likewise.
+	(vceqq_s8): Likewise.
+	(vceqq_s16): Likewise.
+	(vceqq_s32): Likewise.
+	(vceqq_f32): Likewise.
+	(vceqq_u8): Likewise.
+	(vceqq_u16): Likewise.
+	(vceqq_u32): Likewise.
+	(vceqq_p8): Likewise.
+	(vcge_s8): Likewise.
+	(vcge_s16): Likewise.
+	(vcge_s32): Likewise.
+	(vcge_f32): Likewise.
+	(vcge_u8): Likewise.
+	(vcge_u16): Likewise.
+	(vcge_u32): Likewise.
+	(vcgeq_s8): Likewise.
+	(vcgeq_s16): Likewise.
+	(vcgeq_s32): Likewise.
+	(vcgeq_f32): Likewise.
+	(vcgeq_u8): Likewise.
+	(vcgeq_u16): Likewise.
+	(vcgeq_u32): Likewise.
+	(vcle_s8): Likewise.
+	(vcle_s16): Likewise.
+	(vcle_s32): Likewise.
+	(vcle_f32): Likewise.
+	(vcle_u8): Likewise.
+	(vcle_u16): Likewise.
+	(vcle_u32): Likewise.
+	(vcleq_s8): Likewise.
+	(vcleq_s16): Likewise.
+	(vcleq_s32): Likewise.
+	(vcleq_f32): Likewise.
+	(vcleq_u8): Likewise.
+	(vcleq_u16): Likewise.
+	(vcleq_u32): Likewise.
+	(vcgt_s8): Likewise.
+	(vcgt_s16): Likewise.
+	(vcgt_s32): Likewise.
+	(vcgt_f32): Likewise.
+	(vcgt_u8): Likewise.
+	(vcgt_u16): Likewise.
+	(vcgt_u32): Likewise.
+	(vcgtq_s8): Likewise.
+	(vcgtq_s16): Likewise.
+	(vcgtq_s32): Likewise.
+	(vcgtq_f32): Likewise.
+	(vcgtq_u8): Likewise.
+	(vcgtq_u16): Likewise.
+	(vcgtq_u32): Likewise.
+	(vclt_s8): Likewise.
+	(vclt_s16): Likewise.
+	(vclt_s32): Likewise.
+	(vclt_f32): Likewise.
+	(vclt_u8): Likewise.
+	(vclt_u16): Likewise.
+	(vclt_u32): Likewise.
+	(vcltq_s8): Likewise.
+	(vcltq_s16): Likewise.
+	(vcltq_s32): Likewise.
+	(vcltq_f32): Likewise.
+	(vcltq_u8): Likewise.
+	(vcltq_u16): Likewise.
+	(vcltq_u32): Likewise.
+	(vcage_f32): Likewise.
+	(vcageq_f32): Likewise.
+	(vcale_f32): Likewise.
+	(vcaleq_f32): Likewise.
+	(vcagt_f32): Likewise.
+	(vcagtq_f32): Likewise.
+	(vcalt_f32): Likewise.
+	(vcaltq_f32): Likewise.
+	(vtst_s8): Likewise.
+	(vtst_s16): Likewise.
+	(vtst_s32): Likewise.
+	(vtst_u8): Likewise.
+	(vtst_u16): Likewise.
+	(vtst_u32): Likewise.
+	(vtst_p8): Likewise.
+	(vtstq_s8): Likewise.
+	(vtstq_s16): Likewise.
+	(vtstq_s32): Likewise.
+	(vtstq_u8): Likewise.
+	(vtstq_u16): Likewise.
+	(vtstq_u32): Likewise.
+	(vtstq_p8): Likewise.
+	(vabd_s8): Likewise.
+	(vabd_s16): Likewise.
+	(vabd_s32): Likewise.
+	(vabd_f32): Likewise.
+	(vabd_u8): Likewise.
+	(vabd_u16): Likewise.
+	(vabd_u32): Likewise.
+	(vabdq_s8): Likewise.
+	(vabdq_s16): Likewise.
+	(vabdq_s32): Likewise.
+	(vabdq_f32): Likewise.
+	(vabdq_u8): Likewise.
+	(vabdq_u16): Likewise.
+	(vabdq_u32): Likewise.
+	(vabdl_s8): Likewise.
+	(vabdl_s16): Likewise.
+	(vabdl_s32): Likewise.
+	(vabdl_u8): Likewise.
+	(vabdl_u16): Likewise.
+	(vabdl_u32): Likewise.
+	(vaba_s8): Likewise.
+	(vaba_s16): Likewise.
+	(vaba_s32): Likewise.
+	(vaba_u8): Likewise.
+	(vaba_u16): Likewise.
+	(vaba_u32): Likewise.
+	(vabaq_s8): Likewise.
+	(vabaq_s16): Likewise.
+	(vabaq_s32): Likewise.
+	(vabaq_u8): Likewise.
+	(vabaq_u16): Likewise.
+	(vabaq_u32): Likewise.
+	(vabal_s8): Likewise.
+	(vabal_s16): Likewise.
+	(vabal_s32): Likewise.
+	(vabal_u8): Likewise.
+	(vabal_u16): Likewise.
+	(vabal_u32): Likewise.
+	(vmax_s8): Likewise.
+	(vmax_s16): Likewise.
+	(vmax_s32): Likewise.
+	(vmax_f32): Likewise.
+	(vmax_u8): Likewise.
+	(vmax_u16): Likewise.
+	(vmax_u32): Likewise.
+	(vmaxq_s8): Likewise.
+	(vmaxq_s16): Likewise.
+	(vmaxq_s32): Likewise.
+	(vmaxq_f32): Likewise.
+	(vmaxq_u8): Likewise.
+	(vmaxq_u16): Likewise.
+	(vmaxq_u32): Likewise.
+	(vmin_s8): Likewise.
+	(vmin_s16): Likewise.
+	(vmin_s32): Likewise.
+	(vmin_f32): Likewise.
+	(vmin_u8): Likewise.
+	(vmin_u16): Likewise.
+	(vmin_u32): Likewise.
+	(vminq_s8): Likewise.
+	(vminq_s16): Likewise.
+	(vminq_s32): Likewise.
+	(vminq_f32): Likewise.
+	(vminq_u8): Likewise.
+	(vminq_u16): Likewise.
+	(vminq_u32): Likewise.
+	(vpadd_s8): Likewise.
+	(vpadd_s16): Likewise.
+	(vpadd_s32): Likewise.
+	(vpadd_f32): Likewise.
+	(vpadd_u8): Likewise.
+	(vpadd_u16): Likewise.
+	(vpadd_u32): Likewise.
+	(vpaddl_s8): Likewise.
+	(vpaddl_s16): Likewise.
+	(vpaddl_s32): Likewise.
+	(vpaddl_u8): Likewise.
+	(vpaddl_u16): Likewise.
+	(vpaddl_u32): Likewise.
+	(vpaddlq_s8): Likewise.
+	(vpaddlq_s16): Likewise.
+	(vpaddlq_s32): Likewise.
+	(vpaddlq_u8): Likewise.
+	(vpaddlq_u16): Likewise.
+	(vpaddlq_u32): Likewise.
+	(vpadal_s8): Likewise.
+	(vpadal_s16): Likewise.
+	(vpadal_s32): Likewise.
+	(vpadal_u8): Likewise.
+	(vpadal_u16): Likewise.
+	(vpadal_u32): Likewise.
+	(vpadalq_s8): Likewise.
+	(vpadalq_s16): Likewise.
+	(vpadalq_s32): Likewise.
+	(vpadalq_u8): Likewise.
+	(vpadalq_u16): Likewise.
+	(vpadalq_u32): Likewise.
+	(vpmax_s8): Likewise.
+	(vpmax_s16): Likewise.
+	(vpmax_s32): Likewise.
+	(vpmax_f32): Likewise.
+	(vpmax_u8): Likewise.
+	(vpmax_u16): Likewise.
+	(vpmax_u32): Likewise.
+	(vpmin_s8): Likewise.
+	(vpmin_s16): Likewise.
+	(vpmin_s32): Likewise.
+	(vpmin_f32): Likewise.
+	(vpmin_u8): Likewise.
+	(vpmin_u16): Likewise.
+	(vpmin_u32): Likewise.
+	(vrecps_f32): Likewise.
+	(vrecpsq_f32): Likewise.
+	(vrsqrts_f32): Likewise.
+	(vrsqrtsq_f32): Likewise.
+	(vshl_s8): Likewise.
+	(vshl_s16): Likewise.
+	(vshl_s32): Likewise.
+	(vshl_s64): Likewise.
+	(vshl_u8): Likewise.
+	(vshl_u16): Likewise.
+	(vshl_u32): Likewise.
+	(vshl_u64): Likewise.
+	(vshlq_s8): Likewise.
+	(vshlq_s16): Likewise.
+	(vshlq_s32): Likewise.
+	(vshlq_s64): Likewise.
+	(vshlq_u8): Likewise.
+	(vshlq_u16): Likewise.
+	(vshlq_u32): Likewise.
+	(vshlq_u64): Likewise.
+	(vrshl_s8): Likewise.
+	(vrshl_s16): Likewise.
+	(vrshl_s32): Likewise.
+	(vrshl_s64): Likewise.
+	(vrshl_u8): Likewise.
+	(vrshl_u16): Likewise.
+	(vrshl_u32): Likewise.
+	(vrshl_u64): Likewise.
+	(vrshlq_s8): Likewise.
+	(vrshlq_s16): Likewise.
+	(vrshlq_s32): Likewise.
+	(vrshlq_s64): Likewise.
+	(vrshlq_u8): Likewise.
+	(vrshlq_u16): Likewise.
+	(vrshlq_u32): Likewise.
+	(vrshlq_u64): Likewise.
+	(vqshl_s8): Likewise.
+	(vqshl_s16): Likewise.
+	(vqshl_s32): Likewise.
+	(vqshl_s64): Likewise.
+	(vqshl_u8): Likewise.
+	(vqshl_u16): Likewise.
+	(vqshl_u32): Likewise.
+	(vqshl_u64): Likewise.
+	(vqshlq_s8): Likewise.
+	(vqshlq_s16): Likewise.
+	(vqshlq_s32): Likewise.
+	(vqshlq_s64): Likewise.
+	(vqshlq_u8): Likewise.
+	(vqshlq_u16): Likewise.
+	(vqshlq_u32): Likewise.
+	(vqshlq_u64): Likewise.
+	(vqrshl_s8): Likewise.
+	(vqrshl_s16): Likewise.
+	(vqrshl_s32): Likewise.
+	(vqrshl_s64): Likewise.
+	(vqrshl_u8): Likewise.
+	(vqrshl_u16): Likewise.
+	(vqrshl_u32): Likewise.
+	(vqrshl_u64): Likewise.
+	(vqrshlq_s8): Likewise.
+	(vqrshlq_s16): Likewise.
+	(vqrshlq_s32): Likewise.
+	(vqrshlq_s64): Likewise.
+	(vqrshlq_u8): Likewise.
+	(vqrshlq_u16): Likewise.
+	(vqrshlq_u32): Likewise.
+	(vqrshlq_u64): Likewise.
+	(vshr_n_s8): Likewise.
+	(vshr_n_s16): Likewise.
+	(vshr_n_s32): Likewise.
+	(vshr_n_s64): Likewise.
+	(vshr_n_u8): Likewise.
+	(vshr_n_u16): Likewise.
+	(vshr_n_u32): Likewise.
+	(vshr_n_u64): Likewise.
+	(vshrq_n_s8): Likewise.
+	(vshrq_n_s16): Likewise.
+	(vshrq_n_s32): Likewise.
+	(vshrq_n_s64): Likewise.
+	(vshrq_n_u8): Likewise.
+	(vshrq_n_u16): Likewise.
+	(vshrq_n_u32): Likewise.
+	(vshrq_n_u64): Likewise.
+	(vrshr_n_s8): Likewise.
+	(vrshr_n_s16): Likewise.
+	(vrshr_n_s32): Likewise.
+	(vrshr_n_s64): Likewise.
+	(vrshr_n_u8): Likewise.
+	(vrshr_n_u16): Likewise.
+	(vrshr_n_u32): Likewise.
+	(vrshr_n_u64): Likewise.
+	(vrshrq_n_s8): Likewise.
+	(vrshrq_n_s16): Likewise.
+	(vrshrq_n_s32): Likewise.
+	(vrshrq_n_s64): Likewise.
+	(vrshrq_n_u8): Likewise.
+	(vrshrq_n_u16): Likewise.
+	(vrshrq_n_u32): Likewise.
+	(vrshrq_n_u64): Likewise.
+	(vshrn_n_s16): Likewise.
+	(vshrn_n_s32): Likewise.
+	(vshrn_n_s64): Likewise.
+	(vshrn_n_u16): Likewise.
+	(vshrn_n_u32): Likewise.
+	(vshrn_n_u64): Likewise.
+	(vrshrn_n_s16): Likewise.
+	(vrshrn_n_s32): Likewise.
+	(vrshrn_n_s64): Likewise.
+	(vrshrn_n_u16): Likewise.
+	(vrshrn_n_u32): Likewise.
+	(vrshrn_n_u64): Likewise.
+	(vqshrn_n_s16): Likewise.
+	(vqshrn_n_s32): Likewise.
+	(vqshrn_n_s64): Likewise.
+	(vqshrn_n_u16): Likewise.
+	(vqshrn_n_u32): Likewise.
+	(vqshrn_n_u64): Likewise.
+	(vqrshrn_n_s16): Likewise.
+	(vqrshrn_n_s32): Likewise.
+	(vqrshrn_n_s64): Likewise.
+	(vqrshrn_n_u16): Likewise.
+	(vqrshrn_n_u32): Likewise.
+	(vqrshrn_n_u64): Likewise.
+	(vqshrun_n_s16): Likewise.
+	(vqshrun_n_s32): Likewise.
+	(vqshrun_n_s64): Likewise.
+	(vqrshrun_n_s16): Likewise.
+	(vqrshrun_n_s32): Likewise.
+	(vqrshrun_n_s64): Likewise.
+	(vshl_n_s8): Likewise.
+	(vshl_n_s16): Likewise.
+	(vshl_n_s32): Likewise.
+	(vshl_n_s64): Likewise.
+	(vshl_n_u8): Likewise.
+	(vshl_n_u16): Likewise.
+	(vshl_n_u32): Likewise.
+	(vshl_n_u64): Likewise.
+	(vshlq_n_s8): Likewise.
+	(vshlq_n_s16): Likewise.
+	(vshlq_n_s32): Likewise.
+	(vshlq_n_s64): Likewise.
+	(vshlq_n_u8): Likewise.
+	(vshlq_n_u16): Likewise.
+	(vshlq_n_u32): Likewise.
+	(vshlq_n_u64): Likewise.
+	(vqshl_n_s8): Likewise.
+	(vqshl_n_s16): Likewise.
+	(vqshl_n_s32): Likewise.
+	(vqshl_n_s64): Likewise.
+	(vqshl_n_u8): Likewise.
+	(vqshl_n_u16): Likewise.
+	(vqshl_n_u32): Likewise.
+	(vqshl_n_u64): Likewise.
+	(vqshlq_n_s8): Likewise.
+	(vqshlq_n_s16): Likewise.
+	(vqshlq_n_s32): Likewise.
+	(vqshlq_n_s64): Likewise.
+	(vqshlq_n_u8): Likewise.
+	(vqshlq_n_u16): Likewise.
+	(vqshlq_n_u32): Likewise.
+	(vqshlq_n_u64): Likewise.
+	(vqshlu_n_s8): Likewise.
+	(vqshlu_n_s16): Likewise.
+	(vqshlu_n_s32): Likewise.
+	(vqshlu_n_s64): Likewise.
+	(vqshluq_n_s8): Likewise.
+	(vqshluq_n_s16): Likewise.
+	(vqshluq_n_s32): Likewise.
+	(vqshluq_n_s64): Likewise.
+	(vshll_n_s8): Likewise.
+	(vshll_n_s16): Likewise.
+	(vshll_n_s32): Likewise.
+	(vshll_n_u8): Likewise.
+	(vshll_n_u16): Likewise.
+	(vshll_n_u32): Likewise.
+	(vsra_n_s8): Likewise.
+	(vsra_n_s16): Likewise.
+	(vsra_n_s32): Likewise.
+	(vsra_n_s64): Likewise.
+	(vsra_n_u8): Likewise.
+	(vsra_n_u16): Likewise.
+	(vsra_n_u32): Likewise.
+	(vsra_n_u64): Likewise.
+	(vsraq_n_s8): Likewise.
+	(vsraq_n_s16): Likewise.
+	(vsraq_n_s32): Likewise.
+	(vsraq_n_s64): Likewise.
+	(vsraq_n_u8): Likewise.
+	(vsraq_n_u16): Likewise.
+	(vsraq_n_u32): Likewise.
+	(vsraq_n_u64): Likewise.
+	(vrsra_n_s8): Likewise.
+	(vrsra_n_s16): Likewise.
+	(vrsra_n_s32): Likewise.
+	(vrsra_n_s64): Likewise.
+	(vrsra_n_u8): Likewise.
+	(vrsra_n_u16): Likewise.
+	(vrsra_n_u32): Likewise.
+	(vrsra_n_u64): Likewise.
+	(vrsraq_n_s8): Likewise.
+	(vrsraq_n_s16): Likewise.
+	(vrsraq_n_s32): Likewise.
+	(vrsraq_n_s64): Likewise.
+	(vrsraq_n_u8): Likewise.
+	(vrsraq_n_u16): Likewise.
+	(vrsraq_n_u32): Likewise.
+	(vrsraq_n_u64): Likewise.
+	(vabs_s8): Likewise.
+	(vabs_s16): Likewise.
+	(vabs_s32): Likewise.
+	(vabs_f32): Likewise.
+	(vabsq_s8): Likewise.
+	(vabsq_s16): Likewise.
+	(vabsq_s32): Likewise.
+	(vabsq_f32): Likewise.
+	(vqabs_s8): Likewise.
+	(vqabs_s16): Likewise.
+	(vqabs_s32): Likewise.
+	(vqabsq_s8): Likewise.
+	(vqabsq_s16): Likewise.
+	(vqabsq_s32): Likewise.
+	(vneg_s8): Likewise.
+	(vneg_s16): Likewise.
+	(vneg_s32): Likewise.
+	(vneg_f32): Likewise.
+	(vnegq_s8): Likewise.
+	(vnegq_s16): Likewise.
+	(vnegq_s32): Likewise.
+	(vnegq_f32): Likewise.
+	(vqneg_s8): Likewise.
+	(vqneg_s16): Likewise.
+	(vqneg_s32): Likewise.
+	(vqnegq_s8): Likewise.
+	(vqnegq_s16): Likewise.
+	(vqnegq_s32): Likewise.
+	(vmvn_s8): Likewise.
+	(vmvn_s16): Likewise.
+	(vmvn_s32): Likewise.
+	(vmvn_u8): Likewise.
+	(vmvn_u16): Likewise.
+	(vmvn_u32): Likewise.
+	(vmvn_p8): Likewise.
+	(vmvnq_s8): Likewise.
+	(vmvnq_s16): Likewise.
+	(vmvnq_s32): Likewise.
+	(vmvnq_u8): Likewise.
+	(vmvnq_u16): Likewise.
+	(vmvnq_u32): Likewise.
+	(vmvnq_p8): Likewise.
+	(vcls_s8): Likewise.
+	(vcls_s16): Likewise.
+	(vcls_s32): Likewise.
+	(vclsq_s8): Likewise.
+	(vclsq_s16): Likewise.
+	(vclsq_s32): Likewise.
+	(vclz_s8): Likewise.
+	(vclz_s16): Likewise.
+	(vclz_s32): Likewise.
+	(vclz_u8): Likewise.
+	(vclz_u16): Likewise.
+	(vclz_u32): Likewise.
+	(vclzq_s8): Likewise.
+	(vclzq_s16): Likewise.
+	(vclzq_s32): Likewise.
+	(vclzq_u8): Likewise.
+	(vclzq_u16): Likewise.
+	(vclzq_u32): Likewise.
+	(vcnt_s8): Likewise.
+	(vcnt_u8): Likewise.
+	(vcnt_p8): Likewise.
+	(vcntq_s8): Likewise.
+	(vcntq_u8): Likewise.
+	(vcntq_p8): Likewise.
+	(vrecpe_f32): Likewise.
+	(vrecpe_u32): Likewise.
+	(vrecpeq_f32): Likewise.
+	(vrecpeq_u32): Likewise.
+	(vrsqrte_f32): Likewise.
+	(vrsqrte_u32): Likewise.
+	(vrsqrteq_f32): Likewise.
+	(vrsqrteq_u32): Likewise.
+	(vget_lane_s8): Likewise.
+	(vget_lane_s16): Likewise.
+	(vget_lane_s32): Likewise.
+	(vget_lane_f32): Likewise.
+	(vget_lane_u8): Likewise.
+	(vget_lane_u16): Likewise.
+	(vget_lane_u32): Likewise.
+	(vget_lane_p8): Likewise.
+	(vget_lane_p16): Likewise.
+	(vget_lane_s64): Likewise.
+	(vget_lane_u64): Likewise.
+	(vgetq_lane_s8): Likewise.
+	(vgetq_lane_s16): Likewise.
+	(vgetq_lane_s32): Likewise.
+	(vgetq_lane_f32): Likewise.
+	(vgetq_lane_u8): Likewise.
+	(vgetq_lane_u16): Likewise.
+	(vgetq_lane_u32): Likewise.
+	(vgetq_lane_p8): Likewise.
+	(vgetq_lane_p16): Likewise.
+	(vgetq_lane_s64): Likewise.
+	(vgetq_lane_u64): Likewise.
+	(vcvt_s32_f32): Likewise.
+	(vcvt_f32_s32): Likewise.
+	(vcvt_f32_u32): Likewise.
+	(vcvt_u32_f32): Likewise.
+	(vcvtq_s32_f32): Likewise.
+	(vcvtq_f32_s32): Likewise.
+	(vcvtq_f32_u32): Likewise.
+	(vcvtq_u32_f32): Likewise.
+	(vcvt_n_s32_f32): Likewise.
+	(vcvt_n_f32_s32): Likewise.
+	(vcvt_n_f32_u32): Likewise.
+	(vcvt_n_u32_f32): Likewise.
+	(vcvtq_n_s32_f32): Likewise.
+	(vcvtq_n_f32_s32): Likewise.
+	(vcvtq_n_f32_u32): Likewise.
+	(vcvtq_n_u32_f32): Likewise.
+	(vmovn_s16): Likewise.
+	(vmovn_s32): Likewise.
+	(vmovn_s64): Likewise.
+	(vmovn_u16): Likewise.
+	(vmovn_u32): Likewise.
+	(vmovn_u64): Likewise.
+	(vqmovn_s16): Likewise.
+	(vqmovn_s32): Likewise.
+	(vqmovn_s64): Likewise.
+	(vqmovn_u16): Likewise.
+	(vqmovn_u32): Likewise.
+	(vqmovn_u64): Likewise.
+	(vqmovun_s16): Likewise.
+	(vqmovun_s32): Likewise.
+	(vqmovun_s64): Likewise.
+	(vmovl_s8): Likewise.
+	(vmovl_s16): Likewise.
+	(vmovl_s32): Likewise.
+	(vmovl_u8): Likewise.
+	(vmovl_u16): Likewise.
+	(vmovl_u32): Likewise.
+	(vmul_lane_s16): Likewise.
+	(vmul_lane_s32): Likewise.
+	(vmul_lane_f32): Likewise.
+	(vmul_lane_u16): Likewise.
+	(vmul_lane_u32): Likewise.
+	(vmulq_lane_s16): Likewise.
+	(vmulq_lane_s32): Likewise.
+	(vmulq_lane_f32): Likewise.
+	(vmulq_lane_u16): Likewise.
+	(vmulq_lane_u32): Likewise.
+	(vmla_lane_s16): Likewise.
+	(vmla_lane_s32): Likewise.
+	(vmla_lane_f32): Likewise.
+	(vmla_lane_u16): Likewise.
+	(vmla_lane_u32): Likewise.
+	(vmlaq_lane_s16): Likewise.
+	(vmlaq_lane_s32): Likewise.
+	(vmlaq_lane_f32): Likewise.
+	(vmlaq_lane_u16): Likewise.
+	(vmlaq_lane_u32): Likewise.
+	(vmlal_lane_s16): Likewise.
+	(vmlal_lane_s32): Likewise.
+	(vmlal_lane_u16): Likewise.
+	(vmlal_lane_u32): Likewise.
+	(vqdmlal_lane_s16): Likewise.
+	(vqdmlal_lane_s32): Likewise.
+	(vmls_lane_s16): Likewise.
+	(vmls_lane_s32): Likewise.
+	(vmls_lane_f32): Likewise.
+	(vmls_lane_u16): Likewise.
+	(vmls_lane_u32): Likewise.
+	(vmlsq_lane_s16): Likewise.
+	(vmlsq_lane_s32): Likewise.
+	(vmlsq_lane_f32): Likewise.
+	(vmlsq_lane_u16): Likewise.
+	(vmlsq_lane_u32): Likewise.
+	(vmlsl_lane_s16): Likewise.
+	(vmlsl_lane_s32): Likewise.
+	(vmlsl_lane_u16): Likewise.
+	(vmlsl_lane_u32): Likewise.
+	(vqdmlsl_lane_s16): Likewise.
+	(vqdmlsl_lane_s32): Likewise.
+	(vmull_lane_s16): Likewise.
+	(vmull_lane_s32): Likewise.
+	(vmull_lane_u16): Likewise.
+	(vmull_lane_u32): Likewise.
+	(vqdmull_lane_s16): Likewise.
+	(vqdmull_lane_s32): Likewise.
+	(vqdmulhq_lane_s16): Likewise.
+	(vqdmulhq_lane_s32): Likewise.
+	(vqdmulh_lane_s16): Likewise.
+	(vqdmulh_lane_s32): Likewise.
+	(vqrdmulhq_lane_s16): Likewise.
+	(vqrdmulhq_lane_s32): Likewise.
+	(vqrdmulh_lane_s16): Likewise.
+	(vqrdmulh_lane_s32): Likewise.
+	(vmul_n_s16): Likewise.
+	(vmul_n_s32): Likewise.
+	(vmul_n_f32): Likewise.
+	(vmul_n_u16): Likewise.
+	(vmul_n_u32): Likewise.
+	(vmulq_n_s16): Likewise.
+	(vmulq_n_s32): Likewise.
+	(vmulq_n_f32): Likewise.
+	(vmulq_n_u16): Likewise.
+	(vmulq_n_u32): Likewise.
+	(vmull_n_s16): Likewise.
+	(vmull_n_s32): Likewise.
+	(vmull_n_u16): Likewise.
+	(vmull_n_u32): Likewise.
+	(vqdmull_n_s16): Likewise.
+	(vqdmull_n_s32): Likewise.
+	(vqdmulhq_n_s16): Likewise.
+	(vqdmulhq_n_s32): Likewise.
+	(vqdmulh_n_s16): Likewise.
+	(vqdmulh_n_s32): Likewise.
+	(vqrdmulhq_n_s16): Likewise.
+	(vqrdmulhq_n_s32): Likewise.
+	(vqrdmulh_n_s16): Likewise.
+	(vqrdmulh_n_s32): Likewise.
+	(vmla_n_s16): Likewise.
+	(vmla_n_s32): Likewise.
+	(vmla_n_f32): Likewise.
+	(vmla_n_u16): Likewise.
+	(vmla_n_u32): Likewise.
+	(vmlaq_n_s16): Likewise.
+	(vmlaq_n_s32): Likewise.
+	(vmlaq_n_f32): Likewise.
+	(vmlaq_n_u16): Likewise.
+	(vmlaq_n_u32): Likewise.
+	(vmlal_n_s16): Likewise.
+	(vmlal_n_s32): Likewise.
+	(vmlal_n_u16): Likewise.
+	(vmlal_n_u32): Likewise.
+	(vqdmlal_n_s16): Likewise.
+	(vqdmlal_n_s32): Likewise.
+	(vmls_n_s16): Likewise.
+	(vmls_n_s32): Likewise.
+	(vmls_n_f32): Likewise.
+	(vmls_n_u16): Likewise.
+	(vmls_n_u32): Likewise.
+	(vmlsq_n_s16): Likewise.
+	(vmlsq_n_s32): Likewise.
+	(vmlsq_n_f32): Likewise.
+	(vmlsq_n_u16): Likewise.
+	(vmlsq_n_u32): Likewise.
+	(vmlsl_n_s16): Likewise.
+	(vmlsl_n_s32): Likewise.
+	(vmlsl_n_u16): Likewise.
+	(vmlsl_n_u32): Likewise.
+	(vqdmlsl_n_s16): Likewise.
+	(vqdmlsl_n_s32): Likewise.
+
+2014-11-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (arm_new_rtx_costs, case PLUS, MINUS):
+	Add cost of alu.arith in simple SImode case.
+
+2014-11-18  Jiong Wang  <jiong.wang@arm.com>
+
+	* lra-eliminations.c (update_reg_eliminate): Relax gcc_assert for fixed
+	registers.
+
+2014-11-18  Marat Zakirov  <m.zakirov@samsung.com>
+
+	* opts.c (finish_options): Disable aggressive opts for sanitizer.  
+	(common_handle_option): Move code to finish_options.  
+
+2014-11-18  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/63802
+	* stor-layout.c (min_align_of_type): Respect user alignment
+	more.
+
+2014-11-18  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* passes.c (remove_cgraph_node_from_order): New.
+	(do_per_function_toporder): Register cgraph removal
+	hook.
+
+2014-11-17  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (arm_issue_rate): Return 2 for cortex-m7.
+	* config/arm/arm.md (generic_sched): Exclude cortex-m7.
+	(generic_vfp): Likewise.
+	* config/arm/cortex-m7.md: Pipeline description for cortex-m7.
+
+2014-11-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/63906
+	* lra-remat.c (operand_to_remat): Check SP and
+	frame_pointer_required.
+
+2014-11-17  Mircea Namolaru  <mircea.namolaru@inria.fr>
+
+	* doc/invoke.texi (floop-unroll-and-jam): Document
+	(loop-unroll-jam-size): Likewise.
+	(loop-unroll-jam-depth): Likewise.
+	* graphite-optimize-isl.c (getPrevectorMap_full): Modify comment.
+	(getScheduleForBandList): Replaced unsafe union_map reuse.
+
+2014-11-17  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/thunderx.md: Remove copyright which should not
+	have been there.
+
+2014-11-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (RELOAD_REG_AND_M16): Add support for
+	Altivec style vector loads that ignore the bottom 3 bits of the
+	address.
+	(rs6000_debug_addr_mask): New function to print the addr_mask
+	values if debugging.
+	(rs6000_debug_print_mode): Call rs6000_debug_addr_mask to print
+	out addr_mask.
+	(rs6000_setup_reg_addr_masks): Add support for Altivec style
+	vector loads that ignore the bottom 3 bits of the address.  Allow
+	pre-increment and pre-decrement on floating point, even if the
+	-mupper-regs-{sf,df} options were used.
+	(rs6000_init_hard_regno_mode_ok): Rework DFmode support if
+	-mupper-regs-df.  Add support for -mupper-regs-sf.  Rearrange code
+	placement for direct move support.
+	(rs6000_option_override_internal): Add checks for -mupper-regs-df
+	requiring -mvsx, and -mupper-regs-sf requiring -mpower8-vector.
+	If -mupper-regs, set both -mupper-regs-sf and -mupper-regs-df,
+	depending on the underlying cpu.
+	(rs6000_secondary_reload_fail): Add ATTRIBUTE_NORETURN.
+	(rs6000_secondary_reload_toc_costs): Helper function to identify
+	costs of a TOC load for secondary reload support.
+	(rs6000_secondary_reload_memory): Helper function for secondary
+	reload, to determine if a particular memory operation is directly
+	handled by the hardware, or if it needs support from secondary
+	reload to create a valid address.
+	(rs6000_secondary_reload): Rework code, to be clearer.  If the
+	appropriate -mupper-regs-{sf,df} is used, use FPR registers to
+	reload scalar values, since the FPR registers have D-form
+	addressing. Move most of the code handling memory to the function
+	rs6000_secondary_reload_memory, and use the reg_addr structure to
+	determine what type of address modes are supported.  Print more
+	debug information if -mdebug=addr.
+	(rs6000_secondary_reload_inner): Rework entire function to be more
+	general.  Use the reg_addr bits to determine what type of
+	addressing is supported.
+	(rs6000_preferred_reload_class): Rework.  Move constant handling
+	into a single place.  Prefer using FLOAT_REGS for scalar floating
+	point.
+	(rs6000_secondary_reload_class): Use a FPR register to move a
+	value from an Altivec register to a GPR, and vice versa.  Move VSX
+	handling above traditional floating point.
+
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat, FMOVE32 case):
+	Delete some spaces in the constraints.
+	(DF->DF move peephole2): Disable if -mupper-regs-{sf,df} to
+	allow using FPR registers to load/store an Altivec register for
+	scalar floating point types.
+	(SF->SF move peephole2): Likewise.
+	(DFmode splitter): Add a define_split to move floating point
+	constants to the constant pool before register allocation.
+	Normally constants are put into the pool immediately, but
+	-ffast-math delays putting them into the constant pool for the
+	reciprocal approximation support.
+	(SFmode splitter): Likewise.
+
+	* config/rs6000/rs6000.opt (-mupper-regs-df): Make option public.
+	(-mupper-regs-sf): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__UPPER_REGS_DF__ if -mupper-regs-df.  Define __UPPER_REGS_SF__ if
+	-mupper-regs-sf.
+	(-mupper-regs): New combination option that sets -mupper-regs-sf
+	and -mupper-regs-df by default if the cpu supports the instructions.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs, -mupper-regs-sf, and -mupper-regs-df.
+
+	* config/rs6000/predicates.md (memory_fp_constant): New predicate
+	to return true if the operand is a floating point constant that
+	must be put into the constant pool, before register allocation
+	occurs.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Enable
+	-mupper-regs-df by default.
+	(ISA_2_7_MASKS_SERVER): Enable -mupper-regs-sf by default.
+	(POWERPC_MASKS): Add -mupper-regs-{sf,df} as options set by the
+	various -mcpu=... options.
+	(power7 cpu): Enable -mupper-regs-df by default.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs.
+
+2014-11-17  Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+
+	* ira-conflicts.c (build_conflict_bit_table): Add the current
+	object to OBJECTS_LIVE after traversing OBJECTS_LIVE.
+
+2014-11-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Handle speculation.
+	(ipa_get_indirect_edge_target): Add SPECULATIVE argument.
+	(devirtualization_time_bonus): Use it.
+	(ipcp_discover_new_direct_edges): Likewise.
+	* ipa-inline-analysis.c (estimate_edge_devirt_benefit): Update.
+	* ipa-prop.h (ipa_get_indirect_edge_target): Update prototype.
+
+2014-11-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (free_lang_data_in_decl): Set DECL_FUNCTION_SPECIFIC_OPTIMIZATION
+	to optimization_default_node.
+
+2014-11-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraphunit.c (analyze_functions): Use opt_for_fn.
+	* cgraph.h (cgraph_node::optimize_for_size_p): Likewise.
+
+2014-11-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraph.c (symbol_table::create_edge): Use opt_for_fn.
+	(cgraph_node::cannot_return_p): Likewise.
+	(cgraph_edge::cannot_lead_to_return_p): Likewise.
+	(cgraph_edge::maybe_hot_p): Likewise.
+
+2014-11-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.c (maybe_hot_frequency_p): Use opt_for_fn.
+	(optimize_function_for_size_p): Likewise.
+	(probably_never_executed): Likewise; replace cfun by fun.
+
+2014-11-17  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_simd_vec_set<mode>): Add
+	variant reading from memory and assembling to ld1.
+
+	* config/aarch64/arm_neon.h (vld1_lane_f32, vld1_lane_f64, vld1_lane_p8,
+	vld1_lane_p16, vld1_lane_s8, vld1_lane_s16, vld1_lane_s32,
+	vld1_lane_s64, vld1_lane_u8, vld1_lane_u16, vld1_lane_u32,
+	vld1_lane_u64, vld1q_lane_f32, vld1q_lane_f64, vld1q_lane_p8,
+	vld1q_lane_p16, vld1q_lane_s8, vld1q_lane_s16, vld1q_lane_s32,
+	vld1q_lane_s64, vld1q_lane_u8, vld1q_lane_u16, vld1q_lane_u32,
+	vld1q_lane_u64): Replace asm with vset_lane and pointer dereference.
+
+2014-11-17  Jason Merrill  <jason@redhat.com>
+
+	* tree-inline.c (copy_fn): New.
+	* tree-inline.h: Declare it.
+
+2014-11-17  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (TYPES_CREATE): Remove.
+	* config/aarch64/aarch64-simd-builtins.def (create): Remove.
+	* config/aarch64/aarch64-simd.md (aarch64_create<mode>): Remove.
+	* config/aarch64/arm_neon.h (vcreate_f64, vreinterpret_f64_s64,
+	vreinterpret_f64_u64): Replace __builtin_aarch64_createv1df with C casts.
+	* config/aarch64/iterators.md (VD1): Remove.
+
+2014-11-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-cores.def (cortex-a53): Remove
+	AARCH64_FL_CRYPTO from feature flags.
+	(cortex-a57): Likewise.
+	(cortex-a57.cortex-a53): Likewise.
+
+2014-11-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (free_lang_data_in_decl): Annotate all functio nbodies with
+	DECL_FUNCTION_SPECIFIC_TARGET.
+	* i386.c (ix86_set_current_function): Handle explicit default options.
+
+2014-11-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* builtins.c (expand_builtin_memcpy_with_bounds): Use target hook
+	instead of BNDmode.
+	(expand_builtin_mempcpy_with_bounds): Likewise.
+	(expand_builtin_memset_with_bounds): Likewise.
+
+2014-11-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-ssa-strlen.c: include ipa-chkp.h, cgraph.h,
+	ipa-ref.h, plugin-api.h.
+	(get_string_length): Handle calls with bounds.
+	(adjust_last_stmt): Likewise.
+	(handle_builtin_strchr): Likewise.
+	(handle_builtin_strcpy): Likewise.
+	(handle_builtin_memcpy): Likewise.
+	(handle_builtin_strcat): Likewise.
+
+2014-11-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-chkp-opt.c (chkp_get_nobnd_fndecl): New.
+	(chkp_get_nochk_fndecl): New.
+	(chkp_optimize_string_function_calls): New.
+	(chkp_opt_execute): Call chkp_optimize_string_function_calls.
+	* tree-cfg.h (insert_cond_bb): New.
+	* tree-cfg.c (insert_cond_bb): New.
+
+2014-11-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-core.h (built_in_class): Add builtin codes to be used
+	by Pointer Bounds Checker for instrumented builtin functions.
+	* tree-streamer-in.c: Include ipa-chkp.h.
+	(streamer_get_builtin_tree): Created instrumented decl if
+	required.
+	* ipa-chkp.h (chkp_maybe_clone_builtin_fndecl): New.
+	* ipa-chkp.c (chkp_build_instrumented_fndecl): Support builtin
+	function decls.
+	(chkp_maybe_clone_builtin_fndecl): New.
+	(chkp_maybe_create_clone): Support builtin function decls.
+	(chkp_versioning): Clone builtin functions.
+	* tree-chkp.c (chkp_instrument_normal_builtin): New.
+	(chkp_add_bounds_to_call_stmt): Support builtin functions.
+	(chkp_replace_function_pointer): Likewise.
+	* builtins.c (expand_builtin_memcpy_args): New.
+	(expand_builtin_memcpy): Call expand_builtin_memcpy_args.
+	(expand_builtin_memcpy_with_bounds): New.
+	(expand_builtin_mempcpy_with_bounds): New.
+	(expand_builtin_mempcpy_args): Add orig_exp arg. Support
+	BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK
+	(expand_builtin_memset_with_bounds): New.
+	(expand_builtin_memset_args): Support BUILT_IN_CHKP_MEMSET_NOBND_NOCHK.
+	(expand_builtin_with_bounds): New.
+	* builtins.h (expand_builtin_with_bounds): New.
+	* expr.c (expand_expr_real_1): Support instrumented builtin calls.
+
+2014-11-17  Dodji Seketeli  <dodji@redhat.com>
+
+	* gimple.h (gimple_set_visited, gimple_visited_p)
+	(gimple_set_plf, gimple_plf, gimple_set_uid, gimple_uid): Add more
+	comments to these accessors.
+
+2014-11-17  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr-log.c (avr_log_set_avr_log) [TARGET_ALL_DEBUG]:
+	Set avr_log_details to "all".
+
+2014-11-17  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63898
+	* match.pd: Guard X / CST -> X * CST' transform against
+	zero CST.
+
+2014-11-17  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/thumb1.md (*addsi3_cbranch_scratch): Updated to UAL
+	format.
+
+2014-11-17  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* ifcvt.c (HAVE_cbranchcc4): Define.
+	(noce_emit_cmove, noce_get_alt_condition, noce_get_condition):
+	Use HAVE_cbranchcc4.
+
+2014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* config/aarch64/aarch64.c (aarch64_code_to_ccmode,
+	aarch64_convert_mode, aarch64_gen_ccmp_first,
+	aarch64_gen_ccmp_next): New functions.
+	(TARGET_GEN_CCMP_FIRST, TARGET_GEN_CCMP_NEXT): Define.
+
+2014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* config/aarch64/aarch64-protos.h (aarch64_ccmp_mode_to_code): New.
+	* aarch64.c (aarch64_nzcv_codes): New data.
+	(aarch64_ccmp_mode_to_code): New.
+	(aarch64_print_operand): Output nzcv.
+	config/aarch64/aarch64.md (cbranchcc4, *ccmp_and, *ccmp_ior, cstorecc4):
+	New patterns.
+	(cstore<mode>4): Handle ccmp_cc_register.
+	* config/aarch64/predicates.md (const0_operand): New.
+
+2014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* config/aarch64/aarch64-modes.def: Define ccmp CC mode.
+	* config/aarch64/aarch64.c (aarch64_get_condition_code_1): New function
+	extacted from aarch64_get_condition_code.
+	(aarch64_get_condition_code): Call aarch64_get_condition_code_1.
+	config/aarch64/predicates.md (ccmp_cc_register): New predicate.
+
+014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* config/aarch64/constraints.md (Usn, aarch64_ccmp_immediate,
+	aarch64_ccmp_operand): New constraints.
+
+2014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* Makefile.in: Add ccmp.o.
+	* ccmp.c: New file.
+	* ccmp.h: New file.
+	* expr.c: include "ccmp.h"
+	(expand_cond_expr_using_cmove): Handle VOIDmode.
+	(expand_expr_real_1): Try to expand ccmp.
+
+2014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* cfgexpand.c (expand_gimple_cond): Check ccmp.
+	* expmed.c (emit_cstore): Make it global.
+	* expmed.h: #include "insn-codes.h"
+	(emit_cstore): New prototype.
+	* expr.c (expand_operands): Make it global.
+	* expr.h (expand_operands): New prototype.
+	* optabs.c (get_rtx_code): Make it global.
+	* optabs.h (get_rtx_code): New prototype.
+
+2014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* target.def (gen_ccmp_first, gen_ccmp_first): Add two new hooks.
+	* doc/tm.texi.in (TARGET_GEN_CCMP_FIRST, TARGET_GEN_CCMP_NEXT): New.
+	* doc/tm.texi (TARGET_GEN_CCMP_FIRST, TARGET_GEN_CCMP_NEXT): New.
+
+2014-11-16  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR middle-end/63790
+	* tree-ssa-forwprop.c (forward_propagate_into_comparison_1):
+	Always combine comparisons or conversions from booleans.
+
+2014-11-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-polymorphic-call.c
+	(ipa_polymorphic_call_context::speculation_consistent_p): Constify.
+	(ipa_polymorphic_call_context::meet_speculation_with): New function.
+	(ipa_polymorphic_call_context::combine_with): Handle types in construction
+	better.
+	(ipa_polymorphic_call_context::equal_to): Do not bother about useless
+	speculation.
+	(ipa_polymorphic_call_context::meet_with): New function.
+	* cgraph.h (class ipa_polymorphic_call_context): Add
+	meet_width, meet_speculation_with; constify speculation_consistent_p.
+	* ipa-cp.c (ipa_context_from_jfunc): Handle speculation; combine with incomming
+	context.
+	(propagate_context_accross_jump_function): Likewise; be more cureful.
+	about set_contains_variable.
+	(ipa_get_indirect_edge_target_1): Fix handling of dynamic type changes.
+	(find_more_scalar_values_for_callers_subset): Fix.
+	(find_more_contexts_for_caller_subset): Perform meet operation.
+
+2014-11-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* passes.c (execute_one_pass): Do not apply all transforms prior
+	every simple IPA pass.
+	* cgraphunit.c: Do not include fibheap.h
+	(expand_thunk): Use get_untransformed_body.
+	(cgraph_node::expand): Likewise.
+	* tree-ssa-structalias.c (ipa_pta_execute): Skip inline clones.
+	* cgraph.c (release_function_body): Do not push cfun when CFG is not there.
+	(cgraph_node::get_untransformed_body): Break out from ...
+	(cgraph_node::get_body): ... here; add code to apply all transforms.
+	* cgraph.h (cgraph_node): Add get_untransformed_body.
+	* ipa-icf.c (sem_function::init): Use get_untransformed_body.
+	* cgraphclones.c (duplicate_thunk_for_node): Likewise.
+	* tree-inline.c (expand_call_inline): LIkewise.
+	* i386.c (ix86_reset_to_default_globals): Break out from ...
+	(ix86_set_current_function): ... here;
+	(ix86_reset_previous_fndecl): Use it.
+	(ix86_simd_clone_adjust): Use ix86_reset_previous_fndecl.
+
+2014-11-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/tm.texi.in (TARGET_FLAGS_REGNUM): Move around.
+	* doc/tm.texi: Regenerate.
+
+2014-11-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/sh/sh.c: Do not include algorithm.
+	(sh_emit_scc_to_t): Replace open-coded swap with std::swap
+	to swap values.
+	(sh_emit_compare_and_branch): Ditto.
+	(sh_emit_compare_and_set): Ditto.
+	* config/sh/sh.md (replacement peephole2): Ditto.
+	(cstore4_media): Ditto.
+	(*fmasf4): Ditto.
+
+2014-11-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-remat.c (cand_transf_func): Process regno for
+	rematerialization too.
+	* lra.c (lra): Switch on rematerialization pass.
+
+2014-11-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (lra): Switch off rematerialization pass.
+
+2014-11-15  Marc Glisse  <marc.glisse@inria.fr>
+
+	* config/i386/xmmintrin.h (_mm_add_ps, _mm_sub_ps, _mm_mul_ps,
+	_mm_div_ps, _mm_store_ss, _mm_cvtss_f32): Use vector extensions
+	instead of builtins.
+	* config/i386/emmintrin.h (__v2du, __v4su, __v8hu, __v16qu): New
+	typedefs.
+	(_mm_sqrt_sd): Fix comment.
+	(_mm_add_epi8, _mm_add_epi16, _mm_add_epi32, _mm_add_epi64,
+	_mm_sub_epi8, _mm_sub_epi16, _mm_sub_epi32, _mm_sub_epi64,
+	_mm_mullo_epi16, _mm_cmpeq_epi8, _mm_cmpeq_epi16, _mm_cmpeq_epi32,
+	_mm_cmplt_epi8, _mm_cmplt_epi16, _mm_cmplt_epi32, _mm_cmpgt_epi8,
+	_mm_cmpgt_epi16, _mm_cmpgt_epi32, _mm_and_si128, _mm_or_si128,
+	_mm_xor_si128, _mm_store_sd, _mm_cvtsd_f64, _mm_storeh_pd,
+	_mm_cvtsi128_si64, _mm_cvtsi128_si64x, _mm_add_pd, _mm_sub_pd,
+	_mm_mul_pd, _mm_div_pd, _mm_storel_epi64, _mm_movepi64_pi64):
+	Use vector extensions instead of builtins.
+	* config/i386/smmintrin.h (_mm_cmpeq_epi64, _mm_cmpgt_epi64,
+	_mm_mullo_epi32): Likewise.
+	* config/i386/avxintrin.h (__v4du, __v8su, __v16hu, __v32qu):
+	New typedefs.
+	(_mm256_add_pd, _mm256_add_ps, _mm256_div_pd, _mm256_div_ps,
+	_mm256_mul_pd, _mm256_mul_ps, _mm256_sub_pd, _mm256_sub_ps):
+	Use vector extensions instead of builtins.
+	* config/i386/avx2intrin.h (_mm256_cmpeq_epi8, _mm256_cmpeq_epi16,
+	_mm256_cmpeq_epi32, _mm256_cmpeq_epi64, _mm256_cmpgt_epi8,
+	_mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi64,
+	_mm256_and_si256, _mm256_or_si256, _mm256_xor_si256, _mm256_add_epi8,
+	_mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi64,
+	_mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_sub_epi8,
+	_mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi64): Likewise.
+	* config/i386/avx512fintrin.h (__v8du, __v16su, __v32hu, __v64qu):
+	New typedefs.
+	(_mm512_or_si512, _mm512_or_epi32, _mm512_or_epi64, _mm512_xor_si512,
+	_mm512_xor_epi32, _mm512_xor_epi64, _mm512_and_si512,
+	_mm512_and_epi32, _mm512_and_epi64, _mm512_mullo_epi32,
+	_mm512_add_epi64, _mm512_sub_epi64, _mm512_add_epi32,
+	_mm512_sub_epi32, _mm512_add_pd, _mm512_add_ps, _mm512_sub_pd,
+	_mm512_sub_ps, _mm512_mul_pd, _mm512_mul_ps, _mm512_div_pd,
+	_mm512_div_ps): Use vector extensions instead of builtins.
+	* config/i386/avx512bwintrin.h (_mm512_mullo_epi16, _mm512_add_epi8,
+	_mm512_sub_epi8, _mm512_sub_epi16, _mm512_add_epi16): Likewise.
+	* config/i386/avx512dqintrin.h (_mm512_mullo_epi64): Likewise.
+	* config/i386/avx512vldqintrin.h (_mm256_mullo_epi64, _mm_mullo_epi64):
+	Likewise.
+
+2014-11-15  Jan Hubicka <hubicka@ucw.cz>
+
+	* lto-streamer-out.c (hash_tree): Use cl_optimization_hash.
+	* lto-streamer.h (cl_optimization_stream_out, cl_optimization_stream_in): Declare.
+	* optc-save-gen.awk: Generate cl_optimization LTO streaming and hashing routines.
+	* opth-gen.awk: Add prototype of cl_optimization_hash.
+	* tree-streamer-in.c (unpack_ts_optimization): Remove.
+	(streamer_unpack_tree_bitfields): Use cl_optimization_stream_in.
+	* tree-streamer-out.c (pack_ts_optimization): Remove.
+	(streamer_pack_tree_bitfields): Use cl_optimization_stream_out.
+
+2014-11-15  Mircea Namolaru  <mircea.namolaru@inria.fr>
+
+	* common.opt (flag_loop_unroll_and_jam): New flag.
+	* params.def (PARAM_LOOP_UNROLL_JAM_SIZE): Parameter for unroll and
+	jam flag.
+	(PARAM_LOOP_UNROLL_JAM_DEPTH): Likewise.
+	* graphite-poly.h (struct poly_bb:map_sepclass): New field
+	* graphite-poly.c (new_poly_bb): Initialization for new field.
+	(apply_poly_transforms): Support for unroll and jam flag.
+	* graphite-isl-ast-to-gimple.c (generate_luj_sepclass): Compute the
+	separation class.
+	(generate_luj_sepclass_opt): Build the separation class option.
+	(generate_luj_options): Set unroll and jam options.
+        (set_options): Support for unroll and jam options.
+	(scop_to_isl_ast): Likewise
+	* graphite-optimize-isl.c (getPrevectorMap_full): New function for
+        computing the separating class map.
+	(optimize_isl): Support for the separating class map.
+	(apply_schedule_map_to_scop): Likewise.
+	(getScheduleMap): Likewise.
+	(getScheduleForBand): Likewise.
+	(getScheduleForBandList): Likewise.
+        * graphite.c (gate_graphite_transforms): Add unroll and jam flag.
+	* toplev.c (process_options) Likewise.
+
+2014-11-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-cfg.c (replace_loop_annotate_in_block): New function extracted
+	from...
+	(replace_loop_annotate): ...here.  Call it on the header and on the
+	latch block, if any.  Restore proper behavior of final cleanup.
+
+2014-11-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-loop-ivcanon.c (try_unroll_loop_completely): Add log message
+	for max-completely-peeled-insns limit.
+
+2014-11-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-prop.h (ipa_known_type_data): Remove.
+	(ipa_binfo_from_known_type_jfunc): Remove.
+
 2014-11-14  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64-cores.def (thunderx): Change the scheduler

@@ -3625,6 +3625,9 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
   return CCmode;
 }
 
+static int
+aarch64_get_condition_code_1 (enum machine_mode, enum rtx_code);
+
 int
 aarch64_get_condition_code (rtx x)
 {
@@ -3633,7 +3636,13 @@ aarch64_get_condition_code (rtx x)
 
   if (GET_MODE_CLASS (mode) != MODE_CC)
     mode = SELECT_CC_MODE (comp_code, XEXP (x, 0), XEXP (x, 1));
+  return aarch64_get_condition_code_1 (mode, comp_code);
+}
 
+static int
+aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
+{
+  int ne = -1, eq = -1;
   switch (mode)
     {
     case CCFPmode:
@@ -3654,6 +3663,56 @@ aarch64_get_condition_code (rtx x)
 	case UNGE: return AARCH64_PL;
 	default: return -1;
 	}
+      break;
+
+    case CC_DNEmode:
+      ne = AARCH64_NE;
+      eq = AARCH64_EQ;
+      break;
+
+    case CC_DEQmode:
+      ne = AARCH64_EQ;
+      eq = AARCH64_NE;
+      break;
+
+    case CC_DGEmode:
+      ne = AARCH64_GE;
+      eq = AARCH64_LT;
+      break;
+
+    case CC_DLTmode:
+      ne = AARCH64_LT;
+      eq = AARCH64_GE;
+      break;
+
+    case CC_DGTmode:
+      ne = AARCH64_GT;
+      eq = AARCH64_LE;
+      break;
+
+    case CC_DLEmode:
+      ne = AARCH64_LE;
+      eq = AARCH64_GT;
+      break;
+
+    case CC_DGEUmode:
+      ne = AARCH64_CS;
+      eq = AARCH64_CC;
+      break;
+
+    case CC_DLTUmode:
+      ne = AARCH64_CC;
+      eq = AARCH64_CS;
+      break;
+
+    case CC_DGTUmode:
+      ne = AARCH64_HI;
+      eq = AARCH64_LS;
+      break;
+
+    case CC_DLEUmode:
+      ne = AARCH64_LS;
+      eq = AARCH64_HI;
       break;
 
     case CCmode:
@@ -3716,6 +3775,14 @@ aarch64_get_condition_code (rtx x)
       return -1;
       break;
     }
+
+  if (comp_code == NE)
+    return ne;
+
+  if (comp_code == EQ)
+    return eq;
+
+  return -1;
 }
 
 bool
@@ -3761,6 +3828,75 @@ bit_count (unsigned HOST_WIDE_INT value)
 
   return count;
 }
+
+/* N Z C V.  */
+#define AARCH64_CC_V 1
+#define AARCH64_CC_C (1 << 1)
+#define AARCH64_CC_Z (1 << 2)
+#define AARCH64_CC_N (1 << 3)
+
+/* N Z C V flags for ccmp.  The first code is for AND op and the other
+   is for IOR op.  Indexed by AARCH64_COND_CODE.  */
+static const int aarch64_nzcv_codes[][2] =
+{
+  {AARCH64_CC_Z, 0}, /* EQ, Z == 1.  */
+  {0, AARCH64_CC_Z}, /* NE, Z == 0.  */
+  {AARCH64_CC_C, 0}, /* CS, C == 1.  */
+  {0, AARCH64_CC_C}, /* CC, C == 0.  */
+  {AARCH64_CC_N, 0}, /* MI, N == 1.  */
+  {0, AARCH64_CC_N}, /* PL, N == 0.  */
+  {AARCH64_CC_V, 0}, /* VS, V == 1.  */
+  {0, AARCH64_CC_V}, /* VC, V == 0.  */
+  {AARCH64_CC_C, 0}, /* HI, C ==1 && Z == 0.  */
+  {0, AARCH64_CC_C}, /* LS, !(C == 1 && Z == 0).  */
+  {0, AARCH64_CC_V}, /* GE, N == V.  */
+  {AARCH64_CC_V, 0}, /* LT, N != V.  */
+  {0, AARCH64_CC_Z}, /* GT, Z == 0 && N == V.  */
+  {AARCH64_CC_Z, 0}, /* LE, !(Z == 0 && N == V).  */
+  {0, 0}, /* AL, Any.  */
+  {0, 0}, /* NV, Any.  */
+};
+
+int
+aarch64_ccmp_mode_to_code (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case CC_DNEmode:
+      return NE;
+
+    case CC_DEQmode:
+      return EQ;
+
+    case CC_DLEmode:
+      return LE;
+
+    case CC_DGTmode:
+      return GT;
+
+    case CC_DLTmode:
+      return LT;
+
+    case CC_DGEmode:
+      return GE;
+
+    case CC_DLEUmode:
+      return LEU;
+
+    case CC_DGTUmode:
+      return GTU;
+
+    case CC_DLTUmode:
+      return LTU;
+
+    case CC_DGEUmode:
+      return GEU;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 
 void
 aarch64_print_operand (FILE *f, rtx x, char code)
@@ -4124,6 +4260,40 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  break;
 	}
       output_addr_const (asm_out_file, x);
+      break;
+
+    case 'K':
+      {
+	int cond_code;
+	/* Print nzcv.  */
+
+	if (!COMPARISON_P (x))
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+
+	cond_code = aarch64_get_condition_code_1 (CCmode, GET_CODE (x));
+	gcc_assert (cond_code >= 0);
+	asm_fprintf (f, "%d", aarch64_nzcv_codes[cond_code][0]);
+      }
+      break;
+
+    case 'k':
+      {
+	int cond_code;
+	/* Print nzcv.  */
+
+	if (!COMPARISON_P (x))
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+
+	cond_code = aarch64_get_condition_code_1 (CCmode, GET_CODE (x));
+	gcc_assert (cond_code >= 0);
+	asm_fprintf (f, "%d", aarch64_nzcv_codes[cond_code][1]);
+      }
       break;
 
     default:
@@ -10041,6 +10211,144 @@ aarch64_use_by_pieces_infrastructure_p (unsigned int size,
   return default_use_by_pieces_infrastructure_p (size, align, op, speed_p);
 }
 
+static enum machine_mode
+aarch64_code_to_ccmode (enum rtx_code code)
+{
+  switch (code)
+    {
+    case NE:
+      return CC_DNEmode;
+
+    case EQ:
+      return CC_DEQmode;
+
+    case LE:
+      return CC_DLEmode;
+
+    case LT:
+      return CC_DLTmode;
+
+    case GE:
+      return CC_DGEmode;
+
+    case GT:
+      return CC_DGTmode;
+
+    case LEU:
+      return CC_DLEUmode;
+
+    case LTU:
+      return CC_DLTUmode;
+
+    case GEU:
+      return CC_DGEUmode;
+
+    case GTU:
+      return CC_DGTUmode;
+
+    default:
+      return CCmode;
+    }
+}
+
+static bool
+aarch64_convert_mode (rtx* op0, rtx* op1, int unsignedp)
+{
+  enum machine_mode mode;
+
+  mode = GET_MODE (*op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (*op1);
+
+  if (mode == QImode || mode == HImode)
+    {
+      *op0 = convert_modes (SImode, mode, *op0, unsignedp);
+      *op1 = convert_modes (SImode, mode, *op1, unsignedp);
+    }
+  else if (mode != SImode && mode != DImode)
+    return false;
+
+  return true;
+}
+
+static rtx
+aarch64_gen_ccmp_first (int code, rtx op0, rtx op1)
+{
+  enum machine_mode mode;
+  rtx cmp, target;
+  int unsignedp = code == LTU || code == LEU || code == GTU || code == GEU;
+
+  mode = GET_MODE (op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op1);
+
+  if (mode == VOIDmode)
+    return NULL_RTX;
+
+  if (!register_operand (op0, GET_MODE (op0)))
+    op0 = force_reg (mode, op0);
+  if (!aarch64_plus_operand (op1, GET_MODE (op1)))
+    op1 = force_reg (mode, op1);
+
+  if (!aarch64_convert_mode (&op0, &op1, unsignedp))
+    return NULL_RTX;
+
+  mode = aarch64_code_to_ccmode ((enum rtx_code) code);
+  if (mode == CCmode)
+    return NULL_RTX;
+
+  cmp = gen_rtx_fmt_ee (COMPARE, CCmode, op0, op1);
+  target = gen_rtx_REG (mode, CC_REGNUM);
+  emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CC_REGNUM), cmp));
+  return target;
+}
+
+static rtx
+aarch64_gen_ccmp_next (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code)
+{
+  rtx cmp0, cmp1, target, bit_op;
+  enum machine_mode mode;
+  int unsignedp = cmp_code == LTU || cmp_code == LEU
+		  || cmp_code == GTU || cmp_code == GEU;
+
+  mode = GET_MODE (op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op1);
+  if (mode == VOIDmode)
+    return NULL_RTX;
+
+  /* Give up if the operand is illegal since force_reg will introduce
+     additional overhead.  */
+  if (!register_operand (op0, GET_MODE (op0))
+      || !aarch64_ccmp_operand (op1, GET_MODE (op1)))
+    return NULL_RTX;
+
+  if (!aarch64_convert_mode (&op0, &op1, unsignedp))
+    return NULL_RTX;
+
+  mode = aarch64_code_to_ccmode ((enum rtx_code) cmp_code);
+  if (mode == CCmode)
+    return NULL_RTX;
+
+  cmp1 = gen_rtx_fmt_ee ((enum rtx_code) cmp_code, SImode, op0, op1);
+  cmp0 = gen_rtx_fmt_ee (NE, SImode, prev, const0_rtx);
+
+  bit_op = gen_rtx_fmt_ee ((enum rtx_code) bit_code, SImode, cmp0, cmp1);
+
+  /* Generate insn to match ccmp_and/ccmp_ior.  */
+  target = gen_rtx_REG (mode, CC_REGNUM);
+  emit_insn (gen_rtx_SET (VOIDmode, target,
+                          gen_rtx_fmt_ee (COMPARE, mode,
+                                          bit_op, const0_rtx)));
+  return target;
+}
+
+#undef TARGET_GEN_CCMP_FIRST
+#define TARGET_GEN_CCMP_FIRST aarch64_gen_ccmp_first
+
+#undef TARGET_GEN_CCMP_NEXT
+#define TARGET_GEN_CCMP_NEXT aarch64_gen_ccmp_next
+
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST aarch64_address_cost
 
@@ -10296,6 +10604,9 @@ aarch64_use_by_pieces_infrastructure_p (unsigned int size,
 #undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
 #define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P \
   aarch64_use_by_pieces_infrastructure_p
+
+#undef TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

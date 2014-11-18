@@ -1,3 +1,332 @@
+2014-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/55942
+	* g++.dg/cpp0x/constexpr-55942.C: New.
+
+2014-11-18  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63866
+	* c-c++-common/ubsan/pr63866.c: New test.
+
+2014-11-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63914
+	* gcc.dg/pr63914.c: New testcase.
+
+2014-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/55443
+	* g++.dg/cpp0x/noexcept26.C: New.
+	* g++.dg/cpp0x/noexcept27.C: Likewise.
+
+2014-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60245
+	* g++.dg/cpp0x/constexpr-60245.C: New.
+
+2014-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60771
+	* g++.dg/cpp0x/constexpr-ref6.C: New.
+
+2014-11-18  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/neon/vbicQs16.c: Regenerate.
+	* gcc.target/arm/neon/vbicQs32.c: Likewise.
+	* gcc.target/arm/neon/vbicQs64.c: Likewise.
+	* gcc.target/arm/neon/vbicQs8.c: Likewise.
+	* gcc.target/arm/neon/vbicQu16.c: Likewise.
+	* gcc.target/arm/neon/vbicQu32.c: Likewise.
+	* gcc.target/arm/neon/vbicQu64.c: Likewise.
+	* gcc.target/arm/neon/vbicQu8.c: Likewise.
+	* gcc.target/arm/neon/vbics16.c: Likewise.
+	* gcc.target/arm/neon/vbics32.c: Likewise.
+	* gcc.target/arm/neon/vbics64.c: Likewise.
+	* gcc.target/arm/neon/vbics8.c: Likewise.
+	* gcc.target/arm/neon/vbicu16.c: Likewise.
+	* gcc.target/arm/neon/vbicu32.c: Likewise.
+	* gcc.target/arm/neon/vbicu64.c: Likewise.
+	* gcc.target/arm/neon/vbicu8.c: Likewise.
+	* gcc.target/arm/neon/vornQs16.c: Likewise.
+	* gcc.target/arm/neon/vornQs32.c: Likewise.
+	* gcc.target/arm/neon/vornQs64.c: Likewise.
+	* gcc.target/arm/neon/vornQs8.c: Likewise.
+	* gcc.target/arm/neon/vornQu16.c: Likewise.
+	* gcc.target/arm/neon/vornQu32.c: Likewise.
+	* gcc.target/arm/neon/vornQu64.c: Likewise.
+	* gcc.target/arm/neon/vornQu8.c: Likewise.
+	* gcc.target/arm/neon/vorns16.c: Likewise.
+	* gcc.target/arm/neon/vorns32.c: Likewise.
+	* gcc.target/arm/neon/vorns64.c: Likewise.
+	* gcc.target/arm/neon/vorns8.c: Likewise.
+	* gcc.target/arm/neon/vornu16.c: Likewise.
+	* gcc.target/arm/neon/vornu32.c: Likewise.
+	* gcc.target/arm/neon/vornu64.c: Likewise.
+	* gcc.target/arm/neon/vornu8.c: Likewise.
+
+2014-11-18  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vcls.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vcnt.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vcombine.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vcreate.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvt.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vdup_lane.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vext.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vget_high.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vget_low.c: New test.
+
+2014-11-18  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	* c-c++-common/tm/safe-3.c: Add bind_pic_locally.
+	* g++.dg/ipa/devirt-15.C: Ditto.
+	* g++.dg/ipa/devirt-7.C: Ditto.
+	* g++.dg/ipa/pr60600.C: Ditto.
+	* g++.dg/opt/vt2.C: Ditto.
+	* g++.dg/opt/vt4.C: Ditto.
+	* g++.dg/pr48484.C: Ditto.
+	* g++.dg/tm/pr47746.C: Ditto.
+	* g++.dg/tree-ssa/pr57380.C: Ditto.
+	* gcc.dg/ipa/inline-4.c: Ditto.
+	* gcc.dg/ipa/inlinehint-1.c: Ditto.
+	* gcc.dg/ipa/inlinehint-2.c: Ditto.
+	* gcc.dg/ipa/inlinehint-3.c: Ditto.
+	* gcc.dg/pr47276.c: Ditto.
+	* gcc.dg/pure-2.c: Ditto.
+	* gcc.dg/tm/nested-2.c: Ditto.
+	* gcc.dg/tree-ssa/alias-29.c: Ditto.
+	* gcc.target/i386/3dnow-1.c: Ditto.
+	* gcc.target/i386/3dnow-2.c: Ditto.
+	* gcc.target/i386/3dnowA-1.c: Ditto.
+	* gcc.target/i386/3dnowA-2.c: Ditto.
+	* gcc.target/i386/avx-1.c: Ditto.
+	* gcc.target/i386/avx-2.c: Ditto.
+	* gcc.target/i386/memcpy-1.c: Ditto.
+	* gcc.target/i386/mmx-1.c: Ditto.
+	* gcc.target/i386/mmx-2.c: Ditto.
+	* gcc.target/i386/sse-14.c: Ditto.
+	* gcc.target/i386/sse-22.c: Ditto.
+	* gcc.target/i386/sse-22a.c: Ditto.
+	* gcc.target/i386/sse-23.c: Ditto.
+	* gcc.target/i386/sse-24.c: Ditto.
+	* gcc.target/i386/vect-double-1.c: Ditto.
+	* g++.dg/fstack-protector-strong.C: Add target nonpic.
+	* gcc.dg/fstack-protector-strong.c: Ditto.
+
+2014-11-18  Hale Wang  <hale.wang@arm.com>
+
+	* gcc.target/arm/small-multiply-m0-1.c: Only apply when
+	"-mcpu=cortex-m0/m1/m0plus.small-multiply".
+	* gcc.target/arm/small-multiply-m0-2.c: Likewise.
+	* gcc.target/arm/small-multiply-m0-3.c: Likewise.
+	* gcc.target/arm/small-multiply-m0plus-1.c: Likewise.
+	* gcc.target/arm/small-multiply-m0plus-2.c: Likewise.
+	* gcc.target/arm/small-multiply-m0plus-3.c: Likewise.
+	* gcc.target/arm/small-multiply-m1-1.c: Likewise.
+	* gcc.target/arm/small-multiply-m1-2.c: Likewise.
+	* gcc.target/arm/small-multiply-m1-3.c: Likewise.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* g++.dg/abi/mangle-arm-crypto.C: New.
+	* g++.dg/abi/mangle-neon.C (f19): New.
+	(f20): Likewise.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/arm/pr51968.c (foo): Fix call to
+	__builtin_neon_vqmovunv8hi.
+
+2014-11-18  Marat Zakirov  <m.zakirov@samsung.com>
+
+	* c-c++-common/asan/aggressive-opts.c: New test.
+
+2014-11-18  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/63802
+	* c-c++-common/ubsan/pr63802.c: New test.
+
+2014-11-18  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* g++.dg/pr63766.C: New.
+
+2014-11-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-ldst.c: Rewrite to use 40 live
+	floating point variables instead of using asm to test allocating
+	values to the Altivec registers.
+
+	* gcc.target/powerpc/upper-regs-sf.c: New -mupper-regs-sf and
+	-mupper-regs-df tests.
+	* gcc.target/powerpc/upper-regs-df.c: Likewise.
+
+	* config/rs6000/predicates.md (memory_fp_constant): New predicate
+
+2014-11-17  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/pr43864-2.c: Add -ftree-tail-merge to dg-options.
+	* gcc.dg/pr43864-3.c: Same.
+	* gcc.dg/pr43864-4.c: Same.
+	* gcc.dg/pr43864.c: Same.
+	* gcc.dg/pr50763.c: Same.
+	* gcc.dg/pr51879-12.c: Same.
+	* gcc.dg/pr51879-16.c: Same.
+	* gcc.dg/pr51879-17.c: Same.
+	* gcc.dg/pr51879-18.c: Same.
+	* gcc.dg/pr51879-2.c: Same.
+	* gcc.dg/pr51879-3.c: Same.
+	* gcc.dg/pr51879-4.c: Same.
+	* gcc.dg/pr51879-6.c: Same.
+	* gcc.dg/pr51879-7.c: Same.
+	* gcc.dg/pr51879.c: Same.
+
+2014-11-17  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/pr43864-2.c: Fix scan-tree-dump-times scan pattern.
+	* gcc.dg/pr43864-3.c: Same.
+	* gcc.dg/pr43864-4.c: Same.
+
+2014-11-17  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/vld1_lane.c: New test.
+
+2014-11-17  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/simd/vfma_f64.c: Add asm volatile memory.
+	* gcc.target/aarch64/simd/vfms_f64.c: Likewise.
+
+2014-11-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.target/i386/chkp-strlen-1.c: New.
+	* gcc.target/i386/chkp-strlen-2.c: New.
+	* gcc.target/i386/chkp-strlen-3.c: New.
+	* gcc.target/i386/chkp-strlen-4.c: New.
+	* gcc.target/i386/chkp-strlen-5.c: New.
+
+2014-11-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.target/i386/chkp-stropt-1.c: New.
+	* gcc.target/i386/chkp-stropt-2.c: New.
+	* gcc.target/i386/chkp-stropt-3.c: New.
+	* gcc.target/i386/chkp-stropt-4.c: New.
+	* gcc.target/i386/chkp-stropt-5.c: New.
+	* gcc.target/i386/chkp-stropt-6.c: New.
+	* gcc.target/i386/chkp-stropt-7.c: New.
+	* gcc.target/i386/chkp-stropt-8.c: New.
+	* gcc.target/i386/chkp-stropt-9.c: New.
+	* gcc.target/i386/chkp-stropt-10.c: New.
+	* gcc.target/i386/chkp-stropt-11.c: New.
+	* gcc.target/i386/chkp-stropt-12.c: New.
+	* gcc.target/i386/chkp-stropt-13.c: New.
+	* gcc.target/i386/chkp-stropt-14.c: New.
+	* gcc.target/i386/chkp-stropt-15.c: New.
+	* gcc.target/i386/chkp-stropt-16.c: New.
+
+2014-11-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/ipa/pr63894.C (new): Replace unsigned long with
+	__SIZE_TYPE__.
+
+2014-11-17  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63898
+	PR middle-end/63883
+	* gfortran.dg/pr63883.f90: New testcase.
+
+2014-11-17  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR ipa/63894
+	* g++.dg/ipa/pr63894.C: New test.
+
+2014-11-17  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/thumb1-ual-1.c: New test.
+
+2014-11-16  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR middle-end/63790
+	* gcc.dg/tree-ssa/pr21031.c: Drop XFAIL.
+	* gcc.dg/tree-ssa/forwprop-29.c: New test.
+
+2014-11-16  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.c-torture/execute/memset-4.c: New test.
+	* gcc.c-torture/execute/20110418-1.c: New test.
+	* gcc.c-torture/execute/20141022-1.c: New test.
+	* gcc.c-torture/execute/strcpy-2.c: New test.
+	* gcc.c-torture/execute/20140212-2.c: New test.
+	* gcc.c-torture/compile/20120913-1.c: New test.
+	* gcc.c-torture/compile/20121010-1.c: New test.
+	* gcc.c-torture/compile/20120917-1.c: New test.
+	* gcc.c-torture/compile/20140110-1.c: New test.
+	* gcc.c-torture/compile/20121220-1.c: New test.
+	* gcc.c-torture/compile/20120822-1.c: New test.
+	* gcc.c-torture/compile/20121027-1.c: New test.
+	* gcc.c-torture/compile/20120830-2.c: New test.
+
+2014-11-15  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* g++.dg/guality/guality.exp (check_guality): Fix `test_counts'
+	restoration.
+
+2014-11-15  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	* gcc.dg/atomic/c11-atomic-exec-5.c
+	(test_main_long_double_add_overflow): Only actually define if
+	LDBL_MANT_DIG != 106.
+	(test_main_complex_long_double_add_overflow): Likewise.
+	(test_main_long_double_sub_overflow): Likewise.
+	(test_main_complex_long_double_sub_overflow): Likewise.
+
+	(NOT_LDBL_EPSILON_2): Likewise.
+	(NOT_MINUS_LDBL_EPSILON_2): Likewise.
+
+2014-11-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sibcall-1.c: Don't run on x32 targets,
+	instead of run on ia32 targets.
+
+2014-11-15  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/63884
+	* c-c++-common/cilk-plus/AN/pr63884.c: New test.
+
+2014-11-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/60104
+	* gcc.target/i386/sibcall-1.c: Don't run on pic targets.
+
+2014-11-15  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.target/i386/intrinsics_opt-1.c: New testcase.
+	* gcc.target/i386/intrinsics_opt-2.c: Likewise.
+	* gcc.target/i386/intrinsics_opt-3.c: Likewise.
+	* gcc.target/i386/intrinsics_opt-4.c: Likewise.
+
+2014-11-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/pr61144.c: Add dg-require-alias.
+
+2014-11-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gcc.dg/pubtypes-3.c: Include <string.h>.
+	* gcc.dg/pubtypes-4.c: Likewise.
+
+2014-11-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gcc.dg/darwin-cfstring-format-1.c: Adjust dg-error.
+
+2014-11-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt44.ad[sb]: New test.
+
+2014-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/binding_label_tests_4.f03: Add dg-excess-errors.
+	* gfortran.dg/coarray_9.f90: Ditto.
+	* gfortran.dg/empty_label.f: Ditto.
+	* gfortran.dg/empty_label.f90: Ditto.
+
 2014-11-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/ppc-fpconv-1.c: Adjust for -mupper-regs-df

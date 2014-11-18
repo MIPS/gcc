@@ -946,17 +946,17 @@ ipa_context_from_jfunc (ipa_node_params *info, cgraph_edge *cs, int csidx,
     {
       ipa_polymorphic_call_context srcctx;
       int srcidx;
+      bool type_preserved = true;
       if (jfunc->type == IPA_JF_PASS_THROUGH)
 	{
-	  if (ipa_get_jf_pass_through_operation (jfunc) != NOP_EXPR
-	      || !ipa_get_jf_pass_through_type_preserved (jfunc))
+	  if (ipa_get_jf_pass_through_operation (jfunc) != NOP_EXPR)
 	    return ctx;
+	  type_preserved = ipa_get_jf_pass_through_type_preserved (jfunc);
 	  srcidx = ipa_get_jf_pass_through_formal_id (jfunc);
 	}
       else
 	{
-	  if (!ipa_get_jf_ancestor_type_preserved (jfunc))
-	    return ctx;
+	  type_preserved = ipa_get_jf_ancestor_type_preserved (jfunc);
 	  srcidx = ipa_get_jf_ancestor_formal_id (jfunc);
 	}
       if (info->ipcp_orig_node)
@@ -981,7 +981,10 @@ ipa_context_from_jfunc (ipa_node_params *info, cgraph_edge *cs, int csidx,
 	return ctx;
       if (jfunc->type == IPA_JF_ANCESTOR)
 	srcctx.offset_by (ipa_get_jf_ancestor_offset (jfunc));
-      ctx.combine_with (srcctx);
+      if (!type_preserved)
+	srcctx.possible_dynamic_type_change (cs->in_polymorphic_cdtor);
+      srcctx.combine_with (ctx);
+      return srcctx;
     }
 
   return ctx;
@@ -1298,15 +1301,13 @@ propagate_context_accross_jump_function (cgraph_edge *cs,
     return false;
   bool ret = false;
   bool added_sth = false;
+  bool type_preserved = true;
 
   ipa_polymorphic_call_context edge_ctx, *edge_ctx_ptr
     = ipa_get_ith_polymorhic_call_context (args, idx);
 
   if (edge_ctx_ptr)
-    {
-      edge_ctx = *edge_ctx_ptr;
-      edge_ctx.clear_speculation ();
-    }
+    edge_ctx = *edge_ctx_ptr;
 
   if (jfunc->type == IPA_JF_PASS_THROUGH
       || jfunc->type == IPA_JF_ANCESTOR)
@@ -1320,15 +1321,14 @@ propagate_context_accross_jump_function (cgraph_edge *cs,
 	 not set instead of punting.  */
       if (jfunc->type == IPA_JF_PASS_THROUGH)
 	{
-	  if (ipa_get_jf_pass_through_operation (jfunc) != NOP_EXPR
-	      || !ipa_get_jf_pass_through_type_preserved (jfunc))
+	  if (ipa_get_jf_pass_through_operation (jfunc) != NOP_EXPR)
 	    goto prop_fail;
+	  type_preserved = ipa_get_jf_pass_through_type_preserved (jfunc);
 	  src_idx = ipa_get_jf_pass_through_formal_id (jfunc);
 	}
       else
 	{
-	  if (!ipa_get_jf_ancestor_type_preserved (jfunc))
-	    goto prop_fail;
+	  type_preserved = ipa_get_jf_ancestor_type_preserved (jfunc);
 	  src_idx = ipa_get_jf_ancestor_formal_id (jfunc);
 	}
 
@@ -1338,21 +1338,24 @@ propagate_context_accross_jump_function (cgraph_edge *cs,
 	  && (src_lat->contains_variable
 	      || (src_lat->values_count > 1)))
 	goto prop_fail;
-      if (src_lat->contains_variable)
-	  ret |= dest_lat->set_contains_variable ();
 
       ipcp_value<ipa_polymorphic_call_context> *src_val;
       for (src_val = src_lat->values; src_val; src_val = src_val->next)
 	{
 	  ipa_polymorphic_call_context cur = src_val->value;
+
+	  if (!type_preserved)
+	    cur.possible_dynamic_type_change (cs->in_polymorphic_cdtor);
 	  if (jfunc->type == IPA_JF_ANCESTOR)
 	    cur.offset_by (ipa_get_jf_ancestor_offset (jfunc));
-	  /* TODO: Perhaps attempt to look up some used OTR type? */
-	  cur.clear_speculation ();
-	  if (!edge_ctx.useless_p ())
-	    cur.combine_with (edge_ctx);
+	  /* TODO: In cases we know how the context is going to be used,
+	     we can improve the result by passing proper OTR_TYPE.  */
+	  cur.combine_with (edge_ctx);
 	  if (!cur.useless_p ())
 	    {
+	      if (src_lat->contains_variable
+		  && !edge_ctx.equal_to (cur))
+		ret |= dest_lat->set_contains_variable ();
 	      ret |= dest_lat->add_value (cur, cs, src_val, src_idx);
 	      added_sth = true;
 	    }
@@ -1727,12 +1730,15 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 				vec<tree> known_csts,
 				vec<ipa_polymorphic_call_context> known_contexts,
 				vec<ipa_agg_jump_function_p> known_aggs,
-				struct ipa_agg_replacement_value *agg_reps)
+				struct ipa_agg_replacement_value *agg_reps,
+				bool *speculative)
 {
   int param_index = ie->indirect_info->param_index;
   HOST_WIDE_INT anc_offset;
   tree t;
   tree target = NULL;
+
+  *speculative = false;
 
   if (param_index == -1
       || known_csts.length () <= (unsigned int) param_index)
@@ -1789,8 +1795,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   t = NULL;
 
   /* Try to work out value of virtual table pointer value in replacemnets.  */
-  if (!t && agg_reps && !ie->indirect_info->by_ref
-      && !ie->indirect_info->vptr_changed)
+  if (!t && agg_reps && !ie->indirect_info->by_ref)
     {
       while (agg_reps)
 	{
@@ -1808,8 +1813,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   /* Try to work out value of virtual table pointer value in known
      aggregate values.  */
   if (!t && known_aggs.length () > (unsigned int) param_index
-      && !ie->indirect_info->by_ref
-      && !ie->indirect_info->vptr_changed)
+      && !ie->indirect_info->by_ref)
     {
        struct ipa_agg_jump_function *agg;
        agg = known_aggs[param_index];
@@ -1833,7 +1837,9 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_node::get (target)))
 		target = ipa_impossible_devirt_target (ie, target);
-	      return target;
+              *speculative = ie->indirect_info->vptr_changed;
+	      if (!*speculative)
+	        return target;
 	    }
 	}
     }
@@ -1848,6 +1854,10 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   if (known_contexts.length () > (unsigned int) param_index)
     {
       context = known_contexts[param_index];
+      context.offset_by (anc_offset);
+      if (ie->indirect_info->vptr_changed)
+	context.possible_dynamic_type_change (ie->in_polymorphic_cdtor,
+					      ie->indirect_info->otr_type);
       if (t)
 	{
 	  ipa_polymorphic_call_context ctx2 = ipa_polymorphic_call_context
@@ -1870,11 +1880,32 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
      ie->indirect_info->otr_token,
      context, &final);
   if (!final || targets.length () > 1)
-    return NULL_TREE;
-  if (targets.length () == 1)
-    target = targets[0]->decl;
+    {
+      struct cgraph_node *node;
+      if (*speculative)
+	return target;
+      if (!flag_devirtualize_speculatively || ie->speculative
+	  || !ie->maybe_hot_p ())
+	return NULL;
+      node = try_speculative_devirtualization (ie->indirect_info->otr_type,
+					       ie->indirect_info->otr_token,
+					       context);
+      if (node)
+	{
+	  *speculative = true;
+	  target = node->decl;
+	}
+      else
+	return NULL;
+    }
   else
-    target = ipa_impossible_devirt_target (ie, NULL_TREE);
+    {
+      *speculative = false;
+      if (targets.length () == 1)
+	target = targets[0]->decl;
+      else
+	target = ipa_impossible_devirt_target (ie, NULL_TREE);
+    }
 
   if (target && !possible_polymorphic_call_target_p (ie,
 						     cgraph_node::get (target)))
@@ -1892,10 +1923,11 @@ tree
 ipa_get_indirect_edge_target (struct cgraph_edge *ie,
 			      vec<tree> known_csts,
 			      vec<ipa_polymorphic_call_context> known_contexts,
-			      vec<ipa_agg_jump_function_p> known_aggs)
+			      vec<ipa_agg_jump_function_p> known_aggs,
+			      bool *speculative)
 {
   return ipa_get_indirect_edge_target_1 (ie, known_csts, known_contexts,
-					 known_aggs, NULL);
+					 known_aggs, NULL, speculative);
 }
 
 /* Calculate devirtualization time bonus for NODE, assuming we know KNOWN_CSTS
@@ -1916,9 +1948,10 @@ devirtualization_time_bonus (struct cgraph_node *node,
       struct inline_summary *isummary;
       enum availability avail;
       tree target;
+      bool speculative;
 
       target = ipa_get_indirect_edge_target (ie, known_csts, known_contexts,
-					     known_aggs);
+					     known_aggs, &speculative);
       if (!target)
 	continue;
 
@@ -1937,12 +1970,12 @@ devirtualization_time_bonus (struct cgraph_node *node,
       /* FIXME: The values below need re-considering and perhaps also
 	 integrating into the cost metrics, at lest in some very basic way.  */
       if (isummary->size <= MAX_INLINE_INSNS_AUTO / 4)
-	res += 31;
+	res += 31 / ((int)speculative + 1);
       else if (isummary->size <= MAX_INLINE_INSNS_AUTO / 2)
-	res += 15;
+	res += 15 / ((int)speculative + 1);
       else if (isummary->size <= MAX_INLINE_INSNS_AUTO
 	       || DECL_DECLARED_INLINE_P (callee->decl))
-	res += 7;
+	res += 7 / ((int)speculative + 1);
     }
 
   return res;
@@ -2638,16 +2671,18 @@ ipcp_discover_new_direct_edges (struct cgraph_node *node,
   for (ie = node->indirect_calls; ie; ie = next_ie)
     {
       tree target;
+      bool speculative;
 
       next_ie = ie->next_callee;
       target = ipa_get_indirect_edge_target_1 (ie, known_csts, known_contexts,
-					       vNULL, aggvals);
+					       vNULL, aggvals, &speculative);
       if (target)
 	{
 	  bool agg_contents = ie->indirect_info->agg_contents;
 	  bool polymorphic = ie->indirect_info->polymorphic;
 	  int param_index = ie->indirect_info->param_index;
-	  struct cgraph_edge *cs = ipa_make_edge_direct_to_target (ie, target);
+	  struct cgraph_edge *cs = ipa_make_edge_direct_to_target (ie, target,
+								   speculative);
 	  found = true;
 
 	  if (cs && !agg_contents && !polymorphic)
@@ -3160,6 +3195,7 @@ find_more_scalar_values_for_callers_subset (struct cgraph_node *node,
       struct cgraph_edge *cs;
       tree newval = NULL_TREE;
       int j;
+      bool first = true;
 
       if (ipa_get_scalar_lat (info, i)->bottom || known_csts[i])
 	continue;
@@ -3178,13 +3214,15 @@ find_more_scalar_values_for_callers_subset (struct cgraph_node *node,
 	  t = ipa_value_from_jfunc (IPA_NODE_REF (cs->caller), jump_func);
 	  if (!t
 	      || (newval
-		  && !values_equal_for_ipcp_p (t, newval)))
+		  && !values_equal_for_ipcp_p (t, newval))
+	      || (!first && !newval))
 	    {
 	      newval = NULL_TREE;
 	      break;
 	    }
 	  else
 	    newval = t;
+	  first = false;
 	}
 
       if (newval)
@@ -3226,7 +3264,7 @@ find_more_contexts_for_caller_subset (cgraph_node *node,
 	continue;
 
       ipa_polymorphic_call_context newval;
-      bool found = false;
+      bool first = true;
       int j;
 
       FOR_EACH_VEC_ELT (callers, j, cs)
@@ -3238,21 +3276,18 @@ find_more_contexts_for_caller_subset (cgraph_node *node,
 	  ipa_polymorphic_call_context ctx;
 	  ctx = ipa_context_from_jfunc (IPA_NODE_REF (cs->caller), cs, i,
 					jfunc);
-	  ctx.clear_speculation ();
-	  if (ctx.useless_p ()
-	      || (found && !values_equal_for_ipcp_p (newval, ctx)))
+	  if (first)
 	    {
-	      found = false;
-	      break;
-	    }
-	  else if (!found)
-	    {
-	      found = true;
 	      newval = ctx;
+	      first = false;
 	    }
+	  else
+	    newval.meet_with (ctx);
+	  if (newval.useless_p ())
+	    break;
 	}
 
-      if (found)
+      if (!newval.useless_p ())
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {

@@ -15856,8 +15856,8 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
     ++processing_template_decl;
   if (DECL_CLASS_SCOPE_P (gen_tmpl))
     {
-      tree ctx = tsubst (DECL_CONTEXT (gen_tmpl), targ_ptr,
-			 complain, gen_tmpl);
+      tree ctx = tsubst_aggr_type (DECL_CONTEXT (gen_tmpl), targ_ptr,
+				   complain, gen_tmpl, true);
       push_nested_class (ctx);
     }
   /* Substitute template parameters to obtain the specialization.  */
@@ -20959,6 +20959,8 @@ value_dependent_expression_p (tree expression)
       if (DECL_INITIAL (expression)
 	  && decl_constant_var_p (expression)
 	  && (TREE_CODE (DECL_INITIAL (expression)) == TREE_LIST
+	      /* cp_finish_decl doesn't fold reference initializers.  */
+	      || TREE_CODE (TREE_TYPE (expression)) == REFERENCE_TYPE
 	      || value_dependent_expression_p (DECL_INITIAL (expression))))
 	return true;
       return false;

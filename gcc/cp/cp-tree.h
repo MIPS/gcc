@@ -109,6 +109,7 @@ c-common.h, not after.
       DECLTYPE_FOR_LAMBDA_PROXY (in DECLTYPE_TYPE)
       REF_PARENTHESIZED_P (in COMPONENT_REF, INDIRECT_REF)
       AGGR_INIT_ZERO_FIRST (in AGGR_INIT_EXPR)
+      CONSTRUCTOR_MUTABLE_POISON (in CONSTRUCTOR)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -148,12 +149,14 @@ c-common.h, not after.
       DECL_LOCAL_FUNCTION_P (in FUNCTION_DECL)
       DECL_MUTABLE_P (in FIELD_DECL)
       DECL_DEPENDENT_P (in USING_DECL)
+      LABEL_DECL_BREAK (in LABEL_DECL)
    1: C_TYPEDEF_EXPLICITLY_SIGNED (in TYPE_DECL).
       DECL_TEMPLATE_INSTANTIATED (in a VAR_DECL or a FUNCTION_DECL)
       DECL_MEMBER_TEMPLATE_P (in TEMPLATE_DECL)
       USING_DECL_TYPENAME_P (in USING_DECL)
       DECL_VLA_CAPTURE_P (in FIELD_DECL)
       DECL_ARRAY_PARAMETER_P (in PARM_DECL)
+      LABEL_DECL_CONTINUE (in LABEL_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
@@ -1181,6 +1184,8 @@ struct GTY(()) language_function {
 
   /* True if this function can throw an exception.  */
   BOOL_BITFIELD can_throw : 1;
+
+  BOOL_BITFIELD invalid_constexpr : 1;
 
   hash_table<named_label_hasher> *x_named_labels;
   cp_binding_level *bindings;
@@ -3241,6 +3246,14 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define DECL_LOCAL_FUNCTION_P(NODE) \
   DECL_LANG_FLAG_0 (FUNCTION_DECL_CHECK (NODE))
 
+/* Nonzero if NODE is the target for genericization of 'break' stmts.  */
+#define LABEL_DECL_BREAK(NODE) \
+  DECL_LANG_FLAG_0 (LABEL_DECL_CHECK (NODE))
+
+/* Nonzero if NODE is the target for genericization of 'continue' stmts.  */
+#define LABEL_DECL_CONTINUE(NODE) \
+  DECL_LANG_FLAG_1 (LABEL_DECL_CHECK (NODE))
+
 /* True if NODE was declared with auto in its return type, but it has
    started compilation and so the return type might have been changed by
    return type deduction; its declared return type should be found in
@@ -3485,6 +3498,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define CONSTRUCTOR_NO_IMPLICIT_ZERO(NODE) \
   (TREE_LANG_FLAG_1 (CONSTRUCTOR_CHECK (NODE)))
 
+/* True if this CONSTRUCTOR should not be used as a variable initializer
+   because it was loaded from a constexpr variable with mutable fields.  */
+#define CONSTRUCTOR_MUTABLE_POISON(NODE) \
+  (TREE_LANG_FLAG_2 (CONSTRUCTOR_CHECK (NODE)))
+
 #define DIRECT_LIST_INIT_P(NODE) \
    (BRACE_ENCLOSED_INITIALIZER_P (NODE) && CONSTRUCTOR_IS_DIRECT_INIT (NODE))
 
@@ -3623,6 +3641,12 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    pointer to member function.  TYPE_PTRMEMFUNC_P _must_ be true,
    before using this macro.  */
 #define TYPE_PTRMEMFUNC_FN_TYPE(NODE) \
+  (cp_build_qualified_type (TREE_TYPE (TYPE_FIELDS (NODE)),\
+			    cp_type_quals (NODE)))
+
+/* As above, but can be used in places that want an lvalue at the expense
+   of not necessarily having the correct cv-qualifiers.  */
+#define TYPE_PTRMEMFUNC_FN_TYPE_RAW(NODE) \
   (TREE_TYPE (TYPE_FIELDS (NODE)))
 
 /* Returns `A' for a type like `int (A::*)(double)' */

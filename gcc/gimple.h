@@ -1720,7 +1720,17 @@ gimple_set_no_warning (gimple stmt, bool no_warning)
   stmt->no_warning = (unsigned) no_warning;
 }
 
-/* Set the visited status on statement STMT to VISITED_P.  */
+/* Set the visited status on statement STMT to VISITED_P.
+
+   Please note that this 'visited' property of the gimple statement is
+   supposed to be undefined at pass boundaries.  This means that a
+   given pass should not assume it contains any useful value when the
+   pass starts and thus can set it to any value it sees fit.
+
+   You can learn more about the visited property of the gimple
+   statement by reading the comments of the 'visited' data member of
+   struct gimple statement_base.
+ */
 
 static inline void
 gimple_set_visited (gimple stmt, bool visited_p)
@@ -1729,7 +1739,16 @@ gimple_set_visited (gimple stmt, bool visited_p)
 }
 
 
-/* Return the visited status for statement STMT.  */
+/* Return the visited status for statement STMT.
+
+   Please note that this 'visited' property of the gimple statement is
+   supposed to be undefined at pass boundaries.  This means that a
+   given pass should not assume it contains any useful value when the
+   pass starts and thus can set it to any value it sees fit.
+
+   You can learn more about the visited property of the gimple
+   statement by reading the comments of the 'visited' data member of
+   struct gimple statement_base.  */
 
 static inline bool
 gimple_visited_p (gimple stmt)
@@ -1738,7 +1757,15 @@ gimple_visited_p (gimple stmt)
 }
 
 
-/* Set pass local flag PLF on statement STMT to VAL_P.  */
+/* Set pass local flag PLF on statement STMT to VAL_P.
+
+   Please note that this PLF property of the gimple statement is
+   supposed to be undefined at pass boundaries.  This means that a
+   given pass should not assume it contains any useful value when the
+   pass starts and thus can set it to any value it sees fit.
+
+   You can learn more about the PLF property by reading the comment of
+   the 'plf' data member of struct gimple_statement_structure.  */
 
 static inline void
 gimple_set_plf (gimple stmt, enum plf_mask plf, bool val_p)
@@ -1750,7 +1777,15 @@ gimple_set_plf (gimple stmt, enum plf_mask plf, bool val_p)
 }
 
 
-/* Return the value of pass local flag PLF on statement STMT.  */
+/* Return the value of pass local flag PLF on statement STMT.
+
+   Please note that this 'plf' property of the gimple statement is
+   supposed to be undefined at pass boundaries.  This means that a
+   given pass should not assume it contains any useful value when the
+   pass starts and thus can set it to any value it sees fit.
+
+   You can learn more about the plf property by reading the comment of
+   the 'plf' data member of struct gimple_statement_structure.  */
 
 static inline unsigned int
 gimple_plf (gimple stmt, enum plf_mask plf)
@@ -1759,7 +1794,12 @@ gimple_plf (gimple stmt, enum plf_mask plf)
 }
 
 
-/* Set the UID of statement.  */
+/* Set the UID of statement.
+
+   Please note that this UID property is supposed to be undefined at
+   pass boundaries.  This means that a given pass should not assume it
+   contains any useful value when the pass starts and thus can set it
+   to any value it sees fit.  */
 
 static inline void
 gimple_set_uid (gimple g, unsigned uid)
@@ -1768,7 +1808,12 @@ gimple_set_uid (gimple g, unsigned uid)
 }
 
 
-/* Return the UID of statement.  */
+/* Return the UID of statement.
+
+   Please note that this UID property is supposed to be undefined at
+   pass boundaries.  This means that a given pass should not assume it
+   contains any useful value when the pass starts and thus can set it
+   to any value it sees fit.  */
 
 static inline unsigned
 gimple_uid (const_gimple g)

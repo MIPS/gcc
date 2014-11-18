@@ -64,17 +64,6 @@ enum jump_func_type
   IPA_JF_ANCESTOR	    /* represented by field ancestor */
 };
 
-/* Structure holding data required to describe a known type jump function.  */
-struct GTY(()) ipa_known_type_data
-{
-  /* Offset of the component of the base_type being described.  */
-  HOST_WIDE_INT offset;
-  /* Type of the whole object.  */
-  tree base_type;
-  /* Type of the component of the object that is being described.  */
-  tree component_type;
-};
-
 struct ipa_cst_ref_desc;
 
 /* Structure holding data required to describe a constant jump function.  */
@@ -540,10 +529,10 @@ bool ipa_propagate_indirect_call_infos (struct cgraph_edge *cs,
 tree ipa_get_indirect_edge_target (struct cgraph_edge *ie,
 				   vec<tree> ,
 				   vec<ipa_polymorphic_call_context>,
-				   vec<ipa_agg_jump_function_p> );
+				   vec<ipa_agg_jump_function_p>,
+				   bool *);
 struct cgraph_edge *ipa_make_edge_direct_to_target (struct cgraph_edge *, tree,
 						    bool speculative = false);
-tree ipa_binfo_from_known_type_jfunc (struct ipa_jump_func *);
 tree ipa_impossible_devirt_target (struct cgraph_edge *, tree);
 
 /* Functions related to both.  */

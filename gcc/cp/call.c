@@ -387,8 +387,6 @@ build_call_a (tree function, int n, tree *argarray)
       mark_used (decl);
     }
 
-  if (decl && TREE_DEPRECATED (decl))
-    warn_deprecated_use (decl, NULL_TREE);
   require_complete_eh_spec_types (fntype, decl);
 
   TREE_HAS_CONSTRUCTOR (function) = (decl && DECL_CONSTRUCTOR_P (decl));
@@ -7447,11 +7445,6 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 				ba_any, NULL, complain);
       gcc_assert (binfo && binfo != error_mark_node);
 
-      /* Warn about deprecated virtual functions now, since we're about
-	 to throw away the decl.  */
-      if (TREE_DEPRECATED (fn))
-	warn_deprecated_use (fn, NULL_TREE);
-
       argarray[0] = build_base_path (PLUS_EXPR, argarray[0], binfo, 1,
 				     complain);
       if (TREE_SIDE_EFFECTS (argarray[0]))
@@ -9712,9 +9705,11 @@ extend_ref_init_temps_1 (tree decl, tree init, vec<tree, va_gc> **cleanups)
     {
       tree subinit = NULL_TREE;
       *p = set_up_extended_ref_temp (decl, *p, cleanups, &subinit);
+      recompute_tree_invariant_for_addr_expr (sub);
+      if (init != sub)
+	init = fold_convert (TREE_TYPE (init), sub);
       if (subinit)
 	init = build2 (COMPOUND_EXPR, TREE_TYPE (init), subinit, init);
-      recompute_tree_invariant_for_addr_expr (sub);
     }
   return init;
 }
