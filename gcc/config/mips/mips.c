@@ -12997,7 +12997,12 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
      This will sometimes be a delayed branch; see the write code below
      for details.  */
   mips_multi_add_insn (is_64bit_p ? "scd\t%0,%1" : "sc\t%0,%1", at, mem, NULL);
-  mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+
+  /* We can not put the NEWVAL = $TMP3 or CMP = 1 operations in the delay slot
+     of the branch if it is a branch likely because they will not execute when
+     the atomic operation is successful, so place a NOP in there instead.  */
+
+  mips_multi_add_insn ("beq%?\t%0,%.,1b%~", at, NULL);
 
   /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
   if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
