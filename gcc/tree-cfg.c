@@ -847,8 +847,7 @@ make_edges (void)
 	      fallthru = false;
 	      break;
 	    case GIMPLE_EH_DISPATCH:
-	      fallthru =
-		make_eh_dispatch_edges (as_a <geh_dispatch *> (last));
+	      fallthru = make_eh_dispatch_edges (as_a <geh_dispatch *> (last));
 	      break;
 
 	    case GIMPLE_CALL:
@@ -895,8 +894,8 @@ make_edges (void)
 
 	    case GIMPLE_TRANSACTION:
 	      {
-		tree abort_label =
-		  gimple_transaction_label (as_a <gtransaction *> (last));
+		tree abort_label
+		  = gimple_transaction_label (as_a <gtransaction *> (last));
 		if (abort_label)
 		  make_edge (bb, label_to_block (abort_label), EDGE_TM_ABORT);
 		fallthru = true;
@@ -944,8 +943,7 @@ make_edges (void)
 	{
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      glabel *label_stmt =
-		dyn_cast <glabel *> (gsi_stmt (gsi));
+	      glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (gsi));
 	      tree target;
 
 	      if (!label_stmt)

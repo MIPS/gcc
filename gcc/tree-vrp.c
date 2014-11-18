@@ -8886,8 +8886,8 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   else if (need_conversion)
     {
       tree tem = make_ssa_name (TREE_TYPE (op0), NULL);
-      gassign *newop =
-	gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
+      gassign *newop
+	= gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
       gsi_insert_before (gsi, newop, GSI_SAME_STMT);
       gimple_assign_set_rhs_with_ops (gsi, NOP_EXPR, tem, NULL_TREE);
     }

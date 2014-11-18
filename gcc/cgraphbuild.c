@@ -368,8 +368,7 @@ pass_build_cgraph_edges::execute (function *fun)
 					    bb->count, freq);
 	    }
 	  node->record_stmt_references (stmt);
-	  if (gomp_parallel *omp_par_stmt =
-	      dyn_cast <gomp_parallel *> (stmt))
+	  if (gomp_parallel *omp_par_stmt = dyn_cast <gomp_parallel *> (stmt))
 	    {
 	      tree fn = gimple_omp_parallel_child_fn (omp_par_stmt);
 	      node->create_reference (cgraph_node::get_create (fn),

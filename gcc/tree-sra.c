@@ -2715,10 +2715,10 @@ init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
     }
   else if (access->grp_to_be_debug_replaced)
     {
-      gdebug *ds =
-	gimple_build_debug_bind (get_access_replacement (access),
-				 build_zero_cst (access->type),
-				 gsi_stmt (*gsi));
+      gdebug *ds
+	= gimple_build_debug_bind (get_access_replacement (access),
+				   build_zero_cst (access->type),
+				   gsi_stmt (*gsi));
       if (insert_after)
 	gsi_insert_after (gsi, ds, GSI_NEW_STMT);
       else
@@ -2839,10 +2839,9 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
     }
   else if (write && access->grp_to_be_debug_replaced)
     {
-      gdebug *ds =
-	gimple_build_debug_bind (get_access_replacement (access),
-				 NULL_TREE,
-				 gsi_stmt (*gsi));
+      gdebug *ds = gimple_build_debug_bind (get_access_replacement (access),
+					    NULL_TREE,
+					    gsi_stmt (*gsi));
       gsi_insert_after (gsi, ds, GSI_NEW_STMT);
     }
 

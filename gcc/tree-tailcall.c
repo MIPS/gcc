@@ -760,8 +760,7 @@ static void
 adjust_return_value (basic_block bb, tree m, tree a)
 {
   tree retval;
-  greturn *ret_stmt =
-    as_a <greturn *> (gimple_seq_last_stmt (bb_seq (bb)));
+  greturn *ret_stmt = as_a <greturn *> (gimple_seq_last_stmt (bb_seq (bb)));
   gimple_stmt_iterator gsi = gsi_last_bb (bb);
 
   gcc_assert (gimple_code (ret_stmt) == GIMPLE_RETURN);

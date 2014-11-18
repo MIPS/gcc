@@ -3000,9 +3000,8 @@ update_ops (tree var, enum tree_code code, vec<operand_entry_t> ops,
     {
       gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
       var = make_ssa_name (TREE_TYPE (var), NULL);
-      gassign *g =
-	gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt),
-				      var, rhs[2], rhs[3]);
+      gassign *g = gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt),
+						 var, rhs[2], rhs[3]);
       gimple_set_uid (g, gimple_uid (stmt));
       gimple_set_visited (g, true);
       gsi_insert_before (&gsi, g, GSI_SAME_STMT);

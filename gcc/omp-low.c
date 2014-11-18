@@ -2646,11 +2646,11 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
       break;
     case GIMPLE_OMP_CRITICAL:
       {
-	tree this_stmt_name =
-	  gimple_omp_critical_name (as_a <gomp_critical *> (stmt));
+	tree this_stmt_name
+	  = gimple_omp_critical_name (as_a <gomp_critical *> (stmt));
 	for (; ctx != NULL; ctx = ctx->outer)
-	  if (gomp_critical *other_crit =
-	      dyn_cast <gomp_critical *> (ctx->stmt))
+	  if (gomp_critical *other_crit
+	        = dyn_cast <gomp_critical *> (ctx->stmt))
 	    if (this_stmt_name == gimple_omp_critical_name (other_crit))
 	      {
 		error_at (gimple_location (stmt),
@@ -4741,8 +4741,8 @@ remove_exit_barrier (struct omp_region *region)
 	     of such a variable.  */
 	  if (any_addressable_vars < 0)
 	    {
-	      gomp_parallel *parallel_stmt =
-		as_a <gomp_parallel *> (last_stmt (region->entry));
+	      gomp_parallel *parallel_stmt
+		= as_a <gomp_parallel *> (last_stmt (region->entry));
 	      tree child_fun = gimple_omp_parallel_child_fn (parallel_stmt);
 	      tree local_decls, block, decl;
 	      unsigned ix;
@@ -5866,8 +5866,7 @@ expand_omp_for_generic (struct omp_region *region,
       /* Code to control the increment and predicate for the sequential
 	 loop goes in the CONT_BB.  */
       gsi = gsi_last_bb (cont_bb);
-      gomp_continue *cont_stmt =
-	as_a <gomp_continue *> (gsi_stmt (gsi));
+      gomp_continue *cont_stmt = as_a <gomp_continue *> (gsi_stmt (gsi));
       gcc_assert (gimple_code (cont_stmt) == GIMPLE_OMP_CONTINUE);
       vmain = gimple_omp_continue_control_use (cont_stmt);
       vback = gimple_omp_continue_control_def (cont_stmt);
@@ -6205,9 +6204,9 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   gsi_insert_before (&gsi, gimple_build_assign (tt, build_int_cst (itype, 0)),
 		     GSI_SAME_STMT);
-  gassign *assign_stmt =
-    gimple_build_assign_with_ops (PLUS_EXPR, q, q,
-				  build_int_cst (itype, 1));
+  gassign *assign_stmt
+    = gimple_build_assign_with_ops (PLUS_EXPR, q, q,
+				    build_int_cst (itype, 1));
   gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 
   third_bb = split_block (second_bb, assign_stmt)->dest;
@@ -6288,8 +6287,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       /* The code controlling the sequential loop replaces the
 	 GIMPLE_OMP_CONTINUE.  */
       gsi = gsi_last_bb (cont_bb);
-      gomp_continue *cont_stmt =
-	as_a <gomp_continue *> (gsi_stmt (gsi));
+      gomp_continue *cont_stmt = as_a <gomp_continue *> (gsi_stmt (gsi));
       gcc_assert (gimple_code (cont_stmt) == GIMPLE_OMP_CONTINUE);
       vmain = gimple_omp_continue_control_use (cont_stmt);
       vback = gimple_omp_continue_control_def (cont_stmt);
@@ -6585,8 +6583,8 @@ expand_omp_for_static_chunk (struct omp_region *region,
       trip_back = trip_var;
     }
 
-  gassign *assign_stmt =
-    gimple_build_assign (trip_init, build_int_cst (itype, 0));
+  gassign *assign_stmt
+    = gimple_build_assign (trip_init, build_int_cst (itype, 0));
   gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 
   t = fold_build2 (MULT_EXPR, itype, threadid, fd->chunk_size);
@@ -6680,8 +6678,7 @@ expand_omp_for_static_chunk (struct omp_region *region,
       /* The code controlling the sequential loop goes in CONT_BB,
 	 replacing the GIMPLE_OMP_CONTINUE.  */
       gsi = gsi_last_bb (cont_bb);
-      gomp_continue *cont_stmt =
-	as_a <gomp_continue *> (gsi_stmt (gsi));
+      gomp_continue *cont_stmt = as_a <gomp_continue *> (gsi_stmt (gsi));
       vmain = gimple_omp_continue_control_use (cont_stmt);
       vback = gimple_omp_continue_control_def (cont_stmt);
 
@@ -8222,10 +8219,8 @@ static void
 expand_omp_atomic (struct omp_region *region)
 {
   basic_block load_bb = region->entry, store_bb = region->exit;
-  gomp_atomic_load *load =
-    as_a <gomp_atomic_load *> (last_stmt (load_bb));
-  gomp_atomic_store *store =
-    as_a <gomp_atomic_store *> (last_stmt (store_bb));
+  gomp_atomic_load *load = as_a <gomp_atomic_load *> (last_stmt (load_bb));
+  gomp_atomic_store *store = as_a <gomp_atomic_store *> (last_stmt (store_bb));
   tree loaded_val = gimple_omp_atomic_load_lhs (load);
   tree addr = gimple_omp_atomic_load_rhs (load);
   tree stored_val = gimple_omp_atomic_store_val (store);
@@ -9517,8 +9512,8 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (!gimple_seq_empty_p (omp_for_body)
       && gimple_code (gimple_seq_first_stmt (omp_for_body)) == GIMPLE_BIND)
     {
-      gbind *inner_bind =
-	as_a <gbind *> (gimple_seq_first_stmt (omp_for_body));
+      gbind *inner_bind
+	= as_a <gbind *> (gimple_seq_first_stmt (omp_for_body));
       tree vars = gimple_bind_vars (inner_bind);
       gimple_bind_append_vars (new_stmt, vars);
       /* bind_vars/BLOCK_VARS are being moved to new_stmt/block, don't
@@ -10020,8 +10015,8 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   location_t loc = gimple_location (stmt);
 
   clauses = gimple_omp_taskreg_clauses (stmt);
-  par_bind =
-    as_a <gbind *> (gimple_seq_first_stmt (gimple_omp_body (stmt)));
+  par_bind
+    = as_a <gbind *> (gimple_seq_first_stmt (gimple_omp_body (stmt)));
   par_body = gimple_bind_body (par_bind);
   child_fn = ctx->cb.dst_fn;
   if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL

@@ -3332,9 +3332,9 @@ do_regular_insertion (basic_block block, basic_block dom)
 
 	      tree temp = make_temp_ssa_name (get_expr_type (expr),
 					      NULL, "pretmp");
-	      gassign *assign =
-		gimple_build_assign (temp,
-				     edoubleprime->kind == CONSTANT ?
+	      gassign *assign
+		= gimple_build_assign (temp,
+				       edoubleprime->kind == CONSTANT ?
 				       PRE_EXPR_CONSTANT (edoubleprime) :
 				       PRE_EXPR_NAME (edoubleprime));
 	      gimple_stmt_iterator gsi = gsi_after_labels (block);
@@ -3935,10 +3935,9 @@ eliminate_insert (gimple_stmt_iterator *gsi, tree val)
     return NULL_TREE;
 
   tree res = make_temp_ssa_name (TREE_TYPE (val), NULL, "pretmp");
-  gassign *tem =
-    gimple_build_assign (res,
-			 fold_build1 (TREE_CODE (expr),
-				      TREE_TYPE (expr), leader));
+  gassign *tem = gimple_build_assign (res,
+				      fold_build1 (TREE_CODE (expr),
+						   TREE_TYPE (expr), leader));
   gsi_insert_before (gsi, tem, GSI_SAME_STMT);
   VN_INFO_GET (res)->valnum = val;
 

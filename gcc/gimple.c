@@ -194,9 +194,9 @@ gimple_build_with_ops_stat (enum gimple_code code, unsigned subcode,
 greturn *
 gimple_build_return (tree retval)
 {
-  greturn *s =
-    as_a <greturn *> (gimple_build_with_ops (GIMPLE_RETURN, ERROR_MARK,
-					     2));
+  greturn *s
+    = as_a <greturn *> (gimple_build_with_ops (GIMPLE_RETURN, ERROR_MARK,
+					       2));
   if (retval)
     gimple_return_set_retval (s, retval);
   return s;
@@ -225,9 +225,9 @@ gimple_call_reset_alias_info (gcall *s)
 static inline gcall *
 gimple_build_call_1 (tree fn, unsigned nargs)
 {
-  gcall *s =
-    as_a <gcall *> (gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK,
-					       nargs + 3));
+  gcall *s
+    = as_a <gcall *> (gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK,
+					     nargs + 3));
   if (TREE_CODE (fn) == FUNCTION_DECL)
     fn = build_fold_addr_expr (fn);
   gimple_set_op (s, 1, fn);
@@ -304,9 +304,9 @@ gimple_build_call_valist (tree fn, unsigned nargs, va_list ap)
 static inline gcall *
 gimple_build_call_internal_1 (enum internal_fn fn, unsigned nargs)
 {
-  gcall *s =
-    as_a <gcall *> (gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK,
-					       nargs + 3));
+  gcall *s
+    = as_a <gcall *> (gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK,
+					     nargs + 3));
   s->subcode |= GF_CALL_INTERNAL;
   gimple_call_set_internal_fn (s, fn);
   gimple_call_reset_alias_info (s);
@@ -506,8 +506,8 @@ gimple_cond_set_condition_from_tree (gcond *stmt, tree cond)
 glabel *
 gimple_build_label (tree label)
 {
-  glabel *p =
-    as_a <glabel *> (gimple_build_with_ops (GIMPLE_LABEL, ERROR_MARK, 1));
+  glabel *p
+    = as_a <glabel *> (gimple_build_with_ops (GIMPLE_LABEL, ERROR_MARK, 1));
   gimple_label_set_label (p, label);
   return p;
 }
@@ -517,8 +517,8 @@ gimple_build_label (tree label)
 ggoto *
 gimple_build_goto (tree dest)
 {
-  ggoto *p =
-    as_a <ggoto *> (gimple_build_with_ops (GIMPLE_GOTO, ERROR_MARK, 1));
+  ggoto *p
+    = as_a <ggoto *> (gimple_build_with_ops (GIMPLE_GOTO, ERROR_MARK, 1));
   gimple_goto_set_dest (p, dest);
   return p;
 }
@@ -648,8 +648,7 @@ gimple_build_catch (tree types, gimple_seq handler)
 geh_filter *
 gimple_build_eh_filter (tree types, gimple_seq failure)
 {
-  geh_filter *p =
-    as_a <geh_filter *> (gimple_alloc (GIMPLE_EH_FILTER, 0));
+  geh_filter *p = as_a <geh_filter *> (gimple_alloc (GIMPLE_EH_FILTER, 0));
   gimple_eh_filter_set_types (p, types);
   if (failure)
     gimple_eh_filter_set_failure (p, failure);
@@ -662,9 +661,7 @@ gimple_build_eh_filter (tree types, gimple_seq failure)
 geh_mnt *
 gimple_build_eh_must_not_throw (tree decl)
 {
-  geh_mnt *p =
-    as_a <geh_mnt *> (
-      gimple_alloc (GIMPLE_EH_MUST_NOT_THROW, 0));
+  geh_mnt *p = as_a <geh_mnt *> (gimple_alloc (GIMPLE_EH_MUST_NOT_THROW, 0));
 
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
   gcc_assert (flags_from_decl_or_type (decl) & ECF_NORETURN);
@@ -728,8 +725,8 @@ gimple_build_wce (gimple_seq cleanup)
 gresx *
 gimple_build_resx (int region)
 {
-  gresx *p =
-    as_a <gresx *> (gimple_build_with_ops (GIMPLE_RESX, ERROR_MARK, 0));
+  gresx *p
+    = as_a <gresx *> (gimple_build_with_ops (GIMPLE_RESX, ERROR_MARK, 0));
   p->region = region;
   return p;
 }
@@ -745,9 +742,9 @@ gimple_build_switch_nlabels (unsigned nlabels, tree index, tree default_label)
 {
   /* nlabels + 1 default label + 1 index.  */
   gcc_checking_assert (default_label);
-  gswitch *p =
-    as_a <gswitch *> (gimple_build_with_ops (GIMPLE_SWITCH, ERROR_MARK,
-						 1 + 1 + nlabels));
+  gswitch *p = as_a <gswitch *> (gimple_build_with_ops (GIMPLE_SWITCH,
+							ERROR_MARK,
+							1 + 1 + nlabels));
   gimple_switch_set_index (p, index);
   gimple_switch_set_default_label (p, default_label);
   return p;
@@ -778,9 +775,9 @@ gimple_build_switch (tree index, tree default_label, vec<tree> args)
 geh_dispatch *
 gimple_build_eh_dispatch (int region)
 {
-  geh_dispatch *p =
-    as_a <geh_dispatch *> (
-      gimple_build_with_ops (GIMPLE_EH_DISPATCH, ERROR_MARK, 0));
+  geh_dispatch *p
+    = as_a <geh_dispatch *> (
+	gimple_build_with_ops (GIMPLE_EH_DISPATCH, ERROR_MARK, 0));
   p->region = region;
   return p;
 }
@@ -792,10 +789,10 @@ gimple_build_eh_dispatch (int region)
 gdebug *
 gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
 {
-  gdebug *p =
-    as_a <gdebug *> (gimple_build_with_ops_stat (GIMPLE_DEBUG,
-						     (unsigned)GIMPLE_DEBUG_BIND, 2
-						     PASS_MEM_STAT));
+  gdebug *p
+    = as_a <gdebug *> (gimple_build_with_ops_stat (GIMPLE_DEBUG,
+						   (unsigned)GIMPLE_DEBUG_BIND, 2
+						   PASS_MEM_STAT));
   gimple_debug_bind_set_var (p, var);
   gimple_debug_bind_set_value (p, value);
   if (stmt)
@@ -813,11 +810,11 @@ gdebug *
 gimple_build_debug_source_bind_stat (tree var, tree value,
 				     gimple stmt MEM_STAT_DECL)
 {
-  gdebug *p =
-    as_a <gdebug *> (
-      gimple_build_with_ops_stat (GIMPLE_DEBUG,
-				  (unsigned)GIMPLE_DEBUG_SOURCE_BIND, 2
-				  PASS_MEM_STAT));
+  gdebug *p
+    = as_a <gdebug *> (
+        gimple_build_with_ops_stat (GIMPLE_DEBUG,
+				    (unsigned)GIMPLE_DEBUG_SOURCE_BIND, 2
+				    PASS_MEM_STAT));
 
   gimple_debug_source_bind_set_var (p, var);
   gimple_debug_source_bind_set_value (p, value);
@@ -836,8 +833,8 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
 gomp_critical *
 gimple_build_omp_critical (gimple_seq body, tree name)
 {
-  gomp_critical *p =
-    as_a <gomp_critical *> (gimple_alloc (GIMPLE_OMP_CRITICAL, 0));
+  gomp_critical *p
+    = as_a <gomp_critical *> (gimple_alloc (GIMPLE_OMP_CRITICAL, 0));
   gimple_omp_critical_set_name (p, name);
   if (body)
     gimple_omp_set_body (p, body);
@@ -884,8 +881,8 @@ gomp_parallel *
 gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
 			   tree data_arg)
 {
-  gomp_parallel *p =
-    as_a <gomp_parallel *> (gimple_alloc (GIMPLE_OMP_PARALLEL, 0));
+  gomp_parallel *p
+    = as_a <gomp_parallel *> (gimple_alloc (GIMPLE_OMP_PARALLEL, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_parallel_set_clauses (p, clauses);
@@ -910,8 +907,7 @@ gimple_build_omp_task (gimple_seq body, tree clauses, tree child_fn,
 		       tree data_arg, tree copy_fn, tree arg_size,
 		       tree arg_align)
 {
-  gomp_task *p =
-    as_a <gomp_task *> (gimple_alloc (GIMPLE_OMP_TASK, 0));
+  gomp_task *p = as_a <gomp_task *> (gimple_alloc (GIMPLE_OMP_TASK, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_task_set_clauses (p, clauses);
@@ -979,8 +975,8 @@ gimple_build_omp_taskgroup (gimple_seq body)
 gomp_continue *
 gimple_build_omp_continue (tree control_def, tree control_use)
 {
-  gomp_continue *p =
-    as_a <gomp_continue *> (gimple_alloc (GIMPLE_OMP_CONTINUE, 0));
+  gomp_continue *p
+    = as_a <gomp_continue *> (gimple_alloc (GIMPLE_OMP_CONTINUE, 0));
   gimple_omp_continue_set_control_def (p, control_def);
   gimple_omp_continue_set_control_use (p, control_use);
   return p;
@@ -1025,8 +1021,8 @@ gimple_build_omp_return (bool wait_p)
 gomp_sections *
 gimple_build_omp_sections (gimple_seq body, tree clauses)
 {
-  gomp_sections *p =
-    as_a <gomp_sections *> (gimple_alloc (GIMPLE_OMP_SECTIONS, 0));
+  gomp_sections *p
+    = as_a <gomp_sections *> (gimple_alloc (GIMPLE_OMP_SECTIONS, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_sections_set_clauses (p, clauses);
@@ -1053,8 +1049,8 @@ gimple_build_omp_sections_switch (void)
 gomp_single *
 gimple_build_omp_single (gimple_seq body, tree clauses)
 {
-  gomp_single *p =
-    as_a <gomp_single *> (gimple_alloc (GIMPLE_OMP_SINGLE, 0));
+  gomp_single *p
+    = as_a <gomp_single *> (gimple_alloc (GIMPLE_OMP_SINGLE, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_single_set_clauses (p, clauses);
@@ -1071,8 +1067,8 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
 gomp_target *
 gimple_build_omp_target (gimple_seq body, int kind, tree clauses)
 {
-  gomp_target *p =
-    as_a <gomp_target *> (gimple_alloc (GIMPLE_OMP_TARGET, 0));
+  gomp_target *p
+    = as_a <gomp_target *> (gimple_alloc (GIMPLE_OMP_TARGET, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_target_set_clauses (p, clauses);
@@ -1090,8 +1086,7 @@ gimple_build_omp_target (gimple_seq body, int kind, tree clauses)
 gomp_teams *
 gimple_build_omp_teams (gimple_seq body, tree clauses)
 {
-  gomp_teams *p =
-    as_a <gomp_teams *> (gimple_alloc (GIMPLE_OMP_TEAMS, 0));
+  gomp_teams *p = as_a <gomp_teams *> (gimple_alloc (GIMPLE_OMP_TEAMS, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_teams_set_clauses (p, clauses);
@@ -1105,8 +1100,8 @@ gimple_build_omp_teams (gimple_seq body, tree clauses)
 gomp_atomic_load *
 gimple_build_omp_atomic_load (tree lhs, tree rhs)
 {
-  gomp_atomic_load *p =
-    as_a <gomp_atomic_load *> (gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD, 0));
+  gomp_atomic_load *p
+    = as_a <gomp_atomic_load *> (gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD, 0));
   gimple_omp_atomic_load_set_lhs (p, lhs);
   gimple_omp_atomic_load_set_rhs (p, rhs);
   return p;
@@ -1119,8 +1114,8 @@ gimple_build_omp_atomic_load (tree lhs, tree rhs)
 gomp_atomic_store *
 gimple_build_omp_atomic_store (tree val)
 {
-  gomp_atomic_store *p =
-    as_a <gomp_atomic_store *> (gimple_alloc (GIMPLE_OMP_ATOMIC_STORE, 0));
+  gomp_atomic_store *p
+    = as_a <gomp_atomic_store *> (gimple_alloc (GIMPLE_OMP_ATOMIC_STORE, 0));
   gimple_omp_atomic_store_set_val (p, val);
   return p;
 }
@@ -1130,8 +1125,8 @@ gimple_build_omp_atomic_store (tree val)
 gtransaction *
 gimple_build_transaction (gimple_seq body, tree label)
 {
-  gtransaction *p =
-    as_a <gtransaction *> (gimple_alloc (GIMPLE_TRANSACTION, 0));
+  gtransaction *p
+    = as_a <gtransaction *> (gimple_alloc (GIMPLE_TRANSACTION, 0));
   gimple_transaction_set_body (p, body);
   gimple_transaction_set_label (p, label);
   return p;
@@ -1704,8 +1699,8 @@ gimple_copy (gimple stmt)
 	  {
 	    geh_filter *eh_filter_stmt = as_a <geh_filter *> (stmt);
 	    geh_filter *eh_filter_copy = as_a <geh_filter *> (copy);
-	    new_seq =
-	      gimple_seq_copy (gimple_eh_filter_failure (eh_filter_stmt));
+	    new_seq
+	      = gimple_seq_copy (gimple_eh_filter_failure (eh_filter_stmt));
 	    gimple_eh_filter_set_failure (eh_filter_copy, new_seq);
 	    t = unshare_expr (gimple_eh_filter_types (eh_filter_stmt));
 	    gimple_eh_filter_set_types (eh_filter_copy, t);
@@ -1761,10 +1756,8 @@ gimple_copy (gimple stmt)
 
 	case GIMPLE_OMP_PARALLEL:
 	  {
-	    gomp_parallel *omp_par_stmt =
-	      as_a <gomp_parallel *> (stmt);
-	    gomp_parallel *omp_par_copy =
-	      as_a <gomp_parallel *> (copy);
+	    gomp_parallel *omp_par_stmt = as_a <gomp_parallel *> (stmt);
+	    gomp_parallel *omp_par_copy = as_a <gomp_parallel *> (copy);
 	    t = unshare_expr (gimple_omp_parallel_clauses (omp_par_stmt));
 	    gimple_omp_parallel_set_clauses (omp_par_copy, t);
 	    t = unshare_expr (gimple_omp_parallel_child_fn (omp_par_stmt));

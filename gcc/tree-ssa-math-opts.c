@@ -1130,8 +1130,8 @@ build_and_insert_cast (gimple_stmt_iterator *gsi, location_t loc,
 		       tree type, tree val)
 {
   tree result = make_ssa_name (type, NULL);
-  gassign *stmt =
-    gimple_build_assign_with_ops (NOP_EXPR, result, val, NULL_TREE);
+  gassign *stmt
+    = gimple_build_assign_with_ops (NOP_EXPR, result, val, NULL_TREE);
   gimple_set_location (stmt, loc);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
   return result;
@@ -1508,8 +1508,7 @@ pass_cse_sincos::execute (function *fun)
 		  if (result)
 		    {
 		      tree lhs = gimple_get_lhs (stmt);
-		      gassign *new_stmt =
-			gimple_build_assign (lhs, result);
+		      gassign *new_stmt = gimple_build_assign (lhs, result);
 		      gimple_set_location (new_stmt, loc);
 		      unlink_stmt_vdef (stmt);
 		      gsi_replace (&gsi, new_stmt, true);

@@ -2963,8 +2963,8 @@ propagate_tm_flags_out (struct tm_region *region)
 
   if (region->outer && region->outer->transaction_stmt)
     {
-      unsigned s =
-	gimple_transaction_subcode (region->get_transaction_stmt ());
+      unsigned s
+	= gimple_transaction_subcode (region->get_transaction_stmt ());
       s &= (GTMA_HAVE_ABORT | GTMA_HAVE_LOAD | GTMA_HAVE_STORE
             | GTMA_MAY_ENTER_IRREVOCABLE);
       s |= gimple_transaction_subcode (region->outer->get_transaction_stmt ());
@@ -3004,8 +3004,8 @@ execute_tm_mark (void)
 	{
 	  if (r->transaction_stmt)
 	    {
-	      unsigned sub =
-		gimple_transaction_subcode (r->get_transaction_stmt ());
+	      unsigned sub
+		= gimple_transaction_subcode (r->get_transaction_stmt ());
 
 	      /* If we're sure to go irrevocable, there won't be
 		 anything to expand, since the run-time will go

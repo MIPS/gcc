@@ -1400,8 +1400,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	case GIMPLE_OMP_PARALLEL:
 	  {
-	    gomp_parallel *omp_par_stmt =
-	      as_a <gomp_parallel *> (stmt);
+	    gomp_parallel *omp_par_stmt = as_a <gomp_parallel *> (stmt);
 	    s1 = remap_gimple_seq (gimple_omp_body (omp_par_stmt), id);
 	    copy = gimple_build_omp_parallel
 	             (s1,
@@ -1494,22 +1493,21 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	case GIMPLE_OMP_CRITICAL:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy =
-	    gimple_build_omp_critical (s1,
-				       gimple_omp_critical_name (
-				         as_a <gomp_critical *> (stmt)));
+	  copy = gimple_build_omp_critical (s1,
+					    gimple_omp_critical_name (
+					      as_a <gomp_critical *> (stmt)));
 	  break;
 
 	case GIMPLE_TRANSACTION:
 	  {
-	    gtransaction *old_trans_stmt =
-	      as_a <gtransaction *> (stmt);
+	    gtransaction *old_trans_stmt = as_a <gtransaction *> (stmt);
 	    gtransaction *new_trans_stmt;
 	    s1 = remap_gimple_seq (gimple_transaction_body (old_trans_stmt),
 				   id);
-	    copy = new_trans_stmt =
-	      gimple_build_transaction (s1,
-					gimple_transaction_label (old_trans_stmt));
+	    copy = new_trans_stmt
+	      = gimple_build_transaction (
+		  s1,
+		  gimple_transaction_label (old_trans_stmt));
 	    gimple_transaction_set_subcode (
               new_trans_stmt,
 	      gimple_transaction_subcode (old_trans_stmt));
@@ -1565,10 +1563,10 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
       if (gimple_debug_bind_p (stmt))
 	{
-	  gdebug *copy =
-	    gimple_build_debug_bind (gimple_debug_bind_get_var (stmt),
-				     gimple_debug_bind_get_value (stmt),
-				     stmt);
+	  gdebug *copy
+	    = gimple_build_debug_bind (gimple_debug_bind_get_var (stmt),
+				       gimple_debug_bind_get_value (stmt),
+				       stmt);
 	  id->debug_stmts.safe_push (copy);
 	  gimple_seq_add_stmt (&stmts, copy);
 	  return stmts;
@@ -1576,8 +1574,9 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       if (gimple_debug_source_bind_p (stmt))
 	{
 	  gdebug *copy = gimple_build_debug_source_bind
-		   (gimple_debug_source_bind_get_var (stmt),
-		    gimple_debug_source_bind_get_value (stmt), stmt);
+	                   (gimple_debug_source_bind_get_var (stmt),
+			    gimple_debug_source_bind_get_value (stmt),
+			    stmt);
 	  id->debug_stmts.safe_push (copy);
 	  gimple_seq_add_stmt (&stmts, copy);
 	  return stmts;
@@ -4084,8 +4083,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
     case GIMPLE_ASM:
       {
-	int count =
-	  asm_str_count (gimple_asm_string (as_a <gasm *> (stmt)));
+	int count = asm_str_count (gimple_asm_string (as_a <gasm *> (stmt)));
 	/* 1000 means infinity. This avoids overflows later
 	   with very long asm statements.  */
 	if (count > 1000)

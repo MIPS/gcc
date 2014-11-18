@@ -516,8 +516,7 @@ same_succ_hash (const_same_succ e)
   EXECUTE_IF_SET_IN_BITMAP (e->succs, 0, s, bs)
     {
       int n = find_edge (bb, BASIC_BLOCK_FOR_FN (cfun, s))->dest_idx;
-      for (gphi_iterator gsi =
-	     gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s));
+      for (gphi_iterator gsi = gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s));
 	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{

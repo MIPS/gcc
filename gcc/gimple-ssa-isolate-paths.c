@@ -296,8 +296,8 @@ find_implicit_erroneous_behaviour (void)
 		    {
 		      FOR_EACH_IMM_USE_STMT (use_stmt, iter, lhs)
 			{
-			  greturn *return_stmt =
-			    dyn_cast <greturn *> (use_stmt);
+			  greturn *return_stmt
+			    = dyn_cast <greturn *> (use_stmt);
 			  if (!return_stmt)
 			    continue;
 

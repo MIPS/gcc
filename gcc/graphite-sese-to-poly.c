@@ -2666,8 +2666,8 @@ follow_ssa_with_commutative_ops (tree arg, tree lhs)
 
   if (is_reduction_operation_p (stmt))
     {
-      gphi *res =
-	follow_ssa_with_commutative_ops (gimple_assign_rhs1 (stmt), lhs);
+      gphi *res
+	= follow_ssa_with_commutative_ops (gimple_assign_rhs1 (stmt), lhs);
 
       return res ? res :
 	follow_ssa_with_commutative_ops (gimple_assign_rhs2 (stmt), lhs);
@@ -2710,10 +2710,9 @@ detect_commutative_reduction_assign (gimple stmt, vec<gimple> *in,
 
   if (is_reduction_operation_p (stmt))
     {
-      gphi *res =
-	detect_commutative_reduction_arg (lhs, stmt,
-					  gimple_assign_rhs1 (stmt),
-					  in, out);
+      gphi *res = detect_commutative_reduction_arg (lhs, stmt,
+						    gimple_assign_rhs1 (stmt),
+						    in, out);
       return res ? res
 	: detect_commutative_reduction_arg (lhs, stmt,
 					    gimple_assign_rhs2 (stmt),

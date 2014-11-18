@@ -2246,8 +2246,7 @@ tree_estimate_probability_bb (basic_block bb)
 	  gimple_stmt_iterator gi;
 	  for (gi = gsi_start_bb (e->dest); !gsi_end_p (gi); gsi_next (&gi))
 	    {
-	      glabel *label_stmt =
-		dyn_cast <glabel *> (gsi_stmt (gi));
+	      glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (gi));
 	      tree decl;
 
 	      if (!label_stmt)

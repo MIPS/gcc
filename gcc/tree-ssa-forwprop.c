@@ -2293,9 +2293,8 @@ pass_forwprop::execute (function *fun)
 
 	    case GIMPLE_COND:
 	      {
-		int did_something;
-		did_something =
-		  forward_propagate_into_gimple_cond (as_a <gcond *> (stmt));
+		int did_something
+		  = forward_propagate_into_gimple_cond (as_a <gcond *> (stmt));
 		if (did_something == 2)
 		  cfg_changed = true;
 		changed = did_something != 0;

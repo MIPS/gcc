@@ -3434,10 +3434,10 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
       else
 	{
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
-	  gassign *cast_stmt =
-	    gimple_build_assign_with_ops (NOP_EXPR, lhs,
-					  basis_name,
-					  NULL_TREE);
+	  gassign *cast_stmt
+	    = gimple_build_assign_with_ops (NOP_EXPR, lhs,
+					    basis_name,
+					    NULL_TREE);
 	  gimple_set_location (cast_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, cast_stmt, false);
 	  c->cand_stmt = cast_stmt;

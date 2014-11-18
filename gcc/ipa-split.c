@@ -320,8 +320,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
       {
         gimple_stmt_iterator bsi;
         for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-	  if (glabel *label_stmt =
-	        dyn_cast <glabel *> (gsi_stmt (bsi)))
+	  if (glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (bsi)))
 	    {
 	      if (test_nonssa_use (label_stmt,
 				   gimple_label_label (label_stmt),
@@ -1542,8 +1541,8 @@ split_function (struct split_point *split_point)
 		      gimple_stmt_iterator bsi;
 		      for (bsi = gsi_start_bb (return_bb); !gsi_end_p (bsi);
 			   gsi_next (&bsi))
-			if (greturn *return_stmt =
-			      dyn_cast <greturn *> (gsi_stmt (bsi)))
+			if (greturn *return_stmt
+			      = dyn_cast <greturn *> (gsi_stmt (bsi)))
 			  {
 			    gimple_return_set_retval (return_stmt, retval);
 			    break;
