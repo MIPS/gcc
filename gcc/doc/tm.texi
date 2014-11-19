@@ -3462,7 +3462,7 @@ If the static chain is passed in memory, these macros should not be
 defined; instead, the @code{TARGET_STATIC_CHAIN} hook should be used.
 @end defmac
 
-@deftypefn {Target Hook} rtx TARGET_STATIC_CHAIN (const_tree @var{fndecl}, bool @var{incoming_p})
+@deftypefn {Target Hook} rtx TARGET_STATIC_CHAIN (const_tree @var{fndecl_or_type}, bool @var{incoming_p})
 This hook replaces the use of @code{STATIC_CHAIN_REGNUM} et al for
 targets that may use different static chain locations for different
 nested functions.  This may be required if the target has function
@@ -6205,7 +6205,7 @@ optimized for speed rather than size.
 If you don't define this, a reasonable default is used.
 @end defmac
 
-@deftypefn {Target Hook} bool TARGET_USE_BY_PIECES_INFRASTRUCTURE_P (unsigned int @var{size}, unsigned int @var{alignment}, enum by_pieces_operation @var{op}, bool @var{speed_p})
+@deftypefn {Target Hook} bool TARGET_USE_BY_PIECES_INFRASTRUCTURE_P (unsigned HOST_WIDE_INT @var{size}, unsigned int @var{alignment}, enum by_pieces_operation @var{op}, bool @var{speed_p})
 GCC will attempt several strategies when asked to copy between
 two areas of memory, or to set, clear or store to memory, for example
 when copying a @code{struct}. The @code{by_pieces} infrastructure

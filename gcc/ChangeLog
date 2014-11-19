@@ -1,3 +1,264 @@
+2014-11-19  Renlin Li  <Renlin.Li@arm.com>
+
+    PR middle-end/63762
+	* ira.c (ira): Update preferred class.
+
+2014-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (gimple_build_assign_with_ops): Add unary arg overload.
+	(gimple_assign_set_rhs_with_ops_1): Renamed to ...
+	(gimple_assign_set_rhs_with_ops): ... this.  Adjust binary arg
+	inline overload to use it.  Add unary arg overload.
+	* gimple.c (gimple_build_assign_with_ops): New unary arg overload.
+	(gimple_assign_set_rhs_from_tree): Use
+	gimple_assign_set_rhs_with_ops instead of
+	gimple_assign_set_rhs_with_ops_1.
+	(gimple_assign_set_rhs_with_ops_1): Renamed to ...
+	(gimple_assign_set_rhs_with_ops): ... this.
+	* ipa-split.c (split_function): Remove last NULL argument
+	from gimple_build_assign_with_ops call.
+	* tree-ssa-loop-im.c
+	(move_computations_dom_walker::before_dom_children): Likewise.
+	* tsan.c (instrument_builtin_call): Likewise.
+	* tree-vect-stmts.c (vect_init_vector, vectorizable_mask_load_store,
+	vectorizable_conversion, vectorizable_load): Likewise.
+	* tree-vect-loop.c (vect_is_simple_reduction_1,
+	get_initial_def_for_induction): Likewise.
+	* tree-loop-distribution.c (generate_memset_builtin): Likewise.
+	* tree-vect-patterns.c (vect_handle_widen_op_by_const,
+	vect_recog_widen_mult_pattern, vect_operation_fits_smaller_type,
+	vect_recog_over_widening_pattern, vect_recog_rotate_pattern,
+	vect_recog_vector_vector_shift_pattern, vect_recog_divmod_pattern,
+	vect_recog_mixed_size_cond_pattern, adjust_bool_pattern_cast,
+	adjust_bool_pattern, vect_recog_bool_pattern): Likewise.
+	* tree-ssa-phiopt.c (conditional_replacement, abs_replacement,
+	neg_replacement): Likewise.
+	* asan.c (build_shadow_mem_access, maybe_create_ssa_name,
+	maybe_cast_to_ptrmode, asan_expand_check_ifn): Likewise.
+	* tree-vect-slp.c (vect_get_constant_vectors): Likewise.
+	* omp-low.c (lower_rec_input_clauses, expand_omp_for_generic,
+	expand_omp_for_static_nochunk, expand_omp_for_static_chunk,
+	simd_clone_adjust): Likewise.
+	* tree-vect-loop-manip.c (vect_create_cond_for_align_checks): Likewise.
+	* gimple-ssa-strength-reduction.c (introduce_cast_before_cand,
+	replace_one_candidate): Likewise.
+	* gimple-builder.c (build_type_cast): Likewise.
+	* tree-ssa-forwprop.c (simplify_rotate): Likewise.
+	(forward_propagate_addr_expr_1): Remove last NULL argument
+	from gimple_assign_set_rhs_with_ops call.
+	(simplify_vector_constructor): Use gimple_assign_set_rhs_with_ops
+	instead of gimple_assign_set_rhs_with_ops_1.
+	* tree-ssa-reassoc.c (maybe_optimize_range_tests): Remove last NULL
+	argument from gimple_build_assign_with_ops call.
+	(repropagate_negates): Remove last NULL argument from
+	gimple_assign_set_rhs_with_ops call.
+	* ubsan.c (ubsan_expand_null_ifn, ubsan_expand_objsize_ifn): Remove
+	last NULL argument from gimple_build_assign_with_ops call.
+	(instrument_bool_enum_load): Likewise.  Remove last NULL argument
+	from gimple_assign_set_rhs_with_ops call.
+	* tree-ssa-math-opts.c (build_and_insert_cast, convert_mult_to_fma):
+	Remove last NULL argument from gimple_build_assign_with_ops call.
+	(bswap_replace): Likewise.  Use gimple_assign_set_rhs_with_ops instead
+	of gimple_assign_set_rhs_with_ops_1.
+	(convert_plusminus_to_widen): Use gimple_assign_set_rhs_with_ops
+	instead of gimple_assign_set_rhs_with_ops_1.
+	* gimple-fold.c (replace_stmt_with_simplification): Likewise.
+	(rewrite_to_defined_overflow, gimple_build): Remove last NULL argument
+	from gimple_build_assign_with_ops call.
+	* tree-ssa-strlen.c (handle_pointer_plus): Remove last NULL argument
+	from gimple_assign_set_rhs_with_ops call.
+	* tree-vrp.c (simplify_truth_ops_using_ranges,
+	simplify_bit_ops_using_ranges): Remove last NULL argument from
+	gimple_assign_set_rhs_with_ops call.
+	(simplify_float_conversion_using_ranges,
+	simplify_internal_call_using_ranges): Remove last NULL argument from
+	gimple_build_assign_with_ops call.
+
+2014-11-19  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/61915
+	* config/aarch64/aarch64.c (generic_regmove_cost): Increase FP move
+	cost.
+
+2014-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63690
+	* ubsan.c (instrument_object_size): Check for MEM_REF.
+
+2014-11-19  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR regression/63868
+	* cgraph.c (cgraph_node::create): Guard g->have_offload with
+	ifdef ENABLE_OFFLOADING.
+	* omp-low.c (create_omp_child_function): Likewise.
+	(expand_omp_target): Guard node->mark_force_output and offload_funcs
+	with ifdef ENABLE_OFFLOADING.
+	* varpool.c (varpool_node::get_create): Guard g->have_offload and
+	offload_vars with ifdef ENABLE_OFFLOADING.
+
+2014-11-19  Felix Yang  <felix.yang@huawei.com>
+	    Shanyao Chen  <chenshanyao@huawei.com>
+
+	PR target/59593
+	* config/arm/arm.md (define_attr "arch"): Add v6t2.
+	(define_attr "arch_enabled"): Add test for the above.
+	(*movhi_insn_arch4): Add new alternative.
+
+2014-11-19  Richard Henderson  <rth@redhat.com>
+
+	* c-family/c-common.c (c_common_reswords): Add
+	__builtin_call_with_static_chain.
+	* c-family/c-common.h (RID_BUILTIN_CALL_WITH_STATIC_CHAIN): New.
+	* c/c-parser.c (c_parser_postfix_expression): Handle it.
+	* doc/extend.texi (__builtin_call_with_static_chain): Document it.
+
+	* calls.c (prepare_call_address): Allow decl or type for first arg.
+	(expand_call): Pass type to prepare_call_address if no decl.
+	* gimple-fold.c (gimple_fold_call): Eliminate the static chain if
+	the function doesn't use it; fold it otherwise.
+	* gimplify.c (gimplify_call_expr): Gimplify the static chain.
+	* tree-cfg.c (verify_gimple_call): Allow a static chain on indirect
+	function calls.
+
+	* targhooks.c (default_static_chain): Remove check for
+	DECL_STATIC_CHAIN.
+	* config/moxie/moxie.c (moxie_static_chain): Likewise.
+	* config/i386/i386.c (ix86_static_chain): Allow decl or type
+	as the first argument.
+	* config/xtensa/xtensa.c (xtensa_static_chain): Change the name
+	of the unused first parameter.
+	* doc/tm.texi (TARGET_STATIC_CHAIN): Document the first parameter
+	may be a type.
+	* target.def (static_chain): Likewise.
+
+2014-11-19  Renlin Li  <renlin.li@arm.com>
+
+    * config/aarch64/aarch64.h (TARGET_CPU_CPP_BUILTINS): Define __ARM_FP_FAST,
+	__ARM_FEATURE_FMA, __ARM_FP, __ARM_FEATURE_NUMERIC_MAXMIN, __ARM_NEON_FP.
+
+2014-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63879
+	* fold-const.c (negate_expr_p) <case NEGATE_EXPR>: Return
+	!TYPE_OVERFLOW_SANITIZED.
+	(fold_negate_expr) <case INTEGER_CST>: Fold when overflow
+	does not trap and when overflow wraps, or when SANITIZE_SI_OVERFLOW
+	is 0.
+
+2014-11-19  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* collect2.c (main): Don't call fatal_error before
+	diagnostic_initialize.
+	* lto-wrapper.c (main): Likewise.
+
+2014-11-19  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/62167
+	* tree-ssa-tail-merge.c (stmt_local_def): Handle statements with vuse
+	conservatively.
+	(gimple_equal_p): Don't use vn_valueize to compare for lhs equality of
+	assigns.
+
+2014-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63915
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Pass
+	true instead of false as last argument to gsi_replace.
+
+	PR sanitizer/63520
+	* internal-fn.c (expand_ubsan_result_store): New function.
+	(expand_addsub_overflow, expand_neg_overflow, expand_mul_overflow):
+	Use it instead of just emit_move_insn.
+
+2014-11-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63844
+	* omp-low.c (fixup_child_record_type): Use a restrict qualified
+	referece type for the receiver parameter.
+
+2014-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63913
+	* ubsan.c: Include tree-eh.h.
+	(instrument_bool_enum_load): Handle loads that can throw.
+
+	PR rtl-optimization/63843
+	* simplify-rtx.c (simplify_binary_operation_1) <case ASHIFTRT>: For
+	optimization of ashiftrt of subreg of lshiftrt, check that code
+	is ASHIFTRT.
+
+2014-11-18  Andrew MacLeod  <amacleod@redhat.com>
+
+	* attribs.c (decl_attributes): Remove always true condition,
+	TREE_TYPE(x) will never compare equal to a TYPE_DECL.
+
+2014-11-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/63937
+	* target.def (use_by_pieces_infrastructure_p): Take unsigned
+	HOST_WIDE_INT as the size parameter.
+	* targhooks.c (default_use_by_pieces_infrastructure_p): Likewise.
+	* targhooks.h (default_use_by_pieces_infrastructure_p): Likewise.
+	* config/arc/arc.c (arc_use_by_pieces_infrastructure_p)): Likewise.
+	* config/mips/mips.c (mips_use_by_pieces_infrastructure_p)): Likewise.
+	* config/s390/s390.c (s390_use_by_pieces_infrastructure_p)): Likewise.
+	* config/sh/sh.c (sh_use_by_pieces_infrastructure_p)): Likewise.
+	* config/aarch64/aarch64.c
+	(aarch64_use_by_pieces_infrastructure_p)): Likewise.
+	* doc/tm.texi: Regenerate.
+
+2014-11-18  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-cp.c (ipcp_cloning_candidate_p): Use opt_for_fn.
+	(ipa_value_from_jfunc, ipa_context_from_jfunc): Skip sanity check.
+	(ipa_get_indirect_edge_target_1): Use opt_for_fn.
+	(good_cloning_opportunity_p): Likewise.
+	(ipa-cp gate): Enable ipa-cp with LTO.
+	* ipa-profile.c (ipa_propagate_frequency): Use opt_for_fn.
+	* ipa.c (symbol_table::remove_unreachable_nodes): Always build type
+	inheritance.
+	* ipa-inline-transform.c (inline_transform): Check if there are inlines
+	to apply even at -O0.
+	* cgraphunit.c (cgraph_node::finalize_function): Use opt_for_fn.
+	(analyze_functions): Build type inheritance graph.
+	* ipa-inline.c (can_inline_edge_p): Use opt_for_fn.
+	(want_early_inline_function_p, want_inline_small_function_p):
+	Likewise.
+	(check_callers): Likewise.
+	(edge_badness): Likewise.
+	(inline_small_functions): Always be ready for indirect inlining
+	to happend.
+	(ipa_inline): Always use want_inline_function_to_all_callers_p.
+	(early_inline_small_functions): Use opt_for_fn.
+	* ipa-inline-analysis.c (estimate_function_body_sizes): use opt_for_fn.
+	(estimate_function_body_sizes): Likewise.
+	(compute_inline_parameters): Likewise.
+	(estimate_edge_devirt_benefit): Likewise.
+	(inline_analyze_function): Likewise.
+	* ipa-devirt.c (ipa_devirt): Likewise.
+	(gate): Use in_lto_p.
+	* ipa-prop.c (ipa_func_spec_opts_forbid_analysis_p): Use opt_for_fn.
+	(try_make_edge_direct_virtual_call): Likewise.
+	(update_indirect_edges_after_inlining): Likewise.
+	(ipa_free_all_structures_after_ipa_cp): Add in_lto_p check.
+	* common.opt (findirect-inlining): Turn into optimization.
+	* ipa-pure-const.c (add_new_function): Use opt_for_fn.
+	(pure_const_generate_summary): Likewise.
+	(gate_pure_const): Always enable with in_lto_p.
+
+2014-11-18  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* config/mips/mips.md (compression): Add `micromips32' setting.
+	(enabled, length): Handle it.
+	(shift_compression): Replace `micromips' with `micromips32' in
+	the `compression' attribute.
+	(*add<mode>3, sub<mode>3): Likewise.
+
+2014-11-18  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* gcc/config/mips/mips.md (*jump_absolute): Use a branch when in
+	range, a jump otherwise.
+
 2014-11-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	* config/arm/cortex-a15-neon.md (cortex_a15_vfp_to_from_gp):

@@ -1,3 +1,8 @@
+2014-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* gimple.c (gimple_build_assign_with_ops): Strengthen return type
+	of new overload, from gimple to gassign *.
+
 2014-11-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* cgraphbuild.c (pass_build_cgraph_edges::execute): Fix linebreak

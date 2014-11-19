@@ -3264,8 +3264,7 @@ introduce_cast_before_cand (slsr_cand_t c, tree to_type, tree from_expr)
   gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 
   cast_lhs = make_temp_ssa_name (to_type, NULL, "slsr");
-  cast_stmt = gimple_build_assign_with_ops (NOP_EXPR, cast_lhs,
-					    from_expr, NULL_TREE);
+  cast_stmt = gimple_build_assign_with_ops (NOP_EXPR, cast_lhs, from_expr);
   gimple_set_location (cast_stmt, gimple_location (c->cand_stmt));
   gsi_insert_before (&gsi, cast_stmt, GSI_SAME_STMT);
 
@@ -3434,10 +3433,8 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
       else
 	{
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
-	  gassign *cast_stmt
-	    = gimple_build_assign_with_ops (NOP_EXPR, lhs,
-					    basis_name,
-					    NULL_TREE);
+	  gassign *cast_stmt = gimple_build_assign_with_ops (NOP_EXPR, lhs,
+							     basis_name);
 	  gimple_set_location (cast_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, cast_stmt, false);
 	  c->cand_stmt = cast_stmt;

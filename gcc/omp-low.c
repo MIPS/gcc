@@ -1517,7 +1517,8 @@ fixup_child_record_type (omp_context *ctx)
       layout_type (type);
     }
 
-  TREE_TYPE (ctx->receiver_decl) = build_pointer_type (type);
+  TREE_TYPE (ctx->receiver_decl)
+    = build_qualified_type (build_reference_type (type), TYPE_QUAL_RESTRICT);
 }
 
 /* Instantiate decls as necessary in CTX to satisfy the data sharing
@@ -1961,7 +1962,9 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
 	if (is_targetreg_ctx (octx))
 	  {
 	    cgraph_node::get_create (decl)->offloadable = 1;
+#ifdef ENABLE_OFFLOADING
 	    g->have_offload = true;
+#endif
 	    break;
 	  }
     }
@@ -3843,8 +3846,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
       OMP_CLAUSE_CHAIN (c) = gimple_omp_for_clauses (ctx->stmt);
       gimple_omp_for_set_clauses (ctx->stmt, c);
       g = gimple_build_assign_with_ops (INTEGER_CST, lane,
-					build_int_cst (unsigned_type_node, 0),
-					NULL_TREE);
+					build_int_cst (unsigned_type_node, 0));
       gimple_seq_add_stmt (ilist, g);
       for (int i = 0; i < 2; i++)
 	if (llist[i])
@@ -3855,7 +3857,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	    gimple_seq *seq = i == 0 ? ilist : dlist;
 	    gimple_seq_add_stmt (seq, g);
 	    tree t = build_int_cst (unsigned_type_node, 0);
-	    g = gimple_build_assign_with_ops (INTEGER_CST, idx, t, NULL_TREE);
+	    g = gimple_build_assign_with_ops (INTEGER_CST, idx, t);
 	    gimple_seq_add_stmt (seq, g);
 	    tree body = create_artificial_label (UNKNOWN_LOCATION);
 	    tree header = create_artificial_label (UNKNOWN_LOCATION);
@@ -5854,8 +5856,7 @@ expand_omp_for_generic (struct omp_region *region,
       if (useless_type_conversion_p (TREE_TYPE (fd->loop.v), TREE_TYPE (iend)))
 	assign_stmt = gimple_build_assign (fd->loop.v, iend);
       else
-	assign_stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, iend,
-					     NULL_TREE);
+	assign_stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, iend);
       gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
     }
   if (fd->collapse > 1)
@@ -6275,8 +6276,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       if (useless_type_conversion_p (TREE_TYPE (fd->loop.v), TREE_TYPE (e)))
 	assign_stmt = gimple_build_assign (fd->loop.v, e);
       else
-	assign_stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, e,
-					     NULL_TREE);
+	assign_stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, e);
       gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
     }
   if (fd->collapse > 1)
@@ -6666,8 +6666,7 @@ expand_omp_for_static_chunk (struct omp_region *region,
       if (useless_type_conversion_p (TREE_TYPE (fd->loop.v), TREE_TYPE (e)))
 	assign_stmt = gimple_build_assign (fd->loop.v, e);
       else
-	assign_stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, e,
-						    NULL_TREE);
+	assign_stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, e);
       gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
     }
   if (fd->collapse > 1)
@@ -8303,7 +8302,6 @@ expand_omp_target (struct omp_region *region)
   if (kind == GF_OMP_TARGET_KIND_REGION)
     {
       unsigned srcidx, dstidx, num;
-      struct cgraph_node *node;
 
       /* If the target region needs data sent from the parent
 	 function, then the very first statement (except possible
@@ -8430,18 +8428,22 @@ expand_omp_target (struct omp_region *region)
       DECL_STRUCT_FUNCTION (child_fn)->curr_properties = cfun->curr_properties;
       cgraph_node::add_new_function (child_fn, true);
 
+#ifdef ENABLE_OFFLOADING
       /* Add the new function to the offload table.  */
       vec_safe_push (offload_funcs, child_fn);
+#endif
 
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
       cgraph_edge::rebuild_edges ();
 
+#ifdef ENABLE_OFFLOADING
       /* Prevent IPA from removing child_fn as unreachable, since there are no
 	 refs from the parent function to child_fn in offload LTO mode.  */
-      node = cgraph_node::get (child_fn);
+      struct cgraph_node *node = cgraph_node::get (child_fn);
       node->mark_force_output ();
+#endif
 
       /* Some EH regions might become dead, see PR34608.  If
 	 pass_cleanup_cfg isn't the first pass to happen with the
@@ -12241,8 +12243,7 @@ simd_clone_adjust (struct cgraph_node *node)
 	      {
 		t = make_ssa_name (orig_arg, NULL);
 		g = gimple_build_assign_with_ops (NOP_EXPR, t,
-						  gimple_call_lhs (g),
-						  NULL_TREE);
+						  gimple_call_lhs (g));
 		gimple_seq_add_stmt_without_update (&seq, g);
 	      }
 	    gsi_insert_seq_on_edge_immediate
@@ -12546,7 +12547,7 @@ omp_finish_file (void)
 
       varpool_node::finalize_decl (vars_decl);
       varpool_node::finalize_decl (funcs_decl);
-   }
+    }
   else
     {
       for (unsigned i = 0; i < num_funcs; i++)

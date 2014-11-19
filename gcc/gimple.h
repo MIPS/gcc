@@ -1300,10 +1300,11 @@ gcall *gimple_build_call_from_tree (tree);
 gassign *gimple_build_assign_stat (tree, tree MEM_STAT_DECL);
 #define gimple_build_assign(l,r) gimple_build_assign_stat (l, r MEM_STAT_INFO)
 gassign *gimple_build_assign_with_ops (enum tree_code, tree,
-					    tree, tree,
-					    tree CXX_MEM_STAT_INFO);
+				       tree, tree, tree CXX_MEM_STAT_INFO);
 gassign *gimple_build_assign_with_ops (enum tree_code, tree,
-					    tree, tree CXX_MEM_STAT_INFO);
+				       tree, tree CXX_MEM_STAT_INFO);
+gassign *gimple_build_assign_with_ops (enum tree_code, tree,
+				       tree CXX_MEM_STAT_INFO);
 gcond *gimple_build_cond (enum tree_code, tree, tree, tree, tree);
 gcond *gimple_build_cond_from_tree (tree, tree, tree);
 void gimple_cond_set_condition_from_tree (gcond *, tree);
@@ -1369,8 +1370,8 @@ bool gimple_assign_ssa_name_copy_p (gimple);
 bool gimple_assign_unary_nop_p (gimple);
 void gimple_set_bb (gimple, basic_block);
 void gimple_assign_set_rhs_from_tree (gimple_stmt_iterator *, tree);
-void gimple_assign_set_rhs_with_ops_1 (gimple_stmt_iterator *, enum tree_code,
-				       tree, tree, tree);
+void gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *, enum tree_code,
+				     tree, tree, tree);
 tree gimple_get_lhs (const_gimple);
 void gimple_set_lhs (gimple, tree);
 gimple gimple_copy (gimple);
@@ -2448,14 +2449,24 @@ gimple_assign_set_rhs3 (gimple gs, tree rhs)
   gimple_set_op (gs, 3, rhs);
 }
 
-/* A wrapper around gimple_assign_set_rhs_with_ops_1, for callers which expect
-   to see only a maximum of two operands.  */
+/* A wrapper around 3 operand gimple_assign_set_rhs_with_ops, for callers
+   which expect to see only two operands.  */
 
 static inline void
 gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
 				tree op1, tree op2)
 {
-  gimple_assign_set_rhs_with_ops_1 (gsi, code, op1, op2, NULL);
+  gimple_assign_set_rhs_with_ops (gsi, code, op1, op2, NULL);
+}
+
+/* A wrapper around 3 operand gimple_assign_set_rhs_with_ops, for callers
+   which expect to see only one operands.  */
+
+static inline void
+gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
+				tree op1)
+{
+  gimple_assign_set_rhs_with_ops (gsi, code, op1, NULL, NULL);
 }
 
 /* Returns true if GS is a nontemporal move.  */

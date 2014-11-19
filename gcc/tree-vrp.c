@@ -8880,8 +8880,7 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   if (integer_zerop (op1))
     gimple_assign_set_rhs_with_ops (gsi,
 				    need_conversion
-				    ? NOP_EXPR : TREE_CODE (op0),
-				    op0, NULL_TREE);
+				    ? NOP_EXPR : TREE_CODE (op0), op0);
   /* For A != B we substitute A ^ B.  Either with conversion.  */
   else if (need_conversion)
     {
@@ -8889,7 +8888,7 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
       gassign *newop
 	= gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
       gsi_insert_before (gsi, newop, GSI_SAME_STMT);
-      gimple_assign_set_rhs_with_ops (gsi, NOP_EXPR, tem, NULL_TREE);
+      gimple_assign_set_rhs_with_ops (gsi, NOP_EXPR, tem);
     }
   /* Or without.  */
   else
@@ -9109,7 +9108,7 @@ simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   if (op == NULL_TREE)
     return false;
 
-  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (op), op, NULL);
+  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (op), op);
   update_stmt (gsi_stmt (*gsi));
   return true;
 }
@@ -9613,7 +9612,7 @@ simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
      float conversion.  */
   tem = make_ssa_name (build_nonstandard_integer_type
 			  (GET_MODE_PRECISION (mode), 0), NULL);
-  conv = gimple_build_assign_with_ops (NOP_EXPR, tem, rhs1, NULL_TREE);
+  conv = gimple_build_assign_with_ops (NOP_EXPR, tem, rhs1);
   gsi_insert_before (gsi, conv, GSI_SAME_STMT);
   gimple_assign_set_rhs1 (stmt, tem);
   update_stmt (stmt);
@@ -9687,8 +9686,7 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
       else if (!useless_type_conversion_p (utype, TREE_TYPE (op0)))
 	{
 	  g = gimple_build_assign_with_ops (NOP_EXPR,
-					    make_ssa_name (utype, NULL),
-					    op0, NULL_TREE);
+					    make_ssa_name (utype, NULL), op0);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	  op0 = gimple_assign_lhs (g);
@@ -9698,8 +9696,7 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
       else if (!useless_type_conversion_p (utype, TREE_TYPE (op1)))
 	{
 	  g = gimple_build_assign_with_ops (NOP_EXPR,
-					    make_ssa_name (utype, NULL),
-					    op1, NULL_TREE);
+					    make_ssa_name (utype, NULL), op1);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	  op1 = gimple_assign_lhs (g);
@@ -9712,7 +9709,7 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
 	{
 	  g = gimple_build_assign_with_ops (NOP_EXPR,
 					    make_ssa_name (type, NULL),
-					    gimple_assign_lhs (g), NULL_TREE);
+					    gimple_assign_lhs (g));
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	}

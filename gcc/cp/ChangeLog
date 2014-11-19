@@ -1,5 +1,39 @@
 2014-11-18  Jason Merrill  <jason@redhat.com>
 
+	PR c++/63924
+	* constexpr.c (cxx_eval_constant_expression) [PARM_DECL]: A load
+	from a variable of empty class type is constant.
+
+	* constexpr.c (cxx_eval_statement_list): Handle statement-expressions.
+	(potential_constant_expression_1): Handle STMT_EXPR.
+
+	* constexpr.c (cxx_eval_constant_expression): Give jump_target a
+	default argument.
+	(lots): Omit NULL jump_target arguments.
+
+	* constexpr.c (struct constexpr_ctx): Add quiet field.
+	(cxx_eval_outermost_constant_expr, is_sub_constant_expr): Set it.
+	(lots): Replace allow_non_constant parameter with ctx->quiet.
+
+	PR c++/63940
+	* constexpr.c (cxx_eval_binary_expression): Don't assume the
+	expression was already folded.
+	(cxx_eval_unary_expression): Likewise.
+
+2014-11-18  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR libstdc++/43622
+	* rtti.c (emit_support_tinfos): Handle __float128.
+
+2014-11-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63925
+	* constexpr.c (cxx_eval_increment_expression): Use POINTER_PLUS_EXPR.
+
+	PR c++/63934
+	* constexpr.c (cxx_eval_call_expression): Check DECL_CONSTRUCTOR_P
+	rather than VOID_TYPE_P.
+
 	* pt.c (instantiate_template_1): Use tsubst_aggr_type for context.
 
 	PR c++/58102
