@@ -200,7 +200,6 @@ struct GTY((desc ("gimple_statement_structure (&%h)"), tag ("GSS_BASE"),
      and the prev pointer being the last.  */
   gimple next;
   gimple GTY((skip)) prev;
-
 };
 
 

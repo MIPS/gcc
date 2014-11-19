@@ -1,5 +1,10 @@
 2014-11-19  David Malcolm  <dmalcolm@redhat.com>
 
+	* gimple.h (struct gimple_statement_structure): Remove stray
+	newline.
+
+2014-11-19  David Malcolm  <dmalcolm@redhat.com>
+
 	* gimple.c (gimple_build_assign_with_ops): Strengthen return type
 	of new overload, from gimple to gassign *.
 
