@@ -377,7 +377,11 @@
 
 (define_attr "generic_sched" "yes,no"
   (const (if_then_else
-          (ior (eq_attr "tune" "fa526,fa626,fa606te,fa626te,fmp626,fa726te,arm926ejs,arm1020e,arm1026ejs,arm1136js,arm1136jfs,cortexa5,cortexa7,cortexa8,cortexa9,cortexa12,cortexa15,cortexa53,cortexm4,marvell_pj4")
+          (ior (eq_attr "tune" "fa526,fa626,fa606te,fa626te,fmp626,fa726te,\
+                                arm926ejs,arm1020e,arm1026ejs,arm1136js,\
+                                arm1136jfs,cortexa5,cortexa7,cortexa8,\
+                                cortexa9,cortexa12,cortexa15,cortexa53,\
+                                cortexm4,cortexm7,marvell_pj4")
 	       (eq_attr "tune_cortexr4" "yes"))
           (const_string "no")
           (const_string "yes"))))
@@ -385,7 +389,9 @@
 (define_attr "generic_vfp" "yes,no"
   (const (if_then_else
 	  (and (eq_attr "fpu" "vfp")
-	       (eq_attr "tune" "!arm1020e,arm1022e,cortexa5,cortexa7,cortexa8,cortexa9,cortexa53,cortexm4,marvell_pj4")
+	       (eq_attr "tune" "!arm1020e,arm1022e,cortexa5,cortexa7,\
+                                cortexa8,cortexa9,cortexa53,cortexm4,\
+                                cortexm7,marvell_pj4")
 	       (eq_attr "tune_cortexr4" "no"))
 	  (const_string "yes")
 	  (const_string "no"))))
@@ -409,6 +415,7 @@
 (include "cortex-a53.md")
 (include "cortex-r4.md")
 (include "cortex-r4f.md")
+(include "cortex-m7.md")
 (include "cortex-m4.md")
 (include "cortex-m4-fpu.md")
 (include "vfp11.md")
@@ -4223,12 +4230,8 @@
        swap the order in which the loads are emitted.  */
     if (reg_overlap_mentioned_p (operands[0], operands[1]))
       {
-        rtx tmp = operands[1];
-        operands[1] = operands[3];
-        operands[3] = tmp;
-        tmp = operands[0];
-        operands[0] = operands[2];
-        operands[2] = tmp;
+        std::swap (operands[1], operands[3]);
+        std::swap (operands[0], operands[2]);
       }
   }
   [(set_attr "arch" "t2,any")
@@ -8261,7 +8264,7 @@
 	  [(match_operand:SI 3 "s_register_operand" "r,r,r")
 	   (match_operand:SI 4 "shift_amount_operand" "M,M,r")])
 	 (match_operand:SI 1 "s_register_operand" "rk,<t2_binop0>,rk")))]
-  "TARGET_32BIT && GET_CODE (operands[3]) != MULT"
+  "TARGET_32BIT && GET_CODE (operands[2]) != MULT"
   "<arith_shift_insn>%?\\t%0, %1, %3%S2"
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
@@ -9332,12 +9335,8 @@
     gcc_assert (!(mode == CCFPmode || mode == CCFPEmode));
     if (REGNO (operands[2]) != REGNO (operands[0]))
       rc = reverse_condition (rc);
-    else 
-      {
-	rtx tmp = operands[1];
-	operands[1] = operands[2];
-	operands[2] = tmp;
-      }
+    else
+      std::swap (operands[1], operands[2]);
 
     operands[6] = gen_rtx_fmt_ee (rc, VOIDmode, operands[6], const0_rtx);
   }

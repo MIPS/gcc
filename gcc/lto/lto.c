@@ -1377,7 +1377,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       return false;
 
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    gcc_unreachable ();
+    if (!cl_target_option_eq (TREE_TARGET_OPTION (t1), TREE_TARGET_OPTION (t2)))
+      return false;
 
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
     if (memcmp (TREE_OPTIMIZATION (t1), TREE_OPTIMIZATION (t2),
@@ -1934,15 +1935,6 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 	      if (TREE_CODE (t) == INTEGER_CST
 		  && !TREE_OVERFLOW (t))
 		cache_integer_cst (t);
-	      /* Re-build DECL_FUNCTION_SPECIFIC_TARGET, we need that
-	         for both WPA and LTRANS stage.  */
-	      if (TREE_CODE (t) == FUNCTION_DECL)
-		{
-		  tree attr = lookup_attribute ("target", DECL_ATTRIBUTES (t));
-		  if (attr)
-		    targetm.target_option.valid_attribute_p
-			(t, NULL_TREE, TREE_VALUE (attr), 0);
-		}
 	      /* Register TYPE_DECLs with the debuginfo machinery.  */
 	      if (!flag_wpa
 		  && TREE_CODE (t) == TYPE_DECL)
@@ -2137,7 +2129,7 @@ lto_section_with_id (const char *name, unsigned HOST_WIDE_INT *id)
 {
   const char *s;
 
-  if (strncmp (name, LTO_SECTION_NAME_PREFIX, strlen (LTO_SECTION_NAME_PREFIX)))
+  if (strncmp (name, section_name_prefix, strlen (section_name_prefix)))
     return 0;
   s = strrchr (name, '.');
   return s && sscanf (s, "." HOST_WIDE_INT_PRINT_HEX_PURE, id) == 1;
@@ -2912,6 +2904,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
   timevar_push (TV_IPA_LTO_DECL_IN);
 
+#ifdef ACCEL_COMPILER
+    section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
+#endif
+
   real_file_decl_data
     = decl_data = ggc_cleared_vec_alloc<lto_file_decl_data_ptr> (nfiles + 1);
   real_file_count = nfiles;
@@ -3029,6 +3025,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   timevar_push (TV_IPA_LTO_CGRAPH_IO);
   /* Read the symtab.  */
   input_symtab ();
+
+  input_offload_tables ();
 
   /* Store resolutions into the symbol table.  */
 

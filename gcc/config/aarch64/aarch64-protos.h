@@ -214,6 +214,7 @@ bool aarch64_simd_valid_immediate (rtx, machine_mode, bool,
 bool aarch64_symbolic_address_p (rtx);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
 bool aarch64_use_return_insn_p (void);
+const char *aarch64_mangle_builtin_type (const_tree);
 const char *aarch64_output_casesi (rtx *);
 const char *aarch64_rewrite_selected_cpu (const char *name);
 
@@ -313,4 +314,5 @@ extern void aarch64_final_prescan_insn (rtx_insn *);
 extern bool
 aarch64_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel);
 void aarch64_atomic_assign_expand_fenv (tree *, tree *, tree *);
+int aarch64_ccmp_mode_to_code (enum machine_mode mode);
 #endif /* GCC_AARCH64_PROTOS_H */

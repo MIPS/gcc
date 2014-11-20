@@ -265,13 +265,56 @@ build_gimple_cfg (gimple_seq seq)
   discriminator_per_locus = NULL;
 }
 
+/* Look for ANNOTATE calls with loop annotation kind in BB; if found, remove
+   them and propagate the information to LOOP.  We assume that the annotations
+   come immediately before the condition in BB, if any.  */
+
+static void
+replace_loop_annotate_in_block (basic_block bb, struct loop *loop)
+{
+  gimple_stmt_iterator gsi = gsi_last_bb (bb);
+  gimple stmt = gsi_stmt (gsi);
+
+  if (!(stmt && gimple_code (stmt) == GIMPLE_COND))
+    return;
+
+  for (gsi_prev_nondebug (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
+    {
+      stmt = gsi_stmt (gsi);
+      if (gimple_code (stmt) != GIMPLE_CALL)
+	break;
+      if (!gimple_call_internal_p (stmt)
+	  || gimple_call_internal_fn (stmt) != IFN_ANNOTATE)
+	break;
+
+      switch ((annot_expr_kind) tree_to_shwi (gimple_call_arg (stmt, 1)))
+	{
+	case annot_expr_ivdep_kind:
+	  loop->safelen = INT_MAX;
+	  break;
+	case annot_expr_no_vector_kind:
+	  loop->dont_vectorize = true;
+	  break;
+	case annot_expr_vector_kind:
+	  loop->force_vectorize = true;
+	  cfun->has_force_vectorize_loops = true;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      stmt = gimple_build_assign (gimple_call_lhs (stmt),
+				  gimple_call_arg (stmt, 0));
+      gsi_replace (&gsi, stmt, true);
+    }
+}
 
 /* Look for ANNOTATE calls with loop annotation kind; if found, remove
    them and propagate the information to the loop.  We assume that the
    annotations come immediately before the condition of the loop.  */
 
 static void
-replace_loop_annotate ()
+replace_loop_annotate (void)
 {
   struct loop *loop;
   basic_block bb;
@@ -280,37 +323,12 @@ replace_loop_annotate ()
 
   FOR_EACH_LOOP (loop, 0)
     {
-      gsi = gsi_last_bb (loop->header);
-      stmt = gsi_stmt (gsi);
-      if (!(stmt && gimple_code (stmt) == GIMPLE_COND))
-	continue;
-      for (gsi_prev_nondebug (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
-	{
-	  stmt = gsi_stmt (gsi);
-	  if (gimple_code (stmt) != GIMPLE_CALL)
-	    break;
-	  if (!gimple_call_internal_p (stmt)
-	      || gimple_call_internal_fn (stmt) != IFN_ANNOTATE)
-	    break;
-	  switch ((annot_expr_kind) tree_to_shwi (gimple_call_arg (stmt, 1)))
-	    {
-	    case annot_expr_ivdep_kind:
-	      loop->safelen = INT_MAX;
-	      break;
-	    case annot_expr_no_vector_kind:
-	      loop->dont_vectorize = true;
-	      break;
-	    case annot_expr_vector_kind:
-	      loop->force_vectorize = true;
-	      cfun->has_force_vectorize_loops = true;
-	      break;
-	    default:
-	      gcc_unreachable ();
-	    }
-	  stmt = gimple_build_assign (gimple_call_lhs (stmt),
-				      gimple_call_arg (stmt, 0));
-	  gsi_replace (&gsi, stmt, true);
-	}
+      /* First look into the header.  */
+      replace_loop_annotate_in_block (loop->header, loop);
+
+      /* Then look into the latch, if any.  */
+      if (loop->latch)
+	replace_loop_annotate_in_block (loop->latch, loop);
     }
 
   /* Remove IFN_ANNOTATE.  Safeguard for the case loop->latch == NULL.  */
@@ -320,10 +338,11 @@ replace_loop_annotate ()
 	{
 	  stmt = gsi_stmt (gsi);
 	  if (gimple_code (stmt) != GIMPLE_CALL)
-	    break;
+	    continue;
 	  if (!gimple_call_internal_p (stmt)
 	      || gimple_call_internal_fn (stmt) != IFN_ANNOTATE)
-	    break;
+	    continue;
+
 	  switch ((annot_expr_kind) tree_to_shwi (gimple_call_arg (stmt, 1)))
 	    {
 	    case annot_expr_ivdep_kind:
@@ -333,6 +352,7 @@ replace_loop_annotate ()
 	    default:
 	      gcc_unreachable ();
 	    }
+
 	  warning_at (gimple_location (stmt), 0, "ignoring loop annotation");
 	  stmt = gimple_build_assign (gimple_call_lhs (stmt),
 				      gimple_call_arg (stmt, 0));
@@ -3669,38 +3689,6 @@ verify_gimple_assign_binary (gimple stmt)
 	    debug_generic_expr (lhs_type);
 	    debug_generic_expr (rhs1_type);
 	    debug_generic_expr (rhs2_type);
-	    return true;
-	  }
-
-	return false;
-      }
-
-    case VEC_RSHIFT_EXPR:
-      {
-	if (TREE_CODE (rhs1_type) != VECTOR_TYPE
-	    || !(INTEGRAL_TYPE_P (TREE_TYPE (rhs1_type))
-		 || POINTER_TYPE_P (TREE_TYPE (rhs1_type))
-		 || FIXED_POINT_TYPE_P (TREE_TYPE (rhs1_type))
-		 || SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs1_type)))
-	    || (!INTEGRAL_TYPE_P (rhs2_type)
-		&& (TREE_CODE (rhs2_type) != VECTOR_TYPE
-		    || !INTEGRAL_TYPE_P (TREE_TYPE (rhs2_type))))
-	    || !useless_type_conversion_p (lhs_type, rhs1_type))
-	  {
-	    error ("type mismatch in vector shift expression");
-	    debug_generic_expr (lhs_type);
-	    debug_generic_expr (rhs1_type);
-	    debug_generic_expr (rhs2_type);
-	    return true;
-	  }
-	/* For shifting a vector of non-integral components we
-	   only allow shifting by a constant multiple of the element size.  */
-	if (!INTEGRAL_TYPE_P (TREE_TYPE (rhs1_type))
-	    && (TREE_CODE (rhs2) != INTEGER_CST
-		|| !div_if_zero_remainder (rhs2,
-					   TYPE_SIZE (TREE_TYPE (rhs1_type)))))
-	  {
-	    error ("non-element sized vector shift of floating point vector");
 	    return true;
 	  }
 
@@ -8189,6 +8177,46 @@ make_pass_split_crit_edges (gcc::context *ctxt)
   return new pass_split_crit_edges (ctxt);
 }
 
+
+/* Insert COND expression which is GIMPLE_COND after STMT
+   in basic block BB with appropriate basic block split
+   and creation of a new conditionally executed basic block.
+   Return created basic block.  */
+basic_block
+insert_cond_bb (basic_block bb, gimple stmt, gimple cond)
+{
+  edge fall = split_block (bb, stmt);
+  gimple_stmt_iterator iter = gsi_last_bb (bb);
+  basic_block new_bb;
+
+  /* Insert cond statement.  */
+  gcc_assert (gimple_code (cond) == GIMPLE_COND);
+  if (gsi_end_p (iter))
+    gsi_insert_before (&iter, cond, GSI_CONTINUE_LINKING);
+  else
+    gsi_insert_after (&iter, cond, GSI_CONTINUE_LINKING);
+
+  /* Create conditionally executed block.  */
+  new_bb = create_empty_bb (bb);
+  make_edge (bb, new_bb, EDGE_TRUE_VALUE);
+  make_single_succ_edge (new_bb, fall->dest, EDGE_FALLTHRU);
+
+  /* Fix edge for split bb.  */
+  fall->flags = EDGE_FALSE_VALUE;
+
+  /* Update dominance info.  */
+  if (dom_info_available_p (CDI_DOMINATORS))
+    {
+      set_immediate_dominator (CDI_DOMINATORS, new_bb, bb);
+      set_immediate_dominator (CDI_DOMINATORS, fall->dest, bb);
+    }
+
+  /* Update loop info.  */
+  if (current_loops)
+    add_bb_to_loop (new_bb, bb->loop_father);
+
+  return new_bb;
+}
 
 /* Build a ternary operation and gimplify it.  Emit code before GSI.
    Return the gimple_val holding the result.  */

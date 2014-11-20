@@ -154,6 +154,9 @@ static bool aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
 						 const unsigned char *sel);
 static int aarch64_address_cost (rtx, machine_mode, addr_space_t, bool);
 
+/* Major revision number of the ARM Architecture implemented by the target.  */
+unsigned aarch64_architecture_version;
+
 /* The processor for which instructions should be scheduled.  */
 enum aarch64_processor aarch64_tune = cortexa53;
 
@@ -348,6 +351,7 @@ struct processor
   const char *const name;
   enum aarch64_processor core;
   const char *arch;
+  unsigned architecture_version;
   const unsigned long flags;
   const struct tune_params *const tune;
 };
@@ -356,21 +360,23 @@ struct processor
 static const struct processor all_cores[] =
 {
 #define AARCH64_CORE(NAME, X, IDENT, ARCH, FLAGS, COSTS) \
-  {NAME, IDENT, #ARCH, FLAGS | AARCH64_FL_FOR_ARCH##ARCH, &COSTS##_tunings},
+  {NAME, IDENT, #ARCH, ARCH,\
+    FLAGS | AARCH64_FL_FOR_ARCH##ARCH, &COSTS##_tunings},
 #include "aarch64-cores.def"
 #undef AARCH64_CORE
-  {"generic", cortexa53, "8", AARCH64_FL_FPSIMD | AARCH64_FL_FOR_ARCH8, &generic_tunings},
-  {NULL, aarch64_none, NULL, 0, NULL}
+  {"generic", cortexa53, "8", 8,\
+    AARCH64_FL_FPSIMD | AARCH64_FL_FOR_ARCH8, &generic_tunings},
+  {NULL, aarch64_none, NULL, 0, 0, NULL}
 };
 
 /* Architectures implementing AArch64.  */
 static const struct processor all_architectures[] =
 {
 #define AARCH64_ARCH(NAME, CORE, ARCH, FLAGS) \
-  {NAME, CORE, #ARCH, FLAGS, NULL},
+  {NAME, CORE, #ARCH, ARCH, FLAGS, NULL},
 #include "aarch64-arches.def"
 #undef AARCH64_ARCH
-  {NULL, aarch64_none, NULL, 0, NULL}
+  {NULL, aarch64_none, NULL, 0, 0, NULL}
 };
 
 /* Target specification.  These are populated as commandline arguments
@@ -1040,10 +1046,10 @@ aarch64_add_offset (machine_mode mode, rtx temp, rtx reg, HOST_WIDE_INT offset)
   return plus_constant (mode, reg, offset);
 }
 
-void
-aarch64_expand_mov_immediate (rtx dest, rtx imm)
+static int
+aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
+				machine_mode mode)
 {
-  machine_mode mode = GET_MODE (dest);
   unsigned HOST_WIDE_INT mask;
   int i;
   bool first;
@@ -1051,6 +1057,271 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
   bool subtargets;
   rtx subtarget;
   int one_match, zero_match, first_not_ffff_match;
+  int num_insns = 0;
+
+  if (CONST_INT_P (imm) && aarch64_move_imm (INTVAL (imm), mode))
+    {
+      if (generate)
+	emit_insn (gen_rtx_SET (VOIDmode, dest, imm));
+      num_insns++;
+      return num_insns;
+    }
+
+  if (mode == SImode)
+    {
+      /* We know we can't do this in 1 insn, and we must be able to do it
+	 in two; so don't mess around looking for sequences that don't buy
+	 us anything.  */
+      if (generate)
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, dest,
+				  GEN_INT (INTVAL (imm) & 0xffff)));
+	  emit_insn (gen_insv_immsi (dest, GEN_INT (16),
+				     GEN_INT ((INTVAL (imm) >> 16) & 0xffff)));
+	}
+      num_insns += 2;
+      return num_insns;
+    }
+
+  /* Remaining cases are all for DImode.  */
+
+  val = INTVAL (imm);
+  subtargets = optimize && can_create_pseudo_p ();
+
+  one_match = 0;
+  zero_match = 0;
+  mask = 0xffff;
+  first_not_ffff_match = -1;
+
+  for (i = 0; i < 64; i += 16, mask <<= 16)
+    {
+      if ((val & mask) == mask)
+	one_match++;
+      else
+	{
+	  if (first_not_ffff_match < 0)
+	    first_not_ffff_match = i;
+	  if ((val & mask) == 0)
+	    zero_match++;
+	}
+    }
+
+  if (one_match == 2)
+    {
+      /* Set one of the quarters and then insert back into result.  */
+      mask = 0xffffll << first_not_ffff_match;
+      if (generate)
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (val | mask)));
+	  emit_insn (gen_insv_immdi (dest, GEN_INT (first_not_ffff_match),
+				     GEN_INT ((val >> first_not_ffff_match)
+					      & 0xffff)));
+	}
+      num_insns += 2;
+      return num_insns;
+    }
+
+  if (zero_match == 2)
+    goto simple_sequence;
+
+  mask = 0x0ffff0000UL;
+  for (i = 16; i < 64; i += 16, mask <<= 16)
+    {
+      HOST_WIDE_INT comp = mask & ~(mask - 1);
+
+      if (aarch64_uimm12_shift (val - (val & mask)))
+	{
+	  if (generate)
+	    {
+	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
+	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+				      GEN_INT (val & mask)));
+	      emit_insn (gen_adddi3 (dest, subtarget,
+				     GEN_INT (val - (val & mask))));
+	    }
+	  num_insns += 2;
+	  return num_insns;
+	}
+      else if (aarch64_uimm12_shift (-(val - ((val + comp) & mask))))
+	{
+	  if (generate)
+	    {
+	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
+	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+				      GEN_INT ((val + comp) & mask)));
+	      emit_insn (gen_adddi3 (dest, subtarget,
+				     GEN_INT (val - ((val + comp) & mask))));
+	    }
+	  num_insns += 2;
+	  return num_insns;
+	}
+      else if (aarch64_uimm12_shift (val - ((val - comp) | ~mask)))
+	{
+	  if (generate)
+	    {
+	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
+	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+				      GEN_INT ((val - comp) | ~mask)));
+	      emit_insn (gen_adddi3 (dest, subtarget,
+				     GEN_INT (val - ((val - comp) | ~mask))));
+	    }
+	  num_insns += 2;
+	  return num_insns;
+	}
+      else if (aarch64_uimm12_shift (-(val - (val | ~mask))))
+	{
+	  if (generate)
+	    {
+	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
+	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+				      GEN_INT (val | ~mask)));
+	      emit_insn (gen_adddi3 (dest, subtarget,
+				     GEN_INT (val - (val | ~mask))));
+	    }
+	  num_insns += 2;
+	  return num_insns;
+	}
+    }
+
+  /* See if we can do it by arithmetically combining two
+     immediates.  */
+  for (i = 0; i < AARCH64_NUM_BITMASKS; i++)
+    {
+      int j;
+      mask = 0xffff;
+
+      if (aarch64_uimm12_shift (val - aarch64_bitmasks[i])
+	  || aarch64_uimm12_shift (-val + aarch64_bitmasks[i]))
+	{
+	  if (generate)
+	    {
+	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
+	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+				      GEN_INT (aarch64_bitmasks[i])));
+	      emit_insn (gen_adddi3 (dest, subtarget,
+				     GEN_INT (val - aarch64_bitmasks[i])));
+	    }
+	  num_insns += 2;
+	  return num_insns;
+	}
+
+      for (j = 0; j < 64; j += 16, mask <<= 16)
+	{
+	  if ((aarch64_bitmasks[i] & ~mask) == (val & ~mask))
+	    {
+	      if (generate)
+		{
+		  emit_insn (gen_rtx_SET (VOIDmode, dest,
+					  GEN_INT (aarch64_bitmasks[i])));
+		  emit_insn (gen_insv_immdi (dest, GEN_INT (j),
+					     GEN_INT ((val >> j) & 0xffff)));
+		}
+	      num_insns += 2;
+	      return num_insns;
+	    }
+	}
+    }
+
+  /* See if we can do it by logically combining two immediates.  */
+  for (i = 0; i < AARCH64_NUM_BITMASKS; i++)
+    {
+      if ((aarch64_bitmasks[i] & val) == aarch64_bitmasks[i])
+	{
+	  int j;
+
+	  for (j = i + 1; j < AARCH64_NUM_BITMASKS; j++)
+	    if (val == (aarch64_bitmasks[i] | aarch64_bitmasks[j]))
+	      {
+		if (generate)
+		  {
+		    subtarget = subtargets ? gen_reg_rtx (mode) : dest;
+		    emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+					    GEN_INT (aarch64_bitmasks[i])));
+		    emit_insn (gen_iordi3 (dest, subtarget,
+					   GEN_INT (aarch64_bitmasks[j])));
+		  }
+		num_insns += 2;
+		return num_insns;
+	      }
+	}
+      else if ((val & aarch64_bitmasks[i]) == val)
+	{
+	  int j;
+
+	  for (j = i + 1; j < AARCH64_NUM_BITMASKS; j++)
+	    if (val == (aarch64_bitmasks[j] & aarch64_bitmasks[i]))
+	      {
+		if (generate)
+		  {
+		    subtarget = subtargets ? gen_reg_rtx (mode) : dest;
+		    emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+					    GEN_INT (aarch64_bitmasks[j])));
+		    emit_insn (gen_anddi3 (dest, subtarget,
+					   GEN_INT (aarch64_bitmasks[i])));
+		  }
+		num_insns += 2;
+		return num_insns;
+	      }
+	}
+    }
+
+  if (one_match > zero_match)
+    {
+      /* Set either first three quarters or all but the third.	 */
+      mask = 0xffffll << (16 - first_not_ffff_match);
+      if (generate)
+	emit_insn (gen_rtx_SET (VOIDmode, dest,
+				GEN_INT (val | mask | 0xffffffff00000000ull)));
+      num_insns ++;
+
+      /* Now insert other two quarters.	 */
+      for (i = first_not_ffff_match + 16, mask <<= (first_not_ffff_match << 1);
+	   i < 64; i += 16, mask <<= 16)
+	{
+	  if ((val & mask) != mask)
+	    {
+	      if (generate)
+		emit_insn (gen_insv_immdi (dest, GEN_INT (i),
+					   GEN_INT ((val >> i) & 0xffff)));
+	      num_insns ++;
+	    }
+	}
+      return num_insns;
+    }
+
+ simple_sequence:
+  first = true;
+  mask = 0xffff;
+  for (i = 0; i < 64; i += 16, mask <<= 16)
+    {
+      if ((val & mask) != 0)
+	{
+	  if (first)
+	    {
+	      if (generate)
+		emit_insn (gen_rtx_SET (VOIDmode, dest,
+					GEN_INT (val & mask)));
+	      num_insns ++;
+	      first = false;
+	    }
+	  else
+	    {
+	      if (generate)
+		emit_insn (gen_insv_immdi (dest, GEN_INT (i),
+					   GEN_INT ((val >> i) & 0xffff)));
+	      num_insns ++;
+	    }
+	}
+    }
+
+  return num_insns;
+}
+
+
+void
+aarch64_expand_mov_immediate (rtx dest, rtx imm)
+{
+  machine_mode mode = GET_MODE (dest);
 
   gcc_assert (mode == SImode || mode == DImode);
 
@@ -1112,12 +1383,6 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	}
     }
 
-  if (CONST_INT_P (imm) && aarch64_move_imm (INTVAL (imm), mode))
-    {
-      emit_insn (gen_rtx_SET (VOIDmode, dest, imm));
-      return;
-    }
-
   if (!CONST_INT_P (imm))
     {
       if (GET_CODE (imm) == HIGH)
@@ -1132,203 +1397,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
       return;
     }
 
-  if (mode == SImode)
-    {
-      /* We know we can't do this in 1 insn, and we must be able to do it
-	 in two; so don't mess around looking for sequences that don't buy
-	 us anything.  */
-      emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (INTVAL (imm) & 0xffff)));
-      emit_insn (gen_insv_immsi (dest, GEN_INT (16),
-				 GEN_INT ((INTVAL (imm) >> 16) & 0xffff)));
-      return;
-    }
-
-  /* Remaining cases are all for DImode.  */
-
-  val = INTVAL (imm);
-  subtargets = optimize && can_create_pseudo_p ();
-
-  one_match = 0;
-  zero_match = 0;
-  mask = 0xffff;
-  first_not_ffff_match = -1;
-
-  for (i = 0; i < 64; i += 16, mask <<= 16)
-    {
-      if ((val & mask) == mask)
-	one_match++;
-      else
-	{
-	  if (first_not_ffff_match < 0)
-	    first_not_ffff_match = i;
-	  if ((val & mask) == 0)
-	    zero_match++;
-	}
-    }
-
-  if (one_match == 2)
-    {
-      /* Set one of the quarters and then insert back into result.  */
-      mask = 0xffffll << first_not_ffff_match;
-      emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (val | mask)));
-      emit_insn (gen_insv_immdi (dest, GEN_INT (first_not_ffff_match),
-				 GEN_INT ((val >> first_not_ffff_match)
-					  & 0xffff)));
-      return;
-    }
-
-  if (zero_match == 2)
-    goto simple_sequence;
-
-  mask = 0x0ffff0000UL;
-  for (i = 16; i < 64; i += 16, mask <<= 16)
-    {
-      HOST_WIDE_INT comp = mask & ~(mask - 1);
-
-      if (aarch64_uimm12_shift (val - (val & mask)))
-	{
-	  subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-
-	  emit_insn (gen_rtx_SET (VOIDmode, subtarget, GEN_INT (val & mask)));
-	  emit_insn (gen_adddi3 (dest, subtarget,
-				 GEN_INT (val - (val & mask))));
-	  return;
-	}
-      else if (aarch64_uimm12_shift (-(val - ((val + comp) & mask))))
-	{
-	  subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-
-	  emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-				  GEN_INT ((val + comp) & mask)));
-	  emit_insn (gen_adddi3 (dest, subtarget,
-				 GEN_INT (val - ((val + comp) & mask))));
-	  return;
-	}
-      else if (aarch64_uimm12_shift (val - ((val - comp) | ~mask)))
-	{
-	  subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-
-	  emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-				  GEN_INT ((val - comp) | ~mask)));
-	  emit_insn (gen_adddi3 (dest, subtarget,
-				 GEN_INT (val - ((val - comp) | ~mask))));
-	  return;
-	}
-      else if (aarch64_uimm12_shift (-(val - (val | ~mask))))
-	{
-	  subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-
-	  emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-				  GEN_INT (val | ~mask)));
-	  emit_insn (gen_adddi3 (dest, subtarget,
-				 GEN_INT (val - (val | ~mask))));
-	  return;
-	}
-    }
-
-  /* See if we can do it by arithmetically combining two
-     immediates.  */
-  for (i = 0; i < AARCH64_NUM_BITMASKS; i++)
-    {
-      int j;
-      mask = 0xffff;
-
-      if (aarch64_uimm12_shift (val - aarch64_bitmasks[i])
-	  || aarch64_uimm12_shift (-val + aarch64_bitmasks[i]))
-	{
-	  subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	  emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-				  GEN_INT (aarch64_bitmasks[i])));
-	  emit_insn (gen_adddi3 (dest, subtarget,
-				 GEN_INT (val - aarch64_bitmasks[i])));
-	  return;
-	}
-
-      for (j = 0; j < 64; j += 16, mask <<= 16)
-	{
-	  if ((aarch64_bitmasks[i] & ~mask) == (val & ~mask))
-	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest,
-				      GEN_INT (aarch64_bitmasks[i])));
-	      emit_insn (gen_insv_immdi (dest, GEN_INT (j),
-					 GEN_INT ((val >> j) & 0xffff)));
-	      return;
-	    }
-	}
-    }
-
-  /* See if we can do it by logically combining two immediates.  */
-  for (i = 0; i < AARCH64_NUM_BITMASKS; i++)
-    {
-      if ((aarch64_bitmasks[i] & val) == aarch64_bitmasks[i])
-	{
-	  int j;
-
-	  for (j = i + 1; j < AARCH64_NUM_BITMASKS; j++)
-	    if (val == (aarch64_bitmasks[i] | aarch64_bitmasks[j]))
-	      {
-		subtarget = subtargets ? gen_reg_rtx (mode) : dest;
-		emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-					GEN_INT (aarch64_bitmasks[i])));
-		emit_insn (gen_iordi3 (dest, subtarget,
-				       GEN_INT (aarch64_bitmasks[j])));
-		return;
-	      }
-	}
-      else if ((val & aarch64_bitmasks[i]) == val)
-	{
-	  int j;
-
-	  for (j = i + 1; j < AARCH64_NUM_BITMASKS; j++)
-	    if (val == (aarch64_bitmasks[j] & aarch64_bitmasks[i]))
-	      {
-
-		subtarget = subtargets ? gen_reg_rtx (mode) : dest;
-		emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-					GEN_INT (aarch64_bitmasks[j])));
-		emit_insn (gen_anddi3 (dest, subtarget,
-				       GEN_INT (aarch64_bitmasks[i])));
-		return;
-	      }
-	}
-    }
-
-  if (one_match > zero_match)
-    {
-      /* Set either first three quarters or all but the third.	 */
-      mask = 0xffffll << (16 - first_not_ffff_match);
-      emit_insn (gen_rtx_SET (VOIDmode, dest,
-			      GEN_INT (val | mask | 0xffffffff00000000ull)));
-
-      /* Now insert other two quarters.	 */
-      for (i = first_not_ffff_match + 16, mask <<= (first_not_ffff_match << 1);
-	   i < 64; i += 16, mask <<= 16)
-	{
-	  if ((val & mask) != mask)
-	    emit_insn (gen_insv_immdi (dest, GEN_INT (i),
-				       GEN_INT ((val >> i) & 0xffff)));
-	}
-      return;
-    }
-
- simple_sequence:
-  first = true;
-  mask = 0xffff;
-  for (i = 0; i < 64; i += 16, mask <<= 16)
-    {
-      if ((val & mask) != 0)
-	{
-	  if (first)
-	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest,
-				      GEN_INT (val & mask)));
-	      first = false;
-	    }
-	  else
-	    emit_insn (gen_insv_immdi (dest, GEN_INT (i),
-				       GEN_INT ((val >> i) & 0xffff)));
-	}
-    }
+  aarch64_internal_mov_immediate (dest, imm, true, GET_MODE (dest));
 }
 
 static bool
@@ -1895,7 +1964,8 @@ aarch64_layout_frame (void)
   /* ... and any callee saved register that dataflow says is live.  */
   for (regno = R0_REGNUM; regno <= R30_REGNUM; regno++)
     if (df_regs_ever_live_p (regno)
-	&& !call_used_regs[regno])
+	&& (regno == R30_REGNUM
+	    || !call_used_regs[regno]))
       cfun->machine->frame.reg_offset[regno] = SLOT_REQUIRED;
 
   for (regno = V0_REGNUM; regno <= V31_REGNUM; regno++)
@@ -2399,6 +2469,9 @@ aarch64_expand_epilogue (bool for_sibcall)
   HOST_WIDE_INT fp_offset;
   HOST_WIDE_INT hard_fp_offset;
   rtx_insn *insn;
+  /* We need to add memory barrier to prevent read from deallocated stack.  */
+  bool need_barrier_p = (get_frame_size () != 0
+			 || cfun->machine->frame.saved_varargs_size);
 
   aarch64_layout_frame ();
 
@@ -2433,6 +2506,9 @@ aarch64_expand_epilogue (bool for_sibcall)
   if (frame_pointer_needed
       && (crtl->outgoing_args_size || cfun->calls_alloca))
     {
+      if (cfun->calls_alloca)
+	emit_insn (gen_stack_tie (stack_pointer_rtx, stack_pointer_rtx));
+
       insn = emit_insn (gen_add3_insn (stack_pointer_rtx,
 				       hard_frame_pointer_rtx,
 				       GEN_INT (0)));
@@ -2458,6 +2534,9 @@ aarch64_expand_epilogue (bool for_sibcall)
 				    skip_wb, &cfi_ops);
       aarch64_restore_callee_saves (DFmode, fp_offset, V0_REGNUM, V31_REGNUM,
 				    skip_wb, &cfi_ops);
+
+      if (need_barrier_p)
+	emit_insn (gen_stack_tie (stack_pointer_rtx, stack_pointer_rtx));
 
       if (skip_wb)
 	{
@@ -2499,6 +2578,9 @@ aarch64_expand_epilogue (bool for_sibcall)
 
   if (frame_size > 0)
     {
+      if (need_barrier_p)
+	emit_insn (gen_stack_tie (stack_pointer_rtx, stack_pointer_rtx));
+
       if (frame_size >= 0x1000000)
 	{
 	  rtx op0 = gen_rtx_REG (Pmode, IP0_REGNUM);
@@ -2791,28 +2873,23 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   reload_completed = 0;
 }
 
-static int
-aarch64_tls_operand_p_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (*x) == SYMBOL_REF)
-    return SYMBOL_REF_TLS_MODEL (*x) != 0;
-
-  /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
-     TLS offsets, not real symbol references.  */
-  if (GET_CODE (*x) == UNSPEC
-      && XINT (*x, 1) == UNSPEC_TLS)
-    return -1;
-
-  return 0;
-}
-
 static bool
 aarch64_tls_referenced_p (rtx x)
 {
   if (!TARGET_HAVE_TLS)
     return false;
-
-  return for_each_rtx (&x, aarch64_tls_operand_p_1, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (x) != 0)
+	return true;
+      /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
+	 TLS offsets, not real symbol references.  */
+      if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_TLS)
+	iter.skip_subrtxes ();
+    }
+  return false;
 }
 
 
@@ -3548,6 +3625,9 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
   return CCmode;
 }
 
+static int
+aarch64_get_condition_code_1 (enum machine_mode, enum rtx_code);
+
 int
 aarch64_get_condition_code (rtx x)
 {
@@ -3556,7 +3636,13 @@ aarch64_get_condition_code (rtx x)
 
   if (GET_MODE_CLASS (mode) != MODE_CC)
     mode = SELECT_CC_MODE (comp_code, XEXP (x, 0), XEXP (x, 1));
+  return aarch64_get_condition_code_1 (mode, comp_code);
+}
 
+static int
+aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
+{
+  int ne = -1, eq = -1;
   switch (mode)
     {
     case CCFPmode:
@@ -3577,6 +3663,56 @@ aarch64_get_condition_code (rtx x)
 	case UNGE: return AARCH64_PL;
 	default: return -1;
 	}
+      break;
+
+    case CC_DNEmode:
+      ne = AARCH64_NE;
+      eq = AARCH64_EQ;
+      break;
+
+    case CC_DEQmode:
+      ne = AARCH64_EQ;
+      eq = AARCH64_NE;
+      break;
+
+    case CC_DGEmode:
+      ne = AARCH64_GE;
+      eq = AARCH64_LT;
+      break;
+
+    case CC_DLTmode:
+      ne = AARCH64_LT;
+      eq = AARCH64_GE;
+      break;
+
+    case CC_DGTmode:
+      ne = AARCH64_GT;
+      eq = AARCH64_LE;
+      break;
+
+    case CC_DLEmode:
+      ne = AARCH64_LE;
+      eq = AARCH64_GT;
+      break;
+
+    case CC_DGEUmode:
+      ne = AARCH64_CS;
+      eq = AARCH64_CC;
+      break;
+
+    case CC_DLTUmode:
+      ne = AARCH64_CC;
+      eq = AARCH64_CS;
+      break;
+
+    case CC_DGTUmode:
+      ne = AARCH64_HI;
+      eq = AARCH64_LS;
+      break;
+
+    case CC_DLEUmode:
+      ne = AARCH64_LS;
+      eq = AARCH64_HI;
       break;
 
     case CCmode:
@@ -3639,6 +3775,14 @@ aarch64_get_condition_code (rtx x)
       return -1;
       break;
     }
+
+  if (comp_code == NE)
+    return ne;
+
+  if (comp_code == EQ)
+    return eq;
+
+  return -1;
 }
 
 bool
@@ -3684,6 +3828,75 @@ bit_count (unsigned HOST_WIDE_INT value)
 
   return count;
 }
+
+/* N Z C V.  */
+#define AARCH64_CC_V 1
+#define AARCH64_CC_C (1 << 1)
+#define AARCH64_CC_Z (1 << 2)
+#define AARCH64_CC_N (1 << 3)
+
+/* N Z C V flags for ccmp.  The first code is for AND op and the other
+   is for IOR op.  Indexed by AARCH64_COND_CODE.  */
+static const int aarch64_nzcv_codes[][2] =
+{
+  {AARCH64_CC_Z, 0}, /* EQ, Z == 1.  */
+  {0, AARCH64_CC_Z}, /* NE, Z == 0.  */
+  {AARCH64_CC_C, 0}, /* CS, C == 1.  */
+  {0, AARCH64_CC_C}, /* CC, C == 0.  */
+  {AARCH64_CC_N, 0}, /* MI, N == 1.  */
+  {0, AARCH64_CC_N}, /* PL, N == 0.  */
+  {AARCH64_CC_V, 0}, /* VS, V == 1.  */
+  {0, AARCH64_CC_V}, /* VC, V == 0.  */
+  {AARCH64_CC_C, 0}, /* HI, C ==1 && Z == 0.  */
+  {0, AARCH64_CC_C}, /* LS, !(C == 1 && Z == 0).  */
+  {0, AARCH64_CC_V}, /* GE, N == V.  */
+  {AARCH64_CC_V, 0}, /* LT, N != V.  */
+  {0, AARCH64_CC_Z}, /* GT, Z == 0 && N == V.  */
+  {AARCH64_CC_Z, 0}, /* LE, !(Z == 0 && N == V).  */
+  {0, 0}, /* AL, Any.  */
+  {0, 0}, /* NV, Any.  */
+};
+
+int
+aarch64_ccmp_mode_to_code (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case CC_DNEmode:
+      return NE;
+
+    case CC_DEQmode:
+      return EQ;
+
+    case CC_DLEmode:
+      return LE;
+
+    case CC_DGTmode:
+      return GT;
+
+    case CC_DLTmode:
+      return LT;
+
+    case CC_DGEmode:
+      return GE;
+
+    case CC_DLEUmode:
+      return LEU;
+
+    case CC_DGTUmode:
+      return GTU;
+
+    case CC_DLTUmode:
+      return LTU;
+
+    case CC_DGEUmode:
+      return GEU;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 
 void
 aarch64_print_operand (FILE *f, rtx x, char code)
@@ -4049,6 +4262,40 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       output_addr_const (asm_out_file, x);
       break;
 
+    case 'K':
+      {
+	int cond_code;
+	/* Print nzcv.  */
+
+	if (!COMPARISON_P (x))
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+
+	cond_code = aarch64_get_condition_code_1 (CCmode, GET_CODE (x));
+	gcc_assert (cond_code >= 0);
+	asm_fprintf (f, "%d", aarch64_nzcv_codes[cond_code][0]);
+      }
+      break;
+
+    case 'k':
+      {
+	int cond_code;
+	/* Print nzcv.  */
+
+	if (!COMPARISON_P (x))
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+
+	cond_code = aarch64_get_condition_code_1 (CCmode, GET_CODE (x));
+	gcc_assert (cond_code >= 0);
+	asm_fprintf (f, "%d", aarch64_nzcv_codes[cond_code][1]);
+      }
+      break;
+
     default:
       output_operand_lossage ("invalid operand prefix '%%%c'", code);
       return;
@@ -4404,6 +4651,16 @@ aarch64_can_eliminate (const int from, const int to)
 	return true;
 
       return false;
+    }
+  else
+    {
+      /* If we decided that we didn't need a leaf frame pointer but then used
+	 LR in the function, then we'll want a frame pointer after all, so
+	 prevent this elimination to ensure a frame pointer is used.  */
+      if (to == STACK_POINTER_REGNUM
+	  && flag_omit_leaf_frame_pointer
+	  && df_regs_ever_live_p (LR_REGNUM))
+	return false;
     }
 
   return true;
@@ -5216,9 +5473,8 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	     proportionally expensive to the number of instructions
 	     required to build that constant.  This is true whether we
 	     are compiling for SPEED or otherwise.  */
-	  *cost = COSTS_N_INSNS (aarch64_build_constant (0,
-							 INTVAL (x),
-							 false));
+	  *cost = COSTS_N_INSNS (aarch64_internal_mov_immediate
+				 (NULL_RTX, x, false, mode));
 	}
       return true;
 
@@ -6458,6 +6714,7 @@ aarch64_override_options (void)
   aarch64_tune_flags = selected_tune->flags;
   aarch64_tune = selected_tune->core;
   aarch64_tune_params = selected_tune->tune;
+  aarch64_architecture_version = selected_cpu->architecture_version;
 
   if (aarch64_fix_a53_err835769 == 2)
     {
@@ -7585,54 +7842,6 @@ aarch64_autovectorize_vector_sizes (void)
   return (16 | 8);
 }
 
-/* A table to help perform AArch64-specific name mangling for AdvSIMD
-   vector types in order to conform to the AAPCS64 (see "Procedure
-   Call Standard for the ARM 64-bit Architecture", Appendix A).  To
-   qualify for emission with the mangled names defined in that document,
-   a vector type must not only be of the correct mode but also be
-   composed of AdvSIMD vector element types (e.g.
-   _builtin_aarch64_simd_qi); these types are registered by
-   aarch64_init_simd_builtins ().  In other words, vector types defined
-   in other ways e.g. via vector_size attribute will get default
-   mangled names.  */
-typedef struct
-{
-  machine_mode mode;
-  const char *element_type_name;
-  const char *mangled_name;
-} aarch64_simd_mangle_map_entry;
-
-static aarch64_simd_mangle_map_entry aarch64_simd_mangle_map[] = {
-  /* 64-bit containerized types.  */
-  { V8QImode,  "__builtin_aarch64_simd_qi",     "10__Int8x8_t" },
-  { V8QImode,  "__builtin_aarch64_simd_uqi",    "11__Uint8x8_t" },
-  { V4HImode,  "__builtin_aarch64_simd_hi",     "11__Int16x4_t" },
-  { V4HImode,  "__builtin_aarch64_simd_uhi",    "12__Uint16x4_t" },
-  { V2SImode,  "__builtin_aarch64_simd_si",     "11__Int32x2_t" },
-  { V2SImode,  "__builtin_aarch64_simd_usi",    "12__Uint32x2_t" },
-  { V2SFmode,  "__builtin_aarch64_simd_sf",     "13__Float32x2_t" },
-  { DImode,    "__builtin_aarch64_simd_di",     "11__Int64x1_t" },
-  { DImode,    "__builtin_aarch64_simd_udi",    "12__Uint64x1_t" },
-  { V1DFmode,  "__builtin_aarch64_simd_df",	"13__Float64x1_t" },
-  { V8QImode,  "__builtin_aarch64_simd_poly8",  "11__Poly8x8_t" },
-  { V4HImode,  "__builtin_aarch64_simd_poly16", "12__Poly16x4_t" },
-  /* 128-bit containerized types.  */
-  { V16QImode, "__builtin_aarch64_simd_qi",     "11__Int8x16_t" },
-  { V16QImode, "__builtin_aarch64_simd_uqi",    "12__Uint8x16_t" },
-  { V8HImode,  "__builtin_aarch64_simd_hi",     "11__Int16x8_t" },
-  { V8HImode,  "__builtin_aarch64_simd_uhi",    "12__Uint16x8_t" },
-  { V4SImode,  "__builtin_aarch64_simd_si",     "11__Int32x4_t" },
-  { V4SImode,  "__builtin_aarch64_simd_usi",    "12__Uint32x4_t" },
-  { V2DImode,  "__builtin_aarch64_simd_di",     "11__Int64x2_t" },
-  { V2DImode,  "__builtin_aarch64_simd_udi",    "12__Uint64x2_t" },
-  { V4SFmode,  "__builtin_aarch64_simd_sf",     "13__Float32x4_t" },
-  { V2DFmode,  "__builtin_aarch64_simd_df",     "13__Float64x2_t" },
-  { V16QImode, "__builtin_aarch64_simd_poly8",  "12__Poly8x16_t" },
-  { V8HImode,  "__builtin_aarch64_simd_poly16", "12__Poly16x8_t" },
-  { V2DImode,  "__builtin_aarch64_simd_poly64", "12__Poly64x2_t" },
-  { VOIDmode, NULL, NULL }
-};
-
 /* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
@@ -7643,25 +7852,10 @@ aarch64_mangle_type (const_tree type)
   if (lang_hooks.types_compatible_p (CONST_CAST_TREE (type), va_list_type))
     return "St9__va_list";
 
-  /* Check the mode of the vector type, and the name of the vector
-     element type, against the table.  */
-  if (TREE_CODE (type) == VECTOR_TYPE)
-    {
-      aarch64_simd_mangle_map_entry *pos = aarch64_simd_mangle_map;
-
-      while (pos->mode != VOIDmode)
-	{
-	  tree elt_type = TREE_TYPE (type);
-
-	  if (pos->mode == TYPE_MODE (type)
-	      && TREE_CODE (TYPE_NAME (elt_type)) == TYPE_DECL
-	      && !strcmp (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (elt_type))),
-			  pos->element_type_name))
-	    return pos->mangled_name;
-
-	  pos++;
-	}
-    }
+  /* Mangle AArch64-specific internal types.  TYPE_NAME is non-NULL_TREE for
+     builtin types.  */
+  if (TYPE_NAME (type) != NULL)
+    return aarch64_mangle_builtin_type (type);
 
   /* Use the default mangling.  */
   return NULL;
@@ -8079,7 +8273,7 @@ aarch64_mov_operand_p (rtx x,
       && aarch64_valid_symref (XEXP (x, 0), GET_MODE (XEXP (x, 0))))
     return true;
 
-  if (CONST_INT_P (x) && aarch64_move_imm (INTVAL (x), mode))
+  if (CONST_INT_P (x))
     return true;
 
   if (GET_CODE (x) == SYMBOL_REF && mode == DImode && CONSTANT_ADDRESS_P (x))
@@ -8201,7 +8395,7 @@ aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
   lane = INTVAL (operand);
 
   if (lane < low || lane >= high)
-    error ("lane out of range");
+    error ("lane %ld out of range %ld - %ld", lane, low, high - 1);
 }
 
 /* Emit code to place a AdvSIMD pair result in memory locations (with equal
@@ -10016,6 +10210,144 @@ aarch64_use_by_pieces_infrastructure_p (unsigned int size,
 
   return default_use_by_pieces_infrastructure_p (size, align, op, speed_p);
 }
+
+static enum machine_mode
+aarch64_code_to_ccmode (enum rtx_code code)
+{
+  switch (code)
+    {
+    case NE:
+      return CC_DNEmode;
+
+    case EQ:
+      return CC_DEQmode;
+
+    case LE:
+      return CC_DLEmode;
+
+    case LT:
+      return CC_DLTmode;
+
+    case GE:
+      return CC_DGEmode;
+
+    case GT:
+      return CC_DGTmode;
+
+    case LEU:
+      return CC_DLEUmode;
+
+    case LTU:
+      return CC_DLTUmode;
+
+    case GEU:
+      return CC_DGEUmode;
+
+    case GTU:
+      return CC_DGTUmode;
+
+    default:
+      return CCmode;
+    }
+}
+
+static bool
+aarch64_convert_mode (rtx* op0, rtx* op1, int unsignedp)
+{
+  enum machine_mode mode;
+
+  mode = GET_MODE (*op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (*op1);
+
+  if (mode == QImode || mode == HImode)
+    {
+      *op0 = convert_modes (SImode, mode, *op0, unsignedp);
+      *op1 = convert_modes (SImode, mode, *op1, unsignedp);
+    }
+  else if (mode != SImode && mode != DImode)
+    return false;
+
+  return true;
+}
+
+static rtx
+aarch64_gen_ccmp_first (int code, rtx op0, rtx op1)
+{
+  enum machine_mode mode;
+  rtx cmp, target;
+  int unsignedp = code == LTU || code == LEU || code == GTU || code == GEU;
+
+  mode = GET_MODE (op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op1);
+
+  if (mode == VOIDmode)
+    return NULL_RTX;
+
+  if (!register_operand (op0, GET_MODE (op0)))
+    op0 = force_reg (mode, op0);
+  if (!aarch64_plus_operand (op1, GET_MODE (op1)))
+    op1 = force_reg (mode, op1);
+
+  if (!aarch64_convert_mode (&op0, &op1, unsignedp))
+    return NULL_RTX;
+
+  mode = aarch64_code_to_ccmode ((enum rtx_code) code);
+  if (mode == CCmode)
+    return NULL_RTX;
+
+  cmp = gen_rtx_fmt_ee (COMPARE, CCmode, op0, op1);
+  target = gen_rtx_REG (mode, CC_REGNUM);
+  emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CC_REGNUM), cmp));
+  return target;
+}
+
+static rtx
+aarch64_gen_ccmp_next (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code)
+{
+  rtx cmp0, cmp1, target, bit_op;
+  enum machine_mode mode;
+  int unsignedp = cmp_code == LTU || cmp_code == LEU
+		  || cmp_code == GTU || cmp_code == GEU;
+
+  mode = GET_MODE (op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op1);
+  if (mode == VOIDmode)
+    return NULL_RTX;
+
+  /* Give up if the operand is illegal since force_reg will introduce
+     additional overhead.  */
+  if (!register_operand (op0, GET_MODE (op0))
+      || !aarch64_ccmp_operand (op1, GET_MODE (op1)))
+    return NULL_RTX;
+
+  if (!aarch64_convert_mode (&op0, &op1, unsignedp))
+    return NULL_RTX;
+
+  mode = aarch64_code_to_ccmode ((enum rtx_code) cmp_code);
+  if (mode == CCmode)
+    return NULL_RTX;
+
+  cmp1 = gen_rtx_fmt_ee ((enum rtx_code) cmp_code, SImode, op0, op1);
+  cmp0 = gen_rtx_fmt_ee (NE, SImode, prev, const0_rtx);
+
+  bit_op = gen_rtx_fmt_ee ((enum rtx_code) bit_code, SImode, cmp0, cmp1);
+
+  /* Generate insn to match ccmp_and/ccmp_ior.  */
+  target = gen_rtx_REG (mode, CC_REGNUM);
+  emit_insn (gen_rtx_SET (VOIDmode, target,
+                          gen_rtx_fmt_ee (COMPARE, mode,
+                                          bit_op, const0_rtx)));
+  return target;
+}
+
+#undef TARGET_GEN_CCMP_FIRST
+#define TARGET_GEN_CCMP_FIRST aarch64_gen_ccmp_first
+
+#undef TARGET_GEN_CCMP_NEXT
+#define TARGET_GEN_CCMP_NEXT aarch64_gen_ccmp_next
 
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST aarch64_address_cost

@@ -168,6 +168,14 @@ enum built_in_class {
 enum built_in_function {
 #include "builtins.def"
 
+  BEGIN_CHKP_BUILTINS,
+
+#undef DEF_BUILTIN
+#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) ENUM##_CHKP,
+#include "builtins.def"
+
+  END_CHKP_BUILTINS,
+
   /* Complex division routines in libgcc.  These are done via builtins
      because emit_library_call_value can't handle complex values.  */
   BUILT_IN_COMPLEX_MUL_MIN,
@@ -463,6 +471,8 @@ enum tree_index {
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
   TI_POINTER_SIZED_TYPE,
+
+  TI_POINTER_BOUNDS_TYPE,
 
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
@@ -1874,10 +1884,6 @@ extern GTY(()) builtin_info_type builtin_info;
 
 /* If nonzero, an upper limit on alignment of structure fields, in bits,  */
 extern unsigned int maximum_field_alignment;
-
-/* Nonzero means lvalues are limited to those valid in pedantic ANSI C.
-   Zero means allow extended lvalues.  */
-extern int pedantic_lvalues;
 
 /* Points to the FUNCTION_DECL of the function whose body we are reading.  */
 extern GTY(()) tree current_function_decl;

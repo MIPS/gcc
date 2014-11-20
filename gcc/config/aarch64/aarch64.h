@@ -28,7 +28,13 @@
     {							\
       builtin_define ("__aarch64__");                   \
       builtin_define ("__ARM_64BIT_STATE");             \
+      builtin_define_with_int_value                     \
+        ("__ARM_ARCH", aarch64_architecture_version);   \
+      cpp_define_formatted                                              \
+        (parse_in, "__ARM_ARCH_%dA", aarch64_architecture_version);     \
       builtin_define ("__ARM_ARCH_ISA_A64");            \
+      builtin_define_with_int_value                     \
+        ("__ARM_ARCH_PROFILE", 'A');                    \
       builtin_define ("__ARM_FEATURE_CLZ");             \
       builtin_define ("__ARM_FEATURE_IDIV");            \
       builtin_define ("__ARM_FEATURE_UNALIGNED");       \
@@ -172,6 +178,8 @@
 
 #define PCC_BITFIELD_TYPE_MATTERS	1
 
+/* Major revision number of the ARM Architecture implemented by the target.  */
+extern unsigned aarch64_architecture_version;
 
 /* Instruction tuning/selection flags.  */
 
@@ -264,7 +272,7 @@ extern unsigned long aarch64_tune_flags;
     1, 1, 1, 1,   1, 1, 1, 1,	/* R0 - R7 */		\
     1, 1, 1, 1,   1, 1, 1, 1,	/* R8 - R15 */		\
     1, 1, 1, 0,   0, 0, 0, 0,	/* R16 - R23 */		\
-    0, 0, 0, 0,   0, 1, 0, 1,	/* R24 - R30, SP */	\
+    0, 0, 0, 0,   0, 1, 1, 1,	/* R24 - R30, SP */	\
     1, 1, 1, 1,   1, 1, 1, 1,	/* V0 - V7 */		\
     0, 0, 0, 0,   0, 0, 0, 0,	/* V8 - V15 */		\
     1, 1, 1, 1,   1, 1, 1, 1,   /* V16 - V23 */         \
@@ -323,7 +331,7 @@ extern unsigned long aarch64_tune_flags;
    considered live at the start of the called function.  */
 
 #define EPILOGUE_USES(REGNO) \
-  ((REGNO) == LR_REGNUM)
+  (epilogue_completed && (REGNO) == LR_REGNUM)
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -611,10 +619,10 @@ enum arm_pcs
 #define MACHMODE int
 #else
 #include "insn-modes.h"
-#define MACHMODE enum machine_mode
+#define MACHMODE machine_mode
 #endif
 
-
+#ifndef USED_FOR_TARGET
 /* AAPCS related state tracking.  */
 typedef struct
 {
@@ -635,6 +643,7 @@ typedef struct
   int aapcs_stack_size;		/* The total size (in words, per 8 byte) of the
 				   stack arg area so far.  */
 } CUMULATIVE_ARGS;
+#endif
 
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
   (aarch64_pad_arg_upward (MODE, TYPE) ? upward : downward)

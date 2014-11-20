@@ -164,6 +164,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "wide-int-print.h"
 #include "builtins.h"
+#include "tree-chkp.h"
 
 
 /* Possible lattice values.  */
@@ -1125,6 +1126,27 @@ valueize_op (tree op)
   return op;
 }
 
+/* Return the constant value for OP, but signal to not follow SSA
+   edges if the definition may be simulated again.  */
+
+static tree
+valueize_op_1 (tree op)
+{
+  if (TREE_CODE (op) == SSA_NAME)
+    {
+      tree tem = get_constant_value (op);
+      if (tem)
+	return tem;
+      /* If the definition may be simulated again we cannot follow
+         this SSA edge as the SSA propagator does not necessarily
+	 re-visit the use.  */
+      gimple def_stmt = SSA_NAME_DEF_STMT (op);
+      if (prop_simulate_again_p (def_stmt))
+	return NULL_TREE;
+    }
+  return op;
+}
+
 /* CCP specific front-end to the non-destructive constant folding
    routines.
 
@@ -1157,7 +1179,8 @@ ccp_fold (gimple stmt)
 
     case GIMPLE_ASSIGN:
     case GIMPLE_CALL:
-      return gimple_fold_stmt_to_constant_1 (stmt, valueize_op);
+      return gimple_fold_stmt_to_constant_1 (stmt,
+					     valueize_op, valueize_op_1);
 
     default:
       gcc_unreachable ();
@@ -1945,6 +1968,8 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
     else if (gimple_assign_ssa_name_copy_p (stmt))
       insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
 					   visited);
+    else if (chkp_gimple_call_builtin_p (stmt, BUILT_IN_CHKP_BNDRET))
+      continue;
     else
       gcc_assert (is_gimple_debug (stmt));
 }
@@ -2564,6 +2589,9 @@ optimize_unreachable (gimple_stmt_iterator i)
   edge_iterator ei;
   edge e;
   bool ret;
+
+  if (flag_sanitize & SANITIZE_UNREACHABLE)
+    return false;
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {

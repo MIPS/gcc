@@ -2346,6 +2346,9 @@ initialize_sanitizer_builtins (void)
 #define ATTR_TMPURE_NOTHROW_LEAF_LIST ECF_TM_PURE | ATTR_NOTHROW_LEAF_LIST
 #undef ATTR_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_NORETURN_NOTHROW_LEAF_LIST ECF_NORETURN | ATTR_NOTHROW_LEAF_LIST
+#undef ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
+#define ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST \
+  ECF_CONST | ATTR_NORETURN_NOTHROW_LEAF_LIST
 #undef ATTR_TMPURE_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_TMPURE_NORETURN_NOTHROW_LEAF_LIST \
   ECF_TM_PURE | ATTR_NORETURN_NOTHROW_LEAF_LIST
@@ -2355,6 +2358,9 @@ initialize_sanitizer_builtins (void)
 #undef ATTR_COLD_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_COLD_NORETURN_NOTHROW_LEAF_LIST \
   /* ECF_COLD missing */ ATTR_NORETURN_NOTHROW_LEAF_LIST
+#undef ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST
+#define ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST \
+  /* ECF_COLD missing */ ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
@@ -2497,7 +2503,7 @@ asan_finish_file (void)
 
 /* Expand the ASAN_{LOAD,STORE} builtins.  */
 
-static bool
+bool
 asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
 {
   gimple g = gsi_stmt (*iter);
@@ -2798,116 +2804,6 @@ gimple_opt_pass *
 make_pass_asan_O0 (gcc::context *ctxt)
 {
   return new pass_asan_O0 (ctxt);
-}
-
-/* Perform optimization of sanitize functions.  */
-
-namespace {
-
-const pass_data pass_data_sanopt =
-{
-  GIMPLE_PASS, /* type */
-  "sanopt", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
-  ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_update_ssa, /* todo_flags_finish */
-};
-
-class pass_sanopt : public gimple_opt_pass
-{
-public:
-  pass_sanopt (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_sanopt, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *) { return flag_sanitize; }
-  virtual unsigned int execute (function *);
-
-}; // class pass_sanopt
-
-unsigned int
-pass_sanopt::execute (function *fun)
-{
-  basic_block bb;
-
-  int asan_num_accesses = 0;
-  if (flag_sanitize & SANITIZE_ADDRESS)
-    {
-      gimple_stmt_iterator gsi;
-      FOR_EACH_BB_FN (bb, fun)
-	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	  {
- 	    gimple stmt = gsi_stmt (gsi);
-	    if (is_gimple_call (stmt) && gimple_call_internal_p (stmt)
-		&& gimple_call_internal_fn (stmt) == IFN_ASAN_CHECK)
-	      ++asan_num_accesses;
-	  }
-    }
-
-  bool use_calls = ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD < INT_MAX
-    && asan_num_accesses >= ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD;
-
-  FOR_EACH_BB_FN (bb, fun)
-    {
-      gimple_stmt_iterator gsi;
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
-	{
-	  gimple stmt = gsi_stmt (gsi);
-	  bool no_next = false;
-
-	  if (!is_gimple_call (stmt))
-	    {
-	      gsi_next (&gsi);
-	      continue;
-	    }
-
-	  if (gimple_call_internal_p (stmt))
-	    {
-	      enum internal_fn ifn = gimple_call_internal_fn (stmt);
-	      switch (ifn)
-		{
-		case IFN_UBSAN_NULL:
-		  no_next = ubsan_expand_null_ifn (&gsi);
-		  break;
-		case IFN_UBSAN_BOUNDS:
-		  no_next = ubsan_expand_bounds_ifn (&gsi);
-		  break;
-		case IFN_UBSAN_OBJECT_SIZE:
-		  no_next = ubsan_expand_objsize_ifn (&gsi);
-		  break;
-		case IFN_ASAN_CHECK:
-		  no_next = asan_expand_check_ifn (&gsi, use_calls);
-		  break;
-		default:
-		  break;
-		}
-	    }
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Optimized\n  ");
-	      print_gimple_stmt (dump_file, stmt, 0, dump_flags);
-	      fprintf (dump_file, "\n");
-	    }
-
-	  if (!no_next)
-	    gsi_next (&gsi);
-	}
-    }
-  return 0;
-}
-
-} // anon namespace
-
-gimple_opt_pass *
-make_pass_sanopt (gcc::context *ctxt)
-{
-  return new pass_sanopt (ctxt);
 }
 
 #include "gt-asan.h"

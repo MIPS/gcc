@@ -148,12 +148,14 @@ c-common.h, not after.
       DECL_LOCAL_FUNCTION_P (in FUNCTION_DECL)
       DECL_MUTABLE_P (in FIELD_DECL)
       DECL_DEPENDENT_P (in USING_DECL)
+      LABEL_DECL_BREAK (in LABEL_DECL)
    1: C_TYPEDEF_EXPLICITLY_SIGNED (in TYPE_DECL).
       DECL_TEMPLATE_INSTANTIATED (in a VAR_DECL or a FUNCTION_DECL)
       DECL_MEMBER_TEMPLATE_P (in TEMPLATE_DECL)
       USING_DECL_TYPENAME_P (in USING_DECL)
       DECL_VLA_CAPTURE_P (in FIELD_DECL)
       DECL_ARRAY_PARAMETER_P (in PARM_DECL)
+      LABEL_DECL_CONTINUE (in LABEL_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
@@ -1181,6 +1183,8 @@ struct GTY(()) language_function {
 
   /* True if this function can throw an exception.  */
   BOOL_BITFIELD can_throw : 1;
+
+  BOOL_BITFIELD invalid_constexpr : 1;
 
   hash_table<named_label_hasher> *x_named_labels;
   cp_binding_level *bindings;
@@ -3241,6 +3245,14 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define DECL_LOCAL_FUNCTION_P(NODE) \
   DECL_LANG_FLAG_0 (FUNCTION_DECL_CHECK (NODE))
 
+/* Nonzero if NODE is the target for genericization of 'break' stmts.  */
+#define LABEL_DECL_BREAK(NODE) \
+  DECL_LANG_FLAG_0 (LABEL_DECL_CHECK (NODE))
+
+/* Nonzero if NODE is the target for genericization of 'continue' stmts.  */
+#define LABEL_DECL_CONTINUE(NODE) \
+  DECL_LANG_FLAG_1 (LABEL_DECL_CHECK (NODE))
+
 /* True if NODE was declared with auto in its return type, but it has
    started compilation and so the return type might have been changed by
    return type deduction; its declared return type should be found in
@@ -3623,6 +3635,12 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    pointer to member function.  TYPE_PTRMEMFUNC_P _must_ be true,
    before using this macro.  */
 #define TYPE_PTRMEMFUNC_FN_TYPE(NODE) \
+  (cp_build_qualified_type (TREE_TYPE (TYPE_FIELDS (NODE)),\
+			    cp_type_quals (NODE)))
+
+/* As above, but can be used in places that want an lvalue at the expense
+   of not necessarily having the correct cv-qualifiers.  */
+#define TYPE_PTRMEMFUNC_FN_TYPE_RAW(NODE) \
   (TREE_TYPE (TYPE_FIELDS (NODE)))
 
 /* Returns `A' for a type like `int (A::*)(double)' */
@@ -4933,6 +4951,8 @@ typedef struct cp_decl_specifier_seq {
   BOOL_BITFIELD explicit_char_p : 1;
   /* True iff ds_thread is set for __thread, not thread_local.  */
   BOOL_BITFIELD gnu_thread_keyword_p : 1;
+  /* True iff the type is a decltype.  */
+  BOOL_BITFIELD decltype_p : 1;
 } cp_decl_specifier_seq;
 
 /* The various kinds of declarators.  */
@@ -5688,10 +5708,11 @@ extern tree template_for_substitution		(tree);
 extern tree build_non_dependent_expr		(tree);
 extern void make_args_non_dependent		(vec<tree, va_gc> *);
 extern bool reregister_specialization		(tree, tree, tree);
-extern tree fold_non_dependent_expr		(tree);
-extern tree fold_non_dependent_expr_sfinae	(tree, tsubst_flags_t);
+extern tree instantiate_non_dependent_expr	(tree);
+extern tree instantiate_non_dependent_expr_sfinae (tree, tsubst_flags_t);
 extern bool alias_type_or_template_p            (tree);
 extern bool alias_template_specialization_p     (const_tree);
+extern bool dependent_alias_template_spec_p     (const_tree);
 extern bool explicit_class_specialization_p     (tree);
 extern bool push_tinst_level                    (tree);
 extern bool push_tinst_level_loc                (tree, location_t);
@@ -6133,7 +6154,6 @@ extern tree build_array_ref			(location_t, tree, tree);
 extern tree cp_build_array_ref			(location_t, tree, tree,
 						 tsubst_flags_t);
 extern tree get_member_function_from_ptrfunc	(tree *, tree, tsubst_flags_t);
-extern tree cp_build_function_call              (tree, tree, tsubst_flags_t);
 extern tree cp_build_function_call_nary         (tree, tsubst_flags_t, ...)
 						ATTRIBUTE_SENTINEL;
 extern tree cp_build_function_call_vec		(tree, vec<tree, va_gc> **,
@@ -6149,7 +6169,6 @@ extern tree build_x_unary_op			(location_t,
 						 enum tree_code, tree,
                                                  tsubst_flags_t);
 extern tree cp_build_addr_expr			(tree, tsubst_flags_t);
-extern tree cp_build_addr_expr_strict		(tree, tsubst_flags_t);
 extern tree cp_build_unary_op                   (enum tree_code, tree, int, 
                                                  tsubst_flags_t);
 extern tree unary_complex_lvalue		(enum tree_code, tree);
@@ -6209,7 +6228,6 @@ extern tree build_x_vec_perm_expr               (location_t,
 extern tree build_simple_component_ref		(tree, tree);
 extern tree build_ptrmemfunc_access_expr	(tree, tree);
 extern tree build_address			(tree);
-extern tree build_typed_address			(tree, tree);
 extern tree build_nop				(tree, tree);
 extern tree non_reference			(tree);
 extern tree lookup_anon_field			(tree, tree);
@@ -6331,6 +6349,7 @@ extern bool require_potential_rvalue_constant_expression (tree);
 extern tree cxx_constant_value			(tree, tree = NULL_TREE);
 extern tree maybe_constant_value		(tree, tree = NULL_TREE);
 extern tree maybe_constant_init			(tree, tree = NULL_TREE);
+extern tree fold_non_dependent_expr		(tree);
 extern bool is_sub_constant_expr                (tree);
 extern bool reduced_constant_expression_p       (tree);
 extern bool is_instantiation_of_constexpr       (tree);

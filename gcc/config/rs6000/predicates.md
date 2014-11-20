@@ -479,10 +479,6 @@
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
 
     case DFmode:
-      /* The constant 0.f is easy under VSX.  */
-      if (op == CONST0_RTX (DFmode) && VECTOR_UNIT_VSX_P (DFmode))
-	return 1;
-
       /* Force constants to memory before reload to utilize
 	 compress_float_constant.
 	 Avoid this when flag_unsafe_math_optimizations is enabled
@@ -500,10 +496,6 @@
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
 
     case SFmode:
-      /* The constant 0.f is easy.  */
-      if (op == CONST0_RTX (SFmode))
-	return 1;
-
       /* Force constants to memory before reload to utilize
 	 compress_float_constant.
 	 Avoid this when flag_unsafe_math_optimizations is enabled
@@ -527,6 +519,27 @@
   default:
     gcc_unreachable ();
   }
+})
+
+;; Return 1 if the operand must be loaded from memory.  This is used by a
+;; define_split to insure constants get pushed to the constant pool before
+;; reload.  If -ffast-math is used, easy_fp_constant will allow move insns to
+;; have constants in order not interfere with reciprocal estimation.  However,
+;; with -mupper-regs support, these constants must be moved to the constant
+;; pool before register allocation.
+
+(define_predicate "memory_fp_constant"
+  (match_code "const_double")
+{
+  if (TARGET_VSX && op == CONST0_RTX (mode))
+    return 0;
+
+  if (!TARGET_HARD_FLOAT || !TARGET_FPRS
+      || (mode == SFmode && !TARGET_SINGLE_FLOAT)
+      || (mode == DFmode && !TARGET_DOUBLE_FLOAT))
+    return 0;
+	  
+  return 1;
 })
 
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
