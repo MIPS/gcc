@@ -1,3 +1,8 @@
+2014-11-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (resolve_oacc_cache): Mark the code parameter as
+	unused.
+
 2014-11-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* match.c (match_exit_cycle): Restructure error strings.

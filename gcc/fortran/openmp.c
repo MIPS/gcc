@@ -4600,7 +4600,7 @@ resolve_oacc_loop (gfc_code *code)
 
 
 static void
-resolve_oacc_cache (gfc_code *code)
+resolve_oacc_cache (gfc_code *code ATTRIBUTE_UNUSED)
 {
   sorry ("Sorry, !$ACC cache unimplemented yet");
 }
