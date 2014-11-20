@@ -47,6 +47,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tree-ssa-operands.h"
 #include "tree-into-ssa.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "gimple-pretty-print.h"
+#include "tree-cfg.h"
+
+typedef enum escape_type {
+  NONESCAPE = 0,
+  CUSTOM_ALLOC_SITE,
+  NUM_ESCAPE_TYPES /* Not used, must be last.  */
+} escape_t;
+
+const char *escape_type_names[NUM_ESCAPE_TYPES] =
+{
+  "nonescape",
+  "custom_alloc_site"
+};
 
 /* Structure types that appear in symtab_node: 
 
@@ -61,7 +78,7 @@ along with GCC; see the file COPYING3.  If not see
 struct struct_symbols_d {
   tree struct_decl;
 
-  bool analized;
+  unsigned int  escape;
   vec<symtab_node *> symbols; 
 
   /* Number of fields in the structure.  */
@@ -84,6 +101,34 @@ typedef struct struct_symbols_d * struct_symbols;
    during WPA, we decide if structure type can be trunsformed or not.  */
 
 static vec<struct_symbols> struct_symbols_vec;
+
+static inline void 
+add_escape (struct_symbols str, unsigned int escape)
+{
+  str->escape = str->escape | escape;
+}
+
+static void
+print_escape (struct_symbols str)
+{
+  unsigned int escape = str->escape;
+  int j = 0;
+  
+  if (!dump_file)
+    return;
+
+  for ( unsigned int i = 0; i < NUM_ESCAPE_TYPES; i++)
+    {
+      if (escape & (1 << i))
+	{
+	  if (j)
+	    fprintf (dump_file, ", %s", escape_type_names[i]);
+	  else
+	    fprintf (dump_file, "\nEscape: %s", escape_type_names[i]);
+	  j++;
+	}
+    }
+}
 
 /* New variables created by this optimization.
    When are doing struct peeling, each variable of
@@ -153,6 +198,80 @@ typedef struct type_wrapper
   /* Relevant for arrays as domain or index.  */
   tree domain;
 }type_wrapper_t;
+
+/* This structure represents allocation site of the structure.  */
+typedef struct alloc_site
+{
+  gimple stmt;
+  struct_symbols str;
+} alloc_site_t;
+
+typedef alloc_site_t * alloc_site_p;
+static vec<alloc_site_p> alloc_sites; 
+
+
+/* This function looks for the entry with the type TYPE in 
+   struct_symbols_vec. It returns an index of the entry, if it's found, 
+   and -1 otherwise.  */
+
+static inline int
+is_in_alloc_site_vec (gimple stmt, struct_symbols str)
+{
+  unsigned int i;
+  alloc_site_p asite; 
+  if (alloc_sites.exists ())
+    {
+      FOR_EACH_VEC_ELT (alloc_sites, i, asite)
+	{
+	  if (stmt == asite->stmt && asite->str == str)
+	    return (int)i;
+	}	  
+    }
+  return -1;
+} 
+
+/* This function adds an allocation site to alloc_sites vector.
+   The allocation site appears in STMT and
+   allocates the structure represented by STR.  */
+
+static void
+add_alloc_site (struct cgraph_node *node, gimple stmt, struct_symbols str)
+{
+  alloc_site_p alloc;
+
+  if (is_in_alloc_site_vec (stmt, str) == -1)
+    {
+      alloc = XNEW (alloc_site_t);
+      alloc->stmt = stmt;
+      alloc->str = str;
+      
+      if (!alloc_sites.exists ())
+	alloc_sites.create (0);
+      alloc_sites.safe_push (alloc);
+    }
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nAdding stmt ");
+      print_gimple_stmt (dump_file, stmt, 0, 0);
+      fprintf (dump_file, " to vector of allocation site of function %s.", 
+	       node->name ());
+    }
+} 
+
+/* */
+
+static void
+free_alloc_sites (void)
+{
+  alloc_site_p asite;
+  unsigned int i;
+
+  FOR_EACH_VEC_ELT (alloc_sites, i, asite)
+    free (asite);
+  if (alloc_sites.exists ())
+    alloc_sites.release ();
+} 
 
 /* Given a type TYPE, this function returns the name of the type.  */
 
@@ -249,9 +368,13 @@ print_struct_symbol_vec ()
   FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
     {
       str = struct_symbols_vec[i];
+      
       fprintf (dump_file, "\nThe structure type is\n");
       dump_struct_type (str->struct_decl, 2, 0);
       fprintf (dump_file, "\n ");
+
+      
+      print_escape (str);
       
       if (symbols->symbols.exists ())
 	fprintf (dump_file, "\nSymbols are:\n");
@@ -427,7 +550,7 @@ add_struct_to_struct_symbols_vec (tree type)
   symbs->num_fields = 0;
   symbs->struct_clustering = 0;
   symbs->fields = 0;
-  symbs->analized = false;
+  symbs->escape = (1 << NONESCAPE);
   if (!struct_symbols_vec.exists ())
     struct_symbols_vec.create (0);
   struct_symbols_vec.safe_push (symbs);
@@ -649,23 +772,6 @@ var_is_candidate (tree var, tree *type_p)
   return type_is_candidate (type, type_p);
 }
 
-/* Add a symbol SYMBOL to the vector of symbols corresponding 
-   to the type TYPE in struct_symbols_vec.  */
-
-/* static void
-add_symbol (tree type, symtab_node *symbol)
-{
-
-  int i = is_in_struct_symbols_vec (type);
-  if (i != -1)
-  {
-    add_symbol_to_struct_symbols_vec (i, symbol);
-  } else {
-    i = add_struct_to_struct_symbols_vec (type);
-    add_symbol_to_struct_symbols_vec (i, symbol);
-  }
-  } */
-
 /* This function looks for structure types instantiated in the program.
    The candidate types are added to the structures vector.  */
 
@@ -675,8 +781,6 @@ build_data_structure (void)
   tree var, type, p;
   struct varpool_node *current_var;
   struct cgraph_node *c_node;
-  //struct cgraph_node *callee;
-  //struct cgraph_edge *edge;
 
   /* Check global and static (global and local) variables.  */
   FOR_EACH_VARIABLE (current_var) 
@@ -786,11 +890,7 @@ build_data_structure (void)
     }
   /* Scan parameters of functions that have no forward declarations.  */
   FOR_EACH_DEFINED_FUNCTION(c_node)
-  {
-    /* struct function *fn = DECL_STRUCT_FUNCTION (c_node->decl);
-    basic_block bb;
-      gimple_stmt_iterator gsi; */
-    
+  {    
     struct cgraph_edge *cs;
     for (cs = c_node->callees; cs; cs = cs->next_callee)
       {
@@ -837,8 +937,6 @@ build_data_structure (void)
 		  add_symbol_to_struct_symbols_vec (
 					  add_struct_to_struct_symbols_vec (type), 
 					  cs->callee);
-		  // add_structure (type);
-		  // add_symbol (type, cs->callee);
 		} else {
 		  if (dump_file)
 		    {
@@ -854,6 +952,191 @@ build_data_structure (void)
   print_struct_symbol_vec ();
 }
 
+/* This function check if STMT is a cast stmt 
+   to the structure type p_8 = (struct str_t *) D.2225_7;
+   If it is, function returns true and index of struct in i_p.
+   If it's not, function returns false, and i_p is filled with -1.  */
+
+static bool
+is_cast_to_struct (gimple stmt, int *i_p)
+{
+  tree lhs;
+  tree type; 
+
+  *i_p = -1;
+
+  if (!stmt)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nuse stmt is 0.");
+	}
+      return false;
+    } 
+
+  /* final_stmt should be of the form:
+     T.3 = (struct_type *) T.2; */
+
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nfinal_stmt is not gimple_assign.");
+      return false;
+    }
+
+  lhs = gimple_assign_lhs (stmt);
+
+  type = get_type_of_var (lhs);
+
+  if (!type)
+    {
+      if (dump_file)
+	fprintf (dump_file, "\ntype is 0.");
+      return false;
+    }
+
+  if (!POINTER_TYPE_P (type)
+      || TREE_CODE (strip_type (type)) != RECORD_TYPE)
+    {
+      if (dump_file)
+	fprintf (dump_file, "\ntype does not fit.");
+
+      return false;
+    }
+
+  *i_p = is_in_struct_symbols_vec (strip_type (type));
+
+    return true;
+}
+
+
+/* This function returns true if the result of STMT, that contains a call
+   to an allocation function, is cast to one of the structure types.
+   STMT should be of the form:    T.2 = <alloc_func> (T.1);
+   If true, I_P contains an index of an allocated structure.
+   Otherwise I_P contains the length of the vector of structures.  */
+
+static bool
+is_alloc_of_struct (gimple alloc_stmt, int *i_p)
+{
+  gimple use_stmt;
+  tree alloc_res;
+  imm_use_iterator imm_iter;
+  *i_p = -1;
+  bool res;
+  int ii;
+
+  if (!alloc_stmt)
+    return false;
+
+  if (!is_gimple_call (alloc_stmt))
+    return false;
+
+  alloc_res = gimple_get_lhs (alloc_stmt);
+
+  if (TREE_CODE (alloc_res) != SSA_NAME)
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nalloc_res is not ssa_name.");
+      return false;
+    }
+
+  /* Visit all uses of alloc_res, and check whether 
+     at least one of them is cast to struct type.  */
+  res = false;
+  ii = -1;
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, alloc_res)
+    {
+      if (is_cast_to_struct (use_stmt, &ii))
+	{
+	  if (!res)
+	    {
+	      res = true;
+	      *i_p = ii;
+	    }
+	  else
+	  /* Result of malloc is cast to two different structures.  */
+	    gcc_assert (ii == *i_p);	    
+	}
+    }
+
+  return res;
+}
+
+
+/* This function looks for structure allocation sites which cannot
+   be handled and defines their escape type as CUSTOM_SITE_MALLOC.  
+
+   In this function we assume that an allocation statement
+
+   var = (type_cast) malloc (size);
+
+   is converted into the following set of statements:
+
+   T.1 = size;
+   T.2 = malloc (T.1);
+   T.3 = (type_cast) T.2;
+   var = T.3;
+
+   In this function we collect into alloc_sites the allocation
+   sites of variables of structure types that are present
+   in structures vector.  */
+
+static void
+exclude_custom_malloc (void)
+{
+  struct cgraph_node *node;
+  struct cgraph_edge *cs;
+
+  FOR_EACH_DEFINED_FUNCTION(node)
+    if (node->analyzed && node->decl)
+      {
+	if (dump_file)
+	  dump_function_to_file (node->decl, dump_file, 0);
+
+	for (cs = node->callees; cs; cs = cs->next_callee)
+	  {
+	    gimple stmt = cs->call_stmt;
+
+	    if (stmt)
+	      {
+		tree decl;
+
+		if (is_gimple_call (stmt)
+		    && (decl = gimple_call_fndecl (stmt))
+		    && gimple_call_lhs (stmt))
+		  {
+		    int i;
+
+		    if (dump_file)
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+
+		    if (is_alloc_of_struct (stmt, &i))
+		      {
+			if (dump_file)
+			  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
+
+			/* All struct types are already collected.  */
+			gcc_assert (i != -1);
+
+			/* We support only malloc now.  */
+			if (DECL_FUNCTION_CODE (decl) != BUILT_IN_MALLOC)
+			  {
+			    if (dump_file)
+			      {
+				fprintf (dump_file,
+					 "\nUnsupported allocation function ");
+				print_gimple_stmt (dump_file, stmt, 0, 0);
+			      }
+			    add_escape (struct_symbols_vec[i], 1 << CUSTOM_ALLOC_SITE);
+			  }
+		      }
+		  }
+	      }
+	  }
+      }
+}
+
 /* This function collects structures potential
    for peeling transformation, and inserts
    them into structures hashtable.  */
@@ -861,9 +1144,9 @@ build_data_structure (void)
 static void
 collect_structures (void)
 {  
-  /* Build data structures hashtable of all data structures
-     in the program.  */
+  /* Collect all structures in compilation unit into struct_symbols_vec.  */
   build_data_structure ();
+  exclude_custom_malloc ();
 }
 
 /* This function generates cluster substructure that contains FIELDS.
@@ -1159,7 +1442,9 @@ propagate (void)
 	      break;
 	    }
 	}
-      if (escape)
+      /* We remove all externally visible structures and 
+	 all non-suitable (based on previously detected reasons) structures.  */
+      if (escape || (symbols->escape > 1))
 	{
 	  /* Delete i's type from struct_symbols_vec.  */
 	  remove_type_from_struct_symbols_vec (symbols);
@@ -1284,7 +1569,7 @@ struct_reorg_read_section (struct lto_file_decl_data *file_data, const char *dat
   struct data_in *data_in;
   struct lto_input_block ib_main;
   unsigned int i;
-  unsigned int count;
+  unsigned int count, escape;
   lto_symtab_encoder_t encoder;
 
   LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
@@ -1303,12 +1588,14 @@ struct_reorg_read_section (struct lto_file_decl_data *file_data, const char *dat
 
       /* Deserialize structure declaration.  */
       struct_decl = stream_read_tree (&ib_main, data_in);
+      escape = streamer_read_uhwi (&ib_main);
       j = is_in_struct_symbols_vec (struct_decl);
       if (j == -1)	
 	j = add_struct_to_struct_symbols_vec (struct_decl);
 
       /* Deserialize symbols.  */
       read_struct_symbols (&ib_main, encoder, j);
+      add_escape (struct_symbols_vec[j], escape);
     }
 
   lto_free_section_data (file_data, LTO_section_ipa_struct_reorg, NULL, data,
@@ -1521,6 +1808,7 @@ struct_reorg_write_summary (void)
       /* Serialize structure declaration.  */
       gcc_assert (struct_symbols_vec[i]->struct_decl);
       stream_write_tree (ob, struct_symbols_vec[i]->struct_decl, true);
+      streamer_write_uhwi (ob, struct_symbols_vec[i]->escape);
 
       if (dump_file)
 	dump_struct_type (struct_symbols_vec[i]->struct_decl, 2, 0);
@@ -1953,21 +2241,67 @@ free_new_vars_htab (htab_t new_vars_htab)
   new_vars_htab = NULL;
 }
 
+/* In this function we assume that an allocation statement
+
+   var = (type_cast) malloc (size);
+
+   is converted into the following set of statements:
+
+   T.1 = size;
+   T.2 = malloc (T.1);
+   T.3 = (type_cast) T.2;
+   var = T.3;
+
+   In this function we collect into alloc_sites the allocation
+   sites of variables of structure types that are present
+   in structures vector.  */
+
+static void
+collect_alloc_sites (struct cgraph_node *node)
+{
+  struct cgraph_edge *cs;
+  
+  if (!node->analyzed || !node->decl)
+    return;
+
+  for (cs = node->callees; cs; cs = cs->next_callee)
+    {
+      gimple stmt = cs->call_stmt;
+
+      if (stmt)
+	{
+	  tree decl;
+
+	  if (is_gimple_call (stmt)
+	      && (decl = gimple_call_fndecl (stmt))
+	      && gimple_call_lhs (stmt))
+	    {
+	      int i;
+	      
+	      if (is_alloc_of_struct (stmt, &i))
+		add_alloc_site (node, stmt, struct_symbols_vec[i]); 
+	    }
+	}
+    }
+}
+
 /* Do struct-reorg transformation for individual function
    represented by NODE. All structure types relevant
    for this function are transformed.  */
 
 static void
-do_reorg_for_func ( /*struct cgraph_node *node */)
+do_reorg_for_func (struct cgraph_node *node)
 {
   create_new_local_vars ();
+  collect_alloc_sites (node);
   /*create_new_alloc_sites_for_func (node);
   create_new_accesses_for_func ();
   update_ssa (TODO_update_ssa);
   cleanup_tree_cfg ();
   cgraph_rebuild_references (); */
 
-  /* Free auxiliary data representing local variables.  */
+  /* Free auxiliary data.  */
+  free_alloc_sites ();
   free_new_vars_htab (new_local_vars);
 }
 
@@ -1984,7 +2318,7 @@ struct_reorg_func_transform (struct cgraph_node *node)
   gcc_checking_assert (cfun);
   gcc_checking_assert (current_function_decl);
 
-  do_reorg_for_func ( /*node */);
+  do_reorg_for_func (node);
   return 0;
 
   // DO not forget to free free_new_vars_htab (new_global_vars); !!!

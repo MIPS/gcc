@@ -74,7 +74,6 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_fre);
 	  NEXT_PASS (pass_merge_common_code);
-	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_early_ipa_sra);
