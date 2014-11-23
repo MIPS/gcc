@@ -199,7 +199,7 @@ Parse::qualified_ident(std::string* pname, Named_object** ppackage)
       return false;
     }
 
-  package->package_value()->set_used();
+  package->package_value()->note_usage();
 
   token = this->advance_token();
   if (!token->is_identifier())
@@ -2401,7 +2401,7 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
 		return Expression::make_error(location);
 	      }
 	    package = named_object->package_value();
-	    package->set_used();
+	    package->note_usage();
 	    id = this->peek_token()->identifier();
 	    is_exported = this->peek_token()->is_identifier_exported();
 	    packed = this->gogo_->pack_hidden_name(id, is_exported);
@@ -2510,8 +2510,8 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
       return ret;
 
     case Token::TOKEN_INTEGER:
-      ret = Expression::make_integer(token->integer_value(), NULL,
-				     token->location());
+      ret = Expression::make_integer_z(token->integer_value(), NULL,
+				       token->location());
       this->advance_token();
       return ret;
 
@@ -2525,9 +2525,12 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
       {
 	mpfr_t zero;
 	mpfr_init_set_ui(zero, 0, GMP_RNDN);
-	ret = Expression::make_complex(&zero, token->imaginary_value(),
-				       NULL, token->location());
+	mpc_t val;
+	mpc_init2(val, mpc_precision);
+	mpc_set_fr_fr(val, zero, *token->imaginary_value(), MPC_RNDNN);
 	mpfr_clear(zero);
+	ret = Expression::make_complex(&val, NULL, token->location());
+	mpc_clear(val);
 	this->advance_token();
 	return ret;
       }
@@ -3129,12 +3132,7 @@ Parse::index(Expression* expr)
   if (!this->peek_token()->is_op(OPERATOR_COLON))
     start = this->expression(PRECEDENCE_NORMAL, false, true, NULL, NULL);
   else
-    {
-      mpz_t zero;
-      mpz_init_set_ui(zero, 0);
-      start = Expression::make_integer(&zero, NULL, location);
-      mpz_clear(zero);
-    }
+    start = Expression::make_integer_ul(0, NULL, location);
 
   Expression* end = NULL;
   if (this->peek_token()->is_op(OPERATOR_COLON))
@@ -3244,9 +3242,12 @@ Parse::id_to_expression(const std::string& name, Location location,
     case Named_object::NAMED_OBJECT_TYPE_DECLARATION:
       {
 	// These cases can arise for a field name in a composite
-	// literal.
+	// literal.  Keep track of these as they might be fake uses of
+	// the related package.
 	Unknown_expression* ue =
 	  Expression::make_unknown_reference(named_object, location);
+	if (named_object->package() != NULL)
+	  named_object->package()->note_fake_usage(ue);
 	if (this->is_erroneous_function_)
 	  ue->set_no_error_message();
 	return ue;

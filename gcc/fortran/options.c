@@ -107,7 +107,6 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.warn_tabs = 1;
   gfc_option.warn_underflow = 1;
   gfc_option.warn_intrinsic_shadow = 0;
-  gfc_option.warn_use_without_only = 0;
   gfc_option.warn_intrinsics_std = 0;
   gfc_option.warn_align_commons = 1;
   gfc_option.warn_real_q_constant = 0;
@@ -362,8 +361,8 @@ gfc_post_options (const char **pfilename)
       if (gfc_current_form == FORM_UNKNOWN)
 	{
 	  gfc_current_form = FORM_FREE;
-	  gfc_warning_cmdline ("Reading file %qs as free form", 
-			       (filename[0] == '\0') ? "<stdin>" : filename);
+	  gfc_warning_now_2 ("Reading file %qs as free form", 
+			     (filename[0] == '\0') ? "<stdin>" : filename);
 	}
     }
 
@@ -372,10 +371,10 @@ gfc_post_options (const char **pfilename)
   if (gfc_current_form == FORM_FREE)
     {
       if (gfc_option.flag_d_lines == 0)
-	gfc_warning_cmdline ("%<-fd-lines-as-comments%> has no effect "
-			     "in free form");
+	gfc_warning_now_2 ("%<-fd-lines-as-comments%> has no effect "
+			   "in free form");
       else if (gfc_option.flag_d_lines == 1)
-	gfc_warning_cmdline ("%<-fd-lines-as-code%> has no effect in free form");
+	gfc_warning_now_2 ("%<-fd-lines-as-code%> has no effect in free form");
     }
 
   /* If -pedantic, warn about the use of GNU extensions.  */
@@ -393,21 +392,21 @@ gfc_post_options (const char **pfilename)
 
   if (!gfc_option.flag_automatic && gfc_option.flag_max_stack_var_size != -2
       && gfc_option.flag_max_stack_var_size != 0)
-    gfc_warning_cmdline ("Flag %<-fno-automatic%> overwrites %<-fmax-stack-var-size=%d%>",
-			 gfc_option.flag_max_stack_var_size);
+    gfc_warning_now_2 ("Flag %<-fno-automatic%> overwrites %<-fmax-stack-var-size=%d%>",
+		       gfc_option.flag_max_stack_var_size);
   else if (!gfc_option.flag_automatic && gfc_option.flag_recursive)
-    gfc_warning_cmdline ("Flag %<-fno-automatic%> overwrites %<-frecursive%>");
+    gfc_warning_now_2 ("Flag %<-fno-automatic%> overwrites %<-frecursive%>");
   else if (!gfc_option.flag_automatic && gfc_option.gfc_flag_openmp)
-    gfc_warning_cmdline ("Flag %<-fno-automatic%> overwrites %<-frecursive%> implied by "
-			 "%<-fopenmp%>");
+    gfc_warning_now_2 ("Flag %<-fno-automatic%> overwrites %<-frecursive%> implied by "
+		       "%<-fopenmp%>");
   else if (gfc_option.flag_max_stack_var_size != -2
 	   && gfc_option.flag_recursive)
-    gfc_warning_cmdline ("Flag %<-frecursive%> overwrites %<-fmax-stack-var-size=%d%>",
-			 gfc_option.flag_max_stack_var_size);
+    gfc_warning_now_2 ("Flag %<-frecursive%> overwrites %<-fmax-stack-var-size=%d%>",
+		       gfc_option.flag_max_stack_var_size);
   else if (gfc_option.flag_max_stack_var_size != -2
 	   && gfc_option.gfc_flag_openmp)
-    gfc_warning_cmdline ("Flag %<-fmax-stack-var-size=%d%> overwrites %<-frecursive%> "
-			 "implied by %<-fopenmp%>", 
+    gfc_warning_now_2 ("Flag %<-fmax-stack-var-size=%d%> overwrites %<-frecursive%> "
+		       "implied by %<-fopenmp%>", 
 		     gfc_option.flag_max_stack_var_size);
 
   /* Implement -frecursive as -fmax-stack-var-size=-1.  */
@@ -490,7 +489,7 @@ gfc_handle_module_path_options (const char *arg)
 {
 
   if (gfc_option.module_dir != NULL)
-    gfc_fatal_error ("gfortran: Only one -J option allowed");
+    gfc_fatal_error ("gfortran: Only one %<-J%> option allowed");
 
   gfc_option.module_dir = XCNEWVEC (char, strlen (arg) + 2);
   strcpy (gfc_option.module_dir, arg);
@@ -562,9 +561,9 @@ gfc_handle_fpe_option (const char *arg, bool trap)
 	    }
 	  }
       if (!result && !trap)
-	gfc_fatal_error ("Argument to -ffpe-trap is not valid: %s", arg);
+	gfc_fatal_error ("Argument to %<-ffpe-trap%> is not valid: %s", arg);
       else if (!result)
-	gfc_fatal_error ("Argument to -ffpe-summary is not valid: %s", arg);
+	gfc_fatal_error ("Argument to %<-ffpe-summary%> is not valid: %s", arg);
 
     }
 }
@@ -580,7 +579,7 @@ gfc_handle_coarray_option (const char *arg)
   else if (strcmp (arg, "lib") == 0)
     gfc_option.coarray = GFC_FCOARRAY_LIB;
   else
-    gfc_fatal_error ("Argument to -fcoarray is not valid: %s", arg);
+    gfc_fatal_error ("Argument to %<-fcoarray%> is not valid: %s", arg);
 }
 
 
@@ -618,7 +617,7 @@ gfc_handle_runtime_check_option (const char *arg)
 	    }
 	}
       if (!result)
-	gfc_fatal_error ("Argument to -fcheck is not valid: %s", arg);
+	gfc_fatal_error ("Argument to %<-fcheck%> is not valid: %s", arg);
     }
 }
 
@@ -737,10 +736,6 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.warn_intrinsic_shadow = value;
       break;
 
-    case OPT_Wuse_without_only:
-      gfc_option.warn_use_without_only = value;
-      break;
-
     case OPT_Walign_commons:
       gfc_option.warn_align_commons = value;
       break;
@@ -828,7 +823,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffixed_line_length_:
       if (value != 0 && value < 7)
-	gfc_fatal_error ("Fixed line length must be at least seven.");
+	gfc_fatal_error ("Fixed line length must be at least seven");
       gfc_option.fixed_line_length = value;
       break;
 
@@ -850,7 +845,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffree_line_length_:
       if (value != 0 && value < 4)
-	gfc_fatal_error ("Free line length must be at least three.");
+	gfc_fatal_error ("Free line length must be at least three");
       gfc_option.free_line_length = value;
       break;
 
@@ -864,7 +859,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_static_libgfortran:
 #ifndef HAVE_LD_STATIC_DYNAMIC
-      gfc_fatal_error ("-static-libgfortran is not supported in this "
+      gfc_fatal_error ("%<-static-libgfortran%> is not supported in this "
 		       "configuration");
 #endif
       break;
@@ -979,7 +974,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       else if (!strcasecmp (arg, "true"))
 	gfc_option.flag_init_logical = GFC_INIT_LOGICAL_TRUE;
       else
-	gfc_fatal_error ("Unrecognized option to -finit-logical: %s",
+	gfc_fatal_error ("Unrecognized option to %<-finit-logical%>: %s",
 			 arg);
       break;
 
@@ -995,7 +990,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       else if (!strcasecmp (arg, "-inf"))
 	gfc_option.flag_init_real = GFC_INIT_REAL_NEG_INF;
       else
-	gfc_fatal_error ("Unrecognized option to -finit-real: %s",
+	gfc_fatal_error ("Unrecognized option to %<-finit-real%>: %s",
 			 arg);
       break;
 
@@ -1011,7 +1006,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 	  gfc_option.flag_init_character_value = (char)value;
 	}
       else
-	gfc_fatal_error ("The value of n in -finit-character=n must be "
+	gfc_fatal_error ("The value of n in %<-finit-character=n%> must be "
 			 "between 0 and 127");
       break;
 

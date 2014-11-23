@@ -26,6 +26,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "intl.h"
 #include "tm.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -34,14 +44,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "stringpool.h"
@@ -124,7 +130,7 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
      TODO: handle bit-fields as if touching the whole field.  */
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
-  enum machine_mode mode;
+  machine_mode mode;
   int volatilep = 0, unsignedp = 0;
   base = get_inner_reference (expr, &bitsize, &bitpos, &offset,
 			      &mode, &unsignedp, &volatilep, false);
@@ -495,8 +501,7 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 						TREE_TYPE (args[1])))
 		  {
 		    tree var = make_ssa_name (TREE_TYPE (lhs), NULL);
-		    g = gimple_build_assign_with_ops (NOP_EXPR, var,
-						      args[1], NULL_TREE);
+		    g = gimple_build_assign_with_ops (NOP_EXPR, var, args[1]);
 		    gsi_insert_after (gsi, g, GSI_NEW_STMT);
 		    args[1] = var;
 		  }
@@ -510,8 +515,7 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 						      gimple_call_lhs (stmt),
 						      args[1]);
 		    gsi_insert_after (gsi, g, GSI_NEW_STMT);
-		    g = gimple_build_assign_with_ops (BIT_NOT_EXPR, lhs, var,
-						      NULL_TREE);
+		    g = gimple_build_assign_with_ops (BIT_NOT_EXPR, lhs, var);
 		  }
 		else
 		  g = gimple_build_assign_with_ops (tsan_atomic_table[i].code,
@@ -554,7 +558,7 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 		g = gimple_build_assign_with_ops (NOP_EXPR,
 						  make_ssa_name (TREE_TYPE (t),
 								 NULL),
-						  args[1], NULL_TREE);
+						  args[1]);
 		gsi_insert_before (gsi, g, GSI_SAME_STMT);
 		args[1] = gimple_assign_lhs (g);
 	      }

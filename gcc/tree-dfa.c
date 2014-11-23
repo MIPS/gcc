@@ -26,15 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "basic-block.h"
-#include "langhooks.h"
-#include "flags.h"
-#include "hash-set.h"
+#include "predict.h"
 #include "vec.h"
+#include "hash-set.h"
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "langhooks.h"
+#include "flags.h"
 #include "tree-pretty-print.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -238,7 +241,7 @@ dump_dfa_stats (FILE *file)
   fprintf (file, fmt_str_1, "VDEF operands", dfa_stats.num_vdefs,
 	   SCALE (size), LABEL (size));
 
-  size = dfa_stats.num_phis * sizeof (struct gimple_statement_phi);
+  size = dfa_stats.num_phis * sizeof (struct gphi);
   total += size;
   fprintf (file, fmt_str_1, "PHI nodes", dfa_stats.num_phis,
 	   SCALE (size), LABEL (size));
@@ -287,18 +290,18 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
   /* Walk all the statements in the function counting references.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator si;
-
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gphi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+	   gsi_next (&si))
 	{
-	  gimple phi = gsi_stmt (si);
+	  gphi *phi = si.phi ();
 	  dfa_stats_p->num_phis++;
 	  dfa_stats_p->num_phi_args += gimple_phi_num_args (phi);
 	  if (gimple_phi_num_args (phi) > dfa_stats_p->max_num_phi_args)
 	    dfa_stats_p->max_num_phi_args = gimple_phi_num_args (phi);
 	}
 
-      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
+	   gsi_next (&si))
 	{
 	  gimple stmt = gsi_stmt (si);
 	  dfa_stats_p->num_defs += NUM_SSA_OPERANDS (stmt, SSA_OP_DEF);
@@ -408,7 +411,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
     size_tree = TREE_OPERAND (exp, 1);
   else if (!VOID_TYPE_P (TREE_TYPE (exp)))
     {
-      enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
+      machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
       else

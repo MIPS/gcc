@@ -70,12 +70,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h" /* exact_log2, floor_log2 */
 #include "reload.h"
 #include "intl.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "target.h"
 #include "targhooks.h"
 #include "debug.h"
 #include "expr.h"
 #include "tree-pass.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa.h"
 #include "coverage.h"
@@ -1293,7 +1301,7 @@ shorten_branches (rtx_insn *first)
 	      rtx_insn *prev;
 	      int rel_align = 0;
 	      addr_diff_vec_flags flags;
-	      enum machine_mode vec_mode;
+	      machine_mode vec_mode;
 
 	      /* Avoid automatic aggregate initialization.  */
 	      flags = ADDR_DIFF_VEC_FLAGS (body);
@@ -2934,7 +2942,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    print_rtx_head = "";
 	  }
 
-	if (! constrain_operands_cached (1))
+	if (! constrain_operands_cached (insn, 1))
 	  fatal_insn_not_found (insn);
 
 	/* Some target machines need to prescan each insn before
@@ -3181,7 +3189,7 @@ alter_subreg (rtx *xp, bool final_p)
       else
 	*xp = adjust_address_nv (y, GET_MODE (x), offset);
     }
-  else
+  else if (REG_P (y) && HARD_REGISTER_P (y))
     {
       rtx new_rtx = simplify_subreg (GET_MODE (x), y, GET_MODE (y),
 				     SUBREG_BYTE (x));
@@ -3849,7 +3857,8 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
     x = alter_subreg (&x, true);
 
   /* X must not be a pseudo reg.  */
-  gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
+  if (!targetm.no_register_allocation)
+    gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   targetm.asm_out.print_operand (asm_out_file, x, code);
 
@@ -4459,17 +4468,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
 static unsigned int
 rest_of_handle_final (void)
 {
-  rtx x;
-  const char *fnname;
-
-  /* Get the function's name, as described by its RTL.  This may be
-     different from the DECL_NAME name used in the source file.  */
-
-  x = DECL_RTL (current_function_decl);
-  gcc_assert (MEM_P (x));
-  x = XEXP (x, 0);
-  gcc_assert (GET_CODE (x) == SYMBOL_REF);
-  fnname = XSTR (x, 0);
+  const char *fnname = get_fnname_from_decl (current_function_decl);
 
   assemble_start_function (current_function_decl, fnname);
   final_start_function (get_insns (), asm_out_file, optimize);

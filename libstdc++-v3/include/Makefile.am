@@ -143,6 +143,7 @@ bits_headers = \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
 	${bits_srcdir}/shared_ptr.h \
+	${bits_srcdir}/shared_ptr_atomic.h \
 	${bits_srcdir}/shared_ptr_base.h \
 	${bits_srcdir}/slice_array.h \
 	${bits_srcdir}/sstream.tcc \
@@ -639,9 +640,14 @@ decimal_headers = \
 experimental_srcdir = ${glibcxx_srcdir}/include/experimental
 experimental_builddir = ./experimental
 experimental_headers = \
+	${experimental_srcdir}/algorithm \
 	${experimental_srcdir}/any \
+	${experimental_srcdir}/chrono \
+	${experimental_srcdir}/functional \
 	${experimental_srcdir}/optional \
+	${experimental_srcdir}/ratio \
 	${experimental_srcdir}/string_view \
+	${experimental_srcdir}/system_error \
 	${experimental_srcdir}/string_view.tcc \
 	${experimental_srcdir}/tuple \
 	${experimental_srcdir}/type_traits

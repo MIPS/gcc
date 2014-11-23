@@ -32,6 +32,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "debug.h"
 #include "convert.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "splay-tree.h"
 #include "hash-table.h"
@@ -158,6 +169,7 @@ lvalue_kind (const_tree ref)
     case ARRAY_NOTATION_REF:
     case PARM_DECL:
     case RESULT_DECL:
+    case PLACEHOLDER_EXPR:
       return clk_ordinary;
 
       /* A scope ref in a template, left as SCOPE_REF to support later
@@ -1070,18 +1082,6 @@ cp_build_qualified_type_real (tree type,
 	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (element_type));
       return t;
     }
-  else if (TYPE_PTRMEMFUNC_P (type))
-    {
-      /* For a pointer-to-member type, we can't just return a
-	 cv-qualified version of the RECORD_TYPE.  If we do, we
-	 haven't changed the field that contains the actual pointer to
-	 a method, and so TYPE_PTRMEMFUNC_FN_TYPE will be wrong.  */
-      tree t;
-
-      t = TYPE_PTRMEMFUNC_FN_TYPE (type);
-      t = cp_build_qualified_type_real (t, type_quals, complain);
-      return build_ptrmemfunc_type (t);
-    }
   else if (TREE_CODE (type) == TYPE_PACK_EXPANSION)
     {
       tree t = PACK_EXPANSION_PATTERN (type);
@@ -1141,26 +1141,6 @@ cp_build_qualified_type_real (tree type,
       result = build_exception_variant (result, TYPE_RAISES_EXCEPTIONS (type));
       result = build_ref_qualified_type (result, type_memfn_rqual (type));
     }
-
-  /* If this was a pointer-to-method type, and we just made a copy,
-     then we need to unshare the record that holds the cached
-     pointer-to-member-function type, because these will be distinct
-     between the unqualified and qualified types.  */
-  if (result != type
-      && TYPE_PTR_P (type)
-      && TREE_CODE (TREE_TYPE (type)) == METHOD_TYPE
-      && TYPE_LANG_SPECIFIC (result) == TYPE_LANG_SPECIFIC (type))
-    TYPE_LANG_SPECIFIC (result) = NULL;
-
-  /* We may also have ended up building a new copy of the canonical
-     type of a pointer-to-method type, which could have the same
-     sharing problem described above.  */
-  if (TYPE_CANONICAL (result) != TYPE_CANONICAL (type)
-      && TYPE_PTR_P (type)
-      && TREE_CODE (TREE_TYPE (type)) == METHOD_TYPE
-      && (TYPE_LANG_SPECIFIC (TYPE_CANONICAL (result)) 
-          == TYPE_LANG_SPECIFIC (TYPE_CANONICAL (type))))
-    TYPE_LANG_SPECIFIC (TYPE_CANONICAL (result)) = NULL;
 
   return result;
 }
@@ -1230,6 +1210,11 @@ strip_typedefs (tree t)
   gcc_assert (TYPE_P (t));
 
   if (t == TYPE_CANONICAL (t))
+    return t;
+
+  if (dependent_alias_template_spec_p (t))
+    /* DR 1558: However, if the template-id is dependent, subsequent
+       template argument substitution still applies to the template-id.  */
     return t;
 
   switch (TREE_CODE (t))
@@ -2450,6 +2435,103 @@ break_out_target_exprs (tree t)
   return t;
 }
 
+/* Build an expression for the subobject of OBJ at CONSTRUCTOR index INDEX,
+   which we expect to have type TYPE.  */
+
+tree
+build_ctor_subob_ref (tree index, tree type, tree obj)
+{
+  if (index == NULL_TREE)
+    /* Can't refer to a particular member of a vector.  */
+    obj = NULL_TREE;
+  else if (TREE_CODE (index) == INTEGER_CST)
+    obj = cp_build_array_ref (input_location, obj, index, tf_none);
+  else
+    obj = build_class_member_access_expr (obj, index, NULL_TREE,
+					  /*reference*/false, tf_none);
+  if (obj)
+    gcc_assert (same_type_ignoring_top_level_qualifiers_p (type,
+							   TREE_TYPE (obj)));
+  return obj;
+}
+
+/* Like substitute_placeholder_in_expr, but handle C++ tree codes and
+   build up subexpressions as we go deeper.  */
+
+struct replace_placeholders_t
+{
+  tree obj;
+  hash_set<tree> *pset;
+};
+
+static tree
+replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
+{
+  tree obj = static_cast<tree>(data_);
+
+  if (TREE_CONSTANT (*t))
+    {
+      *walk_subtrees = false;
+      return NULL_TREE;
+    }
+
+  switch (TREE_CODE (*t))
+    {
+    case PLACEHOLDER_EXPR:
+      gcc_assert (same_type_ignoring_top_level_qualifiers_p
+		  (TREE_TYPE (*t), TREE_TYPE (obj)));
+      *t = obj;
+      *walk_subtrees = false;
+      break;
+
+    case TARGET_EXPR:
+      /* Don't mess with placeholders in an unrelated object.  */
+      *walk_subtrees = false;
+      break;
+
+    case CONSTRUCTOR:
+      {
+	constructor_elt *ce;
+	vec<constructor_elt,va_gc> *v = CONSTRUCTOR_ELTS (*t);
+	for (unsigned i = 0; vec_safe_iterate (v, i, &ce); ++i)
+	  {
+	    tree *valp = &ce->value;
+	    tree type = TREE_TYPE (*valp);
+	    tree subob = obj;
+
+	    if (TREE_CODE (*valp) == CONSTRUCTOR
+		&& AGGREGATE_TYPE_P (type))
+	      {
+		subob = build_ctor_subob_ref (ce->index, type, obj);
+		if (TREE_CODE (*valp) == TARGET_EXPR)
+		  valp = &TARGET_EXPR_INITIAL (*valp);
+	      }
+
+	    cp_walk_tree (valp, replace_placeholders_r,
+			  subob, NULL);
+	  }
+	*walk_subtrees = false;
+	break;
+      }
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+tree
+replace_placeholders (tree exp, tree obj)
+{
+  hash_set<tree> pset;
+  tree *tp = &exp;
+  if (TREE_CODE (exp) == TARGET_EXPR)
+    tp = &TARGET_EXPR_INITIAL (exp);
+  cp_walk_tree (tp, replace_placeholders_r, obj, NULL);
+  return exp;
+}
+
 /* Similar to `build_nt', but for template definitions of dependent
    expressions  */
 
@@ -3124,7 +3206,7 @@ trivially_copyable_p (const_tree t)
 	    && !TYPE_HAS_COMPLEX_MOVE_ASSIGN (t)
 	    && TYPE_HAS_TRIVIAL_DESTRUCTOR (t));
   else
-    return scalarish_type_p (t);
+    return !CP_TYPE_VOLATILE_P (t) && scalarish_type_p (t);
 }
 
 /* Returns 1 iff type T is a trivial type, as defined in [basic.types] and
@@ -3591,7 +3673,7 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
 
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (*tp))
-	WALK_SUBTREE (TYPE_PTRMEMFUNC_FN_TYPE (*tp));
+	WALK_SUBTREE (TYPE_PTRMEMFUNC_FN_TYPE_RAW (*tp));
       break;
 
     case TYPE_ARGUMENT_PACK:
@@ -4029,7 +4111,7 @@ fold_if_not_in_template (tree expr)
   /* In the body of a template, there is never any need to call
      "fold".  We will call fold later when actually instantiating the
      template.  Integral constant expressions in templates will be
-     evaluated via fold_non_dependent_expr, as necessary.  */
+     evaluated via instantiate_non_dependent_expr, as necessary.  */
   if (processing_template_decl)
     return expr;
 

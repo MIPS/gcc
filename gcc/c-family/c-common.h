@@ -101,7 +101,7 @@ enum rid
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,      RID_BUILTIN_COMPLEX,	     RID_BUILTIN_SHUFFLE,
   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
-  RID_FRACT, RID_ACCUM, RID_AUTO_TYPE,
+  RID_FRACT, RID_ACCUM, RID_AUTO_TYPE, RID_BUILTIN_CALL_WITH_STATIC_CHAIN,
 
   /* C11 */
   RID_ALIGNAS, RID_GENERIC,
@@ -762,7 +762,7 @@ extern bool attribute_takes_identifier_p (const_tree);
 extern bool c_common_handle_option (size_t, const char *, int, int, location_t,
 				    const struct cl_option_handlers *);
 extern bool default_handle_c_option (size_t, const char *, int);
-extern tree c_common_type_for_mode (enum machine_mode, int);
+extern tree c_common_type_for_mode (machine_mode, int);
 extern tree c_common_type_for_size (unsigned int, int);
 extern tree c_common_fixed_point_type_for_size (unsigned int, unsigned int,
 						int, int);
@@ -845,7 +845,7 @@ extern tree build_va_arg (location_t, tree, tree);
 
 extern const unsigned int c_family_lang_mask;
 extern unsigned int c_common_option_lang_mask (void);
-extern void c_common_initialize_diagnostics (diagnostic_context *);
+extern void c_common_diagnostics_set_defaults (diagnostic_context *);
 extern bool c_common_complain_wrong_lang_p (const struct cl_option *);
 extern void c_common_init_options_struct (struct gcc_options *);
 extern void c_common_init_options (unsigned int, struct cl_decoded_option *);
@@ -1310,7 +1310,7 @@ extern tree build_userdef_literal (tree suffix_id, tree value,
 				   enum overflow_type overflow,
 				   tree num_string);
 
-extern void convert_vector_to_pointer_for_subscript (location_t, tree*, tree);
+extern bool convert_vector_to_pointer_for_subscript (location_t, tree *, tree);
 
 /* Possibe cases of scalar_to_vector conversion.  */
 enum stv_conv {
@@ -1414,4 +1414,6 @@ extern tree cilk_install_body_pedigree_operations (tree);
 extern void cilk_outline (tree, tree *, void *);
 extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);
+extern bool check_no_cilk (tree, const char *, const char *,
+		           location_t loc = UNKNOWN_LOCATION);
 #endif /* ! GCC_C_COMMON_H */

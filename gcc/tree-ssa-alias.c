@@ -25,17 +25,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "target.h"
-#include "basic-block.h"
-#include "timevar.h"	/* for TV_ALIAS_STMT_WALK */
-#include "langhooks.h"
-#include "flags.h"
+#include "predict.h"
+#include "vec.h"
 #include "hashtab.h"
 #include "hash-set.h"
-#include "vec.h"
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
+#include "dominance.h"
+#include "basic-block.h"
+#include "timevar.h"	/* for TV_ALIAS_STMT_WALK */
+#include "langhooks.h"
+#include "flags.h"
 #include "tree-pretty-print.h"
 #include "dumpfile.h"
 #include "tree-ssa-alias.h"
@@ -53,6 +55,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "alloc-pool.h"
 #include "tree-ssa-alias.h"
+#include "bitmap.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-reference.h"
 
 /* Broad overview of how alias analysis on gimple works:
@@ -1483,7 +1490,7 @@ refs_output_dependent_p (tree store1, tree store2)
    otherwise return false.  */
 
 static bool
-ref_maybe_used_by_call_p_1 (gimple call, ao_ref *ref)
+ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref)
 {
   tree base, callee;
   unsigned i;
@@ -1796,7 +1803,7 @@ process_args:
 }
 
 static bool
-ref_maybe_used_by_call_p (gimple call, ao_ref *ref)
+ref_maybe_used_by_call_p (gcall *call, ao_ref *ref)
 {
   bool res;
   res = ref_maybe_used_by_call_p_1 (call, ref);
@@ -1831,10 +1838,10 @@ ref_maybe_used_by_stmt_p (gimple stmt, ao_ref *ref)
       return refs_may_alias_p (rhs, ref);
     }
   else if (is_gimple_call (stmt))
-    return ref_maybe_used_by_call_p (stmt, ref);
-  else if (gimple_code (stmt) == GIMPLE_RETURN)
+    return ref_maybe_used_by_call_p (as_a <gcall *> (stmt), ref);
+  else if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
     {
-      tree retval = gimple_return_retval (stmt);
+      tree retval = gimple_return_retval (return_stmt);
       if (retval
 	  && TREE_CODE (retval) != SSA_NAME
 	  && !is_gimple_min_invariant (retval)
@@ -1867,7 +1874,7 @@ ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
+call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
 {
   tree base;
   tree callee;
@@ -2140,7 +2147,7 @@ call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p (gimple call, tree ref)
+call_may_clobber_ref_p (gcall *call, tree ref)
 {
   bool res;
   ao_ref r;
@@ -2172,7 +2179,7 @@ stmt_may_clobber_ref_p_1 (gimple stmt, ao_ref *ref)
 	    return true;
 	}
 
-      return call_may_clobber_ref_p_1 (stmt, ref);
+      return call_may_clobber_ref_p_1 (as_a <gcall *> (stmt), ref);
     }
   else if (gimple_assign_single_p (stmt))
     {

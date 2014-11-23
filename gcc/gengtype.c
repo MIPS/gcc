@@ -1826,14 +1826,14 @@ open_base_files (void)
   {
     /* The order of files here matters very much.  */
     static const char *const ifiles[] = {
-      "config.h", "system.h", "coretypes.h", "tm.h",
+      "config.h", "system.h", "coretypes.h", "tm.h", "insn-codes.h",
       "hashtab.h", "splay-tree.h", "obstack.h", "bitmap.h", "input.h",
       "tree.h", "rtl.h", "wide-int.h", "hashtab.h", "hash-set.h", "vec.h",
-      "machmode.h", "tm.h", "hard-reg-set.h", "input.h",
-      "function.h", "insn-config.h", "expr.h",
+      "machmode.h", "tm.h", "hard-reg-set.h", "input.h", "predict.h",
+      "function.h", "insn-config.h", "expr.h", "alloc-pool.h",
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
-      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
-      "hash-table.h", "vec.h", "ggc.h", "basic-block.h",
+      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", 
+      "hash-table.h", "vec.h", "ggc.h", "dominance.h", "cfg.h", "basic-block.h",
       "tree-ssa-alias.h", "internal-fn.h", "gimple-fold.h", "tree-eh.h",
       "gimple-expr.h", "is-a.h",
       "gimple.h", "gimple-iterator.h", "gimple-ssa.h", "tree-cfg.h",
@@ -1841,9 +1841,9 @@ open_base_files (void)
       "tree-ssa-loop.h", "tree-ssa-loop-ivopts.h", "tree-ssa-loop-manip.h",
       "tree-ssa-loop-niter.h", "tree-into-ssa.h", "tree-dfa.h", 
       "tree-ssa.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "except.h", "output.h",  "cfgloop.h",
-      "target.h", "ipa-prop.h", "lto-streamer.h", "target-globals.h",
-      "ipa-inline.h", "dwarf2out.h", NULL
+      "except.h", "output.h",  "cfgloop.h", "target.h", "lto-streamer.h",
+      "target-globals.h", "ipa-ref.h", "cgraph.h", "ipa-prop.h", 
+      "ipa-inline.h", "dwarf2out.h", "omp-low.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -4482,6 +4482,60 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
   }
 }
 
+/* Finish off the created gt_clear_caches_file_c functions.  */
+
+static void
+finish_cache_funcs (flist *flp)
+{
+  struct flist *fli2;
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	oprintf (fli2->f, "}\n\n");
+      }
+
+  for (fli2 = flp; fli2 && base_files; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	lang_bitmap bitmap = get_lang_bitmap (fli2->file);
+	int fnum;
+
+	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+	  if (bitmap & 1)
+	    {
+	      oprintf (base_files[fnum], "extern void gt_clear_caches_");
+	      put_mangled_filename (base_files[fnum], fli2->file);
+	      oprintf (base_files[fnum], " ();\n");
+	    }
+      }
+
+  for (size_t fnum = 0; base_files && fnum < num_lang_dirs; fnum++)
+    oprintf (base_files[fnum], "void\ngt_clear_caches ()\n{\n");
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	lang_bitmap bitmap = get_lang_bitmap (fli2->file);
+	int fnum;
+
+	fli2->started_p = 0;
+
+	for (fnum = 0; base_files && bitmap != 0; fnum++, bitmap >>= 1)
+	  if (bitmap & 1)
+	    {
+	      oprintf (base_files[fnum], "  gt_clear_caches_");
+	      put_mangled_filename (base_files[fnum], fli2->file);
+	      oprintf (base_files[fnum], " ();\n");
+	    }
+      }
+
+  for (size_t fnum = 0; base_files && fnum < num_lang_dirs; fnum++)
+    {
+      oprintf (base_files[fnum], "}\n");
+    }
+}
+
 /* Write the first three fields (pointer, count and stride) for
    root NAME to F.  V and LINE are as for write_root.
 
@@ -4801,6 +4855,8 @@ write_roots (pair_p variables, bool emit_pch)
 	  ;
 	else if (strcmp (o->name, "if_marked") == 0)
 	  ;
+	else if (strcmp (o->name, "cache") == 0)
+	  ;
 	else
 	  error_at_line (&v->line,
 			 "global `%s' has unknown option `%s'",
@@ -4951,6 +5007,37 @@ write_roots (pair_p variables, bool emit_pch)
 
   finish_root_table (flp, "ggc_rc", "LAST_GGC_CACHE_TAB", "ggc_cache_tab",
 		     "gt_ggc_cache_rtab");
+
+  for (v = variables; v; v = v->next)
+    {
+      outf_p f = get_output_file_with_visibility (CONST_CAST (input_file*,
+							      v->line.file));
+      struct flist *fli;
+      bool cache = false;
+      options_p o;
+
+      for (o = v->opt; o; o = o->next)
+	if (strcmp (o->name, "cache") == 0)
+	  cache = true;
+       if (!cache)
+	continue;
+
+      for (fli = flp; fli; fli = fli->next)
+	if (fli->f == f)
+	  break;
+      if (!fli->started_p)
+	{
+	  fli->started_p = 1;
+
+	  oprintf (f, "void\ngt_clear_caches_");
+	  put_mangled_filename (f, v->line.file);
+	  oprintf (f, " ()\n{\n");
+	}
+
+      oprintf (f, "  gt_cleare_cache (%s);\n", v->name);
+    }
+
+  finish_cache_funcs (flp);
 
   if (!emit_pch)
     return;
@@ -5650,6 +5737,7 @@ main (int argc, char **argv)
       POS_HERE (do_scalar_typedef ("jword", &pos));
       POS_HERE (do_scalar_typedef ("JCF_u2", &pos));
       POS_HERE (do_scalar_typedef ("void", &pos));
+      POS_HERE (do_scalar_typedef ("machine_mode", &pos));
       POS_HERE (do_typedef ("PTR", 
 			    create_pointer (resolve_typedef ("void", &pos)),
 			    &pos));

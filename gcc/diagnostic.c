@@ -177,6 +177,15 @@ diagnostic_finish (diagnostic_context *context)
     }
 
   diagnostic_file_cache_fini ();
+
+  XDELETEVEC (context->classify_diagnostic);
+  context->classify_diagnostic = NULL;
+
+  /* diagnostic_initialize allocates context->printer using XNEW
+     and placement-new.  */
+  context->printer->~pretty_printer ();
+  XDELETE (context->printer);
+  context->printer = NULL;
 }
 
 /* Initialize DIAGNOSTIC, where the message MSG has already been
@@ -342,7 +351,7 @@ diagnostic_show_locus (diagnostic_context * context,
 static const char * const bt_stop[] =
 {
   "main",
-  "toplev_main",
+  "toplev::main",
   "execute_one_pass",
   "compile_file",
 };
@@ -1148,6 +1157,23 @@ fatal_error (const char *gmsgid, ...)
 
   va_start (ap, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &ap, input_location, DK_FATAL);
+  report_diagnostic (&diagnostic);
+  va_end (ap);
+
+  gcc_unreachable ();
+}
+
+/* An error which is severe enough that we make no attempt to
+   continue.  Do not use this for internal consistency checks; that's
+   internal_error.  Use of this function should be rare.  */
+void
+fatal_error (location_t loc, const char *gmsgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &ap, loc, DK_FATAL);
   report_diagnostic (&diagnostic);
   va_end (ap);
 

@@ -35,6 +35,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "target.h"
 #include "convert.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
@@ -348,9 +359,9 @@ build_base_path (enum tree_code code,
 
   /* Don't bother with the calculations inside sizeof; they'll ICE if the
      source type is incomplete and the pointer value doesn't matter.  In a
-     template (even in fold_non_dependent_expr), we don't have vtables set
-     up properly yet, and the value doesn't matter there either; we're just
-     interested in the result of overload resolution.  */
+     template (even in instantiate_non_dependent_expr), we don't have vtables
+     set up properly yet, and the value doesn't matter there either; we're
+     just interested in the result of overload resolution.  */
   if (cp_unevaluated_operand != 0
       || in_template_function ())
     {
@@ -3659,8 +3670,8 @@ check_field_decls (tree t, tree *access_decls,
 
       /* Now that we've removed bit-field widths from DECL_INITIAL,
 	 anything left in DECL_INITIAL is an NSDMI that makes the class
-	 non-aggregate.  */
-      if (DECL_INITIAL (x))
+	 non-aggregate in C++11.  */
+      if (DECL_INITIAL (x) && cxx_dialect < cxx14)
 	CLASSTYPE_NON_AGGREGATE (t) = true;
 
       /* If any field is const, the structure type is pseudo-const.  */
@@ -6922,7 +6933,8 @@ resolves_to_fixed_type_p (tree instance, int* nonnull)
   tree fixed;
 
   /* processing_template_decl can be false in a template if we're in
-     fold_non_dependent_expr, but we still want to suppress this check.  */
+     instantiate_non_dependent_expr, but we still want to suppress
+     this check.  */
   if (in_template_function ())
     {
       /* In a template we only care about the type of the result.  */

@@ -40,7 +40,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-iterator.h"
 #include "bitmap.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-inline.h"
@@ -814,7 +821,7 @@ c_common_type (tree t1, tree t2)
   if (code1 == FIXED_POINT_TYPE || code2 == FIXED_POINT_TYPE)
     {
       unsigned int unsignedp = 0, satp = 0;
-      enum machine_mode m1, m2;
+      machine_mode m1, m2;
       unsigned int fbit1, ibit1, fbit2, ibit2, max_fbit, max_ibit;
 
       m1 = TYPE_MODE (t1);
@@ -2488,7 +2495,8 @@ build_array_ref (location_t loc, tree array, tree index)
 
   gcc_assert (TREE_CODE (TREE_TYPE (index)) == INTEGER_TYPE);
 
-  convert_vector_to_pointer_for_subscript (loc, &array, index);
+  bool non_lvalue
+    = convert_vector_to_pointer_for_subscript (loc, &array, index);
 
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
     {
@@ -2550,6 +2558,8 @@ build_array_ref (location_t loc, tree array, tree index)
 	    | TREE_THIS_VOLATILE (array));
       ret = require_complete_type (rval);
       protected_set_expr_location (ret, loc);
+      if (non_lvalue)
+	ret = non_lvalue_loc (loc, ret);
       return ret;
     }
   else
@@ -2562,9 +2572,12 @@ build_array_ref (location_t loc, tree array, tree index)
       gcc_assert (TREE_CODE (TREE_TYPE (ar)) == POINTER_TYPE);
       gcc_assert (TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) != FUNCTION_TYPE);
 
-      return build_indirect_ref
-	(loc, build_binary_op (loc, PLUS_EXPR, ar, index, 0),
-	 RO_ARRAY_INDEXING);
+      ret = build_indirect_ref (loc, build_binary_op (loc, PLUS_EXPR, ar,
+						      index, 0),
+				RO_ARRAY_INDEXING);
+      if (non_lvalue)
+	ret = non_lvalue_loc (loc, ret);
+      return ret;
     }
 }
 
@@ -9615,12 +9628,8 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 {
   tree entry = NULL, exit = NULL, t;
 
-  if (flag_cilkplus && contains_array_notation_expr (cond))
-    {
-      error_at (start_locus, "array notation expression cannot be used in a "
-		"loop%'s condition");
-      return;
-    }
+  /* In theory could forbid cilk spawn for loop increment expression,
+     but it should work just fine.  */
   
   /* If the condition is zero don't generate a loop construct.  */
   if (cond && integer_zerop (cond))
@@ -10484,7 +10493,8 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "right shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"right shift count is negative");
 		}
 	      else
 		{
@@ -10495,8 +10505,8 @@ build_binary_op (location_t location, enum tree_code code,
 		    {
 		      int_const = false;
 		      if (c_inhibit_evaluation_warnings == 0)
-			warning_at (location, 0, "right shift count >= width "
-				    "of type");
+			warning_at (location, OPT_Wshift_count_overflow,
+				    "right shift count >= width of type");
 		    }
 		}
 	    }
@@ -10538,15 +10548,16 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "left shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"left shift count is negative");
 		}
 
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "left shift count >= width of "
-				"type");
+		    warning_at (location, OPT_Wshift_count_overflow,
+				"left shift count >= width of type");
 		}
 	    }
 

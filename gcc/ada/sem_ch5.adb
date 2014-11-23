@@ -273,8 +273,12 @@ package body Sem_Ch5 is
    begin
       Mark_Coextensions (N, Rhs);
 
-      Analyze (Rhs);
+      --  Analyze the target of the assignment first in case the expression
+      --  contains references to Ghost entities. The checks that verify the
+      --  proper use of a Ghost entity need to know the enclosing context.
+
       Analyze (Lhs);
+      Analyze (Rhs);
 
       --  Ensure that we never do an assignment on a variable marked as
       --  as Safe_To_Reevaluate.
@@ -2008,11 +2012,11 @@ package body Sem_Ch5 is
                   else
                      Set_Etype (Def_Id, Entity (Element));
 
-                     --  If subtype indication was given, verify that it
-                     --  matches element type of container.
+                     --  If subtype indication was given, verify that it covers
+                     --  the element type of the container.
 
                      if Present (Subt)
-                       and then Bas /= Base_Type (Etype (Def_Id))
+                       and then not Covers (Bas, Etype (Def_Id))
                      then
                         Error_Msg_N
                           ("subtype indication does not match element type",
@@ -2059,6 +2063,10 @@ package body Sem_Ch5 is
                   Error_Msg_NE
                     ("\to iterate directly over the elements of a container, "
                      & "write `of &`", Name (N), Original_Node (Name (N)));
+
+                  --  No point in continuing analysis of iterator spec
+
+                  return;
                end if;
             end if;
 

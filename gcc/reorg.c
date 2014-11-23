@@ -117,6 +117,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "insn-config.h"
 #include "conditions.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "regs.h"
 #include "recog.h"
@@ -2498,9 +2501,11 @@ fill_slots_from_thread (rtx_insn *insn, rtx condition, rtx thread_or_return,
 
 	  /* There are two ways we can win:  If TRIAL doesn't set anything
 	     needed at the opposite thread and can't trap, or if it can
-	     go into an annulled delay slot.  */
+	     go into an annulled delay slot.  But we want neither to copy
+	     nor to speculate frame-related insns.  */
 	  if (!must_annul
-	      && (condition == const_true_rtx
+	      && ((condition == const_true_rtx
+		   && (own_thread || !RTX_FRAME_RELATED_P (trial)))
 	          || (! insn_sets_resource_p (trial, &opposite_needed, true)
 		      && ! may_trap_or_fault_p (pat)
 		      && ! RTX_FRAME_RELATED_P (trial))))
@@ -2769,7 +2774,8 @@ fill_slots_from_thread (rtx_insn *insn, rtx condition, rtx thread_or_return,
 				   insn);
 
 	  if (recog_memoized (ninsn) < 0
-	      || (extract_insn (ninsn), ! constrain_operands (1)))
+	      || (extract_insn (ninsn),
+		  !constrain_operands (1, get_preferred_alternatives (ninsn))))
 	    {
 	      delete_related_insns (ninsn);
 	      return 0;

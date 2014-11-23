@@ -1004,7 +1004,7 @@ extern bool supportable_narrowing_operation (enum tree_code, tree, tree,
 extern stmt_vec_info new_stmt_vec_info (gimple stmt, loop_vec_info,
                                         bb_vec_info);
 extern void free_stmt_vec_info (gimple stmt);
-extern tree vectorizable_function (gimple, tree, tree);
+extern tree vectorizable_function (gcall *, tree, tree);
 extern void vect_model_simple_cost (stmt_vec_info, int, enum vect_def_type *,
                                     stmt_vector_for_cost *,
 				    stmt_vector_for_cost *);
@@ -1040,7 +1040,8 @@ extern void vect_get_store_cost (struct data_reference *, int,
 extern bool vect_supportable_shift (enum tree_code, tree);
 extern void vect_get_vec_defs (tree, tree, gimple, vec<tree> *,
 			       vec<tree> *, slp_tree, int);
-extern tree vect_gen_perm_mask (tree, unsigned char *);
+extern tree vect_gen_perm_mask_any (tree, const unsigned char *);
+extern tree vect_gen_perm_mask_checked (tree, const unsigned char *);
 
 /* In tree-vect-data-refs.c.  */
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);

@@ -147,9 +147,6 @@
 ;; Double vector modes for combines.
 (define_mode_iterator VDIC [V8QI V4HI V2SI])
 
-;; Double vector modes inc V1DF
-(define_mode_iterator VD1 [V8QI V4HI V2SI V2SF V1DF])
-
 ;; Vector modes except double int.
 (define_mode_iterator VDQIF [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DF])
 
@@ -183,6 +180,9 @@
 ;; All byte modes.
 (define_mode_iterator VB [V8QI V16QI])
 
+;; 2 and 4 lane SI modes.
+(define_mode_iterator VS [V2SI V4SI])
+
 (define_mode_iterator TX [TI TF])
 
 ;; Opaque structure modes.
@@ -213,8 +213,7 @@
     UNSPEC_FMINNMV	; Used in aarch64-simd.md.
     UNSPEC_FMINV	; Used in aarch64-simd.md.
     UNSPEC_FADDV	; Used in aarch64-simd.md.
-    UNSPEC_SADDV	; Used in aarch64-simd.md.
-    UNSPEC_UADDV	; Used in aarch64-simd.md.
+    UNSPEC_ADDV		; Used in aarch64-simd.md.
     UNSPEC_SMAXV	; Used in aarch64-simd.md.
     UNSPEC_SMINV	; Used in aarch64-simd.md.
     UNSPEC_UMAXV	; Used in aarch64-simd.md.
@@ -361,6 +360,9 @@
 
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
+
+;; Attribute to describe constants acceptable in atomic logical operations
+(define_mode_attr lconst_atomic [(QI "K") (HI "K") (SI "K") (DI "L")])
 
 ;; Map a mode to a specific constraint character.
 (define_mode_attr cmode [(QI "q") (HI "h") (SI "s") (DI "d")])
@@ -668,6 +670,9 @@
 		      (V2DI  "p") (V2DF  "p")
 		      (V2SF "p") (V4SF  "v")])
 
+(define_mode_attr vsi2qi [(V2SI "v8qi") (V4SI "v16qi")])
+(define_mode_attr VSI2QI [(V2SI "V8QI") (V4SI "V16QI")])
+
 ;; -------------------------------------------------------------------
 ;; Code Iterators
 ;; -------------------------------------------------------------------
@@ -859,8 +864,6 @@
 (define_int_iterator FMAXMINV [UNSPEC_FMAXV UNSPEC_FMINV
 			       UNSPEC_FMAXNMV UNSPEC_FMINNMV])
 
-(define_int_iterator SUADDV [UNSPEC_SADDV UNSPEC_UADDV])
-
 (define_int_iterator HADDSUB [UNSPEC_SHADD UNSPEC_UHADD
 			      UNSPEC_SRHADD UNSPEC_URHADD
 			      UNSPEC_SHSUB UNSPEC_UHSUB
@@ -965,7 +968,6 @@
 		      (UNSPEC_SUBHN2 "") (UNSPEC_RSUBHN2 "r")
 		      (UNSPEC_SQXTN "s") (UNSPEC_UQXTN "u")
 		      (UNSPEC_USQADD "us") (UNSPEC_SUQADD "su")
-		      (UNSPEC_SADDV "s") (UNSPEC_UADDV "u")
 		      (UNSPEC_SSLI  "s") (UNSPEC_USLI  "u")
 		      (UNSPEC_SSRI  "s") (UNSPEC_USRI  "u")
 		      (UNSPEC_USRA  "u") (UNSPEC_SSRA  "s")

@@ -560,6 +560,21 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
+/* Nonzero if this type is a pointer bounds type.  */
+#define POINTER_BOUNDS_TYPE_P(NODE) \
+  (TREE_CODE (NODE) == POINTER_BOUNDS_TYPE)
+
+/* Nonzero if this node has a pointer bounds type.  */
+#define POINTER_BOUNDS_P(NODE) \
+  (POINTER_BOUNDS_TYPE_P (TREE_TYPE (NODE)))
+
+/* Nonzero if this type supposes bounds existence.  */
+#define BOUNDED_TYPE_P(type) (POINTER_TYPE_P (type))
+
+/* Nonzero for objects with bounded type.  */
+#define BOUNDED_P(node) \
+  BOUNDED_TYPE_P (TREE_TYPE (node))
+
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 
@@ -774,6 +789,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
 
+/* True if an overflow is to be preserved for sanitization.  */
+#define TYPE_OVERFLOW_SANITIZED(TYPE)			\
+  (INTEGRAL_TYPE_P (TYPE)				\
+   && !TYPE_OVERFLOW_WRAPS (TYPE)			\
+   && (flag_sanitize & SANITIZE_SI_OVERFLOW))
+
 /* True if pointer types have undefined overflow.  */
 #define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
 
@@ -835,6 +856,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    it has been built for the declaration of a variable-sized object.  */
 #define CALL_ALLOCA_FOR_VAR_P(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.protected_flag)
+
+/* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
+#define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -1539,6 +1563,8 @@ extern void protected_set_expr_location (tree, location_t);
    ? vector_type_mode (NODE) : (NODE)->type_common.mode)
 #define SET_TYPE_MODE(NODE, MODE) \
   (TYPE_CHECK (NODE)->type_common.mode = (MODE))
+
+extern machine_mode element_mode (const_tree t);
 
 /* The "canonical" type for this type node, which is used by frontends to
    compare the type for equality with another type.  If two types are
@@ -2553,7 +2579,7 @@ extern void decl_fini_priority_insert (tree, priority_type);
 
 /* In a FUNCTION_DECL indicates that a static chain is needed.  */
 #define DECL_STATIC_CHAIN(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.regdecl_flag)
+  (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.regdecl_flag)
 
 /* Nonzero for a decl that cgraph has decided should be inlined into
    at least one call site.  It is not meaningful to look at this
@@ -3284,6 +3310,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
 
+#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
+
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
@@ -3645,11 +3673,11 @@ extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
 extern tree truth_type_for (tree);
-extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
+extern tree build_pointer_type_for_mode (tree, machine_mode, bool);
 extern tree build_pointer_type (tree);
-extern tree build_reference_type_for_mode (tree, enum machine_mode, bool);
+extern tree build_reference_type_for_mode (tree, machine_mode, bool);
 extern tree build_reference_type (tree);
-extern tree build_vector_type_for_mode (tree, enum machine_mode);
+extern tree build_vector_type_for_mode (tree, machine_mode);
 extern tree build_vector_type (tree innertype, int nunits);
 extern tree build_opaque_vector_type (tree innertype, int nunits);
 extern tree build_index_type (tree);
@@ -3973,6 +4001,11 @@ extern int integer_pow2p (const_tree);
 
 extern int integer_nonzerop (const_tree);
 
+/* integer_truep (tree x) is nonzero if X is an integer constant of value 1 or
+   a vector where each element is an integer constant of value -1.  */
+
+extern int integer_truep (const_tree);
+
 extern bool cst_and_fits_in_hwi (const_tree);
 extern tree num_ending_zeros (const_tree);
 
@@ -4206,6 +4239,7 @@ extern bool is_typedef_decl (tree x);
 extern bool typedef_variant_p (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern bool tree_nop_conversion_p (const_tree, const_tree);
 extern tree tree_strip_nop_conversions (tree);
 extern tree tree_strip_sign_nop_conversions (tree);
 extern const_tree strip_invariant_refs (const_tree);
@@ -4367,6 +4401,28 @@ extern unsigned int tree_map_hash (const void *);
 #define tree_decl_map_eq tree_map_base_eq
 extern unsigned int tree_decl_map_hash (const void *);
 #define tree_decl_map_marked_p tree_map_base_marked_p
+
+struct tree_decl_map_cache_hasher : ggc_cache_hasher<tree_decl_map *>
+{
+  static hashval_t hash (tree_decl_map *m) { return tree_decl_map_hash (m); }
+  static bool
+  equal (tree_decl_map *a, tree_decl_map *b)
+  {
+    return tree_decl_map_eq (a, b);
+  }
+
+  static void
+  handle_cache_entry (tree_decl_map *&m)
+  {
+    extern void gt_ggc_mx (tree_decl_map *&);
+    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (m->base.from))
+      gt_ggc_mx (m);
+    else
+      m = static_cast<tree_decl_map *> (HTAB_DELETED_ENTRY);
+  }
+};
 
 #define tree_int_map_eq tree_map_base_eq
 #define tree_int_map_hash tree_map_base_hash
@@ -4791,7 +4847,7 @@ extern tree build_personality_function (const char *);
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 tree *, enum machine_mode *, int *, int *,
+				 tree *, machine_mode *, int *, int *,
 				 bool);
 
 /* Return a tree representing the lower bound of the array mentioned in
@@ -4819,4 +4875,9 @@ int_bit_position (const_tree field)
   return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
+
+extern void gt_ggc_mx (tree &);
+extern void gt_pch_nx (tree &);
+extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
+
 #endif  /* GCC_TREE_H  */

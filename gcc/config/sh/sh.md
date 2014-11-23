@@ -1580,7 +1580,7 @@
    (set (match_dup 4) (match_dup 5))]
 {
   rtx set1, set2;
-  rtx_insn *insn2;
+  rtx_insn *insn1, *insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -1607,23 +1607,20 @@
   /* ??? The last insn might be a jump insn, but the generic peephole2 code
      always uses emit_insn.  */
   /* Check that we don't violate matching constraints or earlyclobbers.  */
-  extract_insn (emit_insn (set1));
-  if (! constrain_operands (1))
+  basic_block bb = BLOCK_FOR_INSN (peep2_next_insn (2));
+  insn1 = emit_insn (set1);
+  extract_insn (insn1);
+  if (! constrain_operands (1, get_preferred_alternatives (insn1, bb)))
     goto failure;
   insn2 = emit (set2);
   if (GET_CODE (insn2) == BARRIER)
     goto failure;
   extract_insn (insn2);
-  if (! constrain_operands (1))
+  if (! constrain_operands (1, get_preferred_alternatives (insn2, bb)))
     {
-      rtx tmp;
     failure:
-      tmp = replacements[0];
-      replacements[0] = replacements[1];
-      replacements[1] = tmp;
-      tmp = replacements[2];
-      replacements[2] = replacements[3];
-      replacements[3] = tmp;
+      std::swap (replacements[0], replacements[1]);
+      std::swap (replacements[2], replacements[3]);
       replace_n_hard_rtx (SET_DEST (set1), replacements, 2, 1);
       replace_n_hard_rtx (SET_DEST (set2), replacements, 2, 1);
       replace_n_hard_rtx (SET_SRC (set2), replacements, 2, 1);
@@ -4004,7 +4001,7 @@ label:
   [(set (match_dup 5) (match_dup 4))
    (set (match_dup 0) (sign_extend:DI (match_dup 5)))]
 {
-  enum machine_mode inmode = GET_MODE (operands[1]);
+  machine_mode inmode = GET_MODE (operands[1]);
   int offset = 0;
 
   if (GET_CODE (operands[0]) == SUBREG)
@@ -8809,7 +8806,7 @@ label:
 		      (pc)))]
   "TARGET_SHMEDIA"
 {
-  enum machine_mode mode = GET_MODE (operands[1]);
+  machine_mode mode = GET_MODE (operands[1]);
   if (mode == VOIDmode)
     mode = GET_MODE (operands[2]);
   if (GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
@@ -11430,7 +11427,7 @@ label:
 	  (match_operand 3 "cmp_operand" "")]))]
   "TARGET_SHMEDIA"
 {
-  enum machine_mode mode = GET_MODE (operands[2]);
+  machine_mode mode = GET_MODE (operands[2]);
   enum rtx_code code = GET_CODE (operands[1]);
   bool invert, swap;
   if (mode == VOIDmode)
@@ -11479,9 +11476,7 @@ label:
 
   if (swap)
     {
-      rtx tem = operands[2];
-      operands[2] = operands[3];
-      operands[3] = tem;
+      std::swap (operands[2], operands[3]);
       code = swap_condition (code);
     }
 
@@ -11583,13 +11578,21 @@ label:
   DONE;
 })
 
-(define_insn "movrt_negc"
+(define_insn_and_split "movrt_negc"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(xor:SI (match_operand:SI 1 "t_reg_operand" "") (const_int 1)))
+	(xor:SI (match_operand:SI 1 "t_reg_operand") (const_int 1)))
    (set (reg:SI T_REG) (const_int 1))
    (use (match_operand:SI 2 "arith_reg_operand" "r"))]
   "TARGET_SH1"
   "negc	%2,%0"
+  "&& 1"
+  [(const_int 0)]
+{
+  if (sh_split_movrt_negc_to_movt_xor (curr_insn, operands))
+    DONE;
+  else
+    FAIL;
+}
   [(set_attr "type" "arith")])
 
 ;; The -1 constant will not be CSE-ed for the *movrt_negc pattern, but the
@@ -11598,17 +11601,25 @@ label:
 ;; generating a pseudo reg before reload.
 (define_insn_and_split "*movrt_negc"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(xor:SI (match_operand:SI 1 "t_reg_operand" "") (const_int 1)))
+	(xor:SI (match_operand:SI 1 "t_reg_operand") (const_int 1)))
    (clobber (match_scratch:SI 2 "=r"))
    (clobber (reg:SI T_REG))]
   "TARGET_SH1 && ! TARGET_SH2A"
   "#"
-  "&& reload_completed"
-  [(set (match_dup 2) (const_int -1))
-   (parallel
-       [(set (match_dup 0) (xor:SI (match_dup 1) (const_int 1)))
-	(set (reg:SI T_REG) (const_int 1))
-	(use (match_dup 2))])])
+  "&& 1"
+  [(const_int 0)]
+{
+  if (sh_split_movrt_negc_to_movt_xor (curr_insn, operands))
+    DONE;
+  else if (reload_completed)
+    {
+      emit_move_insn (operands[2], gen_int_mode (-1, SImode));
+      emit_insn (gen_movrt_negc (operands[0], operands[1], operands[2]));
+      DONE;
+    }
+  else
+    FAIL;
+})
 
 ;; Store the negated T bit in a reg using r0 and xor.  This one doesn't
 ;; clobber the T bit, which is useful when storing the T bit and the
@@ -11619,44 +11630,11 @@ label:
   [(set (match_operand:SI 0 "arith_reg_dest" "=z")
 	(xor:SI (match_operand:SI 1 "t_reg_operand") (const_int 1)))
    (use (reg:SI T_REG))]
-  "TARGET_SH1 && !TARGET_SH2A"
+  "TARGET_SH1"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (reg:SI T_REG))
    (set (match_dup 0) (xor:SI (match_dup 0) (const_int 1)))])
-
-;; Store the T bit and the negated T bit in two regs in parallel.  There is
-;; no real insn to do that, but specifying this pattern will give combine
-;; some opportunities.
-(define_insn_and_split "*movt_movrt"
-  [(parallel [(set (match_operand:SI 0 "arith_reg_dest")
-		   (match_operand:SI 1 "negt_reg_operand"))
-	      (set (match_operand:SI 2 "arith_reg_dest")
-		   (match_operand:SI 3 "t_reg_operand"))])]
-  "TARGET_SH1"
-  "#"
-  "&& 1"
-  [(const_int 0)]
-{
-  rtx i = TARGET_SH2A
-	  ? gen_movrt (operands[0], get_t_reg_rtx ())
-	  : gen_movrt_xor (operands[0], get_t_reg_rtx ());
-  
-  emit_insn (i);
-  emit_insn (gen_movt (operands[2], get_t_reg_rtx ()));
-  DONE;
-})
-
-(define_insn_and_split "*movt_movrt"
-  [(parallel [(set (match_operand:SI 0 "arith_reg_dest")
-		   (match_operand:SI 1 "t_reg_operand"))
-	      (set (match_operand:SI 2 "arith_reg_dest")
-		   (match_operand:SI 3 "negt_reg_operand"))])]
-  "TARGET_SH1"
-  "#"
-  "&& 1"
-  [(parallel [(set (match_dup 2) (match_dup 3))
-	      (set (match_dup 0) (match_dup 1))])])
 
 ;; Use negc to store the T bit in a MSB of a reg in the following way:
 ;;	T = 1: 0x80000000 -> reg
@@ -12669,11 +12647,7 @@ label:
   /* Change 'b * a + a' into 'a * b + a'.
      This is better for register allocation.  */
   if (REGNO (operands[2]) == REGNO (operands[3]))
-    {
-      rtx tmp = operands[1];
-      operands[1] = operands[2];
-      operands[2] = tmp;
-    }
+    std::swap (operands[1], operands[2]);
 }
   [(set_attr "type" "fp")
    (set_attr "fp_mode" "single")])
@@ -14165,7 +14139,7 @@ label:
   [(set (match_dup 0) (match_dup 1))]
 {
   rtx v = operands[1];
-  enum machine_mode new_mode
+  machine_mode new_mode
     = mode_for_size (GET_MODE_BITSIZE (GET_MODE (v)), MODE_INT, 0);
 
   operands[0] = gen_rtx_REG (new_mode, true_regnum (operands[0]));
@@ -15254,7 +15228,7 @@ label:
   [(set (match_dup 0) (match_dup 3))]
 {
   rtx count = operands[2];
-  enum machine_mode outer_mode = GET_MODE (operands[2]), inner_mode;
+  machine_mode outer_mode = GET_MODE (operands[2]), inner_mode;
 
   while (GET_CODE (count) == ZERO_EXTEND || GET_CODE (count) == SIGN_EXTEND
 	 || (GET_CODE (count) == SUBREG && SUBREG_BYTE (count) == 0)
@@ -15934,10 +15908,7 @@ label:
   "TARGET_SHMEDIA && reload_completed"
   [(set (match_dup 0) (match_dup 1))]
 {
-  int n_changes = 0;
-
-  for_each_rtx (&operands[1], shmedia_cleanup_truncate, &n_changes);
-  if (!n_changes)
+  if (!shmedia_cleanup_truncate (operands[1]))
     FAIL;
 })
 

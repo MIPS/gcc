@@ -2455,7 +2455,6 @@ typedef struct
   int warn_tabs;
   int warn_underflow;
   int warn_intrinsic_shadow;
-  int warn_use_without_only;
   int warn_intrinsics_std;
   int warn_character_truncation;
   int warn_array_temp;
@@ -2691,22 +2690,24 @@ typedef struct gfc_error_buf
 } gfc_error_buf;
 
 void gfc_error_init_1 (void);
-void gfc_diagnostics_init(void);
+void gfc_diagnostics_init (void);
+void gfc_diagnostics_finish (void);
 void gfc_buffer_error (int);
 
 const char *gfc_print_wide_char (gfc_char_t);
 
 void gfc_warning (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_warning_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
-bool gfc_warning_cmdline (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
-bool gfc_warning_cmdline (int opt, const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(2,3);
+bool gfc_warning_now_2 (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
+bool gfc_warning_now_2 (int opt, const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 
 void gfc_error (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
-void gfc_error_cmdline (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_error_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_error_now_2 (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_fatal_error_1 (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_clear_error (void);

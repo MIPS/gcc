@@ -2776,6 +2776,7 @@ package body Exp_Ch5 is
    ----------------------------------
 
    procedure Expand_Formal_Container_Loop (N : Node_Id) is
+      Loc       : constant Source_Ptr := Sloc (N);
       Isc       : constant Node_Id    := Iteration_Scheme (N);
       I_Spec    : constant Node_Id    := Iterator_Specification (Isc);
       Cursor    : constant Entity_Id  := Defining_Identifier (I_Spec);
@@ -2783,6 +2784,7 @@ package body Exp_Ch5 is
       Stats     : constant List_Id    := Statements (N);
 
       Advance  : Node_Id;
+      Blk_Nod  : Node_Id;
       Init     : Node_Id;
       New_Loop : Node_Id;
 
@@ -2801,12 +2803,19 @@ package body Exp_Ch5 is
         (N, Container, Cursor, Init, Advance, New_Loop);
 
       Set_Ekind (Cursor, E_Variable);
-      Insert_Action (N, Init);
-
       Append_To (Stats, Advance);
 
-      Rewrite (N, New_Loop);
-      Analyze (New_Loop);
+      --  Build block to capture declaration of cursor entity.
+
+      Blk_Nod :=
+        Make_Block_Statement (Loc,
+          Declarations               => New_List (Init),
+          Handled_Statement_Sequence =>
+            Make_Handled_Sequence_Of_Statements (Loc,
+              Statements => New_List (New_Loop)));
+
+      Rewrite (N, Blk_Nod);
+      Analyze (N);
    end Expand_Formal_Container_Loop;
 
    ------------------------------------------
@@ -3757,14 +3766,10 @@ package body Exp_Ch5 is
          end loop;
       end if;
 
-      --  If original loop has a source name, preserve it so it can be
-      --  recognized by an exit statement in the body of the rewritten loop.
-      --  This only concerns source names: the generated name of an anonymous
-      --  loop will be create again during the subsequent analysis below.
+      --  Inherit the loop identifier from the original loop. This ensures that
+      --  the scope stack is consistent after the rewriting.
 
-      if Present (Identifier (N))
-        and then Comes_From_Source (Identifier (N))
-      then
+      if Present (Identifier (N)) then
          Set_Identifier (Core_Loop, Relocate_Node (Identifier (N)));
       end if;
 
