@@ -1,5 +1,9 @@
 2014-11-23  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-type.patch: New.  patch to provide distinct tree type.
+
+2014-11-23  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-core.h (enum tree_index): Remove TI_* labels for types.
 	(enum type_index): New. Move and rename TI_ to TPI_ for types. 
 	(tree_type_ptr, const_tree_type_ptr): New.  Aliases for union tree_node.
