@@ -320,11 +320,14 @@ preload_common_nodes (struct streamer_tree_cache_d *cache)
   for (i = 0; i < stk_type_kind_last; i++)
     record_common_node (cache, sizetype_tab[i]);
 
+  for (i = 0; i < TPI_MAX; i++)
+    /* Skip boolean type, it is frontend dependent.  */
+    if (i != TPI_BOOLEAN_TYPE)
+      record_common_node (cache, global_types[i]);
+
   for (i = 0; i < TI_MAX; i++)
-    /* Skip boolean type and constants, they are frontend dependent.  */
-    if (i != TI_BOOLEAN_TYPE
-	&& i != TI_BOOLEAN_FALSE
-	&& i != TI_BOOLEAN_TRUE)
+    /* Skip boolean constants, they are frontend dependent.  */
+    if (i != TI_BOOLEAN_FALSE && i != TI_BOOLEAN_TRUE)
       record_common_node (cache, global_trees[i]);
 }
 

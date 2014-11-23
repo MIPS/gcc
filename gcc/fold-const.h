@@ -57,8 +57,8 @@ extern tree fold_build1_stat_loc (location_t, enum tree_code, tree,
    fold_build2_stat_loc (UNKNOWN_LOCATION, c, t1, t2, t3 MEM_STAT_INFO)
 #define fold_build2_loc(l,c,t1,t2,t3)\
    fold_build2_stat_loc (l, c, t1, t2, t3 MEM_STAT_INFO)
-extern tree fold_build2_stat_loc (location_t, enum tree_code, tree, tree,
-				  tree MEM_STAT_DECL);
+extern tree fold_build2_stat_loc (location_t, enum tree_code, tree_type_ptr,
+				  tree, tree MEM_STAT_DECL);
 #define fold_build3(c,t1,t2,t3,t4)\
    fold_build3_stat_loc (UNKNOWN_LOCATION, c, t1, t2, t3, t4 MEM_STAT_INFO)
 #define fold_build3_loc(l,c,t1,t2,t3,t4)\
@@ -76,7 +76,7 @@ extern tree fold_build_call_array_initializer_loc (location_t, tree, tree, int, 
 extern bool fold_convertible_p (const_tree, const_tree);
 #define fold_convert(T1,T2)\
    fold_convert_loc (UNKNOWN_LOCATION, T1, T2)
-extern tree fold_convert_loc (location_t, tree, tree);
+extern tree fold_convert_loc (location_t, tree_type_ptr, tree);
 extern tree fold_single_bit_test (location_t, enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);

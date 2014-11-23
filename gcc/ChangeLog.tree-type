@@ -1,0 +1,36 @@
+2014-11-23  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-core.h (enum tree_index): Remove TI_* labels for types.
+	(enum type_index): New. Move and rename TI_ to TPI_ for types. 
+	(tree_type_ptr, const_tree_type_ptr): New.  Aliases for union tree_node.
+	(struct tree_typed): Make type a tree_type_ptr.
+	(struct tree_type_common): Use tree_type_ptr where appropriate.
+	(integer_types, sizetype_tab): Array of tree_type_ptr now.
+	(global_types): New.  Vector for types that were in global_trees[].
+	* tree.h (NULL_TYPE, TYPE_CODE, TYPE_SET_CODE, TYPE_CHAIN, TYPE_TYPE):
+	New macros for accessing tree fields through types.
+	(*_TYPE_P): Replace old TREE_* with TYPE_* macros.
+	(TYPE_ADDRESSABLE, TYPE_ASM_WRITTEN): New Macros.
+	(TYPE_CANONICAL): Add TYPE_CHECK call.
+	(TYPE_STRUCTURAL_EQUALITY_P, SET_TYPE_STRUCTURAL_EQUALITY): Compare to
+	NULL_TYPE not NULL_TREE.
+	(TYPE_STUB_DECL): Use TYPE_CHAIN.
+	(error_type_node): New.  Error marking for types.
+	(*_type_node): Refer to golbal_type not global_tree array.
+	(function_args_iter_init): Make type parameter const_tree_type_ptr.
+	(ptrofftype_p): Make type parameter tree_type_ptr.
+	(wi::fits_to_tree_p, wi:: min_value, wi::max_value) Change type 
+	parameter to const_tree_type_ptr.
+	* tree.c (global_types): Declare global vector of tree_type_ptr.
+	* tree-streamer.c (preload_common_nodes): Load types then trees.
+	* lto/lto.c (read_cgraph_and_symbols): Register canonical types.
+	* fold-const.h (fold_build2_stat_loc, fold_convert_loc): Change type
+	parameter in prototype to tree_type_ptr.
+	* fold-const.c (fold_build2_stat_loc, fold_convert_loc): Change type
+	parameter to tree_type_ptr.
+	* config/spu/spu.c (spu_builtin_types): Change vector elements to
+	tree_type_ptr.
+	(spu_init_builtins): Use new tree_index TPI_ values rather than
+	tree_index TI_ values.
+	* ada/gcc-interface/gigi.h: (VECTOR_TYPE_P): Remove odd duplicate macro.
+

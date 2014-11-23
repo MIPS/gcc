@@ -1897,7 +1897,7 @@ fold_convertible_p (const_tree type, const_tree arg)
    simple conversions in preference to calling the front-end's convert.  */
 
 tree
-fold_convert_loc (location_t loc, tree type, tree arg)
+fold_convert_loc (location_t loc, tree_type_ptr type, tree arg)
 {
   tree orig = TREE_TYPE (arg);
   tree tem;
@@ -14208,8 +14208,8 @@ fold_build1_stat_loc (location_t loc,
 
 tree
 fold_build2_stat_loc (location_t loc,
-		      enum tree_code code, tree type, tree op0, tree op1
-		      MEM_STAT_DECL)
+		      enum tree_code code, tree_type_ptr type, tree op0,
+		      tree op1 MEM_STAT_DECL)
 {
   tree tem;
 #ifdef ENABLE_FOLD_CHECKING
