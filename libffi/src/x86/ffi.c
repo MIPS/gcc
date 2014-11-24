@@ -332,13 +332,24 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *rvalue,
       else
 	{
 	  size_t za = ALIGN (z, FFI_SIZEOF_ARG);
+	  size_t align = ty->alignment;
+
+	  /* We can honor up to 16 byte alignment, as that's what
+	     alignment we've got on the stack.  Certainly that's
+	     true for Linux and Darwin.  */
+	  if (align > 16)
+	    align = 16;
+
 	  if (dir < 0)
 	    {
+	      /* ??? These reverse argument ABIs are probably too old
+		 to have cared about alignment.  Someone should check.  */
 	      argp -= za;
 	      memcpy (argp, valp, z);
 	    }
 	  else
 	    {
+	      argp = (char *)ALIGN (argp, align);
 	      memcpy (argp, valp, z);
 	      argp += za;
 	    }
@@ -419,8 +430,9 @@ ffi_closure_inner (struct closure_frame *frame, char *stack)
   arg_types = cif->arg_types;
   for (i = 0; i < n; ++i)
     {
-      size_t z = arg_types[i]->size;
-      int t = arg_types[i]->type;
+      ffi_type *ty = arg_types[i];
+      size_t z = ty->size;
+      int t = ty->type;
       void *valp;
 
       if (z <= FFI_SIZEOF_ARG && t != FFI_TYPE_STRUCT)
@@ -441,13 +453,24 @@ ffi_closure_inner (struct closure_frame *frame, char *stack)
       else
 	{
 	  size_t za = ALIGN (z, FFI_SIZEOF_ARG);
+	  size_t align = ty->alignment;
+
+	  /* We can honor up to 16 byte alignment, as that's what
+	     alignment we've got on the stack.  Certainly that's
+	     true for Linux and Darwin.  */
+	  if (align > 16)
+	    align = 16;
+
 	  if (dir < 0)
 	    {
+	      /* ??? These reverse argument ABIs are probably too old
+		 to have cared about alignment.  Someone should check.  */
 	      argp -= za;
 	      valp = argp;
 	    }
 	  else
 	    {
+	      argp = (char *)ALIGN (argp, align);
 	      valp = argp;
 	      argp += za;
 	    }
