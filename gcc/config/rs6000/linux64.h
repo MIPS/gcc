@@ -115,6 +115,14 @@ extern int dot_symbols;
 	      if (dot_symbols)					\
 		error ("-mcall-aixdesc incompatible with -mabi=elfv2"); \
 	    }							\
+	  if (DEFAULT_ABI == ABI_AIX				\
+	      && strcmp (lang_hooks.name, "GNU Go") == 0)	\
+	    {							\
+	      if (global_options_set.x_TARGET_POINTERS_TO_NESTED_FUNCTIONS \
+		  && TARGET_POINTERS_TO_NESTED_FUNCTIONS)	\
+		error ("-mpointers-to-nested-functions is incompatible with Go"); \
+	      TARGET_POINTERS_TO_NESTED_FUNCTIONS = 0;		\
+	    }							\
 	  if (rs6000_isa_flags & OPTION_MASK_RELOCATABLE)	\
 	    {							\
 	      rs6000_isa_flags &= ~OPTION_MASK_RELOCATABLE;	\
