@@ -60,14 +60,14 @@
    actual table.  The entry points into the table are all 8 bytes.
    The use of ORG asserts that we're at the correct location.  */
 /* ??? The clang assembler doesn't handle .org with symbolic expressions.  */
-#ifdef __clang__
-# define E(X)	.align 8
+#if defined(__clang__) || defined(__APPLE__)
+# define E(X)	.balign 8
 #else
-# define E(X)	.align 8; .org 0b + X * 8
+# define E(X)	.balign 8; .org 0b + X * 8
 #endif
 
 	.text
-	.align	16
+	.balign	16
 	.globl	ffi_call_i386
 	FFI_HIDDEN(ffi_call_i386)
 
@@ -112,7 +112,7 @@ ffi_call_i386:
 
 	andl	$X86_RET_TYPE_MASK, %ecx
 #ifdef __PIC__
-	call	__x86.get_pc_thunk.bx
+	call	C(__x86.get_pc_thunk.bx)
 1:	leal	0f-1b(%ebx, %ecx, 8), %ebx
 #else
 	leal	0f(,%ecx, 8), %ebx
@@ -120,7 +120,7 @@ ffi_call_i386:
 	movl	16(%ebp), %ecx		/* load result address */
 	jmp	*%ebx
 
-	.align	8
+	.balign	8
 0:
 E(X86_RET_FLOAT)
 	fstps	(%ecx)
@@ -212,31 +212,6 @@ ENDF(ffi_call_i386)
 	movl	%ecx, 32(%esp);						\
 	movl	%eax, 36(%esp)
 
-
-#ifdef __PIC__
-/* We're going to always load the got register here, even if .hidden says
-   we're going to avoid the PLT call.  We'll use the got register in
-   FFI_CLOSURE_MASK_AND_JUMP.  */
-# if defined HAVE_HIDDEN_VISIBILITY_ATTRIBUTE
-#  define PLT(X) X
-# else
-#  define PLT(X) X@PLT
-# endif
-# define FFI_CLOSURE_CALL_INNER						\
-	movl	%esp, %ecx;			/* load closure_data */	\
-	leal	closure_FS+4(%esp), %edx;	/* load incoming stack */ \
-	movl	%ebx, 40(%esp);			/* save ebx */		\
-	cfi_rel_offset(%ebx, 40);					\
-	call	__x86.get_pc_thunk.bx;		/* load got register */	\
-	addl	$C(_GLOBAL_OFFSET_TABLE_), %ebx;			\
-	call	PLT(ffi_closure_inner)
-#define FFI_CLOSURE_MASK_AND_JUMP					\
-	andl	$X86_RET_TYPE_MASK, %eax;				\
-	leal	0f@GOTOFF(%ebx, %eax, 8), %eax;				\
-	movl	40(%esp), %ebx;			/* restore ebx */	\
-	cfi_restore(%ebx);						\
-	jmp	*%eax
-#else
 # define FFI_CLOSURE_CALL_INNER						\
 	movl	%esp, %ecx;			/* load closure_data */	\
 	leal	closure_FS+4(%esp), %edx;	/* load incoming stack */ \
@@ -245,10 +220,37 @@ ENDF(ffi_call_i386)
 	andl	$X86_RET_TYPE_MASK, %eax;				\
 	leal	0f(, %eax, 8), %eax;					\
 	jmp	*%eax
+
+#ifdef __PIC__
+# if defined X86_DARWIN || defined HAVE_HIDDEN_VISIBILITY_ATTRIBUTE
+#  undef FFI_CLOSURE_MASK_AND_JUMP
+#  define FFI_CLOSURE_MASK_AND_JUMP					\
+	andl	$X86_RET_TYPE_MASK, %eax;				\
+	call	C(__x86.get_pc_thunk.dx);				\
+1:	leal	0f-1b(%edx, %eax, 8), %eax;				\
+	jmp	*%eax
+# else
+#  undef FFI_CLOSURE_CALL_INNER
+#  define FFI_CLOSURE_CALL_INNER					\
+	movl	%esp, %ecx;			/* load closure_data */	\
+	leal	closure_FS+4(%esp), %edx;	/* load incoming stack */ \
+	movl	%ebx, 40(%esp);			/* save ebx */		\
+	cfi_rel_offset(%ebx, 40);					\
+	call	C(__x86.get_pc_thunk.bx);	/* load got register */	\
+1:	addl	$C(_GLOBAL_OFFSET_TABLE_), %ebx;			\
+	call	ffi_closure_inner@PLT
+#  undef FFI_CLOSURE_MASK_AND_JUMP
+#  define FFI_CLOSURE_MASK_AND_JUMP					\
+	andl	$X86_RET_TYPE_MASK, %eax;				\
+	leal	0f@GOTOFF(%ebx, %eax, 8), %eax;				\
+	movl	40(%esp), %ebx;			/* restore ebx */	\
+	cfi_restore(%ebx);						\
+	jmp	*%eax
+# endif /* DARWIN || HIDDEN */
 #endif /* __PIC__ */
 
 #define FFI_GO_CLOSURE(suffix, chain, t1, t2)				\
-	.align	16;							\
+	.balign	16;							\
 	.globl	C(C1(ffi_go_closure_,suffix));				\
 	FFI_HIDDEN(C(C1(ffi_go_closure_,suffix)));			\
 C(C1(ffi_go_closure_,suffix)):						\
@@ -272,7 +274,7 @@ FFI_GO_CLOSURE(ECX, %ecx, %edx, %eax)
 /* The closure entry points are reached from the ffi_closure trampoline.
    On entry, %eax contains the address of the ffi_closure.  */
 
-	.align	16
+	.balign	16
 	.globl	C(ffi_closure_i386)
 	FFI_HIDDEN(C(ffi_closure_i386))
 
@@ -290,7 +292,7 @@ C(ffi_closure_i386):
 	FFI_CLOSURE_CALL_INNER
 	FFI_CLOSURE_MASK_AND_JUMP
 
-	.align	8
+	.balign	8
 0:
 E(X86_RET_FLOAT)
 	flds	(%esp)
@@ -353,7 +355,7 @@ FFI_GO_CLOSURE(STDCALL, %ecx, %edx, %eax)
 /* For REGISTER, we have no available parameter registers, and so we
    enter here having pushed the closure onto the stack.  */
 
-	.align	16
+	.balign	16
 	.globl	C(ffi_closure_REGISTER)
 	FFI_HIDDEN(C(ffi_closure_REGISTER))
 C(ffi_closure_REGISTER):
@@ -378,7 +380,7 @@ ENDF(C(ffi_closure_REGISTER))
    the stack following the closure.  The amount needing to be popped
    is returned to us from ffi_closure_inner.  */
 
-	.align	16
+	.balign	16
 	.globl	C(ffi_closure_STDCALL)
 	FFI_HIDDEN(C(ffi_closure_STDCALL))
 C(ffi_closure_STDCALL):
@@ -403,20 +405,15 @@ C(ffi_closure_STDCALL):
 	movl	closure_FS(%esp), %edx		/* move return address */
 	movl	%edx, (%ecx)
 
-	/* New pseudo-stack frame based off ecx.  This is unwind trickery
-	   in that the CFA *has* changed, to the proper popped stack address.
-	   Note that the location to which we moved the return address
-	   is the new CFA-4, so that's unchanged.  */
-	cfi_def_cfa(%ecx, 4)
-	/* Normally esp is unwound to CFA + the caller's ARGS_SIZE.
-	   We've just set the CFA to that final value.  Tell the unwinder
-	   to restore esp from CFA without the ARGS_SIZE:
-	   DW_CFA_val_expression %esp, DW_OP_call_frame_cfa.  */
-	cfi_escape(0x16, 4, 1, 0x9c)
+	/* From this point on, the value of %esp upon return is %ecx+4,
+	   and we've copied the return address to %ecx to make return easy.
+	   There's no point in representing this in the unwind info, as
+	   there is always a window between the mov and the ret which
+	   will be wrong from one point of view or another.  */
 
 	FFI_CLOSURE_MASK_AND_JUMP
 
-	.align	8
+	.balign	8
 0:
 E(X86_RET_FLOAT)
 	flds    (%esp)
@@ -487,7 +484,7 @@ ENDF(C(ffi_closure_STDCALL))
 
 #define raw_closure_S_FS	(16+16+12)
 
-	.align	16
+	.balign	16
 	.globl	C(ffi_closure_raw_SYSV)
 	FFI_HIDDEN(C(ffi_closure_raw_SYSV))
 C(ffi_closure_raw_SYSV):
@@ -511,7 +508,7 @@ C(ffi_closure_raw_SYSV):
 	movl	20(%ebx), %eax				/* load cif->flags */
 	andl	$X86_RET_TYPE_MASK, %eax
 #ifdef __PIC__
-	call	__x86.get_pc_thunk.bx
+	call	C(__x86.get_pc_thunk.bx)
 1:	leal	0f-1b(%ebx, %eax, 8), %eax
 #else
 	leal	0f(,%eax, 8), %eax
@@ -520,7 +517,7 @@ C(ffi_closure_raw_SYSV):
 	cfi_restore(%ebx)
 	jmp	*%eax
 
-	.align	8
+	.balign	8
 0:
 E(X86_RET_FLOAT)
 	flds	16(%esp)
@@ -581,7 +578,7 @@ ENDF(C(ffi_closure_raw_SYSV))
 #undef	raw_closure_S_FS
 #define raw_closure_T_FS	(16+16+8)
 
-	.align	16
+	.balign	16
 	.globl	C(ffi_closure_raw_THISCALL)
 	FFI_HIDDEN(C(ffi_closure_raw_THISCALL))
 C(ffi_closure_raw_THISCALL):
@@ -615,7 +612,7 @@ C(ffi_closure_raw_THISCALL):
 	movl	20(%ebx), %eax				/* load cif->flags */
 	andl	$X86_RET_TYPE_MASK, %eax
 #ifdef __PIC__
-	call	__x86.get_pc_thunk.bx
+	call	C(__x86.get_pc_thunk.bx)
 1:	leal	0f-1b(%ebx, %eax, 8), %eax
 #else
 	leal	0f(,%eax, 8), %eax
@@ -624,7 +621,7 @@ C(ffi_closure_raw_THISCALL):
 	cfi_restore(%ebx)
 	jmp	*%eax
 
-	.align	8
+	.balign	8
 0:
 E(X86_RET_FLOAT)
 	flds	16(%esp)
@@ -685,20 +682,41 @@ ENDF(C(ffi_closure_raw_THISCALL))
 
 #endif /* !FFI_NO_RAW_API */
 
+#ifdef X86_DARWIN
+# define COMDAT(X)							\
+        .section __TEXT,__textcoal_nt,coalesced,pure_instructions;	\
+        .weak_definition X;						\
+        .private_extern X
+#elif defined __ELF__
+# define COMDAT(X)							\
+	.section .text.X,"axG",@progbits,X,comdat;			\
+	.globl	X;							\
+	FFI_HIDDEN(X)
+#else
+# define COMDAT(X)
+#endif
+
 #if defined(__PIC__)
-	.section .text.__x86.get_pc_thunk.bx,"axG",@progbits,__x86.get_pc_thunk.bx,comdat
-	.globl	__x86.get_pc_thunk.bx
-	.hidden	__x86.get_pc_thunk.bx
-	.type	__x86.get_pc_thunk.bx,@function
-__x86.get_pc_thunk.bx:
+	COMDAT(C(__x86.get_pc_thunk.bx))
+C(__x86.get_pc_thunk.bx):
 	cfi_startproc
 	movl	(%esp), %ebx
 	ret
 	cfi_endproc
-	.size	__x86.get_pc_thunk.bx, . - __x86.get_pc_thunk.bx
+ENDF(C(__x86.get_pc_thunk.bx))
+# if defined X86_DARWIN || defined HAVE_HIDDEN_VISIBILITY_ATTRIBUTE
+	COMDAT(C(__x86.get_pc_thunk.dx))
+C(__x86.get_pc_thunk.dx):
+	cfi_startproc
+	movl	(%esp), %edx
+	ret
+	cfi_endproc
+ENDF(C(__x86.get_pc_thunk.dx))
+#endif /* DARWIN || HIDDEN */
 #endif /* __PIC__ */
 
 #endif /* ifndef __x86_64__ */
+
 #if defined __ELF__ && defined __linux__
 	.section	.note.GNU-stack,"",@progbits
 #endif

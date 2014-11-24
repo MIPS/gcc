@@ -35,13 +35,29 @@
 
 	.text
 
+#define C2(X, Y)  X ## Y
+#define C1(X, Y)  C2(X, Y)
+#ifdef __USER_LABEL_PREFIX__
+# define C(X)     C1(__USER_LABEL_PREFIX__, X)
+#else
+# define C(X)     X
+#endif
+
+#ifdef __ELF__
+# define PLT(X)	  X@PLT
+# define ENDF(X)  .type	X,@function; .size X, . - X
+#else
+# define PLT(X)	  X
+# define ENDF(X)
+#endif
+
 /* This macro allows the safe creation of jump tables without an
    actual table.  The entry points into the table are all 8 bytes.
    The use of ORG asserts that we're at the correct location.  */
 /* ??? The clang assembler doesn't handle .org with symbolic expressions.  */
 .macro E index
-	.align	8
-#ifndef __clang__
+	.balign	8
+#if !defined(__clang__) && !defined(__APPLE__)
 	.org	0b + \index * 8, 0x90
 #endif
 .endm
@@ -53,12 +69,11 @@
    for this function.  This has been allocated by ffi_call.  We also
    deallocate some of the stack that has been alloca'd.  */
 
-	.align	8
-	.globl	ffi_call_unix64
-	.type	ffi_call_unix64,@function
-	FFI_HIDDEN(ffi_call_unix64)
+	.balign	8
+	.globl	C(ffi_call_unix64)
+	FFI_HIDDEN(C(ffi_call_unix64))
 
-ffi_call_unix64:
+C(ffi_call_unix64):
 	cfi_startproc
 	movq	(%rsp), %r10		/* Load return address.  */
 	leaq	(%rdi, %rsi), %rax	/* Find local stack base.  */
@@ -122,7 +137,7 @@ ffi_call_unix64:
 	leaq	-20(%rsp), %rsi
 	jmp	*%r10
 
-	.align	8
+	.balign	8
 0:
 E UNIX64_RET_VOID
 	ret
@@ -181,18 +196,18 @@ E UNIX64_RET_ST_RAX_RDX
 	shrl	$UNIX64_SIZE_SHIFT, %ecx
 	rep movsb
 	ret
-	.align 8
+	.balign 8
 3:	movq	%xmm0, (%rsi)
 	shrl	$UNIX64_SIZE_SHIFT, %ecx
 	rep movsb
 	ret
 
-9:	call	abort@PLT
+9:	call	PLT(C(abort))
 
 	/* Many times we can avoid loading any SSE registers at all.
 	   It's not worth an indirect jump to load the exact set of
 	   SSE registers needed; zero or all is a good compromise.  */
-	.align 2
+	.balign 2
 	cfi_restore_state
 .Lload_sse:
 	movdqa	0x30(%r10), %xmm0
@@ -206,7 +221,7 @@ E UNIX64_RET_ST_RAX_RDX
 	jmp	.Lret_from_load_sse
 
 	cfi_endproc
-	.size    ffi_call_unix64,.-ffi_call_unix64
+ENDF(C(ffi_call_unix64))
 
 /* 6 general registers, 8 vector registers,
    32 bytes of rvalue, 8 bytes of alignment.  */
@@ -218,12 +233,11 @@ E UNIX64_RET_ST_RAX_RDX
 /* The location of rvalue within the red zone after deallocating the frame.  */
 #define ffi_closure_RED_RVALUE	(ffi_closure_OFS_RVALUE - ffi_closure_FS)
 
-	.align	2
-	.globl	ffi_closure_unix64_sse
-	.type	ffi_closure_unix64_sse,@function
-	FFI_HIDDEN(ffi_closure_unix64_sse)
+	.balign	2
+	.globl	C(ffi_closure_unix64_sse)
+	FFI_HIDDEN(C(ffi_closure_unix64_sse))
 
-ffi_closure_unix64_sse:
+C(ffi_closure_unix64_sse):
 	cfi_startproc
 	subq	$ffi_closure_FS, %rsp
 	/* Note clang bug 21515: adjust_cfa_offset error across endproc.  */
@@ -240,14 +254,13 @@ ffi_closure_unix64_sse:
 	jmp	0f
 
 	cfi_endproc
-	.size	ffi_closure_unix64_sse,.-ffi_closure_unix64_sse
+ENDF(C(ffi_closure_unix64_sse))
 
-	.align	2
-	.globl	ffi_closure_unix64
-	.type	ffi_closure_unix64,@function
-	FFI_HIDDEN(ffi_closure_unix64)
+	.balign	2
+	.globl	C(ffi_closure_unix64)
+	FFI_HIDDEN(C(ffi_closure_unix64))
 
-ffi_closure_unix64:
+C(ffi_closure_unix64):
 	cfi_startproc
 	subq	$ffi_closure_FS, %rsp
 	/* Note clang bug 21515: adjust_cfa_offset error across endproc.  */
@@ -273,7 +286,7 @@ ffi_closure_unix64:
 	leaq	ffi_closure_OFS_RVALUE(%rsp), %rcx	/* Load rvalue */
 	movq	%rsp, %r8				/* Load reg_args */
 	leaq	ffi_closure_FS+8(%rsp), %r9		/* Load argp */
-	call	ffi_closure_unix64_inner
+	call	C(ffi_closure_unix64_inner)
 
 	/* Deallocate stack frame early; return value is now in redzone.  */
 	addq	$ffi_closure_FS, %rsp
@@ -288,7 +301,7 @@ ffi_closure_unix64:
 	leaq	ffi_closure_RED_RVALUE(%rsp), %rsi
 	jmp	*%r10
 
-	.align	8
+	.balign	8
 0:
 E UNIX64_RET_VOID
 	ret
@@ -339,21 +352,20 @@ E UNIX64_RET_ST_RAX_RDX
 	movq	8(%rsi), %rdx
 2:	movq	(%rsi), %rax
 	ret
-	.align	8
+	.balign	8
 3:	movq	(%rsi), %xmm0
 	ret
 
-9:	call	abort@PLT
+9:	call	PLT(C(abort))
 
 	cfi_endproc
-	.size	ffi_closure_unix64,.-ffi_closure_unix64
+ENDF(C(ffi_closure_unix64))
 
-	.align	2
-	.globl	ffi_go_closure_unix64_sse
-	.type	ffi_go_closure_unix64_sse,@function
-	FFI_HIDDEN(ffi_go_closure_unix64_sse)
+	.balign	2
+	.globl	C(ffi_go_closure_unix64_sse)
+	FFI_HIDDEN(C(ffi_go_closure_unix64_sse))
 
-ffi_go_closure_unix64_sse:
+C(ffi_go_closure_unix64_sse):
 	cfi_startproc
 	subq	$ffi_closure_FS, %rsp
 	/* Note clang bug 21515: adjust_cfa_offset error across endproc.  */
@@ -370,14 +382,13 @@ ffi_go_closure_unix64_sse:
 	jmp	0f
 
 	cfi_endproc
-	.size	ffi_go_closure_unix64_sse,.-ffi_go_closure_unix64_sse
+ENDF(C(ffi_go_closure_unix64_sse))
 
-	.align	2
-	.globl	ffi_go_closure_unix64
-	.type	ffi_go_closure_unix64,@function
-	FFI_HIDDEN(ffi_go_closure_unix64)
+	.balign	2
+	.globl	C(ffi_go_closure_unix64)
+	FFI_HIDDEN(C(ffi_go_closure_unix64))
 
-ffi_go_closure_unix64:
+C(ffi_go_closure_unix64):
 	cfi_startproc
 	subq	$ffi_closure_FS, %rsp
 	/* Note clang bug 21515: adjust_cfa_offset error across endproc.  */
@@ -402,7 +413,7 @@ ffi_go_closure_unix64:
 	jmp	.Ldo_closure
 
 	cfi_endproc
-	.size	ffi_go_closure_unix64,.-ffi_go_closure_unix64
+ENDF(C(ffi_go_closure_unix64))
 
 #endif /* __x86_64__ */
 #if defined __ELF__ && defined __linux__
