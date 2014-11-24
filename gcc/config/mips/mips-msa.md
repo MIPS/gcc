@@ -1901,6 +1901,24 @@
      (le        "fcle")
      (lt        "fclt")])
 
+(define_int_iterator FSC_UNS [UNSPEC_MSA_FSAF UNSPEC_MSA_FSUN UNSPEC_MSA_FSOR
+			      UNSPEC_MSA_FSEQ UNSPEC_MSA_FSNE UNSPEC_MSA_FSUEQ
+			      UNSPEC_MSA_FSUNE UNSPEC_MSA_FSULE UNSPEC_MSA_FSULT
+			      UNSPEC_MSA_FSLE UNSPEC_MSA_FSLT])
+
+(define_int_attr fsc
+    [(UNSPEC_MSA_FSAF  "fsaf")
+     (UNSPEC_MSA_FSUN  "fsun")
+     (UNSPEC_MSA_FSOR  "fsor")
+     (UNSPEC_MSA_FSEQ  "fseq")
+     (UNSPEC_MSA_FSNE  "fsne")
+     (UNSPEC_MSA_FSUEQ "fsueq")
+     (UNSPEC_MSA_FSUNE "fsune")
+     (UNSPEC_MSA_FSULE "fsule")
+     (UNSPEC_MSA_FSULT "fsult")
+     (UNSPEC_MSA_FSLE  "fsle")
+     (UNSPEC_MSA_FSLT  "fslt")])
+
 (define_insn "msa_<FCC:fcc>_<FMSA:msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
 	(FCC:<VIMODE> (match_operand:FMSA 1 "register_operand" "f")
@@ -1911,123 +1929,13 @@
    (set_attr "mode"	"<UNITMODE>")
    (set_attr "msa_execunit" "msa_eu_cmp")])
 
-(define_insn "msa_fsaf_<FMSA:msafmt>"
+(define_insn "msa_<fsc>_<FMSA:msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
 	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSAF))]
+			   (match_operand:FMSA 2 "register_operand" "f")]
+			  FSC_UNS))]
   "ISA_HAS_MSA"
-  "fsaf.<FMSA:msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsor_<FMSA:msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSOR))]
-  "ISA_HAS_MSA"
-  "fsor.<FMSA:msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsun_<FMSA:msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSUN))]
-  "ISA_HAS_MSA"
-  "fsun.<FMSA:msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsune_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSUNE))]
-  "ISA_HAS_MSA"
-  "fsune.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsueq_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSUEQ))]
-  "ISA_HAS_MSA"
-  "fsueq.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fseq_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSEQ))]
-  "ISA_HAS_MSA"
-  "fseq.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsne_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSNE))]
-  "ISA_HAS_MSA"
-  "fsne.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fslt_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSLT))]
-  "ISA_HAS_MSA"
-  "fslt.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsult_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSULT))]
-  "ISA_HAS_MSA"
-  "fsult.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsle_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSLE))]
-  "ISA_HAS_MSA"
-  "fsle.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")
-   (set_attr "msa_execunit" "msa_eu_cmp")])
-
-(define_insn "msa_fsule_<msafmt>"
-  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
-	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
-			  (match_operand:FMSA 2 "register_operand" "f")]
-			 UNSPEC_MSA_FSULE))]
-  "ISA_HAS_MSA"
-  "fsule.<msafmt>\t%w0,%w1,%w2"
+  "<fsc>.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")
    (set_attr "msa_execunit" "msa_eu_cmp")])
