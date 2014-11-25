@@ -1082,6 +1082,8 @@ struct GTY(()) saved_scope {
   struct saved_scope *prev;
 };
 
+extern GTY(()) struct saved_scope *scope_chain;
+
 /* The current open namespace.  */
 
 #define current_namespace scope_chain->old_namespace
@@ -1123,6 +1125,24 @@ struct GTY(()) saved_scope {
 #define processing_specialization scope_chain->x_processing_specialization
 #define processing_explicit_instantiation scope_chain->x_processing_explicit_instantiation
 
+/* RAII sentinel to handle clearing processing_template_decl and restoring
+   it when done.  */
+
+struct processing_template_decl_sentinel
+{
+  int saved;
+  processing_template_decl_sentinel (bool reset = true)
+    : saved (processing_template_decl)
+  {
+    if (reset)
+      processing_template_decl = 0;
+  }
+  ~processing_template_decl_sentinel()
+  {
+    processing_template_decl = saved;
+  }
+};
+
 /* The cached class binding level, from the most recently exited
    class, or NULL if none.  */
 
@@ -1139,8 +1159,6 @@ struct GTY(()) saved_scope {
 #define cp_noexcept_operand scope_chain->noexcept_operand
 
 /* A list of private types mentioned, for deferred access checking.  */
-
-extern GTY(()) struct saved_scope *scope_chain;
 
 struct GTY((for_user)) cxx_int_tree_map {
   unsigned int uid;
@@ -2033,8 +2051,6 @@ struct GTY(()) lang_decl_fn {
 
   unsigned global_ctor_p : 1;
   unsigned global_dtor_p : 1;
-  unsigned constructor_attr : 1;
-  unsigned destructor_attr : 1;
   unsigned assignment_operator_p : 1;
   unsigned static_function : 1;
   unsigned pure_virtual : 1;
@@ -2048,7 +2064,7 @@ struct GTY(()) lang_decl_fn {
   unsigned this_thunk_p : 1;
   unsigned hidden_friend_p : 1;
   unsigned omp_declare_reduction_p : 1;
-  /* No spare bits on 32-bit hosts, 32 on 64-bit hosts.  */
+  /* 2 spare bits on 32-bit hosts, 34 on 64-bit hosts.  */
 
   /* For a non-thunk function decl, this is a tree list of
      friendly classes. For a thunk function decl, it is the
@@ -5551,8 +5567,8 @@ extern tree build_vec_delete			(tree, tree,
 extern tree create_temporary_var		(tree);
 extern void initialize_vtbl_ptrs		(tree);
 extern tree build_java_class_ref		(tree);
-extern tree integral_constant_value		(tree);
-extern tree decl_constant_value_safe	        (tree);
+extern tree scalar_constant_value		(tree);
+extern tree decl_really_constant_value		(tree);
 extern int diagnose_uninitialized_cst_or_ref_member (tree, bool, bool);
 extern tree build_vtbl_address                  (tree);
 
@@ -5716,6 +5732,7 @@ extern void make_args_non_dependent		(vec<tree, va_gc> *);
 extern bool reregister_specialization		(tree, tree, tree);
 extern tree instantiate_non_dependent_expr	(tree);
 extern tree instantiate_non_dependent_expr_sfinae (tree, tsubst_flags_t);
+extern tree instantiate_non_dependent_expr_internal (tree, tsubst_flags_t);
 extern bool alias_type_or_template_p            (tree);
 extern bool alias_template_specialization_p     (const_tree);
 extern bool dependent_alias_template_spec_p     (const_tree);
@@ -6280,6 +6297,7 @@ extern tree add_exception_specifier		(tree, tree, int);
 extern tree merge_exception_specifiers		(tree, tree);
 
 /* in mangle.c */
+extern bool maybe_remove_implicit_alias		(tree);
 extern void init_mangle				(void);
 extern void mangle_decl				(tree);
 extern const char *mangle_type_string		(tree);
@@ -6349,6 +6367,7 @@ extern tree register_constexpr_fundef           (tree, tree);
 extern bool check_constexpr_ctor_body           (tree, tree, bool);
 extern tree ensure_literal_type_for_constexpr_object (tree);
 extern bool potential_constant_expression       (tree);
+extern bool potential_static_init_expression    (tree);
 extern bool potential_rvalue_constant_expression (tree);
 extern bool require_potential_constant_expression (tree);
 extern bool require_potential_rvalue_constant_expression (tree);

@@ -1956,6 +1956,7 @@ output_struct_function_base (struct output_block *ob, struct function *fn)
   bp_pack_value (&bp, fn->has_simduid_loops, 1);
   bp_pack_value (&bp, fn->va_list_fpr_size, 8);
   bp_pack_value (&bp, fn->va_list_gpr_size, 8);
+  bp_pack_value (&bp, fn->last_clique, sizeof (short) * 8);
 
   /* Output the function start and end loci.  */
   stream_output_location (ob, &bp, fn->function_start_locus);
@@ -2187,8 +2188,8 @@ copy_function_or_variable (struct symtab_node *node)
 
   for (i = 0; i < LTO_N_DECL_STREAMS; i++)
     {
-      size_t n = in_state->streams[i].size;
-      tree *trees = in_state->streams[i].trees;
+      size_t n = vec_safe_length (in_state->streams[i]);
+      vec<tree, va_gc> *trees = in_state->streams[i];
       struct lto_tree_ref_encoder *encoder = &(out_state->streams[i]);
 
       /* The out state must have the same indices and the in state.
@@ -2197,7 +2198,7 @@ copy_function_or_variable (struct symtab_node *node)
       gcc_assert (lto_tree_ref_encoder_size (encoder) == 0);
       encoder->trees.reserve_exact (n);
       for (j = 0; j < n; j++)
-	encoder->trees.safe_push (trees[j]);
+	encoder->trees.safe_push ((*trees)[j]);
     }
 
   lto_free_section_data (file_data, LTO_section_function_body, name,

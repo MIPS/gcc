@@ -1,3 +1,113 @@
+2014-11-24  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (lookup_template_variable): Always unknown_type_node.
+
+2014-11-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63786
+	* parser.c (cp_parser_label_for_labeled_statement): Check the case
+	with check_for_bare_parameter_packs.
+
+2014-11-24  Jonathan Wakely  <jwakely@redhat.com>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63203
+	* decl.c (initialize_local_var): Add -Winit-self warning for
+	references initialized with themselves.
+
+2014-11-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63942
+	* mangle.c (mangle_decl): If we aren't going to create a symbol
+	alias, don't build the alias DECL either.
+
+2014-11-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63905
+	* cp-tree.h (lang_decl_fn): Remove constructor_attr, destructor_attr.
+
+2014-11-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63657
+	PR c++/38958
+	* call.c (set_up_extended_ref_temp): Set TREE_USED on the reference
+	if the temporary has a non-trivial destructor.
+	* decl.c (poplevel): Don't look through references.
+
+	PR c++/63942
+	* name-lookup.c (supplement_binding_1): Override a mangling alias.
+	* mangle.c (maybe_remove_implicit_alias): New.
+	(mangle_decl): Always avoid creating conflicting alias.
+	* cp-tree.h: Adjust.
+
+	PR c++/63849
+	* mangle.c (decl_mangling_context): Use template_type_parameter_p.
+
+	PR c++/63588
+	* pt.c (uses_template_parms): Handle null argument.
+
+2014-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/63764
+	* typeck.c (cp_build_array_ref): Adjust
+	convert_vector_to_pointer_for_subscript caller.  If it returns true,
+	call non_lvalue_loc on the result.
+
+2014-11-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63658
+	* pt.c (convert_nontype_argument): Call convert_from_reference.
+	(check_instantiated_arg): Don't be confused by reference refs.
+	(unify): Look through reference refs on the arg, too.
+	* mangle.c (write_template_arg): Look through reference refs.
+
+	* error.c (dump_expr): Avoid printing (*&i) for references.
+
+2014-11-20  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/63959
+	* tree.c (trivially_copyable_p): Check for CP_TYPE_VOLATILE_P.
+
+2014-11-20  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* cp-objcp-common.c: Use hash_table instead of htab.
+
+2014-11-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56041
+	* cp-tree.h (struct processing_template_decl_sentinel): New.
+	* pt.c (instantiate_non_dependent_expr_internal): Split out from...
+	(instantiate_non_dependent_expr_sfinae): Here.
+	(convert_nontype_argument): Use them.
+	* constexpr.c (fold_non_dependent_expr): Use them.
+
+	PR c++/63885
+	* constexpr.c (cxx_eval_constant_expression) [PARM_DECL]: Don't
+	complain yet about a reference.
+	[TARGET_EXPR]: Handle TARGET_EXPR with addr == true.
+	[ADDR_EXPR]: Make sure we don't take the address of a CONSTRUCTOR.
+	(cxx_bind_parameters_in_call): In the new scheme addr is always false.
+	* typeck.c (build_address): Don't take the address of a CONSTRUCTOR.
+
+	PR c++/57979
+	* init.c (decl_really_constant_value): Rename from
+	integral_constant_value.
+	(scalar_constant_value): Similar but limited to scalar results.
+	(decl_constant_value_safe): Remove.
+	(constant_value_1): Respect return_aggregate_cst_ok_p.
+	* typeck.c (decay_conversion): Use scalar_constant_value.
+	* call.c (convert_like_real): Likewise.
+	* cvt.c (ocp_convert): No need to check CLASS_TYPE_P.
+	* typeck.c (decay_conversion): Or ARRAY_TYPE.
+	* constexpr.c (struct constexpr_ctx): Add strict field.
+	(cxx_eval_constant_expression) [VAR_DECL]: Use it to select between
+	decl_constant_value and decl_really_constant_value.
+	(cxx_eval_outermost_constant_expr): Add strict parm.
+	(maybe_constant_init): Not strict.
+	(potential_constant_expression_1): Add strict parm.
+	Shorten most internal calls with RECUR macro.
+	* cp-tree.h, pt.c, semantics.c: Adjust.
+
 2014-11-19  Jason Merrill  <jason@redhat.com>
 
 	PR c++/63928

@@ -260,13 +260,15 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
   for (i = 0; i < LTO_N_DECL_STREAMS; i++)
     {
       uint32_t size = *data++;
-      tree *decls = ggc_vec_alloc<tree> (size);
+      vec<tree, va_gc> *decls = NULL;
+      vec_alloc (decls, size);
 
       for (j = 0; j < size; j++)
-	decls[j] = streamer_tree_cache_get_tree (data_in->reader_cache, data[j]);
+	vec_safe_push (decls,
+		       streamer_tree_cache_get_tree (data_in->reader_cache,
+						     data[j]));
 
-      state->streams[i].size = size;
-      state->streams[i].trees = decls;
+      state->streams[i] = decls;
       data += size;
     }
 
@@ -1978,15 +1980,15 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 
   /* Read in per-function decl states and enter them in hash table.  */
   decl_data->function_decl_states =
-    htab_create_ggc (37, lto_hash_in_decl_state, lto_eq_in_decl_state, NULL);
+    hash_table<decl_state_hasher>::create_ggc (37);
 
   for (i = 1; i < num_decl_states; i++)
     {
       struct lto_in_decl_state *state = lto_new_in_decl_state ();
-      void **slot;
 
       data_ptr = lto_read_in_decl_state (data_in, data_ptr, state);
-      slot = htab_find_slot (decl_data->function_decl_states, state, INSERT);
+      lto_in_decl_state **slot
+	= decl_data->function_decl_states->find_slot (state, INSERT);
       gcc_assert (*slot == NULL);
       *slot = state;
     }
@@ -2798,33 +2800,21 @@ static void
 lto_fixup_state (struct lto_in_decl_state *state)
 {
   unsigned i, si;
-  struct lto_tree_ref_table *table;
 
   /* Although we only want to replace FUNCTION_DECLs and VAR_DECLs,
      we still need to walk from all DECLs to find the reachable
      FUNCTION_DECLs and VAR_DECLs.  */
   for (si = 0; si < LTO_N_DECL_STREAMS; si++)
     {
-      table = &state->streams[si];
-      for (i = 0; i < table->size; i++)
+      vec<tree, va_gc> *trees = state->streams[si];
+      for (i = 0; i < vec_safe_length (trees); i++)
 	{
-	  tree *tp = table->trees + i;
-	  if (VAR_OR_FUNCTION_DECL_P (*tp)
-	      && (TREE_PUBLIC (*tp) || DECL_EXTERNAL (*tp)))
-	    *tp = lto_symtab_prevailing_decl (*tp);
+	  tree t = (*trees)[i];
+	  if (VAR_OR_FUNCTION_DECL_P (t)
+	      && (TREE_PUBLIC (t) || DECL_EXTERNAL (t)))
+	    (*trees)[i] = lto_symtab_prevailing_decl (t);
 	}
     }
-}
-
-/* A callback of htab_traverse. Just extracts a state from SLOT
-   and calls lto_fixup_state. */
-
-static int
-lto_fixup_state_aux (void **slot, void *aux ATTRIBUTE_UNUSED)
-{
-  struct lto_in_decl_state *state = (struct lto_in_decl_state *) *slot;
-  lto_fixup_state (state);
-  return 1;
 }
 
 /* Fix the decls from all FILES. Replaces each decl with the corresponding
@@ -2846,7 +2836,11 @@ lto_fixup_decls (struct lto_file_decl_data **files)
       struct lto_in_decl_state *state = file->global_decl_state;
       lto_fixup_state (state);
 
-      htab_traverse (file->function_decl_states, lto_fixup_state_aux, NULL);
+      hash_table<decl_state_hasher>::iterator iter;
+      lto_in_decl_state *elt;
+      FOR_EACH_HASH_TABLE_ELEMENT (*file->function_decl_states, elt,
+				   lto_in_decl_state *, iter)
+	lto_fixup_state (elt);
     }
 }
 

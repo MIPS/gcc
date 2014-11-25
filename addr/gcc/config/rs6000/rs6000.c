@@ -5084,7 +5084,7 @@ int
 num_insns_constant_wide (HOST_WIDE_INT value)
 {
   /* signed constant loadable with addi */
-  if ((unsigned HOST_WIDE_INT) (value + 0x8000) < 0x10000)
+  if (((unsigned HOST_WIDE_INT) value + 0x8000) < 0x10000)
     return 1;
 
   /* constant loadable with addis */
@@ -16195,13 +16195,13 @@ includes_rldic_lshift_p (rtx shiftop, rtx andop)
 {
   if (GET_CODE (andop) == CONST_INT)
     {
-      HOST_WIDE_INT c, lsb, shift_mask;
+      unsigned HOST_WIDE_INT c, lsb, shift_mask;
 
       c = INTVAL (andop);
-      if (c == 0 || c == ~0)
+      if (c == 0 || c == HOST_WIDE_INT_M1U)
 	return 0;
 
-      shift_mask = ~0;
+      shift_mask = HOST_WIDE_INT_M1U;
       shift_mask <<= INTVAL (shiftop);
 
       /* Find the least significant one bit.  */
@@ -16234,9 +16234,9 @@ includes_rldicr_lshift_p (rtx shiftop, rtx andop)
 {
   if (GET_CODE (andop) == CONST_INT)
     {
-      HOST_WIDE_INT c, lsb, shift_mask;
+      unsigned HOST_WIDE_INT c, lsb, shift_mask;
 
-      shift_mask = ~0;
+      shift_mask = HOST_WIDE_INT_M1U;
       shift_mask <<= INTVAL (shiftop);
       c = INTVAL (andop);
 
@@ -25443,7 +25443,7 @@ rs6000_output_function_epilogue (FILE *file,
 	 Java is 13.  Objective-C is 14.  Objective-C++ isn't assigned
 	 a number, so for now use 9.  LTO and Go aren't assigned numbers
 	 either, so for now use 0.  */
-      if (! strcmp (language_string, "GNU C")
+      if (lang_GNU_C ()
 	  || ! strcmp (language_string, "GNU GIMPLE")
 	  || ! strcmp (language_string, "GNU Go"))
 	i = 0;
@@ -25454,7 +25454,7 @@ rs6000_output_function_epilogue (FILE *file,
 	i = 2;
       else if (! strcmp (language_string, "GNU Ada"))
 	i = 3;
-      else if (! strcmp (language_string, "GNU C++")
+      else if (lang_GNU_CXX ()
 	       || ! strcmp (language_string, "GNU Objective-C++"))
 	i = 9;
       else if (! strcmp (language_string, "GNU Java"))
@@ -32853,6 +32853,8 @@ rs6000_legitimate_constant_p (machine_mode mode, rtx x)
 void
 rs6000_call_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
 {
+  const bool direct_call_p
+    = GET_CODE (func_desc) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (func_desc);
   rtx toc_reg = gen_rtx_REG (Pmode, TOC_REGNUM);
   rtx toc_load = NULL_RTX;
   rtx toc_restore = NULL_RTX;
@@ -32921,8 +32923,11 @@ rs6000_call_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
 							func_toc_offset));
 	  toc_load = gen_rtx_USE (VOIDmode, func_toc_mem);
 
-	  /* If we have a static chain, load it up.  */
-	  if (TARGET_POINTERS_TO_NESTED_FUNCTIONS)
+	  /* If we have a static chain, load it up.  But, if the call was
+	     originally direct, the 3rd word has not been written since no
+	     trampoline has been built, so we ought not to load it, lest we
+	     override a static chain value.  */
+	  if (!direct_call_p && TARGET_POINTERS_TO_NESTED_FUNCTIONS)
 	    {
 	      rtx sc_reg = gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM);
 	      rtx func_sc_offset = GEN_INT (2 * GET_MODE_SIZE (Pmode));

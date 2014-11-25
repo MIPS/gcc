@@ -638,8 +638,7 @@ poplevel (int keep, int reverse, int functionbody)
 	   push_local_binding where the list of decls returned by
 	   getdecls is built.  */
 	decl = TREE_CODE (d) == TREE_LIST ? TREE_VALUE (d) : d;
-	// See through references for improved -Wunused-variable (PR 38958).
-	tree type = non_reference (TREE_TYPE (decl));
+	tree type = TREE_TYPE (decl);
 	if (VAR_P (decl)
 	    && (! TREE_USED (decl) || !DECL_READ_P (decl))
 	    && ! DECL_IN_SYSTEM_HEADER (decl)
@@ -6133,13 +6132,23 @@ initialize_local_var (tree decl, tree init)
   /* Perform the initialization.  */
   if (init)
     {
-      if (TREE_CODE (init) == INIT_EXPR
-	  && !TREE_SIDE_EFFECTS (TREE_OPERAND (init, 1)))
+      tree rinit = (TREE_CODE (init) == INIT_EXPR
+		    ? TREE_OPERAND (init, 1) : NULL_TREE);
+      if (rinit && !TREE_SIDE_EFFECTS (rinit))
 	{
 	  /* Stick simple initializers in DECL_INITIAL so that
 	     -Wno-init-self works (c++/34772).  */
 	  gcc_assert (TREE_OPERAND (init, 0) == decl);
-	  DECL_INITIAL (decl) = TREE_OPERAND (init, 1);
+	  DECL_INITIAL (decl) = rinit;
+
+	  if (warn_init_self && TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      STRIP_NOPS (rinit);
+	      if (rinit == decl)
+		warning_at (DECL_SOURCE_LOCATION (decl),
+			    OPT_Winit_self,
+			    "reference %qD is initialized with itself", decl);
+	    }
 	}
       else
 	{
@@ -12993,7 +13002,7 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
   tree context;
   tree type;
 
-  /* integral_constant_value will pull out this expression, so make sure
+  /* scalar_constant_value will pull out this expression, so make sure
      it's folded as appropriate.  */
   if (processing_template_decl)
     value = fold_non_dependent_expr (value);

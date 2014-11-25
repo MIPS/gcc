@@ -964,6 +964,7 @@ gfc_warning_now (const char *gmsgid, ...)
    to handle Fortran specific format specifiers with the following meanings:
 
    %C  Current locus (no argument)
+   %L  Takes locus argument
 */
 static bool
 gfc_format_decoder (pretty_printer *pp,
@@ -974,15 +975,21 @@ gfc_format_decoder (pretty_printer *pp,
   switch (*spec)
     {
     case 'C':
+    case 'L':
       {
 	static const char *result = "(1)";
-	gcc_assert (gfc_current_locus.nextc - gfc_current_locus.lb->line >= 0);
-	unsigned int c1 = gfc_current_locus.nextc - gfc_current_locus.lb->line;
+	locus *loc;
+	if (*spec == 'C')
+	  loc = &gfc_current_locus;
+	else
+	  loc = va_arg (*text->args_ptr, locus *);
+	gcc_assert (loc->nextc - loc->lb->line >= 0);
+	unsigned int offset = loc->nextc - loc->lb->line;
 	gcc_assert (text->locus);
 	*text->locus
 	  = linemap_position_for_loc_and_offset (line_table,
-						 gfc_current_locus.lb->location,
-						 c1);
+						 loc->lb->location,
+						 offset);
 	global_dc->caret_char = '1';
 	pp_string (pp, result);
 	return true;
@@ -1021,7 +1028,7 @@ gfc_diagnostic_build_prefix (diagnostic_context *context,
 				diagnostic_kind_color[diagnostic->kind]);
       text_ce = colorize_stop (pp_show_color (pp));
     }
-  return build_message_string ("%s%s%s: ", text_cs, text, text_ce);
+  return build_message_string ("%s%s:%s ", text_cs, text, text_ce);
 }
 
 /* Return a malloc'd string describing a location.  The caller is
@@ -1141,7 +1148,6 @@ gfc_error_now_2 (const char *gmsgid, ...)
 
 
 /* Fatal error, never returns.  */
-/* This function uses the common diagnostics, but does not support %L, yet.  */
 
 void
 gfc_fatal_error (const char *gmsgid, ...)
@@ -1262,24 +1268,6 @@ gfc_error_now (const char *gmsgid, ...)
 
   if (flag_fatal_errors)
     exit (FATAL_EXIT_CODE);
-}
-
-
-/* Fatal error, never returns.  */
-/* Use gfc_fatal_error instead, unless gmsgid contains a %L.  */
-
-void
-gfc_fatal_error_1 (const char *gmsgid, ...)
-{
-  va_list argp;
-
-  buffer_flag = 0;
-
-  va_start (argp, gmsgid);
-  error_print (_("Fatal Error:"), _(gmsgid), argp);
-  va_end (argp);
-
-  exit (FATAL_EXIT_CODE);
 }
 
 

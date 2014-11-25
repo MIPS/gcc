@@ -5212,6 +5212,24 @@ redeclare_class_template (tree type, tree parms)
     return true;
 }
 
+/* The actual substitution part of instantiate_non_dependent_expr_sfinae,
+   to be used when the caller has already checked
+   (processing_template_decl
+    && !instantiation_dependent_expression_p (expr)
+    && potential_constant_expression (expr))
+   and cleared processing_template_decl.  */
+
+tree
+instantiate_non_dependent_expr_internal (tree expr, tsubst_flags_t complain)
+{
+  return tsubst_copy_and_build (expr,
+				/*args=*/NULL_TREE,
+				complain,
+				/*in_decl=*/NULL_TREE,
+				/*function_p=*/false,
+				/*integral_constant_expression_p=*/true);
+}
+
 /* Simplify EXPR if it is a non-dependent expression.  Returns the
    (possibly simplified) expression.  */
 
@@ -5232,17 +5250,8 @@ instantiate_non_dependent_expr_sfinae (tree expr, tsubst_flags_t complain)
       && !instantiation_dependent_expression_p (expr)
       && potential_constant_expression (expr))
     {
-      HOST_WIDE_INT saved_processing_template_decl;
-
-      saved_processing_template_decl = processing_template_decl;
-      processing_template_decl = 0;
-      expr = tsubst_copy_and_build (expr,
-				    /*args=*/NULL_TREE,
-				    complain,
-				    /*in_decl=*/NULL_TREE,
-				    /*function_p=*/false,
-				    /*integral_constant_expression_p=*/true);
-      processing_template_decl = saved_processing_template_decl;
+      processing_template_decl_sentinel s;
+      expr = instantiate_non_dependent_expr_internal (expr, complain);
     }
   return expr;
 }
@@ -5736,11 +5745,15 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
      so that access checking can be performed when the template is
      instantiated -- but here we need the resolved form so that we can
      convert the argument.  */
+  bool non_dep = false;
   if (TYPE_REF_OBJ_P (type)
       && has_value_dependent_address (expr))
     /* If we want the address and it's value-dependent, don't fold.  */;
-  else if (!type_unknown_p (expr))
-    expr = instantiate_non_dependent_expr_sfinae (expr, complain);
+  else if (!type_unknown_p (expr)
+	   && processing_template_decl
+	   && !instantiation_dependent_expression_p (expr)
+	   && potential_constant_expression (expr))
+    non_dep = true;
   if (error_operand_p (expr))
     return error_mark_node;
   expr_type = TREE_TYPE (expr);
@@ -5748,6 +5761,12 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
     expr = mark_lvalue_use (expr);
   else
     expr = mark_rvalue_use (expr);
+
+  /* If the argument is non-dependent, perform any conversions in
+     non-dependent context as well.  */
+  processing_template_decl_sentinel s (non_dep);
+  if (non_dep)
+    expr = instantiate_non_dependent_expr_internal (expr, complain);
 
   /* 14.3.2/5: The null pointer{,-to-member} conversion is applied
      to a non-type argument of "nullptr".  */
@@ -6155,7 +6174,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
      right type?  */
   gcc_assert (same_type_ignoring_top_level_qualifiers_p
 	      (type, TREE_TYPE (expr)));
-  return expr;
+  return convert_from_reference (expr);
 }
 
 /* Subroutine of coerce_template_template_parms, which returns 1 if
@@ -8007,19 +8026,14 @@ lookup_template_class (tree d1, tree arglist, tree in_decl, tree context,
   return ret;
 }
 
-/* Return a TEMPLATE_ID_EXPR for the given variable template and ARGLIST. 
-   If the ARGLIST refers to any template parameters, the type of the
-   expression is the unknown_type_node since the template-id could
-   refer to an explicit or partial specialization. */
+/* Return a TEMPLATE_ID_EXPR for the given variable template and ARGLIST.
+   The type of the expression is the unknown_type_node since the
+   template-id could refer to an explicit or partial specialization. */
 
 tree
 lookup_template_variable (tree templ, tree arglist)
 {
-  tree type;
-  if (uses_template_parms (arglist))
-    type = unknown_type_node;
-  else
-    type = TREE_TYPE (templ);
+  tree type = unknown_type_node;
   tsubst_flags_t complain = tf_warning_or_error;
   tree parms = INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (templ));
   arglist = coerce_template_parms (parms, arglist, templ, complain,
@@ -8275,6 +8289,9 @@ for_each_template_parm (tree t, tree_fn_t fn, void* data,
 int
 uses_template_parms (tree t)
 {
+  if (t == NULL_TREE)
+    return false;
+
   bool dependent_p;
   int saved_processing_template_decl;
 
@@ -12805,7 +12822,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  return t;
 	/* If ARGS is NULL, then T is known to be non-dependent.  */
 	if (args == NULL_TREE)
-	  return integral_constant_value (t);
+	  return scalar_constant_value (t);
 
 	/* Unfortunately, we cannot just call lookup_name here.
 	   Consider:
@@ -12936,7 +12953,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		      else if (decl_constant_var_p (r))
 			/* A use of a local constant decays to its value.
 			   FIXME update for core DR 696.  */
-			r = integral_constant_value (r);
+			r = scalar_constant_value (r);
 		    }
 		}
 	      /* Remember this for subsequent uses.  */
@@ -15721,6 +15738,7 @@ check_instantiated_arg (tree tmpl, tree t, tsubst_flags_t complain)
      constant.  */
   else if (TREE_TYPE (t)
 	   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (t))
+	   && !REFERENCE_REF_P (t)
 	   && !TREE_CONSTANT (t))
     {
       if (complain & tf_error)
@@ -18420,7 +18438,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
     case CONST_DECL:
       if (DECL_TEMPLATE_PARM_P (parm))
 	return unify (tparms, targs, DECL_INITIAL (parm), arg, strict, explain_p);
-      if (arg != integral_constant_value (parm))
+      if (arg != scalar_constant_value (parm))
 	return unify_template_argument_mismatch (explain_p, parm, arg);
       return unify_success (explain_p);
 
@@ -18454,8 +18472,12 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 
     case INDIRECT_REF:
       if (REFERENCE_REF_P (parm))
-	return unify (tparms, targs, TREE_OPERAND (parm, 0), arg,
-		      strict, explain_p);
+	{
+	  if (REFERENCE_REF_P (arg))
+	    arg = TREE_OPERAND (arg, 0);
+	  return unify (tparms, targs, TREE_OPERAND (parm, 0), arg,
+			strict, explain_p);
+	}
       /* FALLTHRU */
 
     default:

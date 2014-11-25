@@ -4683,7 +4683,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	 as an lvalue in the C++ front-end.  PR c++/19199.  */
       && (in_gimple_form
 	  || VECTOR_TYPE_P (type)
-	  || (strcmp (lang_hooks.name, "GNU C++") != 0
+	  || (! lang_GNU_CXX ()
 	      && strcmp (lang_hooks.name, "GNU Objective-C++") != 0)
 	  || ! maybe_lvalue_p (arg1)
 	  || ! maybe_lvalue_p (arg2)))
@@ -6606,8 +6606,8 @@ tree_swap_operands_p (const_tree arg0, const_tree arg1, bool reorder)
   if (CONSTANT_CLASS_P (arg0))
     return 1;
 
-  STRIP_SIGN_NOPS (arg0);
-  STRIP_SIGN_NOPS (arg1);
+  STRIP_NOPS (arg0);
+  STRIP_NOPS (arg1);
 
   if (TREE_CONSTANT (arg1))
     return 0;

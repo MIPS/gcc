@@ -1105,6 +1105,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define TMR_STEP(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 3))
 #define TMR_INDEX2(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 4))
 
+#define MR_DEPENDENCE_CLIQUE(NODE) \
+  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->base.u.dependence_info.clique)
+#define MR_DEPENDENCE_BASE(NODE) \
+  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->base.u.dependence_info.base)
+
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
 #define BIND_EXPR_BODY(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 1))
@@ -4402,6 +4407,28 @@ extern unsigned int tree_map_hash (const void *);
 extern unsigned int tree_decl_map_hash (const void *);
 #define tree_decl_map_marked_p tree_map_base_marked_p
 
+struct tree_decl_map_cache_hasher : ggc_cache_hasher<tree_decl_map *>
+{
+  static hashval_t hash (tree_decl_map *m) { return tree_decl_map_hash (m); }
+  static bool
+  equal (tree_decl_map *a, tree_decl_map *b)
+  {
+    return tree_decl_map_eq (a, b);
+  }
+
+  static void
+  handle_cache_entry (tree_decl_map *&m)
+  {
+    extern void gt_ggc_mx (tree_decl_map *&);
+    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (m->base.from))
+      gt_ggc_mx (m);
+    else
+      m = static_cast<tree_decl_map *> (HTAB_DELETED_ENTRY);
+  }
+};
+
 #define tree_int_map_eq tree_map_base_eq
 #define tree_int_map_hash tree_map_base_hash
 #define tree_int_map_marked_p tree_map_base_marked_p
@@ -4853,4 +4880,9 @@ int_bit_position (const_tree field)
   return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
+
+extern void gt_ggc_mx (tree &);
+extern void gt_pch_nx (tree &);
+extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
+
 #endif  /* GCC_TREE_H  */

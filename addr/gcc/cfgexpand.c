@@ -1722,6 +1722,9 @@ expand_used_vars (void)
 
   init_vars_expansion ();
 
+  if (targetm.use_pseudo_pic_reg ())
+    pic_offset_table_rtx = gen_reg_rtx (Pmode);
+
   hash_map<tree, tree> ssa_name_decls;
   for (i = 0; i < SA.map->num_partitions; i++)
     {
@@ -2231,16 +2234,16 @@ static void
 mark_transaction_restart_calls (gimple stmt)
 {
   struct tm_restart_node dummy;
-  void **slot;
+  tm_restart_node **slot;
 
   if (!cfun->gimple_df->tm_restart)
     return;
 
   dummy.stmt = stmt;
-  slot = htab_find_slot (cfun->gimple_df->tm_restart, &dummy, NO_INSERT);
+  slot = cfun->gimple_df->tm_restart->find_slot (&dummy, NO_INSERT);
   if (slot)
     {
-      struct tm_restart_node *n = (struct tm_restart_node *) *slot;
+      struct tm_restart_node *n = *slot;
       tree list = n->label_or_list;
       rtx_insn *insn;
 
@@ -6059,10 +6062,7 @@ pass_expand::execute (function *fun)
 
   /* After expanding, the tm_restart map is no longer needed.  */
   if (fun->gimple_df->tm_restart)
-    {
-      htab_delete (fun->gimple_df->tm_restart);
-      fun->gimple_df->tm_restart = NULL;
-    }
+    fun->gimple_df->tm_restart = NULL;
 
   /* Tag the blocks with a depth number so that change_scope can find
      the common parent easily.  */

@@ -1,3 +1,17 @@
+2014-11-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* intrinsics/env.c (getenv): Remove unused variable res_len.
+
+2014-11-24  John David Anglin  <danglin@gcc.gnu.org>
+
+	* configure.ac: Guard include of <ieeefp.h>.
+	* configure: Rebuilt.
+
+2014-11-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/63784
+	* configure: Regenerated.
+
 2014-11-16  Janne Blomqvist  <jb@gcc.gnu.org>
 
 	PR libfortran/60324

@@ -1,3 +1,60 @@
+2014-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/63938
+	* trans-openmp.c (gfc_trans_omp_atomic): Make sure lhsaddr is
+	simple enough for goa_lhs_expr_p.
+
+2014-11-24  Tobias Burnus  <burnus@net-b.de>
+
+	* error.c (gfc_fatal_error_1): Remove.
+	* gfortran.h (gfc_fatal_error_1): Remove.
+	* check.c (check_co_collective): Change gfc_fatal_error_1 to
+	gfc_fatal_error.
+	* match.c (gfc_match_name): Ditto.
+	* trans-array.c (gfc_conv_array_initializer): Ditto.
+	* trans-stmt.c (gfc_trans_sync): Ditto.
+
+2014-11-23  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* decl.c (gfc_verify_c_interop_param): Use gfc_error_now_2.
+	(gfc_set_constant_character_len): Use gfc_warning_now_2.
+	* resolve.c (resolve_ordinary_assign): Likewise.
+	* gfortran.h (warn_character_truncation): Do not declare here.
+	* error.c (gfc_format_decoder): Handle %L.
+	* lang.opt (Wcharacter-truncation): Add Var and LangEnabledBy.
+	* options.c (gfc_init_options): Do not handle
+	warn_character_truncation explicitly.
+	(set_Wall): Likewise.
+	(gfc_handle_option): Likewise.
+
+2014-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	* invoke.texi (-Wtabs): Swap -Wtabs/-Wno-tabs now that
+	-Wtabs enables the warning.
+
+2014-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	* error.c (gfc_diagnostic_build_prefix): Correct coloring
+	of the colon of the prefix.
+
+2014-11-23  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* gfortran.h (gfc_option_t): Remove warn_tabs.
+	* lang.opt (Wpedantic): Add.
+	(Wtabs): Use Var and LangEnabledBy.
+	* options.c (gfc_init_options, gfc_post_options,
+	set_Wall): Remove -Wtabs handling.
+	(gfc_handle_option): Update -std=, remove OPT_Wtabs.
+	* scanner.c (gfc_gobble_whitespace): Update for
+	flag-variable renaming.
+	(load_line): Ditto. Pass warn flag to diagnostic.
+
+2014-11-22  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-expr.c (gfc_caf_get_image_index): Fix image calculation.
+
 2014-11-15  Tobias Burnus  <burnus@net-b.de>
 
 	* error.c (gfc_fatal_error_1): Renamed from gfc_fatal_error.

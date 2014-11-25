@@ -1936,17 +1936,10 @@ decay_conversion (tree exp, tsubst_flags_t complain)
 
   code = TREE_CODE (type);
 
-  /* For an array decl decay_conversion should not try to return its
-     initializer.  */
-  if (code != ARRAY_TYPE)
-    {
-      /* FIXME remove? at least need to remember that this isn't really a
-	 constant expression if EXP isn't decl_constant_var_p, like with
-	 C_MAYBE_CONST_EXPR.  */
-      exp = decl_constant_value_safe (exp);
-      if (error_operand_p (exp))
-	return error_mark_node;
-    }
+  /* FIXME remove for delayed folding.  */
+  exp = scalar_constant_value (exp);
+  if (error_operand_p (exp))
+    return error_mark_node;
 
   if (NULLPTR_TYPE_P (type) && !TREE_SIDE_EFFECTS (exp))
     return nullptr_node;
@@ -3079,7 +3072,8 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
       break;
     }
 
-  convert_vector_to_pointer_for_subscript (loc, &array, idx);
+  bool non_lvalue
+    = convert_vector_to_pointer_for_subscript (loc, &array, idx);
 
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
     {
@@ -3162,6 +3156,8 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
       ret = require_complete_type_sfinae (fold_if_not_in_template (rval),
 					  complain);
       protected_set_expr_location (ret, loc);
+      if (non_lvalue)
+	ret = non_lvalue_loc (loc, ret);
       return ret;
     }
 
@@ -3201,6 +3197,8 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
                                  RO_ARRAY_INDEXING,
                                  complain);
     protected_set_expr_location (ret, loc);
+    if (non_lvalue)
+      ret = non_lvalue_loc (loc, ret);
     return ret;
   }
 }
@@ -5312,6 +5310,7 @@ build_address (tree t)
 {
   if (error_operand_p (t) || !cxx_mark_addressable (t))
     return error_mark_node;
+  gcc_checking_assert (TREE_CODE (t) != CONSTRUCTOR);
   t = build_fold_addr_expr (t);
   if (TREE_CODE (t) != ADDR_EXPR)
     t = rvalue (t);

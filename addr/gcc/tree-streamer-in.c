@@ -484,7 +484,18 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
     unpack_ts_type_common_value_fields (bp, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_EXP))
-    SET_EXPR_LOCATION (expr, stream_input_location (bp, data_in));
+    {
+      SET_EXPR_LOCATION (expr, stream_input_location (bp, data_in));
+      if (code == MEM_REF
+	  || code == TARGET_MEM_REF)
+	{
+	  MR_DEPENDENCE_CLIQUE (expr)
+	    = (unsigned)bp_unpack_value (bp, sizeof (short) * 8);
+	  if (MR_DEPENDENCE_CLIQUE (expr) != 0)
+	    MR_DEPENDENCE_BASE (expr)
+	      = (unsigned)bp_unpack_value (bp, sizeof (short) * 8);
+	}
+    }
 
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
     unpack_ts_block_value_fields (data_in, bp, expr);
@@ -774,7 +785,7 @@ lto_input_ts_function_decl_tree_pointers (struct lto_input_block *ib,
   DECL_VINDEX (expr) = stream_read_tree (ib, data_in);
   /* DECL_STRUCT_FUNCTION is loaded on demand by cgraph_get_body.  */
   DECL_FUNCTION_PERSONALITY (expr) = stream_read_tree (ib, data_in);
-  /* DECL_FUNCTION_SPECIFIC_TARGET is regenerated from attributes.  */
+  DECL_FUNCTION_SPECIFIC_TARGET (expr) = stream_read_tree (ib, data_in);
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = stream_read_tree (ib, data_in);
 
   /* If the file contains a function with an EH personality set,

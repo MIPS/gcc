@@ -1213,6 +1213,7 @@ saved_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
 	stpcpy strnlen strsignal strstr strverscmp \
+	strtol strtoul strtoll strtoull \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
@@ -4280,8 +4281,9 @@ LCF0:
 	  [Define if your assembler supports .gnu_attribute.])])
 
     gcc_GAS_CHECK_FEATURE([.module support],
-      gcc_cv_as_mips_dot_module,,,
-      [.module fp=32],,
+      gcc_cv_as_mips_dot_module,,[-32],
+      [.module mips2
+       .module fp=xx],,
       [AC_DEFINE(HAVE_AS_DOT_MODULE, 1,
 	  [Define if your assembler supports .module.])])
     if test x$gcc_cv_as_mips_dot_module = xno \
