@@ -14036,6 +14036,9 @@ mips_process_sync_loop (rtx insn, rtx *operands)
 			       at, oldval, inclusive_mask, NULL);
 	  tmp1 = at;
 	}
+      if (!TARGET_COMPACT_BRANCHES)
+	mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
+
       /* CMP = 0 [delay slot].  */
       if (cmp)
         mips_multi_add_insn ("li\t%0,0", cmp, NULL);
@@ -14044,8 +14047,6 @@ mips_process_sync_loop (rtx insn, rtx *operands)
 	mips_multi_add_insn ("bnezc\t%0,2f", tmp1, NULL);
       else if (TARGET_COMPACT_BRANCHES)
 	mips_multi_add_insn ("bnec\t%0,%1,2f", tmp1, required_oldval, NULL);
-      else
-	mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
 
     }
 
