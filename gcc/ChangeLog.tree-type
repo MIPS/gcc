@@ -1,3 +1,25 @@
+2014-11-26  Anderw MacLeod  <amacleod@redhat.com>
+
+	* attribs.c (process_attribute_spec): New.  Factored from
+	decl_attribute to return a valid attribute spec.
+	(finalize_type_attribute): New.  Factored from decl_attribute to process
+	attributes for types after error checking.
+	(type_attributes): New.  Factored type specific portions of
+	decl_attributes.
+	(decl_attributes): Moved all type processing to other functions.
+	* attribs.h (type_attributes): Export.
+	* c/c-decl.c (groktypename, grokdeclarator, finish_struct,
+	finish_enum): Call type_attributes.
+	* c-family/c-common.c (handle_tm_attribute): Call type_attributes.
+	* cp/decl.c (grokdeclarator): Call type_attributes.
+	* cp/decl2.c (cplus_decl_attributes): Call type_attributes when node is
+	a type.
+	* ada/gcc-interface/utils.c (finish_record_type): Call type_attribute.
+	(process_attributes): Call type_attribute or decl_attribute as needed.
+	* config/i386/i386.c (ix86_handle_tm_regparm_attribute): Call
+	type_attribute or decl_attribute as required.
+	(ix86_init_tm_builtins ): Call type_attributes.
+
 2014-11-23  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-type.patch: New.  patch to provide distinct tree type.

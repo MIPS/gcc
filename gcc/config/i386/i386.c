@@ -5644,7 +5644,10 @@ ix86_handle_tm_regparm_attribute (tree *node, tree, tree,
       alt = tree_cons (NULL, build_int_cst (NULL, 2), NULL);
       alt = tree_cons (get_identifier ("regparm"), alt, NULL);
     }
-  decl_attributes (node, alt, flags);
+  if (TYPE_P (*node))
+    type_attributes (node, alt, flags);
+  else
+    decl_attributes (node, alt, flags);
 
   return NULL_TREE;
 }
@@ -33421,7 +33424,7 @@ ix86_init_tm_builtins (void)
 				       attrs);
 	  /* add_builtin_function() will set the DECL_ATTRIBUTES, now
 	     set the TYPE_ATTRIBUTES.  */
-	  decl_attributes (&TREE_TYPE (decl), attrs_type, ATTR_FLAG_BUILT_IN);
+	  type_attributes (&TREE_TYPE (decl), attrs_type, ATTR_FLAG_BUILT_IN);
 
 	  set_builtin_decl (code, decl, false);
 	}

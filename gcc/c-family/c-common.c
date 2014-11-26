@@ -8575,7 +8575,7 @@ handle_tm_attribute (tree *node, tree name, tree args,
 	if (subcode == FUNCTION_TYPE || subcode == METHOD_TYPE)
 	  {
 	    tree fn_tmp = TREE_TYPE (*node);
-	    decl_attributes (&fn_tmp, tree_cons (name, args, NULL), 0);
+	    type_attributes (&fn_tmp, tree_cons (name, args, NULL), 0);
 	    *node = build_pointer_type (fn_tmp);
 	    break;
 	  }

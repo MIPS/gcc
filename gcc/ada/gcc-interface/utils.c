@@ -1622,7 +1622,7 @@ finish_record_type (tree record_type, tree field_list, int rep_level,
 	 efficient packing in almost all cases.  */
 #ifdef TARGET_MS_BITFIELD_LAYOUT
       if (TARGET_MS_BITFIELD_LAYOUT && TYPE_PACKED (record_type))
-	decl_attributes (&record_type,
+	type_attributes (&record_type,
 			 tree_cons (get_identifier ("gcc_struct"),
 				    NULL_TREE, NULL_TREE),
 			 ATTR_FLAG_TYPE_IN_PLACE);
@@ -2643,8 +2643,12 @@ process_attributes (tree *node, struct attrib **attr_list, bool in_place,
       {
       case ATTR_MACHINE_ATTRIBUTE:
 	Sloc_to_locus (Sloc (gnat_node), &input_location);
-	decl_attributes (node, tree_cons (attr->name, attr->args, NULL_TREE),
-			 in_place ? ATTR_FLAG_TYPE_IN_PLACE : 0);
+	if (TYPE_P (*node))
+	  type_attributes (node, tree_cons (attr->name, attr->args, NULL_TREE),
+			   in_place ? ATTR_FLAG_TYPE_IN_PLACE : 0);
+	else
+	  decl_attributes (node, tree_cons (attr->name, attr->args, NULL_TREE),
+			   in_place ? ATTR_FLAG_TYPE_IN_PLACE : 0);
 	break;
 
       case ATTR_LINK_ALIAS:
