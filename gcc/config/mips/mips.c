@@ -176,7 +176,8 @@ static int *consumer_luid = NULL;
 /* Return the opcode to jump to register DEST.  When the JR opcode is not
    available use JALR $0, DEST.  */
 #define MIPS_JR(DEST) \
-  (((DEST) << 21) | (ISA_HAS_JR ? 0x8 : 0x9))
+  (TARGET_COMPACT_BRANCHES ? ((0x1b << 27) | ((DEST) << 16)) \
+			   : (((DEST) << 21) | (ISA_HAS_JR ? 0x8 : 0x9)))
 
 /* Return the opcode for:
 
@@ -20450,6 +20451,18 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
     }
 
 #undef OP
+
+  /* If we are using compact branches we don't have delay slots so
+     place the instruction that was in the delay slot before the JRC
+     instruction.  */
+
+  if (TARGET_COMPACT_BRANCHES)
+    {
+      rtx temp;
+      temp = trampoline[i-2];
+      trampoline[i-2] = trampoline[i-1];
+      trampoline[i-1] = temp;
+    }
 
   /* Copy the trampoline code.  Leave any padding uninitialized.  */
   for (j = 0; j < i; j++)
