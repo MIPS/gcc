@@ -185,7 +185,7 @@
 (define_attr "jal" "unset,direct,indirect"
   (const_string "unset"))
 
-(define_attr "compact_class" "mipsr6_cond,convertible,none"
+(define_attr "compact_class" "mipsr6_cond,convertible,none,umipsr6_cond"
   (cond [(eq_attr "jal" "direct")
 	 (const_string "convertible")]
 	(const_string "none")))
@@ -753,6 +753,10 @@
 	      (match_test "TARGET_COMPACT_BRANCHES"))
 	 (const_string "forbidden_slot")
 
+	 (and (eq_attr "compact_class" "umipsr6_cond")
+	      (match_test "TARGET_MICROMIPS_R6"))
+	 (const_string "forbidden_slot")]
+
 	(const_string "none")))
 
 ;; Can the instruction be put into a delay slot?
@@ -1089,15 +1093,17 @@
 ;; not annul on false.
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
+		   (not (match_test "TARGET_MICROMIPS_R6"))
 		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
 			(eq_attr "compact_class" "convertible")
-			(eq_attr "compact_class" "none"))
+			(eq_attr "compact_class" "umipsr6_cond"))
 		   (eq_attr "branch_likely" "no"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
 (define_delay (and (eq_attr "type" "jump")
+		   (not (match_test "TARGET_MICROMIPS_R6"))
 		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
 			(and (eq_attr "compact_class" "convertible")
 			     (not (match_test "TARGET_ONLY_COMPACT_BRANCHES")))))
@@ -1107,6 +1113,7 @@
 
 (define_delay (and (eq_attr "type" "call")
 		   (eq_attr "jal_macro" "no")
+		   (not (match_test "TARGET_MICROMIPS_R6"))
 		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
 			(and (eq_attr "compact_class" "convertible")
 			     (not (match_test "TARGET_ONLY_COMPACT_BRANCHES")))))
@@ -5776,11 +5783,17 @@
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%F1", "%Z2%0"),
-					 MIPS_BRANCH ("b%W1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "umipsr6_cond")])
 
 (define_insn "*branch_fp_inverted_<mode>"
   [(set (pc)
@@ -5792,11 +5805,17 @@
          (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%W1", "%Z2%0"),
-					 MIPS_BRANCH ("b%F1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "umipsr6_cond")])
 
 ;; Conditional branches on ordered comparisons with zero.
 

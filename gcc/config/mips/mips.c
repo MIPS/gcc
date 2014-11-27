@@ -19364,7 +19364,16 @@ mips_option_override (void)
 
   if ((target_flags_explicit & MASK_COMPACT_BRANCHES) == 0)
     {
+      if (TARGET_MICROMIPS_R6)
+	target_flags |= MASK_COMPACT_BRANCHES;
+      else
 	target_flags &= ~MASK_COMPACT_BRANCHES;
+    }
+  else if (!TARGET_COMPACT_BRANCHES && TARGET_MICROMIPS_R6)
+    {
+      error ("unsupported combination: %qs %s",
+	     mips_arch_info->name, "-mmicromips -mno-compact-branches");
+      target_flags |= MASK_COMPACT_BRANCHES;
     }
 
   if (TARGET_COMPACT_BRANCHES && mips_isa_rev <= 5)
