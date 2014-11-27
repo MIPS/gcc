@@ -1,4 +1,8 @@
 
+2014-11-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump again to "1.2-premerge"
+	before merging GCC trunk.
+
 2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{The real MELT 1.1.3 plugin release for GCC 4.8 & 4.9}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump again to "1.1.3"
