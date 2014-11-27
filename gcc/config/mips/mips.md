@@ -185,6 +185,11 @@
 (define_attr "jal" "unset,direct,indirect"
   (const_string "unset"))
 
+(define_attr "compact_class" "mipsr6_cond,convertible,none"
+  (cond [(eq_attr "jal" "direct")
+	 (const_string "convertible")]
+	(const_string "none")))
+
 ;; This attribute is YES if the instruction is a jal macro (not a
 ;; real jal instruction).
 ;;
@@ -722,7 +727,7 @@
 ;; DELAY means that the next instruction cannot read the result
 ;; of this one.  HILO means that the next two instructions cannot
 ;; write to HI or LO.
-(define_attr "hazard" "none,delay,hilo"
+(define_attr "hazard" "none,delay,hilo,forbidden_slot"
   (cond [(and (eq_attr "type" "load,fpload,fpidxload")
 	      (match_test "ISA_HAS_LOAD_DELAY"))
 	 (const_string "delay")
@@ -742,7 +747,12 @@
 
 	 (and (eq_attr "type" "mfhi,mflo")
 	      (not (match_test "ISA_HAS_HILO_INTERLOCKS")))
-	 (const_string "hilo")]
+	 (const_string "hilo")
+
+	 (and (eq_attr "compact_class" "mipsr6_cond")
+	      (match_test "TARGET_COMPACT_BRANCHES"))
+	 (const_string "forbidden_slot")
+
 	(const_string "none")))
 
 ;; Can the instruction be put into a delay slot?
@@ -1075,21 +1085,31 @@
    (nil)
    (eq_attr "can_delay" "yes")])
 
-;; Branches that don't have likely variants do not annul on false.
+;; Branches that have delay slots and don't have likely variants do
+;; not annul on false.
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
+		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
+			(eq_attr "compact_class" "convertible")
+			(eq_attr "compact_class" "none"))
 		   (eq_attr "branch_likely" "no"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
-(define_delay (eq_attr "type" "jump")
+(define_delay (and (eq_attr "type" "jump")
+		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
+			(and (eq_attr "compact_class" "convertible")
+			     (not (match_test "TARGET_ONLY_COMPACT_BRANCHES")))))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
 (define_delay (and (eq_attr "type" "call")
-		   (eq_attr "jal_macro" "no"))
+		   (eq_attr "jal_macro" "no")
+		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
+			(and (eq_attr "compact_class" "convertible")
+			     (not (match_test "TARGET_ONLY_COMPACT_BRANCHES")))))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -5785,24 +5805,26 @@
 	(if_then_else
 	 (match_operator 1 "order_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
-			  (const_int 0)])
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, false); }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 (define_insn "*branch_order<mode>_inverted"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "order_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
-			  (const_int 0)])
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 ;; Conditional branch on equality comparison.
 
@@ -5815,20 +5837,9 @@
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
-{
-  /* For a simple BNEZ or BEQZ microMIPS branch.  */
-  if (TARGET_MICROMIPS
-      && operands[3] == const0_rtx
-      && get_attr_length (insn) <= 8)
-    return mips_output_conditional_branch (insn, operands,
-					   "%*b%C1z%:\t%2,%0",
-					   "%*b%N1z%:\t%2,%0");
-
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"),
-					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"));
-}
-  [(set_attr "type" "branch")])
+  { return mips_output_equal_conditional_branch (insn, operands, false); }
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
@@ -5839,20 +5850,9 @@
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
-{
-  /* For a simple BNEZ or BEQZ microMIPS branch.  */
-  if (TARGET_MICROMIPS
-      && operands[3] == const0_rtx
-      && get_attr_length (insn) <= 8)
-    return mips_output_conditional_branch (insn, operands,
-					   "%*b%N0z%:\t%2,%1",
-					   "%*b%C0z%:\t%2,%1");
-
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%N1", "%2,%z3,%0"),
-					 MIPS_BRANCH ("b%C1", "%2,%z3,%0"));
-}
-  [(set_attr "type" "branch")])
+  { return mips_output_equal_conditional_branch (insn, operands, true); }
+  [(set_attr "type" "branch")
+   (set_attr "compact_class" "mipsr6_cond")])
 
 ;; MIPS16 branches
 
@@ -6141,19 +6141,34 @@
   [(set (pc)
 	(label_ref (match_operand 0)))])
 
-(define_insn "*jump_absolute"
+(define_insn "*jump_absolute_micromips"
   [(set (pc)
 	(label_ref (match_operand 0)))]
-  "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS"
+  "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS
+   && TARGET_MICROMIPS && !TARGET_ABICALLS_PIC2"
 {
   /* Use a branch for microMIPS.  The assembler will choose
      a 16-bit branch, a 32-bit branch, or a 32-bit jump.  */
-  if (TARGET_MICROMIPS && !TARGET_ABICALLS_PIC2)
+  if (TARGET_COMPACT_BRANCHES)
+    return "%*bc\t%l0";
+  else
     return "%*b\t%l0%/";
+}
+  [(set_attr "type" "jump")])
+
+(define_insn "*jump_absolute"
+  [(set (pc)
+	(label_ref (match_operand 0)))]
+  "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS
+   && (!TARGET_MICROMIPS || TARGET_ABICALLS_PIC2)"
+{
+  if (TARGET_ONLY_COMPACT_BRANCHES && ISA_HAS_BC)
+    return MIPS_ABSOLUTE_JUMP ("%*bc\t%l0");
   else
     return MIPS_ABSOLUTE_JUMP ("%*j\t%l0%/");
 }
-  [(set_attr "type" "jump")])
+  [(set_attr "type" "jump")
+   (set_attr "compact_class" "convertible")])
 
 (define_insn "*jump_pic"
   [(set (pc)
@@ -6161,11 +6176,19 @@
   "!TARGET_MIPS16 && !TARGET_ABSOLUTE_JUMPS"
 {
   if (get_attr_length (insn) <= 8)
-    return "%*b\t%l0%/";
+    {
+      if (TARGET_COMPACT_BRANCHES)
+	return "%*bc\t%l0";
+      else
+	return "%*b\t%l0%/";
+    }
   else
     {
       mips_output_load_label (operands[0]);
-      return "%*jr\t%@%/%]";
+      if (TARGET_COMPACT_BRANCHES)
+	return "%*jrc\t%@%]";
+      else
+	return "%*jr\t%@%/%]";
     }
 }
   [(set_attr "type" "branch")])
@@ -6215,12 +6238,9 @@
 (define_insn "indirect_jump_<mode>"
   [(set (pc) (match_operand:P 0 "register_operand" "d"))]
   ""
-{
-  if (TARGET_MICROMIPS)
-    return "%*jr%:\t%0";
-  else
-    return "%*j\t%0%/";
-}
+  {
+    return mips_output_jump (operands, 0, -1, false);
+  }
   [(set_attr "type" "jump")
    (set_attr "mode" "none")])
 
@@ -6264,12 +6284,9 @@
 	(match_operand:P 0 "register_operand" "d"))
    (use (label_ref (match_operand 1 "" "")))]
   ""
-{
-  if (TARGET_MICROMIPS)
-    return "%*jr%:\t%0";
-  else
-    return "%*j\t%0%/";
-}
+  {
+    return mips_output_jump (operands, 0, -1, false);
+  }
   [(set_attr "type" "jump")
    (set_attr "mode" "none")])
 
@@ -6481,10 +6498,8 @@
   [(any_return)]
   ""
   {
-    if (TARGET_MICROMIPS)
-      return "%*jr%:\t$31";
-    else
-      return "%*j\t$31%/";
+    operands[0] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+    return mips_output_jump (operands, 0, -1, false);
   }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
@@ -6495,12 +6510,10 @@
   [(any_return)
    (use (match_operand 0 "pmode_register_operand" ""))]
   ""
-{
-  if (TARGET_MICROMIPS)
-    return "%*jr%:\t%0";
-  else
-    return "%*j\t%0%/";
-}
+  {
+    operands[0] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+    return mips_output_jump (operands, 0, -1, false);
+  }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
 
@@ -6756,12 +6769,7 @@
   [(call (mem:SI (match_operand 0 "call_insn_operand" "j,S"))
 	 (match_operand 1 "" ""))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-{
-  if (TARGET_MICROMIPS)
-    return MICROMIPS_J ("j", operands, 0);
-  else
-    return MIPS_CALL ("j", operands, 0, 1);
-}
+  { return mips_output_jump (operands, 0, 1, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -6782,12 +6790,7 @@
         (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
               (match_operand 2 "" "")))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-{
-  if (TARGET_MICROMIPS)
-    return MICROMIPS_J ("j", operands, 1);
-  else
-    return MIPS_CALL ("j", operands, 1, 2);
-}
+  { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -6799,12 +6802,7 @@
 	(call (mem:SI (match_dup 1))
 	      (match_dup 2)))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-{
-  if (TARGET_MICROMIPS)
-    return MICROMIPS_J ("j", operands, 1);
-  else
-    return MIPS_CALL ("j", operands, 1, 2);
-}
+  { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -6860,7 +6858,10 @@
 	 (match_operand 1 "" ""))
    (clobber (reg:SI RETURN_ADDR_REGNUM))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 0, 1); }
+  {
+    return (TARGET_SPLIT_CALLS ? "#"
+	    : mips_output_jump (operands, 0, 1, true));
+  }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
 {
@@ -6875,7 +6876,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return MIPS_CALL ("jal", operands, 0, 1); }
+  { return mips_output_jump (operands, 0, 1, true); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -6889,7 +6890,10 @@
    (const_int 1)
    (clobber (reg:SI RETURN_ADDR_REGNUM))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 0, -1); }
+  {
+    return (TARGET_SPLIT_CALLS ? "#"
+	    : mips_output_jump (operands, 0, -1, true));
+  }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
 {
@@ -6906,7 +6910,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return MIPS_CALL ("jal", operands, 0, -1); }
+  { return mips_output_jump (operands, 0, -1, true); }
   [(set_attr "jal" "direct")
    (set_attr "jal_macro" "no")])
 
@@ -6929,7 +6933,10 @@
               (match_operand 2 "" "")))
    (clobber (reg:SI RETURN_ADDR_REGNUM))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 1, 2); }
+  {
+    return (TARGET_SPLIT_CALLS ? "#"
+	    : mips_output_jump (operands, 1, 2, true));
+  }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
 {
@@ -6947,7 +6954,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return MIPS_CALL ("jal", operands, 1, 2); }
+  { return mips_output_jump (operands, 1, 2, true); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -6959,7 +6966,10 @@
    (const_int 1)
    (clobber (reg:SI RETURN_ADDR_REGNUM))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 1, -1); }
+  {
+    return (TARGET_SPLIT_CALLS ? "#"
+	    : mips_output_jump (operands, 1, -1, true));
+  }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
 {
@@ -6978,7 +6988,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return MIPS_CALL ("jal", operands, 1, -1); }
+  { return mips_output_jump (operands, 1, -1, true); }
   [(set_attr "jal" "direct")
    (set_attr "jal_macro" "no")])
 
@@ -6992,7 +7002,10 @@
 	      (match_dup 2)))
    (clobber (reg:SI RETURN_ADDR_REGNUM))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 1, 2); }
+  {
+    return (TARGET_SPLIT_CALLS ? "#"
+	    : mips_output_jump (operands, 1, 2, true));
+  }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
 {
@@ -7013,7 +7026,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return MIPS_CALL ("jal", operands, 1, 2); }
+  { return mips_output_jump (operands, 1, 2, true); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -7378,12 +7391,12 @@
 
 (define_insn "*tls_get_tp_mips16_call_<mode>"
   [(set (reg:P TLS_GET_TP_REGNUM)
-	(unspec:P [(match_operand:P 0 "call_insn_operand" "dS")]
+	(unspec:P [(match_operand:P 0 "call_insn_operand" "d,S")]
 		  UNSPEC_TLS_GET_TP))
    (clobber (reg:P PIC_FUNCTION_ADDR_REGNUM))
    (clobber (reg:P RETURN_ADDR_REGNUM))]
   "HAVE_AS_TLS && TARGET_MIPS16"
-  { return MIPS_CALL ("jal", operands, 0, -1); }
+  { return mips_output_jump (operands, 0, -1, true); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")
    (set_attr "mode" "<MODE>")])
@@ -7424,7 +7437,7 @@
    (clobber (reg:P PIC_FUNCTION_ADDR_REGNUM))
    (clobber (reg:P RETURN_ADDR_REGNUM))]
   "TARGET_HARD_FLOAT_ABI && TARGET_MIPS16"
-  { return MIPS_CALL ("jal", operands, 0, -1); }
+  { return mips_output_jump (operands, 0, -1, true); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")])
 
@@ -7454,7 +7467,7 @@
    (clobber (reg:P PIC_FUNCTION_ADDR_REGNUM))
    (clobber (reg:P RETURN_ADDR_REGNUM))]
   "TARGET_HARD_FLOAT_ABI && TARGET_MIPS16"
-  { return MIPS_CALL ("jal", operands, 0, -1); }
+  { return mips_output_jump (operands, 0, -1, true); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")])
 
