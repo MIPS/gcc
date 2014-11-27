@@ -13586,13 +13586,6 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
       compact = "%:";
       nop = "";
     }
-  else if (!TARGET_ONLY_COMPACT_BRANCHES
-	   && ((!reg_p && link_p && ISA_HAS_JALC)
-	       ||  (!reg_p && !link_p && ISA_HAS_JC)))
-      {
-	compact = "%:";
-	nop = "";
-      }
   else if (TARGET_ONLY_COMPACT_BRANCHES
 	   && ((!reg_p && link_p && ISA_HAS_BALC)
 	       || (!reg_p && !link_p && ISA_HAS_BC)))
@@ -13684,8 +13677,8 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
     }
 
   /* Output the unconditional branch to TAKEN.  */
-  if (TARGET_ABSOLUTE_JUMPS && TARGET_COMPACT_BRANCHES && ISA_HAS_JC)
-    output_asm_insn (MIPS_ABSOLUTE_JUMP ("jc\t%0"), &taken);
+  if (TARGET_ABSOLUTE_JUMPS && TARGET_COMPACT_BRANCHES && ISA_HAS_BC)
+    output_asm_insn (MIPS_ABSOLUTE_JUMP ("bc\t%0"), &taken);
   else if (TARGET_ABSOLUTE_JUMPS)
     output_asm_insn (MIPS_ABSOLUTE_JUMP ("j\t%0%/"), &taken);
   else
@@ -19350,16 +19343,7 @@ mips_option_override (void)
 
   if ((target_flags_explicit & MASK_COMPACT_BRANCHES) == 0)
     {
-      if (TARGET_MICROMIPS_R6)
-	target_flags |= MASK_COMPACT_BRANCHES;
-      else
-	target_flags &= ~MASK_COMPACT_BRANCHES;
-    }
-  else if (!TARGET_COMPACT_BRANCHES && TARGET_MICROMIPS_R6)
-    {
-      error ("unsupported combination: %qs %s",
-	     mips_arch_info->name, "-mmicromips -mno-compact-branches");
-      target_flags |= MASK_COMPACT_BRANCHES;
+      target_flags &= ~MASK_COMPACT_BRANCHES;
     }
 
   if (TARGET_COMPACT_BRANCHES && mips_isa_rev <= 5)

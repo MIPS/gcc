@@ -185,9 +185,9 @@
 (define_attr "jal" "unset,direct,indirect"
   (const_string "unset"))
 
-(define_attr "compact_class" "mipsr6_cond,umipsr6_cond,umipsr6,none"
+(define_attr "compact_class" "mipsr6_cond,convertible,none"
   (cond [(eq_attr "jal" "direct")
-	 (const_string "umipsr6")]
+	 (const_string "convertible")]
 	(const_string "none")))
 
 ;; This attribute is YES if the instruction is a jal macro (not a
@@ -751,12 +751,8 @@
 
 	 (and (eq_attr "compact_class" "mipsr6_cond")
 	      (match_test "TARGET_COMPACT_BRANCHES"))
-	 (const_string "forbidden_slot")
- 
-	 (and (eq_attr "compact_class" "umipsr6_cond")
-	      (match_test "TARGET_MICROMIPS_R6"))
 	 (const_string "forbidden_slot")]
-
+ 
 	(const_string "none")))
 
 ;; Can the instruction be put into a delay slot?
@@ -1093,19 +1089,17 @@
 ;; not annul on false.
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
-		   (not (match_test "TARGET_MICROMIPS_R6"))
 		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
-			(eq_attr "compact_class" "umipsr6")
-			(eq_attr "compact_class" "umipsr6_cond"))
+			(eq_attr "compact_class" "convertible")
+			(eq_attr "compact_class" "none"))
 		   (eq_attr "branch_likely" "no"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
 
 (define_delay (and (eq_attr "type" "jump")
-		   (not (match_test "TARGET_MICROMIPS_R6"))
 		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
-			(and (eq_attr "compact_class" "umipsr6")
+			(and (eq_attr "compact_class" "convertible")
 			     (not (match_test "TARGET_ONLY_COMPACT_BRANCHES")))))
   [(eq_attr "can_delay" "yes")
    (nil)
@@ -1113,9 +1107,8 @@
 
 (define_delay (and (eq_attr "type" "call")
 		   (eq_attr "jal_macro" "no")
-		   (not (match_test "TARGET_MICROMIPS_R6"))
 		   (ior (not (match_test "TARGET_COMPACT_BRANCHES"))
-			(and (eq_attr "compact_class" "umipsr6")
+			(and (eq_attr "compact_class" "convertible")
 			     (not (match_test "TARGET_ONLY_COMPACT_BRANCHES")))))
   [(eq_attr "can_delay" "yes")
    (nil)
@@ -5783,17 +5776,11 @@
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  if (TARGET_MICROMIPS_R6)
-    return mips_output_conditional_branch (insn, operands,
-					   MIPS_BRANCH_C ("b%F1", "%Z2%0"),
-					   MIPS_BRANCH_C ("b%W1", "%Z2%0"));
-  else
     return mips_output_conditional_branch (insn, operands,
 					   MIPS_BRANCH ("b%F1", "%Z2%0"),
 					   MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")
-   (set_attr "compact_class" "umipsr6_cond")])
+  [(set_attr "type" "branch")])
 
 (define_insn "*branch_fp_inverted_<mode>"
   [(set (pc)
@@ -5805,17 +5792,11 @@
          (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  if (TARGET_MICROMIPS_R6)
-    return mips_output_conditional_branch (insn, operands,
-					   MIPS_BRANCH_C ("b%W1", "%Z2%0"),
-					   MIPS_BRANCH_C ("b%F1", "%Z2%0"));
-  else
-    return mips_output_conditional_branch (insn, operands,
-					   MIPS_BRANCH ("b%W1", "%Z2%0"),
-					   MIPS_BRANCH ("b%F1", "%Z2%0"));
+  return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%W1", "%Z2%0"),
+					 MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")
-   (set_attr "compact_class" "umipsr6_cond")])
+  [(set_attr "type" "branch")])
 
 ;; Conditional branches on ordered comparisons with zero.
 
@@ -6181,15 +6162,13 @@
   "!TARGET_MIPS16 && TARGET_ABSOLUTE_JUMPS
    && (!TARGET_MICROMIPS || TARGET_ABICALLS_PIC2)"
 {
-  if (TARGET_COMPACT_BRANCHES && ISA_HAS_JC)
-    return MIPS_ABSOLUTE_JUMP ("%*jc\t%l0");
-  else if (TARGET_ONLY_COMPACT_BRANCHES && ISA_HAS_BC)
+  if (TARGET_ONLY_COMPACT_BRANCHES && ISA_HAS_BC)
     return MIPS_ABSOLUTE_JUMP ("%*bc\t%l0");
   else
     return MIPS_ABSOLUTE_JUMP ("%*j\t%l0%/");
 }
   [(set_attr "type" "jump")
-   (set_attr "compact_class" "umipsr6")])
+   (set_attr "compact_class" "convertible")])
 
 (define_insn "*jump_pic"
   [(set (pc)
