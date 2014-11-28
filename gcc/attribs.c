@@ -101,7 +101,7 @@ static bool attributes_initialized = false;
 
 static const struct attribute_spec empty_attribute_table[] =
 {
-  { NULL, 0, 0, false, false, false, NULL, false }
+  { NULL, 0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Return base name of the attribute.  Ie '__attr__' is turned into 'attr'.
@@ -456,12 +456,12 @@ finalize_type_attribute (tree *node, const struct attribute_spec *spec,
       return returned_attrs;
     }
 
-  if (spec->handler != NULL)
+  if (spec->type_handler != NULL)
     {
       int cxx11_flag =
 	cxx11_attribute_p (a) ? ATTR_FLAG_CXX11 : 0;
 
-      returned_attrs = chainon ((*spec->handler) (anode, name, args,
+      returned_attrs = chainon ((*spec->type_handler) (anode, name, args,
 						       flags|cxx11_flag,
 						       &no_add_attrs),
 				returned_attrs);
@@ -551,7 +551,6 @@ type_attributes (tree *node, tree attributes, int flags)
 {
   tree a;
   tree returned_attrs = NULL_TREE;
-
 
   if (TREE_TYPE (*node) == error_mark_node || attributes == error_mark_node)
     return NULL_TREE;
@@ -710,11 +709,11 @@ decl_attributes (tree *node, tree attributes, int flags)
 						    node);
 	  continue;
 	}
-      if (spec->handler != NULL)
+      if (spec->decl_handler != NULL)
 	{
 	  int cxx11_flag =
 	    cxx11_attribute_p (a) ? ATTR_FLAG_CXX11 : 0;
-	  returned_attrs = chainon ((*spec->handler) (anode, name, args,
+	  returned_attrs = chainon ((*spec->decl_handler) (anode, name, args,
 							   flags|cxx11_flag,
 							   &no_add_attrs),
 				    returned_attrs);
