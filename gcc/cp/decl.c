@@ -2137,7 +2137,14 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  DECL_LANG_SPECIFIC (newdecl)->u.min.u2 =
 	    DECL_LANG_SPECIFIC (olddecl)->u.min.u2;
 	  if (DECL_TEMPLATE_INFO (newdecl))
-	    new_template_info = DECL_TEMPLATE_INFO (newdecl);
+	    {
+	      new_template_info = DECL_TEMPLATE_INFO (newdecl);
+	      if (DECL_TEMPLATE_INSTANTIATION (olddecl)
+		  && DECL_TEMPLATE_SPECIALIZATION (newdecl))
+		/* Remember the presence of explicit specialization args.  */
+		TINFO_USED_TEMPLATE_ID (DECL_TEMPLATE_INFO (olddecl))
+		  = TINFO_USED_TEMPLATE_ID (new_template_info);
+	    }
 	  DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
 	}
       /* Only functions have these fields.  */
@@ -6132,13 +6139,23 @@ initialize_local_var (tree decl, tree init)
   /* Perform the initialization.  */
   if (init)
     {
-      if (TREE_CODE (init) == INIT_EXPR
-	  && !TREE_SIDE_EFFECTS (TREE_OPERAND (init, 1)))
+      tree rinit = (TREE_CODE (init) == INIT_EXPR
+		    ? TREE_OPERAND (init, 1) : NULL_TREE);
+      if (rinit && !TREE_SIDE_EFFECTS (rinit))
 	{
 	  /* Stick simple initializers in DECL_INITIAL so that
 	     -Wno-init-self works (c++/34772).  */
 	  gcc_assert (TREE_OPERAND (init, 0) == decl);
-	  DECL_INITIAL (decl) = TREE_OPERAND (init, 1);
+	  DECL_INITIAL (decl) = rinit;
+
+	  if (warn_init_self && TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      STRIP_NOPS (rinit);
+	      if (rinit == decl)
+		warning_at (DECL_SOURCE_LOCATION (decl),
+			    OPT_Winit_self,
+			    "reference %qD is initialized with itself", decl);
+	    }
 	}
       else
 	{

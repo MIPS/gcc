@@ -16626,7 +16626,7 @@ dump_minipool (rtx_insn *scan)
 	      fputc ('\n', dump_file);
 	    }
 
-	  switch (mp->fix_size)
+	  switch (GET_MODE_SIZE (mp->mode))
 	    {
 #ifdef HAVE_consttable_1
 	    case 1:
@@ -27035,6 +27035,7 @@ arm_issue_rate (void)
     case cortexa8:
     case cortexa9:
     case cortexa12:
+    case cortexa17:
     case cortexa53:
     case fa726te:
     case marvell_pj4:

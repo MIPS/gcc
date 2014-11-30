@@ -2569,9 +2569,6 @@ push_range_check_info (tree var)
   struct loop_info_d *iter = NULL;
   unsigned int i;
 
-  if (vec_safe_is_empty (gnu_loop_stack))
-    return NULL;
-
   var = remove_conversions (var, false);
 
   if (TREE_CODE (var) != VAR_DECL)
@@ -2579,6 +2576,8 @@ push_range_check_info (tree var)
 
   if (decl_function_context (var) != current_function_decl)
     return NULL;
+
+  gcc_assert (vec_safe_length (gnu_loop_stack) > 0);
 
   for (i = vec_safe_length (gnu_loop_stack) - 1;
        vec_safe_iterate (gnu_loop_stack, i, &iter);
@@ -3136,7 +3135,7 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
      nop, but differs from using NULL_TREE in that it indicates that we care
      about the value of the RESULT_DECL.  */
   else if (TREE_CODE (t) == RETURN_EXPR
-	   && TREE_CODE (TREE_OPERAND (t, 0)) == MODIFY_EXPR)
+	   && TREE_CODE (TREE_OPERAND (t, 0)) == INIT_EXPR)
     {
       tree ret_val = TREE_OPERAND (TREE_OPERAND (t, 0), 1), init_expr;
 
@@ -3225,7 +3224,7 @@ finalize_nrv_unc_r (tree *tp, int *walk_subtrees, void *data)
   /* Change RETURN_EXPRs of NRVs to assign to the RESULT_DECL only the final
      return value built by the allocator instead of the whole construct.  */
   else if (TREE_CODE (t) == RETURN_EXPR
-	   && TREE_CODE (TREE_OPERAND (t, 0)) == MODIFY_EXPR)
+	   && TREE_CODE (TREE_OPERAND (t, 0)) == INIT_EXPR)
     {
       tree ret_val = TREE_OPERAND (TREE_OPERAND (t, 0), 1);
 
@@ -3438,7 +3437,7 @@ build_return_expr (tree ret_obj, tree ret_val)
 
 	      RETURN_EXPR
 		  |
-	      MODIFY_EXPR
+	       INIT_EXPR
 	      /        \
 	     /          \
 	 RET_OBJ        ...
@@ -3447,13 +3446,14 @@ build_return_expr (tree ret_obj, tree ret_val)
 	 of the RET_OBJ as the operation type.  */
       tree operation_type = TREE_TYPE (ret_obj);
 
-      /* Convert the right operand to the operation type.  Note that it's the
-	 same transformation as in the MODIFY_EXPR case of build_binary_op,
+      /* Convert the right operand to the operation type.  Note that this is
+	 the transformation applied in the INIT_EXPR case of build_binary_op,
 	 with the assumption that the type cannot involve a placeholder.  */
       if (operation_type != TREE_TYPE (ret_val))
 	ret_val = convert (operation_type, ret_val);
 
-      result_expr = build2 (MODIFY_EXPR, void_type_node, ret_obj, ret_val);
+      /* We always can use an INIT_EXPR for the return object.  */
+      result_expr = build2 (INIT_EXPR, void_type_node, ret_obj, ret_val);
 
       /* If the function returns an aggregate type, find out whether this is
 	 a candidate for Named Return Value.  If so, record it.  Otherwise,
@@ -5175,6 +5175,7 @@ Raise_Error_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
 	     the original checks reinstated, and a run time selection.
 	     The former loop will be suitable for vectorization.  */
 	  if (flag_unswitch_loops
+	      && !vec_safe_is_empty (gnu_loop_stack)
 	      && (!gnu_low_bound
 		  || (gnu_low_bound = gnat_invariant_expr (gnu_low_bound)))
 	      && (!gnu_high_bound

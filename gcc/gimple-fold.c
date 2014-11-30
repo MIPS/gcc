@@ -254,8 +254,7 @@ get_symbol_constant_value (tree sym)
 	 have zero as the initializer if they may not be
 	 overridden at link or run time.  */
       if (!val
-          && (INTEGRAL_TYPE_P (TREE_TYPE (sym))
-	       || SCALAR_FLOAT_TYPE_P (TREE_TYPE (sym))))
+          && is_gimple_reg_type (TREE_TYPE (sym)))
 	return build_zero_cst (TREE_TYPE (sym));
     }
 
@@ -3062,7 +3061,8 @@ maybe_canonicalize_mem_ref_addr (tree *t)
      accessed is a decl that has the same access semantics as the MEM_REF.  */
   if (TREE_CODE (*t) == MEM_REF
       && TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR
-      && integer_zerop (TREE_OPERAND (*t, 1)))
+      && integer_zerop (TREE_OPERAND (*t, 1))
+      && MR_DEPENDENCE_CLIQUE (*t) == 0)
     {
       tree decl = TREE_OPERAND (TREE_OPERAND (*t, 0), 0);
       tree alias_type = TREE_TYPE (TREE_OPERAND (*t, 1));
@@ -4787,10 +4787,6 @@ gimple_fold_stmt_to_constant (gimple stmt, tree (*valueize) (tree))
 /* The following set of functions are supposed to fold references using
    their constant initializers.  */
 
-static tree fold_ctor_reference (tree type, tree ctor,
-				 unsigned HOST_WIDE_INT offset,
-				 unsigned HOST_WIDE_INT size, tree);
-
 /* See if we can find constructor defining value of BASE.
    When we know the consructor with constant offset (such as
    base is array[40] and we do know constructor of array), then
@@ -5026,7 +5022,7 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
 /* CTOR is value initializing memory, fold reference of type TYPE and size SIZE
    to the memory at bit OFFSET.  */
 
-static tree
+tree
 fold_ctor_reference (tree type, tree ctor, unsigned HOST_WIDE_INT offset,
 		     unsigned HOST_WIDE_INT size, tree from_decl)
 {

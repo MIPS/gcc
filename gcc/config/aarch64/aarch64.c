@@ -77,6 +77,7 @@
 #include "dumpfile.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+#include "tm-constrs.h"
 
 /* Defined for convenience.  */
 #define POINTER_BYTES (POINTER_SIZE / BITS_PER_UNIT)
@@ -304,6 +305,12 @@ static const struct cpu_vector_cost cortexa57_vector_cost =
   NAMED_PARAM (cond_not_taken_branch_cost, 1)
 };
 
+#define AARCH64_FUSE_NOTHING	(0)
+#define AARCH64_FUSE_MOV_MOVK	(1 << 0)
+#define AARCH64_FUSE_ADRP_ADD	(1 << 1)
+#define AARCH64_FUSE_MOVK_MOVK	(1 << 2)
+#define AARCH64_FUSE_ADRP_LDR	(1 << 3)
+
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
 __extension__
 #endif
@@ -314,7 +321,8 @@ static const struct tune_params generic_tunings =
   &generic_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 2)
+  NAMED_PARAM (issue_rate, 2),
+  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_NOTHING)
 };
 
 static const struct tune_params cortexa53_tunings =
@@ -324,7 +332,9 @@ static const struct tune_params cortexa53_tunings =
   &cortexa53_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 2)
+  NAMED_PARAM (issue_rate, 2),
+  NAMED_PARAM (fuseable_ops, (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+                             | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR))
 };
 
 static const struct tune_params cortexa57_tunings =
@@ -334,7 +344,8 @@ static const struct tune_params cortexa57_tunings =
   &cortexa57_regmove_cost,
   &cortexa57_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 3)
+  NAMED_PARAM (issue_rate, 3),
+  NAMED_PARAM (fuseable_ops, (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD | AARCH64_FUSE_MOVK_MOVK))
 };
 
 static const struct tune_params thunderx_tunings =
@@ -344,7 +355,8 @@ static const struct tune_params thunderx_tunings =
   &thunderx_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 6),
-  NAMED_PARAM (issue_rate, 2)
+  NAMED_PARAM (issue_rate, 2),
+  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_NOTHING)
 };
 
 /* A processor implementing AArch64.  */
@@ -10232,143 +10244,145 @@ aarch64_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
   return default_use_by_pieces_infrastructure_p (size, align, op, speed_p);
 }
 
-static enum machine_mode
-aarch64_code_to_ccmode (enum rtx_code code)
-{
-  switch (code)
-    {
-    case NE:
-      return CC_DNEmode;
-
-    case EQ:
-      return CC_DEQmode;
-
-    case LE:
-      return CC_DLEmode;
-
-    case LT:
-      return CC_DLTmode;
-
-    case GE:
-      return CC_DGEmode;
-
-    case GT:
-      return CC_DGTmode;
-
-    case LEU:
-      return CC_DLEUmode;
-
-    case LTU:
-      return CC_DLTUmode;
-
-    case GEU:
-      return CC_DGEUmode;
-
-    case GTU:
-      return CC_DGTUmode;
-
-    default:
-      return CCmode;
-    }
-}
+/* Implement TARGET_SCHED_MACRO_FUSION_P.  Return true if target supports
+   instruction fusion of some sort.  */
 
 static bool
-aarch64_convert_mode (rtx* op0, rtx* op1, int unsignedp)
+aarch64_macro_fusion_p (void)
 {
-  enum machine_mode mode;
+  return aarch64_tune_params->fuseable_ops != AARCH64_FUSE_NOTHING;
+}
 
-  mode = GET_MODE (*op0);
-  if (mode == VOIDmode)
-    mode = GET_MODE (*op1);
 
-  if (mode == QImode || mode == HImode)
-    {
-      *op0 = convert_modes (SImode, mode, *op0, unsignedp);
-      *op1 = convert_modes (SImode, mode, *op1, unsignedp);
-    }
-  else if (mode != SImode && mode != DImode)
+/* Implement TARGET_SCHED_MACRO_FUSION_PAIR_P.  Return true if PREV and CURR
+   should be kept together during scheduling.  */
+
+static bool
+aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
+{
+  rtx set_dest;
+  rtx prev_set = single_set (prev);
+  rtx curr_set = single_set (curr);
+  /* prev and curr are simple SET insns i.e. no flag setting or branching.  */
+  bool simple_sets_p = prev_set && curr_set && !any_condjump_p (curr);
+
+  if (!aarch64_macro_fusion_p ())
     return false;
 
-  return true;
+  if (simple_sets_p
+      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_MOV_MOVK))
+    {
+      /* We are trying to match:
+         prev (mov)  == (set (reg r0) (const_int imm16))
+         curr (movk) == (set (zero_extract (reg r0)
+                                           (const_int 16)
+                                           (const_int 16))
+                             (const_int imm16_1))  */
+
+      set_dest = SET_DEST (curr_set);
+
+      if (GET_CODE (set_dest) == ZERO_EXTRACT
+          && CONST_INT_P (SET_SRC (curr_set))
+          && CONST_INT_P (SET_SRC (prev_set))
+          && CONST_INT_P (XEXP (set_dest, 2))
+          && INTVAL (XEXP (set_dest, 2)) == 16
+          && REG_P (XEXP (set_dest, 0))
+          && REG_P (SET_DEST (prev_set))
+          && REGNO (XEXP (set_dest, 0)) == REGNO (SET_DEST (prev_set)))
+        {
+          return true;
+        }
+    }
+
+  if (simple_sets_p
+      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_ADRP_ADD))
+    {
+
+      /*  We're trying to match:
+          prev (adrp) == (set (reg r1)
+                              (high (symbol_ref ("SYM"))))
+          curr (add) == (set (reg r0)
+                             (lo_sum (reg r1)
+                                     (symbol_ref ("SYM"))))
+          Note that r0 need not necessarily be the same as r1, especially
+          during pre-regalloc scheduling.  */
+
+      if (satisfies_constraint_Ush (SET_SRC (prev_set))
+          && REG_P (SET_DEST (prev_set)) && REG_P (SET_DEST (curr_set)))
+        {
+          if (GET_CODE (SET_SRC (curr_set)) == LO_SUM
+              && REG_P (XEXP (SET_SRC (curr_set), 0))
+              && REGNO (XEXP (SET_SRC (curr_set), 0))
+                 == REGNO (SET_DEST (prev_set))
+              && rtx_equal_p (XEXP (SET_SRC (prev_set), 0),
+                              XEXP (SET_SRC (curr_set), 1)))
+            return true;
+        }
+    }
+
+  if (simple_sets_p
+      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_MOVK_MOVK))
+    {
+
+      /* We're trying to match:
+         prev (movk) == (set (zero_extract (reg r0)
+                                           (const_int 16)
+                                           (const_int 32))
+                             (const_int imm16_1))
+         curr (movk) == (set (zero_extract (reg r0)
+                                           (const_int 16)
+                                           (const_int 48))
+                             (const_int imm16_2))  */
+
+      if (GET_CODE (SET_DEST (prev_set)) == ZERO_EXTRACT
+          && GET_CODE (SET_DEST (curr_set)) == ZERO_EXTRACT
+          && REG_P (XEXP (SET_DEST (prev_set), 0))
+          && REG_P (XEXP (SET_DEST (curr_set), 0))
+          && REGNO (XEXP (SET_DEST (prev_set), 0))
+             == REGNO (XEXP (SET_DEST (curr_set), 0))
+          && CONST_INT_P (XEXP (SET_DEST (prev_set), 2))
+          && CONST_INT_P (XEXP (SET_DEST (curr_set), 2))
+          && INTVAL (XEXP (SET_DEST (prev_set), 2)) == 32
+          && INTVAL (XEXP (SET_DEST (curr_set), 2)) == 48
+          && CONST_INT_P (SET_SRC (prev_set))
+          && CONST_INT_P (SET_SRC (curr_set)))
+        return true;
+
+    }
+  if (simple_sets_p
+      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_ADRP_LDR))
+    {
+      /* We're trying to match:
+          prev (adrp) == (set (reg r0)
+                              (high (symbol_ref ("SYM"))))
+          curr (ldr) == (set (reg r1)
+                             (mem (lo_sum (reg r0)
+                                             (symbol_ref ("SYM")))))
+                 or
+          curr (ldr) == (set (reg r1)
+                             (zero_extend (mem
+                                           (lo_sum (reg r0)
+                                                   (symbol_ref ("SYM"))))))  */
+      if (satisfies_constraint_Ush (SET_SRC (prev_set))
+          && REG_P (SET_DEST (prev_set)) && REG_P (SET_DEST (curr_set)))
+        {
+          rtx curr_src = SET_SRC (curr_set);
+
+          if (GET_CODE (curr_src) == ZERO_EXTEND)
+            curr_src = XEXP (curr_src, 0);
+
+          if (MEM_P (curr_src) && GET_CODE (XEXP (curr_src, 0)) == LO_SUM
+              && REG_P (XEXP (XEXP (curr_src, 0), 0))
+              && REGNO (XEXP (XEXP (curr_src, 0), 0))
+                 == REGNO (SET_DEST (prev_set))
+              && rtx_equal_p (XEXP (XEXP (curr_src, 0), 1),
+                              XEXP (SET_SRC (prev_set), 0)))
+              return true;
+        }
+    }
+
+  return false;
 }
-
-static rtx
-aarch64_gen_ccmp_first (int code, rtx op0, rtx op1)
-{
-  enum machine_mode mode;
-  rtx cmp, target;
-  int unsignedp = code == LTU || code == LEU || code == GTU || code == GEU;
-
-  mode = GET_MODE (op0);
-  if (mode == VOIDmode)
-    mode = GET_MODE (op1);
-
-  if (mode == VOIDmode)
-    return NULL_RTX;
-
-  if (!register_operand (op0, GET_MODE (op0)))
-    op0 = force_reg (mode, op0);
-  if (!aarch64_plus_operand (op1, GET_MODE (op1)))
-    op1 = force_reg (mode, op1);
-
-  if (!aarch64_convert_mode (&op0, &op1, unsignedp))
-    return NULL_RTX;
-
-  mode = aarch64_code_to_ccmode ((enum rtx_code) code);
-  if (mode == CCmode)
-    return NULL_RTX;
-
-  cmp = gen_rtx_fmt_ee (COMPARE, CCmode, op0, op1);
-  target = gen_rtx_REG (mode, CC_REGNUM);
-  emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CC_REGNUM), cmp));
-  return target;
-}
-
-static rtx
-aarch64_gen_ccmp_next (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code)
-{
-  rtx cmp0, cmp1, target, bit_op;
-  enum machine_mode mode;
-  int unsignedp = cmp_code == LTU || cmp_code == LEU
-		  || cmp_code == GTU || cmp_code == GEU;
-
-  mode = GET_MODE (op0);
-  if (mode == VOIDmode)
-    mode = GET_MODE (op1);
-  if (mode == VOIDmode)
-    return NULL_RTX;
-
-  /* Give up if the operand is illegal since force_reg will introduce
-     additional overhead.  */
-  if (!register_operand (op0, GET_MODE (op0))
-      || !aarch64_ccmp_operand (op1, GET_MODE (op1)))
-    return NULL_RTX;
-
-  if (!aarch64_convert_mode (&op0, &op1, unsignedp))
-    return NULL_RTX;
-
-  mode = aarch64_code_to_ccmode ((enum rtx_code) cmp_code);
-  if (mode == CCmode)
-    return NULL_RTX;
-
-  cmp1 = gen_rtx_fmt_ee ((enum rtx_code) cmp_code, SImode, op0, op1);
-  cmp0 = gen_rtx_fmt_ee (NE, SImode, prev, const0_rtx);
-
-  bit_op = gen_rtx_fmt_ee ((enum rtx_code) bit_code, SImode, cmp0, cmp1);
-
-  /* Generate insn to match ccmp_and/ccmp_ior.  */
-  target = gen_rtx_REG (mode, CC_REGNUM);
-  emit_insn (gen_rtx_SET (VOIDmode, target,
-                          gen_rtx_fmt_ee (COMPARE, mode,
-                                          bit_op, const0_rtx)));
-  return target;
-}
-
-#undef TARGET_GEN_CCMP_FIRST
-#define TARGET_GEN_CCMP_FIRST aarch64_gen_ccmp_first
-
-#undef TARGET_GEN_CCMP_NEXT
-#define TARGET_GEN_CCMP_NEXT aarch64_gen_ccmp_next
 
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST aarch64_address_cost
@@ -10628,6 +10642,12 @@ aarch64_gen_ccmp_next (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code)
 
 #undef TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
+
+#undef TARGET_SCHED_MACRO_FUSION_P
+#define TARGET_SCHED_MACRO_FUSION_P aarch64_macro_fusion_p
+
+#undef TARGET_SCHED_MACRO_FUSION_PAIR_P
+#define TARGET_SCHED_MACRO_FUSION_PAIR_P aarch_macro_fusion_pair_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

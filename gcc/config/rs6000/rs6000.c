@@ -2505,7 +2505,8 @@ rs6000_setup_reg_addr_masks (void)
 
 	  /* VMX registers can do (REG & -16) and ((REG+REG) & -16)
 	     addressing on 128-bit types.  */
-	  if (rc == RELOAD_REG_VMX && GET_MODE_SIZE (m2) == 16)
+	  if (rc == RELOAD_REG_VMX && GET_MODE_SIZE (m2) == 16
+	      && (addr_mask & RELOAD_REG_VALID) != 0)
 	    addr_mask |= RELOAD_REG_AND_M16;
 
 	  reg_addr[m].addr_mask[rc] = addr_mask;
@@ -7730,6 +7731,13 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
       && legitimate_constant_pool_address_p (x, mode,
 					     reg_ok_strict || lra_in_progress))
     return 1;
+  /* For TImode, if we have load/store quad and TImode in VSX registers, only
+     allow register indirect addresses.  This will allow the values to go in
+     either GPRs or VSX registers without reloading.  The vector types would
+     tend to go into VSX registers, so we allow REG+REG, while TImode seems
+     somewhat split, in that some uses are GPR based, and some VSX based.  */
+  if (mode == TImode && TARGET_QUAD_MEMORY && TARGET_VSX_TIMODE)
+    return 0;
   /* If not REG_OK_STRICT (before reload) let pass any stack offset.  */
   if (! reg_ok_strict
       && reg_offset_p
@@ -16642,6 +16650,17 @@ rs6000_secondary_reload_memory (rtx addr,
 	    {
 	      extra_cost = 1;
 	      type = "offset";
+	    }
+	}
+
+      /* (plus (plus (reg) (constant)) (reg)) is also generated during
+	 push_reload processing, so handle it now.  */
+      else if (GET_CODE (plus_arg0) == PLUS && REG_P (plus_arg1))
+	{
+	  if ((addr_mask & RELOAD_REG_INDEXED) == 0)
+	    {
+	      extra_cost = 1;
+	      type = "indexed #2";
 	    }
 	}
 
@@ -32834,6 +32853,8 @@ rs6000_legitimate_constant_p (machine_mode mode, rtx x)
 void
 rs6000_call_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
 {
+  const bool direct_call_p
+    = GET_CODE (func_desc) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (func_desc);
   rtx toc_reg = gen_rtx_REG (Pmode, TOC_REGNUM);
   rtx toc_load = NULL_RTX;
   rtx toc_restore = NULL_RTX;
@@ -32902,8 +32923,11 @@ rs6000_call_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
 							func_toc_offset));
 	  toc_load = gen_rtx_USE (VOIDmode, func_toc_mem);
 
-	  /* If we have a static chain, load it up.  */
-	  if (TARGET_POINTERS_TO_NESTED_FUNCTIONS)
+	  /* If we have a static chain, load it up.  But, if the call was
+	     originally direct, the 3rd word has not been written since no
+	     trampoline has been built, so we ought not to load it, lest we
+	     override a static chain value.  */
+	  if (!direct_call_p && TARGET_POINTERS_TO_NESTED_FUNCTIONS)
 	    {
 	      rtx sc_reg = gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM);
 	      rtx func_sc_offset = GEN_INT (2 * GET_MODE_SIZE (Pmode));

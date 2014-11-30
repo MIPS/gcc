@@ -9820,14 +9820,17 @@ cp_parser_label_for_labeled_statement (cp_parser* parser, tree attributes)
 	cp_lexer_consume_token (parser->lexer);
 	/* Parse the constant-expression.  */
 	expr = cp_parser_constant_expression (parser);
+	if (check_for_bare_parameter_packs (expr))
+	  expr = error_mark_node;
 
 	ellipsis = cp_lexer_peek_token (parser->lexer);
 	if (ellipsis->type == CPP_ELLIPSIS)
 	  {
 	    /* Consume the `...' token.  */
 	    cp_lexer_consume_token (parser->lexer);
-	    expr_hi =
-	      cp_parser_constant_expression (parser);
+	    expr_hi = cp_parser_constant_expression (parser);
+	    if (check_for_bare_parameter_packs (expr_hi))
+	      expr_hi = error_mark_node;
 
 	    /* We don't need to emit warnings here, as the common code
 	       will do this for us.  */
@@ -12172,7 +12175,6 @@ cp_parser_decltype_expr (cp_parser *parser,
 
       if (expr
           && expr != error_mark_node
-          && TREE_CODE (expr) != TEMPLATE_ID_EXPR
           && TREE_CODE (expr) != TYPE_DECL
 	  && (TREE_CODE (expr) != BIT_NOT_EXPR
 	      || !TYPE_P (TREE_OPERAND (expr, 0)))
