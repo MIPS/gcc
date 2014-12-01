@@ -70,6 +70,7 @@
   m5100
   i6400
   p6600
+  m6200
 ])
 
 (define_c_enum "unspec" [
@@ -1150,6 +1151,7 @@
 (include "p5600.md")
 (include "m5100.md")
 (include "p6600.md")
+(include "m6200.md")
 (include "4k.md")
 (include "5k.md")
 (include "20kc.md")
@@ -2100,7 +2102,7 @@
   [(set (match_operand:DI 0 "muldiv_target_operand" "=ka")
 	(mult:DI (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		 (any_extend:DI (match_operand:SI 2 "register_operand" "d"))))]
-  "!TARGET_64BIT && (!TARGET_FIX_R4000 || ISA_HAS_DSP) && ISA_HAS_MULT"
+  "!TARGET_64BIT && ((!TARGET_FIX_R4000 && ISA_HAS_MULT) || ISA_HAS_DSP)"
 {
   if (ISA_HAS_DSP_MULT)
     return "mult<u>\t%q0,%1,%2";
@@ -5241,7 +5243,8 @@
 	(unspec:GPR [(match_operand:HILO 1 "hilo_operand" "x")]
 		    UNSPEC_MFHI))]
   ""
-  { return ISA_HAS_MACCHI ? "<GPR:d>macchi\t%0,%.,%." : "mfhi\t%0"; }
+  { return ISA_HAS_MACCHI ? "<GPR:d>macchi\t%0,%.,%." :
+	                       ISA_HAS_MULT ? "mfhi\t%0" : "mfhi\t%0,$ac0"; }
   [(set_attr "type" "mfhi")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -5254,7 +5257,12 @@
 		      (match_operand:GPR 2 "register_operand" "l")]
 		     UNSPEC_MTHI))]
   ""
-  "mthi\t%z1"
+  {
+    if (ISA_HAS_MULT)
+      return "mthi\t%z1";
+    else
+      return "mthi\t%z1, $ac0";
+  }
   [(set_attr "type" "mthi")
    (set_attr "mode" "SI")])
 
@@ -5504,7 +5512,12 @@
     {
       mips_expand_synci_loop (operands[0], operands[1]);
       emit_insn (gen_sync ());
-      emit_insn (PMODE_INSN (gen_clear_hazard, ()));
+      if (TARGET_MICROMIPS_R6)
+	emit_insn (PMODE_INSN (gen_clear_hazard_ur6, ()));
+      else if (ISA_HAS_R6MUL)
+	emit_insn (PMODE_INSN (gen_clear_hazard_r6, ()));
+      else
+	emit_insn (PMODE_INSN (gen_clear_hazard, ()));
     }
   else if (mips_cache_flush_func && mips_cache_flush_func[0])
     {
@@ -5541,10 +5554,35 @@
   return "%(%<bal\t1f\n"
          "\tnop\n"
          "1:\t<d>addiu\t$31,$31,12\n"
-         "\tjr.hb\t$31\n"
-         "\tnop%>%)";
+	 "\tjr.hb\t$31\n"
+	 "\tnop%>%)";
 }
   [(set_attr "insn_count" "5")])
+
+(define_insn "clear_hazard_ur6_<mode>"
+  [(unspec_volatile [(const_int 0)] UNSPEC_CLEAR_HAZARD)
+   (clobber (match_scratch:P 0 "=d"))]
+  "ISA_HAS_SYNCI && TARGET_MICROMIPS_R6"
+{
+  return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
+	 "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
+	 "\tjrc.hb\t%0\n"
+	 "1:%>%)";
+}
+  [(set_attr "insn_count" "3")])
+
+(define_insn "clear_hazard_r6_<mode>"
+  [(unspec_volatile [(const_int 0)] UNSPEC_CLEAR_HAZARD)
+   (clobber (match_scratch:P 0 "=d"))]
+  "ISA_HAS_SYNCI && ISA_HAS_R6MUL && !TARGET_MICROMIPS_R6"
+{
+  return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
+	 "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
+	 "\tjr.hb\t%0\n"
+	 "\tnop\n"
+	 "1:%>%)";
+}
+  [(set_attr "insn_count" "4")])
 
 ;; Cache operations for R4000-style caches.
 (define_insn "mips_cache"
@@ -5847,11 +5885,22 @@
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%F1", "%Z2%0"),
-					 MIPS_BRANCH ("b%W1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+					    (const_string "always")
+					    (const_string "never")))
+   (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+				      (const_string "forbidden_slot")
+				      (const_string "none")))])
 
 (define_insn "*branch_fp_inverted_<mode>"
   [(set (pc)
@@ -5863,11 +5912,22 @@
          (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%W1", "%Z2%0"),
-					 MIPS_BRANCH ("b%F1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+					    (const_string "always")
+					    (const_string "never")))
+   (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+				      (const_string "forbidden_slot")
+				      (const_string "none")))])
 
 ;; Conditional branches on ordered comparisons with zero.
 
