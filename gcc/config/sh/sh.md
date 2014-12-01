@@ -8386,7 +8386,7 @@ label:
 	(match_operand:SF 1 "general_movsrc_operand"
 	  "f,r,G,H,FQ,mf,f,FQ,mr,r,y,f,>,fr,y,r,y,>,y"))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 2 "=X,X,Bsc,Bsc,&z,X,X,X,X,X,X,X,X,y,X,X,X,X,X"))]
+   (clobber (match_scratch:SI 2 "=X,X,X,X,&z,X,X,X,X,X,X,X,X,y,X,X,X,X,X"))]
   "TARGET_SH2E
    && (arith_reg_operand (operands[0], SFmode) || fpul_operand (operands[0], SFmode)
        || arith_reg_operand (operands[1], SFmode) || fpul_operand (operands[1], SFmode)
@@ -8472,7 +8472,7 @@ label:
 	(match_operand:SF 1 "general_movsrc_operand"
 	  "f,r,G,H,FQ,m,f,FQ,m,r,y,f,>,fr,y,r,y,>,y"))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SF 2 "=r,r,Bsc,Bsc,&z,r,r,X,r,r,r,r,r,y,r,r,r,r,r"))
+   (clobber (match_scratch:SF 2 "=r,r,X,X,&z,r,r,X,r,r,r,r,r,y,r,r,r,r,r"))
    (const_int 0)]
   "TARGET_SH2E
    && (arith_reg_operand (operands[0], SFmode)

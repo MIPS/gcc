@@ -108,6 +108,7 @@ extern int sh_loop_align (rtx_insn *);
 extern bool fp_zero_operand (rtx);
 extern bool fp_one_operand (rtx);
 extern bool sh_legitimate_index_p (machine_mode, rtx, bool, bool);
+extern bool sh_legitimize_reload_address (rtx *, machine_mode, int, int);
 extern rtx legitimize_pic_address (rtx, machine_mode, rtx);
 extern bool nonpic_symbol_mentioned_p (rtx);
 extern void output_pic_addr_const (FILE *, rtx);

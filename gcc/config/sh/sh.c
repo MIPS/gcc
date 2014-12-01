@@ -222,6 +222,7 @@ static int sh_mode_after (int, int, rtx_insn *);
 static int sh_mode_entry (int);
 static int sh_mode_exit (int);
 static int sh_mode_priority (int entity, int n);
+static bool sh_lra_p (void);
 
 static rtx mark_constant_pool_use (rtx);
 static tree sh_handle_interrupt_handler_attribute (tree *, tree, tree,
@@ -622,7 +623,7 @@ static const struct attribute_spec sh_attribute_table[] =
 #define TARGET_ENCODE_SECTION_INFO	sh_encode_section_info
 
 #undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_true
+#define TARGET_LRA_P sh_lra_p
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD sh_secondary_reload
@@ -1787,7 +1788,8 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	 We split possible load/store to two move insns via r0 so as to
 	 shorten R0 live range.  It will make some codes worse but will
 	 win on avarage for LRA.  */
-      else if (TARGET_SH1 && ! TARGET_SH2A
+      else if (TARGET_LRA_P
+	       && TARGET_SH1 && ! TARGET_SH2A
 	       && (mode == QImode || mode == HImode)
 	       && ((REG_P (operands[0]) && MEM_P (operands[1]))
 		   || (REG_P (operands[1]) && MEM_P (operands[0]))))
@@ -10508,6 +10510,106 @@ sh_legitimize_address (rtx x, rtx oldx, machine_mode mode)
   return x;
 }
 
+/* Attempt to replace *p, which is an address that needs reloading, with
+   a valid memory address for an operand of mode MODE.
+   Like for sh_legitimize_address, for the SH we try to get a normal form
+   of the address.  That will allow inheritance of the address reloads.  */
+bool
+sh_legitimize_reload_address (rtx *p, machine_mode mode, int opnum,
+			      int itype)
+{
+  enum reload_type type = (enum reload_type) itype;
+  const int mode_sz = GET_MODE_SIZE (mode);
+
+  if (TARGET_LRA_P)
+    return false;
+
+  if (! ALLOW_INDEXED_ADDRESS
+      && GET_CODE (*p) == PLUS
+      && REG_P (XEXP (*p, 0)) && REG_P (XEXP (*p, 1)))
+    {
+      *p = copy_rtx (*p);
+      push_reload (*p, NULL_RTX, p, NULL,
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+      return true;
+    }
+
+  if (! ALLOW_INDEXED_ADDRESS
+      && GET_CODE (*p) == PLUS
+      && GET_CODE (XEXP (*p, 0)) == PLUS)
+    {
+      rtx sum = gen_rtx_PLUS (Pmode, XEXP (XEXP (*p, 0), 0),
+				     XEXP (XEXP (*p, 0), 1));
+      *p = gen_rtx_PLUS (Pmode, sum, XEXP (*p, 1));
+      push_reload (sum, NULL_RTX, &XEXP (*p, 0), NULL,
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+      return true;
+    }
+
+  if (TARGET_SHMEDIA)
+    return false;
+
+  if (GET_CODE (*p) == PLUS && CONST_INT_P (XEXP (*p, 1))
+      && MAYBE_BASE_REGISTER_RTX_P (XEXP (*p, 0), true)
+      && (ALLOW_INDEXED_ADDRESS
+	  || XEXP (*p, 0) == stack_pointer_rtx
+	  || XEXP (*p, 0) == hard_frame_pointer_rtx))
+    {
+      const HOST_WIDE_INT offset = INTVAL (XEXP (*p, 1));
+      struct disp_adjust adj = sh_find_mov_disp_adjust (mode, offset);
+
+      if (TARGET_SH2A && mode == DFmode && (offset & 0x7))
+	{
+	  push_reload (*p, NULL_RTX, p, NULL,
+		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+	  return true;
+	}
+
+      if (TARGET_SH2E && mode == SFmode)
+	{
+	  *p = copy_rtx (*p);
+	  push_reload (*p, NULL_RTX, p, NULL,
+		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+	  return true;
+	}
+
+      /* FIXME: Do not allow to legitimize QImode and HImode displacement
+	 moves because then reload has a problem figuring the constraint
+	 that the move insn target/source reg must be R0.
+	 Or maybe some handling is wrong in sh_secondary_reload for this
+	 to work properly? */
+      if ((mode_sz == 4 || mode_sz == 8)
+	  && ! (TARGET_SH4 && mode == DFmode)
+	  && adj.offset_adjust != NULL_RTX && adj.mov_disp != NULL_RTX)
+	{
+	  rtx sum = gen_rtx_PLUS (Pmode, XEXP (*p, 0), adj.offset_adjust);
+	  *p = gen_rtx_PLUS (Pmode, sum, adj.mov_disp);
+	  push_reload (sum, NULL_RTX, &XEXP (*p, 0), NULL,
+		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+	  return true;
+	}
+    }
+
+  /* We must re-recognize what we created before.  */
+  if (GET_CODE (*p) == PLUS
+      && (mode_sz == 4 || mode_sz == 8)
+      && GET_CODE (XEXP (*p, 0)) == PLUS
+      && CONST_INT_P (XEXP (XEXP (*p, 0), 1))
+      && MAYBE_BASE_REGISTER_RTX_P (XEXP (XEXP (*p, 0), 0), true)
+      && CONST_INT_P (XEXP (*p, 1))
+      && ! (TARGET_SH2E && mode == SFmode))
+    {
+      /* Because this address is so complex, we know it must have
+	 been created by LEGITIMIZE_RELOAD_ADDRESS before; thus,
+	 it is already unshared, and needs no further unsharing.  */
+      push_reload (XEXP (*p, 0), NULL_RTX, &XEXP (*p, 0), NULL,
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+      return true;
+    }
+
+  return false;
+}
+
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize various UNSPEC sequences
    and turn them back into a direct symbol reference.  */
@@ -13711,6 +13813,13 @@ static int
 sh_mode_priority (int entity ATTRIBUTE_UNUSED, int n)
 {
   return ((TARGET_FPU_SINGLE != 0) ^ (n) ? FP_MODE_SINGLE : FP_MODE_DOUBLE);
+}
+
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+sh_lra_p (void)
+{
+  return sh_lra_flag;
 }
 
 /* Implement TARGET_USE_BY_PIECES_INFRASTRUCTURE_P.  */
