@@ -2669,9 +2669,14 @@ Floating-point zero.
 An address that can be used in a non-macro load or store.
 
 @item ZC
-A memory operand whose address is formed by a base register and offset
-that is suitable for use in instructions with the same addressing mode
-as @code{ll} and @code{sc}.
+When compiling R6 code, this constraint matches a memory operand whose
+address is formed from a base register and a 9-bit offset.
+When compiling microMIPS code, this constraint matches a memory operand
+whose address is formed from a base register and a 12-bit offset.
+When not compiling for microMIPS nor R6, @code{ZC} is equivalent to
+@code{R}.
+These operands can be used for instructions such as @code{ll} and
+@code{sc}.
 
 @item ZD
 An address suitable for a @code{prefetch} instruction, or for any other
