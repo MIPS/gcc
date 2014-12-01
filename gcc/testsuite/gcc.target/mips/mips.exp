@@ -1194,7 +1194,6 @@ proc mips-dg-options { args } {
 		   && ([mips_have_test_option_p options "-mdsp"]
 		       || [mips_have_test_option_p options "-mdspr2"]
 		       || [mips_have_test_option_p options "-mips16"]
-		       || [mips_have_test_option_p options "-mmicromips"]
 		       || [mips_have_test_option_p options "-mfp32"]
 		       || [mips_have_test_option_p options "-mfix-r10000"]
 		       || [mips_have_test_option_p options "NOT_HAS_DMUL"]
