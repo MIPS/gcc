@@ -1145,7 +1145,6 @@ proc mips-dg-options { args } {
 	# stubs-o32_hard.h  (r6 compilers only have stubs-o32_hard_2008.h)
 	} elseif { $isa_rev > 5
 		   && ([mips_have_test_option_p options "-mips16"]
-		       || [mips_have_test_option_p options "-mmicromips"]
 		       || [mips_have_test_option_p options "-mfp32"]
 		       || [mips_have_test_option_p options "-mfix-r10000"]
 		       || [mips_have_test_option_p options "NOT_HAS_DMUL"]
@@ -1310,6 +1309,10 @@ proc mips-dg-options { args } {
 	    mips_make_test_option options "-mnan=2008"
 	    mips_make_test_option options "-mabs=2008"
 	}
+	if { [regexp {^-march=octeon} $arch] } {
+	    mips_make_test_option options "-mno-micromips"
+	}
+
 	unset arch
 	unset isa
 	unset isa_rev
