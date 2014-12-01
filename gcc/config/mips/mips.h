@@ -89,6 +89,9 @@ struct mips_cpu_info {
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
+/* True if we are targetting micromips R6 onwards.  */
+#define TARGET_MICROMIPS_R6 (TARGET_MICROMIPS && mips_isa_rev >= 6)
+
 /* True if we are generating position-independent VxWorks RTP code.  */
 #define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
 
@@ -899,7 +902,8 @@ struct mips_cpu_info {
 
 #define ISA_HAS_JR		(mips_isa_rev <= 5)
 
-#define ISA_HAS_DELAY_SLOTS	1
+#define ISA_HAS_DELAY_SLOTS	(mips_isa_rev <= 5			\
+				 || !TARGET_MICROMIPS)
 
 #define ISA_HAS_COMPACT_BRANCHES (mips_isa_rev >= 6)
 
@@ -3040,9 +3044,8 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
+	.set noreorder\n\
 1:	.cpload $31\n\
 	.set reorder\n\
 	la $25, " USER_LABEL_PREFIX #FUNC "\n\
@@ -3056,9 +3059,8 @@ while (0)
 	.set nomips16\n\
 	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
-1:	.set reorder\n\
-	.cpsetup $31, $2, 1b\n\
+	.set reorder\n\
+1:	.cpsetup $31, $2, 1b\n\
 	la $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
 	.set pop\n\
@@ -3068,11 +3070,9 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
-1:	.set reorder\n\
-	.cpsetup $31, $2, 1b\n\
+	.set reorder\n\
+1:	.cpsetup $31, $2, 1b\n\
 	dla $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
 	.set pop\n\
