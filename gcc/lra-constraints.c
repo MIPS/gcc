@@ -2830,12 +2830,8 @@ process_address_1 (int nop, bool check_only_p,
       && in_class_p (*ad.base_term, INDEX_REG_CLASS, NULL)
       && ! in_class_p (*ad.index_term, INDEX_REG_CLASS, NULL))
     {
-      rtx *loc = ad.base;
-      rtx *term = ad.base_term;
-      ad.base = ad.index;
-      ad.base_term = ad.index_term;
-      ad.index = loc;
-      ad.index_term = term;
+      std::swap (ad.base, ad.index);
+      std::swap (ad.base_term, ad.index_term);
     }
   if (! check_only_p)
     change_p = equiv_address_substitution (&ad);
