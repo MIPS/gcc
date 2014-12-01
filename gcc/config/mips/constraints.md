@@ -364,25 +364,30 @@
        (match_test "mips_const_vector_same_bytes_p (op, mode)")))
 
 (define_memory_constraint "ZC"
-  "A memory operand whose address is formed by a base register and offset
-   that is suitable for use in instructions with the same addressing mode
-   as @code{ll} and @code{sc}."
+  "When compiling R6 code, this constraint matches a memory operand whose
+   address is formed from a base register and a 9-bit offset.
+   When compiling microMIPS code, this constraint matches a memory operand
+   whose address is formed from a base register and a 12-bit offset.
+   When not compiling for microMIPS nor R6, @code{ZC} is equivalent to
+   @code{R}.
+   These operands can be used for instructions such as @code{ll} and
+   @code{sc}."
   (and (match_code "mem")
-       (if_then_else
-	 (match_test "TARGET_MICROMIPS")
-	 (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")
-	 (if_then_else (match_test "ISA_HAS_9BIT_DISPLACEMENT")
-	   (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")
-	   (match_test "mips_address_insns (XEXP (op, 0), mode, false)")))))
+       (if_then_else (match_test "ISA_HAS_9BIT_DISPLACEMENT")
+	 (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")
+	   (if_then_else
+	     (match_test "TARGET_MICROMIPS")
+	     (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")
+	     (match_test "mips_address_insns (XEXP (op, 0), mode, false)")))))
 
 (define_address_constraint "ZD"
   "An address suitable for a @code{prefetch} instruction, or for any other
    instruction with the same addressing mode as @code{prefetch}."
-   (if_then_else (match_test "TARGET_MICROMIPS")
-		 (match_test "umips_12bit_offset_address_p (op, mode)")
-	  (if_then_else (match_test "ISA_HAS_9BIT_DISPLACEMENT")
-			(match_test "mips_9bit_offset_address_p (op, mode)")
-			(match_test "mips_address_insns (op, mode, false)"))))
+  (if_then_else (match_test "ISA_HAS_9BIT_DISPLACEMENT")
+		(match_test "mips_9bit_offset_address_p (op, mode)")
+		(if_then_else (match_test "TARGET_MICROMIPS")
+		  (match_test "umips_12bit_offset_address_p (op, mode)")
+		  (match_test "mips_address_insns (op, mode, false)"))))
 
 (define_memory_constraint "ZR"
  "@internal

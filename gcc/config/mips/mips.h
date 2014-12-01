@@ -99,6 +99,9 @@ struct mips_cpu_info {
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
+/* True if we are targetting micromips R6 onwards.  */
+#define TARGET_MICROMIPS_R6 (TARGET_MICROMIPS && mips_isa_rev >= 6)
+
 /* True if we are generating position-independent VxWorks RTP code.  */
 #define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
 
@@ -481,6 +484,11 @@ struct mips_cpu_info {
 	      builtin_define ("__mips_dspr2");				\
 	      builtin_define ("__mips_dsp_rev=2");			\
 	    }								\
+	  else if (TARGET_DSPR3)					\
+	    {								\
+	      builtin_define ("__mips_dspr3");				\
+	      builtin_define ("__mips_dsp_rev=3");			\
+	    }								\
 	  else								\
 	    builtin_define ("__mips_dsp_rev=1");			\
 	}								\
@@ -783,7 +791,7 @@ struct mips_cpu_info {
        |march=interaptiv: -mips32r2} \
      %{march=mips32r3: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
-     %{march=mips32r6: -mips32r6} \
+     %{march=mips32r6|march=m6201: -mips32r6} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
        |march=xlr: -mips64} \
      %{march=mips64r2|march=loongson3a|march=octeon|march=xlp: -mips64r2} \
@@ -806,7 +814,8 @@ struct mips_cpu_info {
   "%{mhard-float|msoft-float|mno-float|march=mips*:; \
      march=vr41*|march=m4k|march=4k*|march=24kc|march=24kec \
      |march=34kc|march=34kn|march=74kc|march=1004kc|march=5kc \
-     |march=m14k*|march=m5101|march=octeon|march=xlr: -msoft-float; \
+     |march=m14k*|march=m5101|march=m6201|march=octeon \
+     |march=xlr: -msoft-float; \
      march=*: -mhard-float}"
 
 /* A spec condition that matches 32-bit options.  It only works if
@@ -830,7 +839,7 @@ struct mips_cpu_info {
 /* Infer a -mnan=2008 setting from a -mips argument.  */
 #define MIPS_ISA_NAN2008_SPEC \
   "%{mnan*:;mips32r6|mips64r6:-mnan=2008; \
-     march=m51*|mclib=small|mclib=tiny:%{!msoft-float:-mnan=2008}}"
+     mmicromips|march=m51*|mclib=small|mclib=tiny:%{!msoft-float:-mnan=2008}}"
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
      || MIPS_ABI_DEFAULT == ABI_N32 \
@@ -889,7 +898,9 @@ struct mips_cpu_info {
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv: -mdsp} \
-     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}"
+     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
+  "%{!mforbidden-slots: \
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
 
 #define DRIVER_SELF_SPECS \
   MIPS_ISA_LEVEL_SPEC,	  \
@@ -931,7 +942,8 @@ struct mips_cpu_info {
 
 #define ISA_HAS_JR		(mips_isa_rev <= 5)
 
-#define ISA_HAS_DELAY_SLOTS	1
+#define ISA_HAS_DELAY_SLOTS	(mips_isa_rev <= 5			\
+				 || !TARGET_MICROMIPS)
 
 #define ISA_HAS_COMPACT_BRANCHES (mips_isa_rev >= 6)
 
@@ -1200,7 +1212,8 @@ struct mips_cpu_info {
 				 && mips_isa_rev >= 2)
 
 /* ISA has lwxs instruction (load w/scaled index address.  */
-#define ISA_HAS_LWXS		((TARGET_SMARTMIPS || TARGET_MICROMIPS) \
+#define ISA_HAS_LWXS		((TARGET_SMARTMIPS \
+				 || (TARGET_MICROMIPS && mips_isa_rev <= 5)) \
 				 && !TARGET_MIPS16)
 
 /* ISA has lbx, lbux, lhx, lhx, lhux, lwx, lwux, or ldx instruction. */
@@ -1359,6 +1372,7 @@ struct mips_cpu_info {
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
+%{mdspr3} %{mno-dspr3} \
 %{mmcu} %{mno-mcu} \
 %{meva} %{mno-eva} \
 %{mvirt} %{mno-virt} \
@@ -1379,6 +1393,7 @@ struct mips_cpu_info {
 %{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
+%{mforbidden-slots} \
 %{mtune=*}" \
 FP_ASM_SPEC "\
 %(subtarget_asm_spec)"
@@ -3179,9 +3194,8 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
+	.set noreorder\n\
 1:	.cpload $31\n\
 	.set reorder\n\
 	la $25, " USER_LABEL_PREFIX #FUNC "\n\
@@ -3193,11 +3207,8 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
-1:	.set reorder\n\
-	.cpsetup $31, $2, 1b\n\
+1:	.cpsetup $31, $2, 1b\n\
 	la $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
 	.set pop\n\
@@ -3207,11 +3218,8 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
-1:	.set reorder\n\
-	.cpsetup $31, $2, 1b\n\
+1:	.cpsetup $31, $2, 1b\n\
 	dla $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
 	.set pop\n\
