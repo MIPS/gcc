@@ -21626,7 +21626,7 @@ The processor names are:
 @samp{gs464e}, @samp{gs264e},
 @samp{m4k},
 @samp{m14k}, @samp{m14kc}, @samp{m14ke}, @samp{m14kec},
-@samp{m5100}, @samp{m5101},
+@samp{m5100}, @samp{m5101},  @samp{m6201},
 @samp{octeon}, @samp{octeon+}, @samp{octeon2}, @samp{octeon3},
 @samp{orion},
 @samp{p5600}, @samp{p6600},
