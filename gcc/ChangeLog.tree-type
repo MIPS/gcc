@@ -1,3 +1,15 @@
+2014-12-01  Andrew MacLeod  <amacleod@redhat.com>
+
+	* builtins.c (fold_builtin_atomic_always_lock_free): Don't use ttype as
+	a variable name.
+	* config/sol2-c.c (solaris_pragma_align, solaris_pragma_init,
+	solaris_pragma_fini): Likewise.
+	* cp/decl.c (layout_var_decl): Likewise.
+	* cp/error.c (dump_expr): Likewise.
+	* lto-streamer-in.c (input_eh_regions): Likewise.
+	* lto-streamer-out.c (output_eh_regions): Likewise.
+	* tree.c (build_type_attribute_qual_variant): Likewise.
+
 2014-11-28  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-core.h (struct attribute_spec): Add type_handler field.  Rename

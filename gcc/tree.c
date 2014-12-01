@@ -4659,21 +4659,21 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
   return ddecl;
 }
 
-/* Return a type like TTYPE except that its TYPE_ATTRIBUTE
+/* Return a type like TYPE except that its TYPE_ATTRIBUTE
    is ATTRIBUTE and its qualifiers are QUALS.
 
    Record such modified types already made so we don't make duplicates.  */
 
 tree
-build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
+build_type_attribute_qual_variant (tree type, tree attribute, int quals)
 {
-  if (! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
+  if (! attribute_list_equal (TYPE_ATTRIBUTES (type), attribute))
     {
       inchash::hash hstate;
       tree ntype;
       int i;
       tree t;
-      enum tree_code code = TREE_CODE (ttype);
+      enum tree_code code = TREE_CODE (type);
 
       /* Building a distinct copy of a tagged type is inappropriate; it
 	 causes breakage in code that expects there to be a one-to-one
@@ -4681,19 +4681,19 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	 build_duplicate_type is another solution (as used in
 	 handle_transparent_union_attribute), but that doesn't play well
 	 with the stronger C++ type identity model.  */
-      if (TREE_CODE (ttype) == RECORD_TYPE
-	  || TREE_CODE (ttype) == UNION_TYPE
-	  || TREE_CODE (ttype) == QUAL_UNION_TYPE
-	  || TREE_CODE (ttype) == ENUMERAL_TYPE)
+      if (TREE_CODE (type) == RECORD_TYPE
+	  || TREE_CODE (type) == UNION_TYPE
+	  || TREE_CODE (type) == QUAL_UNION_TYPE
+	  || TREE_CODE (type) == ENUMERAL_TYPE)
 	{
 	  warning (OPT_Wattributes,
 		   "ignoring attributes applied to %qT after definition",
-		   TYPE_MAIN_VARIANT (ttype));
-	  return build_qualified_type (ttype, quals);
+		   TYPE_MAIN_VARIANT (type));
+	  return build_qualified_type (type, quals);
 	}
 
-      ttype = build_qualified_type (ttype, TYPE_UNQUALIFIED);
-      ntype = build_distinct_type_copy (ttype);
+      type = build_qualified_type (type, TYPE_UNQUALIFIED);
+      ntype = build_distinct_type_copy (type);
 
       TYPE_ATTRIBUTES (ntype) = attribute;
 
@@ -4732,18 +4732,18 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
       /* If the target-dependent attributes make NTYPE different from
 	 its canonical type, we will need to use structural equality
 	 checks for this type. */
-      if (TYPE_STRUCTURAL_EQUALITY_P (ttype)
-          || !comp_type_attributes (ntype, ttype))
+      if (TYPE_STRUCTURAL_EQUALITY_P (type)
+          || !comp_type_attributes (ntype, type))
 	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
       else if (TYPE_CANONICAL (ntype) == ntype)
-	TYPE_CANONICAL (ntype) = TYPE_CANONICAL (ttype);
+	TYPE_CANONICAL (ntype) = TYPE_CANONICAL (type);
 
-      ttype = build_qualified_type (ntype, quals);
+      type = build_qualified_type (ntype, quals);
     }
-  else if (TYPE_QUALS (ttype) != quals)
-    ttype = build_qualified_type (ttype, quals);
+  else if (TYPE_QUALS (type) != quals)
+    type = build_qualified_type (type, quals);
 
-  return ttype;
+  return type;
 }
 
 /* Check if "omp declare simd" attribute arguments, CLAUSES1 and CLAUSES2, are
