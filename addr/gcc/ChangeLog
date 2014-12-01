@@ -1,3 +1,623 @@
+2014-12-01  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/63854
+	* real.c (real_from_string): Add missing mpfr_clear.
+
+2014-12-01  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/63854
+	* tree-ssa-math-opts.c (execute_cse_sincos_1): Fix a missing
+	release of stmts by converting it to an auto_vec.
+
+2014-12-01  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (gimple-match.o-warn): Use -Wno-unused instead of
+	-Wno-unused-variable and -Wno-unused-but-set-variable to restore
+	bootstrap with old GCC.
+	(generic-match.o-warn): Likewise.
+
+2014-12-01  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (const_binop): Handle POINTER_PLUS_EXPR.
+	Properly handle FIXED_CST shifts by INTEGER_CST.
+	(const_binop): Move COMPLEX_EXPR, VEC_PACK_TRUNC_EXPR,
+	VEC_PACK_FIX_TRUNC_EXPR, VEC_WIDEN_MULT_LO_EXPR,
+	VEC_WIDEN_MULT_HI_EXPR, VEC_WIDEN_MULT_EVEN_EXPR and
+	VEC_WIDEN_MULT_ODD_EXPR handling here from ...
+	(fold_binary_loc): ... here.  Call const_binop overload
+	with result type.
+
+2014-12-01  Marek Polacek  <polacek@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64121
+	* ubsan.c (instrument_object_size): Stop searching if the base
+	occurs in abnormal phi.
+
+2014-12-01  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63956
+	* ubsan.c (is_ubsan_builtin_p): Check also built-in class.
+
+2014-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (gimple_build_assign_stat): Remove prototype.
+	(gimple_build_assign): Remove define.  Add overload prototypes
+	with tree lhs and either a tree rhs, or enum tree_code and
+	1, 2 or 3 tree operands.
+	* gimple.c (gimple_build_assign_stat): Renamed to...
+	(gimple_build_assign): ... this.  Add overloads with
+	enum tree_code and 1, 2 or 3 tree operands.
+	(gimple_build_assign_with_ops): Remove 1 and 2 operand overloads.
+	Rename the 3 operand overload to ...
+	(gimple_build_assign_1): ... this.  Make it static inline.
+	* tree-ssa-strlen.c (get_string_length): Use gimple_build_assign
+	instead of gimple_build_assign_with_ops, swap the order of first
+	two arguments and adjust formatting where necessary.
+	* tree-vect-slp.c (vect_get_constant_vectors,
+	vect_create_mask_and_perm): Likewise.
+	* tree-ssa-forwprop.c (simplify_rotate): Likewise.
+	* asan.c (build_shadow_mem_access, maybe_create_ssa_name,
+	maybe_cast_to_ptrmode, asan_expand_check_ifn): Likewise.
+	* tsan.c (instrument_builtin_call): Likewise.
+	* tree-chkp.c (chkp_compute_bounds_for_assignment,
+	chkp_generate_extern_var_bounds): Likewise.
+	* tree-loop-distribution.c (generate_memset_builtin): Likewise.
+	* tree-ssa-loop-im.c (rewrite_reciprocal): Likewise.
+	* gimple-builder.c (build_assign, build_type_cast): Likewise.
+	* tree-vect-loop-manip.c (vect_create_cond_for_align_checks): Likewise.
+	* value-prof.c (gimple_divmod_fixed_value, gimple_mod_pow2,
+	gimple_mod_subtract): Likewise.
+	* gimple-match-head.c (maybe_push_res_to_seq): Likewise.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern,
+	vect_recog_sad_pattern, vect_handle_widen_op_by_const,
+	vect_recog_widen_mult_pattern, vect_recog_pow_pattern,
+	vect_recog_widen_sum_pattern, vect_operation_fits_smaller_type,
+	vect_recog_over_widening_pattern, vect_recog_widen_shift_pattern,
+	vect_recog_rotate_pattern, vect_recog_vector_vector_shift_pattern,
+	vect_recog_divmod_pattern, vect_recog_mixed_size_cond_pattern,
+	adjust_bool_pattern_cast, adjust_bool_pattern,
+	vect_recog_bool_pattern): Likewise.
+	* gimple-ssa-strength-reduction.c (create_add_on_incoming_edge,
+	insert_initializers, introduce_cast_before_cand,
+	replace_one_candidate): Likewise.
+	* tree-ssa-math-opts.c (insert_reciprocals, powi_as_mults_1,
+	powi_as_mults, build_and_insert_binop, build_and_insert_cast,
+	pass_cse_sincos::execute, bswap_replace, convert_mult_to_fma):
+	Likewise.
+	* tree-tailcall.c (adjust_return_value_with_ops,
+	update_accumulator_with_ops): Likewise.
+	* tree-predcom.c (reassociate_to_the_same_stmt): Likewise.
+	* tree-ssa-reassoc.c (build_and_add_sum,
+	optimize_range_tests_to_bit_test, update_ops,
+	maybe_optimize_range_tests, rewrite_expr_tree, linearize_expr,
+	negate_value, repropagate_negates, attempt_builtin_powi,
+	reassociate_bb): Likewise.
+	* tree-vect-loop.c (vect_is_simple_reduction_1,
+	get_initial_def_for_induction, vect_create_epilog_for_reduction):
+	Likewise.
+	* ipa-split.c (split_function): Likewise.
+	* tree-ssa-phiopt.c (conditional_replacement, minmax_replacement,
+	abs_replacement, neg_replacement): Likewise.
+	* tree-profile.c (gimple_gen_edge_profiler): Likewise.
+	* tree-vrp.c (simplify_truth_ops_using_ranges,
+	simplify_float_conversion_using_ranges,
+	simplify_internal_call_using_ranges): Likewise.
+	* gimple-fold.c (rewrite_to_defined_overflow, gimple_build): Likewise.
+	* tree-vect-generic.c (expand_vector_divmod,
+	optimize_vector_constructor): Likewise.
+	* ubsan.c (ubsan_expand_null_ifn, ubsan_expand_objsize_ifn,
+	instrument_bool_enum_load): Likewise.
+	* tree-ssa-loop-manip.c (create_iv): Likewise.
+	* omp-low.c (lower_rec_input_clauses, expand_omp_for_generic,
+	expand_omp_for_static_nochunk, expand_omp_for_static_chunk,
+	expand_cilk_for, simd_clone_adjust): Likewise.
+	* trans-mem.c (expand_transaction): Likewise.
+	* tree-vect-data-refs.c (bump_vector_ptr, vect_permute_store_chain,
+	vect_setup_realignment, vect_permute_load_chain,
+	vect_shift_permute_load_chain): Likewise.
+	* tree-vect-stmts.c (vect_init_vector, vectorizable_mask_load_store,
+	vectorizable_simd_clone_call, vect_gen_widened_results_half,
+	vect_create_vectorized_demotion_stmts, vectorizable_conversion,
+	vectorizable_shift, vectorizable_operation, vectorizable_store,
+	permute_vec_elements, vectorizable_load): Likewise.
+
+2014-12-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64111
+	* tree.c (int_cst_hasher::hash): Use TYPE_UID instead of
+	htab_hash_pointer to not break PCH.
+
+2014-12-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/15346
+	* Makefile.in (gimple-match.o-warn): Remove -Wno-unused-parameter,
+	add -Wno-unused-but-set-variable.
+	* match.pd: Combine two successive divisions.
+
+2014-12-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64126
+	* match.pd: Allow conversions in ~A + 1 -> -A, add -A - 1 -> ~A
+	and -1 - A -> ~A.
+	* fold-const.c (fold_binary_loc): Remove transforms here.
+
+2014-12-01  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* config/mips/mips.c (mips16_build_call_stub): Move the save of
+	the return address in $18 ahead of passing arguments to FPRs.
+
+2014-12-01  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/64055
+	* tree-chkp.c (chkp_find_bound_slots_1): Allow non constant
+	values in array domain.
+
+2014-12-01  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/63941
+	* tree-if-conv.c (add_to_predicate_list): Delete wrong assertion that
+	DOM_BB has non-true predicate, conditionally set non-true predicate
+	for BB.
+
+2014-12-01  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/63551
+	* ipa-inline-analysis.c (evaluate_conditions_for_known_args): Convert
+	value of the argument to the type of the value in the condition.
+
+2014-12-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/63986
+	PR target/51244
+	* config/sh/sh.c (sh_unspec_insn_p,
+	sh_insn_operands_modified_between_p): New functions.
+	(sh_split_movrt_negc_to_movt_xor): Do not delete insn if its operands
+	are modified or if it has side effects, may trap or is volatile.
+
+2014-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-expr.h (create_tmp_var_raw, create_tmp_var,
+	create_tmp_reg): Add default NULL value to last argument.
+	* tree-ssanames.h (make_ssa_name, copy_ssa_name): Likewise.
+	* gimple-low.c (lower_builtin_posix_memalign): Remove NULL
+	last argument from create_tmp_var_raw, create_tmp_var,
+	create_tmp_reg, make_ssa_name and copy_ssa_name calls.
+	* tree-ssa-strlen.c (get_string_length): Likewise.
+	* tree-emutls.c (gen_emutls_addr, lower_emutls_1): Likewise.
+	* tree-ssa-phiprop.c (phiprop_insert_phi): Likewise.
+	* tree-vect-slp.c (vect_get_constant_vectors): Likewise.
+	* ipa-prop.c (ipa_modify_call_arguments): Likewise.
+	* tree-ssa-forwprop.c (simplify_rotate): Likewise.
+	* tree-ssa-ccp.c (fold_builtin_alloca_with_align): Likewise.
+	* asan.c (build_shadow_mem_access, maybe_create_ssa_name,
+	maybe_cast_to_ptrmode, asan_expand_check_ifn): Likewise.
+	* tsan.c (instrument_expr, instrument_builtin_call,
+	instrument_func_entry): Likewise.
+	* varpool.c (add_new_static_var): Likewise.
+	* tree-loop-distribution.c (generate_memset_builtin): Likewise.
+	* gimplify.c (internal_get_tmp_var, gimplify_return_expr,
+	gimplify_modify_expr_to_memcpy, gimplify_modify_expr_to_memset,
+	gimplify_init_ctor_eval_range, gimplify_init_constructor,
+	gimplify_omp_atomic, gimplify_expr): Likewise.
+	* gimple-builder.c (build_assign, build_type_cast): Likewise.
+	* tree-vect-loop-manip.c (slpeel_update_phi_nodes_for_guard1,
+	slpeel_update_phi_nodes_for_guard2, slpeel_tree_peel_loop_to_edge,
+	vect_loop_versioning): Likewise.
+	* tree-if-conv.c (version_loop_for_if_conversion): Likewise.
+	* gimple-match-head.c (maybe_push_res_to_seq): Likewise.
+	* tree-vect-patterns.c (vect_handle_widen_op_by_const,
+	vect_recog_widen_mult_pattern, vect_operation_fits_smaller_type,
+	vect_recog_over_widening_pattern): Likewise.
+	* tree-sra.c (build_ref_for_offset, create_access_replacement):
+	Likewise.
+	* tree-cfg.c (make_blocks): Likewise.
+	* tree-eh.c (lower_eh_constructs_2, lower_resx, lower_eh_dispatch):
+	Likewise.
+	* tree-ssa-propagate.c (update_call_from_tree): Likewise.
+	* tree-complex.c (get_component_ssa_name, expand_complex_div_wide):
+	Likewise.
+	* tree-ssa-math-opts.c (build_and_insert_cast): Likewise.
+	* tree-tailcall.c (update_accumulator_with_ops): Likewise.
+	* tree-predcom.c (initialize_root_vars, initialize_root_vars_lm,
+	execute_load_motion, reassociate_to_the_same_stmt): Likewise.
+	* tree-ssa-reassoc.c (build_and_add_sum,
+	optimize_range_tests_to_bit_test, update_ops,
+	maybe_optimize_range_tests, rewrite_expr_tree, linearize_expr,
+	negate_value, repropagate_negates): Likewise.
+	* tree-vect-loop.c (vect_is_simple_reduction_1,
+	vect_create_epilog_for_reduction): Likewise.
+	* ipa-split.c (split_function): Likewise.
+	* tree-inline.c (remap_ssa_name, setup_one_parameter,
+	declare_return_variable, tree_function_versioning): Likewise.
+	* tree-cfgcleanup.c (fixup_noreturn_call): Likewise.
+	* cfgexpand.c (update_alias_info_with_stack_vars, expand_used_vars):
+	Likewise.
+	* tree-ssa-phiopt.c (conditional_replacement, abs_replacement,
+	neg_replacement): Likewise.
+	* gimplify-me.c (force_gimple_operand_1, gimple_regimplify_operands):
+	Likewise.
+	* tree-vrp.c (simplify_truth_ops_using_ranges,
+	simplify_float_conversion_using_ranges,
+	simplify_internal_call_using_ranges): Likewise.
+	* tree-switch-conversion.c (emit_case_bit_tests,
+	build_one_array, build_arrays, gen_def_assigns): Likewise.
+	* gimple-fold.c (gimple_fold_builtin_memory_op,
+	gimple_fold_builtin_strcat, gimple_fold_call, gimple_build): Likewise.
+	* tree-vect-generic.c (expand_vector_divmod,
+	optimize_vector_constructor): Likewise.
+	* ubsan.c (ubsan_encode_value, ubsan_expand_null_ifn,
+	ubsan_expand_objsize_ifn, instrument_si_overflow,
+	instrument_bool_enum_load, instrument_nonnull_arg): Likewise.
+	* tree-outof-ssa.c (insert_backedge_copies): Likewise.
+	* tree-ssa-loop-manip.c (create_iv,
+	tree_transform_and_unroll_loop): Likewise.
+	* omp-low.c (scan_omp_parallel, lower_rec_simd_input_clauses,
+	lower_rec_input_clauses, lower_lastprivate_clauses,
+	expand_parallel_call, expand_omp_for_static_chunk,
+	expand_omp_atomic_pipeline, expand_omp_target,
+	maybe_add_implicit_barrier_cancel, lower_omp_single_simple,
+	lower_omp_critical, lower_omp_for, task_copyfn_copy_decl,
+	lower_depend_clauses, lower_omp_target, lower_omp_1,
+	ipa_simd_modify_stmt_ops, simd_clone_adjust): Likewise.
+	* tree-parloops.c (take_address_of, create_phi_for_local_result,
+	create_call_for_reduction_1, separate_decls_in_region,
+	create_parallel_loop): Likewise.
+	* graphite-sese-to-poly.c (rewrite_cross_bb_scalar_dependence,
+	handle_scalar_deps_crossing_scop_limits): Likewise.
+	* trans-mem.c (lower_transaction, build_tm_load, build_tm_store,
+	expand_assign_tm, expand_call_tm, expand_transaction,
+	ipa_tm_insert_gettmclone_call): Likewise.
+	* tree-vect-data-refs.c (bump_vector_ptr, vect_setup_realignment):
+	Likewise.
+	* tree-vect-stmts.c (vect_init_vector, vectorizable_mask_load_store,
+	vectorizable_call, vectorizable_simd_clone_call,
+	vectorizable_conversion, vectorizable_store, permute_vec_elements,
+	vectorizable_load): Likewise.
+
+2014-11-29  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* opt-functions.awk (lang_enabled_by): Support || for
+	enabled-by.
+	* optc-gen.awk: Ditto.
+	* doc/options.texi (LangEnabledBy, EnabledBy): Document the
+	|| syntax.
+
+2014-11-28  Mike Stump  <mikestump@comcast.net>
+
+	* bitmap.c (bitmap_ior): Zap current as it could be deleted.
+	(bitmap_ior_and_compl): Likewise.
+
+2014-11-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64061
+	* lra.c (lra_substitute_pseudo): Ignore constant with int mode for
+	subreg.
+
+2014-11-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/64093
+	* config/rs6000/rs6000.md (and<mode>3): Don't generate
+	and<mode>3_imm unless rs6000_gen_cell_microcode is true.
+
+2014-11-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/64087
+	* lra-lives.c (process_bb_lives): Add debug output.
+	(lra_create_live_ranges): Don't remove dead insn on the second
+	call of lra_create_live_ranges_1.
+
+2014-11-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/64037
+	* combine.c (setup_incoming_promotions): Pass the argument
+	before any promotions happen to promote_function_mode.
+
+2014-11-28  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* tree-vect-data-refs.c (vect_transform_grouped_load): Limit shift
+	permutations to loads group of size 3.
+
+2014-11-28  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/arm/arm.md (copysignsf3): New pattern.
+	(copysigndf3): Likewise.
+
+2014-11-28  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* omp-low.c (lower_omp_critical): Mark critical sections
+	inside target functions as offloadable.
+
+2014-11-28  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* lto-wrapper.c (run_gcc): Set have_lto and have_offload if at least one
+	file contains sections with LTO and offload IR, respectively.
+
+2014-11-28  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* cgraphunit.c (ipa_passes): Handle flag_generate_offload.
+	(symbol_table::compile): Set flag_generate_offload if there is something
+	to offload.
+	* common.opt (flag_generate_offload): New Variable declaration.
+	* dwarf2out.c (dwarf2out_finish): Handle flag_generate_offload.
+	* ipa-inline-analysis.c (inline_generate_summary): Do not skip if
+	flag_generate_offload is set.
+	* lto-streamer.c (gate_lto_out): Handle flag_generate_offload.
+	* passes.c (ipa_write_summaries): Do not skip if flag_generate_offload
+	is set.
+	* toplev.c (compile_file): Emit LTO marker if offload info has been
+	previously emitted.  Do not emit lto_slim marker if
+	flag_generate_offload is without flag_generate_lto.
+	* tree.c (free_lang_data): Do not skip if flag_generate_offload is set.
+
+2014-11-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm-cores.def (cortex-a17.cortex-a7): New entry.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm-tune.md: Regenerate.
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Add mcpu=cortex-a17.cortex-a7.
+	* config/arm/t-aprofile: Add cortex-a17.cortex-a7 entry to
+	MULTILIB_MATCHES.
+
+2014-11-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (generic_sched): Specify cortexa17 in 'no' list.
+	Include cortex-a17.md.
+	* config/arm/arm.c (arm_issue_rate): Specify 2 for cortexa17.
+	* config/arm/arm-cores.def (cortex-a17): New entry.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm-tune.md: Regenerate.
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Specify mcpu=cortex-a17.
+	* config/arm/cortex-a17.md: New file.
+	* config/arm/cortex-a17-neon.md: New file.
+	* config/arm/driver-arm.c (arm_cpu_table): Add entry for cortex-a17.
+	* config/arm/t-aprofile: Add cortex-a17 entries to MULTILIB_MATCHES.
+
+2014-11-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64084
+	* genmatch.c (dt_node::gen_kids_1): New function, split out
+	from dt_node::gen_kids.
+	(decision_tree::cmp_node): DT_TRUE are generally not equal.
+	(decision_tree::find_node): Treat DT_TRUE as barrier for
+	node CSE on the same level.
+	(dt_node::append_node): Do not keep DT_TRUE last.
+	(dt_node::gen_kids): Emit code after each DT_TRUE node seen.
+
+2014-11-28  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/t-aprofile (MULTILIB_MATCHES): New entry for
+	-march=armv8-a+crc.
+
+2014-11-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (preferred_for_size): New attribute
+	(*pushxf): Split Yx*r constraints to r,*r.  Use preferred_for_size
+	attribute to conditionally disable alternative 1.
+	(*pushdf): Split Yd*r constraints to r,*r.  Use preferred_for_size
+	and prefered_for_speed attributes to conditionally disable
+	alternative 1.
+	(*movxf_internal): Split Yx*r constraints to r,*r.  Use
+	preferred_for_size attribute to conditionally disable
+	alternatives 3 and 4.
+	(*movdf_internal): Split Yd*r constraints to r,*r.  Use
+	preferred_for_size and prefered_for_speed attributes to conditionally
+	disable alternatives 3 and 4.
+	* config/i386/constraints.md (Yd, Yx): Remove register constraints.
+
+2014-11-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (set_block_origin_self): Skip nested functions.
+
+2014-11-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/63833
+	* config/i386/i386.h (REAL_PIC_OFFSET_TABLE_REGNUM): Use
+	R15_REG for 64-bit.
+	* config/i386/rdos64.h (REAL_PIC_OFFSET_TABLE_REGNUM): Removed.
+
+2014-11-27  Martin Liska  <mliska@suse.cz>
+	    David Malcolm  <dmalcolm@redhat.com>
+
+	* ipa-icf.c (sem_function::equals_private): int* is replaced with
+	auto_vec.
+	(sem_function::bb_dict_test): Likewise.
+	* ipa-icf.h: Likewise.
+
+2014-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64088
+	* fold-const.c (const_unop): Re-instantiate missing condition
+	before calling fold_abs_const.
+
+	PR tree-optimization/64088
+	* tree-ssa-tail-merge.c (update_debug_stmt): After resetting
+	the stmt break from the loop over use operands.
+
+2014-11-27  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* config/i386/cpuid.h (bit_MPX, bit_BNDREGS, bit_BNDCSR):
+	Define.
+	* config/i386/i386.c (get_builtin_code_for_version): Add avx512f.
+	(fold_builtin_cpu): Ditto.
+	* doc/extend.texi: Documment it.
+
+2014-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/64067
+	* expr.c (expand_expr_addr_expr_1) <case COMPOUND_LITERAL_EXPR>:
+	Handle it by returning address of COMPOUND_LITERAL_EXPR_DECL
+	not only if modifier is EXPAND_INITIALIZER, but whenever
+	COMPOUND_LITERAL_EXPR_DECL is non-NULL and TREE_STATIC.
+
+	PR tree-optimization/64024
+	* tree-vectorizer.h (struct _stmt_vec_info): Remove simd_clone_fndecl
+	field.  Add simd_clone_info field.
+	(STMT_VINFO_SIMD_CLONE_FNDECL): Remove.
+	(STMT_VINFO_SIMD_CLONE_INFO): Define.
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Adjust for
+	STMT_VINFO_SIMD_CLONE_FNDECL becoming first element of
+	STMT_VINFO_SIMD_CLONE_INFO vector.  For linear arguments, remember
+	base and linear_step from analysis phase and use it during transform
+	phase, biased by the difference between LOOP_VINFO_NITERS{_UNCHANGED,}
+	multiplied by linear_step.
+	(free_stmt_vec_info): Release STMT_VINFO_SIMD_CLONE_INFO.
+
+	PR lto/64025
+	* alias.c (find_base_term): Use std::swap.  Prefer tmp2
+	if it is CONSTANT_P other than CONST_INT.
+
+2014-11-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR target/59593
+	* config/arm/arm.c (dump_minipool): dispatch to consttable pattern
+	based on mode size.
+	* config/arm/arm.md (consttable_1): Move from config/arm/thumb1.md and
+	make it TARGET_EITHER.
+	(consttable_2): Move from config/arm/thumb1.md, make it TARGET_EITHER
+	and move HFmode handling from consttable_4 to it.
+	(consttable_4): Move HFmode handling to consttable_2 pattern.
+	* config/arm/thumb1.md (consttable_1): Move to config/arm/arm.md.
+	(consttable_2): Ditto.
+
+2014-11-27  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (try_to_simplify): Allow
+	gimple_fold_stmt_to_constant_1 to follow SSA edges.
+
+2014-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64083
+	* tree-ssa-threadupdate.c (thread_through_all_blocks): Do not
+	forcibly mark loop for removal the wrong way.
+
+2014-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63704
+	* alias.c (mems_in_disjoint_alias_sets_p): Remove assert
+	and instead return false when !fstrict-aliasing.
+
+2014-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61634
+	* tree-vect-slp.c: Include gimple-walk.h.
+	(vect_detect_hybrid_slp_stmts): Rewrite to propagate hybrid
+	down the SLP tree for one scalar statement.
+	(vect_detect_hybrid_slp_1): New walker function.
+	(vect_detect_hybrid_slp_2): Likewise.
+	(vect_detect_hybrid_slp): Properly handle pattern statements
+	in a pre-scan over all loop stmts.
+
+2014-11-27  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	Revert:
+	2014-11-17  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+	* config/aarch64/aarch64.c (aarch64_code_to_ccmode,
+	aarch64_convert_mode, aarch64_gen_ccmp_first,
+	aarch64_gen_ccmp_next): New functions.
+	(TARGET_GEN_CCMP_FIRST, TARGET_GEN_CCMP_NEXT): Define.
+
+2014-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (SANITIZER_SPEC): Don't error on -fsanitize=thread
+	without -pie or -shared, error on -fsanitize=thread -static instead.
+
+2014-11-26  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR ipa/61190
+	* cgraph.h (symtab_node::call_for_symbol_and_aliases): Fix comment.
+	(cgraph_node::function_or_virtual_thunk_symbol): New function.
+	(cgraph_node::call_for_symbol_and_aliases): Fix comment.
+	(cgraph_node::call_for_symbol_thunks_and_aliases): Adjust comment.
+	Add new optional parameter exclude_virtual_thunks.
+	* cgraph.c (cgraph_node::call_for_symbol_thunks_and_aliases): Add new
+	optional parameter exclude_virtual_thunks.
+	(cgraph_node::set_const_flag): Don't propagate to virtual thunks.
+	(cgraph_node::set_pure_flag): Likewise.
+	(cgraph_node::function_symbol): Simplified.
+	(cgraph_node::function_or_virtual_thunk_symbol): New function.
+	* ipa-pure-const.c (analyze_function): For virtual thunks set
+	pure_const_state to IPA_NEITHER.
+	(propagate_pure_const): Use function_or_virtual_thunk_symbol.
+
+2014-11-26  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63738
+	* tree-data-ref.c (split_constant_offset_1): Do not follow
+	SSA edges for SSA names with SSA_NAME_OCCURS_IN_ABNORMAL_PHI.
+
+2014-11-26  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.h (const_unop): Declare.
+	(const_binop): Likewise.
+	* fold-const.c (const_binop): Export overload that expects
+	a type parameter and dispatches to fold_relational_const as well.
+	Check both operand kinds for guarding the transforms.
+	(const_unop): New function, with constant folding from fold_unary_loc.
+	(fold_unary_loc): Dispatch to const_unop for tcc_constant operand.
+	Remove constant folding done there from the simplifications.
+	(fold_binary_loc): Check for constants using CONSTANT_CLASS_P.
+	(fold_negate_expr): Remove dead code from the REAL_CST case.
+	Avoid building garbage in the COMPLEX_CST case.
+	* gimple-match-head.c (gimple_resimplify1): Dispatch to
+	const_unop.
+	(gimple_resimplify2): Dispatch to const_binop.
+	(gimple_simplify): Likewise.
+
+2014-11-26  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR bootstrap/63995
+	* tree-chkp-opt.c (chkp_reduce_bounds_lifetime): Ignore
+	debug statement when searching for a new position for
+	bounds load/creation statement.
+
+2014-11-26  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/63788
+	* asan.c (initialize_sanitizer_builtins): Add BT_FN_SIZE_CONST_PTR_INT
+	var.  Conditionally build BUILT_IN_OBJECT_SIZE decl.
+	(ATTR_PURE_NOTHROW_LEAF_LIST): Define.
+
+2014-11-26  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR lto/64075
+	* tree-streamer-in.c (unpack_ts_function_decl_value_fields): Use
+	proper size for function_code bitfield.
+	(pack_ts_function_decl_value_fields): Likewise.
+
+2014-11-21  Mark Wielaard  <mjw@redhat.com>
+
+	* doc/invoke.texi (-gdwarf-@{version}): Mention experimental DWARFv5.
+	* opts.c (common_handle_option): Accept -gdwarf-5.
+	* dwarf2out.c (is_cxx): Add DW_LANG_C_plus_plus_11 and
+	DW_LANG_C_plus_plus_14.
+	(lower_bound_default): Likewise. Plus DW_LANG_C11.
+	(gen_compile_unit_die): Output DW_LANG_C_plus_plus_11,
+	DW_LANG_C_plus_plus_14 or DW_LANG_C11.
+	(output_compilation_unit_header): Output at most a DWARFv4 header.
+	(output_skeleton_debug_sections): Likewise.
+	(output_line_info): Likewise.
+	(output_aranges): Document header version number.
+
+2014-11-26  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (get_symbol_constant_value): Allow all
+	GIMPLE register type zero-constants.
+
+2014-11-26  Mark Wielaard  <mjw@redhat.com>
+
+	* dwarf2out.c (gen_subprogram_die): Add DW_AT_noreturn when the
+	function decl has TREE_THIS_VOLATILE.
+
+2014-11-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62238
+	* tree-predcom.c (ref_at_iteration): Unshare the expression
+	before gimplifying it.
+	(prepare_initializers_chain): Discard unused seq.
+
 2014-11-25  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-lives.c (process_bb_node_lives): Make code with conditional

@@ -933,10 +933,11 @@ gfc_notify_std (int std, const char *gmsgid, ...)
 
 
 /* Immediate warning (i.e. do not buffer the warning).  */
-/* Use gfc_warning_now_2 instead, unless gmsgid contains a %L.  */
+/* Use gfc_warning_now instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
 
 void
-gfc_warning_now (const char *gmsgid, ...)
+gfc_warning_now_1 (const char *gmsgid, ...)
 {
   va_list argp;
   int i;
@@ -1094,10 +1095,12 @@ gfc_diagnostic_finalizer (diagnostic_context *context,
 }
 
 /* Immediate warning (i.e. do not buffer the warning).  */
-/* This function uses the common diagnostics, but does not support %L, yet.  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_warning_now_1.   */
 
 bool
-gfc_warning_now_2 (int opt, const char *gmsgid, ...)
+gfc_warning_now (int opt, const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1113,10 +1116,12 @@ gfc_warning_now_2 (int opt, const char *gmsgid, ...)
 }
 
 /* Immediate warning (i.e. do not buffer the warning).  */
-/* This function uses the common diagnostics, but does not support %L, yet.  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_warning_now_1.   */
 
 bool
-gfc_warning_now_2 (const char *gmsgid, ...)
+gfc_warning_now (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1132,10 +1137,12 @@ gfc_warning_now_2 (const char *gmsgid, ...)
 
 
 /* Immediate error (i.e. do not buffer).  */
-/* This function uses the common diagnostics, but does not support %L, yet.  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_error_now_1.   */
 
 void
-gfc_error_now_2 (const char *gmsgid, ...)
+gfc_error_now (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1241,10 +1248,11 @@ warning:
 
 
 /* Immediate error.  */
-/* Use gfc_error_now_2 instead, unless gmsgid contains a %L.  */
+/* Use gfc_error_now instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
 
 void
-gfc_error_now (const char *gmsgid, ...)
+gfc_error_now_1 (const char *gmsgid, ...)
 {
   va_list argp;
   int i;
@@ -1274,21 +1282,17 @@ gfc_error_now (const char *gmsgid, ...)
 /* This shouldn't happen... but sometimes does.  */
 
 void
-gfc_internal_error (const char *format, ...)
+gfc_internal_error (const char *gmsgid, ...)
 {
   va_list argp;
+  diagnostic_info diagnostic;
 
-  buffer_flag = 0;
-
-  va_start (argp, format);
-
-  show_loci (&gfc_current_locus, NULL);
-  error_printf ("Internal Error at (1):");
-
-  error_print ("", format, argp);
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_ICE);
+  report_diagnostic (&diagnostic);
   va_end (argp);
 
-  exit (ICE_EXIT_CODE);
+  gcc_unreachable ();
 }
 
 
@@ -1382,9 +1386,9 @@ void
 gfc_get_errors (int *w, int *e)
 {
   if (w != NULL)
-    *w = warnings;
+    *w = warnings + warningcount + werrorcount;
   if (e != NULL)
-    *e = errors;
+    *e = errors + errorcount + sorrycount + werrorcount;
 }
 
 

@@ -1,3 +1,35 @@
+2014-12-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/63840
+	* include/std/functional (function::function(const function&)): Set
+	_M_manager after operations that might throw.
+	* include/tr1/functional (function::function(const function&),
+	function::function(_Functor, _Useless)): Likewise.
+	* testsuite/20_util/function/63840.cc: New.
+	* testsuite/tr1/3_function_objects/function/63840.cc: New.
+
+2014-11-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Fix ios_base::failure exports.
+
+2014-11-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/locale_facets/nonio.h (__timepunct): Remove unused
+	typedef.
+	(time_get): Likewise. Fix comments.
+
+	* src/c++98/locale_init.cc (locale::_Impl::_Impl(size_t)): Use
+	new-initializer instead of loop.
+	* src/c++98/localename.cc (locale::_Impl::_Impl(const char*, size_t)):
+	Likewise.
+
+2014-11-26  Jonathan Wakely  <jwakely@redhat.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libstdc++/64054
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/hexfloat.cc:
+	XFAIL execution on *-*-solaris*.
+
 2014-11-25  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libstdc++-prettyprinters/prettyprinters.exp: Add missing

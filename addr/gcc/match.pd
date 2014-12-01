@@ -129,6 +129,19 @@ along with GCC; see the file COPYING3.  If not see
       && TYPE_UNSIGNED (type))
   (trunc_div @0 @1)))
 
+/* Combine two successive divisions.  */
+(for div (trunc_div ceil_div floor_div round_div exact_div)
+ (simplify
+  (div (div @0 INTEGER_CST@1) INTEGER_CST@2)
+  (with {
+    bool overflow_p;
+    wide_int mul = wi::mul (@1, @2, TYPE_SIGN (type), &overflow_p);
+   }
+   (if (!overflow_p)
+    (div @0 { wide_int_to_tree (type, mul); }))
+   (if (overflow_p)
+    { build_zero_cst (type); }))))
+
 /* Optimize A / A to 1.0 if we don't care about
    NaNs or Infinities.  */
 (simplify
@@ -484,8 +497,22 @@ along with GCC; see the file COPYING3.  If not see
 
   /* ~A + 1 -> -A */
   (simplify
-   (plus (bit_not @0) integer_each_onep)
-   (negate @0))
+   (plus (convert? (bit_not @0)) integer_each_onep)
+   (if (tree_nop_conversion_p (type, TREE_TYPE (@0)))
+    (negate (convert @0))))
+
+  /* -A - 1 -> ~A */
+  (simplify
+   (minus (convert? (negate @0)) integer_each_onep)
+   (if (!TYPE_OVERFLOW_TRAPS (type)
+	&& tree_nop_conversion_p (type, TREE_TYPE (@0)))
+    (bit_not (convert @0))))
+
+  /* -1 - A -> ~A */
+  (simplify
+   (minus integer_all_onesp @0)
+   (if (TREE_CODE (type) != COMPLEX_TYPE)
+    (bit_not @0)))
 
   /* (T)(P + A) - (T)P -> (T) A */
   (for add (plus pointer_plus)

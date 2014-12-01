@@ -1303,7 +1303,7 @@ hashval_t
 int_cst_hasher::hash (tree x)
 {
   const_tree const t = x;
-  hashval_t code = htab_hash_pointer (TREE_TYPE (t));
+  hashval_t code = TYPE_UID (TREE_TYPE (t));
   int i;
 
   for (i = 0; i < TREE_INT_CST_NUNITS (t); i++)
@@ -5730,7 +5730,7 @@ free_lang_data (void)
 
   /* If we are the LTO frontend we have freed lang-specific data already.  */
   if (in_lto_p
-      || !flag_generate_lto)
+      || (!flag_generate_lto && !flag_generate_offload))
     return 0;
 
   /* Allocate and assign alias sets to the standard integer types
