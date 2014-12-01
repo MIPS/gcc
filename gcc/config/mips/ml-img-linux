@@ -6,3 +6,7 @@ mipsel-r6-hard/lib
 mipsel-r6-soft/lib
 mipsel-r6-hard/lib32
 mipsel-r6-hard/lib64
+micromips-r6-hard/lib
+micromips-r6-soft/lib
+micromipsel-r6-hard/lib
+micromipsel-r6-soft/lib

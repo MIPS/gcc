@@ -123,6 +123,10 @@ mdspr2
 Target Report Var(TARGET_DSPR2)
 Use MIPS-DSP REV 2 instructions.
 
+mdspr3
+Target Report Var(TARGET_DSPR3)
+Use MIPS-DSP Rev 3 instructions.
+
 mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
 
@@ -480,3 +484,6 @@ Enum(mips_lib_setting) String(small) Value(MIPS_LIB_SMALL)
 
 EnumValue
 Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
+
+mforbidden-slots
+Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
