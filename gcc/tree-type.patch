@@ -1,66 +1,33 @@
-Index: c-family/c-common.h
-===================================================================
-*** c-family/c-common.h	(revision 217943)
---- c-family/c-common.h	(working copy)
-*************** extern enum omp_clause_default_kind c_om
-*** 1242,1252 ****
-  static inline tree
-  c_tree_chain_next (tree t)
-  {
--   /* TREE_CHAIN of a type is TYPE_STUB_DECL, which is different
--      kind of object, never a long chain of nodes.  Prefer
--      TYPE_NEXT_VARIANT for types.  */
--   if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_TYPE_COMMON))
--     return TYPE_NEXT_VARIANT (t);
-    /* Otherwise, if there is TREE_CHAIN, return it.  */
-    if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_COMMON))
-      return TREE_CHAIN (t);
---- 1242,1247 ----
-Index: tree-core.h
-===================================================================
-*** tree-core.h	(revision 217983)
---- tree-core.h	(working copy)
+diff -cpN tree-core.h tree-core.h
+*** tree-core.h	2014-12-01 10:13:59.900463153 -0500
+--- tree-core.h	2014-12-01 10:22:58.392731126 -0500
 *************** enum internal_fn {
 *** 702,709 ****
     IFN_LAST
   };
   
-! typedef union tree_node *tree_type_ptr;
-! typedef const union tree_node *const_tree_type_ptr;
+! typedef union tree_node *ttype;
+! typedef const union tree_node *const_ttype;
   
   /*---------------------------------------------------------------------------
                                   Type definitions
---- 702,723 ----
+--- 702,709 ----
     IFN_LAST
   };
   
-! typedef struct tree_type_node *tree_type_ptr;
-! typedef const struct tree_type_node *const_tree_type_ptr;
-! 
-! class tree_type_hybrid {
-!   union {
-!     tree tr;
-!     tree_type_ptr ty;
-!   } t;
-!   inline operator tree() const { return t.tr; }
-!   inline operator tree_type_ptr() const  { return t.ty; }
-!   inline tree_type_hybrid& operator= (tree x) { t.tr = x; return *this; } 
-!   inline tree_type_hybrid& operator= (tree_type_ptr x) { t.ty = x; return *this; } 
-! };
-! 
-! typedef tree_type_hybrid *tree_type_hybrid_ptr;
-! typedef const tree_type_hybrid *const_tree_type_hybrid_ptr;
+! typedef struct ttype_node *ttype;
+! typedef const struct ttype_node *const_ttype;
   
   /*---------------------------------------------------------------------------
                                   Type definitions
 *************** struct GTY(()) tree_base {
 *** 832,837 ****
---- 846,946 ----
+--- 832,932 ----
     } GTY((skip(""))) u;
   };
   
 + 
-+ struct GTY(()) tree_type_node {
++ struct GTY(()) ttype_node {
 +   ENUM_BITFIELD(tree_code) code : 16;
 + 
 +   unsigned side_effects_flag : 1;
@@ -106,9 +73,9 @@ Index: tree-core.h
 +     unsigned address_space : 8;
 +   } bits;
 + 
-+   struct tree_type_node *type;
++   struct ttype_node *type;
 + 
-+   struct tree_type_node *chain;
++   struct ttype_node *chain;
 + 
 +   tree size;
 +   tree size_unit;
@@ -135,17 +102,17 @@ Index: tree-core.h
 + 
 +   unsigned int align;
 +   alias_set_type alias_set;
-+   struct tree_type_node *pointer_to;
-+   struct tree_type_node *reference_to;
++   struct ttype_node *pointer_to;
++   struct ttype_node *reference_to;
 +   union tree_type_symtab {
 +     int GTY ((tag ("TYPE_SYMTAB_IS_ADDRESS"))) address;
 +     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
 +     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
 +   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
-+   struct tree_type_node *canonical;
-+   struct tree_type_node *next_variant;
-+   struct tree_type_node *main_variant;
-+   struct tree_type_node *context;
++   struct ttype_node *canonical;
++   struct ttype_node *next_variant;
++   struct ttype_node *main_variant;
++   struct ttype_node *context;
 +   tree name;
 +   struct lang_type *lang_specific;
 +   tree values;
@@ -189,17 +156,17 @@ Index: tree-core.h
 - 
 -   unsigned int align;
 -   alias_set_type alias_set;
--   tree_type_ptr pointer_to;
--   tree_type_ptr reference_to;
+-   ttype pointer_to;
+-   ttype reference_to;
 -   union tree_type_symtab {
 -     int GTY ((tag ("TYPE_SYMTAB_IS_ADDRESS"))) address;
 -     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
 -     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
 -   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
--   tree_type_ptr canonical;
--   tree_type_ptr next_variant;
--   tree_type_ptr main_variant;
--   tree_type_ptr context;
+-   ttype canonical;
+-   ttype next_variant;
+-   ttype main_variant;
+-   ttype context;
 -   tree name;
 - };
 - 
@@ -220,7 +187,7 @@ Index: tree-core.h
   struct GTY (()) tree_binfo {
     struct tree_common common;
   
---- 1416,1421 ----
+--- 1402,1407 ----
 *************** union GTY ((ptr_alias (union lang_tree_n
 *** 1678,1688 ****
     struct tree_function_decl GTY ((tag ("TS_FUNCTION_DECL"))) function_decl;
@@ -234,11 +201,10 @@ Index: tree-core.h
     struct tree_list GTY ((tag ("TS_LIST"))) list;
     struct tree_vec GTY ((tag ("TS_VEC"))) vec;
     struct tree_exp GTY ((tag ("TS_EXP"))) exp;
---- 1732,1737 ----
-Index: tree.h
-===================================================================
-*** tree.h	(revision 217983)
---- tree.h	(working copy)
+--- 1718,1723 ----
+diff -cpN tree.h tree.h
+*** tree.h	2014-12-01 10:13:59.901463152 -0500
+--- tree.h	2014-12-01 10:22:58.393731125 -0500
 *************** along with GCC; see the file COPYING3.
 *** 221,228 ****
   #define TREE_CODE(NODE) ((enum tree_code) (NODE)->base.code)
@@ -976,29 +942,28 @@ Index: tree.h
      and basetypes.
 *************** extern tree build_target_option_node (st
 *** 2759,2764 ****
---- 2758,2784 ----
+--- 2758,2783 ----
   
   extern void prepare_target_option_nodes_for_pch (void);
   
-+ extern tree_type_ptr type_check2 (tree_type_ptr, enum tree_code,
-+ 				  enum tree_code);
-+ extern tree_type_ptr type_check3 (tree_type_ptr, enum tree_code, enum tree_code,
-+ 				  enum tree_code);
-+ extern tree_type_ptr type_not_check3 (tree_type_ptr, enum tree_code,
-+ 				      enum tree_code, enum tree_code);
-+ extern tree_type_ptr type_check5 (tree_type_ptr, enum tree_code, enum tree_code,
-+ 				  enum tree_code, enum tree_code,
-+ 				  enum tree_code);
++ extern ttype type_check2 (ttype, enum tree_code, enum tree_code);
++ extern ttype type_check3 (ttype, enum tree_code, enum tree_code,
++ 			    enum tree_code);
++ extern ttype type_not_check3 (ttype, enum tree_code, enum tree_code,
++ 				enum tree_code);
++ extern ttype type_check5 (ttype, enum tree_code, enum tree_code,
++ 			    enum tree_code, enum tree_code,
++ 			    enum tree_code);
 + 
-+ extern const_tree_type_ptr type_check2 (const_tree_type_ptr, enum tree_code,
-+ 					enum tree_code);
-+ extern const_tree_type_ptr type_check3 (const_tree_type_ptr, enum tree_code,
-+ 					enum tree_code, enum tree_code);
-+ extern const_tree_type_ptr type_not_check3 (const_tree_type_ptr, enum tree_code,
-+ 					    enum tree_code, enum tree_code);
-+ extern const_tree_type_ptr type_check5 (const_tree_type_ptr, enum tree_code,
-+ 					    enum tree_code, enum tree_code,
-+ 					    enum tree_code, enum tree_code);
++ extern const_ttype type_check2 (const_ttype, enum tree_code,
++ 				  enum tree_code);
++ extern const_ttype type_check3 (const_ttype, enum tree_code,
++ 				  enum tree_code, enum tree_code);
++ extern const_ttype type_not_check3 (const_ttype, enum tree_code,
++ 				      enum tree_code, enum tree_code);
++ extern const_ttype type_check5 (const_ttype, enum tree_code,
++ 				  enum tree_code, enum tree_code,
++ 				  enum tree_code, enum tree_code);
 + 
 + 
   #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -1016,7 +981,7 @@ Index: tree.h
   
   #define intQI_type_node			global_types[TPI_INTQI_TYPE]
   #define intHI_type_node			global_types[TPI_INTHI_TYPE]
---- 3283,3289 ----
+--- 3282,3288 ----
   #endif
   
   #define error_mark_node			global_trees[TI_ERROR_MARK]
@@ -1024,3 +989,20 @@ Index: tree.h
   
   #define intQI_type_node			global_types[TPI_INTQI_TYPE]
   #define intHI_type_node			global_types[TPI_INTHI_TYPE]
+diff -cpN c-family/c-common.h c-family/c-common.h
+*** c-family/c-common.h	2014-12-01 10:13:59.937463112 -0500
+--- c-family/c-common.h	2014-12-01 10:22:58.433731058 -0500
+*************** extern enum omp_clause_default_kind c_om
+*** 1242,1252 ****
+  static inline tree
+  c_tree_chain_next (tree t)
+  {
+-   /* TREE_CHAIN of a type is TYPE_STUB_DECL, which is different
+-      kind of object, never a long chain of nodes.  Prefer
+-      TYPE_NEXT_VARIANT for types.  */
+-   if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_TYPE_COMMON))
+-     return TYPE_NEXT_VARIANT (t);
+    /* Otherwise, if there is TREE_CHAIN, return it.  */
+    if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_COMMON))
+      return TREE_CHAIN (t);
+--- 1242,1247 ----

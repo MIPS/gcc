@@ -702,8 +702,8 @@ enum internal_fn {
   IFN_LAST
 };
 
-typedef union tree_node *tree_type_ptr;
-typedef const union tree_node *const_tree_type_ptr;
+typedef union tree_node *ttype;
+typedef const union tree_node *const_ttype;
 
 /*---------------------------------------------------------------------------
                                 Type definitions
@@ -1105,7 +1105,7 @@ struct GTY(()) tree_base {
 
 struct GTY(()) tree_typed {
   struct tree_base base;
-  tree_type_ptr type;
+  ttype type;
 };
 
 struct GTY(()) tree_common {
@@ -1334,17 +1334,17 @@ struct GTY(()) tree_type_common {
 
   unsigned int align;
   alias_set_type alias_set;
-  tree_type_ptr pointer_to;
-  tree_type_ptr reference_to;
+  ttype pointer_to;
+  ttype reference_to;
   union tree_type_symtab {
     int GTY ((tag ("TYPE_SYMTAB_IS_ADDRESS"))) address;
     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
-  tree_type_ptr canonical;
-  tree_type_ptr next_variant;
-  tree_type_ptr main_variant;
-  tree_type_ptr context;
+  ttype canonical;
+  ttype next_variant;
+  ttype main_variant;
+  ttype context;
   tree name;
 };
 
@@ -1873,14 +1873,14 @@ extern GTY (()) vec<tree, va_gc> *all_translation_units;
 
 /* Vector of standard trees used by the C compiler.  */
 extern GTY(()) tree global_trees[TI_MAX];
-extern GTY(()) tree_type_ptr global_types[TPI_MAX];
+extern GTY(()) ttype global_types[TPI_MAX];
 
 /* The standard C integer types.  Use integer_type_kind to index into
    this array.  */
-extern GTY(()) tree_type_ptr integer_types[itk_none];
+extern GTY(()) ttype integer_types[itk_none];
 
 /* Types used to represent sizes.  */
-extern GTY(()) tree_type_ptr  sizetype_tab[(int) stk_type_kind_last];
+extern GTY(()) ttype sizetype_tab[(int) stk_type_kind_last];
 
 /* Arrays for keeping track of tree node statistics.  */
 extern int tree_node_counts[];

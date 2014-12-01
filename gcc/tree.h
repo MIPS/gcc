@@ -211,7 +211,7 @@ along with GCC; see the file COPYING3.  If not see
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
 #define NULL_TREE (tree) NULL
-#define NULL_TYPE (tree_type_ptr) NULL
+#define NULL_TYPE (ttype) NULL
 
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
@@ -4176,7 +4176,7 @@ extern int real_zerop (const_tree);
 /* Initialize the iterator I with arguments from function FNDECL  */
 
 static inline void
-function_args_iter_init (function_args_iterator *i, const_tree_type_ptr fntype)
+function_args_iter_init (function_args_iterator *i, const_ttype fntype)
 {
   i->next = TYPE_ARG_TYPES (fntype);
 }
@@ -4294,7 +4294,7 @@ truth_value_p (enum tree_code code)
 /* Return whether TYPE is a type suitable for an offset for
    a POINTER_PLUS_EXPR.  */
 static inline bool
-ptrofftype_p (tree_type_ptr type)
+ptrofftype_p (ttype type)
 {
   return (INTEGRAL_TYPE_P (type)
 	  && TYPE_PRECISION (type) == TYPE_PRECISION (sizetype)
@@ -4781,16 +4781,16 @@ wi::extended_tree <N>::get_len () const
 namespace wi
 {
   template <typename T>
-  bool fits_to_tree_p (const T &x, const_tree_type_ptr);
+  bool fits_to_tree_p (const T &x, const_ttype);
 
-  wide_int min_value (const_tree_type_ptr);
-  wide_int max_value (const_tree_type_ptr);
+  wide_int min_value (const_ttype);
+  wide_int max_value (const_ttype);
   wide_int from_mpz (const_tree, mpz_t, bool);
 }
 
 template <typename T>
 bool
-wi::fits_to_tree_p (const T &x, const_tree_type_ptr type)
+wi::fits_to_tree_p (const T &x, const_ttype type)
 {
   if (TYPE_SIGN (type) == UNSIGNED)
     return eq_p (x, zext (x, TYPE_PRECISION (type)));
@@ -4801,7 +4801,7 @@ wi::fits_to_tree_p (const T &x, const_tree_type_ptr type)
 /* Produce the smallest number that is represented in TYPE.  The precision
    and sign are taken from TYPE.  */
 inline wide_int
-wi::min_value (const_tree_type_ptr type)
+wi::min_value (const_ttype type)
 {
   return min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
 }
@@ -4809,7 +4809,7 @@ wi::min_value (const_tree_type_ptr type)
 /* Produce the largest number that is represented in TYPE.  The precision
    and sign are taken from TYPE.  */
 inline wide_int
-wi::max_value (const_tree_type_ptr type)
+wi::max_value (const_ttype type)
 {
   return max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
 }

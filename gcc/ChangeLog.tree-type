@@ -1,5 +1,16 @@
 2014-12-01  Andrew MacLeod  <amacleod@redhat.com>
 
+	* fold-const.c (fold_convert_loc, fold_build2_stat_loc): Use ttype
+	instead of tree_type_ptr.
+	* fold-const.h: Likewise.
+	* tree-core.h: Likewise.
+	* tree.h: Likewise.
+	* tree.c: Likewise.
+	* tree-type.patch: Use ttype instead of tree_type_ptr and ttype_node
+	instead of tree_type_ptr_node.  Remove tree_type_hybrid.
+
+2014-12-01  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree.c (build_type_attribute_variant): Don't use ttype as a variable.
 
 2014-12-01  Andrew MacLeod  <amacleod@redhat.com>

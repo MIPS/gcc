@@ -290,7 +290,7 @@ static void type_hash_list (const_tree, inchash::hash &);
 static void attribute_hash_list (const_tree, inchash::hash &);
 
 tree global_trees[TI_MAX];
-tree_type_ptr  global_types[TPI_MAX];
+ttype global_types[TPI_MAX];
 tree integer_types[itk_none];
 
 bool int_n_enabled_p[NUM_INT_N_ENTS];
