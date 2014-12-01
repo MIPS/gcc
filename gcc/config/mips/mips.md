@@ -5849,11 +5849,22 @@
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%F1", "%Z2%0"),
-					 MIPS_BRANCH ("b%W1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%F1", "%Z2%0"),
+					   MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+					    (const_string "always")
+					    (const_string "never")))
+   (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+				      (const_string "forbidden_slot")
+				      (const_string "none")))])
 
 (define_insn "*branch_fp_inverted_<mode>"
   [(set (pc)
@@ -5865,11 +5876,22 @@
          (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn, operands,
-					 MIPS_BRANCH ("b%W1", "%Z2%0"),
-					 MIPS_BRANCH ("b%F1", "%Z2%0"));
+  if (TARGET_MICROMIPS_R6)
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH_C ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH_C ("b%F1", "%Z2%0"));
+  else
+    return mips_output_conditional_branch (insn, operands,
+					   MIPS_BRANCH ("b%W1", "%Z2%0"),
+					   MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+					    (const_string "always")
+					    (const_string "never")))
+   (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
+				      (const_string "forbidden_slot")
+				      (const_string "none")))])
 
 ;; Conditional branches on ordered comparisons with zero.
 
