@@ -309,6 +309,8 @@ extern int mips_adjust_insn_length (rtx, int);
 extern void mips_output_load_label (rtx);
 extern const char *mips_output_conditional_branch (rtx, rtx *, const char *,
 						   const char *);
+extern const char *mips_output_jump (rtx *, int, int, bool);
+extern const char *mips_output_equal_conditional_branch (rtx, rtx *, bool);
 extern const char *mips_output_order_conditional_branch (rtx, rtx *, bool);
 extern const char *mips_output_sync (void);
 extern const char *mips_output_sync_loop (rtx, rtx *);

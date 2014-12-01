@@ -1258,6 +1258,10 @@ proc mips-dg-options { args } {
 	    mips_make_test_option options "-mno-dsp"
 	    mips_make_test_option options "-mno-synci"
 	}
+        if { $isa_rev < 6 } {
+	    mips_make_test_option options "-mno-compact-branches"
+	    mips_make_test_option options "-mno-only-compact-branches"
+	}
         if { $isa_rev > 5 } {
 	    mips_make_test_option options "-mno-dsp"
 	    mips_make_test_option options "-mno-mips16"
