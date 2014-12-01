@@ -1,5 +1,9 @@
 2014-12-01  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree.c (build_type_attribute_variant): Don't use ttype as a variable.
+
+2014-12-01  Andrew MacLeod  <amacleod@redhat.com>
+
 	* builtins.c (fold_builtin_atomic_always_lock_free): Don't use ttype as
 	a variable name.
 	* config/sol2-c.c (solaris_pragma_align, solaris_pragma_init,

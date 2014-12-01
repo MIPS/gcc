@@ -4889,10 +4889,10 @@ comp_type_attributes (const_tree type1, const_tree type2)
    Record such modified types already made so we don't make duplicates.  */
 
 tree
-build_type_attribute_variant (tree ttype, tree attribute)
+build_type_attribute_variant (tree type, tree attribute)
 {
-  return build_type_attribute_qual_variant (ttype, attribute,
-					    TYPE_QUALS (ttype));
+  return build_type_attribute_qual_variant (type, attribute,
+					    TYPE_QUALS (type));
 }
 
 
