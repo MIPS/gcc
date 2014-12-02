@@ -754,9 +754,7 @@ struct mips_cpu_info {
        |march=xlr: -mips64} \
      %{march=mips64r2|march=loongson3a|march=octeon|march=xlp: -mips64r2} \
      %{march=mips64r3: -mips64r3} \
-     %{march=mips64r5: -mips64r5} \
-     %{march=mips64r6: -mips64r6} \
-     %{march=mips64r6|march=i6400: -mips64r6} \
+     %{march=mips64r5|march=i6400: -mips64r5} \
      %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
 
 /* A spec that infers a -mhard-float or -msoft-float setting from an
