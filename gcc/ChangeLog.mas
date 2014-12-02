@@ -1,5 +1,10 @@
 2014-12-02  Richard Biener  <rguenther@suse.de>
 
+	* match-builtin.pd: Use operator lists directly where
+	appropriate.
+
+2014-12-02  Richard Biener  <rguenther@suse.de>
+
 	Merge from trunk r217561 through r218261.
 
 2014-11-14  Richard Biener  <rguenther@suse.de>
