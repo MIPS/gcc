@@ -2438,9 +2438,7 @@ rs6000_setup_reg_addr_masks (void)
 	      /* Figure out if we can do PRE_INC, PRE_DEC, or PRE_MODIFY
 		 addressing.  Restrict addressing on SPE for 64-bit types
 		 because of the SUBREG hackery used to address 64-bit floats in
-		 '32-bit' GPRs.  To simplify secondary reload, don't allow
-		 update forms on scalar floating point types that can go in the
-		 upper registers.  */
+		 '32-bit' GPRs.  */
 
 	      if (TARGET_UPDATE
 		  && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR)
@@ -2448,8 +2446,7 @@ rs6000_setup_reg_addr_masks (void)
 		  && !VECTOR_MODE_P (m2)
 		  && !COMPLEX_MODE_P (m2)
 		  && !indexed_only_p
-		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m2) == 8)
-		  && !reg_addr[m2].scalar_in_vmx_p)
+		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m2) == 8))
 		{
 		  addr_mask |= RELOAD_REG_PRE_INCDEC;
 
@@ -3483,6 +3480,40 @@ rs6000_option_override_internal (bool global_init_p)
       if (rs6000_isa_flags_explicit & OPTION_MASK_DFP)
 	error ("-mhard-dfp requires -mhard-float");
       rs6000_isa_flags &= ~OPTION_MASK_DFP;
+    }
+
+  /* Allow an explicit -mupper-regs to set both -mupper-regs-df and
+     -mupper-regs-sf, depending on the cpu, unless the user explicitly also set
+     the individual option.  */
+  if (TARGET_UPPER_REGS > 0)
+    {
+      if (TARGET_VSX
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF))
+	{
+	  rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_DF;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DF;
+	}
+      if (TARGET_P8_VECTOR
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF))
+	{
+	  rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_SF;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_SF;
+	}
+    }
+  else if (TARGET_UPPER_REGS == 0)
+    {
+      if (TARGET_VSX
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF))
+	{
+	  rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DF;
+	}
+      if (TARGET_P8_VECTOR
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF))
+	{
+	  rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_SF;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_SF;
+	}
     }
 
   if (TARGET_UPPER_REGS_DF && !TARGET_VSX)
