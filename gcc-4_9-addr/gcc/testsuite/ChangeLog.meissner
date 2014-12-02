@@ -19,3 +19,14 @@
 	* gcc.target/powerpc/ppc-fpconv-10.c: Likewise.
 	* gcc.target/powerpc/ppc-round.c: Likewise.
 
+[gcc/testsuite, patch #7]
+2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-ldst.c: Rewrite to use 40 live
+	floating point variables instead of using asm to test allocating
+	values to the Altivec registers.
+
+	* gcc.target/powerpc/upper-regs-sf.c: New -mupper-regs-sf and
+	-mupper-regs-df tests.
+	* gcc.target/powerpc/upper-regs-df.c: Likewise.
+

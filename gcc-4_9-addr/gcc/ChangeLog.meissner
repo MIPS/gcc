@@ -127,3 +127,16 @@
 	scalar floating point types.
 	(SF->SF move peephole2): Likewise.
 
+[gcc, patch #6]
+2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mupper-regs-df): Make option public.
+	(-mupper-regs-sf): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__UPPER_REGS_DF__ if -mupper-regs-df.  Define __UPPER_REGS_SF__ if
+	-mupper-regs-sf.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs-{sf,df}.
+
