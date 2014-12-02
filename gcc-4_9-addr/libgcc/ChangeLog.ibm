@@ -1,0 +1,9 @@
+2014-05-14  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/ibm-ldouble.c (pack_ldouble): New function.
+	(__gcc_qadd): Use it.
+	(__gcc_qmul): Likewise.
+	(__gcc_qdiv): Likewise.
+	(__gcc_qneg): Likewise.
+	(__gcc_stoq): Likewise.
+	(__gcc_dtoq): Likewise.
