@@ -193,10 +193,12 @@ struct mips_cpu_info {
 #endif
 
 /* ISA has LSA available.  */
-#define ISA_HAS_LSA		(mips_isa_rev >= 6)
+#define ISA_HAS_LSA		(mips_isa_rev >= 6 || ISA_HAS_MSA)
 
 /* ISA has DLSA available.  */
-#define ISA_HAS_DLSA		(TARGET_64BIT && mips_isa_rev >= 6)
+#define ISA_HAS_DLSA		(TARGET_64BIT \
+				 && (mips_isa_rev >= 6 \
+				     || ISA_HAS_MSA))
 
 /* The ISA compression flags that are currently in effect.  */
 #define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS))
@@ -1167,9 +1169,6 @@ struct mips_cpu_info {
 
 /* The MSA ASE is available.  */
 #define ISA_HAS_MSA		(TARGET_MSA && !TARGET_MIPS16)
-
-/* ISA has LSA available.  */
-#define ISA_HAS_LSA		(TARGET_MSA && !TARGET_MIPS16)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
