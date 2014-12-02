@@ -92,3 +92,38 @@
 	requiring -mvsx, and -mupper-regs-sf requiring -mpower8-vector.
 	(rs6000_secondary_reload_fail): Add ATTRIBUTE_NORETURN.
 
+[gcc, patch #5]
+2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_toc_costs):
+	Helper function to identify costs of a TOC load for secondary
+	reload support.
+	(rs6000_secondary_reload_memory): Helper function for secondary
+	reload, to determine if a particular memory operation is directly
+	handled by the hardware, or if it needs support from secondary
+	reload to create a valid address.
+	(rs6000_secondary_reload): Rework code, to be clearer.  If the
+	appropriate -mupper-regs-{sf,df} is used, use FPR registers to
+	reload scalar values, since the FPR registers have D-form
+	addressing. Move most of the code handling memory to the function
+	rs6000_secondary_reload_memory, and use the reg_addr structure to
+	determine what type of address modes are supported.  Print more
+	debug information if -mdebug=addr.
+	(rs6000_secondary_reload_inner): Rework entire function to be more
+	general.  Use the reg_addr bits to determine what type of
+	addressing is supported.
+	(rs6000_preferred_reload_class): Rework.  Move constant handling
+	into a single place.  Prefer using FLOAT_REGS for scalar floating
+	point.
+	(rs6000_secondary_reload_class): Use a FPR register to move a
+	value from an Altivec register to a GPR, and vice versa.  Move VSX
+	handling above traditional floating point.
+
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat, FMOVE32 case):
+	Delete some spaces in the constraints.
+	(DF->DF move peephole2): Disable if -mupper-regs-{sf,df} to
+	allow using FPR registers to load/store an Altivec register for
+	scalar floating point types.
+	(SF->SF move peephole2): Likewise.
+
