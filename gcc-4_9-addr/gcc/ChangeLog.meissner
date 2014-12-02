@@ -73,3 +73,22 @@
 	not use the patterns in vsx.md for scalar operations.
 	(floatunsdisf2_mem): Likewise.
 
+[gcc, patch #4]
+2014-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (RELOAD_REG_AND_M16): Add support for
+	Altivec style vector loads that ignore the bottom 3 bits of the
+	address.
+	(rs6000_debug_addr_mask): New function to print the addr_mask
+	values if debugging.
+	(rs6000_debug_print_mode): Call rs6000_debug_addr_mask to print
+	out addr_mask.
+	(rs6000_setup_reg_addr_masks): Add support for Altivec style
+	vector loads that ignore the bottom 3 bits of the address.
+	(rs6000_init_hard_regno_mode_ok): Rework DFmode support if
+	-mupper-regs-df.  Add support for -mupper-regs-sf.  Rearrange code
+	placement for direct move support.
+	(rs6000_option_override_internal): Add checks for -mupper-regs-df
+	requiring -mvsx, and -mupper-regs-sf requiring -mpower8-vector.
+	(rs6000_secondary_reload_fail): Add ATTRIBUTE_NORETURN.
+
