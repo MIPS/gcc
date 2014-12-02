@@ -77,6 +77,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX512BW_P(x)	TARGET_ISA_AVX512BW_P(x)
 #define TARGET_AVX512VL	TARGET_ISA_AVX512VL
 #define TARGET_AVX512VL_P(x)	TARGET_ISA_AVX512VL_P(x)
+#define TARGET_AVX512VBMI	TARGET_ISA_AVX512VBMI
+#define TARGET_AVX512VBMI_P(x)	TARGET_ISA_AVX512VBMI_P(x)
+#define TARGET_AVX512IFMA	TARGET_ISA_AVX512IFMA
+#define TARGET_AVX512IFMA_P(x)	TARGET_ISA_AVX512IFMA_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -146,6 +150,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_PREFETCHWT1_P(x)	TARGET_ISA_PREFETCHWT1_P(x)
 #define TARGET_MPX	TARGET_ISA_MPX
 #define TARGET_MPX_P(x)	TARGET_ISA_MPX_P(x)
+#define TARGET_PCOMMIT	TARGET_ISA_PCOMMIT
+#define TARGET_PCOMMIT_P(x)	TARGET_ISA_PCOMMIT_P(x)
+#define TARGET_CLWB	TARGET_ISA_CLWB
+#define TARGET_CLWB_P(x)	TARGET_ISA_CLWB_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -1244,7 +1252,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    the pic register when possible.  The change is visible after the
    prologue has been emitted.  */
 
-#define REAL_PIC_OFFSET_TABLE_REGNUM  BX_REG
+#define REAL_PIC_OFFSET_TABLE_REGNUM  (TARGET_64BIT ? R15_REG : BX_REG)
 
 #define PIC_OFFSET_TABLE_REGNUM						\
   ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC			\

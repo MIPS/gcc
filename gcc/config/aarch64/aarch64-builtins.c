@@ -138,7 +138,6 @@ static enum aarch64_type_qualifiers
 aarch64_types_unopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_unsigned, qualifier_unsigned };
 #define TYPES_UNOPU (aarch64_types_unopu_qualifiers)
-#define TYPES_CREATE (aarch64_types_unop_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_maybe_immediate };
@@ -868,60 +867,61 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 			  tree exp, builtin_simd_arg *args)
 {
   rtx pat;
-  tree arg[SIMD_MAX_BUILTIN_ARGS];
-  rtx op[SIMD_MAX_BUILTIN_ARGS];
-  machine_mode tmode = insn_data[icode].operand[0].mode;
-  machine_mode mode[SIMD_MAX_BUILTIN_ARGS];
-  int argc = 0;
+  rtx op[SIMD_MAX_BUILTIN_ARGS + 1]; /* First element for result operand.  */
+  int opc = 0;
 
-  if (have_retval
-      && (!target
+  if (have_retval)
+    {
+      machine_mode tmode = insn_data[icode].operand[0].mode;
+      if (!target
 	  || GET_MODE (target) != tmode
-	  || !(*insn_data[icode].operand[0].predicate) (target, tmode)))
-    target = gen_reg_rtx (tmode);
+	  || !(*insn_data[icode].operand[0].predicate) (target, tmode))
+	target = gen_reg_rtx (tmode);
+      op[opc++] = target;
+    }
 
   for (;;)
     {
-      builtin_simd_arg thisarg = args[argc];
+      builtin_simd_arg thisarg = args[opc - have_retval];
 
       if (thisarg == SIMD_ARG_STOP)
 	break;
       else
 	{
-	  arg[argc] = CALL_EXPR_ARG (exp, argc);
-	  op[argc] = expand_normal (arg[argc]);
-	  mode[argc] = insn_data[icode].operand[argc + have_retval].mode;
+	  tree arg = CALL_EXPR_ARG (exp, opc - have_retval);
+	  enum machine_mode mode = insn_data[icode].operand[opc].mode;
+	  op[opc] = expand_normal (arg);
 
 	  switch (thisarg)
 	    {
 	    case SIMD_ARG_COPY_TO_REG:
-	      if (POINTER_TYPE_P (TREE_TYPE (arg[argc])))
-		op[argc] = convert_memory_address (Pmode, op[argc]);
-	      /*gcc_assert (GET_MODE (op[argc]) == mode[argc]); */
-	      if (!(*insn_data[icode].operand[argc + have_retval].predicate)
-		  (op[argc], mode[argc]))
-		op[argc] = copy_to_mode_reg (mode[argc], op[argc]);
+	      if (POINTER_TYPE_P (TREE_TYPE (arg)))
+		op[opc] = convert_memory_address (Pmode, op[opc]);
+	      /*gcc_assert (GET_MODE (op[opc]) == mode); */
+	      if (!(*insn_data[icode].operand[opc].predicate)
+		  (op[opc], mode))
+		op[opc] = copy_to_mode_reg (mode, op[opc]);
 	      break;
 
 	    case SIMD_ARG_LANE_INDEX:
 	      /* Must be a previous operand into which this is an index.  */
-	      gcc_assert (argc > 0);
-	      if (CONST_INT_P (op[argc]))
+	      gcc_assert (opc > 0);
+	      if (CONST_INT_P (op[opc]))
 		{
-		  enum machine_mode vmode = mode[argc - 1];
-		  aarch64_simd_lane_bounds (op[argc],
-					    0, GET_MODE_NUNITS (vmode));
+		  machine_mode vmode = insn_data[icode].operand[opc - 1].mode;
+		  aarch64_simd_lane_bounds (op[opc],
+					    0, GET_MODE_NUNITS (vmode), exp);
 		  /* Keep to GCC-vector-extension lane indices in the RTL.  */
-		  op[argc] = GEN_INT (ENDIAN_LANE_N (vmode, INTVAL (op[argc])));
+		  op[opc] = GEN_INT (ENDIAN_LANE_N (vmode, INTVAL (op[opc])));
 		}
 	      /* Fall through - if the lane index isn't a constant then
 		 the next case will error.  */
 	    case SIMD_ARG_CONSTANT:
-	      if (!(*insn_data[icode].operand[argc + have_retval].predicate)
-		  (op[argc], mode[argc]))
+	      if (!(*insn_data[icode].operand[opc].predicate)
+		  (op[opc], mode))
 	      {
 		error_at (EXPR_LOCATION (exp), "incompatible type for argument %d, "
-		       "expected %<const int%>", argc + 1);
+		       "expected %<const int%>", opc + 1);
 		return const0_rtx;
 	      }
 	      break;
@@ -930,62 +930,39 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	      gcc_unreachable ();
 	    }
 
-	  argc++;
+	  opc++;
 	}
     }
 
-  if (have_retval)
-    switch (argc)
-      {
-      case 1:
-	pat = GEN_FCN (icode) (target, op[0]);
-	break;
+  switch (opc)
+    {
+    case 1:
+      pat = GEN_FCN (icode) (op[0]);
+      break;
 
-      case 2:
-	pat = GEN_FCN (icode) (target, op[0], op[1]);
-	break;
+    case 2:
+      pat = GEN_FCN (icode) (op[0], op[1]);
+      break;
 
-      case 3:
-	pat = GEN_FCN (icode) (target, op[0], op[1], op[2]);
-	break;
+    case 3:
+      pat = GEN_FCN (icode) (op[0], op[1], op[2]);
+      break;
 
-      case 4:
-	pat = GEN_FCN (icode) (target, op[0], op[1], op[2], op[3]);
-	break;
+    case 4:
+      pat = GEN_FCN (icode) (op[0], op[1], op[2], op[3]);
+      break;
 
-      case 5:
-	pat = GEN_FCN (icode) (target, op[0], op[1], op[2], op[3], op[4]);
-	break;
+    case 5:
+      pat = GEN_FCN (icode) (op[0], op[1], op[2], op[3], op[4]);
+      break;
 
-      default:
-	gcc_unreachable ();
-      }
-  else
-    switch (argc)
-      {
-      case 1:
-	pat = GEN_FCN (icode) (op[0]);
-	break;
+    case 6:
+      pat = GEN_FCN (icode) (op[0], op[1], op[2], op[3], op[4], op[5]);
+      break;
 
-      case 2:
-	pat = GEN_FCN (icode) (op[0], op[1]);
-	break;
-
-      case 3:
-	pat = GEN_FCN (icode) (op[0], op[1], op[2]);
-	break;
-
-      case 4:
-	pat = GEN_FCN (icode) (op[0], op[1], op[2], op[3]);
-	break;
-
-      case 5:
-	pat = GEN_FCN (icode) (op[0], op[1], op[2], op[3], op[4]);
-	break;
-
-      default:
-	gcc_unreachable ();
-      }
+    default:
+      gcc_unreachable ();
+    }
 
   if (!pat)
     return NULL_RTX;
@@ -1200,6 +1177,14 @@ aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
               return aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_UNOP_clzv4si];
             return NULL_TREE;
           }
+	case BUILT_IN_CTZ:
+          {
+	    if (AARCH64_CHECK_BUILTIN_MODE (2, S))
+	      return aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_UNOP_ctzv2si];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (4, S))
+	      return aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_UNOP_ctzv4si];
+	    return NULL_TREE;
+          }
 #undef AARCH64_CHECK_BUILTIN_MODE
 #define AARCH64_CHECK_BUILTIN_MODE(C, N) \
   (out_mode == N##Imode && out_n == C \
@@ -1337,27 +1322,18 @@ aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	  switch (fcode)
 	    {
 	      BUILTIN_VALL (UNOP, reduc_plus_scal_, 10)
-	        new_stmt = gimple_build_assign_with_ops (
-						REDUC_PLUS_EXPR,
-						gimple_call_lhs (stmt),
-						args[0],
-						NULL_TREE);
+	        new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+						REDUC_PLUS_EXPR, args[0]);
 		break;
 	      BUILTIN_VDQIF (UNOP, reduc_smax_scal_, 10)
 	      BUILTIN_VDQ_BHSI (UNOPU, reduc_umax_scal_, 10)
-		new_stmt = gimple_build_assign_with_ops (
-						REDUC_MAX_EXPR,
-						gimple_call_lhs (stmt),
-						args[0],
-						NULL_TREE);
+		new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+						REDUC_MAX_EXPR, args[0]);
 		break;
 	      BUILTIN_VDQIF (UNOP, reduc_smin_scal_, 10)
 	      BUILTIN_VDQ_BHSI (UNOPU, reduc_umin_scal_, 10)
-		new_stmt = gimple_build_assign_with_ops (
-						REDUC_MIN_EXPR,
-						gimple_call_lhs (stmt),
-						args[0],
-						NULL_TREE);
+		new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+						REDUC_MIN_EXPR, args[0]);
 		break;
 
 	    default:
@@ -1415,8 +1391,8 @@ aarch64_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
        __builtin_aarch64_set_cr (masked_cr);
        __builtin_aarch64_set_sr (masked_sr);  */
 
-  fenv_cr = create_tmp_var (unsigned_type_node, NULL);
-  fenv_sr = create_tmp_var (unsigned_type_node, NULL);
+  fenv_cr = create_tmp_var (unsigned_type_node);
+  fenv_sr = create_tmp_var (unsigned_type_node);
 
   get_fpcr = aarch64_builtin_decls[AARCH64_BUILTIN_GET_FPCR];
   set_fpcr = aarch64_builtin_decls[AARCH64_BUILTIN_SET_FPCR];
@@ -1462,7 +1438,7 @@ aarch64_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __atomic_feraiseexcept (new_fenv_var);  */
 
-  new_fenv_var = create_tmp_var (unsigned_type_node, NULL);
+  new_fenv_var = create_tmp_var (unsigned_type_node);
   reload_fenv = build2 (MODIFY_EXPR, unsigned_type_node,
 			new_fenv_var, build_call_expr (get_fpsr, 0));
   restore_fnenv = build_call_expr (set_fpsr, 1, fenv_sr);

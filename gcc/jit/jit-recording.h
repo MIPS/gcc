@@ -52,6 +52,9 @@ public:
   context (context *parent_ctxt);
   ~context ();
 
+  builtins_manager *
+  get_builtins_manager ();
+
   void record (memento *m);
   void replay_into (replayer *r);
   void disassociate_from_playback ();
@@ -87,6 +90,12 @@ public:
   union_ *
   new_union_type (location *loc,
 		  const char *name);
+
+  function_type *
+  new_function_type (type *return_type,
+		     int num_params,
+		     type **param_types,
+		     int is_variadic);
 
   type *
   new_function_ptr_type (location *loc,
@@ -242,11 +251,11 @@ private:
   bool m_bool_options[GCC_JIT_NUM_BOOL_OPTIONS];
 
   /* Recorded API usage.  */
-  vec<memento *> m_mementos;
+  auto_vec<memento *> m_mementos;
 
   /* Specific recordings, for use by dump_to_file.  */
-  vec<compound_type *> m_compound_types;
-  vec<function *> m_functions;
+  auto_vec<compound_type *> m_compound_types;
+  auto_vec<function *> m_functions;
 
   type *m_basic_types[NUM_GCC_JIT_TYPES];
   type *m_FILE_type;
@@ -622,7 +631,7 @@ public:
   void replay_into (replayer *);
 
   type * get_return_type () const { return m_return_type; }
-  vec<type *> get_param_types () const { return m_param_types; }
+  const vec<type *> &get_param_types () const { return m_param_types; }
   int is_variadic () const { return m_is_variadic; }
 
   string * make_debug_string_with_ptr ();
@@ -633,7 +642,7 @@ public:
 
 private:
   type *m_return_type;
-  vec<type *> m_param_types;
+  auto_vec<type *> m_param_types;
   int m_is_variadic;
 };
 
@@ -749,7 +758,7 @@ private:
 
 private:
   compound_type *m_struct_or_union;
-  vec<field *> m_fields;
+  auto_vec<field *> m_fields;
 };
 
 class union_ : public compound_type
@@ -897,7 +906,7 @@ public:
 
   type *get_return_type () const { return m_return_type; }
   string * get_name () const { return m_name; }
-  vec<param *> get_params () const { return m_params; }
+  const vec<param *> &get_params () const { return m_params; }
 
   /* Get the given param by index.
      Implements the post-error-checking part of
@@ -920,11 +929,11 @@ private:
   enum gcc_jit_function_kind m_kind;
   type *m_return_type;
   string *m_name;
-  vec<param *> m_params;
+  auto_vec<param *> m_params;
   int m_is_variadic;
   enum built_in_function m_builtin_id;
-  vec<local *> m_locals;
-  vec<block *> m_blocks;
+  auto_vec<local *> m_locals;
+  auto_vec<block *> m_blocks;
 };
 
 class block : public memento
@@ -1011,7 +1020,7 @@ private:
   function *m_func;
   int m_index;
   string *m_name;
-  vec<statement *> m_statements;
+  auto_vec<statement *> m_statements;
   bool m_has_been_terminated;
   bool m_is_reachable;
 
@@ -1222,7 +1231,7 @@ private:
 
 private:
   function *m_func;
-  vec<rvalue *> m_args;
+  auto_vec<rvalue *> m_args;
 };
 
 class call_through_ptr : public rvalue
@@ -1241,7 +1250,7 @@ private:
 
 private:
   rvalue *m_fn_ptr;
-  vec<rvalue *> m_args;
+  auto_vec<rvalue *> m_args;
 };
 
 class array_access : public lvalue
@@ -1569,21 +1578,6 @@ private:
 };
 
 } // namespace gcc::jit::recording
-
-/* The result of JIT-compilation.  */
-class result
-{
-public:
-  result(void *dso_handle);
-
-  virtual ~result();
-
-  void *
-  get_code (const char *funcname);
-
-private:
-  void *m_dso_handle;
-};
 
 } // namespace gcc::jit
 

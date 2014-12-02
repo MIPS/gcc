@@ -191,13 +191,14 @@
 
 (define_attr "generic_sched" "yes,no"
   (const (if_then_else
-          (eq_attr "tune" "cortexa53,cortexa15")
+          (eq_attr "tune" "cortexa53,cortexa15,thunderx")
           (const_string "no")
           (const_string "yes"))))
 
 ;; Scheduling
 (include "../arm/cortex-a53.md")
 (include "../arm/cortex-a15.md")
+(include "thunderx.md")
 
 ;; -------------------------------------------------------------------
 ;; Jumps and other miscellaneous insns
@@ -243,6 +244,54 @@
 					 operands[2]);
   operands[2] = const0_rtx;
   "
+)
+
+(define_expand "cbranchcc4"
+  [(set (pc) (if_then_else
+	      (match_operator 0 "aarch64_comparison_operator"
+	       [(match_operand 1 "cc_register" "")
+	        (match_operand 2 "const0_operand")])
+	      (label_ref (match_operand 3 "" ""))
+	      (pc)))]
+  ""
+  "")
+
+(define_insn "*ccmp_and"
+  [(set (match_operand 1 "ccmp_cc_register" "")
+	(compare
+	 (and:SI
+	  (match_operator 4 "aarch64_comparison_operator"
+	   [(match_operand 0 "ccmp_cc_register" "")
+	    (const_int 0)])
+	  (match_operator 5 "aarch64_comparison_operator"
+	   [(match_operand:GPI 2 "register_operand" "r,r,r")
+	    (match_operand:GPI 3 "aarch64_ccmp_operand" "r,Uss,Usn")]))
+	 (const_int 0)))]
+  "aarch64_ccmp_mode_to_code (GET_MODE (operands[1])) == GET_CODE (operands[5])"
+  "@
+   ccmp\\t%<w>2, %<w>3, %k5, %m4
+   ccmp\\t%<w>2, %<w>3, %k5, %m4
+   ccmn\\t%<w>2, #%n3, %k5, %m4"
+  [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
+)
+
+(define_insn "*ccmp_ior"
+  [(set (match_operand 1 "ccmp_cc_register" "")
+	(compare
+	 (ior:SI
+	  (match_operator 4 "aarch64_comparison_operator"
+	   [(match_operand 0 "ccmp_cc_register" "")
+	    (const_int 0)])
+	  (match_operator 5 "aarch64_comparison_operator"
+	   [(match_operand:GPI 2 "register_operand" "r,r,r")
+	    (match_operand:GPI 3 "aarch64_ccmp_operand" "r,Uss,Usn")]))
+	 (const_int 0)))]
+  "aarch64_ccmp_mode_to_code (GET_MODE (operands[1])) == GET_CODE (operands[5])"
+  "@
+   ccmp\\t%<w>2, %<w>3, %K5, %M4
+   ccmp\\t%<w>2, %<w>3, %K5, %M4
+   ccmn\\t%<w>2, #%n3, %K5, %M4"
+  [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
 )
 
 (define_insn "*condjump"
@@ -2418,6 +2467,18 @@
   "
 )
 
+(define_expand "cstorecc4"
+  [(set (match_operand:SI 0 "register_operand")
+       (match_operator 1 "aarch64_comparison_operator"
+        [(match_operand 2 "ccmp_cc_register")
+         (match_operand 3 "const0_operand")]))]
+  ""
+"{
+  emit_insn (gen_rtx_SET (SImode, operands[0], operands[1]));
+  DONE;
+}")
+
+
 (define_expand "cstore<mode>4"
   [(set (match_operand:SI 0 "register_operand" "")
 	(match_operator:SI 1 "aarch64_comparison_operator"
@@ -2566,15 +2627,19 @@
 			   (match_operand:ALLI 3 "register_operand" "")))]
   ""
   {
-    rtx ccreg;
     enum rtx_code code = GET_CODE (operands[1]);
 
     if (code == UNEQ || code == LTGT)
       FAIL;
 
-    ccreg = aarch64_gen_compare_reg (code, XEXP (operands[1], 0),
-				  XEXP (operands[1], 1));
-    operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
+    if (!ccmp_cc_register (XEXP (operands[1], 0),
+			   GET_MODE (XEXP (operands[1], 0))))
+      {
+	rtx ccreg;
+	ccreg = aarch64_gen_compare_reg (code, XEXP (operands[1], 0),
+					 XEXP (operands[1], 1));
+	operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
+      }
   }
 )
 
@@ -4103,6 +4168,43 @@
   "mrs\\t%0, fpsr"
   [(set_attr "type" "mrs")])
 
+
+;; Define the subtract-one-and-jump insns so loop.c
+;; knows what to generate.
+(define_expand "doloop_end"
+  [(use (match_operand 0 "" ""))      ; loop pseudo
+   (use (match_operand 1 "" ""))]     ; label
+  "optimize > 0 && flag_modulo_sched"
+{
+  rtx s0;
+  rtx bcomp;
+  rtx loc_ref;
+  rtx cc_reg;
+  rtx insn;
+  rtx cmp;
+
+  /* Currently SMS relies on the do-loop pattern to recognize loops
+     where (1) the control part consists of all insns defining and/or
+     using a certain 'count' register and (2) the loop count can be
+     adjusted by modifying this register prior to the loop.
+     ??? The possible introduction of a new block to initialize the
+     new IV can potentially affect branch optimizations.  */
+
+  if (GET_MODE (operands[0]) != DImode)
+    FAIL;
+
+  s0 = operands [0];
+  insn = emit_insn (gen_adddi3_compare0 (s0, s0, GEN_INT (-1)));
+
+  cmp = XVECEXP (PATTERN (insn), 0, 0);
+  cc_reg = SET_DEST (cmp);
+  bcomp = gen_rtx_NE (VOIDmode, cc_reg, const0_rtx);
+  loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands [1]);
+  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+			       gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
+						     loc_ref, pc_rtx)));
+  DONE;
+})
 
 ;; AdvSIMD Stuff
 (include "aarch64-simd.md")

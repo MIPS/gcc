@@ -1,3 +1,107 @@
+2014-12-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Add new exports.
+	* include/std/condition_variable (notify_all_at_thread_exit): Declare.
+	(__at_thread_exit_elt): New base class.
+	* include/std/future: Add comments documenting the implementation.
+	(__future_base::_State_baseV2::_State_baseV2()): Use brace-or-equal
+	initializers and define constructor as defaulted.
+	(__future_base::_State_baseV2::_M_ready): Replace member function
+	with member variable.
+	(__future_base::_State_baseV2::_M_set_result): Set _M_ready.
+	(__future_base::_State_baseV2::_M_set_delayed_result): Define.
+	(__future_base::_State_baseV2::_M_break_promise): Set _M_ready.
+	(__future_base::_State_baseV2::_Make_ready): New helper class.
+	(__future_base::_Deferred_state::_M_has_deferred): Remove requirement
+	for caller to own mutex.
+	(__future_base::_Async_state_impl::~_Async_state_impl): Call join
+	directly.
+	(__future_base::_Task_state_base::_M_run): Take arguments by
+	reference.
+	(__future_base::_Task_state_base::_M_run_delayed): Declare new pure
+	virtual function.
+	(__future_base::_Task_state::_M_run_delayed): Define override.
+	(promise::set_value_at_thread_exit): Define.
+	(promise::set_exception_at_thread_exit): Define.
+	(packaged_task::make_ready_at_thread_exit): Define.
+	* src/c++11/condition_variable.cc (notify_all_at_thread_exit): Define.
+	* src/c++11/future.cc
+	(__future_base::_State_baseV2::_Make_ready::_M_set): Define.
+	* testsuite/30_threads/condition_variable/members/3.cc: New.
+	* testsuite/30_threads/packaged_task/members/at_thread_exit.cc: New.
+	* testsuite/30_threads/promise/members/at_thread_exit.cc: New.
+
+2014-12-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/63840
+	* include/std/functional (function::function(const function&)): Set
+	_M_manager after operations that might throw.
+	* include/tr1/functional (function::function(const function&),
+	function::function(_Functor, _Useless)): Likewise.
+	* testsuite/20_util/function/63840.cc: New.
+	* testsuite/tr1/3_function_objects/function/63840.cc: New.
+
+2014-11-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Fix ios_base::failure exports.
+
+2014-11-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/locale_facets/nonio.h (__timepunct): Remove unused
+	typedef.
+	(time_get): Likewise. Fix comments.
+
+	* src/c++98/locale_init.cc (locale::_Impl::_Impl(size_t)): Use
+	new-initializer instead of loop.
+	* src/c++98/localename.cc (locale::_Impl::_Impl(const char*, size_t)):
+	Likewise.
+
+2014-11-26  Jonathan Wakely  <jwakely@redhat.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libstdc++/64054
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/hexfloat.cc:
+	XFAIL execution on *-*-solaris*.
+
+2014-11-25  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libstdc++-prettyprinters/prettyprinters.exp: Add missing
+	dg-finish.  Only print unsupported message once.
+
+2014-11-25  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/63920
+	* include/bits/regex_executor.h: Make _M_begin non const.
+	* include/bits/regex_executor.tcc (_Executor<>::_M_search): Increase
+	_M_begin in search algorithm, so that _M_begin is treated as
+	"current start position" for each search iteration.
+	* testsuite/28_regex/algorithms/regex_search/ecma/flags.cc: New
+	testcase.
+
+2014-11-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/63784
+	* configure: Regenerated.
+
+2014-11-18  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR libstdc++/43622
+	* config/abi/pre/float128.ver: New file.
+	* configure.ac: Use float128.ver when relevant.
+	* configure: Regenerate.
+	* testsuite/util/testsuite_abi.cc (check_version): Accept new
+	CXXABI_FLOAT128 version.
+
+2014-11-17  Jason Merrill  <jason@redhat.com>
+
+	* include/backward/binders.h: Suppress -Wdeprecated-declarations.
+	* include/ext/array_allocator.h: Likewise.
+
+2014-11-14  Joel Sherrill <joel.sherrill@oarcorp.com>
+
+	* src/c++98/mt_allocator.cc: Fix assumption that sizeof(void *) is
+	equal to sizeof(size_t). The m32c breaks this assumption.
+
 2014-11-14  Jonathan Wakely  <jwakely@redhat.com>
 
 	* config/abi/pre/gnu.ver: Add new exports.

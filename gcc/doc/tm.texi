@@ -3462,7 +3462,7 @@ If the static chain is passed in memory, these macros should not be
 defined; instead, the @code{TARGET_STATIC_CHAIN} hook should be used.
 @end defmac
 
-@deftypefn {Target Hook} rtx TARGET_STATIC_CHAIN (const_tree @var{fndecl}, bool @var{incoming_p})
+@deftypefn {Target Hook} rtx TARGET_STATIC_CHAIN (const_tree @var{fndecl_or_type}, bool @var{incoming_p})
 This hook replaces the use of @code{STATIC_CHAIN_REGNUM} et al for
 targets that may use different static chain locations for different
 nested functions.  This may be required if the target has function
@@ -4251,10 +4251,6 @@ that can be performed in some cases.  If you do not define this hook
 to return a nonzero value when it is required, the compiler will run out
 of spill registers and print a fatal error message.
 @end deftypefn
-
-@deftypevr {Target Hook} {unsigned int} TARGET_FLAGS_REGNUM
-If the target has a dedicated flags register, and it needs to use the post-reload comparison elimination pass, then this value should be set appropriately.
-@end deftypevr
 
 @node Scalar Return
 @subsection How Scalar Function Values Are Returned
@@ -6040,6 +6036,10 @@ same.  If they are, it returns that mode.  If they are different, it
 returns @code{VOIDmode}.
 @end deftypefn
 
+@deftypevr {Target Hook} {unsigned int} TARGET_FLAGS_REGNUM
+If the target has a dedicated flags register, and it needs to use the post-reload comparison elimination pass, then this value should be set appropriately.
+@end deftypevr
+
 @node Costs
 @section Describing Relative Costs of Operations
 @cindex costs of instructions
@@ -6205,7 +6205,7 @@ optimized for speed rather than size.
 If you don't define this, a reasonable default is used.
 @end defmac
 
-@deftypefn {Target Hook} bool TARGET_USE_BY_PIECES_INFRASTRUCTURE_P (unsigned int @var{size}, unsigned int @var{alignment}, enum by_pieces_operation @var{op}, bool @var{speed_p})
+@deftypefn {Target Hook} bool TARGET_USE_BY_PIECES_INFRASTRUCTURE_P (unsigned HOST_WIDE_INT @var{size}, unsigned int @var{alignment}, enum by_pieces_operation @var{op}, bool @var{speed_p})
 GCC will attempt several strategies when asked to copy between
 two areas of memory, or to set, clear or store to memory, for example
 when copying a @code{struct}. The @code{by_pieces} infrastructure
@@ -6484,11 +6484,13 @@ cycle.  These other insns can then be taken into account properly.
 This hook is used to check whether target platform supports macro fusion.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_SCHED_MACRO_FUSION_PAIR_P (rtx_insn *@var{condgen}, rtx_insn *@var{condjmp})
-This hook is used to check whether two insns could be macro fused for
-target microarchitecture. If this hook returns true for the given insn pair
-(@var{condgen} and @var{condjmp}), scheduler will put them into a sched
-group, and they will not be scheduled apart.
+@deftypefn {Target Hook} bool TARGET_SCHED_MACRO_FUSION_PAIR_P (rtx_insn *@var{prev}, rtx_insn *@var{curr})
+This hook is used to check whether two insns should be macro fused for
+a target microarchitecture. If this hook returns true for the given insn pair
+(@var{prev} and @var{curr}), the scheduler will put them into a sched
+group, and they will not be scheduled apart.  The two insns will be either
+two SET insns or a compare and a conditional jump and this hook should
+validate any dependencies needed to fuse the two insns together.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK (rtx_insn *@var{head}, rtx_insn *@var{tail})
@@ -11230,6 +11232,24 @@ to reserve space for caller-saved target registers.
 This target hook returns true if the target supports conditional execution.
 This target hook is required only when the target has several different
 modes and they have different conditional execution capability, such as ARM.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_FIRST (int @var{code}, rtx @var{op0}, rtx @var{op1})
+This function emits a comparison insn for the first of a sequence of
+ conditional comparisions.  It returns a comparison expression appropriate
+ for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is
+ the @code{rtx_code} of the compare for @var{op0} and @var{op1}.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_NEXT (rtx @var{prev}, int @var{cmp_code}, rtx @var{op0}, rtx @var{op1}, int @var{bit_code})
+This function emits a conditional comparison within a sequence of
+ conditional comparisons.  The @var{prev} expression is the result of a
+ prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It may return
+ @code{NULL} if the combination of @var{prev} and this comparison is
+ not supported, otherwise the result must be appropriate for passing to
+ @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is the
+ @code{rtx_code} of the compare for @var{op0} and @var{op1}.  @var{bit_code}
+ is @code{AND} or @code{IOR}, which is the op on the two compares.
 @end deftypefn
 
 @deftypefn {Target Hook} unsigned TARGET_LOOP_UNROLL_ADJUST (unsigned @var{nunroll}, struct loop *@var{loop})

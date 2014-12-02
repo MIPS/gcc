@@ -492,6 +492,27 @@ recording::context::new_union_type (recording::location *loc,
   return result;
 }
 
+/* Create a recording::function_type instance and add it to this context's
+   list of mementos.
+
+   Used by new_function_ptr_type and by builtins_manager::make_fn_type.  */
+
+recording::function_type *
+recording::context::new_function_type (recording::type *return_type,
+				       int num_params,
+				       recording::type **param_types,
+				       int is_variadic)
+{
+  recording::function_type *fn_type
+    = new function_type (this,
+			 return_type,
+			 num_params,
+			 param_types,
+			 is_variadic);
+  record (fn_type);
+  return fn_type;
+}
+
 /* Create a recording::type instance and add it to this context's list
    of mementos.
 
@@ -505,13 +526,11 @@ recording::context::new_function_ptr_type (recording::location *, /* unused loc 
 					   recording::type **param_types,
 					   int is_variadic)
 {
-  recording::function_type *fn_type =
-    new function_type (this,
-		       return_type,
-		       num_params,
-		       param_types,
-		       is_variadic);
-  record (fn_type);
+  recording::function_type *fn_type
+    = new_function_type (return_type,
+			 num_params,
+			 param_types,
+			 is_variadic);
 
   /* Return a pointer-type to the the function type.  */
   return fn_type->get_pointer ();
@@ -561,6 +580,25 @@ recording::context::new_function (recording::location *loc,
   return result;
 }
 
+/* Locate the builtins_manager (if any) for this family of contexts,
+   creating it if it doesn't exist already.
+
+   All of the recording contexts in a family share one builtins_manager:
+   if we have a child context, follow the parent links to get the
+   ultimate ancestor context, and look for it/store it there.  */
+
+builtins_manager *
+recording::context::get_builtins_manager ()
+{
+  if (m_parent_ctxt)
+    return m_parent_ctxt->get_builtins_manager ();
+
+  if (!m_builtins_manager)
+    m_builtins_manager = new builtins_manager (this);
+
+  return m_builtins_manager;
+}
+
 /* Get a recording::function instance, which is lazily-created and added
    to the context's lists of mementos.
 
@@ -570,9 +608,8 @@ recording::context::new_function (recording::location *loc,
 recording::function *
 recording::context::get_builtin_function (const char *name)
 {
-  if (!m_builtins_manager)
-    m_builtins_manager = new builtins_manager (this);
-  return m_builtins_manager->get_builtin_function (name);
+  builtins_manager *bm = get_builtins_manager ();
+  return bm->get_builtin_function (name);
 }
 
 /* Create a recording::global instance and add it to this context's list
@@ -1229,6 +1266,9 @@ recording::memento_of_get_type::dereference ()
     case GCC_JIT_TYPE_FLOAT:
     case GCC_JIT_TYPE_DOUBLE:
     case GCC_JIT_TYPE_LONG_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
       /* Not a pointer: */
       return NULL;
 
@@ -1290,6 +1330,11 @@ recording::memento_of_get_type::is_int () const
 
     case GCC_JIT_TYPE_FILE_PTR:
       return false;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return false;
     }
 }
 
@@ -1338,6 +1383,11 @@ recording::memento_of_get_type::is_float () const
 
     case GCC_JIT_TYPE_FILE_PTR:
       return false;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return true;
     }
 }
 
@@ -1386,6 +1436,11 @@ recording::memento_of_get_type::is_bool () const
 
     case GCC_JIT_TYPE_FILE_PTR:
       return false;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return false;
     }
 }
 
@@ -1432,7 +1487,11 @@ static const char * const get_type_strings[] = {
 
   "size_t",  /* GCC_JIT_TYPE_SIZE_T */
 
-  "FILE *"  /* GCC_JIT_TYPE_FILE_PTR */
+  "FILE *",  /* GCC_JIT_TYPE_FILE_PTR */
+
+  "complex float", /* GCC_JIT_TYPE_COMPLEX_FLOAT */
+  "complex double", /* GCC_JIT_TYPE_COMPLEX_DOUBLE */
+  "complex long double"  /* GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE */
 
 };
 
@@ -1602,7 +1661,7 @@ void
 recording::function_type::replay_into (replayer *r)
 {
   /* Convert m_param_types to a vec of playback type.  */
-  vec <playback::type *> param_types;
+  auto_vec <playback::type *> param_types;
   int i;
   recording::type *type;
   param_types.create (m_param_types.length ());
@@ -1859,11 +1918,11 @@ recording::fields::fields (compound_type *struct_or_union,
 void
 recording::fields::replay_into (replayer *)
 {
-  vec<playback::field *> playback_fields;
+  auto_vec<playback::field *> playback_fields;
   playback_fields.create (m_fields.length ());
   for (unsigned i = 0; i < m_fields.length (); i++)
     playback_fields.safe_push (m_fields[i]->playback_field ());
-  m_struct_or_union->playback_compound_type ()->set_fields (playback_fields);
+  m_struct_or_union->playback_compound_type ()->set_fields (&playback_fields);
 }
 
 /* Override the default implementation of
@@ -2032,7 +2091,7 @@ void
 recording::function::replay_into (replayer *r)
 {
   /* Convert m_params to a vec of playback param.  */
-  vec <playback::param *> params;
+  auto_vec <playback::param *> params;
   int i;
   recording::param *param;
   params.create (m_params.length ());
@@ -2187,8 +2246,7 @@ recording::function::validate ()
     {
       /* Iteratively walk the graph of blocks, marking their "m_is_reachable"
 	 flag, starting at the initial block.  */
-      vec<block *> worklist;
-      worklist.create (m_blocks.length ());
+      auto_vec<block *> worklist (m_blocks.length ());
       worklist.safe_push (m_blocks[0]);
       while (worklist.length () > 0)
 	{
@@ -2849,14 +2907,14 @@ recording::call::call (recording::context *ctxt,
 void
 recording::call::replay_into (replayer *r)
 {
-  vec<playback::rvalue *> playback_args;
+  auto_vec<playback::rvalue *> playback_args;
   playback_args.create (m_args.length ());
   for (unsigned i = 0; i< m_args.length (); i++)
     playback_args.safe_push (m_args[i]->playback_rvalue ());
 
   set_playback_obj (r->new_call (playback_location (r, m_loc),
 				 m_func->playback_function (),
-				 playback_args));
+				 &playback_args));
 }
 
 /* Implementation of recording::memento::make_debug_string for
@@ -2926,14 +2984,14 @@ recording::call_through_ptr::call_through_ptr (recording::context *ctxt,
 void
 recording::call_through_ptr::replay_into (replayer *r)
 {
-  vec<playback::rvalue *> playback_args;
+  auto_vec<playback::rvalue *> playback_args;
   playback_args.create (m_args.length ());
   for (unsigned i = 0; i< m_args.length (); i++)
     playback_args.safe_push (m_args[i]->playback_rvalue ());
 
   set_playback_obj (r->new_call_through_ptr (playback_location (r, m_loc),
 					     m_fn_ptr->playback_rvalue (),
-					     playback_args));
+					     &playback_args));
 }
 
 /* Implementation of recording::memento::make_debug_string for

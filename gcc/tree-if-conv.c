@@ -435,8 +435,10 @@ add_to_predicate_list (struct loop *loop, basic_block bb, tree nc)
     {
       gcc_assert (flow_bb_inside_loop_p (loop, dom_bb));
       bc = bb_predicate (dom_bb);
-      gcc_assert (!is_true_predicate (bc));
-      set_bb_predicate (bb, bc);
+      if (!is_true_predicate (bc))
+	set_bb_predicate (bb, bc);
+      else
+	gcc_assert (is_true_predicate (bb_predicate (bb)));
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Use predicate of bb#%d for bb#%d\n",
 		 dom_bb->index, bb->index);
@@ -515,7 +517,7 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
    - there is a virtual PHI in a BB other than the loop->header.  */
 
 static bool
-if_convertible_phi_p (struct loop *loop, basic_block bb, gimple phi,
+if_convertible_phi_p (struct loop *loop, basic_block bb, gphi *phi,
 		      bool any_mask_load_store)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1282,10 +1284,10 @@ if_convertible_loop_p_1 (struct loop *loop,
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = ifc_bbs[i];
-      gimple_stmt_iterator itr;
+      gphi_iterator itr;
 
       for (itr = gsi_start_phis (bb); !gsi_end_p (itr); gsi_next (&itr))
-	if (!if_convertible_phi_p (loop, bb, gsi_stmt (itr),
+	if (!if_convertible_phi_p (loop, bb, itr.phi (),
 				   *any_mask_load_store))
 	  return false;
     }
@@ -1592,7 +1594,7 @@ convert_scalar_cond_reduction (gimple reduc, gimple_stmt_iterator *gsi,
    TRUE_BB is selected.  */
 
 static void
-predicate_scalar_phi (gimple phi, tree cond,
+predicate_scalar_phi (gphi *phi, tree cond,
 		      basic_block true_bb,
 		      gimple_stmt_iterator *gsi)
 {
@@ -1667,9 +1669,10 @@ predicate_all_scalar_phis (struct loop *loop)
 
   for (i = 1; i < orig_loop_num_nodes; i++)
     {
-      gimple phi;
+      gphi *phi;
       tree cond = NULL_TREE;
-      gimple_stmt_iterator gsi, phi_gsi;
+      gimple_stmt_iterator gsi;
+      gphi_iterator phi_gsi;
       basic_block true_bb = NULL;
       bb = ifc_bbs[i];
 
@@ -1687,7 +1690,7 @@ predicate_all_scalar_phis (struct loop *loop)
 
       while (!gsi_end_p (phi_gsi))
 	{
-	  phi = gsi_stmt (phi_gsi);
+	  phi = phi_gsi.phi ();
 	  predicate_scalar_phi (phi, cond, true_bb, &gsi);
 	  release_phi_node (phi);
 	  gsi_next (&phi_gsi);
@@ -2107,7 +2110,7 @@ static bool
 version_loop_for_if_conversion (struct loop *loop)
 {
   basic_block cond_bb;
-  tree cond = make_ssa_name (boolean_type_node, NULL);
+  tree cond = make_ssa_name (boolean_type_node);
   struct loop *new_loop;
   gimple g;
   gimple_stmt_iterator gsi;

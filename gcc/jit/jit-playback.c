@@ -46,9 +46,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "gimplify.h"
 #include "gcc-driver-name.h"
+#include "attribs.h"
 
 #include "jit-common.h"
 #include "jit-playback.h"
+#include "jit-result.h"
+#include "jit-builtins.h"
 
 
 /* gcc::jit::playback::context::build_cast uses the convert.h API,
@@ -197,6 +200,13 @@ get_tree_node_for_type (enum gcc_jit_types type_)
 
     case GCC_JIT_TYPE_FILE_PTR:
       return fileptr_type_node;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+      return complex_float_type_node;
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+      return complex_double_type_node;
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return complex_long_double_type_node;
     }
 
   return NULL;
@@ -285,15 +295,15 @@ new_compound_type (location *loc,
 }
 
 void
-playback::compound_type::set_fields (const vec<playback::field *> &fields)
+playback::compound_type::set_fields (const auto_vec<playback::field *> *fields)
 {
   /* Compare with c/c-decl.c: finish_struct. */
   tree t = as_tree ();
 
   tree fieldlist = NULL;
-  for (unsigned i = 0; i < fields.length (); i++)
+  for (unsigned i = 0; i < fields->length (); i++)
     {
-      field *f = fields[i];
+      field *f = (*fields)[i];
       DECL_CONTEXT (f->as_tree ()) = t;
       fieldlist = chainon (f->as_tree (), fieldlist);
     }
@@ -309,7 +319,7 @@ playback::compound_type::set_fields (const vec<playback::field *> &fields)
 playback::type *
 playback::context::
 new_function_type (type *return_type,
-		   vec<type *> *param_types,
+		   const auto_vec<type *> *param_types,
 		   int is_variadic)
 {
   int i;
@@ -361,7 +371,7 @@ new_function (location *loc,
 	      enum gcc_jit_function_kind kind,
 	      type *return_type,
 	      const char *name,
-	      vec<param *> *params,
+	      const auto_vec<param *> *params,
 	      int is_variadic,
 	      enum built_in_function builtin_id)
 {
@@ -398,10 +408,21 @@ new_function (location *loc,
 
   if (builtin_id)
     {
-      DECL_BUILT_IN_CLASS (fndecl) = BUILT_IN_NORMAL;
       DECL_FUNCTION_CODE (fndecl) = builtin_id;
       gcc_assert (loc == NULL);
       DECL_SOURCE_LOCATION (fndecl) = BUILTINS_LOCATION;
+
+      DECL_BUILT_IN_CLASS (fndecl) =
+	builtins_manager::get_class (builtin_id);
+      set_builtin_decl (builtin_id, fndecl,
+			builtins_manager::implicit_p (builtin_id));
+
+      builtins_manager *bm = get_builtins_manager ();
+      tree attrs = bm->get_attrs_tree (builtin_id);
+      if (attrs)
+	decl_attributes (&fndecl, attrs, ATTR_FLAG_BUILT_IN);
+      else
+	decl_attributes (&fndecl, NULL_TREE, 0);
     }
 
   if (kind != GCC_JIT_FUNCTION_IMPORTED)
@@ -770,12 +791,12 @@ playback::rvalue *
 playback::context::
 build_call (location *loc,
 	    tree fn_ptr,
-	    vec<rvalue *> args)
+	    const auto_vec<rvalue *> *args)
 {
   vec<tree, va_gc> *tree_args;
-  vec_alloc (tree_args, args.length ());
-  for (unsigned i = 0; i < args.length (); i++)
-    tree_args->quick_push (args[i]->as_tree ());
+  vec_alloc (tree_args, args->length ());
+  for (unsigned i = 0; i < args->length (); i++)
+    tree_args->quick_push ((*args)[i]->as_tree ());
 
   if (loc)
     set_tree_location (fn_ptr, loc);
@@ -806,7 +827,7 @@ playback::rvalue *
 playback::context::
 new_call (location *loc,
 	  function *func,
-	  vec<rvalue *> args)
+	  const auto_vec<rvalue *> *args)
 {
   tree fndecl;
 
@@ -828,7 +849,7 @@ playback::rvalue *
 playback::context::
 new_call_through_ptr (location *loc,
 		      rvalue *fn_ptr,
-		      vec<rvalue *> args)
+		      const auto_vec<rvalue *> *args)
 {
   gcc_assert (fn_ptr);
   tree t_fn_ptr = fn_ptr->as_tree ();
@@ -1079,6 +1100,18 @@ get_address (location *loc)
   return new rvalue (get_context (), ptr);
 }
 
+/* The wrapper subclasses are GC-managed, but can own non-GC memory.
+   Provide this finalization hook for calling then they are collected,
+   which calls the finalizer vfunc.  This allows them to call "release"
+   on any vec<> within them.  */
+
+static void
+wrapper_finalizer (void *ptr)
+{
+  playback::wrapper *wrapper = reinterpret_cast <playback::wrapper *> (ptr);
+  wrapper->finalizer ();
+}
+
 /* gcc::jit::playback::wrapper subclasses are GC-managed:
    allocate them using ggc_internal_cleared_alloc.  */
 
@@ -1086,7 +1119,8 @@ void *
 playback::wrapper::
 operator new (size_t sz)
 {
-  return ggc_internal_cleared_alloc (sz MEM_STAT_INFO);
+  return ggc_internal_cleared_alloc (sz, wrapper_finalizer, 0, 1);
+
 }
 
 /* Constructor for gcc:jit::playback::function.  */
@@ -1126,6 +1160,15 @@ gt_ggc_mx ()
   gt_ggc_m_9tree_node (m_inner_bind_expr);
   gt_ggc_m_9tree_node (m_stmt_list);
   gt_ggc_m_9tree_node (m_inner_block);
+}
+
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::function::finalizer ()
+{
+  m_blocks.release ();
 }
 
 /* Get the return type of a playback function, in tree form.  */
@@ -1260,6 +1303,15 @@ postprocess ()
 
       current_function_decl = NULL;
     }
+}
+
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::block::finalizer ()
+{
+  m_stmts.release ();
 }
 
 /* Add an eval of the rvalue to the function's statement list.  */
@@ -1516,8 +1568,6 @@ compile ()
   void *handle = NULL;
   const char *ctxt_progname;
   result *result_obj = NULL;
-  const char *fake_args[20];
-  unsigned int num_args;
 
   m_path_template = make_tempdir_path_template ();
   if (!m_path_template)
@@ -1540,20 +1590,68 @@ compile ()
   /* Pass in user-provided program name as argv0, if any, so that it
      makes it into GCC's "progname" global, used in various diagnostics. */
   ctxt_progname = get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
-  fake_args[0] =
-    (ctxt_progname ? ctxt_progname : "libgccjit.so");
 
-  fake_args[1] = m_path_c_file;
-  num_args = 2;
+  if (!ctxt_progname)
+    ctxt_progname = "libgccjit.so";
 
-#define ADD_ARG(arg) \
-  do \
-    { \
-      gcc_assert(num_args < sizeof(fake_args)/sizeof(char*)); \
-      fake_args[num_args++] = arg; \
-    } \
-  while (0)
+  auto_vec <const char *> fake_args;
+  make_fake_args (&fake_args, ctxt_progname);
+  if (errors_occurred ())
+    return NULL;
 
+  toplev toplev (false);
+  toplev.main (fake_args.length (),
+	       const_cast <char **> (fake_args.address ()));
+  toplev.finalize ();
+
+  active_playback_ctxt = NULL;
+
+  if (errors_occurred ())
+    return NULL;
+
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
+    dump_generated_code ();
+
+  convert_to_dso (ctxt_progname);
+  if (errors_occurred ())
+    return NULL;
+
+  /* dlopen the .so file. */
+  {
+    auto_timevar load_timevar (TV_LOAD);
+
+    const char *error;
+
+    /* Clear any existing error.  */
+    dlerror ();
+
+    handle = dlopen (m_path_so_file, RTLD_NOW | RTLD_LOCAL);
+    if ((error = dlerror()) != NULL)  {
+      add_error (NULL, "%s", error);
+    }
+    if (handle)
+      result_obj = new result (handle);
+    else
+      result_obj = NULL;
+  }
+
+  return result_obj;
+}
+
+/* Helper functions for gcc::jit::playback::context::compile.  */
+
+/* Build a fake argv for toplev::main from the options set
+   by the user on the context .  */
+
+void
+playback::context::
+make_fake_args (auto_vec <const char *> *argvec,
+		const char *ctxt_progname)
+{
+#define ADD_ARG(arg) argvec->safe_push (arg)
+
+  ADD_ARG (ctxt_progname);
+  ADD_ARG (m_path_c_file);
   ADD_ARG ("-fPIC");
 
   /* Handle int options: */
@@ -1563,7 +1661,7 @@ compile ()
       add_error (NULL,
 		 "unrecognized optimization level: %i",
 		 get_int_option (GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL));
-      return NULL;
+      return;
 
     case 0:
       ADD_ARG ("-O0");
@@ -1609,108 +1707,82 @@ compile ()
       ADD_ARG ("-fdump-rtl-all");
       ADD_ARG ("-fdump-ipa-all");
     }
+#undef ADD_ARG
+}
 
-  toplev toplev (false);
+/* Part of playback::context::compile ().
 
-  toplev.main (num_args, const_cast <char **> (fake_args));
-  toplev.finalize ();
+   We have a .s file; we want a .so file.
+   We could reuse parts of gcc/gcc.c to do this.
+   For now, just use the driver binary from the install, as
+   named in gcc-driver-name.h
+   e.g. "x86_64-unknown-linux-gnu-gcc-5.0.0".  */
 
-  active_playback_ctxt = NULL;
+void
+playback::context::
+convert_to_dso (const char *ctxt_progname)
+{
+  /* Currently this lumps together both assembling and linking into
+     TV_ASSEMBLE.  */
+  auto_timevar assemble_timevar (TV_ASSEMBLE);
+  const char *errmsg;
+  const char *argv[7];
+  int exit_status = 0;
+  int err = 0;
+  const char *gcc_driver_name = GCC_DRIVER_NAME;
 
-  if (errors_occurred ())
-    return NULL;
+  argv[0] = gcc_driver_name;
+  argv[1] = "-shared";
+  /* The input: assembler.  */
+  argv[2] = m_path_s_file;
+  /* The output: shared library.  */
+  argv[3] = "-o";
+  argv[4] = m_path_so_file;
 
-  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
-   dump_generated_code ();
+  /* Don't use the linker plugin.
+     If running with just a "make" and not a "make install", then we'd
+     run into
+       "fatal error: -fuse-linker-plugin, but liblto_plugin.so not found"
+     libto_plugin is a .la at build time, with it becoming installed with
+     ".so" suffix: i.e. it doesn't exist with a .so suffix until install
+     time.  */
+  argv[5] = "-fno-use-linker-plugin";
 
-  /* Gross hacks follow:
-     We have a .s file; we want a .so file.
-     We could reuse parts of gcc/gcc.c to do this.
-     For now, just use the driver binary from the install, as
-     named in gcc-driver-name.h
-     e.g. "x86_64-unknown-linux-gnu-gcc-5.0.0".
-   */
-  {
-    auto_timevar assemble_timevar (TV_ASSEMBLE);
-    const char *errmsg;
-    const char *argv[7];
-    int exit_status = 0;
-    int err = 0;
-    const char *gcc_driver_name = GCC_DRIVER_NAME;
+  /* pex argv arrays are NULL-terminated.  */
+  argv[6] = NULL;
 
-    argv[0] = gcc_driver_name;
-    argv[1] = "-shared";
-    /* The input: assembler.  */
-    argv[2] = m_path_s_file;
-    /* The output: shared library.  */
-    argv[3] = "-o";
-    argv[4] = m_path_so_file;
+  /* pex_one's error-handling requires pname to be non-NULL.  */
+  gcc_assert (ctxt_progname);
 
-    /* Don't use the linker plugin.
-       If running with just a "make" and not a "make install", then we'd
-       run into
-          "fatal error: -fuse-linker-plugin, but liblto_plugin.so not found"
-       libto_plugin is a .la at build time, with it becoming installed with
-       ".so" suffix: i.e. it doesn't exist with a .so suffix until install
-       time.  */
-    argv[5] = "-fno-use-linker-plugin";
-
-    /* pex argv arrays are NULL-terminated.  */
-    argv[6] = NULL;
-
-    errmsg = pex_one (PEX_SEARCH, /* int flags, */
-		      gcc_driver_name,
-		      const_cast<char * const *> (argv),
-		      ctxt_progname, /* const char *pname */
-		      NULL, /* const char *outname */
-		      NULL, /* const char *errname */
-		      &exit_status, /* int *status */
-		      &err); /* int *err*/
-    if (errmsg)
-      {
-	add_error (NULL, "error invoking gcc driver: %s", errmsg);
-	return NULL;
-      }
-
-    /* pex_one can return a NULL errmsg when the executable wasn't
-       found (or doesn't exist), so trap these cases also.  */
-    if (exit_status || err)
-      {
-	add_error (NULL,
-		   "error invoking gcc driver: exit_status: %i err: %i",
-		   exit_status, err);
-	add_error (NULL,
-		   "whilst attempting to run a driver named: %s",
-		   gcc_driver_name);
-	add_error (NULL,
-		   "PATH was: %s",
-		   getenv ("PATH"));
-	return NULL;
-      }
-  }
-
-  // TODO: split out assembles vs linker
-
-  /* dlopen the .so file. */
-  {
-    auto_timevar load_timevar (TV_LOAD);
-
-    const char *error;
-
-    /* Clear any existing error.  */
-    dlerror ();
-
-    handle = dlopen (m_path_so_file, RTLD_NOW | RTLD_LOCAL);
-    if ((error = dlerror()) != NULL)  {
-      add_error (NULL, "%s", error);
+  errmsg = pex_one (PEX_SEARCH, /* int flags, */
+		    gcc_driver_name,
+		    const_cast<char * const *> (argv),
+		    ctxt_progname, /* const char *pname */
+		    NULL, /* const char *outname */
+		    NULL, /* const char *errname */
+		    &exit_status, /* int *status */
+		    &err); /* int *err*/
+  if (errmsg)
+    {
+      add_error (NULL, "error invoking gcc driver: %s", errmsg);
+      return;
     }
-    if (handle)
-      result_obj = new result (handle);
-    else
-      result_obj = NULL;
-  }
 
-  return result_obj;
+  /* pex_one can return a NULL errmsg when the executable wasn't
+     found (or doesn't exist), so trap these cases also.  */
+  if (exit_status || err)
+    {
+      add_error (NULL,
+		 "error invoking gcc driver: exit_status: %i err: %i",
+		 exit_status, err);
+      add_error (NULL,
+		 "whilst attempting to run a driver named: %s",
+		 gcc_driver_name);
+      add_error (NULL,
+		 "PATH was: %s",
+		 getenv ("PATH"));
+      return;
+    }
 }
 
 /* Top-level hook for playing back a recording context.
@@ -1742,6 +1814,14 @@ replay ()
      latter are GC-allocated, but the former don't mark these
      refs.  Hence we must stop using them before the GC can run.  */
   m_recording_ctxt->disassociate_from_playback ();
+
+  /* The builtins_manager, if any, is associated with the recording::context
+     and might be reused for future compiles on other playback::contexts,
+     but its m_attributes array is not GTY-labeled and hence will become
+     nonsense if the GC runs.  Purge this state.  */
+  builtins_manager *bm = get_builtins_manager ();
+  if (bm)
+    bm->finish_playback ();
 
   timevar_pop (TV_JIT_REPLAY);
 
@@ -1915,48 +1995,6 @@ add_error_va (location *loc, const char *fmt, va_list ap)
 				  fmt, ap);
 }
 
-/* Constructor for gcc::jit::playback::result.  */
-
-result::
-result(void *dso_handle)
-  : m_dso_handle(dso_handle)
-{
-}
-
-/* gcc::jit::playback::result's destructor.
-
-   Called implicitly by gcc_jit_result_release.  */
-
-result::~result()
-{
-  dlclose (m_dso_handle);
-}
-
-/* Attempt to locate the given function by name within the
-   playback::result, using dlsym.
-
-   Implements the post-error-checking part of
-   gcc_jit_result_get_code.  */
-
-void *
-result::
-get_code (const char *funcname)
-{
-  void *code;
-  const char *error;
-
-  /* Clear any existing error.  */
-  dlerror ();
-
-  code = dlsym (m_dso_handle, funcname);
-
-  if ((error = dlerror()) != NULL)  {
-    fprintf(stderr, "%s\n", error);
-  }
-
-  return code;
-}
-
 /* Dealing with the linemap API.  */
 
 /* Construct a playback::location for a recording::location, if it
@@ -2024,6 +2062,15 @@ playback::source_file::source_file (tree filename) :
 {
 }
 
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::source_file::finalizer ()
+{
+  m_source_lines.release ();
+}
+
 /* Construct a playback::source_line for the given line
    within this source file, if one doesn't exist already.  */
 
@@ -2054,6 +2101,15 @@ playback::source_line::source_line (source_file *file, int line_num) :
   m_source_file (file),
   m_line_num (line_num)
 {
+}
+
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::source_line::finalizer ()
+{
+  m_locations.release ();
 }
 
 /* Construct a playback::location for the given column

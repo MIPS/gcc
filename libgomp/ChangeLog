@@ -1,3 +1,47 @@
+2014-11-28  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.c/target-critical-1.c: New test.
+
+2014-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/examples-4/e.53.4.c: Add -DITESTITERS=20
+	to dg-options unless expensive testing is on.  
+	(TESTITERS): Define to N if not defined.
+	(main): Use TESTITERS instead of N.
+	* testsuite/libgomp.c/examples-4/e.55.1.c: Define CHUNKSZ from
+	dg-additional-options depending on whether expensive testing is on.
+	* testsuite/libgomp.fortran/examples-4/e.55.1.f90 (e_55_1_mod):
+	Decrease N to 100000 and CHUNKSZ to 10000.
+
+2014-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/63938
+	* testsuite/libgomp.fortran/pr63938-1.f90: New test.
+	* testsuite/libgomp.fortran/pr63938-2.f90: New test.
+
+2014-11-21  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config/linux/mips/futex.h (SYS_futex): Define if not already done.
+
+2014-11-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/63784
+	* configure: Regenerated.
+
+2014-11-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libgomp.c/examples-4/e.53.5.c: Require
+	vect_simd_clones effective target.
+	* testsuite/libgomp.fortran/examples-4/e.53.5.f90: Ditto.
+
+2014-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.c/examples-4/e.54.2.c (main): Use N / 8 instead
+	of 32 as block_size.
+	* libgomp.fortran/examples-4/e.54.2.f90 (e_54_1): Use n / 8
+	instead of 32 as block_size.
+
 2014-11-13  Andrey Turetskiy  <andrey.turetskiy@intel.com>
 	    Ilya Verbin  <ilya.verbin@intel.com>
 

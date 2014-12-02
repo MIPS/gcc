@@ -1067,11 +1067,13 @@ DEFHOOK
 
 DEFHOOK
 (macro_fusion_pair_p,
- "This hook is used to check whether two insns could be macro fused for\n\
-target microarchitecture. If this hook returns true for the given insn pair\n\
-(@var{condgen} and @var{condjmp}), scheduler will put them into a sched\n\
-group, and they will not be scheduled apart.",
- bool, (rtx_insn *condgen, rtx_insn *condjmp), NULL)
+ "This hook is used to check whether two insns should be macro fused for\n\
+a target microarchitecture. If this hook returns true for the given insn pair\n\
+(@var{prev} and @var{curr}), the scheduler will put them into a sched\n\
+group, and they will not be scheduled apart.  The two insns will be either\n\
+two SET insns or a compare and a conditional jump and this hook should\n\
+validate any dependencies needed to fuse the two insns together.",
+ bool, (rtx_insn *prev, rtx_insn *curr), NULL)
 
 /* The following member value is a pointer to a function called
    after evaluation forward dependencies of insns in chain given
@@ -2532,6 +2534,28 @@ modes and they have different conditional execution capability, such as ARM.",
  bool, (void),
  default_have_conditional_execution)
 
+DEFHOOK
+(gen_ccmp_first,
+ "This function emits a comparison insn for the first of a sequence of\n\
+ conditional comparisions.  It returns a comparison expression appropriate\n\
+ for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is\n\
+ the @code{rtx_code} of the compare for @var{op0} and @var{op1}.",
+ rtx, (int code, rtx op0, rtx op1),
+ NULL)
+
+DEFHOOK
+(gen_ccmp_next,
+ "This function emits a conditional comparison within a sequence of\n\
+ conditional comparisons.  The @var{prev} expression is the result of a\n\
+ prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It may return\n\
+ @code{NULL} if the combination of @var{prev} and this comparison is\n\
+ not supported, otherwise the result must be appropriate for passing to\n\
+ @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is the\n\
+ @code{rtx_code} of the compare for @var{op0} and @var{op1}.  @var{bit_code}\n\
+ is @code{AND} or @code{IOR}, which is the op on the two compares.",
+ rtx, (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code),
+ NULL)
+
 /* Return a new value for loop unroll size.  */
 DEFHOOK
 (loop_unroll_adjust,
@@ -3292,7 +3316,7 @@ the body of the memory operation.\n\
 Returning true for higher values of @code{size} may also cause an increase\n\
 in code size, for example where the number of insns emitted to perform a\n\
 move would be greater than that of a library call.",
- bool, (unsigned int size, unsigned int alignment,
+ bool, (unsigned HOST_WIDE_INT size, unsigned int alignment,
         enum by_pieces_operation op, bool speed_p),
  default_use_by_pieces_infrastructure_p)
 
@@ -4494,8 +4518,8 @@ false for naked functions.  The default implementation always returns true.",
  bool, (void),
  hook_bool_void_true)
 
-/* Return an rtx for the static chain for FNDECL.  If INCOMING_P is true,
-       then it should be for the callee; otherwise for the caller.  */
+/* Return an rtx for the static chain for FNDECL_OR_TYPE.  If INCOMING_P
+   is true, then it should be for the callee; otherwise for the caller.  */
 DEFHOOK
 (static_chain,
  "This hook replaces the use of @code{STATIC_CHAIN_REGNUM} et al for\n\
@@ -4517,7 +4541,7 @@ will be at an offset from the frame pointer.\n\
 The variables @code{stack_pointer_rtx}, @code{frame_pointer_rtx}, and\n\
 @code{arg_pointer_rtx} will have been initialized and should be used\n\
 to refer to those items.",
- rtx, (const_tree fndecl, bool incoming_p),
+ rtx, (const_tree fndecl_or_type, bool incoming_p),
  default_static_chain)
 
 /* Fill in the trampoline at MEM with a call to FNDECL and a

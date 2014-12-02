@@ -933,9 +933,11 @@ gfc_notify_std (int std, const char *gmsgid, ...)
 
 
 /* Immediate warning (i.e. do not buffer the warning).  */
+/* Use gfc_warning_now instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
 
 void
-gfc_warning_now (const char *gmsgid, ...)
+gfc_warning_now_1 (const char *gmsgid, ...)
 {
   va_list argp;
   int i;
@@ -963,6 +965,7 @@ gfc_warning_now (const char *gmsgid, ...)
    to handle Fortran specific format specifiers with the following meanings:
 
    %C  Current locus (no argument)
+   %L  Takes locus argument
 */
 static bool
 gfc_format_decoder (pretty_printer *pp,
@@ -973,15 +976,21 @@ gfc_format_decoder (pretty_printer *pp,
   switch (*spec)
     {
     case 'C':
+    case 'L':
       {
 	static const char *result = "(1)";
-	gcc_assert (gfc_current_locus.nextc - gfc_current_locus.lb->line >= 0);
-	unsigned int c1 = gfc_current_locus.nextc - gfc_current_locus.lb->line;
+	locus *loc;
+	if (*spec == 'C')
+	  loc = &gfc_current_locus;
+	else
+	  loc = va_arg (*text->args_ptr, locus *);
+	gcc_assert (loc->nextc - loc->lb->line >= 0);
+	unsigned int offset = loc->nextc - loc->lb->line;
 	gcc_assert (text->locus);
 	*text->locus
 	  = linemap_position_for_loc_and_offset (line_table,
-						 gfc_current_locus.lb->location,
-						 c1);
+						 loc->lb->location,
+						 offset);
 	global_dc->caret_char = '1';
 	pp_string (pp, result);
 	return true;
@@ -1020,7 +1029,7 @@ gfc_diagnostic_build_prefix (diagnostic_context *context,
 				diagnostic_kind_color[diagnostic->kind]);
       text_ce = colorize_stop (pp_show_color (pp));
     }
-  return build_message_string ("%s%s%s: ", text_cs, text, text_ce);
+  return build_message_string ("%s%s:%s ", text_cs, text, text_ce);
 }
 
 /* Return a malloc'd string describing a location.  The caller is
@@ -1086,9 +1095,12 @@ gfc_diagnostic_finalizer (diagnostic_context *context,
 }
 
 /* Immediate warning (i.e. do not buffer the warning).  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_warning_now_1.   */
 
 bool
-gfc_warning_now_2 (int opt, const char *gmsgid, ...)
+gfc_warning_now (int opt, const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1104,9 +1116,12 @@ gfc_warning_now_2 (int opt, const char *gmsgid, ...)
 }
 
 /* Immediate warning (i.e. do not buffer the warning).  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_warning_now_1.   */
 
 bool
-gfc_warning_now_2 (const char *gmsgid, ...)
+gfc_warning_now (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1122,9 +1137,12 @@ gfc_warning_now_2 (const char *gmsgid, ...)
 
 
 /* Immediate error (i.e. do not buffer).  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_error_now_1.   */
 
 void
-gfc_error_now_2 (const char *gmsgid, ...)
+gfc_error_now (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1133,6 +1151,23 @@ gfc_error_now_2 (const char *gmsgid, ...)
   diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_ERROR);
   report_diagnostic (&diagnostic);
   va_end (argp);
+}
+
+
+/* Fatal error, never returns.  */
+
+void
+gfc_fatal_error (const char *gmsgid, ...)
+{
+  va_list argp;
+  diagnostic_info diagnostic;
+
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_FATAL);
+  report_diagnostic (&diagnostic);
+  va_end (argp);
+
+  gcc_unreachable ();
 }
 
 /* Clear the warning flag.  */
@@ -1213,9 +1248,11 @@ warning:
 
 
 /* Immediate error.  */
+/* Use gfc_error_now instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
 
 void
-gfc_error_now (const char *gmsgid, ...)
+gfc_error_now_1 (const char *gmsgid, ...)
 {
   va_list argp;
   int i;
@@ -1242,41 +1279,20 @@ gfc_error_now (const char *gmsgid, ...)
 }
 
 
-/* Fatal error, never returns.  */
-
-void
-gfc_fatal_error (const char *gmsgid, ...)
-{
-  va_list argp;
-
-  buffer_flag = 0;
-
-  va_start (argp, gmsgid);
-  error_print (_("Fatal Error:"), _(gmsgid), argp);
-  va_end (argp);
-
-  exit (FATAL_EXIT_CODE);
-}
-
-
 /* This shouldn't happen... but sometimes does.  */
 
 void
-gfc_internal_error (const char *format, ...)
+gfc_internal_error (const char *gmsgid, ...)
 {
   va_list argp;
+  diagnostic_info diagnostic;
 
-  buffer_flag = 0;
-
-  va_start (argp, format);
-
-  show_loci (&gfc_current_locus, NULL);
-  error_printf ("Internal Error at (1):");
-
-  error_print ("", format, argp);
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_ICE);
+  report_diagnostic (&diagnostic);
   va_end (argp);
 
-  exit (ICE_EXIT_CODE);
+  gcc_unreachable ();
 }
 
 
@@ -1370,9 +1386,9 @@ void
 gfc_get_errors (int *w, int *e)
 {
   if (w != NULL)
-    *w = warnings;
+    *w = warnings + warningcount + werrorcount;
   if (e != NULL)
-    *e = errors;
+    *e = errors + errorcount + sorrycount + werrorcount;
 }
 
 

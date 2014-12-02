@@ -587,7 +587,7 @@ append_offload_options (obstack *argv_obstack, const char *target,
 	    {
 	      next = strchr (cur, ',');
 	      if (next == NULL)
-		next = strchr (cur, '\0');
+		next = opts;
 	      next = (next > opts) ? opts : next;
 
 	      if (strlen (target) == (size_t) (next - cur)
@@ -921,13 +921,14 @@ run_gcc (unsigned argc, char *argv[])
 	continue;
 
       have_lto
-	= find_and_merge_options (fd, file_offset, LTO_SECTION_NAME_PREFIX,
-				  &fdecoded_options, &fdecoded_options_count,
-				  collect_gcc);
+	|= find_and_merge_options (fd, file_offset, LTO_SECTION_NAME_PREFIX,
+				   &fdecoded_options, &fdecoded_options_count,
+				   collect_gcc);
       have_offload
-	= find_and_merge_options (fd, file_offset, OFFLOAD_SECTION_NAME_PREFIX,
-				  &offload_fdecoded_options,
-				  &offload_fdecoded_options_count, collect_gcc);
+	|= find_and_merge_options (fd, file_offset, OFFLOAD_SECTION_NAME_PREFIX,
+				   &offload_fdecoded_options,
+				   &offload_fdecoded_options_count,
+				   collect_gcc);
       close (fd);
     }
 
@@ -1314,12 +1315,12 @@ main (int argc, char *argv[])
 
   xmalloc_set_program_name (progname);
 
-  if (atexit (lto_wrapper_cleanup) != 0)
-    fatal_error ("atexit failed");
-
   gcc_init_libintl ();
 
   diagnostic_initialize (global_dc, 0);
+
+  if (atexit (lto_wrapper_cleanup) != 0)
+    fatal_error ("atexit failed");
 
   if (signal (SIGINT, SIG_IGN) != SIG_IGN)
     signal (SIGINT, fatal_signal);

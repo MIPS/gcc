@@ -2569,9 +2569,6 @@ push_range_check_info (tree var)
   struct loop_info_d *iter = NULL;
   unsigned int i;
 
-  if (vec_safe_is_empty (gnu_loop_stack))
-    return NULL;
-
   var = remove_conversions (var, false);
 
   if (TREE_CODE (var) != VAR_DECL)
@@ -2579,6 +2576,8 @@ push_range_check_info (tree var)
 
   if (decl_function_context (var) != current_function_decl)
     return NULL;
+
+  gcc_assert (vec_safe_length (gnu_loop_stack) > 0);
 
   for (i = vec_safe_length (gnu_loop_stack) - 1;
        vec_safe_iterate (gnu_loop_stack, i, &iter);
@@ -3136,7 +3135,7 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
      nop, but differs from using NULL_TREE in that it indicates that we care
      about the value of the RESULT_DECL.  */
   else if (TREE_CODE (t) == RETURN_EXPR
-	   && TREE_CODE (TREE_OPERAND (t, 0)) == MODIFY_EXPR)
+	   && TREE_CODE (TREE_OPERAND (t, 0)) == INIT_EXPR)
     {
       tree ret_val = TREE_OPERAND (TREE_OPERAND (t, 0), 1), init_expr;
 
@@ -3225,7 +3224,7 @@ finalize_nrv_unc_r (tree *tp, int *walk_subtrees, void *data)
   /* Change RETURN_EXPRs of NRVs to assign to the RESULT_DECL only the final
      return value built by the allocator instead of the whole construct.  */
   else if (TREE_CODE (t) == RETURN_EXPR
-	   && TREE_CODE (TREE_OPERAND (t, 0)) == MODIFY_EXPR)
+	   && TREE_CODE (TREE_OPERAND (t, 0)) == INIT_EXPR)
     {
       tree ret_val = TREE_OPERAND (TREE_OPERAND (t, 0), 1);
 
@@ -3438,7 +3437,7 @@ build_return_expr (tree ret_obj, tree ret_val)
 
 	      RETURN_EXPR
 		  |
-	      MODIFY_EXPR
+	       INIT_EXPR
 	      /        \
 	     /          \
 	 RET_OBJ        ...
@@ -3447,13 +3446,14 @@ build_return_expr (tree ret_obj, tree ret_val)
 	 of the RET_OBJ as the operation type.  */
       tree operation_type = TREE_TYPE (ret_obj);
 
-      /* Convert the right operand to the operation type.  Note that it's the
-	 same transformation as in the MODIFY_EXPR case of build_binary_op,
+      /* Convert the right operand to the operation type.  Note that this is
+	 the transformation applied in the INIT_EXPR case of build_binary_op,
 	 with the assumption that the type cannot involve a placeholder.  */
       if (operation_type != TREE_TYPE (ret_val))
 	ret_val = convert (operation_type, ret_val);
 
-      result_expr = build2 (MODIFY_EXPR, void_type_node, ret_obj, ret_val);
+      /* We always can use an INIT_EXPR for the return object.  */
+      result_expr = build2 (INIT_EXPR, void_type_node, ret_obj, ret_val);
 
       /* If the function returns an aggregate type, find out whether this is
 	 a candidate for Named Return Value.  If so, record it.  Otherwise,
@@ -4016,9 +4016,10 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
        gnat_formal = Next_Formal_With_Extras (gnat_formal),
        gnat_actual = Next_Actual (gnat_actual))
     {
+      Entity_Id gnat_formal_type = Etype (gnat_formal);
       tree gnu_formal = present_gnu_tree (gnat_formal)
 			? get_gnu_tree (gnat_formal) : NULL_TREE;
-      tree gnu_formal_type = gnat_to_gnu_type (Etype (gnat_formal));
+      tree gnu_formal_type = gnat_to_gnu_type (gnat_formal_type);
       const bool is_true_formal_parm
 	= gnu_formal && TREE_CODE (gnu_formal) == PARM_DECL;
       const bool is_by_ref_formal_parm
@@ -4031,13 +4032,16 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	 address if it's passed by reference or as target of the back copy
 	 done after the call if it uses the copy-in/copy-out mechanism.
 	 We do it in the In case too, except for an unchecked conversion
-	 because it alone can cause the actual to be misaligned and the
-	 addressability test is applied to the real object.  */
+	 to an elementary type or a constrained composite type because it
+	 alone can cause the actual to be misaligned and the addressability
+	 test is applied to the real object.  */
       const bool suppress_type_conversion
 	= ((Nkind (gnat_actual) == N_Unchecked_Type_Conversion
-	    && Ekind (gnat_formal) != E_In_Parameter)
+	    && (Ekind (gnat_formal) != E_In_Parameter
+		|| (Is_Composite_Type (Underlying_Type (gnat_formal_type))
+		    && !Is_Constrained (Underlying_Type (gnat_formal_type)))))
 	   || (Nkind (gnat_actual) == N_Type_Conversion
-	       && Is_Composite_Type (Underlying_Type (Etype (gnat_formal)))));
+	       && Is_Composite_Type (Underlying_Type (gnat_formal_type))));
       Node_Id gnat_name = suppress_type_conversion
 			  ? Expression (gnat_actual) : gnat_actual;
       tree gnu_name = gnat_to_gnu (gnat_name), gnu_name_type;
@@ -4200,7 +4204,7 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
       if (Ekind (gnat_formal) != E_Out_Parameter
 	  && Do_Range_Check (gnat_actual))
 	gnu_actual
-	  = emit_range_check (gnu_actual, Etype (gnat_formal), gnat_actual);
+	  = emit_range_check (gnu_actual, gnat_formal_type, gnat_actual);
 
       /* Unless this is an In parameter, we must remove any justified modular
 	 building from GNU_NAME to get an lvalue.  */
@@ -5171,6 +5175,7 @@ Raise_Error_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
 	     the original checks reinstated, and a run time selection.
 	     The former loop will be suitable for vectorization.  */
 	  if (flag_unswitch_loops
+	      && !vec_safe_is_empty (gnu_loop_stack)
 	      && (!gnu_low_bound
 		  || (gnu_low_bound = gnat_invariant_expr (gnu_low_bound)))
 	      && (!gnu_high_bound
@@ -7657,6 +7662,7 @@ gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
 		    gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree expr = *expr_p;
+  tree type = TREE_TYPE (expr);
   tree op;
 
   if (IS_ADA_STMT (expr))
@@ -7665,16 +7671,17 @@ gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
   switch (TREE_CODE (expr))
     {
     case NULL_EXPR:
-      /* If this is for a scalar, just make a VAR_DECL for it.  If for
-	 an aggregate, get a null pointer of the appropriate type and
-	 dereference it.  */
-      if (AGGREGATE_TYPE_P (TREE_TYPE (expr)))
-	*expr_p = build1 (INDIRECT_REF, TREE_TYPE (expr),
-			  convert (build_pointer_type (TREE_TYPE (expr)),
-				   integer_zero_node));
+      /* If this is an aggregate type, build a null pointer of the appropriate
+	 type and dereference it.  */
+      if (AGGREGATE_TYPE_P (type)
+	  || TREE_CODE (type) == UNCONSTRAINED_ARRAY_TYPE)
+	*expr_p = build_unary_op (INDIRECT_REF, NULL_TREE,
+				  convert (build_pointer_type (type),
+					   integer_zero_node));
+      /* Otherwise, just make a VAR_DECL.  */
       else
 	{
-	  *expr_p = create_tmp_var (TREE_TYPE (expr), NULL);
+	  *expr_p = create_tmp_var (type, NULL);
 	  TREE_NO_WARNING (*expr_p) = 1;
 	}
 
@@ -7697,7 +7704,7 @@ gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
       if (TREE_CODE (op) == CONSTRUCTOR && TREE_CONSTANT (op))
 	{
 	  tree addr = build_fold_addr_expr (tree_output_constant_def (op));
-	  *expr_p = fold_convert (TREE_TYPE (expr), addr);
+	  *expr_p = fold_convert (type, addr);
 	  return GS_ALL_DONE;
 	}
 
@@ -7711,7 +7718,7 @@ gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
 	 required if the type is passed by reference.  */
       if ((TREE_CODE (op) == CONSTRUCTOR || TREE_CODE (op) == CALL_EXPR)
 	  && AGGREGATE_TYPE_P (TREE_TYPE (op))
-	  && !AGGREGATE_TYPE_P (TREE_TYPE (expr)))
+	  && !AGGREGATE_TYPE_P (type))
 	{
 	  tree mod, new_var = create_tmp_var_raw (TREE_TYPE (op), "C");
 	  gimple_add_tmp_var (new_var);
