@@ -30,3 +30,9 @@
 	-mupper-regs-df tests.
 	* gcc.target/powerpc/upper-regs-df.c: Likewise.
 
+[gcc/testsuite, pr64019 fix]
+2014-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64019
+	* gcc.target/powerpc/pr64019.c: New file.
+
