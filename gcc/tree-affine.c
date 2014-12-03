@@ -23,8 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "expr.h"
 #include "tree-pretty-print.h"
-#include "pointer-set.h"
 #include "tree-affine.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -265,7 +273,7 @@ tree_to_aff_combination (tree expr, tree type, aff_tree *comb)
   enum tree_code code;
   tree cst, core, toffset;
   HOST_WIDE_INT bitpos, bitsize;
-  enum machine_mode mode;
+  machine_mode mode;
   int unsignedp, volatilep;
 
   STRIP_NOPS (expr);
@@ -621,14 +629,13 @@ struct name_expansion
 
 void
 aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
-			struct pointer_map_t **cache ATTRIBUTE_UNUSED)
+			hash_map<tree, name_expansion *> **cache)
 {
   unsigned i;
   aff_tree to_add, current, curre;
   tree e, rhs;
   gimple def;
   widest_int scale;
-  void **slot;
   struct name_expansion *exp;
 
   aff_combination_zero (&to_add, comb->type);
@@ -641,7 +648,7 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
       type = TREE_TYPE (e);
       name = e;
       /* Look through some conversions.  */
-      if (TREE_CODE (e) == NOP_EXPR
+      if (CONVERT_EXPR_P (e)
           && (TYPE_PRECISION (type)
 	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (e, 0)))))
 	name = TREE_OPERAND (e, 0);
@@ -664,9 +671,9 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
 	continue;
 
       if (!*cache)
-	*cache = pointer_map_create ();
-      slot = pointer_map_insert (*cache, e);
-      exp = (struct name_expansion *) *slot;
+	*cache = new hash_map<tree, name_expansion *>;
+      name_expansion **slot = &(*cache)->get_or_insert (e);
+      exp = *slot;
 
       if (!exp)
 	{
@@ -732,22 +739,19 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
 
 void
 tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb,
-				struct pointer_map_t **cache)
+				hash_map<tree, name_expansion *> **cache)
 {
   tree_to_aff_combination (expr, type, comb);
   aff_combination_expand (comb, cache);
 }
 
 /* Frees memory occupied by struct name_expansion in *VALUE.  Callback for
-   pointer_map_traverse.  */
+   hash_map::traverse.  */
 
-static bool
-free_name_expansion (const void *key ATTRIBUTE_UNUSED, void **value,
-		     void *data ATTRIBUTE_UNUSED)
+bool
+free_name_expansion (tree const &, name_expansion **value, void *)
 {
-  struct name_expansion *const exp = (struct name_expansion *) *value;
-
-  free (exp);
+  free (*value);
   return true;
 }
 
@@ -755,13 +759,13 @@ free_name_expansion (const void *key ATTRIBUTE_UNUSED, void **value,
    tree_to_aff_combination_expand.  */
 
 void
-free_affine_expand_cache (struct pointer_map_t **cache)
+free_affine_expand_cache (hash_map<tree, name_expansion *> **cache)
 {
   if (!*cache)
     return;
 
-  pointer_map_traverse (*cache, free_name_expansion, NULL);
-  pointer_map_destroy (*cache);
+  (*cache)->traverse<void *, free_name_expansion> (NULL);
+  delete (*cache);
   *cache = NULL;
 }
 
@@ -894,7 +898,7 @@ get_inner_reference_aff (tree ref, aff_tree *addr, widest_int *size)
 {
   HOST_WIDE_INT bitsize, bitpos;
   tree toff;
-  enum machine_mode mode;
+  machine_mode mode;
   int uns, vol;
   aff_tree tmp;
   tree base = get_inner_reference (ref, &bitsize, &bitpos, &toff, &mode,

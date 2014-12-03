@@ -36,7 +36,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "regs.h"
 #include "expr.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "toplev.h"
 #include "tm_p.h"
@@ -48,6 +57,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "tree-pass.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "diagnostic-core.h"
@@ -55,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "filenames.h"
 #include "target.h"
 #include "params.h"
+#include "auto-profile.h"
 
 #include "gcov-io.h"
 #include "gcov-io.c"
@@ -152,7 +166,7 @@ static void coverage_obj_finish (vec<constructor_elt, va_gc> *);
 tree
 get_gcov_type (void)
 {
-  enum machine_mode mode = smallest_mode_for_size (GCOV_TYPE_SIZE, MODE_INT);
+  machine_mode mode = smallest_mode_for_size (GCOV_TYPE_SIZE, MODE_INT);
   return lang_hooks.types.type_for_mode (mode, false);
 }
 
@@ -161,7 +175,7 @@ get_gcov_type (void)
 static tree
 get_gcov_unsigned_t (void)
 {
-  enum machine_mode mode = smallest_mode_for_size (32, MODE_INT);
+  machine_mode mode = smallest_mode_for_size (32, MODE_INT);
   return lang_hooks.types.type_for_mode (mode, true);
 }
 
@@ -579,7 +593,7 @@ coverage_compute_profile_id (struct cgraph_node *n)
   unsigned chksum;
 
   /* Externally visible symbols have unique name.  */
-  if (TREE_PUBLIC (n->decl) || DECL_EXTERNAL (n->decl))
+  if (TREE_PUBLIC (n->decl) || DECL_EXTERNAL (n->decl) || n->unique_name)
     {
       chksum = coverage_checksum_string
 	(0, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
@@ -601,8 +615,10 @@ coverage_compute_profile_id (struct cgraph_node *n)
 	(chksum, aux_base_name);
     }
 
-  /* Non-negative integers are hopefully small enough to fit in all targets.  */
-  return chksum & 0x7fffffff;
+  /* Non-negative integers are hopefully small enough to fit in all targets.
+     Gcov file formats wants non-zero function IDs.  */
+  chksum = chksum & 0x7fffffff;
+  return chksum + (!chksum);
 }
 
 /* Compute cfg checksum for the function FN given as argument.
@@ -692,29 +708,23 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
     {
       struct coverage_data *item = 0;
 
-      /* If the function is extern (i.e. extern inline), then we won't
-	 be outputting it, so don't chain it onto the function
-	 list.  */
-      if (!DECL_EXTERNAL (current_function_decl))
+      item = ggc_alloc<coverage_data> ();
+
+      if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+	item->ident = current_function_funcdef_no + 1;
+      else
 	{
-	  item = ggc_alloc<coverage_data> ();
-
-          if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
-	    item->ident = current_function_funcdef_no + 1;
-          else
-            {
-              gcc_assert (coverage_node_map_initialized_p ());
-              item->ident = cgraph_node::get (cfun->decl)->profile_id;
-            }
-
-	  item->lineno_checksum = lineno_checksum;
-	  item->cfg_checksum = cfg_checksum;
-
-	  item->fn_decl = current_function_decl;
-	  item->next = 0;
-	  *functions_tail = item;
-	  functions_tail = &item->next;
+	  gcc_assert (coverage_node_map_initialized_p ());
+	  item->ident = cgraph_node::get (cfun->decl)->profile_id;
 	}
+
+      item->lineno_checksum = lineno_checksum;
+      item->cfg_checksum = cfg_checksum;
+
+      item->fn_decl = current_function_decl;
+      item->next = 0;
+      *functions_tail = item;
+      functions_tail = &item->next;
 
       for (i = 0; i != GCOV_COUNTERS; i++)
 	{
@@ -1094,8 +1104,8 @@ coverage_obj_init (void)
   if (!prg_ctr_mask)
     return false;
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "Using data file %s\n", da_file_name);
+  if (symtab->dump_file)
+    fprintf (symtab->dump_file, "Using data file %s\n", da_file_name);
 
   /* Prune functions.  */
   for (fn_prev = &functions_head; (fn = *fn_prev);)
@@ -1212,7 +1222,9 @@ coverage_init (const char *filename)
 
   bbg_file_stamp = local_tick;
   
-  if (flag_branch_probabilities)
+  if (flag_auto_profile)
+    read_autofdo_file ();
+  else if (flag_branch_probabilities)
     read_counts_file ();
 
   /* Name of bbg file.  */

@@ -139,6 +139,9 @@ extern const UQItype __clz_tab[256] attribute_hidden;
 #endif /* __aarch64__ */
 
 #if defined (__alpha) && W_TYPE_SIZE == 64
+/* There is a bug in g++ before version 5 that
+   errors on __builtin_alpha_umulh.  */
+#if !defined(__cplusplus) || __GNUC__ >= 5
 #define umul_ppmm(ph, pl, m0, m1) \
   do {									\
     UDItype __m0 = (m0), __m1 = (m1);					\
@@ -146,6 +149,7 @@ extern const UQItype __clz_tab[256] attribute_hidden;
     (pl) = __m0 * __m1;							\
   } while (0)
 #define UMUL_TIME 46
+#endif /* !c++ */
 #ifndef LONGLONG_STANDALONE
 #define udiv_qrnnd(q, r, n1, n0, d) \
   do { UDItype __r;							\
@@ -1687,7 +1691,8 @@ extern UHItype __stormy16_count_leading_zeros (UHItype);
 #if !defined (udiv_qrnnd) && defined (sdiv_qrnnd)
 #define udiv_qrnnd(q, r, nh, nl, d) \
   do {									\
-    USItype __r;							\
+    extern UWtype __udiv_w_sdiv (UWtype *, UWtype, UWtype, UWtype);	\
+    UWtype __r;								\
     (q) = __udiv_w_sdiv (&__r, nh, nl, d);				\
     (r) = __r;								\
   } while (0)

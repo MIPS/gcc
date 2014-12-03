@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 
    - Count histogram construction.  This is a histogram analyzing how much
      time is spent executing statements with a given execution count read
-     from profile feedback. This histogram is complette only with LTO,
+     from profile feedback. This histogram is complete only with LTO,
      otherwise it contains information only about the current unit.
 
      Similar histogram is also estimated by coverage runtime.  This histogram
@@ -49,6 +49,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "tree-ssa-alias.h"
@@ -67,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
 
 /* Entry in the histogram.  */
@@ -379,13 +395,13 @@ contains_hot_call_p (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
   for (e = node->callees; e; e = e->next_callee)
-    if (cgraph_maybe_hot_edge_p (e))
+    if (e->maybe_hot_p ())
       return true;
     else if (!e->inline_failed
 	     && contains_hot_call_p (e->callee))
       return true;
   for (e = node->indirect_calls; e; e = e->next_callee)
-    if (cgraph_maybe_hot_edge_p (e))
+    if (e->maybe_hot_p ())
       return true;
   return false;
 }
@@ -402,7 +418,8 @@ ipa_propagate_frequency (struct cgraph_node *node)
      nor about virtuals.  */
   if (!node->local.local
       || node->alias
-      || (flag_devirtualize && DECL_VIRTUAL_P (node->decl)))
+      || (opt_for_fn (node->decl, flag_devirtualize)
+	  && DECL_VIRTUAL_P (node->decl)))
     return false;
   gcc_assert (node->analyzed);
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -603,7 +620,7 @@ ipa_profile (void)
 			fprintf (dump_file,
 				 "Not speculating: probability is too low.\n");
 		    }
-		  else if (!cgraph_maybe_hot_edge_p (e))
+		  else if (!e->maybe_hot_p ())
 		    {
 		      nuseless++;
 		      if (dump_file)
@@ -633,8 +650,8 @@ ipa_profile (void)
 			    n2 = alias;
 			}
 		      nconverted++;
-		      cgraph_turn_edge_to_speculative
-			(e, n2,
+		      e->make_speculative
+			(n2,
 			 apply_scale (e->count,
 				      e->indirect_info->common_target_probability),
 			 apply_scale (e->frequency,
@@ -669,7 +686,7 @@ ipa_profile (void)
 	     nuseless, nuseless * 100.0 / nindirect,
 	     nconverted, nconverted * 100.0 / nindirect);
 
-  order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  order = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
   order_pos = ipa_reverse_postorder (order);
   for (i = order_pos - 1; i >= 0; i--)
     {
@@ -738,7 +755,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  virtual bool gate (function *) { return flag_ipa_profile; }
+  virtual bool gate (function *) { return flag_ipa_profile || in_lto_p; }
   virtual unsigned int execute (function *) { return ipa_profile (); }
 
 }; // class pass_ipa_profile

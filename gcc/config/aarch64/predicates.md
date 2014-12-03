@@ -30,6 +30,36 @@
   (ior (match_code "symbol_ref")
        (match_operand 0 "register_operand")))
 
+;; Return true if OP a (const_int 0) operand.
+(define_predicate "const0_operand"
+  (and (match_code "const_int, const_double")
+       (match_test "op == CONST0_RTX (mode)")))
+
+(define_predicate "aarch64_ccmp_immediate"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -31, 31)")))
+
+(define_predicate "aarch64_ccmp_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "aarch64_ccmp_immediate")))
+
+(define_special_predicate "ccmp_cc_register"
+  (and (match_code "reg")
+       (and (match_test "REGNO (op) == CC_REGNUM")
+	    (ior (match_test "mode == GET_MODE (op)")
+		 (match_test "mode == VOIDmode
+			      && (GET_MODE (op) == CC_DNEmode
+				  || GET_MODE (op) == CC_DEQmode
+				  || GET_MODE (op) == CC_DLEmode
+				  || GET_MODE (op) == CC_DLTmode
+				  || GET_MODE (op) == CC_DGEmode
+				  || GET_MODE (op) == CC_DGTmode
+				  || GET_MODE (op) == CC_DLEUmode
+				  || GET_MODE (op) == CC_DLTUmode
+				  || GET_MODE (op) == CC_DGEUmode
+				  || GET_MODE (op) == CC_DGTUmode)"))))
+)
+
 (define_predicate "aarch64_simd_register"
   (and (match_code "reg")
        (ior (match_test "REGNO_REG_CLASS (REGNO (op)) == FP_LO_REGS")
@@ -202,6 +232,18 @@
 (define_special_predicate "aarch64_comparison_operator"
   (match_code "eq,ne,le,lt,ge,gt,geu,gtu,leu,ltu,unordered,ordered,unlt,unle,unge,ungt"))
 
+(define_special_predicate "aarch64_comparison_operation"
+  (match_code "eq,ne,le,lt,ge,gt,geu,gtu,leu,ltu,unordered,ordered,unlt,unle,unge,ungt")
+{
+  if (XEXP (op, 1) != const0_rtx)
+    return false;
+  rtx op0 = XEXP (op, 0);
+  if (!REG_P (op0) || REGNO (op0) != CC_REGNUM)
+    return false;
+  return aarch64_get_condition_code (op) >= 0;
+})
+
+
 ;; True if the operand is memory reference suitable for a load/store exclusive.
 (define_predicate "aarch64_sync_memory_operand"
   (and (match_operand 0 "memory_operand")
@@ -261,3 +303,62 @@
 {
   return aarch64_simd_imm_zero_p (op, mode);
 })
+
+(define_special_predicate "aarch64_simd_imm_minus_one"
+  (match_code "const_vector")
+{
+  return aarch64_const_vec_all_same_int_p (op, -1);
+})
+
+;; Predicates used by the various SIMD shift operations.  These
+;; fall in to 3 categories.
+;;   Shifts with a range 0-(bit_size - 1) (aarch64_simd_shift_imm)
+;;   Shifts with a range 1-bit_size (aarch64_simd_shift_imm_offset)
+;;   Shifts with a range 0-bit_size (aarch64_simd_shift_imm_bitsize)
+(define_predicate "aarch64_simd_shift_imm_qi"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 7)")))
+
+(define_predicate "aarch64_simd_shift_imm_hi"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 15)")))
+
+(define_predicate "aarch64_simd_shift_imm_si"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 31)")))
+
+(define_predicate "aarch64_simd_shift_imm_di"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 63)")))
+
+(define_predicate "aarch64_simd_shift_imm_offset_qi"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 8)")))
+
+(define_predicate "aarch64_simd_shift_imm_offset_hi"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 16)")))
+
+(define_predicate "aarch64_simd_shift_imm_offset_si"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 32)")))
+
+(define_predicate "aarch64_simd_shift_imm_offset_di"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 64)")))
+
+(define_predicate "aarch64_simd_shift_imm_bitsize_qi"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 8)")))
+
+(define_predicate "aarch64_simd_shift_imm_bitsize_hi"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 16)")))
+
+(define_predicate "aarch64_simd_shift_imm_bitsize_si"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 32)")))
+
+(define_predicate "aarch64_simd_shift_imm_bitsize_di"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 64)")))

@@ -33,6 +33,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "hashtab.h"
 #include "hash-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -43,11 +50,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
-#include "function.h"
 #include "diagnostic-core.h"
 #include "inchash.h"
 #include "except.h"
 #include "lto-symtab.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
 #include "gimple-streamer.h"
@@ -189,10 +199,7 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
   bp_pack_value (bp, ob->current_col != xloc.column, 1);
 
   if (ob->current_file != xloc.file)
-    bp_pack_var_len_unsigned (bp,
-	                      streamer_string_index (ob, xloc.file,
-						     strlen (xloc.file) + 1,
-						     true));
+    bp_pack_string (ob, bp, xloc.file, true);
   ob->current_file = xloc.file;
 
   if (ob->current_line != xloc.line)
@@ -475,7 +482,7 @@ private:
   hash_scc (struct output_block *ob, unsigned first, unsigned size);
 
   unsigned int next_dfs_num;
-  struct pointer_map_t *sccstate;
+  hash_map<tree, sccs *> sccstate;
   struct obstack sccstate_obstack;
 };
 
@@ -483,7 +490,6 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 	  bool single_p)
 {
   sccstack.create (0);
-  sccstate = pointer_map_create ();
   gcc_obstack_init (&sccstate_obstack);
   next_dfs_num = 1;
   DFS_write_tree (ob, NULL, expr, ref_p, this_ref_p, single_p);
@@ -492,7 +498,6 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 DFS::~DFS ()
 {
   sccstack.release ();
-  pointer_map_destroy (sccstate);
   obstack_free (&sccstate_obstack, NULL);
 }
 
@@ -589,7 +594,7 @@ DFS::DFS_write_tree_body (struct output_block *ob,
     {
       DFS_follow_tree_edge (DECL_VINDEX (expr));
       DFS_follow_tree_edge (DECL_FUNCTION_PERSONALITY (expr));
-      /* Do not DECL_FUNCTION_SPECIFIC_TARGET.  They will be regenerated.  */
+      DFS_follow_tree_edge (DECL_FUNCTION_SPECIFIC_TARGET (expr));
       DFS_follow_tree_edge (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr));
     }
 
@@ -653,9 +658,13 @@ DFS::DFS_write_tree_body (struct output_block *ob,
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
     {
       for (tree t = BLOCK_VARS (expr); t; t = TREE_CHAIN (t))
-	/* ???  FIXME.  See also streamer_write_chain.  */
-	if (!(VAR_OR_FUNCTION_DECL_P (t)
-	      && DECL_EXTERNAL (t)))
+	if (VAR_OR_FUNCTION_DECL_P (t)
+	    && DECL_EXTERNAL (t))
+	  /* We have to stream externals in the block chain as
+	     non-references.  See also
+	     tree-streamer-out.c:streamer_write_chain.  */
+	  DFS_write_tree (ob, expr_state, t, ref_p, false, single_p);
+	else
 	  DFS_follow_tree_edge (t);
 
       DFS_follow_tree_edge (BLOCK_SUPERCONTEXT (expr));
@@ -818,7 +827,7 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
       hstate.add_flag (DECL_NONLOCAL (t));
       hstate.add_flag (DECL_VIRTUAL_P (t));
       hstate.add_flag (DECL_IGNORED_P (t));
-      hstate.add_flag (DECL_ABSTRACT (t));
+      hstate.add_flag (DECL_ABSTRACT_P (t));
       hstate.add_flag (DECL_ARTIFICIAL (t));
       hstate.add_flag (DECL_USER_ALIGN (t));
       hstate.add_flag (DECL_PRESERVE_P (t));
@@ -936,10 +945,10 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
 			strlen (TRANSLATION_UNIT_LANGUAGE (t)));
 
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    gcc_unreachable ();
+    hstate.add_wide_int (cl_target_option_hash (TREE_TARGET_OPTION (t)));
 
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
-    hstate.add (t, sizeof (struct cl_optimization));
+    hstate.add_wide_int (cl_optimization_hash (TREE_OPTIMIZATION (t)));
 
   if (CODE_CONTAINS_STRUCT (code, TS_IDENTIFIER))
     hstate.merge_hash (IDENTIFIER_HASH_VALUE (t));
@@ -1019,7 +1028,7 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
     {
       visit (DECL_VINDEX (t));
       visit (DECL_FUNCTION_PERSONALITY (t));
-      /* Do not follow DECL_FUNCTION_SPECIFIC_TARGET.  */
+      visit (DECL_FUNCTION_SPECIFIC_TARGET (t));
       visit (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (t));
     }
 
@@ -1314,7 +1323,6 @@ DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
 		     tree expr, bool ref_p, bool this_ref_p, bool single_p)
 {
   unsigned ix;
-  sccs **slot;
 
   /* Handle special cases.  */
   if (expr == NULL_TREE)
@@ -1328,7 +1336,7 @@ DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
   if (streamer_tree_cache_lookup (ob->writer_cache, expr, &ix))
     return;
 
-  slot = (sccs **)pointer_map_insert (sccstate, expr);
+  sccs **slot = &sccstate.get_or_insert (expr);
   sccs *cstate = *slot;
   if (!cstate)
     {
@@ -1889,10 +1897,8 @@ produce_asm (struct output_block *ob, tree fn)
   memset (&header, 0, sizeof (struct lto_function_header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
-
-  header.compressed_size = 0;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   if (section_type == LTO_section_function_body)
     header.cfg_size = ob->cfg_stream->total_size;
@@ -1950,6 +1956,7 @@ output_struct_function_base (struct output_block *ob, struct function *fn)
   bp_pack_value (&bp, fn->has_simduid_loops, 1);
   bp_pack_value (&bp, fn->va_list_fpr_size, 8);
   bp_pack_value (&bp, fn->va_list_gpr_size, 8);
+  bp_pack_value (&bp, fn->last_clique, sizeof (short) * 8);
 
   /* Output the function start and end loci.  */
   stream_output_location (ob, &bp, fn->function_start_locus);
@@ -2017,16 +2024,17 @@ output_function (struct cgraph_node *node)
       set_gimple_stmt_max_uid (cfun, 0);
       FOR_ALL_BB_FN (bb, cfun)
 	{
-	  gimple_stmt_iterator gsi;
-	  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	       gsi_next (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gphi *stmt = gsi.phi ();
 
 	      /* Virtual PHIs are not going to be streamed.  */
 	      if (!virtual_operand_p (gimple_phi_result (stmt)))
 	        gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	    }
-	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	       gsi_next (&gsi))
 	    {
 	      gimple stmt = gsi_stmt (gsi);
 	      gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
@@ -2036,10 +2044,10 @@ output_function (struct cgraph_node *node)
 	 virtual phis now.  */
       FOR_ALL_BB_FN (bb, cfun)
 	{
-	  gimple_stmt_iterator gsi;
-	  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	       gsi_next (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gphi *stmt = gsi.phi ();
 	      if (virtual_operand_p (gimple_phi_result (stmt)))
 	        gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	    }
@@ -2100,9 +2108,9 @@ lto_output_toplevel_asms (void)
   struct output_block *ob;
   struct asm_node *can;
   char *section_name;
-  struct lto_asm_header header;
+  struct lto_simple_header_with_strings header;
 
-  if (! asm_nodes)
+  if (!symtab->first_asm_symbol ())
     return;
 
   ob = create_output_block (LTO_section_asm);
@@ -2110,7 +2118,7 @@ lto_output_toplevel_asms (void)
   /* Make string 0 be a NULL string.  */
   streamer_write_char_stream (ob->string_stream, 0);
 
-  for (can = asm_nodes; can; can = can->next)
+  for (can = symtab->first_asm_symbol (); can; can = can->next)
     {
       streamer_write_string_cst (ob, ob->main_stream, can->asm_str);
       streamer_write_hwi (ob, can->order);
@@ -2126,8 +2134,8 @@ lto_output_toplevel_asms (void)
   memset (&header, 0, sizeof (header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
@@ -2180,8 +2188,8 @@ copy_function_or_variable (struct symtab_node *node)
 
   for (i = 0; i < LTO_N_DECL_STREAMS; i++)
     {
-      size_t n = in_state->streams[i].size;
-      tree *trees = in_state->streams[i].trees;
+      size_t n = vec_safe_length (in_state->streams[i]);
+      vec<tree, va_gc> *trees = in_state->streams[i];
       struct lto_tree_ref_encoder *encoder = &(out_state->streams[i]);
 
       /* The out state must have the same indices and the in state.
@@ -2190,7 +2198,7 @@ copy_function_or_variable (struct symtab_node *node)
       gcc_assert (lto_tree_ref_encoder_size (encoder) == 0);
       encoder->trees.reserve_exact (n);
       for (j = 0; j < n; j++)
-	encoder->trees.safe_push (trees[j]);
+	encoder->trees.safe_push ((*trees)[j]);
     }
 
   lto_free_section_data (file_data, LTO_section_function_body, name,
@@ -2253,7 +2261,10 @@ lto_output (void)
 #endif
 	      decl_state = lto_new_out_decl_state ();
 	      lto_push_out_decl_state (decl_state);
-	      if (gimple_has_body_p (node->decl) || !flag_wpa)
+	      if (gimple_has_body_p (node->decl) || !flag_wpa
+		  /* Thunks have no body but they may be synthetized
+		     at WPA time.  */
+		  || DECL_ARGUMENTS (node->decl))
 		output_function (node);
 	      else
 		copy_function_or_variable (node);
@@ -2298,6 +2309,8 @@ lto_output (void)
      have been renumbered so that edges can be associated with call
      statements using the statement UIDs.  */
   output_symtab ();
+
+  output_offload_tables ();
 
 #ifdef ENABLE_CHECKING
   lto_bitmap_free (output);
@@ -2426,7 +2439,7 @@ write_symbol (struct streamer_tree_cache_d *cache,
 {
   const char *name;
   enum gcc_plugin_symbol_kind kind;
-  enum gcc_plugin_symbol_visibility visibility;
+  enum gcc_plugin_symbol_visibility visibility = GCCPV_DEFAULT;
   unsigned slot_num;
   uint64_t size;
   const char *comdat;
@@ -2436,7 +2449,7 @@ write_symbol (struct streamer_tree_cache_d *cache,
      symbol table.  */
   if (!TREE_PUBLIC (t)
       || is_builtin_fn (t)
-      || DECL_ABSTRACT (t)
+      || DECL_ABSTRACT_P (t)
       || (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t)))
     return;
   gcc_assert (TREE_CODE (t) != RESULT_DECL);
@@ -2660,8 +2673,8 @@ produce_asm_for_decls (void)
       lto_output_decl_state_streams (ob, fn_out_state);
     }
 
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   /* Currently not used.  This field would allow us to preallocate
      the globals vector, so that it need not be resized as it is extended.  */

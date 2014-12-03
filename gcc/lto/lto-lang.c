@@ -33,6 +33,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-tree.h"
 #include "lto.h"
 #include "tree-inline.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -41,6 +49,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "cilk.h"
 
@@ -524,6 +536,7 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
   tree *args = XALLOCAVEC (tree, n);
   va_list list;
   int i;
+  bool err = false;
 
   va_start (list, n);
   for (i = 0; i < n; ++i)
@@ -531,22 +544,22 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
       builtin_type a = (builtin_type) va_arg (list, int);
       t = builtin_types[a];
       if (t == error_mark_node)
-	goto egress;
+	err = true;
       args[i] = t;
     }
   va_end (list);
 
   t = builtin_types[ret];
+  if (err)
+    t = error_mark_node;
   if (t == error_mark_node)
-    goto egress;
-  if (var)
+    ;
+  else if (var)
     t = build_varargs_function_type_array (t, n, args);
   else
     t = build_function_type_array (t, n, args);
 
- egress:
   builtin_types[def] = t;
-  va_end (list);
 }
 
 /* Used to help initialize the builtin-types.def table.  When a type of
@@ -846,7 +859,7 @@ lto_type_for_size (unsigned precision, int unsignedp)
    then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
 static tree
-lto_type_for_mode (enum machine_mode mode, int unsigned_p)
+lto_type_for_mode (machine_mode mode, int unsigned_p)
 {
   tree t;
 
@@ -906,7 +919,7 @@ lto_type_for_mode (enum machine_mode mode, int unsigned_p)
 
   if (COMPLEX_MODE_P (mode))
     {
-      enum machine_mode inner_mode;
+      machine_mode inner_mode;
       tree inner_type;
 
       if (mode == TYPE_MODE (complex_float_type_node))
@@ -926,7 +939,7 @@ lto_type_for_mode (enum machine_mode mode, int unsigned_p)
     }
   else if (VECTOR_MODE_P (mode))
     {
-      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      machine_mode inner_mode = GET_MODE_INNER (mode);
       tree inner_type = lto_type_for_mode (inner_mode, unsigned_p);
       if (inner_type != NULL_TREE)
 	return build_vector_type_for_mode (inner_type, mode);
@@ -1149,7 +1162,26 @@ lto_build_c_type_nodes (void)
       signed_size_type_node = long_long_integer_type_node;
     }
   else
-    gcc_unreachable ();
+    {
+      int i;
+
+      signed_size_type_node = NULL_TREE;
+      for (i = 0; i < NUM_INT_N_ENTS; i++)
+	if (int_n_enabled_p[i])
+	  {
+	    char name[50];
+	    sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
+
+	    if (strcmp (name, SIZE_TYPE) == 0)
+	      {
+		intmax_type_node = int_n_trees[i].signed_type;
+		uintmax_type_node = int_n_trees[i].unsigned_type;
+		signed_size_type_node = int_n_trees[i].signed_type;
+	      }
+	  }
+      if (signed_size_type_node == NULL_TREE)
+	gcc_unreachable ();
+    }
 
   wint_type_node = unsigned_type_node;
   pid_type_node = integer_type_node;
@@ -1160,6 +1192,8 @@ lto_build_c_type_nodes (void)
 static bool
 lto_init (void)
 {
+  int i;
+
   /* We need to generate LTO if running in WPA mode.  */
   flag_generate_lto = (flag_wpa != NULL);
 
@@ -1192,10 +1226,10 @@ lto_init (void)
     }
   else
     {
-      lto_define_builtins (va_list_type_node,
-			   build_reference_type (va_list_type_node));
+      lto_define_builtins (build_reference_type (va_list_type_node),
+			   va_list_type_node);
     }
-  
+
   if (flag_cilkplus)
     cilk_init_builtins ();
 
@@ -1231,8 +1265,13 @@ lto_init (void)
   NAME_TYPE (complex_float_type_node, "complex float");
   NAME_TYPE (complex_double_type_node, "complex double");
   NAME_TYPE (complex_long_double_type_node, "complex long double");
-  if (int128_integer_type_node)
-    NAME_TYPE (int128_integer_type_node, "__int128");
+  for (i = 0; i < NUM_INT_N_ENTS; i++)
+    if (int_n_enabled_p[i])
+      {
+	char name[50];
+	sprintf (name, "__int%d", int_n_data[i].bitsize);
+	NAME_TYPE (int_n_trees[i].signed_type, name);
+      }
 #undef NAME_TYPE
 
   /* Initialize LTO-specific data structures.  */

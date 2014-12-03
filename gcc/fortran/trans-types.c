@@ -31,17 +31,17 @@ along with GCC; see the file COPYING3.  If not see
 			   BOOL_TYPE_SIZE, BITS_PER_UNIT, POINTER_SIZE,
 			   INT_TYPE_SIZE, CHAR_TYPE_SIZE, SHORT_TYPE_SIZE,
 			   LONG_TYPE_SIZE, LONG_LONG_TYPE_SIZE,
-			   FLOAT_TYPE_SIZE, DOUBLE_TYPE_SIZE,
-			   LONG_DOUBLE_TYPE_SIZE and LIBGCC2_HAS_TF_MODE.  */
+			   FLOAT_TYPE_SIZE, DOUBLE_TYPE_SIZE and
+			   LONG_DOUBLE_TYPE_SIZE.  */
 #include "tree.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "langhooks.h"	/* For iso-c-bindings.def.  */
 #include "target.h"
 #include "ggc.h"
+#include "gfortran.h"
 #include "diagnostic-core.h"  /* For fatal_error.  */
 #include "toplev.h"	/* For rest_of_decl_compilation.  */
-#include "gfortran.h"
 #include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
@@ -367,13 +367,13 @@ gfc_init_kinds (void)
     {
       int kind, bitsize;
 
-      if (!targetm.scalar_mode_supported_p ((enum machine_mode) mode))
+      if (!targetm.scalar_mode_supported_p ((machine_mode) mode))
 	continue;
 
       /* The middle end doesn't support constants larger than 2*HWI.
 	 Perhaps the target hook shouldn't have accepted these either,
 	 but just to be safe...  */
-      bitsize = GET_MODE_BITSIZE ((enum machine_mode) mode);
+      bitsize = GET_MODE_BITSIZE ((machine_mode) mode);
       if (bitsize > 2*HOST_BITS_PER_WIDE_INT)
 	continue;
 
@@ -416,21 +416,24 @@ gfc_init_kinds (void)
   for (r_index = 0, mode = MIN_MODE_FLOAT; mode <= MAX_MODE_FLOAT; mode++)
     {
       const struct real_format *fmt =
-	REAL_MODE_FORMAT ((enum machine_mode) mode);
+	REAL_MODE_FORMAT ((machine_mode) mode);
       int kind;
 
       if (fmt == NULL)
 	continue;
-      if (!targetm.scalar_mode_supported_p ((enum machine_mode) mode))
+      if (!targetm.scalar_mode_supported_p ((machine_mode) mode))
 	continue;
 
       /* Only let float, double, long double and __float128 go through.
 	 Runtime support for others is not provided, so they would be
 	 useless.  */
+	if (!targetm.libgcc_floating_mode_supported_p ((machine_mode)
+						       mode))
+	  continue;
 	if (mode != TYPE_MODE (float_type_node)
 	    && (mode != TYPE_MODE (double_type_node))
 	    && (mode != TYPE_MODE (long_double_type_node))
-#if defined(LIBGCC2_HAS_TF_MODE) && defined(ENABLE_LIBQUADMATH_SUPPORT)
+#if defined(HAVE_TFmode) && defined(ENABLE_LIBQUADMATH_SUPPORT)
 	    && (mode != TFmode)
 #endif
 	   )
@@ -493,7 +496,8 @@ gfc_init_kinds (void)
   if (gfc_option.flag_default_integer)
     {
       if (!saw_i8)
-	fatal_error ("INTEGER(KIND=8) is not available for -fdefault-integer-8 option");
+	gfc_fatal_error ("INTEGER(KIND=8) is not available for "
+			 "%<-fdefault-integer-8%> option");
 
       gfc_default_integer_kind = 8;
 
@@ -501,7 +505,8 @@ gfc_init_kinds (void)
   else if (gfc_option.flag_integer4_kind == 8)
     {
       if (!saw_i8)
-	fatal_error ("INTEGER(KIND=8) is not available for -finteger-4-integer-8 option");
+	gfc_fatal_error ("INTEGER(KIND=8) is not available for "
+			 "%<-finteger-4-integer-8%> option");
 
       gfc_default_integer_kind = 8;
     }
@@ -519,28 +524,32 @@ gfc_init_kinds (void)
   if (gfc_option.flag_default_real)
     {
       if (!saw_r8)
-	fatal_error ("REAL(KIND=8) is not available for -fdefault-real-8 option");
+	gfc_fatal_error ("REAL(KIND=8) is not available for "
+			 "%<-fdefault-real-8%> option");
 
       gfc_default_real_kind = 8;
     }
   else if (gfc_option.flag_real4_kind == 8)
   {
     if (!saw_r8)
-      fatal_error ("REAL(KIND=8) is not available for -freal-4-real-8 option");
+      gfc_fatal_error ("REAL(KIND=8) is not available for %<-freal-4-real-8%> "
+		       "option");
 
     gfc_default_real_kind = 8;
   }
   else if (gfc_option.flag_real4_kind == 10)
   {
     if (!saw_r10)
-      fatal_error ("REAL(KIND=10) is not available for -freal-4-real-10 option");
+      gfc_fatal_error ("REAL(KIND=10) is not available for "
+		       "%<-freal-4-real-10%> option");
 
     gfc_default_real_kind = 10;
   }
   else if (gfc_option.flag_real4_kind == 16)
   {
     if (!saw_r16)
-      fatal_error ("REAL(KIND=16) is not available for -freal-4-real-16 option");
+      gfc_fatal_error ("REAL(KIND=16) is not available for "
+		       "%<-freal-4-real-16%> option");
 
     gfc_default_real_kind = 16;
   }
@@ -554,7 +563,8 @@ gfc_init_kinds (void)
      specified without -fdefault-double, we use kind=16, if it's available.
      Otherwise we do not change anything.  */
   if (gfc_option.flag_default_double && !gfc_option.flag_default_real)
-    fatal_error ("Use of -fdefault-double-8 requires -fdefault-real-8");
+    gfc_fatal_error ("Use of %<-fdefault-double-8%> requires "
+		     "%<-fdefault-real-8%>");
 
   if (gfc_option.flag_default_real && gfc_option.flag_default_double && saw_r8)
     gfc_default_double_kind = 8;
@@ -563,21 +573,24 @@ gfc_init_kinds (void)
   else if (gfc_option.flag_real8_kind == 4)
     {
       if (!saw_r4)
-	fatal_error ("REAL(KIND=4) is not available for -freal-8-real-4 option");
+	gfc_fatal_error ("REAL(KIND=4) is not available for "
+			 "%<-freal-8-real-4%> option");
 
 	gfc_default_double_kind = 4;
     }
   else if (gfc_option.flag_real8_kind == 10 )
     {
       if (!saw_r10)
-	fatal_error ("REAL(KIND=10) is not available for -freal-8-real-10 option");
+	gfc_fatal_error ("REAL(KIND=10) is not available for "
+			 "%<-freal-8-real-10%> option");
 
 	gfc_default_double_kind = 10;
     }
   else if (gfc_option.flag_real8_kind == 16 )
     {
       if (!saw_r16)
-	fatal_error ("REAL(KIND=10) is not available for -freal-8-real-16 option");
+	gfc_fatal_error ("REAL(KIND=10) is not available for "
+			 "%<-freal-8-real-16%> option");
 
 	gfc_default_double_kind = 16;
     }
@@ -607,7 +620,7 @@ gfc_init_kinds (void)
 
   /* We only have two character kinds: ASCII and UCS-4.
      ASCII corresponds to a 8-bit integer type, if one is available.
-     UCS-4 corresponds to a 32-bit integer type, if one is available. */
+     UCS-4 corresponds to a 32-bit integer type, if one is available.  */
   i_index = 0;
   if ((kind = get_int_kind_from_width (8)) > 0)
     {
@@ -2949,7 +2962,7 @@ gfc_type_for_size (unsigned bits, int unsignedp)
    integer, then UNSIGNEDP selects between signed and unsigned types.  */
 
 tree
-gfc_type_for_mode (enum machine_mode mode, int unsignedp)
+gfc_type_for_mode (machine_mode mode, int unsignedp)
 {
   int i;
   tree *base;
@@ -2965,7 +2978,7 @@ gfc_type_for_mode (enum machine_mode mode, int unsignedp)
     }
   else if (VECTOR_MODE_P (mode))
     {
-      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      machine_mode inner_mode = GET_MODE_INNER (mode);
       tree inner_type = gfc_type_for_mode (inner_mode, unsignedp);
       if (inner_type != NULL_TREE)
         return build_vector_type_for_mode (inner_type, mode);
@@ -3038,8 +3051,10 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
   base_decl = GFC_TYPE_ARRAY_BASE_DECL (type, indirect);
   if (!base_decl)
     {
-      base_decl = build_decl (input_location, VAR_DECL, NULL_TREE,
-			      indirect ? build_pointer_type (ptype) : ptype);
+      base_decl = make_node (DEBUG_EXPR_DECL);
+      DECL_ARTIFICIAL (base_decl) = 1;
+      TREE_TYPE (base_decl) = indirect ? build_pointer_type (ptype) : ptype;
+      DECL_MODE (base_decl) = TYPE_MODE (TREE_TYPE (base_decl));
       GFC_TYPE_ARRAY_BASE_DECL (type, indirect) = base_decl;
     }
   info->base_decl = base_decl;

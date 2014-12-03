@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "pointer-set.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
@@ -46,6 +45,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
@@ -479,7 +489,7 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete,
   /* Deleting ptr to void is undefined behavior [expr.delete/3].  */
   if (VOID_TYPE_P (TREE_TYPE (type)))
     {
-      warning (0, "deleting %qT is undefined", type);
+      warning (OPT_Wdelete_incomplete, "deleting %qT is undefined", type);
       doing_vec = 0;
     }
 
@@ -788,6 +798,14 @@ note_vague_linkage_fn (tree decl)
   vec_safe_push (deferred_fns, decl);
 }
 
+/* As above, but for variable template instantiations.  */
+
+void
+note_variable_template_instantiation (tree decl)
+{
+  vec_safe_push (pending_statics, decl);
+}
+
 /* We have just processed the DECL, which is a static data member.
    The other parameters are as for cp_finish_decl.  */
 
@@ -871,11 +889,6 @@ grokfield (const cp_declarator *declarator,
   if (value == void_type_node)
     return value;
 
-  /* Pass friend decls back.  */
-  if ((TREE_CODE (value) == FUNCTION_DECL
-       || TREE_CODE (value) == TEMPLATE_DECL)
-      && DECL_CONTEXT (value) != current_class_type)
-    return value;
 
   name = DECL_NAME (value);
 
@@ -927,7 +940,9 @@ grokfield (const cp_declarator *declarator,
       return value;
     }
 
-  if (DECL_IN_AGGR_P (value))
+  int friendp = decl_spec_seq_has_spec_p (declspecs, ds_friend);
+
+  if (!friendp && DECL_IN_AGGR_P (value))
     {
       error ("%qD is already defined in %qT", value, DECL_CONTEXT (value));
       return void_type_node;
@@ -940,8 +955,6 @@ grokfield (const cp_declarator *declarator,
     {
       if (TREE_CODE (value) == FUNCTION_DECL)
 	{
-	  /* Initializers for functions are rejected early in the parser.
-	     If we get here, it must be a pure specifier for a method.  */
 	  if (init == ridpointers[(int)RID_DELETE])
 	    {
 	      DECL_DELETED_FN (value) = 1;
@@ -972,8 +985,12 @@ grokfield (const cp_declarator *declarator,
 	  else
 	    {
 	      gcc_assert (TREE_CODE (TREE_TYPE (value)) == FUNCTION_TYPE);
-	      error ("initializer specified for static member function %qD",
-		     value);
+	      if (friendp)
+		error ("initializer specified for friend function %qD",
+		       value);
+	      else
+		error ("initializer specified for static member function %qD",
+		       value);
 	    }
 	}
       else if (TREE_CODE (value) == FIELD_DECL)
@@ -981,6 +998,16 @@ grokfield (const cp_declarator *declarator,
       else if (!VAR_P (value))
 	gcc_unreachable ();
     }
+
+  /* Pass friend decls back.  */
+  if ((TREE_CODE (value) == FUNCTION_DECL
+       || TREE_CODE (value) == TEMPLATE_DECL)
+      && DECL_CONTEXT (value) != current_class_type)
+    return value;
+
+  /* Need to set this before push_template_decl.  */
+  if (TREE_CODE (value) == VAR_DECL)
+    DECL_CONTEXT (value) = current_class_type;
 
   if (processing_template_decl && VAR_OR_FUNCTION_DECL_P (value))
     {
@@ -1177,9 +1204,9 @@ is_late_template_attribute (tree attr, tree decl)
       /* Also defer most attributes on dependent types.  This is not
 	 necessary in all cases, but is the better default.  */
       else if (dependent_type_p (type)
-	       /* But attributes abi_tag and visibility specifically apply
-		  to templates.  */
+	       /* But some attributes specifically apply to templates.  */
 	       && !is_attribute_p ("abi_tag", name)
+	       && !is_attribute_p ("deprecated", name)
 	       && !is_attribute_p ("visibility", name))
 	return true;
       else
@@ -1447,7 +1474,7 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
     {
       attributes
 	= decl_attributes (decl, attributes, flags | ATTR_FLAG_FUNCTION_NEXT);
-      decl_attributes (&TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (*decl)),
+      decl_attributes (&TYPE_PTRMEMFUNC_FN_TYPE_RAW (TREE_TYPE (*decl)),
 		       attributes, flags);
     }
   else
@@ -1455,6 +1482,17 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   if (TREE_CODE (*decl) == TYPE_DECL)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
+
+  /* Propagate deprecation out to the template.  */
+  if (TREE_DEPRECATED (*decl))
+    if (tree ti = get_template_info (*decl))
+      {
+	tree tmpl = TI_TEMPLATE (ti);
+	tree pattern = (TYPE_P (*decl) ? TREE_TYPE (tmpl)
+			: DECL_TEMPLATE_RESULT (tmpl));
+	if (*decl == pattern)
+	  TREE_DEPRECATED (tmpl) = true;
+      }
 }
 
 /* Walks through the namespace- or function-scope anonymous union
@@ -1970,6 +2008,11 @@ decl_needed_p (tree decl)
      visible to other DLLs.  */
   if (flag_keep_inline_dllexport
       && lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)))
+    return true;
+  /* Virtual functions might be needed for devirtualization.  */
+  if (flag_devirtualize
+      && TREE_CODE (decl) == FUNCTION_DECL
+      && DECL_VIRTUAL_P (decl))
     return true;
   /* Otherwise, DECL does not need to be emitted -- yet.  A subsequent
      reference to DECL might cause it to be emitted later.  */
@@ -4299,7 +4342,7 @@ cp_write_global_declarations (void)
       return;
     }
 
-  cgraph_process_same_body_aliases ();
+  symtab->process_same_body_aliases ();
 
   /* Handle -fdump-ada-spec[-slim] */
   if (flag_dump_ada_spec || flag_dump_ada_spec_slim)
@@ -4642,7 +4685,7 @@ cp_write_global_declarations (void)
       vtv_build_vtable_verify_fndecl ();
     }
 
-  finalize_compilation_unit ();
+  symtab->finalize_compilation_unit ();
 
   if (flag_vtable_verify)
     {
@@ -4859,6 +4902,10 @@ mark_used (tree decl, tsubst_flags_t complain)
       return false;
     }
 
+  if (TREE_DEPRECATED (decl) && (complain & tf_warning)
+      && deprecated_state != DEPRECATED_SUPPRESS)
+    warn_deprecated_use (decl, NULL_TREE);
+
   /* We can only check DECL_ODR_USED on variables or functions with
      DECL_LANG_SPECIFIC set, and these are also the only decls that we
      might need special handling for.  */
@@ -4919,7 +4966,7 @@ mark_used (tree decl, tsubst_flags_t complain)
   if (processing_template_decl)
     return true;
 
-  /* Check this too in case we're within fold_non_dependent_expr.  */
+  /* Check this too in case we're within instantiate_non_dependent_expr.  */
   if (DECL_TEMPLATE_INFO (decl)
       && uses_template_parms (DECL_TI_ARGS (decl)))
     return true;

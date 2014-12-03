@@ -1140,20 +1140,6 @@ fix = {
 };
 
 /*
- *  Old Linux kernel's <compiler.h> header breaks Traditional CPP
- */
-fix = {
-    hackname  = complier_h_tradcpp;
-    files     = linux/compiler.h;
-
-    select    = "#define __builtin_warning\\(x, y\\.\\.\\.\\) \\(1\\)";
-    c_fix     = format;
-    c_fix_arg = "/* __builtin_warning(x, y...) is obsolete */";
-
-    test_text = "#define __builtin_warning(x, y...) (1)";
-};
-
-/*
  *  Fix various macros used to define ioctl numbers.
  *  The traditional syntax was:
  *
@@ -1701,7 +1687,8 @@ fix = {
  */
 fix = {
     hackname  = glibc_c99_inline_4;
-    files     = sys/sysmacros.h, '*/sys/sysmacros.h', wchar.h, '*/wchar.h';
+    files     = sys/sysmacros.h, '*/sys/sysmacros.h', wchar.h, '*/wchar.h',
+    pthread.h, '*/pthread.h';
     bypass    = "__extern_inline|__gnu_inline__";
     select    = "(^| )extern __inline";
     c_fix     = format;

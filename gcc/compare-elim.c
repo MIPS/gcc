@@ -63,6 +63,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "flags.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "tree-pass.h"
 #include "target.h"
@@ -81,7 +92,7 @@ along with GCC; see the file COPYING3.  If not see
 struct comparison_use
 {
   /* The instruction in which the result of the compare is used.  */
-  rtx insn;
+  rtx_insn *insn;
   /* The location of the flags register within the use.  */
   rtx *loc;
   /* The comparison code applied against the flags register.  */
@@ -91,10 +102,10 @@ struct comparison_use
 struct comparison
 {
   /* The comparison instruction.  */
-  rtx insn;
+  rtx_insn *insn;
 
   /* The insn prior to the comparison insn that clobbers the flags.  */
-  rtx prev_clobber;
+  rtx_insn *prev_clobber;
 
   /* The two values being compared.  These will be either REGs or
      constants.  */
@@ -107,7 +118,7 @@ struct comparison
   struct comparison_use uses[MAX_CMP_USE];
 
   /* The original CC_MODE for this comparison.  */
-  enum machine_mode orig_mode;
+  machine_mode orig_mode;
 
   /* The number of uses identified for this comparison.  */
   unsigned short n_uses;
@@ -129,7 +140,7 @@ static vec<comparison_struct_p> all_compares;
    the rtx for the COMPARE itself.  */
 
 static rtx
-conforming_compare (rtx insn)
+conforming_compare (rtx_insn *insn)
 {
   rtx set, src, dest;
 
@@ -159,7 +170,7 @@ conforming_compare (rtx insn)
    correct.  The term "arithmetic" may be somewhat misleading...  */
 
 static bool
-arithmetic_flags_clobber_p (rtx insn)
+arithmetic_flags_clobber_p (rtx_insn *insn)
 {
   rtx pat, x;
 
@@ -194,7 +205,7 @@ arithmetic_flags_clobber_p (rtx insn)
    it in CMP; otherwise indicate that we've missed a use.  */
 
 static void
-find_flags_uses_in_insn (struct comparison *cmp, rtx insn)
+find_flags_uses_in_insn (struct comparison *cmp, rtx_insn *insn)
 {
   df_ref use;
 
@@ -263,7 +274,7 @@ void
 find_comparison_dom_walker::before_dom_children (basic_block bb)
 {
   struct comparison *last_cmp;
-  rtx insn, next, last_clobber;
+  rtx_insn *insn, *next, *last_clobber;
   bool last_cmp_valid;
   bool need_purge = false;
   bitmap killed;
@@ -295,7 +306,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
     {
       rtx src;
 
-      next = (insn == BB_END (bb) ? NULL_RTX : NEXT_INSN (insn));
+      next = (insn == BB_END (bb) ? NULL : NEXT_INSN (insn));
       if (!NONDEBUG_INSN_P (insn))
 	continue;
 
@@ -306,7 +317,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
       src = conforming_compare (insn);
       if (src)
 	{
-	  enum machine_mode src_mode = GET_MODE (src);
+	  machine_mode src_mode = GET_MODE (src);
 	  rtx eh_note = NULL;
 
 	  if (flag_non_call_exceptions)
@@ -327,7 +338,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 
 	  /* New mode must be compatible with the previous compare mode.  */
 	  {
-	    enum machine_mode new_mode
+	    machine_mode new_mode
 	      = targetm.cc_modes_compatible (last_cmp->orig_mode, src_mode);
 	    if (new_mode == VOIDmode)
 	      goto dont_delete;
@@ -455,7 +466,7 @@ static rtx
 maybe_select_cc_mode (struct comparison *cmp, rtx a ATTRIBUTE_UNUSED,
 		      rtx b ATTRIBUTE_UNUSED)
 {
-  enum machine_mode sel_mode;
+  machine_mode sel_mode;
   const int n = cmp->n_uses;
   rtx flags = NULL;
 
@@ -487,7 +498,7 @@ maybe_select_cc_mode (struct comparison *cmp, rtx a ATTRIBUTE_UNUSED,
       sel_mode = SELECT_CC_MODE (cmp->uses[0].code, a, b);
       for (i = 1; i < n; ++i)
 	{
-	  enum machine_mode new_mode;
+	  machine_mode new_mode;
 	  new_mode = SELECT_CC_MODE (cmp->uses[i].code, a, b);
 	  if (new_mode != sel_mode)
 	    {
@@ -515,7 +526,8 @@ maybe_select_cc_mode (struct comparison *cmp, rtx a ATTRIBUTE_UNUSED,
 static bool
 try_eliminate_compare (struct comparison *cmp)
 {
-  rtx x, insn, bb_head, flags, in_a, cmp_src;
+  rtx_insn *insn, *bb_head;
+  rtx x, flags, in_a, cmp_src;
 
   /* We must have found an interesting "clobber" preceding the compare.  */
   if (cmp->prev_clobber == NULL)

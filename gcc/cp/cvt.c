@@ -675,9 +675,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
     }
 
   /* FIXME remove when moving to c_fully_fold model.  */
-  /* FIXME do we still need this test?  */
-  if (!CLASS_TYPE_P (type))
-    e = integral_constant_value (e);
+  e = scalar_constant_value (e);
   if (error_operand_p (e))
     return error_mark_node;
 
@@ -1658,8 +1656,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 		    {
 		      error ("ambiguous default type conversion from %qT",
 			     basetype);
-		      error ("  candidate conversions include %qD and %qD",
-			     winner, cand);
+		      inform (input_location,
+			      "  candidate conversions include %qD and %qD",
+			      winner, cand);
 		    }
 		  return error_mark_node;
 		}

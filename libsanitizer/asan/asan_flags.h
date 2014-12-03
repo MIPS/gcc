@@ -50,18 +50,20 @@ struct Flags {
   bool print_stats;
   bool print_legend;
   bool atexit;
-  bool disable_core;
   bool allow_reexec;
   bool print_full_thread_history;
   bool poison_heap;
   bool poison_partial;
+  bool poison_array_cookie;
   bool alloc_dealloc_mismatch;
+  bool new_delete_type_mismatch;
   bool strict_memcmp;
   bool strict_init_order;
   bool start_deactivated;
   int detect_invalid_pointer_pairs;
   bool detect_container_overflow;
   int detect_odr_violation;
+  bool dump_instruction_bytes;
 };
 
 extern Flags asan_flags_dont_use_directly;

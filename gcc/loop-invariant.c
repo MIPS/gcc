@@ -42,12 +42,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "obstack.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "expr.h"
 #include "recog.h"
 #include "target.h"
-#include "function.h"
 #include "flags.h"
 #include "df.h"
 #include "hash-table.h"
@@ -78,7 +87,7 @@ struct loop_data
 struct use
 {
   rtx *pos;			/* Position of the use.  */
-  rtx insn;			/* The insn in that the use occurs.  */
+  rtx_insn *insn;		/* The insn in that the use occurs.  */
   unsigned addr_use_p;		/* Whether the use occurs in an address.  */
   struct use *next;		/* Next use in the list.  */
 };
@@ -119,7 +128,7 @@ struct invariant
   struct def *def;
 
   /* The insn in that it is defined.  */
-  rtx insn;
+  rtx_insn *insn;
 
   /* Whether it is always executed.  */
   bool always_executed;
@@ -160,7 +169,7 @@ struct invariant_expr_entry
   rtx expr;
 
   /* Its mode.  */
-  enum machine_mode mode;
+  machine_mode mode;
 
   /* Its hash.  */
   hashval_t hash;
@@ -289,7 +298,7 @@ invariant_for_use (df_ref use)
 /* Computes hash value for invariant expression X in INSN.  */
 
 static hashval_t
-hash_invariant_expr_1 (rtx insn, rtx x)
+hash_invariant_expr_1 (rtx_insn *insn, rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   int i, j;
@@ -343,7 +352,7 @@ hash_invariant_expr_1 (rtx insn, rtx x)
    and INSN2 have always the same value.  */
 
 static bool
-invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
+invariant_expr_equal_p (rtx_insn *insn1, rtx e1, rtx_insn *insn2, rtx e2)
 {
   enum rtx_code code = GET_CODE (e1);
   int i, j;
@@ -463,7 +472,7 @@ typedef hash_table<invariant_expr_hasher> invariant_htab_type;
    insert INV to the table for this expression and return INV.  */
 
 static struct invariant *
-find_or_insert_inv (invariant_htab_type *eq, rtx expr, enum machine_mode mode,
+find_or_insert_inv (invariant_htab_type *eq, rtx expr, machine_mode mode,
 		    struct invariant *inv)
 {
   hashval_t hash = hash_invariant_expr_1 (inv->insn, expr);
@@ -500,7 +509,7 @@ find_identical_invariants (invariant_htab_type *eq, struct invariant *inv)
   bitmap_iterator bi;
   struct invariant *dep;
   rtx expr, set;
-  enum machine_mode mode;
+  machine_mode mode;
   struct invariant *tmp;
 
   if (inv->eqto != ~0u)
@@ -578,7 +587,7 @@ find_exits (struct loop *loop, basic_block *body,
   edge e;
   struct loop *outermost_exit = loop, *aexit;
   bool has_call = false;
-  rtx insn;
+  rtx_insn *insn;
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -689,7 +698,7 @@ find_defs (struct loop *loop)
    is returned.  */
 
 static struct invariant *
-create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
+create_new_invariant (struct def *def, rtx_insn *insn, bitmap depends_on,
 		      bool always_executed)
 {
   struct invariant *inv = XNEW (struct invariant);
@@ -833,7 +842,7 @@ check_dependency (basic_block bb, df_ref use, bitmap depends_on)
    loop invariants, false otherwise.  */
 
 static bool
-check_dependencies (rtx insn, bitmap depends_on)
+check_dependencies (rtx_insn *insn, bitmap depends_on)
 {
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
   df_ref use;
@@ -887,7 +896,7 @@ pre_check_invariant_p (bool simple, rtx dest)
    unless the program ends due to a function call.  */
 
 static void
-find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
+find_invariant_insn (rtx_insn *insn, bool always_reached, bool always_executed)
 {
   df_ref ref;
   struct def *def;
@@ -950,7 +959,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
 /* Record registers used in INSN that have a unique invariant definition.  */
 
 static void
-record_uses (rtx insn)
+record_uses (rtx_insn *insn)
 {
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
   df_ref use;
@@ -975,7 +984,7 @@ record_uses (rtx insn)
    unless the program ends due to a function call.  */
 
 static void
-find_invariants_insn (rtx insn, bool always_reached, bool always_executed)
+find_invariants_insn (rtx_insn *insn, bool always_reached, bool always_executed)
 {
   find_invariant_insn (insn, always_reached, always_executed);
   record_uses (insn);
@@ -989,7 +998,7 @@ find_invariants_insn (rtx insn, bool always_reached, bool always_executed)
 static void
 find_invariants_bb (basic_block bb, bool always_reached, bool always_executed)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   FOR_BB_INSNS (bb, insn)
     {
@@ -1066,7 +1075,7 @@ free_use_list (struct use *use)
 /* Return pressure class and number of hard registers (through *NREGS)
    for destination of INSN. */
 static enum reg_class
-get_pressure_class_and_nregs (rtx insn, int *nregs)
+get_pressure_class_and_nregs (rtx_insn *insn, int *nregs)
 {
   rtx reg;
   enum reg_class pressure_class;
@@ -1878,7 +1887,8 @@ calculate_loop_reg_pressure (void)
   unsigned int j;
   bitmap_iterator bi;
   basic_block bb;
-  rtx insn, link;
+  rtx_insn *insn;
+  rtx link;
   struct loop *loop, *parent;
 
   FOR_EACH_LOOP (loop, 0)

@@ -25,6 +25,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "rtl.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tree-ssa.h"
 #include "timevar.h"
@@ -569,14 +580,10 @@ delete_basic_block (basic_block bb)
       struct loop *loop = bb->loop_father;
 
       /* If we remove the header or the latch of a loop, mark the loop for
-	 removal by setting its header and latch to NULL.  */
+	 removal.  */
       if (loop->latch == bb
 	  || loop->header == bb)
-	{
-	  loop->header = NULL;
-	  loop->latch = NULL;
-	  loops_state_set (LOOPS_NEED_FIXUP);
-	}
+	mark_loop_for_removal (loop);
 
       remove_bb_from_loops (bb);
     }
@@ -760,11 +767,7 @@ merge_blocks (basic_block a, basic_block b)
 	  /* ... we merge two loop headers, in which case we kill
 	     the inner loop.  */
 	  if (b->loop_father->header == b)
-	    {
-	      b->loop_father->header = NULL;
-	      b->loop_father->latch = NULL;
-	      loops_state_set (LOOPS_NEED_FIXUP);
-	    }
+	    mark_loop_for_removal (b->loop_father);
 	}
       /* If we merge a loop header into its predecessor, update the loop
 	 structure.  */
@@ -774,6 +777,11 @@ merge_blocks (basic_block a, basic_block b)
 	  add_bb_to_loop  (a, b->loop_father);
 	  a->loop_father->header = a;
 	}
+      /* If we merge a loop latch into its predecessor, update the loop
+         structure.  */
+      if (b->loop_father->latch
+	  && b->loop_father->latch == b)
+	b->loop_father->latch = a;
       remove_bb_from_loops (b);
     }
 
@@ -1099,9 +1107,7 @@ duplicate_block (basic_block bb, edge e, basic_block after)
 	  && cloop->header == bb)
 	{
 	  add_bb_to_loop (new_bb, loop_outer (cloop));
-	  cloop->header = NULL;
-	  cloop->latch = NULL;
-	  loops_state_set (LOOPS_NEED_FIXUP);
+	  mark_loop_for_removal (cloop);
 	}
       else
 	{

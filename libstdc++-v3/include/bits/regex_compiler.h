@@ -57,11 +57,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef regex_constants::syntax_option_type _FlagT;
 
       _Compiler(_IterT __b, _IterT __e,
-		const _TraitsT& __traits, _FlagT __flags);
+		const typename _TraitsT::locale_type& __traits, _FlagT __flags);
 
       std::shared_ptr<_RegexT>
       _M_get_nfa()
-      { return make_shared<_RegexT>(std::move(_M_nfa)); }
+      { return std::move(_M_nfa); }
 
     private:
       typedef _Scanner<_CharT>               _ScannerT;
@@ -118,7 +118,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       template<bool __icase, bool __collate>
 	void
-	_M_expression_term(_BracketMatcher<_TraitsT, __icase, __collate>&
+	_M_expression_term(pair<bool, _CharT>& __last_char,
+			   _BracketMatcher<_TraitsT, __icase, __collate>&
 			   __matcher);
 
       int
@@ -135,24 +136,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return ret;
       }
 
-      _FlagT          _M_flags;
-      const _TraitsT& _M_traits;
-      const _CtypeT&  _M_ctype;
-      _ScannerT       _M_scanner;
-      _RegexT         _M_nfa;
-      _StringT        _M_value;
-      _StackT         _M_stack;
+      _FlagT              _M_flags;
+      _ScannerT           _M_scanner;
+      shared_ptr<_RegexT> _M_nfa;
+      _StringT            _M_value;
+      _StackT             _M_stack;
+      const _TraitsT&     _M_traits;
+      const _CtypeT&      _M_ctype;
     };
 
   template<typename _TraitsT>
     inline std::shared_ptr<_NFA<_TraitsT>>
     __compile_nfa(const typename _TraitsT::char_type* __first,
 		  const typename _TraitsT::char_type* __last,
-		  const _TraitsT& __traits,
+		  const typename _TraitsT::locale_type& __loc,
 		  regex_constants::syntax_option_type __flags)
     {
       using _Cmplr = _Compiler<_TraitsT>;
-      return _Cmplr(__first, __last, __traits, __flags)._M_get_nfa();
+      return _Cmplr(__first, __last, __loc, __flags)._M_get_nfa();
     }
 
   // [28.13.14]
@@ -212,7 +213,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef _CharT                       _StrTransT;
 
       explicit
-      _RegexTranslator(const _TraitsT& __traits)
+      _RegexTranslator(const _TraitsT&)
       { }
 
       _CharT
@@ -390,6 +391,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_make_range(_CharT __l, _CharT __r)
       {
+	if (__l > __r)
+	  __throw_regex_error(regex_constants::error_range);
 	_M_range_set.push_back(make_pair(_M_translator._M_transform(__l),
 					 _M_translator._M_transform(__r)));
 #ifdef _GLIBCXX_DEBUG

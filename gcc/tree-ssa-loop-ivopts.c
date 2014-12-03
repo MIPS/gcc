@@ -68,6 +68,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "hash-map.h"
@@ -82,6 +92,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-ssa.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -322,6 +334,9 @@ struct ivopts_data
 
   /* A bitmap of important candidates.  */
   bitmap important_candidates;
+
+  /* Cache used by tree_to_aff_combination_expand.  */
+  hash_map<tree, name_expansion *> *name_expansion_cache;
 
   /* The maximum invariant id.  */
   unsigned max_inv_id;
@@ -876,6 +891,7 @@ tree_ssa_iv_optimize_init (struct ivopts_data *data)
   data->iv_candidates.create (20);
   data->inv_expr_tab = new hash_table<iv_inv_expr_hasher> (10);
   data->inv_expr_id = 0;
+  data->name_expansion_cache = NULL;
   decl_rtl_to_reset.create (20);
 }
 
@@ -1033,7 +1049,7 @@ get_iv (struct ivopts_data *data, tree var)
    not define a simple affine biv with nonzero step.  */
 
 static tree
-determine_biv_step (gimple phi)
+determine_biv_step (gphi *phi)
 {
   struct loop *loop = gimple_bb (phi)->loop_father;
   tree name = PHI_RESULT (phi);
@@ -1053,15 +1069,15 @@ determine_biv_step (gimple phi)
 static bool
 find_bivs (struct ivopts_data *data)
 {
-  gimple phi;
+  gphi *phi;
   tree step, type, base;
   bool found = false;
   struct loop *loop = data->current_loop;
-  gimple_stmt_iterator psi;
+  gphi_iterator psi;
 
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
 
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
 	continue;
@@ -1098,16 +1114,17 @@ find_bivs (struct ivopts_data *data)
 static void
 mark_bivs (struct ivopts_data *data)
 {
-  gimple phi, def;
+  gphi *phi;
+  gimple def;
   tree var;
   struct iv *iv, *incr_iv;
   struct loop *loop = data->current_loop;
   basic_block incr_bb;
-  gimple_stmt_iterator psi;
+  gphi_iterator psi;
 
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
 
       iv = get_iv (data, PHI_RESULT (phi));
       if (!iv)
@@ -1374,8 +1391,9 @@ extract_cond_operands (struct ivopts_data *data, gimple stmt,
 
   if (gimple_code (stmt) == GIMPLE_COND)
     {
-      op0 = gimple_cond_lhs_ptr (stmt);
-      op1 = gimple_cond_rhs_ptr (stmt);
+      gcond *cond_stmt = as_a <gcond *> (stmt);
+      op0 = gimple_cond_lhs_ptr (cond_stmt);
+      op1 = gimple_cond_rhs_ptr (cond_stmt);
     }
   else
     {
@@ -1703,6 +1721,8 @@ may_be_unaligned_p (tree ref, tree step)
     return false;
 
   unsigned int align = TYPE_ALIGN (TREE_TYPE (ref));
+  if (GET_MODE_ALIGNMENT (TYPE_MODE (TREE_TYPE (ref))) > align)
+    align = GET_MODE_ALIGNMENT (TYPE_MODE (TREE_TYPE (ref)));
 
   unsigned HOST_WIDE_INT bitpos;
   unsigned int ref_align;
@@ -1988,13 +2008,13 @@ find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
 static void
 find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 {
-  gimple phi;
-  gimple_stmt_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
   tree def;
 
   for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
       if (!virtual_operand_p (def))
         find_interesting_uses_op (data, def);
@@ -2422,7 +2442,7 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
 			bool important, struct iv_use *use)
 {
   basic_block use_bb = gimple_bb (use->stmt);
-  enum machine_mode mem_mode;
+  machine_mode mem_mode;
   unsigned HOST_WIDE_INT cstepi;
 
   /* If we insert the increment in any position other than the standard
@@ -2836,32 +2856,12 @@ get_use_iv_cost (struct ivopts_data *data, struct iv_use *use,
   return NULL;
 }
 
-/* Returns estimate on cost of computing SEQ.  */
-
-static unsigned
-seq_cost (rtx seq, bool speed)
-{
-  unsigned cost = 0;
-  rtx set;
-
-  for (; seq; seq = NEXT_INSN (seq))
-    {
-      set = single_set (seq);
-      if (set)
-	cost += set_src_cost (SET_SRC (set), speed);
-      else
-	cost++;
-    }
-
-  return cost;
-}
-
 /* Produce DECL_RTL for object obj so it looks like it is stored in memory.  */
 static rtx
 produce_memory_decl_rtl (tree obj, int *regno)
 {
   addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (obj));
-  enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+  machine_mode address_mode = targetm.addr_space.address_mode (as);
   rtx x;
 
   gcc_assert (obj);
@@ -2950,7 +2950,8 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
 static unsigned
 computation_cost (tree expr, bool speed)
 {
-  rtx seq, rslt;
+  rtx_insn *seq;
+  rtx rslt;
   tree type = TREE_TYPE (expr);
   unsigned cost;
   /* Avoid using hard regs in ways which may be unsupported.  */
@@ -3168,7 +3169,7 @@ adjust_setup_cost (struct ivopts_data *data, unsigned cost)
 
 
 bool
-multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, enum machine_mode mode,
+multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, machine_mode mode,
 				 addr_space_t as)
 {
 #define MAX_RATIO 128
@@ -3182,7 +3183,7 @@ multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, enum machine_mode mode,
   valid_mult = valid_mult_list[data_index];
   if (!valid_mult)
     {
-      enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+      machine_mode address_mode = targetm.addr_space.address_mode (as);
       rtx reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
       rtx reg2 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 2);
       rtx addr, scaled;
@@ -3253,11 +3254,11 @@ typedef struct address_cost_data_s
 static comp_cost
 get_address_cost (bool symbol_present, bool var_present,
 		  unsigned HOST_WIDE_INT offset, HOST_WIDE_INT ratio,
-		  HOST_WIDE_INT cstep, enum machine_mode mem_mode,
+		  HOST_WIDE_INT cstep, machine_mode mem_mode,
 		  addr_space_t as, bool speed,
 		  bool stmt_after_inc, bool *may_autoinc)
 {
-  enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+  machine_mode address_mode = targetm.addr_space.address_mode (as);
   static vec<address_cost_data> address_cost_data_list;
   unsigned int data_index = (int) as * MAX_MACHINE_MODE + (int) mem_mode;
   address_cost_data data;
@@ -3280,7 +3281,8 @@ get_address_cost (bool symbol_present, bool var_present,
       HOST_WIDE_INT rat, off = 0;
       int old_cse_not_expected, width;
       unsigned sym_p, var_p, off_p, rat_p, add_c;
-      rtx seq, addr, base;
+      rtx_insn *seq;
+      rtx addr, base;
       rtx reg0, reg1;
 
       data = (address_cost_data) xcalloc (1, sizeof (*data));
@@ -3307,6 +3309,18 @@ get_address_cost (bool symbol_present, bool var_present,
 	  XEXP (addr, 1) = gen_int_mode (off, address_mode);
 	  if (memory_address_addr_space_p (mem_mode, addr, as))
 	    break;
+	  /* For some TARGET, like ARM THUMB1, the offset should be nature
+	     aligned.  Try an aligned offset if address_mode is not QImode.  */
+	  off = (address_mode == QImode)
+		? 0
+		: ((unsigned HOST_WIDE_INT) 1 << i)
+		    - GET_MODE_SIZE (address_mode);
+	  if (off > 0)
+	    {
+	      XEXP (addr, 1) = gen_int_mode (off, address_mode);
+	      if (memory_address_addr_space_p (mem_mode, addr, as))
+		break;
+	    }
 	}
       if (i == -1)
         off = 0;
@@ -3559,7 +3573,7 @@ get_address_cost (bool symbol_present, bool var_present,
     the cost in COST.  */
 
 static bool
-get_shiftadd_cost (tree expr, enum machine_mode mode, comp_cost cost0,
+get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
                    comp_cost cost1, tree mult, bool speed, comp_cost *cost)
 {
   comp_cost res;
@@ -3604,7 +3618,7 @@ force_expr_to_var_cost (tree expr, bool speed)
   static unsigned address_cost [2];
   tree op0, op1;
   comp_cost cost0, cost1, cost;
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (!costs_initialized)
     {
@@ -3796,7 +3810,7 @@ split_address_cost (struct ivopts_data *data,
   HOST_WIDE_INT bitsize;
   HOST_WIDE_INT bitpos;
   tree toffset;
-  enum machine_mode mode;
+  machine_mode mode;
   int unsignedp, volatilep;
 
   core = get_inner_reference (addr, &bitsize, &bitpos, &toffset, &mode,
@@ -3879,7 +3893,7 @@ difference_cost (struct ivopts_data *data,
 		 tree e1, tree e2, bool *symbol_present, bool *var_present,
 		 unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
 {
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (e1));
+  machine_mode mode = TYPE_MODE (TREE_TYPE (e1));
   unsigned HOST_WIDE_INT off1, off2;
   aff_tree aff_e1, aff_e2;
   tree type;
@@ -4093,7 +4107,7 @@ get_computation_cost_at (struct ivopts_data *data,
   comp_cost cost;
   widest_int rat;
   bool speed = optimize_bb_for_speed_p (gimple_bb (at));
-  enum machine_mode mem_mode = (address_p
+  machine_mode mem_mode = (address_p
 				? TYPE_MODE (TREE_TYPE (*use->op_p))
 				: VOIDmode);
 
@@ -4169,7 +4183,7 @@ get_computation_cost_at (struct ivopts_data *data,
 
   if (cst_and_fits_in_hwi (cbase))
     {
-      offset = - ratio * int_cst_value (cbase);
+      offset = - ratio * (unsigned HOST_WIDE_INT) int_cst_value (cbase);
       cost = difference_cost (data,
 			      ubase, build_int_cst (utype, 0),
 			      &symbol_present, &var_present, &offset,
@@ -4448,75 +4462,20 @@ iv_elimination_compare (struct ivopts_data *data, struct iv_use *use)
   return (exit->flags & EDGE_TRUE_VALUE ? EQ_EXPR : NE_EXPR);
 }
 
-static tree
-strip_wrap_conserving_type_conversions (tree exp)
-{
-  while (tree_ssa_useless_type_conversion (exp)
-	 && (nowrap_type_p (TREE_TYPE (exp))
-	     == nowrap_type_p (TREE_TYPE (TREE_OPERAND (exp, 0)))))
-    exp = TREE_OPERAND (exp, 0);
-  return exp;
-}
-
-/* Walk the SSA form and check whether E == WHAT.  Fairly simplistic, we
-   check for an exact match.  */
-
-static bool
-expr_equal_p (tree e, tree what)
-{
-  gimple stmt;
-  enum tree_code code;
-
-  e = strip_wrap_conserving_type_conversions (e);
-  what = strip_wrap_conserving_type_conversions (what);
-
-  code = TREE_CODE (what);
-  if (TREE_TYPE (e) != TREE_TYPE (what))
-    return false;
-
-  if (operand_equal_p (e, what, 0))
-    return true;
-
-  if (TREE_CODE (e) != SSA_NAME)
-    return false;
-
-  stmt = SSA_NAME_DEF_STMT (e);
-  if (gimple_code (stmt) != GIMPLE_ASSIGN
-      || gimple_assign_rhs_code (stmt) != code)
-    return false;
-
-  switch (get_gimple_rhs_class (code))
-    {
-    case GIMPLE_BINARY_RHS:
-      if (!expr_equal_p (gimple_assign_rhs2 (stmt), TREE_OPERAND (what, 1)))
-	return false;
-      /* Fallthru.  */
-
-    case GIMPLE_UNARY_RHS:
-    case GIMPLE_SINGLE_RHS:
-      return expr_equal_p (gimple_assign_rhs1 (stmt), TREE_OPERAND (what, 0));
-    default:
-      return false;
-    }
-}
-
 /* Returns true if we can prove that BASE - OFFSET does not overflow.  For now,
    we only detect the situation that BASE = SOMETHING + OFFSET, where the
    calculation is performed in non-wrapping type.
 
    TODO: More generally, we could test for the situation that
 	 BASE = SOMETHING + OFFSET' and OFFSET is between OFFSET' and zero.
-	 This would require knowing the sign of OFFSET.
-
-	 Also, we only look for the first addition in the computation of BASE.
-	 More complex analysis would be better, but introducing it just for
-	 this optimization seems like an overkill.  */
+	 This would require knowing the sign of OFFSET.  */
 
 static bool
-difference_cannot_overflow_p (tree base, tree offset)
+difference_cannot_overflow_p (struct ivopts_data *data, tree base, tree offset)
 {
   enum tree_code code;
   tree e1, e2;
+  aff_tree aff_e1, aff_e2, aff_offset;
 
   if (!nowrap_type_p (TREE_TYPE (base)))
     return false;
@@ -4546,13 +4505,27 @@ difference_cannot_overflow_p (tree base, tree offset)
       e2 = TREE_OPERAND (base, 1);
     }
 
-  /* TODO: deeper inspection may be necessary to prove the equality.  */
+  /* Use affine expansion as deeper inspection to prove the equality.  */
+  tree_to_aff_combination_expand (e2, TREE_TYPE (e2),
+				  &aff_e2, &data->name_expansion_cache);
+  tree_to_aff_combination_expand (offset, TREE_TYPE (offset),
+				  &aff_offset, &data->name_expansion_cache);
+  aff_combination_scale (&aff_offset, -1);
   switch (code)
     {
     case PLUS_EXPR:
-      return expr_equal_p (e1, offset) || expr_equal_p (e2, offset);
+      aff_combination_add (&aff_e2, &aff_offset);
+      if (aff_combination_zero_p (&aff_e2))
+	return true;
+
+      tree_to_aff_combination_expand (e1, TREE_TYPE (e1),
+				      &aff_e1, &data->name_expansion_cache);
+      aff_combination_add (&aff_e1, &aff_offset);
+      return aff_combination_zero_p (&aff_e1);
+
     case POINTER_PLUS_EXPR:
-      return expr_equal_p (e2, offset);
+      aff_combination_add (&aff_e2, &aff_offset);
+      return aff_combination_zero_p (&aff_e2);
 
     default:
       return false;
@@ -4676,7 +4649,7 @@ iv_elimination_compare_lt (struct ivopts_data *data,
   offset = fold_build2 (MULT_EXPR, TREE_TYPE (cand->iv->step),
 			cand->iv->step,
 			fold_convert (TREE_TYPE (cand->iv->step), a));
-  if (!difference_cannot_overflow_p (cand->iv->base, offset))
+  if (!difference_cannot_overflow_p (data, cand->iv->base, offset))
     return false;
 
   /* Determine the new comparison operator.  */
@@ -5206,8 +5179,8 @@ static void
 determine_set_costs (struct ivopts_data *data)
 {
   unsigned j, n;
-  gimple phi;
-  gimple_stmt_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
   tree op;
   struct loop *loop = data->current_loop;
   bitmap_iterator bi;
@@ -5224,7 +5197,7 @@ determine_set_costs (struct ivopts_data *data)
   n = 0;
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       op = PHI_RESULT (phi);
 
       if (virtual_operand_p (op))
@@ -5438,35 +5411,39 @@ iv_ca_set_cp (struct ivopts_data *data, struct iv_ca *ivs,
 }
 
 /* Extend set IVS by expressing USE by some of the candidates in it
-   if possible. All important candidates will be considered
-   if IMPORTANT_CANDIDATES is true.  */
+   if possible.  Consider all important candidates if candidates in
+   set IVS don't give any result.  */
 
 static void
 iv_ca_add_use (struct ivopts_data *data, struct iv_ca *ivs,
-	       struct iv_use *use, bool important_candidates)
+	       struct iv_use *use)
 {
   struct cost_pair *best_cp = NULL, *cp;
   bitmap_iterator bi;
-  bitmap cands;
   unsigned i;
+  struct iv_cand *cand;
 
   gcc_assert (ivs->upto >= use->id);
+  ivs->upto++;
+  ivs->bad_uses++;
 
-  if (ivs->upto == use->id)
+  EXECUTE_IF_SET_IN_BITMAP (ivs->cands, 0, i, bi)
     {
-      ivs->upto++;
-      ivs->bad_uses++;
-    }
-
-  cands = (important_candidates ? data->important_candidates : ivs->cands);
-  EXECUTE_IF_SET_IN_BITMAP (cands, 0, i, bi)
-    {
-      struct iv_cand *cand = iv_cand (data, i);
-
+      cand = iv_cand (data, i);
       cp = get_use_iv_cost (data, use, cand);
-
       if (cheaper_cost_pair (cp, best_cp))
 	best_cp = cp;
+    }
+   
+  if (best_cp == NULL)
+    {
+      EXECUTE_IF_SET_IN_BITMAP (data->important_candidates, 0, i, bi)
+	{
+	  cand = iv_cand (data, i);
+	  cp = get_use_iv_cost (data, use, cand);
+	  if (cheaper_cost_pair (cp, best_cp))
+	    best_cp = cp;
+	}
     }
 
   iv_ca_set_cp (data, ivs, use, best_cp);
@@ -5901,18 +5878,9 @@ try_add_cand_for (struct ivopts_data *data, struct iv_ca *ivs,
   struct iv_ca_delta *best_delta = NULL, *act_delta;
   struct cost_pair *cp;
 
-  iv_ca_add_use (data, ivs, use, false);
+  iv_ca_add_use (data, ivs, use);
   best_cost = iv_ca_cost (ivs);
-
   cp = iv_ca_cand_for_use (ivs, use);
-  if (!cp)
-    {
-      ivs->upto--;
-      ivs->bad_uses--;
-      iv_ca_add_use (data, ivs, use, true);
-      best_cost = iv_ca_cost (ivs);
-      cp = iv_ca_cand_for_use (ivs, use);
-    }
   if (cp)
     {
       best_delta = iv_ca_delta_add (use, NULL, cp, NULL);
@@ -6253,7 +6221,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 {
   tree comp;
   tree op, tgt;
-  gimple ass;
+  gassign *ass;
   gimple_stmt_iterator bsi;
 
   /* An important special case -- if we are asked to express value of
@@ -6505,9 +6473,10 @@ rewrite_use_compare (struct ivopts_data *data,
 		loop_preheader_edge (data->current_loop),
 		stmts);
 
-      gimple_cond_set_lhs (use->stmt, var);
-      gimple_cond_set_code (use->stmt, compare);
-      gimple_cond_set_rhs (use->stmt, op);
+      gcond *cond_stmt = as_a <gcond *> (use->stmt);
+      gimple_cond_set_lhs (cond_stmt, var);
+      gimple_cond_set_code (cond_stmt, compare);
+      gimple_cond_set_rhs (cond_stmt, op);
       return;
     }
 
@@ -6670,7 +6639,8 @@ remove_unused_ivs (struct ivopts_data *data)
 		    DECL_MODE (vexpr) = DECL_MODE (SSA_NAME_VAR (def));
 		  else
 		    DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (vexpr));
-		  gimple def_temp = gimple_build_debug_bind (vexpr, comp, NULL);
+		  gdebug *def_temp
+		    = gimple_build_debug_bind (vexpr, comp, NULL);
 		  gimple_stmt_iterator gsi;
 
 		  if (gimple_code (SSA_NAME_DEF_STMT (def)) == GIMPLE_PHI)
@@ -6801,6 +6771,7 @@ tree_ssa_iv_optimize_finalize (struct ivopts_data *data)
   data->iv_candidates.release ();
   delete data->inv_expr_tab;
   data->inv_expr_tab = NULL;
+  free_affine_expand_cache (&data->name_expansion_cache);
 }
 
 /* Returns true if the loop body BODY includes any function calls.  */

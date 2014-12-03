@@ -898,17 +898,17 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	  && sym->attr.proc != 0
 	  && (sym->attr.subroutine || sym->attr.function)
 	  && sym->attr.if_source != IFSRC_UNKNOWN)
-	gfc_error_now ("Procedure '%s' at %C is already defined at %L",
-		       name, &sym->declared_at);
+	gfc_error_now_1 ("Procedure '%s' at %C is already defined at %L",
+			 name, &sym->declared_at);
 
       /* Trap a procedure with a name the same as interface in the
 	 encompassing scope.  */
       if (sym->attr.generic != 0
 	  && (sym->attr.subroutine || sym->attr.function)
 	  && !sym->attr.mod_proc)
-	gfc_error_now ("Name '%s' at %C is already defined"
-		       " as a generic interface at %L",
-		       name, &sym->declared_at);
+	gfc_error_now_1 ("Name '%s' at %C is already defined"
+			 " as a generic interface at %L",
+			 name, &sym->declared_at);
 
       /* Trap declarations of attributes in encompassing scope.  The
 	 signature for this is that ts.kind is set.  Legitimate
@@ -919,9 +919,9 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	  && gfc_current_ns->parent != NULL
 	  && sym->attr.access == 0
 	  && !module_fcn_entry)
-	gfc_error_now ("Procedure '%s' at %C has an explicit interface "
-		       "and must not have attributes declared at %L",
-		       name, &sym->declared_at);
+	gfc_error_now_1 ("Procedure '%s' at %C has an explicit interface "
+			 "and must not have attributes declared at %L",
+			 name, &sym->declared_at);
     }
 
   if (gfc_current_ns->parent == NULL || *result == NULL)
@@ -990,10 +990,9 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
     {
       if (sym->attr.is_bind_c == 0)
         {
-          gfc_error_now ("Procedure '%s' at %L must have the BIND(C) "
-                         "attribute to be C interoperable", sym->name,
-                         &(sym->declared_at));
-
+          gfc_error_now ("Procedure %qs at %L must have the BIND(C) "
+			 "attribute to be C interoperable", sym->name,
+			 &(sym->declared_at));
           return false;
         }
       else
@@ -1030,7 +1029,7 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 			   "because it is polymorphic",
 			   sym->name, &(sym->declared_at),
 			   sym->ns->proc_name->name);
-	      else if (gfc_option.warn_c_binding_type)
+	      else if (warn_c_binding_type)
 		gfc_warning ("Variable '%s' at %L is a dummy argument of the "
 			     "BIND(C) procedure '%s' but may not be C "
 			     "interoperable",
@@ -1183,9 +1182,9 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
       if (sym->common_block != NULL && sym->common_block->is_bind_c == 1
           && sym->ts.is_c_interop != 1)
         {
-          gfc_error_now ("Variable '%s' in common block '%s' at %C "
+          gfc_error_now ("Variable %qs in common block %qs at %C "
                          "must be declared with a C interoperable "
-                         "kind since common block '%s' is BIND(C)",
+                         "kind since common block %qs is BIND(C)",
                          sym->name, sym->common_block->name,
                          sym->common_block->name);
           gfc_clear_error ();
@@ -1224,8 +1223,9 @@ gfc_set_constant_character_len (int len, gfc_expr *expr, int check_len)
       if (len > slen)
 	gfc_wide_memset (&s[slen], ' ', len - slen);
 
-      if (gfc_option.warn_character_truncation && slen > len)
-	gfc_warning_now ("CHARACTER expression at %L is being truncated "
+      if (warn_character_truncation && slen > len)
+	gfc_warning_now (OPT_Wcharacter_truncation,
+			 "CHARACTER expression at %L is being truncated "
 			 "(%d/%d)", &expr->where, slen, len);
 
       /* Apply the standard by 'hand' otherwise it gets cleared for
@@ -1904,8 +1904,9 @@ variable_decl (int elem)
     }
 
   /*  If this symbol has already shown up in a Cray Pointer declaration,
+      and this is not a component declaration,
       then we want to set the type & bail out.  */
-  if (gfc_option.flag_cray_pointer)
+  if (gfc_option.flag_cray_pointer && gfc_current_state () != COMP_DERIVED)
     {
       gfc_find_symbol (name, gfc_current_ns, 1, &sym);
       if (sym != NULL && sym->attr.cray_pointee)
@@ -2945,7 +2946,66 @@ get_kind:
 match
 gfc_match_implicit_none (void)
 {
-  return (gfc_match_eos () == MATCH_YES) ? MATCH_YES : MATCH_NO;
+  char c;
+  match m;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  bool type = false;
+  bool external = false;
+  locus cur_loc = gfc_current_locus;
+
+  if (gfc_current_ns->seen_implicit_none
+      || gfc_current_ns->has_implicit_none_export)
+    {
+      gfc_error ("Duplicate IMPLICIT NONE statement at %C");
+      return MATCH_ERROR;
+    }
+
+  gfc_gobble_whitespace ();
+  c = gfc_peek_ascii_char ();
+  if (c == '(')
+    {
+      (void) gfc_next_ascii_char ();
+      if (!gfc_notify_std (GFC_STD_F2015, "IMPORT NONE with spec list at %C"))
+	return MATCH_ERROR;
+
+      gfc_gobble_whitespace ();
+      if (gfc_peek_ascii_char () == ')')
+	{
+	  (void) gfc_next_ascii_char ();
+	  type = true;
+	}
+      else
+	for(;;)
+	  {
+	    m = gfc_match (" %n", name);
+	    if (m != MATCH_YES)
+	      return MATCH_ERROR;
+
+	    if (strcmp (name, "type") == 0)
+	      type = true;
+	    else if (strcmp (name, "external") == 0)
+	      external = true;
+	    else
+	      return MATCH_ERROR;
+
+	    gfc_gobble_whitespace ();
+	    c = gfc_next_ascii_char ();
+	    if (c == ',')
+	      continue;
+	    if (c == ')')
+	      break;
+	    return MATCH_ERROR;
+	  }
+    }
+  else
+    type = true;
+
+  if (gfc_match_eos () != MATCH_YES)
+    return MATCH_ERROR;
+
+  gfc_set_implicit_none (type, external, &cur_loc);
+
+  return MATCH_YES;
 }
 
 
@@ -3061,6 +3121,13 @@ gfc_match_implicit (void)
   char c;
   match m;
 
+  if (gfc_current_ns->seen_implicit_none)
+    {
+      gfc_error ("IMPLICIT statement at %C following an IMPLICIT NONE (type) "
+		 "statement");
+      return MATCH_ERROR;
+    }
+
   gfc_clear_ts (&ts);
 
   /* We don't allow empty implicit statements.  */
@@ -3089,8 +3156,8 @@ gfc_match_implicit (void)
 	{
 	  /* We may have <TYPE> (<RANGE>).  */
 	  gfc_gobble_whitespace ();
-	  c = gfc_next_ascii_char ();
-	  if ((c == '\n') || (c == ','))
+          c = gfc_peek_ascii_char ();
+	  if (c == ',' || c == '\n' || c == ';' || c == '!')
 	    {
 	      /* Check for CHARACTER with no length parameter.  */
 	      if (ts.type == BT_CHARACTER && !ts.u.cl)
@@ -3104,6 +3171,10 @@ gfc_match_implicit (void)
 	      /* Record the Successful match.  */
 	      if (!gfc_merge_new_implicit (&ts))
 		return MATCH_ERROR;
+	      if (c == ',')
+		c = gfc_next_ascii_char ();
+	      else if (gfc_match_eos () == MATCH_ERROR)
+		goto error;
 	      continue;
 	    }
 
@@ -3139,7 +3210,7 @@ gfc_match_implicit (void)
 
       gfc_gobble_whitespace ();
       c = gfc_next_ascii_char ();
-      if ((c != '\n') && (c != ','))
+      if (c != ',' && gfc_match_eos () != MATCH_YES)
 	goto syntax;
 
       if (!gfc_merge_new_implicit (&ts))
@@ -3237,7 +3308,7 @@ gfc_match_import (void)
 	    {
 	      /* The actual derived type is stored in a symtree with the first
 		 letter of the name capitalized; the symtree with the all
-		 lower-case name contains the associated generic function. */
+		 lower-case name contains the associated generic function.  */
 	      st = gfc_new_symtree (&gfc_current_ns->sym_root,
 			gfc_get_string ("%c%s",
 				(char) TOUPPER ((unsigned char) name[0]),
@@ -3958,7 +4029,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
     {
       tmp_sym = tmp_sym->result;
       /* Make sure it wasn't an implicitly typed result.  */
-      if (tmp_sym->attr.implicit_type && gfc_option.warn_c_binding_type)
+      if (tmp_sym->attr.implicit_type && warn_c_binding_type)
 	{
 	  gfc_warning ("Implicitly declared BIND(C) function '%s' at "
                        "%L may not be C interoperable", tmp_sym->name,
@@ -3979,7 +4050,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
       if (!gfc_verify_c_interop (&(tmp_sym->ts)))
 	{
 	  /* See if we're dealing with a sym in a common block or not.	*/
-	  if (is_in_common == 1 && gfc_option.warn_c_binding_type)
+	  if (is_in_common == 1 && warn_c_binding_type)
 	    {
 	      gfc_warning ("Variable '%s' in common block '%s' at %L "
                            "may not be a C interoperable "
@@ -3993,7 +4064,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
                 gfc_error ("Type declaration '%s' at %L is not C "
                            "interoperable but it is BIND(C)",
                            tmp_sym->name, &(tmp_sym->declared_at));
-              else if (gfc_option.warn_c_binding_type)
+              else if (warn_c_binding_type)
                 gfc_warning ("Variable '%s' at %L "
                              "may not be a C interoperable "
                              "kind but it is bind(c)",
@@ -4059,8 +4130,8 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
       && tmp_sym->binding_label)
       /* Use gfc_warning_now because we won't say that the symbol fails
 	 just because of this.	*/
-      gfc_warning_now ("Symbol '%s' at %L is marked PRIVATE but has been "
-		       "given the binding label '%s'", tmp_sym->name,
+      gfc_warning_now ("Symbol %qs at %L is marked PRIVATE but has been "
+		       "given the binding label %qs", tmp_sym->name,
 		       &(tmp_sym->declared_at), tmp_sym->binding_label);
 
   return retval;
@@ -4856,7 +4927,7 @@ match_procedure_decl (void)
   int num;
   gfc_expr *initializer = NULL;
 
-  /* Parse interface (with brackets). */
+  /* Parse interface (with brackets).  */
   m = match_procedure_interface (&proc_if);
   if (m != MATCH_YES)
     return m;
@@ -5213,7 +5284,7 @@ gfc_match_procedure (void)
    parser-state-stack to find out whether we're in a module.  */
 
 static void
-warn_intrinsic_shadow (const gfc_symbol* sym, bool func)
+do_warn_intrinsic_shadow (const gfc_symbol* sym, bool func)
 {
   bool in_module;
 
@@ -5349,7 +5420,7 @@ gfc_match_function_decl (void)
 	}
 
       /* Warn if this procedure has the same name as an intrinsic.  */
-      warn_intrinsic_shadow (sym, true);
+      do_warn_intrinsic_shadow (sym, true);
 
       return MATCH_YES;
     }
@@ -5697,7 +5768,7 @@ gfc_match_subroutine (void)
     return MATCH_ERROR;
 
   /* Set declared_at as it might point to, e.g., a PUBLIC statement, if
-     the symbol existed before. */
+     the symbol existed before.  */
   sym->declared_at = gfc_current_locus;
 
   if (add_hidden_procptr_result (sym))
@@ -5780,7 +5851,7 @@ gfc_match_subroutine (void)
     return MATCH_ERROR;
 
   /* Warn if it has the same name as an intrinsic.  */
-  warn_intrinsic_shadow (sym, false);
+  do_warn_intrinsic_shadow (sym, false);
 
   return MATCH_YES;
 }
@@ -5942,7 +6013,7 @@ gfc_match_bind_c (gfc_symbol *sym, bool allow_binding_name)
       /* No binding label, but if symbol isn't null, we
 	 can set the label for it here.
 	 If name="" or allow_binding_name is false, no C binding name is
-	 created. */
+	 created.  */
       if (sym != NULL && sym->name != NULL && has_name_equals == 0)
 	sym->binding_label = IDENTIFIER_POINTER (get_identifier (sym->name));
     }
@@ -7232,7 +7303,7 @@ gfc_match_volatile (void)
   for(;;)
     {
       /* VOLATILE is special because it can be added to host-associated
-	 symbols locally. Except for coarrays. */
+	 symbols locally.  Except for coarrays.  */
       m = gfc_match_symbol (&sym, 1);
       switch (m)
 	{

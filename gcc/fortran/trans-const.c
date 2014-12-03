@@ -23,12 +23,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "gfortran.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "realmpfr.h"
 #include "diagnostic-core.h"	/* For fatal_error.  */
 #include "double-int.h"
-#include "gfortran.h"
 #include "trans.h"
 #include "trans-const.h"
 #include "trans-types.h"
@@ -254,6 +254,16 @@ gfc_build_inf_or_huge (tree type, int kind)
       int k = gfc_validate_kind (BT_REAL, kind, false);
       return gfc_conv_mpfr_to_tree (gfc_real_kinds[k].huge, kind, 0);
     }
+}
+
+/* Returns a floating-point NaN of a given type.  */
+
+tree
+gfc_build_nan (tree type, const char *str)
+{
+  REAL_VALUE_TYPE real;
+  real_nan (&real, str, 1, TYPE_MODE (type));
+  return build_real (type, real);
 }
 
 /* Converts a backend tree into a real constant.  */

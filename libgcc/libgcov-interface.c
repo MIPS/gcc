@@ -42,8 +42,16 @@ void __gcov_dump (void) {}
 
 #else
 
-extern void gcov_clear (void) ATTRIBUTE_HIDDEN;
-extern void gcov_exit (void) ATTRIBUTE_HIDDEN;
+/* Some functions we want to bind in this dynamic object, but have an
+   overridable global alias.  Unfortunately not all targets support
+   aliases, so we just have a forwarding function.  That'll be tail
+   called, so the cost is a single jump instruction.*/
+
+#define ALIAS_void_fn(src,dst) \
+  void dst (void)	    \
+  { src (); }
+
+extern __gthread_mutex_t __gcov_flush_mx ATTRIBUTE_HIDDEN;
 extern __gthread_mutex_t __gcov_flush_mx ATTRIBUTE_HIDDEN;
 
 #ifdef L_gcov_flush
@@ -77,8 +85,8 @@ __gcov_flush (void)
   init_mx_once ();
   __gthread_mutex_lock (&__gcov_flush_mx);
 
-  gcov_exit ();
-  gcov_clear ();
+  __gcov_dump_int ();
+  __gcov_reset_int ();
 
   __gthread_mutex_unlock (&__gcov_flush_mx);
 }
@@ -87,30 +95,78 @@ __gcov_flush (void)
 
 #ifdef L_gcov_reset
 
+/* Reset all counters to zero.  */
+
+static void
+gcov_clear (const struct gcov_info *list)
+{
+  const struct gcov_info *gi_ptr;
+
+  for (gi_ptr = list; gi_ptr; gi_ptr = gi_ptr->next)
+    {
+      unsigned f_ix;
+
+      for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
+        {
+          unsigned t_ix;
+          const struct gcov_fn_info *gfi_ptr = gi_ptr->functions[f_ix];
+
+          if (!gfi_ptr || gfi_ptr->key != gi_ptr)
+            continue;
+          const struct gcov_ctr_info *ci_ptr = gfi_ptr->ctrs;
+          for (t_ix = 0; t_ix != GCOV_COUNTERS; t_ix++)
+            {
+              if (!gi_ptr->merge[t_ix])
+                continue;
+
+              memset (ci_ptr->values, 0, sizeof (gcov_type) * ci_ptr->num);
+              ci_ptr++;
+            }
+        }
+    }
+}
+
 /* Function that can be called from application to reset counters to zero,
    in order to collect profile in region of interest.  */
 
 void
-__gcov_reset (void)
+__gcov_reset_int (void)
 {
-  gcov_clear ();
+  struct gcov_root *root;
+
+  /* If we're compatible with the master, iterate over everything,
+     otherise just do us.  */
+  for (root = __gcov_master.version == GCOV_VERSION
+	 ? __gcov_master.root : &__gcov_root; root; root = root->next)
+    {
+      gcov_clear (root->list);
+      root->dumped = 0;
+    }
 }
+
+ALIAS_void_fn (__gcov_reset_int, __gcov_reset);
 
 #endif /* L_gcov_reset */
 
 #ifdef L_gcov_dump
-
 /* Function that can be called from application to write profile collected
    so far, in order to collect profile in region of interest.  */
 
 void
-__gcov_dump (void)
+__gcov_dump_int (void)
 {
-  gcov_exit ();
+  struct gcov_root *root;
+
+  /* If we're compatible with the master, iterate over everything,
+     otherise just do us.  */
+  for (root = __gcov_master.version == GCOV_VERSION
+	 ? __gcov_master.root : &__gcov_root; root; root = root->next)
+    __gcov_dump_one (root);
 }
 
-#endif /* L_gcov_dump */
+ALIAS_void_fn (__gcov_dump_int, __gcov_dump);
 
+#endif /* L_gcov_dump */
 
 #ifdef L_gcov_fork
 /* A wrapper for the fork function.  Flushes the accumulated profiling data, so
@@ -120,7 +176,6 @@ pid_t
 __gcov_fork (void)
 {
   pid_t pid;
-  extern __gthread_mutex_t __gcov_flush_mx;
   __gcov_flush ();
   pid = fork ();
   if (pid == 0)
@@ -130,8 +185,8 @@ __gcov_fork (void)
 #endif
 
 #ifdef L_gcov_execl
-/* A wrapper for the execl function.  Flushes the accumulated profiling data, so
-   that they are not lost.  */
+/* A wrapper for the execl function.  Flushes the accumulated
+   profiling data, so that they are not lost.  */
 
 int
 __gcov_execl (const char *path, char *arg, ...)

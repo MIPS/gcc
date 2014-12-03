@@ -25,11 +25,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "target.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
 #include "basic-block.h"
 #include "timevar.h"	/* for TV_ALIAS_STMT_WALK */
 #include "langhooks.h"
 #include "flags.h"
-#include "function.h"
 #include "tree-pretty-print.h"
 #include "dumpfile.h"
 #include "tree-ssa-alias.h"
@@ -47,6 +55,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "alloc-pool.h"
 #include "tree-ssa-alias.h"
+#include "bitmap.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-reference.h"
 
 /* Broad overview of how alias analysis on gimple works:
@@ -330,18 +343,31 @@ ptr_deref_may_alias_ref_p_1 (tree ptr, ao_ref *ref)
   return true;
 }
 
-/* Return true whether REF may refer to global memory.  */
+/* Returns whether reference REF to BASE may refer to global memory.  */
 
-bool
-ref_may_alias_global_p (tree ref)
+static bool
+ref_may_alias_global_p_1 (tree base)
 {
-  tree base = get_base_address (ref);
   if (DECL_P (base))
     return is_global_var (base);
   else if (TREE_CODE (base) == MEM_REF
 	   || TREE_CODE (base) == TARGET_MEM_REF)
     return ptr_deref_may_alias_global_p (TREE_OPERAND (base, 0));
   return true;
+}
+
+bool
+ref_may_alias_global_p (ao_ref *ref)
+{
+  tree base = ao_ref_base (ref);
+  return ref_may_alias_global_p_1 (base);
+}
+
+bool
+ref_may_alias_global_p (tree ref)
+{
+  tree base = get_base_address (ref);
+  return ref_may_alias_global_p_1 (base);
 }
 
 /* Return true whether STMT may clobber global memory.  */
@@ -546,7 +572,7 @@ ao_ref_base (ao_ref *ref)
 
 /* Returns the base object alias set of the memory reference *REF.  */
 
-static alias_set_type
+alias_set_type
 ao_ref_base_alias_set (ao_ref *ref)
 {
   tree base_ref;
@@ -1358,6 +1384,34 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
     return decl_refs_may_alias_p (ref1->ref, base1, offset1, max_size1,
 				  ref2->ref, base2, offset2, max_size2);
 
+  /* Handle restrict based accesses.
+     ???  ao_ref_base strips inner MEM_REF [&decl], recover from that
+     here.  */
+  tree rbase1 = base1;
+  tree rbase2 = base2;
+  if (var1_p)
+    {
+      rbase1 = ref1->ref;
+      if (rbase1)
+	while (handled_component_p (rbase1))
+	  rbase1 = TREE_OPERAND (rbase1, 0);
+    }
+  if (var2_p)
+    {
+      rbase2 = ref2->ref;
+      if (rbase2)
+	while (handled_component_p (rbase2))
+	  rbase2 = TREE_OPERAND (rbase2, 0);
+    }
+  if (rbase1 && rbase2
+      && (TREE_CODE (base1) == MEM_REF || TREE_CODE (base1) == TARGET_MEM_REF)
+      && (TREE_CODE (base2) == MEM_REF || TREE_CODE (base2) == TARGET_MEM_REF)
+      /* If the accesses are in the same restrict clique... */
+      && MR_DEPENDENCE_CLIQUE (base1) == MR_DEPENDENCE_CLIQUE (base2)
+      /* But based on different pointers they do not alias.  */
+      && MR_DEPENDENCE_BASE (base1) != MR_DEPENDENCE_BASE (base2))
+    return false;
+
   ind1_p = (TREE_CODE (base1) == MEM_REF
 	    || TREE_CODE (base1) == TARGET_MEM_REF);
   ind2_p = (TREE_CODE (base2) == MEM_REF
@@ -1413,6 +1467,14 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
 #endif
 }
 
+static bool
+refs_may_alias_p (tree ref1, ao_ref *ref2)
+{
+  ao_ref r1;
+  ao_ref_init (&r1, ref1);
+  return refs_may_alias_p_1 (&r1, ref2, true);
+}
+
 bool
 refs_may_alias_p (tree ref1, tree ref2)
 {
@@ -1456,7 +1518,7 @@ refs_output_dependent_p (tree store1, tree store2)
    otherwise return false.  */
 
 static bool
-ref_maybe_used_by_call_p_1 (gimple call, ao_ref *ref)
+ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref)
 {
   tree base, callee;
   unsigned i;
@@ -1769,12 +1831,10 @@ process_args:
 }
 
 static bool
-ref_maybe_used_by_call_p (gimple call, tree ref)
+ref_maybe_used_by_call_p (gcall *call, ao_ref *ref)
 {
-  ao_ref r;
   bool res;
-  ao_ref_init (&r, ref);
-  res = ref_maybe_used_by_call_p_1 (call, &r);
+  res = ref_maybe_used_by_call_p_1 (call, ref);
   if (res)
     ++alias_stats.ref_maybe_used_by_call_p_may_alias;
   else
@@ -1787,7 +1847,7 @@ ref_maybe_used_by_call_p (gimple call, tree ref)
    true, otherwise return false.  */
 
 bool
-ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
+ref_maybe_used_by_stmt_p (gimple stmt, ao_ref *ref)
 {
   if (is_gimple_assign (stmt))
     {
@@ -1806,18 +1866,17 @@ ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
       return refs_may_alias_p (rhs, ref);
     }
   else if (is_gimple_call (stmt))
-    return ref_maybe_used_by_call_p (stmt, ref);
-  else if (gimple_code (stmt) == GIMPLE_RETURN)
+    return ref_maybe_used_by_call_p (as_a <gcall *> (stmt), ref);
+  else if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
     {
-      tree retval = gimple_return_retval (stmt);
-      tree base;
+      tree retval = gimple_return_retval (return_stmt);
       if (retval
 	  && TREE_CODE (retval) != SSA_NAME
 	  && !is_gimple_min_invariant (retval)
 	  && refs_may_alias_p (retval, ref))
 	return true;
       /* If ref escapes the function then the return acts as a use.  */
-      base = get_base_address (ref);
+      tree base = ao_ref_base (ref);
       if (!base)
 	;
       else if (DECL_P (base))
@@ -1831,11 +1890,19 @@ ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
   return true;
 }
 
+bool
+ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
+{
+  ao_ref r;
+  ao_ref_init (&r, ref);
+  return ref_maybe_used_by_stmt_p (stmt, &r);
+}
+
 /* If the call in statement CALL may clobber the memory reference REF
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
+call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
 {
   tree base;
   tree callee;
@@ -2108,7 +2175,7 @@ call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p (gimple call, tree ref)
+call_may_clobber_ref_p (gcall *call, tree ref)
 {
   bool res;
   ao_ref r;
@@ -2140,7 +2207,7 @@ stmt_may_clobber_ref_p_1 (gimple stmt, ao_ref *ref)
 	    return true;
 	}
 
-      return call_may_clobber_ref_p_1 (stmt, ref);
+      return call_may_clobber_ref_p_1 (as_a <gcall *> (stmt), ref);
     }
   else if (gimple_assign_single_p (stmt))
     {
@@ -2169,8 +2236,8 @@ stmt_may_clobber_ref_p (gimple stmt, tree ref)
 /* If STMT kills the memory reference REF return true, otherwise
    return false.  */
 
-static bool
-stmt_kills_ref_p_1 (gimple stmt, ao_ref *ref)
+bool
+stmt_kills_ref_p (gimple stmt, ao_ref *ref)
 {
   if (!ao_ref_base (ref))
     return false;
@@ -2357,7 +2424,7 @@ stmt_kills_ref_p (gimple stmt, tree ref)
 {
   ao_ref r;
   ao_ref_init (&r, ref);
-  return stmt_kills_ref_p_1 (stmt, &r);
+  return stmt_kills_ref_p (stmt, &r);
 }
 
 
@@ -2658,8 +2725,6 @@ walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
 		      bitmap *visited, unsigned int cnt,
 		      bool *function_entry_reached)
 {
-  if (function_entry_reached)
-    *function_entry_reached = false;
   do
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
@@ -2708,6 +2773,9 @@ walk_aliased_vdefs (ao_ref *ref, tree vdef,
   unsigned int ret;
 
   timevar_push (TV_ALIAS_STMT_WALK);
+
+  if (function_entry_reached)
+    *function_entry_reached = false;
 
   ret = walk_aliased_vdefs_1 (ref, vdef, walker, data,
 			      visited ? visited : &local_visited, 0,

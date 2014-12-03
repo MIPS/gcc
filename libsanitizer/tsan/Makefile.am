@@ -6,6 +6,7 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 DEFS = -D_GNU_SOURCE -D_DEBUG -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS 
 AM_CXXFLAGS = -Wall -W -Wno-unused-parameter -Wwrite-strings -pedantic -Wno-long-long  -fPIC -fno-builtin -fno-exceptions -fno-rtti -fomit-frame-pointer -funwind-tables -fvisibility=hidden -Wno-variadic-macros
 AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
+AM_CXXFLAGS += -std=gnu++11
 ACLOCAL_AMFLAGS = -I m4
 
 toolexeclib_LTLIBRARIES = libtsan.la
@@ -32,6 +33,7 @@ tsan_files = \
 	tsan_rtl_mutex.cc \
 	tsan_rtl_report.cc \
 	tsan_rtl_thread.cc \
+	tsan_stack_trace.cc \
 	tsan_stat.cc \
 	tsan_suppressions.cc \
 	tsan_symbolize.cc \

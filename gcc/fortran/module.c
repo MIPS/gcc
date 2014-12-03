@@ -1054,15 +1054,15 @@ bad_module (const char *msgid)
   switch (iomode)
     {
     case IO_INPUT:
-      gfc_fatal_error ("Reading module %s at line %d column %d: %s",
+      gfc_fatal_error ("Reading module %qs at line %d column %d: %s",
 	  	       module_name, module_line, module_column, msgid);
       break;
     case IO_OUTPUT:
-      gfc_fatal_error ("Writing module %s at line %d column %d: %s",
+      gfc_fatal_error ("Writing module %qs at line %d column %d: %s",
 	  	       module_name, module_line, module_column, msgid);
       break;
     default:
-      gfc_fatal_error ("Module %s at line %d column %d: %s",
+      gfc_fatal_error ("Module %qs at line %d column %d: %s",
 	  	       module_name, module_line, module_column, msgid);
       break;
     }
@@ -1758,7 +1758,7 @@ unquote_string (const char *s)
       if (p[1] == '\\')
 	p++;
       else if (p[1] == 'U')
-	p += 9; /* That is a "\U????????". */
+	p += 9; /* That is a "\U????????".  */
       else
 	gfc_internal_error ("unquote_string(): got bad string");
     }
@@ -5496,7 +5496,7 @@ write_symbol (int n, gfc_symbol *sym)
   const char *label;
 
   if (sym->attr.flavor == FL_UNKNOWN || sym->attr.flavor == FL_LABEL)
-    gfc_internal_error ("write_symbol(): bad module symbol '%s'", sym->name);
+    gfc_internal_error ("write_symbol(): bad module symbol %qs", sym->name);
 
   mio_integer (&n);
 
@@ -6000,7 +6000,7 @@ gfc_dump_module (const char *name, int dump_flag)
      module file, even if it was already there.  */
   if (!dump_flag)
     {
-      unlink (filename);
+      remove (filename);
       return;
     }
 
@@ -6010,7 +6010,7 @@ gfc_dump_module (const char *name, int dump_flag)
   /* Write the module to the temporary file.  */
   module_fp = gzopen (filename_tmp, "w");
   if (module_fp == NULL)
-    gfc_fatal_error ("Can't open module file '%s' for writing at %C: %s",
+    gfc_fatal_error ("Can't open module file %qs for writing at %C: %s",
 		     filename_tmp, xstrerror (errno));
 
   gzprintf (module_fp, "GFORTRAN module version '%s' created from %s\n",
@@ -6030,7 +6030,7 @@ gfc_dump_module (const char *name, int dump_flag)
   write_char ('\n');
 
   if (gzclose (module_fp))
-    gfc_fatal_error ("Error writing module file '%s' for writing: %s",
+    gfc_fatal_error ("Error writing module file %qs for writing: %s",
 		     filename_tmp, xstrerror (errno));
 
   /* Read the CRC32 from the gzip trailers of the module files and
@@ -6040,13 +6040,16 @@ gfc_dump_module (const char *name, int dump_flag)
       || crc_old != crc)
     {
       /* Module file have changed, replace the old one.  */
+      if (remove (filename) && errno != ENOENT)
+	gfc_fatal_error ("Can't delete module file %qs: %s", filename,
+			 xstrerror (errno));
       if (rename (filename_tmp, filename))
-	gfc_fatal_error ("Can't rename module file '%s' to '%s': %s",
+	gfc_fatal_error ("Can't rename module file %qs to %qs: %s",
 			 filename_tmp, filename, xstrerror (errno));
     }
   else
     {
-      if (unlink (filename_tmp))
+      if (remove (filename_tmp))
 	gfc_fatal_error ("Can't delete temporary module file '%s': %s",
 			 filename_tmp, xstrerror (errno));
     }
@@ -6326,7 +6329,7 @@ import_iso_c_binding_module (void)
 		break;
 #include "iso-c-binding.def"
 	      default:
-		; /* Not GFC_STD_* versioned. */
+		; /* Not GFC_STD_* versioned.  */
 	    }
 
 	  switch (i)
@@ -6599,7 +6602,7 @@ use_iso_fortran_env_module (void)
 		gfc_warning_now ("Use of the NUMERIC_STORAGE_SIZE named "
 				 "constant from intrinsic module "
 				 "ISO_FORTRAN_ENV at %L is incompatible with "
-				 "option %s", &u->where,
+				 "option %qs", &u->where,
 				 gfc_option.flag_default_integer
 				   ? "-fdefault-integer-8"
 				   : "-fdefault-real-8");
@@ -6741,6 +6744,10 @@ gfc_use_module (gfc_use_list *module)
   only_flag = module->only_flag;
   current_intmod = INTMOD_NONE;
 
+  if (!only_flag)
+    gfc_warning_now (OPT_Wuse_without_only,
+		     "USE statement at %C has no ONLY qualifier");
+
   filename = XALLOCAVEC (char, strlen (module_name) + strlen (MODULE_EXTENSION)
 			       + 1);
   strcpy (filename, module_name);
@@ -6782,7 +6789,7 @@ gfc_use_module (gfc_use_list *module)
       module_fp = gzopen_intrinsic_module (filename);
 
       if (module_fp == NULL && module->intrinsic)
-	gfc_fatal_error ("Can't find an intrinsic module named '%s' at %C",
+	gfc_fatal_error ("Can't find an intrinsic module named %qs at %C",
 			 module_name);
 
       /* Check for the IEEE modules, so we can mark their symbols
@@ -6807,7 +6814,7 @@ gfc_use_module (gfc_use_list *module)
     }
 
   if (module_fp == NULL)
-    gfc_fatal_error ("Can't open module file '%s' for reading at %C: %s",
+    gfc_fatal_error ("Can't open module file %qs for reading at %C: %s",
 		     filename, xstrerror (errno));
 
   /* Check that we haven't already USEd an intrinsic module with the
@@ -6838,7 +6845,7 @@ gfc_use_module (gfc_use_list *module)
 	parse_name (c);
       if ((start == 1 && strcmp (atom_name, "GFORTRAN") != 0)
 	  || (start == 2 && strcmp (atom_name, " module") != 0))
-	gfc_fatal_error ("File '%s' opened at %C is not a GNU Fortran"
+	gfc_fatal_error ("File %qs opened at %C is not a GNU Fortran"
 			 " module file", filename);
       if (start == 3)
 	{
@@ -6846,7 +6853,7 @@ gfc_use_module (gfc_use_list *module)
 	      || module_char () != ' '
 	      || parse_atom () != ATOM_STRING
 	      || strcmp (atom_string, MOD_VERSION))
-	    gfc_fatal_error ("Cannot read module file '%s' opened at %C,"
+	    gfc_fatal_error ("Cannot read module file %qs opened at %C,"
 			     " because it was created by a different"
 			     " version of GNU Fortran", filename);
 
@@ -6885,7 +6892,7 @@ gfc_use_module (gfc_use_list *module)
 }
 
 
-/* Remove duplicated intrinsic operators from the rename list. */
+/* Remove duplicated intrinsic operators from the rename list.  */
 
 static void
 rename_list_remove_duplicate (gfc_use_rename *list)

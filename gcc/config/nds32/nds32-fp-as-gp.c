@@ -38,10 +38,24 @@
 #include "insn-codes.h"		/* For CODE_FOR_xxx.  */
 #include "reload.h"		/* For push_reload().  */
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "expr.h"
 #include "recog.h"
 #include "diagnostic-core.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "tm_p.h"
 #include "tm-constrs.h"
@@ -72,7 +86,7 @@ nds32_have_prologue_p (void)
 /* Return true if is load/store with SYMBOL_REF addressing mode
    and memory mode is SImode.  */
 static bool
-nds32_symbol_load_store_p (rtx insn)
+nds32_symbol_load_store_p (rtx_insn *insn)
 {
   rtx mem_src = NULL_RTX;
 
@@ -153,7 +167,7 @@ nds32_fp_as_gp_check_available (void)
       int symbol_count  = 0;
 
       int threshold;
-      rtx insn;
+      rtx_insn *insn;
 
       /* We check if there already requires prologue.
          Note that $gp will be saved in prologue for PIC code generation.

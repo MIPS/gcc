@@ -30,6 +30,7 @@ struct CommonFlags {
   const char *external_symbolizer_path;
   bool allow_addr2line;
   const char *strip_path_prefix;
+  bool fast_unwind_on_check;
   bool fast_unwind_on_fatal;
   bool fast_unwind_on_malloc;
   bool handle_ioctl;
@@ -52,7 +53,14 @@ struct CommonFlags {
   bool help;
   uptr mmap_limit_mb;
   bool coverage;
+  bool coverage_direct;
+  const char *coverage_dir;
   bool full_address_space;
+  const char *suppressions;
+  bool print_suppressions;
+  bool disable_coredump;
+  bool symbolize_inline_frames;
+  const char *stack_trace_format;
 };
 
 inline CommonFlags *common_flags() {

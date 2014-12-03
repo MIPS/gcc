@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-std=gnu++1y" }
+// { dg-options "-std=gnu++14" }
 
 // Copyright (C) 2014 Free Software Foundation, Inc.
 //
@@ -27,5 +27,5 @@ test01()
 
   // std::numeric_limits<int64_t>::max() == 9223372036854775807;
   auto h = 9223372036854775808h;
-  // { dg-error "cannot be represented" "" { target *-*-* } 794 }
+  // { dg-error "cannot be represented" "" { target *-*-* } 796 }
 }

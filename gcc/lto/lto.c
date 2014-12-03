@@ -27,20 +27,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "diagnostic-core.h"
 #include "tm.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "bitmap.h"
-#include "hash-map.h"
 #include "inchash.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "lto.h"
 #include "lto-tree.h"
@@ -54,6 +66,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "ipa-inline.h"
 #include "params.h"
+#include "ipa-utils.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
@@ -247,13 +260,15 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
   for (i = 0; i < LTO_N_DECL_STREAMS; i++)
     {
       uint32_t size = *data++;
-      tree *decls = ggc_vec_alloc<tree> (size);
+      vec<tree, va_gc> *decls = NULL;
+      vec_alloc (decls, size);
 
       for (j = 0; j < size; j++)
-	decls[j] = streamer_tree_cache_get_tree (data_in->reader_cache, data[j]);
+	vec_safe_push (decls,
+		       streamer_tree_cache_get_tree (data_in->reader_cache,
+						     data[j]));
 
-      state->streams[i].size = size;
-      state->streams[i].trees = decls;
+      state->streams[i] = decls;
       data += size;
     }
 
@@ -1007,8 +1022,9 @@ register_resolution (struct lto_file_decl_data *file_data, tree decl,
   if (resolution == LDPR_UNKNOWN)
     return;
   if (!file_data->resolution_map)
-    file_data->resolution_map = pointer_map_create ();
-  *pointer_map_insert (file_data->resolution_map, decl) = (void *)(size_t)resolution;
+    file_data->resolution_map
+      = new hash_map<tree, ld_plugin_symbol_resolution>;
+  file_data->resolution_map->put (decl, resolution);
 }
 
 /* Register DECL with the global symbol table and change its
@@ -1046,7 +1062,7 @@ lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl,
 {
   /* If this variable has already been declared, queue the
      declaration for merging.  */
-  if (TREE_PUBLIC (decl) && !DECL_ABSTRACT (decl))
+  if (TREE_PUBLIC (decl) && !DECL_ABSTRACT_P (decl))
     register_resolution (data_in->file_data,
 			 decl, get_resolution (data_in, ix));
 }
@@ -1247,7 +1263,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_values (DECL_NONLOCAL);
       compare_values (DECL_VIRTUAL_P);
       compare_values (DECL_IGNORED_P);
-      compare_values (DECL_ABSTRACT);
+      compare_values (DECL_ABSTRACT_P);
       compare_values (DECL_ARTIFICIAL);
       compare_values (DECL_USER_ALIGN);
       compare_values (DECL_PRESERVE_P);
@@ -1363,7 +1379,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       return false;
 
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    gcc_unreachable ();
+    if (!cl_target_option_eq (TREE_TARGET_OPTION (t1), TREE_TARGET_OPTION (t2)))
+      return false;
 
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
     if (memcmp (TREE_OPTIMIZATION (t1), TREE_OPTIMIZATION (t2),
@@ -1843,14 +1860,13 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   const int decl_offset = sizeof (struct lto_decl_header);
   const int main_offset = decl_offset + header->decl_state_size;
   const int string_offset = main_offset + header->main_size;
-  struct lto_input_block ib_main;
   struct data_in *data_in;
   unsigned int i;
   const uint32_t *data_ptr, *data_end;
   uint32_t num_decl_states;
 
-  LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
-			header->main_size);
+  lto_input_block ib_main ((const char *) data + main_offset,
+			   header->main_size);
 
   data_in = lto_data_in_create (decl_data, (const char *) data + string_offset,
 				header->string_size, resolutions);
@@ -1911,21 +1927,16 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 	      /* Compute the canonical type of all types.
 		 ???  Should be able to assert that !TYPE_CANONICAL.  */
 	      if (TYPE_P (t) && !TYPE_CANONICAL (t))
-		gimple_register_canonical_type (t);
+		{
+		  gimple_register_canonical_type (t);
+		  if (odr_type_p (t))
+		    register_odr_type (t);
+		}
 	      /* Link shared INTEGER_CSTs into TYPE_CACHED_VALUEs of its
 		 type which is also member of this SCC.  */
 	      if (TREE_CODE (t) == INTEGER_CST
 		  && !TREE_OVERFLOW (t))
 		cache_integer_cst (t);
-	      /* Re-build DECL_FUNCTION_SPECIFIC_TARGET, we need that
-	         for both WPA and LTRANS stage.  */
-	      if (TREE_CODE (t) == FUNCTION_DECL)
-		{
-		  tree attr = lookup_attribute ("target", DECL_ATTRIBUTES (t));
-		  if (attr)
-		    targetm.target_option.valid_attribute_p
-			(t, NULL_TREE, TREE_VALUE (attr), 0);
-		}
 	      /* Register TYPE_DECLs with the debuginfo machinery.  */
 	      if (!flag_wpa
 		  && TREE_CODE (t) == TYPE_DECL)
@@ -1969,15 +1980,15 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 
   /* Read in per-function decl states and enter them in hash table.  */
   decl_data->function_decl_states =
-    htab_create_ggc (37, lto_hash_in_decl_state, lto_eq_in_decl_state, NULL);
+    hash_table<decl_state_hasher>::create_ggc (37);
 
   for (i = 1; i < num_decl_states; i++)
     {
       struct lto_in_decl_state *state = lto_new_in_decl_state ();
-      void **slot;
 
       data_ptr = lto_read_in_decl_state (data_in, data_ptr, state);
-      slot = htab_find_slot (decl_data->function_decl_states, state, INSERT);
+      lto_in_decl_state **slot
+	= decl_data->function_decl_states->find_slot (state, INSERT);
       gcc_assert (*slot == NULL);
       *slot = state;
     }
@@ -2120,7 +2131,7 @@ lto_section_with_id (const char *name, unsigned HOST_WIDE_INT *id)
 {
   const char *s;
 
-  if (strncmp (name, LTO_SECTION_NAME_PREFIX, strlen (LTO_SECTION_NAME_PREFIX)))
+  if (strncmp (name, section_name_prefix, strlen (section_name_prefix)))
     return 0;
   s = strrchr (name, '.');
   return s && sscanf (s, "." HOST_WIDE_INT_PRINT_HEX_PURE, id) == 1;
@@ -2215,8 +2226,9 @@ lto_create_files_from_ids (lto_file *file, struct lto_file_decl_data *file_data,
 			   int *count)
 {
   lto_file_finalize (file_data, file);
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "Creating file %s with sub id " HOST_WIDE_INT_PRINT_HEX "\n", 
+  if (symtab->dump_file)
+    fprintf (symtab->dump_file,
+	     "Creating file %s with sub id " HOST_WIDE_INT_PRINT_HEX "\n",
 	     file_data->file_name, file_data->id);
   (*count)++;
   return 0;
@@ -2489,7 +2501,8 @@ wait_for_child ()
    Fork if that seems to help.  */
 
 static void
-stream_out (char *temp_filename, lto_symtab_encoder_t encoder, bool last)
+stream_out (char *temp_filename, lto_symtab_encoder_t encoder,
+	    bool ARG_UNUSED (last))
 {
 #ifdef HAVE_WORKING_FORK
   static int nruns;
@@ -2595,41 +2608,41 @@ lto_wpa_write_files (void)
 
       if (!quiet_flag)
 	fprintf (stderr, " %s (%s %i insns)", temp_filename, part->name, part->insns);
-      if (cgraph_dump_file)
+      if (symtab->dump_file)
 	{
           lto_symtab_encoder_iterator lsei;
 	  
-	  fprintf (cgraph_dump_file, "Writing partition %s to file %s, %i insns\n",
+	  fprintf (symtab->dump_file, "Writing partition %s to file %s, %i insns\n",
 		   part->name, temp_filename, part->insns);
-	  fprintf (cgraph_dump_file, "  Symbols in partition: ");
+	  fprintf (symtab->dump_file, "  Symbols in partition: ");
 	  for (lsei = lsei_start_in_partition (part->encoder); !lsei_end_p (lsei);
 	       lsei_next_in_partition (&lsei))
 	    {
 	      symtab_node *node = lsei_node (lsei);
-	      fprintf (cgraph_dump_file, "%s ", node->asm_name ());
+	      fprintf (symtab->dump_file, "%s ", node->asm_name ());
 	    }
-	  fprintf (cgraph_dump_file, "\n  Symbols in boundary: ");
+	  fprintf (symtab->dump_file, "\n  Symbols in boundary: ");
 	  for (lsei = lsei_start (part->encoder); !lsei_end_p (lsei);
 	       lsei_next (&lsei))
 	    {
 	      symtab_node *node = lsei_node (lsei);
 	      if (!lto_symtab_encoder_in_partition_p (part->encoder, node))
 		{
-	          fprintf (cgraph_dump_file, "%s ", node->asm_name ());
+		  fprintf (symtab->dump_file, "%s ", node->asm_name ());
 		  cgraph_node *cnode = dyn_cast <cgraph_node *> (node);
 		  if (cnode
 		      && lto_symtab_encoder_encode_body_p (part->encoder, cnode))
-		    fprintf (cgraph_dump_file, "(body included)");
+		    fprintf (symtab->dump_file, "(body included)");
 		  else
 		    {
 		      varpool_node *vnode = dyn_cast <varpool_node *> (node);
 		      if (vnode
 			  && lto_symtab_encoder_encode_initializer_p (part->encoder, vnode))
-			fprintf (cgraph_dump_file, "(initializer included)");
+			fprintf (symtab->dump_file, "(initializer included)");
 		    }
 		}
 	    }
-	  fprintf (cgraph_dump_file, "\n");
+	  fprintf (symtab->dump_file, "\n");
 	}
       gcc_checking_assert (lto_symtab_encoder_size (part->encoder) || !i);
 
@@ -2787,33 +2800,21 @@ static void
 lto_fixup_state (struct lto_in_decl_state *state)
 {
   unsigned i, si;
-  struct lto_tree_ref_table *table;
 
   /* Although we only want to replace FUNCTION_DECLs and VAR_DECLs,
      we still need to walk from all DECLs to find the reachable
      FUNCTION_DECLs and VAR_DECLs.  */
   for (si = 0; si < LTO_N_DECL_STREAMS; si++)
     {
-      table = &state->streams[si];
-      for (i = 0; i < table->size; i++)
+      vec<tree, va_gc> *trees = state->streams[si];
+      for (i = 0; i < vec_safe_length (trees); i++)
 	{
-	  tree *tp = table->trees + i;
-	  if (VAR_OR_FUNCTION_DECL_P (*tp)
-	      && (TREE_PUBLIC (*tp) || DECL_EXTERNAL (*tp)))
-	    *tp = lto_symtab_prevailing_decl (*tp);
+	  tree t = (*trees)[i];
+	  if (VAR_OR_FUNCTION_DECL_P (t)
+	      && (TREE_PUBLIC (t) || DECL_EXTERNAL (t)))
+	    (*trees)[i] = lto_symtab_prevailing_decl (t);
 	}
     }
-}
-
-/* A callback of htab_traverse. Just extracts a state from SLOT
-   and calls lto_fixup_state. */
-
-static int
-lto_fixup_state_aux (void **slot, void *aux ATTRIBUTE_UNUSED)
-{
-  struct lto_in_decl_state *state = (struct lto_in_decl_state *) *slot;
-  lto_fixup_state (state);
-  return 1;
 }
 
 /* Fix the decls from all FILES. Replaces each decl with the corresponding
@@ -2835,7 +2836,11 @@ lto_fixup_decls (struct lto_file_decl_data **files)
       struct lto_in_decl_state *state = file->global_decl_state;
       lto_fixup_state (state);
 
-      htab_traverse (file->function_decl_states, lto_fixup_state_aux, NULL);
+      hash_table<decl_state_hasher>::iterator iter;
+      lto_in_decl_state *elt;
+      FOR_EACH_HASH_TABLE_ELEMENT (*file->function_decl_states, elt,
+				   lto_in_decl_state *, iter)
+	lto_fixup_state (elt);
     }
 }
 
@@ -2887,12 +2892,15 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   FILE *resolution;
   int count = 0;
   struct lto_file_decl_data **decl_data;
-  void **res;
   symtab_node *snode;
 
-  init_cgraph ();
+  symtab->initialize ();
 
   timevar_push (TV_IPA_LTO_DECL_IN);
+
+#ifdef ACCEL_COMPILER
+    section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
+#endif
 
   real_file_decl_data
     = decl_data = ggc_cleared_vec_alloc<lto_file_decl_data_ptr> (nfiles + 1);
@@ -2915,7 +2923,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       /* True, since the plugin splits the archives.  */
       gcc_assert (num_objects == nfiles);
     }
-  cgraph_state = CGRAPH_LTO_STREAMING;
+  symtab->state = LTO_STREAMING;
 
   canonical_type_hash_cache = new hash_map<const_tree, hashval_t> (251);
   gimple_canonical_types = htab_create_ggc (16381, gimple_canonical_type_hash,
@@ -3012,20 +3020,21 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   /* Read the symtab.  */
   input_symtab ();
 
+  input_offload_tables ();
+
   /* Store resolutions into the symbol table.  */
 
+  ld_plugin_symbol_resolution_t *res;
   FOR_EACH_SYMBOL (snode)
     if (snode->real_symbol_p ()
 	&& snode->lto_file_data
 	&& snode->lto_file_data->resolution_map
-	&& (res = pointer_map_contains (snode->lto_file_data->resolution_map,
-					snode->decl)))
-      snode->resolution
-	= (enum ld_plugin_symbol_resolution)(size_t)*res;
+	&& (res = snode->lto_file_data->resolution_map->get (snode->decl)))
+      snode->resolution = *res;
   for (i = 0; all_file_decl_data[i]; i++)
     if (all_file_decl_data[i]->resolution_map)
       {
-        pointer_map_destroy (all_file_decl_data[i]->resolution_map);
+        delete all_file_decl_data[i]->resolution_map;
         all_file_decl_data[i]->resolution_map = NULL;
       }
   
@@ -3080,23 +3089,23 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
   /* Finally merge the cgraph according to the decl merging decisions.  */
   timevar_push (TV_IPA_LTO_CGRAPH_MERGE);
-  if (cgraph_dump_file)
+  if (symtab->dump_file)
     {
-      fprintf (cgraph_dump_file, "Before merging:\n");
-      symtab_node::dump_table (cgraph_dump_file);
+      fprintf (symtab->dump_file, "Before merging:\n");
+      symtab_node::dump_table (symtab->dump_file);
     }
   lto_symtab_merge_symbols ();
-  /* Removal of unreacable symbols is needed to make verify_symtab to pass;
+  /* Removal of unreachable symbols is needed to make verify_symtab to pass;
      we are still having duplicated comdat groups containing local statics.
      We could also just remove them while merging.  */
-  symtab_remove_unreachable_nodes (false, dump_file);
+  symtab->remove_unreachable_nodes (true, dump_file);
   ggc_collect ();
-  cgraph_state = CGRAPH_STATE_IPA_SSA;
+  symtab->state = IPA_SSA;
 
   timevar_pop (TV_IPA_LTO_CGRAPH_MERGE);
 
   /* Indicate that the cgraph is built and ready.  */
-  cgraph_function_flags_ready = true;
+  symtab->function_flags_ready = true;
 
   ggc_free (all_file_decl_data);
   all_file_decl_data = NULL;
@@ -3238,20 +3247,20 @@ do_whole_program_analysis (void)
       dump_memory_report (false);
     }
 
-  cgraph_function_flags_ready = true;
+  symtab->function_flags_ready = true;
 
-  if (cgraph_dump_file)
-    symtab_node::dump_table (cgraph_dump_file);
+  if (symtab->dump_file)
+    symtab_node::dump_table (symtab->dump_file);
   bitmap_obstack_initialize (NULL);
-  cgraph_state = CGRAPH_STATE_IPA_SSA;
+  symtab->state = IPA_SSA;
 
   execute_ipa_pass_list (g->get_passes ()->all_regular_ipa_passes);
-  symtab_remove_unreachable_nodes (false, dump_file);
+  symtab->remove_unreachable_nodes (false, dump_file);
 
-  if (cgraph_dump_file)
+  if (symtab->dump_file)
     {
-      fprintf (cgraph_dump_file, "Optimized ");
-      symtab_node::dump_table (cgraph_dump_file);
+      fprintf (symtab->dump_file, "Optimized ");
+      symtab_node::dump_table (symtab->dump_file);
     }
 #ifdef ENABLE_CHECKING
   symtab_node::verify_symtab_nodes ();
@@ -3434,7 +3443,7 @@ lto_main (void)
 
 	  /* Let the middle end know that we have read and merged all of
 	     the input files.  */ 
-	  compile ();
+	  symtab->compile ();
 
 	  timevar_stop (TV_PHASE_OPT_GEN);
 

@@ -54,6 +54,9 @@ extern int gt_pch_note_object (void *, void *, gt_note_pointers);
    function.  */
 extern void gt_pch_note_reorder (void *, void *, gt_handle_reorder);
 
+/* generated function to clear caches in gc memory.  */
+extern void gt_clear_caches ();
+
 /* Mark the object in the first parameter and anything it points to.  */
 typedef void (*gt_pointer_walker) (void *);
 
@@ -335,6 +338,32 @@ ggc_alloc_cleared_gimple_statement_stat (size_t s CXX_MEM_STAT_INFO)
 {
   return (struct gimple_statement_base *)
     ggc_internal_cleared_alloc (s PASS_MEM_STAT);
+}
+
+static inline void
+gt_ggc_mx (const char *s)
+{
+  ggc_test_and_set_mark (const_cast<char *> (s));
+}
+
+static inline void
+gt_pch_nx (const char *)
+{
+}
+
+static inline void
+gt_ggc_mx (int)
+{
+}
+
+static inline void
+gt_pch_nx (int)
+{
+}
+
+static inline void
+gt_pch_nx (unsigned int)
+{
 }
 
 #endif

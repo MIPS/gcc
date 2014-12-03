@@ -21,13 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "gfortran.h"
 #include "tree.h"
 #include "gimple-expr.h"	/* For create_tmp_var_raw.  */
 #include "stringpool.h"
 #include "tree-iterator.h"
 #include "diagnostic-core.h"  /* For internal_error.  */
 #include "flags.h"
-#include "gfortran.h"
 #include "trans.h"
 #include "trans-stmt.h"
 #include "trans-array.h"
@@ -1085,7 +1085,7 @@ gfc_add_finalizer_call (stmtblock_t *block, gfc_expr *expr2)
     }
 
   /* If we have a class array, we need go back to the class
-     container. */
+     container.  */
   expr = gfc_copy_expr (expr2);
 
   if (expr->ref && expr->ref->next && !expr->ref->next->next
@@ -1890,7 +1890,7 @@ trans_code (gfc_code * code, tree cond)
 	  break;
 
 	default:
-	  internal_error ("gfc_trans_code(): Bad statement code");
+	  gfc_internal_error ("gfc_trans_code(): Bad statement code");
 	}
 
       gfc_set_backend_locus (&code->loc);
@@ -1963,7 +1963,7 @@ gfc_generate_module_code (gfc_namespace * ns)
   entry = gfc_find_module (ns->proc_name->name);
   if (entry->namespace_decl)
     /* Buggy sourcecode, using a module before defining it?  */
-    htab_empty (entry->decls);
+    entry->decls->empty ();
   entry->namespace_decl = ns->proc_name->backend_decl;
 
   gfc_generate_module_vars (ns);

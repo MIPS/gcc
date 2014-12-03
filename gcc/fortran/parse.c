@@ -1950,9 +1950,6 @@ accept_statement (gfc_statement st)
   switch (st)
     {
     case ST_IMPLICIT_NONE:
-      gfc_set_implicit_none ();
-      break;
-
     case ST_IMPLICIT:
       break;
 
@@ -2142,7 +2139,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
       break;
 
     case ST_IMPLICIT_NONE:
-      if (p->state > ORDER_IMPLICIT_NONE)
+      if (p->state > ORDER_IMPLICIT)
 	goto order;
 
       /* The '>' sign cannot be a '>=', because a FORMAT or ENTRY
@@ -3085,7 +3082,7 @@ declSt:
       break;
     }
 
-  /* If match_deferred_characteristics failed, then there is an error. */
+  /* If match_deferred_characteristics failed, then there is an error.  */
   if (bad_characteristic)
     {
       ts = &gfc_current_block ()->result->ts;
@@ -3508,8 +3505,8 @@ gfc_check_do_variable (gfc_symtree *st)
   for (s=gfc_state_stack; s; s = s->previous)
     if (s->do_variable == st)
       {
-	gfc_error_now("Variable '%s' at %C cannot be redefined inside "
-		      "loop beginning at %L", st->name, &s->head->loc);
+	gfc_error_now_1 ("Variable '%s' at %C cannot be redefined inside "
+			 "loop beginning at %L", st->name, &s->head->loc);
 	return 1;
       }
 
@@ -4869,7 +4866,7 @@ add_global_program (void)
 }
 
 
-/* Resolve all the program units. */
+/* Resolve all the program units.  */
 static void
 resolve_all_program_units (gfc_namespace *gfc_global_ns_list)
 {

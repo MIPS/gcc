@@ -77,9 +77,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "pointer-set.h"
 #include "calls.h"
 #include "gimple-expr.h"
 #include "varasm.h"
@@ -260,6 +270,10 @@ cgraph_externally_visible_p (struct cgraph_node *node,
   if (MAIN_NAME_P (DECL_NAME (node->decl)))
     return true;
 
+  if (node->instrumentation_clone
+      && MAIN_NAME_P (DECL_NAME (node->orig_decl)))
+    return true;
+
   return false;
 }
 
@@ -276,6 +290,13 @@ varpool_node::externally_visible_p (void)
 
   /* If linker counts on us, we must preserve the function.  */
   if (used_from_object_file_p ())
+    return true;
+
+  /* Bringing TLS variables local may cause dynamic linker failures
+     on limits of static TLS vars.  */
+  if (DECL_THREAD_LOCAL_P (decl)
+      && (DECL_TLS_MODEL (decl) != TLS_MODEL_EMULATED
+	  && DECL_TLS_MODEL (decl) != TLS_MODEL_INITIAL_EXEC))
     return true;
 
   if (DECL_HARD_REGISTER (decl))
@@ -392,15 +413,17 @@ update_visibility_by_resolution_info (symtab_node * node)
 
   define = (node->resolution == LDPR_PREVAILING_DEF_IRONLY
 	    || node->resolution == LDPR_PREVAILING_DEF
+	    || node->resolution == LDPR_UNDEF
 	    || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
 
   /* The linker decisions ought to agree in the whole group.  */
   if (node->same_comdat_group)
     for (symtab_node *next = node->same_comdat_group;
 	 next != node; next = next->same_comdat_group)
-      gcc_assert (!node->externally_visible
+      gcc_assert (!next->externally_visible
 		  || define == (next->resolution == LDPR_PREVAILING_DEF_IRONLY
 			        || next->resolution == LDPR_PREVAILING_DEF
+			        || next->resolution == LDPR_UNDEF
 			        || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP));
 
   if (node->same_comdat_group)
@@ -535,6 +558,7 @@ function_and_variable_visibility (bool whole_program)
 	}
 
       if (node->thunk.thunk_p
+	  && !node->thunk.add_pointer_bounds_args
 	  && TREE_PUBLIC (node->decl))
 	{
 	  struct cgraph_node *decl_node = node;
@@ -579,11 +603,11 @@ function_and_variable_visibility (bool whole_program)
 		{
 		  struct cgraph_edge *e = node->callers;
 
-		  cgraph_redirect_edge_callee (e, alias);
+		  e->redirect_callee (alias);
 		  if (gimple_has_body_p (e->caller->decl))
 		    {
 		      push_cfun (DECL_STRUCT_FUNCTION (e->caller->decl));
-		      cgraph_redirect_edge_call_stmt_to_callee (e);
+		      e->redirect_call_stmt_to_callee ();
 		      pop_cfun ();
 		    }
 		}
@@ -632,6 +656,9 @@ function_and_variable_visibility (bool whole_program)
           vnode->externally_visible = false;
 	  vnode->forced_by_abi = false;
 	}
+      if (lookup_attribute ("no_reorder",
+			    DECL_ATTRIBUTES (vnode->decl)))
+	vnode->no_reorder = 1;
       if (!vnode->externally_visible
 	  && !vnode->weakref)
 	{
@@ -716,7 +743,7 @@ function_and_variable_visibility (bool whole_program)
 	  fprintf (dump_file, " %s", vnode->name ());
       fprintf (dump_file, "\n\n");
     }
-  cgraph_function_flags_ready = true;
+  symtab->function_flags_ready = true;
   return 0;
 }
 

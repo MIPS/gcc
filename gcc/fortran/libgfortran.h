@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
    Note that no features were obsoleted nor deleted in F2003.
    Please remember to keep those definitions in sync with
    gfortran.texi.  */
+/* For now, use F2015 = GFC_STD_GNU.  */
+#define GFC_STD_F2015	        (1<<5)	/* PLACEHOLDER for Fortran 2015.  */
 #define GFC_STD_F2008_TS	(1<<9)	/* POST-F2008 technical reports.  */
 #define GFC_STD_F2008_OBS	(1<<8)	/* Obsolescent in F2008.  */
 #define GFC_STD_F2008		(1<<7)	/* New in F2008.  */
@@ -127,6 +129,14 @@ typedef enum
   GFC_CAF_ATOMIC_OR,
   GFC_CAF_ATOMIC_XOR
 } libcaf_atomic_codes;
+
+
+/* For CO_REDUCE.  */
+#define GFC_CAF_BYREF      (1<<0)
+#define GFC_CAF_HIDDENLEN  (1<<1)
+#define GFC_CAF_ARG_VALUE  (1<<2)
+#define GFC_CAF_ARG_DESC   (1<<3)
+
 
 /* Default unit number for preconnected standard input and output.  */
 #define GFC_STDIN_UNIT_NUMBER 5

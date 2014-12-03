@@ -59,6 +59,27 @@ void FlushUnneededASanShadowMemory(uptr p, uptr size) {
     FlushUnneededShadowMemory(shadow_beg, shadow_end - shadow_beg);
 }
 
+void AsanPoisonOrUnpoisonIntraObjectRedzone(uptr ptr, uptr size, bool poison) {
+  uptr end = ptr + size;
+  if (common_flags()->verbosity) {
+    Printf("__asan_%spoison_intra_object_redzone [%p,%p) %zd\n",
+           poison ? "" : "un", ptr, end, size);
+    if (common_flags()->verbosity >= 2)
+      PRINT_CURRENT_STACK();
+  }
+  CHECK(size);
+  CHECK_LE(size, 4096);
+  CHECK(IsAligned(end, SHADOW_GRANULARITY));
+  if (!IsAligned(ptr, SHADOW_GRANULARITY)) {
+    *(u8 *)MemToShadow(ptr) =
+        poison ? static_cast<u8>(ptr % SHADOW_GRANULARITY) : 0;
+    ptr |= SHADOW_GRANULARITY - 1;
+    ptr++;
+  }
+  for (; ptr < end; ptr += SHADOW_GRANULARITY)
+    *(u8*)MemToShadow(ptr) = poison ? kAsanIntraObjectRedzone : 0;
+}
+
 }  // namespace __asan
 
 // ---------------------- Interface ---------------- {{{1
@@ -225,6 +246,36 @@ void __sanitizer_unaligned_store64(uu64 *p, u64 x) {
   *p = x;
 }
 
+extern "C" SANITIZER_INTERFACE_ATTRIBUTE
+void __asan_poison_cxx_array_cookie(uptr p) {
+  if (SANITIZER_WORDSIZE != 64) return;
+  if (!flags()->poison_array_cookie) return;
+  uptr s = MEM_TO_SHADOW(p);
+  *reinterpret_cast<u8*>(s) = kAsanArrayCookieMagic;
+}
+
+extern "C" SANITIZER_INTERFACE_ATTRIBUTE
+uptr __asan_load_cxx_array_cookie(uptr *p) {
+  if (SANITIZER_WORDSIZE != 64) return *p;
+  if (!flags()->poison_array_cookie) return *p;
+  uptr s = MEM_TO_SHADOW(reinterpret_cast<uptr>(p));
+  u8 sval = *reinterpret_cast<u8*>(s);
+  if (sval == kAsanArrayCookieMagic) return *p;
+  // If sval is not kAsanArrayCookieMagic it can only be freed memory,
+  // which means that we are going to get double-free. So, return 0 to avoid
+  // infinite loop of destructors. We don't want to report a double-free here
+  // though, so print a warning just in case.
+  // CHECK_EQ(sval, kAsanHeapFreeMagic);
+  if (sval == kAsanHeapFreeMagic) {
+    Report("AddressSanitizer: loaded array cookie from free-d memory; "
+           "expect a double-free report\n");
+    return 0;
+  }
+  // The cookie may remain unpoisoned if e.g. it comes from a custom
+  // operator new defined inside a class.
+  return *p;
+}
+
 // This is a simplified version of __asan_(un)poison_memory_region, which
 // assumes that left border of region to be poisoned is properly aligned.
 static void PoisonAlignedStackMemory(uptr addr, uptr size, bool do_poison) {
@@ -343,6 +394,17 @@ int __sanitizer_verify_contiguous_container(const void *beg_p,
       return 0;
   return 1;
 }
+
+extern "C" SANITIZER_INTERFACE_ATTRIBUTE
+void __asan_poison_intra_object_redzone(uptr ptr, uptr size) {
+  AsanPoisonOrUnpoisonIntraObjectRedzone(ptr, size, true);
+}
+
+extern "C" SANITIZER_INTERFACE_ATTRIBUTE
+void __asan_unpoison_intra_object_redzone(uptr ptr, uptr size) {
+  AsanPoisonOrUnpoisonIntraObjectRedzone(ptr, size, false);
+}
+
 // --- Implementation of LSan-specific functions --- {{{1
 namespace __lsan {
 bool WordIsPoisoned(uptr addr) {

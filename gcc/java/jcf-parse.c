@@ -38,6 +38,17 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "ggc.h"
 #include "debug.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "bitmap.h"
 #include "target.h"
@@ -1727,7 +1738,7 @@ java_emit_static_constructor (void)
 
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
       java_genericize (decl);
-      cgraph_finalize_function (decl, false);
+      cgraph_node::finalize_function (decl, false);
     }
 }
 

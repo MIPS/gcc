@@ -24,12 +24,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "data-streamer.h"
 
 
@@ -81,7 +94,7 @@ lto_append_block (struct lto_output_stream *obs)
    When PERSISTENT is set, the string S is supposed to not change during
    duration of the OB and thus OB can keep pointer into it.  */
 
-unsigned
+static unsigned
 streamer_string_index (struct output_block *ob, const char *s, unsigned int len,
 		       bool persistent)
 {

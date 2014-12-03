@@ -114,7 +114,7 @@ extern unsigned long total_code_bytes;
 #define TARGET_HPUX_UNWIND_LIBRARY 0
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY)
+#define TARGET_DEFAULT MASK_GAS
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -1192,6 +1192,16 @@ do {									     \
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)  \
   fprintf (FILE, "\t.word L$%04d-L$%04d\n", VALUE, REL)
+
+/* This is how to output an absolute case-vector.  */
+
+#define ASM_OUTPUT_ADDR_VEC(LAB,BODY)	\
+  pa_output_addr_vec ((LAB),(BODY))
+
+/* This is how to output a relative case-vector.  */
+
+#define ASM_OUTPUT_ADDR_DIFF_VEC(LAB,BODY)	\
+  pa_output_addr_diff_vec ((LAB),(BODY))
 
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */

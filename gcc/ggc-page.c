@@ -30,9 +30,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc-internal.h"
 #include "timevar.h"
 #include "params.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cfgloop.h"
 #include "plugin.h"
+#include "basic-block.h"
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -378,7 +390,7 @@ struct free_object
 #endif
 
 /* The rest of the global variables.  */
-static struct globals
+static struct ggc_globals
 {
   /* The Nth element in this array is a page with objects of size 2^N.
      If there are any pages with free objects, they will be at the
@@ -499,6 +511,10 @@ static struct globals
     unsigned long long total_overhead_per_order[NUM_ORDERS];
   } stats;
 } G;
+
+/* True if a gc is currently taking place.  */
+
+static bool in_gc = false;
 
 /* The size in bytes required to maintain a bitmap for the objects
    on a page-entry.  */
@@ -1574,6 +1590,9 @@ ggc_get_size (const void *p)
 void
 ggc_free (void *p)
 {
+  if (in_gc)
+    return;
+
   page_entry *pe = lookup_page_table_entry (p);
   size_t order = pe->order;
   size_t size = OBJECT_SIZE (order);
@@ -1690,7 +1709,12 @@ compute_inverse (unsigned order)
 void
 init_ggc (void)
 {
+  static bool init_p = false;
   unsigned order;
+
+  if (init_p)
+    return;
+  init_p = true;
 
   G.pagesize = getpagesize ();
   G.lg_pagesize = exact_log2 (G.pagesize);
@@ -2139,7 +2163,6 @@ ggc_collect (void)
     MAX (G.allocated_last_gc, (size_t)PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
 
   float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
-
   if (G.allocated < allocated_last_gc + min_expand && !ggc_force_collect)
     return;
 
@@ -2162,6 +2185,7 @@ ggc_collect (void)
 
   invoke_plugin_callbacks (PLUGIN_GGC_START, NULL);
 
+  in_gc = true;
   clear_marks ();
   ggc_mark_roots ();
   ggc_handle_finalizers ();
@@ -2173,6 +2197,7 @@ ggc_collect (void)
   validate_free_objects ();
   sweep_pages ();
 
+  in_gc = false;
   G.allocated_last_gc = G.allocated;
 
   invoke_plugin_callbacks (PLUGIN_GGC_END, NULL);

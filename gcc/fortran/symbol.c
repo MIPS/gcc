@@ -114,22 +114,27 @@ static int new_flag[GFC_LETTERS];
 /* Handle a correctly parsed IMPLICIT NONE.  */
 
 void
-gfc_set_implicit_none (void)
+gfc_set_implicit_none (bool type, bool external, locus *loc)
 {
   int i;
 
-  if (gfc_current_ns->seen_implicit_none)
-    {
-      gfc_error ("Duplicate IMPLICIT NONE statement at %C");
-      return;
-    }
+  if (external)
+    gfc_current_ns->has_implicit_none_export = 1;
 
-  gfc_current_ns->seen_implicit_none = 1;
-
-  for (i = 0; i < GFC_LETTERS; i++)
+  if (type)
     {
-      gfc_clear_ts (&gfc_current_ns->default_type[i]);
-      gfc_current_ns->set_flag[i] = 1;
+      gfc_current_ns->seen_implicit_none = 1;
+      for (i = 0; i < GFC_LETTERS; i++)
+	{
+	  if (gfc_current_ns->set_flag[i])
+	    {
+	      gfc_error_now ("IMPLICIT NONE (type) statement at %L following an "
+			     "IMPLICIT statement", loc);
+	      return;
+	    }
+	  gfc_clear_ts (&gfc_current_ns->default_type[i]);
+	  gfc_current_ns->set_flag[i] = 1;
+	}
     }
 }
 
@@ -216,12 +221,12 @@ gfc_get_default_type (const char *name, gfc_namespace *ns)
   letter = name[0];
 
   if (gfc_option.flag_allow_leading_underscore && letter == '_')
-    gfc_internal_error ("Option -fallow-leading-underscore is for use only by "
-			"gfortran developers, and should not be used for "
-			"implicitly typed variables");
+    gfc_fatal_error ("Option %<-fallow-leading-underscore%> is for use only by "
+		     "gfortran developers, and should not be used for "
+		     "implicitly typed variables");
 
   if (letter < 'a' || letter > 'z')
-    gfc_internal_error ("gfc_get_default_type(): Bad symbol '%s'", name);
+    gfc_internal_error ("gfc_get_default_type(): Bad symbol %qs", name);
 
   if (ns == NULL)
     ns = gfc_current_ns;
@@ -265,11 +270,12 @@ gfc_set_default_type (gfc_symbol *sym, int error_flag, gfc_namespace *ns)
 	   && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as))
     return false;
 
-  if (sym->attr.is_bind_c == 1 && gfc_option.warn_c_binding_type)
+  if (sym->attr.is_bind_c == 1 && warn_c_binding_type)
     {
       /* BIND(C) variables should not be implicitly declared.  */
-      gfc_warning_now ("Implicitly declared BIND(C) variable '%s' at %L may "
-                       "not be C interoperable", sym->name, &sym->declared_at);
+      gfc_warning_now (OPT_Wc_binding_type, "Implicitly declared BIND(C) "
+		       "variable %qs at %L may not be C interoperable",
+		       sym->name, &sym->declared_at);
       sym->ts.f90_type = sym->ts.type;
     }
 
@@ -279,14 +285,15 @@ gfc_set_default_type (gfc_symbol *sym, int error_flag, gfc_namespace *ns)
 	  && (sym->ns->proc_name->attr.subroutine != 0
 	      || sym->ns->proc_name->attr.function != 0)
 	  && sym->ns->proc_name->attr.is_bind_c != 0
-	  && gfc_option.warn_c_binding_type)
+	  && warn_c_binding_type)
         {
           /* Dummy args to a BIND(C) routine may not be interoperable if
              they are implicitly typed.  */
-          gfc_warning_now ("Implicitly declared variable '%s' at %L may not "
-                           "be C interoperable but it is a dummy argument to "
-                           "the BIND(C) procedure '%s' at %L", sym->name,
-                           &(sym->declared_at), sym->ns->proc_name->name,
+          gfc_warning_now (OPT_Wc_binding_type, "Implicitly declared variable "
+			   "%qs at %L may not be C interoperable but it is a "
+			   "dummy argument to the BIND(C) procedure %qs at %L",
+			   sym->name, &(sym->declared_at),
+			   sym->ns->proc_name->name,
                            &(sym->ns->proc_name->declared_at));
           sym->ts.f90_type = sym->ts.type;
         }
@@ -2383,6 +2390,9 @@ gfc_get_namespace (gfc_namespace *parent, int parent_types)
 	}
     }
 
+  if (parent_types && ns->parent != NULL)
+    ns->has_implicit_none_export = ns->parent->has_implicit_none_export;
+
   ns->refs = 1;
 
   return ns;
@@ -3846,7 +3856,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
   if (derived_sym->attr.is_bind_c != 1)
     {
       derived_sym->ts.is_c_interop = 0;
-      gfc_error_now ("Derived type '%s' declared at %L must have the BIND "
+      gfc_error_now ("Derived type %qs declared at %L must have the BIND "
                      "attribute to be C interoperable", derived_sym->name,
                      &(derived_sym->declared_at));
       retval = false;
@@ -3941,8 +3951,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 		 recompiles with different flags (e.g., -m32 and -m64 on
 		 x86_64 and using integer(4) to claim interop with a
 		 C_LONG).  */
-	      if (derived_sym->attr.is_bind_c == 1
-		  && gfc_option.warn_c_binding_type)
+	      if (derived_sym->attr.is_bind_c == 1 && warn_c_binding_type)
 		/* If the derived type is bind(c), all fields must be
 		   interop.  */
 		gfc_warning ("Component '%s' in derived type '%s' at %L "
@@ -3950,7 +3959,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
                              "derived type '%s' is BIND(C)",
                              curr_comp->name, derived_sym->name,
                              &(curr_comp->loc), derived_sym->name);
-	      else if (gfc_option.warn_c_binding_type)
+	      else if (warn_c_binding_type)
 		/* If derived type is param to bind(c) routine, or to one
 		   of the iso_c_binding procs, it must be interoperable, so
 		   all fields must interop too.	 */
@@ -4207,7 +4216,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 	  || tmp_symtree->n.sym->intmod_sym_id != s))
     tmp_symtree = NULL;
 
-  /* Already exists in this scope so don't re-add it. */
+  /* Already exists in this scope so don't re-add it.  */
   if (tmp_symtree != NULL && (tmp_sym = tmp_symtree->n.sym) != NULL
       && (!tmp_sym->attr.generic
 	  || (tmp_sym = gfc_find_dt_in_generic (tmp_sym)) != NULL)

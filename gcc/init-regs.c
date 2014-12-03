@@ -26,6 +26,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "expr.h"
 #include "tree-pass.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "flags.h"
 #include "df.h"
@@ -61,7 +71,7 @@ initialize_uninitialized_regs (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn;
+      rtx_insn *insn;
       bitmap lr = DF_LR_IN (bb);
       bitmap ur = DF_LIVE_IN (bb);
       bitmap_clear (already_genned);
@@ -80,6 +90,11 @@ initialize_uninitialized_regs (void)
 	      if (regno < FIRST_PSEUDO_REGISTER)
 		continue;
 
+	      /* Ignore pseudo PIC register.  */
+	      if (pic_offset_table_rtx
+		  && regno == REGNO (pic_offset_table_rtx))
+		continue;
+
 	      /* Do not generate multiple moves for the same regno.
 		 This is common for sequences of subreg operations.
 		 They would be deleted during combine but there is no
@@ -94,7 +109,7 @@ initialize_uninitialized_regs (void)
 	      if (bitmap_bit_p (lr, regno)
 		  && (!bitmap_bit_p (ur, regno)))
 		{
-		  rtx move_insn;
+		  rtx_insn *move_insn;
 		  rtx reg = DF_REF_REAL_REG (use);
 
 		  bitmap_set_bit (already_genned, regno);

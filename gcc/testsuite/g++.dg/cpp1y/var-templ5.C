@@ -1,5 +1,4 @@
-// { dg-do run }
-// { dg-options "-std=c++1y" }
+// { dg-do compile { target c++14 } }
 
 template<int A, int B>
   struct S1
@@ -16,7 +15,5 @@ template<template<int,int> class T, int A>
 
 int main ()
 {
-  return !(
-    var2<S1, 40> == 120
-  );
+  static_assert(var2<S1, 40> == 120, "");
 }

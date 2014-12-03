@@ -38,13 +38,24 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 #include "java-except.h"
 #include "ggc.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "target.h"
 #include "version.h"
 #include "tree-iterator.h"
 #include "langhooks.h"
-#include "cgraph.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
 extern void indent (void);
@@ -1846,8 +1857,8 @@ end_java_method (void)
 	 variable to the block_body */
       fbody = DECL_SAVED_TREE (fndecl);
       block_body = BIND_EXPR_BODY (fbody);
-      htab_traverse (DECL_FUNCTION_INIT_TEST_TABLE (fndecl),
-		     attach_init_test_initialization_flags, block_body);
+      hash_table<treetreehasher> *ht = DECL_FUNCTION_INIT_TEST_TABLE (fndecl);
+      ht->traverse<tree, attach_init_test_initialization_flags> (block_body);
     }
 
   finish_method (fndecl);
@@ -1890,7 +1901,7 @@ finish_method (tree fndecl)
   cfun->function_end_locus = DECL_FUNCTION_LAST_LINE (fndecl);
 
   /* Defer inlining and expansion to the cgraph optimizers.  */
-  cgraph_finalize_function (fndecl, false);
+  cgraph_node::finalize_function (fndecl, false);
 }
 
 /* We pessimistically marked all methods and fields external until we

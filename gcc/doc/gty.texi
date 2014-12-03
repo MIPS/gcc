@@ -197,6 +197,12 @@ If @code{skip} is applied to a field, the type machinery will ignore it.
 This is somewhat dangerous; the only safe use is in a union when one
 field really isn't ever used.
 
+@findex for_user
+Use this to mark types that need to be marked by user gc routines, but are not
+refered to in a template argument.  So if you have some user gc type T1 and a
+non user gc type T2 you can give T2 the for_user option so that the marking
+functions for T1 can call non mangled functions to mark T2.
+
 @findex desc
 @findex tag
 @findex default
@@ -286,6 +292,14 @@ this (it could, it just doesn't yet), so it's necessary to tell it that
 the pointed-to structure should use the same parameters as the outer
 structure.  This is done by marking the pointer with the
 @code{use_params} option.
+
+@findex cache
+@item cache
+
+When the @code{cache} option is applied to a global variable gt_clear_cache is
+called on that variable between the mark and sweep phases of garbage
+collection.  The gt_clear_cache function is free to mark blocks as used, or to
+clear pointers in the variable.
 
 @findex deletable
 @item deletable

@@ -27,11 +27,17 @@ struct FlagDescription {
 
 IntrusiveList<FlagDescription> flag_descriptions;
 
+// If set, the tool will install its own SEGV signal handler by default.
+#ifndef SANITIZER_NEEDS_SEGV
+# define SANITIZER_NEEDS_SEGV 1
+#endif
+
 void SetCommonFlagsDefaults(CommonFlags *f) {
   f->symbolize = true;
   f->external_symbolizer_path = 0;
   f->allow_addr2line = false;
   f->strip_path_prefix = "";
+  f->fast_unwind_on_check = false;
   f->fast_unwind_on_fatal = false;
   f->fast_unwind_on_malloc = true;
   f->handle_ioctl = false;
@@ -53,7 +59,14 @@ void SetCommonFlagsDefaults(CommonFlags *f) {
   f->legacy_pthread_cond = false;
   f->intercept_tls_get_addr = false;
   f->coverage = false;
+  f->coverage_direct = SANITIZER_ANDROID;
+  f->coverage_dir = ".";
   f->full_address_space = false;
+  f->suppressions = "";
+  f->print_suppressions = true;
+  f->disable_coredump = (SANITIZER_WORDSIZE == 64);
+  f->symbolize_inline_frames = true;
+  f->stack_trace_format = "DEFAULT";
 }
 
 void ParseCommonFlagsFromString(CommonFlags *f, const char *str) {
@@ -69,6 +82,9 @@ void ParseCommonFlagsFromString(CommonFlags *f, const char *str) {
       "unavailable.");
   ParseFlag(str, &f->strip_path_prefix, "strip_path_prefix",
       "Strips this prefix from file paths in error reports.");
+  ParseFlag(str, &f->fast_unwind_on_check, "fast_unwind_on_check",
+      "If available, use the fast frame-pointer-based unwinder on "
+      "internal CHECK failures.");
   ParseFlag(str, &f->fast_unwind_on_fatal, "fast_unwind_on_fatal",
       "If available, use the fast frame-pointer-based unwinder on fatal "
       "errors.");
@@ -125,9 +141,29 @@ void ParseCommonFlagsFromString(CommonFlags *f, const char *str) {
   ParseFlag(str, &f->coverage, "coverage",
       "If set, coverage information will be dumped at program shutdown (if the "
       "coverage instrumentation was enabled at compile time).");
+  ParseFlag(str, &f->coverage_direct, "coverage_direct",
+            "If set, coverage information will be dumped directly to a memory "
+            "mapped file. This way data is not lost even if the process is "
+            "suddenly killed.");
+  ParseFlag(str, &f->coverage_dir, "coverage_dir",
+            "Target directory for coverage dumps. Defaults to the current "
+            "directory.");
   ParseFlag(str, &f->full_address_space, "full_address_space",
             "Sanitize complete address space; "
             "by default kernel area on 32-bit platforms will not be sanitized");
+  ParseFlag(str, &f->suppressions, "suppressions", "Suppressions file name.");
+  ParseFlag(str, &f->print_suppressions, "print_suppressions",
+            "Print matched suppressions at exit.");
+  ParseFlag(str, &f->disable_coredump, "disable_coredump",
+      "Disable core dumping. By default, disable_core=1 on 64-bit to avoid "
+      "dumping a 16T+ core file. Ignored on OSes that don't dump core by"
+      "default and for sanitizers that don't reserve lots of virtual memory.");
+  ParseFlag(str, &f->symbolize_inline_frames, "symbolize_inline_frames",
+            "Print inlined frames in stacktraces. Defaults to true.");
+  ParseFlag(str, &f->stack_trace_format, "stack_trace_format",
+            "Format string used to render stack frames. "
+            "See sanitizer_stacktrace_printer.h for the format description. "
+            "Use DEFAULT to get default format.");
 
   // Do a sanity check for certain flags.
   if (f->malloc_context_size < 1)
@@ -143,14 +179,17 @@ static bool GetFlagValue(const char *env, const char *name,
     pos = internal_strstr(env, name);
     if (pos == 0)
       return false;
-    if (pos != env && ((pos[-1] >= 'a' && pos[-1] <= 'z') || pos[-1] == '_')) {
+    const char *name_end = pos + internal_strlen(name);
+    if ((pos != env &&
+         ((pos[-1] >= 'a' && pos[-1] <= 'z') || pos[-1] == '_')) ||
+        *name_end != '=') {
       // Seems to be middle of another flag name or value.
       env = pos + 1;
       continue;
     }
+    pos = name_end;
     break;
   }
-  pos += internal_strlen(name);
   const char *end;
   if (pos[0] != '=') {
     end = pos;

@@ -26,6 +26,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "expr.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 
 /* Like force_operand, but guarantees that VALUE ends up in TARGET.  */
@@ -56,7 +70,7 @@ expand_block_move (rtx *operands)
   /* If we could use mov.l to move words and dest is word-aligned, we
      can use movua.l for loads and still generate a relatively short
      and efficient sequence.  */
-  if (TARGET_SH4A_ARCH && align < 4
+  if (TARGET_SH4A && align < 4
       && MEM_ALIGN (operands[0]) >= 32
       && can_move_by_pieces (bytes, 32))
     {
@@ -201,11 +215,11 @@ sh_expand_cmpstr (rtx *operands)
   rtx tmp3 = gen_reg_rtx (SImode);
 
   rtx jump;
-  rtx L_return = gen_label_rtx ();
-  rtx L_loop_byte = gen_label_rtx ();
-  rtx L_end_loop_byte = gen_label_rtx ();
-  rtx L_loop_long = gen_label_rtx ();
-  rtx L_end_loop_long = gen_label_rtx ();
+  rtx_code_label *L_return = gen_label_rtx ();
+  rtx_code_label *L_loop_byte = gen_label_rtx ();
+  rtx_code_label *L_end_loop_byte = gen_label_rtx ();
+  rtx_code_label *L_loop_long = gen_label_rtx ();
+  rtx_code_label *L_end_loop_long = gen_label_rtx ();
 
   int align = INTVAL (operands[3]);
 
@@ -328,9 +342,9 @@ sh_expand_cmpnstr (rtx *operands)
   rtx tmp2 = gen_reg_rtx (SImode);
 
   rtx jump;
-  rtx L_return = gen_label_rtx ();
-  rtx L_loop_byte = gen_label_rtx ();
-  rtx L_end_loop_byte = gen_label_rtx ();
+  rtx_code_label *L_return = gen_label_rtx ();
+  rtx_code_label *L_loop_byte = gen_label_rtx ();
+  rtx_code_label *L_end_loop_byte = gen_label_rtx ();
 
   rtx len = force_reg (SImode, operands[3]);
   int constp = CONST_INT_P (operands[3]);
@@ -342,8 +356,8 @@ sh_expand_cmpnstr (rtx *operands)
       rtx tmp3 = gen_reg_rtx (SImode);
       rtx lenw = gen_reg_rtx (SImode);
 
-      rtx L_loop_long = gen_label_rtx ();
-      rtx L_end_loop_long = gen_label_rtx ();
+      rtx_code_label *L_loop_long = gen_label_rtx ();
+      rtx_code_label *L_end_loop_long = gen_label_rtx ();
 
       int align = INTVAL (operands[4]);
       int bytes = INTVAL (operands[3]);
@@ -543,12 +557,12 @@ sh_expand_strlen (rtx *operands)
   rtx start_addr = gen_reg_rtx (Pmode);
   rtx tmp0 = gen_reg_rtx (SImode);
   rtx tmp1 = gen_reg_rtx (SImode);
-  rtx L_return = gen_label_rtx ();
-  rtx L_loop_byte = gen_label_rtx ();
+  rtx_code_label *L_return = gen_label_rtx ();
+  rtx_code_label *L_loop_byte = gen_label_rtx ();
 
   rtx jump;
-  rtx L_loop_long = gen_label_rtx ();
-  rtx L_end_loop_long = gen_label_rtx ();
+  rtx_code_label *L_loop_long = gen_label_rtx ();
+  rtx_code_label *L_end_loop_long = gen_label_rtx ();
 
   int align = INTVAL (operands[3]);
 
@@ -629,9 +643,9 @@ sh_expand_strlen (rtx *operands)
 void
 sh_expand_setmem (rtx *operands)
 {
-  rtx L_loop_byte = gen_label_rtx ();
-  rtx L_loop_word = gen_label_rtx ();
-  rtx L_return = gen_label_rtx ();
+  rtx_code_label *L_loop_byte = gen_label_rtx ();
+  rtx_code_label *L_loop_word = gen_label_rtx ();
+  rtx_code_label *L_return = gen_label_rtx ();
   rtx jump;
   rtx dest = copy_rtx (operands[0]);
   rtx dest_addr = copy_addr_to_reg (XEXP (dest, 0));

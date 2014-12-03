@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#ifndef GCC_IPA_REF_H
+#define GCC_IPA_REF_H
+
 struct cgraph_node;
 class varpool_node;
 class symtab_node;
@@ -29,7 +32,8 @@ enum GTY(()) ipa_ref_use
   IPA_REF_LOAD,
   IPA_REF_STORE,
   IPA_REF_ADDR,
-  IPA_REF_ALIAS
+  IPA_REF_ALIAS,
+  IPA_REF_CHKP
 };
 
 /* Record of reference in callgraph or varpool.  */
@@ -54,7 +58,7 @@ public:
   gimple stmt;
   unsigned int lto_stmt_uid;
   unsigned int referred_index;
-  ENUM_BITFIELD (ipa_ref_use) use:2;
+  ENUM_BITFIELD (ipa_ref_use) use:3;
   unsigned int speculative:1;
 };
 
@@ -127,3 +131,5 @@ public:
      or GGC will try to mark middle of references vectors.  */
   vec<ipa_ref_ptr>  GTY((skip)) referring;
 };
+
+#endif /* GCC_IPA_REF_H */

@@ -544,7 +544,7 @@ check_result (arith rc, gfc_expr *x, gfc_expr *r, gfc_expr **rp)
 
   if (val == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
+      if (warn_underflow)
 	gfc_warning (gfc_arith_error (val), &x->where);
       val = ARITH_OK;
     }
@@ -758,7 +758,7 @@ gfc_arith_divide (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
       if (mpc_cmp_si_si (op2->value.complex, 0, 0) == 0)
       {
 	/* In Fortran, return (NaN + NaN I) for any zero divisor.  See
-	   PR 40318. */
+	   PR 40318.  */
 	mpfr_set_nan (mpc_realref (result->value.complex));
 	mpfr_set_nan (mpc_imagref (result->value.complex));
       }
@@ -2077,7 +2077,7 @@ gfc_real2real (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
+      if (warn_underflow)
 	gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
@@ -2108,7 +2108,7 @@ gfc_real2complex (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
+      if (warn_underflow)
 	gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (mpc_realref (result->value.complex), 0, GFC_RND_MODE);
     }
@@ -2163,7 +2163,7 @@ gfc_complex2real (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
+      if (warn_underflow)
 	gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
@@ -2194,7 +2194,7 @@ gfc_complex2complex (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
+      if (warn_underflow)
 	gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (mpc_realref (result->value.complex), 0, GFC_RND_MODE);
     }
@@ -2209,7 +2209,7 @@ gfc_complex2complex (gfc_expr *src, int kind)
 
   if (rc == ARITH_UNDERFLOW)
     {
-      if (gfc_option.warn_underflow)
+      if (warn_underflow)
 	gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (mpc_imagref (result->value.complex), 0, GFC_RND_MODE);
     }
@@ -2344,7 +2344,7 @@ gfc_hollerith2complex (gfc_expr *src, int kind)
 }
 
 
-/* Convert Hollerith to character. */
+/* Convert Hollerith to character.  */
 
 gfc_expr *
 gfc_hollerith2character (gfc_expr *src, int kind)

@@ -1398,24 +1398,25 @@ gfc_check_cmplx (gfc_expr *x, gfc_expr *y, gfc_expr *kind)
   if (!kind_check (kind, 2, BT_COMPLEX))
     return false;
 
-  if (!kind && gfc_option.gfc_warn_conversion
+  if (!kind && warn_conversion
       && x->ts.type == BT_REAL && x->ts.kind > gfc_default_real_kind)
-    gfc_warning_now ("Conversion from %s to default-kind COMPLEX(%d) at %L "
-		     "might lose precision, consider using the KIND argument",
-		     gfc_typename (&x->ts), gfc_default_real_kind, &x->where);
-  else if (y && !kind && gfc_option.gfc_warn_conversion
+    gfc_warning_now (OPT_Wconversion, "Conversion from %s to default-kind "
+		     "COMPLEX(%d) at %L might lose precision, consider using "
+		     "the KIND argument", gfc_typename (&x->ts),
+		     gfc_default_real_kind, &x->where);
+  else if (y && !kind && warn_conversion
 	   && y->ts.type == BT_REAL && y->ts.kind > gfc_default_real_kind)
-    gfc_warning_now ("Conversion from %s to default-kind COMPLEX(%d) at %L "
-		     "might lose precision, consider using the KIND argument",
-		     gfc_typename (&y->ts), gfc_default_real_kind, &y->where);
-
+    gfc_warning_now (OPT_Wconversion, "Conversion from %s to default-kind "
+		     "COMPLEX(%d) at %L might lose precision, consider using "
+		     "the KIND argument", gfc_typename (&y->ts),
+		     gfc_default_real_kind, &y->where);
   return true;
 }
 
 
 static bool
-check_co_minmaxsum (gfc_expr *a, gfc_expr *result_image, gfc_expr *stat,
-		    gfc_expr *errmsg)
+check_co_collective (gfc_expr *a, gfc_expr *image_idx, gfc_expr *stat,
+		    gfc_expr *errmsg, bool co_reduce)
 {
   if (!variable_check (a, 0, false))
     return false;
@@ -1424,6 +1425,7 @@ check_co_minmaxsum (gfc_expr *a, gfc_expr *result_image, gfc_expr *stat,
 				 "INTENT(INOUT)"))
     return false;
 
+  /* Fortran 2008, 12.5.2.4, paragraph 18.  */
   if (gfc_has_vector_subscript (a))
     {
       gfc_error ("Argument 'A' with INTENT(INOUT) at %L of the intrinsic "
@@ -1432,21 +1434,28 @@ check_co_minmaxsum (gfc_expr *a, gfc_expr *result_image, gfc_expr *stat,
       return false;
     }
 
-  if (result_image != NULL)
+  if (gfc_is_coindexed (a))
     {
-      if (!type_check (result_image, 1, BT_INTEGER))
+      gfc_error ("The A argument at %L to the intrinsic %s shall not be "
+		 "coindexed", &a->where, gfc_current_intrinsic);
+      return false;
+    }
+
+  if (image_idx != NULL)
+    {
+      if (!type_check (image_idx, co_reduce ? 2 : 1, BT_INTEGER))
 	return false;
-      if (!scalar_check (result_image, 1))
+      if (!scalar_check (image_idx, co_reduce ? 2 : 1))
 	return false;
     }
 
   if (stat != NULL)
     {
-      if (!type_check (stat, 2, BT_INTEGER))
+      if (!type_check (stat, co_reduce ? 3 : 2, BT_INTEGER))
 	return false;
-      if (!scalar_check (stat, 2))
+      if (!scalar_check (stat, co_reduce ? 3 : 2))
 	return false;
-      if (!variable_check (stat, 2, false))
+      if (!variable_check (stat, co_reduce ? 3 : 2, false))
 	return false;
       if (stat->ts.kind != 4)
 	{
@@ -1458,11 +1467,11 @@ check_co_minmaxsum (gfc_expr *a, gfc_expr *result_image, gfc_expr *stat,
 
   if (errmsg != NULL)
     {
-      if (!type_check (errmsg, 3, BT_CHARACTER))
+      if (!type_check (errmsg, co_reduce ? 4 : 3, BT_CHARACTER))
 	return false;
-      if (!scalar_check (errmsg, 3))
+      if (!scalar_check (errmsg, co_reduce ? 4 : 3))
 	return false;
-      if (!variable_check (errmsg, 3, false))
+      if (!variable_check (errmsg, co_reduce ? 4 : 3, false))
 	return false;
       if (errmsg->ts.kind != 1)
 	{
@@ -1474,9 +1483,190 @@ check_co_minmaxsum (gfc_expr *a, gfc_expr *result_image, gfc_expr *stat,
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_fatal_error ("Coarrays disabled at %L, use -fcoarray= to enable",
+      gfc_fatal_error ("Coarrays disabled at %L, use %<-fcoarray=%> to enable",
 		       &a->where);
       return false;
+    }
+
+  return true;
+}
+
+
+bool
+gfc_check_co_broadcast (gfc_expr *a, gfc_expr *source_image, gfc_expr *stat,
+			gfc_expr *errmsg)
+{
+  if (a->ts.type == BT_CLASS || gfc_expr_attr (a).alloc_comp)
+    {
+      gfc_error ("Support for the A argument at %L which is polymorphic A "
+		 "argument or has allocatable components is not yet "
+		 "implemented", &a->where);
+      return false;
+    }
+  return check_co_collective (a, source_image, stat, errmsg, false);
+}
+
+
+bool
+gfc_check_co_reduce (gfc_expr *a, gfc_expr *op, gfc_expr *result_image,
+		     gfc_expr *stat, gfc_expr *errmsg)
+{
+  symbol_attribute attr;
+  gfc_formal_arglist *formal;
+  gfc_symbol *sym;
+
+  if (a->ts.type == BT_CLASS)
+    {
+      gfc_error ("The A argument at %L of CO_REDUCE shall not be polymorphic",
+		 &a->where);
+      return false;
+    }
+
+  if (gfc_expr_attr (a).alloc_comp)
+    {
+      gfc_error ("Support for the A argument at %L with allocatable components"
+                 " is not yet implemented", &a->where);
+      return false;
+    }
+
+  if (!check_co_collective (a, result_image, stat, errmsg, true))
+    return false;
+
+  if (!gfc_resolve_expr (op))
+    return false;
+
+  attr = gfc_expr_attr (op);
+  if (!attr.pure || !attr.function)
+    {
+      gfc_error ("OPERATOR argument at %L must be a PURE function",
+		 &op->where);
+      return false;
+    }
+
+  if (attr.intrinsic)
+    {
+      /* None of the intrinsics fulfills the criteria of taking two arguments,
+	 returning the same type and kind as the arguments and being permitted
+	 as actual argument.  */
+      gfc_error ("Intrinsic function %s at %L is not permitted for CO_REDUCE",
+		 op->symtree->n.sym->name, &op->where);
+      return false;
+    }
+
+  if (gfc_is_proc_ptr_comp (op))
+    {
+      gfc_component *comp = gfc_get_proc_ptr_comp (op);
+      sym = comp->ts.interface;
+    }
+  else
+    sym = op->symtree->n.sym;
+
+  formal = sym->formal;
+
+  if (!formal || !formal->next || formal->next->next)
+    {
+      gfc_error ("The function passed as OPERATOR at %L shall have two "
+		 "arguments", &op->where);
+      return false;
+    }
+
+  if (sym->result->ts.type == BT_UNKNOWN)
+    gfc_set_default_type (sym->result, 0, NULL);
+
+  if (!gfc_compare_types (&a->ts, &sym->result->ts))
+    {
+      gfc_error ("A argument at %L has type %s but the function passed as "
+		 "OPERATOR at %L returns %s",
+		 &a->where, gfc_typename (&a->ts), &op->where,
+		 gfc_typename (&sym->result->ts));
+      return false;
+    }
+  if (!gfc_compare_types (&a->ts, &formal->sym->ts)
+      || !gfc_compare_types (&a->ts, &formal->next->sym->ts))
+    {
+      gfc_error ("The function passed as OPERATOR at %L has arguments of type "
+		 "%s and %s but shall have type %s", &op->where,
+		 gfc_typename (&formal->sym->ts),
+		 gfc_typename (&formal->next->sym->ts), gfc_typename (&a->ts));
+      return false;
+    }
+  if (op->rank || attr.allocatable || attr.pointer || formal->sym->as
+      || formal->next->sym->as || formal->sym->attr.allocatable
+      || formal->next->sym->attr.allocatable || formal->sym->attr.pointer
+      || formal->next->sym->attr.pointer)
+    {
+      gfc_error ("The function passed as OPERATOR at %L shall have scalar "
+		 "nonallocatable nonpointer arguments and return a "
+		 "nonallocatable nonpointer scalar", &op->where);
+      return false;
+    }
+
+  if (formal->sym->attr.value != formal->next->sym->attr.value)
+    {
+      gfc_error ("The function passed as OPERATOR at %L shall have the VALUE "
+		 "attribute either for none or both arguments", &op->where);
+      return false;
+    }
+
+  if (formal->sym->attr.target != formal->next->sym->attr.target)
+    {
+      gfc_error ("The function passed as OPERATOR at %L shall have the TARGET "
+		 "attribute either for none or both arguments", &op->where);
+      return false;
+    }
+
+  if (formal->sym->attr.asynchronous != formal->next->sym->attr.asynchronous)
+    {
+      gfc_error ("The function passed as OPERATOR at %L shall have the "
+		 "ASYNCHRONOUS attribute either for none or both arguments",
+		 &op->where);
+      return false;
+    }
+
+  if (formal->sym->attr.optional || formal->next->sym->attr.optional)
+    {
+      gfc_error ("The function passed as OPERATOR at %L shall not have the "
+		 "OPTIONAL attribute for either of the arguments", &op->where);
+      return false;
+    }
+
+  if (a->ts.type == BT_CHARACTER)
+    {
+      gfc_charlen *cl;
+      unsigned long actual_size, formal_size1, formal_size2, result_size;
+
+      cl = a->ts.u.cl;
+      actual_size = cl && cl->length && cl->length->expr_type == EXPR_CONSTANT
+		     ? mpz_get_ui (cl->length->value.integer) : 0;
+
+      cl = formal->sym->ts.u.cl;
+      formal_size1 = cl && cl->length && cl->length->expr_type == EXPR_CONSTANT
+		     ? mpz_get_ui (cl->length->value.integer) : 0;
+
+      cl = formal->next->sym->ts.u.cl;
+      formal_size2 = cl && cl->length && cl->length->expr_type == EXPR_CONSTANT
+		     ? mpz_get_ui (cl->length->value.integer) : 0;
+
+      cl = sym->ts.u.cl;
+      result_size = cl && cl->length && cl->length->expr_type == EXPR_CONSTANT
+		    ? mpz_get_ui (cl->length->value.integer) : 0;
+
+      if (actual_size
+	  && ((formal_size1 && actual_size != formal_size1)
+	       || (formal_size2 && actual_size != formal_size2)))
+	{
+	  gfc_error ("The character length of the A argument at %L and of the "
+		     "arguments of the OPERATOR at %L shall be the same",
+		     &a->where, &op->where);
+	  return false;
+	}
+      if (actual_size && result_size && actual_size != result_size)
+	{
+	  gfc_error ("The character length of the A argument at %L and of the "
+		     "function result of the OPERATOR at %L shall be the same",
+		     &a->where, &op->where);
+	  return false;
+	}
     }
 
   return true;
@@ -1496,7 +1686,7 @@ gfc_check_co_minmax (gfc_expr *a, gfc_expr *result_image, gfc_expr *stat,
 		  &a->where);
        return false;
     }
-  return check_co_minmaxsum (a, result_image, stat, errmsg);
+  return check_co_collective (a, result_image, stat, errmsg, false);
 }
 
 
@@ -1506,7 +1696,7 @@ gfc_check_co_sum (gfc_expr *a, gfc_expr *result_image, gfc_expr *stat,
 {
   if (!numeric_check (a, 0))
     return false;
-  return check_co_minmaxsum (a, result_image, stat, errmsg);
+  return check_co_collective (a, result_image, stat, errmsg, false);
 }
 
 
@@ -2380,7 +2570,7 @@ gfc_check_lcobound (gfc_expr *coarray, gfc_expr *dim, gfc_expr *kind)
 {
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
       return false;
     }
 
@@ -3357,7 +3547,7 @@ gfc_check_rank (gfc_expr *a ATTRIBUTE_UNUSED)
 
   bool is_variable = true;
 
-  /* Functions returning pointers are regarded as variable, cf. F2008, R602. */
+  /* Functions returning pointers are regarded as variable, cf. F2008, R602.  */
   if (a->expr_type == EXPR_FUNCTION)
     is_variable = a->value.function.esym
 		  ? a->value.function.esym->result->attr.pointer
@@ -3936,7 +4126,7 @@ gfc_check_sizeof (gfc_expr *arg)
    If c_loc is true, character with len > 1 are allowed (cf. Fortran
    2003corr5); additionally, assumed-shape/assumed-rank/deferred-shape
    arrays are permitted. And if c_f_ptr is true, deferred-shape arrays
-   are permitted. */
+   are permitted.  */
 
 static bool
 is_c_interoperable (gfc_expr *expr, const char **msg, bool c_loc, bool c_f_ptr)
@@ -3983,7 +4173,7 @@ is_c_interoperable (gfc_expr *expr, const char **msg, bool c_loc, bool c_f_ptr)
     if (expr->ts.deferred)
       {
 	/* TS 29113 allows deferred-length strings as dummy arguments,
-	   but it is not an interoperable type. */
+	   but it is not an interoperable type.  */
 	*msg = "Expression shall not be a deferred-length string";
 	return false;
       }
@@ -4658,7 +4848,7 @@ gfc_check_image_index (gfc_expr *coarray, gfc_expr *sub)
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
       return false;
     }
 
@@ -4696,7 +4886,7 @@ gfc_check_num_images (gfc_expr *distance, gfc_expr *failed)
 {
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
       return false;
     }
 
@@ -4738,7 +4928,7 @@ gfc_check_this_image (gfc_expr *coarray, gfc_expr *dim, gfc_expr *distance)
 {
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
       return false;
     }
 
@@ -4880,7 +5070,7 @@ gfc_check_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
 	return false;
     }
 
-  if (!gfc_option.warn_surprising)
+  if (!warn_surprising)
     return true;
 
   /* If we can't calculate the sizes, we cannot check any more.
@@ -4937,7 +5127,7 @@ gfc_check_ucobound (gfc_expr *coarray, gfc_expr *dim, gfc_expr *kind)
 {
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
       return false;
     }
 
