@@ -1788,7 +1788,7 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	 We split possible load/store to two move insns via r0 so as to
 	 shorten R0 live range.  It will make some codes worse but will
 	 win on avarage for LRA.  */
-      else if (TARGET_LRA_P
+      else if (sh_lra_p ()
 	       && TARGET_SH1 && ! TARGET_SH2A
 	       && (mode == QImode || mode == HImode)
 	       && ((REG_P (operands[0]) && MEM_P (operands[1]))
@@ -10521,7 +10521,7 @@ sh_legitimize_reload_address (rtx *p, machine_mode mode, int opnum,
   enum reload_type type = (enum reload_type) itype;
   const int mode_sz = GET_MODE_SIZE (mode);
 
-  if (TARGET_LRA_P)
+  if (sh_lra_p ())
     return false;
 
   if (! ALLOW_INDEXED_ADDRESS
