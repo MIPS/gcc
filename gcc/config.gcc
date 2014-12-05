@@ -1966,6 +1966,16 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
 	case ${target} in
+		mips64*android*)
+			default_mips_arch=mips64r6
+			default_mips_abi=64
+			tm_file="${tm_file} mips/android.h"
+			tmake_file="${tmake_file} mips/t-linux-android64"
+			;;
+		mips*android*)
+			default_mips_arch=mips32
+			tmake_file="$tmake_file mips/t-linux-android"
+			;;
 		mipsisa32r2*)
 			default_mips_arch=mips32r2
 			;;
@@ -4170,8 +4180,10 @@ case ${target} in
 		    mips4)    tm_defines="$tm_defines MIPS_ISA_DEFAULT=4" ;;
 		    mips32)   tm_defines="$tm_defines MIPS_ISA_DEFAULT=32" ;;
 		    mips32r2) tm_defines="$tm_defines MIPS_ISA_DEFAULT=33" ;;
+		    mips32r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=37" ;;
 		    mips64)   tm_defines="$tm_defines MIPS_ISA_DEFAULT=64" ;;
 		    mips64r2) tm_defines="$tm_defines MIPS_ISA_DEFAULT=65" ;;
+		    mips64r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=69" ;;
 		esac
 		case ${default_mips_abi} in
 		    32)   tm_defines="$tm_defines MIPS_ABI_DEFAULT=ABI_32" ;;
