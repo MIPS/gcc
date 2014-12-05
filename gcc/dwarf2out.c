@@ -5558,7 +5558,7 @@ static void
 check_die_inline (dw_die_ref die)
 {
   /* A debugging information entry that is a member of an abstract
-     instance tree [has DW_AT_inline] should not contain any
+     instance tree [that has DW_AT_inline] should not contain any
      attributes which describe aspects of the subroutine which vary
      between distinct inlined expansions or distinct out-of-line
      expansions.  */
@@ -16637,7 +16637,16 @@ add_subscript_info (dw_die_ref type_die, tree type, bool collapse_p)
 	 here.  */
 
       /* Find and reuse a previously generated DW_TAG_subrange_type if
-	 available.  */
+	 available.
+
+         For multi-dimensional arrays, as we iterate through the
+         various dimensions in the enclosing for loop above, we also
+         iterate through the DIE children and pick at each
+         DW_TAG_subrange_type previously generated (if available).
+         Each child DW_TAG_subrange_type DIE describes the range of
+         the current dimension.  At this point we should have as many
+         DW_TAG_subrange_type's as we have dimensions in the
+         array.  */
       dw_die_ref subrange_die = NULL;
       if (child)
 	while (1)
@@ -17327,7 +17336,7 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 
   bool collapse_nested_arrays = !is_ada ();
 
-  /* For variable-lengthed arrays that have been previously generated,
+  /* For variable-length arrays that have been previously generated,
      just fill in the possibly missing subscript info.  */
   if (TREE_ASM_WRITTEN (type)
       && TREE_CODE (type) == ARRAY_TYPE
@@ -17818,8 +17827,8 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
     }
 
   /* If we have a previously generated DIE, use it, unless this is an
-     inline instance (origin != NULL), in which case we need a new DIE
-     with a corresponding DW_AT_abstract_origin.  */
+     concrete instance (origin != NULL), in which case we need a new
+     DIE with a corresponding DW_AT_abstract_origin.  */
   bool reusing_die;
   if (parm_die && origin == NULL)
     reusing_die = true;
@@ -18418,14 +18427,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	     something we have already output.  */
 	  if (get_AT (old_die, DW_AT_low_pc)
 	      || get_AT (old_die, DW_AT_ranges))
-	    {
-	      /* Even if we have locations, we need to recurse through
-		 the locals to make sure they also have locations.  */
-	      if (dumped_early)
-		goto recurse_through_locals;
-
-	      return;
-	    }
+	    return;
 
 	  /* If we have no location information, this must be a
 	     partially generated DIE from early dwarf generation.
@@ -18835,7 +18837,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     /* Add the calling convention attribute if requested.  */
     add_calling_convention_attribute (subr_die, decl);
 
- recurse_through_locals:
   /* Output Dwarf info for all of the stuff within the body of the function
      (if it has one - it may be just a declaration).
 
@@ -18859,16 +18860,16 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       int call_site_note_count = 0;
       int tail_call_site_note_count = 0;
 
+      /* Emit a DW_TAG_variable DIE for a named return value.  */
+      if (DECL_NAME (DECL_RESULT (decl)))
+	gen_decl_die (DECL_RESULT (decl), NULL, subr_die);
+
       current_function_has_inlines = 0;
 
       /* The first time through decls_for_scope we will generate the
 	 DIEs for the locals.  The second time, we fill in the
 	 location info.  */
       decls_for_scope (outer_scope, subr_die, 0);
-
-      /* Emit a DW_TAG_variable DIE for a named return value.  */
-      if (DECL_NAME (DECL_RESULT (decl)))
-	gen_decl_die (DECL_RESULT (decl), NULL, subr_die);
 
       if (call_arg_locations && !dwarf_strict)
 	{
@@ -19312,7 +19313,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 		  handled the declaration by virtue of early dwarf.
 		  If so, make a new assocation if available, so late
 		  dwarf can find it.  */
-	       || (specialization_p && old_die && old_die->dumped_early)))
+	       || (specialization_p && early_dwarf_dumping)))
     equate_decl_number_to_die (decl, var_die);
 
  gen_variable_die_location:
