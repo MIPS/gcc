@@ -2208,6 +2208,7 @@ compile (void)
 
   cgraph_materialize_all_clones ();
   bitmap_obstack_initialize (NULL);
+  execute_all_ipa_var_transforms ();
   execute_ipa_pass_list (g->get_passes ()->all_late_ipa_passes);
   symtab_remove_unreachable_nodes (true, dump_file);
 #ifdef ENABLE_CHECKING
@@ -2249,7 +2250,6 @@ compile (void)
   else
     {
       output_asm_statements ();
-      execute_all_ipa_var_transforms ();
       expand_all_functions ();
       varpool_output_variables ();
     }
