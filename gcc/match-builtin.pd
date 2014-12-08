@@ -18,9 +18,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 
-(define_operator_list POW BUILT_IN_POWF BUILT_IN_POW BUILT_IN_POWL)
-(define_operator_list SQRT BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
-(define_operator_list CBRT BUILT_IN_CBRTF BUILT_IN_CBRT BUILT_IN_CBRTL)
 (define_operator_list CABS BUILT_IN_CABSF BUILT_IN_CABS BUILT_IN_CABSL)
 
 
