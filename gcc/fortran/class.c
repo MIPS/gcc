@@ -2403,6 +2403,38 @@ yes:
   return true;
 }
 
+/* Add the component _len to the class-type variable in c->expr1.  */
+
+void
+gfc_add_len_component (gfc_code *c)
+{
+  /* Just make sure input is correct. This is already at the calling site,
+     but may be this routine is called from somewhere else in the furure.  */
+  gcc_assert (UNLIMITED_POLY(c->expr1)
+              && c->expr2
+              && c->expr2->ts.type== BT_CHARACTER);
+
+  gfc_component *len;
+  gfc_expr *e;
+  /* Check that _len is not present already.  */
+  if ((len= gfc_find_component (c->expr1->ts.u.derived, "_len", true, true)))
+    return;
+  /* Create the new component.  */
+  if (!gfc_add_component (c->expr1->ts.u.derived, "_len", &len))
+    // Possible errors are already reported in add_component
+    return;
+  len->ts.type = BT_INTEGER;
+  len->ts.kind = 4;
+  len->attr.access = ACCESS_PRIVATE;
+
+  /* Build minimal expression to initialize component with zero. */
+  e = gfc_get_expr();
+  e->ts = c->expr1->ts;
+  e->expr_type = EXPR_VARIABLE;
+  len->initializer = gfc_get_int_expr (gfc_default_integer_kind,
+                                       NULL, 0);
+  gfc_free_expr (e);
+}
 
 /* Find (or generate) the symbol for an intrinsic type's vtab.  This is
    needed to support unlimited polymorphism.  */
@@ -2415,18 +2447,9 @@ find_intrinsic_vtab (gfc_typespec *ts)
   gfc_symbol *copy = NULL, *src = NULL, *dst = NULL;
   int charlen = 0;
 
-  if (ts->type == BT_CHARACTER)
-    {
-      if (ts->deferred)
-	{
-	  gfc_error ("TODO: Deferred character length variable at %C cannot "
-		     "yet be associated with unlimited polymorphic entities");
-	  return NULL;
-	}
-      else if (ts->u.cl && ts->u.cl->length
-	       && ts->u.cl->length->expr_type == EXPR_CONSTANT)
-	charlen = mpz_get_si (ts->u.cl->length->value.integer);
-    }
+  if (ts->type == BT_CHARACTER && !ts->deferred && ts->u.cl && ts->u.cl->length
+      && ts->u.cl->length->expr_type == EXPR_CONSTANT)
+    charlen = mpz_get_si (ts->u.cl->length->value.integer);
 
   /* Find the top-level namespace.  */
   for (ns = gfc_current_ns; ns; ns = ns->parent)
@@ -2437,10 +2460,16 @@ find_intrinsic_vtab (gfc_typespec *ts)
     {
       char name[GFC_MAX_SYMBOL_LEN+1], tname[GFC_MAX_SYMBOL_LEN+1];
 
-      if (ts->type == BT_CHARACTER)
-	sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
-		 charlen, ts->kind);
-      else
+      if (ts->type == BT_CHARACTER) {
+        if (!ts->deferred)
+          sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
+                   charlen, ts->kind);
+        else
+          /* The type is deferred here. Ensure that this is easily seen in the 
+             vtable. */
+          sprintf (tname, "%s_DEFERRED_%d", gfc_basic_typename (ts->type),
+                   ts->kind);
+      } else
 	sprintf (tname, "%s_%d_", gfc_basic_typename (ts->type), ts->kind);
 
       sprintf (name, "__vtab_%s", tname);

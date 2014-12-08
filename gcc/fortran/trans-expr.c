@@ -1034,11 +1034,11 @@ gfc_trans_class_assign (gfc_expr *expr1, gfc_expr *expr2, gfc_exec_op op)
       gfc_add_vptr_component (lhs);
 
       if (UNLIMITED_POLY (expr1)
-	  && expr2->expr_type == EXPR_NULL && expr2->ts.type == BT_UNKNOWN)
-	{
-	  rhs = gfc_get_null_expr (&expr2->where);
- 	  goto assign_vptr;
-	}
+          && expr2->expr_type == EXPR_NULL && expr2->ts.type == BT_UNKNOWN)
+        {
+          rhs = gfc_get_null_expr (&expr2->where);
+          goto assign_vptr;
+        }
 
       if (expr2->expr_type == EXPR_NULL)
 	vtab = gfc_find_vtab (&expr1->ts);
@@ -6695,6 +6695,43 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
 }
 
 
+/* Create the character length assignment to the _len component.  */
+
+void
+add_assignment_of_string_len_to_len_component (stmtblock_t *block,
+                                               gfc_expr *ptr, gfc_se *ptr_se,
+                                               gfc_se *str)
+{
+  gfc_expr *len_comp;
+  gfc_ref *ref, **last;
+  gfc_se lse;
+  len_comp = gfc_copy_expr(ptr);
+  /* We need to remove the last _data component ref from ptr.  */
+  last = &(len_comp->ref);
+  ref = len_comp->ref;
+  while (ref)
+    {
+      if (!ref->next
+          && ref->type == REF_COMPONENT
+          && strcmp("_data", ref->u.c.component->name)== 0)
+        {
+          gfc_free_ref_list(ref);
+          *last = NULL;
+          break;
+        }
+      last = &(ref->next);
+      ref = ref->next;
+    }
+  gfc_add_component_ref(len_comp, "_len");
+  gfc_init_se (&lse, NULL);
+  gfc_conv_expr (&lse, len_comp);
+
+  /* ptr % _len = len (str)  */
+  gfc_add_modify (block, lse.expr, str->string_length);
+  ptr_se->string_length = lse.expr;
+  gfc_free_expr (len_comp);
+}
+
 tree
 gfc_trans_pointer_assign (gfc_code * code)
 {
@@ -6758,6 +6795,15 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 
       gfc_add_block_to_block (&block, &lse.pre);
       gfc_add_block_to_block (&block, &rse.pre);
+
+      /* For string assignments to unlimited polymorphic pointers add an
+         assignment of the string_length to the _len component of the pointer.  */
+      if (expr1->ts.type == BT_DERIVED
+          && expr1->ts.u.derived->attr.unlimited_polymorphic
+          && expr2->ts.type == BT_CHARACTER)
+        {
+          add_assignment_of_string_len_to_len_component (&block, expr1, &lse, &rse);
+        }
 
       /* Check character lengths if character expression.  The test is only
 	 really added if -fbounds-check is enabled.  Exclude deferred

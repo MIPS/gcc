@@ -10081,7 +10081,11 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	    if (!t)
 	      break;
 
-	    gfc_check_pointer_assign (code->expr1, code->expr2);
+	    if (gfc_check_pointer_assign (code->expr1, code->expr2)
+		&& UNLIMITED_POLY(code->expr1)
+		&& code->expr2->ts.type== BT_CHARACTER)
+	      gfc_add_len_component (code);
+
 	    break;
 	  }
 
