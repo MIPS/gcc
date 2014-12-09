@@ -123,6 +123,10 @@ mdspr2
 Target Report Var(TARGET_DSPR2)
 Use MIPS-DSP REV 2 instructions
 
+mdspr6
+Target Report Var(TARGET_DSPR6)
+Use MIPS-DSP Rev 6 instructions
+
 mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
 
@@ -445,3 +449,23 @@ Enable load/store bonding.
 
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
+
+mcompact-branches=
+Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL)
+Specify the compact branch usage policy
+never	    Only use delay slot branches
+optimal	    Use compact branches where beneficial
+always	    Only use compact branches
+
+Enum
+Name(mips_cb_setting) Type(enum mips_cb_setting)
+Policies available for use with -mcompact-branches=
+
+EnumValue
+Enum(mips_cb_setting) String(never) Value(MIPS_CB_NEVER)
+
+EnumValue
+Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
+
+EnumValue
+Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
