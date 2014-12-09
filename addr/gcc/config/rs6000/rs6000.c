@@ -16970,8 +16970,10 @@ rs6000_secondary_reload (bool in_p,
 		   || (!reload_completed && GET_CODE (x) == SUBREG
 		       && MEM_P (SUBREG_REG (x))));
 
+  /* Set the secondary reload structure to a known state.  */
+  memset ((void *)sri, '\0', sizeof (secondary_reload_info));
   sri->icode = CODE_FOR_nothing;
-  sri->extra_cost = 0;
+
   icode = ((in_p)
 	   ? reg_addr[mode].reload_load
 	   : reg_addr[mode].reload_store);
@@ -17135,6 +17137,7 @@ rs6000_secondary_reload (bool in_p,
     ret = default_secondary_reload (in_p, x, rclass, mode, sri);
 
   gcc_assert (ret != ALL_REGS);
+  gcc_assert (IN_RANGE (sri->icode, CODE_FOR_nothing, LAST_INSN_CODE));
 
   if (TARGET_DEBUG_ADDR)
     {
