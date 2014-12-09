@@ -13113,7 +13113,11 @@ legitimate_pic_address_disp_p (rtx disp)
 		return true;
 	    }
 	  else if (!SYMBOL_REF_FAR_ADDR_P (op0)
-		   && SYMBOL_REF_LOCAL_P (op0)
+		   && (SYMBOL_REF_LOCAL_P (op0)
+		       || (HAVE_LD_PIE_COPYRELOC
+			   && flag_pie
+			   && !SYMBOL_REF_WEAK (op0)
+			   && !SYMBOL_REF_FUNCTION_P (op0)))
 		   && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
 	  break;
@@ -21831,6 +21835,10 @@ ix86_expand_vec_perm_vpermi2 (rtx target, rtx op0, rtx mask, rtx op1,
       if (TARGET_AVX512VL && TARGET_AVX512BW)
 	gen = gen_avx512vl_vpermi2varv16hi3;
       break;
+    case V64QImode:
+      if (TARGET_AVX512VBMI)
+	gen = gen_avx512bw_vpermi2varv64qi3;
+      break;
     case V32HImode:
       if (TARGET_AVX512BW)
 	gen = gen_avx512bw_vpermi2varv32hi3;
@@ -24503,9 +24511,10 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       alg = decide_alg (count, max / 2, min_size, max_size, memset,
 			zero_memset, dynamic_check, noalign);
       gcc_assert (*dynamic_check == -1);
-      gcc_assert (alg != libcall);
       if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
 	*dynamic_check = max;
+      else
+	gcc_assert (alg != libcall);
       return alg;
     }
   return (alg_usable_p (algs->unknown_size, memset)
@@ -48877,6 +48886,7 @@ expand_vec_perm_broadcast_1 (struct expand_vec_perm_d *d)
 	emit_move_insn (d->target, gen_lowpart (d->vmode, dest));
       return true;
 
+    case V64QImode:
     case V32QImode:
     case V16HImode:
     case V8SImode:
@@ -48908,6 +48918,78 @@ expand_vec_perm_broadcast (struct expand_vec_perm_d *d)
       return false;
 
   return expand_vec_perm_broadcast_1 (d);
+}
+
+/* Implement arbitrary permutations of two V64QImode operands
+   will 2 vpermi2w, 2 vpshufb and one vpor instruction.  */
+static bool
+expand_vec_perm_vpermi2_vpshub2 (struct expand_vec_perm_d *d)
+{
+  if (!TARGET_AVX512BW || !(d->vmode == V64QImode))
+    return false;
+
+  if (d->testing_p)
+    return true;
+
+  struct expand_vec_perm_d ds[2];
+  rtx rperm[128], vperm, target0, target1;
+  unsigned int i, nelt;
+  machine_mode vmode;
+
+  nelt = d->nelt;
+  vmode = V64QImode;
+
+  for (i = 0; i < 2; i++)
+    {
+      ds[i] = *d;
+      ds[i].vmode = V32HImode;
+      ds[i].nelt = 32;
+      ds[i].target = gen_reg_rtx (V32HImode);
+      ds[i].op0 = gen_lowpart (V32HImode, d->op0);
+      ds[i].op1 = gen_lowpart (V32HImode, d->op1);
+    }
+
+  /* Prepare permutations such that the first one takes care of
+     putting the even bytes into the right positions or one higher
+     positions (ds[0]) and the second one takes care of
+     putting the odd bytes into the right positions or one below
+     (ds[1]).  */
+
+  for (i = 0; i < nelt; i++)
+    {
+      ds[i & 1].perm[i / 2] = d->perm[i] / 2;
+      if (i & 1)
+	{
+	  rperm[i] = constm1_rtx;
+	  rperm[i + 64] = GEN_INT ((i & 14) + (d->perm[i] & 1));
+	}
+      else
+	{
+	  rperm[i] = GEN_INT ((i & 14) + (d->perm[i] & 1));
+	  rperm[i + 64] = constm1_rtx;
+	}
+    }
+
+  bool ok = expand_vec_perm_1 (&ds[0]);
+  gcc_assert (ok);
+  ds[0].target = gen_lowpart (V64QImode, ds[0].target);
+
+  ok = expand_vec_perm_1 (&ds[1]);
+  gcc_assert (ok);
+  ds[1].target = gen_lowpart (V64QImode, ds[1].target);
+
+  vperm = gen_rtx_CONST_VECTOR (V64QImode, gen_rtvec_v (64, rperm));
+  vperm = force_reg (vmode, vperm);
+  target0 = gen_reg_rtx (V64QImode);
+  emit_insn (gen_avx512bw_pshufbv64qi3 (target0, ds[0].target, vperm));
+
+  vperm = gen_rtx_CONST_VECTOR (V64QImode, gen_rtvec_v (64, rperm + 64));
+  vperm = force_reg (vmode, vperm);
+  target1 = gen_reg_rtx (V64QImode);
+  emit_insn (gen_avx512bw_pshufbv64qi3 (target1, ds[1].target, vperm));
+
+  emit_insn (gen_iorv64qi3 (d->target, target0, target1));
+  return true;
 }
 
 /* Implement arbitrary permutation of two V32QImode and V16QImode operands
@@ -49084,6 +49166,9 @@ ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
   if (expand_vec_perm_vpshufb2_vpermq_even_odd (d))
     return true;
 
+  if (expand_vec_perm_vpermi2_vpshub2 (d))
+    return true;
+
   /* ??? Look for narrow permutations whose element orderings would
      allow the promotion to a wider mode.  */
 
@@ -49226,6 +49311,11 @@ ix86_vectorize_vec_perm_const_ok (machine_mode vmode,
     case V32HImode:
       if (TARGET_AVX512BW)
 	/* All implementable with a single vpermi2 insn.  */
+	return true;
+      break;
+    case V64QImode:
+      if (TARGET_AVX512BW)
+	/* Implementable with 2 vpermi2, 2 vpshufb and 1 or insn.  */
 	return true;
       break;
     case V8SImode:

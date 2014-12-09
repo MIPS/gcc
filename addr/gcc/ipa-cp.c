@@ -3907,12 +3907,13 @@ perhaps_add_new_callers (cgraph_node *node, ipcp_value<valtype> *val)
 	      if (dump_file)
 		fprintf (dump_file, " - adding an extra caller %s/%i"
 			 " of %s/%i\n",
-			 xstrdup (cs->caller->name ()),
+			 xstrdup_for_dump (cs->caller->name ()),
 			 cs->caller->order,
-			 xstrdup (val->spec_node->name ()),
+			 xstrdup_for_dump (val->spec_node->name ()),
 			 val->spec_node->order);
 
-	      cs->redirect_callee (val->spec_node);
+	      cs->redirect_callee_duplicating_thunks (val->spec_node);
+	      val->spec_node->expand_all_artificial_thunks ();
 	      redirected_sum += cs->count;
 	    }
 	  cs = get_next_cgraph_edge_clone (cs);
