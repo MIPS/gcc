@@ -22,7 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -180,12 +189,12 @@ pass_nrv::execute (function *fun)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree ret_val;
 
-	  if (gimple_code (stmt) == GIMPLE_RETURN)
+	  if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
 	    {
 	      /* In a function with an aggregate return value, the
 		 gimplifier has changed all non-empty RETURN_EXPRs to
 		 return the RESULT_DECL.  */
-	      ret_val = gimple_return_retval (stmt);
+	      ret_val = gimple_return_retval (return_stmt);
 	      if (ret_val)
 		gcc_assert (ret_val == result);
 	    }
@@ -216,8 +225,7 @@ pass_nrv::execute (function *fun)
 		 same type and alignment as the function's result.  */
 	      if (TREE_CODE (found) != VAR_DECL
 		  || TREE_THIS_VOLATILE (found)
-		  || DECL_CONTEXT (found) != current_function_decl
-		  || TREE_STATIC (found)
+		  || !auto_var_in_fn_p (found, current_function_decl)
 		  || TREE_ADDRESSABLE (found)
 		  || DECL_ALIGN (found) > DECL_ALIGN (result)
 		  || !useless_type_conversion_p (result_type,
@@ -316,7 +324,7 @@ make_pass_nrv (gcc::context *ctxt)
    DEST is available if it is not clobbered or used by the call.  */
 
 static bool
-dest_safe_for_nrv_p (gimple call)
+dest_safe_for_nrv_p (gcall *call)
 {
   tree dest = gimple_call_lhs (call);
 
@@ -383,10 +391,11 @@ pass_return_slot::execute (function *fun)
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gcall *stmt;
 	  bool slot_opt_p;
 
-	  if (is_gimple_call (stmt)
+	  stmt = dyn_cast <gcall *> (gsi_stmt (gsi));
+	  if (stmt
 	      && gimple_call_lhs (stmt)
 	      && !gimple_call_return_slot_opt_p (stmt)
 	      && aggregate_value_p (TREE_TYPE (gimple_call_lhs (stmt)),

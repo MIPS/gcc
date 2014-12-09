@@ -99,6 +99,15 @@ convert_to_real (tree type, tree expr)
   enum built_in_function fcode = builtin_mathfn_code (expr);
   tree itype = TREE_TYPE (expr);
 
+  if (TREE_CODE (expr) == COMPOUND_EXPR)
+    {
+      tree t = convert_to_real (type, TREE_OPERAND (expr, 1));
+      if (t == TREE_OPERAND (expr, 1))
+	return expr;
+      return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
+			 TREE_OPERAND (expr, 0), t);
+    }    
+
   /* Disable until we figure out how to decide whether the functions are
      present in runtime.  */
   /* Convert (float)sqrt((double)x) where x is float into sqrtf(x) */
@@ -405,6 +414,15 @@ convert_to_integer (tree type, tree expr)
       error ("conversion to incomplete type");
       return error_mark_node;
     }
+
+  if (ex_form == COMPOUND_EXPR)
+    {
+      tree t = convert_to_integer (type, TREE_OPERAND (expr, 1));
+      if (t == TREE_OPERAND (expr, 1))
+	return expr;
+      return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
+			 TREE_OPERAND (expr, 0), t);
+    }    
 
   /* Convert e.g. (long)round(d) -> lround(d).  */
   /* If we're converting to char, we may encounter differing behavior
@@ -746,8 +764,9 @@ convert_to_integer (tree type, tree expr)
 		/* Can't do arithmetic in enumeral types
 		   so use an integer type that will hold the values.  */
 		if (TREE_CODE (typex) == ENUMERAL_TYPE)
-		  typex = lang_hooks.types.type_for_size
-		    (TYPE_PRECISION (typex), TYPE_UNSIGNED (typex));
+		  typex
+		    = lang_hooks.types.type_for_size (TYPE_PRECISION (typex),
+						      TYPE_UNSIGNED (typex));
 
 		/* But now perhaps TYPEX is as wide as INPREC.
 		   In that case, do nothing special here.
@@ -788,9 +807,15 @@ convert_to_integer (tree type, tree expr)
 			    && (ex_form == PLUS_EXPR
 				|| ex_form == MINUS_EXPR
 				|| ex_form == MULT_EXPR)))
-		      typex = unsigned_type_for (typex);
+		      {
+			if (!TYPE_UNSIGNED (typex))
+			  typex = unsigned_type_for (typex);
+		      }
 		    else
-		      typex = signed_type_for (typex);
+		      {
+			if (TYPE_UNSIGNED (typex))
+			  typex = signed_type_for (typex);
+		      }
 		    return convert (type,
 				    fold_build2 (ex_form, typex,
 						 convert (typex, arg0),
@@ -805,14 +830,26 @@ convert_to_integer (tree type, tree expr)
 	  /* This is not correct for ABS_EXPR,
 	     since we must test the sign before truncation.  */
 	  {
-	    tree typex = unsigned_type_for (type);
+	    /* Do the arithmetic in type TYPEX,
+	       then convert result to TYPE.  */
+	    tree typex = type;
+
+	    /* Can't do arithmetic in enumeral types
+	       so use an integer type that will hold the values.  */
+	    if (TREE_CODE (typex) == ENUMERAL_TYPE)
+	      typex
+		= lang_hooks.types.type_for_size (TYPE_PRECISION (typex),
+						  TYPE_UNSIGNED (typex));
+
+	    if (!TYPE_UNSIGNED (typex))
+	      typex = unsigned_type_for (typex);
 	    return convert (type,
 			    fold_build1 (ex_form, typex,
 					 convert (typex,
 						  TREE_OPERAND (expr, 0))));
 	  }
 
-	case NOP_EXPR:
+	CASE_CONVERT:
 	  /* Don't introduce a
 	     "can't convert between vector values of different size" error.  */
 	  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == VECTOR_TYPE
@@ -907,6 +944,14 @@ convert_to_complex (tree type, tree expr)
 
 	if (TYPE_MAIN_VARIANT (elt_type) == TYPE_MAIN_VARIANT (subtype))
 	  return expr;
+	else if (TREE_CODE (expr) == COMPOUND_EXPR)
+	  {
+	    tree t = convert_to_complex (type, TREE_OPERAND (expr, 1));
+	    if (t == TREE_OPERAND (expr, 1))
+	      return expr;
+	    return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR,
+			       TREE_TYPE (t), TREE_OPERAND (expr, 0), t);
+	  }    
 	else if (TREE_CODE (expr) == COMPLEX_EXPR)
 	  return fold_build2 (COMPLEX_EXPR, type,
 			      convert (subtype, TREE_OPERAND (expr, 0)),

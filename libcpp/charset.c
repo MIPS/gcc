@@ -353,7 +353,7 @@ one_utf8_to_utf16 (iconv_t bigend, const uchar **inbufp, size_t *inbytesleftp,
       return EILSEQ;
     }
 
-  if (s < 0xFFFF)
+  if (s <= 0xFFFF)
     {
       if (*outbytesleftp < 2)
 	{
@@ -537,6 +537,7 @@ convert_no_conversion (iconv_t cd ATTRIBUTE_UNUSED,
   if (to->len + flen > to->asize)
     {
       to->asize = to->len + flen;
+      to->asize += to->asize / 4;
       to->text = XRESIZEVEC (uchar, to->text, to->asize);
     }
   memcpy (to->text + to->len, from, flen);

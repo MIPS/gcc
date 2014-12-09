@@ -76,7 +76,7 @@ LIST = aarch64-elf aarch64-linux-gnu \
   x86_64-knetbsd-gnu x86_64-w64-mingw32 \
   x86_64-mingw32OPT-enable-sjlj-exceptions=yes xstormy16-elf xtensa-elf \
   xtensa-linux \
-  i686-interix3OPT-enable-obsolete score-elfOPT-enable-obsolete
+  i686-interix3OPT-enable-obsolete
 
 LOGFILES = $(patsubst %,log/%-make.out,$(LIST))
 all: $(LOGFILES)
@@ -95,11 +95,24 @@ make-log-dir: ../gcc/MAINTAINERS
 
 $(LIST): make-log-dir
 	-mkdir $@
-	(cd $@ && \
-	../../gcc/configure \
-	--target=$(subst SCRIPTS,`pwd`/../scripts/,$(subst OPT,$(empty) -,$@)) \
-	--enable-werror-always ${host_options} --enable-languages=all,ada,go) \
-	> log/$@-config.out 2>&1
+	(											\
+		cd $@ &&									\
+		echo $@ &&									\
+		TGT=`echo $@ | sed -e 's/^\(.*\)OPT.*$$/\1/'` &&				\
+		TGT=`../../gcc/config.sub $$TGT` &&						\
+		case $$TGT in									\
+			*-*-darwin* | *-*-cygwin* | *-*-mingw* | *-*-aix*)			\
+				ADDITIONAL_LANGUAGES="";					\
+				;;								\
+			*)									\
+				ADDITIONAL_LANGUAGES=",go";					\
+				;;								\
+		esac &&										\
+		../../gcc/configure								\
+			--target=$(subst SCRIPTS,`pwd`/../scripts/,$(subst OPT,$(empty) -,$@))	\
+			--enable-werror-always ${host_options}					\
+			--enable-languages=all,ada$$ADDITIONAL_LANGUAGES;			\
+	) > log/$@-config.out 2>&1
 
 $(LOGFILES) : log/%-make.out : %
 	-$(MAKE) -C $< $(TEST) > $@ 2>&1 && rm -rf $<

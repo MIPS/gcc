@@ -69,7 +69,7 @@ struct lang_hooks_for_types
 
   /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
      mode.  */
-  tree (*type_for_mode) (enum machine_mode, int);
+  tree (*type_for_mode) (machine_mode, int);
 
   /* Given PRECISION and UNSIGNEDP, return a suitable type-tree for an
      integer type with at least that precision.  */
@@ -166,6 +166,9 @@ struct lang_hooks_for_decls
   /* Returns true if DECL is explicit member function.  */
   bool (*function_decl_explicit_p) (tree);
 
+  /* Returns true if DECL is C++11 deleted special member function.  */
+  bool (*function_decl_deleted_p) (tree);
+
   /* Returns True if the parameter is a generic parameter decl
      of a generic type, e.g a template template parameter for the C++ FE.  */
   bool (*generic_generic_parameter_decl_p) (const_tree);
@@ -260,7 +263,8 @@ struct lang_hooks_for_lto
 
 struct lang_hooks
 {
-  /* String identifying the front end.  e.g. "GNU C++".  */
+  /* String identifying the front end and optionally language standard
+     version, e.g. "GNU C++98" or "GNU Java".  */
   const char *name;
 
   /* sizeof (struct lang_identifier), so make_node () creates
@@ -502,5 +506,10 @@ extern tree add_builtin_function_ext_scope (const char *name, tree type,
 					    const char *library_name,
 					    tree attrs);
 extern tree add_builtin_type (const char *name, tree type);
+
+/* Language helper functions.  */
+
+extern bool lang_GNU_C (void);
+extern bool lang_GNU_CXX (void);
  
 #endif /* GCC_LANG_HOOKS_H */
