@@ -160,88 +160,87 @@
 /* { dg-final { scan-assembler "test15_v2u64.*:.*ceq.d.*nor.v.*test15_v2u64" } } */
 /* { dg-final { scan-assembler "test15_v4f32.*:.*fcne.w.*test15_v4f32" } } */
 /* { dg-final { scan-assembler "test15_v2f64.*:.*fcne.d.*test15_v2f64" } } */
-/* Note: insert.d only available on MIPS64, replaced with equivalent operations on MIPS32.  */
-/* { dg-final { scan-assembler "test16_v16i8.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_s.b.*test16_v16i8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v8i16.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_s.h.*test16_v8i16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v4i32.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_s.w.*test16_v4i32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v2i64.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_s.d.*test16_v2i64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v16u8.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_u.b.*test16_v16u8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v8u16.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_u.h.*test16_v8u16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v4u32.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_u.w.*test16_v4u32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v2u64.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*clt_u.d.*test16_v2u64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v4f32.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*fslt.w.*test16_v4f32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v2f64.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*fslt.d.*test16_v2f64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test16_v16i8.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_s.b.*test16_v16i8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v8i16.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_s.h.*test16_v8i16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v4i32.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_s.w.*test16_v4i32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v2i64.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_s.d.*test16_v2i64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v16u8.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_u.b.*test16_v16u8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v8u16.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_u.h.*test16_v8u16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v4u32.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_u.w.*test16_v4u32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v2u64.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*clt_u.d.*test16_v2u64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v4f32.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*fslt.w.*test16_v4f32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test16_v2f64.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*fslt.d.*test16_v2f64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v16i8.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_s.b.*test17_v16i8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v8i16.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_s.h.*test17_v8i16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v4i32.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_s.w.*test17_v4i32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v2i64.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_s.d.*test17_v2i64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v16u8.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_u.b.*test17_v16u8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v8u16.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_u.h.*test17_v8u16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v4u32.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_u.w.*test17_v4u32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v2u64.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*cle_u.d.*test17_v2u64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v4f32.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*fsle.w.*test17_v4f32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v2f64.*:.*insert.d\t\\\$w0\\\[0\\\],\\\$4.*fsle.d.*test17_v2f64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test17_v16i8.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_s.b.*test17_v16i8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v8i16.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_s.h.*test17_v8i16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v4i32.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_s.w.*test17_v4i32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v2i64.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_s.d.*test17_v2i64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v16u8.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_u.b.*test17_v16u8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v8u16.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_u.h.*test17_v8u16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v4u32.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_u.w.*test17_v4u32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v2u64.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*cle_u.d.*test17_v2u64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v4f32.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*fsle.w.*test17_v4f32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test17_v2f64.*:.*insert.w\t\\\$w0\\\[0\\\],\\\$4.*fsle.d.*test17_v2f64" { target {! mips64 } } } } */
-/* Note: For reversed comparison the compare instruction is the same with vectors swapped when copying from GPRs.  */
-/* { dg-final { scan-assembler "test18_v16i8.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_s.b.*test18_v16i8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v8i16.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_s.h.*test18_v8i16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v4i32.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_s.w.*test18_v4i32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v2i64.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_s.d.*test18_v2i64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v16u8.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_u.b.*test18_v16u8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v8u16.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_u.h.*test18_v8u16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v4u32.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_u.w.*test18_v4u32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v2u64.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*clt_u.d.*test18_v2u64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v4f32.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*fslt.w.*test18_v4f32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v2f64.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*fslt.d.*test18_v2f64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test18_v16i8.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_s.b.*test18_v16i8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v8i16.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_s.h.*test18_v8i16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v4i32.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_s.w.*test18_v4i32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v2i64.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_s.d.*test18_v2i64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v16u8.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_u.b.*test18_v16u8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v8u16.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_u.h.*test18_v8u16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v4u32.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_u.w.*test18_v4u32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v2u64.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*clt_u.d.*test18_v2u64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v4f32.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*fslt.w.*test18_v4f32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test18_v2f64.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*fslt.d.*test18_v2f64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v16i8.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_s.b.*test19_v16i8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v8i16.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_s.h.*test19_v8i16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v4i32.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_s.w.*test19_v4i32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v2i64.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_s.d.*test19_v2i64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v16u8.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_u.b.*test19_v16u8" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v8u16.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_u.h.*test19_v8u16" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v4u32.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_u.w.*test19_v4u32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v2u64.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*cle_u.d.*test19_v2u64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v4f32.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*fsle.w.*test19_v4f32" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v2f64.*:.*insert.d\t\\\$w1\\\[0\\\],\\\$4.*fsle.d.*test19_v2f64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test19_v16i8.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_s.b.*test19_v16i8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v8i16.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_s.h.*test19_v8i16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v4i32.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_s.w.*test19_v4i32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v2i64.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_s.d.*test19_v2i64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v16u8.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_u.b.*test19_v16u8" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v8u16.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_u.h.*test19_v8u16" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v4u32.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_u.w.*test19_v4u32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v2u64.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*cle_u.d.*test19_v2u64" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v4f32.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*fsle.w.*test19_v4f32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test19_v2f64.*:.*insert.w\t\\\$w1\\\[0\\\],\\\$4.*fsle.d.*test19_v2f64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v16i8.*:.*clt_s.b.*test16_v16i8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v8i16.*:.*clt_s.h.*test16_v8i16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v4i32.*:.*clt_s.w.*test16_v4i32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v2i64.*:.*clt_s.d.*test16_v2i64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v16u8.*:.*clt_u.b.*test16_v16u8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v8u16.*:.*clt_u.h.*test16_v8u16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v4u32.*:.*clt_u.w.*test16_v4u32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v2u64.*:.*clt_u.d.*test16_v2u64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v4f32.*:.*fslt.w.*test16_v4f32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v2f64.*:.*fslt.d.*test16_v2f64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test16_v16i8.*:.*clt_s.b.*test16_v16i8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v8i16.*:.*clt_s.h.*test16_v8i16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v4i32.*:.*clt_s.w.*test16_v4i32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v2i64.*:.*clt_s.d.*test16_v2i64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v16u8.*:.*clt_u.b.*test16_v16u8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v8u16.*:.*clt_u.h.*test16_v8u16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v4u32.*:.*clt_u.w.*test16_v4u32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v2u64.*:.*clt_u.d.*test16_v2u64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v4f32.*:.*fslt.w.*test16_v4f32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test16_v2f64.*:.*fslt.d.*test16_v2f64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v16i8.*:.*cle_s.b.*test17_v16i8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v8i16.*:.*cle_s.h.*test17_v8i16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v4i32.*:.*cle_s.w.*test17_v4i32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v2i64.*:.*cle_s.d.*test17_v2i64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v16u8.*:.*cle_u.b.*test17_v16u8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v8u16.*:.*cle_u.h.*test17_v8u16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v4u32.*:.*cle_u.w.*test17_v4u32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v2u64.*:.*cle_u.d.*test17_v2u64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v4f32.*:.*fsle.w.*test17_v4f32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v2f64.*:.*fsle.d.*test17_v2f64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test17_v16i8.*:.*cle_s.b.*test17_v16i8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v8i16.*:.*cle_s.h.*test17_v8i16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v4i32.*:.*cle_s.w.*test17_v4i32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v2i64.*:.*cle_s.d.*test17_v2i64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v16u8.*:.*cle_u.b.*test17_v16u8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v8u16.*:.*cle_u.h.*test17_v8u16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v4u32.*:.*cle_u.w.*test17_v4u32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v2u64.*:.*cle_u.d.*test17_v2u64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v4f32.*:.*fsle.w.*test17_v4f32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test17_v2f64.*:.*fsle.d.*test17_v2f64" { target {! mips64 } } } } */
+/* Note: For reversed comparison the compare instruction is the same with vectors swapped.  */
+/* { dg-final { scan-assembler "test18_v16i8.*:.*clt_s.b.*test18_v16i8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v8i16.*:.*clt_s.h.*test18_v8i16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v4i32.*:.*clt_s.w.*test18_v4i32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v2i64.*:.*clt_s.d.*test18_v2i64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v16u8.*:.*clt_u.b.*test18_v16u8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v8u16.*:.*clt_u.h.*test18_v8u16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v4u32.*:.*clt_u.w.*test18_v4u32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v2u64.*:.*clt_u.d.*test18_v2u64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v4f32.*:.*fslt.w.*test18_v4f32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v2f64.*:.*fslt.d.*test18_v2f64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test18_v16i8.*:.*clt_s.b.*test18_v16i8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v8i16.*:.*clt_s.h.*test18_v8i16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v4i32.*:.*clt_s.w.*test18_v4i32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v2i64.*:.*clt_s.d.*test18_v2i64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v16u8.*:.*clt_u.b.*test18_v16u8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v8u16.*:.*clt_u.h.*test18_v8u16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v4u32.*:.*clt_u.w.*test18_v4u32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v2u64.*:.*clt_u.d.*test18_v2u64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v4f32.*:.*fslt.w.*test18_v4f32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test18_v2f64.*:.*fslt.d.*test18_v2f64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v16i8.*:.*cle_s.b.*test19_v16i8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v8i16.*:.*cle_s.h.*test19_v8i16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v4i32.*:.*cle_s.w.*test19_v4i32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v2i64.*:.*cle_s.d.*test19_v2i64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v16u8.*:.*cle_u.b.*test19_v16u8" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v8u16.*:.*cle_u.h.*test19_v8u16" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v4u32.*:.*cle_u.w.*test19_v4u32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v2u64.*:.*cle_u.d.*test19_v2u64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v4f32.*:.*fsle.w.*test19_v4f32" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v2f64.*:.*fsle.d.*test19_v2f64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test19_v16i8.*:.*cle_s.b.*test19_v16i8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v8i16.*:.*cle_s.h.*test19_v8i16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v4i32.*:.*cle_s.w.*test19_v4i32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v2i64.*:.*cle_s.d.*test19_v2i64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v16u8.*:.*cle_u.b.*test19_v16u8" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v8u16.*:.*cle_u.h.*test19_v8u16" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v4u32.*:.*cle_u.w.*test19_v4u32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v2u64.*:.*cle_u.d.*test19_v2u64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v4f32.*:.*fsle.w.*test19_v4f32" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test19_v2f64.*:.*fsle.d.*test19_v2f64" { target {! mips64 } } } } */
 /* { dg-final { scan-assembler "test20_v16i8.*:.*addvi.b.*test20_v16i8" } } */
 /* { dg-final { scan-assembler "test20_v8i16.*:.*addvi.h.*test20_v8i16" } } */
 /* { dg-final { scan-assembler "test20_v4i32.*:.*addvi.w.*test20_v4i32" } } */

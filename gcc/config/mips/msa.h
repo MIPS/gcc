@@ -230,6 +230,10 @@ extern v16i8 __builtin_msa_ld_b(void *, int);
 extern v8i16 __builtin_msa_ld_h(void *, int);
 extern v4i32 __builtin_msa_ld_w(void *, int);
 extern v2i64 __builtin_msa_ld_d(void *, int);
+extern void __builtin_msa_st_b(v16i8, char *, int);
+extern void __builtin_msa_st_h(v8i16, char *, int);
+extern void __builtin_msa_st_w(v4i32, char *, int);
+extern void __builtin_msa_st_d(v2i64, char *, int);
 extern v16i8 __builtin_msa_sat_s_b(v16i8, unsigned char);
 extern v8i16 __builtin_msa_sat_s_h(v8i16, unsigned char);
 extern v4i32 __builtin_msa_sat_s_w(v4i32, unsigned char);
@@ -760,6 +764,10 @@ extern double __builtin_msa_cast_to_scalar_double(v2f64);
 #define __msa_ld_h __builtin_msa_ld_h
 #define __msa_ld_w __builtin_msa_ld_w
 #define __msa_ld_d __builtin_msa_ld_d
+#define __msa_st_b __builtin_msa_st_b
+#define __msa_st_h __builtin_msa_st_h
+#define __msa_st_w __builtin_msa_st_w
+#define __msa_st_d __builtin_msa_st_d
 #define __msa_sat_s_b __builtin_msa_sat_s_b
 #define __msa_sat_s_h __builtin_msa_sat_s_h
 #define __msa_sat_s_w __builtin_msa_sat_s_w
