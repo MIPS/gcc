@@ -1,4 +1,11 @@
 2014-12-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (scan_omp_target): Remove taskreg_nesting_level and
+	target_nesting_level assertions.
+	(check_omp_nesting_restrictions): Rework OpenACC constructs
+	handling.  Update and extend the relevant test cases.
+
+2014-12-10  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 
 	* gimple.def (GIMPLE_OACC_KERNELS, GIMPLE_OACC_PARALLEL): Merge

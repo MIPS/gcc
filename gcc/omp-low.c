@@ -2647,12 +2647,6 @@ scan_omp_target (gimple stmt, omp_context *outer_ctx)
   tree name;
   bool offloaded = is_gimple_omp_offloaded (stmt);
 
-  if (is_gimple_omp_oacc_specifically (stmt))
-    {
-      gcc_assert (taskreg_nesting_level == 0);
-      gcc_assert (target_nesting_level == 0);
-    }
-
   ctx = new_omp_context (stmt, outer_ctx);
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
   ctx->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
@@ -2706,46 +2700,26 @@ scan_omp_teams (gimple stmt, omp_context *outer_ctx)
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
 }
 
-/* Check OpenMP nesting restrictions.  */
+/* Check nesting restrictions.  */
 static bool
 check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 {
-  /* TODO: While the OpenACC specification does allow for certain kinds of
-     nesting, we don't support many of these yet.  */
-  if (is_gimple_omp (stmt)
-      && is_gimple_omp_oacc_specifically (stmt))
+  /* TODO: Some OpenACC/OpenMP nesting should be allowed.  */
+
+  /* No nesting of non-OpenACC STMT (that is, an OpenMP one, or a GOMP builtin)
+     inside an OpenACC CTX.  */
+  if (!(is_gimple_omp (stmt)
+	&& is_gimple_omp_oacc_specifically (stmt)))
     {
-      /* Regular handling of OpenACC loop constructs.  */
-      if (gimple_code (stmt) == GIMPLE_OMP_FOR
-	  && gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-	goto cont;
-      /* No nesting of OpenACC STMT inside any OpenACC or OpenMP CTX different
-	 from an OpenACC data construct.  */
-      for (omp_context *ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
-	if (is_gimple_omp (ctx_->stmt)
-	    && !(gimple_code (ctx_->stmt) == GIMPLE_OMP_TARGET
-		 && (gimple_omp_target_kind (ctx_->stmt)
-		     == GF_OMP_TARGET_KIND_OACC_DATA)))
-	  {
-	    error_at (gimple_location (stmt),
-		      "may not be nested");
-	    return false;
-	  }
-    }
-  else
-    {
-      /* No nesting of non-OpenACC STMT (that is, an OpenMP one, or a GOMP
-	 builtin) inside any OpenACC CTX.  */
       for (omp_context *ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
 	if (is_gimple_omp (ctx_->stmt)
 	    && is_gimple_omp_oacc_specifically (ctx_->stmt))
 	  {
 	    error_at (gimple_location (stmt),
-		      "may not be nested");
+		      "non-OpenACC construct inside of OpenACC region");
 	    return false;
 	  }
     }
- cont:
 
   if (ctx != NULL)
     {
@@ -3003,20 +2977,74 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
       break;
     case GIMPLE_OMP_TARGET:
       for (; ctx != NULL; ctx = ctx->outer)
-	if (gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET
-	    && gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_REGION)
-	  {
-	    const char *name;
-	    switch (gimple_omp_target_kind (stmt))
-	      {
-	      case GF_OMP_TARGET_KIND_REGION: name = "target"; break;
-	      case GF_OMP_TARGET_KIND_DATA: name = "target data"; break;
-	      case GF_OMP_TARGET_KIND_UPDATE: name = "target update"; break;
-	      default: gcc_unreachable ();
-	      }
-	    warning_at (gimple_location (stmt), 0,
-			"%s construct inside of target region", name);
-	  }
+	{
+	  if (gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET)
+	    {
+	      if (is_gimple_omp (stmt)
+		  && is_gimple_omp_oacc_specifically (stmt)
+		  && is_gimple_omp (ctx->stmt))
+		{
+		  error_at (gimple_location (stmt),
+			    "OpenACC construct inside of non-OpenACC region");
+		  return false;
+		}
+	      continue;
+	    }
+
+	  const char *stmt_name, *ctx_stmt_name;
+	  switch (gimple_omp_target_kind (stmt))
+	    {
+	    case GF_OMP_TARGET_KIND_REGION: stmt_name = "target"; break;
+	    case GF_OMP_TARGET_KIND_DATA: stmt_name = "target data"; break;
+	    case GF_OMP_TARGET_KIND_UPDATE: stmt_name = "target update"; break;
+	    case GF_OMP_TARGET_KIND_OACC_PARALLEL: stmt_name = "parallel"; break;
+	    case GF_OMP_TARGET_KIND_OACC_KERNELS: stmt_name = "kernels"; break;
+	    case GF_OMP_TARGET_KIND_OACC_DATA: stmt_name = "data"; break;
+	    case GF_OMP_TARGET_KIND_OACC_UPDATE: stmt_name = "update"; break;
+	    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA: stmt_name = "enter/exit data"; break;
+	    default: gcc_unreachable ();
+	    }
+	  switch (gimple_omp_target_kind (ctx->stmt))
+	    {
+	    case GF_OMP_TARGET_KIND_REGION: ctx_stmt_name = "target"; break;
+	    case GF_OMP_TARGET_KIND_DATA: ctx_stmt_name = "target data"; break;
+	    case GF_OMP_TARGET_KIND_OACC_PARALLEL: ctx_stmt_name = "parallel"; break;
+	    case GF_OMP_TARGET_KIND_OACC_KERNELS: ctx_stmt_name = "kernels"; break;
+	    case GF_OMP_TARGET_KIND_OACC_DATA: ctx_stmt_name = "data"; break;
+	    default: gcc_unreachable ();
+	    }
+
+	  /* OpenACC/OpenMP mismatch?  */
+	  if (is_gimple_omp_oacc_specifically (stmt)
+	      != is_gimple_omp_oacc_specifically (ctx->stmt))
+	    {
+	      error_at (gimple_location (stmt),
+			"%s %s construct inside of %s %s region",
+			(is_gimple_omp_oacc_specifically (stmt)
+			 ? "OpenACC" : "OpenMP"), stmt_name,
+			(is_gimple_omp_oacc_specifically (ctx->stmt)
+			 ? "OpenACC" : "OpenMP"), ctx_stmt_name);
+	      return false;
+	    }
+	  if (is_gimple_omp_offloaded (ctx->stmt))
+	    {
+	      /* No GIMPLE_OMP_TARGET inside offloaded OpenACC CTX.  */
+	      if (is_gimple_omp_oacc_specifically (ctx->stmt))
+		{
+		  error_at (gimple_location (stmt),
+			    "%s construct inside of %s region",
+			    stmt_name, ctx_stmt_name);
+		  return false;
+		}
+	      else
+		{
+		  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
+		  warning_at (gimple_location (stmt), 0,
+			      "%s construct inside of %s region",
+			      stmt_name, ctx_stmt_name);
+		}
+	    }
+	}
       break;
     default:
       break;

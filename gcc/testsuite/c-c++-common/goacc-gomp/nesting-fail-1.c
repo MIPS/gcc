@@ -1,5 +1,3 @@
-/* TODO: Some of these should either be allowed or fail with a more sensible
-   error message.  */
 void
 f_omp (void)
 {
@@ -7,24 +5,30 @@ f_omp (void)
 
 #pragma omp parallel
   {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
   }
 
 #pragma omp for
   for (i = 0; i < 3; i++)
     {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
       ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
       ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
       ;
-#pragma acc loop	/* { dg-error "may not be closely nested" } */
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc loop /* { dg-error "may not be closely nested" } */
       for (i = 0; i < 2; ++i)
 	;
     }
@@ -32,22 +36,34 @@ f_omp (void)
 #pragma omp sections
   {
     {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
       ;
     }
 #pragma omp section
     {
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
       ;
     }
 #pragma omp section
     {
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
       ;
     }
 #pragma omp section
     {
-#pragma acc loop	/* { dg-error "may not be closely nested" } */
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+    }
+#pragma omp section
+    {
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+    }
+#pragma omp section
+    {
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+    }
+#pragma omp section
+    {
+#pragma acc loop /* { dg-error "may not be closely nested" } */
       for (i = 0; i < 2; ++i)
 	;
     }
@@ -55,105 +71,121 @@ f_omp (void)
 
 #pragma omp single
   {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc loop	/* { dg-error "may not be closely nested" } */
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc loop /* { dg-error "may not be closely nested" } */
     for (i = 0; i < 2; ++i)
       ;
   }
 
 #pragma omp task
   {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc loop	/* { dg-error "may not be closely nested" } */
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc loop /* { dg-error "may not be closely nested" } */
     for (i = 0; i < 2; ++i)
       ;
   }
 
 #pragma omp master
   {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc loop	/* { dg-error "may not be closely nested" } */
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc loop /* { dg-error "may not be closely nested" } */
     for (i = 0; i < 2; ++i)
       ;
   }
 
 #pragma omp critical
   {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc loop	/* { dg-error "may not be closely nested" } */
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc loop /* { dg-error "may not be closely nested" } */
     for (i = 0; i < 2; ++i)
       ;
   }
 
 #pragma omp ordered
   {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
     ;
-#pragma acc loop	/* { dg-error "may not be closely nested" } */
+#pragma acc update host(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
+#pragma acc loop /* { dg-error "may not be closely nested" } */
     for (i = 0; i < 2; ++i)
       ;
   }
 
 #pragma omp target
   {
-#pragma acc parallel	/* { dg-error "may not be nested" } */
+#pragma acc parallel /* { dg-error "OpenACC parallel construct inside of OpenMP target region" } */
     ;
-#pragma acc kernels	/* { dg-error "may not be nested" } */
+#pragma acc kernels /* { dg-error "OpenACC kernels construct inside of OpenMP target region" } */
     ;
-#pragma acc data	/* { dg-error "may not be nested" } */
+#pragma acc data /* { dg-error "OpenACC data construct inside of OpenMP target region" } */
     ;
+#pragma acc update host(i) /* { dg-error "OpenACC update construct inside of OpenMP target region" } */
+#pragma acc enter data copyin(i) /* { dg-error "OpenACC enter/exit data construct inside of OpenMP target region" } */
+#pragma acc exit data delete(i) /* { dg-error "OpenACC enter/exit data construct inside of OpenMP target region" } */
 #pragma acc loop
     for (i = 0; i < 2; ++i)
       ;
   }
 }
 
-/* TODO: Some of these should either be allowed or fail with a more sensible
-   error message.  */
 void
 f_acc_parallel (void)
 {
 #pragma acc parallel
   {
-#pragma omp parallel	/* { dg-error "may not be nested" } */
+#pragma omp parallel /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc parallel
   {
     int i;
-#pragma omp for		/* { dg-error "may not be nested" } */
+#pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     for (i = 0; i < 3; i++)
       ;
   }
 
 #pragma acc parallel
   {
-#pragma omp sections	/* { dg-error "may not be nested" } */
+#pragma omp sections /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     {
       ;
     }
@@ -161,25 +193,25 @@ f_acc_parallel (void)
 
 #pragma acc parallel
   {
-#pragma omp single	/* { dg-error "may not be nested" } */
+#pragma omp single /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc parallel
   {
-#pragma omp task	/* { dg-error "may not be nested" } */
+#pragma omp task /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc parallel
   {
-#pragma omp master	/* { dg-error "may not be nested" } */
+#pragma omp master /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc parallel
   {
-#pragma omp critical	/* { dg-error "may not be nested" } */
+#pragma omp critical /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
@@ -187,44 +219,47 @@ f_acc_parallel (void)
   {
     int i;
 #pragma omp atomic write
-    i = 0;		/* { dg-error "may not be nested" } */
+    i = 0; /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
 
 #pragma acc parallel
   {
-#pragma omp ordered	/* { dg-error "may not be nested" } */
+#pragma omp ordered /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc parallel
   {
-#pragma omp target	/* { dg-error "may not be nested" } */
+    int i;
+
+#pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
+#pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+    ;
+#pragma omp target update to(i) /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
 }
 
-/* TODO: Some of these should either be allowed or fail with a more sensible
-   error message.  */
 void
 f_acc_kernels (void)
 {
 #pragma acc kernels
   {
-#pragma omp parallel	/* { dg-error "may not be nested" } */
+#pragma omp parallel /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc kernels
   {
     int i;
-#pragma omp for		/* { dg-error "may not be nested" } */
+#pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     for (i = 0; i < 3; i++)
       ;
   }
 
 #pragma acc kernels
   {
-#pragma omp sections	/* { dg-error "may not be nested" } */
+#pragma omp sections /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     {
       ;
     }
@@ -232,25 +267,25 @@ f_acc_kernels (void)
 
 #pragma acc kernels
   {
-#pragma omp single	/* { dg-error "may not be nested" } */
+#pragma omp single /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc kernels
   {
-#pragma omp task	/* { dg-error "may not be nested" } */
+#pragma omp task /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc kernels
   {
-#pragma omp master	/* { dg-error "may not be nested" } */
+#pragma omp master /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc kernels
   {
-#pragma omp critical	/* { dg-error "may not be nested" } */
+#pragma omp critical /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
@@ -258,44 +293,47 @@ f_acc_kernels (void)
   {
     int i;
 #pragma omp atomic write
-    i = 0;		/* { dg-error "may not be nested" } */
+    i = 0; /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
 
 #pragma acc kernels
   {
-#pragma omp ordered	/* { dg-error "may not be nested" } */
+#pragma omp ordered /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc kernels
   {
-#pragma omp target	/* { dg-error "may not be nested" } */
+    int i;
+
+#pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
+#pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+    ;
+#pragma omp target update to(i) /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
 }
 
-/* TODO: Some of these should either be allowed or fail with a more sensible
-   error message.  */
 void
 f_acc_data (void)
 {
 #pragma acc data
   {
-#pragma omp parallel	/* { dg-error "may not be nested" } */
+#pragma omp parallel /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc data
   {
     int i;
-#pragma omp for		/* { dg-error "may not be nested" } */
+#pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     for (i = 0; i < 3; i++)
       ;
   }
 
 #pragma acc data
   {
-#pragma omp sections	/* { dg-error "may not be nested" } */
+#pragma omp sections /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     {
       ;
     }
@@ -303,25 +341,25 @@ f_acc_data (void)
 
 #pragma acc data
   {
-#pragma omp single	/* { dg-error "may not be nested" } */
+#pragma omp single /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc data
   {
-#pragma omp task	/* { dg-error "may not be nested" } */
+#pragma omp task /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc data
   {
-#pragma omp master	/* { dg-error "may not be nested" } */
+#pragma omp master /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc data
   {
-#pragma omp critical	/* { dg-error "may not be nested" } */
+#pragma omp critical /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
@@ -329,24 +367,27 @@ f_acc_data (void)
   {
     int i;
 #pragma omp atomic write
-    i = 0;		/* { dg-error "may not be nested" } */
+    i = 0; /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
 
 #pragma acc data
   {
-#pragma omp ordered	/* { dg-error "may not be nested" } */
+#pragma omp ordered /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
   }
 
 #pragma acc data
   {
-#pragma omp target	/* { dg-error "may not be nested" } */
+    int i;
+
+#pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
+#pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+    ;
+#pragma omp target update to(i) /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
 }
 
-/* TODO: Some of these should either be allowed or fail with a more sensible
-   error message.  */
 void
 f_acc_loop (void)
 {
@@ -355,14 +396,14 @@ f_acc_loop (void)
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp parallel	/* { dg-error "may not be nested" } */
+#pragma omp parallel /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       ;
     }
 
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp for		/* { dg-error "may not be nested" } */
+#pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       for (i = 0; i < 3; i++)
 	;
     }
@@ -370,7 +411,7 @@ f_acc_loop (void)
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp sections	/* { dg-error "may not be nested" } */
+#pragma omp sections /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       {
 	;
       }
@@ -379,28 +420,28 @@ f_acc_loop (void)
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp single	/* { dg-error "may not be nested" } */
+#pragma omp single /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       ;
     }
 
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp task	/* { dg-error "may not be nested" } */
+#pragma omp task /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       ;
     }
 
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp master	/* { dg-error "may not be nested" } */
+#pragma omp master /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       ;
     }
 
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp critical	/* { dg-error "may not be nested" } */
+#pragma omp critical /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       ;
     }
 
@@ -408,20 +449,23 @@ f_acc_loop (void)
   for (i = 0; i < 2; ++i)
     {
 #pragma omp atomic write
-      i = 0;		/* { dg-error "may not be nested" } */
+      i = 0; /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     }
 
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp ordered	/* { dg-error "may not be nested" } */
+#pragma omp ordered /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       ;
     }
 
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {
-#pragma omp target	/* { dg-error "may not be nested" } */
+#pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
       ;
+#pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+      ;
+#pragma omp target update to(i) /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     }
 }
