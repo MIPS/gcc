@@ -552,14 +552,15 @@
    (match_operand:<EXCEPT> 3 "reg_or_0_operand")]
   "ISA_HAS_MSA"
 {
-  gcc_assert (GET_MODE_SIZE (<UNITMODE>mode) <= GET_MODE_SIZE (<EXCEPT>mode));
   if ((GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
-       && REG_P (operands[3]))
+      && (REG_P (operands[3]) || (GET_CODE (operands[3]) == SUBREG
+				  && REG_P (SUBREG_REG (operands[3])))))
     {
       unsigned int offset = GET_MODE_SIZE (<EXCEPT>mode)
 			    - GET_MODE_SIZE (<UNITMODE>mode);
-      operands[3] = gen_rtx_SUBREG (<UNITMODE>mode, operands[3],
-				    BYTES_BIG_ENDIAN ? offset : 0);
+      operands[3] = simplify_gen_subreg (<UNITMODE>mode, operands[3],
+					 GET_MODE (operands[3]),
+					 BYTES_BIG_ENDIAN ? offset : 0);
     }
   emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[3],
 		   operands[1], GEN_INT(1 << INTVAL (operands[2]))));
@@ -1990,24 +1991,14 @@
   "ISA_HAS_MSA"
 {
   if ((GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
-       && REG_P (operands[1]))
+      && (REG_P (operands[1]) || (GET_CODE (operands[1]) == SUBREG
+				  && REG_P (SUBREG_REG (operands[1])))))
     {
       unsigned int offset = GET_MODE_SIZE (<EXCEPT>mode)
 			    - GET_MODE_SIZE (<UNITMODE>mode);
-      operands[1] = gen_rtx_SUBREG (<UNITMODE>mode, operands[1],
-                                   BYTES_BIG_ENDIAN ? offset : 0);
-    }
-  else if (TARGET_64BIT
-       && (GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
-       && GET_CODE (operands[1]) == SUBREG
-       && GET_MODE (XEXP (operands[1], 0)) == DImode)
-    {
-      unsigned int offset = GET_MODE_SIZE (DImode)
-			    - GET_MODE_SIZE (<UNITMODE>mode);
-      /* Correct the mode of subreg to HImode or QImode for 64-bit target
-	 that takes an operand in DImode.  */
-      operands[1] = gen_rtx_SUBREG (<UNITMODE>mode, XEXP (operands[1], 0),
-				    BYTES_BIG_ENDIAN ? offset : 0);
+      operands[1] = simplify_gen_subreg (<UNITMODE>mode, operands[1],
+					 GET_MODE (operands[1]),
+					 BYTES_BIG_ENDIAN ? offset : 0);
     }
   emit_insn (gen_msa_fill_<msafmt>_insn (operands[0], operands[1]));
   DONE;

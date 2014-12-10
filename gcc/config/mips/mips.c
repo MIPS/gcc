@@ -4258,20 +4258,6 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return false;
 	}
 
-      /* If it's an add + mult (which is equivalent to shift left) and
-         it's immediate operand satisfies const_immlsa_operand predicate.  */
-      if (ISA_HAS_LSA
-	  && mode == SImode
-	  && GET_CODE (XEXP (x, 0)) == MULT)
-	{
-	  rtx op2 = XEXP (XEXP (x, 0), 1);
-	  if (const_immlsa_operand (op2, mode))
-	    {
-	      *total = 0;
-	      return true;
-	    }
-	}
-
       /* Double-word operations require three single-word operations and
 	 an SLTU.  The MIPS16 version then needs to move the result of
 	 the SLTU from $24 to a MIPS16 register.  */

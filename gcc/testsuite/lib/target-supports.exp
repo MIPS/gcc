@@ -1402,9 +1402,6 @@ proc check_msa_hw_available { } {
 	      #if !defined(__mips_hard_float)
 	      #error "MSA HARD_FLOAT REQUIRED"
 	      #endif
-	      #if !defined(__mips_nan2008)
-	      #error "MSA NAN2008 REQUIRED"
-	      #endif
 	      #if __mips_fpr != 64
 	      #error "MSA 64 FPR REQUIRED"
 	      #endif
@@ -3083,9 +3080,6 @@ proc check_effective_target_mips_msa { } {
      #endif
      #if !defined(__mips_hard_float)
      #error "MSA HARD_FLOAT REQUIRED"
-     #endif
-     #if !defined(__mips_nan2008)
-     #error "MSA NAN2008 REQUIRED"
      #endif
      #if __mips_fpr != 64
      #error "MSA 64 FPR REQUIRED"
@@ -6045,7 +6039,7 @@ proc check_vect_support_and_set_flags { } {
             set dg-do-what-default compile
         }
     } elseif { [istarget mips*-*-*] } {
-        if { 0&& ([check_effective_target_mpaired_single]
+        if { 0 && ([check_effective_target_mpaired_single]
                     || [check_effective_target_mips_loongson])
              && [check_effective_target_nomips16]
              && [check_effective_target_mpaired_single] } {
@@ -6053,13 +6047,7 @@ proc check_vect_support_and_set_flags { } {
             set dg-do-what-default run
         }
         if { ([check_effective_target_mips_msa_nomips16_nomicromips]) } {
-            lappend MULTI_VECTCFLAGS "-mmsa -mnan=2008"
-
-            if { [check_effective_target_mips64] }  {
-                lappend DEFAULT_VECTCFLAGS "-mips64r2"
-            } else {
-                lappend DEFAULT_VECTCFLAGS "-mips32r2" "-mfp64"
-            }
+            lappend MULTI_VECTCFLAGS "-mmsa"
 
             if { [check_effective_target_msa_runtime] } {
                 set dg-do-what-default run
