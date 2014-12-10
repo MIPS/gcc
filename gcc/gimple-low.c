@@ -368,8 +368,6 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       }
       break;
 
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_TARGET:

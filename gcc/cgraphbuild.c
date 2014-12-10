@@ -368,21 +368,14 @@ pass_build_cgraph_edges::execute (function *fun)
 					    bb->count, freq);
 	    }
 	  node->record_stmt_references (stmt);
-	  if (gimple_code (stmt) == GIMPLE_OACC_PARALLEL
-	      && gimple_oacc_parallel_child_fn (stmt))
-	    {
-	      tree fn = gimple_oacc_parallel_child_fn (stmt);
-	      node->create_reference (cgraph_node::get_create (fn),
-				      IPA_REF_ADDR, stmt);
-	    }
-	  else if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
-		   && gimple_omp_parallel_child_fn (stmt))
+	  if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
+	      && gimple_omp_parallel_child_fn (stmt))
 	    {
 	      tree fn = gimple_omp_parallel_child_fn (stmt);
 	      node->create_reference (cgraph_node::get_create (fn),
 				      IPA_REF_ADDR, stmt);
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_OMP_TASK)
+	  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
 	    {
 	      tree fn = gimple_omp_task_child_fn (stmt);
 	      if (fn)

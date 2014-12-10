@@ -811,40 +811,6 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
 }
 
 
-/* Build a GIMPLE_OACC_KERNELS statement.
-
-   BODY is sequence of statements which are executed as kernels.
-   CLAUSES are the OpenACC kernels construct's clauses.  */
-
-gimple
-gimple_build_oacc_kernels (gimple_seq body, tree clauses)
-{
-  gimple p = gimple_alloc (GIMPLE_OACC_KERNELS, 0);
-  if (body)
-    gimple_omp_set_body (p, body);
-  gimple_oacc_kernels_set_clauses (p, clauses);
-
-  return p;
-}
-
-
-/* Build a GIMPLE_OACC_PARALLEL statement.
-
-   BODY is sequence of statements which are executed in parallel.
-   CLAUSES are the OpenACC parallel construct's clauses.  */
-
-gimple
-gimple_build_oacc_parallel (gimple_seq body, tree clauses)
-{
-  gimple p = gimple_alloc (GIMPLE_OACC_PARALLEL, 0);
-  if (body)
-    gimple_omp_set_body (p, body);
-  gimple_oacc_parallel_set_clauses (p, clauses);
-
-  return p;
-}
-
-
 /* Build a GIMPLE_OMP_CRITICAL statement.
 
    BODY is the sequence of statements for which only one thread can execute.
@@ -1077,7 +1043,7 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
 /* Build a GIMPLE_OMP_TARGET statement.
 
    BODY is the sequence of statements that will be executed.
-   KIND is the kind of target region.
+   KIND is the kind of the region.
    CLAUSES are any of the construct's clauses.  */
 
 gimple
@@ -1718,10 +1684,6 @@ gimple_copy (gimple stmt)
 	  new_seq = gimple_seq_copy (gimple_try_cleanup (stmt));
 	  gimple_try_set_cleanup (copy, new_seq);
 	  break;
-
-	case GIMPLE_OACC_KERNELS:
-	case GIMPLE_OACC_PARALLEL:
-          gcc_unreachable ();
 
 	case GIMPLE_OMP_FOR:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));

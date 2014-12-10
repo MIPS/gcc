@@ -439,8 +439,6 @@ The following table briefly describes the GIMPLE instruction set.
 @item @code{GIMPLE_GOTO}		@tab x			@tab x
 @item @code{GIMPLE_LABEL}		@tab x			@tab x
 @item @code{GIMPLE_NOP}			@tab x			@tab x
-@item @code{GIMPLE_OACC_KERNELS}	@tab x			@tab x
-@item @code{GIMPLE_OACC_PARALLEL}	@tab x			@tab x
 @item @code{GIMPLE_OMP_ATOMIC_LOAD}	@tab x			@tab x
 @item @code{GIMPLE_OMP_ATOMIC_STORE}	@tab x			@tab x
 @item @code{GIMPLE_OMP_CONTINUE}	@tab x			@tab x
@@ -1008,8 +1006,6 @@ Return a deep copy of statement @code{STMT}.
 * @code{GIMPLE_EH_FILTER}::
 * @code{GIMPLE_LABEL}::
 * @code{GIMPLE_NOP}::
-* @code{GIMPLE_OACC_KERNELS}::
-* @code{GIMPLE_OACC_PARALLEL}::
 * @code{GIMPLE_OMP_ATOMIC_LOAD}::
 * @code{GIMPLE_OMP_ATOMIC_STORE}::
 * @code{GIMPLE_OMP_CONTINUE}::
@@ -1654,17 +1650,6 @@ Build a @code{GIMPLE_NOP} statement.
 @deftypefn {GIMPLE function} bool gimple_nop_p (gimple g)
 Returns @code{TRUE} if statement @code{G} is a @code{GIMPLE_NOP}.
 @end deftypefn
-
-
-@node @code{GIMPLE_OACC_KERNELS}
-@subsection @code{GIMPLE_OACC_KERNELS}
-@cindex @code{GIMPLE_OACC_KERNELS}
-
-
-@node @code{GIMPLE_OACC_PARALLEL}
-@subsection @code{GIMPLE_OACC_PARALLEL}
-@cindex @code{GIMPLE_OACC_PARALLEL}
-
 
 @node @code{GIMPLE_OMP_ATOMIC_LOAD}
 @subsection @code{GIMPLE_OMP_ATOMIC_LOAD}

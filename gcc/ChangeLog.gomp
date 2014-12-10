@@ -1,4 +1,15 @@
 2014-12-10  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* gimple.def (GIMPLE_OACC_KERNELS, GIMPLE_OACC_PARALLEL): Merge
+	into GIMPLE_OMP_TARGET.  Update all users.
+
+2014-12-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* cgraphbuild.c (pass_build_cgraph_edges::execute): Remove
+	handling of GIMPLE_OACC_PARALLEL.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Dump a bit more
+	data, pretty-printing.
 
 	* omp-low.c (build_omp_regions_1, make_gimple_omp_edges)
 	<GIMPLE_OMP_TARGET>: Handle

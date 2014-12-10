@@ -1338,14 +1338,20 @@ dump_gimple_omp_target (pretty_printer *buffer, gimple gs, int spc, int flags)
     case GF_OMP_TARGET_KIND_UPDATE:
       kind = " update";
       break;
+    case GF_OMP_TARGET_KIND_OACC_KERNELS:
+      kind = " oacc_kernels";
+      break;
+    case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+      kind = " oacc_parallel";
+      break;
     case GF_OMP_TARGET_KIND_OACC_DATA:
       kind = " oacc_data";
       break;
-    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
-      kind = " oacc_enter_exit_data";
-      break;
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
       kind = " oacc_update";
+      break;
+    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+      kind = " oacc_enter_exit_data";
       break;
     default:
       gcc_unreachable ();
@@ -1355,7 +1361,9 @@ dump_gimple_omp_target (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_fmt (buffer, spc, flags, "%G%s <%+BODY <%S>%nCLAUSES <", gs,
 		       kind, gimple_omp_body (gs));
       dump_omp_clauses (buffer, gimple_omp_target_clauses (gs), spc, flags);
-      dump_gimple_fmt (buffer, spc, flags, " >");
+      dump_gimple_fmt (buffer, spc, flags, " >, %T, %T%n>",
+		       gimple_omp_target_child_fn (gs),
+		       gimple_omp_target_data_arg (gs));
     }
   else
     {
@@ -1367,16 +1375,28 @@ dump_gimple_omp_target (pretty_printer *buffer, gimple gs, int spc, int flags)
 	  pp_string (buffer, " [child fn: ");
 	  dump_generic_node (buffer, gimple_omp_target_child_fn (gs),
 			     spc, flags, false);
-	  pp_right_bracket (buffer);
+	  pp_string (buffer, " (");
+	  if (gimple_omp_target_data_arg (gs))
+	    dump_generic_node (buffer, gimple_omp_target_data_arg (gs),
+			       spc, flags, false);
+	  else
+	    pp_string (buffer, "???");
+	  pp_string (buffer, ")]");
 	}
-      if (!gimple_seq_empty_p (gimple_omp_body (gs)))
+      gimple_seq body = gimple_omp_body (gs);
+      if (body && gimple_code (gimple_seq_first_stmt (body)) != GIMPLE_BIND)
 	{
 	  newline_and_indent (buffer, spc + 2);
-	  pp_character (buffer, '{');
+	  pp_left_brace (buffer);
 	  pp_newline (buffer);
-	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  dump_gimple_seq (buffer, body, spc + 4, flags);
 	  newline_and_indent (buffer, spc + 2);
-	  pp_character (buffer, '}');
+	  pp_right_brace (buffer);
+	}
+      else if (body)
+	{
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, body, spc + 2, flags);
 	}
     }
 }
@@ -1878,81 +1898,6 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, bool comment,
 }
 
 
-/* Dump an OpenACC offload tuple on the pretty_printer BUFFER, SPC spaces
-   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
-   dumpfile.h).  */
-
-static void
-dump_gimple_oacc_offload (pretty_printer *buffer, gimple gs, int spc,
-			  int flags)
-{
-  tree (*gimple_omp_clauses) (const_gimple);
-  tree (*gimple_omp_child_fn) (const_gimple);
-  tree (*gimple_omp_data_arg) (const_gimple);
-  const char *kind;
-  switch (gimple_code (gs))
-    {
-    case GIMPLE_OACC_KERNELS:
-      gimple_omp_clauses = gimple_oacc_kernels_clauses;
-      gimple_omp_child_fn = gimple_oacc_kernels_child_fn;
-      gimple_omp_data_arg = gimple_oacc_kernels_data_arg;
-      kind = "kernels";
-      break;
-    case GIMPLE_OACC_PARALLEL:
-      gimple_omp_clauses = gimple_oacc_parallel_clauses;
-      gimple_omp_child_fn = gimple_oacc_parallel_child_fn;
-      gimple_omp_data_arg = gimple_oacc_parallel_data_arg;
-      kind = "parallel";
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  if (flags & TDF_RAW)
-    {
-      dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
-                       gimple_omp_body (gs));
-      dump_omp_clauses (buffer, gimple_omp_clauses (gs), spc, flags);
-      dump_gimple_fmt (buffer, spc, flags, " >, %T, %T%n>",
-                       gimple_omp_child_fn (gs), gimple_omp_data_arg (gs));
-    }
-  else
-    {
-      gimple_seq body;
-      pp_string (buffer, "#pragma acc ");
-      pp_string (buffer, kind);
-      dump_omp_clauses (buffer, gimple_omp_clauses (gs), spc, flags);
-      if (gimple_omp_child_fn (gs))
-	{
-	  pp_string (buffer, " [child fn: ");
-	  dump_generic_node (buffer, gimple_omp_child_fn (gs),
-			     spc, flags, false);
-	  pp_string (buffer, " (");
-	  if (gimple_omp_data_arg (gs))
-	    dump_generic_node (buffer, gimple_omp_data_arg (gs),
-			       spc, flags, false);
-	  else
-	    pp_string (buffer, "???");
-	  pp_string (buffer, ")]");
-	}
-      body = gimple_omp_body (gs);
-      if (body && gimple_code (gimple_seq_first_stmt (body)) != GIMPLE_BIND)
-	{
-	  newline_and_indent (buffer, spc + 2);
-	  pp_left_brace (buffer);
-	  pp_newline (buffer);
-	  dump_gimple_seq (buffer, body, spc + 4, flags);
-	  newline_and_indent (buffer, spc + 2);
-	  pp_right_brace (buffer);
-	}
-      else if (body)
-	{
-	  pp_newline (buffer);
-	  dump_gimple_seq (buffer, body, spc + 2, flags);
-	}
-    }
-}
-
-
 /* Dump a GIMPLE_OMP_PARALLEL tuple on the pretty_printer BUFFER, SPC spaces
    of indent.  FLAGS specifies details to show in the dump (see TDF_* in
    dumpfile.h).  */
@@ -2235,11 +2180,6 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_PHI:
       dump_gimple_phi (buffer, gs, spc, false, flags);
-      break;
-
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
-      dump_gimple_oacc_offload (buffer, gs, spc, flags);
       break;
 
     case GIMPLE_OMP_PARALLEL:

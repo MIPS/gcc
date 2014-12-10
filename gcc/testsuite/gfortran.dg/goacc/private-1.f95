@@ -31,7 +31,7 @@ program test
   end do
   !$acc end parallel
 end program test
-! { dg-final { scan-tree-dump-times "pragma acc parallel" 3 "omplower" } }
+! { dg-final { scan-tree-dump-times "pragma omp target oacc_parallel" 3 "omplower" } }
 ! { dg-final { scan-tree-dump-times "private\\(i\\)" 3 "omplower" } }
 ! { dg-final { scan-tree-dump-times "private\\(j\\)" 2 "omplower" } }
 ! { dg-final { scan-tree-dump-times "private\\(k\\)" 1 "omplower" } }

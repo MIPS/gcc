@@ -7315,10 +7315,12 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 				      OACC_DATA_CLAUSES (expr));
       break;
     case OACC_KERNELS:
-      stmt = gimple_build_oacc_kernels (body, OACC_KERNELS_CLAUSES (expr));
+      stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_KERNELS,
+				      OMP_CLAUSES (expr));
       break;
     case OACC_PARALLEL:
-      stmt = gimple_build_oacc_parallel (body, OACC_PARALLEL_CLAUSES (expr));
+      stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_PARALLEL,
+				      OMP_CLAUSES (expr));
       break;
     case OMP_SECTIONS:
       stmt = gimple_build_omp_sections (body, OMP_CLAUSES (expr));

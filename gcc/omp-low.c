@@ -272,10 +272,12 @@ oacc_max_threads (omp_context *ctx)
      Scan for the innermost vector_length clause.  */
   for (omp_context *oc = ctx; oc; oc = oc->outer)
     {
-      if (gimple_code (oc->stmt) != GIMPLE_OACC_PARALLEL)
+      if (gimple_code (oc->stmt) != GIMPLE_OMP_TARGET
+	  || (gimple_omp_target_kind (oc->stmt)
+	      != GF_OMP_TARGET_KIND_OACC_PARALLEL))
 	continue;
 
-      clauses = gimple_oacc_parallel_clauses (oc->stmt);
+      clauses = gimple_omp_target_clauses (oc->stmt);
 
       vector_length = find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH);
       if (vector_length)
@@ -2643,28 +2645,7 @@ scan_omp_target (gimple stmt, omp_context *outer_ctx)
 {
   omp_context *ctx;
   tree name;
-  bool offloaded;
-  void (*gimple_omp_set_child_fn) (gimple, tree);
-  tree (*gimple_omp_clauses) (const_gimple);
-
-  offloaded = is_gimple_omp_offloaded (stmt);
-  switch (gimple_code (stmt))
-    {
-    case GIMPLE_OACC_KERNELS:
-      gimple_omp_set_child_fn = gimple_oacc_kernels_set_child_fn;
-      gimple_omp_clauses = gimple_oacc_kernels_clauses;
-      break;
-    case GIMPLE_OACC_PARALLEL:
-      gimple_omp_set_child_fn = gimple_oacc_parallel_set_child_fn;
-      gimple_omp_clauses = gimple_oacc_parallel_clauses;
-      break;
-    case GIMPLE_OMP_TARGET:
-      gimple_omp_set_child_fn = gimple_omp_target_set_child_fn;
-      gimple_omp_clauses = gimple_omp_target_clauses;
-      break;
-    default:
-      gcc_unreachable ();
-    }
+  bool offloaded = is_gimple_omp_offloaded (stmt);
 
   if (is_gimple_omp_oacc_specifically (stmt))
     {
@@ -2689,10 +2670,10 @@ scan_omp_target (gimple stmt, omp_context *outer_ctx)
 					     0, 0);
 
       create_omp_child_function (ctx, false);
-      gimple_omp_set_child_fn (stmt, ctx->cb.dst_fn);
+      gimple_omp_target_set_child_fn (stmt, ctx->cb.dst_fn);
     }
 
-  scan_sharing_clauses (gimple_omp_clauses (stmt), ctx);
+  scan_sharing_clauses (gimple_omp_target_clauses (stmt), ctx);
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
@@ -2944,8 +2925,6 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 		      "of work-sharing, critical, ordered, master or explicit "
 		      "task region");
 	    return false;
-	  case GIMPLE_OACC_KERNELS:
-	  case GIMPLE_OACC_PARALLEL:
 	  case GIMPLE_OMP_PARALLEL:
 	    return true;
 	  default:
@@ -3203,8 +3182,6 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       scan_omp (gimple_omp_body_ptr (stmt), ctx);
       break;
 
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_TARGET:
       scan_omp_target (stmt, ctx);
       break;
@@ -8780,42 +8757,24 @@ expand_omp_target (struct omp_region *region)
   gimple entry_stmt, stmt;
   edge e;
   bool offloaded, data_region;
-  tree (*gimple_omp_child_fn) (const_gimple);
-  tree (*gimple_omp_data_arg) (const_gimple);
 
   entry_stmt = last_stmt (region->entry);
   new_bb = region->entry;
 
   offloaded = is_gimple_omp_offloaded (entry_stmt);
-  data_region = false;
-  switch (region->type)
+  switch (gimple_omp_target_kind (entry_stmt))
     {
-    case GIMPLE_OACC_KERNELS:
-      gimple_omp_child_fn = gimple_oacc_kernels_child_fn;
-      gimple_omp_data_arg = gimple_oacc_kernels_data_arg;
+    case GF_OMP_TARGET_KIND_REGION:
+    case GF_OMP_TARGET_KIND_UPDATE:
+    case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+    case GF_OMP_TARGET_KIND_OACC_KERNELS:
+    case GF_OMP_TARGET_KIND_OACC_UPDATE:
+    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+      data_region = false;
       break;
-    case GIMPLE_OACC_PARALLEL:
-      gimple_omp_child_fn = gimple_oacc_parallel_child_fn;
-      gimple_omp_data_arg = gimple_oacc_parallel_data_arg;
-      break;
-    case GIMPLE_OMP_TARGET:
-      switch (gimple_omp_target_kind (entry_stmt))
-	{
-	case GF_OMP_TARGET_KIND_DATA:
-	case GF_OMP_TARGET_KIND_OACC_DATA:
-	  data_region = true;
-	  break;
-	case GF_OMP_TARGET_KIND_REGION:
-	case GF_OMP_TARGET_KIND_UPDATE:
-	case GF_OMP_TARGET_KIND_OACC_UPDATE:
-	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
-      gimple_omp_child_fn = gimple_omp_target_child_fn;
-      gimple_omp_data_arg = gimple_omp_target_data_arg;
+    case GF_OMP_TARGET_KIND_DATA:
+    case GF_OMP_TARGET_KIND_OACC_DATA:
+      data_region = true;
       break;
     default:
       gcc_unreachable ();
@@ -8825,7 +8784,7 @@ expand_omp_target (struct omp_region *region)
   child_cfun = NULL;
   if (offloaded)
     {
-      child_fn = gimple_omp_child_fn (entry_stmt);
+      child_fn = gimple_omp_target_child_fn (entry_stmt);
       child_cfun = DECL_STRUCT_FUNCTION (child_fn);
     }
 
@@ -8854,13 +8813,14 @@ expand_omp_target (struct omp_region *region)
 	 a function call that has been inlined, the original PARM_DECL
 	 .OMP_DATA_I may have been converted into a different local
 	 variable.  In which case, we need to keep the assignment.  */
-      if (gimple_omp_data_arg (entry_stmt))
+      tree data_arg = gimple_omp_target_data_arg (entry_stmt);
+      if (data_arg)
 	{
 	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  gimple_stmt_iterator gsi;
 	  tree arg;
 	  gimple tgtcopy_stmt = NULL;
-	  tree sender = TREE_VEC_ELT (gimple_omp_data_arg (entry_stmt), 0);
+	  tree sender = TREE_VEC_ELT (data_arg, 0);
 
 	  for (gsi = gsi_start_bb (entry_succ_bb); ; gsi_next (&gsi))
 	    {
@@ -8994,49 +8954,38 @@ expand_omp_target (struct omp_region *region)
   tree t1, t2, t3, t4, device, cond, c, clauses;
   enum built_in_function start_ix;
   location_t clause_loc;
-  tree (*gimple_omp_clauses) (const_gimple);
 
-  switch (region->type)
+  switch (gimple_omp_target_kind (entry_stmt))
     {
-    case GIMPLE_OACC_KERNELS:
-      gimple_omp_clauses = gimple_oacc_kernels_clauses;
-      start_ix = BUILT_IN_GOACC_KERNELS;
+    case GF_OMP_TARGET_KIND_REGION:
+      start_ix = BUILT_IN_GOMP_TARGET;
       break;
-    case GIMPLE_OACC_PARALLEL:
-      gimple_omp_clauses = gimple_oacc_parallel_clauses;
+    case GF_OMP_TARGET_KIND_DATA:
+      start_ix = BUILT_IN_GOMP_TARGET_DATA;
+      break;
+    case GF_OMP_TARGET_KIND_UPDATE:
+      start_ix = BUILT_IN_GOMP_TARGET_UPDATE;
+      break;
+    case GF_OMP_TARGET_KIND_OACC_PARALLEL:
       start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
-    case GIMPLE_OMP_TARGET:
-      gimple_omp_clauses = gimple_omp_target_clauses;
-      switch (gimple_omp_target_kind (entry_stmt))
-	{
-	case GF_OMP_TARGET_KIND_REGION:
-	  start_ix = BUILT_IN_GOMP_TARGET;
-	  break;
-	case GF_OMP_TARGET_KIND_DATA:
-	  start_ix = BUILT_IN_GOMP_TARGET_DATA;
-	  break;
-	case GF_OMP_TARGET_KIND_UPDATE:
-	  start_ix = BUILT_IN_GOMP_TARGET_UPDATE;
-	  break;
-	case GF_OMP_TARGET_KIND_OACC_DATA:
-	  start_ix = BUILT_IN_GOACC_DATA_START;
-	  break;
-	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
-	  start_ix = BUILT_IN_GOACC_ENTER_EXIT_DATA;
-	  break;
-	case GF_OMP_TARGET_KIND_OACC_UPDATE:
-	  start_ix = BUILT_IN_GOACC_UPDATE;
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
+    case GF_OMP_TARGET_KIND_OACC_KERNELS:
+      start_ix = BUILT_IN_GOACC_KERNELS;
+      break;
+    case GF_OMP_TARGET_KIND_OACC_DATA:
+      start_ix = BUILT_IN_GOACC_DATA_START;
+      break;
+    case GF_OMP_TARGET_KIND_OACC_UPDATE:
+      start_ix = BUILT_IN_GOACC_UPDATE;
+      break;
+    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+      start_ix = BUILT_IN_GOACC_ENTER_EXIT_DATA;
       break;
     default:
       gcc_unreachable ();
     }
 
-  clauses = gimple_omp_clauses (entry_stmt);
+  clauses = gimple_omp_target_clauses (entry_stmt);
 
   /* By default, the value of DEVICE is -1 (let runtime library choose)
      and there is no conditional.  */
@@ -9119,7 +9068,7 @@ expand_omp_target (struct omp_region *region)
     }
 
   gsi = gsi_last_bb (new_bb);
-  t = gimple_omp_data_arg (entry_stmt);
+  t = gimple_omp_target_data_arg (entry_stmt);
   if (t == NULL)
     {
       t1 = size_zero_node;
@@ -9331,8 +9280,6 @@ expand_omp (struct omp_region *region)
 	  expand_omp_atomic (region);
 	  break;
 
-	case GIMPLE_OACC_KERNELS:
-	case GIMPLE_OACC_PARALLEL:
 	case GIMPLE_OMP_TARGET:
 	  expand_omp_target (region);
 	  break;
@@ -9679,22 +9626,18 @@ oacc_initialize_reduction_data (tree clauses, tree nthreads,
   tree c, t, oc;
   gimple stmt;
   omp_context *octx;
-  tree (*gimple_omp_clauses) (const_gimple);
-  void (*gimple_omp_set_clauses) (gimple, tree);
 
   /* Find the innermost PARALLEL openmp context.  FIXME: OpenACC kernels
      may require extra care unless they are converted to openmp for loops.  */
-
-  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+  if (gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET
+      && (gimple_omp_target_kind (ctx->stmt)
+	  == GF_OMP_TARGET_KIND_OACC_PARALLEL))
     octx = ctx;
   else
     octx = ctx->outer;
 
-  gimple_omp_clauses = gimple_oacc_parallel_clauses;
-  gimple_omp_set_clauses = gimple_oacc_parallel_set_clauses;
-
   /* Extract the clauses.  */
-  oc = gimple_omp_clauses (octx->stmt);
+  oc = gimple_omp_target_clauses (octx->stmt);
 
   /* Find the last outer clause.  */
   for (; oc && OMP_CLAUSE_CHAIN (oc); oc = OMP_CLAUSE_CHAIN (oc))
@@ -9744,7 +9687,7 @@ oacc_initialize_reduction_data (tree clauses, tree nthreads,
       if (oc)
 	OMP_CLAUSE_CHAIN (oc) = t;
       else
-	gimple_omp_set_clauses (octx->stmt, t);
+	gimple_omp_target_set_clauses (octx->stmt, t);
       OMP_CLAUSE_SIZE (t) = size;
       oc = t;
     }
@@ -11195,45 +11138,27 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   location_t loc = gimple_location (stmt);
   bool offloaded, data_region;
   unsigned int map_cnt = 0;
-  tree (*gimple_omp_clauses) (const_gimple);
-  void (*gimple_omp_set_data_arg) (gimple, tree);
 
   offloaded = is_gimple_omp_offloaded (stmt);
-  data_region = false;
-  switch (gimple_code (stmt))
+  switch (gimple_omp_target_kind (stmt))
     {
-    case GIMPLE_OACC_KERNELS:
-      gimple_omp_clauses = gimple_oacc_kernels_clauses;
-      gimple_omp_set_data_arg = gimple_oacc_kernels_set_data_arg;
+    case GF_OMP_TARGET_KIND_REGION:
+    case GF_OMP_TARGET_KIND_UPDATE:
+    case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+    case GF_OMP_TARGET_KIND_OACC_KERNELS:
+    case GF_OMP_TARGET_KIND_OACC_UPDATE:
+    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+      data_region = false;
       break;
-    case GIMPLE_OACC_PARALLEL:
-      gimple_omp_clauses = gimple_oacc_parallel_clauses;
-      gimple_omp_set_data_arg = gimple_oacc_parallel_set_data_arg;
-      break;
-    case GIMPLE_OMP_TARGET:
-      switch (gimple_omp_target_kind (stmt))
-	{
-	case GF_OMP_TARGET_KIND_DATA:
-	case GF_OMP_TARGET_KIND_OACC_DATA:
-	  data_region = true;
-	  break;
-	case GF_OMP_TARGET_KIND_REGION:
-	case GF_OMP_TARGET_KIND_UPDATE:
-	case GF_OMP_TARGET_KIND_OACC_UPDATE:
-	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
-      gimple_omp_clauses = gimple_omp_target_clauses;
-      gimple_omp_set_data_arg = gimple_omp_target_set_data_arg;
+    case GF_OMP_TARGET_KIND_DATA:
+    case GF_OMP_TARGET_KIND_OACC_DATA:
+      data_region = true;
       break;
     default:
       gcc_unreachable ();
     }
 
-  clauses = gimple_omp_clauses (stmt);
+  clauses = gimple_omp_target_clauses (stmt);
 
   tgt_bind = NULL;
   tgt_body = NULL;
@@ -11250,15 +11175,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   irlist = NULL;
   orlist = NULL;
-  switch (gimple_code (stmt))
-    {
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
-      oacc_process_reduction_data (&tgt_body, &irlist, &orlist, ctx);
-      break;
-    default:
-      break;
-    }
+  if (offloaded
+      && is_gimple_omp_oacc_specifically (stmt))
+    oacc_process_reduction_data (&tgt_body, &irlist, &orlist, ctx);
 
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     switch (OMP_CLAUSE_CODE (c))
@@ -11390,7 +11309,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       DECL_NAMELESS (TREE_VEC_ELT (t, 2)) = 1;
       TREE_ADDRESSABLE (TREE_VEC_ELT (t, 2)) = 1;
       TREE_STATIC (TREE_VEC_ELT (t, 2)) = 1;
-      gimple_omp_set_data_arg (stmt, t);
+      gimple_omp_target_set_data_arg (stmt, t);
 
       vec<constructor_elt, va_gc> *vsize;
       vec<constructor_elt, va_gc> *vkind;
@@ -11457,8 +11376,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			    || TREE_CODE (TREE_TYPE (ovar)) != ARRAY_TYPE);
 		if (maybe_lookup_oacc_reduction (var, ctx))
 		  {
-		    gcc_assert (gimple_code (stmt) == GIMPLE_OACC_KERNELS
-				|| gimple_code (stmt) == GIMPLE_OACC_PARALLEL);
+		    gcc_assert (offloaded
+				&& is_gimple_omp_oacc_specifically (stmt));
 		    gimplify_assign (x, var, &ilist);
 		  }
 		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
@@ -11802,8 +11721,6 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			lower_omp_regimplify_p, ctx ? NULL : &wi, NULL))
 	gimple_regimplify_operands (stmt, gsi_p);
       break;
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_TARGET:
       ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
@@ -12095,8 +12012,6 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     {
     WALK_SUBSTMTS;
 
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
@@ -12155,8 +12070,6 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     {
     WALK_SUBSTMTS;
 
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
@@ -12252,8 +12165,6 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
 
   switch (code)
     {
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_FOR:
