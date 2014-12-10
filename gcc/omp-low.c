@@ -9404,7 +9404,9 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
       else if (code == GIMPLE_OMP_TARGET
 	       && (gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_UPDATE
 		   || (gimple_omp_target_kind (stmt)
-		       == GF_OMP_TARGET_KIND_OACC_UPDATE)))
+		       == GF_OMP_TARGET_KIND_OACC_UPDATE)
+		   || (gimple_omp_target_kind (stmt)
+		       == GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA)))
 	new_omp_region (bb, code, parent);
       else
 	{
@@ -12270,7 +12272,9 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
       cur_region = new_omp_region (bb, code, cur_region);
       fallthru = true;
       if (gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_UPDATE
-	  || gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_OACC_UPDATE)
+	  || gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_OACC_UPDATE
+	  || (gimple_omp_target_kind (last)
+	      == GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA))
 	cur_region = cur_region->outer;
       break;
 

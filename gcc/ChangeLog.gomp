@@ -1,3 +1,10 @@
+2014-12-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (build_omp_regions_1, make_gimple_omp_edges)
+	<GIMPLE_OMP_TARGET>: Handle
+	GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA the same as
+	GF_OMP_TARGET_KIND_OACC_UPDATE.
+
 2014-11-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (oacc_get_reduction_array_id): Fix whitespace.
