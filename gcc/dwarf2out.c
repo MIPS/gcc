@@ -3264,8 +3264,8 @@ static void gen_subprogram_die (tree, dw_die_ref);
 static void gen_variable_die (tree, tree, dw_die_ref);
 static void gen_const_die (tree, dw_die_ref);
 static void gen_label_die (tree, dw_die_ref);
-static void gen_lexical_block_die (tree, dw_die_ref, int);
-static void gen_inlined_subroutine_die (tree, dw_die_ref, int);
+static void gen_lexical_block_die (tree, dw_die_ref);
+static void gen_inlined_subroutine_die (tree, dw_die_ref);
 static void gen_field_die (tree, dw_die_ref);
 static void gen_ptr_to_mbr_type_die (tree, dw_die_ref);
 static dw_die_ref gen_compile_unit_die (const char *);
@@ -3276,8 +3276,8 @@ static void gen_struct_or_union_type_die (tree, dw_die_ref,
 static void gen_subroutine_type_die (tree, dw_die_ref);
 static void gen_typedef_die (tree, dw_die_ref);
 static void gen_type_die (tree, dw_die_ref);
-static void gen_block_die (tree, dw_die_ref, int);
-static void decls_for_scope (tree, dw_die_ref, int);
+static void gen_block_die (tree, dw_die_ref);
+static void decls_for_scope (tree, dw_die_ref);
 static inline int is_redundant_typedef (const_tree);
 static bool is_naming_typedef_decl (const_tree);
 static inline dw_die_ref get_context_die (tree);
@@ -18948,7 +18948,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       /* The first time through decls_for_scope we will generate the
 	 DIEs for the locals.  The second time, we fill in the
 	 location info.  */
-      decls_for_scope (outer_scope, subr_die, 0);
+      decls_for_scope (outer_scope, subr_die);
 
       if (call_arg_locations && !dwarf_strict)
 	{
@@ -19629,7 +19629,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
 /* Generate a DIE for a lexical block.  */
 
 static void
-gen_lexical_block_die (tree stmt, dw_die_ref context_die, int depth)
+gen_lexical_block_die (tree stmt, dw_die_ref context_die)
 {
   dw_die_ref stmt_die = BLOCK_DIE (stmt);
 
@@ -19694,13 +19694,13 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die, int depth)
 	add_high_low_attributes (stmt, stmt_die);
     }
 
-  decls_for_scope (stmt, stmt_die, depth);
+  decls_for_scope (stmt, stmt_die);
 }
 
 /* Generate a DIE for an inlined subprogram.  */
 
 static void
-gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die, int depth)
+gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
 {
   tree decl;
 
@@ -19732,7 +19732,7 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die, int depth)
         add_high_low_attributes (stmt, subr_die);
       add_call_src_coords_attributes (stmt, subr_die);
 
-      decls_for_scope (stmt, subr_die, depth);
+      decls_for_scope (stmt, subr_die);
     }
 }
 
@@ -20635,7 +20635,7 @@ gen_type_die (tree type, dw_die_ref context_die)
    things which are local to the given block.  */
 
 static void
-gen_block_die (tree stmt, dw_die_ref context_die, int depth)
+gen_block_die (tree stmt, dw_die_ref context_die)
 {
   int must_output_die = 0;
   bool inlined_func;
@@ -20654,7 +20654,7 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
       tree sub;
 
       for (sub = BLOCK_SUBBLOCKS (stmt); sub; sub = BLOCK_CHAIN (sub))
-	gen_block_die (sub, context_die, depth + 1);
+	gen_block_die (sub, context_die);
 
       return;
     }
@@ -20709,13 +20709,13 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
 	     the concrete instance of STMT got inlined, the later will lead
 	     to the generation of a DW_TAG_inlined_subroutine DIE.  */
 	  if (! BLOCK_ABSTRACT (stmt))
-	    gen_inlined_subroutine_die (stmt, context_die, depth);
+	    gen_inlined_subroutine_die (stmt, context_die);
 	}
       else
-	gen_lexical_block_die (stmt, context_die, depth);
+	gen_lexical_block_die (stmt, context_die);
     }
   else
-    decls_for_scope (stmt, context_die, depth);
+    decls_for_scope (stmt, context_die);
 }
 
 /* Process variable DECL (or variable with origin ORIGIN) within
@@ -20747,7 +20747,7 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
    all of its sub-blocks.  */
 
 static void
-decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
+decls_for_scope (tree stmt, dw_die_ref context_die)
 {
   tree decl;
   unsigned int i;
@@ -20779,7 +20779,7 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
   for (subblocks = BLOCK_SUBBLOCKS (stmt);
        subblocks != NULL;
        subblocks = BLOCK_CHAIN (subblocks))
-    gen_block_die (subblocks, context_die, depth + 1);
+    gen_block_die (subblocks, context_die);
 }
 
 /* Is this a typedef we can avoid emitting?  */
