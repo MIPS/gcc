@@ -7,7 +7,6 @@
 package reflect
 
 import (
-	"runtime"
 	"unsafe"
 )
 
@@ -64,23 +63,11 @@ func MakeFunc(typ Type, fn func(args []Value) (results []Value)) Value {
 		method: -1,
 	}
 
-	switch runtime.GOARCH {
-	case "amd64", "386", "s390", "s390x":
-		impl.code = makeFuncStubCode
-	default:
-		impl.fn = fn
-		makeFuncFFI(ftyp, impl)
-	}
+	impl.fn = fn
+	makeFuncFFI(ftyp, impl)
 
 	return Value{t, unsafe.Pointer(&impl), flag(Func<<flagKindShift) | flagIndir}
 }
-
-// makeFuncStub is an assembly function that is the code half of
-// the function returned from MakeFunc. It expects a *callReflectFunc
-// as its context register, and its job is to invoke callReflect(ctxt, frame)
-// where ctxt is the context register and frame is a pointer to the first
-// word in the passed-in argument frame.
-func makeFuncStub()
 
 // makeMethodValue converts v from the rcvr+method index representation
 // of a method value to an actual method func value, which is
@@ -116,12 +103,7 @@ func makeMethodValue(op string, v Value) Value {
 		rcvr:   rcvr,
 	}
 
-	switch runtime.GOARCH {
-	case "amd64", "386", "s390", "s390x":
-		fv.code = makeFuncStubCode;
-	default:
-		makeFuncFFI(ftyp, fv)
-	}
+	makeFuncFFI(ftyp, fv)
 
 	return Value{ft, unsafe.Pointer(&fv), v.flag&flagRO | flag(Func)<<flagKindShift | flagIndir}
 }
@@ -147,12 +129,7 @@ func makeValueMethod(v Value) Value {
 		rcvr:   v,
 	}
 
-	switch runtime.GOARCH {
-	case "amd64", "386", "s390", "s390x":
-		impl.code = makeFuncStubCode
-	default:
-		makeFuncFFI(ftyp, impl)
-	}
+	makeFuncFFI(ftyp, impl)
 
 	return Value{t, unsafe.Pointer(&impl), flag(Func<<flagKindShift) | flagIndir}
 }
