@@ -18511,7 +18511,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	 apply; we just use the old DIE.  */
       expanded_location s = expand_location (DECL_SOURCE_LOCATION (decl));
       struct dwarf_file_data * file_index = lookup_filename (s.file);
-      if (((is_cu_die (old_die->die_parent) || context_die == NULL)
+      if (((is_cu_die (old_die->die_parent)
+	    || context_die == NULL
+	    || dumped_early)
 	   && (DECL_ARTIFICIAL (decl)
 	       || (get_AT_file (old_die, DW_AT_decl_file) == file_index
 		   && (get_AT_unsigned (old_die, DW_AT_decl_line)
@@ -19132,6 +19134,17 @@ decl_will_get_specification_p (dw_die_ref old_die, tree decl, bool declaration)
 	  && get_AT_flag (old_die, DW_AT_declaration) == 1);
 }
 
+/* Return true if DECL is a local static.  */
+
+static inline bool
+local_function_static (tree decl)
+{
+  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+  return TREE_STATIC (decl)
+    && DECL_CONTEXT (decl)
+    && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL;
+}
+
 /* Generate a DIE to represent a declared data object.
    Either DECL or ORIGIN must be non-null.  */
 
@@ -19283,13 +19296,35 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	}
       else if (old_die->die_parent != context_die)
 	{
-	  /* If the contexts differ, it means we're not talking about
-	     the same thing.  Clear things so we can get a new DIE.
-	     This can happen when creating an inlined instance, in
-	     which case we need to create a new DIE that will get
-	     annotated with DW_AT_abstract_origin.  */
-	  old_die = NULL;
-	  gcc_assert (!DECL_ABSTRACT_P (decl));
+	  /* If the contexts differ, it means we _MAY_ not be talking
+	     about the same thing.  */
+	  if (origin)
+	    {
+	      /* If we will be creating an inlined instance, we need a
+		 new DIE that will get annotated with
+		 DW_AT_abstract_origin.  Clear things so we can get a
+		 new DIE.  */
+	      gcc_assert (!DECL_ABSTRACT_P (decl));
+	      old_die = NULL;
+	    }
+	  else
+	    {
+	      /* Otherwise, the only reasonable alternate way of
+		 getting here is during the final dwarf pass, when
+		 being called on a local static.  We can end up with
+		 different contexts because the context_die is set to
+		 the context of the containing function, whereas the
+		 cached die (old_die) is correctly set to the
+		 (possible) enclosing lexical scope
+		 (DW_TAG_lexical_block).  In which case, special
+		 handle it (hack).
+
+		 See dwarf2out_decl and its use of
+		 local_function_static to see how this happened.  */
+	      gcc_assert (local_function_static (decl));
+	      var_die = old_die;
+	      goto gen_variable_die_location;
+	    }
 	}
       else
 	{
@@ -21563,9 +21598,7 @@ dwarf2out_decl (tree decl)
 	return NULL;
 
       /* For local statics lookup proper context die.  */
-      if (TREE_STATIC (decl)
-	  && DECL_CONTEXT (decl)
-	  && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
+      if (local_function_static (decl))
 	context_die = lookup_decl_die (DECL_CONTEXT (decl));
 
       /* If we are in terse mode, don't generate any DIEs to represent any
