@@ -8434,6 +8434,30 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       eliminate_regs (cfun->machine->sdmode_stack_slot, VOIDmode, NULL_RTX);
 
 
+  /* Transform (p0:DD, (SUBREG:DD p1:SD)) to ((SUBREG:SD p0:DD),
+     p1:SD) if p1 is not of floating point class and p0 is spilled as
+     we can have no analogous movsd_store for this.  */
+  if (lra_in_progress && mode == DDmode
+      && REG_P (operands[0]) && REGNO (operands[0]) >= FIRST_PSEUDO_REGISTER
+      && reg_preferred_class (REGNO (operands[0])) == NO_REGS
+      && GET_CODE (operands[1]) == SUBREG && REG_P (SUBREG_REG (operands[1]))
+      && GET_MODE (SUBREG_REG (operands[1])) == SDmode)
+    {
+      enum reg_class cl;
+      int regno = REGNO (SUBREG_REG (operands[1]));
+
+      if (regno >= FIRST_PSEUDO_REGISTER)
+	{
+	  cl = reg_preferred_class (regno);
+	  regno = cl == NO_REGS ? -1 : ira_class_hard_regs[cl][1];
+	}
+      if (regno >= 0 && ! FP_REGNO_P (regno))
+	{
+	  mode = SDmode;
+	  operands[0] = gen_lowpart_SUBREG (SDmode, operands[0]);
+	  operands[1] = SUBREG_REG (operands[1]);
+	}
+    }
   if (lra_in_progress
       && mode == SDmode
       && REG_P (operands[0]) && REGNO (operands[0]) >= FIRST_PSEUDO_REGISTER
@@ -8463,6 +8487,30 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       else
 	gcc_unreachable();
       return;
+    }
+  /* Transform ((SUBREG:DD p0:SD), p1:DD) to (p0:SD, (SUBREG:SD
+     p:DD)) if p0 is not of floating point class and p1 is spilled as
+     we can have no analogous movsd_load for this.  */
+  if (lra_in_progress && mode == DDmode
+      && GET_CODE (operands[0]) == SUBREG && REG_P (SUBREG_REG (operands[0]))
+      && GET_MODE (SUBREG_REG (operands[0])) == SDmode
+      && REG_P (operands[1]) && REGNO (operands[1]) >= FIRST_PSEUDO_REGISTER
+      && reg_preferred_class (REGNO (operands[1])) == NO_REGS)
+    {
+      enum reg_class cl;
+      int regno = REGNO (SUBREG_REG (operands[0]));
+
+      if (regno >= FIRST_PSEUDO_REGISTER)
+	{
+	  cl = reg_preferred_class (regno);
+	  regno = cl == NO_REGS ? -1 : ira_class_hard_regs[cl][0];
+	}
+      if (regno >= 0 && ! FP_REGNO_P (regno))
+	{
+	  mode = SDmode;
+	  operands[0] = SUBREG_REG (operands[0]);
+	  operands[1] = gen_lowpart_SUBREG (SDmode, operands[1]);
+	}
     }
   if (lra_in_progress
       && mode == SDmode
@@ -16826,6 +16874,13 @@ rs6000_secondary_reload_move (enum rs6000_reg_type to_type,
 			      secondary_reload_info *sri,
 			      bool altivec_p)
 {
+  /* Make sure sri is setup if passed.  */
+  if (sri)
+    {
+      sri->icode = CODE_FOR_nothing;
+      sri->extra_cost = 0;
+    }
+
   /* Fall back to load/store reloads if either type is not a register.  */
   if (to_type == NO_REG_TYPE || from_type == NO_REG_TYPE)
     return false;
@@ -16844,14 +16899,7 @@ rs6000_secondary_reload_move (enum rs6000_reg_type to_type,
 
   /* Check whether a simple move can be done directly.  */
   if (rs6000_secondary_reload_simple_move (to_type, from_type, mode))
-    {
-      if (sri)
-	{
-	  sri->icode = CODE_FOR_nothing;
-	  sri->extra_cost = 0;
-	}
-      return true;
-    }
+    return true;
 
   /* Now check if we can do it in a few steps.  */
   return rs6000_secondary_reload_direct_move (to_type, from_type, mode, sri,
@@ -16886,8 +16934,10 @@ rs6000_secondary_reload (bool in_p,
 		   || (!reload_completed && GET_CODE (x) == SUBREG
 		       && MEM_P (SUBREG_REG (x))));
 
+  /* Set the secondary reload structure to a known state.  */
+  memset ((void *)sri, '\0', sizeof (secondary_reload_info));
   sri->icode = CODE_FOR_nothing;
-  sri->extra_cost = 0;
+
   icode = ((in_p)
 	   ? reg_addr[mode].reload_load
 	   : reg_addr[mode].reload_store);
@@ -17048,9 +17098,23 @@ rs6000_secondary_reload (bool in_p,
     default_p = true;
 
   if (default_p)
-    ret = default_secondary_reload (in_p, x, rclass, mode, sri);
+    {
+      ret = default_secondary_reload (in_p, x, rclass, mode, sri);
+
+      if (!IN_RANGE (sri->icode, CODE_FOR_nothing, LAST_INSN_CODE))
+	{
+	  fprintf (stderr,
+		   "default_secondary_reload failure, ret = %s, rclass = %s, mode = %s, in_p = %s\n",
+		   reg_class_names[ret],
+		   reg_class_names[rclass],
+		   GET_MODE_NAME (mode),
+		   in_p ? "true" : "false");
+	  debug_rtx (x);
+	}
+    }
 
   gcc_assert (ret != ALL_REGS);
+  gcc_assert (IN_RANGE (sri->icode, CODE_FOR_nothing, LAST_INSN_CODE));
 
   if (TARGET_DEBUG_ADDR)
     {
@@ -17297,10 +17361,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
+#if 0
       if (TARGET_TOC)
 	emit_insn (gen_rtx_SET (VOIDmode, scratch,
 				create_TOC_reference (addr, scratch)));
       else
+#endif
 	rs6000_emit_move (scratch, addr, Pmode);
 
       new_addr = scratch;
@@ -18770,7 +18836,7 @@ print_operand (FILE *file, rtx x, int code)
 	  fprintf (file, "0,%s", reg_names[REGNO (tmp)]);
 	else
 	  {
-	    if (!GET_CODE (tmp) == PLUS
+	    if (GET_CODE (tmp) != PLUS
 		|| !REG_P (XEXP (tmp, 0))
 		|| !REG_P (XEXP (tmp, 1)))
 	      {
@@ -20289,7 +20355,7 @@ rs6000_adjust_atomic_subword (rtx orig_mem, rtx *pshift, rtx *pmask)
   shift = gen_reg_rtx (SImode);
   addr = gen_lowpart (SImode, addr);
   emit_insn (gen_rlwinm (shift, addr, GEN_INT (3), GEN_INT (shift_mask)));
-  if (WORDS_BIG_ENDIAN)
+  if (BYTES_BIG_ENDIAN)
     shift = expand_simple_binop (SImode, XOR, shift, GEN_INT (shift_mask),
 			         shift, 1, OPTAB_LIB_WIDEN);
   *pshift = shift;
