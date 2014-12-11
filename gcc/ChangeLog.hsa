@@ -1,3 +1,8 @@
+2014-12-11  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c: Comment typos are fixed.
+	* hsa.h: Likewise.
+
 2014-10-24  Martin Jambor  <mjambor@suse.cz>
 
 	* README.hsa: Removed the part about extracting the HSA ELF sections.

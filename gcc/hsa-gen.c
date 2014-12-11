@@ -555,7 +555,7 @@ hsa_alloc_reg_op (void)
   return hreg;
 }
 
-/* Allocate and set up a new address operand consisintg of base symbol SYM,
+/* Allocate and set up a new address operand consisting of base symbol SYM,
    register REG ans immediate OFFSET.  If the machine model is not large and
    offset is 64 bit, the upper, 32 bits have to be zero.  */
 
@@ -726,7 +726,7 @@ static hsa_op_base * hsa_reg_or_immed_for_gimple_op (tree op, hsa_bb *hbb,
 						     hsa_insn_basic *new_use);
 
 /* Generate HSA address operand for a given tree memory reference REF.  If
-   instructions need to be created to calculate the address, they willbe added
+   instructions need to be created to calculate the address, they will be added
    to the end of HBB, SSA_MAP is an array mapping gimple SSA names to HSA
    pseudoregisters.  */
 
@@ -1866,7 +1866,7 @@ gen_body_from_gimple (vec <hsa_op_reg_p> ssa_map)
 }
 
 /* Generate the vector of parameters of the HSA representation of the current
-   function.  Thisd also includes the output parameter representing ther
+   function.  This also includes the output parameter representing ther
    result.  */
 
 static void

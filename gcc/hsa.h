@@ -460,7 +460,7 @@ struct hsa_function_representation
      problems with derived classes, so for now we'll use a simple array.  */
   int input_args_count;
 
-  /* Number of allocated register structires.  */
+  /* Number of allocated register structures.  */
   int reg_count;
 
   struct hsa_symbol *input_args;
@@ -478,7 +478,7 @@ struct hsa_function_representation
   /* Number of HBB BBs.  */
   int hbb_count;
 
-  /* Whether or not we chould check and enforce SSA properties.  */
+  /* Whether or not we could check and enforce SSA properties.  */
   bool in_ssa;
 };
 
