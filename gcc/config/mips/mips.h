@@ -2302,14 +2302,11 @@ enum reg_class
 #define FP_ARG_LAST  (FP_ARG_FIRST + MAX_ARGS_IN_REGISTERS - 1)
 
 /* True if MODE is vector and supported in a MSA vector register.  */
-#define MSA_SUPPORTED_VECTOR_MODE_P(MODE)		\
-  (GET_MODE_SIZE (MODE) == UNITS_PER_MSA_REG		\
+#define MSA_SUPPORTED_MODE_P(MODE)			\
+  (TARGET_MSA						\
+   && GET_MODE_SIZE (MODE) == UNITS_PER_MSA_REG		\
    && (GET_MODE_CLASS (MODE) == MODE_VECTOR_INT		\
        || GET_MODE_CLASS (MODE) == MODE_VECTOR_FLOAT))
-
-/* True if MODE is supported in a MSA vector register.  */
-#define MSA_SUPPORTED_MODE_P(MODE)	\
-  (TARGET_MSA && ((MODE) == TImode || MSA_SUPPORTED_VECTOR_MODE_P (MODE)))
 
 /* Temporary register that is used when restoring $gp after a call.  $4 and $5
    are used for returning complex double values in soft-float code, so $6 is the

@@ -491,13 +491,7 @@
 	 ;; instructions.
 	 (and (eq_attr "move_type" "mtc,mfc,move")
 	      (eq_attr "qword_mode" "yes"))
-	 (const_int 16)
-
-	 ;; Quadword CONST moves are split into four word
-	 ;; CONST moves.
-	 (and (eq_attr "move_type" "const")
-	      (eq_attr "qword_mode" "yes"))
-	 (symbol_ref "mips_split_128bit_const_insns (operands[1]) * 4")
+	 (const_int 4)
 
 	 ;; Constants, loads and stores are handled by external routines.
 	 (and (eq_attr "move_type" "const,constN")
@@ -4864,7 +4858,7 @@
 (define_expand "movti"
   [(set (match_operand:TI 0)
 	(match_operand:TI 1))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_64BIT"
 {
   if (mips_legitimize_move (TImode, operands[0], operands[1]))
     DONE;
@@ -4874,7 +4868,6 @@
   [(set (match_operand:TI 0 "nonimmediate_operand" "=d,d,d,m,*a,*a,*d")
 	(match_operand:TI 1 "move_operand" "d,i,m,dJ,*J,*d,*a"))]
   "TARGET_64BIT
-   && !TARGET_MSA
    && !TARGET_MIPS16
    && (register_operand (operands[0], TImode)
        || reg_or_0_operand (operands[1], TImode))"
@@ -4943,8 +4936,7 @@
 (define_split
   [(set (match_operand:MOVE128 0 "nonimmediate_operand")
 	(match_operand:MOVE128 1 "move_operand"))]
-  "reload_completed && !(TARGET_MSA && <MODE>mode == TImode)
-   && mips_split_move_insn_p (operands[0], operands[1], insn)"
+  "reload_completed && mips_split_move_insn_p (operands[0], operands[1], insn)"
   [(const_int 0)]
 {
   mips_split_move_insn (operands[0], operands[1], curr_insn);

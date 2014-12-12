@@ -2420,7 +2420,7 @@ mips_valid_offset_p (rtx x, machine_mode mode)
     return false;
 
   /* MSA LD.* and ST.* supports 10-bit signed offsets.  */
-  if (MSA_SUPPORTED_VECTOR_MODE_P (mode)
+  if (MSA_SUPPORTED_MODE_P (mode)
       && !mips_signed_immediate_p (INTVAL (x), 10,
 				   mips_ldst_scaled_shift (mode)))
     return false;
@@ -2584,7 +2584,7 @@ mips_lx_address_p (rtx addr, machine_mode mode)
     return true;
   if (ISA_HAS_LDX && mode == DImode)
     return true;
-  if (ISA_HAS_MSA && MSA_SUPPORTED_MODE_P (mode))
+  if (MSA_SUPPORTED_MODE_P (mode))
     return true;
   return false;
 }
@@ -2623,7 +2623,7 @@ mips_address_insns (rtx x, machine_mode mode, bool might_split_p)
 {
   struct mips_address_info addr;
   int factor;
-  bool msa_p = (TARGET_MSA && !might_split_p && MSA_SUPPORTED_MODE_P (mode));
+  bool msa_p = (!might_split_p && MSA_SUPPORTED_MODE_P (mode));
 
   /* BLKmode is used for single unaligned loads and stores and should
      not count as a multiword mode.  (GET_MODE_SIZE (BLKmode) is pretty
@@ -2641,9 +2641,8 @@ mips_address_insns (rtx x, machine_mode mode, bool might_split_p)
 	if (msa_p)
 	  {
 	    /* MSA LD.* and ST.* supports 10-bit signed offsets.  */
-	    if (MSA_SUPPORTED_VECTOR_MODE_P (mode)
-		&& mips_signed_immediate_p (INTVAL (addr.offset), 10,
-					    mips_ldst_scaled_shift (mode)))
+	    if (mips_signed_immediate_p (INTVAL (addr.offset), 10,
+					 mips_ldst_scaled_shift (mode)))
 	      return 1;
 	    else
 	      return 0;
@@ -2844,23 +2843,24 @@ mips_split_const_insns (rtx x)
   return low + high;
 }
 
-/* X is a 128-bit constant that can be handled by splitting it into two or four
-   words and loading each word separately.  Return the number of instructions
-   required to do this.  */
+/* Return one word of 128-bit value OP, taking into account the fixed
+   endianness of certain registers.  BYTE selects from the byte address.  */
 
-int
-mips_split_128bit_const_insns (rtx x)
+rtx
+mips_subword_at_byte (rtx op, unsigned int byte)
 {
-  int byte;
-  unsigned int elem, total = 0;
+  machine_mode mode;
 
-  for (byte = 0; byte < GET_MODE_SIZE (TImode); byte += UNITS_PER_WORD)
-    {
-      elem = mips_const_insns (mips_subword_at_byte (x, byte));
-      gcc_assert (elem > 0);
-      total += elem;
-    }
-  return total;
+  mode = GET_MODE (op);
+  if (mode == VOIDmode)
+    mode = TImode;
+
+  gcc_assert (!FP_REG_RTX_P (op));
+
+  if (MEM_P (op))
+    return mips_rewrite_small_data (adjust_address (op, word_mode, byte));
+
+  return simplify_gen_subreg (word_mode, op, mode, byte);
 }
 
 /* Return the number of instructions needed to implement INSN,
@@ -2883,12 +2883,6 @@ mips_load_store_insns (rtx mem, rtx_insn *insn)
     {
       set = single_set (insn);
       if (set && !mips_split_move_insn_p (SET_DEST (set), SET_SRC (set), insn))
-	might_split_p = false;
-    }
-  else if (GET_MODE_BITSIZE (mode) == 128)
-    {
-      set = single_set (insn);
-      if (set && !mips_split_128bit_move_p (SET_DEST (set), SET_SRC (set)))
 	might_split_p = false;
     }
 
@@ -4588,26 +4582,6 @@ mips_subword (rtx op, bool high_p)
   return simplify_gen_subreg (word_mode, op, mode, byte);
 }
 
-/* Return one word of 128-bit value OP, taking into account the fixed
-   endianness of certain registers.  BYTE selects from the byte address.  */
-
-rtx
-mips_subword_at_byte (rtx op, unsigned int byte)
-{
-  machine_mode mode;
-
-  mode = GET_MODE (op);
-  if (mode == VOIDmode)
-    mode = TImode;
-
-  gcc_assert (!FP_REG_RTX_P (op));
-
-  if (MEM_P (op))
-    return mips_rewrite_small_data (adjust_address (op, word_mode, byte));
-
-  return simplify_gen_subreg (word_mode, op, mode, byte);
-}
-
 /* Return true if SRC should be moved into DEST using "MULT $0, $0".
    SPLIT_TYPE is the condition under which moves should be split.  */
 
@@ -4650,17 +4624,12 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
     }
 
   /* Check if MSA moves need splitting.  */
-  if (MSA_SUPPORTED_MODE_P (GET_MODE (dest))
-      ||  MSA_SUPPORTED_MODE_P (GET_MODE (src)))
+  if (MSA_SUPPORTED_MODE_P (GET_MODE (dest)))
     return mips_split_128bit_move_p (dest, src);
 
   /* Otherwise split all multiword moves.  */
   return size > UNITS_PER_WORD;
 }
-
-/* Determine if the split applies to an MSA move from SRC to DEST.  */
-#define MSA_SPLIT_P(DEST, SRC)	\
-  (MSA_SUPPORTED_MODE_P (GET_MODE (DEST)) && MSA_SUPPORTED_MODE_P (GET_MODE (SRC)))
 
 /* Split a move from SRC to DEST, given that mips_split_move_p holds.
    SPLIT_TYPE describes the split condition.  */
@@ -4671,8 +4640,9 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
   rtx low_dest;
 
   gcc_checking_assert (mips_split_move_p (dest, src, split_type));
-  if (!MSA_SPLIT_P (dest, src)
-      && (FP_REG_RTX_P (dest) || FP_REG_RTX_P (src)))
+  if (MSA_SUPPORTED_MODE_P (GET_MODE (dest)))
+    mips_split_128bit_move (dest, src);
+  else if (FP_REG_RTX_P (dest) || FP_REG_RTX_P (src))
     {
       if (!TARGET_64BIT && GET_MODE (dest) == DImode)
 	emit_insn (gen_move_doubleword_fprdi (dest, src));
@@ -4707,10 +4677,6 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
 	emit_insn (gen_mfhidi_ti (mips_subword (dest, true), src));
       else
 	emit_insn (gen_mfhisi_di (mips_subword (dest, true), src));
-    }
-  else if (MSA_SPLIT_P (dest, src))
-    {
-      mips_split_128bit_move (dest, src);
     }
   else
     {
@@ -4779,7 +4745,7 @@ void
 mips_split_128bit_move (rtx dest, rtx src)
 {
   int byte, index;
-  rtx low_dest, low_src, d, s, last_d, last_s;
+  rtx low_dest, low_src, d, s;
 
   if (FP_REG_RTX_P (dest))
     {
@@ -4835,68 +4801,31 @@ mips_split_128bit_move (rtx dest, rtx src)
 	    emit_insn (gen_msa_copy_s_d (d, new_src, GEN_INT (index)));
 	}
     }
-  else if (REG_P (dest) && REGNO (dest) == MD_REG_FIRST)
-    {
-      gcc_assert (TARGET_64BIT);
-
-      low_dest = mips_subword (dest, false);
-      mips_emit_move (low_dest, mips_subword (src, false));
-      emit_insn (gen_mthidi_ti (dest, mips_subword (src, true), low_dest));
-    }
-  else if (REG_P (src) && REGNO (src) == MD_REG_FIRST)
-    {
-      gcc_assert (TARGET_64BIT);
-
-      mips_emit_move (mips_subword (dest, false), mips_subword (src, false));
-      emit_insn (gen_mfhidi_ti (mips_subword (dest, true), src));
-    }
   else
     {
-      low_dest = mips_subword_at_byte (dest, false);
-      low_src = mips_subword_at_byte (src, false);
-      last_d = NULL;
-      last_s = NULL;
-      if (REG_P (low_dest) && REG_P (low_src))
+      low_dest = mips_subword_at_byte (dest, 0);
+      low_src = mips_subword_at_byte (src, 0);
+      gcc_assert (REG_P (low_dest) && REG_P (low_src));
+      /* Make sure the source register is not written before reading.  */
+      if (REGNO (low_dest) <= REGNO (low_src))
 	{
-	  /* Make sure the source register is not written before reading.  */
-	  if (REGNO (low_dest) <= REGNO (low_src))
+	  for (byte = 0; byte < GET_MODE_SIZE (TImode);
+	       byte += UNITS_PER_WORD)
 	    {
-	      for (byte = 0; byte < GET_MODE_SIZE (TImode);
-		   byte += UNITS_PER_WORD)
-		{
-		  d = mips_subword_at_byte (dest, byte);
-		  s = mips_subword_at_byte (src, byte);
-		  mips_emit_move (d, s);
-		}
-	    }
-	  else
-	    {
-	      for (byte = GET_MODE_SIZE (TImode) - UNITS_PER_WORD; byte >= 0;
-		   byte -= UNITS_PER_WORD)
-		{
-		  d = mips_subword_at_byte (dest, byte);
-		  s = mips_subword_at_byte (src, byte);
-		  mips_emit_move (d, s);
-		}
+	      d = mips_subword_at_byte (dest, byte);
+	      s = mips_subword_at_byte (src, byte);
+	      mips_emit_move (d, s);
 	    }
 	}
       else
 	{
-	  for (byte = 0; byte < GET_MODE_SIZE (TImode); byte += UNITS_PER_WORD)
+	  for (byte = GET_MODE_SIZE (TImode) - UNITS_PER_WORD; byte >= 0;
+	       byte -= UNITS_PER_WORD)
 	    {
 	      d = mips_subword_at_byte (dest, byte);
 	      s = mips_subword_at_byte (src, byte);
-	      if (REG_P (low_dest) && reg_overlap_mentioned_p (d, src))
-		{
-		  gcc_assert (last_d == NULL && last_s == NULL);
-		  last_d = d;
-		  last_s = s;
-		}
-	      else
-		mips_emit_move (d, s);
+	      mips_emit_move (d, s);
 	    }
-	  if (last_d != NULL && last_s != NULL)
-	    mips_emit_move (last_d, last_s);
 	}
     }
 }
@@ -5050,17 +4979,8 @@ mips_output_move (rtx dest, rtx src)
 	    {
 	      if (msa_p)
 		{
-		  machine_mode dstmode = GET_MODE (dest);
-
 		  gcc_assert (src == CONST0_RTX (GET_MODE (src)));
-
-		  if (MSA_SUPPORTED_MODE_P (dstmode))
-		    {
-		      if (dstmode == TImode)
-			return "ldi.b\t%w0,0";
-		      else
-			return "ldi.%v0\t%w0,0";
-		    }
+		  return "ldi.%v0\t%w0,0";
 		}
 
 	      return dbl_p ? "dmtc1\t%z1,%0" : "mtc1\t%z1,%0";
@@ -5186,16 +5106,8 @@ mips_output_move (rtx dest, rtx src)
 
       if (dest_code == MEM)
 	{
-	  if (MSA_SUPPORTED_MODE_P (mode))
-	    {
-	      if (mode == TImode)
-		{
-		  /* Just use st.d/st.w to store.  */
-		  return TARGET_64BIT ? "st.d\t%w1,%0" : "st.w\t%w1,%0";
-		}
-	      else
-		return "st.%v1\t%w1,%0";
-	    }
+	  if (msa_p)
+	    return "st.%v1\t%w1,%0";
 
 	  return dbl_p ? "sdc1\t%1,%0" : "swc1\t%1,%0";
 	}
@@ -5204,16 +5116,8 @@ mips_output_move (rtx dest, rtx src)
     {
       if (src_code == MEM)
 	{
-	  if (MSA_SUPPORTED_MODE_P (mode))
-	    {
-	      if (mode == TImode)
-		{
-		  /* Just use ld.d/ld.w to load.  */
-		  return TARGET_64BIT ? "ld.d\t%w0,%1" : "ld.w\t%w0,%1";
-		}
-	      else
-		return "ld.%v0\t%w0,%1";
-	    }
+	  if (msa_p)
+	    return "ld.%v0\t%w0,%1";
 
 	  return dbl_p ? "ldc1\t%0,%1" : "lwc1\t%0,%1";
 	}
@@ -12547,7 +12451,7 @@ mips_hard_regno_mode_ok_p (unsigned int regno, machine_mode mode)
   size = GET_MODE_SIZE (mode);
   mclass = GET_MODE_CLASS (mode);
 
-  if (GP_REG_P (regno))
+  if (GP_REG_P (regno) && !MSA_SUPPORTED_MODE_P (mode))
     return ((regno - GP_REG_FIRST) & 1) == 0 || size <= UNITS_PER_WORD;
 
   /* For MSA, allow TImode and 128-bit vector modes in all FPR.  */
@@ -12586,7 +12490,7 @@ mips_hard_regno_mode_ok_p (unsigned int regno, machine_mode mode)
 
   /* Don't allow MSA vector modes in accumulators.  */
   if (ACC_REG_P (regno)
-      && !MSA_SUPPORTED_VECTOR_MODE_P (mode)
+      && !MSA_SUPPORTED_MODE_P (mode)
       && (INTEGRAL_MODE_P (mode) || ALL_FIXED_POINT_MODE_P (mode)))
     {
       if (MD_REG_P (regno))
@@ -12824,10 +12728,6 @@ mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
     {
     case M16_REGS:
     case GENERAL_REGS:
-      /* Two or four move.  */
-      if (MSA_SUPPORTED_MODE_P (mode))
-	return TARGET_64BIT ? 4 : 8;
-
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
 
@@ -12836,10 +12736,6 @@ mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
       return 6;
 
     case FP_REGS:
-      /* Two or four copy_s.*.  */
-      if (MSA_SUPPORTED_MODE_P (mode))
-	return TARGET_64BIT ? 8 : 16;
-
       /* MFC1, etc.  */
       return 4;
 
@@ -12865,10 +12761,6 @@ mips_move_from_gpr_cost (machine_mode mode, reg_class_t to)
     {
     case M16_REGS:
     case GENERAL_REGS:
-      /* Two or four move.  */
-      if (MSA_SUPPORTED_MODE_P (mode))
-	return TARGET_64BIT ? 4: 8;
-
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
 
@@ -12877,10 +12769,6 @@ mips_move_from_gpr_cost (machine_mode mode, reg_class_t to)
       return 6;
 
     case FP_REGS:
-      /* Two or four insv.*.  */
-      if (MSA_SUPPORTED_MODE_P (mode))
-	return TARGET_64BIT ? 8: 16;
-
       /* MTC1, etc.  */
       return 4;
 
@@ -12953,13 +12841,7 @@ mips_register_priority (int hard_regno)
 static int
 mips_memory_move_cost (machine_mode mode, reg_class_t rclass, bool in)
 {
-  int multiplier = 1;
-  /* Account for the number of loads and stores that are needed to handle
-     MSA type in GPRs. */
-  if (MSA_SUPPORTED_MODE_P (mode) && rclass != FP_REGS)
-    multiplier = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
-
-  return (mips_cost->memory_latency * multiplier
+  return (mips_cost->memory_latency
 	  + memory_move_secondary_cost (mode, rclass, in));
 }
 
@@ -13098,7 +12980,7 @@ mips_vector_mode_supported_p (machine_mode mode)
       return TARGET_LOONGSON_VECTORS;
 
     default:
-      return TARGET_MSA && MSA_SUPPORTED_VECTOR_MODE_P (mode);
+      return MSA_SUPPORTED_MODE_P (mode);
     }
 }
 
