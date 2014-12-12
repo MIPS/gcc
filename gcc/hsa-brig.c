@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "gimple-pretty-print.h"
 #include "diagnostic-core.h"
+#include "hash-map.h"
 
 #define BRIG_SECTION_DATA_NAME    "hsa_data"
 #define BRIG_SECTION_CODE_NAME    "hsa_code"
@@ -80,11 +81,30 @@ public:
   void output ();
   unsigned add (const void *data, unsigned len);
   void round_size_up (int factor);
+  void *get_ptr_by_offset (unsigned int offset);
 };
 
 static struct hsa_brig_section brig_data, brig_code, brig_operand;
 static uint32_t brig_insn_count;
 static bool brig_initialized = false;
+
+/* Mapping between emitted HSA functions and their offset in code segment.  */
+static hash_map <tree, BrigCodeOffset32_t> function_offsets;
+
+struct function_linkage_pair
+{
+  function_linkage_pair (tree decl, unsigned int off):
+    function_decl (decl), offset (off) {}
+
+  /* Declaration of called function.  */
+  tree function_decl;
+
+  /* Offset in operand section.  */
+  unsigned int offset;
+};
+
+/* Vector of function calls where we need to resolve function offsets.  */
+static auto_vec <function_linkage_pair> function_call_linkage;
 
 /* Add a new chunk, allocate data for it and initialize it.  */
 
@@ -186,6 +206,23 @@ hsa_brig_section::round_size_up (int factor)
 
   cur_chunk->size += padding;
 }
+
+/* Return pointer to data by global OFFSET in the section.  */
+
+void*
+hsa_brig_section::get_ptr_by_offset (unsigned int offset)
+{
+  gcc_assert (offset < total_size);
+
+  offset -= header_byte_count;
+  unsigned int i;
+
+  for (i = 0; offset >= chunks[i].size; i++)
+    offset -= chunks[i].size;
+
+  return chunks[i].data + offset;
+}
+
 
 /* BRIG string data hashing.  */
 
@@ -414,7 +451,6 @@ emit_directive_variable (struct hsa_symbol *symbol)
       if (res_name_offset == 0)
 	res_name_offset = brig_emit_string (symbol->name, '%');
       name_offset = res_name_offset;
-      dirvar.allocation = BRIG_ALLOCATION_NONE;
     }
   else if (symbol->name)
     name_offset = brig_emit_string (symbol->name, prefix);
@@ -431,7 +467,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.type = htole16 (symbol->type);
   dirvar.segment = symbol->segment;
   dirvar.align = get_alignment (dirvar.type);
-  dirvar.linkage = BRIG_LINKAGE_FUNCTION ;
+  gcc_assert (symbol->linkage);
+  dirvar.linkage = symbol->linkage;
   dirvar.dim.lo = htole32 (symbol->dimLo);
   dirvar.dim.hi = htole32 (symbol->dimHi);
   dirvar.modifier = BRIG_SYMBOL_DEFINITION;
@@ -464,12 +501,12 @@ emit_function_directives (void)
        ++iter)
     if (TREE_CODE ((*iter)->decl) == VAR_DECL)
       count++;
-  count += hsa_cfun.spill_symbols.length();
+  count += hsa_cfun.spill_symbols.length ();
 
   next_toplev_off = scoped_off + count * sizeof (struct BrigDirectiveVariable);
 
   fndir.base.byteCount = htole16 (sizeof (fndir));
-  fndir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_KERNEL);
+  fndir.base.kind = htole16 (hsa_cfun.kern_p ? BRIG_KIND_DIRECTIVE_KERNEL : BRIG_KIND_DIRECTIVE_FUNCTION);
   fndir.name = htole32 (name_offset);
   fndir.inArgCount = htole16 (hsa_cfun.input_args_count);
   fndir.outArgCount = htole16 (hsa_cfun.output_arg ? 1 : 0);
@@ -480,6 +517,8 @@ emit_function_directives (void)
   fndir.codeBlockEntryCount = htole32 (0);
   fndir.modifier = BRIG_EXECUTABLE_DEFINITION;
   memset (&fndir.reserved, 0, sizeof (fndir.reserved));
+
+  function_offsets.put (cfun->decl, brig_code.total_size);
 
   brig_code.add (&fndir, sizeof (fndir));
   /* XXX terrible hack: we need to set instCount after we emit all
@@ -501,12 +540,17 @@ emit_function_directives (void)
 	 = hsa_cfun.local_symbols->begin ();
        iter != hsa_cfun.local_symbols->end ();
        ++iter)
-    emit_directive_variable(*iter);
+    {
+      if (TREE_CODE ((*iter)->decl) == VAR_DECL)
+	brig_insn_count++;
+      emit_directive_variable(*iter);
+    }
   for (int i = 0; hsa_cfun.spill_symbols.iterate (i, &sym); i++)
     {
       emit_directive_variable (sym);
       brig_insn_count++;
     }
+
   return ptr_to_fndir;
 }
 
@@ -683,8 +727,10 @@ enqueue_op (hsa_op_base *op)
     {
     op_queue.projected_size += sizeof (struct BrigOperandAddress);
     }
-  else if (is_a <hsa_op_label *> (op))
+  else if (is_a <hsa_op_code_ref *> (op))
     op_queue.projected_size += sizeof (struct BrigOperandCodeRef);
+  else if (is_a <hsa_op_code_list *> (op))
+    op_queue.projected_size += sizeof (struct BrigOperandCodeList);
   else
     gcc_unreachable ();
   return ret;
@@ -857,17 +903,36 @@ emit_address_operand (hsa_op_address *addr)
   brig_operand.add (&out, sizeof (out));
 }
 
-/* Emit a label BRIG operand LABEL.  */
+/* Emit a code reference operand REF.  */
 
 static void
-emit_label_operand (hsa_op_label *lbl)
+emit_code_ref_operand (hsa_op_code_ref *ref)
 {
   struct BrigOperandCodeRef out;
 
-  gcc_assert (lbl->directive_offset);
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_CODE_REF);
-  out.ref = htole32 (lbl->directive_offset);
+  out.ref = htole32 (ref->directive_offset);
+  brig_operand.add (&out, sizeof (out));
+}
+
+static void
+emit_code_list_operand (hsa_op_code_list *code_list)
+{
+  struct BrigOperandCodeList out;
+  unsigned args = code_list->offsets.length ();
+
+  for (unsigned i = 0; i < args; i++)
+    gcc_assert (code_list->offsets[i]);
+
+  out.base.byteCount = htole16 (sizeof (out));
+  out.base.kind = htole16 (BRIG_KIND_OPERAND_CODE_LIST);
+
+  uint32_t byteCount = htole32 (4 * args);
+
+  out.elements = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  brig_data.add (code_list->offsets.address (), args * sizeof (uint32_t));
+  brig_data.round_size_up (4);
   brig_operand.add (&out, sizeof (out));
 }
 
@@ -885,8 +950,10 @@ emit_queued_operands (void)
 	emit_register_operand (reg);
       else if (hsa_op_address *addr = dyn_cast <hsa_op_address *> (op))
 	emit_address_operand (addr);
-      else if (hsa_op_label *lbl = dyn_cast <hsa_op_label *> (op))
-	emit_label_operand (lbl);
+      else if (hsa_op_code_ref *ref = dyn_cast <hsa_op_code_ref *> (op))
+	emit_code_ref_operand (ref);
+      else if (hsa_op_code_list *code_list = dyn_cast <hsa_op_code_list *> (op))
+	emit_code_list_operand (code_list);
       else
 	gcc_unreachable ();
     }
@@ -1028,12 +1095,12 @@ emit_addr_insn (hsa_insn_addr *insn)
 static void
 emit_segment_insn (hsa_insn_seg *seg)
 {
-  struct BrigInstSeg repr;
+  struct BrigInstSegCvt repr;
   BrigOperandOffset32_t operand_offsets[2];
   uint32_t byteCount;
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_SEG);
+  repr.base.base.kind = htole16 (BRIG_KIND_INST_SEG_CVT);
   repr.base.opcode = htole16 (seg->opcode);
   repr.base.type = htole16 (seg->type);
 
@@ -1047,8 +1114,9 @@ emit_segment_insn (hsa_insn_seg *seg)
   brig_data.add (&operand_offsets, sizeof (operand_offsets));
   brig_data.round_size_up (4);
 
+  repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->operands[1])->type);
   repr.segment = seg->segment;
-  memset (&repr.reserved, 0, sizeof (repr.reserved));
+  repr.modifier = 0;
 
   brig_code.add (&repr, sizeof (repr));
 
@@ -1163,7 +1231,7 @@ emit_cvt_insn (hsa_insn_basic *insn)
 {
   struct BrigInstCvt repr;
   BrigType16_t srctype;
-  BrigOperandOffset32_t operand_offsets[1];
+  BrigOperandOffset32_t operand_offsets[HSA_OPERANDS_PER_INSN];
   uint32_t byteCount, operand_count=0;
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
@@ -1201,6 +1269,99 @@ emit_cvt_insn (hsa_insn_basic *insn)
 
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
+}
+
+/* Emit arg block to code segment.  */
+
+static void
+emit_arg_block (bool is_start)
+{
+  struct BrigDirectiveArgBlock repr;
+  repr.base.byteCount = htole16 (sizeof (repr));
+
+  BrigKinds16_t kind = is_start ? BRIG_KIND_DIRECTIVE_ARG_BLOCK_START
+    : BRIG_KIND_DIRECTIVE_ARG_BLOCK_END;
+  repr.base.kind = htole16 (kind);
+
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+}
+
+static void
+emit_call_insn (hsa_insn_basic *insn)
+{
+  hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn);
+  struct BrigInstBr repr;
+  uint32_t byteCount;
+
+  BrigOperandOffset32_t operand_offsets[3];
+
+  repr.base.base.byteCount = htole16 (sizeof (repr));
+  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = htole16 (BRIG_OPCODE_CALL);
+  repr.base.type = htole16 (BRIG_TYPE_NONE);
+
+  /* Operand 0: out-args.  */
+  operand_offsets[0] = htole32 (enqueue_op (call->result_code_list));
+
+  /* Operand 1: func */
+  /* XXX: we have to save offset to operand section and
+     called function offset is filled up after all functions are visited. */
+  unsigned int offset = enqueue_op (&call->func);
+
+  function_call_linkage.safe_push
+    (function_linkage_pair (call->called_function, offset));
+
+  operand_offsets[1] = htole32 (offset);
+  /* Operand 2: in-args.  */
+  operand_offsets[2] = htole32 (enqueue_op (call->args_code_list));
+
+  /* We have 3 operands so use 3 * 4 for the byteCount */
+  byteCount = htole32 (3 * 4);
+  repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  brig_data.add (&operand_offsets, sizeof (operand_offsets));
+  brig_data.round_size_up (4);
+  repr.width = BRIG_WIDTH_ALL;
+  memset (&repr.reserved, 0, sizeof (repr.reserved));
+
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+}
+
+/* Emit call block instruction. This super instruction encapsulate all
+   instructions needed for argument load/store and corresponding
+   instruction.  */
+
+static void
+emit_call_block_insn (hsa_insn_call_block *insn)
+{
+  /* Argument scope start.  */
+  emit_arg_block (true);
+
+  for (unsigned i = 0; i < insn->input_args.length (); i++)
+    {
+      insn->call_insn->args_code_list->offsets[i] = htole32
+	(emit_directive_variable (insn->input_args[i]));
+      brig_insn_count++;
+    }
+
+  if (insn->call_insn->result_symbol)
+    {
+      insn->call_insn->result_code_list->offsets[0] = htole32
+	(emit_directive_variable (insn->output_arg));
+      brig_insn_count++;
+    }
+
+  for (unsigned i = 0; i < insn->input_arg_insns.length (); i++)
+    emit_memory_insn (insn->input_arg_insns[i]);
+
+  emit_call_insn (insn->call_insn);
+
+  if (insn->output_arg_insn)
+    emit_memory_insn (insn->output_arg_insn);
+
+  /* Argument scope end.  */
+  emit_arg_block (false);
 }
 
 /* Emit a basic HSA instruction and all necessary directives, schedule
@@ -1317,6 +1478,16 @@ emit_insn (hsa_insn_basic *insn)
       emit_branch_insn (br);
       return;
     }
+  if (hsa_insn_call_block *call_block = dyn_cast <hsa_insn_call_block *> (insn))
+    {
+      emit_call_block_insn (call_block);
+      return;
+    }
+  if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
+    {
+      emit_call_insn (call);
+      return;
+    }
   emit_basic_insn (insn);
 }
 
@@ -1412,6 +1583,25 @@ hsa_output_brig (void)
 
   if (!brig_initialized)
     return;
+
+  for (unsigned i = 0; i < function_call_linkage.length (); i++)
+    {
+      function_linkage_pair p = function_call_linkage[i];
+
+      BrigCodeOffset32_t *func_offset = function_offsets.get (p.function_decl);
+      if (*func_offset)
+        {
+	  BrigOperandCodeRef *code_ref = (BrigOperandCodeRef *)
+	    (brig_operand.get_ptr_by_offset (p.offset));
+	  gcc_assert (code_ref->base.kind == BRIG_KIND_OPERAND_CODE_REF);
+	  code_ref->ref = htole32 (*func_offset);
+	}
+      else
+	{
+	  sorry ("Missing offset to a HSA function in call instruction");
+	  return;
+	}
+    }
 
   saved_section = in_section;
 

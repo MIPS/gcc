@@ -1,3 +1,51 @@
+2014-12-12  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (struct function_linkage_pair): New data structure.
+	(hsa_brig_section::get_ptr_by_offset): New function.
+	(emit_directive_variable): Linkage is retrieved by symbol.
+	(emit_function_directives): Emitted function is added to map
+	with offsets.
+	(enqueue_op): New operand type handling added.
+	(emit_code_ref_operand): Created from emit_label_operand.
+	(emit_code_list_operand): New function.
+	(emit_queued_operands): New operand type handling added.
+	(emit_segment_insn): BRIG_KIND_INST_SEG is changed
+	to BRIG_KIND_INST_SEG_CVT.
+	(emit_cvt_insn): Undefined behavior fixed by wrong array bounds.
+	(emit_arg_block): New function.
+	(emit_call_insn): Likewise.
+	(emit_call_block_insn): Likewise.
+	(emit_insn): New instructions are handled.
+	(hsa_output_brig): Function offsets for call instructions
+	are resolved.
+	* hsa-dump.c (static void indent_stream): New function.
+	(dump_hsa_insn): Added support for call instruction.
+	* hsa-gen.c (hsa_init_data_for_cfun): New flag for hsa_cfun is parsed.
+	(hsa_deinit_data_for_cfun): New pools are deallocated.
+	(get_symbol_for_decl): Symbol's linkage is set up.
+	(hsa_get_spill_symbol): Likewise.
+	(hsa_alloc_code_list_op): New function.
+	(hsa_alloc_call_insn): Likewise.
+	(hsa_alloc_call_block_insn): Likewise.
+	(gen_hsa_addr_for_arg): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): GIMPLE labels with non-taken address
+	are supported.
+	(gen_function_parameters): Linkage condition is introduced.
+	(generate_hsa): kern_p flag is parsed.
+	(wrap_hsa): Likewise.
+	(pass_gen_hsail::execute): Likewise.
+	(struct hsa_op_reg::verify): New function.
+	* hsa.h (struct hsa_symbol): Linkage member is added.
+	(struct hsa_op_code_ref): Created from existing hsa_op_label_ref.
+	(struct hsa_op_code_list): New operand is added.
+	(struct hsa_insn_call): New instruction.
+	(struct hsa_insn_call_block): Likewise.
+	(struct hsa_function_representation): kern_p attribute is introduced.
+	(struct hsa_op_reg::verify): New function.
+
 2014-12-11  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c: Comment typos are fixed.

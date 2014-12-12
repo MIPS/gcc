@@ -1,3 +1,7 @@
+2014-12-12  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c: New 'hsafunc' attribute is added.
+
 2014-09-26  Martin Jambor  <mjambor@suse.cz>
 
 	* c-common.c (c_common_attribute_table): Add hsakernel attribute.

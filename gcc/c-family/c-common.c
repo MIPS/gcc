@@ -660,6 +660,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_hsa_attribute, false },
   { "hsakernel",              0, 0, true,  false, false,
 			      handle_hsa_attribute, false },
+  { "hsafunc",                0, 0, true,  false, false,
+			      handle_hsa_attribute, false },
   { "leaf",                   0, 0, true,  false, false,
 			      handle_leaf_attribute, false },
   { "always_inline",          0, 0, true,  false, false,

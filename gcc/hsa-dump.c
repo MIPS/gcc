@@ -700,14 +700,21 @@ dump_hsa_address (FILE *f, hsa_op_address *addr)
     fprintf (f, "[" HOST_WIDE_INT_PRINT_DEC "]", addr->imm_offset);
 }
 
+/* Indent F stream with INDENT spaces.  */
+
+static void indent_stream (FILE *f, int indent)
+{
+  for (int i = 0; i < indent; i++)
+    fputc (' ', f);
+}
+
 /* Dump textual representation of HSA IL instruction INSN to file F.  */
 
 static void
 dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
 {
   gcc_checking_assert (insn);
-  for (int i = 0; i < indent; i++)
-    fputc (' ', f);
+  indent_stream (f, indent);
 
   if (is_a <hsa_insn_phi *> (insn))
     {
@@ -843,6 +850,42 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
 	    break;
 	  }
       fprintf (f, "BB %i\n", hsa_bb_for_bb (target)->index);
+    }
+  else if (is_a <hsa_insn_call_block *> (insn))
+    {
+      hsa_insn_call_block *call_block = as_a <hsa_insn_call_block *> (insn);
+
+      fprintf (f, "{\n");
+
+      for (unsigned i = 0; i < call_block->input_arg_insns.length (); i++)
+	dump_hsa_insn (f, call_block->input_arg_insns[i], indent + 2);
+
+      dump_hsa_insn (f, call_block->call_insn, indent + 2);
+
+      if (call_block->output_arg_insn)
+	dump_hsa_insn (f, call_block->output_arg_insn, indent + 2);
+
+      indent_stream (f, indent);
+      fprintf (f, "}\n");
+    }
+  else if (is_a <hsa_insn_call *> (insn))
+    {
+      hsa_insn_call *call = as_a <hsa_insn_call *> (insn);
+      const char *name = xstrdup (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (call->called_function)));
+
+      fprintf (f, "call &%s", name);
+
+      if (call->result_symbol)
+	fprintf (f, "(%%%s) ", call->result_symbol->name);
+
+      fprintf (f, "(");
+      for (unsigned i = 0; i < call->args_symbols.length (); i++)
+        {
+	  fprintf (f, "%%%s", call->args_symbols[i]->name);
+	  if (i != call->args_symbols.length () - 1)
+	    fprintf (f, ", ");
+	}
+      fprintf (f, ")\n");
     }
   else
     {

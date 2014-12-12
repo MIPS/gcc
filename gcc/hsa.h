@@ -57,6 +57,9 @@ struct hsa_symbol
   /* The HSA segment this will eventually end up in.  */
   BrigSegment8_t segment;
 
+  /* The HSA kind of linkage.  */
+  BrigLinkage8_t linkage;
+
   /* Array dimensions, if non-zero.  */
   uint32_t dimLo, dimHi;
 };
@@ -102,6 +105,14 @@ is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
 
 struct hsa_op_reg : public hsa_op_base
 {
+  /* Destructor.  */
+  ~hsa_op_reg ()
+  {
+  }
+
+  /* Verify register operand.  */
+  void verify ();
+
   /* If NON-NULL, gimple SSA that we come from.  NULL if none.
      !!? Do we need it? */
   tree gimple_ssa;
@@ -165,23 +176,41 @@ is_a_helper <hsa_op_address *>::test (hsa_op_base *p)
   return p->kind == BRIG_KIND_OPERAND_ADDRESS;
 }
 
-/* A reference-to-label HSA operand.  In reality this is a reference to a start
-   of a BB.  */
+/* A reference to code HSA operand. It can be either reference
+   to a start of a BB or a start of a function.  */
 
-struct hsa_op_label : public hsa_op_base
+struct hsa_op_code_ref : public hsa_op_base
 {
-  /* Offset in the code section that this label refers to.  */
+  /* Offset in the code section that this refers to.  */
   unsigned directive_offset;
 };
 
-/* Report whether or not P is a label reference operand.  */
+/* Report whether or not P is a code reference operand.  */
 
 template <>
 template <>
 inline bool
-is_a_helper <hsa_op_label *>::test (hsa_op_base *p)
+is_a_helper <hsa_op_code_ref *>::test (hsa_op_base *p)
 {
   return p->kind == BRIG_KIND_OPERAND_CODE_REF;
+}
+
+/* Code list HSA operand.  */
+struct hsa_op_code_list: public hsa_op_base
+{
+  /* Offset to variable-sized array in hsa_data section, where
+     are offsets to entries in the hsa_code section.  */
+  vec<unsigned> offsets;
+};
+
+/* Report whether or not P is a code list operand.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_op_code_list *>::test (hsa_op_base *p)
+{
+  return p->kind == BRIG_KIND_OPERAND_CODE_LIST;
 }
 
 #define HSA_OPERANDS_PER_INSN 5
@@ -211,6 +240,7 @@ struct hsa_insn_basic
 };
 
 #define HSA_OPCODE_PHI -1
+#define HSA_OPCODE_CALL_BLOCK -2
 
 /* Structure representing a PHI node of the SSA form of HSA virtual
    registers.  */
@@ -367,6 +397,73 @@ is_a_helper <hsa_insn_seg *>::test (hsa_insn_basic *p)
 	  || p->opcode == BRIG_OPCODE_FTOS);
 }
 
+/* HSA instruction for function call.  */
+
+struct hsa_insn_call: hsa_insn_basic
+{
+  /* Called function */
+  tree called_function;
+
+  /* Called function code reference.  */
+  struct hsa_op_code_ref func;
+
+  /* Argument symbols.  */
+  vec <hsa_symbol *> args_symbols;
+
+  /* Code list for arguments of the function.  */
+  hsa_op_code_list *args_code_list;
+
+  /* Result symbol.  */
+  hsa_symbol *result_symbol;
+
+  /* Code list for result of the function.  */
+  hsa_op_code_list *result_code_list;
+};
+
+/* Report whether or not P is a call instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_call *>::test (hsa_insn_basic *p)
+{
+  return (p->opcode == BRIG_OPCODE_CALL);
+}
+
+/* HSA call instruction block encapsulates definition of arguments,
+   result type, corresponding loads and a possible store.
+   Moreover, it contains a single call instruction.
+   Emission of the instruction will produce multiple
+   HSAIL instructions.  */
+
+struct hsa_insn_call_block: hsa_insn_basic
+{
+  /* Input formal arguments.  */
+  vec <hsa_symbol *> input_args;
+
+  /* Input arguments store instructions.  */
+  vec <hsa_insn_mem *> input_arg_insns;
+
+  /* Output argument, can be NULL for void functions.  */
+  hsa_symbol *output_arg;
+
+  /* Output argument load instruction.  */
+  hsa_insn_mem *output_arg_insn;
+
+  /* Call isntruction.  */
+  hsa_insn_call *call_insn;
+};
+
+/* Report whether or not P is a call block instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_call_block *>::test (hsa_insn_basic *p)
+{
+  return (p->opcode == HSA_OPCODE_CALL_BLOCK);
+}
+
 /* Basic block of HSA instructions.  */
 
 struct hsa_bb
@@ -375,7 +472,7 @@ struct hsa_bb
   basic_block bb;
 
   /* The operand that referes to the label to this BB.  */
-  hsa_op_label label_ref;
+  hsa_op_code_ref label_ref;
 
   /* The first and last instruction.  */
   struct hsa_insn_basic *first_insn, *last_insn;
@@ -480,6 +577,9 @@ struct hsa_function_representation
 
   /* Whether or not we could check and enforce SSA properties.  */
   bool in_ssa;
+
+  /* True if the function is kernel function.  */
+  bool kern_p;
 };
 
 /* In hsa-gen.c.  */
