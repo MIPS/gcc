@@ -1,5 +1,10 @@
 2014-12-12  Martin Liska  <mliska@suse.cz>
 
+        * hsa-brig.c: Function comments are added.
+        * hsa-gen.c: Likewise.
+
+2014-12-12  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (brig_string_slot_hasher::remove): Memory free is added.
 	* hsa-gen.c (hsa_deinit_data_for_cfun): Destructors are called for
 	operands and instructions that need to deallocate a data.

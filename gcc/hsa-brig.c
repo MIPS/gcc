@@ -917,6 +917,8 @@ emit_code_ref_operand (hsa_op_code_ref *ref)
   brig_operand.add (&out, sizeof (out));
 }
 
+/* Emit a code list operand CODE_LIST.  */
+
 static void
 emit_code_list_operand (hsa_op_code_list *code_list)
 {
@@ -1287,6 +1289,9 @@ emit_arg_block (bool is_start)
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
 }
+
+/* Emit call instruction INSN, where this instruction must be closed
+   within a call block instruction.  */
 
 static void
 emit_call_insn (hsa_insn_basic *insn)

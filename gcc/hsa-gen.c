@@ -623,6 +623,9 @@ hsa_alloc_addr_op (hsa_symbol *sym, hsa_op_reg *reg, HOST_WIDE_INT offset)
   return addr;
 }
 
+/* Allocate and set up a new code list operands with given number
+   of ELEMENTS.  */
+
 static hsa_op_code_list *
 hsa_alloc_code_list_op (unsigned elements)
 {
@@ -1091,6 +1094,10 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
     }
   return hsa_alloc_addr_op (symbol, reg, offset);
 }
+
+/* Generate HSA address for a function call argument of given TYPE.
+   INDEX is used to generate corresponding name of the arguments.
+   Special value -1 represents fact that result value is created.  */
 
 static hsa_op_address *
 gen_hsa_addr_for_arg (tree tree_type, int index)
@@ -1663,7 +1670,7 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
   hsa_append_insn (hbb, insn);
 }
 
-/* Generate HSA instructions for a given gimple condition statemet COND.
+/* Generate HSA instructions for a given gimple condition statement COND.
    Instructions will be apended to HBB, which also needs to be the
    corresponding structure to the basic_block of COND.  SSA_MAP maps gimple SSA
    names to HSA pseudo registers.  */
@@ -1684,6 +1691,11 @@ gen_hsa_insns_for_cond_stmt (gimple cond, hsa_bb *hbb,
   cbr = hsa_build_cbr_insn (ctrl);
   hsa_append_insn (hbb, cbr);
 }
+
+/* Generate HSA instructions for a direct call isntruction.
+   Instructions will be apended to HBB, which also needs to be the
+   corresponding structure to the basic_block of STMT. SSA_MAP maps gimple SSA
+   names to HSA pseudo registers.  */
 
 static void
 gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
@@ -1758,6 +1770,11 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
 
   hsa_append_insn (hbb, call_block_insn);
 }
+
+/* Generate HSA instructions for a return value isntruction.
+   Instructions will be apended to HBB, which also needs to be the
+   corresponding structure to the basic_block of STMT. SSA_MAP maps gimple SSA
+   names to HSA pseudo registers.  */
 
 static void
 gen_hsa_insns_for_return (gimple stmt, hsa_bb *hbb,
