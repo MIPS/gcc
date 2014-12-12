@@ -8169,6 +8169,10 @@ and the associated definitions of those functions.
 
 @hook TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 
+@hook TARGET_RECORD_OFFLOAD_SYMBOL
+
+@hook TARGET_OFFLOAD_OPTIONS
+
 @defmac TARGET_SUPPORTS_WIDE_INT
 
 On older ports, large integers are stored in @code{CONST_DOUBLE} rtl
@@ -8214,5 +8218,3 @@ All and all it does not take long to convert ports that the
 maintainer is familiar with.
 
 @end defmac
-
-@hook TARGET_RECORD_OFFLOAD_SYMBOL

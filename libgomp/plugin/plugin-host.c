@@ -32,7 +32,7 @@
 #include "openacc.h"
 #include "config.h"
 #include "libgomp.h"
-#include "target.h"
+#include "libgomp_target.h"
 #ifdef HOST_NONSHM_PLUGIN
 #include "libgomp-plugin.h"
 #include "oacc-plugin.h"
@@ -81,9 +81,9 @@ GOMP_OFFLOAD_get_type (void)
 #endif
 
 #ifdef HOST_NONSHM_PLUGIN
-  return TARGET_TYPE_HOST_NONSHM;
+  return OFFLOAD_TARGET_TYPE_HOST_NONSHM;
 #else
-  return TARGET_TYPE_HOST;
+  return OFFLOAD_TARGET_TYPE_HOST;
 #endif
 }
 
@@ -115,7 +115,8 @@ GOMP_OFFLOAD_get_num_devices (void)
 }
 
 STATIC void
-GOMP_OFFLOAD_register_image (void *host_table, void *target_data)
+GOMP_OFFLOAD_register_image (void *host_table __attribute__((unused)),
+			     void *target_data __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p)\n", __FILE__, __FUNCTION__, host_table,
@@ -123,28 +124,25 @@ GOMP_OFFLOAD_register_image (void *host_table, void *target_data)
 #endif
 }
 
-STATIC int
-GOMP_OFFLOAD_init_device (void)
+STATIC void
+GOMP_OFFLOAD_init_device (int n __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
 #endif
-
-  return GOMP_OFFLOAD_get_num_devices ();
 }
 
-STATIC int
-GOMP_OFFLOAD_fini_device (void)
+STATIC void
+GOMP_OFFLOAD_fini_device (int n __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s\n", __FILE__, __FUNCTION__);
 #endif
-
-  return 0;
 }
 
 STATIC int
-GOMP_OFFLOAD_get_table (struct mapping_table **table)
+GOMP_OFFLOAD_get_table (int n __attribute__((unused)),
+			struct mapping_table **table __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p)\n", __FILE__, __FUNCTION__, table);
@@ -195,7 +193,7 @@ GOMP_OFFLOAD_openacc_set_device_num (int n)
 }
 
 STATIC void *
-GOMP_OFFLOAD_alloc (size_t s)
+GOMP_OFFLOAD_alloc (int n __attribute__((unused)), size_t s)
 {
   void *ptr = GOMP(malloc) (s);
 
@@ -207,7 +205,7 @@ GOMP_OFFLOAD_alloc (size_t s)
 }
 
 STATIC void
-GOMP_OFFLOAD_free (void *p)
+GOMP_OFFLOAD_free (int n __attribute__((unused)), void *p)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p)\n", __FILE__, __FUNCTION__, p);
@@ -217,7 +215,8 @@ GOMP_OFFLOAD_free (void *p)
 }
 
 STATIC void *
-GOMP_OFFLOAD_host2dev (void *d, const void *h, size_t s)
+GOMP_OFFLOAD_host2dev (int n __attribute__((unused)), void *d, const void *h,
+		       size_t s)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p, %zd)\n", __FILE__, __FUNCTION__, d, h,
@@ -232,7 +231,8 @@ GOMP_OFFLOAD_host2dev (void *d, const void *h, size_t s)
 }
 
 STATIC void *
-GOMP_OFFLOAD_dev2host (void *h, const void *d, size_t s)
+GOMP_OFFLOAD_dev2host (int n __attribute__((unused)), void *h, const void *d,
+		       size_t s)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p, %zd)\n", __FILE__, __FUNCTION__, h, d,
@@ -247,7 +247,7 @@ GOMP_OFFLOAD_dev2host (void *h, const void *d, size_t s)
 }
 
 STATIC void
-GOMP_OFFLOAD_run (void *fn_ptr, void *vars)
+GOMP_OFFLOAD_run (int n __attribute__((unused)), void *fn_ptr, void *vars)
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%p, %p)\n", __FILE__, __FUNCTION__, fn_ptr,
@@ -341,7 +341,7 @@ GOMP_OFFLOAD_openacc_async_wait_all (void)
 
 STATIC void
 GOMP_OFFLOAD_openacc_async_wait_async (int async1 __attribute__((unused)),
-                		      int async2 __attribute__((unused)))
+				       int async2 __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, SELF "%s:%s (%d, %d)\n", __FILE__, __FUNCTION__, async1,
@@ -358,84 +358,14 @@ GOMP_OFFLOAD_openacc_async_wait_all_async (int async __attribute__((unused)))
 }
 
 STATIC void *
-GOMP_OFFLOAD_openacc_create_thread_data (void *targ_data __attribute__((unused)))
+GOMP_OFFLOAD_openacc_create_thread_data (void *targ_data
+					 __attribute__((unused)))
 {
   return NULL;
 }
 
 STATIC void
-GOMP_OFFLOAD_openacc_destroy_thread_data (void *tls_data __attribute__((unused)))
+GOMP_OFFLOAD_openacc_destroy_thread_data (void *tls_data
+					  __attribute__((unused)))
 {
 }
-
-#ifndef HOST_NONSHM_PLUGIN
-static struct gomp_device_descr host_dispatch =
-  {
-    .name = "host",
-
-    .type = TARGET_TYPE_HOST,
-    .capabilities = TARGET_CAP_OPENACC_200 | TARGET_CAP_NATIVE_EXEC
-		    | TARGET_CAP_SHARED_MEM,
-    .id = 0,
-
-    .is_initialized = false,
-    .offload_regions_registered = false,
-
-    .get_name_func = GOMP_OFFLOAD_get_name,
-    .get_type_func = GOMP_OFFLOAD_get_type,
-    .get_caps_func = GOMP_OFFLOAD_get_caps,
-
-    .init_device_func = GOMP_OFFLOAD_init_device,
-    .fini_device_func = GOMP_OFFLOAD_fini_device,
-    .get_num_devices_func = GOMP_OFFLOAD_get_num_devices,
-    .register_image_func = GOMP_OFFLOAD_register_image,
-    .get_table_func = GOMP_OFFLOAD_get_table,
-
-    .alloc_func = GOMP_OFFLOAD_alloc,
-    .free_func = GOMP_OFFLOAD_free,
-    .host2dev_func = GOMP_OFFLOAD_host2dev,
-    .dev2host_func = GOMP_OFFLOAD_dev2host,
-    
-    .run_func = GOMP_OFFLOAD_run,
-
-    .openacc = {
-      .open_device_func = GOMP_OFFLOAD_openacc_open_device,
-      .close_device_func = GOMP_OFFLOAD_openacc_close_device,
-
-      .get_device_num_func = GOMP_OFFLOAD_openacc_get_device_num,
-      .set_device_num_func = GOMP_OFFLOAD_openacc_set_device_num,
-
-      .exec_func = GOMP_OFFLOAD_openacc_parallel,
-
-      .register_async_cleanup_func
-	= GOMP_OFFLOAD_openacc_register_async_cleanup,
-
-      .async_set_async_func = GOMP_OFFLOAD_openacc_async_set_async,
-      .async_test_func = GOMP_OFFLOAD_openacc_async_test,
-      .async_test_all_func = GOMP_OFFLOAD_openacc_async_test_all,
-      .async_wait_func = GOMP_OFFLOAD_openacc_async_wait,
-      .async_wait_async_func = GOMP_OFFLOAD_openacc_async_wait_async,
-      .async_wait_all_func = GOMP_OFFLOAD_openacc_async_wait_all,
-      .async_wait_all_async_func = GOMP_OFFLOAD_openacc_async_wait_all_async,
-
-      .create_thread_data_func = GOMP_OFFLOAD_openacc_create_thread_data,
-      .destroy_thread_data_func = GOMP_OFFLOAD_openacc_destroy_thread_data,
-
-      .cuda = {
-	.get_current_device_func = NULL,
-	.get_current_context_func = NULL,
-	.get_stream_func = NULL,
-	.set_stream_func = NULL,
-      }
-    }
-  };
-
-/* Register this device type.  */
-static __attribute__ ((constructor))
-void ACC_host_init (void)
-{
-  gomp_mutex_init (&host_dispatch.mem_map.lock);
-  ACC_register (&host_dispatch);
-}
-#endif
-

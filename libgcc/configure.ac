@@ -379,16 +379,21 @@ esac
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
 
-AC_ARG_ENABLE(offload-targets,
-[AS_HELP_STRING([--enable-offload-targets=LIST],
- [enable offloading to devices from LIST])],
-[
-  if test x"$enable_offload_targets" = x; then
-    AC_MSG_ERROR([no offload targets specified])
-  fi
-], [enable_offload_targets=])
+# Used for constructing correct paths for offload compilers.
+accel_dir_suffix=
+if test x"$enable_as_accelerator_for" != x; then
+  accel_dir_suffix=/accel/${target_noncanonical}
+  case "${target_noncanonical}" in
+    *-intelmicemul-*)
+      # In this case we expect offload compiler to be built as native, so we
+      # need to change install directory for driver to be able to find libgcc.
+      host_noncanonical=${enable_as_accelerator_for} ;;
+  esac
+fi
+AC_SUBST(accel_dir_suffix)
+
 if test x"$enable_offload_targets" != x; then
-  extra_parts="${extra_parts} crtompbegin.o crtompend.o"
+  extra_parts="${extra_parts} crtoffloadbegin.o crtoffloadend.o"
 fi
 
 # Check if Solaris/x86 linker supports ZERO terminator unwind entries.

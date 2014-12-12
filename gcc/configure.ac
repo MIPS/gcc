@@ -887,32 +887,36 @@ AC_ARG_ENABLE(languages,
 esac],
 [enable_languages=c])
 
-AC_ARG_ENABLE(as-accelerator-for,
-[AS_HELP_STRING([--enable-as-accelerator-for], [build compiler as accelerator target for given host])],
-[
+if test x"$enable_as_accelerator_for" != x; then
   AC_DEFINE(ACCEL_COMPILER, 1,
-   [Define if this compiler should be built and used as the target
-    device compiler for OpenACC.])
+    [Define if this compiler should be built as the offload target compiler.])
   enable_as_accelerator=yes
+  case "${target}" in
+    *-intelmicemul-*)
+      # In this case we expect offload compiler to be built as native, so we
+      # need to rename the driver to avoid clashes with host's drivers.
+      program_transform_name="s&^&${target}-&" ;;
+  esac
   sedscript="s#${target_noncanonical}#${enable_as_accelerator_for}-accel-${target_noncanonical}#"
   program_transform_name=`echo $program_transform_name | sed $sedscript`
   accel_dir_suffix=/accel/${target_noncanonical}
   real_target_noncanonical=${enable_as_accelerator_for}
-], [enable_as_accelerator=no])
+fi
 AC_SUBST(enable_as_accelerator)
+AC_SUBST(real_target_noncanonical)
+AC_SUBST(accel_dir_suffix)
 
-AC_ARG_ENABLE(offload-targets,
-[AS_HELP_STRING([--enable-offload-targets=LIST],
- [enable offloading to devices from LIST])],
-[
-  if test x"$enable_offload_targets" = x; then
-    AC_MSG_ERROR([no offload targets specified])
+for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
+  tgt=`echo $tgt | sed 's/=.*//'`
+  if test x"$offload_targets" = x; then
+    offload_targets=$tgt
+  else
+    offload_targets="$offload_targets:$tgt"
   fi
-], [enable_offload_targets=])
-enable_offload_targets=`echo "$enable_offload_targets" | sed -e 's#,#:#g'`
-AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$enable_offload_targets",
- [Define to hold the list of target names suitable for offloading.])
-if test x"$enable_offload_targets" != x; then
+done
+AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
+  [Define to hold the list of target names suitable for offloading.])
+if test x"$offload_targets" != x; then
   AC_DEFINE(ENABLE_OFFLOADING, 1,
     [Define this to enable support for offloading.])
 fi
@@ -5565,8 +5569,6 @@ AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(fortran_target_objs)
 AC_SUBST(target_cpu_default)
-AC_SUBST(real_target_noncanonical)
-AC_SUBST(accel_dir_suffix)
 
 AC_SUBST_FILE(language_hooks)
 

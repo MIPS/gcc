@@ -33,7 +33,7 @@
 #include "openacc.h"
 #include "config.h"
 #include "libgomp.h"
-#include "target.h"
+#include "libgomp_target.h"
 #include "libgomp-plugin.h"
 #include "oacc-ptx.h"
 #include "oacc-plugin.h"
@@ -608,12 +608,10 @@ PTX_init (void)
   return PTX_get_num_devices ();
 }
 
-static int
+static void
 PTX_fini (void)
 {
   PTX_inited = false;
-
-  return 0;
 }
 
 static void *
@@ -1488,7 +1486,7 @@ GOMP_OFFLOAD_get_type (void)
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
 #endif
 
-  return TARGET_TYPE_NVIDIA_PTX;
+  return OFFLOAD_TARGET_TYPE_NVIDIA_PTX;
 }
 
 unsigned int
@@ -1528,28 +1526,29 @@ GOMP_OFFLOAD_register_image (void *host_table, void *target_data)
   kernel_host_table = host_table;
 }
 
-int
-GOMP_OFFLOAD_init_device (void)
+void
+GOMP_OFFLOAD_init_device (int n __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
 #endif
 
-  return PTX_init ();
+  (void) PTX_init ();
 }
 
-int
-GOMP_OFFLOAD_fini_device (void)
+void
+GOMP_OFFLOAD_fini_device (int n __attribute__((unused)))
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s\n", __FILE__, __FUNCTION__);
 #endif
 
-  return PTX_fini ();
+  PTX_fini ();
 }
 
 int
-GOMP_OFFLOAD_get_table (struct mapping_table **tablep)
+GOMP_OFFLOAD_get_table (int n __attribute__((unused)),
+			struct mapping_table **tablep)
 {
   CUmodule module;
   void **fn_table;
@@ -1577,8 +1576,8 @@ GOMP_OFFLOAD_get_table (struct mapping_table **tablep)
      kernel_target_data[1] -> variable mappings
      kernel_target_data[2] -> array of kernel names in ascii
 
-     kernel_host_table[0] -> start of function addresses (_omp_func_table)
-     kernel_host_table[1] -> end of function addresses (_omp_funcs_end)
+     kernel_host_table[0] -> start of function addresses (__offload_func_table)
+     kernel_host_table[1] -> end of function addresses (__offload_funcs_end)
 
      The array of kernel names and the functions addresses form a
      one-to-one correspondence.  */
@@ -1612,7 +1611,7 @@ GOMP_OFFLOAD_get_table (struct mapping_table **tablep)
 }
 
 void *
-GOMP_OFFLOAD_alloc (size_t size)
+GOMP_OFFLOAD_alloc (int n __attribute__((unused)), size_t size)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%zu)\n", __FILE__, __FUNCTION__,
@@ -1623,7 +1622,7 @@ GOMP_OFFLOAD_alloc (size_t size)
 }
 
 void
-GOMP_OFFLOAD_free (void *ptr)
+GOMP_OFFLOAD_free (int n __attribute__((unused)), void *ptr)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p)\n", __FILE__, __FUNCTION__, ptr);
@@ -1633,7 +1632,8 @@ GOMP_OFFLOAD_free (void *ptr)
 }
 
 void *
-GOMP_OFFLOAD_dev2host (void *dst, const void *src, size_t n)
+GOMP_OFFLOAD_dev2host (int ord __attribute__((unused)), void *dst,
+		       const void *src, size_t n)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p, %p, %zu)\n", __FILE__,
@@ -1645,7 +1645,8 @@ GOMP_OFFLOAD_dev2host (void *dst, const void *src, size_t n)
 }
 
 void *
-GOMP_OFFLOAD_host2dev (void *dst, const void *src, size_t n)
+GOMP_OFFLOAD_host2dev (int ord __attribute__((unused)), void *dst,
+		       const void *src, size_t n)
 {
 #ifdef DEBUG
   fprintf (stderr, "libgomp plugin: %s:%s (%p, %p, %zu)\n", __FILE__,
@@ -1655,7 +1656,7 @@ GOMP_OFFLOAD_host2dev (void *dst, const void *src, size_t n)
   return PTX_host2dev (dst, src, n);
 }
 
-void (*device_run) (void *fn_ptr, void *vars) = NULL;
+void (*device_run) (int n, void *fn_ptr, void *vars) = NULL;
 
 void
 GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,

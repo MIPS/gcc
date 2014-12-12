@@ -1,4 +1,4 @@
-/* Specialized bits of code needed for the OpenMP offloading tables.
+/* Specialized bits of code needed for the offloading tables.
    Copyright (C) 2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -29,6 +29,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    identified the set of defines that need to go into auto-target.h,
    this will have to do.  */
 #include "auto-host.h"
+#undef caddr_t
 #undef pid_t
 #undef rlim_t
 #undef ssize_t
@@ -39,32 +40,38 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "tm.h"
 #include "libgcc_tm.h"
 
+#define OFFLOAD_FUNC_TABLE_SECTION_NAME ".gnu.offload_funcs"
+#define OFFLOAD_VAR_TABLE_SECTION_NAME ".gnu.offload_vars"
+
 #ifdef CRT_BEGIN
 
 #if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
-void *_omp_func_table[0]
+void *__offload_func_table[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section ("__gnu_offload_funcs"))) = { };
-void *_omp_var_table[0]
+		  section (OFFLOAD_FUNC_TABLE_SECTION_NAME))) = { };
+void *__offload_var_table[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section ("__gnu_offload_vars"))) = { };
+		  section (OFFLOAD_VAR_TABLE_SECTION_NAME))) = { };
 #endif
 
 #elif defined CRT_END
 
 #if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
-void *_omp_funcs_end[0]
+void *__offload_funcs_end[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section ("__gnu_offload_funcs"))) = { };
-void *_omp_vars_end[0]
+		  section (OFFLOAD_FUNC_TABLE_SECTION_NAME))) = { };
+void *__offload_vars_end[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section ("__gnu_offload_vars"))) = { };
-extern void *_omp_func_table[];
-extern void *_omp_var_table[];
-void *__OPENMP_TARGET__[] __attribute__ ((__visibility__ ("hidden"))) =
+		  section (OFFLOAD_VAR_TABLE_SECTION_NAME))) = { };
+
+extern void *__offload_func_table[];
+extern void *__offload_var_table[];
+
+void *__OFFLOAD_TABLE__[]
+  __attribute__ ((__visibility__ ("hidden"))) =
 {
-  &_omp_func_table, &_omp_funcs_end,
-  &_omp_var_table, &_omp_vars_end
+  &__offload_func_table, &__offload_funcs_end,
+  &__offload_var_table, &__offload_vars_end
 };
 #endif
 

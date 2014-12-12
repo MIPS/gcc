@@ -26,8 +26,9 @@
    <http://www.gnu.org/licenses/>.  */
 
 #include "libgomp.h"
-#include "target.h"
+#include "libgomp_target.h"
 #include "oacc-int.h"
+#include "openacc.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -64,11 +65,11 @@ static gomp_mutex_t goacc_thread_lock;
    grouped by device in target.c:devices).  */
 static struct gomp_device_descr const *dispatchers[_ACC_device_hwm] = { 0 };
 
-void
+attribute_hidden void
 ACC_register (struct gomp_device_descr const *disp)
 {
   /* Only register the 0th device here.  */
-  if (disp->ord != 0)
+  if (disp->target_id != 0)
     return;
 
   gomp_mutex_lock (&acc_device_lock);
@@ -97,7 +98,7 @@ resolve_device (acc_device_t d)
 	    while (++d != _ACC_device_hwm)
 	      if (dispatchers[d]
 		  && !strcasecmp (goacc_device_type, dispatchers[d]->name)
-		  && dispatchers[d]->init_device_func () > 0)
+		  && dispatchers[d]->get_num_devices_func () > 0)
 		goto found;
 
 	    gomp_fatal ("device type %s not supported", goacc_device_type);
@@ -112,7 +113,7 @@ resolve_device (acc_device_t d)
     case acc_device_not_host:
       /* Find the first available device after acc_device_not_host.  */
       while (++d != _ACC_device_hwm)
-	if (dispatchers[d] && dispatchers[d]->init_device_func () > 0)
+	if (dispatchers[d] && dispatchers[d]->get_num_devices_func () > 0)
 	  goto found;
       if (d_arg == acc_device_default)
 	{	  
@@ -140,7 +141,7 @@ resolve_device (acc_device_t d)
 }
 
 /* This is called when plugins have been initialized, and serves to call
-   (indirectly) the target's init_device hook.  Calling multiple times without
+   (indirectly) the target's device_init hook.  Calling multiple times without
    an intervening _acc_shutdown call is an error.  */
 
 static struct gomp_device_descr const *
@@ -150,7 +151,7 @@ _acc_init (acc_device_t d)
 
   acc_dev = resolve_device (d);
 
-  if (!acc_dev || acc_dev->init_device_func () <= 0)
+  if (!acc_dev || acc_dev->get_num_devices_func () <= 0)
     gomp_fatal ("device %u not supported", (unsigned)d);
 
   if (acc_dev->is_initialized)
@@ -239,7 +240,7 @@ lazy_open (int ord)
 
   if (thr && thr->dev)
     {
-      assert (ord < 0 || ord == thr->dev->ord);
+      assert (ord < 0 || ord == thr->dev->target_id);
       return;
     }
 
@@ -259,7 +260,7 @@ lazy_open (int ord)
 
   acc_dev = thr->dev = (struct gomp_device_descr *) &base_dev[ord];
 
-  assert (acc_dev->ord == ord);
+  assert (acc_dev->target_id == ord);
 
   thr->saved_bound_dev = NULL;
   thr->mapped_data = NULL;
@@ -417,7 +418,7 @@ acc_get_num_devices (acc_device_t d)
   if (!acc_dev)
     return 0;
 
-  n = acc_dev->init_device_func ();
+  n = acc_dev->get_num_devices_func ();
   if (n < 0)
     n = 0;
 
@@ -527,7 +528,7 @@ acc_set_device_num (int n, acc_device_t d)
       /* If we're changing the device number, de-associate this thread with
 	 the device (but don't close the device, since it may be in use by
 	 other threads).  */
-      if (thr && thr->dev && n != thr->dev->ord)
+      if (thr && thr->dev && n != thr->dev->target_id)
 	thr->dev = NULL;
 
       lazy_open (n);
@@ -546,7 +547,7 @@ acc_on_device (acc_device_t dev)
   if (thr && thr->dev
       && acc_device_type (thr->dev->type) == acc_device_host_nonshm)
     return dev == acc_device_host_nonshm || dev == acc_device_not_host;
-    
+
   /* Just rely on the compiler builtin.  */
   return __builtin_acc_on_device (dev);
 }
@@ -571,7 +572,7 @@ ACC_runtime_initialize (void)
 
 /* Compiler helper functions */
 
-void
+attribute_hidden void
 ACC_save_and_set_bind (acc_device_t d)
 {
   struct goacc_thread *thr = goacc_thread ();
@@ -582,7 +583,7 @@ ACC_save_and_set_bind (acc_device_t d)
   thr->dev = (struct gomp_device_descr *) dispatchers[d];
 }
 
-void
+attribute_hidden void
 ACC_restore_bind (void)
 {
   struct goacc_thread *thr = goacc_thread ();
@@ -596,7 +597,7 @@ ACC_restore_bind (void)
    been done, and both the global ACC_dev and the per-host-thread ACC_memmap
    pointers will be valid.  */
 
-void
+attribute_hidden void
 ACC_lazy_initialize (void)
 {
   struct goacc_thread *thr = goacc_thread ();

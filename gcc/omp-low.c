@@ -87,6 +87,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-nested.h"
 #include "tree-eh.h"
 #include "cilk.h"
+#include "context.h"
 #include "lto-section-names.h"
 
 
@@ -303,20 +304,20 @@ oacc_max_threads (omp_context *ctx)
   return nthreads;
 }
 
-/* Holds a decl for __OPENMP_TARGET__.  */
-static GTY(()) tree offload_symbol_decl;
-
 /* Holds offload tables with decls.  */
 vec<tree, va_gc> *offload_funcs, *offload_vars;
 
-/* Get the __OPENMP_TARGET__ symbol.  */
+/* Holds a decl for __OFFLOAD_TABLE__.  */
+static GTY(()) tree offload_symbol_decl;
+
+/* Get the __OFFLOAD_TABLE__ symbol.  */
 static tree
 get_offload_symbol_decl (void)
 {
   if (!offload_symbol_decl)
     {
       tree decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			      get_identifier ("__OPENMP_TARGET__"),
+			      get_identifier ("__OFFLOAD_TABLE__"),
 			      ptr_type_node);
       TREE_ADDRESSABLE (decl) = 1;
       TREE_PUBLIC (decl) = 1;
@@ -1854,8 +1855,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      && DECL_P (decl)
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
-	      && lookup_attribute ("omp declare target",
-				   DECL_ATTRIBUTES (decl)))
+	      && varpool_node::get_create (decl)->offloadable)
 	    {
 	      gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	    break;
@@ -2047,8 +2047,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (DECL_P (decl)
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
-	      && lookup_attribute ("omp declare target",
-				   DECL_ATTRIBUTES (decl)))
+	      && varpool_node::get_create (decl)->offloadable)
 	    {
 	      gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	    break;
@@ -2233,24 +2232,19 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   DECL_EXTERNAL (decl) = 0;
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = make_node (BLOCK);
-  bool target_p = false;
-  if (lookup_attribute ("omp declare target",
-			DECL_ATTRIBUTES (current_function_decl)))
-    target_p = true;
+  if (cgraph_node::get (current_function_decl)->offloadable)
+    cgraph_node::get_create (decl)->offloadable = 1;
   else
     {
       omp_context *octx;
       for (octx = ctx; octx; octx = octx->outer)
 	if (is_gimple_omp_offloaded (octx->stmt))
 	  {
-	    target_p = true;
+	    cgraph_node::get_create (decl)->offloadable = 1;
+	    g->have_offload = true;
 	    break;
 	  }
     }
-  if (target_p)
-    DECL_ATTRIBUTES (decl)
-      = tree_cons (get_identifier ("omp declare target"),
-		   NULL_TREE, DECL_ATTRIBUTES (decl));
 
   t = build_decl (DECL_SOURCE_LOCATION (decl),
 		  RESULT_DECL, NULL_TREE, void_type_node);
@@ -8827,6 +8821,7 @@ expand_omp_target (struct omp_region *region)
   if (offloaded)
     {
       unsigned srcidx, dstidx, num;
+      struct cgraph_node *node;
 
       /* If the offloading region needs data sent from the parent
 	 function, then the very first statement (except possible
@@ -8959,6 +8954,11 @@ expand_omp_target (struct omp_region *region)
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
       cgraph_edge::rebuild_edges ();
+
+      /* Prevent IPA from removing child_fn as unreachable, since there are no
+	 refs from the parent function to child_fn in offload LTO mode.  */
+      node = cgraph_node::get (child_fn);
+      node->mark_force_output ();
 
       /* Some EH regions might become dead, see PR34608.  If
 	 pass_cleanup_cfg isn't the first pass to happen with the
@@ -9114,7 +9114,7 @@ expand_omp_target (struct omp_region *region)
     }
 
   gimple g;
-  tree openmp_target = get_offload_symbol_decl ();
+  tree offload_table = get_offload_symbol_decl ();
   vec<tree> *args;
   /* The maximum number used by any start_ix, without varargs.  */
   unsigned int argcnt = 12;
@@ -9123,7 +9123,7 @@ expand_omp_target (struct omp_region *region)
   args->quick_push (device);
   if (offloaded)
     args->quick_push (build_fold_addr_expr (child_fn));
-  args->quick_push (build_fold_addr_expr (openmp_target));
+  args->quick_push (build_fold_addr_expr (offload_table));
   args->quick_push (t1);
   args->quick_push (t2);
   args->quick_push (t3);
@@ -10406,6 +10406,17 @@ lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  DECL_COMMON (decl) = 1;
 	  DECL_ARTIFICIAL (decl) = 1;
 	  DECL_IGNORED_P (decl) = 1;
+
+	  /* If '#pragma omp critical' is inside offloaded region, the symbol
+	     must be marked for offloading.  */
+	  omp_context *octx;
+	  for (octx = ctx->outer; octx; octx = octx->outer)
+	    if (is_gimple_omp_offloaded (octx->stmt))
+	      {
+		varpool_node::get_create (decl)->offloadable = 1;
+		break;
+	      }
+
 	  varpool_node::finalize_decl (decl);
 
 	  splay_tree_insert (critical_name_mutexes, (splay_tree_key) name,
@@ -13598,10 +13609,8 @@ make_pass_omp_simd_clone (gcc::context *ctxt)
   return new pass_omp_simd_clone (ctxt);
 }
 
-/* Helper function for omp_finish_file routine.
-   Takes decls from V_DECLS and adds their addresses and sizes to
-   constructor-vector V_CTOR.  It will be later used as DECL_INIT for decl
-   representing a global symbol for OpenMP descriptor.  */
+/* Helper function for omp_finish_file routine.  Takes decls from V_DECLS and
+   adds their addresses and sizes to constructor-vector V_CTOR.  */
 static void
 add_decls_addresses_to_decl_constructor (vec<tree, va_gc> *v_decls,
 					 vec<constructor_elt, va_gc> *v_ctor)
@@ -13616,18 +13625,16 @@ add_decls_addresses_to_decl_constructor (vec<tree, va_gc> *v_decls,
       if (!is_function)
 	CONSTRUCTOR_APPEND_ELT (v_ctor, NULL_TREE,
 				fold_convert (const_ptr_type_node,
-					      DECL_SIZE (it)));
+					      DECL_SIZE_UNIT (it)));
     }
 }
 
-/* Create new symbol containing (address, size) pairs for omp-marked
-   functions and global variables.  */
+/* Create new symbols containing (address, size) pairs for global variables,
+   marked with "omp declare target" attribute, as well as addresses for the
+   functions, which are outlined offloading regions.  */
 void
 omp_finish_file (void)
 {
-  const char *funcs_section_name = OFFLOAD_FUNC_TABLE_SECTION_NAME;
-  const char *vars_section_name = OFFLOAD_VAR_TABLE_SECTION_NAME;
-
   unsigned num_funcs = vec_safe_length (offload_funcs);
   unsigned num_vars = vec_safe_length (offload_vars);
 
@@ -13654,19 +13661,25 @@ omp_finish_file (void)
       TREE_CONSTANT (ctor_v) = TREE_CONSTANT (ctor_f) = 1;
       TREE_STATIC (ctor_v) = TREE_STATIC (ctor_f) = 1;
       tree funcs_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-				    get_identifier (".omp_func_table"),
+				    get_identifier (".offload_func_table"),
 				    funcs_decl_type);
       tree vars_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-				   get_identifier (".omp_var_table"),
+				   get_identifier (".offload_var_table"),
 				   vars_decl_type);
       TREE_STATIC (funcs_decl) = TREE_STATIC (vars_decl) = 1;
+      /* Do not align tables more than TYPE_ALIGN (pointer_sized_int_node),
+	 otherwise a joint table in a binary will contain padding between
+	 tables from multiple object files.  */
+      DECL_USER_ALIGN (funcs_decl) = DECL_USER_ALIGN (vars_decl) = 1;
+      DECL_ALIGN (funcs_decl) = TYPE_ALIGN (funcs_decl_type);
+      DECL_ALIGN (vars_decl) = TYPE_ALIGN (vars_decl_type);
       DECL_INITIAL (funcs_decl) = ctor_f;
       DECL_INITIAL (vars_decl) = ctor_v;
-      set_decl_section_name (funcs_decl, funcs_section_name);
-      set_decl_section_name (vars_decl, vars_section_name);
+      set_decl_section_name (funcs_decl, OFFLOAD_FUNC_TABLE_SECTION_NAME);
+      set_decl_section_name (vars_decl, OFFLOAD_VAR_TABLE_SECTION_NAME);
 
-      varpool_node::finalize_decl (funcs_decl);
       varpool_node::finalize_decl (vars_decl);
+      varpool_node::finalize_decl (funcs_decl);
    }
   else
     {

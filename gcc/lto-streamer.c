@@ -328,7 +328,7 @@ lto_streamer_init (void)
 bool
 gate_lto_out (void)
 {
-  return ((flag_generate_lto || in_lto_p || flag_openacc || flag_openmp)
+  return ((flag_generate_lto || in_lto_p)
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !seen_error ());
 }

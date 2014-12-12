@@ -326,8 +326,7 @@ GOACC_2.0 {
 	GOACC_get_num_threads;
 };
 
-# FIXME: Hygiene/grouping/naming?
-PLUGIN_1.0 {
+GOMP_PLUGIN_1.0 {
   global:
 	GOMP_PLUGIN_malloc;
 	GOMP_PLUGIN_malloc_cleared;

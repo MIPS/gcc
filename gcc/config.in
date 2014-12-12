@@ -1,7 +1,6 @@
 /* config.in.  Generated from configure.ac by autoheader.  */
 
-/* Define if this compiler should be built and used as the target device
-   compiler for OpenACC. */
+/* Define if this compiler should be built as the offload target compiler. */
 #ifndef USED_FOR_TARGET
 #undef ACCEL_COMPILER
 #endif

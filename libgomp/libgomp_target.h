@@ -1,5 +1,4 @@
-/* Copyright (C) 2013-2014 Free Software Foundation, Inc.
-   Contributed by Jakub Jelinek <jakub@redhat.com>.
+/* Copyright (C) 2014 Free Software Foundation, Inc.
 
    This file is part of the GNU OpenMP Library (libgomp).
 
@@ -22,15 +21,31 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-/* This file handles the maintainence of threads in response to team
-   creation and termination.  */
+#ifndef LIBGOMP_TARGET_H
+#define LIBGOMP_TARGET_H 1
 
-#ifndef _TARGET_H
-#define _TARGET_H 1
-
-#include <stdarg.h>
-#include "splay-tree.h"
 #include "gomp-constants.h"
+
+/* Type of offload target device.  Keep in sync with openacc.h:acc_device_t.  */
+enum offload_target_type
+{
+  OFFLOAD_TARGET_TYPE_HOST = GOMP_TARGET_HOST,
+  OFFLOAD_TARGET_TYPE_HOST_NONSHM = GOMP_TARGET_HOST_NONSHM,
+  OFFLOAD_TARGET_TYPE_NVIDIA_PTX = GOMP_TARGET_NVIDIA_PTX,
+  OFFLOAD_TARGET_TYPE_INTEL_MIC = GOMP_TARGET_INTEL_MIC
+};
+
+/* Auxiliary struct, used for transferring a host-target address range mapping
+   from plugin to libgomp.  */
+struct mapping_table
+{
+  uintptr_t host_start;
+  uintptr_t host_end;
+  uintptr_t tgt_start;
+  uintptr_t tgt_end;
+};
+
+#include "splay-tree.h"
 
 struct target_mem_desc {
   /* Reference count.  */
@@ -50,22 +65,13 @@ struct target_mem_desc {
 
   /* Corresponding target device descriptor.  */
   struct gomp_device_descr *device_descr;
-  
+
   /* Memory mapping info for the thread that created this descriptor.  */
   struct gomp_memory_mapping *mem_map;
 
   /* List of splay keys to remove (or decrease refcount)
      at the end of region.  */
   splay_tree_key list[];
-};
-
-/* Keep in sync with openacc.h:acc_device_t.  */
-
-enum target_type {
-  TARGET_TYPE_HOST = GOMP_TARGET_HOST,
-  TARGET_TYPE_HOST_NONSHM = GOMP_TARGET_HOST_NONSHM,
-  TARGET_TYPE_NVIDIA_PTX = GOMP_TARGET_NVIDIA_PTX,
-  TARGET_TYPE_INTEL_MIC = GOMP_TARGET_INTEL_MIC,
 };
 
 #define TARGET_CAP_SHARED_MEM	1
@@ -82,7 +88,7 @@ struct gomp_memory_mapping
 
   /* Mutex for operating with the splay tree and other shared structures.  */
   gomp_mutex_t lock;
-  
+
   /* True when tables have been added to this memory map.  */
   bool is_initialized;
 };
@@ -132,13 +138,6 @@ typedef struct ACC_dispatch_t
   } cuda;
 } ACC_dispatch_t;
 
-struct mapping_table {
-  uintptr_t host_start;
-  uintptr_t host_end;
-  uintptr_t tgt_start;
-  uintptr_t tgt_end;
-};
-
 /* This structure describes accelerator device.
    It contains name of the corresponding libgomp plugin, function handlers for
    interaction with the device, ID-number of the device, and information about
@@ -155,20 +154,17 @@ struct gomp_device_descr
      TARGET construct.  */
   int id;
 
-  /* The number of the device for this particular device type.  */
-  int ord;
+  /* This is the ID number of device among devices of the same type.  */
+  int target_id;
 
   /* This is the TYPE of device.  */
-  enum target_type type;
+  enum offload_target_type type;
 
   /* Set to true when device is initialized.  */
   bool is_initialized;
-  
+
   /* True when offload regions have been registered with this device.  */
   bool offload_regions_registered;
-
-  /* Plugin file handler.  */
-  void *plugin_handle;
 
   /* Function handlers.  */
   const char *(*get_name_func) (void);
@@ -176,18 +172,18 @@ struct gomp_device_descr
   int (*get_type_func) (void);
   int (*get_num_devices_func) (void);
   void (*register_image_func) (void *, void *);
-  int (*init_device_func) (void);
-  int (*fini_device_func) (void);
-  int (*get_table_func) (struct mapping_table **);
-  void *(*alloc_func) (size_t);
-  void (*free_func) (void *);
-  void *(*dev2host_func) (void *, const void *, size_t);
-  void *(*host2dev_func) (void *, const void *, size_t);
-  void (*run_func) (void *, void *);
+  void (*init_device_func) (int);
+  void (*fini_device_func) (int);
+  int (*get_table_func) (int, struct mapping_table **);
+  void *(*alloc_func) (int, size_t);
+  void (*free_func) (int, void *);
+  void *(*dev2host_func) (int, void *, const void *, size_t);
+  void *(*host2dev_func) (int, void *, const void *, size_t);
+  void (*run_func) (int, void *, void *);
 
   /* OpenACC-specific functions.  */
   ACC_dispatch_t openacc;
-  
+
   /* Memory-mapping info for this device instance.  */
   struct gomp_memory_mapping mem_map;
 
@@ -219,4 +215,4 @@ gomp_fini_device (struct gomp_device_descr *devicep);
 extern attribute_hidden void
 gomp_free_memmap (struct gomp_device_descr *devicep);
 
-#endif /* _TARGET_H */
+#endif /* LIBGOMP_TARGET_H */

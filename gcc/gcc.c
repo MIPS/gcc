@@ -159,6 +159,10 @@ static const char *const spec_version = DEFAULT_TARGET_VERSION;
 static const char *spec_machine = DEFAULT_TARGET_MACHINE;
 static const char *spec_host_machine = DEFAULT_REAL_TARGET_MACHINE;
 
+/* List of offload targets.  */
+
+static char *offload_targets = NULL;
+
 /* Nonzero if cross-compiling.
    When -b is used, the value comes from the `specs' file.  */
 
@@ -3359,6 +3363,92 @@ driver_wrong_lang_callback (const struct cl_decoded_option *decoded,
 static const char *spec_lang = 0;
 static int last_language_n_infiles;
 
+/* Parse -foffload option argument.  */
+
+static void
+handle_foffload_option (const char *arg)
+{
+  const char *c, *cur, *n, *next, *end;
+  char *target;
+
+  /* If option argument starts with '-' then no target is specified and we
+     do not need to parse it.  */
+  if (arg[0] == '-')
+    return;
+
+  end = strchrnul (arg, '=');
+  cur = arg;
+
+  while (cur < end)
+    {
+      next = strchrnul (cur, ',');
+      next = (next > end) ? end : next;
+
+      target = XNEWVEC (char, next - cur + 1);
+      strncpy (target, cur, next - cur);
+      target[next - cur] = '\0';
+
+      /* If 'disable' is passed to the option, stop parsing the option and clean
+         the list of offload targets.  */
+      if (strcmp (target, "disable") == 0)
+	{
+	  free (offload_targets);
+	  offload_targets = xstrdup ("");
+	  break;
+	}
+
+      /* Check that GCC is configured to support the offload target.  */
+      c = OFFLOAD_TARGETS;
+      while (c)
+	{
+	  n = strchrnul (c, ',');
+
+	  if (strlen (target) == (size_t) (n - c)
+	      && strncmp (target, c, n - c) == 0)
+	    break;
+
+	  c = *n ? n + 1 : NULL;
+	}
+
+      if (!c)
+	fatal_error ("GCC is not configured to support %s as offload target",
+		     target);
+
+      if (!offload_targets)
+	offload_targets = xstrdup (target);
+      else
+	{
+	  /* Check that the target hasn't already presented in the list.  */
+	  c = offload_targets;
+	  do
+	    {
+	      n = strchrnul (c, ':');
+
+	      if (strlen (target) == (size_t) (n - c)
+		  && strncmp (c, target, n - c) == 0)
+		break;
+
+	      c = n + 1;
+	    }
+	  while (*n);
+
+	  /* If duplicate is not found, append the target to the list.  */
+	  if (c > n)
+	    {
+	      offload_targets
+		= XRESIZEVEC (char, offload_targets,
+			      strlen (offload_targets) + strlen (target) + 2);
+	      if (strlen (offload_targets) != 0)
+		strcat (offload_targets, ":");
+	      strcat (offload_targets, target);
+	    }
+	}
+
+      cur = next + 1;
+      XDELETEVEC (target);
+    }
+}
+
 /* Handle a driver option; arguments and return value as for
    handle_option.  */
 
@@ -3734,6 +3824,10 @@ driver_handle_option (struct gcc_options *opts,
 
     case OPT_fwpa:
       flag_wpa = "";
+      break;
+
+    case OPT_foffload_:
+      handle_foffload_option (arg);
       break;
 
     default:
@@ -6754,6 +6848,7 @@ class driver
   void set_up_specs () const;
   void putenv_COLLECT_GCC (const char *argv0) const;
   void maybe_putenv_COLLECT_LTO_WRAPPER () const;
+  void maybe_putenv_OFFLOAD_TARGETS () const;
   void handle_unrecognized_options () const;
   int maybe_print_and_exit () const;
   bool prepare_infiles ();
@@ -6796,6 +6891,7 @@ driver::main (int argc, char **argv)
   set_up_specs ();
   putenv_COLLECT_GCC (argv[0]);
   maybe_putenv_COLLECT_LTO_WRAPPER ();
+  maybe_putenv_OFFLOAD_TARGETS ();
   handle_unrecognized_options ();
 
   if (!maybe_print_and_exit ())
@@ -6965,6 +7061,7 @@ driver::build_multilib_strings () const
 void
 driver::set_up_specs () const
 {
+  const char *spec_machine_suffix;
   char *specs_file;
   size_t i;
 
@@ -6999,17 +7096,21 @@ driver::set_up_specs () const
   else
     init_spec ();
 
-#ifndef ACCEL_COMPILER
-  /* We need to check standard_exec_prefix/just_machine_suffix/specs
+#ifdef ACCEL_COMPILER
+  spec_machine_suffix = machine_suffix;
+#else
+  spec_machine_suffix = just_machine_suffix;
+#endif
+
+  /* We need to check standard_exec_prefix/spec_machine_suffix/specs
      for any override of as, ld and libraries.  */
   specs_file = (char *) alloca (strlen (standard_exec_prefix)
-		       + strlen (just_machine_suffix) + sizeof ("specs"));
+		       + strlen (spec_machine_suffix) + sizeof ("specs"));
   strcpy (specs_file, standard_exec_prefix);
-  strcat (specs_file, just_machine_suffix);
+  strcat (specs_file, spec_machine_suffix);
   strcat (specs_file, "specs");
   if (access (specs_file, R_OK) == 0)
     read_specs (specs_file, true, false);
-#endif
 
   /* Process any configure-time defaults specified for the command line
      options, via OPTION_DEFAULT_SPECS.  */
@@ -7213,16 +7314,6 @@ driver::putenv_COLLECT_GCC (const char *argv0) const
   obstack_grow (&collect_obstack, "COLLECT_GCC=", sizeof ("COLLECT_GCC=") - 1);
   obstack_grow (&collect_obstack, argv0, strlen (argv0) + 1);
   xputenv (XOBFINISH (&collect_obstack, char *));
-
-  if (strlen (OFFLOAD_TARGETS) > 0)
-    {
-      obstack_init (&collect_obstack);
-      obstack_grow (&collect_obstack, "OFFLOAD_TARGET_NAMES=",
-		    sizeof ("OFFLOAD_TARGET_NAMES=") - 1);
-      obstack_grow (&collect_obstack, OFFLOAD_TARGETS,
-		    strlen (OFFLOAD_TARGETS) + 1);
-      xputenv (XOBFINISH (&collect_obstack, char *));
-    }
 }
 
 /* Set up to remember the pathname of the lto wrapper. */
@@ -7249,6 +7340,29 @@ driver::maybe_putenv_COLLECT_LTO_WRAPPER () const
       xputenv (XOBFINISH (&collect_obstack, char *));
     }
 
+}
+
+/* Set up to remember the names of offload targets.  */
+
+void
+driver::maybe_putenv_OFFLOAD_TARGETS () const
+{
+  const char *targets = offload_targets;
+
+  /* If no targets specified by -foffload, use all available targets.  */
+  if (!targets)
+    targets = OFFLOAD_TARGETS;
+
+  if (strlen (targets) > 0)
+    {
+      obstack_grow (&collect_obstack, "OFFLOAD_TARGET_NAMES=",
+		    sizeof ("OFFLOAD_TARGET_NAMES=") - 1);
+      obstack_grow (&collect_obstack, targets,
+		    strlen (targets) + 1);
+      xputenv (XOBFINISH (&collect_obstack, char *));
+    }
+
+  free (offload_targets);
 }
 
 /* Reject switches that no pass was interested in.  */

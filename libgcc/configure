@@ -566,6 +566,7 @@ sfp_machine_header
 set_use_emutls
 set_have_cc_tls
 vis_hide
+accel_dir_suffix
 force_explicit_eh_registry
 fixed_point
 enable_decimal_float
@@ -667,7 +668,6 @@ with_system_libunwind
 enable_sjlj_exceptions
 enable_explicit_exception_frame_registration
 with_glibc_version
-enable_offload_targets
 enable_tls
 '
       ac_precious_vars='build_alias
@@ -1309,8 +1309,6 @@ Optional Features:
                           register exception tables explicitly at module
                           start, for use e.g. for compatibility with
                           installations without PT_GNU_EH_FRAME support
-  --enable-offload-targets=LIST
-                          enable offloading to devices from LIST
   --enable-tls            Use thread-local storage [default=yes]
 
 Optional Packages:
@@ -4454,19 +4452,21 @@ esac
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
 
-# Check whether --enable-offload-targets was given.
-if test "${enable_offload_targets+set}" = set; then :
-  enableval=$enable_offload_targets;
-  if test x"$enable_offload_targets" = x; then
-    as_fn_error "no offload targets specified" "$LINENO" 5
-  fi
-
-else
-  enable_offload_targets=
+# Used for constructing correct paths for offload compilers.
+accel_dir_suffix=
+if test x"$enable_as_accelerator_for" != x; then
+  accel_dir_suffix=/accel/${target_noncanonical}
+  case "${target_noncanonical}" in
+    *-intelmicemul-*)
+      # In this case we expect offload compiler to be built as native, so we
+      # need to change install directory for driver to be able to find libgcc.
+      host_noncanonical=${enable_as_accelerator_for} ;;
+  esac
 fi
 
+
 if test x"$enable_offload_targets" != x; then
-  extra_parts="${extra_parts} crtompbegin.o crtompend.o"
+  extra_parts="${extra_parts} crtoffloadbegin.o crtoffloadend.o"
 fi
 
 # Check if Solaris/x86 linker supports ZERO terminator unwind entries.

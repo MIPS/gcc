@@ -28,7 +28,7 @@
 
 #include "openacc.h"
 #include "libgomp.h"
-#include "target.h"
+#include "libgomp_target.h"
 #include "oacc-int.h"
 
 int

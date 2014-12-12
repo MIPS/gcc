@@ -89,6 +89,9 @@
    */
 #undef LT_OBJDIR
 
+/* Define to hold the list of target names suitable for offloading. */
+#undef OFFLOAD_TARGETS
+
 /* Name of package */
 #undef PACKAGE
 

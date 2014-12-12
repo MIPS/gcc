@@ -29,7 +29,7 @@
 #include "libgomp.h"
 #include "libgomp_g.h"
 #include "gomp-constants.h"
-#include "target.h"
+#include "libgomp_target.h"
 #include "oacc-int.h"
 #include <stdio.h>
 #include <string.h>
@@ -112,7 +112,7 @@ select_acc_device (int device_type)
 void goacc_wait (int async, int num_waits, va_list ap);
 
 void
-GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
+GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
 		size_t mapnum, void **hostaddrs, size_t *sizes,
 		unsigned short *kinds,
 		int num_gangs, int num_workers, int vector_length,
@@ -207,7 +207,7 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
 }
 
 void
-GOACC_data_start (int device, const void *openmp_target, size_t mapnum,
+GOACC_data_start (int device, const void *offload_table, size_t mapnum,
 		  void **hostaddrs, size_t *sizes, unsigned short *kinds)
 {
   bool if_clause_condition_value = device != GOMP_IF_CLAUSE_FALSE;
@@ -253,7 +253,7 @@ GOACC_data_end (void)
 }
 
 void
-GOACC_enter_exit_data (int device, const void *openmp_target, size_t mapnum,
+GOACC_enter_exit_data (int device, const void *offload_table, size_t mapnum,
 		       void **hostaddrs, size_t *sizes, unsigned short *kinds,
 		       int async, int num_waits, ...)
 {
@@ -391,7 +391,7 @@ GOACC_enter_exit_data (int device, const void *openmp_target, size_t mapnum,
 }
 
 void
-GOACC_kernels (int device, void (*fn) (void *), const void *openmp_target,
+GOACC_kernels (int device, void (*fn) (void *), const void *offload_table,
 	       size_t mapnum, void **hostaddrs, size_t *sizes,
 	       unsigned short *kinds,
 	       int num_gangs, int num_workers, int vector_length,
@@ -412,7 +412,7 @@ GOACC_kernels (int device, void (*fn) (void *), const void *openmp_target,
   va_end (ap);
 
   /* TODO.  */
-  GOACC_parallel (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds,
+  GOACC_parallel (device, fn, offload_table, mapnum, hostaddrs, sizes, kinds,
 		  num_gangs, num_workers, vector_length, async, num_waits);
 }
 
@@ -467,7 +467,7 @@ goacc_wait (int async, int num_waits, va_list ap)
 }
 
 void
-GOACC_update (int device, const void *openmp_target, size_t mapnum,
+GOACC_update (int device, const void *offload_table, size_t mapnum,
 	      void **hostaddrs, size_t *sizes, unsigned short *kinds,
 	      int async, int num_waits, ...)
 {

@@ -28,3 +28,72 @@
 /* This shares much of the implementation of the plugin-host.c "host_nonshm"
    plugin.  */
 #include "plugin/plugin-host.c"
+
+static struct gomp_device_descr host_dispatch =
+  {
+    .name = "host",
+
+    .type = OFFLOAD_TARGET_TYPE_HOST,
+    .capabilities = TARGET_CAP_OPENACC_200 | TARGET_CAP_NATIVE_EXEC
+		    | TARGET_CAP_SHARED_MEM,
+    .id = 0,
+
+    .is_initialized = false,
+    .offload_regions_registered = false,
+
+    .get_name_func = GOMP_OFFLOAD_get_name,
+    .get_type_func = GOMP_OFFLOAD_get_type,
+    .get_caps_func = GOMP_OFFLOAD_get_caps,
+
+    .init_device_func = GOMP_OFFLOAD_init_device,
+    .fini_device_func = GOMP_OFFLOAD_fini_device,
+    .get_num_devices_func = GOMP_OFFLOAD_get_num_devices,
+    .register_image_func = GOMP_OFFLOAD_register_image,
+    .get_table_func = GOMP_OFFLOAD_get_table,
+
+    .alloc_func = GOMP_OFFLOAD_alloc,
+    .free_func = GOMP_OFFLOAD_free,
+    .host2dev_func = GOMP_OFFLOAD_host2dev,
+    .dev2host_func = GOMP_OFFLOAD_dev2host,
+
+    .run_func = GOMP_OFFLOAD_run,
+
+    .openacc = {
+      .open_device_func = GOMP_OFFLOAD_openacc_open_device,
+      .close_device_func = GOMP_OFFLOAD_openacc_close_device,
+
+      .get_device_num_func = GOMP_OFFLOAD_openacc_get_device_num,
+      .set_device_num_func = GOMP_OFFLOAD_openacc_set_device_num,
+
+      .exec_func = GOMP_OFFLOAD_openacc_parallel,
+
+      .register_async_cleanup_func
+        = GOMP_OFFLOAD_openacc_register_async_cleanup,
+
+      .async_set_async_func = GOMP_OFFLOAD_openacc_async_set_async,
+      .async_test_func = GOMP_OFFLOAD_openacc_async_test,
+      .async_test_all_func = GOMP_OFFLOAD_openacc_async_test_all,
+      .async_wait_func = GOMP_OFFLOAD_openacc_async_wait,
+      .async_wait_async_func = GOMP_OFFLOAD_openacc_async_wait_async,
+      .async_wait_all_func = GOMP_OFFLOAD_openacc_async_wait_all,
+      .async_wait_all_async_func = GOMP_OFFLOAD_openacc_async_wait_all_async,
+
+      .create_thread_data_func = GOMP_OFFLOAD_openacc_create_thread_data,
+      .destroy_thread_data_func = GOMP_OFFLOAD_openacc_destroy_thread_data,
+
+      .cuda = {
+	.get_current_device_func = NULL,
+	.get_current_context_func = NULL,
+	.get_stream_func = NULL,
+	.set_stream_func = NULL,
+      }
+    }
+  };
+
+/* Register this device type.  */
+static __attribute__ ((constructor))
+void goacc_host_init (void)
+{
+  gomp_mutex_init (&host_dispatch.mem_map.lock);
+  ACC_register (&host_dispatch);
+}

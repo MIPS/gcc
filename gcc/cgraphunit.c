@@ -224,8 +224,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "dbgcnt.h"
 #include "tree-chkp.h"
-#include "omp-low.h"
 #include "lto-section-names.h"
+#include "omp-low.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -2034,24 +2034,6 @@ output_in_order (bool no_reorder)
   free (nodes);
 }
 
-/* Collect all global variables with "omp declare target" attribute into
-   OFFLOAD_VARS.  It will be streamed out in ipa_write_summaries.  */
-
-static void
-init_offload_var_table (void)
-{
-  struct varpool_node *vnode;
-  FOR_EACH_DEFINED_VARIABLE (vnode)
-    {
-      if (!lookup_attribute ("omp declare target",
-			     DECL_ATTRIBUTES (vnode->decl))
-	  || TREE_CODE (vnode->decl) != VAR_DECL
-	  || DECL_SIZE (vnode->decl) == 0)
-	continue;
-      vec_safe_push (offload_vars, vnode->decl);
-    }
-}
-
 static void
 ipa_passes (void)
 {
@@ -2100,13 +2082,9 @@ ipa_passes (void)
 
   if (!in_lto_p)
     {
-      init_offload_var_table ();
-
-      if ((flag_openacc || flag_openmp)
-	  && !(vec_safe_is_empty (offload_funcs)
-	       && vec_safe_is_empty (offload_vars)))
+      if (g->have_offload)
 	{
-	  section_name_prefix = OMP_SECTION_NAME_PREFIX;
+	  section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
 	  ipa_write_summaries (true);
 	}
       if (flag_lto)
@@ -2198,8 +2176,12 @@ symbol_table::compile (void)
     fprintf (stderr, "Performing interprocedural optimizations\n");
   state = IPA;
 
+  /* Offloading requires LTO infrastructure.  */
+  if (!in_lto_p && g->have_offload)
+    flag_generate_lto = 1;
+
   /* If LTO is enabled, initialize the streamer hooks needed by GIMPLE.  */
-  if (flag_lto || flag_openacc || flag_openmp)
+  if (flag_generate_lto)
     lto_streamer_hooks_init ();
 
   /* Don't run the IPA passes if there was any error or sorry messages.  */

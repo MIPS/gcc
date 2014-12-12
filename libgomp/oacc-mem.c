@@ -29,7 +29,7 @@
 #include "config.h"
 #include "libgomp.h"
 #include "gomp-constants.h"
-#include "target.h"
+#include "libgomp_target.h"
 #include "oacc-int.h"
 #include <stdio.h>
 #include <stdint.h>
@@ -68,10 +68,10 @@ lookup_dev (struct target_mem_desc *tgt, void *d, size_t s)
   int i;
   struct target_mem_desc *t;
   struct gomp_memory_mapping *mem_map;
-  
+
   if (!tgt)
     return NULL;
-  
+
   mem_map = tgt->mem_map;
 
   gomp_mutex_lock (&mem_map->lock);
@@ -97,7 +97,7 @@ lookup_dev (struct target_mem_desc *tgt, void *d, size_t s)
       if (k->host_start + offset <= (void *) k->host_end)
         return k;
     }
- 
+
   return NULL;
 }
 
@@ -112,7 +112,9 @@ acc_malloc (size_t s)
 
   ACC_lazy_initialize ();
 
-  return base_dev->alloc_func (s);
+  struct goacc_thread *thr = goacc_thread ();
+
+  return base_dev->alloc_func (thr->dev->target_id, s);
 }
 
 /* OpenACC 2.0a (3.2.16) doesn't specify what to do in the event
@@ -139,7 +141,7 @@ acc_free (void *d)
      acc_unmap_data ((void *)(k->host_start + offset));
    }
 
-  base_dev->free_func (d);
+  base_dev->free_func (thr->dev->target_id, d);
 }
 
 void
@@ -147,7 +149,9 @@ acc_memcpy_to_device (void *d, void *h, size_t s)
 {
   /* No need to call lazy open here, as the device pointer must have
      been obtained from a routine that did that.  */
-  base_dev->host2dev_func (d, h, s);
+  struct goacc_thread *thr = goacc_thread ();
+
+  base_dev->host2dev_func (thr->dev->target_id, d, h, s);
 }
 
 void
@@ -155,7 +159,9 @@ acc_memcpy_from_device (void *h, void *d, size_t s)
 {
   /* No need to call lazy open here, as the device pointer must have
      been obtained from a routine that did that.  */
-  base_dev->dev2host_func (h, d, s);
+  struct goacc_thread *thr = goacc_thread ();
+
+  base_dev->dev2host_func (thr->dev->target_id, h, d, s);
 }
 
 /* Return the device pointer that corresponds to host data H.  Or NULL
@@ -302,7 +308,7 @@ acc_unmap_data (void *h)
 
   if (n->host_start != (uintptr_t) h)
     gomp_fatal ("[%p,%d] surrounds1 %p",
-        	(void *) n->host_start, (int) host_size, (void *) h);
+		(void *) n->host_start, (int) host_size, (void *) h);
 
   t = n->tgt;
 
@@ -310,7 +316,7 @@ acc_unmap_data (void *h)
     {
       struct target_mem_desc *tp;
 
-      /* This is the last reference, so pull the descriptor off the 
+      /* This is the last reference, so pull the descriptor off the
          chain. This avoids gomp_unmap_vars via gomp_unmap_tgt from
          freeing the device memory. */
       t->tgt_end = 0;
@@ -320,15 +326,15 @@ acc_unmap_data (void *h)
 
       for (tp = NULL, t = acc_dev->openacc.data_environ; t != NULL;
 	   tp = t, t = t->prev)
-        if (n->tgt == t)
-          {
-            if (tp)
-              tp->prev = t->prev;
-            else
-              acc_dev->openacc.data_environ = t->prev;
+	if (n->tgt == t)
+	  {
+	    if (tp)
+	      tp->prev = t->prev;
+	    else
+	      acc_dev->openacc.data_environ = t->prev;
 
-            break; 
-          }
+	    break;
+	  }
 
       gomp_mutex_unlock (&acc_dev->mem_map.lock);
     }
@@ -363,7 +369,7 @@ present_create_copy (unsigned f, void *h, size_t s)
       if (!(f & PCC_Present))
         gomp_fatal ("[%p,+%d] already mapped to [%p,+%d]",
             (void *)h, (int)s, (void *)d, (int)s);
-      if ((h + s) > (void *)n->host_end)    
+      if ((h + s) > (void *)n->host_end)
         gomp_fatal ("[%p,+%d] not mapped", (void *)h, (int)s);
     }
   else if (!(f & PCC_Create))
@@ -378,9 +384,9 @@ present_create_copy (unsigned f, void *h, size_t s)
       void *hostaddrs = h;
 
       if (f & PCC_Copy)
-        kinds = GOMP_MAP_ALLOC_TO;
+	kinds = GOMP_MAP_ALLOC_TO;
       else
-        kinds = GOMP_MAP_ALLOC;
+	kinds = GOMP_MAP_ALLOC;
 
       tgt = gomp_map_vars (acc_dev, mapnum, &hostaddrs, NULL, &s, &kinds, true,
 			   false);
@@ -446,14 +452,14 @@ delete_copyout (unsigned f, void *h, size_t s)
 
   if (n->host_start != (uintptr_t) h || host_size != s)
     gomp_fatal ("[%p,%d] surrounds2 [%p,+%d]",
-        	(void *) n->host_start, (int) host_size, (void *) h, (int) s);
+		(void *) n->host_start, (int) host_size, (void *) h, (int) s);
 
   if (f & DC_Copyout)
-    acc_dev->dev2host_func (h, d, s);
-  
+    acc_dev->dev2host_func (acc_dev->target_id, h, d, s);
+
   acc_unmap_data (h);
 
-  acc_dev->free_func (d);
+  acc_dev->free_func (acc_dev->target_id, d);
 }
 
 void
@@ -486,9 +492,9 @@ update_dev_host (int is_dev, void *h, size_t s)
   d = (void *) (n->tgt->tgt_start + n->tgt_offset);
 
   if (is_dev)
-    acc_dev->host2dev_func (d, h, s);
+    acc_dev->host2dev_func (acc_dev->target_id, d, h, s);
   else
-    acc_dev->dev2host_func (h, d, s);
+    acc_dev->dev2host_func (acc_dev->target_id, h, d, s);
 }
 
 void

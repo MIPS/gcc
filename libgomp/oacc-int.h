@@ -48,7 +48,7 @@
 #endif
 
 static inline enum acc_device_t
-acc_device_type (enum target_type type)
+acc_device_type (enum offload_target_type type)
 {
   return (enum acc_device_t) type;
 }

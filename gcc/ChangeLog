@@ -1,3 +1,188 @@
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add tcc_comparison, inverted_tcc_comparison
+	and inverted_tcc_comparison_with_nans operator lists.
+	Use tcc_comparison in the truth_valued_p predicate definition.
+	Restrict logical_inverted_value with bit_xor to integral types.
+	Build a boolean true for simplifying x |^ !x because of
+	vector types.  Implement patterns from forward_propagate_comparison
+	* tree-ssa-forwprop.c (forward_propagate_comparison): Remove.
+	(get_prop_dest_stmt): Likewise.
+	(pass_forwprop::execute): Do not call it.
+	* fold-const.c (fold_unary_loc): Remove the pattern here.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* config.gcc (*-intelmic-* | *-intelmicemul-*): Add i386/t-intelmic to
+	tmake_file.
+	(i[34567]86-*-* | x86_64-*-*): Build mkoffload$(exeext) with the
+	accelerator compiler.
+	* config/i386/intelmic-mkoffload.c: New file.
+	* config/i386/t-intelmic: Ditto.
+
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* common.opt (foffload, foffload-abi): New options.
+	* config/i386/i386.c (ix86_offload_options): New static function.
+	(TARGET_OFFLOAD_OPTIONS): Define.
+	* coretypes.h (enum offload_abi): New enum.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (TARGET_OFFLOAD_OPTIONS): Document.
+	* gcc.c (offload_targets): New static variable.
+	(handle_foffload_option): New static function.
+	(driver_handle_option): Handle OPT_foffload_.
+	(driver::maybe_putenv_OFFLOAD_TARGETS): Set OFFLOAD_TARGET_NAMES
+	according to offload_targets.
+	* hooks.c (hook_charptr_void_null): New hook.
+	* hooks.h (hook_charptr_void_null): Declare.
+	* lto-opts.c: Include lto-section-names.h.
+	(lto_write_options): Append options from target offload_options hook and
+	store them to offload_lto section.  Do not store target-specific,
+	driver and diagnostic options in offload_lto section.
+	* lto-wrapper.c (merge_and_complain): Handle OPT_foffload_ and
+	OPT_foffload_abi_.
+	(append_compiler_options, append_linker_options)
+	(append_offload_options): New static functions.
+	(compile_offload_image): Add new arguments with options.
+	Call append_compiler_options and append_offload_options.
+	(compile_images_for_offload_targets): Add new arguments with options.
+	(find_and_merge_options): New static function.
+	(run_gcc): Outline options handling into the new functions:
+	find_and_merge_options, append_compiler_options, append_linker_options.
+	* opts.c (common_handle_option): Don't handle OPT_foffload_.
+	Forbid OPT_foffload_abi_ for non-offload compiler.
+	* target.def (offload_options): New target hook.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* gcc.c (spec_host_machine, accel_dir_suffix): New variables.
+	(process_command): Tweak path construction for the possibility
+	of being configured as an offload compiler.
+	(driver::maybe_putenv_OFFLOAD_TARGETS): New function.
+	(driver::main): Call maybe_putenv_OFFLOAD_TARGETS.
+	(driver::set_up_specs): Tweak path construction for the possibility of
+	being configured as an offload compiler.
+	* lto-wrapper.c (OFFLOAD_TARGET_NAMES_ENV): Define.
+	(offload_names, offloadbegin, offloadend): New static variables.
+	(free_array_of_ptrs, parse_env_var, access_check, compile_offload_image)
+	(compile_images_for_offload_targets, copy_file, find_offloadbeginend):
+	New static functions.
+	(run_gcc): Determine whether offload sections are present.  If so, run
+	compile_images_for_offload_targets and return the names of new generated
+	objects to linker.  If there are offload sections, but no LTO sections,
+	then return the copies of input objects without link-time recompilation.
+
+2014-11-13  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_node::gen_kids): Fix placement of break statement.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* Makefile.in (GTFILES): Add omp-low.h to list of GC files.
+	* cgraphunit.c: Include omp-low.h.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (TARGET_RECORD_OFFLOAD_SYMBOL): Document.
+	* gengtype.c (open_base_files): Add omp-low.h to ifiles.
+	* lto-cgraph.c (output_offload_tables): New function.
+	(input_offload_tables): Likewise.
+	* lto-section-in.c (lto_section_name): Add "offload_table".
+	* lto-section-names.h (OFFLOAD_VAR_TABLE_SECTION_NAME): Define.
+	(OFFLOAD_FUNC_TABLE_SECTION_NAME): Likewise.
+	* lto-streamer-out.c (lto_output): Call output_offload_tables.
+	* lto-streamer.h (lto_section_type): Add LTO_section_offload_table.
+	(output_offload_tables, input_offload_tables): Declare.
+	* omp-low.c: Include common/common-target.h and lto-section-names.h.
+	(offload_funcs, offload_vars): New global <tree, va_gc> vectors.
+	(expand_omp_target): Add child_fn into offload_funcs vector.
+	(add_decls_addresses_to_decl_constructor): New function.
+	(omp_finish_file): Likewise.
+	* omp-low.h (omp_finish_file, offload_funcs, offload_vars): Declare.
+	* target.def (record_offload_symbol): New DEFHOOK.
+	* toplev.c: Include omp-low.h.
+	(compile_file): Call omp_finish_file.
+	* varpool.c: Include omp-low.h.
+	(varpool_node::get_create): Add decl into offload_vars vector.
+
+2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* cgraph.c: Include context.h.
+	(cgraph_node::create): Set node->offloadable and g->have_offload if
+	decl have "omp declare target" attribute.
+	* cgraph.h (symtab_node): Add need_lto_streaming and offloadable flags.
+	* cgraphunit.c: Include lto-section-names.h.
+	(ipa_passes): Call ipa_write_summaries if there is something to write to
+	OFFLOAD_SECTION_NAME_PREFIX sections.
+	(symbol_table::compile): Set flag_generate_lto if there is something to
+	offload.
+	Replace flag_lto with flag_generate_lto before lto_streamer_hooks_init.
+	* context.c (gcc::context::context): Initialize have_offload with false.
+	* context.h (class context): Add have_offload flag.
+	* ipa-inline-analysis.c (inline_generate_summary): Do not exit under
+	flag_generate_lto.
+	(inline_free_summary): Always remove hooks.
+	* lto-cgraph.c (referenced_from_other_partition_p): Ignore references
+	from non-offloadable nodes while streaming a node into offload section.
+	(reachable_from_other_partition_p): Likewise.
+	(select_what_to_stream): New function.
+	(compute_ltrans_boundary): Do not call
+	lto_set_symtab_encoder_in_partition if the node should not be streamed.
+	* lto-section-names.h (OFFLOAD_SECTION_NAME_PREFIX): Define.
+	(section_name_prefix): Declare.
+	* lto-streamer.c (section_name_prefix): New variable.
+	(lto_get_section_name): Use section_name_prefix instead of
+	LTO_SECTION_NAME_PREFIX.
+	* lto-streamer.h (select_what_to_stream): Declare.
+	* omp-low.c: Include context.h.
+	(is_targetreg_ctx): New function.
+	(scan_sharing_clauses): Use offloadable flag, instead of an attribute.
+	(create_omp_child_function, check_omp_nesting_restrictions): Use new
+	is_targetreg_ctx function.  Replace usage of "omp declare target"
+	attribute with a cgraph_node flag offloadable.
+	(expand_omp_target): Set mark_force_output for offloadable functions.
+	(lower_omp_critical): Set offloadable flag for omp critical symbol.
+	* passes.c (ipa_write_summaries): New argument offload_lto_mode.  Call
+	select_what_to_stream.  Do not call lto_set_symtab_encoder_in_partition
+	if the node should not be streamed out.
+	* tree-pass.h (ipa_write_summaries): New bool argument.
+	* varpool.c: Include context.h.
+	(varpool_node::get_create): Set node->offloadable and g->have_offload if
+	decl have "omp declare target" attribute.
+
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* Makefile.in (real_target_noncanonical, accel_dir_suffix)
+	(enable_as_accelerator): New variables substituted by configure.
+	(libsubdir, libexecsubdir, unlibsubdir): Tweak for the possibility of
+	being configured as an offload compiler.
+	(DRIVER_DEFINES): Pass new defines DEFAULT_REAL_TARGET_MACHINE and
+	ACCEL_DIR_SUFFIX.
+	(install-cpp, install-common, install_driver, install-gcc-ar): Do not
+	install for the offload compiler.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac (real_target_noncanonical, accel_dir_suffix)
+	(enable_as_accelerator): Compute new variables.
+	(ACCEL_COMPILER): Define if the compiler is built as the accel compiler.
+	(OFFLOAD_TARGETS): List of target names suitable for offloading.
+	(ENABLE_OFFLOADING): Define if list of offload targets is not empty.
+	* doc/install.texi (Options specification): Document
+	--enable-as-accelerator-for and --enable-offload-targets.
+
 2014-11-13  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR tree-optimization/63828

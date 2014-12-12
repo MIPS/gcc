@@ -1,5 +1,5 @@
 /* A splay-tree datatype.
-   Copyright 1998-2013
+   Copyright 1998-2014
    Free Software Foundation, Inc.
    Contributed by Mark Mitchell (mark@markmitchell.com).
 
