@@ -275,6 +275,7 @@ inline void
 brig_string_slot_hasher::remove (value_type *ds)
 {
   free (const_cast<char*> (ds->s));
+  free (ds);
 }
 
 static hash_table<brig_string_slot_hasher> *brig_string_htab;

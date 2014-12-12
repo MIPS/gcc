@@ -120,7 +120,7 @@ struct hsa_op_reg : public hsa_op_base
   /* Defining instrution while still in the SSA.  */
   hsa_insn_basic *def_insn;
   /* Uses of the value while still in SSA.  */
-  vec <hsa_insn_basic_p> uses;
+  auto_vec <hsa_insn_basic_p> uses;
 
   /* If the register allocator decides to spill the register, this is the
      appropriate spill symbol.  */
@@ -198,9 +198,14 @@ is_a_helper <hsa_op_code_ref *>::test (hsa_op_base *p)
 /* Code list HSA operand.  */
 struct hsa_op_code_list: public hsa_op_base
 {
+  /* Destructor.  */
+  ~hsa_op_code_list ()
+  {
+  }
+
   /* Offset to variable-sized array in hsa_data section, where
      are offsets to entries in the hsa_code section.  */
-  vec<unsigned> offsets;
+  auto_vec<unsigned> offsets;
 };
 
 /* Report whether or not P is a code list operand.  */
@@ -401,6 +406,11 @@ is_a_helper <hsa_insn_seg *>::test (hsa_insn_basic *p)
 
 struct hsa_insn_call: hsa_insn_basic
 {
+  /* Destructor.  */
+  ~hsa_insn_call ()
+  {
+  }
+
   /* Called function */
   tree called_function;
 
@@ -408,7 +418,7 @@ struct hsa_insn_call: hsa_insn_basic
   struct hsa_op_code_ref func;
 
   /* Argument symbols.  */
-  vec <hsa_symbol *> args_symbols;
+  auto_vec <hsa_symbol *> args_symbols;
 
   /* Code list for arguments of the function.  */
   hsa_op_code_list *args_code_list;
@@ -438,11 +448,16 @@ is_a_helper <hsa_insn_call *>::test (hsa_insn_basic *p)
 
 struct hsa_insn_call_block: hsa_insn_basic
 {
+  /* Destructor.  */
+  ~hsa_insn_call_block ()
+  {
+  }
+
   /* Input formal arguments.  */
-  vec <hsa_symbol *> input_args;
+  auto_vec <hsa_symbol *> input_args;
 
   /* Input arguments store instructions.  */
-  vec <hsa_insn_mem *> input_arg_insns;
+  auto_vec <hsa_insn_mem *> input_arg_insns;
 
   /* Output argument, can be NULL for void functions.  */
   hsa_symbol *output_arg;

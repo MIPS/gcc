@@ -84,6 +84,13 @@ static alloc_pool hsa_allocp_inst_call_block;
 static alloc_pool hsa_allocp_bb;
 static alloc_pool hsa_allocp_symbols;
 
+/* Vectors with selected instructions and operands that need
+   a destruction.  */
+static vec <hsa_op_code_list *> hsa_list_operand_code_list;
+static vec <hsa_op_reg *> hsa_list_operand_reg;
+static vec <hsa_insn_call_block *> hsa_list_insn_call_block;
+static vec <hsa_insn_call *> hsa_list_insn_call;
+
 /* Hash function to lookup a symbol for a decl.  */
 hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 
@@ -193,6 +200,23 @@ hsa_deinit_data_for_cfun (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     bb->aux = NULL;
+
+  for (unsigned int i = 0; i < hsa_list_operand_code_list.length (); i++)
+    hsa_list_operand_code_list[i]->~hsa_op_code_list ();
+
+  for (unsigned int i = 0; i < hsa_list_operand_reg.length (); i++)
+    hsa_list_operand_reg[i]->~hsa_op_reg ();
+
+  for (unsigned int i = 0; i < hsa_list_insn_call_block.length (); i++)
+    hsa_list_insn_call_block[i]->~hsa_insn_call_block ();
+
+  for (unsigned int i = 0; i < hsa_list_insn_call.length (); i++)
+    hsa_list_insn_call[i]->~hsa_insn_call ();
+
+  hsa_list_operand_code_list.release ();
+  hsa_list_operand_reg.release ();
+  hsa_list_insn_call_block.release ();
+  hsa_list_insn_call.release ();
 
   free_alloc_pool (hsa_allocp_operand_address);
   free_alloc_pool (hsa_allocp_operand_immed);
@@ -572,11 +596,11 @@ hsa_alloc_reg_op (void)
   hsa_op_reg *hreg;
 
   hreg = (hsa_op_reg *) pool_alloc (hsa_allocp_operand_reg);
+  hsa_list_operand_reg.safe_push (hreg);
   memset (hreg, 0, sizeof (hsa_op_reg));
   hreg->kind = BRIG_KIND_OPERAND_REG;
   /* TODO: Try removing later on.  I suppose this is not necessary but I'd
      rather avoid surprises.  */
-  hreg->uses = vNULL;
   hreg->order = hsa_cfun.reg_count++;
   return hreg;
 }
@@ -604,6 +628,7 @@ hsa_alloc_code_list_op (unsigned elements)
 {
   hsa_op_code_list *list;
   list = (hsa_op_code_list *) pool_alloc (hsa_allocp_operand_code_list);
+  hsa_list_operand_code_list.safe_push (list);
 
   memset (list, 0, sizeof (hsa_op_code_list));
   list->kind = BRIG_KIND_OPERAND_CODE_LIST;
@@ -748,6 +773,7 @@ hsa_alloc_call_insn (void)
   hsa_insn_call *call;
 
   call = (hsa_insn_call *) pool_alloc (hsa_allocp_inst_call);
+  hsa_list_insn_call.safe_push (call);
   memset (call, 0, sizeof (hsa_insn_call));
   return call;
 }
@@ -760,6 +786,7 @@ hsa_alloc_call_block_insn (void)
   hsa_insn_call_block *call_block;
 
   call_block = (hsa_insn_call_block *) pool_alloc (hsa_allocp_inst_call_block);
+  hsa_list_insn_call_block.safe_push (call_block);
   memset (call_block, 0, sizeof (hsa_insn_call_block));
 
   call_block->opcode = HSA_OPCODE_CALL_BLOCK;
@@ -2332,7 +2359,9 @@ wrap_hsa (void)
 		    strcpy (extension, "\0");
 		    asprintf (&extension, "%s", ".o\0");
 		    strcat (filename, extension);
+		    free (extension);
 		    str = build_string_literal (strlen(filename)+1,filename);
+		    free (filename);
 		  }
 	      }
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
@@ -2345,6 +2374,7 @@ wrap_hsa (void)
 	    sanitize_hsa_name (tmpname + 1);
 
 	    str = build_string_literal (slen + 2, tmpname);
+	    free (tmpname);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
 	    int discard_arguents;
 	    int num_args = gimple_call_num_args (call_stmt);
