@@ -171,6 +171,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__silvermont");
       def_or_undef (parse_in, "__silvermont__");
       break;
+    case PROCESSOR_KNL:
+      def_or_undef (parse_in, "__knl");
+      def_or_undef (parse_in, "__knl__");
+      break;
     /* use PROCESSOR_max to not set/unset the arch macro.  */
     case PROCESSOR_max:
       break;
@@ -277,6 +281,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__tune_slm__");
       def_or_undef (parse_in, "__tune_silvermont__");
       break;
+    case PROCESSOR_KNL:
+      def_or_undef (parse_in, "__tune_knl__");
+      break;
     case PROCESSOR_INTEL:
     case PROCESSOR_GENERIC:
       break;
@@ -351,6 +358,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__AVX512BW__");
   if (isa_flag & OPTION_MASK_ISA_AVX512VL)
     def_or_undef (parse_in, "__AVX512VL__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VBMI)
+    def_or_undef (parse_in, "__AVX512VBMI__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512IFMA)
+    def_or_undef (parse_in, "__AVX512IFMA__");
   if (isa_flag & OPTION_MASK_ISA_FMA)
     def_or_undef (parse_in, "__FMA__");
   if (isa_flag & OPTION_MASK_ISA_RTM)
@@ -407,6 +418,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__XSAVES__");
   if (isa_flag & OPTION_MASK_ISA_MPX)
     def_or_undef (parse_in, "__MPX__");
+  if (isa_flag & OPTION_MASK_ISA_PCOMMIT)
+    def_or_undef (parse_in, "__PCOMMIT__");
+  if (isa_flag & OPTION_MASK_ISA_CLWB)
+    def_or_undef (parse_in, "__CLWB__");
 }
 
 

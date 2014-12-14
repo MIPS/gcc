@@ -86,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "plugin.h"
-#include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "auto-profile.h"
@@ -639,7 +638,7 @@ compile_file (void)
      We used to emit an undefined reference here, but this produces
      link errors if an object file with IL is stored into a shared
      library without invoking lto1.  */
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
@@ -653,23 +652,23 @@ compile_file (void)
 			 (unsigned HOST_WIDE_INT) 1,
 			 (unsigned HOST_WIDE_INT) 1);
 #endif
-      /* Let linker plugin know that this is a slim object and must be LTOed
-         even when user did not ask for it.  */
-      if (!flag_fat_lto_objects)
-        {
+    }
+
+  /* Let linker plugin know that this is a slim object and must be LTOed
+     even when user did not ask for it.  */
+  if (flag_generate_lto && !flag_fat_lto_objects)
+    {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
-	  ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
-					  "__gnu_lto_slim",
-					  (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE, "__gnu_lto_slim",
+				      (unsigned HOST_WIDE_INT) 1, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
-	  ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
-				     (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
+				 (unsigned HOST_WIDE_INT) 1, 8);
 #else
-	  ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
-			     (unsigned HOST_WIDE_INT) 1,
-			     (unsigned HOST_WIDE_INT) 1);
+      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
+			 (unsigned HOST_WIDE_INT) 1,
+			 (unsigned HOST_WIDE_INT) 1);
 #endif
-        }
     }
 
   /* Attach a special .ident directive to the end of the file to identify
@@ -945,7 +944,8 @@ init_asm_output (const char *name)
 	}
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
-      else if (!canonical_filename_eq (asm_file_name, name))
+      else if (!canonical_filename_eq (asm_file_name, name)
+	       || !strcmp (asm_file_name, HOST_BIT_BUCKET))
 	asm_out_file = fopen (asm_file_name, "w");
       else
 	/* Use fatal_error (UNKOWN_LOCATION) instead of just fatal_error to
@@ -1267,13 +1267,6 @@ process_options (void)
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
-  /* Default to -fdiagnostics-color=auto if GCC_COLORS is in the environment,
-     otherwise default to -fdiagnostics-color=never.  */
-  if (!global_options_set.x_flag_diagnostics_show_color
-      && getenv ("GCC_COLORS"))
-    pp_show_color (global_dc->printer)
-      = colorize_init (DIAGNOSTICS_COLOR_AUTO);
-
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -1330,11 +1323,12 @@ process_options (void)
       || flag_loop_block
       || flag_loop_interchange
       || flag_loop_strip_mine
-      || flag_loop_parallelize_all)
+      || flag_loop_parallelize_all
+      || flag_loop_unroll_jam)
     sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
 	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
-	   "and -ftree-loop-linear)");
+	   "-floop-unroll-and-jam, and -ftree-loop-linear)");
 #endif
 
   if (flag_check_pointer_bounds)
@@ -2145,11 +2139,25 @@ toplev::finalize (void)
   rtl_initialized = false;
   this_target_rtl->target_specific_initialized = false;
 
+  /* Needs to be called before cgraph_c_finalize since it uses symtab.  */
+  ipa_reference_c_finalize ();
+
   cgraph_c_finalize ();
   cgraphunit_c_finalize ();
   dwarf2out_c_finalize ();
   gcse_c_finalize ();
   ipa_cp_c_finalize ();
-  ipa_reference_c_finalize ();
+  ira_costs_c_finalize ();
   params_c_finalize ();
+
+  finalize_options_struct (&global_options);
+  finalize_options_struct (&global_options_set);
+
+  XDELETEVEC (save_decoded_options);
+
+  /* Clean up the context (and pass_manager etc). */
+  delete g;
+  g = NULL;
+
+  obstack_free (&opts_obstack, NULL);
 }

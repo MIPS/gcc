@@ -511,8 +511,7 @@ begin_maybe_infinite_loop (tree cond)
   bool maybe_infinite = true;
   if (cond)
     {
-      cond = fold_non_dependent_expr_sfinae (cond, tf_none);
-      cond = maybe_constant_value (cond);
+      cond = fold_non_dependent_expr (cond);
       maybe_infinite = integer_nonzerop (cond);
     }
   vec_safe_push (cp_function_chain->infinite_loops,
@@ -543,7 +542,6 @@ end_maybe_infinite_loop (tree cond)
   if (current != NULL_TREE)
     {
       cond = fold_non_dependent_expr (cond);
-      cond = maybe_constant_value (cond);
       if (integer_nonzerop (cond))
 	current_function_infinite_loop = 1;
     }
@@ -3127,7 +3125,7 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
 	   form, so wait until instantiation time.  */
 	return decl;
       else if (decl_constant_var_p (decl))
-	return integral_constant_value (decl);
+	return scalar_constant_value (decl);
     }
 
   if (parsing_nsdmi ())
@@ -7136,7 +7134,7 @@ finish_static_assert (tree condition, tree message, location_t location,
     }
 
   /* Fold the expression and convert it to a boolean value. */
-  condition = fold_non_dependent_expr (condition);
+  condition = instantiate_non_dependent_expr (condition);
   condition = cp_convert (boolean_type_node, condition, tf_warning_or_error);
   condition = maybe_constant_value (condition);
 
@@ -7332,16 +7330,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	  if (clk != clk_none && !(clk & clk_class))
 	    type = cp_build_reference_type (type, (clk & clk_rvalueref));
 	}
-    }
-
-  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
-      && (flag_iso || warn_vla > 0))
-    {
-      if (complain & tf_warning_or_error)
-	pedwarn (input_location, OPT_Wvla,
-		 "taking decltype of array of runtime bound");
-      else
-	return error_mark_node;
     }
 
   return type;

@@ -71,7 +71,7 @@ struct goacc_thread
   void *target_tls;
 };
 
-#ifdef HAVE_TLS
+#if defined HAVE_TLS || defined USE_EMUTLS
 extern __thread struct goacc_thread *goacc_tls_data;
 static inline struct goacc_thread *
 goacc_thread (void)

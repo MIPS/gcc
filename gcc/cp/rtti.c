@@ -396,12 +396,9 @@ get_tinfo_decl (tree type)
 
   if (variably_modified_type_p (type, /*fn=*/NULL_TREE))
     {
-      if (array_of_runtime_bound_p (type))
-	error ("typeid of array of runtime bound");
-      else
-	error ("cannot create type information for type %qT because "
-	       "it involves types of variable size",
-	       type);
+      error ("cannot create type information for type %qT because "
+	     "it involves types of variable size",
+	     type);
       return error_mark_node;
     }
 
@@ -1547,6 +1544,8 @@ emit_support_tinfos (void)
 	emit_support_tinfo_1 (int_n_trees[ix].signed_type);
 	emit_support_tinfo_1 (int_n_trees[ix].unsigned_type);
       }
+  for (tree t = registered_builtin_types; t; t = TREE_CHAIN (t))
+    emit_support_tinfo_1 (TREE_VALUE (t));
 }
 
 /* Finish a type info decl. DECL_PTR is a pointer to an unemitted

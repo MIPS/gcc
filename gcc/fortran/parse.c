@@ -107,13 +107,14 @@ match_word_omp_simd (const char *str, match (*subr) (void), locus *old_locus,
 static void
 use_modules (void)
 {
-  gfc_error_buf old_error;
+  gfc_error_buf old_error_1;
+  output_buffer old_error;
 
-  gfc_push_error (&old_error);
-  gfc_buffer_error (0);
+  gfc_push_error (&old_error, &old_error_1);
+  gfc_buffer_error (false);
   gfc_use_modules ();
-  gfc_buffer_error (1);
-  gfc_pop_error (&old_error);
+  gfc_buffer_error (true);
+  gfc_pop_error (&old_error, &old_error_1);
   gfc_commit_symbols ();
   gfc_warning_check ();
   gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
@@ -279,7 +280,7 @@ decode_specification_statement (void)
 
 end_of_block:
   gfc_clear_error ();
-  gfc_buffer_error (0);
+  gfc_buffer_error (false);
   gfc_current_locus = old_locus;
 
   return ST_GET_FCN_CHARACTERISTICS;
@@ -549,8 +550,8 @@ decode_statement (void)
   /* All else has failed, so give up.  See if any of the matchers has
      stored an error message of some sort.  */
 
-  if (gfc_error_check () == 0)
-    gfc_error_now_2 ("Unclassifiable statement at %C");
+  if (!gfc_error_check ())
+    gfc_error_now ("Unclassifiable statement at %C");
 
   reject_statement ();
 
@@ -856,7 +857,7 @@ decode_omp_directive (void)
 
   if (gfc_option.gfc_flag_openmp || simd_matched)
     {
-      if (gfc_error_check () == 0)
+      if (!gfc_error_check ())
 	gfc_error_now ("Unclassifiable OpenMP directive at %C");
     }
 
@@ -883,8 +884,8 @@ decode_gcc_attribute (void)
   /* All else has failed, so give up.  See if any of the matchers has
      stored an error message of some sort.  */
 
-  if (gfc_error_check () == 0)
-    gfc_error_now_2 ("Unclassifiable GCC directive at %C");
+  if (!gfc_error_check ())
+    gfc_error_now ("Unclassifiable GCC directive at %C");
 
   reject_statement ();
 
@@ -940,17 +941,17 @@ next_free (void)
 	  gfc_match_small_literal_int (&i, &cnt);
 
 	  if (cnt > 5)
-	    gfc_error_now_2 ("Too many digits in statement label at %C");
+	    gfc_error_now ("Too many digits in statement label at %C");
 
 	  if (i == 0)
-	    gfc_error_now_2 ("Zero is not a valid statement label at %C");
+	    gfc_error_now ("Zero is not a valid statement label at %C");
 
 	  do
 	    c = gfc_next_ascii_char ();
 	  while (ISDIGIT(c));
 
 	  if (!gfc_is_whitespace (c))
-	    gfc_error_now_2 ("Non-numeric character in statement label at %C");
+	    gfc_error_now ("Non-numeric character in statement label at %C");
 
 	  return ST_NONE;
 	}
@@ -962,7 +963,7 @@ next_free (void)
 
 	  if (at_bol && gfc_peek_ascii_char () == ';')
 	    {
-	      gfc_error_now_2 ("Semicolon at %C needs to be preceded by "
+	      gfc_error_now ("Semicolon at %C needs to be preceded by "
 			     "statement");
 	      gfc_next_ascii_char (); /* Eat up the semicolon.  */
 	      return ST_NONE;
@@ -1039,8 +1040,8 @@ next_free (void)
   if (at_bol && c == ';')
     {
       if (!(gfc_option.allow_std & GFC_STD_F2008))
-	gfc_error_now_2 ("Fortran 2008: Semicolon at %C without preceding "
-			 "statement");
+	gfc_error_now ("Fortran 2008: Semicolon at %C without preceding "
+		       "statement");
       gfc_next_ascii_char (); /* Eat up the semicolon.  */
       return ST_NONE;
     }
@@ -1061,7 +1062,7 @@ verify_token_fixed (const char *token, int length, bool last_was_use_stmt)
 
   if (c != ' ' && c != '0')
     {
-      gfc_buffer_error (0);
+      gfc_buffer_error (false);
       gfc_error ("Bad continuation line at %C");
       return false;
     }
@@ -1170,7 +1171,7 @@ next_fixed (void)
 	     here so don't bother checking for them.  */
 
 	default:
-	  gfc_buffer_error (0);
+	  gfc_buffer_error (false);
 	  gfc_error ("Non-numeric character in statement label at %C");
 	  return ST_NONE;
 	}
@@ -1179,7 +1180,7 @@ next_fixed (void)
   if (digit_flag)
     {
       if (label == 0)
-	gfc_warning_now_2 ("Zero is not a valid statement label at %C");
+	gfc_warning_now ("Zero is not a valid statement label at %C");
       else
 	{
 	  /* We've found a valid statement label.  */
@@ -1197,7 +1198,7 @@ next_fixed (void)
 
   if (c != ' ' && c != '0')
     {
-      gfc_buffer_error (0);
+      gfc_buffer_error (false);
       gfc_error ("Bad continuation line at %C");
       return ST_NONE;
     }
@@ -1262,7 +1263,7 @@ next_statement (void)
   for (;;)
     {
       gfc_statement_label = NULL;
-      gfc_buffer_error (1);
+      gfc_buffer_error (true);
 
       if (gfc_at_eol ())
 	gfc_advance_line ();
@@ -1286,7 +1287,7 @@ next_statement (void)
 	break;
     }
 
-  gfc_buffer_error (0);
+  gfc_buffer_error (false);
 
   if (st == ST_GET_FCN_CHARACTERISTICS && gfc_statement_label != NULL)
     {
@@ -2434,7 +2435,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
 
 order:
   if (!silent)
-    gfc_error ("%s statement at %C cannot follow %s statement at %L",
+    gfc_error_1 ("%s statement at %C cannot follow %s statement at %L",
 	       gfc_ascii_statement (st),
 	       gfc_ascii_statement (p->last_statement), &p->where);
 
@@ -2811,7 +2812,7 @@ endType:
 		   "subcomponent exists)", c->name, &c->loc, sym->name);
 
       if (sym->attr.lock_comp && coarray && !lock_type)
-	gfc_error ("Noncoarray component %s at %L of type LOCK_TYPE or with "
+	gfc_error_1 ("Noncoarray component %s at %L of type LOCK_TYPE or with "
 		   "subcomponent of type LOCK_TYPE must have a codimension or "
 		   "be a subcomponent of a coarray. (Variables of type %s may "
 		   "not have a codimension as %s at %L has a codimension or a "
@@ -3047,9 +3048,9 @@ match_deferred_characteristics (gfc_typespec * ts)
   gfc_current_locus = gfc_current_block ()->declared_at;
 
   gfc_clear_error ();
-  gfc_buffer_error (1);
+  gfc_buffer_error (true);
   m = gfc_match_prefix (ts);
-  gfc_buffer_error (0);
+  gfc_buffer_error (false);
 
   if (ts->type == BT_DERIVED)
     {
@@ -3526,7 +3527,7 @@ parse_if_block (void)
 	case ST_ELSEIF:
 	  if (seen_else)
 	    {
-	      gfc_error ("ELSE IF statement at %C cannot follow ELSE "
+	      gfc_error_1 ("ELSE IF statement at %C cannot follow ELSE "
 			 "statement at %L", &else_locus);
 
 	      reject_statement ();
@@ -3750,8 +3751,8 @@ gfc_check_do_variable (gfc_symtree *st)
   for (s=gfc_state_stack; s; s = s->previous)
     if (s->do_variable == st)
       {
-	gfc_error_now("Variable '%s' at %C cannot be redefined inside "
-		      "loop beginning at %L", st->name, &s->head->loc);
+	gfc_error_now_1 ("Variable '%s' at %C cannot be redefined inside "
+			 "loop beginning at %L", st->name, &s->head->loc);
 	return 1;
       }
 
@@ -5069,10 +5070,10 @@ gfc_global_used (gfc_gsymbol *sym, locus *where)
     }
 
   if (sym->binding_label)
-    gfc_error ("Global binding name '%s' at %L is already being used as a %s "
+    gfc_error_1 ("Global binding name '%s' at %L is already being used as a %s "
 	       "at %L", sym->binding_label, where, name, &sym->where);
   else
-    gfc_error ("Global name '%s' at %L is already being used as a %s at %L",
+    gfc_error_1 ("Global name '%s' at %L is already being used as a %s at %L",
 	       sym->name, where, name, &sym->where);
 }
 

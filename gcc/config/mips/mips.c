@@ -1224,7 +1224,7 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (8),            /* int_div_si */
     COSTS_N_INSNS (8),            /* int_div_di */
 		    2,            /* branch_cost */
-		   10             /* memory_latency */
+		    4             /* memory_latency */
   }
 };
 
@@ -6942,6 +6942,17 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	  /* "Save" $sp in itself so we don't use the fake CFA.
 	     This is: DW_CFA_val_expression r29, { DW_OP_reg29 }.  */
 	  fprintf (asm_out_file, "\t.cfi_escape 0x16,29,1,0x6d\n");
+
+	  /* Save the return address in $18.  The stub's caller knows
+	     that $18 might be clobbered, even though $18 is usually
+	     a call-saved register.
+
+	     Do it early on in case the last move to a floating-point
+	     register can be scheduled into the delay slot of the
+	     call we are about to make.  */
+	  fprintf (asm_out_file, "\tmove\t%s,%s\n",
+		   reg_names[GP_REG_FIRST + 18],
+		   reg_names[RETURN_ADDR_REGNUM]);
 	}
       else
 	{
@@ -6963,11 +6974,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 
       if (fp_ret_p)
 	{
-	  /* Save the return address in $18 and call the non-MIPS16 function.
-	     The stub's caller knows that $18 might be clobbered, even though
-	     $18 is usually a call-saved register.  */
-	  fprintf (asm_out_file, "\tmove\t%s,%s\n",
-		   reg_names[GP_REG_FIRST + 18], reg_names[RETURN_ADDR_REGNUM]);
+	  /* Now call the non-MIPS16 function.  */
 	  output_asm_insn (MIPS_CALL ("jal", &fn, 0, -1), &fn);
 	  fprintf (asm_out_file, "\t.cfi_register 31,18\n");
 
@@ -7235,7 +7242,7 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 /* Implement TARGET_USE_MOVE_BY_PIECES_INFRASTRUCTURE_P.  */
 
 bool
-mips_use_by_pieces_infrastructure_p (unsigned int size,
+mips_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 				     unsigned int align,
 				     enum by_pieces_operation op,
 				     bool speed_p)
@@ -12997,7 +13004,14 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
      This will sometimes be a delayed branch; see the write code below
      for details.  */
   mips_multi_add_insn (is_64bit_p ? "scd\t%0,%1" : "sc\t%0,%1", at, mem, NULL);
-  mips_multi_add_insn ("beq%?\t%0,%.,1b", at, NULL);
+
+  /* When using branch likely (-mfix-r10000), the delay slot instruction
+     will be annulled on false.  The normal delay slot instructions
+     calculate the overall result of the atomic operation and must not
+     be annulled.  To ensure this behaviour unconditionally use a NOP
+     in the delay slot for the branch likely case.  */
+
+  mips_multi_add_insn ("beq%?\t%0,%.,1b%~", at, NULL);
 
   /* if (INSN1 != MOVE && INSN1 != LI) NEWVAL = $TMP3 [delay slot].  */
   if (insn1 != SYNC_INSN1_MOVE && insn1 != SYNC_INSN1_LI && tmp3 != newval)
@@ -13005,7 +13019,7 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
       mips_multi_copy_insn (tmp3_insn);
       mips_multi_set_operand (mips_multi_last_index (), 0, newval);
     }
-  else if (!(required_oldval && cmp))
+  else if (!(required_oldval && cmp) && !mips_branch_likely)
     mips_multi_add_insn ("nop", NULL);
 
   /* CMP = 1 -- either standalone or in a delay slot.  */
@@ -13029,11 +13043,11 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
 const char *
 mips_output_sync_loop (rtx_insn *insn, rtx *operands)
 {
-  mips_process_sync_loop (insn, operands);
-
   /* Use branch-likely instructions to work around the LL/SC R10000
      errata.  */
   mips_branch_likely = TARGET_FIX_R10000;
+
+  mips_process_sync_loop (insn, operands);
 
   mips_push_asm_switch (&mips_noreorder);
   mips_push_asm_switch (&mips_nomacro);
@@ -13056,6 +13070,9 @@ mips_output_sync_loop (rtx_insn *insn, rtx *operands)
 unsigned int
 mips_sync_loop_insns (rtx_insn *insn, rtx *operands)
 {
+  /* Use branch-likely instructions to work around the LL/SC R10000
+     errata.  */
+  mips_branch_likely = TARGET_FIX_R10000;
   mips_process_sync_loop (insn, operands);
   return mips_multi_num_insns;
 }
@@ -19034,9 +19051,9 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 {
   if (!TARGET_HARD_FLOAT_ABI)
     return;
-  tree exceptions_var = create_tmp_var (MIPS_ATYPE_USI, NULL);
-  tree fcsr_orig_var = create_tmp_var (MIPS_ATYPE_USI, NULL);
-  tree fcsr_mod_var = create_tmp_var (MIPS_ATYPE_USI, NULL);
+  tree exceptions_var = create_tmp_var (MIPS_ATYPE_USI);
+  tree fcsr_orig_var = create_tmp_var (MIPS_ATYPE_USI);
+  tree fcsr_mod_var = create_tmp_var (MIPS_ATYPE_USI);
   tree get_fcsr = mips_builtin_decls[MIPS_GET_FCSR];
   tree set_fcsr = mips_builtin_decls[MIPS_SET_FCSR];
   tree get_fcsr_hold_call = build_call_expr (get_fcsr, 0);

@@ -1193,5 +1193,20 @@ make_pass_ipa_reference (gcc::context *ctxt)
 void
 ipa_reference_c_finalize (void)
 {
-  ipa_init_p = false;
+  if (ipa_init_p)
+    {
+      bitmap_obstack_release (&optimization_summary_obstack);
+      ipa_init_p = false;
+    }
+
+  if (node_removal_hook_holder)
+    {
+      symtab->remove_cgraph_removal_hook (node_removal_hook_holder);
+      node_removal_hook_holder = NULL;
+    }
+  if (node_duplication_hook_holder)
+    {
+      symtab->remove_cgraph_duplication_hook (node_duplication_hook_holder);
+      node_duplication_hook_holder = NULL;
+    }
 }

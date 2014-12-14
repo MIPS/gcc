@@ -1,3 +1,33 @@
+2014-12-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/61324
+	* lto.c (read_cgraph_and_symbols): Update call of
+	remove_unreachable_nodes.
+	(do_whole_program_analysis): Remove call of
+	symtab->remove_unreachable_nodes
+
+2014-12-08  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* lto.c (read_cgraph_and_symbols): allocate gimple_canonical_types
+	htab with malloc instead of ggc.
+
+2014-11-20  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* lto.c: Replace htab with hash_table.
+
+2014-11-20  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* lto.c (lto_read_in_decl_state): Adjust.
+	(lto_fixup_state): Likewise.
+
+2014-11-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (lto_read_decls): Do not rebuild DECL_FUNCTION_SPECIFIC_TARGET.
+
+2014-11-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (compare_tree_sccs_1): Compare cl_target_option_eq.
+
 2014-11-13  Ilya Verbin  <ilya.verbin@intel.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Andrey Turetskiy  <andrey.turetskiy@intel.com>

@@ -532,7 +532,7 @@ gfc_match_name (char *buffer)
   c = gfc_next_ascii_char ();
   if (!(ISALPHA (c) || (c == '_' && gfc_option.flag_allow_leading_underscore)))
     {
-      if (gfc_error_flag_test () == 0 && c != '(')
+      if (!gfc_error_flag_test () && c != '(')
 	gfc_error ("Invalid character in name at %C");
       gfc_current_locus = old_loc;
       return MATCH_NO;
@@ -557,8 +557,8 @@ gfc_match_name (char *buffer)
 
   if (c == '$' && !gfc_option.flag_dollar_ok)
     {
-      gfc_fatal_error ("Invalid character '$' at %L. Use -fdollar-ok to allow "
-		       "it as an extension", &old_loc);
+      gfc_fatal_error ("Invalid character %<$%> at %L. Use %<-fdollar-ok%> to "
+		       "allow it as an extension", &old_loc);
       return MATCH_ERROR;
     }
 
@@ -1497,7 +1497,7 @@ gfc_match_if (gfc_statement *if_type)
 
   /* All else has failed, so give up.  See if any of the matchers has
      stored an error message of some sort.  */
-  if (gfc_error_check () == 0)
+  if (!gfc_error_check ())
     gfc_error ("Unclassifiable statement in IF-clause at %C");
 
   gfc_free_expr (expr);
@@ -1665,7 +1665,8 @@ gfc_match_critical (void)
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-       gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+       gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to "
+			"enable");
        return MATCH_ERROR;
     }
 
@@ -2755,7 +2756,7 @@ lock_unlock_statement (gfc_statement st)
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-       gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+       gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
        return MATCH_ERROR;
     }
 
@@ -2951,7 +2952,8 @@ sync_statement (gfc_statement st)
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
-       gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+       gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to "
+			"enable");
        return MATCH_ERROR;
     }
 
@@ -3575,7 +3577,7 @@ alloc_opt_list:
 	  /* The next 2 conditionals check C631.  */
 	  if (ts.type != BT_UNKNOWN)
 	    {
-	      gfc_error ("SOURCE tag at %L conflicts with the typespec at %L",
+	      gfc_error_1 ("SOURCE tag at %L conflicts with the typespec at %L",
 			 &tmp->where, &old_locus);
 	      goto cleanup;
 	    }
@@ -3612,7 +3614,7 @@ alloc_opt_list:
 	  /* Check F08:C637.  */
 	  if (ts.type != BT_UNKNOWN)
 	    {
-	      gfc_error ("MOLD tag at %L conflicts with the typespec at %L",
+	      gfc_error_1 ("MOLD tag at %L conflicts with the typespec at %L",
 			 &tmp->where, &old_locus);
 	      goto cleanup;
 	    }
@@ -3638,7 +3640,7 @@ alloc_opt_list:
   /* Check F08:C637.  */
   if (source && mold)
     {
-      gfc_error ("MOLD tag at %L conflicts with SOURCE tag at %L",
+      gfc_error_1 ("MOLD tag at %L conflicts with SOURCE tag at %L",
 		  &mold->where, &source->where);
       goto cleanup;
     }
@@ -4326,23 +4328,23 @@ gfc_match_common (void)
                   /* If we find an error, just print it and continue,
                      cause it's just semantic, and we can see if there
                      are more errors.  */
-                  gfc_error_now ("Variable '%s' at %L in common block '%s' "
-                                 "at %C must be declared with a C "
-                                 "interoperable kind since common block "
-                                 "'%s' is bind(c)",
-                                 sym->name, &(sym->declared_at), t->name,
-                                 t->name);
+                  gfc_error_now_1 ("Variable '%s' at %L in common block '%s' "
+				   "at %C must be declared with a C "
+				   "interoperable kind since common block "
+				   "'%s' is bind(c)",
+				   sym->name, &(sym->declared_at), t->name,
+				   t->name);
                 }
 
               if (sym->attr.is_bind_c == 1)
-                gfc_error_now ("Variable '%s' in common block "
-                               "'%s' at %C can not be bind(c) since "
-                               "it is not global", sym->name, t->name);
+                gfc_error_now ("Variable %qs in common block %qs at %C can not "
+                               "be bind(c) since it is not global", sym->name,
+			       t->name);
             }
 
 	  if (sym->attr.in_common)
 	    {
-	      gfc_error ("Symbol '%s' at %C is already in a COMMON block",
+	      gfc_error ("Symbol %qs at %C is already in a COMMON block",
 			 sym->name);
 	      goto cleanup;
 	    }
@@ -4865,7 +4867,9 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 match
 gfc_match_st_function (void)
 {
-  gfc_error_buf old_error;
+  gfc_error_buf old_error_1;
+  output_buffer old_error;
+
   gfc_symbol *sym;
   gfc_expr *expr;
   match m;
@@ -4874,7 +4878,7 @@ gfc_match_st_function (void)
   if (m != MATCH_YES)
     return m;
 
-  gfc_push_error (&old_error);
+  gfc_push_error (&old_error, &old_error_1);
 
   if (!gfc_add_procedure (&sym->attr, PROC_ST_FUNCTION, sym->name, NULL))
     goto undo_error;
@@ -4886,7 +4890,8 @@ gfc_match_st_function (void)
   if (m == MATCH_NO)
     goto undo_error;
 
-  gfc_free_error (&old_error);
+  gfc_free_error (&old_error, &old_error_1);
+
   if (m == MATCH_ERROR)
     return m;
 
@@ -4904,7 +4909,7 @@ gfc_match_st_function (void)
   return MATCH_YES;
 
 undo_error:
-  gfc_pop_error (&old_error);
+  gfc_pop_error (&old_error, &old_error_1);
   return MATCH_NO;
 }
 

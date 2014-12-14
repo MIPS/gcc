@@ -103,6 +103,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
+#include "stringpool.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -946,10 +947,9 @@ static unsigned int ATTRIBUTE_UNUSED
 get_lang_number (void)
 {
   const char *language_string = lang_hooks.name;
-
-  if (strcmp (language_string, "GNU C") == 0)
+  if (lang_GNU_C ())
     return N_SO_C;
-  else if (strcmp (language_string, "GNU C++") == 0)
+  else if (lang_GNU_CXX ())
     return N_SO_CC;
   else if (strcmp (language_string, "GNU F77") == 0)
     return N_SO_FORTRAN;
@@ -2167,7 +2167,7 @@ dbxout_type (tree type, int full)
 				   access == access_protected_node
 				   ? '1' :'0');
 		    if (BINFO_VIRTUAL_P (child)
-			&& (strcmp (lang_hooks.name, "GNU C++") == 0
+			&& (lang_GNU_CXX ()
 			    || strcmp (lang_hooks.name, "GNU Objective-C++") == 0))
 		      /* For a virtual base, print the (negative)
 		     	 offset within the vtable where we must look
@@ -2330,6 +2330,17 @@ dbxout_type (tree type, int full)
       break;
 
     default:
+      /* A C++ function with deduced return type can have a TEMPLATE_TYPE_PARM
+	 named 'auto' in its type.
+	 No debug info for TEMPLATE_TYPE_PARM type supported yet.  */
+      if (lang_GNU_CXX ())
+	{
+	  tree name = TYPE_IDENTIFIER (type);
+	  if (name == get_identifier ("auto")
+	      || name == get_identifier ("decltype(auto)"))
+	    break;
+	}
+
       gcc_unreachable ();
     }
 }
@@ -3028,7 +3039,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	     we rely on the fact that error_mark_node initializers always
 	     end up in bss for C++ and never end up in bss for C.  */
 	  if (DECL_INITIAL (decl) == 0
-	      || (!strcmp (lang_hooks.name, "GNU C++")
+	      || (lang_GNU_CXX ()
 		  && DECL_INITIAL (decl) == error_mark_node))
 	    {
 	      int offs;

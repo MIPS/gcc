@@ -453,7 +453,7 @@ gfc_cpp_post_options (void)
 	  || gfc_cpp_option.no_line_commands
 	  || gfc_cpp_option.dump_macros
 	  || gfc_cpp_option.dump_includes))
-    gfc_fatal_error("To enable preprocessing, use -cpp");
+    gfc_fatal_error ("To enable preprocessing, use %<-cpp%>");
 
   if (!gfc_cpp_enabled ())
     return;
@@ -551,7 +551,7 @@ gfc_cpp_init_0 (void)
 
 	  print.outf = fopen (gfc_cpp_option.output_filename, "w");
 	  if (print.outf == NULL)
-	    gfc_fatal_error ("opening output file %s: %s",
+	    gfc_fatal_error ("opening output file %qs: %s",
 			     gfc_cpp_option.output_filename,
 			     xstrerror (errno));
 	}
@@ -562,7 +562,7 @@ gfc_cpp_init_0 (void)
     {
       print.outf = fopen (gfc_cpp_option.temporary_filename, "w");
       if (print.outf == NULL)
-	gfc_fatal_error ("opening output file %s: %s",
+	gfc_fatal_error ("opening output file %qs: %s",
 			 gfc_cpp_option.temporary_filename, xstrerror (errno));
     }
 
@@ -669,7 +669,7 @@ gfc_cpp_done (void)
 	      fclose (f);
 	    }
 	  else
-	    gfc_fatal_error ("opening output file %s: %s",
+	    gfc_fatal_error ("opening output file %qs: %s",
 			     gfc_cpp_option.deps_filename,
 			     xstrerror (errno));
 	}

@@ -562,6 +562,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->tm_clone, 1);
   bp_pack_value (&bp, node->calls_comdat_local, 1);
   bp_pack_value (&bp, node->icf_merged, 1);
+  bp_pack_value (&bp, node->nonfreeing_fn, 1);
   bp_pack_value (&bp, node->thunk.thunk_p && !boundary_p, 1);
   bp_pack_enum (&bp, ld_plugin_symbol_resolution,
 	        LDPR_NUM_KNOWN, node->resolution);
@@ -614,7 +615,8 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
   bp_pack_value (&bp, node->force_output, 1);
   bp_pack_value (&bp, node->forced_by_abi, 1);
   bp_pack_value (&bp, node->unique_name, 1);
-  bp_pack_value (&bp, node->body_removed, 1);
+  bp_pack_value (&bp, node->body_removed
+		 || !lto_symtab_encoder_encode_initializer_p (encoder, node), 1);
   bp_pack_value (&bp, node->implicit_section, 1);
   bp_pack_value (&bp, node->writeonly, 1);
   bp_pack_value (&bp, node->definition, 1);
@@ -876,7 +878,8 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       if (DECL_ABSTRACT_ORIGIN (node->decl))
 	{
 	  struct cgraph_node *origin_node
-	  = cgraph_node::get (DECL_ABSTRACT_ORIGIN (node->decl));
+	  = cgraph_node::get_create (DECL_ABSTRACT_ORIGIN (node->decl));
+	  origin_node->used_as_abstract_origin = true;
 	  add_node_to (encoder, origin_node, true);
 	}
     }
@@ -908,8 +911,11 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
 	{
 	  if (!lto_symtab_encoder_encode_initializer_p (encoder,
 							vnode)
-	      && (vnode->ctor_useable_for_folding_p ()
-		  || POINTER_BOUNDS_P (vnode->decl)))
+	      && (((vnode->ctor_useable_for_folding_p ()
+		   && (!DECL_VIRTUAL_P (vnode->decl)
+		       || !flag_wpa
+		       || flag_ltrans_devirtualize))
+		  || POINTER_BOUNDS_P (vnode->decl))))
 	    {
 	      lto_set_symtab_encoder_encode_initializer (encoder, vnode);
 	      create_references (encoder, vnode);
@@ -934,7 +940,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
 	    }
 	}
       /* Add all possible targets for late devirtualization.  */
-      if (flag_devirtualize)
+      if (flag_ltrans_devirtualize || !flag_wpa)
 	for (edge = node->indirect_calls; edge; edge = edge->next_callee)
 	  if (edge->indirect_info->polymorphic)
 	    {
@@ -1168,6 +1174,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->tm_clone = bp_unpack_value (bp, 1);
   node->calls_comdat_local = bp_unpack_value (bp, 1);
   node->icf_merged = bp_unpack_value (bp, 1);
+  node->nonfreeing_fn = bp_unpack_value (bp, 1);
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
   node->resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);
@@ -1559,7 +1566,18 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 
 	      cnode->instrumented_version = cgraph_node::get (cnode->orig_decl);
 	      if (cnode->instrumented_version)
-		cnode->instrumented_version->instrumented_version = cnode;
+		{
+		  /* We may have multiple nodes for a single function which
+		     will be merged later.  To have a proper merge we need
+		     to keep instrumentation_version reference between nodes
+		     consistent: each instrumented_version reference should
+		     have proper reverse reference.  Thus don't break existing
+		     instrumented_version reference if it already exists.  */
+		  if (cnode->instrumented_version->instrumented_version)
+		    cnode->instrumented_version = NULL;
+		  else
+		    cnode->instrumented_version->instrumented_version = cnode;
+		}
 
 	      /* Restore decl names reference.  */
 	      if (IDENTIFIER_TRANSPARENT_ALIAS (DECL_ASSEMBLER_NAME (cnode->decl))

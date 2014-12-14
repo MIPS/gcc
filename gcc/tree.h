@@ -283,6 +283,10 @@ along with GCC; see the file COPYING3.  If not see
 #define NON_TYPE_CHECK(T) \
 (non_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
+/* These checks have to be special cased.  */
+#define ANY_INTEGRAL_TYPE_CHECK(T) \
+(any_integral_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
+
 #define TREE_INT_CST_ELT_CHECK(T, I) \
 (*tree_int_cst_elt_check ((T), (I), __FILE__, __LINE__, __FUNCTION__))
 
@@ -388,6 +392,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
 #define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
+#define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
 
 #define TREE_CHAIN(NODE) ((NODE)->common.chain)
 #define TREE_TYPE(NODE) ((NODE)->typed.type)
@@ -481,6 +486,15 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
+
+/* Nonzero if TYPE represents an integral type, including complex
+   and vector integer types.  */
+
+#define ANY_INTEGRAL_TYPE_P(TYPE)		\
+  (INTEGRAL_TYPE_P (TYPE)			\
+   || ((TREE_CODE (TYPE) == COMPLEX_TYPE 	\
+        || VECTOR_TYPE_P (TYPE))		\
+       && INTEGRAL_TYPE_P (TREE_TYPE (TYPE))))
 
 /* Nonzero if TYPE represents a non-saturating fixed-point type.  */
 
@@ -771,7 +785,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
 #define TYPE_OVERFLOW_WRAPS(TYPE) \
-  (TYPE_UNSIGNED (TYPE) || flag_wrapv)
+  (ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag || flag_wrapv)
 
 /* True if overflow is undefined for the given integral type.  We may
    optimize on the assumption that values in the type never overflow.
@@ -781,13 +795,14 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    it will be appropriate to issue the warning immediately, and in
    other cases it will be appropriate to simply set a flag and let the
    caller decide whether a warning is appropriate or not.  */
-#define TYPE_OVERFLOW_UNDEFINED(TYPE) \
-  (!TYPE_UNSIGNED (TYPE) && !flag_wrapv && !flag_trapv && flag_strict_overflow)
+#define TYPE_OVERFLOW_UNDEFINED(TYPE)				\
+  (!ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag	\
+   && !flag_wrapv && !flag_trapv && flag_strict_overflow)
 
 /* True if overflow for the given integral type should issue a
    trap.  */
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
-  (!TYPE_UNSIGNED (TYPE) && flag_trapv)
+  (!ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag && flag_trapv)
 
 /* True if an overflow is to be preserved for sanitization.  */
 #define TYPE_OVERFLOW_SANITIZED(TYPE)			\
@@ -1104,6 +1119,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define TMR_INDEX(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 2))
 #define TMR_STEP(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 3))
 #define TMR_INDEX2(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 4))
+
+#define MR_DEPENDENCE_CLIQUE(NODE) \
+  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->base.u.dependence_info.clique)
+#define MR_DEPENDENCE_BASE(NODE) \
+  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->base.u.dependence_info.base)
 
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
@@ -1633,6 +1653,8 @@ extern void protected_set_expr_location (tree, location_t);
    ? vector_type_mode (NODE) : (NODE)->type_common.mode)
 #define SET_TYPE_MODE(NODE, MODE) \
   (TYPE_CHECK (NODE)->type_common.mode = (MODE))
+
+extern machine_mode element_mode (const_tree t);
 
 /* The "canonical" type for this type node, which is used by frontends to
    compare the type for equality with another type.  If two types are
@@ -3053,6 +3075,17 @@ omp_clause_elt_check (tree __t, int __i,
   return &__t->omp_clause.ops[__i];
 }
 
+/* These checks have to be special cased.  */
+
+inline tree
+any_integral_type_check (tree __t, const char *__f, int __l, const char *__g)
+{
+  if (!ANY_INTEGRAL_TYPE_P (__t))
+    tree_check_failed (__t, __f, __l, __g, BOOLEAN_TYPE, ENUMERAL_TYPE,
+		       INTEGER_TYPE, 0);
+  return __t;
+}
+
 inline const_tree
 tree_check (const_tree __t, const char *__f, int __l, const char *__g,
 	    tree_code __c)
@@ -3258,6 +3291,16 @@ omp_clause_elt_check (const_tree __t, int __i,
   if (__i < 0 || __i >= omp_clause_num_ops [__t->omp_clause.code])
     omp_clause_operand_check_failed (__i, __t, __f, __l, __g);
   return CONST_CAST (const_tree *, &__t->omp_clause.ops[__i]);
+}
+
+inline const_tree
+any_integral_type_check (const_tree __t, const char *__f, int __l,
+			 const char *__g)
+{
+  if (!ANY_INTEGRAL_TYPE_P (__t))
+    tree_check_failed (__t, __f, __l, __g, BOOLEAN_TYPE, ENUMERAL_TYPE,
+		       INTEGER_TYPE, 0);
+  return __t;
 }
 
 #endif
@@ -4069,6 +4112,11 @@ extern int integer_pow2p (const_tree);
 
 extern int integer_nonzerop (const_tree);
 
+/* integer_truep (tree x) is nonzero if X is an integer constant of value 1 or
+   a vector where each element is an integer constant of value -1.  */
+
+extern int integer_truep (const_tree);
+
 extern bool cst_and_fits_in_hwi (const_tree);
 extern tree num_ending_zeros (const_tree);
 
@@ -4464,6 +4512,28 @@ extern unsigned int tree_map_hash (const void *);
 #define tree_decl_map_eq tree_map_base_eq
 extern unsigned int tree_decl_map_hash (const void *);
 #define tree_decl_map_marked_p tree_map_base_marked_p
+
+struct tree_decl_map_cache_hasher : ggc_cache_hasher<tree_decl_map *>
+{
+  static hashval_t hash (tree_decl_map *m) { return tree_decl_map_hash (m); }
+  static bool
+  equal (tree_decl_map *a, tree_decl_map *b)
+  {
+    return tree_decl_map_eq (a, b);
+  }
+
+  static void
+  handle_cache_entry (tree_decl_map *&m)
+  {
+    extern void gt_ggc_mx (tree_decl_map *&);
+    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (m->base.from))
+      gt_ggc_mx (m);
+    else
+      m = static_cast<tree_decl_map *> (HTAB_DELETED_ENTRY);
+  }
+};
 
 #define tree_int_map_eq tree_map_base_eq
 #define tree_int_map_hash tree_map_base_hash
@@ -4916,4 +4986,9 @@ int_bit_position (const_tree field)
   return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
+
+extern void gt_ggc_mx (tree &);
+extern void gt_pch_nx (tree &);
+extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
+
 #endif  /* GCC_TREE_H  */

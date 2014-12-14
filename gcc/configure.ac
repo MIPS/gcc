@@ -1213,6 +1213,7 @@ saved_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
 	stpcpy strnlen strsignal strstr strverscmp \
+	strtol strtoul strtoll strtoull \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
@@ -4280,8 +4281,9 @@ LCF0:
 	  [Define if your assembler supports .gnu_attribute.])])
 
     gcc_GAS_CHECK_FEATURE([.module support],
-      gcc_cv_as_mips_dot_module,,,
-      [.module fp=32],,
+      gcc_cv_as_mips_dot_module,,[-32],
+      [.module mips2
+       .module fp=xx],,
       [AC_DEFINE(HAVE_AS_DOT_MODULE, 1,
 	  [Define if your assembler supports .module.])])
     if test x$gcc_cv_as_mips_dot_module = xno \
@@ -4690,6 +4692,49 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 [Define if your linker supports -pie option.])
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
+
+AC_MSG_CHECKING(linker PIE support with copy reloc)
+gcc_cv_ld_pie_copyreloc=no
+if test $gcc_cv_ld_pie = yes ; then
+  if test $in_tree_ld = yes ; then
+    if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 25 -o "$gcc_cv_gld_major_version" -gt 2; then
+      gcc_cv_ld_pie_copyreloc=yes
+    fi
+  elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x ; then
+    # Check if linker supports -pie option with copy reloc
+    case "$target" in
+    i?86-*-linux* | x86_64-*-linux*)
+      cat > conftest1.s <<EOF
+	.globl	a_glob
+	.data
+	.type	a_glob, @object
+	.size	a_glob, 4
+a_glob:
+	.long	2
+EOF
+      cat > conftest2.s <<EOF
+	.text
+	.globl	main
+	.type	main, @function
+main:
+	movl	%eax, a_glob(%rip)
+	.size	main, .-main
+EOF
+      if $gcc_cv_as --64 -o conftest1.o conftest1.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -shared -melf_x86_64 -o conftest1.so conftest1.o > /dev/null 2>&1 \
+         && $gcc_cv_as --64 -o conftest2.o conftest2.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -pie -melf_x86_64 -o conftest conftest2.o conftest1.so > /dev/null 2>&1; then
+        gcc_cv_ld_pie_copyreloc=yes
+      fi
+      rm -f conftest conftest1.so conftest1.o conftest2.o conftest1.s conftest2.s
+      ;;
+    esac
+  fi
+fi
+AC_DEFINE_UNQUOTED(HAVE_LD_PIE_COPYRELOC,
+  [`if test x"$gcc_cv_ld_pie_copyreloc" = xyes; then echo 1; else echo 0; fi`],
+  [Define 0/1 if your linker supports -pie option with copy reloc.])
+AC_MSG_RESULT($gcc_cv_ld_pie_copyreloc)
 
 AC_MSG_CHECKING(linker EH-compatible garbage collection of sections)
 gcc_cv_ld_eh_gc_sections=no
@@ -5599,6 +5644,30 @@ if test "x${ISLLIBS}" != "x" ; then
    AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
 fi
 
+# Check whether isl_schedule_constraints_compute_schedule is available;
+# it's new in ISL-0.13.
+if test "x${ISLLIBS}" != "x" ; then
+  saved_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $ISLINC"
+  saved_LIBS="$LIBS"
+  LIBS="$LIBS $ISLLIBS $GMPLIBS"
+
+  AC_MSG_CHECKING([Checking for isl_schedule_constraints_compute_schedule])
+  AC_TRY_LINK([#include <isl/schedule.h>],
+              [isl_schedule_constraints_compute_schedule (NULL);],
+              [ac_has_isl_schedule_constraints_compute_schedule=yes],
+              [ac_has_isl_schedule_constraints_compute_schedule=no])
+  AC_MSG_RESULT($ac_has_isl_schedule_constraints_compute_schedule)
+
+  LIBS="$saved_LIBS"
+  CFLAGS="$saved_CFLAGS"
+
+  if test x"$ac_has_isl_schedule_constraints_compute_schedule" = x"yes"; then
+     AC_DEFINE(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE, 1,
+               [Define if isl_schedule_constraints_compute_schedule exists.])
+  fi
+fi
+
 GCC_ENABLE_PLUGINS
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
@@ -5650,6 +5719,34 @@ if test x"${LINKER_HASH_STYLE}" != x; then
   AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
                                          [The linker hash style])
 fi
+
+# Specify what should be the default of -fdiagnostics-color option.
+AC_ARG_WITH([diagnostics-color],
+[AC_HELP_STRING([--with-diagnostics-color={never,auto,auto-if-env,always}],
+                [specify the default of -fdiagnostics-color option
+                 auto-if-env stands for -fdiagnostics-color=auto if
+                 GCC_COLOR environment variable is present and
+                 -fdiagnostics-color=never otherwise])],
+[case x"$withval" in
+   xnever)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_NO
+     ;;
+   xauto)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_AUTO
+     ;;
+   xauto-if-env)
+     DIAGNOSTICS_COLOR_DEFAULT=-1
+     ;;
+   xalways)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_YES
+     ;;
+   *)
+     AC_MSG_ERROR([$withval is an invalid option to --with-diagnostics-color])
+     ;;
+ esac],
+[DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_AUTO])
+AC_DEFINE_UNQUOTED(DIAGNOSTICS_COLOR_DEFAULT, $DIAGNOSTICS_COLOR_DEFAULT,
+		   [The default for -fdiagnostics-color option])
 
 # Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
 # of jit/jit-playback.c.

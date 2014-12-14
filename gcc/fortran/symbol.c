@@ -221,12 +221,12 @@ gfc_get_default_type (const char *name, gfc_namespace *ns)
   letter = name[0];
 
   if (gfc_option.flag_allow_leading_underscore && letter == '_')
-    gfc_internal_error ("Option -fallow-leading-underscore is for use only by "
-			"gfortran developers, and should not be used for "
-			"implicitly typed variables");
+    gfc_fatal_error ("Option %<-fallow-leading-underscore%> is for use only by "
+		     "gfortran developers, and should not be used for "
+		     "implicitly typed variables");
 
   if (letter < 'a' || letter > 'z')
-    gfc_internal_error ("gfc_get_default_type(): Bad symbol '%s'", name);
+    gfc_internal_error ("gfc_get_default_type(): Bad symbol %qs", name);
 
   if (ns == NULL)
     ns = gfc_current_ns;
@@ -270,11 +270,12 @@ gfc_set_default_type (gfc_symbol *sym, int error_flag, gfc_namespace *ns)
 	   && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as))
     return false;
 
-  if (sym->attr.is_bind_c == 1 && gfc_option.warn_c_binding_type)
+  if (sym->attr.is_bind_c == 1 && warn_c_binding_type)
     {
       /* BIND(C) variables should not be implicitly declared.  */
-      gfc_warning_now ("Implicitly declared BIND(C) variable '%s' at %L may "
-                       "not be C interoperable", sym->name, &sym->declared_at);
+      gfc_warning_now (OPT_Wc_binding_type, "Implicitly declared BIND(C) "
+		       "variable %qs at %L may not be C interoperable",
+		       sym->name, &sym->declared_at);
       sym->ts.f90_type = sym->ts.type;
     }
 
@@ -284,14 +285,15 @@ gfc_set_default_type (gfc_symbol *sym, int error_flag, gfc_namespace *ns)
 	  && (sym->ns->proc_name->attr.subroutine != 0
 	      || sym->ns->proc_name->attr.function != 0)
 	  && sym->ns->proc_name->attr.is_bind_c != 0
-	  && gfc_option.warn_c_binding_type)
+	  && warn_c_binding_type)
         {
           /* Dummy args to a BIND(C) routine may not be interoperable if
              they are implicitly typed.  */
-          gfc_warning_now ("Implicitly declared variable '%s' at %L may not "
-                           "be C interoperable but it is a dummy argument to "
-                           "the BIND(C) procedure '%s' at %L", sym->name,
-                           &(sym->declared_at), sym->ns->proc_name->name,
+          gfc_warning_now (OPT_Wc_binding_type, "Implicitly declared variable "
+			   "%qs at %L may not be C interoperable but it is a "
+			   "dummy argument to the BIND(C) procedure %qs at %L",
+			   sym->name, &(sym->declared_at),
+			   sym->ns->proc_name->name,
                            &(sym->ns->proc_name->declared_at));
           sym->ts.f90_type = sym->ts.type;
         }
@@ -1699,18 +1701,18 @@ gfc_add_type (gfc_symbol *sym, gfc_typespec *ts, locus *where)
   if (type != BT_UNKNOWN && !(sym->attr.function && sym->attr.implicit_type))
     {
       if (sym->attr.use_assoc)
-	gfc_error ("Symbol '%s' at %L conflicts with symbol from module '%s', "
+	gfc_error_1 ("Symbol '%s' at %L conflicts with symbol from module '%s', "
 		   "use-associated at %L", sym->name, where, sym->module,
 		   &sym->declared_at);
       else
-	gfc_error ("Symbol '%s' at %L already has basic type of %s", sym->name,
+	gfc_error ("Symbol %qs at %L already has basic type of %s", sym->name,
 		 where, gfc_basic_typename (type));
       return false;
     }
 
   if (sym->attr.procedure && sym->ts.interface)
     {
-      gfc_error ("Procedure '%s' at %L may not have basic type of %s",
+      gfc_error ("Procedure %qs at %L may not have basic type of %s",
 		 sym->name, where, gfc_basic_typename (ts->type));
       return false;
     }
@@ -1893,7 +1895,7 @@ gfc_add_component (gfc_symbol *sym, const char *name,
     {
       if (strcmp (p->name, name) == 0)
 	{
-	  gfc_error ("Component '%s' at %C already declared at %L",
+	  gfc_error_1 ("Component '%s' at %C already declared at %L",
 		     name, &p->loc);
 	  return false;
 	}
@@ -1904,7 +1906,7 @@ gfc_add_component (gfc_symbol *sym, const char *name,
   if (sym->attr.extension
 	&& gfc_find_component (sym->components->ts.u.derived, name, true, true))
     {
-      gfc_error ("Component '%s' at %C already in the parent type "
+      gfc_error_1 ("Component '%s' at %C already in the parent type "
 		 "at %L", name, &sym->components->ts.u.derived->declared_at);
       return false;
     }
@@ -2059,7 +2061,7 @@ gfc_find_component (gfc_symbol *sym, const char *name,
 	   && !is_parent_comp))
 	{
 	  if (!silent)
-	    gfc_error ("Component '%s' at %C is a PRIVATE component of '%s'",
+	    gfc_error ("Component %qs at %C is a PRIVATE component of %qs",
 		       name, sym->name);
 	  return NULL;
 	}
@@ -2077,7 +2079,7 @@ gfc_find_component (gfc_symbol *sym, const char *name,
     }
 
   if (p == NULL && !silent)
-    gfc_error ("'%s' at %C is not a member of the '%s' structure",
+    gfc_error ("%qs at %C is not a member of the %qs structure",
 	       name, sym->name);
 
   return p;
@@ -2216,7 +2218,7 @@ gfc_define_st_label (gfc_st_label *lp, gfc_sl_type type, locus *label_locus)
   labelno = lp->value;
 
   if (lp->defined != ST_LABEL_UNKNOWN)
-    gfc_error ("Duplicate statement label %d at %L and %L", labelno,
+    gfc_error_1 ("Duplicate statement label %d at %L and %L", labelno,
 	       &lp->where, label_locus);
   else
     {
@@ -2626,10 +2628,10 @@ ambiguous_symbol (const char *name, gfc_symtree *st)
 {
 
   if (st->n.sym->module)
-    gfc_error ("Name '%s' at %C is an ambiguous reference to '%s' "
-	       "from module '%s'", name, st->n.sym->name, st->n.sym->module);
+    gfc_error ("Name %qs at %C is an ambiguous reference to %qs "
+	       "from module %qs", name, st->n.sym->name, st->n.sym->module);
   else
-    gfc_error ("Name '%s' at %C is an ambiguous reference to '%s' "
+    gfc_error ("Name %qs at %C is an ambiguous reference to %qs "
 	       "from current program unit", name, st->n.sym->name);
 }
 
@@ -2850,7 +2852,7 @@ gfc_get_sym_tree (const char *name, gfc_namespace *ns, gfc_symtree **result,
 	  && (ns->has_import_set || p->attr.imported)))
 	{
 	  /* Symbol is from another namespace.  */
-	  gfc_error ("Symbol '%s' at %C has already been host associated",
+	  gfc_error ("Symbol %qs at %C has already been host associated",
 		     name);
 	  return 2;
 	}
@@ -3854,7 +3856,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
   if (derived_sym->attr.is_bind_c != 1)
     {
       derived_sym->ts.is_c_interop = 0;
-      gfc_error_now ("Derived type '%s' declared at %L must have the BIND "
+      gfc_error_now ("Derived type %qs declared at %L must have the BIND "
                      "attribute to be C interoperable", derived_sym->name,
                      &(derived_sym->declared_at));
       retval = false;
@@ -3872,7 +3874,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
   */
   if (curr_comp == NULL)
     {
-      gfc_warning ("Derived type '%s' with BIND(C) attribute at %L is empty, "
+      gfc_warning ("Derived type %qs with BIND(C) attribute at %L is empty, "
 		   "and may be inaccessible by the C companion processor",
 		   derived_sym->name, &(derived_sym->declared_at));
       derived_sym->ts.is_c_interop = 1;
@@ -3893,7 +3895,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
          J3/04-007, Section 15.2.3, C1505.	*/
       if (curr_comp->attr.pointer != 0)
         {
-          gfc_error ("Component '%s' at %L cannot have the "
+          gfc_error_1 ("Component '%s' at %L cannot have the "
                      "POINTER attribute because it is a member "
                      "of the BIND(C) derived type '%s' at %L",
                      curr_comp->name, &(curr_comp->loc),
@@ -3903,7 +3905,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 
       if (curr_comp->attr.proc_pointer != 0)
 	{
-	  gfc_error ("Procedure pointer component '%s' at %L cannot be a member"
+	  gfc_error_1 ("Procedure pointer component '%s' at %L cannot be a member"
 		     " of the BIND(C) derived type '%s' at %L", curr_comp->name,
 		     &curr_comp->loc, derived_sym->name,
 		     &derived_sym->declared_at);
@@ -3914,7 +3916,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
          J3/04-007, Section 15.2.3, C1505.	*/
       if (curr_comp->attr.allocatable != 0)
         {
-          gfc_error ("Component '%s' at %L cannot have the "
+          gfc_error_1 ("Component '%s' at %L cannot have the "
                      "ALLOCATABLE attribute because it is a member "
                      "of the BIND(C) derived type '%s' at %L",
                      curr_comp->name, &(curr_comp->loc),
@@ -3949,20 +3951,21 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 		 recompiles with different flags (e.g., -m32 and -m64 on
 		 x86_64 and using integer(4) to claim interop with a
 		 C_LONG).  */
-	      if (derived_sym->attr.is_bind_c == 1
-		  && gfc_option.warn_c_binding_type)
+	      if (derived_sym->attr.is_bind_c == 1 && warn_c_binding_type)
 		/* If the derived type is bind(c), all fields must be
 		   interop.  */
-		gfc_warning ("Component '%s' in derived type '%s' at %L "
+		gfc_warning (OPT_Wc_binding_type,
+			     "Component %qs in derived type %qs at %L "
                              "may not be C interoperable, even though "
-                             "derived type '%s' is BIND(C)",
+                             "derived type %qs is BIND(C)",
                              curr_comp->name, derived_sym->name,
                              &(curr_comp->loc), derived_sym->name);
-	      else if (gfc_option.warn_c_binding_type)
+	      else if (warn_c_binding_type)
 		/* If derived type is param to bind(c) routine, or to one
 		   of the iso_c_binding procs, it must be interoperable, so
 		   all fields must interop too.	 */
-		gfc_warning ("Component '%s' in derived type '%s' at %L "
+		gfc_warning (OPT_Wc_binding_type,
+			     "Component %qs in derived type %qs at %L "
                              "may not be C interoperable",
                              curr_comp->name, derived_sym->name,
                              &(curr_comp->loc));

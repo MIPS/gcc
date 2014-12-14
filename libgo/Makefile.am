@@ -99,8 +99,13 @@ AM_MAKEFLAGS = \
 # Subdir rules rely on $(FLAGS_TO_PASS)
 FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 
+if GOC_IS_LLGO
+toolexeclib_LTLIBRARIES = libgo-llgo.la
+toolexeclib_LIBRARIES = libgobegin-llgo.a
+else
 toolexeclib_LTLIBRARIES = libgo.la
 toolexeclib_LIBRARIES = libgobegin.a
+endif
 
 toolexeclibgo_DATA = \
 	bufio.gox \
@@ -1002,7 +1007,7 @@ s-version: Makefile
 	echo 'const theVersion = "'`$(GOC) --version | sed 1q`'"' >> version.go.tmp
 	echo 'const theGoarch = "'$(GOARCH)'"' >> version.go.tmp
 	echo 'const theGoos = "'$(GOOS)'"' >> version.go.tmp
-	$(SHELL) $(srcdir)/../move-if-change version.go.tmp version.go
+	$(SHELL) $(srcdir)/mvifdiff.sh version.go.tmp version.go
 	$(STAMP) $@
 
 go_sort_files = \
@@ -1786,14 +1791,14 @@ s-libcalls: libcalls-list go/syscall/mksyscall.awk $(go_base_syscall_files)
 	rm -f libcalls.go.tmp
 	files=`echo $^ | sed -e 's/libcalls-list//' -e 's|[^ ]*go/syscall/mksyscall.awk||'`; \
 	$(AWK) -f $(srcdir)/go/syscall/mksyscall.awk $${files} > libcalls.go.tmp
-	$(SHELL) $(srcdir)/../move-if-change libcalls.go.tmp libcalls.go
+	$(SHELL) $(srcdir)/mvifdiff.sh libcalls.go.tmp libcalls.go
 	$(STAMP) $@
 
 libcalls-list: s-libcalls-list; @true
 s-libcalls-list: Makefile
 	rm -f libcalls-list.tmp
 	echo $(go_base_syscall_files) > libcalls-list.tmp
-	$(SHELL) $(srcdir)/../move-if-change libcalls-list.tmp libcalls-list
+	$(SHELL) $(srcdir)/mvifdiff.sh libcalls-list.tmp libcalls-list
 	$(STAMP) $@
 
 syscall_arch.go: s-syscall_arch; @true
@@ -1802,13 +1807,13 @@ s-syscall_arch: Makefile
 	echo "package syscall" > syscall_arch.go.tmp
 	echo 'const ARCH = "'$(GOARCH)'"' >> syscall_arch.go.tmp
 	echo 'const OS = "'$(GOOS)'"' >> syscall_arch.go.tmp
-	$(SHELL) $(srcdir)/../move-if-change syscall_arch.go.tmp syscall_arch.go
+	$(SHELL) $(srcdir)/mvifdiff.sh syscall_arch.go.tmp syscall_arch.go
 	$(STAMP) $@
 
 sysinfo.go: s-sysinfo; @true
 s-sysinfo: $(srcdir)/mksysinfo.sh config.h
 	CC="$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(OSCFLAGS)" $(SHELL) $(srcdir)/mksysinfo.sh
-	$(SHELL) $(srcdir)/../move-if-change tmp-sysinfo.go sysinfo.go
+	$(SHELL) $(srcdir)/mvifdiff.sh tmp-sysinfo.go sysinfo.go
 	$(STAMP) $@
 
 # The epoll struct has an embedded union and is packed on x86_64,
@@ -1836,7 +1841,7 @@ s-epoll: Makefile
 	   exit 1; ;; \
 	esac
 	echo '}' >> epoll.go.tmp
-	$(SHELL) $(srcdir)/../move-if-change epoll.go.tmp epoll.go
+	$(SHELL) $(srcdir)/mvifdiff.sh epoll.go.tmp epoll.go
 	$(STAMP) $@
 
 if LIBGO_IS_LINUX
@@ -1993,16 +1998,25 @@ libgo_go_objs = \
 	unicode/utf16.lo \
 	unicode/utf8.lo
 
-libgo_la_SOURCES = $(runtime_files)
-
-libgo_la_LDFLAGS = \
+libgo_ldflags = \
 	-version-info $(libtool_VERSION) $(PTHREAD_CFLAGS) $(AM_LDFLAGS)
 
-libgo_la_LIBADD = \
+libgo_libadd = \
 	$(libgo_go_objs) ../libbacktrace/libbacktrace.la \
 	$(LIBATOMIC) $(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS) $(NET_LIBS)
 
+libgo_la_SOURCES = $(runtime_files)
+libgo_la_LDFLAGS = $(libgo_ldflags)
+libgo_la_LIBADD = $(libgo_libadd)
+
+libgo_llgo_la_SOURCES = $(runtime_files)
+libgo_llgo_la_LDFLAGS = $(libgo_ldflags)
+libgo_llgo_la_LIBADD = $(libgo_libadd)
+
 libgobegin_a_SOURCES = \
+	runtime/go-main.c
+
+libgobegin_llgo_a_SOURCES = \
 	runtime/go-main.c
 
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
@@ -2066,7 +2080,7 @@ CHECK = \
 	fi
 
 # Build all packages before checking any.
-CHECK_DEPS = libgo.la libgobegin.a \
+CHECK_DEPS = \
 	$(toolexeclibgo_DATA) \
 	$(toolexeclibgoarchive_DATA) \
 	$(toolexeclibgocompress_DATA) \
@@ -2094,6 +2108,12 @@ CHECK_DEPS = libgo.la libgobegin.a \
 	$(toolexeclibgotext_DATA) \
 	$(toolexeclibgotexttemplate_DATA) \
 	$(toolexeclibgounicode_DATA)
+
+if GOC_IS_LLGO
+CHECK_DEPS += libgo-llgo.la libgobegin-llgo.a
+else
+CHECK_DEPS += libgo.la libgobegin.a
+endif
 
 @go_include@ bufio.lo.dep
 bufio.lo.dep: $(go_bufio_files)

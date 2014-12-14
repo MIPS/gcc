@@ -197,7 +197,7 @@ static void restore_fixed_argument_area (rtx, rtx, int, int);
    CALL_INSN_FUNCTION_USAGE information.  */
 
 rtx
-prepare_call_address (tree fndecl, rtx funexp, rtx static_chain_value,
+prepare_call_address (tree fndecl_or_type, rtx funexp, rtx static_chain_value,
 		      rtx *call_fusage, int reg_parm_seen, int sibcallp)
 {
   /* Make a valid memory address and copy constants through pseudo-regs,
@@ -217,12 +217,13 @@ prepare_call_address (tree fndecl, rtx funexp, rtx static_chain_value,
 #endif
     }
 
-  if (static_chain_value != 0)
+  if (static_chain_value != 0
+      && (TREE_CODE (fndecl_or_type) != FUNCTION_DECL
+	  || DECL_STATIC_CHAIN (fndecl_or_type)))
     {
       rtx chain;
 
-      gcc_assert (fndecl);
-      chain = targetm.calls.static_chain (fndecl, false);
+      chain = targetm.calls.static_chain (fndecl_or_type, false);
       static_chain_value = convert_memory_address (Pmode, static_chain_value);
 
       emit_move_insn (chain, static_chain_value);
@@ -3278,8 +3279,9 @@ expand_call (tree exp, rtx target, int ignore)
 	}
 
       after_args = get_last_insn ();
-      funexp = prepare_call_address (fndecl, funexp, static_chain_value,
-				     &call_fusage, reg_parm_seen, pass == 0);
+      funexp = prepare_call_address (fndecl ? fndecl : fntype, funexp,
+				     static_chain_value, &call_fusage,
+				     reg_parm_seen, pass == 0);
 
       load_register_parameters (args, num_actuals, &call_fusage, flags,
 				pass == 0, &sibcall_failure);
@@ -3328,7 +3330,7 @@ expand_call (tree exp, rtx target, int ignore)
 		   next_arg_reg, valreg, old_inhibit_defer_pop, call_fusage,
 		   flags, args_so_far);
 
-      if (flag_use_caller_save)
+      if (flag_ipa_ra)
 	{
 	  rtx_call_insn *last;
 	  rtx datum = NULL_RTX;
@@ -4368,7 +4370,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, args_so_far);
 
-  if (flag_use_caller_save)
+  if (flag_ipa_ra)
     {
       rtx last, datum = orgfun;
       gcc_assert (GET_CODE (datum) == SYMBOL_REF);

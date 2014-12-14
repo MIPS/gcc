@@ -46,7 +46,7 @@ static gomp_mutex_t acc_device_lock;
    been initialized.  */
 struct gomp_device_descr const *base_dev;
 
-#ifdef HAVE_TLS
+#if defined HAVE_TLS || defined USE_EMUTLS
 __thread struct goacc_thread *goacc_tls_data;
 #else
 pthread_key_t goacc_tls_key;
@@ -170,7 +170,7 @@ goacc_new_thread (void)
 {
   struct goacc_thread *thr = gomp_malloc (sizeof (struct gomp_thread));
 
-#ifdef HAVE_TLS
+#if defined HAVE_TLS || defined USE_EMUTLS
   goacc_tls_data = thr;
 #else
   pthread_setspecific (goacc_tls_key, thr);
@@ -558,7 +558,7 @@ ACC_runtime_initialize (void)
 {
   gomp_mutex_init (&acc_device_lock);
 
-#ifndef HAVE_TLS
+#if !(defined HAVE_TLS || defined USE_EMUTLS)
   pthread_key_create (&goacc_tls_key, NULL);
 #endif
 

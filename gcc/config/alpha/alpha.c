@@ -56,7 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 #include "debug.h"
 #include "langhooks.h"
-#include "splay-tree.h"
+#include "hash-map.h"
 #include "hash-table.h"
 #include "predict.h"
 #include "dominance.h"
@@ -399,13 +399,13 @@ alpha_option_override (void)
   };
 
   opt_pass *pass_handle_trap_shadows = make_pass_handle_trap_shadows (g);
-  static struct register_pass_info handle_trap_shadows_info
+  struct register_pass_info handle_trap_shadows_info
     = { pass_handle_trap_shadows, "eh_ranges",
 	1, PASS_POS_INSERT_AFTER
       };
 
   opt_pass *pass_align_insns = make_pass_align_insns (g);
-  static struct register_pass_info align_insns_info
+  struct register_pass_info align_insns_info
     = { pass_align_insns, "shorten",
 	1, PASS_POS_INSERT_BEFORE
       };
@@ -4860,6 +4860,14 @@ alpha_multipass_dfa_lookahead (void)
 
 struct GTY(()) alpha_links;
 
+struct string_traits : default_hashmap_traits
+{
+  static bool equal_keys (const char *const &a, const char *const &b)
+  {
+    return strcmp (a, b) == 0;
+  }
+};
+
 struct GTY(()) machine_function
 {
   /* For flag_reorder_blocks_and_partition.  */
@@ -4869,8 +4877,7 @@ struct GTY(()) machine_function
   bool uses_condition_handler;
 
   /* Linkage entries.  */
-  splay_tree GTY ((param1_is (char *), param2_is (struct alpha_links *)))
-    links;
+  hash_map<const char *, alpha_links *, string_traits> *links;
 };
 
 /* How to allocate a 'struct machine_function'.  */
@@ -7217,11 +7224,8 @@ alpha_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	      arg0 = gimple_call_arg (stmt, 0);
 	      arg1 = gimple_call_arg (stmt, 1);
 
-	      new_stmt
-		= gimple_build_assign_with_ops (MULT_HIGHPART_EXPR,
-						gimple_call_lhs (stmt),
-						arg0,
-						arg1);
+	      new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+					      MULT_HIGHPART_EXPR, arg0, arg1);
 	      break;
 	    default:
 	      break;
@@ -9642,18 +9646,14 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
 
   if (cfun->machine->links)
     {
-      splay_tree_node lnode;
-
       /* Is this name already defined?  */
-      lnode = splay_tree_lookup (cfun->machine->links, (splay_tree_key) name);
-      if (lnode)
-	al = (struct alpha_links *) lnode->value;
+      alpha_links *slot = cfun->machine->links->get (name);
+      if (slot)
+	al = *slot;
     }
   else
-    cfun->machine->links = splay_tree_new_ggc
-      ((splay_tree_compare_fn) strcmp,
-       ggc_alloc_splay_tree_str_alpha_links_splay_tree_s,
-       ggc_alloc_splay_tree_str_alpha_links_splay_tree_node_s);
+    cfun->machine->links
+      = hash_map<const char *, alpha_links *, string_traits>::create_ggc (64);
 
   if (al == NULL)
     {
@@ -9681,9 +9681,7 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
       al->func = func;
       al->linkage = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (linksym));
 
-      splay_tree_insert (cfun->machine->links,
-                         (splay_tree_key) ggc_strdup (name),
-			 (splay_tree_value) al);
+      cfun->machine->links->put (ggc_strdup (name), al);
     }
 
   al->rkind = rflag ? KIND_CODEADDR : KIND_LINKAGE;
@@ -9695,12 +9693,8 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
 }
 
 static int
-alpha_write_one_linkage (splay_tree_node node, void *data)
+alpha_write_one_linkage (const char *name, alpha_links *link, FILE *steam)
 {
-  const char *const name = (const char *) node->key;
-  struct alpha_links *link = (struct alpha_links *) node->value;
-  FILE *stream = (FILE *) data;
-
   ASM_OUTPUT_INTERNAL_LABEL (stream, XSTR (link->linkage, 0));
   if (link->rkind == KIND_CODEADDR)
     {
@@ -9750,8 +9744,10 @@ alpha_write_linkage (FILE *stream, const char *funname)
 
   if (cfun->machine->links)
     {
-      splay_tree_foreach (cfun->machine->links, alpha_write_one_linkage, stream);
-      /* splay_tree_delete (func->links); */
+      hash_map<const char *, alpha_links *, string_traits>::iterator iter
+	= cfun->machine->links->begin ();
+      for (; iter != cfun->machine->links->end (); ++iter)
+	alpha_write_one_linkage ((*iter).first, (*iter).second, stream);
     }
 }
 
@@ -9889,7 +9885,7 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __ieee_set_fp_control (masked_fenv);  */
 
-  fenv_var = create_tmp_var (long_unsigned_type_node, NULL);
+  fenv_var = create_tmp_var (long_unsigned_type_node);
   get_fpscr
     = build_fn_decl ("__ieee_get_fp_control",
 		     build_function_type_list (long_unsigned_type_node, NULL));
@@ -9918,7 +9914,7 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __atomic_feraiseexcept (new_fenv_var);  */
 
-  new_fenv_var = create_tmp_var (long_unsigned_type_node, NULL);
+  new_fenv_var = create_tmp_var (long_unsigned_type_node);
   reload_fenv = build2 (MODIFY_EXPR, long_unsigned_type_node, new_fenv_var,
 			build_call_expr (get_fpscr, 0));
   restore_fnenv = build_call_expr (set_fpscr, 1, fenv_var);

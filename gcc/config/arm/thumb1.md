@@ -1420,13 +1420,13 @@
 	 if (INTVAL (operands[2]) < 0)
 	   output_asm_insn (\"subs\t%0, %1, %2\", operands);
 	 else
-	   output_asm_insn (\"add\t%0, %1, %2\", operands);
+	   output_asm_insn (\"adds\t%0, %1, %2\", operands);
 	 break;
        case 3:
 	 if (INTVAL (operands[2]) < 0)
 	   output_asm_insn (\"subs\t%0, %0, %2\", operands);
 	 else
-	   output_asm_insn (\"add\t%0, %0, %2\", operands);
+	   output_asm_insn (\"adds\t%0, %0, %2\", operands);
 	 break;
        }
 
@@ -1733,33 +1733,6 @@
    ;; operation is sufficient to make conditionalizing the sequence
    ;; unlikely to be profitable.
    (set_attr "conds" "clob")]
-)
-
-(define_insn "consttable_1"
-  [(unspec_volatile [(match_operand 0 "" "")] VUNSPEC_POOL_1)]
-  "TARGET_THUMB1"
-  "*
-  making_const_table = TRUE;
-  assemble_integer (operands[0], 1, BITS_PER_WORD, 1);
-  assemble_zeros (3);
-  return \"\";
-  "
-  [(set_attr "length" "4")
-   (set_attr "type" "no_insn")]
-)
-
-(define_insn "consttable_2"
-  [(unspec_volatile [(match_operand 0 "" "")] VUNSPEC_POOL_2)]
-  "TARGET_THUMB1"
-  "*
-  making_const_table = TRUE;
-  gcc_assert (GET_MODE_CLASS (GET_MODE (operands[0])) != MODE_FLOAT);
-  assemble_integer (operands[0], 2, BITS_PER_WORD, 1);
-  assemble_zeros (2);
-  return \"\";
-  "
-  [(set_attr "length" "4")
-   (set_attr "type" "no_insn")]
 )
 
 ;; Miscellaneous Thumb patterns
