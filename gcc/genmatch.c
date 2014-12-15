@@ -508,12 +508,15 @@ struct c_expr : public operand
 
 struct capture : public operand
 {
-  capture (unsigned where_, operand *what_)
-      : operand (OP_CAPTURE), where (where_), what (what_) {}
+  capture (unsigned where_, operand *what_, const char *name_ = 0)
+      : operand (OP_CAPTURE), where (where_), what (what_), name (name_)  {}
   /* Identifier index for the value.  */
   unsigned where;
   /* The captured value.  */
   operand *what;
+  /* The original capture name */
+  const char *name;
+  
   virtual void gen_transform (FILE *f, const char *, bool, int,
 			      const char *, capture_info *,
 			      dt_operand ** = 0, bool = true);
@@ -605,6 +608,8 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
   if (capture *c = dyn_cast<capture *> (o))
     {
       fprintf (f, "@%u", c->where);
+      if (c->name)
+	fprintf (f, "(%s)", c->name); 
       if (c->what && flattened == false)
 	{
 	  putc (':', f);
@@ -2940,7 +2945,7 @@ parser::parse_capture (operand *op)
   unsigned &num = capture_ids->get_or_insert (id, &existed);
   if (!existed)
     num = next_id;
-  return new capture (num, op);
+  return new capture (num, op, id);
 }
 
 /* Parse an expression

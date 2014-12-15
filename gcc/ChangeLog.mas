@@ -1,3 +1,10 @@
+2014-12-15  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (capture::name): New.
+	(capture::capture): New default argument.
+	(parse_capture): Pass id to capture::capture.
+	(print_operand): Print name of capture if available.
+
 2014-12-08  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk  r218262 through r218477.
