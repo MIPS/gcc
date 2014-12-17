@@ -4,7 +4,8 @@
 
    Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -75,7 +76,7 @@ acc_set_cuda_stream (int async, void *stream)
   if (async < 0 || stream == NULL)
     return 0;
   
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   if (base_dev && base_dev->openacc.cuda.set_stream_func)
     s = base_dev->openacc.cuda.set_stream_func (async, stream);

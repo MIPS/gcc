@@ -1,10 +1,11 @@
-# Plugins for offload execution.
+# Plugins for offload execution, Makefile.am fragment.
 #
 # Copyright (C) 2014 Free Software Foundation, Inc.
 #
 # Contributed by Mentor Embedded.
 #
-# This file is part of the GNU OpenMP Library (libgomp).
+# This file is part of the GNU Offloading and Multi Processing Library
+# (libgomp).
 #
 # Libgomp is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -25,23 +26,11 @@
 # see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-ACLOCAL_AMFLAGS = -I ../.. -I ../../config
-
-config_path = @config_path@
-search_path = .. $(addprefix $(top_srcdir)/../config/, $(config_path)) \
-	      $(top_srcdir) $(top_srcdir)/../../include $(top_srcdir)/..
-
-AM_CPPFLAGS = $(addprefix -I, $(search_path))
-AM_CFLAGS = $(XCFLAGS)
-AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
-
-toolexeclib_LTLIBRARIES =
-
 if PLUGIN_NVPTX
 # Nvidia PTX OpenACC plugin.
 libgomp_plugin_nvptx_version_info = -version-info $(libtool_VERSION)
 toolexeclib_LTLIBRARIES += libgomp-plugin-nvptx.la
-libgomp_plugin_nvptx_la_SOURCES = plugin-nvptx.c
+libgomp_plugin_nvptx_la_SOURCES = plugin/plugin-nvptx.c
 libgomp_plugin_nvptx_la_CPPFLAGS = $(AM_CPPFLAGS) $(PLUGIN_NVPTX_CPPFLAGS)
 libgomp_plugin_nvptx_la_LDFLAGS = $(libgomp_plugin_nvptx_version_info) \
 	$(lt_host_flags)
@@ -52,13 +41,8 @@ endif
 
 libgomp_plugin_host_nonshm_version_info = -version-info $(libtool_VERSION)
 toolexeclib_LTLIBRARIES += libgomp-plugin-host_nonshm.la
-libgomp_plugin_host_nonshm_la_SOURCES = plugin-host.c
+libgomp_plugin_host_nonshm_la_SOURCES = plugin/plugin-host.c
 libgomp_plugin_host_nonshm_la_CPPFLAGS = $(AM_CPPFLAGS) -DHOST_NONSHM_PLUGIN
 libgomp_plugin_host_nonshm_la_LDFLAGS = \
 	$(libgomp_plugin_host_nonshm_version_info) $(lt_host_flags)
 libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS = --tag=disable-static
-
-LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../../libtool-ldflags $(LDFLAGS))
-
-LINK = $(LIBTOOL) --tag CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link \
-	$(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LTLDFLAGS) -o $@

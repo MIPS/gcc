@@ -1,7 +1,9 @@
 /* Copyright (C) 2014 Free Software Foundation, Inc.
+
    Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -29,25 +31,20 @@
 
 #include "mutex.h"
 
-/* alloc.c */
-
 extern void *GOMP_PLUGIN_malloc (size_t) __attribute__((malloc));
 extern void *GOMP_PLUGIN_malloc_cleared (size_t) __attribute__((malloc));
 extern void *GOMP_PLUGIN_realloc (void *, size_t);
 
-/* error.c */
-
-extern void GOMP_PLUGIN_notify(const char *msg, ...);
+extern void GOMP_PLUGIN_debug (int, const char *, ...)
+	__attribute__((format (printf, 2, 3)));
 extern void GOMP_PLUGIN_error (const char *, ...)
 	__attribute__((format (printf, 1, 2)));
 extern void GOMP_PLUGIN_fatal (const char *, ...)
 	__attribute__((noreturn, format (printf, 1, 2)));
 
-/* mutex.c */
-
-extern void GOMP_PLUGIN_mutex_init (gomp_mutex_t *mutex);
-extern void GOMP_PLUGIN_mutex_destroy (gomp_mutex_t *mutex);
-extern void GOMP_PLUGIN_mutex_lock (gomp_mutex_t *mutex);
-extern void GOMP_PLUGIN_mutex_unlock (gomp_mutex_t *mutex);
+extern void GOMP_PLUGIN_mutex_init (gomp_mutex_t *);
+extern void GOMP_PLUGIN_mutex_destroy (gomp_mutex_t *);
+extern void GOMP_PLUGIN_mutex_lock (gomp_mutex_t *);
+extern void GOMP_PLUGIN_mutex_unlock (gomp_mutex_t *);
 
 #endif

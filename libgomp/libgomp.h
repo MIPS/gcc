@@ -1,7 +1,8 @@
 /* Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -23,9 +24,10 @@
    <http://www.gnu.org/licenses/>.  */
 
 /* This file contains data types and function declarations that are not
-   part of the official OpenMP user interface.  There are declarations
-   in here that are part of the GNU OpenMP ABI, in that the compiler is
-   required to know about them and use them.
+   part of the official OpenACC or OpenMP user interfaces.  There are
+   declarations in here that are part of the GNU Offloading and Multi
+   Processing ABI, in that the compiler is required to know about them
+   and use them.
 
    The convention is that the all caps prefix "GOMP" is used group items
    that are part of the external ABI, and the lower case prefix "gomp"
@@ -255,8 +257,7 @@ extern char *gomp_bind_var_list;
 extern unsigned long gomp_bind_var_list_len;
 extern void **gomp_places_list;
 extern unsigned long gomp_places_list_len;
-
-extern int goacc_notify_var;
+extern int gomp_debug_var;
 extern int goacc_device_num;
 extern char* goacc_device_type;
 
@@ -538,12 +539,24 @@ extern void *gomp_realloc (void *, size_t);
 
 /* error.c */
 
-extern void gomp_vnotify (const char *, va_list);
-extern void gomp_notify(const char *msg, ...);
+extern void gomp_vdebug (int, const char *, va_list);
+extern void gomp_debug (int, const char *, ...)
+	__attribute__((format (printf, 2, 3)));
+#define gomp_vdebug(KIND, FMT, VALIST) \
+  do { \
+    if (__builtin_expect (gomp_debug_var, 0)) \
+      (gomp_vdebug) ((KIND), (FMT), (VALIST)); \
+  } while (0)
+#define gomp_debug(KIND, ...) \
+  do { \
+    if (__builtin_expect (gomp_debug_var, 0)) \
+      (gomp_debug) ((KIND), __VA_ARGS__); \
+  } while (0)
 extern void gomp_verror (const char *, va_list);
 extern void gomp_error (const char *, ...)
 	__attribute__((format (printf, 1, 2)));
-extern void gomp_vfatal (const char *, va_list);
+extern void gomp_vfatal (const char *, va_list)
+	__attribute__((noreturn));
 extern void gomp_fatal (const char *, ...)
 	__attribute__((noreturn, format (printf, 1, 2)));
 

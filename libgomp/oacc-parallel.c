@@ -1,8 +1,9 @@
 /* Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
-   Contributed by Thomas Schwinge <thomas@codesourcery.com>.
+   Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -40,36 +41,31 @@
 static void
 dump_var (char *s, size_t idx, void *hostaddr, size_t size, unsigned char kind)
 {
-  gomp_notify(" %2zi: %3s 0x%.2x -", idx, s, kind & 0xff);
+  gomp_debug (0, " %2zi: %3s 0x%.2x -", idx, s, kind & 0xff);
 
   switch (kind & 0xff)
     {
-      case 0x00: gomp_notify(" ALLOC              "); break;
-      case 0x01: gomp_notify(" ALLOC TO           "); break;
-      case 0x02: gomp_notify(" ALLOC FROM         "); break;
-      case 0x03: gomp_notify(" ALLOC TOFROM       "); break;
-      case 0x04: gomp_notify(" POINTER            "); break;
-      case 0x05: gomp_notify(" TO_PSET            "); break;
+      case 0x00: gomp_debug (0, " ALLOC              "); break;
+      case 0x01: gomp_debug (0, " ALLOC TO           "); break;
+      case 0x02: gomp_debug (0, " ALLOC FROM         "); break;
+      case 0x03: gomp_debug (0, " ALLOC TOFROM       "); break;
+      case 0x04: gomp_debug (0, " POINTER            "); break;
+      case 0x05: gomp_debug (0, " TO_PSET            "); break;
 
-      case 0x08: gomp_notify(" FORCE_ALLOC        "); break;
-      case 0x09: gomp_notify(" FORCE_TO           "); break;
-      case 0x0a: gomp_notify(" FORCE_FROM         "); break;
-      case 0x0b: gomp_notify(" FORCE_TOFROM       "); break;
-      case 0x0c: gomp_notify(" FORCE_PRESENT      "); break;
-      case 0x0d: gomp_notify(" FORCE_DEALLOC      "); break;
-      case 0x0e: gomp_notify(" FORCE_DEVICEPTR    "); break;
+      case 0x08: gomp_debug (0, " FORCE_ALLOC        "); break;
+      case 0x09: gomp_debug (0, " FORCE_TO           "); break;
+      case 0x0a: gomp_debug (0, " FORCE_FROM         "); break;
+      case 0x0b: gomp_debug (0, " FORCE_TOFROM       "); break;
+      case 0x0c: gomp_debug (0, " FORCE_PRESENT      "); break;
+      case 0x0d: gomp_debug (0, " FORCE_DEALLOC      "); break;
+      case 0x0e: gomp_debug (0, " FORCE_DEVICEPTR    "); break;
 
-      case 0x18: gomp_notify(" FORCE_PRIVATE      "); break;
-      case 0x19: gomp_notify(" FORCE_FIRSTPRIVATE "); break;
-
-      case (unsigned char) -1: gomp_notify(" DUMMY              "); break;
-      default: gomp_notify("UGH! 0x%x\n", kind);
+      case (unsigned char) -1: gomp_debug (0, " DUMMY              "); break;
+      default: gomp_debug (0, "UGH! 0x%x\n", kind);
     }
     
-  gomp_notify("- %d - %4d/0x%04x ", 1 << (kind >> 8), (int)size, (int)size);
-  gomp_notify("- %p\n", hostaddr);
-
-  return;
+  gomp_debug (0, "- %d - %4d/0x%04x ", 1 << (kind >> 8), (int) size, (int) size);
+  gomp_debug (0, "- %p\n", hostaddr);
 }
 
 static int
@@ -92,7 +88,7 @@ find_pset (int pos, size_t mapnum, unsigned short *kinds)
 attribute_hidden void
 select_acc_device (int device_type)
 {
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   if (device_type == GOMP_IF_CLAUSE_FALSE)
     return;
@@ -109,7 +105,7 @@ select_acc_device (int device_type)
     }
 }
 
-void goacc_wait (int async, int num_waits, va_list ap);
+static void goacc_wait (int async, int num_waits, va_list ap);
 
 void
 GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
@@ -133,8 +129,8 @@ GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
     gomp_fatal ("num_workers (%d) different from one is not yet supported",
 		num_workers);
 
-  gomp_notify ("%s: mapnum=%zd, hostaddrs=%p, sizes=%p, kinds=%p, async=%d\n",
-	       __FUNCTION__, mapnum, hostaddrs, sizes, kinds, async);
+  gomp_debug (0, "%s: mapnum=%zd, hostaddrs=%p, sizes=%p, kinds=%p, async=%d\n",
+	      __FUNCTION__, mapnum, hostaddrs, sizes, kinds, async);
 
   select_acc_device (device);
 
@@ -145,9 +141,9 @@ GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
      the host.  */
   if (!if_clause_condition_value)
     {
-      ACC_save_and_set_bind (acc_device_host);
+      goacc_save_and_set_bind (acc_device_host);
       fn (hostaddrs);
-      ACC_restore_bind ();
+      goacc_restore_bind ();
       return;
     }
   else if (acc_device_type (acc_dev->type) == acc_device_host)
@@ -213,8 +209,8 @@ GOACC_data_start (int device, const void *offload_table, size_t mapnum,
   bool if_clause_condition_value = device != GOMP_IF_CLAUSE_FALSE;
   struct target_mem_desc *tgt;
 
-  gomp_notify ("%s: mapnum=%zd, hostaddrs=%p, sizes=%p, kinds=%p\n",
-	       __FUNCTION__, mapnum, hostaddrs, sizes, kinds);
+  gomp_debug (0, "%s: mapnum=%zd, hostaddrs=%p, sizes=%p, kinds=%p\n",
+	      __FUNCTION__, mapnum, hostaddrs, sizes, kinds);
 
   select_acc_device (device);
 
@@ -232,10 +228,10 @@ GOACC_data_start (int device, const void *offload_table, size_t mapnum,
       return;
     }
 
-  gomp_notify ("  %s: prepare mappings\n", __FUNCTION__);
+  gomp_debug (0, "  %s: prepare mappings\n", __FUNCTION__);
   tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
 		       false);
-  gomp_notify ("  %s: mappings prepared\n", __FUNCTION__);
+  gomp_debug (0, "  %s: mappings prepared\n", __FUNCTION__);
   tgt->prev = thr->mapped_data;
   thr->mapped_data = tgt;
 }
@@ -246,10 +242,10 @@ GOACC_data_end (void)
   struct goacc_thread *thr = goacc_thread ();
   struct target_mem_desc *tgt = thr->mapped_data;
 
-  gomp_notify ("  %s: restore mappings\n", __FUNCTION__);
+  gomp_debug (0, "  %s: restore mappings\n", __FUNCTION__);
   thr->mapped_data = tgt->prev;
   gomp_unmap_vars (tgt, true);
-  gomp_notify ("  %s: mappings restored\n", __FUNCTION__);
+  gomp_debug (0, "  %s: mappings restored\n", __FUNCTION__);
 }
 
 void
@@ -397,8 +393,8 @@ GOACC_kernels (int device, void (*fn) (void *), const void *offload_table,
 	       int num_gangs, int num_workers, int vector_length,
 	       int async, int num_waits, ...)
 {
-  gomp_notify ("%s: mapnum=%zd, hostaddrs=%p, sizes=%p, kinds=%p\n", __FUNCTION__,
-	 mapnum, hostaddrs, sizes, kinds);
+  gomp_debug (0, "%s: mapnum=%zd, hostaddrs=%p, sizes=%p, kinds=%p\n",
+	      __FUNCTION__, mapnum, hostaddrs, sizes, kinds);
 
   va_list ap;
 
@@ -411,12 +407,11 @@ GOACC_kernels (int device, void (*fn) (void *), const void *offload_table,
 
   va_end (ap);
 
-  /* TODO.  */
   GOACC_parallel (device, fn, offload_table, mapnum, hostaddrs, sizes, kinds,
-		  num_gangs, num_workers, vector_length, async, num_waits);
+		  num_gangs, num_workers, vector_length, async, 0);
 }
 
-void
+static void
 goacc_wait (int async, int num_waits, va_list ap)
 {
   struct goacc_thread *thr = goacc_thread ();

@@ -1,3 +1,8 @@
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gomp-constants.h: Don't define GOMP_MAP_FORCE_PRIVATE and
+	GOMP_MAP_FORCE_FIRSTPRIVATE.  Change all users.
+
 2014-11-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gomp-constants.h: Define _GOMP_MAP_FLAG_SPECIAL and

@@ -1,7 +1,8 @@
 /* Copyright (C) 2013-2014 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -436,11 +437,11 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 
 		      for (j = i + 1; j < mapnum; j++)
 			if (!GOMP_MAP_POINTER_P (get_kind (is_openacc, kinds, j)
-					       & typemask))
+						 & typemask))
 			  break;
 			else if ((uintptr_t) hostaddrs[j] < k->host_start
-			       || ((uintptr_t) hostaddrs[j] + sizeof (void *)
-				   > k->host_end))
+				 || ((uintptr_t) hostaddrs[j] + sizeof (void *)
+				     > k->host_end))
 			  break;
 			else
 			  {
@@ -505,34 +506,30 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 						    sizeof (void *));
 			    i++;
 			  }
-		      break;
-		      }
-		    case GOMP_MAP_FORCE_PRESENT:
-		      {
-		        /* We already looked up the memory region above and it
-			   was missing.  */
-			size_t size = k->host_end - k->host_start;
-			gomp_fatal ("present clause: !acc_is_present (%p, "
-				    "%zd (0x%zx))", (void *) k->host_start,
-				    size, size);
-		      }
-		      break;
-		    case GOMP_MAP_FORCE_DEVICEPTR:
-		      assert (k->host_end - k->host_start == sizeof (void *));
-		      
-		      devicep->host2dev_func (devicep->target_id,
-					      (void *) (tgt->tgt_start
-							+ k->tgt_offset),
-					      (void *) k->host_start,
-					      sizeof (void *));
-		      break;
-		    case GOMP_MAP_FORCE_PRIVATE:
-		      abort ();
-		    case GOMP_MAP_FORCE_FIRSTPRIVATE:
-		      abort ();
-		    default:
-		      gomp_fatal ("%s: unhandled kind 0x%.2x", __FUNCTION__,
-				  kind);
+		    }
+		    break;
+		  case GOMP_MAP_FORCE_PRESENT:
+		    {
+		      /* We already looked up the memory region above and it
+			 was missing.  */
+		      size_t size = k->host_end - k->host_start;
+		      gomp_fatal ("present clause: !acc_is_present (%p, "
+				  "%zd (0x%zx))", (void *) k->host_start,
+				  size, size);
+		    }
+		    break;
+		  case GOMP_MAP_FORCE_DEVICEPTR:
+		    assert (k->host_end - k->host_start == sizeof (void *));
+
+		    devicep->host2dev_func (devicep->target_id,
+					    (void *) (tgt->tgt_start
+						      + k->tgt_offset),
+					    (void *) k->host_start,
+					    sizeof (void *));
+		    break;
+		  default:
+		    gomp_fatal ("%s: unhandled kind 0x%.2x", __FUNCTION__,
+				kind);
 		  }
 		array++;
 	      }
@@ -543,7 +540,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 #undef GFC_DTYPE_TYPE_MASK
 #undef GFC_DTYPE_TYPE_SHIFT
 #undef GFC_DTYPE_SIZE_SHIFT
-	
+
   if (is_target)
     {
       for (i = 0; i < mapnum; i++)
@@ -1232,7 +1229,7 @@ gomp_target_init (void)
 	 found all the plugins, so registering with the OpenACC runtime (which
 	 takes a copy of the pointer argument) must be delayed until now.  */
       if (devices[i].capabilities & TARGET_CAP_OPENACC_200)
-	ACC_register (&devices[i]);
+	goacc_register (&devices[i]);
     }
 
   free (offload_images);

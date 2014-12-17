@@ -4,7 +4,8 @@
 
    Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -95,5 +96,5 @@ static __attribute__ ((constructor))
 void goacc_host_init (void)
 {
   gomp_mutex_init (&host_dispatch.mem_map.lock);
-  ACC_register (&host_dispatch);
+  goacc_register (&host_dispatch);
 }

@@ -24,7 +24,7 @@ dg-init
 # XXX (TEMPORARY): Remove the -flto once that's properly integrated.
 lappend ALWAYS_CFLAGS "additional_flags=-fopenacc -flto"
 
-# TODO.  Switch into C++ mode.  Otherwise, the libgomp.oacc-c-c++-common/*.c
+# Switch into C++ mode.  Otherwise, the libgomp.oacc-c-c++-common/*.c
 # files would be compiled as C files.
 set SAVE_GCC_UNDER_TEST "$GCC_UNDER_TEST"
 set GCC_UNDER_TEST "$GCC_UNDER_TEST -x c++"
@@ -113,7 +113,7 @@ if { $lang_test_file_found } {
     }
 }
 
-# TODO.  See above.
+# See above.
 set GCC_UNDER_TEST "$SAVE_GCC_UNDER_TEST"
 
 # All done.

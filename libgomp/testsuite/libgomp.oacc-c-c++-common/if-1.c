@@ -540,8 +540,5 @@ main(int argc, char **argv)
             abort ();
 	}
 
-#ifdef XXX_TODO_ENTER_END_DATA
-#endif
-
     return 0;
 }

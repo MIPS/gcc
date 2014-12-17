@@ -5,7 +5,8 @@
 !  Contributed by Tobias Burnus <burnus@net-b.de>
 !              and Mentor Embedded.
 
-!  This file is part of the GNU OpenMP Library (libgomp).
+!  This file is part of the GNU Offloading and Multi Processing Library
+!  (libgomp).
 
 !  Libgomp is free software; you can redistribute it and/or modify it
 !  under the terms of the GNU General Public License as published by

@@ -139,14 +139,12 @@ libcpp/aclocal.m4: libcpp/configure.ac
 libcpp/Makefile.in: libcpp/configure.ac libcpp/aclocal.m4
 libcpp/configure: libcpp/configure.ac libcpp/aclocal.m4
 libgomp/aclocal.m4: libgomp/configure.ac libgomp/acinclude.m4
+libgomp/Makefile.am: libgomp/plugin/Makefrag.am
 libgomp/Makefile.in: libgomp/Makefile.am libgomp/aclocal.m4
 libgomp/testsuite/Makefile.in: libgomp/testsuite/Makefile.am libgomp/aclocal.m4
+libgomp/configure.ac: libgomp/plugin/configfrag.ac
 libgomp/configure: libgomp/configure.ac libgomp/aclocal.m4
 libgomp/config.h.in: libgomp/configure.ac libgomp/aclocal.m4
-libgomp/plugin/aclocal.m4: libgomp/plugin/configure.ac
-libgomp/plugin/Makefile.in: libgomp/plugin/Makefile.am libgomp/plugin/aclocal.m4
-libgomp/plugin/configure: libgomp/plugin/configure.ac libgomp/plugin/aclocal.m4
-libgomp/plugin/config.h.in: libgomp/plugin/configure.ac libgomp/plugin/aclocal.m4
 libitm/aclocal.m4: libitm/configure.ac libitm/acinclude.m4
 libitm/Makefile.in: libitm/Makefile.am libitm/aclocal.m4
 libitm/testsuite/Makefile.in: libitm/testsuite/Makefile.am libitm/aclocal.m4

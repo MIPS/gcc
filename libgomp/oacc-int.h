@@ -4,7 +4,8 @@
 
    Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -89,15 +90,15 @@ goacc_thread (void)
 
 struct gomp_device_descr;
 
-void ACC_register (struct gomp_device_descr const *) __GOACC_NOTHROW;
+void goacc_register (struct gomp_device_descr const *) __GOACC_NOTHROW;
 
 /* Current dispatcher.  */
 extern struct gomp_device_descr const *base_dev;
 
-void ACC_runtime_initialize (void);
-void ACC_save_and_set_bind (acc_device_t);
-void ACC_restore_bind (void);
-void ACC_lazy_initialize (void);
+void goacc_runtime_initialize (void);
+void goacc_save_and_set_bind (acc_device_t);
+void goacc_restore_bind (void);
+void goacc_lazy_initialize (void);
 
 #ifdef HAVE_ATTRIBUTE_VISIBILITY
 # pragma GCC visibility pop

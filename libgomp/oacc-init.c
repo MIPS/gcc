@@ -4,7 +4,8 @@
 
    Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -66,7 +67,7 @@ static gomp_mutex_t goacc_thread_lock;
 static struct gomp_device_descr const *dispatchers[_ACC_device_hwm] = { 0 };
 
 attribute_hidden void
-ACC_register (struct gomp_device_descr const *disp)
+goacc_register (struct gomp_device_descr const *disp)
 {
   /* Only register the 0th device here.  */
   if (disp->target_id != 0)
@@ -142,10 +143,10 @@ resolve_device (acc_device_t d)
 
 /* This is called when plugins have been initialized, and serves to call
    (indirectly) the target's device_init hook.  Calling multiple times without
-   an intervening _acc_shutdown call is an error.  */
+   an intervening acc_shutdown_1 call is an error.  */
 
 static struct gomp_device_descr const *
-_acc_init (acc_device_t d)
+acc_init_1 (acc_device_t d)
 {
   struct gomp_device_descr const *acc_dev;
 
@@ -288,7 +289,7 @@ acc_init (acc_device_t d)
 
   gomp_mutex_lock (&acc_device_lock);
 
-  base_dev = _acc_init (d);
+  base_dev = acc_init_1 (d);
 
   lazy_open (-1);
 
@@ -297,8 +298,8 @@ acc_init (acc_device_t d)
 
 ialias (acc_init)
 
-void
-_acc_shutdown (acc_device_t d)
+static void
+acc_shutdown_1 (acc_device_t d)
 {
   struct goacc_thread *walk;
 
@@ -353,7 +354,7 @@ acc_shutdown (acc_device_t d)
 {
   gomp_mutex_lock (&acc_device_lock);
 
-  _acc_shutdown (d);
+  acc_shutdown_1 (d);
 
   gomp_mutex_unlock (&acc_device_lock);
 }
@@ -376,12 +377,12 @@ lazy_init (acc_device_t d)
       if (d == init_key)
 	return base_dev;
 
-      _acc_shutdown (init_key);
+      acc_shutdown_1 (init_key);
     }
 
   assert (!base_dev);
 
-  return _acc_init (d);
+  return acc_init_1 (d);
 }
 
 /* Ensure that plugins are loaded, initialize and open the (default-numbered)
@@ -554,7 +555,7 @@ acc_on_device (acc_device_t dev)
 ialias (acc_on_device)
 
 attribute_hidden void
-ACC_runtime_initialize (void)
+goacc_runtime_initialize (void)
 {
   gomp_mutex_init (&acc_device_lock);
 
@@ -573,7 +574,7 @@ ACC_runtime_initialize (void)
 /* Compiler helper functions */
 
 attribute_hidden void
-ACC_save_and_set_bind (acc_device_t d)
+goacc_save_and_set_bind (acc_device_t d)
 {
   struct goacc_thread *thr = goacc_thread ();
 
@@ -584,7 +585,7 @@ ACC_save_and_set_bind (acc_device_t d)
 }
 
 attribute_hidden void
-ACC_restore_bind (void)
+goacc_restore_bind (void)
 {
   struct goacc_thread *thr = goacc_thread ();
 
@@ -598,7 +599,7 @@ ACC_restore_bind (void)
    pointers will be valid.  */
 
 attribute_hidden void
-ACC_lazy_initialize (void)
+goacc_lazy_initialize (void)
 {
   struct goacc_thread *thr = goacc_thread ();
 

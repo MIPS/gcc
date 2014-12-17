@@ -33,7 +33,7 @@ load_gcc_lib torture-options.exp
 load_gcc_lib fortran-modules.exp
 
 # Try to load a test support file, built during libgomp configuration.
-load_file ../plugin/libgomp-test-support.exp
+load_file libgomp-test-support.exp
 
 set dg-do-what-default run
 
@@ -109,7 +109,7 @@ proc libgomp_init { args } {
     }
 
     # Compute what needs to be put into LD_LIBRARY_PATH
-    set always_ld_library_path ".:${blddir}/.libs:${blddir}/plugin/.libs"
+    set always_ld_library_path ".:${blddir}/.libs"
 
     # Get offload-related variables from environment (exported by Makefile)
     set offload_targets [getenv OFFLOAD_TARGETS]

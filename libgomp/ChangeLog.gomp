@@ -1,3 +1,77 @@
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    David Malcolm  <dmalcolm@redhat.com>
+
+	* configure.ac: Rename from GNU OpenMP Runtime Library to GNU
+	Offloading and Multi Processing Runtime Library.  Change all
+	users.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* plugin/Makefile.am: Rework into...
+	* plugin/Makefrag.am: ... this new file, and
+	* plugin/configure.ac: rework into...
+	* plugin/configfrag.ac: ... this new file.  Change all users.
+	* configure.ac: Move plugin/offloading handling...
+	* plugin/configfrag.ac: ... here.
+
+	* env.c (initialize_env): Don't look for GCC_ACC_NOTIFY but for
+	GOMP_DEBUG.  Document it in the libgomp manual.
+	* libgomp-plugin.h: Rename GOMP_PLUGIN_notify to
+	GOMP_PLUGIN_debug.  Change all users.
+	* libgomp.h: Rename goacc_notify_var to gomp_debug_var,
+	gomp_vnotify to gomp_vdebug, and gomp_notify to gomp_debug.
+	Change all users.  Add kind argument to gomp_vdebug and
+	gomp_debug.  Change all users.
+
+	* libgomp_g.h: Remove names of formal parameters.
+
+	* libgomp_target.h: Rename ACC_dispatch_t to acc_dispatch_t.
+	Change all users.
+	* oacc-init.c: Rename _acc_init to acc_init_1, and _acc_shutdown
+	to acc_shutdown_1.  Change all users.
+	* oacc-int.h: Rename ACC_register to goacc_register,
+	ACC_runtime_initialize to goacc_runtime_initialize,
+	ACC_save_and_set_bind to goacc_save_and_set_bind, ACC_restore_bind
+	to goacc_restore_bind, and ACC_lazy_initialize to
+	goacc_lazy_initialize.  Change all users.
+	* plugin/plugin-nvptx.c: Rename cuErrorList to cuda_errlist,
+	cuErrorMsg to cuda_error, cuSymNames to cuda_symnames, PTX_inited
+	to ptx_inited, PTX_stream to ptx_stream, PTX_device to ptx_device,
+	PTX_event to ptx_event, PTX_event_type to ptx_event_type, PTX_init
+	to nvptx_init, , PTX_fini to nvptx_fini, PTX_open_device to
+	nvptx_open_device, PTX_close_device to nvptx_close_device,
+	PTX_get_num_devices to nvptx_get_num_devices, PTX_exec to
+	nvptx_exec, PTX_alloc to nvptx_alloc, PTX_free to nvptx_free,
+	PTX_host2dev to nvptx_host2dev, PTX_dev2host to nvptx_dev2host,
+	PTX_set_async to nvptx_set_async, PTX_async_test to
+	nvptx_async_test, PTX_async_test_all to nvptx_async_test_all,
+	PTX_wait to nvptx_wait, PTX_wait_async to nvptx_wait_async,
+	PTX_wait_all to nvptx_wait_all, PTX_wait_all_async to
+	nvptx_wait_all_async, PTX_get_current_cuda_device to
+	nvptx_get_current_cuda_device, PTX_get_current_cuda_context to
+	nvptx_get_current_cuda_context, PTX_get_cuda_stream to
+	nvptx_get_cuda_stream, PTX_set_cuda_stream to
+	nvptx_set_cuda_stream.  Change all users.
+
+	* oacc-parallel.c (GOACC_kernels): Pass 0 instead of num_waits in
+	GOACC_parallel invocation.
+
+	* plugin/plugin-host.c: Remove all DEBUG code.
+	* plugin/plugin-nvptx.c: Likewise.
+
+	* plugin/plugin-host.c (GOMP_OFFLOAD_get_caps): Don't claim
+	TARGET_CAP_OPENMP_400.
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-11.c: Restrict to target
+	openacc_nvidia_accel_selected.
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-38.c: Remove wrong
+	check.
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-9.c: Fix wrong check.
+
 2014-11-14  Tom de Vries  <tom@codesourcery.com>
 
 	* Makefile.am: Add missing dependency "openacc.mod: openacc.lo".

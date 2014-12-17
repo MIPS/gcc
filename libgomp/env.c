@@ -1,7 +1,8 @@
 /* Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -78,8 +79,7 @@ char *gomp_bind_var_list;
 unsigned long gomp_bind_var_list_len;
 void **gomp_places_list;
 unsigned long gomp_places_list_len;
-
-int goacc_notify_var;
+int gomp_debug_var;
 int goacc_device_num;
 char* goacc_device_type;
 
@@ -1197,7 +1197,7 @@ initialize_env (void)
       gomp_global_icv.thread_limit_var
 	= thread_limit_var > INT_MAX ? UINT_MAX : thread_limit_var;
     }
-  parse_int ("GCC_ACC_NOTIFY", &goacc_notify_var, true);
+  parse_int ("GOMP_DEBUG", &gomp_debug_var, true);
 #ifndef HAVE_SYNC_BUILTINS
   gomp_mutex_init (&gomp_managed_threads_lock);
 #endif
@@ -1296,7 +1296,7 @@ initialize_env (void)
   goacc_parse_device_type ();
 
   /* Initialize OpenACC-specific internal state.  */
-  ACC_runtime_initialize ();
+  goacc_runtime_initialize ();
 }
 
 

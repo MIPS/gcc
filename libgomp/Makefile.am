@@ -1,21 +1,21 @@
 ## Process this file with automake to produce Makefile.in
 
 ACLOCAL_AMFLAGS = -I .. -I ../config
-SUBDIRS = testsuite plugin
-DIST_SUBDIRS = plugin
+SUBDIRS = testsuite
 
 ## May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
 config_path = @config_path@
-search_path = $(addprefix $(top_srcdir)/config/, $(config_path)) $(top_srcdir)
+search_path = $(addprefix $(top_srcdir)/config/, $(config_path)) $(top_srcdir) \
+	      $(top_srcdir)/../include
 
 fincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/finclude
 libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 
 vpath % $(strip $(search_path))
 
-AM_CPPFLAGS = $(addprefix -I, $(search_path)) -I$(top_srcdir)/../include
+AM_CPPFLAGS = $(addprefix -I, $(search_path))
 AM_CFLAGS = $(XCFLAGS)
 AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
 
@@ -62,8 +62,10 @@ libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 	iter_ull.c loop.c loop_ull.c ordered.c parallel.c sections.c single.c \
 	task.c team.c work.c lock.c mutex.c proc.c sem.c bar.c ptrlock.c \
 	time.c fortran.c affinity.c target.c oacc-parallel.c splay-tree.c \
-	oacc-host.c oacc-init.c oacc-mem.c oacc-async.c \
-	oacc-plugin.c oacc-cuda.c libgomp-plugin.c
+	oacc-host.c oacc-init.c oacc-mem.c oacc-async.c oacc-plugin.c \
+	oacc-cuda.c libgomp-plugin.c
+
+include $(top_srcdir)/plugin/Makefrag.am
 
 if USE_FORTRAN
 libgomp_la_SOURCES += openacc.f90

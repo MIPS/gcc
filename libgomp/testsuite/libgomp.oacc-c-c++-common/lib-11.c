@@ -1,4 +1,5 @@
-/* { dg-do run } */
+/* Only nvptx plugin does the required error checking.
+   { dg-do run { target openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
 #include <openacc.h>

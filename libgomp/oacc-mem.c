@@ -4,7 +4,8 @@
 
    Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -110,7 +111,7 @@ acc_malloc (size_t s)
   if (!s)
     return NULL;
 
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   struct goacc_thread *thr = goacc_thread ();
 
@@ -174,7 +175,7 @@ acc_deviceptr (void *h)
   void *d;
   void *offset;
 
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   struct goacc_thread *thr = goacc_thread ();
 
@@ -200,7 +201,7 @@ acc_hostptr (void *d)
   void *h;
   void *offset;
 
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   struct goacc_thread *thr = goacc_thread ();
 
@@ -226,7 +227,7 @@ acc_is_present (void *h, size_t s)
   if (!s || !h)
     return 0;
 
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
@@ -253,7 +254,7 @@ acc_map_data (void *h, void *d, size_t s)
   size_t sizes = s;
   unsigned short kinds = GOMP_MAP_ALLOC;
 
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
@@ -355,7 +356,7 @@ present_create_copy (unsigned f, void *h, size_t s)
   if (!h || !s)
     gomp_fatal ("[%p,+%d] is a bad range", (void *)h, (int)s);
 
-  ACC_lazy_initialize ();
+  goacc_lazy_initialize ();
 
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
@@ -517,10 +518,10 @@ gomp_acc_insert_pointer (size_t mapnum, void **hostaddrs, size_t *sizes,
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 
-  gomp_notify ("  %s: prepare mappings\n", __FUNCTION__);
+  gomp_debug (0, "  %s: prepare mappings\n", __FUNCTION__);
   tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev, mapnum, hostaddrs,
 		       NULL, sizes, kinds, true, false);
-  gomp_notify ("  %s: mappings prepared\n", __FUNCTION__);
+  gomp_debug (0, "  %s: mappings prepared\n", __FUNCTION__);
   tgt->prev = acc_dev->openacc.data_environ;
   acc_dev->openacc.data_environ = tgt;
 }
@@ -539,7 +540,7 @@ gomp_acc_remove_pointer (void *h, bool force_copyfrom, int async, int mapnum)
   if (!n)
     gomp_fatal ("%p is not a mapped block", (void *)h);
 
-  gomp_notify ("  %s: restore mappings\n", __FUNCTION__);
+  gomp_debug (0, "  %s: restore mappings\n", __FUNCTION__);
 
   t = n->tgt;
 
@@ -583,5 +584,5 @@ gomp_acc_remove_pointer (void *h, bool force_copyfrom, int async, int mapnum)
       acc_dev->openacc.register_async_cleanup_func (t);
     }
 
-  gomp_notify ("  %s: mappings restored\n", __FUNCTION__);
+  gomp_debug (0, "  %s: mappings restored\n", __FUNCTION__);
 }

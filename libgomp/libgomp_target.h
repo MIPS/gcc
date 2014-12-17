@@ -1,6 +1,7 @@
 /* Copyright (C) 2014 Free Software Foundation, Inc.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -93,7 +94,7 @@ struct gomp_memory_mapping
   bool is_initialized;
 };
 
-typedef struct ACC_dispatch_t
+typedef struct acc_dispatch_t
 {
   /* This is a linked list of data mapped using the
      acc_map_data/acc_unmap_data or "acc enter data"/"acc exit data" pragmas
@@ -136,7 +137,7 @@ typedef struct ACC_dispatch_t
     void *(*get_stream_func) (int);
     int (*set_stream_func) (int, void *);
   } cuda;
-} ACC_dispatch_t;
+} acc_dispatch_t;
 
 /* This structure describes accelerator device.
    It contains name of the corresponding libgomp plugin, function handlers for
@@ -182,7 +183,7 @@ struct gomp_device_descr
   void (*run_func) (int, void *, void *);
 
   /* OpenACC-specific functions.  */
-  ACC_dispatch_t openacc;
+  acc_dispatch_t openacc;
 
   /* Memory-mapping info for this device instance.  */
   struct gomp_memory_mapping mem_map;

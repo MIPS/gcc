@@ -50,9 +50,6 @@ main (int argc, char **argv)
   if (!d2)
     abort ();
 
-  if (d1 != d2)
-    abort ();
-
   acc_copyout (h, N);
 
   for (i = 0; i < N; i++)

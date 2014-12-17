@@ -1,7 +1,9 @@
 /* Copyright (C) 2014 Free Software Foundation, Inc.
+
    Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -49,22 +51,22 @@ GOMP_PLUGIN_realloc (void *ptr, size_t size)
 }
 
 void
+GOMP_PLUGIN_debug (int kind, const char *msg, ...)
+{
+  va_list ap;
+  
+  va_start (ap, msg);
+  gomp_debug (kind, msg, ap);
+  va_end (ap);
+}
+
+void
 GOMP_PLUGIN_error (const char *msg, ...)
 {
   va_list ap;
   
   va_start (ap, msg);
   gomp_verror (msg, ap);
-  va_end (ap);
-}
-
-void
-GOMP_PLUGIN_notify (const char *msg, ...)
-{
-  va_list ap;
-  
-  va_start (ap, msg);
-  gomp_vnotify (msg, ap);
   va_end (ap);
 }
 

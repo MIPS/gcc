@@ -2,9 +2,10 @@
 
    Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
-   Contributed by Thomas Schwinge <thomas@codesourcery.com>.
+   Contributed by Mentor Embedded.
 
-   This file is part of the GNU OpenMP Library (libgomp).
+   This file is part of the GNU Offloading and Multi Processing Library
+   (libgomp).
 
    Libgomp is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
@@ -106,8 +107,8 @@ extern "C" {
 	     size_t, void **, size_t *, unsigned char *) __GOACC_NOTHROW;
   void ACC_add_device_code (void const *, char const *) __GOACC_NOTHROW;
 
-  void ACC_async_copy(int) __GOACC_NOTHROW;
-  void ACC_async_kern(int) __GOACC_NOTHROW;
+  void ACC_async_copy (int) __GOACC_NOTHROW;
+  void ACC_async_kern (int) __GOACC_NOTHROW;
 
   /* Old names.  OpenACC does not specify whether these can or must
      not be macros, inlines or aliases for the new names.  */
