@@ -1,0 +1,17 @@
+gcc/
+
+2014-12-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_call): Skip setting up RAX
+	register for -mskip-rax-setup when there are no parameters
+	passed in vector registers.
+	* config/i386/i386.opt (mskip-rax-setup): New option.
+	* doc/invoke.texi: Document -mskip-rax-setup.
+
+gcc/testsuite/
+
+2014-12-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/amd64-abi-7.c: New tests.
+	* gcc.target/i386/amd64-abi-8.c: Likwise.
+	* gcc.target/i386/amd64-abi-9.c: Likwise.
