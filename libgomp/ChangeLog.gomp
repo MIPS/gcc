@@ -1,4 +1,17 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/lib/libgomp.exp: Set offload_targets_s, and
+	offload_targets_s_openacc.
+	(check_effective_target_openacc_nvidia_accel_selected): Look for
+	global offload_target_openacc instead of ACC_DEVICE_TYPE
+	environment variable.
+	* testsuite/libgomp.oacc-c++/c++.exp: Loop through
+	offload_targets_s_openacc.
+	* testsuite/libgomp.oacc-c/c.exp: Likewise.
+	* testsuite/libgomp.oacc-fortran/fortran.exp: Likewise.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/Makefile.am: Don't export OFFLOAD_TARGETS,
 	OFFLOAD_ADDITIONAL_OPTIONS, and OFFLOAD_ADDITIONAL_LIB_PATHS...

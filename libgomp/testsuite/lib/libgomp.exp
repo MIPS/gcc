@@ -35,6 +35,21 @@ load_gcc_lib fortran-modules.exp
 # Try to load a test support file, built during libgomp configuration.
 load_file libgomp-test-support.exp
 
+# Populate offload_targets_s (offloading targets separated by a space), and
+# offload_targets_s_openacc (the same, but with OpenACC names).
+set offload_targets_s [split $offload_targets ","]
+# OpenACC spells some of them a little differently.
+set offload_targets_s_openacc {}
+foreach offload_target_openacc $offload_targets_s {
+    switch $offload_target_openacc {
+	nvptx {
+	    set offload_target_openacc "nvidia"
+	}
+    }
+    lappend offload_targets_s_openacc "$offload_target_openacc"
+}
+lappend offload_targets_s_openacc "host"
+
 set dg-do-what-default run
 
 #
@@ -320,10 +335,8 @@ proc check_effective_target_openacc_nvidia_accel_selected { } {
     if { ![check_effective_target_openacc_nvidia_accel_present] } {
 	return 0;
     }
-    if { ![info exists ::env(ACC_DEVICE_TYPE)] } {
-	return 0;
-    }
-    if { $::env(ACC_DEVICE_TYPE) == "nvidia" } {
+    global offload_target_openacc
+    if { $offload_target_openacc == "nvidia" } {
         return 1;
     }
     return 0;
