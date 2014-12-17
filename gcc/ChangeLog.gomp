@@ -1,3 +1,8 @@
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (build_omp_regions_1, make_gimple_omp_edges): Simplify
+	multi-line if conditions.
+
 2014-12-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (scan_omp_target): Remove taskreg_nesting_level and

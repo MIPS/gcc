@@ -9379,7 +9379,6 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	  region->exit = bb;
 	  parent = parent->outer;
 	}
-
       else if (code == GIMPLE_OMP_CONTINUE)
 	{
 	  gcc_assert (parent);
@@ -9389,21 +9388,34 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	{
 	  /* GIMPLE_OMP_SECTIONS_SWITCH is part of
 	     GIMPLE_OMP_SECTIONS, and we do nothing for it.  */
-	  ;
 	}
-      else if (code == GIMPLE_OMP_TARGET
-	       && (gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_UPDATE
-		   || (gimple_omp_target_kind (stmt)
-		       == GF_OMP_TARGET_KIND_OACC_UPDATE)
-		   || (gimple_omp_target_kind (stmt)
-		       == GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA)))
-	new_omp_region (bb, code, parent);
       else
 	{
-	  /* Otherwise, this directive becomes the parent for a new
-	     region.  */
 	  region = new_omp_region (bb, code, parent);
-	  parent = region;
+	  /* Otherwise...  */
+	  if (code == GIMPLE_OMP_TARGET)
+	    {
+	      switch (gimple_omp_target_kind (stmt))
+		{
+		case GF_OMP_TARGET_KIND_REGION:
+		case GF_OMP_TARGET_KIND_DATA:
+		case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+		case GF_OMP_TARGET_KIND_OACC_KERNELS:
+		case GF_OMP_TARGET_KIND_OACC_DATA:
+		  break;
+		case GF_OMP_TARGET_KIND_UPDATE:
+		case GF_OMP_TARGET_KIND_OACC_UPDATE:
+		case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+		  /* ..., other than for those stand-alone directives...  */
+		  region = NULL;
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	    }
+	  /* ..., this directive becomes the parent for a new region.  */
+	  if (region)
+	    parent = region;
 	}
     }
 
@@ -12259,11 +12271,22 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
     case GIMPLE_OMP_TARGET:
       cur_region = new_omp_region (bb, code, cur_region);
       fallthru = true;
-      if (gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_UPDATE
-	  || gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_OACC_UPDATE
-	  || (gimple_omp_target_kind (last)
-	      == GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA))
-	cur_region = cur_region->outer;
+      switch (gimple_omp_target_kind (last))
+	{
+	case GF_OMP_TARGET_KIND_REGION:
+	case GF_OMP_TARGET_KIND_DATA:
+	case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+	case GF_OMP_TARGET_KIND_OACC_KERNELS:
+	case GF_OMP_TARGET_KIND_OACC_DATA:
+	  break;
+	case GF_OMP_TARGET_KIND_UPDATE:
+	case GF_OMP_TARGET_KIND_OACC_UPDATE:
+	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+	  cur_region = cur_region->outer;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
       break;
 
     case GIMPLE_OMP_SECTIONS:
