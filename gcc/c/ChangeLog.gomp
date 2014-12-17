@@ -1,4 +1,15 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Handle "auto", "gang",
+	"seq", "vector", and "worker".
+	(c_parser_oacc_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_FIRSTPRIVATE, and PRAGMA_OMP_CLAUSE_PRIVATE.
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE_AUTO,
+	OMP_CLAUSE_GANG, OMP_CLAUSE_SEQ, OMP_CLAUSE_VECTOR, and
+	OMP_CLAUSE_WORKER.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_clause_async): Use
 	include/gomp-constants.h.

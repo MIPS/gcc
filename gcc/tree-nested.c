@@ -627,8 +627,6 @@ walk_gimple_omp_for (gomp_for *for_stmt,
     		     walk_stmt_fn callback_stmt, walk_tree_fn callback_op,
     		     struct nesting_info *info)
 {
-  gcc_assert (!is_gimple_omp_oacc_specifically (for_stmt));
-
   struct walk_stmt_info wi;
   gimple_seq seq;
   tree t;
@@ -833,7 +831,7 @@ static void note_nonlocal_vla_type (struct nesting_info *info, tree type);
 /* A subroutine of convert_nonlocal_reference_op.  Create a local variable
    in the nested function with DECL_VALUE_EXPR set to reference the true
    variable in the parent function.  This is used both for debug info
-   and in OpenMP lowering.  */
+   and in OMP lowering.  */
 
 static tree
 get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
@@ -1355,7 +1353,6 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       save_suppress = info->suppress_expansion;
       convert_nonlocal_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
       walk_gimple_omp_for (as_a <gomp_for *> (stmt),
@@ -1383,8 +1380,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
+      if (!is_gimple_omp_offloaded (stmt))
 	{
 	  save_suppress = info->suppress_expansion;
 	  convert_nonlocal_omp_clauses (gimple_omp_target_clauses_ptr (stmt),
@@ -1488,7 +1484,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
 /* A subroutine of convert_local_reference.  Create a local variable
    in the parent function with DECL_VALUE_EXPR set to reference the
-   field in FRAME.  This is used both for debug info and in OpenMP
+   field in FRAME.  This is used both for debug info and in OMP
    lowering.  */
 
 static tree
@@ -1926,7 +1922,6 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       save_suppress = info->suppress_expansion;
       convert_local_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
       walk_gimple_omp_for (as_a <gomp_for *> (stmt),
@@ -1954,8 +1949,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
+      if (!is_gimple_omp_offloaded (stmt))
 	{
 	  save_suppress = info->suppress_expansion;
 	  convert_local_omp_clauses (gimple_omp_target_clauses_ptr (stmt), wi);
@@ -2288,8 +2282,7 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       }
 
     case GIMPLE_OMP_TARGET:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
+      if (!is_gimple_omp_offloaded (stmt))
 	{
 	  *handled_ops_p = false;
 	  return NULL_TREE;
@@ -2388,8 +2381,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
-      if (gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_REGION)
+      if (!is_gimple_omp_offloaded (stmt))
 	{
 	  walk_body (convert_gimple_call, NULL, info, gimple_omp_body_ptr (stmt));
 	  break;
@@ -2426,7 +2418,6 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       walk_body (convert_gimple_call, NULL, info,
 	  	 gimple_omp_for_pre_body_ptr (stmt));
       /* FALLTHRU */
@@ -2438,7 +2429,6 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
-      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       walk_body (convert_gimple_call, NULL, info, gimple_omp_body_ptr (stmt));
       break;
 

@@ -1,4 +1,4 @@
-/* This file contains routines to construct GNU OpenMP constructs,
+/* This file contains routines to construct OpenACC and OpenMP constructs,
    called from parsing in the C and C++ front ends.
 
    Copyright (C) 2005-2014 Free Software Foundation, Inc.

@@ -91,8 +91,7 @@ enum gimplify_omp_var_data
   GOVD_LINEAR = 2048,
   GOVD_ALIGNED = 4096,
 
-  /* Flags for GOVD_MAP.  */
-  /* Don't copy back.  */
+  /* Flag for GOVD_MAP: don't copy back.  */
   GOVD_MAP_TO_ONLY = 8192,
 
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
@@ -110,11 +109,10 @@ enum omp_region_type
   ORT_TASK = 4,
   ORT_UNTIED_TASK = 5,
   ORT_TEAMS = 8,
-  ORT_TARGET = 16,
-
-  /* Flags for ORT_TARGET.  */
-  /* Prepare this region for offloading.  */
-  ORT_TARGET_OFFLOAD = 32
+  /* Data region.  */
+  ORT_TARGET_DATA = 16,
+  /* Data region with offloading.  */
+  ORT_TARGET = 32
 };
 
 /* Gimplify hashtable helper.  */
@@ -1783,7 +1781,7 @@ gimplify_var_or_parm_decl (tree *expr_p)
       return GS_ERROR;
     }
 
-  /* When within an OpenMP context, notice uses of variables.  */
+  /* When within an OMP context, notice uses of variables.  */
   if (gimplify_omp_ctxp && omp_notice_variable (gimplify_omp_ctxp, decl, true))
     return GS_ALL_DONE;
 
@@ -2252,7 +2250,7 @@ gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
   return gimplify_expr (arg_p, pre_p, NULL, test, fb);
 }
 
-/* Don't fold inside offloading regsion: it can break code by adding decl
+/* Don't fold inside offloading regions: it can break code by adding decl
    references that weren't in the source.  We'll do it during omplower pass
    instead.  */
 
@@ -2261,8 +2259,7 @@ maybe_fold_stmt (gimple_stmt_iterator *gsi)
 {
   struct gimplify_omp_ctx *ctx;
   for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
-    if (ctx->region_type & ORT_TARGET
-	&& ctx->region_type & ORT_TARGET_OFFLOAD)
+    if (ctx->region_type == ORT_TARGET)
       return false;
   return fold_stmt (gsi);
 }
@@ -5517,13 +5514,11 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 	  else
 	    return;
 	}
-      else if (ctx->region_type & ORT_TARGET)
-	{
-	  if (ctx->region_type & ORT_TARGET_OFFLOAD)
-	    omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
-	}
+      else if (ctx->region_type == ORT_TARGET)
+	omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
       else if (ctx->region_type != ORT_WORKSHARE
-	       && ctx->region_type != ORT_SIMD)
+	       && ctx->region_type != ORT_SIMD
+	       && ctx->region_type != ORT_TARGET_DATA)
 	omp_add_variable (ctx, decl, GOVD_FIRSTPRIVATE);
 
       ctx = ctx->outer_context;
@@ -5587,7 +5582,7 @@ omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *ctx, tree type)
   lang_hooks.types.omp_firstprivatize_type_sizes (ctx, type);
 }
 
-/* Add an entry for DECL in the OpenMP context CTX with FLAGS.  */
+/* Add an entry for DECL in the OMP context CTX with FLAGS.  */
 
 static void
 omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
@@ -5691,7 +5686,7 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
     splay_tree_insert (ctx->variables, (splay_tree_key)decl, flags);
 }
 
-/* Notice a threadprivate variable DECL used in OpenMP context CTX.
+/* Notice a threadprivate variable DECL used in OMP context CTX.
    This just prints out diagnostics about threadprivate variable uses
    in untied tasks.  If DECL2 is non-NULL, prevent this warning
    on that variable.  */
@@ -5704,8 +5699,7 @@ omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
   struct gimplify_omp_ctx *octx;
 
   for (octx = ctx; octx; octx = octx->outer_context)
-    if ((octx->region_type & ORT_TARGET)
-	&& (octx->region_type & ORT_TARGET_OFFLOAD))
+    if (octx->region_type == ORT_TARGET)
       {
 	n = splay_tree_lookup (octx->variables, (splay_tree_key)decl);
 	if (n == NULL)
@@ -5734,7 +5728,7 @@ omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
   return false;
 }
 
-/* Record the fact that DECL was used within the OpenMP context CTX.
+/* Record the fact that DECL was used within the OMP context CTX.
    IN_CODE is true when real code uses DECL, and false when we should
    merely emit default(none) errors.  Return true if DECL is going to
    be remapped and thus DECL shouldn't be gimplified into its
@@ -5766,8 +5760,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
     }
 
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-  if ((ctx->region_type & ORT_TARGET)
-      && (ctx->region_type & ORT_TARGET_OFFLOAD))
+  if (ctx->region_type == ORT_TARGET)
     {
       ret = lang_hooks.decls.omp_disregard_value_expr (decl, true);
       if (n == NULL)
@@ -5798,8 +5791,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 
       if (ctx->region_type == ORT_WORKSHARE
 	  || ctx->region_type == ORT_SIMD
-	  || ((ctx->region_type & ORT_TARGET)
-	      && !(ctx->region_type & ORT_TARGET_OFFLOAD)))
+	  || ctx->region_type == ORT_TARGET_DATA)
 	goto do_outer;
 
       /* ??? Some compiler-generated variables (like SAVE_EXPRs) could be
@@ -5852,7 +5844,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	    {
 	      splay_tree_node n2;
 
-	      if (octx->region_type & ORT_TARGET)
+	      if ((octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)) != 0)
 		continue;
 	      n2 = splay_tree_lookup (octx->variables, (splay_tree_key) decl);
 	      if (n2 && (n2->value & GOVD_DATA_SHARE_CLASS) != GOVD_SHARED)
@@ -6005,7 +5997,7 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl, bool copyprivate)
 		 || (!copyprivate
 		     && lang_hooks.decls.omp_privatize_by_reference (decl)));
 
-      if (ctx->region_type & ORT_TARGET)
+      if ((ctx->region_type & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
 	continue;
 
       n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
@@ -6017,7 +6009,7 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl, bool copyprivate)
   return false;
 }
 
-/* Scan the OpenMP clauses in *LIST_P, installing mappings into a new
+/* Scan the OMP clauses in *LIST_P, installing mappings into a new
    and previous omp contexts.  */
 
 static void
@@ -6294,22 +6286,26 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEVICE:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
 	  if (gimplify_expr (&OMP_CLAUSE_OPERAND (c, 0), pre_p, NULL,
 			     is_gimple_val, fb_rvalue) == GS_ERROR)
+	    remove = true;
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_GANG
+	      && gimplify_expr (&OMP_CLAUSE_OPERAND (c, 1), pre_p, NULL,
+				is_gimple_val, fb_rvalue) == GS_ERROR)
 	    remove = true;
 	  break;
 
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
-	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_ASYNC:
-	case OMP_CLAUSE_WAIT:
 	case OMP_CLAUSE_INDEPENDENT:
-	case OMP_CLAUSE_WORKER:
-	case OMP_CLAUSE_VECTOR:
 	  remove = true;
 	  break;
 
@@ -6317,6 +6313,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
@@ -6437,12 +6435,9 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
   else if (code == OMP_CLAUSE_MAP)
     {
-      enum omp_clause_map_kind map_kind;
-      map_kind = (flags & GOVD_MAP_TO_ONLY
-		  ? OMP_CLAUSE_MAP_TO
-		  : OMP_CLAUSE_MAP_TOFROM);
-      OMP_CLAUSE_MAP_KIND (clause) = map_kind;
-
+      OMP_CLAUSE_MAP_KIND (clause) = flags & GOVD_MAP_TO_ONLY
+				     ? OMP_CLAUSE_MAP_TO
+				     : OMP_CLAUSE_MAP_TOFROM;
       if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 	{
@@ -6609,9 +6604,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	  if (!DECL_P (decl))
 	    break;
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
-	  if ((ctx->region_type & ORT_TARGET)
-	      && (ctx->region_type & ORT_TARGET_OFFLOAD)
-	      && !(n->value & GOVD_SEEN))
+	  if (ctx->region_type == ORT_TARGET && !(n->value & GOVD_SEEN))
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
@@ -6697,19 +6690,21 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	case OMP_CLAUSE_SAFELEN:
 	case OMP_CLAUSE_DEPEND:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
+	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
-	  break;
-
-	case OMP_CLAUSE_DEVICE_RESIDENT:
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_ASYNC:
-	case OMP_CLAUSE_WAIT:
-	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -6855,7 +6850,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   gimple_seq for_body, for_pre_body;
   int i;
   bool simd;
-  enum omp_region_type ort;
   bitmap has_decl_expr = NULL;
 
   orig_for_stmt = for_stmt = *expr_p;
@@ -6865,23 +6859,19 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     case OMP_FOR:
     case CILK_FOR:
     case OMP_DISTRIBUTE:
+    case OACC_LOOP:
       simd = false;
-      ort = ORT_WORKSHARE;
       break;
     case OMP_SIMD:
     case CILK_SIMD:
       simd = true;
-      ort = ORT_SIMD;
-      break;
-    case OACC_LOOP:
-      simd = false;
-      ort = /* TODO */ ORT_WORKSHARE;
       break;
     default:
       gcc_unreachable ();
     }
 
-  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, ort);
+  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p,
+			     simd ? ORT_SIMD : ORT_WORKSHARE);
   if (TREE_CODE (for_stmt) == OMP_DISTRIBUTE)
     gimplify_omp_ctxp->distribute = true;
 
@@ -7258,7 +7248,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   return GS_ALL_DONE;
 }
 
-/* Gimplify the gross structure of several OpenACC or OpenMP constructs.  */
+/* Gimplify the gross structure of several OMP constructs.  */
 
 static void
 gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
@@ -7277,11 +7267,11 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     case OACC_KERNELS:
     case OACC_PARALLEL:
     case OMP_TARGET:
-      ort = (enum omp_region_type) (ORT_TARGET | ORT_TARGET_OFFLOAD);
+      ort = ORT_TARGET;
       break;
     case OACC_DATA:
     case OMP_TARGET_DATA:
-      ort = ORT_TARGET;
+      ort = ORT_TARGET_DATA;
       break;
     case OMP_TEAMS:
       ort = ORT_TEAMS;
@@ -7290,7 +7280,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
       gcc_unreachable ();
     }
   gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort);
-  if (ort & ORT_TARGET)
+  if (ort == ORT_TARGET || ort == ORT_TARGET_DATA)
     {
       push_gimplify_context ();
       gimple g = gimplify_and_return_first (OMP_BODY (expr), &body);
@@ -7298,7 +7288,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 	pop_gimplify_context (g);
       else
 	pop_gimplify_context (NULL);
-      if (!(ort & ORT_TARGET_OFFLOAD))
+      if (ort == ORT_TARGET_DATA)
 	{
 	  enum built_in_function end_ix;
 	  switch (TREE_CODE (expr))
@@ -7329,7 +7319,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     {
     case OACC_DATA:
       stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_DATA,
-				      OACC_DATA_CLAUSES (expr));
+				      OMP_CLAUSES (expr));
       break;
     case OACC_KERNELS:
       stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_KERNELS,
@@ -7364,8 +7354,8 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
   *expr_p = NULL_TREE;
 }
 
-/* Gimplify the gross structure of OpenACC update and OpenMP target update
-   constructs.  */
+/* Gimplify the gross structure of OpenACC enter/exit data, update, and OpenMP
+   target update constructs.  */
 
 static void
 gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
@@ -7577,7 +7567,7 @@ gimplify_transaction (tree *expr_p, gimple_seq *pre_p)
   int subcode = 0;
 
   /* Wrap the transaction body in a BIND_EXPR so we have a context
-     where to put decls for OpenMP.  */
+     where to put decls for OMP.  */
   if (TREE_CODE (tbody) != BIND_EXPR)
     {
       tree bind = build3 (BIND_EXPR, void_type_node, NULL, tbody, NULL);
@@ -8314,7 +8304,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case RESULT_DECL:
-	  /* When within an OpenMP context, notice uses of variables.  */
+	  /* When within an OMP context, notice uses of variables.  */
 	  if (gimplify_omp_ctxp)
 	    omp_notice_variable (gimplify_omp_ctxp, *expr_p, true);
 	  ret = GS_ALL_DONE;
@@ -8322,12 +8312,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case SSA_NAME:
 	  /* Allow callbacks into the gimplifier during optimization.  */
-	  ret = GS_ALL_DONE;
-	  break;
-
-	case OACC_HOST_DATA:
-	case OACC_DECLARE:
-	  sorry ("directive not yet implemented");
 	  ret = GS_ALL_DONE;
 	  break;
 
@@ -8350,6 +8334,17 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = gimplify_omp_for (expr_p, pre_p);
 	  break;
 
+	case OACC_CACHE:
+	  gimplify_oacc_cache (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case OACC_HOST_DATA:
+	case OACC_DECLARE:
+	  sorry ("directive not yet implemented");
+	  ret = GS_ALL_DONE;
+	  break;
+
 	case OACC_KERNELS:
 	  if (OACC_KERNELS_COMBINED (*expr_p))
 	    sorry ("directive not yet implemented");
@@ -8366,11 +8361,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case OACC_CACHE:
-	  gimplify_oacc_cache (expr_p, pre_p);
-	  ret = GS_ALL_DONE;
-	  break;
-
 	case OACC_DATA:
 	case OMP_SECTIONS:
 	case OMP_SINGLE:
@@ -8381,10 +8371,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case OACC_UPDATE:
-	case OMP_TARGET_UPDATE:
 	case OACC_ENTER_DATA:
 	case OACC_EXIT_DATA:
+	case OACC_UPDATE:
+	case OMP_TARGET_UPDATE:
 	  gimplify_omp_target_update (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
@@ -9007,9 +8997,7 @@ gimplify_body (tree fndecl, bool do_parms)
     {
       gcc_assert (gimplify_omp_ctxp == NULL);
       if (lookup_attribute ("omp declare target", DECL_ATTRIBUTES (fndecl)))
-	gimplify_omp_ctxp
-	  = new_omp_context ((enum omp_region_type) (ORT_TARGET
-						     | ORT_TARGET_OFFLOAD));
+	gimplify_omp_ctxp = new_omp_context (ORT_TARGET);
     }
 
   /* Unshare most shared trees in the body and in that of any nested functions.

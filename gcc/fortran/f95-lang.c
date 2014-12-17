@@ -1195,20 +1195,29 @@ gfc_init_builtin_functions (void)
 #undef DEF_GOACC_BUILTIN_COMPILER
 #define DEF_GOACC_BUILTIN_COMPILER(code, name, type, attr) \
       gfc_define_builtin (name, builtin_types[type], code, name, attr);
-#include "../oacc-builtins.def"
-#undef DEF_GOACC_BUILTIN_COMPILER
+#undef DEF_GOMP_BUILTIN
+#define DEF_GOMP_BUILTIN(code, name, type, attr) /* ignore */
+#include "../omp-builtins.def"
 #undef DEF_GOACC_BUILTIN
+#undef DEF_GOACC_BUILTIN_COMPILER
+#undef DEF_GOMP_BUILTIN
     }
 
   if (gfc_option.gfc_flag_openmp
       || gfc_option.gfc_flag_openmp_simd
       || flag_tree_parallelize_loops)
     {
+#undef DEF_GOACC_BUILTIN
+#define DEF_GOACC_BUILTIN(code, name, type, attr) /* ignore */
+#undef DEF_GOACC_BUILTIN_COMPILER
+#define DEF_GOACC_BUILTIN_COMPILER(code, name, type, attr)  /* ignore */
 #undef DEF_GOMP_BUILTIN
 #define DEF_GOMP_BUILTIN(code, name, type, attr) \
       gfc_define_builtin ("__builtin_" name, builtin_types[type], \
 			  code, name, attr);
 #include "../omp-builtins.def"
+#undef DEF_GOACC_BUILTIN
+#undef DEF_GOACC_BUILTIN_COMPILER
 #undef DEF_GOMP_BUILTIN
     }
 

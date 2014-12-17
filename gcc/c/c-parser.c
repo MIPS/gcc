@@ -9830,7 +9830,9 @@ c_parser_omp_clause_name (c_parser *parser)
 {
   pragma_omp_clause result = PRAGMA_OMP_CLAUSE_NONE;
 
-  if (c_parser_next_token_is_keyword (parser, RID_IF))
+  if (c_parser_next_token_is_keyword (parser, RID_AUTO))
+    result = PRAGMA_OMP_CLAUSE_AUTO;
+  else if (c_parser_next_token_is_keyword (parser, RID_IF))
     result = PRAGMA_OMP_CLAUSE_IF;
   else if (c_parser_next_token_is_keyword (parser, RID_DEFAULT))
     result = PRAGMA_OMP_CLAUSE_DEFAULT;
@@ -9881,6 +9883,10 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
 	  else if (!strcmp ("from", p))
 	    result = PRAGMA_OMP_CLAUSE_FROM;
+	  break;
+	case 'g':
+	  if (!strcmp ("gang", p))
+	    result = PRAGMA_OMP_CLAUSE_GANG;
 	  break;
 	case 'h':
 	  if (!strcmp ("host", p))
@@ -9957,6 +9963,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_SCHEDULE;
 	  else if (!strcmp ("sections", p))
 	    result = PRAGMA_OMP_CLAUSE_SECTIONS;
+	  else if (!strcmp ("seq", p))
+	    result = PRAGMA_OMP_CLAUSE_SEQ;
 	  else if (!strcmp ("shared", p))
 	    result = PRAGMA_OMP_CLAUSE_SHARED;
 	  else if (!strcmp ("simdlen", p))
@@ -9979,7 +9987,9 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_UNTIED;
 	  break;
 	case 'v':
-	  if (!strcmp ("vector_length", p))
+	  if (!strcmp ("vector", p))
+	    result = PRAGMA_OMP_CLAUSE_VECTOR;
+	  else if (!strcmp ("vector_length", p))
 	    result = PRAGMA_OMP_CLAUSE_VECTOR_LENGTH;
 	  else if (flag_cilkplus && !strcmp ("vectorlength", p))
 	    result = PRAGMA_CILK_CLAUSE_VECTORLENGTH;
@@ -9987,6 +9997,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	case 'w':
 	  if (!strcmp ("wait", p))
 	    result = PRAGMA_OMP_CLAUSE_WAIT;
+	  else if (!strcmp ("worker", p))
+	    result = PRAGMA_OMP_CLAUSE_WORKER;
 	  break;
 	}
     }
@@ -10697,9 +10709,7 @@ c_parser_oacc_clause_async (c_parser *parser, tree list)
 	return list;
     }
   else
-    {
-      t = c_fully_fold (t, false, NULL);
-    }
+    t = c_fully_fold (t, false, NULL);
 
   check_no_duplicate_clause (list, OMP_CLAUSE_ASYNC, "async");
 
@@ -11618,6 +11628,10 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_oacc_data_clause_deviceptr (parser, clauses);
 	  c_name = "deviceptr";
 	  break;
+	case PRAGMA_OMP_CLAUSE_FIRSTPRIVATE:
+	  clauses = c_parser_omp_clause_firstprivate (parser, clauses);
+	  c_name = "firstprivate";
+	  break;
 	case PRAGMA_OMP_CLAUSE_HOST:
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "host";
@@ -11653,6 +11667,10 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	case PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE:
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "present_or_create";
+	  break;
+	case PRAGMA_OMP_CLAUSE_PRIVATE:
+	  clauses = c_parser_omp_clause_private (parser, clauses);
+	  c_name = "private";
 	  break;
 	case PRAGMA_OMP_CLAUSE_REDUCTION:
 	  clauses = c_parser_omp_clause_reduction (parser, clauses);
@@ -11990,8 +12008,8 @@ c_parser_oacc_data (location_t loc, c_parser *parser)
 {
   tree stmt, clauses, block;
 
-  clauses =  c_parser_oacc_all_clauses (parser, OACC_DATA_CLAUSE_MASK,
-					"#pragma acc data");
+  clauses = c_parser_oacc_all_clauses (parser, OACC_DATA_CLAUSE_MASK,
+				       "#pragma acc data");
 
   block = c_begin_omp_parallel ();
   add_stmt (c_parser_omp_structured_block (parser));

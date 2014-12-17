@@ -1,3 +1,9 @@
+2014-12-17  James Norris  <jnorris@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_clause_vector_length)
+	(cp_parser_oacc_wait_list, cp_parser_omp_clause_num_gangs)
+	(cp_parser_omp_clause_num_workers): Revise parsing.
+
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_clause_async): Use

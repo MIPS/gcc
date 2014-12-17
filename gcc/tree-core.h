@@ -222,19 +222,19 @@ enum omp_clause_code {
      (c_parser_omp_variable_list).  */
   OMP_CLAUSE_ERROR = 0,
 
-  /* OpenMP/OpenACC clause: private (variable_list).  */
+  /* OpenACC/OpenMP clause: private (variable_list).  */
   OMP_CLAUSE_PRIVATE,
 
   /* OpenMP clause: shared (variable_list).  */
   OMP_CLAUSE_SHARED,
 
-  /* OpenMP/OpenACC clause: firstprivate (variable_list).  */
+  /* OpenACC/OpenMP clause: firstprivate (variable_list).  */
   OMP_CLAUSE_FIRSTPRIVATE,
 
   /* OpenMP clause: lastprivate (variable_list).  */
   OMP_CLAUSE_LASTPRIVATE,
 
-  /* OpenMP/OpenACC clause: reduction (operator:variable_list).
+  /* OpenACC/OpenMP clause: reduction (operator:variable_list).
      OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.
      Operand 1: OMP_CLAUSE_REDUCTION_INIT: Stmt-list to initialize the var.
      Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var
@@ -285,9 +285,9 @@ enum omp_clause_code {
   /* OpenACC clause: use_device (variable_list).  */
   OMP_CLAUSE_USE_DEVICE,
 
-  /* OpenACC clause: gang [(gang-argument-list)]. 
-     Where 
-      gang-argument-list: [gang-argument-list, ] gang-argument 
+  /* OpenACC clause: gang [(gang-argument-list)].
+     Where
+      gang-argument-list: [gang-argument-list, ] gang-argument
       gang-argument: [num:] integer-expression
                    | static: size-expression
       size-expression: * | integer-expression.  */
@@ -296,13 +296,19 @@ enum omp_clause_code {
   /* OpenACC clause: async [(integer-expression)].  */
   OMP_CLAUSE_ASYNC,
 
-  /* OpenACC clause/directive: wait [(integer-expression-list)].  */
+  /* OpenACC clause: wait [(integer-expression-list)].  */
   OMP_CLAUSE_WAIT,
+
+  /* OpenACC clause: auto.  */
+  OMP_CLAUSE_AUTO,
+
+  /* OpenACC clause: seq.  */
+  OMP_CLAUSE_SEQ,
 
   /* Internal clause: temporary for combined loops expansion.  */
   OMP_CLAUSE__LOOPTEMP_,
 
-  /* OpenMP/OpenACC clause: if (scalar-expression).  */
+  /* OpenACC/OpenMP clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
 
   /* OpenMP clause: num_threads (integer-expression).  */
@@ -315,13 +321,12 @@ enum omp_clause_code {
   OMP_CLAUSE_NOWAIT,
 
   /* OpenMP clause: ordered.  */
-  /* OpenACC clause: seq.  */
   OMP_CLAUSE_ORDERED,
 
   /* OpenMP clause: default.  */
   OMP_CLAUSE_DEFAULT,
 
-  /* OpenMP/OpenACC clause: collapse (constant-integer-expression).  */
+  /* OpenACC/OpenMP clause: collapse (constant-integer-expression).  */
   OMP_CLAUSE_COLLAPSE,
 
   /* OpenMP clause: untied.  */

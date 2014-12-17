@@ -1,4 +1,11 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_AUTO,
+	PRAGMA_OMP_CLAUSE_GANG, PRAGMA_OMP_CLAUSE_SEQ,
+	PRAGMA_OMP_CLAUSE_VECTOR, and PRAGMA_OMP_CLAUSE_WORKER.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-omp.c (c_finish_oacc_wait): Use include/gomp-constants.h.
 

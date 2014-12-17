@@ -27930,17 +27930,12 @@ cp_parser_oacc_clause_vector_length (cp_parser *parser, tree list)
   tree t, c;
   location_t location = cp_lexer_peek_token (parser->lexer)->location;
   bool error = false;
-  HOST_WIDE_INT n;
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
 
   t = cp_parser_condition (parser);
-  if (t == error_mark_node
-      || !INTEGRAL_TYPE_P (TREE_TYPE (t))
-      || !tree_fits_shwi_p (t)
-      || (n = tree_to_shwi (t)) <= 0
-      || (int) n != n)
+  if (t == error_mark_node || !INTEGRAL_TYPE_P (TREE_TYPE (t)))
     {
       error_at (location, "expected positive integer expression");
       error = true;
@@ -27954,8 +27949,8 @@ cp_parser_oacc_clause_vector_length (cp_parser *parser, tree list)
       return list;
     }
 
-  check_no_duplicate_clause (list, OMP_CLAUSE_VECTOR_LENGTH,
-                                                "vector_length", location);
+  check_no_duplicate_clause (list, OMP_CLAUSE_VECTOR_LENGTH, "vector_length",
+			     location);
 
   c = build_omp_clause (location, OMP_CLAUSE_VECTOR_LENGTH);
   OMP_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
@@ -27975,11 +27970,11 @@ cp_parser_oacc_wait_list (cp_parser *parser, location_t clause_loc, tree list)
   tree t, args_tree;
 
   args = cp_parser_parenthesized_expression_list (parser, non_attr,
-                                                  /*cast_p=*/false,
-                                                  /*allow_expansion_p=*/true,
-                                                  /*non_constant_p=*/NULL);
+						  /*cast_p=*/false,
+						  /*allow_expansion_p=*/true,
+						  /*non_constant_p=*/NULL);
 
-  if (args == NULL || args->length() == 0)
+  if (args == NULL || args->length () == 0)
     {
       cp_parser_error (parser, "expected integer expression before ')'");
       if (args != NULL)
@@ -27996,22 +27991,18 @@ cp_parser_oacc_wait_list (cp_parser *parser, location_t clause_loc, tree list)
       tree targ = TREE_VALUE (t);
 
       if (targ != error_mark_node)
-        {
+	{
 	  if (!INTEGRAL_TYPE_P (TREE_TYPE (targ)))
+	    error ("%<wait%> expression must be integral");
+	  else
 	    {
-	      error("%<wait%> expression must be integral");
-	      targ = error_mark_node;
+	      tree c = build_omp_clause (clause_loc, OMP_CLAUSE_WAIT);
+
+	      mark_rvalue_use (targ);
+	      OMP_CLAUSE_DECL (c) = targ;
+	      OMP_CLAUSE_CHAIN (c) = list;
+	      list = c;
 	    }
-	else
-	  {
-	    tree c = build_omp_clause (clause_loc, OMP_CLAUSE_WAIT);
-
-	    mark_rvalue_use (targ);
-
-	    OMP_CLAUSE_DECL (c) = targ;
-	    OMP_CLAUSE_CHAIN (c) = list;
-	    list = c;
-	  }
 	}
     }
 
@@ -28230,7 +28221,6 @@ cp_parser_omp_clause_num_gangs (cp_parser *parser, tree list)
 {
   tree t, c;
   location_t location = cp_lexer_peek_token (parser->lexer)->location;
-  HOST_WIDE_INT n;
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
@@ -28243,10 +28233,7 @@ cp_parser_omp_clause_num_gangs (cp_parser *parser, tree list)
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
 
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
-      || !tree_fits_shwi_p (t)
-      || (n = tree_to_shwi (t)) <= 0
-      || (int) n != n)
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
     {
       error_at (location, "expected positive integer expression");
       return list;
@@ -28300,7 +28287,6 @@ cp_parser_omp_clause_num_workers (cp_parser *parser, tree list)
 {
   tree t, c;
   location_t location = cp_lexer_peek_token (parser->lexer)->location;
-  HOST_WIDE_INT n;
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
@@ -28313,10 +28299,7 @@ cp_parser_omp_clause_num_workers (cp_parser *parser, tree list)
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
 
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
-      || !tree_fits_shwi_p (t)
-      || (n = tree_to_shwi (t)) <= 0
-      || (int) n != n)
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
     {
       error_at (location, "expected positive integer expression");
       return list;
@@ -29044,7 +29027,7 @@ cp_parser_oacc_clause_async (cp_parser *parser, tree list)
 
       t = cp_parser_expression (parser);
       if (t == error_mark_node
-          || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+	  || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
 	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 						/*or_comma=*/false,
 						/*consume_paren=*/true);

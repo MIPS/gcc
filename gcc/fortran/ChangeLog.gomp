@@ -1,5 +1,7 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* types.def: Remove BT_FN_VOID_INT_PTR_INT.
+
 	* openmp.c (gfc_match_omp_clauses): Use include/gomp-constants.h.
 
 2014-11-20  Cesar Philippidis  <cesar@codesourcery.com>

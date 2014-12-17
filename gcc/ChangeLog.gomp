@@ -1,4 +1,41 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_AUTO, and
+	OMP_CLAUSE_SEQ.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name, walk_tree_1):
+	Update accordingly.
+	* gimplify.c (gimplify_scan_omp_clauses)
+	(gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_AUTO,
+	OMP_CLAUSE_GANG, OMP_CLAUSE_SEQ, OMP_CLAUSE_VECTOR, and
+	OMP_CLAUSE_WORKER.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	(struct omp_context): Add gwv_below, and gwv_this members.
+	(enclosing_target_ctx, oacc_loop_or_target_p): New functions.
+	(scan_omp_for, scan_omp_target): Use those.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-nested.c (convert_nonlocal_reference_stmt)
+	(convert_local_reference_stmt, convert_tramp_reference_stmt)
+	(convert_gimple_call) <GIMPLE_OMP_TARGET>: Use
+	is_gimple_omp_offloaded.
+
+	* omp-low.c (lower_reduction_clauses): Simplify OpenACC handling.
+
+	* gimple.h: Rename is_gimple_omp_oacc_specifically to
+	is_gimple_omp_oacc.  Update all users.
+
+	* gimplify.c (enum omp_region_type): Restore ORT_TARGET_DATA and
+	ORT_TARGET.  Update all users.
+
+	* doc/generic.texi (OpenMP): Move OpenACC stuff into...
+	(OpenACC): ... this new subsection.
+
+	* builtin-types.def: Remove BT_FN_VOID_INT_PTR_INT.
+
+	* oacc-builtins.def: Merge into omp-builtins.def.  Update all users.
 
 	* builtins.c (expand_builtin_acc_on_device): Use
 	include/gomp-constants.h.

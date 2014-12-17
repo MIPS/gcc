@@ -866,7 +866,7 @@ gimple_build_omp_critical (gimple_seq body, tree name)
 
    BODY is sequence of statements inside the for loop.
    KIND is the `for' variant.
-   CLAUSES, are any of the loop construct's clauses.
+   CLAUSES, are any of the construct's clauses.
    COLLAPSE is the collapse count.
    PRE_BODY is the sequence of statements that are loop invariant.  */
 
@@ -1750,7 +1750,6 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_OMP_FOR:
-	  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
 	  new_seq = gimple_seq_copy (gimple_omp_for_pre_body (stmt));
 	  gimple_omp_for_set_pre_body (copy, new_seq);
 	  t = unshare_expr (gimple_omp_for_clauses (stmt));
@@ -1824,7 +1823,6 @@ gimple_copy (gimple stmt)
 	case GIMPLE_OMP_TASKGROUP:
 	case GIMPLE_OMP_ORDERED:
 	copy_omp_body:
-	  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
 	  new_seq = gimple_seq_copy (gimple_omp_body (stmt));
 	  gimple_omp_set_body (copy, new_seq);
 	  break;

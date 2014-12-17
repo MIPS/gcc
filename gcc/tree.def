@@ -1156,13 +1156,14 @@ DEFTREECODE (OMP_ORDERED, "omp_ordered", tcc_statement, 1)
    Operand 1: OMP_CRITICAL_NAME: Identifier for critical section.  */
 DEFTREECODE (OMP_CRITICAL, "omp_critical", tcc_statement, 2)
 
+/* OpenACC - #pragma acc cache (variable1 ... variableN)
+   Operand 0: OACC_CACHE_CLAUSES: List of variables (transformed into
+	OMP_CLAUSE__CACHE_ clauses).  */
+DEFTREECODE (OACC_CACHE, "oacc_cache", tcc_statement, 1)
+
 /* OpenACC - #pragma acc declare [clause1 ... clauseN]
    Operand 0: OACC_DECLARE_CLAUSES: List of clauses.  */
 DEFTREECODE (OACC_DECLARE, "oacc_declare", tcc_statement, 1)
-
-/* OpenACC - #pragma acc update [clause1 ... clauseN]
-   Operand 0: OACC_UPDATE_CLAUSES: List of clauses.  */
-DEFTREECODE (OACC_UPDATE, "oacc_update", tcc_statement, 1)
 
 /* OpenACC - #pragma acc enter data [clause1 ... clauseN]
    Operand 0: OACC_ENTER_DATA_CLAUSES: List of clauses.  */
@@ -1172,10 +1173,9 @@ DEFTREECODE (OACC_ENTER_DATA, "oacc_enter_data", tcc_statement, 1)
    Operand 0: OACC_EXIT_DATA_CLAUSES: List of clauses.  */
 DEFTREECODE (OACC_EXIT_DATA, "oacc_exit_data", tcc_statement, 1)
 
-/* OpenACC - #pragma acc cache (variable1 ... variableN)
-   Operand 0: OACC_CACHE_CLAUSES: List of variables (transformed into
-	OMP_CLAUSE__CACHE_ clauses).  */
-DEFTREECODE (OACC_CACHE, "oacc_cache", tcc_statement, 1)
+/* OpenACC - #pragma acc update [clause1 ... clauseN]
+   Operand 0: OACC_UPDATE_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_UPDATE, "oacc_update", tcc_statement, 1)
 
 /* OpenMP - #pragma omp target update [clause1 ... clauseN]
    Operand 0: OMP_TARGET_UPDATE_CLAUSES: List of clauses.  */

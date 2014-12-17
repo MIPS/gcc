@@ -1453,7 +1453,6 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_FOR:
-	  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  s2 = remap_gimple_seq (gimple_omp_for_pre_body (stmt), id);
 	  copy = gimple_build_omp_for (s1, gimple_omp_for_kind (stmt),
@@ -1510,7 +1509,6 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_TARGET:
-	  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_target
 		   (s1, gimple_omp_target_kind (stmt),
@@ -4156,7 +4154,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return (estimate_num_insns_seq (gimple_try_eval (stmt), weights)
               + estimate_num_insns_seq (gimple_try_cleanup (stmt), weights));
 
-    /* OpenMP directives are generally very expensive.  */
+    /* OMP directives are generally very expensive.  */
 
     case GIMPLE_OMP_RETURN:
     case GIMPLE_OMP_SECTIONS_SWITCH:

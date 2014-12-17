@@ -667,10 +667,30 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       break;
 
     case OMP_CLAUSE_GANG:
-      pp_string (pp, "gang(");
-      dump_generic_node (pp, OMP_CLAUSE_GANG_EXPR (clause),
-			 spc, flags, false);
-      pp_character(pp, ')');
+      pp_string (pp, "gang");
+      if (OMP_CLAUSE_GANG_EXPR (clause) != NULL_TREE)
+	{
+	  pp_string (pp, "(num: ");
+	  dump_generic_node (pp, OMP_CLAUSE_GANG_EXPR (clause),
+			     spc, flags, false);
+	}
+      if (OMP_CLAUSE_GANG_STATIC_EXPR (clause) != NULL_TREE)
+	{
+	  if (OMP_CLAUSE_GANG_EXPR (clause) == NULL_TREE)
+	    pp_left_paren (pp);
+	  else
+	    pp_space (pp);
+	  pp_string (pp, "static:");
+	  if (OMP_CLAUSE_GANG_STATIC_EXPR (clause)
+	      == integer_minus_one_node)
+	    pp_character (pp, '*');
+	  else
+	    dump_generic_node (pp, OMP_CLAUSE_GANG_STATIC_EXPR (clause),
+			       spc, flags, false);
+	}
+      if (OMP_CLAUSE_GANG_EXPR (clause) != NULL_TREE
+	  || OMP_CLAUSE_GANG_STATIC_EXPR (clause) != NULL_TREE)
+	pp_right_paren (pp);
       break;
 
     case OMP_CLAUSE_ASYNC:
@@ -684,6 +704,11 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
         }
       break;
 
+    case OMP_CLAUSE_AUTO:
+    case OMP_CLAUSE_SEQ:
+      pp_string (pp, omp_clause_code_name[OMP_CLAUSE_CODE (clause)]);
+      break;
+
     case OMP_CLAUSE_WAIT:
       pp_string (pp, "wait(");
       dump_generic_node (pp, OMP_CLAUSE_WAIT_EXPR (clause),
@@ -692,17 +717,25 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       break;
 
     case OMP_CLAUSE_WORKER:
-      pp_string (pp, "worker(");
-      dump_generic_node (pp, OMP_CLAUSE_WORKER_EXPR (clause),
-			 spc, flags, false);
-      pp_character(pp, ')');
+      pp_string (pp, "worker");
+      if (OMP_CLAUSE_WORKER_EXPR (clause) != NULL_TREE)
+	{
+	  pp_left_paren (pp);
+	  dump_generic_node (pp, OMP_CLAUSE_WORKER_EXPR (clause),
+			     spc, flags, false);
+	  pp_right_paren (pp);
+	}
       break;
 
     case OMP_CLAUSE_VECTOR:
-      pp_string (pp, "vector(");
-      dump_generic_node (pp, OMP_CLAUSE_VECTOR_EXPR (clause),
-			 spc, flags, false);
-      pp_character(pp, ')');
+      pp_string (pp, "vector");
+      if (OMP_CLAUSE_VECTOR_EXPR (clause) != NULL_TREE)
+	{
+	  pp_left_paren (pp);
+	  dump_generic_node (pp, OMP_CLAUSE_VECTOR_EXPR (clause),
+			     spc, flags, false);
+	  pp_right_paren (pp);
+	}
       break;
 
     case OMP_CLAUSE_NUM_GANGS:

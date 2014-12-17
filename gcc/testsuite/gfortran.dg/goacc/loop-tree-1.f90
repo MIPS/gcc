@@ -39,7 +39,7 @@ end program test
 
 ! { dg-final { scan-tree-dump-times "collapse\\(2\\)" 1 "original" } } 
 ! { dg-final { scan-tree-dump-times "independent" 1 "original" } } 
-! { dg-final { scan-tree-dump-times "gang\\(3\\)" 1 "original" } } 
+! { dg-final { scan-tree-dump-times "gang\\(num: 3\\)" 1 "original" } } 
 ! { dg-final { scan-tree-dump-times "worker\\(3\\)" 1 "original" } } 
 ! { dg-final { scan-tree-dump-times "vector\\(5\\)" 1 "original" } } 
 

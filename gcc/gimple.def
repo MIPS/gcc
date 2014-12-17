@@ -206,7 +206,8 @@ DEFGSCODE(GIMPLE_NOP, "gimple_nop", GSS_BASE)
 /* IMPORTANT.
 
    Do not rearrange any of the GIMPLE_OMP_* codes.  This ordering is
-   exposed by the range check in gimple_omp_subcode.  */
+   exposed by the range check in gimple_omp_subcode().  */
+
 
 /* Tuples used for lowering of OMP_ATOMIC.  Although the form of the OMP_ATOMIC
    expression is very simple (just in form mem op= expr), various implicit
@@ -356,10 +357,10 @@ DEFGSCODE(GIMPLE_OMP_SECTIONS_SWITCH, "gimple_omp_sections_switch", GSS_BASE)
 DEFGSCODE(GIMPLE_OMP_SINGLE, "gimple_omp_single", GSS_OMP_SINGLE_LAYOUT)
 
 /* GIMPLE_OMP_TARGET <BODY, CLAUSES, CHILD_FN> represents
-   #pragma acc {kernels,parallel,data}
+   #pragma acc {kernels,parallel,data,enter data,exit data,update}
    #pragma omp target {,data,update}
    BODY is the sequence of statements inside the construct
-   (NULL for target update).
+   (NULL for some variants).
    CLAUSES is an OMP_CLAUSE chain holding the associated clauses.
    CHILD_FN is set when outlining the body of the offloaded region.
    All the statements in BODY are moved into this newly created

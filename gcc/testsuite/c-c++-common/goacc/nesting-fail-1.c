@@ -1,6 +1,6 @@
 extern int i;
 
-/* TODO: While the OpenACC specification does allow for certain kinds of
+/* While the OpenACC specification does allow for certain kinds of
    nesting, we don't support many of these yet.  */
 void
 f_acc_parallel (void)
@@ -19,7 +19,7 @@ f_acc_parallel (void)
   }
 }
 
-/* TODO: While the OpenACC specification does allow for certain kinds of
+/* While the OpenACC specification does allow for certain kinds of
    nesting, we don't support many of these yet.  */
 void
 f_acc_kernels (void)

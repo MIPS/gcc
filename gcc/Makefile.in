@@ -873,8 +873,7 @@ FIXED_VALUE_H = fixed-value.h $(MACHMODE_H) double-int.h
 RTL_H = $(RTL_BASE_H) $(FLAGS_H) genrtl.h
 READ_MD_H = $(OBSTACK_H) $(HASHTAB_H) read-md.h
 PARAMS_H = params.h params.def
-BUILTINS_DEF = builtins.def sync-builtins.def \
-	oacc-builtins.def omp-builtins.def \
+BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def \
 	gtm-builtins.def sanitizer.def cilkplus.def cilk-builtins.def
 INTERNAL_FN_DEF = internal-fn.def
 INTERNAL_FN_H = internal-fn.h $(INTERNAL_FN_DEF)

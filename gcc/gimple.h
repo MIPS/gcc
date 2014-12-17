@@ -297,7 +297,7 @@ struct GTY((tag("GSS_CALL")))
 };
 
 
-/* OpenMP statements (#pragma omp).  */
+/* OMP statements.  */
 
 struct GTY((tag("GSS_OMP")))
   gimple_statement_omp : public gimple_statement_base
@@ -5556,7 +5556,7 @@ gimple_return_set_retbnd (gimple gs, tree retval)
 }
 
 
-/* Returns true when the gimple statement STMT is any of the OpenMP types.  */
+/* Returns true when the gimple statement STMT is any of the OMP types.  */
 
 #define CASE_GIMPLE_OMP				\
     case GIMPLE_OMP_PARALLEL:			\
@@ -5589,14 +5589,11 @@ is_gimple_omp (const_gimple stmt)
     }
 }
 
-/* Return true if STMT is any of the OpenACC types specifically.
-
-   TODO: This function should go away eventually, once all its callers have
-   either been fixed, changed into more specific checks, or verified to not
-   need any special handling for OpenACC.  */
+/* Return true if the OMP gimple statement STMT is any of the OpenACC types
+   specifically.  */
 
 static inline bool
-is_gimple_omp_oacc_specifically (const_gimple stmt)
+is_gimple_omp_oacc (const_gimple stmt)
 {
   gcc_assert (is_gimple_omp (stmt));
   switch (gimple_code (stmt))
@@ -5627,7 +5624,7 @@ is_gimple_omp_oacc_specifically (const_gimple stmt)
 }
 
 
-/* Return true if OMP_* STMT is offloaded.  */
+/* Return true if the OMP gimple statement STMT is offloaded.  */
 
 static inline bool
 is_gimple_omp_offloaded (const_gimple stmt)

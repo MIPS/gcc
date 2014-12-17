@@ -771,7 +771,6 @@ __do_global_ctors (void)
 #error "What are you doing with crtstuff.c, then?"
 #endif
 
-
 #else /* ! CRT_BEGIN && ! CRT_END */
 #error "One of CRT_BEGIN or CRT_END must be defined."
 #endif

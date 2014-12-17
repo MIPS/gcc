@@ -12313,6 +12313,11 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_VECTOR_LENGTH:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
