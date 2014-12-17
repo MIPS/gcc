@@ -1,3 +1,37 @@
+2014-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64265
+	* tsan.c (instrument_func_entry): Insert __tsan_func_entry
+	call on edge from entry block to single succ instead
+	of after labels of single succ of entry block.
+
+2014-12-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2014-12-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/64037
+	* combine.c (setup_incoming_promotions): Pass the argument
+	before any promotions happen to promote_function_mode.
+
+2014-12-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2014-12-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/64200
+	* config/i386/i386.c (decide_alg): Don't assert "alg != libcall"
+	for TARGET_INLINE_STRINGOPS_DYNAMICALLY.
+
+2014-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/64269
+	* tree-ssa-forwprop.c (simplify_builtin_call): Bail out if
+	len2 or diff are too large.
+
 2014-12-11  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* doc/md.texi (Insn Lengths): Fix description of (pc).
