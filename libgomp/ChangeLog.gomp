@@ -1,5 +1,9 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp_g.h: Move internal stuff from here...
+	* libgomp_target.h: ..., and here...
+	* libgomp.h: ... into here.
+
 	* Makefile.am: Don't add ../include/gomp-constants.h to
 	nodist_libsubinclude_HEADERS.
 

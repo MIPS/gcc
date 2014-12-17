@@ -81,8 +81,8 @@ struct splay_tree_s {
   splay_tree_node root;
 };
 
-attribute_hidden splay_tree_key splay_tree_lookup (splay_tree, splay_tree_key);
-attribute_hidden void splay_tree_insert (splay_tree, splay_tree_node);
-attribute_hidden void splay_tree_remove (splay_tree, splay_tree_key);
+extern splay_tree_key splay_tree_lookup (splay_tree, splay_tree_key);
+extern void splay_tree_insert (splay_tree, splay_tree_node);
+extern void splay_tree_remove (splay_tree, splay_tree_key);
 
 #endif /* _SPLAY_TREE_H */

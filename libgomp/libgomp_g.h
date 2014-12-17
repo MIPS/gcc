@@ -234,9 +234,4 @@ extern void GOACC_wait (int, int, ...);
 extern int GOACC_get_num_threads (void);
 extern int GOACC_get_thread_num (void);
 
-/* oacc-mem.c */
-
-extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);
-extern void gomp_acc_remove_pointer (void *, bool, int, int);
-
 #endif /* LIBGOMP_G_H */
