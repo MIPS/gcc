@@ -1,3 +1,5 @@
+/* { dg-skip-if "not yet" { c++ } } */
+
 // pragma_external
 #pragma acc update /* { dg-error "expected declaration specifiers before '#pragma'" } */
 

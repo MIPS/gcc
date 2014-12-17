@@ -1,5 +1,41 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c++/c++.exp
+	(check_effective_target_oacc_c): Remove, and ...
+	* testsuite/libgomp.oacc-c/c.exp (check_effective_target_oacc_c):
+	... likewise.  Update all users.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/abort-3.c: New file.
+	* testsuite/libgomp.oacc-c-c++-common/abort-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/asyncwait-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-empty.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-empty.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-3.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-4.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-5.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-6.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-7.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-8.f90: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-4.c: Update.
+	* testsuite/libgomp.oacc-c/collapse-4.c: Remove.
+
+2014-12-17  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/subr.h: New file.
+	* testsuite/libgomp.oacc-c-c++-common/subr.cu: Remove.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c++/c++.exp: Don't add -flto to
 	ALWAYS_CFLAGS.
 	* testsuite/libgomp.oacc-c/c.exp: Likewise.

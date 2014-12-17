@@ -1,4 +1,4 @@
-/* See also ../libgomp.oacc-c/collapse-4.c.  */
+/* { dg-do run } */
 
 #include <string.h>
 

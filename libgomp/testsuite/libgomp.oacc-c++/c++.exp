@@ -13,10 +13,6 @@ if [info exists lang_include_flags] then {
     unset lang_include_flags
 }
 
-proc check_effective_target_oacc_c { } {
-    return 0
-}
-
 # Initialize dg.
 dg-init
 

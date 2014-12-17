@@ -1,3 +1,5 @@
+/* { dg-skip-if "not yet" { c++ } } */
+
 void
 f (void)
 {

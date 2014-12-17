@@ -1,5 +1,4 @@
 /* { dg-do run } */
-/* { dg-additional-options "-std=c99" { target oacc_c } } */
 
 #include <stdlib.h>
 

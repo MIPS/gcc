@@ -1,4 +1,19 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* c-c++-common/goacc/asyncwait-1.c: New file.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/asyncwait-1.c: Disable for C++.
+	* c-c++-common/goacc/collapse-1.c: Likewise.
+	* c-c++-common/goacc/deviceptr-1.c: Likewise.
+	* c-c++-common/goacc/if-clause-1.c: Likewise.
+	* c-c++-common/goacc/loop-1.c: Likewise.
+	* c-c++-common/goacc/pragma_context.c: Likewise.
+	* c-c++-common/goacc/sb-1.c: Likewise.
+	* c-c++-common/goacc/sb-2.c: Likewise.
+	* c-c++-common/goacc/sb-3.c: Likewise.
 
 	* c-c++-common/goacc-gomp/nesting-fail-1.c: Revise variable usage
 	in constructs.

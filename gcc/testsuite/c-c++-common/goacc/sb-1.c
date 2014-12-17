@@ -1,4 +1,4 @@
-// { dg-do compile }
+// { dg-skip-if "not yet" { c++ } }
 
 void foo()
 {
