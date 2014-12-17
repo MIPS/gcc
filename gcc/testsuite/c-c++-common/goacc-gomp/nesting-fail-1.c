@@ -1,8 +1,8 @@
+extern int i;
+
 void
 f_omp (void)
 {
-  int i;
-
 #pragma omp parallel
   {
 #pragma acc parallel /* { dg-error "OpenACC construct inside of non-OpenACC region" } */
@@ -177,7 +177,6 @@ f_acc_parallel (void)
 
 #pragma acc parallel
   {
-    int i;
 #pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     for (i = 0; i < 3; i++)
       ;
@@ -217,7 +216,6 @@ f_acc_parallel (void)
 
 #pragma acc parallel
   {
-    int i;
 #pragma omp atomic write
     i = 0; /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
@@ -230,8 +228,6 @@ f_acc_parallel (void)
 
 #pragma acc parallel
   {
-    int i;
-
 #pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
 #pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
@@ -251,7 +247,6 @@ f_acc_kernels (void)
 
 #pragma acc kernels
   {
-    int i;
 #pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     for (i = 0; i < 3; i++)
       ;
@@ -291,7 +286,6 @@ f_acc_kernels (void)
 
 #pragma acc kernels
   {
-    int i;
 #pragma omp atomic write
     i = 0; /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
@@ -304,8 +298,6 @@ f_acc_kernels (void)
 
 #pragma acc kernels
   {
-    int i;
-
 #pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
 #pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
@@ -325,7 +317,6 @@ f_acc_data (void)
 
 #pragma acc data
   {
-    int i;
 #pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     for (i = 0; i < 3; i++)
       ;
@@ -365,7 +356,6 @@ f_acc_data (void)
 
 #pragma acc data
   {
-    int i;
 #pragma omp atomic write
     i = 0; /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
   }
@@ -378,8 +368,6 @@ f_acc_data (void)
 
 #pragma acc data
   {
-    int i;
-
 #pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
     ;
 #pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
@@ -391,8 +379,6 @@ f_acc_data (void)
 void
 f_acc_loop (void)
 {
-  int i;
-
 #pragma acc loop
   for (i = 0; i < 2; ++i)
     {

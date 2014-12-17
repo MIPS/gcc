@@ -1,3 +1,5 @@
+extern int i;
+
 /* TODO: While the OpenACC specification does allow for certain kinds of
    nesting, we don't support many of these yet.  */
 void
@@ -5,8 +7,6 @@ f_acc_parallel (void)
 {
 #pragma acc parallel
   {
-    int i;
-
 #pragma acc parallel /* { dg-bogus "parallel construct inside of parallel region" "not implemented" { xfail *-*-* } } */
     ;
 #pragma acc kernels /* { dg-bogus "kernels construct inside of parallel region" "not implemented" { xfail *-*-* } } */
@@ -26,8 +26,6 @@ f_acc_kernels (void)
 {
 #pragma acc kernels
   {
-    int i;
-
 #pragma acc parallel /* { dg-bogus "parallel construct inside of kernels region" "not implemented" { xfail *-*-* } } */
     ;
 #pragma acc kernels /* { dg-bogus "kernels construct inside of kernels region" "not implemented" { xfail *-*-* } } */
