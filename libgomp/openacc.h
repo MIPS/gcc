@@ -29,8 +29,6 @@
 #ifndef _OPENACC_H
 #define _OPENACC_H 1
 
-#include "gomp-constants.h"
-
 /* The OpenACC std is silent on whether or not including openacc.h
    might or must not include other header files.  We chose to include
    some.  */
@@ -51,18 +49,19 @@ extern "C" {
   /* Types */
   typedef enum acc_device_t
     {
+      /* Keep in sync with include/gomp-constants.h.  */
       acc_device_none = 0,
-      acc_device_default, /* This has to be a distinct value, as no
-			     return value can match it.  */
-      acc_device_host = GOMP_TARGET_HOST,
-      acc_device_host_nonshm = GOMP_TARGET_HOST_NONSHM,
-      acc_device_not_host,
-      acc_device_nvidia = GOMP_TARGET_NVIDIA_PTX,
+      acc_device_default = 1,
+      acc_device_host = 2,
+      acc_device_host_nonshm = 3,
+      acc_device_not_host = 4,
+      acc_device_nvidia = 5,
       _ACC_device_hwm
     } acc_device_t;
 
   typedef enum acc_async_t
     {
+      /* Keep in sync with include/gomp-constants.h.  */
       acc_async_noval = -1,
       acc_async_sync  = -2
     } acc_async_t;

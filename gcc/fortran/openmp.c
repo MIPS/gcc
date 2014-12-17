@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h"
 #include "hash-set.h"
 #include "diagnostic.h"
+#include "gomp-constants.h"
 
 /* Match an end of OpenMP directive.  End of OpenMP directive is optional
    whitespace, followed by '\n' or comment '!'.  */
@@ -502,8 +503,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 		c->async_expr = gfc_get_constant_expr (BT_INTEGER,
 						       gfc_default_integer_kind,
 						      &gfc_current_locus);
-		/* TODO XXX: FIX -1 (acc_async_noval).  */
-		mpz_set_si (c->async_expr->value.integer, -1);
+		mpz_set_si (c->async_expr->value.integer, GOMP_ASYNC_NOVAL);
 	      }
 	    continue;
 	  }

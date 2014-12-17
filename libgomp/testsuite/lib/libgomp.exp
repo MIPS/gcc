@@ -162,7 +162,7 @@ proc libgomp_init { args } {
         lappend ALWAYS_CFLAGS "additional_flags=-B${blddir}/.libs"
         lappend ALWAYS_CFLAGS "additional_flags=-I${blddir}"
         lappend ALWAYS_CFLAGS "ldflags=-L${blddir}/.libs"
-	# The top-level include directory, for libgomp-constants.h.
+	# The top-level include directory, for gomp-constants.h.
 	lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/../../include"
     }
     lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/.."

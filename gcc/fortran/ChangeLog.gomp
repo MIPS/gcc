@@ -1,3 +1,7 @@
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_clauses): Use include/gomp-constants.h.
+
 2014-11-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (resolve_oacc_cache): Mark the code parameter as

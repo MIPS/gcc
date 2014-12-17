@@ -100,7 +100,7 @@ gomp_get_num_devices (void)
 static struct gomp_device_descr *
 resolve_device (int device_id)
 {
-  if (device_id == -1)
+  if (device_id == GOMP_DEVICE_ICV)
     {
       struct gomp_task_icv *icv = gomp_icv (false);
       device_id = icv->default_device_var;
@@ -120,8 +120,7 @@ static inline void
 gomp_map_vars_existing (splay_tree_key oldn, splay_tree_key newn,
 			unsigned char kind)
 {
-  if ((!(kind & _GOMP_MAP_FLAG_SPECIAL)
-       && (kind & _GOMP_MAP_FLAG_FORCE))
+  if ((kind & GOMP_MAP_FLAG_FORCE)
       || oldn->host_start > newn->host_start
       || oldn->host_end < newn->host_end)
     gomp_fatal ("Trying to map into device [%p..%p) object when "
@@ -339,8 +338,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		k->tgt = tgt;
 		k->tgt_offset = tgt_size;
 		tgt_size += k->host_end - k->host_start;
-		k->copy_from = GOMP_MAP_COPYFROM_P (kind & typemask)
-			       || GOMP_MAP_TOFROM_P (kind & typemask);
+		k->copy_from = GOMP_MAP_COPY_FROM_P (kind & typemask);
 		k->refcount = 1;
 		k->async_refcount = 0;
 		tgt->refcount++;
@@ -352,12 +350,12 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		switch (kind & typemask)
 		  {
 		  case GOMP_MAP_ALLOC:
-		  case GOMP_MAP_ALLOC_FROM:
+		  case GOMP_MAP_FROM:
 		  case GOMP_MAP_FORCE_ALLOC:
 		  case GOMP_MAP_FORCE_FROM:
 		    break;
-		  case GOMP_MAP_ALLOC_TO:
-		  case GOMP_MAP_ALLOC_TOFROM:
+		  case GOMP_MAP_TO:
+		  case GOMP_MAP_TOFROM:
 		  case GOMP_MAP_FORCE_TO:
 		  case GOMP_MAP_FORCE_TOFROM:
 		    /* Copy from host to device memory.  */
@@ -692,7 +690,7 @@ gomp_update (struct gomp_device_descr *devicep, struct gomp_memory_mapping *mm,
 			  (void *) cur_node.host_end,
 			  (void *) n->host_start,
 			  (void *) n->host_end);
-	    if (GOMP_MAP_COPYTO_P (kind & typemask))
+	    if (GOMP_MAP_COPY_TO_P (kind & typemask))
 	      /* Copy from host to device memory.  */
 	      devicep->host2dev_func (devicep->target_id,
 				      (void *) (n->tgt->tgt_start
@@ -701,7 +699,7 @@ gomp_update (struct gomp_device_descr *devicep, struct gomp_memory_mapping *mm,
 						- n->host_start),
 				      (void *) cur_node.host_start,
 				      cur_node.host_end - cur_node.host_start);
-	    else if (GOMP_MAP_COPYFROM_P (kind & typemask))
+	    if (GOMP_MAP_COPY_FROM_P (kind & typemask))
 	      /* Copy from device to host memory.  */
 	      devicep->dev2host_func (devicep->target_id,
 				      (void *) cur_node.host_start,
@@ -826,8 +824,9 @@ gomp_fini_device (struct gomp_device_descr *devicep)
 }
 
 /* Called when encountering a target directive.  If DEVICE
-   is -1, it means use device-var ICV.  If it is -2 (or any other value
-   larger than last available hw device, use host fallback.
+   is GOMP_DEVICE_ICV, it means use device-var ICV.  If it is
+   GOMP_DEVICE_HOST_FALLBACK (or any value
+   larger than last available hw device), use host fallback.
    FN is address of host code, OFFLOAD_TABLE contains value of the
    __OFFLOAD_TABLE__ symbol in the shared library or binary that invokes
    GOMP_target.  HOSTADDRS, SIZES and KINDS are arrays

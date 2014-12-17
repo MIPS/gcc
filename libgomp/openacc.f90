@@ -39,6 +39,7 @@ module openacc_kinds
   public :: acc_device_none, acc_device_default, acc_device_host
   public :: acc_device_not_host, acc_device_nvidia
 
+  ! Keep in sync with include/gomp-constants.h.
   integer (acc_device_kind), parameter :: acc_device_none = 0
   integer (acc_device_kind), parameter :: acc_device_default = 1
   integer (acc_device_kind), parameter :: acc_device_host = 2
@@ -52,6 +53,7 @@ module openacc_kinds
 
   public :: acc_async_noval, acc_async_sync
 
+  ! Keep in sync with include/gomp-constants.h.
   integer (acc_handle_kind), parameter :: acc_async_noval = -1
   integer (acc_handle_kind), parameter :: acc_async_sync = -2
 

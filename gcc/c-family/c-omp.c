@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "langhooks.h"
 #include "omp-low.h"
+#include "gomp-constants.h"
 
 
 /* Complete a #pragma oacc wait construct.  LOC is the location of
@@ -48,7 +49,7 @@ c_finish_oacc_wait (location_t loc, tree parms, tree clauses)
   if (find_omp_clause (clauses, OMP_CLAUSE_ASYNC))
     t = OMP_CLAUSE_ASYNC_EXPR (clauses);
   else
-    t = build_int_cst (integer_type_node, -2);  /* TODO: XXX FIX -2.  */
+    t = build_int_cst (integer_type_node, GOMP_ASYNC_SYNC);
 
   args->quick_push (t);
   args->quick_push (build_int_cst (integer_type_node, nparms));

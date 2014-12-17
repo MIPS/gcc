@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "parser.h"
 #include "type-utils.h"
 #include "omp-low.h"
+#include "gomp-constants.h"
 
 
 /* The lexer.  */
@@ -29035,8 +29036,7 @@ cp_parser_oacc_clause_async (cp_parser *parser, tree list)
   tree c, t;
   location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
-  /* TODO XXX: FIX -1  (acc_async_noval).  */
-  t = build_int_cst (integer_type_node, -1);
+  t = build_int_cst (integer_type_node, GOMP_ASYNC_NOVAL);
 
   if (cp_lexer_peek_token (parser->lexer)->type == CPP_OPEN_PAREN)
     {

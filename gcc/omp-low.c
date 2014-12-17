@@ -89,6 +89,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cilk.h"
 #include "context.h"
 #include "lto-section-names.h"
+#include "gomp-constants.h"
 
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two
@@ -9032,10 +9033,10 @@ expand_omp_target (struct omp_region *region)
 
   clauses = gimple_omp_target_clauses (entry_stmt);
 
-  /* By default, the value of DEVICE is -1 (let runtime library choose)
-     and there is no conditional.  */
+  /* By default, the value of DEVICE is GOMP_DEVICE_ICV (let runtime
+     library choose) and there is no conditional.  */
   cond = NULL_TREE;
-  device = build_int_cst (integer_type_node, -1);
+  device = build_int_cst (integer_type_node, GOMP_DEVICE_ICV);
 
   c = find_omp_clause (clauses, OMP_CLAUSE_IF);
   if (c)
@@ -9060,7 +9061,7 @@ expand_omp_target (struct omp_region *region)
   device = fold_convert_loc (clause_loc, integer_type_node, device);
 
   /* If we found the clause 'if (cond)', build
-     (cond ? device : -2).  */
+     (cond ? device : GOMP_DEVICE_HOST_FALLBACK).  */
   if (cond)
     {
       cond = gimple_boolify (cond);
@@ -9097,7 +9098,8 @@ expand_omp_target (struct omp_region *region)
 
       gsi = gsi_start_bb (else_bb);
       stmt = gimple_build_assign (tmp_var,
-				  build_int_cst (integer_type_node, -2));
+				  build_int_cst (integer_type_node,
+						 GOMP_DEVICE_HOST_FALLBACK));
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
       make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
@@ -9188,10 +9190,10 @@ expand_omp_target (struct omp_region *region)
 	int t_wait_idx;
 
 	/* Default values for t_async.  */
-	/* TODO: XXX FIX -2.  */
 	t_async = fold_convert_loc (gimple_location (entry_stmt),
 				    integer_type_node,
-				    build_int_cst (integer_type_node, -2));
+				    build_int_cst (integer_type_node,
+						   GOMP_ASYNC_SYNC));
 	/* ..., but if present, use the value specified by the respective
 	   clause, making sure that is of the correct type.  */
 	c = find_omp_clause (clauses, OMP_CLAUSE_ASYNC);
@@ -9937,8 +9939,9 @@ oacc_process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
 	  /* Set nthreads = 1 for ACC_DEVICE_TYPE=host.  */
 	  acc_device_host = create_tmp_var (integer_type_node,
 					    ".acc_device_host");
-	  gimplify_assign (acc_device_host, build_int_cst (integer_type_node,
-							   2),
+	  gimplify_assign (acc_device_host,
+			   build_int_cst (integer_type_node,
+					  GOMP_DEVICE_HOST),
 			   in_stmt_seqp);
 
 	  enter = create_artificial_label (UNKNOWN_LOCATION);
@@ -9954,8 +9957,9 @@ oacc_process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
 	  gimple_seq_add_stmt (in_stmt_seqp, gimple_build_label (exit));
 
 	  /* Also, set nthreads = 1 for ACC_DEVICE_TYPE=host_nonshm.  */
-	  gimplify_assign (acc_device_host, build_int_cst (integer_type_node,
-							   3),
+	  gimplify_assign (acc_device_host,
+			   build_int_cst (integer_type_node,
+					  GOMP_DEVICE_HOST_NONSHM),
 			   in_stmt_seqp);
 
 	  enter = create_artificial_label (UNKNOWN_LOCATION);
@@ -11476,16 +11480,14 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    mark_addressable (avar);
 		    enum omp_clause_map_kind map_kind
 		      = OMP_CLAUSE_MAP_KIND (c);
-		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
-			 && (map_kind & OMP_CLAUSE_MAP_TO))
+		    if (GOMP_MAP_COPY_TO_P (map_kind)
 			|| map_kind == OMP_CLAUSE_MAP_POINTER
 			|| map_kind == OMP_CLAUSE_MAP_TO_PSET
 			|| map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
 		      gimplify_assign (avar, var, &ilist);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
-		    if (((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
-			  && (map_kind & OMP_CLAUSE_MAP_FROM))
+		    if ((GOMP_MAP_COPY_FROM_P (map_kind)
 			 || map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
 			&& !TYPE_READONLY (TREE_TYPE (var)))
 		      {

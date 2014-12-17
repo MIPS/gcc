@@ -1,5 +1,11 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* builtins.c (expand_builtin_acc_on_device): Use
+	include/gomp-constants.h.
+	* omp-low.c (expand_omp_target, oacc_process_reduction_data)
+	(lower_omp_target): Likewise.
+	* tree-core.h (enum omp_clause_map_kind): Likewise.
+
 	* omp-low.c (build_omp_regions_1, make_gimple_omp_edges): Simplify
 	multi-line if conditions.
 

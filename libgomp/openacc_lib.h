@@ -34,6 +34,7 @@
 
       integer, parameter :: acc_device_kind = 4
 
+!     Keep in sync with include/gomp-constants.h.
       integer (acc_device_kind), parameter :: acc_device_none = 0
       integer (acc_device_kind), parameter :: acc_device_default = 1
       integer (acc_device_kind), parameter :: acc_device_host = 2
@@ -43,6 +44,7 @@
 
       integer, parameter :: acc_handle_kind = 4
 
+!     Keep in sync with include/gomp-constants.h.
       integer (acc_handle_kind), parameter :: acc_async_noval = -1
       integer (acc_handle_kind), parameter :: acc_async_sync = -2
 

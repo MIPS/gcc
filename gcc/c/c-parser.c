@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "omp-low.h"
 #include "builtins.h"
+#include "gomp-constants.h"
 
 
 /* Initialization routine for this file.  */
@@ -10682,8 +10683,7 @@ c_parser_oacc_clause_async (c_parser *parser, tree list)
   tree c, t;
   location_t loc = c_parser_peek_token (parser)->location;
 
-  /* TODO XXX: FIX -1  (acc_async_noval).  */
-  t = build_int_cst (integer_type_node, -1);
+  t = build_int_cst (integer_type_node, GOMP_ASYNC_NOVAL);
 
   if (c_parser_peek_token (parser)->type == CPP_OPEN_PAREN)
     {

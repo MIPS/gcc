@@ -1,4 +1,7 @@
-/* Copyright (C) 2014 Free Software Foundation, Inc.
+/* Communication between GCC and libgomp.
+
+   Copyright (C) 2014 Free Software Foundation, Inc.
+
    Contributed by Mentor Embedded.
 
    This file is part of the GNU Offloading and Multi Processing Library
@@ -26,46 +29,66 @@
 #ifndef GOMP_CONSTANTS_H
 #define GOMP_CONSTANTS_H 1
 
-/* Enumerated variable mapping types used to communicate between GCC and
-   libgomp.  These values are used for both OpenMP and OpenACC.  */
+/* Memory mapping types.  */
 
-#define _GOMP_MAP_FLAG_SPECIAL		(1 << 2)
-#define _GOMP_MAP_FLAG_FORCE		(1 << 3)
+/* One byte.  */
+#define GOMP_MAP_VALUE_LIMIT		(1 << 8)
 
-#define GOMP_MAP_ALLOC			0x00
-#define GOMP_MAP_ALLOC_TO		0x01
-#define GOMP_MAP_ALLOC_FROM		0x02
-#define GOMP_MAP_ALLOC_TOFROM		0x03
-#define GOMP_MAP_POINTER		0x04
-#define GOMP_MAP_TO_PSET		0x05
-#define GOMP_MAP_FORCE_ALLOC		0x08
-#define GOMP_MAP_FORCE_TO		0x09
-#define GOMP_MAP_FORCE_FROM		0x0a
-#define GOMP_MAP_FORCE_TOFROM		0x0b
-#define GOMP_MAP_FORCE_PRESENT		0x0c
-#define GOMP_MAP_FORCE_DEALLOC		0x0d
-#define GOMP_MAP_FORCE_DEVICEPTR	0x0e
+#define GOMP_MAP_FLAG_TO		(1 << 0)
+#define GOMP_MAP_FLAG_FROM		(1 << 1)
+/* Special map kinds, enumerated starting here.  */
+#define GOMP_MAP_FLAG_SPECIAL_0		(1 << 2)
+#define GOMP_MAP_FLAG_SPECIAL_1		(1 << 3)
+#define GOMP_MAP_FLAG_SPECIAL		(GOMP_MAP_FLAG_SPECIAL_1 \
+					 | GOMP_MAP_FLAG_SPECIAL_0)
+/* Flag to force a specific behavior (or else, trigger a run-time error).  */
+#define GOMP_MAP_FLAG_FORCE		(1 << 7)
 
-#define GOMP_MAP_COPYTO_P(X) \
-  ((X) == GOMP_MAP_ALLOC_TO || (X) == GOMP_MAP_FORCE_TO)
+#define GOMP_MAP_ALLOC			0
+#define GOMP_MAP_TO			(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_TO)
+#define GOMP_MAP_FROM			(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_FROM)
+#define GOMP_MAP_TOFROM			(GOMP_MAP_TO | GOMP_MAP_FROM)
+#define GOMP_MAP_POINTER		(GOMP_MAP_FLAG_SPECIAL_0 | 0)
+#define GOMP_MAP_TO_PSET		(GOMP_MAP_FLAG_SPECIAL_0 | 1)
+#define GOMP_MAP_FORCE_PRESENT		(GOMP_MAP_FLAG_SPECIAL_0 | 2)
+#define GOMP_MAP_FORCE_DEALLOC		(GOMP_MAP_FLAG_SPECIAL_0 | 3)
+#define GOMP_MAP_FORCE_DEVICEPTR	(GOMP_MAP_FLAG_SPECIAL_1 | 0)
+#define GOMP_MAP_FORCE_ALLOC		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_ALLOC)
+#define GOMP_MAP_FORCE_TO		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TO)
+#define GOMP_MAP_FORCE_FROM		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_FROM)
+#define GOMP_MAP_FORCE_TOFROM		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM)
 
-#define GOMP_MAP_COPYFROM_P(X) \
-  ((X) == GOMP_MAP_ALLOC_FROM || (X) == GOMP_MAP_FORCE_FROM)
+#define GOMP_MAP_COPY_TO_P(X) \
+  (!((X) & GOMP_MAP_FLAG_SPECIAL) \
+   && ((X) & GOMP_MAP_FLAG_TO))
 
-#define GOMP_MAP_TOFROM_P(X) \
-  ((X) == GOMP_MAP_ALLOC_TOFROM || (X) == GOMP_MAP_FORCE_TOFROM)
+#define GOMP_MAP_COPY_FROM_P(X) \
+  (!((X) & GOMP_MAP_FLAG_SPECIAL) \
+   && ((X) & GOMP_MAP_FLAG_FROM))
 
 #define GOMP_MAP_POINTER_P(X) \
   ((X) == GOMP_MAP_POINTER)
 
-#define GOMP_IF_CLAUSE_FALSE		-2
 
-/* Canonical list of target type codes for OpenMP/OpenACC.  */
-#define GOMP_TARGET_NONE		0
-#define GOMP_TARGET_HOST		2
-#define GOMP_TARGET_HOST_NONSHM		3
-#define GOMP_TARGET_NOT_HOST		4
-#define GOMP_TARGET_NVIDIA_PTX		5
-#define GOMP_TARGET_INTEL_MIC		6
+/* Asynchronous behavior.  Keep in sync with
+   libgomp/{openacc.h,openacc.f90,openacc_lib.h}:acc_async_t.  */
+
+#define GOMP_ASYNC_NOVAL		-1
+#define GOMP_ASYNC_SYNC			-2
+
+
+/* Device codes.  Keep in sync with
+   libgomp/{openacc.h,openacc.f90,openacc_lib.h}:acc_device_t as well as
+   libgomp/libgomp_target.h.  */
+#define GOMP_DEVICE_NONE		0
+#define GOMP_DEVICE_DEFAULT		1
+#define GOMP_DEVICE_HOST		2
+#define GOMP_DEVICE_HOST_NONSHM		3
+#define GOMP_DEVICE_NOT_HOST		4
+#define GOMP_DEVICE_NVIDIA_PTX		5
+#define GOMP_DEVICE_INTEL_MIC		6
+
+#define GOMP_DEVICE_ICV			-1
+#define GOMP_DEVICE_HOST_FALLBACK	-2
 
 #endif

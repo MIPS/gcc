@@ -70,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
+#include "gomp-constants.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
@@ -5903,11 +5904,11 @@ expand_builtin_acc_on_device (tree exp, rtx target ATTRIBUTE_UNUSED)
   /* Build: (arg == v1 || arg == v2) ? 1 : 0.  */
 
 #ifdef ACCEL_COMPILER
-  v1 = build_int_cst (TREE_TYPE (arg), /* TODO: acc_device_not_host */ 3);
+  v1 = build_int_cst (TREE_TYPE (arg), GOMP_DEVICE_NOT_HOST);
   v2 = build_int_cst (TREE_TYPE (arg), ACCEL_COMPILER_acc_device);
 #else
-  v1 = build_int_cst (TREE_TYPE (arg), /* TODO: acc_device_none */ 0);
-  v2 = build_int_cst (TREE_TYPE (arg), /* TODO: acc_device_host */ 2);
+  v1 = build_int_cst (TREE_TYPE (arg), GOMP_DEVICE_NONE);
+  v2 = build_int_cst (TREE_TYPE (arg), GOMP_DEVICE_HOST);
 #endif
 
   v1 = fold_build2_loc (loc, EQ_EXPR, integer_type_node, arg, v1);

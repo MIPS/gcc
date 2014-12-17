@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alias.h"
 #include "flags.h"
 #include "symtab.h"
+#include "gomp-constants.h"
 
 /* This file contains all the data structures that define the 'tree' type.
    There are no accessor macros nor functions in this file. Only the
@@ -1236,45 +1237,41 @@ enum omp_clause_depend_kind
 enum omp_clause_map_kind
 {
   /* If not already present, allocate.  */
-  OMP_CLAUSE_MAP_ALLOC = 0,
+  OMP_CLAUSE_MAP_ALLOC = GOMP_MAP_ALLOC,
   /* ..., and copy to device.  */
-  OMP_CLAUSE_MAP_TO = 1 << 0,
+  OMP_CLAUSE_MAP_TO = GOMP_MAP_TO,
   /* ..., and copy from device.  */
-  OMP_CLAUSE_MAP_FROM = 1 << 1,
+  OMP_CLAUSE_MAP_FROM = GOMP_MAP_FROM,
   /* ..., and copy to and from device.  */
-  OMP_CLAUSE_MAP_TOFROM = OMP_CLAUSE_MAP_TO | OMP_CLAUSE_MAP_FROM,
-  /* Special map kinds.  */
-  OMP_CLAUSE_MAP_SPECIAL = 1 << 2,
+  OMP_CLAUSE_MAP_TOFROM = GOMP_MAP_TOFROM,
   /* The following kind is an internal only map kind, used for pointer based
      array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
      which is implicitly POINTER_SIZE_UNITS, but the bias.  */
-  OMP_CLAUSE_MAP_POINTER = OMP_CLAUSE_MAP_SPECIAL,
+  OMP_CLAUSE_MAP_POINTER = GOMP_MAP_POINTER,
   /* Also internal, behaves like OMP_CLAUS_MAP_TO, but additionally any
      OMP_CLAUSE_MAP_POINTER records consecutive after it which have addresses
      falling into that range will not be ignored if OMP_CLAUSE_MAP_TO_PSET
      wasn't mapped already.  */
-  OMP_CLAUSE_MAP_TO_PSET,
+  OMP_CLAUSE_MAP_TO_PSET = GOMP_MAP_TO_PSET,
   /* The following are only valid for OpenACC.  */
-  /* Flag to force a specific behavior (or else, a run-time error).  */
-  OMP_CLAUSE_MAP_FORCE = 1 << 3,
   /* Allocate.  */
-  OMP_CLAUSE_MAP_FORCE_ALLOC = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_ALLOC,
+  OMP_CLAUSE_MAP_FORCE_ALLOC = GOMP_MAP_FORCE_ALLOC,
   /* ..., and copy to device.  */
-  OMP_CLAUSE_MAP_FORCE_TO = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_TO,
+  OMP_CLAUSE_MAP_FORCE_TO = GOMP_MAP_FORCE_TO,
   /* ..., and copy from device.  */
-  OMP_CLAUSE_MAP_FORCE_FROM = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_FROM,
+  OMP_CLAUSE_MAP_FORCE_FROM = GOMP_MAP_FORCE_FROM,
   /* ..., and copy to and from device.  */
-  OMP_CLAUSE_MAP_FORCE_TOFROM = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_TOFROM,
+  OMP_CLAUSE_MAP_FORCE_TOFROM = GOMP_MAP_FORCE_TOFROM,
   /* Must already be present.  */
-  OMP_CLAUSE_MAP_FORCE_PRESENT = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_SPECIAL,
+  OMP_CLAUSE_MAP_FORCE_PRESENT = GOMP_MAP_FORCE_PRESENT,
   /* Deallocate a mapping, without copying from device.  */
-  OMP_CLAUSE_MAP_FORCE_DEALLOC,
+  OMP_CLAUSE_MAP_FORCE_DEALLOC = GOMP_MAP_FORCE_DEALLOC,
   /* Is a device pointer.  OMP_CLAUSE_SIZE for these is unused; is implicitly
-     POINTER_SIZE / BITS_PER_UNIT.  */
-  OMP_CLAUSE_MAP_FORCE_DEVICEPTR,
+     POINTER_SIZE_UNITS.  */
+  OMP_CLAUSE_MAP_FORCE_DEVICEPTR = GOMP_MAP_FORCE_DEVICEPTR,
 
   /* End marker.  */
-  OMP_CLAUSE_MAP_LAST
+  OMP_CLAUSE_MAP_LAST = GOMP_MAP_VALUE_LIMIT
 };
 
 enum omp_clause_proc_bind_kind

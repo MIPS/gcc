@@ -1,4 +1,13 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* Makefile.am: Don't add ../include/gomp-constants.h to
+	nodist_libsubinclude_HEADERS.
+
+	* openacc.h: Don't include "gomp-constants.h".
+
+	* oacc-parallel.c (dump_var): Remove.
+
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 	    Julian Brown  <julian@codesourcery.com>
 	    David Malcolm  <dmalcolm@redhat.com>
 

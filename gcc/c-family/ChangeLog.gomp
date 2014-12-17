@@ -1,3 +1,7 @@
+2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-omp.c (c_finish_oacc_wait): Use include/gomp-constants.h.
+
 2014-11-05  James Norris  <jnorris@codesourcery.com>
 
 	* c-pragma.c (oacc_pragmas): Add "cache".

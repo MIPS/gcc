@@ -27,13 +27,13 @@
 
 #include "gomp-constants.h"
 
-/* Type of offload target device.  Keep in sync with openacc.h:acc_device_t.  */
+/* Type of offload target device.  Keep in sync with include/gomp-constants.h.  */
 enum offload_target_type
 {
-  OFFLOAD_TARGET_TYPE_HOST = GOMP_TARGET_HOST,
-  OFFLOAD_TARGET_TYPE_HOST_NONSHM = GOMP_TARGET_HOST_NONSHM,
-  OFFLOAD_TARGET_TYPE_NVIDIA_PTX = GOMP_TARGET_NVIDIA_PTX,
-  OFFLOAD_TARGET_TYPE_INTEL_MIC = GOMP_TARGET_INTEL_MIC
+  OFFLOAD_TARGET_TYPE_HOST = 2,
+  OFFLOAD_TARGET_TYPE_HOST_NONSHM = 3,
+  OFFLOAD_TARGET_TYPE_NVIDIA_PTX = 5,
+  OFFLOAD_TARGET_TYPE_INTEL_MIC = 6
 };
 
 /* Auxiliary struct, used for transferring a host-target address range mapping

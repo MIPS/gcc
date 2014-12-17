@@ -385,7 +385,7 @@ present_create_copy (unsigned f, void *h, size_t s)
       void *hostaddrs = h;
 
       if (f & PCC_Copy)
-	kinds = GOMP_MAP_ALLOC_TO;
+	kinds = GOMP_MAP_TO;
       else
 	kinds = GOMP_MAP_ALLOC;
 

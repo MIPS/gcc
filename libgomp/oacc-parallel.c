@@ -38,36 +38,6 @@
 #include <assert.h>
 #include <alloca.h>
 
-static void
-dump_var (char *s, size_t idx, void *hostaddr, size_t size, unsigned char kind)
-{
-  gomp_debug (0, " %2zi: %3s 0x%.2x -", idx, s, kind & 0xff);
-
-  switch (kind & 0xff)
-    {
-      case 0x00: gomp_debug (0, " ALLOC              "); break;
-      case 0x01: gomp_debug (0, " ALLOC TO           "); break;
-      case 0x02: gomp_debug (0, " ALLOC FROM         "); break;
-      case 0x03: gomp_debug (0, " ALLOC TOFROM       "); break;
-      case 0x04: gomp_debug (0, " POINTER            "); break;
-      case 0x05: gomp_debug (0, " TO_PSET            "); break;
-
-      case 0x08: gomp_debug (0, " FORCE_ALLOC        "); break;
-      case 0x09: gomp_debug (0, " FORCE_TO           "); break;
-      case 0x0a: gomp_debug (0, " FORCE_FROM         "); break;
-      case 0x0b: gomp_debug (0, " FORCE_TOFROM       "); break;
-      case 0x0c: gomp_debug (0, " FORCE_PRESENT      "); break;
-      case 0x0d: gomp_debug (0, " FORCE_DEALLOC      "); break;
-      case 0x0e: gomp_debug (0, " FORCE_DEVICEPTR    "); break;
-
-      case (unsigned char) -1: gomp_debug (0, " DUMMY              "); break;
-      default: gomp_debug (0, "UGH! 0x%x\n", kind);
-    }
-    
-  gomp_debug (0, "- %d - %4d/0x%04x ", 1 << (kind >> 8), (int) size, (int) size);
-  gomp_debug (0, "- %p\n", hostaddr);
-}
-
 static int
 find_pset (int pos, size_t mapnum, unsigned short *kinds)
 {
@@ -90,7 +60,7 @@ select_acc_device (int device_type)
 {
   goacc_lazy_initialize ();
 
-  if (device_type == GOMP_IF_CLAUSE_FALSE)
+  if (device_type == GOMP_DEVICE_HOST_FALLBACK)
     return;
 
   if (device_type == acc_device_none)
@@ -114,7 +84,7 @@ GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
 		int num_gangs, int num_workers, int vector_length,
 		int async, int num_waits, ...)
 {
-  bool if_clause_condition_value = device != GOMP_IF_CLAUSE_FALSE;
+  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   va_list ap;
   struct goacc_thread *thr;
   struct gomp_device_descr *acc_dev;
@@ -139,7 +109,7 @@ GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
 
   /* Host fallback if "if" clause is false or if the current device is set to
      the host.  */
-  if (!if_clause_condition_value)
+  if (host_fallback)
     {
       goacc_save_and_set_bind (acc_device_host);
       fn (hostaddrs);
@@ -206,7 +176,7 @@ void
 GOACC_data_start (int device, const void *offload_table, size_t mapnum,
 		  void **hostaddrs, size_t *sizes, unsigned short *kinds)
 {
-  bool if_clause_condition_value = device != GOMP_IF_CLAUSE_FALSE;
+  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   struct target_mem_desc *tgt;
 
   gomp_debug (0, "%s: mapnum=%zd, hostaddrs=%p, sizes=%p, kinds=%p\n",
@@ -219,7 +189,7 @@ GOACC_data_start (int device, const void *offload_table, size_t mapnum,
 
   /* Host fallback or 'do nothing'.  */
   if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
-      || !if_clause_condition_value)
+      || host_fallback)
     {
       tgt = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, true, false);
       tgt->prev = thr->mapped_data;
@@ -255,7 +225,7 @@ GOACC_enter_exit_data (int device, const void *offload_table, size_t mapnum,
 {
   struct goacc_thread *thr;
   struct gomp_device_descr *acc_dev;
-  bool if_clause_condition_value = device != GOMP_IF_CLAUSE_FALSE;
+  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   bool data_enter = false;
   size_t i;
 
@@ -265,7 +235,7 @@ GOACC_enter_exit_data (int device, const void *offload_table, size_t mapnum,
   acc_dev = thr->dev;
 
   if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
-      || !if_clause_condition_value)
+      || host_fallback)
     return;
 
   if (num_waits > 0)
@@ -289,14 +259,16 @@ GOACC_enter_exit_data (int device, const void *offload_table, size_t mapnum,
       if (kind == GOMP_MAP_POINTER || kind == GOMP_MAP_TO_PSET)
 	continue;
 
-      if (kind == GOMP_MAP_FORCE_ALLOC || kind == GOMP_MAP_FORCE_PRESENT
+      if (kind == GOMP_MAP_FORCE_ALLOC
+	  || kind == GOMP_MAP_FORCE_PRESENT
 	  || kind == GOMP_MAP_FORCE_TO)
 	{
 	  data_enter = true;
 	  break;
 	}
 
-      if (kind == GOMP_MAP_FORCE_DEALLOC || kind == GOMP_MAP_FORCE_FROM)
+      if (kind == GOMP_MAP_FORCE_DEALLOC
+	  || kind == GOMP_MAP_FORCE_FROM)
 	break;
 
       gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
@@ -466,7 +438,7 @@ GOACC_update (int device, const void *offload_table, size_t mapnum,
 	      void **hostaddrs, size_t *sizes, unsigned short *kinds,
 	      int async, int num_waits, ...)
 {
-  bool if_clause_condition_value = device != GOMP_IF_CLAUSE_FALSE;
+  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   size_t i;
 
   select_acc_device (device);
@@ -475,7 +447,7 @@ GOACC_update (int device, const void *offload_table, size_t mapnum,
   struct gomp_device_descr *acc_dev = thr->dev;
 
   if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
-      || !if_clause_condition_value)
+      || host_fallback)
     return;
 
   if (num_waits > 0)
@@ -494,8 +466,6 @@ GOACC_update (int device, const void *offload_table, size_t mapnum,
   for (i = 0; i < mapnum; ++i)
     {
       unsigned char kind = kinds[i] & 0xff;
-
-      dump_var ("UPD", i, hostaddrs[i], sizes[i], kinds[i]);
 
       switch (kind)
 	{
