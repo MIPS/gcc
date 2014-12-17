@@ -27,8 +27,7 @@ proc check_effective_target_oacc_c { } {
 dg-init
 
 # Turn on OpenACC.
-# XXX (TEMPORARY): Remove the -flto once that's properly integrated.
-lappend ALWAYS_CFLAGS "additional_flags=-fopenacc -flto"
+lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
 
 # Gather a list of all tests.
 set tests [lsort [concat \

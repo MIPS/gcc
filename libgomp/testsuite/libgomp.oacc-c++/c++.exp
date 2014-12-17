@@ -21,8 +21,7 @@ proc check_effective_target_oacc_c { } {
 dg-init
 
 # Turn on OpenACC.
-# XXX (TEMPORARY): Remove the -flto once that's properly integrated.
-lappend ALWAYS_CFLAGS "additional_flags=-fopenacc -flto"
+lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
 
 # Switch into C++ mode.  Otherwise, the libgomp.oacc-c-c++-common/*.c
 # files would be compiled as C files.

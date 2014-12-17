@@ -140,8 +140,7 @@ GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
       gomp_mutex_unlock (&acc_dev->mem_map.lock);
 
       if (tgt_fn_key == NULL)
-	gomp_fatal ("target function wasn't mapped: perhaps -fopenacc was "
-		    "used without -flto?");
+	gomp_fatal ("target function wasn't mapped");
 
       tgt_fn = (void (*)) tgt_fn_key->tgt->tgt_start;
     }
