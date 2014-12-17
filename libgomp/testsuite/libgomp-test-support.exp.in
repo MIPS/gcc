@@ -1,2 +1,6 @@
 set cuda_driver_include "@CUDA_DRIVER_INCLUDE@"
 set cuda_driver_lib "@CUDA_DRIVER_LIB@"
+
+set offload_targets "@offload_targets@"
+set offload_additional_options "@offload_additional_options@"
+set offload_additional_lib_paths "@offload_additional_lib_paths@"

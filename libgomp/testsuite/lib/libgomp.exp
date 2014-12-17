@@ -111,13 +111,9 @@ proc libgomp_init { args } {
     # Compute what needs to be put into LD_LIBRARY_PATH
     set always_ld_library_path ".:${blddir}/.libs"
 
-    # Get offload-related variables from environment (exported by Makefile)
-    set offload_targets [getenv OFFLOAD_TARGETS]
-    set offload_additional_options [getenv OFFLOAD_ADDITIONAL_OPTIONS]
-    set offload_additional_lib_paths [getenv OFFLOAD_ADDITIONAL_LIB_PATHS]
-
     # Add liboffloadmic build directory in LD_LIBRARY_PATH to support
     # non-fallback testing for Intel MIC targets
+    global offload_targets
     if { [string match "*-intelmic-*" $offload_targets]
 	|| [string match "*-intelmicemul-*" $offload_targets] } {
 	append always_ld_library_path ":${blddir}/../liboffloadmic/.libs"
@@ -126,6 +122,7 @@ proc libgomp_init { args } {
 	append always_ld_library_path ":${blddir}/../libstdc++-v3/src/.libs"
     }
 
+    global offload_additional_lib_paths
     if { $offload_additional_lib_paths != "" } {
 	append always_ld_library_path "${offload_additional_lib_paths}"
     }
@@ -215,6 +212,7 @@ proc libgomp_init { args } {
 
     # Used for support non-fallback offloading.
     # Help GCC to find target mkoffload.
+    global offload_additional_options
     if { $offload_additional_options != "" } {
 	lappend ALWAYS_CFLAGS "additional_flags=${offload_additional_options}"
     }

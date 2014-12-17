@@ -1,5 +1,11 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/Makefile.am: Don't export OFFLOAD_TARGETS,
+	OFFLOAD_ADDITIONAL_OPTIONS, and OFFLOAD_ADDITIONAL_LIB_PATHS...
+	* testsuite/libgomp-test-support.exp.in: ..., and instead set
+	offload_targets, offload_additional_options, and
+	offload_additional_lib_paths here.  Update all users.
+
 	* testsuite/libgomp.oacc-c++/c++.exp
 	(check_effective_target_oacc_c): Remove, and ...
 	* testsuite/libgomp.oacc-c/c.exp (check_effective_target_oacc_c):
