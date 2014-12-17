@@ -840,7 +840,6 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
 	     unsigned char *kinds)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
-  struct gomp_memory_mapping *mm = &devicep->mem_map;
 
   if (devicep != NULL && !devicep->is_initialized)
     gomp_init_dev_tables (devicep);
@@ -868,6 +867,7 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
     fn_addr = (void *) fn;
   else
     {
+      struct gomp_memory_mapping *mm = &devicep->mem_map;
       gomp_mutex_lock (&mm->lock);
       if (!devicep->is_initialized)
 	gomp_init_dev_tables (devicep);
@@ -905,7 +905,6 @@ GOMP_target_data (int device, const void *offload_table, size_t mapnum,
 		  void **hostaddrs, size_t *sizes, unsigned char *kinds)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
-  struct gomp_memory_mapping *mm = &devicep->mem_map;
 
   if (devicep != NULL && !devicep->is_initialized)
     gomp_init_dev_tables (devicep);
@@ -928,6 +927,7 @@ GOMP_target_data (int device, const void *offload_table, size_t mapnum,
       return;
     }
 
+  struct gomp_memory_mapping *mm = &devicep->mem_map;
   gomp_mutex_lock (&mm->lock);
   if (!devicep->is_initialized)
     gomp_init_dev_tables (devicep);
@@ -958,14 +958,17 @@ GOMP_target_update (int device, const void *offload_table, size_t mapnum,
 		    void **hostaddrs, size_t *sizes, unsigned char *kinds)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
-  struct gomp_memory_mapping *mm = &devicep->mem_map;
 
+  if (devicep == NULL)
+    return;
+
+  struct gomp_memory_mapping *mm = &devicep->mem_map;
   gomp_mutex_lock (&mm->lock);
-  if (devicep != NULL && !devicep->is_initialized)
+  if (!devicep->is_initialized)
     gomp_init_device (devicep);
   gomp_mutex_unlock (&mm->lock);
 
-  if (devicep != NULL && !(devicep->capabilities & TARGET_CAP_OPENMP_400))
+  if (!(devicep->capabilities & TARGET_CAP_OPENMP_400))
     return;
 
   gomp_update (devicep, &devicep->mem_map, mapnum, hostaddrs, sizes, kinds,

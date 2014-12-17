@@ -1,6 +1,9 @@
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
 
+	* target.c (GOMP_target, GOMP_target_data, GOMP_target_update):
+	Prevent NULL pointer dereference.
+
 	* testsuite/lib/libgomp.exp: Set offload_targets_s, and
 	offload_targets_s_openacc.
 	(check_effective_target_openacc_nvidia_accel_selected): Look for
