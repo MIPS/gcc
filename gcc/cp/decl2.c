@@ -4723,6 +4723,21 @@ c_parse_final_cleanups (void)
 				      pending_statics->length (),
 				      EMIT_DEBUG_EARLY);
     }
+
+  perform_deferred_noexcept_checks ();
+
+  finish_repo ();
+
+  /* The entire file is now complete.  If requested, dump everything
+     to a file.  */
+  dump_tu ();
+
+  if (flag_detailed_statistics)
+    {
+      dump_tree_statistics ();
+      dump_time_statistics ();
+    }
+
   timevar_stop (TV_PHASE_DBGINFO);
   timevar_start (TV_PHASE_PARSING);
 }
@@ -4746,8 +4761,6 @@ cxx_post_compilation_parsing_cleanups (void)
       vtv_generate_init_routine ();
     }
 
-  perform_deferred_noexcept_checks ();
-
   /* Generate hidden aliases for Java.  */
   if (java_hidden_aliases)
     {
@@ -4755,17 +4768,6 @@ cxx_post_compilation_parsing_cleanups (void)
       delete java_hidden_aliases;
     }
 
-  finish_repo ();
-
-  /* The entire file is now complete.  If requested, dump everything
-     to a file.  */
-  dump_tu ();
-
-  if (flag_detailed_statistics)
-    {
-      dump_tree_statistics ();
-      dump_time_statistics ();
-    }
   input_location = locus_at_end_of_parsing;
 
 #ifdef ENABLE_CHECKING

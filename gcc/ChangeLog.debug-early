@@ -1,3 +1,9 @@
+2014-12-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp/decl2.c (cxx_post_compilation_parsing_cleanups): Move some
+	final checks...
+	(c_parse_final_cleanups): ...here.
+
 2014-12-10  Aldy Hernandez  <aldyh@redhat.com>
 
 	* dwarf2out.c (gen_subprogram_die): Handle as cached die if
