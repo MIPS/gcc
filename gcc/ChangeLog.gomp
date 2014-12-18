@@ -1,6 +1,9 @@
 2014-12-18  Thomas Schwinge  <thomas@codesourcery.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
+	* builtins.c (expand_builtin_acc_on_device): Use
+	do_compare_rtx_and_jump instead of emit_cmp_and_jump_insns.
+
 	* builtins.c (expand_builtin_acc_on_device): Make more RTXy.
 
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>

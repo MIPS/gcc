@@ -5911,10 +5911,10 @@ expand_builtin_acc_on_device (tree exp, rtx target)
     target = gen_reg_rtx (target_mode);
   emit_move_insn (target, const0_rtx);
   rtx_code_label *done_label = gen_label_rtx ();
-  emit_cmp_and_jump_insns (v, v1, NE, NULL_RTX, v_mode,
-			   false, done_label, PROB_EVEN);
-  emit_cmp_and_jump_insns (v, v2, NE, NULL_RTX, v_mode,
-			   false, done_label, PROB_EVEN);
+  do_compare_rtx_and_jump (v, v1, NE, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
+  do_compare_rtx_and_jump (v, v2, NE, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
   emit_move_insn (target, const1_rtx);
   emit_label (done_label);
 
