@@ -34,6 +34,12 @@ along with GCC; see the file COPYING3.  If not see
              (pointer/allocatable/dimension/...).
     * _vptr: A pointer to the vtable entry (see below) of the dynamic type.
 
+    Only for unlimited polymorphic classes:
+    * _len:  An integer(4) to store the string length when the unlimited
+             polymorphic pointer is used to point to a char array. The '_len'
+             component will be zero when no character array is stored in
+             '_data'.
+
    For each derived type we set up a "vtable" entry, i.e. a structure with the
    following fields:
     * _hash:     A hash value serving as a unique identifier for this type.
@@ -544,10 +550,41 @@ gfc_intrinsic_hash_value (gfc_typespec *ts)
 }
 
 
+/* Get the _len component from a class/derived object storing a string.  */
+
+gfc_expr *
+gfc_get_len_component (gfc_expr *e)
+{
+  gfc_expr *len_comp;
+  gfc_ref *ref, **last;
+  len_comp = gfc_copy_expr (e->symtree->n.sym->assoc->target);
+
+  /* We need to remove the last _data component ref from ptr.  */
+  last = &(len_comp->ref);
+  ref = len_comp->ref;
+  while (ref)
+    {
+      if (!ref->next
+          && ref->type == REF_COMPONENT
+          && strcmp("_data", ref->u.c.component->name)== 0)
+        {
+          gfc_free_ref_list(ref);
+          *last = NULL;
+          break;
+        }
+      last = &(ref->next);
+      ref = ref->next;
+    }
+  gfc_add_component_ref(len_comp, "_len");
+  return len_comp;
+}
+
 /* Build a polymorphic CLASS entity, using the symbol that comes from
    build_sym. A CLASS entity is represented by an encapsulating type,
    which contains the declared type as '_data' component, plus a pointer
-   component '_vptr' which determines the dynamic type.  */
+   component '_vptr' which determines the dynamic type. When this CLASS
+   entity is unlimited polymorphic, then also add a component '_len' to
+   store the length of string when that is stored in it.  */
 
 bool
 gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
@@ -645,19 +682,36 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
       if (!gfc_add_component (fclass, "_vptr", &c))
 	return false;
       c->ts.type = BT_DERIVED;
+      c->attr.access = ACCESS_PRIVATE;
+      c->attr.pointer = 1;
 
       if (ts->u.derived->attr.unlimited_polymorphic)
 	{
 	  vtab = gfc_find_derived_vtab (ts->u.derived);
 	  gcc_assert (vtab);
 	  c->ts.u.derived = vtab->ts.u.derived;
+
+	  /* Add component '_len'.  Only unlimited polymorphic pointers may
+             have a string assigned to them, i.e., only those need the _len
+             component.  */
+	  if (!gfc_add_component (fclass, "_len", &c))
+	    return false;
+	  c->ts.type = BT_INTEGER;
+	  c->ts.kind = 4;
+	  c->attr.access = ACCESS_PRIVATE;
+	  c->attr.artificial = 1;
+
+	  /* Build minimal expression to initialize component with zero.
+	     TODO: When doing this, one goes to hell in the select type
+		   id association something in generating the constructor
+		   code really goes wrong.  Not using an initializer here
+		   needs extra code in the alloc statements.  */
+//	  c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
+//					     NULL, 0);
 	}
       else
 	/* Build vtab later.  */
 	c->ts.u.derived = NULL;
-
-      c->attr.access = ACCESS_PRIVATE;
-      c->attr.pointer = 1;
     }
 
   if (!ts->u.derived->attr.unlimited_polymorphic)
@@ -2403,38 +2457,6 @@ yes:
   return true;
 }
 
-/* Add the component _len to the class-type variable in c->expr1.  */
-
-void
-gfc_add_len_component (gfc_code *c)
-{
-  /* Just make sure input is correct. This is already at the calling site,
-     but may be this routine is called from somewhere else in the furure.  */
-  gcc_assert (UNLIMITED_POLY(c->expr1)
-              && c->expr2
-              && c->expr2->ts.type== BT_CHARACTER);
-
-  gfc_component *len;
-  gfc_expr *e;
-  /* Check that _len is not present already.  */
-  if ((len= gfc_find_component (c->expr1->ts.u.derived, "_len", true, true)))
-    return;
-  /* Create the new component.  */
-  if (!gfc_add_component (c->expr1->ts.u.derived, "_len", &len))
-    // Possible errors are already reported in add_component
-    return;
-  len->ts.type = BT_INTEGER;
-  len->ts.kind = 4;
-  len->attr.access = ACCESS_PRIVATE;
-
-  /* Build minimal expression to initialize component with zero. */
-  e = gfc_get_expr();
-  e->ts = c->expr1->ts;
-  e->expr_type = EXPR_VARIABLE;
-  len->initializer = gfc_get_int_expr (gfc_default_integer_kind,
-                                       NULL, 0);
-  gfc_free_expr (e);
-}
 
 /* Find (or generate) the symbol for an intrinsic type's vtab.  This is
    needed to support unlimited polymorphism.  */
@@ -2460,16 +2482,10 @@ find_intrinsic_vtab (gfc_typespec *ts)
     {
       char name[GFC_MAX_SYMBOL_LEN+1], tname[GFC_MAX_SYMBOL_LEN+1];
 
-      if (ts->type == BT_CHARACTER) {
-        if (!ts->deferred)
-          sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
-                   charlen, ts->kind);
-        else
-          /* The type is deferred here. Ensure that this is easily seen in the 
-             vtable. */
-          sprintf (tname, "%s_DEFERRED_%d", gfc_basic_typename (ts->type),
-                   ts->kind);
-      } else
+      if (ts->type == BT_CHARACTER)
+        sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
+                 charlen, ts->kind);
+      else
 	sprintf (tname, "%s_%d_", gfc_basic_typename (ts->type), ts->kind);
 
       sprintf (name, "__vtab_%s", tname);

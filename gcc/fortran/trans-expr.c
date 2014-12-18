@@ -94,6 +94,7 @@ gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr)
    in future implementations.  Use the corresponding APIs.  */
 #define CLASS_DATA_FIELD 0
 #define CLASS_VPTR_FIELD 1
+#define CLASS_LEN_FIELD 2
 #define VTABLE_HASH_FIELD 0
 #define VTABLE_SIZE_FIELD 1
 #define VTABLE_EXTENDS_FIELD 2
@@ -144,6 +145,20 @@ gfc_class_vptr_get (tree decl)
 			    CLASS_VPTR_FIELD);
   return fold_build3_loc (input_location, COMPONENT_REF,
 			  TREE_TYPE (vptr), decl, vptr,
+			  NULL_TREE);
+}
+
+
+tree
+gfc_class_len_get (tree decl)
+{
+  tree len;
+  if (POINTER_TYPE_P (TREE_TYPE (decl)))
+    decl = build_fold_indirect_ref_loc (input_location, decl);
+  len = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (decl)),
+			    CLASS_LEN_FIELD);
+  return fold_build3_loc (input_location, COMPONENT_REF,
+			  TREE_TYPE (len), decl, len,
 			  NULL_TREE);
 }
 
@@ -617,6 +632,40 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 	}
     }
 
+  /* When the actual arg is a char array, then set the _len component of the
+     unlimited polymorphic entity, too.  */
+  if (e->ts.type == BT_CHARACTER)
+    {
+      ctree = gfc_class_len_get (var);
+      if (e->ts.u.cl->backend_decl)
+        {
+          gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
+        }
+      else if (parmse->string_length)
+        {
+          gfc_add_modify (&parmse->pre, ctree, parmse->string_length);
+        }
+      else
+        {
+          /* Try to simplify the expression.  */
+          gfc_simplify_expr (e, 0);
+          if (e->expr_type == EXPR_CONSTANT && !e->ts.u.cl->resolved)
+            {
+              /* Amazingly all data is present to compute the length of a constant
+                 string, but the expression is not yet there.  */
+              e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 1, &e->where);
+              mpz_set_ui (e->ts.u.cl->length->value.integer, e->value.character.length);
+              gfc_conv_const_charlen (e->ts.u.cl);
+              e->ts.u.cl->resolved = 1;
+              gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
+            }
+          else
+            {
+              gfc_error ("Can't compute the length of the char array at %L.",
+                         &e->where);
+            }
+        }
+    }
   /* Pass the address of the class object.  */
   parmse->expr = gfc_build_addr_expr (NULL_TREE, var);
 }
@@ -6415,6 +6464,14 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 				  fold_convert (TREE_TYPE (cm->backend_decl),
 						val));
 	}
+      else if (cm->ts.type == BT_INTEGER && strcmp (cm->name, "_len") == 0)
+        {
+          gfc_expr *e = gfc_get_int_expr (gfc_default_integer_kind, NULL, 0);
+          val = gfc_conv_constant_to_tree (e);
+          CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl,
+                                  fold_convert (TREE_TYPE (cm->backend_decl),
+                                                val));
+        }
       else
 	{
 	  val = gfc_conv_initializer (c->expr, &cm->ts,
@@ -6491,7 +6548,9 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
      null_pointer_node.  C_PTR and C_FUNPTR are converted to match the
      typespec for the C_PTR and C_FUNPTR symbols, which has already been
      updated to be an integer with a kind equal to the size of a (void *).  */
-  if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->ts.f90_type == BT_VOID)
+  if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->ts.f90_type == BT_VOID
+      /* TODO: Need to check, if this is correctly working for all cases. */
+      && expr->ts.u.derived->attr.is_bind_c)
     {
       if (expr->expr_type == EXPR_VARIABLE
 	  && (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR
@@ -6798,9 +6857,12 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 
       /* For string assignments to unlimited polymorphic pointers add an
          assignment of the string_length to the _len component of the pointer.  */
-      if (expr1->ts.type == BT_DERIVED
+      if ((expr1->ts.type == BT_CLASS || expr1->ts.type == BT_DERIVED)
           && expr1->ts.u.derived->attr.unlimited_polymorphic
-          && expr2->ts.type == BT_CHARACTER)
+          && (expr2->ts.type == BT_CHARACTER ||
+              ((expr2->ts.type == BT_DERIVED || expr2->ts.type == BT_CLASS)
+              && expr2->ts.u.derived->attr.unlimited_polymorphic))
+          )
         {
           add_assignment_of_string_len_to_len_component (&block, expr1, &lse, &rse);
         }
