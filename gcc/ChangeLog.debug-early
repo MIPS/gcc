@@ -1,5 +1,9 @@
 2014-12-18  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-core.h (tree_block): Comment DIE field.
+
+2014-12-18  Aldy Hernandez  <aldyh@redhat.com>
+
 	* cp/decl2.c (cxx_post_compilation_parsing_cleanups): Move some
 	final checks...
 	(c_parse_final_cleanups): ...here.
