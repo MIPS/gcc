@@ -5889,38 +5889,36 @@ expand_stack_save (void)
    acceleration device (ACCEL_COMPILER conditional).  */
 
 static rtx
-expand_builtin_acc_on_device (tree exp, rtx target ATTRIBUTE_UNUSED)
+expand_builtin_acc_on_device (tree exp, rtx target)
 {
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
-  tree arg, v1, v2, ret;
-  location_t loc;
+  tree arg = CALL_EXPR_ARG (exp, 0);
 
-  arg = CALL_EXPR_ARG (exp, 0);
-  arg = builtin_save_expr (arg);
-  loc = EXPR_LOCATION (exp);
-
-  /* Build: (arg == v1 || arg == v2) ? 1 : 0.  */
-
+  /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
+  machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
+  rtx v = expand_normal (arg), v1, v2;
 #ifdef ACCEL_COMPILER
-  v1 = build_int_cst (TREE_TYPE (arg), GOMP_DEVICE_NOT_HOST);
-  v2 = build_int_cst (TREE_TYPE (arg), ACCEL_COMPILER_acc_device);
+  v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
+  v2 = GEN_INT (ACCEL_COMPILER_acc_device);
 #else
-  v1 = build_int_cst (TREE_TYPE (arg), GOMP_DEVICE_NONE);
-  v2 = build_int_cst (TREE_TYPE (arg), GOMP_DEVICE_HOST);
+  v1 = GEN_INT (GOMP_DEVICE_NONE);
+  v2 = GEN_INT (GOMP_DEVICE_HOST);
 #endif
+  machine_mode target_mode = TYPE_MODE (integer_type_node);
+  if (!REG_P (target) || GET_MODE (target) != target_mode)
+    target = gen_reg_rtx (target_mode);
+  emit_move_insn (target, const0_rtx);
+  rtx_code_label *done_label = gen_label_rtx ();
+  emit_cmp_and_jump_insns (v, v1, NE, NULL_RTX, v_mode,
+			   false, done_label, PROB_EVEN);
+  emit_cmp_and_jump_insns (v, v2, NE, NULL_RTX, v_mode,
+			   false, done_label, PROB_EVEN);
+  emit_move_insn (target, const1_rtx);
+  emit_label (done_label);
 
-  v1 = fold_build2_loc (loc, EQ_EXPR, integer_type_node, arg, v1);
-  v2 = fold_build2_loc (loc, EQ_EXPR, integer_type_node, arg, v2);
-
-  /* Can't use TRUTH_ORIF_EXPR, as that is not supported by
-     expand_expr_real*.  */
-  ret = fold_build3_loc (loc, COND_EXPR, integer_type_node, v1, v1, v2);
-  ret = fold_build3_loc (loc, COND_EXPR, integer_type_node,
-			 ret, integer_one_node, integer_zero_node);
-
-  return expand_normal (ret);
+  return target;
 }
 
 
