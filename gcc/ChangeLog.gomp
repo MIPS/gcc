@@ -1,4 +1,11 @@
 2014-12-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/i386/intelmic-offload.h: New file.
+	* config/nvptx/offload.h: Likewise.
+	* config.gcc <*-intelmic-*, *-intelmicemul-*, nvptx-*>: Point to
+	them via tm_file.
+
+2014-12-18  Thomas Schwinge  <thomas@codesourcery.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
 	* builtins.c (expand_builtin_acc_on_device): Use
