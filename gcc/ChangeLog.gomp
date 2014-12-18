@@ -1,5 +1,7 @@
 2014-12-18  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* builtins.c (expand_builtin_acc_on_device): Fix logic error.
+
 	* config/i386/intelmic-offload.h: New file.
 	* config/nvptx/offload.h: Likewise.
 	* config.gcc <*-intelmic-*, *-intelmicemul-*, nvptx-*>: Point to

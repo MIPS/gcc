@@ -5909,13 +5909,13 @@ expand_builtin_acc_on_device (tree exp, rtx target)
   machine_mode target_mode = TYPE_MODE (integer_type_node);
   if (!REG_P (target) || GET_MODE (target) != target_mode)
     target = gen_reg_rtx (target_mode);
-  emit_move_insn (target, const0_rtx);
-  rtx_code_label *done_label = gen_label_rtx ();
-  do_compare_rtx_and_jump (v, v1, NE, false, v_mode, NULL_RTX,
-			   NULL_RTX, done_label, PROB_EVEN);
-  do_compare_rtx_and_jump (v, v2, NE, false, v_mode, NULL_RTX,
-			   NULL_RTX, done_label, PROB_EVEN);
   emit_move_insn (target, const1_rtx);
+  rtx_code_label *done_label = gen_label_rtx ();
+  do_compare_rtx_and_jump (v, v1, EQ, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
+  do_compare_rtx_and_jump (v, v2, EQ, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
+  emit_move_insn (target, const0_rtx);
   emit_label (done_label);
 
   return target;
