@@ -3290,28 +3290,32 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #endif
 
 #define error_mark_node			global_trees[TI_ERROR_MARK]
+/* error_type_node will eventually be distinct from error-Mark_node, but 
+   for now it must be identical for code to execute. */
+// #define error_type_node		global_types[TPI_ERROR_TYPE]
+#define error_type_node			error_mark_node
 
-#define intQI_type_node			global_trees[TI_INTQI_TYPE]
-#define intHI_type_node			global_trees[TI_INTHI_TYPE]
-#define intSI_type_node			global_trees[TI_INTSI_TYPE]
-#define intDI_type_node			global_trees[TI_INTDI_TYPE]
-#define intTI_type_node			global_trees[TI_INTTI_TYPE]
+#define intQI_type_node			global_types[TPI_INTQI_TYPE]
+#define intHI_type_node			global_types[TPI_INTHI_TYPE]
+#define intSI_type_node			global_types[TPI_INTSI_TYPE]
+#define intDI_type_node			global_types[TPI_INTDI_TYPE]
+#define intTI_type_node			global_types[TPI_INTTI_TYPE]
 
-#define unsigned_intQI_type_node	global_trees[TI_UINTQI_TYPE]
-#define unsigned_intHI_type_node	global_trees[TI_UINTHI_TYPE]
-#define unsigned_intSI_type_node	global_trees[TI_UINTSI_TYPE]
-#define unsigned_intDI_type_node	global_trees[TI_UINTDI_TYPE]
-#define unsigned_intTI_type_node	global_trees[TI_UINTTI_TYPE]
+#define unsigned_intQI_type_node	global_types[TPI_UINTQI_TYPE]
+#define unsigned_intHI_type_node	global_types[TPI_UINTHI_TYPE]
+#define unsigned_intSI_type_node	global_types[TPI_UINTSI_TYPE]
+#define unsigned_intDI_type_node	global_types[TPI_UINTDI_TYPE]
+#define unsigned_intTI_type_node	global_types[TPI_UINTTI_TYPE]
 
-#define atomicQI_type_node	global_trees[TI_ATOMICQI_TYPE]
-#define atomicHI_type_node	global_trees[TI_ATOMICHI_TYPE]
-#define atomicSI_type_node	global_trees[TI_ATOMICSI_TYPE]
-#define atomicDI_type_node	global_trees[TI_ATOMICDI_TYPE]
-#define atomicTI_type_node	global_trees[TI_ATOMICTI_TYPE]
+#define atomicQI_type_node	global_types[TPI_ATOMICQI_TYPE]
+#define atomicHI_type_node	global_types[TPI_ATOMICHI_TYPE]
+#define atomicSI_type_node	global_types[TPI_ATOMICSI_TYPE]
+#define atomicDI_type_node	global_types[TPI_ATOMICDI_TYPE]
+#define atomicTI_type_node	global_types[TPI_ATOMICTI_TYPE]
 
-#define uint16_type_node		global_trees[TI_UINT16_TYPE]
-#define uint32_type_node		global_trees[TI_UINT32_TYPE]
-#define uint64_type_node		global_trees[TI_UINT64_TYPE]
+#define uint16_type_node		global_types[TPI_UINT16_TYPE]
+#define uint32_type_node		global_types[TPI_UINT32_TYPE]
+#define uint64_type_node		global_types[TPI_UINT64_TYPE]
 
 #define void_node			global_trees[TI_VOID]
 
@@ -3332,127 +3336,127 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
-#define float_type_node			global_trees[TI_FLOAT_TYPE]
-#define double_type_node		global_trees[TI_DOUBLE_TYPE]
-#define long_double_type_node		global_trees[TI_LONG_DOUBLE_TYPE]
+#define float_type_node			global_types[TPI_FLOAT_TYPE]
+#define double_type_node		global_types[TPI_DOUBLE_TYPE]
+#define long_double_type_node		global_types[TPI_LONG_DOUBLE_TYPE]
 
-#define float_ptr_type_node		global_trees[TI_FLOAT_PTR_TYPE]
-#define double_ptr_type_node		global_trees[TI_DOUBLE_PTR_TYPE]
-#define long_double_ptr_type_node	global_trees[TI_LONG_DOUBLE_PTR_TYPE]
-#define integer_ptr_type_node		global_trees[TI_INTEGER_PTR_TYPE]
+#define float_ptr_type_node		global_types[TPI_FLOAT_PTR_TYPE]
+#define double_ptr_type_node		global_types[TPI_DOUBLE_PTR_TYPE]
+#define long_double_ptr_type_node	global_types[TPI_LONG_DOUBLE_PTR_TYPE]
+#define integer_ptr_type_node		global_types[TPI_INTEGER_PTR_TYPE]
 
-#define complex_integer_type_node	global_trees[TI_COMPLEX_INTEGER_TYPE]
-#define complex_float_type_node		global_trees[TI_COMPLEX_FLOAT_TYPE]
-#define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
-#define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
+#define complex_integer_type_node	global_types[TPI_COMPLEX_INTEGER_TYPE]
+#define complex_float_type_node		global_types[TPI_COMPLEX_FLOAT_TYPE]
+#define complex_double_type_node	global_types[TPI_COMPLEX_DOUBLE_TYPE]
+#define complex_long_double_type_node	global_types[TPI_COMPLEX_LONG_DOUBLE_TYPE]
 
-#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
+#define pointer_bounds_type_node        global_types[TPI_POINTER_BOUNDS_TYPE]
 
-#define void_type_node			global_trees[TI_VOID_TYPE]
+#define void_type_node			global_types[TPI_VOID_TYPE]
 /* The C type `void *'.  */
-#define ptr_type_node			global_trees[TI_PTR_TYPE]
+#define ptr_type_node			global_types[TPI_PTR_TYPE]
 /* The C type `const void *'.  */
-#define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
+#define const_ptr_type_node		global_types[TPI_CONST_PTR_TYPE]
 /* The C type `size_t'.  */
-#define size_type_node                  global_trees[TI_SIZE_TYPE]
-#define pid_type_node                   global_trees[TI_PID_TYPE]
-#define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
-#define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
+#define size_type_node                  global_types[TPI_SIZE_TYPE]
+#define pid_type_node                   global_types[TPI_PID_TYPE]
+#define ptrdiff_type_node		global_types[TPI_PTRDIFF_TYPE]
+#define va_list_type_node		global_types[TPI_VA_LIST_TYPE]
 #define va_list_gpr_counter_field	global_trees[TI_VA_LIST_GPR_COUNTER_FIELD]
 #define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
-#define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
-#define pointer_sized_int_node		global_trees[TI_POINTER_SIZED_TYPE]
+#define fileptr_type_node		global_types[TPI_FILEPTR_TYPE]
+#define pointer_sized_int_node		global_types[TPI_POINTER_SIZED_TYPE]
 
-#define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
+#define boolean_type_node		global_types[TPI_BOOLEAN_TYPE]
 #define boolean_false_node		global_trees[TI_BOOLEAN_FALSE]
 #define boolean_true_node		global_trees[TI_BOOLEAN_TRUE]
 
 /* The decimal floating point types. */
-#define dfloat32_type_node              global_trees[TI_DFLOAT32_TYPE]
-#define dfloat64_type_node              global_trees[TI_DFLOAT64_TYPE]
-#define dfloat128_type_node             global_trees[TI_DFLOAT128_TYPE]
-#define dfloat32_ptr_type_node          global_trees[TI_DFLOAT32_PTR_TYPE]
-#define dfloat64_ptr_type_node          global_trees[TI_DFLOAT64_PTR_TYPE]
-#define dfloat128_ptr_type_node         global_trees[TI_DFLOAT128_PTR_TYPE]
+#define dfloat32_type_node              global_types[TPI_DFLOAT32_TYPE]
+#define dfloat64_type_node              global_types[TPI_DFLOAT64_TYPE]
+#define dfloat128_type_node             global_types[TPI_DFLOAT128_TYPE]
+#define dfloat32_ptr_type_node          global_types[TPI_DFLOAT32_PTR_TYPE]
+#define dfloat64_ptr_type_node          global_types[TPI_DFLOAT64_PTR_TYPE]
+#define dfloat128_ptr_type_node         global_types[TPI_DFLOAT128_PTR_TYPE]
 
 /* The fixed-point types.  */
-#define sat_short_fract_type_node       global_trees[TI_SAT_SFRACT_TYPE]
-#define sat_fract_type_node             global_trees[TI_SAT_FRACT_TYPE]
-#define sat_long_fract_type_node        global_trees[TI_SAT_LFRACT_TYPE]
-#define sat_long_long_fract_type_node   global_trees[TI_SAT_LLFRACT_TYPE]
+#define sat_short_fract_type_node       global_types[TPI_SAT_SFRACT_TYPE]
+#define sat_fract_type_node             global_types[TPI_SAT_FRACT_TYPE]
+#define sat_long_fract_type_node        global_types[TPI_SAT_LFRACT_TYPE]
+#define sat_long_long_fract_type_node   global_types[TPI_SAT_LLFRACT_TYPE]
 #define sat_unsigned_short_fract_type_node \
-					global_trees[TI_SAT_USFRACT_TYPE]
-#define sat_unsigned_fract_type_node    global_trees[TI_SAT_UFRACT_TYPE]
+					global_types[TPI_SAT_USFRACT_TYPE]
+#define sat_unsigned_fract_type_node    global_types[TPI_SAT_UFRACT_TYPE]
 #define sat_unsigned_long_fract_type_node \
-					global_trees[TI_SAT_ULFRACT_TYPE]
+					global_types[TPI_SAT_ULFRACT_TYPE]
 #define sat_unsigned_long_long_fract_type_node \
-					global_trees[TI_SAT_ULLFRACT_TYPE]
-#define short_fract_type_node           global_trees[TI_SFRACT_TYPE]
-#define fract_type_node                 global_trees[TI_FRACT_TYPE]
-#define long_fract_type_node            global_trees[TI_LFRACT_TYPE]
-#define long_long_fract_type_node       global_trees[TI_LLFRACT_TYPE]
-#define unsigned_short_fract_type_node  global_trees[TI_USFRACT_TYPE]
-#define unsigned_fract_type_node        global_trees[TI_UFRACT_TYPE]
-#define unsigned_long_fract_type_node   global_trees[TI_ULFRACT_TYPE]
+					global_types[TPI_SAT_ULLFRACT_TYPE]
+#define short_fract_type_node           global_types[TPI_SFRACT_TYPE]
+#define fract_type_node                 global_types[TPI_FRACT_TYPE]
+#define long_fract_type_node            global_types[TPI_LFRACT_TYPE]
+#define long_long_fract_type_node       global_types[TPI_LLFRACT_TYPE]
+#define unsigned_short_fract_type_node  global_types[TPI_USFRACT_TYPE]
+#define unsigned_fract_type_node        global_types[TPI_UFRACT_TYPE]
+#define unsigned_long_fract_type_node   global_types[TPI_ULFRACT_TYPE]
 #define unsigned_long_long_fract_type_node \
-					global_trees[TI_ULLFRACT_TYPE]
-#define sat_short_accum_type_node       global_trees[TI_SAT_SACCUM_TYPE]
-#define sat_accum_type_node             global_trees[TI_SAT_ACCUM_TYPE]
-#define sat_long_accum_type_node        global_trees[TI_SAT_LACCUM_TYPE]
-#define sat_long_long_accum_type_node   global_trees[TI_SAT_LLACCUM_TYPE]
+					global_types[TPI_ULLFRACT_TYPE]
+#define sat_short_accum_type_node       global_types[TPI_SAT_SACCUM_TYPE]
+#define sat_accum_type_node             global_types[TPI_SAT_ACCUM_TYPE]
+#define sat_long_accum_type_node        global_types[TPI_SAT_LACCUM_TYPE]
+#define sat_long_long_accum_type_node   global_types[TPI_SAT_LLACCUM_TYPE]
 #define sat_unsigned_short_accum_type_node \
-					global_trees[TI_SAT_USACCUM_TYPE]
-#define sat_unsigned_accum_type_node    global_trees[TI_SAT_UACCUM_TYPE]
+					global_types[TPI_SAT_USACCUM_TYPE]
+#define sat_unsigned_accum_type_node    global_types[TPI_SAT_UACCUM_TYPE]
 #define sat_unsigned_long_accum_type_node \
-					global_trees[TI_SAT_ULACCUM_TYPE]
+					global_types[TPI_SAT_ULACCUM_TYPE]
 #define sat_unsigned_long_long_accum_type_node \
-					global_trees[TI_SAT_ULLACCUM_TYPE]
-#define short_accum_type_node           global_trees[TI_SACCUM_TYPE]
-#define accum_type_node                 global_trees[TI_ACCUM_TYPE]
-#define long_accum_type_node            global_trees[TI_LACCUM_TYPE]
-#define long_long_accum_type_node       global_trees[TI_LLACCUM_TYPE]
-#define unsigned_short_accum_type_node  global_trees[TI_USACCUM_TYPE]
-#define unsigned_accum_type_node        global_trees[TI_UACCUM_TYPE]
-#define unsigned_long_accum_type_node   global_trees[TI_ULACCUM_TYPE]
+					global_types[TPI_SAT_ULLACCUM_TYPE]
+#define short_accum_type_node           global_types[TPI_SACCUM_TYPE]
+#define accum_type_node                 global_types[TPI_ACCUM_TYPE]
+#define long_accum_type_node            global_types[TPI_LACCUM_TYPE]
+#define long_long_accum_type_node       global_types[TPI_LLACCUM_TYPE]
+#define unsigned_short_accum_type_node  global_types[TPI_USACCUM_TYPE]
+#define unsigned_accum_type_node        global_types[TPI_UACCUM_TYPE]
+#define unsigned_long_accum_type_node   global_types[TPI_ULACCUM_TYPE]
 #define unsigned_long_long_accum_type_node \
-					global_trees[TI_ULLACCUM_TYPE]
-#define qq_type_node                    global_trees[TI_QQ_TYPE]
-#define hq_type_node                    global_trees[TI_HQ_TYPE]
-#define sq_type_node                    global_trees[TI_SQ_TYPE]
-#define dq_type_node                    global_trees[TI_DQ_TYPE]
-#define tq_type_node                    global_trees[TI_TQ_TYPE]
-#define uqq_type_node                   global_trees[TI_UQQ_TYPE]
-#define uhq_type_node                   global_trees[TI_UHQ_TYPE]
-#define usq_type_node                   global_trees[TI_USQ_TYPE]
-#define udq_type_node                   global_trees[TI_UDQ_TYPE]
-#define utq_type_node                   global_trees[TI_UTQ_TYPE]
-#define sat_qq_type_node                global_trees[TI_SAT_QQ_TYPE]
-#define sat_hq_type_node                global_trees[TI_SAT_HQ_TYPE]
-#define sat_sq_type_node                global_trees[TI_SAT_SQ_TYPE]
-#define sat_dq_type_node                global_trees[TI_SAT_DQ_TYPE]
-#define sat_tq_type_node                global_trees[TI_SAT_TQ_TYPE]
-#define sat_uqq_type_node               global_trees[TI_SAT_UQQ_TYPE]
-#define sat_uhq_type_node               global_trees[TI_SAT_UHQ_TYPE]
-#define sat_usq_type_node               global_trees[TI_SAT_USQ_TYPE]
-#define sat_udq_type_node               global_trees[TI_SAT_UDQ_TYPE]
-#define sat_utq_type_node               global_trees[TI_SAT_UTQ_TYPE]
-#define ha_type_node                    global_trees[TI_HA_TYPE]
-#define sa_type_node                    global_trees[TI_SA_TYPE]
-#define da_type_node                    global_trees[TI_DA_TYPE]
-#define ta_type_node                    global_trees[TI_TA_TYPE]
-#define uha_type_node                   global_trees[TI_UHA_TYPE]
-#define usa_type_node                   global_trees[TI_USA_TYPE]
-#define uda_type_node                   global_trees[TI_UDA_TYPE]
-#define uta_type_node                   global_trees[TI_UTA_TYPE]
-#define sat_ha_type_node                global_trees[TI_SAT_HA_TYPE]
-#define sat_sa_type_node                global_trees[TI_SAT_SA_TYPE]
-#define sat_da_type_node                global_trees[TI_SAT_DA_TYPE]
-#define sat_ta_type_node                global_trees[TI_SAT_TA_TYPE]
-#define sat_uha_type_node               global_trees[TI_SAT_UHA_TYPE]
-#define sat_usa_type_node               global_trees[TI_SAT_USA_TYPE]
-#define sat_uda_type_node               global_trees[TI_SAT_UDA_TYPE]
-#define sat_uta_type_node               global_trees[TI_SAT_UTA_TYPE]
+					global_types[TPI_ULLACCUM_TYPE]
+#define qq_type_node                    global_types[TPI_QQ_TYPE]
+#define hq_type_node                    global_types[TPI_HQ_TYPE]
+#define sq_type_node                    global_types[TPI_SQ_TYPE]
+#define dq_type_node                    global_types[TPI_DQ_TYPE]
+#define tq_type_node                    global_types[TPI_TQ_TYPE]
+#define uqq_type_node                   global_types[TPI_UQQ_TYPE]
+#define uhq_type_node                   global_types[TPI_UHQ_TYPE]
+#define usq_type_node                   global_types[TPI_USQ_TYPE]
+#define udq_type_node                   global_types[TPI_UDQ_TYPE]
+#define utq_type_node                   global_types[TPI_UTQ_TYPE]
+#define sat_qq_type_node                global_types[TPI_SAT_QQ_TYPE]
+#define sat_hq_type_node                global_types[TPI_SAT_HQ_TYPE]
+#define sat_sq_type_node                global_types[TPI_SAT_SQ_TYPE]
+#define sat_dq_type_node                global_types[TPI_SAT_DQ_TYPE]
+#define sat_tq_type_node                global_types[TPI_SAT_TQ_TYPE]
+#define sat_uqq_type_node               global_types[TPI_SAT_UQQ_TYPE]
+#define sat_uhq_type_node               global_types[TPI_SAT_UHQ_TYPE]
+#define sat_usq_type_node               global_types[TPI_SAT_USQ_TYPE]
+#define sat_udq_type_node               global_types[TPI_SAT_UDQ_TYPE]
+#define sat_utq_type_node               global_types[TPI_SAT_UTQ_TYPE]
+#define ha_type_node                    global_types[TPI_HA_TYPE]
+#define sa_type_node                    global_types[TPI_SA_TYPE]
+#define da_type_node                    global_types[TPI_DA_TYPE]
+#define ta_type_node                    global_types[TPI_TA_TYPE]
+#define uha_type_node                   global_types[TPI_UHA_TYPE]
+#define usa_type_node                   global_types[TPI_USA_TYPE]
+#define uda_type_node                   global_types[TPI_UDA_TYPE]
+#define uta_type_node                   global_types[TPI_UTA_TYPE]
+#define sat_ha_type_node                global_types[TPI_SAT_HA_TYPE]
+#define sat_sa_type_node                global_types[TPI_SAT_SA_TYPE]
+#define sat_da_type_node                global_types[TPI_SAT_DA_TYPE]
+#define sat_ta_type_node                global_types[TPI_SAT_TA_TYPE]
+#define sat_uha_type_node               global_types[TPI_SAT_UHA_TYPE]
+#define sat_usa_type_node               global_types[TPI_SAT_USA_TYPE]
+#define sat_uda_type_node               global_types[TPI_SAT_UDA_TYPE]
+#define sat_uta_type_node               global_types[TPI_SAT_UTA_TYPE]
 
 /* The node that should be placed at the end of a parameter list to
    indicate that the function does not take a variable number of
@@ -4316,7 +4320,7 @@ truth_value_p (enum tree_code code)
 /* Return whether TYPE is a type suitable for an offset for
    a POINTER_PLUS_EXPR.  */
 static inline bool
-ptrofftype_p (tree type)
+ptrofftype_p (ttype type)
 {
   return (INTEGRAL_TYPE_P (type)
 	  && TYPE_PRECISION (type) == TYPE_PRECISION (sizetype)
@@ -4803,16 +4807,16 @@ wi::extended_tree <N>::get_len () const
 namespace wi
 {
   template <typename T>
-  bool fits_to_tree_p (const T &x, const_tree);
+  bool fits_to_tree_p (const T &x, const_ttype);
 
-  wide_int min_value (const_tree);
-  wide_int max_value (const_tree);
+  wide_int min_value (const_ttype);
+  wide_int max_value (const_ttype);
   wide_int from_mpz (const_tree, mpz_t, bool);
 }
 
 template <typename T>
 bool
-wi::fits_to_tree_p (const T &x, const_tree type)
+wi::fits_to_tree_p (const T &x, const_ttype type)
 {
   if (TYPE_SIGN (type) == UNSIGNED)
     return eq_p (x, zext (x, TYPE_PRECISION (type)));
@@ -4823,7 +4827,7 @@ wi::fits_to_tree_p (const T &x, const_tree type)
 /* Produce the smallest number that is represented in TYPE.  The precision
    and sign are taken from TYPE.  */
 inline wide_int
-wi::min_value (const_tree type)
+wi::min_value (const_ttype type)
 {
   return min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
 }
@@ -4831,7 +4835,7 @@ wi::min_value (const_tree type)
 /* Produce the largest number that is represented in TYPE.  The precision
    and sign are taken from TYPE.  */
 inline wide_int
-wi::max_value (const_tree type)
+wi::max_value (const_ttype type)
 {
   return max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
 }

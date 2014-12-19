@@ -1,3 +1,32 @@
+2014-12-19  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-core.h (enum tree_index): Remove TI_* labels for types.
+	(enum type_index): New. Move and rename TI_ to TPI_ for types. 
+	(ttype, const_ttype): New.  Aliases for union tree_node.
+	(struct tree_typed): Make type a ttype.
+	(struct tree_type_common): Use ttype where appropriate, restructure
+	names to make TREE_* macros work on a direct pointer.
+	(integer_types, sizetype_tab): Array of ttype now.
+	(global_types): New.  Vector for types that were in global_trees[].
+	* tree.h 
+	(error_type_node): New.  Error marking for types.
+	(*_type_node): Refer to golbal_type not global_tree array.
+	(ptrofftype_p): Make type parameter ttype.
+	(wi::fits_to_tree_p, wi:: min_value, wi::max_value) Change type 
+	parameter to const_ttype.
+	* tree.c (global_types): Declare global vector of ttype.
+	* tree-streamer.c (preload_common_nodes): Load types then trees.
+	* lto/lto.c (read_cgraph_and_symbols): Register canonical types.
+	* fold-const.h (fold_build2_stat_loc, fold_convert_loc): Change type
+	parameter in prototype to ttype.
+	* fold-const.c (fold_build2_stat_loc, fold_convert_loc): Change type
+	parameter to ttype.
+	* config/spu/spu.c (spu_builtin_types): Change vector elements to
+	ttype.
+	(spu_init_builtins): Use new tree_index TPI_ values rather than
+	tree_index TI_ values.
+	* ada/gcc-interface/gigi.h: (VECTOR_TYPE_P): Remove odd duplicate macro.
+
 2014-12-19  Andrew MacLeod <amacleod@redhat.com>
 
 	* builtins.c (fold_builtin_atomic_always_lock_free): Don't use ttype as
