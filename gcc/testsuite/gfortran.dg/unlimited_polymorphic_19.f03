@@ -1,57 +1,124 @@
 ! { dg-do run }
-! Testing fix for 
-! PR fortran/60255 
 !
+! Testing fix for PR fortran/60255
+!
+! Author: Andre Vehreschild <vehre@gmx.de>
+!
+MODULE m
+
+contains
+  subroutine bar (arg, res)
+    class(*) :: arg
+    character(100) :: res
+    select type (w => arg)
+      type is (character(*))
+        write (res, '(I2)') len(w)
+    end select
+  end subroutine
+
+END MODULE
+
 program test
+    use m;
     implicit none
-    character(LEN=:), allocatable :: S
-    call subP(S)
-    call sub2()
-    call sub1("test")
+    character(LEN=:), allocatable, target :: S
+    character(LEN=100) :: res
+    class(*), pointer :: ucp
+    call sub1 ("long test string", 16)
+    call sub2 ()
+    S = "test"
+    ucp => S
+    call sub3 (ucp)
+    call sub4 (S, 4)
+    call sub4 ("This is a longer string.", 24)
+    call bar (S, res)
+    if (trim (res) .NE. " 4") then
+        call abort ()
+    end if
+    call bar(ucp, res)
+    if (trim (res) .NE. " 4") then
+      call abort ()
+    end if
 
 contains
 
-  subroutine sub1(dcl)
-    character(len=*), target :: dcl
-    class(*), pointer :: ucp
-!    character(len=:), allocatable ::def
+    subroutine sub1(dcl, ilen)
+        character(len=*), target :: dcl
+        integer(4) :: ilen
+        character(len=:), allocatable :: hlp
+        class(*), pointer :: ucp
 
-    ucp => dcl
+        ucp => dcl
 
-    select type (ucp)
-    type is (character(len=*))
-      if (len(ucp) .NE. 4) then
-        call abort()
-!      else
-!        def = ucp
-!        if (len(def) .NE. 4) then
-!          call abort()   ! This abort is expected currently           
-!        end if
-      end if
-    class default
-      call abort()
-    end select
-  end subroutine
+        select type (ucp)
+        type is (character(len=*))
+            if (len(dcl) .NE. ilen) then 
+                call abort () 
+            end if
+            if (len(ucp) .NE. ilen) then 
+                call abort () 
+            end if
+            hlp = ucp
+            if (len(hlp) .NE. ilen) then 
+                call abort () 
+            end if
+        class default
+            call abort()
+        end select
+    end subroutine
   
-  subroutine sub2 
-    character(len=:), allocatable, target :: dcl
-    class(*), pointer :: ucp
+    subroutine sub2 
+        character(len=:), allocatable, target :: dcl
+        class(*), pointer :: ucp
 
-    dcl = "ttt"
-    ucp => dcl
+        dcl = "ttt"
+        ucp => dcl
 
-    select type (ucp)
-    type is (character(len=*))
-      if (len(ucp) .NE. 3) then
-        call abort()
-      end if
-    class default
-      call abort()
-    end select
-  end subroutine
+        select type (ucp)
+        type is (character(len=*))
+            if (len(ucp) .ne. 3) then 
+                call abort () 
+            end if
+        class default
+            call abort()
+        end select
+    end subroutine
 
-  subroutine subP(P)
-        class(*) :: P
-  end subroutine
- 
+    subroutine sub3(ucp)
+        character(len=:), allocatable :: hlp
+        class(*), pointer :: ucp
+
+        select type (ucp)
+        type is (character(len=*))
+            if (len(ucp) .ne. 4) then 
+                call abort () 
+            end if
+            hlp = ucp
+            if (len(hlp) .ne. 4) then 
+                call abort () 
+            end if
+        class default
+            call abort()
+        end select
+    end subroutine
+
+    subroutine sub4(ucp, ilen)
+        character(len=:), allocatable :: hlp
+        integer(4) :: ilen
+        class(*) :: ucp
+
+        select type (ucp)
+        type is (character(len=*))
+            if (len(ucp) .ne. ilen) then 
+                call abort () 
+            end if
+            hlp = ucp
+            if (len(hlp) .ne. ilen) then 
+                call abort () 
+            end if
+        class default
+            call abort()
+        end select
+    end subroutine
 end program
+

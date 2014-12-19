@@ -1,6 +1,6 @@
 ! { dg-do compile }
-! Testing fix for 
-! PR fortran/60414 
+! Testing fix for
+! PR fortran/60414
 !
 module m
     implicit none
@@ -23,7 +23,7 @@ contains
                 if ( abs (X - this%expectedScalar) > 0.0001 ) then
                     call abort()
                 end if
-            class default 
+            class default
                 call abort ()
          end select
     end subroutine FCheck
@@ -62,8 +62,8 @@ end module
 program test
    use :: m
    implicit none
-  
+
    real :: vec(1:6) = (/ 0, 1, 2, 3, 4, 5 /)
    call checktextvector(vec, 6, 5.0)
-end program test 
+end program test
 

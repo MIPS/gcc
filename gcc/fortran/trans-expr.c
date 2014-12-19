@@ -651,10 +651,12 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
           gfc_simplify_expr (e, 0);
           if (e->expr_type == EXPR_CONSTANT && !e->ts.u.cl->resolved)
             {
-              /* Amazingly all data is present to compute the length of a constant
-                 string, but the expression is not yet there.  */
-              e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 1, &e->where);
-              mpz_set_ui (e->ts.u.cl->length->value.integer, e->value.character.length);
+              /* Amazingly all data is present to compute the length of a
+                 constant string, but the expression is not yet there.  */
+              e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 1,
+                                                          &e->where);
+              mpz_set_ui (e->ts.u.cl->length->value.integer,
+                          e->value.character.length);
               gfc_conv_const_charlen (e->ts.u.cl);
               e->ts.u.cl->resolved = 1;
               gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
@@ -6549,7 +6551,7 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
      typespec for the C_PTR and C_FUNPTR symbols, which has already been
      updated to be an integer with a kind equal to the size of a (void *).  */
   if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->ts.f90_type == BT_VOID
-      /* TODO: Need to check, if this is correctly working for all cases. */
+      /* TODO: Need to check, if this is correctly working for all cases.  */
       && expr->ts.u.derived->attr.is_bind_c)
     {
       if (expr->expr_type == EXPR_VARIABLE
@@ -6764,7 +6766,7 @@ add_assignment_of_string_len_to_len_component (stmtblock_t *block,
   gfc_expr *len_comp;
   gfc_ref *ref, **last;
   gfc_se lse;
-  len_comp = gfc_copy_expr(ptr);
+  len_comp = gfc_copy_expr (ptr);
   /* We need to remove the last _data component ref from ptr.  */
   last = &(len_comp->ref);
   ref = len_comp->ref;
@@ -6772,16 +6774,16 @@ add_assignment_of_string_len_to_len_component (stmtblock_t *block,
     {
       if (!ref->next
           && ref->type == REF_COMPONENT
-          && strcmp("_data", ref->u.c.component->name)== 0)
+          && strcmp ("_data", ref->u.c.component->name)== 0)
         {
-          gfc_free_ref_list(ref);
+          gfc_free_ref_list (ref);
           *last = NULL;
           break;
         }
       last = &(ref->next);
       ref = ref->next;
     }
-  gfc_add_component_ref(len_comp, "_len");
+  gfc_add_component_ref (len_comp, "_len");
   gfc_init_se (&lse, NULL);
   gfc_conv_expr (&lse, len_comp);
 
@@ -6856,15 +6858,16 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       gfc_add_block_to_block (&block, &rse.pre);
 
       /* For string assignments to unlimited polymorphic pointers add an
-         assignment of the string_length to the _len component of the pointer.  */
+         assignment of the string_length to the _len component of the
+         pointer.  */
       if ((expr1->ts.type == BT_CLASS || expr1->ts.type == BT_DERIVED)
           && expr1->ts.u.derived->attr.unlimited_polymorphic
           && (expr2->ts.type == BT_CHARACTER ||
               ((expr2->ts.type == BT_DERIVED || expr2->ts.type == BT_CLASS)
-              && expr2->ts.u.derived->attr.unlimited_polymorphic))
-          )
+              && expr2->ts.u.derived->attr.unlimited_polymorphic)))
         {
-          add_assignment_of_string_len_to_len_component (&block, expr1, &lse, &rse);
+          add_assignment_of_string_len_to_len_component (&block, expr1, &lse,
+                                                         &rse);
         }
 
       /* Check character lengths if character expression.  The test is only

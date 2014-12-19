@@ -3193,7 +3193,7 @@ unsigned int gfc_hash_value (gfc_symbol *);
 gfc_expr *gfc_get_len_component (gfc_expr *);
 bool gfc_build_class_symbol (gfc_typespec *, symbol_attribute *,
 			     gfc_array_spec **);
-void gfc_assign_charlen_to_unlimited_poly(gfc_code *c);
+void gfc_assign_charlen_to_unlimited_poly (gfc_code *c);
 gfc_symbol *gfc_find_derived_vtab (gfc_symbol *);
 gfc_symbol *gfc_find_vtab (gfc_typespec *);
 gfc_symtree* gfc_find_typebound_proc (gfc_symbol*, bool*,

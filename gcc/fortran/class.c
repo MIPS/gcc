@@ -36,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 
     Only for unlimited polymorphic classes:
     * _len:  An integer(4) to store the string length when the unlimited
-             polymorphic pointer is used to point to a char array. The '_len'
+             polymorphic pointer is used to point to a char array.  The '_len'
              component will be zero when no character array is stored in
              '_data'.
 
@@ -566,23 +566,24 @@ gfc_get_len_component (gfc_expr *e)
     {
       if (!ref->next
           && ref->type == REF_COMPONENT
-          && strcmp("_data", ref->u.c.component->name)== 0)
+          && strcmp ("_data", ref->u.c.component->name)== 0)
         {
-          gfc_free_ref_list(ref);
+          gfc_free_ref_list (ref);
           *last = NULL;
           break;
         }
       last = &(ref->next);
       ref = ref->next;
     }
-  gfc_add_component_ref(len_comp, "_len");
+  gfc_add_component_ref (len_comp, "_len");
   return len_comp;
 }
+
 
 /* Build a polymorphic CLASS entity, using the symbol that comes from
    build_sym. A CLASS entity is represented by an encapsulating type,
    which contains the declared type as '_data' component, plus a pointer
-   component '_vptr' which determines the dynamic type. When this CLASS
+   component '_vptr' which determines the dynamic type.  When this CLASS
    entity is unlimited polymorphic, then also add a component '_len' to
    store the length of string when that is stored in it.  */
 

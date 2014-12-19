@@ -1185,8 +1185,8 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 
   /* Assignments to the string length need to be generated, when
      ( sym is a char array or
-       sym has a _len component
-     ) and the associated expression is unlimited polymorphic, which is
+       sym has a _len component)
+     and the associated expression is unlimited polymorphic, which is
      not (yet) correctly in 'unlimited', because for an already associated
      BT_DERIVED the u-poly flag is not set, i.e.,
       __tmp_CHARACTER_0_1 => w => arg
@@ -1196,9 +1196,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
                      && e->ts.u.derived->attr.unlimited_polymorphic))
       && (sym->ts.type == BT_CHARACTER
           || ((sym->ts.type == BT_CLASS || sym->ts.type == BT_DERIVED)
-              && class_has_len_component (sym))
-          )
-      );
+              && class_has_len_component (sym))));
   /* Do a `pointer assignment' with updated descriptor (or assign descriptor
      to array temporary) for arrays with either unknown shape or if associating
      to a variable.  */
@@ -1382,7 +1380,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       tmp = gfc_class_len_get (gfc_get_symbol_decl (e->symtree->n.sym));
       gfc_get_symbol_decl (sym);
       charlen = sym->ts.type == BT_CHARACTER ? sym->ts.u.cl->backend_decl
-                                             : gfc_class_len_get (sym->backend_decl);
+                                       : gfc_class_len_get (sym->backend_decl);
       gfc_add_modify (&se.pre, charlen,
                       fold_convert (TREE_TYPE (charlen), tmp));
       gfc_add_init_cleanup (block, gfc_finish_block( &se.pre),
