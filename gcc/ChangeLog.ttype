@@ -1,5 +1,130 @@
 2014-12-19  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-core.h (struct attribute_spec): Add type_handler field.  Rename
+	handler to decl_handler.
+	* attribs.c (empty_attribute_table): Add extra field.
+	(process_attribute_spec): New.  Factored from decl_attribute to return
+	a valid attribute spec.
+	(finalize_type_attribute): New.  Factored from decl_attribute to
+	process attributes for types after error checking. 
+	(type_attributes): New.  Factored type specific portions of
+	decl_attributes.
+	(decl_attributes): Moved all type processing to other functions.
+	* attribs.h (type_attributes): Export.
+	* tree.c (handle_dll_attribute): Split into handle_dll_decl_attribute
+	and handle_dll_type_attribute.
+	* tree.h (handle_dll_decl_attribute, handle_dll_type_attribute): New
+	prototypes.
+	* c/c-decl.c (groktypename, grokdeclarator, finish_struct,
+	finish_enum): Call type_attributes.
+	* cp/decl.c (grokdeclarator): Call type_attributes.
+	* cp/decl2.c (cplus_decl_attributes): Call type_attributes when node is
+	a type.
+	* ada/gcc-interface/utils.c (gnat_internal_attribute_table): Adjust
+	handlers.
+	(finish_record_type): Call type_attribute.
+	(process_attributes): Call type_attribute or decl_attribute as needed.
+	* cp/tree.c (cxx_attribute_table): Adjust attribute handlers.
+	(handle_java_interface_decl_attributes,
+	handle_java_interface_type_attribute): Factor from
+	handle_java_interface_attribute.
+	(handle_com_interface_decl_attributes,
+	handle_com_interface_type_attribute): Factor from
+	handle_com_interface_attribute.
+	(handle_abi_tag_decl_attributes, handle_abi_tag_type_attribute): Factor
+	from handle_abi_tag_attribute.
+	* c-family/c-common.c (c_common_attribute_table): Adjust handlers.
+	(c_common_format_attribute_table): Adjust handlers.
+	(handle_packed_type_attribute, handle_packed_decl_attribute): Factor
+	from handle_packed_attribute.
+	(handle_unused_type_attribute, handle_unused_decl_attribute): Factor
+	from handle_unused_attribute.
+	(handle_transparent_union_type_attribute,
+	handle_transparent_union_decl_attribute): Factor from
+	handle_transparent_union_attribute.
+	(get_align_expr, handle_aligned_type, handle_aligned_type_attribute,
+	handle_aligned_decl_attribute): Factor from handle_aligned_attribute.
+	(handle_decl_visibility, handle_visibility_decl_attribute,
+	handle_visibility_type_attribute): factor from
+	handle_visibility_attribute.
+	(handle_fnspec_attribute): No need to assert TYPE_P any longer.
+	(handle_warn_unused_type_attribute, handle_warn_unused_decl_attribute):
+	Factor from handle_warn_unused_attribute.
+	(handle_tm_attribute): Call type_attributes.
+	(handle_deprecated_type_attribute, handle_deprecated_decl_attribute):
+	Factored from handle_deprecated_attribute.
+	* fortran/f95-lang.c (gfc_attribute_table): Adjust handlers.
+	* lto/lto-lang.c (lto_attribute_table): Adjust handlers.
+	* java/lang.c (java_attribute_table): Adjust handlers.
+	* config/alpha/alpha.c (vms_attribute_table): Adjust handlers.
+	* config/arc/arc.c (arc_attribute_table): Adjust handlers.
+	* config/arm/arm.c (arm_attribute_table): Adjust handlers.
+	(arm_handle_isr_decl_attribute, arm_handle_isr_type_attribute): Factor
+	from arm_handle_isr_attribute.
+	* config/avr/avr.c (avr_ignore_type_attribute,
+	avr_warning_type_attribute): New.  Generic handlers.
+	(avr_attribute_table): Adjust handlers.
+	* config/bfin/bfin.c (handle_int_type_attribute,
+	handle_int_decl_attribute): Factor from handle_int_attribute.
+	(bfin_handle_longcall_attribute): Impossible to ever see a FIELD_DECL
+	or a TYPE_DECL, so don't handle those cases.
+	(bfin_attribute_table): Adjust handlers.
+	* config/cr16/cr16.c (cr16_attribute_table): Adjust comments.
+	* config/darwin.h (SUBTARGET_ATTRIBUTE_TABLE): Adjust handlers.
+	* config/epiphany/epiphany.c (epiphany_attribute_table): Adjust
+	handlers.
+	* config/h8300/h8300.c (h8300_attribute_table): Adjust handlers.
+	* config/i386/cygming.h (SUBTARGET_ATTRIBUTE_TABLE): Adjust handlers.
+	* config/i386/i386.c (ix86_handle_cconv_attribute): Remove check for
+	FIELD_DECL and TYPE_DECL since they are impossible to see.
+	(ix86_handle_tm_regparm_attribute): Call type_attribute or
+	decl_attribute as required.
+	(ix86_init_tm_builtins): Call type_attributes.
+	(ix86_handle_struct_type_attribute,ix86_handle_struct_decl_attribute):
+	Factor from ix86_handle_struct_attribute.
+	(ix86_attribute_table): Adjust handlers.
+	* config/ia64/ia64.c (ia64_attribute_table): Adjust handlers.
+	* config/m32c/m32c.c (interrupt_type_handler, interrupt_decl_handler):
+	Factor from interrupt_handler.
+	(m32c_attribute_table): Adjust handlers.
+	* config/m32r/m32r.c (m32r_attribute_table): Adjust handlers.
+	* config/m68k/m68k.c (m68k_attribute_table): Adjust handlers.
+	* config/mcore/mcore.c (mcore_attribute_table): Adjust handlers.
+	* config/mep/mep.c (mep_validate_type_based_tiny,
+	mep_validate_decl_based_tiny): Factor from mep_validate_based_tiny.
+	(mep_validate_type_near_far, mep_validate_decl_near_far): Factor
+	from mep_validate_near_far.
+	(mep_validate_type_disinterrupt, mep_validate_decl_disinterrupt): Factor
+	from mep_validate_disinterrupt.
+	(mep_validate_type_warning): Issues warning handler.
+	(mep_attribute_table): Adjust handlers.
+	* config/microblaze/microblaze.c: (microblaze_attribute_table): Add
+	extra fields.
+	* config/mips/mips.c (mips_attribute_table): Adjust handlers.
+	* config/msp430/msp430.c (msp430_attribute_table): Adjust handlers.
+	* config/nds32/nds32.c (nds32_attribute_table): Add extra fields.
+	* config/nvptx/nvptx.c (nvptx_attribute_table): Adjust handlers.
+	* config/rl78/rl78.c (r178_attribute_table): Adjust handlers.
+	* config/rs6000/rs6000.c (rs600_attribute_table): Adjust handlers.
+	(rs6000_handle_longcall_attribute): Remove handling of FIELD_DECL and
+	TYPE_DECL since they are impossible to reach.
+	(rs6000_handle_struct_type_attribute,
+	rs6000_handle_struct_decl_attribute): Factor from
+	rs6000_handle_struct_attribute.
+	* config/rx/rx.c (rx_attribute_table): Adjust handlers.
+	* config/s390/s390.c (s390_attribute_table): Adjust handlers.
+	* config/sh/sh.c (sh_attribute_table): Adjust handlers.
+	* config/sol2.h (SOLARIS_ATTRIBUTE_TABLE): Add extra fields.
+	* config/sparc/sparc.c (sparc_attribute_table): Add extra fields.
+	* config/spu/spu.c (spu_attribute_table): Adjust handlers.
+	* config/stormy16/stormy16.c (xstormy16_attribute_table): Adjust
+	handlers.
+	(xstormy16_handle_below100_attribute): Don't handle POINTER_TYPE or
+	TYPE_DECL.
+	* config/v850/v850.c (v850_attribute_table): Adjust handlers.
+
+2014-12-19  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree.h (function_args_iter_init): Add a const_ttype arg.
 	* ttype.patch: Initial patch to use ttype as a struct pointer only
 	for compilation testing.

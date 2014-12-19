@@ -497,10 +497,11 @@ s390_handle_hotpatch_attribute (tree *node, tree name, tree args,
 }
 
 static const struct attribute_spec s390_attribute_table[] = {
-  { "hotpatch", 0, 1, true, false, false, s390_handle_hotpatch_attribute, false
+  { "hotpatch", 0, 1, true, false, false, s390_handle_hotpatch_attribute, NULL,
+    false
   },
   /* End element.  */
-  { NULL,        0, 0, false, false, false, NULL, false }
+  { NULL,        0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Return the alignment for LABEL.  We default to the -falign-labels
