@@ -840,7 +840,7 @@ mentions_vars_p_type (tree t)
   CHECK_VAR (TYPE_MAXVAL (t));
 
   /* Accessor is for derived node types only. */
-  CHECK_NO_VAR (t->type_non_common.binfo);
+  CHECK_NO_VAR (TYPE_BINFO_RAW (t));
 
   CHECK_VAR (TYPE_CONTEXT (t));
   CHECK_NO_VAR (TYPE_CANONICAL (t));
@@ -1583,10 +1583,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       /* TYPE_CANONICAL is re-computed during type merging, so do not
 	 compare it here.  */
       compare_tree_edges (TYPE_STUB_DECL (t1), TYPE_STUB_DECL (t2));
-    }
 
-  if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
-    {
       if (code == ENUMERAL_TYPE)
 	compare_tree_edges (TYPE_VALUES (t1), TYPE_VALUES (t2));
       else if (code == ARRAY_TYPE)
@@ -2752,7 +2749,7 @@ lto_fixup_prevailing_decls (tree t)
 
       LTO_SET_PREVAIL (TYPE_MINVAL (t));
       LTO_SET_PREVAIL (TYPE_MAXVAL (t));
-      LTO_NO_PREVAIL (t->type_non_common.binfo);
+      LTO_NO_PREVAIL (TYPE_BINFO_RAW (t));
 
       LTO_SET_PREVAIL (TYPE_CONTEXT (t));
 

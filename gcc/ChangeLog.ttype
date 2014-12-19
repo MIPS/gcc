@@ -1,0 +1,33 @@
+2014-12-19  Andrew MacLeod <amacleod@redhat.com>
+
+	* ggc-page.c (extra_order_size_tab): Use tree_type_common.
+	* lto/lto.c (mentions_vars_p_type): Use TYPE_BINFO_RAW.
+	(compare_tree_sccs_1): Don't check for TS_TYPE_NON_COMMON.
+	(lto_fixup_prevailing_decls): Use TYPE_BINFO_RAW.
+	* lto-streamer-out.c (DFS_write_tree_body, hash_tree): Don't check for
+	TS_TYPE_NON_COMMON.
+	* tree-core.h (struct tree_type_common): Flatten other type struct
+	fields into type_common.
+	(tree_type_with_lang_specific, tree_type_non_common): Remove.
+	(union tree_node): Remove type_with_lang_specific and type_non_common
+	fields.
+	* tree-streamer-in.c (lto_input_ts_type_non_common_tree_pointers):
+	Fold into write_ts_type_common_tree_pointers.
+	(streamer_write_tree_body): Don't handle type_non_common case.
+	* tree-streamer.c (streamer_check_handled_ts_structures): Remove
+	TS_TYPE_WITH_LANG_SPECIFIC and TS_TYPE_NON_COMMON cases.
+	* tree.c (tree_node_structure_for_code): Return TS_TYPE_COMMON
+	instead of TS_TYPE_NON_COMMON.
+	(initialize_tree_contains_struct): Only handle TS_TYPE_COMMON.
+	(tree_code_size, type_hash_canon): Use tree_type_common.
+	* tree.h (MARK_TS_TYPE_WITH_LANG_SPECIFIC): Remove.
+	(TYPE_LANG_SPECIFIC, TYPE_VALUES, TYPE_DOMAIN, TYPE_FIELDS,
+	TYPE_CACHED_VALUES, TYPE_VALUES_RAW, TYPE_METHODS, TYPE_VFIELD,
+	TYPE_METHOD_BASETYPE, TYPE_OFFSET_BASETYPE, TYPE_MAXVAL, TYPE_MINVAL,
+	TYPE_NEXT_PTR_TO, TYPE_NEXT_REF_TO, TYPE_MIN_VALUE, TYPE_MAX_VALUE,
+	TYPE_ARRAY_MAX_SIZE): Adjust access.
+	(TYPE_BINFO_RAW): New macro.
+	(TYPE_BINFO, TYPE_LANG_SLOT_1): Adjust access.
+	* treestruct.def (TS_TYPE_WITH_LANG_SPECIFIC, TS_TYPE_NON_COMMON):
+	Remove.
+
