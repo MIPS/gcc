@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "gimple-pretty-print.h"
 #include "tree-cfg.h"
+#include  "tree-ssanames.h"
 
 typedef enum escape_type {
   NONESCAPE = 0,
@@ -182,6 +183,105 @@ is_in_new_vars_htab (tree decl, htab_t new_vars_htab)
 					DECL_UID (decl));
 }
 
+/* This function returns type of VAR.  */
+
+static inline tree
+get_type_of_var (tree var)
+{
+  if (!var)
+    return NULL;
+
+  if (TREE_CODE (var) == PARM_DECL)
+      return DECL_ARG_TYPE (var);
+  else
+    return TREE_TYPE (var);
+}
+
+/* Strip structure TYPE from pointers and arrays.  */
+
+static inline tree
+strip_type (tree type)
+{
+  gcc_assert (TYPE_P (type));
+
+  while (POINTER_TYPE_P (type)
+	 || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  return  type;
+}
+
+/* This function looks for the variable of NEW_TYPE type, stored in VAR.
+   It returns it, if found, and NULL_TREE otherwise.  */
+
+static tree
+find_var_in_new_vars_vec (new_var var, tree new_type)
+{
+  tree n_var;
+  unsigned i;
+
+  FOR_EACH_VEC_ELT (var->new_vars, i, n_var)
+    {
+      tree type = strip_type(get_type_of_var (n_var));
+      gcc_assert (type);
+
+      if (type == new_type)
+	return n_var;
+    }
+
+  return NULL_TREE;
+}
+
+/* Given original variable ORIG_VAR, this function returns
+   new variable corresponding to it of NEW_TYPE type. */
+
+static tree
+find_new_var_of_type (tree orig_var, tree new_type)
+{
+  new_var var = NULL;
+  tree var1 = orig_var;
+  tree tmp = NULL_TREE;
+
+  gcc_assert (orig_var && new_type);
+
+  if (TREE_CODE (orig_var) == SSA_NAME)
+     var1 = SSA_NAME_VAR (orig_var);
+
+  if (var1 == NULL_TREE)
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nvar1 is NULL_TREE");
+      return tmp;
+    }
+
+  var = is_in_new_vars_htab (var1, new_global_vars);
+  if (!var)
+    {
+      fprintf (dump_file, "\nVar is not in new_global_vars.");
+      var = is_in_new_vars_htab (var1, new_local_vars);
+      if (!var)
+	fprintf (dump_file, "\nVar is not in new_local_vars.");
+    }
+
+  gcc_assert (var);
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nvar is ");
+      print_generic_expr (dump_file, var->orig_var, 0);
+      //debug_tree (var->orig_var);
+    }
+
+  tmp = find_var_in_new_vars_vec (var, new_type); 
+  if (tmp)
+    {
+      fprintf (dump_file, "\nfound var is ");
+      print_generic_expr (dump_file, tmp, 0);
+      //debug_tree (tmp);
+    }
+
+  return tmp;
+}
+
 /* This structure is used to represent array of
    wrappers of structure type. For example, if type1 
    is structure type, then for type1 ** we generate 
@@ -253,7 +353,7 @@ add_alloc_site (struct cgraph_node *node, gimple stmt, struct_symbols str)
   if (dump_file)
     {
       fprintf (dump_file, "\nAdding stmt ");
-      print_gimple_stmt (dump_file, stmt, 0, 0);
+      print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS);
       fprintf (dump_file, " to vector of allocation site of function %s.", 
 	       node->name ());
     }
@@ -484,20 +584,6 @@ add_symbol_to_struct_symbols_vec (int i, symtab_node *symbol)
     }
   else 
       symbols->symbols.safe_push (symbol);
-}
-
-/* Strip structure TYPE from pointers and arrays.  */
-
-static inline tree
-strip_type (tree type)
-{
-  gcc_assert (TYPE_P (type));
-
-  while (POINTER_TYPE_P (type)
-	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
-  return  type;
 }
 
 
@@ -737,20 +823,6 @@ analyze_structure (struct_symbols str)
 {
   str->num_fields = fields_length (str->struct_decl);
   str->fields = get_fields (str->struct_decl, str->num_fields);
-}
-
-/* This function returns type of VAR.  */
-
-static inline tree
-get_type_of_var (tree var)
-{
-  if (!var)
-    return NULL;
-
-  if (TREE_CODE (var) == PARM_DECL)
-      return DECL_ARG_TYPE (var);
-  else
-    return TREE_TYPE (var);
 }
 
 /* Check whether the type of VAR is potential candidate for peeling.
@@ -2085,9 +2157,11 @@ update_varpool_with_new_var (new_var node)
     return;
 
   FOR_EACH_VEC_ELT (node->new_vars, i, var)
-    {
-      notice_global_symbol (var);
-      varpool_add_new_variable (var);
+    {      
+      /* FIXME: if not preserved, var will be remove 
+	 after first function transform as non-referenced.  */
+      DECL_PRESERVE_P (var) = 1;
+      varpool_finalize_decl (var);
     }
 }
 
@@ -2186,10 +2260,7 @@ struct_reorg_var_transform (varpool_node *vnode)
     return;
 
   update_varpool_with_new_var (create_new_var (var_decl, new_global_vars));
-  dump_new_vars (new_global_vars);
-  
-  if (dump_file)
-    dump_symtab (dump_file);
+  dump_new_vars (new_global_vars);  
 }
 
 /* For each local variable of structure type from the vector of structures
@@ -2204,15 +2275,25 @@ create_new_local_vars (void)
   new_local_vars = htab_create (vec_safe_length (cfun->local_decls),
 				new_var_hash, new_var_eq, NULL);
 
+  if (dump_file)
+    fprintf (dump_file, "\nChecking for local variables...");
   FOR_EACH_LOCAL_DECL (cfun, ix, decl)
     {
       /* Local static varibales are in symbol table,
 	 and were treated as part of varibale_transform.  */
       if (!TREE_STATIC (decl))
-	create_new_var (decl, new_local_vars);
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "\nLocal Var is: ");
+	      print_generic_expr (dump_file, decl, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  create_new_var (decl, new_local_vars);
+	}
     }
 
-  dump_new_vars (new_local_vars); 
+  dump_new_vars (new_local_vars);
 }
 
 /* This function is a callback for traversal over new_var's hashtable.
@@ -2236,8 +2317,10 @@ static void
 free_new_vars_htab (htab_t new_vars_htab)
 {
   if (new_vars_htab)
-    htab_traverse (new_vars_htab, free_new_var, NULL);
-  htab_delete (new_vars_htab);
+    {
+      htab_traverse (new_vars_htab, free_new_var, NULL);
+      htab_delete (new_vars_htab);
+    }
   new_vars_htab = NULL;
 }
 
@@ -2285,6 +2368,403 @@ collect_alloc_sites (struct cgraph_node *node)
     }
 }
 
+/* This function checks whether ARG is a result of multiplication
+   of some number by STRUCT_SIZE. If yes, the function returns true
+   and this number is filled into NUM.  */
+
+static bool
+is_result_of_mult (tree arg, tree *num, tree struct_size)
+{
+  gimple size_def_stmt = SSA_NAME_DEF_STMT (arg);
+
+  /* If the allocation statement was of the form
+     D.2229_10 = <alloc_func> (D.2228_9);
+     then size_def_stmt can be D.2228_9 = num.3_8 * 8;  */
+
+  if (size_def_stmt && is_gimple_assign (size_def_stmt))
+    {
+      tree lhs = gimple_assign_lhs (size_def_stmt);
+
+      /* We expect temporary here.  */
+      if (!is_gimple_reg (lhs))
+	return false;
+
+      if (gimple_assign_rhs_code (size_def_stmt) == MULT_EXPR)
+	{
+	  tree arg0 = gimple_assign_rhs1 (size_def_stmt);
+	  tree arg1 = gimple_assign_rhs2 (size_def_stmt);
+
+	  if (operand_equal_p (arg0, struct_size, OEP_ONLY_CONST))
+	    {
+	      *num = arg1;
+	      return true;
+	    }
+
+	  if (operand_equal_p (arg1, struct_size, OEP_ONLY_CONST))
+	    {
+	      *num = arg0;
+	      return true;
+	    }
+	}
+    }
+
+  *num = NULL_TREE;
+  return false;
+}
+
+/* This function returns a tree representing
+   the number of instances of structure STR_DECL allocated
+   by allocation STMT. If new statements are generated,
+   they are filled into NEW_STMTS_P.  */
+
+static tree
+gen_num_of_structs_in_malloc (gimple stmt, tree str_decl,
+			      gimple_seq *new_stmts_p)
+{
+  tree arg;
+  tree struct_size;
+  HOST_WIDE_INT struct_size_int;
+
+  if (!stmt)
+    return NULL_TREE;
+
+  /* Get malloc argument.  */
+  if (!is_gimple_call (stmt))
+    return NULL_TREE;
+
+  arg = gimple_call_arg (stmt, 0);
+  //debug_tree (arg);
+
+  if (TREE_CODE (arg) != SSA_NAME
+      && !TREE_CONSTANT (arg))
+    return NULL_TREE;
+
+  struct_size = TYPE_SIZE_UNIT (str_decl);
+  struct_size_int = TREE_INT_CST_LOW (struct_size);
+
+  gcc_assert (struct_size);
+
+  if (dump_file)
+    fprintf (dump_file, "\nstruct_size_int is %ld",
+	     struct_size_int);
+
+  if (TREE_CODE (arg) == SSA_NAME)
+    {
+      tree num;
+      gimple div_stmt;
+
+      if (is_result_of_mult (arg, &num, struct_size))
+	  return num;
+
+      num = create_tmp_var (TREE_TYPE(arg)/* integer_type_node */ , NULL);
+
+      /* if (num)
+	 add_referenced_var (num); */
+
+      if (exact_log2 (struct_size_int) == -1)
+	div_stmt = gimple_build_assign_with_ops (TRUNC_DIV_EXPR, num, arg,
+						 struct_size);
+      else
+	{
+	  tree C =  build_int_cst (integer_type_node,
+				   exact_log2 (struct_size_int));
+
+	  div_stmt = gimple_build_assign_with_ops (RSHIFT_EXPR, num, arg, C);
+	}
+      gimple_seq_add_stmt (new_stmts_p, div_stmt);
+      update_stmt (div_stmt);
+      fprintf (dump_file, "\n We are in ssa_name at the end.");
+
+      if (*new_stmts_p)
+	fprintf (dump_file, "\n new_stmts_p is not 0.");
+	
+      
+      { /* Print new_stmts seq.  */
+	gimple_stmt_iterator i;
+
+	for (i = gsi_start (*new_stmts_p); !gsi_end_p (i); gsi_next (&i))
+	  {
+	    gimple gs = gsi_stmt (i);
+	    print_gimple_stmt (dump_file, gs, 0, TDF_SLIM);
+	  }
+      }
+      return num;
+    }
+
+  if (CONSTANT_CLASS_P (arg)
+      && multiple_of_p (TREE_TYPE (struct_size), arg, struct_size))
+    return int_const_binop (TRUNC_DIV_EXPR, arg, struct_size);
+  
+
+  return NULL_TREE;
+}
+
+/* Insert NEW_STMTS after STMT.  */
+
+static void
+insert_seq_after_stmt (gimple stmt, gimple_seq new_stmts)
+{
+  gimple_stmt_iterator bsi;
+
+  if (!stmt || !new_stmts)
+    return;
+
+  bsi = gsi_for_stmt (stmt);
+  gsi_insert_seq_after (&bsi, new_stmts, GSI_SAME_STMT);
+}
+
+/* Insert NEW_STMT after STMT.  */
+
+static void
+insert_after_stmt (gimple stmt, gimple new_stmt)
+{
+  gimple_stmt_iterator bsi;
+
+  if (!stmt || !new_stmt)
+    return;
+
+  bsi = gsi_for_stmt (stmt);
+  gsi_insert_after (&bsi, new_stmt, GSI_SAME_STMT);
+}
+
+/* Update call graph with new edge generated by new MALLOC_STMT.
+   The edge origin is CONTEXT function.  */
+
+static void
+update_cgraph_with_malloc_call (gimple malloc_stmt, tree context)
+{
+  struct cgraph_node *src, *dest;
+  tree malloc_fn_decl;
+
+  if (!malloc_stmt)
+    return;
+
+  malloc_fn_decl = gimple_call_fndecl (malloc_stmt);
+
+  src = cgraph_get_node (context);
+  dest = cgraph_get_node (malloc_fn_decl);
+  cgraph_create_edge (src, dest, malloc_stmt,
+		      gimple_bb (malloc_stmt)->count,
+		      compute_call_stmt_bb_frequency
+		        (context, gimple_bb (malloc_stmt)));
+} 
+
+/* This function generates stmt:
+   res = NUM * sizeof(TYPE) and returns it.
+   res is filled into RES.  */
+
+static gimple
+gen_size (tree num, tree type, tree *res)
+{
+  tree struct_size = TYPE_SIZE_UNIT (type);
+  HOST_WIDE_INT struct_size_int = TREE_INT_CST_LOW (struct_size);
+  gimple new_stmt;
+
+  *res = create_tmp_var (TREE_TYPE (num), NULL);
+
+  /* if (*res)
+     add_referenced_var (*res); */
+
+  if (exact_log2 (struct_size_int) == -1)
+    {
+      tree size = build_int_cst (TREE_TYPE (num), struct_size_int);
+      new_stmt = gimple_build_assign (*res, fold_build2 (MULT_EXPR,
+							 TREE_TYPE (num),
+							 num, size));
+    }
+  else
+    {
+      tree C = build_int_cst (TREE_TYPE (num), exact_log2 (struct_size_int));
+
+      new_stmt = gimple_build_assign (*res, fold_build2 (LSHIFT_EXPR,
+							 TREE_TYPE (num),
+							 num, C));
+    }
+
+  update_stmt (new_stmt);
+  return new_stmt;
+}
+
+/* This function generates and returns a statement, that cast variable
+   BEFORE_CAST to NEW_TYPE. The cast result variable is stored
+   into RES_P. ORIG_CAST_STMT is the original cast statement.  */
+
+static gimple
+gen_cast_stmt (tree before_cast, tree new_type, gimple orig_cast_stmt,
+	       tree *res_p)
+{
+  tree lhs, new_lhs = NULL_TREE;
+  gimple new_stmt = NULL;
+
+  lhs = gimple_assign_lhs (orig_cast_stmt);
+  new_lhs = find_new_var_of_type (lhs, new_type);
+    
+  //gcc_assert (new_lhs);
+
+  if (!new_lhs)
+    return new_stmt;
+    
+  // new_stmt = gimple_build_assign_with_ops (NOP_EXPR, new_lhs, before_cast, 0);
+  new_stmt = gimple_build_assign (new_lhs, before_cast);
+  update_stmt (new_stmt);
+  *res_p = new_lhs;
+
+  return new_stmt;
+}
+
+/* This function generates set of statements required
+   to allocate number NUM of structures of type NEW_TYPE.
+   The statements are stored in NEW_STMTS. The statement that contain
+   call to malloc is returned. MALLOC_STMT is an original call to malloc.  */
+
+static gimple
+create_new_malloc_stmt (gimple malloc_stmt, tree new_type, gimple_seq *new_stmts,
+		   tree num)
+{
+  tree new_malloc_size;
+  tree malloc_fn_decl;
+  gimple new_stmt;
+  tree malloc_res;
+  gimple call_stmt;
+
+  gcc_assert (num && malloc_stmt && new_type);
+  gcc_assert (*new_stmts == NULL); 
+
+  /* Generate argument to malloc as multiplication of num
+     and size of new_type.  */
+  new_stmt = gen_size (num, new_type, &new_malloc_size);
+  gimple_seq_add_stmt (new_stmts, new_stmt);
+
+  /* Generate new call for malloc.  */
+  if (TREE_CODE (gimple_call_lhs (malloc_stmt)) == SSA_NAME)    
+    malloc_res = make_ssa_name (ptr_type_node, NULL);
+  else if (TREE_CODE (gimple_call_lhs (malloc_stmt)) == VAR_DECL)
+    malloc_res = create_tmp_var (ptr_type_node, NULL);
+  else
+    gcc_assert (0);
+
+  malloc_fn_decl = gimple_call_fndecl (malloc_stmt);
+  call_stmt = gimple_build_call (malloc_fn_decl, 1, new_malloc_size);
+  gimple_call_set_lhs (call_stmt, malloc_res);
+  gimple_seq_add_stmt (new_stmts, call_stmt);
+  update_stmt (call_stmt);
+
+  if (dump_file) {
+    fprintf (dump_file, "\nNew malloc is ");
+    print_gimple_stmt (dump_file, call_stmt, 0, TDF_VOPS);
+  }
+
+  /*final_stmt = get_final_alloc_stmt (malloc_stmt);
+  gcc_assert (final_stmt);
+  gimple_seq_add_stmt (new_stmts, new_stmt);*/
+
+  return call_stmt;
+}
+
+/* This function adds allocation sites for peeled structures.
+   M_DATA is vector of allocation sites of function CONTEXT.  */
+
+static void
+create_new_alloc_sites_1 (tree context)
+{
+  unsigned int j;
+  alloc_site_p call; 
+
+  FOR_EACH_VEC_ELT (alloc_sites, j, call)
+    {
+      gimple stmt = call->stmt;
+      struct_symbols str = call->str;
+      tree num;
+      gimple_seq new_stmts = NULL;
+      gimple last_stmt = stmt; /* = get_final_alloc_stmt (stmt); */
+      unsigned i;
+      tree type;
+
+      if (dump_file)
+	fprintf (dump_file, "\nAllocation site number %d", j);
+
+      num = gen_num_of_structs_in_malloc (stmt, str->struct_decl, &new_stmts);
+      if (new_stmts)
+	{
+	  
+	  gimple last_stmt_tmp = gimple_seq_last_stmt (new_stmts);
+	  insert_seq_after_stmt (stmt, new_stmts);
+	  last_stmt = last_stmt_tmp;
+	  if (dump_file)
+	    print_gimple_stmt (dump_file, last_stmt, 0, TDF_SLIM);
+	}
+
+      /* Generate an allocation statements for each new structure type.  */
+      FOR_EACH_VEC_ELT (str->new_types, i, type)
+	{
+	  gimple new_malloc_stmt = NULL;
+	  gimple use_stmt;
+	  tree alloc_res;
+	  tree malloc_res;	  
+	  tree cast_res; 
+	  imm_use_iterator imm_iter;
+	  gimple new_stmt;
+	  tree vuse = NULL_TREE, vdef = NULL_TREE;
+	  // gimple last_stmt_tmp = NULL;
+
+	  if (dump_file)
+	    fprintf (dump_file, "\nNew type number %d", i);
+
+	  new_stmts = NULL;
+	  if (dump_file)
+	    {
+	      vuse = gimple_vuse (stmt);
+	      if (vuse) {
+		fprintf (dump_file, "\nVuse of malloc stmt is ");
+		print_generic_expr (dump_file, vuse, 0); }
+	      vdef = gimple_vdef (stmt);
+	      if (vdef) {
+		fprintf (dump_file, "\nVdef of malloc stmt is ");
+		print_generic_expr (dump_file, vdef, 0); }
+	    }
+	  
+	  new_malloc_stmt = create_new_malloc_stmt (stmt, type, &new_stmts, num);
+	  if (0)
+	    /* last_stmt_tmp = */gimple_seq_last_stmt (new_stmts);
+	  insert_seq_after_stmt (last_stmt, new_stmts);
+	  update_cgraph_with_malloc_call (new_malloc_stmt, context);
+	  // last_stmt = last_stmt_tmp;
+
+	  /* Create new cast statements. */
+	  
+	  alloc_res = gimple_get_lhs (stmt);
+	  gcc_assert (TREE_CODE (alloc_res) == SSA_NAME);
+	  malloc_res = gimple_get_lhs (new_malloc_stmt);
+	  
+	  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, alloc_res)
+	    {
+	      new_stmt = gen_cast_stmt (malloc_res, type, use_stmt, &cast_res);
+	      fprintf (dump_file, "\nUse stmt is ");
+	      print_gimple_stmt (dump_file, use_stmt, 0, TDF_VOPS);
+	      if (new_stmt)
+		{
+		  insert_after_stmt (use_stmt, new_stmt);
+		}
+	    }
+	}
+    }
+}
+
+/* Create new allocation sites for the function represented by NODE.  */
+
+static void
+create_new_alloc_sites (struct cgraph_node *node)
+{
+  if (!alloc_sites.exists () || !alloc_sites.length ())
+    {
+      if (dump_file)
+	fprintf (dump_file, "Allocation sites do not exist...");
+      return;
+    }
+
+  create_new_alloc_sites_1 (node->decl);
+}
+
 /* Do struct-reorg transformation for individual function
    represented by NODE. All structure types relevant
    for this function are transformed.  */
@@ -2294,11 +2774,11 @@ do_reorg_for_func (struct cgraph_node *node)
 {
   create_new_local_vars ();
   collect_alloc_sites (node);
-  /*create_new_alloc_sites_for_func (node);
-  create_new_accesses_for_func ();
+  create_new_alloc_sites (node);
+  /* create_new_accesses_for_func (); */
   update_ssa (TODO_update_ssa);
-  cleanup_tree_cfg ();
-  cgraph_rebuild_references (); */
+  /* cleanup_tree_cfg ();
+     cgraph_rebuild_references (); */
 
   /* Free auxiliary data.  */
   free_alloc_sites ();
@@ -2312,8 +2792,11 @@ struct_reorg_func_transform (struct cgraph_node *node)
 {
   if (dump_file)
     {
-      fprintf (dump_file, "\nStruct_reorg is transforming %s function.", node->name ());
+      fprintf (dump_file, "\nStruct_reorg is transforming %s function.\n", node->name ());
     }
+
+  if (dump_file)
+    dump_symtab (dump_file); 
 
   gcc_checking_assert (cfun);
   gcc_checking_assert (current_function_decl);
