@@ -4202,7 +4202,7 @@ extern int real_zerop (const_tree);
 /* Initialize the iterator I with arguments from function FNDECL  */
 
 static inline void
-function_args_iter_init (function_args_iterator *i, const_tree fntype)
+function_args_iter_init (function_args_iterator *i, const_ttype fntype)
 {
   i->next = TYPE_ARG_TYPES (fntype);
 }

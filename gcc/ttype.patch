@@ -1,0 +1,512 @@
+Index: c-family/c-common.h
+===================================================================
+*** c-family/c-common.h	(revision 218872)
+--- c-family/c-common.h	(working copy)
+*************** extern enum omp_clause_default_kind c_om
+*** 1242,1252 ****
+  static inline tree
+  c_tree_chain_next (tree t)
+  {
+-   /* TREE_CHAIN of a type is TYPE_STUB_DECL, which is different
+-      kind of object, never a long chain of nodes.  Prefer
+-      TYPE_NEXT_VARIANT for types.  */
+-   if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_TYPE_COMMON))
+-     return TYPE_NEXT_VARIANT (t);
+    /* Otherwise, if there is TREE_CHAIN, return it.  */
+    if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_COMMON))
+      return TREE_CHAIN (t);
+--- 1242,1247 ----
+Index: tree-core.h
+===================================================================
+*** tree-core.h	(revision 218966)
+--- tree-core.h	(working copy)
+*************** typedef tree (*walk_tree_fn) (tree *, in
+*** 723,730 ****
+  typedef tree (*walk_tree_lh) (tree *, int *, tree (*) (tree *, int *, void *),
+  			      void *, hash_set<tree> *);
+  
+! typedef union tree_node *ttype;
+! typedef const union tree_node *const_ttype;
+  
+  /*---------------------------------------------------------------------------
+                                Main data structures
+--- 723,730 ----
+  typedef tree (*walk_tree_lh) (tree *, int *, tree (*) (tree *, int *, void *),
+  			      void *, hash_set<tree> *);
+  
+! typedef struct tree_type_common *ttype;
+! typedef const struct tree_type_common *const_ttype;
+  
+  /*---------------------------------------------------------------------------
+                                Main data structures
+*************** union GTY ((ptr_alias (union lang_tree_n
+*** 1689,1695 ****
+    struct tree_function_decl GTY ((tag ("TS_FUNCTION_DECL"))) function_decl;
+    struct tree_translation_unit_decl GTY ((tag ("TS_TRANSLATION_UNIT_DECL")))
+      translation_unit_decl;
+-   struct tree_type_common GTY ((tag ("TS_TYPE_COMMON"))) type_common;
+    struct tree_list GTY ((tag ("TS_LIST"))) list;
+    struct tree_vec GTY ((tag ("TS_VEC"))) vec;
+    struct tree_exp GTY ((tag ("TS_EXP"))) exp;
+--- 1689,1694 ----
+Index: tree.h
+===================================================================
+*** tree.h	(revision 218966)
+--- tree.h	(working copy)
+*************** extern void omp_clause_range_check_faile
+*** 398,404 ****
+  
+  #include "tree-check.h"
+  
+! #define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, tcc_type)
+  #define DECL_MINIMAL_CHECK(T)   CONTAINS_STRUCT_CHECK (T, TS_DECL_MINIMAL)
+  #define DECL_COMMON_CHECK(T)    CONTAINS_STRUCT_CHECK (T, TS_DECL_COMMON)
+  #define DECL_WRTL_CHECK(T)      CONTAINS_STRUCT_CHECK (T, TS_DECL_WRTL)
+--- 398,404 ----
+  
+  #include "tree-check.h"
+  
+! #define TYPE_CHECK(T)		(T)
+  #define DECL_MINIMAL_CHECK(T)   CONTAINS_STRUCT_CHECK (T, TS_DECL_MINIMAL)
+  #define DECL_COMMON_CHECK(T)    CONTAINS_STRUCT_CHECK (T, TS_DECL_COMMON)
+  #define DECL_WRTL_CHECK(T)      CONTAINS_STRUCT_CHECK (T, TS_DECL_WRTL)
+*************** extern void protected_set_expr_location
+*** 1561,1582 ****
+     type.  Note also that some of the front-ends also overload these fields,
+     so they must be checked as well.  */
+  
+! #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->type_common.uid)
+! #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->type_common.size)
+! #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type_common.size_unit)
+! #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->type_common.pointer_to)
+! #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->type_common.reference_to)
+! #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->type_common.precision)
+! #define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->type_common.name)
+! #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->type_common.next_variant)
+! #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->type_common.main_variant)
+! #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->type_common.context)
+  
+  #define TYPE_MODE(NODE) \
+    (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
+!    ? vector_type_mode (NODE) : (NODE)->type_common.mode)
+  #define SET_TYPE_MODE(NODE, MODE) \
+!   (TYPE_CHECK (NODE)->type_common.mode = (MODE))
+  
+  extern machine_mode element_mode (const_tree t);
+  
+--- 1561,1582 ----
+     type.  Note also that some of the front-ends also overload these fields,
+     so they must be checked as well.  */
+  
+! #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->uid)
+! #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->size)
+! #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->size_unit)
+! #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->pointer_to)
+! #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->reference_to)
+! #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->precision)
+! #define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->name)
+! #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->next_variant)
+! #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->main_variant)
+! #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->context)
+  
+  #define TYPE_MODE(NODE) \
+    (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
+!    ? vector_type_mode (NODE) : (NODE)->mode)
+  #define SET_TYPE_MODE(NODE, MODE) \
+!   (TYPE_CHECK (NODE)->mode = (MODE))
+  
+  extern machine_mode element_mode (const_tree t);
+  
+*************** extern machine_mode element_mode (const_
+*** 1596,1602 ****
+     to each other without a conversion.  The middle-end also makes sure
+     to assign the same alias-sets to the type partition with equal
+     TYPE_CANONICAL of their unqualified variants.  */
+! #define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->type_common.canonical)
+  /* Indicates that the type node requires structural equality
+     checks.  The compiler will need to look at the composition of the
+     type to determine whether it is equal to another type, rather than
+--- 1596,1602 ----
+     to each other without a conversion.  The middle-end also makes sure
+     to assign the same alias-sets to the type partition with equal
+     TYPE_CANONICAL of their unqualified variants.  */
+! #define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->canonical)
+  /* Indicates that the type node requires structural equality
+     checks.  The compiler will need to look at the composition of the
+     type to determine whether it is equal to another type, rather than
+*************** extern machine_mode element_mode (const_
+*** 1616,1635 ****
+     other.  If the TYPE_ALIAS_SET is -1, no alias set has yet been
+     assigned to this type.  If the TYPE_ALIAS_SET is 0, objects of this
+     type can alias objects of any type.  */
+! #define TYPE_ALIAS_SET(NODE) (TYPE_CHECK (NODE)->type_common.alias_set)
+  
+  /* Nonzero iff the typed-based alias set for this type has been
+     calculated.  */
+  #define TYPE_ALIAS_SET_KNOWN_P(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.alias_set != -1)
+  
+  /* A TREE_LIST of IDENTIFIER nodes of the attributes that apply
+     to this type.  */
+! #define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->type_common.attributes)
+  
+  /* The alignment necessary for objects of this type.
+     The value is an int, measured in bits.  */
+! #define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->type_common.align)
+  
+  /* 1 if the alignment for this type was requested by "aligned" attribute,
+     0 if it is the default for this type.  */
+--- 1616,1635 ----
+     other.  If the TYPE_ALIAS_SET is -1, no alias set has yet been
+     assigned to this type.  If the TYPE_ALIAS_SET is 0, objects of this
+     type can alias objects of any type.  */
+! #define TYPE_ALIAS_SET(NODE) (TYPE_CHECK (NODE)->alias_set)
+  
+  /* Nonzero iff the typed-based alias set for this type has been
+     calculated.  */
+  #define TYPE_ALIAS_SET_KNOWN_P(NODE) \
+!   (TYPE_CHECK (NODE)->alias_set != -1)
+  
+  /* A TREE_LIST of IDENTIFIER nodes of the attributes that apply
+     to this type.  */
+! #define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->attributes)
+  
+  /* The alignment necessary for objects of this type.
+     The value is an int, measured in bits.  */
+! #define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->align)
+  
+  /* 1 if the alignment for this type was requested by "aligned" attribute,
+     0 if it is the default for this type.  */
+*************** extern machine_mode element_mode (const_
+*** 1651,1657 ****
+     the type has BLKmode only because it lacks the alignment required for
+     its size.  */
+  #define TYPE_NO_FORCE_BLK(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.no_force_blk_flag)
+  
+  /* Nonzero in a type considered volatile as a whole.  */
+  #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->base.volatile_flag)
+--- 1651,1657 ----
+     the type has BLKmode only because it lacks the alignment required for
+     its size.  */
+  #define TYPE_NO_FORCE_BLK(NODE) \
+!   (TYPE_CHECK (NODE)->no_force_blk_flag)
+  
+  /* Nonzero in a type considered volatile as a whole.  */
+  #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->base.volatile_flag)
+*************** extern machine_mode element_mode (const_
+*** 1664,1670 ****
+  
+  /* If nonzero, this type is `restrict'-qualified, in the C sense of
+     the term.  */
+! #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->type_common.restrict_flag)
+  
+  /* If nonzero, type's name shouldn't be emitted into debug info.  */
+  #define TYPE_NAMELESS(NODE) (TYPE_CHECK (NODE)->base.u.bits.nameless_flag)
+--- 1664,1670 ----
+  
+  /* If nonzero, this type is `restrict'-qualified, in the C sense of
+     the term.  */
+! #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->restrict_flag)
+  
+  /* If nonzero, type's name shouldn't be emitted into debug info.  */
+  #define TYPE_NAMELESS(NODE) (TYPE_CHECK (NODE)->base.u.bits.nameless_flag)
+*************** extern machine_mode element_mode (const_
+*** 1707,1719 ****
+  	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
+  
+  /* These flags are available for each language front end to use internally.  */
+! #define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_0)
+! #define TYPE_LANG_FLAG_1(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_1)
+! #define TYPE_LANG_FLAG_2(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_2)
+! #define TYPE_LANG_FLAG_3(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_3)
+! #define TYPE_LANG_FLAG_4(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_4)
+! #define TYPE_LANG_FLAG_5(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_5)
+! #define TYPE_LANG_FLAG_6(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_6)
+  
+  /* Used to keep track of visited nodes in tree traversals.  This is set to
+     0 by copy_node and make_node.  */
+--- 1707,1719 ----
+  	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
+  
+  /* These flags are available for each language front end to use internally.  */
+! #define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->lang_flag_0)
+! #define TYPE_LANG_FLAG_1(NODE) (TYPE_CHECK (NODE)->lang_flag_1)
+! #define TYPE_LANG_FLAG_2(NODE) (TYPE_CHECK (NODE)->lang_flag_2)
+! #define TYPE_LANG_FLAG_3(NODE) (TYPE_CHECK (NODE)->lang_flag_3)
+! #define TYPE_LANG_FLAG_4(NODE) (TYPE_CHECK (NODE)->lang_flag_4)
+! #define TYPE_LANG_FLAG_5(NODE) (TYPE_CHECK (NODE)->lang_flag_5)
+! #define TYPE_LANG_FLAG_6(NODE) (TYPE_CHECK (NODE)->lang_flag_6)
+  
+  /* Used to keep track of visited nodes in tree traversals.  This is set to
+     0 by copy_node and make_node.  */
+*************** extern machine_mode element_mode (const_
+*** 1722,1737 ****
+  /* If set in an ARRAY_TYPE, indicates a string type (for languages
+     that distinguish string from array of char).
+     If set in a INTEGER_TYPE, indicates a character type.  */
+! #define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->type_common.string_flag)
+  
+  /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
+  #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
+    (((unsigned HOST_WIDE_INT) 1) \
+!    << VECTOR_TYPE_CHECK (VECTOR_TYPE)->type_common.precision)
+  
+  /* Set precision to n when we have 2^n sub-parts of the vector.  */
+  #define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
+!   (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type_common.precision = exact_log2 (X))
+  
+  /* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
+     about missing conversions to other vector types of the same size.  */
+--- 1722,1737 ----
+  /* If set in an ARRAY_TYPE, indicates a string type (for languages
+     that distinguish string from array of char).
+     If set in a INTEGER_TYPE, indicates a character type.  */
+! #define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->string_flag)
+  
+  /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
+  #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
+    (((unsigned HOST_WIDE_INT) 1) \
+!    << VECTOR_TYPE_CHECK (VECTOR_TYPE)->precision)
+  
+  /* Set precision to n when we have 2^n sub-parts of the vector.  */
+  #define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
+!   (VECTOR_TYPE_CHECK (VECTOR_TYPE)->precision = exact_log2 (X))
+  
+  /* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
+     about missing conversions to other vector types of the same size.  */
+*************** extern machine_mode element_mode (const_
+*** 1741,1760 ****
+  /* Indicates that objects of this type must be initialized by calling a
+     function when they are created.  */
+  #define TYPE_NEEDS_CONSTRUCTING(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.needs_constructing_flag)
+  
+  /* Indicates that a UNION_TYPE object should be passed the same way that
+     the first union alternative would be passed, or that a RECORD_TYPE
+     object should be passed the same way that the first (and only) member
+     would be passed.  */
+  #define TYPE_TRANSPARENT_AGGR(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->type_common.transparent_aggr_flag)
+  
+  /* For an ARRAY_TYPE, indicates that it is not permitted to take the
+     address of a component of the type.  This is the counterpart of
+     DECL_NONADDRESSABLE_P for arrays, see the definition of this flag.  */
+  #define TYPE_NONALIASED_COMPONENT(NODE) \
+!   (ARRAY_TYPE_CHECK (NODE)->type_common.transparent_aggr_flag)
+  
+  /* Indicated that objects of this type should be laid out in as
+     compact a way as possible.  */
+--- 1741,1760 ----
+  /* Indicates that objects of this type must be initialized by calling a
+     function when they are created.  */
+  #define TYPE_NEEDS_CONSTRUCTING(NODE) \
+!   (TYPE_CHECK (NODE)->needs_constructing_flag)
+  
+  /* Indicates that a UNION_TYPE object should be passed the same way that
+     the first union alternative would be passed, or that a RECORD_TYPE
+     object should be passed the same way that the first (and only) member
+     would be passed.  */
+  #define TYPE_TRANSPARENT_AGGR(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->transparent_aggr_flag)
+  
+  /* For an ARRAY_TYPE, indicates that it is not permitted to take the
+     address of a component of the type.  This is the counterpart of
+     DECL_NONADDRESSABLE_P for arrays, see the definition of this flag.  */
+  #define TYPE_NONALIASED_COMPONENT(NODE) \
+!   (ARRAY_TYPE_CHECK (NODE)->transparent_aggr_flag)
+  
+  /* Indicated that objects of this type should be laid out in as
+     compact a way as possible.  */
+*************** extern machine_mode element_mode (const_
+*** 1764,1770 ****
+     Values are: 0 (unknown), 1 (false), 2 (true).  Never access
+     this field directly.  */
+  #define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.contains_placeholder_bits)
+  
+  /* Nonzero if RECORD_TYPE represents a final derivation of class.  */
+  #define TYPE_FINAL_P(NODE) \
+--- 1764,1770 ----
+     Values are: 0 (unknown), 1 (false), 2 (true).  Never access
+     this field directly.  */
+  #define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
+!   (TYPE_CHECK (NODE)->contains_placeholder_bits)
+  
+  /* Nonzero if RECORD_TYPE represents a final derivation of class.  */
+  #define TYPE_FINAL_P(NODE) \
+*************** extern machine_mode element_mode (const_
+*** 1780,1796 ****
+  /* Symtab field as an integer.  Used by stabs generator in dbxout.c to
+     hold the type's number in the generated stabs.  */
+  #define TYPE_SYMTAB_ADDRESS(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.symtab.address)
+  
+  /* Symtab field as a string.  Used by COFF generator in sdbout.c to
+     hold struct/union type tag names.  */
+  #define TYPE_SYMTAB_POINTER(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.symtab.pointer)
+  
+  /* Symtab field as a pointer to a DWARF DIE.  Used by DWARF generator
+     in dwarf2out.c to point to the DIE generated for the type.  */
+  #define TYPE_SYMTAB_DIE(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.symtab.die)
+  
+  /* The garbage collector needs to know the interpretation of the
+     symtab field.  These constants represent the different types in the
+--- 1780,1796 ----
+  /* Symtab field as an integer.  Used by stabs generator in dbxout.c to
+     hold the type's number in the generated stabs.  */
+  #define TYPE_SYMTAB_ADDRESS(NODE) \
+!   (TYPE_CHECK (NODE)->symtab.address)
+  
+  /* Symtab field as a string.  Used by COFF generator in sdbout.c to
+     hold struct/union type tag names.  */
+  #define TYPE_SYMTAB_POINTER(NODE) \
+!   (TYPE_CHECK (NODE)->symtab.pointer)
+  
+  /* Symtab field as a pointer to a DWARF DIE.  Used by DWARF generator
+     in dwarf2out.c to point to the DIE generated for the type.  */
+  #define TYPE_SYMTAB_DIE(NODE) \
+!   (TYPE_CHECK (NODE)->symtab.die)
+  
+  /* The garbage collector needs to know the interpretation of the
+     symtab field.  These constants represent the different types in the
+*************** extern machine_mode element_mode (const_
+*** 1801,1850 ****
+  #define TYPE_SYMTAB_IS_DIE (2)
+  
+  #define TYPE_LANG_SPECIFIC(NODE) \
+!   (TYPE_CHECK (NODE)->type_common.lang_specific)
+  
+! #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type_common.values)
+! #define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->type_common.values)
+  #define TYPE_FIELDS(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->type_common.values)
+! #define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->type_common.values)
+  #define TYPE_ARG_TYPES(NODE) \
+!   (FUNC_OR_METHOD_CHECK (NODE)->type_common.values)
+! #define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->type_common.values)
+  
+  #define TYPE_METHODS(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->type_common.maxval)
+  #define TYPE_VFIELD(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->type_common.minval)
+  #define TYPE_METHOD_BASETYPE(NODE) \
+!   (FUNC_OR_METHOD_CHECK (NODE)->type_common.maxval)
+  #define TYPE_OFFSET_BASETYPE(NODE) \
+!   (OFFSET_TYPE_CHECK (NODE)->type_common.maxval)
+! #define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->type_common.maxval)
+! #define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->type_common.minval)
+  #define TYPE_NEXT_PTR_TO(NODE) \
+!   (POINTER_TYPE_CHECK (NODE)->type_common.minval)
+  #define TYPE_NEXT_REF_TO(NODE) \
+!   (REFERENCE_TYPE_CHECK (NODE)->type_common.minval)
+  #define TYPE_MIN_VALUE(NODE) \
+!   (NUMERICAL_TYPE_CHECK (NODE)->type_common.minval)
+  #define TYPE_MAX_VALUE(NODE) \
+!   (NUMERICAL_TYPE_CHECK (NODE)->type_common.maxval)
+  
+  /* If non-NULL, this is an upper bound of the size (in bytes) of an
+     object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
+     allocated.  */
+  #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
+!   (ARRAY_TYPE_CHECK (ARRAY_TYPE)->type_common.maxval)
+  
+! #define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->type_common.binfo)
+  /* For record and union types, information about this type, as a base type
+     for itself.  */
+! #define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->type_common.binfo)
+  
+  /* For non record and union types, used in a language-dependent way.  */
+  #define TYPE_LANG_SLOT_1(NODE) \
+!   (NOT_RECORD_OR_UNION_CHECK (NODE)->type_common.binfo)
+  
+  /* Define accessor macros for information about type inheritance
+     and basetypes.
+--- 1801,1850 ----
+  #define TYPE_SYMTAB_IS_DIE (2)
+  
+  #define TYPE_LANG_SPECIFIC(NODE) \
+!   (TYPE_CHECK (NODE)->lang_specific)
+  
+! #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->values)
+! #define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->values)
+  #define TYPE_FIELDS(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->values)
+! #define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->values)
+  #define TYPE_ARG_TYPES(NODE) \
+!   (FUNC_OR_METHOD_CHECK (NODE)->values)
+! #define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->values)
+  
+  #define TYPE_METHODS(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->maxval)
+  #define TYPE_VFIELD(NODE) \
+!   (RECORD_OR_UNION_CHECK (NODE)->minval)
+  #define TYPE_METHOD_BASETYPE(NODE) \
+!   (FUNC_OR_METHOD_CHECK (NODE)->maxval)
+  #define TYPE_OFFSET_BASETYPE(NODE) \
+!   (OFFSET_TYPE_CHECK (NODE)->maxval)
+! #define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->maxval)
+! #define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->minval)
+  #define TYPE_NEXT_PTR_TO(NODE) \
+!   (POINTER_TYPE_CHECK (NODE)->minval)
+  #define TYPE_NEXT_REF_TO(NODE) \
+!   (REFERENCE_TYPE_CHECK (NODE)->minval)
+  #define TYPE_MIN_VALUE(NODE) \
+!   (NUMERICAL_TYPE_CHECK (NODE)->minval)
+  #define TYPE_MAX_VALUE(NODE) \
+!   (NUMERICAL_TYPE_CHECK (NODE)->maxval)
+  
+  /* If non-NULL, this is an upper bound of the size (in bytes) of an
+     object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
+     allocated.  */
+  #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
+!   (ARRAY_TYPE_CHECK (ARRAY_TYPE)->maxval)
+  
+! #define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->binfo)
+  /* For record and union types, information about this type, as a base type
+     for itself.  */
+! #define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->binfo)
+  
+  /* For non record and union types, used in a language-dependent way.  */
+  #define TYPE_LANG_SLOT_1(NODE) \
+!   (NOT_RECORD_OR_UNION_CHECK (NODE)->binfo)
+  
+  /* Define accessor macros for information about type inheritance
+     and basetypes.
+*************** any_integral_type_check (const_tree __t,
+*** 3230,3235 ****
+--- 3230,3261 ----
+  
+  #endif
+  
++ extern ttype tree_check (ttype, const char *, int, const char *, tree_code);
++ extern ttype tree_check (const_ttype, const char *, int, const char *,
++ 			 tree_code);
++ 
++ extern ttype tree_check2 (ttype, const char *, int, const char *,
++ 			  enum tree_code, enum tree_code);
++ extern ttype tree_check3 (ttype, const char *, int, const char *,
++ 			  enum tree_code, enum tree_code, enum tree_code);
++ extern ttype tree_not_check3 (ttype, const char *, int, const char *,
++ 			      enum tree_code, enum tree_code, enum tree_code);
++ extern ttype tree_check5 (ttype, const char *, int, const char *,
++ 			  enum tree_code, enum tree_code, enum tree_code,
++ 			  enum tree_code, enum tree_code);
++ 
++ extern const_ttype tree_check2 (const_ttype, const char *, int, const char *,
++ 				enum tree_code, enum tree_code);
++ extern const_ttype tree_check3 (const_ttype, const char *, int, const char *,
++ 				enum tree_code, enum tree_code, enum tree_code);
++ extern const_ttype tree_not_check3 (const_ttype, const char *, int,
++ 				    const char *, enum tree_code,
++ 				    enum tree_code, enum tree_code);
++ extern const_ttype tree_check5 (const_ttype, const char *, int, const char *,
++ 				enum tree_code, enum tree_code, enum tree_code,
++ 				enum tree_code, enum tree_code);
++ 
++ 
+  /* Compute the number of operands in an expression node NODE.  For
+     tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,
+     otherwise it is looked up from the node's code.  */
