@@ -1,5 +1,21 @@
 2014-12-19  Andrew MacLeod <amacleod@redhat.com>
 
+	* builtins.c (fold_builtin_atomic_always_lock_free): Don't use ttype as
+	a variable name.
+	* config/sol2-c.c (solaris_pragma_align, solaris_pragma_init,
+	solaris_pragma_fini): Likewise.
+	* cp/decl.c (layout_var_decl): Likewise.
+	* cp/error.c (dump_expr): Likewise.
+	* except.c (output_ttype): Rename to output_tt.
+	(output_one_function_exception_table): call output_tt.
+	* lto-streamer-in.c (input_eh_regions): Don't use ttype as a variable
+	name.  
+	* lto-streamer-out.c (output_eh_regions): Likewise.
+	* tree.c (build_type_attribute_qual_variant): Likewise.
+	(build_type_attribute_variant): Likewise.
+
+2014-12-19  Andrew MacLeod <amacleod@redhat.com>
+
 	* ggc-page.c (extra_order_size_tab): Use tree_type_common.
 	* lto/lto.c (mentions_vars_p_type): Use TYPE_BINFO_RAW.
 	(compare_tree_sccs_1): Don't check for TS_TYPE_NON_COMMON.
