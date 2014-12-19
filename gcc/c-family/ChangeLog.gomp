@@ -1,3 +1,11 @@
+2014-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Rename
+	OpenACC only clauses to PRAGMA_OACC_CLAUSE_* from
+	PRAGMA_OMP_CLAUSE_*.  For clauses shared by OpenMP
+	and OpenACC add PRAGMA_OACC_CLAUSE_* aliases to
+	PRAGMA_OMP_CLAUSE_* values.
+
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 

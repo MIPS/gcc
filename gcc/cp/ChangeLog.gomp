@@ -1,3 +1,15 @@
+2014-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Use PRAGMA_OACC_CLAUSE_*
+	for OpenACC only clauses.
+	(cp_parser_oacc_data_clause, cp_parser_oacc_data_clause_deviceptr,
+	cp_parser_oacc_all_clauses): Use PRAGMA_OACC_CLAUSE_* instead of
+	PRAGMA_OMP_CLAUSE_*.
+	(OACC_DATA_CLAUSE_MASK, OACC_KERNELS_CLAUSE_MASK,
+	OACC_ENTER_DATA_CLAUSE_MASK, OACC_EXIT_DATA_CLAUSE_MASK,
+	OACC_LOOP_CLAUSE_MASK, OACC_PARALLEL_CLAUSE_MASK,
+	OACC_UPDATE_CLAUSE_MASK, OACC_WAIT_CLAUSE_MASK): Likewise.
+
 2014-12-17  James Norris  <jnorris@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_clause_vector_length)
