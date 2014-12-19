@@ -12890,11 +12890,14 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
      as both the compact formatter '%:' and the delay slot NOP formatter '%/'
      work as a mutually exclusive pair.  I.e. a NOP is never required if a
      compact form is available.  */
-  if (TARGET_CB_MAYBE && !final_sequence)
+  if (!final_sequence
+      && (TARGET_CB_MAYBE
+	  || (ISA_HAS_JRC && !link_p && reg_p)))
     {
       compact = "c";
       nop = "";
     }
+
 
   if (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS)
     sprintf (s, "%%*%s%s\t%%%d%%/", insn_name, link_p ? "al" : "", target_opno);
@@ -13028,8 +13031,16 @@ mips_output_equal_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       && operands[3] == const0_rtx
       && get_attr_length (insn) <= 8)
     {
-      branch[!inverted_p] = "%*b%C1z%:\t%2,%0";
-      branch[inverted_p] = "%*b%N1z%:\t%2,%0";
+      if (mips_cb == MIPS_CB_OPTIMAL)
+	{
+	  branch[!inverted_p] = "%*b%C1z%:\t%2,%0";
+	  branch[inverted_p] = "%*b%N1z%:\t%2,%0";
+	}
+      else
+	{
+	  branch[!inverted_p] = "%*b%C1z\t%2,%0%/";
+	  branch[inverted_p] = "%*b%N1z\t%2,%0%/";
+	}
     }
   else if (TARGET_CB_MAYBE)
     {
