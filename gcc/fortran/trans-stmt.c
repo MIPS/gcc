@@ -5126,8 +5126,10 @@ gfc_trans_allocate (gfc_code * code)
 	      gfc_add_block_to_block (&se.pre, &se_sz.pre);
 	      se_sz.expr = gfc_evaluate_now (se_sz.expr, &se.pre);
 	      gfc_add_block_to_block (&se.pre, &se_sz.post);
-	      /* Store the string length.  */
-	      tmp = al->expr->ts.u.cl->backend_decl;
+	      /* Store the string length.  Get the backend_decl of the _len
+		 component for that.  */
+	      tmp = gfc_class_len_get (gfc_get_symbol_decl (
+					 expr->symtree->n.sym));
 	      gfc_add_modify (&se.pre, tmp, fold_convert (TREE_TYPE (tmp),
 			      se_sz.expr));
               tmp = TREE_TYPE (gfc_typenode_for_spec (&code->ext.alloc.ts));
