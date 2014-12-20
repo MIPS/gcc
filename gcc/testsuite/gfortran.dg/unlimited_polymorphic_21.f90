@@ -6,8 +6,9 @@ program test
     implicit none
 
     class(*), pointer :: P
+    integer :: string_len = 10 *2
 
-    allocate(character(20)::P)
+    allocate(character(string_len)::P)
 
     select type(P)
         type is (character(*))
