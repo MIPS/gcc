@@ -1,5 +1,6 @@
 ! { dg-do run }
 ! Testing fix for PR fortran/60289
+! Contributed by: Andre Vehreschild <vehre@gmx.de>
 !
 program test
     implicit none
