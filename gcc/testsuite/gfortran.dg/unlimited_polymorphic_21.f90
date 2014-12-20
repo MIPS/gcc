@@ -1,12 +1,11 @@
 ! { dg-do run }
-! Testing fix for 
-! PR fortran/60289
+! Testing fix for PR fortran/60289
 !
-program test   
+program test
     implicit none
-  
+
     class(*), pointer :: P
-   
+
     allocate(character(20)::P)
 
     select type(P)
@@ -15,7 +14,10 @@ program test
             if (P .ne. "some test string") then
                 call abort ()
             end if
-            if (len(P) .ne. len("some test string")) then
+            if (len(P) .ne. 20) then
+                call abort ()
+            end if
+            if (len(P) .eq. len("some test string")) then
                 call abort ()
             end if
         class default
