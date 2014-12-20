@@ -26,5 +26,5 @@ program test
     end select
 
     deallocate(P)
-end program test 
+end program test
 
