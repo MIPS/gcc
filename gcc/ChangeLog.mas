@@ -1,3 +1,7 @@
+2014-12-21  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+	* genmatch.c (parser::parse_simplify): Make last two parametes have default value 0. 
+	(parser::parse_pattern): Adjust call to parser::parse_simplify to avoid passing default arguments.
+
 2014-12-15  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (capture::name): New.

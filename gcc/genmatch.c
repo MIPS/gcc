@@ -2727,8 +2727,8 @@ private:
   void parse_pattern ();
   void push_simplify (vec<simplify *>&, operand *, source_location,
 		      operand *, source_location);
-  void parse_simplify (source_location, vec<simplify *>&, predicate_id *,
-		       expr *);
+  void parse_simplify (source_location, vec<simplify *>&, predicate_id * = 0,
+		       expr * = 0);
   void parse_for (source_location);
   void parse_if (source_location);
   void parse_predicates (source_location);
@@ -3494,7 +3494,7 @@ parser::parse_pattern ()
   const cpp_token *token = peek ();
   const char *id = get_ident ();
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (token->src_loc, simplifiers, NULL, NULL);
+    parse_simplify (token->src_loc, simplifiers); 
   else if (strcmp (id, "match") == 0)
     {
       bool with_args = false;
