@@ -5130,7 +5130,7 @@ gfc_trans_allocate (gfc_code * code)
 		 component for that.  */
 	      if ((expr->symtree->n.sym->ts.type == BT_CLASS
 		  || expr->symtree->n.sym->ts.type == BT_DERIVED)
-		  && expr->symtree->n.sym->ts.u.derived->attr.unlimited_polymorphic)
+		  && expr->ts.u.derived->attr.unlimited_polymorphic)
 		tmp = gfc_class_len_get (gfc_get_symbol_decl (
 					   expr->symtree->n.sym));
 	      else
