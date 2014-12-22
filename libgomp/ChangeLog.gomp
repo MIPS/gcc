@@ -1,5 +1,8 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* target.c (GOMP_target_update): To initialize, call
+	gomp_init_dev_tables instead of gomp_init_device.
+
 	* target.c (gomp_map_vars) <GOMP_MAP_TO_PSET>: Revert earlier
 	changes.
 

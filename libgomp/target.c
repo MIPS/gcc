@@ -891,7 +891,7 @@ GOMP_target_update (int device, const void *offload_table, size_t mapnum,
   struct gomp_memory_mapping *mm = &devicep->mem_map;
   gomp_mutex_lock (&mm->lock);
   if (!devicep->is_initialized)
-    gomp_init_device (devicep);
+    gomp_init_dev_tables (devicep);
   gomp_mutex_unlock (&mm->lock);
 
   if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
