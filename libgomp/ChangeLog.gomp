@@ -1,5 +1,8 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* target.c (gomp_map_vars) <GOMP_MAP_TO_PSET>: Revert earlier
+	changes.
+
 	* libgomp.h (TARGET_CAP_SHARED_MEM, TARGET_CAP_NATIVE_EXEC)
 	(TARGET_CAP_OPENMP_400, TARGET_CAP_OPENACC_200): Remove, and
 	instead...

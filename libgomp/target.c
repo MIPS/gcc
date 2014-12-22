@@ -154,27 +154,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
   tgt->device_descr = devicep;
   tgt->mem_map = mm;
 
-  /* From gcc/fortran/trans-types.c  */
-  struct descriptor_dimension
-    {
-      long stride;
-      long lbound;
-      long ubound;
-    };
-
-   struct gfc_array_descriptor
-     {
-       void *data;
-       long offset;
-       long dtype;
-       struct descriptor_dimension dimension[];
-     };
-
-#define GFC_DTYPE_RANK_MASK     0x07
-#define GFC_DTYPE_TYPE_MASK     0x38
-#define GFC_DTYPE_TYPE_SHIFT    3
-#define GFC_DTYPE_SIZE_SHIFT    6
-
   if (mapnum == 0)
     return tgt;
 
@@ -209,45 +188,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
       else
 	{
 	  tgt->list[i] = NULL;
-
-	  if ((kind & typemask) == GOMP_MAP_TO_PSET)
-	    {
-	      struct gfc_array_descriptor *gad;
-	      size_t rank;
-	      int j;
-              bool alloc_arrays = true;
-
-	      for (j = i - 1; j >= 0; j--)
-		{
-		  if (hostaddrs[j] == *(void**)hostaddrs[i])
-		    {
-		      alloc_arrays = false;
-		      break;
-		    }
-		}
-
-	      gad = (struct gfc_array_descriptor *) cur_node.host_start;
-	      rank = gad->dtype & GFC_DTYPE_RANK_MASK;
-
-	      cur_node.host_start = (uintptr_t)gad->data;
-	      cur_node.host_end = cur_node.host_start +
-				sizeof (struct gfc_array_descriptor) +
-				(sizeof (struct descriptor_dimension) * rank);
-
-	      if (alloc_arrays)
-                {
-                  size_t tsize;
-
-                  tsize = gad->dtype >> GFC_DTYPE_SIZE_SHIFT;
-
-                  for (j = 0; j < rank; j++)
-                    {
-                      cur_node.host_end += tsize *
-                        (gad->dimension[j].ubound -
-                         gad->dimension[j].lbound + 1);
-                    }
-                }
-	    }
 
 	  size_t align = (size_t) 1 << (kind >> rshift);
 	  not_found_cnt++;
@@ -419,92 +359,81 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 					    sizeof (void *));
 		    break;
 		  case GOMP_MAP_TO_PSET:
-		    {
-		      /* Copy from host to device memory.  */
-		      /* FIXME: see above FIXME comment.  */
-		      devicep->host2dev_func (devicep->target_id,
-					      (void *) (tgt->tgt_start
-							+ k->tgt_offset),
-					      (void *) k->host_start,
-					      (k->host_end - k->host_start));
-		      devicep->host2dev_func (devicep->target_id,
-					      (void *) (tgt->tgt_start
-							+ k->tgt_offset),
-					      (void *) &tgt->tgt_start,
-					      sizeof (void *));
+		    /* Copy from host to device memory.  */
+		    /* FIXME: see above FIXME comment.  */
+		    devicep->host2dev_func (devicep->target_id,
+					    (void *) (tgt->tgt_start
+						      + k->tgt_offset),
+					    (void *) k->host_start,
+					    k->host_end - k->host_start);
 
-		      for (j = i + 1; j < mapnum; j++)
-			if (!GOMP_MAP_POINTER_P (get_kind (is_openacc, kinds, j)
-						 & typemask))
-			  break;
-			else if ((uintptr_t) hostaddrs[j] < k->host_start
-				 || ((uintptr_t) hostaddrs[j] + sizeof (void *)
-				     > k->host_end))
-			  break;
-			else
-			  {
-			    tgt->list[j] = k;
-			    k->refcount++;
-			    cur_node.host_start
-			      = (uintptr_t) *(void **) hostaddrs[j];
-			    if (cur_node.host_start == (uintptr_t) NULL)
-			      {
-			        cur_node.tgt_offset = (uintptr_t) NULL;
-			        /* Copy from host to device memory.  */
-			        /* FIXME: see above FIXME comment.  */
-			        devicep->host2dev_func (devicep->target_id,
-							(void *) (tgt->tgt_start
-								  + k->tgt_offset
-								  + ((uintptr_t) hostaddrs[j]
-								     - k->host_start)),
-							(void *) &cur_node.tgt_offset,
-							sizeof (void *));
-			        i++;
-			        continue;
-			      }
-			    /* Add bias to the pointer value.  */
-			    cur_node.host_start += sizes[j];
-			    cur_node.host_end = cur_node.host_start + 1;
-			    n = splay_tree_lookup (&mm->splay_tree, &cur_node);
-			    if (n == NULL)
-			      {
-			        /* Could be possibly zero size array
-				   section.  */
-			        cur_node.host_end--;
-			        n = splay_tree_lookup (&mm->splay_tree,
+		    for (j = i + 1; j < mapnum; j++)
+		      if (!GOMP_MAP_POINTER_P (get_kind (is_openacc, kinds, j)
+					       & typemask))
+			break;
+		      else if ((uintptr_t) hostaddrs[j] < k->host_start
+			       || ((uintptr_t) hostaddrs[j] + sizeof (void *)
+				   > k->host_end))
+			break;
+		      else
+			{
+			  tgt->list[j] = k;
+			  k->refcount++;
+			  cur_node.host_start
+			    = (uintptr_t) *(void **) hostaddrs[j];
+			  if (cur_node.host_start == (uintptr_t) NULL)
+			    {
+			      cur_node.tgt_offset = (uintptr_t) NULL;
+			      /* Copy from host to device memory.  */
+			      /* FIXME: see above FIXME comment.  */
+			      devicep->host2dev_func (devicep->target_id,
+				 (void *) (tgt->tgt_start + k->tgt_offset
+					   + ((uintptr_t) hostaddrs[j]
+					      - k->host_start)),
+				 (void *) &cur_node.tgt_offset,
+				 sizeof (void *));
+			      i++;
+			      continue;
+			    }
+			  /* Add bias to the pointer value.  */
+			  cur_node.host_start += sizes[j];
+			  cur_node.host_end = cur_node.host_start + 1;
+			  n = splay_tree_lookup (&mm->splay_tree, &cur_node);
+			  if (n == NULL)
+			    {
+			      /* Could be possibly zero size array section.  */
+			      cur_node.host_end--;
+			      n = splay_tree_lookup (&mm->splay_tree,
 						     &cur_node);
-			        if (n == NULL)
-				  {
-				    cur_node.host_start--;
-				    n = splay_tree_lookup (&mm->splay_tree,
+			      if (n == NULL)
+				{
+				  cur_node.host_start--;
+				  n = splay_tree_lookup (&mm->splay_tree,
 							 &cur_node);
-				    cur_node.host_start++;
-				  }
-			      }
-			    if (n == NULL)
-				gomp_fatal ("Pointer target of array section "
+				  cur_node.host_start++;
+				}
+			    }
+			  if (n == NULL)
+			    gomp_fatal ("Pointer target of array section "
 					"wasn't mapped");
-			    cur_node.host_start -= n->host_start;
-			    cur_node.tgt_offset = n->tgt->tgt_start
+			  cur_node.host_start -= n->host_start;
+			  cur_node.tgt_offset = n->tgt->tgt_start
 						+ n->tgt_offset
 						+ cur_node.host_start;
-			    /* At this point tgt_offset is target address of the
-			       array section.  Now subtract bias to get what we
-			       want to initialize the pointer with.  */
-			    cur_node.tgt_offset -= sizes[j];
-			    /* Copy from host to device memory.  */
-			    /* FIXME: see above FIXME comment.  */
-
-			    devicep->host2dev_func (devicep->target_id,
-						    (void *) (tgt->tgt_start
-							      + k->tgt_offset
-							      + ((uintptr_t) hostaddrs[j]
-								 - k->host_start)),
-						    (void *) &cur_node.tgt_offset,
-						    sizeof (void *));
-			    i++;
-			  }
-		    }
+			  /* At this point tgt_offset is target address of the
+			     array section.  Now subtract bias to get what we
+			     want to initialize the pointer with.  */
+			  cur_node.tgt_offset -= sizes[j];
+			  /* Copy from host to device memory.  */
+			  /* FIXME: see above FIXME comment.  */
+			  devicep->host2dev_func (devicep->target_id,
+			     (void *) (tgt->tgt_start + k->tgt_offset
+				       + ((uintptr_t) hostaddrs[j]
+					  - k->host_start)),
+			     (void *) &cur_node.tgt_offset,
+			     sizeof (void *));
+			  i++;
+			}
 		    break;
 		  case GOMP_MAP_FORCE_PRESENT:
 		    {
@@ -533,11 +462,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	      }
 	  }
     }
-
-#undef GFC_DTYPE_RANK_MASK
-#undef GFC_DTYPE_TYPE_MASK
-#undef GFC_DTYPE_TYPE_SHIFT
-#undef GFC_DTYPE_SIZE_SHIFT
 
   if (is_target)
     {
