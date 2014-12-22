@@ -352,5 +352,5 @@ CFLAGS="$save_CFLAGS"
 
 AC_CONFIG_FILES(omp.h omp_lib.h omp_lib.f90 libgomp_f.h)
 AC_CONFIG_FILES(Makefile testsuite/Makefile libgomp.spec)
-AC_CONFIG_FILES([testsuite/libgomp-test-support.exp])
+AC_CONFIG_FILES([testsuite/libgomp-test-support.pt.exp:testsuite/libgomp-test-support.exp.in])
 AC_OUTPUT

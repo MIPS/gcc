@@ -56,7 +56,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES = libgomp-test-support.exp
+CONFIG_CLEAN_FILES = libgomp-test-support.pt.exp
 CONFIG_CLEAN_VPATH_FILES =
 SOURCES =
 DEJATOOL = $(PACKAGE)
@@ -258,7 +258,7 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
-libgomp-test-support.exp: $(top_builddir)/config.status $(srcdir)/libgomp-test-support.exp.in
+libgomp-test-support.pt.exp: $(top_builddir)/config.status $(srcdir)/libgomp-test-support.exp.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 
 mostlyclean-libtool:
@@ -313,7 +313,7 @@ distclean-DEJAGNU:
 check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) check-DEJAGNU
 check: check-am
-all-am: Makefile
+all-am: Makefile all-local
 installdirs:
 install: install-am
 install-exec: install-exec-am
@@ -408,18 +408,31 @@ uninstall-am:
 
 .MAKE: check-am install-am install-strip
 
-.PHONY: all all-am check check-DEJAGNU check-am clean clean-generic \
-	clean-libtool distclean distclean-DEJAGNU distclean-generic \
-	distclean-libtool dvi dvi-am html html-am info info-am install \
-	install-am install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	uninstall uninstall-am
+.PHONY: all all-am all-local check check-DEJAGNU check-am clean \
+	clean-generic clean-libtool distclean distclean-DEJAGNU \
+	distclean-generic distclean-libtool dvi dvi-am html html-am \
+	info info-am install install-am install-data install-data-am \
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-info install-info-am \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
+	ps ps-am uninstall uninstall-am
 
+
+# Instead of directly in ../testsuite/libgomp-test-support.exp.in, the
+# following variables have to be "routed through" this Makefile, for expansion
+# of the several (Makefile) variables used therein.
+libgomp-test-support.exp: libgomp-test-support.pt.exp Makefile
+	cp $< $@.tmp
+	echo >> $@.tmp \
+	  'set offload_additional_options "$(offload_additional_options)"'
+	echo >> $@.tmp \
+	  'set offload_additional_lib_paths "$(offload_additional_lib_paths)"'
+	mv $@.tmp $@
+
+all-local: libgomp-test-support.exp
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

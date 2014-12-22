@@ -1,3 +1,15 @@
+2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp-test-support.exp.in
+	(offload_additional_options, offload_additional_lib_paths): Don't
+	set.
+	* configure.ac: Instantiate testsuite/libgomp-test-support.pt.exp
+	instead of testsuite/libgomp-test-support.exp.
+	* testsuite/Makefile.am (libgomp-test-support.exp): New rule.
+	(all-local): Depend on it.
+	* configure: Regenerate.
+	* testsuite/Makefile.in: Likewise.
+
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
 

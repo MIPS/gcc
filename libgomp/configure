@@ -16553,7 +16553,7 @@ ac_config_files="$ac_config_files omp.h omp_lib.h omp_lib.f90 libgomp_f.h"
 
 ac_config_files="$ac_config_files Makefile testsuite/Makefile libgomp.spec"
 
-ac_config_files="$ac_config_files testsuite/libgomp-test-support.exp"
+ac_config_files="$ac_config_files testsuite/libgomp-test-support.pt.exp:testsuite/libgomp-test-support.exp.in"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -17699,7 +17699,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "testsuite/Makefile") CONFIG_FILES="$CONFIG_FILES testsuite/Makefile" ;;
     "libgomp.spec") CONFIG_FILES="$CONFIG_FILES libgomp.spec" ;;
-    "testsuite/libgomp-test-support.exp") CONFIG_FILES="$CONFIG_FILES testsuite/libgomp-test-support.exp" ;;
+    "testsuite/libgomp-test-support.pt.exp") CONFIG_FILES="$CONFIG_FILES testsuite/libgomp-test-support.pt.exp:testsuite/libgomp-test-support.exp.in" ;;
 
   *) as_fn_error "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
