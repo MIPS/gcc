@@ -259,7 +259,7 @@ acc_map_data (void *h, void *d, size_t s)
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 
-  if (acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
+  if (acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     {
       if (d != h)
         gomp_fatal ("cannot map data on shared-memory system");

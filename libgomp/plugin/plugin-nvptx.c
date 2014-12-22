@@ -1483,23 +1483,22 @@ nvptx_set_cuda_stream (int async, void *stream)
 
 /* Plugin entry points.  */
 
-
-int
-GOMP_OFFLOAD_get_type (void)
+const char *
+GOMP_OFFLOAD_get_name (void)
 {
-  return OFFLOAD_TARGET_TYPE_NVIDIA_PTX;
+  return "nvptx";
 }
 
 unsigned int
 GOMP_OFFLOAD_get_caps (void)
 {
-  return TARGET_CAP_OPENACC_200;
+  return GOMP_OFFLOAD_CAP_OPENACC_200;
 }
 
-const char *
-GOMP_OFFLOAD_get_name (void)
+int
+GOMP_OFFLOAD_get_type (void)
 {
-  return "nvptx";
+  return OFFLOAD_TARGET_TYPE_NVIDIA_PTX;
 }
 
 int

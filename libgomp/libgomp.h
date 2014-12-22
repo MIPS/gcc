@@ -662,11 +662,6 @@ struct target_mem_desc {
   splay_tree_key list[];
 };
 
-#define TARGET_CAP_SHARED_MEM	1
-#define TARGET_CAP_NATIVE_EXEC	2
-#define TARGET_CAP_OPENMP_400	4
-#define TARGET_CAP_OPENACC_200	8
-
 /* Information about mapped memory regions (per device/context).  */
 
 struct gomp_memory_mapping

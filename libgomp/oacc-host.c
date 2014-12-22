@@ -35,8 +35,9 @@ static struct gomp_device_descr host_dispatch =
     .name = "host",
 
     .type = OFFLOAD_TARGET_TYPE_HOST,
-    .capabilities = TARGET_CAP_OPENACC_200 | TARGET_CAP_NATIVE_EXEC
-		    | TARGET_CAP_SHARED_MEM,
+    .capabilities = (GOMP_OFFLOAD_CAP_OPENACC_200
+		     | GOMP_OFFLOAD_CAP_NATIVE_EXEC
+		     | GOMP_OFFLOAD_CAP_SHARED_MEM),
     .id = 0,
 
     .is_initialized = false,

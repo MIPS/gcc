@@ -70,6 +70,19 @@ GOMP_OFFLOAD_get_name (void)
 #endif
 }
 
+STATIC unsigned int
+GOMP_OFFLOAD_get_caps (void)
+{
+  unsigned int caps = (GOMP_OFFLOAD_CAP_OPENACC_200
+		       | GOMP_OFFLOAD_CAP_NATIVE_EXEC);
+
+#ifndef HOST_NONSHM_PLUGIN
+  caps |= GOMP_OFFLOAD_CAP_SHARED_MEM;
+#endif
+
+  return caps;
+}
+
 STATIC int
 GOMP_OFFLOAD_get_type (void)
 {
@@ -78,18 +91,6 @@ GOMP_OFFLOAD_get_type (void)
 #else
   return OFFLOAD_TARGET_TYPE_HOST;
 #endif
-}
-
-STATIC unsigned int
-GOMP_OFFLOAD_get_caps (void)
-{
-  unsigned int caps = TARGET_CAP_OPENACC_200 | TARGET_CAP_NATIVE_EXEC;
-
-#ifndef HOST_NONSHM_PLUGIN
-  caps |= TARGET_CAP_SHARED_MEM;
-#endif
-
-  return caps;
 }
 
 STATIC int

@@ -1,5 +1,13 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.h (TARGET_CAP_SHARED_MEM, TARGET_CAP_NATIVE_EXEC)
+	(TARGET_CAP_OPENMP_400, TARGET_CAP_OPENACC_200): Remove, and
+	instead...
+	* libgomp_target.h (GOMP_OFFLOAD_CAP_SHARED_MEM)
+	(GOMP_OFFLOAD_CAP_NATIVE_EXEC, GOMP_OFFLOAD_CAP_OPENMP_400)
+	(GOMP_OFFLOAD_CAP_OPENACC_200): ... add these new definitions.
+	Change all users.
+
 	* plugin/plugin-nvptx.c (GOMP_OFFLOAD_get_name): Return "nvptx".
 	* oacc-init.c (resolve_device): Update for that using...
 	(get_openacc_name): ... this new function.

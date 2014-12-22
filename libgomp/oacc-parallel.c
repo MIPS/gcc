@@ -131,7 +131,7 @@ GOACC_parallel (int device, void (*fn) (void *), const void *offload_table,
 
   acc_dev->openacc.async_set_async_func (async);
 
-  if (!(acc_dev->capabilities & TARGET_CAP_NATIVE_EXEC))
+  if (!(acc_dev->capabilities & GOMP_OFFLOAD_CAP_NATIVE_EXEC))
     {
       k.host_start = (uintptr_t) fn;
       k.host_end = k.host_start + 1;
@@ -187,7 +187,7 @@ GOACC_data_start (int device, const void *offload_table, size_t mapnum,
   struct gomp_device_descr *acc_dev = thr->dev;
 
   /* Host fallback or 'do nothing'.  */
-  if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
+  if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
       || host_fallback)
     {
       tgt = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, true, false);
@@ -233,7 +233,7 @@ GOACC_enter_exit_data (int device, const void *offload_table, size_t mapnum,
   thr = goacc_thread ();
   acc_dev = thr->dev;
 
-  if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
+  if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
       || host_fallback)
     return;
 
@@ -445,7 +445,7 @@ GOACC_update (int device, const void *offload_table, size_t mapnum,
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 
-  if ((acc_dev->capabilities & TARGET_CAP_SHARED_MEM)
+  if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
       || host_fallback)
     return;
 

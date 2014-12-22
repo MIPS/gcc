@@ -844,7 +844,8 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
   if (devicep != NULL && !devicep->is_initialized)
     gomp_init_dev_tables (devicep);
 
-  if (devicep == NULL || !(devicep->capabilities & TARGET_CAP_OPENMP_400))
+  if (devicep == NULL
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     {
       /* Host fallback.  */
       struct gomp_thread old_thr, *thr = gomp_thread ();
@@ -863,7 +864,7 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
 
   void *fn_addr;
 
-  if (devicep->capabilities & TARGET_CAP_NATIVE_EXEC)
+  if (devicep->capabilities & GOMP_OFFLOAD_CAP_NATIVE_EXEC)
     fn_addr = (void *) fn;
   else
     {
@@ -909,7 +910,8 @@ GOMP_target_data (int device, const void *offload_table, size_t mapnum,
   if (devicep != NULL && !devicep->is_initialized)
     gomp_init_dev_tables (devicep);
 
-  if (devicep == NULL || !(devicep->capabilities & TARGET_CAP_OPENMP_400))
+  if (devicep == NULL
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     {
       /* Host fallback.  */
       struct gomp_task_icv *icv = gomp_icv (false);
@@ -968,7 +970,7 @@ GOMP_target_update (int device, const void *offload_table, size_t mapnum,
     gomp_init_device (devicep);
   gomp_mutex_unlock (&mm->lock);
 
-  if (!(devicep->capabilities & TARGET_CAP_OPENMP_400))
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     return;
 
   gomp_update (devicep, &devicep->mem_map, mapnum, hostaddrs, sizes, kinds,
@@ -1050,9 +1052,9 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   DLSYM (dev2host);
   DLSYM (host2dev);
   device->capabilities = device->get_caps_func ();
-  if (device->capabilities & TARGET_CAP_OPENMP_400)
+  if (device->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
     DLSYM (run);
-  if (device->capabilities & TARGET_CAP_OPENACC_200)
+  if (device->capabilities & GOMP_OFFLOAD_CAP_OPENACC_200)
     {
       optional_present = optional_total = 0;
       DLSYM_OPT (openacc.exec, openacc_parallel);
@@ -1071,7 +1073,8 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
       DLSYM_OPT (openacc.async_set_async, openacc_async_set_async);
       DLSYM_OPT (openacc.create_thread_data, openacc_create_thread_data);
       DLSYM_OPT (openacc.destroy_thread_data, openacc_destroy_thread_data);
-      /* Require all the OpenACC handlers if we have TARGET_CAP_OPENACC_200.  */
+      /* Require all the OpenACC handlers if we have
+	 GOMP_OFFLOAD_CAP_OPENACC_200.  */
       if (optional_present != optional_total)
 	{
 	  err = "plugin missing OpenACC handler function";
@@ -1197,16 +1200,17 @@ gomp_target_init (void)
       }
     while (next);
 
-  /* Prefer a device with TARGET_CAP_OPENMP_400 for ICV default-device-var.  */
+  /* Prefer a device with GOMP_OFFLOAD_CAP_OPENMP_400 for ICV
+     default-device-var.  */
   if (num_devices > 1)
     {
       int d = gomp_icv (false)->default_device_var;
 
-      if (!(devices[d].capabilities & TARGET_CAP_OPENMP_400))
+      if (!(devices[d].capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
 	{
 	  for (i = 0; i < num_devices; i++)
 	    {
-	      if (devices[i].capabilities & TARGET_CAP_OPENMP_400)
+	      if (devices[i].capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
 		{
 		  struct gomp_device_descr device_tmp = devices[d];
 		  devices[d] = devices[i];
@@ -1230,7 +1234,7 @@ gomp_target_init (void)
       /* The 'devices' array can be moved (by the realloc call) until we have
 	 found all the plugins, so registering with the OpenACC runtime (which
 	 takes a copy of the pointer argument) must be delayed until now.  */
-      if (devices[i].capabilities & TARGET_CAP_OPENACC_200)
+      if (devices[i].capabilities & GOMP_OFFLOAD_CAP_OPENACC_200)
 	goacc_register (&devices[i]);
     }
 

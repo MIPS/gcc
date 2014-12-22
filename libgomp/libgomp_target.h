@@ -25,6 +25,12 @@
 #ifndef LIBGOMP_TARGET_H
 #define LIBGOMP_TARGET_H 1
 
+/* Capabilities of offloading devices.  */
+#define GOMP_OFFLOAD_CAP_SHARED_MEM	(1 << 0)
+#define GOMP_OFFLOAD_CAP_NATIVE_EXEC	(1 << 1)
+#define GOMP_OFFLOAD_CAP_OPENMP_400	(1 << 2)
+#define GOMP_OFFLOAD_CAP_OPENACC_200	(1 << 3)
+
 /* Type of offload target device.  Keep in sync with include/gomp-constants.h.  */
 enum offload_target_type
 {
