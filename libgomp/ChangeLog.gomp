@@ -1,5 +1,8 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.h (struct gomp_device_descr): Remove id member.  Update
+	all users.
+
 	* libgomp.h (gomp_init_tables): Remove const qualifier from struct
 	gomp_device_descr.  Change all users.
 	* oacc-int.h (base_dev, goacc_register): Likewise.

@@ -736,10 +736,6 @@ struct gomp_device_descr
   /* Capabilities of device (supports OpenACC, OpenMP).  */
   unsigned int capabilities;
 
-  /* This is the ID number of device.  It could be specified in DEVICE-clause of
-     TARGET construct.  */
-  int id;
-
   /* This is the ID number of device among devices of the same type.  */
   int target_id;
 

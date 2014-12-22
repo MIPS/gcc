@@ -1108,7 +1108,6 @@ gomp_target_init (void)
 		current_device.openacc.target_data = NULL;
 		for (i = 0; i < new_num_devices; i++)
 		  {
-		    current_device.id = num_devices + 1;
 		    current_device.target_id = i;
 		    devices[num_devices] = current_device;
 		    gomp_mutex_init (&devices[num_devices].mem_map.lock);
@@ -1136,9 +1135,7 @@ gomp_target_init (void)
 		{
 		  struct gomp_device_descr device_tmp = devices[d];
 		  devices[d] = devices[i];
-		  devices[d].id = d + 1;
 		  devices[i] = device_tmp;
-		  devices[i].id = i + 1;
 
 		  break;
 		}
