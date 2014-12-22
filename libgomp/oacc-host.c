@@ -96,5 +96,6 @@ static __attribute__ ((constructor))
 void goacc_host_init (void)
 {
   gomp_mutex_init (&host_dispatch.mem_map.lock);
+  gomp_mutex_init (&host_dispatch.lock);
   goacc_register (&host_dispatch);
 }

@@ -1,5 +1,17 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.c (struct gomp_device_descr): Add lock member.
+	* oacc-host.c (goacc_host_init): Initialize it.
+	* target.c (gomp_target_init): Likewise.
+	(gomp_init_dev_tables): Remove function.
+	(GOMP_target, GOMP_target_data, GOMP_target_update): Instead of
+	calling gomp_init_dev_tables, separate device and memory mapping
+	initilization, guarded by appropriate locking.  Check (immutable)
+	device capabilities early.
+
+	* oacc-init.c (lazy_open, acc_shutdown_1): Lock mem_map when in
+	use.
+
 	* target.c (num_devices_openmp): New variable.
 	(gomp_get_num_devices): Use it.
 	(gomp_target_init): Initialize it, and sort the devices array

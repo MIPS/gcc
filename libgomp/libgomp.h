@@ -682,9 +682,11 @@ typedef struct acc_dispatch_t
      acc_map_data/acc_unmap_data or "acc enter data"/"acc exit data" pragmas
      (TODO).  Unlike mapped_data in the goacc_thread struct, unmapping can
      happen out-of-order with respect to mapping.  */
+  /* This is guarded by the lock in the "outer" struct gomp_device_descr.  */
   struct target_mem_desc *data_environ;
 
   /* Extra information required for a device instance by a given target.  */
+  /* This is guarded by the lock in the "outer" struct gomp_device_descr.  */
   void *target_data;
 
   /* Open or close a device instance.  */
@@ -730,6 +732,9 @@ typedef struct acc_dispatch_t
    mapped memory.  */
 struct gomp_device_descr
 {
+  /* Immutable data, which is only set during initialization, and which is not
+     guarded by the lock.  */
+
   /* The name of the device.  */
   const char *name;
 
@@ -764,10 +769,16 @@ struct gomp_device_descr
   void (*run_func) (int, void *, void *);
 
   /* OpenACC-specific functions.  */
+  /* This is mutable because of its mutable data_environ and target_data
+     members.  */
   acc_dispatch_t openacc;
 
   /* Memory-mapping info for this device instance.  */
+  /* Uses a separate lock.  */
   struct gomp_memory_mapping mem_map;
+
+  /* Mutex for the mutable data.  */
+  gomp_mutex_t lock;
 };
 
 extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);

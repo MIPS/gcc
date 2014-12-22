@@ -44,6 +44,7 @@
 
 static void gomp_target_init (void);
 
+/* The whole initialization code for offloading plugins is only run one.  */
 static pthread_once_t gomp_is_initialized = PTHREAD_ONCE_INIT;
 
 /* This structure describes an offload image.
@@ -169,6 +170,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
       tgt_size = mapnum * sizeof (void *);
     }
   gomp_mutex_lock (&mm->lock);
+
   for (i = 0; i < mapnum; i++)
     {
       int kind = get_kind (is_openacc, kinds, i);
@@ -552,8 +554,9 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
       return;
     }
 
-  size_t i;
   gomp_mutex_lock (&mm->lock);
+
+  size_t i;
   for (i = 0; i < tgt->list_count; i++)
     if (tgt->list[i] == NULL)
       ;
@@ -580,6 +583,7 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
     tgt->refcount--;
   else
     gomp_unmap_tgt (tgt);
+
   gomp_mutex_unlock (&mm->lock);
 }
 
@@ -669,16 +673,18 @@ GOMP_offload_register (void *host_table, enum offload_target_type target_type,
   num_offload_images++;
 }
 
-/* This function initializes the target device, specified by DEVICEP.  */
+/* This function initializes the target device, specified by DEVICEP.  DEVICEP
+   must be locked on entry, and remains locked on return.  */
 
 attribute_hidden void
 gomp_init_device (struct gomp_device_descr *devicep)
 {
-  /* Initialize the target device.  */
   devicep->init_device_func (devicep->target_id);
-
   devicep->is_initialized = true;
 }
+
+/* Initialize address mapping tables.  MM must be locked on entry, and remains
+   locked on return.  */
 
 attribute_hidden void
 gomp_init_tables (struct gomp_device_descr *devicep,
@@ -716,13 +722,8 @@ gomp_init_tables (struct gomp_device_descr *devicep,
   mm->is_initialized = true;
 }
 
-static void
-gomp_init_dev_tables (struct gomp_device_descr *devicep)
-{
-  gomp_init_device (devicep);
-  gomp_init_tables (devicep, &devicep->mem_map);
-}
-
+/* Free address mapping tables.  MM must be locked on entry, and remains locked
+   on return.  */
 
 attribute_hidden void
 gomp_free_memmap (struct gomp_memory_mapping *mm)
@@ -738,6 +739,9 @@ gomp_free_memmap (struct gomp_memory_mapping *mm)
 
   mm->is_initialized = false;
 }
+
+/* This function de-initializes the target device, specified by DEVICEP.
+   DEVICEP must be locked on entry, and remains locked on return.  */
 
 attribute_hidden void
 gomp_fini_device (struct gomp_device_descr *devicep)
@@ -766,9 +770,6 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
 {
   struct gomp_device_descr *devicep = resolve_device (device);
 
-  if (devicep != NULL && !devicep->is_initialized)
-    gomp_init_dev_tables (devicep);
-
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     {
@@ -787,6 +788,11 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
       return;
     }
 
+  gomp_mutex_lock (&devicep->lock);
+  if (!devicep->is_initialized)
+    gomp_init_device (devicep);
+  gomp_mutex_unlock (&devicep->lock);
+
   void *fn_addr;
 
   if (devicep->capabilities & GOMP_OFFLOAD_CAP_NATIVE_EXEC)
@@ -795,15 +801,17 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
     {
       struct gomp_memory_mapping *mm = &devicep->mem_map;
       gomp_mutex_lock (&mm->lock);
-      if (!devicep->is_initialized)
-	gomp_init_dev_tables (devicep);
+
+      if (!mm->is_initialized)
+	gomp_init_tables (devicep, mm);
+
       struct splay_tree_key_s k;
       k.host_start = (uintptr_t) fn;
       k.host_end = k.host_start + 1;
-      splay_tree_key tgt_fn = splay_tree_lookup (&devicep->mem_map.splay_tree,
-						 &k);
+      splay_tree_key tgt_fn = splay_tree_lookup (&mm->splay_tree, &k);
       if (tgt_fn == NULL)
 	gomp_fatal ("Target function wasn't mapped");
+
       gomp_mutex_unlock (&mm->lock);
 
       fn_addr = (void *) tgt_fn->tgt->tgt_start;
@@ -832,9 +840,6 @@ GOMP_target_data (int device, const void *offload_table, size_t mapnum,
 {
   struct gomp_device_descr *devicep = resolve_device (device);
 
-  if (devicep != NULL && !devicep->is_initialized)
-    gomp_init_dev_tables (devicep);
-
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     {
@@ -854,10 +859,15 @@ GOMP_target_data (int device, const void *offload_table, size_t mapnum,
       return;
     }
 
+  gomp_mutex_lock (&devicep->lock);
+  if (!devicep->is_initialized)
+    gomp_init_device (devicep);
+  gomp_mutex_unlock (&devicep->lock);
+
   struct gomp_memory_mapping *mm = &devicep->mem_map;
   gomp_mutex_lock (&mm->lock);
-  if (!devicep->is_initialized)
-    gomp_init_dev_tables (devicep);
+  if (!mm->is_initialized)
+    gomp_init_tables (devicep, mm);
   gomp_mutex_unlock (&mm->lock);
 
   struct target_mem_desc *tgt
@@ -886,20 +896,22 @@ GOMP_target_update (int device, const void *offload_table, size_t mapnum,
 {
   struct gomp_device_descr *devicep = resolve_device (device);
 
-  if (devicep == NULL)
+  if (devicep == NULL
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     return;
+
+  gomp_mutex_lock (&devicep->lock);
+  if (!devicep->is_initialized)
+    gomp_init_device (devicep);
+  gomp_mutex_unlock (&devicep->lock);
 
   struct gomp_memory_mapping *mm = &devicep->mem_map;
   gomp_mutex_lock (&mm->lock);
-  if (!devicep->is_initialized)
-    gomp_init_dev_tables (devicep);
+  if (!mm->is_initialized)
+    gomp_init_tables (devicep, mm);
   gomp_mutex_unlock (&mm->lock);
 
-  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
-    return;
-
-  gomp_update (devicep, &devicep->mem_map, mapnum, hostaddrs, sizes, kinds,
-	       false);
+  gomp_update (devicep, mm, mapnum, hostaddrs, sizes, kinds, false);
 }
 
 void
@@ -1035,7 +1047,7 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
 }
 
 /* This function adds a compatible offload image IMAGE to an accelerator device
-   DEVICE.  */
+   DEVICE.  DEVICE must be locked on entry, and remains locked on return.  */
 
 static void
 gomp_register_image_for_device (struct gomp_device_descr *device,
@@ -1118,6 +1130,7 @@ gomp_target_init (void)
 		    current_device.target_id = i;
 		    devices[num_devices] = current_device;
 		    gomp_mutex_init (&devices[num_devices].mem_map.lock);
+		    gomp_mutex_init (&devices[num_devices].lock);
 		    num_devices++;
 		  }
 	      }
