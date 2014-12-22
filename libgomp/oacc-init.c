@@ -350,7 +350,7 @@ acc_shutdown_1 (acc_device_t d)
 
 	  walk->dev->openacc.target_data = target_data = NULL;
 
-	  gomp_free_memmap (walk->dev);
+	  gomp_free_memmap (&walk->dev->mem_map);
 
 	  walk->dev = NULL;
 	}

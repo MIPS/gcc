@@ -1,5 +1,9 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.h (gomp_free_memmap): Take a pointer to a struct
+	gomp_memory_mapping instead of a pointer to a struct
+	gomp_device_descr.  Change all users.
+
 	* libgomp.h (struct gomp_device_descr): Move target_data member...
 	(struct acc_dispatch_t): ... into here.  Change all users.
 

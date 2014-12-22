@@ -722,10 +722,8 @@ gomp_init_dev_tables (struct gomp_device_descr *devicep)
 
 
 attribute_hidden void
-gomp_free_memmap (struct gomp_device_descr *devicep)
+gomp_free_memmap (struct gomp_memory_mapping *mm)
 {
-  struct gomp_memory_mapping *mm = &devicep->mem_map;
-
   while (mm->splay_tree.root)
     {
       struct target_mem_desc *tgt = mm->splay_tree.root->key.tgt;

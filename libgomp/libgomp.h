@@ -790,9 +790,9 @@ extern void gomp_init_device (struct gomp_device_descr *);
 extern void gomp_init_tables (const struct gomp_device_descr *,
 			      struct gomp_memory_mapping *);
 
-extern void gomp_fini_device (struct gomp_device_descr *);
+extern void gomp_free_memmap (struct gomp_memory_mapping *);
 
-extern void gomp_free_memmap (struct gomp_device_descr *);
+extern void gomp_fini_device (struct gomp_device_descr *);
 
 /* work.c */
 
