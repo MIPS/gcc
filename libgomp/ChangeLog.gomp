@@ -1,5 +1,8 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.h (struct gomp_device_descr): Move target_data member...
+	(struct acc_dispatch_t): ... into here.  Change all users.
+
 	* target.c (GOMP_target_update): To initialize, call
 	gomp_init_dev_tables instead of gomp_init_device.
 

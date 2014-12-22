@@ -1106,8 +1106,8 @@ gomp_target_init (void)
 		current_device.offload_regions_registered = false;
 		current_device.mem_map.splay_tree.root = NULL;
 		current_device.mem_map.is_initialized = false;
-		current_device.target_data = NULL;
 		current_device.openacc.data_environ = NULL;
+		current_device.openacc.target_data = NULL;
 		for (i = 0; i < new_num_devices; i++)
 		  {
 		    current_device.id = num_devices + 1;

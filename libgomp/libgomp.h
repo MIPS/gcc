@@ -684,6 +684,9 @@ typedef struct acc_dispatch_t
      happen out-of-order with respect to mapping.  */
   struct target_mem_desc *data_environ;
 
+  /* Extra information required for a device instance by a given target.  */
+  void *target_data;
+
   /* Open or close a device instance.  */
   void *(*open_device_func) (int n);
   int (*close_device_func) (void *h);
@@ -769,9 +772,6 @@ struct gomp_device_descr
 
   /* Memory-mapping info for this device instance.  */
   struct gomp_memory_mapping mem_map;
-
-  /* Extra information required for a device instance by a given target.  */
-  void *target_data;
 };
 
 extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);

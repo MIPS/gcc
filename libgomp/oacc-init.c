@@ -279,11 +279,11 @@ lazy_open (int ord)
   thr->saved_bound_dev = NULL;
   thr->mapped_data = NULL;
 
-  if (!acc_dev->target_data)
-    acc_dev->target_data = acc_dev->openacc.open_device_func (ord);
+  if (!acc_dev->openacc.target_data)
+    acc_dev->openacc.target_data = acc_dev->openacc.open_device_func (ord);
 
   thr->target_tls
-    = acc_dev->openacc.create_thread_data_func (acc_dev->target_data);
+    = acc_dev->openacc.create_thread_data_func (acc_dev->openacc.target_data);
 
   acc_dev->openacc.async_set_async_func (acc_async_sync);
 
@@ -344,10 +344,11 @@ acc_shutdown_1 (acc_device_t d)
 
       if (walk->dev)
 	{
-          if (walk->dev->openacc.close_device_func (walk->dev->target_data) < 0)
+	  void *target_data = walk->dev->openacc.target_data;
+	  if (walk->dev->openacc.close_device_func (target_data) < 0)
 	    gomp_fatal ("failed to close device");
 
-	  walk->dev->target_data = NULL;
+	  walk->dev->openacc.target_data = target_data = NULL;
 
 	  gomp_free_memmap (walk->dev);
 
