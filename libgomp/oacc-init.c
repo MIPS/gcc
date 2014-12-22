@@ -46,7 +46,7 @@ static gomp_mutex_t acc_device_lock;
    for overall initialisation/shutdown, and other instances -- not necessarily
    including this one -- may be opened and closed once the base device has
    been initialized.  */
-struct gomp_device_descr const *base_dev;
+struct gomp_device_descr *base_dev;
 
 #if defined HAVE_TLS || defined USE_EMUTLS
 __thread struct goacc_thread *goacc_tls_data;
@@ -65,10 +65,10 @@ static gomp_mutex_t goacc_thread_lock;
    only references "base" devices, and other instances of the same type are
    found by simply indexing from each such device (which are stored linearly,
    grouped by device in target.c:devices).  */
-static struct gomp_device_descr const *dispatchers[_ACC_device_hwm] = { 0 };
+static struct gomp_device_descr *dispatchers[_ACC_device_hwm] = { 0 };
 
 attribute_hidden void
-goacc_register (struct gomp_device_descr const *disp)
+goacc_register (struct gomp_device_descr *disp)
 {
   /* Only register the 0th device here.  */
   if (disp->target_id != 0)
@@ -96,7 +96,7 @@ get_openacc_name (const char *name)
     return name;
 }
 
-static struct gomp_device_descr const *
+static struct gomp_device_descr *
 resolve_device (acc_device_t d)
 {
   acc_device_t d_arg = d;
@@ -158,10 +158,10 @@ resolve_device (acc_device_t d)
    (indirectly) the target's device_init hook.  Calling multiple times without
    an intervening acc_shutdown_1 call is an error.  */
 
-static struct gomp_device_descr const *
+static struct gomp_device_descr *
 acc_init_1 (acc_device_t d)
 {
-  struct gomp_device_descr const *acc_dev;
+  struct gomp_device_descr *acc_dev;
 
   acc_dev = resolve_device (d);
 
@@ -174,7 +174,7 @@ acc_init_1 (acc_device_t d)
   /* We need to remember what we were intialized as, to check shutdown etc.  */
   init_key = d;  
 
-  gomp_init_device ((struct gomp_device_descr *) acc_dev);
+  gomp_init_device (acc_dev);
 
   return acc_dev;
 }
@@ -272,7 +272,7 @@ lazy_open (int ord)
   if (!thr)
     thr = goacc_new_thread ();
 
-  acc_dev = thr->dev = (struct gomp_device_descr *) &base_dev[ord];
+  acc_dev = thr->dev = &base_dev[ord];
 
   assert (acc_dev->target_id == ord);
 
@@ -358,7 +358,7 @@ acc_shutdown_1 (acc_device_t d)
 
   gomp_mutex_unlock (&goacc_thread_lock);
 
-  gomp_fini_device ((struct gomp_device_descr *) base_dev);
+  gomp_fini_device (base_dev);
 
   base_dev = NULL;
 }
@@ -382,7 +382,7 @@ ialias (acc_shutdown)
    current base device, else shut the old device down and re-initialize with
    the new device type.  */
 
-static struct gomp_device_descr const *
+static struct gomp_device_descr *
 lazy_init (acc_device_t d)
 {
   if (base_dev)
@@ -421,7 +421,7 @@ int
 acc_get_num_devices (acc_device_t d)
 {
   int n = 0;
-  struct gomp_device_descr const *acc_dev;
+  const struct gomp_device_descr *acc_dev;
 
   if (d == acc_device_none)
     return 0;
@@ -595,7 +595,7 @@ goacc_save_and_set_bind (acc_device_t d)
   assert (!thr->saved_bound_dev);
 
   thr->saved_bound_dev = thr->dev;
-  thr->dev = (struct gomp_device_descr *) dispatchers[d];
+  thr->dev = dispatchers[d];
 }
 
 attribute_hidden void

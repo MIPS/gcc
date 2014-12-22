@@ -787,7 +787,7 @@ extern void gomp_unmap_vars (struct target_mem_desc *, bool);
 
 extern void gomp_init_device (struct gomp_device_descr *);
 
-extern void gomp_init_tables (const struct gomp_device_descr *,
+extern void gomp_init_tables (struct gomp_device_descr *,
 			      struct gomp_memory_mapping *);
 
 extern void gomp_free_memmap (struct gomp_memory_mapping *);

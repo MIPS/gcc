@@ -678,7 +678,7 @@ gomp_init_device (struct gomp_device_descr *devicep)
 }
 
 attribute_hidden void
-gomp_init_tables (const struct gomp_device_descr *devicep,
+gomp_init_tables (struct gomp_device_descr *devicep,
 		  struct gomp_memory_mapping *mm)
 {
   /* Get address mapping table for device.  */
@@ -695,7 +695,7 @@ gomp_init_tables (const struct gomp_device_descr *devicep,
       tgt->tgt_end = table[i].tgt_end;
       tgt->to_free = NULL;
       tgt->list_count = 0;
-      tgt->device_descr = (struct gomp_device_descr *) devicep;
+      tgt->device_descr = devicep;
       splay_tree_node node = tgt->array;
       splay_tree_key k = &node->key;
       k->host_start = table[i].host_start;

@@ -519,7 +519,7 @@ gomp_acc_insert_pointer (size_t mapnum, void **hostaddrs, size_t *sizes,
   struct gomp_device_descr *acc_dev = thr->dev;
 
   gomp_debug (0, "  %s: prepare mappings\n", __FUNCTION__);
-  tgt = gomp_map_vars ((struct gomp_device_descr *) acc_dev, mapnum, hostaddrs,
+  tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs,
 		       NULL, sizes, kinds, true, false);
   gomp_debug (0, "  %s: mappings prepared\n", __FUNCTION__);
   tgt->prev = acc_dev->openacc.data_environ;

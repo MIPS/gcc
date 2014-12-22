@@ -90,10 +90,10 @@ goacc_thread (void)
 
 struct gomp_device_descr;
 
-void goacc_register (struct gomp_device_descr const *) __GOACC_NOTHROW;
+void goacc_register (struct gomp_device_descr *) __GOACC_NOTHROW;
 
 /* Current dispatcher.  */
-extern struct gomp_device_descr const *base_dev;
+extern struct gomp_device_descr *base_dev;
 
 void goacc_runtime_initialize (void);
 void goacc_save_and_set_bind (acc_device_t);

@@ -1,5 +1,11 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.h (gomp_init_tables): Remove const qualifier from struct
+	gomp_device_descr.  Change all users.
+	* oacc-int.h (base_dev, goacc_register): Likewise.
+	* oacc-init.c (dispatchers, resolve_device, acc_init_1)
+	(lazy_init): Likewise.
+
 	* libgomp.h (gomp_free_memmap): Take a pointer to a struct
 	gomp_memory_mapping instead of a pointer to a struct
 	gomp_device_descr.  Change all users.
