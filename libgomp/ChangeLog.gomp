@@ -1,5 +1,10 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* target.c (num_devices_openmp): New variable.
+	(gomp_get_num_devices): Use it.
+	(gomp_target_init): Initialize it, and sort the devices array
+	appropriately.
+
 	* libgomp.h (struct gomp_device_descr): Remove id member.  Update
 	all users.
 

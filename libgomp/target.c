@@ -67,6 +67,9 @@ static struct gomp_device_descr *devices;
 /* Total number of available devices.  */
 static int num_devices;
 
+/* Number of GOMP_OFFLOAD_CAP_OPENMP_400 devices.  */
+static int num_devices_openmp;
+
 /* The comparison function.  */
 
 attribute_hidden int
@@ -94,7 +97,7 @@ attribute_hidden int
 gomp_get_num_devices (void)
 {
   gomp_init_targets_once ();
-  return num_devices;
+  return num_devices_openmp;
 }
 
 static struct gomp_device_descr *
@@ -1048,9 +1051,11 @@ gomp_register_image_for_device (struct gomp_device_descr *device,
 }
 
 /* This function initializes the runtime needed for offloading.
-   It parses the list of offload targets and tries to load the plugins for these
-   targets.  Result of the function is properly initialized variable NUM_DEVICES
-   and array DEVICES, containing descriptors for corresponding devices.  */
+   It parses the list of offload targets and tries to load the plugins for
+   these targets.  On return, the variables NUM_DEVICES and NUM_DEVICES_OPENMP
+   will be set, and the array DEVICES initialized, containing descriptors for
+   corresponding devices, first the GOMP_OFFLOAD_CAP_OPENMP_400 ones, follows
+   by the others.  */
 
 static void
 gomp_target_init (void)
@@ -1089,6 +1094,8 @@ gomp_target_init (void)
 	    new_num_devices = current_device.get_num_devices_func ();
 	    if (new_num_devices >= 1)
 	      {
+		/* Augment DEVICES and NUM_DEVICES.  */
+
 		devices = realloc (devices, (num_devices + new_num_devices)
 				   * sizeof (struct gomp_device_descr));
 		if (!devices)
@@ -1121,27 +1128,26 @@ gomp_target_init (void)
       }
     while (next);
 
-  /* Prefer a device with GOMP_OFFLOAD_CAP_OPENMP_400 for ICV
-     default-device-var.  */
-  if (num_devices > 1)
+  /* In DEVICES, sort the GOMP_OFFLOAD_CAP_OPENMP_400 ones first, and set
+     NUM_DEVICES_OPENMP.  */
+  struct gomp_device_descr *devices_s
+    = malloc (num_devices * sizeof (struct gomp_device_descr));
+  if (!devices_s)
     {
-      int d = gomp_icv (false)->default_device_var;
-
-      if (!(devices[d].capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
-	{
-	  for (i = 0; i < num_devices; i++)
-	    {
-	      if (devices[i].capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
-		{
-		  struct gomp_device_descr device_tmp = devices[d];
-		  devices[d] = devices[i];
-		  devices[i] = device_tmp;
-
-		  break;
-		}
-	    }
-	}
+      num_devices = 0;
+      free (devices);
+      devices = NULL;
     }
+  num_devices_openmp = 0;
+  for (i = 0; i < num_devices; i++)
+    if (devices[i].capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      devices_s[num_devices_openmp++] = devices[i];
+  int num_devices_after_openmp = num_devices_openmp;
+  for (i = 0; i < num_devices; i++)
+    if (!(devices[i].capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      devices_s[num_devices_after_openmp++] = devices[i];
+  free (devices);
+  devices = devices_s;
 
   for (i = 0; i < num_devices; i++)
     {
