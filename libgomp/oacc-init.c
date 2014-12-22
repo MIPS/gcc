@@ -35,6 +35,7 @@
 #include <strings.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 
 static gomp_mutex_t acc_device_lock;
 
@@ -84,6 +85,17 @@ goacc_register (struct gomp_device_descr const *disp)
   gomp_mutex_unlock (&acc_device_lock);
 }
 
+/* OpenACC names some things a little differently.  */
+
+static const char *
+get_openacc_name (const char *name)
+{
+  if (strcmp (name, "nvptx") == 0)
+    return "nvidia";
+  else
+    return name;
+}
+
 static struct gomp_device_descr const *
 resolve_device (acc_device_t d)
 {
@@ -98,7 +110,8 @@ resolve_device (acc_device_t d)
 	    /* Lookup the named device.  */
 	    while (++d != _ACC_device_hwm)
 	      if (dispatchers[d]
-		  && !strcasecmp (goacc_device_type, dispatchers[d]->name)
+		  && !strcasecmp (goacc_device_type,
+				  get_openacc_name (dispatchers[d]->name))
 		  && dispatchers[d]->get_num_devices_func () > 0)
 		goto found;
 

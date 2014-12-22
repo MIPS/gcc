@@ -1499,7 +1499,7 @@ GOMP_OFFLOAD_get_caps (void)
 const char *
 GOMP_OFFLOAD_get_name (void)
 {
-  return "nvidia";
+  return "nvptx";
 }
 
 int

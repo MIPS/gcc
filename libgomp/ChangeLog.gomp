@@ -1,5 +1,9 @@
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* plugin/plugin-nvptx.c (GOMP_OFFLOAD_get_name): Return "nvptx".
+	* oacc-init.c (resolve_device): Update for that using...
+	(get_openacc_name): ... this new function.
+
 	* testsuite/libgomp-test-support.exp.in
 	(offload_additional_options, offload_additional_lib_paths): Don't
 	set.
