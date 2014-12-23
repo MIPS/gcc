@@ -1186,7 +1186,7 @@ gfc_init_builtin_functions (void)
 #include "../sync-builtins.def"
 #undef DEF_SYNC_BUILTIN
 
-  if (gfc_option.gfc_flag_openacc)
+  if (flag_openacc)
     {
 #undef DEF_GOACC_BUILTIN
 #define DEF_GOACC_BUILTIN(code, name, type, attr) \
@@ -1203,9 +1203,7 @@ gfc_init_builtin_functions (void)
 #undef DEF_GOMP_BUILTIN
     }
 
-  if (gfc_option.gfc_flag_openmp
-      || gfc_option.gfc_flag_openmp_simd
-      || flag_tree_parallelize_loops)
+  if (flag_openmp || flag_openmp_simd || flag_tree_parallelize_loops)
     {
 #undef DEF_GOACC_BUILTIN
 #define DEF_GOACC_BUILTIN(code, name, type, attr) /* ignore */

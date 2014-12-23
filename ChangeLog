@@ -1,3 +1,26 @@
+2014-12-17  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-12-16  Michael Haubenwallner <michael.haubenwallner@ssi-schaefer.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-12-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* configure.ac (--enable-as-accelerator-for): Don't set
+	ENABLE_AS_ACCELERATOR_FOR.  Update all users.
+	* configure: Regenerate.
+
+2014-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/64023
+	* Makefile.tpl (EXTRA_TARGET_FLAGS): Set STAGE1_LDFLAGS
+	to POSTSTAGE1_LDFLAGS and STAGE1_LIBS to POSTSTAGE1_LIBS.
+	Add -B to libstdc++-v3/src/.libs and libstdc++-v3/libsupc++/.libs
+	to CXX.
+	* Makefile.in: Regenerated.
+
 2014-12-09  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
 	    Yury Gribov  <y.gribov@samsung.com>
 

@@ -4264,7 +4264,7 @@ gfc_check_intrinsic_standard (const gfc_intrinsic_sym* isym,
   const char* symstd_msg;
 
   /* For -fall-intrinsics, just succeed.  */
-  if (gfc_option.flag_all_intrinsics)
+  if (flag_all_intrinsics)
     return true;
 
   /* Find the symbol's standard message for later usage.  */
@@ -4387,7 +4387,7 @@ gfc_intrinsic_func_interface (gfc_expr *expr, int error_flag)
   if ((isym->id == GFC_ISYM_REAL || isym->id == GFC_ISYM_DBLE
        || isym->id == GFC_ISYM_CMPLX)
       && gfc_init_expr_flag
-      && !gfc_notify_std (GFC_STD_F2003, "Function '%s' as initialization "
+      && !gfc_notify_std (GFC_STD_F2003, "Function %qs as initialization "
 			  "expression at %L", name, &expr->where))
     {
       if (!error_flag)
@@ -4623,8 +4623,7 @@ gfc_convert_type_warn (gfc_expr *expr, gfc_typespec *ts, int eflag, int wflag)
     }
   else if (wflag)
     {
-      if (gfc_option.flag_range_check
-	  && expr->expr_type == EXPR_CONSTANT
+      if (flag_range_check && expr->expr_type == EXPR_CONSTANT
 	  && from_ts.type == ts->type)
 	{
 	  /* Do nothing. Constants of the same type are range-checked

@@ -178,6 +178,20 @@ gfc_free_data_all (gfc_namespace *ns)
     }
 }
 
+/* Reject data parsed since the last restore point was marked.  */
+
+void
+gfc_reject_data (gfc_namespace *ns)
+{
+  gfc_data *d;
+
+  while (ns->data && ns->data != ns->old_data)
+    {
+      d = ns->data->next;
+      free (ns->data);
+      ns->data = d;
+    }
+}
 
 static match var_element (gfc_data_variable *);
 
@@ -269,7 +283,7 @@ var_element (gfc_data_variable *new_var)
   if (gfc_current_state () != COMP_BLOCK_DATA
       && sym->attr.in_common
       && !gfc_notify_std (GFC_STD_GNU, "initialization of "
-			  "common block variable '%s' in DATA statement at %C",
+			  "common block variable %qs in DATA statement at %C",
 			  sym->name))
     return MATCH_ERROR;
 
@@ -1059,16 +1073,16 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 	     not have the allocatable, pointer, or optional attributes,
 	     according to J3/04-007, section 5.1.  */
 	  if (sym->attr.allocatable == 1
-	      && !gfc_notify_std (GFC_STD_F2008_TS, "Variable '%s' at %L with "
-				  "ALLOCATABLE attribute in procedure '%s' "
+	      && !gfc_notify_std (GFC_STD_F2008_TS, "Variable %qs at %L with "
+				  "ALLOCATABLE attribute in procedure %qs "
 				  "with BIND(C)", sym->name,
 				  &(sym->declared_at),
 				  sym->ns->proc_name->name))
 	    retval = false;
 
 	  if (sym->attr.pointer == 1
-	      && !gfc_notify_std (GFC_STD_F2008_TS, "Variable '%s' at %L with "
-				  "POINTER attribute in procedure '%s' "
+	      && !gfc_notify_std (GFC_STD_F2008_TS, "Variable %qs at %L with "
+				  "POINTER attribute in procedure %qs "
 				  "with BIND(C)", sym->name,
 				  &(sym->declared_at),
 				  sym->ns->proc_name->name))
@@ -1092,9 +1106,9 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 	      retval = false;
 	    }
 	  else if (sym->attr.optional == 1
-		   && !gfc_notify_std (GFC_STD_F2008_TS, "Variable '%s' "
+		   && !gfc_notify_std (GFC_STD_F2008_TS, "Variable %qs "
 				       "at %L with OPTIONAL attribute in "
-				       "procedure '%s' which is BIND(C)", 
+				       "procedure %qs which is BIND(C)", 
 				       sym->name, &(sym->declared_at), 
 				       sym->ns->proc_name->name))
 	    retval = false;
@@ -1103,7 +1117,7 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 	     either assumed size or explicit shape. Deferred shape is already
 	     covered by the pointer/allocatable attribute.  */
 	  if (sym->as != NULL && sym->as->type == AS_ASSUMED_SHAPE
-	      && !gfc_notify_std (GFC_STD_F2008_TS, "Assumed-shape array '%s' "
+	      && !gfc_notify_std_1 (GFC_STD_F2008_TS, "Assumed-shape array '%s' "
 				  "at %L as dummy argument to the BIND(C) "
 				  "procedure '%s' at %L", sym->name, 
 				  &(sym->declared_at), 
@@ -1838,7 +1852,7 @@ variable_decl (int elem)
       goto cleanup;
     }
 
-  if (gfc_option.flag_cray_pointer)
+  if (flag_cray_pointer)
     cp_as = gfc_copy_array_spec (as);
 
   /* At this point, we know for sure if the symbol is PARAMETER and can thus
@@ -1907,7 +1921,7 @@ variable_decl (int elem)
   /*  If this symbol has already shown up in a Cray Pointer declaration,
       and this is not a component declaration,
       then we want to set the type & bail out.  */
-  if (gfc_option.flag_cray_pointer && gfc_current_state () != COMP_DERIVED)
+  if (flag_cray_pointer && gfc_current_state () != COMP_DERIVED)
     {
       gfc_find_symbol (name, gfc_current_ns, 1, &sym);
       if (sym != NULL && sym->attr.cray_pointee)
@@ -2031,8 +2045,8 @@ variable_decl (int elem)
 	{
 	  if (current_attr.pointer)
 	    {
-	      gfc_error ("Pointer initialization at %C requires '=>', "
-			 "not '='");
+	      gfc_error ("Pointer initialization at %C requires %<=>%>, "
+			 "not %<=%>");
 	      m = MATCH_ERROR;
 	      goto cleanup;
 	    }
@@ -2126,28 +2140,28 @@ gfc_match_old_kind_spec (gfc_typespec *ts)
 
     }
 
-  if (ts->type == BT_INTEGER && ts->kind == 4 && gfc_option.flag_integer4_kind == 8)
+  if (ts->type == BT_INTEGER && ts->kind == 4 && flag_integer4_kind == 8)
     ts->kind = 8;
 
   if (ts->type == BT_REAL || ts->type == BT_COMPLEX)
     {
       if (ts->kind == 4)
 	{
-	  if (gfc_option.flag_real4_kind == 8)
+	  if (flag_real4_kind == 8)
 	    ts->kind =  8;
-	  if (gfc_option.flag_real4_kind == 10)
+	  if (flag_real4_kind == 10)
 	    ts->kind = 10;
-	  if (gfc_option.flag_real4_kind == 16)
+	  if (flag_real4_kind == 16)
 	    ts->kind = 16;
 	}
 
       if (ts->kind == 8)
 	{
-	  if (gfc_option.flag_real8_kind == 4)
+	  if (flag_real8_kind == 4)
 	    ts->kind = 4;
-	  if (gfc_option.flag_real8_kind == 10)
+	  if (flag_real8_kind == 10)
 	    ts->kind = 10;
-	  if (gfc_option.flag_real8_kind == 16)
+	  if (flag_real8_kind == 16)
 	    ts->kind = 16;
 	}
     }
@@ -2297,28 +2311,28 @@ kind_expr:
   if(m == MATCH_ERROR)
      gfc_current_locus = where;
 
-  if (ts->type == BT_INTEGER && ts->kind == 4 && gfc_option.flag_integer4_kind == 8)
+  if (ts->type == BT_INTEGER && ts->kind == 4 && flag_integer4_kind == 8)
     ts->kind =  8;
 
   if (ts->type == BT_REAL || ts->type == BT_COMPLEX)
     {
       if (ts->kind == 4)
 	{
-	  if (gfc_option.flag_real4_kind == 8)
+	  if (flag_real4_kind == 8)
 	    ts->kind =  8;
-	  if (gfc_option.flag_real4_kind == 10)
+	  if (flag_real4_kind == 10)
 	    ts->kind = 10;
-	  if (gfc_option.flag_real4_kind == 16)
+	  if (flag_real4_kind == 16)
 	    ts->kind = 16;
 	}
 
       if (ts->kind == 8)
 	{
-	  if (gfc_option.flag_real8_kind == 4)
+	  if (flag_real8_kind == 4)
 	    ts->kind = 4;
-	  if (gfc_option.flag_real8_kind == 10)
+	  if (flag_real8_kind == 10)
 	    ts->kind = 10;
-	  if (gfc_option.flag_real8_kind == 16)
+	  if (flag_real8_kind == 16)
 	    ts->kind = 16;
 	}
     }
@@ -5096,7 +5110,7 @@ match_ppc_decl (void)
   /* Match the colons (required).  */
   if (gfc_match (" ::") != MATCH_YES)
     {
-      gfc_error ("Expected '::' after binding-attributes at %C");
+      gfc_error ("Expected %<::%> after binding-attributes at %C");
       return MATCH_ERROR;
     }
 
@@ -6565,7 +6579,7 @@ cray_pointer_decl (void)
     {
       if (gfc_match_char ('(') != MATCH_YES)
 	{
-	  gfc_error ("Expected '(' at %C");
+	  gfc_error ("Expected %<(%> at %C");
 	  return MATCH_ERROR;
 	}
 
@@ -6680,7 +6694,7 @@ cray_pointer_decl (void)
   if (m == MATCH_ERROR /* Failed when trying to find ',' above.  */
       || gfc_match_eos () != MATCH_YES)
     {
-      gfc_error ("Expected \",\" or end of statement at %C");
+      gfc_error ("Expected %<,%> or end of statement at %C");
       return MATCH_ERROR;
     }
   return MATCH_YES;
@@ -6755,7 +6769,7 @@ gfc_match_pointer (void)
   gfc_gobble_whitespace ();
   if (gfc_peek_ascii_char () == '(')
     {
-      if (!gfc_option.flag_cray_pointer)
+      if (!flag_cray_pointer)
 	{
 	  gfc_error ("Cray pointer declaration at %C requires -fcray-pointer "
 		     "flag");
@@ -8272,13 +8286,13 @@ match_procedure_in_type (void)
 	return m;
       if (m != MATCH_YES)
 	{
-	  gfc_error ("Interface-name expected after '(' at %C");
+	  gfc_error ("Interface-name expected after %<(%> at %C");
 	  return MATCH_ERROR;
 	}
 
       if (gfc_match (" )") != MATCH_YES)
 	{
-	  gfc_error ("')' expected at %C");
+	  gfc_error ("%<)%> expected at %C");
 	  return MATCH_ERROR;
 	}
 
@@ -8314,7 +8328,7 @@ match_procedure_in_type (void)
   seen_colons = (m == MATCH_YES);
   if (seen_attrs && !seen_colons)
     {
-      gfc_error ("Expected '::' after binding-attributes at %C");
+      gfc_error ("Expected %<::%> after binding-attributes at %C");
       return MATCH_ERROR;
     }
 
@@ -8342,13 +8356,13 @@ match_procedure_in_type (void)
 	{
 	  if (tb.deferred)
 	    {
-	      gfc_error ("'=> target' is invalid for DEFERRED binding at %C");
+	      gfc_error ("%<=> target%> is invalid for DEFERRED binding at %C");
 	      return MATCH_ERROR;
 	    }
 
 	  if (!seen_colons)
 	    {
-	      gfc_error ("'::' needed in PROCEDURE binding with explicit target"
+	      gfc_error ("%<::%> needed in PROCEDURE binding with explicit target"
 			 " at %C");
 	      return MATCH_ERROR;
 	    }
@@ -8358,7 +8372,7 @@ match_procedure_in_type (void)
 	    return m;
 	  if (m == MATCH_NO)
 	    {
-	      gfc_error ("Expected binding target after '=>' at %C");
+	      gfc_error ("Expected binding target after %<=>%> at %C");
 	      return MATCH_ERROR;
 	    }
 	  target = target_buf;
@@ -8455,7 +8469,7 @@ gfc_match_generic (void)
   /* Now the colons, those are required.  */
   if (gfc_match (" ::") != MATCH_YES)
     {
-      gfc_error ("Expected '::' at %C");
+      gfc_error ("Expected %<::%> at %C");
       goto error;
     }
 
@@ -8493,7 +8507,7 @@ gfc_match_generic (void)
   /* Match the required =>.  */
   if (gfc_match (" =>") != MATCH_YES)
     {
-      gfc_error ("Expected '=>' at %C");
+      gfc_error ("Expected %<=>%> at %C");
       goto error;
     }
 
@@ -8705,7 +8719,7 @@ gfc_match_final_decl (void)
 	last = true;
       if (!last && gfc_match_char (',') != MATCH_YES)
 	{
-	  gfc_error ("Expected ',' at %C");
+	  gfc_error ("Expected %<,%> at %C");
 	  return MATCH_ERROR;
 	}
 

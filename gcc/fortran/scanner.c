@@ -832,9 +832,8 @@ skip_free_comments (void)
 		only if followed by space).  */
 	  if (at_bol)
 	  {
-	    if ((gfc_option.gfc_flag_openmp
-		 || gfc_option.gfc_flag_openmp_simd)
-		&& gfc_option.gfc_flag_openacc)
+	    if ((flag_openmp || flag_openmp_simd)
+		&& flag_openacc)
 	      {
 		locus old_loc = gfc_current_locus;
 		if (next_char () == '$')
@@ -866,9 +865,8 @@ skip_free_comments (void)
 		  }
 		gfc_current_locus = old_loc;
 	      }
-	    else if ((gfc_option.gfc_flag_openmp
-		      || gfc_option.gfc_flag_openmp_simd)
-		     && !gfc_option.gfc_flag_openacc)
+	    else if ((flag_openmp || flag_openmp_simd)
+		     && !flag_openacc)
 	      {
 		locus old_loc = gfc_current_locus;
 		if (next_char () == '$')
@@ -892,9 +890,8 @@ skip_free_comments (void)
 		  }
 		gfc_current_locus = old_loc;
 	      }
-	    else if (gfc_option.gfc_flag_openacc
-		     && !(gfc_option.gfc_flag_openmp
-			  || gfc_option.gfc_flag_openmp_simd))
+	    else if (flag_openacc
+		     && !(flag_openmp || flag_openmp_simd))
 	      {
 		locus old_loc = gfc_current_locus;
 		if (next_char () == '$')
@@ -1006,7 +1003,7 @@ skip_fixed_comments (void)
 	      && continue_line < gfc_linebuf_linenum (gfc_current_locus.lb))
 	    continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
-	  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
+	  if (flag_openmp || flag_openmp_simd)
 	    {
 	      if (next_char () == '$')
 		{
@@ -1066,7 +1063,7 @@ skip_fixed_comments (void)
 	      gfc_current_locus = start;
 	    }
 
-	  if (gfc_option.gfc_flag_openacc)
+	  if (flag_openacc)
 	    {
 	      if (next_char () == '$')
 		{
@@ -1249,7 +1246,7 @@ restart:
       if (warn_line_truncation && gfc_current_locus.lb != NULL
 	  && gfc_current_locus.lb->truncated)
 	{
-	  int maxlen = gfc_option.free_line_length;
+	  int maxlen = flag_free_line_length;
 	  gfc_char_t *current_nextc = gfc_current_locus.nextc;
 
 	  gfc_current_locus.lb->truncated = 0;
@@ -1287,9 +1284,9 @@ restart:
 	  goto done;
 	}
 
-      if (gfc_option.gfc_flag_openmp)
+      if (flag_openmp)
 	prev_openmp_flag = openmp_flag;
-      if (gfc_option.gfc_flag_openacc)
+      if (flag_openacc)
 	prev_openacc_flag = openacc_flag;
 
       continue_flag = 1;
@@ -1321,7 +1318,7 @@ restart:
 	  && continue_line < gfc_linebuf_linenum (gfc_current_locus.lb))
 	continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
-      if (gfc_option.gfc_flag_openmp)
+      if (flag_openmp)
 	if (prev_openmp_flag != openmp_flag)
 	  {
 	    gfc_current_locus = old_loc;
@@ -1330,7 +1327,7 @@ restart:
 	    goto done;
 	  }
 
-      if (gfc_option.gfc_flag_openacc)
+      if (flag_openacc)
 	if (prev_openacc_flag != openacc_flag)
 	  {
 	    gfc_current_locus = old_loc;
@@ -1423,9 +1420,9 @@ restart:
 			   "Line truncated at %L", &gfc_current_locus);
 	}
 
-      if (gfc_option.gfc_flag_openmp)
+      if (flag_openmp)
 	prev_openmp_flag = openmp_flag;
-      if (gfc_option.gfc_flag_openacc)
+      if (flag_openacc)
 	prev_openacc_flag = openacc_flag;
 
       continue_flag = 1;
@@ -1435,12 +1432,12 @@ restart:
       skip_fixed_comments ();
 
       /* See if this line is a continuation line.  */
-      if (gfc_option.gfc_flag_openmp && openmp_flag != prev_openmp_flag)
+      if (flag_openmp && openmp_flag != prev_openmp_flag)
 	{
 	  openmp_flag = prev_openmp_flag;
 	  goto not_continuation;
 	}
-      if (gfc_option.gfc_flag_openacc && openacc_flag != prev_openacc_flag)
+      if (flag_openacc && openacc_flag != prev_openacc_flag)
 	{
 	  openacc_flag = prev_openacc_flag;
 	  goto not_continuation;
@@ -1673,9 +1670,9 @@ load_line (FILE *input, gfc_char_t **pbuf, int *pbuflen, const int *first_char)
 
   /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
-    maxlen = gfc_option.free_line_length;
+    maxlen = flag_free_line_length;
   else if (gfc_current_form == FORM_FIXED)
-    maxlen = gfc_option.fixed_line_length;
+    maxlen = flag_fixed_line_length;
   else
     maxlen = 72;
 
@@ -1849,7 +1846,7 @@ next_char:
 
   /* Pad lines to the selected line length in fixed form.  */
   if (gfc_current_form == FORM_FIXED
-      && gfc_option.fixed_line_length != 0
+      && flag_fixed_line_length != 0
       && !preprocessor_flag
       && c != EOF)
     {
@@ -2061,7 +2058,7 @@ include_line (gfc_char_t *line)
 
   c = line;
 
-  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
+  if (flag_openmp || flag_openmp_simd)
     {
       if (gfc_current_form == FORM_FREE)
 	{

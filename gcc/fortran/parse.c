@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include <setjmp.h>
 #include "coretypes.h"
+#include "flags.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -119,6 +120,7 @@ use_modules (void)
   gfc_warning_check ();
   gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
   gfc_current_ns->old_equiv = gfc_current_ns->equiv;
+  gfc_current_ns->old_data = gfc_current_ns->data;
   last_was_use_stmt = false;
 }
 
@@ -573,7 +575,7 @@ decode_statement (void)
 /* Like match, but don't match anything if not -fopenmp.  */
 #define matcho(keyword, subr, st)				\
     do {							\
-      if (!gfc_option.gfc_flag_openmp)				\
+      if (!flag_openmp)						\
 	;							\
       else if (match_word (keyword, subr, &old_locus)		\
 	       == MATCH_YES)					\
@@ -855,7 +857,7 @@ decode_omp_directive (void)
      not -fopenmp and simd_matched is false, i.e. if a directive other
      than one marked with match has been seen.  */
 
-  if (gfc_option.gfc_flag_openmp || simd_matched)
+  if (flag_openmp || simd_matched)
     {
       if (!gfc_error_check ())
 	gfc_error_now ("Unclassifiable OpenMP directive at %C");
@@ -1003,16 +1005,14 @@ next_free (void)
 	{
 	  /* Since both OpenMP and OpenACC directives starts with 
 	     !$ character sequence, we must check all flags combinations */
-	  if ((gfc_option.gfc_flag_openmp
-	       || gfc_option.gfc_flag_openmp_simd)
-	      && !gfc_option.gfc_flag_openacc)
+	  if ((flag_openmp || flag_openmp_simd)
+	      && !flag_openacc)
 	    {
 	      verify_token_free ("$omp", 4, last_was_use_stmt);
 	      return decode_omp_directive ();
 	    }
-	  else if ((gfc_option.gfc_flag_openmp
-		    || gfc_option.gfc_flag_openmp_simd)
-		   && gfc_option.gfc_flag_openacc)
+	  else if ((flag_openmp || flag_openmp_simd)
+		   && flag_openacc)
 	    {
 	      gfc_next_ascii_char (); /* Eat up dollar character */
 	      c = gfc_peek_ascii_char ();
@@ -1028,7 +1028,7 @@ next_free (void)
 		  return decode_oacc_directive ();
 		}
 	    }
-	  else if (gfc_option.gfc_flag_openacc)
+	  else if (flag_openacc)
 	    {
 	      verify_token_free ("$acc", 4, last_was_use_stmt);
 	      return decode_oacc_directive ();
@@ -1132,17 +1132,15 @@ next_fixed (void)
 	    }
 	  else if (c == '$')
 	    {
-	      if ((gfc_option.gfc_flag_openmp
-		   || gfc_option.gfc_flag_openmp_simd)
-		  && !gfc_option.gfc_flag_openacc)
+	      if ((flag_openmp || flag_openmp_simd)
+		  && !flag_openacc)
 		{
 		  if (!verify_token_fixed ("omp", 3, last_was_use_stmt))
 		    return ST_NONE;
 		  return decode_omp_directive ();
 		}
-	      else if ((gfc_option.gfc_flag_openmp
-			|| gfc_option.gfc_flag_openmp_simd)
-		       && gfc_option.gfc_flag_openacc)
+	      else if ((flag_openmp || flag_openmp_simd)
+		       && flag_openacc)
 		{
 		  c = gfc_next_char_literal(NONSTRING);
 		  if (c == 'o' || c == 'O')
@@ -1158,7 +1156,7 @@ next_fixed (void)
 		      return decode_oacc_directive ();
 		    }
 		}
-	      else if (gfc_option.gfc_flag_openacc)
+	      else if (flag_openacc)
 		{
 		  if (!verify_token_fixed ("acc", 3, last_was_use_stmt))
 		    return ST_NONE;
@@ -1260,6 +1258,7 @@ next_statement (void)
 
   gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
   gfc_current_ns->old_equiv = gfc_current_ns->equiv;
+  gfc_current_ns->old_data = gfc_current_ns->data;
   for (;;)
     {
       gfc_statement_label = NULL;
@@ -2274,6 +2273,8 @@ reject_statement (void)
   gfc_free_equiv_until (gfc_current_ns->equiv, gfc_current_ns->old_equiv);
   gfc_current_ns->equiv = gfc_current_ns->old_equiv;
 
+  gfc_reject_data (gfc_current_ns);
+
   gfc_new_block = NULL;
   gfc_undo_symbols ();
   gfc_clear_warning ();
@@ -2452,7 +2453,7 @@ unexpected_eof (void)
 {
   gfc_state_data *p;
 
-  gfc_error ("Unexpected end of file in '%s'", gfc_source_file);
+  gfc_error ("Unexpected end of file in %qs", gfc_source_file);
 
   /* Memory cleanup.  Move to "second to last".  */
   for (p = gfc_state_stack; p && p->previous && p->previous->previous;
@@ -2484,10 +2485,10 @@ parse_derived_contains (void)
   /* Derived-types with SEQUENCE and/or BIND(C) must not have a CONTAINS
      section.  */
   if (gfc_current_block ()->attr.sequence)
-    gfc_error ("Derived-type '%s' with SEQUENCE must not have a CONTAINS"
+    gfc_error ("Derived-type %qs with SEQUENCE must not have a CONTAINS"
 	       " section at %C", gfc_current_block ()->name);
   if (gfc_current_block ()->attr.is_bind_c)
-    gfc_error ("Derived-type '%s' with BIND(C) must not have a CONTAINS"
+    gfc_error ("Derived-type %qs with BIND(C) must not have a CONTAINS"
 	       " section at %C", gfc_current_block ()->name);
 
   accept_statement (ST_CONTAINS);
@@ -2971,7 +2972,7 @@ loop:
     {
       gfc_add_abstract (&gfc_new_block->attr, &gfc_current_locus);
       if (gfc_is_intrinsic_typename (gfc_new_block->name))
-	gfc_error ("Name '%s' of ABSTRACT INTERFACE at %C "
+	gfc_error ("Name %qs of ABSTRACT INTERFACE at %C "
 		   "cannot be the same as an intrinsic type",
 		   gfc_new_block->name);
     }
@@ -3022,7 +3023,7 @@ decl:
 	&& current_interface.ns->proc_name
 	&& strcmp (current_interface.ns->proc_name->name,
 		   prog_unit->name) == 0)
-    gfc_error ("INTERFACE procedure '%s' at %L has the same name as the "
+    gfc_error ("INTERFACE procedure %qs at %L has the same name as the "
 	       "enclosing procedure", prog_unit->name,
 	       &current_interface.ns->proc_name->declared_at);
 
@@ -3333,11 +3334,11 @@ declSt:
     {
       ts = &gfc_current_block ()->result->ts;
       if (ts->type != BT_DERIVED)
-	gfc_error ("Bad kind expression for function '%s' at %L",
+	gfc_error ("Bad kind expression for function %qs at %L",
 		   gfc_current_block ()->name,
 		   &gfc_current_block ()->declared_at);
       else
-	gfc_error ("The type for function '%s' at %L is not accessible",
+	gfc_error ("The type for function %qs at %L is not accessible",
 		   gfc_current_block ()->name,
 		   &gfc_current_block ()->declared_at);
 
@@ -4855,7 +4856,7 @@ parse_contained (int module)
 	  if (!module)
 	    {
 	      if (gfc_get_symbol (gfc_new_block->name, parent_ns, &sym))
-		gfc_error ("Contained procedure '%s' at %C is already "
+		gfc_error ("Contained procedure %qs at %C is already "
 			   "ambiguous", gfc_new_block->name);
 	      else
 		{
@@ -5476,7 +5477,7 @@ loop:
   gfc_resolve (gfc_current_ns);
 
   /* Dump the parse tree if requested.  */
-  if (gfc_option.dump_fortran_original)
+  if (flag_dump_fortran_original)
     gfc_dump_parse_tree (gfc_current_ns, stdout);
 
   gfc_get_errors (NULL, &errors);
@@ -5523,7 +5524,7 @@ prog_units:
 
   /* Do the parse tree dump.  */ 
   gfc_current_ns
-	= gfc_option.dump_fortran_original ? gfc_global_ns_list : NULL;
+	= flag_dump_fortran_original ? gfc_global_ns_list : NULL;
 
   for (; gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
     if (!gfc_current_ns->proc_name

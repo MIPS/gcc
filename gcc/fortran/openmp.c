@@ -2921,7 +2921,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 	    || (!code && (!n->sym->attr.dummy || n->sym->ns != ns)))
 	  {
 	    if (!code && (!n->sym->attr.dummy || n->sym->ns != ns))
-	      gfc_error ("Variable '%s' is not a dummy argument at %L",
+	      gfc_error ("Variable %qs is not a dummy argument at %L",
 			 n->sym->name, where);
 	    continue;
 	  }
@@ -2953,7 +2953,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 		  continue;
 	      }
 	  }
-	gfc_error ("Object '%s' is not a variable at %L", n->sym->name,
+	gfc_error ("Object %qs is not a variable at %L", n->sym->name,
 		   where);
       }
 
@@ -2969,7 +2969,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 	{
 	  if (n->sym->mark && !oacc_compatible_clauses (omp_clauses, list,
 							n->sym, openacc))
-	    gfc_error ("Symbol '%s' present on multiple clauses at %L",
+	    gfc_error ("Symbol %qs present on multiple clauses at %L",
 		       n->sym->name, where);
 	  else
 	    n->sym->mark = 1;
@@ -2980,7 +2980,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
     for (n = omp_clauses->lists[list]; n; n = n->next)
       if (n->sym->mark)
 	{
-	  gfc_error ("Symbol '%s' present on multiple clauses at %L",
+	  gfc_error ("Symbol %qs present on multiple clauses at %L",
 		     n->sym->name, where);
 	  n->sym->mark = 0;
 	}
@@ -2988,7 +2988,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
   for (n = omp_clauses->lists[OMP_LIST_FIRSTPRIVATE]; n; n = n->next)
     {
       if (n->sym->mark)
-	gfc_error ("Symbol '%s' present on multiple clauses at %L",
+	gfc_error ("Symbol %qs present on multiple clauses at %L",
 		   n->sym->name, where);
       else
 	n->sym->mark = 1;
@@ -2999,7 +2999,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
   for (n = omp_clauses->lists[OMP_LIST_LASTPRIVATE]; n; n = n->next)
     {
       if (n->sym->mark)
-	gfc_error ("Symbol '%s' present on multiple clauses at %L",
+	gfc_error ("Symbol %qs present on multiple clauses at %L",
 		   n->sym->name, where);
       else
 	n->sym->mark = 1;
@@ -3011,7 +3011,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
   for (n = omp_clauses->lists[OMP_LIST_ALIGNED]; n; n = n->next)
     {
       if (n->sym->mark)
-	gfc_error ("Symbol '%s' present on multiple clauses at %L",
+	gfc_error ("Symbol %qs present on multiple clauses at %L",
 		   n->sym->name, where);
       else
 	n->sym->mark = 1;
@@ -3025,7 +3025,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
   for (n = omp_clauses->lists[OMP_LIST_TO]; n; n = n->next)
     {
       if (n->expr == NULL && n->sym->mark)
-	gfc_error ("Symbol '%s' present on both FROM and TO clauses at %L",
+	gfc_error ("Symbol %qs present on both FROM and TO clauses at %L",
 		   n->sym->name, where);
       else
 	n->sym->mark = 1;
@@ -3047,7 +3047,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 	    for (; n != NULL; n = n->next)
 	      {
 		if (!n->sym->attr.threadprivate)
-		  gfc_error ("Non-THREADPRIVATE object '%s' in COPYIN clause"
+		  gfc_error ("Non-THREADPRIVATE object %qs in COPYIN clause"
 			     " at %L", n->sym->name, where);
 	      }
 	    break;
@@ -3055,10 +3055,10 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
-		  gfc_error ("Assumed size array '%s' in COPYPRIVATE clause "
+		  gfc_error ("Assumed size array %qs in COPYPRIVATE clause "
 			     "at %L", n->sym->name, where);
 		if (n->sym->attr.pointer && n->sym->attr.intent == INTENT_IN)
-		  gfc_error ("INTENT(IN) POINTER '%s' in COPYPRIVATE clause "
+		  gfc_error ("INTENT(IN) POINTER %qs in COPYPRIVATE clause "
 			     "at %L", n->sym->name, where);
 	      }
 	    break;
@@ -3066,13 +3066,13 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->attr.threadprivate)
-		  gfc_error ("THREADPRIVATE object '%s' in SHARED clause at "
+		  gfc_error ("THREADPRIVATE object %qs in SHARED clause at "
 			     "%L", n->sym->name, where);
 		if (n->sym->attr.cray_pointee)
-		  gfc_error ("Cray pointee '%s' in SHARED clause at %L",
+		  gfc_error ("Cray pointee %qs in SHARED clause at %L",
 			    n->sym->name, where);
 		if (n->sym->attr.associate_var)
-		  gfc_error ("ASSOCIATE name '%s' in SHARED clause at %L",
+		  gfc_error ("ASSOCIATE name %qs in SHARED clause at %L",
 			     n->sym->name, where);
 	      }
 	    break;
@@ -3087,7 +3087,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 			    != INTMOD_ISO_C_BINDING)
 			|| (n->sym->ts.u.derived->intmod_sym_id
 			    != ISOCBINDING_PTR)))
-		  gfc_error ("'%s' in ALIGNED clause must be POINTER, "
+		  gfc_error ("%qs in ALIGNED clause must be POINTER, "
 			     "ALLOCATABLE, Cray pointer or C_PTR at %L",
 			     n->sym->name, where);
 		else if (n->expr)
@@ -3099,7 +3099,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 			|| expr->rank != 0
 			|| gfc_extract_int (expr, &alignment)
 			|| alignment <= 0)
-		      gfc_error ("'%s' in ALIGNED clause at %L requires a scalar "
+		      gfc_error ("%qs in ALIGNED clause at %L requires a scalar "
 				 "positive constant integer alignment "
 				 "expression", n->sym->name, where);
 		  }
@@ -3118,7 +3118,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 			|| n->expr->ref == NULL
 			|| n->expr->ref->next
 			|| n->expr->ref->type != REF_ARRAY)
-		      gfc_error ("'%s' in %s clause at %L is not a proper "
+		      gfc_error ("%qs in %s clause at %L is not a proper "
 				 "array section", n->sym->name, name, where);
 		    else if (n->expr->ref->u.ar.codimen)
 		      gfc_error ("Coarrays not supported in %s clause at %L",
@@ -3138,7 +3138,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 			  else if (ar->dimen_type[i] != DIMEN_ELEMENT
 				   && ar->dimen_type[i] != DIMEN_RANGE)
 			    {
-			      gfc_error ("'%s' in %s clause at %L is not a "
+			      gfc_error ("%qs in %s clause at %L is not a "
 					 "proper array section",
 					 n->sym->name, name, where);
 			      break;
@@ -3151,7 +3151,7 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 				   && mpz_cmp (ar->start[i]->value.integer,
 					       ar->end[i]->value.integer) > 0)
 			    {
-			      gfc_error ("'%s' in DEPEND clause at %L is a "
+			      gfc_error ("%qs in DEPEND clause at %L is a "
 					 "zero size array section",
 					 n->sym->name, where);
 			      break;
@@ -3173,10 +3173,10 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 		{
 		  n->sym->attr.referenced = 1;
 		  if (n->sym->attr.threadprivate)
-		    gfc_error ("THREADPRIVATE object '%s' in %s clause at %L",
+		    gfc_error ("THREADPRIVATE object %qs in %s clause at %L",
 			       n->sym->name, name, where);
 		  if (n->sym->attr.cray_pointee)
-		    gfc_error ("Cray pointee '%s' in %s clause at %L",
+		    gfc_error ("Cray pointee %qs in %s clause at %L",
 			       n->sym->name, name, where);
 		}
 	    break;
