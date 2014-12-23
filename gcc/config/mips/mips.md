@@ -7219,10 +7219,19 @@
 	(match_operand:JOIN_MODE 1 "nonimmediate_operand" "m,m,d,f"))
    (set (match_operand:JOIN_MODE 2 "nonimmediate_operand" "=d,f,m,m")
 	(match_operand:JOIN_MODE 3 "nonimmediate_operand" "m,m,d,f"))]
-  "ENABLE_P5600_LD_ST_PAIRS && reload_completed"
+  "ENABLE_LD_ST_PAIRS && reload_completed"
   {
-    output_asm_insn (mips_output_move (operands[0], operands[1]), operands);
-    output_asm_insn (mips_output_move (operands[2], operands[3]), &operands[2]);
+    bool load_p = (which_alternative == 0 || which_alternative == 1);
+    if (!load_p || !reg_overlap_mentioned_p (operands[0], operands[1]))
+      {
+	output_asm_insn (mips_output_move (operands[0], operands[1]), operands);
+	output_asm_insn (mips_output_move (operands[2], operands[3]), &operands[2]);
+      }
+    else
+      {
+	output_asm_insn (mips_output_move (operands[2], operands[3]), &operands[2]);
+	output_asm_insn (mips_output_move (operands[0], operands[1]), operands);
+      }
     return "";
   }
   [(set_attr "move_type" "load,fpload,store,fpstore")
@@ -7232,10 +7241,10 @@
 ;; P5600 does not support bonding of two LBs, hence QI mode is not included.
 (define_peephole2
   [(set (match_operand:JOIN_MODE 0 "register_operand")
-	(match_operand:JOIN_MODE 1 "memory_operand"))
+	(match_operand:JOIN_MODE 1 "non_volatile_mem_operand"))
    (set (match_operand:JOIN_MODE 2 "register_operand")
-	(match_operand:JOIN_MODE 3 "memory_operand"))]
-  "ENABLE_P5600_LD_ST_PAIRS && 
+	(match_operand:JOIN_MODE 3 "non_volatile_mem_operand"))]
+  "ENABLE_LD_ST_PAIRS && 
    mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode, true)"
   [(parallel [(set (match_dup 0)
 		   (match_dup 1))
@@ -7250,7 +7259,7 @@
 	(match_operand:JOIN_MODE 1 "register_operand"))
    (set (match_operand:JOIN_MODE 2 "memory_operand")
 	(match_operand:JOIN_MODE 3 "register_operand"))]
-  "ENABLE_P5600_LD_ST_PAIRS &&
+  "ENABLE_LD_ST_PAIRS &&
    mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode, false)"
   [(parallel [(set (match_dup 0)
 		   (match_dup 1))
@@ -7263,10 +7272,19 @@
 	(any_extend:SI (match_operand:HI 1 "memory_operand" "m")))
    (set (match_operand:SI 2 "register_operand" "=r")
 	(any_extend:SI (match_operand:HI 3 "memory_operand" "m")))]
-  "ENABLE_P5600_LD_ST_PAIRS && reload_completed"
+  "ENABLE_LD_ST_PAIRS && reload_completed"
   {
-    output_asm_insn ("lh<u>\t%0,%1", operands);
-    output_asm_insn ("lh<u>\t%2,%3", operands);
+    if (!reg_overlap_mentioned_p (operands[0], operands[1]))
+      {
+	output_asm_insn ("lh<u>\t%0,%1", operands);
+	output_asm_insn ("lh<u>\t%2,%3", operands);
+      }
+    else
+      {
+	output_asm_insn ("lh<u>\t%2,%3", operands);
+	output_asm_insn ("lh<u>\t%0,%1", operands);
+      }
+
     return "";
   }
   [(set_attr "move_type" "load")
@@ -7276,10 +7294,10 @@
 ;; 2 16 bit integer loads are joined.
 (define_peephole2
   [(set (match_operand:SI 0 "register_operand")
-	(any_extend:SI (match_operand:HI 1 "memory_operand")))
+	(any_extend:SI (match_operand:HI 1 "non_volatile_mem_operand")))
    (set (match_operand:SI 2 "register_operand")
-	(any_extend:SI (match_operand:HI 3 "memory_operand")))]
-  "ENABLE_P5600_LD_ST_PAIRS &&
+	(any_extend:SI (match_operand:HI 3 "non_volatile_mem_operand")))]
+  "ENABLE_LD_ST_PAIRS &&
    mips_load_store_bonding_p (operands, HImode, true)"
   [(parallel [(set (match_dup 0)
 		   (any_extend:SI (match_dup 1)))
