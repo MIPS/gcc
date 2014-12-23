@@ -3962,20 +3962,17 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 }
 
 /* Java requires that we be able to reference a local address for a
-   method, and not be confused by PLT entries.  If hidden aliases are
-   supported, collect and return all the functions for which we should
-   emit a hidden alias.  */
+   method, and not be confused by PLT entries.  If supported, create a
+   hidden alias for all such methods.  */
 
-static hash_set<tree> *
-collect_candidates_for_java_method_aliases (void)
+static void
+build_java_method_aliases (void)
 {
-  struct cgraph_node *node;
-  hash_set<tree> *candidates = NULL;
-
 #ifndef HAVE_GAS_HIDDEN
-  return candidates;
+  return;
 #endif
 
+  struct cgraph_node *node;
   FOR_EACH_FUNCTION (node)
     {
       tree fndecl = node->decl;
@@ -3984,55 +3981,18 @@ collect_candidates_for_java_method_aliases (void)
 	  && TYPE_FOR_JAVA (DECL_CONTEXT (fndecl))
 	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
 	{
-	  if (candidates == NULL)
-	    candidates = new hash_set<tree>;
-	  candidates->add (fndecl);
-	}
-    }
-
-  return candidates;
-}
-
-
-/* Java requires that we be able to reference a local address for a
-   method, and not be confused by PLT entries.  If hidden aliases are
-   supported, emit one for each java function that we've emitted.
-   CANDIDATES is the set of FUNCTION_DECLs that were gathered
-   by collect_candidates_for_java_method_aliases.  */
-
-static void
-build_java_method_aliases (hash_set<tree> *candidates)
-{
-  struct cgraph_node *node;
-
-#ifndef HAVE_GAS_HIDDEN
-  return;
-#endif
-
-  FOR_EACH_FUNCTION (node)
-    {
-      tree fndecl = node->decl;
-
-      if (TREE_ASM_WRITTEN (fndecl)
-	  && candidates->contains (fndecl))
-	{
 	  /* Mangle the name in a predictable way; we need to reference
 	     this from a java compiled object file.  */
-	  tree oid, nid, alias;
-	  const char *oname;
-	  char *nname;
-
-	  oid = DECL_ASSEMBLER_NAME (fndecl);
-	  oname = IDENTIFIER_POINTER (oid);
+	  tree oid = DECL_ASSEMBLER_NAME (fndecl);
+	  const char *oname = IDENTIFIER_POINTER (oid);
 	  gcc_assert (oname[0] == '_' && oname[1] == 'Z');
-	  nname = ACONCAT (("_ZGA", oname+2, NULL));
-	  nid = get_identifier (nname);
+	  char *nname = ACONCAT (("_ZGA", oname + 2, NULL));
 
-	  alias = make_alias_for (fndecl, nid);
+	  tree alias = make_alias_for (fndecl, get_identifier (nname));
 	  TREE_PUBLIC (alias) = 1;
 	  DECL_VISIBILITY (alias) = VISIBILITY_HIDDEN;
 
-	  assemble_alias (alias, oid);
+	  cgraph_node::create_same_body_alias (alias, fndecl);
 	}
     }
 }
@@ -4327,9 +4287,6 @@ emit_debug_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
 
   return 0;
 }
-
-/* Candidates for Java hidden aliases.  */
-static hash_set<tree> *java_hidden_aliases;
 
 static location_t locus_at_end_of_parsing;
 
@@ -4697,8 +4654,8 @@ c_parse_final_cleanups (void)
      linkage now.  */
   pop_lang_context ();
 
-  /* Collect candidates for Java hidden aliases.  */
-  java_hidden_aliases = collect_candidates_for_java_method_aliases ();
+  /* Generate Java hidden aliases.  */
+  build_java_method_aliases ();
 
   timevar_stop (TV_PHASE_DEFERRED);
   timevar_start (TV_PHASE_PARSING);
@@ -4759,13 +4716,6 @@ cxx_post_compilation_parsing_cleanups (void)
          finalize_compilation_unit so that we have accurate
          information about which vtable will actually be emitted.  */
       vtv_generate_init_routine ();
-    }
-
-  /* Generate hidden aliases for Java.  */
-  if (java_hidden_aliases)
-    {
-      build_java_method_aliases (java_hidden_aliases);
-      delete java_hidden_aliases;
     }
 
   input_location = locus_at_end_of_parsing;
