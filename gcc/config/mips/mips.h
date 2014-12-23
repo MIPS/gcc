@@ -3212,6 +3212,6 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib64/"
 #endif
 
-#define ENABLE_P5600_LD_ST_PAIRS \
-  (TARGET_LOAD_STORE_PAIRS && TUNE_P5600 \
+#define ENABLE_LD_ST_PAIRS \
+  (TARGET_LOAD_STORE_PAIRS && (TUNE_P5600 || TUNE_I6400)\
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
