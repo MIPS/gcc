@@ -1388,12 +1388,12 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       gfc_get_symbol_decl (sym);
       charlen = sym->ts.type == BT_CHARACTER ? sym->ts.u.cl->backend_decl
                                        : gfc_class_len_get (sym->backend_decl);
-      /* Prevent adding a noop len= len  */
+      /* Prevent adding a noop len= len.  */
       if (tmp != charlen)
         {
           gfc_add_modify (&se.pre, charlen,
                           fold_convert (TREE_TYPE (charlen), tmp));
-          gfc_add_init_cleanup (block, gfc_finish_block( &se.pre),
+          gfc_add_init_cleanup (block, gfc_finish_block (&se.pre),
                                 gfc_finish_block (&se.post));
         }
     }
