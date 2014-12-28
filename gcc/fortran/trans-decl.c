@@ -558,7 +558,8 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   /* TREE_ADDRESSABLE means the address of this variable is actually needed.
      This is the equivalent of the TARGET variables.
      We also need to set this if the variable is passed by reference in a
-     CALL statement.  */  if (sym->attr.target)
+     CALL statement.  */
+  if (sym->attr.target)
     TREE_ADDRESSABLE (decl) = 1;
 
   /* If it wasn't used we wouldn't be getting it.  */
