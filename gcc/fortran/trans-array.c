@@ -298,7 +298,7 @@ gfc_conv_descriptor_token (tree desc)
 
   type = TREE_TYPE (desc);
   gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
-  gcc_assert (gfc_option.coarray == GFC_FCOARRAY_LIB);
+  gcc_assert (flag_coarray == GFC_FCOARRAY_LIB);
   field = gfc_advance_chain (TYPE_FIELDS (type), CAF_TOKEN_FIELD);
 
   /* Should be a restricted pointer - except in the finalization wrapper.  */
@@ -830,7 +830,7 @@ gfc_trans_allocate_array_storage (stmtblock_t * pre, stmtblock_t * post,
     {
       /* Allocate the temporary.  */
       onstack = !dynamic && initial == NULL_TREE
-			 && (gfc_option.flag_stack_arrays
+			 && (flag_stack_arrays
 			     || gfc_can_put_var_on_stack (size));
 
       if (onstack)
@@ -1042,7 +1042,8 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post, gfc_ss * ss,
   gcc_assert (ss->loop->dimen == ss->dimen);
 
   if (warn_array_temporaries && where)
-    gfc_warning ("Creating array temporary at %L", where);
+    gfc_warning (OPT_Warray_temporaries,
+		 "Creating array temporary at %L", where);
 
   /* Set the lower bound to zero.  */
   for (s = ss; s; s = s->parent)
@@ -3949,7 +3950,7 @@ done:
 	    continue;
 
 	  /* Catch allocatable lhs in f2003.  */
-	  if (gfc_option.flag_realloc_lhs && ss->is_alloc_lhs)
+	  if (flag_realloc_lhs && ss->is_alloc_lhs)
 	    continue;
 
 	  expr = ss_info->expr;
@@ -4348,11 +4349,18 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 
       if (ss->info->type != GFC_SS_SECTION)
 	{
-	  if (gfc_option.flag_realloc_lhs
+	  if (flag_realloc_lhs
 	      && dest_expr != ss_expr
 	      && gfc_is_reallocatable_lhs (dest_expr)
 	      && ss_expr->rank)
 	    nDepend = gfc_check_dependency (dest_expr, ss_expr, true);
+
+	  /* Check for cases like   c(:)(1:2) = c(2)(2:3)  */
+	  if (!nDepend && dest_expr->rank > 0
+	      && dest_expr->ts.type == BT_CHARACTER
+	      && ss_expr->expr_type == EXPR_VARIABLE)
+	    
+	    nDepend = gfc_check_dependency (dest_expr, ss_expr, false);
 
 	  continue;
 	}
@@ -5276,7 +5284,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   pointer = gfc_conv_descriptor_data_get (se->expr);
   STRIP_NOPS (pointer);
 
-  if (coarray && gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (coarray && flag_coarray == GFC_FCOARRAY_LIB)
     token = gfc_build_addr_expr (NULL_TREE,
 				 gfc_conv_descriptor_token (se->expr));
 
@@ -5359,7 +5367,7 @@ gfc_array_deallocate (tree descriptor, tree pstat, tree errmsg, tree errlen,
      the allocation status may not be changed.  */
   tmp = fold_build2_loc (input_location, MODIFY_EXPR, void_type_node,
 			 var, build_int_cst (TREE_TYPE (var), 0));
-  if (pstat != NULL_TREE && coarray && gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (pstat != NULL_TREE && coarray && flag_coarray == GFC_FCOARRAY_LIB)
     {
       tree cond;
       tree stat = build_fold_indirect_ref_loc (input_location, pstat);
@@ -5429,8 +5437,7 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
 			       "constructor at %L requires an increase of "
 			       "the allowed %d upper limit. See "
 			       "%<-fmax-array-constructor%> option",
-			       &expr->where,
-			       gfc_option.flag_max_array_constructor);
+			       &expr->where, flag_max_array_constructor);
 	      return NULL_TREE;
 	    }
           if (mpz_cmp_si (c->offset, 0) != 0)
@@ -5700,7 +5707,7 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym,
       return;
     }
 
-  if (gfc_option.flag_stack_arrays)
+  if (flag_stack_arrays)
     {
       gcc_assert (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE);
       space = build_decl (sym->declared_at.lb->location,
@@ -5922,7 +5929,8 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
       stride = gfc_index_one_node;
 
       if (warn_array_temporaries)
-	gfc_warning ("Creating array temporary at %L", &loc);
+	gfc_warning (OPT_Warray_temporaries,
+		     "Creating array temporary at %L", &loc);
     }
 
   /* This is for the case where the array data is used directly without
@@ -7205,10 +7213,12 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
       if (warn_array_temporaries)
 	{
 	  if (fsym)
-	    gfc_warning ("Creating array temporary at %L for argument '%s'",
+	    gfc_warning (OPT_Warray_temporaries,
+			 "Creating array temporary at %L for argument %qs",
 			 &expr->where, fsym->name);
 	  else
-	    gfc_warning ("Creating array temporary at %L", &expr->where);
+	    gfc_warning (OPT_Warray_temporaries,
+			 "Creating array temporary at %L", &expr->where);
 	}
 
       ptr = build_call_expr_loc (input_location,
@@ -7261,7 +7271,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
 		  gfc_add_modify (&se->pre, new_field, old_field);
 		}
 
-	      if (gfc_option.coarray == GFC_FCOARRAY_LIB
+	      if (flag_coarray == GFC_FCOARRAY_LIB
 		  && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (old_desc))
 		  && GFC_TYPE_ARRAY_AKIND (TREE_TYPE (old_desc))
 		     == GFC_ARRAY_ALLOCATABLE)
@@ -7771,7 +7781,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	  break;
 
 	case NULLIFY_ALLOC_COMP:
-	  if (c->attr.pointer)
+	  if (c->attr.pointer || c->attr.proc_pointer)
 	    continue;
 	  else if (c->attr.allocatable
 		   && (c->attr.dimension|| c->attr.codimension))

@@ -1580,7 +1580,7 @@ setup_incoming_promotions (rtx_insn *first)
 
       /* The mode and signedness of the argument as it is actually passed,
          see assign_parm_setup_reg in function.c.  */
-      mode3 = promote_function_mode (TREE_TYPE (arg), mode1, &uns1,
+      mode3 = promote_function_mode (TREE_TYPE (arg), mode1, &uns3,
 				     TREE_TYPE (cfun->decl), 0);
 
       /* The mode of the register in which the argument is being passed.  */
@@ -2461,6 +2461,7 @@ update_cfg_for_uncondjump (rtx_insn *insn)
     }
 }
 
+#ifndef HAVE_cc0
 /* Return whether INSN is a PARALLEL of exactly N register SETs followed
    by an arbitrary number of CLOBBERs.  */
 static bool
@@ -2513,6 +2514,7 @@ can_split_parallel_of_n_reg_sets (rtx_insn *insn, int n)
 
   return true;
 }
+#endif
 
 /* Try to combine the insns I0, I1 and I2 into I3.
    Here I0, I1 and I2 appear earlier than I3.
@@ -2585,6 +2587,11 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
   rtx other_pat = 0;
   rtx new_other_notes;
   int i;
+
+  /* Immediately return if any of I0,I1,I2 are the same insn (I3 can
+     never be).  */
+  if (i1 == i2 || i0 == i2 || (i0 && i0 == i1))
+    return 0;
 
   /* Only try four-insn combinations when there's high likelihood of
      success.  Look for simple insns, such as loads of constants or
@@ -2712,6 +2719,13 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	     || GET_CODE (XVECEXP (p2, 0, i)) == CLOBBER)
 	    && reg_overlap_mentioned_p (SET_DEST (PATTERN (i3)),
 					SET_DEST (XVECEXP (p2, 0, i))))
+	  break;
+
+      /* Make sure this PARALLEL is not an asm.  We do not allow combining
+	 that usually (see can_combine_p), so do not here either.  */
+      for (i = 0; i < XVECLEN (p2, 0); i++)
+	if (GET_CODE (XVECEXP (p2, 0, i)) == SET
+	    && GET_CODE (SET_SRC (XVECEXP (p2, 0, i))) == ASM_OPERANDS)
 	  break;
 
       if (i == XVECLEN (p2, 0))
@@ -3812,15 +3826,20 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
   /* Similarly, check for a case where we have a PARALLEL of two independent
      SETs but we started with three insns.  In this case, we can do the sets
      as two separate insns.  This case occurs when some SET allows two
-     other insns to combine, but the destination of that SET is still live.  */
+     other insns to combine, but the destination of that SET is still live.
 
-  else if (i1 && insn_code_number < 0 && asm_noperands (newpat) < 0
+     Also do this if we started with two insns and (at least) one of the
+     resulting sets is a noop; this noop will be deleted later.  */
+
+  else if (insn_code_number < 0 && asm_noperands (newpat) < 0
 	   && GET_CODE (newpat) == PARALLEL
 	   && XVECLEN (newpat, 0) == 2
 	   && GET_CODE (XVECEXP (newpat, 0, 0)) == SET
+	   && GET_CODE (XVECEXP (newpat, 0, 1)) == SET
+	   && (i1 || set_noop_p (XVECEXP (newpat, 0, 0))
+		  || set_noop_p (XVECEXP (newpat, 0, 1)))
 	   && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 0))) != ZERO_EXTRACT
 	   && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 0))) != STRICT_LOW_PART
-	   && GET_CODE (XVECEXP (newpat, 0, 1)) == SET
 	   && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 1))) != ZERO_EXTRACT
 	   && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 1))) != STRICT_LOW_PART
 	   && ! reg_referenced_p (SET_DEST (XVECEXP (newpat, 0, 1)),
@@ -4105,19 +4124,46 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
     rtx midnotes = 0;
     int from_luid;
     /* Compute which registers we expect to eliminate.  newi2pat may be setting
-       either i3dest or i2dest, so we must check it.  Also, i1dest may be the
-       same as i3dest, in which case newi2pat may be setting i1dest.  */
+       either i3dest or i2dest, so we must check it.  */
     rtx elim_i2 = ((newi2pat && reg_set_p (i2dest, newi2pat))
 		   || i2dest_in_i2src || i2dest_in_i1src || i2dest_in_i0src
 		   || !i2dest_killed
 		   ? 0 : i2dest);
-    rtx elim_i1 = (i1 == 0 || i1dest_in_i1src || i1dest_in_i0src
+    /* For i1, we need to compute both local elimination and global
+       elimination information with respect to newi2pat because i1dest
+       may be the same as i3dest, in which case newi2pat may be setting
+       i1dest.  Global information is used when distributing REG_DEAD
+       note for i2 and i3, in which case it does matter if newi2pat sets
+       i1dest or not.
+
+       Local information is used when distributing REG_DEAD note for i1,
+       in which case it doesn't matter if newi2pat sets i1dest or not.
+       See PR62151, if we have four insns combination:
+	   i0: r0 <- i0src
+	   i1: r1 <- i1src (using r0)
+		     REG_DEAD (r0)
+	   i2: r0 <- i2src (using r1)
+	   i3: r3 <- i3src (using r0)
+	   ix: using r0
+       From i1's point of view, r0 is eliminated, no matter if it is set
+       by newi2pat or not.  In other words, REG_DEAD info for r0 in i1
+       should be discarded.
+
+       Note local information only affects cases in forms like "I1->I2->I3",
+       "I0->I1->I2->I3" or "I0&I1->I2, I2->I3".  For other cases like
+       "I0->I1, I1&I2->I3" or "I1&I2->I3", newi2pat won't set i1dest or
+       i0dest anyway.  */
+    rtx local_elim_i1 = (i1 == 0 || i1dest_in_i1src || i1dest_in_i0src
+			 || !i1dest_killed
+			 ? 0 : i1dest);
+    rtx elim_i1 = (local_elim_i1 == 0
 		   || (newi2pat && reg_set_p (i1dest, newi2pat))
-		   || !i1dest_killed
 		   ? 0 : i1dest);
-    rtx elim_i0 = (i0 == 0 || i0dest_in_i0src
+    /* Same case as i1.  */
+    rtx local_elim_i0 = (i0 == 0 || i0dest_in_i0src || !i0dest_killed
+			 ? 0 : i0dest);
+    rtx elim_i0 = (local_elim_i0 == 0
 		   || (newi2pat && reg_set_p (i0dest, newi2pat))
-		   || !i0dest_killed
 		   ? 0 : i0dest);
 
     /* Get the old REG_NOTES and LOG_LINKS from all our insns and
@@ -4286,10 +4332,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 			elim_i2, elim_i1, elim_i0);
     if (i1notes)
       distribute_notes (i1notes, i1, i3, newi2pat ? i2 : NULL,
-			elim_i2, elim_i1, elim_i0);
+			elim_i2, local_elim_i1, local_elim_i0);
     if (i0notes)
       distribute_notes (i0notes, i0, i3, newi2pat ? i2 : NULL,
-			elim_i2, elim_i1, elim_i0);
+			elim_i2, elim_i1, local_elim_i0);
     if (midnotes)
       distribute_notes (midnotes, NULL, i3, newi2pat ? i2 : NULL,
 			elim_i2, elim_i1, elim_i0);

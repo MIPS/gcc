@@ -506,7 +506,7 @@ enum reg_class
 
 enum target_cpus
 {
-#define AARCH64_CORE(NAME, INTERNAL_IDENT, IDENT, ARCH, FLAGS, COSTS) \
+#define AARCH64_CORE(NAME, INTERNAL_IDENT, SCHED, ARCH, FLAGS, COSTS) \
   TARGET_CPU_##INTERNAL_IDENT,
 #include "aarch64-cores.def"
 #undef AARCH64_CORE
@@ -804,9 +804,9 @@ do {									     \
    : reverse_condition (CODE))
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE))
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = ((MODE) == SImode ? 32 : 64), 2)
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, LR_REGNUM)
 

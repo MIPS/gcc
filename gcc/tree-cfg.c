@@ -1781,7 +1781,8 @@ replace_uses_by (tree name, tree val)
 	    {
 	      e = gimple_phi_arg_edge (as_a <gphi *> (stmt),
 				       PHI_ARG_INDEX_FROM_USE (use));
-	      if (e->flags & EDGE_ABNORMAL)
+	      if (e->flags & EDGE_ABNORMAL
+		  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val))
 		{
 		  /* This can only occur for virtual operands, since
 		     for the real ones SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name))
@@ -2666,7 +2667,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
    near its "logical" location.  This is of most help to humans looking
    at debugging dumps.  */
 
-static basic_block
+basic_block
 split_edge_bb_loc (edge edge_in)
 {
   basic_block dest = edge_in->dest;
