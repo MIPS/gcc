@@ -32,13 +32,9 @@ program test
     call sub4 (S, 4)
     call sub4 ("This is a longer string.", 24)
     call bar (S, res)
-    if (trim (res) .NE. " 4") then
-        call abort ()
-    end if
+    if (trim (res) .NE. " 4") call abort ()
     call bar(ucp, res)
-    if (trim (res) .NE. " 4") then
-      call abort ()
-    end if
+    if (trim (res) .NE. " 4") call abort ()
 
 contains
 
@@ -52,21 +48,15 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(dcl) .NE. ilen) then 
-                call abort () 
-            end if
-            if (len(ucp) .NE. ilen) then 
-                call abort () 
-            end if
+            if (len(dcl) .NE. ilen) call abort ()
+            if (len(ucp) .NE. ilen) call abort ()
             hlp = ucp
-            if (len(hlp) .NE. ilen) then 
-                call abort () 
-            end if
+            if (len(hlp) .NE. ilen) call abort ()
         class default
             call abort()
         end select
     end subroutine
-  
+
     subroutine sub2 
         character(len=:), allocatable, target :: dcl
         class(*), pointer :: ucp
@@ -76,9 +66,7 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(ucp) .ne. 3) then 
-                call abort () 
-            end if
+            if (len(ucp) .ne. 3) call abort ()
         class default
             call abort()
         end select
@@ -90,13 +78,9 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(ucp) .ne. 4) then 
-                call abort () 
-            end if
+            if (len(ucp) .ne. 4) call abort ()
             hlp = ucp
-            if (len(hlp) .ne. 4) then 
-                call abort () 
-            end if
+            if (len(hlp) .ne. 4) call abort ()
         class default
             call abort()
         end select
@@ -109,13 +93,9 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(ucp) .ne. ilen) then 
-                call abort () 
-            end if
+            if (len(ucp) .ne. ilen) call abort ()
             hlp = ucp
-            if (len(hlp) .ne. ilen) then 
-                call abort () 
-            end if
+            if (len(hlp) .ne. ilen) call abort ()
         class default
             call abort()
         end select
