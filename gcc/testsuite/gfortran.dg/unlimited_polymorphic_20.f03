@@ -57,7 +57,7 @@ contains
         end select
     end subroutine
 
-    subroutine sub2 
+    subroutine sub2
         character(len=:), allocatable, target :: dcl
         class(*), pointer :: ucp
 
