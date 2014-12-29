@@ -2213,6 +2213,8 @@ generate_hsa (void)
   if (seen_error ())
     goto fail;
   gen_body_from_gimple (ssa_map);
+  if (seen_error ())
+    goto fail;
 
 #ifdef ENABLE_CHECKING
   for (unsigned i = 0; i < ssa_map.length (); i++)
@@ -2220,8 +2222,6 @@ generate_hsa (void)
       ssa_map[i]->verify ();
 #endif
 
-  if (seen_error ())
-    goto fail;
   ssa_map.release ();
 
   hsa_regalloc ();

@@ -1,3 +1,8 @@
+2014-12-29  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (generate_hsa): Check seen_error before
+	an insn verifier is called.
+
 2014-12-12  Martin Liska  <mliska@suse.cz>
 
         * hsa-brig.c: Function comments are added.
