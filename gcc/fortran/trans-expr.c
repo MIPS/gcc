@@ -1111,11 +1111,11 @@ gfc_trans_class_assign (gfc_expr *expr1, gfc_expr *expr2, gfc_exec_op op)
       gfc_add_vptr_component (lhs);
 
       if (UNLIMITED_POLY (expr1)
-          && expr2->expr_type == EXPR_NULL && expr2->ts.type == BT_UNKNOWN)
-        {
-          rhs = gfc_get_null_expr (&expr2->where);
-          goto assign_vptr;
-        }
+	  && expr2->expr_type == EXPR_NULL && expr2->ts.type == BT_UNKNOWN)
+	{
+	  rhs = gfc_get_null_expr (&expr2->where);
+ 	  goto assign_vptr;
+	}
 
       if (expr2->expr_type == EXPR_NULL)
 	vtab = gfc_find_vtab (&expr1->ts);
