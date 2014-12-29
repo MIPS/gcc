@@ -1,4 +1,4 @@
-! { dg-do compile }
+! { dg-do run }
 ! Testing fix for
 ! PR fortran/60414
 !

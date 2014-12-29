@@ -1556,6 +1556,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_ASM_LOOP_ALIGN_MAX_SKIP
 #define TARGET_ASM_LOOP_ALIGN_MAX_SKIP rs6000_loop_align_max_skip
 
+#undef TARGET_MD_ASM_CLOBBERS
+#define TARGET_MD_ASM_CLOBBERS rs6000_md_asm_clobbers
+
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE rs6000_option_override
 
@@ -3144,6 +3147,19 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
 	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
 	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
+}
+
+/* Implement TARGET_MD_ASM_CLOBBERS.  All asm statements are considered
+   to clobber the XER[CA] bit because clobbering that bit without telling
+   the compiler worked just fine with versions of GCC before GCC 5, and
+   breaking a lot of older code in ways that are hard to track down is
+   not such a great idea.  */
+
+static tree
+rs6000_md_asm_clobbers (tree, tree, tree clobbers)
+{
+  tree s = build_string (strlen (reg_names[CA_REGNO]), reg_names[CA_REGNO]);
+  return tree_cons (NULL_TREE, s, clobbers);
 }
 
 /* Override command line options.  Mostly we process the processor type and
@@ -7575,7 +7591,11 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
 	 naturally aligned.  Since we say the address is good here, we
 	 can't disable offsets from LO_SUMs in mem_operand_gpr.
 	 FIXME: Allow offset from lo_sum for other modes too, when
-	 mem is sufficiently aligned.  */
+	 mem is sufficiently aligned.
+
+	 Also disallow this if the type can go in VMX/Altivec registers, since
+	 those registers do not have d-form (reg+offset) address modes.  */
+      && !reg_addr[mode].scalar_in_vmx_p
       && mode != TFmode
       && mode != TDmode
       && (mode != TImode || !TARGET_VSX_TIMODE)
@@ -8392,9 +8412,11 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
 	  || ! nonimmediate_operand (operands[0], mode)))
     goto emit_set;
 
-  /* 128-bit constant floating-point values on Darwin should really be
-     loaded as two parts.  */
+  /* 128-bit constant floating-point values on Darwin should really be loaded
+     as two parts.  However, this premature splitting is a problem when DFmode
+     values can go into Altivec registers.  */
   if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128
+      && !reg_addr[DFmode].scalar_in_vmx_p
       && mode == TFmode && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode, 0),
@@ -17375,12 +17397,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
-      if (TARGET_TOC)
-	emit_insn (gen_rtx_SET (VOIDmode, scratch,
-				create_TOC_reference (addr, scratch)));
-      else
-	rs6000_emit_move (scratch, addr, Pmode);
-
+      rs6000_emit_move (scratch, addr, Pmode);
       new_addr = scratch;
       break;
 
@@ -19405,6 +19422,27 @@ rs6000_emit_sISEL (machine_mode mode ATTRIBUTE_UNUSED, rtx operands[])
   rs6000_emit_int_cmove (operands[0], operands[1], const1_rtx, const0_rtx);
 }
 
+/* Emit RTL that sets a register to zero if OP1 and OP2 are equal.  SCRATCH
+   can be used as that dest register.  Return the dest register.  */
+
+rtx
+rs6000_emit_eqne (machine_mode mode, rtx op1, rtx op2, rtx scratch)
+{
+  if (op2 == const0_rtx)
+    return op1;
+
+  if (GET_CODE (scratch) == SCRATCH)
+    scratch = gen_reg_rtx (mode);
+
+  if (logical_operand (op2, mode))
+    emit_insn (gen_rtx_SET (VOIDmode, scratch, gen_rtx_XOR (mode, op1, op2)));
+  else
+    emit_insn (gen_rtx_SET (VOIDmode, scratch,
+			    gen_rtx_PLUS (mode, op1, negate_rtx (mode, op2))));
+
+  return scratch;
+}
+
 void
 rs6000_emit_sCOND (machine_mode mode, rtx operands[])
 {
@@ -19412,12 +19450,6 @@ rs6000_emit_sCOND (machine_mode mode, rtx operands[])
   machine_mode op_mode;
   enum rtx_code cond_code;
   rtx result = operands[0];
-
-  if (TARGET_ISEL && (mode == SImode || mode == DImode))
-    {
-      rs6000_emit_sISEL (mode, operands);
-      return;
-    }
 
   condition_rtx = rs6000_generate_compare (operands[1], mode);
   cond_code = GET_CODE (condition_rtx);
@@ -19792,12 +19824,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
   if (try_again)
     {
       if (swap_operands)
-	{
-	  rtx tmp;
-	  tmp = op0;
-	  op0 = op1;
-	  op1 = tmp;
-	}
+	std::swap (op0, op1);
 
       mask = rs6000_emit_vector_compare_inner (rcode, op0, op1);
       if (mask)
@@ -20110,9 +20137,7 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
     default:
       /* We need to swap the sense of the comparison.  */
       {
-	rtx t = true_cond;
-	true_cond = false_cond;
-	false_cond = t;
+	std::swap (false_cond, true_cond);
 	PUT_CODE (condition_rtx, reverse_condition (cond_code));
       }
       break;
@@ -26665,7 +26690,6 @@ rs6000_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
               switch (get_attr_type (dep_insn))
                 {
                 case TYPE_CMP:
-                case TYPE_COMPARE:
                 case TYPE_FPCOMPARE:
                 case TYPE_CR_LOGICAL:
                 case TYPE_DELAYED_CR:
@@ -26722,7 +26746,6 @@ rs6000_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
                   case TYPE_INTEGER:
                   case TYPE_ADD:
                   case TYPE_LOGICAL:
-                  case TYPE_COMPARE:
                   case TYPE_EXTS:
                   case TYPE_INSERT:
                     {
@@ -26786,7 +26809,6 @@ rs6000_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
                   case TYPE_INTEGER:
                   case TYPE_ADD:
                   case TYPE_LOGICAL:
-                  case TYPE_COMPARE:
                   case TYPE_EXTS:
                   case TYPE_INSERT:
                     {
@@ -26962,7 +26984,6 @@ is_cracked_insn (rtx_insn *insn)
 	  || ((type == TYPE_FPLOAD || type == TYPE_FPSTORE)
 	      && get_attr_update (insn) == UPDATE_YES)
 	  || type == TYPE_DELAYED_CR
-	  || type == TYPE_COMPARE
 	  || (type == TYPE_EXTS
 	      && get_attr_dot (insn) == DOT_YES)
 	  || (type == TYPE_SHIFT
@@ -27492,11 +27513,7 @@ rs6000_sched_reorder (FILE *dump ATTRIBUTE_UNUSED, int sched_verbose,
     if (is_nonpipeline_insn (ready[n_ready - 1])
         && (recog_memoized (ready[n_ready - 2]) > 0))
       /* Simply swap first two insns.  */
-      {
-	rtx_insn *tmp = ready[n_ready - 1];
-	ready[n_ready - 1] = ready[n_ready - 2];
-	ready[n_ready - 2] = tmp;
-      }
+      std::swap (ready[n_ready - 1], ready[n_ready - 2]);
   }
 
   if (rs6000_cpu == PROCESSOR_POWER6)
@@ -27844,7 +27861,6 @@ insn_must_be_first_in_group (rtx_insn *insn)
         case TYPE_MFCRF:
         case TYPE_MTCR:
         case TYPE_DIV:
-        case TYPE_COMPARE:
         case TYPE_ISYNC:
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
@@ -27885,7 +27901,6 @@ insn_must_be_first_in_group (rtx_insn *insn)
         case TYPE_MFCR:
         case TYPE_MFCRF:
         case TYPE_MTCR:
-        case TYPE_COMPARE:
         case TYPE_SYNC:
         case TYPE_ISYNC:
         case TYPE_LOAD_L:
@@ -31301,7 +31316,7 @@ altivec_expand_vec_perm_const (rtx operands[4])
              (or swapped back) to ensure proper right-to-left numbering
              from 0 to 2N-1.  */
 	  if (swapped ^ !BYTES_BIG_ENDIAN)
-	    x = op0, op0 = op1, op1 = x;
+	    std::swap (op0, op1);
 	  if (imode != V16QImode)
 	    {
 	      op0 = gen_lowpart (imode, op0);
@@ -31357,7 +31372,7 @@ rs6000_expand_vec_perm_const_1 (rtx target, rtx op0, rtx op1,
 	return false;
       perm0 -= 2;
       perm1 += 2;
-      x = op0, op0 = op1, op1 = x;
+      std::swap (op0, op1);
     }
   /* If the second selector does not come from the second operand, fail.  */
   else if ((perm1 & 2) == 0)
@@ -33151,6 +33166,10 @@ rs6000_split_logical_inner (rtx dest,
 
   if (complement_op2_p)
     op2 = gen_rtx_NOT (mode, op2);
+
+  /* For canonical RTL, if only one arm is inverted it is the first.  */
+  if (!complement_op1_p && complement_op2_p)
+    std::swap (op1, op2);
 
   bool_rtx = ((code == NOT)
 	      ? gen_rtx_NOT (mode, op1)

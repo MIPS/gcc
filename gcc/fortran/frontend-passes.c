@@ -104,11 +104,11 @@ gfc_run_passes (gfc_namespace *ns)
   doloop_warn (ns);
   doloop_list.release ();
 
-  if (gfc_option.flag_frontend_optimize)
+  if (flag_frontend_optimize)
     {
       optimize_namespace (ns);
       optimize_reduction (ns);
-      if (gfc_option.dump_fortran_optimized)
+      if (flag_dump_fortran_optimized)
 	gfc_dump_parse_tree (ns, stdout);
 
       expr_array.release ();
@@ -376,7 +376,7 @@ cfe_register_funcs (gfc_expr **e, int *walk_subtrees ATTRIBUTE_UNUSED,
      temporary variable to hold the intermediate result, but only if
      allocation on assignment is active.  */
 
-  if ((*e)->rank > 0 && (*e)->shape == NULL && !gfc_option.flag_realloc_lhs)
+  if ((*e)->rank > 0 && (*e)->shape == NULL && !flag_realloc_lhs)
     return 0;
   
   /* Skip the test for pure functions if -faggressive-function-elimination
@@ -389,7 +389,7 @@ cfe_register_funcs (gfc_expr **e, int *walk_subtrees ATTRIBUTE_UNUSED,
 
       /* Only eliminate potentially impure functions if the
 	 user specifically requested it.  */
-      if (!gfc_option.flag_aggressive_function_elimination
+      if (!flag_aggressive_function_elimination
 	  && !(*e)->value.function.esym->attr.pure
 	  && !(*e)->value.function.esym->attr.implicit_pure)
 	return 0;
@@ -547,7 +547,8 @@ create_var (gfc_expr * e)
       result->ref->u.ar.as = symbol->ts.type == BT_CLASS
 			     ? CLASS_DATA (symbol)->as : symbol->as;
       if (warn_array_temporaries)
-	gfc_warning ("Creating array temporary at %L", &(e->where));
+	gfc_warning (OPT_Warray_temporaries,
+		     "Creating array temporary at %L", &(e->where));
     }
 
   /* Generate the new assignment.  */
@@ -570,10 +571,10 @@ do_warn_function_elimination (gfc_expr *e)
   if (e->expr_type != EXPR_FUNCTION)
     return;
   if (e->value.function.esym)
-    gfc_warning ("Removing call to function '%s' at %L",
+    gfc_warning ("Removing call to function %qs at %L",
 		 e->value.function.esym->name, &(e->where));
   else if (e->value.function.isym)
-    gfc_warning ("Removing call to function '%s' at %L",
+    gfc_warning ("Removing call to function %qs at %L",
 		 e->value.function.isym->name, &(e->where));
 }
 /* Callback function for the code walker for doing common function

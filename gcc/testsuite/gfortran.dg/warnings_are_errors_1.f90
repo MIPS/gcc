@@ -5,7 +5,7 @@
 ! free-form tests
 
 ! gfc_notify_std:
-       function char_ (ch) ! { dg-warning "Obsolescent feature" }
+       function char_ (ch) ! { dg-error "Obsolescent feature" }
        character(*) :: char_, ch
         char_ = ch
        end function char_
@@ -17,7 +17,7 @@
 
        implicit none
 ! gfc_warning:
-1234  complex :: cplx ! { dg-warning "defined but cannot be used" }
+1234  complex :: cplx ! { dg-error "defined but cannot be used" }
       cplx = 20.
 
 ! gfc_warning_now:

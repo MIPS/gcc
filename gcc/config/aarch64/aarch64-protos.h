@@ -171,6 +171,12 @@ struct tune_params
   const int memmov_cost;
   const int issue_rate;
   const unsigned int fuseable_ops;
+  const int function_align;
+  const int jump_align;
+  const int loop_align;
+  const int int_reassoc_width;
+  const int fp_reassoc_width;
+  const int vec_reassoc_width;
 };
 
 HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
@@ -247,7 +253,6 @@ void aarch64_expand_epilogue (bool);
 void aarch64_expand_mov_immediate (rtx, rtx);
 void aarch64_expand_prologue (void);
 void aarch64_expand_vector_init (rtx, rtx);
-void aarch64_function_profiler (FILE *, int);
 void aarch64_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx,
 				   const_tree, unsigned);
 void aarch64_init_expanders (void);
@@ -293,6 +298,7 @@ void aarch64_expand_compare_and_swap (rtx op[]);
 void aarch64_split_compare_and_swap (rtx op[]);
 void aarch64_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx, rtx);
 
+bool aarch64_gen_adjusted_ldpstp (rtx *, bool, enum machine_mode, RTX_CODE);
 #endif /* RTX_CODE */
 
 void aarch64_init_builtins (void);
@@ -316,4 +322,8 @@ extern bool
 aarch64_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel);
 void aarch64_atomic_assign_expand_fenv (tree *, tree *, tree *);
 int aarch64_ccmp_mode_to_code (enum machine_mode mode);
+
+bool extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset);
+bool aarch64_operands_ok_for_ldpstp (rtx *, bool, enum machine_mode);
+bool aarch64_operands_adjust_ok_for_ldpstp (rtx *, bool, enum machine_mode);
 #endif /* GCC_AARCH64_PROTOS_H */

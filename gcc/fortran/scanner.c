@@ -749,8 +749,7 @@ skip_free_comments (void)
 	     2) handle OpenMP conditional compilation, where
 		!$ should be treated as 2 spaces (for initial lines
 		only if followed by space).  */
-	  if ((gfc_option.gfc_flag_openmp
-	       || gfc_option.gfc_flag_openmp_simd) && at_bol)
+	  if ((flag_openmp || flag_openmp_simd) && at_bol)
 	    {
 	      locus old_loc = gfc_current_locus;
 	      if (next_char () == '$')
@@ -876,7 +875,7 @@ skip_fixed_comments (void)
 	      && continue_line < gfc_linebuf_linenum (gfc_current_locus.lb))
 	    continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
-	  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
+	  if (flag_openmp || flag_openmp_simd)
 	    {
 	      if (next_char () == '$')
 		{
@@ -1051,12 +1050,13 @@ restart:
       if (warn_line_truncation && gfc_current_locus.lb != NULL
 	  && gfc_current_locus.lb->truncated)
 	{
-	  int maxlen = gfc_option.free_line_length;
+	  int maxlen = flag_free_line_length;
 	  gfc_char_t *current_nextc = gfc_current_locus.nextc;
 
 	  gfc_current_locus.lb->truncated = 0;
 	  gfc_current_locus.nextc =  gfc_current_locus.lb->line + maxlen;
-	  gfc_warning_now_1 ("Line truncated at %L", &gfc_current_locus);
+	  gfc_warning_now (OPT_Wline_truncation,
+			   "Line truncated at %L", &gfc_current_locus);
 	  gfc_current_locus.nextc = current_nextc;
 	}
 
@@ -1155,7 +1155,8 @@ restart:
 	    {
 	      gfc_current_locus.nextc--;
 	      if (warn_ampersand && in_string == INSTRING_WARN)
-		gfc_warning ("Missing '&' in continued character "
+		gfc_warning (OPT_Wampersand, 
+			     "Missing %<&%> in continued character "
 			     "constant at %C");
 	    }
 	  /* Both !$omp and !$ -fopenmp continuation lines have & on the
@@ -1194,7 +1195,8 @@ restart:
 	  && gfc_current_locus.lb->truncated)
 	{
 	  gfc_current_locus.lb->truncated = 0;
-	  gfc_warning_now_1 ("Line truncated at %L", &gfc_current_locus);
+	  gfc_warning_now (OPT_Wline_truncation,
+			   "Line truncated at %L", &gfc_current_locus);
 	}
 
       prev_openmp_flag = openmp_flag;
@@ -1431,9 +1433,9 @@ load_line (FILE *input, gfc_char_t **pbuf, int *pbuflen, const int *first_char)
 
   /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
-    maxlen = gfc_option.free_line_length;
+    maxlen = flag_free_line_length;
   else if (gfc_current_form == FORM_FIXED)
-    maxlen = gfc_option.fixed_line_length;
+    maxlen = flag_fixed_line_length;
   else
     maxlen = 72;
 
@@ -1607,7 +1609,7 @@ next_char:
 
   /* Pad lines to the selected line length in fixed form.  */
   if (gfc_current_form == FORM_FIXED
-      && gfc_option.fixed_line_length != 0
+      && flag_fixed_line_length != 0
       && !preprocessor_flag
       && c != EOF)
     {
@@ -1819,7 +1821,7 @@ include_line (gfc_char_t *line)
 
   c = line;
 
-  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
+  if (flag_openmp || flag_openmp_simd)
     {
       if (gfc_current_form == FORM_FREE)
 	{
@@ -2042,8 +2044,15 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
       b = XCNEWVAR (gfc_linebuf, gfc_linebuf_header_size
 		    + (len + 1) * sizeof (gfc_char_t));
 
+
       b->location
-	= linemap_line_start (line_table, current_file->line++, 120);
+	= linemap_line_start (line_table, current_file->line++, len);
+      /* ??? We add the location for the maximum column possible here,
+	 because otherwise if the next call creates a new line-map, it
+	 will not reserve space for any offset.  */
+      if (len > 0)
+	linemap_position_for_column (line_table, len);
+
       b->file = current_file;
       b->truncated = trunc;
       wide_strcpy (b->line, line);

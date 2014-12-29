@@ -86,13 +86,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "plugin.h"
-#include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "auto-profile.h"
 #include "dwarf2out.h"
 #include "bitmap.h"
 #include "ipa-reference.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "gcse.h"
 #include "insn-codes.h"
@@ -1213,7 +1213,7 @@ general_init (const char *argv0)
   /* Create the singleton holder for global state.
      Doing so also creates the pass manager and with it the passes.  */
   g = new gcc::context ();
-  symtab = ggc_cleared_alloc <symbol_table> ();
+  symtab = new (ggc_cleared_alloc <symbol_table> ()) symbol_table ();
 
   statistics_early_init ();
   finish_params ();
@@ -1267,29 +1267,6 @@ process_options (void)
   debug_hooks = &do_nothing_debug_hooks;
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
-
-  /* If DIAGNOSTICS_COLOR_DEFAULT is -1, default to -fdiagnostics-color=auto
-     if GCC_COLORS is in the environment, otherwise default to
-     -fdiagnostics-color=never, for other values default to that
-     -fdiagnostics-color={never,auto,always}.  */
-  if (!global_options_set.x_flag_diagnostics_show_color)
-    switch ((int) DIAGNOSTICS_COLOR_DEFAULT)
-      {
-      case -1:
-	if (!getenv ("GCC_COLORS"))
-	  break;
-	/* FALLTHRU */
-      case DIAGNOSTICS_COLOR_AUTO:
-	pp_show_color (global_dc->printer)
-	  = colorize_init (DIAGNOSTICS_COLOR_AUTO);
-	break;
-      case DIAGNOSTICS_COLOR_YES:
-	pp_show_color (global_dc->printer)
-	  = colorize_init (DIAGNOSTICS_COLOR_YES);
-	break;
-      default:
-	break;
-      }
 
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
@@ -2163,12 +2140,14 @@ toplev::finalize (void)
   rtl_initialized = false;
   this_target_rtl->target_specific_initialized = false;
 
+  /* Needs to be called before cgraph_c_finalize since it uses symtab.  */
+  ipa_reference_c_finalize ();
+
   cgraph_c_finalize ();
   cgraphunit_c_finalize ();
   dwarf2out_c_finalize ();
   gcse_c_finalize ();
   ipa_cp_c_finalize ();
-  ipa_reference_c_finalize ();
   ira_costs_c_finalize ();
   params_c_finalize ();
 

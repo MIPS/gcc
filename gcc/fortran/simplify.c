@@ -153,7 +153,7 @@ convert_mpz_to_unsigned (mpz_t x, int bitsize)
     {
       /* Confirm that no bits above the signed range are unset if we
 	 are doing range checking.  */
-      if (gfc_option.flag_range_check != 0)
+      if (flag_range_check != 0)
 	gcc_assert (mpz_scan0 (x, bitsize-1) == ULONG_MAX);
 
       mpz_init_set_ui (mask, 1);
@@ -184,7 +184,7 @@ gfc_convert_mpz_to_signed (mpz_t x, int bitsize)
 
   /* Confirm that no bits above the unsigned range are set if we are
      doing range checking.  */
-  if (gfc_option.flag_range_check != 0)
+  if (flag_range_check != 0)
     gcc_assert (mpz_scan1 (x, bitsize) == ULONG_MAX);
 
   if (mpz_tstbit (x, bitsize - 1) == 1)
@@ -716,7 +716,8 @@ simplify_achar_char (gfc_expr *e, gfc_expr *k, const char *name, bool ascii)
     }
 
   if (ascii && warn_surprising && mpz_cmp_si (e->value.integer, 127) > 0)
-    gfc_warning ("Argument of %s function at %L outside of range [0,127]",
+    gfc_warning (OPT_Wsurprising,
+		 "Argument of %s function at %L outside of range [0,127]",
 		 name, &e->where);
 
   if (kind == 1 && mpz_cmp_si (e->value.integer, 255) > 0)
@@ -1260,7 +1261,7 @@ gfc_simplify_bessel_n2 (gfc_expr *order1, gfc_expr *order2, gfc_expr *x,
 
   if (mpfr_cmp_ui (x->value.real, 0.0) == 0)
     {
-      if (!jn && gfc_option.flag_range_check)
+      if (!jn && flag_range_check)
 	{
 	  gfc_error ("Result of BESSEL_YN is -INF at %L", &result->where);
  	  gfc_free_expr (result);
@@ -1366,7 +1367,7 @@ gfc_simplify_bessel_n2 (gfc_expr *order1, gfc_expr *order2, gfc_expr *x,
 
       /* Special case: For YN, if the previous N gave -INF, set
 	 also N+1 to -INF.  */
-      if (!jn && !gfc_option.flag_range_check && mpfr_inf_p (last2))
+      if (!jn && !flag_range_check && mpfr_inf_p (last2))
 	{
 	  mpfr_set_inf (e->value.real, -1);
 	  gfc_constructor_append_expr (&result->value.constructor, e,
@@ -2505,7 +2506,8 @@ gfc_simplify_iachar (gfc_expr *e, gfc_expr *kind)
   index = e->value.character.string[0];
 
   if (warn_surprising && index > 127)
-    gfc_warning ("Argument of IACHAR function at %L outside of range 0..127",
+    gfc_warning (OPT_Wsurprising,
+		 "Argument of IACHAR function at %L outside of range 0..127",
 		 &e->where);
 
   k = get_kind (BT_INTEGER, kind, "IACHAR", gfc_default_integer_kind);
@@ -3322,7 +3324,7 @@ simplify_bound_dim (gfc_expr *array, gfc_expr *kind, int d, int upper,
   /* The last dimension of an assumed-size array is special.  */
   if ((!coarray && d == as->rank && as->type == AS_ASSUMED_SIZE && !upper)
       || (coarray && d == as->rank + as->corank
-	  && (!upper || gfc_option.coarray == GFC_FCOARRAY_SINGLE)))
+	  && (!upper || flag_coarray == GFC_FCOARRAY_SINGLE)))
     {
       if (as->lower[d-1]->expr_type == EXPR_CONSTANT)
 	{
@@ -4479,7 +4481,7 @@ gfc_simplify_nearest (gfc_expr *x, gfc_expr *s)
 
   /* Only NaN can occur. Do not use range check as it gives an
      error for denormal numbers.  */
-  if (mpfr_nan_p (result->value.real) && gfc_option.flag_range_check)
+  if (mpfr_nan_p (result->value.real) && flag_range_check)
     {
       gfc_error ("Result of NEAREST is NaN at %L", &result->where);
       gfc_free_expr (result);
@@ -4637,13 +4639,13 @@ gfc_simplify_num_images (gfc_expr *distance ATTRIBUTE_UNUSED, gfc_expr *failed)
 {
   gfc_expr *result;
 
-  if (gfc_option.coarray == GFC_FCOARRAY_NONE)
+  if (flag_coarray == GFC_FCOARRAY_NONE)
     {
       gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
       return &gfc_bad_expr;
     }
 
-  if (gfc_option.coarray != GFC_FCOARRAY_SINGLE)
+  if (flag_coarray != GFC_FCOARRAY_SINGLE)
     return NULL;
 
   if (failed && failed->expr_type != EXPR_CONSTANT)
@@ -5924,7 +5926,7 @@ gfc_simplify_sign (gfc_expr *x, gfc_expr *y)
 	break;
 
       case BT_REAL:
-	if (gfc_option.flag_sign_zero)
+	if (flag_sign_zero)
 	  mpfr_copysign (result->value.real, x->value.real, y->value.real,
 			GFC_RND_MODE);
 	else
@@ -6094,7 +6096,7 @@ gfc_simplify_spread (gfc_expr *source, gfc_expr *dim_expr, gfc_expr *ncopies_exp
   else
     mpz_init_set_ui (size, 1);
 
-  if (mpz_get_si (size)*ncopies > gfc_option.flag_max_array_constructor)
+  if (mpz_get_si (size)*ncopies > flag_max_array_constructor)
     return NULL;
 
   if (source->expr_type == EXPR_CONSTANT)
@@ -6529,7 +6531,7 @@ gfc_simplify_image_index (gfc_expr *coarray, gfc_expr *sub)
 
   gcc_assert (sub_cons == NULL);
 
-  if (gfc_option.coarray != GFC_FCOARRAY_SINGLE && !first_image)
+  if (flag_coarray != GFC_FCOARRAY_SINGLE && !first_image)
     return NULL;
 
   result = gfc_get_constant_expr (BT_INTEGER, gfc_default_integer_kind,
@@ -6547,7 +6549,7 @@ gfc_expr *
 gfc_simplify_this_image (gfc_expr *coarray, gfc_expr *dim,
 			 gfc_expr *distance ATTRIBUTE_UNUSED)
 {
-  if (gfc_option.coarray != GFC_FCOARRAY_SINGLE)
+  if (flag_coarray != GFC_FCOARRAY_SINGLE)
     return NULL;
 
   /* If no coarray argument has been passed or when the first argument
@@ -6932,7 +6934,7 @@ gfc_convert_char_constant (gfc_expr *e, bt type ATTRIBUTE_UNUSED, int kind)
 	if (!gfc_check_character_range (result->value.character.string[i],
 					kind))
 	  {
-	    gfc_error ("Character '%s' in string at %L cannot be converted "
+	    gfc_error ("Character %qs in string at %L cannot be converted "
 		       "into character kind %d",
 		       gfc_print_wide_char (result->value.character.string[i]),
 		       &e->where, kind);

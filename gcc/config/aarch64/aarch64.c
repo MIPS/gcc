@@ -310,6 +310,7 @@ static const struct cpu_vector_cost cortexa57_vector_cost =
 #define AARCH64_FUSE_ADRP_ADD	(1 << 1)
 #define AARCH64_FUSE_MOVK_MOVK	(1 << 2)
 #define AARCH64_FUSE_ADRP_LDR	(1 << 3)
+#define AARCH64_FUSE_CMP_BRANCH	(1 << 4)
 
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
 __extension__
@@ -322,7 +323,13 @@ static const struct tune_params generic_tunings =
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_NOTHING)
+  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_NOTHING),
+  8,	/* function_align.  */
+  8,	/* jump_align.  */
+  4,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1	/* vec_reassoc_width.  */
 };
 
 static const struct tune_params cortexa53_tunings =
@@ -334,7 +341,13 @@ static const struct tune_params cortexa53_tunings =
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 2),
   NAMED_PARAM (fuseable_ops, (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
-                             | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR))
+                             | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR)),
+  8,	/* function_align.  */
+  8,	/* jump_align.  */
+  4,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1	/* vec_reassoc_width.  */
 };
 
 static const struct tune_params cortexa57_tunings =
@@ -345,7 +358,13 @@ static const struct tune_params cortexa57_tunings =
   &cortexa57_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 3),
-  NAMED_PARAM (fuseable_ops, (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD | AARCH64_FUSE_MOVK_MOVK))
+  NAMED_PARAM (fuseable_ops, (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD | AARCH64_FUSE_MOVK_MOVK)),
+  16,	/* function_align.  */
+  8,	/* jump_align.  */
+  4,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1	/* vec_reassoc_width.  */
 };
 
 static const struct tune_params thunderx_tunings =
@@ -356,7 +375,13 @@ static const struct tune_params thunderx_tunings =
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 6),
   NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_NOTHING)
+  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_CMP_BRANCH),
+  8,	/* function_align.  */
+  8,	/* jump_align.  */
+  8,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1	/* vec_reassoc_width.  */
 };
 
 /* A processor implementing AArch64.  */
@@ -373,13 +398,11 @@ struct processor
 /* Processor cores implementing AArch64.  */
 static const struct processor all_cores[] =
 {
-#define AARCH64_CORE(NAME, X, IDENT, ARCH, FLAGS, COSTS) \
-  {NAME, IDENT, #ARCH, ARCH,\
-    FLAGS | AARCH64_FL_FOR_ARCH##ARCH, &COSTS##_tunings},
+#define AARCH64_CORE(NAME, IDENT, SCHED, ARCH, FLAGS, COSTS) \
+  {NAME, SCHED, #ARCH, ARCH, FLAGS, &COSTS##_tunings},
 #include "aarch64-cores.def"
 #undef AARCH64_CORE
-  {"generic", cortexa53, "8", 8,\
-    AARCH64_FL_FPSIMD | AARCH64_FL_FOR_ARCH8, &generic_tunings},
+  {"generic", cortexa53, "8", 8, AARCH64_FL_FOR_ARCH8, &generic_tunings},
   {NULL, aarch64_none, NULL, 0, 0, NULL}
 };
 
@@ -448,6 +471,25 @@ static const char * const aarch64_condition_codes[] =
   "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc",
   "hi", "ls", "ge", "lt", "gt", "le", "al", "nv"
 };
+
+static unsigned int
+aarch64_min_divisions_for_recip_mul (enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return 2;
+}
+
+static int
+aarch64_reassociation_width (unsigned opc ATTRIBUTE_UNUSED,
+			     enum machine_mode mode)
+{
+  if (VECTOR_MODE_P (mode))
+    return aarch64_tune_params->vec_reassoc_width;
+  if (INTEGRAL_MODE_P (mode))
+    return aarch64_tune_params->int_reassoc_width;
+  if (FLOAT_MODE_P (mode))
+    return aarch64_tune_params->fp_reassoc_width;
+  return 1;
+}
 
 /* Provide a mapping from gcc register numbers to dwarf register numbers.  */
 unsigned
@@ -6506,7 +6548,8 @@ aarch64_parse_extension (char *str)
 
       if (len == 0)
 	{
-	  error ("missing feature modifier after %qs", "+no");
+	  error ("missing feature modifier after %qs", adding_ext ? "+"
+	                                                          : "+no");
 	  return;
 	}
 
@@ -6625,7 +6668,6 @@ aarch64_parse_cpu (void)
       if (strlen (cpu->name) == len && strncmp (cpu->name, str, len) == 0)
 	{
 	  selected_cpu = cpu;
-	  selected_tune = cpu;
 	  aarch64_isa_flags = selected_cpu->flags;
 
 	  if (ext != NULL)
@@ -6721,9 +6763,8 @@ aarch64_override_options (void)
 
   gcc_assert (selected_cpu);
 
-  /* The selected cpu may be an architecture, so lookup tuning by core ID.  */
   if (!selected_tune)
-    selected_tune = &all_cores[selected_cpu->core];
+    selected_tune = selected_cpu;
 
   aarch64_tune_flags = selected_tune->flags;
   aarch64_tune = selected_tune->core;
@@ -6737,6 +6778,18 @@ aarch64_override_options (void)
 #else
       aarch64_fix_a53_err835769 = 0;
 #endif
+    }
+
+  /* If not opzimizing for size, set the default
+     alignment to what the target wants */
+  if (!optimize_size)
+    {
+      if (align_loops <= 0)
+	align_loops = aarch64_tune_params->loop_align;
+      if (align_jumps <= 0)
+	align_jumps = aarch64_tune_params->jump_align;
+      if (align_functions <= 0)
+	align_functions = aarch64_tune_params->function_align;
     }
 
   aarch64_override_options_after_change ();
@@ -10381,7 +10434,499 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
         }
     }
 
+  if ((aarch64_tune_params->fuseable_ops & AARCH64_FUSE_CMP_BRANCH)
+      && any_condjump_p (curr))
+    {
+      enum attr_type prev_type = get_attr_type (prev);
+
+      /* FIXME: this misses some which is considered simple arthematic
+         instructions for ThunderX.  Simple shifts are missed here.  */
+      if (prev_type == TYPE_ALUS_SREG
+          || prev_type == TYPE_ALUS_IMM
+          || prev_type == TYPE_LOGICS_REG
+          || prev_type == TYPE_LOGICS_IMM)
+        return true;
+    }
+
   return false;
+}
+
+/* If MEM is in the form of [base+offset], extract the two parts
+   of address and set to BASE and OFFSET, otherwise return false
+   after clearing BASE and OFFSET.  */
+
+bool
+extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset)
+{
+  rtx addr;
+
+  gcc_assert (MEM_P (mem));
+
+  addr = XEXP (mem, 0);
+
+  if (REG_P (addr))
+    {
+      *base = addr;
+      *offset = const0_rtx;
+      return true;
+    }
+
+  if (GET_CODE (addr) == PLUS
+      && REG_P (XEXP (addr, 0)) && CONST_INT_P (XEXP (addr, 1)))
+    {
+      *base = XEXP (addr, 0);
+      *offset = XEXP (addr, 1);
+      return true;
+    }
+
+  *base = NULL_RTX;
+  *offset = NULL_RTX;
+
+  return false;
+}
+
+/* Types for scheduling fusion.  */
+enum sched_fusion_type
+{
+  SCHED_FUSION_NONE = 0,
+  SCHED_FUSION_LD_SIGN_EXTEND,
+  SCHED_FUSION_LD_ZERO_EXTEND,
+  SCHED_FUSION_LD,
+  SCHED_FUSION_ST,
+  SCHED_FUSION_NUM
+};
+
+/* If INSN is a load or store of address in the form of [base+offset],
+   extract the two parts and set to BASE and OFFSET.  Return scheduling
+   fusion type this INSN is.  */
+
+static enum sched_fusion_type
+fusion_load_store (rtx_insn *insn, rtx *base, rtx *offset)
+{
+  rtx x, dest, src;
+  enum sched_fusion_type fusion = SCHED_FUSION_LD;
+
+  gcc_assert (INSN_P (insn));
+  x = PATTERN (insn);
+  if (GET_CODE (x) != SET)
+    return SCHED_FUSION_NONE;
+
+  src = SET_SRC (x);
+  dest = SET_DEST (x);
+
+  if (GET_MODE (src) != SImode && GET_MODE (src) != DImode
+      && GET_MODE (src) != SFmode && GET_MODE (src) != DFmode)
+    return SCHED_FUSION_NONE;
+
+  if (GET_CODE (src) == SIGN_EXTEND)
+    {
+      fusion = SCHED_FUSION_LD_SIGN_EXTEND;
+      src = XEXP (src, 0);
+      if (GET_CODE (src) != MEM || GET_MODE (src) != SImode)
+	return SCHED_FUSION_NONE;
+    }
+  else if (GET_CODE (src) == ZERO_EXTEND)
+    {
+      fusion = SCHED_FUSION_LD_ZERO_EXTEND;
+      src = XEXP (src, 0);
+      if (GET_CODE (src) != MEM || GET_MODE (src) != SImode)
+	return SCHED_FUSION_NONE;
+    }
+
+  if (GET_CODE (src) == MEM && REG_P (dest))
+    extract_base_offset_in_addr (src, base, offset);
+  else if (GET_CODE (dest) == MEM && (REG_P (src) || src == const0_rtx))
+    {
+      fusion = SCHED_FUSION_ST;
+      extract_base_offset_in_addr (dest, base, offset);
+    }
+  else
+    return SCHED_FUSION_NONE;
+
+  if (*base == NULL_RTX || *offset == NULL_RTX)
+    fusion = SCHED_FUSION_NONE;
+
+  return fusion;
+}
+
+/* Implement the TARGET_SCHED_FUSION_PRIORITY hook.
+
+   Currently we only support to fuse ldr or str instructions, so FUSION_PRI
+   and PRI are only calculated for these instructions.  For other instruction,
+   FUSION_PRI and PRI are simply set to MAX_PRI - 1.  In the future, other
+   type instruction fusion can be added by returning different priorities.
+
+   It's important that irrelevant instructions get the largest FUSION_PRI.  */
+
+static void
+aarch64_sched_fusion_priority (rtx_insn *insn, int max_pri,
+			       int *fusion_pri, int *pri)
+{
+  int tmp, off_val;
+  rtx base, offset;
+  enum sched_fusion_type fusion;
+
+  gcc_assert (INSN_P (insn));
+
+  tmp = max_pri - 1;
+  fusion = fusion_load_store (insn, &base, &offset);
+  if (fusion == SCHED_FUSION_NONE)
+    {
+      *pri = tmp;
+      *fusion_pri = tmp;
+      return;
+    }
+
+  /* Set FUSION_PRI according to fusion type and base register.  */
+  *fusion_pri = tmp - fusion * FIRST_PSEUDO_REGISTER - REGNO (base);
+
+  /* Calculate PRI.  */
+  tmp /= 2;
+
+  /* INSN with smaller offset goes first.  */
+  off_val = (int)(INTVAL (offset));
+  if (off_val >= 0)
+    tmp -= (off_val & 0xfffff);
+  else
+    tmp += ((- off_val) & 0xfffff);
+
+  *pri = tmp;
+  return;
+}
+
+/* Given OPERANDS of consecutive load/store, check if we can merge
+   them into ldp/stp.  LOAD is true if they are load instructions.
+   MODE is the mode of memory operands.  */
+
+bool
+aarch64_operands_ok_for_ldpstp (rtx *operands, bool load,
+				enum machine_mode mode)
+{
+  HOST_WIDE_INT offval_1, offval_2, msize;
+  enum reg_class rclass_1, rclass_2;
+  rtx mem_1, mem_2, reg_1, reg_2, base_1, base_2, offset_1, offset_2;
+
+  if (load)
+    {
+      mem_1 = operands[1];
+      mem_2 = operands[3];
+      reg_1 = operands[0];
+      reg_2 = operands[2];
+      gcc_assert (REG_P (reg_1) && REG_P (reg_2));
+      if (REGNO (reg_1) == REGNO (reg_2))
+	return false;
+    }
+  else
+    {
+      mem_1 = operands[0];
+      mem_2 = operands[2];
+      reg_1 = operands[1];
+      reg_2 = operands[3];
+    }
+
+  /* Check if the addresses are in the form of [base+offset].  */
+  extract_base_offset_in_addr (mem_1, &base_1, &offset_1);
+  if (base_1 == NULL_RTX || offset_1 == NULL_RTX)
+    return false;
+  extract_base_offset_in_addr (mem_2, &base_2, &offset_2);
+  if (base_2 == NULL_RTX || offset_2 == NULL_RTX)
+    return false;
+
+  /* Check if the bases are same.  */
+  if (!rtx_equal_p (base_1, base_2))
+    return false;
+
+  offval_1 = INTVAL (offset_1);
+  offval_2 = INTVAL (offset_2);
+  msize = GET_MODE_SIZE (mode);
+  /* Check if the offsets are consecutive.  */
+  if (offval_1 != (offval_2 + msize) && offval_2 != (offval_1 + msize))
+    return false;
+
+  /* Check if the addresses are clobbered by load.  */
+  if (load)
+    {
+      if (reg_mentioned_p (reg_1, mem_1))
+	return false;
+
+      /* In increasing order, the last load can clobber the address.  */
+      if (offval_1 > offval_2 && reg_mentioned_p (reg_2, mem_2))
+      return false;
+    }
+
+  if (REG_P (reg_1) && FP_REGNUM_P (REGNO (reg_1)))
+    rclass_1 = FP_REGS;
+  else
+    rclass_1 = GENERAL_REGS;
+
+  if (REG_P (reg_2) && FP_REGNUM_P (REGNO (reg_2)))
+    rclass_2 = FP_REGS;
+  else
+    rclass_2 = GENERAL_REGS;
+
+  /* Check if the registers are of same class.  */
+  if (rclass_1 != rclass_2)
+    return false;
+
+  return true;
+}
+
+/* Given OPERANDS of consecutive load/store, check if we can merge
+   them into ldp/stp by adjusting the offset.  LOAD is true if they
+   are load instructions.  MODE is the mode of memory operands.
+
+   Given below consecutive stores:
+
+     str  w1, [xb, 0x100]
+     str  w1, [xb, 0x104]
+     str  w1, [xb, 0x108]
+     str  w1, [xb, 0x10c]
+
+   Though the offsets are out of the range supported by stp, we can
+   still pair them after adjusting the offset, like:
+
+     add  scratch, xb, 0x100
+     stp  w1, w1, [scratch]
+     stp  w1, w1, [scratch, 0x8]
+
+   The peephole patterns detecting this opportunity should guarantee
+   the scratch register is avaliable.  */
+
+bool
+aarch64_operands_adjust_ok_for_ldpstp (rtx *operands, bool load,
+				       enum machine_mode mode)
+{
+  enum reg_class rclass_1, rclass_2, rclass_3, rclass_4;
+  HOST_WIDE_INT offval_1, offval_2, offval_3, offval_4, msize;
+  rtx mem_1, mem_2, mem_3, mem_4, reg_1, reg_2, reg_3, reg_4;
+  rtx base_1, base_2, base_3, base_4, offset_1, offset_2, offset_3, offset_4;
+
+  if (load)
+    {
+      reg_1 = operands[0];
+      mem_1 = operands[1];
+      reg_2 = operands[2];
+      mem_2 = operands[3];
+      reg_3 = operands[4];
+      mem_3 = operands[5];
+      reg_4 = operands[6];
+      mem_4 = operands[7];
+      gcc_assert (REG_P (reg_1) && REG_P (reg_2)
+		  && REG_P (reg_3) && REG_P (reg_4));
+      if (REGNO (reg_1) == REGNO (reg_2) || REGNO (reg_3) == REGNO (reg_4))
+	return false;
+    }
+  else
+    {
+      mem_1 = operands[0];
+      reg_1 = operands[1];
+      mem_2 = operands[2];
+      reg_2 = operands[3];
+      mem_3 = operands[4];
+      reg_3 = operands[5];
+      mem_4 = operands[6];
+      reg_4 = operands[7];
+    }
+  /* Skip if memory operand is by itslef valid for ldp/stp.  */
+  if (!MEM_P (mem_1) || aarch64_mem_pair_operand (mem_1, mode))
+    return false;
+
+  /* Check if the addresses are in the form of [base+offset].  */
+  extract_base_offset_in_addr (mem_1, &base_1, &offset_1);
+  if (base_1 == NULL_RTX || offset_1 == NULL_RTX)
+    return false;
+  extract_base_offset_in_addr (mem_2, &base_2, &offset_2);
+  if (base_2 == NULL_RTX || offset_2 == NULL_RTX)
+    return false;
+  extract_base_offset_in_addr (mem_3, &base_3, &offset_3);
+  if (base_3 == NULL_RTX || offset_3 == NULL_RTX)
+    return false;
+  extract_base_offset_in_addr (mem_4, &base_4, &offset_4);
+  if (base_4 == NULL_RTX || offset_4 == NULL_RTX)
+    return false;
+
+  /* Check if the bases are same.  */
+  if (!rtx_equal_p (base_1, base_2)
+      || !rtx_equal_p (base_2, base_3)
+      || !rtx_equal_p (base_3, base_4))
+    return false;
+
+  offval_1 = INTVAL (offset_1);
+  offval_2 = INTVAL (offset_2);
+  offval_3 = INTVAL (offset_3);
+  offval_4 = INTVAL (offset_4);
+  msize = GET_MODE_SIZE (mode);
+  /* Check if the offsets are consecutive.  */
+  if ((offval_1 != (offval_2 + msize)
+       || offval_1 != (offval_3 + msize * 2)
+       || offval_1 != (offval_4 + msize * 3))
+      && (offval_4 != (offval_3 + msize)
+	  || offval_4 != (offval_2 + msize * 2)
+	  || offval_4 != (offval_1 + msize * 3)))
+    return false;
+
+  /* Check if the addresses are clobbered by load.  */
+  if (load)
+    {
+      if (reg_mentioned_p (reg_1, mem_1)
+	  || reg_mentioned_p (reg_2, mem_2)
+	  || reg_mentioned_p (reg_3, mem_3))
+	return false;
+
+      /* In increasing order, the last load can clobber the address.  */
+      if (offval_1 > offval_2 && reg_mentioned_p (reg_4, mem_4))
+	return false;
+    }
+
+  if (REG_P (reg_1) && FP_REGNUM_P (REGNO (reg_1)))
+    rclass_1 = FP_REGS;
+  else
+    rclass_1 = GENERAL_REGS;
+
+  if (REG_P (reg_2) && FP_REGNUM_P (REGNO (reg_2)))
+    rclass_2 = FP_REGS;
+  else
+    rclass_2 = GENERAL_REGS;
+
+  if (REG_P (reg_3) && FP_REGNUM_P (REGNO (reg_3)))
+    rclass_3 = FP_REGS;
+  else
+    rclass_3 = GENERAL_REGS;
+
+  if (REG_P (reg_4) && FP_REGNUM_P (REGNO (reg_4)))
+    rclass_4 = FP_REGS;
+  else
+    rclass_4 = GENERAL_REGS;
+
+  /* Check if the registers are of same class.  */
+  if (rclass_1 != rclass_2 || rclass_2 != rclass_3 || rclass_3 != rclass_4)
+    return false;
+
+  return true;
+}
+
+/* Given OPERANDS of consecutive load/store, this function pairs them
+   into ldp/stp after adjusting the offset.  It depends on the fact
+   that addresses of load/store instructions are in increasing order.
+   MODE is the mode of memory operands.  CODE is the rtl operator
+   which should be applied to all memory operands, it's SIGN_EXTEND,
+   ZERO_EXTEND or UNKNOWN.  */
+
+bool
+aarch64_gen_adjusted_ldpstp (rtx *operands, bool load,
+			     enum machine_mode mode, RTX_CODE code)
+{
+  rtx base, offset, t1, t2;
+  rtx mem_1, mem_2, mem_3, mem_4;
+  HOST_WIDE_INT off_val, abs_off, adj_off, new_off, stp_off_limit, msize;
+
+  if (load)
+    {
+      mem_1 = operands[1];
+      mem_2 = operands[3];
+      mem_3 = operands[5];
+      mem_4 = operands[7];
+    }
+  else
+    {
+      mem_1 = operands[0];
+      mem_2 = operands[2];
+      mem_3 = operands[4];
+      mem_4 = operands[6];
+      gcc_assert (code == UNKNOWN);
+    }
+
+  extract_base_offset_in_addr (mem_1, &base, &offset);
+  gcc_assert (base != NULL_RTX && offset != NULL_RTX);
+
+  /* Adjust offset thus it can fit in ldp/stp instruction.  */
+  msize = GET_MODE_SIZE (mode);
+  stp_off_limit = msize * 0x40;
+  off_val = INTVAL (offset);
+  abs_off = (off_val < 0) ? -off_val : off_val;
+  new_off = abs_off % stp_off_limit;
+  adj_off = abs_off - new_off;
+
+  /* Further adjust to make sure all offsets are OK.  */
+  if ((new_off + msize * 2) >= stp_off_limit)
+    {
+      adj_off += stp_off_limit;
+      new_off -= stp_off_limit;
+    }
+
+  /* Make sure the adjustment can be done with ADD/SUB instructions.  */
+  if (adj_off >= 0x1000)
+    return false;
+
+  if (off_val < 0)
+    {
+      adj_off = -adj_off;
+      new_off = -new_off;
+    }
+
+  /* Create new memory references.  */
+  mem_1 = change_address (mem_1, VOIDmode,
+			  plus_constant (DImode, operands[8], new_off));
+
+  /* Check if the adjusted address is OK for ldp/stp.  */
+  if (!aarch64_mem_pair_operand (mem_1, mode))
+    return false;
+
+  msize = GET_MODE_SIZE (mode);
+  mem_2 = change_address (mem_2, VOIDmode,
+			  plus_constant (DImode,
+					 operands[8],
+					 new_off + msize));
+  mem_3 = change_address (mem_3, VOIDmode,
+			  plus_constant (DImode,
+					 operands[8],
+					 new_off + msize * 2));
+  mem_4 = change_address (mem_4, VOIDmode,
+			  plus_constant (DImode,
+					 operands[8],
+					 new_off + msize * 3));
+
+  if (code == ZERO_EXTEND)
+    {
+      mem_1 = gen_rtx_ZERO_EXTEND (DImode, mem_1);
+      mem_2 = gen_rtx_ZERO_EXTEND (DImode, mem_2);
+      mem_3 = gen_rtx_ZERO_EXTEND (DImode, mem_3);
+      mem_4 = gen_rtx_ZERO_EXTEND (DImode, mem_4);
+    }
+  else if (code == SIGN_EXTEND)
+    {
+      mem_1 = gen_rtx_SIGN_EXTEND (DImode, mem_1);
+      mem_2 = gen_rtx_SIGN_EXTEND (DImode, mem_2);
+      mem_3 = gen_rtx_SIGN_EXTEND (DImode, mem_3);
+      mem_4 = gen_rtx_SIGN_EXTEND (DImode, mem_4);
+    }
+
+  if (load)
+    {
+      operands[1] = mem_1;
+      operands[3] = mem_2;
+      operands[5] = mem_3;
+      operands[7] = mem_4;
+    }
+  else
+    {
+      operands[0] = mem_1;
+      operands[2] = mem_2;
+      operands[4] = mem_3;
+      operands[6] = mem_4;
+    }
+
+  /* Emit adjusting instruction.  */
+  emit_insn (gen_rtx_SET (VOIDmode, operands[8],
+			  plus_constant (DImode, base, adj_off)));
+  /* Emit ldp/stp instructions.  */
+  t1 = gen_rtx_SET (VOIDmode, operands[0], operands[1]);
+  t2 = gen_rtx_SET (VOIDmode, operands[2], operands[3]);
+  emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
+  t1 = gen_rtx_SET (VOIDmode, operands[4], operands[5]);
+  t2 = gen_rtx_SET (VOIDmode, operands[6], operands[7]);
+  emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
+  return true;
 }
 
 #undef TARGET_ADDRESS_COST
@@ -10510,6 +11055,9 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST aarch64_memory_move_cost
 
+#undef TARGET_MIN_DIVISIONS_FOR_RECIP_MUL
+#define TARGET_MIN_DIVISIONS_FOR_RECIP_MUL aarch64_min_divisions_for_recip_mul
+
 #undef TARGET_MUST_PASS_IN_STACK
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 
@@ -10531,6 +11079,9 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
 
 #undef TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS aarch64_preferred_reload_class
+
+#undef TARGET_SCHED_REASSOCIATION_WIDTH
+#define TARGET_SCHED_REASSOCIATION_WIDTH aarch64_reassociation_width
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD aarch64_secondary_reload
@@ -10648,6 +11199,9 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
 
 #undef TARGET_SCHED_MACRO_FUSION_PAIR_P
 #define TARGET_SCHED_MACRO_FUSION_PAIR_P aarch_macro_fusion_pair_p
+
+#undef TARGET_SCHED_FUSION_PRIORITY
+#define TARGET_SCHED_FUSION_PRIORITY aarch64_sched_fusion_priority
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
