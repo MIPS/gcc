@@ -2484,8 +2484,8 @@ find_intrinsic_vtab (gfc_typespec *ts)
       char name[GFC_MAX_SYMBOL_LEN+1], tname[GFC_MAX_SYMBOL_LEN+1];
 
       if (ts->type == BT_CHARACTER)
-        sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
-                 charlen, ts->kind);
+	sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
+		 charlen, ts->kind);
       else
 	sprintf (tname, "%s_%d_", gfc_basic_typename (ts->type), ts->kind);
 

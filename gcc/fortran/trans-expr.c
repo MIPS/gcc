@@ -6625,7 +6625,6 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
      typespec for the C_PTR and C_FUNPTR symbols, which has already been
      updated to be an integer with a kind equal to the size of a (void *).  */
   if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->ts.f90_type == BT_VOID
-      /* TODO: Need to check, if this is correctly working for all cases.  */
       && expr->ts.u.derived->attr.is_bind_c)
     {
       if (expr->expr_type == EXPR_VARIABLE
