@@ -2857,6 +2857,11 @@ machines with non orthogonal register usage for addressing, such
 as SH, this hook can be used to avoid excessive spilling.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_SIBCALL_WILD_READ_P (rtx_insn *@var{insn})
+A target hook which returns @code{true} if a sibcall @var{insn} may
+have a wild read.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_LEGITIMIZE_ADDRESS_DISPLACEMENT (rtx *@var{disp}, rtx *@var{offset}, machine_mode @var{mode})
 A target hook which returns @code{true} if *@var{disp} is
 legitimezed to valid address displacement with subtracting *@var{offset}

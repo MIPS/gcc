@@ -5051,6 +5051,14 @@ as SH, this hook can be used to avoid excessive spilling.",
  bool, (rtx subst),
  hook_bool_rtx_false)
 
+/* This target hook allows the backend to optimize sibcall in DSE.  */
+DEFHOOK
+(sibcall_wild_read_p,
+ "A target hook which returns @code{true} if a sibcall @var{insn} may\n\
+have a wild read.",
+ bool, (rtx_insn *insn),
+ default_sibcall_wild_read_p)
+
 /* This target hook allows the backend to legitimize base plus
    displacement addressing.  */
 DEFHOOK

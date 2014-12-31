@@ -1921,4 +1921,16 @@ can_use_doloop_if_innermost (const widest_int &, const widest_int &,
   return loop_depth == 1;
 }
 
+/* Arguments for a sibling call that are pushed to memory are passed
+   using the incoming argument pointer of the current function.  These
+   may or may not be frame related depending on the target.  Since
+   argument pointer related stores are not currently tracked, we treat
+   a sibling call as though it does a wild read.  */
+
+bool
+default_sibcall_wild_read_p (rtx_insn *insn)
+{
+  return SIBLING_CALL_P (insn);
+}
+
 #include "gt-targhooks.h"

@@ -2483,12 +2483,7 @@ scan_insn (bb_info_t bb_info, rtx_insn *insn)
 
       insn_info->cannot_delete = true;
 
-      /* Arguments for a sibling call that are pushed to memory are passed
-	 using the incoming argument pointer of the current function.  These
-	 may or may not be frame related depending on the target.  Since
-	 argument pointer related stores are not currently tracked, we treat
-	 a sibling call as though it does a wild read.  */
-      if (SIBLING_CALL_P (insn))
+      if (targetm.sibcall_wild_read_p (insn))
 	{
 	  add_wild_read (bb_info);
 	  return;

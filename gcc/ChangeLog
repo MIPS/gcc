@@ -1,3 +1,18 @@
+2015-01-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/64388
+	* dse.c (scan_insn): Call targetm.sibcall_wild_read_p to check
+	if a sibcall may have a wild read.
+	* hooks.c (hook_bool_rtx_insn_false): New.
+	* hooks.h (hook_bool_rtx_insn_false): Likewise.
+	* targhooks.c (default_sibcall_wild_read_p): Likewise.
+	* targhooks.h (default_sibcall_wild_read_p): Likewise.
+	* target.def (sibcall_wild_read_p): A new hook.
+	* config/i386/i386.c (TARGET_SIBCALL_WILD_READ_P): New. Defined
+	to hook_bool_rtx_insn_false.
+	* doc/tm.texi: Regenerated.
+	* doc/tm.texi.in: Add hook for TARGET_SIBCALL_WILD_READ_P.
+
 2015-01-01  Anthony Green  <green@moxielogic.com>
 
 	* config/moxie/predicates.md (moxie_general_movsrc_operand):

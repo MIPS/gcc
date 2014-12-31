@@ -320,6 +320,12 @@ hook_bool_rtx_insn_true (rtx_insn *insn ATTRIBUTE_UNUSED)
 }
 
 bool
+hook_bool_rtx_insn_false (rtx_insn *insn ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+bool
 hook_bool_rtx_false (rtx a ATTRIBUTE_UNUSED)
 {
   return false;

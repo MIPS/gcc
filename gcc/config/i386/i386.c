@@ -51711,6 +51711,9 @@ ix86_initialize_bounds (tree var, tree lb, tree ub, tree *stmts)
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ix86_function_ok_for_sibcall
 
+#undef TARGET_SIBCALL_WILD_READ_P
+#define TARGET_SIBCALL_WILD_READ_P hook_bool_rtx_insn_false
+
 #undef TARGET_MEMMODEL_CHECK
 #define TARGET_MEMMODEL_CHECK ix86_memmodel_check
 
