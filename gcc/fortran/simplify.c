@@ -3717,7 +3717,27 @@ gfc_simplify_len (gfc_expr *e, gfc_expr *kind)
            && e->symtree->n.sym->assoc && e->symtree->n.sym->assoc->target
            && e->symtree->n.sym->assoc->target->ts.type == BT_DERIVED)
     {
-      return gfc_get_len_component (e);
+      gfc_ref *ref, **last;
+      result = gfc_copy_expr (e->symtree->n.sym->assoc->target);
+
+      /* We need to remove the last _data component ref from ptr.  */
+      last = &(result->ref);
+      ref = result->ref;
+      while (ref)
+	{
+	  if (!ref->next
+	      && ref->type == REF_COMPONENT
+	      && strcmp ("_data", ref->u.c.component->name)== 0)
+	    {
+	      gfc_free_ref_list (ref);
+	      *last = NULL;
+	      break;
+	    }
+	  last = &(ref->next);
+	  ref = ref->next;
+	}
+      gfc_add_component_ref (result, "_len");
+      return result;
     }
   else
     return NULL;

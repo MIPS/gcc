@@ -550,36 +550,6 @@ gfc_intrinsic_hash_value (gfc_typespec *ts)
 }
 
 
-/* Get the _len component from a class/derived object storing a string.  */
-
-gfc_expr *
-gfc_get_len_component (gfc_expr *e)
-{
-  gfc_expr *len_comp;
-  gfc_ref *ref, **last;
-  len_comp = gfc_copy_expr (e->symtree->n.sym->assoc->target);
-
-  /* We need to remove the last _data component ref from ptr.  */
-  last = &(len_comp->ref);
-  ref = len_comp->ref;
-  while (ref)
-    {
-      if (!ref->next
-          && ref->type == REF_COMPONENT
-          && strcmp ("_data", ref->u.c.component->name)== 0)
-        {
-          gfc_free_ref_list (ref);
-          *last = NULL;
-          break;
-        }
-      last = &(ref->next);
-      ref = ref->next;
-    }
-  gfc_add_component_ref (len_comp, "_len");
-  return len_comp;
-}
-
-
 /* Build a polymorphic CLASS entity, using the symbol that comes from
    build_sym. A CLASS entity is represented by an encapsulating type,
    which contains the declared type as '_data' component, plus a pointer
@@ -701,14 +671,6 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
 	  c->ts.kind = 4;
 	  c->attr.access = ACCESS_PRIVATE;
 	  c->attr.artificial = 1;
-
-	  /* Build minimal expression to initialize component with zero.
-	     TODO: When doing this, one goes to hell in the select type
-		   id association something in generating the constructor
-		   code really goes wrong.  Not using an initializer here
-		   needs extra code in the alloc statements.  */
-//	  c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
-//					     NULL, 0);
 	}
       else
 	/* Build vtab later.  */
