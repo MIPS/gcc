@@ -1152,11 +1152,12 @@ class_has_len_component (gfc_symbol *sym)
   while (comp)
     {
       if (strcmp (comp->name, "_len") == 0)
-        return true;
+	return true;
       comp = comp->next;
     }
   return false;
 }
+
 
 /* Do proper initialization for ASSOCIATE names.  */
 
@@ -1248,6 +1249,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	  tmp = fold_convert (gfc_array_index_type, size_in_bytes (tmp));
 	  gfc_add_modify (&se.pre, GFC_DECL_SPAN(desc), tmp);
 	}
+
       /* Done, register stuff as init / cleanup code.  */
       gfc_add_init_cleanup (block, gfc_finish_block (&se.pre),
 			    gfc_finish_block (&se.post));
@@ -1277,6 +1279,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	  gfc_add_modify (&se.pre, tmp,
 			  gfc_get_dtype (TREE_TYPE (sym->backend_decl)));
 	}
+
       gfc_add_init_cleanup (block, gfc_finish_block( &se.pre),
 			    gfc_finish_block (&se.post));
     }
@@ -1329,7 +1332,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	      gfc_add_modify (&se.pre, charlen,
 			      fold_convert (TREE_TYPE (charlen), tmp));
 	      /* and the oposite way at the end of the block, to hand changes
-	         on the string length back.  */
+		 on the string length back.  */
 	      gfc_add_modify (&se.post, tmp,
 			      fold_convert (TREE_TYPE (tmp), charlen));
 	      /* Length assignment done, prevent adding it again below.  */
@@ -1349,13 +1352,13 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	  se.expr = build_fold_indirect_ref_loc (input_location, se.expr);
 	}
       else
-        {
-          /* For BT_CLASS and BT_DERIVED, this boils down to a pointer assign,
-             which has the string length included.  For CHARACTERS it is still
-             needed and will be done at the end of this routine.  */
-          gfc_conv_expr (&se, e);
-          need_len_assign = need_len_assign && sym->ts.type == BT_CHARACTER;
-        }
+	{
+	  /* For BT_CLASS and BT_DERIVED, this boils down to a pointer assign,
+	     which has the string length included.  For CHARACTERS it is still
+	     needed and will be done at the end of this routine.  */
+	  gfc_conv_expr (&se, e);
+	  need_len_assign = need_len_assign && sym->ts.type == BT_CHARACTER;
+	}
 
       tmp = TREE_TYPE (sym->backend_decl);
       tmp = gfc_build_addr_expr (tmp, se.expr);
@@ -1382,24 +1385,24 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       gfc_se se;
       gfc_init_se (&se, NULL);
       if (e->symtree->n.sym->ts.type == BT_CHARACTER)
-        {
-          /* What about deferred strings?  */
-          gcc_assert (!e->symtree->n.sym->ts.deferred);
-          tmp = e->symtree->n.sym->ts.u.cl->backend_decl;
-        }
+	{
+	  /* What about deferred strings?  */
+	  gcc_assert (!e->symtree->n.sym->ts.deferred);
+	  tmp = e->symtree->n.sym->ts.u.cl->backend_decl;
+	}
       else
-        tmp = gfc_class_len_get (gfc_get_symbol_decl (e->symtree->n.sym));
+	tmp = gfc_class_len_get (gfc_get_symbol_decl (e->symtree->n.sym));
       gfc_get_symbol_decl (sym);
       charlen = sym->ts.type == BT_CHARACTER ? sym->ts.u.cl->backend_decl
-                                       : gfc_class_len_get (sym->backend_decl);
+					: gfc_class_len_get (sym->backend_decl);
       /* Prevent adding a noop len= len.  */
       if (tmp != charlen)
-        {
-          gfc_add_modify (&se.pre, charlen,
-                          fold_convert (TREE_TYPE (charlen), tmp));
-          gfc_add_init_cleanup (block, gfc_finish_block (&se.pre),
-                                gfc_finish_block (&se.post));
-        }
+	{
+	  gfc_add_modify (&se.pre, charlen,
+			  fold_convert (TREE_TYPE (charlen), tmp));
+	  gfc_add_init_cleanup (block, gfc_finish_block (&se.pre),
+				gfc_finish_block (&se.post));
+	}
     }
 }
 

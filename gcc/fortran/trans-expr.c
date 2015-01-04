@@ -637,14 +637,17 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
   if (e->ts.type == BT_CHARACTER)
     {
       ctree = gfc_class_len_get (var);
-      if (e->ts.u.cl->backend_decl)
-        {
+      /* Start with parmse->string_length because this seems to be set to a
+	 correct value more often.  */
+      if (parmse->string_length)
+	  gfc_add_modify (&parmse->pre, ctree, parmse->string_length);
+      /* When the string_length is not yet set, then try the backend_decl of
+	 the cl.  */
+      else if (e->ts.u.cl->backend_decl)
           gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
-        }
-      else if (parmse->string_length)
-        {
-          gfc_add_modify (&parmse->pre, ctree, parmse->string_length);
-        }
+      /* If both of the above approaches fail, then try to generate an
+	 expression from the input, which is only feasible currently, when the
+	 expression can be evaluated to a constant one.  */
       else
         {
           /* Try to simplify the expression.  */
@@ -6625,7 +6628,6 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
      typespec for the C_PTR and C_FUNPTR symbols, which has already been
      updated to be an integer with a kind equal to the size of a (void *).  */
   if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->ts.f90_type == BT_VOID
-      /* TODO: Need to check, if this is correctly working for all cases.  */
       && expr->ts.u.derived->attr.is_bind_c)
     {
       if (expr->expr_type == EXPR_VARIABLE
@@ -6830,43 +6832,6 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
 }
 
 
-/* Create the character length assignment to the _len component.  */
-
-void
-add_assignment_of_string_len_to_len_component (stmtblock_t *block,
-                                               gfc_expr *ptr, gfc_se *ptr_se,
-                                               gfc_se *str)
-{
-  gfc_expr *len_comp;
-  gfc_ref *ref, **last;
-  gfc_se lse;
-  len_comp = gfc_copy_expr (ptr);
-  /* We need to remove the last _data component ref from ptr.  */
-  last = &(len_comp->ref);
-  ref = len_comp->ref;
-  while (ref)
-    {
-      if (!ref->next
-          && ref->type == REF_COMPONENT
-          && strcmp ("_data", ref->u.c.component->name)== 0)
-        {
-          gfc_free_ref_list (ref);
-          *last = NULL;
-          break;
-        }
-      last = &(ref->next);
-      ref = ref->next;
-    }
-  gfc_add_component_ref (len_comp, "_len");
-  gfc_init_se (&lse, NULL);
-  gfc_conv_expr (&lse, len_comp);
-
-  /* ptr % _len = len (str)  */
-  gfc_add_modify (block, lse.expr, str->string_length);
-  ptr_se->string_length = lse.expr;
-  gfc_free_expr (len_comp);
-}
-
 tree
 gfc_trans_pointer_assign (gfc_code * code)
 {
@@ -6932,17 +6897,25 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       gfc_add_block_to_block (&block, &rse.pre);
 
       /* For string assignments to unlimited polymorphic pointers add an
-         assignment of the string_length to the _len component of the
-         pointer.  */
+	 assignment of the string_length to the _len component of the
+	 pointer.  */
       if ((expr1->ts.type == BT_CLASS || expr1->ts.type == BT_DERIVED)
-          && expr1->ts.u.derived->attr.unlimited_polymorphic
-          && (expr2->ts.type == BT_CHARACTER ||
-              ((expr2->ts.type == BT_DERIVED || expr2->ts.type == BT_CLASS)
-              && expr2->ts.u.derived->attr.unlimited_polymorphic)))
-        {
-          add_assignment_of_string_len_to_len_component (&block, expr1, &lse,
-                                                         &rse);
-        }
+	  && expr1->ts.u.derived->attr.unlimited_polymorphic
+	  && (expr2->ts.type == BT_CHARACTER ||
+	      ((expr2->ts.type == BT_DERIVED || expr2->ts.type == BT_CLASS)
+	       && expr2->ts.u.derived->attr.unlimited_polymorphic)))
+	{
+	  gfc_expr *len_comp;
+	  gfc_se se;
+	  len_comp = gfc_get_len_component (expr1);
+	  gfc_init_se (&se, NULL);
+	  gfc_conv_expr (&se, len_comp);
+
+	  /* ptr % _len = len (str)  */
+	  gfc_add_modify (&block, se.expr, rse.string_length);
+	  lse.string_length = se.expr;
+	  gfc_free_expr (len_comp);
+	}
 
       /* Check character lengths if character expression.  The test is only
 	 really added if -fbounds-check is enabled.  Exclude deferred

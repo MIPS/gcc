@@ -550,33 +550,39 @@ gfc_intrinsic_hash_value (gfc_typespec *ts)
 }
 
 
-/* Get the _len component from a class/derived object storing a string.  */
+/* Get the _len component from a class/derived object storing a string.
+   For unlimited polymorphic entities a ref to the _data component is available
+   while a ref to the _len component is needed.  This routine traverese the
+   ref-chain and strips the last ref to a _data from it replacing it with a
+   ref to the _len component.  */
 
 gfc_expr *
 gfc_get_len_component (gfc_expr *e)
 {
-  gfc_expr *len_comp;
+  gfc_expr *ptr;
   gfc_ref *ref, **last;
-  len_comp = gfc_copy_expr (e->symtree->n.sym->assoc->target);
+
+  ptr = gfc_copy_expr (e);
 
   /* We need to remove the last _data component ref from ptr.  */
-  last = &(len_comp->ref);
-  ref = len_comp->ref;
+  last = &(ptr->ref);
+  ref = ptr->ref;
   while (ref)
     {
       if (!ref->next
-          && ref->type == REF_COMPONENT
-          && strcmp ("_data", ref->u.c.component->name)== 0)
-        {
-          gfc_free_ref_list (ref);
-          *last = NULL;
-          break;
-        }
+	  && ref->type == REF_COMPONENT
+	  && strcmp ("_data", ref->u.c.component->name)== 0)
+	{
+	  gfc_free_ref_list (ref);
+	  *last = NULL;
+	  break;
+	}
       last = &(ref->next);
       ref = ref->next;
     }
-  gfc_add_component_ref (len_comp, "_len");
-  return len_comp;
+  /* And replace if with a ref to the _len component.  */
+  gfc_add_component_ref (ptr, "_len");
+  return ptr;
 }
 
 
@@ -701,14 +707,6 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
 	  c->ts.kind = 4;
 	  c->attr.access = ACCESS_PRIVATE;
 	  c->attr.artificial = 1;
-
-	  /* Build minimal expression to initialize component with zero.
-	     TODO: When doing this, one goes to hell in the select type
-		   id association something in generating the constructor
-		   code really goes wrong.  Not using an initializer here
-		   needs extra code in the alloc statements.  */
-//	  c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
-//					     NULL, 0);
 	}
       else
 	/* Build vtab later.  */
@@ -2484,8 +2482,8 @@ find_intrinsic_vtab (gfc_typespec *ts)
       char name[GFC_MAX_SYMBOL_LEN+1], tname[GFC_MAX_SYMBOL_LEN+1];
 
       if (ts->type == BT_CHARACTER)
-        sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
-                 charlen, ts->kind);
+	sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
+		 charlen, ts->kind);
       else
 	sprintf (tname, "%s_%d_", gfc_basic_typename (ts->type), ts->kind);
 
