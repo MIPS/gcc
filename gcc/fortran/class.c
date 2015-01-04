@@ -550,6 +550,42 @@ gfc_intrinsic_hash_value (gfc_typespec *ts)
 }
 
 
+/* Get the _len component from a class/derived object storing a string.
+   For unlimited polymorphic entities a ref to the _data component is available
+   while a ref to the _len component is needed.  This routine traverese the
+   ref-chain and strips the last ref to a _data from it replacing it with a
+   ref to the _len component.  */
+
+gfc_expr *
+gfc_get_len_component (gfc_expr *e)
+{
+  gfc_expr *ptr;
+  gfc_ref *ref, **last;
+
+  ptr = gfc_copy_expr (e);
+
+  /* We need to remove the last _data component ref from ptr.  */
+  last = &(ptr->ref);
+  ref = ptr->ref;
+  while (ref)
+    {
+      if (!ref->next
+	  && ref->type == REF_COMPONENT
+	  && strcmp ("_data", ref->u.c.component->name)== 0)
+	{
+	  gfc_free_ref_list (ref);
+	  *last = NULL;
+	  break;
+	}
+      last = &(ref->next);
+      ref = ref->next;
+    }
+  /* And replace if with a ref to the _len component.  */
+  gfc_add_component_ref (ptr, "_len");
+  return ptr;
+}
+
+
 /* Build a polymorphic CLASS entity, using the symbol that comes from
    build_sym. A CLASS entity is represented by an encapsulating type,
    which contains the declared type as '_data' component, plus a pointer

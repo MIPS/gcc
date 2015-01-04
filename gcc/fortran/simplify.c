@@ -3689,6 +3689,7 @@ gfc_simplify_leadz (gfc_expr *e)
   return gfc_get_int_expr (gfc_default_integer_kind, &e->where, lz);
 }
 
+
 gfc_expr *
 gfc_simplify_len (gfc_expr *e, gfc_expr *kind)
 {
@@ -3713,32 +3714,13 @@ gfc_simplify_len (gfc_expr *e, gfc_expr *kind)
       return range_check (result, "LEN");
     }
   else if (e->expr_type == EXPR_VARIABLE && e->ts.type == BT_CHARACTER
-           && e->symtree->n.sym
-           && e->symtree->n.sym->assoc && e->symtree->n.sym->assoc->target
-           && e->symtree->n.sym->assoc->target->ts.type == BT_DERIVED)
-    {
-      gfc_ref *ref, **last;
-      result = gfc_copy_expr (e->symtree->n.sym->assoc->target);
-
-      /* We need to remove the last _data component ref from ptr.  */
-      last = &(result->ref);
-      ref = result->ref;
-      while (ref)
-	{
-	  if (!ref->next
-	      && ref->type == REF_COMPONENT
-	      && strcmp ("_data", ref->u.c.component->name)== 0)
-	    {
-	      gfc_free_ref_list (ref);
-	      *last = NULL;
-	      break;
-	    }
-	  last = &(ref->next);
-	  ref = ref->next;
-	}
-      gfc_add_component_ref (result, "_len");
-      return result;
-    }
+	   && e->symtree->n.sym
+	   && e->symtree->n.sym->assoc && e->symtree->n.sym->assoc->target
+	   && e->symtree->n.sym->assoc->target->ts.type == BT_DERIVED)
+    /* The expression in assoc->target points to a ref to the _data component
+       of the unlimited polymorphic entity.  To get the _len component the last
+       _data ref needs to be stripped and a ref to the _len component added.  */
+    return gfc_get_len_component (e->symtree->n.sym->assoc->target);
   else
     return NULL;
 }
