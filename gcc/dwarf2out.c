@@ -5619,7 +5619,7 @@ check_die_inline (dw_die_ref die)
    earlier in the compilation process.  */
 
 static void
-check_die (dw_die_ref die, unsigned level)
+check_die (dw_die_ref die)
 {
   static unsigned long mark = 1;
   dw_die_ref c, p;
@@ -5653,11 +5653,6 @@ check_die (dw_die_ref die, unsigned level)
 	c->die_abbrev = mark;
       } while (1);
     }
-
-  if (!level)
-    return;
-
-  FOR_EACH_CHILD (die, c, check_die (c, level - 1));
 }
 
 
@@ -21656,7 +21651,7 @@ dwarf2out_decl (tree decl)
 
   dw_die_ref die = lookup_decl_die (decl);
   if (die)
-    check_die (die, 0);
+    check_die (die);
 #ifdef ENABLE_CHECKING
   /* If we early created a DIE, make sure it didn't get re-created by
      mistake.  */

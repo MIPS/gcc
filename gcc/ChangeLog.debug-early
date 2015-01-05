@@ -1,3 +1,8 @@
+2015-01-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2out.c (check_die): Remove level argument.
+	(dwarf2out_decl): Remove level argument to check_die.
+
 2014-12-23  Aldy Hernandez  <aldyh@redhat.com>
 
 	* cp/decl2.c (collect_candidates_for_java_method_aliases): Remove.
