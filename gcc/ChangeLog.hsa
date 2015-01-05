@@ -5,20 +5,20 @@
 
 2014-12-12  Martin Liska  <mliska@suse.cz>
 
-        * hsa-brig.c: Function comments are added.
+        * hsa-brig.c: Add function comments.
         * hsa-gen.c: Likewise.
 
 2014-12-12  Martin Liska  <mliska@suse.cz>
 
-	* hsa-brig.c (brig_string_slot_hasher::remove): Memory free is added.
-	* hsa-gen.c (hsa_deinit_data_for_cfun): Destructors are called for
+	* hsa-brig.c (brig_string_slot_hasher::remove): Free memory.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Call destructors for
 	operands and instructions that need to deallocate a data.
-	(hsa_alloc_reg_op): Object is added to list of items that are
+	(hsa_alloc_reg_op): Add object to list of items that are
 	destructed.
 	(hsa_alloc_code_list_op): Likewise.
 	(hsa_alloc_call_insn): Likewise.
 	(hsa_alloc_call_block_insn): Likewise.
-	(wrap_hsa): Products of asprintf are freed.
+	(wrap_hsa): Free products of asprintf.
 	* hsa.h (struct hsa_op_reg): New destructor.
 	(struct hsa_op_code_list): Likewise.
 	(struct hsa_insn_call): Likewise.
@@ -28,27 +28,26 @@
 
 	* hsa-brig.c (struct function_linkage_pair): New data structure.
 	(hsa_brig_section::get_ptr_by_offset): New function.
-	(emit_directive_variable): Linkage is retrieved by symbol.
-	(emit_function_directives): Emitted function is added to map
+	(emit_directive_variable): Retrieve the linkage by symbol.
+	(emit_function_directives): Add emitted function to map
 	with offsets.
-	(enqueue_op): New operand type handling added.
-	(emit_code_ref_operand): Created from emit_label_operand.
+	(enqueue_op): Handle new operand type.
+	(emit_code_ref_operand): New by renaming emit_label_operand.
 	(emit_code_list_operand): New function.
-	(emit_queued_operands): New operand type handling added.
-	(emit_segment_insn): BRIG_KIND_INST_SEG is changed
+	(emit_queued_operands): Handle new operand type.
+	(emit_segment_insn): Rename BRIG_KIND_INST_SEG to
 	to BRIG_KIND_INST_SEG_CVT.
-	(emit_cvt_insn): Undefined behavior fixed by wrong array bounds.
+	(emit_cvt_insn): Fix undefined behavior caused by wrong array bounds.
 	(emit_arg_block): New function.
 	(emit_call_insn): Likewise.
 	(emit_call_block_insn): Likewise.
-	(emit_insn): New instructions are handled.
-	(hsa_output_brig): Function offsets for call instructions
-	are resolved.
+	(emit_insn): Handle new instructions.
+	(hsa_output_brig): Resolve function offsets for call instructions.
 	* hsa-dump.c (static void indent_stream): New function.
-	(dump_hsa_insn): Added support for call instruction.
-	* hsa-gen.c (hsa_init_data_for_cfun): New flag for hsa_cfun is parsed.
-	(hsa_deinit_data_for_cfun): New pools are deallocated.
-	(get_symbol_for_decl): Symbol's linkage is set up.
+	(dump_hsa_insn): Support new call instruction.
+	* hsa-gen.c (hsa_init_data_for_cfun): Parse new flag for hsa_cfun.
+	(hsa_deinit_data_for_cfun): Deallocate new memory pools.
+	(get_symbol_for_decl): Set up symbol's linkage.
 	(hsa_get_spill_symbol): Likewise.
 	(hsa_alloc_code_list_op): New function.
 	(hsa_alloc_call_insn): Likewise.
@@ -57,24 +56,23 @@
 	(gen_hsa_insns_for_direct_call): Likewise.
 	(gen_hsa_insns_for_return): Likewise.
 	(gen_hsa_insns_for_call): Likewise.
-	(gen_hsa_insns_for_gimple_stmt): GIMPLE labels with non-taken address
-	are supported.
-	(gen_function_parameters): Linkage condition is introduced.
-	(generate_hsa): kern_p flag is parsed.
+	(gen_hsa_insns_for_gimple_stmt): Support GIMPLE labels with non-taken address.
+	(gen_function_parameters): Introduce linkage condition.
+	(generate_hsa): Parse kern_p flag.
 	(wrap_hsa): Likewise.
 	(pass_gen_hsail::execute): Likewise.
 	(struct hsa_op_reg::verify): New function.
-	* hsa.h (struct hsa_symbol): Linkage member is added.
-	(struct hsa_op_code_ref): Created from existing hsa_op_label_ref.
-	(struct hsa_op_code_list): New operand is added.
+	* hsa.h (struct hsa_symbol): Add a linkage member.
+	(struct hsa_op_code_ref): New by renaming existing hsa_op_label_ref.
+	(struct hsa_op_code_list): Support new operand.
 	(struct hsa_insn_call): New instruction.
 	(struct hsa_insn_call_block): Likewise.
-	(struct hsa_function_representation): kern_p attribute is introduced.
+	(struct hsa_function_representation): New kern_p attribute.
 	(struct hsa_op_reg::verify): New function.
 
 2014-12-11  Martin Liska  <mliska@suse.cz>
 
-	* hsa-gen.c: Comment typos are fixed.
+	* hsa-gen.c: Fix comment typos.
 	* hsa.h: Likewise.
 
 2014-10-24  Martin Jambor  <mjambor@suse.cz>
