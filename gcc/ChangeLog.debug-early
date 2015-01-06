@@ -1,3 +1,11 @@
+2015-01-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2out.c: Remove deferred_asm_name.
+	(add_linkage_name): Same.
+	(dwarf2out_finish): Same.
+	(dwarf2out_c_finalize): Same.
+	(move_linkage_attr): Remove.
+
 2015-01-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* dwarf2out.c (check_die): Remove level argument.
