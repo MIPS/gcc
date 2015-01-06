@@ -1,0 +1,329 @@
+2015-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64505
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Return the
+	correct reload handler if -m32 -mpowerpc64 is used.
+
+2015-01-06  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-tail-merge.c: Fix typo in struct same_succ_def comment.
+
+2015-01-08  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/64507
+	* config/sh/sh-mem.cc (sh_expand_cmpnstr): Check 0 length.
+
+2015-01-06  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/63259
+	* tree-ssa-math-opts.c (pass_optimize_bswap::execute): Stop checking
+	if optab exists for 16bit byteswap.
+
+2015-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* opts.c (common_handle_option): Add support for
+	-fno-sanitize=all and -f{,no-}sanitize-recover=all.
+	* doc/invoke.texi: Document -fno-sanitize=all,
+	-f{,no-}sanitize-recover=all.  Document that
+	-fsanitize=float-cast-overflow is not enabled
+	by -fsanitize=undefined.  Fix up documentation
+	of -f{,no-}sanitize-recover.
+
+2015-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config.gcc: Add Visium support.
+	* configure.ac: Likewise.
+	* configure: Regenerate.
+	* doc/extend.texi (interrupt attribute): Add Visium.
+	* doc/invoke.texi: Document Visium options.
+	* doc/install.texi: Document Visium target.
+	* doc/md.texi: Document Visium constraints.
+	* common/config/visium: New directory.
+	* config/visium: Likewise.
+
+2015-01-05  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* simplify-rtx.c (simplify_binary_operation_1): Handle more cases
+	for the "(and X (ior (not X) Y) -> (and X Y)" transform.
+
+2015-01-05  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* combine.c (combine_validate_cost): Do not count the cost of a
+	split I2 twice.  Do not display it twice in the dump, either.
+
+2015-01-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Revert parts of r219199.
+	* doc/invoke.texi ([-Wliteral-suffix]): Restore markup on
+	<inttypes.h>.
+	([-Wtraditional]): Restore markup on <limits.h>.
+
+2015-01-05  Trevor Saunders  <tsaunders@mozilla.com>
+
+	PR c++/31397
+	* doc/invoke.texi: Document -Wsuggest-override.
+
+2015-01-05  Radovan Obradovic  <radovan.obradovic@imgtec.com>
+
+	PR rtl-optimization/64287
+	* toplev.c (HAVE_epilogue, HAVE_prologue): Provide default.
+	(process_options): Disable flag_ipa_ra if profiling.
+
+2015-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/nds32/nds32-peephole2.md: Do not mention define_peephole.
+
+2015-01-05  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/xtensa/xtensa.c (hwloop_optimize, hwloop_fail,
+	hwloop_pattern_reg, xtensa_doloop_hooks, xtensa_reorg_loops):
+	put under #if TARGET_LOOPS guard.
+
+2015-01-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (output_387_binary_op): Use std::swap.
+
+2015-01-05  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* rtlanal.c (refers_to_regno_p): Change return value from int to bool.
+	* rtl.h (refers_to_regno_p): Add overload.
+	* cse.c: Use it.
+	* bt-load.c: Likewise.
+	* combine.c: Likewise.
+	* df-scan.c: Likewise.
+	* sched-deps.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/m32r/m32r.c: Likewise.
+	* config/rs6000/spe.md: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/stormy16/stormy16.c: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/arc/arc.md: Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/sh/sh.md: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/frv/frv.c: Likewise.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64265
+	* gimplify.c (gimplify_function_tree): Add TSAN_FUNC_EXIT internal
+	call as cleanup of the whole body.
+	* internal-fn.def (TSAN_FUNC_EXIT): New internal call.
+	* tsan.c (replace_func_exit): New function.
+	(instrument_func_exit): Moved earlier.
+	(instrument_memory_accesses): Adjust TSAN_FUNC_EXIT internal calls.
+	Call instrument_func_exit if no TSAN_FUNC_EXIT internal calls have
+	been found.
+	(tsan_pass): Don't call instrument_func_exit.
+	* internal-fn.c (expand_TSAN_FUNC_EXIT): New function.
+	* tree-inline.c (copy_bb): Drop TSAN_FUNC_EXIT internal calls during
+	inlining.
+
+	PR sanitizer/64344
+	* ubsan.h (ubsan_instrument_float_cast): Add ARG argument.
+	* ubsan.c (ubsan_instrument_float_cast): Add ARG argument, pass
+	it to libubsan handler instead of EXPR.  Fold comparisons earlier,
+	if the result is integer_zerop, return NULL_TREE.
+	* convert.c (convert_to_integer): Pass expr as ARG.
+
+	PR tree-optimization/64465
+	* tree-inline.c (redirect_all_calls): During inlining
+	clean up EH stmts and EH edges if redirect_call_stmt_to_callee
+	changed the stmt to a non-throwing call.
+
+2015-01-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi: Fix incorrect uses of @code, @option, @samp,
+	etc markup throughout the file.
+
+2015-01-05  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Enable experimental TSAN support for Ada.
+	* tsan.c (instrument_expr): Handle VIEW_CONVERT_EXPR.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/64494
+	* tree-ssa-loop-im.c (move_computations_dom_walker::before_dom): Also
+	clear SSA_NAME_ANTI_RANGE_P flag.
+
+2015-01-05  Marek Polacek  <polacek@redhat.com>
+
+	* doc/extend.texi (Arrays of Length Zero): Add missing comma.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+	* gcc.c (process_command): Update copyright notice dates.
+	* gcov-dump.c: Ditto.
+	* gcov.c: Ditto.
+	* doc/cpp.texi: Bump @copying's copyright year.
+	* doc/cppinternals.texi: Ditto.
+	* doc/gcc.texi: Ditto.
+	* doc/gccint.texi: Ditto.
+	* doc/gcov.texi: Ditto.
+	* doc/install.texi: Ditto.
+	* doc/invoke.texi: Ditto.
+
+	* auto-profile.c, auto-profile.h: Fix up Copyright line.
+
+2015-01-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-fsized-deallocation]): Copy-edit to fix
+	verb tense, etc.
+	([-fvtable-verify], [-fvtv-debug]): Likewise.
+	([-Wabi]): Likewise.
+	([-fmessage-length]): Likewise.
+	([-Wsuggest-final-types], [-Wsuggest-final-methods]): Likewise.
+	([-Wno-discarded-qualifiers]): Likewise.
+	([-Wnodiscarded-array-qualifiers]): Likewise.
+	([-Wno-virtual-move-assign]): Likewise.
+	([-fsanitize=address], [-fsanitize=thread]): Likewise.
+	([-fsanitize=leak], [-fsanitize=undefined]): Likewise.
+	([-fsanitize=unreachable], [-fsanitize-recover]): Likewise.
+	([-fsanitize-undefined-trap-on-error]): Likewise.
+	([-floop-interchange]): Likewise.
+	([-ftree-coalesce-inlined-vars]): Likewise.
+	([-fvect-cost-model]): Likewise.
+	([-flto]): Likewise.
+	([--param]): Likewise.
+	(Spec Files): Likewise.
+	([-mstrict-align]): Likewise.
+	([-mfix-cortex-a53-835769]): Likewise.
+	([-march], [-mtune]): Likewise.
+	([-mpic-register]): Likewise.
+	([-munaligned-access]): Likewise.
+	([-msp8]): Likewise.
+	(EIND and Devices with more than 128 Ki Bytes of Flash): Likewise.
+	(AVR Built-in Macros): Likewise.
+	([-mpreferred-stack-boundary]): Likewise.
+	([-mtune-crtl]): Likewise.
+	([-mashf]): Likewise.
+	([-mmcu=]): Likewise.
+	([-minrt]): Likewise.
+	([-maltivec], [-maltivec=be], [-maltivec=le]): Likewise.
+	([-mupper-regs]): Likewise.
+	([-matomic-model]): Likewise.
+	([-mdiv]): Likewise.
+	([-mzdcbranch]): Likewise.
+	([-mdisable-callt]): Likewise.
+	([-msoft-float]): Likewise.
+	([-m8byte-align]): Likewise.
+	([-fstack-reuse]): Likewise.
+
+2015-01-03  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-fprofile-generate], [-fprofile-use]):
+	Fix markup, light copy-editing.
+	([-fauto-profile]): Rewrite to fix formatting and content
+	problems.
+
+2015-01-03  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-fisolate-erroneous-paths-dereference]):
+	Copy-edit description.
+	([-fisolate-erroneous-paths-attribute]): Likewise.
+	* common.opt (fisolate-erroneous-paths-dereference):
+	Copy-edit description.
+	(fisolate-erroneous-paths-attribute): Likewise.
+
+2015-01-03  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-fsemantic-interposition]): Fix typos and
+	tidy grammar.
+
+2015-01-03  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-fplan9-extensions]): Add/fix @opindex.
+	([-fvtv-debug]): Likewise.
+	([-Wc++-compat]): Likewise.
+	([-Wc++11-compat]): Likewise.
+	([-Wc++14-compat]): Likewise.
+	([-Wno-sized-deallocation]): Likewise.
+	([-femit-class-debug-always]): Likewise.
+	([-femit-struct-debug-detailed]): Likewise.
+	([-fno-keep-inline-dllexport]): Likewise.
+	([-fira-algorithm]): Likewise.
+	([-fira-region]): Likewise.
+	([-flra-remat]): Likewise.
+	([-fipa-ra]): Likewise.
+	([-fhoist-adjacent-loads]): Likewise.
+	([-fisolate-erroneous-paths-dereference]): Likewise.
+	([-fisolate-erroneous-paths-attribute]): Likewise.
+	([-ftree-switch-conversion]): Likewise.
+	([-ftree-tail-merge]): Likewise.
+	([-ftree-loop-if-convert]): Likewise.
+	([-ftree-loop-if-convert-stores]): Likewise.
+	([-ftree-loop-distribution]): Likewise.
+	([-ftree-loop-distribute-patterns]): Likewise.
+	([-flto-compression-level]): Likewise.
+	([-flto-report]): Likewise.
+	([-flto-report-wpa]): Likewise.
+	([-fuse-linker-plugin]): Likewise.
+	([-mfix-cortex-a53-835769]): Likewise.
+	([-mno-fix-cortex-a53-835769]): Likewise.
+	([-mmmx]...[-mno-3dnow]): Remove the -mno- forms from the
+	explicit listing; add a note to the discussion indicating they
+	exist.  Reorder table to group similar options.  Add missing
+	@opindex entries.  Add @need commands throughout the table to
+	allow it to be split across multiple pages.
+	([-m8bit-idiv]): Fix @opindex.
+	([-mavx256-split-unaligned-load]): Likewise.
+	([-mavx256-split-unaligned-store]): Likewise.
+	([-mstack-protector-guard]): Likewise.
+	([-mcpu=]): Likewise.
+	([-mcpu]): Likewise.
+	([-mpointer-size=]): Likewise.
+
+2015-01-03  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (decrement_and_branch_until_zero): Use `Q' constraint
+	instead of `m' constraint.  Likewise for unnamed movb comparison
+	patterns using reg_before_reload_operand predicate.
+	* config/pa/predicates.md (reg_before_reload_operand): Tighten
+	predicate to reject register index and LO_SUM DLT memory forms
+	after reload.
+
+2015-01-02  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi (Option Summary): Fix spelling of
+	-fdevirtualize-at-ltrans.
+	([-fdevirtualize]): Fix markup.
+	([-fdevirtualize-speculatively]): Fix typo.
+	([-fdevirtualize-at-ltrans]): Likewise.  Make description less
+	implementor-speaky.
+	* common.opt (fdevirtualize-at-ltrans): Likewise.
+	* ipa-devirt.c: Fix typos in comments throughout the file.
+	(ipa_devirt): Fix typos in format strings for dump output.
+
+2015-01-02  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-fopt-info]): Fix markup, consolidate
+	discussion of defaults, light copy-editing.
+
+2015-01-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* tsan.c (instrument_expr): corrected previous checkin.
+
+2015-01-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Instrument bit field and unaligned accesses for TSAN.
+	* sanitizer.def (BUILT_IN_TSAN_READ_RANGE): New built-in function.
+	(BUILT_IN_TSAN_WRITE_RANGE): New built-in function.
+	* tsan.c (instrument_expr): Handle COMPONENT_REF and BIT_FIELD_REF.
+	Use BUILT_IN_TSAN_READ_RANGE and BUILT_IN_TSAN_WRITE_RANGE for
+	unaligned memory regions.
+
+2015-01-01  Anthony Green  <green@moxielogic.com>
+
+	* config/moxie/predicates.md (moxie_general_movsrc_operand):
+	Restrict move source register offsets to 16 bits.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

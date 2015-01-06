@@ -1,0 +1,70 @@
+2015-01-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Fix version conflict for std::locale::name().
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-01-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64483
+	* testsuite/18_support/exception_ptr/64241.cc: Use
+	dg-require-atomic-builtins.
+
+2015-01-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/21_strings/basic_string/modifiers/64422.cc: Fix copyright
+	date.
+
+2015-01-02  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/64475
+	* include/bits/regex_executor.tcc (_Executor<>::_M_dfs): Copy the
+	iterator, since the original one shouldn't be mutated.
+
+2015-01-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR libstdc++/64422
+	* src/c++98/misc-inst.cc (string::erase): Add missing overloads.
+	(string::insert): Likewise.
+	(string::replace): Likewise.
+	(wstring::erase): Likewise.
+	(wstring::insert): Likewise.
+	(wstring::replace): Likewise.
+	* testsuite/21_strings/basic_string/modifiers/64422.cc: New testcase.
+
+2015-01-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64468
+	* doc/doxygen/user.cfg.in: Set correct TAB_SIZE.
+
+2015-01-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64438
+	* testsuite/21_strings/basic_string/numeric_conversions/char/dr1261.cc:
+	Revert removal of dg-require-string-conversions.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stod.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stof.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stoi.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stol.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stold.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stoll.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stoul.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/
+	stoull.cc: Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/
+	to_string.cc: Likewise.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

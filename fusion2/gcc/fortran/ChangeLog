@@ -1,0 +1,55 @@
+2015-01-05  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/47674
+	* dependency.h:  Actually commit changes.
+
+2015-01-05  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/47674
+	* dependency.c:  Update copyright years.
+	(gfc_discard_nops):  Add prototype.
+	* dependency.c (discard_nops):  Rename to gfc_discard_nops,
+	make non-static.
+	(gfc_discard_nops):  Use gfc_discard_nops.
+	(gfc_dep_difference):  Likewise.
+	* frontend-passes.c  Update copyright years.
+	(realloc_strings):  New function.  Add prototype.
+	(gfc_run_passes):  Call realloc_strings.
+	(realloc_string_callback):  New function.
+	(create_var):  Add prototype.  Handle case of a
+	scalar character variable.
+	(optimize_trim):  Do not handle allocatable variables.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+	* gfortranspec.c (lang_specific_driver): Update copyright notice
+	dates.
+	* gfc-internals.texi: Bump @copying's copyright year.
+	* gfortran.texi: Ditto.
+	* intrinsic.texi: Ditto.
+	* invoke.texi: Ditto.
+
+2015-01-02  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/57562
+	* expr.c (find_component_ref): Deal with extended types.
+
+2015-01-02  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_build_qualified_array): Fix coarray tokens
+	for module coarrays with -fcoarray=lib.
+
+2015-01-02  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60507
+	* interface.c (is_procptr_result): New function to check if an
+	expression is a procedure-pointer result.
+	(compare_actual_formal): Use it.
+^L
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
