@@ -1,3 +1,58 @@
+2015-01-08  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/64507
+	* config/sh/sh-mem.cc (sh_expand_cmpnstr): Check 0 length.
+
+2015-01-03  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (decrement_and_branch_until_zero): Use `Q' constraint
+	instead of `m' constraint.  Likewise for unnamed movb comparison
+	patterns using reg_before_reload_operand predicate.
+	* config/pa/predicates.md (reg_before_reload_operand): Tighten
+	predicate to reject register index and LO_SUM DLT memory forms
+	after reload.
+
+2014-12-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2014-12-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/64409
+	* config/i386/i386.c (ix86_function_type_abi): Issue an error
+	when ms_abi attribute is used with x32.
+
+2014-12-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/mmx.md (*vec_extractv2sf_1): Do not emit unpckhps.
+	Emit movshdup for SSE3 and shufps otherwise.
+	(*vec_extractv2si_1): Do not emit punpckhdq and unpckhps.
+	Emit pshufd for SSE2 and shufps otherwise.
+
+2014-12-24  Nick Clifton  <nickc@redhat.com>
+
+	Backport from mainline:
+	2014-06-13  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (JUMP_ALIGN): Return the log value if user
+	requested alignment is active.
+	(LABEL_ALIGN): Likewise.
+	(LOOP_ALIGN): Likewise.
+
+	2014-03-25  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.c (rx_print_operand): Allow R operator to accept
+	SImode values.
+
+2014-12-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline
+	2014-12-03  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR rtl-optimization/64010
+	* reload.c (push_reload): Before reusing a register contained
+	in an operand as input reload register, ensure that it is not
+	used in CALL_INSN_FUNCTION_USAGE.
+
 2014-12-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/64265
