@@ -1,3 +1,8 @@
+2013-05-30  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54189
+	* resolve.c (check_assumed_size_reference): Check for e->ref.
+
 2014-09-03  Marek Polacek  <polacek@redhat.com>
 
 	Backport from trunk
