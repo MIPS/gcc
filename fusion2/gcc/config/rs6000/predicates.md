@@ -249,6 +249,19 @@
   return (REGNO (op) != FIRST_GPR_REGNO);
 })
 
+;; Return true if this is a traditional floating point register
+(define_predicate "fpr_reg_operand"
+  (match_code "reg,subreg")
+{
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  return FP_REGNO_P (REGNO (op));
+})
+
 ;; Return 1 if op is a HTM specific SPR register.
 (define_predicate "htm_spr_reg_operand"
   (match_operand 0 "register_operand")
@@ -1820,7 +1833,11 @@
     return 0;
 
   /* Power8 currently will only do the fusion if the top 11 bits of the addis
-     value are all 1's or 0's.  */
+     value are all 1's or 0's.  Ignore this restriction if we are testing
+     advanced fusion.  */
+  if (TARGET_FUSION_EXTRA)
+    return 1;
+
   value = INTVAL (int_const);
   if ((value & (HOST_WIDE_INT)0xffff) != 0)
     return 0;
@@ -1947,3 +1964,42 @@
 
   return 0;
 })
+
+;; Return true if the operand is a register or memory operation suitable for
+;; extra fusion support
+(define_predicate "fusion_extra_operand"
+  (match_code "reg,subreg,mem")
+{
+  if (!TARGET_HARD_FLOAT || !TARGET_FUSION_EXTRA)
+    return 0;
+
+  if (mode == SFmode)
+    {
+      if (!TARGET_SINGLE_FLOAT)
+	return 0;
+    }
+  else if (mode == DFmode)
+    {
+      if (!TARGET_DOUBLE_FLOAT)
+	return 0;
+    }
+  else
+    return 0;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (REG_P (op))
+    {
+      if (REGNO (op) >= FIRST_PSEUDO_REGISTER)
+	return 1;
+
+      return FP_REGNO_P (REGNO (op));
+    }
+
+  else if (MEM_P (op))
+    return offsettable_mem_operand (op, GET_MODE (op));
+
+  return false;
+})
+

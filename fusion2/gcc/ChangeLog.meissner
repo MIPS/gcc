@@ -1,3 +1,39 @@
+2015-01-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (fpr_reg_operand): New predicate to
+	recognize traditional floating point registers.
+	(fusion_gpr_addis): If -mfusion-extra, allow fusion on all
+	16-bits.
+	(fusion_extra_operand): Recognize fusion of FP loads/stores with
+	an addis instruction.
+
+	* config/rs6000/rs6000-protos.h (emit_fusion_addis): Add
+	declaration.
+	(emit_fusion_load_store): Likewise.
+	(fusion_extra_p): Likewise.
+
+	* config/rs6000/rs6000.opt (-mfusion-extra): New option, recognize
+	extra fusion types that are not supported by the power8 hardware.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print
+	-mfusion-extra.
+	(rs6000_option_override_internal): If -mfusion-extra, make sure
+	-mpower8-fusion is also set.
+	(emit_fusion_addis): Split emit_fusion_addis and
+	emit_fusion_load_store from emit_fusion_gpr_load, to allow their
+	use with -mfusion-extra.
+	(emit_fusion_load_store): Likewise.
+	(emit_fusion_gpr_load): Likewise.
+	(fusion_extra_p): Recognize addis fused with load/store floating
+	point for -mfusion-extra.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_EXTRA): New unspec.
+	(fusion define_peephole2's): Add new peephole2's to support
+	-mfusion-extra, which tries to find advanced fusion
+	opportunities.
+	(fusion_extra_<P:mode>_<SFDF:mode>): Likewise.
+	(fusion_extra_<P:mode>_extend): Likewise.
+
 2015-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from 219269.

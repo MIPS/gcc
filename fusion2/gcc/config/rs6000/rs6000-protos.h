@@ -82,7 +82,10 @@ extern bool direct_move_p (rtx, rtx);
 extern bool quad_load_store_p (rtx, rtx);
 extern bool fusion_gpr_load_p (rtx, rtx, rtx, rtx);
 extern void expand_fusion_gpr_load (rtx *);
+extern void emit_fusion_addis (rtx, rtx, const char *, const char *);
+extern void emit_fusion_load_store (rtx, rtx, rtx, const char *);
 extern const char *emit_fusion_gpr_load (rtx, rtx);
+extern bool fusion_extra_p (rtx, rtx, rtx, rtx);
 extern enum reg_class (*rs6000_preferred_reload_class_ptr) (rtx,
 							    enum reg_class);
 extern enum reg_class (*rs6000_secondary_reload_class_ptr) (enum reg_class,
