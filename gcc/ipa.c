@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "ipa-utils.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "tree-inline.h"
@@ -245,7 +246,7 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
                                target->order);
 	    }
 	  edge = edge->make_direct (target);
-	  if (inline_summary_vec)
+	  if (inline_summaries)
 	    inline_update_overall_summary (node);
 	  else if (edge->call_stmt)
 	    {

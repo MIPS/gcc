@@ -87,6 +87,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
@@ -692,6 +693,14 @@ sem_function::merge (sem_item *alias_item)
 
 	  return 0;
 	}
+
+      if (DECL_STATIC_CHAIN (alias->decl))
+        {
+         if (dump_file)
+           fprintf (dump_file, "Thunk creation is risky for static-chain functions.\n\n");
+
+         return 0;
+        }
 
       alias->icf_merged = true;
       ipa_merge_profiles (local_original, alias);

@@ -119,23 +119,6 @@ error_at_line (const struct fileloc *pos, const char *msg, ...)
 
   va_end (ap);
 }
-
-/* asprintf, but produces fatal message on out-of-memory.  */
-char *
-xasprintf (const char *format, ...)
-{
-  int n;
-  char *result;
-  va_list ap;
-
-  va_start (ap, format);
-  n = vasprintf (&result, format, ap);
-  if (result == NULL || n < 0)
-    fatal ("out of memory");
-  va_end (ap);
-
-  return result;
-}
 
 /* Locate the ultimate base class of struct S.  */
 
@@ -1740,8 +1723,8 @@ open_base_files (void)
       "tree-ssa-loop-niter.h", "tree-into-ssa.h", "tree-dfa.h", 
       "tree-ssa.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "except.h", "output.h",  "cfgloop.h", "target.h", "lto-streamer.h",
-      "target-globals.h", "ipa-ref.h", "cgraph.h", "ipa-prop.h", 
-      "ipa-inline.h", "dwarf2out.h", "omp-low.h", NULL
+      "target-globals.h", "ipa-ref.h", "cgraph.h", "symbol-summary.h",
+      "ipa-prop.h", "ipa-inline.h", "dwarf2out.h", "omp-low.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
