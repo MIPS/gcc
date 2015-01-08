@@ -33746,7 +33746,7 @@ fusion_extra_p (rtx addis_reg,		/* register set via addis.  */
 		rtx src,		/* source (register or memory).  */
 		rtx dest)		/* destination (memory or register). */
 {
-  rtx addr, base_reg, reg, mem, offset;
+  rtx addr, mem, offset;
   enum machine_mode mode = GET_MODE (src);
 
   /* Validate arguments.  */
@@ -33761,7 +33761,6 @@ fusion_extra_p (rtx addis_reg,		/* register set via addis.  */
       if (!MEM_P (dest))
 	return false;
 
-      reg = src;
       mem = dest;
     }
   else if (MEM_P (src))
@@ -33769,7 +33768,6 @@ fusion_extra_p (rtx addis_reg,		/* register set via addis.  */
       if (!fpr_reg_operand (dest, mode))
 	return false;
 
-      reg = dest;
       mem = src;
     }
   else
