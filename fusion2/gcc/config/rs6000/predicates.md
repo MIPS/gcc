@@ -1832,18 +1832,18 @@
   else
     return 0;
 
-  /* Power8 currently will only do the fusion if the top 11 bits of the addis
-     value are all 1's or 0's.  Ignore this restriction if we are testing
-     advanced fusion.  */
-  if (TARGET_FUSION_EXTRA)
-    return 1;
-
   value = INTVAL (int_const);
   if ((value & (HOST_WIDE_INT)0xffff) != 0)
     return 0;
 
   if ((value & (HOST_WIDE_INT)0xffff0000) == 0)
     return 0;
+
+  /* Power8 currently will only do the fusion if the top 11 bits of the addis
+     value are all 1's or 0's.  Ignore this restriction if we are testing
+     advanced fusion.  */
+  if (TARGET_FUSION_EXTRA)
+    return 1;
 
   return (IN_RANGE (value >> 16, -32, 31));
 })
