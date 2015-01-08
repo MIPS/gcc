@@ -1,3 +1,8 @@
+2015-01-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* ttype.patch: Added alternatives for TREE_CODE and TREE_TYPE
+	functions.
+
 2014-12-19  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-core.h (struct attribute_spec): Add type_handler field.  Rename
@@ -206,4 +211,3 @@
 	(TYPE_BINFO, TYPE_LANG_SLOT_1): Adjust access.
 	* treestruct.def (TS_TYPE_WITH_LANG_SPECIFIC, TS_TYPE_NON_COMMON):
 	Remove.
-

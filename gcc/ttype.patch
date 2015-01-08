@@ -18,7 +18,7 @@ Index: c-family/c-common.h
 --- 1242,1247 ----
 Index: tree-core.h
 ===================================================================
-*** tree-core.h	(revision 218966)
+*** tree-core.h	(revision 218978)
 --- tree-core.h	(working copy)
 *************** typedef tree (*walk_tree_fn) (tree *, in
 *** 723,730 ****
@@ -49,10 +49,113 @@ Index: tree-core.h
     struct tree_vec GTY ((tag ("TS_VEC"))) vec;
     struct tree_exp GTY ((tag ("TS_EXP"))) exp;
 --- 1689,1694 ----
+*************** struct attribute_spec {
+*** 1745,1751 ****
+       by the rest of this structure.  */
+    tree (*decl_handler) (tree *node, tree name, tree args,
+  		   int flags, bool *no_add_attrs);
+!   tree (*type_handler) (tree *node, tree name, tree args,
+  		   int flags, bool *no_add_attrs);
+    /* Specifies if attribute affects type's identity.  */
+    bool affects_type_identity;
+--- 1744,1750 ----
+       by the rest of this structure.  */
+    tree (*decl_handler) (tree *node, tree name, tree args,
+  		   int flags, bool *no_add_attrs);
+!   tree (*type_handler) (ttype *node, tree name, tree args,
+  		   int flags, bool *no_add_attrs);
+    /* Specifies if attribute affects type's identity.  */
+    bool affects_type_identity;
 Index: tree.h
 ===================================================================
-*** tree.h	(revision 218966)
+*** tree.h	(revision 218978)
 --- tree.h	(working copy)
+*************** along with GCC; see the file COPYING3.
+*** 211,217 ****
+  
+  /* The tree-code says what kind of node it is.
+     Codes are defined in tree.def.  */
+! #define TREE_CODE(NODE) ((enum tree_code) (NODE)->base.code)
+  #define TREE_SET_CODE(NODE, VALUE) ((NODE)->base.code = (VALUE))
+  
+  /* When checking is enabled, errors will be generated if a tree node
+--- 211,221 ----
+  
+  /* The tree-code says what kind of node it is.
+     Codes are defined in tree.def.  */
+! enum tree_code TREE_CODE (tree NODE);
+! enum tree_code TREE_CODE (const_tree NODE);
+! enum tree_code TREE_CODE (ttype NODE);
+! enum tree_code TREE_CODE (const_ttype NODE);
+! 
+  #define TREE_SET_CODE(NODE, VALUE) ((NODE)->base.code = (VALUE))
+  
+  /* When checking is enabled, errors will be generated if a tree node
+*************** along with GCC; see the file COPYING3.
+*** 309,323 ****
+     Often lists of things are represented by TREE_LIST nodes that
+     are chained together.  */
+  
+! #define TREE_CHAIN(NODE) \
+! (CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->common.chain)
+  
+  /* In all nodes that are expressions, this is the data type of the expression.
+     In POINTER_TYPE nodes, this is the type that the pointer points to.
+     In ARRAY_TYPE nodes, this is the type of the elements.
+     In VECTOR_TYPE nodes, this is the type of the elements.  */
+! #define TREE_TYPE(NODE) \
+! (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->typed.type)
+  
+  extern void tree_contains_struct_check_failed (const_tree,
+  					       const enum tree_node_structure_enum,
+--- 313,332 ----
+     Often lists of things are represented by TREE_LIST nodes that
+     are chained together.  */
+  
+! tree TREE_CHAIN(tree node);
+! tree TREE_CHAIN(const_tree node);
+! ttype TREE_CHAIN(ttype node);
+! ttype TREE_CHAIN(const_ttype node);
+  
+  /* In all nodes that are expressions, this is the data type of the expression.
+     In POINTER_TYPE nodes, this is the type that the pointer points to.
+     In ARRAY_TYPE nodes, this is the type of the elements.
+     In VECTOR_TYPE nodes, this is the type of the elements.  */
+! 
+! ttype& TREE_TYPE(tree node);
+! ttype& TREE_TYPE(const_tree node);
+! ttype& TREE_TYPE(ttype node);
+! ttype& TREE_TYPE(const_ttype node);
+  
+  extern void tree_contains_struct_check_failed (const_tree,
+  					       const enum tree_node_structure_enum,
+*************** extern void omp_clause_range_check_faile
+*** 388,396 ****
+  #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
+  #define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
+  
+! #define TREE_CHAIN(NODE) ((NODE)->common.chain)
+! #define TREE_TYPE(NODE) ((NODE)->typed.type)
+! 
+  #endif
+  
+  #define TREE_BLOCK(NODE)		(tree_block (NODE))
+--- 397,411 ----
+  #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
+  #define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
+  
+! tree TREE_CHAIN(tree node);
+! tree TREE_CHAIN(const_tree node);
+! ttype TREE_CHAIN(ttype node);
+! ttype TREE_CHAIN(const_ttype node);
+! 
+! ttype& TREE_TYPE(tree node);
+! ttype& TREE_TYPE(const_tree node);
+! ttype& TREE_TYPE(ttype node);
+! ttype& TREE_TYPE(const_ttype node);
+  #endif
+  
+  #define TREE_BLOCK(NODE)		(tree_block (NODE))
 *************** extern void omp_clause_range_check_faile
 *** 398,404 ****
   
@@ -62,7 +165,7 @@ Index: tree.h
   #define DECL_MINIMAL_CHECK(T)   CONTAINS_STRUCT_CHECK (T, TS_DECL_MINIMAL)
   #define DECL_COMMON_CHECK(T)    CONTAINS_STRUCT_CHECK (T, TS_DECL_COMMON)
   #define DECL_WRTL_CHECK(T)      CONTAINS_STRUCT_CHECK (T, TS_DECL_WRTL)
---- 398,404 ----
+--- 413,419 ----
   
   #include "tree-check.h"
   
@@ -94,7 +197,7 @@ Index: tree.h
   
   extern machine_mode element_mode (const_tree t);
   
---- 1561,1582 ----
+--- 1576,1597 ----
      type.  Note also that some of the front-ends also overload these fields,
      so they must be checked as well.  */
   
@@ -126,7 +229,7 @@ Index: tree.h
   /* Indicates that the type node requires structural equality
      checks.  The compiler will need to look at the composition of the
      type to determine whether it is equal to another type, rather than
---- 1596,1602 ----
+--- 1611,1617 ----
      to each other without a conversion.  The middle-end also makes sure
      to assign the same alias-sets to the type partition with equal
      TYPE_CANONICAL of their unqualified variants.  */
@@ -156,7 +259,7 @@ Index: tree.h
   
   /* 1 if the alignment for this type was requested by "aligned" attribute,
      0 if it is the default for this type.  */
---- 1616,1635 ----
+--- 1631,1650 ----
      other.  If the TYPE_ALIAS_SET is -1, no alias set has yet been
      assigned to this type.  If the TYPE_ALIAS_SET is 0, objects of this
      type can alias objects of any type.  */
@@ -186,7 +289,7 @@ Index: tree.h
   
   /* Nonzero in a type considered volatile as a whole.  */
   #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->base.volatile_flag)
---- 1651,1657 ----
+--- 1666,1672 ----
      the type has BLKmode only because it lacks the alignment required for
      its size.  */
   #define TYPE_NO_FORCE_BLK(NODE) \
@@ -203,7 +306,7 @@ Index: tree.h
   
   /* If nonzero, type's name shouldn't be emitted into debug info.  */
   #define TYPE_NAMELESS(NODE) (TYPE_CHECK (NODE)->base.u.bits.nameless_flag)
---- 1664,1670 ----
+--- 1679,1685 ----
   
   /* If nonzero, this type is `restrict'-qualified, in the C sense of
      the term.  */
@@ -226,7 +329,7 @@ Index: tree.h
   
   /* Used to keep track of visited nodes in tree traversals.  This is set to
      0 by copy_node and make_node.  */
---- 1707,1719 ----
+--- 1722,1734 ----
   	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
   
   /* These flags are available for each language front end to use internally.  */
@@ -258,7 +361,7 @@ Index: tree.h
   
   /* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
      about missing conversions to other vector types of the same size.  */
---- 1722,1737 ----
+--- 1737,1752 ----
   /* If set in an ARRAY_TYPE, indicates a string type (for languages
      that distinguish string from array of char).
      If set in a INTEGER_TYPE, indicates a character type.  */
@@ -297,7 +400,7 @@ Index: tree.h
   
   /* Indicated that objects of this type should be laid out in as
      compact a way as possible.  */
---- 1741,1760 ----
+--- 1756,1775 ----
   /* Indicates that objects of this type must be initialized by calling a
      function when they are created.  */
   #define TYPE_NEEDS_CONSTRUCTING(NODE) \
@@ -327,7 +430,7 @@ Index: tree.h
   
   /* Nonzero if RECORD_TYPE represents a final derivation of class.  */
   #define TYPE_FINAL_P(NODE) \
---- 1764,1770 ----
+--- 1779,1785 ----
      Values are: 0 (unknown), 1 (false), 2 (true).  Never access
      this field directly.  */
   #define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
@@ -354,7 +457,7 @@ Index: tree.h
   
   /* The garbage collector needs to know the interpretation of the
      symtab field.  These constants represent the different types in the
---- 1780,1796 ----
+--- 1795,1811 ----
   /* Symtab field as an integer.  Used by stabs generator in dbxout.c to
      hold the type's number in the generated stabs.  */
   #define TYPE_SYMTAB_ADDRESS(NODE) \
@@ -424,7 +527,7 @@ Index: tree.h
   
   /* Define accessor macros for information about type inheritance
      and basetypes.
---- 1801,1850 ----
+--- 1816,1865 ----
   #define TYPE_SYMTAB_IS_DIE (2)
   
   #define TYPE_LANG_SPECIFIC(NODE) \
@@ -477,7 +580,7 @@ Index: tree.h
      and basetypes.
 *************** any_integral_type_check (const_tree __t,
 *** 3230,3235 ****
---- 3230,3261 ----
+--- 3245,3276 ----
   
   #endif
   
