@@ -1264,8 +1264,10 @@ emit_cvt_insn (hsa_insn_basic *insn)
 
   /* float to smaller float requires a rounding setting (we default
      to 'near'.  */
-  if (float_type_p (insn->type) && float_type_p (srctype)
-      && (insn->type & BRIG_TYPE_BASE_MASK) < (srctype & BRIG_TYPE_BASE_MASK))
+  if (float_type_p (insn->type)
+      && (!float_type_p (srctype)
+         || ((insn->type & BRIG_TYPE_BASE_MASK)
+             < (srctype & BRIG_TYPE_BASE_MASK))))
     repr.modifier = BRIG_ROUND_FLOAT_NEAR_EVEN;
   else
     repr.modifier = 0;

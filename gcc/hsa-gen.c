@@ -585,7 +585,15 @@ hsa_alloc_immed_op (tree tree_val)
 void
 hsa_op_reg::verify ()
 {
-  gcc_checking_assert (def_insn);
+  /* Verify that each HSA register has a definition assigned.
+     Exceptions are VAR_DECL and PARM_DECL that are a default
+     definition.  */
+  gcc_checking_assert (def_insn
+		       || (gimple_ssa != NULL
+			   && (!SSA_NAME_VAR (gimple_ssa)
+		               || (TREE_CODE (SSA_NAME_VAR (gimple_ssa))
+				   != PARM_DECL))
+			   && SSA_NAME_IS_DEFAULT_DEF (gimple_ssa)));
 }
 
 /* Allocate, clear and return a hsa_op_reg.  */
@@ -1785,7 +1793,8 @@ gen_hsa_insns_for_return (gimple stmt, hsa_bb *hbb,
     {
       /* Store of return value.  */
       hsa_insn_mem *mem = hsa_alloc_mem_insn ();
-      hsa_op_reg *src = hsa_reg_for_gimple_ssa (retval, ssa_map);
+      hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (retval, hbb, ssa_map,
+							 mem);
 
       hsa_op_address *addr = hsa_alloc_addr_op (hsa_cfun.output_arg, NULL, 0);
       mem->opcode = BRIG_OPCODE_ST;

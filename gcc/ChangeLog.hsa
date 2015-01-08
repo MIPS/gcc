@@ -1,3 +1,13 @@
+2015-01-08  Martin Liska  <mliska@suse.cz>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_cvt_insn): Add near rounding for integer to
+	float conversion instruction.
+	* hsa-gen.c (hsa_op_reg::verify): Accept registers corresponding to
+	default definition SSA_NAMEs.
+	(gen_hsa_insns_for_return): Use the correct hsa operand creation
+	function.
+
 2014-12-29  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (generate_hsa): Check seen_error before
