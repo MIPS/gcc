@@ -1,16 +1,21 @@
-2015-01-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2015-01-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (fpr_reg_operand): New predicate to
 	recognize traditional floating point registers.
 	(fusion_gpr_addis): If -mfusion-extra, allow fusion on all
 	16-bits.
-	(fusion_extra_operand): Recognize fusion of FP loads/stores with
-	an addis instruction.
+	(fusion_gpr_mem_combo): Add support for extended fusion.
+	(fusion_gpr_mem_combo2): New predicate for extended fusion.
+	(fusion_offsettable_mem_operand): Likewise.
 
 	* config/rs6000/rs6000-protos.h (emit_fusion_addis): Add
 	declaration.
 	(emit_fusion_load_store): Likewise.
 	(fusion_extra_p): Likewise.
+	(expand_fusion_extra_load): Likewise.
+	(expand_fusion_extra_store): Likewise.
+	(emit_fusion_extra_load): Likewise.
+	(emit_fusion_extra_store): Likewise.
 
 	* config/rs6000/rs6000.opt (-mfusion-extra): New option, recognize
 	extra fusion types that are not supported by the power8 hardware.
@@ -24,15 +29,21 @@
 	use with -mfusion-extra.
 	(emit_fusion_load_store): Likewise.
 	(emit_fusion_gpr_load): Likewise.
-	(fusion_extra_p): Recognize addis fused with load/store floating
-	point for -mfusion-extra.
+	(fusion_extra_p): New functions to support extended fusion.
+	(expand_fusion_extra_load): Likewise.
+	(expand_fusion_extra_store): Likewise.
+	(emit_fusion_extra_load): Likewise.
+	(emit_fusion_extra_store): Likewise.
 
 	* config/rs6000/rs6000.md (UNSPEC_FUSION_EXTRA): New unspec.
 	(fusion define_peephole2's): Add new peephole2's to support
 	-mfusion-extra, which tries to find advanced fusion
 	opportunities.
-	(fusion_extra_<P:mode>_<SFDF:mode>): Likewise.
-	(fusion_extra_<P:mode>_extend): Likewise.
+	(fusion_extra_<P:mode>_<SFDF:mode>_load): Likewise.
+	(fusion_extra_<P:mode>_<SFDF:mode>_store): Likewise.
+
+	* config/rs6000/constraints.md (wF): New constraint for extra
+	fusion ops that target memory.
 
 2015-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

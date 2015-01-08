@@ -1910,13 +1910,14 @@
 ;; Match a GPR load (lbz, lhz, lwz, ld) that uses a combined address in the
 ;; memory field with both the addis and the memory offset.  Sign extension
 ;; is not handled here, since lha and lwa are not fused.
+;; With extended fusion, also match a FPR load (lfd, lfs) and float_extend
 (define_predicate "fusion_gpr_mem_combo"
-  (match_code "mem,zero_extend")
+  (match_code "mem,zero_extend,float_extend")
 {
   rtx addr, base, offset;
 
-  /* Handle zero extend.  */
-  if (GET_CODE (op) == ZERO_EXTEND)
+  /* Handle zero/float extend.  */
+  if (GET_CODE (op) == ZERO_EXTEND || GET_CODE (op) == FLOAT_EXTEND)
     {
       op = XEXP (op, 0);
       mode = GET_MODE (op);
@@ -1934,6 +1935,12 @@
 
     case DImode:
       if (!TARGET_POWERPC64)
+	return 0;
+      break;
+
+    case SFmode:
+    case DFmode:
+      if (!TARGET_FUSION_EXTRA)
 	return 0;
       break;
 
@@ -1965,41 +1972,78 @@
   return 0;
 })
 
-;; Return true if the operand is a register or memory operation suitable for
-;; extra fusion support
-(define_predicate "fusion_extra_operand"
-  (match_code "reg,subreg,mem")
+;; Like fusion_gpr_mem_combo, but for stores
+(define_predicate "fusion_gpr_mem_combo2"
+  (match_code "mem")
 {
-  if (!TARGET_HARD_FLOAT || !TARGET_FUSION_EXTRA)
+  rtx addr, base, offset;
+
+  if (!MEM_P (op) || !TARGET_FUSION_EXTRA)
     return 0;
 
-  if (mode == SFmode)
+  switch (mode)
     {
-      if (!TARGET_SINGLE_FLOAT)
+    case QImode:
+    case HImode:
+    case SImode:
+      break;
+
+    case DImode:
+      if (!TARGET_POWERPC64)
 	return 0;
-    }
-  else if (mode == DFmode)
-    {
-      if (!TARGET_DOUBLE_FLOAT)
+      break;
+
+    case SFmode:
+      if (!TARGET_SF_FPR)
 	return 0;
+      break;
+
+    case DFmode:
+      if (!TARGET_DF_FPR)
+	return 0;
+      break;
+
+    default:
+      return 0;
     }
-  else
+
+  addr = XEXP (op, 0);
+  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
     return 0;
 
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
+  base = XEXP (addr, 0);
+  if (!fusion_gpr_addis (base, GET_MODE (base)))
+    return 0;
 
-  if (REG_P (op))
+  offset = XEXP (addr, 1);
+  if (GET_CODE (addr) == PLUS)
+    return satisfies_constraint_I (offset);
+
+  else if (GET_CODE (addr) == LO_SUM)
     {
-      if (REGNO (op) >= FIRST_PSEUDO_REGISTER)
-	return 1;
+      if (TARGET_XCOFF || (TARGET_ELF && TARGET_POWERPC64))
+	return small_toc_ref (offset, GET_MODE (offset));
 
-      return FP_REGNO_P (REGNO (op));
+      else if (TARGET_ELF && !TARGET_POWERPC64)
+	return CONSTANT_P (offset);
     }
 
-  else if (MEM_P (op))
-    return offsettable_mem_operand (op, GET_MODE (op));
-
-  return false;
+  return 0;
 })
 
+;; Return true if the operand is a float_extend or zero extend of an
+;; offsettable memory operand suitable for use in fusion
+(define_predicate "fusion_offsettable_mem_operand"
+  (match_code "mem,zero_extend,float_extend")
+{
+  if (GET_CODE (op) == ZERO_EXTEND || GET_CODE (op) == FLOAT_EXTEND)
+    {
+      op = XEXP (op, 0);
+      mode = GET_MODE (op);
+    }
+
+  if (!memory_operand (op, mode))
+    return 0;
+
+  return offsettable_nonstrict_memref_p (op);
+})
