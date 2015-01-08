@@ -458,6 +458,11 @@ Enable load/store bonding.
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
 
+mregtrial=
+Target Report Joined Var(TARGET_REGTRIAL) Init(0)
+Set to 1 for all caller-save
+Set to 2 for all callee-save
+
 mcompact-branches=
 Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL)
 Specify the compact branch usage policy

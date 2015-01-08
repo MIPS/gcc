@@ -19850,6 +19850,16 @@ mips_conditional_register_usage (void)
       for (regno = DSP_ACC_REG_FIRST; regno <= DSP_ACC_REG_LAST; regno += 2)
 	mips_swap_registers (regno);
     }
+
+
+  if (TARGET_REGTRIAL)
+    {
+      unsigned int regno;
+      for (regno = GP_REG_FIRST + 4; regno <= GP_REG_FIRST + 25; regno++)
+	call_really_used_regs[regno] = call_used_regs[regno] = atoi(TARGET_REGTRIAL) % 2;
+      for (regno = FP_REG_FIRST + 2; regno <= FP_REG_FIRST + 31; regno++)
+	call_really_used_regs[regno] = call_used_regs[regno] = atoi(TARGET_REGTRIAL) % 2;
+    }
 }
 
 /* Implement EH_USES.  */
