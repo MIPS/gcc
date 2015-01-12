@@ -163,6 +163,12 @@
   (and (match_code "const_int")
        (match_test "satisfies_constraint_K (op)")))
 
+;; Return 1 if op is a constant integer that is a signed 16-bit constant
+;; shifted left 16 bits
+(define_predicate "upper16_cint_operand"
+  (and (match_code "const_int")
+       (match_test "satisfies_constraint_L (op)")))
+
 ;; Return 1 if op is a constant integer that cannot fit in a signed D field.
 (define_predicate "non_short_cint_operand"
   (and (match_code "const_int")

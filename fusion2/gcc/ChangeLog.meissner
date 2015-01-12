@@ -1,7 +1,27 @@
 2015-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to subversion id 219481.
-	* REVISION: Update subversion id.
+	* config/rs6000/predicates.md (upper16_cint_operand): New
+	predicate to match 32-bit signed ints that have the bottom 16 bits
+	all 0.
+
+	* config/rs6000/rs6000.c (fusion_extra_p): Allow for extra fusion
+	of gpr stores.
+	(emit_fusion_extra_store): Likewise.
+
+	* config/rs6000/rs6000.md (GPR_STORE): New iterator for types that
+	are stored from GPR registers that can be fused with addis with
+	extra fusion.
+	(addis/store peepholes): New peepholes to allow extra fuction of
+	addis and stb/sth/stw/std instructions.
+	(addis/ori peepholes): New peepholes to allow extra fusion of
+	addis and ori.
+	(fusion_extra_<P:mode>_<SFDF:mode>_fstore): Rename from
+	fusion_extra_<P:mode>_<SFDF:mode>_store.  Change type from fpload
+	to fpstore.
+	(fusion_extra_<P:mode>_<SFDF:mode>_gstore): New insn to support
+	merging addis and stb/sth/stw/std instructions.
+	(fusion_extra_<mode>_constant): New insn to support merging addis
+	and ori for making larger integer constants.
 
 2015-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
@@ -81,6 +101,11 @@
 	startfile prefixes, look for a machine specific file as a
 	subdirectory in the startfile prefixes if the user used
 	-mcpu=<xxx>.
+
+2015-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to subversion id 219481.
+	* REVISION: Update subversion id.
 
 2015-01-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

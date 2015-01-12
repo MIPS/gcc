@@ -33767,7 +33767,7 @@ fusion_extra_p (rtx addis_reg,		/* register set via addis.  */
     src = XEXP (src, 0);
 
   /* Test for memory<-register or register<-memory.  */
-  if (fpr_reg_operand (src, mode))
+  if (fpr_reg_operand (src, mode) || int_reg_operand (src, mode))
     {
       if (!MEM_P (dest))
 	return false;
@@ -33777,7 +33777,7 @@ fusion_extra_p (rtx addis_reg,		/* register set via addis.  */
 
   else if (MEM_P (src))
     {
-      if (!fpr_reg_operand (dest, mode))
+      if (!fpr_reg_operand (dest, mode) && !int_reg_operand (dest, mode))
 	return false;
 
       mem = src;
@@ -33996,6 +33996,30 @@ emit_fusion_extra_store (rtx mem, rtx reg, rtx tmp_reg)
 	store_string = "stfd";
       else
 	gcc_unreachable ();
+    }
+  else if (int_reg_operand (reg, mode))
+    {
+      switch (mode)
+	{
+	case QImode:
+	  store_string = "stb";
+	  break;
+	case HImode:
+	  store_string = "sth";
+	  break;
+	case SImode:
+	case SFmode:
+	  store_string = "stw";
+	  break;
+	case DImode:
+	case DFmode:
+	  if (!TARGET_POWERPC64)
+	    gcc_unreachable ();
+	  store_string = "std";
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
     }
   else
     gcc_unreachable ();
