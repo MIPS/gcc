@@ -1227,46 +1227,6 @@ enum omp_clause_depend_kind
   OMP_CLAUSE_DEPEND_LAST
 };
 
-enum omp_clause_map_kind
-{
-  /* If not already present, allocate.  */
-  OMP_CLAUSE_MAP_ALLOC = GOMP_MAP_ALLOC,
-  /* ..., and copy to device.  */
-  OMP_CLAUSE_MAP_TO = GOMP_MAP_TO,
-  /* ..., and copy from device.  */
-  OMP_CLAUSE_MAP_FROM = GOMP_MAP_FROM,
-  /* ..., and copy to and from device.  */
-  OMP_CLAUSE_MAP_TOFROM = GOMP_MAP_TOFROM,
-  /* The following kind is an internal only map kind, used for pointer based
-     array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
-     which is implicitly POINTER_SIZE_UNITS, but the bias.  */
-  OMP_CLAUSE_MAP_POINTER = GOMP_MAP_POINTER,
-  /* Also internal, behaves like OMP_CLAUS_MAP_TO, but additionally any
-     OMP_CLAUSE_MAP_POINTER records consecutive after it which have addresses
-     falling into that range will not be ignored if OMP_CLAUSE_MAP_TO_PSET
-     wasn't mapped already.  */
-  OMP_CLAUSE_MAP_TO_PSET = GOMP_MAP_TO_PSET,
-  /* The following are only valid for OpenACC.  */
-  /* Allocate.  */
-  OMP_CLAUSE_MAP_FORCE_ALLOC = GOMP_MAP_FORCE_ALLOC,
-  /* ..., and copy to device.  */
-  OMP_CLAUSE_MAP_FORCE_TO = GOMP_MAP_FORCE_TO,
-  /* ..., and copy from device.  */
-  OMP_CLAUSE_MAP_FORCE_FROM = GOMP_MAP_FORCE_FROM,
-  /* ..., and copy to and from device.  */
-  OMP_CLAUSE_MAP_FORCE_TOFROM = GOMP_MAP_FORCE_TOFROM,
-  /* Must already be present.  */
-  OMP_CLAUSE_MAP_FORCE_PRESENT = GOMP_MAP_FORCE_PRESENT,
-  /* Deallocate a mapping, without copying from device.  */
-  OMP_CLAUSE_MAP_FORCE_DEALLOC = GOMP_MAP_FORCE_DEALLOC,
-  /* Is a device pointer.  OMP_CLAUSE_SIZE for these is unused; is implicitly
-     POINTER_SIZE_UNITS.  */
-  OMP_CLAUSE_MAP_FORCE_DEVICEPTR = GOMP_MAP_FORCE_DEVICEPTR,
-
-  /* End marker.  */
-  OMP_CLAUSE_MAP_LAST = GOMP_MAP_VALUE_LIMIT
-};
-
 enum omp_clause_proc_bind_kind
 {
   /* Numbers should match omp_proc_bind_t enum in omp.h.  */
@@ -1338,7 +1298,7 @@ struct GTY(()) tree_omp_clause {
     enum omp_clause_default_kind   default_kind;
     enum omp_clause_schedule_kind  schedule_kind;
     enum omp_clause_depend_kind    depend_kind;
-    enum omp_clause_map_kind       map_kind;
+    enum gomp_map_kind		   map_kind;
     enum omp_clause_proc_bind_kind proc_bind_kind;
     enum tree_code                 reduction_code;
   } GTY ((skip)) subcode;

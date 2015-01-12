@@ -60,6 +60,7 @@
 #include "expr.h"	/* FIXME: For STACK_SAVEAREA_MODE and SAVE_NONLOCAL.  */
 #include "langhooks.h"
 #include "gimple-low.h"
+#include "gomp-constants.h"
 
 
 /* The object of this pass is to lower the representation of a set of nested
@@ -1405,7 +1406,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	  decl = get_chain_decl (info);
 	  c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_DECL (c) = decl;
-	  OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TO;
+	  OMP_CLAUSE_MAP_KIND (c) = GOMP_MAP_TO;
 	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
 	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
@@ -1971,7 +1972,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	  (void) get_frame_type (info);
 	  c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
-	  OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TOFROM;
+	  OMP_CLAUSE_MAP_KIND (c) = GOMP_MAP_TOFROM;
 	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
 	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
@@ -2412,8 +2413,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	    {
 	      c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
 	      OMP_CLAUSE_DECL (c) = decl;
-	      OMP_CLAUSE_MAP_KIND (c)
-		= i ? OMP_CLAUSE_MAP_TO : OMP_CLAUSE_MAP_TOFROM;
+	      OMP_CLAUSE_MAP_KIND (c) = i ? GOMP_MAP_TO : GOMP_MAP_TOFROM;
 	      OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
 	      OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
 	      gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt),

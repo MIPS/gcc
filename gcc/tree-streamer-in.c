@@ -436,7 +436,7 @@ unpack_ts_omp_clause_value_fields (struct data_in *data_in,
       break;
     case OMP_CLAUSE_MAP:
       OMP_CLAUSE_MAP_KIND (expr)
-	= bp_unpack_enum (bp, omp_clause_map_kind, OMP_CLAUSE_MAP_LAST);
+	= bp_unpack_enum (bp, gomp_map_kind, GOMP_MAP_LAST);
       break;
     case OMP_CLAUSE_PROC_BIND:
       OMP_CLAUSE_PROC_BIND_KIND (expr)

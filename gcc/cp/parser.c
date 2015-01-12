@@ -27915,45 +27915,45 @@ static tree
 cp_parser_oacc_data_clause (cp_parser *parser, pragma_omp_clause c_kind,
 			    tree list)
 {
-  enum omp_clause_map_kind kind;
+  enum gomp_map_kind kind;
   switch (c_kind)
     {
     case PRAGMA_OACC_CLAUSE_COPY:
-      kind = OMP_CLAUSE_MAP_FORCE_TOFROM;
+      kind = GOMP_MAP_FORCE_TOFROM;
       break;
     case PRAGMA_OACC_CLAUSE_COPYIN:
-      kind = OMP_CLAUSE_MAP_FORCE_TO;
+      kind = GOMP_MAP_FORCE_TO;
       break;
     case PRAGMA_OACC_CLAUSE_COPYOUT:
-      kind = OMP_CLAUSE_MAP_FORCE_FROM;
+      kind = GOMP_MAP_FORCE_FROM;
       break;
     case PRAGMA_OACC_CLAUSE_CREATE:
-      kind = OMP_CLAUSE_MAP_FORCE_ALLOC;
+      kind = GOMP_MAP_FORCE_ALLOC;
       break;
     case PRAGMA_OACC_CLAUSE_DELETE:
-      kind = OMP_CLAUSE_MAP_FORCE_DEALLOC;
+      kind = GOMP_MAP_FORCE_DEALLOC;
       break;
     case PRAGMA_OACC_CLAUSE_DEVICE:
-      kind = OMP_CLAUSE_MAP_FORCE_TO;
+      kind = GOMP_MAP_FORCE_TO;
       break;
     case PRAGMA_OACC_CLAUSE_HOST:
     case PRAGMA_OACC_CLAUSE_SELF:
-      kind = OMP_CLAUSE_MAP_FORCE_FROM;
+      kind = GOMP_MAP_FORCE_FROM;
       break;
     case PRAGMA_OACC_CLAUSE_PRESENT:
-      kind = OMP_CLAUSE_MAP_FORCE_PRESENT;
+      kind = GOMP_MAP_FORCE_PRESENT;
       break;
     case PRAGMA_OACC_CLAUSE_PRESENT_OR_COPY:
-      kind = OMP_CLAUSE_MAP_TOFROM;
+      kind = GOMP_MAP_TOFROM;
       break;
     case PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYIN:
-      kind = OMP_CLAUSE_MAP_TO;
+      kind = GOMP_MAP_TO;
       break;
     case PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYOUT:
-      kind = OMP_CLAUSE_MAP_FROM;
+      kind = GOMP_MAP_FROM;
       break;
     case PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE:
-      kind = OMP_CLAUSE_MAP_ALLOC;
+      kind = GOMP_MAP_ALLOC;
       break;
     default:
       gcc_unreachable ();
@@ -27998,7 +27998,7 @@ cp_parser_oacc_data_clause_deviceptr (cp_parser *parser, tree list)
 	error_at (loc, "%qD is not a pointer variable", v);
 
       tree u = build_omp_clause (loc, OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (u) = OMP_CLAUSE_MAP_FORCE_DEVICEPTR;
+      OMP_CLAUSE_MAP_KIND (u) = GOMP_MAP_FORCE_DEVICEPTR;
       OMP_CLAUSE_DECL (u) = v;
       OMP_CLAUSE_CHAIN (u) = list;
       list = u;
@@ -28924,7 +28924,7 @@ static tree
 cp_parser_omp_clause_map (cp_parser *parser, tree list)
 {
   tree nlist, c;
-  enum omp_clause_map_kind kind = OMP_CLAUSE_MAP_TOFROM;
+  enum gomp_map_kind kind = GOMP_MAP_TOFROM;
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
@@ -28936,13 +28936,13 @@ cp_parser_omp_clause_map (cp_parser *parser, tree list)
       const char *p = IDENTIFIER_POINTER (id);
 
       if (strcmp ("alloc", p) == 0)
-	kind = OMP_CLAUSE_MAP_ALLOC;
+	kind = GOMP_MAP_ALLOC;
       else if (strcmp ("to", p) == 0)
-	kind = OMP_CLAUSE_MAP_TO;
+	kind = GOMP_MAP_TO;
       else if (strcmp ("from", p) == 0)
-	kind = OMP_CLAUSE_MAP_FROM;
+	kind = GOMP_MAP_FROM;
       else if (strcmp ("tofrom", p) == 0)
-	kind = OMP_CLAUSE_MAP_TOFROM;
+	kind = GOMP_MAP_TOFROM;
       else
 	{
 	  cp_parser_error (parser, "invalid map kind");

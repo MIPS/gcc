@@ -1393,8 +1393,8 @@ extern void protected_set_expr_location (tree, location_t);
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
 
 /* Nonzero if this map clause is for array (rather than pointer) based array
-   section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and
-   correspoidng OMP_CLAUSE_MAP_POINTER clause are marked with this flag.  */
+   section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and corresponding
+   OMP_CLAUSE_MAP with GOMP_MAP_POINTER are marked with this flag.  */
 #define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
 

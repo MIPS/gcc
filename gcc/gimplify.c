@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "gimple-low.h"
 #include "cilk.h"
+#include "gomp-constants.h"
 
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
@@ -6442,8 +6443,8 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   else if (code == OMP_CLAUSE_MAP)
     {
       OMP_CLAUSE_MAP_KIND (clause) = flags & GOVD_MAP_TO_ONLY
-				     ? OMP_CLAUSE_MAP_TO
-				     : OMP_CLAUSE_MAP_TOFROM;
+				     ? GOMP_MAP_TO
+				     : GOMP_MAP_TOFROM;
       if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 	{
@@ -6464,7 +6465,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 				      OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_DECL (nc) = decl;
 	  OMP_CLAUSE_SIZE (nc) = size_zero_node;
-	  OMP_CLAUSE_MAP_KIND (nc) = OMP_CLAUSE_MAP_POINTER;
+	  OMP_CLAUSE_MAP_KIND (nc) = GOMP_MAP_POINTER;
 	  OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (clause);
 	  OMP_CLAUSE_CHAIN (clause) = nc;
 	}
@@ -6614,13 +6615,12 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
-		   && OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_POINTER)
+		   && OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_POINTER)
 	    {
-	      /* For OMP_CLAUSE_MAP_FORCE_DEVICEPTR, we'll never enter here,
-		 because for these, TREE_CODE (DECL_SIZE (decl)) will always be
+	      /* For GOMP_MAP_FORCE_DEVICEPTR, we'll never enter here, because
+		 for these, TREE_CODE (DECL_SIZE (decl)) will always be
 		 INTEGER_CST.  */
-	      gcc_assert (OMP_CLAUSE_MAP_KIND (c)
-			  != OMP_CLAUSE_MAP_FORCE_DEVICEPTR);
+	      gcc_assert (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FORCE_DEVICEPTR);
 
 	      tree decl2 = DECL_VALUE_EXPR (decl);
 	      gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
@@ -6639,7 +6639,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 					  OMP_CLAUSE_MAP);
 	      OMP_CLAUSE_DECL (nc) = decl;
 	      OMP_CLAUSE_SIZE (nc) = size_zero_node;
-	      OMP_CLAUSE_MAP_KIND (nc) = OMP_CLAUSE_MAP_POINTER;
+	      OMP_CLAUSE_MAP_KIND (nc) = GOMP_MAP_POINTER;
 	      OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (c);
 	      OMP_CLAUSE_CHAIN (c) = nc;
 	      c = nc;

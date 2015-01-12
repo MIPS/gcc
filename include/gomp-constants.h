@@ -32,7 +32,7 @@
 /* Memory mapping types.  */
 
 /* One byte.  */
-#define GOMP_MAP_VALUE_LIMIT		(1 << 8)
+#define GOMP_MAP_LAST			(1 << 8)
 
 #define GOMP_MAP_FLAG_TO		(1 << 0)
 #define GOMP_MAP_FLAG_FROM		(1 << 1)
@@ -44,19 +44,41 @@
 /* Flag to force a specific behavior (or else, trigger a run-time error).  */
 #define GOMP_MAP_FLAG_FORCE		(1 << 7)
 
-#define GOMP_MAP_ALLOC			0
-#define GOMP_MAP_TO			(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_TO)
-#define GOMP_MAP_FROM			(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_FROM)
-#define GOMP_MAP_TOFROM			(GOMP_MAP_TO | GOMP_MAP_FROM)
-#define GOMP_MAP_POINTER		(GOMP_MAP_FLAG_SPECIAL_0 | 0)
-#define GOMP_MAP_TO_PSET		(GOMP_MAP_FLAG_SPECIAL_0 | 1)
-#define GOMP_MAP_FORCE_PRESENT		(GOMP_MAP_FLAG_SPECIAL_0 | 2)
-#define GOMP_MAP_FORCE_DEALLOC		(GOMP_MAP_FLAG_SPECIAL_0 | 3)
-#define GOMP_MAP_FORCE_DEVICEPTR	(GOMP_MAP_FLAG_SPECIAL_1 | 0)
-#define GOMP_MAP_FORCE_ALLOC		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_ALLOC)
-#define GOMP_MAP_FORCE_TO		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TO)
-#define GOMP_MAP_FORCE_FROM		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_FROM)
-#define GOMP_MAP_FORCE_TOFROM		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM)
+enum gomp_map_kind
+  {
+    /* If not already present, allocate.  */
+    GOMP_MAP_ALLOC =			0,
+    /* ..., and copy to device.  */
+    GOMP_MAP_TO =			(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_TO),
+    /* ..., and copy from device.  */
+    GOMP_MAP_FROM =			(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_FROM),
+    /* ..., and copy to and from device.  */
+    GOMP_MAP_TOFROM =			(GOMP_MAP_TO | GOMP_MAP_FROM),
+    /* The following kind is an internal only map kind, used for pointer based
+       array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
+       which is implicitly POINTER_SIZE_UNITS, but the bias.  */
+    GOMP_MAP_POINTER =			(GOMP_MAP_FLAG_SPECIAL_0 | 0),
+    /* Also internal, behaves like GOMP_MAP_TO, but additionally any
+       GOMP_MAP_POINTER records consecutive after it which have addresses
+       falling into that range will not be ignored if GOMP_MAP_TO_PSET wasn't
+       mapped already.  */
+    GOMP_MAP_TO_PSET =			(GOMP_MAP_FLAG_SPECIAL_0 | 1),
+    /* Must already be present.  */
+    GOMP_MAP_FORCE_PRESENT =		(GOMP_MAP_FLAG_SPECIAL_0 | 2),
+    /* Deallocate a mapping, without copying from device.  */
+    GOMP_MAP_FORCE_DEALLOC =		(GOMP_MAP_FLAG_SPECIAL_0 | 3),
+    /* Is a device pointer.  OMP_CLAUSE_SIZE for these is unused; is implicitly
+       POINTER_SIZE_UNITS.  */
+    GOMP_MAP_FORCE_DEVICEPTR =		(GOMP_MAP_FLAG_SPECIAL_1 | 0),
+    /* Allocate.  */
+    GOMP_MAP_FORCE_ALLOC =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_ALLOC),
+    /* ..., and copy to device.  */
+    GOMP_MAP_FORCE_TO =			(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TO),
+    /* ..., and copy from device.  */
+    GOMP_MAP_FORCE_FROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_FROM),
+    /* ..., and copy to and from device.  */
+    GOMP_MAP_FORCE_TOFROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM)
+  };
 
 #define GOMP_MAP_COPY_TO_P(X) \
   (!((X) & GOMP_MAP_FLAG_SPECIAL) \

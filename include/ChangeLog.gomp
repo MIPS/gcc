@@ -1,3 +1,13 @@
+2015-01-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gomp-constants.h (GOMP_MAP_LAST): Rename from
+	GOMP_MAP_VALUE_LIMIT.  Change all users.
+	(GOMP_MAP_ALLOC, GOMP_MAP_TO, GOMP_MAP_FROM, GOMP_MAP_TOFROM)
+	(GOMP_MAP_POINTER, GOMP_MAP_TO_PSET, GOMP_MAP_FORCE_PRESENT)
+	(GOMP_MAP_FORCE_DEALLOC, GOMP_MAP_FORCE_DEVICEPTR)
+	(GOMP_MAP_FORCE_ALLOC, GOMP_MAP_FORCE_TO, GOMP_MAP_FORCE_FROM)
+	(GOMP_MAP_FORCE_TOFROM): Move into a new enum gomp_map_kind.
+
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gomp-constants.h: Update.  Change all users.

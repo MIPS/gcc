@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "wide-int-print.h"
 #include "internal-fn.h"
+#include "gomp-constants.h"
 
 /* Local functions, macros and variables.  */
 static const char *op_symbol (const_tree);
@@ -521,39 +522,39 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       pp_string (pp, "map(");
       switch (OMP_CLAUSE_MAP_KIND (clause))
 	{
-	case OMP_CLAUSE_MAP_ALLOC:
-	case OMP_CLAUSE_MAP_POINTER:
+	case GOMP_MAP_ALLOC:
+	case GOMP_MAP_POINTER:
 	  pp_string (pp, "alloc");
 	  break;
-	case OMP_CLAUSE_MAP_TO:
-	case OMP_CLAUSE_MAP_TO_PSET:
+	case GOMP_MAP_TO:
+	case GOMP_MAP_TO_PSET:
 	  pp_string (pp, "to");
 	  break;
-	case OMP_CLAUSE_MAP_FROM:
+	case GOMP_MAP_FROM:
 	  pp_string (pp, "from");
 	  break;
-	case OMP_CLAUSE_MAP_TOFROM:
+	case GOMP_MAP_TOFROM:
 	  pp_string (pp, "tofrom");
 	  break;
-	case OMP_CLAUSE_MAP_FORCE_ALLOC:
+	case GOMP_MAP_FORCE_ALLOC:
 	  pp_string (pp, "force_alloc");
 	  break;
-	case OMP_CLAUSE_MAP_FORCE_TO:
+	case GOMP_MAP_FORCE_TO:
 	  pp_string (pp, "force_to");
 	  break;
-	case OMP_CLAUSE_MAP_FORCE_FROM:
+	case GOMP_MAP_FORCE_FROM:
 	  pp_string (pp, "force_from");
 	  break;
-	case OMP_CLAUSE_MAP_FORCE_TOFROM:
+	case GOMP_MAP_FORCE_TOFROM:
 	  pp_string (pp, "force_tofrom");
 	  break;
-	case OMP_CLAUSE_MAP_FORCE_PRESENT:
+	case GOMP_MAP_FORCE_PRESENT:
 	  pp_string (pp, "force_present");
 	  break;
-	case OMP_CLAUSE_MAP_FORCE_DEALLOC:
+	case GOMP_MAP_FORCE_DEALLOC:
 	  pp_string (pp, "force_dealloc");
 	  break;
-	case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
+	case GOMP_MAP_FORCE_DEVICEPTR:
 	  pp_string (pp, "force_deviceptr");
 	  break;
 	default:
@@ -566,10 +567,10 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       if (OMP_CLAUSE_SIZE (clause))
 	{
 	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
-	      && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_POINTER)
+	      && OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_POINTER)
 	    pp_string (pp, " [pointer assign, bias: ");
 	  else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
-		   && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_TO_PSET)
+		   && OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_TO_PSET)
 	    pp_string (pp, " [pointer set, len: ");
 	  else
 	    pp_string (pp, " [len: ");

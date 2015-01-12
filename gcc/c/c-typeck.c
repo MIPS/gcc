@@ -68,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "wide-int.h"
+#include "gomp-constants.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -11940,9 +11941,9 @@ handle_omp_array_sections (tree c)
       OMP_CLAUSE_SIZE (c) = size;
       if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 	return false;
-      gcc_assert (OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_FORCE_DEVICEPTR);
+      gcc_assert (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FORCE_DEVICEPTR);
       tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (c2) = OMP_CLAUSE_MAP_POINTER;
+      OMP_CLAUSE_MAP_KIND (c2) = GOMP_MAP_POINTER;
       if (!c_mark_addressable (t))
 	return false;
       OMP_CLAUSE_DECL (c2) = t;
@@ -12365,9 +12366,9 @@ c_finish_omp_clauses (tree clauses)
 	  else if (!c_mark_addressable (t))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		     && (OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+		     && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 			 || (OMP_CLAUSE_MAP_KIND (c)
-			     == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)))
+			     == GOMP_MAP_FORCE_DEVICEPTR)))
 		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),

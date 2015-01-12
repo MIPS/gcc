@@ -66,6 +66,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "builtins.h"
 #include "convert.h"
+#include "gomp-constants.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -4670,7 +4671,7 @@ handle_omp_array_sections (tree c)
 	    return false;
 	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 				      OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_MAP_KIND (c2) = OMP_CLAUSE_MAP_POINTER;
+	  OMP_CLAUSE_MAP_KIND (c2) = GOMP_MAP_POINTER;
 	  if (!cxx_mark_addressable (t))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
@@ -4694,7 +4695,7 @@ handle_omp_array_sections (tree c)
 	    {
 	      tree c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 					  OMP_CLAUSE_MAP);
-	      OMP_CLAUSE_MAP_KIND (c3) = OMP_CLAUSE_MAP_POINTER;
+	      OMP_CLAUSE_MAP_KIND (c3) = GOMP_MAP_POINTER;
 	      OMP_CLAUSE_DECL (c3) = ptr;
 	      OMP_CLAUSE_DECL (c2) = convert_from_reference (ptr);
 	      OMP_CLAUSE_SIZE (c3) = size_zero_node;
@@ -5788,7 +5789,7 @@ finish_omp_clauses (tree clauses)
 	      if (processing_template_decl)
 		break;
 	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		  && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		  && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
 		break;
 	      if (DECL_P (t))
 		error ("%qD is not a variable in %qs clause", t,
@@ -5809,7 +5810,7 @@ finish_omp_clauses (tree clauses)
 		   && !cxx_mark_addressable (t))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		     && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
 		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)

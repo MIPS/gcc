@@ -1843,11 +1843,10 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      && varpool_node::get_create (decl)->offloadable)
 	    break;
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-	      && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+	      && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
 	    {
-	      /* Ignore OMP_CLAUSE_MAP_POINTER kind for arrays in
-		 regions that are not offloaded; there is nothing to map for
-		 those.  */
+	      /* Ignore GOMP_MAP_POINTER kind for arrays in regions that are
+		 not offloaded; there is nothing to map for those.  */
 	      if (!is_gimple_omp_offloaded (ctx->stmt)
 		  && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		break;
@@ -1868,7 +1867,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      else
 		{
 		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		      && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+		      && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 		      && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 		      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 		    install_var_field (decl, true, 7, ctx);
@@ -1886,7 +1885,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		  && nc != NULL_TREE
 		  && OMP_CLAUSE_CODE (nc) == OMP_CLAUSE_MAP
 		  && OMP_CLAUSE_DECL (nc) == base
-		  && OMP_CLAUSE_MAP_KIND (nc) == OMP_CLAUSE_MAP_POINTER
+		  && OMP_CLAUSE_MAP_KIND (nc) == GOMP_MAP_POINTER
 		  && integer_zerop (OMP_CLAUSE_SIZE (nc)))
 		{
 		  OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c) = 1;
@@ -2003,7 +2002,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    break;
 	  if (DECL_P (decl))
 	    {
-	      if (OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+	      if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 		  && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
 		  && !COMPLETE_TYPE_P (TREE_TYPE (decl)))
 		{
@@ -9714,7 +9713,7 @@ oacc_initialize_reduction_data (tree clauses, tree nthreads,
       /* Add the reduction array to the list of clauses.  */
       tree x = array;
       t = build_omp_clause (gimple_location (ctx->stmt), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (t) = OMP_CLAUSE_MAP_FORCE_FROM;
+      OMP_CLAUSE_MAP_KIND (t) = GOMP_MAP_FORCE_FROM;
       OMP_CLAUSE_DECL (t) = x;
       OMP_CLAUSE_CHAIN (t) = NULL;
       if (oc)
@@ -11236,20 +11235,20 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	/* First check what we're prepared to handle in the following.  */
 	switch (OMP_CLAUSE_MAP_KIND (c))
 	  {
-	  case OMP_CLAUSE_MAP_ALLOC:
-	  case OMP_CLAUSE_MAP_TO:
-	  case OMP_CLAUSE_MAP_FROM:
-	  case OMP_CLAUSE_MAP_TOFROM:
-	  case OMP_CLAUSE_MAP_POINTER:
-	  case OMP_CLAUSE_MAP_TO_PSET:
+	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_TO:
+	  case GOMP_MAP_FROM:
+	  case GOMP_MAP_TOFROM:
+	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_TO_PSET:
 	    break;
-	  case OMP_CLAUSE_MAP_FORCE_ALLOC:
-	  case OMP_CLAUSE_MAP_FORCE_TO:
-	  case OMP_CLAUSE_MAP_FORCE_FROM:
-	  case OMP_CLAUSE_MAP_FORCE_TOFROM:
-	  case OMP_CLAUSE_MAP_FORCE_PRESENT:
-	  case OMP_CLAUSE_MAP_FORCE_DEALLOC:
-	  case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
+	  case GOMP_MAP_FORCE_ALLOC:
+	  case GOMP_MAP_FORCE_TO:
+	  case GOMP_MAP_FORCE_FROM:
+	  case GOMP_MAP_FORCE_TOFROM:
+	  case GOMP_MAP_FORCE_PRESENT:
+	  case GOMP_MAP_FORCE_DEALLOC:
+	  case GOMP_MAP_FORCE_DEVICEPTR:
 	    gcc_assert (is_gimple_omp_oacc (stmt));
 	    break;
 	  default:
@@ -11285,7 +11284,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  {
 	    x = build_receiver_ref (var, true, ctx);
 	    tree new_var = lookup_decl (var, ctx);
-	    if (OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+	    if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 		&& !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 		&& TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
 	      x = build_simple_mem_ref (x);
@@ -11414,7 +11413,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    gimplify_assign (x, var, &ilist);
 		  }
 		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-			 && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+			 && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 			 && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 			 && TREE_CODE (TREE_TYPE (ovar)) == ARRAY_TYPE)
 		  {
@@ -11432,17 +11431,16 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    gcc_assert (offloaded);
 		    tree avar = create_tmp_var (TREE_TYPE (var));
 		    mark_addressable (avar);
-		    enum omp_clause_map_kind map_kind
-		      = OMP_CLAUSE_MAP_KIND (c);
+		    enum gomp_map_kind map_kind = OMP_CLAUSE_MAP_KIND (c);
 		    if (GOMP_MAP_COPY_TO_P (map_kind)
-			|| map_kind == OMP_CLAUSE_MAP_POINTER
-			|| map_kind == OMP_CLAUSE_MAP_TO_PSET
-			|| map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			|| map_kind == GOMP_MAP_POINTER
+			|| map_kind == GOMP_MAP_TO_PSET
+			|| map_kind == GOMP_MAP_FORCE_DEVICEPTR)
 		      gimplify_assign (avar, var, &ilist);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
 		    if ((GOMP_MAP_COPY_FROM_P (map_kind)
-			 || map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			 || map_kind == GOMP_MAP_FORCE_DEVICEPTR)
 			&& !TYPE_READONLY (TREE_TYPE (var)))
 		      {
 			x = build_sender_ref (ovar, ctx);
@@ -11472,10 +11470,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		tkind = OMP_CLAUSE_MAP_KIND (c);
 		break;
 	      case OMP_CLAUSE_TO:
-		tkind = OMP_CLAUSE_MAP_TO;
+		tkind = GOMP_MAP_TO;
 		break;
 	      case OMP_CLAUSE_FROM:
-		tkind = OMP_CLAUSE_MAP_FROM;
+		tkind = GOMP_MAP_FROM;
 		break;
 	      default:
 		gcc_unreachable ();
