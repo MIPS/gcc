@@ -27,7 +27,6 @@
    <http://www.gnu.org/licenses/>.  */
 
 #include "libgomp.h"
-#include "libgomp_target.h"
 #include "oacc-int.h"
 #include "openacc.h"
 #include <assert.h>

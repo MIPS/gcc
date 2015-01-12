@@ -34,7 +34,7 @@
 #include <string.h>
 #include <utility>
 #include <vector>
-#include <libgomp_target.h>
+#include "libgomp-plugin.h"
 #include "compiler_if_host.h"
 #include "main_target_image.h"
 

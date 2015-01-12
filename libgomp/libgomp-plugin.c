@@ -30,7 +30,6 @@
 
 #include "libgomp.h"
 #include "libgomp-plugin.h"
-#include "libgomp_target.h"
 
 void *
 GOMP_PLUGIN_malloc (size_t size)

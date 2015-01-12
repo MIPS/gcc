@@ -34,7 +34,6 @@
 #include "openacc.h"
 #include "config.h"
 #include "libgomp.h"
-#include "libgomp_target.h"
 #include "libgomp-plugin.h"
 #include "oacc-ptx.h"
 #include "oacc-plugin.h"

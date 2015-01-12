@@ -33,7 +33,6 @@
 #include "openacc.h"
 #include "config.h"
 #include "libgomp.h"
-#include "libgomp_target.h"
 #ifdef HOST_NONSHM_PLUGIN
 #include "libgomp-plugin.h"
 #include "oacc-plugin.h"

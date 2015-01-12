@@ -29,6 +29,39 @@
 #ifndef LIBGOMP_PLUGIN_H
 #define LIBGOMP_PLUGIN_H 1
 
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Capabilities of offloading devices.  */
+#define GOMP_OFFLOAD_CAP_SHARED_MEM	(1 << 0)
+#define GOMP_OFFLOAD_CAP_NATIVE_EXEC	(1 << 1)
+#define GOMP_OFFLOAD_CAP_OPENMP_400	(1 << 2)
+#define GOMP_OFFLOAD_CAP_OPENACC_200	(1 << 3)
+
+/* Type of offload target device.  Keep in sync with include/gomp-constants.h.  */
+enum offload_target_type
+{
+  OFFLOAD_TARGET_TYPE_HOST = 2,
+  OFFLOAD_TARGET_TYPE_HOST_NONSHM = 3,
+  OFFLOAD_TARGET_TYPE_NVIDIA_PTX = 5,
+  OFFLOAD_TARGET_TYPE_INTEL_MIC = 6
+};
+
+/* Auxiliary struct, used for transferring a host-target address range mapping
+   from plugin to libgomp.  */
+struct mapping_table
+{
+  uintptr_t host_start;
+  uintptr_t host_end;
+  uintptr_t tgt_start;
+  uintptr_t tgt_end;
+};
+
+/* Miscellaneous functions.  */
 extern void *GOMP_PLUGIN_malloc (size_t) __attribute__((malloc));
 extern void *GOMP_PLUGIN_malloc_cleared (size_t) __attribute__((malloc));
 extern void *GOMP_PLUGIN_realloc (void *, size_t);
@@ -39,5 +72,9 @@ extern void GOMP_PLUGIN_error (const char *, ...)
 	__attribute__((format (printf, 1, 2)));
 extern void GOMP_PLUGIN_fatal (const char *, ...)
 	__attribute__((noreturn, format (printf, 1, 2)));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

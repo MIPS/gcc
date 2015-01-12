@@ -1,5 +1,19 @@
 2015-01-12  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* env.c: Don't include "libgomp_target.h".
+	* libgomp-plugin.c: Likewise.
+	* oacc-async.c: Likewise.
+	* oacc-cuda.c: Likewise.
+	* oacc-init.c: Likewise.
+	* oacc-mem.c: Likewise.
+	* oacc-parallel.c: Likewise.
+	* oacc-plugin.c: Likewise.
+	* plugin/plugin-host.c: Likewise.
+	* plugin/plugin-nvptx.c: Likewise.
+	* target.c: Likewise.
+	* libgomp_target.h: Remove file after merging its content into...
+	* libgomp-plugin.h: ... this file.  Adjust all users.
+
 	* plugin/plugin-nvptx.c (struct ptx_device): Turn stream_lock
 	member into a pthread_mutex_t.  Adjust all users.
 	(ptx_event_lock): Likewise.

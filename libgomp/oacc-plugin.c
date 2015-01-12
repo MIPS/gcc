@@ -28,7 +28,6 @@
 
 #include "libgomp.h"
 #include "oacc-plugin.h"
-#include "libgomp_target.h"
 #include "oacc-int.h"
 
 void

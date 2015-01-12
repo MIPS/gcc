@@ -30,7 +30,6 @@
 #include "libgomp.h"
 #include "libgomp_g.h"
 #include "gomp-constants.h"
-#include "libgomp_target.h"
 #include "oacc-int.h"
 #include <stdio.h>
 #include <string.h>

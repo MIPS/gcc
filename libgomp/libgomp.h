@@ -38,6 +38,7 @@
 
 #include "config.h"
 #include "gstdint.h"
+#include "libgomp-plugin.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -632,7 +633,6 @@ extern void gomp_free_thread (void *);
 extern void gomp_init_targets_once (void);
 extern int gomp_get_num_devices (void);
 
-#include "libgomp_target.h"
 #include "splay-tree.h"
 
 struct target_mem_desc {
