@@ -1,3 +1,460 @@
+2015-01-09  Michael Collison  <michael.collison@linaro.org>
+
+	* gcc-interface/cuintp.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h,
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* gcc-interface/decl.c: Ditto.
+	* gcc-interface/misc.c: Ditto.
+	* gcc-interface/targtyps.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h,
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* gcc-interface/trans.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, real.h,
+	fold-const.h, wide-int.h, inchash.h due to
+	flattening of tree.h.
+	* gcc-interface/utils.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h,
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* gcc-interface/utils2.c: Ditto.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* sem_warn.adb (Check_One_Unit): Don't give unused entities
+	warning for a package which is used as a generic parameter.
+
+2015-01-07  Bob Duff  <duff@adacore.com>
+
+	* usage.adb (Usage): Correct documentation of
+	-gnatw.f switches.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* s-fileio.adb: Minor reformatting.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Instantiate_Object): If formal is an anonymous
+	access to subprogram, replace its formals with new entities when
+	building the object declaration, both if actual is present and
+	when it is defaulted.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch5.adb (Analyze_Assignment): If left-hand side is a view
+	conversion and type of expression has invariant, apply invariant
+	check on expression.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Create_Constrained_Components): A call to
+	Gather_Components may detect an error if an inherited discriminant
+	that controls a variant is non-static.
+	* sem_aggr.adb (Resolve_Record_Aggregate, Step 5): The call to
+	Gather_Components may report an error if an inherited discriminant
+	in a variant in non-static.
+	* sem_util.adb (Gather_Components): If a non-static discriminant
+	is inherited do not report error here, but let caller handle it.
+	(Find_Actual): Small optimization.
+
+2015-01-07  Bob Duff  <duff@adacore.com>
+
+	* usage.adb (Usage): Document -gnatw.f switch.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb: Code clean up and minor reformatting.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* exp_ch4.adb (Expand_N_Type_Conversion): Add guard for
+	Raise_Accessibility_Error call.
+	* s-valllu.ads (Scan_Raw_Long_Long_Unsigned): Add documentation
+	on handling of invalid digits in based constants.
+	* s-fatgen.ads: Minor reformatting.
+	* sem_attr.adb (Analyze_Attribute, case Unrestricted_Access):
+	Avoid noting bogus modification for Valid test.
+	* snames.ads-tmpl (Name_Attr_Long_Float): New Name.
+	* einfo.ads: Minor reformatting.
+	* sem_warn.adb: Minor comment clarification.
+	* sem_ch12.adb: Minor reformatting.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch5.adb (Expand_Predicated_Loop): Handle properly loops
+	over static predicates when the loop parameter specification
+	carries a Reverse indicator.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Instantiate_Object): If formal has a default,
+	actual is missing and formal has an anonymous access type, copy
+	access definition in full so that tree for instance is properly
+	formatted for ASIS use.
+
+2015-01-07  Bob Duff  <duff@adacore.com>
+
+	* sem_elab.adb (Check_Internal_Call_Continue): Give a warning
+	for P'Access, where P is a subprogram in the same package as
+	the P'Access, and the P'Access is evaluated at elaboration
+	time, and occurs before the body of P. For example, "X : T :=
+	P'Access;" would allow a subsequent call to X.all to be an
+	access-before-elaboration error; hence the warning. This warning
+	is enabled by the -gnatw.f switch.
+	* opt.ads (Warn_On_Elab_Access): New flag for warning switch.
+	* warnsw.adb (Set_Dot_Warning_Switch): Set Warn_On_Elab_Access.
+	* gnat_ugn.texi: Document the new warning.
+
+2015-01-07  Johannes Kanig  <kanig@adacore.com>
+
+	* lib-xref-spark_specific.adb (Collect_SPARK_Xrefs): Skip unneeded
+	cross ref files.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* s-taprop-linux.adb, clean.adb: Minor reformatting.
+
+2015-01-07  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-tassta.adb: Relax some overzealous assertions.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Analyze_Return_Type): An call that returns a limited
+	view of a type is legal when context is a thunk generated for
+	operation inherited from an interface.
+	* exp_ch6.adb (Expand_Simple_Function_Return): If context is
+	a thunk and return type is an incomplete type do not continue
+	expansion; thunk will be fully elaborated when generating code.
+
+2015-01-07  Doug Rupp  <rupp@adacore.com>
+
+	* s-osinte-mingw.ads (LARGE_INTEGR): New subtype.
+	(QueryPerformanceFrequency): New imported procedure.
+	* s-taprop-mingw.adb (RT_Resolution): Call above and return
+	resolution vice a hardcoded value.
+	* s-taprop-solaris.adb (RT_Resolution): Call clock_getres and return
+	resolution vice a hardcoded value.
+	* s-linux-android.ads (clockid_t): New subtype.
+	* s-osinte-aix.ads (clock_getres): New imported subprogram.
+	* s-osinte-android.ads (clock_getres): Likewise.
+	* s-osinte-freebsd.ads (clock_getres): Likewise.
+	* s-osinte-solaris-posix.ads (clock_getres): Likewise.
+	* s-osinte-darwin.ads (clock_getres): New subprogram.
+	* s-osinte-darwin.adb (clock_getres): New subprogram.
+	* thread.c (__gnat_clock_get_res) [__APPLE__]: New function.
+	* s-taprop-posix.adb (RT_Resolution): Call clock_getres to
+	calculate resolution vice hard coded value.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_util.adb (Make_CW_Equivalent_Type): If root type is a
+	limited view, use non-limited view when available to create
+	equivalent record type.
+
+2015-01-07  Vincent Celier  <celier@adacore.com>
+
+	* gnatcmd.adb: Remove command Sync and any data and processing
+	related to this command. Remove project processing for gnatstack.
+	* prj-attr.adb: Remove package Synchonize and its attributes.
+
+2015-01-07  Vincent Celier  <celier@adacore.com>
+
+	* clean.adb: Minor error message change.
+
+2015-01-07  Tristan Gingold  <gingold@adacore.com>
+
+	PR ada/64349  
+	* env.c (__gnat_environ): Adjust for darwin9/darwin10.
+
+2015-01-07  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch10.adb (Analyze_With_Clause): Compiling under -gnatq
+	protect the frontend against never ending recursion caused by
+	circularities in the sources.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* a-reatim.adb, make.adb, exp_pakd.adb, i-cpoint.adb, sem_ch8.adb,
+	exp_ch3.adb: Minor reformatting.
+
+2015-01-07  Doug Rupp  <rupp@adacore.com>
+
+	* s-linux.ads (clockid_t): New subtype.
+	* s-osinte-linux.ads (pragma Linker Options): Add -lrt.
+	(clockid_t): New subtype.
+	(clock_getres): Import system call.
+	* s-taprop-linux.adb (System.OS_Constants): With and rename.
+	(RT_Resolution): Remove
+	hardcoded value and call clock_getres.
+	* s-linux-sparc.ads, s-linux-mipsel.ads, s-linux-hppa.ads,
+	s-linux-alpha.ads, s-linux-x32.ads (clockid_t): Add new subtype.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* sem_warn.adb (Check_One_Unit): Guard against context item
+	with no Entity field.
+
+2015-01-07  Vincent Celier  <celier@adacore.com>
+
+	* clean.adb (Gnatclean): Warn that 'gnatclean -P' is obsolete.
+	* make.adb (Initialize): Warn that 'gnatmake -P' is obsolete.
+
+2015-01-07  Vincent Celier  <celier@adacore.com>
+
+	* prj-conf.adb (Parse_Project_And_Apply_Config): Always finalize
+	errors/warnings in the first parsing of the project files,
+	to display the warnings when there is no errors.
+
+2015-01-07  Tristan Gingold  <gingold@adacore.com>
+
+	* i-cpoint.adb (Copy_Terminated_Array): Nicely handle null target.
+
+2015-01-07  Doug Rupp  <rupp@adacore.com>
+
+	* s-taprop-vxworks.adb (Stop_All_Tasks): Pass return
+	value from Int_Lock as parameter to Int_Unlock.
+	* s-osinte-vxworks.ads (Int_Unlock): Add parameter.
+	* s-vxwext.ads (Int_Unlock): Likewise.
+	* s-vxwext-kernel.adb (intUnlock, Int_Unlock): Likewise.
+	* s-vxwext-kernel.ads (Int_Unlock): Likewise.
+	* s-vxwext-rtp.adb (Int_Unlock): Likewise.
+	* s-vxwext-rtp.ads (Int_Unlock): Likewise.
+
+2015-01-07  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* exp_pakd.adb: Add a comment in exp_pakd.adb to explain why we
+	keep ___XP suffixes
+
+2015-01-07  Tristan Gingold  <gingold@adacore.com>
+
+	* i-cpoint.adb (Copy_Terminated_Array): Use Copy_Array to
+	handle overlap.
+
+2015-01-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch3.adb (Analyze_Full_Type_Declaration): Do not
+	automatically set No_Strict_Aliasing on access types.
+	* fe.h (No_Strict_Aliasing_CP): Declare.
+	* gcc-interface/trans.c (gigi): Force flag_strict_aliasing to 0 if
+	No_Strict_Aliasing_CP is set.
+
+2015-01-07  Johannes Kanig  <kanig@adacore.com>
+
+	* sem_ch8.adb (Analyze_Subprogram_Renaming) do
+	not build function wrapper in gnatprove mode when the package
+	is externally axiomatized.
+
+2015-01-07  Jose Ruiz  <ruiz@adacore.com>
+
+	* a-reatim.adb (Time_Of): Reduce the number of spurious overflows in
+	intermediate computations when the parameters have different signs.
+
+2015-01-07  Javier Miranda  <miranda@adacore.com>
+
+	* exp_ch3.adb (Build_Init_Procedure): For derived types,
+	improve the code which takes care of identifying and moving to
+	the beginning of the init-proc the call to the init-proc of the
+	parent type.
+
+2015-01-07  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/trans.c (gnat_to_gnu, <N_Expression_With_Action>):
+	Elaborate the expression as part of the same stmt group as the actions.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch3.adb: Minor error message change.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, case Preelaborable_Initialization):
+	Following AI05-028, the pragam applies legally to any composite type.
+
+2015-01-07  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-osinte-vxworks.adb, s-osinte-vxworks.ads
+	(sigwait, sigwaitinfo): Removed, not needed after all on any
+	VxWorks configurations.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch3.adb, freeze.adb, exp_disp.adb: Minor reformatting.
+
+2015-01-07  Javier Miranda  <miranda@adacore.com>
+
+	* exp_disp.adb (Expand_Interface_Conversion): Adding missing
+	generation of accessibility check.
+
+2015-01-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Derived_Type_Declaration): In the case of an
+	illegal completion from a class- wide type, set etype of the
+	derived type properly to prevent cascaded errors.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* prj.ads, i-cpoint.adb, freeze.adb, ghost.adb, prj-err.adb: Minor
+	reformatting.
+
+2015-01-07  Robert Dewar  <dewar@adacore.com>
+
+	* restrict.adb (Check_Restriction_No_Use_Of_Attribute):
+	New procedure.
+	(OK_No_Use_Of_Entity_Name): New function.
+	(Set_Restriction_No_Use_Of_Entity): New procedure.
+	* restrict.ads (Check_Restriction_No_Use_Of_Attribute):
+	New procedure.
+	(OK_No_Use_Of_Entity_Name): New function.
+	(Set_Restriction_No_Use_Of_Entity): New procedure.
+	* sem_ch8.adb (Find_Direct_Name): Add check for violation of
+	No_Use_Of_Entity.
+	* sem_prag.adb (Process_Restrictions_Or_Restriction_Warnings):
+	Add processing for new restriction No_Use_Of_Entity.
+
+2015-01-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* freeze.adb (Freeze_Array_Type): Apply same handling to Is_Atomic
+	component type as to Has_Atomic_Components type.  Remove useless
+	test on Is_Aliased component type.
+
+2015-01-07  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* alloc.ads Alphabetize several declarations. Add constants
+	Ignored_Ghost_Units_Initial and Ignored_Ghost_Units_Increment.
+	* atree.adb Add with and use clauses for Opt.
+	(Allocate_Initialize_Node): Mark a node as ignored Ghost
+	if it is created in an ignored Ghost region.
+	(Ekind_In): New variant.
+	(Is_Ignored_Ghost_Node): New routine.
+	(Set_Is_Ignored_Ghost_Node): New routine.
+	* atree.adb Aplhabetize several subprograms declarations. Flag
+	Spare0 is now known as Is_Ignored_Ghost_Node.
+	(Ekind_In): New variant.
+	(Is_Ignored_Ghost_Node): New routine.
+	(Set_Is_Ignored_Ghost_Node): New routine.
+	* einfo.adb: Flag 279 is now known as Contains_Ignored_Ghost_Code.
+	(Contains_Ignored_Ghost_Code): New routine.
+	(Set_Contains_Ignored_Ghost_Code): New routine.
+	(Set_Is_Checked_Ghost_Entity, Set_Is_Ignored_Ghost_Entity):
+	It is now possible to set this property on an unanalyzed entity.
+	(Write_Entity_Flags): Output the status of flag
+	Contains_Ignored_Ghost_Code.
+	* einfo.ads New attribute Contains_Ignored_Ghost_Code along with
+	usage in nodes.
+	(Contains_Ignored_Ghost_Code): New routine
+	along with pragma Inline.
+	(Set_Contains_Ignored_Ghost_Code): New routine along with pragma Inline.
+	* exp_ch3.adb Add with and use clauses for Ghost.
+	(Freeze_Type): Capture/restore the value of Ghost_Mode on entry/exit.
+	Set the Ghost_Mode in effect.
+	(Restore_Globals): New routine.
+	* exp_ch7.adb (Process_Declarations): Do not process a context
+	that invoves an ignored Ghost entity.
+	* exp_dbug.adb (Qualify_All_Entity_Names): Skip an ignored Ghost
+	construct that has been rewritten as a null statement.
+	* exp_disp.adb Add with and use clauses for Ghost.
+	(Make_DT): Capture/restore the value of Ghost_Mode on entry/exit. Set
+	the Ghost_Mode in effect.
+	(Restore_Globals): New routine.
+	* exp_util.adb (Requires_Cleanup_Actions): An ignored Ghost entity
+	does not require any clean up. Add two missing cases that deal
+	with block statements.
+	* freeze.adb Add with and use clauses for Ghost.
+	(Freeze_Entity): Capture/restore the value of Ghost_Mode on entry/exit.
+	Set the Ghost_Mode in effect.
+	(Restore_Globals): New routine.
+	* frontend.adb Add with and use clauses for Ghost. Remove any
+	ignored Ghost code from all units that qualify.
+	* ghost.adb New unit.
+	* ghost.ads New unit.
+	* gnat1drv.adb Add with clause for Ghost. Initialize and lock
+	the table in package Ghost.
+	* lib.ads: Alphabetize several subprogram declarations.
+	* lib-xref.adb (Output_References): Do not generate reference
+	information for ignored Ghost entities.
+	* opt.ads Add new type Ghost_Mode_Type and new global variable
+	Ghost_Mode.
+	* rtsfind.adb (Load_RTU): Provide a clean environment when
+	loading a runtime unit.
+	* sem.adb (Analyze): Capture/restore the value of Ghost_Mode on
+	entry/exit as the node may set a different mode.
+	(Do_Analyze):
+	Capture/restore the value of Ghost_Mode on entry/exit as the
+	unit may be withed from a unit with a different Ghost mode.
+	* sem_ch3.adb Add with and use clauses for Ghost.
+	(Analyze_Full_Type_Declaration, Analyze_Incomplete_Type_Decl,
+	Analyze_Number_Declaration, Analyze_Private_Extension_Declaration,
+	Analyze_Subtype_Declaration): Set the Ghost_Mode in effect. Mark
+	the entity as Ghost when there is a Ghost_Mode in effect.
+	(Array_Type_Declaration): The implicit base type inherits the
+	"ghostness" from the array type.
+	(Derive_Subprogram): The
+	alias inherits the "ghostness" from the parent subprogram.
+	(Make_Implicit_Base): The implicit base type inherits the
+	"ghostness" from the parent type.
+	* sem_ch5.adb Add with and use clauses for Ghost.
+	(Analyze_Assignment): Set the Ghost_Mode in effect.
+	* sem_ch6.adb Add with and use clauses for Ghost.
+	(Analyze_Abstract_Subprogram_Declaration, Analyze_Procedure_Call,
+	Analyze_Subprogram_Body_Helper, Analyze_Subprogram_Declaration):
+	Set the Ghost_Mode in effect. Mark the entity as Ghost when
+	there is a Ghost_Mode in effect.
+	* sem_ch7.adb Add with and use clauses for Ghost.
+	(Analyze_Package_Body_Helper, Analyze_Package_Declaration,
+	Analyze_Private_Type_Declaration): Set the Ghost_Mode in
+	effect. Mark the entity as Ghost when there is a Ghost_Mode
+	in effect.
+	* sem_ch8.adb Add with and use clauses for Ghost.
+	(Analyze_Exception_Renaming, Analyze_Generic_Renaming,
+	Analyze_Object_Renaming, Analyze_Package_Renaming,
+	Analyze_Subprogram_Renaming): Set the Ghost_Mode in effect. Mark
+	the entity as Ghost when there is a Ghost_Mode in effect.
+	(Find_Type): Check the Ghost context of a type.
+	* sem_ch11.adb Add with and use clauses for Ghost.
+	(Analyze_Exception_Declaration): Set the Ghost_Mode in
+	effect. Mark the entity as Ghost when there is a Ghost_Mode
+	in effect.
+	* sem_ch12.adb Add with and use clauses for Ghost.
+	(Analyze_Generic_Package_Declaration,
+	Analyze_Generic_Subprogram_Declaration): Set the Ghost_Mode in effect.
+	Mark the entity as Ghost when there is a Ghost_Mode in effect.
+	* sem_prag.adb Add with and use clauses for Ghost.
+	(Analyze_Pragma): Ghost-related checks are triggered when there
+	is a Ghost mode in effect.
+	(Create_Abstract_State): Mark the
+	entity as Ghost when there is a Ghost_Mode in effect.
+	* sem_res.adb Add with and use clauses for Ghost.
+	(Check_Ghost_Context): Removed.
+	* sem_util.adb (Check_Ghost_Completion): Removed.
+	(Check_Ghost_Derivation): Removed.
+	(Incomplete_Or_Partial_View):
+	Add a guard in case the entity has not been analyzed yet
+	and does carry a scope.
+	(Is_Declaration): New routine.
+	(Is_Ghost_Entity): Removed.
+	(Is_Ghost_Statement_Or_Pragma):
+	Removed.
+	(Is_Subject_To_Ghost): Removed.
+	(Set_Is_Ghost_Entity):
+	Removed.
+	(Within_Ghost_Scope): Removed.
+	* sem_util.adb (Check_Ghost_Completion): Removed.
+	(Check_Ghost_Derivation): Removed.
+	(Is_Declaration): New routine.
+	(Is_Ghost_Entity): Removed.
+	(Is_Ghost_Statement_Or_Pragma): Removed.
+	(Is_Subject_To_Ghost): Removed.
+	(Set_Is_Ghost_Entity): Removed.
+	(Within_Ghost_Scope): Removed.
+	* sinfo.ads Add a section on Ghost mode.
+	* treepr.adb (Print_Header_Flag): New routine.
+	(Print_Node_Header): Factor out code. Output flag
+	Is_Ignored_Ghost_Node.
+	* gcc-interface/Make-lang.in: Add dependency for unit Ghost.
+
 2015-01-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* freeze.adb (Freeze_Array_Type) <Complain_CS>: Remove always

@@ -32,16 +32,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "tm_p.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -4358,12 +4365,24 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   PROCESS_ARG (0);
   PROCESS_ARG (1);
 
-  TREE_READONLY (t) = read_only;
-  TREE_CONSTANT (t) = constant;
   TREE_SIDE_EFFECTS (t) = side_effects;
-  TREE_THIS_VOLATILE (t)
-    = (TREE_CODE_CLASS (code) == tcc_reference
-       && arg0 && TREE_THIS_VOLATILE (arg0));
+  if (code == MEM_REF)
+    {
+      if (arg0 && TREE_CODE (arg0) == ADDR_EXPR)
+	{
+	  tree o = TREE_OPERAND (arg0, 0);
+	  TREE_READONLY (t) = TREE_READONLY (o);
+	  TREE_THIS_VOLATILE (t) = TREE_THIS_VOLATILE (o);
+	}
+    }
+  else
+    {
+      TREE_READONLY (t) = read_only;
+      TREE_CONSTANT (t) = constant;
+      TREE_THIS_VOLATILE (t)
+	= (TREE_CODE_CLASS (code) == tcc_reference
+	   && arg0 && TREE_THIS_VOLATILE (arg0));
+    }
 
   return t;
 }
@@ -4458,9 +4477,19 @@ build5_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   PROCESS_ARG (4);
 
   TREE_SIDE_EFFECTS (t) = side_effects;
-  TREE_THIS_VOLATILE (t)
-    = (TREE_CODE_CLASS (code) == tcc_reference
-       && arg0 && TREE_THIS_VOLATILE (arg0));
+  if (code == TARGET_MEM_REF)
+    {
+      if (arg0 && TREE_CODE (arg0) == ADDR_EXPR)
+	{
+	  tree o = TREE_OPERAND (arg0, 0);
+	  TREE_READONLY (t) = TREE_READONLY (o);
+	  TREE_THIS_VOLATILE (t) = TREE_THIS_VOLATILE (o);
+	}
+    }
+  else
+    TREE_THIS_VOLATILE (t)
+      = (TREE_CODE_CLASS (code) == tcc_reference
+	 && arg0 && TREE_THIS_VOLATILE (arg0));
 
   return t;
 }

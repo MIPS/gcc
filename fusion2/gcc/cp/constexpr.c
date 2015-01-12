@@ -23,6 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "cp-tree.h"
@@ -1376,6 +1386,8 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 		   value by evaluating *this, but we don't bother; there's
 		   no need to put such a call in the hash table.  */
 		result = lval ? ctx->object : ctx->ctor;
+	      else if (VOID_TYPE_P (TREE_TYPE (res)))
+		result = void_node;
 	      else
 		{
 		  result = *ctx->values->get (slot ? slot : res);

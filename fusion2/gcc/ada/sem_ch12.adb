@@ -33,6 +33,7 @@ with Exp_Disp; use Exp_Disp;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
 with Freeze;   use Freeze;
+with Ghost;    use Ghost;
 with Itypes;   use Itypes;
 with Lib;      use Lib;
 with Lib.Load; use Lib.Load;
@@ -2991,6 +2992,11 @@ package body Sem_Ch12 is
       Decl        : Node_Id;
 
    begin
+      --  The generic package declaration may be subject to pragma Ghost with
+      --  policy Ignore. Set the mode now to ensure that any nodes generated
+      --  during analysis and expansion are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("generic is not allowed", N);
 
       --  We introduce a renaming of the enclosing package, to have a usable
@@ -3050,10 +3056,10 @@ package body Sem_Ch12 is
       Set_Etype    (Id, Standard_Void_Type);
       Set_Contract (Id, Make_Contract (Sloc (Id)));
 
-      --  A generic package declared within a Ghost scope is rendered Ghost
+      --  A generic package declared within a Ghost region is rendered Ghost
       --  (SPARK RM 6.9(2)).
 
-      if Within_Ghost_Scope then
+      if Ghost_Mode > None then
          Set_Is_Ghost_Entity (Id);
       end if;
 
@@ -3152,6 +3158,12 @@ package body Sem_Ch12 is
       Typ         : Entity_Id;
 
    begin
+      --  The generic subprogram declaration may be subject to pragma Ghost
+      --  with policy Ignore. Set the mode now to ensure that any nodes
+      --  generated during analysis and expansion are properly flagged as
+      --  ignored Ghost.
+
+      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("generic is not allowed", N);
 
       --  Create copy of generic unit, and save for instantiation. If the unit
@@ -3259,10 +3271,10 @@ package body Sem_Ch12 is
          Set_Etype (Id, Standard_Void_Type);
       end if;
 
-      --  A generic subprogram declared within a Ghost scope is rendered Ghost
+      --  A generic subprogram declared within a Ghost region is rendered Ghost
       --  (SPARK RM 6.9(2)).
 
-      if Within_Ghost_Scope then
+      if Ghost_Mode > None then
          Set_Is_Ghost_Entity (Id);
       end if;
 
@@ -3694,9 +3706,7 @@ package body Sem_Ch12 is
               and then not Is_Child_Unit (Gen_Unit)
             then
                Scop := Scope (Gen_Unit);
-               while Present (Scop)
-                 and then Scop /= Standard_Standard
-               loop
+               while Present (Scop) and then Scop /= Standard_Standard loop
                   if Unit_Requires_Body (Scop) then
                      Enclosing_Body_Present := True;
                      exit;
@@ -4680,7 +4690,10 @@ package body Sem_Ch12 is
          Set_Parent            (Act_Decl_Id, Parent (Anon_Id));
          Set_Chars             (Act_Decl_Id, Chars (Defining_Entity (N)));
          Set_Sloc              (Act_Decl_Id, Sloc (Defining_Entity (N)));
-         Set_Comes_From_Source (Act_Decl_Id, True);
+
+         --  Subprogram instance comes from source only if generic does
+
+         Set_Comes_From_Source (Act_Decl_Id, Comes_From_Source (Gen_Unit));
 
          --  The signature may involve types that are not frozen yet, but the
          --  subprogram will be frozen at the point the wrapper package is
@@ -7666,7 +7679,6 @@ package body Sem_Ch12 is
          while Present (T) loop
             if In_Open_Scopes (Scope (T)) then
                return T;
-
             elsif Is_Generic_Actual_Type (T) then
                return T;
             end if;
@@ -9534,8 +9546,7 @@ package body Sem_Ch12 is
                    Name                 =>
                      New_Occurrence_Of
                        (Get_Instance_Of (Gen_Parent), Sloc (Actual)),
-                   Generic_Associations =>
-                     Generic_Associations (Formal)));
+                   Generic_Associations => Generic_Associations (Formal)));
             end;
          end if;
 
@@ -9871,7 +9882,46 @@ package body Sem_Ch12 is
       Subt_Decl   : Node_Id             := Empty;
       Subt_Mark   : Node_Id             := Empty;
 
+      function Copy_Access_Def return Node_Id;
+      --  If formal is an anonymous access, copy access definition of formal
+      --  for generated object declaration.
+
+      ---------------------
+      -- Copy_Access_Def --
+      ---------------------
+
+      function Copy_Access_Def return Node_Id is
+      begin
+         Def := New_Copy_Tree (Acc_Def);
+
+         --  In addition, if formal is an access to subprogram we need to
+         --  generate new formals for the signature of the default, so that
+         --  the tree is properly formatted for ASIS use.
+
+         if Present (Access_To_Subprogram_Definition (Acc_Def)) then
+            declare
+               Par_Spec : Node_Id;
+            begin
+               Par_Spec :=
+                 First (Parameter_Specifications
+                          (Access_To_Subprogram_Definition (Def)));
+               while Present (Par_Spec) loop
+                  Set_Defining_Identifier (Par_Spec,
+                    Make_Defining_Identifier (Sloc (Acc_Def),
+                      Chars => Chars (Defining_Identifier (Par_Spec))));
+                  Next (Par_Spec);
+               end loop;
+            end;
+         end if;
+
+         return Def;
+      end Copy_Access_Def;
+
+   --  Start of processing for Instantiate_Object
+
    begin
+      --  Formal may be an anonymous access
+
       if Present (Subtype_Mark (Formal)) then
          Subt_Mark := Subtype_Mark (Formal);
       else
@@ -10043,12 +10093,15 @@ package body Sem_Ch12 is
       else
          --  The instantiation of a generic formal in-parameter is constant
          --  declaration. The actual is the expression for that declaration.
+         --  Its type is a full copy of the type of the formal. This may be
+         --  an access to subprogram, for which we need to generate entities
+         --  for the formals in the new signature.
 
          if Present (Actual) then
             if Present (Subt_Mark) then
-               Def := Subt_Mark;
+               Def := New_Copy_Tree (Subt_Mark);
             else pragma Assert (Present (Acc_Def));
-               Def := Acc_Def;
+               Def := Copy_Access_Def;
             end if;
 
             Decl_Node :=
@@ -10056,7 +10109,7 @@ package body Sem_Ch12 is
                 Defining_Identifier    => New_Copy (Gen_Obj),
                 Constant_Present       => True,
                 Null_Exclusion_Present => Null_Exclusion_Present (Formal),
-                Object_Definition      => New_Copy_Tree (Def),
+                Object_Definition      => Def,
                 Expression             => Actual);
 
             Set_Corresponding_Generic_Association (Decl_Node, Act_Assoc);
@@ -10128,9 +10181,9 @@ package body Sem_Ch12 is
             --  Use default to construct declaration
 
             if Present (Subt_Mark) then
-               Def := Subt_Mark;
+               Def := New_Copy (Subt_Mark);
             else pragma Assert (Present (Acc_Def));
-               Def := Acc_Def;
+               Def := Copy_Access_Def;
             end if;
 
             Decl_Node :=
@@ -10138,7 +10191,7 @@ package body Sem_Ch12 is
                 Defining_Identifier    => New_Copy (Gen_Obj),
                 Constant_Present       => True,
                 Null_Exclusion_Present => Null_Exclusion_Present (Formal),
-                Object_Definition      => New_Copy (Def),
+                Object_Definition      => Def,
                 Expression             => New_Copy_Tree
                                             (Default_Expression (Formal)));
 
@@ -10146,11 +10199,9 @@ package body Sem_Ch12 is
             Set_Analyzed (Expression (Decl_Node), False);
 
          else
-            Error_Msg_NE
-              ("missing actual&",
-                Instantiation_Node, Gen_Obj);
+            Error_Msg_NE ("missing actual&", Instantiation_Node, Gen_Obj);
             Error_Msg_NE ("\in instantiation of & declared#",
-              Instantiation_Node, Scope (A_Gen_Obj));
+                          Instantiation_Node, Scope (A_Gen_Obj));
 
             if Is_Scalar_Type (Etype (A_Gen_Obj)) then
 

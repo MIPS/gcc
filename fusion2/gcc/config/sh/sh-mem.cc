@@ -23,13 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "machmode.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "expr.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -228,7 +233,7 @@ sh_expand_cmpstr (rtx *operands)
   if (align < 4)
     {
       emit_insn (gen_iorsi3 (tmp1, s1_addr, s2_addr));
-      emit_insn (gen_tstsi_t (GEN_INT (3), tmp1));
+      emit_insn (gen_tstsi_t (tmp1, GEN_INT (3)));
       jump = emit_jump_insn (gen_branch_false (L_loop_byte));
       add_int_reg_note (jump, REG_BR_PROB, prob_likely);
     }
@@ -373,7 +378,7 @@ sh_expand_cmpnstr (rtx *operands)
 	  if (align < 4)
 	    {
 	      emit_insn (gen_iorsi3 (tmp1, s1_addr, s2_addr));
-	      emit_insn (gen_tstsi_t (GEN_INT (3), tmp1));
+	      emit_insn (gen_tstsi_t (tmp1, GEN_INT (3)));
 	      jump = emit_jump_insn (gen_branch_false (L_loop_byte));
 	      add_int_reg_note (jump, REG_BR_PROB, prob_likely);
 	    }
@@ -581,7 +586,7 @@ sh_expand_strlen (rtx *operands)
 
   if (align < 4)
     {
-      emit_insn (gen_tstsi_t (GEN_INT (3), current_addr));
+      emit_insn (gen_tstsi_t (current_addr, GEN_INT (3)));
       jump = emit_jump_insn (gen_branch_false (L_loop_byte));
       add_int_reg_note (jump, REG_BR_PROB, prob_likely);
     }
@@ -673,7 +678,7 @@ sh_expand_setmem (rtx *operands)
 
       if (align < 4)
 	{
-	  emit_insn (gen_tstsi_t (GEN_INT (3), dest_addr));
+	  emit_insn (gen_tstsi_t (dest_addr, GEN_INT (3)));
 	  jump = emit_jump_insn (gen_branch_false (L_loop_byte));
 	  add_int_reg_note (jump, REG_BR_PROB, prob_likely);
 	}

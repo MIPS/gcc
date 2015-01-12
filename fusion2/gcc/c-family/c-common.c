@@ -17,9 +17,12 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define GCC_C_COMMON_C
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "input.h"
 #include "c-common.h"
 #include "tm.h"
 #include "intl.h"
@@ -764,6 +767,9 @@ const struct attribute_spec c_common_attribute_table[] =
   { "no_sanitize_address",    0, 0, true, false, false,
 			      handle_no_sanitize_address_attribute,
 			      false },
+  { "no_sanitize_thread",     0, 0, true, false, false,
+			      handle_no_sanitize_address_attribute,
+			      false },
   { "no_sanitize_undefined",  0, 0, true, false, false,
 			      handle_no_sanitize_undefined_attribute,
 			      false },
@@ -1364,6 +1370,17 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 				 ? G_("left shift count >= width of type")
 				 : G_("right shift count >= width of type")));
 	}
+      if ((code == TRUNC_DIV_EXPR
+	   || code == CEIL_DIV_EXPR
+	   || code == FLOOR_DIV_EXPR
+	   || code == EXACT_DIV_EXPR
+	   || code == TRUNC_MOD_EXPR)
+	  && TREE_CODE (orig_op1) != INTEGER_CST
+	  && TREE_CODE (op1) == INTEGER_CST
+	  && (TREE_CODE (TREE_TYPE (orig_op0)) == INTEGER_TYPE
+	      || TREE_CODE (TREE_TYPE (orig_op0)) == FIXED_POINT_TYPE)
+	  && TREE_CODE (TREE_TYPE (orig_op1)) == INTEGER_TYPE)
+	warn_for_div_by_zero (loc, op1);
       goto out;
 
     case INDIRECT_REF:

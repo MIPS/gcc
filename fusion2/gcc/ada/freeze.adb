@@ -36,6 +36,7 @@ with Exp_Disp; use Exp_Disp;
 with Exp_Pakd; use Exp_Pakd;
 with Exp_Util; use Exp_Util;
 with Exp_Tss;  use Exp_Tss;
+with Ghost;    use Ghost;
 with Layout;   use Layout;
 with Lib;      use Lib;
 with Namet;    use Namet;
@@ -1862,12 +1863,16 @@ package body Freeze is
    -------------------
 
    function Freeze_Entity (E : Entity_Id; N : Node_Id) return List_Id is
-      Loc           : constant Source_Ptr := Sloc (N);
-      Comp          : Entity_Id;
-      F_Node        : Node_Id;
-      Indx          : Node_Id;
-      Formal        : Entity_Id;
-      Atype         : Entity_Id;
+      GM : constant Ghost_Mode_Type := Ghost_Mode;
+      --  Save the current Ghost mode in effect in case the entity being frozen
+      --  sets a different mode.
+
+      Loc    : constant Source_Ptr := Sloc (N);
+      Atype  : Entity_Id;
+      Comp   : Entity_Id;
+      F_Node : Node_Id;
+      Formal : Entity_Id;
+      Indx   : Node_Id;
 
       Test_E : Entity_Id := E;
       --  This could use a comment ???
@@ -1928,6 +1933,9 @@ package body Freeze is
       --  frozen. However the freeze node cannot be inserted at the point of
       --  call, but rather must go in the package holding the function, so that
       --  the backend can process it in the proper context.
+
+      procedure Restore_Globals;
+      --  Restore the values of all saved global variables
 
       procedure Wrap_Imported_Subprogram (E : Entity_Id);
       --  If E is an entity for an imported subprogram with pre/post-conditions
@@ -2423,12 +2431,12 @@ package body Freeze is
                end if;
             end;
 
-            --  Check for Atomic_Components or Aliased with unsuitable packing
-            --  or explicit component size clause given.
+            --  Check for Aliased or Atomic_Components/Atomic with unsuitable
+            --  packing or explicit component size clause given.
 
-            if (Has_Atomic_Components  (Arr)
-                  or else
-                Has_Aliased_Components (Arr))
+            if (Has_Aliased_Components (Arr)
+                 or else Has_Atomic_Components (Arr)
+                 or else Is_Atomic (Ctyp))
               and then
                 (Has_Component_Size_Clause (Arr) or else Is_Packed (Arr))
             then
@@ -2495,13 +2503,10 @@ package body Freeze is
                   then
                      null;
 
-                  elsif Has_Aliased_Components (Arr)
-                    or else Is_Aliased (Ctyp)
-                  then
+                  elsif Has_Aliased_Components (Arr) then
                      Complain_CS ("aliased");
 
-                  elsif Has_Atomic_Components (Arr)
-                    or else Is_Atomic (Ctyp)
+                  elsif Has_Atomic_Components (Arr) or else Is_Atomic (Ctyp)
                   then
                      Complain_CS ("atomic");
                   end if;
@@ -4125,6 +4130,15 @@ package body Freeze is
          Append_List (Result, Decls);
       end Late_Freeze_Subprogram;
 
+      ---------------------
+      -- Restore_Globals --
+      ---------------------
+
+      procedure Restore_Globals is
+      begin
+         Ghost_Mode := GM;
+      end Restore_Globals;
+
       ------------------------------
       -- Wrap_Imported_Subprogram --
       ------------------------------
@@ -4271,6 +4285,12 @@ package body Freeze is
    --  Start of processing for Freeze_Entity
 
    begin
+      --  The entity being frozen may be subject to pragma Ghost with policy
+      --  Ignore. Set the mode now to ensure that any nodes generated during
+      --  freezing are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode_For_Freeze (E, N);
+
       --  We are going to test for various reasons why this entity need not be
       --  frozen here, but in the case of an Itype that's defined within a
       --  record, that test actually applies to the record.
@@ -4286,6 +4306,7 @@ package body Freeze is
       --  Do not freeze if already frozen since we only need one freeze node
 
       if Is_Frozen (E) then
+         Restore_Globals;
          return No_List;
 
       --  It is improper to freeze an external entity within a generic because
@@ -4300,6 +4321,7 @@ package body Freeze is
             Analyze_Aspects_At_Freeze_Point (E);
          end if;
 
+         Restore_Globals;
          return No_List;
 
       --  AI05-0213: A formal incomplete type does not freeze the actual. In
@@ -4310,16 +4332,19 @@ package body Freeze is
         and then No (Full_View (Base_Type (E)))
         and then Ada_Version >= Ada_2012
       then
+         Restore_Globals;
          return No_List;
 
       --  Formal subprograms are never frozen
 
       elsif Is_Formal_Subprogram (E) then
+         Restore_Globals;
          return No_List;
 
       --  Generic types are never frozen as they lack delayed semantic checks
 
       elsif Is_Generic_Type (E) then
+         Restore_Globals;
          return No_List;
 
       --  Do not freeze a global entity within an inner scope created during
@@ -4353,6 +4378,7 @@ package body Freeze is
                   then
                      exit;
                   else
+                     Restore_Globals;
                      return No_List;
                   end if;
                end if;
@@ -4388,12 +4414,16 @@ package body Freeze is
             end loop;
 
             if No (S) then
+               Restore_Globals;
                return No_List;
             end if;
          end;
 
       elsif Ekind (E) = E_Generic_Package then
-         return Freeze_Generic_Entities (E);
+         Result := Freeze_Generic_Entities (E);
+
+         Restore_Globals;
+         return Result;
       end if;
 
       --  Add checks to detect proper initialization of scalars that may appear
@@ -4475,6 +4505,7 @@ package body Freeze is
 
             if not Is_Internal (E) then
                if not Freeze_Profile (E) then
+                  Restore_Globals;
                   return Result;
                end if;
             end if;
@@ -4499,6 +4530,7 @@ package body Freeze is
 
             if Late_Freezing then
                Late_Freeze_Subprogram (E);
+               Restore_Globals;
                return No_List;
             end if;
 
@@ -4830,6 +4862,7 @@ package body Freeze is
                and then not Has_Delayed_Freeze (E))
          then
             Check_Compile_Time_Size (E);
+            Restore_Globals;
             return No_List;
          end if;
 
@@ -5102,6 +5135,7 @@ package body Freeze is
 
             if not Is_Frozen (Root_Type (E)) then
                Set_Is_Frozen (E, False);
+               Restore_Globals;
                return Result;
             end if;
 
@@ -5237,6 +5271,7 @@ package body Freeze is
               and then not Present (Full_View (E))
             then
                Set_Is_Frozen (E, False);
+               Restore_Globals;
                return Result;
 
             --  Case of full view present
@@ -5328,6 +5363,7 @@ package body Freeze is
                   Set_RM_Size   (E, RM_Size (Full_View (E)));
                end if;
 
+               Restore_Globals;
                return Result;
 
             --  Case of underlying full view present
@@ -5357,6 +5393,7 @@ package body Freeze is
 
                Check_Debug_Info_Needed (E);
 
+               Restore_Globals;
                return Result;
 
             --  Case of no full view present. If entity is derived or subtype,
@@ -5370,6 +5407,7 @@ package body Freeze is
 
             else
                Set_Is_Frozen (E, False);
+               Restore_Globals;
                return No_List;
             end if;
 
@@ -5418,6 +5456,7 @@ package body Freeze is
          --  generic processing), so we never need freeze nodes for them.
 
          if Is_Generic_Type (E) then
+            Restore_Globals;
             return Result;
          end if;
 
@@ -6033,6 +6072,7 @@ package body Freeze is
          end if;
       end if;
 
+      Restore_Globals;
       return Result;
    end Freeze_Entity;
 
@@ -7760,12 +7800,17 @@ package body Freeze is
 
          if (SSO_Set_Low_By_Default (T) or else SSO_Set_High_By_Default (T))
 
-           --  For a record type, if bit order is specified explicitly, then
-           --  do not set SSO from default if not consistent.
+           --  For a record type, if bit order is specified explicitly,
+           --  then do not set SSO from default if not consistent. Note that
+           --  we do not want to look at a Bit_Order attribute definition
+           --  for a parent: if we were to inherit Bit_Order, then both
+           --  SSO_Set_*_By_Default flags would have been cleared already
+           --  (by Inherit_Aspects_At_Freeze_Point).
 
            and then not
              (Is_Record_Type (T)
-               and then Has_Rep_Item (T, Name_Bit_Order)
+               and then
+                 Has_Rep_Item (T, Name_Bit_Order, Check_Parents => False)
                and then Reverse_Bit_Order (T) /= Reversed)
          then
             --  If flags cause reverse storage order, then set the result. Note

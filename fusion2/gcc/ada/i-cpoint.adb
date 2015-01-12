@@ -109,22 +109,22 @@ package body Interfaces.C.Pointers is
       if Source = null or else Target = null then
          raise Dereference_Error;
 
+      --  Forward copy
+
       elsif To_Addr (Target) <= To_Addr (Source) then
-         --  Forward copy
          T := Target;
          S := Source;
-
          for J in 1 .. Length loop
             T.all := S.all;
             Increment (T);
             Increment (S);
          end loop;
 
+      --  Backward copy
+
       else
-         --  Backward copy
          T := Target + Length;
          S := Source + Length;
-
          for J in 1 .. Length loop
             Decrement (T);
             Decrement (S);
@@ -143,23 +143,23 @@ package body Interfaces.C.Pointers is
       Limit      : ptrdiff_t := ptrdiff_t'Last;
       Terminator : Element := Default_Terminator)
    is
-      S : Pointer   := Source;
-      T : Pointer   := Target;
-      L : ptrdiff_t := Limit;
+      L : ptrdiff_t;
+      S : Pointer := Source;
 
    begin
-      if S = null or else T = null then
+      if Source = null or Target = null then
          raise Dereference_Error;
-
-      else
-         while L > 0 loop
-            T.all := S.all;
-            exit when T.all = Terminator;
-            Increment (T);
-            Increment (S);
-            L := L - 1;
-         end loop;
       end if;
+
+      --  Compute array length (including the terminator)
+
+      L := 1;
+      while S.all /= Terminator and then L < Limit loop
+         L := L + 1;
+         Increment (S);
+      end loop;
+
+      Copy_Array (Source, Target, L);
    end Copy_Terminated_Array;
 
    ---------------

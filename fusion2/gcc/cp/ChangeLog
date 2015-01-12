@@ -1,3 +1,66 @@
+2015-01-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64547
+	* constexpr.c (cxx_eval_call_expression): A call to a void
+	function doesn't need to return a value.
+
+2015-01-09  Michael Collison  <michael.collison@linaro.org>
+
+	* call.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
+	input.h, alias.h, symtab.h, options.h, fold-const.h,
+	wide-int.h, and inchash.h due to flattening of tree.h.
+	* class.c: Ditto.
+	* constexpr.c: Ditto.
+	* cp-array-notation.c: Ditto.
+	* cp-gimplify.c: Ditto.
+	* cp-lang.c: Ditto.
+	* cp-objcp-common.c: Ditto.
+	* cvt.c: Ditto.
+	* decl2.c: Ditto.
+	* decl.c: Ditto.
+	* dump.c: Ditto.
+	* error.c: Ditto.
+	* except.c: Ditto.
+	* expr.c: Ditto.
+	* friend.c: Ditto.
+	* init.c: Ditto.
+	* lambda.c: Ditto.
+	* lex.c: Ditto.
+	* mangle.c: Ditto.
+	* name-lookup.c: Ditto.
+	* optimize.c: Ditto.
+	* parser.c: Ditto.
+	* pt.c: Ditto.
+	* ptree.c: Ditto.
+	* repo.c: Ditto.
+	* rtti.c: Ditto.
+	* search.c: Ditto.
+	* semantics.c: Ditto.
+	* tree.c: Ditto.
+	* typeck2.c: Ditto.
+	* typeck.c: Ditto.
+
+2015-01-08  Jason Merrill  <jason@redhat.com>
+
+	* cp-gimplify.c (cp_genericize): Use do_ubsan_in_current_function.
+	* decl.c (compute_array_index_type): Likewise.
+	* init.c (build_vec_init): Likewise.
+	* typeck.c (cp_build_binary_op): Likewise.
+
+2015-01-08  Jason Merrill  <jason@redhat.com>
+
+	* init.c (build_vec_init): Call ubsan_instrument_bounds to check
+	whether an initializer-list is too big for a VLA.
+	(throw_bad_array_length): Remove.
+	* cp-tree.h: Remove prototype.
+
+2015-01-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60753
+	* decl.c (grokfndecl): Add bool parameter.
+	(grokdeclarator): Adjust calls.
+	(start_decl): Don't set DECL_DELETED_FN here.
+
 2015-01-06  Jason Merrill  <jason@redhat.com>
 
 	* parser.c (cp_parser_nested_name_specifier_opt): Diagnose invalid

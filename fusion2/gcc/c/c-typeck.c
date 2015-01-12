@@ -27,7 +27,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "symtab.h"
+#include "input.h"
+#include "alias.h"
+#include "double-int.h"
+#include "machmode.h"
+#include "inchash.h"
+#include "real.h"
+#include "fixed-value.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
 #include "varasm.h"
@@ -8807,6 +8818,33 @@ process_init_element (location_t loc, struct c_expr value, bool implicit,
 	      error_init (loc, "non-static initialization of a flexible "
 			  "array member");
 	      break;
+	    }
+
+	  /* Error for initialization of a flexible array member with
+	     a string constant if the structure is in an array.  E.g.:
+	     struct S { int x; char y[]; };
+	     struct S s[] = { { 1, "foo" } };
+	     is invalid.  */
+	  if (string_flag
+	      && fieldcode == ARRAY_TYPE
+	      && constructor_depth > 1
+	      && TYPE_SIZE (fieldtype) == NULL_TREE
+	      && DECL_CHAIN (constructor_fields) == NULL_TREE)
+	    {
+	      bool in_array_p = false;
+	      for (struct constructor_stack *p = constructor_stack;
+		   p && p->type; p = p->next)
+		if (TREE_CODE (p->type) == ARRAY_TYPE)
+		  {
+		    in_array_p = true;
+		    break;
+		  }
+	      if (in_array_p)
+		{
+		  error_init (loc, "initialization of flexible array "
+			      "member in a nested context");
+		  break;
+		}
 	    }
 
 	  /* Accept a string constant to initialize a subarray.  */
