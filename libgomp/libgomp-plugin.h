@@ -29,8 +29,6 @@
 #ifndef LIBGOMP_PLUGIN_H
 #define LIBGOMP_PLUGIN_H 1
 
-#include "mutex.h"
-
 extern void *GOMP_PLUGIN_malloc (size_t) __attribute__((malloc));
 extern void *GOMP_PLUGIN_malloc_cleared (size_t) __attribute__((malloc));
 extern void *GOMP_PLUGIN_realloc (void *, size_t);
@@ -41,10 +39,5 @@ extern void GOMP_PLUGIN_error (const char *, ...)
 	__attribute__((format (printf, 1, 2)));
 extern void GOMP_PLUGIN_fatal (const char *, ...)
 	__attribute__((noreturn, format (printf, 1, 2)));
-
-extern void GOMP_PLUGIN_mutex_init (gomp_mutex_t *);
-extern void GOMP_PLUGIN_mutex_destroy (gomp_mutex_t *);
-extern void GOMP_PLUGIN_mutex_lock (gomp_mutex_t *);
-extern void GOMP_PLUGIN_mutex_unlock (gomp_mutex_t *);
 
 #endif

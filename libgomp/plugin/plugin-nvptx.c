@@ -39,6 +39,7 @@
 #include "oacc-ptx.h"
 #include "oacc-plugin.h"
 
+#include <pthread.h>
 #include <cuda.h>
 #include <stdint.h>
 #include <string.h>
@@ -302,7 +303,7 @@ struct ptx_device
     int size;
   } async_streams;
   /* A lock for use when manipulating the above stream list and array.  */
-  gomp_mutex_t stream_lock;
+  pthread_mutex_t stream_lock;
   int ord;
   bool overlap;
   bool map;
@@ -331,7 +332,7 @@ struct ptx_event
   struct ptx_event *next;
 };
 
-static gomp_mutex_t ptx_event_lock;
+static pthread_mutex_t ptx_event_lock;
 static struct ptx_event *ptx_events;
 
 #define _XSTR(s) _STR(s)
@@ -424,7 +425,7 @@ init_streams_for_device (struct ptx_device *ptx_dev, int concurrency)
   ptx_dev->null_stream = null_stream;
 
   ptx_dev->active_streams = NULL;
-  GOMP_PLUGIN_mutex_init (&ptx_dev->stream_lock);
+  pthread_mutex_init (&ptx_dev->stream_lock, NULL);
 
   if (concurrency < 1)
     concurrency = 1;
@@ -484,7 +485,7 @@ select_stream_for_async (int async, pthread_t thread, bool create,
     async++;
 
   if (create)
-    GOMP_PLUGIN_mutex_lock (&ptx_dev->stream_lock);
+    pthread_mutex_lock (&ptx_dev->stream_lock);
 
   /* NOTE: AFAICT there's no particular need for acc_async_sync to map to the
      null stream, and in fact better performance may be obtainable if it doesn't
@@ -566,7 +567,7 @@ select_stream_for_async (int async, pthread_t thread, bool create,
       if (thread != stream->host_thread)
         stream->multithreaded = true;
 
-      GOMP_PLUGIN_mutex_unlock (&ptx_dev->stream_lock);
+      pthread_mutex_unlock (&ptx_dev->stream_lock);
     }
   else if (stream && !stream->multithreaded
 	   && !pthread_equal (stream->host_thread, thread))
@@ -597,7 +598,7 @@ nvptx_init (void)
 
   ptx_events = NULL;
 
-  GOMP_PLUGIN_mutex_init (&ptx_event_lock);
+  pthread_mutex_init (&ptx_event_lock, NULL);
 
   ptx_inited = true;
 
@@ -822,7 +823,7 @@ event_gc (bool memmap_lockable)
   struct ptx_event *ptx_event = ptx_events;
   struct nvptx_thread *nvthd = nvptx_thread ();
 
-  GOMP_PLUGIN_mutex_lock (&ptx_event_lock);
+  pthread_mutex_lock (&ptx_event_lock);
 
   while (ptx_event != NULL)
     {
@@ -883,7 +884,7 @@ event_gc (bool memmap_lockable)
 	}
     }
 
-  GOMP_PLUGIN_mutex_unlock (&ptx_event_lock);
+  pthread_mutex_unlock (&ptx_event_lock);
 }
 
 static void
@@ -901,12 +902,12 @@ event_add (enum ptx_event_type type, CUevent *e, void *h)
   ptx_event->addr = h;
   ptx_event->ord = nvthd->ptx_dev->ord;
 
-  GOMP_PLUGIN_mutex_lock (&ptx_event_lock);
+  pthread_mutex_lock (&ptx_event_lock);
 
   ptx_event->next = ptx_events;
   ptx_events = ptx_event;
 
-  GOMP_PLUGIN_mutex_unlock (&ptx_event_lock);
+  pthread_mutex_unlock (&ptx_event_lock);
 }
 
 void
@@ -1239,19 +1240,19 @@ nvptx_async_test_all (void)
   pthread_t self = pthread_self ();
   struct nvptx_thread *nvthd = nvptx_thread ();
 
-  GOMP_PLUGIN_mutex_lock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_lock (&nvthd->ptx_dev->stream_lock);
 
   for (s = nvthd->ptx_dev->active_streams; s != NULL; s = s->next)
     {
       if ((s->multithreaded || pthread_equal (s->host_thread, self))
 	  && cuStreamQuery (s->stream) == CUDA_ERROR_NOT_READY)
 	{
-	  GOMP_PLUGIN_mutex_unlock (&nvthd->ptx_dev->stream_lock);
+	  pthread_mutex_unlock (&nvthd->ptx_dev->stream_lock);
 	  return 0;
 	}
     }
 
-  GOMP_PLUGIN_mutex_unlock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_unlock (&nvthd->ptx_dev->stream_lock);
 
   event_gc (true);
 
@@ -1322,7 +1323,7 @@ nvptx_wait_all (void)
   pthread_t self = pthread_self ();
   struct nvptx_thread *nvthd = nvptx_thread ();
 
-  GOMP_PLUGIN_mutex_lock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_lock (&nvthd->ptx_dev->stream_lock);
 
   /* Wait for active streams initiated by this thread (or by multiple threads)
      to complete.  */
@@ -1342,7 +1343,7 @@ nvptx_wait_all (void)
 	}
     }
 
-  GOMP_PLUGIN_mutex_unlock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_unlock (&nvthd->ptx_dev->stream_lock);
 
   event_gc (true);
 }
@@ -1368,7 +1369,7 @@ nvptx_wait_all_async (int async)
 
   event_gc (true);
 
-  GOMP_PLUGIN_mutex_lock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_lock (&nvthd->ptx_dev->stream_lock);
 
   for (other_stream = nvthd->ptx_dev->active_streams;
        other_stream != NULL;
@@ -1396,7 +1397,7 @@ nvptx_wait_all_async (int async)
 	GOMP_PLUGIN_fatal ("cuStreamWaitEvent error: %s", cuda_error (r));
    }
 
-  GOMP_PLUGIN_mutex_unlock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_unlock (&nvthd->ptx_dev->stream_lock);
 }
 
 static void *
@@ -1442,7 +1443,7 @@ nvptx_set_cuda_stream (int async, void *stream)
   pthread_t self = pthread_self ();
   struct nvptx_thread *nvthd = nvptx_thread ();
 
-  GOMP_PLUGIN_mutex_lock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_lock (&nvthd->ptx_dev->stream_lock);
 
   if (async < 0)
     GOMP_PLUGIN_fatal ("bad async %d", async);
@@ -1474,7 +1475,7 @@ nvptx_set_cuda_stream (int async, void *stream)
       free (oldstream);
     }
 
-  GOMP_PLUGIN_mutex_unlock (&nvthd->ptx_dev->stream_lock);
+  pthread_mutex_unlock (&nvthd->ptx_dev->stream_lock);
 
   (void) select_stream_for_async (async, self, true, (CUstream) stream);
 

@@ -334,10 +334,6 @@ GOMP_PLUGIN_1.0 {
 	GOMP_PLUGIN_error;
 	GOMP_PLUGIN_debug;
 	GOMP_PLUGIN_fatal;
-	GOMP_PLUGIN_mutex_init;
-	GOMP_PLUGIN_mutex_destroy;
-	GOMP_PLUGIN_mutex_lock;
-	GOMP_PLUGIN_mutex_unlock;
 	GOMP_PLUGIN_async_unmap_vars;
 	GOMP_PLUGIN_acc_thread;
 };

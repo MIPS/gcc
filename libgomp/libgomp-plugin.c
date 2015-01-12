@@ -82,27 +82,3 @@ GOMP_PLUGIN_fatal (const char *msg, ...)
   /* Unreachable.  */
   abort ();
 }
-
-void
-GOMP_PLUGIN_mutex_init (gomp_mutex_t *mutex)
-{
-  gomp_mutex_init (mutex);
-}
-
-void
-GOMP_PLUGIN_mutex_destroy (gomp_mutex_t *mutex)
-{
-  gomp_mutex_destroy (mutex);
-}
-
-void
-GOMP_PLUGIN_mutex_lock (gomp_mutex_t *mutex)
-{
-  gomp_mutex_lock (mutex);
-}
-
-void
-GOMP_PLUGIN_mutex_unlock (gomp_mutex_t *mutex)
-{
-  gomp_mutex_unlock (mutex);
-}

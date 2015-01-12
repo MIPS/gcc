@@ -1,3 +1,18 @@
+2015-01-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (struct ptx_device): Turn stream_lock
+	member into a pthread_mutex_t.  Adjust all users.
+	(ptx_event_lock): Likewise.
+	* libgomp-plugin.c (GOMP_PLUGIN_mutex_init)
+	(GOMP_PLUGIN_mutex_destroy, GOMP_PLUGIN_mutex_lock)
+	(GOMP_PLUGIN_mutex_unlock): Remove.
+	* libgomp-plugin.h (GOMP_PLUGIN_mutex_init)
+	(GOMP_PLUGIN_mutex_destroy, GOMP_PLUGIN_mutex_lock)
+	(GOMP_PLUGIN_mutex_unlock): Likewise.
+	* libgomp.map (GOMP_PLUGIN_1.0): Remove GOMP_PLUGIN_mutex_init,
+	GOMP_PLUGIN_mutex_destroy, GOMP_PLUGIN_mutex_lock,
+	GOMP_PLUGIN_mutex_unlock.
+
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp.c (struct gomp_device_descr): Add lock member.
