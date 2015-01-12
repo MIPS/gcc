@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -2994,10 +2994,8 @@ operands can be used for microMIPS instructions such as @code{ll} and
 equivalent to @code{R}.
 
 @item ZD
-When compiling microMIPS code, this constraint matches an address operand
-that is formed from a base register and a 12-bit offset.  These operands
-can be used for microMIPS instructions such as @code{prefetch}.  When
-not compiling for microMIPS code, @code{ZD} is equivalent to @code{p}.
+An address suitable for a @code{prefetch} instruction, or for any other
+instruction with the same addressing mode as @code{prefetch}.
 @end table
 
 @item Motorola 680x0---@file{config/m68k/constraints.md}
@@ -3972,6 +3970,56 @@ A 4-element vector constant with identical elements.
 @item Y
 A 2-element vector constant with identical elements.
 
+@end table
+
+@item Visium---@file{config/visium/constraints.md}
+@table @code
+@item b
+EAM register @code{mdb}
+
+@item c
+EAM register @code{mdc}
+
+@item f
+Floating point register
+
+@ifset INTERNALS
+@item k
+Register for sibcall optimization
+@end ifset
+
+@item l
+General register, but not @code{r29}, @code{r30} and @code{r31}
+
+@item t
+Register @code{r1}
+
+@item u
+Register @code{r2}
+
+@item v
+Register @code{r3}
+
+@item G
+Floating-point constant 0.0
+
+@item J
+Integer constant in the range 0 .. 65535 (16-bit immediate)
+
+@item K
+Integer constant in the range 1 .. 31 (5-bit immediate)
+
+@item L
+Integer constant in the range @minus{}65535 .. @minus{}1 (16-bit negative immediate)
+
+@item M
+Integer constant @minus{}1
+
+@item O
+Integer constant 0
+
+@item P
+Integer constant 32
 @end table
 
 @item Xtensa---@file{config/xtensa/constraints.md}
@@ -8330,9 +8378,9 @@ must be a @code{label_ref}.
 
 @cindex @code{pc} and attributes
 @item (pc)
-This refers to the address of the @emph{current} insn.  It might have
-been more consistent with other usage to make this the address of the
-@emph{next} insn but this would be confusing because the length of the
+For non-branch instructions and backward branch instructions, this refers
+to the address of the current insn.  But for forward branch instructions,
+this refers to the address of the next insn, because the length of the
 current insn is to be computed.
 @end table
 

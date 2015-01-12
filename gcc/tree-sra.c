@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Martin Jambor <mjambor@suse.cz>
 
 This file is part of GCC.
@@ -115,6 +115,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "statistics.h"
 #include "params.h"
@@ -5031,7 +5032,7 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
     }
 
   if ((DECL_COMDAT (node->decl) || DECL_EXTERNAL (node->decl))
-      && inline_summary (node)->size >= MAX_INLINE_INSNS_AUTO)
+      && inline_summaries->get (node)->size >= MAX_INLINE_INSNS_AUTO)
     {
       if (dump_file)
 	fprintf (dump_file, "Function too big to be made truly local.\n");

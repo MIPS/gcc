@@ -1,5 +1,5 @@
 /* Internals of libgccjit: classes for recording calls made to the JIT API.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #define JIT_RECORDING_H
 
 #include "jit-common.h"
+#include "jit-logging.h"
 
 namespace gcc {
 
@@ -45,8 +46,15 @@ playback_string (string *str);
 playback::block *
 playback_block (block *b);
 
+/* A recording of a call to gcc_jit_context_enable_dump.  */
+struct requested_dump
+{
+  const char *m_dumpname;
+  char **m_out_ptr;
+};
+
 /* A JIT-compilation context.  */
-class context
+class context : public log_user
 {
 public:
   context (context *parent_ctxt);
@@ -191,6 +199,10 @@ public:
   set_bool_option (enum gcc_jit_bool_option opt,
 		   int value);
 
+  void
+  enable_dump (const char *dumpname,
+	       char **out_ptr);
+
   const char *
   get_str_option (enum gcc_jit_str_option opt) const
   {
@@ -223,6 +235,9 @@ public:
   const char *
   get_first_error () const;
 
+  const char *
+  get_last_error () const;
+
   bool errors_occurred () const
   {
     if (m_parent_ctxt)
@@ -235,6 +250,9 @@ public:
 
   void dump_to_file (const char *path, bool update_locations);
 
+  void
+  get_all_requested_dumps (vec <recording::requested_dump> *out);
+
 private:
   void validate ();
 
@@ -246,9 +264,15 @@ private:
   char *m_first_error_str;
   bool m_owns_first_error_str;
 
-  const char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];
+  char *m_last_error_str;
+  bool m_owns_last_error_str;
+
+  char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];
   int m_int_options[GCC_JIT_NUM_INT_OPTIONS];
   bool m_bool_options[GCC_JIT_NUM_BOOL_OPTIONS];
+
+  /* Dumpfiles that were requested via gcc_jit_context_enable_dump.  */
+  auto_vec<requested_dump> m_requested_dumps;
 
   /* Recorded API usage.  */
   auto_vec<memento *> m_mementos;
@@ -426,6 +450,7 @@ public:
   virtual bool is_bool () const = 0;
   virtual type *is_pointer () = 0;
   virtual type *is_array () = 0;
+  virtual bool is_void () const { return false; }
 
   bool is_numeric () const
   {
@@ -448,7 +473,7 @@ private:
   type *m_pointer_to_this_type;
 };
 
-/* Result of "gcc_jit_type_get_type".  */
+/* Result of "gcc_jit_context_get_type".  */
 class memento_of_get_type : public type
 {
 public:
@@ -477,6 +502,7 @@ public:
   bool is_bool () const;
   type *is_pointer () { return dereference (); }
   type *is_array () { return NULL; }
+  bool is_void () const { return m_kind == GCC_JIT_TYPE_VOID; }
 
 public:
   void replay_into (replayer *r);
@@ -1584,4 +1610,3 @@ private:
 } // namespace gcc
 
 #endif /* JIT_RECORDING_H */
-

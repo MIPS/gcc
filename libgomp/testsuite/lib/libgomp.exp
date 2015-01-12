@@ -17,9 +17,10 @@ load_lib dg.exp
 load_gcc_lib prune.exp
 load_gcc_lib target-libpath.exp
 load_gcc_lib wrapper.exp
+load_gcc_lib target-supports.exp
+load_gcc_lib target-utils.exp
 load_gcc_lib gcc-defs.exp
 load_gcc_lib timeout.exp
-load_gcc_lib target-supports.exp
 load_gcc_lib file-format.exp
 load_gcc_lib target-supports-dg.exp
 load_gcc_lib scanasm.exp
@@ -114,8 +115,7 @@ proc libgomp_init { args } {
 
     # Add liboffloadmic build directory in LD_LIBRARY_PATH to support
     # non-fallback testing for Intel MIC targets
-    if { [string match "*-intelmic-*" $offload_targets]
-	|| [string match "*-intelmicemul-*" $offload_targets] } {
+    if { [string match "*,intelmic,*" ",$offload_targets,"] } {
 	append always_ld_library_path ":${blddir}/../liboffloadmic/.libs"
 	append always_ld_library_path ":${blddir}/../liboffloadmic/plugin/.libs"
 	# libstdc++ is required by liboffloadmic

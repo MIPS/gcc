@@ -1,5 +1,5 @@
 /* Statement simplification on GIMPLE.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Split out from tree-ssa-ccp.c.
 
 This file is part of GCC.
@@ -5754,7 +5754,7 @@ gimple_val_nonnegative_real_p (tree val)
 	    CASE_FLT_FN (BUILT_IN_SQRT):
 	      /* sqrt(-0.0) is -0.0, and sqrt is not defined over other
 		 nonnegative inputs.  */
-	      if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (val))))
+	      if (!HONOR_SIGNED_ZEROS (val))
 		return true;
 
 	      break;

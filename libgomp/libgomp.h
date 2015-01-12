@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -471,7 +471,7 @@ enum gomp_cancel_kind
 
 /* ... and here is that TLS data.  */
 
-#ifdef HAVE_TLS
+#if defined HAVE_TLS || defined USE_EMUTLS
 extern __thread struct gomp_thread gomp_tls_data;
 static inline struct gomp_thread *gomp_thread (void)
 {

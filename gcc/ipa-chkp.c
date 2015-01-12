@@ -1,5 +1,5 @@
 /* Pointer Bounds Checker IPA passes.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
 
 This file is part of GCC.
@@ -647,9 +647,7 @@ chkp_produce_thunks (void)
 	chkp_function_mark_instrumented (node->decl);
     }
 
-  symtab->remove_unreachable_nodes (true, dump_file);
-
-  return 0;
+  return TODO_remove_functions;
 }
 
 const pass_data pass_data_ipa_chkp_versioning =

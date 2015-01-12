@@ -1,5 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -3173,8 +3173,7 @@ df_get_call_refs (struct df_collection_rec *collection_rec,
 	       && !TEST_HARD_REG_BIT (defs_generated, i)
 	       && (!is_sibling_call
 		   || !bitmap_bit_p (df->exit_block_uses, i)
-		   || refers_to_regno_p (i, i+1,
-				         crtl->return_rtx, NULL)))
+		   || refers_to_regno_p (i, crtl->return_rtx)))
 	  df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
 			 NULL, bb, insn_info, DF_REF_REG_DEF,
 			 DF_REF_MAY_CLOBBER | flags);

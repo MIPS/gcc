@@ -1,5 +1,5 @@
 /* DDG - Data Dependence Graph implementation.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
 This file is part of GCC.
@@ -77,7 +77,7 @@ mark_mem_use (rtx *x, void *)
 {
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, *x, NONCONST)
-    if (MEM_P (*x))
+    if (MEM_P (*iter))
       {
 	mem_ref_p = true;
 	break;

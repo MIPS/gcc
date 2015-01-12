@@ -1,5 +1,5 @@
 /* Vector API for GNU compiler.
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
    Contributed by Daniel Berlin (dan@cgsoftware.com).
    Re-implemented in C++ by Martin Liska <mliska@suse.cz>
 
@@ -211,7 +211,7 @@ public:
     if (m_min == NULL)
       return NULL;
 
-    return m_min->data;
+    return m_min->m_data;
   }
 
   /* Replace data associated with NODE and replace it with DATA.  */

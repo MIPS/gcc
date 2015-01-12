@@ -1,5 +1,5 @@
 /* Hash tables for the CPP library.
-   Copyright (C) 1986-2014 Free Software Foundation, Inc.
+   Copyright (C) 1986-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -72,7 +72,6 @@ _cpp_init_hashtable (cpp_reader *pfile, cpp_hash_table *table)
   s->n__VA_ARGS__->flags |= NODE_DIAGNOSTIC;
   s->n__has_include__   = cpp_lookup (pfile, DSC("__has_include__"));
   s->n__has_include_next__ = cpp_lookup (pfile, DSC("__has_include_next__"));
-  s->n__has_attribute__   = cpp_lookup (pfile, DSC("__has_attribute__"));
 }
 
 /* Tear down the identifier hash table.  */

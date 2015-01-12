@@ -1,5 +1,5 @@
 /* Statement Analysis and Transformation for Vectorization
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -340,7 +340,8 @@ vect_stmt_relevant_p (gimple stmt, loop_vec_info loop_vinfo,
 
   /* changing memory.  */
   if (gimple_code (stmt) != GIMPLE_PHI)
-    if (gimple_vdef (stmt))
+    if (gimple_vdef (stmt)
+	&& !gimple_clobber_p (stmt))
       {
 	if (dump_enabled_p ())
 	  dump_printf_loc (MSG_NOTE, vect_location,

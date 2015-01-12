@@ -1,5 +1,5 @@
 /* Constant multiply table for TILEPro.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Walter Lee (walt@tilera.com)
 
    This file is part of GCC.
@@ -17,6 +17,9 @@
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
+
+/* Note this file is auto-generated from gen-mul-tables.cc.
+   Make any required changes there.  */
 
 #include "config.h"
 #include "system.h"

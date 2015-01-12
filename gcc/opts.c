@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -1231,18 +1231,8 @@ print_specific_help (unsigned int include_flags,
      the desired maximum width of the output.  */
   if (opts->x_help_columns == 0)
     {
-      const char *p;
-
-      p = getenv ("COLUMNS");
-      if (p != NULL)
-	{
-	  int value = atoi (p);
-
-	  if (value > 0)
-	    opts->x_help_columns = value;
-	}
-
-      if (opts->x_help_columns == 0)
+      opts->x_help_columns = get_terminal_width ();
+      if (opts->x_help_columns == INT_MAX)
 	/* Use a reasonable default.  */
 	opts->x_help_columns = 80;
     }
@@ -1598,6 +1588,7 @@ common_handle_option (struct gcc_options *opts,
 		sizeof "returns-nonnull-attribute" - 1 },
 	      { "object-size", SANITIZE_OBJECT_SIZE,
 		sizeof "object-size" - 1 },
+	      { "all", ~0, sizeof "all" - 1 },
 	      { NULL, 0, 0 }
 	    };
 	    const char *comma;
@@ -1621,7 +1612,15 @@ common_handle_option (struct gcc_options *opts,
 		  && memcmp (p, spec[i].name, len) == 0)
 		{
 		  /* Handle both -fsanitize and -fno-sanitize cases.  */
-		  if (value)
+		  if (value && spec[i].flag == ~0U)
+		    {
+		      if (code == OPT_fsanitize_)
+			error_at (loc, "-fsanitize=all option is not valid");
+		      else
+			*flag |= ~(SANITIZE_USER_ADDRESS | SANITIZE_THREAD
+				   | SANITIZE_LEAK);
+		    }
+		  else if (value)
 		    *flag |= spec[i].flag;
 		  else
 		    *flag &= ~spec[i].flag;

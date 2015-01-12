@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2003,7 +2003,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_remove_functions)
     {
       gcc_assert (!cfun);
-      symtab->remove_unreachable_nodes (true, dump_file);
+      symtab->remove_unreachable_nodes (dump_file);
     }
 
   if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)

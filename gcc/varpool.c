@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -175,6 +175,7 @@ varpool_node::get_create (tree decl)
       g->have_offload = true;
       if (!in_lto_p)
 	vec_safe_push (offload_vars, decl);
+      node->force_output = 1;
 #endif
     }
 

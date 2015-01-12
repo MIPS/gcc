@@ -1,5 +1,5 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -920,7 +920,8 @@ build_array_of_n_type (tree elt, int n)
   return build_cplus_array_type (elt, build_index_type (size_int (n - 1)));
 }
 
-/* True iff T is a C++14 array of runtime bound (VLA).  */
+/* True iff T is an N3639 array of runtime bound (VLA).  These were
+   approved for C++14 but then removed.  */
 
 bool
 array_of_runtime_bound_p (tree t)

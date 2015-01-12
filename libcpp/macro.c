@@ -1,5 +1,5 @@
 /* Part of CPP library.  (Macro and #define handling.)
-   Copyright (C) 1986-2014 Free Software Foundation, Inc.
+   Copyright (C) 1986-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -392,6 +392,10 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 	cpp_error (pfile, CPP_DL_ERROR,
 	    "__COUNTER__ expanded inside directive with -fdirectives-only");
       number = pfile->counter++;
+      break;
+
+    case BT_HAS_ATTRIBUTE:
+      number = pfile->cb.has_attribute (pfile);
       break;
     }
 

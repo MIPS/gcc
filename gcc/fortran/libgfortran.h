@@ -1,5 +1,5 @@
 /* Header file to the Fortran front-end and runtime library
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -70,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* Possible values for the CONVERT I/O specifier.  */
+/* Keep in sync with GFC_FLAG_CONVERT_* in gcc/flags.h.  */
 typedef enum
 {
   GFC_CONVERT_NONE = -1,

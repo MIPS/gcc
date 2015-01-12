@@ -1,5 +1,5 @@
 /* Multiply table generator for tile.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Walter Lee (walt@tilera.com)
 
    This file is part of GCC.
@@ -1230,7 +1230,7 @@ main ()
 #else
   printf ("/* Constant multiply table for TILE-Gx.\n");
 #endif
-  printf ("   Copyright (C) 2011-2014 Free Software Foundation, Inc.\n");
+  printf ("   Copyright (C) 2011-2015 Free Software Foundation, Inc.\n");
   printf ("   Contributed by Walter Lee (walt@tilera.com)\n");
   printf ("\n");
   printf ("   This file is part of GCC.\n");
@@ -1249,10 +1249,14 @@ main ()
   printf ("   along with GCC; see the file COPYING3.  If not see\n");
   printf ("   <http://www.gnu.org/licenses/>.  */\n");
   printf ("\n");
+  printf ("/* Note this file is auto-generated from gen-mul-tables.cc.\n");
+  printf ("   Make any required changes there.  */\n");
+  printf ("\n");
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"coretypes.h\"\n");
   printf ("#include \"expr.h\"\n");
+  printf ("#include \"insn-codes.h\"\n");
   printf ("#include \"optabs.h\"\n");
   printf ("#include \"%s-multiply.h\"\n\n", ARCH);
   create_insn_code_compression_table ();

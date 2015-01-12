@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for HPPA.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -2649,8 +2649,7 @@ pa_output_move_double (rtx *operands)
      Handle mem -> register case first.  */
   if (optype0 == REGOP
       && (optype1 == MEMOP || optype1 == OFFSOP)
-      && refers_to_regno_p (REGNO (operands[0]), REGNO (operands[0]) + 1,
-			    operands[1], 0))
+      && refers_to_regno_p (REGNO (operands[0]), operands[1]))
     {
       /* Do the late half first.  */
       if (addreg1)

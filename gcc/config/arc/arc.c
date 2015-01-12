@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Synopsys DesignWare ARC cpu.
-   Copyright (C) 1994-2014 Free Software Foundation, Inc.
+   Copyright (C) 1994-2015 Free Software Foundation, Inc.
 
    Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
    behalf of Synopsys Inc.
@@ -9059,7 +9059,7 @@ arc_regno_use_in (unsigned int regno, rtx x)
   int i, j;
   rtx tem;
 
-  if (REG_P (x) && refers_to_regno_p (regno, regno+1, x, (rtx *) 0))
+  if (REG_P (x) && refers_to_regno_p (regno, x))
     return x;
 
   fmt = GET_RTX_FORMAT (GET_CODE (x));

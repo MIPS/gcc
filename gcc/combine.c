@@ -1,5 +1,5 @@
 /* Optimize by combining instructions for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -885,6 +885,12 @@ combine_validate_cost (rtx_insn *i0, rtx_insn *i1, rtx_insn *i2, rtx_insn *i3,
       i1_cost = i0_cost = 0;
     }
 
+  /* If we have split a PARALLEL I2 to I1,I2, we have counted its cost twice;
+     correct that.  */
+  if (old_cost && i1 && INSN_UID (i1) == INSN_UID (i2))
+    old_cost -= i1_cost;
+
+
   /* Calculate the replacement insn_rtx_costs.  */
   new_i3_cost = insn_rtx_cost (newpat, optimize_this_for_speed_p);
   if (newi2pat)
@@ -924,14 +930,14 @@ combine_validate_cost (rtx_insn *i0, rtx_insn *i1, rtx_insn *i2, rtx_insn *i3,
 	       reject ? "rejecting" : "allowing");
       if (i0)
 	fprintf (dump_file, "%d, ", INSN_UID (i0));
-      if (i1)
+      if (i1 && INSN_UID (i1) != INSN_UID (i2))
 	fprintf (dump_file, "%d, ", INSN_UID (i1));
       fprintf (dump_file, "%d and %d\n", INSN_UID (i2), INSN_UID (i3));
 
       fprintf (dump_file, "original costs ");
       if (i0)
 	fprintf (dump_file, "%d + ", i0_cost);
-      if (i1)
+      if (i1 && INSN_UID (i1) != INSN_UID (i2))
 	fprintf (dump_file, "%d + ", i1_cost);
       fprintf (dump_file, "%d + %d = %d\n", i2_cost, i3_cost, old_cost);
 
@@ -1580,7 +1586,7 @@ setup_incoming_promotions (rtx_insn *first)
 
       /* The mode and signedness of the argument as it is actually passed,
          see assign_parm_setup_reg in function.c.  */
-      mode3 = promote_function_mode (TREE_TYPE (arg), mode1, &uns1,
+      mode3 = promote_function_mode (TREE_TYPE (arg), mode1, &uns3,
 				     TREE_TYPE (cfun->decl), 0);
 
       /* The mode of the register in which the argument is being passed.  */
@@ -2588,6 +2594,11 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
   rtx new_other_notes;
   int i;
 
+  /* Immediately return if any of I0,I1,I2 are the same insn (I3 can
+     never be).  */
+  if (i1 == i2 || i0 == i2 || (i0 && i0 == i1))
+    return 0;
+
   /* Only try four-insn combinations when there's high likelihood of
      success.  Look for simple insns, such as loads of constants or
      binary operations involving a constant.  */
@@ -2714,6 +2725,13 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	     || GET_CODE (XVECEXP (p2, 0, i)) == CLOBBER)
 	    && reg_overlap_mentioned_p (SET_DEST (PATTERN (i3)),
 					SET_DEST (XVECEXP (p2, 0, i))))
+	  break;
+
+      /* Make sure this PARALLEL is not an asm.  We do not allow combining
+	 that usually (see can_combine_p), so do not here either.  */
+      for (i = 0; i < XVECLEN (p2, 0); i++)
+	if (GET_CODE (XVECEXP (p2, 0, i)) == SET
+	    && GET_CODE (SET_SRC (XVECEXP (p2, 0, i))) == ASM_OPERANDS)
 	  break;
 
       if (i == XVECLEN (p2, 0))
@@ -4112,19 +4130,46 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
     rtx midnotes = 0;
     int from_luid;
     /* Compute which registers we expect to eliminate.  newi2pat may be setting
-       either i3dest or i2dest, so we must check it.  Also, i1dest may be the
-       same as i3dest, in which case newi2pat may be setting i1dest.  */
+       either i3dest or i2dest, so we must check it.  */
     rtx elim_i2 = ((newi2pat && reg_set_p (i2dest, newi2pat))
 		   || i2dest_in_i2src || i2dest_in_i1src || i2dest_in_i0src
 		   || !i2dest_killed
 		   ? 0 : i2dest);
-    rtx elim_i1 = (i1 == 0 || i1dest_in_i1src || i1dest_in_i0src
+    /* For i1, we need to compute both local elimination and global
+       elimination information with respect to newi2pat because i1dest
+       may be the same as i3dest, in which case newi2pat may be setting
+       i1dest.  Global information is used when distributing REG_DEAD
+       note for i2 and i3, in which case it does matter if newi2pat sets
+       i1dest or not.
+
+       Local information is used when distributing REG_DEAD note for i1,
+       in which case it doesn't matter if newi2pat sets i1dest or not.
+       See PR62151, if we have four insns combination:
+	   i0: r0 <- i0src
+	   i1: r1 <- i1src (using r0)
+		     REG_DEAD (r0)
+	   i2: r0 <- i2src (using r1)
+	   i3: r3 <- i3src (using r0)
+	   ix: using r0
+       From i1's point of view, r0 is eliminated, no matter if it is set
+       by newi2pat or not.  In other words, REG_DEAD info for r0 in i1
+       should be discarded.
+
+       Note local information only affects cases in forms like "I1->I2->I3",
+       "I0->I1->I2->I3" or "I0&I1->I2, I2->I3".  For other cases like
+       "I0->I1, I1&I2->I3" or "I1&I2->I3", newi2pat won't set i1dest or
+       i0dest anyway.  */
+    rtx local_elim_i1 = (i1 == 0 || i1dest_in_i1src || i1dest_in_i0src
+			 || !i1dest_killed
+			 ? 0 : i1dest);
+    rtx elim_i1 = (local_elim_i1 == 0
 		   || (newi2pat && reg_set_p (i1dest, newi2pat))
-		   || !i1dest_killed
 		   ? 0 : i1dest);
-    rtx elim_i0 = (i0 == 0 || i0dest_in_i0src
+    /* Same case as i1.  */
+    rtx local_elim_i0 = (i0 == 0 || i0dest_in_i0src || !i0dest_killed
+			 ? 0 : i0dest);
+    rtx elim_i0 = (local_elim_i0 == 0
 		   || (newi2pat && reg_set_p (i0dest, newi2pat))
-		   || !i0dest_killed
 		   ? 0 : i0dest);
 
     /* Get the old REG_NOTES and LOG_LINKS from all our insns and
@@ -4293,10 +4338,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 			elim_i2, elim_i1, elim_i0);
     if (i1notes)
       distribute_notes (i1notes, i1, i3, newi2pat ? i2 : NULL,
-			elim_i2, elim_i1, elim_i0);
+			elim_i2, local_elim_i1, local_elim_i0);
     if (i0notes)
       distribute_notes (i0notes, i0, i3, newi2pat ? i2 : NULL,
-			elim_i2, elim_i1, elim_i0);
+			elim_i2, elim_i1, local_elim_i0);
     if (midnotes)
       distribute_notes (midnotes, NULL, i3, newi2pat ? i2 : NULL,
 			elim_i2, elim_i1, elim_i0);
@@ -13803,7 +13848,7 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 		  unsigned int i;
 
 		  for (i = regno; i < endregno; i++)
-		    if ((! refers_to_regno_p (i, i + 1, PATTERN (place), 0)
+		    if ((! refers_to_regno_p (i, PATTERN (place))
 			 && ! find_regno_fusage (place, USE, i))
 			|| dead_or_set_regno_p (place, i))
 		      {
@@ -13833,8 +13878,7 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 						NULL, NULL_RTX, NULL_RTX,
 						NULL_RTX);
 			    }
-			  else if (! refers_to_regno_p (i, i + 1,
-							PATTERN (place), 0)
+			  else if (! refers_to_regno_p (i, PATTERN (place))
 				   && ! find_regno_fusage (place, USE, i))
 			    for (tem_insn = PREV_INSN (place); ;
 				 tem_insn = PREV_INSN (tem_insn))

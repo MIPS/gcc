@@ -1,5 +1,5 @@
 /* Internals of libgccjit: classes for playing back recorded API calls.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -35,7 +35,7 @@ namespace jit {
 
 namespace playback {
 
-class context
+class context : public log_user
 {
 public:
   context (::gcc::jit::recording::context *ctxt);
@@ -231,30 +231,39 @@ private:
 
   void handle_locations ();
 
+  const char * get_path_c_file () const;
+  const char * get_path_s_file () const;
+  const char * get_path_so_file () const;
+
 private:
 
   /* Functions for implementing "compile".  */
 
+  void acquire_mutex ();
+  void release_mutex ();
+
   void
-  make_fake_args (auto_vec <const char *> *argvec,
-		  const char *ctxt_progname);
+  make_fake_args (vec <char *> *argvec,
+		  const char *ctxt_progname,
+		  vec <recording::requested_dump> *requested_dumps);
+
+  void
+  extract_any_requested_dumps
+    (vec <recording::requested_dump> *requested_dumps);
+
+  char *
+  read_dump_file (const char *path);
 
   void
   convert_to_dso (const char *ctxt_progname);
 
+  result *
+  dlopen_built_dso ();
+
 private:
   ::gcc::jit::recording::context *m_recording_ctxt;
 
-  /* Allocated using xmalloc (by xstrdup).  */
-  char *m_path_template;
-
-  /* This either aliases m_path_template, or is NULL.  */
-  char *m_path_tempdir;
-
-  /* The following are allocated using xmalloc.  */
-  char *m_path_c_file;
-  char *m_path_s_file;
-  char *m_path_so_file;
+  tempdir *m_tempdir;
 
   auto_vec<function *> m_functions;
   tree m_char_array_type_node;

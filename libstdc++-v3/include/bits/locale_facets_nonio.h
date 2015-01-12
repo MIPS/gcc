@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -137,9 +137,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { }
 
       ~__timepunct_cache();
-
-      void
-      _M_cache(const locale& __loc);
 
     private:
       __timepunct_cache&
@@ -350,6 +347,8 @@ namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
+
   /**
    *  @brief  Primary class template time_get.
    *  @ingroup locales
@@ -538,6 +537,54 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       ios_base::iostate& __err, tm* __tm) const
       { return this->do_get_year(__beg, __end, __io, __err, __tm); }
 
+#if __cplusplus >= 201103L
+      /**
+       *  @brief  Parse input string according to format.
+       *
+       *  This function calls time_get::do_get with the provided
+       *  parameters.  @see do_get() and get().
+       *
+       *  @param __s        Start of string to parse.
+       *  @param __end      End of string to parse.
+       *  @param __io       Source of the locale.
+       *  @param __err      Error flags to set.
+       *  @param __tm       Pointer to struct tm to fill in.
+       *  @param __format   Format specifier.
+       *  @param __modifier Format modifier.
+       *  @return  Iterator to first char not parsed.
+       */
+      inline
+      iter_type get(iter_type __s, iter_type __end, ios_base& __io,
+                    ios_base::iostate& __err, tm* __tm, char __format,
+                    char __modifier = 0) const
+      {
+        return this->do_get(__s, __end, __io, __err, __tm, __format,
+                            __modifier);
+      }
+
+      /**
+       *  @brief  Parse input string according to format.
+       *
+       *  This function parses the input string according to a
+       *  provided format string.  It does the inverse of
+       *  time_put::put.  The format string follows the format
+       *  specified for strftime(3)/strptime(3).  The actual parsing
+       *  is done by time_get::do_get.
+       *
+       *  @param __s        Start of string to parse.
+       *  @param __end      End of string to parse.
+       *  @param __io       Source of the locale.
+       *  @param __err      Error flags to set.
+       *  @param __tm       Pointer to struct tm to fill in.
+       *  @param __fmt      Start of the format string.
+       *  @param __fmtend   End of the format string.
+       *  @return  Iterator to first char not parsed.
+       */
+      iter_type get(iter_type __s, iter_type __end, ios_base& __io,
+                    ios_base::iostate& __err, tm* __tm, const char_type* __fmt,
+                    const char_type* __fmtend) const;
+#endif // __cplusplus >= 201103L
+
     protected:
       /// Destructor.
       virtual
@@ -651,6 +698,33 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       do_get_year(iter_type __beg, iter_type __end, ios_base& __io,
 		  ios_base::iostate& __err, tm* __tm) const;
 
+#if __cplusplus >= 201103L
+      /**
+       *  @brief  Parse input string according to format.
+       *
+       *  This function parses the string according to the provided
+       *  format and optional modifier.  This function is a hook for
+       *  derived classes to change the value returned.  @see get()
+       *  for more details.
+       *
+       *  @param __s        Start of string to parse.
+       *  @param __end      End of string to parse.
+       *  @param __io       Source of the locale.
+       *  @param __err      Error flags to set.
+       *  @param __tm       Pointer to struct tm to fill in.
+       *  @param __format   Format specifier.
+       *  @param __modifier Format modifier.
+       *  @return  Iterator to first char not parsed.
+       */
+#if _GLIBCXX_USE_CXX11_ABI
+      virtual
+#endif
+      iter_type
+      do_get(iter_type __s, iter_type __end, ios_base& __f,
+             ios_base::iostate& __err, tm* __tm,
+             char __format, char __modifier) const;
+#endif // __cplusplus >= 201103L
+
       // Extract numeric component of length __len.
       iter_type
       _M_extract_num(iter_type __beg, iter_type __end, int& __member,
@@ -696,6 +770,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       virtual
       ~time_get_byname() { }
     };
+
+_GLIBCXX_END_NAMESPACE_CXX11
 
   /**
    *  @brief  Primary class template time_put.
@@ -920,6 +996,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  delete [] _M_negative_sign;
 	}
     }
+
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   /**
    *  @brief  Primary class template moneypunct.
@@ -1349,7 +1427,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _CharT, bool _Intl>
     const bool moneypunct_byname<_CharT, _Intl>::intl;
 
-_GLIBCXX_BEGIN_NAMESPACE_LDBL
+_GLIBCXX_END_NAMESPACE_CXX11
+
+_GLIBCXX_BEGIN_NAMESPACE_LDBL_OR_CXX11
 
   /**
    *  @brief  Primary class template money_get.
@@ -1465,7 +1545,8 @@ _GLIBCXX_BEGIN_NAMESPACE_LDBL
        *  value returned.  @see get() for details.
        */
       // XXX GLIBCXX_ABI Deprecated
-#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__ \
+      && _GLIBCXX_USE_CXX11_ABI == 0
       virtual iter_type
       __do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io,
 	       ios_base::iostate& __err, double& __units) const;
@@ -1487,7 +1568,8 @@ _GLIBCXX_BEGIN_NAMESPACE_LDBL
 	     ios_base::iostate& __err, string_type& __digits) const;
 
       // XXX GLIBCXX_ABI Deprecated
-#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__ \
+      && _GLIBCXX_USE_CXX11_ABI == 0
       virtual iter_type
       do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io,
 	     ios_base::iostate& __err, long double& __units) const;
@@ -1608,7 +1690,8 @@ _GLIBCXX_BEGIN_NAMESPACE_LDBL
        *  @return  Iterator after writing.
        */
       // XXX GLIBCXX_ABI Deprecated
-#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__ \
+      && _GLIBCXX_USE_CXX11_ABI == 0
       virtual iter_type
       __do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
 	       double __units) const;
@@ -1642,7 +1725,8 @@ _GLIBCXX_BEGIN_NAMESPACE_LDBL
 	     const string_type& __digits) const;
 
       // XXX GLIBCXX_ABI Deprecated
-#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__ \
+      && _GLIBCXX_USE_CXX11_ABI == 0
       virtual iter_type
       do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
 	     long double __units) const;
@@ -1657,7 +1741,7 @@ _GLIBCXX_BEGIN_NAMESPACE_LDBL
   template<typename _CharT, typename _OutIter>
     locale::id money_put<_CharT, _OutIter>::id;
 
-_GLIBCXX_END_NAMESPACE_LDBL
+_GLIBCXX_END_NAMESPACE_LDBL_OR_CXX11
 
   /**
    *  @brief  Messages facet base class providing catalog typedef.
@@ -1667,6 +1751,8 @@ _GLIBCXX_END_NAMESPACE_LDBL
   {
     typedef int catalog;
   };
+
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   /**
    *  @brief  Primary class template messages.
@@ -1888,6 +1974,8 @@ _GLIBCXX_END_NAMESPACE_LDBL
       ~messages_byname()
       { }
     };
+
+_GLIBCXX_END_NAMESPACE_CXX11
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace

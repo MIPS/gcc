@@ -1,6 +1,6 @@
 #   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-#   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2014
-#   Free Software Foundation, Inc.
+#   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012,
+#   2014, 2015 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -289,9 +289,7 @@ esac
 AC_ARG_ENABLE(as-accelerator-for,
 [AS_HELP_STRING([--enable-as-accelerator-for=ARG],
 		[build as offload target compiler.
-		Specify offload host triple by ARG])],
-ENABLE_AS_ACCELERATOR_FOR=$enableval,
-ENABLE_AS_ACCELERATOR_FOR=no)
+		Specify offload host triple by ARG])])
 
 AC_ARG_ENABLE(offload-targets,
 [AS_HELP_STRING([--enable-offload-targets=LIST],
@@ -470,7 +468,7 @@ AC_HELP_STRING([[--enable-liboffloadmic[=ARG]]],
   *)
     AC_MSG_ERROR([--enable-liboffloadmic=no/host/target]) ;;
 esac],
-[if test "${ENABLE_AS_ACCELERATOR_FOR}" != "no"; then
+[if test x"$enable_as_accelerator_for" != x; then
   case "${target}" in
     *-intelmic-* | *-intelmicemul-*)
       enable_liboffloadmic=target
@@ -667,6 +665,10 @@ case "${target}" in
     # libssp uses a misaligned load to trigger a fault, but the RL78
     # doesn't fault for those - instead, it gives a build-time error
     # for explicit misaligned loads.
+    noconfigdirs="$noconfigdirs target-libssp"
+    ;;
+  visium-*-*)
+    # No hosted I/O support.
     noconfigdirs="$noconfigdirs target-libssp"
     ;;
 esac
@@ -3326,6 +3328,7 @@ ACX_CHECK_INSTALLED_TARGET_TOOL(DLLTOOL_FOR_TARGET, dlltool)
 ACX_CHECK_INSTALLED_TARGET_TOOL(LD_FOR_TARGET, ld)
 ACX_CHECK_INSTALLED_TARGET_TOOL(LIPO_FOR_TARGET, lipo)
 ACX_CHECK_INSTALLED_TARGET_TOOL(NM_FOR_TARGET, nm)
+ACX_CHECK_INSTALLED_TARGET_TOOL(OBJCOPY_FOR_TARGET, objcopy)
 ACX_CHECK_INSTALLED_TARGET_TOOL(OBJDUMP_FOR_TARGET, objdump)
 ACX_CHECK_INSTALLED_TARGET_TOOL(RANLIB_FOR_TARGET, ranlib)
 ACX_CHECK_INSTALLED_TARGET_TOOL(READELF_FOR_TARGET, readelf)
@@ -3356,6 +3359,7 @@ GCC_TARGET_TOOL(gccgo, GOC_FOR_TARGET, GOC,
 GCC_TARGET_TOOL(ld, LD_FOR_TARGET, LD, [ld/ld-new])
 GCC_TARGET_TOOL(lipo, LIPO_FOR_TARGET, LIPO)
 GCC_TARGET_TOOL(nm, NM_FOR_TARGET, NM, [binutils/nm-new])
+GCC_TARGET_TOOL(objcopy, OBJCOPY_FOR_TARGET, OBJCOPY, [binutils/objcopy])
 GCC_TARGET_TOOL(objdump, OBJDUMP_FOR_TARGET, OBJDUMP, [binutils/objdump])
 GCC_TARGET_TOOL(ranlib, RANLIB_FOR_TARGET, RANLIB, [binutils/ranlib])
 GCC_TARGET_TOOL(readelf, READELF_FOR_TARGET, READELF, [binutils/readelf])

@@ -1,5 +1,5 @@
 /* Analyze RTL for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1402,7 +1402,7 @@ noop_move_p (const_rtx insn)
    References contained within the substructure at LOC do not count.
    LOC may be zero, meaning don't ignore anything.  */
 
-int
+bool
 refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 		   rtx *loc)
 {
@@ -1415,7 +1415,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
   /* The contents of a REG_NONNEG note is always zero, so we must come here
      upon repeat in case the last REG_NOTE is a REG_NONNEG note.  */
   if (x == 0)
-    return 0;
+    return false;
 
   code = GET_CODE (x);
 
@@ -1433,7 +1433,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 #endif
 	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
-	return 1;
+	return true;
 
       return endregno > x_regno && regno < END_REGNO (x);
 
@@ -1466,10 +1466,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 				     SUBREG_REG (SET_DEST (x)), loc))
 	      || (!REG_P (SET_DEST (x))
 		  && refers_to_regno_p (regno, endregno, SET_DEST (x), loc))))
-	return 1;
+	return true;
 
       if (code == CLOBBER || loc == &SET_SRC (x))
-	return 0;
+	return false;
       x = SET_SRC (x);
       goto repeat;
 
@@ -1491,7 +1491,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	    }
 	  else
 	    if (refers_to_regno_p (regno, endregno, XEXP (x, i), loc))
-	      return 1;
+	      return true;
 	}
       else if (fmt[i] == 'E')
 	{
@@ -1499,10 +1499,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (loc != &XVECEXP (x, i, j)
 		&& refers_to_regno_p (regno, endregno, XVECEXP (x, i, j), loc))
-	      return 1;
+	      return true;
 	}
     }
-  return 0;
+  return false;
 }
 
 /* Nonzero if modifying X will affect IN.  If X is a register or a SUBREG,
@@ -2526,7 +2526,7 @@ may_trap_p_1 (const_rtx x, unsigned flags)
     case MOD:
     case UDIV:
     case UMOD:
-      if (HONOR_SNANS (GET_MODE (x)))
+      if (HONOR_SNANS (x))
 	return 1;
       if (SCALAR_FLOAT_MODE_P (GET_MODE (x)))
 	return flag_trapping_math;
@@ -2552,28 +2552,28 @@ may_trap_p_1 (const_rtx x, unsigned flags)
 	 when COMPARE is used, though many targets do make this distinction.
 	 For instance, sparc uses CCFPE for compares which generate exceptions
 	 and CCFP for compares which do not generate exceptions.  */
-      if (HONOR_NANS (GET_MODE (x)))
+      if (HONOR_NANS (x))
 	return 1;
       /* But often the compare has some CC mode, so check operand
 	 modes as well.  */
-      if (HONOR_NANS (GET_MODE (XEXP (x, 0)))
-	  || HONOR_NANS (GET_MODE (XEXP (x, 1))))
+      if (HONOR_NANS (XEXP (x, 0))
+	  || HONOR_NANS (XEXP (x, 1)))
 	return 1;
       break;
 
     case EQ:
     case NE:
-      if (HONOR_SNANS (GET_MODE (x)))
+      if (HONOR_SNANS (x))
 	return 1;
       /* Often comparison is CC mode, so check operand modes.  */
-      if (HONOR_SNANS (GET_MODE (XEXP (x, 0)))
-	  || HONOR_SNANS (GET_MODE (XEXP (x, 1))))
+      if (HONOR_SNANS (XEXP (x, 0))
+	  || HONOR_SNANS (XEXP (x, 1)))
 	return 1;
       break;
 
     case FIX:
       /* Conversion of floating point might trap.  */
-      if (flag_trapping_math && HONOR_NANS (GET_MODE (XEXP (x, 0))))
+      if (flag_trapping_math && HONOR_NANS (XEXP (x, 0)))
 	return 1;
       break;
 

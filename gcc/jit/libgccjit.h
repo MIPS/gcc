@@ -1,5 +1,5 @@
 /* A pure C API to enable client code to embed GCC as a JIT-compiler.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef LIBGCCJIT_H
 #define LIBGCCJIT_H
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -29,16 +31,19 @@ extern "C" {
  **********************************************************************/
 /* All structs within the API are opaque. */
 
-/* A gcc_jit_context encapsulates the state of a compilation.  It goes
-   through two states:
+/* A gcc_jit_context encapsulates the state of a compilation.
+   You can set up options on it, and add types, functions and code, using
+   the API below.
 
-   (1) "initial", during which you can set up options on it, and add
-       types, functions and code, using the API below.
-       Invoking gcc_jit_context_compile on it transitions it to the
-       "after compilation" state.
+   Invoking gcc_jit_context_compile on it gives you a gcc_jit_result *
+   (or NULL).
 
-   (2) "after compilation", when you can call gcc_jit_context_release to
-       clean up.  */
+   You can call gcc_jit_context_compile repeatedly on one context, giving
+   multiple independent results.
+
+   Eventually you can call gcc_jit_context_release to clean up the
+   context; any results created from it are still usable, and should be
+   cleaned up via gcc_jit_result_release.  */
 typedef struct gcc_jit_context gcc_jit_context;
 
 /* A gcc_jit_result encapsulates the result of a compilation.  */
@@ -50,15 +55,15 @@ typedef struct gcc_jit_result gcc_jit_result;
    The class hierarchy looks like this:
 
      +- gcc_jit_object
-         +- gcc_jit_location
-         +- gcc_jit_type
+	 +- gcc_jit_location
+	 +- gcc_jit_type
 	    +- gcc_jit_struct
-         +- gcc_jit_field
-         +- gcc_jit_function
-         +- gcc_jit_block
-         +- gcc_jit_rvalue
-             +- gcc_jit_lvalue
-                 +- gcc_jit_param
+	 +- gcc_jit_field
+	 +- gcc_jit_function
+	 +- gcc_jit_block
+	 +- gcc_jit_rvalue
+	     +- gcc_jit_lvalue
+		 +- gcc_jit_param
 */
 typedef struct gcc_jit_object gcc_jit_object;
 
@@ -213,8 +218,9 @@ enum gcc_jit_bool_option
 
 /* Set a string option on the given context.
 
-   The context directly stores the (const char *), so the passed string
-   must outlive the context.  */
+   The context takes a copy of the string, so the
+   (const char *) buffer is not needed anymore after the call
+   returns.  */
 extern void
 gcc_jit_context_set_str_option (gcc_jit_context *ctxt,
 				enum gcc_jit_str_option opt,
@@ -253,6 +259,19 @@ gcc_jit_context_dump_to_file (gcc_jit_context *ctxt,
 			      const char *path,
 			      int update_locations);
 
+/* To help with debugging; enable ongoing logging of the context's
+   activity to the given FILE *.
+
+   The caller remains responsible for closing "logfile".
+
+   Params "flags" and "verbosity" are reserved for future use, and
+   must both be 0 for now.  */
+extern void
+gcc_jit_context_set_logfile (gcc_jit_context *ctxt,
+			     FILE *logfile,
+			     int flags,
+			     int verbosity);
+
 /* To be called after a compile, this gives the first error message
    that occurred on the context.
 
@@ -262,6 +281,16 @@ gcc_jit_context_dump_to_file (gcc_jit_context *ctxt,
    If no errors occurred, this will be NULL.  */
 extern const char *
 gcc_jit_context_get_first_error (gcc_jit_context *ctxt);
+
+/* To be called after a compile, this gives the last error message
+   that occurred on the context.
+
+   The returned string is valid for the rest of the lifetime of the
+   context.
+
+   If no errors occurred, this will be NULL.  */
+extern const char *
+gcc_jit_context_get_last_error (gcc_jit_context *ctxt);
 
 /* Locate a given function within the built machine code.
    This will need to be cast to a function pointer of the
@@ -288,8 +317,7 @@ gcc_jit_result_release (gcc_jit_result *result);
  released their context.
 
  All (const char *) string arguments passed to these functions are
- copied, so you don't need to keep them around.  Note that this *isn't*
- the case for other parts of the API.
+ copied, so you don't need to keep them around.
 
  You create code by adding a sequence of statements to blocks.
 **********************************************************************/
@@ -649,7 +677,13 @@ enum gcc_jit_unary_op
   /* Logical negation of an arithmetic or pointer value; analogous to:
        !(EXPR)
      in C.  */
-  GCC_JIT_UNARY_OP_LOGICAL_NEGATE
+  GCC_JIT_UNARY_OP_LOGICAL_NEGATE,
+
+  /* Absolute value of an arithmetic expression; analogous to:
+       abs (EXPR)
+     in C.  */
+  GCC_JIT_UNARY_OP_ABS
+
 };
 
 extern gcc_jit_rvalue *
@@ -984,6 +1018,40 @@ gcc_jit_block_end_with_void_return (gcc_jit_block *block,
 
 extern gcc_jit_context *
 gcc_jit_context_new_child_context (gcc_jit_context *parent_ctxt);
+
+/**********************************************************************
+ Implementation support.
+ **********************************************************************/
+
+/* Enable the dumping of a specific set of internal state from the
+   compilation, capturing the result in-memory as a buffer.
+
+   Parameter "dumpname" corresponds to the equivalent gcc command-line
+   option, without the "-fdump-" prefix.
+   For example, to get the equivalent of "-fdump-tree-vrp1", supply
+   "tree-vrp1".
+   The context directly stores the dumpname as a (const char *), so the
+   passed string must outlive the context.
+
+   gcc_jit_context_compile will capture the dump as a
+   dynamically-allocated buffer, writing it to ``*out_ptr``.
+
+   The caller becomes responsible for calling
+      free (*out_ptr)
+   each time that gcc_jit_context_compile is called.  *out_ptr will be
+   written to, either with the address of a buffer, or with NULL if an
+   error occurred.
+
+   This API entrypoint is likely to be less stable than the others.
+   In particular, both the precise dumpnames, and the format and content
+   of the dumps are subject to change.
+
+   It exists primarily for writing the library's own test suite.  */
+
+extern void
+gcc_jit_context_enable_dump (gcc_jit_context *ctxt,
+			     const char *dumpname,
+			     char **out_ptr);
 
 #ifdef __cplusplus
 }

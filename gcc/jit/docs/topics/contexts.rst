@@ -89,7 +89,7 @@ cleanup of such objects is done for you when the context is released.
 
 Thread-safety
 -------------
-Instances of :c:type:`gcc_jit_object *` created via
+Instances of :c:type:`gcc_jit_context *` created via
 :c:func:`gcc_jit_context_acquire` are independent from each other:
 only one thread may use a given context at once, but multiple threads
 could each have their own contexts without needing locks.
@@ -123,12 +123,28 @@ In general, if an error occurs when using an API entrypoint, the
 entrypoint returns NULL.  You don't have to check everywhere for NULL
 results, since the API handles a NULL being passed in for any
 argument by issuing another error.  This typically leads to a cascade of
-followup error messages, but is safe (albeit verbose).
+followup error messages, but is safe (albeit verbose).  The first error
+message is usually the one to pay attention to, since it is likely to
+be responsible for all of the rest:
 
 .. function:: const char *\
               gcc_jit_context_get_first_error (gcc_jit_context *ctxt)
 
    Returns the first error message that occurred on the context.
+
+   The returned string is valid for the rest of the lifetime of the
+   context.
+
+   If no errors occurred, this will be NULL.
+
+If you are wrapping the C API for a higher-level language that supports
+exception-handling, you may instead by interested in the last error that
+occurred on the context, so that you can embed this in an exception:
+
+.. function:: const char *\
+              gcc_jit_context_get_last_error (gcc_jit_context *ctxt)
+
+   Returns the last error message that occurred on the context.
 
    The returned string is valid for the rest of the lifetime of the
    context.
@@ -152,6 +168,103 @@ Debugging
    :macro:`GCC_JIT_BOOL_OPTION_DEBUGINFO` to allow stepping through the
    code in a debugger.
 
+.. function:: void\
+              gcc_jit_context_set_logfile (gcc_jit_context *ctxt,\
+                                           FILE *logfile,\
+                                           int flags,\
+                                           int verbosity)
+
+   To help with debugging; enable ongoing logging of the context's
+   activity to the given file.
+
+   For example, the following will enable logging to stderr.
+
+   .. code-block:: c
+
+      gcc_jit_context_set_logfile (ctxt, stderr, 0, 0);
+
+   Examples of information logged include:
+
+   * API calls
+
+   * the various steps involved within compilation
+
+   * activity on any :c:type:`gcc_jit_result` instances created by
+     the context
+
+   * activity within any child contexts
+
+   An example of a log can be seen :ref:`here <example-of-log-file>`,
+   though the precise format and kinds of information logged is subject
+   to change.
+
+   The caller remains responsible for closing `logfile`, and it must not
+   be closed until all users are released.  In particular, note that
+   child contexts and :c:type:`gcc_jit_result` instances created by
+   the context will use the logfile.
+
+   There may a performance cost for logging.
+
+   You can turn off logging on `ctxt` by passing `NULL` for `logfile`.
+   Doing so only affects the context; it does not affect child contexts
+   or :c:type:`gcc_jit_result` instances already created by
+   the context.
+
+   The parameters "flags" and "verbosity" are reserved for future
+   expansion, and must be zero for now.
+
+To contrast the above: :c:func:`gcc_jit_context_dump_to_file` dumps the
+current state of a context to the given path, whereas
+:c:func:`gcc_jit_context_set_logfile` enables on-going logging of
+future activies on a context to the given `FILE *`.
+
+.. function:: void\
+              gcc_jit_context_enable_dump (gcc_jit_context *ctxt,\
+                                           const char *dumpname, \
+                                           char **out_ptr)
+
+   Enable the dumping of a specific set of internal state from the
+   compilation, capturing the result in-memory as a buffer.
+
+   Parameter "dumpname" corresponds to the equivalent gcc command-line
+   option, without the "-fdump-" prefix.
+   For example, to get the equivalent of :option:`-fdump-tree-vrp1`,
+   supply ``"tree-vrp1"``:
+
+   .. code-block:: c
+
+      static char *dump_vrp1;
+
+      void
+      create_code (gcc_jit_context *ctxt)
+      {
+         gcc_jit_context_enable_dump (ctxt, "tree-vrp1", &dump_vrp1);
+         /* (other API calls omitted for brevity) */
+      }
+
+   The context directly stores the dumpname as a ``(const char *)``, so
+   the passed string must outlive the context.
+
+   :func:`gcc_jit_context_compile` will capture the dump as a
+   dynamically-allocated buffer, writing it to ``*out_ptr``.
+
+   The caller becomes responsible for calling:
+
+   .. code-block:: c
+
+      free (*out_ptr)
+
+   each time that :func:`gcc_jit_context_compile` is called.
+   ``*out_ptr`` will be written to, either with the address of a buffer,
+   or with ``NULL`` if an error occurred.
+
+   .. warning::
+
+      This API entrypoint is likely to be less stable than the others.
+      In particular, both the precise dumpnames, and the format and content
+      of the dumps are subject to change.
+
+      It exists primarily for writing the library's own test suite.
 
 Options
 -------

@@ -1,5 +1,5 @@
 /* Interprocedural Identical Code Folding pass
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
    Contributed by Jan Hubicka <hubicka@ucw.cz> and Martin Liska <mliska@suse.cz>
 
@@ -87,6 +87,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
@@ -101,6 +102,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <list>
 #include "ipa-icf-gimple.h"
 #include "ipa-icf.h"
+#include "varasm.h"
 
 using namespace ipa_icf_gimple;
 
@@ -425,6 +427,49 @@ sem_function::equals_private (sem_item *item,
   if (!equals_wpa (item, ignored_nodes))
     return false;
 
+  /* Checking function TARGET and OPTIMIZATION flags.  */
+  cl_target_option *tar1 = target_opts_for_fn (decl);
+  cl_target_option *tar2 = target_opts_for_fn (m_compared_func->decl);
+
+  if (tar1 != NULL || tar2 != NULL)
+    {
+      if (!cl_target_option_eq (tar1, tar2))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Source target flags\n");
+	      cl_target_option_print (dump_file, 2, tar1);
+	      fprintf (dump_file, "Target target flags\n");
+	      cl_target_option_print (dump_file, 2, tar2);
+	    }
+
+	  return return_false_with_msg ("Target flags are different");
+	}
+    }
+  else if (tar1 != NULL || tar2 != NULL)
+    return return_false_with_msg ("Target flags are different");
+
+  cl_optimization *opt1 = opts_for_fn (decl);
+  cl_optimization *opt2 = opts_for_fn (m_compared_func->decl);
+
+  if (opt1 != NULL && opt2 != NULL)
+    {
+      if (memcmp (opt1, opt2, sizeof(cl_optimization)))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Source optimization flags\n");
+	      cl_optimization_print (dump_file, 2, opt1);
+	      fprintf (dump_file, "Target optimization flags\n");
+	      cl_optimization_print (dump_file, 2, opt2);
+	    }
+
+	  return return_false_with_msg ("optimization flags are different");
+	}
+    }
+  else if (opt1 != NULL || opt2 != NULL)
+    return return_false_with_msg ("optimization flags are different");
+
   /* Checking function arguments.  */
   tree decl1 = DECL_ATTRIBUTES (decl);
   tree decl2 = DECL_ATTRIBUTES (m_compared_func->decl);
@@ -624,6 +669,13 @@ sem_function::merge (sem_item *alias_item)
 	return false;
       }
 
+  if (!decl_binds_to_current_def_p (alias->decl))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Declaration does not bind to currect definition.\n\n");
+      return false;
+    }
+
   if (redirect_callers)
     {
       /* If alias is non-overwritable then
@@ -684,6 +736,14 @@ sem_function::merge (sem_item *alias_item)
 
 	  return 0;
 	}
+
+      if (DECL_STATIC_CHAIN (alias->decl))
+        {
+         if (dump_file)
+           fprintf (dump_file, "Thunk creation is risky for static-chain functions.\n\n");
+
+         return 0;
+        }
 
       alias->icf_merged = true;
       ipa_merge_profiles (local_original, alias);
@@ -1131,10 +1191,14 @@ sem_variable::parse (varpool_node *node, bitmap_obstack *stack)
   tree decl = node->decl;
 
   bool readonly = TYPE_P (decl) ? TYPE_READONLY (decl) : TREE_READONLY (decl);
-  bool can_handle = readonly && (DECL_VIRTUAL_P (decl)
-				 || !TREE_ADDRESSABLE (decl));
+  if (!readonly)
+    return NULL;
 
-  if (!can_handle)
+  bool can_handle = DECL_VIRTUAL_P (decl)
+		    || flag_merge_constants >= 2
+		    || (!TREE_ADDRESSABLE (decl) && !node->externally_visible);
+
+  if (!can_handle || DECL_EXTERNAL (decl))
     return NULL;
 
   tree ctor = ctor_for_folding (decl);
@@ -2281,7 +2345,6 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 	for (unsigned int j = 1; j < c->members.length (); j++)
 	  {
 	    sem_item *alias = c->members[j];
-	    source->equals (alias, m_symtab_node_map);
 
 	    if (dump_file)
 	      {

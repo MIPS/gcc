@@ -1,5 +1,5 @@
 # libgcc host-specific configuration file.
-# Copyright (C) 1997-2014 Free Software Foundation, Inc.
+# Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -827,8 +827,10 @@ mips*-sde-elf*)
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf* | \
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf* | \
+mipsisa32r6-*-elf* | mipsisa32r6el-*-elf* | \
 mipsisa64-*-elf* | mipsisa64el-*-elf* | \
-mipsisa64r2-*-elf* | mipsisa64r2el-*-elf*)
+mipsisa64r2-*-elf* | mipsisa64r2el-*-elf* | \
+mipsisa64r6-*-elf* | mipsisa64r6el-*-elf*)
 	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff mips/t-mips16"
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
@@ -1233,6 +1235,10 @@ vax-*-netbsdelf*)
 	;;
 vax-*-openbsd*)
 	;;
+visium-*-elf*)
+        extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
+        tmake_file="visium/t-visium t-fdpbit"
+        ;;
 xstormy16-*-elf)
 	tmake_file="stormy16/t-stormy16 t-fdpbit"
 	;;

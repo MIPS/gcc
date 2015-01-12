@@ -1,5 +1,5 @@
 /* Xstormy16 target functions.
-   Copyright (C) 1997-2014 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
@@ -815,7 +815,7 @@ xstormy16_split_move (machine_mode mode, rtx dest, rtx src)
       gcc_assert (refers_to_regno_p (regno, regno + num_words,
 				     mem_operand, 0));
 
-      if (refers_to_regno_p (regno, regno + 1, mem_operand, 0))
+      if (refers_to_regno_p (regno, mem_operand))
 	direction = -1;
       else if (refers_to_regno_p (regno + num_words - 1, regno + num_words,
 				  mem_operand, 0))

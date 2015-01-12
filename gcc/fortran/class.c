@@ -1,5 +1,5 @@
 /* Implementation of Fortran 2003 Polymorphism.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Paul Richard Thomas <pault@gcc.gnu.org>
    and Janus Weil <janus@gcc.gnu.org>
 
@@ -666,7 +666,7 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
 	 up to 255 extension levels.  */
       if (ts->u.derived->attr.extension == 255)
 	{
-	  gfc_error ("Maximum extension level reached with type '%s' at %L",
+	  gfc_error ("Maximum extension level reached with type %qs at %L",
 		     ts->u.derived->name, &ts->u.derived->declared_at);
 	return false;
 	}
@@ -2686,7 +2686,7 @@ find_typebound_proc_uop (gfc_symbol* derived, bool* t,
 	  && res->n.tb->access == ACCESS_PRIVATE)
 	{
 	  if (where)
-	    gfc_error ("'%s' of '%s' is PRIVATE at %L",
+	    gfc_error ("%qs of %qs is PRIVATE at %L",
 		       name, derived->name, where);
 	  if (t)
 	    *t = false;
@@ -2760,7 +2760,7 @@ gfc_find_typebound_intrinsic_op (gfc_symbol* derived, bool* t,
 	  && res->access == ACCESS_PRIVATE)
 	{
 	  if (where)
-	    gfc_error ("'%s' of '%s' is PRIVATE at %L",
+	    gfc_error ("%qs of %qs is PRIVATE at %L",
 		       gfc_op2string (op), derived->name, where);
 	  if (t)
 	    *t = false;

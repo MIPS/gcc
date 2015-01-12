@@ -1,5 +1,5 @@
 /* Backend function setup
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -87,6 +87,8 @@ static gfc_namespace *module_namespace;
 /* The currently processed procedure symbol.  */
 static gfc_symbol* current_procedure_symbol = NULL;
 
+/* The currently processed module.  */
+static struct module_htab_entry *cur_module;
 
 /* With -fcoarray=lib: For generating the registering call
    of static coarrays.  */
@@ -393,10 +395,10 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
       if (sym->attr.proc == PROC_INTRINSIC)
 	return get_identifier (sym->name);
 
-      if (gfc_option.flag_underscoring)
+      if (flag_underscoring)
 	{
 	  has_underscore = strchr (sym->name, '_') != 0;
-	  if (gfc_option.flag_second_underscore && has_underscore)
+	  if (flag_second_underscore && has_underscore)
 	    snprintf (name, sizeof name, "%s__", sym->name);
 	  else
 	    snprintf (name, sizeof name, "%s_", sym->name);
@@ -431,14 +433,14 @@ gfc_can_put_var_on_stack (tree size)
   if (!INTEGER_CST_P (size))
     return 0;
 
-  if (gfc_option.flag_max_stack_var_size < 0)
+  if (flag_max_stack_var_size < 0)
     return 1;
 
   if (!tree_fits_uhwi_p (size))
     return 0;
 
   low = TREE_INT_CST_LOW (size);
-  if (low > (unsigned HOST_WIDE_INT) gfc_option.flag_max_stack_var_size)
+  if (low > (unsigned HOST_WIDE_INT) flag_max_stack_var_size)
     return 0;
 
 /* TODO: Set a per-function stack size limit.  */
@@ -626,7 +628,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   if (!sym->attr.use_assoc
 	&& (sym->attr.save != SAVE_NONE || sym->attr.data
 	    || (sym->value && sym->ns->proc_name->attr.is_main_program)
-	    || (gfc_option.coarray == GFC_FCOARRAY_LIB
+	    || (flag_coarray == GFC_FCOARRAY_LIB
 		&& sym->attr.codimension && !sym->attr.allocatable)))
     TREE_STATIC (decl) = 1;
 
@@ -814,19 +816,49 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   nest = (procns->proc_name->backend_decl != current_function_decl)
 	 && !sym->attr.contained;
 
-  if (sym->attr.codimension && gfc_option.coarray == GFC_FCOARRAY_LIB
+  if (sym->attr.codimension && flag_coarray == GFC_FCOARRAY_LIB
       && sym->as->type != AS_ASSUMED_SHAPE
       && GFC_TYPE_ARRAY_CAF_TOKEN (type) == NULL_TREE)
     {
       tree token;
+      tree token_type = build_qualified_type (pvoid_type_node,
+					      TYPE_QUAL_RESTRICT);
 
-      token = gfc_create_var_np (build_qualified_type (pvoid_type_node,
-						       TYPE_QUAL_RESTRICT),
-				 "caf_token");
+      if (sym->module && (sym->attr.use_assoc
+			  || sym->ns->proc_name->attr.flavor == FL_MODULE))
+	{
+	  tree token_name
+		= get_identifier (gfc_get_string (GFC_PREFIX ("caf_token%s"),
+			IDENTIFIER_POINTER (gfc_sym_mangled_identifier (sym))));
+	  token = build_decl (DECL_SOURCE_LOCATION (decl), VAR_DECL, token_name,
+			      token_type);
+	  if (sym->attr.use_assoc)
+	    DECL_EXTERNAL (token) = 1;
+	  else
+	    TREE_STATIC (token) = 1;
+
+	  if (sym->attr.use_assoc || sym->attr.access != ACCESS_PRIVATE ||
+	      sym->attr.public_used)
+	    TREE_PUBLIC (token) = 1;
+	}
+      else
+	{
+	  token = gfc_create_var_np (token_type, "caf_token");
+	  TREE_STATIC (token) = 1;
+	}
+
       GFC_TYPE_ARRAY_CAF_TOKEN (type) = token;
       DECL_ARTIFICIAL (token) = 1;
-      TREE_STATIC (token) = 1;
-      gfc_add_decl_to_function (token);
+      DECL_NONALIASED (token) = 1;
+
+      if (sym->module && !sym->attr.use_assoc)
+	{
+	  pushdecl (token);
+	  DECL_CONTEXT (token) = sym->ns->proc_name->backend_decl;
+	  gfc_module_add_decl (cur_module, token);
+	}
+      else
+	gfc_add_decl_to_function (token);
     }
 
   for (dim = 0; dim < GFC_TYPE_ARRAY_RANK (type); dim++)
@@ -1013,7 +1045,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 
       /* Even when -frepack-arrays is used, symbols with TARGET attribute
 	 are not repacked.  */
-      if (!gfc_option.flag_repack_arrays || sym->attr.target)
+      if (!flag_repack_arrays || sym->attr.target)
 	{
 	  if (as->type == AS_ASSUMED_SIZE)
 	    packed = PACKED_FULL;
@@ -1148,7 +1180,7 @@ gfc_create_string_length (gfc_symbol * sym)
 	 it is an automatic variable.  */
       bool static_length = sym->attr.save
 			   || sym->ns->proc_name->attr.flavor == FL_MODULE
-			   || (gfc_option.flag_max_stack_var_size == 0
+			   || (flag_max_stack_var_size == 0
 			       && sym->ts.deferred && !sym->attr.dummy
 			       && !sym->attr.result && !sym->attr.function);
 
@@ -1546,9 +1578,9 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   if (TREE_STATIC (decl)
       && !(sym->attr.use_assoc && !intrinsic_array_parameter)
       && (sym->attr.save || sym->ns->proc_name->attr.is_main_program
-	  || gfc_option.flag_max_stack_var_size == 0
+	  || flag_max_stack_var_size == 0
 	  || sym->attr.data || sym->ns->proc_name->attr.flavor == FL_MODULE)
-      && (gfc_option.coarray != GFC_FCOARRAY_LIB
+      && (flag_coarray != GFC_FCOARRAY_LIB
 	  || !sym->attr.codimension || sym->attr.allocatable))
     {
       /* Add static initializer. For procedures, it is only needed if
@@ -1652,7 +1684,9 @@ get_proc_pointer_decl (gfc_symbol *sym)
   else if (sym->module && sym->ns->proc_name->attr.flavor == FL_MODULE)
     {
       /* This is the declaration of a module variable.  */
-      TREE_PUBLIC (decl) = 1;
+      if (sym->ns->proc_name->attr.flavor == FL_MODULE
+	  && (sym->attr.access != ACCESS_PRIVATE || sym->attr.public_used))
+	TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
     }
 
@@ -1838,7 +1872,7 @@ module_sym:
 	    }
 	}
 
-      if (gfc_option.flag_f2c
+      if (flag_f2c
 	  && ((e.ts.type == BT_REAL && e.ts.kind == gfc_default_real_kind)
 	      || e.ts.type == BT_COMPLEX))
 	{
@@ -1958,7 +1992,7 @@ build_function_decl (gfc_symbol * sym, bool global)
   if (sym->attr.access == ACCESS_UNKNOWN && sym->module
       && (sym->ns->default_access == ACCESS_PRIVATE
 	  || (sym->ns->default_access == ACCESS_UNKNOWN
-	      && gfc_option.flag_module_private)))
+	      && flag_module_private)))
     sym->attr.access = ACCESS_PRIVATE;
 
   if (!current_function_decl
@@ -2301,7 +2335,7 @@ create_function_arglist (gfc_symbol * sym)
 
       /* Coarrays which are descriptorless or assumed-shape pass with
 	 -fcoarray=lib the token and the offset as hidden arguments.  */
-      if (gfc_option.coarray == GFC_FCOARRAY_LIB
+      if (flag_coarray == GFC_FCOARRAY_LIB
 	  && ((f->sym->ts.type != BT_CLASS && f->sym->attr.codimension
 	       && !f->sym->attr.allocatable)
 	      || (f->sym->ts.type == BT_CLASS
@@ -3158,32 +3192,28 @@ gfc_build_intrinsic_function_decls (void)
 
     gfor_fndecl_sgemm = gfc_build_library_function_decl
 			  (get_identifier
-			     (gfc_option.flag_underscoring ? "sgemm_"
-							   : "sgemm"),
+			     (flag_underscoring ? "sgemm_" : "sgemm"),
 			   void_type_node, 15, pchar_type_node,
 			   pchar_type_node, pint, pint, pint, ps, ps, pint,
 			   ps, pint, ps, ps, pint, integer_type_node,
 			   integer_type_node);
     gfor_fndecl_dgemm = gfc_build_library_function_decl
 			  (get_identifier
-			     (gfc_option.flag_underscoring ? "dgemm_"
-							   : "dgemm"),
+			     (flag_underscoring ? "dgemm_" : "dgemm"),
 			   void_type_node, 15, pchar_type_node,
 			   pchar_type_node, pint, pint, pint, pd, pd, pint,
 			   pd, pint, pd, pd, pint, integer_type_node,
 			   integer_type_node);
     gfor_fndecl_cgemm = gfc_build_library_function_decl
 			  (get_identifier
-			     (gfc_option.flag_underscoring ? "cgemm_"
-							   : "cgemm"),
+			     (flag_underscoring ? "cgemm_" : "cgemm"),
 			   void_type_node, 15, pchar_type_node,
 			   pchar_type_node, pint, pint, pint, pc, pc, pint,
 			   pc, pint, pc, pc, pint, integer_type_node,
 			   integer_type_node);
     gfor_fndecl_zgemm = gfc_build_library_function_decl
 			  (get_identifier
-			     (gfc_option.flag_underscoring ? "zgemm_"
-							   : "zgemm"),
+			     (flag_underscoring ? "zgemm_" : "zgemm"),
 			   void_type_node, 15, pchar_type_node,
 			   pchar_type_node, pint, pint, pint, pz, pz, pint,
 			   pz, pint, pz, pz, pint, integer_type_node,
@@ -3331,7 +3361,7 @@ gfc_build_builtin_function_decls (void)
   TREE_NOTHROW (gfor_fndecl_associated) = 1;
 
   /* Coarray library calls.  */
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (flag_coarray == GFC_FCOARRAY_LIB)
     {
       tree pint_type, pppchar_type;
 
@@ -3845,8 +3875,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	    gfc_trans_dummy_character (proc_sym, proc_sym->ts.u.cl, block);
 	}
       else
-	gcc_assert (gfc_option.flag_f2c
-		    && proc_sym->ts.type == BT_COMPLEX);
+	gcc_assert (flag_f2c && proc_sym->ts.type == BT_COMPLEX);
     }
 
   /* Initialize the INTENT(OUT) derived type dummy arguments.  This
@@ -3878,7 +3907,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	}
 
       if (sym->ts.type == BT_CLASS
-	  && (sym->attr.save || gfc_option.flag_max_stack_var_size == 0)
+	  && (sym->attr.save || flag_max_stack_var_size == 0)
 	  && CLASS_DATA (sym)->attr.allocatable)
 	{
 	  tree vptr;
@@ -3895,7 +3924,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
 	  if (CLASS_DATA (sym)->attr.dimension
 	      || (CLASS_DATA (sym)->attr.codimension
-		  && gfc_option.coarray != GFC_FCOARRAY_LIB))
+		  && flag_coarray != GFC_FCOARRAY_LIB))
 	    {
 	      tmp = gfc_class_data_get (sym->backend_decl);
 	      tmp = gfc_build_null_descriptor (TREE_TYPE (tmp));
@@ -4007,7 +4036,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		    || (sym->ts.type == BT_CLASS
 			&& CLASS_DATA (sym)->attr.allocatable)))
 	{
-	  if (!sym->attr.save && gfc_option.flag_max_stack_var_size != 0)
+	  if (!sym->attr.save && flag_max_stack_var_size != 0)
 	    {
 	      tree descriptor = NULL_TREE;
 
@@ -4319,8 +4348,6 @@ gfc_module_add_decl (struct module_htab_entry *entry, tree decl)
     *slot = decl;
 }
 
-static struct module_htab_entry *cur_module;
-
 
 /* Generate debugging symbols for namelists. This function must come after
    generate_local_decl to ensure that the variables in the namelist are
@@ -4426,7 +4453,7 @@ gfc_create_module_variable (gfc_symbol * sym)
       && (sym->attr.access == ACCESS_UNKNOWN
 	  && (sym->ns->default_access == ACCESS_PRIVATE
 	      || (sym->ns->default_access == ACCESS_UNKNOWN
-		  && gfc_option.flag_module_private))))
+		  && flag_module_private))))
     sym->attr.access = ACCESS_PRIVATE;
 
   if (warn_unused_variable && !sym->attr.referenced
@@ -4688,7 +4715,7 @@ gfc_emit_parameter_debug_info (gfc_symbol *sym)
 				   sym->attr.dimension, false))
     return;
 
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB && sym->attr.codimension)
+  if (flag_coarray == GFC_FCOARRAY_LIB && sym->attr.codimension)
     return;
 
   /* Create the decl for the variable or constant.  */
@@ -4878,7 +4905,7 @@ gfc_generate_module_vars (gfc_namespace * ns)
   gfc_traverse_ns (ns, gfc_create_module_variable);
   gfc_traverse_ns (ns, create_module_nml_decl);
 
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB && has_coarray_vars)
+  if (flag_coarray == GFC_FCOARRAY_LIB && has_coarray_vars)
     generate_coarray_init (ns);
 
   cur_module = NULL;
@@ -5377,7 +5404,7 @@ create_main_function (tree fndecl)
   /* Call some libgfortran initialization routines, call then MAIN__().  */
 
   /* Call _gfortran_caf_init (*argc, ***argv).  */
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (flag_coarray == GFC_FCOARRAY_LIB)
     {
       tree pint_type, pppchar_type;
       pint_type = build_pointer_type (integer_type_node);
@@ -5425,11 +5452,9 @@ create_main_function (tree fndecl)
                             build_int_cst (integer_type_node,
                                            0));
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
-                            build_int_cst (integer_type_node,
-                                           gfc_option.flag_backtrace));
+                            build_int_cst (integer_type_node, flag_backtrace));
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
-                            build_int_cst (integer_type_node,
-                                           gfc_option.flag_sign_zero));
+                            build_int_cst (integer_type_node, flag_sign_zero));
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
                             build_int_cst (integer_type_node,
                                            (gfc_option.rtcheck
@@ -5483,33 +5508,32 @@ create_main_function (tree fndecl)
   /* If this is the main program and an -fconvert option was provided,
      add a call to set_convert.  */
 
-  if (gfc_option.convert != GFC_CONVERT_NATIVE)
+  if (flag_convert != GFC_FLAG_CONVERT_NATIVE)
     {
       tmp = build_call_expr_loc (input_location,
 			     gfor_fndecl_set_convert, 1,
-			     build_int_cst (integer_type_node,
-					    gfc_option.convert));
+			     build_int_cst (integer_type_node, flag_convert));
       gfc_add_expr_to_block (&body, tmp);
     }
 
   /* If this is the main program and an -frecord-marker option was provided,
      add a call to set_record_marker.  */
 
-  if (gfc_option.record_marker != 0)
+  if (flag_record_marker != 0)
     {
       tmp = build_call_expr_loc (input_location,
 			     gfor_fndecl_set_record_marker, 1,
 			     build_int_cst (integer_type_node,
-					    gfc_option.record_marker));
+					    flag_record_marker));
       gfc_add_expr_to_block (&body, tmp);
     }
 
-  if (gfc_option.max_subrecord_length != 0)
+  if (flag_max_subrecord_length != 0)
     {
       tmp = build_call_expr_loc (input_location,
 			     gfor_fndecl_set_max_subrecord_length, 1,
 			     build_int_cst (integer_type_node,
-					    gfc_option.max_subrecord_length));
+					    flag_max_subrecord_length));
       gfc_add_expr_to_block (&body, tmp);
     }
 
@@ -5522,7 +5546,7 @@ create_main_function (tree fndecl)
   TREE_USED (fndecl) = 1;
 
   /* Coarray: Call _gfortran_caf_finalize(void).  */
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (flag_coarray == GFC_FCOARRAY_LIB)
     {
       /* Per F2008, 8.5.1 END of the main program implies a
 	 SYNC MEMORY.  */
@@ -5712,7 +5736,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   has_coarray_vars = false;
   generate_local_vars (ns);
 
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB && has_coarray_vars)
+  if (flag_coarray == GFC_FCOARRAY_LIB && has_coarray_vars)
     generate_coarray_init (ns);
 
   /* Keep the parent fake result declaration in module functions
@@ -5727,13 +5751,12 @@ gfc_generate_function_code (gfc_namespace * ns)
 		 || (sym->attr.entry_master
 		     && sym->ns->entries->sym->attr.recursive);
   if ((gfc_option.rtcheck & GFC_RTCHECK_RECURSION)
-	&& !is_recursive
-	&& !gfc_option.flag_recursive)
+      && !is_recursive && !flag_recursive)
     {
       char * msg;
 
-      asprintf (&msg, "Recursive call to nonrecursive procedure '%s'",
-		sym->name);
+      msg = xasprintf ("Recursive call to nonrecursive procedure '%s'",
+		       sym->name);
       recurcheckvar = gfc_create_var (boolean_type_node, "is_recursive");
       TREE_STATIC (recurcheckvar) = 1;
       DECL_INITIAL (recurcheckvar) = boolean_false_node;
@@ -5826,9 +5849,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   /* Reset recursion-check variable.  */
   if ((gfc_option.rtcheck & GFC_RTCHECK_RECURSION)
-	 && !is_recursive
-	 && !gfc_option.gfc_flag_openmp
-	 && recurcheckvar != NULL_TREE)
+      && !is_recursive && !flag_openmp && recurcheckvar != NULL_TREE)
     {
       gfc_add_modify (&cleanup, recurcheckvar, boolean_false_node);
       recurcheckvar = NULL;
@@ -5905,7 +5926,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 	 If there are static coarrays in this function, the nested _caf_init
 	 function has already called cgraph_create_node, which also created
 	 the cgraph node for this function.  */
-      if (!has_coarray_vars || gfc_option.coarray != GFC_FCOARRAY_LIB)
+      if (!has_coarray_vars || flag_coarray != GFC_FCOARRAY_LIB)
 	(void) cgraph_node::create (fndecl);
     }
   else
@@ -6036,7 +6057,7 @@ gfc_process_block_locals (gfc_namespace* ns)
 
   generate_local_vars (ns);
 
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB && has_coarray_vars)
+  if (flag_coarray == GFC_FCOARRAY_LIB && has_coarray_vars)
     generate_coarray_init (ns);
 
   decl = saved_local_decls;

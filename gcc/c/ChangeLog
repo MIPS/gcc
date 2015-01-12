@@ -1,3 +1,48 @@
+2015-01-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64417
+	* c-typeck.c (process_init_element): Disallow initialization of
+	a flexible array member with a string constant if the structure
+	is in an array.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64344
+	* c-typeck.c (convert_for_assignment, c_finish_return): For
+	-fsanitize=float-cast-overflow casts from REAL_TYPE to integer/enum
+	types also set in_late_binary_op around convert call.
+	* c-convert.c (convert): For -fsanitize=float-cast-overflow REAL_TYPE
+	to integral type casts, if not in_late_binary_op, pass c_fully_fold
+	result on expr as last argument to ubsan_instrument_float_cast,
+	if in_late_binary_op, don't use c_save_expr but save_expr.
+
+	Update copyright years.
+
+2015-01-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64423
+	* c-typeck.c (build_array_ref): Pass loc down to
+	warn_array_subscript_with_type_char.
+
+2014-12-20  Martin Uecker <uecker@eecs.berkeley.edu>
+
+	* c-typeck.c: New behavious for pointers to arrays with qualifiers
+        (common-pointer-type): For pointers to arrays take qualifiers from
+	element type.
+        (build_conditional_expr): Add warnings for lost qualifiers.
+	(comp-target-types): Allow pointers to arrays with different qualifiers.
+        (convert-for-assignment): Adapt warnings for discarded qualifiers. Add
+	WARNING_FOR_QUALIFIERS macro and rename WARN_FOR_QUALIFIERS
+        to PEDWARN_FOR_QUALIFIERS.
+
+2014-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64289
+	* c-convert.c: Include ubsan.h.
+	(convert): For real -> integral casts and
+	-fsanitize=float-cast-overflow don't call convert_to_integer, but
+	instead instrument the float cast directly.
+
 2014-11-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (convert_lvalue_to_rvalue, build_atomic_assign,
@@ -1897,7 +1942,7 @@
 	* c-decl.c: Likewise.  Include gt-c-c-decl.h, not gt-c-decl.h.
 	* c-parser.c: Likewise.  Include gt-c-c-parser.h, not gt-c-parser.h.
 
-Copyright (C) 2012-2014 Free Software Foundation, Inc.
+Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

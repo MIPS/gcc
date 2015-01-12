@@ -1,7 +1,7 @@
 /* Generate pattern matching and transform code shared between
    GENERIC and GIMPLE folding code from match-and-simplify description.
 
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Richard Biener <rguenther@suse.de>
    and Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
@@ -3176,7 +3176,8 @@ parser::parse_simplify (source_location match_location,
 			expr *result)
 {
   /* Reset the capture map.  */
-  capture_ids = new cid_map_t;
+  if (!capture_ids)
+    capture_ids = new cid_map_t;
   /* Reset oper_lists and set.  */
   hash_set <user_id *> olist;
   oper_lists_set = &olist;
@@ -3494,7 +3495,10 @@ parser::parse_pattern ()
   const cpp_token *token = peek ();
   const char *id = get_ident ();
   if (strcmp (id, "simplify") == 0)
-    parse_simplify (token->src_loc, simplifiers); 
+    {
+      parse_simplify (token->src_loc, simplifiers, NULL, NULL);
+      capture_ids = NULL;
+    }
   else if (strcmp (id, "match") == 0)
     {
       bool with_args = false;
@@ -3519,6 +3523,7 @@ parser::parse_pattern ()
       expr *e = NULL;
       if (with_args)
 	{
+	  capture_ids = new cid_map_t;
 	  e = new expr (p);
 	  while (peek ()->type == CPP_ATSIGN)
 	    e->append_op (parse_capture (NULL));
@@ -3530,6 +3535,7 @@ parser::parse_pattern ()
 	fatal_at (token, "non-matching number of match operands");
       p->nargs = e ? e->ops.length () : 0;
       parse_simplify (token->src_loc, p->matchers, p, e);
+      capture_ids = NULL;
     }
   else if (strcmp (id, "for") == 0)
     parse_for (token->src_loc);
@@ -3567,6 +3573,7 @@ parser::parser (cpp_reader *r_)
   simplifiers = vNULL;
   oper_lists_set = NULL;
   oper_lists = vNULL;
+  capture_ids = NULL;
   user_predicates = vNULL;
   parsing_match_operand = false;
 

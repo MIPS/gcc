@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -888,6 +888,10 @@ c_common_post_options (const char **pfilename)
     }
   else if (warn_narrowing == -1)
     warn_narrowing = 0;
+
+  /* Global sized deallocation is new in C++14.  */
+  if (flag_sized_deallocation == -1)
+    flag_sized_deallocation = (cxx_dialect >= cxx14);
 
   if (flag_extern_tls_init)
     {

@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -1660,6 +1660,9 @@ force_paren_expr (tree expr)
 	  tree type = unlowered_expr_type (expr);
 	  bool rval = !!(kind & clk_rvalueref);
 	  type = cp_build_reference_type (type, rval);
+	  /* This inhibits warnings in, eg, cxx_mark_addressable
+	     (c++/60955).  */
+	  warning_sentinel s (extra_warnings);
 	  expr = build_static_cast (type, expr, tf_error);
 	  if (expr != error_mark_node)
 	    REF_PARENTHESIZED_P (expr) = true;
@@ -3138,8 +3141,12 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
     while (context != containing_function
 	   && LAMBDA_FUNCTION_P (containing_function))
       {
-	lambda_expr = CLASSTYPE_LAMBDA_EXPR
-	  (DECL_CONTEXT (containing_function));
+	tree closure = DECL_CONTEXT (containing_function);
+	lambda_expr = CLASSTYPE_LAMBDA_EXPR (closure);
+
+	if (TYPE_CLASS_SCOPE_P (closure))
+	  /* A lambda in an NSDMI (c++/64496).  */
+	  break;
 
 	if (LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda_expr)
 	    == CPLD_NONE)
@@ -3169,7 +3176,19 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   else if (lambda_expr)
     {
       if (complain & tf_error)
-	error ("%qD is not captured", decl);
+	{
+	  error ("%qD is not captured", decl);
+	  tree closure = LAMBDA_EXPR_CLOSURE (lambda_expr);
+	  if (LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda_expr)
+	      == CPLD_NONE)
+	    inform (location_of (closure),
+		    "the lambda has no capture-default");
+	  else if (TYPE_CLASS_SCOPE_P (closure))
+	    inform (0, "lambda in local class %q+T cannot "
+		    "capture variables from the enclosing context",
+		    TYPE_CONTEXT (closure));
+	  inform (input_location, "%q+#D declared here", decl);
+	}
       return error_mark_node;
     }
   else
@@ -3851,6 +3870,15 @@ finish_bases (tree type, bool direct)
 tree
 finish_offsetof (tree expr, location_t loc)
 {
+  /* If we're processing a template, we can't finish the semantics yet.
+     Otherwise we can fold the entire expression now.  */
+  if (processing_template_decl)
+    {
+      expr = build1 (OFFSETOF_EXPR, size_type_node, expr);
+      SET_EXPR_LOCATION (expr, loc);
+      return expr;
+    }
+
   if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
     {
       error ("cannot apply %<offsetof%> to destructor %<~%T%>",
@@ -5138,6 +5166,8 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
       id = OVL_CURRENT (id);
       mark_used (id);
       tree body = DECL_SAVED_TREE (id);
+      if (!body)
+	return true;
       if (TREE_CODE (body) == STATEMENT_LIST)
 	{
 	  tree_stmt_iterator tsi;
@@ -7237,16 +7267,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	  if (clk != clk_none && !(clk & clk_class))
 	    type = cp_build_reference_type (type, (clk & clk_rvalueref));
 	}
-    }
-
-  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
-      && (flag_iso || warn_vla > 0))
-    {
-      if (complain & tf_warning_or_error)
-	pedwarn (input_location, OPT_Wvla,
-		 "taking decltype of array of runtime bound");
-      else
-	return error_mark_node;
     }
 
   return type;

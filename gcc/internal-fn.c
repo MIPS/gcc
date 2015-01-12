@@ -1,5 +1,5 @@
 /* Internal functions.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -204,6 +204,14 @@ expand_UBSAN_OBJECT_SIZE (gcall *stmt ATTRIBUTE_UNUSED)
 
 static void
 expand_ASAN_CHECK (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+/* This should get expanded in the tsan pass.  */
+
+static void
+expand_TSAN_FUNC_EXIT (gcall *)
 {
   gcc_unreachable ();
 }

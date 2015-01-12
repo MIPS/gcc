@@ -1,5 +1,5 @@
 ;; Machine description of Andes NDS32 cpu for GNU compiler
-;; Copyright (C) 2012-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2015 Free Software Foundation, Inc.
 ;; Contributed by Andes Technology Corporation.
 ;;
 ;; This file is part of GCC.
@@ -2178,7 +2178,7 @@ create_template:
 					     (const_int 4))
 				    (label_ref (match_operand 1 "" "")))))
 	      (use (label_ref (match_dup 1)))
-	      (clobber (match_operand:SI 2 "register_operand" ""))
+	      (clobber (match_operand:SI 2 "register_operand" "=r"))
 	      (clobber (reg:SI TA_REGNUM))])]
   ""
 {

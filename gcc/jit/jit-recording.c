@@ -1,5 +1,5 @@
 /* Internals of libgccjit: classes for recording calls made to the JIT API.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "jit-common.h"
 #include "jit-builtins.h"
+#include "jit-logging.h"
 #include "jit-recording.h"
 #include "jit-playback.h"
 
@@ -169,10 +170,13 @@ recording::playback_block (recording::block *b)
    gcc_jit_context_acquire and gcc_jit_context_new_child_context.  */
 
 recording::context::context (context *parent_ctxt)
-  : m_parent_ctxt (parent_ctxt),
+  : log_user (NULL),
+    m_parent_ctxt (parent_ctxt),
     m_error_count (0),
     m_first_error_str (NULL),
     m_owns_first_error_str (false),
+    m_last_error_str (NULL),
+    m_owns_last_error_str (false),
     m_mementos (),
     m_compound_types (),
     m_functions (),
@@ -181,17 +185,21 @@ recording::context::context (context *parent_ctxt)
 {
   if (parent_ctxt)
     {
-      /* Inherit options from parent.
-         Note that the first memcpy means copying pointers to strings.  */
-      memcpy (m_str_options,
-              parent_ctxt->m_str_options,
-              sizeof (m_str_options));
+      /* Inherit options from parent.  */
+      for (unsigned i = 0;
+	   i < sizeof (m_str_options) / sizeof (m_str_options[0]);
+	   i++)
+	{
+	  const char *parent_opt = parent_ctxt->m_str_options[i];
+	  m_str_options[i] = parent_opt ? xstrdup (parent_opt) : NULL;
+	}
       memcpy (m_int_options,
-              parent_ctxt->m_int_options,
-              sizeof (m_int_options));
+	      parent_ctxt->m_int_options,
+	      sizeof (m_int_options));
       memcpy (m_bool_options,
-              parent_ctxt->m_bool_options,
-              sizeof (m_bool_options));
+	      parent_ctxt->m_bool_options,
+	      sizeof (m_bool_options));
+      set_logger (parent_ctxt->get_logger ());
     }
   else
     {
@@ -208,6 +216,7 @@ recording::context::context (context *parent_ctxt)
 
 recording::context::~context ()
 {
+  JIT_LOG_SCOPE (get_logger ());
   int i;
   memento *m;
   FOR_EACH_VEC_ELT (m_mementos, i, m)
@@ -215,11 +224,18 @@ recording::context::~context ()
       delete m;
     }
 
+  for (i = 0; i < GCC_JIT_NUM_STR_OPTIONS; ++i)
+    free (m_str_options[i]);
+
   if (m_builtins_manager)
     delete m_builtins_manager;
 
   if (m_owns_first_error_str)
     free (m_first_error_str);
+
+  if (m_owns_last_error_str)
+    if (m_last_error_str != m_first_error_str)
+      free (m_last_error_str);
 }
 
 /* Add the given mememto to the list of those tracked by this
@@ -239,6 +255,7 @@ recording::context::record (memento *m)
 void
 recording::context::replay_into (replayer *r)
 {
+  JIT_LOG_SCOPE (get_logger ());
   int i;
   memento *m;
 
@@ -296,6 +313,7 @@ recording::context::replay_into (replayer *r)
 void
 recording::context::disassociate_from_playback ()
 {
+  JIT_LOG_SCOPE (get_logger ());
   int i;
   memento *m;
 
@@ -827,7 +845,8 @@ recording::context::set_str_option (enum gcc_jit_str_option opt,
 		 "unrecognized (enum gcc_jit_str_option) value: %i", opt);
       return;
     }
-  m_str_options[opt] = value;
+  free (m_str_options[opt]);
+  m_str_options[opt] = value ? xstrdup (value) : NULL;
 }
 
 /* Set the given integer option for this context, or add an error if
@@ -868,10 +887,25 @@ recording::context::set_bool_option (enum gcc_jit_bool_option opt,
   m_bool_options[opt] = value ? true : false;
 }
 
-/* This mutex guards gcc::jit::recording::context::compile, so that only
-   one thread can be accessing the bulk of GCC's state at once.  */
+/* Add the given dumpname/out_ptr pair to this context's list of requested
+   dumps.
 
-static pthread_mutex_t jit_mutex = PTHREAD_MUTEX_INITIALIZER;
+   Implements the post-error-checking part of
+   gcc_jit_context_enable_dump.  */
+
+void
+recording::context::enable_dump (const char *dumpname,
+				 char **out_ptr)
+{
+  requested_dump d;
+  gcc_assert (dumpname);
+  gcc_assert (out_ptr);
+
+  d.m_dumpname = dumpname;
+  d.m_out_ptr = out_ptr;
+  *out_ptr = NULL;
+  m_requested_dumps.safe_push (d);
+}
 
 /* Validate this context, and if it passes, compile it within a
    mutex.
@@ -882,24 +916,18 @@ static pthread_mutex_t jit_mutex = PTHREAD_MUTEX_INITIALIZER;
 result *
 recording::context::compile ()
 {
+  JIT_LOG_SCOPE (get_logger ());
+
   validate ();
 
   if (errors_occurred ())
     return NULL;
 
-  /* Acquire the big GCC mutex. */
-  pthread_mutex_lock (&jit_mutex);
-  gcc_assert (NULL == ::gcc::jit::active_playback_ctxt);
-
   /* Set up a playback context.  */
   ::gcc::jit::playback::context replayer (this);
-  ::gcc::jit::active_playback_ctxt = &replayer;
 
+  /* Use it.  */
   result *result_obj = replayer.compile ();
-
-  /* Release the big GCC mutex. */
-  ::gcc::jit::active_playback_ctxt = NULL;
-  pthread_mutex_unlock (&jit_mutex);
 
   return result_obj;
 }
@@ -926,6 +954,8 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
   const char *errmsg;
   bool has_ownership;
 
+  JIT_LOG_SCOPE (get_logger ());
+
   vasprintf (&malloced_msg, fmt, ap);
   if (malloced_msg)
     {
@@ -937,6 +967,8 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
       errmsg = "out of memory generating error message";
       has_ownership = false;
     }
+  if (get_logger ())
+    get_logger ()->log ("error %i: %s", m_error_count, errmsg);
 
   const char *ctxt_progname =
     get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
@@ -958,9 +990,12 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
       m_first_error_str = const_cast <char *> (errmsg);
       m_owns_first_error_str = has_ownership;
     }
-  else
-    if (has_ownership)
-      free (malloced_msg);
+
+  if (m_owns_last_error_str)
+    if (m_last_error_str != m_first_error_str)
+      free (m_last_error_str);
+  m_last_error_str = const_cast <char *> (errmsg);
+  m_owns_last_error_str = has_ownership;
 
   m_error_count++;
 }
@@ -975,6 +1010,18 @@ const char *
 recording::context::get_first_error () const
 {
   return m_first_error_str;
+}
+
+/* Get the message for the last error that occurred on this context, or
+   NULL if no errors have occurred on it.
+
+   Implements the post-error-checking part of
+   gcc_jit_context_get_last_error.  */
+
+const char *
+recording::context::get_last_error () const
+{
+  return m_last_error_str;
 }
 
 /* Lazily generate and record a recording::type representing an opaque
@@ -1026,6 +1073,19 @@ recording::context::dump_to_file (const char *path, bool update_locations)
     }
 }
 
+/* Copy the requested dumps within this context and all ancestors into
+   OUT. */
+
+void
+recording::context::get_all_requested_dumps (vec <recording::requested_dump> *out)
+{
+  if (m_parent_ctxt)
+    m_parent_ctxt->get_all_requested_dumps (out);
+
+  out->reserve (m_requested_dumps.length ());
+  out->splice (m_requested_dumps);
+}
+
 /* This is a pre-compilation check for the context (and any parents).
 
    Detect errors within the context, adding errors if any are found.  */
@@ -1033,6 +1093,8 @@ recording::context::dump_to_file (const char *path, bool update_locations)
 void
 recording::context::validate ()
 {
+  JIT_LOG_SCOPE (get_logger ());
+
   if (m_parent_ctxt)
     m_parent_ctxt->validate ();
 
@@ -1930,10 +1992,10 @@ recording::fields::replay_into (replayer *)
    declaration of this form:
 
       struct/union NAME {
-        TYPE_1 NAME_1;
-        TYPE_2 NAME_2;
+	TYPE_1 NAME_1;
+	TYPE_2 NAME_2;
 	....
-        TYPE_N NAME_N;
+	TYPE_N NAME_N;
       };
 
     to the dump.  */
@@ -2770,6 +2832,7 @@ static const char * const unary_op_strings[] = {
   "-", /* GCC_JIT_UNARY_OP_MINUS */
   "~", /* GCC_JIT_UNARY_OP_BITWISE_NEGATE */
   "!", /* GCC_JIT_UNARY_OP_LOGICAL_NEGATE */
+  "abs ", /* GCC_JIT_UNARY_OP_ABS */
 };
 
 recording::string *

@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -165,6 +165,14 @@ default_legitimize_address (rtx x, rtx orig_x ATTRIBUTE_UNUSED,
 			    machine_mode mode ATTRIBUTE_UNUSED)
 {
   return x;
+}
+
+bool
+default_legitimize_address_displacement (rtx *disp ATTRIBUTE_UNUSED,
+					 rtx *offset ATTRIBUTE_UNUSED,
+					 machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return false;
 }
 
 rtx
@@ -1631,12 +1639,8 @@ default_get_pch_validity (size_t *sz)
 static const char *
 pch_option_mismatch (const char *option)
 {
-  char *r;
-
-  asprintf (&r, _("created and used with differing settings of '%s'"), option);
-  if (r == NULL)
-    return _("out of memory");
-  return r;
+  return xasprintf (_("created and used with differing settings of '%s'"),
+		    option);
 }
 
 /* Default version of pch_valid_p.  */

@@ -1,5 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -158,10 +158,6 @@ static void expand_static_init (tree, tree);
    by routines that want to abort the program.
 
 	tree abort_fndecl;
-
-   The FUNCTION_DECL for the default `::operator delete'.
-
-	tree global_delete_fndecl;
 
    Used by RTTI
 	tree type_info_type_node, tinfo_decl_id, tinfo_decl_type;
@@ -3954,8 +3950,22 @@ cxx_init_decl_processing (void)
     opnew = push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
     DECL_IS_MALLOC (opnew) = 1;
     DECL_IS_OPERATOR_NEW (opnew) = 1;
-    global_delete_fndecl = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+    push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
     push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+    if (flag_sized_deallocation)
+      {
+	/* Also push the sized deallocation variants:
+	     void operator delete(void*, std::size_t) throw();
+	     void operator delete[](void*, std::size_t) throw();  */
+	tree void_ftype_ptr_size
+	  = build_function_type_list (void_type_node, ptr_type_node,
+				      size_type_node, NULL_TREE);
+	deltype = cp_build_type_attribute_variant (void_ftype_ptr_size,
+						   extvisattr);
+	deltype = build_exception_variant (deltype, empty_except_spec);
+	push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+	push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+      }
 
     nullptr_type_node = make_node (NULLPTR_TYPE);
     TYPE_SIZE (nullptr_type_node) = bitsize_int (GET_MODE_BITSIZE (ptr_mode));
@@ -4621,26 +4631,15 @@ start_decl (const cp_declarator *declarator,
   if (context != global_namespace)
     *pushed_scope_p = push_scope (context);
 
-  if (initialized)
-    /* Is it valid for this decl to have an initializer at all?
-       If not, set INITIALIZED to zero, which will indirectly
-       tell `cp_finish_decl' to ignore the initializer once it is parsed.  */
-    switch (TREE_CODE (decl))
-      {
-      case TYPE_DECL:
-	error ("typedef %qD is initialized (use decltype instead)", decl);
-	return error_mark_node;
-
-      case FUNCTION_DECL:
-	if (initialized == SD_DELETED)
-	  /* We'll handle the rest of the semantics later, but we need to
-	     set this now so it's visible to duplicate_decls.  */
-	  DECL_DELETED_FN (decl) = 1;
-	break;
-
-      default:
-	break;
-      }
+  /* Is it valid for this decl to have an initializer at all?
+     If not, set INITIALIZED to zero, which will indirectly
+     tell `cp_finish_decl' to ignore the initializer once it is parsed.  */
+  if (initialized
+      && TREE_CODE (decl) == TYPE_DECL)
+    {
+      error ("typedef %qD is initialized (use decltype instead)", decl);
+      return error_mark_node;
+    }
 
   if (initialized)
     {
@@ -4996,18 +4995,22 @@ check_array_designated_initializer (constructor_elt *ce,
 	  return false;
 	}
 
-      ce->index = cxx_constant_value (ce->index);
-
-      if (TREE_CODE (ce->index) == INTEGER_CST)
+      tree ce_index = build_expr_type_conversion (WANT_INT | WANT_ENUM,
+						  ce->index, true);
+      if (ce_index
+	  && INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (ce_index))
+	  && (TREE_CODE (ce_index = maybe_constant_value (ce_index))
+	      == INTEGER_CST))
 	{
 	  /* A C99 designator is OK if it matches the current index.  */
-	  if (wi::eq_p (ce->index, index))
+	  if (wi::eq_p (ce_index, index))
 	    return true;
 	  else
 	    sorry ("non-trivial designated initializers not supported");
 	}
       else
-	gcc_unreachable ();
+	error ("C99 designator %qE is not an integral constant-expression",
+	       ce->index);
 
       return false;
     }
@@ -5546,6 +5549,8 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 	 of g++.old-deja/g++.mike/p7626.C: a pointer-to-member constant is
 	 a CONSTRUCTOR (with a record type).  */
       if (TREE_CODE (init) == CONSTRUCTOR
+	  /* Don't complain about a capture-init.  */
+	  && !CONSTRUCTOR_IS_DIRECT_INIT (init)
 	  && BRACE_ENCLOSED_INITIALIZER_P (init))  /* p7626.C */
 	{
 	  if (SCALAR_TYPE_P (type))
@@ -7614,6 +7619,7 @@ grokfndecl (tree ctype,
 	    int friendp,
 	    int publicp,
 	    int inlinep,
+	    bool deletedp,
 	    special_function_kind sfk,
 	    bool funcdef_flag,
 	    int template_count,
@@ -7751,6 +7757,9 @@ grokfndecl (tree ctype,
       DECL_STATIC_FUNCTION_P (decl) = 1;
       DECL_CONTEXT (decl) = ctype;
     }
+
+  if (deletedp)
+    DECL_DELETED_FN (decl) = 1;
 
   if (ctype)
     {
@@ -8515,7 +8524,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	   /* We don't allow VLAs at non-function scopes, or during
 	      tentative template substitution.  */
 	   || !at_function_scope_p ()
-	   || (cxx_dialect < cxx14 && !(complain & tf_error)))
+	   || !(complain & tf_error))
     {
       if (!(complain & tf_error))
 	return error_mark_node;
@@ -8527,7 +8536,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	error ("size of array is not an integral constant-expression");
       size = integer_one_node;
     }
-  else if (cxx_dialect < cxx14 && pedantic && warn_vla != 0)
+  else if (pedantic && warn_vla != 0)
     {
       if (name)
 	pedwarn (input_location, OPT_Wvla, "ISO C++ forbids variable length array %qD", name);
@@ -8585,25 +8594,9 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 
 	  stabilize_vla_size (itype);
 
-	  if (cxx_dialect >= cxx14 && flag_exceptions)
+	  if (flag_sanitize & SANITIZE_VLA
+	      && do_ubsan_in_current_function ())
 	    {
-	      /* If the VLA bound is larger than half the address space,
-	         or less than zero, throw std::bad_array_length.  */
-	      tree comp = build2 (LT_EXPR, boolean_type_node, itype,
-				  ssize_int (-1));
-	      comp = build3 (COND_EXPR, void_type_node, comp,
-			     throw_bad_array_length (), void_node);
-	      finish_expr_stmt (comp);
-	    }
-	  else if (flag_sanitize & SANITIZE_VLA
-		   && current_function_decl != NULL_TREE
-		   && !lookup_attribute ("no_sanitize_undefined",
-					 DECL_ATTRIBUTES
-					   (current_function_decl)))
-	    {
-	      /* From C++14 onwards, we throw an exception on a negative
-		 length size of an array; see above.  */
-
 	      /* We have to add 1 -- in the ubsan routine we generate
 		 LE_EXPR rather than LT_EXPR.  */
 	      tree t = fold_build2 (PLUS_EXPR, TREE_TYPE (itype), itype,
@@ -8729,10 +8722,6 @@ create_array_type_for_decl (tree name, tree type, tree size)
 
       return error_mark_node;
     }
-
-  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
-      && (flag_iso || warn_vla > 0))
-    pedwarn (input_location, OPT_Wvla, "array of array of runtime bound");
 
   /* Figure out the index type for the array.  */
   if (size)
@@ -9984,13 +9973,6 @@ grokdeclarator (const cp_declarator *declarator,
                    : G_("cannot declare pointer to qualified function type %qT"),
 		   type);
 
-	  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
-	      && (flag_iso || warn_vla > 0))
-	    pedwarn (input_location, OPT_Wvla,
-		     declarator->kind == cdk_reference
-		     ? G_("reference to array of runtime bound")
-		     : G_("pointer to array of runtime bound"));
-
 	  /* When the pointed-to type involves components of variable size,
 	     care must be taken to ensure that the size evaluation code is
 	     emitted early enough to dominate all the possible later uses
@@ -10340,11 +10322,6 @@ grokdeclarator (const cp_declarator *declarator,
 	  error ("typedef declared %<auto%>");
 	  type = error_mark_node;
 	}
-
-      if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
-	  && (flag_iso || warn_vla > 0))
-	pedwarn (input_location, OPT_Wvla,
-		 "typedef naming array of runtime bound");
 
       if (decl_context == FIELD)
 	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
@@ -10739,6 +10716,19 @@ grokdeclarator (const cp_declarator *declarator,
 		return error_mark_node;
 	      }
 
+	    if (TREE_CODE (unqualified_id) == TEMPLATE_ID_EXPR)
+	      {
+		tree tmpl = TREE_OPERAND (unqualified_id, 0);
+		if (variable_template_p (tmpl))
+		  {
+		    error ("specialization of variable template %qD "
+			   "declared as function", tmpl);
+		    inform (DECL_SOURCE_LOCATION (tmpl),
+			    "variable template declared here");
+		    return error_mark_node;
+		  }
+	      }
+
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */
 	    function_context = (ctype != NULL_TREE) ?
 	      decl_function_context (TYPE_MAIN_DECL (ctype)) : NULL_TREE;
@@ -10756,7 +10746,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       virtualp, flags, memfn_quals, rqual, raises,
 			       friendp ? -1 : 0, friendp, publicp,
                                inlinep | (2 * constexpr_p),
-			       sfk,
+			       initialized == SD_DELETED, sfk,
 			       funcdef_flag, template_count, in_namespace,
 			       attrlist, declarator->id_loc);
             decl = set_virt_specifiers (decl, virt_specifiers);
@@ -10978,7 +10968,8 @@ grokdeclarator (const cp_declarator *declarator,
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
 			   virtualp, flags, memfn_quals, rqual, raises,
 			   1, friendp,
-			   publicp, inlinep | (2 * constexpr_p), sfk,
+			   publicp, inlinep | (2 * constexpr_p),
+			   initialized == SD_DELETED, sfk,
                            funcdef_flag,
 			   template_count, in_namespace, attrlist,
 			   declarator->id_loc);
@@ -11754,6 +11745,16 @@ grok_op_properties (tree decl, bool complain)
 	    {
 	      error ("%qD may not be declared as static", decl);
 	      return false;
+	    }
+	  if (!flag_sized_deallocation && warn_cxx14_compat)
+	    {
+	      tree parm = FUNCTION_ARG_CHAIN (decl);
+	      if (parm && same_type_p (TREE_VALUE (parm), size_type_node)
+		  && TREE_CHAIN (parm) == void_list_node)
+		warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc__14_compat,
+			    "%qD is a usual (non-placement) deallocation "
+			    "function in C++14 (or with -fsized-deallocation)",
+			    decl);
 	    }
 	}
     }

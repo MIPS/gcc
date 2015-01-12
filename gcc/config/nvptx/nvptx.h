@@ -1,5 +1,5 @@
 /* Target Definitions for NVPTX.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
    This file is part of GCC.
@@ -281,9 +281,17 @@ struct GTY(()) machine_function
     }								\
   while (0)
 
-#define ASM_OUTPUT_ALIGN(FILE, POWER)
+#define ASM_OUTPUT_ALIGN(FILE, POWER)		\
+  do						\
+    {						\
+      (void) (FILE);				\
+      (void) (POWER);				\
+    }						\
+  while (0)
+
 #define ASM_OUTPUT_SKIP(FILE, N)		\
   nvptx_output_skip (FILE, N)
+
 #undef  ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE, STR, LENGTH)			\
   nvptx_output_ascii (FILE, STR, LENGTH);

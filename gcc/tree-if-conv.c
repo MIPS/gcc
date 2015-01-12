@@ -1,5 +1,5 @@
 /* If-conversion for vectorizer.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
 
 This file is part of GCC.
@@ -311,7 +311,7 @@ parse_predicate (tree cond, tree *op0, tree *op1)
 	  enum tree_code code = parse_predicate (op, op0, op1);
 
 	  return code == ERROR_MARK ? ERROR_MARK
-	    : invert_tree_comparison (code, HONOR_NANS (TYPE_MODE (type)));
+	    : invert_tree_comparison (code, HONOR_NANS (type));
 	}
 
       return ERROR_MARK;

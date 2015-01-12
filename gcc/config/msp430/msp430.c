@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on TI MSP430 processors.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -976,7 +976,7 @@ msp430_asm_integer (rtx x, unsigned int size, int aligned_p)
 #undef  TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 #define TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA msp430_asm_output_addr_const_extra
 static bool
-msp430_asm_output_addr_const_extra (FILE *file, rtx x)
+msp430_asm_output_addr_const_extra (FILE *file ATTRIBUTE_UNUSED, rtx x)
 {
   debug_rtx(x);
   return false;

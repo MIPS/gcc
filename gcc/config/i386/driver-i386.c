@@ -1,5 +1,5 @@
 /* Subroutines for the gcc driver.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -747,7 +747,11 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	  if (arch)
 	    {
 	      /* This is unknown family 0x6 CPU.  */
-	      if (has_adx)
+	      /* Assume Knights Landing.  */
+	      if (has_avx512f)
+		cpu = "knl";
+	      /* Assume Broadwell.  */
+	      else if (has_adx)
 		cpu = "broadwell";
 	      else if (has_avx2)
 		/* Assume Haswell.  */

@@ -1,5 +1,5 @@
 /* Tree based alias analysis and alias oracle.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Richard Guenther  <rguenther@suse.de>
 
    This file is part of GCC.
@@ -124,6 +124,7 @@ extern void *walk_non_aliased_vuses (ao_ref *, tree,
 				     void *(*)(ao_ref *, tree,
 					       unsigned int, void *),
 				     void *(*)(ao_ref *, tree, void *, bool),
+				     tree (*)(tree),
 				     void *);
 extern unsigned int walk_aliased_vdefs (ao_ref *, tree,
 					bool (*)(ao_ref *, tree, void *),

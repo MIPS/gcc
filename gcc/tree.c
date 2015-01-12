@@ -1,5 +1,5 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4358,12 +4358,24 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   PROCESS_ARG (0);
   PROCESS_ARG (1);
 
-  TREE_READONLY (t) = read_only;
-  TREE_CONSTANT (t) = constant;
   TREE_SIDE_EFFECTS (t) = side_effects;
-  TREE_THIS_VOLATILE (t)
-    = (TREE_CODE_CLASS (code) == tcc_reference
-       && arg0 && TREE_THIS_VOLATILE (arg0));
+  if (code == MEM_REF)
+    {
+      if (arg0 && TREE_CODE (arg0) == ADDR_EXPR)
+	{
+	  tree o = TREE_OPERAND (arg0, 0);
+	  TREE_READONLY (t) = TREE_READONLY (o);
+	  TREE_THIS_VOLATILE (t) = TREE_THIS_VOLATILE (o);
+	}
+    }
+  else
+    {
+      TREE_READONLY (t) = read_only;
+      TREE_CONSTANT (t) = constant;
+      TREE_THIS_VOLATILE (t)
+	= (TREE_CODE_CLASS (code) == tcc_reference
+	   && arg0 && TREE_THIS_VOLATILE (arg0));
+    }
 
   return t;
 }
@@ -4458,9 +4470,19 @@ build5_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   PROCESS_ARG (4);
 
   TREE_SIDE_EFFECTS (t) = side_effects;
-  TREE_THIS_VOLATILE (t)
-    = (TREE_CODE_CLASS (code) == tcc_reference
-       && arg0 && TREE_THIS_VOLATILE (arg0));
+  if (code == TARGET_MEM_REF)
+    {
+      if (arg0 && TREE_CODE (arg0) == ADDR_EXPR)
+	{
+	  tree o = TREE_OPERAND (arg0, 0);
+	  TREE_READONLY (t) = TREE_READONLY (o);
+	  TREE_THIS_VOLATILE (t) = TREE_THIS_VOLATILE (o);
+	}
+    }
+  else
+    TREE_THIS_VOLATILE (t)
+      = (TREE_CODE_CLASS (code) == tcc_reference
+	 && arg0 && TREE_THIS_VOLATILE (arg0));
 
   return t;
 }
@@ -11864,12 +11886,17 @@ virtual_method_call_p (tree target)
 {
   if (TREE_CODE (target) != OBJ_TYPE_REF)
     return false;
-  target = TREE_TYPE (target);
-  gcc_checking_assert (TREE_CODE (target) == POINTER_TYPE);
-  target = TREE_TYPE (target);
-  if (TREE_CODE (target) == FUNCTION_TYPE)
+  tree t = TREE_TYPE (target);
+  gcc_checking_assert (TREE_CODE (t) == POINTER_TYPE);
+  t = TREE_TYPE (t);
+  if (TREE_CODE (t) == FUNCTION_TYPE)
     return false;
-  gcc_checking_assert (TREE_CODE (target) == METHOD_TYPE);
+  gcc_checking_assert (TREE_CODE (t) == METHOD_TYPE);
+  /* If we do not have BINFO associated, it means that type was built
+     without devirtualization enabled.  Do not consider this a virtual
+     call.  */
+  if (!TYPE_BINFO (obj_type_ref_class (target)))
+    return false;
   return true;
 }
 

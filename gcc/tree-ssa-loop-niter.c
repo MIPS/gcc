@@ -1,5 +1,5 @@
 /* Functions to determine/estimate number of iterations of a loop.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1642,7 +1642,8 @@ expand_simple_operations (tree expr)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      if (TYPE_OVERFLOW_TRAPS (TREE_TYPE (expr)))
+      if (ANY_INTEGRAL_TYPE_P (TREE_TYPE (expr))
+	  && TYPE_OVERFLOW_TRAPS (TREE_TYPE (expr)))
 	return expr;
       /* Fallthru.  */
     case POINTER_PLUS_EXPR:

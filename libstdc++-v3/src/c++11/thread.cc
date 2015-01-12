@@ -1,6 +1,6 @@
 // thread -*- C++ -*-
 
-// Copyright (C) 2008-2014 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -130,7 +130,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   thread::_M_start_thread(__shared_base_type __b)
   {
     if (!__gthread_active_p())
-#if __EXCEPTIONS
+#if __cpp_exceptions
       throw system_error(make_error_code(errc::operation_not_permitted),
 			 "Enable multithreading to use std::thread");
 #else

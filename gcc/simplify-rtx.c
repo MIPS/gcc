@@ -1,5 +1,5 @@
 /* RTL simplification functions for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2933,14 +2933,26 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
       /* (and X (ior (not X) Y) -> (and X Y) */
       if (GET_CODE (op1) == IOR
 	  && GET_CODE (XEXP (op1, 0)) == NOT
-	  && op0 == XEXP (XEXP (op1, 0), 0))
+	  && rtx_equal_p (op0, XEXP (XEXP (op1, 0), 0)))
        return simplify_gen_binary (AND, mode, op0, XEXP (op1, 1));
 
       /* (and (ior (not X) Y) X) -> (and X Y) */
       if (GET_CODE (op0) == IOR
 	  && GET_CODE (XEXP (op0, 0)) == NOT
-	  && op1 == XEXP (XEXP (op0, 0), 0))
+	  && rtx_equal_p (op1, XEXP (XEXP (op0, 0), 0)))
 	return simplify_gen_binary (AND, mode, op1, XEXP (op0, 1));
+
+      /* (and X (ior Y (not X)) -> (and X Y) */
+      if (GET_CODE (op1) == IOR
+	  && GET_CODE (XEXP (op1, 1)) == NOT
+	  && rtx_equal_p (op0, XEXP (XEXP (op1, 1), 0)))
+       return simplify_gen_binary (AND, mode, op0, XEXP (op1, 0));
+
+      /* (and (ior Y (not X)) X) -> (and X Y) */
+      if (GET_CODE (op0) == IOR
+	  && GET_CODE (XEXP (op0, 1)) == NOT
+	  && rtx_equal_p (op1, XEXP (XEXP (op0, 1), 0)))
+	return simplify_gen_binary (AND, mode, op1, XEXP (op0, 0));
 
       tem = simplify_byte_swapping_operation (code, mode, op0, op1);
       if (tem)
@@ -4550,6 +4562,34 @@ simplify_relational_operation_1 (enum rtx_code code, machine_mode mode,
 				    simplify_gen_binary (XOR, cmp_mode,
 							 XEXP (op0, 1), op1));
 
+  /* (eq/ne (and x y) x) simplifies to (eq/ne (and (not y) x) 0), which
+     can be implemented with a BICS instruction on some targets, or
+     constant-folded if y is a constant.  */
+  if ((code == EQ || code == NE)
+      && op0code == AND
+      && rtx_equal_p (XEXP (op0, 0), op1)
+      && !side_effects_p (op1))
+    {
+      rtx not_y = simplify_gen_unary (NOT, cmp_mode, XEXP (op0, 1), cmp_mode);
+      rtx lhs = simplify_gen_binary (AND, cmp_mode, not_y, XEXP (op0, 0));
+
+      return simplify_gen_relational (code, mode, cmp_mode, lhs,
+				      CONST0_RTX (cmp_mode));
+    }
+
+  /* Likewise for (eq/ne (and x y) y).  */
+  if ((code == EQ || code == NE)
+      && op0code == AND
+      && rtx_equal_p (XEXP (op0, 1), op1)
+      && !side_effects_p (op1))
+    {
+      rtx not_x = simplify_gen_unary (NOT, cmp_mode, XEXP (op0, 0), cmp_mode);
+      rtx lhs = simplify_gen_binary (AND, cmp_mode, not_x, XEXP (op0, 1));
+
+      return simplify_gen_relational (code, mode, cmp_mode, lhs,
+				      CONST0_RTX (cmp_mode));
+    }
+
   /* (eq/ne (bswap x) C1) simplifies to (eq/ne x C2) with C2 swapped.  */
   if ((code == EQ || code == NE)
       && GET_CODE (op0) == BSWAP
@@ -4728,10 +4768,10 @@ simplify_const_relational_operation (enum rtx_code code,
      result except if they have side-effects.  Even with NaNs we know
      the result of unordered comparisons and, if signaling NaNs are
      irrelevant, also the result of LT/GT/LTGT.  */
-  if ((! HONOR_NANS (GET_MODE (trueop0))
+  if ((! HONOR_NANS (trueop0)
        || code == UNEQ || code == UNLE || code == UNGE
        || ((code == LT || code == GT || code == LTGT)
-	   && ! HONOR_SNANS (GET_MODE (trueop0))))
+	   && ! HONOR_SNANS (trueop0)))
       && rtx_equal_p (trueop0, trueop1)
       && ! side_effects_p (trueop0))
     return comparison_result (code, CMP_EQ);

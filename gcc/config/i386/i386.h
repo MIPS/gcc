@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -337,6 +337,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_HASWELL (ix86_tune == PROCESSOR_HASWELL)
 #define TARGET_BONNELL (ix86_tune == PROCESSOR_BONNELL)
 #define TARGET_SILVERMONT (ix86_tune == PROCESSOR_SILVERMONT)
+#define TARGET_KNL (ix86_tune == PROCESSOR_KNL)
 #define TARGET_INTEL (ix86_tune == PROCESSOR_INTEL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
@@ -2272,6 +2273,7 @@ enum processor_type
   PROCESSOR_HASWELL,
   PROCESSOR_BONNELL,
   PROCESSOR_SILVERMONT,
+  PROCESSOR_KNL,
   PROCESSOR_INTEL,
   PROCESSOR_GEODE,
   PROCESSOR_K6,

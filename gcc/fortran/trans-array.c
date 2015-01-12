@@ -1,5 +1,5 @@
 /* Array translation routines
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -298,7 +298,7 @@ gfc_conv_descriptor_token (tree desc)
 
   type = TREE_TYPE (desc);
   gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
-  gcc_assert (gfc_option.coarray == GFC_FCOARRAY_LIB);
+  gcc_assert (flag_coarray == GFC_FCOARRAY_LIB);
   field = gfc_advance_chain (TYPE_FIELDS (type), CAF_TOKEN_FIELD);
 
   /* Should be a restricted pointer - except in the finalization wrapper.  */
@@ -830,7 +830,7 @@ gfc_trans_allocate_array_storage (stmtblock_t * pre, stmtblock_t * post,
     {
       /* Allocate the temporary.  */
       onstack = !dynamic && initial == NULL_TREE
-			 && (gfc_option.flag_stack_arrays
+			 && (flag_stack_arrays
 			     || gfc_can_put_var_on_stack (size));
 
       if (onstack)
@@ -2799,11 +2799,11 @@ trans_array_bound_check (gfc_se * se, gfc_ss *ss, tree index, int n,
       tmp_up = gfc_conv_array_ubound (descriptor, n);
 
       if (name)
-	asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-		  "outside of expected range (%%ld:%%ld)", n+1, name);
+	msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+			 "outside of expected range (%%ld:%%ld)", n+1, name);
       else
-	asprintf (&msg, "Index '%%ld' of dimension %d "
-		  "outside of expected range (%%ld:%%ld)", n+1);
+	msg = xasprintf ("Index '%%ld' of dimension %d "
+			 "outside of expected range (%%ld:%%ld)", n+1);
 
       fault = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 			       index, tmp_lo);
@@ -2824,11 +2824,11 @@ trans_array_bound_check (gfc_se * se, gfc_ss *ss, tree index, int n,
       tmp_lo = gfc_conv_array_lbound (descriptor, n);
 
       if (name)
-	asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-		  "below lower bound of %%ld", n+1, name);
+	msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+			 "below lower bound of %%ld", n+1, name);
       else
-	asprintf (&msg, "Index '%%ld' of dimension %d "
-		  "below lower bound of %%ld", n+1);
+	msg = xasprintf ("Index '%%ld' of dimension %d "
+			 "below lower bound of %%ld", n+1);
 
       fault = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 			       index, tmp_lo);
@@ -3259,8 +3259,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_expr *expr,
 
 	  cond = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 				  indexse.expr, tmp);
-	  asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-		    "below lower bound of %%ld", n+1, var_name);
+	  msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+			   "below lower bound of %%ld", n+1, var_name);
 	  gfc_trans_runtime_check (true, false, cond, &se->pre, where, msg,
 				   fold_convert (long_integer_type_node,
 						 indexse.expr),
@@ -3283,8 +3283,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_expr *expr,
 
 	      cond = fold_build2_loc (input_location, GT_EXPR,
 				      boolean_type_node, indexse.expr, tmp);
-	      asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-			"above upper bound of %%ld", n+1, var_name);
+	      msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+			       "above upper bound of %%ld", n+1, var_name);
 	      gfc_trans_runtime_check (true, false, cond, &se->pre, where, msg,
 				   fold_convert (long_integer_type_node,
 						 indexse.expr),
@@ -3950,7 +3950,7 @@ done:
 	    continue;
 
 	  /* Catch allocatable lhs in f2003.  */
-	  if (gfc_option.flag_realloc_lhs && ss->is_alloc_lhs)
+	  if (flag_realloc_lhs && ss->is_alloc_lhs)
 	    continue;
 
 	  expr = ss_info->expr;
@@ -3981,8 +3981,8 @@ done:
 	      /* Zero stride is not allowed.  */
 	      tmp = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
 				     info->stride[dim], gfc_index_zero_node);
-	      asprintf (&msg, "Zero stride is not allowed, for dimension %d "
-			"of array '%s'", dim + 1, expr_name);
+	      msg = xasprintf ("Zero stride is not allowed, for dimension %d "
+			       "of array '%s'", dim + 1, expr_name);
 	      gfc_trans_runtime_check (true, false, tmp, &inner,
 				       expr_loc, msg);
 	      free (msg);
@@ -4039,9 +4039,9 @@ done:
 		  tmp2 = fold_build2_loc (input_location, TRUTH_AND_EXPR,
 					  boolean_type_node,
 					  non_zerosized, tmp2);
-		  asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-			    "outside of expected range (%%ld:%%ld)",
-			    dim + 1, expr_name);
+		  msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+				   "outside of expected range (%%ld:%%ld)",
+				   dim + 1, expr_name);
 		  gfc_trans_runtime_check (true, false, tmp, &inner,
 					   expr_loc, msg,
 		     fold_convert (long_integer_type_node, info->start[dim]),
@@ -4061,9 +4061,9 @@ done:
 					 info->start[dim], lbound);
 		  tmp = fold_build2_loc (input_location, TRUTH_AND_EXPR,
 					 boolean_type_node, non_zerosized, tmp);
-		  asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-			    "below lower bound of %%ld",
-			    dim + 1, expr_name);
+		  msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+				   "below lower bound of %%ld",
+				   dim + 1, expr_name);
 		  gfc_trans_runtime_check (true, false, tmp, &inner,
 					   expr_loc, msg,
 		     fold_convert (long_integer_type_node, info->start[dim]),
@@ -4093,9 +4093,9 @@ done:
 					  boolean_type_node, tmp, ubound);
 		  tmp3 = fold_build2_loc (input_location, TRUTH_AND_EXPR,
 					  boolean_type_node, non_zerosized, tmp3);
-		  asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-			    "outside of expected range (%%ld:%%ld)",
-			    dim + 1, expr_name);
+		  msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+				   "outside of expected range (%%ld:%%ld)",
+				   dim + 1, expr_name);
 		  gfc_trans_runtime_check (true, false, tmp2, &inner,
 					   expr_loc, msg,
 		     fold_convert (long_integer_type_node, tmp),
@@ -4110,9 +4110,9 @@ done:
 		}
 	      else
 		{
-		  asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-			    "below lower bound of %%ld",
-			    dim + 1, expr_name);
+		  msg = xasprintf ("Index '%%ld' of dimension %d of array '%s' "
+				   "below lower bound of %%ld",
+				   dim + 1, expr_name);
 		  gfc_trans_runtime_check (true, false, tmp2, &inner,
 					   expr_loc, msg,
 		     fold_convert (long_integer_type_node, tmp),
@@ -4139,9 +4139,9 @@ done:
 		{
 		  tmp3 = fold_build2_loc (input_location, NE_EXPR,
 					  boolean_type_node, tmp, size[n]);
-		  asprintf (&msg, "Array bound mismatch for dimension %d "
-			    "of array '%s' (%%ld/%%ld)",
-			    dim + 1, expr_name);
+		  msg = xasprintf ("Array bound mismatch for dimension %d "
+				   "of array '%s' (%%ld/%%ld)",
+				   dim + 1, expr_name);
 
 		  gfc_trans_runtime_check (true, false, tmp3, &inner,
 					   expr_loc, msg,
@@ -4349,11 +4349,18 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 
       if (ss->info->type != GFC_SS_SECTION)
 	{
-	  if (gfc_option.flag_realloc_lhs
+	  if (flag_realloc_lhs
 	      && dest_expr != ss_expr
 	      && gfc_is_reallocatable_lhs (dest_expr)
 	      && ss_expr->rank)
 	    nDepend = gfc_check_dependency (dest_expr, ss_expr, true);
+
+	  /* Check for cases like   c(:)(1:2) = c(2)(2:3)  */
+	  if (!nDepend && dest_expr->rank > 0
+	      && dest_expr->ts.type == BT_CHARACTER
+	      && ss_expr->expr_type == EXPR_VARIABLE)
+	    
+	    nDepend = gfc_check_dependency (dest_expr, ss_expr, false);
 
 	  continue;
 	}
@@ -5277,7 +5284,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   pointer = gfc_conv_descriptor_data_get (se->expr);
   STRIP_NOPS (pointer);
 
-  if (coarray && gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (coarray && flag_coarray == GFC_FCOARRAY_LIB)
     token = gfc_build_addr_expr (NULL_TREE,
 				 gfc_conv_descriptor_token (se->expr));
 
@@ -5360,7 +5367,7 @@ gfc_array_deallocate (tree descriptor, tree pstat, tree errmsg, tree errlen,
      the allocation status may not be changed.  */
   tmp = fold_build2_loc (input_location, MODIFY_EXPR, void_type_node,
 			 var, build_int_cst (TREE_TYPE (var), 0));
-  if (pstat != NULL_TREE && coarray && gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (pstat != NULL_TREE && coarray && flag_coarray == GFC_FCOARRAY_LIB)
     {
       tree cond;
       tree stat = build_fold_indirect_ref_loc (input_location, pstat);
@@ -5430,8 +5437,7 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
 			       "constructor at %L requires an increase of "
 			       "the allowed %d upper limit. See "
 			       "%<-fmax-array-constructor%> option",
-			       &expr->where,
-			       gfc_option.flag_max_array_constructor);
+			       &expr->where, flag_max_array_constructor);
 	      return NULL_TREE;
 	    }
           if (mpz_cmp_si (c->offset, 0) != 0)
@@ -5701,7 +5707,7 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym,
       return;
     }
 
-  if (gfc_option.flag_stack_arrays)
+  if (flag_stack_arrays)
     {
       gcc_assert (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE);
       space = build_decl (sym->declared_at.lb->location,
@@ -6007,8 +6013,8 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
 					 gfc_index_one_node, stride2);
 	      tmp = fold_build2_loc (input_location, NE_EXPR,
 				     gfc_array_index_type, temp, stride2);
-	      asprintf (&msg, "Dimension %d of array '%s' has extent "
-			"%%ld instead of %%ld", n+1, sym->name);
+	      msg = xasprintf ("Dimension %d of array '%s' has extent "
+			       "%%ld instead of %%ld", n+1, sym->name);
 
 	      gfc_trans_runtime_check (true, false, tmp, &init, &loc, msg,
 			fold_convert (long_integer_type_node, temp),
@@ -7265,7 +7271,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
 		  gfc_add_modify (&se->pre, new_field, old_field);
 		}
 
-	      if (gfc_option.coarray == GFC_FCOARRAY_LIB
+	      if (flag_coarray == GFC_FCOARRAY_LIB
 		  && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (old_desc))
 		  && GFC_TYPE_ARRAY_AKIND (TREE_TYPE (old_desc))
 		     == GFC_ARRAY_ALLOCATABLE)
@@ -7286,10 +7292,10 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
 	  char * msg;
 
 	  if (fsym && proc_name)
-	    asprintf (&msg, "An array temporary was created for argument "
-		      "'%s' of procedure '%s'", fsym->name, proc_name);
+	    msg = xasprintf ("An array temporary was created for argument "
+			     "'%s' of procedure '%s'", fsym->name, proc_name);
 	  else
-	    asprintf (&msg, "An array temporary was created");
+	    msg = xasprintf ("An array temporary was created");
 
 	  tmp = build_fold_indirect_ref_loc (input_location,
 					 desc);
@@ -7775,7 +7781,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	  break;
 
 	case NULLIFY_ALLOC_COMP:
-	  if (c->attr.pointer)
+	  if (c->attr.pointer || c->attr.proc_pointer)
 	    continue;
 	  else if (c->attr.allocatable
 		   && (c->attr.dimension|| c->attr.codimension))

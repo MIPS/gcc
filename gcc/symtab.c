@@ -1,5 +1,5 @@
 /* Symbol table.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -168,6 +168,11 @@ symbol_table::insert_to_assembler_name_hash (symtab_node *node,
 
       tree name = DECL_ASSEMBLER_NAME (node->decl);
 
+      /* C++ FE can produce decls without associated assembler name and insert
+	 them to symtab to hold section or TLS information.  */
+      if (!name)
+	return;
+
       hashval_t hash = decl_assembler_name_hash (name);
       aslot = assembler_name_hash->find_slot_with_hash (name, hash, INSERT);
       gcc_assert (*aslot != node);
@@ -209,6 +214,10 @@ symbol_table::unlink_from_assembler_name_hash (symtab_node *node,
 	{
 	  tree name = DECL_ASSEMBLER_NAME (node->decl);
           symtab_node **slot;
+
+	  if (!name)
+	    return;
+
 	  hashval_t hash = decl_assembler_name_hash (name);
 	  slot = assembler_name_hash->find_slot_with_hash (name, hash,
 							   NO_INSERT);

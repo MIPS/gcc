@@ -245,6 +245,9 @@ fi
 # See if we support thread-local storage.
 GCC_CHECK_TLS
 
+# See if we have emulated thread-local storage.
+GCC_CHECK_EMUTLS
+
 # See what sort of export controls are available.
 LIBGOMP_CHECK_ATTRIBUTE_VISIBILITY
 LIBGOMP_CHECK_ATTRIBUTE_DLLEXPORT
@@ -301,7 +304,7 @@ if test x"$enable_offload_targets" != x; then
     fi
     if test x"$tgt_dir" != x; then
       offload_additional_options="$offload_additional_options -B$tgt_dir/libexec/gcc/\$(target_alias)/\$(gcc_version) -B$tgt_dir/bin"
-      offload_additional_lib_paths="$offload_additional_lib_paths:$tgt_dir/lib64:$tgt_dir/lib"
+      offload_additional_lib_paths="$offload_additional_lib_paths:$tgt_dir/lib64:$tgt_dir/lib:$tgt_dir/lib32"
     else
       offload_additional_options="$offload_additional_options -B\$(libexecdir)/gcc/\$(target_alias)/\$(gcc_version) -B\$(bindir)"
       offload_additional_lib_paths="$offload_additional_lib_paths:$toolexeclibdir"
