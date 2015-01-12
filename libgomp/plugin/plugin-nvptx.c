@@ -33,13 +33,13 @@
 
 #include "openacc.h"
 #include "config.h"
-#include "libgomp.h"
 #include "libgomp-plugin.h"
 #include "oacc-ptx.h"
 #include "oacc-plugin.h"
 
 #include <pthread.h>
 #include <cuda.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>

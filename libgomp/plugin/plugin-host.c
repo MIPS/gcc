@@ -32,11 +32,11 @@
 
 #include "openacc.h"
 #include "config.h"
-#include "libgomp.h"
 #ifdef HOST_NONSHM_PLUGIN
 #include "libgomp-plugin.h"
 #include "oacc-plugin.h"
 #else
+#include "libgomp.h"
 #include "oacc-int.h"
 #endif
 

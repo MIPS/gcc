@@ -35,7 +35,7 @@ libgomp_plugin_nvptx_la_CPPFLAGS = $(AM_CPPFLAGS) $(PLUGIN_NVPTX_CPPFLAGS)
 libgomp_plugin_nvptx_la_LDFLAGS = $(libgomp_plugin_nvptx_version_info) \
 	$(lt_host_flags)
 libgomp_plugin_nvptx_la_LDFLAGS += $(PLUGIN_NVPTX_LDFLAGS)
-libgomp_plugin_nvptx_la_LIBADD = $(PLUGIN_NVPTX_LIBS)
+libgomp_plugin_nvptx_la_LIBADD = libgomp.la $(PLUGIN_NVPTX_LIBS)
 libgomp_plugin_nvptx_la_LIBTOOLFLAGS = --tag=disable-static
 endif
 
@@ -45,4 +45,5 @@ libgomp_plugin_host_nonshm_la_SOURCES = plugin/plugin-host.c
 libgomp_plugin_host_nonshm_la_CPPFLAGS = $(AM_CPPFLAGS) -DHOST_NONSHM_PLUGIN
 libgomp_plugin_host_nonshm_la_LDFLAGS = \
 	$(libgomp_plugin_host_nonshm_version_info) $(lt_host_flags)
+libgomp_plugin_host_nonshm_la_LIBADD = libgomp.la
 libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS = --tag=disable-static

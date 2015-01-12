@@ -1,5 +1,11 @@
 2015-01-12  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* plugin/plugin-host.c [HOST_NONSHM_PLUGIN]: Don't include "libgomp.h".
+	* plugin/plugin-nvptx.c: Likewise.  Include <stdbool.h>.
+	* plugin/Makefrag.am (libgomp_plugin_nvptx_la_LIBADD)
+	(libgomp_plugin_host_nonshm_la_LIBADD): Append "libgomp.la".
+	* Makefile.in: Regenerate.
+
 	* env.c: Don't include "libgomp_target.h".
 	* libgomp-plugin.c: Likewise.
 	* oacc-async.c: Likewise.
