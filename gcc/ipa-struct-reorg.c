@@ -137,7 +137,6 @@ print_escape (struct_symbols str)
    the set of new variables corresponding to
    the new structure types.  */
 struct new_var_data {
-  /* VAR_DECL for original variable.  */
   tree orig_var;
   /* Vector of new variables.  */
   vec<tree> new_vars;
@@ -152,12 +151,24 @@ htab_t new_global_vars = NULL;
 /* New local variables. Generated per-function.  */
 htab_t new_local_vars;
 
+/* New  temporaries.  */
+htab_t new_tmp_vars;
+
+#define IS_TMP(X) (TREE_CODE (X) == SSA_NAME && !SSA_NAME_VAR (X))
+
 /* Hash value for new_var.  */
 
 static hashval_t
 new_var_hash (const void *x)
 {
-  return DECL_UID (((const_new_var)x)->orig_var);
+  tree orig_var = ((const_new_var)x)->orig_var;
+
+  if (IS_TMP (orig_var))
+    return SSA_NAME_VERSION (orig_var);
+  else if (DECL_P (orig_var))
+    return DECL_UID (orig_var);
+  else
+    return 0;
 }
 
 /* This function returns nonzero if orig_var of new_var X 
@@ -166,8 +177,13 @@ new_var_hash (const void *x)
 static int
 new_var_eq (const void *x, const void *y)
 {
-  if (DECL_P ((const_tree)y))
-    return DECL_UID (((const_new_var)x)->orig_var) == DECL_UID ((const_tree)y);
+  const_tree yy = (const_tree) y;
+  tree xx = ((const_new_var) x)->orig_var;
+
+  if (IS_TMP (yy) && IS_TMP (xx))
+    return SSA_NAME_VERSION (xx) == SSA_NAME_VERSION (yy);
+  else if (DECL_P (yy) && DECL_P (xx))
+    return DECL_UID (xx) == DECL_UID (yy);
   else
     return 0;
 }
@@ -177,10 +193,14 @@ new_var_eq (const void *x, const void *y)
    the function returns NULL.  */
 
 static new_var
-is_in_new_vars_htab (tree decl, htab_t new_vars_htab)
+is_in_new_vars_htab (tree var, htab_t new_vars_htab)
 {
-  return (new_var) htab_find_with_hash (new_vars_htab, decl,
-					DECL_UID (decl));
+  if (IS_TMP (var))
+    return (new_var) htab_find_with_hash (new_vars_htab, var,
+					  SSA_NAME_VERSION (var));
+  else
+    return (new_var) htab_find_with_hash (new_vars_htab, var,
+					  DECL_UID (var));
 }
 
 /* This function returns type of VAR.  */
@@ -247,20 +267,23 @@ find_new_var_of_type (tree orig_var, tree new_type)
   if (TREE_CODE (orig_var) == SSA_NAME)
      var1 = SSA_NAME_VAR (orig_var);
 
-  if (var1 == NULL_TREE)
+  if (var1 == NULL_TREE) /* orig_var is temporary  */
     {
-      if (dump_file)
-	fprintf (dump_file, "\nvar1 is NULL_TREE");
-      return tmp;
-    }
-
-  var = is_in_new_vars_htab (var1, new_global_vars);
-  if (!var)
-    {
-      fprintf (dump_file, "\nVar is not in new_global_vars.");
-      var = is_in_new_vars_htab (var1, new_local_vars);
+      var = is_in_new_vars_htab (orig_var, new_tmp_vars);
       if (!var)
-	fprintf (dump_file, "\nVar is not in new_local_vars.");
+	fprintf (dump_file, "\nVar is not in new_local_vars.");      
+    }
+  else
+    {
+
+      var = is_in_new_vars_htab (var1, new_global_vars);
+      if (!var)
+	{
+	  fprintf (dump_file, "\nVar is not in new_global_vars.");
+	  var = is_in_new_vars_htab (var1, new_local_vars);
+	  if (!var)
+	    fprintf (dump_file, "\nVar is not in new_local_vars.");
+	}
     }
 
   gcc_assert (var);
@@ -2009,20 +2032,20 @@ create_new_var_node (tree var, struct_symbols str)
    The form of the new name is <orig_name>.<I> .  */
 
 static tree
-gen_var_name (tree orig_decl, unsigned HOST_WIDE_INT i)
+gen_var_name (tree orig_var, unsigned HOST_WIDE_INT i)
 {
   const char *old_name;
   char *prefix;
   char *new_name;
 
-  if (!DECL_NAME (orig_decl)
-      || !IDENTIFIER_POINTER (DECL_NAME (orig_decl)))
+  if (!DECL_NAME (orig_var) 
+      || !IDENTIFIER_POINTER (DECL_NAME (orig_var)))
      return NULL;
 
   /* If the original variable has a name, create an
      appropriate new name for the new variable.  */
 
-  old_name = IDENTIFIER_POINTER (DECL_NAME (orig_decl));
+  old_name = IDENTIFIER_POINTER (DECL_NAME (orig_var));
   prefix = XALLOCAVEC (char, strlen (old_name) + 1);
   strcpy (prefix, old_name);
   ASM_FORMAT_PRIVATE_NAME (new_name, prefix, i);
@@ -2105,30 +2128,45 @@ copy_decl_attributes (tree new_decl, tree orig_decl)
    ORIG_DECL should has VAR_DECL tree_code.  */
 
 static void
-create_new_var_1 (tree orig_decl, struct_symbols str, new_var node)
+create_new_var_1 (tree orig_var, struct_symbols str, new_var node)
 {
   unsigned i;
   tree type;
 
   FOR_EACH_VEC_ELT (str->new_types, i, type)
     {
-      tree new_decl = NULL;
+      tree new_var = NULL;
       tree new_name;
 
-      new_name = gen_var_name (orig_decl, i);
-      type = gen_struct_type (orig_decl, type);
-
-      if (is_global_var (orig_decl))
-	new_decl = build_decl (DECL_SOURCE_LOCATION (orig_decl),
-			       VAR_DECL, new_name, type);
+      type = gen_struct_type (orig_var, type);
+      if (IS_TMP (orig_var))
+	{
+	  /* When we'll use new_var, we have to fix its definition stmt.  */ 
+	  new_var = make_ssa_name (type, SSA_NAME_DEF_STMT (orig_var));
+	}
       else
 	{
-	  const char *name = new_name ? IDENTIFIER_POINTER (new_name) : NULL;
-	  new_decl = create_tmp_var (type, name);
+	  new_name = gen_var_name (orig_var, i);
+
+	  if (is_global_var (orig_var))
+	    new_var = build_decl (DECL_SOURCE_LOCATION (orig_var),
+			       VAR_DECL, new_name, type);
+	  else
+	    {
+	      const char *name = new_name ? IDENTIFIER_POINTER (new_name) : NULL;
+	      new_var = create_tmp_var (type, name);
+	    }
+
+	  copy_decl_attributes (new_var, orig_var);
 	}
 
-      copy_decl_attributes (new_decl, orig_decl);
-      node->new_vars.safe_push (new_decl);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nnew_var is ");
+	  print_generic_expr (dump_file, new_var, 0);
+	  fprintf (dump_file, "\n");	  
+	}
+      node->new_vars.safe_push (new_var);
     }
 }
 
@@ -2138,8 +2176,14 @@ static void
 add_to_new_vars_htab (new_var new_node, htab_t new_vars_htab)
 {
   void **slot;
+  tree orig_var = new_node->orig_var;
 
-  slot = htab_find_slot_with_hash (new_vars_htab, new_node->orig_var,
+  if (IS_TMP (orig_var))
+    slot = htab_find_slot_with_hash (new_vars_htab, orig_var,
+				   SSA_NAME_VERSION (orig_var),
+				   INSERT);
+  else
+    slot = htab_find_slot_with_hash (new_vars_htab, new_node->orig_var,
 				   DECL_UID (new_node->orig_var),
 				   INSERT);
   *slot = new_node;
@@ -2170,17 +2214,17 @@ update_varpool_with_new_var (new_var node)
    them to the new_var's hashtable NEW_VARS_HTAB.  */
 
 static new_var
-create_new_var (tree var_decl, htab_t new_vars_htab)
+create_new_var (tree var, htab_t new_vars_htab)
 {
   new_var node;
   struct_symbols str;
   tree type;
   int i;
 
-  if (!var_decl || is_in_new_vars_htab (var_decl, new_vars_htab))
+  if (!var || is_in_new_vars_htab (var, new_vars_htab))
     return NULL;
 
-  if (!var_is_candidate (var_decl, &type))
+  if (!var_is_candidate (var, &type))
     return NULL;
 
   i = is_in_struct_symbols_vec (type);
@@ -2188,9 +2232,10 @@ create_new_var (tree var_decl, htab_t new_vars_htab)
     return NULL;
 
   str = struct_symbols_vec[i];
-  node = create_new_var_node (var_decl, str);
-  create_new_var_1 (var_decl, str, node);
+  node = create_new_var_node (var, str);
+  create_new_var_1 (var, str, node);
   add_to_new_vars_htab (node, new_vars_htab);
+
   return node;
 }
 
@@ -2280,7 +2325,7 @@ create_new_local_vars (void)
   FOR_EACH_LOCAL_DECL (cfun, ix, decl)
     {
       /* Local static varibales are in symbol table,
-	 and were treated as part of varibale_transform.  */
+	 and were treated as part of variable_transform.  */
       if (!TREE_STATIC (decl))
 	{
 	  if (dump_file)
@@ -2294,6 +2339,41 @@ create_new_local_vars (void)
     }
 
   dump_new_vars (new_local_vars);
+}
+
+static void
+create_new_tmp_vars (void)
+{
+  unsigned ix;
+  /* We are adding ssa name vars, so we need to 
+     count only original ones.  */
+  unsigned init_num_ssa_names = num_ssa_names;
+
+  if (dump_file)
+    fprintf (dump_file, "\nPrinting temporaries ...\n");
+
+  new_tmp_vars = htab_create (init_num_ssa_names,
+				new_var_hash, new_var_eq, NULL);
+
+  if (gimple_in_ssa_p (cfun))
+    for (ix = 1; ix < init_num_ssa_names; ++ix)
+      {
+	tree name = ssa_name (ix);
+	if (name && !SSA_NAME_VAR (name))
+	  {
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "  ");
+		print_generic_expr (dump_file, TREE_TYPE (name), 0);
+		fprintf (dump_file, " ");
+		print_generic_expr (dump_file, name, 0);
+		fprintf (dump_file, ";\n");
+	      }
+	    create_new_var (name, new_tmp_vars);
+	  }
+      }
+
+  dump_new_vars (new_tmp_vars);
 }
 
 /* This function is a callback for traversal over new_var's hashtable.
@@ -2599,13 +2679,12 @@ gen_cast_stmt (tree before_cast, tree new_type, gimple orig_cast_stmt,
   lhs = gimple_assign_lhs (orig_cast_stmt);
   new_lhs = find_new_var_of_type (lhs, new_type);
     
-  //gcc_assert (new_lhs);
-
-  if (!new_lhs)
-    return new_stmt;
+  gcc_assert (new_lhs);
     
   // new_stmt = gimple_build_assign_with_ops (NOP_EXPR, new_lhs, before_cast, 0);
   new_stmt = gimple_build_assign (new_lhs, before_cast);
+  if (IS_TMP (lhs))
+    SSA_NAME_DEF_STMT (new_lhs) = new_stmt;
   update_stmt (new_stmt);
   *res_p = new_lhs;
 
@@ -2773,6 +2852,7 @@ static void
 do_reorg_for_func (struct cgraph_node *node)
 {
   create_new_local_vars ();
+  create_new_tmp_vars ();
   collect_alloc_sites (node);
   create_new_alloc_sites (node);
   /* create_new_accesses_for_func (); */
@@ -2783,6 +2863,7 @@ do_reorg_for_func (struct cgraph_node *node)
   /* Free auxiliary data.  */
   free_alloc_sites ();
   free_new_vars_htab (new_local_vars);
+  free_new_vars_htab (new_tmp_vars);
 }
 
 /* Implementation of function_transform function for struct-reorg.  */
