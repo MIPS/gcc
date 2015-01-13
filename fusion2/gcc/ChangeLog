@@ -1,3 +1,6 @@
+2015-01-13  Aaron Sawdey <acsawdey@linux.vnet.ibm.com>
+	* pull out r219452 (ipa-inline.c) which is causing an ICE
+
 2015-01-12  Jeff Law  <law@redhat.com>
 
 	* config/h8300/h8300.c (Fpa): Use RTX_FRAME_RELATED_P directly
@@ -84,22 +87,6 @@
 	machmode.h, input.h, statistics.h, vec.h, double-int.h, real.h,
 	fixed-value.h, alias.h, symtab.h, tree-core.h, wide-int.h, inchash.h,
 	fold-const.h, tree-check.h.
-
-2015-01-12  Jan Hubicka  <hubicka@ucw.cz>
-
-	PR ipa/63967
-	PR ipa/64425
-	* ipa-inline.c (compute_uninlined_call_time,
-	compute_inlined_call_time): Use counts for extra precision when
-	needed possible.
-	(big_speedup_p): Fix formating.
-	(RELATIVE_TIME_BENEFIT_RANGE): Remove.
-	(relative_time_benefit): Remove.
-	(edge_badness): Turn DECL_DISREGARD_INLINE_LIMITS into hint;
-	merge guessed and read profile paths.
-	(inline_small_functions): Count only !optimize_size functions into
-	initial size; be more lax about sanity check when profile is used;
-	be sure to update inlined function profile when profile is read.
 
 2015-01-12  Jan Hubicka  <hubicka@ucw.cz>
 
