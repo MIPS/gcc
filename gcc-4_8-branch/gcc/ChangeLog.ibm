@@ -1,3 +1,15 @@
+2015-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2015-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64505
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Return the
+	correct reload handler if -m32 -mpowerpc64 is used.
+
+	* testsuite/gcc.target/powerpc/pr64505.c: New file to test -m32
+	-mpowerpc64 fix is correct.
+
 2014-10-13  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to 216151.
