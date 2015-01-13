@@ -1,3 +1,8 @@
+2015-01-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* trans-openmp.c (gfc_omp_finish_clause, gfc_trans_omp_clauses):
+	Use OMP_CLAUSE_SET_MAP_KIND.
+
 2014-12-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* types.def: Remove BT_FN_VOID_INT_PTR_INT.
