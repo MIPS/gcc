@@ -27962,7 +27962,7 @@ cp_parser_oacc_data_clause (cp_parser *parser, pragma_omp_clause c_kind,
   nl = cp_parser_omp_var_list (parser, OMP_CLAUSE_MAP, list);
 
   for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
-    OMP_CLAUSE_MAP_KIND (c) = kind;
+    OMP_CLAUSE_SET_MAP_KIND (c, kind);
 
   return nl;
 }
@@ -27998,7 +27998,7 @@ cp_parser_oacc_data_clause_deviceptr (cp_parser *parser, tree list)
 	error_at (loc, "%qD is not a pointer variable", v);
 
       tree u = build_omp_clause (loc, OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (u) = GOMP_MAP_FORCE_DEVICEPTR;
+      OMP_CLAUSE_SET_MAP_KIND (u, GOMP_MAP_FORCE_DEVICEPTR);
       OMP_CLAUSE_DECL (u) = v;
       OMP_CLAUSE_CHAIN (u) = list;
       list = u;
@@ -28959,7 +28959,7 @@ cp_parser_omp_clause_map (cp_parser *parser, tree list)
 					  NULL);
 
   for (c = nlist; c != list; c = OMP_CLAUSE_CHAIN (c))
-    OMP_CLAUSE_MAP_KIND (c) = kind;
+    OMP_CLAUSE_SET_MAP_KIND (c, kind);
 
   return nlist;
 }

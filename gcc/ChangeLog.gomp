@@ -1,3 +1,22 @@
+2015-01-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-core.h: Don't include "gomp-constants.h".
+	(struct tree_omp_clause): Change type of map_kind member from enum
+	gomp_map_kind to unsigned char.
+	* tree.h (OMP_CLAUSE_MAP_KIND): Cast it to enum gomp_map_kind.
+	(OMP_CLAUSE_SET_MAP_KIND): New macro.
+	* gimplify.c (gimplify_adjust_omp_clauses_1)
+	(gimplify_adjust_omp_clauses): Use OMP_CLAUSE_SET_MAP_KIND.
+	* omp-low.c (oacc_initialize_reduction_data): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt)
+	(convert_local_reference_stmt, convert_gimple_call): Likewise.
+	* tree-streamer-in.c (unpack_ts_omp_clause_value_fields):
+	Likewise.
+
+	* lto-streamer-out.c: Include "gomp-constants.h".
+	* tree-streamer-in.c: Likewise.
+	* tree-streamer-out.c: Likewise.
+
 2015-01-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-core.h (OMP_CLAUSE_MAP_ALLOC, OMP_CLAUSE_MAP_TO)

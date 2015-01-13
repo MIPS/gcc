@@ -6442,9 +6442,10 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
   else if (code == OMP_CLAUSE_MAP)
     {
-      OMP_CLAUSE_MAP_KIND (clause) = flags & GOVD_MAP_TO_ONLY
-				     ? GOMP_MAP_TO
-				     : GOMP_MAP_TOFROM;
+      OMP_CLAUSE_SET_MAP_KIND (clause,
+			       flags & GOVD_MAP_TO_ONLY
+			       ? GOMP_MAP_TO
+			       : GOMP_MAP_TOFROM);
       if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 	{
@@ -6465,7 +6466,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 				      OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_DECL (nc) = decl;
 	  OMP_CLAUSE_SIZE (nc) = size_zero_node;
-	  OMP_CLAUSE_MAP_KIND (nc) = GOMP_MAP_POINTER;
+	  OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_POINTER);
 	  OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (clause);
 	  OMP_CLAUSE_CHAIN (clause) = nc;
 	}
@@ -6639,7 +6640,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 					  OMP_CLAUSE_MAP);
 	      OMP_CLAUSE_DECL (nc) = decl;
 	      OMP_CLAUSE_SIZE (nc) = size_zero_node;
-	      OMP_CLAUSE_MAP_KIND (nc) = GOMP_MAP_POINTER;
+	      OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_POINTER);
 	      OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (c);
 	      OMP_CLAUSE_CHAIN (c) = nc;
 	      c = nc;

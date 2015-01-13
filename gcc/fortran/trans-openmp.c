@@ -1046,7 +1046,7 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 	return;
       tree orig_decl = decl;
       c4 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (c4) = GOMP_MAP_POINTER;
+      OMP_CLAUSE_SET_MAP_KIND (c4, GOMP_MAP_POINTER);
       OMP_CLAUSE_DECL (c4) = decl;
       OMP_CLAUSE_SIZE (c4) = size_int (0);
       decl = build_fold_indirect_ref (decl);
@@ -1057,7 +1057,7 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 	      || GFC_DECL_GET_SCALAR_ALLOCATABLE (orig_decl)))
 	{
 	  c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_MAP_KIND (c3) = GOMP_MAP_POINTER;
+	  OMP_CLAUSE_SET_MAP_KIND (c3, GOMP_MAP_POINTER);
 	  OMP_CLAUSE_DECL (c3) = unshare_expr (decl);
 	  OMP_CLAUSE_SIZE (c3) = size_int (0);
 	  decl = build_fold_indirect_ref (decl);
@@ -1074,11 +1074,11 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
       ptr = build_fold_indirect_ref (ptr);
       OMP_CLAUSE_DECL (c) = ptr;
       c2 = build_omp_clause (input_location, OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (c2) = GOMP_MAP_TO_PSET;
+      OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_TO_PSET);
       OMP_CLAUSE_DECL (c2) = decl;
       OMP_CLAUSE_SIZE (c2) = TYPE_SIZE_UNIT (type);
       c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (c3) = GOMP_MAP_POINTER;
+      OMP_CLAUSE_SET_MAP_KIND (c3, GOMP_MAP_POINTER);
       OMP_CLAUSE_DECL (c3) = gfc_conv_descriptor_data_get (decl);
       OMP_CLAUSE_SIZE (c3) = size_int (0);
       tree size = create_tmp_var (gfc_array_index_type);
@@ -1954,7 +1954,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      tree orig_decl = decl;
 		      node4 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_MAP_KIND (node4) = GOMP_MAP_POINTER;
+		      OMP_CLAUSE_SET_MAP_KIND (node4, GOMP_MAP_POINTER);
 		      OMP_CLAUSE_DECL (node4) = decl;
 		      OMP_CLAUSE_SIZE (node4) = size_int (0);
 		      decl = build_fold_indirect_ref (decl);
@@ -1964,7 +1964,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 			{
 			  node3 = build_omp_clause (input_location,
 						    OMP_CLAUSE_MAP);
-			  OMP_CLAUSE_MAP_KIND (node3) = GOMP_MAP_POINTER;
+			  OMP_CLAUSE_SET_MAP_KIND (node3, GOMP_MAP_POINTER);
 			  OMP_CLAUSE_DECL (node3) = decl;
 			  OMP_CLAUSE_SIZE (node3) = size_int (0);
 			  decl = build_fold_indirect_ref (decl);
@@ -1980,12 +1980,12 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      OMP_CLAUSE_DECL (node) = ptr;
 		      node2 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_MAP_KIND (node2) = GOMP_MAP_TO_PSET;
+		      OMP_CLAUSE_SET_MAP_KIND (node2, GOMP_MAP_TO_PSET);
 		      OMP_CLAUSE_DECL (node2) = decl;
 		      OMP_CLAUSE_SIZE (node2) = TYPE_SIZE_UNIT (type);
 		      node3 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_MAP_KIND (node3) = GOMP_MAP_POINTER;
+		      OMP_CLAUSE_SET_MAP_KIND (node3, GOMP_MAP_POINTER);
 		      OMP_CLAUSE_DECL (node3)
 			= gfc_conv_descriptor_data_get (decl);
 		      OMP_CLAUSE_SIZE (node3) = size_int (0);
@@ -2071,7 +2071,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		    {
 		      node4 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_MAP_KIND (node4) = GOMP_MAP_POINTER;
+		      OMP_CLAUSE_SET_MAP_KIND (node4, GOMP_MAP_POINTER);
 		      OMP_CLAUSE_DECL (node4) = decl;
 		      OMP_CLAUSE_SIZE (node4) = size_int (0);
 		      decl = build_fold_indirect_ref (decl);
@@ -2083,12 +2083,12 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      ptr2 = gfc_conv_descriptor_data_get (decl);
 		      node2 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_MAP_KIND (node2) = GOMP_MAP_TO_PSET;
+		      OMP_CLAUSE_SET_MAP_KIND (node2, GOMP_MAP_TO_PSET);
 		      OMP_CLAUSE_DECL (node2) = decl;
 		      OMP_CLAUSE_SIZE (node2) = TYPE_SIZE_UNIT (type);
 		      node3 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_MAP_KIND (node3) = GOMP_MAP_POINTER;
+		      OMP_CLAUSE_SET_MAP_KIND (node3, GOMP_MAP_POINTER);
 		      OMP_CLAUSE_DECL (node3)
 			= gfc_conv_descriptor_data_get (decl);
 		    }
@@ -2103,7 +2103,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 			}
 		      node3 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_MAP_KIND (node3) = GOMP_MAP_POINTER;
+		      OMP_CLAUSE_SET_MAP_KIND (node3, GOMP_MAP_POINTER);
 		      OMP_CLAUSE_DECL (node3) = decl;
 		    }
 		  ptr2 = fold_convert (sizetype, ptr2);
@@ -2113,37 +2113,37 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	      switch (n->u.map_op)
 		{
 		case OMP_MAP_ALLOC:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_ALLOC;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_ALLOC);
 		  break;
 		case OMP_MAP_TO:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_TO;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_TO);
 		  break;
 		case OMP_MAP_FROM:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FROM;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FROM);
 		  break;
 		case OMP_MAP_TOFROM:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_TOFROM;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_TOFROM);
 		  break;
 		case OMP_MAP_FORCE_ALLOC:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FORCE_ALLOC;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_ALLOC);
 		  break;
 		case OMP_MAP_FORCE_DEALLOC:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FORCE_DEALLOC;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_DEALLOC);
 		  break;
 		case OMP_MAP_FORCE_TO:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FORCE_TO;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_TO);
 		  break;
 		case OMP_MAP_FORCE_FROM:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FORCE_FROM;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_FROM);
 		  break;
 		case OMP_MAP_FORCE_TOFROM:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FORCE_TOFROM;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_TOFROM);
 		  break;
 		case OMP_MAP_FORCE_PRESENT:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FORCE_PRESENT;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_PRESENT);
 		  break;
 		case OMP_MAP_FORCE_DEVICEPTR:
-		  OMP_CLAUSE_MAP_KIND (node) = GOMP_MAP_FORCE_DEVICEPTR;
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_DEVICEPTR);
 		  break;
 		default:
 		  gcc_unreachable ();

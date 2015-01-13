@@ -1,3 +1,10 @@
+2015-01-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_data_clause)
+	(c_parser_oacc_data_clause_deviceptr, c_parser_omp_clause_map):
+	Use OMP_CLAUSE_SET_MAP_KIND.
+	* c-typeck.c (handle_omp_array_sections): Likewise.
+
 2014-12-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_name): Use PRAGMA_OACC_CLAUSE_*

@@ -9713,7 +9713,7 @@ oacc_initialize_reduction_data (tree clauses, tree nthreads,
       /* Add the reduction array to the list of clauses.  */
       tree x = array;
       t = build_omp_clause (gimple_location (ctx->stmt), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (t) = GOMP_MAP_FORCE_FROM;
+      OMP_CLAUSE_SET_MAP_KIND (t, GOMP_MAP_FORCE_FROM);
       OMP_CLAUSE_DECL (t) = x;
       OMP_CLAUSE_CHAIN (t) = NULL;
       if (oc)

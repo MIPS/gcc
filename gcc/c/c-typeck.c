@@ -11943,7 +11943,7 @@ handle_omp_array_sections (tree c)
 	return false;
       gcc_assert (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FORCE_DEVICEPTR);
       tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (c2) = GOMP_MAP_POINTER;
+      OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
       if (!c_mark_addressable (t))
 	return false;
       OMP_CLAUSE_DECL (c2) = t;

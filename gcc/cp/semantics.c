@@ -4671,7 +4671,7 @@ handle_omp_array_sections (tree c)
 	    return false;
 	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 				      OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_MAP_KIND (c2) = GOMP_MAP_POINTER;
+	  OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
 	  if (!cxx_mark_addressable (t))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
@@ -4695,7 +4695,7 @@ handle_omp_array_sections (tree c)
 	    {
 	      tree c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 					  OMP_CLAUSE_MAP);
-	      OMP_CLAUSE_MAP_KIND (c3) = GOMP_MAP_POINTER;
+	      OMP_CLAUSE_SET_MAP_KIND (c3, GOMP_MAP_POINTER);
 	      OMP_CLAUSE_DECL (c3) = ptr;
 	      OMP_CLAUSE_DECL (c2) = convert_from_reference (ptr);
 	      OMP_CLAUSE_SIZE (c3) = size_zero_node;

@@ -55,6 +55,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-streamer.h"
 #include "data-streamer.h"
 #include "streamer-hooks.h"
+#include "gomp-constants.h"
+
 
 /* Output the STRING constant to the string
    table in OB.  Then put the index onto the INDEX_STREAM.  */
