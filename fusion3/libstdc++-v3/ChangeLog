@@ -1,0 +1,151 @@
+2015-01-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64571
+	* config/abi/pre/gnu.ver: Export fstream functions using new string.
+
+2015-01-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64560
+	* src/c++11/cxx11-shim_facets.cc (locale::facet::_M_sso_shim): Check
+	for RTTI support.
+
+	PR libstdc++/64553
+	* src/c++11/cxx11-shim_facets.cc: Check for wchar_t support.
+
+2015-01-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* doc/xml/manual/parallel_mode.xml: Update for libgomp being
+	renamed from "GNU OpenMP Runtime Library" to "GNU Offloading and
+	Multi Processing Runtime Library".
+
+2015-01-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64476
+	* include/bits/stl_uninitialized.h (uninitialized_copy): Fix
+	is_assignable arguments.
+	* testsuite/20_util/specialized_algorithms/uninitialized_copy/64476.cc:
+	New.
+
+2015-01-09  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* libsupc++/unwind-cxx.h: Revert previous commit.
+
+2015-01-09  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* configure.host: Add arm*-*-freebsd* port_specific_symbol_files.
+
+2015-01-09  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/64239
+	* include/bits/regex.h (match_results<>::swap): Use std::swap
+	instead of swap.
+	* include/bits/regex_compiler.tcc (_Compiler<>::_M_quantifier):
+	Likewise.
+	* testsuite/28_regex/match_results/swap.cc: New testcase.
+
+2015-01-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60132
+	* include/std/type_traits (has_trivial_default_constructor,
+	has_trivial_copy_constructor, has_trivial_copy_assign): Add deprecated
+	attribute.
+	* testsuite/20_util/has_trivial_copy_assign/requirements/
+	explicit_instantiation.cc: Use -Wno-deprecated.
+	* testsuite/20_util/has_trivial_copy_assign/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/20_util/has_trivial_copy_assign/value.cc: Likewise.
+	* testsuite/20_util/has_trivial_copy_constructor/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/has_trivial_copy_constructor/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/has_trivial_copy_constructor/value.cc: Likewise.
+	* testsuite/20_util/has_trivial_default_constructor/requirements/
+	explicit_instantiation.c: Likewise.
+	* testsuite/20_util/has_trivial_default_constructor/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/has_trivial_default_constructor/value.cc:
+	Likewise.
+	* testsuite/20_util/pair/requirements/dr801.cc: Replace deprecated
+	trait.
+	* testsuite/20_util/tuple/requirements/dr801.cc: Likewise.
+	* testsuite/util/testsuite_common_types.h: Likewise.
+
+2015-01-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/hashtable_policy.h: Use __bool_constant.
+
+2015-01-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* libsupc++/Makefile.am: Compile del_ops.cc as C++14.
+	* libsupc++/Makefile.in: Regenerate.
+
+2015-01-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Fix version conflict for std::locale::name().
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-01-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64483
+	* testsuite/18_support/exception_ptr/64241.cc: Use
+	dg-require-atomic-builtins.
+
+2015-01-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/21_strings/basic_string/modifiers/64422.cc: Fix copyright
+	date.
+
+2015-01-02  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/64475
+	* include/bits/regex_executor.tcc (_Executor<>::_M_dfs): Copy the
+	iterator, since the original one shouldn't be mutated.
+
+2015-01-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR libstdc++/64422
+	* src/c++98/misc-inst.cc (string::erase): Add missing overloads.
+	(string::insert): Likewise.
+	(string::replace): Likewise.
+	(wstring::erase): Likewise.
+	(wstring::insert): Likewise.
+	(wstring::replace): Likewise.
+	* testsuite/21_strings/basic_string/modifiers/64422.cc: New testcase.
+
+2015-01-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64468
+	* doc/doxygen/user.cfg.in: Set correct TAB_SIZE.
+
+2015-01-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64438
+	* testsuite/21_strings/basic_string/numeric_conversions/char/dr1261.cc:
+	Revert removal of dg-require-string-conversions.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stod.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stof.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stoi.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stol.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stold.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stoll.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stoul.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/
+	stoull.cc: Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/
+	to_string.cc: Likewise.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
