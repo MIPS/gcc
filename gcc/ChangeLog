@@ -1,3 +1,15 @@
+2015-02-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from 4.9 branch
+	2015-01-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/64286
+	* ree.c (combine_reaching_defs): Move part of comment earlier,
+	remove !SCALAR_INT_MODE_P check.
+	(add_removable_extension): Don't add vector mode
+	extensions if all uses of the source register aren't the same
+	vector extensions.
+
 2015-02-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:

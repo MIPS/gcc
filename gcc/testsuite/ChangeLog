@@ -1,3 +1,11 @@
+2015-02-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from 4.9 branch
+	PR rtl-optimization/64286
+	2015-01-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx2-pr64286.c: New test.
+
 2015-02-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
