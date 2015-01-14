@@ -557,6 +557,10 @@ mpower8-vector
 Target Report Mask(P8_VECTOR) Var(rs6000_isa_flags)
 Use/do not use vector and scalar instructions added in ISA 2.07.
 
+mfusion-extra
+Target Undocumented Mask(FUSION_EXTRA) Var(rs6000_isa_flags)
+Test case for advanced fusion designs
+
 mcrypto
 Target Report Mask(CRYPTO) Var(rs6000_isa_flags)
 Use ISA 2.07 crypto instructions

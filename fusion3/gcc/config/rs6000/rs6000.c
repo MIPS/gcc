@@ -2405,6 +2405,9 @@ rs6000_debug_reg_global (void)
     fprintf (stderr, DEBUG_FMT_S, "p8 fusion",
 	     (TARGET_P8_FUSION_SIGN) ? "zero+sign" : "zero");
 
+  if (TARGET_FUSION_EXTRA)
+    fprintf (stderr, DEBUG_FMT_S, "fusion extra", "true");
+
   fprintf (stderr, DEBUG_FMT_S, "plt-format",
 	   TARGET_SECURE_PLT ? "secure" : "bss");
   fprintf (stderr, DEBUG_FMT_S, "struct-return",
@@ -3624,6 +3627,19 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize_function_for_speed_p (cfun)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
+
+  /* Testing advanced fusion designs requires the existing p8 fusion
+     support.  */
+  if (TARGET_FUSION_EXTRA && !TARGET_P8_FUSION)
+    {
+      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P8_FUSION))
+	rs6000_isa_flags |= OPTION_MASK_P8_FUSION;
+      else
+	{
+	  warning (0, N_("-mfusion-extra requires -mpower8-fusion"));
+	  rs6000_isa_flags &= ~OPTION_MASK_FUSION_EXTRA;
+	}
+    }
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
@@ -33489,71 +33505,20 @@ expand_fusion_gpr_load (rtx *operands)
   return;
 }
 
-/* Return a string to fuse an addis instruction with a gpr load to the same
-   register that we loaded up the addis instruction.  The address that is used
-   is the logical address that was formed during peephole2:
-	(lo_sum (high) (low-part))
+/* Emit the addis instruction that will be part of a fused instruction
+   sequence.  */
 
-   The code is complicated, so we call output_asm_insn directly, and just
-   return "".  */
-
-const char *
-emit_fusion_gpr_load (rtx target, rtx mem)
+void
+emit_fusion_addis (rtx target, rtx addis_value, const char *comment,
+		   const char *mode_name)
 {
-  rtx addis_value;
   rtx fuse_ops[10];
-  rtx addr;
-  rtx load_offset;
-  const char *addis_str = NULL;
-  const char *load_str = NULL;
-  const char *mode_name = NULL;
   char insn_template[80];
-  machine_mode mode;
+  const char *addis_str = NULL;
   const char *comment_str = ASM_COMMENT_START;
-
-  if (GET_CODE (mem) == ZERO_EXTEND)
-    mem = XEXP (mem, 0);
-
-  gcc_assert (REG_P (target) && MEM_P (mem));
 
   if (*comment_str == ' ')
     comment_str++;
-
-  addr = XEXP (mem, 0);
-  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
-    gcc_unreachable ();
-
-  addis_value = XEXP (addr, 0);
-  load_offset = XEXP (addr, 1);
-
-  /* Now emit the load instruction to the same register.  */
-  mode = GET_MODE (mem);
-  switch (mode)
-    {
-    case QImode:
-      mode_name = "char";
-      load_str = "lbz";
-      break;
-
-    case HImode:
-      mode_name = "short";
-      load_str = "lhz";
-      break;
-
-    case SImode:
-      mode_name = "int";
-      load_str = "lwz";
-      break;
-
-    case DImode:
-      gcc_assert (TARGET_POWERPC64);
-      mode_name = "long";
-      load_str = "ld";
-      break;
-
-    default:
-      gcc_unreachable ();
-    }
 
   /* Emit the addis instruction.  */
   fuse_ops[0] = target;
@@ -33633,67 +33598,451 @@ emit_fusion_gpr_load (rtx target, rtx mem)
   if (!addis_str)
     fatal_insn ("Could not generate addis value for fusion", addis_value);
 
-  sprintf (insn_template, "%s\t\t%s gpr load fusion, type %s", addis_str,
-	   comment_str, mode_name);
+  sprintf (insn_template, "%s\t\t%s %s, type %s", addis_str, comment_str,
+	   comment, mode_name);
   output_asm_insn (insn_template, fuse_ops);
+}
 
-  /* Emit the D-form load instruction.  */
-  if (CONST_INT_P (load_offset) && satisfies_constraint_I (load_offset))
+/* Emit a D-form load or store instruction that is the second instruction
+   of a fusion sequence.  */
+
+void
+emit_fusion_load_store (rtx load_store_reg, rtx addis_reg, rtx offset,
+			const char *insn_str)
+{
+  rtx fuse_ops[10];
+  char insn_template[80];
+
+  fuse_ops[0] = load_store_reg;
+  fuse_ops[1] = addis_reg;
+
+  if (CONST_INT_P (offset) && satisfies_constraint_I (offset))
     {
-      sprintf (insn_template, "%s %%0,%%1(%%0)", load_str);
-      fuse_ops[1] = load_offset;
+      sprintf (insn_template, "%s %%0,%%2(%%1)", insn_str);
+      fuse_ops[2] = offset;
       output_asm_insn (insn_template, fuse_ops);
     }
 
-  else if (GET_CODE (load_offset) == UNSPEC
-	   && XINT (load_offset, 1) == UNSPEC_TOCREL)
+  else if (GET_CODE (offset) == UNSPEC
+	   && XINT (offset, 1) == UNSPEC_TOCREL)
     {
       if (TARGET_ELF)
-	sprintf (insn_template, "%s %%0,%%1@toc@l(%%0)", load_str);
+	sprintf (insn_template, "%s %%0,%%2@toc@l(%%1)", insn_str);
 
       else if (TARGET_XCOFF)
-	sprintf (insn_template, "%s %%0,%%1@l(%%0)", load_str);
+	sprintf (insn_template, "%s %%0,%%2@l(%%1)", insn_str);
 
       else
 	gcc_unreachable ();
 
-      fuse_ops[1] = XVECEXP (load_offset, 0, 0);
+      fuse_ops[2] = XVECEXP (offset, 0, 0);
       output_asm_insn (insn_template, fuse_ops);
     }
 
-  else if (GET_CODE (load_offset) == PLUS
-	   && GET_CODE (XEXP (load_offset, 0)) == UNSPEC
-	   && XINT (XEXP (load_offset, 0), 1) == UNSPEC_TOCREL
-	   && CONST_INT_P (XEXP (load_offset, 1)))
+  else if (GET_CODE (offset) == PLUS
+	   && GET_CODE (XEXP (offset, 0)) == UNSPEC
+	   && XINT (XEXP (offset, 0), 1) == UNSPEC_TOCREL
+	   && CONST_INT_P (XEXP (offset, 1)))
     {
-      rtx tocrel_unspec = XEXP (load_offset, 0);
+      rtx tocrel_unspec = XEXP (offset, 0);
       if (TARGET_ELF)
-	sprintf (insn_template, "%s %%0,%%1+%%2@toc@l(%%0)", load_str);
+	sprintf (insn_template, "%s %%0,%%2+%%3@toc@l(%%1)", insn_str);
 
       else if (TARGET_XCOFF)
-	sprintf (insn_template, "%s %%0,%%1+%%2@l(%%0)", load_str);
+	sprintf (insn_template, "%s %%0,%%2+%%3@l(%%1)", insn_str);
 
       else
 	gcc_unreachable ();
 
-      fuse_ops[1] = XVECEXP (tocrel_unspec, 0, 0);
-      fuse_ops[2] = XEXP (load_offset, 1);
+      fuse_ops[2] = XVECEXP (tocrel_unspec, 0, 0);
+      fuse_ops[3] = XEXP (offset, 1);
       output_asm_insn (insn_template, fuse_ops);
     }
 
-  else if (TARGET_ELF && !TARGET_POWERPC64 && CONSTANT_P (load_offset))
+  else if (TARGET_ELF && !TARGET_POWERPC64 && CONSTANT_P (offset))
     {
-      sprintf (insn_template, "%s %%0,%%1@l(%%0)", load_str);
+      sprintf (insn_template, "%s %%0,%%2@l(%%1)", insn_str);
 
-      fuse_ops[1] = load_offset;
+      fuse_ops[2] = offset;
       output_asm_insn (insn_template, fuse_ops);
     }
 
   else
-    fatal_insn ("Unable to generate load offset for fusion", load_offset);
+    fatal_insn ("Unable to generate load/store offset for fusion", offset);
+
+  return;
+}
+
+/* Return a string to fuse an addis instruction with a gpr load to the same
+   register that we loaded up the addis instruction.  The address that is used
+   is the logical address that was formed during peephole2:
+	(lo_sum (high) (low-part))
+
+   The code is complicated, so we call output_asm_insn directly, and just
+   return "".  */
+
+const char *
+emit_fusion_gpr_load (rtx target, rtx mem)
+{
+  rtx addis_value;
+  rtx addr;
+  rtx load_offset;
+  const char *load_str = NULL;
+  const char *mode_name = NULL;
+  machine_mode mode;
+
+  if (GET_CODE (mem) == ZERO_EXTEND)
+    mem = XEXP (mem, 0);
+
+  gcc_assert (REG_P (target) && MEM_P (mem));
+
+  addr = XEXP (mem, 0);
+  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
+    gcc_unreachable ();
+
+  addis_value = XEXP (addr, 0);
+  load_offset = XEXP (addr, 1);
+
+  /* Now emit the load instruction to the same register.  */
+  mode = GET_MODE (mem);
+  switch (mode)
+    {
+    case QImode:
+      mode_name = "char";
+      load_str = "lbz";
+      break;
+
+    case HImode:
+      mode_name = "short";
+      load_str = "lhz";
+      break;
+
+    case SImode:
+      mode_name = "int";
+      load_str = "lwz";
+      break;
+
+    case DImode:
+      gcc_assert (TARGET_POWERPC64);
+      mode_name = "long";
+      load_str = "ld";
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Emit the addis instruction.  */
+  emit_fusion_addis (target, addis_value, "gpr load fusion", mode_name);
+
+  /* Emit the D-form load instruction.  */
+  emit_fusion_load_store (target, target, load_offset, load_str);
 
   return "";
 }
+
+
+/* Return true if the peephole2 can combine a load/store involving a
+   combination of an addis instruction and the memory operation.  This is for
+   testing the concept of advanced fusion, but it is not in hardware.  */
+
+bool
+fusion_extra_p (rtx addis_reg,		/* register set via addis.  */
+		rtx addis_value,	/* addis value.  */
+		rtx dest,		/* destination (memory or register). */
+		rtx src)		/* source (register or memory).  */
+{
+  rtx addr, mem, offset;
+  enum machine_mode mode = GET_MODE (src);
+
+  /* Validate arguments.  */
+  if (!base_reg_operand (addis_reg, GET_MODE (addis_reg)))
+    return false;
+
+  if (!fusion_gpr_addis (addis_value, GET_MODE (addis_value)))
+    return false;
+
+  /* Ignore extend operations that are part of the load.  */
+  if (GET_CODE (src) == FLOAT_EXTEND || GET_CODE (src) == ZERO_EXTEND)
+    src = XEXP (src, 0);
+
+  /* Test for memory<-register or register<-memory.  */
+  if (fpr_reg_operand (src, mode) || int_reg_operand (src, mode))
+    {
+      if (!MEM_P (dest))
+	return false;
+
+      mem = dest;
+    }
+
+  else if (MEM_P (src))
+    {
+      if (!fpr_reg_operand (dest, mode) && !int_reg_operand (dest, mode))
+	return false;
+
+      mem = src;
+    }
+
+  else
+    return false;
+
+  addr = XEXP (mem, 0);			/* either PLUS or LO_SUM.  */
+  if (GET_CODE (addr) == PLUS)
+    {
+      if (!rtx_equal_p (addis_reg, XEXP (addr, 0)))
+	return false;
+
+      return satisfies_constraint_I (XEXP (addr, 1));
+    }
+
+  else if (GET_CODE (addr) == LO_SUM)
+    {
+      if (!rtx_equal_p (addis_reg, XEXP (addr, 0)))
+	return false;
+
+      offset = XEXP (addr, 1);
+      if (TARGET_XCOFF || (TARGET_ELF && TARGET_POWERPC64))
+	return small_toc_ref (offset, GET_MODE (offset));
+
+      else if (TARGET_ELF && !TARGET_POWERPC64)
+	return CONSTANT_P (offset);
+    }
+
+  return false;
+}
+
+/* During the peephole2 pass, adjust and expand the insns for an extended fusion
+   load sequence.
+
+   The operands are:
+	operands[0]	register set with addis
+	operands[1]	value set via addis
+	operands[2]	target register being loaded
+	operands[3]	D-form memory reference using operands[0].
+
+  This is similar to the fusion introduced with power8, except it scales to
+  both loads/stores and does not require the result register to be the same as
+  the base register.  At the moment, we only do this if register set with addis
+  is dead.  */
+
+void
+expand_fusion_extra_load (rtx *operands)
+{
+  rtx tmp_reg = operands[0];
+  rtx addis_value = operands[1];
+  rtx target = operands[2];
+  rtx orig_mem = operands[3];
+  rtx  new_addr, new_mem, orig_addr, offset, set, clobber, insn;
+  enum rtx_code plus_or_lo_sum;
+  machine_mode target_mode = GET_MODE (target);
+  machine_mode extend_mode = target_mode;
+  machine_mode ptr_mode = Pmode;
+  enum rtx_code extend = UNKNOWN;
+
+  if (GET_CODE (orig_mem) == FLOAT_EXTEND || GET_CODE (orig_mem) == ZERO_EXTEND)
+    {
+      extend = GET_CODE (orig_mem);
+      orig_mem = XEXP (orig_mem, 0);
+      target_mode = GET_MODE (orig_mem);
+    }
+
+  gcc_assert (MEM_P (orig_mem));
+
+  orig_addr = XEXP (orig_mem, 0);
+  plus_or_lo_sum = GET_CODE (orig_addr);
+  gcc_assert (plus_or_lo_sum == PLUS || plus_or_lo_sum == LO_SUM);
+
+  offset = XEXP (orig_addr, 1);
+  new_addr = gen_rtx_fmt_ee (plus_or_lo_sum, ptr_mode, addis_value, offset);
+  new_mem = replace_equiv_address_nv (orig_mem, new_addr, false);
+
+  if (extend != UNKNOWN)
+    new_mem = gen_rtx_fmt_e (extend, extend_mode, new_mem);
+
+  new_mem = gen_rtx_UNSPEC (extend_mode, gen_rtvec (1, new_mem),
+			    UNSPEC_FUSION_EXTRA);
+
+  set = gen_rtx_SET (VOIDmode, target, new_mem);
+  clobber = gen_rtx_CLOBBER (VOIDmode, tmp_reg);
+  insn = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber));
+  emit_insn (insn);
+
+  return;
+}
+
+/* During the peephole2 pass, adjust and expand the insns for an extended fusion
+   store sequence.
+
+   The operands are:
+	operands[0]	register set with addis
+	operands[1]	value set via addis
+	operands[2]	target D-form memory being stored to
+	operands[3]	register being stored
+
+  This is similar to the fusion introduced with power8, except it scales to
+  both loads/stores and does not require the result register to be the same as
+  the base register.  At the moment, we only do this if register set with addis
+  is dead.  */
+
+void
+expand_fusion_extra_store (rtx *operands)
+{
+  rtx tmp_reg = operands[0];
+  rtx addis_value = operands[1];
+  rtx orig_mem = operands[2];
+  rtx src = operands[3];
+  rtx  new_addr, new_mem, orig_addr, offset, set, clobber, insn, new_src;
+  enum rtx_code plus_or_lo_sum;
+  machine_mode target_mode = GET_MODE (orig_mem);
+  machine_mode ptr_mode = Pmode;
+
+  gcc_assert (MEM_P (orig_mem));
+
+  orig_addr = XEXP (orig_mem, 0);
+  plus_or_lo_sum = GET_CODE (orig_addr);
+  gcc_assert (plus_or_lo_sum == PLUS || plus_or_lo_sum == LO_SUM);
+
+  offset = XEXP (orig_addr, 1);
+  new_addr = gen_rtx_fmt_ee (plus_or_lo_sum, ptr_mode, addis_value, offset);
+  new_mem = replace_equiv_address_nv (orig_mem, new_addr, false);
+
+  new_src = gen_rtx_UNSPEC (target_mode, gen_rtvec (1, src),
+			    UNSPEC_FUSION_EXTRA);
+
+  set = gen_rtx_SET (VOIDmode, new_mem, new_src);
+  clobber = gen_rtx_CLOBBER (VOIDmode, tmp_reg);
+  insn = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber));
+  emit_insn (insn);
+
+  return;
+}
+
+/* Return a string to fuse an addis instruction with a load using extended
+   fusion.  The address that is used is the logical address that was formed
+   during peephole2: (lo_sum (high) (low-part))
+
+   The code is complicated, so we call output_asm_insn directly, and just
+   return "".  */
+
+const char *
+emit_fusion_extra_load (rtx reg, rtx mem, rtx tmp_reg)
+{
+  enum machine_mode mode = GET_MODE (reg);
+  rtx hi;
+  rtx lo;
+  rtx addr;
+  const char *load_string;
+
+  if (fpr_reg_operand (reg, mode))
+    {
+      if (mode == SFmode)
+	load_string = "lfs";
+      else if (mode == DFmode)
+	{
+	  if (GET_CODE (mem) == FLOAT_EXTEND)
+	    {
+	      load_string = "lfs";
+	      mem = XEXP (mem, 0);
+	    }
+	  else
+	    load_string = "lfd";
+	}
+      else
+	gcc_unreachable ();
+    }
+  else
+    gcc_unreachable ();
+
+  if (!MEM_P (mem))
+    fatal_insn ("emit_fusion_extra_load not MEM", mem);
+
+  addr = XEXP (mem, 0);
+  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
+    fatal_insn ("emit_fusion_extra_load not PLUS/LO_SUM", mem);
+
+  hi = XEXP (addr, 0);
+  lo = XEXP (addr, 1);
+
+  /* Emit the addis instruction.  */
+  emit_fusion_addis (tmp_reg, hi, "extra load fusion", GET_MODE_NAME (mode));
+
+  /* Emit the D-form load instruction.  */
+  emit_fusion_load_store (reg, tmp_reg, lo, load_string);
+
+  return "";
+}
+
+/* Return a string to fuse an addis instruction with a store using extended
+   fusion.  The address that is used is the logical address that was formed
+   during peephole2: (lo_sum (high) (low-part))
+
+   The code is complicated, so we call output_asm_insn directly, and just
+   return "".  */
+
+const char *
+emit_fusion_extra_store (rtx mem, rtx reg, rtx tmp_reg)
+{
+  enum machine_mode mode = GET_MODE (reg);
+  rtx hi;
+  rtx lo;
+  rtx addr;
+  const char *store_string;
+
+  if (fpr_reg_operand (reg, mode))
+    {
+      if (mode == SFmode)
+	store_string = "stfs";
+      else if (mode == DFmode)
+	store_string = "stfd";
+      else
+	gcc_unreachable ();
+    }
+  else if (int_reg_operand (reg, mode))
+    {
+      switch (mode)
+	{
+	case QImode:
+	  store_string = "stb";
+	  break;
+	case HImode:
+	  store_string = "sth";
+	  break;
+	case SImode:
+	case SFmode:
+	  store_string = "stw";
+	  break;
+	case DImode:
+	case DFmode:
+	  if (!TARGET_POWERPC64)
+	    gcc_unreachable ();
+	  store_string = "std";
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+  else
+    gcc_unreachable ();
+
+  if (!MEM_P (mem))
+    fatal_insn ("emit_fusion_extra_store not MEM", mem);
+
+  addr = XEXP (mem, 0);
+  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
+    fatal_insn ("emit_fusion_extra_store not PLUS/LO_SUM", mem);
+
+  hi = XEXP (addr, 0);
+  lo = XEXP (addr, 1);
+
+  /* Emit the addis instruction.  */
+  emit_fusion_addis (tmp_reg, hi, "extra store fusion", GET_MODE_NAME (mode));
+
+  /* Emit the D-form load instruction.  */
+  emit_fusion_load_store (reg, tmp_reg, lo, store_string);
+
+  return "";
+}
+
 
 /* Analyze vector computations and remove unnecessary doubleword
    swaps (xxswapdi instructions).  This pass is performed only
