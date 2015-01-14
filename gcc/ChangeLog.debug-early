@@ -1,3 +1,13 @@
+2015-01-14  Jason Merrill  <jason@redhat.com>
+
+	cp/
+	* decl2.c (mangling_aliases): New variable.
+	(note_mangling_alias, generate_mangling_aliases): New.
+	(cp_write_global_declarations): Call generate_mangling_aliases.
+	(generate_mangling_alias): Split out from...
+	* mangle.c (mangle_decl): ...here.
+	* cp-tree.h: Declare note_mangling_alias.
+
 2015-01-06  Aldy Hernandez  <aldyh@redhat.com>
 
 	* dwarf2out.c: Remove deferred_asm_name.
