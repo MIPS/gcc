@@ -1,0 +1,14 @@
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-01-02  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/single.c (_gfortran_caf_co_reduce): New function.
+	* caf/libcaf.h (_gfortran_caf_co_reduce): New prototype.
+^L
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
