@@ -361,12 +361,23 @@ extern int dot_symbols;
 #undef	LINK_OS_DEFAULT_SPEC
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
+#ifdef CONFIGURE_STARTFILE_PREFIX
+#define GLIBC_DYNAMIC_LINKER32 "%:find-dynamic-linker(/lib/ld.so.1)"
+#ifdef LINUX64_DEFAULT_ABI_ELFv2
+#define GLIBC_DYNAMIC_LINKER64 "%:find-dynamic-linker(%{mabi=elfv1:/lib64/ld64.so.1;:/lib64/ld64.so.2})"
+#else
+#define GLIBC_DYNAMIC_LINKER64 "%:find-dynamic-linker(%{mabi=elfv2:/lib64/ld64.so.2;:/lib64/ld64.so.1})"
+#endif
+
+#else
 #define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
 #ifdef LINUX64_DEFAULT_ABI_ELFv2
 #define GLIBC_DYNAMIC_LINKER64 "%{mabi=elfv1:/lib64/ld64.so.1;:/lib64/ld64.so.2}"
 #else
 #define GLIBC_DYNAMIC_LINKER64 "%{mabi=elfv2:/lib64/ld64.so.2;:/lib64/ld64.so.1}"
 #endif
+#endif
+
 #define UCLIBC_DYNAMIC_LINKER32 "/lib/ld-uClibc.so.0"
 #define UCLIBC_DYNAMIC_LINKER64 "/lib/ld64-uClibc.so.0"
 #if DEFAULT_LIBC == LIBC_UCLIBC
@@ -376,6 +387,7 @@ extern int dot_symbols;
 #else
 #error "Unsupported DEFAULT_LIBC"
 #endif
+
 #define GNU_USER_DYNAMIC_LINKER32 \
   CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER32)
 #define GNU_USER_DYNAMIC_LINKER64 \
@@ -400,11 +412,34 @@ extern int dot_symbols;
 					   " -m elf64ppc")
 #endif
 
-#define LINK_OS_LINUX_SPEC32 LINK_OS_LINUX_EMUL32 " %{!shared: %{!static: \
+#ifdef CONFIGURE_STARTFILE_PREFIX
+#ifdef HAVE_LOCAL_CPU_DETECT
+#define LINUX_EXTRA_STATIC_LIBDIRS64 \
+"%{static: \
+%{mcpu=native: %:linux_extra_static_libdirs(%:local_cpu_detect(cpu))} \
+%{!mcpu=native: %{mcpu=*: %:linux_extra_static_libdirs(%{mcpu=*}) }}} "
+
+#else
+#define LINUX_EXTRA_STATIC_LIBDIRS64 \
+"%{static: \
+%{mcpu=: %:linux_extra_static_libdirs(%{mcpu=*}) }} "
+#endif
+
+#else
+#define LINUX_EXTRA_STATIC_LIBDIRS64
+#endif
+
+#define LINK_OS_LINUX_SPEC32 \
+LINK_OS_LINUX_EMUL32 \
+LINUX_EXTRA_STATIC_LIBDIRS32 \
+"%{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   -dynamic-linker " GNU_USER_DYNAMIC_LINKER32 "}}"
 
-#define LINK_OS_LINUX_SPEC64 LINK_OS_LINUX_EMUL64 " %{!shared: %{!static: \
+#define LINK_OS_LINUX_SPEC64 \
+LINK_OS_LINUX_EMUL64 \
+LINUX_EXTRA_STATIC_LIBDIRS64 \
+"%{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   -dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}}"
 

@@ -36,6 +36,7 @@ extern int do_spec (const char *);
 extern void record_temp_file (const char *, int, int);
 extern void pfatal_with_name (const char *) ATTRIBUTE_NORETURN;
 extern void set_input (const char *);
+extern const char *extra_cpu_dirs_spec_function (int, const char **);
 
 /* Spec files linked with gcc.c must provide definitions for these.  */
 
