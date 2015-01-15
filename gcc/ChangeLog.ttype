@@ -1,3 +1,12 @@
+2015-01-15  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree.h: Prototype changes from tree to ttype.
+	* tree.c (build_type_attribute_qual_variant,
+	build_type_attribute_variant, build_qualified_type,
+	build_pointer_type_for_mode): Change parameter from tree to ttype.
+	* attribs.c (finalize_type_attribute, type_attributes, decl_attributes):
+	Fix tree and ttype mismatches.
+
 2015-01-15 Andrew MacLeod  <amacleod@redhat.com>
 
 	* ttype.patch: Make error_type_node and error_mark_node different.

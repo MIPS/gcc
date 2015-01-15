@@ -398,16 +398,16 @@ process_attribute_spec (tree a, int flags)
    the parameters match those of type_attribute.  */
 
 static tree
-finalize_type_attribute (tree *node, const struct attribute_spec *spec,
+finalize_type_attribute (ttype *node, const struct attribute_spec *spec,
 			 tree a, tree returned_attrs, int flags,
 			 tree *decl_node = NULL)
 {
   bool no_add_attrs = 0;
   int fn_ptr_quals = 0;
-  tree fn_ptr_tmp = NULL_TREE;
+  ttype fn_ptr_tmp = NULL;
   tree name = get_attribute_name (a);
   tree args = TREE_VALUE (a);
-  tree *anode = node;
+  ttype *anode = node;
 
   gcc_checking_assert (TYPE_P (*node));
 
@@ -498,7 +498,7 @@ finalize_type_attribute (tree *node, const struct attribute_spec *spec,
 		 out to the other variants.  */
 	      if (*anode == TYPE_MAIN_VARIANT (*anode))
 		{
-		  tree variant;
+		  ttype variant;
 		  for (variant = *anode; variant;
 		       variant = TYPE_NEXT_VARIANT (variant))
 		    {
@@ -547,12 +547,12 @@ finalize_type_attribute (tree *node, const struct attribute_spec *spec,
    declaration rather than to its type).  */
 
 tree
-type_attributes (tree *node, tree attributes, int flags)
+type_attributes (ttype *node, tree attributes, int flags)
 {
   tree a;
   tree returned_attrs = NULL_TREE;
 
-  if (TREE_TYPE (*node) == error_mark_node || attributes == error_mark_node)
+  if (TREE_TYPE (*node) == error_type_node || attributes == error_mark_node)
     return NULL_TREE;
 
   gcc_checking_assert (TYPE_P (*node));
@@ -622,7 +622,7 @@ decl_attributes (tree *node, tree attributes, int flags)
   tree returned_attrs = NULL_TREE;
 
 
-  if (TREE_TYPE (*node) == error_mark_node || attributes == error_mark_node)
+  if (TREE_TYPE (*node) == error_type_node || attributes == error_mark_node)
     return NULL_TREE;
 
   gcc_checking_assert (DECL_P (*node));
@@ -700,9 +700,9 @@ decl_attributes (tree *node, tree attributes, int flags)
 	 the decl's type in place here.  */
       if (spec->type_required)
 	{
-	  anode = &TREE_TYPE (*anode);
+	  ttype *typenode = &TREE_TYPE (*anode);
 	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
-	  returned_attrs = finalize_type_attribute (anode, spec, a,
+	  returned_attrs = finalize_type_attribute (typenode, spec, a,
 						    returned_attrs, flags,
 						    node);
 	  continue;

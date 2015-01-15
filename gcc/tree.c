@@ -4656,8 +4656,8 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
 
    Record such modified types already made so we don't make duplicates.  */
 
-tree
-build_type_attribute_qual_variant (tree type, tree attribute, int quals)
+ttype 
+build_type_attribute_qual_variant (ttype type, tree attribute, int quals)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (type), attribute))
     {
@@ -4880,8 +4880,8 @@ comp_type_attributes (const_tree type1, const_tree type2)
 
    Record such modified types already made so we don't make duplicates.  */
 
-tree
-build_type_attribute_variant (tree type, tree attribute)
+ttype
+build_type_attribute_variant (ttype type, tree attribute)
 {
   return build_type_attribute_qual_variant (type, attribute,
 					    TYPE_QUALS (type));
@@ -6373,8 +6373,8 @@ get_qualified_type (tree type, int type_quals)
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
 
-tree
-build_qualified_type (tree type, int type_quals)
+ttype
+build_qualified_type (ttype type, int type_quals)
 {
   tree t;
 
@@ -7588,8 +7588,8 @@ add_expr (const_tree t, inchash::hash &hstate)
    reference all of memory. If such a type has already been
    constructed, reuse it.  */
 
-tree
-build_pointer_type_for_mode (tree to_type, machine_mode mode,
+ttype
+build_pointer_type_for_mode (ttype to_type, machine_mode mode,
 			     bool can_alias_all)
 {
   tree t;
