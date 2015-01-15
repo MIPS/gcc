@@ -1,3 +1,8 @@
+2015-01-15 Andrew MacLeod  <amacleod@redhat.com>
+
+	* attribs.c: (type_attributes) Don't call insert_attributes, that is
+	for DECLs only.
+
 2015-01-08  Andrew MacLeod  <amacleod@redhat.com>
 
 	* ttype.patch: Added alternatives for TREE_CODE and TREE_TYPE

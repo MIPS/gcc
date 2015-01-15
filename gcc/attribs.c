@@ -560,8 +560,6 @@ type_attributes (tree *node, tree attributes, int flags)
   if (!attributes_initialized)
     init_attributes ();
 
-  targetm.insert_attributes (*node, &attributes);
-
   for (a = attributes; a; a = TREE_CHAIN (a))
     {
       tree name = get_attribute_name (a);
