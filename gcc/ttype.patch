@@ -613,3 +613,21 @@ Index: tree.h
   /* Compute the number of operands in an expression node NODE.  For
      tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,
      otherwise it is looked up from the node's code.  */
+*************** tree_operand_check_code (const_tree __t,
+*** 3292,3299 ****
+  #define error_mark_node			global_trees[TI_ERROR_MARK]
+  /* error_type_node will eventually be distinct from error-Mark_node, but 
+     for now it must be identical for code to execute. */
+! // #define error_type_node		global_types[TPI_ERROR_TYPE]
+! #define error_type_node			error_mark_node
+  
+  #define intQI_type_node			global_types[TPI_INTQI_TYPE]
+  #define intHI_type_node			global_types[TPI_INTHI_TYPE]
+--- 3333,3339 ----
+  #define error_mark_node			global_trees[TI_ERROR_MARK]
+  /* error_type_node will eventually be distinct from error-Mark_node, but 
+     for now it must be identical for code to execute. */
+! #define error_type_node			global_types[TPI_ERROR_TYPE]
+  
+  #define intQI_type_node			global_types[TPI_INTQI_TYPE]
+  #define intHI_type_node			global_types[TPI_INTHI_TYPE]
