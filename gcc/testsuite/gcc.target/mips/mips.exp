@@ -1309,6 +1309,10 @@ proc mips-dg-options { args } {
 	    mips_make_test_option options "-mnan=2008"
 	    mips_make_test_option options "-mabs=2008"
 	}
+	if { [regexp {^-march=octeon} $arch] } {
+	    mips_make_test_option options "-mno-micromips"
+	}
+
 	unset arch
 	unset isa
 	unset isa_rev
