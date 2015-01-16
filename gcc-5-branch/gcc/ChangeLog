@@ -1,3 +1,81 @@
+2015-01-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/62066
+	* config/arm/arm-builtins.c (arm_expand_neon_args): Call va_end before
+	early return 0.
+
+2015-01-16  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* sanitizer.def (BUILT_IN_TSAN_VPTR_UPDATE): Fixed parameters.
+	* tsan.c (instrument_expr): Fixed parameters of __tsan_vptr_update.
+
+2015-01-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md: Move comment about splitting Thumb1 patterns to...
+	* config/arm/thumb1.md: ... Here.
+
+2015-01-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_scalar_mode_supported_p): Disallow
+	TImode for TARGET_32BIT.
+
+2015-01-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (TARGET_LIBGCC_CMP_RETURN_MODE,
+	TARGET_LIBGCC_SHIFT_COUNT_MODE, TARGET_UNWIND_WORD_MODE): Implement
+	as ...
+	(rs6000_abi_word_mode): New function.
+
+2015-01-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_va_start): Use MIN_UNITS_PER_WORD
+	instead of UNITS_PER_WORD to describe the size of stack slots.
+
+2015-01-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (TARGET_PROMOTE_FUNCTION_MODE): Implement
+	as rs6000_promote_function_mode.  Move comment to there.
+	(rs6000_promote_function_mode): New function.
+
+2015-01-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.h (PROMOTE_MODE): Correct test for when -m32
+	-mpowerpc64 is active.
+
+2015-01-16  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/64353
+	* tree-cfg.c (pass_data_fixup_cfg): Update SSA for
+	virtuals on start.
+
+2015-01-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/cortex-a57.md: Remove duplicate of file accidentally
+	introduced in revision 219724.
+
+2015-01-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+            Ramana Radhakrishnan <ramana.radhakrishnan@arm.com>
+
+	PR target/64263
+	* config/aarch64/aarch64.md (*movsi_aarch64): Don't split if the
+	destination is not a GP reg.
+	(*movdi_aarch64): Likewise.
+
+2015-01-16  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/64623
+	* config/rs6000/default64.h: Revert ISA change.
+
+2015-01-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64614
+	* tree-ssa-uninit.c: Include tree-cfg.h.
+	(MAX_SWITCH_CASES): New define.
+	(convert_control_dep_chain_into_preds): Handle switch statements.
+	(is_pred_expr_subset_of): Handle x == CST vs. (x & CST) != 0.
+	(normalize_one_pred_1): Do not split bit-manipulations.
+	Record (x & CST).
+
 2015-01-16  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/64568
