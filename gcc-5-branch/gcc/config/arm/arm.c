@@ -50,8 +50,16 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "reload.h"
-#include "input.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -294,6 +302,7 @@ static unsigned int arm_autovectorize_vector_sizes (void);
 static int arm_default_branch_cost (bool, bool);
 static int arm_cortex_a5_branch_cost (bool, bool);
 static int arm_cortex_m_branch_cost (bool, bool);
+static int arm_cortex_m7_branch_cost (bool, bool);
 
 static bool arm_vectorize_vec_perm_const_ok (machine_mode vmode,
 					     const unsigned char *sel);
@@ -1903,6 +1912,26 @@ const struct tune_params arm_cortex_a57_tune =
   ARM_FUSE_MOVW_MOVT				/* Fuseable pairs of instructions.  */
 };
 
+const struct tune_params arm_xgene1_tune =
+{
+  arm_9e_rtx_costs,
+  &xgene1_extra_costs,
+  NULL,                                        /* Scheduler cost adjustment.  */
+  1,                                           /* Constant limit.  */
+  2,                                           /* Max cond insns.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  false,                                       /* Prefer constant pool.  */
+  arm_default_branch_cost,
+  true,                                        /* Prefer LDRD/STRD.  */
+  {true, true},                                /* Prefer non short circuit.  */
+  &arm_default_vec_cost,                       /* Vectorizer costs.  */
+  false,                                       /* Prefer Neon for 64-bits bitops.  */
+  true, true,                                  /* Prefer 32-bit encodings.  */
+  false,				       /* Prefer Neon for stringops.  */
+  32,					       /* Maximum insns to inline memset.  */
+  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+};
+
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
    less appealing.  Set max_insns_skipped to a low value.  */
 
@@ -2001,10 +2030,10 @@ const struct tune_params arm_cortex_m7_tune =
   &v7m_extra_costs,
   NULL,						/* Sched adj cost.  */
   0,						/* Constant limit.  */
-  0,						/* Max cond insns.  */
+  1,						/* Max cond insns.  */
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
-  arm_cortex_m_branch_cost,
+  arm_cortex_m7_branch_cost,
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
@@ -12052,6 +12081,12 @@ arm_cortex_m_branch_cost (bool speed_p, bool predictable_p)
          : arm_default_branch_cost (speed_p, predictable_p);
 }
 
+static int
+arm_cortex_m7_branch_cost (bool speed_p, bool predictable_p)
+{
+  return speed_p ? 0 : arm_default_branch_cost (speed_p, predictable_p);
+}
+
 static bool fp_consts_inited = false;
 
 static REAL_VALUE_TYPE value_fp0;
@@ -19026,6 +19061,14 @@ output_ascii_pseudo_op (FILE *stream, const unsigned char *p, int len)
   fputs ("\"\n", stream);
 }
 
+/* Whether a register is callee saved or not.  This is necessary because high
+   registers are marked as caller saved when optimizing for size on Thumb-1
+   targets despite being callee saved in order to avoid using them.  */
+#define callee_saved_reg_p(reg) \
+  (!call_used_regs[reg] \
+   || (TARGET_THUMB1 && optimize_size \
+       && reg >= FIRST_HI_REGNUM && reg <= LAST_HI_REGNUM))
+
 /* Compute the register save mask for registers 0 through 12
    inclusive.  This code is used by arm_compute_save_reg_mask.  */
 
@@ -19086,7 +19129,7 @@ arm_compute_save_reg0_reg12_mask (void)
       /* In the normal case we only need to save those registers
 	 which are call saved and which are used by this function.  */
       for (reg = 0; reg <= 11; reg++)
-	if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
+	if (df_regs_ever_live_p (reg) && callee_saved_reg_p (reg))
 	  save_reg_mask |= (1 << reg);
 
       /* Handle the frame pointer as a special case.  */
@@ -19250,7 +19293,7 @@ thumb1_compute_save_reg_mask (void)
 
   mask = 0;
   for (reg = 0; reg < 12; reg ++)
-    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
+    if (df_regs_ever_live_p (reg) && callee_saved_reg_p (reg))
       mask |= 1 << reg;
 
   if (flag_pic
@@ -19283,7 +19326,7 @@ thumb1_compute_save_reg_mask (void)
       if (reg * UNITS_PER_WORD <= (unsigned) arm_size_return_regs ())
 	reg = LAST_LO_REGNUM;
 
-      if (! call_used_regs[reg])
+      if (callee_saved_reg_p (reg))
 	mask |= 1 << reg;
     }
 
@@ -27067,6 +27110,9 @@ arm_issue_rate (void)
 {
   switch (arm_tune)
     {
+    case xgene1:
+      return 4;
+
     case cortexa15:
     case cortexa57:
       return 3;
@@ -27223,8 +27269,7 @@ arm_conditional_register_usage (void)
       /* When optimizing for size on Thumb-1, it's better not
         to use the HI regs, because of the overhead of
         stacking them.  */
-      for (regno = FIRST_HI_REGNUM;
-	   regno <= LAST_HI_REGNUM; ++regno)
+      for (regno = FIRST_HI_REGNUM; regno <= LAST_HI_REGNUM; ++regno)
 	fixed_regs[regno] = call_used_regs[regno] = 1;
     }
 

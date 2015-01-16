@@ -181,6 +181,12 @@ struct mips_cpu_info {
 #define ISA_HAS_DSP_MULT ISA_HAS_DSPR2
 #endif
 
+/* ISA has LSA available.  */
+#define ISA_HAS_LSA		(mips_isa_rev >= 6)
+
+/* ISA has DLSA available.  */
+#define ISA_HAS_DLSA		(TARGET_64BIT && mips_isa_rev >= 6)
+
 /* The ISA compression flags that are currently in effect.  */
 #define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS))
 
@@ -1089,8 +1095,8 @@ struct mips_cpu_info {
 				  || mips_isa_rev >= 1)			\
 				 && !TARGET_MIPS16)
 
-/* ISA has data prefetch with limited 9-bit displacement.  */
-#define ISA_HAS_PREFETCH_9BIT	(mips_isa_rev >= 6)
+/* ISA has data prefetch, LL and SC with limited 9-bit displacement.  */
+#define ISA_HAS_9BIT_DISPLACEMENT	(mips_isa_rev >= 6)
 
 /* ISA has data indexed prefetch instructions.  This controls use of
    'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.

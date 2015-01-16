@@ -1176,6 +1176,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       {
       case IFN_UBSAN_NULL:
       case IFN_UBSAN_BOUNDS:
+      case IFN_UBSAN_VPTR:
 	return void_node;
       default:
 	if (!ctx->quiet)
@@ -1624,7 +1625,7 @@ cxx_eval_binary_expression (const constexpr_ctx *ctx, tree t,
   rhs = cxx_eval_constant_expression (ctx, orig_rhs, /*lval*/false,
 				      non_constant_p, overflow_p);
   if (!ptr)
-    VERIFY_CONSTANT (lhs);
+    VERIFY_CONSTANT (rhs);
 
   location_t loc = EXPR_LOCATION (t);
   enum tree_code code = TREE_CODE (t);
@@ -1640,7 +1641,7 @@ cxx_eval_binary_expression (const constexpr_ctx *ctx, tree t,
   else if (cxx_eval_check_shift_p (loc, ctx, code, type, lhs, rhs))
     *non_constant_p = true;
   if (!ptr)
-    VERIFY_CONSTANT (lhs);
+    VERIFY_CONSTANT (r);
   return r;
 }
 
@@ -3820,6 +3821,19 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 
 	if (fun == NULL_TREE)
 	  {
+	    if (TREE_CODE (t) == CALL_EXPR
+		&& CALL_EXPR_FN (t) == NULL_TREE)
+	      switch (CALL_EXPR_IFN (t))
+		{
+		/* These should be ignored, they are optimized away from
+		   constexpr functions.  */
+		case IFN_UBSAN_NULL:
+		case IFN_UBSAN_BOUNDS:
+		case IFN_UBSAN_VPTR:
+		  return true;
+		default:
+		  break;
+		}
 	    /* fold_call_expr can't do anything with IFN calls.  */
 	    if (flags & tf_error)
 	      error_at (EXPR_LOC_OR_LOC (t, input_location),
@@ -3881,7 +3895,11 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
         for (; i < nargs; ++i)
           {
             tree x = get_nth_callarg (t, i);
-	    if (!RECUR (x, rval))
+	    /* In a template, reference arguments haven't been converted to
+	       REFERENCE_TYPE and we might not even know if the parameter
+	       is a reference, so accept lvalue constants too.  */
+	    bool rv = processing_template_decl ? any : rval;
+	    if (!RECUR (x, rv))
 	      return false;
           }
         return true;

@@ -168,8 +168,8 @@ in the following sections.
 @gccoptlist{-ansi  -std=@var{standard}  -fgnu89-inline @gol
 -aux-info @var{filename} -fallow-parameterless-variadic-functions @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
--fhosted  -ffreestanding -fopenmp -fopenmp-simd -fms-extensions @gol
--fplan9-extensions -trigraphs  -traditional  -traditional-cpp @gol
+-fhosted  -ffreestanding -fopenacc -fopenmp -fopenmp-simd @gol
+-fms-extensions -fplan9-extensions -trigraphs -traditional -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch -flax-vector-conversions @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char}
@@ -428,8 +428,9 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fsemantic-interposition @gol
 -fshrink-wrap -fsignaling-nans -fsingle-precision-constant @gol
--fsplit-ivs-in-unroller -fsplit-wide-types -fssa-phiopt -fstack-protector @gol
--fstack-protector-all -fstack-protector-strong -fstrict-aliasing @gol
+-fsplit-ivs-in-unroller -fsplit-wide-types -fssa-phiopt @gol
+-fstack-protector -fstack-protector-all -fstack-protector-strong @gol
+-fstack-protector-explicit -fstrict-aliasing @gol
 -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
@@ -446,7 +447,7 @@ Objective-C and Objective-C++ Dialects}.
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fipa-ra -fvariable-expansion-in-unroller -fvect-cost-model -fvpt @gol
--fweb -fwhole-program -fwpa -fuse-ld=@var{linker} -fuse-linker-plugin @gol
+-fweb -fwhole-program -fwpa -fuse-linker-plugin @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os -Ofast -Og}
 
@@ -472,7 +473,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @item Linker Options
 @xref{Link Options,,Options for Linking}.
-@gccoptlist{@var{object-file-name}  -l@var{library} @gol
+@gccoptlist{@var{object-file-name}  -fuse-ld=@var{linker} -l@var{library} @gol
 -nostartfiles  -nodefaultlibs  -nostdlib -pie -rdynamic @gol
 -s  -static -static-libgcc -static-libstdc++ @gol
 -static-libasan -static-libtsan -static-liblsan -static-libubsan @gol
@@ -860,15 +861,15 @@ Objective-C and Objective-C++ Dialects}.
 -mperf-ext -mno-perf-ext @gol
 -mv3push -mno-v3push @gol
 -m16bit -mno-16bit @gol
--mgp-direct -mno-gp-direct @gol
 -misr-vector-size=@var{num} @gol
 -mcache-block-size=@var{num} @gol
 -march=@var{arch} @gol
--mforce-fp-as-gp -mforbid-fp-as-gp @gol
--mex9 -mctor-dtor -mrelax}
+-mcmodel=@var{code-model} @gol
+-mctor-dtor -mrelax}
 
 @emph{Nios II Options}
-@gccoptlist{-G @var{num} -mgpopt -mno-gpopt -mel -meb @gol
+@gccoptlist{-G @var{num} -mgpopt=@var{option} -mgpopt -mno-gpopt @gol
+-mel -meb @gol
 -mno-bypass-cache -mbypass-cache @gol
 -mno-cache-volatile -mcache-volatile @gol
 -mno-fast-sw-div -mfast-sw-div @gol
@@ -1883,6 +1884,20 @@ This is equivalent to @option{-fno-hosted}.
 
 @xref{Standards,,Language Standards Supported by GCC}, for details of
 freestanding and hosted environments.
+
+@item -fopenacc
+@opindex fopenacc
+@cindex OpenACC accelerator programming
+Enable handling of OpenACC directives @code{#pragma acc} in C/C++ and
+@code{!$acc} in Fortran.  When @option{-fopenacc} is specified, the
+compiler generates accelerated code according to the OpenACC Application
+Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.  This option
+implies @option{-pthread}, and thus is only supported on targets that
+have support for @option{-pthread}.
+
+Note that this is an experimental feature, incomplete, and subject to
+change in future versions of GCC.  See
+@w{@uref{https://gcc.gnu.org/wiki/OpenACC}} for more information.
 
 @item -fopenmp
 @opindex fopenmp
@@ -9338,14 +9353,6 @@ the comparison operation before register allocation is complete.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
-@item -fuse-ld=bfd
-@opindex fuse-ld=bfd
-Use the @command{bfd} linker instead of the default linker.
-
-@item -fuse-ld=gold
-@opindex fuse-ld=gold
-Use the @command{gold} linker instead of the default linker.
-
 @item -fcprop-registers
 @opindex fcprop-registers
 After register allocation and post-register allocation instruction splitting,
@@ -9845,6 +9852,11 @@ Like @option{-fstack-protector} except that all functions are protected.
 Like @option{-fstack-protector} but includes additional functions to
 be protected --- those that have local array definitions, or have
 references to local frame addresses.
+
+@item -fstack-protector-explicit
+@opindex fstack-protector-explicit
+Like @option{-fstack-protector} but only protects those functions which
+have the @code{stack_protect} attribute
 
 @item -fsection-anchors
 @opindex fsection-anchors
@@ -10888,6 +10900,14 @@ to the linker.
 If any of these options is used, then the linker is not run, and
 object file names should not be used as arguments.  @xref{Overall
 Options}.
+
+@item -fuse-ld=bfd
+@opindex fuse-ld=bfd
+Use the @command{bfd} linker instead of the default linker.
+
+@item -fuse-ld=gold
+@opindex fuse-ld=gold
+Use the @command{gold} linker instead of the default linker.
 
 @cindex Libraries
 @item -l@var{library}
@@ -12095,7 +12115,8 @@ architecture.
 @opindex mtune
 Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
-@samp{generic}, @samp{cortex-a53}, @samp{cortex-a57}, @samp{thunderx}.
+@samp{generic}, @samp{cortex-a53}, @samp{cortex-a57}, @samp{thunderx},
+@samp{xgene1}.
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  The only permissible value is
@@ -12828,10 +12849,11 @@ Standard for all functions, even if this is not strictly necessary for
 correct execution of the code.  Specifying @option{-fomit-frame-pointer}
 with this option causes the stack frames not to be generated for
 leaf functions.  The default is @option{-mno-apcs-frame}.
+This option is deprecated.
 
 @item -mapcs
 @opindex mapcs
-This is a synonym for @option{-mapcs-frame}.
+This is a synonym for @option{-mapcs-frame} and is deprecated.
 
 @ignore
 @c not currently implemented
@@ -12971,7 +12993,8 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{marvell-pj4},
 @samp{xscale}, @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312},
 @samp{fa526}, @samp{fa626},
-@samp{fa606te}, @samp{fa626te}, @samp{fmp626}, @samp{fa726te}.
+@samp{fa606te}, @samp{fa626te}, @samp{fmp626}, @samp{fa726te},
+@samp{xgene1}.
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  Permissible names are:
@@ -19129,14 +19152,6 @@ Generate 16-bit instructions.
 @opindex mno-16-bit
 Do not generate 16-bit instructions.
 
-@item -mgp-direct
-@opindex mgp-direct
-Generate GP base instructions directly.
-
-@item -mno-gp-direct
-@opindex mno-gp-direct
-Do no generate GP base instructions directly.
-
 @item -misr-vector-size=@var{num}
 @opindex misr-vector-size
 Specify the size of each interrupt vector, which must be 4 or 16.
@@ -19150,20 +19165,20 @@ which must be a power of 2 between 4 and 512.
 @opindex march
 Specify the name of the target architecture.
 
-@item -mforce-fp-as-gp
-@opindex mforce-fp-as-gp
-Prevent $fp being allocated during register allocation so that compiler
-is able to force performing fp-as-gp optimization.
-
-@item -mforbid-fp-as-gp
-@opindex mforbid-fp-as-gp
-Forbid using $fp to access static and global variables.
-This option strictly forbids fp-as-gp optimization
-regardless of @option{-mforce-fp-as-gp}.
-
-@item -mex9
-@opindex mex9
-Use special directives to guide linker doing ex9 optimization.
+@item -mcmodel=@var{code-model}
+@opindex mcmodel
+Set the code model to one of
+@table @asis
+@item @samp{small}
+All the data and read-only data segments must be within 512KB addressing space.
+The text segment must be within 16MB addressing space.
+@item @samp{medium}
+The data segment must be within 512KB while the read-only data segment can be
+within 4GB addressing space.  The text segment should be still within 16MB
+addressing space.
+@item @samp{large}
+All the text and data segments can be within 4GB addressing space.
+@end table
 
 @item -mctor-dtor
 @opindex mctor-dtor
@@ -19191,15 +19206,54 @@ Put global and static objects less than or equal to @var{num} bytes
 into the small data or BSS sections instead of the normal data or BSS
 sections.  The default value of @var{num} is 8.
 
+@item -mgpopt=@var{option}
 @item -mgpopt
 @itemx -mno-gpopt
 @opindex mgpopt
 @opindex mno-gpopt
-Generate (do not generate) GP-relative accesses for objects in the
-small data or BSS sections.  The default is @option{-mgpopt} except
-when @option{-fpic} or @option{-fPIC} is specified to generate
-position-independent code.  Note that the Nios II ABI does not permit
-GP-relative accesses from shared libraries.
+Generate (do not generate) GP-relative accesses.  The following 
+@var{option} names are recognized:
+
+@table @samp
+
+@item none
+Do not generate GP-relative accesses.
+
+@item local
+Generate GP-relative accesses for small data objects that are not 
+external or weak.  Also use GP-relative addressing for objects that
+have been explicitly placed in a small data section via a @code{section}
+attribute.
+
+@item global
+As for @samp{local}, but also generate GP-relative accesses for
+small data objects that are external or weak.  If you use this option,
+you must ensure that all parts of your program (including libraries) are
+compiled with the same @option{-G} setting.
+
+@item data
+Generate GP-relative accesses for all data objects in the program.  If you
+use this option, the entire data and BSS segments
+of your program must fit in 64K of memory and you must use an appropriate
+linker script to allocate them within the addressible range of the
+global pointer.
+
+@item all
+Generate GP-relative addresses for function pointers as well as data
+pointers.  If you use this option, the entire text, data, and BSS segments
+of your program must fit in 64K of memory and you must use an appropriate
+linker script to allocate them within the addressible range of the
+global pointer.
+
+@end table
+
+@option{-mgpopt} is equivalent to @option{-mgpopt=local}, and
+@option{-mno-gpopt} is equivalent to @option{-mgpopt=none}.
+
+The default is @option{-mgpopt} except when @option{-fpic} or
+@option{-fPIC} is specified to generate position-independent code.
+Note that the Nios II ABI does not permit GP-relative accesses from
+shared libraries.
 
 You may need to specify @option{-mno-gpopt} explicitly when building
 programs that include large amounts of small data, including large

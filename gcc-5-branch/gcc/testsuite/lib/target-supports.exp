@@ -788,6 +788,15 @@ proc check_effective_target_fgraphite {} {
     } "-O1 -fgraphite"]
 }
 
+# Return 1 if compilation with -fopenacc is error-free for trivial
+# code, 0 otherwise.
+
+proc check_effective_target_fopenacc {} {
+    return [check_no_compiler_messages fopenacc object {
+	void foo (void) { }
+    } "-fopenacc"]
+}
+
 # Return 1 if compilation with -fopenmp is error-free for trivial
 # code, 0 otherwise.
 
@@ -2592,6 +2601,11 @@ proc check_effective_target_arm_neon_ok_nocache { } {
 	    if { [check_no_compiler_messages_nocache arm_neon_ok object {
 		#include "arm_neon.h"
 		int dummy;
+		/* Avoid the case where a test adds -mfpu=neon, but the toolchain is
+		   configured for -mcpu=arm926ej-s, for example.  */
+		#if __ARM_ARCH < 7
+		#error Architecture too old for NEON.
+		#endif
 	    } "$flags"] } {
 		set et_arm_neon_flags $flags
 		return 1
@@ -5755,11 +5769,12 @@ proc check_effective_target_gld { } {
 # (LTO) support.
 
 proc check_effective_target_lto { } {
-    global ENABLE_LTO
     if { [istarget nvptx-*-*] } {
 	return 0;
     }
-    return [info exists ENABLE_LTO]
+    return [check_no_compiler_messages lto object {
+	void foo (void) { }
+    } "-flto"]
 }
 
 # Return 1 if -mx32 -maddress-mode=short can compile, 0 otherwise.
