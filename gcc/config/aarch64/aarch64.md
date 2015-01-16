@@ -188,8 +188,9 @@
 
 ;; Scheduling
 (include "../arm/cortex-a53.md")
-(include "../arm/cortex-a15.md")
+(include "../arm/cortex-a57.md")
 (include "thunderx.md")
+(include "../arm/xgene1.md")
 
 ;; -------------------------------------------------------------------
 ;; Jumps and other miscellaneous insns
@@ -247,7 +248,7 @@
   ""
   "")
 
-(define_insn "*ccmp_and"
+(define_insn "ccmp_and<mode>"
   [(set (match_operand 1 "ccmp_cc_register" "")
 	(compare
 	 (and:SI
@@ -266,7 +267,7 @@
   [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
 )
 
-(define_insn "*ccmp_ior"
+(define_insn "ccmp_ior<mode>"
   [(set (match_operand 1 "ccmp_cc_register" "")
 	(compare
 	 (ior:SI
@@ -283,6 +284,20 @@
    ccmp\\t%<w>2, %<w>3, %K5, %M4
    ccmn\\t%<w>2, #%n3, %K5, %M4"
   [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
+)
+
+(define_expand "cmp<mode>"
+  [(set (match_operand 0 "cc_register" "")
+        (match_operator:CC 1 "aarch64_comparison_operator"
+         [(match_operand:GPI 2 "register_operand" "")
+          (match_operand:GPI 3 "aarch64_plus_operand" "")]))]
+  ""
+  {
+    operands[1] = gen_rtx_fmt_ee (COMPARE,
+				  SELECT_CC_MODE (GET_CODE (operands[1]),
+						  operands[2], operands[3]),
+				  operands[2], operands[3]);
+  }
 )
 
 (define_insn "*condjump"

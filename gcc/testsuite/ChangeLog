@@ -1,3 +1,281 @@
+2015-01-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61743
+	* gcc.dg/tree-ssa/pr61743-1.c: Add -fno-tree-vectorize.
+	* gcc.dg/tree-ssa/pr61743-2.c: Likewise.
+
+2015-01-16  Zhenqiang Chen <zhenqiang.chen@arm.com>
+
+	* gcc.dg/pr64015.c: New test.
+
+2015-01-16  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR ipa/64163
+	PR ipa/64612
+	* g++.dg/ipa/pr64612.C: New test.
+
+2015-01-16  Renlin Li  <renlin.li@arm.com>
+
+	* g++.dg/builtin-apply2.c: Remove aarch64 target from skip list.
+
+2015-01-16  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gcc.target/i386/sse-14.c: Test new intrinsic.
+	* gcc.target/i386/sse-22.c: Ditto.
+
+2015-01-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58614
+	* g++.dg/cpp0x/auto44.C: New.
+
+2015-01-15  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR target/59710
+	* gcc.target/nios2/gpopt-all.c: New test case.
+	* gcc.target/nios2/gpopt-local.c: New test case.
+	* gcc.target/nios2/gpopt-global.c: New test case.
+	* gcc.target/nios2/gpopt-data.c: New test case.
+	* gcc.target/nios2/gpopt-none.c: New test case.
+
+2015-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ubsan/vptr-1.C: New test.
+	* g++.dg/ubsan/vptr-2.C: New test.
+	* g++.dg/ubsan/vptr-3.C: New test.
+	* g++.dg/ubsan/vptr-4.C: New test.
+	* g++.dg/ubsan/vptr-5.C: New test.
+	* g++.dg/ubsan/vptr-6.C: New test.
+	* g++.dg/ubsan/vptr-7.C: New test.
+	* g++.dg/ubsan/vptr-8.C: New test.
+	* g++.dg/ubsan/vptr-9.C: New test.
+
+2015-01-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lib/c-torture.exp: Compute LTO_TORTURE_OPTIONS after the environment
+	is set up.
+	* lib/gcc-dg.exp: Likewise.
+
+2015-01-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/64110
+	* gcc.target/i386/pr64110.c: Add scan-assembler.
+
+2015-01-15  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* lib/target-supports.exp (check_effective_target_fopenacc): New
+	procedure.
+	* g++.dg/goacc-gomp/goacc-gomp.exp: New file.
+	* g++.dg/goacc/goacc.exp: Likewise.
+	* gcc.dg/goacc-gomp/goacc-gomp.exp: Likewise.
+	* gcc.dg/goacc/goacc.exp: Likewise.
+	* gfortran.dg/goacc/goacc.exp: Likewise.
+	* c-c++-common/cpp/openacc-define-1.c: New file.
+	* c-c++-common/cpp/openacc-define-2.c: Likewise.
+	* c-c++-common/cpp/openacc-define-3.c: Likewise.
+	* c-c++-common/goacc-gomp/nesting-1.c: Likewise.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/acc_on_device-2-off.c: Likewise.
+	* c-c++-common/goacc/acc_on_device-2.c: Likewise.
+	* c-c++-common/goacc/asyncwait-1.c: Likewise.
+	* c-c++-common/goacc/cache-1.c: Likewise.
+	* c-c++-common/goacc/clauses-fail.c: Likewise.
+	* c-c++-common/goacc/collapse-1.c: Likewise.
+	* c-c++-common/goacc/data-1.c: Likewise.
+	* c-c++-common/goacc/data-2.c: Likewise.
+	* c-c++-common/goacc/data-clause-duplicate-1.c: Likewise.
+	* c-c++-common/goacc/deviceptr-1.c: Likewise.
+	* c-c++-common/goacc/deviceptr-2.c: Likewise.
+	* c-c++-common/goacc/deviceptr-3.c: Likewise.
+	* c-c++-common/goacc/if-clause-1.c: Likewise.
+	* c-c++-common/goacc/if-clause-2.c: Likewise.
+	* c-c++-common/goacc/kernels-1.c: Likewise.
+	* c-c++-common/goacc/loop-1.c: Likewise.
+	* c-c++-common/goacc/loop-private-1.c: Likewise.
+	* c-c++-common/goacc/nesting-1.c: Likewise.
+	* c-c++-common/goacc/nesting-data-1.c: Likewise.
+	* c-c++-common/goacc/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/parallel-1.c: Likewise.
+	* c-c++-common/goacc/pcopy.c: Likewise.
+	* c-c++-common/goacc/pcopyin.c: Likewise.
+	* c-c++-common/goacc/pcopyout.c: Likewise.
+	* c-c++-common/goacc/pcreate.c: Likewise.
+	* c-c++-common/goacc/pragma_context.c: Likewise.
+	* c-c++-common/goacc/present-1.c: Likewise.
+	* c-c++-common/goacc/reduction-1.c: Likewise.
+	* c-c++-common/goacc/reduction-2.c: Likewise.
+	* c-c++-common/goacc/reduction-3.c: Likewise.
+	* c-c++-common/goacc/reduction-4.c: Likewise.
+	* c-c++-common/goacc/sb-1.c: Likewise.
+	* c-c++-common/goacc/sb-2.c: Likewise.
+	* c-c++-common/goacc/sb-3.c: Likewise.
+	* c-c++-common/goacc/update-1.c: Likewise.
+	* gcc.dg/goacc/acc_on_device-1.c: Likewise.
+	* gfortran.dg/goacc/acc_on_device-1.f95: Likewise.
+	* gfortran.dg/goacc/acc_on_device-2-off.f95: Likewise.
+	* gfortran.dg/goacc/acc_on_device-2.f95: Likewise.
+	* gfortran.dg/goacc/assumed.f95: Likewise.
+	* gfortran.dg/goacc/asyncwait-1.f95: Likewise.
+	* gfortran.dg/goacc/asyncwait-2.f95: Likewise.
+	* gfortran.dg/goacc/asyncwait-3.f95: Likewise.
+	* gfortran.dg/goacc/asyncwait-4.f95: Likewise.
+	* gfortran.dg/goacc/branch.f95: Likewise.
+	* gfortran.dg/goacc/cache-1.f95: Likewise.
+	* gfortran.dg/goacc/coarray.f95: Likewise.
+	* gfortran.dg/goacc/continuation-free-form.f95: Likewise.
+	* gfortran.dg/goacc/cray.f95: Likewise.
+	* gfortran.dg/goacc/critical.f95: Likewise.
+	* gfortran.dg/goacc/data-clauses.f95: Likewise.
+	* gfortran.dg/goacc/data-tree.f95: Likewise.
+	* gfortran.dg/goacc/declare-1.f95: Likewise.
+	* gfortran.dg/goacc/enter-exit-data.f95: Likewise.
+	* gfortran.dg/goacc/fixed-1.f: Likewise.
+	* gfortran.dg/goacc/fixed-2.f: Likewise.
+	* gfortran.dg/goacc/fixed-3.f: Likewise.
+	* gfortran.dg/goacc/fixed-4.f: Likewise.
+	* gfortran.dg/goacc/host_data-tree.f95: Likewise.
+	* gfortran.dg/goacc/if.f95: Likewise.
+	* gfortran.dg/goacc/kernels-tree.f95: Likewise.
+	* gfortran.dg/goacc/list.f95: Likewise.
+	* gfortran.dg/goacc/literal.f95: Likewise.
+	* gfortran.dg/goacc/loop-1.f95: Likewise.
+	* gfortran.dg/goacc/loop-2.f95: Likewise.
+	* gfortran.dg/goacc/loop-3.f95: Likewise.
+	* gfortran.dg/goacc/loop-tree-1.f90: Likewise.
+	* gfortran.dg/goacc/omp.f95: Likewise.
+	* gfortran.dg/goacc/parallel-kernels-clauses.f95: Likewise.
+	* gfortran.dg/goacc/parallel-kernels-regions.f95: Likewise.
+	* gfortran.dg/goacc/parallel-tree.f95: Likewise.
+	* gfortran.dg/goacc/parameter.f95: Likewise.
+	* gfortran.dg/goacc/private-1.f95: Likewise.
+	* gfortran.dg/goacc/private-2.f95: Likewise.
+	* gfortran.dg/goacc/private-3.f95: Likewise.
+	* gfortran.dg/goacc/pure-elemental-procedures.f95: Likewise.
+	* gfortran.dg/goacc/reduction-2.f95: Likewise.
+	* gfortran.dg/goacc/reduction.f95: Likewise.
+	* gfortran.dg/goacc/routine-1.f90: Likewise.
+	* gfortran.dg/goacc/routine-2.f90: Likewise.
+	* gfortran.dg/goacc/sentinel-free-form.f95: Likewise.
+	* gfortran.dg/goacc/several-directives.f95: Likewise.
+	* gfortran.dg/goacc/sie.f95: Likewise.
+	* gfortran.dg/goacc/subarrays.f95: Likewise.
+	* gfortran.dg/gomp/map-1.f90: Likewise.
+	* gfortran.dg/openacc-define-1.f90: Likewise.
+	* gfortran.dg/openacc-define-2.f90: Likewise.
+	* gfortran.dg/openacc-define-3.f90: Likewise.
+	* g++.dg/gomp/block-1.C: Update for changed compiler output.
+	* g++.dg/gomp/block-2.C: Likewise.
+	* g++.dg/gomp/block-3.C: Likewise.
+	* g++.dg/gomp/block-5.C: Likewise.
+	* g++.dg/gomp/target-1.C: Likewise.
+	* g++.dg/gomp/target-2.C: Likewise.
+	* g++.dg/gomp/taskgroup-1.C: Likewise.
+	* g++.dg/gomp/teams-1.C: Likewise.
+	* gcc.dg/cilk-plus/jump-openmp.c: Likewise.
+	* gcc.dg/cilk-plus/jump.c: Likewise.
+	* gcc.dg/gomp/block-1.c: Likewise.
+	* gcc.dg/gomp/block-10.c: Likewise.
+	* gcc.dg/gomp/block-2.c: Likewise.
+	* gcc.dg/gomp/block-3.c: Likewise.
+	* gcc.dg/gomp/block-4.c: Likewise.
+	* gcc.dg/gomp/block-5.c: Likewise.
+	* gcc.dg/gomp/block-6.c: Likewise.
+	* gcc.dg/gomp/block-7.c: Likewise.
+	* gcc.dg/gomp/block-8.c: Likewise.
+	* gcc.dg/gomp/block-9.c: Likewise.
+	* gcc.dg/gomp/target-1.c: Likewise.
+	* gcc.dg/gomp/target-2.c: Likewise.
+	* gcc.dg/gomp/taskgroup-1.c: Likewise.
+	* gcc.dg/gomp/teams-1.c: Likewise.
+
+2015-01-15  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-mismatching-types-in-assignment-op.c: New
+	test case.
+
+2015-01-15  Mike Stump  <mikestump@comcast.net>
+
+	* gcc.dg/inline_1.c: Rename gcc.dg/inline_[1-4].c to inline-3[6-9].c.
+	* gcc.dg/inline_2.c: Likewise.
+	* gcc.dg/inline_3.c: Likewise.
+	* gcc.dg/inline_4.c: Likewise.
+
+2015-01-15  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58023
+	* gfortran.dg/proc_ptr_comp_43.f90: New.
+
+2015-01-15  Mike Stump  <mikestump@comcast.net>
+
+	* gcc.dg/unroll_1.c: Rename gcc.dg/unroll_[1-5].c to unroll-[2-6].
+	* gcc.dg/unroll_2.c: Likewise.
+	* gcc.dg/unroll_3.c: Likewise.
+	* gcc.dg/unroll_4.c: Likewise.
+	* gcc.dg/unroll_5.c: Likewise.
+
+2015-01-15  Tejas Belagod  <tejas.belagod@arm.com>
+
+	PR target/63971
+	* gcc.target/aarch64/test_frame_1.c: Revert to 3 loads of x30
+	in epilogue.
+	* gcc.target/aarch64/test_frame_6.c: Likewise.
+	* gcc.target/aarch64/test_frame_2.c: Revert to 2 pair loads of
+	x30 and x19 (in the epilogue).
+	* gcc.target/aarch64/test_frame_4.c: Likewise.
+	* gcc.target/aarch64/test_frame_7.c: Likewise.
+
+2015-01-15  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/ipa/pr64068.C: New test.
+	* gcc.dg/ipa/PR64559.c: New test.
+
+2015-01-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/other/anon5.C: Ignore additional messages on Linux/x86
+	with PIE.
+
+2015-01-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61743
+	* gcc.dg/tree-ssa/pr61743-1.c: New testcase.
+	* gcc.dg/tree-ssa/pr61743-2.c: Likewise.
+
+2015-01-15 Renlin Li <renlin.li@arm.com>
+
+	* gcc.target/aarch64/volatileloadpair-1.c: Correct dg-options.
+	* gcc.target/aarch64/volatileloadpair-2.c: Likewise.
+
+2015-01-15  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* gcc.dg/vect/vect-aggressive-1.c: New.
+	* gcc.target/i386/avx2-vect-aggressive.c: New.
+
+2015-01-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pr54445-2.c: Adjust scan string for PIE.
+
+2015-01-15  Richard Biener  <rguenther@suse.de>
+
+	PR lto/64415
+	* gcc.dg/lto/pr64415_0.c: Re-enable for darwin with
+	-Wl,-undefined,dynamic_lookup.
+
+2015-01-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt47.adb: New test.
+
+2015-01-15  Richard Biener  <rguenther@suse.de>
+
+	PR lto/64415
+	* gcc.dg/lto/pr64415_0.c: Skip on darwin.
+
+2015-01-15  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/64434
+	* gcc.dg/torture/pr64434.c: New test.
+
 2015-01-15  Matthew Fortune  <matthew.fortune@imgtec.com>
 
 	* gcc.target/mips/mips.exp (mips-dg-options): -mips3d requires
@@ -241,7 +519,7 @@
 	PR tree-optimization/64404
 	* gcc.dg/vect/pr64404.c: New testcase.
 
-2014-01-13  Richard Biener  <rguenther@suse.de>
+2015-01-13  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/64568
 	* g++.dg/torture/pr64568.C: New testcase.

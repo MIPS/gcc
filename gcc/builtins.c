@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "rtl.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
 #include "double-int.h"
 #include "input.h"
@@ -41,11 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-object-size.h"
 #include "realmpfr.h"
 #include "predict.h"
-#include "vec.h"
 #include "hashtab.h"
-#include "hash-set.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "cfgrtl.h"
 #include "basic-block.h"
@@ -58,6 +54,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "except.h"
 #include "insn-config.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -80,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
+#include "gomp-constants.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
@@ -5899,6 +5904,47 @@ expand_stack_save (void)
   return ret;
 }
 
+
+/* Expand OpenACC acc_on_device.
+
+   This has to happen late (that is, not in early folding; expand_builtin_*,
+   rather than fold_builtin_*), as we have to act differently for host and
+   acceleration device (ACCEL_COMPILER conditional).  */
+
+static rtx
+expand_builtin_acc_on_device (tree exp, rtx target)
+{
+  if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  tree arg = CALL_EXPR_ARG (exp, 0);
+
+  /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
+  machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
+  rtx v = expand_normal (arg), v1, v2;
+#ifdef ACCEL_COMPILER
+  v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
+  v2 = GEN_INT (ACCEL_COMPILER_acc_device);
+#else
+  v1 = GEN_INT (GOMP_DEVICE_NONE);
+  v2 = GEN_INT (GOMP_DEVICE_HOST);
+#endif
+  machine_mode target_mode = TYPE_MODE (integer_type_node);
+  if (!REG_P (target) || GET_MODE (target) != target_mode)
+    target = gen_reg_rtx (target_mode);
+  emit_move_insn (target, const1_rtx);
+  rtx_code_label *done_label = gen_label_rtx ();
+  do_compare_rtx_and_jump (v, v1, EQ, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
+  do_compare_rtx_and_jump (v, v2, EQ, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
+  emit_move_insn (target, const0_rtx);
+  emit_label (done_label);
+
+  return target;
+}
+
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -7035,6 +7081,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       /* Software implementation of Pointer Bounds Checker is NYI.
 	 Target support is required.  */
       error ("Your target platform does not support -fcheck-pointer-bounds");
+      break;
+
+    case BUILT_IN_ACC_ON_DEVICE:
+      target = expand_builtin_acc_on_device (exp, target);
+      if (target)
+	return target;
       break;
 
     default:	/* just do library call, if unknown builtin */
@@ -12474,6 +12526,7 @@ is_inexpensive_builtin (tree decl)
       case BUILT_IN_LABS:
       case BUILT_IN_LLABS:
       case BUILT_IN_PREFETCH:
+      case BUILT_IN_ACC_ON_DEVICE:
 	return true;
 
       default:
