@@ -2370,11 +2370,13 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 		return false;
 	      value = gfc_copy_expr (comp->initializer);
 	    }
-	  else if (comp->attr.allocatable)
+	  else if (comp->attr.allocatable
+		   || (comp->ts.type == BT_CLASS
+		       && CLASS_DATA (comp)->attr.allocatable))
 	    {
 	      if (!gfc_notify_std (GFC_STD_F2008, "No initializer for "
-		  "allocatable component '%s' given in the structure "
-		  "constructor at %C", comp->name))
+				   "allocatable component '%qs' given in the "
+				   "structure constructor at %C", comp->name))
 		return false;
 	    }
 	  else if (!comp->attr.deferred_parameter)
