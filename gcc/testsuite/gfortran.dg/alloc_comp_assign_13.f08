@@ -6,7 +6,7 @@
 !
 program test_allocatable_components
     Type A
-        integer :: X 
+        integer :: X
         integer, allocatable :: y
         character(len=:), allocatable :: c
     end type A
