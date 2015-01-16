@@ -1,3 +1,8 @@
+2015-01-16  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* genmatch.c (print_matches): Remove.
+	(main): Inline calls to print_matches.
+
 2015-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
 
 	* config/arm/t-rtems: Use MULTILIB_REQUIRED instead of

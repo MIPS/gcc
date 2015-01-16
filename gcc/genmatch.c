@@ -644,15 +644,6 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
     gcc_unreachable ();
 }
 
-DEBUG_FUNCTION void
-print_matches (struct simplify *s, FILE *f = stderr)
-{
-  fprintf (f, "for expression: ");
-  print_operand (s->match, f);
-  putc ('\n', f);
-}
-
-
 /* AST lowering.  */
 
 /* Lowering of commutative operators.  */
@@ -3679,8 +3670,10 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
       if (verbose)
 	for (unsigned i = 0; i < pred->matchers.length (); ++i)
-	  print_matches (pred->matchers[i]);
-
+	  {
+	    print_operand (pred->matchers[i]->match);
+	    putc ('\n', stderr);
+	  }
       decision_tree dt;
       for (unsigned i = 0; i < pred->matchers.length (); ++i)
 	dt.insert (pred->matchers[i], i);
@@ -3696,7 +3689,10 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   if (verbose)
     for (unsigned i = 0; i < p.simplifiers.length (); ++i)
-      print_matches (p.simplifiers[i]);
+      {
+	print_operand (p.simplifiers[i]->match);
+	putc ('\n', stderr);
+      }
 
   decision_tree dt;
   for (unsigned i = 0; i < p.simplifiers.length (); ++i)
