@@ -54,7 +54,7 @@ along with GCC; see the file COPYING3.  If not see
   MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}}}}",				\
 									\
   /* Base SPECs.  */							\
-  BASE_DRIVER_SELF_SPECS						\
+  BASE_DRIVER_SELF_SPECS,						\
 									\
   /* Use the standard linux specs for everything else.  */		\
   LINUX_DRIVER_SELF_SPECS
