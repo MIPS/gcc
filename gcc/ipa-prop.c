@@ -1,5 +1,5 @@
 /* Interprocedural analyses.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,15 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -40,6 +46,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "stor-layout.h"
 #include "print-tree.h"
@@ -66,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-inline.h"
 #include "ipa-inline.h"
-#include "flags.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "lto-streamer.h"
@@ -79,7 +98,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "domwalk.h"
 #include "builtins.h"
-#include "calls.h"
 
 /* Intermediate information that we get from alias analysis about a particular
    parameter in a particular basic_block.  When a parameter or the memory it
@@ -2730,7 +2748,20 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
 		       ie->caller->name (), callee->name ());
     }
   if (!speculative)
-    ie = ie->make_direct (callee);
+    {
+      struct cgraph_edge *orig = ie;
+      ie = ie->make_direct (callee);
+      /* If we resolved speculative edge the cost is already up to date
+	 for direct call (adjusted by inline_edge_duplication_hook).  */
+      if (ie == orig)
+	{
+	  es = inline_edge_summary (ie);
+	  es->call_stmt_size -= (eni_size_weights.indirect_call_cost
+				 - eni_size_weights.call_cost);
+	  es->call_stmt_time -= (eni_time_weights.indirect_call_cost
+				 - eni_time_weights.call_cost);
+	}
+    }
   else
     {
       if (!callee->can_be_discarded_p ())
@@ -2740,14 +2771,10 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
 	  if (alias)
 	    callee = alias;
 	}
+      /* make_speculative will update ie's cost to direct call cost. */
       ie = ie->make_speculative
 	     (callee, ie->count * 8 / 10, ie->frequency * 8 / 10);
     }
-  es = inline_edge_summary (ie);
-  es->call_stmt_size -= (eni_size_weights.indirect_call_cost
-			 - eni_size_weights.call_cost);
-  es->call_stmt_time -= (eni_time_weights.indirect_call_cost
-			 - eni_time_weights.call_cost);
 
   return ie;
 }
@@ -2958,7 +2985,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_node::get (t)))
 		{
-		  /* Do not speculate builtin_unreachable, it is stpid!  */
+		  /* Do not speculate builtin_unreachable, it is stupid!  */
 		  if (!ie->indirect_info->vptr_changed)
 		    target = ipa_impossible_devirt_target (ie, target);
 		}
@@ -2986,6 +3013,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
      ctx, &final);
   if (final && targets.length () <= 1)
     {
+      speculative = false;
       if (targets.length () == 1)
 	target = targets[0]->decl;
       else

@@ -1,5 +1,5 @@
 /* Interprocedural constant propagation
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
    Contributed by Razya Ladelsky <RAZYA@il.ibm.com> and Martin Jambor
    <mjambor@suse.cz>
@@ -103,19 +103,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "hash-map.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "gimple-fold.h"
 #include "gimple-expr.h"
 #include "target.h"
 #include "predict.h"
 #include "basic-block.h"
-#include "vec.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -1968,8 +1975,13 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 	}
     }
   else if (t)
-    context = ipa_polymorphic_call_context (t, ie->indirect_info->otr_type,
-					    anc_offset);
+    {
+      context = ipa_polymorphic_call_context (t, ie->indirect_info->otr_type,
+					      anc_offset);
+      if (ie->indirect_info->vptr_changed)
+	context.possible_dynamic_type_change (ie->in_polymorphic_cdtor,
+					      ie->indirect_info->otr_type);
+    }
   else
     return NULL_TREE;
 

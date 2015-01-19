@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
@@ -289,6 +289,10 @@ struct tune_params
   bool string_ops_prefer_neon;
   /* Maximum number of instructions to inline calls to memset.  */
   int max_insns_inline_memset;
+  /* Bitfield encoding the fuseable pairs of instructions.  */
+  unsigned int fuseable_ops;
+  /* Depth of scheduling queue to check for L2 autoprefetcher.  */
+  int sched_autopref_queue_depth;
 };
 
 extern const struct tune_params *current_tune;
