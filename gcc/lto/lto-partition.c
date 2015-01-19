@@ -1,5 +1,5 @@
 /* LTO partitioning logic routines.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,12 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "toplev.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -966,7 +973,8 @@ lto_promote_cross_file_statics (void)
 
   gcc_assert (flag_wpa);
 
-  select_what_to_stream (false);
+  lto_stream_offload_p = false;
+  select_what_to_stream ();
 
   /* First compute boundaries.  */
   n_sets = ltrans_partitions.length ();

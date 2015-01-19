@@ -1,5 +1,5 @@
 /* Callgraph transformations to handle inlining
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -32,19 +32,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "langhooks.h"
 #include "intl.h"
 #include "coverage.h"
 #include "ggc.h"
 #include "tree-cfg.h"
-#include "vec.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -134,7 +139,7 @@ can_remove_node_now_p (struct cgraph_node *node, struct cgraph_edge *e)
 
   /* When we see same comdat group, we need to be sure that all
      items can be removed.  */
-  if (!node->same_comdat_group)
+  if (!node->same_comdat_group || !node->externally_visible)
     return true;
   for (next = dyn_cast<cgraph_node *> (node->same_comdat_group);
        next != node; next = dyn_cast<cgraph_node *> (next->same_comdat_group))
@@ -305,7 +310,8 @@ inline_call (struct cgraph_edge *e, bool update_original,
       while (alias && alias != callee)
 	{
 	  if (!alias->callers
-	      && can_remove_node_now_p (alias, e))
+	      && can_remove_node_now_p (alias,
+					!e->next_caller && !e->prev_caller ? e : NULL))
 	    {
 	      next_alias = alias->get_alias_target ();
 	      alias->remove ();

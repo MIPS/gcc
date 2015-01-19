@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -29,7 +29,17 @@
 #include "opts.h"
 #include "options.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "diagnostic.h"
@@ -326,9 +336,9 @@ internal_error_function (diagnostic_context *context,
 
   xloc = expand_location (input_location);
   if (context->show_column && xloc.column != 0)
-    asprintf (&loc, "%s:%d:%d", xloc.file, xloc.line, xloc.column);
+    loc = xasprintf ("%s:%d:%d", xloc.file, xloc.line, xloc.column);
   else
-    asprintf (&loc, "%s:%d", xloc.file, xloc.line);
+    loc = xasprintf ("%s:%d", xloc.file, xloc.line);
   temp_loc.Low_Bound = 1;
   temp_loc.High_Bound = strlen (loc);
   sp_loc.Bounds = &temp_loc;

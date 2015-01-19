@@ -5,7 +5,7 @@
 ! Contributed by Paul Thomas  <pault@gcc.gnu.org>
 !            and Tobias Burnus <burnus@gcc.gnu.org>
 !
-  CHARACTER(:), allocatable, target :: chr 
+  CHARACTER(:), allocatable, target :: chr
 ! F2008: C5100
   integer :: i(2)
   logical :: flag

@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997-2014 Free Software Foundation, Inc.
+// Copyright (C) 1997-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,6 +58,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #else
 # define  _GLIBCXX_NUM_FACETS 14
 # define  _GLIBCXX_NUM_CXX11_FACETS 8
+#endif
+#ifdef _GLIBCXX_USE_C99_STDINT_TR1
+# define _GLIBCXX_NUM_UNICODE_FACETS 2
+#else
+# define _GLIBCXX_NUM_UNICODE_FACETS 0
 #endif
 
   // Convert string to numeric value of type _Tp and store results.
