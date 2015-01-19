@@ -2450,7 +2450,7 @@ Complex_expression::export_complex(String_dump* exp, const mpc_t val)
   if (!mpfr_zero_p(mpc_realref(val)))
     {
       Float_expression::export_float(exp, mpc_realref(val));
-      if (mpfr_sgn(mpc_imagref(val)) > 0)
+      if (mpfr_sgn(mpc_imagref(val)) >= 0)
 	exp->write_c_string("+");
     }
   Float_expression::export_float(exp, mpc_imagref(val));
@@ -6321,6 +6321,7 @@ Bound_method_expression::create_thunk(Gogo* gogo, const Method* method,
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
+  cvar->set_is_closure();
   Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
@@ -9328,19 +9329,11 @@ Call_expression::do_get_backend(Translate_context* context)
       fn_args[0] = first_arg->get_backend(context);
     }
 
-  if (!has_closure_arg)
-    go_assert(closure == NULL);
+  Bexpression* bclosure = NULL;
+  if (has_closure_arg)
+    bclosure = closure->get_backend(context);
   else
-    {
-      // Pass the closure argument by calling the function function
-      // __go_set_closure.  In the order_evaluations pass we have
-      // ensured that if any parameters contain call expressions, they
-      // will have been moved out to temporary variables.
-      go_assert(closure != NULL);
-      Expression* set_closure =
-          Runtime::make_call(Runtime::SET_CLOSURE, location, 1, closure);
-      fn = Expression::make_compound(set_closure, fn, location);
-    }
+    go_assert(closure == NULL);
 
   Bexpression* bfn = fn->get_backend(context);
 
@@ -9356,7 +9349,8 @@ Call_expression::do_get_backend(Translate_context* context)
       bfn = gogo->backend()->convert_expression(bft, bfn, location);
     }
 
-  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args, location);
+  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args,
+						       bclosure, location);
 
   if (this->results_ != NULL)
     {
@@ -11132,6 +11126,7 @@ Interface_field_reference_expression::create_thunk(Gogo* gogo,
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
+  cvar->set_is_closure();
   Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
@@ -12937,7 +12932,8 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 	       pf != st->fields()->end();
 	       ++pf)
 	    {
-	      if (Gogo::is_hidden_name(pf->field_name()))
+	      if (Gogo::is_hidden_name(pf->field_name())
+		  || pf->is_embedded_builtin(gogo))
 		error_at(this->location(),
 			 "assignment of unexported field %qs in %qs literal",
 			 Gogo::message_name(pf->field_name()).c_str(),
@@ -13114,7 +13110,8 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 
       if (type->named_type() != NULL
 	  && type->named_type()->named_object()->package() != NULL
-	  && Gogo::is_hidden_name(sf->field_name()))
+	  && (Gogo::is_hidden_name(sf->field_name())
+	      || sf->is_embedded_builtin(gogo)))
 	error_at(name_expr->location(),
 		 "assignment of unexported field %qs in %qs literal",
 		 Gogo::message_name(sf->field_name()).c_str(),
@@ -15557,7 +15554,7 @@ bool
 Numeric_constant::set_type(Type* type, bool issue_error, Location loc)
 {
   bool ret;
-  if (type == NULL)
+  if (type == NULL || type->is_error())
     ret = true;
   else if (type->integer_type() != NULL)
     ret = this->check_int_type(type->integer_type(), issue_error, loc);
