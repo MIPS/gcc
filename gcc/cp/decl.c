@@ -1262,8 +1262,6 @@ check_concept_refinement (tree olddecl, tree newdecl)
   if (!DECL_DECLARED_CONCEPT_P (olddecl) || !DECL_DECLARED_CONCEPT_P (newdecl))
     return false;
 
-  // TODO: This isn't currently possible, but it will almost certainly
-  // change with variable templates.
   tree d1 = DECL_TEMPLATE_RESULT (olddecl);
   tree d2 = DECL_TEMPLATE_RESULT (newdecl);
   if (TREE_CODE (d1) != TREE_CODE (d2))
@@ -7724,6 +7722,13 @@ grokfndecl (tree ctype,
   // Was the concept specifier present?
   bool concept_p = inlinep & 4;
 
+  // Concept declarations must have a corresponding definition.
+  if (concept_p && !funcdef_flag)
+    {
+      error ("concept %qD has no definition", declarator);
+      return NULL_TREE;
+    }
+
   if (rqual)
     type = build_ref_qualified_type (type, rqual);
   if (raises)
@@ -11052,8 +11057,6 @@ grokdeclarator (const cp_declarator *declarator,
 		      DECL_GNU_TLS_P (decl) = true;
 		  }
 		if (concept_p)
-		  // TODO: This needs to be revisited once variable
-		  // templates are supported
 		    error ("static data member %qE declared %<concept%>",
 			   unqualified_id);
 		else if (constexpr_p && !initialized)

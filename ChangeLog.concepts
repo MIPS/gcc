@@ -1,3 +1,49 @@
+2014-11-15  Braden Obrzut  <admin@maniacsvault.net>
+
+	* gcc/cp/constraint.cc (resolve_constraint_check): Move definition
+	check to grokfndecl.
+	(normalize_template_id): Use expression location if available when
+	informing about missing parentheses.
+	(build_requires_expr): Added comment.
+	(diagnose_var): Clarified comment.
+	* gcc/cp/decl.c (check_concept_refinement): Remove outdated comment
+	regarding variable concepts.
+	(grokfndecl): Ensure that all concept declarations are definitions.
+	(grokdeclarator): Remove outdated comment regarding variable concepts.
+	* gcc/cp/parser.c (cp_parser_introduction_list): Use vec for temporary
+	list instead of a TREE_LIST.
+	(get_id_declarator): Renamed from cp_get_id_declarator.
+	(get_unqualified_id): Renamed from cp_get_identifier.
+	(is_constrained_parameter): Renamed from cp_is_constrained_parameter.
+	(cp_parser_check_constrained_type_parm): Renamed from
+	cp_check_constrained_type_parm.
+	(cp_parser_constrained_type_template_parm): Renamed from
+	cp_constrained_type_template_parm.
+	(cp_parser_constrained_template_template_parm): Renamed from
+	cp_constrained_template_template_parm.
+	(constrained_non_type_template_parm): Renamed from
+	cp_constrained_non_type_tmeplate_parm.
+	(finish_constrained_parameter): Renamed from
+	cp_finish_constrained_parameter.
+	(maybe_type_parameter): Renamed from cp_maybe_type_parameter.
+	(declares_type_parameter): Renamed from cp_declares_type_parameter.
+	(declares_type_template_parameter): Renamed from
+	cp_declares_type_template_parameter.
+	(declares_template_template_parameter): Renamed from
+	cp_declares_template_template_parameter.
+	(cp_parser_type_parameter): Call
+	cp_parser_default_type_template_argument and
+	cp_parser_default_template_template_argument which were already
+	factored out from this function.
+	(cp_maybe_constrained_type_specifier): Use the new INTRODUCED_PARM_DECL
+	instead of PLACEHOLDER_EXPR.
+	(cp_parser_requires_expr_scope): Remove old comment and change
+	destructor to use pop_bindings_and_leave_scope.
+	(cp_parser_requires_expression): Remove old comment.
+	(get_concept_from_constraint): Remove old comment.
+	* gcc/testsuite/g++.dg/concepts/decl-diagnose.C: Changed expected
+	errors now that missing concept definitions are diagnosed earlier.
+
 2014-11-11  Jason Merrill  <jason@redhat.com>
 
 	* gcc/cp/call.c (add_function_candidate): Move constraint check after

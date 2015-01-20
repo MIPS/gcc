@@ -156,17 +156,6 @@ resolve_constraint_check (tree ovl, tree args)
   if (!DECL_DECLARED_CONCEPT_P (decl))
     return NULL_TREE;
 
-  // Concept declarations must have a corresponding definition.
-  //
-  // TODO: This should be part of the up-front checking for
-  // a concept declaration.
-  if (!DECL_SAVED_TREE (decl))
-    {
-      error_at (DECL_SOURCE_LOCATION (decl),
-                "concept %q#D has no definition", decl);
-      return NULL;
-    }
-
   return cands;
 }
 
@@ -610,13 +599,12 @@ normalize_template_id (tree t)
     return normalize_var (t);
   else
     {
-      // FIXME: input_location is probably wrong, but there's not necessarly
-      // an expr location with the tree.
-      error_at (input_location, "invalid constraint %qE", t);
+      location_t locus = EXPR_LOC_OR_LOC (t, input_location);
+      error_at (locus, "invalid constraint %qE", t);
 
       vec<tree, va_gc>* args = NULL;
       tree c = finish_call_expr (t, &args, true, false, 0);
-      inform (input_location, "did you mean %qE", c);
+      inform (locus, "did you mean %qE", c);
 
       return error_mark_node;
     }
@@ -865,6 +853,8 @@ valid_requirements_p (tree cinfo)
   return CI_ASSUMPTIONS (cinfo) != error_mark_node;
 }
 
+// Constructs a REQUIRES_EXPR with parameters, PARMS, and requirements, REQS,
+// that can be evaluated as a constant expression.
 tree
 build_requires_expr (tree parms, tree reqs)
 {
@@ -1836,7 +1826,7 @@ diagnose_call (location_t loc, tree t, tree args)
     inform (loc, "  %qE evaluated to false", t);
 }
 
-// Diagnose constraint failures in a variable concept.
+// Diagnose constraint failures in a variable template-id T.
 void
 diagnose_var (location_t loc, tree t, tree args)
 {
