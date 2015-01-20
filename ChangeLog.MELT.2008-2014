@@ -1,0 +1,1963 @@
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{The real MELT 1.1.3 plugin release for GCC 4.8 & 4.9}}
+	* INSTALL/README-MELT-PLUGIN: Improvements of 1.1.3
+
+2014-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 1.1.3 plugin release for GCC 4.8 & 4.9}}
+	* INSTALL/README-MELT-PLUGIN: Improvements of 1.1.3
+
+2014-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 1.1.3rc0 release candidate for GCC 4.8 & 4.9}}
+	* INSTALL/README-MELT-PLUGIN: Improvements of 1.1.3
+
+2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT plugin 1.1.2 release for GCC 4.8 & 4.9}}
+	* INSTALL/README-MELT-PLUGIN: Improvements of 1.1.2
+
+2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT plugin 1.1.1 release}}
+	* INSTALL/README-MELT-PLUGIN: mention date of 1.1.1 release.
+
+2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: mention date of 1.1 release.
+
+2014-07-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT plugin 1.1 for GCC 4.8 & 4.9 released}}
+
+2014-07-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT plugin 1.1rc1 for GCC 4.9}}
+
+2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Don't use utfcpp.  Mention new
+	features of MELT 1.1..
+
+
+2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention use of
+	http://sourceforge.net/projects/utfcpp/ with its copyright notice.
+
+
+2014-05-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT 1.1-rc0 for GCC 4.9}}
+	* INSTALL/README-MELT-PLUGIN: Update.
+
+2014-04-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn
+	rev.209216...}}
+
+2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn
+	rev.209052...}}
+
+2014-04-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn
+	rev.208985...}}
+
+
+2014-03-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn
+	rev.208803. Updated gcc/melt-runtime.cc...}}
+
+
+2014-03-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.208631. All
+	is well compiled.}}
+
+2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.208474. All
+	is well compiled.}}
+
+2014-03-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.208447. All
+	is well compiled.}}
+
+2014-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.208170. All
+	is well compiled.}}
+
+2014-02-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn
+	rev.208153. Notice that svn 1.8.8 crashes while doing this, so
+	merged with svn 1.7.14... All is well compiled.}}
+
+
+
+2014-02-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.207716. All
+	is well compiled.}}
+
+
+2014-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.207335. All is
+	well compiled.}}
+
+
+2014-01-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.207172. All is
+	well compiled.}}
+
+
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.206958. All is
+	well compiled.}}
+
+2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.206423. All is
+	well compiled.}}
+
+2014-01-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev206333 now in
+	stage 3; very unstable, xtramelt-ana-base don't compile
+	anymore...}}
+
+
+2013-12-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{for timestamping MELT 1.0.2 release}}
+	* INSTALL/README-MELT-PLUGIN: mention 1.0.2 & MELT-SFT-7
+
+2013-12-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{for timestamping MELT 1.0.2 release, which is
+	not extracted from svn, but applied patch
+	https://sourceforge.net/p/gcc-melt/tickets/_discuss/thread/7f87d051/affe/attachment/patch-melt-plugin-1.0.1-to-1.0.2.diff
+	to MELT 1.0.1}}
+
+2013-11-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev 205391 now in
+	stage 3; very unstable}}
+
+2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev 205247 now in stage 3}}
+
+2013-11-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev 204695; previous trunk merge
+	was 202773; very unstable...}}
+
+2013-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{1.0.1 release}}
+	* INSTALL/README-MELT-PLUGIN: Mention 1.0.1 release &
+	unifdef.
+
+2013-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{1.0.1 release candidate 1}}
+
+2013-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{1.0 release}}
+	* INSTALL/README-MELT-PLUGIN: Improve.
+
+2013-10-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{1.0-rc3 release candidate}}
+
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{1.0-rc2 release candidate}}
+
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Almost complete for 1.0
+	improvements.
+
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Improved, beware of quote
+	characters...
+
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Improved, but still incomplete for
+	MELT 1.0 plugin...
+
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Updated more instructions still
+	incomplete for MELT 1.0 plugin.
+
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Updated instructions still
+	incomplete for MELT 1.0 plugin.
+
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Updated instructions still
+	incomplete for MELT 1.0 plugin.
+
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 1.0 rc1 release candidate}}
+
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* libmeltopengpu/: directory moved into gcc/obsolete-melt
+
+2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 202766 using svnmerge.py
+
+2013-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 202619 using svnmerge.py
+
+2013-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 202389 using svnmerge.py; notice
+	that gcc/melt/xtramelt-ana-base.melt has been significantly
+	updated, but some updates are yet missing...
+
+2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 201298 using svnmerge.py
+
+2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 201008 using svnmerge.py
+
+2013-07-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 200918 using svnmerge.py
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 200670 using svnmerge.py
+
+2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 200637 using svnmerge.py
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 200479 using svnmerge.py
+
+2013-06-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merged with  trunk [4.9] svn rev. 196654-200426}}
+	MELT branch merged with trunk rev. 200426 using svnmerge.py
+
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.9 release}}
+	* INSTALL/README-MELT-PLUGIN: slightly improved instructions.
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention GC improvements.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention eval and the ability to
+	apply hooks.
+
+2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.9 rc1 release candidate}}
+	* INSTALL/README-MELT-PLUGIN: Explain numerous improvements.
+
+2013-03-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 196650 using svnmerge.py
+
+2013-03-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 196572 using svnmerge.py
+
+2013-03-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 196372 using svnmerge.py
+
+2013-02-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 196306 using svnmerge.py
+
+2013-02-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 196218 using svnmerge.py
+
+2013-02-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 196123 using svnmerge.py
+
+2013-02-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195888 using svnmerge.py
+
+2013-02-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195751 using svnmerge.py
+
+2013-01-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195526 using svnmerge.py
+
+2013-01-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195417 using svnmerge.py
+
+2013-01-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195360 using svnmerge.py
+
+2013-01-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195233 using svnmerge.py
+
+2013-01-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195186 using svnmerge.py
+
+2013-01-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 195106 using svnmerge.py
+
+2013-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194961 using svnmerge.py
+
+2013-01-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194833 using svnmerge.py
+
+2012-12-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.8 release}}
+	* INSTALL/README-MELT-PLUGIN: Update.
+
+
+2012-12-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194659 using svnmerge.py
+
+2012-12-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194546 using svnmerge.py
+
+2012-12-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194495 using svnmerge.py
+
+2012-12-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.8 rc2}}
+
+2012-12-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: News for future 0.9.8 mention UNBOX
+
+2012-12-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194344 using svnmerge.py
+
+2012-12-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194222 using svnmerge.py
+
+2012-12-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.8 rc0}}
+	* INSTALL/README-MELT-PLUGIN: News for future 0.9.8.
+
+2012-12-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 194073 using svnmerge.py
+
+2012-11-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	**merge fixed, gcc/melt/xtramelt-ana-base.melt compiles**
+
+2012-11-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 193836 using svnmerge.py
+	**broken, gcc/melt/xtramelt-ana-base.melt dont compile**
+
+2012-11-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 193527 using svnmerge.py
+
+2012-11-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 193426 using svnmerge.py
+
+2012-11-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 193285 using svnmerge.py
+
+2012-10-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 193029 using svnmerge.py
+
+2012-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192797 using svnmerge.py
+
+2012-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192664 using svnmerge.py
+
+2012-10-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192552 using svnmerge.py
+
+2012-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192465 using svnmerge.py
+
+2012-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.7 real release}}
+	* INSTALL/README-MELT-PLUGIN: More comments.
+
+2012-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.7 release}}
+
+2012-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192289 using svnmerge.py
+
+2012-10-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.7 rc4 release candidate}}
+
+2012-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192205 using svnmerge.py
+
+2012-10-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192095 using svnmerge.py
+
+2012-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 192029 using svnmerge.py
+
+2012-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.7-rc3 release candidate}}
+	* INSTALL/README-MELT-PLUGIN: Comment about probe.
+
+2012-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 191993 using svnmerge.py
+
+2012-09-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.7 rc2 release candidate}}
+
+2012-09-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 191642 using svnmerge.
+
+2012-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.7 rc1 release candidate}}
+	* INSTALL/README-MELT-PLUGIN: Mention news for 0.9.7
+
+2012-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 191468 using svnmerge.
+
+2012-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 191371 using svnmerge.
+
+2012-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 191132 using svnmerge.
+
+2012-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 190965 using svnmerge.
+
+2012-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 190869 using svnmerge.
+
+2012-08-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 190796 using svnmerge.
+
+2012-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 190745 using svnmerge, notably
+	C++ conversion.
+
+2012-08-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{real MELT plugin 0.9.6.c release}}
+	* INSTALL/README-MELT-PLUGIN: Comment about probe.
+
+2012-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.6.c soon}}
+	* INSTALL/README-MELT-PLUGIN: News, mention PPL is obsolete.
+
+2012-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{not yet release MELT plugin 0.9.6}}
+
+2012-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.6 rc4}}
+
+2012-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.6 rc2}}
+	* INSTALL/README-MELT-PLUGIN: News about it.
+
+202012-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.6 rc1}}
+	* INSTALL/README-MELT-PLUGIN: News about it.
+
+2012-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 189108 using svnmerge
+
+2012-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 188833 using svnmerge
+
+2012-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 188721 using svnmerge
+
+2012-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 188512 using svnmerge
+
+2012-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 188375 using svnmerge
+
+2012-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 188257 using svnmerge
+
+2012-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 188095 using svnmerge
+
+2012-05-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 187948 using svnmerge
+
+2012-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 187788 using svnmerge
+
+2012-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 187704 using svnmerge
+
+2012-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 187525 using svnmerge
+
+2012-05-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 187397 using svnmerge
+	gimple_seq are disappearing!
+
+2012-05-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 187035 using svnmerge
+
+2012-04-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 186872 using svnmerge
+
+2012-04-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 186692 using svnmerge
+
+2012-04-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 0.9.5 release}}
+	* INSTALL/README-MELT-PLUGIN: Mention it.
+
+2012-04-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 0.9.5rc3 release}}
+
+2012-04-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 186261 using svnmerge
+
+2012-04-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 186185 using svnmerge
+
+2012-04-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 186135 using svnmerge
+
+2012-04-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 0.9.5rc2 release}}
+	* INSTALL/README-MELT-PLUGIN: More about make-ing it.
+
+
+2012-03-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 0.9.5rc1 release}}
+	* INSTALL/README-MELT-PLUGIN: Mention it.
+
+2012-03-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 185951 using svnmerge
+
+2012-03-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 185727 using svnmerge
+
+2012-03-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 185514 using svnmerge
+
+2012-03-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 185416 using svnmerge
+
+2012-03-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention interrupts and embedded
+	$[...] and $(....) in marostrings.
+
+2012-03-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: infix syntax abandonned.
+
+2012-03-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk [future 4.8] rev 185094 using svnmerge
+
+2012-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{0.9.4.b release}}
+	* INSTALL/README-MELT-PLUGIN: Mention 0.9.4.b.
+
+2012-03-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{quasi 0.9.4}}
+	* INSTALL/README-MELT-PLUGIN: Mention 0.9.4 & improve text.
+
+2012-03-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{prerelease 0.9.4-rc1}}
+
+	* INSTALL/README-MELT-PLUGIN: Mention 0.9.4
+
+2012-03-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 184686 using svnmerge
+
+2012-02-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention syntax-checking emission.
+
+2012-02-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention auxiliary data in maps
+
+2012-02-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 184458 using svnmerge
+
+2012-02-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 184385 using svnmerge
+
+2012-02-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 184269 using svnmerge
+
+2011-02-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention CHEADER
+
+2012-02-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 184203 using svnmerge
+
+2012-02-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 184083 using svnmerge
+
+2012-02-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183995 using svnmerge
+
+2012-02-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183926 using svnmerge
+
+2012-02-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183862 using svnmerge
+
+2012-02-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183800 using svnmerge
+
+2012-01-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183694 using svnmerge
+
+2011-01-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.3 release!!}}
+
+2012-01-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183561 using svnmerge
+
+2012-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183441 using svnmerge
+
+2011-01-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.3 rc2 !!}}
+
+2011-01-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.3 rc1}}
+2012-01-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183326 using svnmerge
+
+2011-01-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.3 rc0}}
+	* INSTALL/README-MELT-PLUGIN: More
+
+2012-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183270 using svnmerge
+
+2012-01-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183204 using svnmerge
+
+2012-01-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 183090 using svnmerge
+
+2012-01-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182999 using svnmerge
+
+2012-01-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182904 using svnmerge
+
+2012-01-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182833 using svnmerge
+
+2011-12-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182564 using svnmerge
+
+2011-12-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182471 using svnmerge
+
+2011-12-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182322 using svnmerge
+
+2011-12-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182221 using svnmerge
+
+2011-12-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.2.b}}
+
+2011-12-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182077 using svnmerge
+
+2011-12-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.2 rc2}}
+
+2011-12-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 182001 using svnmerge
+
+2011-12-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.2 rc1}}
+	* INSTALL/README-MELT-PLUGIN: 0.9.2 dedicated to the memory of JMcCarthy.
+	for GCC 4.6 & 4.7
+
+2011-12-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: describe 0.9.2 plugin release with new hooks
+
+2011-12-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: describe 0.9.2 plugin release
+
+2011-12-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181902 using svnmerge
+
+2011-12-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181872 using svnmerge
+
+2011-11-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT branch rev 181694 is the last which is able to go to melt-stage3}}
+
+2011-11-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181775 using svnmerge
+
+2011-11-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181685 using svnmerge
+
+2011-11-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181552 using svnmerge
+
+2011-11-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181400 using svnmerge
+
+2011-11-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181350 using svnmerge
+
+2011-11-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181163 using svnmerge
+
+2011-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 181026 using svnmerge
+
+2011-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180613 using svnmerge
+
+2011-10-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180468 using svnmerge
+
+2011-10-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.1}}
+
+2011-10-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180364 using svnmerge
+
+2011-10-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180287 using svnmerge
+
+2011-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180258 using svnmerge
+	{so ggc-zone.c works again}
+
+2011-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180237 using svnmerge.
+
+2011-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180173 using svnmerge.
+
+2011-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 180071 using svnmerge.
+
+2011-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.1 rc1}}
+	* INSTALL/README-MELT-PLUGIN: 0.9.1 dedicated to the memory of DMR.
+
+2011-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention variadic facilities & debug
+	for 0.9.1 plugin prerelease
+
+2011-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179863 using svnmerge.
+
+2011-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179752 using svnmerge.
+
+2011-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179735 using svnmerge.
+
+2011-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179592 using svnmerge.
+
+2011-10-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179537 using svnmerge.
+
+2011-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179444 using svnmerge.
+
+2011-09-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179351 using svnmerge.
+
+2011-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT plugin 0.9 real release
+
+2011-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention (define ...)
+
+2011-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT plugin 0.9 release
+
+2011-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179238 using svnmerge.
+
+2011-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 179138 using svnmerge.
+
+2011-09-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT plugin 0.9rc2
+
+2011-09-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 178804 using svnmerge.
+
+2011-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention that DISCR_BOX is removed,
+	and that boxed arithmetic is available. Add thanks.
+
+2011-09-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 178775 using svnmerge.
+
+2011-09-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 178630 using svnmerge.
+
+2011-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Document the build machinery with
+	md5sum signatures...
+
+2011-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 178437 using svnmerge.
+
+2011-08-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 178289 using svnmerge.
+
+2011-08-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 178073 using svnmerge.
+
+2011-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Document ##{...}# experimental
+	inside-sequence macrostring.
+
+2011-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 176732 using svnmerge.
+
+2011-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention next release 0.9 and new
+	features.
+
+2011-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 176576 using svnmerge.
+
+2011-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention contrib/gcc_update before
+	contrib/make-melt-source-tar.sh
+
+2011-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Prepare plugin 0.8.1
+
+2011-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 176387 using svnmerge.
+
+2011-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 176319 using svnmerge.
+
+2011-07-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 176158 using svnmerge.
+
+2011-07-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention development form of
+	libraries.
+
+2011-07-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Update for MELT plugin 0.8
+
+
+2011-07-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT plugin 0.8
+
+2011-07-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT plugin 0.8 rc3
+
+2011-07-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT plugin 0.8 rc2
+
+2011-07-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention quick translation mode.
+
+2011-07-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 175963 using svnmerge.
+
+2011-07-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Mention that debug_msg & assert_msg
+	work thanks to MELT_HAVE_DEBUG, and the melt_gcc_version numbers.
+
+2011-07-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Preparing 0.8rc2 plugin. Comment
+	more on using the scripts.
+
+2011-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Added NEWS section. Releasing
+	melt-0.8rc1-plugin-for-gcc-4.6
+
+2011-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Update for 0.8rc1.
+
+2011-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 175793 using svnmerge.
+
+2011-06-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 175718 using svnmerge.
+
+2011-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 175420 using svnmerge.
+
+2011-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 175370 using svnmerge.
+
+2011-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 175225 using svnmerge. Using
+	c_register_pragma_with_expansion_and_data is now possible...
+
+2011-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 174941 using svnmerge
+
+2011-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 174972 using svnmerge
+	also patched fixincludes/genfixes
+
+2011-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 174636 using svnmerge
+
+2011-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 174464 using svnmerge
+
+2011-05-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 174319 using svnmerge
+
+2011-05-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 174103 using svnmerge
+
+2011-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 173996 using svnmerge
+
+2011-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 173935 using svnmerge
+
+2011-05-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* Makefile.tpl: Remove blank line.
+
+2011-05-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 173647 using svnmerge
+
+
+2011-04-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Update explanation.
+
+2011-04-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Update for first plugin release
+	candidate.
+
+2011-04-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Update.
+
+2011-03-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Update.
+
+2011-03-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170941 using svnmerge
+
+2011-03-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170931 using svnmerge
+
+2011-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170865 using svnmerge
+
+2011-03-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170812 using svnmerge
+
+2011-03-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170715 using svnmerge
+
+2011-02-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170526 using svnmerge
+
+2011-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170521 using svnmerge
+
+2011-02-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170492 using svnmerge
+
+2011-02-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 170399 using svnmerge
+
+2011-02-07  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 169877 [probably!]
+
+2011-02-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged as suggest by Andread Schwab
+	http://gcc.gnu.org/ml/gcc/2011-02/msg00099.html
+
+2011-02-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 169522
+
+2011-02-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 169468
+
+2011-01-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 169285
+
+2011-01-25 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 169225
+
+	* configure.ac: the PPL minimal version number 0.11 is hardwired,
+	as in trunk.
+
+2011-01-24 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 169179
+
+2011-01-24 Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* configure.ac: Require PPL 0.11.
+
+	* configure: Regenerate.
+
+2011-01-22 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 169126
+
+2011-01-19 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168984
+
+2011-01-16 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168857
+
+2011-01-14 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168776
+
+2011-01-11 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168650
+
+2011-01-05 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168508
+
+2011-01-03 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168441
+
+2011-01-03 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168414
+
+2010-12-20 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 168094
+
+2010-12-15 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 167866
+
+2010-12-14 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 167801
+
+2010-12-12 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 167724
+
+2010-12-10 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 167697
+
+2010-12-07 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 167556
+
+2010-12-06 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 167487
+
+2010-12-04 Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 167455
+	[inside gcc/ you temporary need to 
+           make MELT_NEW_MAKE=1 MELT_STAGE_ZERO=melt-stage0-static
+        ]
+
+2010-12-01 Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 167323
+
+2010-11-29 Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 167237
+
+2010-11-24 Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 167123
+
+2010-11-22 Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 167043
+
+2010-11-22 Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 167021
+
+2010-11-19 Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 166940
+
+2010-11-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 166897
+
+2010-11-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 166453
+
+2010-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 166377
+
+2010-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* configure.ac: test for PPL 0.10 (not 0.11)
+
+2010-10-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 165748
+
+2010-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 165680
+
+2010-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 165564
+
+2010-10-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* configure.ac: check for PPL 0.11
+
+	* configure: regenerated.
+
+
+2010-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 165392
+
+2010-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 165329
+
+2010-10-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 165222
+
+2010-10-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 165014
+
+2010-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 164647
+
+2010-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 164348, with some improvements
+	in gcc/melt-runtime.[ch]
+
+2010-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 158008 [[4.6 started!]]
+
+2010-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157965
+
+2010-03-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157811
+
+2010-03-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157741
+
+2010-03-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157669
+
+2010-03-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157557
+
+2010-03-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157452
+
+2010-03-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* configure.ac: removed every GDBM related stuff.
+	* configure: regenerated.
+
+2010-03-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157331
+
+2010-03-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157264
+
+2010-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 157193
+
+2010-02-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156999
+
+2010-02-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156900
+
+2010-02-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156774
+
+2010-02-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156678
+
+2010-02-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156578
+
+
+	MELT branch merged with trunk rev 156556
+
+2010-02-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156526
+
+2010-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156408
+
+2010-01-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156327
+
+2010-01-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156203
+
+2010-01-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 156107
+
+2010-01-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 155960
+
+2010-01-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 155849
+
+2010-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 155725
+	{{also coded a bit the infix parser in gcc/melt/ etc..}}
+
+2010-01-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 155603
+
+2009-12-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 155453
+
+2009-12-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 155344
+
+2009-12-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 155213
+
+2009-12-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 155134
+
+2009-12-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 155029
+
+2009-12-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 154988
+
+2009-12-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 154911
+
+2009-12-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	[[added manually new trunk files]]
+        MELT branch merged with trunk rev 154895
+	{after more plugin events from ICI folks}
+
+2009-11-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        MELT branch merged with trunk rev 154750
+
+2009-11-24  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 154500
+	so all plugin headers needed by MELT are available...
+
+2009-11-24  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 154487
+
+2009-11-21  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 154407
+
+2009-11-17  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 154243
+
+2009-11-16  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 154195
+
+2009-11-13  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 154145
+
+2009-11-10  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 154058
+
+2009-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 153975
+
+2009-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 153838
+
+2009-10-30  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 153758
+
+2009-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 153717
+
+2009-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
+        MELT branch merged with trunk rev 153696
+
+2009-10-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 153581
+
+2009-10-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 153531
+
+2009-10-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 153054
+
+2009-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 152888
+
+2009-10-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 152709
+
+2009-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 152672
+
+2009-10-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 152583 after the LTO merge
+	inside trunk.
+
+2009-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 152404
+
+2009-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	[merged with trunk while LTO is merging inside trunk, however the
+	trunk's gengtype should now work for MELT, unchanged except by
+	addition of "melt-runtime.h"]
+	MELT branch merged with trunk rev 152324
+
+2009-09-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151961
+
+2009-09-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151911
+
+2009-09-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151837
+
+2009-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151762
+
+2009-09-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151724
+
+2009-09-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151701
+
+2009-09-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151679
+
+2009-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151586
+
+2009-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151544
+
+2009-09-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151500
+
+2009-09-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151496
+
+2009-09-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151466
+
+2009-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151445
+
+2009-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151427
+
+2009-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151402
+
+2009-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151367
+
+2009-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	[painfully cleaned autoconf-ry so that MELT is enabled by default]
+	* configure.ac: added more from trunk & testing for GDBM.
+	* Makefile.def: added more from trunk, awk & sed...
+	* Makefile.tpl: adding GDBM & more for trunk.
+	* Makefile.in: regenerated.
+	* configure: regenerated.
+
+2009-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 151199
+
+2009-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	added manually libstdc++-v3/src/chrono.cc from trunk.
+
+2009-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 150307
+	added manually libstdc++-v3/include/std/chrono from trunk.
+
+2009-07-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 150103
+
+2009-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 149945 
+
+2009-07-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 149800
+
+2009-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 149655
+
+2009-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk rev 149427
+
+2009-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	replaced basilys by melt inside all files an in file names!
+
+2009-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r149262
+
+2009-06-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r149060
+
+2009-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r148777
+
+2009-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r148653
+
+2009-06-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r148523
+
+2009-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r148428
+
+2009-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r148271
+
+2009-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r148111
+
+2009-05-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r147859
+
+2009-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r147550
+
+2009-05-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r147379
+
+2009-05-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r147228
+
+2009-05-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* configure.ac: check for PPL version 0.10 or better since future
+	0.11 is ok
+	* configure: regenerated
+
+2009-05-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r147090
+
+2009-04-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r146824
+
+2009-04-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	all .bysl files renamed to .melt
+	all ChangeLog.melt renamed to ChangeLog.MELT
+
+2009-04-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r145646
+
+2009-04-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r145451
+
+2009-03-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r145230
+
+2009-03-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r145061
+
+2009-03-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144999
+
+2009-03-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144927
+
+2009-03-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144830
+
+2009-03-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144708
+
+2009-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144598
+
+2009-02-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144379
+
+2009-02-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144284
+
+2009-02-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r144050
+
+2009-02-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143951
+
+2009-02-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143867
+
+2009-01-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143767
+
+2009-01-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143546
+
+2009-01-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143392
+
+2009-01-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143328
+
+2009-01-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143197
+
+2009-01-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r143070
+
+2008-12-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r142748
+
+2008-12-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r142640
+
+2008-12-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r142553
+
+2008-12-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r142432
+
+2008-12-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r142344
+
+2008-11-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r142527
+
+2008-11-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r142033
+
+2008-11-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141785
+
+2008-11-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141668
+
+2008-11-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141555
+
+2008-10-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141467
+
+2008-10-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141380
+
+2008-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141325
+
+2008-10-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141209
+
+2008-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141146
+
+2008-10-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141082
+
+2008-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r141021
+
+2008-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140962
+
+2008-10-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140892
+
+2008-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140849
+
+2008-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140812
+
+2008-09-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140750
+
+2008-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140717
+
+2008-09-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140680
+
+2008-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140637
+
+2008-09-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140542
+
+2008-09-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140490
+
+2008-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140415
+
+22008-09-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140388
+
+2008-09-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140370
+
+2008-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140286
+
+2008-09-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140164
+
+2008-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r140063
+
+2008-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r139990
+
+2008-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r139983
+
+2008-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r139931
+
+2008-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r139912 after graphite merge into trunk
+
+2008-09-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r139848
+
+2008-09-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r139820
+
+2008-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r139100
+
+2008-08-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138800
+
+2008-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138697
+
+2008-08-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138620
+
+2008-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138450
+
+2008-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138355
+
+2008-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138310
+
+2008-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138226 [after tuple merge into trunk]
+	some compiler probe stuff are missing
+
+2008-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r138050
+
+2008-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137918
+
+2008-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137813
+
+2008-07-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137620
+
+2008-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137357
+
+2008-07-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137318
+
+2008-07-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137307
+
+2008-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137105
+
+2008-06-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r137030
+
+2008-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	Adding nearly empty texi documentation on MELT
+
+2008-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136757
+
+2008-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136620
+
+2008-06-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136577
+
+2008-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136492
+
+2008-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136369
+
+2008-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136317
+
+2008-06-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136272
+
+2008-05-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r136046
+
+2008-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r135793
+
+2008-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r135714
+
+2008-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r135459
+
+2008-05-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r134973
+
+2008-04-21   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r134529 (added fg-byte-scan.c from new trunk)
+
+2008-04-21   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r134525
+
+2008-04-17   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r134362
+
+2008-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r134275
+
+	stilly buggy for libgcc muldi3: internal compiler error: in
+	execute_ipa_pass_list, at passes.c:1235
+
+2008-04-05   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r133937
+
+2008-04-05   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r133930
+
+2008-03-26   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r133612
+
+2008-03-24   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r133512
+
+2008-03-20   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r133366
+
+2008-03-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r133288
+
+2008-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	MELT branch merged with trunk r132671
+        Merged revisions 132452-132671 via svnmerge from 
+        svn+ssh://bstarynk@gcc.gnu.org/svn/gcc/trunk
+
+2008-02-19   Basile Starynkevitch  <basile@starynkevitch.net>
+	Created MELT branch. See also gcc/ChangeLog.melt
+
+/// Local Variables:
+/// mode: change-log
+/// End:
