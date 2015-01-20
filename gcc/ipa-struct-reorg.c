@@ -66,6 +66,22 @@ const char *escape_type_names[NUM_ESCAPE_TYPES] =
   "custom_alloc_site"
 };
 
+typedef enum struct_reorg_give_up_reason
+{
+  STRUCT_REORG_DO_NOT_GIVE_UP = 0,
+  STRUCT_REORG_GIVE_UP_ASM_STMT,
+  STRUCT_REORG_NUM_OF_GIVE_UP_REASONS /* Not used, must be last.  */
+} struct_reorg_give_up_type;
+
+const char *struct_reorg_give_up_names[STRUCT_REORG_NUM_OF_GIVE_UP_REASONS] =
+{
+  "struct_reorg_do_not_give_up",
+  "struct_reorg_give_up_asm_stmt"
+};
+
+static unsigned 
+struct_reorg_give_up = (1 << STRUCT_REORG_DO_NOT_GIVE_UP);
+
 /* Structure types that appear in symtab_node: 
 
    (1) if symtab_node is a cgraph_node, then structure 
@@ -128,6 +144,36 @@ print_escape (struct_symbols str)
 	    fprintf (dump_file, "\nEscape: %s", escape_type_names[i]);
 	  j++;
 	}
+    }
+}
+
+static void
+print_give_up_reason (void)
+{
+  int j = 0;
+  
+  if (!dump_file)
+    return;
+
+  if (struct_reorg_give_up == (1 << STRUCT_REORG_DO_NOT_GIVE_UP))
+    {
+      fprintf (dump_file, "\nNo reason to give up yet...\n");
+    }
+  else
+    {
+      /* Skipping 0 index since we won't give up in this case.  */
+      for ( unsigned int i = 1; i < STRUCT_REORG_NUM_OF_GIVE_UP_REASONS; i++)
+	{
+	  if (struct_reorg_give_up & (1 << i))
+	    {
+	      if (j)
+		fprintf (dump_file, ", %s", struct_reorg_give_up_names[i]);
+	      else
+		fprintf (dump_file, "\nGive up reasons: %s", struct_reorg_give_up_names[i]);
+	      j++;
+	    }
+	}
+      fprintf (dump_file, "\n");      
     }
 }
 
@@ -1101,6 +1147,9 @@ is_cast_to_struct (gimple stmt, int *i_p)
 
   *i_p = is_in_struct_symbols_vec (strip_type (type));
 
+  if ((*i_p) == -1)
+    return false;
+  else
     return true;
 }
 
@@ -1230,6 +1279,42 @@ exclude_custom_malloc (void)
 	      }
 	  }
       }
+}
+
+static void
+has_inline_asm (void)
+{
+  basic_block bb;
+  struct cgraph_node *c_node;
+
+  FOR_EACH_FUNCTION(c_node)
+  {
+    enum availability avail = cgraph_function_body_availability (c_node);
+
+    if (avail == AVAIL_LOCAL || avail == AVAIL_AVAILABLE)
+      {
+	struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
+	gimple_stmt_iterator bsi;
+
+	FOR_EACH_BB_FN (bb, func)
+	  {
+	    for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+	      {
+		gimple stmt = gsi_stmt (bsi);
+
+		/* In asm stmt we cannot always track the arguments,
+		   so we just give up.  */
+		if (gimple_code (stmt) == GIMPLE_ASM)
+		  {
+		    struct_reorg_give_up |= (1 << STRUCT_REORG_GIVE_UP_ASM_STMT);		      
+		    goto GIVE_UP_LABEL;
+		  }
+	      }
+	  }
+      }
+  }
+ GIVE_UP_LABEL:
+  return;
 }
 
 /* This function collects structures potential
@@ -1510,7 +1595,21 @@ propagate (void)
   if (dump_file)
     fprintf (dump_file, "\nnumber of types is %d", struct_symbols_vec.length ());
 
-  print_struct_symbol_vec ();  
+  print_struct_symbol_vec ();
+
+  if (struct_reorg_give_up != (1 << STRUCT_REORG_DO_NOT_GIVE_UP))
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nWe are giving up...");
+
+      /* Free struct_symbols_vec.  */
+      for (i = 0; struct_symbols_vec.iterate (i, &symbols);)
+	{
+	  remove_type_from_struct_symbols_vec (symbols);
+	  struct_symbols_vec.ordered_remove (i);
+	}
+      struct_symbols_vec.release ();
+    }
 
   for (i = 0; struct_symbols_vec.iterate (i, &symbols);)
     {
@@ -1539,7 +1638,7 @@ propagate (void)
 	}
       /* We remove all externally visible structures and 
 	 all non-suitable (based on previously detected reasons) structures.  */
-      if (escape || (symbols->escape > 1))
+      if (escape || (symbols->escape > (1 << NONESCAPE)))
 	{
 	  /* Delete i's type from struct_symbols_vec.  */
 	  remove_type_from_struct_symbols_vec (symbols);
@@ -1673,6 +1772,7 @@ struct_reorg_read_section (struct lto_file_decl_data *file_data, const char *dat
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
 			header->string_size, vNULL);
+  struct_reorg_give_up |= streamer_read_uhwi (&ib_main);
   count = streamer_read_uhwi (&ib_main);
   encoder = file_data->symtab_node_encoder;
 
@@ -1696,7 +1796,7 @@ struct_reorg_read_section (struct lto_file_decl_data *file_data, const char *dat
   lto_free_section_data (file_data, LTO_section_ipa_struct_reorg, NULL, data,
 			 len);
   lto_data_in_delete (data_in);
-} 
+}
 
 /* Read section in file FILE_DATA of length LEN with data DATA.  */
 
@@ -1881,12 +1981,7 @@ struct_reorg_write_summary (void)
   unsigned int i;
   struct_symbols symbols;
 
-
-  if (!struct_symbols_vec.exists () || struct_symbols_vec.is_empty ())
-    {
-      destroy_output_block (ob);
-      return;
-    } 
+  streamer_write_uhwi (ob, struct_reorg_give_up);
 
   encoder = ob->decl_state->symtab_node_encoder;
   ob->cgraph_node = NULL;
@@ -1898,24 +1993,26 @@ struct_reorg_write_summary (void)
       fprintf (dump_file, "\nNumber of structure types is %d\n", struct_symbols_vec.length ());
     }
 
-  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+  if (struct_symbols_vec.exists () && !struct_symbols_vec.is_empty ())
     {
-      /* Serialize structure declaration.  */
-      gcc_assert (struct_symbols_vec[i]->struct_decl);
-      stream_write_tree (ob, struct_symbols_vec[i]->struct_decl, true);
-      streamer_write_uhwi (ob, struct_symbols_vec[i]->escape);
+      FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+	{
+	  /* Serialize structure declaration.  */
+	  gcc_assert (struct_symbols_vec[i]->struct_decl);
+	  stream_write_tree (ob, struct_symbols_vec[i]->struct_decl, true);
+	  streamer_write_uhwi (ob, struct_symbols_vec[i]->escape);
 
-      if (dump_file)
-	dump_struct_type (struct_symbols_vec[i]->struct_decl, 2, 0);
+	  if (dump_file)
+	    dump_struct_type (struct_symbols_vec[i]->struct_decl, 2, 0);
       
-      /* Serialize structure symbols.  */
-      write_struct_symbols (ob, symbols->symbols, encoder);      
+	  /* Serialize structure symbols.  */
+	  write_struct_symbols (ob, symbols->symbols, encoder);      
+	}
     }
 
   streamer_write_char_stream (ob->main_stream, 0);
   produce_asm (ob, NULL);
   destroy_output_block (ob);
-  
 } 
 
 static void
@@ -2888,14 +2985,28 @@ struct_reorg_func_transform (struct cgraph_node *node)
   // DO not forget to free free_new_vars_htab (new_global_vars); !!!
 }
 
-/* Analyze each function in the cgraph. */
+static void
+check_prog_eligibility (void)
+{
+  has_inline_asm ();
+
+  /* TBD: Add other reasons here to skip struct-reorg optimization.  */
+
+  return;
+}
+
+/* Analyze program. */
 
 static void
 struct_reorg_generate_summary (void)
 {
-
+  check_prog_eligibility ();
+  if (struct_reorg_give_up != (1 << STRUCT_REORG_DO_NOT_GIVE_UP))
+    {
+      print_give_up_reason ();
+      return;
+    }
   collect_structures ();
-
 }
 
 static bool
