@@ -1,3 +1,9 @@
+2014-12-29  Jason Merrill  <jason@redhat.com>
+
+	* gcc/cp/pt.c (type_dependent_expression_p): Remove obsolete use of
+	PLACEHOLDER_EXPR.
+	(convert_template_argument): Likewise.
+
 2014-11-15  Braden Obrzut  <admin@maniacsvault.net>
 
 	* gcc/cp/constraint.cc (resolve_constraint_check): Move definition

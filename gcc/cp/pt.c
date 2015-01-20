@@ -6777,8 +6777,7 @@ convert_template_argument (tree parm,
   int is_type, requires_type, is_tmpl_type, requires_tmpl_type;
 
   // Trivially convert placeholders.
-  if (TREE_CODE (arg) == PLACEHOLDER_EXPR
-      || TREE_CODE (arg) == INTRODUCED_PARM_DECL)
+  if (TREE_CODE (arg) == INTRODUCED_PARM_DECL)
     return convert_placeholder_argument (parm, arg);
 
   if (TREE_CODE (arg) == TREE_LIST
@@ -21701,7 +21700,6 @@ type_dependent_expression_p (tree expression)
   /* An unresolved name is always dependent.  */
   if (identifier_p (expression)
       || TREE_CODE (expression) == USING_DECL
-      || TREE_CODE (expression) == PLACEHOLDER_EXPR
       || TREE_CODE (expression) == INTRODUCED_PARM_DECL)
     return true;
 
