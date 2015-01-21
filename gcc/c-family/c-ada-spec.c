@@ -1,6 +1,6 @@
 /* Print GENERIC declaration (functions, variables, types) trees coming from
    the C and C++ front-ends as well as macros in Ada syntax.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Adapted from tree-pretty-print.c by Arnaud Charlet  <charlet@adacore.com>
 
 This file is part of GCC.
@@ -23,27 +23,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "dumpfile.h"
 #include "c-ada-spec.h"
 #include "cpplib.h"
 #include "c-pragma.h"
 #include "cpp-id-data.h"
-
-/* Adapted from hwint.h to use the Ada prefix.  */
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-# if HOST_BITS_PER_WIDE_INT == 64
-#  define ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX \
-     "16#%" HOST_LONG_FORMAT "x%016" HOST_LONG_FORMAT "x#"
-# else
-#  define ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX \
-     "16#%" HOST_LONG_FORMAT "x%08" HOST_LONG_FORMAT "x#"
-# endif
-#else
-  /* We can assume that 'long long' is at least 64 bits.  */
-# define ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX \
-    "16#%" HOST_LONG_LONG_FORMAT "x%016" HOST_LONG_LONG_FORMAT "x#"
-#endif /* HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG */
+#include "wide-int.h"
 
 /* Local functions, macros and variables.  */
 static int dump_generic_ada_node (pretty_printer *, tree, tree, int, int,
@@ -650,8 +647,9 @@ dump_ada_nodes (pretty_printer *pp, const char *source_file)
   comments = cpp_get_comments (parse_in);
 
   /* Sort the comments table by sloc.  */
-  qsort (comments->entries, comments->count, sizeof (cpp_comment),
-	 compare_comment);
+  if (comments->count > 1)
+    qsort (comments->entries, comments->count, sizeof (cpp_comment),
+	   compare_comment);
 
   /* Interleave comments and declarations in line number order.  */
   i = j = 0;
@@ -2211,19 +2209,19 @@ dump_generic_ada_node (pretty_printer *buffer, tree node, tree type, int spc,
 	pp_unsigned_wide_integer (buffer, tree_to_uhwi (node));
       else
 	{
-	  tree val = node;
-	  unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (val);
-	  HOST_WIDE_INT high = TREE_INT_CST_HIGH (val);
-
-	  if (tree_int_cst_sgn (val) < 0)
+	  wide_int val = node;
+	  int i;
+	  if (wi::neg_p (val))
 	    {
 	      pp_minus (buffer);
-	      high = ~high + !low;
-	      low = -low;
+	      val = -val;
 	    }
 	  sprintf (pp_buffer (buffer)->digit_buffer,
-		   ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		   (unsigned HOST_WIDE_INT) high, low);
+		   "16#%" HOST_WIDE_INT_PRINT "x",
+		   val.elt (val.get_len () - 1));
+	  for (i = val.get_len () - 2; i >= 0; i--)
+	    sprintf (pp_buffer (buffer)->digit_buffer,
+		     HOST_WIDE_INT_PRINT_PADDED_HEX, val.elt (i));
 	  pp_string (buffer, pp_buffer (buffer)->digit_buffer);
 	}
       break;

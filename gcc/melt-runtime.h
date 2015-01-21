@@ -142,7 +142,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
 /* The version string of MELT; this is parsed by make, so spaces are
    important, don't add spaces after the terminating double-quote!
    That version string is extracted by scripts or makefiles... */
-#define MELT_VERSION_STRING "1.2-premerge"
+#define MELT_VERSION_STRING "1.2-pre-merged"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -3739,19 +3739,6 @@ melt_get_inisysdata(int off)
 FILE* meltgc_set_dump_file (FILE* dumpf);
 void meltgc_restore_dump_file (FILE* oldf);
 
-/*** MELT interface to walk_gimple_seq; using the given DATA as first
-     argument to closures, walk recursively inside gimple_seq GSEQ,
-     applying closure STMTCLOS_P to statements and closure TREECLOS_P
-     to trees if given. The UNIQUETREEVISIT flag is set if we don't
-     want to visit tree operands several times. The STMTCLOS_P gets
-     the DATA and the raw current GIMPLE as argument, and return a
-     boolean value as primary result, and the replacing GIMPLE, if any,
-     as secondary result. The TREECLOS_P gets the DATA and the TREE
-     as arguments, and return a boolean value, with a sub-tree walking
-     integer flag and the replacing tree as secondary results.
- ***/
-gimple
-meltgc_walk_gimple_seq (melt_ptr_t data_p, gimple_seq gseq, melt_ptr_t stmtclos_p, melt_ptr_t treeclos_p, bool uniquetreevisit);
 
 #if ENABLE_CHECKING
 /* some useless routines in wich we can add a breakpoint from gdb. */
@@ -3799,10 +3786,10 @@ extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #define gt_ggc_mx_gimple_seq_d melt_gt_ggc_mx_gimple_seq_d
 #endif /* GCC 4.8 */
 
-#if GCCPLUGIN_VERSION == 4009
+#if GCCPLUGIN_VERSION == 4009 || GCCPLUGIN_VERSION >= 5000 /* GCC 4.9 or GCC 5.0 or above */
 /* Probably temporary */
 #define gt_ggc_mx_gimple_statement_d gt_ggc_m_21gimple_statement_base
-#endif /* GCC 4.9 */
+#endif /* GCC 4.9 or GCC 5.0 */
 
 #endif /*MELT_INCLUDED_ */
 /* eof $Id$ */

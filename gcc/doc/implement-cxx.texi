@@ -1,4 +1,4 @@
-@c Copyright (C) 2009-2014 Free Software Foundation, Inc.
+@c Copyright (C) 2009-2015 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -42,7 +42,9 @@ all conditionally-supported constructs that it does not support (C++0x
 @cite{Whether an argument of class type with a non-trivial copy
 constructor or destructor can be passed to ... (C++0x 5.2.2).}
 
-Such argument passing is not supported.
+Such argument passing is supported, using the same
+pass-by-invisible-reference approach used for normal function
+arguments of such types.
 
 @end itemize
 

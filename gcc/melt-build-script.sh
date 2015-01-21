@@ -7,7 +7,7 @@
 #@#@# From the definitions    melt-build-script.def
 #@#@# and the template file   melt-build-script.tpl
 # Generated shell script for MELT modules and MELT translator bootstrap
-#   Copyright (C) 2012-2014  Free Software Foundation
+#   Copyright (C) 2012-2015  Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -118,10 +118,7 @@ if [ -z "$GCCMELT_CC1PLUS" ]; then
    meltbuild_error  melt-build-script.tpl:118/7 missing GCCMELT_CC1PLUS
 fi
 
-if [ ! -f meltrunsup.h ]; then 
-    meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/meltrunsup.h meltrunsup.h 
-    meltbuild_info  melt-build-script.tpl:123/8 symlinking meltrunsup.h header
-fi
+## dont symlink meltrunsup.h anymore!
 
 GCCMELT_RUNTIME_DEPENDENCY_MD5SUM=$($MD5SUM "$GCCMELT_RUNTIME_DEPENDENCY"  | cut -b 1-32)
 
@@ -133,7 +130,7 @@ case $melt_overall_goal in
     checkruntime) ;;
     gendoc) ;;
     regenerate) ;;
-    *) meltbuild_error  melt-build-script.tpl:136/9 bad MELT overall goal "$melt_overall_goal:" \
+    *) meltbuild_error  melt-build-script.tpl:133/8 bad MELT overall goal "$melt_overall_goal:" \
         expecting translator, library, applications, modlists, checkruntime, gendoc or regenerate
 esac
 
@@ -142,7 +139,7 @@ esac
 
 GCCMELT_ZERO_FLAVOR=${GCCMELT_STAGE_ZERO#meltbuild-stage0-}
 
-## The base name of the MELT translator files melt-build-script.tpl:145/10
+## The base name of the MELT translator files melt-build-script.tpl:142/9
 GCCMELT_TRANSLATOR_BASE=(  warmelt-first \
   warmelt-base \
   warmelt-debug \
@@ -160,53 +157,53 @@ case $GCCMELT_ZERO_FLAVOR in
     dynamic) ;;
     debugnoline) ;;
     quicklybuilt) ;;
-    *) meltbuild_error  melt-build-script.tpl:153/11 bad zero flavor $GCCMELT_ZERO_FLAVOR ;;
+    *) meltbuild_error  melt-build-script.tpl:150/10 bad zero flavor $GCCMELT_ZERO_FLAVOR ;;
 esac
 
 
-## our stage0 melt-build-script.tpl:157/12
+## our stage0 melt-build-script.tpl:154/11
 
 [ -d $GCCMELT_STAGE_ZERO ] || mkdir  $GCCMELT_STAGE_ZERO
 
 
 function meltbuild_do_stage_zero () {
-meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
+meltbuild_notice STAGE0+  melt-build-script.tpl:160/12 starting stage zero
 
 
-  meltbuild_info making stage0 warmelt-first  melt-build-script.tpl:166/14
+  meltbuild_info making stage0 warmelt-first  melt-build-script.tpl:163/13
 
-##  stage0 melt-build-script.tpl:168/15 symlink descriptor file warmelt-first
+##  stage0 melt-build-script.tpl:165/14 symlink descriptor file warmelt-first
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-first+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-first+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/16 symlink melt/generated source code warmelt-first
+##  stage0 melt-build-script.tpl:170/15 symlink melt/generated source code warmelt-first
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-first.cc" ]; then
-      meltbuild_info making stage0 warmelt-first symlinking sources melt-build-script.tpl:175/17
+      meltbuild_info making stage0 warmelt-first symlinking sources melt-build-script.tpl:172/16
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-first.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-first+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/18 symlink stamp warmelt-first
+##  stage0 melt-build-script.tpl:179/17 symlink stamp warmelt-first
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-first+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-first symlinking timestamp melt-build-script.tpl:184/19
+      meltbuild_info making stage0 warmelt-first symlinking timestamp melt-build-script.tpl:181/18
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-first+melttime.h $GCCMELT_STAGE_ZERO/warmelt-first+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_FIRST_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-first+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-first+meltbuild.mk file  melt-build-script.tpl:191/20
+## manually generate the stage0 warmelt-first+meltbuild.mk file  melt-build-script.tpl:188/19
   MELT_ZERO_GENERATED_FIRST_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-first+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_FIRST_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/21 >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/20 >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-first"  >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_FIRST"  >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-first melt-build-script.tpl:199/22' >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-first melt-build-script.tpl:196/21' >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-first.$MELT_ZERO_GENERATED_FIRST_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-first+meltdesc.c  >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-first.cc $GCCMELT_STAGE_ZERO/warmelt-first+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
@@ -214,7 +211,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-first melt-build-script.tpl:207/23'  >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-first melt-build-script.tpl:204/22'  >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-first.meltmod-$MELT_ZERO_GENERATED_FIRST_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-first.$MELT_ZERO_GENERATED_FIRST_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-first+[0-9][0-9].cc; do
@@ -227,11 +224,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_FIRST_BUILDMK >> $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_FIRST_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_FIRST_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/24 generated stagezero makedep $MELT_ZERO_GENERATED_FIRST_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/23 generated stagezero makedep $MELT_ZERO_GENERATED_FIRST_BUILDMK
   ls -l $MELT_ZERO_GENERATED_FIRST_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/25 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/24 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -241,50 +238,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_FIRST_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-first \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/26 stage0 warmelt-first did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/25 stage0 warmelt-first did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/27 stage0 warmelt-first module 
+  meltbuild_info melt-build-script.tpl:233/26 stage0 warmelt-first module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-first.meltmod-$MELT_ZERO_GENERATED_FIRST_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/28 stage0 warmelt-first fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/27 stage0 warmelt-first fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-first.meltmod-$MELT_ZERO_GENERATED_FIRST_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/29 successfully build stage0 warmelt-first
-# end stage0  melt-build-script.tpl:242/30 base  warmelt-first
+  meltbuild_info melt-build-script.tpl:238/28 successfully build stage0 warmelt-first
+# end stage0  melt-build-script.tpl:239/29 base  warmelt-first
 
-  meltbuild_info making stage0 warmelt-base  melt-build-script.tpl:166/31
+  meltbuild_info making stage0 warmelt-base  melt-build-script.tpl:163/30
 
-##  stage0 melt-build-script.tpl:168/32 symlink descriptor file warmelt-base
+##  stage0 melt-build-script.tpl:165/31 symlink descriptor file warmelt-base
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-base+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-base+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/33 symlink melt/generated source code warmelt-base
+##  stage0 melt-build-script.tpl:170/32 symlink melt/generated source code warmelt-base
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-base.cc" ]; then
-      meltbuild_info making stage0 warmelt-base symlinking sources melt-build-script.tpl:175/34
+      meltbuild_info making stage0 warmelt-base symlinking sources melt-build-script.tpl:172/33
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-base.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-base+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/35 symlink stamp warmelt-base
+##  stage0 melt-build-script.tpl:179/34 symlink stamp warmelt-base
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-base+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-base symlinking timestamp melt-build-script.tpl:184/36
+      meltbuild_info making stage0 warmelt-base symlinking timestamp melt-build-script.tpl:181/35
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-base+melttime.h $GCCMELT_STAGE_ZERO/warmelt-base+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_BASE_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-base+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-base+meltbuild.mk file  melt-build-script.tpl:191/37
+## manually generate the stage0 warmelt-base+meltbuild.mk file  melt-build-script.tpl:188/36
   MELT_ZERO_GENERATED_BASE_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-base+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_BASE_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/38 >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/37 >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-base"  >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_BASE"  >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-base melt-build-script.tpl:199/39' >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-base melt-build-script.tpl:196/38' >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-base.$MELT_ZERO_GENERATED_BASE_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-base+meltdesc.c  >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-base.cc $GCCMELT_STAGE_ZERO/warmelt-base+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
@@ -292,7 +289,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-base melt-build-script.tpl:207/40'  >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-base melt-build-script.tpl:204/39'  >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-base.meltmod-$MELT_ZERO_GENERATED_BASE_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-base.$MELT_ZERO_GENERATED_BASE_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-base+[0-9][0-9].cc; do
@@ -305,11 +302,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_BASE_BUILDMK >> $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_BASE_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_BASE_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/41 generated stagezero makedep $MELT_ZERO_GENERATED_BASE_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/40 generated stagezero makedep $MELT_ZERO_GENERATED_BASE_BUILDMK
   ls -l $MELT_ZERO_GENERATED_BASE_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/42 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/41 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -319,50 +316,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_BASE_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-base \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/43 stage0 warmelt-base did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/42 stage0 warmelt-base did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/44 stage0 warmelt-base module 
+  meltbuild_info melt-build-script.tpl:233/43 stage0 warmelt-base module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-base.meltmod-$MELT_ZERO_GENERATED_BASE_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/45 stage0 warmelt-base fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/44 stage0 warmelt-base fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-base.meltmod-$MELT_ZERO_GENERATED_BASE_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/46 successfully build stage0 warmelt-base
-# end stage0  melt-build-script.tpl:242/47 base  warmelt-base
+  meltbuild_info melt-build-script.tpl:238/45 successfully build stage0 warmelt-base
+# end stage0  melt-build-script.tpl:239/46 base  warmelt-base
 
-  meltbuild_info making stage0 warmelt-debug  melt-build-script.tpl:166/48
+  meltbuild_info making stage0 warmelt-debug  melt-build-script.tpl:163/47
 
-##  stage0 melt-build-script.tpl:168/49 symlink descriptor file warmelt-debug
+##  stage0 melt-build-script.tpl:165/48 symlink descriptor file warmelt-debug
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-debug+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-debug+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/50 symlink melt/generated source code warmelt-debug
+##  stage0 melt-build-script.tpl:170/49 symlink melt/generated source code warmelt-debug
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-debug.cc" ]; then
-      meltbuild_info making stage0 warmelt-debug symlinking sources melt-build-script.tpl:175/51
+      meltbuild_info making stage0 warmelt-debug symlinking sources melt-build-script.tpl:172/50
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-debug.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-debug+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/52 symlink stamp warmelt-debug
+##  stage0 melt-build-script.tpl:179/51 symlink stamp warmelt-debug
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-debug+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-debug symlinking timestamp melt-build-script.tpl:184/53
+      meltbuild_info making stage0 warmelt-debug symlinking timestamp melt-build-script.tpl:181/52
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-debug+melttime.h $GCCMELT_STAGE_ZERO/warmelt-debug+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_DEBUG_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-debug+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-debug+meltbuild.mk file  melt-build-script.tpl:191/54
+## manually generate the stage0 warmelt-debug+meltbuild.mk file  melt-build-script.tpl:188/53
   MELT_ZERO_GENERATED_DEBUG_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-debug+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_DEBUG_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/55 >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/54 >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-debug"  >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_DEBUG"  >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-debug melt-build-script.tpl:199/56' >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-debug melt-build-script.tpl:196/55' >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-debug.$MELT_ZERO_GENERATED_DEBUG_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-debug+meltdesc.c  >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-debug.cc $GCCMELT_STAGE_ZERO/warmelt-debug+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
@@ -370,7 +367,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-debug melt-build-script.tpl:207/57'  >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-debug melt-build-script.tpl:204/56'  >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-debug.meltmod-$MELT_ZERO_GENERATED_DEBUG_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-debug.$MELT_ZERO_GENERATED_DEBUG_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-debug+[0-9][0-9].cc; do
@@ -383,11 +380,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_DEBUG_BUILDMK >> $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_DEBUG_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_DEBUG_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/58 generated stagezero makedep $MELT_ZERO_GENERATED_DEBUG_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/57 generated stagezero makedep $MELT_ZERO_GENERATED_DEBUG_BUILDMK
   ls -l $MELT_ZERO_GENERATED_DEBUG_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/59 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/58 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -397,50 +394,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_DEBUG_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-debug \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/60 stage0 warmelt-debug did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/59 stage0 warmelt-debug did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/61 stage0 warmelt-debug module 
+  meltbuild_info melt-build-script.tpl:233/60 stage0 warmelt-debug module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-debug.meltmod-$MELT_ZERO_GENERATED_DEBUG_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/62 stage0 warmelt-debug fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/61 stage0 warmelt-debug fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-debug.meltmod-$MELT_ZERO_GENERATED_DEBUG_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/63 successfully build stage0 warmelt-debug
-# end stage0  melt-build-script.tpl:242/64 base  warmelt-debug
+  meltbuild_info melt-build-script.tpl:238/62 successfully build stage0 warmelt-debug
+# end stage0  melt-build-script.tpl:239/63 base  warmelt-debug
 
-  meltbuild_info making stage0 warmelt-macro  melt-build-script.tpl:166/65
+  meltbuild_info making stage0 warmelt-macro  melt-build-script.tpl:163/64
 
-##  stage0 melt-build-script.tpl:168/66 symlink descriptor file warmelt-macro
+##  stage0 melt-build-script.tpl:165/65 symlink descriptor file warmelt-macro
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-macro+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-macro+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/67 symlink melt/generated source code warmelt-macro
+##  stage0 melt-build-script.tpl:170/66 symlink melt/generated source code warmelt-macro
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-macro.cc" ]; then
-      meltbuild_info making stage0 warmelt-macro symlinking sources melt-build-script.tpl:175/68
+      meltbuild_info making stage0 warmelt-macro symlinking sources melt-build-script.tpl:172/67
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-macro.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-macro+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/69 symlink stamp warmelt-macro
+##  stage0 melt-build-script.tpl:179/68 symlink stamp warmelt-macro
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-macro+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-macro symlinking timestamp melt-build-script.tpl:184/70
+      meltbuild_info making stage0 warmelt-macro symlinking timestamp melt-build-script.tpl:181/69
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-macro+melttime.h $GCCMELT_STAGE_ZERO/warmelt-macro+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_MACRO_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-macro+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-macro+meltbuild.mk file  melt-build-script.tpl:191/71
+## manually generate the stage0 warmelt-macro+meltbuild.mk file  melt-build-script.tpl:188/70
   MELT_ZERO_GENERATED_MACRO_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-macro+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_MACRO_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/72 >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/71 >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-macro"  >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_MACRO"  >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-macro melt-build-script.tpl:199/73' >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-macro melt-build-script.tpl:196/72' >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-macro.$MELT_ZERO_GENERATED_MACRO_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-macro+meltdesc.c  >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-macro.cc $GCCMELT_STAGE_ZERO/warmelt-macro+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
@@ -448,7 +445,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-macro melt-build-script.tpl:207/74'  >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-macro melt-build-script.tpl:204/73'  >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-macro.meltmod-$MELT_ZERO_GENERATED_MACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-macro.$MELT_ZERO_GENERATED_MACRO_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-macro+[0-9][0-9].cc; do
@@ -461,11 +458,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_MACRO_BUILDMK >> $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_MACRO_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_MACRO_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/75 generated stagezero makedep $MELT_ZERO_GENERATED_MACRO_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/74 generated stagezero makedep $MELT_ZERO_GENERATED_MACRO_BUILDMK
   ls -l $MELT_ZERO_GENERATED_MACRO_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/76 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/75 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -475,50 +472,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_MACRO_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-macro \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/77 stage0 warmelt-macro did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/76 stage0 warmelt-macro did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/78 stage0 warmelt-macro module 
+  meltbuild_info melt-build-script.tpl:233/77 stage0 warmelt-macro module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-macro.meltmod-$MELT_ZERO_GENERATED_MACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/79 stage0 warmelt-macro fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/78 stage0 warmelt-macro fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-macro.meltmod-$MELT_ZERO_GENERATED_MACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/80 successfully build stage0 warmelt-macro
-# end stage0  melt-build-script.tpl:242/81 base  warmelt-macro
+  meltbuild_info melt-build-script.tpl:238/79 successfully build stage0 warmelt-macro
+# end stage0  melt-build-script.tpl:239/80 base  warmelt-macro
 
-  meltbuild_info making stage0 warmelt-moremacro  melt-build-script.tpl:166/82
+  meltbuild_info making stage0 warmelt-moremacro  melt-build-script.tpl:163/81
 
-##  stage0 melt-build-script.tpl:168/83 symlink descriptor file warmelt-moremacro
+##  stage0 melt-build-script.tpl:165/82 symlink descriptor file warmelt-moremacro
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-moremacro+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-moremacro+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/84 symlink melt/generated source code warmelt-moremacro
+##  stage0 melt-build-script.tpl:170/83 symlink melt/generated source code warmelt-moremacro
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-moremacro.cc" ]; then
-      meltbuild_info making stage0 warmelt-moremacro symlinking sources melt-build-script.tpl:175/85
+      meltbuild_info making stage0 warmelt-moremacro symlinking sources melt-build-script.tpl:172/84
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-moremacro.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-moremacro+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/86 symlink stamp warmelt-moremacro
+##  stage0 melt-build-script.tpl:179/85 symlink stamp warmelt-moremacro
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-moremacro+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-moremacro symlinking timestamp melt-build-script.tpl:184/87
+      meltbuild_info making stage0 warmelt-moremacro symlinking timestamp melt-build-script.tpl:181/86
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-moremacro+melttime.h $GCCMELT_STAGE_ZERO/warmelt-moremacro+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-moremacro+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-moremacro+meltbuild.mk file  melt-build-script.tpl:191/88
+## manually generate the stage0 warmelt-moremacro+meltbuild.mk file  melt-build-script.tpl:188/87
   MELT_ZERO_GENERATED_MOREMACRO_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-moremacro+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/89 >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/88 >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-moremacro"  >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_MOREMACRO"  >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-moremacro melt-build-script.tpl:199/90' >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-moremacro melt-build-script.tpl:196/89' >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-moremacro.$MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-moremacro+meltdesc.c  >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-moremacro.cc $GCCMELT_STAGE_ZERO/warmelt-moremacro+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
@@ -526,7 +523,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-moremacro melt-build-script.tpl:207/91'  >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-moremacro melt-build-script.tpl:204/90'  >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-moremacro.meltmod-$MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-moremacro.$MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-moremacro+[0-9][0-9].cc; do
@@ -539,11 +536,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK >> $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/92 generated stagezero makedep $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/91 generated stagezero makedep $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK
   ls -l $MELT_ZERO_GENERATED_MOREMACRO_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/93 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/92 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -553,50 +550,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-moremacro \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/94 stage0 warmelt-moremacro did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/93 stage0 warmelt-moremacro did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/95 stage0 warmelt-moremacro module 
+  meltbuild_info melt-build-script.tpl:233/94 stage0 warmelt-moremacro module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-moremacro.meltmod-$MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/96 stage0 warmelt-moremacro fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/95 stage0 warmelt-moremacro fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-moremacro.meltmod-$MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/97 successfully build stage0 warmelt-moremacro
-# end stage0  melt-build-script.tpl:242/98 base  warmelt-moremacro
+  meltbuild_info melt-build-script.tpl:238/96 successfully build stage0 warmelt-moremacro
+# end stage0  melt-build-script.tpl:239/97 base  warmelt-moremacro
 
-  meltbuild_info making stage0 warmelt-normal  melt-build-script.tpl:166/99
+  meltbuild_info making stage0 warmelt-normal  melt-build-script.tpl:163/98
 
-##  stage0 melt-build-script.tpl:168/100 symlink descriptor file warmelt-normal
+##  stage0 melt-build-script.tpl:165/99 symlink descriptor file warmelt-normal
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-normal+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-normal+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/101 symlink melt/generated source code warmelt-normal
+##  stage0 melt-build-script.tpl:170/100 symlink melt/generated source code warmelt-normal
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-normal.cc" ]; then
-      meltbuild_info making stage0 warmelt-normal symlinking sources melt-build-script.tpl:175/102
+      meltbuild_info making stage0 warmelt-normal symlinking sources melt-build-script.tpl:172/101
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-normal.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-normal+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/103 symlink stamp warmelt-normal
+##  stage0 melt-build-script.tpl:179/102 symlink stamp warmelt-normal
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-normal+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-normal symlinking timestamp melt-build-script.tpl:184/104
+      meltbuild_info making stage0 warmelt-normal symlinking timestamp melt-build-script.tpl:181/103
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-normal+melttime.h $GCCMELT_STAGE_ZERO/warmelt-normal+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_NORMAL_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-normal+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-normal+meltbuild.mk file  melt-build-script.tpl:191/105
+## manually generate the stage0 warmelt-normal+meltbuild.mk file  melt-build-script.tpl:188/104
   MELT_ZERO_GENERATED_NORMAL_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-normal+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_NORMAL_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/106 >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/105 >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-normal"  >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_NORMAL"  >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-normal melt-build-script.tpl:199/107' >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-normal melt-build-script.tpl:196/106' >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-normal.$MELT_ZERO_GENERATED_NORMAL_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-normal+meltdesc.c  >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-normal.cc $GCCMELT_STAGE_ZERO/warmelt-normal+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
@@ -604,7 +601,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-normal melt-build-script.tpl:207/108'  >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-normal melt-build-script.tpl:204/107'  >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-normal.meltmod-$MELT_ZERO_GENERATED_NORMAL_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-normal.$MELT_ZERO_GENERATED_NORMAL_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-normal+[0-9][0-9].cc; do
@@ -617,11 +614,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_NORMAL_BUILDMK >> $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_NORMAL_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_NORMAL_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/109 generated stagezero makedep $MELT_ZERO_GENERATED_NORMAL_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/108 generated stagezero makedep $MELT_ZERO_GENERATED_NORMAL_BUILDMK
   ls -l $MELT_ZERO_GENERATED_NORMAL_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/110 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/109 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -631,50 +628,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_NORMAL_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-normal \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/111 stage0 warmelt-normal did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/110 stage0 warmelt-normal did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/112 stage0 warmelt-normal module 
+  meltbuild_info melt-build-script.tpl:233/111 stage0 warmelt-normal module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-normal.meltmod-$MELT_ZERO_GENERATED_NORMAL_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/113 stage0 warmelt-normal fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/112 stage0 warmelt-normal fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-normal.meltmod-$MELT_ZERO_GENERATED_NORMAL_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/114 successfully build stage0 warmelt-normal
-# end stage0  melt-build-script.tpl:242/115 base  warmelt-normal
+  meltbuild_info melt-build-script.tpl:238/113 successfully build stage0 warmelt-normal
+# end stage0  melt-build-script.tpl:239/114 base  warmelt-normal
 
-  meltbuild_info making stage0 warmelt-normatch  melt-build-script.tpl:166/116
+  meltbuild_info making stage0 warmelt-normatch  melt-build-script.tpl:163/115
 
-##  stage0 melt-build-script.tpl:168/117 symlink descriptor file warmelt-normatch
+##  stage0 melt-build-script.tpl:165/116 symlink descriptor file warmelt-normatch
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-normatch+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-normatch+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/118 symlink melt/generated source code warmelt-normatch
+##  stage0 melt-build-script.tpl:170/117 symlink melt/generated source code warmelt-normatch
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-normatch.cc" ]; then
-      meltbuild_info making stage0 warmelt-normatch symlinking sources melt-build-script.tpl:175/119
+      meltbuild_info making stage0 warmelt-normatch symlinking sources melt-build-script.tpl:172/118
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-normatch.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-normatch+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/120 symlink stamp warmelt-normatch
+##  stage0 melt-build-script.tpl:179/119 symlink stamp warmelt-normatch
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-normatch+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-normatch symlinking timestamp melt-build-script.tpl:184/121
+      meltbuild_info making stage0 warmelt-normatch symlinking timestamp melt-build-script.tpl:181/120
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-normatch+melttime.h $GCCMELT_STAGE_ZERO/warmelt-normatch+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_NORMATCH_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-normatch+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-normatch+meltbuild.mk file  melt-build-script.tpl:191/122
+## manually generate the stage0 warmelt-normatch+meltbuild.mk file  melt-build-script.tpl:188/121
   MELT_ZERO_GENERATED_NORMATCH_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-normatch+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_NORMATCH_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/123 >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/122 >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-normatch"  >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_NORMATCH"  >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-normatch melt-build-script.tpl:199/124' >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-normatch melt-build-script.tpl:196/123' >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-normatch.$MELT_ZERO_GENERATED_NORMATCH_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-normatch+meltdesc.c  >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-normatch.cc $GCCMELT_STAGE_ZERO/warmelt-normatch+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
@@ -682,7 +679,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-normatch melt-build-script.tpl:207/125'  >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-normatch melt-build-script.tpl:204/124'  >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-normatch.meltmod-$MELT_ZERO_GENERATED_NORMATCH_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-normatch.$MELT_ZERO_GENERATED_NORMATCH_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-normatch+[0-9][0-9].cc; do
@@ -695,11 +692,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_NORMATCH_BUILDMK >> $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_NORMATCH_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_NORMATCH_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/126 generated stagezero makedep $MELT_ZERO_GENERATED_NORMATCH_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/125 generated stagezero makedep $MELT_ZERO_GENERATED_NORMATCH_BUILDMK
   ls -l $MELT_ZERO_GENERATED_NORMATCH_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/127 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/126 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -709,50 +706,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_NORMATCH_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-normatch \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/128 stage0 warmelt-normatch did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/127 stage0 warmelt-normatch did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/129 stage0 warmelt-normatch module 
+  meltbuild_info melt-build-script.tpl:233/128 stage0 warmelt-normatch module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-normatch.meltmod-$MELT_ZERO_GENERATED_NORMATCH_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/130 stage0 warmelt-normatch fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/129 stage0 warmelt-normatch fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-normatch.meltmod-$MELT_ZERO_GENERATED_NORMATCH_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/131 successfully build stage0 warmelt-normatch
-# end stage0  melt-build-script.tpl:242/132 base  warmelt-normatch
+  meltbuild_info melt-build-script.tpl:238/130 successfully build stage0 warmelt-normatch
+# end stage0  melt-build-script.tpl:239/131 base  warmelt-normatch
 
-  meltbuild_info making stage0 warmelt-genobj  melt-build-script.tpl:166/133
+  meltbuild_info making stage0 warmelt-genobj  melt-build-script.tpl:163/132
 
-##  stage0 melt-build-script.tpl:168/134 symlink descriptor file warmelt-genobj
+##  stage0 melt-build-script.tpl:165/133 symlink descriptor file warmelt-genobj
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-genobj+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-genobj+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/135 symlink melt/generated source code warmelt-genobj
+##  stage0 melt-build-script.tpl:170/134 symlink melt/generated source code warmelt-genobj
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-genobj.cc" ]; then
-      meltbuild_info making stage0 warmelt-genobj symlinking sources melt-build-script.tpl:175/136
+      meltbuild_info making stage0 warmelt-genobj symlinking sources melt-build-script.tpl:172/135
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-genobj.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-genobj+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/137 symlink stamp warmelt-genobj
+##  stage0 melt-build-script.tpl:179/136 symlink stamp warmelt-genobj
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-genobj+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-genobj symlinking timestamp melt-build-script.tpl:184/138
+      meltbuild_info making stage0 warmelt-genobj symlinking timestamp melt-build-script.tpl:181/137
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-genobj+melttime.h $GCCMELT_STAGE_ZERO/warmelt-genobj+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_GENOBJ_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-genobj+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-genobj+meltbuild.mk file  melt-build-script.tpl:191/139
+## manually generate the stage0 warmelt-genobj+meltbuild.mk file  melt-build-script.tpl:188/138
   MELT_ZERO_GENERATED_GENOBJ_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-genobj+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_GENOBJ_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/140 >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/139 >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-genobj"  >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_GENOBJ"  >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-genobj melt-build-script.tpl:199/141' >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-genobj melt-build-script.tpl:196/140' >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-genobj.$MELT_ZERO_GENERATED_GENOBJ_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-genobj+meltdesc.c  >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-genobj.cc $GCCMELT_STAGE_ZERO/warmelt-genobj+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
@@ -760,7 +757,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-genobj melt-build-script.tpl:207/142'  >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-genobj melt-build-script.tpl:204/141'  >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-genobj.meltmod-$MELT_ZERO_GENERATED_GENOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-genobj.$MELT_ZERO_GENERATED_GENOBJ_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-genobj+[0-9][0-9].cc; do
@@ -773,11 +770,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_GENOBJ_BUILDMK >> $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_GENOBJ_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_GENOBJ_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/143 generated stagezero makedep $MELT_ZERO_GENERATED_GENOBJ_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/142 generated stagezero makedep $MELT_ZERO_GENERATED_GENOBJ_BUILDMK
   ls -l $MELT_ZERO_GENERATED_GENOBJ_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/144 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/143 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -787,50 +784,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_GENOBJ_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-genobj \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/145 stage0 warmelt-genobj did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/144 stage0 warmelt-genobj did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/146 stage0 warmelt-genobj module 
+  meltbuild_info melt-build-script.tpl:233/145 stage0 warmelt-genobj module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-genobj.meltmod-$MELT_ZERO_GENERATED_GENOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/147 stage0 warmelt-genobj fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/146 stage0 warmelt-genobj fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-genobj.meltmod-$MELT_ZERO_GENERATED_GENOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/148 successfully build stage0 warmelt-genobj
-# end stage0  melt-build-script.tpl:242/149 base  warmelt-genobj
+  meltbuild_info melt-build-script.tpl:238/147 successfully build stage0 warmelt-genobj
+# end stage0  melt-build-script.tpl:239/148 base  warmelt-genobj
 
-  meltbuild_info making stage0 warmelt-outobj  melt-build-script.tpl:166/150
+  meltbuild_info making stage0 warmelt-outobj  melt-build-script.tpl:163/149
 
-##  stage0 melt-build-script.tpl:168/151 symlink descriptor file warmelt-outobj
+##  stage0 melt-build-script.tpl:165/150 symlink descriptor file warmelt-outobj
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-outobj+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-outobj+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/152 symlink melt/generated source code warmelt-outobj
+##  stage0 melt-build-script.tpl:170/151 symlink melt/generated source code warmelt-outobj
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-outobj.cc" ]; then
-      meltbuild_info making stage0 warmelt-outobj symlinking sources melt-build-script.tpl:175/153
+      meltbuild_info making stage0 warmelt-outobj symlinking sources melt-build-script.tpl:172/152
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-outobj.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-outobj+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/154 symlink stamp warmelt-outobj
+##  stage0 melt-build-script.tpl:179/153 symlink stamp warmelt-outobj
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-outobj+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-outobj symlinking timestamp melt-build-script.tpl:184/155
+      meltbuild_info making stage0 warmelt-outobj symlinking timestamp melt-build-script.tpl:181/154
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-outobj+melttime.h $GCCMELT_STAGE_ZERO/warmelt-outobj+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-outobj+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-outobj+meltbuild.mk file  melt-build-script.tpl:191/156
+## manually generate the stage0 warmelt-outobj+meltbuild.mk file  melt-build-script.tpl:188/155
   MELT_ZERO_GENERATED_OUTOBJ_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-outobj+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/157 >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/156 >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-outobj"  >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_OUTOBJ"  >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-outobj melt-build-script.tpl:199/158' >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-outobj melt-build-script.tpl:196/157' >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-outobj.$MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-outobj+meltdesc.c  >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-outobj.cc $GCCMELT_STAGE_ZERO/warmelt-outobj+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
@@ -838,7 +835,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-outobj melt-build-script.tpl:207/159'  >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-outobj melt-build-script.tpl:204/158'  >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-outobj.meltmod-$MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-outobj.$MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-outobj+[0-9][0-9].cc; do
@@ -851,11 +848,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK >> $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/160 generated stagezero makedep $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/159 generated stagezero makedep $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK
   ls -l $MELT_ZERO_GENERATED_OUTOBJ_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/161 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/160 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -865,50 +862,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-outobj \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/162 stage0 warmelt-outobj did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/161 stage0 warmelt-outobj did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/163 stage0 warmelt-outobj module 
+  meltbuild_info melt-build-script.tpl:233/162 stage0 warmelt-outobj module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-outobj.meltmod-$MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/164 stage0 warmelt-outobj fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/163 stage0 warmelt-outobj fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-outobj.meltmod-$MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/165 successfully build stage0 warmelt-outobj
-# end stage0  melt-build-script.tpl:242/166 base  warmelt-outobj
+  meltbuild_info melt-build-script.tpl:238/164 successfully build stage0 warmelt-outobj
+# end stage0  melt-build-script.tpl:239/165 base  warmelt-outobj
 
-  meltbuild_info making stage0 warmelt-hooks  melt-build-script.tpl:166/167
+  meltbuild_info making stage0 warmelt-hooks  melt-build-script.tpl:163/166
 
-##  stage0 melt-build-script.tpl:168/168 symlink descriptor file warmelt-hooks
+##  stage0 melt-build-script.tpl:165/167 symlink descriptor file warmelt-hooks
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-hooks+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-hooks+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/169 symlink melt/generated source code warmelt-hooks
+##  stage0 melt-build-script.tpl:170/168 symlink melt/generated source code warmelt-hooks
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-hooks.cc" ]; then
-      meltbuild_info making stage0 warmelt-hooks symlinking sources melt-build-script.tpl:175/170
+      meltbuild_info making stage0 warmelt-hooks symlinking sources melt-build-script.tpl:172/169
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-hooks.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-hooks+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/171 symlink stamp warmelt-hooks
+##  stage0 melt-build-script.tpl:179/170 symlink stamp warmelt-hooks
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-hooks+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-hooks symlinking timestamp melt-build-script.tpl:184/172
+      meltbuild_info making stage0 warmelt-hooks symlinking timestamp melt-build-script.tpl:181/171
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-hooks+melttime.h $GCCMELT_STAGE_ZERO/warmelt-hooks+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_HOOKS_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-hooks+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-hooks+meltbuild.mk file  melt-build-script.tpl:191/173
+## manually generate the stage0 warmelt-hooks+meltbuild.mk file  melt-build-script.tpl:188/172
   MELT_ZERO_GENERATED_HOOKS_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-hooks+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_HOOKS_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/174 >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/173 >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-hooks"  >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_HOOKS"  >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-hooks melt-build-script.tpl:199/175' >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-hooks melt-build-script.tpl:196/174' >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-hooks.$MELT_ZERO_GENERATED_HOOKS_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-hooks+meltdesc.c  >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-hooks.cc $GCCMELT_STAGE_ZERO/warmelt-hooks+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
@@ -916,7 +913,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-hooks melt-build-script.tpl:207/176'  >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-hooks melt-build-script.tpl:204/175'  >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-hooks.meltmod-$MELT_ZERO_GENERATED_HOOKS_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-hooks.$MELT_ZERO_GENERATED_HOOKS_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-hooks+[0-9][0-9].cc; do
@@ -929,11 +926,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_HOOKS_BUILDMK >> $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_HOOKS_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_HOOKS_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/177 generated stagezero makedep $MELT_ZERO_GENERATED_HOOKS_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/176 generated stagezero makedep $MELT_ZERO_GENERATED_HOOKS_BUILDMK
   ls -l $MELT_ZERO_GENERATED_HOOKS_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/178 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/177 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -943,50 +940,50 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_HOOKS_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-hooks \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/179 stage0 warmelt-hooks did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/178 stage0 warmelt-hooks did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/180 stage0 warmelt-hooks module 
+  meltbuild_info melt-build-script.tpl:233/179 stage0 warmelt-hooks module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-hooks.meltmod-$MELT_ZERO_GENERATED_HOOKS_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/181 stage0 warmelt-hooks fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/180 stage0 warmelt-hooks fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-hooks.meltmod-$MELT_ZERO_GENERATED_HOOKS_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/182 successfully build stage0 warmelt-hooks
-# end stage0  melt-build-script.tpl:242/183 base  warmelt-hooks
+  meltbuild_info melt-build-script.tpl:238/181 successfully build stage0 warmelt-hooks
+# end stage0  melt-build-script.tpl:239/182 base  warmelt-hooks
 
-  meltbuild_info making stage0 warmelt-modes  melt-build-script.tpl:166/184
+  meltbuild_info making stage0 warmelt-modes  melt-build-script.tpl:163/183
 
-##  stage0 melt-build-script.tpl:168/185 symlink descriptor file warmelt-modes
+##  stage0 melt-build-script.tpl:165/184 symlink descriptor file warmelt-modes
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-modes+meltdesc.c" ]; then
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-modes+meltdesc.c $GCCMELT_STAGE_ZERO/ 
   fi
 
-##  stage0 melt-build-script.tpl:173/186 symlink melt/generated source code warmelt-modes
+##  stage0 melt-build-script.tpl:170/185 symlink melt/generated source code warmelt-modes
   if [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-modes.cc" ]; then
-      meltbuild_info making stage0 warmelt-modes symlinking sources melt-build-script.tpl:175/187
+      meltbuild_info making stage0 warmelt-modes symlinking sources melt-build-script.tpl:172/186
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-modes.cc $GCCMELT_STAGE_ZERO/ 
       for f in $GCCMELT_MELTSOURCEDIR/generated/warmelt-modes+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
-##  stage0 melt-build-script.tpl:182/188 symlink stamp warmelt-modes
+##  stage0 melt-build-script.tpl:179/187 symlink stamp warmelt-modes
   if  [ ! -f "$GCCMELT_STAGE_ZERO/warmelt-modes+melttime.h" ]; then
-      meltbuild_info making stage0 warmelt-modes symlinking timestamp melt-build-script.tpl:184/189
+      meltbuild_info making stage0 warmelt-modes symlinking timestamp melt-build-script.tpl:181/188
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/warmelt-modes+melttime.h $GCCMELT_STAGE_ZERO/warmelt-modes+melttime.h 
   fi
 
   MELT_ZERO_GENERATED_MODES_CUMULMD5=$($GAWK -F\" '/extern/{next} /melt_cumulated_hexmd5/{print $2}' $GCCMELT_MELTSOURCEDIR/generated/warmelt-modes+meltdesc.c)
 
 
-## manually generate the stage0 warmelt-modes+meltbuild.mk file  melt-build-script.tpl:191/190
+## manually generate the stage0 warmelt-modes+meltbuild.mk file  melt-build-script.tpl:188/189
   MELT_ZERO_GENERATED_MODES_BUILDMK=$GCCMELT_STAGE_ZERO/warmelt-modes+meltbuild.mk
 
   date +"# file $MELT_ZERO_GENERATED_MODES_BUILDMK script-generated %c" > $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
-  echo "# generated " melt-build-script.tpl:195/191 >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
+  echo "# generated " melt-build-script.tpl:192/190 >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
   echo "MELTGEN_MODULENAME=$GCCMELT_STAGE_ZERO/warmelt-modes"  >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
   echo "MELTGEN_MODULEIDENT=melt_stage_zero_MODES"  >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
 
-  echo '# zerostage objects of warmelt-modes melt-build-script.tpl:199/192' >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
+  echo '# zerostage objects of warmelt-modes melt-build-script.tpl:196/191' >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-modes.$MELT_ZERO_GENERATED_MODES_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/warmelt-modes+meltdesc.c  >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-modes.cc $GCCMELT_STAGE_ZERO/warmelt-modes+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
@@ -994,7 +991,7 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   done
 
   echo >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
-  echo '# zerostage module of warmelt-modes melt-build-script.tpl:207/193'  >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
+  echo '# zerostage module of warmelt-modes melt-build-script.tpl:204/192'  >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/warmelt-modes.meltmod-$MELT_ZERO_GENERATED_MODES_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/warmelt-modes.$MELT_ZERO_GENERATED_MODES_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/warmelt-modes+[0-9][0-9].cc; do
@@ -1007,11 +1004,11 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
   echo '#end of generated file ' $MELT_ZERO_GENERATED_MODES_BUILDMK >> $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$
 ##
   mv $MELT_ZERO_GENERATED_MODES_BUILDMK-tmp$$ $MELT_ZERO_GENERATED_MODES_BUILDMK
-  meltbuild_info melt-build-script.tpl:220/194 generated stagezero makedep $MELT_ZERO_GENERATED_MODES_BUILDMK
+  meltbuild_info melt-build-script.tpl:217/193 generated stagezero makedep $MELT_ZERO_GENERATED_MODES_BUILDMK
   ls -l $MELT_ZERO_GENERATED_MODES_BUILDMK >&2
 
   $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-      GCCMELT_FROM=stagezero-melt-build-script.tpl:224/195 \
+      GCCMELT_FROM=stagezero-melt-build-script.tpl:221/194 \
       GCCMELT_COMPILER="$GCCMELT_COMPILER" \
       GCCMELTGEN_BUILD=$GCCMELT_STAGE_ZERO/ \
       GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -1021,83 +1018,83 @@ meltbuild_notice STAGE0+  melt-build-script.tpl:163/13 starting stage zero
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_MODES_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/warmelt-modes \
       GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
-      || meltbuild_error  melt-build-script.tpl:234/196 stage0 warmelt-modes did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
+      || meltbuild_error  melt-build-script.tpl:231/195 stage0 warmelt-modes did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
-  meltbuild_info melt-build-script.tpl:236/197 stage0 warmelt-modes module 
+  meltbuild_info melt-build-script.tpl:233/196 stage0 warmelt-modes module 
   ls -l "$GCCMELT_STAGE_ZERO/warmelt-modes.meltmod-$MELT_ZERO_GENERATED_MODES_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so" >&2 \
-      || meltbuild_error  melt-build-script.tpl:238/198 stage0 warmelt-modes fail to build \
+      || meltbuild_error  melt-build-script.tpl:235/197 stage0 warmelt-modes fail to build \
       "$GCCMELT_STAGE_ZERO/warmelt-modes.meltmod-$MELT_ZERO_GENERATED_MODES_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so"
 
-  meltbuild_info melt-build-script.tpl:241/199 successfully build stage0 warmelt-modes
-# end stage0  melt-build-script.tpl:242/200 base  warmelt-modes
+  meltbuild_info melt-build-script.tpl:238/198 successfully build stage0 warmelt-modes
+# end stage0  melt-build-script.tpl:239/199 base  warmelt-modes
 
-} ################ end of function meltbuild_do_stage_zero melt-build-script.tpl:244/201
+} ################ end of function meltbuild_do_stage_zero melt-build-script.tpl:241/200
 ################################################################
 
-## stage0 stamp file melt-build-script.tpl:247/202
+## stage0 stamp file melt-build-script.tpl:244/201
 melt_stagezero_stamp=$GCCMELT_STAGE_ZERO/$GCCMELT_STAGE_ZERO.stamp
 
-## test if stage0 should be skipped then do it  melt-build-script.tpl:250/203
+## test if stage0 should be skipped then do it  melt-build-script.tpl:247/202
 if [ ! -f "$melt_stagezero_stamp" -o "$melt_stagezero_stamp" -ot "$GCCMELT_RUNTIME_DEPENDENCY" ]; then
    meltbuild_do_stage_zero
     melt_stagezero_stamptemp=$melt_stagezero_stamp-tmp$$
-    echo MELT stagezero stampfile $GCCMELT_STAGE_ZERO.stamp for MELT $MELTGCCBUILTIN_VERSION_STRING from melt-build-script.tpl:254/204 >  $melt_stagezero_stamptemp
+    echo MELT stagezero stampfile $GCCMELT_STAGE_ZERO.stamp for MELT $MELTGCCBUILTIN_VERSION_STRING from melt-build-script.tpl:251/203 >  $melt_stagezero_stamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/205 base  warmelt-first
+#  stagezero stamp melt-build-script.tpl:254/204 base  warmelt-first
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-first.cc $GCCMELT_STAGE_ZERO/warmelt-first+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-first.meltmod-$MELT_ZERO_GENERATED_FIRST_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/206 base  warmelt-base
+#  stagezero stamp melt-build-script.tpl:254/205 base  warmelt-base
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-base.cc $GCCMELT_STAGE_ZERO/warmelt-base+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-base.meltmod-$MELT_ZERO_GENERATED_BASE_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/207 base  warmelt-debug
+#  stagezero stamp melt-build-script.tpl:254/206 base  warmelt-debug
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-debug.cc $GCCMELT_STAGE_ZERO/warmelt-debug+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-debug.meltmod-$MELT_ZERO_GENERATED_DEBUG_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/208 base  warmelt-macro
+#  stagezero stamp melt-build-script.tpl:254/207 base  warmelt-macro
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-macro.cc $GCCMELT_STAGE_ZERO/warmelt-macro+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-macro.meltmod-$MELT_ZERO_GENERATED_MACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/209 base  warmelt-moremacro
+#  stagezero stamp melt-build-script.tpl:254/208 base  warmelt-moremacro
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-moremacro.cc $GCCMELT_STAGE_ZERO/warmelt-moremacro+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-moremacro.meltmod-$MELT_ZERO_GENERATED_MOREMACRO_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/210 base  warmelt-normal
+#  stagezero stamp melt-build-script.tpl:254/209 base  warmelt-normal
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-normal.cc $GCCMELT_STAGE_ZERO/warmelt-normal+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-normal.meltmod-$MELT_ZERO_GENERATED_NORMAL_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/211 base  warmelt-normatch
+#  stagezero stamp melt-build-script.tpl:254/210 base  warmelt-normatch
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-normatch.cc $GCCMELT_STAGE_ZERO/warmelt-normatch+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-normatch.meltmod-$MELT_ZERO_GENERATED_NORMATCH_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/212 base  warmelt-genobj
+#  stagezero stamp melt-build-script.tpl:254/211 base  warmelt-genobj
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-genobj.cc $GCCMELT_STAGE_ZERO/warmelt-genobj+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-genobj.meltmod-$MELT_ZERO_GENERATED_GENOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/213 base  warmelt-outobj
+#  stagezero stamp melt-build-script.tpl:254/212 base  warmelt-outobj
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-outobj.cc $GCCMELT_STAGE_ZERO/warmelt-outobj+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-outobj.meltmod-$MELT_ZERO_GENERATED_OUTOBJ_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/214 base  warmelt-hooks
+#  stagezero stamp melt-build-script.tpl:254/213 base  warmelt-hooks
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-hooks.cc $GCCMELT_STAGE_ZERO/warmelt-hooks+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-hooks.meltmod-$MELT_ZERO_GENERATED_HOOKS_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
-#  stagezero stamp melt-build-script.tpl:257/215 base  warmelt-modes
+#  stagezero stamp melt-build-script.tpl:254/214 base  warmelt-modes
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-modes.cc $GCCMELT_STAGE_ZERO/warmelt-modes+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/warmelt-modes.meltmod-$MELT_ZERO_GENERATED_MODES_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 
     $GCCMELT_MOVE_IF_CHANGE $melt_stagezero_stamptemp $melt_stagezero_stamp
 else
-   meltbuild_info melt-build-script.tpl:263/216 skipped stage0 because of stamp file $melt_stagezero_stamp
+   meltbuild_info melt-build-script.tpl:260/215 skipped stage0 because of stamp file $melt_stagezero_stamp
 fi
 
-meltbuild_info melt-build-script.tpl:266/217 times after stagezero at `date '+%x %H:%M:%S'`: ;  times >&2
+meltbuild_info melt-build-script.tpl:263/216 times after stagezero at `date '+%x %H:%M:%S'`: ;  times >&2
 
 
 ################################################################
-## function to run MELT to emit C++ code  melt-build-script.tpl:270/218
+## function to run MELT to emit C++ code  melt-build-script.tpl:267/217
 function meltbuild_emit () {
     local meltfrom=$1
     local meltmode=$2
@@ -1153,20 +1150,20 @@ function meltbuild_emit () {
         ## remove obsolete secondary C files left previously in $meltstage 
 	for meltcsecfil in $meltstage/$meltbase+[0-9][0-9].cc ; do
 	    if grep -q `basename $meltcsecfil` "$meltstage/$meltbase.cfilist" ; then
-		: # at  melt-build-script.tpl:326/219
+		: # at  melt-build-script.tpl:323/218
 	    else
 		meltbuild_info $meltfrom removing obsolete $meltcsecfil
 		rm -f "$meltcsecfil"
 	    fi
 	done
     else
-	meltbuild_info $meltfrom skips emission of C++ code with  @$meltargs stage $meltstage prevstage $meltprevstage skipreason $GCCMELT_SKIPEMITC  melt-build-script.tpl:333/220 
+	meltbuild_info $meltfrom skips emission of C++ code with  @$meltargs stage $meltstage prevstage $meltprevstage skipreason $GCCMELT_SKIPEMITC  melt-build-script.tpl:330/219 
 	ls -l $meltprevstage/$meltbase*
-	meltbuild_info $meltfrom symlinking previous stage $meltprevstage  melt-build-script.tpl:335/221 
+	meltbuild_info $meltfrom symlinking previous stage $meltprevstage  melt-build-script.tpl:332/220 
 	for meltprevf in $meltprevstage/$meltbase.cc  $meltprevstage/$meltbase+[0-9][0-9].cc  $meltprevstage/$meltbase+meltdesc.c  $meltprevstage/$meltbase+melttime.h   $meltprevstage/$meltbase+meltbuild.mk ; do
 	    meltbuild_symlink $meltprevf $meltstage/`basename $meltprevf`
 	done
-	meltbuild_info $meltfrom symlinked previous stage $meltprevstage/$meltbase melt-build-script.tpl:339/222 
+	meltbuild_info $meltfrom symlinked previous stage $meltprevstage/$meltbase melt-build-script.tpl:336/221 
     fi
     GCCMELT_STAGE=$meltstage
     GCCMELT_BASE=$meltbase
@@ -1174,7 +1171,7 @@ function meltbuild_emit () {
 
 ################################################################
 ################################################################
-#################@ before our stages melt-build-script.tpl:347/223 
+#################@ before our stages melt-build-script.tpl:344/222 
 ### Our stages  
 ### are incrementally built, with the former modules of
 ### the current stage and the later modules of the previous stages
@@ -1183,7 +1180,7 @@ function meltbuild_emit () {
 
 
 ################################################################
-#### function to do a stage melt-build-script.tpl:356/224
+#### function to do a stage melt-build-script.tpl:353/223
 function meltbuild_do_stage () {
     local meltfrom=$1
     local meltcurstagedir=$2
@@ -1216,9 +1213,9 @@ function meltbuild_do_stage () {
 
     local meltstamp
     local meltstamptmp
-####in meltbuild_do_stage melt-build-script.tpl:369/225
+####in meltbuild_do_stage melt-build-script.tpl:366/224
     meltbuild_notice "$meltcurstagedir+" starting  stage $meltcurstagedir flavor $meltcurflavor from $meltfrom
-####in meltbuild_do_stage melt-build-script.tpl:371/226
+####in meltbuild_do_stage melt-build-script.tpl:368/225
     meltbuild_info $meltfrom starting stage $meltcurstagedir flavor $meltcurflavor previous $meltprevstagedir previous flavor $meltprevflavor
     [ -d $meltcurstagedir ] || mkdir $meltcurstagedir
     if [ ! -d "$meltprevstagedir" -o ! -f "$meltprevstagedir/$meltprevstagedir.stamp" ]; then
@@ -1227,11 +1224,11 @@ function meltbuild_do_stage () {
 
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/227 base warmelt-first
-    meltbuild_info melt-build-script.tpl:382/228 from $meltfrom generating C++ code of warmelt-first in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/226 base warmelt-first
+    meltbuild_info melt-build-script.tpl:379/227 from $meltfrom generating C++ code of warmelt-first in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/229 emit C++ code for warmelt-first
-    meltbuild_emit melt-build-script.tpl:385/230-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/228 emit C++ code for warmelt-first
+    meltbuild_emit melt-build-script.tpl:382/229-$meltfrom \
 	translateinit \
 	warmelt-first \
 	"$meltcurstagedir" \
@@ -1240,46 +1237,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/231 checksum C++ code for warmelt-first
+    #in meltbuild_do_stage melt-build-script.tpl:395/230 checksum C++ code for warmelt-first
     meltchecksum_cumul_FIRST=$(cat "$meltcurstagedir"/warmelt-first.cc "$meltcurstagedir"/warmelt-first+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/232 perhaps compiling C++ code for warmelt-first
+    #in meltbuild_do_stage melt-build-script.tpl:398/231 perhaps compiling C++ code for warmelt-first
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/233-$meltfrom compiling module warmelt-first in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/232-$meltfrom compiling module warmelt-first in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/234-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/233-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-first" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-first" \
-	|| ( meltbuild_info melt-build-script.tpl:412/235-$meltfrom recompiling bad module warmelt-first in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/234-$meltfrom recompiling bad module warmelt-first in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/236-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/235-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-first" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-first" ; \
-	    meltbuild_error  melt-build-script.tpl:421/237-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/236-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-first compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/238-$meltfrom NOT compiling module warmelt-first "in" \
+	meltbuild_info melt-build-script.tpl:421/237-$meltfrom NOT compiling module warmelt-first "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-first \
 	    checksum $meltchecksum_cumul_FIRST skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-first.meltmod-$meltchecksum_cumul_FIRST.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-first.meltmod-$meltchecksum_cumul_FIRST.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/239 done base warmelt-first
+    #in meltbuild_do_stage melt-build-script.tpl:427/238 done base warmelt-first
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/240 base warmelt-base
-    meltbuild_info melt-build-script.tpl:382/241 from $meltfrom generating C++ code of warmelt-base in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/239 base warmelt-base
+    meltbuild_info melt-build-script.tpl:379/240 from $meltfrom generating C++ code of warmelt-base in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/242 emit C++ code for warmelt-base
-    meltbuild_emit melt-build-script.tpl:385/243-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/241 emit C++ code for warmelt-base
+    meltbuild_emit melt-build-script.tpl:382/242-$meltfrom \
 	translatefile \
 	warmelt-base \
 	"$meltcurstagedir" \
@@ -1288,46 +1285,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/244 checksum C++ code for warmelt-base
+    #in meltbuild_do_stage melt-build-script.tpl:395/243 checksum C++ code for warmelt-base
     meltchecksum_cumul_BASE=$(cat "$meltcurstagedir"/warmelt-base.cc "$meltcurstagedir"/warmelt-base+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/245 perhaps compiling C++ code for warmelt-base
+    #in meltbuild_do_stage melt-build-script.tpl:398/244 perhaps compiling C++ code for warmelt-base
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/246-$meltfrom compiling module warmelt-base in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/245-$meltfrom compiling module warmelt-base in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/247-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/246-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-base" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-base" \
-	|| ( meltbuild_info melt-build-script.tpl:412/248-$meltfrom recompiling bad module warmelt-base in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/247-$meltfrom recompiling bad module warmelt-base in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/249-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/248-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-base" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-base" ; \
-	    meltbuild_error  melt-build-script.tpl:421/250-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/249-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-base compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/251-$meltfrom NOT compiling module warmelt-base "in" \
+	meltbuild_info melt-build-script.tpl:421/250-$meltfrom NOT compiling module warmelt-base "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-base \
 	    checksum $meltchecksum_cumul_BASE skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-base.meltmod-$meltchecksum_cumul_BASE.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-base.meltmod-$meltchecksum_cumul_BASE.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/252 done base warmelt-base
+    #in meltbuild_do_stage melt-build-script.tpl:427/251 done base warmelt-base
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/253 base warmelt-debug
-    meltbuild_info melt-build-script.tpl:382/254 from $meltfrom generating C++ code of warmelt-debug in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/252 base warmelt-debug
+    meltbuild_info melt-build-script.tpl:379/253 from $meltfrom generating C++ code of warmelt-debug in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/255 emit C++ code for warmelt-debug
-    meltbuild_emit melt-build-script.tpl:385/256-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/254 emit C++ code for warmelt-debug
+    meltbuild_emit melt-build-script.tpl:382/255-$meltfrom \
 	translatefile \
 	warmelt-debug \
 	"$meltcurstagedir" \
@@ -1336,46 +1333,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/257 checksum C++ code for warmelt-debug
+    #in meltbuild_do_stage melt-build-script.tpl:395/256 checksum C++ code for warmelt-debug
     meltchecksum_cumul_DEBUG=$(cat "$meltcurstagedir"/warmelt-debug.cc "$meltcurstagedir"/warmelt-debug+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/258 perhaps compiling C++ code for warmelt-debug
+    #in meltbuild_do_stage melt-build-script.tpl:398/257 perhaps compiling C++ code for warmelt-debug
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/259-$meltfrom compiling module warmelt-debug in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/258-$meltfrom compiling module warmelt-debug in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/260-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/259-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-debug" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-debug" \
-	|| ( meltbuild_info melt-build-script.tpl:412/261-$meltfrom recompiling bad module warmelt-debug in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/260-$meltfrom recompiling bad module warmelt-debug in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/262-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/261-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-debug" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-debug" ; \
-	    meltbuild_error  melt-build-script.tpl:421/263-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/262-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-debug compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/264-$meltfrom NOT compiling module warmelt-debug "in" \
+	meltbuild_info melt-build-script.tpl:421/263-$meltfrom NOT compiling module warmelt-debug "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-debug \
 	    checksum $meltchecksum_cumul_DEBUG skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-debug.meltmod-$meltchecksum_cumul_DEBUG.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-debug.meltmod-$meltchecksum_cumul_DEBUG.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/265 done base warmelt-debug
+    #in meltbuild_do_stage melt-build-script.tpl:427/264 done base warmelt-debug
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/266 base warmelt-macro
-    meltbuild_info melt-build-script.tpl:382/267 from $meltfrom generating C++ code of warmelt-macro in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/265 base warmelt-macro
+    meltbuild_info melt-build-script.tpl:379/266 from $meltfrom generating C++ code of warmelt-macro in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/268 emit C++ code for warmelt-macro
-    meltbuild_emit melt-build-script.tpl:385/269-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/267 emit C++ code for warmelt-macro
+    meltbuild_emit melt-build-script.tpl:382/268-$meltfrom \
 	translatefile \
 	warmelt-macro \
 	"$meltcurstagedir" \
@@ -1384,46 +1381,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/270 checksum C++ code for warmelt-macro
+    #in meltbuild_do_stage melt-build-script.tpl:395/269 checksum C++ code for warmelt-macro
     meltchecksum_cumul_MACRO=$(cat "$meltcurstagedir"/warmelt-macro.cc "$meltcurstagedir"/warmelt-macro+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/271 perhaps compiling C++ code for warmelt-macro
+    #in meltbuild_do_stage melt-build-script.tpl:398/270 perhaps compiling C++ code for warmelt-macro
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/272-$meltfrom compiling module warmelt-macro in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/271-$meltfrom compiling module warmelt-macro in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/273-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/272-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-macro" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-macro" \
-	|| ( meltbuild_info melt-build-script.tpl:412/274-$meltfrom recompiling bad module warmelt-macro in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/273-$meltfrom recompiling bad module warmelt-macro in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/275-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/274-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-macro" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-macro" ; \
-	    meltbuild_error  melt-build-script.tpl:421/276-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/275-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-macro compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/277-$meltfrom NOT compiling module warmelt-macro "in" \
+	meltbuild_info melt-build-script.tpl:421/276-$meltfrom NOT compiling module warmelt-macro "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-macro \
 	    checksum $meltchecksum_cumul_MACRO skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-macro.meltmod-$meltchecksum_cumul_MACRO.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-macro.meltmod-$meltchecksum_cumul_MACRO.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/278 done base warmelt-macro
+    #in meltbuild_do_stage melt-build-script.tpl:427/277 done base warmelt-macro
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/279 base warmelt-moremacro
-    meltbuild_info melt-build-script.tpl:382/280 from $meltfrom generating C++ code of warmelt-moremacro in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/278 base warmelt-moremacro
+    meltbuild_info melt-build-script.tpl:379/279 from $meltfrom generating C++ code of warmelt-moremacro in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/281 emit C++ code for warmelt-moremacro
-    meltbuild_emit melt-build-script.tpl:385/282-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/280 emit C++ code for warmelt-moremacro
+    meltbuild_emit melt-build-script.tpl:382/281-$meltfrom \
 	translatefile \
 	warmelt-moremacro \
 	"$meltcurstagedir" \
@@ -1432,46 +1429,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/283 checksum C++ code for warmelt-moremacro
+    #in meltbuild_do_stage melt-build-script.tpl:395/282 checksum C++ code for warmelt-moremacro
     meltchecksum_cumul_MOREMACRO=$(cat "$meltcurstagedir"/warmelt-moremacro.cc "$meltcurstagedir"/warmelt-moremacro+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/284 perhaps compiling C++ code for warmelt-moremacro
+    #in meltbuild_do_stage melt-build-script.tpl:398/283 perhaps compiling C++ code for warmelt-moremacro
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/285-$meltfrom compiling module warmelt-moremacro in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/284-$meltfrom compiling module warmelt-moremacro in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/286-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/285-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-moremacro" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-moremacro" \
-	|| ( meltbuild_info melt-build-script.tpl:412/287-$meltfrom recompiling bad module warmelt-moremacro in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/286-$meltfrom recompiling bad module warmelt-moremacro in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/288-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/287-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-moremacro" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-moremacro" ; \
-	    meltbuild_error  melt-build-script.tpl:421/289-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/288-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-moremacro compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/290-$meltfrom NOT compiling module warmelt-moremacro "in" \
+	meltbuild_info melt-build-script.tpl:421/289-$meltfrom NOT compiling module warmelt-moremacro "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-moremacro \
 	    checksum $meltchecksum_cumul_MOREMACRO skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-moremacro.meltmod-$meltchecksum_cumul_MOREMACRO.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-moremacro.meltmod-$meltchecksum_cumul_MOREMACRO.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/291 done base warmelt-moremacro
+    #in meltbuild_do_stage melt-build-script.tpl:427/290 done base warmelt-moremacro
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/292 base warmelt-normal
-    meltbuild_info melt-build-script.tpl:382/293 from $meltfrom generating C++ code of warmelt-normal in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/291 base warmelt-normal
+    meltbuild_info melt-build-script.tpl:379/292 from $meltfrom generating C++ code of warmelt-normal in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/294 emit C++ code for warmelt-normal
-    meltbuild_emit melt-build-script.tpl:385/295-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/293 emit C++ code for warmelt-normal
+    meltbuild_emit melt-build-script.tpl:382/294-$meltfrom \
 	translatefile \
 	warmelt-normal \
 	"$meltcurstagedir" \
@@ -1480,46 +1477,46 @@ function meltbuild_do_stage () {
     "_warmelt-predef.melt" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/296 checksum C++ code for warmelt-normal
+    #in meltbuild_do_stage melt-build-script.tpl:395/295 checksum C++ code for warmelt-normal
     meltchecksum_cumul_NORMAL=$(cat "$meltcurstagedir"/warmelt-normal.cc "$meltcurstagedir"/warmelt-normal+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/297 perhaps compiling C++ code for warmelt-normal
+    #in meltbuild_do_stage melt-build-script.tpl:398/296 perhaps compiling C++ code for warmelt-normal
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/298-$meltfrom compiling module warmelt-normal in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/297-$meltfrom compiling module warmelt-normal in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/299-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/298-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-normal" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-normal" \
-	|| ( meltbuild_info melt-build-script.tpl:412/300-$meltfrom recompiling bad module warmelt-normal in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/299-$meltfrom recompiling bad module warmelt-normal in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/301-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/300-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-normal" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-normal" ; \
-	    meltbuild_error  melt-build-script.tpl:421/302-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/301-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-normal compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/303-$meltfrom NOT compiling module warmelt-normal "in" \
+	meltbuild_info melt-build-script.tpl:421/302-$meltfrom NOT compiling module warmelt-normal "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-normal \
 	    checksum $meltchecksum_cumul_NORMAL skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-normal.meltmod-$meltchecksum_cumul_NORMAL.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-normal.meltmod-$meltchecksum_cumul_NORMAL.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/304 done base warmelt-normal
+    #in meltbuild_do_stage melt-build-script.tpl:427/303 done base warmelt-normal
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/305 base warmelt-normatch
-    meltbuild_info melt-build-script.tpl:382/306 from $meltfrom generating C++ code of warmelt-normatch in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/304 base warmelt-normatch
+    meltbuild_info melt-build-script.tpl:379/305 from $meltfrom generating C++ code of warmelt-normatch in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/307 emit C++ code for warmelt-normatch
-    meltbuild_emit melt-build-script.tpl:385/308-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/306 emit C++ code for warmelt-normatch
+    meltbuild_emit melt-build-script.tpl:382/307-$meltfrom \
 	translatefile \
 	warmelt-normatch \
 	"$meltcurstagedir" \
@@ -1528,46 +1525,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/309 checksum C++ code for warmelt-normatch
+    #in meltbuild_do_stage melt-build-script.tpl:395/308 checksum C++ code for warmelt-normatch
     meltchecksum_cumul_NORMATCH=$(cat "$meltcurstagedir"/warmelt-normatch.cc "$meltcurstagedir"/warmelt-normatch+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/310 perhaps compiling C++ code for warmelt-normatch
+    #in meltbuild_do_stage melt-build-script.tpl:398/309 perhaps compiling C++ code for warmelt-normatch
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/311-$meltfrom compiling module warmelt-normatch in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/310-$meltfrom compiling module warmelt-normatch in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/312-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/311-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-normatch" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-normatch" \
-	|| ( meltbuild_info melt-build-script.tpl:412/313-$meltfrom recompiling bad module warmelt-normatch in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/312-$meltfrom recompiling bad module warmelt-normatch in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/314-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/313-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-normatch" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-normatch" ; \
-	    meltbuild_error  melt-build-script.tpl:421/315-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/314-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-normatch compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/316-$meltfrom NOT compiling module warmelt-normatch "in" \
+	meltbuild_info melt-build-script.tpl:421/315-$meltfrom NOT compiling module warmelt-normatch "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-normatch \
 	    checksum $meltchecksum_cumul_NORMATCH skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-normatch.meltmod-$meltchecksum_cumul_NORMATCH.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-normatch.meltmod-$meltchecksum_cumul_NORMATCH.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/317 done base warmelt-normatch
+    #in meltbuild_do_stage melt-build-script.tpl:427/316 done base warmelt-normatch
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/318 base warmelt-genobj
-    meltbuild_info melt-build-script.tpl:382/319 from $meltfrom generating C++ code of warmelt-genobj in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/317 base warmelt-genobj
+    meltbuild_info melt-build-script.tpl:379/318 from $meltfrom generating C++ code of warmelt-genobj in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/320 emit C++ code for warmelt-genobj
-    meltbuild_emit melt-build-script.tpl:385/321-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/319 emit C++ code for warmelt-genobj
+    meltbuild_emit melt-build-script.tpl:382/320-$meltfrom \
 	translatefile \
 	warmelt-genobj \
 	"$meltcurstagedir" \
@@ -1576,46 +1573,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/322 checksum C++ code for warmelt-genobj
+    #in meltbuild_do_stage melt-build-script.tpl:395/321 checksum C++ code for warmelt-genobj
     meltchecksum_cumul_GENOBJ=$(cat "$meltcurstagedir"/warmelt-genobj.cc "$meltcurstagedir"/warmelt-genobj+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/323 perhaps compiling C++ code for warmelt-genobj
+    #in meltbuild_do_stage melt-build-script.tpl:398/322 perhaps compiling C++ code for warmelt-genobj
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/324-$meltfrom compiling module warmelt-genobj in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/323-$meltfrom compiling module warmelt-genobj in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/325-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/324-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-genobj" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-genobj" \
-	|| ( meltbuild_info melt-build-script.tpl:412/326-$meltfrom recompiling bad module warmelt-genobj in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/325-$meltfrom recompiling bad module warmelt-genobj in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/327-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/326-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-genobj" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-genobj" ; \
-	    meltbuild_error  melt-build-script.tpl:421/328-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/327-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-genobj compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/329-$meltfrom NOT compiling module warmelt-genobj "in" \
+	meltbuild_info melt-build-script.tpl:421/328-$meltfrom NOT compiling module warmelt-genobj "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-genobj \
 	    checksum $meltchecksum_cumul_GENOBJ skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-genobj.meltmod-$meltchecksum_cumul_GENOBJ.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-genobj.meltmod-$meltchecksum_cumul_GENOBJ.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/330 done base warmelt-genobj
+    #in meltbuild_do_stage melt-build-script.tpl:427/329 done base warmelt-genobj
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/331 base warmelt-outobj
-    meltbuild_info melt-build-script.tpl:382/332 from $meltfrom generating C++ code of warmelt-outobj in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/330 base warmelt-outobj
+    meltbuild_info melt-build-script.tpl:379/331 from $meltfrom generating C++ code of warmelt-outobj in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/333 emit C++ code for warmelt-outobj
-    meltbuild_emit melt-build-script.tpl:385/334-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/332 emit C++ code for warmelt-outobj
+    meltbuild_emit melt-build-script.tpl:382/333-$meltfrom \
 	translatefile \
 	warmelt-outobj \
 	"$meltcurstagedir" \
@@ -1624,46 +1621,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/335 checksum C++ code for warmelt-outobj
+    #in meltbuild_do_stage melt-build-script.tpl:395/334 checksum C++ code for warmelt-outobj
     meltchecksum_cumul_OUTOBJ=$(cat "$meltcurstagedir"/warmelt-outobj.cc "$meltcurstagedir"/warmelt-outobj+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/336 perhaps compiling C++ code for warmelt-outobj
+    #in meltbuild_do_stage melt-build-script.tpl:398/335 perhaps compiling C++ code for warmelt-outobj
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/337-$meltfrom compiling module warmelt-outobj in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/336-$meltfrom compiling module warmelt-outobj in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/338-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/337-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-outobj" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-outobj" \
-	|| ( meltbuild_info melt-build-script.tpl:412/339-$meltfrom recompiling bad module warmelt-outobj in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/338-$meltfrom recompiling bad module warmelt-outobj in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/340-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/339-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-outobj" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-outobj" ; \
-	    meltbuild_error  melt-build-script.tpl:421/341-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/340-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-outobj compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/342-$meltfrom NOT compiling module warmelt-outobj "in" \
+	meltbuild_info melt-build-script.tpl:421/341-$meltfrom NOT compiling module warmelt-outobj "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-outobj \
 	    checksum $meltchecksum_cumul_OUTOBJ skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-outobj.meltmod-$meltchecksum_cumul_OUTOBJ.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-outobj.meltmod-$meltchecksum_cumul_OUTOBJ.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/343 done base warmelt-outobj
+    #in meltbuild_do_stage melt-build-script.tpl:427/342 done base warmelt-outobj
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/344 base warmelt-hooks
-    meltbuild_info melt-build-script.tpl:382/345 from $meltfrom generating C++ code of warmelt-hooks in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/343 base warmelt-hooks
+    meltbuild_info melt-build-script.tpl:379/344 from $meltfrom generating C++ code of warmelt-hooks in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/346 emit C++ code for warmelt-hooks
-    meltbuild_emit melt-build-script.tpl:385/347-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/345 emit C++ code for warmelt-hooks
+    meltbuild_emit melt-build-script.tpl:382/346-$meltfrom \
 	translatefile \
 	warmelt-hooks \
 	"$meltcurstagedir" \
@@ -1672,46 +1669,46 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/348 checksum C++ code for warmelt-hooks
+    #in meltbuild_do_stage melt-build-script.tpl:395/347 checksum C++ code for warmelt-hooks
     meltchecksum_cumul_HOOKS=$(cat "$meltcurstagedir"/warmelt-hooks.cc "$meltcurstagedir"/warmelt-hooks+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/349 perhaps compiling C++ code for warmelt-hooks
+    #in meltbuild_do_stage melt-build-script.tpl:398/348 perhaps compiling C++ code for warmelt-hooks
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/350-$meltfrom compiling module warmelt-hooks in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/349-$meltfrom compiling module warmelt-hooks in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/351-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/350-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-hooks" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-hooks" \
-	|| ( meltbuild_info melt-build-script.tpl:412/352-$meltfrom recompiling bad module warmelt-hooks in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/351-$meltfrom recompiling bad module warmelt-hooks in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/353-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/352-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-hooks" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-hooks" ; \
-	    meltbuild_error  melt-build-script.tpl:421/354-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/353-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-hooks compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/355-$meltfrom NOT compiling module warmelt-hooks "in" \
+	meltbuild_info melt-build-script.tpl:421/354-$meltfrom NOT compiling module warmelt-hooks "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-hooks \
 	    checksum $meltchecksum_cumul_HOOKS skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-hooks.meltmod-$meltchecksum_cumul_HOOKS.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-hooks.meltmod-$meltchecksum_cumul_HOOKS.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/356 done base warmelt-hooks
+    #in meltbuild_do_stage melt-build-script.tpl:427/355 done base warmelt-hooks
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:381/357 base warmelt-modes
-    meltbuild_info melt-build-script.tpl:382/358 from $meltfrom generating C++ code of warmelt-modes in $meltcurstagedir
+    #in meltbuild_do_stage melt-build-script.tpl:378/356 base warmelt-modes
+    meltbuild_info melt-build-script.tpl:379/357 from $meltfrom generating C++ code of warmelt-modes in $meltcurstagedir
 
-    #in meltbuild_do_stage melt-build-script.tpl:384/359 emit C++ code for warmelt-modes
-    meltbuild_emit melt-build-script.tpl:385/360-$meltfrom \
+    #in meltbuild_do_stage melt-build-script.tpl:381/358 emit C++ code for warmelt-modes
+    meltbuild_emit melt-build-script.tpl:382/359-$meltfrom \
 	translatefile \
 	warmelt-modes \
 	"$meltcurstagedir" \
@@ -1720,42 +1717,42 @@ function meltbuild_do_stage () {
     "" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage melt-build-script.tpl:398/361 checksum C++ code for warmelt-modes
+    #in meltbuild_do_stage melt-build-script.tpl:395/360 checksum C++ code for warmelt-modes
     meltchecksum_cumul_MODES=$(cat "$meltcurstagedir"/warmelt-modes.cc "$meltcurstagedir"/warmelt-modes+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage melt-build-script.tpl:401/362 perhaps compiling C++ code for warmelt-modes
+    #in meltbuild_do_stage melt-build-script.tpl:398/361 perhaps compiling C++ code for warmelt-modes
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	meltbuild_info melt-build-script.tpl:403/363-$meltfrom compiling module warmelt-modes in "$meltcurstagedir"
+	meltbuild_info melt-build-script.tpl:400/362-$meltfrom compiling module warmelt-modes in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:405/364-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:402/363-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-modes" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-modes" \
-	|| ( meltbuild_info melt-build-script.tpl:412/365-$meltfrom recompiling bad module warmelt-modes in "$meltcurstagedir" ; \
+	|| ( meltbuild_info melt-build-script.tpl:409/364-$meltfrom recompiling bad module warmelt-modes in "$meltcurstagedir" ; \
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-	    GCCMELT_FROM="melt-build-script.tpl:414/366-$meltfrom" \
+	    GCCMELT_FROM="melt-build-script.tpl:411/365-$meltfrom" \
 	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
 	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
 	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/warmelt-modes" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/warmelt-modes" ; \
-	    meltbuild_error  melt-build-script.tpl:421/367-$meltfrom in "$meltcurstagedir/" \
+	    meltbuild_error  melt-build-script.tpl:418/366-$meltfrom in "$meltcurstagedir/" \
                 failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module warmelt-modes compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
-	meltbuild_info melt-build-script.tpl:424/368-$meltfrom NOT compiling module warmelt-modes "in" \
+	meltbuild_info melt-build-script.tpl:421/367-$meltfrom NOT compiling module warmelt-modes "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module warmelt-modes \
 	    checksum $meltchecksum_cumul_MODES skipemitc=$GCCMELT_SKIPEMITC.
 	meltbuild_symlink "$meltprevstagedir/warmelt-modes.meltmod-$meltchecksum_cumul_MODES.$meltprevflavor.so" \
 	    "$meltcurstagedir/warmelt-modes.meltmod-$meltchecksum_cumul_MODES.$meltcurflavor.so"
     fi
-    #in meltbuild_do_stage melt-build-script.tpl:430/369 done base warmelt-modes
+    #in meltbuild_do_stage melt-build-script.tpl:427/368 done base warmelt-modes
 
 
-    #in meltbuild_do_stage melt-build-script.tpl:433/370 generating the stampfile
+    #in meltbuild_do_stage melt-build-script.tpl:430/369 generating the stampfile
     meltstamp=$meltcurstagedir/$meltcurstagedir.stamp
     meltstamptmp=$meltstamp-tmp$$
     echo "///timestamp file $meltstamp" > $meltstamptmp
@@ -1797,15 +1794,15 @@ function meltbuild_do_stage () {
     echo "///end timestamp file $meltstamp"
     $GCCMELT_MOVE_IF_CHANGE $meltstamptmp $meltstamp
 
-    #in meltbuild_do_stage melt-build-script.tpl:445/371 ending
+    #in meltbuild_do_stage melt-build-script.tpl:442/370 ending
     meltbuild_info $meltfrom done stage $meltcurstagedir flavor $meltcurflavor previous $meltprevstagedir previous flavor $meltprevflavor timestamp $meltstamp
 
-}			#### end meltbuild_do_stage melt-build-script.tpl:448/372
+}			#### end meltbuild_do_stage melt-build-script.tpl:445/371
 ################################################################
 
-##### possibly run all our stages  melt-build-script.tpl:451/373
+##### possibly run all our stages  melt-build-script.tpl:448/372
 
-#@  melt-build-script.tpl:453/374 stagedir meltbuild-stage1
+#@  melt-build-script.tpl:450/373 stagedir meltbuild-stage1
 GCCMELT_SKIPEMITC=
 if [ ! -f meltbuild-stage1/meltbuild-stage1.stamp -o meltbuild-stage1/meltbuild-stage1.stamp -ot $GCCMELT_RUNTIME_DEPENDENCY \
  -o meltbuild-stage1/meltbuild-stage1.stamp -ot $GCCMELT_MELTSOURCEDIR/warmelt-first.melt \
@@ -1822,18 +1819,18 @@ if [ ! -f meltbuild-stage1/meltbuild-stage1.stamp -o meltbuild-stage1/meltbuild-
  ]; then
     echo ; echo ; echo ; echo ; echo ; echo ; echo ; echo
     echo '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-    meltbuild_info  melt-build-script.tpl:460/375 '++++++++++++++++' building stage meltbuild-stage1 '++++++++++++++++'
-    ## building stage meltbuild-stage1 previous $GCCMELT_STAGE_ZERO  melt-build-script.tpl:461/376
-    meltbuild_do_stage  melt-build-script.tpl:462/377 meltbuild-stage1 quicklybuilt $GCCMELT_STAGE_ZERO $GCCMELT_ZERO_FLAVOR "$GCCMELT_EMIT_OPTION_STAGE1"
+    meltbuild_info  melt-build-script.tpl:457/374 '++++++++++++++++' building stage meltbuild-stage1 '++++++++++++++++'
+    ## building stage meltbuild-stage1 previous $GCCMELT_STAGE_ZERO  melt-build-script.tpl:458/375
+    meltbuild_do_stage  melt-build-script.tpl:459/376 meltbuild-stage1 quicklybuilt $GCCMELT_STAGE_ZERO $GCCMELT_ZERO_FLAVOR "$GCCMELT_EMIT_OPTION_STAGE1"
 else
-    meltbuild_info  melt-build-script.tpl:464/378 skipping stage meltbuild-stage1
+    meltbuild_info  melt-build-script.tpl:461/377 skipping stage meltbuild-stage1
 fi
 
-##  melt-build-script.tpl:467/379
+##  melt-build-script.tpl:464/378
 GCCMELT_LASTSTAGE=meltbuild-stage1
 
 
-#@  melt-build-script.tpl:453/380 stagedir meltbuild-stage2
+#@  melt-build-script.tpl:450/379 stagedir meltbuild-stage2
 GCCMELT_SKIPEMITC=
 if [ ! -f meltbuild-stage2/meltbuild-stage2.stamp -o meltbuild-stage2/meltbuild-stage2.stamp -ot $GCCMELT_RUNTIME_DEPENDENCY \
  -o meltbuild-stage2/meltbuild-stage2.stamp -ot $GCCMELT_MELTSOURCEDIR/warmelt-first.melt \
@@ -1850,18 +1847,18 @@ if [ ! -f meltbuild-stage2/meltbuild-stage2.stamp -o meltbuild-stage2/meltbuild-
  ]; then
     echo ; echo ; echo ; echo ; echo ; echo ; echo ; echo
     echo '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-    meltbuild_info  melt-build-script.tpl:460/381 '++++++++++++++++' building stage meltbuild-stage2 '++++++++++++++++'
-    ## building stage meltbuild-stage2 previous meltbuild-stage1  melt-build-script.tpl:461/382
-    meltbuild_do_stage  melt-build-script.tpl:462/383 meltbuild-stage2 quicklybuilt meltbuild-stage1 quicklybuilt "$GCCMELT_EMIT_OPTION_STAGE2"
+    meltbuild_info  melt-build-script.tpl:457/380 '++++++++++++++++' building stage meltbuild-stage2 '++++++++++++++++'
+    ## building stage meltbuild-stage2 previous meltbuild-stage1  melt-build-script.tpl:458/381
+    meltbuild_do_stage  melt-build-script.tpl:459/382 meltbuild-stage2 quicklybuilt meltbuild-stage1 quicklybuilt "$GCCMELT_EMIT_OPTION_STAGE2"
 else
-    meltbuild_info  melt-build-script.tpl:464/384 skipping stage meltbuild-stage2
+    meltbuild_info  melt-build-script.tpl:461/383 skipping stage meltbuild-stage2
 fi
 
-##  melt-build-script.tpl:467/385
+##  melt-build-script.tpl:464/384
 GCCMELT_LASTSTAGE=meltbuild-stage2
 
 
-#@  melt-build-script.tpl:453/386 stagedir meltbuild-stage3
+#@  melt-build-script.tpl:450/385 stagedir meltbuild-stage3
 GCCMELT_SKIPEMITC=
 if [ ! -f meltbuild-stage3/meltbuild-stage3.stamp -o meltbuild-stage3/meltbuild-stage3.stamp -ot $GCCMELT_RUNTIME_DEPENDENCY \
  -o meltbuild-stage3/meltbuild-stage3.stamp -ot $GCCMELT_MELTSOURCEDIR/warmelt-first.melt \
@@ -1878,14 +1875,14 @@ if [ ! -f meltbuild-stage3/meltbuild-stage3.stamp -o meltbuild-stage3/meltbuild-
  ]; then
     echo ; echo ; echo ; echo ; echo ; echo ; echo ; echo
     echo '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-    meltbuild_info  melt-build-script.tpl:460/387 '++++++++++++++++' building stage meltbuild-stage3 '++++++++++++++++'
-    ## building stage meltbuild-stage3 previous meltbuild-stage2  melt-build-script.tpl:461/388
-    meltbuild_do_stage  melt-build-script.tpl:462/389 meltbuild-stage3 quicklybuilt meltbuild-stage2 quicklybuilt "$GCCMELT_EMIT_OPTION_STAGE3"
+    meltbuild_info  melt-build-script.tpl:457/386 '++++++++++++++++' building stage meltbuild-stage3 '++++++++++++++++'
+    ## building stage meltbuild-stage3 previous meltbuild-stage2  melt-build-script.tpl:458/387
+    meltbuild_do_stage  melt-build-script.tpl:459/388 meltbuild-stage3 quicklybuilt meltbuild-stage2 quicklybuilt "$GCCMELT_EMIT_OPTION_STAGE3"
 else
-    meltbuild_info  melt-build-script.tpl:464/390 skipping stage meltbuild-stage3
+    meltbuild_info  melt-build-script.tpl:461/389 skipping stage meltbuild-stage3
 fi
 
-##  melt-build-script.tpl:467/391
+##  melt-build-script.tpl:464/390
 GCCMELT_LASTSTAGE=meltbuild-stage3
 
 
@@ -1893,11 +1890,11 @@ GCCMELT_LASTSTAGE=meltbuild-stage3
 ################################################################
 
 
-meltbuild_info melt-build-script.tpl:475/392 last stage $GCCMELT_LASTSTAGE
+meltbuild_info melt-build-script.tpl:472/391 last stage $GCCMELT_LASTSTAGE
 
 ################################################################
 ################################################################
-###########@ before generating meltbuild-sources melt-build-script.tpl:479/393
+###########@ before generating meltbuild-sources melt-build-script.tpl:476/392
 
 #### the meltbuild-sources is the final sources directory, to be
 #### installed.  They are generated from the last stage, using the
@@ -1906,15 +1903,15 @@ meltbuild_info melt-build-script.tpl:475/392 last stage $GCCMELT_LASTSTAGE
 
 [ -d meltbuild-sources ] || mkdir meltbuild-sources
 
-#@ from  melt-build-script.tpl:488/394  compiling the modules
+#@ from  melt-build-script.tpl:485/393  compiling the modules
 [ -d meltbuild-modules ] || mkdir meltbuild-modules
 
 ################################################################
 function meltbuild_emit_translator_sources () {
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/395 base warmelt-first
-  meltbuild_info melt-build-script.tpl:495/396 generating C++ code of warmelt-first in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/397 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/394 base warmelt-first
+  meltbuild_info melt-build-script.tpl:492/395 generating C++ code of warmelt-first in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/396 \
       translateinit \
       warmelt-first \
       meltbuild-sources \
@@ -1922,9 +1919,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/398 base warmelt-base
-  meltbuild_info melt-build-script.tpl:495/399 generating C++ code of warmelt-base in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/400 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/397 base warmelt-base
+  meltbuild_info melt-build-script.tpl:492/398 generating C++ code of warmelt-base in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/399 \
       translatefile \
       warmelt-base \
       meltbuild-sources \
@@ -1932,9 +1929,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/401 base warmelt-debug
-  meltbuild_info melt-build-script.tpl:495/402 generating C++ code of warmelt-debug in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/403 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/400 base warmelt-debug
+  meltbuild_info melt-build-script.tpl:492/401 generating C++ code of warmelt-debug in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/402 \
       translatefile \
       warmelt-debug \
       meltbuild-sources \
@@ -1942,9 +1939,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/404 base warmelt-macro
-  meltbuild_info melt-build-script.tpl:495/405 generating C++ code of warmelt-macro in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/406 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/403 base warmelt-macro
+  meltbuild_info melt-build-script.tpl:492/404 generating C++ code of warmelt-macro in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/405 \
       translatefile \
       warmelt-macro \
       meltbuild-sources \
@@ -1952,9 +1949,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/407 base warmelt-moremacro
-  meltbuild_info melt-build-script.tpl:495/408 generating C++ code of warmelt-moremacro in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/409 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/406 base warmelt-moremacro
+  meltbuild_info melt-build-script.tpl:492/407 generating C++ code of warmelt-moremacro in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/408 \
       translatefile \
       warmelt-moremacro \
       meltbuild-sources \
@@ -1962,9 +1959,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/410 base warmelt-normal
-  meltbuild_info melt-build-script.tpl:495/411 generating C++ code of warmelt-normal in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/412 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/409 base warmelt-normal
+  meltbuild_info melt-build-script.tpl:492/410 generating C++ code of warmelt-normal in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/411 \
       translatefile \
       warmelt-normal \
       meltbuild-sources \
@@ -1972,9 +1969,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       "_warmelt-predef.melt"
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/413 base warmelt-normatch
-  meltbuild_info melt-build-script.tpl:495/414 generating C++ code of warmelt-normatch in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/415 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/412 base warmelt-normatch
+  meltbuild_info melt-build-script.tpl:492/413 generating C++ code of warmelt-normatch in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/414 \
       translatefile \
       warmelt-normatch \
       meltbuild-sources \
@@ -1982,9 +1979,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/416 base warmelt-genobj
-  meltbuild_info melt-build-script.tpl:495/417 generating C++ code of warmelt-genobj in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/418 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/415 base warmelt-genobj
+  meltbuild_info melt-build-script.tpl:492/416 generating C++ code of warmelt-genobj in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/417 \
       translatefile \
       warmelt-genobj \
       meltbuild-sources \
@@ -1992,9 +1989,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/419 base warmelt-outobj
-  meltbuild_info melt-build-script.tpl:495/420 generating C++ code of warmelt-outobj in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/421 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/418 base warmelt-outobj
+  meltbuild_info melt-build-script.tpl:492/419 generating C++ code of warmelt-outobj in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/420 \
       translatefile \
       warmelt-outobj \
       meltbuild-sources \
@@ -2002,9 +1999,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/422 base warmelt-hooks
-  meltbuild_info melt-build-script.tpl:495/423 generating C++ code of warmelt-hooks in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/424 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/421 base warmelt-hooks
+  meltbuild_info melt-build-script.tpl:492/422 generating C++ code of warmelt-hooks in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/423 \
       translatefile \
       warmelt-hooks \
       meltbuild-sources \
@@ -2012,9 +2009,9 @@ function meltbuild_emit_translator_sources () {
       $GCCMELT_LASTSTAGE/warmelt-first.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-base.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-debug.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-macro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-moremacro.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normal.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-normatch.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-genobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-outobj.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-hooks.quicklybuilt:$GCCMELT_LASTSTAGE/warmelt-modes.quicklybuilt \
       ""
 
-  ## meltbuild_emit_source  melt-build-script.tpl:494/425 base warmelt-modes
-  meltbuild_info melt-build-script.tpl:495/426 generating C++ code of warmelt-modes in meltbuild-sources
-  meltbuild_emit melt-build-script.tpl:496/427 \
+  ## meltbuild_emit_source  melt-build-script.tpl:491/424 base warmelt-modes
+  meltbuild_info melt-build-script.tpl:492/425 generating C++ code of warmelt-modes in meltbuild-sources
+  meltbuild_emit melt-build-script.tpl:493/426 \
       translatefile \
       warmelt-modes \
       meltbuild-sources \
@@ -2029,386 +2026,386 @@ function meltbuild_emit_translator_sources () {
 function meltbuild_compile_translator_modules () {
 
 
-  # in meltbuild_compile_translator_sources quicklybuilt melt-build-script.tpl:511/428
-  meltbuild_info melt-build-script.tpl:512/429 compiling translator quicklybuilt
+  # in meltbuild_compile_translator_sources quicklybuilt melt-build-script.tpl:508/427
+  meltbuild_info melt-build-script.tpl:509/428 compiling translator quicklybuilt
 
 
-   #@ melt-build-script.tpl:515/430 flavor quicklybuilt base warmelt-first
+   #@ melt-build-script.tpl:512/429 flavor quicklybuilt base warmelt-first
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/431 \
+     GCCMELT_FROM=melt-build-script.tpl:514/430 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-first \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-first \
- || meltbuild_error  melt-build-script.tpl:524/432 in meltbuild-modules failed to compile translator warmelt-first quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/431 in meltbuild-modules failed to compile translator warmelt-first quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/433 flavor quicklybuilt base warmelt-base
+   #@ melt-build-script.tpl:512/432 flavor quicklybuilt base warmelt-base
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/434 \
+     GCCMELT_FROM=melt-build-script.tpl:514/433 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-base \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-base \
- || meltbuild_error  melt-build-script.tpl:524/435 in meltbuild-modules failed to compile translator warmelt-base quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/434 in meltbuild-modules failed to compile translator warmelt-base quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/436 flavor quicklybuilt base warmelt-debug
+   #@ melt-build-script.tpl:512/435 flavor quicklybuilt base warmelt-debug
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/437 \
+     GCCMELT_FROM=melt-build-script.tpl:514/436 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-debug \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-debug \
- || meltbuild_error  melt-build-script.tpl:524/438 in meltbuild-modules failed to compile translator warmelt-debug quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/437 in meltbuild-modules failed to compile translator warmelt-debug quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/439 flavor quicklybuilt base warmelt-macro
+   #@ melt-build-script.tpl:512/438 flavor quicklybuilt base warmelt-macro
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/440 \
+     GCCMELT_FROM=melt-build-script.tpl:514/439 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-macro \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-macro \
- || meltbuild_error  melt-build-script.tpl:524/441 in meltbuild-modules failed to compile translator warmelt-macro quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/440 in meltbuild-modules failed to compile translator warmelt-macro quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/442 flavor quicklybuilt base warmelt-moremacro
+   #@ melt-build-script.tpl:512/441 flavor quicklybuilt base warmelt-moremacro
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/443 \
+     GCCMELT_FROM=melt-build-script.tpl:514/442 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-moremacro \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-moremacro \
- || meltbuild_error  melt-build-script.tpl:524/444 in meltbuild-modules failed to compile translator warmelt-moremacro quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/443 in meltbuild-modules failed to compile translator warmelt-moremacro quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/445 flavor quicklybuilt base warmelt-normal
+   #@ melt-build-script.tpl:512/444 flavor quicklybuilt base warmelt-normal
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/446 \
+     GCCMELT_FROM=melt-build-script.tpl:514/445 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-normal \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-normal \
- || meltbuild_error  melt-build-script.tpl:524/447 in meltbuild-modules failed to compile translator warmelt-normal quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/446 in meltbuild-modules failed to compile translator warmelt-normal quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/448 flavor quicklybuilt base warmelt-normatch
+   #@ melt-build-script.tpl:512/447 flavor quicklybuilt base warmelt-normatch
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/449 \
+     GCCMELT_FROM=melt-build-script.tpl:514/448 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-normatch \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-normatch \
- || meltbuild_error  melt-build-script.tpl:524/450 in meltbuild-modules failed to compile translator warmelt-normatch quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/449 in meltbuild-modules failed to compile translator warmelt-normatch quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/451 flavor quicklybuilt base warmelt-genobj
+   #@ melt-build-script.tpl:512/450 flavor quicklybuilt base warmelt-genobj
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/452 \
+     GCCMELT_FROM=melt-build-script.tpl:514/451 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-genobj \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-genobj \
- || meltbuild_error  melt-build-script.tpl:524/453 in meltbuild-modules failed to compile translator warmelt-genobj quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/452 in meltbuild-modules failed to compile translator warmelt-genobj quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/454 flavor quicklybuilt base warmelt-outobj
+   #@ melt-build-script.tpl:512/453 flavor quicklybuilt base warmelt-outobj
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/455 \
+     GCCMELT_FROM=melt-build-script.tpl:514/454 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-outobj \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-outobj \
- || meltbuild_error  melt-build-script.tpl:524/456 in meltbuild-modules failed to compile translator warmelt-outobj quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/455 in meltbuild-modules failed to compile translator warmelt-outobj quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/457 flavor quicklybuilt base warmelt-hooks
+   #@ melt-build-script.tpl:512/456 flavor quicklybuilt base warmelt-hooks
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/458 \
+     GCCMELT_FROM=melt-build-script.tpl:514/457 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-hooks \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-hooks \
- || meltbuild_error  melt-build-script.tpl:524/459 in meltbuild-modules failed to compile translator warmelt-hooks quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/458 in meltbuild-modules failed to compile translator warmelt-hooks quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/460 flavor quicklybuilt base warmelt-modes
+   #@ melt-build-script.tpl:512/459 flavor quicklybuilt base warmelt-modes
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/461 \
+     GCCMELT_FROM=melt-build-script.tpl:514/460 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=quicklybuilt \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-modes \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-modes \
- || meltbuild_error  melt-build-script.tpl:524/462 in meltbuild-modules failed to compile translator warmelt-modes quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/461 in meltbuild-modules failed to compile translator warmelt-modes quicklybuilt make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
 
 
 
-  # in meltbuild_compile_translator_sources optimized melt-build-script.tpl:511/463
-  meltbuild_info melt-build-script.tpl:512/464 compiling translator optimized
+  # in meltbuild_compile_translator_sources optimized melt-build-script.tpl:508/462
+  meltbuild_info melt-build-script.tpl:509/463 compiling translator optimized
 
 
-   #@ melt-build-script.tpl:515/465 flavor optimized base warmelt-first
+   #@ melt-build-script.tpl:512/464 flavor optimized base warmelt-first
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/466 \
+     GCCMELT_FROM=melt-build-script.tpl:514/465 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-first \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-first \
- || meltbuild_error  melt-build-script.tpl:524/467 in meltbuild-modules failed to compile translator warmelt-first optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/466 in meltbuild-modules failed to compile translator warmelt-first optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/468 flavor optimized base warmelt-base
+   #@ melt-build-script.tpl:512/467 flavor optimized base warmelt-base
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/469 \
+     GCCMELT_FROM=melt-build-script.tpl:514/468 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-base \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-base \
- || meltbuild_error  melt-build-script.tpl:524/470 in meltbuild-modules failed to compile translator warmelt-base optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/469 in meltbuild-modules failed to compile translator warmelt-base optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/471 flavor optimized base warmelt-debug
+   #@ melt-build-script.tpl:512/470 flavor optimized base warmelt-debug
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/472 \
+     GCCMELT_FROM=melt-build-script.tpl:514/471 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-debug \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-debug \
- || meltbuild_error  melt-build-script.tpl:524/473 in meltbuild-modules failed to compile translator warmelt-debug optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/472 in meltbuild-modules failed to compile translator warmelt-debug optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/474 flavor optimized base warmelt-macro
+   #@ melt-build-script.tpl:512/473 flavor optimized base warmelt-macro
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/475 \
+     GCCMELT_FROM=melt-build-script.tpl:514/474 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-macro \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-macro \
- || meltbuild_error  melt-build-script.tpl:524/476 in meltbuild-modules failed to compile translator warmelt-macro optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/475 in meltbuild-modules failed to compile translator warmelt-macro optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/477 flavor optimized base warmelt-moremacro
+   #@ melt-build-script.tpl:512/476 flavor optimized base warmelt-moremacro
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/478 \
+     GCCMELT_FROM=melt-build-script.tpl:514/477 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-moremacro \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-moremacro \
- || meltbuild_error  melt-build-script.tpl:524/479 in meltbuild-modules failed to compile translator warmelt-moremacro optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/478 in meltbuild-modules failed to compile translator warmelt-moremacro optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/480 flavor optimized base warmelt-normal
+   #@ melt-build-script.tpl:512/479 flavor optimized base warmelt-normal
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/481 \
+     GCCMELT_FROM=melt-build-script.tpl:514/480 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-normal \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-normal \
- || meltbuild_error  melt-build-script.tpl:524/482 in meltbuild-modules failed to compile translator warmelt-normal optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/481 in meltbuild-modules failed to compile translator warmelt-normal optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/483 flavor optimized base warmelt-normatch
+   #@ melt-build-script.tpl:512/482 flavor optimized base warmelt-normatch
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/484 \
+     GCCMELT_FROM=melt-build-script.tpl:514/483 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-normatch \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-normatch \
- || meltbuild_error  melt-build-script.tpl:524/485 in meltbuild-modules failed to compile translator warmelt-normatch optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/484 in meltbuild-modules failed to compile translator warmelt-normatch optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/486 flavor optimized base warmelt-genobj
+   #@ melt-build-script.tpl:512/485 flavor optimized base warmelt-genobj
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/487 \
+     GCCMELT_FROM=melt-build-script.tpl:514/486 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-genobj \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-genobj \
- || meltbuild_error  melt-build-script.tpl:524/488 in meltbuild-modules failed to compile translator warmelt-genobj optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/487 in meltbuild-modules failed to compile translator warmelt-genobj optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/489 flavor optimized base warmelt-outobj
+   #@ melt-build-script.tpl:512/488 flavor optimized base warmelt-outobj
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/490 \
+     GCCMELT_FROM=melt-build-script.tpl:514/489 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-outobj \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-outobj \
- || meltbuild_error  melt-build-script.tpl:524/491 in meltbuild-modules failed to compile translator warmelt-outobj optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/490 in meltbuild-modules failed to compile translator warmelt-outobj optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/492 flavor optimized base warmelt-hooks
+   #@ melt-build-script.tpl:512/491 flavor optimized base warmelt-hooks
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/493 \
+     GCCMELT_FROM=melt-build-script.tpl:514/492 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-hooks \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-hooks \
- || meltbuild_error  melt-build-script.tpl:524/494 in meltbuild-modules failed to compile translator warmelt-hooks optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/493 in meltbuild-modules failed to compile translator warmelt-hooks optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/495 flavor optimized base warmelt-modes
+   #@ melt-build-script.tpl:512/494 flavor optimized base warmelt-modes
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/496 \
+     GCCMELT_FROM=melt-build-script.tpl:514/495 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=optimized \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-modes \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-modes \
- || meltbuild_error  melt-build-script.tpl:524/497 in meltbuild-modules failed to compile translator warmelt-modes optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/496 in meltbuild-modules failed to compile translator warmelt-modes optimized make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
 
 
 
-  # in meltbuild_compile_translator_sources debugnoline melt-build-script.tpl:511/498
-  meltbuild_info melt-build-script.tpl:512/499 compiling translator debugnoline
+  # in meltbuild_compile_translator_sources debugnoline melt-build-script.tpl:508/497
+  meltbuild_info melt-build-script.tpl:509/498 compiling translator debugnoline
 
 
-   #@ melt-build-script.tpl:515/500 flavor debugnoline base warmelt-first
+   #@ melt-build-script.tpl:512/499 flavor debugnoline base warmelt-first
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/501 \
+     GCCMELT_FROM=melt-build-script.tpl:514/500 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-first \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-first \
- || meltbuild_error  melt-build-script.tpl:524/502 in meltbuild-modules failed to compile translator warmelt-first debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/501 in meltbuild-modules failed to compile translator warmelt-first debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/503 flavor debugnoline base warmelt-base
+   #@ melt-build-script.tpl:512/502 flavor debugnoline base warmelt-base
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/504 \
+     GCCMELT_FROM=melt-build-script.tpl:514/503 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-base \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-base \
- || meltbuild_error  melt-build-script.tpl:524/505 in meltbuild-modules failed to compile translator warmelt-base debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/504 in meltbuild-modules failed to compile translator warmelt-base debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/506 flavor debugnoline base warmelt-debug
+   #@ melt-build-script.tpl:512/505 flavor debugnoline base warmelt-debug
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/507 \
+     GCCMELT_FROM=melt-build-script.tpl:514/506 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-debug \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-debug \
- || meltbuild_error  melt-build-script.tpl:524/508 in meltbuild-modules failed to compile translator warmelt-debug debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/507 in meltbuild-modules failed to compile translator warmelt-debug debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/509 flavor debugnoline base warmelt-macro
+   #@ melt-build-script.tpl:512/508 flavor debugnoline base warmelt-macro
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/510 \
+     GCCMELT_FROM=melt-build-script.tpl:514/509 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-macro \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-macro \
- || meltbuild_error  melt-build-script.tpl:524/511 in meltbuild-modules failed to compile translator warmelt-macro debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/510 in meltbuild-modules failed to compile translator warmelt-macro debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/512 flavor debugnoline base warmelt-moremacro
+   #@ melt-build-script.tpl:512/511 flavor debugnoline base warmelt-moremacro
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/513 \
+     GCCMELT_FROM=melt-build-script.tpl:514/512 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-moremacro \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-moremacro \
- || meltbuild_error  melt-build-script.tpl:524/514 in meltbuild-modules failed to compile translator warmelt-moremacro debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/513 in meltbuild-modules failed to compile translator warmelt-moremacro debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/515 flavor debugnoline base warmelt-normal
+   #@ melt-build-script.tpl:512/514 flavor debugnoline base warmelt-normal
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/516 \
+     GCCMELT_FROM=melt-build-script.tpl:514/515 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-normal \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-normal \
- || meltbuild_error  melt-build-script.tpl:524/517 in meltbuild-modules failed to compile translator warmelt-normal debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/516 in meltbuild-modules failed to compile translator warmelt-normal debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/518 flavor debugnoline base warmelt-normatch
+   #@ melt-build-script.tpl:512/517 flavor debugnoline base warmelt-normatch
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/519 \
+     GCCMELT_FROM=melt-build-script.tpl:514/518 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-normatch \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-normatch \
- || meltbuild_error  melt-build-script.tpl:524/520 in meltbuild-modules failed to compile translator warmelt-normatch debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/519 in meltbuild-modules failed to compile translator warmelt-normatch debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/521 flavor debugnoline base warmelt-genobj
+   #@ melt-build-script.tpl:512/520 flavor debugnoline base warmelt-genobj
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/522 \
+     GCCMELT_FROM=melt-build-script.tpl:514/521 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-genobj \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-genobj \
- || meltbuild_error  melt-build-script.tpl:524/523 in meltbuild-modules failed to compile translator warmelt-genobj debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/522 in meltbuild-modules failed to compile translator warmelt-genobj debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/524 flavor debugnoline base warmelt-outobj
+   #@ melt-build-script.tpl:512/523 flavor debugnoline base warmelt-outobj
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/525 \
+     GCCMELT_FROM=melt-build-script.tpl:514/524 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-outobj \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-outobj \
- || meltbuild_error  melt-build-script.tpl:524/526 in meltbuild-modules failed to compile translator warmelt-outobj debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/525 in meltbuild-modules failed to compile translator warmelt-outobj debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/527 flavor debugnoline base warmelt-hooks
+   #@ melt-build-script.tpl:512/526 flavor debugnoline base warmelt-hooks
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/528 \
+     GCCMELT_FROM=melt-build-script.tpl:514/527 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-hooks \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-hooks \
- || meltbuild_error  melt-build-script.tpl:524/529 in meltbuild-modules failed to compile translator warmelt-hooks debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/528 in meltbuild-modules failed to compile translator warmelt-hooks debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
-   #@ melt-build-script.tpl:515/530 flavor debugnoline base warmelt-modes
+   #@ melt-build-script.tpl:512/529 flavor debugnoline base warmelt-modes
    $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-     GCCMELT_FROM=melt-build-script.tpl:517/531 \
+     GCCMELT_FROM=melt-build-script.tpl:514/530 \
      GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
      GCCMELT_MODULE_FLAVOR=debugnoline \
      GCCMELT_COMPILER="$GCCMELT_COMPILER" \
      GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
      GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/warmelt-modes \
      GCCMELT_MODULE_BINARYBASE=meltbuild-modules/warmelt-modes \
- || meltbuild_error  melt-build-script.tpl:524/532 in meltbuild-modules failed to compile translator warmelt-modes debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
+ || meltbuild_error  melt-build-script.tpl:521/531 in meltbuild-modules failed to compile translator warmelt-modes debugnoline make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler "$GCCMELT_COMPILER" cflags $GCCMELT_COMPILER_FLAGS
 
 
 
@@ -2416,103 +2413,103 @@ function meltbuild_compile_translator_modules () {
 ################################################################
 
 
-#################@ melt-build-script.tpl:532/533 
+#################@ melt-build-script.tpl:529/532 
 function meltbuild_symlink_melt_translator_sources () {
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-first from melt-build-script.tpl:537/534
+### symlinking the MELT translator code in meltbuild-sources for warmelt-first from melt-build-script.tpl:534/533
 
-meltbuild_info melt-build-script.tpl:539/535 putting MELT translator code of warmelt-first in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/534 putting MELT translator code of warmelt-first in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-first.melt meltbuild-sources/warmelt-first.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-base from melt-build-script.tpl:537/536
+### symlinking the MELT translator code in meltbuild-sources for warmelt-base from melt-build-script.tpl:534/535
 
-meltbuild_info melt-build-script.tpl:539/537 putting MELT translator code of warmelt-base in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/536 putting MELT translator code of warmelt-base in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-base.melt meltbuild-sources/warmelt-base.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-debug from melt-build-script.tpl:537/538
+### symlinking the MELT translator code in meltbuild-sources for warmelt-debug from melt-build-script.tpl:534/537
 
-meltbuild_info melt-build-script.tpl:539/539 putting MELT translator code of warmelt-debug in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/538 putting MELT translator code of warmelt-debug in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-debug.melt meltbuild-sources/warmelt-debug.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-macro from melt-build-script.tpl:537/540
+### symlinking the MELT translator code in meltbuild-sources for warmelt-macro from melt-build-script.tpl:534/539
 
-meltbuild_info melt-build-script.tpl:539/541 putting MELT translator code of warmelt-macro in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/540 putting MELT translator code of warmelt-macro in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-macro.melt meltbuild-sources/warmelt-macro.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-moremacro from melt-build-script.tpl:537/542
+### symlinking the MELT translator code in meltbuild-sources for warmelt-moremacro from melt-build-script.tpl:534/541
 
-meltbuild_info melt-build-script.tpl:539/543 putting MELT translator code of warmelt-moremacro in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/542 putting MELT translator code of warmelt-moremacro in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-moremacro.melt meltbuild-sources/warmelt-moremacro.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-normal from melt-build-script.tpl:537/544
+### symlinking the MELT translator code in meltbuild-sources for warmelt-normal from melt-build-script.tpl:534/543
 
-meltbuild_info melt-build-script.tpl:539/545 putting MELT translator code of warmelt-normal in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/544 putting MELT translator code of warmelt-normal in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-normal.melt meltbuild-sources/warmelt-normal.melt
 meltbuild_symlink _warmelt-predef.melt meltbuild-sources/_warmelt-predef.melt
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-normatch from melt-build-script.tpl:537/546
+### symlinking the MELT translator code in meltbuild-sources for warmelt-normatch from melt-build-script.tpl:534/545
 
-meltbuild_info melt-build-script.tpl:539/547 putting MELT translator code of warmelt-normatch in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/546 putting MELT translator code of warmelt-normatch in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-normatch.melt meltbuild-sources/warmelt-normatch.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-genobj from melt-build-script.tpl:537/548
+### symlinking the MELT translator code in meltbuild-sources for warmelt-genobj from melt-build-script.tpl:534/547
 
-meltbuild_info melt-build-script.tpl:539/549 putting MELT translator code of warmelt-genobj in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/548 putting MELT translator code of warmelt-genobj in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-genobj.melt meltbuild-sources/warmelt-genobj.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-outobj from melt-build-script.tpl:537/550
+### symlinking the MELT translator code in meltbuild-sources for warmelt-outobj from melt-build-script.tpl:534/549
 
-meltbuild_info melt-build-script.tpl:539/551 putting MELT translator code of warmelt-outobj in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/550 putting MELT translator code of warmelt-outobj in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-outobj.melt meltbuild-sources/warmelt-outobj.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-hooks from melt-build-script.tpl:537/552
+### symlinking the MELT translator code in meltbuild-sources for warmelt-hooks from melt-build-script.tpl:534/551
 
-meltbuild_info melt-build-script.tpl:539/553 putting MELT translator code of warmelt-hooks in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/552 putting MELT translator code of warmelt-hooks in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-hooks.melt meltbuild-sources/warmelt-hooks.melt
 
 
 
 
-### symlinking the MELT translator code in meltbuild-sources for warmelt-modes from melt-build-script.tpl:537/554
+### symlinking the MELT translator code in meltbuild-sources for warmelt-modes from melt-build-script.tpl:534/553
 
-meltbuild_info melt-build-script.tpl:539/555 putting MELT translator code of warmelt-modes in meltbuild-sources
+meltbuild_info melt-build-script.tpl:536/554 putting MELT translator code of warmelt-modes in meltbuild-sources
 
 meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-modes.melt meltbuild-sources/warmelt-modes.melt
 
@@ -2521,7 +2518,7 @@ meltbuild_symlink $GCCMELT_MELTSOURCEDIR/warmelt-modes.melt meltbuild-sources/wa
 } 				# end of meltbuild_symlink_melt_translator_sources
 
 
-################@ final translator melt-build-script.tpl:548/556 
+################@ final translator melt-build-script.tpl:545/555 
 melt_final_translator_stamp=meltbuild-final-translator.stamp
 
 if [ ! -f $melt_final_translator_stamp -o $melt_final_translator_stamp -ot $GCCMELT_RUNTIME_DEPENDENCY \
@@ -2537,8 +2534,8 @@ if [ ! -f $melt_final_translator_stamp -o $melt_final_translator_stamp -ot $GCCM
  -o $melt_final_translator_stamp -ot $GCCMELT_MELTSOURCEDIR/warmelt-hooks.melt \
  -o $melt_final_translator_stamp -ot $GCCMELT_MELTSOURCEDIR/warmelt-modes.melt \
  -o $melt_final_translator_stamp -ot $GCCMELT_LASTSTAGE/$GCCMELT_LASTSTAGE.stamp ]; then
-    meltbuild_notice 'Emit Translator Source'  melt-build-script.tpl:554/557 emit then translate the MELT translator 
-    meltbuild_info melt-build-script.tpl:555/558 emit then translate the compile translator for  $melt_final_translator_stamp
+    meltbuild_notice 'Emit Translator Source'  melt-build-script.tpl:551/556 emit then translate the MELT translator 
+    meltbuild_info melt-build-script.tpl:552/557 emit then translate the compile translator for  $melt_final_translator_stamp
     meltbuild_emit_translator_sources
     meltbuild_symlink_melt_translator_sources
     meltbuild_compile_translator_modules
@@ -2546,37 +2543,37 @@ if [ ! -f $melt_final_translator_stamp -o $melt_final_translator_stamp -ot $GCCM
     echo "///MELT translator timestamp file $melt_final_translator_stamp" > $melt_final_translator_stamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $melt_final_translator_stamptemp
 
-#@  melt-build-script.tpl:563/559 
+#@  melt-build-script.tpl:560/558 
     $MD5SUM meltbuild-sources/warmelt-first.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-first.cc meltbuild-sources/warmelt-first+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_FIRST_cumulmd5=$(cat  meltbuild-sources/warmelt-first.cc meltbuild-sources/warmelt-first+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/560 
+#@  melt-build-script.tpl:560/559 
     $MD5SUM meltbuild-sources/warmelt-base.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-base.cc meltbuild-sources/warmelt-base+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_BASE_cumulmd5=$(cat  meltbuild-sources/warmelt-base.cc meltbuild-sources/warmelt-base+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/561 
+#@  melt-build-script.tpl:560/560 
     $MD5SUM meltbuild-sources/warmelt-debug.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-debug.cc meltbuild-sources/warmelt-debug+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_DEBUG_cumulmd5=$(cat  meltbuild-sources/warmelt-debug.cc meltbuild-sources/warmelt-debug+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/562 
+#@  melt-build-script.tpl:560/561 
     $MD5SUM meltbuild-sources/warmelt-macro.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-macro.cc meltbuild-sources/warmelt-macro+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_MACRO_cumulmd5=$(cat  meltbuild-sources/warmelt-macro.cc meltbuild-sources/warmelt-macro+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/563 
+#@  melt-build-script.tpl:560/562 
     $MD5SUM meltbuild-sources/warmelt-moremacro.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-moremacro.cc meltbuild-sources/warmelt-moremacro+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_MOREMACRO_cumulmd5=$(cat  meltbuild-sources/warmelt-moremacro.cc meltbuild-sources/warmelt-moremacro+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/564 
+#@  melt-build-script.tpl:560/563 
     $MD5SUM meltbuild-sources/warmelt-normal.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/_warmelt-predef.melt  >>  $melt_final_translator_stamptemp
@@ -2584,31 +2581,31 @@ if [ ! -f $melt_final_translator_stamp -o $melt_final_translator_stamp -ot $GCCM
     $MD5SUM meltbuild-sources/warmelt-normal.cc meltbuild-sources/warmelt-normal+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_NORMAL_cumulmd5=$(cat  meltbuild-sources/warmelt-normal.cc meltbuild-sources/warmelt-normal+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/565 
+#@  melt-build-script.tpl:560/564 
     $MD5SUM meltbuild-sources/warmelt-normatch.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-normatch.cc meltbuild-sources/warmelt-normatch+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_NORMATCH_cumulmd5=$(cat  meltbuild-sources/warmelt-normatch.cc meltbuild-sources/warmelt-normatch+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/566 
+#@  melt-build-script.tpl:560/565 
     $MD5SUM meltbuild-sources/warmelt-genobj.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-genobj.cc meltbuild-sources/warmelt-genobj+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_GENOBJ_cumulmd5=$(cat  meltbuild-sources/warmelt-genobj.cc meltbuild-sources/warmelt-genobj+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/567 
+#@  melt-build-script.tpl:560/566 
     $MD5SUM meltbuild-sources/warmelt-outobj.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-outobj.cc meltbuild-sources/warmelt-outobj+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_OUTOBJ_cumulmd5=$(cat  meltbuild-sources/warmelt-outobj.cc meltbuild-sources/warmelt-outobj+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/568 
+#@  melt-build-script.tpl:560/567 
     $MD5SUM meltbuild-sources/warmelt-hooks.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-hooks.cc meltbuild-sources/warmelt-hooks+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
     melt_translator_HOOKS_cumulmd5=$(cat  meltbuild-sources/warmelt-hooks.cc meltbuild-sources/warmelt-hooks+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 
-#@  melt-build-script.tpl:563/569 
+#@  melt-build-script.tpl:560/568 
     $MD5SUM meltbuild-sources/warmelt-modes.melt  >>  $melt_final_translator_stamptemp
   
     $MD5SUM meltbuild-sources/warmelt-modes.cc meltbuild-sources/warmelt-modes+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
@@ -2617,16 +2614,16 @@ if [ ! -f $melt_final_translator_stamp -o $melt_final_translator_stamp -ot $GCCM
     echo "///end timestamp file $melt_final_translator_stamp"
     $GCCMELT_MOVE_IF_CHANGE $melt_final_translator_stamptemp $melt_final_translator_stamp
 else
-    meltbuild_info melt-build-script.tpl:574/570 skip final translation of translator stamp  $melt_final_translator_stamp
+    meltbuild_info melt-build-script.tpl:571/569 skip final translation of translator stamp  $melt_final_translator_stamp
 fi
 
 ################################################################
-#@ melt-build-script.tpl:578/571 making the meltbuild-common.args file to make life easier
+#@ melt-build-script.tpl:575/570 making the meltbuild-common.args file to make life easier
 # I would often use that meltbuild-common.args for testing, etc.
 meltcommon_args=meltbuild-common.args
-meltbuild_info melt-build-script.tpl:581/572 making $meltcommon_args
+meltbuild_info melt-build-script.tpl:578/571 making $meltcommon_args
 meltcommon_argstemp=$meltcommon_args-tmp$$
-echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:583/573"' > $meltcommon_argstemp
+echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:580/572"' > $meltcommon_argstemp
 meltbuild_arg workdir=meltbuild-workdir >>  $meltcommon_argstemp
 meltbuild_arg tempdir=meltbuild-tempdir >> $meltcommon_argstemp
 meltbuild_arg source-path=meltbuild-sources:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
@@ -2635,16 +2632,16 @@ meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcommon_argstem
 meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltcommon_argstemp
 
 $GCCMELT_MOVE_IF_CHANGE $meltcommon_argstemp $meltcommon_args
-meltbuild_info melt-build-script.tpl:592/574 $meltcommon_args is
+meltbuild_info melt-build-script.tpl:589/573 $meltcommon_args is
 cat $meltcommon_args < /dev/null >&2
 
 
 ################
-### the warmelt modules lists  melt-build-script.tpl:597/575
+### the warmelt modules lists  melt-build-script.tpl:594/574
 
 if [ ! -f meltbuild-sources/warmelt.quicklybuilt.modlis \
     -o  meltbuild-sources/warmelt.quicklybuilt.modlis -ot  "$melt_final_translator_stamp" ]; then 
-  #  melt-build-script.tpl:601/576 warmelt module list quicklybuilt
+  #  melt-build-script.tpl:598/575 warmelt module list quicklybuilt
   melt_modlis_temp="meltbuild-sources/warmelt.quicklybuilt.modlis-tmp$$"
   echo "# MELT translator modules:" >> $melt_modlis_temp
   
@@ -2675,7 +2672,7 @@ fi
 
 if [ ! -f meltbuild-sources/warmelt.optimized.modlis \
     -o  meltbuild-sources/warmelt.optimized.modlis -ot  "$melt_final_translator_stamp" ]; then 
-  #  melt-build-script.tpl:601/577 warmelt module list optimized
+  #  melt-build-script.tpl:598/576 warmelt module list optimized
   melt_modlis_temp="meltbuild-sources/warmelt.optimized.modlis-tmp$$"
   echo "# MELT translator modules:" >> $melt_modlis_temp
   
@@ -2706,7 +2703,7 @@ fi
 
 if [ ! -f meltbuild-sources/warmelt.debugnoline.modlis \
     -o  meltbuild-sources/warmelt.debugnoline.modlis -ot  "$melt_final_translator_stamp" ]; then 
-  #  melt-build-script.tpl:601/578 warmelt module list debugnoline
+  #  melt-build-script.tpl:598/577 warmelt module list debugnoline
   melt_modlis_temp="meltbuild-sources/warmelt.debugnoline.modlis-tmp$$"
   echo "# MELT translator modules:" >> $melt_modlis_temp
   
@@ -2737,20 +2734,20 @@ fi
 
 
 ################################################################
-#@ melt-build-script.tpl:612/579
+#@ melt-build-script.tpl:609/578
 if [ "$melt_overall_goal" = "translator" ]; then
-    meltbuild_info melt-build-script.tpl:614/580 done translation overall goal with stamp  $melt_final_translator_stamp
+    meltbuild_info melt-build-script.tpl:611/579 done translation overall goal with stamp  $melt_final_translator_stamp
     exit 0
 fi
 
 ################################################################
 ################################################################
-### the warmelt modules lists melt-build-script.tpl:620/581
+### the warmelt modules lists melt-build-script.tpl:617/580
 
 if [ ! -f "meltbuild-sources/warmelt.quicklybuilt.modlis" \
     -o "meltbuild-sources/warmelt.quicklybuilt.modlis" -ot $melt_final_translator_stamp  ]; then
-  #  melt-build-script.tpl:624/582 warmelt module list quicklybuilt
-  meltbuild_info  melt-build-script.tpl:625/583 generating warmelt module list  "meltbuild-sources/warmelt.quicklybuilt.modlis"
+  #  melt-build-script.tpl:621/581 warmelt module list quicklybuilt
+  meltbuild_info  melt-build-script.tpl:622/582 generating warmelt module list  "meltbuild-sources/warmelt.quicklybuilt.modlis"
   melt_modlis_temp="meltbuild-sources/warmelt.quicklybuilt.modlis-tmp$$"
   echo "# MELT module list file warmelt.quicklybuilt.modlis" >> $melt_modlis_temp
   echo "# MELT translator modules:" >> $melt_modlis_temp
@@ -2777,16 +2774,16 @@ if [ ! -f "meltbuild-sources/warmelt.quicklybuilt.modlis" \
   
   echo warmelt-modes.quicklybuilt >> $melt_modlis_temp
  
-  #@  melt-build-script.tpl:632/584
+  #@  melt-build-script.tpl:629/583
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/warmelt.quicklybuilt.modlis"
 else
-  meltbuild_info  melt-build-script.tpl:635/585 keeping warmelt module list  "meltbuild-sources/warmelt.quicklybuilt.modlis"  
+  meltbuild_info  melt-build-script.tpl:632/584 keeping warmelt module list  "meltbuild-sources/warmelt.quicklybuilt.modlis"  
 fi
 
 if [ ! -f "meltbuild-sources/warmelt.optimized.modlis" \
     -o "meltbuild-sources/warmelt.optimized.modlis" -ot $melt_final_translator_stamp  ]; then
-  #  melt-build-script.tpl:624/586 warmelt module list optimized
-  meltbuild_info  melt-build-script.tpl:625/587 generating warmelt module list  "meltbuild-sources/warmelt.optimized.modlis"
+  #  melt-build-script.tpl:621/585 warmelt module list optimized
+  meltbuild_info  melt-build-script.tpl:622/586 generating warmelt module list  "meltbuild-sources/warmelt.optimized.modlis"
   melt_modlis_temp="meltbuild-sources/warmelt.optimized.modlis-tmp$$"
   echo "# MELT module list file warmelt.optimized.modlis" >> $melt_modlis_temp
   echo "# MELT translator modules:" >> $melt_modlis_temp
@@ -2813,16 +2810,16 @@ if [ ! -f "meltbuild-sources/warmelt.optimized.modlis" \
   
   echo warmelt-modes.optimized >> $melt_modlis_temp
  
-  #@  melt-build-script.tpl:632/588
+  #@  melt-build-script.tpl:629/587
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/warmelt.optimized.modlis"
 else
-  meltbuild_info  melt-build-script.tpl:635/589 keeping warmelt module list  "meltbuild-sources/warmelt.optimized.modlis"  
+  meltbuild_info  melt-build-script.tpl:632/588 keeping warmelt module list  "meltbuild-sources/warmelt.optimized.modlis"  
 fi
 
 if [ ! -f "meltbuild-sources/warmelt.debugnoline.modlis" \
     -o "meltbuild-sources/warmelt.debugnoline.modlis" -ot $melt_final_translator_stamp  ]; then
-  #  melt-build-script.tpl:624/590 warmelt module list debugnoline
-  meltbuild_info  melt-build-script.tpl:625/591 generating warmelt module list  "meltbuild-sources/warmelt.debugnoline.modlis"
+  #  melt-build-script.tpl:621/589 warmelt module list debugnoline
+  meltbuild_info  melt-build-script.tpl:622/590 generating warmelt module list  "meltbuild-sources/warmelt.debugnoline.modlis"
   melt_modlis_temp="meltbuild-sources/warmelt.debugnoline.modlis-tmp$$"
   echo "# MELT module list file warmelt.debugnoline.modlis" >> $melt_modlis_temp
   echo "# MELT translator modules:" >> $melt_modlis_temp
@@ -2849,23 +2846,23 @@ if [ ! -f "meltbuild-sources/warmelt.debugnoline.modlis" \
   
   echo warmelt-modes.debugnoline >> $melt_modlis_temp
  
-  #@  melt-build-script.tpl:632/592
+  #@  melt-build-script.tpl:629/591
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/warmelt.debugnoline.modlis"
 else
-  meltbuild_info  melt-build-script.tpl:635/593 keeping warmelt module list  "meltbuild-sources/warmelt.debugnoline.modlis"  
+  meltbuild_info  melt-build-script.tpl:632/592 keeping warmelt module list  "meltbuild-sources/warmelt.debugnoline.modlis"  
 fi
 
 
 ################################################################
 ################################################################
 ######################### REGENERATION #########################
-#@ melt-build-script.tpl:642/594
+#@ melt-build-script.tpl:639/593
 if [ "$melt_overall_goal" = "regenerate" ]; then
-    meltbuild_notice regenerating runtime support melt-build-script.tpl:644/595 
+    meltbuild_notice regenerating runtime support melt-build-script.tpl:641/594 
     [ -d meltbuild-sources/generated ] || mkdir meltbuild-sources/generated
     meltregen_args=meltbuild-regen.args
     meltregen_argstemp="$meltregen_args-tmp$$"
-    echo ' -DGCCMELT_REGENERATING  -DGCCMELT_FROM_ARG="melt-build-script.tpl:648/596"' > $meltregen_argstemp
+    echo ' -DGCCMELT_REGENERATING  -DGCCMELT_FROM_ARG="melt-build-script.tpl:645/595"' > $meltregen_argstemp
     meltbuild_arg mode=runtypesupport >> $meltregen_argstemp
     meltbuild_arg output=meltbuild-sources/generated/meltrunsup >> $meltregen_argstemp
     meltbuild_arg workdir=meltbuild-workdir >>  $meltregen_argstemp
@@ -2875,11 +2872,11 @@ if [ "$melt_overall_goal" = "regenerate" ]; then
     meltbuild_arg bootstrapping  >> $meltregen_argstemp
     echo meltbuild-empty-file.c >> $meltregen_argstemp
     $GCCMELT_MOVE_IF_CHANGE  $meltregen_argstemp $meltregen_args
-   meltbuild_info melt-build-script.tpl:658/597 $meltregen_args  is
+   meltbuild_info melt-build-script.tpl:655/596 $meltregen_args  is
    cat $meltregen_args < /dev/null >&2
     $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltregen_args \
-	|| meltbuild_error melt-build-script.tpl:661/598 failed with arguments @$meltregen_args
-    meltbuild_info melt-build-script.tpl:662/599 done regenerate overall goal
+	|| meltbuild_error melt-build-script.tpl:658/597 failed with arguments @$meltregen_args
+    meltbuild_info melt-build-script.tpl:659/598 done regenerate overall goal
     exit 0
 fi
 
@@ -2889,39 +2886,39 @@ fi
 ################################################################
 ########################### LIBRARY ############################
 ################
-#@ melt-build-script.tpl:672/600 before library libmelt* modules
+#@ melt-build-script.tpl:669/599 before library libmelt* modules
 ################################################################
-meltbuild_info melt-build-script.tpl:674/601 before library GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
+meltbuild_info melt-build-script.tpl:671/600 before library GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
 
-meltbuild_info melt-build-script.tpl:676/602 times before library at `date '+%x %H:%M:%S'`: ;  times >&2
+meltbuild_info melt-build-script.tpl:673/601 times before library at `date '+%x %H:%M:%S'`: ;  times >&2
  
 melt_final_library_stamp=meltbuild-final-library.stamp
 
 function meltbuild_do_library () {
-  meltbuild_notice 'start doing library'  melt-build-script.tpl:681/603 doing library 
+  meltbuild_notice 'start doing library'  melt-build-script.tpl:678/602 doing library 
   
   
-    ## meltbuild_do_library libmelt-ana-base melt-build-script.tpl:684/604
-    meltbuild_info melt-build-script.tpl:685/605 doing library libmelt-ana-base
+    ## meltbuild_do_library libmelt-ana-base melt-build-script.tpl:681/603
+    meltbuild_info melt-build-script.tpl:682/604 doing library libmelt-ana-base
     if [ ! -f meltbuild-sources/libmelt-ana-base.melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/libmelt-ana-base.melt meltbuild-sources/libmelt-ana-base.melt
     fi
-    ## meltbuild_do_library libmelt-ana-base melt-build-script.tpl:689/606
+    ## meltbuild_do_library libmelt-ana-base melt-build-script.tpl:686/605
     if [ ! -f meltbuild-sources/libmelt-ana-base.cc -o  ! -f meltbuild-sources/libmelt-ana-base+meltdesc.c \
          -o meltbuild-sources/libmelt-ana-base+meltdesc.c -ot meltbuild-final-translator.stamp \
          -o meltbuild-sources/libmelt-ana-base+meltdesc.c -ot meltbuild-sources/libmelt-ana-base.melt \
    ]; then
-        meltbuild_info melt-build-script.tpl:695/607 emit library C++ code for libmelt-ana-base
-        meltbuild_emit melt-build-script.tpl:696/608 \
+        meltbuild_info melt-build-script.tpl:692/606 emit library C++ code for libmelt-ana-base
+        meltbuild_emit melt-build-script.tpl:693/607 \
   	  translatefile \
   	  libmelt-ana-base \
   	  meltbuild-sources \
   	  meltbuild-modules \
   	  warmelt-first.optimized:warmelt-base.optimized:warmelt-debug.optimized:warmelt-macro.optimized:warmelt-moremacro.optimized:warmelt-normal.optimized:warmelt-normatch.optimized:warmelt-genobj.optimized:warmelt-outobj.optimized:warmelt-hooks.optimized:warmelt-modes.optimized \
       "" \
-  	  || meltbuild_error melt-build-script.tpl:703/609 failed to generate C++ code of library libmelt-ana-base
+  	  || meltbuild_error melt-build-script.tpl:700/608 failed to generate C++ code of library libmelt-ana-base
     else
-        meltbuild_info melt-build-script.tpl:705/610 DONT emit library C++ code for libmelt-ana-base
+        meltbuild_info melt-build-script.tpl:702/609 DONT emit library C++ code for libmelt-ana-base
     fi
     local meltlib_ANA_BASE_cumulmd5=$(cat  meltbuild-sources/libmelt-ana-base.cc meltbuild-sources/libmelt-ana-base+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
    
@@ -2929,110 +2926,110 @@ function meltbuild_do_library () {
         -o meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.quicklybuilt.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/libmelt-ana-base.cc \
         -o  meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/libmelt-ana-base+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/611 compiling library module for libmelt-ana-base quicklybuilt
+        meltbuild_info melt-build-script.tpl:710/610 compiling library module for libmelt-ana-base quicklybuilt
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/612 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/611 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=quicklybuilt \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-base \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-base \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/613 in meltbuild-modules failure to compile library libmelt-ana-base quicklybuilt ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/612 in meltbuild-modules failure to compile library libmelt-ana-base quicklybuilt ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/614 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/613 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=quicklybuilt \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-base \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-base ; \
-  	       meltbuild_error  melt-build-script.tpl:731/615 in meltbuild-modules failed to compile library libmelt-ana-base quicklybuilt \
+  	       meltbuild_error  melt-build-script.tpl:728/614 in meltbuild-modules failed to compile library libmelt-ana-base quicklybuilt \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/616 not compiling library module for libmelt-ana-base quicklybuilt
+        meltbuild_info melt-build-script.tpl:731/615 not compiling library module for libmelt-ana-base quicklybuilt
     fi
    
     if [ ! -f meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.optimized.so \
         -o meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.optimized.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.optimized.so -ot  meltbuild-sources/libmelt-ana-base.cc \
         -o  meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.optimized.so -ot  meltbuild-sources/libmelt-ana-base+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/617 compiling library module for libmelt-ana-base optimized
+        meltbuild_info melt-build-script.tpl:710/616 compiling library module for libmelt-ana-base optimized
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/618 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/617 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=optimized \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-base \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-base \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/619 in meltbuild-modules failure to compile library libmelt-ana-base optimized ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/618 in meltbuild-modules failure to compile library libmelt-ana-base optimized ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/620 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/619 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=optimized \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-base \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-base ; \
-  	       meltbuild_error  melt-build-script.tpl:731/621 in meltbuild-modules failed to compile library libmelt-ana-base optimized \
+  	       meltbuild_error  melt-build-script.tpl:728/620 in meltbuild-modules failed to compile library libmelt-ana-base optimized \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/622 not compiling library module for libmelt-ana-base optimized
+        meltbuild_info melt-build-script.tpl:731/621 not compiling library module for libmelt-ana-base optimized
     fi
    
     if [ ! -f meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.debugnoline.so \
         -o meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.debugnoline.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.debugnoline.so -ot  meltbuild-sources/libmelt-ana-base.cc \
         -o  meltbuild-modules/libmelt-ana-base.meltmod-$meltlib_ANA_BASE_cumulmd5.debugnoline.so -ot  meltbuild-sources/libmelt-ana-base+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/623 compiling library module for libmelt-ana-base debugnoline
+        meltbuild_info melt-build-script.tpl:710/622 compiling library module for libmelt-ana-base debugnoline
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/624 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/623 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=debugnoline \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-base \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-base \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/625 in meltbuild-modules failure to compile library libmelt-ana-base debugnoline ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/624 in meltbuild-modules failure to compile library libmelt-ana-base debugnoline ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/626 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/625 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=debugnoline \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-base \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-base ; \
-  	       meltbuild_error  melt-build-script.tpl:731/627 in meltbuild-modules failed to compile library libmelt-ana-base debugnoline \
+  	       meltbuild_error  melt-build-script.tpl:728/626 in meltbuild-modules failed to compile library libmelt-ana-base debugnoline \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/628 not compiling library module for libmelt-ana-base debugnoline
+        meltbuild_info melt-build-script.tpl:731/627 not compiling library module for libmelt-ana-base debugnoline
     fi
    
   
   
-    ## meltbuild_do_library libmelt-ana-tree melt-build-script.tpl:684/629
-    meltbuild_info melt-build-script.tpl:685/630 doing library libmelt-ana-tree
+    ## meltbuild_do_library libmelt-ana-tree melt-build-script.tpl:681/628
+    meltbuild_info melt-build-script.tpl:682/629 doing library libmelt-ana-tree
     if [ ! -f meltbuild-sources/libmelt-ana-tree.melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/libmelt-ana-tree.melt meltbuild-sources/libmelt-ana-tree.melt
     fi
-    ## meltbuild_do_library libmelt-ana-tree melt-build-script.tpl:689/631
+    ## meltbuild_do_library libmelt-ana-tree melt-build-script.tpl:686/630
     if [ ! -f meltbuild-sources/libmelt-ana-tree.cc -o  ! -f meltbuild-sources/libmelt-ana-tree+meltdesc.c \
          -o meltbuild-sources/libmelt-ana-tree+meltdesc.c -ot meltbuild-final-translator.stamp \
          -o meltbuild-sources/libmelt-ana-tree+meltdesc.c -ot meltbuild-sources/libmelt-ana-tree.melt \
    -o meltbuild-sources/libmelt-ana-base+meltdesc.c -ot meltbuild-sources/libmelt-ana-tree+meltdesc.c \
    ]; then
-        meltbuild_info melt-build-script.tpl:695/632 emit library C++ code for libmelt-ana-tree
-        meltbuild_emit melt-build-script.tpl:696/633 \
+        meltbuild_info melt-build-script.tpl:692/631 emit library C++ code for libmelt-ana-tree
+        meltbuild_emit melt-build-script.tpl:693/632 \
   	  translatefile \
   	  libmelt-ana-tree \
   	  meltbuild-sources \
   	  meltbuild-modules \
   	  warmelt-first.optimized:warmelt-base.optimized:warmelt-debug.optimized:warmelt-macro.optimized:warmelt-moremacro.optimized:warmelt-normal.optimized:warmelt-normatch.optimized:warmelt-genobj.optimized:warmelt-outobj.optimized:warmelt-hooks.optimized:warmelt-modes.optimized:libmelt-ana-base.quicklybuilt \
       "_libmelt-treecode.melt" \
-  	  || meltbuild_error melt-build-script.tpl:703/634 failed to generate C++ code of library libmelt-ana-tree
+  	  || meltbuild_error melt-build-script.tpl:700/633 failed to generate C++ code of library libmelt-ana-tree
     else
-        meltbuild_info melt-build-script.tpl:705/635 DONT emit library C++ code for libmelt-ana-tree
+        meltbuild_info melt-build-script.tpl:702/634 DONT emit library C++ code for libmelt-ana-tree
     fi
     local meltlib_ANA_TREE_cumulmd5=$(cat  meltbuild-sources/libmelt-ana-tree.cc meltbuild-sources/libmelt-ana-tree+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
    
@@ -3040,111 +3037,111 @@ function meltbuild_do_library () {
         -o meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.quicklybuilt.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/libmelt-ana-tree.cc \
         -o  meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/libmelt-ana-tree+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/636 compiling library module for libmelt-ana-tree quicklybuilt
+        meltbuild_info melt-build-script.tpl:710/635 compiling library module for libmelt-ana-tree quicklybuilt
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/637 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/636 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=quicklybuilt \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-tree \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-tree \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/638 in meltbuild-modules failure to compile library libmelt-ana-tree quicklybuilt ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/637 in meltbuild-modules failure to compile library libmelt-ana-tree quicklybuilt ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/639 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/638 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=quicklybuilt \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-tree \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-tree ; \
-  	       meltbuild_error  melt-build-script.tpl:731/640 in meltbuild-modules failed to compile library libmelt-ana-tree quicklybuilt \
+  	       meltbuild_error  melt-build-script.tpl:728/639 in meltbuild-modules failed to compile library libmelt-ana-tree quicklybuilt \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/641 not compiling library module for libmelt-ana-tree quicklybuilt
+        meltbuild_info melt-build-script.tpl:731/640 not compiling library module for libmelt-ana-tree quicklybuilt
     fi
    
     if [ ! -f meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.optimized.so \
         -o meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.optimized.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.optimized.so -ot  meltbuild-sources/libmelt-ana-tree.cc \
         -o  meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.optimized.so -ot  meltbuild-sources/libmelt-ana-tree+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/642 compiling library module for libmelt-ana-tree optimized
+        meltbuild_info melt-build-script.tpl:710/641 compiling library module for libmelt-ana-tree optimized
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/643 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/642 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=optimized \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-tree \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-tree \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/644 in meltbuild-modules failure to compile library libmelt-ana-tree optimized ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/643 in meltbuild-modules failure to compile library libmelt-ana-tree optimized ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/645 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/644 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=optimized \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-tree \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-tree ; \
-  	       meltbuild_error  melt-build-script.tpl:731/646 in meltbuild-modules failed to compile library libmelt-ana-tree optimized \
+  	       meltbuild_error  melt-build-script.tpl:728/645 in meltbuild-modules failed to compile library libmelt-ana-tree optimized \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/647 not compiling library module for libmelt-ana-tree optimized
+        meltbuild_info melt-build-script.tpl:731/646 not compiling library module for libmelt-ana-tree optimized
     fi
    
     if [ ! -f meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.debugnoline.so \
         -o meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.debugnoline.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.debugnoline.so -ot  meltbuild-sources/libmelt-ana-tree.cc \
         -o  meltbuild-modules/libmelt-ana-tree.meltmod-$meltlib_ANA_TREE_cumulmd5.debugnoline.so -ot  meltbuild-sources/libmelt-ana-tree+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/648 compiling library module for libmelt-ana-tree debugnoline
+        meltbuild_info melt-build-script.tpl:710/647 compiling library module for libmelt-ana-tree debugnoline
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/649 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/648 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=debugnoline \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-tree \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-tree \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/650 in meltbuild-modules failure to compile library libmelt-ana-tree debugnoline ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/649 in meltbuild-modules failure to compile library libmelt-ana-tree debugnoline ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/651 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/650 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=debugnoline \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-tree \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-tree ; \
-  	       meltbuild_error  melt-build-script.tpl:731/652 in meltbuild-modules failed to compile library libmelt-ana-tree debugnoline \
+  	       meltbuild_error  melt-build-script.tpl:728/651 in meltbuild-modules failed to compile library libmelt-ana-tree debugnoline \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/653 not compiling library module for libmelt-ana-tree debugnoline
+        meltbuild_info melt-build-script.tpl:731/652 not compiling library module for libmelt-ana-tree debugnoline
     fi
    
   
   
-    ## meltbuild_do_library libmelt-ana-gimple melt-build-script.tpl:684/654
-    meltbuild_info melt-build-script.tpl:685/655 doing library libmelt-ana-gimple
+    ## meltbuild_do_library libmelt-ana-gimple melt-build-script.tpl:681/653
+    meltbuild_info melt-build-script.tpl:682/654 doing library libmelt-ana-gimple
     if [ ! -f meltbuild-sources/libmelt-ana-gimple.melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/libmelt-ana-gimple.melt meltbuild-sources/libmelt-ana-gimple.melt
     fi
-    ## meltbuild_do_library libmelt-ana-gimple melt-build-script.tpl:689/656
+    ## meltbuild_do_library libmelt-ana-gimple melt-build-script.tpl:686/655
     if [ ! -f meltbuild-sources/libmelt-ana-gimple.cc -o  ! -f meltbuild-sources/libmelt-ana-gimple+meltdesc.c \
          -o meltbuild-sources/libmelt-ana-gimple+meltdesc.c -ot meltbuild-final-translator.stamp \
          -o meltbuild-sources/libmelt-ana-gimple+meltdesc.c -ot meltbuild-sources/libmelt-ana-gimple.melt \
    -o meltbuild-sources/libmelt-ana-base+meltdesc.c -ot meltbuild-sources/libmelt-ana-gimple+meltdesc.c \
    -o meltbuild-sources/libmelt-ana-tree+meltdesc.c -ot meltbuild-sources/libmelt-ana-gimple+meltdesc.c \
    ]; then
-        meltbuild_info melt-build-script.tpl:695/657 emit library C++ code for libmelt-ana-gimple
-        meltbuild_emit melt-build-script.tpl:696/658 \
+        meltbuild_info melt-build-script.tpl:692/656 emit library C++ code for libmelt-ana-gimple
+        meltbuild_emit melt-build-script.tpl:693/657 \
   	  translatefile \
   	  libmelt-ana-gimple \
   	  meltbuild-sources \
   	  meltbuild-modules \
   	  warmelt-first.optimized:warmelt-base.optimized:warmelt-debug.optimized:warmelt-macro.optimized:warmelt-moremacro.optimized:warmelt-normal.optimized:warmelt-normatch.optimized:warmelt-genobj.optimized:warmelt-outobj.optimized:warmelt-hooks.optimized:warmelt-modes.optimized:libmelt-ana-base.quicklybuilt:libmelt-ana-tree.quicklybuilt \
       "" \
-  	  || meltbuild_error melt-build-script.tpl:703/659 failed to generate C++ code of library libmelt-ana-gimple
+  	  || meltbuild_error melt-build-script.tpl:700/658 failed to generate C++ code of library libmelt-ana-gimple
     else
-        meltbuild_info melt-build-script.tpl:705/660 DONT emit library C++ code for libmelt-ana-gimple
+        meltbuild_info melt-build-script.tpl:702/659 DONT emit library C++ code for libmelt-ana-gimple
     fi
     local meltlib_ANA_GIMPLE_cumulmd5=$(cat  meltbuild-sources/libmelt-ana-gimple.cc meltbuild-sources/libmelt-ana-gimple+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
    
@@ -3152,88 +3149,88 @@ function meltbuild_do_library () {
         -o meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.quicklybuilt.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/libmelt-ana-gimple.cc \
         -o  meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/libmelt-ana-gimple+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/661 compiling library module for libmelt-ana-gimple quicklybuilt
+        meltbuild_info melt-build-script.tpl:710/660 compiling library module for libmelt-ana-gimple quicklybuilt
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/662 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/661 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=quicklybuilt \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-gimple \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-gimple \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/663 in meltbuild-modules failure to compile library libmelt-ana-gimple quicklybuilt ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/662 in meltbuild-modules failure to compile library libmelt-ana-gimple quicklybuilt ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/664 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/663 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=quicklybuilt \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-gimple \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-gimple ; \
-  	       meltbuild_error  melt-build-script.tpl:731/665 in meltbuild-modules failed to compile library libmelt-ana-gimple quicklybuilt \
+  	       meltbuild_error  melt-build-script.tpl:728/664 in meltbuild-modules failed to compile library libmelt-ana-gimple quicklybuilt \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/666 not compiling library module for libmelt-ana-gimple quicklybuilt
+        meltbuild_info melt-build-script.tpl:731/665 not compiling library module for libmelt-ana-gimple quicklybuilt
     fi
    
     if [ ! -f meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.optimized.so \
         -o meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.optimized.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.optimized.so -ot  meltbuild-sources/libmelt-ana-gimple.cc \
         -o  meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.optimized.so -ot  meltbuild-sources/libmelt-ana-gimple+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/667 compiling library module for libmelt-ana-gimple optimized
+        meltbuild_info melt-build-script.tpl:710/666 compiling library module for libmelt-ana-gimple optimized
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/668 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/667 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=optimized \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-gimple \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-gimple \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/669 in meltbuild-modules failure to compile library libmelt-ana-gimple optimized ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/668 in meltbuild-modules failure to compile library libmelt-ana-gimple optimized ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/670 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/669 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=optimized \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-gimple \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-gimple ; \
-  	       meltbuild_error  melt-build-script.tpl:731/671 in meltbuild-modules failed to compile library libmelt-ana-gimple optimized \
+  	       meltbuild_error  melt-build-script.tpl:728/670 in meltbuild-modules failed to compile library libmelt-ana-gimple optimized \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/672 not compiling library module for libmelt-ana-gimple optimized
+        meltbuild_info melt-build-script.tpl:731/671 not compiling library module for libmelt-ana-gimple optimized
     fi
    
     if [ ! -f meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.debugnoline.so \
         -o meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.debugnoline.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.debugnoline.so -ot  meltbuild-sources/libmelt-ana-gimple.cc \
         -o  meltbuild-modules/libmelt-ana-gimple.meltmod-$meltlib_ANA_GIMPLE_cumulmd5.debugnoline.so -ot  meltbuild-sources/libmelt-ana-gimple+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:713/673 compiling library module for libmelt-ana-gimple debugnoline
+        meltbuild_info melt-build-script.tpl:710/672 compiling library module for libmelt-ana-gimple debugnoline
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:715/674 \
+  	  GCCMELT_FROM=melt-build-script.tpl:712/673 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=debugnoline \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-gimple \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-gimple \
-  	  || ( meltbuild_notice melt-build-script.tpl:722/675 in meltbuild-modules failure to compile library libmelt-ana-gimple debugnoline ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:719/674 in meltbuild-modules failure to compile library libmelt-ana-gimple debugnoline ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:724/676 \
+  			     GCCMELT_FROM=melt-build-script.tpl:721/675 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=debugnoline \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/libmelt-ana-gimple \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/libmelt-ana-gimple ; \
-  	       meltbuild_error  melt-build-script.tpl:731/677 in meltbuild-modules failed to compile library libmelt-ana-gimple debugnoline \
+  	       meltbuild_error  melt-build-script.tpl:728/676 in meltbuild-modules failed to compile library libmelt-ana-gimple debugnoline \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:734/678 not compiling library module for libmelt-ana-gimple debugnoline
+        meltbuild_info melt-build-script.tpl:731/677 not compiling library module for libmelt-ana-gimple debugnoline
     fi
    
   
-    ## meltbuild_do_library  melt-build-script.tpl:738/679
+    ## meltbuild_do_library  melt-build-script.tpl:735/678
     local meltlibstamptemp=$melt_final_library_stamp-tmp$$
     echo "///MELT library time stamp $melt_final_library_stamp" > $meltlibstamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltlibstamptemp
@@ -3270,13 +3267,13 @@ function meltbuild_do_library () {
   
     echo "///end stamp $melt_final_library_stamp"  >> $meltlibstamptemp
     $GCCMELT_MOVE_IF_CHANGE $meltlibstamptemp  $melt_final_library_stamp
-  meltbuild_info melt-build-script.tpl:751/680 times after library at `date '+%x %H:%M:%S'`: ;  times >&2
-} ## end function meltbuild_do_library  melt-build-script.tpl:752/681
+  meltbuild_info melt-build-script.tpl:748/679 times after library at `date '+%x %H:%M:%S'`: ;  times >&2
+} ## end function meltbuild_do_library  melt-build-script.tpl:749/680
 
 
 function meltbuild_do_an_extra () {
   xtrabase=$1
-  meltbuild_notice 'start doing an extra'  melt-build-script.tpl:757/682 doing an xtra $xtrabase
+  meltbuild_notice 'start doing an extra'  melt-build-script.tpl:754/681 doing an xtra $xtrabase
   
   if [ ! -f meltbuild-sources/$xtrabase.melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/$xtrabase.melt meltbuild-sources/$xtrabase.melt
@@ -3287,105 +3284,105 @@ function meltbuild_do_an_extra () {
        -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-final-library.stamp \
        -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-sources/$xtrabase.melt \
   	] ; then
-      meltbuild_info melt-build-script.tpl:768/683 emit extra C++ code for $xtrabase
-      meltbuild_emit melt-build-script.tpl:769/684 \
+      meltbuild_info melt-build-script.tpl:765/682 emit extra C++ code for $xtrabase
+      meltbuild_emit melt-build-script.tpl:766/683 \
   	  translatefile \
   	  $xtrabase \
   	  meltbuild-sources \
   	  meltbuild-modules \
   	  warmelt-first.optimized:warmelt-base.optimized:warmelt-debug.optimized:warmelt-macro.optimized:warmelt-moremacro.optimized:warmelt-normal.optimized:warmelt-normatch.optimized:warmelt-genobj.optimized:warmelt-outobj.optimized:warmelt-hooks.optimized:warmelt-modes.optimized:libmelt-ana-base.quicklybuilt:libmelt-ana-tree.quicklybuilt:libmelt-ana-gimple.quicklybuilt \
     "" \
-  	  || meltbuild_error melt-build-script.tpl:776/685 failed to generate C++ code of $xtrabase
+  	  || meltbuild_error melt-build-script.tpl:773/684 failed to generate C++ code of $xtrabase
   else
-      meltbuild_info melt-build-script.tpl:778/686 DONT emit extra C++ code for $xtrabase
+      meltbuild_info melt-build-script.tpl:775/685 DONT emit extra C++ code for $xtrabase
   fi
 
   
-  # do_an_extra flavor quicklybuilt  melt-build-script.tpl:782/687      
+  # do_an_extra flavor quicklybuilt  melt-build-script.tpl:779/686      
   if [ ! -f meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.quicklybuilt.so \
       -o meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.quicklybuilt.so -ot  meltbuild-final-translator.stamp \
       -o  meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.quicklybuilt.so -ot  meltbuild-sources/$xtrabase.cc \
       -o  meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.quicklybuilt.so -ot  meltbuild-sources/$xtrabase+meltdesc.c ]; then
-      meltbuild_info melt-build-script.tpl:787/688 compiling extra module for $xtrabase quicklybuilt
+      meltbuild_info melt-build-script.tpl:784/687 compiling extra module for $xtrabase quicklybuilt
       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:789/689 \
+  	  GCCMELT_FROM=melt-build-script.tpl:786/688 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=quicklybuilt \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase \
-  	  || ( meltbuild_notice melt-build-script.tpl:796/690 in meltbuild-modules failure to compile extra $xtrabase quicklybuilt ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:793/689 in meltbuild-modules failure to compile extra $xtrabase quicklybuilt ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:798/691 \
+  			     GCCMELT_FROM=melt-build-script.tpl:795/690 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=quicklybuilt \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase ; \
-  	       meltbuild_error  melt-build-script.tpl:805/692 in meltbuild-modules failed to compile library $xtrabase quicklybuilt \
+  	       meltbuild_error  melt-build-script.tpl:802/691 in meltbuild-modules failed to compile library $xtrabase quicklybuilt \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-      meltbuild_info melt-build-script.tpl:808/693 not compiling extra module for $xtrabase quicklybuilt
+      meltbuild_info melt-build-script.tpl:805/692 not compiling extra module for $xtrabase quicklybuilt
   fi
   
-  # do_an_extra flavor optimized  melt-build-script.tpl:782/694      
+  # do_an_extra flavor optimized  melt-build-script.tpl:779/693      
   if [ ! -f meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.optimized.so \
       -o meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.optimized.so -ot  meltbuild-final-translator.stamp \
       -o  meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.optimized.so -ot  meltbuild-sources/$xtrabase.cc \
       -o  meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.optimized.so -ot  meltbuild-sources/$xtrabase+meltdesc.c ]; then
-      meltbuild_info melt-build-script.tpl:787/695 compiling extra module for $xtrabase optimized
+      meltbuild_info melt-build-script.tpl:784/694 compiling extra module for $xtrabase optimized
       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:789/696 \
+  	  GCCMELT_FROM=melt-build-script.tpl:786/695 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=optimized \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase \
-  	  || ( meltbuild_notice melt-build-script.tpl:796/697 in meltbuild-modules failure to compile extra $xtrabase optimized ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:793/696 in meltbuild-modules failure to compile extra $xtrabase optimized ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:798/698 \
+  			     GCCMELT_FROM=melt-build-script.tpl:795/697 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=optimized \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase ; \
-  	       meltbuild_error  melt-build-script.tpl:805/699 in meltbuild-modules failed to compile library $xtrabase optimized \
+  	       meltbuild_error  melt-build-script.tpl:802/698 in meltbuild-modules failed to compile library $xtrabase optimized \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-      meltbuild_info melt-build-script.tpl:808/700 not compiling extra module for $xtrabase optimized
+      meltbuild_info melt-build-script.tpl:805/699 not compiling extra module for $xtrabase optimized
   fi
   
-  # do_an_extra flavor debugnoline  melt-build-script.tpl:782/701      
+  # do_an_extra flavor debugnoline  melt-build-script.tpl:779/700      
   if [ ! -f meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.debugnoline.so \
       -o meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.debugnoline.so -ot  meltbuild-final-translator.stamp \
       -o  meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.debugnoline.so -ot  meltbuild-sources/$xtrabase.cc \
       -o  meltbuild-modules/$xtrabase.meltmod-$meltlib__cumulmd5.debugnoline.so -ot  meltbuild-sources/$xtrabase+meltdesc.c ]; then
-      meltbuild_info melt-build-script.tpl:787/702 compiling extra module for $xtrabase debugnoline
+      meltbuild_info melt-build-script.tpl:784/701 compiling extra module for $xtrabase debugnoline
       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:789/703 \
+  	  GCCMELT_FROM=melt-build-script.tpl:786/702 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=debugnoline \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase \
-  	  || ( meltbuild_notice melt-build-script.tpl:796/704 in meltbuild-modules failure to compile extra $xtrabase debugnoline ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:793/703 in meltbuild-modules failure to compile extra $xtrabase debugnoline ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:798/705 \
+  			     GCCMELT_FROM=melt-build-script.tpl:795/704 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=debugnoline \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase ; \
-  	       meltbuild_error  melt-build-script.tpl:805/706 in meltbuild-modules failed to compile library $xtrabase debugnoline \
+  	       meltbuild_error  melt-build-script.tpl:802/705 in meltbuild-modules failed to compile library $xtrabase debugnoline \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-      meltbuild_info melt-build-script.tpl:808/707 not compiling extra module for $xtrabase debugnoline
+      meltbuild_info melt-build-script.tpl:805/706 not compiling extra module for $xtrabase debugnoline
   fi
   
 
@@ -3397,40 +3394,40 @@ if [ ! -f  "$melt_final_library_stamp" \
  -o "$melt_final_library_stamp" -ot "$GCCMELT_MELTSOURCEDIR/libmelt-ana-tree.melt" \
  -o "$melt_final_library_stamp" -ot "$GCCMELT_MELTSOURCEDIR/libmelt-ana-gimple.melt" \
  ]; then
-    meltbuild_info melt-build-script.tpl:818/708 building MELT library
+    meltbuild_info melt-build-script.tpl:815/707 building MELT library
     meltbuild_do_library
     
-    ## do an extra xtramelt-ana-simple  melt-build-script.tpl:821/709 
+    ## do an extra xtramelt-ana-simple  melt-build-script.tpl:818/708 
     meltbuild_do_an_extra xtramelt-ana-simple
     
-    ## do an extra xtramelt-playground  melt-build-script.tpl:821/710 
+    ## do an extra xtramelt-playground  melt-build-script.tpl:818/709 
     meltbuild_do_an_extra xtramelt-playground
     
 else
-    meltbuild_info melt-build-script.tpl:825/711 not building MELT library because of libstamp  "$melt_final_library_stamp"
+    meltbuild_info melt-build-script.tpl:822/710 not building MELT library because of libstamp  "$melt_final_library_stamp"
 fi
 
 ################################################################
-#@ melt-build-script.tpl:829/712
+#@ melt-build-script.tpl:826/711
 if [ "$melt_overall_goal" = "library" ]; then
-    meltbuild_info melt-build-script.tpl:831/713 done library overall goal with stamp  $melt_final_translator_stamp
-    meltbuild_notice 'Done library' melt-build-script.tpl:832/714 library overall goal 
+    meltbuild_info melt-build-script.tpl:828/712 done library overall goal with stamp  $melt_final_translator_stamp
+    meltbuild_notice 'Done library' melt-build-script.tpl:829/713 library overall goal 
     exit 0
 fi
 
 ################################################################
 ################################################################
-### the modules lists melt-build-script.tpl:838/715
+### the modules lists melt-build-script.tpl:835/714
 
 if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis" \
     -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis" -ot $melt_final_translator_stamp \
     -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis" -ot $melt_final_library_stamp ]; then
-  #  melt-build-script.tpl:843/716 module list quicklybuilt
-  meltbuild_info  melt-build-script.tpl:844/717 generating module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis"
+  #  melt-build-script.tpl:840/715 module list quicklybuilt
+  meltbuild_info  melt-build-script.tpl:841/716 generating module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis"
   melt_modlis_temp="meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis-tmp$$"
   echo "# MELT module list file $MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis" >> $melt_modlis_temp
   echo "# MELT translator modules:" >> $melt_modlis_temp
-  #  melt-build-script.tpl:848/718 module list quicklybuilt translator
+  #  melt-build-script.tpl:845/717 module list quicklybuilt translator
   
   echo warmelt-first.quicklybuilt >> $melt_modlis_temp
   
@@ -3454,7 +3451,7 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis"
   
   echo warmelt-modes.quicklybuilt >> $melt_modlis_temp
  
-  #  melt-build-script.tpl:852/719 module list quicklybuilt library
+  #  melt-build-script.tpl:849/718 module list quicklybuilt library
   echo "# MELT library modules:" >> $melt_modlis_temp
  
   echo libmelt-ana-base.quicklybuilt >> $melt_modlis_temp
@@ -3463,32 +3460,32 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis"
  
   echo libmelt-ana-gimple.quicklybuilt >> $melt_modlis_temp
  
-  #  melt-build-script.tpl:857/720 module list quicklybuilt extra, with mode condition
+  #  melt-build-script.tpl:854/719 module list quicklybuilt extra, with mode condition
  echo "# MELT extra modules with mode condition:" >> $melt_modlis_temp
  
  printf '# MELT extra module xtramelt-ana-simple\n' >> $melt_modlis_temp
- [ -s  meltbuild-sources/xtramelt-ana-simple.melt ] || meltbuild_error  melt-build-script.tpl:861/721 missing or empty meltbuild-sources/xtramelt-ana-simple.melt
+ [ -s  meltbuild-sources/xtramelt-ana-simple.melt ] || meltbuild_error  melt-build-script.tpl:858/720 missing or empty meltbuild-sources/xtramelt-ana-simple.melt
  $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s xtramelt-ana-simple.quicklybuilt\n", $2);}} END{printf("# %d MELT modes in xtramelt-ana-simple\n", nbmod);}' meltbuild-sources/xtramelt-ana-simple.melt | sort -u >> $melt_modlis_temp
  
  printf '# MELT extra module xtramelt-playground\n' >> $melt_modlis_temp
- [ -s  meltbuild-sources/xtramelt-playground.melt ] || meltbuild_error  melt-build-script.tpl:861/722 missing or empty meltbuild-sources/xtramelt-playground.melt
+ [ -s  meltbuild-sources/xtramelt-playground.melt ] || meltbuild_error  melt-build-script.tpl:858/721 missing or empty meltbuild-sources/xtramelt-playground.melt
  $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s xtramelt-playground.quicklybuilt\n", $2);}} END{printf("# %d MELT modes in xtramelt-playground\n", nbmod);}' meltbuild-sources/xtramelt-playground.melt | sort -u >> $melt_modlis_temp
  
  echo "# end MELT module list $MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis" >> $melt_modlis_temp
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis"
 else
-  meltbuild_info  melt-build-script.tpl:867/723 keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis"  
+  meltbuild_info  melt-build-script.tpl:864/722 keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt.modlis"  
 fi
 
 if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" \
     -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" -ot $melt_final_translator_stamp \
     -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" -ot $melt_final_library_stamp ]; then
-  #  melt-build-script.tpl:843/724 module list optimized
-  meltbuild_info  melt-build-script.tpl:844/725 generating module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis"
+  #  melt-build-script.tpl:840/723 module list optimized
+  meltbuild_info  melt-build-script.tpl:841/724 generating module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis"
   melt_modlis_temp="meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis-tmp$$"
   echo "# MELT module list file $MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" >> $melt_modlis_temp
   echo "# MELT translator modules:" >> $melt_modlis_temp
-  #  melt-build-script.tpl:848/726 module list optimized translator
+  #  melt-build-script.tpl:845/725 module list optimized translator
   
   echo warmelt-first.optimized >> $melt_modlis_temp
   
@@ -3512,7 +3509,7 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" \
   
   echo warmelt-modes.optimized >> $melt_modlis_temp
  
-  #  melt-build-script.tpl:852/727 module list optimized library
+  #  melt-build-script.tpl:849/726 module list optimized library
   echo "# MELT library modules:" >> $melt_modlis_temp
  
   echo libmelt-ana-base.optimized >> $melt_modlis_temp
@@ -3521,32 +3518,32 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" \
  
   echo libmelt-ana-gimple.optimized >> $melt_modlis_temp
  
-  #  melt-build-script.tpl:857/728 module list optimized extra, with mode condition
+  #  melt-build-script.tpl:854/727 module list optimized extra, with mode condition
  echo "# MELT extra modules with mode condition:" >> $melt_modlis_temp
  
  printf '# MELT extra module xtramelt-ana-simple\n' >> $melt_modlis_temp
- [ -s  meltbuild-sources/xtramelt-ana-simple.melt ] || meltbuild_error  melt-build-script.tpl:861/729 missing or empty meltbuild-sources/xtramelt-ana-simple.melt
+ [ -s  meltbuild-sources/xtramelt-ana-simple.melt ] || meltbuild_error  melt-build-script.tpl:858/728 missing or empty meltbuild-sources/xtramelt-ana-simple.melt
  $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s xtramelt-ana-simple.optimized\n", $2);}} END{printf("# %d MELT modes in xtramelt-ana-simple\n", nbmod);}' meltbuild-sources/xtramelt-ana-simple.melt | sort -u >> $melt_modlis_temp
  
  printf '# MELT extra module xtramelt-playground\n' >> $melt_modlis_temp
- [ -s  meltbuild-sources/xtramelt-playground.melt ] || meltbuild_error  melt-build-script.tpl:861/730 missing or empty meltbuild-sources/xtramelt-playground.melt
+ [ -s  meltbuild-sources/xtramelt-playground.melt ] || meltbuild_error  melt-build-script.tpl:858/729 missing or empty meltbuild-sources/xtramelt-playground.melt
  $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s xtramelt-playground.optimized\n", $2);}} END{printf("# %d MELT modes in xtramelt-playground\n", nbmod);}' meltbuild-sources/xtramelt-playground.melt | sort -u >> $melt_modlis_temp
  
  echo "# end MELT module list $MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" >> $melt_modlis_temp
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis"
 else
-  meltbuild_info  melt-build-script.tpl:867/731 keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis"  
+  meltbuild_info  melt-build-script.tpl:864/730 keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis"  
 fi
 
 if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis" \
     -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis" -ot $melt_final_translator_stamp \
     -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis" -ot $melt_final_library_stamp ]; then
-  #  melt-build-script.tpl:843/732 module list debugnoline
-  meltbuild_info  melt-build-script.tpl:844/733 generating module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis"
+  #  melt-build-script.tpl:840/731 module list debugnoline
+  meltbuild_info  melt-build-script.tpl:841/732 generating module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis"
   melt_modlis_temp="meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis-tmp$$"
   echo "# MELT module list file $MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis" >> $melt_modlis_temp
   echo "# MELT translator modules:" >> $melt_modlis_temp
-  #  melt-build-script.tpl:848/734 module list debugnoline translator
+  #  melt-build-script.tpl:845/733 module list debugnoline translator
   
   echo warmelt-first.debugnoline >> $melt_modlis_temp
   
@@ -3570,7 +3567,7 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis" 
   
   echo warmelt-modes.debugnoline >> $melt_modlis_temp
  
-  #  melt-build-script.tpl:852/735 module list debugnoline library
+  #  melt-build-script.tpl:849/734 module list debugnoline library
   echo "# MELT library modules:" >> $melt_modlis_temp
  
   echo libmelt-ana-base.debugnoline >> $melt_modlis_temp
@@ -3579,33 +3576,33 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis" 
  
   echo libmelt-ana-gimple.debugnoline >> $melt_modlis_temp
  
-  #  melt-build-script.tpl:857/736 module list debugnoline extra, with mode condition
+  #  melt-build-script.tpl:854/735 module list debugnoline extra, with mode condition
  echo "# MELT extra modules with mode condition:" >> $melt_modlis_temp
  
  printf '# MELT extra module xtramelt-ana-simple\n' >> $melt_modlis_temp
- [ -s  meltbuild-sources/xtramelt-ana-simple.melt ] || meltbuild_error  melt-build-script.tpl:861/737 missing or empty meltbuild-sources/xtramelt-ana-simple.melt
+ [ -s  meltbuild-sources/xtramelt-ana-simple.melt ] || meltbuild_error  melt-build-script.tpl:858/736 missing or empty meltbuild-sources/xtramelt-ana-simple.melt
  $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s xtramelt-ana-simple.debugnoline\n", $2);}} END{printf("# %d MELT modes in xtramelt-ana-simple\n", nbmod);}' meltbuild-sources/xtramelt-ana-simple.melt | sort -u >> $melt_modlis_temp
  
  printf '# MELT extra module xtramelt-playground\n' >> $melt_modlis_temp
- [ -s  meltbuild-sources/xtramelt-playground.melt ] || meltbuild_error  melt-build-script.tpl:861/738 missing or empty meltbuild-sources/xtramelt-playground.melt
+ [ -s  meltbuild-sources/xtramelt-playground.melt ] || meltbuild_error  melt-build-script.tpl:858/737 missing or empty meltbuild-sources/xtramelt-playground.melt
  $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s xtramelt-playground.debugnoline\n", $2);}} END{printf("# %d MELT modes in xtramelt-playground\n", nbmod);}' meltbuild-sources/xtramelt-playground.melt | sort -u >> $melt_modlis_temp
  
  echo "# end MELT module list $MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis" >> $melt_modlis_temp
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis"
 else
-  meltbuild_info  melt-build-script.tpl:867/739 keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis"  
+  meltbuild_info  melt-build-script.tpl:864/738 keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.debugnoline.modlis"  
 fi
 
 
-#@ melt-build-script.tpl:871/740
+#@ melt-build-script.tpl:868/739
 if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.modlis" ]; then
    meltbuild_symlink "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.optimized.modlis" "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.modlis"
 fi
 
 ################################################################
-#@ melt-build-script.tpl:877/741 module lists
+#@ melt-build-script.tpl:874/740 module lists
 if [ "$melt_overall_goal" = "modlists" ]; then
-    meltbuild_info melt-build-script.tpl:879/742 done modlists overall goal with stamp  $melt_final_library_stamp
+    meltbuild_info melt-build-script.tpl:876/741 done modlists overall goal with stamp  $melt_final_library_stamp
     exit 0
 fi
 
@@ -3613,41 +3610,41 @@ fi
 ################################################################
 ########################### EXTRA ############################
 ################
-#@ melt-build-script.tpl:887/743 before extra libmelt* modules
+#@ melt-build-script.tpl:884/742 before extra libmelt* modules
 ################################################################
-meltbuild_info melt-build-script.tpl:889/744 before extra GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
+meltbuild_info melt-build-script.tpl:886/743 before extra GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
 
-meltbuild_info melt-build-script.tpl:891/745 times before extras at `date '+%x %H:%M:%S'`: ;  times >&2
+meltbuild_info melt-build-script.tpl:888/744 times before extras at `date '+%x %H:%M:%S'`: ;  times >&2
  
 melt_final_extra_stamp=meltbuild-final-extra.stamp
 
 
 
 function meltbuild_do_extras () {
-  meltbuild_notice 'start doing extras'  melt-build-script.tpl:898/746 doing extras 
+  meltbuild_notice 'start doing extras'  melt-build-script.tpl:895/745 doing extras 
   
   
-    ## meltbuild_do_extras xtramelt-ana-simple melt-build-script.tpl:901/747
-    meltbuild_info melt-build-script.tpl:902/748 doing extra xtramelt-ana-simple
+    ## meltbuild_do_extras xtramelt-ana-simple melt-build-script.tpl:898/746
+    meltbuild_info melt-build-script.tpl:899/747 doing extra xtramelt-ana-simple
     if [ ! -f meltbuild-sources/xtramelt-ana-simple.melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/xtramelt-ana-simple.melt meltbuild-sources/xtramelt-ana-simple.melt
     fi
-    ## meltbuild_do_extras xtramelt-ana-simple melt-build-script.tpl:906/749
+    ## meltbuild_do_extras xtramelt-ana-simple melt-build-script.tpl:903/748
     if [ ! -f meltbuild-sources/xtramelt-ana-simple.cc -o  ! -f meltbuild-sources/xtramelt-ana-simple+meltdesc.c \
          -o meltbuild-sources/xtramelt-ana-simple+meltdesc.c -ot meltbuild-final-library.stamp \
          -o meltbuild-sources/xtramelt-ana-simple+meltdesc.c -ot meltbuild-sources/xtramelt-ana-simple.melt \
     ]; then 
-        meltbuild_info melt-build-script.tpl:911/750 emit extra C++ code for xtramelt-ana-simple
-        meltbuild_emit melt-build-script.tpl:912/751 \
+        meltbuild_info melt-build-script.tpl:908/749 emit extra C++ code for xtramelt-ana-simple
+        meltbuild_emit melt-build-script.tpl:909/750 \
   	  translatefile \
   	  xtramelt-ana-simple \
   	  meltbuild-sources \
   	  meltbuild-modules \
   	  warmelt-first.optimized:warmelt-base.optimized:warmelt-debug.optimized:warmelt-macro.optimized:warmelt-moremacro.optimized:warmelt-normal.optimized:warmelt-normatch.optimized:warmelt-genobj.optimized:warmelt-outobj.optimized:warmelt-hooks.optimized:warmelt-modes.optimized:libmelt-ana-base.optimized:libmelt-ana-tree.optimized:libmelt-ana-gimple.optimized \
       "" \
-  	  || meltbuild_error melt-build-script.tpl:919/752 failed to generate C++ code of extra xtramelt-ana-simple
+  	  || meltbuild_error melt-build-script.tpl:916/751 failed to generate C++ code of extra xtramelt-ana-simple
     else
-        meltbuild_info melt-build-script.tpl:921/753 DONT emit extra C++ code for xtramelt-ana-simple
+        meltbuild_info melt-build-script.tpl:918/752 DONT emit extra C++ code for xtramelt-ana-simple
     fi
     local meltextra_ANA_SIMPLE_cumulmd5=$(cat  meltbuild-sources/xtramelt-ana-simple.cc meltbuild-sources/xtramelt-ana-simple+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
    
@@ -3655,111 +3652,111 @@ function meltbuild_do_extras () {
         -o meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.quicklybuilt.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/xtramelt-ana-simple.cc \
         -o  meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/xtramelt-ana-simple+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:929/754 compiling extra module for xtramelt-ana-simple quicklybuilt
+        meltbuild_info melt-build-script.tpl:926/753 compiling extra module for xtramelt-ana-simple quicklybuilt
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:931/755 \
+  	  GCCMELT_FROM=melt-build-script.tpl:928/754 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=quicklybuilt \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-ana-simple \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-ana-simple \
-  	  || ( meltbuild_notice melt-build-script.tpl:938/756 in meltbuild-modules failure to compile extra xtramelt-ana-simple quicklybuilt ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:935/755 in meltbuild-modules failure to compile extra xtramelt-ana-simple quicklybuilt ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:940/757 \
+  			     GCCMELT_FROM=melt-build-script.tpl:937/756 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=quicklybuilt \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-ana-simple \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-ana-simple ; \
-  	       meltbuild_error  melt-build-script.tpl:947/758 in meltbuild-modules failed to compile extra xtramelt-ana-simple quicklybuilt \
+  	       meltbuild_error  melt-build-script.tpl:944/757 in meltbuild-modules failed to compile extra xtramelt-ana-simple quicklybuilt \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:950/759 not compiling extra module for xtramelt-ana-simple quicklybuilt
+        meltbuild_info melt-build-script.tpl:947/758 not compiling extra module for xtramelt-ana-simple quicklybuilt
     fi
    
     if [ ! -f meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.optimized.so \
         -o meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.optimized.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.optimized.so -ot  meltbuild-sources/xtramelt-ana-simple.cc \
         -o  meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.optimized.so -ot  meltbuild-sources/xtramelt-ana-simple+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:929/760 compiling extra module for xtramelt-ana-simple optimized
+        meltbuild_info melt-build-script.tpl:926/759 compiling extra module for xtramelt-ana-simple optimized
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:931/761 \
+  	  GCCMELT_FROM=melt-build-script.tpl:928/760 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=optimized \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-ana-simple \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-ana-simple \
-  	  || ( meltbuild_notice melt-build-script.tpl:938/762 in meltbuild-modules failure to compile extra xtramelt-ana-simple optimized ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:935/761 in meltbuild-modules failure to compile extra xtramelt-ana-simple optimized ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:940/763 \
+  			     GCCMELT_FROM=melt-build-script.tpl:937/762 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=optimized \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-ana-simple \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-ana-simple ; \
-  	       meltbuild_error  melt-build-script.tpl:947/764 in meltbuild-modules failed to compile extra xtramelt-ana-simple optimized \
+  	       meltbuild_error  melt-build-script.tpl:944/763 in meltbuild-modules failed to compile extra xtramelt-ana-simple optimized \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:950/765 not compiling extra module for xtramelt-ana-simple optimized
+        meltbuild_info melt-build-script.tpl:947/764 not compiling extra module for xtramelt-ana-simple optimized
     fi
    
     if [ ! -f meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.debugnoline.so \
         -o meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.debugnoline.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.debugnoline.so -ot  meltbuild-sources/xtramelt-ana-simple.cc \
         -o  meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.debugnoline.so -ot  meltbuild-sources/xtramelt-ana-simple+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:929/766 compiling extra module for xtramelt-ana-simple debugnoline
+        meltbuild_info melt-build-script.tpl:926/765 compiling extra module for xtramelt-ana-simple debugnoline
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:931/767 \
+  	  GCCMELT_FROM=melt-build-script.tpl:928/766 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=debugnoline \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-ana-simple \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-ana-simple \
-  	  || ( meltbuild_notice melt-build-script.tpl:938/768 in meltbuild-modules failure to compile extra xtramelt-ana-simple debugnoline ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:935/767 in meltbuild-modules failure to compile extra xtramelt-ana-simple debugnoline ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:940/769 \
+  			     GCCMELT_FROM=melt-build-script.tpl:937/768 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=debugnoline \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-ana-simple \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-ana-simple ; \
-  	       meltbuild_error  melt-build-script.tpl:947/770 in meltbuild-modules failed to compile extra xtramelt-ana-simple debugnoline \
+  	       meltbuild_error  melt-build-script.tpl:944/769 in meltbuild-modules failed to compile extra xtramelt-ana-simple debugnoline \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:950/771 not compiling extra module for xtramelt-ana-simple debugnoline
+        meltbuild_info melt-build-script.tpl:947/770 not compiling extra module for xtramelt-ana-simple debugnoline
     fi
    
-   ## meltbuild_do_extras after build xtramelt-ana-simple melt-build-script.tpl:953/772
+   ## meltbuild_do_extras after build xtramelt-ana-simple melt-build-script.tpl:950/771
    
    
   
-    ## meltbuild_do_extras xtramelt-playground melt-build-script.tpl:901/773
-    meltbuild_info melt-build-script.tpl:902/774 doing extra xtramelt-playground
+    ## meltbuild_do_extras xtramelt-playground melt-build-script.tpl:898/772
+    meltbuild_info melt-build-script.tpl:899/773 doing extra xtramelt-playground
     if [ ! -f meltbuild-sources/xtramelt-playground.melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/xtramelt-playground.melt meltbuild-sources/xtramelt-playground.melt
     fi
-    ## meltbuild_do_extras xtramelt-playground melt-build-script.tpl:906/775
+    ## meltbuild_do_extras xtramelt-playground melt-build-script.tpl:903/774
     if [ ! -f meltbuild-sources/xtramelt-playground.cc -o  ! -f meltbuild-sources/xtramelt-playground+meltdesc.c \
          -o meltbuild-sources/xtramelt-playground+meltdesc.c -ot meltbuild-final-library.stamp \
          -o meltbuild-sources/xtramelt-playground+meltdesc.c -ot meltbuild-sources/xtramelt-playground.melt \
     ]; then 
-        meltbuild_info melt-build-script.tpl:911/776 emit extra C++ code for xtramelt-playground
-        meltbuild_emit melt-build-script.tpl:912/777 \
+        meltbuild_info melt-build-script.tpl:908/775 emit extra C++ code for xtramelt-playground
+        meltbuild_emit melt-build-script.tpl:909/776 \
   	  translatefile \
   	  xtramelt-playground \
   	  meltbuild-sources \
   	  meltbuild-modules \
   	  warmelt-first.optimized:warmelt-base.optimized:warmelt-debug.optimized:warmelt-macro.optimized:warmelt-moremacro.optimized:warmelt-normal.optimized:warmelt-normatch.optimized:warmelt-genobj.optimized:warmelt-outobj.optimized:warmelt-hooks.optimized:warmelt-modes.optimized:libmelt-ana-base.optimized:libmelt-ana-tree.optimized:libmelt-ana-gimple.optimized \
       "" \
-  	  || meltbuild_error melt-build-script.tpl:919/778 failed to generate C++ code of extra xtramelt-playground
+  	  || meltbuild_error melt-build-script.tpl:916/777 failed to generate C++ code of extra xtramelt-playground
     else
-        meltbuild_info melt-build-script.tpl:921/779 DONT emit extra C++ code for xtramelt-playground
+        meltbuild_info melt-build-script.tpl:918/778 DONT emit extra C++ code for xtramelt-playground
     fi
     local meltextra_PLAYGROUND_cumulmd5=$(cat  meltbuild-sources/xtramelt-playground.cc meltbuild-sources/xtramelt-playground+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
    
@@ -3767,91 +3764,91 @@ function meltbuild_do_extras () {
         -o meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.quicklybuilt.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/xtramelt-playground.cc \
         -o  meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.quicklybuilt.so -ot  meltbuild-sources/xtramelt-playground+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:929/780 compiling extra module for xtramelt-playground quicklybuilt
+        meltbuild_info melt-build-script.tpl:926/779 compiling extra module for xtramelt-playground quicklybuilt
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:931/781 \
+  	  GCCMELT_FROM=melt-build-script.tpl:928/780 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=quicklybuilt \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-playground \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-playground \
-  	  || ( meltbuild_notice melt-build-script.tpl:938/782 in meltbuild-modules failure to compile extra xtramelt-playground quicklybuilt ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:935/781 in meltbuild-modules failure to compile extra xtramelt-playground quicklybuilt ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:940/783 \
+  			     GCCMELT_FROM=melt-build-script.tpl:937/782 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=quicklybuilt \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-playground \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-playground ; \
-  	       meltbuild_error  melt-build-script.tpl:947/784 in meltbuild-modules failed to compile extra xtramelt-playground quicklybuilt \
+  	       meltbuild_error  melt-build-script.tpl:944/783 in meltbuild-modules failed to compile extra xtramelt-playground quicklybuilt \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:950/785 not compiling extra module for xtramelt-playground quicklybuilt
+        meltbuild_info melt-build-script.tpl:947/784 not compiling extra module for xtramelt-playground quicklybuilt
     fi
    
     if [ ! -f meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.optimized.so \
         -o meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.optimized.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.optimized.so -ot  meltbuild-sources/xtramelt-playground.cc \
         -o  meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.optimized.so -ot  meltbuild-sources/xtramelt-playground+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:929/786 compiling extra module for xtramelt-playground optimized
+        meltbuild_info melt-build-script.tpl:926/785 compiling extra module for xtramelt-playground optimized
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:931/787 \
+  	  GCCMELT_FROM=melt-build-script.tpl:928/786 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=optimized \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-playground \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-playground \
-  	  || ( meltbuild_notice melt-build-script.tpl:938/788 in meltbuild-modules failure to compile extra xtramelt-playground optimized ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:935/787 in meltbuild-modules failure to compile extra xtramelt-playground optimized ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:940/789 \
+  			     GCCMELT_FROM=melt-build-script.tpl:937/788 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=optimized \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-playground \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-playground ; \
-  	       meltbuild_error  melt-build-script.tpl:947/790 in meltbuild-modules failed to compile extra xtramelt-playground optimized \
+  	       meltbuild_error  melt-build-script.tpl:944/789 in meltbuild-modules failed to compile extra xtramelt-playground optimized \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:950/791 not compiling extra module for xtramelt-playground optimized
+        meltbuild_info melt-build-script.tpl:947/790 not compiling extra module for xtramelt-playground optimized
     fi
    
     if [ ! -f meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.debugnoline.so \
         -o meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.debugnoline.so -ot  meltbuild-final-translator.stamp \
         -o  meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.debugnoline.so -ot  meltbuild-sources/xtramelt-playground.cc \
         -o  meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.debugnoline.so -ot  meltbuild-sources/xtramelt-playground+meltdesc.c ]; then
-        meltbuild_info melt-build-script.tpl:929/792 compiling extra module for xtramelt-playground debugnoline
+        meltbuild_info melt-build-script.tpl:926/791 compiling extra module for xtramelt-playground debugnoline
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  	  GCCMELT_FROM=melt-build-script.tpl:931/793 \
+  	  GCCMELT_FROM=melt-build-script.tpl:928/792 \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   	  GCCMELT_MODULE_FLAVOR=debugnoline \
   	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-playground \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-playground \
-  	  || ( meltbuild_notice melt-build-script.tpl:938/794 in meltbuild-modules failure to compile extra xtramelt-playground debugnoline ; \
+  	  || ( meltbuild_notice melt-build-script.tpl:935/793 in meltbuild-modules failure to compile extra xtramelt-playground debugnoline ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
-  			     GCCMELT_FROM=melt-build-script.tpl:940/795 \
+  			     GCCMELT_FROM=melt-build-script.tpl:937/794 \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
   			     GCCMELT_MODULE_FLAVOR=debugnoline \
   			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/xtramelt-playground \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/xtramelt-playground ; \
-  	       meltbuild_error  melt-build-script.tpl:947/796 in meltbuild-modules failed to compile extra xtramelt-playground debugnoline \
+  	       meltbuild_error  melt-build-script.tpl:944/795 in meltbuild-modules failed to compile extra xtramelt-playground debugnoline \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info melt-build-script.tpl:950/797 not compiling extra module for xtramelt-playground debugnoline
+        meltbuild_info melt-build-script.tpl:947/796 not compiling extra module for xtramelt-playground debugnoline
     fi
    
-   ## meltbuild_do_extras after build xtramelt-playground melt-build-script.tpl:953/798
+   ## meltbuild_do_extras after build xtramelt-playground melt-build-script.tpl:950/797
    
    
  
-   ## meltbuild_do_extras timestamping  melt-build-script.tpl:957/799
+   ## meltbuild_do_extras timestamping  melt-build-script.tpl:954/798
     local meltextrastamptemp=$melt_final_extra_stamp-tmp$$
     echo "///MELT extra time stamp $melt_final_extra_stamp" > $meltextrastamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltextrastamptemp
@@ -3865,7 +3862,7 @@ function meltbuild_do_extras () {
    
     $MD5SUM meltbuild-modules/xtramelt-ana-simple.meltmod-$meltextra_ANA_SIMPLE_cumulmd5.debugnoline.so >> $meltextrastamptemp
    
-   ## meltbuild_do_extras end extra xtramelt-ana-simple melt-build-script.tpl:967/800
+   ## meltbuild_do_extras end extra xtramelt-ana-simple melt-build-script.tpl:964/799
  
    
     $MD5SUM meltbuild-sources/xtramelt-playground.melt >>  $meltextrastamptemp
@@ -3877,39 +3874,39 @@ function meltbuild_do_extras () {
    
     $MD5SUM meltbuild-modules/xtramelt-playground.meltmod-$meltextra_PLAYGROUND_cumulmd5.debugnoline.so >> $meltextrastamptemp
    
-   ## meltbuild_do_extras end extra xtramelt-playground melt-build-script.tpl:967/801
+   ## meltbuild_do_extras end extra xtramelt-playground melt-build-script.tpl:964/800
  
    
 
-    ## meltbuild_do_extras final  melt-build-script.tpl:971/802
+    ## meltbuild_do_extras final  melt-build-script.tpl:968/801
     echo "///end stamp $melt_final_extra_stamp"  >> $meltextrastamptemp
     $GCCMELT_MOVE_IF_CHANGE $meltextrastamptemp  $melt_final_extra_stamp
-  meltbuild_info melt-build-script.tpl:974/803 times after extras at `date '+%x %H:%M:%S'`: ;  times >&2
-} ## end function meltbuild_do_extras  melt-build-script.tpl:975/804
+  meltbuild_info melt-build-script.tpl:971/802 times after extras at `date '+%x %H:%M:%S'`: ;  times >&2
+} ## end function meltbuild_do_extras  melt-build-script.tpl:972/803
 
- ## building extras melt-build-script.tpl:977/805
+ ## building extras melt-build-script.tpl:974/804
 if [ ! -f  "$melt_final_extra_stamp" \
      -o "$melt_final_extra_stamp" -ot "$melt_final_translator_stamp" \
      -o "$melt_final_extra_stamp" -ot "$melt_final_library_stamp" \
  -o "$melt_final_extra_stamp" -ot "$GCCMELT_MELTSOURCEDIR/xtramelt-ana-simple.melt" \
  -o "$melt_final_extra_stamp" -ot "$GCCMELT_MELTSOURCEDIR/xtramelt-playground.melt" \
  ]; then
-    meltbuild_info melt-build-script.tpl:983/806 building MELT extras
+    meltbuild_info melt-build-script.tpl:980/805 building MELT extras
     meltbuild_do_extras
 else
-    meltbuild_info melt-build-script.tpl:986/807 not building MELT extra because of xtrastamp  "$melt_final_extra_stamp"
+    meltbuild_info melt-build-script.tpl:983/806 not building MELT extra because of xtrastamp  "$melt_final_extra_stamp"
 fi
- ## done building extras melt-build-script.tpl:988/808
+ ## done building extras melt-build-script.tpl:985/807
 
 
 ################################################################
 ################################################################
-#@ melt-build-script.tpl:993/809 runtime self check
+#@ melt-build-script.tpl:990/808 runtime self check
 
-##  melt-build-script.tpl:995/810 FIXME: should skip that when cross-compiler MELT plugin..
+##  melt-build-script.tpl:992/809 FIXME: should skip that when cross-compiler MELT plugin..
 
 if [ -z "$GCCMELT_RUNTIME_CC" ]; then 
-    meltbuild_error melt-build-script.tpl:998/811 failed because no GCCMELT_RUNTIME_CC shell variable
+    meltbuild_error melt-build-script.tpl:995/810 failed because no GCCMELT_RUNTIME_CC shell variable
     exit 1
 fi
 
@@ -3917,13 +3914,13 @@ meltcheckruntime_stamp=meltbuild-checkruntime.stamp
 if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_ARGS" \
     -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_CC" \
     -o $meltcheckruntime_stamp -ot $melt_final_extra_stamp ]; then
-    #@ melt-build-script.tpl:1006/812 checkruntime
+    #@ melt-build-script.tpl:1003/811 checkruntime
     if [ -f melt-no-check-runtime -o -n "$MELTGCC_NO_CHECK_RUNTIME" -o ! -f melt-runtime.ii ]; then
-	meltbuild_info melt-build-script.tpl:1008/813 skipping check of MELT runtime
+	meltbuild_info melt-build-script.tpl:1005/812 skipping check of MELT runtime
     else
 	meltcheckruntime_args=meltbuild-checkruntime.args 
 	meltcheckruntime_argstemp=$meltcheckruntime_args-tmp$$
-	echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1012/814"' ' -DGCCMELT_CHECKMELTRUNTIME' > $meltcheckruntime_argstemp
+	echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1009/813"' ' -DGCCMELT_CHECKMELTRUNTIME' > $meltcheckruntime_argstemp
 	meltbuild_arg mode=meltframe >> $meltcheckruntime_argstemp
 	meltbuild_arg workdir=meltbuild-workdir >>  $meltcheckruntime_argstemp
 	meltbuild_arg tempdir=meltbuild-tempdir >> $meltcheckruntime_argstemp
@@ -3934,23 +3931,23 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
 	echo ' -o /dev/null' >> $meltcheckruntime_argstemp
 	echo melt-runtime.ii >> $meltcheckruntime_argstemp
 	$GCCMELT_MOVE_IF_CHANGE  $meltcheckruntime_argstemp $meltcheckruntime_args
-	[ -f "$meltcheckruntime_args" ] || meltbuild_error  melt-build-script.tpl:1023/815 missing check runtime args  "$meltcheckruntime_args"
-	meltbuild_info melt-build-script.tpl:1024/816 $meltcheckruntime_args  is
+	[ -f "$meltcheckruntime_args" ] || meltbuild_error  melt-build-script.tpl:1020/814 missing check runtime args  "$meltcheckruntime_args"
+	meltbuild_info melt-build-script.tpl:1021/815 $meltcheckruntime_args  is
 	cat $meltcheckruntime_args < /dev/null >&2
 	if [ -n "$MELTGCCBUILTIN_BUILD_WITH_CXX" ]; then
 	    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltcheckruntime_args \
-		|| meltbuild_error melt-build-script.tpl:1028/817 failed  $GCCMELT_CC1PLUS with arguments @$meltcheckruntime_args
+		|| meltbuild_error melt-build-script.tpl:1025/816 failed  $GCCMELT_CC1PLUS with arguments @$meltcheckruntime_args
 	else
 	    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltcheckruntime_args \
-		|| meltbuild_error melt-build-script.tpl:1031/818 failed  $GCCMELT_CC1PLUS with arguments @$meltcheckruntime_args
+		|| meltbuild_error melt-build-script.tpl:1028/817 failed  $GCCMELT_CC1PLUS with arguments @$meltcheckruntime_args
 	fi
-	meltbuild_info melt-build-script.tpl:1033/819 done check runtime with $meltcheckruntime_args
+	meltbuild_info melt-build-script.tpl:1030/818 done check runtime with $meltcheckruntime_args
     fi
 
-   #@ melt-build-script.tpl:1036/820 checkhello
+   #@ melt-build-script.tpl:1033/819 checkhello
     meltcheckhelloworld_args=meltbuild-checkhelloworld.args 
     meltcheckhelloworld_argstemp=$meltcheckhelloworld_args-tmp$$
-    echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1039/821" -DGCCMELT_CHECKHELLO' > $meltcheckhelloworld_argstemp
+    echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1036/820" -DGCCMELT_CHECKHELLO' > $meltcheckhelloworld_argstemp
     meltbuild_arg mode=runfile >> $meltcheckhelloworld_argstemp
     meltbuild_arg workdir=meltbuild-workdir >>  $meltcheckhelloworld_argstemp
     meltbuild_arg module-makefile=$GCCMELT_MODULE_MK >>  $meltcheckhelloworld_argstemp
@@ -3964,29 +3961,29 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     echo ' meltbuild-empty-file.c -o /dev/null' >> $meltcheckhelloworld_argstemp
     cat $GCCMELT_HELLOWORLD_ARGS < /dev/null >>  $meltcheckhelloworld_argstemp
     $GCCMELT_MOVE_IF_CHANGE  $meltcheckhelloworld_argstemp $meltcheckhelloworld_args
-    [ -f "$meltcheckhelloworld_args" ] || meltbuild_error  melt-build-script.tpl:1053/822 missing check helloworld args  "$meltcheckhelloworld_args"
-   meltbuild_info melt-build-script.tpl:1054/823 $meltcheckhelloworld_args  is
+    [ -f "$meltcheckhelloworld_args" ] || meltbuild_error  melt-build-script.tpl:1050/821 missing check helloworld args  "$meltcheckhelloworld_args"
+   meltbuild_info melt-build-script.tpl:1051/822 $meltcheckhelloworld_args  is
    cat $meltcheckhelloworld_args < /dev/null >&2
     $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltcheckhelloworld_args \
-	|| meltbuild_error melt-build-script.tpl:1057/824 running helloworld failed with arguments @$meltcheckhelloworld_args
-   meltbuild_info melt-build-script.tpl:1058/825 done check helloworld with $meltcheckhelloworld_args
-   #@ melt-build-script.tpl:1059/826 runtime stamp
+	|| meltbuild_error melt-build-script.tpl:1054/823 running helloworld failed with arguments @$meltcheckhelloworld_args
+   meltbuild_info melt-build-script.tpl:1055/824 done check helloworld with $meltcheckhelloworld_args
+   #@ melt-build-script.tpl:1056/825 runtime stamp
     meltcheckruntime_stamptemp=$meltcheckruntime_stamp-tmp$$
-    [ -f "$GCCMELT_RUNTIME_CC" ] || meltbuild_error melt-build-script.tpl:1061/827 missing MELT runtime C++ file $GCCMELT_RUNTIME_CC
+    [ -f "$GCCMELT_RUNTIME_CC" ] || meltbuild_error melt-build-script.tpl:1058/826 missing MELT runtime C++ file $GCCMELT_RUNTIME_CC
     echo "/// MELT check runtime timestamp file $meltcheckruntime_stamp" > $meltcheckruntime_stamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >> $meltcheckruntime_stamptemp
     $MD5SUM $GCCMELT_RUNTIME_CC < /dev/null >>  $meltcheckruntime_stamptemp
     $MD5SUM meltbuild-hello.melt < /dev/null >>  $meltcheckruntime_stamptemp
-    [ -f "$melt_final_translator_stamp" ] || meltbuild_error melt-build-script.tpl:1066/828 missing final translator stamp "$melt_final_translator_stamp"
-    [ -f "$melt_final_library_stamp" ] || meltbuild_error melt-build-script.tpl:1067/829 missing final library stamp "$melt_final_library_stamp"
+    [ -f "$melt_final_translator_stamp" ] || meltbuild_error melt-build-script.tpl:1063/827 missing final translator stamp "$melt_final_translator_stamp"
+    [ -f "$melt_final_library_stamp" ] || meltbuild_error melt-build-script.tpl:1064/828 missing final library stamp "$melt_final_library_stamp"
     grep meltbuild-modules/ "$melt_final_translator_stamp" "$melt_final_library_stamp" < /dev/null >>   $meltcheckruntime_stamptemp
     echo "///end timestamp file $meltcheckruntime_stamp" >>   $meltcheckruntime_stamptemp
 
     echo
-    #@ melt-build-script.tpl:1072/830 justcount
+    #@ melt-build-script.tpl:1069/829 justcount
     meltjustcount_args=meltbuild-justcount.args
     meltjustcount_argstemp=$meltjustcount_args-tmp$$
-    echo  ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1075/831" -DGCCMELT_JUSTCOUNT -fexceptions melt-runtime.ii ' > $meltjustcount_argstemp
+    echo  ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1072/830" -DGCCMELT_JUSTCOUNT -fexceptions melt-runtime.ii ' > $meltjustcount_argstemp
     meltbuild_arg mode=justcountipa >> $meltjustcount_argstemp
     meltbuild_arg workdir=meltbuild-workdir >>  $meltjustcount_argstemp
     meltbuild_arg module-makefile=$GCCMELT_MODULE_MK >>  $meltjustcount_argstemp
@@ -3997,37 +3994,37 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     echo ' -O1  -o /dev/null' >>  $meltjustcount_argstemp
     cat $GCCMELT_JUSTCOUNT_ARGS < /dev/null >>  $meltjustcount_argstemp
     $GCCMELT_MOVE_IF_CHANGE  $meltjustcount_argstemp $meltjustcount_args
-    [ -f "$meltjustcount_args" ] || meltbuild_error  melt-build-script.tpl:1086/832 missing check justcount args  "$meltjustcount_args"
-   meltbuild_info melt-build-script.tpl:1087/833 $meltjustcount_args  is
+    [ -f "$meltjustcount_args" ] || meltbuild_error  melt-build-script.tpl:1083/831 missing check justcount args  "$meltjustcount_args"
+   meltbuild_info melt-build-script.tpl:1084/832 $meltjustcount_args  is
    cat $meltjustcount_args < /dev/null >&2
    echo
    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltjustcount_args \
-	|| meltbuild_error melt-build-script.tpl:1091/834 running justcount failed with arguments @$meltjustcount_args
-   meltbuild_info melt-build-script.tpl:1092/835 done check justcount with $meltjustcount_args
+	|| meltbuild_error melt-build-script.tpl:1088/833 running justcount failed with arguments @$meltjustcount_args
+   meltbuild_info melt-build-script.tpl:1089/834 done check justcount with $meltjustcount_args
    echo
 
    $GCCMELT_MOVE_IF_CHANGE  $meltcheckruntime_stamptemp $meltcheckruntime_stamp
-   meltbuild_info melt-build-script.tpl:1096/836 done check runtime  $meltcheckruntime_stamp
+   meltbuild_info melt-build-script.tpl:1093/835 done check runtime  $meltcheckruntime_stamp
     
 else
-    meltbuild_info melt-build-script.tpl:1099/837 keeping runtime checks  $meltcheckruntime_stamp
+    meltbuild_info melt-build-script.tpl:1096/836 keeping runtime checks  $meltcheckruntime_stamp
 fi
 
 if [ "$melt_overall_goal" = "checkruntime" ]; then
-    meltbuild_info melt-build-script.tpl:1103/838 done checkruntime overall goal with stamp  $meltcheckruntime_stamp
+    meltbuild_info melt-build-script.tpl:1100/837 done checkruntime overall goal with stamp  $meltcheckruntime_stamp
     exit 0
 fi
 
 ################################################################
-#@ melt-build-script.tpl:1108/839
+#@ melt-build-script.tpl:1105/838
 if [ "$melt_overall_goal" = "applications" ]; then
-    meltbuild_info melt-build-script.tpl:1110/840 done applications overall goal with stamp  $meltcheckruntime_stamp
+    meltbuild_info melt-build-script.tpl:1107/839 done applications overall goal with stamp  $meltcheckruntime_stamp
     exit 0
 fi
 
 ################################################################
 ################################################################
-### the generated documentation meltgendoc.texi melt-build-script.tpl:1116/841
+### the generated documentation meltgendoc.texi melt-build-script.tpl:1113/840
 
 if [   ! -f meltgendoc.texi  -o meltbuild-sources/warmelt-first.melt -nt meltgendoc.texi  \
  -o meltbuild-sources/warmelt-base.melt -nt meltgendoc.texi  \
@@ -4043,9 +4040,9 @@ if [   ! -f meltgendoc.texi  -o meltbuild-sources/warmelt-first.melt -nt meltgen
   -o meltbuild-sources/libmelt-ana-base.melt -nt meltgendoc.texi  \
  -o meltbuild-sources/libmelt-ana-tree.melt -nt meltgendoc.texi  \
  -o meltbuild-sources/libmelt-ana-gimple.melt -nt meltgendoc.texi   ]; then
-   meltbuild_info melt-build-script.tpl:1120/842 generating meltgendoc.texi
+   meltbuild_info melt-build-script.tpl:1117/841 generating meltgendoc.texi
    meltgen_args=meltbuild-gendoc.args-tmp$$
-   echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1122/843"' > $meltgen_args
+   echo ' -DGCCMELT_FROM_ARG="melt-build-script.tpl:1119/842"' > $meltgen_args
    meltbuild_arg mode=makedoc >> $meltgen_args
    meltbuild_arg output=meltgendoc.texi >> $meltgen_args
    meltbuild_arg init=@$MELTGCCBUILTIN_DEFAULT_MODLIS.quicklybuilt >> $meltgen_args
@@ -4059,24 +4056,24 @@ meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltgen_args
    meltbuild_arg arglist=warmelt-first.melt,warmelt-base.melt,warmelt-debug.melt,warmelt-macro.melt,warmelt-moremacro.melt,warmelt-normal.melt,warmelt-normatch.melt,warmelt-genobj.melt,warmelt-outobj.melt,warmelt-hooks.melt,warmelt-modes.melt,libmelt-ana-base.melt,libmelt-ana-tree.melt,libmelt-ana-gimple.melt  >> $meltgen_args 
    echo meltbuild-empty-file.c >> $meltgen_args
    $GCCMELT_MOVE_IF_CHANGE  $meltgen_args meltbuild-gendoc.args
-   meltbuild_info melt-build-script.tpl:1136/844  meltbuild-gendoc.args is
+   meltbuild_info melt-build-script.tpl:1133/843  meltbuild-gendoc.args is
    cat meltbuild-gendoc.args < /dev/null >&2
    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @meltbuild-gendoc.args \
-     || meltbuild_error melt-build-script.tpl:1139/845  "$GCCMELT_CC1PLUS" failed with arguments @meltbuild-gendoc.args
+     || meltbuild_error melt-build-script.tpl:1136/844  "$GCCMELT_CC1PLUS" failed with arguments @meltbuild-gendoc.args
 else
-   meltbuild_info melt-build-script.tpl:1141/846 keeping meltgendoc.texi
+   meltbuild_info melt-build-script.tpl:1138/845 keeping meltgendoc.texi
 fi
 
 ################
-meltbuild_info melt-build-script.tpl:1145/847 successfully done with times at `date '+%x %H:%M:%S'`: ; times >&2
+meltbuild_info melt-build-script.tpl:1142/846 successfully done with times at `date '+%x %H:%M:%S'`: ; times >&2
 
 ################################################################
-#@ melt-build-script.tpl:1148/848
+#@ melt-build-script.tpl:1145/847
 if [ "$melt_overall_goal" = "gendoc" ]; then
-    meltbuild_info melt-build-script.tpl:1150/849 done gendoc overall goal with stamp  $melt_final_translator_stamp
+    meltbuild_info melt-build-script.tpl:1147/848 done gendoc overall goal with stamp  $melt_final_translator_stamp
     exit 0
 fi
 
-## #@ melt-build-script.tpl:1154/850 if we get here something is wrong in this script
-meltbuild_error  melt-build-script.tpl:1155/851 unexpected MELT overall goal "$melt_overall_goal" buggy melt-build-script.tpl
-#@ eof melt-build-script.tpl:1156/852 end of generated melt-build-script.sh
+## #@ melt-build-script.tpl:1151/849 if we get here something is wrong in this script
+meltbuild_error  melt-build-script.tpl:1152/850 unexpected MELT overall goal "$melt_overall_goal" buggy melt-build-script.tpl
+#@ eof melt-build-script.tpl:1153/851 end of generated melt-build-script.sh

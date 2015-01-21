@@ -1,6 +1,17 @@
 
-2015-01-20   Basile Starynkevitch  <basile@starynkevitch.net>
+2015-01-21   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile: Able to make upgrade-melt as a
+	plugin. Works for GCC 5.0. Remove GCC 4.7 old stuff.
+
 	Move previous contrib/ChangeLog.MELT to ChangeLog.MELT.2008-2014
+
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
 
 
 /// Local Variables:

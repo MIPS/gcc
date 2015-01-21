@@ -1,4 +1,4 @@
-/** Copyright (C) 2014 Free Software Foundation, Inc.
+/** Copyright (C) 2015 Free Software Foundation, Inc.
   This generated file meltrunsup.h is part of GCC.
 
                   [DON'T EDIT THIS GENERATED FILE]
@@ -171,9 +171,9 @@ struct GTY (()) meltbasicblock_st   /* when MELTOBMAG_BASICBLOCK*/
     meltobject_ptr_t discr;
     basic_block val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltbasicblock_st */
 
 struct GTY (()) entrybasicblockmelt_st   /* for MELTOBMAG_MAPBASICBLOCKS*/
@@ -199,9 +199,9 @@ struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
     meltobject_ptr_t discr;
     bitmap val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltbitmap_st */
 
 struct GTY (()) entrybitmapmelt_st   /* for MELTOBMAG_MAPBITMAPS*/
@@ -227,9 +227,9 @@ struct GTY (()) meltedge_st   /* when MELTOBMAG_EDGE*/
     meltobject_ptr_t discr;
     edge val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltedge_st */
 
 struct GTY (()) entryedgemelt_st   /* for MELTOBMAG_MAPEDGES*/
@@ -255,9 +255,9 @@ struct GTY (()) meltgimple_st   /* when MELTOBMAG_GIMPLE*/
     meltobject_ptr_t discr;
     gimple val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltgimple_st */
 
 struct GTY (()) entrygimplemelt_st   /* for MELTOBMAG_MAPGIMPLES*/
@@ -283,9 +283,9 @@ struct GTY (()) meltgimpleseq_st   /* when MELTOBMAG_GIMPLESEQ*/
     meltobject_ptr_t discr;
     gimple_seq val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltgimpleseq_st */
 
 struct GTY (()) entrygimpleseqmelt_st   /* for MELTOBMAG_MAPGIMPLESEQS*/
@@ -311,9 +311,9 @@ struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
     meltobject_ptr_t discr;
     loop_p val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltloop_st */
 
 struct GTY (()) entryloopmelt_st   /* for MELTOBMAG_MAPLOOPS*/
@@ -339,9 +339,9 @@ struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
     meltobject_ptr_t discr;
     rtvec val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltrtvec_st */
 
 struct GTY (()) entryrtvecmelt_st   /* for MELTOBMAG_MAPRTVECS*/
@@ -367,9 +367,9 @@ struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
     meltobject_ptr_t discr;
     rtx val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltrtx_st */
 
 struct GTY (()) entryrtxmelt_st   /* for MELTOBMAG_MAPRTXS*/
@@ -395,9 +395,9 @@ struct GTY (()) melttree_st   /* when MELTOBMAG_TREE*/
     meltobject_ptr_t discr;
     tree val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of melttree_st */
 
 struct GTY (()) entrytreemelt_st   /* for MELTOBMAG_MAPTREES*/
@@ -435,9 +435,15 @@ struct GTY((variable_size)) meltbucketlongs_st /* when MELTOBMAG_BUCKETLONGS */
 /* decl. chunk */
 /* decl VALDESC_BUCKETLONGS  in warmelt-base.melt */
 typedef struct meltbucketlongs_st* meltbucketlongs_ptr_t;
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltbucketlongs_st
+#define ggc_alloc_meltbucketlongs_st(SIZE) ((struct meltbucketlongs_st *)(ggc_internal_alloc (SIZE)))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltbucketlongs_st
 #define ggc_alloc_meltbucketlongs_st(SIZE) ((struct meltbucketlongs_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
 
 
 
@@ -508,7 +514,7 @@ struct GTY((variable_size)) melthook_st /* when MELTOBMAG_HOOK */
 
 }; /* end melthook_st */
 /* decl. chunk */
-/* decl VALDESC_HOOK  in warmelt-base.melt */
+/* decl VALDESC_HOOK in warmelt-base.melt */
 #ifndef melthook_ptr_t_TYPEDEFINED
 typedef struct melthook_st *melthook_ptr_t;
 #define  melthook_ptr_t_TYPEDEFINED
@@ -566,9 +572,15 @@ struct GTY((variable_size)) meltjsonobject_st /* when MELTOBMAG_JSONOBJECT */
 /* decl. chunk */
 /* decl VALDESC_JSONOBJECT in warmelt-base.melt */
 typedef struct meltjsonobject_st* meltjsonobject_ptr_t;
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltjsonobject_st
+#define ggc_alloc_meltjsonobject_st(SIZE) ((struct meltjsonobject_st *)(ggc_internal_alloc (SIZE)))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltjsonobject_st
 #define ggc_alloc_meltjsonobject_st(SIZE) ((struct meltjsonobject_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
 
 // small functions from VALDESC_JSONOBJECT in warmelt-base.melt
 static inline melt_ptr_t
@@ -720,7 +732,7 @@ struct GTY(()) meltmixint_st /* when MELTOBMAG_MIXINT */
 struct GTY(()) meltmixloc_st /* when MELTOBMAG_MIXLOC */
 {
     meltobject_ptr_t discr;
-    /* from VALDESC_MIXLOC in warmelt-base.melt.melt */
+    /* from VALDESC_MIXLOC in warmelt-base.melt */
     melt_ptr_t ptrval;
     long intval;
     location_t locval;
@@ -815,7 +827,7 @@ struct GTY((variable_size)) meltroutine_st /* when MELTOBMAG_ROUTINE */
 
 }; /* end meltroutine_st */
 /* decl. chunk */
-/* decl VALDESC_ROUTINE */
+/* decl VALDESC_ROUTINE in warmelt-base.melt */
 #ifndef meltroutine_ptr_t_TYPEDEFINED
 typedef struct meltroutine_st *meltroutine_ptr_t;
 #define  meltroutine_ptr_t_TYPEDEFINED
@@ -2781,5 +2793,5 @@ MELT_EXTERN melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMN
 MELT_EXTERN void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
 /* end of declarations generated by generate_runtypesupport_predefined_hooks for 160 predefined */
 
-/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2014 Nov 13
- * by GCC MELT 4.9.0 20140408 (experimental) [melt-branch revision 217464] MELT_1.1.3-rc0post . ***/
+/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2015 Jan 21
+ * by GCC MELT 4.9 20141220:[MELT plugin] MELT_1.2-pre-merged . ***/

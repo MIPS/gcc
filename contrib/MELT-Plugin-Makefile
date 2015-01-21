@@ -2,7 +2,7 @@
 ##
 ##    Middle End Lisp Translator = MELT ; see http://gcc-melt.org/
 ##
-##    Copyright (C) 2011 - 2014 Free Software Foundation, Inc.
+##    Copyright (C) 2011 - 2015 Free Software Foundation, Inc.
 ##    Contributed by Basile Starynkevitch <basile@starynkevitch.net> and others
 ## 
 ## This file contrib/MELT-Plugin-Makefile is part of GCC.
@@ -36,6 +36,8 @@ LN_S ?= ln -s
 ## we need bash to run melt-build-script.sh
 BASH ?= /bin/bash
 
+SHELL= $(BASH)
+
 ## the GCC compiler for C with which melt.so is used
 ifndef MELTGCC
 MELTGCC = $(or $(GCC),gcc)
@@ -53,9 +55,9 @@ AWK?= gawk
 MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
 $(info building MELT: GCC version $(MELTGCC_VERSION))
 
-## check that we have a 4.8 or 4.9
-ifeq ($(filter 4.8.% 4.9.%, $(MELTGCC_VERSION)),)
-$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.8 or 4.9)
+## check that we have a 4.8 or 4.9 or 5.0
+ifeq ($(filter 4.8.% 4.9.% 5.0.%, $(MELTGCC_VERSION)),)
+$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.8 or 4.9 or 5.0)
 endif
 ## You may want to set MELTGCC_NO_CHECK_RUNTIME environment variable
 ## when cross-compiling (since you cannot compile melt-runtime.cc with
@@ -180,7 +182,7 @@ MELTGCC_INCLUDEFLAGS= -I $(melt_header_dir) -I $(MELTGCC_PLUGIN_DIR)/include -I 
 ## the make command started by make.so
 MELTGCC_MAKE= $(MAKE)
 
-.PHONY: all distclean clean doc doc-pdf doc-info doc-html install bootstrap-melt  install-melt-includes install-melt-sources install-melt-modules  install-melt-mk install-melt-default-modules-list install-melt-so
+.PHONY: all distclean clean doc doc-pdf doc-info doc-html install bootstrap-melt  install-melt-includes install-melt-sources install-melt-modules  install-melt-mk install-melt-default-modules-list install-melt-so upgrade-melt
 
 # the GCC compiler into which we plug the MELT metaplugin
 melt_make_cc1= $(MELTGCC) -c
@@ -247,30 +249,11 @@ all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 ## of _melt-runtime.c and _meltrunsup-inc.c which are symlinks!
 gt-melt-runtime.h:  $(MELTGCC_RUNTIME_INCLUDES) $(MELTGCC_GTYPESTATE) \
    $(MELT_RUNTIME_CC) $(MELT_RUNTIME_H) _melt-runtime.c _meltrunsup-inc.c
-ifneq ($(filter 4.7.%, $(MELTGCC_VERSION)),)
-	## unifdef exits 0 if file unchanged, 1 if file changed, 2 on error
-	@echo running unifdef for $@ because of gengtype bug in GCC 4.7
-	@which $(UNIFDEF) > /dev/null || (echo bad or missing unifdef; echo see  http://dotat.at/prog/unifdef/ ; exit 1)
-	rm -vf $melt*4d7*
-	ls -lL  melt-runtime.cc  melt/generated/meltrunsup.h  melt/generated/meltrunsup-inc.cc
-	-$(UNIFDEF) -DMELT_BOGUS_GENGTYPE_4dot7 melt-runtime.cc -o _melt-runtime_4d7.c 
-	ls -lL _melt-runtime_4d7.c
-	-$(UNIFDEF) -DMELT_BOGUS_GENGTYPE_4dot7 melt/generated/meltrunsup.h -o _meltrunsup_4d7.h
-	ls -lL _meltrunsup_4d7.h 
-	-$(UNIFDEF) -DMELT_BOGUS_GENGTYPE_4dot7 melt/generated/meltrunsup-inc.cc -o _meltrunsup-inc_4d7.c
-	ls -lL  _meltrunsup-inc_4d7.c
-	@echo running gengtype on melt-runtime.h and hacked files _melt-runtime_4d7.c _meltrunsup-inc_4d7.c _meltrunsup_4d7.h because of gengtype bug in GCC 4.7
-	$(MELTGCC_GENGTYPE) $(MELTGCC_GENGTYPEFLAGS) \
-	   -r  $(MELTGCC_GTYPESTATE) -P $@  \
-           melt-runtime.h _meltrunsup_4d7.h  _melt-runtime_4d7.c _meltrunsup-inc_4d7.c  || echo gengtype failed on 4d7 hacks
-	@echo gengtype did run on hacked 4d7 files for $@
-else
 	@echo running gengtype for $@
 	$(MELTGCC_GENGTYPE) $(MELTGCC_GENGTYPEFLAGS) \
 	   -r  $(MELTGCC_GTYPESTATE) -P $@  $(MELTGCC_RUNTIME_INCLUDES) \
 	   _melt-runtime.c _meltrunsup-inc.c || echo gengtype failed
 	@echo gengtype did run well for $@
-endif
 
 melt-predef.h:  make-melt-predefh.awk melt-predef.list
 	$(AWK) -f $^ > $@-tmp
@@ -583,6 +566,20 @@ install-melt-doc: doc doc-info doc-pdf doc-html
 	$(mkinstalldirs) $(DESTDIR)$(MELTGCC_DOC_PDF_DIR)
 	$(INSTALL_DATA) *.pdf $(DESTDIR)$(MELTGCC_DOC_PDF_DIR)
 
+####### upgrade MELT generated files in the source directory $(MELT_SOURCE_TREE)
+upgrade-melt: all
+	@if [ ! -f $(MELT_SOURCE_TREE)/contrib/MELT-Plugin-Makefile -o ! -f  $(MELT_SOURCE_TREE)/gcc/melt-upgrade.sh ]; then \
+	   echo make upgrade-melt requires a valid MELT_SOURCE_TREE make variable >&2 ; \
+	   exit 1 ; fi
+	@which astyle > /dev/zero || (echo astyle not found but needed to upgrade-melt ; exit 1)
+	@which unifdef > /dev/zero || (echo unifdef not found but needed to upgrade-melt ; exit 1)
+	@echo upgrade-melt script $(realpath ./melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
+	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) ./melt-build-script.sh regenerate
+	@echo; echo upgrade-melt rebuild runtime with the newly generated meltrunsup files using '$(GCCMELT_CXX) $(GCCMELT_CXXFLAGS)'
+	$(GCCMELT_CXX) $(GCCMELT_CXXFLAGS) -H -I meltbuild-sources/generated/ -c  $(shell cat melt-runtime.args) -o /dev/null
+	@echo; echo upgrade-melt copy the generated files $(realpath meltbuild-sources/) into the source tree  $(realpath $(MELT_SOURCE_TREE)/gcc)
+	$(SHELL) $(MELT_SOURCE_TREE)/gcc/melt-upgrade.sh $(realpath meltbuild-sources/) $(realpath $(MELT_SOURCE_TREE)/gcc)
+	@echo; date +'make upgrade-melt completed at %c to MELT_SOURCE_TREE=$(MELT_SOURCE_TREE) %n'
 ## fake test target to make Debian happy
 test:
 	true

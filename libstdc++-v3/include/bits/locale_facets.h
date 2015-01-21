@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997-2014 Free Software Foundation, Inc.
+// Copyright (C) 1997-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -54,8 +54,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // NB: Don't instantiate required wchar_t facets if no wchar_t support.
 #ifdef _GLIBCXX_USE_WCHAR_T
 # define  _GLIBCXX_NUM_FACETS 28
+# define  _GLIBCXX_NUM_CXX11_FACETS 16
 #else
 # define  _GLIBCXX_NUM_FACETS 14
+# define  _GLIBCXX_NUM_CXX11_FACETS 8
+#endif
+#ifdef _GLIBCXX_USE_C99_STDINT_TR1
+# define _GLIBCXX_NUM_UNICODE_FACETS 2
+#else
+# define _GLIBCXX_NUM_UNICODE_FACETS 0
 #endif
 
   // Convert string to numeric value of type _Tp and store results.
@@ -1623,6 +1630,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     }
 
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
+
   /**
    *  @brief  Primary class template numpunct.
    *  @ingroup locales
@@ -1896,6 +1905,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       ~numpunct_byname() { }
     };
 
+_GLIBCXX_END_NAMESPACE_CXX11
+
 _GLIBCXX_BEGIN_NAMESPACE_LDBL
 
   /**
@@ -2107,11 +2118,13 @@ _GLIBCXX_BEGIN_NAMESPACE_LDBL
       /// Destructor.
       virtual ~num_get() { }
 
+      _GLIBCXX_DEFAULT_ABI_TAG
       iter_type
       _M_extract_float(iter_type, iter_type, ios_base&, ios_base::iostate&,
 		       string&) const;
 
       template<typename _ValueT>
+	_GLIBCXX_DEFAULT_ABI_TAG
 	iter_type
 	_M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&,
 		       _ValueT&) const;
@@ -2589,6 +2602,14 @@ _GLIBCXX_END_NAMESPACE_LDBL
     inline bool
     isgraph(_CharT __c, const locale& __loc)
     { return use_facet<ctype<_CharT> >(__loc).is(ctype_base::graph, __c); }
+
+#if __cplusplus >= 201103L
+  /// Convenience interface to ctype.is(ctype_base::blank, __c).
+  template<typename _CharT>
+    inline bool
+    isblank(_CharT __c, const locale& __loc)
+    { return use_facet<ctype<_CharT> >(__loc).is(ctype_base::blank, __c); }
+#endif
 
   /// Convenience interface to ctype.toupper(__c).
   template<typename _CharT>

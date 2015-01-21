@@ -2,7 +2,7 @@
 ;; file libmelt-ana-base.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2014 Free Software Foundation, Inc.
+    Copyright 2008 - 2015 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -265,8 +265,10 @@ unsigned int melthk_rtl_execute(void)
 	 rpassdata.type = GIMPLE_PASS;
 	 rpassdata.name = melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 rpassdata.optinfo_flags = OPTGROUP_NONE;
-	 rpassdata.has_gate = ($GATEFUN != NULL);
+#if GCCPLUGIN_VERSION < 5000 /* not GCC 5.0 */
+         rpassdata.has_gate = ($GATEFUN != NULL);
 	 rpassdata.has_execute = true;
+#endif
 	 rpassdata.tv_id = TV_PLUGIN_RUN;
 	 rpassdata.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
 	 rpassdata.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
@@ -335,8 +337,10 @@ unsigned int melthk_rtl_execute(void)
 	 rpassdata.type = SIMPLE_IPA_PASS;
 	 rpassdata.name = melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 rpassdata.optinfo_flags = OPTGROUP_NONE;
+#if GCCPLUGIN_VERSION < 5000 /* before GCC 5.0 */
 	 rpassdata.has_gate = false;
 	 rpassdata.has_execute = true;
+#endif
 	 rpassdata.tv_id = TV_PLUGIN_RUN;
 	 rpassdata.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
 	 rpassdata.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
@@ -1813,10 +1817,11 @@ current function and gives its declaration in $CFUNDECL}#
   #{ (cfun?(cfun->cfg != NULL):0) }#)
 
 
-;; with GCC 4.9 should use ENTRY_BLOCK_PTR_FOR_FN & EXIT_BLOCK_PTR_FOR_FN
+;; with GCC 4.9 or GCC 5.0 should use ENTRY_BLOCK_PTR_FOR_FN &
+;; EXIT_BLOCK_PTR_FOR_FN
 (defprimitive cfun_cfg_entry_block () :basic_block
   #{ /* cfun_cfg_entry_block */
-#if MELT_GCC_VERSION == 4009
+#if MELT_GCC_VERSION >= 4009 /* GCC 4.9 or GCC 5.0 */
 ((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FN(cfun):NULL)
 #else
 ((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun):NULL)
@@ -1826,7 +1831,7 @@ current function and gives its declaration in $CFUNDECL}#
 (defprimitive cfun_cfg_exit_block () :basic_block
   #{
   /* cfun_cfg_exit_block */
-#if MELT_GCC_VERSION == 4009
+#if MELT_GCC_VERSION >= 4009 /* GCC 4.9 or GCC 5.0 */
 ((cfun && cfun->cfg)? EXIT_BLOCK_PTR_FOR_FN(cfun):NULL)
 #else
 ((cfun && cfun->cfg)? EXIT_BLOCK_PTR_FOR_FUNCTION(cfun):NULL)

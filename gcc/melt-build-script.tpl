@@ -5,7 +5,7 @@ sh
 +]#!/bin/bash
 [+ (. (dne "#@#@# " "#@! ")) +]
 # Generated shell script for MELT modules and MELT translator bootstrap
-#   Copyright (C) 2012-2014  Free Software Foundation
+#   Copyright (C) 2012-2015  Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -118,10 +118,7 @@ if [ -z "$GCCMELT_CC1PLUS" ]; then
    meltbuild_error  [+(.(fromline))+] missing GCCMELT_CC1PLUS
 fi
 
-if [ ! -f meltrunsup.h ]; then 
-    meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/meltrunsup.h meltrunsup.h 
-    meltbuild_info  [+(.(fromline))+] symlinking meltrunsup.h header
-fi
+## dont symlink meltrunsup.h anymore!
 
 GCCMELT_RUNTIME_DEPENDENCY_MD5SUM=$($MD5SUM "$GCCMELT_RUNTIME_DEPENDENCY"  | cut -b 1-32)
 

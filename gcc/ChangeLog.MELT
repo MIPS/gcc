@@ -1,6 +1,62 @@
 
+2015-01-21   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merged with trunk -i.e. GCC5.0 in stage4- using
+	svn merge -r209216:219879 svn+ssh://bstarynk@gcc.gnu.org/svn/gcc/trunk
+	but should probably have used
+	svn merge -r209216:219879 ^/trunk
+
+	**@@@ UNSTABLE since libmelt-ana-gimple.melt not compiling, but
+	translator painfully bootstrapping!!@@@@ }}
+
+	* toplev.c: Merged manually by keeping MELT extra stuff.
+	* toplev.h: Likewise.
+	* gengtype.c: Add "melt-runtime.h" in list, but merged with trunk.
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.2-pre-merged".
+	(meltgc_walk_gimple_seq): Remove.
+	(gt_ggc_mx_gimple_statement_d): Same for GCC 4.9 & 5.0
+
+	* melt-runtime.cc: Update copyright year.
+	(ggc_alloc_cleared_melt_valuevector_st, melt_resize_scangcvect):
+	Call ggc_internal_cleared_alloc.
+	(melt_val2passflag): Skip TODO_verify_ssa, TODO_verify_flow,
+	TODO_verify_stmts, TODO_verify_rtl_sharing for GCC 5.0.
+	(meltgc_walkstmt_cb, meltgc_walktree_cb)
+	(melt_tree_walk_frame_size, meltgc_walk_gimple_seq): Remove.
+	(melt_gt_ggc_mx_gimple_seq_d): Call
+	gt_ggc_mx_gimple_statement_base.
+	* melt-build-script.tpl: Update copyright year. Don't symlink
+	meltrunsup.h anymore.
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-base.melt: Update copyright year.
+	(valdesc_object, valdesc_mapobjects, valdesc_mapstrings)
+	(valdesc_multiple, valdesc_closure, valdesc_routine, valdesc_hook)
+	(valdesc_bucketlongs, valdesc_jsonobject, valdesc_string)
+	(valdesc_strbuf, valdesc_pair, valdesc_list, valdesc_int)
+	(valdesc_double, valdesc_mixint, valdesc_mixloc)
+	(valdesc_mixbigint, valdesc_real, valdesc_special_data): Use
+	ggc_internal_alloc & ggc_internal_cleared_alloc for GCC 5.0.
+	(json_canonical_name): Use ISUPPER, ISALPHA, TOUPPER instead of
+	their standard <ctype.h> lowercase macros.
+	* melt/warmelt-modes.melt: Update copyright year.
+	(generate_runtypesupport_forwcopy_fun): Emit both GCC 4.9 & 5.0
+	compatible code.
+	* melt/libmelt-ana-base.melt: Update copyright year.
+	* melt/libmelt-ana-gimple.melt: TO BE IMPROVED
+	* melt/generated/*: Painfully regenerated several times thru GCC
+	4.9 MELT plugin.
+
+
 2015-01-20   Basile Starynkevitch  <basile@starynkevitch.net>
 	Move previous gcc/ChangeLog.MELT to gcc/ChangeLog.MELT.2012-2014
+
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
 
 /// Local Variables:
 /// mode: change-log

@@ -1,5 +1,5 @@
 /* IO Code translation/library interface
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -22,12 +22,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "ggc.h"
-#include "diagnostic-core.h"	/* For internal_error.  */
 #include "gfortran.h"
+#include "diagnostic-core.h"	/* For internal_error.  */
 #include "trans.h"
 #include "trans-stmt.h"
 #include "trans-array.h"
@@ -258,7 +269,7 @@ gfc_trans_io_runtime_check (bool has_iostat, tree cond, tree var,
 
   arg2 = build_int_cst (integer_type_node, error_code),
 
-  asprintf (&message, "%s", _(msgid));
+  message = xasprintf ("%s", _(msgid));
   arg3 = gfc_build_addr_expr (pchar_type_node,
 			      gfc_build_localized_cstring_const (message));
   free (message);
@@ -467,7 +478,7 @@ gfc_build_io_library_fndecls (void)
   iocall[IOCALL_SET_NML_VAL] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("st_set_nml_var")), ".w.R",
 	void_type_node, 6, dt_parm_type, pvoid_type_node, pvoid_type_node,
-	void_type_node, gfc_charlen_type_node, gfc_int4_type_node);
+	gfc_int4_type_node, gfc_charlen_type_node, gfc_int4_type_node);
 
   iocall[IOCALL_SET_NML_VAL_DIM] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("st_set_nml_var_dim")), ".w",
@@ -715,8 +726,8 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
       cond = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 			      tmp, build_int_cst (TREE_TYPE (tmp), 0));
 
-      asprintf(&msg, "Label assigned to variable '%s' (%%ld) is not a format "
-	       "label", e->symtree->name);
+      msg = xasprintf ("Label assigned to variable '%s' (%%ld) is not a format "
+		       "label", e->symtree->name);
       gfc_trans_runtime_check (true, false, cond, &se.pre, &e->where, msg,
 			       fold_convert (long_integer_type_node, tmp));
       free (msg);
@@ -1175,33 +1186,6 @@ gfc_trans_flush (gfc_code * code)
 }
 
 
-/* Create a dummy iostat variable to catch any error due to bad unit.  */
-
-static gfc_expr *
-create_dummy_iostat (void)
-{
-  gfc_symtree *st;
-  gfc_expr *e;
-
-  gfc_get_ha_sym_tree ("@iostat", &st);
-  st->n.sym->ts.type = BT_INTEGER;
-  st->n.sym->ts.kind = gfc_default_integer_kind;
-  gfc_set_sym_referenced (st->n.sym);
-  gfc_commit_symbol (st->n.sym);
-  st->n.sym->backend_decl
-	= gfc_create_var (gfc_get_int_type (st->n.sym->ts.kind),
-			  st->n.sym->name);
-
-  e = gfc_get_expr ();
-  e->expr_type = EXPR_VARIABLE;
-  e->symtree = st;
-  e->ts.type = BT_INTEGER;
-  e->ts.kind = st->n.sym->ts.kind;
-
-  return e;
-}
-
-
 /* Translate the non-IOLENGTH form of an INQUIRE statement.  */
 
 tree
@@ -1244,13 +1228,6 @@ gfc_trans_inquire (gfc_code * code)
     {
       mask |= set_parameter_ref (&block, &post_block, var, IOPARM_inquire_exist,
 				 p->exist);
-
-      if (p->unit && !p->iostat)
-	{
-	  p->iostat = create_dummy_iostat ();
-	  mask |= set_parameter_ref (&block, &post_block, var,
-				     IOPARM_common_iostat, p->iostat);
-	}
     }
 
   if (p->opened)
@@ -1452,10 +1429,10 @@ gfc_trans_wait (gfc_code * code)
 
 
 /* nml_full_name builds up the fully qualified name of a
-   derived type component.  */
+   derived type component. '+' is used to denote a type extension.  */
 
 static char*
-nml_full_name (const char* var_name, const char* cmp_name)
+nml_full_name (const char* var_name, const char* cmp_name, bool parent)
 {
   int full_name_length;
   char * full_name;
@@ -1463,7 +1440,7 @@ nml_full_name (const char* var_name, const char* cmp_name)
   full_name_length = strlen (var_name) + strlen (cmp_name) + 1;
   full_name = XCNEWVEC (char, full_name_length + 1);
   strcpy (full_name, var_name);
-  full_name = strcat (full_name, "%");
+  full_name = strcat (full_name, parent ? "+" : "%");
   full_name = strcat (full_name, cmp_name);
   return full_name;
 }
@@ -1557,6 +1534,7 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
   tree dtype;
   tree dt_parm_addr;
   tree decl = NULL_TREE;
+  tree gfc_int4_type_node = gfc_get_int_type (4);
   int n_dim;
   int itype;
   int rank = 0;
@@ -1605,7 +1583,8 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
   tmp = build_call_expr_loc (input_location,
 			 iocall[IOCALL_SET_NML_VAL], 6,
 			 dt_parm_addr, addr_expr, string,
-			 IARG (ts->kind), tmp, dtype);
+			 build_int_cst (gfc_int4_type_node, ts->kind),
+			 tmp, dtype);
   gfc_add_expr_to_block (block, tmp);
 
   /* If the object is an array, transfer rank times:
@@ -1616,7 +1595,7 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
       tmp = build_call_expr_loc (input_location,
 			     iocall[IOCALL_SET_NML_VAL_DIM], 5,
 			     dt_parm_addr,
-			     IARG (n_dim),
+			     build_int_cst (gfc_int4_type_node, n_dim),
 			     gfc_conv_array_stride (decl, n_dim),
 			     gfc_conv_array_lbound (decl, n_dim),
 			     gfc_conv_array_ubound (decl, n_dim));
@@ -1634,7 +1613,8 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
 
       for (cmp = ts->u.derived->components; cmp; cmp = cmp->next)
 	{
-	  char *full_name = nml_full_name (var_name, cmp->name);
+	  char *full_name = nml_full_name (var_name, cmp->name,
+					   ts->u.derived->attr.extension);
 	  transfer_namelist_element (block,
 				     full_name,
 				     NULL, cmp, expr);
@@ -2132,7 +2112,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr, gfc_code * code)
 	  gfc_add_block_to_block (&se->pre, &se->post);
 	  return;
 	}
-      /* Fall through. */
+      /* Fall through.  */
     case BT_HOLLERITH:
       if (se->string_length)
 	arg2 = se->string_length;
@@ -2189,7 +2169,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr, gfc_code * code)
       return;
 
     default:
-      internal_error ("Bad IO basetype (%d)", ts->type);
+      gfc_internal_error ("Bad IO basetype (%d)", ts->type);
     }
 
   tmp = gfc_build_addr_expr (NULL_TREE, dt_parm);

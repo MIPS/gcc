@@ -1,6 +1,6 @@
 ; Options for the SH port of the compiler.
 
-; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -343,7 +343,7 @@ Target RejectNegative Joined UInteger Var(sh_multcost) Init(-1)
 Cost to assume for a multiply insn
 
 musermode
-Target Report RejectNegative Var(TARGET_USERMODE)
+Target Var(TARGET_USERMODE)
 Don't generate privileged-mode only code; implies -mno-inline-ic_invalidate if the inline code would not work in user mode.
 
 ;; We might want to enable this by default for TARGET_HARD_SH4, because
@@ -360,3 +360,6 @@ mfsrra
 Target Var(TARGET_FSRRA)
 Enable the use of the fsrra instruction
 
+mlra
+Target Report Var(sh_lra_flag) Init(0) Save
+Use LRA instead of reload (transitional)

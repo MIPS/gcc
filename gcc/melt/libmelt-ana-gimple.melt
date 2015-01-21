@@ -2,7 +2,7 @@
 ;; file libmelt-ana-gimple.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2014  Free Software Foundation, Inc.
+    Copyright 2008 - 2015  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -2987,7 +2987,11 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 				 ix_$MAKEGR_CHK < (int) $NBCASES;
 				 ix_$MAKEGR_CHK ++) {
 			    $T_CURCASE = melt_tree_content(melt_multiple_nth($CASETUP, ix_$MAKEGR_CHK));
-			    gimple_switch_set_label ($GR, (unsigned)ix_$MAKEGR_CHK, $T_CURCASE);
+			    gimple_switch_set_label
+			    (
+			     /* static_cast<gswitch*> @@@@@ */
+			     ($GR),
+				   (unsigned)ix_$MAKEGR_CHK, $T_CURCASE);
 			    $T_CURCASE = NULL_TREE;
 			} /* end for ix_$MAKEGR_CHK */
 			}#)
@@ -3302,36 +3306,6 @@ and discriminant $DIS, usually $DISCR_MIXED_LOCATION.}#
 )
 
 
-;;;;;;;;;;;;;;;; walk recursively inside a gimple
-(defprimitive walk_gimple_seq (:value data :gimple_seq gseq :value stmtclos treeclos) :gimple
-  :doc #{$WALK_GIMPLE_SEQ Recursively walks inside all the gimples of
-the given $GSEQ applying to $DATA and each gimple the $STMTCLOS and to
-each tree the $TREECLOS functions. The $STMTCLOS function, if given,
-gets the $DATA and the raw current :gimple as argument, and return a
-boolean value as primary result to continue, and the replacing :gimple, if any, as
-secondary result.  The $TREECLOS function, if given, gets the $DATA and
-the ran :tree as arguments, and return a boolean value, with a subtree
-walking :long flag and the replacing :tree, if any, as secondary results }#
-  ;;
- #{ /* walk_gimple_seq */
-#if MELT_GCC_VERSION >= 4009
-#warning MELT walk_gimple_seq is obsolete with GCC 4.9
-#endif /* GCC >= 4.9 */
- meltgc_walk_gimple_seq ((melt_ptr_t)$DATA, ($GSEQ),
-			 $STMTCLOS, $TREECLOS, FALSE) 
-}#)
-
-(defprimitive walk_gimple_seq_unique_tree  (:value data :gimple_seq gseq :value stmtclos treeclos) :gimple
-  :doc #{$WALK_GIMPLE_SEQ_UNIQUE_TREE recursively walks inside all the gimples of
-the given $GSEQ like $WALK_GIMPLE_SEQ, applying $STMTCLOS to gimples
-and $TREECLOS to trees, but avoid walking more than once inside
-trees.}# 
-#{ /* walk_gimple_seq_unique_tree */
-#if MELT_GCC_VERSION >= 4009
-#warning MELT walk_gimple_seq_unique_tree is obsolete with GCC 4.9
-#endif /* GCC >= 4.9 */
-meltgc_walk_gimple_seq ((melt_ptr_t)$DATA, ($GSEQ), $STMTCLOS,
-$TREECLOS, TRUE) }#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;; gimpleseq iteration
 ;;;; iterate on a gimpleseq
@@ -3839,8 +3813,6 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  output_gimple
  output_gimpleseq
  reveach_in_gimpleseq
- walk_gimple_seq
- walk_gimple_seq_unique_tree
  warning_at_gimple
  warning_at_gimple_strbuf
  )

@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,6 +26,17 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "real.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "obstack.h"
@@ -38,9 +49,17 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "ggc.h"
 #include "debug.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "bitmap.h"
 #include "target.h"
+#include "wide-int.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -1041,14 +1060,13 @@ get_constant (JCF *jcf, int index)
     case CONSTANT_Long:
       {
 	unsigned HOST_WIDE_INT num;
-	double_int val;
 
 	num = JPOOL_UINT (jcf, index);
-	val = double_int::from_uhwi (num).llshift (32, 64);
+	wide_int val = wi::lshift (wide_int::from (num, 64, SIGNED), 32);
 	num = JPOOL_UINT (jcf, index + 1);
-	val |= double_int::from_uhwi (num);
+	val |= num;
 
-	value = double_int_to_tree (long_type_node, val);
+	value = wide_int_to_tree (long_type_node, val);
 	break;
       }
 
@@ -1727,7 +1745,7 @@ java_emit_static_constructor (void)
 
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
       java_genericize (decl);
-      cgraph_finalize_function (decl, false);
+      cgraph_node::finalize_function (decl, false);
     }
 }
 
@@ -1905,7 +1923,7 @@ java_parse_file (void)
       if (magic == 0xcafebabe)
 	{
 	  CLASS_FILE_P (node) = 1;
-	  current_jcf = ggc_alloc_cleared_JCF ();
+	  current_jcf = ggc_cleared_alloc<JCF> ();
 	  current_jcf->read_state = finput;
 	  current_jcf->filbuf = jcf_filbuf_from_stdio;
 	  jcf_parse (current_jcf);
@@ -1922,7 +1940,7 @@ java_parse_file (void)
 	}
       else if (magic == (JCF_u4)ZIPMAGIC)
 	{
-	  main_jcf = ggc_alloc_cleared_JCF ();
+	  main_jcf = ggc_cleared_alloc<JCF> ();
 	  main_jcf->read_state = finput;
 	  main_jcf->filbuf = jcf_filbuf_from_stdio;
 	  linemap_add (line_table, LC_ENTER, false, filename, 0);
@@ -2178,7 +2196,7 @@ process_zip_dir (FILE *finput)
 
       class_name = compute_class_name (zdir);
       file_name  = XNEWVEC (char, zdir->filename_length+1);
-      jcf = ggc_alloc_cleared_JCF ();
+      jcf = ggc_cleared_alloc<JCF> ();
 
       strncpy (file_name, class_name_in_zip_dir, zdir->filename_length);
       file_name [zdir->filename_length] = '\0';

@@ -1,7 +1,7 @@
 /*** file melt-runtime.cc - see http://gcc-melt.org/ for more.
      Middle End Lisp Translator [MELT] runtime support.
 
-     Copyright (C) 2008 - 2014  Free Software Foundation, Inc.
+     Copyright (C) 2008 - 2015  Free Software Foundation, Inc.
      Contributed by Basile Starynkevitch <basile@starynkevitch.net>
        and Pierre Vittet  <piervit@pvittet.com>
        and Romain Geissler  <romain.geissler@gmail.com>
@@ -93,8 +93,10 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 
 // for print_gimple_stmt
 #include "gimple-pretty-print.h"
+#if GCCPLUGIN_VERSION <= 4009 /* GCC 4.9 */
 // for struct pointer_set_t & pointer_set_create
 #include "pointer-set.h"
+#endif /* GCC 4.9 */
 
 ////// the actually done modes
 std::vector<std::string> melt_done_modes_vector;
@@ -203,10 +205,17 @@ static long melt_forwarded_copy_byte_count;
 /* the generating GGC marking routine */
 extern void gt_ggc_mx_melt_un (void *);
 
+#if GCCPLUGIN_VERSION >= 5000 /*GCC 5.0*/
+#ifndef ggc_alloc_cleared_melt_valuevector_st
+#define ggc_alloc_cleared_melt_valuevector_st(S) \
+  ((struct melt_valuevector_st*) (ggc_internal_cleared_alloc ((S) MEM_STAT_INFO)))
+#endif
+#else /* GCC 4.9*/
 #ifndef ggc_alloc_cleared_melt_valuevector_st
 #define ggc_alloc_cleared_melt_valuevector_st(S) \
   ((struct melt_valuevector_st*) (ggc_internal_cleared_alloc_stat ((S) MEM_STAT_INFO)))
 #endif
+#endif /*GCC 4.9 or 5.0 */
 
 static void
 melt_resize_scangcvect (unsigned long size)
@@ -218,11 +227,21 @@ melt_resize_scangcvect (unsigned long size)
     {
       struct melt_valuevector_st* oldgcvec = melt_scangcvect;
       unsigned long ulen = oldgcvec->vv_ulen;
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+      struct melt_valuevector_st* newgcvec
+      = (struct melt_valuevector_st*)
+	ggc_internal_cleared_alloc
+	(
+	 (sizeof(struct melt_valuevector_st)
+	  +size*sizeof(melt_ptr_t))
+	 PASS_MEM_STAT);
+#else /* GCC 4.9 */
       struct melt_valuevector_st* newgcvec
       = (struct melt_valuevector_st*)
           ggc_alloc_cleared_melt_valuevector_st
           (sizeof(struct melt_valuevector_st)
            +size*sizeof(melt_ptr_t));
+#endif /* GCC 4.9 or 5.0 */
       newgcvec->vv_size = size;
       newgcvec->vv_ulen = ulen;
       memcpy (newgcvec->vv_tab, oldgcvec->vv_tab,
@@ -2576,12 +2595,12 @@ meltgc_strbuf_reserve (melt_ptr_t outbuf_p, unsigned reslen)
           char* newzn = NULL;
           char* oldzn = buf_outbufv->bufzn;
           gcc_assert (!melt_is_young (oldzn));
-#ifdef  ggc_alloc_cleared_atomic
-          /* GCC 4.6 or later */
+	  
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	  newzn = (char*) ggc_alloc_atomic (newblen+1);
+#else /* GCC 4.9 */
           newzn = (char*) ggc_alloc_cleared_atomic (newblen+1);
-#else
-          newzn = (char *) ggc_alloc_cleared (newblen+1);
-#endif /* ggc_alloc_cleared_atomic */
+#endif /* GCC 4.9 or 5.0 */
           memcpy (newzn, oldzn + buf_outbufv->bufstart, slen);
           newzn[slen] = 0;
           memset (oldzn, 0, slen<100?slen/2:50);
@@ -12634,16 +12653,24 @@ melt_val2passflag(melt_ptr_t val_p)
 #ifdef TODO_do_not_ggc_collect /* defined in GCC 4.9 */
       WHENFLAG(TODO_do_not_ggc_collect);
 #endif /* TODO_do_not_ggc_collect */
+#ifdef TODO_verify_ssa /* not in GCC 5.0 but in GCC 4.9 */
       WHENFLAG(TODO_verify_ssa);
+#endif
+#ifdef TODO_verify_flow
       WHENFLAG(TODO_verify_flow);
+#endif
+#ifdef TODO_verify_stmts
       WHENFLAG(TODO_verify_stmts);
+#endif
       WHENFLAG(TODO_cleanup_cfg);
 #ifdef TODO_dump_cgraph
       WHENFLAG(TODO_dump_cgraph); /* not defined in GCC 4.8 */
 #endif /*TODO_dump_cgraph*/
       WHENFLAG(TODO_remove_functions);
       WHENFLAG(TODO_rebuild_frequencies);
+#ifdef TODO_verify_rtl_sharing /* not in GCC 5.0 but in GCC 4.9 */
       WHENFLAG(TODO_verify_rtl_sharing);
+#endif
       WHENFLAG(TODO_update_ssa);
       WHENFLAG(TODO_update_ssa_no_phi);
       WHENFLAG(TODO_update_ssa_full_phi);
@@ -12738,129 +12765,6 @@ end:
 }
 
 
-
-
-
-/***************** gimple walkers ****************/
-static tree meltgc_walkstmt_cb (gimple_stmt_iterator *, bool *,
-                                struct walk_stmt_info *);
-static tree meltgc_walktree_cb (tree*, int*, void*);
-
-enum
-{
-  meltwgs_data,
-  meltwgs_stmtclos,
-  meltwgs_treeclos,
-  meltwgs__LAST
-};
-
-const unsigned melt_tree_walk_frame_size = (unsigned)meltwgs__LAST;
-typedef Melt_CallFrameWithValues<melt_tree_walk_frame_size>
-  Melt_Tree_Walk_Call_Frame;
-
-gimple
-meltgc_walk_gimple_seq (melt_ptr_t data_p, gimple_seq gseq, melt_ptr_t stmtclos_p, melt_ptr_t treeclos_p, bool uniquetreevisit)
-{
-  struct walk_stmt_info wi;
-  struct pointer_set_t *pvisitset = NULL;
-  gimple gres = NULL;
-  MELT_ENTERFRAME (meltwgs__LAST, NULL);
-#define datav      meltfram__.mcfr_varptr[meltwgs_data]
-#define stmtclosv  meltfram__.mcfr_varptr[meltwgs_stmtclos]
-#define treeclosv  meltfram__.mcfr_varptr[meltwgs_treeclos]
-  memset (&wi, 0, sizeof(wi));
-  wi.info = &meltfram__;
-  if (uniquetreevisit)
-    wi.pset = pvisitset = pointer_set_create ();
-  datav = data_p;
-  stmtclosv = stmtclos_p;
-  treeclosv = treeclos_p;
-  gres = walk_gimple_seq
-         (gseq,
-          (melt_magic_discr((melt_ptr_t)stmtclosv) == MELTOBMAG_CLOSURE)
-          ? (&meltgc_walkstmt_cb)
-          :NULL,
-          (melt_magic_discr((melt_ptr_t)treeclosv) == MELTOBMAG_CLOSURE)
-          ? (&meltgc_walktree_cb)
-          :NULL,
-          &wi);
-  if (pvisitset)
-    pointer_set_destroy (pvisitset);
-  MELT_EXITFRAME();
-#undef datav
-#undef stmtclosv
-#undef treeclosv
-  return gres;
-}
-
-tree
-meltgc_walkstmt_cb (gimple_stmt_iterator *gsip, bool *okp, struct walk_stmt_info *wi)
-{
-  tree restree = NULL;
-  gimple gstmt = gsi_stmt (*gsip);
-  MELT_ENTERFRAME (3, NULL);
-#define datav      meltfram__.mcfr_varptr[0]
-#define closv      meltfram__.mcfr_varptr[1]
-#define resv       meltfram__.mcfr_varptr[2]
-  
-  datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
-  closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
-  gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
-  {
-    union meltparam_un argtab[1];
-    union meltparam_un restab[1];
-    memset (argtab, 0, sizeof(argtab));
-    memset (restab, 0, sizeof(restab));
-    argtab[0].meltbp_gimple = gstmt;
-    restab[0].meltbp_treeptr = &restree;
-    MELT_LOCATION_HERE ("meltgc_walkstmt_cb from meltgc_walk_gimple_seq before apply");
-    resv = melt_apply ((meltclosure_ptr_t) closv, //walkstmt 
-		       (melt_ptr_t) datav,
-                       MELTBPARSTR_GIMPLE, argtab, MELTBPARSTR_TREE, restab);
-    if (resv && okp)
-      *okp = TRUE;
-  }
-  MELT_EXITFRAME();
-#undef datav
-#undef closv
-#undef resv
-  return restree;
-}
-
-
-tree meltgc_walktree_cb (tree*ptree, int*walksubtrees, void*data)
-{
-  tree restree = NULL;
-  struct walk_stmt_info* wi = (struct walk_stmt_info*) data;
-  MELT_ENTERFRAME (3, NULL);
-#define datav      meltfram__.mcfr_varptr[0]
-#define closv      meltfram__.mcfr_varptr[1]
-#define resv       meltfram__.mcfr_varptr[2]
-  datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
-  closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
-  gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
-  {
-    long seclng = -2;
-    union meltparam_un argtab[1];
-    union meltparam_un restab[2];
-    memset (argtab, 0, sizeof(argtab));
-    memset (restab, 0, sizeof(restab));
-    argtab[0].meltbp_tree = ptree?(*ptree):NULL;
-    restab[0].meltbp_longptr = &seclng;
-    restab[1].meltbp_treeptr = &restree;
-    MELT_LOCATION_HERE ("meltgc_walktree_cb from meltgc_walk_gimple_seq before apply");
-    resv = melt_apply ((meltclosure_ptr_t) closv, // walktree
-		       (melt_ptr_t) datav,
-                       MELTBPARSTR_TREE, argtab, MELTBPARSTR_LONG MELTBPARSTR_TREE, restab);
-    if (seclng != -2 && walksubtrees)
-      *walksubtrees = (int)seclng;
-  }
-  MELT_EXITFRAME();
-#undef datav
-#undef closv
-#undef resv
-  return restree;
-}
 
 
 
@@ -13328,16 +13232,26 @@ same as gimple (with file "coretypes.h" having the definition `typedef
 gimple gimple_seq;`), but our generated runtime support might still
 want their old marking routine.  */
 
-#if GCCPLUGIN_VERSION == 4008
+#if GCCPLUGIN_VERSION == 5000
 void melt_gt_ggc_mx_gimple_seq_d(void*p)
 {
-  gt_ggc_mx_gimple_statement_d (p);
+  if (p) {
+    gimple_seq gs = reinterpret_cast<gimple_seq>(p);
+    /// gt_ggc_mx_gimple_statement_base is in generated gtype-desc.h
+    gt_ggc_mx_gimple_statement_base (gs);
+  }
 }
 #elif GCCPLUGIN_VERSION == 4009
 void melt_gt_ggc_mx_gimple_seq_d(void*p)
 {
   if (p)
     gt_ggc_mx_gimple_statement_base(p);
+}
+#elif GCCPLUGIN_VERSION == 4008
+void melt_gt_ggc_mx_gimple_seq_d(void*p)
+{
+  if (p)
+    gt_ggc_mx_gimple_statement_d (p);
 }
 #else
 #error melt_gt_ggc_mx_gimple_seq_d unimplemented for this version of GCC

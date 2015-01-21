@@ -1,6 +1,6 @@
 #!/bin/sh
 # Generate avr-tables.opt from the list in avr-mcus.def.
-# Copyright (C) 2011-2014 Free Software Foundation, Inc.
+# Copyright (C) 2011-2015 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -22,7 +22,7 @@ cat <<EOF
 ; -*- buffer-read-only: t -*-
 ; Generated automatically by genopt.sh from avr-mcus.def.
 
-; Copyright (C) 2011-2014 Free Software Foundation, Inc.
+; Copyright (C) 2011-2015 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -41,19 +41,18 @@ cat <<EOF
 ; <http://www.gnu.org/licenses/>.
 
 Enum
-Name(avr_mcu) Type(int)
-Known MCU names:
+Name(avr_arch) Type(enum avr_arch)
+Known MCU architectures:
 
 EOF
 
 awk -F'[(, 	]+' 'BEGIN {
-    value = 0
 }
-/^AVR_MCU/ {
+/^AVR_MCU.*NULL/ {
     name = $2
+    value = $3
     gsub("\"", "", name)
     print "EnumValue"
-    print "Enum(avr_mcu) String(" name ") Value(" value ")"
+    print "Enum(avr_arch) String(" name ") Value(" value ")"
     print ""
-    value++
 }' $1

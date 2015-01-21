@@ -1,4 +1,4 @@
-/** Copyright (C) 2014 Free Software Foundation, Inc.
+/** Copyright (C) 2015 Free Software Foundation, Inc.
   This generated file meltrunsup-inc.cc is part of GCC.
 
                   [DON'T EDIT THIS GENERATED FILE]
@@ -27,46 +27,46 @@ melt_ptr_t melt_code_to_ctype (int code)
     switch (code)
         {
 
-            /* #1: CTYPE_BASIC_BLOCK */
+        /* #1: CTYPE_BASIC_BLOCK */
         case MELTBPAR_BB:
             return MELT_PREDEF(CTYPE_BASIC_BLOCK);
-            /* #2: CTYPE_BITMAP */
+        /* #2: CTYPE_BITMAP */
         case MELTBPAR_BITMAP:
             return MELT_PREDEF(CTYPE_BITMAP);
-            /* #3: CTYPE_CSTRING */
+        /* #3: CTYPE_CSTRING */
         case MELTBPAR_CSTRING:
             return MELT_PREDEF(CTYPE_CSTRING);
-            /* #4: CTYPE_DOUBLE */
+        /* #4: CTYPE_DOUBLE */
         case MELTBPAR_DOUBLE:
             return MELT_PREDEF(CTYPE_DOUBLE);
-            /* #5: CTYPE_EDGE */
+        /* #5: CTYPE_EDGE */
         case MELTBPAR_EDGE:
             return MELT_PREDEF(CTYPE_EDGE);
-            /* #6: CTYPE_GIMPLE */
+        /* #6: CTYPE_GIMPLE */
         case MELTBPAR_GIMPLE:
             return MELT_PREDEF(CTYPE_GIMPLE);
-            /* #7: CTYPE_GIMPLE_SEQ */
+        /* #7: CTYPE_GIMPLE_SEQ */
         case MELTBPAR_GIMPLESEQ:
             return MELT_PREDEF(CTYPE_GIMPLE_SEQ);
-            /* #8: CTYPE_LONG */
+        /* #8: CTYPE_LONG */
         case MELTBPAR_LONG:
             return MELT_PREDEF(CTYPE_LONG);
-            /* #9: CTYPE_LOOP */
+        /* #9: CTYPE_LOOP */
         case MELTBPAR_LOOP:
             return MELT_PREDEF(CTYPE_LOOP);
-            /* #10: CTYPE_RTVEC */
+        /* #10: CTYPE_RTVEC */
         case MELTBPAR_RTVEC:
             return MELT_PREDEF(CTYPE_RTVEC);
-            /* #11: CTYPE_RTX */
+        /* #11: CTYPE_RTX */
         case MELTBPAR_RTX:
             return MELT_PREDEF(CTYPE_RTX);
-            /* #12: CTYPE_TREE */
+        /* #12: CTYPE_TREE */
         case MELTBPAR_TREE:
             return MELT_PREDEF(CTYPE_TREE);
-            /* #13: CTYPE_VALUE */
+        /* #13: CTYPE_VALUE */
         case MELTBPAR_PTR:
             return MELT_PREDEF(CTYPE_VALUE);
-            /* #14: CTYPE_VOID */
+        /* #14: CTYPE_VOID */
 
         default:
             break;
@@ -86,162 +86,162 @@ const char* melt_obmag_string (int i)
         {
         case 0:
             return "MeltObMag!0" ;
-            /*gtyctype #1 CTYPE_BASIC_BLOCK*/
+        /*gtyctype #1 CTYPE_BASIC_BLOCK*/
         case MELTOBMAG_BASICBLOCK:
             return "MELTOBMAG_BASICBLOCK";
         case MELTOBMAG_MAPBASICBLOCKS:
             return "MELTOBMAG_MAPBASICBLOCKS";
 
-            /*gtyctype #2 CTYPE_BITMAP*/
+        /*gtyctype #2 CTYPE_BITMAP*/
         case MELTOBMAG_BITMAP:
             return "MELTOBMAG_BITMAP";
         case MELTOBMAG_MAPBITMAPS:
             return "MELTOBMAG_MAPBITMAPS";
 
-            /*gtyctype #3 CTYPE_CSTRING*/
-            /*runtypesupport_mag2str no boxed magic */
-            /*runtypesupport_mag2str no map magic */
+        /*gtyctype #3 CTYPE_CSTRING*/
+        /*runtypesupport_mag2str no boxed magic */
+        /*runtypesupport_mag2str no map magic */
 
-            /*gtyctype #4 CTYPE_DOUBLE*/
-            /*runtypesupport_mag2str no boxed magic */
-            /*runtypesupport_mag2str no map magic */
+        /*gtyctype #4 CTYPE_DOUBLE*/
+        /*runtypesupport_mag2str no boxed magic */
+        /*runtypesupport_mag2str no map magic */
 
-            /*gtyctype #5 CTYPE_EDGE*/
+        /*gtyctype #5 CTYPE_EDGE*/
         case MELTOBMAG_EDGE:
             return "MELTOBMAG_EDGE";
         case MELTOBMAG_MAPEDGES:
             return "MELTOBMAG_MAPEDGES";
 
-            /*gtyctype #6 CTYPE_GIMPLE*/
+        /*gtyctype #6 CTYPE_GIMPLE*/
         case MELTOBMAG_GIMPLE:
             return "MELTOBMAG_GIMPLE";
         case MELTOBMAG_MAPGIMPLES:
             return "MELTOBMAG_MAPGIMPLES";
 
-            /*gtyctype #7 CTYPE_GIMPLE_SEQ*/
+        /*gtyctype #7 CTYPE_GIMPLE_SEQ*/
         case MELTOBMAG_GIMPLESEQ:
             return "MELTOBMAG_GIMPLESEQ";
         case MELTOBMAG_MAPGIMPLESEQS:
             return "MELTOBMAG_MAPGIMPLESEQS";
 
-            /*gtyctype #8 CTYPE_LONG*/
-            /*runtypesupport_mag2str no boxed magic */
-            /*runtypesupport_mag2str no map magic */
+        /*gtyctype #8 CTYPE_LONG*/
+        /*runtypesupport_mag2str no boxed magic */
+        /*runtypesupport_mag2str no map magic */
 
-            /*gtyctype #9 CTYPE_LOOP*/
+        /*gtyctype #9 CTYPE_LOOP*/
         case MELTOBMAG_LOOP:
             return "MELTOBMAG_LOOP";
         case MELTOBMAG_MAPLOOPS:
             return "MELTOBMAG_MAPLOOPS";
 
-            /*gtyctype #10 CTYPE_RTVEC*/
+        /*gtyctype #10 CTYPE_RTVEC*/
         case MELTOBMAG_RTVEC:
             return "MELTOBMAG_RTVEC";
         case MELTOBMAG_MAPRTVECS:
             return "MELTOBMAG_MAPRTVECS";
 
-            /*gtyctype #11 CTYPE_RTX*/
+        /*gtyctype #11 CTYPE_RTX*/
         case MELTOBMAG_RTX:
             return "MELTOBMAG_RTX";
         case MELTOBMAG_MAPRTXS:
             return "MELTOBMAG_MAPRTXS";
 
-            /*gtyctype #12 CTYPE_TREE*/
+        /*gtyctype #12 CTYPE_TREE*/
         case MELTOBMAG_TREE:
             return "MELTOBMAG_TREE";
         case MELTOBMAG_MAPTREES:
             return "MELTOBMAG_MAPTREES";
 
-            /*gtyctype #13 CTYPE_VALUE*/
-            /*runtypesupport_mag2str no boxed magic */
-            /*runtypesupport_mag2str no map magic */
+        /*gtyctype #13 CTYPE_VALUE*/
+        /*runtypesupport_mag2str no boxed magic */
+        /*runtypesupport_mag2str no map magic */
 
-            /*gtyctype #14 CTYPE_VOID*/
-            /*runtypesupport_mag2str no boxed magic */
-            /*runtypesupport_mag2str no map magic */
+        /*gtyctype #14 CTYPE_VOID*/
+        /*runtypesupport_mag2str no boxed magic */
+        /*runtypesupport_mag2str no map magic */
 
 
-            /*valdesc #1 VALDESC_BUCKETLONGS*/
+        /*valdesc #1 VALDESC_BUCKETLONGS*/
         case MELTOBMAG_BUCKETLONGS:
             return "MELTOBMAG_BUCKETLONGS";
 
-            /*valdesc #2 VALDESC_CLOSURE*/
+        /*valdesc #2 VALDESC_CLOSURE*/
         case MELTOBMAG_CLOSURE:
             return "MELTOBMAG_CLOSURE";
 
-            /*valdesc #3 VALDESC_DECAY*/
+        /*valdesc #3 VALDESC_DECAY*/
         case MELTOBMAG_DECAY:
             return "MELTOBMAG_DECAY";
 
-            /*valdesc #4 VALDESC_DOUBLE*/
+        /*valdesc #4 VALDESC_DOUBLE*/
         case MELTOBMAG_DOUBLE:
             return "MELTOBMAG_DOUBLE";
 
-            /*valdesc #5 VALDESC_HOOK*/
+        /*valdesc #5 VALDESC_HOOK*/
         case MELTOBMAG_HOOK:
             return "MELTOBMAG_HOOK";
 
-            /*valdesc #6 VALDESC_INT*/
+        /*valdesc #6 VALDESC_INT*/
         case MELTOBMAG_INT:
             return "MELTOBMAG_INT";
 
-            /*valdesc #7 VALDESC_JSONOBJECT*/
+        /*valdesc #7 VALDESC_JSONOBJECT*/
         case MELTOBMAG_JSONOBJECT:
             return "MELTOBMAG_JSONOBJECT";
 
-            /*valdesc #8 VALDESC_LIST*/
+        /*valdesc #8 VALDESC_LIST*/
         case MELTOBMAG_LIST:
             return "MELTOBMAG_LIST";
 
-            /*valdesc #9 VALDESC_MAPOBJECTS*/
+        /*valdesc #9 VALDESC_MAPOBJECTS*/
         case MELTOBMAG_MAPOBJECTS:
             return "MELTOBMAG_MAPOBJECTS";
 
-            /*valdesc #10 VALDESC_MAPSTRINGS*/
+        /*valdesc #10 VALDESC_MAPSTRINGS*/
         case MELTOBMAG_MAPSTRINGS:
             return "MELTOBMAG_MAPSTRINGS";
 
-            /*valdesc #11 VALDESC_MIXBIGINT*/
+        /*valdesc #11 VALDESC_MIXBIGINT*/
         case MELTOBMAG_MIXBIGINT:
             return "MELTOBMAG_MIXBIGINT";
 
-            /*valdesc #12 VALDESC_MIXINT*/
+        /*valdesc #12 VALDESC_MIXINT*/
         case MELTOBMAG_MIXINT:
             return "MELTOBMAG_MIXINT";
 
-            /*valdesc #13 VALDESC_MIXLOC*/
+        /*valdesc #13 VALDESC_MIXLOC*/
         case MELTOBMAG_MIXLOC:
             return "MELTOBMAG_MIXLOC";
 
-            /*valdesc #14 VALDESC_MULTIPLE*/
+        /*valdesc #14 VALDESC_MULTIPLE*/
         case MELTOBMAG_MULTIPLE:
             return "MELTOBMAG_MULTIPLE";
 
-            /*valdesc #15 VALDESC_OBJECT*/
+        /*valdesc #15 VALDESC_OBJECT*/
         case MELTOBMAG_OBJECT:
             return "MELTOBMAG_OBJECT";
 
-            /*valdesc #16 VALDESC_PAIR*/
+        /*valdesc #16 VALDESC_PAIR*/
         case MELTOBMAG_PAIR:
             return "MELTOBMAG_PAIR";
 
-            /*valdesc #17 VALDESC_REAL*/
+        /*valdesc #17 VALDESC_REAL*/
         case MELTOBMAG_REAL:
             return "MELTOBMAG_REAL";
 
-            /*valdesc #18 VALDESC_ROUTINE*/
+        /*valdesc #18 VALDESC_ROUTINE*/
         case MELTOBMAG_ROUTINE:
             return "MELTOBMAG_ROUTINE";
 
-            /*valdesc #19 VALDESC_SPECIAL_DATA*/
+        /*valdesc #19 VALDESC_SPECIAL_DATA*/
         case MELTOBMAG_SPECIAL_DATA:
             return "MELTOBMAG_SPECIAL_DATA";
 
-            /*valdesc #20 VALDESC_STRBUF*/
+        /*valdesc #20 VALDESC_STRBUF*/
         case MELTOBMAG_STRBUF:
             return "MELTOBMAG_STRBUF";
 
-            /*valdesc #21 VALDESC_STRING*/
+        /*valdesc #21 VALDESC_STRING*/
         case MELTOBMAG_STRING:
             return "MELTOBMAG_STRING";
         default:
@@ -277,9 +277,9 @@ melt_forwarded_copy (melt_ptr_t p)
     switch (mag)   /* end of generated header */
         {
 
-            /* value descriptor forward copy for melt_forwarded_copy  */
+        /* value descriptor forward copy for melt_forwarded_copy  */
 
-            /*valdesc #1 VALDESC_BUCKETLONGS*/
+        /*valdesc #1 VALDESC_BUCKETLONGS*/
         case MELTOBMAG_BUCKETLONGS:
         {
             struct meltbucketlongs_st*src = (struct meltbucketlongs_st*) p;
@@ -326,9 +326,15 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltclosure_st*dst = NULL;
             /* copy VALDESC_CLOSURE in warmelt-base.melt  */
             /* ggc_alloc_meltclosure_st should be gengtype generated for VALDESC_CLOSURE */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltclosure_st
+#define ggc_alloc_meltclosure_st(SIZE) ((struct meltclosure_st *)(ggc_internal_alloc (SIZE)))
+#endif /* ggc_alloc_meltclosure_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltclosure_st
 #define ggc_alloc_meltclosure_st(SIZE) ((struct meltclosure_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltclosure_st */
+#endif /* GCC 4.9 or 5.0 */
             int nbv = (int) src->nbval;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltclosure_st, tabval);
             dst =
@@ -352,11 +358,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltdecay_st*src = (struct meltdecay_st*) p;
             struct meltdecay_st*dst = NULL;
-            /* from VALDESC_DECAY */
+            /* from VALDESC_DECAY in warmelt-base.melt */
             /* ggc_alloc_meltdecay_st should be gengtype generated for VALDESC_DECAY */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltdecay_st
+#define ggc_alloc_meltdecay_st() ((struct meltdecay_st *)(ggc_internal_alloc (sizeof (struct meltdecay_st))))
+#endif /* ggc_alloc_meltdecay_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltdecay_st
 #define ggc_alloc_meltdecay_st() ((struct meltdecay_st *)(ggc_internal_alloc_stat (sizeof (struct meltdecay_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltdecay_st */
+#endif /* GCC not 5.0 */
             dst = ggc_alloc_meltdecay_st ();
             *dst = *src;
             melt_forwarded_copy_byte_count += sizeof(*dst);
@@ -370,11 +382,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltdouble_st*src = (struct meltdouble_st*) p;
             struct meltdouble_st*dst = NULL;
-            /* from VALDESC_DOUBLE */
+            /* from VALDESC_DOUBLE in warmelt-base.melt  */
             /* ggc_alloc_meltdouble_st should be gengtype generated for VALDESC_DOUBLE */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltdouble_st
+#define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_internal_alloc (sizeof (struct meltdouble_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltdouble_st
 #define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_internal_alloc_stat (sizeof (struct meltdouble_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltdouble_st ();
@@ -392,9 +410,15 @@ melt_forwarded_copy (melt_ptr_t p)
             struct melthook_st*dst = NULL;
             /* from VALDESC_HOOK in warmelt-base.melt */
             /* ggc_alloc_melthook_st should be gengtype generated for VALDESC_HOOK */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_melthook_st
+#define ggc_alloc_melthook_st(SIZE) ((struct melthook_st *)(ggc_internal_alloc (SIZE)))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_melthook_st
 #define ggc_alloc_melthook_st(SIZE) ((struct melthook_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             int nbv = (int) src->nbval;
             int ix = 0;
             size_t sz = nbv*sizeof(void*) + offsetof(struct melthook_st, tabval);
@@ -424,9 +448,15 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltint_st*dst = NULL;
             /* from VALDESC_INT */
             /* ggc_alloc_meltint_st should be gengtype generated for VALDESC_INT */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltint_st
+#define ggc_alloc_meltint_st() ((struct meltint_st *)(ggc_internal_alloc (sizeof (struct meltint_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltint_st
 #define ggc_alloc_meltint_st() ((struct meltint_st *)(ggc_internal_alloc_stat (sizeof (struct meltint_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltint_st ();
@@ -469,10 +499,16 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltlist_st*src = (struct meltlist_st*) p;
             struct meltlist_st*dst = NULL;
             /* copy chunk from VALDESC_LIST */
-            /* ggc_alloc_meltlist_st should be gengtype gengtype for VALDESC_LIST */
+            /* ggc_alloc_meltlist_st should be gengtype generated for VALDESC_LIST */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltlist_st
+#define ggc_alloc_meltlist_st() ((struct meltlist_st *)(ggc_internal_alloc (sizeof (struct meltlist_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltlist_st
 #define ggc_alloc_meltlist_st() ((struct meltlist_st *)(ggc_internal_alloc_stat (sizeof (struct meltlist_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation!  */
                 ggc_alloc_meltlist_st ();
@@ -491,15 +527,27 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmapobjects_st*dst = NULL;
             /* copy VALDESC_MAPOBJECTS in warmelt-base.melt */
             /* ggc_alloc_meltmapobjects_st should be gengtype generated for VALDESC_MAPOBJECTS */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmapobjects_st
+#define ggc_alloc_meltmapobjects_st() ((struct meltmapobjects_st *)(ggc_internal_alloc(sizeof(struct meltmapobjects_st))))
+#endif /* ggc_alloc_meltmapobjects_st */
+#ifndef ggc_alloc_vec_entryobjectsmelt_st
+#define ggc_alloc_vec_entryobjectsmelt_st(N) ((struct entryobjectsmelt_st *) (ggc_internal_alloc(sizeof(struct entryobjectsmelt_st)*(N))))
+#endif /* ggc_alloc_vec_entryobjectsmelt_st */
+#ifndef  ggc_alloc_cleared_vec_entryobjectsmelt_st
+#define ggc_alloc_cleared_vec_entryobjectsmelt_st(N)  ((struct entryobjectsmelt_st *) (ggc_internal_cleared_alloc(sizeof(struct entryobjectsmelt_st)*(N))))
+#endif /* ggc_alloc_cleared_vec_entryobjectsmelt_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmapobjects_st
 #define ggc_alloc_meltmapobjects_st() ((struct meltmapobjects_st *)(ggc_internal_alloc_stat (sizeof (struct meltmapobjects_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmapobjects_st */
 #ifndef ggc_alloc_vec_entryobjectsmelt_st
 #define ggc_alloc_vec_entryobjectsmelt_st(N) ((struct entryobjectsmelt_st *) (ggc_internal_vec_alloc_stat (sizeof (struct entryobjectsmelt_st), N MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_vec_entryobjectsmelt_st */
 #ifndef  ggc_alloc_cleared_vec_entryobjectsmelt_st
 #define ggc_alloc_cleared_vec_entryobjectsmelt_st(n) ((struct entryobjectsmelt_st *)(ggc_internal_cleared_vec_alloc_stat (sizeof (struct entryobjectsmelt_st), n MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_cleared_vec_entryobjectsmelt_st */
+#endif /* GCC 4.9 */
             int siz = melt_primtab[src->lenix];
             size_t sz = 0;
             dst =
@@ -533,15 +581,27 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmapstrings_st*dst = NULL;
             /* copy VALDESC_MAPSTRINGS in warmelt-base.melt */
             /* ggc_alloc_meltmapstrings_st should be gengtype generated for VALDESC_MAPSTRINGS */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmapstrings_st
+#define ggc_alloc_meltmapstrings_st() ((struct meltmapstrings_st *)(ggc_internal_alloc (sizeof (struct meltmapstrings_st))))
+#endif /* ggc_alloc_meltmapstrings_st */
+#ifndef ggc_alloc_vec_entrystringsmelt_st
+#define ggc_alloc_vec_entrystringsmelt_st(N) ((struct entrystringsmelt_st *)(ggc_internal_alloc (sizeof (struct entrystringsmelt_st)*(N))))
+#endif /* ggc_alloc_vec_entrystringsmelt_st */
+#ifndef ggc_alloc_cleared_vec_entrystringsmelt_st
+#define ggc_alloc_cleared_vec_entrystringsmelt_st(N) ((struct entrystringsmelt_st *)(ggc_internal_cleared_alloc (sizeof (struct entrystringsmelt_st)*(N))))
+#endif /* ggc_alloc_cleared_vec_entrystringsmelt_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmapstrings_st
 #define ggc_alloc_meltmapstrings_st() ((struct meltmapstrings_st *)(ggc_internal_alloc_stat (sizeof (struct meltmapstrings_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmapstrings_st */
 #ifndef ggc_alloc_vec_entrystringsmelt_st
 #define ggc_alloc_vec_entrystringsmelt_st(n) ((struct entrystringsmelt_st *)(ggc_internal_vec_alloc_stat (sizeof (struct entrystringsmelt_st), n MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_vec_entrystringsmelt_st */
 #ifndef ggc_alloc_cleared_vec_entrystringsmelt_st
 #define ggc_alloc_cleared_vec_entrystringsmelt_st(n) ((struct entrystringsmelt_st *)(ggc_internal_cleared_vec_alloc_stat (sizeof (struct entrystringsmelt_st), n MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_cleared_vec_entrystringsmelt_st */
+#endif /* GCC 5.0 or 4.9 */
             int siz = melt_primtab[src->lenix];
             size_t sz = 0;
             dst =
@@ -573,11 +633,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltmixbigint_st*src = (struct meltmixbigint_st*) p;
             struct meltmixbigint_st*dst = NULL;
-            /* from VALDESC_MIXBIGINT */
+            /* from VALDESC_MIXBIGINT in warmelt-base.melt */
             /* ggc_alloc_meltmixbigint_st should be gengtype generated for VALDESC_MIXBIGINT */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmixbigint_st
+#define ggc_alloc_meltmixbigint_st(SIZE) ((struct meltmixbigint_st *)(ggc_internal_alloc (SIZE)))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmixbigint_st
 #define ggc_alloc_meltmixbigint_st(SIZE) ((struct meltmixbigint_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             unsigned blen = src->biglen;
             size_t sz = blen*sizeof(long) + offsetof(struct meltmixbigint_st, tabig);
             dst =
@@ -599,11 +665,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltmixint_st*src = (struct meltmixint_st*) p;
             struct meltmixint_st*dst = NULL;
-            /* from VALDESC_MIXINT */
+            /* from VALDESC_MIXINT in warmelt-base.melt  */
             /* ggc_alloc_meltmixint_st should be gengtype generated for VALDESC_MIXINT */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmixint_st
+#define ggc_alloc_meltmixint_st() ((struct meltmixint_st *)(ggc_internal_alloc (sizeof (struct meltmixint_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmixint_st
 #define ggc_alloc_meltmixint_st() ((struct meltmixint_st *)(ggc_internal_alloc_stat (sizeof (struct meltmixint_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltmixint_st ();
@@ -619,11 +691,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltmixloc_st*src = (struct meltmixloc_st*) p;
             struct meltmixloc_st*dst = NULL;
-            /* from VALDESC_MIXLOC */
+            /* from VALDESC_MIXLOC in warmelt-base.melt */
             /* ggc_alloc_meltmixloc_st should be gengtype generated for VALDESC_MIXLOC */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmixloc_st
+#define ggc_alloc_meltmixloc_st() ((struct meltmixloc_st *)(ggc_internal_alloc (sizeof (struct meltmixloc_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmixloc_st
 #define ggc_alloc_meltmixloc_st() ((struct meltmixloc_st *)(ggc_internal_alloc_stat (sizeof (struct meltmixloc_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltmixloc_st ();
@@ -639,11 +717,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltmultiple_st*src = (struct meltmultiple_st*) p;
             struct meltmultiple_st*dst = NULL;
-            /* copy chunk from VALDESC_MULTIPLE */
+            /* copy chunk from VALDESC_MULTIPLE in warmelt-base.melt */
             /* ggc_alloc_meltmultiple_st should be gengtype generated for VALDESC_MULTIPLE */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmultiple_st
+#define ggc_alloc_meltmultiple_st(SIZE) ((struct meltmultiple_st *)(ggc_internal_alloc(SIZE)))
+#endif /* ggc_alloc_meltmultiple_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmultiple_st
 #define ggc_alloc_meltmultiple_st(SIZE) ((struct meltmultiple_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmultiple_st */
+#endif /* GCC not 5.0 */
             int nbv = (int) src->nbval;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltmultiple_st, tabval);
             dst =
@@ -669,11 +753,18 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltobject_st*src = (struct meltobject_st*) p;
             struct meltobject_st*dst = NULL;
-            /* from VALDESC_OBJECT */
+            /* from VALDESC_OBJECT file warmelt-base.melt */
             /* ggc_alloc_meltobject_st should be gengtype generated for VALDESC_OBJECT */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltobject_st
+#define ggc_alloc_meltobject_st(SIZE) ((struct meltobject_st *)(ggc_internal_alloc (SIZE)))
+#endif  /* ggc_alloc_meltobject_st */
+#else /* GCC 4.9 and before */
 #ifndef ggc_alloc_meltobject_st
 #define ggc_alloc_meltobject_st(SIZE) ((struct meltobject_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif
+#endif  /* ggc_alloc_meltobject_st */
+#endif /* GCC 4.9 or GCC 5.0 */
+
             int ix = 0;
             int oblen = (int) (src->obj_len);
             size_t sz = 0;
@@ -715,9 +806,15 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltpair_st*dst = NULL;
             /* copy VALDESC_PAIR in warmelt-base.melt */
             /* ggc_alloc_meltpair_st should be gengtype gengtype for VALDESC_PAIR */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltpair_st
+#define ggc_alloc_meltpair_st() ((struct meltpair_st *)(ggc_internal_alloc (sizeof (struct meltpair_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltpair_st
 #define ggc_alloc_meltpair_st() ((struct meltpair_st *)(ggc_internal_alloc_stat (sizeof (struct meltpair_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst = /* Don't need a cleared allocation.  */
                 ggc_alloc_meltpair_st ();
             *dst = *src;
@@ -732,11 +829,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltreal_st*src = (struct meltreal_st*) p;
             struct meltreal_st*dst = NULL;
-            /* from VALDESC_REAL */
+            /* from VALDESC_REAL in warmelt-base.melt */
             /* ggc_alloc_meltreal_st should be gengtype generated for VALDESC_REAL */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltreal_st
+#define ggc_alloc_meltreal_st() ((struct meltreal_st *)(ggc_internal_alloc (sizeof (struct meltreal_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltreal_st
 #define ggc_alloc_meltreal_st() ((struct meltreal_st *)(ggc_internal_alloc_stat (sizeof (struct meltreal_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltreal_st ();
@@ -752,11 +855,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltroutine_st*src = (struct meltroutine_st*) p;
             struct meltroutine_st*dst = NULL;
-            /* from VALDESC_ROUTINE */
+            /* from VALDESC_ROUTINE in warmelt-base.melt */
             /* ggc_alloc_meltroutine_st should be gengtype generated for VALDESC_ROUTINE */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltroutine_st
+#define ggc_alloc_meltroutine_st(SIZE) ((struct meltroutine_st *)(ggc_internal_alloc (SIZE)))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltroutine_st
 #define ggc_alloc_meltroutine_st(SIZE) ((struct meltroutine_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             int nbv = (int) src->nbval;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltroutine_st, tabval);
             int ix = 0;
@@ -784,11 +893,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltspecialdata_st*src = (struct meltspecialdata_st*) p;
             struct meltspecialdata_st*dst = NULL;
-            /* from VALDESC_SPECIAL_DATA */
+            /* from VALDESC_SPECIAL_DATA in warmelt-base.melt */
             /* ggc_alloc_meltspecialdata_st should be gengtype generated for VALDESC_SPECIAL_DATA */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltspecialdata_st
+#define ggc_alloc_meltspecialdata_st() ((struct meltspecialdata_st *)(ggc_internal_alloc (sizeof (struct meltspecialdata_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltspecialdata_st
 #define ggc_alloc_meltspecialdata_st() ((struct meltspecialdata_st *)(ggc_internal_alloc_stat (sizeof (struct meltspecialdata_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             dst = ggc_alloc_meltspecialdata_st ();
             *dst = *src;
             /* mark the new copy! */
@@ -807,11 +922,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltstrbuf_st*src = (struct meltstrbuf_st*) p;
             struct meltstrbuf_st*dst = NULL;
-            /* copy chunk from VALDESC_STRBUF */
+            /* copy chunk from VALDESC_STRBUF in warmelt-base.melt */
             /* ggc_alloc_meltstrbuf_st should be gengtype gengtype for VALDESC_STRBUF */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltstrbuf_st
+#define ggc_alloc_meltstrbuf_st() ((struct meltstrbuf_st *)(ggc_internal_alloc (sizeof (struct meltstrbuf_st))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltstrbuf_st
 #define ggc_alloc_meltstrbuf_st() ((struct meltstrbuf_st *)(ggc_internal_alloc_stat (sizeof (struct meltstrbuf_st) MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             unsigned blen = melt_primtab[src->buflenix];
             size_t sz = sizeof(*dst);
             dst =
@@ -841,11 +962,17 @@ melt_forwarded_copy (melt_ptr_t p)
         {
             struct meltstring_st*src = (struct meltstring_st*) p;
             struct meltstring_st*dst = NULL;
-            /* copy from VALDESC_STRING file warmelt-base.melt*/
+            /* copy from VALDESC_STRING file warmelt-base.melt */
             /* ggc_alloc_meltstring_st should be gengtype generated for VALDESC_STRING */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltstring_st
+#define ggc_alloc_meltstring_st(SIZE) ((struct meltstring_st *)(ggc_internal_alloc (SIZE)))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltstring_st
 #define ggc_alloc_meltstring_st(SIZE) ((struct meltstring_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+#endif /* GCC not 5.0 */
             int srclen = (src->val)?strlen (src->val):0;
             size_t sz = offsetof(struct meltstring_st, val) + (srclen+1);
             dst =
@@ -864,13 +991,19 @@ melt_forwarded_copy (melt_ptr_t p)
 
 
         /* gty ctype forward copy for melt_forwarded_copy */
-        /*forwcopy gtyctype #1 CTYPE_BASIC_BLOCK*/
+        /*forwcopy gtyctype #1 CTYPE_BASIC_BLOCK generated in warmelt-modes */
         case MELTOBMAG_BASICBLOCK:
         {
             /* macro ggc_alloc_meltbasicblock_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltbasicblock_st
+#define ggc_alloc_meltbasicblock_st() ((struct meltbasicblock_st*)(ggc_internal_alloc (sizeof (struct meltbasicblock_st))))
+#endif /* ggc_alloc_meltbasicblock_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltbasicblock_st
 #define ggc_alloc_meltbasicblock_st() ((struct meltbasicblock_st*)(ggc_internal_alloc_stat (sizeof (struct meltbasicblock_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltbasicblock_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltbasicblock_st *src = (struct meltbasicblock_st*) p;
             struct meltbasicblock_st *dst = ggc_alloc_meltbasicblock_st ();
             *dst = *src;
@@ -880,13 +1013,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPBASICBLOCKS:
         {
             /* ggc_alloc_meltmapbasicblocks_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmapbasicblocks_st
+#define ggc_alloc_meltmapbasicblocks_st() ((struct meltmapbasicblocks_st*) (ggc_internal_alloc (sizeof (struct meltmapbasicblocks_st))))
+#endif /* ggc_alloc_meltmapbasicblocks_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmapbasicblocks_st
 #define ggc_alloc_meltmapbasicblocks_st() ((struct meltmapbasicblocks_st*) (ggc_internal_alloc_stat (sizeof (struct meltmapbasicblocks_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmapbasicblocks_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entrybasicblockmelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entrybasicblockmelt_st
+#define ggc_alloc_vec_entrybasicblockmelt_st(N) ((struct entrybasicblockmelt_st*) (ggc_internal_alloc (sizeof (struct entrybasicblockmelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entrybasicblockmelt_st
 #define ggc_alloc_vec_entrybasicblockmelt_st(n) ((struct entrybasicblockmelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entrybasicblockmelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmapbasicblocks_st *src = (struct meltmapbasicblocks_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmapbasicblocks_st *dst = ggc_alloc_meltmapbasicblocks_st ();
@@ -904,13 +1050,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #2 CTYPE_BITMAP*/
+        /*forwcopy gtyctype #2 CTYPE_BITMAP generated in warmelt-modes */
         case MELTOBMAG_BITMAP:
         {
             /* macro ggc_alloc_meltbitmap_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltbitmap_st
+#define ggc_alloc_meltbitmap_st() ((struct meltbitmap_st*)(ggc_internal_alloc (sizeof (struct meltbitmap_st))))
+#endif /* ggc_alloc_meltbitmap_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltbitmap_st
 #define ggc_alloc_meltbitmap_st() ((struct meltbitmap_st*)(ggc_internal_alloc_stat (sizeof (struct meltbitmap_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltbitmap_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltbitmap_st *src = (struct meltbitmap_st*) p;
             struct meltbitmap_st *dst = ggc_alloc_meltbitmap_st ();
             *dst = *src;
@@ -920,13 +1072,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPBITMAPS:
         {
             /* ggc_alloc_meltmapbitmaps_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmapbitmaps_st
+#define ggc_alloc_meltmapbitmaps_st() ((struct meltmapbitmaps_st*) (ggc_internal_alloc (sizeof (struct meltmapbitmaps_st))))
+#endif /* ggc_alloc_meltmapbitmaps_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmapbitmaps_st
 #define ggc_alloc_meltmapbitmaps_st() ((struct meltmapbitmaps_st*) (ggc_internal_alloc_stat (sizeof (struct meltmapbitmaps_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmapbitmaps_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entrybitmapmelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entrybitmapmelt_st
+#define ggc_alloc_vec_entrybitmapmelt_st(N) ((struct entrybitmapmelt_st*) (ggc_internal_alloc (sizeof (struct entrybitmapmelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entrybitmapmelt_st
 #define ggc_alloc_vec_entrybitmapmelt_st(n) ((struct entrybitmapmelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entrybitmapmelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmapbitmaps_st *src = (struct meltmapbitmaps_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmapbitmaps_st *dst = ggc_alloc_meltmapbitmaps_st ();
@@ -944,13 +1109,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #3 CTYPE_EDGE*/
+        /*forwcopy gtyctype #3 CTYPE_EDGE generated in warmelt-modes */
         case MELTOBMAG_EDGE:
         {
             /* macro ggc_alloc_meltedge_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltedge_st
+#define ggc_alloc_meltedge_st() ((struct meltedge_st*)(ggc_internal_alloc (sizeof (struct meltedge_st))))
+#endif /* ggc_alloc_meltedge_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltedge_st
 #define ggc_alloc_meltedge_st() ((struct meltedge_st*)(ggc_internal_alloc_stat (sizeof (struct meltedge_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltedge_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltedge_st *src = (struct meltedge_st*) p;
             struct meltedge_st *dst = ggc_alloc_meltedge_st ();
             *dst = *src;
@@ -960,13 +1131,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPEDGES:
         {
             /* ggc_alloc_meltmapedges_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmapedges_st
+#define ggc_alloc_meltmapedges_st() ((struct meltmapedges_st*) (ggc_internal_alloc (sizeof (struct meltmapedges_st))))
+#endif /* ggc_alloc_meltmapedges_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmapedges_st
 #define ggc_alloc_meltmapedges_st() ((struct meltmapedges_st*) (ggc_internal_alloc_stat (sizeof (struct meltmapedges_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmapedges_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entryedgemelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entryedgemelt_st
+#define ggc_alloc_vec_entryedgemelt_st(N) ((struct entryedgemelt_st*) (ggc_internal_alloc (sizeof (struct entryedgemelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entryedgemelt_st
 #define ggc_alloc_vec_entryedgemelt_st(n) ((struct entryedgemelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entryedgemelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmapedges_st *src = (struct meltmapedges_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmapedges_st *dst = ggc_alloc_meltmapedges_st ();
@@ -984,13 +1168,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #4 CTYPE_GIMPLE*/
+        /*forwcopy gtyctype #4 CTYPE_GIMPLE generated in warmelt-modes */
         case MELTOBMAG_GIMPLE:
         {
             /* macro ggc_alloc_meltgimple_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltgimple_st
+#define ggc_alloc_meltgimple_st() ((struct meltgimple_st*)(ggc_internal_alloc (sizeof (struct meltgimple_st))))
+#endif /* ggc_alloc_meltgimple_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltgimple_st
 #define ggc_alloc_meltgimple_st() ((struct meltgimple_st*)(ggc_internal_alloc_stat (sizeof (struct meltgimple_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltgimple_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltgimple_st *src = (struct meltgimple_st*) p;
             struct meltgimple_st *dst = ggc_alloc_meltgimple_st ();
             *dst = *src;
@@ -1000,13 +1190,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPGIMPLES:
         {
             /* ggc_alloc_meltmapgimples_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmapgimples_st
+#define ggc_alloc_meltmapgimples_st() ((struct meltmapgimples_st*) (ggc_internal_alloc (sizeof (struct meltmapgimples_st))))
+#endif /* ggc_alloc_meltmapgimples_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmapgimples_st
 #define ggc_alloc_meltmapgimples_st() ((struct meltmapgimples_st*) (ggc_internal_alloc_stat (sizeof (struct meltmapgimples_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmapgimples_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entrygimplemelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entrygimplemelt_st
+#define ggc_alloc_vec_entrygimplemelt_st(N) ((struct entrygimplemelt_st*) (ggc_internal_alloc (sizeof (struct entrygimplemelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entrygimplemelt_st
 #define ggc_alloc_vec_entrygimplemelt_st(n) ((struct entrygimplemelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entrygimplemelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmapgimples_st *src = (struct meltmapgimples_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmapgimples_st *dst = ggc_alloc_meltmapgimples_st ();
@@ -1024,13 +1227,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #5 CTYPE_GIMPLE_SEQ*/
+        /*forwcopy gtyctype #5 CTYPE_GIMPLE_SEQ generated in warmelt-modes */
         case MELTOBMAG_GIMPLESEQ:
         {
             /* macro ggc_alloc_meltgimpleseq_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltgimpleseq_st
+#define ggc_alloc_meltgimpleseq_st() ((struct meltgimpleseq_st*)(ggc_internal_alloc (sizeof (struct meltgimpleseq_st))))
+#endif /* ggc_alloc_meltgimpleseq_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltgimpleseq_st
 #define ggc_alloc_meltgimpleseq_st() ((struct meltgimpleseq_st*)(ggc_internal_alloc_stat (sizeof (struct meltgimpleseq_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltgimpleseq_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltgimpleseq_st *src = (struct meltgimpleseq_st*) p;
             struct meltgimpleseq_st *dst = ggc_alloc_meltgimpleseq_st ();
             *dst = *src;
@@ -1040,13 +1249,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPGIMPLESEQS:
         {
             /* ggc_alloc_meltmapgimpleseqs_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmapgimpleseqs_st
+#define ggc_alloc_meltmapgimpleseqs_st() ((struct meltmapgimpleseqs_st*) (ggc_internal_alloc (sizeof (struct meltmapgimpleseqs_st))))
+#endif /* ggc_alloc_meltmapgimpleseqs_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmapgimpleseqs_st
 #define ggc_alloc_meltmapgimpleseqs_st() ((struct meltmapgimpleseqs_st*) (ggc_internal_alloc_stat (sizeof (struct meltmapgimpleseqs_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmapgimpleseqs_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entrygimpleseqmelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entrygimpleseqmelt_st
+#define ggc_alloc_vec_entrygimpleseqmelt_st(N) ((struct entrygimpleseqmelt_st*) (ggc_internal_alloc (sizeof (struct entrygimpleseqmelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entrygimpleseqmelt_st
 #define ggc_alloc_vec_entrygimpleseqmelt_st(n) ((struct entrygimpleseqmelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entrygimpleseqmelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmapgimpleseqs_st *src = (struct meltmapgimpleseqs_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmapgimpleseqs_st *dst = ggc_alloc_meltmapgimpleseqs_st ();
@@ -1064,13 +1286,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #6 CTYPE_LOOP*/
+        /*forwcopy gtyctype #6 CTYPE_LOOP generated in warmelt-modes */
         case MELTOBMAG_LOOP:
         {
             /* macro ggc_alloc_meltloop_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltloop_st
+#define ggc_alloc_meltloop_st() ((struct meltloop_st*)(ggc_internal_alloc (sizeof (struct meltloop_st))))
+#endif /* ggc_alloc_meltloop_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltloop_st
 #define ggc_alloc_meltloop_st() ((struct meltloop_st*)(ggc_internal_alloc_stat (sizeof (struct meltloop_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltloop_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltloop_st *src = (struct meltloop_st*) p;
             struct meltloop_st *dst = ggc_alloc_meltloop_st ();
             *dst = *src;
@@ -1080,13 +1308,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPLOOPS:
         {
             /* ggc_alloc_meltmaploops_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmaploops_st
+#define ggc_alloc_meltmaploops_st() ((struct meltmaploops_st*) (ggc_internal_alloc (sizeof (struct meltmaploops_st))))
+#endif /* ggc_alloc_meltmaploops_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmaploops_st
 #define ggc_alloc_meltmaploops_st() ((struct meltmaploops_st*) (ggc_internal_alloc_stat (sizeof (struct meltmaploops_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmaploops_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entryloopmelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entryloopmelt_st
+#define ggc_alloc_vec_entryloopmelt_st(N) ((struct entryloopmelt_st*) (ggc_internal_alloc (sizeof (struct entryloopmelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entryloopmelt_st
 #define ggc_alloc_vec_entryloopmelt_st(n) ((struct entryloopmelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entryloopmelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmaploops_st *src = (struct meltmaploops_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmaploops_st *dst = ggc_alloc_meltmaploops_st ();
@@ -1104,13 +1345,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #7 CTYPE_RTVEC*/
+        /*forwcopy gtyctype #7 CTYPE_RTVEC generated in warmelt-modes */
         case MELTOBMAG_RTVEC:
         {
             /* macro ggc_alloc_meltrtvec_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltrtvec_st
+#define ggc_alloc_meltrtvec_st() ((struct meltrtvec_st*)(ggc_internal_alloc (sizeof (struct meltrtvec_st))))
+#endif /* ggc_alloc_meltrtvec_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltrtvec_st
 #define ggc_alloc_meltrtvec_st() ((struct meltrtvec_st*)(ggc_internal_alloc_stat (sizeof (struct meltrtvec_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltrtvec_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltrtvec_st *src = (struct meltrtvec_st*) p;
             struct meltrtvec_st *dst = ggc_alloc_meltrtvec_st ();
             *dst = *src;
@@ -1120,13 +1367,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPRTVECS:
         {
             /* ggc_alloc_meltmaprtvecs_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmaprtvecs_st
+#define ggc_alloc_meltmaprtvecs_st() ((struct meltmaprtvecs_st*) (ggc_internal_alloc (sizeof (struct meltmaprtvecs_st))))
+#endif /* ggc_alloc_meltmaprtvecs_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmaprtvecs_st
 #define ggc_alloc_meltmaprtvecs_st() ((struct meltmaprtvecs_st*) (ggc_internal_alloc_stat (sizeof (struct meltmaprtvecs_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmaprtvecs_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entryrtvecmelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entryrtvecmelt_st
+#define ggc_alloc_vec_entryrtvecmelt_st(N) ((struct entryrtvecmelt_st*) (ggc_internal_alloc (sizeof (struct entryrtvecmelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entryrtvecmelt_st
 #define ggc_alloc_vec_entryrtvecmelt_st(n) ((struct entryrtvecmelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entryrtvecmelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmaprtvecs_st *src = (struct meltmaprtvecs_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmaprtvecs_st *dst = ggc_alloc_meltmaprtvecs_st ();
@@ -1144,13 +1404,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #8 CTYPE_RTX*/
+        /*forwcopy gtyctype #8 CTYPE_RTX generated in warmelt-modes */
         case MELTOBMAG_RTX:
         {
             /* macro ggc_alloc_meltrtx_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltrtx_st
+#define ggc_alloc_meltrtx_st() ((struct meltrtx_st*)(ggc_internal_alloc (sizeof (struct meltrtx_st))))
+#endif /* ggc_alloc_meltrtx_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltrtx_st
 #define ggc_alloc_meltrtx_st() ((struct meltrtx_st*)(ggc_internal_alloc_stat (sizeof (struct meltrtx_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltrtx_st */
+#endif /* GCC 4.9 or 5.0 */
             struct meltrtx_st *src = (struct meltrtx_st*) p;
             struct meltrtx_st *dst = ggc_alloc_meltrtx_st ();
             *dst = *src;
@@ -1160,13 +1426,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPRTXS:
         {
             /* ggc_alloc_meltmaprtxs_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmaprtxs_st
+#define ggc_alloc_meltmaprtxs_st() ((struct meltmaprtxs_st*) (ggc_internal_alloc (sizeof (struct meltmaprtxs_st))))
+#endif /* ggc_alloc_meltmaprtxs_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmaprtxs_st
 #define ggc_alloc_meltmaprtxs_st() ((struct meltmaprtxs_st*) (ggc_internal_alloc_stat (sizeof (struct meltmaprtxs_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmaprtxs_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entryrtxmelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entryrtxmelt_st
+#define ggc_alloc_vec_entryrtxmelt_st(N) ((struct entryrtxmelt_st*) (ggc_internal_alloc (sizeof (struct entryrtxmelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entryrtxmelt_st
 #define ggc_alloc_vec_entryrtxmelt_st(n) ((struct entryrtxmelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entryrtxmelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmaprtxs_st *src = (struct meltmaprtxs_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmaprtxs_st *dst = ggc_alloc_meltmaprtxs_st ();
@@ -1184,13 +1463,19 @@ melt_forwarded_copy (melt_ptr_t p)
             n = (melt_ptr_t) dst;
             break;
         }
-        /*forwcopy gtyctype #9 CTYPE_TREE*/
+        /*forwcopy gtyctype #9 CTYPE_TREE generated in warmelt-modes */
         case MELTOBMAG_TREE:
         {
             /* macro ggc_alloc_melttree_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_melttree_st
+#define ggc_alloc_melttree_st() ((struct melttree_st*)(ggc_internal_alloc (sizeof (struct melttree_st))))
+#endif /* ggc_alloc_melttree_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_melttree_st
 #define ggc_alloc_melttree_st() ((struct melttree_st*)(ggc_internal_alloc_stat (sizeof (struct melttree_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_melttree_st */
+#endif /* GCC 4.9 or 5.0 */
             struct melttree_st *src = (struct melttree_st*) p;
             struct melttree_st *dst = ggc_alloc_melttree_st ();
             *dst = *src;
@@ -1200,13 +1485,26 @@ melt_forwarded_copy (melt_ptr_t p)
         case MELTOBMAG_MAPTREES:
         {
             /* ggc_alloc_meltmaptrees_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_meltmaptrees_st
+#define ggc_alloc_meltmaptrees_st() ((struct meltmaptrees_st*) (ggc_internal_alloc (sizeof (struct meltmaptrees_st))))
+#endif /* ggc_alloc_meltmaptrees_st */
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_meltmaptrees_st
 #define ggc_alloc_meltmaptrees_st() ((struct meltmaptrees_st*) (ggc_internal_alloc_stat (sizeof (struct meltmaptrees_st) MEM_STAT_INFO)))
-#endif
+#endif /* ggc_alloc_meltmaptrees_st */
+#endif /* GCC 4.9 or 5.0 */
+
             /* ggc_alloc_vec_entrytreemelt_st should be generated by gengtype not by runtypesupport_forwcopy */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#ifndef ggc_alloc_vec_entrytreemelt_st
+#define ggc_alloc_vec_entrytreemelt_st(N) ((struct entrytreemelt_st*) (ggc_internal_alloc (sizeof (struct entrytreemelt_st) * (N))))
+#endif
+#else /* GCC 4.9 */
 #ifndef ggc_alloc_vec_entrytreemelt_st
 #define ggc_alloc_vec_entrytreemelt_st(n) ((struct entrytreemelt_st*) (ggc_internal_vec_alloc_stat (sizeof (struct entrytreemelt_st), n MEM_STAT_INFO)))
 #endif
+#endif /* GCC 4.9 or 5.0 */
             struct meltmaptrees_st *src = (struct meltmaptrees_st*) p;
             int siz = melt_primtab[src->lenix];
             struct meltmaptrees_st *dst = ggc_alloc_meltmaptrees_st ();
@@ -1296,9 +1594,9 @@ melt_scanning (melt_ptr_t p)
     omagic = p->u_discr->meltobj_magic;
     switch (omagic)
         {
-            /* end of header from generate_runtypesupport_scanning*/
+        /* end of header from generate_runtypesupport_scanning*/
 
-            /*valdesc #1 VALDESC_BUCKETLONGS*/
+        /*valdesc #1 VALDESC_BUCKETLONGS*/
         case MELTOBMAG_BUCKETLONGS:
         {
             struct meltbucketlongs_st*src = (struct meltbucketlongs_st*) p;
@@ -1324,7 +1622,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_CLOSURE:
         {
             struct meltclosure_st*src = (struct meltclosure_st*) p;
-            /* forwarding from VALDESC_CLOSURE */
+            /* forwarding from VALDESC_CLOSURE in warmelt-base.melt */
             int nbval = (int) src->nbval;
             MELT_FORWARDED (src->rout);
             for (int ix = 0;
@@ -1339,7 +1637,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_DECAY:
         {
             struct meltdecay_st*src = (struct meltdecay_st*) p;
-            /* from VALDESC_DECAY */
+            /* from VALDESC_DECAY  in warmelt-base.melt */
             MELT_FORWARDED (src->val);
 
             break;
@@ -1396,7 +1694,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_LIST:
         {
             struct meltlist_st*src = (struct meltlist_st*) p;
-            /* from VALDESC_LIST */
+            /* from VALDESC_LIST in warmelt-base.melt */
             MELT_FORWARDED (src->first);
             MELT_FORWARDED (src->last);
 
@@ -1407,7 +1705,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_MAPOBJECTS:
         {
             struct meltmapobjects_st*src = (struct meltmapobjects_st*) p;
-            /* forwarding from VALDESC_MAPOBJECTS */
+            /* forwarding from VALDESC_MAPOBJECTS in warmelt-base.melt */
             int siz, ix;
             MELT_FORWARDED(src->meltmap_aux);
             if (!src->entab)
@@ -1446,7 +1744,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_MAPSTRINGS:
         {
             struct meltmapstrings_st*src = (struct meltmapstrings_st*) p;
-            /* forwarding from VALDESC_MAPSTRINGS */
+            /* forwarding from VALDESC_MAPSTRINGS  in warmelt-base.melt */
             int ix, siz;
             MELT_FORWARDED(src->meltmap_aux);
             if (!src->entab)
@@ -1485,7 +1783,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_MIXBIGINT:
         {
             struct meltmixbigint_st*src = (struct meltmixbigint_st*) p;
-            /* from VALDESC_MIXBIGINT */
+            /* from VALDESC_MIXBIGINT file warmelt-base.melt */
             MELT_FORWARDED (src->ptrval);
 
             break;
@@ -1495,7 +1793,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_MIXINT:
         {
             struct meltmixint_st*src = (struct meltmixint_st*) p;
-            /* from VALDESC_MIXINT */
+            /* from VALDESC_MIXINT file warmelt-base.melt */
             MELT_FORWARDED (src->ptrval);
 
             break;
@@ -1505,7 +1803,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_MIXLOC:
         {
             struct meltmixloc_st*src = (struct meltmixloc_st*) p;
-            /* from VALDESC_MIXLOC */
+            /* from VALDESC_MIXLOC file warmelt-base.melt */
             MELT_FORWARDED (src->ptrval);
 
             break;
@@ -1515,7 +1813,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_MULTIPLE:
         {
             struct meltmultiple_st*src = (struct meltmultiple_st*) p;
-            /* forwarding chunk from VALDESC_MULTIPLE */
+            /* forwarding chunk from VALDESC_MULTIPLE in warmelt-base.melt */
             int nbval = (int) src->nbval;
             for (int ix = 0;
                     ix < nbval;
@@ -1571,7 +1869,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_ROUTINE:
         {
             struct meltroutine_st*src = (struct meltroutine_st*) p;
-            /* from VALDESC_ROUTINE */
+            /* from VALDESC_ROUTINE in warmelt-base.melt */
             int nbval = (int) src->nbval;
             for (int ix = 0;
                     ix < nbval;
@@ -1586,7 +1884,7 @@ melt_scanning (melt_ptr_t p)
         case MELTOBMAG_SPECIAL_DATA:
         {
             struct meltspecialdata_st*src = (struct meltspecialdata_st*) p;
-            /* from VALDESC_SPECIAL_DATA */
+            /* from VALDESC_SPECIAL_DATA file warmelt-base.melt */
             src->meltspec_mark = 1;
             MELT_FORWARDED (src->meltspec_value);
 
@@ -1633,7 +1931,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPBASICBLOCKS */
+            };    /* end case MELTOBMAG_MAPBASICBLOCKS */
         break;
         /*gtyctype #2 CTYPE_BITMAP*/
         case MELTOBMAG_BITMAP:
@@ -1662,7 +1960,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPBITMAPS */
+            };    /* end case MELTOBMAG_MAPBITMAPS */
         break;
         /*gtyctype #3 CTYPE_EDGE*/
         case MELTOBMAG_EDGE:
@@ -1691,7 +1989,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPEDGES */
+            };    /* end case MELTOBMAG_MAPEDGES */
         break;
         /*gtyctype #4 CTYPE_GIMPLE*/
         case MELTOBMAG_GIMPLE:
@@ -1720,7 +2018,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPGIMPLES */
+            };    /* end case MELTOBMAG_MAPGIMPLES */
         break;
         /*gtyctype #5 CTYPE_GIMPLE_SEQ*/
         case MELTOBMAG_GIMPLESEQ:
@@ -1749,7 +2047,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPGIMPLESEQS */
+            };    /* end case MELTOBMAG_MAPGIMPLESEQS */
         break;
         /*gtyctype #6 CTYPE_LOOP*/
         case MELTOBMAG_LOOP:
@@ -1778,7 +2076,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPLOOPS */
+            };    /* end case MELTOBMAG_MAPLOOPS */
         break;
         /*gtyctype #7 CTYPE_RTVEC*/
         case MELTOBMAG_RTVEC:
@@ -1807,7 +2105,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPRTVECS */
+            };    /* end case MELTOBMAG_MAPRTVECS */
         break;
         /*gtyctype #8 CTYPE_RTX*/
         case MELTOBMAG_RTX:
@@ -1836,7 +2134,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPRTXS */
+            };    /* end case MELTOBMAG_MAPRTXS */
         break;
         /*gtyctype #9 CTYPE_TREE*/
         case MELTOBMAG_TREE:
@@ -1865,7 +2163,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-        };    /* end case MELTOBMAG_MAPTREES */
+            };    /* end case MELTOBMAG_MAPTREES */
         break;
         /* trailer generated by generate_runtypesupport_scanning */
         default:
@@ -2267,9 +2565,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         {
 
 
-            /*** cloning 9 GTY-ed ctypes ***/
+        /*** cloning 9 GTY-ed ctypes ***/
 
-            /*cloning gtyctype #1 CTYPE_BASIC_BLOCK */
+        /*cloning gtyctype #1 CTYPE_BASIC_BLOCK */
         case MELTOBMAG_BASICBLOCK :   /* cloning boxed value CTYPE_BASIC_BLOCK */
         {
             struct meltbasicblock_st *src = (struct meltbasicblock_st *) srcvalv;
@@ -2566,7 +2864,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltbucketlongs_st *src = (struct meltbucketlongs_st*) srcvalv;
             struct meltbucketlongs_st *dst = NULL;
             /* clone chunk for VALDESC_BUCKETLONGS:*/
-            /* cloning chunk  from VALDESC_BUCKETLONGS in warmelt-base.melt */
+            /* cloning chunk from VALDESC_BUCKETLONGS in warmelt-base.melt */
             unsigned lnix = src->buckl_lenix;
             unsigned len = melt_primtab[lnix];
             unsigned cnt = src->buckl_ucount;
@@ -2606,7 +2904,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltclosure_st *src = (struct meltclosure_st*) srcvalv;
             struct meltclosure_st *dst = NULL;
             /* clone chunk for VALDESC_CLOSURE:*/
-            /* cloning from VALDESC_CLOSURE */
+            /* cloning from VALDESC_CLOSURE  in warmelt-base.melt*/
             unsigned nbval = (int) src->nbval;
             dst
                 = (struct meltclosure_st*)meltgc_allocate (sizeof(struct meltclosure_st),
@@ -2653,8 +2951,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         /*no cloning for VALDESC_HOOK*/
         case MELTOBMAG_HOOK:
             break;
-            /** cloning value descriptor #6 VALDESC_INT **/
-            /*default cloning for VALDESC_INT*/
+        /** cloning value descriptor #6 VALDESC_INT **/
+        /*default cloning for VALDESC_INT*/
         case MELTOBMAG_INT:
         {
             struct meltint_st *src = (struct meltint_st*) srcvalv;
@@ -2693,7 +2991,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltlist_st *src = (struct meltlist_st*) srcvalv;
             struct meltlist_st *dst = NULL;
             /* clone chunk for VALDESC_LIST:*/
-            /* cloning from VALDESC_LIST */
+            /* cloning from VALDESC_LIST in warmelt-base.melt */
             struct meltpair_st* curpair = NULL;
             dst = (struct meltlist_st*) meltgc_new_list ((meltobject_ptr_t)newdiscrv);
             resv = (melt_ptr_t) dst;
@@ -2724,7 +3022,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltmapobjects_st *src = (struct meltmapobjects_st*) srcvalv;
             struct meltmapobjects_st *dst = NULL;
             /* clone chunk for VALDESC_MAPOBJECTS:*/
-            /* cloning, from VALDESC_MAPOBJECTS */
+            /* cloning, from VALDESC_MAPOBJECTS in warmelt-base.melt */
             unsigned srccount = src->count;
             unsigned srclen = melt_primtab[src->lenix];
             unsigned newlen = 4*srccount/3+4;
@@ -2761,7 +3059,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltmapstrings_st *src = (struct meltmapstrings_st*) srcvalv;
             struct meltmapstrings_st *dst = NULL;
             /* clone chunk for VALDESC_MAPSTRINGS:*/
-            /* cloning from VALDESC_MAPSTRINGS */
+            /* cloning from VALDESC_MAPSTRINGS in warmelt-base.melt */
             unsigned srccount = src->count;
             unsigned srclen = melt_primtab[src->lenix];
             unsigned newlen = 4*srccount/3+4;
@@ -2796,8 +3094,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         /*no cloning for VALDESC_MIXBIGINT*/
         case MELTOBMAG_MIXBIGINT:
             break;
-            /** cloning value descriptor #12 VALDESC_MIXINT **/
-            /*default cloning for VALDESC_MIXINT*/
+        /** cloning value descriptor #12 VALDESC_MIXINT **/
+        /*default cloning for VALDESC_MIXINT*/
         case MELTOBMAG_MIXINT:
         {
             struct meltmixint_st *src = (struct meltmixint_st*) srcvalv;
@@ -2827,7 +3125,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltmultiple_st *src = (struct meltmultiple_st*) srcvalv;
             struct meltmultiple_st *dst = NULL;
             /* clone chunk for VALDESC_MULTIPLE:*/
-            /* cloning from VALDESC_MULTIPLE */
+            /* cloning from VALDESC_MULTIPLE in warmelt-base.melt */
             unsigned srclen = src->nbval;
             dst =
                 (struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
@@ -2926,18 +3224,18 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         /*no cloning for VALDESC_ROUTINE*/
         case MELTOBMAG_ROUTINE:
             break;
-            /** cloning value descriptor #19 VALDESC_SPECIAL_DATA **/
-            /*no cloning for VALDESC_SPECIAL_DATA*/
+        /** cloning value descriptor #19 VALDESC_SPECIAL_DATA **/
+        /*no cloning for VALDESC_SPECIAL_DATA*/
         case MELTOBMAG_SPECIAL_DATA:
             break;
-            /** cloning value descriptor #20 VALDESC_STRBUF **/
-            /*explicit cloning for VALDESC_STRBUF*/
+        /** cloning value descriptor #20 VALDESC_STRBUF **/
+        /*explicit cloning for VALDESC_STRBUF*/
         case MELTOBMAG_STRBUF:
         {
             struct meltstrbuf_st *src = (struct meltstrbuf_st*) srcvalv;
             struct meltstrbuf_st *dst = NULL;
             /* clone chunk for VALDESC_STRBUF:*/
-            /* clone chunk from VALDESC_STRBUF */
+            /* clone chunk from VALDESC_STRBUF in warmelt-base.melt */
             dst = (struct meltstrbuf_st*)
                   meltgc_new_strbuf ((meltobject_ptr_t)newdiscrv, NULL);
             resv = (melt_ptr_t) dst;
@@ -2956,7 +3254,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltstring_st *src = (struct meltstring_st*) srcvalv;
             struct meltstring_st *dst = NULL;
             /* clone chunk for VALDESC_STRING:*/
-            /* clone from VALDESC_STRING  */
+            /* clone from VALDESC_STRING  file warmelt-base.melt */
             dst = (struct meltstring_st*)
                   meltgc_new_stringdup ((meltobject_ptr_t)newdiscrv,
                                         src->val);
@@ -3103,12 +3401,10 @@ void melthookproc_HOOK_ALL_IPA_PASSES_END()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_IPA_PASSES_END);
     typedef void melthooksig_HOOK_ALL_IPA_PASSES_END_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_IPA_PASSES_END */
     melthooksig_HOOK_ALL_IPA_PASSES_END_t *melthookptr_HOOK_ALL_IPA_PASSES_END =
         reinterpret_cast <melthooksig_HOOK_ALL_IPA_PASSES_END_t*>
@@ -3133,12 +3429,10 @@ void melthookproc_HOOK_ALL_IPA_PASSES_START()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_IPA_PASSES_START);
     typedef void melthooksig_HOOK_ALL_IPA_PASSES_START_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_IPA_PASSES_START */
     melthooksig_HOOK_ALL_IPA_PASSES_START_t *melthookptr_HOOK_ALL_IPA_PASSES_START =
         reinterpret_cast <melthooksig_HOOK_ALL_IPA_PASSES_START_t*>
@@ -3163,12 +3457,10 @@ void melthookproc_HOOK_ALL_PASSES_END()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_PASSES_END);
     typedef void melthooksig_HOOK_ALL_PASSES_END_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_PASSES_END */
     melthooksig_HOOK_ALL_PASSES_END_t *melthookptr_HOOK_ALL_PASSES_END =
         reinterpret_cast <melthooksig_HOOK_ALL_PASSES_END_t*>
@@ -3193,12 +3485,10 @@ void melthookproc_HOOK_ALL_PASSES_START()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_PASSES_START);
     typedef void melthooksig_HOOK_ALL_PASSES_START_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_PASSES_START */
     melthooksig_HOOK_ALL_PASSES_START_t *melthookptr_HOOK_ALL_PASSES_START =
         reinterpret_cast <melthooksig_HOOK_ALL_PASSES_START_t*>
@@ -3223,12 +3513,10 @@ void melthookproc_HOOK_EARLY_GIMPLE_PASSES_END()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_EARLY_GIMPLE_PASSES_END);
     typedef void melthooksig_HOOK_EARLY_GIMPLE_PASSES_END_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_EARLY_GIMPLE_PASSES_END */
     melthooksig_HOOK_EARLY_GIMPLE_PASSES_END_t *melthookptr_HOOK_EARLY_GIMPLE_PASSES_END =
         reinterpret_cast <melthooksig_HOOK_EARLY_GIMPLE_PASSES_END_t*>
@@ -3253,12 +3541,10 @@ void melthookproc_HOOK_EARLY_GIMPLE_PASSES_START()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_EARLY_GIMPLE_PASSES_START);
     typedef void melthooksig_HOOK_EARLY_GIMPLE_PASSES_START_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_EARLY_GIMPLE_PASSES_START */
     melthooksig_HOOK_EARLY_GIMPLE_PASSES_START_t *melthookptr_HOOK_EARLY_GIMPLE_PASSES_START =
         reinterpret_cast <melthooksig_HOOK_EARLY_GIMPLE_PASSES_START_t*>
@@ -3283,12 +3569,10 @@ void melthookproc_HOOK_EXIT_FINALIZER()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_EXIT_FINALIZER);
     typedef void melthooksig_HOOK_EXIT_FINALIZER_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_EXIT_FINALIZER */
     melthooksig_HOOK_EXIT_FINALIZER_t *melthookptr_HOOK_EXIT_FINALIZER =
         reinterpret_cast <melthooksig_HOOK_EXIT_FINALIZER_t*>
@@ -3313,12 +3597,10 @@ void melthookproc_HOOK_FINISH_DECL(tree meltin_TFNDECL_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FINISH_DECL);
     typedef void melthooksig_HOOK_FINISH_DECL_t (melt_ptr_t, tree);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_DECL exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_DECL is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FINISH_DECL exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FINISH_DECL is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FINISH_DECL */
     melthooksig_HOOK_FINISH_DECL_t *melthookptr_HOOK_FINISH_DECL =
         reinterpret_cast <melthooksig_HOOK_FINISH_DECL_t*>
@@ -3344,12 +3626,10 @@ void melthookproc_HOOK_FINISH_TYPE(tree meltin_TFNDECL_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FINISH_TYPE);
     typedef void melthooksig_HOOK_FINISH_TYPE_t (melt_ptr_t, tree);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_TYPE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_TYPE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FINISH_TYPE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FINISH_TYPE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FINISH_TYPE */
     melthooksig_HOOK_FINISH_TYPE_t *melthookptr_HOOK_FINISH_TYPE =
         reinterpret_cast <melthooksig_HOOK_FINISH_TYPE_t*>
@@ -3375,12 +3655,10 @@ void melthookproc_HOOK_FINISH_UNIT()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FINISH_UNIT);
     typedef void melthooksig_HOOK_FINISH_UNIT_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_UNIT exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_UNIT is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FINISH_UNIT exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FINISH_UNIT is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FINISH_UNIT */
     melthooksig_HOOK_FINISH_UNIT_t *melthookptr_HOOK_FINISH_UNIT =
         reinterpret_cast <melthooksig_HOOK_FINISH_UNIT_t*>
@@ -3405,12 +3683,10 @@ melt_ptr_t melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER(melt_ptr_t meltin
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER);
     typedef melt_ptr_t melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t (melt_ptr_t, melt_ptr_t, const char*);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER */
     melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t *melthookptr_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER =
         reinterpret_cast <melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t*>
@@ -3437,12 +3713,10 @@ long melthookproc_HOOK_GIMPLE_EXECUTE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_GIMPLE_EXECUTE);
     typedef long melthooksig_HOOK_GIMPLE_EXECUTE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_GIMPLE_EXECUTE */
     melthooksig_HOOK_GIMPLE_EXECUTE_t *melthookptr_HOOK_GIMPLE_EXECUTE =
         reinterpret_cast <melthooksig_HOOK_GIMPLE_EXECUTE_t*>
@@ -3467,12 +3741,10 @@ long melthookproc_HOOK_GIMPLE_GATE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_GIMPLE_GATE);
     typedef long melthooksig_HOOK_GIMPLE_GATE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_GIMPLE_GATE */
     melthooksig_HOOK_GIMPLE_GATE_t *melthookptr_HOOK_GIMPLE_GATE =
         reinterpret_cast <melthooksig_HOOK_GIMPLE_GATE_t*>
@@ -3497,12 +3769,10 @@ tree melthookproc_HOOK_HANDLE_ATTRIBUTE(tree meltin_TR_IN_NODE_p0, tree meltin_T
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_ATTRIBUTE);
     typedef tree melthooksig_HOOK_HANDLE_ATTRIBUTE_t (melt_ptr_t, tree, tree, tree, long, tree* , long* );
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_ATTRIBUTE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_ATTRIBUTE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_HANDLE_ATTRIBUTE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_HANDLE_ATTRIBUTE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_HANDLE_ATTRIBUTE */
     melthooksig_HOOK_HANDLE_ATTRIBUTE_t *melthookptr_HOOK_HANDLE_ATTRIBUTE =
         reinterpret_cast <melthooksig_HOOK_HANDLE_ATTRIBUTE_t*>
@@ -3533,12 +3803,10 @@ void melthookproc_HOOK_HANDLE_SIGALRM()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_SIGALRM);
     typedef void melthooksig_HOOK_HANDLE_SIGALRM_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_HANDLE_SIGALRM */
     melthooksig_HOOK_HANDLE_SIGALRM_t *melthookptr_HOOK_HANDLE_SIGALRM =
         reinterpret_cast <melthooksig_HOOK_HANDLE_SIGALRM_t*>
@@ -3563,12 +3831,10 @@ void melthookproc_HOOK_HANDLE_SIGCHLD()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_SIGCHLD);
     typedef void melthooksig_HOOK_HANDLE_SIGCHLD_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_HANDLE_SIGCHLD */
     melthooksig_HOOK_HANDLE_SIGCHLD_t *melthookptr_HOOK_HANDLE_SIGCHLD =
         reinterpret_cast <melthooksig_HOOK_HANDLE_SIGCHLD_t*>
@@ -3593,12 +3859,10 @@ void melthookproc_HOOK_HANDLE_SIGIO()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_SIGIO);
     typedef void melthooksig_HOOK_HANDLE_SIGIO_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_HANDLE_SIGIO */
     melthooksig_HOOK_HANDLE_SIGIO_t *melthookptr_HOOK_HANDLE_SIGIO =
         reinterpret_cast <melthooksig_HOOK_HANDLE_SIGIO_t*>
@@ -3623,12 +3887,10 @@ melt_ptr_t melthookproc_HOOK_INTERN_KEYWORD(melt_ptr_t meltin_KEYWV_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_INTERN_KEYWORD);
     typedef melt_ptr_t melthooksig_HOOK_INTERN_KEYWORD_t (melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_INTERN_KEYWORD */
     melthooksig_HOOK_INTERN_KEYWORD_t *melthookptr_HOOK_INTERN_KEYWORD =
         reinterpret_cast <melthooksig_HOOK_INTERN_KEYWORD_t*>
@@ -3654,12 +3916,10 @@ melt_ptr_t melthookproc_HOOK_INTERN_SYMBOL(melt_ptr_t meltin_SYMBV_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_INTERN_SYMBOL);
     typedef melt_ptr_t melthooksig_HOOK_INTERN_SYMBOL_t (melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_INTERN_SYMBOL */
     melthooksig_HOOK_INTERN_SYMBOL_t *melthookptr_HOOK_INTERN_SYMBOL =
         reinterpret_cast <melthooksig_HOOK_INTERN_SYMBOL_t*>
@@ -3685,12 +3945,10 @@ void melthookproc_HOOK_INSTALL_ATTRIBUTES()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_INSTALL_ATTRIBUTES);
     typedef void melthooksig_HOOK_INSTALL_ATTRIBUTES_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_INSTALL_ATTRIBUTES exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_INSTALL_ATTRIBUTES is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_INSTALL_ATTRIBUTES exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_INSTALL_ATTRIBUTES is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_INSTALL_ATTRIBUTES */
     melthooksig_HOOK_INSTALL_ATTRIBUTES_t *melthookptr_HOOK_INSTALL_ATTRIBUTES =
         reinterpret_cast <melthooksig_HOOK_INSTALL_ATTRIBUTES_t*>
@@ -3715,12 +3973,10 @@ void melthookproc_HOOK_LOW_DEBUG_VALUE_AT(melt_ptr_t meltin_VAL_p0, const char* 
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_LOW_DEBUG_VALUE_AT);
     typedef void melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t (melt_ptr_t, melt_ptr_t, const char*, long, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_LOW_DEBUG_VALUE_AT */
     melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t *melthookptr_HOOK_LOW_DEBUG_VALUE_AT =
         reinterpret_cast <melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t*>
@@ -3750,12 +4006,10 @@ void melthookproc_HOOK_LOW_STDERR_VALUE_AT(melt_ptr_t meltin_VAL_p0, const char*
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_LOW_STDERR_VALUE_AT);
     typedef void melthooksig_HOOK_LOW_STDERR_VALUE_AT_t (melt_ptr_t, melt_ptr_t, const char*, long, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_LOW_STDERR_VALUE_AT exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_LOW_STDERR_VALUE_AT is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_LOW_STDERR_VALUE_AT exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_LOW_STDERR_VALUE_AT is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_LOW_STDERR_VALUE_AT */
     melthooksig_HOOK_LOW_STDERR_VALUE_AT_t *melthookptr_HOOK_LOW_STDERR_VALUE_AT =
         reinterpret_cast <melthooksig_HOOK_LOW_STDERR_VALUE_AT_t*>
@@ -3785,12 +4039,10 @@ void melthookproc_HOOK_MACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_MACRO_EXPORTER);
     typedef void melthooksig_HOOK_MACRO_EXPORTER_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_MACRO_EXPORTER */
     melthooksig_HOOK_MACRO_EXPORTER_t *melthookptr_HOOK_MACRO_EXPORTER =
         reinterpret_cast <melthooksig_HOOK_MACRO_EXPORTER_t*>
@@ -3818,12 +4070,10 @@ void melthookproc_HOOK_MACRO_INSTALLER(melt_ptr_t meltin_MBIND_p0, melt_ptr_t me
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_MACRO_INSTALLER);
     typedef void melthooksig_HOOK_MACRO_INSTALLER_t (melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_MACRO_INSTALLER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_MACRO_INSTALLER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_MACRO_INSTALLER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_MACRO_INSTALLER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_MACRO_INSTALLER */
     melthooksig_HOOK_MACRO_INSTALLER_t *melthookptr_HOOK_MACRO_INSTALLER =
         reinterpret_cast <melthooksig_HOOK_MACRO_INSTALLER_t*>
@@ -3850,12 +4100,10 @@ void melthookproc_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t meltin_MODATA_p0, const c
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_MELT_DO_INITIAL_MODE);
     typedef void melthooksig_HOOK_MELT_DO_INITIAL_MODE_t (melt_ptr_t, melt_ptr_t, const char*);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_MELT_DO_INITIAL_MODE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_MELT_DO_INITIAL_MODE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_MELT_DO_INITIAL_MODE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_MELT_DO_INITIAL_MODE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_MELT_DO_INITIAL_MODE */
     melthooksig_HOOK_MELT_DO_INITIAL_MODE_t *melthookptr_HOOK_MELT_DO_INITIAL_MODE =
         reinterpret_cast <melthooksig_HOOK_MELT_DO_INITIAL_MODE_t*>
@@ -3882,12 +4130,10 @@ melt_ptr_t melthookproc_HOOK_MELT_MAKE_LOCATION(const char* meltin_FILENAME_p0, 
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_MELT_MAKE_LOCATION);
     typedef melt_ptr_t melthooksig_HOOK_MELT_MAKE_LOCATION_t (melt_ptr_t, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_MELT_MAKE_LOCATION exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_MELT_MAKE_LOCATION is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_MELT_MAKE_LOCATION exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_MELT_MAKE_LOCATION is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_MELT_MAKE_LOCATION */
     melthooksig_HOOK_MELT_MAKE_LOCATION_t *melthookptr_HOOK_MELT_MAKE_LOCATION =
         reinterpret_cast <melthooksig_HOOK_MELT_MAKE_LOCATION_t*>
@@ -3914,12 +4160,10 @@ melt_ptr_t melthookproc_HOOK_NAMED_KEYWORD(const char* meltin_NAM_p0, long melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_NAMED_KEYWORD);
     typedef melt_ptr_t melthooksig_HOOK_NAMED_KEYWORD_t (melt_ptr_t, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_NAMED_KEYWORD */
     melthooksig_HOOK_NAMED_KEYWORD_t *melthookptr_HOOK_NAMED_KEYWORD =
         reinterpret_cast <melthooksig_HOOK_NAMED_KEYWORD_t*>
@@ -3946,12 +4190,10 @@ melt_ptr_t melthookproc_HOOK_NAMED_SYMBOL(const char* meltin_NAM_p0, long meltin
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_NAMED_SYMBOL);
     typedef melt_ptr_t melthooksig_HOOK_NAMED_SYMBOL_t (melt_ptr_t, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_NAMED_SYMBOL */
     melthooksig_HOOK_NAMED_SYMBOL_t *melthookptr_HOOK_NAMED_SYMBOL =
         reinterpret_cast <melthooksig_HOOK_NAMED_SYMBOL_t*>
@@ -3978,12 +4220,10 @@ void melthookproc_HOOK_OVERRIDE_GATE(long meltin_BEFOREGATE_p0, long* meltout_AF
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_OVERRIDE_GATE);
     typedef void melthooksig_HOOK_OVERRIDE_GATE_t (melt_ptr_t, long, long* );
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_OVERRIDE_GATE */
     melthooksig_HOOK_OVERRIDE_GATE_t *melthookptr_HOOK_OVERRIDE_GATE =
         reinterpret_cast <melthooksig_HOOK_OVERRIDE_GATE_t*>
@@ -4010,12 +4250,10 @@ void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_PASS_EXECUTION);
     typedef void melthooksig_HOOK_PASS_EXECUTION_t (melt_ptr_t, const char*, long, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_PASS_EXECUTION */
     melthooksig_HOOK_PASS_EXECUTION_t *melthookptr_HOOK_PASS_EXECUTION =
         reinterpret_cast <melthooksig_HOOK_PASS_EXECUTION_t*>
@@ -4043,12 +4281,10 @@ void melthookproc_HOOK_PATMACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t me
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_PATMACRO_EXPORTER);
     typedef void melthooksig_HOOK_PATMACRO_EXPORTER_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_PATMACRO_EXPORTER */
     melthooksig_HOOK_PATMACRO_EXPORTER_t *melthookptr_HOOK_PATMACRO_EXPORTER =
         reinterpret_cast <melthooksig_HOOK_PATMACRO_EXPORTER_t*>
@@ -4077,12 +4313,10 @@ void melthookproc_HOOK_POLL_INPUTS(long meltin_DELAYMS_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_POLL_INPUTS);
     typedef void melthooksig_HOOK_POLL_INPUTS_t (melt_ptr_t, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_POLL_INPUTS exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_POLL_INPUTS is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_POLL_INPUTS exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_POLL_INPUTS is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_POLL_INPUTS */
     melthooksig_HOOK_POLL_INPUTS_t *melthookptr_HOOK_POLL_INPUTS =
         reinterpret_cast <melthooksig_HOOK_POLL_INPUTS_t*>
@@ -4108,12 +4342,10 @@ void melthookproc_HOOK_PRE_GENERICIZE(tree meltin_TFNDECL_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_PRE_GENERICIZE);
     typedef void melthooksig_HOOK_PRE_GENERICIZE_t (melt_ptr_t, tree);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_PRE_GENERICIZE */
     melthooksig_HOOK_PRE_GENERICIZE_t *melthookptr_HOOK_PRE_GENERICIZE =
         reinterpret_cast <melthooksig_HOOK_PRE_GENERICIZE_t*>
@@ -4139,12 +4371,10 @@ void melthookproc_HOOK_PROCESS_PRAGMA(long meltin_LIX_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_PROCESS_PRAGMA);
     typedef void melthooksig_HOOK_PROCESS_PRAGMA_t (melt_ptr_t, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_PROCESS_PRAGMA exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_PROCESS_PRAGMA is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_PROCESS_PRAGMA exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_PROCESS_PRAGMA is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_PROCESS_PRAGMA */
     melthooksig_HOOK_PROCESS_PRAGMA_t *melthookptr_HOOK_PROCESS_PRAGMA =
         reinterpret_cast <melthooksig_HOOK_PROCESS_PRAGMA_t*>
@@ -4170,12 +4400,10 @@ void melthookproc_HOOK_REGISTER_PRAGMAS()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_REGISTER_PRAGMAS);
     typedef void melthooksig_HOOK_REGISTER_PRAGMAS_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_REGISTER_PRAGMAS exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_REGISTER_PRAGMAS is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_REGISTER_PRAGMAS exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_REGISTER_PRAGMAS is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_REGISTER_PRAGMAS */
     melthooksig_HOOK_REGISTER_PRAGMAS_t *melthookptr_HOOK_REGISTER_PRAGMAS =
         reinterpret_cast <melthooksig_HOOK_REGISTER_PRAGMAS_t*>
@@ -4200,12 +4428,10 @@ long melthookproc_HOOK_RTL_EXECUTE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_RTL_EXECUTE);
     typedef long melthooksig_HOOK_RTL_EXECUTE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_RTL_EXECUTE */
     melthooksig_HOOK_RTL_EXECUTE_t *melthookptr_HOOK_RTL_EXECUTE =
         reinterpret_cast <melthooksig_HOOK_RTL_EXECUTE_t*>
@@ -4230,12 +4456,10 @@ long melthookproc_HOOK_RTL_GATE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_RTL_GATE);
     typedef long melthooksig_HOOK_RTL_GATE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_RTL_GATE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_RTL_GATE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_RTL_GATE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_RTL_GATE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_RTL_GATE */
     melthooksig_HOOK_RTL_GATE_t *melthookptr_HOOK_RTL_GATE =
         reinterpret_cast <melthooksig_HOOK_RTL_GATE_t*>
@@ -4260,12 +4484,10 @@ long melthookproc_HOOK_SIMPLE_IPA_EXECUTE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_SIMPLE_IPA_EXECUTE);
     typedef long melthooksig_HOOK_SIMPLE_IPA_EXECUTE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_SIMPLE_IPA_EXECUTE */
     melthooksig_HOOK_SIMPLE_IPA_EXECUTE_t *melthookptr_HOOK_SIMPLE_IPA_EXECUTE =
         reinterpret_cast <melthooksig_HOOK_SIMPLE_IPA_EXECUTE_t*>
@@ -4290,12 +4512,10 @@ long melthookproc_HOOK_SORT_COMPARE_LESS(melt_ptr_t meltin_LEFT_p0, melt_ptr_t m
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_SORT_COMPARE_LESS);
     typedef long melthooksig_HOOK_SORT_COMPARE_LESS_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_SORT_COMPARE_LESS exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_SORT_COMPARE_LESS is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_SORT_COMPARE_LESS exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_SORT_COMPARE_LESS is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_SORT_COMPARE_LESS */
     melthooksig_HOOK_SORT_COMPARE_LESS_t *melthookptr_HOOK_SORT_COMPARE_LESS =
         reinterpret_cast <melthooksig_HOOK_SORT_COMPARE_LESS_t*>
@@ -4323,12 +4543,10 @@ void melthookproc_HOOK_START_UNIT()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_START_UNIT);
     typedef void melthooksig_HOOK_START_UNIT_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_START_UNIT exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_START_UNIT is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_START_UNIT exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_START_UNIT is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_START_UNIT */
     melthooksig_HOOK_START_UNIT_t *melthookptr_HOOK_START_UNIT =
         reinterpret_cast <melthooksig_HOOK_START_UNIT_t*>
@@ -4353,12 +4571,10 @@ melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMNAMESTR_p0, c
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_SYMBOL_IMPORTER);
     typedef melt_ptr_t melthooksig_HOOK_SYMBOL_IMPORTER_t (melt_ptr_t, const char*, const char*, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_SYMBOL_IMPORTER */
     melthooksig_HOOK_SYMBOL_IMPORTER_t *melthookptr_HOOK_SYMBOL_IMPORTER =
         reinterpret_cast <melthooksig_HOOK_SYMBOL_IMPORTER_t*>
@@ -4386,12 +4602,10 @@ void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_VALUE_EXPORTER);
     typedef void melthooksig_HOOK_VALUE_EXPORTER_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_VALUE_EXPORTER */
     melthooksig_HOOK_VALUE_EXPORTER_t *melthookptr_HOOK_VALUE_EXPORTER =
         reinterpret_cast <melthooksig_HOOK_VALUE_EXPORTER_t*>
@@ -4420,5 +4634,5 @@ void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 
 /* end of code generated by generate_runtypesupport_predefined_hooks for 160 predefined */
 
-/*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2014 Nov 13
- * by GCC MELT 4.9.0 20140408 (experimental) [melt-branch revision 217464] MELT_1.1.3-rc0post . ***/
+/*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2015 Jan 21
+ * by GCC MELT 4.9 20141220:[MELT plugin] MELT_1.2-pre-merged . ***/

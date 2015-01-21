@@ -2,7 +2,7 @@
 ;; file libmelt-ana-tree.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2014  Free Software Foundation, Inc.
+    Copyright 2008 - 2015  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -1255,7 +1255,14 @@ treerr
   trabstdcl
   :doc #{$TREE_ANY_ABSTRACT_DECL match any abstract declaration $TR}#
   ;; test
-  #{ /* tree_any_abstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR) && DECL_ABSTRACT($TR))}#
+  #{ /* tree_any_abstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR)
+#if GCCPLUGIN_VERSION <= 4009 /* GCC 4.9 */
+                        && DECL_ABSTRACT($TR)
+#else /* GCC 5.0 */
+                        && DECL_ABSTRACT_P($TR)
+#endif /* GCC 4.9 or GCC 5.0 */
+						)
+  }#
   )
   
 
@@ -1310,7 +1317,13 @@ treerr
   trabstdcl
   :doc #{$TREE_ANY_NONABSTRACT_DECL match any nonabstract declaration $TR}#
   ;; test
-  #{ /* tree_any_nonabstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR) && !DECL_ABSTRACT($TR))}#
+  #{ /* tree_any_nonabstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR)
+#if GCCPLUGIN_VERSION <= 4009  /* GCC 4.9 */
+                     && !DECL_ABSTRACT($TR)
+#else /* GCC 5.0 */
+                     && !DECL_ABSTRACT_P($TR)
+#endif /* GCC 4.9 or 5.0 */
+						   )}#
   )
   
   
@@ -3177,6 +3190,10 @@ type node.}#
  ()
  #{ /* tree_long_long_unsigned_type_node : */ long_long_unsigned_type_node }#)
 
+
+;;;;;;;;;; int128 is only in GCC 4.9
+(gccif "4.9"
+       
 ;;; "int128"
 (defcmatcher tree_int128_integer_type_node (:tree tr) ()
  nodetr
@@ -3194,6 +3211,10 @@ type node.}#
  #{ /* tree_int128_unsigned_type_node $NODETR ? */ $TR == int128_unsigned_type_node }#
  ()
  #{ /* tree_int128_unsigned_type_node : */ int128_unsigned_type_node }#)
+
+)					;only in GCC 4.9
+
+
 
 ;;; "float"
 (defcmatcher tree_float_type_node (:tree tr) ()
@@ -3939,8 +3960,6 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_imported_decl
  tree_indirect_reference
  tree_init_expr
- tree_int128_integer_type_node 
- tree_int128_unsigned_type_node 
  tree_integer_cst
  tree_integer_minus_one_node 
  tree_integer_one_node 
@@ -4029,7 +4048,9 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 )
 
 (gccif "4.9"
-       (export_values
+       (export_values	
+	tree_int128_integer_type_node 
+	tree_int128_unsigned_type_node 
 	tree_namelist_decl))
 
 ;;; second and last load of _libmelt-treecode.melt should go here
