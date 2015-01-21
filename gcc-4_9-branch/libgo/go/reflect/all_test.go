@@ -1476,7 +1476,7 @@ func TestCallWithStruct(t *testing.T) {
 
 func TestMakeFunc(t *testing.T) {
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64", "ppc64le":
 	default:
 		t.Skip("MakeFunc not implemented for " + runtime.GOARCH)
 	}
@@ -1500,7 +1500,7 @@ func TestMakeFunc(t *testing.T) {
 
 func TestMakeFuncInterface(t *testing.T) {
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64", "ppc64le":
 	default:
 		t.Skip("MakeFunc not implemented for " + runtime.GOARCH)
 	}
@@ -1633,7 +1633,7 @@ func TestMethod(t *testing.T) {
 
 func TestMethodValue(t *testing.T) {
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64", "ppc64le":
 	default:
 		t.Skip("reflect method values not implemented for " + runtime.GOARCH)
 	}
@@ -1810,7 +1810,7 @@ func (t4 Tm4) M(x int, b byte) (byte, int) { return b, x + 40 }
 
 func TestMethod5(t *testing.T) {
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64", "ppc64le":
 	default:
 		t.Skip("reflect method values not implemented for " + runtime.GOARCH)
 	}
