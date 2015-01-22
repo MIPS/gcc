@@ -3030,7 +3030,8 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 				 ($GI));
   $GSHANDLER = gimple_catch_handler (
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gcatch*>
+	    static_cast <gcatch*>
+#endif /* GCC 5.0 */
 				     ($GI));
   }#
   ;; operator
@@ -3051,8 +3052,8 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
    #{ /*gimple_eh_filter $GIMPEHFILT ?*/ ($GI && gimple_code($GI) == GIMPLE_EH_FILTER) }#
    ;; fill
    #{ /*gimple_eh_filter $GIMPEHFILT !*/ 
-   $TEXTYPE = gimple_eh_filter_types ($GI);
-   $GSFAIL = gimple_eh_filter_failure ($GI);
+   $TEXTYPE = gimple_eh_filter_types (($GI));
+   $GSFAIL = gimple_eh_filter_failure (($GI));
    }#
    ;; operate
    #{ /*gimple_eh_filter:*/ gimple_build_eh_filter($TEXTYPE,$GSFAIL) }#
@@ -3069,7 +3070,12 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; test
   #{ /* gimple_eh_must_not_throw $GIMPNTHR ? */ ($GI && gimple_code($GI) == GIMPLE_EH_MUST_NOT_THROW) }#
   ;; fill
-  #{ /* gimple_eh_must_not_throw $GIMPNTHR ! */ $TFNDECL = gimple_eh_must_not_throw_fndecl($GI);
+  #{ /* gimple_eh_must_not_throw $GIMPNTHR ! */
+  $TFNDECL = gimple_eh_must_not_throw_fndecl(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <geh_mnt*>
+#endif /* GCC 5.0 */
+					     ($GI));
   }#
   ;; operate
   #{ /* gimple_eh_must_not_throw: */ gimple_build_eh_must_not_throw ($TFNDECL) }#
@@ -3085,7 +3091,12 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; test
   #{ /* gimple_resx $GIMPRESX ? */ ($GI && gimple_code($GI) == GIMPLE_RESX) }#
   ;; fill
-  #{ /* gimple_resx $GIMPRESX ! */ $REGNUM = gimple_resx_region($GI);
+  #{ /* gimple_resx $GIMPRESX ! */
+  $REGNUM = gimple_resx_region(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gresx*>
+#endif /* GCC 5.0 */
+			       ($GI));
   }#
   ;; operate
   #{ /* gimple_resx: */ gimple_build_resx((int) $REGNUM) }#
@@ -3155,9 +3166,21 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /* gimple_bind $GIMPBIND ? */ ($GR && gimple_code($GR) == GIMPLE_BIND) }#
   ;; fill
   #{ /* gimple_bind $GIMPBIND ! */
-   $TVARS = gimple_bind_vars($GR);
-   $TBLOCK = gimple_bind_block($GR);
-   $GBODY = gimple_bind_body($GR);
+  $TVARS = gimple_bind_vars(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gbind*>
+#endif /* GCC 5.0 */
+			    ($GR));
+  $TBLOCK = gimple_bind_block(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gbind*>
+#endif /* GCC 5.0 */
+			      ($GR));
+  $GBODY = gimple_bind_body(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gbind*>
+#endif /* GCC 5.0 */
+			    ($GR));
   }# 
   ;; operator
   #{ /*gimple_bind:*/ gimple_build_bind($TVARS,$GBODY,$TBLOCK)}#
@@ -3187,10 +3210,26 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /*  gimple_asm $gimpasm ? */ ($gr &&  gimple_code($gr) == GIMPLE_ASM) }#
   ;; fill
   #{ /*  gimple_asm $gimpasm ! */
-  $asmstr = gimple_asm_string ($gr);
-  $ninputs = gimple_asm_ninputs ($gr);
-  $noutputs = gimple_asm_noutputs ($gr);
-  $nclobbers = gimple_asm_nclobbers ($gr);
+  $asmstr = gimple_asm_string (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gasm*>
+#endif /* GCC 5.0 */
+			       ($GR));
+  $ninputs = gimple_asm_ninputs (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gasm*>
+#endif /* GCC 5.0 */
+				 ($GR));
+  $noutputs = gimple_asm_noutputs (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gasm*>
+#endif /* GCC 5.0 */
+				   ($GR));
+  $nclobbers = gimple_asm_nclobbers (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gasm*>
+#endif /* GCC 5.0 */
+				     ($GR));
   }# )
 
 ;;;;;;;;;;;;;;;;
