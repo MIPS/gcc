@@ -1,3 +1,655 @@
+2015-01-22  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	PR driver/64690
+	* gcc.c (insert_comments): New function.
+	(try_generate_repro): Call it.
+	(append_text): Removed.
+
+2015-01-22  Richard Biener  <rguenther@suse.de>
+
+	* ipa-inline.c (can_inline_edge_p): Disable inlining of edges
+	with IL incompatible options.  Properly honor user optimize
+	attributes.
+
+2015-01-21  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/64682
+	* combine.c (distribute_notes): When moving a death note for
+	a register that is set in the new I2, make sure to put it
+	before that new I2.
+
+2015-01-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_file_start): Use rs6000_isa_flags
+	not TARGET_DEFAULT.
+
+2015-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/64511
+	* simplify-rtx.c (simplify_relational_operation_1): Don't try to
+	optimize (eq/ne (and (side_effects) (const_int 0)) (const_int 0))
+	into (eq/ne (and (not (side_effects)) (const_int 0)) (const_int 0)).
+
+	PR sanitizer/64706
+	* doc/invoke.texi (-fsanitize=vptr): Document.
+
+	PR rtl-optimization/62078
+	* dse.c: Include cfgcleanup.h.
+	(rest_of_handle_dse): For -fnon-call-exceptions, if DSE removed
+	anything call purge_all_dead_edges and cleanup_cfg at the end
+	of the pass.
+
+2015-01-21  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-utils.c (ipa_merge_profiles): Avoid ICE on mismatch in indirect
+	edges.
+
+2015-01-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* gimplify.c (gimplify_function_tree): Check the no_sanitize_thread
+	decl attribute.
+
+2015-01-21  David Sherwood  <david.sherwood@arm.com>
+	    Tejas Belagod <Tejas.Belagod@arm.com>
+
+	* config/aarch64/aarch64.h (CANNOT_CHANGE_MODE_CLASS): Removed.
+	* config/aarch64/aarch64.c (aarch64_cannot_change_mode_class): Removed.
+	* config/aarch64/aarch64-protos.h (aarch64_cannot_change_mode_class):
+	Removed.
+
+2015-01-21  David Sherwood  <david.sherwood@arm.com>
+	    Tejas Belagod <Tejas.Belagod@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_simd_attr_length_rglist)
+	(aarch64_reverse_mask): New decls.
+	* config/aarch64/iterators.md (UNSPEC_REV_REGLIST): New enum.
+	(insn_count): New mode_attr.
+	* config/aarch64/aarch64-simd.md (vec_store_lanesoi, vec_store_lanesci)
+	(vec_store_lanesxi, vec_load_lanesoi, vec_load_lanesci)
+	(vec_load_lanesxi): Made ABI compliant for Big Endian targets.
+	(aarch64_rev_reglist, aarch64_simd_ld2, aarch64_simd_ld3)
+	(aarch64_simd_ld4, aarch64_simd_st2, aarch64_simd_st3)
+	(aarch64_simd_st4): New patterns.
+	* config/aarch64/aarch64.c (aarch64_simd_attr_length_rglist)
+	(aarch64_reverse_mask): New functions.
+
+2015-01-21  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_simd_disambiguate_copy):
+	Declare.
+	* config/aarch64/aarch64.c (aarch64_classify_address): Allow extra
+	addressing modes for BE.
+	(aarch64_print_operand): Add 'R' specifier.
+	(aarch64_simd_disambiguate_copy): Delete.
+	(aarch64_simd_emit_reg_reg_move): New function.
+	* config/aarch64/aarch64-simd.md: Use aarch64_simd_emit_reg_reg_move
+	in define_splits for structural moves.
+	(mov<mode>): Use less restrictive predicates.
+	(*aarch64_mov<mode>): Simplify and only allow for LE.
+	(*aarch64_be_movoi, *aarch64_be_movci, *aarch64_be_movxi): New.
+
+2015-01-21  Alan Hayward  <alan.hayward@arm.com>
+
+	* rtlanal.c (subreg_get_info): Exit early for simple and common
+	cases.
+
+2015-01-21  Richard Henderson  <rth@redhat.com>
+
+	PR target/64669
+	* ccmp.c (used_in_cond_stmt_p): Remove.
+	(expand_ccmp_expr): Don't use it.
+
+2015-01-21  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_calculate_death_notes): Look inside
+	PARALLELs.
+
+2015-01-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64313
+	* tree-core.h (builtin_info, builtin_info_type): Turn from
+	an object with two arrays into an array of an object with
+	decl and two flags, implicit_p and declared_p.
+	* tree.h (builtin_decl_explicit, builtin_decl_implicit,
+	set_builtin_decl, set_builtin_decl_implicit_p,
+	builtin_decl_explicit_p, builtin_decl_implicit_p): Adjust.
+	(set_builtin_decl_declared_p, builtin_decl_declared_p): New functions.
+	* builtins.c (builtin_info): Adjust.
+	* gimplify.c (gimplify_addr_expr): References to builtins
+	that have been declared by the user makes them eligible for
+	use by the compiler.  Call set_builtin_decl_implicit_p on them.
+
+2015-01-20  Jeff Law  <law@redhat.com>
+
+	PR target/59946
+	* config/m68k/m68k.md (Comparison expanders and patterns): Do not
+	allow pc-relative addresses in operand predicates or constraints.
+
+2015-01-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* config/arm/arm.c (arm_cortex_a53_tune, arm_cortex_a57_tune): Prefer
+	neon on aarch32 processors for stringops.
+
+2015-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63576
+	* ipa-utils.c (ipa_merge_profiles): Merge speculative edges.
+
+2015-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/45375
+	* ipa-inline.c: Include lto-streamer.h
+	(report_inline_failed_reason): Output source file differences and
+	flags on optimization/target node mismatch.
+	(can_inline_edge_p): Consider caller to be the outer inline function;
+	be less restrictive about matching opimize and optimize_size attributes.
+	(inline_account_function_p): Break out from ...
+	(inline_small_functions): ... here.
+	* ipa-inline-transform.c (clone_inlined_nodes): Use
+	inline_account_function_p.
+	(inline_call): Use optimize attribution; use inline_account_function_p.
+	(inline_transform): Use opt_for_fn.
+	* ipa-inline.h (inline_account_function_p): Declare.
+
+2015-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/64663
+	* dwarf2out.c (decl_piece_node): Don't put bitsize into
+	mode if bitsize <= 0.
+	(decl_piece_bitsize, adjust_piece_list, add_var_loc_to_decl,
+	dw_sra_loc_expr): Use HOST_WIDE_INT instead of int for bit
+	sizes and positions.
+
+2015-01-20  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/nios2.c (nios2_asm_file_end): Implement
+	TARGET_ASM_FILE_END hook for adding .note.GNU-stack section when
+	needed.
+	(TARGET_ASM_FILE_END): Define.
+
+2015-01-20  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* config/arm/arm-protos.h (enum arm_sched_autopref): New constants.
+	(struct tune_params): Use the enum.
+	* arm.c (arm_*_tune): Update.
+	(arm_option_override): Update.
+
+2015-01-20  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/64684
+	* ipa-reference.c (add_static_var): Inline ...
+	(analyze_function): ... here after splitting out from ...
+	(is_proper_for_analysis): ... this.
+
+2015-01-20  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/64149
+	* config/arm/arm.opt: Remove lra option and arm_lra_flag variablesle.
+	* config/arm/arm.h (MODE_BASE_REG_CLASS): Remove use of arm_lra_flagag,
+	replace the conditional with it's true branch.
+	* config/arm/arm.config (TARGET_LRA_P): Set to hook_bool_void_true.
+	(arm_lra_p): Remove.
+
+2015-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.h (LIB_SPEC): Adjust in default case.
+
+2015-01-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* config/tilegx/mul-tables.c: Move symtab.h include after coretypes.h include.
+	* config/tilepro/mul-tables.c: Add includes hashtab.h, hash-set.h, vec.h,
+	machmode.h, tm.h, hard-reg-set.h, input.h, function.h, rtl.h, flags.h, statistics.h,
+	double-int.h, real.h, fixed-value.h, alias.h, wide-int.h, inchash.h, tree.h,
+	insn-config.h, expmed.h, dojump.h, explow.h, calls.h, emit-rtl.h, varasm.h, stmt.h.
+
+2015-01-20  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR bootstrap/64676
+	Revert:
+	2015-01-19  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR rtl-optimization/64081
+	* loop-iv.c (def_pred_latch_p): New function.
+	(latch_dominating_def): Allow specific cases with non-single
+	definitions.
+	(iv_get_reaching_def): Likewise.
+	(check_complex_exit_p): New function.
+	(check_simple_exit): Use check_complex_exit_p to allow certain cases
+	with exits not executing on any iteration.
+
+2015-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/45375
+	* i386.c (ix86_option_override_internal): Use ix86_tune_cost
+	to set branch cost.
+
+2015-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/45375
+	* i386.c (gate): Check flag_expensive_optimizations and
+	optimize_size.
+	(ix86_option_override_internal): Drop optimize_size condition
+	on MASK_ACCUMULATE_OUTGOING_ARGS, MASK_VZEROUPPER,
+	MASK_AVX256_SPLIT_UNALIGNED_LOAD, MASK_AVX256_SPLIT_UNALIGNED_STORE,
+	MASK_PREFER_AVX128.
+	(ix86_avx256_split_vector_move_misalign,
+	ix86_avx256_split_vector_move_misalign): Check optimize_insn_for_speed.
+	* sse.md (all uses of TARGET_PREFER_AVX128): Add
+	optimize_insn_for_speed_p check.
+
+2015-01-19  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/mips/mips.h (FP_ASM_SPEC): New define.
+	(ASM_SPEC): Remove floating-point options and use FP_ASM_SPEC
+	instead.
+
+2015-01-19  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/53988
+	* config/sh/sh-protos.h (sh_find_set_of_reg): Make sure not to return
+	nullptr for insn when reaching the first insn.
+	* config/sh/sh.c (sh_unspec_insn_p): Rewrite using subrtx_iterator.
+	(sh_insn_operands_modified_between_p): Add nullptr check.
+	(sh_find_extending_set_of_reg): Fix log message.  Don't accept
+	sign extending mem load if the insn contains any UNSPEC or
+	UNSPEC_VOLATILE.
+
+2015-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	* params.def (inline-unit-growth): Drop to 15%.
+	* invoke.texi (inline-unit-growth): Document change.
+
+2015-01-19  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/64668
+	* ipa-icf-gimple.c (func_checker::compare_operand): Call proper
+	function for second argument of OBJ_TYPE_REF.
+
+2015-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64218
+	* ipa-inline.c (want_inline_function_to_all_callers_p): Fix check
+	whether function is an alias.
+
+2015-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-devirt.c (ipa_devirt): Drop polymorphic call info in hopeless
+	cases.
+
+2015-01-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/64671
+	* lra-remat.c (operand_to_remat): Don't consider jump and call
+	insns.
+
+2015-01-19  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/default64.h: Include rs6000-cpus.def.
+	(TARGET_DEFAULT) [LITTLE_ENDIAN]: Use ISA 2.7 (POWER8).
+	(TARGET_DEFAULT) [BIG_ENDIAN]: Use POWER4.
+	* config/rs6000/driver-rs6000.c (detect_processor_aix): Add POWER7
+	and POWER8.
+	* config/rs6000/linux64.h (PROCESSOR_DEFAULT64): Always default to
+	POWER8.
+	* config/rs6000/rs6000.c (rs6000_file_start): Emit .machine
+	pseudo-op to specify assembler dialect.
+
+2015-01-19  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/64664
+	* ipa-icf.c (sem_item_optimizer::filter_removed_items):
+	Handle safe potentially removed nodes during filtering.
+
+2015-01-19  Martin Liska  <mliska@suse.cz>
+
+	* doc/extend.texi (no_icf): Add new attribute description.
+	* ipa-icf.c (sem_item_optimizer::merge_classes): Handle cases
+	where the pass attempts to merge a function with no_icf attribute.
+
+2015-01-19  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/64532
+	* doc/md.texi (ARM Options): Document register constraints.
+
+2015-01-19  Jiong Wang  <jiong.wang@arm.com>
+	    Andrew Pinski  <apinski@cavium.com>
+
+	PR target/64304
+	* config/aarch64/aarch64.md (define_insn "*ashl<mode>3_insn"): Deleted.
+	(ashl<mode>3): Don't expand if operands[2] is not constant.
+
+2015-01-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/64448
+	* config/aarch64/aarch64-simd.md (aarch64_simd_bsl<mode>_internal):
+	Match xor-and-xor RTL pattern.
+
+2015-01-19  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR rtl-optimization/64081
+	* loop-iv.c (def_pred_latch_p): New function.
+	(latch_dominating_def): Allow specific cases with non-single
+	definitions.
+	(iv_get_reaching_def): Likewise.
+	(check_complex_exit_p): New function.
+	(check_simple_exit): Use check_complex_exit_p to allow certain cases
+	with exits not executing on any iteration.
+
+2015-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* common.opt (fgraphite): Fix a typo.
+
+2015-01-19  Felix Yang  <felix.yang@huawei.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_<maxmin_uns>p<mode>): New
+	pattern.
+	* config/aarch64/aarch64-simd-builtins.def (smaxp, sminp, umaxp,
+	uminp, smax_nanp, smin_nanp): New builtins.
+	* config/aarch64/arm_neon.h (vpmax_s8, vpmax_s16, vpmax_s32,
+	vpmax_u8, vpmax_u16, vpmax_u32, vpmaxq_s8, vpmaxq_s16, vpmaxq_s32,
+	vpmaxq_u8, vpmaxq_u16, vpmaxq_u32, vpmax_f32, vpmaxq_f32, vpmaxq_f64,
+	vpmaxqd_f64, vpmaxs_f32, vpmaxnm_f32, vpmaxnmq_f32, vpmaxnmq_f64,
+	vpmaxnmqd_f64, vpmaxnms_f32, vpmin_s8, vpmin_s16, vpmin_s32, vpmin_u8,
+	vpmin_u16, vpmin_u32, vpminq_s8, vpminq_s16, vpminq_s32, vpminq_u8,
+	vpminq_u16, vpminq_u32, vpmin_f32, vpminq_f32, vpminq_f64, vpminqd_f64,
+	vpmins_f32, vpminnm_f32, vpminnmq_f32, vpminnmq_f64, vpminnmqd_f64,
+	vpminnms_f32): Rewrite using builtin functions.
+
+2015-01-19  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/64625
+	* omp-low.c (offload_symbol_decl): Remove variable.
+	(get_offload_symbol_decl): Remove function.
+	(expand_omp_target): For BUILT_IN_GOMP_TARGET,
+	BUILT_IN_GOMP_TARGET_DATA, BUILT_IN_GOMP_TARGET_UPDATE pass NULL
+	instead of &__OFFLOAD_TABLE__, for BUILT_IN_GOACC_DATA_START,
+	BUILT_IN_GOACC_ENTER_EXIT_DATA, BUILT_IN_GOACC_PARALLEL,
+	BUILT_IN_GOACC_UPDATE don't pass it at all.
+
+2015-01-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-sra.c (some_callers_have_mismatched_arguments_p): Allow thunk
+	callers.
+
+2015-01-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-chkp.c (chkp_produce_thunks): Add early param
+	to split thunks production into two passes.  Keep
+	'always_inline' function bodies after the first pass.
+	(pass_data_ipa_chkp_early_produce_thunks): New.
+	(pass_ipa_chkp_early_produce_thunks): New.
+	(pass_ipa_chkp_produce_thunks::execute): Adjust to new
+	chkp_produce_thunks signature.
+	(make_pass_ipa_chkp_early_produce_thunks): New.
+	* passes.def (pass_ipa_chkp_early_produce_thunks): New.
+	(pass_ipa_chkp_produce_thunks): Move after local optimizations.
+	* tree-pass.h (make_pass_ipa_chkp_early_produce_thunks): New.
+
+2015-01-18  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraph.c (cgraph_node::dump): Dump profile flags.
+
+2015-01-18  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/64652
+	* config/sh/sh.md (udivsi3_i4, divsi3_i4): Make use of sfunc address
+	reg appear first in the parallel.
+
+2015-01-18  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-reference.c (set_reference_optimization_summary,
+	ipa_reference_get_not_written_global): Do nothing if ipa-reference is
+	disabled.
+	(ignore_module_statics): New static var.
+	(propagate_bits): If ipa-reference is disabled, do not look into local
+	properties.
+	(analyze_function): Disable analysis when ipa_reference is disabled.
+	(generate_summary): Do not dump when reference is disabled;
+	collect vars accessed from functions with ipa-reference disabled.
+	(get_read_write_all_from_node): When ipa-reference is disabled, use the
+	node flags.
+	(gate): Enable for LTO.
+	(ignore_edge_p): New function.
+	(propagate): Skip functions w/o ipa-reference analysis.
+	* optc-save-gen.awk: Handle optimize_debug correctly.
+	* opth-gen.awk: Likewise.
+	* common.opt (fauto-inc-dec, fdelete-dead-exceptions, ffunction-cse,
+	fgraphite, fstrict-volatile-bitfields, fira-algorithm, fira-region,
+	fira-share-save-slots, fira-share-spill-slots,
+	fmodulo-sched-allow-regmoves, fpartial-inlining,
+	sched-stalled-insns, fsched-stalled-insns-dep, fstrict-overflow,
+	ftracer, ftree-parallelize-loops, fassociative-math,
+	freciprocal-math, fvect-cost-model, fsimd-cost-model): Mark as
+	Optimization
+	(fauto-profile, fcommon, fdata-sections, fipa-icf-variables,
+        ftoplevel-reorder, funit-at-a-time, fwhole-program): Do not mark as
+        Optimization.
+	* ipa-icf.c (gate, sem_item_optimizer::filter_removed_items):
+	Fix for IPA.
+
+2015-01-18  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64378
+	* ipa-prop.c (try_make_edge_direct_virtual_call): Clear speculative
+	flag correctly.
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Handle speculation.
+
+2015-01-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-funroll-loops], [-funroll-all-loops]):
+	Remove duplicate option listings.
+
+2015-01-18  Felix Yang  <felix.yang@huawei.com>
+
+	* auto-profile.c (afdo_find_equiv_class): Remove unnecessary test.
+	(autofdo_source_profile::get_callsite_total_count,
+	function_instance::get_function_instance_by_decl,
+	string_table::get_index, string_table::get_index_by_decl,
+	afdo_vpt_for_early_inline, afdo_callsite_hot_enough_for_early_inline):
+	Fix comment typos. Reformatting and minor code rearrangement.
+
+2015-01-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (probe_stack): Delete.
+	(probe_stack_address): New.
+
+2015-01-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Use TARGET_32BIT
+	to test for 32-bit ABIs, not !TARGET_POWERPC64.
+
+2015-01-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_parallel_return): New function.
+	(rs6000_function_value): Use it.  Handle SCmode and TCmode as well,
+	for TARGET_32BIT && TARGET_POWERPC64.  Fix another BITS_PER_WORD
+	snafu.
+	(rs6000_libcall_value): Use the new function.
+
+2015-01-17  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi ([-ftracer]): Remove duplicate option listing.
+
+2015-01-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* reorg.c (fill_simple_delay_slots): If TARGET_FLAGS_REGNUM is valid,
+	implement a more precise life analysis for it during backward scan.
+
+2015-01-17  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* dwarf2out.c (gen_producer_string): Ignore also OPT_fpreprocessed.
+
+2015-01-17  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/52773
+	* calls.c (emit_library_call_value): When pushing arguments use
+	stack_pointer_rtx rather than virtual_outgoing_args_rtx in
+	CALL_INSN_FUNCTION_USAGE.  Only emit one of use of the magic
+	stack pointer reference into CALL_INSN_FUNCTION_USAGE.
+
+2015-01-17  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/32790
+	* reginfo.c (reg_scan_mark_refs): Look for ZERO_EXTRACT,
+	not ZERO_EXTEND in SET_DESTs.
+
+2015-01-17  Alan Modra  <amodra@gmail.com>
+
+	* cprop.c (do_local_cprop): Revert last change.
+
+2015-01-16  DJ Delorie  <dj@redhat.com>
+	    Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78-real.md (addqi3_real): Allow volatiles.
+	(addhi3_real): Likewise.  Fix [HL+0] syntax.
+	(subqi3_real): Likewise.
+	(subhi3_real): Likewise.
+	(cbranchqi4_real): Likewise.  Allow saddr,#imm.
+	(cbranchhi4_real): Likewise.
+	(cbranchhi4_real_inverted): Likewise.
+	(cbranchsi4_real_lt): Likewise.
+	(cbranchsi4_real_ge): Likewise.
+	(cbranchsi4_real_ge): Likewise.
+	* config/rl78/rl78-virt.md (add<mode>3_virt): Likewise.
+	(sub<mode>3_virt): Likewise.
+	(cbranchqi4_virt): Likewise.
+	(cbranchhi4_virt): Likewise.
+	* config/rl78/rl78.c (rl78_print_operand_1): 'p' modifier means
+	always use '[reg+imm]' even when imm is zero.
+	* config/rl78/predicates.md (rl78_volatile_memory_operand): New.
+	(rl78_general_operand): New.
+	(rl78_nonimmediate_operand): New.
+	(rl78_nonfar_operand): Use them.
+	(rl78_nonfar_nonimm_operand): Likewise.
+	(rl78_stack_based_mem): Fix.
+	* config/rl78/constraints.md (Ibqi): New.
+	(IBqi): New.
+	(Wsa): New.
+	(Wsf): New.
+	(Cs1): Fix.
+	* config/rl78/rl78-expand.md (andqi3): Accept volatiles.
+	(iorqi3): Likewise.
+	(xorqi3): Likewise.
+	* config/rl78/rl78-protos.h (rl78_sfr_p): New.
+
+        * config/rl78/constrains (Qs8): New constraint.
+        * config/rl78/rl78.c (rl78_flags_already_set): New function.
+        * config/rl78/rl78-protos.h (rl78_flags_already_set): New prototype.
+        * config/rl78/rl78-real.md (update_Z): New attribute.
+        Update patterns to set it.
+        (cbranchqi4_real): Call rl78_flags_already_set() to determine if a
+        shorter compare and branch sequence can be used.
+        (cbranchhi4_real): Likewise.
+        (cbranchhi4_real_inverted): Likewise.
+
+	* config/rl78/predicates.md (uword_operand): Allow symbol_refs.
+	* config/rl78/rl78-c.c (rl78_register_pragmas): Register __near
+	address space.
+	* config/rl78/rl78.c (rl78_get_name_encoding): New.
+	(rl78_option_override): Allow -mes0 only if C.
+	(characterize_address): Support subregs of symbol_refs.
+	(rl78_addr_space_address_mode): Move.  Add __near.
+	(rl78_far_p): Likewise.
+	(rl78_addr_space_pointer_mode): Likewise.
+	(rl78_as_legitimate_address): Likewise.
+	(rl78_addr_space_subset_p): Likewise.
+	(rl78_addr_space_convert): Likewise.
+	(rl78_print_operand_1): Support 16-bit addressing of 32-bit
+	symbols with -mes0.
+	(transcode_memory_rtx): Don't copy ES if -mes0.  Allow symbol[BC]
+	addressing.
+	(rl78_alloc_physical_registers_op1): Change logic to prefer
+	symbol[BC] addressing.
+	(frodata_section): New.
+	(rl78_asm_init_sections): Initialize it.
+	(rl78_select_section): Put __far readonly symbols in .frodata.
+	(rl78_make_type_far): New.
+	(rl78_insert_attributes): Force all readonly symbols to be __far when -mes0.
+	(rl78_asm_out_integer): New.
+	* config/rl78/rl78.h (ADDR_SPACE_NEAR): New.
+	* config/rl78/rl78.opt (-mes0): New.
+
+	* config/rl78/rl78.h (ASM_OUTPUT_LABELREF): New.
+	(ASM_OUTPUT_ALIGNED_DECL_COMMON): New.
+	(ASM_OUTPUT_ALIGNED_DECL_LOCAL): New.
+	* config/rl78/rl78-protos.h (rl78_output_labelref): New.
+	(rl78_saddr_p): New.
+	(rl78_output_aligned_common): New.
+	* config/rl78/rl78.c (rl78_output_symbol_ref): Strip encodings.
+	(rl78_handle_saddr_attribute): New.
+	(rl78_handle_naked_attribute): New.
+	(rl78_attribute_table): Add saddr.
+	(rl78_print_operand_1): Don't print '!' on saddr operands.
+	(rl78_print_operand_1): Strip encodings.
+	(rl78_sfr_p): New.
+	(rl78_strip_name_encoding): New.
+	(rl78_attrlist_to_encoding): New.
+	(rl78_encode_section_info): New.
+	(rl78_asm_init_sections): New.
+	(rl78_select_section): New.
+	(rl78_output_labelref): New.
+	(rl78_output_aligned_common): New.
+	(rl78_asm_out_integer): New.
+	(rl78_asm_ctor_dtor): New.
+	(rl78_asm_constructor): New.
+	(rl78_asm_destructor): New.
+
+	* config/rl78/rl78-real.md (movqi_es): Rename to movqi_to_es.
+	* config/rl78/rl78.c (rl78_expand_epilogue): Update.
+	(transcode_memory_rtx): Update.
+	(rl78_expand_epilogue): Use A_REG instead of 0.
+
+2015-01-17  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* config/arm/arm-protos.h (struct tune_params): New field
+	sched_autopref_queue_depth.
+	* config/arm/arm.c (sched-int.h): Include header.
+	(arm_first_cycle_multipass_dfa_lookahead_guard,)
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD): Define hook.
+	(arm_slowmul_tune, arm_fastmul_tune, arm_strongarm_tune,)
+	(arm_xscale_tune, arm_9e_tune, arm_v6t2_tune, arm_cortex_tune,)
+	(arm_cortex_a8_tune, arm_cortex_a7_tune, arm_cortex_a15_tune,)
+	(arm_cortex_a53_tune, arm_cortex_a57_tune, arm_xgene1_tune,)
+	(arm_cortex_a5_tune, arm_cortex_a9_tune, arm_cortex_a12_tune,)
+	(arm_v7m_tune, arm_cortex_m7_tune, arm_v6m_tune, arm_fa726te_tune):
+	Specify sched_autopref_queue_depth value.  Enabled for A15 and A57.
+	* config/arm/t-arm (arm.o): Update.
+	* haifa-sched.c (update_insn_after_change): Update.
+	(rank_for_schedule): Use auto-prefetcher model, if requested.
+	(autopref_multipass_init): New static function.
+	(autopref_rank_for_schedule): New rank_for_schedule heuristic.
+	(autopref_multipass_dfa_lookahead_guard_started_dump_p): New static
+	variable for debug dumps.
+	(autopref_multipass_dfa_lookahead_guard_1): New static helper function.
+	(autopref_multipass_dfa_lookahead_guard): New global function that
+	implements TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD hook.
+	(init_h_i_d): Update.
+	* params.def (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH): New tuning knob.
+	* sched-int.h (enum autopref_multipass_data_status): New const enum.
+	(autopref_multipass_data_): Structure for auto-prefetcher data.
+	(autopref_multipass_data_def, autopref_multipass_data_t): New typedefs.
+	(struct _haifa_insn_data:autopref_multipass_data): New field.
+	(INSN_AUTOPREF_MULTIPASS_DATA): New access macro.
+	(autopref_multipass_dfa_lookahead_guard): Declare.
+
+2015-01-17  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* rtlanal.c (get_base_term): Handle SCRATCH.
+
+2015-01-17  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* config/aarch64/aarch64.c
+	(aarch64_sched_first_cycle_multipass_dfa_lookahead): Implement hook.
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD): Define.
+	* config/arm/arm.c
+	(arm_first_cycle_multipass_dfa_lookahead): Implement hook.
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD): Define.
+
+2015-01-17  Alan Modra  <amodra@gmail.com>
+
+	* cprop.c (do_local_cprop): Disallow replacement of fixed
+	hard registers.
+
 2015-01-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	PR target/62066
@@ -1705,648 +2357,9 @@
 
 2015-01-09  Michael Collison  <michael.collison@linaro.org>
 
-	* genattrtab.c (write_header): Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	insn-attrtab.c.
-	* genautomata.c (main) : Include hash-set.h, macInclude hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	insn-automata.c.
-	* genemit.c (main): Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	insn-emit.c.
-	* gengtype.c (open_base_files): Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	gtype-desc.c.
-	* genopinit.c (main): Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	insn-opinit.c.
-	* genoutput.c (output_prologue): Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	insn-output.c.
-	* genpeep.c (main): Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	insn-peep.c.
-	* genpreds.c (write_insn_preds_c): Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	insn-preds.c.
-	* optc-save-gen-awk: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h when generating
-	options-save.c.
-	* opth-gen.awk: Change include guard from GCC_C_COMMON_H to GCC_C_COMMON_C
-	when generating options.h.
-	* alias.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* asan.c: Ditto.
-	* attribs.c: Ditto.
-	* auto-inc-dec.c: Ditto.
-	* auto-profile.c: Ditto
-	* bb-reorder.c: Ditto.
-	* bt-load.c: Include symtab.h due to flattening of tree.h.
-	* builtins.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* calls.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* ccmp.c: Ditto.
-	* cfgbuild.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to flattening of tree.h.
-	* cfg.c: Ditto.
-	* cfgcleanup.c: Ditto.
-	* cfgexpand.c: Ditto.
-	* cfghooks.c: Ditto.
-	* cfgloop.c: Include symtab.h, fold-const.h, and
-	inchash.h due to flattening of tree.h.
-	* cfgloopmanip.c: Ditto.
-	* cfgrtl.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* cgraphbuild.c: Ditto.
-	* cgraph.c: Ditto.
-	* cgraphclones.c: Ditto.
-	* cgraphunit.c: Ditto.
-	* cilk-common.c: Ditto.
-	* combine.c: Ditto.
-	* combine-stack-adj.c: Include symbol.h due to flattening of tree.h.
-	* config/aarch64/aarch64-builtins.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* config/aarch64/aarch64.c: Ditto.
-	* config/alpha/alpha.c: Ditto.
-	* config/arc/arc.c: Ditto.
-	* config/arm/aarch-common.c: Ditto.
-	* config/arm/arm-builtins.c: Ditto.
-	* config/arm/arm.c: Ditto.
-	* config/arm/arm-c.c: Ditto.
-	* config/avr/avr.c: Ditto.
-	* config/avr/avr-c.c: Ditto.
-	* config/avr/avr-log.c: Ditto.
-	* config/bfin/bfin.c: Ditto.
-	* config/c6x/c6x.c: Ditto.
-	* config/cr16/cr16.c: Ditto.
-	* config/cris/cris.c: Ditto.
-	* config/darwin.c: Ditto.
-	* config/darwin-c.c: Ditto.
-	* config/default-c.c: Ditto.
-	* config/epiphany/epiphany.c: Ditto.
-	* config/fr30/fr30.c: Ditto.
-	* config/frv/frv.c: Ditto.
-	* config/glibc-c.c: Ditto.
-	* config/h8300/h8300.c: Ditto.
-	* config/i386/i386.c: Ditto.
-	* config/i386/i386-c.c: Ditto.
-	* config/i386/msformat.c: Ditto.
-	* config/i386/winnt.c: Ditto.
-	* config/i386/winnt-cxx.c: Ditto.
-	* config/i386/winnt-stubs.c: Ditto.
-	* config/ia64/ia64.c: Ditto.
-	* config/ia64/ia64-c.c: Ditto.
-	* config/iq2000/iq2000.c: Ditto.
-	* config/lm32/lm32.c: Include symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* config/m32c/m32c.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* config/m32c/m32c-pragma.c: Ditto.
-	* config/m32c/m32cr.c: Ditto.
-	* config/m68/m68k.c: Ditto.
-	* config/mcore/mcore.c: Ditto.
-	* config/mep/mep.c: Ditto.
-	* config/mep/mep-pragma.c: Ditto.
-	* config/microblaze/microblaze.c: Ditto.
-	* config/microblaze/microblaze-c.c: Ditto.
-	* config/mips/mips.c: Ditto.
-	* config/mmix/mmix.c: Include symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* config/mn10300/mn10300.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* config/moxie/moxie.c: Ditto.
-	* config/msp430/msp430.c: Ditto.
-	* config/msp430/msp430-c.c: Ditto.
-	* config/nds32/nds32.c: Ditto.
-	* config/nds32/nds32-cost.c: Ditto.
-	* config/nds32/nds32-fp-as-gp.c: Ditto.
-	* config/nds32/nds32-intrinsic.c: Ditto.
-	* config/nds32/nds32-isr.c: Ditto.
-	* config/nds32/nds32-md-auxillary.c: Ditto.
-	* config/nds32/nds32-memory-manipulationx.c: Ditto.
-	* config/nds32/nds32-pipelines-auxillary.c: Ditto.
-	* config/nds32/nds32-predicates.c: Ditto.
-	* config/nios2/nios2.c: Ditto.
-	* config/nvptx/nvptx.c: Ditto.
-	* config/pa/pa.c: Ditto.
-	* config/pdp11/pdp11x.c: Include symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* config/rl78/rl78.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* config/rl78/rl78-cx.c: Ditto.
-	* config/rs6000/rs6000.c: Ditto.
-	* config/rs6000/rs6000-c.c: Ditto.
-	* config/rx/rx.c: Ditto.
-	* config/s390/s390.c: Ditto.
-	* config/sh/sh.c: Ditto.
-	* config/sh/sc.c: Ditto.
-	* config/sh/sh-mem.cc: Ditto.
-	* config/sh/sh_treg_combine.cc: Include symtab.h, inchash.h and tree.h
-	due to flattening of tree.h.
-	Remove include of tree-core.h.
-	* config/sol2.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* config/sol2-c.c: Ditto.
-	* config/sol2-cxx.c: Ditto.
-	* config/sol2-stubs.c: Ditto.
-	* config/sparc/sparc.c: Ditto.
-	* config/sparc/sparc-cx.c: Ditto.
-	* config/spu/spu.c: Ditto.
-	* config/spu/spu-c.c: Ditto
-	* config/storym16/stormy16.c: Ditto.
-	* config/tilegx/tilegx.c: Include symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* config/tilepro/gen-mul-tables.cc: Include symtab.h in generated file.
-	* config/tilegx/tilegx-c.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* config/tilepro/tilepro.c: Include symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* config/tilepro/tilepro-c.c: Include hash-set.h, machmode.h,
-	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
-	fold-const.h, wide-int.h, and inchash.h due to
-	flattening of tree.h.
-	* config/v850/v850.c: Ditto.
-	* config/v850/v850-c.c: Ditto.
-	* config/vax/vax.c: Ditto.
-	* config/vms/vms.c: Ditto.
-	* config/vms/vms-c.c: Ditto.
-	* config/vxworks.c: Ditto.
-	* config/winnt-c.c: Ditto.
-	* config/xtensa/xtensa.c: Include symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* convert.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* coverage.c: Ditto.
-	* cppbuiltin.c: Ditto.
-	* cprop.c: Ditto.
-	* cse.c: Add include of symtab.h due to flattening of tree.h.
-	* cselib.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* data-streamer.c: Ditto.
-	* data-streamer-in.c: Ditto.
-	* data-streamer-out.c: Ditto.
-	* dbxout.c: Ditto.
-	* dce.c: Ditto.
-	* ddg.c: Add include of symtab.h due to flattening of tree.h.
-	* debug.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* dfp.c: Ditto.
-	* df-scan.c: Ditto.
-	* dojump.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, inchash.h and real.h due to flattening of tree.h.
-	* double-int.c: Ditto.
-	* dse.c: Ditto.
-	* dumpfile.c: Ditto.
-	* dwarf2asm.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, inchash.h and real.h due to flattening of tree.h.
-	* dwarf2cfi.c: Ditto.
-	* dwarf2out.c: Ditto.
-	* emit-rtl.c: Ditto.
-	* except.c: Ditto.
-	* explow.c: Ditto.
-	* expmed.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* expr.c: Ditto.
-	* final.c: Ditto.
-	* fixed-value.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, inchash.h and fixed-value.h due to flattening of tree.h.
-	* fold-const.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	Relocate inline function convert_to_ptrofftype_loc from tree.h.
-	Relocate inline function fold_build_pointer_plus_loc from tree.h.
-	Relocate inline function fold_build_pointer_plus_hwi_loc from tree.h.
-	* fold-const.h: Relocate macro convert_to_ptrofftype from tree.h.
-	Relocate macro fold_build_pointer_plus to relocate from tree.h.h.
-	Relocate macro fold_build_pointer_plus_hwi from tree.h.
-	Add prototype for convert_to_ptrofftype_loc relocated from tree.h.
-	Add prototype for fold_build_pointer_plus_loc relocated from tree.h.
-	Add prototype for fold_build_pointer_plus_hwi_loc relocated from tree.h.
-	* function.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* gcc-plugin.h: Include statistics.h, double-int.h, real.h, fixed-value.h,
-	alias.h, flags.h, and symtab.h due to flattening of tree.h
-	* gcse.c: Ditto.
-	* generic-match-head.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ggc-page.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* gimple-builder.c: Ditto.
-	* gimple.c: Ditto.
-	* gimple-expr.c: Ditto.
-	* gimple-fold.c: Ditto.
-	* gimple-iterator.c: Ditto.
-	* gimple-low.c: Ditto.
-	* gimple-match-head.c: Ditto.
-	* gimple-pretty-print.c: Ditto.
-	* generic-ssa-isolate-paths.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* gimple-ssa-strength-reduction.c: Ditto.
-	* gimple-streamer-in.c: Ditto.
-	* gimple-streamer-out.c: Ditto.
-	* gimple-walk.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* gimplify.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* gimplify-me.c: Ditto.
-	* graphite-blocking.c: Ditto.
-	* graphite.c: Ditto.
-	* graphite-dependencies.c: Ditto.
-	* graphite-interchange.c: Ditto.
-	* graphite-isl-ast-to-gimple.c: Ditto.
-	* graphite-optimize-isl.c: Ditto.
-	* graphite-poly.c: Ditto.
-	* graphite-scop-detection.c: Ditto.
-	* graphite-sese-to-poly.c: Ditto.
-	* hw-doloop.c: Include symtab.h due to flattening of tree.h.
-	* ifcvt.c: Ditto.
-	* init-regs.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* internal-fc.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h,options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa.c: Ditto.
-	* ipa-chkp.c: Ditto.
-	* ipa-comdats.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-cp.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h,options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-devirt.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-icf.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h,options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-icf-gimple.c: Ditto.
-	* ipa-inline-analysis.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-inline.c: Ditto.
-	* ipa-inline-transform.c: Ditto.
-	* ipa-polymorhpic-call.c: Ditto.
-	* ipa-profile.c: Ditto.
-	* ipa-prop.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-pure-const.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-ref.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ipa-reference.c: Ditto.
-	* ipa-split.c: Ditto.
-	* ipa-utils.c: Ditto.
-	* ipa-visbility.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* ira.c: Ditto.
-	* ira-color.c: Include hash-set.h due to flattening of tree.h.
-	* ira-costs.c: Ditto.
-	* ira-emit.c: Ditto.
-	* jump.c: Include symtab.h due to flattening of tree.h.
-	* langhooks.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* loop-doloop.c: Include symtab.h due to flattening of tree.h.
-	* loop-init.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* loop-invariant.c: Include symtab.h due to flattening of tree.h.
-	* loop-iv.c: Ditto.
-	* loop-unroll.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* lower-subreg.c: Ditto.
-	* lra-assigns.c: Include symtab.h due to flattening of tree.h.
-	* lra.c: Include symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* lra-coalesce.c: Include symtab.h due to flattening of tree.h.
-	* lra-constraints.c: Ditto.
-	* lra-eliminations.c: Ditto.
-	* lra-livesc: Ditto.
-	* lra-remat.c: Ditto.
-	* lra-spills.c: Ditto.
-	* lto-cgraph.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* lto-compress.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* lto-opts.c: Ditto.
-	* lto-section-in.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* lto-section-out.c: Ditto.
-	* lto-streamer.c: Ditto.
-	* lto-streamer-in.c: Ditto.
-	* lto-streamer-out.c: Ditto.
-	* modulo-sched.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* omega.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options, fold-const.h,
-	wide-int.h, and inchash.h due to flattening of tree.h.
-	* omega-low.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* optabs.c: Ditto.
-	* opts-global.c: Ditto.
-	* passes.c: Ditto.
-	* plugin.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* postreload.c: Include symtab.h due to flattening of tree.h.
-	* postreload-gcse.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* predict.c: Ditto.
-	* print-rtl.c: Ditto.
-	* print-tree.c: Ditto.
-	* profile.c: Include symtab.h, fold-const.h
-	and inchash.h due to flattening of tree.h.
-	* real.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* realmpfr.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* recog.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* ree.c: Ditto.
-	* reginfo.c: Ditto.
-	* reg-stack.c: Ditto.
-	* reload1.c: Include symtab.h, fold-const.h, wide-int.h
-	and inchash.h due to flattening of tree.h.
-	* reload.c: Include symtab.h due to flattening of tree.h.
-	* reorg.c: Ditto.
-	* rtlanal.c: Include symtab.h, fold-const.h, wide-int.h
-	and inchash.h due to flattening of tree.h.
-	* rtl-chkp.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* rtlhooks.c: Include symtab.h due to flattening of tree.h.
-	* sanopt.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* sched-deps.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* sched-vis.c: Ditto.
-	* sdbout.c: Ditto.
-	* sel-sched.c: Include symtab.h, fold-const.h, wide-int.h
-	and inchash.h due to flattening of tree.h.
-	* sel-sched-ir.c: Ditto.
-	* sese.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* shrink-wrap.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* simplify-rtx.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* stack-ptr-mod.c: Ditto.
-	* stmt.c: Ditto.
-	* store-motion.c: Ditto.
-	* store-layout.c: Ditto.
-	* stringpool.c: Ditto.
-	* symtab.c: Ditto.
-	* target-globals.c: Ditto.
-	* targhooks.c: Ditto.
-	* toplev.c: Ditto.
-	* tracer.c: Ditto.
-	* trans-mem.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-affine.c: Ditto.
-	* tree-browser.c: Ditto.
-	* tree.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-call-cdce.c: Include symtab.h, alias.h, double-int.h,
-	fold-const.h, wide-int.h, inchash.h and real.h due to
-	flattening of tree.h.
-	* tree-cfg.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-cfgcleanup.c: Ditto.
-	* tree-chkp.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-chkp-opt.c: Ditto.
-	* tree-chrec.c: Ditto.
-	* tree-chkp-opt.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, inchash.h and
-	real.h due to flattening of tree.h.
-	* tree-core.h: Flatten header file by removing all #include statements.
-	* tree-data-ref.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-dfa.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, inchash.h and
-	real.h due to flattening of tree.h.
-	* tree-diagnostic.c: Ditto.
-	* tree-dump.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, inchash.h, real.h and
-	fixed-value.h due to flattening of tree.h.
-	* tree-dfa.c: Ditto.
-	* tree-eh.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, inchash.h and
-	real.h due to flattening of tree.h.
-	* tree-emutls.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree.h: Flatten header files by removing all includes except tree-core.h.
-	Remove inline function convert_to_ptrofftype_loc to relocate to fold-const.c.
-	Remove macro convert_to_ptrofftype to relocate to fold-const.h.
-	Remove inline function fold_build_pointer_plus_loc to relocate to fold-const.c.
-	Remove macro fold_build_pointer_plus to relocate to fold-const.h.
-	Remove inline function fold_build_pointer_plus_hwi_loc to relocate to fold-const.c.
-	Remove macro fold_build_pointer_plus_hwi to relocate to fold-const.h.
-	* tree-if-conv.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, inchash.h, real.h and
-	fixed-value.h due to flattening of tree.h.
-	* tree-inline.c: Ditto.
-	* tree-into-ssa.c: Ditto.
-	* tree-iterator.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-loop-distribution.c: Ditto.
-	* tree-nested.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-nrv.c: Ditto.
-	* tree-object-size.c: Ditto.
-	* tree-outof-ssa.c: Ditto.
-	* tree-parloops.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-phinodes.c: Ditto.
-	* tree-predcom.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-pretty-print.c: Ditto.
-	* tree-profile.c: double-int.h, input.h, alias.h, symtab.h,
-	fold-const.h, wide-int.h and inchash.h due to flattening of tree.h.
-	* tree-scalar-evolution.c: Include hash-set.h, machmode.h, vec.h,
-	double-int.h, input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h and inchash.h due to flattening of tree.h.
-	* tree-sra.c: Include  vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, and
-	inchash.h due to flattening of tree.h.
-	* tree-ssa-alias.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-ssa.c: Ditto.
-	* tree-ssa-ccp.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, inchash.h
-	and real.h due to flattening of tree.h.
-	* tree-ssa-coalesce.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-ssa-copy.c: Ditto.
-	* tree-ssa-copyrename.c: Ditto.
-	* tree-ssa-dce.c: Ditto.
-	* tree-ssa-dom.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h, inchash.h
-	and real.h due to flattening of tree.h.
-	* tree-ssa-dse.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-ssa-forwprop.c: Ditto.
-	* tree-ssa-ifcombine.c: Ditto.
-	* tree-ssa-live.c: Ditto.
-	* tree-ssa-loop.c: Ditto.
-	* tree-ssa-loop-ch.c: Ditto.
-	* tree-ssa-loop-im.c: Ditto.
-	* tree-ssa-loop-ivcanon.c: Ditto.
-	* tree-ssa-loop-ivopts.c: Ditto.
-	* tree-ssa-loop-manip.c: Ditto.
-	* tree-ssa-loop-niter.c: Ditto.
-	* tree-ssa-loop-prefetch.c: Ditto.
-	* tree-ssa-loop-unswitch.c: Ditto.
-	* tree-ssa-loop-math-opts.c: Ditto.
-	* tree-ssanames.c: Ditto.
-	* tree-ssa-operands.c: Ditto.
-	* tree-ssa-phiopt.c: Ditto.
-	* tree-ssa-phiprop.c: Ditto.
-	* tree-ssa-pre.c: Ditto.
-	* tree-ssa-propagate.c: Ditto.
-	* tree-ssa-reassoc.c: Ditto.
-	* tree-ssa-sccvn.c: Ditto.
-	* tree-ssa-sink.c: Ditto.
-	* tree-ssa-strlen.c: Include hash-set.h, machmode.h, vec.h,
-	double-int.h, input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h and inchash.h due to flattening of tree.h.
-	* tree-ssa-structalias.c: double-int.h, input.h, alias.h, symtab.h,
-	fold-const.h, wide-int.h and inchash.h due to flattening of tree.h.
-	* tree-ssa-tail-merge.c: Include hash-set.h, machmode.h, vec.h,
-	double-int.h, input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h and inchash.h due to flattening of tree.h.
-	* tree-ssa-ter.c: Ditto.
-	* tree-ssa-threadedge.c: Ditto.
-	* tree-ssa-threadupdate.c: Include hash-set.h, machmode.h, vec.h,
-	double-int.h, input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h and inchash.h due to flattening of tree.h.
-	* tree-ssa-uncprop.c: Include hash-set.h, machmode.h, vec.h,
-	double-int.h, input.h, alias.h, symtab.h, fold-const.h,
-	wide-int.h and inchash.h due to flattening of tree.h.
-	* tree-ssa-uninit.c: Ditto.
-	* tree-stdarg.c: Include vec.h, double-int.h, input.h, alias.h,
-	symtab.h, fold-const.h, wide-int.h and inchash.h due to flattening
-	of tree.h.
-	* tree-streamer.c: Include vec.h, double-int.h, input.h, alias.h,
-	symtab.h, options.h, fold-const.h, wide-int.h and
-	inchash.h due to flattening of tree.h.
-	* tree-streamer-in.c: Include hash-set.h, machmode.h, vec.h,
-	double-int.h, input.h, alias.h, symtab.h, options.h, fold-const.h,
-	wide-int.h, inchash.h, real.h and fixed-value.h due to flattening
-	of tree.h.
-	* tree-streamer-out.c: Dittoo.
-	* tree-switch-conversion.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-tailcall.c: Ditto.
-	* tree-vect-data-refs.c: Ditto.
-	* tree-vect-generic.c: Include hash-set.h, machmode.h, vec.h, double-int.h, input.h,
-	alias.h, symtab.h, options.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-vect-loop.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* tree-vect-loop-manip.c: Ditto.
-	* tree-vectorizer.c: Ditto.
-	* tree-vect-patterns.c: Ditto.
-	* tree-vect-slp.c: Ditto.
-	* tree-vect-stmts.c: Ditto.
-	* tree-vrp.c: Ditto.
-	* tsan.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* ubsan.c: Ditto.
-	* value-prof.c.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* varasm.c: Ditto.
-	* varpool.c: Ditto.
-	* var-tracking.c: Ditto.
-	* vmsdbgout.c: Ditto.
-	* vtable-verify.c: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, options.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* wide-int.cc: Include hash-set.h, machmode.h, vec.h, double-int.h,
-	input.h, alias.h, symtab.h, fold-const.h, wide-int.h and inchash.h
-	due to flattening of tree.h.
-	* xcoffout.c: Ditto.
+	PR tree-optimization/64322
+	* tree-vrp.c (extract_range_from_binary_expr_1): Attempt to derive
+	range for RSHIFT_EXPR even if vr0 range is not VR_RANGE or is symbolic.
 
 2015-01-09  Tom de Vries  <tom@codesourcery.com>
 

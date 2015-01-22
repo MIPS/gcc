@@ -1370,12 +1370,30 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	     (sym->ts.u.cl->passed_length == sym->ts.u.cl->backend_decl))
 	    sym->ts.u.cl->backend_decl = NULL_TREE;
 
-	  if (sym->ts.deferred && fun_or_res
-		&& sym->ts.u.cl->passed_length == NULL
-		&& sym->ts.u.cl->backend_decl)
+	  if (sym->ts.deferred && byref)
 	    {
-	      sym->ts.u.cl->passed_length = sym->ts.u.cl->backend_decl;
-	      sym->ts.u.cl->backend_decl = NULL_TREE;
+	      /* The string length of a deferred char array is stored in the
+		 parameter at sym->ts.u.cl->backend_decl as a reference and
+		 marked as a result.  Exempt this variable from generating a
+		 temporary for it.  */
+	      if (sym->attr.result)
+		{
+		  /* We need to insert a indirect ref for param decls.  */
+		  if (sym->ts.u.cl->backend_decl
+		      && TREE_CODE (sym->ts.u.cl->backend_decl) == PARM_DECL)
+		    sym->ts.u.cl->backend_decl =
+			build_fold_indirect_ref (sym->ts.u.cl->backend_decl);
+		}
+	      /* For all other parameters make sure, that they are copied so
+		 that the value and any modifications are local to the routine
+		 by generating a temporary variable.  */
+	      else if (sym->attr.function
+		       && sym->ts.u.cl->passed_length == NULL
+		       && sym->ts.u.cl->backend_decl)
+		{
+		  sym->ts.u.cl->passed_length = sym->ts.u.cl->backend_decl;
+		  sym->ts.u.cl->backend_decl = NULL_TREE;
+		}
 	    }
 
 	  if (sym->ts.u.cl->backend_decl == NULL_TREE)
@@ -1476,9 +1494,18 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     gfc_internal_error ("intrinsic variable which isn't a procedure");
 
   /* Create string length decl first so that they can be used in the
-     type declaration.  */
+     type declaration.  For associate names, the target character
+     length is used. Set 'length' to a constant so that if the
+     string lenght is a variable, it is not finished a second time.  */
   if (sym->ts.type == BT_CHARACTER)
-    length = gfc_create_string_length (sym);
+    {
+      if (sym->attr.associate_var
+	  && sym->ts.u.cl->backend_decl
+	  && TREE_CODE (sym->ts.u.cl->backend_decl) == VAR_DECL)
+	length = gfc_index_zero_node;
+      else
+	length = gfc_create_string_length (sym);
+    }
 
   /* Create the decl for the variable.  */
   decl = build_decl (sym->declared_at.lb->location,
@@ -1540,6 +1567,8 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Character variables need special handling.  */
       gfc_allocate_lang_decl (decl);
 
+      /* Associate names can use the hidden string length variable
+	 of their associated target.  */
       if (TREE_CODE (length) != INTEGER_CST)
 	{
 	  gfc_finish_var_decl (length, sym);

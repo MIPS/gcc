@@ -1,3 +1,94 @@
+2015-01-21  Thomas Koenig  <tkoenig@netcologne.de>
+
+	PR fortran/57023
+	* dependency.c (callback_dummy_intent_not_int):  New function.
+	(dummy_intent_not_in):  New function.
+	(gfc_full_array_ref_p):  Use dummy_intent_not_in.
+
+2015-01-18  Andre Vehreschild  <vehre@gmx.de>
+	    Janus Weil <janus@gcc.gnu.org>
+
+	PR fortran/60255
+	* class.c (gfc_get_len_component): New.
+	(gfc_build_class_symbol): Add _len component to unlimited
+	polymorphic entities.
+	(find_intrinsic_vtab): Removed emitting of error message.
+	* gfortran.h: Added prototype for gfc_get_len_component.
+	* simplify.c (gfc_simplify_len): Use _len component where
+	available.
+	* trans-expr.c (gfc_class_len_get): New.
+	(gfc_conv_intrinsic_to_class): Add handling for deferred
+	character arrays.
+	(gfc_conv_structure): Treat _len component correctly.
+	(gfc_conv_expr): Prevent bind_c handling when not required.
+	(gfc_trans_pointer_assignment): Propagate _len component.
+	* trans-stmt.c (class_has_len_component): New.
+	(trans_associate_var): _len component treatment for associate
+	context.
+	(gfc_trans_allocate): Same as for trans_associate_var()
+	* trans.h: Added prototype for gfc_class_len_get.
+
+2015-01-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/57959
+	* trans-expr.c (gfc_trans_subcomponent_assign): Use a deep copy
+	for allocatable components, where the source is a variable.
+
+2015-01-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/55901
+	* primary.c (gfc_match_varspec): Exclude dangling associate-
+	names with dimension 0 from being counted as arrays.
+	* resolve.c (resolve_assoc_var): Sub-strings are permissible
+	for associate-names, so exclude characters from the test for
+	misuse as arrays.
+	* trans-decl.c (gfc_get_symbol_decl): Associate-names can use
+	the hidden string length variable of their associated target.
+	Signal this by setting 'length' to a constant, if the decl for
+	the string length is a variable.
+
+2015-01-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/64578
+	* trans-expr.c (gfc_trans_pointer_assignment): Make sure that
+	before reinitializing rse, to add the rse.pre to block before
+	creating 'ptrtemp'.
+	* trans-intrinsic.c (gfc_conv_associated): Deal with the class
+	data being a descriptor.
+
+2015-01-17  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/60357
+	* primary.c (build_actual_constructor): Prevent warning.
+	* trans-expr.c (alloc_scalar_allocatable_for_subcomponent_
+	assignment): New function encapsulates treatment of allocatable
+	components.
+	(gfc_trans_subcomponent_assign): Needed to distinguish between
+	regular assignment and initilization.
+	(gfc_trans_structure_assign): Same.
+	(gfc_conv_structure): Same.
+
+	PR fortran/61275
+	* gfortran.h: deferred_parameter is not needed, because
+	it artificial does the trick completely.
+	* primary.c (build_actual_constructor): Same.
+	(gfc_convert_to_structure_constructor): Same.
+	* resolve.c (resolve_fl_derived0): Same.
+	* trans-expr.c (gfc_conv_component_ref): Prevent treating
+	allocatable deferred length char arrays here.
+	(gfc_trans_subcomponent_assign): Same as above.
+	* trans-types.c (gfc_sym_type): This is done in
+	gfc_get_derived_type already.
+
+2015-01-17  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/60334
+	* trans-decl.c (gfc_get_symbol_decl):Use a ref on the string
+	length when the symbol is declared to be a result.
+	* trans-expr.c (gfc_conv_procedure_call): Strip deref on the
+	string length when functions are nested and the string length
+	is a reference already.
+
 2015-01-16  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/45290

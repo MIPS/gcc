@@ -1,3 +1,9 @@
+2015-01-20  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/linux-unwind.h (nios2_fallback_frame_state):
+	Update rt_sigframe format and address for current Nios II
+	Linux conventions.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/ia64/lib1funcs.S: Add .note.GNU-stack section on

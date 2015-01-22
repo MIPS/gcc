@@ -856,9 +856,6 @@ typedef struct
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;
 
-  /* Is a parameter associated with a deferred type component.  */
-  unsigned deferred_parameter:1;
-
   /* The namespace where the attribute has been set.  */
   struct gfc_namespace *volatile_ns, *asynchronous_ns;
 }
@@ -3177,6 +3174,7 @@ bool gfc_is_class_scalar_expr (gfc_expr *);
 bool gfc_is_class_container_ref (gfc_expr *e);
 gfc_expr *gfc_class_initializer (gfc_typespec *, gfc_expr *);
 unsigned int gfc_hash_value (gfc_symbol *);
+gfc_expr *gfc_get_len_component (gfc_expr *e);
 bool gfc_build_class_symbol (gfc_typespec *, symbol_attribute *,
 			     gfc_array_spec **);
 gfc_symbol *gfc_find_derived_vtab (gfc_symbol *);

@@ -7935,8 +7935,11 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
   /* Finally resolve if this is an array or not.  */
   if (sym->attr.dimension && target->rank == 0)
     {
-      gfc_error ("Associate-name %qs at %L is used as array",
-		 sym->name, &sym->declared_at);
+      /* primary.c makes the assumption that a reference to an associate
+	 name followed by a left parenthesis is an array reference.  */
+      if (sym->ts.type != BT_CHARACTER)
+	gfc_error ("Associate-name %qs at %L is used as array",
+		   sym->name, &sym->declared_at);
       sym->attr.dimension = 0;
       return;
     }
@@ -12707,7 +12710,7 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	      strlen->ts.type = BT_INTEGER;
 	      strlen->ts.kind = gfc_charlen_int_kind;
 	      strlen->attr.access = ACCESS_PRIVATE;
-	      strlen->attr.deferred_parameter = 1;
+	      strlen->attr.artificial = 1;
 	    }
 	}
 

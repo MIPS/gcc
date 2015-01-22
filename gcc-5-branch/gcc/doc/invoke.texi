@@ -5761,6 +5761,13 @@ This option enables instrumentation of loads from an enum type.  If
 a value outside the range of values for the enum type is loaded,
 a run-time error is issued.
 
+@item -fsanitize=vptr
+@opindex fsanitize=vptr
+
+This option enables instrumentation of C++ member function calls, member
+accesses and some conversions between pointers to base and derived classes,
+to verify the referenced object has the correct dynamic type.
+
 @end table
 
 While @option{-ftrapv} causes traps for signed overflows to be emitted,
@@ -8727,26 +8734,6 @@ enabled by default at @option{-O2} and higher.  Null pointer check
 elimination is only done if @option{-fdelete-null-pointer-checks} is
 enabled.
 
-@item -ftracer
-@opindex ftracer
-Perform tail duplication to enlarge superblock size.  This transformation
-simplifies the control flow of the function allowing other optimizations to do
-a better job.
-
-@item -funroll-loops
-@opindex funroll-loops
-Unroll loops whose number of iterations can be determined at compile
-time or upon entry to the loop.  @option{-funroll-loops} implies
-@option{-frerun-cse-after-loop}.  This option makes code larger,
-and may or may not make it run faster.
-
-@item -funroll-all-loops
-@opindex funroll-all-loops
-Unroll all loops, even if their number of iterations is uncertain when
-the loop is entered.  This usually makes programs run more slowly.
-@option{-funroll-all-loops} implies the same options as
-@option{-funroll-loops},
-
 @item -fsplit-ivs-in-unroller
 @opindex fsplit-ivs-in-unroller
 Enables expression of values of induction variables in later iterations
@@ -10021,7 +10008,7 @@ before applying @option{--param inline-unit-growth}.  The default is 10000.
 
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
-The default value is 30 which limits unit growth to 1.3 times the original
+The default value is 15 which limits unit growth to 1.15 times the original
 size. Cold functions (either marked cold via an attribute or by profile
 feedback) are not accounted into the unit size.
 
@@ -10077,7 +10064,7 @@ The default value is 10.
 @item early-inlining-insns
 Specify growth that the early inliner can make.  In effect it increases
 the amount of inlining for code having a large abstraction penalty.
-The default value is 10.
+The default value is 14.
 
 @item max-early-inliner-iterations
 Limit of iterations of the early inliner.  This basically bounds
