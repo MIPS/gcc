@@ -945,8 +945,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_bit_and:*/ gimple_build_assign_with_ops(BIT_AND_EXPR, 
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_bit_and:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), BIT_AND_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(BIT_AND_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+  }#
 )
 
 ;; pointer arithmetic
@@ -968,8 +974,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
   }# 
   ;; operator expansion
-  #{/*gimple_assign_pointer_plus:*/ gimple_build_assign_with_ops(POINTER_PLUS_EXPR, 
-    $LHS, $RHS1, $RHS2)}#
+  #{/*gimple_assign_pointer_plus:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), POINTER_PLUS_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+  gimple_build_assign_with_ops(POINTER_PLUS_EXPR, 
+			       $LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+  }#
 )
 
 
@@ -993,8 +1005,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_mult:*/ gimple_build_assign_with_ops(MULT_EXPR, 
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_mult:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), MULT_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(MULT_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 ;;;; match a gimple assign with highpart multiplication ie X = HIGHPART(Y * Z)
@@ -1016,8 +1034,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_mult_highpart:*/ gimple_build_assign_with_ops(MULT_EXPR, 
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_mult_highpart:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), MULT_HIGHPART_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(MULT_HIGHPART_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 (defcmatcher gimple_assign_widen_mult
@@ -1038,8 +1062,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_widen_mult:*/ gimple_build_assign_with_ops(WIDEN_MULT_EXPR, 
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_widen_mult:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), WIDEN_MULT_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(WIDEN_MULT_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 
@@ -1062,8 +1092,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $RHS2 = gimple_assign_rhs2($GA);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_trunc_div:*/ gimple_build_assign_with_ops(TRUNC_DIV_EXPR, 
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_trunc_div:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), TRUNC_DIV_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(TRUNC_DIV_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 ;;;; match a gimple assign with ceil division ie X = Y /ceil Z
@@ -1085,8 +1121,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_ceil_div:*/ gimple_build_assign_with_ops(CEIL_DIV_EXPR, 
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_ceil_div:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), CEIL_DIV_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(CEIL_DIV_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 ;;;; match a gimple assign with floor division ie X = Y /floor Z
@@ -1108,8 +1150,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_floor_div: */ gimple_build_assign_with_ops(FLOOR_DIV_EXPR,
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_floor_div: */
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), FLOOR_DIV_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(FLOOR_DIV_EXPR,
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 
@@ -1131,8 +1179,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_round_div:*/ gimple_build_assign_with_ops(ROUND_DIV_EXPR,
-   $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_round_div:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), ROUND_DIV_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(ROUND_DIV_EXPR,
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 ;;;; match a gimple assign with real division ie X = Y /real Z
@@ -1154,7 +1208,13 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{gimple_build_assign_with_ops(RDIV_EXPR, $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_rdiv:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), RDIV_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(RDIV_EXPR, $LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 ;;;; match a gimple assign with exact division ie X = Y /exact Z
@@ -1167,15 +1227,22 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   gasxdiv
   :doc #{$GIMPLE_ASSIGN_EXACT_DIV match or build exact division into $LHS of $RHS1 and $RHS2.}#
   ;; test
-  #{($ga && is_gimple_assign($ga) && gimple_expr_code($ga) == EXACT_DIV_EXPR)}#
+  #{/* gimple_assign_exact_div $GASXDIV ? */ ($ga &&
+	 is_gimple_assign($ga) && gimple_expr_code($ga) == EXACT_DIV_EXPR)}#
   ;; fill
-  #{
+  #{/* gimple_assign_exact_div $GASXDIV ! */ 
    $lhs = gimple_assign_lhs($ga);
    $rhs1 = gimple_assign_rhs1($ga);
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{gimple_build_assign_with_ops(EXACT_DIV_EXPR, $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_exact_div:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), EXACT_DIV_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(EXACT_DIV_EXPR, $LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 
@@ -1199,8 +1266,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_trunc_mod:*/ gimple_build_assign_with_ops(TRUNC_MOD_EXPR,
-    $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_trunc_mod:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), TRUNC_MOD_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(TRUNC_MOD_EXPR,
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 ;;;; match a gimple assign with ceil remainder ie X = Y %ceil Z
@@ -1222,7 +1295,13 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{gimple_build_assign_with_ops(CEIL_MOD_EXPR, $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_ceil_mod:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), CEIL_MOD_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+  gimple_build_assign_with_ops(CEIL_MOD_EXPR, $LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+}#
 )
 
 ;;;; match a gimple assign with floor remainder ie X = Y %floor Z
@@ -1244,8 +1323,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_floor_mod:*/ gimple_build_assign_with_ops(FLOOR_MOD_EXPR, 
-  $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_floor_mod:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), FLOOR_MOD_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(FLOOR_MOD_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 
@@ -1268,8 +1353,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $rhs2 = gimple_assign_rhs2($ga);
    }# 
   ;; operator expansion
-  #{/*gimple_assign_round_mod:*/ gimple_build_assign_with_ops(ROUND_MOD_EXPR, 
-   $LHS, $RHS1, $RHS2)}#
+   #{/*gimple_assign_round_mod:*/
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), ROUND_MOD_EXPR, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops(ROUND_MOD_EXPR, 
+				$LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 
@@ -1285,16 +1376,23 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   gasbinop
   :doc #{$GIMPLE_ASSIGN_BINARYOP match or build a binary operator of $OPCODE into $LHS of $RHS1 and $RHS2.}#
   ;; test
-  #{($ga && is_gimple_assign($ga) && gimple_num_ops($ga) >= 3)}#
+  #{/* gimple_assign_binaryop $GASBINOP ?*/ ($ga
+    && is_gimple_assign($ga) && gimple_num_ops($ga) >= 3)}#
   ;; fill
-  #{
+  #{/* gimple_assign_binaryop $GASBINOP !*/ 
    $lhs = gimple_assign_lhs($ga);
    $rhs1 = gimple_assign_rhs1($ga);
    $rhs2 = gimple_assign_rhs2($ga);
    $opcode = gimple_assign_rhs_code($ga);
    }# 
   ;; operator expansion
-  #{gimple_build_assign_with_ops((enum tree_code) $OPCODE, $LHS, $RHS1, $RHS2)}#
+   #{/* gimple_assign_binaryop: */ 
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  gimple_build_assign (($LHS), (enum tree_code) $OPCODE, ($RHS1), ($RHS2))
+#else /* GCC 4.9 */  
+   gimple_build_assign_with_ops((enum tree_code) $OPCODE, $LHS, $RHS1, $RHS2)
+#endif /* GCC 5.0 or GCC 4.9 */
+   }#
 )
 
 
@@ -1314,7 +1412,8 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }#
   ;; operator expansion
   #{/*gimple_cond:*/ ($CONDCODE>0 && $CONDCODE<(long)MAX_TREE_CODES
-		      && TREE_CODE_CLASS($CONDCODE)== tcc_comparison) ? gimple_build_cond((enum tree_code)$CONDCODE, $LHS, $RHS, 
+				  && TREE_CODE_CLASS($CONDCODE)== tcc_comparison)
+  ? gimple_build_cond((enum tree_code)$CONDCODE, $LHS, $RHS, 
 				       /*nolabels*/ NULL_TREE, NULL_TREE): (gimple) NULL}#)
   
 	 
@@ -1617,7 +1716,8 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    $RHS = gimple_cond_rhs($GC);
   }# 
   ;; operator expansion
-  #{/*gimple_cond_ltgt:*/ gimple_build_cond(LTGT_EXPR, $LHS, $RHS, /*nolabels*/ NULL_TREE, NULL_TREE)}#
+  #{/*gimple_cond_ltgt:*/
+  gimple_build_cond(LTGT_EXPR, $LHS, $RHS, /*nolabels*/ NULL_TREE, NULL_TREE)}#
   )
 
 
@@ -1630,7 +1730,14 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   :doc #{$GIMPLE_COND_TRUE match a gimple conditional $GC with an always true condition.}#
   ;;test
   #{/* gimple_cond_true $GIMPCONDTR ? */ ($GC && gimple_code($GC) == GIMPLE_COND 
-     && gimple_cond_true_p($gc))}#
+    && gimple_cond_true_p
+       (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gcond*>
+#endif /* GCC 5.0 */
+	    ($GC)
+       ))
+  }#
   ;;fill
   #{ /* gimple_cond_true $GIMPCONDTR !*/
   }# )
@@ -1643,8 +1750,16 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   gimpcondfa
   :doc #{$GIMPLE_COND_TRUE match a gimple conditional $GC with an always false condition.}#
   ;;test
-  #{/*fimple_cond_false $gimpcondfa ?*/ ($gc && gimple_code($gc)==GIMPLE_COND
-	 && gimple_cond_false_p($gc))}# )
+  #{/*fimple_cond_false $gimpcondfa ?*/
+  ($GC && gimple_code($GC)==GIMPLE_COND
+       && gimple_cond_false_p
+       (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gcond*>
+#endif /* GCC 5.0 */
+	    ($GC)
+       ))
+  }# )
 
 
 ;; rarely used pattern to extract the true & false labels. These are
@@ -1659,8 +1774,18 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{/* gimple_cond_with_true_false_labels $gimpcondtrlab ?*/ ($gc && gimple_code($gc)==GIMPLE_COND)}#
   ;;fill
   #{/* gimple_cond_with_true_false_labels $gimpcondtrlab !*/
-   $truelab = gimple_cond_true_label($gc);
-   $falselab = gimple_cond_false_label($gc);
+  $truelab = gimple_cond_true_label(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gcond*>
+#endif /* GCC 5.0 */
+				    ($GC)
+				    );
+  $falselab = gimple_cond_false_label(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gcond*>
+#endif /* GCC 5.0 */
+				      ($GC)
+				      );
    }#
 )
 
@@ -2688,7 +2813,12 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{/* gimple_return $GIMPRET ? */ ($gr && gimple_code($gr)==GIMPLE_RETURN)}#
   ;; fill
   #{/* gimple_return $GIMPRET ! */ 
-   $retval = gimple_return_retval($gr);
+  $retval = gimple_return_retval(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const greturn*>
+#endif /* GCC 5.0 */
+				 ($GR)
+				 );
   }# 
   ;; operate
   #{/* gimple_return: */ gimple_build_return($RETVAL) }#
@@ -2707,7 +2837,9 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /*  gimple_goto $gimpgoto ? */ ($gr && gimple_code($gr) == GIMPLE_GOTO) }#
   ;; fill
   #{ /*  gimple_goto $gimpgoto ! */ 
-  $tlabeld = gimple_goto_dest($gr);
+  $tlabeld = gimple_goto_dest(
+			      ($GR)
+			      );
   }# 
   ;; operate
   #{ /*  gimple_goto: */ gimple_build_goto($TLABELD) }#
@@ -2776,10 +2908,16 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /* gimple_label $gimplab ? */ ($gr && gimple_code($gr) == GIMPLE_LABEL) }#
   ;; fill
   #{ /* gimple_label $gimplab ! */ 
-  $tlabel = gimple_label_label($gr);
+  $tlabel = gimple_label_label(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const glabel*>
+#endif /* GCC 5.0 */
+			       ($GR));
   }# 
   ;; operate
-  #{ /* gimple_label: */ gimple_build_label ($TLABEL) }#
+  #{ /* gimple_label: */
+  gimple_build_label ($TLABEL)
+  }#
 )
 
 
@@ -2795,8 +2933,16 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{/*gimple_transaction $GIMPTRANS ?*/ ($GR && gimple_code($GR) == GIMPLE_TRANSACTION) }#
   ;; fill
   #{/*gimple_transaction $GIMPTRANS !*/
-  $GSBODY = gimple_transaction_body ($GR) ;
-  $TLAB = gimple_transaction_label ($GR)  ;
+  $GSBODY = gimple_transaction_body (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <gtransaction*>
+#endif /* GCC 5.0 */
+				     ($GR)) ;
+  $TLAB = gimple_transaction_label (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <gtransaction*>
+#endif /* GCC 5.0 */
+				    ($GR))  ;
   }#
   ;; operator expansion
   #{/*gimple_transaction:*/ gimple_build_transaction($GSBODY,$TLAB)}#
@@ -2814,8 +2960,16 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
    #{ /* gimple_eh_else $GIMPEHELS ? */ ($GI && gimple_code($GI) == GIMPLE_EH_ELSE) }#
    ;; fill
    #{ /* gimple_eh_else $GIMPEHELS ! */
-   $GSNORMBODY = gimple_eh_else_n_body($GI) ;
-   $GSEXCBODY = gimple_eh_else_e_body($GI)  ;
+   $GSNORMBODY = gimple_eh_else_n_body(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <geh_else*>
+#endif /* GCC 5.0 */
+				       ($GI)) ;
+   $GSEXCBODY = gimple_eh_else_e_body(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <geh_else*>
+#endif /* GCC 5.0 */
+				      ($GI))  ;
    }#
    ;; operate
    #{ /*gimple_eh_else: */ gimple_build_eh_else ($GSNORMBODY, $GSEXCBODY) }#
@@ -2831,7 +2985,12 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
  ;; test
  #{ /* gimple_eh_dispatch $GIMPEHDIS ? */ ($GI && gimple_code($GI) == GIMPLE_EH_DISPATCH) }#
  ;; fill
- #{ /* gimple_eh_dispatch  $GIMPEHDIS ! */ $REGNUM = gimple_eh_dispatch_region ($GI);
+ #{ /* gimple_eh_dispatch  $GIMPEHDIS ! */
+ $REGNUM = gimple_eh_dispatch_region (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const geh_dispatch*>
+#endif /* GCC 5.0 */
+				      ($GI));
  }#
  ;; operate
  #{ /* gimple_eh_dispatch: */ gimple_build_eh_dispatch($REGNUM) }#
@@ -2864,8 +3023,15 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /*gimple_catch $GIMPCATCH ? */ ($GI && gimple_code($GI) == GIMPLE_CATCH) }#
   ;; fill
   #{ /*gimple_catch $GIMPCATCH ! */
-  $TEXTYPE = gimple_catch_types ($GI);
-  $GSHANDLER = gimple_catch_handler ($GI);
+  $TEXTYPE = gimple_catch_types (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gcatch*>
+#endif /* GCC 5.0 */
+				 ($GI));
+  $GSHANDLER = gimple_catch_handler (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gcatch*>
+				     ($GI));
   }#
   ;; operator
   #{ /*gimple_catch:*/ gimple_build_catch($TEXTYPE,$GSHANDLER) }#
