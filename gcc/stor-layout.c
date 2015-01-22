@@ -2479,12 +2479,12 @@ vector_type_mode (const_tree t)
 
   gcc_assert (TREE_CODE (t) == VECTOR_TYPE);
 
-  mode = t->type_common.mode;
+  mode = t->u.type_common.mode;
   if (VECTOR_MODE_P (mode)
       && (!targetm.vector_mode_supported_p (mode)
 	  || !have_regs_of_mode[mode]))
     {
-      machine_mode innermode = TREE_TYPE (t)->type_common.mode;
+      machine_mode innermode = TREE_TYPE (t)->u.type_common.mode;
 
       /* For integers, try mapping it to a same-sized scalar mode.  */
       if (GET_MODE_CLASS (innermode) == MODE_INT)

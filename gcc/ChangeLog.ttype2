@@ -1,0 +1,42 @@
+2015-01-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gcc/ada/gcc-interface/ada-tree.h:  Union tree_node -> struct.
+	* gcc/c/c-decl.c:
+	* gcc/c-family/c-format.c:
+	* gcc/cgraph.c:
+	* gcc/cgraph.h:
+	* gcc/config/nvptx/nvptx.h:
+	* gcc/coretypes.h:
+	* gcc/cp/cp-tree.h:
+	* gcc/cp/decl.c:
+	* gcc/emit-rtl.c:
+	* gcc/expmed.c:
+	* gcc/fold-const.c:
+	* gcc/fortran/f95-lang.c:
+	* gcc/gengtype.c:
+	* gcc/ggc.h:
+	* gcc/gimple-ssa.h:
+	* gcc/go/go-lang.c:
+	* gcc/ipa-devirt.c:
+	* gcc/ipa-inline-transform.c:
+	* gcc/java/java-tree.h:
+	* gcc/jit/dummy-frontend.c:
+	* gcc/lto/lto-symtab.c:
+	* gcc/lto/lto-tree.h:
+	* gcc/lto/lto.c:
+	* gcc/objc/objc-act.h:
+	* gcc/print-tree.c:
+	* gcc/stor-layout.c:
+	* gcc/stringpool.c:
+	* gcc/symtab.c:
+	* gcc/system.h:
+	* gcc/tree-core.h:
+	* gcc/tree-sra.c:
+	* gcc/tree-ssa-coalesce.c:
+	* gcc/tree-streamer-in.c:
+	* gcc/tree-streamer-out.c:
+	* gcc/tree.c:
+	* gcc/tree.h:
+	* libcpp/include/cpp-id-data.h:
+	* libcpp/include/cpplib.h:
+	* libcpp/include/line-map.h:

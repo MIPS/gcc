@@ -256,7 +256,7 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
     {
       DECL_PACKED (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_NONADDRESSABLE_P (expr) = (unsigned) bp_unpack_value (bp, 1);
-      expr->decl_common.off_align = bp_unpack_value (bp, 8);
+      expr->u.decl_common.off_align = bp_unpack_value (bp, 8);
     }
 
   if (TREE_CODE (expr) == VAR_DECL)

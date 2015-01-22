@@ -2423,7 +2423,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      sizeof (struct tree_function_decl) - sizeof (struct tree_decl_common));
 
       /* Preserve symtab node mapping.  */
-      olddecl->decl_with_vis.symtab_node = snode;
+      DECL_SYMTAB_NODE (olddecl) = snode;
 
       if (new_template_info)
 	/* If newdecl is a template instantiation, it is possible that
@@ -2478,7 +2478,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		    size - sizeof (struct tree_decl_common)
 		    + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
             if (TREE_CODE (newdecl) == VAR_DECL)
-	      olddecl->decl_with_vis.symtab_node = snode;
+	      DECL_SYMTAB_NODE (olddecl) = snode;
 	  }
 	  break;
 	default:

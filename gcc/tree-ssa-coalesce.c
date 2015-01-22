@@ -1248,8 +1248,8 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
 
 struct ssa_name_var_hash : typed_noop_remove <tree_node>
 {
-  typedef union tree_node value_type;
-  typedef union tree_node compare_type;
+  typedef struct tree_node value_type;
+  typedef struct tree_node compare_type;
   static inline hashval_t hash (const value_type *);
   static inline int equal (const value_type *, const compare_type *);
 };
