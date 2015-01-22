@@ -53,6 +53,7 @@ extern const char *output_vec_const_move (rtx *);
 extern const char *rs6000_output_move_128bit (rtx *);
 extern bool rs6000_move_128bit_ok_p (rtx []);
 extern bool rs6000_split_128bit_ok_p (rtx []);
+extern void rs6000_expand_float128_convert (rtx, rtx, bool);
 extern void rs6000_expand_vector_init (rtx, rtx);
 extern void paired_expand_vector_init (rtx, rtx);
 extern void rs6000_expand_vector_set (rtx, rtx, int);
@@ -133,8 +134,7 @@ extern void rs6000_split_multireg_move (rtx, rtx);
 extern void rs6000_emit_le_vsx_move (rtx, rtx, machine_mode);
 extern void rs6000_emit_move (rtx, rtx, machine_mode);
 extern rtx rs6000_secondary_memory_needed_rtx (machine_mode);
-extern machine_mode rs6000_secondary_memory_needed_mode (enum
-							      machine_mode);
+extern machine_mode rs6000_secondary_memory_needed_mode (machine_mode);
 extern rtx (*rs6000_legitimize_reload_address_ptr) (rtx, machine_mode,
 						    int, int, int, int *);
 extern bool rs6000_legitimate_offset_address_p (machine_mode, rtx,

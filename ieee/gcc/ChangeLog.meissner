@@ -1,3 +1,223 @@
+2015-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (Floating Types): Add PowerPC support to the
+	__float128 documentation.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mfloat128-vsx and -mfloat128-fpr.
+
+	* machmode.h (GET_MODE_WIDER_MODE_SPECIAL): New macro to get the
+	wider modes that are normally skipped by default.
+
+	* rtlanal.c (init_num_sign_bit_copies_in_rep): In going from
+	narrow to wider modes, check whether we receive VOIDmode, since
+	special floating point types are not listed in the normal widening
+	tables.  When doing initializations, go through all modes in a
+	class, even special modes, that are normally skipped by default
+	widening.
+	* cse.c (cse_insn): Likewise.
+	* expr.c (init_expr_target): Likewise.
+	(compress_float_constant): Likewise.
+	* dse.c (find_shift_sequence): Likewise.
+	* emit-rtl.c (init_derived_machine_modes): Likewise.
+	(init_emit_once): Likewise.
+	* combine.c (simplify_comparison): Likewise.
+
+	* machmode.def (SPECIAL_FLOAT_MODE): New type of floating point
+	that is special, and is not automatically part of the normal
+	widening rules.
+
+	* genmodes.c (struct mode_data): Add special field.
+	(blank_mode): Initialize special.
+	(complete_mode): Complex and vector types inherit the special mode
+	class.
+	(FLOAT_MODE): Add special field for floating point to sort special
+	nodes higher than normal nodes for the same size.  The intention
+	is to allow __float128 on PowerPC (KFmode) to be higher than long
+	double (TFmode), so that automatic widening uses the long double
+	type.
+	(FRACTIONAL_FLOAT_MODE): Likewise.
+	(SPECIAL_FLOAT_MODE): Likewise.
+	(FLOAT_MODE_INTERNAL): Likewise.
+	(make_float_mode): Likewise.
+	(emit_mode_wider): Likewise.
+
+	* config/rs6000/vector.md (VEC_L): Add KFmode (IEEE 128-bit
+	floating point) to vector register iterators.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(mov<mode>): Add support for KFmode.
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate that only returns true for GPR hard registers.
+	(easy_fp_constant): Add support for KFmode.
+	(easy_vector_constant): If we got a 128-bit scalar floating point
+	type, call easy_fp_constant.
+
+	* config/rs6000/rs6000-modes.def (KFmode): Add mode for IEEE
+	128-bit floating point.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Add
+	IEEE 128-bit floating point support.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
+	New declarations for IEEE 128-bit floating point support.
+	(rs6000_secondary_memory_needed_mode): Fix typo, use machine_mode,
+	not enum machine_mode.
+
+	* config/rs6000/rs6000.opt (-mfloat128-vsx): Add switches for IEEE
+	128-bit floating point support.
+	(-mfloat128-ref): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__FLOAT128__, __FLOAT128_VSX__, __FLOAT128_REF__,
+	__LONG_DOUBLE_IEEE128__, and __LONG_DOUBLE_IBM128 as appropriate.
+
+	* config/rs6000/rs6000.c (TARGET_C_MODE_FOR_SUFFIX): Define to
+	cause the PowerPC to use 'q'/'Q' for suffixes of IEEE 128-bit
+	floating point.
+	(scalar_float_not_ieee128_p): New helper function to return true
+	on scalar modes that aren't 128-bits.
+	(rs6000_hard_regno_nregs_internal): Add support for IEEE 128-bit
+	floating point.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(invalid_e500_subreg): Likewise.
+	(reg_offset_addressing_ok_p): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewsie.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_emit_le_vsx_load): Likewise.
+	(rs6000_emit_le_vsx_store): Likewise.
+	(rs6000_emit_move): Likewise.
+	(USE_FP_FOR_ARG_P): Likewise.
+	(rs6000_discover_homogeneous_aggregate): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(init_cumulative_args): Likewise.
+	(function_arg_boundary): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_init_builtins): Likewise.
+	(rs6000_init_libfuncs): Move floating point setup to separate
+	functions for IEEE 128-bit floating point, and IBM 128-bit
+	floating point.
+	(init_float128_ibm): New functions.
+	(init_float128_ieee): Likewise.
+	(rs6000_secondary_reload_toc_costs): Fix typo.  Use machine_mode,
+	instead of enum machine_mode.
+	(rs6000_cannot_change_mode_class): Add support for IEEE 128-bit
+	floating point.
+	(rs6000_cannot_change_mode_class): Likewise.
+	(rs6000_output_move_128bit): Use fatal_insn for abort case.
+	(print_operand): Add IEEE 128-bit floating point support.
+	(rs6000_generate_compare): Likewise.
+	(rs6000_expand_float128_convert): Expand conversion to/from IEEE
+	128-bit floating point.
+	(rs6000_split_multireg_move): Add IEEE 128-bit floating point
+	support.
+	(spe_func_has_64bit_regs_p): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(output_toc): Likewise.
+	(rs6000_mangle_type): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+	(rs6000_scalar_mode_supported_p): Likewise.
+	(rs6000_vector_mode_supported_p): Likewise.
+	(rs6000_c_mode_for_suffix): Use 'q'/'Q' for IEEE 128-bit floating
+	point constants.
+	(rs6000_opt_masks): Add -mfloat128-vsx, -mfloat128-ref switches.
+
+	* config/rs6000/vsx.md (VSX_L): Add KFmode to VSX vector mode
+	iterators.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSX_F128): New mode iterator for 128-bit floating point that goes
+	in a single register.
+	(VSm): Add IEEE 128-bit floating point support.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSa): Likewise.
+	(VSv): Likewise.
+	(vsx_le_perm_load_<mode>): New insns for IEEE 128-bit floating
+	point support.
+	(vsx_le_perm_store_<mode>): Likewise.
+	(splitters for little endian 128-bit FP moves): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_FLOAT128): New target macro to
+	return true if either -mfloat128-vsx or -mfloat128-ref is used.
+	(IEEE_128BIT_P): New macro for IEEE 128-bit floating point modes.
+	(IBM_128BIT_P): New macro for IBM 128-bit floating point modes.
+	(FLOAT128_2REG_P): New macro for 128-bit floating point that takes
+	2 registers.
+	(MASK_FLOAT128_VSX): Define shortcut macro.
+	(MASK_FLOAT128_IBM): Likewise.
+	(STRICT_ALIGNMENT): Add IEEE 128-bit floating point support.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+	(ALTIVEC_VECTOR_MODE): Likewise.
+	(MODES_TIEABLE_P): Likewise.
+	(CUMULATIVE_ARGS): Add field to record if this is a library call.
+	(enum rs6000_builtin_type_index): Add IEEE 128-bit tree node.
+	(ieee128_float_type_node): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add KFmode to Altivec register
+	iterator modes.
+	(VM2): Likewise.
+	(altivec_high_bit): New insn to create an Altivec register wtih
+	just the top bit set.
+
+	* config/rs6000/rs6000.md (FP): Add IEEE 128-bit floating point
+	support.
+	(FMOVE128): Likewise.
+	(FMOVE128_FPR): Likewise.
+	(FMOVE128_GPR): Likewise.
+	(FMOVE128_VSX): Likewise.
+	(FLOAT128_SFDFTF): Likewise.
+	(TFKF): Likewise.
+	(RELOAD): Likewise.
+	(mov<mode>_64bit_dm): Likewise.
+	(mov<mode>_32bit): Likewise.
+	(extenddftf2): Likewise.
+	(extendsftf2): Likewise.
+	(trunctfdf2): Likewise.
+	(trunctfsf2): Likewise.
+	(fix_trunctfsi2): Likewise.
+	(fixuns_trunctf<mode>2): Likewise.
+	(floatditf2): Likewise.
+	(floatuns<mode>tf2): Likewise.
+	(negtf2): Likewise.
+	(neg<mode>2): Likewise.
+	(negtf2_internal): Likewise.
+	(abstf2): Likewise.
+	(abs<mode>2): Likewise.
+	(abstf2_internal): Likewise.
+	(ieee_128bit_vsx_neg<mode>2): New insn for IEEE 128-bit floating
+	point.
+	(ieee_128bit_vsx_neg<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(extend<mode>kf2): Likewise.
+	(trunckf<mode>2): Likewise.
+	(fix_trunckf<mode>2): Likewise.
+	(fixuns_trunckf<mode>2): Likewise.
+	(float<mode>kf2): Likewise.
+	(floatuns<mode>kf2): Likewise.
+	(FP128_64): Add KFmode.
+	(unpack<mode>): Add IEEE 128-bit floating point support.
+	(unpack<mode>_dm): Likewise.
+	(unpack<mode>_nodm): Likewise.
+	(unpackv1ti): Likewise.
+	(unpack<mode>): Likewise.
+	(packv1ti): Likewise.
+	(pack<mode>): Likewise.
+
 2015-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subverison id 219907.

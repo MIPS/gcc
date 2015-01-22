@@ -1,3 +1,10 @@
+2015-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-1.c: New file to test __float128.
+	* gcc.target/powerpc/float128-2.c: Likewise.
+	* gcc.target/powerpc/float128-3.c: Likewise.
+	* gcc.target/powerpc/float128-4.c: Likewise.
+
 2015-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subverison id 219907.

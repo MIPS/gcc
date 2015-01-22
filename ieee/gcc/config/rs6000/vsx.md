@@ -41,11 +41,28 @@
 (define_mode_iterator VSX_F [V4SF V2DF])
 
 ;; Iterator for logical types supported by VSX
-(define_mode_iterator VSX_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI])
+(define_mode_iterator VSX_L [V16QI
+			     V8HI
+			     V4SI
+			     V2DI
+			     V4SF
+			     V2DF
+			     V1TI
+			     TI
+			     (KF	"FLOAT128_VECTOR_P (KFmode)")
+			     (TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Iterator for memory move.  Handle TImode specially to allow
 ;; it to use gprs as well as vsx registers.
-(define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI])
+(define_mode_iterator VSX_M [V16QI
+			     V8HI
+			     V4SI
+			     V2DI
+			     V4SF
+			     V2DF
+			     V1TI
+			     (KF	"FLOAT128_VECTOR_P (KFmode)")
+			     (TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 (define_mode_iterator VSX_M2 [V16QI
 			      V8HI
@@ -54,7 +71,14 @@
 			      V4SF
 			      V2DF
 			      V1TI
+			      (KF	"FLOAT128_VECTOR_P (KFmode)")
+			      (TF	"FLOAT128_VECTOR_P (TFmode)")
 			      (TI	"TARGET_VSX_TIMODE")])
+
+;; Mode iterator for 128-bit floating point that goes in a single vector
+;; register.
+(define_mode_iterator VSX_F128 [(KF	"FLOAT128_VECTOR_P (KFmode)")
+				(TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Map into the appropriate load/store name based on the type
 (define_mode_attr VSm  [(V16QI "vw4")
@@ -64,6 +88,7 @@
 			(V2DF  "vd2")
 			(V2DI  "vd2")
 			(DF    "d")
+			(KF    "vd2")
 			(V1TI  "vd2")
 			(TI    "vd2")])
 
@@ -76,6 +101,7 @@
 			 (V2DI  "dp")
 			 (DF    "dp")
 			 (SF	"sp")
+			 (KF    "dp")
 			 (V1TI  "dp")
 			 (TI    "dp")])
 
@@ -89,6 +115,7 @@
 			 (DI	"wi")
 			 (DF    "ws")
 			 (SF	"ww")
+			 (KF	"wd")
 			 (V1TI  "v")
 			 (TI    "wt")])
 
@@ -132,7 +159,8 @@
 			 (DF    "ws")
 			 (SF	"ww")
 			 (V1TI	"wa")
-			 (TI    "wt")])
+			 (TI    "wt")
+			 (KF	"wa")])
 
 ;; Same size integer type for floating point data
 (define_mode_attr VSi [(V4SF  "v4si")
@@ -157,7 +185,8 @@
 			 (V2DI  "v")
 			 (V2DF  "v")
 			 (V1TI  "v")
-			 (DF    "s")])
+			 (DF    "s")
+			 (KF	"v")])
 
 ;; Appropriate type for add ops (and other simple FP ops)
 (define_mode_attr VStype_simple	[(V2DF "vecdouble")
@@ -292,6 +321,30 @@
 {
   operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[0])
                                        : operands[0];
+}
+  "
+  [(set_attr "type" "vecload")
+   (set_attr "length" "8")])
+
+;; KFmode/TFmode aren't vector types.  Use V2DImode instead.
+(define_insn_and_split "*vsx_le_perm_load_<mode>"
+  [(set (match_operand:VSX_F128 0 "vsx_register_operand" "=<VSa>")
+        (match_operand:VSX_F128 1 "memory_operand" "Z"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  [(set (match_dup 4)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 2)
+        (vec_select:V2DI (match_dup 4)
+			 (parallel [(const_int 1) (const_int 0)])))]
+  "
+{
+  operands[2] = gen_lowpart (V2DImode, operands[0]);
+  operands[3] = gen_lowpart (V2DImode, operands[1]);
+  operands[4] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[2])
+                                       : operands[2];
 }
   "
   [(set_attr "type" "vecload")
@@ -432,6 +485,51 @@
           (match_dup 1)
           (parallel [(const_int 1) (const_int 0)])))]
   "")
+
+(define_insn "*vsx_le_perm_store_<mode>"
+  [(set (match_operand:VSX_F128 0 "memory_operand" "=Z")
+        (match_operand:VSX_F128 1 "vsx_register_operand" "+<VSa>"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  [(set_attr "type" "vecstore")
+   (set_attr "length" "12")])
+
+(define_split
+  [(set (match_operand:VSX_F128 0 "memory_operand" "")
+        (match_operand:VSX_F128 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && !reload_completed"
+  [(set (match_dup 4)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 2)
+        (vec_select:V2DI (match_dup 4)
+			 (parallel [(const_int 1) (const_int 0)])))]
+{
+  operands[2] = gen_lowpart (V2DImode, operands[0]);
+  operands[3] = gen_lowpart (V2DImode, operands[1]);
+  operands[4] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[2])
+                                       : operands[2];
+})
+
+;; The post-reload split requires that we re-permute the source
+;; register in case it is still live.
+(define_split
+  [(set (match_operand:VSX_F128 0 "memory_operand" "")
+        (match_operand:VSX_F128 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && reload_completed"
+  [(set (match_dup 3)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 2)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 3)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))]
+{
+  operands[2] = gen_lowpart (V2DImode, operands[0]);
+  operands[3] = gen_lowpart (V2DImode, operands[1]);
+})
 
 (define_insn "*vsx_le_perm_store_<mode>"
   [(set (match_operand:VSX_W 0 "memory_operand" "=Z")

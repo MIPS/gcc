@@ -90,6 +90,15 @@ along with GCC; see the file COPYING3.  If not see
 	storage, but with only PRECISION significant bits, using
 	floating point format FORMAT.
 
+     SPECIAL_FLOAT_MODE (MODE, BYTESIZE, FORMAT);
+        declares MODE to be of class FLOAT and BYTESIZE bytes wide, using
+	floating point format FORMAT.  MODE is arranged so that other scalar
+	floating point mode's of the same size are preferred when the compiler
+	is trying to widen the floating point.  The intention is to support the
+	PowerPC which has 2 128-bit floating point types (IEEE 128-bit and the
+	IBM extended double format), and have DFmode widen to TFmode (IBM
+	format) instead of KFmode (IEEE 128-bit).
+
      DECIMAL_FLOAT_MODE (MODE, BYTESIZE, FORMAT);
 	declares MODE to be of class DECIMAL_FLOAT and BYTESIZE bytes
 	wide.  All of the bits of its representation are significant.

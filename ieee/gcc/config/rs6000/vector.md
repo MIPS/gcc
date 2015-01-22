@@ -36,13 +36,13 @@
 (define_mode_iterator VEC_K [V16QI V8HI V4SI V4SF])
 
 ;; Vector logical modes
-(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI])
+(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI KF])
 
 ;; Vector modes for moves.  Don't do TImode here.
-(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI])
+(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI KF])
 
 ;; Vector modes for types that don't need a realignment under VSX
-(define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF V1TI])
+(define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF V1TI KF])
 
 ;; Vector comparison modes
 (define_mode_iterator VEC_C [V16QI V8HI V4SI V2DI V4SF V2DF])
@@ -91,16 +91,24 @@
 (define_expand "mov<mode>"
   [(set (match_operand:VEC_M 0 "nonimmediate_operand" "")
 	(match_operand:VEC_M 1 "any_operand" ""))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   || (<MODE>mode == KFmode && TARGET_FLOAT128)"
 {
   if (can_create_pseudo_p ())
     {
-      if (CONSTANT_P (operands[1])
-	  && !easy_vector_constant (operands[1], <MODE>mode))
-	operands[1] = force_const_mem (<MODE>mode, operands[1]);
+      if (CONSTANT_P (operands[1]))
+	{
+	  if (FLOAT128_VECTOR_P (<MODE>mode))
+	    {
+	      if (!easy_fp_constant (operands[1], <MODE>mode))
+		operands[1] = force_const_mem (<MODE>mode, operands[1]);
+	    }
+	  else if (!easy_vector_constant (operands[1], <MODE>mode))
+	    operands[1] = force_const_mem (<MODE>mode, operands[1]);
+	}
 
-      else if (!vlogical_operand (operands[0], <MODE>mode)
-	       && !vlogical_operand (operands[1], <MODE>mode))
+      if (!vlogical_operand (operands[0], <MODE>mode)
+	  && !vlogical_operand (operands[1], <MODE>mode))
 	operands[1] = force_reg (<MODE>mode, operands[1]);
     }
   if (!BYTES_BIG_ENDIAN

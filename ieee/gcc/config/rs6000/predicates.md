@@ -236,6 +236,25 @@
   return INT_REGNO_P (REGNO (op));
 })
 
+;; Like int_reg_operand, but don't return true for pseudo registers
+(define_predicate "int_reg_operand_not_pseudo"
+  (match_operand 0 "register_operand")
+{
+  if ((TARGET_E500_DOUBLE || TARGET_SPE) && invalid_e500_subreg (op, mode))
+    return 0;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  if (REGNO (op) >= FIRST_PSEUDO_REGISTER)
+    return 0;
+
+  return INT_REGNO_P (REGNO (op));
+})
+
 ;; Like int_reg_operand, but only return true for base registers
 (define_predicate "base_reg_operand"
   (match_operand 0 "int_reg_operand")
@@ -446,11 +465,12 @@
     return 1;
 
   /* The constant 0.0 is easy under VSX.  */
-  if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode)
+  if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode
+       || FLOAT128_VECTOR_P (mode))
       && VECTOR_UNIT_VSX_P (DFmode) && op == CONST0_RTX (mode))
     return 1;
 
-  if (DECIMAL_FLOAT_MODE_P (mode))
+  if (DECIMAL_FLOAT_MODE_P (mode) || mode == KFmode)
     return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
@@ -466,6 +486,10 @@
 
   switch (mode)
     {
+    /* For IEEE 128-bit, only consider 0.0 to be easy.  */
+    case KFmode:
+      return 0;
+
     case TFmode:
       if (TARGET_E500_DOUBLE)
 	return 0;
@@ -551,6 +575,12 @@
      no easy way to load a CONST_VECTOR without using memory.  */
   if (TARGET_PAIRED_FLOAT)
     return false;
+
+  /* Because IEEE 128-bit floating point is considered a vector type
+     in order to pass it in VSX registers, it might use this function
+     instead of easy_fp_constant.  */
+  if (FLOAT128_VECTOR_P (mode))
+    return easy_fp_constant (op, mode);
 
   if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
     {

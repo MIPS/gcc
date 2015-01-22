@@ -1,3 +1,20 @@
+2015-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.host (powerpc*-*-linux*): If 64bit, add rs6000/t-float128
+	to enable __float128 support.
+
+	* Makefile.in (EXTRA_CLEAN): New variable to add extra files that
+	should be cleaned.
+	(FLAGS_TO_PASS): Use EXTRA_CLEAN.
+	(clean): Likewise.
+
+	* config/rs6000/quad-vsx.h: New file to add __float128 support to
+	the library.
+	* config/rs6000/quad-ref.h: Likewise.
+	* config/rs6000/fp128-vsx-ref: Likewise.
+	* config/rs6000/fp128-vsx-sed: Likewise.
+	* config/rs6000/t-float128: Likewise.
+
 2015-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subverison id 219907.
