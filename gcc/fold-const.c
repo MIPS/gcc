@@ -1562,9 +1562,13 @@ const_binop (enum tree_code code, tree type, tree arg1, tree arg2)
     default:;
     }
 
+  if (TREE_CODE_CLASS (code) != tcc_binary)
+    return NULL_TREE;
+
   /* Make sure type and arg0 have the same saturating flag.  */
   gcc_checking_assert (TYPE_SATURATING (type)
 		       == TYPE_SATURATING (TREE_TYPE (arg1)));
+
   return const_binop (code, arg1, arg2);
 }
 
@@ -9961,7 +9965,7 @@ fold_binary_loc (location_t loc,
 
   /* Note that TREE_CONSTANT isn't enough: static var addresses are
      constant but we can't do arithmetic on them.  */
-  if (code != MEM_REF && CONSTANT_CLASS_P (arg0) && CONSTANT_CLASS_P (arg1))
+  if (CONSTANT_CLASS_P (arg0) && CONSTANT_CLASS_P (arg1))
     {
       tem = const_binop (code, type, arg0, arg1);
       if (tem != NULL_TREE)
