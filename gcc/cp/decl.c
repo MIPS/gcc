@@ -5138,9 +5138,9 @@ layout_var_decl (tree decl)
   /* Keep this code around in case we later want to control debug info
      based on whether a type is "used".  (jason 1999-11-11) */
 
-  else if (!DECL_EXTERNAL (decl) && MAYBE_CLASS_TYPE_P (ttype))
+  else if (!DECL_EXTERNAL (decl) && MAYBE_CLASS_TYPE_P (type))
     /* Let debugger know it should output info for this type.  */
-    note_debug_info_needed (ttype);
+    note_debug_info_needed (type);
 
   if (TREE_STATIC (decl) && DECL_CLASS_SCOPE_P (decl))
     note_debug_info_needed (DECL_CONTEXT (decl));
